@@ -66,10 +66,18 @@ The completed `phase-12-codex-app-server-executor-runtime.md` and
 `phase-12-opencode-executor-and-question-runtime.md` plus the now-completed
 `phase-12-claude-sdk-bridge-executor-runtime.md` slices prove the runtime split
 with real Codex, OpenCode, and Claude execution plus Go-owned active
-question-response transport. The current next step is the deferred
-Codex/OpenCode/Claude MCP-rich item-parity closeout work rather than another
-executor foundation, now narrowed into the Codex-first slice documented in
-`phase-12-codex-rich-item-tool-result-and-mcp-status-parity.md`.
+question-response transport. The first Codex-first parity closeout slice is now
+also landed in
+`phase-12-codex-rich-item-tool-result-and-mcp-status-parity.md`:
+
+- richer Codex `response_item` handling for reasoning, tool calls, and tool
+  results
+- Go-owned external MCP runtime-status snapshot persistence and IDE-route
+  readback
+
+The current next step is the remaining OpenCode/Claude rich item/tool-result
+parity over those now-landed runtime helpers, plus any still-missing Codex
+non-`response_item` rich items that prove user-facing.
 
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are

@@ -97,14 +97,69 @@ func upsertAssistantToolCall(state *ChatState, messageID string, toolCallID stri
 }
 
 func setToolCallArguments(state *ChatState, toolCallID string, arguments map[string]any) {
-	if state.ToolCallArguments == nil {
-		state.ToolCallArguments = map[string]string{}
-	}
 	encoded, err := json.Marshal(arguments)
 	if err != nil {
 		return
 	}
-	state.ToolCallArguments[toolCallID] = string(encoded)
+	setToolCallArgumentsRaw(state, toolCallID, string(encoded))
+}
+
+func setToolCallArgumentsRaw(state *ChatState, toolCallID string, encoded string) {
+	if state.ToolCallArguments == nil {
+		state.ToolCallArguments = map[string]string{}
+	}
+	state.ToolCallArguments[toolCallID] = encoded
+}
+
+func replaceAssistantMessageContent(state *ChatState, messageID string, content []any) {
+	message := map[string]any{
+		"id":      messageID,
+		"role":    "assistant",
+		"content": []any{},
+	}
+	index := findMessageIndex(state.Messages, messageID)
+	if index != -1 {
+		message = cloneMessageOrPanic(state.Messages[index])
+	}
+	message["content"] = deepCloneJSONValue(content)
+	if index == -1 {
+		state.Messages = append(state.Messages, message)
+		return
+	}
+	state.Messages[index] = message
+}
+
+func appendToolResultMessage(
+	state *ChatState,
+	toolCallID string,
+	toolName string,
+	arguments map[string]any,
+	result any,
+	content string,
+	isError bool,
+) {
+	if state.ToolCallArguments != nil {
+		delete(state.ToolCallArguments, toolCallID)
+	}
+	message := map[string]any{
+		"id":           "tool-result-" + toolCallID,
+		"role":         "tool",
+		"tool_call_id": toolCallID,
+		"tool_name":    toolName,
+		"arguments":    cloneAnyMap(arguments),
+		"result":       deepCloneJSONValue(result),
+		"is_error":     isError,
+		"content":      []any{},
+	}
+	if strings.TrimSpace(content) != "" {
+		message["content"] = []any{
+			map[string]any{
+				"type": "text",
+				"text": content,
+			},
+		}
+	}
+	state.Messages = append(state.Messages, message)
 }
 
 func appendQuestionResultMessage(state *ChatState, toolCallID string, answers map[string]string) {

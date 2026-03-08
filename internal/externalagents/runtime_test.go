@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"setta/internal/agentruns"
+	"setta/internal/mcpx"
 )
 
 type stubRunController struct {
@@ -359,6 +360,89 @@ func TestRuntimeReturnsPersistedTerminalRunWithoutCancel(t *testing.T) {
 	}
 	if controller.cancelCalls != 0 {
 		t.Fatalf("expected no cancel call for completed run, got %d", controller.cancelCalls)
+	}
+}
+
+func TestRuntimeExternalRuntimeStatusesReturnsActiveStatuses(t *testing.T) {
+	t.Parallel()
+
+	store, runtime := buildRuntimeFixture(t)
+	run := newPersistedRuntimeRun(t, store, "run-status-active", agentruns.RunStatusRunning)
+	controller := &stubRunController{}
+	if err := runtime.ActivateRun(run.ID, controller); err != nil {
+		t.Fatalf("activate run: %v", err)
+	}
+
+	now := time.Date(2026, 3, 9, 9, 15, 0, 0, time.UTC)
+	if err := runtime.UpsertMCPStatuses(run.ID, []mcpx.ServerRuntimeStatus{
+		{
+			ServerID:        "setta",
+			Source:          externalMCPStatusSource,
+			Transport:       mcpx.TransportStreamableHTTP,
+			Endpoint:        "http://127.0.0.1:8000/mcp",
+			State:           mcpx.RuntimeStateConnected,
+			LastAttemptAt:   &now,
+			LastConnectedAt: &now,
+			ToolCount:       4,
+		},
+	}); err != nil {
+		t.Fatalf("upsert mcp status: %v", err)
+	}
+
+	statuses, err := runtime.ExternalRuntimeStatuses(stringPtr("chat-alpha"), stringPtr("engine-alpha"))
+	if err != nil {
+		t.Fatalf("external runtime statuses: %v", err)
+	}
+	if len(statuses) != 1 {
+		t.Fatalf("expected one external status, got %#v", statuses)
+	}
+	if statuses[0].ServerID != "setta" || statuses[0].State != mcpx.RuntimeStateConnected {
+		t.Fatalf("unexpected external status %#v", statuses[0])
+	}
+}
+
+func TestRuntimeStopRunPersistsMCPStatusSnapshot(t *testing.T) {
+	t.Parallel()
+
+	store, runtime := buildRuntimeFixture(t)
+	run := newPersistedRuntimeRun(t, store, "run-status-stop", agentruns.RunStatusRunning)
+	controller := &stubRunController{}
+	if err := runtime.ActivateRun(run.ID, controller); err != nil {
+		t.Fatalf("activate run: %v", err)
+	}
+
+	if err := runtime.UpsertMCPStatuses(run.ID, []mcpx.ServerRuntimeStatus{
+		{
+			ServerID:  "setta",
+			Source:    externalMCPStatusSource,
+			Transport: mcpx.TransportStreamableHTTP,
+			Endpoint:  "http://127.0.0.1:8000/mcp",
+			State:     mcpx.RuntimeStateConnected,
+			ToolCount: 4,
+		},
+	}); err != nil {
+		t.Fatalf("upsert mcp status: %v", err)
+	}
+
+	if _, err := runtime.StopRun(run.ID); err != nil {
+		t.Fatalf("stop run: %v", err)
+	}
+
+	persisted, err := store.Load(run.ID)
+	if err != nil {
+		t.Fatalf("load stopped run: %v", err)
+	}
+	rawSnapshot, ok := persisted.Outputs[externalMCPStatusSnapshotKey].([]any)
+	if !ok || len(rawSnapshot) != 1 {
+		t.Fatalf("expected persisted mcp snapshot, got %#v", persisted.Outputs)
+	}
+
+	statuses, err := runtime.ExternalRuntimeStatuses(stringPtr("chat-alpha"), stringPtr("engine-alpha"))
+	if err != nil {
+		t.Fatalf("external runtime statuses after stop: %v", err)
+	}
+	if len(statuses) != 1 || statuses[0].ServerID != "setta" {
+		t.Fatalf("unexpected persisted external statuses %#v", statuses)
 	}
 }
 

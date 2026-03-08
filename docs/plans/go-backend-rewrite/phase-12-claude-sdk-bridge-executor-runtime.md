@@ -209,8 +209,8 @@ The runtime owner should remain the source of truth for:
 
 ## Next Recommended Step
 
-- land the Codex-first Phase 12 rich item/tool-result and MCP status parity
-  slice in
-  `phase-12-codex-rich-item-tool-result-and-mcp-status-parity.md`, then reuse
-  the resulting runtime helpers for the OpenCode and Claude follow-ons instead
-  of creating another executor-focused change
+- reuse the landed Codex-first Phase 12 rich item/tool-result and MCP status
+  helpers from
+  `phase-12-codex-rich-item-tool-result-and-mcp-status-parity.md` for the
+  remaining OpenCode and Claude follow-ons instead of creating another
+  executor-focused change

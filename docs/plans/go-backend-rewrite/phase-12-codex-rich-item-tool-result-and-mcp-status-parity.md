@@ -27,14 +27,36 @@ Completed before this slice:
 - real OpenCode sidecar execution behind the same boundary
 - real Claude SDK bridge execution behind the same boundary
 
-Still missing before this slice:
+Completed in this slice:
 
-- Codex `response_item` parity beyond plain assistant text messages
-- Go-owned persistence of Codex tool-result rich turn outputs
-- Go-owned external MCP runtime-status snapshots for the active runtime read
-  path
-- the follow-on OpenCode and Claude parity work that should reuse the same
-  runtime patterns
+- `internal/externalagents/runtime.go` plus
+  `internal/externalagents/external_mcp_status.go`
+  - Go-owned active external MCP runtime-status storage
+  - snapshot persistence to run outputs on completion/failure/cancellation
+  - durable readback for the external MCP runtime-status route
+- `internal/externalagents/codex_executor.go` plus
+  `internal/externalagents/codex_response_items.go`
+  - richer Codex `response_item` handling for:
+    - assistant reasoning + text content
+    - function-call tool-call persistence
+    - function-call output tool-result persistence
+  - persisted Codex `tool_result` run events for response-item tool outputs
+  - post-activation Codex MCP status capture through `mcpServerStatus/list`
+- `internal/httpapi/mcp_routes.go` and `internal/app/app.go`
+  - thin MCP runtime-status transport now includes external-agent runtime
+    statuses from the Go runtime owner instead of always returning an empty
+    `externalServers` list
+- focused tests in:
+  - `internal/externalagents/runtime_test.go`
+  - `internal/externalagents/codex_executor_test.go`
+  - `internal/httpapi/mcp_routes_test.go`
+
+Still missing after this slice:
+
+- richer OpenCode tool-result parity over the same runtime helpers
+- richer Claude tool-result parity over the same runtime helpers
+- any remaining Codex non-`response_item` rich item types that prove to be
+  user-facing gaps after this landing
 
 ## Scope
 
@@ -105,21 +127,16 @@ This slice should deliver:
    - The follow-on OpenCode and Claude work should reuse the resulting runtime
      helpers instead of broadening this change across all adapters at once.
 
-## Proposed Landing Order
+## Landing Outcome
 
-1. Add Codex-focused runtime/executor helpers for:
-   - external MCP status capture and snapshot persistence
-   - richer `response_item` handling
-
-2. Add focused Codex executor tests for:
-   - tool-call persistence
-   - tool-result persistence
-   - reasoning/message closeout
-   - MCP status snapshot persistence
-
-3. Update the broader Phase 12 docs so the remaining gap becomes:
-   - OpenCode and Claude rich item/tool-result parity over the same runtime
-     helpers
+1. Added Go-owned external MCP runtime-status storage and persisted snapshot
+   readback in the external-agent runtime.
+2. Landed richer Codex `response_item` handling for reasoning, tool calls, and
+   tool results in the Go executor.
+3. Wired external MCP runtime statuses into the existing IDE MCP status route.
+4. Added focused runtime, executor, and route tests for the landed slice.
+5. Narrowed the remaining Phase 12 gap to the OpenCode/Claude follow-ons plus
+   any still-missing Codex non-`response_item` rich items.
 
 ## Verification
 
@@ -133,19 +150,21 @@ This slice should deliver:
   strongest typed Python reference surface
 - keep MCP runtime-status persistence in Go run outputs instead of relying on
   active in-memory state
+- request Codex MCP runtime status only after the send path activates the Go
+  runtime, because executor `Start(...)` runs before runtime activation
 - keep OpenCode and Claude follow-on work explicitly deferred until the Codex
   helper pattern is proven
 
 ## Open Questions
 
-- whether the first Codex tool-result slice should cover only currently-observed
-  command/file-change/MCP outputs or also generic item variants
-  - recommendation: cover the currently-typed item/result variants that already
-    have Python reference tests, and only broaden further if the Go tests expose
-    a concrete missing user-facing flow
+- whether the next parity slice should start with OpenCode tool-result closeout
+  or Claude tool-result closeout
+  - recommendation: start with OpenCode because the runtime already has
+    question-state ownership there, so the remaining gap is mostly richer
+    tool-result/item persistence rather than another interaction shape
 
 ## Next Recommended Step
 
-- implement the Codex-first rich item/tool-result and MCP status slice in Go,
-  then use the resulting runtime helpers to scope the OpenCode and Claude
-  follow-on docs instead of keeping one undifferentiated parity bucket
+- reuse the landed runtime snapshot helpers and tool-result message builders to
+  scope the next bounded OpenCode parity slice instead of reopening transport or
+  executor-boundary questions

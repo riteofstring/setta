@@ -28,6 +28,7 @@ const (
 	codexRequestTimeout       = 15 * time.Second
 	codexShutdownTimeout      = 5 * time.Second
 	codexLoginTimeout         = 20 * time.Second
+	codexMCPStatusTimeout     = 1 * time.Second
 	codexMaxStderrLines       = 200
 	codexApprovalToolName     = "setta.approval"
 	codexTurnCompletedMethod  = "turn/completed"
@@ -280,6 +281,7 @@ func (e *CodexExecutor) runLoop(
 		_ = e.markRunFailed(request.Run.ID, err, session.stderrTail())
 		return
 	}
+	e.captureMCPStatuses(session, request.Run.ID)
 
 	for {
 		payload, ok := <-session.events
@@ -338,9 +340,23 @@ func (e *CodexExecutor) handleEvent(
 
 	switch strings.TrimSpace(stringValue(payload["type"])) {
 	case codexResponseItemEnvelope:
-		if handled, err := e.applyResponseItem(request.Run.ID, payload, state, session.threadID()); err != nil {
+		if handled, toolResult, err := e.applyResponseItem(request.Run.ID, payload, state, session.threadID()); err != nil {
 			return false, err
 		} else if handled {
+			if toolResult != nil {
+				run, err := e.runs.Load(request.Run.ID)
+				if err != nil {
+					return false, err
+				}
+				appendRunEvent(&run, "tool_result", map[string]any{
+					"toolCallId": toolResult.ToolCallID,
+					"toolName":   toolResult.ToolName,
+					"isError":    toolResult.IsError,
+				}, e.timeNow())
+				if err := e.runs.Save(run); err != nil {
+					return false, err
+				}
+			}
 			return false, nil
 		}
 	}
@@ -377,27 +393,15 @@ func (e *CodexExecutor) handleEvent(
 	return false, nil
 }
 
-func (e *CodexExecutor) applyResponseItem(runID string, payload map[string]any, state *ChatState, threadID string) (bool, error) {
-	responsePayload, ok := mapValue(payload["payload"])
-	if !ok {
-		return false, nil
+func (e *CodexExecutor) applyResponseItem(runID string, payload map[string]any, state *ChatState, threadID string) (bool, *codexToolResultMetadata, error) {
+	applied, toolResult, err := applyCodexResponseItem(state, payload)
+	if err != nil || !applied {
+		return applied, toolResult, err
 	}
-	if strings.TrimSpace(stringValue(responsePayload["type"])) != "message" {
-		return false, nil
-	}
-	messageID := strings.TrimSpace(stringValue(responsePayload["id"]))
-	if messageID == "" {
-		messageID = "resp_" + newChatID()
-	}
-	text := extractCodexResponseItemText(responsePayload)
-	if text == "" {
-		return false, nil
-	}
-	upsertAssistantMessage(state, messageID, text)
 	if err := e.persistLiveState(runID, *state, threadID); err != nil {
-		return false, err
+		return false, nil, err
 	}
-	return true, nil
+	return true, toolResult, nil
 }
 
 func (e *CodexExecutor) handleProcessExit(runID string, processErr error, stderrLines []string) error {
@@ -433,6 +437,7 @@ func (e *CodexExecutor) finalizeRun(
 	if threadID != "" {
 		run.Outputs["threadId"] = threadID
 	}
+	e.runtime.attachMCPStatusSnapshot(&run)
 	finishedAt := e.timeNow().UTC()
 	run.Status = status
 	run.FinishedAt = &finishedAt
@@ -452,6 +457,7 @@ func (e *CodexExecutor) markRunFailed(runID string, runErr error, stderrLines []
 	if run.Status == agentruns.RunStatusCancelled {
 		return nil
 	}
+	e.runtime.attachMCPStatusSnapshot(&run)
 	finishedAt := e.timeNow().UTC()
 	run.Status = agentruns.RunStatusFailed
 	run.FinishedAt = &finishedAt
@@ -518,6 +524,18 @@ func (e *CodexExecutor) loadCurrentChatState(run agentruns.Run) (ChatState, erro
 	cloned := built.Clone()
 	cloned.WaitingForResponse = true
 	return *cloned, nil
+}
+
+func (e *CodexExecutor) captureMCPStatuses(session *codexSession, runID string) {
+	statusCtx, cancel := context.WithTimeout(context.Background(), codexMCPStatusTimeout)
+	defer cancel()
+	statusPayload, err := session.sendRequest(statusCtx, "mcpServerStatus/list", map[string]any{})
+	if err != nil {
+		return
+	}
+	if err := e.runtime.UpsertMCPStatuses(runID, buildCodexMCPStatuses(statusPayload, e.timeNow)); err != nil && !errors.Is(err, ErrRunNotActive) {
+		return
+	}
 }
 
 func (e *CodexExecutor) resolveWorkingDir(config externalagentconfigs.Config) (string, func() error, error) {

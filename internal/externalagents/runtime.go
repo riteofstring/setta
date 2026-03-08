@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"setta/internal/agentruns"
+	"setta/internal/mcpx"
 )
 
 var (
@@ -36,10 +37,11 @@ type Runtime struct {
 	runs    *agentruns.RunStore
 	timeNow func() time.Time
 
-	mu         sync.RWMutex
-	activeRuns map[string]runState
-	approvals  map[string]ApprovalState
-	questions  map[string]QuestionState
+	mu          sync.RWMutex
+	activeRuns  map[string]runState
+	approvals   map[string]ApprovalState
+	questions   map[string]QuestionState
+	mcpStatuses map[string]map[string]mcpx.ServerRuntimeStatus
 }
 
 type runState struct {
@@ -75,11 +77,12 @@ func NewRuntime(options RuntimeOptions) (*Runtime, error) {
 		}
 	}
 	return &Runtime{
-		runs:       options.Runs,
-		timeNow:    timeNow,
-		activeRuns: map[string]runState{},
-		approvals:  map[string]ApprovalState{},
-		questions:  map[string]QuestionState{},
+		runs:        options.Runs,
+		timeNow:     timeNow,
+		activeRuns:  map[string]runState{},
+		approvals:   map[string]ApprovalState{},
+		questions:   map[string]QuestionState{},
+		mcpStatuses: map[string]map[string]mcpx.ServerRuntimeStatus{},
 	}, nil
 }
 
@@ -115,6 +118,7 @@ func (r *Runtime) DeactivateRun(runID string) {
 	delete(r.activeRuns, trimmedRunID)
 	r.clearApprovalsLocked(trimmedRunID)
 	r.clearQuestionsLocked(trimmedRunID)
+	delete(r.mcpStatuses, trimmedRunID)
 }
 
 func (r *Runtime) SetLiveChatState(runID string, state ChatState) error {
@@ -351,6 +355,7 @@ func (r *Runtime) StopRun(runID string) (agentruns.Run, error) {
 	}
 
 	finishedAt := r.timeNow().UTC()
+	r.attachMCPStatusSnapshot(&run)
 	run.Status = agentruns.RunStatusCancelled
 	run.FinishedAt = &finishedAt
 	appendRunEvent(&run, "run_cancelled", map[string]any{}, finishedAt)
@@ -362,6 +367,7 @@ func (r *Runtime) StopRun(runID string) (agentruns.Run, error) {
 	delete(r.activeRuns, trimmedRunID)
 	r.clearApprovalsLocked(trimmedRunID)
 	r.clearQuestionsLocked(trimmedRunID)
+	delete(r.mcpStatuses, trimmedRunID)
 	r.mu.Unlock()
 	return run, nil
 }

@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"setta/internal/agentruns"
 	"setta/internal/config"
+	"setta/internal/externalagents"
 	"setta/internal/mcpx"
 	"setta/internal/modes"
 )
@@ -91,6 +93,85 @@ func TestMCPRuntimeStatusRouteReturnsCurrentStatuses(t *testing.T) {
 	}
 }
 
+func TestMCPRuntimeStatusRouteReturnsExternalStatuses(t *testing.T) {
+	t.Parallel()
+
+	runStore, err := agentruns.NewRunStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new run store: %v", err)
+	}
+	runtime, err := externalagents.NewRuntime(externalagents.RuntimeOptions{
+		Runs: runStore,
+		TimeNow: func() time.Time {
+			return time.Date(2026, 3, 9, 11, 0, 0, 0, time.UTC)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new runtime: %v", err)
+	}
+	run := agentruns.NewRun(nil, map[string]any{
+		"runType":         externalagents.RunTypeExternalAgent,
+		"chatId":          "chat-external",
+		"projectConfigId": "project-alpha",
+		"engineConfigId":  "engine-external",
+		"messages":        []any{},
+	}, time.Date(2026, 3, 9, 11, 0, 0, 0, time.UTC))
+	if err := runStore.Save(run); err != nil {
+		t.Fatalf("save external run: %v", err)
+	}
+	if err := runtime.ActivateRun(run.ID, stubExternalRuntimeController{}); err != nil {
+		t.Fatalf("activate external run: %v", err)
+	}
+	if err := runtime.UpsertMCPStatuses(run.ID, []mcpx.ServerRuntimeStatus{
+		{
+			ServerID:  "setta",
+			Source:    "external_runtime",
+			Transport: mcpx.TransportStreamableHTTP,
+			Endpoint:  "http://127.0.0.1:8000/mcp",
+			State:     mcpx.RuntimeStateConnected,
+			ToolCount: 4,
+		},
+	}); err != nil {
+		t.Fatalf("upsert external runtime status: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:   stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Register: func(r chi.Router) {
+			if err := RegisterMCPRoutes(r, MCPRouteDependencies{
+				ModePolicy:             modes.NewPolicy(config.ModeIDE),
+				LLMConfigPath:          "/tmp/workspace/setta_files/llm_config.json",
+				ExternalStatusProvider: runtime,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/mcpServerRuntimeStatus", bytes.NewBufferString(`{"chatId":"chat-external","engineConfigId":"engine-external"}`))
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload MCPRuntimeStatusResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode payload: %v", err)
+	}
+	if len(payload.ExternalServers) != 1 {
+		t.Fatalf("expected one external server status, got %#v", payload.ExternalServers)
+	}
+	if payload.ExternalServers[0].ServerID != "setta" || payload.ExternalServers[0].State != mcpx.RuntimeStateConnected {
+		t.Fatalf("unexpected external server status %#v", payload.ExternalServers[0])
+	}
+}
+
 func TestMCPRuntimeStatusRouteBlockedOutsideFullIDE(t *testing.T) {
 	t.Parallel()
 
@@ -130,4 +211,18 @@ func TestMCPRuntimeStatusRouteBlockedOutsideFullIDE(t *testing.T) {
 			}
 		})
 	}
+}
+
+type stubExternalRuntimeController struct{}
+
+func (stubExternalRuntimeController) Cancel() error {
+	return nil
+}
+
+func (stubExternalRuntimeController) SendApprovalResponse(string, bool) error {
+	return nil
+}
+
+func (stubExternalRuntimeController) SendToolResponse(string, map[string]any) error {
+	return nil
 }

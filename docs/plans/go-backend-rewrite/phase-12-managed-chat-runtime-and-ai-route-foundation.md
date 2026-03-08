@@ -74,11 +74,11 @@ Current repo status as of 2026-03-09:
   - the active runtime, stop route, approval/question routes, send-route
     foundations, and the real Codex/OpenCode/Claude executors are implemented
     in Go
-  - the remaining bounded gap is now the deferred MCP-rich parity closeout,
-    not another executor or launcher slice
-  - the current implementation focus for that closeout is the Codex-first
-    slice in
+  - the first Codex-focused MCP-rich parity closeout slice is now complete in
     `phase-12-codex-rich-item-tool-result-and-mcp-status-parity.md`
+  - the remaining bounded gap is now the OpenCode/Claude rich item/tool-result
+    closeout plus any still-missing Codex non-`response_item` rich items, not
+    another executor or launcher slice
 
 ## Scope
 

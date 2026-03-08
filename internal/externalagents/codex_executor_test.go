@@ -15,6 +15,7 @@ import (
 	"setta/internal/agentruns"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/llmconfig"
+	"setta/internal/mcpx"
 	"setta/internal/projectstate"
 )
 
@@ -122,6 +123,253 @@ func TestCodexExecutorRoutesApprovalResponsesThroughRuntime(t *testing.T) {
 	}
 	if !assistantFound {
 		t.Fatalf("expected persisted assistant follow-up, got %#v", messages)
+	}
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
+func TestApplyCodexResponseItemAttachesFunctionCallToFollowUpMessage(t *testing.T) {
+	t.Parallel()
+
+	state := &ChatState{
+		Messages:           []map[string]any{},
+		ToolCallArguments:  map[string]string{},
+		WaitingForResponse: true,
+	}
+
+	applied, toolResult, err := applyCodexResponseItem(state, map[string]any{
+		"payload": map[string]any{
+			"type":      "function_call",
+			"call_id":   "call-buffer-1",
+			"name":      "mcp__setta__create_top_level_section",
+			"arguments": "{\"projectConfigId\":\"1\",\"implType\":\"Callable\"}",
+		},
+	})
+	if err != nil {
+		t.Fatalf("apply function_call response item: %v", err)
+	}
+	if !applied || toolResult != nil {
+		t.Fatalf("unexpected function_call result applied=%v toolResult=%#v", applied, toolResult)
+	}
+
+	applied, toolResult, err = applyCodexResponseItem(state, map[string]any{
+		"payload": map[string]any{
+			"type": "message",
+			"role": "assistant",
+			"content": []any{
+				map[string]any{"type": "output_text", "text": "Done"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("apply message response item: %v", err)
+	}
+	if !applied || toolResult != nil {
+		t.Fatalf("unexpected message result applied=%v toolResult=%#v", applied, toolResult)
+	}
+	if len(state.Messages) != 1 {
+		t.Fatalf("expected one assistant message, got %#v", state.Messages)
+	}
+	message := state.Messages[0]
+	if extractMessageText(message) != "Done" {
+		t.Fatalf("unexpected assistant text %#v", message)
+	}
+	rawToolCalls, ok := message["tool_calls"].([]any)
+	if !ok || len(rawToolCalls) != 1 {
+		t.Fatalf("expected one tool call on assistant message, got %#v", message)
+	}
+}
+
+func TestApplyCodexResponseItemAppendsToolResultOnce(t *testing.T) {
+	t.Parallel()
+
+	state := &ChatState{
+		Messages:           []map[string]any{},
+		ToolCallArguments:  map[string]string{},
+		WaitingForResponse: true,
+	}
+	if _, _, err := applyCodexResponseItem(state, map[string]any{
+		"payload": map[string]any{
+			"type":      "function_call",
+			"call_id":   "call-2",
+			"name":      "mcp__setta__create_top_level_section",
+			"arguments": "{\"projectConfigId\":\"1\",\"implType\":\"Callable\"}",
+		},
+	}); err != nil {
+		t.Fatalf("apply function_call response item: %v", err)
+	}
+
+	applied, toolResult, err := applyCodexResponseItem(state, map[string]any{
+		"payload": map[string]any{
+			"type":    "function_call_output",
+			"call_id": "call-2",
+			"output":  "{\"sectionId\":\"6\"}",
+		},
+	})
+	if err != nil {
+		t.Fatalf("apply function_call_output response item: %v", err)
+	}
+	if !applied || toolResult == nil {
+		t.Fatalf("expected tool result metadata, got applied=%v metadata=%#v", applied, toolResult)
+	}
+	if toolResult.ToolCallID != "call-2" || toolResult.ToolName != "mcp__setta__create_top_level_section" {
+		t.Fatalf("unexpected tool result metadata %#v", toolResult)
+	}
+	if len(state.Messages) != 2 {
+		t.Fatalf("expected assistant message plus tool result, got %#v", state.Messages)
+	}
+	lastMessage := state.Messages[len(state.Messages)-1]
+	if role, _ := messageRole(lastMessage); role != "tool" {
+		t.Fatalf("expected tool message, got %#v", lastMessage)
+	}
+	result, ok := lastMessage["result"].(map[string]any)
+	if !ok || stringValue(result["sectionId"]) != "6" {
+		t.Fatalf("unexpected tool result payload %#v", lastMessage)
+	}
+
+	applied, toolResult, err = applyCodexResponseItem(state, map[string]any{
+		"payload": map[string]any{
+			"type":    "function_call_output",
+			"call_id": "call-2",
+			"output":  "{\"sectionId\":\"6\"}",
+		},
+	})
+	if err != nil {
+		t.Fatalf("reapply function_call_output response item: %v", err)
+	}
+	if applied || toolResult != nil {
+		t.Fatalf("expected duplicate tool result to be ignored, got applied=%v metadata=%#v", applied, toolResult)
+	}
+}
+
+func TestApplyCodexResponseItemPreservesReasoningAndText(t *testing.T) {
+	t.Parallel()
+
+	state := &ChatState{
+		Messages:           []map[string]any{},
+		ToolCallArguments:  map[string]string{},
+		WaitingForResponse: true,
+	}
+	applied, toolResult, err := applyCodexResponseItem(state, map[string]any{
+		"payload": map[string]any{
+			"id":   "msg-response-with-reasoning",
+			"type": "message",
+			"role": "assistant",
+			"content": []any{
+				map[string]any{
+					"type":    "reasoning",
+					"summary": []any{map[string]any{"text": "Plan"}},
+					"content": []any{map[string]any{"text": "Evaluate options."}},
+				},
+				map[string]any{
+					"type": "output_text",
+					"text": "Build the navigator first.",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("apply reasoning response item: %v", err)
+	}
+	if !applied || toolResult != nil {
+		t.Fatalf("unexpected reasoning result applied=%v toolResult=%#v", applied, toolResult)
+	}
+	if len(state.Messages) != 1 {
+		t.Fatalf("expected one assistant message, got %#v", state.Messages)
+	}
+	content, ok := state.Messages[0]["content"].([]any)
+	if !ok || len(content) != 2 {
+		t.Fatalf("expected reasoning plus text content, got %#v", state.Messages[0])
+	}
+	first, ok := content[0].(map[string]any)
+	if !ok || stringValue(first["type"]) != "thinking" || stringValue(first["summary"]) != "Plan" || stringValue(first["thinking"]) != "Evaluate options." {
+		t.Fatalf("unexpected thinking payload %#v", content[0])
+	}
+	second, ok := content[1].(map[string]any)
+	if !ok || stringValue(second["type"]) != "text" || stringValue(second["text"]) != "Build the navigator first." {
+		t.Fatalf("unexpected text payload %#v", content[1])
+	}
+}
+
+func TestCodexExecutorPersistsRichResponseItemsAndMCPStatusSnapshot(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCodexExecutorFixture(t, "rich")
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Create something with Codex tools"},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start rich codex run: %v", err)
+	}
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if persisted.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed status, got %#v", persisted)
+	}
+	rawSnapshot, ok := persisted.Outputs[externalMCPStatusSnapshotKey].([]any)
+	if !ok || len(rawSnapshot) != 1 {
+		t.Fatalf("expected one persisted external MCP status, got %#v", persisted.Outputs)
+	}
+	messages, ok := persisted.Outputs["messages"].([]any)
+	if !ok || len(messages) < 2 {
+		t.Fatalf("expected persisted output messages, got %#v", persisted.Outputs)
+	}
+	assistantFound := false
+	toolResultFound := false
+	for _, rawMessage := range messages {
+		message, ok := rawMessage.(map[string]any)
+		if !ok {
+			continue
+		}
+		role, _ := messageRole(message)
+		if role == "assistant" {
+			if rawToolCalls, ok := message["tool_calls"].([]any); ok && len(rawToolCalls) > 0 && extractMessageText(message) == "Created the top-level section." {
+				content, _ := message["content"].([]any)
+				if len(content) > 0 {
+					first, _ := content[0].(map[string]any)
+					if stringValue(first["type"]) == "thinking" {
+						assistantFound = true
+					}
+				}
+			}
+		}
+		if role == "tool" && stringValue(message["tool_call_id"]) == "call-create" {
+			toolResultFound = true
+		}
+	}
+	if !assistantFound {
+		t.Fatalf("expected persisted assistant message with tool call and reasoning, got %#v", messages)
+	}
+	if !toolResultFound {
+		t.Fatalf("expected persisted tool result message, got %#v", messages)
+	}
+	toolResultEventFound := false
+	for _, event := range persisted.Events {
+		if event.Type == "tool_result" && stringValue(event.Payload["toolCallId"]) == "call-create" {
+			toolResultEventFound = true
+			break
+		}
+	}
+	if !toolResultEventFound {
+		t.Fatalf("expected persisted tool_result event, got %#v", persisted.Events)
+	}
+
+	statuses, err := fixture.runtime.ExternalRuntimeStatuses(stringPtr(result.ChatID), stringPtr(fixture.engineID))
+	if err != nil {
+		t.Fatalf("read external runtime statuses: %v", err)
+	}
+	if len(statuses) != 1 || statuses[0].ServerID != "setta" || statuses[0].State != mcpx.RuntimeStateConnected {
+		t.Fatalf("unexpected external runtime statuses %#v", statuses)
 	}
 	fixture.waitForLiveStateCleanup(t, result.Run.ID)
 }
@@ -394,11 +642,38 @@ func runCodexFixtureProcess(scenario string) error {
 				}); err != nil {
 					return err
 				}
+			case "rich":
 			default:
 				if err := emitAssistantTurn(writer, "assistant-1", "Hello from Codex"); err != nil {
 					return err
 				}
 				return nil
+			}
+		case "mcpServerStatus/list":
+			if scenario == "rich" {
+				if err := emit(map[string]any{
+					"id": payload["id"],
+					"result": map[string]any{
+						"servers": []any{
+							map[string]any{
+								"id":        "setta",
+								"connected": true,
+								"transport": "streamable_http",
+								"endpoint":  "http://127.0.0.1:8000/mcp",
+								"toolCount": 4,
+							},
+						},
+					},
+				}); err != nil {
+					return err
+				}
+				if err := emitCodexRichTurn(writer); err != nil {
+					return err
+				}
+				return nil
+			}
+			if err := emit(map[string]any{"id": payload["id"], "result": map[string]any{"servers": []any{}}}); err != nil {
+				return err
 			}
 		default:
 			if scenario == "approval" && payload["id"] == float64(42) {
@@ -433,6 +708,66 @@ func emitAssistantTurn(writer *bufio.Writer, messageID string, text string) erro
 					"type":    "assistantMessage",
 					"role":    "assistant",
 					"content": []any{map[string]any{"text": text}},
+				},
+			},
+		},
+		{
+			"method": "turn/completed",
+			"params": map[string]any{
+				"status": "completed",
+				"turn":   map[string]any{"status": "completed"},
+			},
+		},
+	}
+	for _, payload := range payloads {
+		content, err := json.Marshal(payload)
+		if err != nil {
+			return err
+		}
+		if _, err := writer.Write(append(content, '\n')); err != nil {
+			return err
+		}
+		if err := writer.Flush(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func emitCodexRichTurn(writer *bufio.Writer) error {
+	payloads := []map[string]any{
+		{
+			"type": "response_item",
+			"payload": map[string]any{
+				"type":      "function_call",
+				"name":      "mcp__setta__create_top_level_section",
+				"arguments": "{\"projectConfigId\":\"project-alpha\",\"implType\":\"Code\"}",
+				"call_id":   "call-create",
+			},
+		},
+		{
+			"type": "response_item",
+			"payload": map[string]any{
+				"type":    "function_call_output",
+				"call_id": "call-create",
+				"output":  "{\"sectionId\":\"section-6\"}",
+			},
+		},
+		{
+			"type": "response_item",
+			"payload": map[string]any{
+				"type": "message",
+				"role": "assistant",
+				"content": []any{
+					map[string]any{
+						"type":    "reasoning",
+						"summary": []any{map[string]any{"text": "Plan"}},
+						"content": []any{map[string]any{"text": "Evaluate the project structure first."}},
+					},
+					map[string]any{
+						"type": "output_text",
+						"text": "Created the top-level section.",
+					},
 				},
 			},
 		},

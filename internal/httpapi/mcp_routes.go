@@ -16,10 +16,15 @@ type MCPRouteDependencies struct {
 	LLMConfigPath            string
 	ActiveSettaFilesLocation string
 	Client                   MCPStatusProvider
+	ExternalStatusProvider   ExternalMCPStatusProvider
 }
 
 type MCPStatusProvider interface {
 	RuntimeStatuses() []mcpx.ServerRuntimeStatus
+}
+
+type ExternalMCPStatusProvider interface {
+	ExternalRuntimeStatuses(chatID *string, engineConfigID *string) ([]mcpx.ServerRuntimeStatus, error)
 }
 
 type MCPRuntimeStatusRequest struct {
@@ -62,15 +67,24 @@ func mcpRuntimeStatusHandler(deps MCPRouteDependencies) http.HandlerFunc {
 			servers = deps.Client.RuntimeStatuses()
 		}
 
+		externalServers, err := externalRuntimeStatuses(payload, deps.ExternalStatusProvider)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Failed to read external MCP runtime status.")
+			return
+		}
+
 		writeJSON(w, http.StatusOK, MCPRuntimeStatusResponse{
 			LLMConfigPath:            deps.LLMConfigPath,
 			ActiveSettaFilesLocation: deps.ActiveSettaFilesLocation,
 			Servers:                  servers,
-			ExternalServers:          externalRuntimeStatuses(payload),
+			ExternalServers:          externalServers,
 		})
 	}
 }
 
-func externalRuntimeStatuses(MCPRuntimeStatusRequest) []mcpx.ServerRuntimeStatus {
-	return []mcpx.ServerRuntimeStatus{}
+func externalRuntimeStatuses(request MCPRuntimeStatusRequest, provider ExternalMCPStatusProvider) ([]mcpx.ServerRuntimeStatus, error) {
+	if provider == nil {
+		return []mcpx.ServerRuntimeStatus{}, nil
+	}
+	return provider.ExternalRuntimeStatuses(request.ChatID, request.EngineConfigID)
 }
