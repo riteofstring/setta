@@ -1,38 +1,38 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from fastapi import FastAPI, HTTPException
 import pytest
-
+from fastapi import FastAPI, HTTPException
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
 from setta.project_state.project_manager_types import (
     AcceptRenameRefactorRequest,
     AddKwargRequest,
-    AutoLayoutTopLevelSectionsRequest,
     AppendDrawAreaLayerItemRequest,
+    AutoLayoutTopLevelSectionsRequest,
     ChangeParamImplRequest,
-    CreateWindowSpaceRequest,
     CreateTopLevelSectionRequest,
     CreateViewModeRequest,
+    CreateWindowSpaceRequest,
     DeclineRenameRefactorRequest,
-    DeleteWindowSpaceRequest,
-    DeleteViewModeRequest,
     DeleteKwargRequest,
     DeleteSectionsRequest,
+    DeleteViewModeRequest,
+    DeleteWindowSpaceRequest,
+    FormatCodeRequest,
     GetPasswordParamValueRequest,
     GroupSectionsRequest,
-    FormatCodeRequest,
     PasteSectionsRequest,
+    RunCodeRequest,
     SetCallableHideParamsRequest,
     SetCallableRequest,
     SetChartAreaDataPathRequest,
     SetChartSettingsRequest,
     SetChartTypeRequest,
-    SetCodeRequest,
     SetCodeFileBindingRequest,
     SetCodeObjDisplayNameRequest,
     SetCodeObjNameRequest,
+    SetCodeRequest,
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
     SetImageAreaImagePathRequest,
@@ -40,16 +40,16 @@ from setta.project_state.project_manager_types import (
     SetParamEnteredValueRequest,
     SetParentDefaultChildSectionTypeRequest,
     SetSectionNameRequest,
+    SetSectionVariantNameRequest,
     SetSocialUrlRequest,
     SetSpreadsheetFilePathRequest,
     SetSpreadsheetSectionSettingsRequest,
-    SetTopLevelSectionLayoutRequest,
-    SetSectionVariantNameRequest,
     SetTaskBoardSectionStateRequest,
     SetTextBlockMasterFontSizeRequest,
-    SetViewModeNameRequest,
     SetTextBlockTextRequest,
+    SetTopLevelSectionLayoutRequest,
     SetTypeErrorIgnoreRequest,
+    SetViewModeNameRequest,
     SetWindowSpaceNameRequest,
     SetWindowSpaceSortOrderRequest,
     SetWindowSpaceStateRequest,
@@ -73,51 +73,51 @@ from setta.routers.llm import (
 )
 from setta.routers.project_manager import (
     route_accept_rename_refactor,
-    route_append_draw_area_layer_item,
     route_add_kwarg,
+    route_append_draw_area_layer_item,
     route_auto_layout_top_level_sections,
     route_change_param_impl,
-    route_create_window_space,
     route_create_top_level_section,
     route_create_view_mode,
-    route_delete_sections,
-    route_delete_window_space,
-    route_delete_view_mode,
-    route_delete_kwarg,
+    route_create_window_space,
     route_decline_rename_refactor,
+    route_delete_kwarg,
+    route_delete_sections,
+    route_delete_view_mode,
+    route_delete_window_space,
+    route_format_code,
+    route_get_password_param_value,
     route_group_sections,
     route_paste_sections,
-    route_set_callable_hide_params,
     route_set_callable,
+    route_set_callable_hide_params,
     route_set_chart_area_data_path,
     route_set_chart_settings,
     route_set_chart_type,
     route_set_code,
     route_set_code_file_binding,
-    route_format_code,
     route_set_code_obj_display_name,
     route_set_code_obj_name,
     route_set_gen_code_prefix,
     route_set_gen_code_suffix,
-    route_get_password_param_value,
     route_set_image_area_image_path,
     route_set_list_root_view_mode,
     route_set_param_entered_value,
     route_set_parent_default_child_section_type,
     route_set_section_name,
+    route_set_section_variant_name,
     route_set_social_url,
     route_set_spreadsheet_file_path,
     route_set_spreadsheet_section_settings,
-    route_set_top_level_section_layout,
-    route_set_section_variant_name,
     route_set_task_board_section_state,
     route_set_text_block_master_font_size,
+    route_set_text_block_text,
+    route_set_top_level_section_layout,
+    route_set_type_error_ignore,
     route_set_view_mode_name,
     route_set_window_space_name,
     route_set_window_space_sort_order,
     route_set_window_space_state,
-    route_set_text_block_text,
-    route_set_type_error_ignore,
     route_toggle_is_editing_view_mode,
     route_toggle_param_selected,
     route_toggle_section_visibility,
@@ -132,7 +132,6 @@ from setta.routers.share_deployments import (
     PublishShareDeploymentRequest,
     route_publish_share_deployment,
 )
-from setta.project_state.project_manager_types import RunCodeRequest
 from setta.routers.terminals import (
     KillSubprocessesRequest,
     route_kill_subprocesses,
@@ -145,21 +144,21 @@ from setta.types.artifact import (
     DrawAreaLayerItem,
     LineChartSettings,
 )
+from setta.types.chat_messages import MessageTextContent, UserChatMessage
+from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl2 import add_kwarg, create_top_level_section
 from setta.types.helpers_lvl3 import merge_single_config_into_backend
-from setta.types.chat_messages import MessageTextContent, UserChatMessage
-from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.types.project_config import (
-    WindowSpaceConfig,
-    WindowSpaceState,
-    WindowSpaceWindow,
     Position,
     ProjectConfig,
     TopLevelSectionLayout,
+    WindowSpaceConfig,
+    WindowSpaceState,
+    WindowSpaceWindow,
 )
 from setta.types.project_state import (
     ProjectStateBackend,
@@ -172,7 +171,8 @@ from setta.types.section_impls import (
     SectionType,
     TextBlockSectionImpl,
 )
-from setta.types.share_deployment import DeploymentManifest, SharePolicy, DeploymentType
+from setta.types.share_deployment import DeploymentManifest, DeploymentType, SharePolicy
+
 from tests.utils.runtime_context import runtime_context
 
 
@@ -1377,7 +1377,60 @@ class TestSharePolicyRoutes:
                 created_window_space.windowsById["project-chat-window-1"].title
                 == "Research Chat"
             )
-            assert second_window_space_id not in session_state.projectConfig.windowSpaces
+            assert (
+                second_window_space_id not in session_state.projectConfig.windowSpaces
+            )
+
+    async def test_window_space_routes_return_404_for_missing_window_space_ids(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-policy-route-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config_id = _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            _write_share_policy(root, SharePolicy(allowLayoutChanges=True))
+            state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+            missing_window_space_id = "missing-window-space"
+            requests = [
+                (
+                    route_set_window_space_name,
+                    SetWindowSpaceNameRequest(
+                        projectConfigId=project_config_id,
+                        windowSpaceId=missing_window_space_id,
+                        name="Renamed Layout",
+                    ),
+                ),
+                (
+                    route_delete_window_space,
+                    DeleteWindowSpaceRequest(
+                        projectConfigId=project_config_id,
+                        windowSpaceId=missing_window_space_id,
+                    ),
+                ),
+                (
+                    route_set_window_space_state,
+                    SetWindowSpaceStateRequest(
+                        projectConfigId=project_config_id,
+                        windowSpaceId=missing_window_space_id,
+                        state=WindowSpaceState(),
+                    ),
+                ),
+            ]
+
+            with runtime_context(state, session.id) as runtime_ctx:
+                for handler, request in requests:
+                    with pytest.raises(HTTPException) as ctx:
+                        await handler(request, runtime_ctx)
+                    assert ctx.value.status_code == 404
+                    assert (
+                        ctx.value.detail
+                        == f"Window space {missing_window_space_id} not found"
+                    )
 
     async def test_paste_sections_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:

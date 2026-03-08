@@ -28,6 +28,7 @@ from setta.types.helpers_lvl2 import (
     get_section_path_full_name,
 )
 from setta.types.id import ID
+from setta.types.project_chat_windowing import normalize_project_chat_windowing
 from setta.types.project_config import (
     ProjectCodegenLanguage,
     ProjectConfig,
@@ -243,6 +244,10 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         return self.validate_view_modes()
 
     @model_validator(mode="after")
+    def _validate_project_chat_windowing(self):
+        return self.validate_project_chat_windowing()
+
+    @model_validator(mode="after")
     def _validate_window_spaces(self):
         return self.validate_window_spaces()
 
@@ -260,6 +265,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                 allow_reserved_project_name=allow_reserved_project_name
             )
         self.validate_view_modes()
+        self.validate_project_chat_windowing()
         self.validate_window_spaces()
         self.validate_shown_param_ids()
         self.validate_required_decoded_images()
@@ -588,6 +594,13 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         if len(set(sort_indices)) != len(sort_indices):
             for idx, window_space in enumerate(project_config.windowSpaces.values()):
                 window_space.sortIndex = idx
+        return self
+
+    def validate_project_chat_windowing(self):
+        normalize_project_chat_windowing(
+            self.projectChatWindowing,
+            set(self.sections.keys()),
+        )
         return self
 
 

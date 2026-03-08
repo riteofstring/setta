@@ -255,6 +255,44 @@ export function mergeHydratedStandaloneWindows(
   return changed ? nextWindowsById : currentWindowsById;
 }
 
+export function applyStandaloneWindowSpaceHydration({
+  currentWindowsById,
+  previousHydratedWindowsById,
+  nextHydratedWindowsById,
+  previousWindowSpaceId,
+  nextWindowSpaceId,
+}: {
+  currentWindowsById: Record<string, StandaloneWindowSpaceWindow>;
+  previousHydratedWindowsById: Record<string, StandaloneWindowSpaceWindow>;
+  nextHydratedWindowsById: Record<string, StandaloneWindowSpaceWindow>;
+  previousWindowSpaceId: string;
+  nextWindowSpaceId: string;
+}): {
+  nextLocalWindowsById: Record<string, StandaloneWindowSpaceWindow>;
+  nextPreviousHydratedWindowsById: Record<string, StandaloneWindowSpaceWindow>;
+  nextWindowSpaceId: string;
+  resetLocalState: boolean;
+} {
+  if (previousWindowSpaceId !== nextWindowSpaceId) {
+    return {
+      nextLocalWindowsById: nextHydratedWindowsById,
+      nextPreviousHydratedWindowsById: nextHydratedWindowsById,
+      nextWindowSpaceId,
+      resetLocalState: true,
+    };
+  }
+  return {
+    nextLocalWindowsById: mergeHydratedStandaloneWindows(
+      currentWindowsById,
+      previousHydratedWindowsById,
+      nextHydratedWindowsById,
+    ),
+    nextPreviousHydratedWindowsById: nextHydratedWindowsById,
+    nextWindowSpaceId,
+    resetLocalState: false,
+  };
+}
+
 export function StandaloneWindowSpaceSurface({
   windowSpace,
 }: {
@@ -321,23 +359,26 @@ export function StandaloneWindowSpaceSurface({
   const [localWindowsById, setLocalWindowsById] = useState(hydratedWindowsById);
   const activeSnapResizeRef = useRef<ActiveStandaloneSnapResize | null>(null);
   const previousHydratedWindowsByIdRef = useRef(hydratedWindowsById);
+  const previousWindowSpaceIdRef = useRef(windowSpace.id);
 
   useEffect(() => {
-    setLocalWindowsById(hydratedWindowsById);
-    activeSnapResizeRef.current = null;
-    previousHydratedWindowsByIdRef.current = hydratedWindowsById;
-  }, [windowSpace]);
-
-  useEffect(() => {
-    setLocalWindowsById((current) =>
-      mergeHydratedStandaloneWindows(
-        current,
-        previousHydratedWindowsByIdRef.current,
-        hydratedWindowsById,
-      ),
-    );
-    previousHydratedWindowsByIdRef.current = hydratedWindowsById;
-  }, [hydratedWindowsById]);
+    setLocalWindowsById((current) => {
+      const result = applyStandaloneWindowSpaceHydration({
+        currentWindowsById: current,
+        previousHydratedWindowsById: previousHydratedWindowsByIdRef.current,
+        nextHydratedWindowsById: hydratedWindowsById,
+        previousWindowSpaceId: previousWindowSpaceIdRef.current,
+        nextWindowSpaceId: windowSpace.id,
+      });
+      previousHydratedWindowsByIdRef.current =
+        result.nextPreviousHydratedWindowsById;
+      previousWindowSpaceIdRef.current = result.nextWindowSpaceId;
+      if (result.resetLocalState) {
+        activeSnapResizeRef.current = null;
+      }
+      return result.nextLocalWindowsById;
+    });
+  }, [hydratedWindowsById, windowSpace.id]);
 
   const visibleWindows = useMemo(() => {
     return Object.values(localWindowsById).sort((a, b) => {
@@ -547,6 +588,21 @@ export function StandaloneWindowSpaceSurface({
               headerActions={null}
               roundedClassName="rounded-none"
               chatHost={ChatWindowPlacementEnum.floating}
+              chatModeOverride={window.mode}
+              projectChatId={window.chatId}
+              setProjectChatId={(next) => {
+                const resolvedChatId =
+                  typeof next === "function"
+                    ? next(window.chatId ?? undefined)
+                    : next;
+                setLocalWindowsById((current) =>
+                  setStandaloneProjectChatWindowChatId(
+                    current,
+                    window.instanceId,
+                    resolvedChatId,
+                  ),
+                );
+              }}
               headerProps={{
                 onPointerDown: () => {
                   setLocalWindowsById((current) =>

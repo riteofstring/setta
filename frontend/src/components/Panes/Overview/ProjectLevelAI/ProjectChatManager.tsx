@@ -1,3 +1,4 @@
+import { buildProjectChatWindowTitle } from "components/ChatWindowing/projectChatWindowTitles";
 import _ from "lodash";
 import { MdAdd } from "react-icons/md";
 import {
@@ -9,15 +10,20 @@ import {
   undockProjectChatWindowFromCanvasSection,
 } from "state/actions/projectChatWindowing";
 import { useProjectState } from "state/definitions";
-import { ChatWindowPlacementEnum } from "utils/generatedTypes";
+import {
+  ChatWindowPlacementEnum,
+  type ChatWindowMode,
+} from "utils/generatedTypes";
 
 type ChatWindowManagerRow = {
   instanceId: string;
   placement: (typeof ChatWindowPlacementEnum)[keyof typeof ChatWindowPlacementEnum];
+  mode: ChatWindowMode;
   isClosed: boolean;
   isMinimized: boolean;
   zIndex: number;
   sectionIdOrNull: string | null;
+  title: string | null;
 };
 
 function formatPlacementLabel(
@@ -30,24 +36,6 @@ function formatPlacementLabel(
     return "canvas section";
   }
   return placement;
-}
-
-function buildTitle(
-  instanceId: string,
-  sectionIdOrNull: string | null,
-  sectionNamesById: Record<string, string>,
-): string {
-  if (sectionIdOrNull) {
-    const sectionName = sectionNamesById[sectionIdOrNull];
-    if (typeof sectionName === "string" && sectionName.trim().length > 0) {
-      return sectionName;
-    }
-  }
-  const suffix = instanceId.split("-").pop() ?? "";
-  if (/^\d+$/.test(suffix)) {
-    return `Chat Window ${suffix}`;
-  }
-  return instanceId.replaceAll("-", " ");
 }
 
 export function ProjectChatManager() {
@@ -74,10 +62,12 @@ export function ProjectChatManager() {
       return {
         instanceId,
         placement: instance.placement,
+        mode: instance.mode,
         isClosed: instance.isClosed,
         isMinimized: instance.isMinimized,
         zIndex: instance.zIndex,
         sectionIdOrNull: instance.sectionIdOrNull,
+        title: instance.title ?? null,
       };
     }),
   );
@@ -114,9 +104,11 @@ export function ProjectChatManager() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="min-w-0">
                   <p className="truncate font-semibold text-setta-900 dark:text-setta-100">
-                    {buildTitle(
+                    {buildProjectChatWindowTitle(
+                      row.mode,
                       row.instanceId,
                       row.sectionIdOrNull,
+                      row.title,
                       sectionNamesById,
                     )}
                   </p>

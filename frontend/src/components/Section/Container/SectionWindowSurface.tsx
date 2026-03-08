@@ -1,5 +1,6 @@
 import _ from "lodash";
 import type React from "react";
+import type { SetStateAction } from "react";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import {
@@ -10,6 +11,7 @@ import {
 import { getSectionStylePreviewColorKey } from "utils/constants";
 import {
   SectionTypeEnum,
+  type ChatWindowMode,
   type ChatWindowPlacement,
 } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
@@ -26,6 +28,9 @@ type SectionWindowSurfaceProps = {
   headerActions: React.ReactNode;
   roundedClassName: string;
   chatHost: ChatWindowPlacement | "standalone_page";
+  chatModeOverride?: ChatWindowMode;
+  projectChatId?: string | null;
+  setProjectChatId?: (next: SetStateAction<string | null | undefined>) => void;
   bodyOverride?: React.ReactNode;
   headerProps?: Omit<
     React.ComponentPropsWithoutRef<"header">,
@@ -38,6 +43,9 @@ export function SectionWindowSurface({
   headerActions,
   roundedClassName,
   chatHost,
+  chatModeOverride,
+  projectChatId,
+  setProjectChatId,
   bodyOverride = null,
   headerProps,
 }: SectionWindowSurfaceProps) {
@@ -145,6 +153,9 @@ export function SectionWindowSurface({
               isMinimized={isMinimized}
               isUserView={false}
               chatHost={chatHost}
+              chatModeOverride={chatModeOverride}
+              projectChatId={projectChatId}
+              setProjectChatId={setProjectChatId}
             />
           )}
         </div>

@@ -314,6 +314,77 @@ async function seedProjectChatWindowThreads(
   }, fixtures);
 }
 
+async function seedProjectChatDetails(
+  page: Page,
+  fixtures: ProjectChatThreadFixture[],
+  activeChatId: string | null,
+): Promise<void> {
+  await page.evaluate(
+    async ({
+      nextFixtures,
+      nextActiveChatId,
+    }: {
+      nextFixtures: ProjectChatThreadFixture[];
+      nextActiveChatId: string | null;
+    }) => {
+      const { useAIStore } = await import("/src/state/definitions.ts");
+      const { getDefaultChatDetails } = await import(
+        "/src/state/actions/ai.ts"
+      );
+
+      useAIStore.setState((state) => {
+        const nextChatDetails = { ...state.chatDetails };
+        for (const fixture of nextFixtures) {
+          nextChatDetails[fixture.chatId] = {
+            ...getDefaultChatDetails(),
+            messages: [
+              {
+                id: `assistant-${fixture.chatId}`,
+                role: "assistant",
+                content: [
+                  {
+                    type: "text",
+                    text: fixture.assistantText,
+                  },
+                ],
+                attachments: [],
+                tool_calls: null,
+              },
+            ],
+            waitingForResponse: false,
+          };
+        }
+        return {
+          activeChatId: nextActiveChatId,
+          chatDetails: nextChatDetails,
+        };
+      });
+    },
+    {
+      nextFixtures: fixtures,
+      nextActiveChatId: activeChatId,
+    },
+  );
+}
+
+async function clearProjectChatWindowingState(
+  page: Page,
+  projectConfigId: string,
+): Promise<void> {
+  await page.evaluate(async (nextProjectConfigId) => {
+    const { route_set_project_chat_windowing_state } = await import(
+      "/src/utils/generatedEndpoints.ts"
+    );
+    const { createProjectChatWindowingState } = await import(
+      "/src/utils/generatedTypes.ts"
+    );
+    await route_set_project_chat_windowing_state({
+      projectConfigId: nextProjectConfigId,
+      state: createProjectChatWindowingState(),
+    });
+  }, projectConfigId);
+}
+
 function getProjectChatWindowOrder(
   state: ProjectChatWindowingSnapshot,
 ): string[] {
@@ -860,7 +931,9 @@ test.describe.serial("standalone project surface routes", () => {
           body: JSON.stringify([
             ...runs.filter(
               (run) =>
-                !fixtures.some((fixture) => fixture.chatId === run.inputs.chatId),
+                !fixtures.some(
+                  (fixture) => fixture.chatId === run.inputs.chatId,
+                ),
             ),
             ...fixtureRuns,
           ]),
@@ -994,6 +1067,132 @@ test.describe.serial("standalone project surface routes", () => {
       await standalonePage.close();
       await page.context().unroute("**/api/getAgentRuns");
       await page.context().unroute("**/api/getLLMChat");
+      await cleanupManagedEngine();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("standalone section windows keep their saved project-ai thread even without a live workspace binding", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const cleanupManagedEngine = await ensureManagedChatEngine(page);
+    await setOverviewTabInStore(page, "ViewModes");
+    await expect(page.getByTestId("window-spaces-pane")).toBeVisible();
+    const standalonePage = await page.context().newPage();
+
+    try {
+      const { sectionId: chatSectionId } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "Linked Research Chat",
+      );
+      const projectConfigName = getProjectConfigNameFromUrl(page.url());
+      await showSectionInProjectChatWindow(page, chatSectionId, "floating");
+
+      await expect
+        .poll(async () => {
+          const state = await readProjectChatWindowingState(page);
+          return findProjectChatWindowIdForSection(state, chatSectionId) ?? "";
+        })
+        .not.toBe("");
+      const sectionWindowState = await readProjectChatWindowingState(page);
+      const sectionWindowId = findProjectChatWindowIdForSection(
+        sectionWindowState,
+        chatSectionId,
+      );
+      if (!sectionWindowId) {
+        throw new Error("Expected a floating section window before saving.");
+      }
+
+      await page.evaluate(async (sectionId) => {
+        const { setProjectChatWindowModeForSection } = await import(
+          "/src/state/actions/projectChatWindowing.ts"
+        );
+        const { ChatWindowModeEnum } = await import(
+          "/src/utils/generatedTypes.ts"
+        );
+        setProjectChatWindowModeForSection(
+          sectionId,
+          ChatWindowModeEnum.project_ai_mode,
+        );
+      }, chatSectionId);
+
+      const fixtures: ProjectChatThreadFixture[] = [
+        {
+          instanceId: sectionWindowId,
+          chatId: "saved-section-thread",
+          assistantText: "Saved section thread marker",
+        },
+        {
+          instanceId: "fallback-window",
+          chatId: "fallback-active-thread",
+          assistantText: "Fallback active thread marker",
+        },
+      ];
+
+      await seedProjectChatWindowThreads(page, [fixtures[0]]);
+      await page.getByTestId("window-space-save-current-layout").click();
+      await expect(page.getByTestId("window-space-open")).toHaveCount(1);
+
+      const resolvedWindowSpace = await loadProjectConfigState(
+        page,
+        projectConfigName,
+      );
+      const [windowSpace] = Object.values(
+        resolvedWindowSpace.projectConfig.windowSpaces ?? {},
+      );
+      if (!windowSpace) {
+        throw new Error("Expected a saved standalone window space.");
+      }
+      const windowSpaceSlug = await page.evaluate(async (name) => {
+        const { sanitizeNameForSlug } = await import(
+          "/src/utils/nameValidation.ts"
+        );
+        return sanitizeNameForSlug(name);
+      }, windowSpace.name);
+
+      await clearProjectChatWindowingState(
+        page,
+        projectContext.projectConfigId,
+      );
+      await expect
+        .poll(async () =>
+          getProjectChatWindowOrder(await readProjectChatWindowingState(page)),
+        )
+        .toEqual([]);
+
+      await standalonePage.goto(
+        buildStandaloneUrl(
+          page.url(),
+          `/${encodeURIComponent(projectConfigName)}/windowspace/${encodeURIComponent(windowSpaceSlug)}`,
+        ),
+        { waitUntil: "domcontentloaded" },
+      );
+      await seedProjectChatDetails(
+        standalonePage,
+        fixtures,
+        fixtures[1]?.chatId ?? null,
+      );
+
+      const standaloneSectionWindow = standalonePage.locator(
+        `[data-testid="standalone-window-space-window"][data-chat-window-instance-id="${sectionWindowId}"]`,
+      );
+      await expect(standaloneSectionWindow).toBeVisible();
+      await expect(
+        standaloneSectionWindow.locator(
+          '[data-chat-surface-mode="project_ai_mode"]',
+        ),
+      ).toBeVisible();
+      await expect(standaloneSectionWindow).toContainText(
+        "Saved section thread marker",
+      );
+      await expect(standaloneSectionWindow).not.toContainText(
+        "Fallback active thread marker",
+      );
+    } finally {
+      await standalonePage.close();
       await cleanupManagedEngine();
       await cleanupIsolatedProject(page, projectContext);
     }

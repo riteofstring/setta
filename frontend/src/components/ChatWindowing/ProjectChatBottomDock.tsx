@@ -3749,6 +3749,18 @@ export function ProjectChatBottomDock() {
                               DOCKED_WINDOWED_CHAT_ROUNDED_CLASS
                             }
                             chatHost={ChatWindowPlacementEnum.bottom_docked}
+                            chatModeOverride={pill.mode}
+                            projectChatId={pill.chatId}
+                            setProjectChatId={(next) => {
+                              const resolvedChatId =
+                                typeof next === "function"
+                                  ? next(pill.chatId ?? undefined)
+                                  : next;
+                              setProjectChatWindowChatId(
+                                pill.instanceId,
+                                resolvedChatId,
+                              );
+                            }}
                             headerActions={
                               <>
                                 {showDockHeaderCycleControls ? (
@@ -4166,6 +4178,18 @@ export function ProjectChatBottomDock() {
                           : WINDOWED_CHAT_ROUNDED_CLASS
                       }
                       chatHost={ChatWindowPlacementEnum.floating}
+                      chatModeOverride={pill.mode}
+                      projectChatId={pill.chatId}
+                      setProjectChatId={(next) => {
+                        const resolvedChatId =
+                          typeof next === "function"
+                            ? next(pill.chatId ?? undefined)
+                            : next;
+                        setProjectChatWindowChatId(
+                          pill.instanceId,
+                          resolvedChatId,
+                        );
+                      }}
                       headerActions={
                         <>
                           <button
@@ -4434,6 +4458,18 @@ export function ProjectChatBottomDock() {
                 sectionId={openMaximizedWindow.sectionId}
                 roundedClassName="rounded-none"
                 chatHost={ChatWindowPlacementEnum.maximized}
+                chatModeOverride={openMaximizedWindow.mode}
+                projectChatId={openMaximizedWindow.chatId}
+                setProjectChatId={(next) => {
+                  const resolvedChatId =
+                    typeof next === "function"
+                      ? next(openMaximizedWindow.chatId ?? undefined)
+                      : next;
+                  setProjectChatWindowChatId(
+                    openMaximizedWindow.instanceId,
+                    resolvedChatId,
+                  );
+                }}
                 headerActions={
                   <>
                     <button

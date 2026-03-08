@@ -1,4 +1,5 @@
 import logging
+from typing import NoReturn
 
 from fastapi import HTTPException
 
@@ -180,6 +181,23 @@ from setta.utils.errors import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _raise_http_from_key_error(exc: KeyError) -> NoReturn:
+    message = (
+        exc.args[0]
+        if exc.args and isinstance(exc.args[0], str)
+        else str(exc) or exc.__class__.__name__
+    )
+    status_code = 404 if "not found" in message.lower() else 400
+    raise HTTPException(status_code=status_code, detail=message) from exc
+
+
+def _raise_window_space_route_error(exc: KeyError | ValueError) -> NoReturn:
+    if isinstance(exc, KeyError):
+        _raise_http_from_key_error(exc)
+    raise HTTPException(status_code=422, detail=str(exc)) from exc
+
 
 router = SettaProjectContextNonLauncherAPIRouter(
     require_project_context_by_default=True,
@@ -490,13 +508,7 @@ async def route_set_view_mode_sort_order(
     try:
         await manager.set_view_mode_sort_order(x)
     except KeyError as exc:
-        message = (
-            exc.args[0]
-            if exc.args and isinstance(exc.args[0], str)
-            else str(exc) or exc.__class__.__name__
-        )
-        status_code = 404 if "not found" in message.lower() else 400
-        raise HTTPException(status_code=status_code, detail=message) from exc
+        _raise_http_from_key_error(exc)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -530,8 +542,8 @@ async def route_set_window_space_name(
     manager = ctx.get_project_manager(x.projectConfigId)
     try:
         await manager.set_window_space_name(x)
-    except InvalidWindowSpaceName as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except (KeyError, ValueError) as exc:
+        _raise_window_space_route_error(exc)
 
 
 @router.post(Route.SET_WINDOW_SPACE_SORT_ORDER)
@@ -542,16 +554,8 @@ async def route_set_window_space_sort_order(
     manager = ctx.get_project_manager(x.projectConfigId)
     try:
         await manager.set_window_space_sort_order(x)
-    except KeyError as exc:
-        message = (
-            exc.args[0]
-            if exc.args and isinstance(exc.args[0], str)
-            else str(exc) or exc.__class__.__name__
-        )
-        status_code = 404 if "not found" in message.lower() else 400
-        raise HTTPException(status_code=status_code, detail=message) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except (KeyError, ValueError) as exc:
+        _raise_window_space_route_error(exc)
 
 
 @router.post(Route.DELETE_WINDOW_SPACE)
@@ -560,7 +564,10 @@ async def route_delete_window_space(
 ) -> None:
     await _enforce_window_space_layout_policy(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
-    await manager.delete_window_space(x)
+    try:
+        await manager.delete_window_space(x)
+    except (KeyError, ValueError) as exc:
+        _raise_window_space_route_error(exc)
 
 
 @router.post(Route.SET_WINDOW_SPACE_STATE)
@@ -569,7 +576,10 @@ async def route_set_window_space_state(
 ) -> None:
     await _enforce_window_space_layout_policy(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
-    await manager.set_window_space_state(x)
+    try:
+        await manager.set_window_space_state(x)
+    except (KeyError, ValueError) as exc:
+        _raise_window_space_route_error(exc)
 
 
 @router.post(Route.UNDO)
@@ -783,13 +793,7 @@ async def route_update_app_definition(
     try:
         return await manager.update_app_definition(x)
     except KeyError as exc:
-        message = (
-            exc.args[0]
-            if exc.args and isinstance(exc.args[0], str)
-            else str(exc) or exc.__class__.__name__
-        )
-        status_code = 404 if "not found" in message.lower() else 400
-        raise HTTPException(status_code=status_code, detail=message) from exc
+        _raise_http_from_key_error(exc)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

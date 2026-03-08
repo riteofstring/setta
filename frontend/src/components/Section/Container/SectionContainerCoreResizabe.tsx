@@ -1,6 +1,7 @@
 import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import _ from "lodash";
+import type { SetStateAction } from "react";
 import React from "react";
 import {
   getOpenExternalProjectChatWindowInstanceForSectionInState,
@@ -13,7 +14,9 @@ import {
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
 import {
+  ChatWindowModeEnum,
   SectionTypeEnum,
+  type ChatWindowMode,
   type ChatWindowPlacement,
   type SectionType,
 } from "utils/generatedTypes";
@@ -191,6 +194,9 @@ export function AreaSwitch({
   isMinimized,
   isUserView,
   chatHost = "section_layout",
+  chatModeOverride,
+  projectChatId,
+  setProjectChatId,
 }: {
   sectionId: string;
   sectionTypeName: SectionType;
@@ -198,6 +204,9 @@ export function AreaSwitch({
   isMinimized: boolean;
   isUserView: boolean;
   chatHost?: ChatWindowPlacement | "section_layout" | "standalone_page";
+  chatModeOverride?: ChatWindowMode;
+  projectChatId?: string | null;
+  setProjectChatId?: (next: SetStateAction<string | null | undefined>) => void;
 }) {
   if (isMinimized) {
     return null;
@@ -240,7 +249,15 @@ export function AreaSwitch({
     case SectionTypeEnum.IFrame:
       return <IframeArea sectionId={sectionId} />;
     case SectionTypeEnum.Chat:
-      return <ChatSectionArea sectionId={sectionId} host={chatHost} />;
+      return (
+        <ChatSectionArea
+          sectionId={sectionId}
+          host={chatHost}
+          modeOverride={chatModeOverride}
+          projectChatId={projectChatId}
+          setProjectChatId={setProjectChatId}
+        />
+      );
     case SectionTypeEnum.Browser:
       return <BrowserArea sectionId={sectionId} />;
     case SectionTypeEnum.Plugin:
@@ -309,15 +326,32 @@ function CanvasSectionBody({
 function ChatSectionArea({
   sectionId,
   host,
+  modeOverride,
+  projectChatId,
+  setProjectChatId,
 }: {
   sectionId: string;
   host: ChatWindowPlacement | "section_layout" | "standalone_page";
+  modeOverride?: ChatWindowMode;
+  projectChatId?: string | null;
+  setProjectChatId?: (next: SetStateAction<string | null | undefined>) => void;
 }) {
-  const mode = useProjectState((state) =>
-    getProjectChatWindowModeForSectionInState(
-      state.projectChatWindowing,
-      sectionId,
-    ),
+  const derivedMode = useProjectState((state) =>
+    modeOverride === undefined
+      ? getProjectChatWindowModeForSectionInState(
+          state.projectChatWindowing,
+          sectionId,
+        )
+      : null,
   );
-  return <UnifiedChatSurface mode={mode} host={host} sectionId={sectionId} />;
+  const mode = modeOverride ?? derivedMode ?? ChatWindowModeEnum.section_mode;
+  return (
+    <UnifiedChatSurface
+      mode={mode}
+      host={host}
+      sectionId={sectionId}
+      projectChatId={projectChatId}
+      setProjectChatId={setProjectChatId}
+    />
+  );
 }

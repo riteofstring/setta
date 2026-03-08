@@ -48,3 +48,32 @@ Verification:
 
 Residual baseline:
 - The branch still has broader pre-existing TypeScript errors in `frontend/src/state/actions/sectionInfos.ts` and `frontend/src/components/Utils/Resizable/CustomResizable.tsx`. The fixes here were kept local and verified by tests, but this turn did not attempt a full-file type cleanup of those baseline-red modules.
+
+## 2026-03-09 17:40:08 PDT
+
+Implemented the consolidated review fixes for section-window authority, standalone window-space hydration, backend project-chat-windowing normalization, route error handling, and manager title consistency.
+
+Section-backed window correctness:
+- Section-backed chat windows now render from their owning window instance instead of ambient workspace-derived mode state. `SectionWindowSurface` and `AreaSwitch` accept explicit `chatModeOverride`, `projectChatId`, and `setProjectChatId` props, and the workspace dock/floating/maximized surfaces plus standalone window-space surfaces now pass those through.
+- This fixes the branch-blocking bug where a section window saved in `project_ai_mode` could reopen in `section_mode` or attach to the global active project-chat thread instead of its persisted `chatId`.
+- The same authority path now applies to standalone window-space section windows, so saved section-backed project-chat threads survive restore even when the live workspace no longer has a matching section-window binding.
+
+Standalone window-space hydration:
+- Reworked standalone hydration into an identity-aware merge flow. Same-layout rehydration now preserves local thread selection and local resize state, while switching to a different `windowSpace.id` still performs a hard reset to the saved snapshot.
+- Added an exported helper to make the same-layout-vs-layout-switch behavior directly testable without relying on a browser-local `jsdom` test environment.
+
+Backend/state-model cleanup:
+- Added canonical `projectChatWindowing` normalization in a dedicated backend helper module and wired it into `ProjectStateSingleConfig` validation, `set_project_chat_windowing_state()`, and `delete_sections()`.
+- Missing/deleted section-bound live windows are now removed from `instancesById`, `order` is compacted and de-duplicated, and non-section windows remain untouched.
+- This closes the previous backend/frontend mismatch where deleted section windows remained as hidden dead state in the authoritative project model.
+
+API and manager DX:
+- Window-space mutation routes now consistently translate missing ids to `404` and validation failures to `422` using shared router helpers rather than leaking uncaught `KeyError`s as `500`s.
+- `ProjectChatManager` now uses the shared `buildProjectChatWindowTitle()` helper, so renamed chats and git-graph windows display the same authoritative title as the actual window chrome.
+
+Regression coverage and verification:
+- Added frontend tests for standalone section-window authority and standalone hydration behavior, plus focused tests for `SectionWindowSurface` and `ProjectChatManager` title reuse.
+- Added backend tests for project-chat-windowing normalization on validation and section deletion, and route tests for missing window-space ids returning `404`.
+- Added Playwright coverage for the saved section-window/project-ai-thread restore path with no live workspace binding.
+- Verified the touched frontend paths with Vitest, the touched backend paths with pytest, and the standalone section-window restore flow with Playwright.
+- Completed CDP visual verification against the live app by creating a section-backed floating chat window, saving it into a window space, clearing live workspace windowing, reopening the standalone window-space route, and confirming the saved thread marker rendered in a `project_ai_mode` surface without falling back to the global active thread.
