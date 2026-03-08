@@ -2,12 +2,12 @@
 
 ## Purpose
 
-This doc narrows the next bounded Phase 14 follow-on to app-level route
-hardening for the landed agent-run and run-chain runtime surface.
+This doc records the bounded Phase 14 app-level hardening follow-on for the
+landed agent-run and run-chain runtime surface.
 
-The managed-agent and run-chain route/runtime slices are already complete at the
-service and `internal/httpapi` layers. What remains thin is proving those route
-semantics through the real app handler stack:
+The managed-agent and run-chain route/runtime slices were already complete at
+the service and `internal/httpapi` layers. What remained thin was proving those
+route semantics through the real app handler stack:
 
 - managed agent routes stay intentionally unavailable in production IDE wiring
   until a real executor exists
@@ -25,7 +25,7 @@ Completed before this slice:
 - Phase 14 managed and external-agent `start/stopRunChain` ownership
 - Phase 14 caller/progress closeout and executor-fixture stabilization
 
-Current Go coverage before this slice:
+Current Go coverage after this slice:
 
 - `internal/httpapi/agent_run_routes_test.go` covers:
   - managed `start/stopAgentRun`
@@ -36,7 +36,7 @@ Current Go coverage before this slice:
   - managed runtime is disabled before an executor is wired
   - run-chain runtime stays available through the external-agent boundary
 
-What is still missing explicitly:
+What this slice added:
 
 - app-level `503 managed_agent_run_unavailable` mapping through the real
   handler stack
@@ -45,7 +45,7 @@ What is still missing explicitly:
 
 ## Scope
 
-This slice covers:
+This slice covered:
 
 - focused app-handler tests in `internal/app/app_test.go`
 - real authenticated HTTP coverage for:
@@ -91,29 +91,39 @@ This slice covers:
 
 ## Implementation Notes
 
-1. Add app-level managed-route unavailable regressions.
+1. Added app-level managed-route unavailable regressions in
+   `internal/app/app_test.go`.
    - `POST /startAgentRun`
    - `POST /stopAgentRun`
-   should both return the documented `503` through the real app handler stack
+   now prove the documented `503 managed_agent_run_unavailable` behavior
+   through the real app handler stack
 
-2. Add app-level run-chain route regressions.
-   - start an empty run chain
-   - wait for terminal persisted state through the app-owned runtime
-   - read the run back through `GET /getAgentRuns` and `POST /getAgentRun`
-   - stop the completed run and verify the unchanged terminal state
+2. Added an app-level run-chain route round-trip regression.
+   - starts an empty run chain
+   - waits for persisted terminal state through the app-owned runtime
+   - reads the run back through `GET /getAgentRuns` and `POST /getAgentRun`
+   - stops the completed run and verifies the unchanged terminal state
 
-3. Keep acceptance narrow.
+3. Kept acceptance narrow.
    - `./scripts/go.sh test ./internal/app -run 'AgentRun|RunChain' -count=1`
    - `./scripts/go.sh test ./internal/httpapi -run 'AgentRun|RunChain' -count=1`
+
+## Verification
+
+- `./scripts/go.sh test ./internal/app -run 'AgentRun|RunChain' -count=1`
+- `./scripts/go.sh test ./internal/httpapi -run 'AgentRun|RunChain' -count=1`
 
 ## Progress Notes
 
 - 2026-03-09: opened this focused Phase 14 app-level hardening slice after the
   terminal hardening track closed and the remaining concrete regression gap was
   app-middleware coverage for the landed agent-run/run-chain route surface.
+- 2026-03-09: landed real app-handler coverage for the managed-agent `503`
+  path plus the available empty-step run-chain route round-trip without
+  changing runtime behavior.
 
 ## Next Recommended Step
 
-- if this slice lands cleanly, treat the current-scope Phase 14 route surface
-  as covered at runtime, route, and app-handler levels
+- treat the current-scope Phase 14 route surface as covered at runtime, route,
+  and app-handler levels
 - only reopen this area for a concrete new caller or feature request

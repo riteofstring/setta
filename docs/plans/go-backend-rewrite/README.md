@@ -559,7 +559,7 @@ Use the docs in this order:
     executor regression suite stabilization after the landed Phase 14 runtime
     closeout
 162. `phase-14-agent-run-and-run-chain-app-middleware-regression-hardening.md`
-  - focused current-work plan for real app-handler coverage of the landed
+  - focused completed-slice doc for real app-handler coverage of the landed
     agent-run and run-chain route surface
 163. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record

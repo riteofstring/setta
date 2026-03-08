@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"setta/internal/agentruns"
 	"setta/internal/auth"
 	binarypayload "setta/internal/binary"
 	"setta/internal/config"
@@ -262,6 +263,192 @@ func TestAppWiresManagedAgentRunFoundationInIDEMode(t *testing.T) {
 	}
 	if app.RunChainRuntime().Disabled() {
 		t.Fatal("expected run-chain runtime to stay available through the external-agent step boundary")
+	}
+}
+
+func TestAppServesManagedAgentRunRoutesAsUnavailableWithoutExecutor(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	requests := []struct {
+		path string
+		body string
+	}{
+		{
+			path: httpapi.RouteStartAgentRun,
+			body: `{"profileId":"profile-alpha","inputs":{"allowUnscoped":true}}`,
+		},
+		{
+			path: httpapi.RouteStopAgentRun,
+			body: `{"runId":"run-alpha"}`,
+		},
+	}
+
+	for _, tc := range requests {
+		request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+tc.path, strings.NewReader(tc.body))
+		if err != nil {
+			t.Fatalf("new request for %s: %v", tc.path, err)
+		}
+		request.Header.Set("Content-Type", "application/json")
+		request.AddCookie(authCookie)
+
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			t.Fatalf("post %s: %v", tc.path, err)
+		}
+		body, _ := io.ReadAll(response.Body)
+		response.Body.Close()
+		if response.StatusCode != http.StatusServiceUnavailable {
+			t.Fatalf("expected 503 for %s, got %d with body %q", tc.path, response.StatusCode, string(body))
+		}
+		if !strings.Contains(string(body), `"code":"managed_agent_run_unavailable"`) {
+			t.Fatalf("expected managed_agent_run_unavailable for %s, got %q", tc.path, string(body))
+		}
+	}
+}
+
+func TestAppServesRunChainRoutesAndPersistedReadback(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+
+	startRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteStartRunChain, strings.NewReader(`{"spec":{"id":"chain-alpha","name":"Chain Alpha","steps":[]}}`))
+	if err != nil {
+		t.Fatalf("new start run chain request: %v", err)
+	}
+	startRequest.Header.Set("Content-Type", "application/json")
+	startRequest.AddCookie(authCookie)
+
+	startResponse, err := http.DefaultClient.Do(startRequest)
+	if err != nil {
+		t.Fatalf("post start run chain: %v", err)
+	}
+	defer startResponse.Body.Close()
+	if startResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(startResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", startResponse.StatusCode, string(body))
+	}
+
+	var started agentruns.Run
+	if err := json.NewDecoder(startResponse.Body).Decode(&started); err != nil {
+		t.Fatalf("decode started run chain: %v", err)
+	}
+	if strings.TrimSpace(started.ID) == "" {
+		t.Fatalf("expected run id, got %#v", started)
+	}
+
+	waitCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	completed, err := app.RunChainRuntime().WaitForRun(waitCtx, started.ID)
+	if err != nil {
+		t.Fatalf("wait for run chain completion: %v", err)
+	}
+	if completed.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed run chain, got %#v", completed)
+	}
+
+	getRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteGetAgentRun, strings.NewReader(`{"runId":"`+started.ID+`"}`))
+	if err != nil {
+		t.Fatalf("new get agent run request: %v", err)
+	}
+	getRequest.Header.Set("Content-Type", "application/json")
+	getRequest.AddCookie(authCookie)
+
+	getResponse, err := http.DefaultClient.Do(getRequest)
+	if err != nil {
+		t.Fatalf("post get agent run: %v", err)
+	}
+	defer getResponse.Body.Close()
+	if getResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(getResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", getResponse.StatusCode, string(body))
+	}
+
+	var fetched agentruns.Run
+	if err := json.NewDecoder(getResponse.Body).Decode(&fetched); err != nil {
+		t.Fatalf("decode fetched run: %v", err)
+	}
+	if fetched.ID != started.ID || fetched.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed fetched run %q, got %#v", started.ID, fetched)
+	}
+
+	listRequest, err := http.NewRequest(http.MethodGet, server.URL+"/api"+httpapi.RouteGetAgentRuns, nil)
+	if err != nil {
+		t.Fatalf("new get agent runs request: %v", err)
+	}
+	listRequest.AddCookie(authCookie)
+
+	listResponse, err := http.DefaultClient.Do(listRequest)
+	if err != nil {
+		t.Fatalf("get agent runs: %v", err)
+	}
+	defer listResponse.Body.Close()
+	if listResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(listResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", listResponse.StatusCode, string(body))
+	}
+
+	var runs []agentruns.Run
+	if err := json.NewDecoder(listResponse.Body).Decode(&runs); err != nil {
+		t.Fatalf("decode runs list: %v", err)
+	}
+	if len(runs) != 1 || runs[0].ID != started.ID {
+		t.Fatalf("expected one run %q in list, got %#v", started.ID, runs)
+	}
+
+	stopRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteStopRunChain, strings.NewReader(`{"runId":"`+started.ID+`"}`))
+	if err != nil {
+		t.Fatalf("new stop run chain request: %v", err)
+	}
+	stopRequest.Header.Set("Content-Type", "application/json")
+	stopRequest.AddCookie(authCookie)
+
+	stopResponse, err := http.DefaultClient.Do(stopRequest)
+	if err != nil {
+		t.Fatalf("post stop run chain: %v", err)
+	}
+	defer stopResponse.Body.Close()
+	if stopResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(stopResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", stopResponse.StatusCode, string(body))
+	}
+
+	var stopped agentruns.Run
+	if err := json.NewDecoder(stopResponse.Body).Decode(&stopped); err != nil {
+		t.Fatalf("decode stopped run chain: %v", err)
+	}
+	if stopped.ID != started.ID || stopped.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed stopped run %q, got %#v", started.ID, stopped)
 	}
 }
 
@@ -1609,6 +1796,23 @@ func testConfig(t *testing.T) config.Config {
 			GlobalSettaFilesBase: filepath.Join(settaHome, "setta_files"),
 			AutoMode:             config.AutoModeCreateLocal,
 		},
+	}
+}
+
+func newAppTestAuthCookie(t *testing.T, app *App) *http.Cookie {
+	t.Helper()
+
+	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+	cookieName, err := app.Auth().CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+	return &http.Cookie{
+		Name:  cookieName,
+		Value: token,
 	}
 }
 

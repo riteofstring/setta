@@ -1044,6 +1044,9 @@ Do not weaken this rule during the rewrite.
      `phase-4-terminal-websocket-app-middleware-regression-hardening.md`
      for the real app-middleware coverage of the completed terminal websocket
      surface
+   - a fifth example is now landed in
+     `phase-14-agent-run-and-run-chain-app-middleware-regression-hardening.md`
+     for the real app-handler coverage of the landed Phase 14 route surface
 5. Treat Go-owned managed `setta_llm` runtime mutation work as explicitly
    deferred unless a later product decision reopens the Phase 14 managed
    `start/stopAgentRun` slice.
