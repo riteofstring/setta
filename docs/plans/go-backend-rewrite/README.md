@@ -703,12 +703,16 @@ Use the docs in this order:
     notification slices and the remaining save / lifecycle transport over the
     landed
     `projectstate` and `projectview` foundations
-192. `spike-mcp.md`
+192. `phase-19-project-lifecycle-mutations-plan.md`
+  - focused current-work plan for the remaining Phase 19 save / create /
+    save-as / delete lifecycle mutation slice over explicit Go project-state,
+    notification, and terminal-cleanup boundaries
+193. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-193. `spike-pty.md`
+194. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-194. `spike-lsp.md`
+195. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

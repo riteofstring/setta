@@ -37,6 +37,8 @@ Current repo status as of 2026-03-10:
     service/route/app coverage
 - the current Phase 19 gap is now narrower:
   - later save/create/save-as/delete lifecycle ownership
+  - that remaining bounded slice is now tracked in
+    `phase-19-project-lifecycle-mutations-plan.md`
 
 ## Scope
 
@@ -357,6 +359,8 @@ Status:
   - `POST /createProjectConfig`
   - `POST /saveAsNewProjectConfig`
   - `POST /deleteProjectConfigs`
+- use `phase-19-project-lifecycle-mutations-plan.md` as the working doc for
+  that implementation
 - keep delete-time cleanup explicit instead of reaching into terminal internals
   from routes
 

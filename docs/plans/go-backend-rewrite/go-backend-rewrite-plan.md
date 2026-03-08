@@ -1617,6 +1617,8 @@ Do not weaken this rule during the rewrite.
      `phase-19-remaining-direct-frontend-route-inventory-and-rerank.md`
    - the next executable phase is recorded in
      `phase-19-project-shell-route-cluster-plan.md`
+   - the remaining bounded lifecycle mutation slice is now tracked in
+     `phase-19-project-lifecycle-mutations-plan.md`
    - the adjacent git read cluster remains the next caller-backed direct
      frontend follow-on after project shell
    - dormant listener-chat, detached-run, and non-caller-backed
