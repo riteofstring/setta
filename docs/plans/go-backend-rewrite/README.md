@@ -659,12 +659,21 @@ Use the docs in this order:
 180. `phase-17-app-gen-skills-and-custom-skill-transport.md`
   - focused completed-slice doc for Go-owned app-gen skill browser and custom-
     skill editor transport over a bounded multi-root filesystem owner
-181. `spike-mcp.md`
+181. `phase-18-remaining-ai-chat-and-transcription-route-inventory-and-rerank.md`
+  - focused closeout inventory doc for the remaining direct frontend
+    Python-owned AI/chat surface after Phase 17, including the reranked split
+    between managed chat, transcription sessions, and dormant chat-section
+    read transport
+182. `phase-18-managed-chat-send-hydrate-stop-and-section-persistence-plan.md`
+  - focused implementation-plan doc for the next executable direct frontend
+    AI slice: managed chat send/hydrate/stop plus chat-section persistence
+    over the landed managed-run, LLM-config, and project-state foundations
+183. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-182. `spike-pty.md`
+184. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-183. `spike-lsp.md`
+185. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

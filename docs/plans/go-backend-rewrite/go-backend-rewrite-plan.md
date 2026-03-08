@@ -35,9 +35,20 @@ direct app-gen skills/custom-skill transport are complete for their bounded
 scopes.
 
 That does not mean the full backend runtime is fully Go-owned. User-facing
-AI/chat routing is still partially Python-owned, but the rewrite no longer
-plans to recreate managed `setta_llm` in Go. The current bounded Go-owned
-Phase 12 surface now includes:
+AI/chat routing is still partially Python-owned. The rewrite still does not
+plan to recreate a broad LiteLLM-equivalent managed runtime in Go, but the
+remaining direct frontend managed-chat surface has now been reranked into a
+bounded Phase 18 follow-on over the landed managed-run foundations:
+
+- managed `setta_llm` `/getLLMResponse`
+- `/getLLMChat`
+- `/stopLLMChat`
+- `/setChatSectionState`
+- `/setChatSectionChatId`
+
+The separate transcription-session runtime remains a later bounded AI follow-on
+instead of being bundled into that managed-chat slice. The current bounded
+Go-owned Phase 12 surface now includes:
 
 - `internal/externalagentconfigs`
   - read access to `external_agents.json`
@@ -1437,18 +1448,20 @@ Do not weaken this rule during the rewrite.
    - a fifth example is now landed in
      `phase-14-agent-run-and-run-chain-app-middleware-regression-hardening.md`
      for the real app-handler coverage of the landed Phase 14 route surface
-5. Treat Go-owned managed `setta_llm` runtime mutation work as explicitly
-   deferred unless a later product decision reopens the Phase 14 managed
-   `start/stopAgentRun` slice.
-6. Rerank the remaining Python-owned direct frontend AI/app-generation surface
-   from real callers after Phase 17 instead of assuming another transport
-   cleanup cluster still exists.
-   - app-gen skills / custom-skill transport is now landed
+5. Keep the clean-break boundary explicit for managed chat work.
+   - do not reopen a broad LiteLLM-equivalent managed runtime
+   - do reuse the landed Phase 14 managed-run foundations for the now-reranked
+     direct frontend managed chat slice
+6. The post-Phase-17 rerank is now complete.
+   - the inventory outcome is recorded in
+     `phase-18-remaining-ai-chat-and-transcription-route-inventory-and-rerank.md`
+   - the next executable slice is recorded in
+     `phase-18-managed-chat-send-hydrate-stop-and-section-persistence-plan.md`
+   - transcription-session runtime remains the next adjacent AI follow-on
+     after the managed-chat slice
    - external `.env` or `llm_config.json` watch parity should only reopen if a
      concrete runtime caller proves that polling or direct mutation responses
      are insufficient
-   - if no direct caller clearly dominates, do bounded inventory work before
-     selecting another app-generation runtime slice
 
 ## Planning Conclusion
 

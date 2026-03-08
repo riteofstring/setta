@@ -173,11 +173,12 @@ This slice delivered:
 
 ## Next Recommended Step
 
-- rerank the remaining direct frontend Python-owned AI/app-generation surface
-  from current callers after this landing instead of assuming watcher parity or
-  a broader app-generation runtime move is next
-- if no concrete direct caller clearly dominates, do bounded inventory work
-  before selecting another runtime slice
+- the rerank work after this landing is now recorded in
+  `phase-18-remaining-ai-chat-and-transcription-route-inventory-and-rerank.md`
+- the next executable slice is now
+  `phase-18-managed-chat-send-hydrate-stop-and-section-persistence-plan.md`
+- transcription-session runtime remains the next adjacent AI follow-on after
+  that managed chat slice, not something to bundle back into Phase 17
 
 ## Progress Notes
 
