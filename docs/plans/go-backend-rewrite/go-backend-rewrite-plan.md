@@ -1927,6 +1927,14 @@ Do not weaken this rule during the rewrite.
      `phase-31-packaged-python-surface-and-dependency-rerank.md`
    - the focused packaged Python boundary slimdown plan is recorded in
      `phase-31-packaged-python-boundary-slimdown-plan.md`
+   - the first Phase 31 slice is now landed for the explicit wheel boundary:
+     - the wheel no longer ships the full `backend/setta` Python module tree
+     - packaged Python modules are now narrowed to `__init__.py`,
+       `__main__.py`, and `entrypoint.py`
+     - current shipped asset buckets remain explicit through wheel
+       `force-include` rather than implicit full-package inclusion
+     - focused packaging tests now prove that dev-only and legacy Python
+       modules do not leak into the wheel
    - Phase 20 is now complete for:
      - `POST /git/status`
      - `POST /git/diff`
@@ -1970,9 +1978,12 @@ Do not weaken this rule during the rewrite.
        legacy/reference Python runtime baggage
      - the next honest work is packaged Python boundary/dependency slimming,
        not another backend route/runtime phase
+   - the wheel-boundary half of that track is now complete
+   - the next selected Phase 31 work is packaged dependency slimming from the
+     explicit wheel boundary
    - dormant listener-chat, detached-run, and non-caller-backed
-     default-project routes should remain out of scope until a concrete caller
-     proves otherwise
+      default-project routes should remain out of scope until a concrete caller
+      proves otherwise
 
 ## Planning Conclusion
 

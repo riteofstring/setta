@@ -84,6 +84,24 @@ Verification:
 - strengthen packaged-distribution tests to assert wheel contents explicitly
 - keep module-entrypoint dispatch coverage
 
+Landed outcome:
+
+- the wheel now includes only:
+  - `backend/setta/__init__.py`
+  - `backend/setta/__main__.py`
+  - `backend/setta/entrypoint.py`
+  - explicit force-included runtime asset trees
+- Slice 1 deliberately preserves the current shipped asset buckets:
+  - `backend/setta/static/frontend`
+  - `backend/setta/agentic/external_adapters/sidecars`
+  - `backend/setta/vendor/node`
+  - `backend/setta/plugins/schemas`
+  - `backend/setta/launcher_artifacts/assets`
+  - `backend/setta/go_bin`
+- `__pycache__` content is now explicitly excluded from the wheel boundary
+- targeted packaging tests now prove that dev-only and legacy Python modules do
+  not leak into the wheel
+
 ### Slice 2: Narrow packaged dependency ownership
 
 Goal:
@@ -154,11 +172,17 @@ Control:
 - whether the repo should continue treating sdist install as a supported dev
   bootstrap path after the wheel boundary is narrowed
 
+## Verification
+
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/start/test_packaged_distribution.py tests/start/test_module_entrypoint.py`
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/start/test_distribution_script_wiring.py`
+- `./build.sh`
+
 ## Next Recommended Step
 
-Implement Slice 1:
+Implement Slice 2:
 
-- make wheel contents explicit
-- add wheel-content verification
-- do not change dependency lists in the same slice unless the explicit wheel
-  boundary makes a small dependency change mechanically necessary
+- narrow packaged dependency ownership from the now-explicit wheel boundary
+- keep source/dev-only reload dependencies out of that first dependency slice
+- only reopen asset directories during Slice 2 if a concrete packaged runtime
+  callsite proves one of the preserved buckets is no longer needed
