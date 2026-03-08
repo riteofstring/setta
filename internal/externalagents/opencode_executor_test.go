@@ -22,8 +22,7 @@ import (
 )
 
 func TestOpenCodeExecutorCompletesRunAndPersistsAssistantOutput(t *testing.T) {
-	t.Parallel()
-
+	// These executor tests launch nested subprocess fixtures, so keep them serial.
 	// Verify the real OpenCode executor persists session state, assistant output,
 	// and the bounded runtime config file for an SDK-backed run.
 	fixture := newOpenCodeExecutorFixture(t, openCodeFixtureOptions{scenario: "complete"})
@@ -93,8 +92,6 @@ func TestOpenCodeExecutorCompletesRunAndPersistsAssistantOutput(t *testing.T) {
 }
 
 func TestOpenCodeExecutorRoutesQuestionResponsesThroughRuntime(t *testing.T) {
-	t.Parallel()
-
 	// Verify the OpenCode executor registers a pending question, accepts the Go
 	// runtime response, and persists both the tool result and assistant follow-up.
 	fixture := newOpenCodeExecutorFixture(t, openCodeFixtureOptions{scenario: "question"})
@@ -173,8 +170,6 @@ type openCodeFixtureOptions struct {
 }
 
 func TestOpenCodeExecutorPersistsToolResultFromCompletedToolPart(t *testing.T) {
-	t.Parallel()
-
 	// Verify completed tool-part state becomes a persisted tool result plus a
 	// summarized run event through the Go-owned OpenCode executor path.
 	fixture := newOpenCodeExecutorFixture(t, openCodeFixtureOptions{scenario: "tool_result_part"})
@@ -245,8 +240,6 @@ func TestOpenCodeExecutorPersistsToolResultFromCompletedToolPart(t *testing.T) {
 }
 
 func TestOpenCodeExecutorPreservesSamePayloadAssistantTextAndToolResult(t *testing.T) {
-	t.Parallel()
-
 	// Verify a single OpenCode payload can persist assistant text, tool-call
 	// metadata, and the matching tool result without dropping the assistant text.
 	fixture := newOpenCodeExecutorFixture(t, openCodeFixtureOptions{scenario: "same_payload"})
@@ -309,8 +302,6 @@ func TestOpenCodeExecutorPreservesSamePayloadAssistantTextAndToolResult(t *testi
 }
 
 func TestOpenCodeExecutorPersistsServerModeMCPStatusSnapshot(t *testing.T) {
-	t.Parallel()
-
 	// Verify server-mode runs merge runtime-config seeding with fetched `/mcp`
 	// status payloads and persist the resulting snapshot into run outputs.
 	statusServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -519,7 +510,7 @@ func newOpenCodeExecutorFixture(t *testing.T, options openCodeFixtureOptions) op
 func (f openCodeExecutorFixture) waitForTerminalRun(t *testing.T, runID string) agentruns.Run {
 	t.Helper()
 
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(executorFixtureTerminalTimeout)
 	for time.Now().Before(deadline) {
 		run, err := f.runs.Load(runID)
 		if err != nil {
@@ -537,7 +528,7 @@ func (f openCodeExecutorFixture) waitForTerminalRun(t *testing.T, runID string) 
 func (f openCodeExecutorFixture) waitForLiveStateCleanup(t *testing.T, runID string) {
 	t.Helper()
 
-	deadline := time.Now().Add(2 * time.Second)
+	deadline := time.Now().Add(executorFixtureCleanupTimeout)
 	for time.Now().Before(deadline) {
 		liveState, err := f.runtime.GetLiveChatState(runID)
 		if err != nil {
@@ -554,7 +545,7 @@ func (f openCodeExecutorFixture) waitForLiveStateCleanup(t *testing.T, runID str
 func (f openCodeExecutorFixture) waitForQuestion(t *testing.T, runID string, toolCallID string) {
 	t.Helper()
 
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(executorFixtureEventTimeout)
 	for time.Now().Before(deadline) {
 		run, err := f.runs.Load(runID)
 		if err != nil {

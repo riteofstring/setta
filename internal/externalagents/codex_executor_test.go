@@ -20,8 +20,7 @@ import (
 )
 
 func TestCodexExecutorCompletesRunAndPersistsAssistantOutput(t *testing.T) {
-	t.Parallel()
-
+	// These tests launch nested subprocess fixtures, so keep them serial.
 	fixture := newCodexExecutorFixture(t, "complete")
 	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
 		Message: map[string]any{
@@ -69,8 +68,6 @@ func TestCodexExecutorCompletesRunAndPersistsAssistantOutput(t *testing.T) {
 }
 
 func TestCodexExecutorRoutesApprovalResponsesThroughRuntime(t *testing.T) {
-	t.Parallel()
-
 	fixture := newCodexExecutorFixture(t, "approval")
 	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
 		Message: map[string]any{
@@ -291,8 +288,6 @@ func TestApplyCodexResponseItemPreservesReasoningAndText(t *testing.T) {
 }
 
 func TestCodexExecutorPersistsRichResponseItemsAndMCPStatusSnapshot(t *testing.T) {
-	t.Parallel()
-
 	fixture := newCodexExecutorFixture(t, "rich")
 	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
 		Message: map[string]any{
@@ -375,8 +370,6 @@ func TestCodexExecutorPersistsRichResponseItemsAndMCPStatusSnapshot(t *testing.T
 }
 
 func TestCodexExecutorPersistsRawToolItemsAndBufferedOutput(t *testing.T) {
-	t.Parallel()
-
 	fixture := newCodexExecutorFixture(t, "raw")
 	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
 		Message: map[string]any{
@@ -680,7 +673,7 @@ func newCodexExecutorFixture(t *testing.T, scenario string) codexExecutorFixture
 func (f codexExecutorFixture) waitForTerminalRun(t *testing.T, runID string) agentruns.Run {
 	t.Helper()
 
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(executorFixtureTerminalTimeout)
 	for time.Now().Before(deadline) {
 		run, err := f.runs.Load(runID)
 		if err != nil {
@@ -698,7 +691,7 @@ func (f codexExecutorFixture) waitForTerminalRun(t *testing.T, runID string) age
 func (f codexExecutorFixture) waitForLiveStateCleanup(t *testing.T, runID string) {
 	t.Helper()
 
-	deadline := time.Now().Add(2 * time.Second)
+	deadline := time.Now().Add(executorFixtureCleanupTimeout)
 	for time.Now().Before(deadline) {
 		liveState, err := f.runtime.GetLiveChatState(runID)
 		if err != nil {
@@ -715,7 +708,7 @@ func (f codexExecutorFixture) waitForLiveStateCleanup(t *testing.T, runID string
 func (f codexExecutorFixture) waitForApproval(t *testing.T, runID string, approvalID string) {
 	t.Helper()
 
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(executorFixtureEventTimeout)
 	for time.Now().Before(deadline) {
 		run, err := f.runs.Load(runID)
 		if err != nil {

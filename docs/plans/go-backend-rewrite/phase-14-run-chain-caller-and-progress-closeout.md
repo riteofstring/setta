@@ -110,6 +110,9 @@ The current Go run-chain runtime:
   Phase 14 run-chain surface.
 - 2026-03-09: confirmed there is no live frontend caller for run-chain
   mutation routes and no Python-owned dedicated run-chain realtime surface.
+- 2026-03-09: the first bounded follow-on after this closeout landed in
+  `phase-14-executor-fixture-stability-and-regression-hardening.md` to keep
+  the real external-agent executor regression suite deterministic under load.
 
 ## Verification
 
@@ -118,5 +121,7 @@ The current Go run-chain runtime:
 ## Next Recommended Step
 
 - treat Phase 14 as complete for the current clean-break rewrite scope
+- use `phase-14-executor-fixture-stability-and-regression-hardening.md` as the
+  current stabilization baseline for the completed agentic runtime surface
 - only reopen run-chain work for a concrete new caller or a product decision
   to add a dedicated chain-progress UX beyond persisted run polling

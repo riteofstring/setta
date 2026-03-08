@@ -547,8 +547,9 @@ Use the docs in this order:
     surface has no remaining caller-backed or realtime-parity gap under the
     current clean-break scope
 161. `phase-14-executor-fixture-stability-and-regression-hardening.md`
-  - focused stabilization doc for the real subprocess-backed external-agent
-    executor regression suite after the landed Phase 14 runtime closeout
+  - focused completed-slice doc for the real subprocess-backed external-agent
+    executor regression suite stabilization after the landed Phase 14 runtime
+    closeout
 162. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
 163. `spike-pty.md`

@@ -21,8 +21,7 @@ import (
 )
 
 func TestClaudeExecutorCompletesRunAndPersistsAssistantOutput(t *testing.T) {
-	t.Parallel()
-
+	// These tests launch nested subprocess fixtures, so keep them serial.
 	fixture := newClaudeExecutorFixture(t, "complete")
 	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
 		Message: map[string]any{
@@ -87,8 +86,6 @@ func TestClaudeExecutorCompletesRunAndPersistsAssistantOutput(t *testing.T) {
 }
 
 func TestClaudeExecutorRoutesApprovalResponsesThroughRuntime(t *testing.T) {
-	t.Parallel()
-
 	fixture := newClaudeExecutorFixture(t, "approval")
 	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
 		Message: map[string]any{
@@ -147,8 +144,6 @@ func TestClaudeExecutorRoutesApprovalResponsesThroughRuntime(t *testing.T) {
 }
 
 func TestClaudeExecutorRoutesQuestionResponsesThroughRuntime(t *testing.T) {
-	t.Parallel()
-
 	fixture := newClaudeExecutorFixture(t, "question")
 	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
 		Message: map[string]any{
@@ -218,8 +213,6 @@ func TestClaudeExecutorRoutesQuestionResponsesThroughRuntime(t *testing.T) {
 }
 
 func TestClaudeExecutorPersistsToolResultAndMCPStatusSnapshot(t *testing.T) {
-	t.Parallel()
-
 	// Verify Claude rich stream events now persist tool-result messages/events
 	// and keep MCP runtime status snapshots after live-run cleanup.
 	fixture := newClaudeExecutorFixture(t, "tool_result_and_mcp_status")
@@ -307,8 +300,6 @@ func TestClaudeExecutorPersistsToolResultAndMCPStatusSnapshot(t *testing.T) {
 }
 
 func TestClaudeExecutorSeededUnknownMCPStatusDoesNotOverridePayloadStatus(t *testing.T) {
-	t.Parallel()
-
 	// Verify config-backed unknown Claude MCP rows seed first and then yield to
 	// runtime-reported payload state for the same server.
 	fixture := newClaudeExecutorFixture(t, "complete")
@@ -521,7 +512,7 @@ func newClaudeExecutorFixture(t *testing.T, scenario string) claudeExecutorFixtu
 func (f claudeExecutorFixture) waitForTerminalRun(t *testing.T, runID string) agentruns.Run {
 	t.Helper()
 
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(executorFixtureTerminalTimeout)
 	for time.Now().Before(deadline) {
 		run, err := f.runs.Load(runID)
 		if err != nil {
@@ -539,7 +530,7 @@ func (f claudeExecutorFixture) waitForTerminalRun(t *testing.T, runID string) ag
 func (f claudeExecutorFixture) waitForLiveStateCleanup(t *testing.T, runID string) {
 	t.Helper()
 
-	deadline := time.Now().Add(2 * time.Second)
+	deadline := time.Now().Add(executorFixtureCleanupTimeout)
 	for time.Now().Before(deadline) {
 		liveState, err := f.runtime.GetLiveChatState(runID)
 		if err != nil {
@@ -556,7 +547,7 @@ func (f claudeExecutorFixture) waitForLiveStateCleanup(t *testing.T, runID strin
 func (f claudeExecutorFixture) waitForApproval(t *testing.T, runID string, approvalID string) {
 	t.Helper()
 
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(executorFixtureEventTimeout)
 	for time.Now().Before(deadline) {
 		run, err := f.runs.Load(runID)
 		if err != nil {
@@ -573,7 +564,7 @@ func (f claudeExecutorFixture) waitForApproval(t *testing.T, runID string, appro
 func (f claudeExecutorFixture) waitForQuestion(t *testing.T, runID string, toolCallID string) {
 	t.Helper()
 
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(executorFixtureEventTimeout)
 	for time.Now().Before(deadline) {
 		run, err := f.runs.Load(runID)
 		if err != nil {

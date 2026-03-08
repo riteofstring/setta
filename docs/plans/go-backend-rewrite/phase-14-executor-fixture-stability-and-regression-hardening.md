@@ -2,8 +2,8 @@
 
 ## Purpose
 
-This doc scopes the first bounded stabilization slice after the landed Phase 14
-runtime closeout.
+This doc records the first bounded stabilization slice after the landed Phase
+14 runtime closeout.
 
 The goal of this slice is not to reopen runtime ownership. It is to make the
 completed external-agent executor regression suite deterministic under normal
@@ -22,16 +22,19 @@ Completed before this slice:
 - Phase 14 managed and run-chain runtime ownership
 - Phase 14 caller/progress closeout confirming no remaining route/runtime gap
 
-Current remaining issue after those landings:
+Current Go state after this slice:
 
-- `internal/externalagents` still has subprocess-backed executor tests that can
-  fail transiently when many of them run in parallel
-- the observed failure mode is fixture-process instability and temp-dir cleanup
-  noise rather than a persistent product regression
+- `internal/externalagents`
+  - still keeps real subprocess-backed executor coverage for Codex, OpenCode,
+    and Claude
+  - now runs only the subprocess-backed executor lifecycle tests serially while
+    leaving pure helper/parser coverage parallel
+- shared executor-fixture wait constants now make terminal-state, cleanup, and
+  approval/question waits explicit instead of scattering short ad hoc timeouts
 
 ## Scope
 
-This slice should deliver:
+This slice delivered:
 
 - bounded stabilization of the real executor regression tests in:
   - `internal/externalagents/codex_executor_test.go`
@@ -75,7 +78,8 @@ This slice should deliver:
      `t.Parallel()`.
 
 4. Verify stability with repeated package runs.
-   - A single green run is not enough for this slice.
+   - This slice now has both repeated executor-only verification and a full
+     package rerun after the test changes landed.
 
 ## Verification
 
@@ -89,9 +93,16 @@ This slice should deliver:
 - keep this as a test-only stabilization slice instead of broadening into
   runtime code changes
 
+## Progress Notes
+
+- 2026-03-09: opened the focused stabilization slice for the real
+  subprocess-backed external-agent executor tests.
+- 2026-03-09: landed serial execution for the subprocess-backed Codex,
+  OpenCode, and Claude executor lifecycle tests plus shared wait constants for
+  the affected fixtures.
+
 ## Next Recommended Step
 
-- if this slice lands cleanly, treat the executor regression suite as the
-  current stabilization baseline
+- treat the executor regression suite as the current stabilization baseline
 - only reopen the agentic runtime area for a concrete new caller or feature
   request, not for speculative parity work

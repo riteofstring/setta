@@ -449,6 +449,14 @@ clean-break scope. The closeout inventory tracked in
 
 New work here should now come only from a new caller-backed or product-backed
 feature request, not from any remaining route/runtime ownership or parity gap.
+The first bounded post-closeout stabilization slice is now also landed in
+`phase-14-executor-fixture-stability-and-regression-hardening.md`:
+
+- real subprocess-backed Codex/OpenCode/Claude executor lifecycle tests remain
+  in place as the Go-side capability baseline
+- those tests now run serially where they launch nested fixture processes, so
+  the package keeps real adapter coverage without the earlier package-load
+  flake
 
 ## Current Reality
 
@@ -1024,6 +1032,8 @@ Do not weaken this rule during the rewrite.
    owners still have thin regression protection, but do not use that as a
    substitute for choosing a concrete next caller-backed or product-backed
    Python-owned agentic follow-on.
+   - the first example of that is now landed in
+     `phase-14-executor-fixture-stability-and-regression-hardening.md`
 5. Treat Go-owned managed `setta_llm` runtime mutation work as explicitly
    deferred unless a later product decision reopens the Phase 14 managed
    `start/stopAgentRun` slice.
