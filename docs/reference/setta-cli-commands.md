@@ -2,12 +2,9 @@
 
 This doc covers the commands exposed by the shipped `setta` CLI. The published
 entrypoint now uses `backend/setta/entrypoint.py` as a thin dispatcher:
-Go-owned commands are handed off to packaged Go binaries, while the remaining
+Go-owned commands are handed off to packaged Go binaries, while any remaining
 Python-owned local commands still route through `backend/setta/start.py`.
-`setta plugins` is currently split:
-`init`, `validate`, `list`, `rescan`, `restart-required`, `link`, `enable`,
-`disable`, `uninstall`, `rollback`, and `lock write` are Go-owned; the
-remaining plugin subcommands still route through Python.
+`setta plugins` is now fully Go-owned in the shipped CLI.
 Local commands operate on a workspace root (code operations) and a
 `setta_files` root (state/runtime). By default both roots follow the current
 working directory and the default Setta home, but you can override runtime
@@ -318,7 +315,7 @@ Subcommands:
   - Ownership: Go.
 - `setta plugins restart [--json]`
   - Request programmatic backend restart when available.
-  - Ownership: Python.
+  - Ownership: Go.
 - `setta plugins restart-required [--json]`
   - List plugins pending backend restart and restart capability details.
   - Ownership: Go.

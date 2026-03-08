@@ -31,6 +31,7 @@ _GO_OWNED_SUBCOMMANDS = {
             "update",
             "pin",
             "rescan",
+            "restart",
             "restart-required",
             "link",
             "enable",

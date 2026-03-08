@@ -188,6 +188,55 @@ func TestRunPluginsRestartRequiredTextAndJSON(t *testing.T) {
 	}
 }
 
+// Plugins restart should preserve the shipped manual-only text/JSON contract in the packaged Go CLI.
+func TestRunPluginsRestartTextAndJSON(t *testing.T) {
+	t.Parallel()
+
+	cwd := t.TempDir()
+
+	stdout, stderr, err := runPluginsSettaCommand(t, cwd, "plugins", "restart")
+	if err != nil {
+		t.Fatalf("run plugins restart text: %v", err)
+	}
+	if stderr != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if !strings.Contains(stdout, "Programmatic restart unavailable.") {
+		t.Fatalf("expected unavailable message, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "Run: setta") {
+		t.Fatalf("expected manual command line, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "Programmatic restart is not available in this runtime.") {
+		t.Fatalf("expected manual reason line, got %q", stdout)
+	}
+
+	jsonStdout, jsonStderr, err := runPluginsSettaCommand(t, cwd, "plugins", "restart", "--json")
+	if err != nil {
+		t.Fatalf("run plugins restart json: %v", err)
+	}
+	if jsonStderr != "" {
+		t.Fatalf("expected empty stderr, got %q", jsonStderr)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(jsonStdout), &payload); err != nil {
+		t.Fatalf("decode restart json: %v", err)
+	}
+	if got := payload["accepted"]; got != false {
+		t.Fatalf("unexpected accepted flag %#v", got)
+	}
+	if got := payload["mode"]; got != "manual" {
+		t.Fatalf("unexpected restart mode %#v", got)
+	}
+	if got := payload["command"]; got != "setta" {
+		t.Fatalf("unexpected restart command %#v", got)
+	}
+	if got := payload["reason"]; got != "Programmatic restart is not available in this runtime." {
+		t.Fatalf("unexpected restart reason %#v", got)
+	}
+}
+
 // Plugins init should scaffold a plugin template that validate accepts immediately.
 func TestRunPluginsInitAndValidateText(t *testing.T) {
 	t.Parallel()

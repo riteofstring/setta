@@ -68,7 +68,7 @@ func runPlugins(args []string, global globalFlags, stdout io.Writer, stderr io.W
 	if len(args) == 0 {
 		return &ExitError{
 			Code: 2,
-			Err:  fmt.Errorf("missing plugins subcommand (supported: init, validate, list, install, update, pin, rescan, restart-required, link, enable, disable, uninstall, rollback, lock)"),
+			Err:  fmt.Errorf("missing plugins subcommand (supported: init, validate, list, install, update, pin, rescan, restart, restart-required, link, enable, disable, uninstall, rollback, lock)"),
 		}
 	}
 
@@ -87,6 +87,8 @@ func runPlugins(args []string, global globalFlags, stdout io.Writer, stderr io.W
 		return runPluginsPin(args[1:], global, stdout, stderr, envLookup, cwd)
 	case "rescan":
 		return runPluginsRescan(args[1:], global, stdout, stderr, envLookup, cwd)
+	case "restart":
+		return runPluginsRestart(args[1:], global, stdout, stderr, envLookup, cwd)
 	case "restart-required":
 		return runPluginsRestartRequired(args[1:], global, stdout, stderr, envLookup, cwd)
 	case "link":
@@ -466,6 +468,43 @@ func runPluginsRestartRequired(args []string, global globalFlags, stdout io.Writ
 	}
 	if summary.RestartCapability.Reason != nil && strings.TrimSpace(*summary.RestartCapability.Reason) != "" {
 		if _, err := fmt.Fprintln(stdout, *summary.RestartCapability.Reason); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func runPluginsRestart(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string) error {
+	parsed, err := parsePluginsFlags("plugins restart", args, stderr)
+	if err != nil {
+		return err
+	}
+
+	service, err := resolvePluginsService(global, envLookup, cwd)
+	if err != nil {
+		return &ExitError{Code: 2, Err: err}
+	}
+	result, err := service.Restart(context.Background())
+	if err != nil {
+		return asPluginsCommandError(err)
+	}
+	if parsed.jsonOutput {
+		return writeJSONPayload(stdout, result)
+	}
+	if result.Accepted {
+		_, err := fmt.Fprintln(stdout, "Restart request accepted.")
+		return err
+	}
+	if _, err := fmt.Fprintln(stdout, "Programmatic restart unavailable."); err != nil {
+		return err
+	}
+	if result.Command != nil && strings.TrimSpace(*result.Command) != "" {
+		if _, err := fmt.Fprintf(stdout, "Run: %s\n", *result.Command); err != nil {
+			return err
+		}
+	}
+	if result.Reason != nil && strings.TrimSpace(*result.Reason) != "" {
+		if _, err := fmt.Fprintln(stdout, *result.Reason); err != nil {
 			return err
 		}
 	}

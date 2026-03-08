@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -61,6 +62,13 @@ type RestartRequiredResponse struct {
 	PendingPluginIDs              []string          `json:"pendingPluginIds"`
 	PendingPluginIDsWithoutStatus []string          `json:"pendingPluginIdsWithoutStatus"`
 	RestartCapability             RestartCapability `json:"restartCapability"`
+}
+
+type PluginRestartResult struct {
+	Accepted bool                  `json:"accepted"`
+	Mode     RestartCapabilityMode `json:"mode"`
+	Command  *string               `json:"command"`
+	Reason   *string               `json:"reason"`
 }
 
 type statusEntryRuntimeDigestPayload struct {
@@ -129,6 +137,23 @@ func (s *Service) RestartRequiredSummary() (RestartRequiredResponse, error) {
 		PendingPluginIDs:              pendingIDs,
 		PendingPluginIDsWithoutStatus: pendingIDsWithoutStatus,
 		RestartCapability:             s.restartCapability(),
+	}, nil
+}
+
+func (s *Service) Restart(_ context.Context) (PluginRestartResult, error) {
+	if s == nil {
+		return PluginRestartResult{}, ErrWorkspaceRootRequired
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	capability := s.restartCapability()
+	return PluginRestartResult{
+		Accepted: false,
+		Mode:     capability.Mode,
+		Command:  cloneOptionalString(capability.Command),
+		Reason:   cloneOptionalString(capability.Reason),
 	}, nil
 }
 

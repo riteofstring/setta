@@ -394,11 +394,11 @@ Use the docs in this order:
 128. `phase-11-plugin-source-acquisition-and-convergence-stage7.md`
   - focused implementation-plan doc for the completed candidate-provider-backed
     plugin source acquisition and lockfile convergence slice: Go-owned
-    `setta plugins install|update|pin|lock apply`, leaving only
-    `plugins restart` separate
+    `setta plugins install|update|pin|lock apply`
 129. `phase-11-plugin-restart-stage8.md`
-  - focused implementation-plan doc for the last packaged plugin CLI gap:
-    Go-owned manual-only `setta plugins restart`
+  - focused implementation-plan doc for the completed final packaged plugin
+    CLI gap: Go-owned manual-only `setta plugins restart`, closing the shipped
+    plugin CLI migration
 130. `spike-mcp.md`
    - MCP uncertainty-reduction plan
 131. `spike-pty.md`

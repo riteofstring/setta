@@ -33,8 +33,10 @@ As of 2026-03-08:
   - `pin`
   - `lock write`
   - `lock apply`
-- Python still owns only the remaining packaged CLI plugin command:
-  - `restart`
+- Go now also owns the completed packaged CLI restart slice:
+  - shared restart response ownership in `internal/plugins`
+  - `setta plugins restart` in `internal/settacmd`
+  - module entrypoint dispatch for the completed restart subcommand
 - Python runtime/router code still owns the only live programmatic restart
   callback boundary:
   - `PluginManager(restart_callback=...)`
@@ -165,12 +167,21 @@ Do not include:
   - the packaged CLI behavior is already manual-only
   - the bounded migration target is therefore `plugins restart` transport
     ownership, not runtime-hook parity
+- 2026-03-08: completed the packaged CLI restart handoff.
+  - Go now owns the shared restart response payload in `internal/plugins`
+  - `setta plugins restart` now routes through the shipped Go CLI
+  - the packaged plugin CLI migration is now complete
+
+## Verification
+
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/plugins ./internal/settacmd -count=1 -timeout 300s`
+- `source activate.sh && python -m pytest tests/start/test_module_entrypoint.py -q`
+- `git diff --check`
 
 ## Recommended Next Step
 
-Implement the manual-only `plugins restart` Go CLI handoff:
+Treat the packaged plugin CLI migration as complete.
 
-1. add the shared restart result/method in `internal/plugins`
-2. expose `setta plugins restart` through `internal/settacmd`
-3. route the module entrypoint to Go
-4. update the Phase 11 docs to mark the plugin CLI migration complete
+Recommended follow-on: keep any future restart-hook work out of the Phase 11
+maintenance-command track unless it is explicitly scoped as runtime ownership
+rather than CLI transport parity.

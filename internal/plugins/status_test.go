@@ -136,6 +136,29 @@ func TestServiceRestartRequiredSummaryIncludesPendingIDsWithoutStatus(t *testing
 	}
 }
 
+// Restart should preserve the shipped manual-only packaged CLI payload until a real Go restart hook exists.
+func TestServiceRestartReturnsManualCapabilityPayload(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	result, err := service.Restart(context.Background())
+	if err != nil {
+		t.Fatalf("restart service: %v", err)
+	}
+	if result.Accepted {
+		t.Fatalf("expected manual restart payload to be rejected")
+	}
+	if result.Mode != RestartCapabilityModeManual {
+		t.Fatalf("expected manual restart mode, got %#v", result.Mode)
+	}
+	if result.Command == nil || *result.Command != "setta" {
+		t.Fatalf("expected manual restart command, got %#v", result.Command)
+	}
+	if result.Reason == nil || *result.Reason != "Programmatic restart is not available in this runtime." {
+		t.Fatalf("unexpected restart reason %#v", result.Reason)
+	}
+}
+
 func writePluginFile(root string, relativePath string, content string) error {
 	path := filepath.Join(root, relativePath)
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

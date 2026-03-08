@@ -55,14 +55,14 @@ As of 2026-03-08:
   - thin `setta plugins install|update|pin` routing in `internal/settacmd`
   - thin `setta plugins lock apply` routing in `internal/settacmd`
   - selective Python-entrypoint dispatch for those completed subcommands
-- Python still owns the remaining maintenance/authoring commands in
-  `backend/setta/start.py`:
-  - `plugins restart`
+- Go now also owns the plugin restart slice:
+  - shared restart response ownership in `internal/plugins`
+  - thin `setta plugins restart` routing in `internal/settacmd`
+  - selective Python-entrypoint dispatch for the completed restart subcommand
 - Go already owns substantial plugin runtime and mutation foundations in:
   - `internal/plugins`
   - `internal/mcpx`
-- Go already owns a shipped CLI boundary for the completed `plugins` slices,
-  but not the whole plugin command cluster
+- Go now owns the whole packaged plugin command cluster in the shipped CLI
 
 ## Inputs
 
@@ -135,8 +135,9 @@ As of 2026-03-08:
      - `init`
      - `validate`
      - `link`
-   - Go does not yet own the remaining CLI-facing plugin behavior:
-     - `plugins restart`
+   - Go now owns the full packaged plugin CLI surface
+   - Python still owns separate runtime/router restart callback behavior, but
+     that is no longer a maintenance-command gap
    - rewrite implication:
      - plugin CLI parity should be its own dedicated slice, not bundled with
        `backups` or `export-db`
@@ -187,13 +188,11 @@ Phase 11 Stage 6 is now complete in
 Phase 11 Stage 7 is now complete in
 `phase-11-plugin-source-acquisition-and-convergence-stage7.md`.
 
-Phase 11 Stage 8 is now planned in
+Phase 11 Stage 8 is now complete in
 `phase-11-plugin-restart-stage8.md`.
 
-The only remaining Python-owned plugin command is the separate restart
-surface scheduled by that plan:
-
-- `plugins restart`
+There are no remaining Python-owned commands in the packaged maintenance
+command inventory.
 
 ## Progress Notes
 
@@ -270,9 +269,14 @@ surface scheduled by that plan:
     restart`
   - the stage is scoped as a manual-only Go transport migration, not a new
     runtime restart-hook implementation
+- 2026-03-08: completed the plugin Stage 8 slice.
+  - `setta plugins restart` is now Go-owned in the shipped CLI
+  - the packaged plugin command cluster is now fully Go-owned
+  - Phase 11 no longer has Python-owned packaged maintenance commands in this
+    inventory
 
 ## Verification
 
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/buildinfo ./internal/plugins ./internal/settacmd -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/plugins ./internal/settacmd -count=1 -timeout 300s`
 - `source activate.sh && python -m pytest tests/start/test_module_entrypoint.py -q`
 - `git diff --check`

@@ -49,7 +49,8 @@ As of 2026-03-08:
   - shipped `setta plugins install|update|pin|lock apply` transport in
     `internal/settacmd`
   - selective Python entrypoint dispatch for those completed subcommands
-- Python now owns only the remaining `plugins restart` command
+- a later Stage 8 follow-on closes the remaining packaged `plugins restart`
+  command
 
 ## Inputs
 
@@ -259,7 +260,7 @@ Do not include:
   - `setta plugins install|update|pin|lock apply` are now Go-owned in the
     packaged CLI
   - `backend/setta/entrypoint.py` now routes those completed subcommands to Go
-  - `plugins restart` stays on Python intentionally
+  - a later Stage 8 follow-on closes `plugins restart`
 
 ## Verification
 
@@ -269,19 +270,6 @@ Do not include:
 
 ## Recommended Next Step
 
-Plan the remaining `plugins restart` slice explicitly instead of folding it
-into another command batch.
-
-Recommended option: keep `plugins restart` on Python until the shipped Go
-local runtime exposes a real restart boundary.
-
-Rationale:
-
-- `restart-required` already exposes the manual-capability truth from Go
-- a manual-only wrapper would add command-surface churn without reducing the
-  real ownership gap
-- a later dedicated stage can decide cleanly between a real Go hook and an
-  intentionally manual-only transport
-
-That follow-on planning now lives in
+The Stage 8 follow-on that closed the remaining packaged CLI restart gap lives
+in
 `phase-11-plugin-restart-stage8.md`.
