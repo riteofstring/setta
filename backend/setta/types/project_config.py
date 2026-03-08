@@ -100,6 +100,7 @@ class WindowSpaceWindow(BaseModel, extra="forbid"):
             surface_kind=self.surfaceKind,
             mode=self.mode,
             section_id=self.sectionIdOrNull,
+            chat_id=self.chatId,
         )
         return self
 

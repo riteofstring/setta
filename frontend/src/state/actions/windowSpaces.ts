@@ -870,10 +870,7 @@ function resolveBoundWorkspaceRestoreOwnerKey(
 function resolveReusableWorkspaceRestoreOwnerKey(
   instance: ProjectChatWindowInstance,
 ): string | null {
-  if (
-    instance.placement !== ChatWindowPlacementEnum.floating ||
-    instance.chatId === null
-  ) {
+  if (instance.placement !== ChatWindowPlacementEnum.floating) {
     return null;
   }
   return resolveBoundWorkspaceRestoreOwnerKey(instance);

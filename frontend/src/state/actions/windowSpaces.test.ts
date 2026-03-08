@@ -2217,6 +2217,84 @@ describe("restoreWindowSpaceInWorkspace", () => {
     ).toBe("saved-section-thread");
   });
 
+  it("reuses the live section-backed project-chat instance before the first thread exists", async () => {
+    const sectionState = buildChatSectionState("section-1");
+    const windowSpace = {
+      id: "space-1",
+      name: "Focused Layout",
+      sortIndex: 0,
+      windowsById: {
+        "saved-section-window": {
+          surfaceKind: "section",
+          sectionIdOrNull: "section-1",
+          mode: ChatWindowModeEnum.project_ai_mode,
+          chatId: null,
+          zIndex: 5,
+          normalizedBounds: {
+            x: 0.1,
+            y: 0.15,
+            width: 0.45,
+            height: 0.5,
+          },
+        },
+      },
+      order: ["saved-section-window"],
+    };
+    const expectedRestoredWindow =
+      createProjectChatWindowingStateFromWindowSpace(windowSpace, {
+        sections: sectionState.sections,
+      }).instancesById["saved-section-window"];
+    if (!expectedRestoredWindow) {
+      throw new Error("Expected restored section window snapshot.");
+    }
+    useProjectState.setState({
+      ...sectionState,
+      projectConfig: createProjectConfig({
+        ...sectionState.projectConfig,
+        windowSpaces: {
+          "space-1": windowSpace,
+        },
+      }),
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["live-section-window"],
+        instancesById: {
+          "live-section-window": {
+            instanceId: "live-section-window",
+            placement: ChatWindowPlacementEnum.floating,
+            mode: ChatWindowModeEnum.project_ai_mode,
+            sectionIdOrNull: "section-1",
+            chatId: null,
+            zIndex: 2,
+            bounds: {
+              x: 520,
+              y: 160,
+              width: 280,
+              height: 220,
+            },
+          },
+        },
+        nextInstanceNumber: 2,
+      }),
+    });
+
+    await restoreWindowSpaceInWorkspace("space-1");
+
+    expect(routeSetProjectChatWindowChatIdMock).not.toHaveBeenCalled();
+
+    const nextState = useProjectState.getState().projectChatWindowing;
+    expect(nextState.order).toEqual(["live-section-window"]);
+    expect(nextState.instancesById["saved-section-window"]).toBeUndefined();
+    expect(nextState.instancesById["live-section-window"]).toMatchObject({
+      instanceId: "live-section-window",
+      placement: ChatWindowPlacementEnum.floating,
+      mode: ChatWindowModeEnum.project_ai_mode,
+      sectionIdOrNull: "section-1",
+      chatId: null,
+      zIndex: expectedRestoredWindow.zIndex,
+      bounds: expectedRestoredWindow.bounds,
+    });
+  });
+
   it("does not start thread rebinding when the restore layout write is rejected", async () => {
     useProjectState.setState({
       projectConfig: createProjectConfig({

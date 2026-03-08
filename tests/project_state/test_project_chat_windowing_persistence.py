@@ -663,6 +663,30 @@ async def test_create_window_space_from_authoritative_windowing_excludes_stale_s
         assert persisted_window_space.order == ["project-chat-window-1"]
 
 
+def test_create_window_space_request_rejects_non_project_ai_chat_ids() -> None:
+    # Request validation should reject impossible saved layouts before they
+    # reach manager persistence.
+    with pytest.raises(
+        ValidationError,
+        match="Window-space windows must use project_ai_mode to bind chatId",
+    ):
+        CreateWindowSpaceRequest(
+            projectConfigId="project-id",
+            name="Focused Layout",
+            state={
+                "windowsById": {
+                    "section-window": {
+                        "surfaceKind": "section",
+                        "sectionIdOrNull": "section-1",
+                        "mode": "section_mode",
+                        "chatId": "stale-chat",
+                    }
+                },
+                "order": ["section-window"],
+            },
+        )
+
+
 async def _create_linked_chat_sections(
     manager,
 ) -> tuple[ID, ID, ID]:

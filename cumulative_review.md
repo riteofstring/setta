@@ -1260,3 +1260,34 @@ Verification:
 - `source activate.sh && pytest tests/routers/test_mcp_linked_chat_tool.py -q -k 'cleans_up_binding_when_managed_start_fails or releases_reservation_when_mark_started_fails or blocks_overlapping_runs_for_fresh_targets or blocks_overlapping_runs_for_existing_targets'` passed: 4 tests selected, 32 deselected.
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/layout/window-space-layout-permissions.spec.ts` passed: 4 tests.
 - CDP verification on the live dev instance at `http://127.0.0.1:3098/peak_wise?__setta_backend_origin=http://127.0.0.1:8098` seeded a disposable project in sharing mode, clicked `Restore Research Board`, observed the explicit denial notification, and confirmed the workspace still contained only the pre-existing `live-window`.
+
+## 2026-03-11 14:14:10 PDT
+
+Implemented the three remaining correctness fixes from the consolidated reviews and removed the last inconsistent authority rules around linked-chat startup, saved window-space thread persistence, and section-owned workspace restore identity.
+
+What changed:
+- Refactored `backend/setta/agentic/linked_chat_invocation.py` so pre-start linked-chat failures are handled by one lifecycle-based cleanup path instead of exception-class-specific branches. `_start_linked_chat_run(...)` now treats `start_run(...)` plus `mark_linked_chat_section_run_started(...)` as one atomic pre-commit phase: any exception there releases the section reservation, rolls back pending MCP run-start authorization, and returns `run_start_failed`.
+- Tightened `backend/setta/types/project_chat_windowing.py`, `backend/setta/types/project_config.py`, and `backend/setta/types/project_state.py` so persisted window-space `chatId` is only legal for `project_ai_mode`. Saved `section_mode` and `git_graph_mode` windows can no longer carry stale direct thread bindings through backend validation or manager request parsing.
+- Simplified `frontend/src/state/actions/windowSpaces.ts` by removing the extra `chatId !== null` gate from reusable-owner resolution. Floating section-owned `project_ai_mode` windows now reuse their live `instanceId` during restore based on `section:${sectionId}` ownership even before the first thread exists.
+- Added focused regression coverage instead of widening existing broad tests:
+  - backend model/request validation for invalid persisted `chatId` payloads
+  - managed and external linked-chat startup failures with unexpected exception types
+  - deployment rollback coverage for the same unexpected-startup path
+  - Vitest restore coverage for the null-thread section-owned live-window reuse case
+  - Playwright coverage proving restore keeps the live floating section-owned window id and does not create a thread
+
+UX before/after:
+- Before: one transient linked-chat startup fault outside `KeyError`/`ValueError` could strand the target in a synthetic busy state and block immediate retry. After: failed starts fully unwind and the next invocation can retry immediately.
+- Before: the backend would silently accept impossible saved layouts where a `section_mode` or `git_graph_mode` window still carried a direct `chatId`. After: those payloads fail closed at the persistence boundary, so saved window spaces have one thread-authority model.
+- Before: restoring a saved section-owned floating project-chat window before its first message could delete/recreate the live window under a different `instanceId`, causing remount churn and identity drift. After: restore reuses the live floating section-owned window in place and only reapplies the saved layout.
+
+DX before/after:
+- Before: linked-chat cleanup semantics depended on which exception class happened to escape startup, so the actual lifecycle contract was split across multiple branches and easy to miss in review. After: one small cleanup path matches the real pre-start boundary and is straightforward to audit.
+- Before: window-space thread-authority invariants were enforced inconsistently between frontend restore behavior and backend persistence rules. After: both sides encode the same contract explicitly, which makes the code easier to reason about and removes a class of stale-client ambiguity.
+- Before: the restore owner-reuse logic had two competing definitions of section-owned identity, one for supersession and one for reuse. After: reuse follows the same logical owner model as supersession, so the code path is shorter and the restore behavior is deterministic.
+
+Verification:
+- `source activate.sh && pytest tests/routers/test_mcp_linked_chat_tool.py tests/project_state/test_project_chat_windowing_persistence.py tests/types/test_project_state_window_spaces.py -q` passed: 68 tests.
+- `pnpm -C frontend exec vitest run src/state/actions/windowSpaces.test.ts` passed: 41 tests.
+- `./scripts/run-playwright-e2e.sh tests/e2e/chat/standalone-project-surface-routes.spec.ts -g "restoring a saved window space reuses the live section-owned project-chat window before the first thread exists"` passed: 1 test.
+- CDP verification on the live dev instance at `http://127.0.0.1:3098/home` created a disposable project and chat section, saved a floating section-owned `project_ai_mode` window with `chatId=null`, replaced the workspace with a different live floating window for the same section, restored the saved layout, and confirmed the surviving window id stayed live, the saved id did not return, and the section binding still had no thread.

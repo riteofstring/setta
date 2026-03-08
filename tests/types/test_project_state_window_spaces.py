@@ -228,6 +228,40 @@ def test_window_space_window_rejects_section_git_graph_mode_owner_combo() -> Non
         )
 
 
+@pytest.mark.parametrize(
+    ("surface_kind", "mode", "section_id"),
+    [
+        (
+            WindowSpaceSurfaceKind.section,
+            WindowSpaceWindowMode.section_mode,
+            "section-1",
+        ),
+        (
+            WindowSpaceSurfaceKind.project_chat,
+            WindowSpaceWindowMode.git_graph_mode,
+            None,
+        ),
+    ],
+)
+def test_window_space_window_rejects_chat_id_outside_project_ai_mode(
+    surface_kind: WindowSpaceSurfaceKind,
+    mode: WindowSpaceWindowMode,
+    section_id: str | None,
+) -> None:
+    # Persisted thread bindings now have one source of truth: only
+    # project_ai_mode windows may carry chatId.
+    with pytest.raises(
+        ValidationError,
+        match="Window-space windows must use project_ai_mode to bind chatId",
+    ):
+        WindowSpaceWindow(
+            surfaceKind=surface_kind,
+            mode=mode,
+            sectionIdOrNull=section_id,
+            chatId="stale-chat",
+        )
+
+
 def test_window_spaces_reject_project_chat_section_binding() -> None:
     # Saved project-chat windows should fail fast instead of carrying inert section ids.
     with pytest.raises(

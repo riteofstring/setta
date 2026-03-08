@@ -31,6 +31,10 @@ _REQUIRED_ERROR_CHECK_PROMPT = (
 )
 
 
+class _LinkedChatRunStartError(Exception):
+    pass
+
+
 async def _persist_linked_chat_section_binding(
     manager: Any,
     project_config_id: ID,
@@ -83,6 +87,23 @@ async def _complete_linked_chat_section_invocation(
     )
 
 
+async def _rollback_failed_linked_chat_run_start(
+    *,
+    ctx: Context,
+    manager: Any,
+    project_config_id: ID,
+    target_section_id: ID,
+    chat_id: ID,
+) -> None:
+    await _release_linked_chat_section_start_failure(
+        manager,
+        project_config_id,
+        target_section_id,
+        chat_id,
+    )
+    await rollback_pending_mcp_run_start(ctx)
+
+
 async def _start_linked_chat_run(
     *,
     ctx: Context,
@@ -95,32 +116,21 @@ async def _start_linked_chat_run(
 ) -> AgentRun:
     try:
         run = start_run()
-    except (KeyError, ValueError):
-        await _release_linked_chat_section_start_failure(
-            manager,
-            project_config_id,
-            target_section_id,
-            chat_id,
-        )
-        await rollback_pending_mcp_run_start(ctx)
-        raise
-
-    try:
         await _mark_linked_chat_section_run_started(
             manager,
             project_config_id,
             target_section_id,
             chat_id,
         )
-    except (KeyError, ValueError):
-        await _release_linked_chat_section_start_failure(
-            manager,
-            project_config_id,
-            target_section_id,
-            chat_id,
+    except Exception as exc:
+        await _rollback_failed_linked_chat_run_start(
+            ctx=ctx,
+            manager=manager,
+            project_config_id=project_config_id,
+            target_section_id=target_section_id,
+            chat_id=chat_id,
         )
-        await rollback_pending_mcp_run_start(ctx)
-        raise
+        raise _LinkedChatRunStartError(str(exc)) from exc
     commit_pending_mcp_run_start(ctx)
 
     try:
@@ -404,7 +414,7 @@ async def invoke_linked_chat(
                 ),
                 wait_for_run=runner.wait_for_run,
             )
-        except (KeyError, ValueError) as exc:
+        except _LinkedChatRunStartError as exc:
             return _build_error_result(
                 target_section_id=target_section_id,
                 reason="run_start_failed",
@@ -447,7 +457,7 @@ async def invoke_linked_chat(
                 ),
                 wait_for_run=runner.wait_for_run,
             )
-        except (KeyError, ValueError) as exc:
+        except _LinkedChatRunStartError as exc:
             return _build_error_result(
                 target_section_id=target_section_id,
                 reason="run_start_failed",

@@ -1531,6 +1531,166 @@ test.describe.serial("standalone project surface routes", () => {
     }
   });
 
+  test("restoring a saved window space reuses the live section-owned project-chat window before the first thread exists", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const cleanupManagedEngine = await ensureManagedChatEngine(page);
+    await setOverviewTabInStore(page, "ViewModes");
+    await expect(page.getByTestId("window-spaces-pane")).toBeVisible();
+
+    try {
+      const { sectionId: chatSectionId } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "Linked Research Chat",
+      );
+      await showSectionInProjectChatWindow(page, chatSectionId, "floating");
+
+      await page.evaluate(async (sectionId) => {
+        const { setProjectChatWindowModeForSection } = await import(
+          "/src/state/actions/projectChatWindowing.ts"
+        );
+        const { ChatWindowModeEnum } = await import(
+          "/src/utils/generatedTypes.ts"
+        );
+        setProjectChatWindowModeForSection(
+          sectionId,
+          ChatWindowModeEnum.project_ai_mode,
+        );
+      }, chatSectionId);
+
+      await expect
+        .poll(async () => {
+          const state = await readProjectChatWindowingState(page);
+          const instanceId = findProjectChatWindowIdForSection(
+            state,
+            chatSectionId,
+          );
+          if (!instanceId) {
+            return "";
+          }
+          return state.instancesById[instanceId]?.chatId === null ? instanceId : "";
+        })
+        .not.toBe("");
+      const savedWindowId =
+        findProjectChatWindowIdForSection(
+          await readProjectChatWindowingState(page),
+          chatSectionId,
+        ) ?? "";
+      if (!savedWindowId) {
+        throw new Error("Expected a section-owned project chat window.");
+      }
+
+      await setProjectChatWindowBounds(page, savedWindowId, {
+        x: 140,
+        y: 120,
+        width: 360,
+        height: 240,
+      });
+      const savedWindowState =
+        (await readProjectChatWindowingState(page)).instancesById[savedWindowId];
+      if (!savedWindowState) {
+        throw new Error("Expected saved section window state before restore.");
+      }
+      await page.getByTestId("window-space-save-current-layout").click();
+      await expect(page.getByTestId("window-space-open")).toHaveCount(1);
+
+      await page.evaluate(async (sectionId) => {
+        const { replaceProjectChatWindowingState } = await import(
+          "/src/state/actions/projectChatWindowing.ts"
+        );
+        const {
+          ChatWindowModeEnum,
+          ChatWindowPlacementEnum,
+          createProjectChatWindowingState,
+        } = await import("/src/utils/generatedTypes.ts");
+        replaceProjectChatWindowingState(
+          createProjectChatWindowingState({
+            order: ["live-section-window"],
+            instancesById: {
+              "live-section-window": {
+                instanceId: "live-section-window",
+                placement: ChatWindowPlacementEnum.floating,
+                mode: ChatWindowModeEnum.project_ai_mode,
+                sectionIdOrNull: sectionId,
+                chatId: null,
+                isClosed: false,
+                isMinimized: false,
+                isMaximized: false,
+                zIndex: 7,
+                bounds: {
+                  x: 620,
+                  y: 260,
+                  width: 340,
+                  height: 260,
+                },
+              },
+            },
+            nextInstanceNumber: 2,
+          }),
+        );
+      }, chatSectionId);
+
+      await page.getByTestId("window-space-open").click();
+
+      await expect
+        .poll(async () => {
+          const state = await readProjectChatWindowingState(page);
+          const liveWindow = state.instancesById["live-section-window"];
+          return {
+            liveWindowExists: "live-section-window" in state.instancesById,
+            savedWindowExists: savedWindowId in state.instancesById,
+            liveWindow:
+              liveWindow === undefined
+                ? null
+                : {
+                    ...liveWindow,
+                    bounds: {
+                      x: Math.round(liveWindow.bounds.x),
+                      y: Math.round(liveWindow.bounds.y),
+                      width: Math.round(liveWindow.bounds.width),
+                      height: Math.round(liveWindow.bounds.height),
+                    },
+                  },
+            sectionChatId: await readSectionChatId(page, chatSectionId),
+            order: state.order,
+          };
+        })
+        .toEqual({
+          liveWindowExists: true,
+          savedWindowExists: false,
+          liveWindow: {
+            sectionIdOrNull: chatSectionId,
+            placement: "floating",
+            mode: "project_ai_mode",
+            chatId: null,
+            zIndex: savedWindowState.zIndex,
+            bounds: {
+              ...savedWindowState.bounds,
+            },
+          },
+          sectionChatId: null,
+          order: ["live-section-window"],
+        });
+
+      await expect(
+        page.locator(
+          '[data-testid="project-chat-floating-window"][data-chat-window-instance-id="live-section-window"]',
+        ),
+      ).toBeVisible();
+      await expect(
+        page.locator(
+          `[data-testid="project-chat-floating-window"][data-chat-window-instance-id="${savedWindowId}"]`,
+        ),
+      ).toHaveCount(0);
+    } finally {
+      await cleanupManagedEngine();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("failed workspace restore rolls back git-pane visibility with the layout", async ({
     page,
   }) => {

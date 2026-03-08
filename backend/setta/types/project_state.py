@@ -624,6 +624,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                     surface_kind=window.surfaceKind,
                     mode=window.mode,
                     section_id=window.sectionIdOrNull,
+                    chat_id=window.chatId,
                 )
                 if window.surfaceKind == WindowSpaceSurfaceKind.section:
                     if window.title is not None:

@@ -512,6 +512,10 @@ class _BlockingDummyAgentRunner(_DummyAgentRunner):
 
 
 class _FailingStartDummyAgentRunner(_DummyAgentRunner):
+    def __init__(self, exc: Exception | None = None) -> None:
+        super().__init__()
+        self.exc = exc or ValueError("synthetic startup failure")
+
     def start_run(
         self,
         profile,
@@ -521,7 +525,7 @@ class _FailingStartDummyAgentRunner(_DummyAgentRunner):
         emit_ai_follow: bool = True,  # noqa: ARG002
     ) -> AgentRun:
         self.calls.append((profile, dict(inputs or {})))
-        raise ValueError("synthetic startup failure")
+        raise self.exc
 
 
 class _DummyExternalAgentRunner:
@@ -565,6 +569,10 @@ class _DummyExternalAgentRunner:
 
 
 class _FailingStartDummyExternalAgentRunner(_DummyExternalAgentRunner):
+    def __init__(self, exc: Exception | None = None) -> None:
+        super().__init__()
+        self.exc = exc or ValueError("synthetic external startup failure")
+
     def start_run(
         self,
         engine_config_id: ID,
@@ -580,7 +588,7 @@ class _FailingStartDummyExternalAgentRunner(_DummyExternalAgentRunner):
                 dict(inputs or {}),
             )
         )
-        raise ValueError("synthetic external startup failure")
+        raise self.exc
 
 
 async def _noop_wait_until_ready(self) -> None:  # noqa: ARG001
@@ -1417,6 +1425,97 @@ async def test_tools_call_invoke_linked_chat_releases_reserved_deployment_run_wh
     assert share_runtime_state.get_session_run_count(request_session_id) == 1
     assert share_runtime_state.increment_calls == []
     assert share_runtime_state.rollback_calls == [request_session_id]
+    assert manager._linked_chat_section_reservations == {}
+
+
+@pytest.mark.asyncio
+async def test_tools_call_invoke_linked_chat_releases_reserved_deployment_run_when_startup_raises_unexpected_exception(
+    tmp_path,
+) -> None:
+    failing_runner = _FailingStartDummyAgentRunner(
+        RuntimeError("unexpected startup failure")
+    )
+    (
+        app,
+        agent_runner,
+        manager,
+        share_runtime_state,
+        switcher,
+        canonical_to_temporary,
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+        request_session_id,
+        _spoofed_session_id,
+    ) = _build_deployment_test_app(
+        tmp_path,
+        share_policy=SharePolicy(
+            allowRun=True,
+            allowLLM=True,
+            allowMultipleRuns=False,
+        ),
+        seed_target_chat_id=False,
+        agent_runner_override=failing_runner,
+    )
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_caller_section_id = canonical_to_temporary[caller_section_id]
+    tmp_target_section_id = canonical_to_temporary[target_section_id]
+    tmp_caller_chat_id = canonical_to_temporary[ID("caller-chat-1")]
+
+    request_payload = {
+        "tool": "invoke_linked_chat",
+        "arguments": {
+            "targetSectionId": str(tmp_target_section_id),
+            "prompt": "Plan the next implementation step.",
+        },
+        "agenticContext": {
+            "projectConfigId": str(tmp_project_id),
+            "chatId": str(tmp_caller_chat_id),
+            "sectionId": str(tmp_caller_section_id),
+        },
+    }
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        first_response = await client.post(
+            "/__setta__/tools/call",
+            headers={"X-Share-Session-Id": request_session_id},
+            json=request_payload,
+        )
+        second_response = await client.post(
+            "/__setta__/tools/call",
+            headers={"X-Share-Session-Id": request_session_id},
+            json=request_payload,
+        )
+
+    assert first_response.status_code == 200
+    first_payload = first_response.json()
+    assert first_payload["isError"] is True
+    assert first_payload["structuredContent"]["reason"] == "run_start_failed"
+    assert (
+        first_payload["structuredContent"]["message"]
+        == "unexpected startup failure"
+    )
+
+    assert second_response.status_code == 200
+    second_payload = second_response.json()
+    assert second_payload["isError"] is True
+    assert second_payload["structuredContent"]["reason"] == "run_start_failed"
+    assert (
+        second_payload["structuredContent"]["message"]
+        == "unexpected startup failure"
+    )
+
+    assert len(agent_runner.calls) == 2
+    assert {
+        recorded_share_session_id for _, recorded_share_session_id in switcher.calls
+    } == {request_session_id}
+    assert share_runtime_state.get_session_run_count(request_session_id) == 0
+    assert share_runtime_state.increment_calls == []
+    assert share_runtime_state.rollback_calls == [
+        request_session_id,
+        request_session_id,
+    ]
     assert manager._linked_chat_section_reservations == {}
 
 
@@ -2466,6 +2565,88 @@ async def test_tools_call_invoke_linked_chat_cleans_up_binding_when_managed_star
 
 
 @pytest.mark.asyncio
+async def test_tools_call_invoke_linked_chat_retries_cleanly_after_unexpected_managed_start_failure(
+    tmp_path,
+) -> None:
+    failing_runner = _FailingStartDummyAgentRunner(
+        RuntimeError("unexpected startup failure")
+    )
+    (
+        app,
+        agent_runner,
+        manager,
+        canonical_to_temporary,
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+    ) = _build_test_app(
+        tmp_path,
+        seed_target_chat_id=False,
+        agent_runner_override=failing_runner,
+    )
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_caller_section_id = canonical_to_temporary[caller_section_id]
+    tmp_target_section_id = canonical_to_temporary[target_section_id]
+
+    request_payload = {
+        "tool": "invoke_linked_chat",
+        "arguments": {
+            "targetSectionId": str(tmp_target_section_id),
+            "prompt": "Plan the next implementation step.",
+        },
+        "agenticContext": {
+            "projectConfigId": str(tmp_project_id),
+            "chatId": str(canonical_to_temporary[ID("caller-chat-1")]),
+            "sectionId": str(tmp_caller_section_id),
+        },
+    }
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        first_response = await client.post(
+            "/__setta__/tools/call",
+            json=request_payload,
+        )
+        second_response = await client.post(
+            "/__setta__/tools/call",
+            json=request_payload,
+        )
+
+    assert first_response.status_code == 200
+    first_payload = first_response.json()
+    assert first_payload["isError"] is True
+    assert first_payload["structuredContent"]["reason"] == "run_start_failed"
+    assert (
+        first_payload["structuredContent"]["message"]
+        == "unexpected startup failure"
+    )
+
+    assert second_response.status_code == 200
+    second_payload = second_response.json()
+    assert second_payload["isError"] is True
+    assert second_payload["structuredContent"]["reason"] == "run_start_failed"
+    assert (
+        second_payload["structuredContent"]["message"]
+        == "unexpected startup failure"
+    )
+
+    assert len(agent_runner.calls) == 2
+    assert manager._linked_chat_section_reservations == {}
+    project_state = convert_backend_to_single_config(
+        manager.project_state_backend,
+        project_config_id,
+    )
+    assert (
+        get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            target_section_id,
+            ChatSectionImpl,
+        ).chatId
+        is None
+    )
+
+
+@pytest.mark.asyncio
 async def test_tools_call_invoke_linked_chat_releases_reservation_when_mark_started_fails(
     tmp_path,
 ) -> None:
@@ -2938,6 +3119,89 @@ async def test_tools_call_invoke_linked_chat_cleans_up_binding_when_external_sta
         is None
     )
     assert manager._linked_chat_section_reservations == {}
+
+
+@pytest.mark.asyncio
+async def test_tools_call_invoke_linked_chat_retries_cleanly_after_unexpected_external_start_failure(
+    tmp_path,
+) -> None:
+    external_runner = _FailingStartDummyExternalAgentRunner(
+        RuntimeError("unexpected external startup failure")
+    )
+    (
+        app,
+        _agent_runner,
+        manager,
+        canonical_to_temporary,
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+    ) = _build_test_app(
+        tmp_path,
+        seed_target_chat_id=False,
+        engine_type=EngineType.external_agent,
+        external_agent_runner_override=external_runner,
+    )
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_caller_section_id = canonical_to_temporary[caller_section_id]
+    tmp_target_section_id = canonical_to_temporary[target_section_id]
+
+    request_payload = {
+        "tool": "invoke_linked_chat",
+        "arguments": {
+            "targetSectionId": str(tmp_target_section_id),
+            "prompt": "Plan the next implementation step.",
+        },
+        "agenticContext": {
+            "projectConfigId": str(tmp_project_id),
+            "chatId": str(canonical_to_temporary[ID("caller-chat-1")]),
+            "sectionId": str(tmp_caller_section_id),
+        },
+    }
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        first_response = await client.post(
+            "/__setta__/tools/call",
+            json=request_payload,
+        )
+        second_response = await client.post(
+            "/__setta__/tools/call",
+            json=request_payload,
+        )
+
+    assert first_response.status_code == 200
+    first_payload = first_response.json()
+    assert first_payload["isError"] is True
+    assert first_payload["structuredContent"]["reason"] == "run_start_failed"
+    assert (
+        first_payload["structuredContent"]["message"]
+        == "unexpected external startup failure"
+    )
+
+    assert second_response.status_code == 200
+    second_payload = second_response.json()
+    assert second_payload["isError"] is True
+    assert second_payload["structuredContent"]["reason"] == "run_start_failed"
+    assert (
+        second_payload["structuredContent"]["message"]
+        == "unexpected external startup failure"
+    )
+
+    assert len(external_runner.calls) == 2
+    assert manager._linked_chat_section_reservations == {}
+    project_state = convert_backend_to_single_config(
+        manager.project_state_backend,
+        project_config_id,
+    )
+    assert (
+        get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            target_section_id,
+            ChatSectionImpl,
+        ).chatId
+        is None
+    )
 
 
 @pytest.mark.asyncio
