@@ -11,9 +11,11 @@ require (
 	github.com/coder/websocket v1.8.14
 	github.com/joho/godotenv v1.5.1
 	github.com/modelcontextprotocol/go-sdk v1.4.0
+	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/tree-sitter/go-tree-sitter v0.25.0
 	github.com/tree-sitter/tree-sitter-python v0.25.0
 	golang.org/x/sys v0.40.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
