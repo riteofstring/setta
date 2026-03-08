@@ -24,6 +24,11 @@ Phase-1 tooling decision:
 
 - require a pinned Go SDK before starting implementation
 - treat `gofmt` as included with the Go SDK
+- use `./scripts/go.sh <args>` as the default entrypoint for Go commands in this repo
+- when `gofmt` is not on `PATH`, resolve the pinned SDK with
+  `./scripts/go.sh env GOROOT` and invoke `"$GOROOT/bin/gofmt"` directly
+- if `./scripts/go.sh` cannot find the required SDK version, install the
+  repo-local toolchain with `./scripts/install_go_toolchain.sh`
 - defer `gopls`, `golangci-lint`, code generators, and editor-specific tooling until real Go code exists and we can justify each addition
 - keep the module path local as `setta` until the rewrite has a real permanent home
 

@@ -2,6 +2,18 @@
 
 This folder contains the working plan set for the Go backend rewrite.
 
+## Go Toolchain Shortcut
+
+Use the repo-pinned wrapper instead of searching for a system Go install:
+
+- run Go commands with `./scripts/go.sh <args>`
+- resolve the pinned SDK root with `./scripts/go.sh env GOROOT`
+- run `gofmt` from that SDK path when it is not on `PATH`:
+  - `GOROOT="$(./scripts/go.sh env GOROOT)"`
+  - `"$GOROOT/bin/gofmt" -w <files>`
+- if the wrapper cannot find the required SDK, install the repo-local toolchain
+  with `./scripts/install_go_toolchain.sh`
+
 ## Additional Snapshots
 
 - `pyproject-dependency-replacement-snapshot-2026-03-08.md`
