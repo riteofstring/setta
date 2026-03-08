@@ -17,9 +17,12 @@ As of 2026-03-08:
   - remote CLI `stop`
   - backend SSH session discovery, remote start, remote connect-info, and
     local background tunnel reuse in `internal/sshx`
-- Python still owns:
+- Go now owns:
   - `setta connect`
+  - alias `setta c`
   - the CLI-only output-mode behavior layered above the SSH runtime
+- Python still owns adjacent CLI/distribution surface such as launcher and
+  release-script workflows, but `connect` is no longer part of that gap
 
 ## Inputs
 
@@ -116,13 +119,28 @@ Do not include in this slice:
   that `connect` is the remaining Phase 8 SSH-helper gap. The main boundary is
   no longer backend SSH behavior; it is CLI orchestration across print-only,
   detach, and foreground tunnel modes.
+- 2026-03-08: completed the slice. Go `cmd/setta-cli` now supports `connect`
+  and `c`, with deterministic non-interactive session selection, remote start
+  when no IDE session exists, `--print-only`, `--detach`, and foreground tunnel
+  modes.
+- 2026-03-08: added `internal/sshx` connect-planning and tunnel-entry helpers
+  so the CLI reuses the same remote shell/workspace/session/connect-info path
+  across all output modes instead of rebuilding SSH behavior in the transport
+  layer.
+- 2026-03-08: kept local tunnel metadata separate from remote-only
+  profile/path forwarding. The Go CLI derives a local default runtime root from
+  the current cwd for tunnel metadata, while remote profile/path flags continue
+  to be forwarded only to the SSH target.
 
 ## Verification
 
-- pending implementation
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/sshx -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/settacli ./cmd/setta-cli -count=1 -timeout 300s`
 
 ## Recommended Next Step
 
-Implement this doc end-to-end: add the minimal `internal/sshx` connect-planning
-surface needed by the CLI, then land Go `connect` / `c` with deterministic
-session selection and mode-specific tunnel behavior.
+Close out Phase 8 with a short inventory doc or update to the existing
+Phase 7/Phase 8 boundaries that records what CLI/distribution surface still
+remains in Python after the completed `status`, `auth`, `tools`, `api`,
+`stop`, and `connect` migrations. The main remaining decisions should now be
+launcher/distribution ownership rather than SSH helper behavior.

@@ -188,7 +188,7 @@ func Run(args []string, options RunOptions) error {
 		return err
 	}
 	if len(remaining) == 0 {
-		return fmt.Errorf("missing command (supported: status, auth, tools, api, stop)")
+		return fmt.Errorf("missing command (supported: status, auth, tools, api, stop, connect)")
 	}
 
 	switch remaining[0] {
@@ -202,6 +202,8 @@ func Run(args []string, options RunOptions) error {
 		return runAPI(remaining[1:], global, stdout, stderr, stdin, envLookup, now, cwd)
 	case "stop":
 		return runStop(remaining[1:], global, stdout, stderr, envLookup, cwd)
+	case "connect", "c":
+		return runConnect(remaining[1:], global, stdout, stderr, stdin, envLookup, cwd)
 	default:
 		return fmt.Errorf("unknown command %q", remaining[0])
 	}

@@ -99,8 +99,8 @@ def _load_all_sessions_metadata() -> list[tuple[str, dict[str, Any]]]:
     return sessions
 
 
-def _load_session_metadata() -> tuple[str, dict[str, Any], bytes]:
-    session_id = os.environ.get("SETTA_SESSION_ID", "").strip()
+def _load_session_metadata(session_id_override: str | None = None) -> tuple[str, dict[str, Any], bytes]:
+    session_id = (session_id_override or "").strip() or os.environ.get("SETTA_SESSION_ID", "").strip()
     sessions_root = _resolve_sessions_root()
 
     if not session_id:
@@ -454,7 +454,7 @@ def _handle_remote_command(command: str) -> int:
         return 0
 
     if "status --connect-info" in command and "--json" in command:
-        session_id, metadata, secret = _load_session_metadata()
+        session_id, metadata, secret = _load_session_metadata(_extract_session_id(command))
         token = _mint_bootstrap_token(session_id, secret)
         host = str(metadata.get("host", "127.0.0.1"))
         port = int(metadata.get("port", 8000))

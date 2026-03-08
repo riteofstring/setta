@@ -49,6 +49,42 @@ type startedTunnelProcess struct {
 	mu      sync.RWMutex
 }
 
+func (s *Service) EnsureSSHTunnel(input EnsureSSHTunnelInput) (TunnelMetadata, error) {
+	sshTarget := NormalizeOptionalArgument(input.SSHTarget)
+	if sshTarget == "" {
+		return TunnelMetadata{}, &Error{
+			Code:    "InvalidSshTarget",
+			Message: "sshTarget must be a non-empty string.",
+		}
+	}
+	remoteHost := NormalizeOptionalArgument(input.RemoteHost)
+	if remoteHost == "" {
+		return TunnelMetadata{}, &Error{
+			Code:    "TunnelStartFailed",
+			Message: "remoteHost must be a non-empty string.",
+		}
+	}
+	if input.RemotePort <= 0 {
+		return TunnelMetadata{}, &Error{
+			Code:    "TunnelStartFailed",
+			Message: fmt.Sprintf("Invalid remote port: %d", input.RemotePort),
+		}
+	}
+	if input.LocalPort != nil && (*input.LocalPort < 1 || *input.LocalPort > 65535) {
+		return TunnelMetadata{}, &Error{
+			Code:    "InvalidLocalPort",
+			Message: fmt.Sprintf("Invalid local port: %d", *input.LocalPort),
+		}
+	}
+
+	sshArgs, err := ParseSSHArgs(input.SSHArgs)
+	if err != nil {
+		return TunnelMetadata{}, err
+	}
+	sshArgs = ApplyControlSocketArgs(sshArgs)
+	return s.ensureSSHTunnel(sshTarget, sshArgs, remoteHost, input.RemotePort, input.LocalPort)
+}
+
 func (s *Service) RollbackLocalSSHTunnel(input RollbackTunnelInput) error {
 	sshTarget := NormalizeOptionalArgument(input.SSHTarget)
 	if sshTarget == "" {

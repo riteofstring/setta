@@ -28,7 +28,8 @@ As of 2026-03-08:
   - `backend/setta/start.py`
   - `backend/setta/ssh_connect.py`
 - the next bounded CLI gap is the remote helper cluster:
-  - `connect`
+  - none inside the SSH helper cluster; `connect` has moved to its own completed
+    Stage 2 doc
 
 ## Inputs
 
@@ -145,6 +146,9 @@ Do not include in this stage:
   apply `--server-mode` filtering, and log normalized remote commands so the
   Go tests assert real forwarding behavior instead of brittle shell-quoted
   strings.
+- 2026-03-08: completed Stage 2 in the follow-up doc
+  `phase-8-cli-connect-runtime-and-output-modes.md`; Go now owns `connect` and
+  `c` above the same `internal/sshx` runtime foundation.
 
 ## Verification
 
@@ -153,8 +157,7 @@ Do not include in this stage:
 
 ## Recommended Next Step
 
-Take Stage 2 as a separate implementation doc and landing: `setta connect`
-above the now-completed remote session foundation. That follow-up should cover
-remote session selection vs remote start, local tunnel ownership, print-only vs
-browser-opening behavior, and the remaining SSH UX surface without reopening
-the completed `stop` path.
+The SSH helper cluster tracked by this doc is complete. The next useful planning
+step is a closeout/inventory update for the remaining Python-owned CLI and
+distribution surface outside the completed `status`, `auth`, `tools`, `api`,
+`stop`, and `connect` migrations.

@@ -276,6 +276,67 @@ func TestServiceDeleteRemoteWorkspaceSessionDeletesSession(t *testing.T) {
 	}
 }
 
+func TestServicePrepareConnectWorkspaceSessionDoesNotCreateTunnelMetadata(t *testing.T) {
+	repoRoot := testRepoRoot(t)
+	stubPath := filepath.Join(repoRoot, "scripts", "test", "ssh")
+	runtimeRoot := filepath.Join(t.TempDir(), "runtime")
+	sessionsRoot := filepath.Join(t.TempDir(), "sessions")
+	session := createSSHStubSession(t, sessionsRoot, "/remote/workspace")
+
+	configureSSHStubEnv(t, repoRoot, sessionsRoot, session.ID)
+
+	service, err := NewService(ServiceOptions{
+		RuntimeRoot: runtimeRoot,
+		SSHBin:      stubPath,
+	})
+	if err != nil {
+		t.Fatalf("new sshx service: %v", err)
+	}
+
+	result, err := service.PrepareConnectWorkspaceSession(PrepareConnectWorkspaceInput{
+		SSHTarget: "user@host",
+		Workspace: "/remote/workspace",
+		SessionID: session.ID,
+	})
+	if err != nil {
+		t.Fatalf("prepare connect workspace session: %v", err)
+	}
+	if result.Session.ID != session.ID {
+		t.Fatalf("expected session id %q, got %q", session.ID, result.Session.ID)
+	}
+	if strings.TrimSpace(result.Token) == "" {
+		t.Fatal("expected bootstrap token")
+	}
+	assertNoTunnelMetadata(t, runtimeRoot)
+}
+
+func TestServicePrepareConnectWorkspaceSessionRejectsMultipleSessionsWithoutSelector(t *testing.T) {
+	repoRoot := testRepoRoot(t)
+	stubPath := filepath.Join(repoRoot, "scripts", "test", "ssh")
+	sessionsRoot := filepath.Join(t.TempDir(), "sessions")
+	createSSHStubSession(t, sessionsRoot, "/remote/workspace")
+	createSSHStubSession(t, sessionsRoot, "/remote/workspace")
+
+	configureSSHStubEnv(t, repoRoot, sessionsRoot, "")
+
+	service, err := NewService(ServiceOptions{
+		RuntimeRoot: t.TempDir(),
+		SSHBin:      stubPath,
+	})
+	if err != nil {
+		t.Fatalf("new sshx service: %v", err)
+	}
+
+	_, err = service.PrepareConnectWorkspaceSession(PrepareConnectWorkspaceInput{
+		SSHTarget: "user@host",
+		Workspace: "/remote/workspace",
+	})
+	requireSSHErrorCode(t, err, "RemoteConnectSelection")
+	if err.Error() != "Use --session or --latest for remote connect." {
+		t.Fatalf("unexpected error %q", err.Error())
+	}
+}
+
 func TestBuildRemoteSettaPathArgsRejectsConflictingSettaFilesInputs(t *testing.T) {
 	_, err := buildRemoteSettaPathArgs("", "", "/tmp/state", "local", "")
 	requireSSHErrorCode(t, err, "InvalidSettaFilesConfig")

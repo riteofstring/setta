@@ -38,6 +38,22 @@ type ConnectWorkspaceInput struct {
 	Timeout            time.Duration
 }
 
+type PrepareConnectWorkspaceInput struct {
+	SSHTarget          string
+	Workspace          string
+	SessionID          string
+	Latest             bool
+	Profile            string
+	SettaHome          string
+	SettaFilesRoot     string
+	SettaFilesLocation string
+	RuntimeRoot        string
+	SSHArgs            string
+	RemoteCommand      string
+	LauncherOrigin     string
+	Timeout            time.Duration
+}
+
 type ListRemoteWorkspaceSessionsInput struct {
 	SSHTarget          string
 	Workspace          string
@@ -84,6 +100,25 @@ type RollbackTunnelInput struct {
 	SSHArgs    string
 	RemoteHost string
 	RemotePort int
+}
+
+type EnsureSSHTunnelInput struct {
+	SSHTarget  string
+	SSHArgs    string
+	RemoteHost string
+	RemotePort int
+	LocalPort  *int
+}
+
+type PreparedConnectWorkspaceResult struct {
+	Session             RemoteSessionSummary
+	StartedNew          bool
+	InitialSessionCount int
+	RemoteShell         string
+	RemoteWorkspace     string
+	RemoteCommand       string
+	ConnectInfo         RemoteConnectInfo
+	Token               string
 }
 
 type RemoteConnectResult struct {
@@ -288,24 +323,75 @@ func (s *Service) DeleteRemoteWorkspaceSession(input DeleteRemoteWorkspaceSessio
 }
 
 func (s *Service) ConnectWorkspaceSession(input ConnectWorkspaceInput) (RemoteConnectResult, error) {
+	plan, err := s.PrepareConnectWorkspaceSession(PrepareConnectWorkspaceInput{
+		SSHTarget:          input.SSHTarget,
+		Workspace:          input.Workspace,
+		Latest:             true,
+		Profile:            input.Profile,
+		SettaHome:          input.SettaHome,
+		SettaFilesRoot:     input.SettaFilesRoot,
+		SettaFilesLocation: input.SettaFilesLocation,
+		RuntimeRoot:        input.RuntimeRoot,
+		SSHArgs:            input.SSHArgs,
+		RemoteCommand:      input.RemoteCommand,
+		LauncherOrigin:     input.LauncherOrigin,
+		Timeout:            input.Timeout,
+	})
+	if err != nil {
+		return RemoteConnectResult{}, err
+	}
+	tunnel, err := s.EnsureSSHTunnel(EnsureSSHTunnelInput{
+		SSHTarget:  input.SSHTarget,
+		SSHArgs:    input.SSHArgs,
+		RemoteHost: plan.Session.Host,
+		RemotePort: plan.Session.Port,
+		LocalPort:  input.LocalPort,
+	})
+	if err != nil {
+		return RemoteConnectResult{}, err
+	}
+	localBootstrapURLFragment, err := launcher.BuildBootstrapURLFragment("127.0.0.1", tunnel.LocalPort, plan.Token)
+	if err != nil {
+		return RemoteConnectResult{}, &Error{
+			Code:    "RemoteConnectInfo",
+			Message: fmt.Sprintf("Build local bootstrap URL fragment: %v", err),
+		}
+	}
+
+	return RemoteConnectResult{
+		BootstrapURLFragment: localBootstrapURLFragment,
+		Session:              plan.Session,
+		StartedNew:           plan.StartedNew,
+		RemoteCommand:        plan.RemoteCommand,
+		SettaFilesLocation:   plan.ConnectInfo.SettaFilesLocation,
+		SettaFilesRoot:       plan.ConnectInfo.SettaFilesRoot,
+		RuntimeRoot:          plan.ConnectInfo.RuntimeRoot,
+		SettaHome:            plan.ConnectInfo.SettaHome,
+		Profile:              plan.ConnectInfo.Profile,
+		LauncherOriginProof:  plan.ConnectInfo.LauncherOriginProof,
+	}, nil
+}
+
+func (s *Service) PrepareConnectWorkspaceSession(input PrepareConnectWorkspaceInput) (PreparedConnectWorkspaceResult, error) {
 	sshTarget := NormalizeOptionalArgument(input.SSHTarget)
 	if sshTarget == "" {
-		return RemoteConnectResult{}, &Error{
+		return PreparedConnectWorkspaceResult{}, &Error{
 			Code:    "InvalidSshTarget",
 			Message: "sshTarget must be a non-empty string.",
 		}
 	}
 	workspace := NormalizeOptionalArgument(input.Workspace)
 	if workspace == "" {
-		return RemoteConnectResult{}, &Error{
+		return PreparedConnectWorkspaceResult{}, &Error{
 			Code:    "InvalidWorkspace",
 			Message: "--workspace is required for SSH connect.",
 		}
 	}
-	if input.LocalPort != nil && (*input.LocalPort < 1 || *input.LocalPort > 65535) {
-		return RemoteConnectResult{}, &Error{
-			Code:    "InvalidLocalPort",
-			Message: fmt.Sprintf("Invalid local port: %d", *input.LocalPort),
+	sessionID := NormalizeOptionalArgument(input.SessionID)
+	if sessionID != "" && input.Latest {
+		return PreparedConnectWorkspaceResult{}, &Error{
+			Code:    "RemoteConnectSelection",
+			Message: "Use either --session or --latest, not both.",
 		}
 	}
 
@@ -314,7 +400,7 @@ func (s *Service) ConnectWorkspaceSession(input ConnectWorkspaceInput) (RemoteCo
 	settaFilesRoot := NormalizeOptionalArgument(input.SettaFilesRoot)
 	settaFilesLocation, err := NormalizeSettaFilesLocation(input.SettaFilesLocation)
 	if err != nil {
-		return RemoteConnectResult{}, err
+		return PreparedConnectWorkspaceResult{}, err
 	}
 	runtimeRoot := NormalizeOptionalArgument(input.RuntimeRoot)
 	sshArgsRaw := NormalizeOptionalArgument(input.SSHArgs)
@@ -326,26 +412,26 @@ func (s *Service) ConnectWorkspaceSession(input ConnectWorkspaceInput) (RemoteCo
 
 	sshArgs, err := ParseSSHArgs(sshArgsRaw)
 	if err != nil {
-		return RemoteConnectResult{}, err
+		return PreparedConnectWorkspaceResult{}, err
 	}
 	sshArgs = ApplyControlSocketArgs(sshArgs)
 	sshPrefix := SSHCommandPrefix(true, s.resolvedSSHBin())
 
 	shell, err := s.resolveRemoteShell(sshTarget, sshArgs, sshPrefix)
 	if err != nil {
-		return RemoteConnectResult{}, err
+		return PreparedConnectWorkspaceResult{}, err
 	}
 	remoteWorkspace, err := s.resolveRemoteWorkspace(sshTarget, sshArgs, shell, workspace, sshPrefix)
 	if err != nil {
-		return RemoteConnectResult{}, err
+		return PreparedConnectWorkspaceResult{}, err
 	}
 	resolvedRemoteCommand, err := s.resolveRemoteSettaCommand(sshTarget, sshArgs, shell, remoteWorkspace, remoteCommand, sshPrefix)
 	if err != nil {
-		return RemoteConnectResult{}, err
+		return PreparedConnectWorkspaceResult{}, err
 	}
 	settaFilesArgs, err := buildRemoteSettaPathArgs(profile, settaHome, settaFilesRoot, settaFilesLocation, runtimeRoot)
 	if err != nil {
-		return RemoteConnectResult{}, err
+		return PreparedConnectWorkspaceResult{}, err
 	}
 
 	sessions, err := s.fetchRemoteSessions(
@@ -359,12 +445,17 @@ func (s *Service) ConnectWorkspaceSession(input ConnectWorkspaceInput) (RemoteCo
 		RemoteServerModeIDE,
 	)
 	if err != nil {
-		return RemoteConnectResult{}, err
+		return PreparedConnectWorkspaceResult{}, err
 	}
+	initialSessionCount := len(sessions)
 
 	startedNew := false
 	startTimedOut := false
-	if len(sessions) == 0 {
+	session, hasSelection, err := selectConnectSession(sessions, sessionID, input.Latest)
+	if err != nil {
+		return PreparedConnectWorkspaceResult{}, err
+	}
+	if !hasSelection {
 		startedNew = true
 		if err := s.startRemoteSetta(
 			sshTarget,
@@ -381,7 +472,7 @@ func (s *Service) ConnectWorkspaceSession(input ConnectWorkspaceInput) (RemoteCo
 			if errorCode(err) == "SshTimeout" {
 				startTimedOut = true
 			} else {
-				return RemoteConnectResult{}, err
+				return PreparedConnectWorkspaceResult{}, err
 			}
 		}
 
@@ -405,17 +496,17 @@ func (s *Service) ConnectWorkspaceSession(input ConnectWorkspaceInput) (RemoteCo
 		)
 		if err != nil {
 			if startTimedOut && errorCode(err) == "RemoteLaunchTimeout" {
-				return RemoteConnectResult{}, &Error{
+				return PreparedConnectWorkspaceResult{}, &Error{
 					Code: "RemoteStart",
 					Message: "SSH command to start remote Setta timed out, and no sessions appeared before the launch timeout. " +
 						"Check SSH connectivity/auth and try again. " + err.Error(),
 				}
 			}
-			return RemoteConnectResult{}, err
+			return PreparedConnectWorkspaceResult{}, err
 		}
+		session = newestRemoteSession(sessions)
 	}
 
-	session := newestRemoteSession(sessions)
 	connectInfo, err := s.fetchRemoteConnectInfo(
 		sshTarget,
 		sshArgs,
@@ -428,39 +519,25 @@ func (s *Service) ConnectWorkspaceSession(input ConnectWorkspaceInput) (RemoteCo
 		launcherOrigin,
 	)
 	if err != nil {
-		return RemoteConnectResult{}, err
+		return PreparedConnectWorkspaceResult{}, err
 	}
 	token, err := extractTokenFromBootstrapURL(connectInfo.BootstrapURLFragment)
 	if err != nil {
-		return RemoteConnectResult{}, &Error{
+		return PreparedConnectWorkspaceResult{}, &Error{
 			Code:    "RemoteToken",
 			Message: err.Error(),
 		}
 	}
 
-	tunnel, err := s.ensureSSHTunnel(sshTarget, sshArgs, session.Host, session.Port, input.LocalPort)
-	if err != nil {
-		return RemoteConnectResult{}, err
-	}
-	localBootstrapURLFragment, err := launcher.BuildBootstrapURLFragment("127.0.0.1", tunnel.LocalPort, token)
-	if err != nil {
-		return RemoteConnectResult{}, &Error{
-			Code:    "RemoteConnectInfo",
-			Message: fmt.Sprintf("Build local bootstrap URL fragment: %v", err),
-		}
-	}
-
-	return RemoteConnectResult{
-		BootstrapURLFragment: localBootstrapURLFragment,
-		Session:              session,
-		StartedNew:           startedNew,
-		RemoteCommand:        resolvedRemoteCommand,
-		SettaFilesLocation:   connectInfo.SettaFilesLocation,
-		SettaFilesRoot:       connectInfo.SettaFilesRoot,
-		RuntimeRoot:          connectInfo.RuntimeRoot,
-		SettaHome:            connectInfo.SettaHome,
-		Profile:              connectInfo.Profile,
-		LauncherOriginProof:  connectInfo.LauncherOriginProof,
+	return PreparedConnectWorkspaceResult{
+		Session:             session,
+		StartedNew:          startedNew,
+		InitialSessionCount: initialSessionCount,
+		RemoteShell:         shell,
+		RemoteWorkspace:     remoteWorkspace,
+		RemoteCommand:       resolvedRemoteCommand,
+		ConnectInfo:         connectInfo,
+		Token:               token,
 	}, nil
 }
 
@@ -1002,6 +1079,37 @@ func newestRemoteSession(sessions []RemoteSessionSummary) RemoteSessionSummary {
 		}
 	}
 	return best
+}
+
+func selectConnectSession(sessions []RemoteSessionSummary, sessionID string, latest bool) (RemoteSessionSummary, bool, error) {
+	if trimmed := NormalizeOptionalArgument(sessionID); trimmed != "" {
+		for _, session := range sessions {
+			if session.ID == trimmed {
+				return session, true, nil
+			}
+		}
+		return RemoteSessionSummary{}, false, &Error{
+			Code:    "RemoteConnectSelection",
+			Message: fmt.Sprintf("Session %s not found.", trimmed),
+		}
+	}
+	if latest {
+		if len(sessions) == 0 {
+			return RemoteSessionSummary{}, false, nil
+		}
+		return newestRemoteSession(sessions), true, nil
+	}
+	switch len(sessions) {
+	case 0:
+		return RemoteSessionSummary{}, false, nil
+	case 1:
+		return sessions[0], true, nil
+	default:
+		return RemoteSessionSummary{}, false, &Error{
+			Code:    "RemoteConnectSelection",
+			Message: "Use --session or --latest for remote connect.",
+		}
+	}
 }
 
 func nonBlankLines(raw string) []string {

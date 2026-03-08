@@ -54,9 +54,9 @@ As of 2026-03-08:
 
 2. The remaining Python ownership is CLI and distribution oriented
    - `backend/setta/start.py` still owns the Click-based commands for
-     `status`, `auth`, `tools`, `api`, `stop`, `connect`, and `launcher`
-   - `tests/start/test_ssh_connect.py` validates remote stop/connect behavior
-     from the CLI perspective, not from the backend HTTP/runtime boundary
+     `launcher` plus other legacy CLI/distribution surfaces
+   - remote helper behavior (`status`, `auth`, `tools`, `api`, `stop`,
+     `connect`) has since moved into Go `cmd/setta-cli`
    - `cmd/setta-server/main.go` is a server entrypoint, not a replacement for a
      future `cmd/setta-cli`
 
@@ -84,9 +84,8 @@ If product priorities require CLI/distribution migration, create a separate
 post-backend plan for:
 
 - a dedicated `cmd/setta-cli`
-- session/auth helper commands
-- remote `connect` and `stop` UX
 - launcher/distribution script ownership
+- any remaining CLI surfaces not already migrated into Go
 
 Otherwise move the rewrite effort to stabilization, verification, and release
 readiness for the completed Go backend runtime.
@@ -99,6 +98,9 @@ readiness for the completed Go backend runtime.
 - 2026-03-08: split the remaining Python CLI/distribution work out of Phase 7
   so the backend rewrite no longer implies a hidden launcher or SSH runtime
   gap.
+- 2026-03-08: after the completed Phase 8 CLI slices, the remote helper
+  commands (`status`, `auth`, `tools`, `api`, `stop`, `connect`) are no longer
+  part of the remaining Python CLI gap.
 
 ## Verification
 
