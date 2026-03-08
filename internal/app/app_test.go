@@ -557,6 +557,131 @@ func TestAppInstallsAndUninstallsPluginRoutes(t *testing.T) {
 	}
 }
 
+func TestAppUpdatesAndRollsBackPluginRoutes(t *testing.T) {
+	// The real app should wire update and rollback plugin routes through install metadata and the production candidate-provider boundary.
+	artifactDir := t.TempDir()
+	buildAppLocalPyPIWheelFromFixture(t, artifactDir, "frontend", "setta-fixture-frontend", "0.1.0")
+	buildAppLocalPyPIWheelFromFixture(t, artifactDir, "frontend", "setta-fixture-frontend", "0.2.0")
+	t.Setenv("PIP_NO_INDEX", "1")
+	t.Setenv("PIP_FIND_LINKS", artifactDir)
+
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	postPluginMutation := func(path string, body string) *http.Response {
+		t.Helper()
+
+		request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+path, strings.NewReader(body))
+		if err != nil {
+			t.Fatalf("new %s request: %v", path, err)
+		}
+		request.Header.Set("Content-Type", "application/json")
+		request.AddCookie(authCookie)
+
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			t.Fatalf("post %s: %v", path, err)
+		}
+		return response
+	}
+
+	installResponse := postPluginMutation(httpapi.RoutePluginsInstall, `{"sourceSpec":"pypi:setta-fixture-frontend==0.1.0","scope":"workspace","installer":"pip","enable":true,"force":false}`)
+	defer installResponse.Body.Close()
+	if installResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(installResponse.Body)
+		t.Fatalf("expected plugin install 200, got %d with body %q", installResponse.StatusCode, string(body))
+	}
+
+	updateResponse := postPluginMutation(httpapi.RoutePluginsUpdate, `{"pluginId":"setta-fixture-frontend","scope":"workspace","to":"0.2.0"}`)
+	defer updateResponse.Body.Close()
+	if updateResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(updateResponse.Body)
+		t.Fatalf("expected plugin update 200, got %d with body %q", updateResponse.StatusCode, string(body))
+	}
+
+	var updatePayload struct {
+		PluginID        string `json:"pluginId"`
+		FromVersion     string `json:"fromVersion"`
+		ToVersion       string `json:"toVersion"`
+		RestartRequired bool   `json:"restartRequired"`
+	}
+	if err := json.NewDecoder(updateResponse.Body).Decode(&updatePayload); err != nil {
+		t.Fatalf("decode update payload: %v", err)
+	}
+	if updatePayload.PluginID != "setta-fixture-frontend" || updatePayload.FromVersion != "0.1.0" || updatePayload.ToVersion != "0.2.0" || updatePayload.RestartRequired {
+		t.Fatalf("unexpected update payload %#v", updatePayload)
+	}
+
+	rollbackResponse := postPluginMutation(httpapi.RoutePluginsRollback, `{"pluginId":"setta-fixture-frontend","scope":"workspace"}`)
+	defer rollbackResponse.Body.Close()
+	if rollbackResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(rollbackResponse.Body)
+		t.Fatalf("expected plugin rollback 200, got %d with body %q", rollbackResponse.StatusCode, string(body))
+	}
+
+	var rollbackPayload struct {
+		PluginID        string `json:"pluginId"`
+		RestoredVersion string `json:"restoredVersion"`
+		RestartRequired bool   `json:"restartRequired"`
+	}
+	if err := json.NewDecoder(rollbackResponse.Body).Decode(&rollbackPayload); err != nil {
+		t.Fatalf("decode rollback payload: %v", err)
+	}
+	if rollbackPayload.PluginID != "setta-fixture-frontend" || rollbackPayload.RestoredVersion != "0.1.0" || rollbackPayload.RestartRequired {
+		t.Fatalf("unexpected rollback payload %#v", rollbackPayload)
+	}
+
+	runtimeRequest, err := http.NewRequest(http.MethodGet, server.URL+"/api"+httpapi.RoutePluginsRuntime, nil)
+	if err != nil {
+		t.Fatalf("new plugin runtime request: %v", err)
+	}
+	runtimeRequest.AddCookie(authCookie)
+
+	runtimeResponse, err := http.DefaultClient.Do(runtimeRequest)
+	if err != nil {
+		t.Fatalf("get plugin runtime after rollback: %v", err)
+	}
+	defer runtimeResponse.Body.Close()
+	if runtimeResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(runtimeResponse.Body)
+		t.Fatalf("expected plugin runtime 200, got %d with body %q", runtimeResponse.StatusCode, string(body))
+	}
+
+	var runtimePayload struct {
+		Status struct {
+			Plugins []struct {
+				PluginID string  `json:"pluginId"`
+				Version  string  `json:"version"`
+				Shadowed *string `json:"shadowedBySourcePath"`
+			} `json:"plugins"`
+		} `json:"status"`
+	}
+	if err := json.NewDecoder(runtimeResponse.Body).Decode(&runtimePayload); err != nil {
+		t.Fatalf("decode plugin runtime payload: %v", err)
+	}
+	if len(runtimePayload.Status.Plugins) != 1 {
+		t.Fatalf("expected one plugin after rollback, got %#v", runtimePayload.Status.Plugins)
+	}
+	if runtimePayload.Status.Plugins[0].PluginID != "setta-fixture-frontend" || runtimePayload.Status.Plugins[0].Version != "0.1.0" {
+		t.Fatalf("unexpected runtime payload after rollback %#v", runtimePayload.Status.Plugins[0])
+	}
+}
+
 func TestAppServesManualPluginRestartRoute(t *testing.T) {
 	// The real app should expose the plugin restart route and stay manual-only without a restart hook.
 	cfg := testConfig(t)

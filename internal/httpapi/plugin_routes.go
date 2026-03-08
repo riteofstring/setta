@@ -17,6 +17,8 @@ const RoutePluginsRuntime = "/plugins/runtime"
 const RoutePluginsRescan = "/plugins/rescan"
 const RoutePluginsInstall = "/plugins/install"
 const RoutePluginsUninstall = "/plugins/uninstall"
+const RoutePluginsUpdate = "/plugins/update"
+const RoutePluginsRollback = "/plugins/rollback"
 const RoutePluginsEnable = "/plugins/enable"
 const RoutePluginsDisable = "/plugins/disable"
 const RoutePluginsConfig = "/plugins/config"
@@ -43,6 +45,8 @@ func RegisterPluginRoutes(router chi.Router, deps PluginRouteDependencies) error
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsRescan, pluginRescanHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsInstall, pluginInstallHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsUninstall, pluginUninstallHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsUpdate, pluginUpdateHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsRollback, pluginRollbackHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsEnable, pluginEnableDisableHandler(deps.Service.Enable))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsDisable, pluginEnableDisableHandler(deps.Service.Disable))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsConfig, pluginConfigHandler(deps))
@@ -175,6 +179,63 @@ func pluginUninstallHandler(deps PluginRouteDependencies) http.HandlerFunc {
 		}
 
 		response, err := deps.Service.Uninstall(r.Context(), plugins.UninstallOptions{
+			PluginID: payload.PluginID,
+			Scope:    payload.Scope,
+		})
+		if err != nil {
+			writePluginRouteError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, response)
+	}
+}
+
+func pluginUpdateHandler(deps PluginRouteDependencies) http.HandlerFunc {
+	type updatePluginRequest struct {
+		PluginID string               `json:"pluginId"`
+		Scope    *plugins.PluginScope `json:"scope"`
+		To       *string              `json:"to"`
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[updatePluginRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		to := ""
+		if payload.To != nil {
+			to = *payload.To
+		}
+
+		response, err := deps.Service.Update(r.Context(), plugins.UpdateOptions{
+			PluginID: payload.PluginID,
+			Scope:    payload.Scope,
+			To:       to,
+		})
+		if err != nil {
+			writePluginRouteError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, response)
+	}
+}
+
+func pluginRollbackHandler(deps PluginRouteDependencies) http.HandlerFunc {
+	type rollbackPluginRequest struct {
+		PluginID string               `json:"pluginId"`
+		Scope    *plugins.PluginScope `json:"scope"`
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[rollbackPluginRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		response, err := deps.Service.Rollback(r.Context(), plugins.RollbackOptions{
 			PluginID: payload.PluginID,
 			Scope:    payload.Scope,
 		})

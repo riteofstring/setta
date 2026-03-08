@@ -517,14 +517,17 @@ The remaining caller-backed plugin lifecycle mutation cluster is now tracked in
     - `POST /plugins/uninstall`
   - the real IDE app now wires the production candidate provider into the
     shared plugin service
-- the remaining direct frontend route gap is now narrowed to:
+- Slice C is now landed:
   - `POST /plugins/update`
   - `POST /plugins/rollback`
+- the current caller-backed direct frontend plugin lifecycle transport is now
+  complete for the bounded Phase 15 scope
 - `POST /plugins/link` and `POST /plugins/lock/*` are not current direct
   frontend callers and stay explicitly deferred
-- the next bounded follow-on is:
-  - `POST /plugins/update`
-  - `POST /plugins/rollback`
+- the next plugin follow-on, if and when a caller or later phase requires it,
+  should target either:
+  - the deferred non-caller `link` / `lock*` routes
+  - the higher-level backend plugin runtime registration boundary
 
 The bounded plugin dependency cleanup tracked in
 `phase-11-plugin-version-range-owner-and-dependency-cleanup.md` is now also

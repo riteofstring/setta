@@ -149,6 +149,160 @@ func TestRegisterPluginRoutesInstallAndUninstallPlugin(t *testing.T) {
 	}
 }
 
+func TestRegisterPluginRoutesUpdateAndRollbackPlugin(t *testing.T) {
+	t.Parallel()
+
+	_, service := newRoutePluginMutationService(t, map[string]routePluginFixtureSpec{
+		"pypi:setta-fixture-frontend==0.1.0": {
+			FixtureName: "frontend",
+			Version:     "0.1.0",
+		},
+		"pypi:setta-fixture-frontend==0.2.0": {
+			FixtureName: "frontend",
+			Version:     "0.2.0",
+		},
+	})
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	installResponse := httptest.NewRecorder()
+	installRequest := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsInstall, strings.NewReader(`{"sourceSpec":"pypi:setta-fixture-frontend==0.1.0","scope":"workspace","installer":"pip","enable":true,"force":false}`))
+	handler.ServeHTTP(installResponse, installRequest)
+	if installResponse.Code != http.StatusOK {
+		t.Fatalf("expected plugin install 200, got %d with body %q", installResponse.Code, installResponse.Body.String())
+	}
+
+	updateResponse := httptest.NewRecorder()
+	updateRequest := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsUpdate, strings.NewReader(`{"pluginId":"setta-fixture-frontend","scope":"workspace","to":"0.2.0"}`))
+	handler.ServeHTTP(updateResponse, updateRequest)
+	if updateResponse.Code != http.StatusOK {
+		t.Fatalf("expected plugin update 200, got %d with body %q", updateResponse.Code, updateResponse.Body.String())
+	}
+
+	var updatePayload plugins.PluginUpdateResult
+	if err := json.Unmarshal(updateResponse.Body.Bytes(), &updatePayload); err != nil {
+		t.Fatalf("decode plugin update response: %v", err)
+	}
+	if updatePayload.PluginID != "setta-fixture-frontend" || updatePayload.FromVersion != "0.1.0" || updatePayload.ToVersion != "0.2.0" || updatePayload.RestartRequired {
+		t.Fatalf("unexpected update payload %#v", updatePayload)
+	}
+
+	rollbackResponse := httptest.NewRecorder()
+	rollbackRequest := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsRollback, strings.NewReader(`{"pluginId":"setta-fixture-frontend","scope":"workspace"}`))
+	handler.ServeHTTP(rollbackResponse, rollbackRequest)
+	if rollbackResponse.Code != http.StatusOK {
+		t.Fatalf("expected plugin rollback 200, got %d with body %q", rollbackResponse.Code, rollbackResponse.Body.String())
+	}
+
+	var rollbackPayload plugins.PluginRollbackResult
+	if err := json.Unmarshal(rollbackResponse.Body.Bytes(), &rollbackPayload); err != nil {
+		t.Fatalf("decode plugin rollback response: %v", err)
+	}
+	if rollbackPayload.PluginID != "setta-fixture-frontend" || rollbackPayload.RestoredVersion != "0.1.0" || rollbackPayload.RestartRequired {
+		t.Fatalf("unexpected rollback payload %#v", rollbackPayload)
+	}
+}
+
+func TestRegisterPluginRoutesMapUpdateMetadataAndRollbackHistoryErrors(t *testing.T) {
+	t.Parallel()
+
+	service, roots := newPluginRouteTestService(t, config.ModeIDE)
+	copyPluginRouteFixtureToWorkspace(t, roots.workspaceRoot, "frontend")
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	updateResponse := httptest.NewRecorder()
+	updateRequest := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsUpdate, strings.NewReader(`{"pluginId":"setta-fixture-frontend","scope":"workspace","to":null}`))
+	handler.ServeHTTP(updateResponse, updateRequest)
+	if updateResponse.Code != http.StatusBadRequest {
+		t.Fatalf("expected update unavailable 400, got %d with body %q", updateResponse.Code, updateResponse.Body.String())
+	}
+
+	var updatePayload errorResponse
+	if err := json.Unmarshal(updateResponse.Body.Bytes(), &updatePayload); err != nil {
+		t.Fatalf("decode update unavailable response: %v", err)
+	}
+	if updatePayload.Error.Code != string(plugins.ServiceErrorCodeUpdateUnavailable) {
+		t.Fatalf("expected update unavailable code, got %q", updatePayload.Error.Code)
+	}
+
+	rollbackResponse := httptest.NewRecorder()
+	rollbackRequest := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsRollback, strings.NewReader(`{"pluginId":"setta-fixture-frontend","scope":"workspace"}`))
+	handler.ServeHTTP(rollbackResponse, rollbackRequest)
+	if rollbackResponse.Code != http.StatusBadRequest {
+		t.Fatalf("expected rollback unavailable 400, got %d with body %q", rollbackResponse.Code, rollbackResponse.Body.String())
+	}
+
+	var rollbackPayload errorResponse
+	if err := json.Unmarshal(rollbackResponse.Body.Bytes(), &rollbackPayload); err != nil {
+		t.Fatalf("decode rollback unavailable response: %v", err)
+	}
+	if rollbackPayload.Error.Code != string(plugins.ServiceErrorCodeRollbackUnavailable) {
+		t.Fatalf("expected rollback unavailable code, got %q", rollbackPayload.Error.Code)
+	}
+}
+
+func TestRegisterPluginRoutesRejectLocalSourceUpdateAndRollback(t *testing.T) {
+	t.Parallel()
+
+	service, roots := newPluginRouteTestService(t, config.ModeIDE)
+	copyPluginRouteFixtureToWorkspace(t, roots.workspaceRoot, "frontend")
+	pluginRoot := filepath.Join(roots.workspaceRoot, ".setta_plugins", "setta-fixture-frontend")
+	store, err := plugins.NewStore(plugins.StoreOptions{
+		WorkspaceRoot:  roots.workspaceRoot,
+		SettaFilesRoot: roots.settaFilesRoot,
+		SettaHome:      roots.settaHome,
+	})
+	if err != nil {
+		t.Fatalf("new plugin store: %v", err)
+	}
+	if err := store.SetInstallMetadata(plugins.PluginInstallMetadataEntry{
+		PluginID:           "setta-fixture-frontend",
+		Scope:              plugins.PluginScopeWorkspace,
+		SourceSpec:         "local:" + pluginRoot,
+		CanonicalSourceKey: "local:" + pluginRoot,
+		Version:            "0.1.0",
+		History: []plugins.PluginInstallHistoryEntry{
+			{
+				Version:      "0.0.9",
+				SnapshotPath: filepath.Join(roots.workspaceRoot, "missing-snapshot"),
+				TimestampISO: "2026-03-09T00:00:00Z",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("seed local install metadata: %v", err)
+	}
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	updateResponse := httptest.NewRecorder()
+	updateRequest := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsUpdate, strings.NewReader(`{"pluginId":"setta-fixture-frontend","scope":"workspace","to":null}`))
+	handler.ServeHTTP(updateResponse, updateRequest)
+	if updateResponse.Code != http.StatusBadRequest {
+		t.Fatalf("expected local-source update 400, got %d with body %q", updateResponse.Code, updateResponse.Body.String())
+	}
+
+	var updatePayload errorResponse
+	if err := json.Unmarshal(updateResponse.Body.Bytes(), &updatePayload); err != nil {
+		t.Fatalf("decode local-source update response: %v", err)
+	}
+	if updatePayload.Error.Code != string(plugins.ServiceErrorCodeUpdateUnavailable) {
+		t.Fatalf("expected update unavailable code, got %q", updatePayload.Error.Code)
+	}
+
+	rollbackResponse := httptest.NewRecorder()
+	rollbackRequest := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsRollback, strings.NewReader(`{"pluginId":"setta-fixture-frontend","scope":"workspace"}`))
+	handler.ServeHTTP(rollbackResponse, rollbackRequest)
+	if rollbackResponse.Code != http.StatusBadRequest {
+		t.Fatalf("expected local-source rollback 400, got %d with body %q", rollbackResponse.Code, rollbackResponse.Body.String())
+	}
+
+	var rollbackPayload errorResponse
+	if err := json.Unmarshal(rollbackResponse.Body.Bytes(), &rollbackPayload); err != nil {
+		t.Fatalf("decode local-source rollback response: %v", err)
+	}
+	if rollbackPayload.Error.Code != string(plugins.ServiceErrorCodeRollbackUnavailable) {
+		t.Fatalf("expected rollback unavailable code, got %q", rollbackPayload.Error.Code)
+	}
+}
+
 func TestRegisterPluginRoutesEnableAndDisablePlugin(t *testing.T) {
 	t.Parallel()
 
@@ -285,6 +439,39 @@ func TestRegisterPluginRoutesRejectsInvalidJSONForInstallAndUninstall(t *testing
 	}{
 		{name: "install", path: RoutePluginsInstall},
 		{name: "uninstall", path: RoutePluginsUninstall},
+	} {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			response := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodPost, "/api"+testCase.path, strings.NewReader("{"))
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusBadRequest {
+				t.Fatalf("expected invalid json 400, got %d with body %q", response.Code, response.Body.String())
+			}
+
+			var payload errorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode invalid json response: %v", err)
+			}
+			if payload.Error.Code != "invalid_json" {
+				t.Fatalf("expected invalid_json error code, got %q", payload.Error.Code)
+			}
+		})
+	}
+}
+
+func TestRegisterPluginRoutesRejectsInvalidJSONForUpdateAndRollback(t *testing.T) {
+	t.Parallel()
+
+	service, _ := newPluginRouteTestService(t, config.ModeIDE)
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	for _, testCase := range []struct {
+		name string
+		path string
+	}{
+		{name: "update", path: RoutePluginsUpdate},
+		{name: "rollback", path: RoutePluginsRollback},
 	} {
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
@@ -549,6 +736,8 @@ func TestRegisterPluginRoutesBlocksLifecycleSlicesOutsideIDE(t *testing.T) {
 		{name: "rescan", path: RoutePluginsRescan},
 		{name: "install", path: RoutePluginsInstall, body: `{"sourceSpec":"pypi:setta-fixture-frontend==0.1.0","scope":"workspace","installer":"pip"}`},
 		{name: "uninstall", path: RoutePluginsUninstall, body: `{"pluginId":"setta-fixture-frontend","scope":"workspace"}`},
+		{name: "update", path: RoutePluginsUpdate, body: `{"pluginId":"setta-fixture-frontend","scope":"workspace","to":null}`},
+		{name: "rollback", path: RoutePluginsRollback, body: `{"pluginId":"setta-fixture-frontend","scope":"workspace"}`},
 		{name: "enable", path: RoutePluginsEnable, body: `{"pluginId":"setta-fixture-frontend"}`},
 		{name: "disable", path: RoutePluginsDisable, body: `{"pluginId":"setta-fixture-frontend"}`},
 	}

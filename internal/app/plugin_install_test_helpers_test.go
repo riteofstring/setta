@@ -2,6 +2,7 @@ package app
 
 import (
 	"archive/zip"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -28,6 +29,7 @@ func buildAppLocalPyPIWheelFromFixture(t *testing.T, artifactDir string, fixture
 		t.Fatalf("copy fixture into wheel staging root: %v", err)
 	}
 	rewriteAppFrontendFixtureManifestPaths(t, stagingRoot)
+	rewriteAppFixtureManifestVersion(t, stagingRoot, version)
 
 	if err := os.MkdirAll(artifactDir, 0o755); err != nil {
 		t.Fatalf("mkdir artifact dir: %v", err)
@@ -136,5 +138,38 @@ func rewriteAppFrontendFixtureManifestPaths(t *testing.T, root string) {
 	})
 	if err != nil {
 		t.Fatalf("rewrite frontend fixture manifest paths under %s: %v", root, err)
+	}
+}
+
+func rewriteAppFixtureManifestVersion(t *testing.T, root string, version string) {
+	t.Helper()
+
+	err := filepath.Walk(root, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if info.IsDir() || info.Name() != "setta.plugin.json" {
+			return nil
+		}
+
+		payload, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		var manifest map[string]any
+		if err := json.Unmarshal(payload, &manifest); err != nil {
+			return err
+		}
+		manifest["version"] = version
+
+		encoded, err := json.MarshalIndent(manifest, "", "  ")
+		if err != nil {
+			return err
+		}
+		encoded = append(encoded, '\n')
+		return os.WriteFile(path, encoded, 0o644)
+	})
+	if err != nil {
+		t.Fatalf("rewrite manifest versions under %s: %v", root, err)
 	}
 }

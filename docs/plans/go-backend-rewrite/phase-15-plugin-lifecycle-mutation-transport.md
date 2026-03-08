@@ -2,10 +2,11 @@
 
 ## Purpose
 
-This doc tracks the remaining direct frontend plugin mutation transport work
-after the landed runtime-read, config-write, and restart slices.
+This doc records the bounded closeout of the remaining caller-backed direct
+frontend plugin mutation transport work after the landed runtime-read,
+config-write, and restart slices.
 
-The remaining caller-backed routes are:
+The direct frontend lifecycle routes covered here were:
 
 - `POST /plugins/rescan`
 - `POST /plugins/enable`
@@ -15,7 +16,7 @@ The remaining caller-backed routes are:
 - `POST /plugins/update`
 - `POST /plugins/rollback`
 
-The goal is to move those direct frontend HTTP transports onto the existing Go
+The goal was to move those direct frontend HTTP transports onto the existing Go
 plugin service without broadening into backend plugin registration runtime
 parity, new install orchestration beyond the current service contract, or
 adjacent unused HTTP routes.
@@ -36,6 +37,9 @@ Current repo status as of 2026-03-09:
 - Slice B in this doc is now landed:
   - `POST /plugins/install`
   - `POST /plugins/uninstall`
+- Slice C in this doc is now landed:
+  - `POST /plugins/update`
+  - `POST /plugins/rollback`
 - `internal/plugins/service.go` already owns the source-of-truth mutation
   semantics for:
   - `Rescan()`
@@ -54,9 +58,13 @@ Current repo status as of 2026-03-09:
   - `route_plugins_uninstall(...)`
   - `route_plugins_update(...)`
   - `route_plugins_rollback(...)`
-- Python still owns the HTTP transport for those routes in:
-  - `backend/setta/routers/plugins.py`
-  - `backend/setta/plugins/manager.py`
+- the caller-backed direct frontend HTTP transport for those routes is now
+  Go-owned
+- Python-only plugin HTTP routes now remaining outside this bounded phase are
+  the deferred non-caller routes:
+  - `POST /plugins/link`
+  - `POST /plugins/lock/write`
+  - `POST /plugins/lock/apply`
 
 Inventory notes that matter for sequencing:
 
@@ -204,6 +212,20 @@ Rationale:
 - both are easiest to verify once install/uninstall transport is already in
   place and covered
 
+Status:
+
+- landed
+- Go now owns thin IDE-only transport for:
+  - `POST /plugins/update`
+  - `POST /plugins/rollback`
+- the update route now accepts the current direct frontend `to: null` payload
+  shape and passes the existing source-spec through unchanged when no retarget
+  is requested
+- the rollback route now surfaces the existing shared-service unavailable
+  errors for missing history, missing metadata, and linked local sources
+- the real IDE app now proves metadata-backed update and rollback behavior over
+  the production candidate-provider boundary
+
 ### Deferred Unless Needed
 
 - `POST /plugins/link`
@@ -235,6 +257,13 @@ Recommendation:
 - keep install response enrichment in the shared service
   - both direct HTTP routes and existing MCP tool results should come from the
     same install source-of-truth payload instead of route-local patching
+- keep update/rollback response shaping in the shared service
+  - the HTTP layer forwards the existing typed result payloads instead of
+    introducing route-local response adapters
+- accept nullable `to` in the route request contract
+  - the current frontend already sends `to: null` for default updates
+  - the Go route now decodes that explicitly instead of relying on fragile JSON
+    coercion
 
 ## Landed in Slice A
 
@@ -274,24 +303,42 @@ Recommendation:
   - `internal/app/app_test.go`
   - `internal/app/mcp_plugin_management_test.go`
 
+## Landed in Slice C
+
+- `internal/httpapi/plugin_routes.go`
+  - thin IDE-only transport for:
+    - `POST /plugins/update`
+    - `POST /plugins/rollback`
+- `internal/httpapi/route_names.go`
+  - bare-route registration for the new update/rollback route names
+- focused coverage in:
+  - `internal/httpapi/plugin_routes_test.go`
+    - update/rollback success
+    - invalid JSON
+    - missing metadata/history
+    - linked local-source rejection
+    - share-mode blocking
+  - `internal/app/app_test.go`
+    - real app update + rollback roundtrip over the production candidate
+      provider
+  - `internal/plugins/service_test.go`
+    - existing update/rollback lifecycle coverage remains the service-level
+      source-of-truth guardrail
+
 ## Verification
 
-- `./scripts/go.sh test ./internal/plugins -run 'TestService(InstallUpdateRollbackAndUninstallLifecycle|BackendUninstallSurfacesPendingRestartTombstone)' -count=1`
+- `./scripts/go.sh test ./internal/plugins -run 'TestService(InstallUpdateRollbackAndUninstallLifecycle|UpdateRejectsLocalSourceMetadata|RollbackRequiresHistory)' -count=1`
 - `./scripts/go.sh test ./internal/httpapi -run 'Plugin' -count=1`
-- `./scripts/go.sh test ./internal/app -run 'Plugin.*(InstallsAndUninstallsPluginRoutes|HandlesPluginRescanEnableAndDisable|RuntimeAndFrontendAssets|WritesPluginConfig|ServesManualPluginRestartRoute)|TestAppIDEMCP(ServerSupportsPluginManagementToolsOverAuthenticatedSSE|ToolCallRouteSupportsPluginManagementTools)' -count=1`
+- `./scripts/go.sh test ./internal/app -run 'TestApp(ServesPluginRuntimeAndFrontendAssets|WritesPluginConfigAndUpdatesRuntime|HandlesPluginRescanEnableAndDisableRoutes|InstallsAndUninstallsPluginRoutes|UpdatesAndRollsBackPluginRoutes|ServesManualPluginRestartRoute)' -count=1`
 - `git diff --check`
 
-## Immediate Next Step
+## Next Recommended Step
 
-Implement Slice C end-to-end:
-
-1. add thin IDE-only Go transport for `update` and `rollback`
-2. keep update/rollback payloads aligned with the current direct frontend
-   contract over the existing install-metadata and rollback-history owners
-3. add focused route tests for invalid JSON, missing metadata/history,
-   local-source rejection, and share-mode blocking
-4. add one real-app test proving metadata-backed update or rollback behavior
-   over the production candidate-provider boundary without adding heuristics
+- keep `POST /plugins/link` and `POST /plugins/lock/*` deferred until they
+  become caller-backed or a concrete follow-on phase requires them
+- if plugin rewrite work resumes, focus next on the higher-level Go backend
+  plugin runtime boundary for backend route/language-server/external-agent
+  registrations rather than reopening thin transport work already completed
 
 ## Open Questions
 
