@@ -143,6 +143,8 @@ type SetBrowserHideColumnRequestInput struct{}
 
 type SetBrowserSavedSearchesRequestInput struct{}
 
+type SetCodeFileBindingRequestInput struct{}
+
 type ViewportInput struct {
 	X    float64 `json:"x"`
 	Y    float64 `json:"y"`
@@ -209,6 +211,20 @@ export type SetBrowserSavedSearchesRequestInput = {
   projectConfigId: string;
   sectionId: string;
   savedSearches: Array<BrowserSavedSearch>;
+};
+`
+
+const setCodeFileBindingRequestInputRawTS = `
+export type CodeFileBindingUpdate = {
+  canonical_path: string;
+  access_mode: CodeFileAccessMode;
+};
+
+export type SetCodeFileBindingRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  binding: CodeFileBindingUpdate;
 };
 `
 
@@ -686,9 +702,16 @@ export type WatchCodeRegistryEntry = {
   sectionsCount?: number;
 };
 
+export const CodeFileAccessModeEnum = {
+  read_write: "read_write",
+  read_only: "read_only",
+  write_only: "write_only",
+} as const;
+export type CodeFileAccessMode = ObjectValues<typeof CodeFileAccessModeEnum>;
+
 export type CodeFileBinding = {
-  canonicalPath: string;
-  accessMode: string;
+  canonical_path: string;
+  access_mode: CodeFileAccessMode;
   autoBinding: boolean;
 };
 

@@ -407,6 +407,11 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "SET_BROWSER_SAVED_SEARCHES",
 				},
 				{
+					Name:     "setCodeFileBinding",
+					Path:     httpapi.RouteSetCodeFileBinding,
+					EnumName: "SET_CODE_FILE_BINDING",
+				},
+				{
 					Name:     "toggleParamSelected",
 					Path:     httpapi.RouteToggleParamSelected,
 					EnumName: "TOGGLE_PARAM_SELECTED",
@@ -1251,6 +1256,13 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "setBrowserSavedSearches",
 			RequestType:     reflect.TypeOf(SetBrowserSavedSearchesRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_code_file_binding",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setCodeFileBinding",
+			RequestType:     reflect.TypeOf(SetCodeFileBindingRequestInput{}),
 		},
 		{
 			FunctionName:    "route_toggle_param_selected",

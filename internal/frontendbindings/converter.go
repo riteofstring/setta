@@ -361,6 +361,11 @@ func newTypeConverter() *typeConverter {
 				Kind: "raw",
 				Raw:  setBrowserSavedSearchesRequestInputRawTS,
 			},
+			reflect.TypeOf(SetCodeFileBindingRequestInput{}): {
+				Name: "SetCodeFileBindingRequestInput",
+				Kind: "raw",
+				Raw:  setCodeFileBindingRequestInputRawTS,
+			},
 			reflect.TypeOf(GetLLMChatResponse{}): {
 				Name: "GetLLMChatResponse",
 				Kind: "raw",

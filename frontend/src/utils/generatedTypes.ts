@@ -1417,9 +1417,16 @@ export type WatchCodeRegistryEntry = {
   sectionsCount?: number;
 };
 
+export const CodeFileAccessModeEnum = {
+  read_write: "read_write",
+  read_only: "read_only",
+  write_only: "write_only",
+} as const;
+export type CodeFileAccessMode = ObjectValues<typeof CodeFileAccessModeEnum>;
+
 export type CodeFileBinding = {
-  canonicalPath: string;
-  accessMode: string;
+  canonical_path: string;
+  access_mode: CodeFileAccessMode;
   autoBinding: boolean;
 };
 
@@ -4550,6 +4557,21 @@ export type SetBrowserSavedSearchesRequestInput = {
   projectConfigId: string;
   sectionId: string;
   savedSearches: Array<BrowserSavedSearch>;
+};
+
+
+
+
+export type CodeFileBindingUpdate = {
+  canonical_path: string;
+  access_mode: CodeFileAccessMode;
+};
+
+export type SetCodeFileBindingRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  binding: CodeFileBindingUpdate;
 };
 
 

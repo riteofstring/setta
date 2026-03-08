@@ -83,6 +83,7 @@ Current landed wedge:
   - current project-state layout/presence/structure-selection route constants
   - current top-level section creation, view-mode lifecycle, and section-rename
     route constants
+  - current code file binding route constants
   - current browser section metadata route constants
   - current file-browser create/read/write/download/transfer route constants
   - current binary payload and bounded artifact route constants
@@ -153,6 +154,9 @@ Current landed wedge:
       - `SetViewModeSortOrderRequestInput`
       - `DeleteViewModeRequestInput`
       - `SetSectionNameRequestInput`
+    - current code file binding payloads
+      - `CodeFileBindingUpdate`
+      - `SetCodeFileBindingRequestInput`
     - shared project-state/core types used by current callers
       - `SectionType`
       - `CodeObjType`
@@ -165,6 +169,9 @@ Current landed wedge:
       - `SettingsState`
     - current canonical project-state helper support used by current callers
       - `ViewModeConfig` plus `createViewMode` and `createViewModeConfig`
+      - shared code binding enums/types
+        - `CodeFileAccessMode`
+        - `CodeFileBinding`
       - section/default factories for `Callable`, `Dict`, `ListRoot`,
         `TextBlock`, `Code`, `Terminal`, `Chat`, `Browser`, `TaskBoard`, and
         `Spreadsheet`
@@ -187,7 +194,8 @@ Current landed wedge:
         - `AgenticEdgeContextMode`
         - `createAgenticEdge`
       - runtime enums used by the current helper callers, including
-        `CodeLanguage`, `ConfigLanguage`, `TextBlockFormat`,
+        `CodeLanguage`, `CodeFileAccessMode`, `ConfigLanguage`,
+        `TextBlockFormat`,
         `TextBlockDisplayMode`, `ChatRole`, `ChatPermissionMode`,
         `ChatDictationMode`, `TaskBoardViewMode`,
         `TaskBoardTaskRecurrence`, `TaskBoardRecurringWeekday`,

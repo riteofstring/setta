@@ -347,6 +347,11 @@ export async function route_set_browser_saved_searches(x: gt.SetBrowserSavedSear
   return await post(GoHTTPRoutes.setBrowserSavedSearches, x);
 
 }
+export async function route_set_code_file_binding(x: gt.SetCodeFileBindingRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setCodeFileBinding, x);
+
+}
 export async function route_toggle_param_selected(x: gt.ToggleParamSelectedRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.toggleParamSelected, x);

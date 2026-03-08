@@ -6,15 +6,16 @@ import {
   route_append_transcription_audio,
   route_binary_download,
   route_binary_upload,
-  route_create_top_level_section,
-  route_create_project_config,
-  route_create_view_mode,
   route_check_if_file_exists,
   route_check_workspace_initialized,
+  route_create_file,
+  route_create_project_config,
+  route_create_top_level_section,
+  route_create_view_mode,
   route_delete_artifacts,
-  route_delete_view_mode,
   route_delete_sections,
   route_delete_selected_params,
+  route_delete_view_mode,
   route_force_refresh_listener,
   route_get_agent_profiles,
   route_get_agent_runs,
@@ -51,14 +52,15 @@ import {
   route_plugins_restart,
   route_plugins_runtime,
   route_restart_language_server,
-  route_set_active_view_mode,
   route_set_active_ids,
+  route_set_active_view_mode,
   route_set_app_definition,
   route_set_browser_area_view_mode,
   route_set_browser_column_widths,
   route_set_browser_hide_column,
   route_set_browser_saved_searches,
   route_set_chat_section_state,
+  route_set_code_file_binding,
   route_set_llm_api_keys,
   route_set_section_name,
   route_set_top_level_section_layout,
@@ -67,12 +69,11 @@ import {
   route_set_view_mode_sort_order,
   route_set_viewport,
   route_start_transcription_session,
-  route_create_file,
-  route_transfer_file_browser_entry,
   route_toggle_is_editing_view_mode,
   route_toggle_param_selected,
   route_toggle_view_mode_tab,
   route_toggle_view_mode_user_facing,
+  route_transfer_file_browser_entry,
   route_type_check,
   route_ungroup_groups,
   route_unselect_all_params,
@@ -549,6 +550,35 @@ describe("generatedEndpoints project shell and layout", () => {
         sectionId: "section-a",
         name: "Renamed Section",
         frontendOpId: "frontend-op-rename-section",
+      }),
+    });
+  });
+
+  it("posts code file binding writes with the canonical request shape", async () => {
+    await route_set_code_file_binding({
+      projectConfigId: "project-alpha",
+      sectionId: "code-section",
+      binding: {
+        canonical_path: "pkg/updated.py",
+        access_mode: "read_only",
+      },
+      frontendOpId: "frontend-op-code-binding",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setCodeFileBinding`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "code-section",
+        binding: {
+          canonical_path: "pkg/updated.py",
+          access_mode: "read_only",
+        },
+        frontendOpId: "frontend-op-code-binding",
       }),
     });
   });

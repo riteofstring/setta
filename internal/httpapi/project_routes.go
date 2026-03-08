@@ -43,6 +43,7 @@ const (
 	RouteTogglePositionLocks            = "/togglePositionLocks"
 	RouteToggleMinimized                = "/toggleMinimized"
 	RouteSetCode                        = "/setCode"
+	RouteSetCodeFileBinding             = "/setCodeFileBinding"
 	RouteFormatCode                     = "/formatCode"
 	RouteSetActiveIDs                   = "/setActiveIds"
 	RouteSetViewport                    = "/setViewport"
@@ -113,6 +114,11 @@ type SetProjectConfigCodegenTargetsRequest struct {
 	FrontendOpID   *string           `json:"frontendOpId"`
 	ProjectID      string            `json:"projectConfigId"`
 	CodegenTargets []json.RawMessage `json:"codegenTargets"`
+}
+
+type CodeFileBindingUpdate struct {
+	CanonicalPath string                          `json:"canonical_path"`
+	AccessMode    projectstate.CodeFileAccessMode `json:"access_mode"`
 }
 
 type GetLatestProjectStateRequest struct {
@@ -253,6 +259,13 @@ type SetSectionNameRequest struct {
 	ProjectID    string  `json:"projectConfigId"`
 	SectionID    string  `json:"sectionId"`
 	Name         string  `json:"name"`
+}
+
+type SetCodeFileBindingRequest struct {
+	FrontendOpID *string               `json:"frontendOpId"`
+	ProjectID    string                `json:"projectConfigId"`
+	SectionID    string                `json:"sectionId"`
+	Binding      CodeFileBindingUpdate `json:"binding"`
 }
 
 type AcceptRenameRefactorRequest struct {
@@ -506,6 +519,7 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteTogglePositionLocks, togglePositionLocksHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteToggleMinimized, toggleMinimizedHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCode, setCodeHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCodeFileBinding, setCodeFileBindingHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteFormatCode, formatCodeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetActiveIDs, setActiveIDsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetViewport, setViewportHandler(deps))
@@ -1473,6 +1487,45 @@ func setCodeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 
 		if err := deps.CodeUpdates.SetCode(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, payload.Code); err != nil {
 			writeSetCodeError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setCodeFileBindingHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetCodeFileBindingRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetCodeFileBinding(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			projectstate.CodeFileBinding{
+				Path:       payload.Binding.CanonicalPath,
+				AccessMode: payload.Binding.AccessMode,
+			},
+		); err != nil {
+			writeSetCodeFileBindingError(w, r, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -2497,6 +2550,28 @@ func writeSetCodeError(w http.ResponseWriter, r *http.Request, err error) {
 		writeError(w, r, http.StatusForbidden, "code_section_read_only", "Code section is read-only.")
 	case errors.Is(err, projectstate.ErrCodeSectionRequired):
 		writeError(w, r, http.StatusBadRequest, "invalid_code_section", "Section must resolve to a code section.")
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeSetCodeFileBindingError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectIDRequired),
+		errors.Is(err, projectview.ErrProjectConfigIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrSectionIDRequired):
+		writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrSectionNotFound):
+		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+	case errors.Is(err, projectstate.ErrCodeSectionRequired):
+		writeError(w, r, http.StatusBadRequest, "invalid_code_section", "Section must resolve to a code section.")
+	case errors.Is(err, projectstate.ErrCodeFileBindingPathRequired):
+		writeError(w, r, http.StatusBadRequest, "code_file_binding_path_required", "Code file binding path is required.")
+	case errors.Is(err, projectstate.ErrCodeFileAccessModeInvalid):
+		writeError(w, r, http.StatusBadRequest, "code_file_access_mode_invalid", err.Error())
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}

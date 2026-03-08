@@ -1897,6 +1897,149 @@ func TestRegisterProjectRoutesBrowserMetadataMutationsPersistLatestState(t *test
 	}
 }
 
+func TestRegisterProjectRoutesSetCodeFileBindingPersistsLatestState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": codeFileBindingRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	post := func(route string, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+route,
+			strings.NewReader(body),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	response := post(
+		RouteSetCodeFileBinding,
+		`{"projectConfigId":"project-alpha","sectionId":"code-section","binding":{"canonical_path":"./pkg/../pkg/updated.py","access_mode":"read_only"}}`,
+	)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+
+	codeSection := payload.ProjectState.Sections["code-section"]
+	codeSharedModifier := decodeProjectRouteRawObject(t, codeSection.SharedModifier)
+	rawBinding, ok := codeSharedModifier["codeFileBinding"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected codeFileBinding object, got %#v", codeSharedModifier["codeFileBinding"])
+	}
+	if rawBinding["canonical_path"] != "pkg/updated.py" {
+		t.Fatalf("expected canonical_path pkg/updated.py, got %#v", rawBinding["canonical_path"])
+	}
+	if rawBinding["access_mode"] != "read_only" {
+		t.Fatalf("expected access_mode read_only, got %#v", rawBinding["access_mode"])
+	}
+	if rawBinding["autoBinding"] != false {
+		t.Fatalf("expected autoBinding=false, got %#v", rawBinding["autoBinding"])
+	}
+
+	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	_, _, impl, err := project.ResolveSection("code-section")
+	if err != nil {
+		t.Fatalf("resolve code section: %v", err)
+	}
+	if impl.Code == nil || impl.Code.Binding == nil {
+		t.Fatalf("expected code impl binding, got %#v", impl.Code)
+	}
+	if impl.Code.Binding.Path != "pkg/updated.py" {
+		t.Fatalf("expected impl binding path pkg/updated.py, got %q", impl.Code.Binding.Path)
+	}
+	if impl.Code.Binding.AccessMode != projectstate.CodeFileAccessModeReadOnly {
+		t.Fatalf("expected impl binding access mode read_only, got %q", impl.Code.Binding.AccessMode)
+	}
+}
+
+func TestRegisterProjectRoutesSetCodeFileBindingRejectsInvalidInputs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": codeFileBindingRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	for _, requestSpec := range []struct {
+		body         string
+		expectedCode int
+		expectedBody string
+	}{
+		{
+			body:         `{"projectConfigId":"project-alpha","sectionId":"plain-section","binding":{"canonical_path":"pkg/plain.py","access_mode":"read_write"}}`,
+			expectedCode: http.StatusBadRequest,
+			expectedBody: `"code":"invalid_code_section"`,
+		},
+		{
+			body:         `{"projectConfigId":"project-alpha","sectionId":"code-section","binding":{"canonical_path":" ","access_mode":"read_only"}}`,
+			expectedCode: http.StatusBadRequest,
+			expectedBody: `"code":"code_file_binding_path_required"`,
+		},
+		{
+			body:         `{"projectConfigId":"project-alpha","sectionId":"code-section","binding":{"canonical_path":"pkg/invalid.py","access_mode":"execute"}}`,
+			expectedCode: http.StatusBadRequest,
+			expectedBody: `"code":"code_file_access_mode_invalid"`,
+		},
+	} {
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+RouteSetCodeFileBinding,
+			strings.NewReader(requestSpec.body),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != requestSpec.expectedCode {
+			t.Fatalf("expected %d, got %d with body %q", requestSpec.expectedCode, response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), requestSpec.expectedBody) {
+			t.Fatalf("expected response body to contain %s, got %q", requestSpec.expectedBody, response.Body.String())
+		}
+	}
+}
+
 func TestRegisterProjectRoutesBrowserMetadataMutationsRejectInvalidInputs(t *testing.T) {
 	t.Parallel()
 
@@ -3093,6 +3236,72 @@ func browserSectionRouteTestProject(t *testing.T) projectstate.Project {
 	}.Normalized()
 	if err != nil {
 		t.Fatalf("normalize browser route project: %v", err)
+	}
+	return project
+}
+
+func codeFileBindingRouteTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"code-section":  "code-variant",
+			"plain-section": "plain-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"code-section": {
+				ID:               "code-section",
+				Name:             "Code Section",
+				VariantIDs:       []string{"code-variant"},
+				DefaultVariantID: "code-variant",
+			},
+			"plain-section": {
+				ID:               "plain-section",
+				Name:             "Plain Section",
+				VariantIDs:       []string{"plain-variant"},
+				DefaultVariantID: "plain-variant",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"code-variant": {
+				ID:     "code-variant",
+				ImplID: "code-impl",
+			},
+			"plain-variant": {
+				ID:     "plain-variant",
+				ImplID: "plain-impl",
+			},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"code-impl": {
+				ID:   "code-impl",
+				Kind: projectstate.SectionKindCode,
+				Payload: mustProjectRouteRawJSON(t, map[string]any{
+					"id":           "code-impl",
+					"type":         "Code",
+					"code":         "print('hello')\n",
+					"codeLanguage": "python",
+					"children":     []any{},
+				}),
+				Code: &projectstate.CodeSectionImpl{
+					Language: projectstate.CodeLanguagePython,
+					Binding: &projectstate.CodeFileBinding{
+						Path:       "pkg/original.py",
+						AccessMode: projectstate.CodeFileAccessModeReadWrite,
+					},
+				},
+			},
+			"plain-impl": {
+				ID:      "plain-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "plain-impl", "type": "TextBlock"}),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize code file binding route project: %v", err)
 	}
 	return project
 }

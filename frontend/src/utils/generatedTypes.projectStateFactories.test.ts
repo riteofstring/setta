@@ -1,6 +1,7 @@
 import {
   BrowserAreaViewModeEnum,
   BrowserSearchScopeEnum,
+  CodeFileAccessModeEnum,
   CodeLanguageEnum,
   CodeObjTypeEnum,
   ConfigLanguageEnum,
@@ -11,11 +12,11 @@ import {
   createCodeParamCodeObjImpl,
   createCodeSectionImpl,
   createTextBlockSectionImpl,
-  createViewModeConfig,
   createUserDefaultBrowserSectionImpl,
   createUserDefaultCallableSectionImpl,
   createUserDefaultCodeParamCodeObjImpl,
   createUserDefaultCodeSectionImpl,
+  createViewModeConfig,
   ParamNameTypeEnum,
   RouteEnum,
   SectionTypeEnum,
@@ -88,6 +89,12 @@ describe("generated project state factories", () => {
     expect(codeParamImpl.id).toBe("param-impl");
     expect(codeParamImpl.coreNameType).toBe(ParamNameTypeEnum.TEXT);
     expect(codeParamImpl.value).toBe("5");
+  });
+
+  it("exports code file binding access-mode enums for section settings callers", () => {
+    expect(CodeFileAccessModeEnum.read_write).toBe("read_write");
+    expect(CodeFileAccessModeEnum.read_only).toBe("read_only");
+    expect(CodeFileAccessModeEnum.write_only).toBe("write_only");
   });
 
   it("exports browser-section helpers and saved-search defaults", () => {
