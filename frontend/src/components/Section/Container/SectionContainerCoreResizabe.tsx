@@ -1,3 +1,4 @@
+import { buildWorkspaceSectionProjectChatSurfaceId } from "components/ChatWindowing/projectChatSurfaceIds";
 import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import _ from "lodash";
@@ -355,7 +356,9 @@ function ChatSectionArea({
       mode={mode}
       host={host}
       sectionId={sectionId}
-      surfaceId={surfaceId ?? sectionId}
+      surfaceId={
+        surfaceId ?? buildWorkspaceSectionProjectChatSurfaceId(sectionId)
+      }
       projectChatId={projectChatId}
       setProjectChatId={setProjectChatId}
     />

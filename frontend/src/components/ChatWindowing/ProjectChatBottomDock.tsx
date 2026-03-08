@@ -8,6 +8,7 @@ import {
   type FloatingSnapResizeHandle,
   type FloatingWindowBoundaryInsets,
 } from "components/ChatWindowing/projectChatSnapLayout";
+import { buildWorkspaceProjectChatWindowSurfaceId } from "components/ChatWindowing/projectChatSurfaceIds";
 import {
   PROJECT_CHAT_FALLBACK_WORKSPACE_TOP_INSET_PX,
   PROJECT_CHAT_SIDE_RAIL_WIDTH_PX,
@@ -3750,7 +3751,9 @@ export function ProjectChatBottomDock() {
                             }
                             chatHost={ChatWindowPlacementEnum.bottom_docked}
                             chatModeOverride={pill.mode}
-                            projectChatSurfaceId={pill.instanceId}
+                            projectChatSurfaceId={buildWorkspaceProjectChatWindowSurfaceId(
+                              pill.instanceId,
+                            )}
                             projectChatId={pill.chatId}
                             setProjectChatId={(next) => {
                               const resolvedChatId =
@@ -3976,7 +3979,9 @@ export function ProjectChatBottomDock() {
                               <UnifiedChatSurface
                                 mode={pill.mode}
                                 host={ChatWindowPlacementEnum.bottom_docked}
-                                surfaceId={pill.instanceId}
+                                surfaceId={buildWorkspaceProjectChatWindowSurfaceId(
+                                  pill.instanceId,
+                                )}
                                 projectChatId={pill.chatId}
                                 setProjectChatId={(next) => {
                                   const resolvedChatId =
@@ -4181,7 +4186,9 @@ export function ProjectChatBottomDock() {
                       }
                       chatHost={ChatWindowPlacementEnum.floating}
                       chatModeOverride={pill.mode}
-                      projectChatSurfaceId={pill.instanceId}
+                      projectChatSurfaceId={buildWorkspaceProjectChatWindowSurfaceId(
+                        pill.instanceId,
+                      )}
                       projectChatId={pill.chatId}
                       setProjectChatId={(next) => {
                         const resolvedChatId =
@@ -4366,7 +4373,9 @@ export function ProjectChatBottomDock() {
                         <UnifiedChatSurface
                           mode={pill.mode}
                           host={ChatWindowPlacementEnum.floating}
-                          surfaceId={pill.instanceId}
+                          surfaceId={buildWorkspaceProjectChatWindowSurfaceId(
+                            pill.instanceId,
+                          )}
                           projectChatId={pill.chatId}
                           setProjectChatId={(next) => {
                             const resolvedChatId =
@@ -4463,7 +4472,9 @@ export function ProjectChatBottomDock() {
                 roundedClassName="rounded-none"
                 chatHost={ChatWindowPlacementEnum.maximized}
                 chatModeOverride={openMaximizedWindow.mode}
-                projectChatSurfaceId={openMaximizedWindow.instanceId}
+                projectChatSurfaceId={buildWorkspaceProjectChatWindowSurfaceId(
+                  openMaximizedWindow.instanceId,
+                )}
                 projectChatId={openMaximizedWindow.chatId}
                 setProjectChatId={(next) => {
                   const resolvedChatId =
@@ -4640,7 +4651,9 @@ export function ProjectChatBottomDock() {
                   <UnifiedChatSurface
                     mode={openMaximizedWindow.mode}
                     host={ChatWindowPlacementEnum.maximized}
-                    surfaceId={openMaximizedWindow.instanceId}
+                    surfaceId={buildWorkspaceProjectChatWindowSurfaceId(
+                      openMaximizedWindow.instanceId,
+                    )}
                     projectChatId={openMaximizedWindow.chatId}
                     setProjectChatId={(next) => {
                       const resolvedChatId =

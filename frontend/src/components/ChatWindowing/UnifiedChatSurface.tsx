@@ -2,7 +2,11 @@ import { ProjectChat } from "components/Panes/Overview/ProjectLevelAI/ProjectCha
 import { SectionWindowPlaceholder } from "components/Section/Container/SectionWindowPlaceholder";
 import { ChatArea } from "components/Section/Layouts/ChatArea";
 import type { SetStateAction } from "react";
-import { getExternalProjectChatWindowBindingForSectionInState } from "state/actions/projectChatWindowing";
+import {
+  getExternalProjectChatWindowBindingForSectionInState,
+  getProjectChatWindowBindingForSectionInState,
+  setProjectChatWindowChatId,
+} from "state/actions/projectChatWindowing";
 import { useProjectState } from "state/definitions";
 import {
   ChatWindowModeEnum,
@@ -53,6 +57,21 @@ export function UnifiedChatSurface({
   setProjectChatId,
   onProjectChatBlockedErrorCodeChange,
 }: UnifiedChatSurfaceProps) {
+  const shouldResolveSectionProjectChatBinding =
+    mode === ChatWindowModeEnum.project_ai_mode &&
+    typeof sectionId === "string" &&
+    sectionId.length > 0 &&
+    projectChatId === undefined &&
+    setProjectChatId === undefined;
+  const sectionProjectChatBinding = useProjectState((state) => {
+    if (!shouldResolveSectionProjectChatBinding || !sectionId) {
+      return null;
+    }
+    return getProjectChatWindowBindingForSectionInState(
+      state.projectChatWindowing,
+      sectionId,
+    );
+  });
   const projectChatProps: {
     surfaceId?: string;
     chatId?: string | null;
@@ -62,10 +81,23 @@ export function UnifiedChatSurface({
   if (surfaceId !== undefined) {
     projectChatProps.surfaceId = surfaceId;
   }
-  if (projectChatId !== undefined) {
-    projectChatProps.chatId = projectChatId;
+  const resolvedProjectChatId =
+    sectionProjectChatBinding?.chatId ?? projectChatId;
+  if (resolvedProjectChatId !== undefined) {
+    projectChatProps.chatId = resolvedProjectChatId;
   }
-  if (setProjectChatId !== undefined) {
+  if (sectionProjectChatBinding) {
+    projectChatProps.setChatId = (next) => {
+      const resolvedChatId =
+        typeof next === "function"
+          ? next(sectionProjectChatBinding.chatId ?? undefined)
+          : next;
+      setProjectChatWindowChatId(
+        sectionProjectChatBinding.instanceId,
+        resolvedChatId,
+      );
+    };
+  } else if (setProjectChatId !== undefined) {
     projectChatProps.setChatId = setProjectChatId;
   }
   if (onProjectChatBlockedErrorCodeChange !== undefined) {
@@ -95,6 +127,21 @@ export function UnifiedChatSurface({
   }
 
   if (mode === ChatWindowModeEnum.project_ai_mode) {
+    if (shouldResolveSectionProjectChatBinding && !sectionProjectChatBinding) {
+      return (
+        <div
+          role="alert"
+          className={resolveSurfaceHostClasses(host, className)}
+          data-chat-surface-mode={mode}
+          data-chat-surface-host={host}
+          data-testid={dataTestId}
+        >
+          <p className="mx-auto mt-2 w-full max-w-[72rem] rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-600/70 dark:bg-amber-950/40 dark:text-amber-200">
+            Section project chat surface is missing a project chat binding.
+          </p>
+        </div>
+      );
+    }
     return (
       <div
         className={resolveSurfaceHostClasses(host, className)}

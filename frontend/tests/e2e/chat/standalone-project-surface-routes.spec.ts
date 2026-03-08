@@ -37,6 +37,8 @@ type ProjectChatWindowingSnapshot = {
     {
       sectionIdOrNull: string | null;
       placement: string;
+      mode: string;
+      chatId: string | null;
       bounds: {
         x: number;
         y: number;
@@ -241,6 +243,8 @@ async function readProjectChatWindowingState(
             {
               sectionIdOrNull: instance.sectionIdOrNull ?? null,
               placement: instance.placement,
+              mode: instance.mode,
+              chatId: instance.chatId ?? null,
               bounds: {
                 x: instance.bounds.x,
                 y: instance.bounds.y,
@@ -715,6 +719,158 @@ test.describe.serial("standalone project surface routes", () => {
       await standalonePage.close();
       await page.context().unroute("**/api/getAgentRuns");
       await page.context().unroute("**/api/getLLMChat");
+      await cleanupManagedEngine();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("standalone section routes stay bound to their section thread and keep workspace project chat isolated", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const cleanupManagedEngine = await ensureManagedChatEngine(page);
+    const standalonePage = await page.context().newPage();
+
+    try {
+      await setOverviewTabInStore(page, "ProjectAIChat");
+      const { sectionId: chatSectionId, sectionName: chatSectionName } =
+        await createChatSection(
+          page,
+          projectContext.projectConfigId,
+          "Standalone Route Chat",
+        );
+      const projectConfigName = getProjectConfigNameFromUrl(page.url());
+      const chatSectionSlug = await resolveSectionSlug(page, chatSectionName);
+
+      // Convert the canvas chat section onto the authoritative project-ai
+      // binding path so both the workspace and standalone route read the same
+      // stored section thread id.
+      await page.evaluate(async (sectionId) => {
+        const { setProjectChatWindowModeForSection } = await import(
+          "/src/state/actions/projectChatWindowing.ts"
+        );
+        const { ChatWindowModeEnum } = await import(
+          "/src/utils/generatedTypes.ts"
+        );
+        setProjectChatWindowModeForSection(
+          sectionId,
+          ChatWindowModeEnum.project_ai_mode,
+        );
+      }, chatSectionId);
+
+      await expect
+        .poll(async () => {
+          const state = await readProjectChatWindowingState(page);
+          return findProjectChatWindowIdForSection(state, chatSectionId);
+        })
+        .not.toBeNull();
+      const resolvedWindowingState = await readProjectChatWindowingState(page);
+      const resolvedSectionBindingId = findProjectChatWindowIdForSection(
+        resolvedWindowingState,
+        chatSectionId,
+      );
+      if (!resolvedSectionBindingId) {
+        throw new Error("Expected a section binding for the standalone route.");
+      }
+
+      await page.evaluate(
+        async ({
+          instanceId,
+          chatId,
+        }: {
+          instanceId: string;
+          chatId: string;
+        }) => {
+          const { setProjectChatWindowChatId } = await import(
+            "/src/state/actions/projectChatWindowing.ts"
+          );
+          setProjectChatWindowChatId(instanceId, chatId);
+        },
+        {
+          instanceId: resolvedSectionBindingId,
+          chatId: "section-thread",
+        },
+      );
+
+      await expect
+        .poll(async () => {
+          const state = await readProjectChatWindowingState(page);
+          return state.instancesById[resolvedSectionBindingId]?.chatId ?? null;
+        })
+        .toBe("section-thread");
+
+      const threadFixtures: ProjectChatThreadFixture[] = [
+        {
+          instanceId: "workspace-window",
+          chatId: "workspace-thread",
+          assistantText: "Workspace global thread marker",
+        },
+        {
+          instanceId: resolvedSectionBindingId,
+          chatId: "section-thread",
+          assistantText: "Section route thread marker",
+        },
+      ];
+      await seedProjectChatDetails(page, threadFixtures, "workspace-thread");
+
+      await standalonePage.goto(
+        buildStandaloneUrl(
+          page.url(),
+          `/${encodeURIComponent(projectConfigName)}/section/${encodeURIComponent(chatSectionSlug)}`,
+        ),
+        { waitUntil: "domcontentloaded" },
+      );
+      await seedProjectChatDetails(
+        standalonePage,
+        threadFixtures,
+        "workspace-thread",
+      );
+
+      const workspaceSection = page.locator(
+        `section[data-section-id="${chatSectionId}"]`,
+      );
+      const standaloneSectionSurface = standalonePage.getByTestId(
+        "standalone-section-surface",
+      );
+
+      await expect
+        .poll(async () => await readActiveProjectChatId(page))
+        .toBe("workspace-thread");
+      await expect(workspaceSection).toContainText(
+        "Section route thread marker",
+      );
+      await expect(workspaceSection).not.toContainText(
+        "Workspace global thread marker",
+      );
+      await expect(standaloneSectionSurface).toContainText(
+        "Section route thread marker",
+      );
+      await expect(standaloneSectionSurface).not.toContainText(
+        "Workspace global thread marker",
+      );
+
+      // Starting a new thread from the standalone section route should only
+      // clear the section binding. The workspace-global thread selection must
+      // stay on its own chat id.
+      await standaloneSectionSurface
+        .getByRole("button", { name: "New Chat" })
+        .click();
+
+      await expect
+        .poll(async () => {
+          const state = await readProjectChatWindowingState(standalonePage);
+          return state.instancesById[resolvedSectionBindingId]?.chatId ?? null;
+        })
+        .toBeNull();
+      await expect
+        .poll(async () => await readActiveProjectChatId(page))
+        .toBe("workspace-thread");
+      await expect(standaloneSectionSurface).not.toContainText(
+        "Section route thread marker",
+      );
+    } finally {
+      await standalonePage.close();
       await cleanupManagedEngine();
       await cleanupIsolatedProject(page, projectContext);
     }

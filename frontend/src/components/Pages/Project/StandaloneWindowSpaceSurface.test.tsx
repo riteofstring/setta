@@ -46,15 +46,18 @@ vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
   UnifiedChatSurface: ({
     projectChatId,
     mode,
+    surfaceId,
     setProjectChatId,
   }: {
     projectChatId?: string | null;
     mode?: string;
+    surfaceId?: string;
     setProjectChatId?: (next: string | null) => void;
   }) => (
     <div
       data-testid="mock-unified-chat-surface"
       data-project-chat-id={projectChatId ?? ""}
+      data-project-chat-surface-id={surfaceId ?? ""}
       data-chat-surface-mode={mode ?? ""}
     >
       project chat:{projectChatId ?? "global"}
@@ -192,6 +195,9 @@ describe("StandaloneWindowSpaceSurface", () => {
     expect(markup).toContain('data-testid="mock-project-chat-window-surface"');
     expect(markup).toContain('data-testid="mock-unified-chat-surface"');
     expect(markup).toContain('data-project-chat-id="chat-window-1"');
+    expect(markup).toContain(
+      'data-project-chat-surface-id="standalone-window-space:space-id:chat-window"',
+    );
     expect(markup).toContain('data-testid="mock-git-graph-window-content"');
     expect(markup).toContain('data-show-embedded-git-pane-toggle="true"');
     expect(markup).toContain('data-testid="mock-section-window-surface"');
@@ -226,7 +232,9 @@ describe("StandaloneWindowSpaceSurface", () => {
 
     expect(markup).toContain('data-testid="mock-section-window-surface"');
     expect(markup).toContain('data-chat-mode-override="project_ai_mode"');
-    expect(markup).toContain('data-project-chat-surface-id="section-window"');
+    expect(markup).toContain(
+      'data-project-chat-surface-id="standalone-window-space:space-id:section-window"',
+    );
     expect(markup).toContain('data-project-chat-id="chat-section-1"');
     expect(markup).toContain('data-project-chat-controlled="true"');
   });

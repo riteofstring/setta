@@ -7,6 +7,7 @@ import {
   type FloatingSnapResizeHandle,
   type FloatingWindowBoundaryInsets,
 } from "components/ChatWindowing/projectChatSnapLayout";
+import { buildStandaloneWindowSpaceProjectChatSurfaceId } from "components/ChatWindowing/projectChatSurfaceIds";
 import { ProjectChatWindowSurface } from "components/ChatWindowing/ProjectChatWindowSurface";
 import { buildProjectChatWindowTitle } from "components/ChatWindowing/projectChatWindowTitles";
 import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
@@ -610,7 +611,10 @@ export function StandaloneWindowSpaceSurface({
               roundedClassName="rounded-none"
               chatHost={ChatWindowPlacementEnum.floating}
               chatModeOverride={window.mode}
-              projectChatSurfaceId={window.instanceId}
+              projectChatSurfaceId={buildStandaloneWindowSpaceProjectChatSurfaceId(
+                windowSpace.id,
+                window.instanceId,
+              )}
               projectChatId={window.chatId}
               setProjectChatId={(next) => {
                 const resolvedChatId =
@@ -665,7 +669,10 @@ export function StandaloneWindowSpaceSurface({
                 <UnifiedChatSurface
                   mode={window.mode}
                   host={ChatWindowPlacementEnum.floating}
-                  surfaceId={window.instanceId}
+                  surfaceId={buildStandaloneWindowSpaceProjectChatSurfaceId(
+                    windowSpace.id,
+                    window.instanceId,
+                  )}
                   projectChatId={window.chatId}
                   setProjectChatId={(next) => {
                     const resolvedChatId =

@@ -479,6 +479,13 @@ function getProjectChatWindowInstanceForSectionInState(
   return bestMatch;
 }
 
+export function getProjectChatWindowBindingForSectionInState(
+  state: ProjectChatWindowingState,
+  sectionId: string,
+): ProjectChatWindowInstance | null {
+  return getProjectChatWindowInstanceForSectionInState(state, sectionId);
+}
+
 export function getProjectChatWindowModeForSectionInState(
   state: ProjectChatWindowingState,
   sectionId: string,
@@ -1350,7 +1357,7 @@ export function setProjectChatWindowPlacement(
   placement: ChatWindowPlacement,
 ): void {
   if (placement !== ChatWindowPlacementEnum.maximized) {
-    clearTrackedGitPaneGraphWindowInstanceIdIfMatches(instanceId);
+    clearTrackedGitPaneGraphWindowIfMatches(instanceId);
   }
   const state = useProjectState.getState();
   const currentWindowing = getProjectChatWindowingStateFromStore(state);
@@ -1376,7 +1383,7 @@ export function maximizeProjectChatWindow(instanceId: string): void {
 }
 
 export function unmaximizeProjectChatWindow(instanceId: string): void {
-  clearTrackedGitPaneGraphWindowInstanceIdIfMatches(instanceId);
+  clearTrackedGitPaneGraphWindowIfMatches(instanceId);
   const state = useProjectState.getState();
   const currentWindowing = getProjectChatWindowingStateFromStore(state);
   const next = unmaximizeProjectChatWindowInState(currentWindowing, instanceId);
@@ -1387,7 +1394,7 @@ export function unmaximizeProjectChatWindow(instanceId: string): void {
 }
 
 export function closeProjectChatWindow(instanceId: string): void {
-  clearTrackedGitPaneGraphWindowInstanceIdIfMatches(instanceId);
+  clearTrackedGitPaneGraphWindowIfMatches(instanceId);
   const state = useProjectState.getState();
   const currentWindowing = getProjectChatWindowingStateFromStore(state);
   const next = closeProjectChatWindowInState(currentWindowing, instanceId);
@@ -1398,7 +1405,7 @@ export function closeProjectChatWindow(instanceId: string): void {
 }
 
 export function minimizeProjectChatWindow(instanceId: string): void {
-  clearTrackedGitPaneGraphWindowInstanceIdIfMatches(instanceId);
+  clearTrackedGitPaneGraphWindowIfMatches(instanceId);
   const state = useProjectState.getState();
   const currentWindowing = getProjectChatWindowingStateFromStore(state);
   const next = minimizeProjectChatWindowInState(currentWindowing, instanceId);
@@ -1460,7 +1467,7 @@ export function setProjectChatWindowBounds(
   instanceId: string,
   bounds: SetBoundsOptions,
 ): void {
-  clearTrackedGitPaneGraphWindowInstanceIdIfMatches(instanceId);
+  clearTrackedGitPaneGraphWindowIfMatches(instanceId);
   const state = useProjectState.getState();
   const currentWindowing = getProjectChatWindowingStateFromStore(state);
   const next = setProjectChatWindowBoundsInState(
@@ -1478,7 +1485,7 @@ export function setProjectChatWindowBoundsById(
   boundsByInstanceId: SetBoundsByInstanceIdOptions,
 ): void {
   for (const instanceId of Object.keys(boundsByInstanceId)) {
-    clearTrackedGitPaneGraphWindowInstanceIdIfMatches(instanceId);
+    clearTrackedGitPaneGraphWindowIfMatches(instanceId);
   }
   const state = useProjectState.getState();
   const currentWindowing = getProjectChatWindowingStateFromStore(state);

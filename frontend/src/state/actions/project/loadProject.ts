@@ -35,6 +35,7 @@ import {
 import { requestAIFollowSnapshot } from "../aiFollow";
 import { fetchListenerCoverageSnapshot } from "../listenerCoverage";
 import { processLspDiagnostics } from "../lspDiagnostics";
+import { reconcileProjectChatWindowingEphemeralState } from "../projectChatWindowingEphemeral";
 import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
 import { initializeServerMode } from "../serverMode";
 
@@ -94,6 +95,9 @@ export async function loadProjectState(
     ...sanitizeProjectStateActiveIds(normalizedProjectState),
     previewSectionVariantMap: {},
   };
+  reconcileProjectChatWindowingEphemeralState(
+    nextProjectState.projectChatWindowing,
+  );
   const nextActiveSectionUIState = getHydratedActiveSectionUIState(
     normalizedProjectState.projectConfig.activeIds,
   );

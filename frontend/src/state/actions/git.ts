@@ -631,10 +631,12 @@ export async function toggleGitGraphAllRefs(): Promise<void> {
 }
 
 export async function selectGitCommit(commitHash: string): Promise<void> {
-  if (!getGitGraphState()) {
+  const graph = getGitGraphState();
+  if (!graph) {
     return;
   }
   const requestId = (commitDetailsRequestId += 1);
+  const requestProjectConfigId = graph.projectConfigId;
   useGitStore.setState((state) => {
     if (!state.graph) {
       return state;
@@ -654,9 +656,15 @@ export async function selectGitCommit(commitHash: string): Promise<void> {
   if (requestId !== commitDetailsRequestId) {
     return;
   }
+  if (requestProjectConfigId !== getCurrentGitGraphProjectConfigId()) {
+    return;
+  }
   if (res200(res)) {
     useGitStore.setState((state) => {
       if (!state.graph) {
+        return state;
+      }
+      if (state.graph.projectConfigId !== requestProjectConfigId) {
         return state;
       }
       if (state.graph.selectedCommitHash !== commitHash) {
@@ -676,6 +684,9 @@ export async function selectGitCommit(commitHash: string): Promise<void> {
 
   useGitStore.setState((state) => {
     if (!state.graph) {
+      return state;
+    }
+    if (state.graph.projectConfigId !== requestProjectConfigId) {
       return state;
     }
     if (state.graph.selectedCommitHash !== commitHash) {
@@ -710,6 +721,7 @@ export async function selectGitCommitFile({
     return;
   }
   const requestId = (commitFileDiffRequestId += 1);
+  const requestProjectConfigId = graph.projectConfigId;
   useGitStore.setState((state) => {
     if (!state.graph) {
       return state;
@@ -737,9 +749,15 @@ export async function selectGitCommitFile({
   if (requestId !== commitFileDiffRequestId) {
     return;
   }
+  if (requestProjectConfigId !== getCurrentGitGraphProjectConfigId()) {
+    return;
+  }
   if (res200(res)) {
     useGitStore.setState((state) => {
       if (!state.graph) {
+        return state;
+      }
+      if (state.graph.projectConfigId !== requestProjectConfigId) {
         return state;
       }
       if (state.graph.selectedCommitHash !== commitHash) {
@@ -762,6 +780,9 @@ export async function selectGitCommitFile({
 
   useGitStore.setState((state) => {
     if (!state.graph) {
+      return state;
+    }
+    if (state.graph.projectConfigId !== requestProjectConfigId) {
       return state;
     }
     if (state.graph.selectedCommitHash !== commitHash) {

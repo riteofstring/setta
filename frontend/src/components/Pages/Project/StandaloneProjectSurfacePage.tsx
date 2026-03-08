@@ -1,4 +1,8 @@
 import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
+import {
+  buildStandalonePageProjectChatSurfaceId,
+  buildStandalonePageSectionProjectChatSurfaceId,
+} from "components/ChatWindowing/projectChatSurfaceIds";
 import { MaybeManyNestedSections } from "components/Section/Container/ManyNestedSections";
 import { SectionWindowSurface } from "components/Section/Container/SectionWindowSurface";
 import { useCodeMirrorStyleLoader } from "components/Utils/CodeMirror/useCodeMirrorStyleLoader";
@@ -6,13 +10,7 @@ import { FloatingBox } from "components/Utils/FloatingBox";
 import { SectionDndContext } from "forks/dnd-kit/SectionDndContext";
 import { useAddMouseLocationListener } from "forks/xyflow/core/utils/mouseLocation";
 import { usePluginRuntimeBootstrap } from "plugins/runtime";
-import {
-  useEffect,
-  useId,
-  useMemo,
-  useState,
-  type SetStateAction,
-} from "react";
+import { useEffect, useMemo, useState, type SetStateAction } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { buildChatHistoryEntries } from "state/actions/chatHistory";
 import { useAIStore, useProjectState } from "state/definitions";
@@ -200,8 +198,6 @@ export function StandaloneProjectSurfacePageWithLoadState({
   doneLoading,
   is404,
 }: StandaloneProjectSurfacePageLoadState) {
-  const standaloneProjectChatSurfaceId = useId();
-  const standaloneSectionChatSurfaceId = useId();
   const { projectConfigName, sectionSlug, chatId, windowSpaceSlug } =
     useParams();
   const navigate = useNavigate();
@@ -345,7 +341,7 @@ export function StandaloneProjectSurfacePageWithLoadState({
         <UnifiedChatSurface
           mode="project_ai_mode"
           host="standalone_page"
-          surfaceId={standaloneProjectChatSurfaceId}
+          surfaceId={buildStandalonePageProjectChatSurfaceId()}
           projectChatId={standaloneProjectChatId}
           setProjectChatId={setStandaloneProjectChatId}
           onProjectChatBlockedErrorCodeChange={(errorCode) => {
@@ -438,7 +434,9 @@ export function StandaloneProjectSurfacePageWithLoadState({
           headerActions={null}
           roundedClassName="rounded-none"
           chatHost="standalone_page"
-          projectChatSurfaceId={`${standaloneSectionChatSurfaceId}:${target.sectionId}`}
+          projectChatSurfaceId={buildStandalonePageSectionProjectChatSurfaceId(
+            target.sectionId,
+          )}
           bodyOverride={
             target.sectionType === SectionTypeEnum.Group ||
             target.sectionType === SectionTypeEnum.ListRoot ? (

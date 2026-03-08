@@ -133,6 +133,14 @@ function getGraphState() {
   return graph;
 }
 
+function createDeferred<T>() {
+  let resolve: (value: T) => void = () => undefined;
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+  return { promise, resolve };
+}
+
 function setGitStatusResponse(
   entries: Array<{
     path: string;
@@ -661,6 +669,178 @@ describe("git graph actions", () => {
     expect(calls).toEqual([
       [{ commitHash: "a1b2c3", path: "a.txt", oldPath: null }],
     ]);
+  });
+
+  it("ignores stale commit details responses after the graph switches to another project", async () => {
+    const commitA = commit("a1b2c3", []);
+    const detailsDeferred = createDeferred<{
+      status: number;
+      hasResponse: boolean;
+      data: ReturnType<typeof createGetGitCommitDetailsResponse>;
+    }>();
+    setGraphOverlayState({
+      projectConfigId: "project-a",
+      response: createLogResponse({
+        commits: [commitA],
+        offset: 0,
+        pageSize: 2,
+        nextOffset: null,
+        hasMore: false,
+        isCapped: false,
+      }),
+    });
+    vi.mocked(route_get_git_commit_details).mockImplementation(
+      ({ commitHash }) => {
+        if (commitHash !== "a1b2c3") {
+          throw new Error("Unexpected commit details request.");
+        }
+        return detailsDeferred.promise;
+      },
+    );
+
+    // Start a details request for project A, then replace the graph owner with
+    // project B before the delayed response resolves.
+    const pendingSelection = selectGitCommit("a1b2c3");
+
+    useProjectState.setState((state) => {
+      state.projectConfig.id = "project-b";
+    });
+    setGraphOverlayState({
+      projectConfigId: "project-b",
+      response: createLogResponse({
+        commits: [commitA],
+        offset: 0,
+        pageSize: 2,
+        nextOffset: null,
+        hasMore: false,
+        isCapped: false,
+      }),
+    });
+
+    detailsDeferred.resolve({
+      status: 200,
+      hasResponse: true,
+      data: createGetGitCommitDetailsResponse({
+        repoRoot: "/repo-a",
+        commitHash: "a1b2c3",
+        parents: [],
+        authorName: "A",
+        authorEmail: "a@example.com",
+        authorTimeMs: 1,
+        committerName: "A",
+        committerEmail: "a@example.com",
+        committerTimeMs: 1,
+        subject: "stale-project-a-details",
+        body: "",
+        isTruncated: false,
+        files: [],
+      }),
+    });
+    await pendingSelection;
+
+    const graph = getGraphState();
+    expect(graph.projectConfigId).toBe("project-b");
+    expect(graph.selectedCommitHash).toBeNull();
+    expect(graph.selectedCommitDetails).toBeNull();
+    expect(graph.selectedCommitDetailsError).toBeNull();
+  });
+
+  it("ignores stale commit file diff responses after the graph switches to another project", async () => {
+    const commitA = commit("a1b2c3", []);
+    const diffDeferred = createDeferred<{
+      status: number;
+      hasResponse: boolean;
+      data: {
+        repoRoot: string;
+        commitHash: string;
+        path: string;
+        diff: string;
+        isTruncated: boolean;
+      };
+    }>();
+    setGraphOverlayState({
+      projectConfigId: "project-a",
+      response: createLogResponse({
+        commits: [commitA],
+        offset: 0,
+        pageSize: 2,
+        nextOffset: null,
+        hasMore: false,
+        isCapped: false,
+      }),
+    });
+    vi.mocked(route_get_git_commit_details).mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: createGetGitCommitDetailsResponse({
+        repoRoot: "/repo",
+        commitHash: "a1b2c3",
+        parents: [],
+        authorName: "A",
+        authorEmail: "a@example.com",
+        authorTimeMs: 1,
+        committerName: "A",
+        committerEmail: "a@example.com",
+        committerTimeMs: 1,
+        subject: "A",
+        body: "",
+        isTruncated: false,
+        files: [
+          {
+            path: "a.txt",
+            oldPath: null,
+            status: "M",
+            additions: 1,
+            deletions: 1,
+          },
+        ],
+      }),
+    });
+    vi.mocked(route_get_git_commit_file_diff).mockImplementation(() => {
+      return diffDeferred.promise;
+    });
+
+    // The delayed diff response belongs to project A and must be ignored once
+    // project B owns the graph state, even if the hash/path match.
+    await selectGitCommit("a1b2c3");
+    const pendingDiff = selectGitCommitFile({
+      path: "a.txt",
+      oldPath: null,
+    });
+
+    useProjectState.setState((state) => {
+      state.projectConfig.id = "project-b";
+    });
+    setGraphOverlayState({
+      projectConfigId: "project-b",
+      response: createLogResponse({
+        commits: [commitA],
+        offset: 0,
+        pageSize: 2,
+        nextOffset: null,
+        hasMore: false,
+        isCapped: false,
+      }),
+    });
+
+    diffDeferred.resolve({
+      status: 200,
+      hasResponse: true,
+      data: {
+        repoRoot: "/repo-a",
+        commitHash: "a1b2c3",
+        path: "a.txt",
+        diff: "stale project-a diff",
+        isTruncated: false,
+      },
+    });
+    await pendingDiff;
+
+    const graph = getGraphState();
+    expect(graph.projectConfigId).toBe("project-b");
+    expect(graph.selectedCommitHash).toBeNull();
+    expect(graph.selectedCommitFileDiffResponse).toBeNull();
+    expect(graph.selectedCommitFileDiffError).toBeNull();
   });
 
   it("loads commit details on selection but waits for explicit file selection to load diff", async () => {

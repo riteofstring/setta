@@ -1,6 +1,11 @@
-import { useAllProjectMetadata, useProjectState } from "state/definitions";
+import {
+  useAllProjectMetadata,
+  useMisc,
+  useProjectState,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
+  ChatWindowModeEnum,
   ChatWindowPlacementEnum,
   createProjectChatWindowInstance,
   createProjectChatWindowingState,
@@ -162,5 +167,73 @@ describe("loadProjectState", () => {
     expect(useProjectState.getState().projectConfig.windowSpaces).toEqual(
       backendProjectState.projectConfig.windowSpaces,
     );
+  });
+
+  it("prunes stale git graph ephemeral state on full project load", async () => {
+    // Seed leftovers from an earlier project so the load path has to reconcile
+    // them against the incoming authoritative window model.
+    useMisc.setState({
+      projectChatTrackedGitPaneGraphWindowInstanceId: "project-chat-window-1",
+      projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {
+        "project-chat-window-1": true,
+        "stale-window": true,
+      },
+    });
+
+    await loadProjectState({
+      projectConfig: createProjectConfig({
+        id: "project-prune",
+        name: "Project Prune",
+      }),
+      projectChatWindowing: createProjectChatWindowingState(),
+    });
+
+    expect(
+      useMisc.getState().projectChatTrackedGitPaneGraphWindowInstanceId,
+    ).toBeNull();
+    expect(
+      useMisc.getState().projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
+    ).toEqual({});
+  });
+
+  it("keeps the active maximized git graph window when full project load reuses its id", async () => {
+    // A matching maximized git graph window should survive reconciliation while
+    // unrelated embedded-pane visibility entries are still pruned.
+    useMisc.setState({
+      projectChatTrackedGitPaneGraphWindowInstanceId: "project-chat-window-1",
+      projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {
+        "project-chat-window-1": true,
+        "stale-window": true,
+      },
+    });
+
+    await loadProjectState({
+      projectConfig: createProjectConfig({
+        id: "project-keep",
+        name: "Project Keep",
+      }),
+      projectChatWindowing: createProjectChatWindowingState({
+        instancesById: {
+          "project-chat-window-1": createProjectChatWindowInstance({
+            instanceId: "project-chat-window-1",
+            mode: ChatWindowModeEnum.git_graph_mode,
+            placement: ChatWindowPlacementEnum.maximized,
+            isClosed: false,
+            isMinimized: false,
+          }),
+        },
+        order: ["project-chat-window-1"],
+        nextInstanceNumber: 2,
+      }),
+    });
+
+    expect(
+      useMisc.getState().projectChatTrackedGitPaneGraphWindowInstanceId,
+    ).toBe("project-chat-window-1");
+    expect(
+      useMisc.getState().projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
+    ).toEqual({
+      "project-chat-window-1": true,
+    });
   });
 });

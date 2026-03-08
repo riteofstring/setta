@@ -6,6 +6,10 @@ import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  buildStandaloneWindowSpaceProjectChatSurfaceId,
+  buildWorkspaceProjectChatWindowSurfaceId,
+} from "components/ChatWindowing/projectChatSurfaceIds";
+import {
   useAIStore,
   useLocalStorage,
   useProjectState,
@@ -283,6 +287,39 @@ function SharedThreadHarness() {
   );
 }
 
+function SharedWindowInstanceHarness() {
+  const [workspaceChatId, setWorkspaceChatId] = useState<
+    string | null | undefined
+  >("chat-a");
+  const [standaloneChatId, setStandaloneChatId] = useState<
+    string | null | undefined
+  >("chat-a");
+
+  return (
+    <div>
+      <section data-testid="workspace-window-surface">
+        <ProjectChat
+          surfaceId={buildWorkspaceProjectChatWindowSurfaceId(
+            "project-chat-window-1",
+          )}
+          chatId={workspaceChatId}
+          setChatId={setWorkspaceChatId}
+        />
+      </section>
+      <section data-testid="standalone-window-surface">
+        <ProjectChat
+          surfaceId={buildStandaloneWindowSpaceProjectChatSurfaceId(
+            "window-space-1",
+            "project-chat-window-1",
+          )}
+          chatId={standaloneChatId}
+          setChatId={setStandaloneChatId}
+        />
+      </section>
+    </div>
+  );
+}
+
 describe("ProjectChat multi-surface state ownership", () => {
   let host: HTMLDivElement;
   let root: Root;
@@ -544,6 +581,65 @@ describe("ProjectChat multi-surface state ownership", () => {
     expect(coreB?.getAttribute("data-chat-id")).toBe("chat-a");
     expect(
       useAIStore.getState().pendingChatDetailsBySurfaceId["surface-b"],
+    ).toBeUndefined();
+  });
+
+  it("keeps pending draft state isolated when workspace and standalone hosts reuse the same window id", async () => {
+    await act(async () => {
+      root.render(<SharedWindowInstanceHarness />);
+    });
+
+    const workspaceSurface = host.querySelector(
+      '[data-testid="workspace-window-surface"]',
+    );
+    const standaloneSurface = host.querySelector(
+      '[data-testid="standalone-window-surface"]',
+    );
+    if (!workspaceSurface || !standaloneSurface) {
+      throw new Error("Expected both reused-window-id project chat surfaces.");
+    }
+
+    const workspaceEngineSelect = workspaceSurface.querySelector(
+      '[data-testid="project-ai-engine-combobox"]',
+    ) as HTMLSelectElement | null;
+    if (!workspaceEngineSelect) {
+      throw new Error("Expected engine selector for workspace surface.");
+    }
+
+    // The two surfaces intentionally reuse the same saved instance id, so the
+    // pending draft bucket must stay keyed by the host-qualified surface id.
+    await act(async () => {
+      workspaceEngineSelect.value = "engine-b";
+      workspaceEngineSelect.dispatchEvent(
+        new Event("change", { bubbles: true }),
+      );
+    });
+
+    const workspaceContinueButton = workspaceSurface.querySelector(
+      '[data-testid="project-chat-engine-switch-continue-button"]',
+    ) as HTMLButtonElement | null;
+    if (!workspaceContinueButton) {
+      throw new Error("Expected continue-in-new-thread button for workspace.");
+    }
+
+    await act(async () => {
+      workspaceContinueButton.click();
+    });
+
+    const workspaceSurfaceId = buildWorkspaceProjectChatWindowSurfaceId(
+      "project-chat-window-1",
+    );
+    const standaloneSurfaceId = buildStandaloneWindowSpaceProjectChatSurfaceId(
+      "window-space-1",
+      "project-chat-window-1",
+    );
+    const pendingSurfaceIds = Object.keys(
+      useAIStore.getState().pendingChatDetailsBySurfaceId,
+    );
+    expect(pendingSurfaceIds).toContain(workspaceSurfaceId);
+    expect(pendingSurfaceIds).not.toContain("project-chat-window-1");
+    expect(
+      useAIStore.getState().pendingChatDetailsBySurfaceId[standaloneSurfaceId],
     ).toBeUndefined();
   });
 

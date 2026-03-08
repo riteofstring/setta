@@ -246,3 +246,33 @@ Verification:
 - `source activate.sh && python -m compileall backend tests` completed successfully after the backend fixture updates.
 - Follow-up spot-check: `tests/mcp/test_mcp_agentic_scope_cache_invalidation.py::test_mcp_agentic_scope_cache_invalidates_on_history_coalesce` is still failing on pre-existing expectation drift unrelated to the reviewed regressions; this turn did not retune that cache test.
 - CDP verification on the live dev instance confirmed the same-tab standalone invalid-thread -> valid-thread flow now clears the stale not-found state and renders the valid transcript on the requested route.
+
+## 2026-03-09 23:03 PDT
+
+Implemented the remaining consolidated fixes for section-backed project-chat authority, host-qualified draft-surface ownership, full-load git-pane reconciliation, and project-scoped git detail requests, then locked the behavior down with targeted unit, integration, browser, and CDP verification.
+
+What changed:
+- Added canonical project-chat surface id builders in `frontend/src/components/ChatWindowing/projectChatSurfaceIds.ts` and rewired live workspace windows, standalone window-space windows, standalone `/chat` routes, and workspace canvas sections to use those host-qualified ids instead of reusing bare `instanceId`s.
+- Updated `UnifiedChatSurface` so section-backed `project_ai_mode` hosts resolve their authoritative thread from `projectChatWindowing.instancesById[*].chatId` and write back through `setProjectChatWindowChatId(...)`. Canvas sections and standalone section routes no longer fall back to `useAIStore.activeChatId`.
+- Exported the section-binding getter from `frontend/src/state/actions/projectChatWindowing.ts` so section hosts and tests consume the same authoritative binding lookup used by the rest of the windowing model.
+- Routed full project loads through git-window ephemeral reconciliation in `frontend/src/state/actions/project/loadProject.ts`, so tracked maximized git windows and embedded-pane visibility are pruned against the incoming authoritative layout on initial/full loads, not only websocket reconciliation updates.
+- Scoped `selectGitCommit(...)` and `selectGitCommitFile(...)` in `frontend/src/state/actions/git.ts` to the owning `projectConfigId`, matching the already-correct git-log/load-more guard behavior and rejecting stale detail/diff responses after project switches.
+- Fixed a broken tracked-git-window cleanup call site in `frontend/src/state/actions/projectChatWindowing.ts` that Playwright surfaced while driving the shared window-resize/window-space flows.
+
+UX before/after:
+- Before: a canvas chat section or standalone section route in `project_ai_mode` could read and mutate the workspace-global project chat thread. After: each section-backed host always reopens and mutates its bound section thread.
+- Before: workspace windows and standalone window-space windows that intentionally reused the same saved `instanceId` could share pending draft/new-thread state. After: each live host owns its own draft bucket via a host-qualified surface id.
+- Before: switching projects on a full load could preserve stale git-pane visibility or tracked maximized graph state when instance ids were reused. After: git-pane ephemera is reconciled on every authoritative project load.
+- Before: slow commit-detail or file-diff responses from project A could still paint into project B if the user switched projects during the request. After: all git-graph async branches honor the same project boundary.
+
+DX before/after:
+- Before: section-backed `project_ai_mode` still had two authority paths, one through `projectChatWindowing` and one through ambient `activeChatId`. After: thread identity for section-backed project chat comes from a single authoritative binding record.
+- Before: surface-local chat state was only “local” if every caller remembered not to reuse a raw window id across hosts. After: the host namespace is encoded directly in the surface id builder, so call sites do not need ad hoc rules.
+- Before: initial project load and backend reconciliation followed different git-window cleanup rules. After: both authoritative publish paths share the same cleanup invariant.
+- Before: a hidden bad helper reference in windowing cleanup was easy to miss because most unit tests did not exercise the exact browser-driven resize/save path. After: the affected browser flow is covered and the shared helper reference is correct again.
+
+Verification:
+- `pnpm -C frontend exec vitest run src/components/ChatWindowing/projectChatSurfaceIds.test.ts src/components/ChatWindowing/UnifiedChatSurface.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChat.multiSurface.integration.test.tsx src/state/actions/project/loadProject.test.ts src/state/actions/git.test.ts` passed: 7 files, 62 tests.
+- `pnpm -C frontend exec vitest run src/state/actions/projectChatWindowing.test.ts` passed after the Playwright-discovered helper fix: 34 tests.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes stay bound to their section thread and keep workspace project chat isolated|saved window spaces preserve distinct project chat threads per window in both workspace and standalone views|standalone section windows keep their saved project-ai thread even without a live workspace binding"` passed: 3 tests.
+- CDP verification on the live dev instance confirmed that a canvas chat section switched into `project_ai_mode` rendered its bound section transcript on the workspace canvas, and the standalone `/:projectConfigName/section/:sectionSlug` route rendered the standalone host chrome against that same section binding instead of inheriting workspace-global chat selection.

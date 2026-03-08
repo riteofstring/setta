@@ -76,6 +76,24 @@ describe("UnifiedChatSurface", () => {
   });
 
   it("uses the section body shell for canvas-hosted project-ai mode", () => {
+    mockProjectState = {
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["project-chat-window-1"],
+        instancesById: {
+          "project-chat-window-1": {
+            instanceId: "project-chat-window-1",
+            placement: ChatWindowPlacementEnum.canvas_section,
+            sectionIdOrNull: "section-123",
+            mode: ChatWindowModeEnum.project_ai_mode,
+            chatId: null,
+            isClosed: false,
+            isMinimized: false,
+          },
+        },
+      }),
+      sections: {},
+    };
+
     const markup = renderToStaticMarkup(
       <UnifiedChatSurface
         mode={ChatWindowModeEnum.project_ai_mode}
@@ -89,6 +107,69 @@ describe("UnifiedChatSurface", () => {
     expect(markup).toContain("section-main-full-w");
     expect(markup).toContain("overflow-hidden");
     expect(markup).toContain('data-testid="mock-project-chat"');
+  });
+
+  it("uses the authoritative section binding for canvas-hosted project-ai mode", () => {
+    mockProjectState = {
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["project-chat-window-1"],
+        instancesById: {
+          "project-chat-window-1": {
+            instanceId: "project-chat-window-1",
+            placement: ChatWindowPlacementEnum.canvas_section,
+            sectionIdOrNull: "section-123",
+            mode: ChatWindowModeEnum.project_ai_mode,
+            chatId: "section-thread",
+            isClosed: false,
+            isMinimized: false,
+          },
+        },
+      }),
+      sections: {},
+    };
+
+    const markup = renderToStaticMarkup(
+      <UnifiedChatSurface
+        mode={ChatWindowModeEnum.project_ai_mode}
+        host="section_layout"
+        sectionId="section-123"
+      />,
+    );
+
+    expect(markup).toContain('data-project-chat-id="section-thread"');
+    expect(markup).toContain('data-project-chat-controlled="true"');
+    expect(markup).not.toContain("project chat:global");
+  });
+
+  it("uses the authoritative section binding for standalone section routes", () => {
+    mockProjectState = {
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["project-chat-window-1"],
+        instancesById: {
+          "project-chat-window-1": {
+            instanceId: "project-chat-window-1",
+            placement: ChatWindowPlacementEnum.floating,
+            sectionIdOrNull: "section-123",
+            mode: ChatWindowModeEnum.project_ai_mode,
+            chatId: "section-thread",
+            isClosed: false,
+            isMinimized: false,
+          },
+        },
+      }),
+      sections: {},
+    };
+
+    const markup = renderToStaticMarkup(
+      <UnifiedChatSurface
+        mode={ChatWindowModeEnum.project_ai_mode}
+        host="standalone_page"
+        sectionId="section-123"
+      />,
+    );
+
+    expect(markup).toContain('data-project-chat-id="section-thread"');
+    expect(markup).toContain('data-project-chat-controlled="true"');
   });
 
   it("renders section chat for section mode with section id", () => {
@@ -178,6 +259,22 @@ describe("UnifiedChatSurface", () => {
     expect(markup).toContain('role="alert"');
     expect(markup).toContain("Section chat surface is missing a section id.");
     expect(markup).not.toContain('data-testid="mock-section-chat"');
+  });
+
+  it("shows a clear warning when project-ai mode is missing a section binding", () => {
+    const markup = renderToStaticMarkup(
+      <UnifiedChatSurface
+        mode={ChatWindowModeEnum.project_ai_mode}
+        host="standalone_page"
+        sectionId="section-123"
+      />,
+    );
+
+    expect(markup).toContain('role="alert"');
+    expect(markup).toContain(
+      "Section project chat surface is missing a project chat binding.",
+    );
+    expect(markup).not.toContain('data-testid="mock-project-chat"');
   });
 
   it("renders a placeholder when canvas-backed chat is externalized to another host", () => {
