@@ -1895,6 +1895,209 @@ func TestSpreadsheetSupportContractsUseConverterDeclarations(t *testing.T) {
 	}
 }
 
+func TestSettingsSizingEnumsUseConverterDeclarations(t *testing.T) {
+	tests := []struct {
+		name   string
+		root   reflect.Type
+		values []EnumValue
+	}{
+		{
+			name: "MetaControlSizeMode",
+			root: reflect.TypeOf(MetaControlSizeMode("")),
+			values: []EnumValue{
+				{Name: "any", Value: "any"},
+				{Name: "auto_only", Value: "auto_only"},
+				{Name: "manual_only", Value: "manual_only"},
+			},
+		},
+		{
+			name: "SectionSizeMode",
+			root: reflect.TypeOf(SectionSizeMode("")),
+			values: []EnumValue{
+				{Name: "auto", Value: "auto"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != "enum" {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, "enum")
+			}
+			if !reflect.DeepEqual(declaration.EnumValues, tt.values) {
+				t.Fatalf("%s enum values = %#v, want %#v", tt.name, declaration.EnumValues, tt.values)
+			}
+		})
+	}
+}
+
+func TestSettingsSizingContractsUseConverterDeclarations(t *testing.T) {
+	tests := []struct {
+		name          string
+		root          reflect.Type
+		kind          string
+		alias         string
+		properties    []TypeProperty
+		hasCreateExpr bool
+		hasFactoryTS  bool
+	}{
+		{
+			name:  "SectionSizeValue",
+			root:  reflect.TypeOf(SectionSizeValue{}),
+			kind:  "alias",
+			alias: "number | SectionSizeMode",
+		},
+		{
+			name: "SectionSize",
+			root: reflect.TypeOf(SectionSize{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "width", TypeExpr: "SectionSizeValue", Optional: false},
+				{Name: "height", TypeExpr: "SectionSizeValue", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "SectionSizingPolicyTypeEntry",
+			root: reflect.TypeOf(SectionSizingPolicyTypeEntry{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "minHeight", TypeExpr: "number", Optional: false},
+				{Name: "maxHeight", TypeExpr: "number", Optional: false},
+				{Name: "minWidth", TypeExpr: "number", Optional: false},
+				{Name: "maxWidth", TypeExpr: "number", Optional: false},
+			},
+		},
+		{
+			name:  "SectionSizingPolicyCallableTypeEntry",
+			root:  reflect.TypeOf(SectionSizingPolicyCallableTypeEntry{}),
+			kind:  "alias",
+			alias: "SectionSizingPolicyTypeEntry & {\n  hideSearchMinHeight: number;\n  hideParamsMinHeight: number;\n}",
+		},
+		{
+			name: "MetaControlSizingPolicyTypeEntry",
+			root: reflect.TypeOf(MetaControlSizingPolicyTypeEntry{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "minHeight", TypeExpr: "number", Optional: false},
+				{Name: "minWidth", TypeExpr: "number", Optional: false},
+				{Name: "sizeModeHeight", TypeExpr: "MetaControlSizeMode", Optional: false},
+				{Name: "sizeModeWidth", TypeExpr: "MetaControlSizeMode", Optional: false},
+			},
+		},
+		{
+			name: "MetaControlSizingPolicyByType",
+			root: reflect.TypeOf(MetaControlSizingPolicyByType{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "CodeCallable", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+				{Name: "CodeParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+				{Name: "TextParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+				{Name: "DateParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+				{Name: "TimeParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+				{Name: "ButtonParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+				{Name: "SliderParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+				{Name: "RotaryParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+				{Name: "SwitchParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+				{Name: "ColorPickerParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+				{Name: "DropdownParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+				{Name: "PasswordParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+				{Name: "TextAreaParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+				{Name: "DropzoneParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+				{Name: "NestedParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+			},
+			hasFactoryTS: true,
+		},
+		{
+			name: "SectionSizingPolicyGlobals",
+			root: reflect.TypeOf(SectionSizingPolicyGlobals{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "pinnedParamsAreaMinHeight", TypeExpr: "number", Optional: false},
+				{Name: "unpinnedParamsAreaMinHeight", TypeExpr: "number", Optional: false},
+				{Name: "minimizedHeight", TypeExpr: "number", Optional: false},
+				{Name: "infiniteMaxHeight", TypeExpr: "number", Optional: false},
+				{Name: "infiniteMaxWidth", TypeExpr: "number", Optional: false},
+				{Name: "autoMaxHeight", TypeExpr: "number", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "SectionSizingPolicyByType",
+			root: reflect.TypeOf(SectionSizingPolicyByType{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "Callable", TypeExpr: "SectionSizingPolicyCallableTypeEntry", Optional: false},
+				{Name: "Dict", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "ListRoot", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "Group", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "Image", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "Chart", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "Draw", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "Prompt", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "TextBlock", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "MetaControl", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "Social", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "GlobalVariables", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "Code", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "GenPythonCode", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "GenPythonMetadata", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "Terminal", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "IFrame", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "Chat", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "Browser", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "Plugin", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "TaskBoard", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "Spreadsheet", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+			},
+			hasFactoryTS: true,
+		},
+		{
+			name: "SectionSizingPolicy",
+			root: reflect.TypeOf(SectionSizingPolicy{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "byType", TypeExpr: "SectionSizingPolicyByType", Optional: false},
+				{Name: "metaControlByType", TypeExpr: "MetaControlSizingPolicyByType", Optional: false},
+				{Name: "globals", TypeExpr: "SectionSizingPolicyGlobals", Optional: false},
+			},
+			hasFactoryTS: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != tt.kind {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, tt.kind)
+			}
+			if declaration.Alias != tt.alias {
+				t.Fatalf("%s alias = %q, want %q", tt.name, declaration.Alias, tt.alias)
+			}
+			if !reflect.DeepEqual(declaration.Properties, tt.properties) {
+				t.Fatalf("%s properties = %#v, want %#v", tt.name, declaration.Properties, tt.properties)
+			}
+			if (declaration.CreateExpr != "") != tt.hasCreateExpr {
+				t.Fatalf("%s CreateExpr presence = %t, want %t", tt.name, declaration.CreateExpr != "", tt.hasCreateExpr)
+			}
+			if (declaration.FactoryTS != "") != tt.hasFactoryTS {
+				t.Fatalf("%s FactoryTS presence = %t, want %t", tt.name, declaration.FactoryTS != "", tt.hasFactoryTS)
+			}
+		})
+	}
+}
+
 func TestProjectStateSectionSupportContractsUseConverterDeclarations(t *testing.T) {
 	tests := []struct {
 		name          string
