@@ -157,6 +157,7 @@ var bareRouteNames = map[string]struct{}{
 	bareRouteName(RouteRespondExternalAgentApproval):            {},
 	bareRouteName(RouteRespondExternalAgentQuestion):            {},
 	bareRouteName(RouteDeleteTerminals):                         {},
+	bareRouteName(RouteKillSubprocesses):                        {},
 	bareRouteName(RouteInterruptTerminalProcesses):              {},
 	bareRouteName(RouteRunCode):                                 {},
 	bareRouteName(RouteCreateWorkspaceLaunchIntent):             {},
