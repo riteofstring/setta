@@ -16,7 +16,7 @@ Current repo status as of 2026-03-08:
 
 - Phase 6 MCP parity remains the active rewrite phase
 - `run_agent_profile` is now complete in Go
-- the remaining non-project-state Python MCP gap count is 8
+- the remaining non-project-state Python MCP gap count is 7
 - one of those remaining tools still sits behind the Python UI-setting
   subsystem
 - Stage 1 core registry foundation is now complete in Go:
@@ -165,16 +165,13 @@ Already complete:
 
 Still missing:
 
-- reveal result hub/coordinator over Go realtime ownership
-- MCP parity for `reveal_ui_setting` and `revealAfterSet`
+- `revealAfterSet` follow-on behavior above the completed reveal coordinator
 - deterministic plugin UI-setting metadata source
 
 ## Open Questions
 
-- whether Stage 3 should land only `reveal_ui_setting` or also fold in
-  `revealAfterSet`; current recommendation remains to land the reveal
-  coordinator plus `reveal_ui_setting` first, then decide whether
-  `revealAfterSet` can reuse that boundary without broadening transport work
+- whether `revealAfterSet` should be treated as a small follow-on over the now
+  completed coordinator or deferred until plugin-contributed settings exist
 - whether app-definition-backed core settings should write through the existing
   document-level owners or a UI-setting-specific facade; current recommendation
   has been resolved in favor of the existing owners plus a thin registry
