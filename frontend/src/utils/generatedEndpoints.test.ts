@@ -4,9 +4,9 @@ import { C_ADDRESSES } from "./c_addresses";
 import { resolveEndpointOrigin } from "./endpointUtils";
 import {
   route_add_kwarg,
-  route_auto_layout_top_level_sections,
   route_append_draw_area_layer_item,
   route_append_transcription_audio,
+  route_auto_layout_top_level_sections,
   route_binary_download,
   route_binary_upload,
   route_check_if_file_exists,
@@ -31,6 +31,7 @@ import {
   route_delete_selected_params,
   route_delete_view_mode,
   route_force_refresh_listener,
+  route_format_code,
   route_get_agent_profiles,
   route_get_agent_runs,
   route_get_app_catalog,
@@ -50,6 +51,7 @@ import {
   route_get_git_log,
   route_get_git_status,
   route_get_latest_lsp_diagnostics,
+  route_get_latest_project_state,
   route_get_launcher_recent_workspaces,
   route_get_launcher_status,
   route_get_listener_coverage,
@@ -68,8 +70,8 @@ import {
   route_load_cached_chart_data,
   route_load_cached_draw_area_layer_item_transform,
   route_load_cached_image_artifacts,
-  route_load_settings,
   route_load_project_config,
+  route_load_settings,
   route_move_param_groups,
   route_move_params,
   route_move_sections,
@@ -86,18 +88,22 @@ import {
   route_save_project,
   route_save_settings,
   route_set_active_ids,
-  route_set_as_default_project,
   route_set_active_view_mode,
   route_set_agentic_edges,
   route_set_app_definition,
+  route_set_as_default_project,
   route_set_browser_area_view_mode,
   route_set_browser_column_widths,
   route_set_browser_hide_column,
   route_set_browser_saved_searches,
+  route_set_callable,
+  route_set_callable_hide_params,
   route_set_chart_area_data_path,
   route_set_chart_settings,
   route_set_chart_type,
+  route_set_chat_section_settings,
   route_set_chat_section_state,
+  route_set_code,
   route_set_code_file_binding,
   route_set_code_obj_display_name,
   route_set_code_obj_name,
@@ -113,12 +119,15 @@ import {
   route_set_meta_control_show_section_title,
   route_set_param_entered_value,
   route_set_parent_default_child_section_type,
+  route_set_project_config_codegen_targets,
   route_set_project_config_name,
   route_set_section_column_width,
   route_set_section_edge_inputs,
   route_set_section_edge_outputs,
+  route_set_section_hide_unpinned_params,
   route_set_section_name,
   route_set_section_param_filter,
+  route_set_section_pinned_params,
   route_set_section_sizes,
   route_set_section_style_color,
   route_set_section_tag_color,
@@ -142,6 +151,8 @@ import {
   route_set_view_mode_name,
   route_set_view_mode_sort_order,
   route_set_viewport,
+  route_set_watch_code_enabled,
+  route_set_watch_code_inputs,
   route_start_transcription_session,
   route_toggle_group_orientation,
   route_toggle_is_editing_view_mode,
@@ -166,7 +177,10 @@ import {
   route_validate_app_definition,
   route_write_file_browser_file_content,
 } from "./generatedEndpoints";
-import { createSettingsState } from "./generatedTypes";
+import {
+  createProjectCodegenPythonTarget,
+  createSettingsState,
+} from "./generatedTypes";
 
 vi.mock("state/definitions", () => ({
   useServerMode: {
@@ -315,7 +329,9 @@ describe("generatedEndpoints settings", () => {
     await route_load_settings();
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(`${C_ADDRESSES.BACKEND}/loadSettings`);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/loadSettings`,
+    );
     expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
       method: "POST",
       body: null,
@@ -333,7 +349,9 @@ describe("generatedEndpoints settings", () => {
     await route_save_settings({ settings });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(`${C_ADDRESSES.BACKEND}/saveSettings`);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/saveSettings`,
+    );
     expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
       method: "POST",
       body: JSON.stringify({ settings }),
@@ -2721,6 +2739,252 @@ describe("generatedEndpoints project shell and layout", () => {
       body: JSON.stringify({
         projectConfigId: "project-alpha",
         frontendOpId: "frontend-op-2c",
+      }),
+    });
+  });
+
+  it("posts latest project-state hydration reads with optional frontend op ids", async () => {
+    await route_get_latest_project_state({
+      projectConfigId: "project-alpha",
+      frontendOpId: "frontend-op-hydrate",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/getLatestProjectState`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        frontendOpId: "frontend-op-hydrate",
+      }),
+    });
+  });
+
+  it("posts code-edit writes and formatter requests with the current section payloads", async () => {
+    await route_set_code({
+      projectConfigId: "project-alpha",
+      sectionId: "code-section",
+      code: "print('latest')",
+      frontendOpId: "frontend-op-code",
+    });
+
+    await route_format_code({
+      projectConfigId: "project-alpha",
+      sectionId: "code-section",
+      frontendOpId: "frontend-op-format",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(`${C_ADDRESSES.BACKEND}/setCode`);
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "code-section",
+        code: "print('latest')",
+        frontendOpId: "frontend-op-code",
+      }),
+    });
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/formatCode`,
+    );
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "code-section",
+        frontendOpId: "frontend-op-format",
+      }),
+    });
+  });
+
+  it("posts callable mutation and hide-param writes with the canonical request shapes", async () => {
+    await route_set_callable({
+      projectConfigId: "project-alpha",
+      sectionId: "callable-section",
+      callableName: "sorted",
+      refetchParams: true,
+      frontendOpId: "frontend-op-callable",
+    });
+
+    await route_set_callable_hide_params({
+      projectConfigId: "project-alpha",
+      sectionId: "callable-section",
+      hideParams: true,
+      frontendOpId: "frontend-op-hide-params",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setCallable`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "callable-section",
+        callableName: "sorted",
+        refetchParams: true,
+        frontendOpId: "frontend-op-callable",
+      }),
+    });
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setCallableHideParams`,
+    );
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "callable-section",
+        hideParams: true,
+        frontendOpId: "frontend-op-hide-params",
+      }),
+    });
+  });
+
+  it("posts section pinning and hide-unpinned writes with the current payloads", async () => {
+    await route_set_section_hide_unpinned_params({
+      projectConfigId: "project-alpha",
+      sectionId: "callable-section",
+      hideUnpinnedParams: true,
+      frontendOpId: "frontend-op-hide-unpinned",
+    });
+
+    await route_set_section_pinned_params({
+      projectConfigId: "project-alpha",
+      sectionId: "callable-section",
+      pinnedParams: ["param-a", "param-b"],
+      frontendOpId: "frontend-op-pin-params",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setSectionHideUnpinnedParams`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "callable-section",
+        hideUnpinnedParams: true,
+        frontendOpId: "frontend-op-hide-unpinned",
+      }),
+    });
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setSectionPinnedParams`,
+    );
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "callable-section",
+        pinnedParams: ["param-a", "param-b"],
+        frontendOpId: "frontend-op-pin-params",
+      }),
+    });
+  });
+
+  it("posts project codegen-target writes with the generated target contract", async () => {
+    const pythonTarget = createProjectCodegenPythonTarget({
+      genCodePrefix: "# generated prefix",
+      genCodeSuffix: "# generated suffix",
+    });
+
+    await route_set_project_config_codegen_targets({
+      projectConfigId: "project-alpha",
+      codegenTargets: [pythonTarget],
+      frontendOpId: "frontend-op-codegen-targets",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setProjectConfigCodegenTargets`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        codegenTargets: [pythonTarget],
+        frontendOpId: "frontend-op-codegen-targets",
+      }),
+    });
+  });
+
+  it("posts watch-code writes with the current folder and file payloads", async () => {
+    await route_set_watch_code_enabled({
+      projectConfigId: "project-alpha",
+      enabled: true,
+      frontendOpId: "frontend-op-watch-enabled",
+    });
+
+    await route_set_watch_code_inputs({
+      projectConfigId: "project-alpha",
+      watchCodeFolders: [{ path: "pkg", recursive: true }],
+      watchCodeFiles: ["pkg/watch_me.py"],
+      frontendOpId: "frontend-op-watch-inputs",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setWatchCodeEnabled`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        enabled: true,
+        frontendOpId: "frontend-op-watch-enabled",
+      }),
+    });
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setWatchCodeInputs`,
+    );
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        watchCodeFolders: [{ path: "pkg", recursive: true }],
+        watchCodeFiles: ["pkg/watch_me.py"],
+        frontendOpId: "frontend-op-watch-inputs",
+      }),
+    });
+  });
+
+  it("posts chat-section settings writes with the canonical generated payload", async () => {
+    await route_set_chat_section_settings({
+      projectConfigId: "project-alpha",
+      sectionId: "chat-section",
+      managed: true,
+      engineConfigId: "engine-1",
+      transcriptionProfileId: null,
+      agentProfileId: "agent-profile-1",
+      thinking: false,
+      permissionMode: "minimal",
+      searchEnabled: true,
+      dictationMode: "provider",
+      frontendOpId: "frontend-op-chat-settings",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setChatSectionSettings`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "chat-section",
+        managed: true,
+        engineConfigId: "engine-1",
+        transcriptionProfileId: null,
+        agentProfileId: "agent-profile-1",
+        thinking: false,
+        permissionMode: "minimal",
+        searchEnabled: true,
+        dictationMode: "provider",
+        frontendOpId: "frontend-op-chat-settings",
       }),
     });
   });

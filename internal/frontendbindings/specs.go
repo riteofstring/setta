@@ -142,6 +142,11 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "DELETE_NOTIFICATION",
 				},
 				{
+					Name:     "getLatestProjectState",
+					Path:     httpapi.RouteGetLatestProjectState,
+					EnumName: "GET_LATEST_PROJECT_STATE",
+				},
+				{
 					Name:     "createNewSectionVariant",
 					Path:     httpapi.RouteCreateNewSectionVariant,
 					EnumName: "CREATE_NEW_SECTION_VARIANT",
@@ -472,6 +477,26 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "SET_CODE_SECTION_ATTACHED_TERMINAL",
 				},
 				{
+					Name:     "setCode",
+					Path:     httpapi.RouteSetCode,
+					EnumName: "SET_CODE",
+				},
+				{
+					Name:     "formatCode",
+					Path:     httpapi.RouteFormatCode,
+					EnumName: "FORMAT_CODE",
+				},
+				{
+					Name:     "setCallable",
+					Path:     httpapi.RouteSetCallable,
+					EnumName: "SET_CALLABLE",
+				},
+				{
+					Name:     "setProjectConfigCodegenTargets",
+					Path:     httpapi.RouteSetProjectConfigCodegenTargets,
+					EnumName: "SET_PROJECT_CONFIG_CODEGEN_TARGETS",
+				},
+				{
 					Name:     "setGenCodePrefix",
 					Path:     httpapi.RouteSetGenCodePrefix,
 					EnumName: "SET_GEN_CODE_PREFIX",
@@ -480,6 +505,16 @@ func CurrentRouteGroups() []RouteGroup {
 					Name:     "setGenCodeSuffix",
 					Path:     httpapi.RouteSetGenCodeSuffix,
 					EnumName: "SET_GEN_CODE_SUFFIX",
+				},
+				{
+					Name:     "setWatchCodeEnabled",
+					Path:     httpapi.RouteSetWatchCodeEnabled,
+					EnumName: "SET_WATCH_CODE_ENABLED",
+				},
+				{
+					Name:     "setWatchCodeInputs",
+					Path:     httpapi.RouteSetWatchCodeInputs,
+					EnumName: "SET_WATCH_CODE_INPUTS",
 				},
 				{
 					Name:     "setTextBlockText",
@@ -767,6 +802,21 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "SET_SECTION_STYLE_COLOR",
 				},
 				{
+					Name:     "setCallableHideParams",
+					Path:     httpapi.RouteSetCallableHideParams,
+					EnumName: "SET_CALLABLE_HIDE_PARAMS",
+				},
+				{
+					Name:     "setSectionHideUnpinnedParams",
+					Path:     httpapi.RouteSetSectionHideUnpinnedParams,
+					EnumName: "SET_SECTION_HIDE_UNPINNED_PARAMS",
+				},
+				{
+					Name:     "setSectionPinnedParams",
+					Path:     httpapi.RouteSetSectionPinnedParams,
+					EnumName: "SET_SECTION_PINNED_PARAMS",
+				},
+				{
 					Name:     "setBrowserColumnWidths",
 					Path:     httpapi.RouteSetBrowserColumnWidths,
 					EnumName: "SET_BROWSER_COLUMN_WIDTHS",
@@ -1027,6 +1077,11 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "RESPOND_EXTERNAL_AGENT_QUESTION",
 				},
 				{
+					Name:     "setChatSectionSettings",
+					Path:     httpapi.RouteSetChatSectionSettings,
+					EnumName: "SET_CHAT_SECTION_SETTINGS",
+				},
+				{
 					Name:     "setChatSectionState",
 					Path:     httpapi.RouteSetChatSectionState,
 					EnumName: "SET_CHAT_SECTION_STATE",
@@ -1220,6 +1275,14 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteName:       "loadProjectConfig",
 			RequestType:     reflect.TypeOf(LoadProjectConfigRequestInput{}),
 			ResponseType:    reflect.TypeOf(ProjectStateSingleConfig{}),
+		},
+		{
+			FunctionName:    "route_get_latest_project_state",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "getLatestProjectState",
+			RequestType:     reflect.TypeOf(GetLatestProjectStateRequestInput{}),
+			ResponseType:    reflect.TypeOf(ProjectStateSingleConfigWithCompletedOpIds{}),
 		},
 		{
 			FunctionName:    "route_save_project",
@@ -1766,6 +1829,36 @@ func CurrentEndpoints() []EndpointSpec {
 			RequestType:     reflect.TypeOf(SetCodeSectionAttachedTerminalRequestInput{}),
 		},
 		{
+			FunctionName:    "route_set_code",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setCode",
+			RequestType:     reflect.TypeOf(SetCodeRequestInput{}),
+		},
+		{
+			FunctionName:    "route_format_code",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "formatCode",
+			RequestType:     reflect.TypeOf(FormatCodeRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_callable",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setCallable",
+			RequestType:     reflect.TypeOf(SetCallableRequestInput{}),
+			ResponseType:    reflect.TypeOf(SetCallableResponse{}),
+		},
+		{
+			FunctionName:    "route_set_project_config_codegen_targets",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setProjectConfigCodegenTargets",
+			RequestType:     reflect.TypeOf(SetProjectConfigCodegenTargetsRequestInput{}),
+			ResponseType:    reflect.TypeOf(ProjectStateSingleConfig{}),
+		},
+		{
 			FunctionName:    "route_set_gen_code_prefix",
 			Method:          "POST",
 			RouteCollection: "GoHTTPRoutes",
@@ -1778,6 +1871,20 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "setGenCodeSuffix",
 			RequestType:     reflect.TypeOf(SetGenCodeSuffixRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_watch_code_enabled",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setWatchCodeEnabled",
+			RequestType:     reflect.TypeOf(SetWatchCodeEnabledRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_watch_code_inputs",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setWatchCodeInputs",
+			RequestType:     reflect.TypeOf(SetWatchCodeInputsRequestInput{}),
 		},
 		{
 			FunctionName:    "route_set_text_block_text",
@@ -2203,6 +2310,27 @@ func CurrentEndpoints() []EndpointSpec {
 			RequestType:     reflect.TypeOf(SetSectionStyleColorRequestInput{}),
 		},
 		{
+			FunctionName:    "route_set_callable_hide_params",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setCallableHideParams",
+			RequestType:     reflect.TypeOf(SetCallableHideParamsRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_section_hide_unpinned_params",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setSectionHideUnpinnedParams",
+			RequestType:     reflect.TypeOf(SetSectionHideUnpinnedParamsRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_section_pinned_params",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setSectionPinnedParams",
+			RequestType:     reflect.TypeOf(SetSectionPinnedParamsRequestInput{}),
+		},
+		{
 			FunctionName:    "route_set_browser_column_widths",
 			Method:          "POST",
 			RouteCollection: "GoHTTPRoutes",
@@ -2586,6 +2714,13 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "respondExternalAgentQuestion",
 			RequestType:     reflect.TypeOf(httpapi.RespondExternalAgentQuestionRequest{}),
+		},
+		{
+			FunctionName:    "route_set_chat_section_settings",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setChatSectionSettings",
+			RequestType:     reflect.TypeOf(SetChatSectionSettingsRequestInput{}),
 		},
 		{
 			FunctionName:    "route_set_chat_section_state",

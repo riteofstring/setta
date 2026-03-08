@@ -164,6 +164,9 @@ Current landed wedge:
   - current settings route constants
   - current project-shell route constants
   - current project-state layout/presence/structure-selection route constants
+  - current latest-project-state hydration, code editing/formatting,
+    callable/section-presentation toggle, codegen-target, chat-settings, and
+    watch-code route constants
   - current child-section helper route constants
   - current param value/config, code-object naming/display,
     python-codegen prefix/suffix, and attached-terminal helper route constants
@@ -213,6 +216,21 @@ Current landed wedge:
     - settings load/save payloads
       - `SaveSettingsRequestInput`
     - project metadata and project-shell payloads
+    - latest-project-state/code-edit/watch-code/chat-settings/codegen contract
+      payloads
+      - `GetLatestProjectStateRequestInput`
+      - `ProjectStateSingleConfigWithCompletedOpIds`
+      - `SetCodeRequestInput`
+      - `FormatCodeRequestInput`
+      - `SetCallableRequestInput`
+      - `SetCallableResponse`
+      - `SetCallableHideParamsRequestInput`
+      - `SetSectionHideUnpinnedParamsRequestInput`
+      - `SetSectionPinnedParamsRequestInput`
+      - `SetProjectConfigCodegenTargetsRequestInput`
+      - `SetChatSectionSettingsRequestInput`
+      - `SetWatchCodeEnabledRequestInput`
+      - `SetWatchCodeInputsRequestInput`
       - `ProjectMetadataEntry`
       - `AllProjectMetadata`
       - `LoadProjectConfigRequestInput`
@@ -637,6 +655,7 @@ Current landed wedge:
     - `route_save_settings`
     - `route_load_all_project_metadata`
     - `route_load_project_config`
+    - `route_get_latest_project_state`
     - `route_save_project`
     - `route_save_as_new_project_config`
     - `route_create_project_config`
@@ -645,6 +664,16 @@ Current landed wedge:
     - `route_set_project_config_name`
     - `route_get_notifications`
     - `route_delete_notification`
+    - `route_set_code`
+    - `route_format_code`
+    - `route_set_callable`
+    - `route_set_callable_hide_params`
+    - `route_set_section_hide_unpinned_params`
+    - `route_set_section_pinned_params`
+    - `route_set_project_config_codegen_targets`
+    - `route_set_chat_section_settings`
+    - `route_set_watch_code_enabled`
+    - `route_set_watch_code_inputs`
     - `route_delete_sections`
     - `route_delete_selected_params`
     - `route_create_top_level_section`

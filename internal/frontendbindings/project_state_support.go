@@ -573,6 +573,99 @@ type SetSectionStyleColorRequestInput struct {
 	StyleColor      *string `json:"styleColor,omitempty"`
 }
 
+type GetLatestProjectStateRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+}
+
+type SetCallableChildCodeObj struct {
+	CodeObjID string `json:"codeObjId"`
+	Name      string `json:"name"`
+}
+
+type SignatureHelpStatus string
+
+type SetCallableResponse struct {
+	CallableID    *string                   `json:"callableId,omitempty"`
+	ChildCodeObjs []SetCallableChildCodeObj `json:"childCodeObjs"`
+	LSPStatus     SignatureHelpStatus       `json:"lspStatus"`
+}
+
+type SetCallableRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	SectionID       string  `json:"sectionId"`
+	CallableName    string  `json:"callableName"`
+	RefetchParams   bool    `json:"refetchParams"`
+}
+
+type SetCodeRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	SectionID       string  `json:"sectionId"`
+	Code            string  `json:"code"`
+}
+
+type FormatCodeRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	SectionID       string  `json:"sectionId"`
+}
+
+type SetCallableHideParamsRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	SectionID       string  `json:"sectionId"`
+	HideParams      bool    `json:"hideParams"`
+}
+
+type SetSectionHideUnpinnedParamsRequestInput struct {
+	FrontendOpID       *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID    string  `json:"projectConfigId"`
+	SectionID          string  `json:"sectionId"`
+	HideUnpinnedParams bool    `json:"hideUnpinnedParams"`
+}
+
+type SetSectionPinnedParamsRequestInput struct {
+	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
+	ProjectConfigID string   `json:"projectConfigId"`
+	SectionID       string   `json:"sectionId"`
+	PinnedParams    []string `json:"pinnedParams"`
+}
+
+type SetProjectConfigCodegenTargetsRequestInput struct {
+	FrontendOpID    *string                `json:"frontendOpId,omitempty"`
+	ProjectConfigID string                 `json:"projectConfigId"`
+	CodegenTargets  []ProjectCodegenTarget `json:"codegenTargets"`
+}
+
+type SetChatSectionSettingsRequestInput struct {
+	FrontendOpID           *string            `json:"frontendOpId,omitempty"`
+	ProjectConfigID        string             `json:"projectConfigId"`
+	SectionID              string             `json:"sectionId"`
+	Managed                bool               `json:"managed"`
+	EngineConfigID         *string            `json:"engineConfigId,omitempty"`
+	TranscriptionProfileID *string            `json:"transcriptionProfileId,omitempty"`
+	AgentProfileID         *string            `json:"agentProfileId,omitempty"`
+	Thinking               bool               `json:"thinking"`
+	PermissionMode         ChatPermissionMode `json:"permissionMode"`
+	SearchEnabled          bool               `json:"searchEnabled"`
+	DictationMode          ChatDictationMode  `json:"dictationMode"`
+}
+
+type SetWatchCodeEnabledRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	Enabled         bool    `json:"enabled"`
+}
+
+type SetWatchCodeInputsRequestInput struct {
+	FrontendOpID     *string           `json:"frontendOpId,omitempty"`
+	ProjectConfigID  string            `json:"projectConfigId"`
+	WatchCodeFolders []WatchCodeFolder `json:"watchCodeFolders"`
+	WatchCodeFiles   []string          `json:"watchCodeFiles"`
+}
+
 type GroupSectionsRequestInput struct {
 	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
 	ProjectConfigID string   `json:"projectConfigId"`

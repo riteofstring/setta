@@ -42,6 +42,11 @@ export async function route_load_project_config(x: gt.LoadProjectConfigRequestIn
   return await post(GoHTTPRoutes.loadProjectConfig, x);
 
 }
+export async function route_get_latest_project_state(x: gt.GetLatestProjectStateRequestInput): Promise<ResponseDataAndStatus<gt.ProjectStateSingleConfigWithCompletedOpIds>> {
+
+  return await post(GoHTTPRoutes.getLatestProjectState, x);
+
+}
 export async function route_save_project(x: gt.SaveProjectRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.saveProject, x);
@@ -412,6 +417,26 @@ export async function route_set_code_section_attached_terminal(x: gt.SetCodeSect
   return await post(GoHTTPRoutes.setCodeSectionAttachedTerminal, x);
 
 }
+export async function route_set_code(x: gt.SetCodeRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setCode, x);
+
+}
+export async function route_format_code(x: gt.FormatCodeRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.formatCode, x);
+
+}
+export async function route_set_callable(x: gt.SetCallableRequestInput): Promise<ResponseDataAndStatus<gt.SetCallableResponse>> {
+
+  return await post(GoHTTPRoutes.setCallable, x);
+
+}
+export async function route_set_project_config_codegen_targets(x: gt.SetProjectConfigCodegenTargetsRequestInput): Promise<ResponseDataAndStatus<gt.ProjectStateSingleConfig>> {
+
+  return await post(GoHTTPRoutes.setProjectConfigCodegenTargets, x);
+
+}
 export async function route_set_gen_code_prefix(x: gt.SetGenCodePrefixRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.setGenCodePrefix, x);
@@ -420,6 +445,16 @@ export async function route_set_gen_code_prefix(x: gt.SetGenCodePrefixRequestInp
 export async function route_set_gen_code_suffix(x: gt.SetGenCodeSuffixRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.setGenCodeSuffix, x);
+
+}
+export async function route_set_watch_code_enabled(x: gt.SetWatchCodeEnabledRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setWatchCodeEnabled, x);
+
+}
+export async function route_set_watch_code_inputs(x: gt.SetWatchCodeInputsRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setWatchCodeInputs, x);
 
 }
 export async function route_set_text_block_text(x: gt.SetTextBlockTextRequestInput): Promise<ResponseDataAndStatus<null>> {
@@ -707,6 +742,21 @@ export async function route_set_section_style_color(x: gt.SetSectionStyleColorRe
   return await post(GoHTTPRoutes.setSectionStyleColor, x);
 
 }
+export async function route_set_callable_hide_params(x: gt.SetCallableHideParamsRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setCallableHideParams, x);
+
+}
+export async function route_set_section_hide_unpinned_params(x: gt.SetSectionHideUnpinnedParamsRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setSectionHideUnpinnedParams, x);
+
+}
+export async function route_set_section_pinned_params(x: gt.SetSectionPinnedParamsRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setSectionPinnedParams, x);
+
+}
 export async function route_set_browser_column_widths(x: gt.SetBrowserColumnWidthsRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.setBrowserColumnWidths, x);
@@ -965,6 +1015,11 @@ export async function route_respond_external_agent_approval(x: gt.RespondExterna
 export async function route_respond_external_agent_question(x: gt.RespondExternalAgentQuestionRequest): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.respondExternalAgentQuestion, x);
+
+}
+export async function route_set_chat_section_settings(x: gt.SetChatSectionSettingsRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setChatSectionSettings, x);
 
 }
 export async function route_set_chat_section_state(x: gt.SetChatSectionStateRequestInput): Promise<ResponseDataAndStatus<null>> {

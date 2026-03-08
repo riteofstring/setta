@@ -5320,6 +5320,15 @@ export function createLoadProjectConfigRequestInput(options: Partial<LoadProject
 }
 
 
+export type GetLatestProjectStateRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+};
+export function createGetLatestProjectStateRequestInput(options: Partial<GetLatestProjectStateRequestInput> = {}): GetLatestProjectStateRequestInput {
+  return options as GetLatestProjectStateRequestInput;
+}
+
+
 export type SaveProjectRequestInput = {
   projectConfigId: string;
 };
@@ -6480,6 +6489,71 @@ export function createSetCodeSectionAttachedTerminalRequestInput(options: Partia
 }
 
 
+export type SetCodeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  code: string;
+};
+export function createSetCodeRequestInput(options: Partial<SetCodeRequestInput> = {}): SetCodeRequestInput {
+  return options as SetCodeRequestInput;
+}
+
+
+export type FormatCodeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+};
+export function createFormatCodeRequestInput(options: Partial<FormatCodeRequestInput> = {}): FormatCodeRequestInput {
+  return options as FormatCodeRequestInput;
+}
+
+
+export type SetCallableRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  callableName: string;
+  refetchParams: boolean;
+};
+export function createSetCallableRequestInput(options: Partial<SetCallableRequestInput> = {}): SetCallableRequestInput {
+  return options as SetCallableRequestInput;
+}
+
+
+export type SetCallableChildCodeObj = {
+  codeObjId: string;
+  name: string;
+};
+export function createSetCallableChildCodeObj(options: Partial<SetCallableChildCodeObj> = {}): SetCallableChildCodeObj {
+  return options as SetCallableChildCodeObj;
+}
+
+
+export type SignatureHelpStatus = string;
+
+
+export type SetCallableResponse = {
+  callableId?: string | null;
+  childCodeObjs: Array<SetCallableChildCodeObj>;
+  lspStatus: SignatureHelpStatus;
+};
+export function createSetCallableResponse(options: Partial<SetCallableResponse> = {}): SetCallableResponse {
+  return options as SetCallableResponse;
+}
+
+
+export type SetProjectConfigCodegenTargetsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  codegenTargets: Array<ProjectCodegenTarget>;
+};
+export function createSetProjectConfigCodegenTargetsRequestInput(options: Partial<SetProjectConfigCodegenTargetsRequestInput> = {}): SetProjectConfigCodegenTargetsRequestInput {
+  return options as SetProjectConfigCodegenTargetsRequestInput;
+}
+
+
 export type SetGenCodePrefixRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
@@ -6497,6 +6571,27 @@ export type SetGenCodeSuffixRequestInput = {
 };
 export function createSetGenCodeSuffixRequestInput(options: Partial<SetGenCodeSuffixRequestInput> = {}): SetGenCodeSuffixRequestInput {
   return options as SetGenCodeSuffixRequestInput;
+}
+
+
+export type SetWatchCodeEnabledRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  enabled: boolean;
+};
+export function createSetWatchCodeEnabledRequestInput(options: Partial<SetWatchCodeEnabledRequestInput> = {}): SetWatchCodeEnabledRequestInput {
+  return options as SetWatchCodeEnabledRequestInput;
+}
+
+
+export type SetWatchCodeInputsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  watchCodeFolders: Array<WatchCodeFolder>;
+  watchCodeFiles: Array<string>;
+};
+export function createSetWatchCodeInputsRequestInput(options: Partial<SetWatchCodeInputsRequestInput> = {}): SetWatchCodeInputsRequestInput {
+  return options as SetWatchCodeInputsRequestInput;
 }
 
 
@@ -7360,6 +7455,39 @@ export function createSetSectionStyleColorRequestInput(options: Partial<SetSecti
 }
 
 
+export type SetCallableHideParamsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  hideParams: boolean;
+};
+export function createSetCallableHideParamsRequestInput(options: Partial<SetCallableHideParamsRequestInput> = {}): SetCallableHideParamsRequestInput {
+  return options as SetCallableHideParamsRequestInput;
+}
+
+
+export type SetSectionHideUnpinnedParamsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  hideUnpinnedParams: boolean;
+};
+export function createSetSectionHideUnpinnedParamsRequestInput(options: Partial<SetSectionHideUnpinnedParamsRequestInput> = {}): SetSectionHideUnpinnedParamsRequestInput {
+  return options as SetSectionHideUnpinnedParamsRequestInput;
+}
+
+
+export type SetSectionPinnedParamsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  pinnedParams: Array<string>;
+};
+export function createSetSectionPinnedParamsRequestInput(options: Partial<SetSectionPinnedParamsRequestInput> = {}): SetSectionPinnedParamsRequestInput {
+  return options as SetSectionPinnedParamsRequestInput;
+}
+
+
 export type SetBrowserColumnWidthsRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
@@ -7934,6 +8062,24 @@ export type RespondExternalAgentQuestionRequest = {
 };
 export function createRespondExternalAgentQuestionRequest(options: Partial<RespondExternalAgentQuestionRequest> = {}): RespondExternalAgentQuestionRequest {
   return options as RespondExternalAgentQuestionRequest;
+}
+
+
+export type SetChatSectionSettingsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  managed: boolean;
+  engineConfigId?: string | null;
+  transcriptionProfileId?: string | null;
+  agentProfileId?: string | null;
+  thinking: boolean;
+  permissionMode: ChatPermissionMode;
+  searchEnabled: boolean;
+  dictationMode: ChatDictationMode;
+};
+export function createSetChatSectionSettingsRequestInput(options: Partial<SetChatSectionSettingsRequestInput> = {}): SetChatSectionSettingsRequestInput {
+  return options as SetChatSectionSettingsRequestInput;
 }
 
 
