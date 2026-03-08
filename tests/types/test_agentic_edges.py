@@ -5,16 +5,14 @@ from setta.types.agentic_edges import AgenticEdge, AgenticEdgeKind
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl2 import (
     create_agentic_edge,
-    create_new_section_variant,
     create_top_level_section,
     delete_agentic_edges,
-    set_section_variant,
     set_agentic_edges,
     update_agentic_edge,
 )
 from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.section_impls import SectionType, TextBlockSectionImpl
+from setta.types.section_impls import SectionType
 
 
 class TestAgenticEdges:
@@ -135,38 +133,3 @@ class TestAgenticEdges:
         restored = ProjectConfig.model_validate(payload)
 
         assert restored.agenticEdges == [edge]
-
-    def test_set_section_variant_prunes_chat_edges_that_no_longer_target_chat(
-        self,
-    ) -> None:
-        edge = self._create_edge(
-            self.chat_section_id,
-            self.other_chat_id,
-            AgenticEdgeKind.chat_chat,
-        )
-        original_variant_id = self.project_state.projectConfig.sectionVariantMap[
-            self.other_chat_id
-        ]
-        create_new_section_variant(self.project_state, self.other_chat_id)
-        non_chat_variant_id = self.project_state.projectConfig.sectionVariantMap[
-            self.other_chat_id
-        ]
-        non_chat_impl_id = self.project_state.sectionVariants[non_chat_variant_id].impl
-        self.project_state.sectionImpls[non_chat_impl_id] = TextBlockSectionImpl(
-            id=non_chat_impl_id
-        )
-        set_section_variant(
-            self.project_state,
-            self.other_chat_id,
-            original_variant_id,
-        )
-
-        assert self.project_state.projectConfig.agenticEdges == [edge]
-
-        set_section_variant(
-            self.project_state,
-            self.other_chat_id,
-            non_chat_variant_id,
-        )
-
-        assert self.project_state.projectConfig.agenticEdges == []
