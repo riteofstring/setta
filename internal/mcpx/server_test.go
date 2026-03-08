@@ -143,8 +143,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 63 {
-		t.Fatalf("expected 63 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 64 {
+		t.Fatalf("expected 64 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -392,6 +392,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"list_app_components",
 		"list_mcp_tools",
 		"read_file_range",
+		"report_completion_status",
 		"search_mcp_tools",
 		"set_agentic_context",
 		"set_app_definition",
@@ -1002,8 +1003,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 63 {
-		t.Fatalf("expected 63 registered tool names, got %#v", listNames)
+	if len(listNames) != 64 {
+		t.Fatalf("expected 64 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -8937,6 +8938,91 @@ func TestServerGetSettaDocsLoadsDefaultBundleAndRejectsEscapes(t *testing.T) {
 	invalidPayload := mustStructuredMap(t, invalid.StructuredContent)
 	if invalidPayload["code"] != "invalid_arguments" {
 		t.Fatalf("expected invalid_arguments for invalid docs path, got %#v", invalidPayload)
+	}
+}
+
+func TestServerReportCompletionStatusBuildsStructuredReportAndRejectsInvalidChecks(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "report_completion_status",
+		Arguments: map[string]any{
+			"taskId":               " task-a ",
+			"completionIntent":     true,
+			"requiresVerification": true,
+			"checkResults": []any{
+				map[string]any{
+					"checkName": "pytest",
+					"status":    "passed",
+					"details":   "  verified  ",
+					"source":    "  go test  ",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call report_completion_status: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected report_completion_status success, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["taskId"] != "task-a" {
+		t.Fatalf("expected trimmed taskId, got %#v", payload["taskId"])
+	}
+	if payload["completionIntent"] != true {
+		t.Fatalf("expected completionIntent true, got %#v", payload["completionIntent"])
+	}
+	if payload["requiresVerification"] != true {
+		t.Fatalf("expected requiresVerification true, got %#v", payload["requiresVerification"])
+	}
+	if payload["verificationStatus"] != string(verificationStatusPassed) {
+		t.Fatalf("expected verificationStatus passed, got %#v", payload["verificationStatus"])
+	}
+	checkResults := mustStructuredList(t, payload["checkResults"])
+	if len(checkResults) != 1 {
+		t.Fatalf("expected one check result, got %#v", checkResults)
+	}
+	firstCheck := mustStructuredMap(t, checkResults[0])
+	if firstCheck["details"] != "verified" {
+		t.Fatalf("expected trimmed details, got %#v", firstCheck["details"])
+	}
+	if firstCheck["source"] != "go test" {
+		t.Fatalf("expected trimmed source, got %#v", firstCheck["source"])
+	}
+
+	invalid, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "report_completion_status",
+		Arguments: map[string]any{
+			"completionIntent":     true,
+			"requiresVerification": true,
+			"checkResults": []any{
+				map[string]any{
+					"checkName": " ",
+					"status":    "passed",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call invalid report_completion_status: %v", err)
+	}
+	if !invalid.IsError {
+		t.Fatal("expected invalid report_completion_status call to fail")
+	}
+	invalidPayload := mustStructuredMap(t, invalid.StructuredContent)
+	if invalidPayload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", invalidPayload["code"])
+	}
+	if invalidPayload["message"] != "checkResults[0].checkName must be non-empty" {
+		t.Fatalf("unexpected invalid message %#v", invalidPayload["message"])
 	}
 }
 

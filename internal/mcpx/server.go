@@ -185,6 +185,7 @@ var unscopedToolNames = map[string]struct{}{
 	"get_setta_docs":                {},
 	"list_app_components":           {},
 	"list_mcp_tools":                {},
+	"report_completion_status":      {},
 	"search_mcp_tools":              {},
 	"set_agentic_context":           {},
 }
@@ -2964,6 +2965,84 @@ func defaultToolDefinitions(
 					},
 				},
 				"required": []string{"docs", "available_docs"},
+			},
+		},
+		{
+			Spec: tools.Spec{
+				Name:        "report_completion_status",
+				Description: "Report structured completion intent and verification evidence for the active task.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "agentic",
+					SearchTags:     []string{"completion", "verification", "status", "checks", "task"},
+				},
+				Handler: newReportCompletionStatusHandler(),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"taskId": map[string]any{
+						"type":        "string",
+						"description": "Optional task identifier for the completion report.",
+					},
+					"completionIntent": map[string]any{
+						"type":        "boolean",
+						"description": "Whether the active task is intended to be complete.",
+					},
+					"requiresVerification": map[string]any{
+						"type":        "boolean",
+						"description": "Whether the task requires verification evidence before completion.",
+					},
+					"checkResults": map[string]any{
+						"type":        "array",
+						"description": "Optional verification checks to include in the report.",
+						"items": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"checkName": map[string]any{"type": "string"},
+								"required":  map[string]any{"type": "boolean"},
+								"status":    map[string]any{"type": "string"},
+								"details":   map[string]any{"type": "string"},
+								"source":    map[string]any{"type": "string"},
+							},
+							"required": []string{"checkName", "status"},
+						},
+					},
+				},
+				"required": []string{"completionIntent", "requiresVerification"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"taskId": map[string]any{
+						"type": "string",
+					},
+					"completionIntent": map[string]any{
+						"type": "boolean",
+					},
+					"requiresVerification": map[string]any{
+						"type": "boolean",
+					},
+					"checkResults": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"checkName": map[string]any{"type": "string"},
+								"required":  map[string]any{"type": "boolean"},
+								"status":    map[string]any{"type": "string"},
+								"details":   map[string]any{"type": "string"},
+								"source":    map[string]any{"type": "string"},
+							},
+							"required": []string{"checkName", "required", "status"},
+						},
+					},
+					"verificationStatus": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"completionIntent", "requiresVerification", "checkResults", "verificationStatus"},
 			},
 		},
 	}
