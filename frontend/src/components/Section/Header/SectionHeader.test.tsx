@@ -291,4 +291,23 @@ describe("SectionHeader follow button", () => {
     expect(markup).toContain('aria-label="Follow chat"');
     expect(markup).toContain('aria-pressed="true"');
   });
+
+  it("can render extra controls while hiding canvas container controls", () => {
+    const markup = renderToStaticMarkup(
+      <SectionHeader
+        sectionId={sectionId}
+        isActiveSection={false}
+        sectionTypeName={SectionTypeEnum.Chat}
+        isInOtherProjectConfigs={false}
+        isUserView={false}
+        isRoot={false}
+        hasSectionStyleTheme={false}
+        showSectionContainerControls={false}
+        extraControls={<span data-testid="window-controls">window</span>}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="window-controls"');
+    expect(markup).not.toContain("gg-lock");
+  });
 });
