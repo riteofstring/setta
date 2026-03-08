@@ -40,6 +40,10 @@ Current repo status as of 2026-03-09:
     - external `contextUsage` normalization from canonical run outputs
     - active-run registry, live chat overlay storage, cancellation ownership,
       approval-response dispatch, and question-response dispatch
+    - external-agent AI-follow snapshot ownership, MCP-metadata-driven
+      follow-id extraction from live tool arguments, websocket
+      `AIFollowToolArgumentsUpdate` broadcast, and canonical temporary-id
+      resolution
     - Go-owned send-path validation, history shaping, persisted running-run
       creation, and runtime activation for the external-agent branch of
       `getLLMResponse`
@@ -55,6 +59,7 @@ Current repo status as of 2026-03-09:
     - thin Go transport for:
       - `/getLLMResponse` (external-agent branch only)
       - `/getExternalAgentChat`
+      - `/getAIFollowSnapshot`
       - `/stopExternalAgentRun`
       - `/respondExternalAgentApproval`
       - `/respondExternalAgentQuestion`
@@ -65,12 +70,10 @@ Current repo status as of 2026-03-09:
   - `backend/setta/agentic/external_adapters/*`
 - managed `EngineType.setta_llm` remains Python-owned, but it is no longer the
   planned Go target for the current rewrite scope
-- Go does not yet own the remaining active external-agent route/runtime
-  surface:
-  - the bounded external-agent AI-follow snapshot/live-update slice now tracked
-    in `phase-12-external-agent-ai-follow-snapshot-and-realtime-parity.md`
-    after the now-landed Codex/OpenCode/Claude parity, Codex raw tool-item,
-    prompt/app-generation, and attachment-payload follow-on slices
+- the bounded external-agent AI-follow snapshot/live-update follow-on in
+  `phase-12-external-agent-ai-follow-snapshot-and-realtime-parity.md` is now
+  also landed after the Codex/OpenCode/Claude parity, Codex raw tool-item,
+  prompt/app-generation, and attachment-payload slices
 - current work is no longer pure planning/inventory:
   - the hydration read path is implemented in Go
   - the active runtime, stop route, approval/question routes, send-route
@@ -91,10 +94,11 @@ Current repo status as of 2026-03-09:
     complete
   - the bounded external-agent attachment follow-on in
     `phase-12-external-agent-attachment-payload-parity.md` is now complete
-  - the attempted final closeout inventory found one more concrete gap:
-    Python still owns external-agent AI-follow snapshot state and
-    `AIFollowToolArgumentsUpdate` websocket behavior, now scoped in
-    `phase-12-external-agent-ai-follow-snapshot-and-realtime-parity.md`
+  - the attempted final closeout inventory found and then closed one more
+    concrete gap in
+    `phase-12-external-agent-ai-follow-snapshot-and-realtime-parity.md`:
+    Go now owns external-agent AI-follow snapshot state plus
+    `AIFollowToolArgumentsUpdate` websocket behavior
 
 ## Scope
 
@@ -223,9 +227,6 @@ It should include:
 
 Missing Go owners:
 
-- the bounded external-agent AI-follow snapshot/live-update behavior still
-  owned by `backend/setta/routers/ai.py` and
-  `backend/setta/agentic/external_agent_runner.py`
 - any remaining external-agent websocket/event streaming closeout only if the
   current frontend UX still depends on behavior not covered by the landed
   persisted/live chat path
@@ -303,6 +304,8 @@ Missing Go owners:
   - runtime cancellation persistence
   - approval-response dispatch and persistence
   - stop/approval route transport behavior
+  - external-agent AI-follow snapshot hydration, runtime clear behavior, and
+    approval-response follow-state clear behavior
 
 ## Working Decisions
 
@@ -403,11 +406,11 @@ Missing Go owners:
   to a pure Go edge if a stable official interface exists
   - current recommendation: use the most stable official interface available at
     the adapter edge and avoid inventing a generic polyglot orchestration layer
-- whether AI-follow and reveal-side integration must land in Stage 1 or can be
-  deferred behind the same live-state owner until the frontend proves it is
-  blocked
-  - current recommendation: keep only the pieces required by the current
-    external-agent chat UX in scope for the first landing
+- whether the final closeout inventory will uncover any remaining concrete
+  external-agent UX gap beyond the now-landed AI-follow slice
+  - current recommendation: use the completed Phase 12 docs plus focused route
+    and runtime verification to inventory concrete gaps before opening any
+    further slice
 
 ## Progress Notes
 
@@ -428,19 +431,22 @@ Missing Go owners:
 - 2026-03-08: landed the OpenCode executor slice plus
   `/respondExternalAgentQuestion`, so the remaining Phase 12 execution gap is
   now Claude Code and deferred Codex/OpenCode MCP-rich parity work.
+- 2026-03-09: landed the bounded external-agent AI-follow slice:
+  `/getAIFollowSnapshot`, live `AIFollowToolArgumentsUpdate` broadcast, and
+  runtime-owned follow-state clear behavior now live in Go.
 
 ## Verification
 
-- `./scripts/go.sh test ./internal/externalagentconfigs ./internal/externalagents ./internal/httpapi`
+- `./scripts/go.sh test ./internal/externalagents ./internal/httpapi -count=1`
 - `./scripts/go.sh test ./internal/app -run '^$'`
 
 ## Recommended Next Step
 
-Implement the remaining send/execution slice from the focused follow-on doc:
+Run the final Phase 12 closeout inventory from the updated docs and repo
+state.
 
-- `phase-12-external-agent-active-runtime-stop-approval-and-send.md`
-- keep `internal/externalagents` as the durable hydration/read owner
-- add adapter-backed execution that produces the live state and approvals the
-  new runtime now owns
-- land the external-agent branch of `getLLMResponse`
-- do not broaden into managed `setta_llm` or transcription work
+- verify whether any concrete user-facing external-agent gap still remains
+- if no new gap appears, treat the tracked external-agent Phase 12 surface as
+  effectively complete
+- if a concrete gap does appear, open one more focused slice doc instead of
+  broadening back into managed `setta_llm` or unrelated AI routes

@@ -17,8 +17,11 @@ import (
 	"setta/internal/config"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/externalagents"
+	"setta/internal/mcpx"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
+	"setta/internal/realtime"
+	"setta/internal/tools"
 )
 
 type aiRouteStubController struct {
@@ -56,6 +59,28 @@ func (s *aiRouteStubExecutor) Start(_ context.Context, request externalagents.St
 type aiRouteStubPreflightChecker struct {
 	status externalagentconfigs.Status
 	err    error
+}
+
+type aiRouteStaticFollowToolProvider struct{}
+
+func (aiRouteStaticFollowToolProvider) ToolDescriptorsForServers(serverIDs map[string]struct{}) map[string]mcpx.ToolDescriptor {
+	if len(serverIDs) != 0 {
+		if _, ok := serverIDs[mcpx.DefaultServerID]; !ok {
+			return map[string]mcpx.ToolDescriptor{}
+		}
+	}
+	toolName := mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "setSectionSize")
+	return map[string]mcpx.ToolDescriptor{
+		toolName: {
+			ServerID:       mcpx.DefaultServerID,
+			NamespacedName: toolName,
+			Metadata: &tools.Metadata{
+				IDPathsByType: map[tools.IDType][]string{
+					tools.IDTypeSection: {"sectionId"},
+				},
+			},
+		},
+	}
 }
 
 func (s aiRouteStubPreflightChecker) Check(config externalagentconfigs.Config) (externalagentconfigs.Status, error) {
@@ -389,6 +414,96 @@ func TestRegisterAIRoutesHydratesExternalAgentChat(t *testing.T) {
 	}
 }
 
+func TestRegisterAIRoutesReturnsExternalAIFollowSnapshot(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	run := fixture.seedRun("run-follow", agentruns.RunStatusRunning)
+	if err := fixture.runtime.ActivateRun(run.ID, &aiRouteStubController{}); err != nil {
+		t.Fatalf("activate run: %v", err)
+	}
+	if err := fixture.runtime.SetLiveChatState(run.ID, externalagents.ChatState{
+		Messages: []map[string]any{
+			{
+				"id":      "assistant-1",
+				"role":    "assistant",
+				"content": []any{},
+				"tool_calls": []any{
+					map[string]any{
+						"id": "tool-call-1",
+						"function": map[string]any{
+							"name": mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "setSectionSize"),
+							"arguments": map[string]any{
+								"sectionId": "section-alpha",
+							},
+						},
+					},
+				},
+			},
+		},
+		ToolCallArguments: map[string]string{
+			"tool-call-1": `{"sectionId":"section-alpha"}`,
+		},
+		WaitingForResponse: true,
+	}); err != nil {
+		t.Fatalf("set live follow state: %v", err)
+	}
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime, fixture.follow)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetAIFollowSnapshot,
+		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload []realtime.AIFollowToolArgumentsUpdateContent
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode snapshot response: %v", err)
+	}
+	if len(payload) != 1 {
+		t.Fatalf("expected one snapshot entry, got %#v", payload)
+	}
+	if payload[0].ProjectConfigID != "project-alpha" || payload[0].ChatID != "chat-alpha" {
+		t.Fatalf("unexpected snapshot identity %#v", payload[0])
+	}
+	if len(payload[0].IDsByType["section"]) != 1 || payload[0].IDsByType["section"][0] != "section-alpha" {
+		t.Fatalf("unexpected follow ids %#v", payload[0].IDsByType)
+	}
+}
+
+func TestRegisterAIRoutesRejectsMissingProjectIDForAIFollowSnapshot(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime, fixture.follow)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetAIFollowSnapshot,
+		strings.NewReader(`{"projectConfigId":"   "}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode follow snapshot error payload: %v", err)
+	}
+	if payload.Error.Code != "project_config_id_required" {
+		t.Fatalf("expected project_config_id_required, got %#v", payload)
+	}
+}
+
 func TestRegisterAIRoutesReturnsContextUsage(t *testing.T) {
 	t.Parallel()
 
@@ -700,8 +815,22 @@ func TestRegisterAIRoutesReturnsNotFoundForMissingQuestion(t *testing.T) {
 	}
 }
 
-func newAIRouteTestHandler(t *testing.T, mode config.Mode, send *externalagents.SendService, service *externalagents.Service, runtime *externalagents.Runtime) http.Handler {
+func newAIRouteTestHandler(t *testing.T, mode config.Mode, send *externalagents.SendService, service *externalagents.Service, runtime *externalagents.Runtime, follows ...*externalagents.FollowService) http.Handler {
 	t.Helper()
+
+	var follow *externalagents.FollowService
+	if len(follows) != 0 {
+		follow = follows[0]
+	}
+	if mode == config.ModeIDE && follow == nil {
+		var err error
+		follow, err = externalagents.NewFollowService(externalagents.FollowServiceOptions{
+			Tools: aiRouteStaticFollowToolProvider{},
+		})
+		if err != nil {
+			t.Fatalf("new fallback follow service: %v", err)
+		}
+	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -709,10 +838,11 @@ func newAIRouteTestHandler(t *testing.T, mode config.Mode, send *externalagents.
 		ModePolicy: modes.NewPolicy(mode),
 		Register: func(r chi.Router) {
 			if err := RegisterAIRoutes(r, AIRouteDependencies{
-				ModePolicy:         modes.NewPolicy(mode),
-				ExternalAgentSend:  send,
-				ExternalAgentChats: service,
-				ExternalAgentRuns:  runtime,
+				ModePolicy:          modes.NewPolicy(mode),
+				ExternalAgentSend:   send,
+				ExternalAgentChats:  service,
+				ExternalAgentFollow: follow,
+				ExternalAgentRuns:   runtime,
 			}); err != nil {
 				t.Fatalf("register ai routes: %v", err)
 			}
@@ -729,6 +859,7 @@ type aiRouteFixture struct {
 	runtime *externalagents.Runtime
 	service *externalagents.Service
 	send    *externalagents.SendService
+	follow  *externalagents.FollowService
 }
 
 type aiRouteFixtureOptions struct {
@@ -800,8 +931,15 @@ func newAIRouteFixture(t *testing.T, options aiRouteFixtureOptions) aiRouteFixtu
 	}); err != nil {
 		t.Fatalf("write profiles: %v", err)
 	}
+	follow, err := externalagents.NewFollowService(externalagents.FollowServiceOptions{
+		Tools: aiRouteStaticFollowToolProvider{},
+	})
+	if err != nil {
+		t.Fatalf("new follow service: %v", err)
+	}
 	runtime, err := externalagents.NewRuntime(externalagents.RuntimeOptions{
-		Runs: store,
+		Runs:   store,
+		Follow: follow,
 		TimeNow: func() time.Time {
 			return time.Date(2026, 3, 9, 9, 0, 0, 0, time.UTC)
 		},
@@ -854,6 +992,7 @@ func newAIRouteFixture(t *testing.T, options aiRouteFixtureOptions) aiRouteFixtu
 		runtime: runtime,
 		service: service,
 		send:    send,
+		follow:  follow,
 	}
 }
 

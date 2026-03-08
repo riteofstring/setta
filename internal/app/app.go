@@ -109,6 +109,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		watchCodeService      *watchcode.Service
 		boundCodeService      *boundcode.Service
 		externalAgentChats    *externalagents.Service
+		externalAgentFollow   *externalagents.FollowService
 		externalAgentRuntime  *externalagents.Runtime
 		externalAgentSend     *externalagents.SendService
 		externalAgentExecutor externalagents.Executor
@@ -540,8 +541,18 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
+		externalAgentFollow, err = externalagents.NewFollowService(externalagents.FollowServiceOptions{
+			Tools:        mcpClient,
+			TemporaryIDs: temporaryIDs,
+			Broadcaster:  websocketHub,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
 		externalAgentRuntime, err = externalagents.NewRuntime(externalagents.RuntimeOptions{
-			Runs: runStore,
+			Runs:   runStore,
+			Follow: externalAgentFollow,
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
@@ -867,10 +878,11 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				panic(err)
 			}
 			if err := httpapi.RegisterAIRoutes(r, httpapi.AIRouteDependencies{
-				ModePolicy:         modePolicy,
-				ExternalAgentSend:  externalAgentSend,
-				ExternalAgentChats: externalAgentChats,
-				ExternalAgentRuns:  externalAgentRuntime,
+				ModePolicy:          modePolicy,
+				ExternalAgentSend:   externalAgentSend,
+				ExternalAgentChats:  externalAgentChats,
+				ExternalAgentFollow: externalAgentFollow,
+				ExternalAgentRuns:   externalAgentRuntime,
 			}); err != nil {
 				panic(err)
 			}

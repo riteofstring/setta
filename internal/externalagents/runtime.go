@@ -1,6 +1,7 @@
 package externalagents
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -30,6 +31,7 @@ type RunController interface {
 
 type RuntimeOptions struct {
 	Runs    *agentruns.RunStore
+	Follow  *FollowService
 	TimeNow func() time.Time
 }
 
@@ -42,6 +44,7 @@ type Runtime struct {
 	approvals   map[string]ApprovalState
 	questions   map[string]QuestionState
 	mcpStatuses map[string]map[string]mcpx.ServerRuntimeStatus
+	follow      *FollowService
 }
 
 type runState struct {
@@ -83,6 +86,7 @@ func NewRuntime(options RuntimeOptions) (*Runtime, error) {
 		approvals:   map[string]ApprovalState{},
 		questions:   map[string]QuestionState{},
 		mcpStatuses: map[string]map[string]mcpx.ServerRuntimeStatus{},
+		follow:      options.Follow,
 	}, nil
 }
 
@@ -114,11 +118,22 @@ func (r *Runtime) DeactivateRun(runID string) {
 		return
 	}
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	delete(r.activeRuns, trimmedRunID)
 	r.clearApprovalsLocked(trimmedRunID)
 	r.clearQuestionsLocked(trimmedRunID)
 	delete(r.mcpStatuses, trimmedRunID)
+	follow := r.follow
+	r.mu.Unlock()
+	if follow != nil {
+		_ = follow.ClearRun(context.Background(), trimmedRunID)
+	}
+}
+
+func (r *Runtime) syncFollowState(run agentruns.Run, state *ChatState) error {
+	if r == nil || r.follow == nil || state == nil {
+		return nil
+	}
+	return r.follow.SyncRun(context.Background(), run, *state)
 }
 
 func (r *Runtime) SetLiveChatState(runID string, state ChatState) error {
@@ -130,14 +145,24 @@ func (r *Runtime) SetLiveChatState(runID string, state ChatState) error {
 		return ErrRunIDRequired
 	}
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	current, ok := r.activeRuns[trimmedRunID]
 	if !ok {
+		r.mu.Unlock()
 		return ErrRunNotActive
 	}
 	current.liveChat = state.Clone()
 	r.activeRuns[trimmedRunID] = current
-	return nil
+	follow := r.follow
+	r.mu.Unlock()
+
+	if follow == nil {
+		return nil
+	}
+	run, err := r.runs.Load(trimmedRunID)
+	if err != nil {
+		return err
+	}
+	return follow.SyncRun(context.Background(), run, state)
 }
 
 func (r *Runtime) GetLiveChatState(runID string) (*ChatState, error) {
@@ -219,6 +244,9 @@ func (r *Runtime) RespondToApproval(approvalID string, approved bool) error {
 		r.mu.Lock()
 		r.activeRuns[approvalState.RunID] = runState
 		r.mu.Unlock()
+		if err := r.syncFollowState(run, nextState); err != nil {
+			return err
+		}
 	}
 	appendRunEvent(&run, "tool_result", map[string]any{
 		"toolCallId": trimmedApprovalID,
@@ -308,6 +336,9 @@ func (r *Runtime) RespondToQuestion(toolCallID string, answers map[string]string
 		r.mu.Lock()
 		r.activeRuns[questionState.RunID] = runState
 		r.mu.Unlock()
+		if err := r.syncFollowState(run, nextState); err != nil {
+			return err
+		}
 	}
 	appendRunEvent(&run, "tool_result", map[string]any{
 		"toolCallId": trimmedToolCallID,
@@ -368,7 +399,13 @@ func (r *Runtime) StopRun(runID string) (agentruns.Run, error) {
 	r.clearApprovalsLocked(trimmedRunID)
 	r.clearQuestionsLocked(trimmedRunID)
 	delete(r.mcpStatuses, trimmedRunID)
+	follow := r.follow
 	r.mu.Unlock()
+	if follow != nil {
+		if err := follow.ClearRun(context.Background(), trimmedRunID); err != nil {
+			return agentruns.Run{}, err
+		}
+	}
 	return run, nil
 }
 

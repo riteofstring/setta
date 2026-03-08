@@ -11,6 +11,7 @@ const (
 	MessageTypeNotification                = "Notification"
 	MessageTypeAllConnections              = "AllConnections"
 	MessageTypeFrontendIdentity            = "FrontendIdentity"
+	MessageTypeAIFollowToolArgumentsUpdate = "AIFollowToolArgumentsUpdate"
 	MessageTypeUISettingReveal             = "UISettingReveal"
 	MessageTypeUISettingRevealResult       = "UISettingRevealResult"
 	MessageTypeLSPDiagnostics              = "LSPDiagnostics"
@@ -31,6 +32,12 @@ const (
 
 type FrontendIdentityContent struct {
 	FrontendAffinityToken string `json:"frontendAffinityToken"`
+}
+
+type AIFollowToolArgumentsUpdateContent struct {
+	ProjectConfigID string              `json:"projectConfigId"`
+	ChatID          string              `json:"chatId"`
+	IDsByType       map[string][]string `json:"idsByType"`
 }
 
 type UISettingRevealActivationStep struct {
@@ -101,6 +108,11 @@ type FrontendIdentityMessage struct {
 	Content     FrontendIdentityContent `json:"content"`
 }
 
+type AIFollowToolArgumentsUpdateMessage struct {
+	MessageType string                             `json:"messageType"`
+	Content     AIFollowToolArgumentsUpdateContent `json:"content"`
+}
+
 type UISettingRevealResultMessage struct {
 	ID          *string                      `json:"id"`
 	MessageType string                       `json:"messageType"`
@@ -159,6 +171,13 @@ func NewFrontendIdentityMessage(frontendAffinityToken string) FrontendIdentityMe
 		Content: FrontendIdentityContent{
 			FrontendAffinityToken: frontendAffinityToken,
 		},
+	}
+}
+
+func NewAIFollowToolArgumentsUpdateMessage(content AIFollowToolArgumentsUpdateContent) AIFollowToolArgumentsUpdateMessage {
+	return AIFollowToolArgumentsUpdateMessage{
+		MessageType: MessageTypeAIFollowToolArgumentsUpdate,
+		Content:     content,
 	}
 }
 

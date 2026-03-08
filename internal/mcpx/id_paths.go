@@ -6,7 +6,7 @@ import (
 	"setta/internal/tools"
 )
 
-func extractIDsByType(payload map[string]any, pathsByType map[tools.IDType][]string, allowDictKeys bool) map[tools.IDType]map[string]struct{} {
+func ExtractIDsByType(payload map[string]any, pathsByType map[tools.IDType][]string, allowDictKeys bool) map[tools.IDType]map[string]struct{} {
 	if len(pathsByType) == 0 || payload == nil {
 		return map[tools.IDType]map[string]struct{}{}
 	}
@@ -41,6 +41,10 @@ func extractIDsByType(payload map[string]any, pathsByType map[tools.IDType][]str
 		}
 	}
 	return idsByType
+}
+
+func extractIDsByType(payload map[string]any, pathsByType map[tools.IDType][]string, allowDictKeys bool) map[tools.IDType]map[string]struct{} {
+	return ExtractIDsByType(payload, pathsByType, allowDictKeys)
 }
 
 func selectValuesByPath(payload any, path string) []any {

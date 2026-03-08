@@ -17,15 +17,17 @@ import (
 
 const RouteGetLLMResponse = "/getLLMResponse"
 const RouteGetExternalAgentChat = "/getExternalAgentChat"
+const RouteGetAIFollowSnapshot = "/getAIFollowSnapshot"
 const RouteStopExternalAgentRun = "/stopExternalAgentRun"
 const RouteRespondExternalAgentApproval = "/respondExternalAgentApproval"
 const RouteRespondExternalAgentQuestion = "/respondExternalAgentQuestion"
 
 type AIRouteDependencies struct {
-	ModePolicy         modes.Policy
-	ExternalAgentSend  *externalagents.SendService
-	ExternalAgentChats *externalagents.Service
-	ExternalAgentRuns  *externalagents.Runtime
+	ModePolicy          modes.Policy
+	ExternalAgentSend   *externalagents.SendService
+	ExternalAgentChats  *externalagents.Service
+	ExternalAgentFollow *externalagents.FollowService
+	ExternalAgentRuns   *externalagents.Runtime
 }
 
 type GetLLMResponseRequest struct {
@@ -61,6 +63,10 @@ type GetExternalAgentChatResponse struct {
 	ContextUsage       *externalagents.ChatContextUsage `json:"contextUsage"`
 }
 
+type GetAIFollowSnapshotRequest struct {
+	ProjectConfigID string `json:"projectConfigId"`
+}
+
 type StopExternalAgentRunRequest struct {
 	RunID string `json:"runId"`
 }
@@ -86,6 +92,9 @@ func RegisterAIRoutes(router chi.Router, deps AIRouteDependencies) error {
 		if deps.ExternalAgentChats == nil {
 			return fmt.Errorf("external agent chat service is required in ide mode")
 		}
+		if deps.ExternalAgentFollow == nil {
+			return fmt.Errorf("external agent ai follow service is required in ide mode")
+		}
 		if deps.ExternalAgentRuns == nil {
 			return fmt.Errorf("external agent runtime is required in ide mode")
 		}
@@ -93,6 +102,7 @@ func RegisterAIRoutes(router chi.Router, deps AIRouteDependencies) error {
 
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetLLMResponse, getLLMResponseHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetExternalAgentChat, getExternalAgentChatHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetAIFollowSnapshot, getAIFollowSnapshotHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteStopExternalAgentRun, stopExternalAgentRunHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteRespondExternalAgentApproval, respondExternalAgentApprovalHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteRespondExternalAgentQuestion, respondExternalAgentQuestionHandler(deps))
@@ -178,6 +188,27 @@ func getExternalAgentChatHandler(deps AIRouteDependencies) http.HandlerFunc {
 			ToolCallArguments:  hydrated.ToolCallArguments,
 			ContextUsage:       hydrated.ContextUsage,
 		})
+	}
+}
+
+func getAIFollowSnapshotHandler(deps AIRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[GetAIFollowSnapshotRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+		projectConfigID := strings.TrimSpace(payload.ProjectConfigID)
+		if projectConfigID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ExternalAgentFollow == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, deps.ExternalAgentFollow.Snapshot(projectConfigID))
 	}
 }
 

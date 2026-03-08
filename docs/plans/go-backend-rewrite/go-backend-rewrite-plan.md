@@ -36,6 +36,9 @@ Phase 12 surface now includes:
     reconstruction, placeholder filtering, and context-usage normalization
   - active-run registry, live chat overlay storage, cancellation ownership, and
     approval-response and question-response dispatch foundations
+  - external-agent AI-follow snapshot ownership, MCP-metadata-driven follow-id
+    extraction, websocket `AIFollowToolArgumentsUpdate` broadcast, and
+    canonical temporary-id resolution over active runtime state
   - external-agent send-path validation, history shaping, persisted running-run
     creation, and runtime activation foundations
   - real Codex app-server execution, approval production, terminal
@@ -50,17 +53,16 @@ Phase 12 surface now includes:
   - thin Go transport for:
     - `/getLLMResponse` (external-agent branch only)
     - `/getExternalAgentChat`
+    - `/getAIFollowSnapshot`
     - `/stopExternalAgentRun`
     - `/respondExternalAgentApproval`
     - `/respondExternalAgentQuestion`
 
-The remaining Phase 12 target is now the MCP-rich interaction surface still
-owned in
-`backend/setta/routers/ai.py`, `backend/setta/routers/agentic.py`, and
-`backend/setta/agentic/external_agent_runner.py`, tracked explicitly in
-`phase-12-managed-chat-runtime-and-ai-route-foundation.md`,
-`phase-12-external-agent-active-runtime-stop-approval-and-send.md`, and
-`phase-12-external-agent-send-route-foundation.md`.
+The tracked Phase 12 work is recorded across
+`phase-12-managed-chat-runtime-and-ai-route-foundation.md` and the focused
+follow-on slice docs under this folder. The external-agent runtime, execution,
+parity, attachment, prompt, and AI-follow slices are now all landed for their
+bounded scopes; only the final closeout/inventory pass remains.
 
 The completed `phase-12-codex-app-server-executor-runtime.md` and
 `phase-12-opencode-executor-and-question-runtime.md` plus the now-completed
@@ -119,27 +121,30 @@ The bounded follow-on tracked in
 - Go now exposes the token-backed attachment download route required by those
   external-agent URLs
 
-The attempted final Phase 12 inventory then found one more concrete
-product-visible gap, now tracked in
-`phase-12-external-agent-ai-follow-snapshot-and-realtime-parity.md`:
+The bounded follow-on tracked in
+`phase-12-external-agent-ai-follow-snapshot-and-realtime-parity.md` is now
+also landed:
 
-- Python still owns external-agent AI-follow snapshot state through
+- external-agent AI-follow snapshot state is now Go-owned through
   `/getAIFollowSnapshot`
-- Python still owns live external-agent `AIFollowToolArgumentsUpdate`
-  websocket behavior over streamed/finalized Setta MCP tool calls
+- live external-agent `AIFollowToolArgumentsUpdate` websocket behavior is now
+  Go-owned over the active runtime's canonical tool-argument state
+- approval/question responses plus run stop/teardown now clear follow state
+  through the same argument-update channel the frontend already consumes
 
-Phase 12 is therefore not yet fully closed. The remaining bounded work is now
-that external-agent AI-follow slice, after which the phase can return to a
-real closeout/inventory pass.
+With that slice landed, the tracked external-agent Phase 12 surface is now
+complete for its bounded scope. The next step is a final closeout/inventory
+pass to confirm whether any concrete user-facing external-agent gap still
+remains before declaring the phase effectively complete.
 
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are
 already locked in practice by the current Go implementation. The PTY runtime
 shape is also proven, but the PTY library choice still has a bounded Unix-path
-follow-up tracked in `spike-pty.md`. New work should start from the bounded
-external-agent AI-follow slice above the completed hydration, runtime,
-executor, parity, prompt-composition, and attachment foundations, not by
-reopening completed foundation choices.
+follow-up tracked in `spike-pty.md`. New work should start from the final
+Phase 12 closeout/inventory pass above the completed hydration, runtime,
+executor, parity, prompt-composition, attachment, and AI-follow foundations,
+not by reopening completed foundation choices.
 
 ## Current Reality
 

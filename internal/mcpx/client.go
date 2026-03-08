@@ -293,6 +293,14 @@ func (c *Client) DiscoverableToolsForServers(serverIDs map[string]struct{}) map[
 	return c.filterToolDescriptors(serverIDs, false)
 }
 
+func (c *Client) ToolDescriptorsForServers(serverIDs map[string]struct{}) map[string]ToolDescriptor {
+	combined := c.filterToolDescriptors(serverIDs, true)
+	for name, descriptor := range c.filterToolDescriptors(serverIDs, false) {
+		combined[name] = descriptor
+	}
+	return combined
+}
+
 func (c *Client) CallTool(ctx context.Context, namespacedToolName string, arguments map[string]any) (ToolCallResult, error) {
 	if c == nil {
 		return ToolCallResult{}, fmt.Errorf("mcpx: client is nil")

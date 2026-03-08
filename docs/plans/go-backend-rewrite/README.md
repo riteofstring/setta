@@ -453,9 +453,9 @@ Use the docs in this order:
     attachment gap: payload shaping plus the minimal token-backed download
     transport required by external-agent URLs
 139. `phase-12-external-agent-ai-follow-snapshot-and-realtime-parity.md`
-  - focused implementation-plan doc for the bounded remaining external-agent
-    AI-follow gap: Go-owned `/getAIFollowSnapshot` external-agent snapshot
-    transport plus live `AIFollowToolArgumentsUpdate` ownership
+  - focused completed-slice doc for the bounded external-agent AI-follow gap:
+    Go-owned `/getAIFollowSnapshot` external-agent snapshot transport plus
+    live `AIFollowToolArgumentsUpdate` ownership
 140. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
 141. `spike-pty.md`

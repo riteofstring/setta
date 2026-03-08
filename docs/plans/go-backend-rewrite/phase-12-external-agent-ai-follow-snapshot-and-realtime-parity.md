@@ -16,11 +16,11 @@ still Python-owned today:
 - `/getAIFollowSnapshot` must return the active external-agent follow state so
   the frontend can hydrate after reconnect/project load
 
-This is the highest-leverage next step because the attempted final Phase 12
+This was the highest-leverage next step because the attempted final Phase 12
 inventory found a real user-facing omission in the Go external-agent runtime:
-the frontend still calls `/getAIFollowSnapshot`, and Python's
-`ExternalAgentRunner` still owns the external-agent follow snapshot plus live
-follow updates.
+the frontend still called `/getAIFollowSnapshot`, and Python's
+`ExternalAgentRunner` still owned the external-agent follow snapshot plus live
+follow updates. That bounded gap is now landed in Go.
 
 ## Current Status
 
@@ -33,23 +33,38 @@ Completed before this slice:
 - Go-owned external prompt/app-generation shaping
 - Go-owned external attachment payload shaping plus token-backed downloads
 
-Still Python-owned after those slices:
+Landed in this slice:
 
-- `backend/setta/routers/ai.py`
-  - `route_get_ai_follow_snapshot(...)` still returns external-agent follow
-    snapshot entries
-- `backend/setta/agentic/external_agent_runner.py`
-  - `_ai_follow_state` still stores live external-agent follow ids by
-    `(projectConfigId, chatId)`
-  - `_maybe_emit_streaming_follow_update(...)` and `_maybe_emit_follow_update(...)`
-    still derive follow ids from streamed/finalized Setta MCP tool arguments
-  - `_broadcast_ai_follow_update(...)` still emits
-    `AIFollowToolArgumentsUpdate` websocket messages and clears state on tool
-    result / approval-response / question-response
-- frontend state still depends on that behavior:
+- `internal/externalagents/follow.go`
+  - added an explicit follow-state owner keyed by active external-agent runs
+  - derives follow ids from canonical MCP tool metadata
+    (`tools.Metadata.IDPathsByType`) plus the runtime's existing
+    `ToolCallArguments` source of truth
+  - resolves temporary ids back to canonical ids before broadcasting or serving
+    snapshot state
+  - emits `AIFollowToolArgumentsUpdate` only when the effective per-chat state
+    changes
+  - clears follow state through an empty `idsByType` object so the existing
+    frontend reducer can remove the chat entry without additional shims
+- `internal/externalagents/runtime.go`
+  - syncs follow state whenever live external-agent chat state changes
+  - clears follow state on approval/question responses and on run stop/teardown
+- `internal/httpapi/ai_routes.go`
+  - added thin IDE-only Go transport for `/getAIFollowSnapshot`
+- `internal/realtime/messages.go`
+  - added the Go-owned `AIFollowToolArgumentsUpdate` websocket payload type
+- `internal/app/app.go`
+  - wires the follow service above the existing MCP client, temporary-id store,
+    websocket hub, and external-agent runtime
+- `internal/mcpx/client.go` and `internal/mcpx/id_paths.go`
+  - exported the bounded descriptor/path helpers needed by the follow service
+    instead of duplicating MCP metadata logic
+- frontend state can now hydrate and clear external-agent AI-follow state from
+  the Go runtime through the same route and websocket message shape it already
+  consumes:
   - `frontend/src/state/actions/aiFollow.ts`
-  - `/getAIFollowSnapshot` hydrates stored follow ids
-  - `AIFollowToolArgumentsUpdate` clears or replaces the current ids for a chat
+  - `/getAIFollowSnapshot`
+  - `AIFollowToolArgumentsUpdate`
 
 Important scope note from the Python reference:
 
@@ -138,10 +153,11 @@ This slice should deliver:
    - Managed-chat follow remains intentionally outside Phase 12.
 
 4. Stay conservative about streaming parity.
-   - Land deterministic follow updates from finalized tool calls first.
-   - If bounded streaming extraction is needed for actual product parity, add a
-     small partial-buffer parser over the existing executor tool-call buffers.
-   - Do not invent heuristic partial parsing.
+   - The landed slice derives follow state from the runtime's existing live
+     tool-argument buffers instead of inventing a new executor-specific parser.
+   - If materially earlier highlights are still needed after final closeout
+     verification, add one bounded partial-buffer follow-on rather than a
+     heuristic parser.
 
 5. Clear state through the same argument-update channel Python uses.
    - Broadcast empty `idsByType` to remove active follow state once tool
@@ -149,9 +165,8 @@ This slice should deliver:
 
 ## Verification
 
-- `./scripts/go.sh test ./internal/externalagents -run 'Follow|Codex|OpenCode|Claude|Runtime'`
-- `./scripts/go.sh test ./internal/httpapi -run 'AIFollow|AI|ExternalAgent'`
-- `./scripts/go.sh test ./internal/app -run 'AIFollow|Websocket|^$'`
+- passed: `./scripts/go.sh test ./internal/externalagents ./internal/httpapi -count=1`
+- passed: `./scripts/go.sh test ./internal/app -run '^$'`
 
 ## Decisions Made
 
@@ -163,17 +178,20 @@ This slice should deliver:
 - keep external-agent follow parity bounded to the Python-owned
   `AIFollowToolArgumentsUpdate` behavior instead of broadening into a new
   external-agent tool-result highlight contract
+- broadcast empty `idsByType` as `{}` instead of `null` so the existing
+  frontend follow reducer can clear chat entries without a compatibility shim
 
 ## Open Questions
 
-- whether finalized-tool-call follow extraction is sufficient for practical UX,
-  or whether one executor needs bounded partial-buffer follow extraction for
-  materially earlier highlights
-  - recommendation: start with finalized-call plus clear-path ownership, then
-    add bounded partial-buffer extraction only if a concrete frontend gap
-    remains during verification
+- whether one executor still needs bounded partial-buffer follow extraction for
+  materially earlier highlights than the current live tool-argument buffers
+  provide
+  - recommendation: do not broaden the runtime yet; rerun the final Phase 12
+    closeout inventory first and only open another slice if a concrete UX gap
+    is observed
 
 ## Next Recommended Step
 
-- implement this slice end-to-end, then rerun the Phase 12 closeout inventory
-  from the updated docs and repo state
+- rerun the Phase 12 closeout inventory from the updated docs and repo state
+- if no new concrete external-agent gap appears, treat the tracked Phase 12
+  external-agent surface as effectively complete
