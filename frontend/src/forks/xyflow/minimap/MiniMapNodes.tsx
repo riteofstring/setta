@@ -4,9 +4,9 @@ import {
   useNodeInternals,
   type ZustandNodeInternalsState,
 } from "state/definitions";
-import type { Node } from "../core/types";
 import { useReactFlow } from "../core/store";
 import { computeReadyToBeVisible } from "../core/store/utils";
+import type { Node } from "../core/types";
 import MiniMapNode from "./MiniMapNode";
 import type { GetMiniMapNodeAttribute, MiniMapNodesType } from "./types";
 

@@ -10,12 +10,12 @@ import {
   getSectionChildren,
   manualDndChildrenReset,
 } from "state/actions/sectionInfos";
-import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { moveSectionsWithBackend } from "state/actions/sections/moveSections";
 import {
   getSharedParentId,
   isDescendantOfSectionSelection,
 } from "state/actions/sections/sectionSelection";
+import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { useProjectState } from "state/definitions";
 import { Position } from "utils/generatedTypes";
 import { insertIntoArray } from "utils/utils";

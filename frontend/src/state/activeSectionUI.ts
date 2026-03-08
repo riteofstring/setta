@@ -6,7 +6,7 @@ type ProjectStateWithActiveIds = {
   };
 };
 
-export function areStringArraysEqual(left: Array<string>, right: Array<string>) {
+function areStringArraysEqual(left: Array<string>, right: Array<string>) {
   if (left.length !== right.length) {
     return false;
   }
@@ -62,7 +62,9 @@ export function clearPendingActiveSectionBackendSyncOp(opId: string) {
     return;
   }
   useActiveSectionUI.setState({
-    pendingBackendSyncOpIds: pending.filter((pendingOpId) => pendingOpId !== opId),
+    pendingBackendSyncOpIds: pending.filter(
+      (pendingOpId) => pendingOpId !== opId,
+    ),
   });
 }
 
@@ -100,9 +102,9 @@ export function reconcileActiveSectionUIIdsFromBackend(
   useActiveSectionUI.setState(nextState);
 }
 
-export function sanitizeProjectStateActiveIds<T extends ProjectStateWithActiveIds>(
-  projectState: T,
-): T {
+export function sanitizeProjectStateActiveIds<
+  T extends ProjectStateWithActiveIds,
+>(projectState: T): T {
   if (projectState.projectConfig.activeIds.length === 0) {
     return projectState;
   }
@@ -119,7 +121,7 @@ export function useIsSectionUIActive(sectionId: string) {
   return useActiveSectionUI((state) => state.activeIds.includes(sectionId));
 }
 
-export function useIsAnySectionUIActive(sectionIds: Array<string>) {
+function useIsAnySectionUIActive(sectionIds: Array<string>) {
   return useActiveSectionUI((state) =>
     sectionIds.some((sectionId) => state.activeIds.includes(sectionId)),
   );
@@ -127,8 +129,7 @@ export function useIsAnySectionUIActive(sectionIds: Array<string>) {
 
 export function useIsSolelySectionUIActive(sectionId: string) {
   return useActiveSectionUI(
-    (state) =>
-      state.activeIds.length === 1 && state.activeIds[0] === sectionId,
+    (state) => state.activeIds.length === 1 && state.activeIds[0] === sectionId,
   );
 }
 

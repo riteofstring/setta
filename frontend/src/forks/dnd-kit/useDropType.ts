@@ -29,8 +29,8 @@ import {
   isDescendantOfSectionSelection,
   orderSectionIdsByParent,
 } from "state/actions/sections/sectionSelection";
-import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { getIsRoot } from "state/actions/uiTypes/utils";
+import { getActiveSectionUIIds } from "state/activeSectionUI";
 import {
   useProjectState,
   useSectionRefs,

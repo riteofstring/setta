@@ -76,24 +76,20 @@ function ContainerGroup({
   children,
 }) {
   const hasNested = useHasTempNested(sectionId);
-  const {
-    positionAndSizeLocked,
-    isInOtherProjectConfigs,
-    overflowMode,
-    size,
-  } = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImplOfType(
-      x,
-      sectionId,
-      SectionTypeEnum.Group,
-    );
-    return {
-      positionAndSizeLocked: impl.positionAndSizeLocked,
-      isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
-      overflowMode: impl.overflowMode ?? false,
-      size: impl.size,
-    };
-  }, shallow);
+  const { positionAndSizeLocked, isInOtherProjectConfigs, overflowMode, size } =
+    useProjectState((x) => {
+      const impl = getCurrEffectiveSectionImplOfType(
+        x,
+        sectionId,
+        SectionTypeEnum.Group,
+      );
+      return {
+        positionAndSizeLocked: impl.positionAndSizeLocked,
+        isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
+        overflowMode: impl.overflowMode ?? false,
+        size: impl.size,
+      };
+    }, shallow);
   const isActiveSection = useIsSectionUIActive(sectionId);
 
   const disablePointerEvents = useShouldDisablePointerEvents();

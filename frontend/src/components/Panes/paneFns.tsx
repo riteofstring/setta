@@ -2,10 +2,7 @@ import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import React from "react";
 import { getSectionType } from "state/actions/sectionInfos";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
-import {
-  useLocalStorage,
-  useSettings,
-} from "state/definitions";
+import { useLocalStorage, useSettings } from "state/definitions";
 import { getUIEditorTab } from "state/hooks/uiTypes";
 import {
   OverviewTabKey,

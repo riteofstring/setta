@@ -3,7 +3,6 @@ import { getActiveSectionUIIds } from "state/activeSectionUI";
 import {
   useLocalStorage,
   useNodeInternals,
-  useProjectState,
   useSectionRefs,
 } from "state/definitions";
 import { Position } from "utils/generatedTypes";

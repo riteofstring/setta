@@ -429,7 +429,9 @@ describe("receiveUISettingReveal", () => {
         errorMessage: `Could not find anchor ${rightAnchorId} for ${rightAnchorId}.`,
       },
     ]);
-    expect(useActiveSectionUI.getState().activeIds).toEqual(["section-initial"]);
+    expect(useActiveSectionUI.getState().activeIds).toEqual([
+      "section-initial",
+    ]);
     const localStorageAfterReveal = useLocalStorage.getState();
     expect(localStorageAfterReveal.uiEditorVis).toBe(uiEditorVisBeforeReveal);
     expect(localStorageAfterReveal.uiEditorTab[SectionTypeEnum.Code]).toBe(
@@ -469,7 +471,9 @@ describe("receiveUISettingReveal", () => {
           "Right-pane reveal requires an active section. Provide sectionIdToActivate.",
       },
     ]);
-    expect(useActiveSectionUI.getState().activeIds).toEqual(["section-initial"]);
+    expect(useActiveSectionUI.getState().activeIds).toEqual([
+      "section-initial",
+    ]);
     expect(useLocalStorage.getState().uiEditorVis).toBe(false);
   });
 
@@ -504,7 +508,9 @@ describe("receiveUISettingReveal", () => {
         errorMessage: "Section type Code does not support tab QuickInfoConfig.",
       },
     ]);
-    expect(useActiveSectionUI.getState().activeIds).toEqual(["section-initial"]);
+    expect(useActiveSectionUI.getState().activeIds).toEqual([
+      "section-initial",
+    ]);
     expect(useLocalStorage.getState().uiEditorVis).toBe(false);
   });
 
@@ -549,7 +555,9 @@ describe("receiveUISettingReveal", () => {
           "UI setting reveal execution context mismatch: websocket generation changed before request request-active-section-rollback completed.",
       },
     ]);
-    expect(useActiveSectionUI.getState().activeIds).toEqual(["section-initial"]);
+    expect(useActiveSectionUI.getState().activeIds).toEqual([
+      "section-initial",
+    ]);
   });
 
   it("limits anchor lookup to the active pane root", async () => {

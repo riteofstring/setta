@@ -158,9 +158,7 @@ function _SectionContainerCoreResizable({
           hasSectionStyleTheme={hasSectionStyleTheme}
         />
       ) : null}
-      {isRoot && (
-        <Incrementer sectionId={sectionId} isRoot={isRoot} />
-      )}
+      {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
       {sectionBody}
     </CustomResizable>
   );

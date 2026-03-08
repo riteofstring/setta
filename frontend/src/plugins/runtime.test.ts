@@ -21,8 +21,8 @@ import {
 } from "plugins/runtime";
 import React from "react";
 import { renderToString } from "react-dom/server";
-import { useActiveSectionUI } from "state/activeSectionUI";
 import * as websocketReceive from "state/actions/websocketReceive";
+import { useActiveSectionUI } from "state/activeSectionUI";
 import { useProjectState, useShareSession } from "state/definitions";
 import { C_ADDRESSES } from "utils/c_addresses";
 import * as generatedEndpoints from "utils/generatedEndpoints";

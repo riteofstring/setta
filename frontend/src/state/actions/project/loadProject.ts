@@ -1,10 +1,10 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import { useNavigate } from "react-router-dom";
+import { applyPendingNameValidationErrors } from "state/actions/nameValidation";
 import {
   hydrateActiveSectionUIIds,
   sanitizeProjectStateActiveIds,
 } from "state/activeSectionUI";
-import { applyPendingNameValidationErrors } from "state/actions/nameValidation";
 import {
   useAllProjectMetadata,
   useLocalStorage,

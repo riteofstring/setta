@@ -1,7 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setActiveSectionUIIds } from "state/activeSectionUI";
-import { resetProjectStores } from "state/utils";
 import { useNodeInternals } from "state/definitions";
+import { resetProjectStores } from "state/utils";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screenToFlowPosition } from "../hooks/useViewportHelper";
 import type { ReactFlowState } from "../types";
 import { getActiveSectionsBounds, getNodesInside, getPaneRect } from "./graph";
@@ -96,12 +96,13 @@ describe("getNodesInside", () => {
       ]),
     });
 
-    expect(
-      getNodesInside({ x: 0, y: 0, width: 150, height: 140 }),
-    ).toEqual(["section-a"]);
-    expect(
-      getNodesInside({ x: 0, y: 0, width: 400, height: 200 }),
-    ).toEqual(["section-a", "section-b"]);
+    expect(getNodesInside({ x: 0, y: 0, width: 150, height: 140 })).toEqual([
+      "section-a",
+    ]);
+    expect(getNodesInside({ x: 0, y: 0, width: 400, height: 200 })).toEqual([
+      "section-a",
+      "section-b",
+    ]);
   });
 
   it("respects partial-overlap mode without needing DOM section refs", () => {

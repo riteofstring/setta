@@ -884,7 +884,10 @@ function restoreRevealProjectStateSnapshotIfOwned({
     return;
   }
   if (
-    !areStringArraysEqual(getActiveSectionUIIds(), postMutationSnapshot.activeIds)
+    !areStringArraysEqual(
+      getActiveSectionUIIds(),
+      postMutationSnapshot.activeIds,
+    )
   ) {
     return;
   }

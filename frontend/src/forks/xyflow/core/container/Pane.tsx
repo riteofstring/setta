@@ -10,10 +10,10 @@ import React, {
 } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { setActiveSectionIds } from "state/actions/activeSections";
-import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { openPaneContextMenu } from "state/actions/contextMenus";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { openFileAsSectionForDrop } from "state/actions/sections/createSections";
+import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { useMisc, useSettings } from "state/definitions";
 import { getFileBrowserDragPayload } from "utils/fileBrowserDragPayload";
 import {

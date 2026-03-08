@@ -41,9 +41,8 @@ export function UiEditor() {
   const hasViewModeTabs = useHasViewModeTabs();
   const activeSectionId = useSolelyActiveSectionUIId();
 
-  const { selectedTabName, requiredTabs, sectionType } = useUIEditorTab(
-    activeSectionId,
-  );
+  const { selectedTabName, requiredTabs, sectionType } =
+    useUIEditorTab(activeSectionId);
   const { vis, width } = useLocalStorage(
     (x) => ({ vis: x.uiEditorVis, width: x.uiEditorWidth }),
     shallow,

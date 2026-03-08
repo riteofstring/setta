@@ -7,8 +7,8 @@ import {
 } from "state/activeSectionUI";
 import {
   NULL_PROJECT_CONFIG_ID,
-  useServerMode,
   useProjectState,
+  useServerMode,
 } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import { route_set_active_ids } from "utils/generatedEndpoints";
@@ -24,7 +24,7 @@ import { getAllVisibleParamsInSection } from "./sections/sectionContents";
 let pendingProjectActiveIdsAnimationFrame: number | null = null;
 let pendingProjectActiveIds: Array<string> | null = null;
 
-export type SetActiveSectionIdsSyncMode = "auto" | "ui-only" | "immediate";
+type SetActiveSectionIdsSyncMode = "auto" | "ui-only" | "immediate";
 
 export type SetActiveSectionIdsOptions = {
   syncMode?: SetActiveSectionIdsSyncMode;

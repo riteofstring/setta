@@ -10,7 +10,11 @@ import {
   type RefObject,
 } from "react";
 import { getNodes } from "state/actions/nodeInternals";
-import { useActiveSectionUI, useLocalStorage, useNodeInternals } from "state/definitions";
+import {
+  useActiveSectionUI,
+  useLocalStorage,
+  useNodeInternals,
+} from "state/definitions";
 import { shallow } from "zustand/shallow";
 import Panel from "../core/components/Panel";
 import type {
@@ -330,7 +334,11 @@ MiniMap.displayName = "MiniMap";
 
 export default memo(MiniMap);
 
-function MiniMapSelectionSync({ svgRef }: { svgRef: RefObject<SVGSVGElement> }) {
+function MiniMapSelectionSync({
+  svgRef,
+}: {
+  svgRef: RefObject<SVGSVGElement>;
+}) {
   const previousIdsRef = useRef<string[]>([]);
 
   useEffect(() => {

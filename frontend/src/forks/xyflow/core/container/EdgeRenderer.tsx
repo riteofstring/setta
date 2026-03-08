@@ -33,7 +33,8 @@ const EdgeRenderer = () => {
     _.isEqual,
   );
   const positions = useEdgeHandleRegistry((state) => state.positions);
-  const { width, height } = useReactFlow((state) => ({
+  const { width, height } = useReactFlow(
+    (state) => ({
       width: state.width,
       height: state.height,
     }),

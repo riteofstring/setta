@@ -1,6 +1,7 @@
 import _ from "lodash";
 import { memo, useMemo, type CSSProperties } from "react";
 import { toggleAgenticEdgeSelection } from "state/actions/agenticEdges";
+import { useActiveSectionUI } from "state/activeSectionUI";
 import {
   getAllowedChatIdsForProject,
   getSectionIdsForProject,
@@ -10,7 +11,6 @@ import {
   useNodeInternals,
   useProjectState,
 } from "state/definitions";
-import { useActiveSectionUI } from "state/activeSectionUI";
 import { useUpdateAgenticScopeHighlights } from "state/hooks/agenticScopeHighlights";
 import { useShareCapabilities } from "state/hooks/share";
 import {
@@ -142,7 +142,8 @@ function AgenticScopeHighlightsUpdater() {
 }
 
 const _AgenticEdgeRenderer = () => {
-  const { width, height, multiSelectionActive } = useReactFlow((state) => ({
+  const { width, height, multiSelectionActive } = useReactFlow(
+    (state) => ({
       width: state.width,
       height: state.height,
       multiSelectionActive: state.multiSelectionActive,

@@ -1,8 +1,8 @@
 import throttle from "lodash/throttle";
 import { useEffect } from "react";
-import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { sendRealtimeDependencyEvent } from "state/actions/websocketReceive";
+import { getActiveSectionUIIds } from "state/activeSectionUI";
 import {
   useActiveSectionUI,
   useProjectState,
@@ -1374,18 +1374,22 @@ function registerPluginModule({
         normalizedSelector.kind === "activeSectionIds"
           ? useActiveSectionUI.subscribe(
               (state) => state.activeIds,
-              (nextRawValue, prevRawValue) => notify(nextRawValue, prevRawValue),
+              (nextRawValue, prevRawValue) =>
+                notify(nextRawValue, prevRawValue),
               {
                 fireImmediately,
-                equalityFn: projectStateSubscriptionEquality(normalizedSelector),
+                equalityFn:
+                  projectStateSubscriptionEquality(normalizedSelector),
               },
             )
           : useProjectState.subscribe(
               (state) => getRawSelectedProjectState(state, normalizedSelector),
-              (nextRawValue, prevRawValue) => notify(nextRawValue, prevRawValue),
+              (nextRawValue, prevRawValue) =>
+                notify(nextRawValue, prevRawValue),
               {
                 fireImmediately,
-                equalityFn: projectStateSubscriptionEquality(normalizedSelector),
+                equalityFn:
+                  projectStateSubscriptionEquality(normalizedSelector),
               },
             );
       const cleanup = () => {

@@ -15,7 +15,10 @@ import React, {
 } from "react";
 import { openSelectionContextMenu } from "state/actions/contextMenus";
 import { getNodes } from "state/actions/nodeInternals";
-import { getActiveSectionUIIds, useActiveSectionUI } from "state/activeSectionUI";
+import {
+  getActiveSectionUIIds,
+  useActiveSectionUI,
+} from "state/activeSectionUI";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { updatePositions } from "../hooks/useUpdateNodePositions";
 import type { Rect } from "../types";
