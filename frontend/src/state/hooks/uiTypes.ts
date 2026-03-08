@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { useMemo } from "react";
 import {
   getCurrEffectiveCodeObjImplOfType,
   getCurrEffectiveSectionImpl,
@@ -57,26 +58,30 @@ export function useIsListElement(sectionId: string) {
 
 export function useUIEditorTab(sectionId: string | null) {
   const _storedTab = useLocalStorage((x) => x.uiEditorTab);
-  return useProjectState((x) => {
+  const sectionType = useProjectState((x) => {
     if (!sectionId) {
+      return null;
+    }
+    return getCurrEffectiveSectionImpl(x, sectionId).type;
+  });
+  return useMemo(() => {
+    if (!sectionType) {
       return {
         selectedTabName: null,
         requiredTabs: null,
         sectionType: null,
       };
     }
-    const sectionImpl = getCurrEffectiveSectionImpl(x, sectionId);
     const { selectedTabName, requiredTabs } = getUIEditorTab(
-      sectionImpl.type,
+      sectionType,
       _storedTab,
     );
-
     return {
       selectedTabName,
       requiredTabs,
-      sectionType: sectionImpl.type,
+      sectionType,
     };
-  }, _.isEqual);
+  }, [_storedTab, sectionType]);
 }
 
 export function getUIEditorTab(

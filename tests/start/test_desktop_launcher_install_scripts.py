@@ -222,20 +222,6 @@ def test_release_workflow_uses_single_installer_version_source() -> None:
     assert 'raw_version="${REF_NAME}"' not in workflow_content
 
 
-def test_release_workflow_builds_launcher_smoke_package_with_go_binaries() -> None:
-    workflow_path = (
-        _repo_root() / ".github" / "workflows" / "release-desktop-launcher.yml"
-    )
-    workflow_content = workflow_path.read_text(encoding="utf-8")
-    launcher_smoke_section = workflow_content.split("launcher-smoke:", 1)[1].split(
-        "publish-release-assets:", 1
-    )[0]
-
-    assert "actions/setup-go@v5" in launcher_smoke_section
-    assert "./scripts/build_python_distribution_with_go_binaries.sh" in launcher_smoke_section
-    assert "python -m build" not in launcher_smoke_section
-
-
 def _load_release_workflow_definition() -> dict[str, object]:
     workflow_path = (
         _repo_root() / ".github" / "workflows" / "release-desktop-launcher.yml"

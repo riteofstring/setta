@@ -2,12 +2,14 @@ import _ from "lodash";
 import React from "react";
 
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
+import { useIsSectionUIActive } from "state/activeSectionUI";
 import { useProjectState } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { SectionTypeEnum } from "utils/generatedTypes";
+import { shallow } from "zustand/shallow";
 import { ChangeOrientationButton } from "../Header/ChangeOrientationButton";
 import { DeleteOrHideButton } from "../Header/DeleteOrHideButton";
 import { LockPositionButton } from "../Header/LockPositionButton";
@@ -75,7 +77,6 @@ function ContainerGroup({
 }) {
   const hasNested = useHasTempNested(sectionId);
   const {
-    isActiveSection,
     positionAndSizeLocked,
     isInOtherProjectConfigs,
     overflowMode,
@@ -87,13 +88,13 @@ function ContainerGroup({
       SectionTypeEnum.Group,
     );
     return {
-      isActiveSection: x.projectConfig.activeIds.includes(sectionId),
       positionAndSizeLocked: impl.positionAndSizeLocked,
       isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
       overflowMode: impl.overflowMode ?? false,
       size: impl.size,
     };
-  }, _.isEqual);
+  }, shallow);
+  const isActiveSection = useIsSectionUIActive(sectionId);
 
   const disablePointerEvents = useShouldDisablePointerEvents();
   const { ref: overflowRef, isScrollable } = useIsScrollable();
