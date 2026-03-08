@@ -15,8 +15,8 @@ LOG_FILE="${SETTA_BACKEND_LOG_FILE:-${ROOT_DIR}/backend.log}"
 mkdir -p "$(dirname "${LOG_FILE}")"
 : > "${LOG_FILE}"
 exec > >(tee -a "${LOG_FILE}") 2>&1
-# SETTA_DEV_MODE="true" setta "$@" # pass in other command line args
-SETTA_BIN="${SETTA_BIN:-setta}"
+SETTA_PYTHON_BIN="${SETTA_PYTHON_BIN:-python}"
+SETTA_CMD=()
 
 HOST_ARGS=(--host "${SETTA_HOST:-127.0.0.1}")
 PORT_ARGS=(--port "${SETTA_PORT:-8000}")
@@ -31,6 +31,7 @@ CLI_SETTA_HOME=0
 CLI_SETTA_FILES_ROOT=0
 CLI_SETTA_FILES_LOCATION=0
 CLI_RUNTIME_ROOT=0
+CLI_RELOAD=0
 
 setta_path_flags_init "${SETTA_HOME:-}" "${SETTA_FILES_ROOT:-}"
 setta_path_flags_seed_from_env
@@ -66,6 +67,9 @@ while [[ "${#remaining[@]}" -gt 0 ]]; do
   if [[ "$arg" == "--port" || "$arg" == "--port="* ]]; then
     PORT_ARGS=()
   fi
+  if [[ "$arg" == "--reload" ]]; then
+    CLI_RELOAD=1
+  fi
   remaining=("${remaining[@]:1}")
 done
 
@@ -93,7 +97,17 @@ if [[ "${CLI_RUNTIME_ROOT}" -eq 0 && -n "${SETTA_RUNTIME_ROOT:-}" ]]; then
   RUNTIME_ROOT_ARGS=(--runtime-root "${SETTA_RUNTIME_ROOT}")
 fi
 
-SETTA_DEV_MODE="true" "${SETTA_BIN}" \
+if [[ -n "${SETTA_BIN:-}" ]]; then
+  SETTA_CMD=("${SETTA_BIN}")
+elif [[ "${CLI_RELOAD}" -eq 1 ]]; then
+  # Reload is still a deliberate dev-only legacy path until the Go CLI owns it.
+  SETTA_CMD=("${SETTA_PYTHON_BIN}" "-m" "setta.legacy_start_entrypoint")
+else
+  # Avoid the stale venv `setta` shim and route through the current entrypoint.
+  SETTA_CMD=("${SETTA_PYTHON_BIN}" "-m" "setta")
+fi
+
+SETTA_DEV_MODE="true" "${SETTA_CMD[@]}" \
   "${HOST_ARGS[@]}" \
   "${PORT_ARGS[@]}" \
   "${NO_OPEN_ARGS[@]}" \

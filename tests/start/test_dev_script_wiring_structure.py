@@ -19,6 +19,17 @@ def test_backend_start_uses_shared_setta_path_flag_parser() -> None:
     assert "setta_path_flags_seed_from_env" in backend_start
 
 
+def test_backend_start_uses_explicit_python_module_boundaries() -> None:
+    root = repo_root()
+    backend_start = (root / "frontend" / "backendStart.sh").read_text(encoding="utf-8")
+    assert 'SETTA_CMD=("${SETTA_PYTHON_BIN}" "-m" "setta")' in backend_start
+    assert (
+        'SETTA_CMD=("${SETTA_PYTHON_BIN}" "-m" "setta.legacy_start_entrypoint")'
+        in backend_start
+    )
+    assert 'SETTA_BIN="${SETTA_BIN:-setta}"' not in backend_start
+
+
 def test_reset_setta_state_uses_shared_setta_path_flag_parser() -> None:
     root = repo_root()
     reset_script = (root / "scripts" / "reset-setta-state.sh").read_text(
