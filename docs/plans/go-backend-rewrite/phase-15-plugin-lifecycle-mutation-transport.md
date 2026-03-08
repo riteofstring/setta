@@ -33,6 +33,9 @@ Current repo status as of 2026-03-09:
   - `POST /plugins/rescan`
   - `POST /plugins/enable`
   - `POST /plugins/disable`
+- Slice B in this doc is now landed:
+  - `POST /plugins/install`
+  - `POST /plugins/uninstall`
 - `internal/plugins/service.go` already owns the source-of-truth mutation
   semantics for:
   - `Rescan()`
@@ -174,6 +177,20 @@ Rationale:
 - uninstall and install share restart-required and source-of-truth filesystem
   mutation concerns
 
+Status:
+
+- landed
+- Go now owns thin IDE-only transport for:
+  - `POST /plugins/install`
+  - `POST /plugins/uninstall`
+- the shared install result now includes the direct frontend fields already
+  consumed by the install confirmation UI:
+  - `sourceScopeLabel`
+  - `trustStatus`
+  - `trustWarning`
+- the real IDE app now wires the production candidate provider into the shared
+  plugin service instead of preserving the older provider-unavailable runtime
+
 ### Slice C
 
 Move the metadata-backed version-change flows:
@@ -210,6 +227,14 @@ Recommendation:
     call the existing shared service methods directly
 - keep share/app blocking at the route layer only
   - no mode-policy branching was added to the shared lifecycle semantics
+- wire the real app to the production candidate provider for Slice B
+  - direct frontend install cannot be considered landed if the shared app
+    service still has a nil candidate-provider boundary
+  - the older provider-unavailable app behavior is no longer correct for the
+    current rewrite state and has been removed
+- keep install response enrichment in the shared service
+  - both direct HTTP routes and existing MCP tool results should come from the
+    same install source-of-truth payload instead of route-local patching
 
 ## Landed in Slice A
 
@@ -224,23 +249,49 @@ Recommendation:
   - `internal/httpapi/plugin_routes_test.go`
   - `internal/app/app_test.go`
 
+## Landed in Slice B
+
+- `internal/plugins/mutation_types.go`
+  - direct frontend install result fields now exist in the shared typed result
+    payload
+- `internal/plugins/service.go`
+  - install results now include:
+    - `sourceScopeLabel`
+    - `trustStatus`
+    - `trustWarning`
+- `internal/httpapi/plugin_routes.go`
+  - thin IDE-only transport for:
+    - `POST /plugins/install`
+    - `POST /plugins/uninstall`
+- `internal/httpapi/route_names.go`
+  - bare-route registration for the new install/uninstall route names
+- `internal/app/app.go`
+  - real app wiring now attaches the production candidate provider to the
+    shared plugin service
+- focused coverage in:
+  - `internal/plugins/service_test.go`
+  - `internal/httpapi/plugin_routes_test.go`
+  - `internal/app/app_test.go`
+  - `internal/app/mcp_plugin_management_test.go`
+
 ## Verification
 
+- `./scripts/go.sh test ./internal/plugins -run 'TestService(InstallUpdateRollbackAndUninstallLifecycle|BackendUninstallSurfacesPendingRestartTombstone)' -count=1`
 - `./scripts/go.sh test ./internal/httpapi -run 'Plugin' -count=1`
-- `./scripts/go.sh test ./internal/app -run 'Plugin.*(RuntimeAndFrontendAssets|WritesPluginConfig|HandlesPluginRescanEnableAndDisable|ServesManualPluginRestartRoute)' -count=1`
+- `./scripts/go.sh test ./internal/app -run 'Plugin.*(InstallsAndUninstallsPluginRoutes|HandlesPluginRescanEnableAndDisable|RuntimeAndFrontendAssets|WritesPluginConfig|ServesManualPluginRestartRoute)|TestAppIDEMCP(ServerSupportsPluginManagementToolsOverAuthenticatedSSE|ToolCallRouteSupportsPluginManagementTools)' -count=1`
 - `git diff --check`
 
 ## Immediate Next Step
 
-Implement Slice B end-to-end:
+Implement Slice C end-to-end:
 
-1. add thin IDE-only Go transport for `install` and `uninstall`
-2. keep install payload shaping aligned with the existing direct frontend
-   contract, including scope/source metadata and restart-required status
-3. add focused route tests for invalid JSON, installer/scope errors,
-   not-found/uninstall ambiguity cases, and share-mode blocking
-4. add one real-app test proving install or uninstall roundtrip over the real
-   app wiring without introducing heuristic source acquisition shortcuts
+1. add thin IDE-only Go transport for `update` and `rollback`
+2. keep update/rollback payloads aligned with the current direct frontend
+   contract over the existing install-metadata and rollback-history owners
+3. add focused route tests for invalid JSON, missing metadata/history,
+   local-source rejection, and share-mode blocking
+4. add one real-app test proving metadata-backed update or rollback behavior
+   over the production candidate-provider boundary without adding heuristics
 
 ## Open Questions
 

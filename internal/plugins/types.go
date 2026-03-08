@@ -55,6 +55,12 @@ const (
 	PluginInstallerBackendUV   PluginInstallerBackend = "uv"
 )
 
+type PluginSourceTrustStatus string
+
+const (
+	PluginSourceTrustStatusUnverified PluginSourceTrustStatus = "unverified"
+)
+
 type PluginBlockedCapabilityReason string
 
 const (

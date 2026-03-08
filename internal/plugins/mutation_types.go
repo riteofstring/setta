@@ -58,16 +58,19 @@ type RollbackOptions struct {
 }
 
 type PluginInstallResult struct {
-	PluginID              string             `json:"pluginId"`
-	Version               string             `json:"version"`
-	SourceScope           PluginScope        `json:"sourceScope"`
-	SourcePath            string             `json:"sourcePath"`
-	CanonicalSourceKey    string             `json:"canonicalSourceKey"`
-	SourceDigestSHA256    *string            `json:"sourceDigestSha256"`
-	RequestedCapabilities []string           `json:"requestedCapabilities"`
-	Components            []string           `json:"components"`
-	State                 PluginRuntimeState `json:"state"`
-	RestartRequired       bool               `json:"restartRequired"`
+	PluginID              string                  `json:"pluginId"`
+	Version               string                  `json:"version"`
+	SourceScope           PluginScope             `json:"sourceScope"`
+	SourceScopeLabel      string                  `json:"sourceScopeLabel"`
+	SourcePath            string                  `json:"sourcePath"`
+	CanonicalSourceKey    string                  `json:"canonicalSourceKey"`
+	SourceDigestSHA256    *string                 `json:"sourceDigestSha256"`
+	RequestedCapabilities []string                `json:"requestedCapabilities"`
+	TrustStatus           PluginSourceTrustStatus `json:"trustStatus"`
+	TrustWarning          string                  `json:"trustWarning"`
+	Components            []string                `json:"components"`
+	State                 PluginRuntimeState      `json:"state"`
+	RestartRequired       bool                    `json:"restartRequired"`
 }
 
 type PluginEnableDisableResult struct {

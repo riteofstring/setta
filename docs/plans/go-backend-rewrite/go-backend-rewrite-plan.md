@@ -511,16 +511,20 @@ The remaining caller-backed plugin lifecycle mutation cluster is now tracked in
     - `POST /plugins/rescan`
     - `POST /plugins/enable`
     - `POST /plugins/disable`
+- Slice B is now landed:
+  - Go now owns:
+    - `POST /plugins/install`
+    - `POST /plugins/uninstall`
+  - the real IDE app now wires the production candidate provider into the
+    shared plugin service
 - the remaining direct frontend route gap is now narrowed to:
-  - `POST /plugins/install`
-  - `POST /plugins/uninstall`
   - `POST /plugins/update`
   - `POST /plugins/rollback`
 - `POST /plugins/link` and `POST /plugins/lock/*` are not current direct
   frontend callers and stay explicitly deferred
 - the next bounded follow-on is:
-  - `POST /plugins/install`
-  - `POST /plugins/uninstall`
+  - `POST /plugins/update`
+  - `POST /plugins/rollback`
 
 The bounded plugin dependency cleanup tracked in
 `phase-11-plugin-version-range-owner-and-dependency-cleanup.md` is now also

@@ -552,10 +552,14 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		logger.Warn("python package inspection runtime unavailable", "error", err)
 	}
 	pluginMutationService, err = plugins.NewService(plugins.ServiceOptions{
-		WorkspaceRoot:         cfg.Paths.WorkspaceRoot,
-		SettaFilesRoot:        cfg.Paths.SettaFilesRoot,
-		SettaHome:             cfg.Paths.SettaHome,
-		ServerMode:            cfg.Server.Mode,
+		WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
+		SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+		SettaHome:      cfg.Paths.SettaHome,
+		ServerMode:     cfg.Server.Mode,
+		CandidateProvider: plugins.NewProductionCandidateProvider(plugins.ProductionCandidateProviderOptions{
+			PackageManagerRuntime: pythonPackages,
+			SettaFilesRoot:        cfg.Paths.SettaFilesRoot,
+		}),
 		PackageManagerRuntime: pythonPackages,
 	})
 	if err != nil {

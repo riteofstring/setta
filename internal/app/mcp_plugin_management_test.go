@@ -19,6 +19,8 @@ import (
 )
 
 func TestAppIDEMCPServerSupportsPluginManagementToolsOverAuthenticatedSSE(t *testing.T) {
+	sourceSpec := configureAppLocalPyPIFixture(t, "backend", "setta-fixture-backend", "0.1.0")
+
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
@@ -123,22 +125,28 @@ func TestAppIDEMCPServerSupportsPluginManagementToolsOverAuthenticatedSSE(t *tes
 	installResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
 		Name: "install_plugin",
 		Arguments: map[string]any{
-			"sourceSpec": "pypi:setta-fixture-backend==0.1.0",
+			"sourceSpec": sourceSpec,
+			"installer":  "pip",
 		},
 	})
 	if err != nil {
 		t.Fatalf("call install_plugin: %v", err)
 	}
-	if !installResult.IsError {
-		t.Fatal("expected install_plugin without provider to fail")
+	if installResult.IsError {
+		t.Fatalf("expected install_plugin success, got %#v", installResult.StructuredContent)
 	}
 	installPayload := mustStructuredMapValue(t, installResult.StructuredContent)
-	if installPayload["code"] != "internal_error" {
-		t.Fatalf("expected internal_error for install_plugin, got %#v", installPayload["code"])
+	if installPayload["pluginId"] != "setta-fixture-backend" {
+		t.Fatalf("expected setta-fixture-backend plugin id, got %#v", installPayload["pluginId"])
+	}
+	if installPayload["restartRequired"] != true {
+		t.Fatalf("expected restartRequired=true for backend install, got %#v", installPayload["restartRequired"])
 	}
 }
 
 func TestAppIDEMCPToolCallRouteSupportsPluginManagementTools(t *testing.T) {
+	sourceSpec := configureAppLocalPyPIFixture(t, "backend", "setta-fixture-backend", "0.1.0")
+
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
@@ -235,7 +243,7 @@ func TestAppIDEMCPToolCallRouteSupportsPluginManagementTools(t *testing.T) {
 		"application/json",
 		strings.NewReader(`{
 			"tool":"install_plugin",
-			"arguments":{"sourceSpec":"pypi:setta-fixture-backend==0.1.0"}
+			"arguments":{"sourceSpec":"`+sourceSpec+`","installer":"pip"}
 		}`),
 	)
 	if err != nil {
@@ -247,11 +255,11 @@ func TestAppIDEMCPToolCallRouteSupportsPluginManagementTools(t *testing.T) {
 		t.Fatalf("expected 200, got %d with body %q", installResponse.StatusCode, string(body))
 	}
 	installPayload := decodeAppToolCallRoutePayload(t, installResponse.Body)
-	if !installPayload.IsError {
-		t.Fatal("expected install_plugin without provider to fail")
+	if installPayload.IsError {
+		t.Fatalf("expected install_plugin success, got %#v", installPayload.StructuredContent)
 	}
-	if mustStructuredMapValue(t, installPayload.StructuredContent)["code"] != "internal_error" {
-		t.Fatalf("expected internal_error install payload, got %#v", installPayload.StructuredContent)
+	if mustStructuredMapValue(t, installPayload.StructuredContent)["pluginId"] != "setta-fixture-backend" {
+		t.Fatalf("expected successful install payload, got %#v", installPayload.StructuredContent)
 	}
 }
 

@@ -458,6 +458,105 @@ func TestAppHandlesPluginRescanEnableAndDisableRoutes(t *testing.T) {
 	}
 }
 
+func TestAppInstallsAndUninstallsPluginRoutes(t *testing.T) {
+	// The real app should wire install and uninstall plugin routes through the production candidate-provider boundary.
+	sourceSpec := configureAppLocalPyPIFixture(t, "frontend", "setta-fixture-frontend", "0.1.0")
+
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	postPluginMutation := func(path string, body string) *http.Response {
+		t.Helper()
+
+		request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+path, strings.NewReader(body))
+		if err != nil {
+			t.Fatalf("new %s request: %v", path, err)
+		}
+		request.Header.Set("Content-Type", "application/json")
+		request.AddCookie(authCookie)
+
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			t.Fatalf("post %s: %v", path, err)
+		}
+		return response
+	}
+
+	installResponse := postPluginMutation(httpapi.RoutePluginsInstall, `{"sourceSpec":"`+sourceSpec+`","scope":"workspace","installer":"pip","enable":true,"force":false}`)
+	defer installResponse.Body.Close()
+	if installResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(installResponse.Body)
+		t.Fatalf("expected plugin install 200, got %d with body %q", installResponse.StatusCode, string(body))
+	}
+
+	var installPayload struct {
+		PluginID         string `json:"pluginId"`
+		SourceScopeLabel string `json:"sourceScopeLabel"`
+		TrustStatus      string `json:"trustStatus"`
+		State            string `json:"state"`
+	}
+	if err := json.NewDecoder(installResponse.Body).Decode(&installPayload); err != nil {
+		t.Fatalf("decode install payload: %v", err)
+	}
+	if installPayload.PluginID != "setta-fixture-frontend" || installPayload.SourceScopeLabel != "workspace" {
+		t.Fatalf("unexpected install payload %#v", installPayload)
+	}
+	if installPayload.TrustStatus != "unverified" || installPayload.State != "active" {
+		t.Fatalf("unexpected install trust/state payload %#v", installPayload)
+	}
+
+	uninstallResponse := postPluginMutation(httpapi.RoutePluginsUninstall, `{"pluginId":"setta-fixture-frontend","scope":"workspace"}`)
+	defer uninstallResponse.Body.Close()
+	if uninstallResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(uninstallResponse.Body)
+		t.Fatalf("expected plugin uninstall 200, got %d with body %q", uninstallResponse.StatusCode, string(body))
+	}
+
+	var uninstallPayload struct {
+		PluginID         string `json:"pluginId"`
+		RemovedFromScope string `json:"removedFromScope"`
+	}
+	if err := json.NewDecoder(uninstallResponse.Body).Decode(&uninstallPayload); err != nil {
+		t.Fatalf("decode uninstall payload: %v", err)
+	}
+	if uninstallPayload.PluginID != "setta-fixture-frontend" || uninstallPayload.RemovedFromScope != "workspace" {
+		t.Fatalf("unexpected uninstall payload %#v", uninstallPayload)
+	}
+
+	rescanResponse := postPluginMutation(httpapi.RoutePluginsRescan, `{}`)
+	defer rescanResponse.Body.Close()
+	if rescanResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(rescanResponse.Body)
+		t.Fatalf("expected plugin rescan 200, got %d with body %q", rescanResponse.StatusCode, string(body))
+	}
+
+	var rescanPayload struct {
+		InstalledPlugins int `json:"installedPlugins"`
+		ActivePlugins    int `json:"activePlugins"`
+	}
+	if err := json.NewDecoder(rescanResponse.Body).Decode(&rescanPayload); err != nil {
+		t.Fatalf("decode rescan payload: %v", err)
+	}
+	if rescanPayload.InstalledPlugins != 0 || rescanPayload.ActivePlugins != 0 {
+		t.Fatalf("unexpected post-uninstall rescan payload %#v", rescanPayload)
+	}
+}
+
 func TestAppServesManualPluginRestartRoute(t *testing.T) {
 	// The real app should expose the plugin restart route and stay manual-only without a restart hook.
 	cfg := testConfig(t)

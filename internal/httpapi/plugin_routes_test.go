@@ -95,6 +95,60 @@ func TestRegisterPluginRoutesReturnsRescanSummary(t *testing.T) {
 	}
 }
 
+func TestRegisterPluginRoutesInstallAndUninstallPlugin(t *testing.T) {
+	t.Parallel()
+
+	_, service := newRoutePluginMutationService(t, map[string]routePluginFixtureSpec{
+		"pypi:setta-fixture-frontend==0.1.0": {
+			FixtureName: "frontend",
+			Version:     "0.1.0",
+		},
+	})
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	installResponse := httptest.NewRecorder()
+	installRequest := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsInstall, strings.NewReader(`{"sourceSpec":"pypi:setta-fixture-frontend==0.1.0","scope":"workspace","installer":"pip","enable":true,"force":false}`))
+	handler.ServeHTTP(installResponse, installRequest)
+	if installResponse.Code != http.StatusOK {
+		t.Fatalf("expected plugin install 200, got %d with body %q", installResponse.Code, installResponse.Body.String())
+	}
+
+	var installPayload plugins.PluginInstallResult
+	if err := json.Unmarshal(installResponse.Body.Bytes(), &installPayload); err != nil {
+		t.Fatalf("decode plugin install response: %v", err)
+	}
+	if installPayload.PluginID != "setta-fixture-frontend" || installPayload.Version != "0.1.0" {
+		t.Fatalf("unexpected install payload %#v", installPayload)
+	}
+	if installPayload.SourceScope != plugins.PluginScopeWorkspace || installPayload.SourceScopeLabel != "workspace" {
+		t.Fatalf("unexpected install scope payload %#v", installPayload)
+	}
+	if installPayload.TrustStatus != plugins.PluginSourceTrustStatusUnverified {
+		t.Fatalf("expected unverified trust status, got %#v", installPayload.TrustStatus)
+	}
+	if installPayload.TrustWarning != "Source is unverified. Install only from trusted owners." {
+		t.Fatalf("unexpected install trust warning %#v", installPayload.TrustWarning)
+	}
+	if installPayload.State != plugins.PluginRuntimeStateActive || installPayload.RestartRequired {
+		t.Fatalf("unexpected install state payload %#v", installPayload)
+	}
+
+	uninstallResponse := httptest.NewRecorder()
+	uninstallRequest := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsUninstall, strings.NewReader(`{"pluginId":"setta-fixture-frontend","scope":"workspace"}`))
+	handler.ServeHTTP(uninstallResponse, uninstallRequest)
+	if uninstallResponse.Code != http.StatusOK {
+		t.Fatalf("expected plugin uninstall 200, got %d with body %q", uninstallResponse.Code, uninstallResponse.Body.String())
+	}
+
+	var uninstallPayload plugins.PluginUninstallResult
+	if err := json.Unmarshal(uninstallResponse.Body.Bytes(), &uninstallPayload); err != nil {
+		t.Fatalf("decode plugin uninstall response: %v", err)
+	}
+	if uninstallPayload.PluginID != "setta-fixture-frontend" || uninstallPayload.RemovedFromScope != plugins.PluginScopeWorkspace || uninstallPayload.RestartRequired {
+		t.Fatalf("unexpected uninstall payload %#v", uninstallPayload)
+	}
+}
+
 func TestRegisterPluginRoutesEnableAndDisablePlugin(t *testing.T) {
 	t.Parallel()
 
@@ -219,6 +273,61 @@ func TestRegisterPluginRoutesRejectsInvalidJSONForConfigWrite(t *testing.T) {
 	}
 }
 
+func TestRegisterPluginRoutesRejectsInvalidJSONForInstallAndUninstall(t *testing.T) {
+	t.Parallel()
+
+	service, _ := newPluginRouteTestService(t, config.ModeIDE)
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	for _, testCase := range []struct {
+		name string
+		path string
+	}{
+		{name: "install", path: RoutePluginsInstall},
+		{name: "uninstall", path: RoutePluginsUninstall},
+	} {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			response := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodPost, "/api"+testCase.path, strings.NewReader("{"))
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusBadRequest {
+				t.Fatalf("expected invalid json 400, got %d with body %q", response.Code, response.Body.String())
+			}
+
+			var payload errorResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode invalid json response: %v", err)
+			}
+			if payload.Error.Code != "invalid_json" {
+				t.Fatalf("expected invalid_json error code, got %q", payload.Error.Code)
+			}
+		})
+	}
+}
+
+func TestRegisterPluginRoutesRejectsInvalidInstallScope(t *testing.T) {
+	t.Parallel()
+
+	service, _ := newPluginRouteTestService(t, config.ModeIDE)
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsInstall, strings.NewReader(`{"sourceSpec":"pypi:setta-fixture-frontend==0.1.0","scope":"environment","installer":"pip"}`))
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid install scope 400, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode invalid install scope response: %v", err)
+	}
+	if payload.Error.Code != string(plugins.ServiceErrorCodeScopeInvalid) {
+		t.Fatalf("expected scope invalid error code, got %q", payload.Error.Code)
+	}
+}
+
 func TestRegisterPluginRoutesRejectsInvalidJSONForEnable(t *testing.T) {
 	t.Parallel()
 
@@ -260,6 +369,30 @@ func TestRegisterPluginRoutesMapsMissingEnableTo404(t *testing.T) {
 	}
 	if payload.Error.Code != string(plugins.ServiceErrorCodeNotFound) {
 		t.Fatalf("expected plugin not found code, got %q", payload.Error.Code)
+	}
+}
+
+func TestRegisterPluginRoutesRequiresExplicitUninstallScopeWhenPluginExistsInMultipleScopes(t *testing.T) {
+	t.Parallel()
+
+	service, roots := newPluginRouteTestService(t, config.ModeIDE)
+	copyPluginRouteFixtureToWorkspace(t, roots.workspaceRoot, "frontend")
+	copyPluginRouteFixtureToSettaFiles(t, roots.settaFilesRoot, "frontend")
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsUninstall, strings.NewReader(`{"pluginId":"setta-fixture-frontend"}`))
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected ambiguous uninstall 400, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode ambiguous uninstall response: %v", err)
+	}
+	if payload.Error.Code != string(plugins.ServiceErrorCodeUninstallScopeRequired) {
+		t.Fatalf("expected uninstall scope required code, got %q", payload.Error.Code)
 	}
 }
 
@@ -401,7 +534,7 @@ func TestRegisterPluginRoutesBlocksConfigWriteOutsideIDE(t *testing.T) {
 	}
 }
 
-func TestRegisterPluginRoutesBlocksLifecycleSliceOutsideIDE(t *testing.T) {
+func TestRegisterPluginRoutesBlocksLifecycleSlicesOutsideIDE(t *testing.T) {
 	t.Parallel()
 
 	service, roots := newPluginRouteTestService(t, config.ModeShare)
@@ -414,6 +547,8 @@ func TestRegisterPluginRoutesBlocksLifecycleSliceOutsideIDE(t *testing.T) {
 		body string
 	}{
 		{name: "rescan", path: RoutePluginsRescan},
+		{name: "install", path: RoutePluginsInstall, body: `{"sourceSpec":"pypi:setta-fixture-frontend==0.1.0","scope":"workspace","installer":"pip"}`},
+		{name: "uninstall", path: RoutePluginsUninstall, body: `{"pluginId":"setta-fixture-frontend","scope":"workspace"}`},
 		{name: "enable", path: RoutePluginsEnable, body: `{"pluginId":"setta-fixture-frontend"}`},
 		{name: "disable", path: RoutePluginsDisable, body: `{"pluginId":"setta-fixture-frontend"}`},
 	}
@@ -632,6 +767,18 @@ func newPluginRouteTestHandler(t *testing.T, mode config.Mode, service *plugins.
 func copyPluginRouteFixtureToWorkspace(t *testing.T, workspaceRoot string, fixtureName string) {
 	t.Helper()
 
+	copyPluginRouteFixtureToInstallRoot(t, filepath.Join(workspaceRoot, ".setta_plugins"), fixtureName)
+}
+
+func copyPluginRouteFixtureToSettaFiles(t *testing.T, settaFilesRoot string, fixtureName string) {
+	t.Helper()
+
+	copyPluginRouteFixtureToInstallRoot(t, filepath.Join(settaFilesRoot, "plugins"), fixtureName)
+}
+
+func copyPluginRouteFixtureToInstallRoot(t *testing.T, installRoot string, fixtureName string) {
+	t.Helper()
+
 	sourceRoot := filepath.Join(routePluginFixtureRepoRoot(t), "tests", "fixtures", "plugins", fixtureName)
 	manifestPayload, err := os.ReadFile(filepath.Join(sourceRoot, "setta.plugin.json"))
 	if err != nil {
@@ -644,7 +791,7 @@ func copyPluginRouteFixtureToWorkspace(t *testing.T, workspaceRoot string, fixtu
 		t.Fatalf("decode plugin fixture manifest: %v", err)
 	}
 
-	targetRoot := filepath.Join(workspaceRoot, ".setta_plugins", manifest.ID)
+	targetRoot := filepath.Join(installRoot, manifest.ID)
 	if err := copyRoutePluginFixtureDir(sourceRoot, targetRoot); err != nil {
 		t.Fatalf("copy plugin fixture: %v", err)
 	}

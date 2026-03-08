@@ -15,6 +15,8 @@ import (
 	"setta/internal/pythonenv"
 )
 
+const unverifiedSourceWarning = "Source is unverified. Install only from trusted owners."
+
 type CandidateProvider interface {
 	ResolveCandidate(ctx context.Context, spec ParsedSourceSpec, installer PluginInstallerBackend) (CandidatePlugin, error)
 }
@@ -308,10 +310,13 @@ func (s *Service) Install(ctx context.Context, options InstallOptions) (PluginIn
 			PluginID:              candidate.Manifest.ID,
 			Version:               candidate.Manifest.Version,
 			SourceScope:           scope,
+			SourceScopeLabel:      string(scope),
 			SourcePath:            targetPath,
 			CanonicalSourceKey:    candidate.CanonicalSourceKey,
 			SourceDigestSHA256:    cloneOptionalString(candidate.SourceDigestSHA256),
 			RequestedCapabilities: append([]string(nil), candidate.Manifest.Capabilities...),
+			TrustStatus:           PluginSourceTrustStatusUnverified,
+			TrustWarning:          unverifiedSourceWarning,
 			Components:            manifestComponents(candidate.Manifest),
 			State:                 state,
 			RestartRequired:       restartRequired,
@@ -331,10 +336,13 @@ func (s *Service) Install(ctx context.Context, options InstallOptions) (PluginIn
 		PluginID:              activeEntry.PluginID,
 		Version:               activeEntry.Version,
 		SourceScope:           scope,
+		SourceScopeLabel:      string(scope),
 		SourcePath:            activeEntry.SourcePath,
 		CanonicalSourceKey:    activeEntry.CanonicalSourceKey,
 		SourceDigestSHA256:    cloneOptionalString(activeEntry.SourceDigestSHA256),
 		RequestedCapabilities: append([]string(nil), activeEntry.RequestedCapabilities...),
+		TrustStatus:           PluginSourceTrustStatusUnverified,
+		TrustWarning:          unverifiedSourceWarning,
 		Components:            manifestComponents(candidate.Manifest),
 		State:                 activeEntry.State,
 		RestartRequired:       restartRequired,

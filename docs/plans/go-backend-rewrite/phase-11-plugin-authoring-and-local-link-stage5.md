@@ -74,14 +74,20 @@ The commands split into two different dependency groups:
    - `lock apply`
    - later `lock write`
 
-The second group is still blocked on one missing production dependency:
+Historical note from this stage's original landing:
 
 - a real Go-owned candidate provider for remote plugin source acquisition
 
-Go already has mutation service interfaces for candidates, but the shipped app
-does not yet wire a production candidate provider into `internal/plugins`.
+Go already had mutation service interfaces for candidates, but at original
+landing time the shipped app did not yet wire a production candidate provider
+into `internal/plugins`.
 Porting remote install/update flows now would either fail unconditionally in
 the shipped CLI or require a temporary compatibility shim back into Python.
+
+That dependency is no longer missing as of 2026-03-09:
+
+- the IDE app now wires the production candidate provider into the shared Go
+  plugin service as part of the Phase 15 direct frontend install transport
 
 That means the highest-leverage next step is to land only the bounded
 authoring/local-link slice first.
@@ -108,12 +114,12 @@ Do not include:
 - `plugins lock apply`
 - `plugins restart`
 - programmatic restart-hook ownership
-- remote candidate-provider work
+- historical remote candidate-provider work
 
 ## Working Decisions
 
 - treat remote source acquisition as an explicit dependency boundary
-  - do not hide the missing production candidate provider behind a Python
+  - do not hide a missing production candidate provider behind a Python
     fallback or a partially wired Go transport
 - move the local authoring flows first
   - `init`, `validate`, and `link` are already bounded around filesystem,
@@ -175,7 +181,7 @@ Do not include:
 - remote plugin install/update/pin
 - lockfile write/apply convergence
 - Go-owned programmatic restart
-- app/runtime wiring of a production candidate provider
+- historical app/runtime wiring of a production candidate provider
 
 ## Open Questions
 

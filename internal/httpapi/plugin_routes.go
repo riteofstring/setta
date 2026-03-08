@@ -15,6 +15,8 @@ import (
 
 const RoutePluginsRuntime = "/plugins/runtime"
 const RoutePluginsRescan = "/plugins/rescan"
+const RoutePluginsInstall = "/plugins/install"
+const RoutePluginsUninstall = "/plugins/uninstall"
 const RoutePluginsEnable = "/plugins/enable"
 const RoutePluginsDisable = "/plugins/disable"
 const RoutePluginsConfig = "/plugins/config"
@@ -39,6 +41,8 @@ func RegisterPluginRoutes(router chi.Router, deps PluginRouteDependencies) error
 
 	router.Get(RoutePluginsRuntime, pluginRuntimeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsRescan, pluginRescanHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsInstall, pluginInstallHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsUninstall, pluginUninstallHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsEnable, pluginEnableDisableHandler(deps.Service.Enable))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsDisable, pluginEnableDisableHandler(deps.Service.Disable))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsConfig, pluginConfigHandler(deps))
@@ -108,6 +112,71 @@ func pluginEnableDisableHandler(operation func(context.Context, plugins.EnableDi
 
 		response, err := operation(r.Context(), plugins.EnableDisableOptions{
 			PluginID: payload.PluginID,
+		})
+		if err != nil {
+			writePluginRouteError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, response)
+	}
+}
+
+func pluginInstallHandler(deps PluginRouteDependencies) http.HandlerFunc {
+	type installPluginRequest struct {
+		SourceSpec string                          `json:"sourceSpec"`
+		Scope      *plugins.PluginScope            `json:"scope"`
+		Installer  *plugins.PluginInstallerBackend `json:"installer"`
+		Enable     *bool                           `json:"enable"`
+		Force      *bool                           `json:"force"`
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[installPluginRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		enable := true
+		if payload.Enable != nil {
+			enable = *payload.Enable
+		}
+		force := false
+		if payload.Force != nil {
+			force = *payload.Force
+		}
+
+		response, err := deps.Service.Install(r.Context(), plugins.InstallOptions{
+			SourceSpec: payload.SourceSpec,
+			Scope:      payload.Scope,
+			Installer:  payload.Installer,
+			Enable:     enable,
+			Force:      force,
+		})
+		if err != nil {
+			writePluginRouteError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, response)
+	}
+}
+
+func pluginUninstallHandler(deps PluginRouteDependencies) http.HandlerFunc {
+	type uninstallPluginRequest struct {
+		PluginID string               `json:"pluginId"`
+		Scope    *plugins.PluginScope `json:"scope"`
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[uninstallPluginRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		response, err := deps.Service.Uninstall(r.Context(), plugins.UninstallOptions{
+			PluginID: payload.PluginID,
+			Scope:    payload.Scope,
 		})
 		if err != nil {
 			writePluginRouteError(w, r, err)

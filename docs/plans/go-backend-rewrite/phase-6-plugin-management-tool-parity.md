@@ -27,9 +27,11 @@ Current repo status as of 2026-03-08:
     - `update_plugin`
     - `rollback_plugin`
   - app wiring for the plugin mutation service
-- Go still does not own:
-  - a real remote plugin candidate provider for install/update in the
-    production app
+- historical closeout note:
+  - at original landing time, the production app still lacked a real remote
+    plugin candidate provider for install/update
+- as of 2026-03-09, that app wiring gap is closed by the Phase 15 direct
+  frontend plugin install transport work
 
 ## Scope
 
@@ -40,11 +42,13 @@ This slice covered:
   - `uninstall_plugin`
   - `rescan_plugins`
   - `update_plugin`
-  - `rollback_plugin`
+- `rollback_plugin`
 - thin MCP handlers over `internal/plugins.Service`
 - route and authenticated SSE coverage for the five tool calls
-- app wiring for the plugin mutation service and any explicit “provider
-  unavailable” behavior until real remote fetch backends are wired
+- app wiring for the plugin mutation service
+- historical closeout note:
+  - the original landing still preserved explicit provider-unavailable
+    behavior until real remote fetch backends were wired
 
 ## Non-Goals
 
@@ -80,8 +84,9 @@ This slice covered:
 - keep MCP transport thin over the completed Go mutation service
 - keep remote fetch/install backends behind the service provider boundary rather
   than embedding network or package-manager logic in MCP handlers
-- if no real provider is wired yet in the app, expose the explicit runtime
-  unavailable/fetch unavailable failure instead of routing through Python
+- historical landing rule:
+  - while no real provider was wired in the app, expose the explicit runtime
+    unavailable/fetch unavailable failure instead of routing through Python
 - keep `rescan_plugins` aligned with the Python aggregate-count response shape
   instead of leaking the larger Go discovery snapshot directly
 

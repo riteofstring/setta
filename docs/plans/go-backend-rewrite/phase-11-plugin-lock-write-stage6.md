@@ -83,15 +83,21 @@ Only the first group is currently unblocked.
 `lock write` only depends on discovered plugin state plus persisted install
 metadata. Go already owns both of those sources of truth in `internal/plugins`.
 
-The second group is still blocked on one missing production dependency:
+Historical note from this stage's original landing:
 
 - a real Go-owned candidate provider for remote plugin source acquisition
 
-Go already has a mutation-service interface for candidate resolution, but the
-shipped app does not wire a production provider into `internal/plugins`.
+Go already had a mutation-service interface for candidate resolution, but at
+original landing time the shipped app did not wire a production provider into
+`internal/plugins`.
 Porting `install`, `update`, `pin`, or `lock apply` now would either fail in
 the shipped runtime or require a temporary compatibility fallback back into
 Python.
+
+That dependency is no longer missing as of 2026-03-09:
+
+- the IDE app now wires the production candidate provider into the shared Go
+  plugin service as part of the Phase 15 direct frontend install transport
 
 `restart` is also separate:
 
@@ -183,13 +189,14 @@ Do not include:
 - remote plugin install/update/pin
 - lockfile apply/convergence
 - Go-owned programmatic restart
-- app/runtime wiring of a production candidate provider
+- historical app/runtime wiring of a production candidate provider
 
 ## Open Questions
 
-- whether the next stage should first land the production candidate provider, or
-  whether `plugins restart` should be split into a manual-only CLI slice before
-  that dependency work
+- historical open question:
+  - whether the next stage should first land the production candidate
+    provider, or whether `plugins restart` should be split into a manual-only
+    CLI slice before that dependency work
 - whether `lock apply` should stay bundled with install/update/pin after the
   candidate-provider stage, or be split again as a separate convergence slice
 

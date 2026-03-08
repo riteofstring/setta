@@ -32,9 +32,11 @@ Current repo status as of 2026-03-08:
     bookkeeping in `internal/plugins/service.go`
   - plugin-management MCP transport parity in `internal/mcpx`, `internal/app`,
     and `internal/httpapi`
-- Go does not yet own:
-  - a real remote plugin candidate provider for install/update in the
-    production app
+- historical closeout note:
+  - at original landing time, the production app still lacked a real remote
+    plugin candidate provider for install/update
+- as of 2026-03-09, that app wiring gap is closed by the Phase 15 direct
+  frontend plugin install transport work
 
 ## Scope
 

@@ -122,6 +122,15 @@ func TestServiceInstallUpdateRollbackAndUninstallLifecycle(t *testing.T) {
 	if installResult.PluginID != "setta-fixture-frontend" || installResult.Version != "0.1.0" {
 		t.Fatalf("unexpected install result: %#v", installResult)
 	}
+	if installResult.SourceScopeLabel != "workspace" {
+		t.Fatalf("expected workspace source scope label, got %#v", installResult.SourceScopeLabel)
+	}
+	if installResult.TrustStatus != PluginSourceTrustStatusUnverified {
+		t.Fatalf("expected unverified trust status, got %#v", installResult.TrustStatus)
+	}
+	if installResult.TrustWarning != unverifiedSourceWarning {
+		t.Fatalf("expected trust warning %q, got %#v", unverifiedSourceWarning, installResult.TrustWarning)
+	}
 	if installResult.RestartRequired {
 		t.Fatalf("expected frontend install not to require restart")
 	}
