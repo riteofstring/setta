@@ -35,7 +35,6 @@ def _write_app_project(
     dbe.write_json(deployment_root / app_spec_path, spec_payload)
     project_state = ProjectStateBackend(
         projectConfigs={project_config.id: project_config},
-        projectChatWindowingByProjectConfigId={project_config.id: {}},
         defaultProjectConfigId=project_config.id,
         appDefinition=AppDefinition(appSpecPath=app_spec_path),
     )

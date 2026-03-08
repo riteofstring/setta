@@ -1,13 +1,19 @@
 import _ from "lodash";
+import { useProjectState } from "state/definitions";
 import { getPythonCodegenTarget } from "utils/codegenTargets";
+import { res200 } from "utils/endpointUtils";
 import {
+  route_get_latest_project_state,
   route_set_code,
   route_set_gen_code_prefix,
   route_set_gen_code_suffix,
 } from "utils/generatedEndpoints";
+import { CodeLanguageEnum, SectionTypeEnum } from "utils/generatedTypes";
 import {
   dispatchOptimisticProjectStateUpdate,
+  getCurrEffectiveSectionImplIfPresent,
   getCurrProjectConfigId,
+  processProjectStateUpdateFromBackend,
   setCurrEffectiveSectionImplValue,
 } from "./sectionInfos";
 
@@ -27,6 +33,9 @@ let lastGenCodeSuffixPromise: Promise<unknown> | null = null;
 function applyCodeUpdate(sectionId: string, code: string) {
   pendingCodeUpdate = null;
   lastCodeUpdateSectionId = sectionId;
+  const projectConfigId = getCurrProjectConfigId();
+  const shouldRefreshProjectState =
+    shouldRefreshProjectStateAfterCodeUpdate(sectionId);
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       setCurrEffectiveSectionImplValue<"CodeSection">(state, sectionId, {
@@ -35,15 +44,46 @@ function applyCodeUpdate(sectionId: string, code: string) {
     },
     send: (frontendOpId) => {
       const promise = route_set_code({
-        projectConfigId: getCurrProjectConfigId(),
+        projectConfigId,
         sectionId,
         code,
         frontendOpId,
+      }).then(async (response) => {
+        if (!shouldRefreshProjectState || !res200(response)) {
+          return response;
+        }
+
+        const latestProjectStateResponse = await route_get_latest_project_state({
+          projectConfigId,
+        });
+        if (res200(latestProjectStateResponse)) {
+          processProjectStateUpdateFromBackend(latestProjectStateResponse.data);
+        }
+        return response;
       });
       lastCodeUpdatePromise = promise;
       return promise;
     },
   });
+}
+
+function shouldRefreshProjectStateAfterCodeUpdate(sectionId: string): boolean {
+  const state = useProjectState.getState();
+  if (!state.projectConfig.watchCodeEnabled) {
+    return false;
+  }
+  if (!getPythonCodegenTarget(state.projectConfig)) {
+    return false;
+  }
+
+  const sectionImpl = getCurrEffectiveSectionImplIfPresent(state, sectionId);
+  if (!sectionImpl || sectionImpl.type !== SectionTypeEnum.Code) {
+    return false;
+  }
+  if (sectionImpl.codeLanguage !== CodeLanguageEnum.python) {
+    return false;
+  }
+  return sectionImpl.codeFileBinding !== null;
 }
 
 function applyGenCodePrefixUpdate(value: string) {

@@ -36,14 +36,10 @@ import {
 } from "state/definitions";
 import type { ResponseDataAndStatus } from "utils/endpointUtils";
 import { res200 } from "utils/endpointUtils";
+import * as generatedEndpoints from "utils/generatedEndpoints";
 import {
-  route_delete_sections,
-  route_group_sections,
   route_set_top_level_section_layout,
   route_set_viewport,
-  route_toggle_param_selected,
-  route_ungroup_groups,
-  route_unselect_all_params,
 } from "utils/generatedEndpoints";
 import {
   AllProjectMetadata,
@@ -68,7 +64,25 @@ import {
 import { createNewId } from "utils/idNameCreation";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { applyActiveSectionChange } from "./activeSectionController";
-import { reconcileProjectChatWindowingEphemeralState } from "./projectChatWindowingEphemeral";
+
+const legacyGeneratedEndpoints = generatedEndpoints as Record<string, unknown>;
+
+function requireGeneratedEndpoint<
+  K extends
+    | "route_delete_sections"
+    | "route_group_sections"
+    | "route_toggle_param_selected"
+    | "route_ungroup_groups"
+    | "route_unselect_all_params",
+>(name: K): (...args: Array<unknown>) => unknown {
+  const endpoint = legacyGeneratedEndpoints[name];
+  if (typeof endpoint !== "function") {
+    throw new Error(
+      `Generated endpoint ${name} is unavailable in the current canonical binding slice.`,
+    );
+  }
+  return endpoint;
+}
 
 const effectiveImplCacheByImpl = new WeakMap<
   object,
@@ -544,18 +558,8 @@ export function getCurrEffectiveSectionImplOfType<T extends SectionType>(
   return impl as Extract<BaseSectionImplUnion, { type: T }>;
 }
 
-export type ManagedChatSectionAuthorityState = Pick<
-  ZustandProjectState,
-  "sections" | "sectionVariants" | "sectionImpls"
-> & {
-  projectConfig: Pick<
-    ZustandProjectState["projectConfig"],
-    "sectionVariantMap"
-  >;
-};
-
 export function isManagedChatSection(
-  state: ManagedChatSectionAuthorityState,
+  state: ZustandProjectState,
   sectionId: string,
 ): boolean {
   const variantId = state.projectConfig.sectionVariantMap[sectionId];
@@ -1003,7 +1007,6 @@ function getComparableProjectState(
     shownParamIds: state.shownParamIds,
     requiredDecodedImages: state.requiredDecodedImages,
     genCodeBinding: state.genCodeBinding ?? null,
-    projectChatWindowing: state.projectChatWindowing,
   });
 }
 
@@ -1067,10 +1070,6 @@ export function processProjectStateUpdateFromBackend(
   const nextNodesMap = createNodesMapFromProjectConfigChildren(
     x.projectState,
     useNodeInternals.getState().x,
-  );
-  reconcileProjectChatWindowingEphemeralState(
-    sanitizedProjectState.projectChatWindowing,
-    sanitizedProjectState.projectConfig.id,
   );
   runWithAtomicallyPublishedProjectStores(
     {
@@ -1524,7 +1523,7 @@ export function deleteAllActiveSections() {
   if (shareSession.isDeploymentMode) {
     return;
   }
-  route_delete_sections({
+  requireGeneratedEndpoint("route_delete_sections")({
     projectConfigId: getCurrProjectConfigId(),
     sectionIds: getActiveSectionUIIds(),
   });
@@ -1741,7 +1740,7 @@ export async function groupActiveSections() {
     return;
   }
   const sectionIds = getActiveSectionUIIds();
-  route_group_sections({
+  requireGeneratedEndpoint("route_group_sections")({
     projectConfigId: getCurrProjectConfigId(),
     sectionIds,
   });
@@ -1754,7 +1753,10 @@ export async function ungroupActiveGroups() {
     return;
   }
   const groupIds = getActiveSectionUIIds();
-  route_ungroup_groups({ projectConfigId: getCurrProjectConfigId(), groupIds });
+  requireGeneratedEndpoint("route_ungroup_groups")({
+    projectConfigId: getCurrProjectConfigId(),
+    groupIds,
+  });
 }
 
 function addPendingOp(apply: (x: ZustandProjectState) => void) {
@@ -1812,24 +1814,17 @@ export function dispatchOptimisticProjectStateUpdate({
   const opId = addPendingOp(apply);
   const result = send(opId);
   if (result instanceof Promise) {
-    void result
-      .then((res) => {
-        // A 200 response means the backend accepted the op; don't keep reapplying it.
-        if (isResponseDataAndStatus(res) && res200(res)) {
-          acknowledgePendingOp(opId);
-        } else if (isResponseDataAndStatus(res)) {
-          removePendingOp(opId);
-          if (rollback) {
-            useProjectState.setState(rollback);
-          }
-        }
-      })
-      .catch(() => {
+    void result.then((res) => {
+      // A 200 response means the backend accepted the op; don't keep reapplying it.
+      if (isResponseDataAndStatus(res) && res200(res)) {
+        acknowledgePendingOp(opId);
+      } else if (isResponseDataAndStatus(res) && res.hasResponse) {
         removePendingOp(opId);
         if (rollback) {
           useProjectState.setState(rollback);
         }
-      });
+      }
+    });
   }
   return opId;
 }
@@ -1863,7 +1858,7 @@ export function toggleParamSelected(sectionId: string, paramInfoId: string) {
       );
     },
     send: (frontendOpId) =>
-      route_toggle_param_selected({
+      requireGeneratedEndpoint("route_toggle_param_selected")({
         projectConfigId: getCurrProjectConfigId(),
         sectionId,
         paramInfoId,
@@ -1910,7 +1905,7 @@ export function unselectAllParams() {
       }
     },
     send: (frontendOpId) =>
-      route_unselect_all_params({
+      requireGeneratedEndpoint("route_unselect_all_params")({
         projectConfigId: getCurrProjectConfigId(),
         frontendOpId,
       }),
