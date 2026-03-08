@@ -1,8 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import {
-  cleanupIsolatedProject,
-  openIsolatedProject,
-} from "../../helpers";
+import { cleanupIsolatedProject, openIsolatedProject } from "../../helpers";
 
 async function seedReadOnlyProjectChatLayout(page: Page): Promise<void> {
   await page.evaluate(async () => {
@@ -39,7 +36,9 @@ async function seedReadOnlyProjectChatLayout(page: Page): Promise<void> {
   });
 }
 
-async function seedReadOnlyVisibleProjectChatWindows(page: Page): Promise<void> {
+async function seedReadOnlyVisibleProjectChatWindows(
+  page: Page,
+): Promise<void> {
   await page.evaluate(async () => {
     const { useLocalStorage, useProjectState, useShareSession } = await import(
       "/src/state/definitions.ts"
@@ -120,11 +119,15 @@ test("read-only deployments do not auto-create project chat windows or expose la
   try {
     await seedReadOnlyProjectChatLayout(page);
 
-    await expect(page.getByTestId("project-chat-window-surface")).toHaveCount(0);
-    await expect(page.getByTestId("project-chat-bottom-dock-create")).toHaveCount(
+    await expect(page.getByTestId("project-chat-window-surface")).toHaveCount(
       0,
     );
-    await expect(page.getByRole("button", { name: /new chat/i })).toHaveCount(0);
+    await expect(
+      page.getByTestId("project-chat-bottom-dock-create"),
+    ).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /new chat/i })).toHaveCount(
+      0,
+    );
     await expect(
       page.evaluate(async () => {
         const { useProjectState } = await import("/src/state/definitions.ts");
@@ -136,7 +139,7 @@ test("read-only deployments do not auto-create project chat windows or expose la
   }
 });
 
-test("read-only deployments keep visible project chat windows focusable", async ({
+test("read-only deployments keep visible project chat windows focusable without layout controls", async ({
   page,
 }) => {
   const projectContext = await openIsolatedProject(page);
@@ -153,6 +156,32 @@ test("read-only deployments keep visible project chat windows focusable", async 
 
     await expect(backgroundWindow).toBeVisible();
     await expect(frontWindow).toBeVisible();
+    await expect(page.getByTestId("project-chat-window-maximize")).toHaveCount(
+      0,
+    );
+    await expect(page.getByTestId("project-chat-window-minimize")).toHaveCount(
+      0,
+    );
+    await expect(page.getByTestId("project-chat-window-close")).toHaveCount(0);
+    await expect(page.getByTestId("project-chat-window-dock")).toHaveCount(0);
+    await expect(
+      page.getByTestId("project-chat-window-show-in-canvas"),
+    ).toHaveCount(0);
+    await expect(
+      page.getByTestId("project-chat-floating-window-resize-handle"),
+    ).toHaveCount(0);
+    await expect(
+      page.getByTestId("project-chat-floating-window-drag-handle"),
+    ).toHaveCount(0);
+
+    await frontWindow
+      .locator('[data-project-chat-window-title="true"]')
+      .first()
+      .dblclick();
+    await expect(
+      page.getByTestId("project-chat-window-title-input"),
+    ).toHaveCount(0);
+
     await backgroundWindow.dispatchEvent("pointerdown");
 
     // Read-only mode should still allow local z-order updates for already-visible windows.
@@ -161,18 +190,14 @@ test("read-only deployments keep visible project chat windows focusable", async 
         return await page.evaluate(async () => {
           const { useProjectState } = await import("/src/state/definitions.ts");
           const windowing = useProjectState.getState().projectChatWindowing;
-          return {
-            first:
-              windowing.instancesById["project-chat-window-1"]?.zIndex ?? 0,
-            second:
-              windowing.instancesById["project-chat-window-2"]?.zIndex ?? 0,
-          };
+          const first =
+            windowing.instancesById["project-chat-window-1"]?.zIndex ?? 0;
+          const second =
+            windowing.instancesById["project-chat-window-2"]?.zIndex ?? 0;
+          return first > second;
         });
       })
-      .toEqual({
-        first: 3,
-        second: 2,
-      });
+      .toBe(true);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }

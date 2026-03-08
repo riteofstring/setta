@@ -28,7 +28,10 @@ from setta.types.helpers_lvl2 import (
     get_section_path_full_name,
 )
 from setta.types.id import ID
-from setta.types.project_chat_windowing import normalize_project_chat_windowing
+from setta.types.project_chat_windowing import (
+    normalize_project_chat_windowing,
+    validate_window_space_window_owner,
+)
 from setta.types.project_config import (
     ProjectCodegenLanguage,
     ProjectConfig,
@@ -617,6 +620,11 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                 window = window_space.windowsById.get(instance_id)
                 if window is None:
                     continue
+                validate_window_space_window_owner(
+                    surface_kind=window.surfaceKind,
+                    mode=window.mode,
+                    section_id=window.sectionIdOrNull,
+                )
                 if window.surfaceKind == WindowSpaceSurfaceKind.section:
                     if window.title is not None:
                         window.title = None

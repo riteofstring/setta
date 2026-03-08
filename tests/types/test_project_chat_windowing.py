@@ -1,3 +1,5 @@
+import pytest
+
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl2 import (
     create_top_level_section,
@@ -6,6 +8,7 @@ from setta.types.helpers_lvl2 import (
 )
 from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import (
+    ChatWindowMode,
     ChatWindowPlacement,
     ProjectChatWindowingState,
     ProjectChatWindowInstance,
@@ -72,11 +75,15 @@ def test_set_project_chat_window_chat_id_updates_the_target_window_only() -> Non
     )
 
     assert (
-        project_state.projectChatWindowing.instancesById[first_instance.instanceId].chatId
+        project_state.projectChatWindowing.instancesById[
+            first_instance.instanceId
+        ].chatId
         == "chat-updated"
     )
     assert (
-        project_state.projectChatWindowing.instancesById[second_instance.instanceId].chatId
+        project_state.projectChatWindowing.instancesById[
+            second_instance.instanceId
+        ].chatId
         == "chat-stable"
     )
 
@@ -190,3 +197,47 @@ def test_project_state_normalizes_section_window_titles_to_none() -> None:
         ].title
         is None
     )
+
+
+def test_project_chat_windowing_rejects_section_mode_without_section_binding() -> None:
+    # Section-mode runtime windows must always point at a concrete section owner.
+    with pytest.raises(
+        ValueError,
+        match="Project chat section_mode windows require sectionIdOrNull",
+    ):
+        ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="x"),
+            projectChatWindowing=ProjectChatWindowingState(
+                instancesById={
+                    "project-chat-window-1": ProjectChatWindowInstance(
+                        instanceId="project-chat-window-1",
+                        placement=ChatWindowPlacement.floating,
+                        mode=ChatWindowMode.section_mode,
+                        sectionIdOrNull=None,
+                    )
+                },
+                order=["project-chat-window-1"],
+            ),
+        )
+
+
+def test_project_chat_windowing_rejects_git_graph_section_binding() -> None:
+    # Git-graph windows are project-level surfaces and cannot carry section bindings.
+    with pytest.raises(
+        ValueError,
+        match="Project chat git_graph_mode windows cannot carry sectionIdOrNull",
+    ):
+        ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="x"),
+            projectChatWindowing=ProjectChatWindowingState(
+                instancesById={
+                    "project-chat-window-1": ProjectChatWindowInstance(
+                        instanceId="project-chat-window-1",
+                        placement=ChatWindowPlacement.floating,
+                        mode=ChatWindowMode.git_graph_mode,
+                        sectionIdOrNull="section-1",
+                    )
+                },
+                order=["project-chat-window-1"],
+            ),
+        )

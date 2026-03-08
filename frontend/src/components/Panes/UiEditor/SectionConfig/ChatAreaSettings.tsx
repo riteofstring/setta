@@ -66,6 +66,99 @@ type ChatSectionSettingsPayload = {
   dictationMode: "auto" | "browser" | "provider";
 };
 
+type SectionOption = {
+  id: string;
+  name: string;
+  type: SectionTypeEnum;
+};
+
+type LinkedChatTargetFilterArgs = {
+  sectionOptions: Array<SectionOption>;
+  sectionVariantMap: Record<string, string>;
+  sectionVariants: Record<string, { impl: string }>;
+  sectionImpls: Record<
+    string,
+    {
+      type: SectionTypeEnum;
+      managed?: boolean;
+      engineConfigId?: string | null;
+      agentProfileId?: string | null;
+    }
+  >;
+  agentProfiles: Array<{ id: string; engineConfigId: string | null }>;
+  engineConfigs: Array<{
+    id: string;
+    engineType: EngineTypeEnum;
+    settaLlmConfigId?: string | null;
+    externalAgentConfigId?: string | null;
+  }>;
+  externalAgentConfigs: Array<{ id: string }>;
+  allLLMConfigs: {
+    configs: Record<string, unknown>;
+    default_config_id?: string | null;
+  };
+};
+
+export function filterExecutableLinkedChatTargets({
+  sectionOptions,
+  sectionVariantMap,
+  sectionVariants,
+  sectionImpls,
+  agentProfiles,
+  engineConfigs,
+  externalAgentConfigs,
+  allLLMConfigs,
+}: LinkedChatTargetFilterArgs): Array<SectionOption> {
+  const externalAgentConfigIds = new Set(
+    externalAgentConfigs.map((config) => config.id),
+  );
+  return sectionOptions.filter((entry) => {
+    if (entry.type !== SectionTypeEnum.Chat) {
+      return false;
+    }
+    const variantId = sectionVariantMap[entry.id];
+    if (!variantId) {
+      return false;
+    }
+    const variant = sectionVariants[variantId];
+    if (!variant) {
+      return false;
+    }
+    const impl = sectionImpls[variant.impl];
+    if (!impl || impl.type !== SectionTypeEnum.Chat || impl.managed !== true) {
+      return false;
+    }
+    const selectedProfile =
+      impl.agentProfileId == null
+        ? null
+        : agentProfiles.find((profile) => profile.id === impl.agentProfileId) ??
+          null;
+    const effectiveEngineConfigId =
+      impl.engineConfigId ?? selectedProfile?.engineConfigId ?? null;
+    if (!effectiveEngineConfigId) {
+      return false;
+    }
+    const engineConfig =
+      engineConfigs.find((config) => config.id === effectiveEngineConfigId) ??
+      null;
+    if (!engineConfig) {
+      return false;
+    }
+    if (engineConfig.engineType === EngineTypeEnum.external_agent) {
+      return Boolean(
+        engineConfig.externalAgentConfigId &&
+          externalAgentConfigIds.has(engineConfig.externalAgentConfigId),
+      );
+    }
+    if (engineConfig.engineType === EngineTypeEnum.setta_llm) {
+      return Boolean(
+        engineConfig.settaLlmConfigId ?? pickDefaultConfigId(allLLMConfigs),
+      );
+    }
+    return true;
+  });
+}
+
 export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   useHydrateLLMState();
   useHydrateAgenticState();
@@ -133,6 +226,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     allLLMConfigs,
     agentProfiles,
     engineConfigs,
+    externalAgentConfigs,
     transcriptionProfiles,
   } = useAIStore(
     (state) => ({
@@ -140,6 +234,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       allLLMConfigs: state.allLLMConfigs,
       agentProfiles: state.agentProfiles,
       engineConfigs: state.engineConfigs,
+      externalAgentConfigs: state.externalAgentConfigs,
       transcriptionProfiles: state.transcriptionProfiles,
     }),
     _.isEqual,
@@ -282,11 +377,27 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   const scopeItems = nonChatSectionItems;
 
   const agentItems = useMemo<AllItemsType<string>>(() => {
-    const items = sectionOptions
-      .filter((entry) => entry.type === SectionTypeEnum.Chat)
-      .map((entry) => ({ id: entry.id, name: entry.name }));
+    const items = filterExecutableLinkedChatTargets({
+      sectionOptions,
+      sectionVariantMap,
+      sectionVariants,
+      sectionImpls,
+      agentProfiles,
+      engineConfigs,
+      externalAgentConfigs,
+      allLLMConfigs,
+    }).map((entry) => ({ id: entry.id, name: entry.name }));
     return [{ group: "Chat Sections", items }];
-  }, [sectionOptions]);
+  }, [
+    agentProfiles,
+    allLLMConfigs,
+    engineConfigs,
+    externalAgentConfigs,
+    sectionImpls,
+    sectionOptions,
+    sectionVariantMap,
+    sectionVariants,
+  ]);
 
   const contextModeOptions = useMemo(
     () => [
@@ -352,9 +463,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   );
 
   const scopeReadEntries = useMemo(() => {
-    const ids = new Set<string>(agenticScope.readSectionIds);
-    agenticScope.peerChatSectionIds.forEach((id) => ids.add(id));
-    return buildScopeEntries(ids);
+    return buildScopeEntries(agenticScope.readSectionIds);
   }, [agenticScope, buildScopeEntries]);
 
   const scopeWriteEntries = useMemo(

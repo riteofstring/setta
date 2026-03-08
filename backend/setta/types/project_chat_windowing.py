@@ -23,6 +23,42 @@ def _is_project_chat_window_visible(instance: "ProjectChatWindowInstance") -> bo
     return not instance.isClosed and not instance.isMinimized
 
 
+def _enum_value(value: object) -> object:
+    return getattr(value, "value", value)
+
+
+def validate_project_chat_window_owner(
+    *,
+    mode: object,
+    section_id: ID | None,
+) -> None:
+    mode_value = _enum_value(mode)
+    if mode_value == "section_mode" and section_id is None:
+        raise ValueError("Project chat section_mode windows require sectionIdOrNull.")
+    if mode_value == "git_graph_mode" and section_id is not None:
+        raise ValueError(
+            "Project chat git_graph_mode windows cannot carry sectionIdOrNull."
+        )
+
+
+def validate_window_space_window_owner(
+    *,
+    surface_kind: object,
+    mode: object,
+    section_id: ID | None,
+) -> None:
+    surface_kind_value = _enum_value(surface_kind)
+    mode_value = _enum_value(mode)
+    if surface_kind_value == "section" and section_id is None:
+        raise ValueError("Section window-space windows require sectionIdOrNull.")
+    if surface_kind_value == "project_chat" and section_id is not None:
+        raise ValueError(
+            "Project-chat window-space windows cannot carry sectionIdOrNull."
+        )
+    if surface_kind_value == "project_chat" and mode_value == "section_mode":
+        raise ValueError("Project-chat window-space windows cannot use section_mode.")
+
+
 def _should_prefer_section_binding_candidate(
     candidate: "ProjectChatWindowInstance",
     current_best: "ProjectChatWindowInstance | None",
@@ -56,6 +92,10 @@ def normalize_project_chat_windowing(
     next_instances_by_id: dict[ID, "ProjectChatWindowInstance"] = {}
     for instance_id, instance in project_chat_windowing.instancesById.items():
         section_id = instance.sectionIdOrNull
+        validate_project_chat_window_owner(
+            mode=instance.mode,
+            section_id=section_id,
+        )
         if section_id is not None and section_id not in section_ids:
             continue
         if section_id is not None and instance.title is not None:

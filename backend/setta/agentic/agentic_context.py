@@ -3,10 +3,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from setta.agentic.agentic_scope import resolve_context_edges
+from setta.agentic.linked_chat_targets import is_executable_linked_chat_target
+from setta.database.db_objs import DBE
 from setta.types.agentic_edges import AgenticEdgeContextMode, AgenticEdgeKind
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl
 from setta.types.helpers_lvl3 import build_project_state_summary_section_index
 from setta.types.id import ID
+from setta.types.llm_config import AllLLMConfigs
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
@@ -48,17 +51,21 @@ class AgenticSectionSummarySource:
 
 
 def build_agentic_context_payload(
+    dbe: DBE,
     project_state: ProjectStateSingleConfig,
     chat_section_id: ID,
     *,
+    llm_configs: AllLLMConfigs,
     format_section_id: Callable[[ID], str] | None = None,
     summary_text_by_section_id: dict[ID, str] | None = None,
     summary_by_section: dict[ID, object] | None = None,
 ) -> AgenticContextPayload:
     context_edges = resolve_context_edges(project_state, chat_section_id)
     linked_chat_section_ids = _resolve_linked_chat_section_ids(
+        dbe,
         project_state,
         chat_section_id,
+        llm_configs=llm_configs,
     )
     if not context_edges and not linked_chat_section_ids:
         return AgenticContextPayload(text="", section_ids=[])
@@ -153,14 +160,24 @@ def build_agentic_context_payload(
 
 
 def _resolve_linked_chat_section_ids(
+    dbe: DBE,
     project_state: ProjectStateSingleConfig,
     chat_section_id: ID,
+    *,
+    llm_configs: AllLLMConfigs,
 ) -> list[ID]:
     linked_chat_section_ids: list[ID] = []
     for edge in project_state.projectConfig.agenticEdges:
         if edge.kind != AgenticEdgeKind.chat_chat:
             continue
         if edge.sourceSectionId != chat_section_id:
+            continue
+        if not is_executable_linked_chat_target(
+            project_state,
+            edge.targetSectionId,
+            dbe=dbe,
+            llm_configs=llm_configs,
+        ):
             continue
         linked_chat_section_ids.append(edge.targetSectionId)
     linked_chat_section_ids.sort(key=str)

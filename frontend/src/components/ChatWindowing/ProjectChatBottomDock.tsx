@@ -3897,6 +3897,7 @@ export function ProjectChatBottomDock() {
                             title={pill.title}
                             mode={pill.mode}
                             instanceId={pill.instanceId}
+                            allowLayoutMutations={canEditLayout}
                             roundedClassName={
                               DOCKED_WINDOWED_CHAT_ROUNDED_CLASS
                             }
@@ -4026,34 +4027,38 @@ export function ProjectChatBottomDock() {
                             )}
                           </ProjectChatWindowSurface>
                         )}
-                        {DOCK_WINDOW_RESIZE_HANDLES.map((handle) => (
-                          <div
-                            key={`${pill.instanceId}-${handle.direction}`}
-                            role="separator"
-                            aria-orientation={
-                              handle.direction === "top" ||
-                              handle.direction === "bottom"
-                                ? "horizontal"
-                                : "vertical"
-                            }
-                            className={`group/resize absolute z-10 flex items-center justify-center ${handle.className} ${handle.cursorClassName}`}
-                            data-testid="project-chat-bottom-dock-resize-handle"
-                            data-resize-direction={handle.direction}
-                            onPointerDown={(event) => {
-                              handleSingleDockResizePointerDown(
-                                event,
-                                pill,
-                                handle.direction,
-                              );
-                            }}
-                            onPointerMove={handleSingleDockResizePointerMove}
-                            onPointerUp={handleSingleDockResizePointerUp}
-                          >
-                            {handle.indicatorClassName ? (
-                              <div className={handle.indicatorClassName} />
-                            ) : null}
-                          </div>
-                        ))}
+                        {canEditLayout
+                          ? DOCK_WINDOW_RESIZE_HANDLES.map((handle) => (
+                              <div
+                                key={`${pill.instanceId}-${handle.direction}`}
+                                role="separator"
+                                aria-orientation={
+                                  handle.direction === "top" ||
+                                  handle.direction === "bottom"
+                                    ? "horizontal"
+                                    : "vertical"
+                                }
+                                className={`group/resize absolute z-10 flex items-center justify-center ${handle.className} ${handle.cursorClassName}`}
+                                data-testid="project-chat-bottom-dock-resize-handle"
+                                data-resize-direction={handle.direction}
+                                onPointerDown={(event) => {
+                                  handleSingleDockResizePointerDown(
+                                    event,
+                                    pill,
+                                    handle.direction,
+                                  );
+                                }}
+                                onPointerMove={
+                                  handleSingleDockResizePointerMove
+                                }
+                                onPointerUp={handleSingleDockResizePointerUp}
+                              >
+                                {handle.indicatorClassName ? (
+                                  <div className={handle.indicatorClassName} />
+                                ) : null}
+                              </div>
+                            ))
+                          : null}
                       </div>
                     </article>
                   );
@@ -4063,7 +4068,9 @@ export function ProjectChatBottomDock() {
           </div>
         </div>
       ) : null}
-      {!isCanvasVisibilitySuppressed && activeFloatingSnapPreview ? (
+      {!isCanvasVisibilitySuppressed &&
+      canEditLayout &&
+      activeFloatingSnapPreview ? (
         <div
           className="pointer-events-none fixed rounded-none border-2 border-setta-400/80 bg-setta-300/20 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.45)] dark:border-setta-500/90 dark:bg-setta-500/25 dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)]"
           style={{
@@ -4077,7 +4084,9 @@ export function ProjectChatBottomDock() {
           data-chat-window-snap-preset={activeFloatingSnapPreview.preset}
         />
       ) : null}
-      {!isCanvasVisibilitySuppressed && floatingSnapResizeHandles.length > 0 ? (
+      {!isCanvasVisibilitySuppressed &&
+      canEditLayout &&
+      floatingSnapResizeHandles.length > 0 ? (
         <div
           className="pointer-events-none fixed inset-0"
           style={{ zIndex: CHAT_WINDOW_SNAP_PREVIEW_Z_INDEX }}
@@ -4231,90 +4240,99 @@ export function ProjectChatBottomDock() {
                         );
                       }}
                       headerActions={
-                        <>
-                          <button
-                            type="button"
-                            className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
-                            onClick={() => {
-                              void bootProjectChatWindowToCanvasSection(
-                                pill.instanceId,
-                              );
-                            }}
-                            aria-label={`Show ${pill.title} in canvas`}
-                            data-testid="project-chat-window-show-in-canvas"
-                            data-chat-window-instance-id={pill.instanceId}
-                          >
-                            <MdFlipToFront size={12} />
-                          </button>
-                          <button
-                            type="button"
-                            className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
-                            onClick={() => {
-                              handleDockWindow(pill.instanceId);
-                            }}
-                            aria-label={`Dock ${pill.title}`}
-                            data-testid="project-chat-window-dock"
-                            data-chat-window-instance-id={pill.instanceId}
-                          >
-                            <MdVerticalAlignBottom size={12} />
-                          </button>
-                          <button
-                            type="button"
-                            className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
-                            onClick={() => {
-                              handleMaximizeWindow(pill.instanceId);
-                            }}
-                            aria-label={`Maximize ${pill.title}`}
-                            data-testid="project-chat-window-maximize"
-                            data-chat-window-instance-id={pill.instanceId}
-                          >
-                            {WINDOW_MAXIMIZE_ICON}
-                          </button>
-                          <button
-                            type="button"
-                            className={SECTION_WINDOW_MINIMIZE_BUTTON_CLASS}
-                            onClick={() => {
-                              handleMinimizeWindow(pill.instanceId);
-                            }}
-                            aria-label={`Minimize ${pill.title}`}
-                            data-testid="project-chat-window-minimize"
-                            data-chat-window-instance-id={pill.instanceId}
-                          >
-                            <i className="gg-math-minus" />
-                          </button>
-                          <button
-                            type="button"
-                            className={SECTION_WINDOW_CLOSE_BUTTON_CLASS}
-                            onClick={() => {
-                              handleCloseWindow(pill.instanceId);
-                            }}
-                            aria-label={`Close ${pill.title}`}
-                            data-testid="project-chat-window-close"
-                            data-chat-window-instance-id={pill.instanceId}
-                          >
-                            <i className="gg-close" />
-                          </button>
-                        </>
+                        canEditLayout ? (
+                          <>
+                            <button
+                              type="button"
+                              className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
+                              onClick={() => {
+                                void bootProjectChatWindowToCanvasSection(
+                                  pill.instanceId,
+                                );
+                              }}
+                              aria-label={`Show ${pill.title} in canvas`}
+                              data-testid="project-chat-window-show-in-canvas"
+                              data-chat-window-instance-id={pill.instanceId}
+                            >
+                              <MdFlipToFront size={12} />
+                            </button>
+                            <button
+                              type="button"
+                              className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
+                              onClick={() => {
+                                handleDockWindow(pill.instanceId);
+                              }}
+                              aria-label={`Dock ${pill.title}`}
+                              data-testid="project-chat-window-dock"
+                              data-chat-window-instance-id={pill.instanceId}
+                            >
+                              <MdVerticalAlignBottom size={12} />
+                            </button>
+                            <button
+                              type="button"
+                              className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
+                              onClick={() => {
+                                handleMaximizeWindow(pill.instanceId);
+                              }}
+                              aria-label={`Maximize ${pill.title}`}
+                              data-testid="project-chat-window-maximize"
+                              data-chat-window-instance-id={pill.instanceId}
+                            >
+                              {WINDOW_MAXIMIZE_ICON}
+                            </button>
+                            <button
+                              type="button"
+                              className={SECTION_WINDOW_MINIMIZE_BUTTON_CLASS}
+                              onClick={() => {
+                                handleMinimizeWindow(pill.instanceId);
+                              }}
+                              aria-label={`Minimize ${pill.title}`}
+                              data-testid="project-chat-window-minimize"
+                              data-chat-window-instance-id={pill.instanceId}
+                            >
+                              <i className="gg-math-minus" />
+                            </button>
+                            <button
+                              type="button"
+                              className={SECTION_WINDOW_CLOSE_BUTTON_CLASS}
+                              onClick={() => {
+                                handleCloseWindow(pill.instanceId);
+                              }}
+                              aria-label={`Close ${pill.title}`}
+                              data-testid="project-chat-window-close"
+                              data-chat-window-instance-id={pill.instanceId}
+                            >
+                              <i className="gg-close" />
+                            </button>
+                          </>
+                        ) : null
                       }
-                      headerProps={{
-                        "data-testid":
-                          "project-chat-floating-window-drag-handle",
-                        className: "cursor-move",
-                        onPointerDown: (event) => {
-                          if (isInteractiveWindowHeaderTarget(event.target)) {
-                            return;
-                          }
-                          handleFloatingDragPointerDown(event, pill);
-                        },
-                        onPointerMove: handleFloatingDragPointerMove,
-                        onPointerUp: handleFloatingDragPointerUp,
-                      }}
+                      headerProps={
+                        canEditLayout
+                          ? {
+                              "data-testid":
+                                "project-chat-floating-window-drag-handle",
+                              className: "cursor-move",
+                              onPointerDown: (event) => {
+                                if (
+                                  isInteractiveWindowHeaderTarget(event.target)
+                                ) {
+                                  return;
+                                }
+                                handleFloatingDragPointerDown(event, pill);
+                              },
+                              onPointerMove: handleFloatingDragPointerMove,
+                              onPointerUp: handleFloatingDragPointerUp,
+                            }
+                          : undefined
+                      }
                     />
                   ) : (
                     <ProjectChatWindowSurface
                       title={pill.title}
                       mode={pill.mode}
                       instanceId={pill.instanceId}
+                      allowLayoutMutations={canEditLayout}
                       roundedClassName={
                         floatingSnapPreset
                           ? "rounded-none"
@@ -4422,7 +4440,7 @@ export function ProjectChatBottomDock() {
                       )}
                     </ProjectChatWindowSurface>
                   )}
-                  {floatingSnapPreset
+                  {floatingSnapPreset || !canEditLayout
                     ? null
                     : FLOATING_WINDOW_RESIZE_HANDLES.map((handle) => (
                         <div
@@ -4519,80 +4537,82 @@ export function ProjectChatBottomDock() {
                   );
                 }}
                 headerActions={
-                  <>
-                    <button
-                      type="button"
-                      className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
-                      onClick={() => {
-                        void bootProjectChatWindowToCanvasSection(
-                          openMaximizedWindow.instanceId,
-                        );
-                      }}
-                      aria-label={`Show ${openMaximizedWindow.title} in canvas`}
-                      data-testid="project-chat-window-show-in-canvas"
-                      data-chat-window-instance-id={
-                        openMaximizedWindow.instanceId
-                      }
-                    >
-                      <MdFlipToFront size={12} />
-                    </button>
-                    <button
-                      type="button"
-                      className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
-                      onClick={() => {
-                        handleRestoreWindow(openMaximizedWindow.instanceId);
-                      }}
-                      aria-label={`Restore ${openMaximizedWindow.title}`}
-                      data-testid="project-chat-window-restore"
-                      data-chat-window-instance-id={
-                        openMaximizedWindow.instanceId
-                      }
-                    >
-                      <MdFlipToFront size={12} />
-                    </button>
-                    <button
-                      type="button"
-                      className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
-                      onClick={() => {
-                        handleDockWindow(openMaximizedWindow.instanceId);
-                      }}
-                      aria-label={`Dock ${openMaximizedWindow.title}`}
-                      data-testid="project-chat-window-dock"
-                      data-chat-window-instance-id={
-                        openMaximizedWindow.instanceId
-                      }
-                    >
-                      <MdVerticalAlignBottom size={12} />
-                    </button>
-                    <button
-                      type="button"
-                      className={SECTION_WINDOW_MINIMIZE_BUTTON_CLASS}
-                      onClick={() => {
-                        handleMinimizeWindow(openMaximizedWindow.instanceId);
-                      }}
-                      aria-label={`Minimize ${openMaximizedWindow.title}`}
-                      data-testid="project-chat-window-minimize"
-                      data-chat-window-instance-id={
-                        openMaximizedWindow.instanceId
-                      }
-                    >
-                      <i className="gg-math-minus" />
-                    </button>
-                    <button
-                      type="button"
-                      className={SECTION_WINDOW_CLOSE_BUTTON_CLASS}
-                      onClick={() => {
-                        handleCloseWindow(openMaximizedWindow.instanceId);
-                      }}
-                      aria-label={`Close ${openMaximizedWindow.title}`}
-                      data-testid="project-chat-window-close"
-                      data-chat-window-instance-id={
-                        openMaximizedWindow.instanceId
-                      }
-                    >
-                      <i className="gg-close" />
-                    </button>
-                  </>
+                  canEditLayout ? (
+                    <>
+                      <button
+                        type="button"
+                        className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
+                        onClick={() => {
+                          void bootProjectChatWindowToCanvasSection(
+                            openMaximizedWindow.instanceId,
+                          );
+                        }}
+                        aria-label={`Show ${openMaximizedWindow.title} in canvas`}
+                        data-testid="project-chat-window-show-in-canvas"
+                        data-chat-window-instance-id={
+                          openMaximizedWindow.instanceId
+                        }
+                      >
+                        <MdFlipToFront size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
+                        onClick={() => {
+                          handleRestoreWindow(openMaximizedWindow.instanceId);
+                        }}
+                        aria-label={`Restore ${openMaximizedWindow.title}`}
+                        data-testid="project-chat-window-restore"
+                        data-chat-window-instance-id={
+                          openMaximizedWindow.instanceId
+                        }
+                      >
+                        <MdFlipToFront size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
+                        onClick={() => {
+                          handleDockWindow(openMaximizedWindow.instanceId);
+                        }}
+                        aria-label={`Dock ${openMaximizedWindow.title}`}
+                        data-testid="project-chat-window-dock"
+                        data-chat-window-instance-id={
+                          openMaximizedWindow.instanceId
+                        }
+                      >
+                        <MdVerticalAlignBottom size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        className={SECTION_WINDOW_MINIMIZE_BUTTON_CLASS}
+                        onClick={() => {
+                          handleMinimizeWindow(openMaximizedWindow.instanceId);
+                        }}
+                        aria-label={`Minimize ${openMaximizedWindow.title}`}
+                        data-testid="project-chat-window-minimize"
+                        data-chat-window-instance-id={
+                          openMaximizedWindow.instanceId
+                        }
+                      >
+                        <i className="gg-math-minus" />
+                      </button>
+                      <button
+                        type="button"
+                        className={SECTION_WINDOW_CLOSE_BUTTON_CLASS}
+                        onClick={() => {
+                          handleCloseWindow(openMaximizedWindow.instanceId);
+                        }}
+                        aria-label={`Close ${openMaximizedWindow.title}`}
+                        data-testid="project-chat-window-close"
+                        data-chat-window-instance-id={
+                          openMaximizedWindow.instanceId
+                        }
+                      >
+                        <i className="gg-close" />
+                      </button>
+                    </>
+                  ) : null
                 }
               />
             ) : (
@@ -4600,6 +4620,7 @@ export function ProjectChatBottomDock() {
                 title={openMaximizedWindow.title}
                 mode={openMaximizedWindow.mode}
                 instanceId={openMaximizedWindow.instanceId}
+                allowLayoutMutations={canEditLayout}
                 roundedClassName="rounded-none"
                 onTitleClick={() => {
                   handleFocusWindow(openMaximizedWindow.instanceId);

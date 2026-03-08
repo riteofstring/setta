@@ -1141,6 +1141,7 @@ class AgentRunner:
             self.dbe,
             project_state,
             section_id,
+            llm_configs=self.config,
             canonical_to_temporary=canonical_to_temporary,
             temporary_to_canonical=temporary_to_canonical,
             summary_text_by_section_id=summary_text_by_section_id,

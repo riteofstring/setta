@@ -158,6 +158,7 @@ from setta.types.project_config import (
     Position,
     ProjectConfig,
     WindowSpaceConfig,
+    WindowSpaceSurfaceKind,
     WindowSpaceState,
     WindowSpaceWindow,
 )
@@ -1346,6 +1347,85 @@ class TestSharePolicyRoutes:
                         ctx.value.detail
                         == "Deployment policy disallows layout changes."
                     ), name
+
+    async def test_window_space_routes_reject_invalid_window_owners_with_422(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-policy-route-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config_id, _window_space_id = (
+                _write_share_project_with_window_space(
+                    root,
+                    project_config_name=project_config_name,
+                    deployment_version=root.name,
+                )
+            )
+            state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+            initial_project_state = convert_backend_to_single_config(
+                state.share_runtime_state.project_state_backend,
+                project_config_id,
+            )
+            initial_windowing = initial_project_state.projectChatWindowing.model_dump()
+            initial_window_spaces = {
+                window_space_id: window_space.model_dump()
+                for window_space_id, window_space in initial_project_state.projectConfig.windowSpaces.items()
+            }
+
+            with runtime_context(state, session.id) as runtime_ctx:
+                with pytest.raises(HTTPException) as windowing_ctx:
+                    await route_set_project_chat_windowing_state(
+                        SetProjectChatWindowingStateRequest(
+                            projectConfigId=project_config_id,
+                            state=ProjectChatWindowingState(
+                                instancesById={
+                                    "project-chat-window-1": ProjectChatWindowInstance(
+                                        instanceId="project-chat-window-1",
+                                        placement=ChatWindowPlacement.floating,
+                                        mode=ChatWindowMode.section_mode,
+                                        sectionIdOrNull=None,
+                                    )
+                                },
+                                order=["project-chat-window-1"],
+                                nextInstanceNumber=2,
+                            ),
+                        ),
+                        runtime_ctx,
+                    )
+                assert windowing_ctx.value.status_code == 422
+
+                with pytest.raises(HTTPException) as window_space_ctx:
+                    await route_create_window_space(
+                        CreateWindowSpaceRequest(
+                            projectConfigId=project_config_id,
+                            name="Invalid Layout",
+                            state=WindowSpaceState(
+                                windowsById={
+                                    "project-chat-window-1": WindowSpaceWindow(
+                                        surfaceKind=WindowSpaceSurfaceKind.project_chat,
+                                        sectionIdOrNull="section-1",
+                                    )
+                                },
+                                order=["project-chat-window-1"],
+                            ),
+                        ),
+                        runtime_ctx,
+                    )
+                assert window_space_ctx.value.status_code == 422
+
+            updated_project_state = convert_backend_to_single_config(
+                state.share_runtime_state.project_state_backend,
+                project_config_id,
+            )
+            assert (
+                updated_project_state.projectChatWindowing.model_dump()
+                == initial_windowing
+            )
+            assert {
+                window_space_id: window_space.model_dump()
+                for window_space_id, window_space in updated_project_state.projectConfig.windowSpaces.items()
+            } == initial_window_spaces
 
     async def test_project_chat_thread_binding_uses_llm_policy_not_layout_policy(
         self,

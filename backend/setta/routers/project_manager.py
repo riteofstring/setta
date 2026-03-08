@@ -532,7 +532,7 @@ async def route_create_window_space(
     manager = ctx.get_project_manager(x.projectConfigId)
     try:
         return await manager.create_window_space(x)
-    except InvalidWindowSpaceName as exc:
+    except (InvalidWindowSpaceName, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
@@ -1096,7 +1096,10 @@ async def route_create_agentic_edge(
 ):
     await _deny_deployment_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
-    await manager.create_agentic_edge(x)
+    try:
+        await manager.create_agentic_edge(x)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post(Route.UPDATE_AGENTIC_EDGE)
@@ -1105,7 +1108,10 @@ async def route_update_agentic_edge(
 ):
     await _deny_deployment_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
-    await manager.update_agentic_edge(x)
+    try:
+        await manager.update_agentic_edge(x)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post(Route.DELETE_AGENTIC_EDGES)
@@ -1123,7 +1129,10 @@ async def route_set_agentic_edges(
 ):
     await _deny_deployment_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
-    await manager.set_agentic_edges(x)
+    try:
+        await manager.set_agentic_edges(x)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post(Route.SET_SECTION_VARIANT)
@@ -1446,7 +1455,10 @@ async def route_set_project_chat_windowing_state(
 ) -> ProjectChatWindowingState:
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
-    return await manager.set_project_chat_windowing_state(x)
+    try:
+        return await manager.set_project_chat_windowing_state(x)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post(Route.SET_PROJECT_CHAT_WINDOW_CHAT_ID)

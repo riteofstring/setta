@@ -250,6 +250,7 @@ type ProjectChatWindowSurfaceProps = {
   mode: ChatWindowMode;
   instanceId: string;
   actions: ChatWindowHeaderAction[];
+  allowLayoutMutations?: boolean;
   onTitleClick: () => void;
   onTitleCommit?: (nextTitle: string) => void;
   roundedClassName: string;
@@ -266,6 +267,7 @@ export function ProjectChatWindowSurface({
   mode = ChatWindowModeEnum.project_ai_mode,
   instanceId,
   actions,
+  allowLayoutMutations = true,
   onTitleClick,
   onTitleCommit,
   roundedClassName,
@@ -277,6 +279,23 @@ export function ProjectChatWindowSurface({
   children,
 }: ProjectChatWindowSurfaceProps) {
   const bgColor = getBgColor(SectionTypeEnum.Chat);
+  const visibleActions = allowLayoutMutations ? actions : [];
+  const editableTitleCommit = allowLayoutMutations ? onTitleCommit : undefined;
+  const draggableHeaderClassName = allowLayoutMutations
+    ? headerClassName
+    : undefined;
+  const effectiveDragHandleTestId = allowLayoutMutations
+    ? dragHandleTestId
+    : undefined;
+  const onTitleDragPointerDown = allowLayoutMutations
+    ? onTitlePointerDown
+    : undefined;
+  const onTitleDragPointerMove = allowLayoutMutations
+    ? onTitlePointerMove
+    : undefined;
+  const onTitleDragPointerUp = allowLayoutMutations
+    ? onTitlePointerUp
+    : undefined;
   const outerShellClassName = getSectionContainerShellClassName({
     isActiveSection: false,
     isGlobalVariables: false,
@@ -305,14 +324,14 @@ export function ProjectChatWindowSurface({
           title={title}
           mode={mode}
           instanceId={instanceId}
-          actions={actions}
+          actions={visibleActions}
           onTitleClick={onTitleClick}
-          onTitleCommit={onTitleCommit}
-          headerClassName={headerClassName}
-          dragHandleTestId={dragHandleTestId}
-          onTitlePointerDown={onTitlePointerDown}
-          onTitlePointerMove={onTitlePointerMove}
-          onTitlePointerUp={onTitlePointerUp}
+          onTitleCommit={editableTitleCommit}
+          headerClassName={draggableHeaderClassName}
+          dragHandleTestId={effectiveDragHandleTestId}
+          onTitlePointerDown={onTitleDragPointerDown}
+          onTitlePointerMove={onTitleDragPointerMove}
+          onTitlePointerUp={onTitleDragPointerUp}
         />
         <div
           className={`section-main-full-w flex min-h-0 flex-1 flex-col overflow-hidden ${bgColor}`}

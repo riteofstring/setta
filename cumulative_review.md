@@ -539,3 +539,34 @@ Verification:
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/layout/project-chat-layout-permissions.spec.ts -g "read-only deployments keep visible project chat windows focusable"` passed: 1 test.
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts -g "standalone section windows keep their saved section-mode thread when the workspace thread changes"` passed: 1 test.
 - CDP verification was attempted but could not run because `chrome-devtools-mcp` could not connect to Chrome on `127.0.0.1:9320`. The automated Playwright regressions above cover the affected browser flows until the debug Chrome session is available again.
+
+## 2026-03-10 13:54:24 PDT
+
+Implemented the remaining consolidated fixes from the three top-level review documents for linked-chat executability, read-scope correctness, read-only project-chat layout gating, and backend rejection of impossible project-chat/window-space ownership state.
+
+What changed:
+- Added `backend/setta/agentic/linked_chat_targets.py` as the single source of truth for whether a linked chat target is actually executable. This now validates managed chat type, agent profile existence, engine-config existence, external-agent config wiring, and resolvable LLM/external engine config before a target can be surfaced or executed.
+- Reused that executable-target check from `build_agentic_context_payload(...)` and the manager mutation paths. Context payload generation now omits non-executable linked-chat targets, while `create_agentic_edge(...)`, `update_agentic_edge(...)`, and `set_agentic_edges(...)` fail fast with `422` instead of allowing stale or impossible `chat_chat` edges to persist.
+- Added pruning after chat-section settings changes so an already-saved linked edge is removed when a target chat stops being executable because its profile or engine settings become invalid.
+- Updated the frontend linked-agent picker in `ChatAreaSettings.tsx` to apply the same executability contract before offering linked chat targets, rather than advertising targets that the backend/runtime would later reject.
+- Removed linked chats from read-scope summaries and read-highlighting. Read scope now comes only from actual `readSectionIds`, while linked chats stay in their own linked-agent/peer-chat lane instead of leaking into generic read semantics.
+- Introduced a shared layout-mutation gate on `ProjectChatWindowSurface` and threaded it through the dock/floating/maximized project-chat window host. When `allowLayoutChanges=false`, existing windows still render and can be focused, but they no longer expose drag handles, resize handles, close/dock/minimize/maximize/show-in-canvas buttons, or title editing.
+- Added explicit backend validation for invalid owner/mode combinations in both `projectChatWindowing` and `windowSpaces`, then wired those failures through the write routes as `422` responses. Invalid project-chat `section_mode` windows without a section binding, git-graph windows carrying a section id, and project-chat window-space entries with section owners are now rejected at persistence time instead of rehydrating as broken frontend state.
+
+UX before/after:
+- Before: the linked-agent picker could show chat targets that looked selectable but were guaranteed to fail later because the target was unmanaged, missing an engine, or missing external-agent configuration. After: only executable linked-chat targets are shown and preserved.
+- Before: linked chats appeared in read-oriented summaries and highlight maps, which implied ordinary read access even when the actual capability was only peer chat. After: read access and linked-chat access are presented as separate concepts with matching runtime behavior.
+- Before: read-only share/deployment sessions still showed existing project-chat windows with drag, resize, title-edit, and window-action affordances that no longer had permission to persist. After: the windows remain usable for focus and chat, but the mutating layout affordances are removed from the chrome.
+- Before: malformed persisted window payloads could save successfully and later reopen as warning-only dead state. After: invalid owner/mode combinations fail immediately at the backend write boundary with `422`.
+
+DX before/after:
+- Before: linked-chat executability rules were split across frontend filtering, context generation, and runtime admission, which made regressions easy whenever engine/profile rules changed. After: one backend resolver defines the contract and both backend and frontend tests target that contract.
+- Before: read-scope highlighting and linked-chat capability reused overlapping state, which made the agentic model harder to reason about. After: read scope, peer chat, and linked-agent surfacing are explicit and independently testable.
+- Before: layout permission enforcement was scattered across different project-chat hosts and still allowed false affordances in already-visible windows. After: the shared surface takes `allowLayoutMutations` and strips mutating UI in one place.
+- Before: the frontend warning UI was effectively tolerating backend-invalid window ownership state. After: persistence validation lives with the backend types/routes and the frontend only renders states that satisfy the backend model.
+
+Verification:
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/types/test_project_chat_windowing.py tests/types/test_project_state_window_spaces.py tests/agentic/test_agentic_context_payload.py tests/routers/test_share_policy_routes.py` passed: 49 tests.
+- `pnpm -C frontend exec vitest run src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.test.tsx src/state/hooks/agenticScopeHighlights.test.ts src/components/ChatWindowing/ProjectChatWindowSurface.test.tsx src/state/agenticScopeUtils.test.ts src/state/actions/projectChatWindowing.permissions.test.ts src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx` passed: 6 files, 25 tests.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/layout/project-chat-layout-permissions.spec.ts` passed: 2 tests.
+- CDP verification on the live dev instance at `http://127.0.0.1:3098/bronze_calm` seeded two floating project-chat windows under share mode with `allowLayoutChanges=false`, confirmed that no layout controls or resize handles rendered, confirmed title editing did not appear, and confirmed a background window could still come to the front by updating local z-order.

@@ -32,7 +32,12 @@ from setta.agentic.chat_view import (
     LLM_CHAT_RUN_TYPE,
     SCRIPTABLE_CHAT_RUN_TYPE,
 )
-from setta.agentic.store import list_agent_run_ids_by_metadata, require_agent_profile
+from setta.agentic.linked_chat_targets import (
+    LinkedChatTargetResolutionError,
+    is_executable_linked_chat_target,
+    resolve_executable_linked_chat_target,
+)
+from setta.agentic.store import list_agent_run_ids_by_metadata
 from setta.app.definition_diagnostics import (
     build_app_capabilities,
     validate_app_definition_payload,
@@ -264,7 +269,7 @@ from setta.project_state.watch_code import (
     normalize_watch_code_files,
     normalize_watch_code_folders,
 )
-from setta.types.agentic_edges import AgenticEdge
+from setta.types.agentic_edges import AgenticEdge, AgenticEdgeKind
 from setta.types.app_definition import AppDefinition
 from setta.types.chat_messages import JSONValue
 from setta.types.clipboard import (
@@ -467,7 +472,6 @@ from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSe
 
 if TYPE_CHECKING:
     from setta.plugins.manager import PluginManager
-    from setta.types.agentic import AgentProfile
 
 logger = logging.getLogger(__name__)
 
@@ -3636,6 +3640,7 @@ class BaseProjectManager(ABC):
         if x.id is not None:
             edge_kwargs["id"] = x.id
         edge = AgenticEdge(**edge_kwargs)
+        self._validate_executable_linked_chat_edges(project_state, [edge])
         create_agentic_edge(project_state, edge)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
@@ -3643,6 +3648,7 @@ class BaseProjectManager(ABC):
     async def update_agentic_edge(self, x: UpdateAgenticEdgeRequest):
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
+        self._validate_executable_linked_chat_edges(project_state, [x.edge])
         update_agentic_edge(project_state, x.edge)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
@@ -3657,6 +3663,7 @@ class BaseProjectManager(ABC):
     async def set_agentic_edges(self, x: SetAgenticEdgesRequest):
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
+        self._validate_executable_linked_chat_edges(project_state, x.edges)
         set_agentic_edges(project_state, x.edges)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
@@ -4951,6 +4958,7 @@ class BaseProjectManager(ABC):
             x.searchEnabled,
             x.dictationMode,
         )
+        self._prune_non_executable_linked_chat_edges(project_state)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
@@ -5034,6 +5042,95 @@ class BaseProjectManager(ABC):
             return section.displayName
         return section.name or str(section_id)
 
+    def _raise_linked_chat_target_resolution_error(
+        self,
+        project_state: ProjectStateSingleConfig,
+        target_section_id: ID,
+        exc: LinkedChatTargetResolutionError,
+    ) -> None:
+        target_label = self._get_linked_chat_target_label(
+            project_state, target_section_id
+        )
+        if exc.reason == "unsupported_target_type":
+            raise LinkedChatAdmissionError(
+                "unsupported_target_type",
+                (
+                    f"Linked chat target '{target_label}' is no longer an active chat section."
+                ),
+            ) from exc
+        if exc.reason == "unsupported_scriptable_target":
+            raise LinkedChatAdmissionError(
+                "unsupported_scriptable_target",
+                (
+                    f"Linked chat '{target_label}' is scriptable-only. "
+                    "Chat-to-chat invocation requires a managed chat section with a server-side engine."
+                ),
+            ) from exc
+        if exc.reason == "missing_agent_profile":
+            raise LinkedChatAdmissionError(
+                "missing_agent_profile",
+                f"Linked chat '{target_label}' references a missing agent profile.",
+            ) from exc
+        if exc.reason == "missing_engine_config":
+            raise LinkedChatAdmissionError(
+                "missing_engine_config",
+                f"Linked chat '{target_label}' does not have a resolved engine config.",
+            ) from exc
+        if exc.reason == "missing_external_config":
+            raise LinkedChatAdmissionError(
+                "missing_external_config",
+                (
+                    f"Linked chat '{target_label}' is missing its external agent configuration."
+                ),
+            ) from exc
+        raise LinkedChatAdmissionError(
+            "invalid_engine_config",
+            f"Linked chat '{target_label}' does not have a valid engine config.",
+        ) from exc
+
+    def _validate_executable_linked_chat_edges(
+        self,
+        project_state: ProjectStateSingleConfig,
+        edges: list[AgenticEdge],
+    ) -> None:
+        for edge in edges:
+            if edge.kind != AgenticEdgeKind.chat_chat:
+                continue
+            try:
+                resolve_executable_linked_chat_target(
+                    project_state,
+                    edge.targetSectionId,
+                    dbe=self.dbe,
+                    llm_configs=self.agent_runner.config,
+                )
+            except LinkedChatTargetResolutionError as exc:
+                target_label = self._get_linked_chat_target_label(
+                    project_state,
+                    edge.targetSectionId,
+                )
+                raise ValueError(
+                    f"Linked chat '{target_label}' is not executable: {exc.reason}."
+                ) from exc
+
+    def _prune_non_executable_linked_chat_edges(
+        self,
+        project_state: ProjectStateSingleConfig,
+    ) -> None:
+        next_edges: list[AgenticEdge] = []
+        for edge in project_state.projectConfig.agenticEdges:
+            if edge.kind != AgenticEdgeKind.chat_chat:
+                next_edges.append(edge)
+                continue
+            if is_executable_linked_chat_target(
+                project_state,
+                edge.targetSectionId,
+                dbe=self.dbe,
+                llm_configs=self.agent_runner.config,
+            ):
+                next_edges.append(edge)
+        if len(next_edges) != len(project_state.projectConfig.agenticEdges):
+            project_state.projectConfig.agenticEdges = next_edges
+
     @enqueue_method
     async def admit_linked_chat_section_invocation(
         self,
@@ -5058,48 +5155,26 @@ class BaseProjectManager(ABC):
             )
 
         try:
-            target_section_impl = get_curr_effective_section_impl_with_type_guard(
+            resolved_target = resolve_executable_linked_chat_target(
                 project_state,
                 target_section_id,
-                ChatSectionImpl,
+                dbe=self.dbe,
+                llm_configs=self.agent_runner.config,
             )
-        except ValueError as exc:
-            raise LinkedChatAdmissionError(
-                "unsupported_target_type",
-                (
-                    f"Linked chat target '{self._get_linked_chat_target_label(project_state, target_section_id)}' "
-                    "is no longer an active chat section."
-                ),
-            ) from exc
+        except LinkedChatTargetResolutionError as exc:
+            self._raise_linked_chat_target_resolution_error(
+                project_state,
+                target_section_id,
+                exc,
+            )
+            raise AssertionError("unreachable")
 
+        target_section_impl = resolved_target.section_impl
         target_label = self._get_linked_chat_target_label(
             project_state, target_section_id
         )
-        if not target_section_impl.managed:
-            raise LinkedChatAdmissionError(
-                "unsupported_scriptable_target",
-                (
-                    f"Linked chat '{target_label}' is scriptable-only. "
-                    "Chat-to-chat invocation requires a managed chat section with a server-side engine."
-                ),
-            )
-
-        selected_profile: "AgentProfile | None" = None
-        if target_section_impl.agentProfileId is not None:
-            selected_profile = require_agent_profile(
-                self.dbe,
-                target_section_impl.agentProfileId,
-            )
-        effective_engine_config_id = target_section_impl.engineConfigId or (
-            selected_profile.engineConfigId if selected_profile is not None else None
-        )
-        if effective_engine_config_id is None:
-            raise LinkedChatAdmissionError(
-                "missing_engine_config",
-                (
-                    f"Linked chat '{target_label}' does not have a resolved engine config."
-                ),
-            )
+        selected_profile = resolved_target.selected_profile
+        effective_engine_config_id = resolved_target.effective_engine_config_id
 
         reservation_key = (project_config_id, target_section_id)
         if reservation_key in self._linked_chat_section_reservations:

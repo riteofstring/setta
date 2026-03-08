@@ -1,3 +1,5 @@
+import pytest
+
 from setta.types.helpers_lvl3 import copy_project_config
 from setta.types.helpers_lvl2 import create_top_level_section
 from setta.types.generated.settings_state import SettingsState
@@ -7,6 +9,7 @@ from setta.types.project_config import (
     WindowSpaceConfig,
     WindowSpaceSurfaceKind,
     WindowSpaceWindow,
+    WindowSpaceWindowMode,
 )
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import SectionType
@@ -195,3 +198,52 @@ def test_copy_project_config_with_refs_clears_window_space_chat_ids():
     assert (
         copied_window_space.windowsById["section-window"].sectionIdOrNull == "section-1"
     )
+
+
+def test_window_spaces_reject_project_chat_section_mode_without_section_owner() -> None:
+    # Project-chat window-space surfaces must not persist section-mode records.
+    project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="x"))
+    project_state.projectConfig.windowSpaces = {
+        "space-id": WindowSpaceConfig(
+            id="space-id",
+            name="Research Board",
+            windowsById={
+                "chat-window": WindowSpaceWindow(
+                    surfaceKind=WindowSpaceSurfaceKind.project_chat,
+                    mode=WindowSpaceWindowMode.section_mode,
+                    sectionIdOrNull=None,
+                )
+            },
+            order=["chat-window"],
+        )
+    }
+
+    with pytest.raises(
+        ValueError,
+        match="Project-chat window-space windows cannot use section_mode",
+    ):
+        project_state.validate_window_spaces()
+
+
+def test_window_spaces_reject_project_chat_section_binding() -> None:
+    # Saved project-chat windows should fail fast instead of carrying inert section ids.
+    project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="x"))
+    project_state.projectConfig.windowSpaces = {
+        "space-id": WindowSpaceConfig(
+            id="space-id",
+            name="Research Board",
+            windowsById={
+                "chat-window": WindowSpaceWindow(
+                    surfaceKind=WindowSpaceSurfaceKind.project_chat,
+                    sectionIdOrNull="section-1",
+                )
+            },
+            order=["chat-window"],
+        )
+    }
+
+    with pytest.raises(
+        ValueError,
+        match="Project-chat window-space windows cannot carry sectionIdOrNull",
+    ):
+        project_state.validate_window_spaces()
