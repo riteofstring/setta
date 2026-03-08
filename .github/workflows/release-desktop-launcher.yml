@@ -57,20 +57,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: scripts/go_version.txt
-
-      - name: Install Python build dependency
-        run: python -m pip install build
-
-      - name: Build packaged Setta sdist
-        run: ./scripts/build_python_distribution_with_go_binaries.sh --sdist
-
       - name: Build macOS installer package
         env:
           SETTA_DESKTOP_INSTALLER_RELEASE_MODE: "1"
@@ -89,21 +75,6 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: scripts/go_version.txt
-
-      - name: Install Python build dependency
-        run: python -m pip install build
-
-      - name: Build packaged Setta sdist
-        shell: bash
-        run: ./scripts/build_python_distribution_with_go_binaries.sh --sdist
 
       - name: Install WiX Toolset
         run: choco install wixtoolset -y --no-progress
@@ -178,10 +149,6 @@ jobs:
         with:
           python-version: "3.12"
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: scripts/go_version.txt
-
       - uses: astral-sh/setup-uv@v3
 
       - name: Resolve package spec for smoke tests
@@ -193,7 +160,7 @@ jobs:
           fi
 
           python -m pip install build
-          ./scripts/build_python_distribution_with_go_binaries.sh
+          python -m build
           package_spec="$(find dist -maxdepth 1 -type f -name '*.tar.gz' | head -n 1)"
           if [[ -z "${package_spec}" ]]; then
             echo "Could not find built source distribution under dist/." >&2
