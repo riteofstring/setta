@@ -8,9 +8,12 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"setta/internal/agentruns"
 	"setta/internal/config"
 	"setta/internal/httpapi"
+	"setta/internal/managedchat"
 	"setta/internal/observability"
 	"setta/internal/projectstate"
 )
@@ -121,6 +124,113 @@ func TestAppServesChatSectionMutationRoutes(t *testing.T) {
 	}
 	if len(latestPayload.CompletedOpIDs) != 1 || latestPayload.CompletedOpIDs[0] != "app-chat-op-1" {
 		t.Fatalf("expected completed op ids [app-chat-op-1], got %#v", latestPayload.CompletedOpIDs)
+	}
+}
+
+func TestAppServesGetChatSectionChatIDRoute(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = appChatSectionTestProject(t)
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed project runtime: %v", err)
+	}
+
+	runStore, err := agentruns.NewRunStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("new run store: %v", err)
+	}
+	liveRun := agentruns.NewRun(nil, map[string]any{
+		"runType":         managedchat.RunTypeManagedChat,
+		"chatId":          "chat-live",
+		"projectConfigId": "project-alpha",
+	}, time.Unix(100, 0).UTC())
+	if err := runStore.Save(liveRun); err != nil {
+		t.Fatalf("save live run: %v", err)
+	}
+	liveChatID := "chat-live"
+	if _, err := app.ProjectStates().Main().SetChatSectionChatID(context.Background(), "project-alpha", "chat-section", &liveChatID); err != nil {
+		t.Fatalf("seed live chat id: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+
+	request := func() *http.Response {
+		t.Helper()
+
+		httpRequest, err := http.NewRequest(
+			http.MethodPost,
+			server.URL+"/api"+httpapi.RouteGetChatSectionChatID,
+			strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"chat-section"}`),
+		)
+		if err != nil {
+			t.Fatalf("new request: %v", err)
+		}
+		httpRequest.Header.Set("Content-Type", "application/json")
+		httpRequest.AddCookie(authCookie)
+
+		response, err := http.DefaultClient.Do(httpRequest)
+		if err != nil {
+			t.Fatalf("post getChatSectionChatId: %v", err)
+		}
+		return response
+	}
+
+	liveResponse := request()
+	defer liveResponse.Body.Close()
+	if liveResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(liveResponse.Body)
+		t.Fatalf("expected live response 200, got %d with body %q", liveResponse.StatusCode, string(body))
+	}
+	var livePayload *string
+	if err := json.NewDecoder(liveResponse.Body).Decode(&livePayload); err != nil {
+		t.Fatalf("decode live response: %v", err)
+	}
+	if livePayload == nil || *livePayload != liveChatID {
+		t.Fatalf("expected live chat id %q, got %#v", liveChatID, livePayload)
+	}
+
+	if err := runStore.Delete(liveRun.ID); err != nil {
+		t.Fatalf("delete live run: %v", err)
+	}
+
+	staleResponse := request()
+	defer staleResponse.Body.Close()
+	if staleResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(staleResponse.Body)
+		t.Fatalf("expected stale response 200, got %d with body %q", staleResponse.StatusCode, string(body))
+	}
+	var stalePayload *string
+	if err := json.NewDecoder(staleResponse.Body).Decode(&stalePayload); err != nil {
+		t.Fatalf("decode stale response: %v", err)
+	}
+	if stalePayload != nil {
+		t.Fatalf("expected stale payload nil, got %#v", stalePayload)
+	}
+
+	storedChatID, err := app.ProjectStates().Main().ChatSectionChatID("project-alpha", "chat-section")
+	if err != nil {
+		t.Fatalf("read stored chat id: %v", err)
+	}
+	if storedChatID != nil {
+		t.Fatalf("expected stored chat id cleared, got %#v", storedChatID)
 	}
 }
 

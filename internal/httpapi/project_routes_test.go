@@ -15,6 +15,8 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"setta/internal/agentruns"
+	"setta/internal/chatsections"
 	"setta/internal/codegen"
 	"setta/internal/config"
 	"setta/internal/modes"
@@ -429,6 +431,7 @@ func TestRegisterProjectRoutesSetSectionNameReturns422ForInvalidName(t *testing.
 		nil,
 		nil,
 		nil,
+		nil,
 		&stubProjectRouteRenameRefactorService{
 			setSectionNameErr: &projectstate.InvalidSectionNameError{
 				Message: "Section name cannot include path separators.",
@@ -475,6 +478,7 @@ func TestRegisterProjectRoutesAcceptRenameRefactorReturns404WhenPendingMissing(t
 		config.ModeIDE,
 		projectRuntime,
 		t.TempDir(),
+		nil,
 		nil,
 		nil,
 		nil,
@@ -1964,6 +1968,7 @@ func newProjectRouteTestHandler(
 		pythonReconciler,
 		callableResolver,
 		nil,
+		nil,
 		codeUpdates...,
 	)
 }
@@ -1976,6 +1981,7 @@ func newProjectRouteTestHandlerWithRenameService(
 	validator projectstate.CodegenTargetValidator,
 	pythonReconciler projectstate.PythonCodegenSectionReconciler,
 	callableResolver projectstate.CallableSignatureResolver,
+	chatSectionChatIDs ChatSectionChatIDService,
 	renameRefactors ProjectRenameRefactorService,
 	codeUpdates ...ProjectCodeUpdateService,
 ) http.Handler {
@@ -2002,6 +2008,20 @@ func newProjectRouteTestHandlerWithRenameService(
 			return nil
 		})
 	}
+	if chatSectionChatIDs == nil {
+		runStore, err := agentruns.NewRunStore(t.TempDir())
+		if err != nil {
+			t.Fatalf("new chat section run store: %v", err)
+		}
+		chatSectionService, err := chatsections.NewService(chatsections.ServiceOptions{
+			ProjectState: projectRuntime,
+			Runs:         runStore,
+		})
+		if err != nil {
+			t.Fatalf("new chat section service: %v", err)
+		}
+		chatSectionChatIDs = chatSectionService
+	}
 	settingsDocument, err := settingsstate.NewDocument()
 	if err != nil {
 		t.Fatalf("new settings document: %v", err)
@@ -2026,6 +2046,7 @@ func newProjectRouteTestHandlerWithRenameService(
 				WorkspaceRoot:                  workspaceRoot,
 				ProjectState:                   projectRuntime,
 				SettingsState:                  settingsRuntime,
+				ChatSectionChatIDs:             chatSectionChatIDs,
 				CodegenTargetValidator:         validator,
 				PythonCodegenSectionReconciler: pythonReconciler,
 				CallableSignatures:             callableResolver,

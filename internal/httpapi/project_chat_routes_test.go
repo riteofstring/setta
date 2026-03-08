@@ -1,14 +1,20 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
+	"setta/internal/agentruns"
+	"setta/internal/chatsections"
 	"setta/internal/config"
+	"setta/internal/externalagents"
+	"setta/internal/managedchat"
 	"setta/internal/projectstate"
 )
 
@@ -191,6 +197,120 @@ func TestRegisterProjectRoutesChatSectionMutationsRejectInvalidSectionAndSetting
 	}
 	if invalidSettingsPayload.Error.Code != "chat_permission_mode_invalid" {
 		t.Fatalf("expected chat_permission_mode_invalid code, got %#v", invalidSettingsPayload)
+	}
+}
+
+func TestRegisterProjectRoutesGetChatSectionChatIDReturnsExistingAndClearsMissing(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": chatSectionRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	runStore, err := agentruns.NewRunStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new run store: %v", err)
+	}
+	chatSectionService, err := chatsections.NewService(chatsections.ServiceOptions{
+		ProjectState: projectRuntime,
+		Runs:         runStore,
+	})
+	if err != nil {
+		t.Fatalf("new chat section service: %v", err)
+	}
+
+	handler := newProjectRouteTestHandlerWithRenameService(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		t.TempDir(),
+		nil,
+		nil,
+		nil,
+		chatSectionService,
+		nil,
+	)
+
+	existingChatID := "chat-live"
+	if _, err := projectRuntime.SetChatSectionChatID(projectstate.ContextWithFrontendOpID(context.Background(), "chat-seed-op"), "project-alpha", "chat-section", &existingChatID); err != nil {
+		t.Fatalf("seed existing chat id: %v", err)
+	}
+	if err := runStore.Save(agentruns.NewRun(nil, map[string]any{
+		"runType":         managedchat.RunTypeManagedChat,
+		"chatId":          existingChatID,
+		"projectConfigId": "project-alpha",
+	}, time.Unix(100, 0).UTC())); err != nil {
+		t.Fatalf("save managed run: %v", err)
+	}
+
+	existingRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetChatSectionChatID,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"chat-section"}`),
+	)
+	existingRequest.Header.Set("Content-Type", "application/json")
+	existingResponse := httptest.NewRecorder()
+	handler.ServeHTTP(existingResponse, existingRequest)
+	if existingResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 for existing chat id, got %d with body %q", existingResponse.Code, existingResponse.Body.String())
+	}
+	var resolvedExisting *string
+	if err := json.Unmarshal(existingResponse.Body.Bytes(), &resolvedExisting); err != nil {
+		t.Fatalf("decode existing chat id response: %v", err)
+	}
+	if resolvedExisting == nil || *resolvedExisting != existingChatID {
+		t.Fatalf("expected existing chat id %q, got %#v", existingChatID, resolvedExisting)
+	}
+
+	missingChatID := "chat-missing"
+	if _, err := projectRuntime.SetChatSectionChatID(context.Background(), "project-alpha", "chat-section", &missingChatID); err != nil {
+		t.Fatalf("seed missing chat id: %v", err)
+	}
+	if err := runStore.Save(agentruns.NewRun(nil, map[string]any{
+		"runType":         externalagents.RunTypeExternalAgent,
+		"chatId":          "chat-other",
+		"projectConfigId": "project-alpha",
+	}, time.Unix(101, 0).UTC())); err != nil {
+		t.Fatalf("save external run: %v", err)
+	}
+
+	missingRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetChatSectionChatID,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"chat-section"}`),
+	)
+	missingRequest.Header.Set("Content-Type", "application/json")
+	missingResponse := httptest.NewRecorder()
+	handler.ServeHTTP(missingResponse, missingRequest)
+	if missingResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 for missing chat id, got %d with body %q", missingResponse.Code, missingResponse.Body.String())
+	}
+	var resolvedMissing *string
+	if err := json.Unmarshal(missingResponse.Body.Bytes(), &resolvedMissing); err != nil {
+		t.Fatalf("decode missing chat id response: %v", err)
+	}
+	if resolvedMissing != nil {
+		t.Fatalf("expected nil for missing chat id, got %#v", resolvedMissing)
+	}
+
+	storedChatID, err := projectRuntime.ChatSectionChatID("project-alpha", "chat-section")
+	if err != nil {
+		t.Fatalf("read stored chat id: %v", err)
+	}
+	if storedChatID != nil {
+		t.Fatalf("expected stored chat id cleared after missing lookup, got %#v", storedChatID)
 	}
 }
 

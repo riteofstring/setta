@@ -162,6 +162,39 @@ func (r *Runtime) SetChatSectionChatID(ctx context.Context, projectID string, se
 	})
 }
 
+func (p *Project) ChatSectionChatID(sectionID string) (*string, error) {
+	_, _, payload, err := p.resolveChatSectionMutationState(sectionID)
+	if err != nil {
+		return nil, err
+	}
+	rawValue, ok := payload["chatId"]
+	if !ok || rawValue == nil {
+		return nil, nil
+	}
+	chatID, ok := rawValue.(string)
+	if !ok {
+		return nil, fmt.Errorf("chat section chatId must be a string or null")
+	}
+	trimmedChatID := strings.TrimSpace(chatID)
+	if trimmedChatID == "" {
+		return nil, nil
+	}
+	return &trimmedChatID, nil
+}
+
+func (d *Document) ChatSectionChatID(projectID string, sectionID string) (*string, error) {
+	project, err := d.ProjectByID(projectID)
+	if err != nil {
+		return nil, err
+	}
+	return project.ChatSectionChatID(sectionID)
+}
+
+func (r *Runtime) ChatSectionChatID(projectID string, sectionID string) (*string, error) {
+	snapshot := r.Snapshot()
+	return snapshot.Document.ChatSectionChatID(projectID, sectionID)
+}
+
 func (p *Project) applyChatSectionUpdates(sectionID string, updates map[string]any) error {
 	trimmedSectionID := strings.TrimSpace(sectionID)
 	for fieldName, fieldValue := range updates {

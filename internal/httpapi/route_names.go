@@ -90,6 +90,7 @@ var bareRouteNames = map[string]struct{}{
 	bareRouteName(RouteSetSectionPinnedParams):                  {},
 	bareRouteName(RouteSetChatSectionSettings):                  {},
 	bareRouteName(RouteSetChatSectionState):                     {},
+	bareRouteName(RouteGetChatSectionChatID):                    {},
 	bareRouteName(RouteSetChatSectionChatID):                    {},
 	bareRouteName(RouteSetCallable):                             {},
 	bareRouteName(RouteSetProjectConfigCodegenTargets):          {},

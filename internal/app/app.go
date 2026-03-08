@@ -20,6 +20,7 @@ import (
 	binarypayload "setta/internal/binary"
 	"setta/internal/boundcode"
 	"setta/internal/chatattachments"
+	"setta/internal/chatsections"
 	"setta/internal/codegen"
 	"setta/internal/config"
 	"setta/internal/deployments"
@@ -154,6 +155,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		agentRunRuntime       *agentruns.Runtime
 		managedLiveRuntime    *managedchat.LiveRuntime
 		managedChatService    *managedchat.Service
+		chatSectionChatIDs    *chatsections.Service
 		appGenSkillService    *appgenskills.Service
 		runChainRuntime       *runchains.Runtime
 		externalConfigStore   *externalagentconfigs.Store
@@ -774,6 +776,14 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
+		chatSectionChatIDs, err = chatsections.NewService(chatsections.ServiceOptions{
+			ProjectState: projectRuntime,
+			Runs:         agentRunStore,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
 		externalAgentFollow, err = externalagents.NewFollowService(externalagents.FollowServiceOptions{
 			Tools:        mcpClient,
 			TemporaryIDs: temporaryIDs,
@@ -1214,6 +1224,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				WorkspaceRoot:                  cfg.Paths.WorkspaceRoot,
 				ProjectState:                   projectRuntime,
 				SettingsState:                  settingsStateRuntime,
+				ChatSectionChatIDs:             chatSectionChatIDs,
 				CodegenTargetValidator:         codegenValidator,
 				PythonCodegenSectionReconciler: pythonMaterializer,
 				CallableSignatures:             lspSignature,

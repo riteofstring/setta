@@ -47,6 +47,7 @@ const (
 	RouteSetSectionPinnedParams         = "/setSectionPinnedParams"
 	RouteSetChatSectionSettings         = "/setChatSectionSettings"
 	RouteSetChatSectionState            = "/setChatSectionState"
+	RouteGetChatSectionChatID           = "/getChatSectionChatId"
 	RouteSetChatSectionChatID           = "/setChatSectionChatId"
 	RouteSetCallable                    = "/setCallable"
 	RouteSetProjectConfigCodegenTargets = "/setProjectConfigCodegenTargets"
@@ -64,6 +65,7 @@ type ProjectRouteDependencies struct {
 	WorkspaceRoot                  string
 	ProjectState                   *projectstate.Runtime
 	SettingsState                  *settingsstate.Runtime
+	ChatSectionChatIDs             ChatSectionChatIDService
 	CodegenTargetValidator         projectstate.CodegenTargetValidator
 	PythonCodegenSectionReconciler projectstate.PythonCodegenSectionReconciler
 	CallableSignatures             projectstate.CallableSignatureResolver
@@ -80,6 +82,10 @@ type ProjectRenameRefactorService interface {
 	SetSectionName(ctx context.Context, projectID string, sectionID string, name string) error
 	AcceptRenameRefactor(ctx context.Context, projectID string, frontendOpID string) error
 	DeclineRenameRefactor(ctx context.Context, projectID string, frontendOpID string) error
+}
+
+type ChatSectionChatIDService interface {
+	GetChatID(ctx context.Context, projectID string, sectionID string) (*string, error)
 }
 
 type ProjectStateSingleConfigWithCompletedOpIDs struct {
@@ -297,6 +303,11 @@ type SetChatSectionStateRequest struct {
 	State        projectstate.ChatSectionState `json:"state"`
 }
 
+type GetChatSectionChatIDRequest struct {
+	ProjectID string `json:"projectConfigId"`
+	SectionID string `json:"sectionId"`
+}
+
 type SetChatSectionChatIDRequest struct {
 	FrontendOpID *string `json:"frontendOpId"`
 	ProjectID    string  `json:"projectConfigId"`
@@ -347,6 +358,9 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 		if deps.SettingsState == nil {
 			return fmt.Errorf("settings runtime is required in ide mode")
 		}
+		if deps.ChatSectionChatIDs == nil {
+			return fmt.Errorf("chat section chat id service is required in ide mode")
+		}
 		if deps.CodeUpdates == nil {
 			return fmt.Errorf("project code update service is required in ide mode")
 		}
@@ -391,6 +405,7 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionPinnedParams, setSectionPinnedParamsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetChatSectionSettings, setChatSectionSettingsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetChatSectionState, setChatSectionStateHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetChatSectionChatID, getChatSectionChatIDHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetChatSectionChatID, setChatSectionChatIDHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCallable, setCallableHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetProjectConfigCodegenTargets, setProjectConfigCodegenTargetsHandler(deps))
@@ -1336,6 +1351,38 @@ func setChatSectionStateHandler(deps ProjectRouteDependencies) http.HandlerFunc 
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func getChatSectionChatIDHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[GetChatSectionChatIDRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ChatSectionChatIDs == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		chatID, err := deps.ChatSectionChatIDs.GetChatID(r.Context(), projectID, sectionID)
+		if err != nil {
+			writeChatSectionMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, chatID)
 	}
 }
 
