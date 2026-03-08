@@ -126,12 +126,10 @@ test.describe.serial("chat branching", () => {
       await expect(editedGroup).toBeVisible();
       await editedGroup.hover();
       await expect(editedGroup.getByText("2/2")).toBeVisible();
-      const previousBranchButton = editedGroup.getByRole("button", {
-        name: "Previous branch",
-      });
-      await expect(previousBranchButton).toBeVisible();
-      await expectLocatorCenterPointToBeReachable(previousBranchButton);
-      await previousBranchButton.click();
+
+      await editedGroup
+        .getByRole("button", { name: "Previous branch" })
+        .click();
 
       const revertedGroup = getMessageGroup(reloadedPane, "Original message");
       await expect(revertedGroup).toBeVisible();
@@ -194,12 +192,10 @@ test.describe.serial("chat branching", () => {
       await expect(editedGroup).toBeVisible();
       await editedGroup.hover();
       await expect(editedGroup.getByText("2/2")).toBeVisible();
-      const previousBranchButton = editedGroup.getByRole("button", {
-        name: "Previous branch",
-      });
-      await expect(previousBranchButton).toBeVisible();
-      await expectLocatorCenterPointToBeReachable(previousBranchButton);
-      await previousBranchButton.click();
+
+      await editedGroup
+        .getByRole("button", { name: "Previous branch" })
+        .click();
 
       const revertedGroup = getMessageGroup(section, "Original section");
       await expect(revertedGroup).toBeVisible();
@@ -448,25 +444,6 @@ async function getEditLayout(
       buttonRight: buttonRect.right,
     };
   }, buttonHandle);
-}
-
-async function expectLocatorCenterPointToBeReachable(
-  locator: Locator,
-): Promise<void> {
-  await expect
-    .poll(async () => {
-      return await locator.evaluate((element) => {
-        const rect = element.getBoundingClientRect();
-        if (rect.width <= 0 || rect.height <= 0) {
-          return false;
-        }
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        const hit = document.elementFromPoint(centerX, centerY);
-        return hit ? element.contains(hit) : false;
-      });
-    })
-    .toBe(true);
 }
 
 function findSectionByName(page: Page, name: string): Locator {

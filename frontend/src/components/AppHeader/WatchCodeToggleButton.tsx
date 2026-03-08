@@ -4,7 +4,7 @@ import {
   useProjectState,
   useShareSession,
 } from "state/definitions";
-import { setWatchCodeEnabledAndRefreshProjectState } from "state/actions/project/watchCode";
+import { route_set_watch_code_enabled } from "utils/generatedEndpoints";
 
 export function WatchCodeToggleButton() {
   const enabled = useProjectState(
@@ -28,14 +28,14 @@ export function WatchCodeToggleButton() {
       aria-label={actionLabel}
       aria-pressed={enabled}
       title={actionLabel}
-      className={`nodrag nopan nowheel box-border inline-flex w-full max-w-full cursor-pointer select-none items-center justify-center gap-2 rounded-md border border-solid px-3 py-2 text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-blue-500/40 ${stateClasses} ${disabledClasses}`}
+      className={`nodrag box-border inline-flex w-full max-w-full cursor-pointer select-none items-center justify-center gap-2 rounded-md border border-solid px-3 py-2 text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-blue-500/40 ${stateClasses} ${disabledClasses}`}
       disabled={disabled}
       type="button"
       onClick={() => {
         if (disabled) {
           return;
         }
-        void setWatchCodeEnabledAndRefreshProjectState({
+        void route_set_watch_code_enabled({
           projectConfigId,
           enabled: !enabled,
         });

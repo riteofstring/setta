@@ -80,6 +80,7 @@ from setta.types.project_config import (
     ViewportBounds,
     WatchCodeFolder,
 )
+from setta.types.project_state import ProjectChatWindowingState
 from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
@@ -732,6 +733,12 @@ class ListenerSetParentDefaultChildSectionTypeRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     defaultChildSectionType: SectionType
+
+
+class ListenerSetProjectChatWindowingStateRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    state: ProjectChatWindowingState
 
 
 class ListenerSetProjectConfigCodegenTargetsRequestPayload(TypedDict):
@@ -1507,6 +1514,11 @@ class RouterEndpointAPI:
         return await self._caller(
             "route_set_parent_default_child_section_type", payload
         )
+
+    async def set_project_chat_windowing_state(
+        self, payload: ListenerSetProjectChatWindowingStateRequestPayload
+    ) -> None:
+        return await self._caller("route_set_project_chat_windowing_state", payload)
 
     async def set_project_config_codegen_targets(
         self, payload: ListenerSetProjectConfigCodegenTargetsRequestPayload
