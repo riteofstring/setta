@@ -3226,10 +3226,135 @@ def set_agentic_edges(p: "ProjectStateSingleConfig", edges: list[AgenticEdge]):
     p.projectConfig.agenticEdges = edges
 
 
+def _get_unique_connected_state_machine_group_id(
+    p: "ProjectStateSingleConfig", section_id: ID
+) -> str | None:
+    machine_group_ids = {
+        edge.machineGroupId
+        for edge in p.projectConfig.stateMachineEdges
+        if edge.sourceSectionId == section_id or edge.targetSectionId == section_id
+    }
+    if len(machine_group_ids) != 1:
+        return None
+    return next(iter(machine_group_ids))
+
+
+def _resolve_existing_machine_group_id_for_state_machine_endpoint(
+    p: "ProjectStateSingleConfig", section_id: ID, section_impl: BaseSectionImpl
+) -> str | None:
+    if isinstance(
+        section_impl,
+        (
+            StateMachineStartSectionImpl,
+            StateMachineGateSectionImpl,
+            StateMachineEndSectionImpl,
+        ),
+    ):
+        return section_impl.machineGroupId
+    return _get_unique_connected_state_machine_group_id(p, section_id)
+
+
+def _get_state_machine_group_merge_replacements(
+    p: "ProjectStateSingleConfig", edge: StateMachineEdge
+) -> dict[str, str]:
+    source_impl = get_curr_effective_section_impl(p, edge.sourceSectionId)
+    target_impl = get_curr_effective_section_impl(p, edge.targetSectionId)
+    source_machine_group_id = (
+        _resolve_existing_machine_group_id_for_state_machine_endpoint(
+            p, edge.sourceSectionId, source_impl
+        )
+    )
+    target_machine_group_id = (
+        _resolve_existing_machine_group_id_for_state_machine_endpoint(
+            p, edge.targetSectionId, target_impl
+        )
+    )
+    existing_machine_group_ids = {
+        machine_group_id
+        for machine_group_id in (source_machine_group_id, target_machine_group_id)
+        if machine_group_id is not None
+    }
+    if len(existing_machine_group_ids) <= 1:
+        return {}
+    if edge.machineGroupId not in existing_machine_group_ids:
+        raise ValueError(
+            f"State machine edge {edge.id} machine group must match one of the connected machine groups."
+        )
+    return {
+        machine_group_id: edge.machineGroupId
+        for machine_group_id in existing_machine_group_ids
+        if machine_group_id != edge.machineGroupId
+    }
+
+
+def _build_state_machine_group_merge_overrides(
+    p: "ProjectStateSingleConfig", merge_replacements: dict[str, str]
+) -> dict[ID, str]:
+    if not merge_replacements:
+        return {}
+    machine_group_overrides: dict[ID, str] = {}
+    for section_id in p.sections:
+        impl = get_curr_effective_section_impl(p, section_id)
+        if not isinstance(
+            impl,
+            (
+                StateMachineStartSectionImpl,
+                StateMachineGateSectionImpl,
+                StateMachineEndSectionImpl,
+            ),
+        ):
+            continue
+        if impl.machineGroupId in merge_replacements:
+            machine_group_overrides[section_id] = merge_replacements[
+                impl.machineGroupId
+            ]
+    return machine_group_overrides
+
+
+def _apply_state_machine_group_merge(
+    p: "ProjectStateSingleConfig", merge_replacements: dict[str, str]
+) -> None:
+    if not merge_replacements:
+        return
+    for section_id, machine_group_id in _build_state_machine_group_merge_overrides(
+        p, merge_replacements
+    ).items():
+        set_curr_effective_section_impl_value(
+            p,
+            section_id,
+            {
+                "machineGroupId": machine_group_id,
+            },
+        )
+    p.projectConfig.stateMachineEdges = [
+        edge.model_copy(
+            update={"machineGroupId": merge_replacements[edge.machineGroupId]}
+        )
+        if edge.machineGroupId in merge_replacements
+        else edge
+        for edge in p.projectConfig.stateMachineEdges
+    ]
+
+
 def create_state_machine_edge(p: "ProjectStateSingleConfig", edge: StateMachineEdge):
     if any(existing.id == edge.id for existing in p.projectConfig.stateMachineEdges):
         raise KeyError(f"State machine edge {edge.id} already exists.")
-    _ensure_state_machine_edges_valid(p, [*p.projectConfig.stateMachineEdges, edge])
+    merge_replacements = _get_state_machine_group_merge_replacements(p, edge)
+    next_edges = [
+        existing.model_copy(
+            update={"machineGroupId": merge_replacements[existing.machineGroupId]}
+        )
+        if existing.machineGroupId in merge_replacements
+        else existing
+        for existing in p.projectConfig.stateMachineEdges
+    ]
+    next_edges.append(edge)
+    _ensure_state_machine_edges_valid(
+        p,
+        next_edges,
+        _build_state_machine_group_merge_overrides(p, merge_replacements),
+    )
+    _apply_state_machine_group_merge(p, merge_replacements)
     p.projectConfig.stateMachineEdges.append(edge)
 
 

@@ -18,6 +18,7 @@ import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
+  setCurrEffectiveSectionImplValue,
 } from "./sectionInfos";
 import {
   getConnectionDebugPayload,
@@ -38,6 +39,16 @@ type WorkflowTargetAction = NonNullable<WorkflowEdge["targetAction"]>;
 type WorkflowSectionInfo = {
   type: SectionTypeEnum | null;
   machineGroupId: string | null;
+};
+
+type WorkflowMachineGroupTransition = {
+  machineGroupId: string | null;
+  mergedMachineGroupIds: string[];
+};
+
+type WorkflowMachineGroupMergeSnapshot = {
+  edgeMachineGroupById: Record<string, string>;
+  sectionMachineGroupById: Record<string, string>;
 };
 
 function getWorkflowSectionInfo(
@@ -161,43 +172,187 @@ function getUniqueConnectedMachineGroupId(
   return machineGroupId ?? null;
 }
 
-function resolveMachineGroupIdForConnection(
+function resolveExistingMachineGroupIdForConnectionEndpoint(
+  state: ProjectStateSingleConfig,
+  sectionId: string,
+  sectionInfo: WorkflowSectionInfo,
+): string | null {
+  if (sectionInfo.machineGroupId) {
+    return sectionInfo.machineGroupId;
+  }
+  return getUniqueConnectedMachineGroupId(state, sectionId);
+}
+
+function resolveMachineGroupTransitionForConnection(
   connection: Connection,
   state: ProjectStateSingleConfig,
-): string | null {
+): WorkflowMachineGroupTransition {
   if (!connection.source || !connection.target) {
-    return null;
+    return {
+      machineGroupId: null,
+      mergedMachineGroupIds: [],
+    };
   }
   const sourceInfo = getWorkflowSectionInfo(state, connection.source);
   const targetInfo = getWorkflowSectionInfo(state, connection.target);
   const machineGroupIds = new Set<string>();
-  if (sourceInfo.machineGroupId) {
-    machineGroupIds.add(sourceInfo.machineGroupId);
-  }
-  if (targetInfo.machineGroupId) {
-    machineGroupIds.add(targetInfo.machineGroupId);
-  }
-  if (machineGroupIds.size === 0) {
-    const sourceConnectedGroup = getUniqueConnectedMachineGroupId(
+  const sourceMachineGroupId =
+    resolveExistingMachineGroupIdForConnectionEndpoint(
       state,
       connection.source,
+      sourceInfo,
     );
-    if (sourceConnectedGroup) {
-      machineGroupIds.add(sourceConnectedGroup);
-    }
-    const targetConnectedGroup = getUniqueConnectedMachineGroupId(
+  const targetMachineGroupId =
+    resolveExistingMachineGroupIdForConnectionEndpoint(
       state,
       connection.target,
+      targetInfo,
     );
-    if (targetConnectedGroup) {
-      machineGroupIds.add(targetConnectedGroup);
+  if (sourceMachineGroupId) {
+    machineGroupIds.add(sourceMachineGroupId);
+  }
+  if (targetMachineGroupId) {
+    machineGroupIds.add(targetMachineGroupId);
+  }
+  if (machineGroupIds.size === 0) {
+    return {
+      machineGroupId: null,
+      mergedMachineGroupIds: [],
+    };
+  }
+  const machineGroupId = sourceMachineGroupId ?? targetMachineGroupId;
+  if (!machineGroupId) {
+    return {
+      machineGroupId: null,
+      mergedMachineGroupIds: [],
+    };
+  }
+  return {
+    machineGroupId,
+    mergedMachineGroupIds: [...machineGroupIds].filter(
+      (candidate) => candidate !== machineGroupId,
+    ),
+  };
+}
+
+function captureWorkflowMachineGroupMergeSnapshot(
+  state: ProjectStateSingleConfig,
+  mergedMachineGroupIds: string[],
+): WorkflowMachineGroupMergeSnapshot {
+  const mergedMachineGroupIdSet = new Set(mergedMachineGroupIds);
+  const edgeMachineGroupById: Record<string, string> = {};
+  for (const edge of state.projectConfig.stateMachineEdges) {
+    if (mergedMachineGroupIdSet.has(edge.machineGroupId)) {
+      edgeMachineGroupById[edge.id] = edge.machineGroupId;
     }
   }
-  if (machineGroupIds.size !== 1) {
-    return null;
+  const sectionMachineGroupById: Record<string, string> = {};
+  for (const sectionId of Object.keys(state.projectConfig.sectionVariantMap)) {
+    const impl = getCurrEffectiveSectionImpl(state, sectionId);
+    if (
+      (impl.type === SectionTypeEnum.StateMachineStart ||
+        impl.type === SectionTypeEnum.StateMachineGate ||
+        impl.type === SectionTypeEnum.StateMachineEnd) &&
+      mergedMachineGroupIdSet.has(impl.machineGroupId)
+    ) {
+      sectionMachineGroupById[sectionId] = impl.machineGroupId;
+    }
   }
-  const [machineGroupId] = machineGroupIds;
-  return machineGroupId ?? null;
+  return {
+    edgeMachineGroupById,
+    sectionMachineGroupById,
+  };
+}
+
+function applyWorkflowMachineGroupMerge(
+  state: ProjectStateSingleConfig,
+  machineGroupId: string,
+  mergedMachineGroupIds: string[],
+): void {
+  if (mergedMachineGroupIds.length === 0) {
+    return;
+  }
+  const mergedMachineGroupIdSet = new Set(mergedMachineGroupIds);
+  for (const sectionId of Object.keys(state.projectConfig.sectionVariantMap)) {
+    const impl = getCurrEffectiveSectionImpl(state, sectionId);
+    if (
+      impl.type === SectionTypeEnum.StateMachineStart &&
+      mergedMachineGroupIdSet.has(impl.machineGroupId)
+    ) {
+      setCurrEffectiveSectionImplValue<"StateMachineStartSection">(
+        state,
+        sectionId,
+        { machineGroupId },
+      );
+      continue;
+    }
+    if (
+      impl.type === SectionTypeEnum.StateMachineGate &&
+      mergedMachineGroupIdSet.has(impl.machineGroupId)
+    ) {
+      setCurrEffectiveSectionImplValue<"StateMachineGateSection">(
+        state,
+        sectionId,
+        { machineGroupId },
+      );
+      continue;
+    }
+    if (
+      impl.type === SectionTypeEnum.StateMachineEnd &&
+      mergedMachineGroupIdSet.has(impl.machineGroupId)
+    ) {
+      setCurrEffectiveSectionImplValue<"StateMachineEndSection">(
+        state,
+        sectionId,
+        { machineGroupId },
+      );
+    }
+  }
+  for (const edge of state.projectConfig.stateMachineEdges) {
+    if (mergedMachineGroupIdSet.has(edge.machineGroupId)) {
+      edge.machineGroupId = machineGroupId;
+    }
+  }
+}
+
+function restoreWorkflowMachineGroupMergeSnapshot(
+  state: ProjectStateSingleConfig,
+  snapshot: WorkflowMachineGroupMergeSnapshot,
+): void {
+  for (const [sectionId, machineGroupId] of Object.entries(
+    snapshot.sectionMachineGroupById,
+  )) {
+    const impl = getCurrEffectiveSectionImpl(state, sectionId);
+    if (impl.type === SectionTypeEnum.StateMachineStart) {
+      setCurrEffectiveSectionImplValue<"StateMachineStartSection">(
+        state,
+        sectionId,
+        { machineGroupId },
+      );
+      continue;
+    }
+    if (impl.type === SectionTypeEnum.StateMachineGate) {
+      setCurrEffectiveSectionImplValue<"StateMachineGateSection">(
+        state,
+        sectionId,
+        { machineGroupId },
+      );
+      continue;
+    }
+    if (impl.type === SectionTypeEnum.StateMachineEnd) {
+      setCurrEffectiveSectionImplValue<"StateMachineEndSection">(
+        state,
+        sectionId,
+        { machineGroupId },
+      );
+    }
+  }
+  for (const edge of state.projectConfig.stateMachineEdges) {
+    const machineGroupId = snapshot.edgeMachineGroupById[edge.id];
+    if (machineGroupId) {
+      edge.machineGroupId = machineGroupId;
+    }
+  }
 }
 
 function isAllowedStateMachineConnection(
@@ -306,10 +461,11 @@ function buildStateMachineEdgeForConnection(
   ) {
     return null;
   }
-  const machineGroupId = resolveMachineGroupIdForConnection(
+  const machineGroupTransition = resolveMachineGroupTransitionForConnection(
     normalizedConnection,
     state,
   );
+  const machineGroupId = machineGroupTransition.machineGroupId;
   if (!machineGroupId) {
     return null;
   }
@@ -369,7 +525,8 @@ export function isValidStateMachineEdgeConnection(
     return false;
   }
   return (
-    resolveMachineGroupIdForConnection(normalizedConnection, state) !== null
+    resolveMachineGroupTransitionForConnection(normalizedConnection, state)
+      .machineGroupId !== null
   );
 }
 
@@ -383,23 +540,24 @@ export function createStateMachineEdgeFromConnection(
     return;
   }
   const state = useProjectState.getState();
+  const normalizedConnection = normalizeWorkflowConnectionHandles(connection);
+  const machineGroupTransition = resolveMachineGroupTransitionForConnection(
+    normalizedConnection,
+    state,
+  );
   const nextEdge = buildStateMachineEdgeForConnection(connection, state);
   if (!nextEdge) {
     logWorkflowDebug("workflow edge creation rejected", {
       ...getConnectionDebugPayload(connection),
-      normalizedConnection: getConnectionDebugPayload(
-        normalizeWorkflowConnectionHandles(connection),
-      ),
+      normalizedConnection: getConnectionDebugPayload(normalizedConnection),
       sourceInfo: connection.source
         ? getWorkflowSectionInfo(state, connection.source)
         : null,
       targetInfo: connection.target
         ? getWorkflowSectionInfo(state, connection.target)
         : null,
-      resolvedMachineGroupId: resolveMachineGroupIdForConnection(
-        normalizeWorkflowConnectionHandles(connection),
-        state,
-      ),
+      resolvedMachineGroupId: machineGroupTransition.machineGroupId,
+      mergedMachineGroupIds: machineGroupTransition.mergedMachineGroupIds,
     });
     addTemporaryNotification(
       "Workflow edges require compatible workflow ports and one resolvable machine group.",
@@ -407,9 +565,14 @@ export function createStateMachineEdgeFromConnection(
     );
     return;
   }
+  const mergeSnapshot = captureWorkflowMachineGroupMergeSnapshot(
+    state,
+    machineGroupTransition.mergedMachineGroupIds,
+  );
   logWorkflowDebug("workflow edge created", {
     edgeId: nextEdge.id,
     machineGroupId: nextEdge.machineGroupId,
+    mergedMachineGroupIds: machineGroupTransition.mergedMachineGroupIds,
     sourceSectionId: nextEdge.sourceSectionId,
     sourcePortId: nextEdge.sourcePortId,
     targetSectionId: nextEdge.targetSectionId,
@@ -419,6 +582,11 @@ export function createStateMachineEdgeFromConnection(
   });
   dispatchOptimisticProjectStateUpdate({
     apply: (draft) => {
+      applyWorkflowMachineGroupMerge(
+        draft,
+        nextEdge.machineGroupId,
+        machineGroupTransition.mergedMachineGroupIds,
+      );
       if (
         draft.projectConfig.stateMachineEdges.some(
           (edge) => edge.id === nextEdge.id,
@@ -433,6 +601,7 @@ export function createStateMachineEdgeFromConnection(
         draft.projectConfig.stateMachineEdges.filter(
           (edge) => edge.id !== nextEdge.id,
         );
+      restoreWorkflowMachineGroupMergeSnapshot(draft, mergeSnapshot);
     },
     send: (frontendOpId) =>
       route_create_state_machine_edge({

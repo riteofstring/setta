@@ -230,6 +230,74 @@ test.describe.serial("state machine sections", () => {
           machineGroupId: "workflow-main",
         });
 
+      const gateSourceHandle = page.getByTestId(
+        `workflow-source-handle-${gateSectionId}`,
+      );
+      const endTargetHandle = page.getByTestId(
+        `workflow-target-handle-${endSectionId}`,
+      );
+      await gateNode.hover();
+      await expect(gateSourceHandle).toBeVisible();
+      await endNode.hover();
+      await expect(endTargetHandle).toBeVisible();
+      await dragHandleToHandle(page, gateSourceHandle, endTargetHandle);
+
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineEdges(page, projectContext.projectConfigId),
+          { timeout: 8000 },
+        )
+        .toHaveLength(1);
+      await expect
+        .poll(
+          async () =>
+            (await readStateMachineEdges(page, projectContext.projectConfigId)).find(
+              (edge) =>
+                edge.sourceSectionId === gateSectionId &&
+                edge.targetSectionId === endSectionId,
+            ) ?? null,
+          { timeout: 8000 },
+        )
+        .not.toBeNull();
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineImpl(
+              page,
+              projectContext.projectConfigId,
+              endSectionId,
+            ),
+          { timeout: 8000 },
+        )
+        .toMatchObject({
+          type: "StateMachineEnd",
+          machineGroupId: "workflow-main",
+        });
+      const temporaryEdges = await readStateMachineEdges(
+        page,
+        projectContext.projectConfigId,
+      );
+      const temporaryGateToEndEdgeId = temporaryEdges.find(
+        (edge) =>
+          edge.sourceSectionId === gateSectionId &&
+          edge.targetSectionId === endSectionId,
+      )?.id;
+      if (!temporaryGateToEndEdgeId) {
+        throw new Error("Missing temporary gate-to-end workflow edge.");
+      }
+      await postBackend(page, "/deleteStateMachineEdges", {
+        projectConfigId: projectContext.projectConfigId,
+        edgeIds: [temporaryGateToEndEdgeId],
+      });
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineEdges(page, projectContext.projectConfigId),
+          { timeout: 8000 },
+        )
+        .toHaveLength(0);
+
       await setStateMachineSectionSettings(
         page,
         projectContext.projectConfigId,
@@ -309,17 +377,11 @@ test.describe.serial("state machine sections", () => {
           maxIterations: 3,
         });
 
-      const gateSourceHandle = page.getByTestId(
-        `workflow-source-handle-${gateSectionId}`,
-      );
       const chatTargetHandle = page.getByTestId(
         `chat-shared-target-handle-${chatSectionId}`,
       );
       const chatSourceHandle = page.getByTestId(
         `chat-shared-source-handle-${chatSectionId}`,
-      );
-      const endTargetHandle = page.getByTestId(
-        `workflow-target-handle-${endSectionId}`,
       );
 
       await startNode.hover();

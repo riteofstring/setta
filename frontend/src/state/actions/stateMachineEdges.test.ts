@@ -1,5 +1,6 @@
 import type { Connection } from "forks/xyflow/core/types";
 import { SHARED_CHAT_EDGE_HANDLE_IDS } from "state/actions/chatSharedHandleIds";
+import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import {
   createStateMachineEdgeFromConnection,
   isValidStateMachineEdgeConnection,
@@ -34,13 +35,17 @@ vi.mock("utils/generatedEndpoints", async () => {
 
 const projectConfigId = "project-1";
 const machineGroupId = "workflow-main";
+const otherMachineGroupId = "workflow-other";
 const startSectionId = "section-start";
+const gateSectionId = "section-gate";
 const chatSectionId = "section-chat";
 const endSectionId = "section-end";
 const startVariantId = "variant-start";
+const gateVariantId = "variant-gate";
 const chatVariantId = "variant-chat";
 const endVariantId = "variant-end";
 const startImplId = "impl-start";
+const gateImplId = "impl-gate";
 const chatImplId = "impl-chat";
 const endImplId = "impl-end";
 
@@ -65,6 +70,31 @@ function createStateMachineEndImpl(id: string, machineGroup: string) {
   };
 }
 
+function createStateMachineGateImpl(id: string, machineGroup: string) {
+  return {
+    type: SectionTypeEnum.StateMachineGate,
+    id,
+    name: "Gate",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    tagColor: null,
+    styleColor: null,
+    size: createSectionSize({ width: 240, height: 120 }),
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isPreset: false,
+    machineGroupId: machineGroup,
+    gateType: "AND",
+    label: "AND Gate",
+    ui: {
+      showDetails: false,
+    },
+  };
+}
+
 function seedWorkflowSections() {
   const startImpl = createStateMachineStartSectionImpl(
     {},
@@ -74,6 +104,7 @@ function seedWorkflowSections() {
       label: "Start",
     },
   );
+  const gateImpl = createStateMachineGateImpl(gateImplId, machineGroupId);
   const chatImpl = createChatSectionImpl(
     createUserDefaultChatSectionImpl({ chatId: "chat-a" }),
     {
@@ -90,6 +121,12 @@ function seedWorkflowSections() {
     id: startVariantId,
     name: "Start Variant",
     impl: startImplId,
+    nonPresetImpls: [],
+  });
+  const gateVariant = createVariant({
+    id: gateVariantId,
+    name: "Gate Variant",
+    impl: gateImplId,
     nonPresetImpls: [],
   });
   const chatVariant = createVariant({
@@ -110,6 +147,7 @@ function seedWorkflowSections() {
       id: projectConfigId,
       sectionVariantMap: {
         [startSectionId]: startVariantId,
+        [gateSectionId]: gateVariantId,
         [chatSectionId]: chatVariantId,
         [endSectionId]: endVariantId,
       },
@@ -120,6 +158,12 @@ function seedWorkflowSections() {
         name: "Start",
         variants: [startVariantId],
         defaultVariant: startVariantId,
+      }),
+      [gateSectionId]: createCore({
+        id: gateSectionId,
+        name: "Gate",
+        variants: [gateVariantId],
+        defaultVariant: gateVariantId,
       }),
       [chatSectionId]: createCore({
         id: chatSectionId,
@@ -136,11 +180,13 @@ function seedWorkflowSections() {
     };
     state.sectionVariants = {
       [startVariantId]: startVariant,
+      [gateVariantId]: gateVariant,
       [chatVariantId]: chatVariant,
       [endVariantId]: endVariant,
     };
     state.sectionImpls = {
       [startImplId]: startImpl,
+      [gateImplId]: gateImpl,
       [chatImplId]: chatImpl,
       [endImplId]: endImpl,
     };
@@ -367,6 +413,83 @@ describe("state machine edge creation", () => {
         targetSectionId: endSectionId,
         sourcePortId: STATE_MACHINE_EDGE_HANDLE_IDS.source,
         targetPortId: STATE_MACHINE_EDGE_HANDLE_IDS.target,
+      }),
+    );
+  });
+
+  it("merges workflow machine groups when connecting a gate to an end node", async () => {
+    const route_create_state_machine_edge = (
+      await import("utils/generatedEndpoints")
+    ).route_create_state_machine_edge as unknown as vi.Mock;
+    route_create_state_machine_edge.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    useProjectState.setState((state) => {
+      const gateImpl = state.sectionImpls[gateImplId];
+      const endImpl = state.sectionImpls[endImplId];
+      if (!gateImpl || gateImpl.type !== SectionTypeEnum.StateMachineGate) {
+        throw new Error("Missing gate impl in workflow test state.");
+      }
+      if (!endImpl || endImpl.type !== SectionTypeEnum.StateMachineEnd) {
+        throw new Error("Missing end impl in workflow test state.");
+      }
+      gateImpl.machineGroupId = machineGroupId;
+      endImpl.machineGroupId = otherMachineGroupId;
+      state.projectConfig.stateMachineEdges = [
+        {
+          id: "edge-existing",
+          machineGroupId: otherMachineGroupId,
+          sourceSectionId: chatSectionId,
+          sourcePortId: STATE_MACHINE_EDGE_HANDLE_IDS.source,
+          targetSectionId: endSectionId,
+          targetPortId: STATE_MACHINE_EDGE_HANDLE_IDS.target,
+          sourceFilter: {
+            type: "run_completed",
+            signalName: null,
+            payloadField: null,
+            equals: null,
+          },
+          targetAction: null,
+          style: null,
+          hidden: false,
+          zIndex: 0,
+          selected: false,
+        },
+      ];
+    });
+
+    const connection = createConnection(gateSectionId, endSectionId);
+    expect(isValidStateMachineEdgeConnection(connection)).toBe(true);
+
+    createStateMachineEdgeFromConnection(connection);
+
+    const currentState = useProjectState.getState();
+    expect(currentState.projectConfig.stateMachineEdges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "edge-existing",
+          machineGroupId,
+        }),
+        expect.objectContaining({
+          machineGroupId,
+          sourceSectionId: gateSectionId,
+          targetSectionId: endSectionId,
+        }),
+      ]),
+    );
+    const endImpl = getCurrEffectiveSectionImpl(currentState, endSectionId);
+    expect(endImpl).toMatchObject({
+      type: SectionTypeEnum.StateMachineEnd,
+      machineGroupId,
+    });
+    expect(route_create_state_machine_edge).toHaveBeenCalledWith(
+      expect.objectContaining({
+        machineGroupId,
+        sourceSectionId: gateSectionId,
+        targetSectionId: endSectionId,
       }),
     );
   });

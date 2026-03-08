@@ -175,6 +175,46 @@ class TestStateMachineEdges:
         second_edge = self._create_edge(self.start_section_id, self.gate_section_id)
         assert self.project_state.projectConfig.stateMachineEdges == [second_edge]
 
+    def test_create_state_machine_edge_merges_connected_machine_groups(self) -> None:
+        other_machine_group_id = "other-machine"
+        extra_start_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.StateMachineStart,
+            Position(x=720, y=0),
+        )
+        self.project_state.sections[extra_start_id].sharedModifier["machineGroupId"] = (
+            other_machine_group_id
+        )
+        self.project_state.sections[self.end_section_id].sharedModifier["machineGroupId"] = (
+            other_machine_group_id
+        )
+        existing_edge = StateMachineEdge(
+            id=create_new_id(),
+            machineGroupId=other_machine_group_id,
+            sourceSectionId=extra_start_id,
+            sourcePortId=STATE_MACHINE_EDGE_SOURCE_PORT_ID,
+            targetSectionId=self.end_section_id,
+            targetPortId=STATE_MACHINE_EDGE_TARGET_PORT_ID,
+            sourceFilter=None,
+            targetAction=None,
+        )
+        create_state_machine_edge(self.project_state, existing_edge)
+
+        merged_edge = self._create_edge(self.gate_section_id, self.end_section_id)
+
+        assert [edge.machineGroupId for edge in self.project_state.projectConfig.stateMachineEdges] == [
+            self.machine_group_id,
+            self.machine_group_id,
+        ]
+        assert (
+            self.project_state.sections[self.end_section_id].sharedModifier[
+                "machineGroupId"
+            ]
+            == self.machine_group_id
+        )
+        assert merged_edge.machineGroupId == self.machine_group_id
+
     def test_chat_target_requires_valid_action(self) -> None:
         chat_section_id = create_top_level_section(
             self.settings,
