@@ -292,15 +292,7 @@ func (s *ManagementService) Setup(settaHome string, input LauncherSetupInput) (L
 	case existingMetadata != nil:
 		resolvedInstallArtifacts = len(normalizedExistingManagedArtifacts) > 0
 	default:
-		// Stage 1a intentionally defaults fresh installs to metadata-only mode until
-		// Go owns platform artifact templates and install/remove flows.
 		resolvedInstallArtifacts = false
-	}
-	if resolvedInstallArtifacts {
-		return LauncherSetupResult{}, unsupportedArtifactMutationError("Launcher artifact installation is not implemented in the Go runtime yet.")
-	}
-	if len(normalizedExistingManagedArtifacts) > 0 {
-		return LauncherSetupResult{}, unsupportedArtifactMutationError("Launcher metadata references managed desktop artifacts that the Go runtime cannot mutate yet.")
 	}
 
 	resolvedChannel := "manual"
@@ -362,6 +354,56 @@ func (s *ManagementService) Setup(settaHome string, input LauncherSetupInput) (L
 		return LauncherSetupResult{}, &LauncherSetupError{Code: "InternalError", Message: "Internal Server Error"}
 	}
 
+	mergedArtifacts := cloneStringMap(normalizedExistingManagedArtifacts)
+	removalCandidates := map[string]string{}
+	metadataCleanupCandidates := map[string]string{}
+	if resolvedInstallArtifacts {
+		artifactContext := launcherArtifactContext{
+			TargetCommand:            append([]string(nil), targetCommand...),
+			SettaHome:                resolvedSettaHome,
+			ExistingManagedArtifacts: cloneStringMap(mergedArtifacts),
+			Options:                  cloneStringMap(resolvedArtifactOptions),
+		}
+		plannedArtifacts, err := planCurrentPlatformArtifactPaths(artifactContext)
+		if err != nil {
+			var artifactErr *LauncherArtifactError
+			if errors.As(err, &artifactErr) {
+				return LauncherSetupResult{}, &LauncherSetupError{Code: "BadRequest", Message: artifactErr.Error()}
+			}
+			return LauncherSetupResult{}, err
+		}
+		if err := validatePlannedArtifactPaths(plannedArtifacts, resolvedSettaHome); err != nil {
+			return LauncherSetupResult{}, err
+		}
+		desiredArtifacts := cloneStringMap(plannedArtifacts)
+		removalCandidates = computeReplacedOrRemovedArtifacts(normalizedExistingManagedArtifacts, desiredArtifacts)
+		installedArtifacts, err := installCurrentPlatformArtifacts(artifactContext)
+		if err != nil {
+			var artifactErr *LauncherArtifactError
+			if errors.As(err, &artifactErr) {
+				return LauncherSetupResult{}, &LauncherSetupError{Code: "ArtifactInstallFailed", Message: artifactErr.Error()}
+			}
+			return LauncherSetupResult{}, &LauncherSetupError{Code: "ArtifactInstallFailed", Message: err.Error()}
+		}
+		mergedArtifacts, err = validateManagedArtifactRegistry(installedArtifacts, resolvedSettaHome, "ArtifactInstallFailed")
+		if err != nil {
+			return LauncherSetupResult{}, err
+		}
+		metadataCleanupCandidates = computeNewOrReplacedArtifacts(normalizedExistingManagedArtifacts, mergedArtifacts)
+		if err := writeArtifactOwnershipMarkers(mergedArtifacts, ownershipToken); err != nil {
+			cleanupArtifactsAfterFailedMetadataWrite(metadataCleanupCandidates)
+			return LauncherSetupResult{}, err
+		}
+	} else {
+		removalCandidates = computeReplacedOrRemovedArtifacts(normalizedExistingManagedArtifacts, map[string]string{})
+	}
+	if markerErrors := validateOwnedArtifactsBeforeRemoval(removalCandidates, ownershipToken); len(markerErrors) > 0 {
+		return LauncherSetupResult{}, &LauncherSetupError{
+			Code:    "ArtifactRemovalFailed",
+			Message: strings.Join(markerErrors, "; "),
+		}
+	}
+
 	metadata, err := BuildLauncherInstallMetadata(LauncherInstallMetadataInput{
 		TargetCommand:          targetCommand,
 		Channel:                resolvedChannel,
@@ -373,9 +415,10 @@ func (s *ManagementService) Setup(settaHome string, input LauncherSetupInput) (L
 		WorkspaceBehavior:      resolvedWorkspaceBehavior,
 		LastUsedWorkspace:      launcherMetadataLastUsedWorkspace(existingMetadata),
 		ArtifactOptions:        resolvedArtifactOptions,
-		ManagedArtifacts:       map[string]string{},
+		ManagedArtifacts:       mergedArtifacts,
 	})
 	if err != nil {
+		cleanupArtifactsAfterFailedMetadataWrite(metadataCleanupCandidates)
 		var metadataErr *LauncherMetadataError
 		if errors.As(err, &metadataErr) {
 			return LauncherSetupResult{}, &LauncherSetupError{Code: "BadRequest", Message: metadataErr.Error()}
@@ -385,6 +428,7 @@ func (s *ManagementService) Setup(settaHome string, input LauncherSetupInput) (L
 
 	metadataPath, err := WriteLauncherInstallMetadata(resolvedSettaHome, metadata)
 	if err != nil {
+		cleanupArtifactsAfterFailedMetadataWrite(metadataCleanupCandidates)
 		return LauncherSetupResult{}, &LauncherSetupError{
 			Code:    "LauncherMetadata",
 			Message: fmt.Sprintf("Failed to write launcher metadata: %v", err),
@@ -393,6 +437,15 @@ func (s *ManagementService) Setup(settaHome string, input LauncherSetupInput) (L
 	launcherDir, err := resolveLauncherDir(resolvedSettaHome)
 	if err != nil {
 		return LauncherSetupResult{}, err
+	}
+	if len(removalCandidates) > 0 {
+		removalResult := removeOwnedArtifacts(removalCandidates, ownershipToken)
+		if len(removalResult.Errors) > 0 {
+			return LauncherSetupResult{}, &LauncherSetupError{
+				Code:    "ArtifactRemovalFailed",
+				Message: strings.Join(removalResult.Errors, "; "),
+			}
+		}
 	}
 
 	return LauncherSetupResult{
@@ -414,15 +467,12 @@ func (s *ManagementService) Repair(settaHome string) (LauncherStatusSnapshot, er
 			Message: "Launcher is not installed. Run `setta launcher setup` first.",
 		}
 	}
-	if len(status.Metadata.ManagedArtifacts) > 0 {
-		return LauncherStatusSnapshot{}, unsupportedArtifactMutationError("Launcher repair for managed desktop artifacts is not implemented in the Go runtime yet.")
-	}
 
 	channel := status.Metadata.Channel
 	installSource := LauncherInstallSource(status.Metadata.InstallSource)
 	openMode := LauncherOpenMode(status.Metadata.OpenMode)
 	workspaceBehavior := LauncherWorkspaceBehavior(status.Metadata.WorkspaceBehavior)
-	installArtifacts := false
+	installArtifacts := len(status.Metadata.ManagedArtifacts) > 0
 
 	if _, err := s.Setup(settaHome, LauncherSetupInput{
 		Channel:           &channel,
@@ -468,7 +518,32 @@ func (s *ManagementService) Remove(settaHome string) (LauncherRemoveResult, erro
 			return LauncherRemoveResult{}, err
 		}
 		if len(normalizedManagedArtifacts) > 0 {
-			return LauncherRemoveResult{}, unsupportedArtifactMutationError("Launcher removal for managed desktop artifacts is not implemented in the Go runtime yet.")
+			removalResult := removeOwnedArtifacts(normalizedManagedArtifacts, existingMetadata.ArtifactOwnershipToken)
+			if len(removalResult.Errors) > 0 {
+				return LauncherRemoveResult{}, &LauncherSetupError{
+					Code:    "ArtifactRemovalFailed",
+					Message: strings.Join(removalResult.Errors, "; "),
+				}
+			}
+			returnedRemovedPaths := append([]string(nil), removalResult.RemovedPaths...)
+			returnedMissingPaths := append([]string(nil), removalResult.MissingPaths...)
+			metadataRemoved, err := RemoveLauncherInstallMetadata(resolvedSettaHome)
+			if err != nil {
+				return LauncherRemoveResult{}, &LauncherSetupError{
+					Code:    "LauncherMetadata",
+					Message: fmt.Sprintf("Failed to remove launcher metadata: %v", err),
+				}
+			}
+			if info, err := os.Stat(launcherDir); err == nil && info.IsDir() {
+				_ = os.Remove(launcherDir)
+			}
+			return LauncherRemoveResult{
+				SettaHome:       resolvedSettaHome,
+				MetadataPath:    metadataPath,
+				MetadataRemoved: metadataRemoved,
+				RemovedPaths:    returnedRemovedPaths,
+				MissingPaths:    returnedMissingPaths,
+			}, nil
 		}
 	}
 
@@ -577,7 +652,7 @@ func (s *ManagementService) Update(settaHome string, packageSpec string) (Launch
 	installSource := LauncherInstallSource(status.Metadata.InstallSource)
 	openMode := LauncherOpenMode(status.Metadata.OpenMode)
 	workspaceBehavior := LauncherWorkspaceBehavior(status.Metadata.WorkspaceBehavior)
-	installArtifacts := false
+	installArtifacts := len(status.Metadata.ManagedArtifacts) > 0
 
 	if _, err := s.Setup(settaHome, LauncherSetupInput{
 		Channel:           &channel,
@@ -607,10 +682,7 @@ func (s *ManagementService) Update(settaHome string, packageSpec string) (Launch
 }
 
 func resolveLauncherUpdateCapability(metadata LauncherInstallMetadata, managedArtifacts map[string]string) (LauncherUpdateCapability, *string) {
-	if len(managedArtifacts) > 0 {
-		guidance := "Managed launcher artifacts are present. This Go runtime stage only supports metadata-only launcher updates."
-		return LauncherUpdateCapabilityUnsupported, &guidance
-	}
+	_ = managedArtifacts
 	switch LauncherInstallSource(metadata.InstallSource) {
 	case LauncherInstallSourceUVTool:
 		return LauncherUpdateCapabilityInApp, nil
@@ -818,44 +890,6 @@ func resolveEnvPathLoose(envVar string, fallback string) string {
 	return resolved
 }
 
-func artifactWritePathOptionKeys() map[string]struct{} {
-	switch runtime.GOOS {
-	case "darwin":
-		return map[string]struct{}{"app_path": {}}
-	case "windows":
-		return map[string]struct{}{
-			"wrapper_path":             {},
-			"start_menu_shortcut_path": {},
-			"desktop_shortcut_path":    {},
-		}
-	default:
-		return map[string]struct{}{
-			"applications_dir":      {},
-			"wrapper_path":          {},
-			"desktop_shortcut_path": {},
-		}
-	}
-}
-
-func currentPlatformArtifactKeys() map[string]struct{} {
-	switch runtime.GOOS {
-	case "darwin":
-		return map[string]struct{}{"macosApp": {}}
-	case "windows":
-		return map[string]struct{}{
-			"windowsWrapper":           {},
-			"windowsStartMenuShortcut": {},
-			"windowsDesktopShortcut":   {},
-		}
-	default:
-		return map[string]struct{}{
-			"linuxDesktopEntry":    {},
-			"linuxWrapper":         {},
-			"linuxDesktopShortcut": {},
-		}
-	}
-}
-
 func resolveArtifactOwnershipToken(metadata *LauncherInstallMetadata) (string, error) {
 	if metadata != nil {
 		return metadata.ArtifactOwnershipToken, nil
@@ -899,13 +933,6 @@ func boolPointer(value bool) *bool {
 
 func mapPointer(value map[string]string) *map[string]string {
 	return &value
-}
-
-func unsupportedArtifactMutationError(message string) error {
-	return &LauncherSetupError{
-		Code:    "ArtifactMutationUnavailable",
-		Message: message,
-	}
 }
 
 func formatLauncherCommandFailure(result launcherCommandResult) string {

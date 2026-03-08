@@ -36,11 +36,13 @@ Current repo status as of 2026-03-08:
     `internal/httpapi/bootstrap_page.go`
   - IDE launcher management/status routes in
     `internal/httpapi/launcher_management_routes.go`
-  - launcher metadata/status ownership in
-    `internal/launcher/metadata.go` and `internal/launcher/management.go`
+  - launcher metadata/status and managed artifact ownership in
+    `internal/launcher/metadata.go`,
+    `internal/launcher/management.go`,
+    `internal/launcher/artifacts.go`, and
+    `internal/launcher/artifact_launch.go`
 - Python still appears to own major non-MCP backend surface in:
   - launcher and launch/session bootstrap flows
-  - managed launcher artifact installation/removal/template ownership
   - bootstrap and launcher-origin handoff behavior around launched workspaces
 - nothing is currently in progress in the worktree
 
@@ -75,12 +77,11 @@ Current repo status as of 2026-03-08:
      - `/createWorkspaceLaunchIntent`
    - the remaining Python-owned launcher/runtime behavior is now concentrated
      in:
-     - platform artifact install/remove/update semantics behind launcher
-       management
      - `/launch`
      - `/createWorkspaceLaunchIntent`
-   - the next obvious Go slice is now launcher artifact ownership, not
-     launcher-home runtime browsing or metadata/status transport
+     - bootstrap/origin handoff policy around those flows
+   - the next obvious Go slice is now launch/bootstrap handoff, not launcher
+     management
 
 2. Deployment runtime handoff is now complete for the current bounded slice
    - Go now serves:
@@ -111,19 +112,17 @@ Current repo status as of 2026-03-08:
 
 ## Recommended Next Step
 
-Create and execute the next focused Phase 7 slice for IDE launcher
-artifact ownership, using
-`phase-7-launcher-management-artifact-ownership-stage1b.md` as the focused
-plan doc under `phase-7-launcher-management-and-bootstrap-plan.md`.
+Create and execute the next focused Phase 7 slice for launch/bootstrap
+handoff ownership under
+`phase-7-launcher-management-and-bootstrap-plan.md`.
 
 That is now the highest-leverage next step because:
 
-- the bounded deployment slice is complete end to end
-- the dedicated launcher/bootstrap Phase 7 plan now exists
-- the launcher-mode runtime/browser slice is now complete in Go
-- the launcher executable/bootstrap prerequisite is now complete
-- the metadata/status owner is now complete in Go
-- the largest remaining launcher-only backend cluster is artifact ownership
+- launcher management is now complete end to end in Go
+- the remaining Python-owned launcher gap is concentrated in launch intent,
+  launch handoff, and bootstrap/origin trust
+- those remaining routes form a coherent boundary instead of a mixed runtime
+  and OS-integration cluster
 
 ## Progress Notes
 
@@ -179,6 +178,13 @@ That is now the highest-leverage next step because:
   `internal/httpapi/launcher_management_routes.go`, and
   `internal/app/app.go`; next recommended step is Stage 1b managed launcher
   artifact ownership.
+- 2026-03-08: completed Stage 1b managed launcher artifact ownership in
+  `internal/launcher/artifacts.go`,
+  `internal/launcher/artifact_launch.go`,
+  `internal/launcher/management.go`,
+  `internal/httpapi/launcher_management_routes_test.go`, and
+  `internal/app/launcher_management_test.go`; next recommended step is the
+  remaining launch/bootstrap handoff slice.
 
 ## Verification
 

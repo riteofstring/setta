@@ -29,17 +29,19 @@ As of 2026-03-08:
   - metadata-only setup/repair/remove/update runtime ownership
   - IDE routes for `launcherStatus`, `setupLauncher`, `repairLauncher`,
     `removeLauncher`, and `updateLauncher`
+- Go now owns the Stage 1b launcher artifact slice:
+  - managed artifact planning/install/remove/update ownership
+  - launcher ownership-marker writes/removals and cleanup rules
+  - a dedicated desktop-launch contract via `--launcher-artifact-run`
 - Go owns the launcher executable/bootstrap prerequisite:
   - local IDE/launcher session registration and cleanup
   - bootstrap HTML at `GET /__setta__/bootstrap`
   - launcher-mode fallback startup without an explicit project workspace
 - Python still owns:
-  - platform launcher artifact generation/install/remove behavior that those
-    management routes still defer
   - launch-intent creation, workspace launch, and bootstrap token/origin
     handoff in `launch.py` and `bootstrap.py`
-- the remaining Phase 7 launcher gap is now concentrated around IDE launcher
-  artifact ownership plus launch/bootstrap handoff
+- the remaining Phase 7 launcher gap is now concentrated around
+  launch/bootstrap handoff
 
 ## Inputs
 
@@ -175,28 +177,27 @@ Do not broaden Stage 1 into:
 
 ## Recommended Option
 
-Implement Stage 1b launcher artifact ownership next, now that the runtime
-prerequisite and Stage 1a metadata/status owner are complete.
+Implement launch/bootstrap handoff ownership next, now that launcher
+management including managed artifacts is complete.
 
 This remains the recommended option because:
 
-- launcher setup/update can now target a working Go runtime path
-- launcher management is the largest coherent launcher-only backend cluster
-  still owned by Python
-- launch/bootstrap handoff remains a separate concern with its own trust and
-  remote-launch boundaries
+- launcher management no longer blocks desktop artifact ownership
+- the remaining Python surface is now tightly concentrated in launch intent,
+  launch handoff, and bootstrap/origin trust
+- that boundary is product-significant and no longer mixed with unrelated OS
+  integration concerns
 
 ## Recommended Next Step
 
-Create and execute the next focused slice for Stage 1b launcher artifact
+Create and execute the next focused slice for launch/bootstrap handoff
 ownership.
 
 Recommended landing order:
 
-1. managed launcher artifact planning/install/remove/update ownership
-2. launch/bootstrap handoff ownership
-3. remote launch / launch-intent ownership
-4. any follow-up CLI or cleanup work after those owners land
+1. launch/bootstrap handoff ownership
+2. remote launch / launch-intent ownership
+3. any follow-up CLI or cleanup work after those owners land
 
 ## Progress Notes
 
@@ -229,3 +230,8 @@ Recommended landing order:
   launcher metadata/status plus metadata-only setup/repair/remove/update. The
   next recommended step is Stage 1b artifact ownership, tracked in
   `phase-7-launcher-management-artifact-ownership-stage1b.md`.
+- 2026-03-08: completed Stage 1b from
+  `phase-7-launcher-management-artifact-ownership-stage1b.md`; Go now owns
+  managed launcher artifact planning/install/remove/update plus the dedicated
+  `--launcher-artifact-run` contract. The next recommended step is the
+  remaining launch/bootstrap handoff slice.

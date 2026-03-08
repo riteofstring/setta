@@ -12,18 +12,22 @@ with launch/bootstrap handoff work.
 
 As of 2026-03-08:
 
-- Go owns launcher metadata/status plus metadata-only
+- Stage 1b is complete.
+- Go owns launcher metadata/status plus managed and metadata-only
   setup/repair/remove/update through:
   - `internal/launcher/metadata.go`
   - `internal/launcher/management.go`
+  - `internal/launcher/artifacts.go`
+  - `internal/launcher/artifact_launch.go`
   - `internal/httpapi/launcher_management_routes.go`
-- Stage 1a deliberately fails artifact mutation with
-  `ArtifactMutationUnavailable`
-- Python still owns:
-  - platform artifact planning/install/remove/update in
-    `backend/setta/launcher_artifacts/`
-  - artifact ownership markers and cleanup behavior in
-    `backend/setta/launcher_setup.py`
+- Go now owns:
+  - planned artifact paths, trusted-root validation, and uniqueness checks
+  - ownership marker writes/removals and cleanup on metadata-write failure
+  - managed artifact install/remove/repair/update behavior behind the launcher
+    management routes
+  - a dedicated launcher artifact command contract via
+    `--launcher-artifact-run`
+- Python still owns only the later launch/bootstrap handoff slice.
 
 ## Inputs
 
@@ -74,6 +78,11 @@ Do not include:
   removing Stage 1a's metadata-only path
 - trusted-root and ownership-marker validation should stay explicit and
   deterministic; do not add heuristic cleanup fallbacks
+- managed launcher artifacts now target a Go-owned helper contract:
+  `targetCommand ... --launcher-artifact-run --setta-home <settaHome>`
+- that helper uses dedicated launcher-managed runtime roots under
+  `<settaHome>/launcher/{setta_files,runtime}` so desktop artifacts do not have
+  to infer launcher session state heuristically
 
 ## Recommended Landing Order
 
@@ -89,14 +98,19 @@ Do not include:
 - 2026-03-08: created this Stage 1b doc after completing Stage 1a metadata and
   status ownership. The remaining launcher-management gap is now artifact
   ownership, not metadata/status transport.
+- 2026-03-08: completed Stage 1b in Go by adding Go-owned platform artifact
+  planning/install/remove helpers, ownership markers, managed artifact update
+  support, a dedicated `--launcher-artifact-run` executable path, and focused
+  launcher/route/app coverage.
 
 ## Recommended Next Step
 
-Implement Stage 1b from this doc: Go-owned managed launcher artifact planning,
-install/remove/update behavior.
+Return to `phase-7-launcher-management-and-bootstrap-plan.md` and move to the
+remaining launcher gap: launch/bootstrap handoff ownership.
 
 ## Verification
 
 - `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/launcher -count=1 -timeout 300s`
 - `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -count=1 -timeout 300s`
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestApp.*Launcher' -count=1 -timeout 420s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEModeManages(MetadataOnlyLauncherInstallOverHTTP|LauncherArtifactsOverHTTP)' -count=1 -timeout 420s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./cmd/setta-server -count=1 -timeout 300s`

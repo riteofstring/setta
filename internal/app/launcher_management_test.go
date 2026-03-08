@@ -6,6 +6,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -118,4 +121,88 @@ func TestAppIDEModeManagesMetadataOnlyLauncherInstallOverHTTP(t *testing.T) {
 	if !removePayload.Ok || removePayload.Installed == nil || *removePayload.Installed {
 		t.Fatalf("unexpected remove launcher payload %#v", removePayload)
 	}
+}
+
+func TestAppIDEModeManagesLauncherArtifactsOverHTTP(t *testing.T) {
+	prepareAppLauncherManagementTestHome(t)
+
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+	cookieName, err := app.Auth().CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+
+	setupRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteSetupLauncher,
+		strings.NewReader(`{"settaHome":"`+cfg.Paths.SettaHome+`","channel":"uv-tool","installSource":"uv-tool","installArtifacts":true}`),
+	)
+	if err != nil {
+		t.Fatalf("new setup launcher request: %v", err)
+	}
+	setupRequest.Header.Set("Content-Type", "application/json")
+	setupRequest.AddCookie(&http.Cookie{Name: cookieName, Value: token})
+
+	setupResponse, err := http.DefaultClient.Do(setupRequest)
+	if err != nil {
+		t.Fatalf("post setup launcher: %v", err)
+	}
+	defer setupResponse.Body.Close()
+	if setupResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(setupResponse.Body)
+		t.Fatalf("expected setup launcher 200, got %d with body %q", setupResponse.StatusCode, string(body))
+	}
+
+	var setupPayload struct {
+		Ok               bool              `json:"ok"`
+		Installed        *bool             `json:"installed"`
+		ManagedArtifacts map[string]string `json:"managedArtifacts"`
+	}
+	if err := json.NewDecoder(setupResponse.Body).Decode(&setupPayload); err != nil {
+		t.Fatalf("decode setup launcher response: %v", err)
+	}
+	if !setupPayload.Ok || setupPayload.Installed == nil || !*setupPayload.Installed {
+		t.Fatalf("unexpected setup launcher payload %#v", setupPayload)
+	}
+	if len(setupPayload.ManagedArtifacts) == 0 {
+		t.Fatalf("expected managed artifacts after setup, got %#v", setupPayload)
+	}
+}
+
+func prepareAppLauncherManagementTestHome(t *testing.T) string {
+	t.Helper()
+
+	homeDir := filepath.Join(t.TempDir(), "home")
+	if err := os.MkdirAll(homeDir, 0o755); err != nil {
+		t.Fatalf("mkdir test home: %v", err)
+	}
+	switch runtime.GOOS {
+	case "windows":
+		t.Setenv("USERPROFILE", homeDir)
+		t.Setenv("APPDATA", filepath.Join(homeDir, "AppData", "Roaming"))
+		t.Setenv("LOCALAPPDATA", filepath.Join(homeDir, "AppData", "Local"))
+	default:
+		t.Setenv("HOME", homeDir)
+	}
+	return homeDir
 }

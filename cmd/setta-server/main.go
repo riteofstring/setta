@@ -13,6 +13,7 @@ import (
 
 	"setta/internal/app"
 	"setta/internal/config"
+	"setta/internal/launcher"
 	"setta/internal/observability"
 )
 
@@ -26,6 +27,7 @@ func main() {
 func run(args []string) (err error) {
 	var cli config.CLIOptions
 	var noOpen bool
+	var launcherArtifactRun bool
 
 	flags := flag.NewFlagSet("setta-server", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
@@ -42,7 +44,22 @@ func run(args []string) (err error) {
 	flags.StringVar(&cli.Mode, "mode", "", "Server mode: ide, share, app, or launcher.")
 	flags.StringVar(&cli.LogLevel, "log-level", "", "Log level: debug, info, warn, or error.")
 	flags.BoolVar(&noOpen, "no-open", false, "Accepted for compatibility; browser launch is not implemented in Go.")
+	flags.BoolVar(&launcherArtifactRun, "launcher-artifact-run", false, "Run the managed desktop launcher entrypoint.")
 	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if launcherArtifactRun {
+		executablePath, err := os.Executable()
+		if err != nil {
+			return fmt.Errorf("resolve current executable: %w", err)
+		}
+		artifactLauncher, err := launcher.NewArtifactLauncher(launcher.ArtifactLaunchOptions{
+			ExecutablePath: executablePath,
+		})
+		if err != nil {
+			return err
+		}
+		_, err = artifactLauncher.Launch(cli.SettaHome)
 		return err
 	}
 

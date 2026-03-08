@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -150,16 +151,17 @@ func TestRegisterLauncherManagementRoutesRejectUnknownSetupFields(t *testing.T) 
 	}
 }
 
-func TestRegisterLauncherManagementRoutesRejectArtifactMutationSetup(t *testing.T) {
-	t.Parallel()
+func TestRegisterLauncherManagementRoutesSetupInstallsManagedArtifacts(t *testing.T) {
+	prepareLauncherManagementTestHome(t)
 
-	handler := newLauncherManagementRouteTestHandler(t, config.ModeIDE, filepath.Join(t.TempDir(), ".setta"), newLauncherManagementService(t))
+	defaultSettaHome := filepath.Join(t.TempDir(), ".setta")
+	handler := newLauncherManagementRouteTestHandler(t, config.ModeIDE, defaultSettaHome, newLauncherManagementService(t))
 
 	response := httptest.NewRecorder()
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteSetupLauncher,
-		strings.NewReader(`{"installArtifacts":true}`),
+		strings.NewReader(`{"settaHome":"`+defaultSettaHome+`","channel":"uv-tool","installSource":"uv-tool","installArtifacts":true}`),
 	)
 	request.Header.Set("Content-Type", "application/json")
 	handler.ServeHTTP(response, request)
@@ -169,13 +171,13 @@ func TestRegisterLauncherManagementRoutesRejectArtifactMutationSetup(t *testing.
 
 	var payload launcherStatusResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode artifact mutation setup response: %v", err)
+		t.Fatalf("decode managed artifact setup response: %v", err)
 	}
-	if payload.Ok {
-		t.Fatalf("expected setup launcher to fail for artifact mutation, got %#v", payload)
+	if !payload.Ok || payload.Installed == nil || !*payload.Installed {
+		t.Fatalf("expected setup launcher to succeed for managed artifacts, got %#v", payload)
 	}
-	if payload.Error == nil || payload.Error.Code != "ArtifactMutationUnavailable" {
-		t.Fatalf("expected ArtifactMutationUnavailable error, got %#v", payload)
+	if len(payload.ManagedArtifacts) == 0 {
+		t.Fatalf("expected managed artifacts in setup payload, got %#v", payload)
 	}
 }
 
@@ -222,4 +224,22 @@ func newLauncherManagementService(t *testing.T) *launcher.ManagementService {
 		t.Fatalf("new launcher management service: %v", err)
 	}
 	return service
+}
+
+func prepareLauncherManagementTestHome(t *testing.T) string {
+	t.Helper()
+
+	homeDir := filepath.Join(t.TempDir(), "home")
+	if err := os.MkdirAll(homeDir, 0o755); err != nil {
+		t.Fatalf("mkdir test home: %v", err)
+	}
+	switch runtime.GOOS {
+	case "windows":
+		t.Setenv("USERPROFILE", homeDir)
+		t.Setenv("APPDATA", filepath.Join(homeDir, "AppData", "Roaming"))
+		t.Setenv("LOCALAPPDATA", filepath.Join(homeDir, "AppData", "Local"))
+	default:
+		t.Setenv("HOME", homeDir)
+	}
+	return homeDir
 }

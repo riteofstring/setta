@@ -21,10 +21,10 @@ As of 2026-03-08:
   - IDE launcher management/status transport in
     `internal/httpapi/launcher_management_routes.go`
   - IDE app wiring for that route cluster in `internal/app/app.go`
-- Python still owns:
-  - platform desktop artifact generation/install/remove templates
-  - launcher artifact marker and cleanup semantics
-  - launch/bootstrap handoff routes outside this management slice
+- Stage 1a is now historically complete but superseded by Stage 1b for managed
+  artifact mutation.
+- Python still owns only the launch/bootstrap handoff routes outside this
+  management slice.
 
 ## Inputs
 
@@ -120,6 +120,9 @@ Stage 1a should:
   setup defaults to metadata-only install mode; explicit artifact mutation now
   fails with `ArtifactMutationUnavailable`; in-app update is supported for
   metadata-only `uv-tool` installs.
+- 2026-03-08: Stage 1b landed on top of this slice. Managed launcher artifact
+  install/remove/update ownership no longer depends on Python, while this doc
+  remains the historical record for the metadata-only landing.
 
 ## Recommended Next Step
 
