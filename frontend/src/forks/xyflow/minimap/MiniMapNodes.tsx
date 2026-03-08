@@ -1,26 +1,238 @@
 import { memo } from "react";
 import { getNodes } from "state/actions/nodeInternals";
+import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import {
+  useLocalStorage,
   useNodeInternals,
   useProjectState,
+  useTemporaryMiscState,
   type ZustandNodeInternalsState,
+  type ZustandProjectState,
 } from "state/definitions";
+import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { useReactFlow } from "../core/store";
 import { computeReadyToBeVisible } from "../core/store/utils";
+import type { Node } from "../core/types";
 import MiniMapNode from "./MiniMapNode";
 import type { GetMiniMapNodeAttribute, MiniMapNodesType } from "./types";
 
 const selectorNodes = (s: ZustandNodeInternalsState) =>
   getNodes(s).filter((node) => node.width && node.height);
+
+function areNodeStylesEqual(left: Node["style"], right: Node["style"]) {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return left === right;
+  }
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+  for (const key of leftKeys) {
+    if (left[key as keyof typeof left] !== right[key as keyof typeof right]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function areMiniMapNodesRenderableInputsEqual(
+  left: Node[],
+  right: Node[],
+) {
+  if (left === right) {
+    return true;
+  }
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    const leftNode = left[index];
+    const rightNode = right[index];
+    if (!leftNode || !rightNode) {
+      return false;
+    }
+    if (
+      leftNode.id !== rightNode.id ||
+      leftNode.position.x !== rightNode.position.x ||
+      leftNode.position.y !== rightNode.position.y ||
+      leftNode.width !== rightNode.width ||
+      leftNode.height !== rightNode.height ||
+      leftNode.zIndex !== rightNode.zIndex ||
+      leftNode.tempZIndex !== rightNode.tempZIndex ||
+      leftNode.type !== rightNode.type ||
+      !areNodeStylesEqual(leftNode.style, rightNode.style)
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+type MiniMapNodeVisual = {
+  background: string | null;
+  id: string;
+  type: string | null | undefined;
+};
+
+const SECTION_STYLE_PREVIEW_COLOR_KEY_PREFIX = "section-style-preview-color-";
+
+type MiniMapPreviewStyleColors = Record<string, string | null>;
+
+function getMiniMapPreviewStyleColors(
+  state: Record<string, unknown>,
+): MiniMapPreviewStyleColors {
+  const previewColors: MiniMapPreviewStyleColors = {};
+  for (const [key, value] of Object.entries(state)) {
+    if (!key.startsWith(SECTION_STYLE_PREVIEW_COLOR_KEY_PREFIX)) {
+      continue;
+    }
+    const sectionId = key.slice(SECTION_STYLE_PREVIEW_COLOR_KEY_PREFIX.length);
+    previewColors[sectionId] = typeof value === "string" ? value : null;
+  }
+  return previewColors;
+}
+
+function areMiniMapPreviewStyleColorsEqual(
+  left: MiniMapPreviewStyleColors,
+  right: MiniMapPreviewStyleColors,
+) {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+  for (const key of leftKeys) {
+    if (left[key] !== right[key]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function getMiniMapNodeVisuals(
+  state: ZustandProjectState,
+  darkMode: boolean,
+  previewStyleColors: MiniMapPreviewStyleColors,
+): MiniMapNodeVisual[] {
+  const visuals: MiniMapNodeVisual[] = [];
+  for (const [sectionId, variantId] of Object.entries(
+    state.projectConfig.sectionVariantMap,
+  )) {
+    if ((state.parentSectionMap[sectionId] ?? null) !== null) {
+      continue;
+    }
+    const variant = state.sectionVariants[variantId];
+    if (!variant) {
+      continue;
+    }
+    if (!state.sectionImpls[variant.impl] || !state.sections[sectionId]) {
+      continue;
+    }
+    const effectiveImpl = getCurrEffectiveSectionImpl(state, sectionId);
+    const resolvedStyleColor =
+      previewStyleColors[sectionId] === undefined
+        ? effectiveImpl.styleColor
+        : previewStyleColors[sectionId];
+    const theme =
+      resolvedStyleColor !== null &&
+      resolvedStyleColor !== undefined &&
+      resolvedStyleColor.trim() !== ""
+        ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
+        : null;
+    visuals.push({
+      id: sectionId,
+      type: effectiveImpl.type,
+      background: theme?.bg ?? null,
+    });
+  }
+  visuals.sort((left, right) => left.id.localeCompare(right.id));
+  return visuals;
+}
+
+function areMiniMapNodeVisualsEqual(
+  left: MiniMapNodeVisual[],
+  right: MiniMapNodeVisual[],
+) {
+  if (left === right) {
+    return true;
+  }
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    const leftNode = left[index];
+    const rightNode = right[index];
+    if (!leftNode || !rightNode) {
+      return false;
+    }
+    if (
+      leftNode.id !== rightNode.id ||
+      leftNode.type !== rightNode.type ||
+      leftNode.background !== rightNode.background
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function mergeMiniMapNodesWithVisuals(
+  nodes: Node[],
+  nodeVisuals: MiniMapNodeVisual[],
+): Node[] {
+  const visualsById = new Map(
+    nodeVisuals.map((nodeVisual) => [nodeVisual.id, nodeVisual]),
+  );
+  return nodes.map((node) => {
+    const nodeVisual = visualsById.get(node.id);
+    if (!nodeVisual) {
+      return node;
+    }
+
+    const nextStyle =
+      nodeVisual.background !== null
+        ? { ...(node.style ?? {}), background: nodeVisual.background }
+        : undefined;
+    if (
+      node.type === nodeVisual.type &&
+      areNodeStylesEqual(node.style, nextStyle)
+    ) {
+      return node;
+    }
+    return {
+      ...node,
+      type: nodeVisual.type,
+      style: nextStyle,
+    };
+  });
+}
+
 const getAttrFunction = (
   func: string | GetMiniMapNodeAttribute,
 ): GetMiniMapNodeAttribute => (typeof func === "function" ? func : () => func);
 
 function _MiniMapNodesReactive(props: MiniMapNodesType) {
   const readyToBeVisible = useReactFlow(computeReadyToBeVisible);
-  const nodes = useNodeInternals(selectorNodes);
+  const darkMode = useLocalStorage((state) => state.darkMode);
+  const nodes = useNodeInternals(
+    selectorNodes,
+    areMiniMapNodesRenderableInputsEqual,
+  );
+  const previewStyleColors = useTemporaryMiscState(
+    getMiniMapPreviewStyleColors,
+    areMiniMapPreviewStyleColorsEqual,
+  );
+  const nodeVisuals = useProjectState(
+    (state) => getMiniMapNodeVisuals(state, darkMode, previewStyleColors),
+    areMiniMapNodeVisualsEqual,
+  );
+  const renderableNodes = mergeMiniMapNodesWithVisuals(nodes, nodeVisuals);
   if (readyToBeVisible) {
-    return <MiniMapNodes nodes={nodes} {...props} />;
+    return <MiniMapNodes nodes={renderableNodes} {...props} />;
   }
   return null;
 }
@@ -34,15 +246,12 @@ function _MiniMapNodes({
   nodeClassName = "",
   nodeBorderRadius = 5,
   nodeStrokeWidth = 2,
-  // We need to rename the prop to be `CapitalCase` so that JSX will render it as
-  // a component properly.
   nodeComponent: NodeComponent = MiniMapNode,
   onClick,
-}: MiniMapNodesType) {
+}: MiniMapNodesType & { nodes: Node[] }) {
   const nodeColorFunc = getAttrFunction(nodeColor);
   const nodeStrokeColorFunc = getAttrFunction(nodeStrokeColor);
   const nodeClassNameFunc = getAttrFunction(nodeClassName);
-  const activeSectionIds = useProjectState((x) => x.projectConfig.activeIds);
 
   const isBrowser = typeof window !== "undefined";
   const isChrome = isBrowser && "chrome" in window;
@@ -61,7 +270,7 @@ function _MiniMapNodes({
             y={y}
             width={node.width!}
             height={node.height!}
-            selected={activeSectionIds.includes(node.id)}
+            dataMinimapNodeId={node.id}
             className={nodeClassNameFunc(node)}
             color={nodeColorFunc(node)}
             borderRadius={nodeBorderRadius}

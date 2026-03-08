@@ -1,7 +1,15 @@
+import { setActiveSectionUIIds } from "state/activeSectionUI";
+import {
+  useNodeInternals,
+  useProjectState,
+  useSectionRefs,
+} from "state/definitions";
+import { resetProjectStores } from "state/utils";
+import { createCore } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screenToFlowPosition } from "../hooks/useViewportHelper";
 import type { ReactFlowState } from "../types";
-import { getPaneRect } from "./graph";
+import { getActiveSectionsBounds, getNodesInside, getPaneRect } from "./graph";
 
 vi.mock("../hooks/useViewportHelper", () => ({
   screenToFlowPosition: vi.fn((point) => point),
@@ -9,9 +17,33 @@ vi.mock("../hooks/useViewportHelper", () => ({
 
 const mockedScreenToFlowPosition = vi.mocked(screenToFlowPosition);
 
+function createSectionElement(rect: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}) {
+  return {
+    clientWidth: rect.width,
+    clientHeight: rect.height,
+    getBoundingClientRect: () => ({
+      x: rect.x,
+      y: rect.y,
+      left: rect.x,
+      top: rect.y,
+      right: rect.x + rect.width,
+      bottom: rect.y + rect.height,
+      width: rect.width,
+      height: rect.height,
+      toJSON: () => "",
+    }),
+  } as unknown as HTMLElement;
+}
+
 describe("getPaneRect", () => {
   beforeEach(() => {
     mockedScreenToFlowPosition.mockClear();
+    resetProjectStores();
   });
 
   it("uses transform math when the dom node is missing", () => {
@@ -56,5 +88,302 @@ describe("getPaneRect", () => {
       { x: 500, y: 600 },
       true,
     );
+  });
+});
+
+describe("getNodesInside", () => {
+  beforeEach(() => {
+    resetProjectStores();
+  });
+
+  it("uses node internals geometry to resolve overlapping nodes", () => {
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          "section-a",
+          {
+            id: "section-a",
+            position: { x: 10, y: 20 },
+            width: 100,
+            height: 80,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+        [
+          "section-b",
+          {
+            id: "section-b",
+            position: { x: 180, y: 40 },
+            width: 120,
+            height: 90,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+      ]),
+    });
+
+    expect(getNodesInside({ x: 0, y: 0, width: 150, height: 140 })).toEqual([
+      "section-a",
+    ]);
+    expect(getNodesInside({ x: 0, y: 0, width: 400, height: 200 })).toEqual([
+      "section-a",
+      "section-b",
+    ]);
+  });
+
+  it("respects partial-overlap mode without needing DOM section refs", () => {
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          "section-a",
+          {
+            id: "section-a",
+            position: { x: 10, y: 20 },
+            width: 100,
+            height: 80,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+      ]),
+    });
+
+    expect(
+      getNodesInside({ x: 90, y: 70, width: 40, height: 40 }, [0, 0, 1], false),
+    ).toEqual([]);
+    expect(
+      getNodesInside({ x: 90, y: 70, width: 40, height: 40 }, [0, 0, 1], true),
+    ).toEqual(["section-a"]);
+  });
+
+  it("does not select unmeasured nodes when no fallback bounds overlap", () => {
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          "section-a",
+          {
+            id: "section-a",
+            position: { x: 10, y: 20 },
+            width: null,
+            height: null,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+      ]),
+    });
+
+    expect(getNodesInside({ x: 500, y: 500, width: 10, height: 10 })).toEqual(
+      [],
+    );
+  });
+
+  it("falls back to section DOM bounds for unmeasured node internals", () => {
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          "section-a",
+          {
+            id: "section-a",
+            position: { x: 10, y: 20 },
+            width: null,
+            height: null,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+      ]),
+    });
+    useSectionRefs.setState((state) => {
+      state.selfOnly["section-a"] = createSectionElement({
+        x: 40,
+        y: 60,
+        width: 120,
+        height: 80,
+      });
+    });
+
+    expect(getNodesInside({ x: 30, y: 50, width: 140, height: 100 })).toEqual([
+      "section-a",
+    ]);
+    expect(getNodesInside({ x: 500, y: 500, width: 10, height: 10 })).toEqual(
+      [],
+    );
+  });
+
+  it("treats zero-sized node internals as unmeasured for marquee hit testing", () => {
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          "section-width-zero",
+          {
+            id: "section-width-zero",
+            position: { x: 1000, y: 1000 },
+            width: 0,
+            height: 40,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+        [
+          "section-height-zero",
+          {
+            id: "section-height-zero",
+            position: { x: 1000, y: 1080 },
+            width: 40,
+            height: 0,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+      ]),
+    });
+
+    expect(getNodesInside({ x: 0, y: 0, width: 20, height: 20 })).toEqual([]);
+  });
+
+  it("falls back to section DOM bounds when node internals have zero-sized geometry", () => {
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          "section-a",
+          {
+            id: "section-a",
+            position: { x: 10, y: 20 },
+            width: 0,
+            height: 40,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+      ]),
+    });
+    useSectionRefs.setState((state) => {
+      state.selfOnly["section-a"] = createSectionElement({
+        x: 40,
+        y: 60,
+        width: 120,
+        height: 80,
+      });
+    });
+
+    expect(getNodesInside({ x: 30, y: 50, width: 140, height: 100 })).toEqual([
+      "section-a",
+    ]);
+  });
+
+  it("falls back to nested section DOM geometry when a selectable section has no node internals entry", () => {
+    useProjectState.setState((state) => {
+      state.sections["group-section"] = createCore({ id: "group-section" });
+      state.sections["group-child-a"] = createCore({ id: "group-child-a" });
+    });
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          "group-section",
+          {
+            id: "group-section",
+            position: { x: 300, y: 120 },
+            width: 260,
+            height: 220,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+      ]),
+    });
+    useSectionRefs.setState((state) => {
+      state.selfOnly["group-child-a"] = createSectionElement({
+        x: 360,
+        y: 180,
+        width: 120,
+        height: 64,
+      });
+    });
+
+    expect(getNodesInside({ x: 350, y: 170, width: 140, height: 84 })).toEqual([
+      "group-child-a",
+    ]);
+  });
+});
+
+describe("getActiveSectionsBounds", () => {
+  beforeEach(() => {
+    mockedScreenToFlowPosition.mockClear();
+    resetProjectStores();
+  });
+
+  it("uses node internals geometry for active section bounds without DOM refs", () => {
+    setActiveSectionUIIds(["section-a", "section-b"]);
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          "section-a",
+          {
+            id: "section-a",
+            position: { x: 10, y: 20 },
+            width: 100,
+            height: 80,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+        [
+          "section-b",
+          {
+            id: "section-b",
+            position: { x: 180, y: 40 },
+            width: 120,
+            height: 90,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+      ]),
+    });
+
+    expect(getActiveSectionsBounds()).toEqual({
+      x: 10,
+      y: 20,
+      width: 290,
+      height: 110,
+    });
+    expect(mockedScreenToFlowPosition).not.toHaveBeenCalled();
+  });
+
+  it("falls back to DOM bounds when active node internals have zero-sized geometry", () => {
+    setActiveSectionUIIds(["section-a"]);
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          "section-a",
+          {
+            id: "section-a",
+            position: { x: 10, y: 20 },
+            width: 0,
+            height: 0,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+      ]),
+    });
+    useSectionRefs.setState((state) => {
+      state.selfOnly["section-a"] = createSectionElement({
+        x: 40,
+        y: 60,
+        width: 120,
+        height: 80,
+      });
+    });
+
+    expect(getActiveSectionsBounds()).toEqual({
+      x: 40,
+      y: 60,
+      width: 120,
+      height: 80,
+    });
   });
 });

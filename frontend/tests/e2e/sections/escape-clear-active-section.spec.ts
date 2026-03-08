@@ -62,7 +62,10 @@ async function isDocumentFocusNeutral(page: Page): Promise<boolean> {
   });
 }
 
-async function isSectionActive(page: Page, sectionId: string): Promise<boolean> {
+async function isSectionActive(
+  page: Page,
+  sectionId: string,
+): Promise<boolean> {
   return page.evaluate((id) => {
     const node = document.querySelector(`.react-flow__node[data-id="${id}"]`);
     if (!node) {
@@ -72,10 +75,9 @@ async function isSectionActive(page: Page, sectionId: string): Promise<boolean> 
     if (!(section instanceof HTMLElement)) {
       return false;
     }
-    return section.classList.contains("outline-blue-600");
+    return section.getAttribute("data-section-active") === "true";
   }, sectionId);
 }
-
 
 async function isFocusedInsideSection(
   page: Page,
