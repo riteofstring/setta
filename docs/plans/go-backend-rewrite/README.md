@@ -76,6 +76,9 @@ Use the docs in this order:
    - focused current-work plan for frontend-facing Go project-state transport and deployment state/project-config route migration
 16. `phase-4-listener-realtime-producer-migration.md`
    - focused current-work plan for the remaining listener realtime producer boundaries
+- `phase-4-listener-coverage-read-transport-closeout.md`
+  - focused completed-slice doc for the Go-owned `getListenerCoverage` live
+    read route over the current listener registry/runtime boundary
 17. `phase-4-plugin-worker-listener-event-bridge.md`
    - focused current-work plan for the first Go plugin worker host + transport boundary needed by the remaining listener producer migration
 18. `phase-4-plugin-worker-session-owner.md`

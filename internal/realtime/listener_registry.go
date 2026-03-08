@@ -226,6 +226,36 @@ func (r *ListenerRegistry) MatchingConnectionIDs(
 	return connectionIDs
 }
 
+func (r *ListenerRegistry) RegistrationsForProject(projectID string, shareSessionID string) []ListenerRegistration {
+	projectID = strings.TrimSpace(projectID)
+	if projectID == "" {
+		return nil
+	}
+	shareSessionID = strings.TrimSpace(shareSessionID)
+
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	connectionIDs := make([]string, 0, len(r.registrations))
+	for connectionID, registration := range r.registrations {
+		if registration.ProjectID != projectID {
+			continue
+		}
+		if !matchesListenerShareSession(registration.ShareSessionID, shareSessionID) {
+			continue
+		}
+		connectionIDs = append(connectionIDs, connectionID)
+	}
+
+	sort.Strings(connectionIDs)
+
+	registrations := make([]ListenerRegistration, 0, len(connectionIDs))
+	for _, connectionID := range connectionIDs {
+		registrations = append(registrations, cloneListenerRegistration(r.registrations[connectionID]))
+	}
+	return registrations
+}
+
 func buildListenerRegistration(
 	connectionID string,
 	projectID string,
@@ -308,4 +338,37 @@ func matchesListenerShareSession(storedShareSessionID string, targetShareSession
 		return true
 	}
 	return storedShareSessionID == "" || storedShareSessionID == targetShareSessionID
+}
+
+func cloneListenerRegistration(registration ListenerRegistration) ListenerRegistration {
+	callbacks := make(map[string]ListenerCallback, len(registration.Callbacks))
+	for callbackID, callback := range registration.Callbacks {
+		callbacks[callbackID] = ListenerCallback{
+			Dependencies:   append([]string(nil), callback.Dependencies...),
+			DependencyMode: callback.DependencyMode,
+		}
+	}
+
+	dependencyIndex := make(map[string]map[string]struct{}, len(registration.dependencyIndex))
+	for dependencyKey, callbackIDs := range registration.dependencyIndex {
+		clonedIDs := make(map[string]struct{}, len(callbackIDs))
+		for callbackID := range callbackIDs {
+			clonedIDs[callbackID] = struct{}{}
+		}
+		dependencyIndex[dependencyKey] = clonedIDs
+	}
+
+	wildcardCallbacks := make(map[string]struct{}, len(registration.wildcardCallbacks))
+	for callbackID := range registration.wildcardCallbacks {
+		wildcardCallbacks[callbackID] = struct{}{}
+	}
+
+	return ListenerRegistration{
+		ConnectionID:      registration.ConnectionID,
+		ProjectID:         registration.ProjectID,
+		ShareSessionID:    registration.ShareSessionID,
+		Callbacks:         callbacks,
+		dependencyIndex:   dependencyIndex,
+		wildcardCallbacks: wildcardCallbacks,
+	}
 }

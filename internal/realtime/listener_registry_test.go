@@ -136,6 +136,45 @@ func TestListenerRegistryRejectsBlankDependenciesAndInvalidModes(t *testing.T) {
 	}
 }
 
+func TestListenerRegistryRegistrationsForProjectPreservesShareScope(t *testing.T) {
+	t.Parallel()
+
+	// Coverage reads should reuse the same share-session visibility rules as
+	// listener delivery: matching session plus shared registrations.
+	registry := NewListenerRegistry()
+	registerListener(t, registry, "listener-session-a", "project-a", "session-a", map[string]ListenerCallback{
+		"cb-a": {
+			Dependencies:   []string{"section-a.param-a"},
+			DependencyMode: ListenerDependencyModeAlways,
+		},
+	})
+	registerListener(t, registry, "listener-session-b", "project-a", "session-b", map[string]ListenerCallback{
+		"cb-b": {
+			Dependencies:   []string{"section-b"},
+			DependencyMode: ListenerDependencyModeAlways,
+		},
+	})
+	registerListener(t, registry, "listener-shared", "project-a", "", map[string]ListenerCallback{
+		"cb-shared": {
+			Dependencies:   []string{"section-shared"},
+			DependencyMode: ListenerDependencyModeAlways,
+		},
+	})
+
+	sessionARegistrations := registry.RegistrationsForProject("project-a", "session-a")
+	if len(sessionARegistrations) != 2 {
+		t.Fatalf("expected 2 session-a registrations, got %#v", sessionARegistrations)
+	}
+	if sessionARegistrations[0].ConnectionID != "listener-session-a" || sessionARegistrations[1].ConnectionID != "listener-shared" {
+		t.Fatalf("unexpected session-a registrations %#v", sessionARegistrations)
+	}
+
+	allRegistrations := registry.RegistrationsForProject("project-a", "")
+	if len(allRegistrations) != 3 {
+		t.Fatalf("expected 3 unscoped registrations, got %#v", allRegistrations)
+	}
+}
+
 func registerListener(
 	t *testing.T,
 	registry *ListenerRegistry,

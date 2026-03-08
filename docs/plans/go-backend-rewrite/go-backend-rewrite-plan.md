@@ -501,6 +501,16 @@ The bounded llmconfig dependency cleanup tracked in
 - the module graph no longer carries a direct dependency solely for that
   llmconfig helper
 
+The bounded listener coverage read follow-on tracked in
+`phase-4-listener-coverage-read-transport-closeout.md` is now also landed:
+
+- Go now owns `POST /getListenerCoverage` for the live frontend listener
+  coverage fetch path
+- `internal/realtime` now builds share-session-aware coverage snapshots from
+  the current listener registry
+- the remaining live listener coverage read no longer depends on the Python
+  route/runtime path
+
 ## Current Reality
 
 The backend seams that matter most for planning are:

@@ -29,6 +29,7 @@ var bareRouteNames = map[string]struct{}{
 	bareRouteName(RouteRemoveLauncher):                          {},
 	bareRouteName(RouteUpdateLauncher):                          {},
 	bareRouteName(RouteForceRefreshListener):                    {},
+	bareRouteName(RouteGetListenerCoverage):                     {},
 	bareRouteName(RouteClearTextFieldCompletion):                {},
 	bareRouteName(RouteTextFieldCompletion):                     {},
 	bareRouteName(RouteOutputAccessorCompletion):                {},

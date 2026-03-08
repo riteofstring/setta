@@ -61,6 +61,34 @@ func CanonicalDependencyKey(raw json.RawMessage) (string, error) {
 	}
 }
 
+func DecodeCanonicalDependencyKey(value string) (dependencyKey, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return dependencyKey{}, ErrDependencyKeySectionIDRequired
+	}
+	sectionID, codeObjID, hasCodeObj := strings.Cut(value, ".")
+	sectionID = strings.TrimSpace(sectionID)
+	if sectionID == "" {
+		return dependencyKey{}, ErrDependencyKeySectionIDRequired
+	}
+	if !hasCodeObj {
+		return dependencyKey{
+			Type:      DependencyKeyTypeSection,
+			SectionID: sectionID,
+		}, nil
+	}
+
+	codeObjID = strings.TrimSpace(codeObjID)
+	if codeObjID == "" {
+		return dependencyKey{}, ErrDependencyKeyCodeObjIDRequired
+	}
+	return dependencyKey{
+		Type:      DependencyKeyTypeSectionParam,
+		SectionID: sectionID,
+		CodeObjID: codeObjID,
+	}, nil
+}
+
 func DependencyValueIsBinary(raw json.RawMessage) (bool, error) {
 	trimmed := strings.TrimSpace(string(raw))
 	if trimmed == "" || trimmed == "null" {

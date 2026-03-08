@@ -39,6 +39,44 @@ func TestCanonicalDependencyKeyRejectsMissingRequiredFields(t *testing.T) {
 	}
 }
 
+func TestDecodeCanonicalDependencyKeyConvertsSectionAndSectionParam(t *testing.T) {
+	t.Parallel()
+
+	// Listener coverage reads need to reverse the registry's canonical string
+	// keys back into the structured dependency shape the frontend expects.
+	sectionKey, err := DecodeCanonicalDependencyKey("section-a")
+	if err != nil {
+		t.Fatalf("decode section dependency key: %v", err)
+	}
+	if sectionKey.Type != DependencyKeyTypeSection || sectionKey.SectionID != "section-a" || sectionKey.CodeObjID != "" {
+		t.Fatalf("unexpected section dependency key %#v", sectionKey)
+	}
+
+	paramKey, err := DecodeCanonicalDependencyKey("section-a.param-a")
+	if err != nil {
+		t.Fatalf("decode section param dependency key: %v", err)
+	}
+	if paramKey.Type != DependencyKeyTypeSectionParam || paramKey.SectionID != "section-a" || paramKey.CodeObjID != "param-a" {
+		t.Fatalf("unexpected section param dependency key %#v", paramKey)
+	}
+}
+
+func TestDecodeCanonicalDependencyKeyRejectsMissingRequiredFields(t *testing.T) {
+	t.Parallel()
+
+	// Invalid canonical keys should still fail fast when a caller asks for the
+	// structured dependency form.
+	_, err := DecodeCanonicalDependencyKey("")
+	if !errors.Is(err, ErrDependencyKeySectionIDRequired) {
+		t.Fatalf("expected missing section id error, got %v", err)
+	}
+
+	_, err = DecodeCanonicalDependencyKey("section-a.")
+	if !errors.Is(err, ErrDependencyKeyCodeObjIDRequired) {
+		t.Fatalf("expected missing code object id error, got %v", err)
+	}
+}
+
 func TestDependencyValueIsBinary(t *testing.T) {
 	t.Parallel()
 

@@ -15,7 +15,10 @@ import (
 	"setta/internal/realtime"
 )
 
-const RouteForceRefreshListener = "/forceRefreshListener"
+const (
+	RouteForceRefreshListener = "/forceRefreshListener"
+	RouteGetListenerCoverage  = "/getListenerCoverage"
+)
 
 type ListenerRouteDependencies struct {
 	ModePolicy          modes.Policy
@@ -26,6 +29,10 @@ type ListenerRouteDependencies struct {
 }
 
 type ForceRefreshProjectRequest struct {
+	ProjectID string `json:"projectConfigId"`
+}
+
+type ListenerCoverageRequest struct {
 	ProjectID string `json:"projectConfigId"`
 }
 
@@ -44,17 +51,21 @@ func RegisterListenerRoutes(router chi.Router, deps ListenerRouteDependencies) e
 		if deps.ShareSessions == nil {
 			return fmt.Errorf("share session store is required in deployment mode")
 		}
-		router.With(RequireShareSession(modes.Resolver{
+		protectedRouter := router.With(RequireShareSession(modes.Resolver{
 			Policy: deps.ModePolicy,
 			Store:  deps.ShareSessions,
-		})).Post(RouteForceRefreshListener, forceRefreshListenerHandler(deps))
+		}))
+		protectedRouter.Post(RouteForceRefreshListener, forceRefreshListenerHandler(deps))
+		protectedRouter.Post(RouteGetListenerCoverage, getListenerCoverageHandler(deps))
 		return nil
 	}
 
 	if deps.ProjectState == nil {
 		return fmt.Errorf("project runtime is required outside deployment mode")
 	}
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteForceRefreshListener, forceRefreshListenerHandler(deps))
+	protectedRouter := router.With(RequireIDEMode(deps.ModePolicy))
+	protectedRouter.Post(RouteForceRefreshListener, forceRefreshListenerHandler(deps))
+	protectedRouter.Post(RouteGetListenerCoverage, getListenerCoverageHandler(deps))
 	return nil
 }
 
@@ -94,6 +105,36 @@ func forceRefreshListenerHandler(deps ListenerRouteDependencies) http.HandlerFun
 		}
 
 		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func getListenerCoverageHandler(deps ListenerRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[ListenerCoverageRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+
+		requestInfo, err := modes.RequireRequestInfo(r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		registrations := deps.ListenerBroadcaster.Registry().RegistrationsForProject(projectID, requestInfo.ShareSessionID)
+		snapshot, err := realtime.BuildListenerCoverageSnapshot(projectID, registrations)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		writeJSON(w, http.StatusOK, snapshot)
 	}
 }
 

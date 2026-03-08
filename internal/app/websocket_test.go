@@ -756,6 +756,99 @@ func TestAppServesListenerForceRefreshRoute(t *testing.T) {
 	}
 }
 
+func TestAppServesListenerCoverageRoute(t *testing.T) {
+	// The real app stack should serve listener coverage from the Go registry
+	// after a listener registers callbacks over the websocket route.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+	cookieName, err := app.Auth().CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+
+	listenerConn, _, err := websocket.Dial(
+		context.Background(),
+		"ws"+strings.TrimPrefix(server.URL, "http")+strings.Replace(wsapi.RouteListenerByID, "{listenerID}", "listener-a", 1)+"?projectId=project-alpha",
+		&websocket.DialOptions{
+			HTTPHeader: http.Header{
+				"Cookie": []string{cookieName + "=" + token},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("dial listener websocket route: %v", err)
+	}
+	defer listenerConn.CloseNow()
+
+	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":["section-a.param-a"],"dependencyMode":"realtime_only"},"cb-b":{"dependencies":[],"dependencyMode":"always"}}}}`)); err != nil {
+		t.Fatalf("write listener registration: %v", err)
+	}
+
+	if ack := readAppRouteEnvelope(t, listenerConn); ack.MessageType != realtime.MessageTypeListenerRegisterAck {
+		t.Fatalf("expected listener register ack, got %q", ack.MessageType)
+	}
+
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteGetListenerCoverage,
+		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
+	)
+	if err != nil {
+		t.Fatalf("new listener coverage request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(&http.Cookie{
+		Name:  cookieName,
+		Value: token,
+	})
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post listener coverage: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload realtime.ListenerCoverageSnapshot
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode listener coverage payload: %v", err)
+	}
+	if payload.ProjectID != "project-alpha" {
+		t.Fatalf("expected project-alpha snapshot, got %q", payload.ProjectID)
+	}
+	if !payload.HasRealtimeWildcard {
+		t.Fatal("expected realtime wildcard from empty dependency registration")
+	}
+	if len(payload.Dependencies) != 1 {
+		t.Fatalf("expected 1 explicit dependency, got %#v", payload.Dependencies)
+	}
+	if payload.Dependencies[0] != (realtime.ListenerCoverageDependency{Type: realtime.DependencyKeyTypeSectionParam, SectionID: "section-a", CodeObjID: "param-a"}) {
+		t.Fatalf("unexpected coverage dependency %#v", payload.Dependencies[0])
+	}
+}
+
 func TestAppRunCodeDrawSnapshotsBroadcastBinaryListenerRealtimeEvent(t *testing.T) {
 	skipIfAppTerminalPTYUnsupported(t)
 
