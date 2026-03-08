@@ -527,6 +527,10 @@ function MaybeCardTitle({
   sectionTypeName,
   hasSectionStyleTheme,
 }) {
+  useSettingsAllSettingsBenchmarkRenderCounter(
+    "section-title-active",
+    sectionId,
+  );
   const isActiveSection = useProjectState((x) =>
     x.projectConfig.activeIds.includes(sectionId),
   );

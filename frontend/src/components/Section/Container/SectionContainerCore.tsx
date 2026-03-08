@@ -49,7 +49,6 @@ function _SectionContainerCore({
   const benchmark = useSettingsAllSettingsBenchmark();
   useSettingsAllSettingsBenchmarkRenderCounter("section-shell", sectionId);
   const {
-    isActiveSection,
     sectionTypeName,
     // jsonSourceMissing,
     isInOtherProjectConfigs,
@@ -67,7 +66,6 @@ function _SectionContainerCore({
       getEmbeddedAttachedTerminalParentIdForTerminalSection(x, sectionId) !==
         null && !impl.isMinimized;
     return {
-      isActiveSection: x.projectConfig.activeIds.includes(sectionId),
       sectionTypeName: impl.type,
       // jsonSourceMissing: x.sections[sectionId].jsonSourceMissing,
       isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
@@ -80,6 +78,9 @@ function _SectionContainerCore({
       isJoinedAttachedTerminalChild,
     };
   }, shallow);
+  const isActiveSection = useProjectState((x) =>
+    x.projectConfig.activeIds.includes(sectionId),
+  );
   const showAiHighlight = useAiSectionHighlight(sectionId, projectConfigId);
   const aiHighlightClassName = showAiHighlight
     ? "setta-ai-gradient-border setta-ai-gradient-border-active"
@@ -185,13 +186,12 @@ function _SectionContainerCore({
     !hideAgenticEdgeHandles &&
     !isAttachedTerminalChild &&
     benchmark.renderSectionHandles;
-  const zIndexClassName = isActiveSection ? "z-[150]" : "z-10";
 
   // [transition:_outline-color_200ms_ease] [transition:_box-shadow_500ms_ease]
   // {boxShadow}
   return (
     <section
-      className={`${handleScopeClassName} ${themedHandleScopeClassName} group/card-section transition-radius relative ${zIndexClassName} ${!positionAndSizeLocked ? "rounded-lg border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} ${joinedCornerClassName} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${scopeHighlightClassName} ${outlineClassName} ${sectionStyleChromeClassName}`}
+      className={`${handleScopeClassName} ${themedHandleScopeClassName} group/card-section transition-radius relative ${isActiveSection ? "z-[150]" : "z-10"} ${!positionAndSizeLocked ? "rounded-lg border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} ${joinedCornerClassName} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${scopeHighlightClassName} ${outlineClassName} ${sectionStyleChromeClassName}`}
       onClick={getOnSectionClick(sectionId)}
       ref={refForPosition}
       data-section-id={sectionId}

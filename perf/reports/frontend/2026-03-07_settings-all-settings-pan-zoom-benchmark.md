@@ -3251,3 +3251,63 @@ New benchmark stages:
 - The real active-state latency is basically unchanged.
 - The visible settle drops by about `134.99ms` (`285.67ms -> 150.68ms`).
 - The remaining post-active gap is now in the same `~50-56ms` band as the earlier no-outline controls, which is consistent with the measurement guard rather than a visible shell animation.
+
+## Addendum: localizing ParamFilter active-state subscription removes the last cross-section activation rerender fan-out
+
+- Date: `2026-03-08`
+- Goal: push `click to active` and `click to visual settle` lower after the outline-transition removal by finding the next remaining full-stage activation fan-out.
+- Method:
+  - added benchmark-only render counters for:
+    - `section-title-active` (`MaybeCardTitle`)
+    - `param-filter` (`KwargsControls` -> `ParamFilter`)
+  - ran a clean `full`-stage activation and read the benchmark counter snapshot
+  - changed `ParamFilter` from the global selector:
+    - `x.projectConfig.activeIds.length === 1 ? x.projectConfig.activeIds[0] : null`
+    - to the local boolean selector:
+    - `x.projectConfig.activeIds.length === 1 && x.projectConfig.activeIds[0] === sectionId`
+  - reran the counter snapshot
+  - reran the warmed activation ladder on:
+    - `frame-only`
+    - `param-container-shell`
+    - `full`
+
+### Counter snapshots
+
+- Before the `ParamFilter` selector change, one clean `full` activation produced:
+  - `section-shell`: `2` commits
+  - `section-title-active`: `2` commits
+  - `param-filter`: `42` commits
+  - `kwargs-controls`, `get-param-switch`, `param-switch`, `param-container`: `0`
+
+- After the `ParamFilter` selector change, the same clean `full` activation produced:
+  - `section-shell`: `2` commits
+  - `section-title-active`: `2` commits
+  - `param-filter`: `2` commits
+  - `kwargs-controls`, `get-param-switch`, `param-switch`, `param-container`: `0`
+
+### Warmed activation ladder after the fix
+
+- `frame-only`
+  - average click to active: `55.22ms`
+  - average click to visual settle: `77.73ms`
+  - average extra time after active: `22.52ms`
+
+- `param-container-shell`
+  - average click to active: `83.03ms`
+  - average click to visual settle: `107.58ms`
+  - average extra time after active: `24.55ms`
+
+- `full`
+  - average click to active: `84.07ms`
+  - average click to visual settle: `106.50ms`
+  - average extra time after active: `22.43ms`
+
+### Conclusion
+
+- The last concrete cross-section activation fan-out was `ParamFilter`, not the heavy param row tree.
+- Fixing that selector removed `40` unnecessary rerenders per activation (`42 -> 2`).
+- After the fix, `full` and `param-container-shell` are effectively in the same activation band again, which means the remaining gap is no longer in live widget content.
+- The remaining warmed gap versus `frame-only` is now about:
+  - `28.85ms` for click to active
+  - `28.77ms` for click to visual settle
+- So the next remaining floor is the shared section-shell / store-update path, not another obvious full-stage widget fan-out.

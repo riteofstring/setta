@@ -502,6 +502,7 @@ function ParamFilter({
   includeCallablePadding: boolean;
   hasSectionStyleTheme: boolean;
 }) {
+  useSettingsAllSettingsBenchmarkRenderCounter("param-filter", sectionId);
   const paramsImpl = useProjectState((x) =>
     getCurrEffectiveSectionImplWithTypeGuard(
       x,
@@ -509,13 +510,11 @@ function ParamFilter({
       isBaseSectionWithParamsImpl,
     ),
   );
-  const solelyActiveSectionId = useProjectState((x) =>
-    x.projectConfig.activeIds.length === 1
-      ? x.projectConfig.activeIds[0]
-      : null,
-  );
   const paramFilterValue = paramsImpl.paramFilter;
-  const sectionIsActive = solelyActiveSectionId === sectionId;
+  const sectionIsActive = useProjectState((x) =>
+    x.projectConfig.activeIds.length === 1 &&
+    x.projectConfig.activeIds[0] === sectionId,
+  );
 
   const searchShortcut = useSettings((x) =>
     shortcutPrettified(x.shortcuts.searchShortcut),

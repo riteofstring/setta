@@ -76,7 +76,6 @@ function ContainerGroup({
 }) {
   const hasNested = useHasTempNested(sectionId);
   const {
-    isActiveSection,
     positionAndSizeLocked,
     isInOtherProjectConfigs,
     overflowMode,
@@ -88,13 +87,15 @@ function ContainerGroup({
       SectionTypeEnum.Group,
     );
     return {
-      isActiveSection: x.projectConfig.activeIds.includes(sectionId),
       positionAndSizeLocked: impl.positionAndSizeLocked,
       isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
       overflowMode: impl.overflowMode ?? false,
       size: impl.size,
     };
   }, shallow);
+  const isActiveSection = useProjectState((x) =>
+    x.projectConfig.activeIds.includes(sectionId),
+  );
 
   const disablePointerEvents = useShouldDisablePointerEvents();
   const { ref: overflowRef, isScrollable } = useIsScrollable();
