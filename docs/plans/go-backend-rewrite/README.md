@@ -391,11 +391,15 @@ Use the docs in this order:
   - focused implementation-plan doc for the first unblocked lockfile slice:
     Go-owned `setta plugins lock write` over the completed discovery and
     install-metadata owners
-128. `spike-mcp.md`
+128. `phase-11-plugin-source-acquisition-and-convergence-stage7.md`
+  - focused implementation-plan doc for the remaining candidate-provider-backed
+    plugin source acquisition and lockfile convergence slice: Go-owned
+    `setta plugins install|update|pin|lock apply`
+129. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-129. `spike-pty.md`
+130. `spike-pty.md`
    - PTY uncertainty-reduction plan
-130. `spike-lsp.md`
+131. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

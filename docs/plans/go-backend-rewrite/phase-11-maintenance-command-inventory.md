@@ -181,7 +181,10 @@ Phase 11 Stage 6 is now planned in
 Phase 11 Stage 6 is now complete in
 `phase-11-plugin-lock-write-stage6.md`.
 
-The remaining plugin surface stays split across one blocked
+Phase 11 Stage 7 is now planned in
+`phase-11-plugin-source-acquisition-and-convergence-stage7.md`.
+
+The remaining plugin surface stays split across the planned
 source-acquisition/convergence slice and the separate restart command:
 
 - `plugins install`
@@ -249,6 +252,12 @@ source-acquisition/convergence slice and the separate restart command:
     persisted install metadata
   - the remaining Python-owned plugin surface is `install`, `update`, `pin`,
     `lock apply`, and `restart`
+- 2026-03-08: added the dedicated plugin Stage 7 plan.
+  - the next bounded slice is now explicitly `install`, `update`, `pin`, and
+    `lock apply`
+  - the stage is centered on the missing production candidate-provider wiring
+    plus shared lockfile convergence ownership
+  - `plugins restart` remains intentionally separate
 
 ## Verification
 

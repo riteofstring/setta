@@ -219,8 +219,9 @@ Do not include:
 
 ## Recommended Next Step
 
-Write a dedicated follow-on plan for the still-blocked plugin
-source-acquisition and convergence surface:
+The follow-on plan for the still-blocked plugin source-acquisition and
+convergence surface now lives in
+`phase-11-plugin-source-acquisition-and-convergence-stage7.md`:
 
 1. `install`
 2. `update`
