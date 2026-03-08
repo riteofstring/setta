@@ -16,6 +16,7 @@ import (
 	"setta/internal/backendlogs"
 	binarypayload "setta/internal/binary"
 	"setta/internal/boundcode"
+	"setta/internal/chatattachments"
 	"setta/internal/codegen"
 	"setta/internal/config"
 	"setta/internal/deployments"
@@ -111,6 +112,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		externalAgentRuntime  *externalagents.Runtime
 		externalAgentSend     *externalagents.SendService
 		externalAgentExecutor externalagents.Executor
+		attachmentService     *chatattachments.Service
 		watchCodeWarnings     *watchCodeWarningTracker
 		codeUpdates           *codeUpdateService
 		renameRefactors       *renameRefactorService
@@ -590,6 +592,17 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			Codex:    codexExecutor,
 			OpenCode: openCodeExecutor,
 		})
+		attachmentService, err = chatattachments.NewService(chatattachments.ServiceOptions{
+			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+			Host:           cfg.Server.Host,
+			Port:           cfg.Server.Port,
+			ProjectState:   projectRuntime,
+			Sessions:       authService,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
 		externalAgentSend, err = externalagents.NewSendService(externalagents.SendServiceOptions{
 			ProjectState: projectRuntime,
 			Engines:      engineStore,
@@ -598,6 +611,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			Configs:      externalConfigStore,
 			Runtime:      externalAgentRuntime,
 			Preflight:    externalPreflightChecker,
+			Attachments:  attachmentService,
 			Executor:     externalAgentExecutor,
 		})
 		if err != nil {
@@ -742,6 +756,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		TrustedOrigins: trustedOrigins,
 		ModePolicy:     modes.NewPolicy(cfg.Server.Mode),
 		RegisterRoot: func(r chi.Router) {
+			if attachmentService != nil {
+				if err := httpapi.RegisterAttachmentRootRoutes(r, httpapi.AttachmentRootRouteDependencies{
+					Service: attachmentService,
+				}); err != nil {
+					panic(err)
+				}
+			}
 			if err := wsapi.RegisterRoutes(r, wsapi.RouteDependencies{
 				Transport: wsapi.Dependencies{
 					Auth:          authService,

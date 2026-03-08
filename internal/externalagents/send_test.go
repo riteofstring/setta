@@ -3,12 +3,16 @@ package externalagents
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
+	"setta/internal/auth"
+	"setta/internal/chatattachments"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/projectstate"
 )
@@ -220,6 +224,152 @@ func TestSendServiceComposesExternalPromptFromProfileAndAppGenerationMode(t *tes
 	}
 	if !containsText(systemPrompt, "- permissionMode: yolo") {
 		t.Fatalf("expected system prompt to include execution policy prompt, got %q", systemPrompt)
+	}
+}
+
+func TestSendServiceBuildsCodexAttachmentPayload(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSendServiceFixture(t, sendFixtureOptions{})
+	writeAttachmentFile(t, fixture.root, "artifacts/notes.txt", "Hello from attachment.")
+	writeAttachmentFile(t, fixture.root, "artifacts/image.png", "png-bytes")
+
+	_, err := fixture.service.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Use the attachment."},
+			},
+			"attachments": []any{
+				map[string]any{"id": "artifacts/notes.txt", "name": "notes.txt", "mimeType": "text/plain", "size": 22},
+				map[string]any{"id": "artifacts/image.png", "name": "image.png", "mimeType": "image/png", "size": 9},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		Thinking:        false,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start external chat with attachments: %v", err)
+	}
+
+	inputs := fixture.executor.last.Inputs
+	if _, ok := inputs["attachmentText"]; ok {
+		t.Fatalf("expected codex payload to omit attachmentText, got %#v", inputs["attachmentText"])
+	}
+	attachmentTextNoImages, _ := inputs["attachmentTextNoImages"].(string)
+	if !containsText(attachmentTextNoImages, "notes.txt") || !containsText(attachmentTextNoImages, "Hello from attachment.") {
+		t.Fatalf("expected codex payload to inline text attachment, got %q", attachmentTextNoImages)
+	}
+	if containsText(attachmentTextNoImages, "image.png") {
+		t.Fatalf("expected codex payload to omit image placeholder text, got %q", attachmentTextNoImages)
+	}
+	attachmentURLs, _ := inputs["attachmentUrls"].(map[string]string)
+	if len(attachmentURLs) != 2 {
+		t.Fatalf("expected codex payload URLs for both attachments, got %#v", inputs["attachmentUrls"])
+	}
+	if !containsText(attachmentURLs["artifacts/image.png"], "/api/attachments/") {
+		t.Fatalf("expected codex image URL to use attachment download route, got %#v", attachmentURLs)
+	}
+}
+
+func TestSendServiceBuildsClaudeAttachmentTextPayload(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSendServiceFixture(t, sendFixtureOptions{
+		externalToolType: externalagentconfigs.ToolTypeClaudeCode,
+		externalRunMode:  externalagentconfigs.RunModeSDK,
+	})
+	writeAttachmentFile(t, fixture.root, "artifacts/notes.txt", "Hello from attachment.")
+	writeAttachmentFile(t, fixture.root, "artifacts/image.png", "png-bytes")
+
+	_, err := fixture.service.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Use the attachment."},
+			},
+			"attachments": []any{
+				map[string]any{"id": "artifacts/notes.txt", "name": "notes.txt", "mimeType": "text/plain", "size": 22},
+				map[string]any{"id": "artifacts/image.png", "name": "image.png", "mimeType": "image/png", "size": 9},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		Thinking:        false,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start claude external chat with attachments: %v", err)
+	}
+
+	inputs := fixture.executor.last.Inputs
+	attachmentText, _ := inputs["attachmentText"].(string)
+	if !containsText(attachmentText, "notes.txt") || !containsText(attachmentText, "Hello from attachment.") {
+		t.Fatalf("expected claude payload to inline text attachment, got %q", attachmentText)
+	}
+	if !containsText(attachmentText, "image.png") {
+		t.Fatalf("expected claude payload to include image placeholder text, got %q", attachmentText)
+	}
+	if _, ok := inputs["attachmentTextNoImages"]; ok {
+		t.Fatalf("expected claude payload to omit attachmentTextNoImages, got %#v", inputs["attachmentTextNoImages"])
+	}
+	if _, ok := inputs["attachmentUrls"]; ok {
+		t.Fatalf("expected claude payload to omit attachmentUrls, got %#v", inputs["attachmentUrls"])
+	}
+}
+
+func TestSendServiceBuildsOpenCodeAttachmentURLPayload(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSendServiceFixture(t, sendFixtureOptions{
+		externalToolType: externalagentconfigs.ToolTypeOpenCode,
+		externalRunMode:  externalagentconfigs.RunModeSDK,
+	})
+	writeAttachmentFile(t, fixture.root, "artifacts/notes.txt", "Hello from attachment.")
+
+	_, err := fixture.service.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Use the attachment."},
+			},
+			"attachments": []any{
+				map[string]any{"id": "artifacts/notes.txt", "name": "notes.txt", "mimeType": "text/plain", "size": 22},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		Thinking:        false,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start opencode external chat with attachments: %v", err)
+	}
+
+	inputs := fixture.executor.last.Inputs
+	if _, ok := inputs["attachmentText"]; ok {
+		t.Fatalf("expected opencode payload to omit attachmentText, got %#v", inputs["attachmentText"])
+	}
+	if _, ok := inputs["attachmentTextNoImages"]; ok {
+		t.Fatalf("expected opencode payload to omit attachmentTextNoImages, got %#v", inputs["attachmentTextNoImages"])
+	}
+	attachmentURLs, _ := inputs["attachmentUrls"].(map[string]string)
+	if len(attachmentURLs) != 1 {
+		t.Fatalf("expected opencode payload URL for attachment, got %#v", inputs["attachmentUrls"])
+	}
+	if !containsText(attachmentURLs["artifacts/notes.txt"], "/api/attachments/") {
+		t.Fatalf("expected opencode attachment URL to use attachment download route, got %#v", attachmentURLs)
 	}
 }
 
@@ -636,6 +786,18 @@ type sendServiceFixture struct {
 	profiles *agentprofiles.Store
 	engineID string
 	now      time.Time
+	root     string
+}
+
+type testCurrentSessionProvider struct {
+	current *auth.CurrentSession
+}
+
+func (p testCurrentSessionProvider) CurrentSession() (*auth.CurrentSession, bool) {
+	if p.current == nil {
+		return nil, false
+	}
+	return p.current, true
 }
 
 func newSendServiceFixture(t *testing.T, options sendFixtureOptions) sendServiceFixture {
@@ -726,6 +888,22 @@ func newSendServiceFixture(t *testing.T, options sendFixtureOptions) sendService
 		response: StartResponse{Controller: controller},
 		err:      options.executorErr,
 	}
+	attachmentService, err := chatattachments.NewService(chatattachments.ServiceOptions{
+		SettaFilesRoot: root,
+		Host:           "127.0.0.1",
+		Port:           8000,
+		ProjectState:   projectRuntime,
+		Sessions: testCurrentSessionProvider{current: &auth.CurrentSession{
+			Metadata: auth.SessionMetadata{ID: "session-1"},
+			Secret:   []byte("secret"),
+		}},
+		TimeNow: func() time.Time {
+			return now
+		},
+	})
+	if err != nil {
+		t.Fatalf("new attachment service: %v", err)
+	}
 	preflightStatus := options.preflightStatus
 	if preflightStatus == nil {
 		preflightStatus = &externalagentconfigs.Status{
@@ -746,6 +924,7 @@ func newSendServiceFixture(t *testing.T, options sendFixtureOptions) sendService
 		Configs:      configs,
 		Runtime:      runtime,
 		Preflight:    stubPreflightChecker{status: *preflightStatus},
+		Attachments:  attachmentService,
 		Executor:     executor,
 		TimeNow: func() time.Time {
 			return now
@@ -762,6 +941,7 @@ func newSendServiceFixture(t *testing.T, options sendFixtureOptions) sendService
 		profiles: profiles,
 		engineID: engineID,
 		now:      now,
+		root:     root,
 	}
 }
 
@@ -792,4 +972,16 @@ func (f sendServiceFixture) seedExternalRun(t *testing.T, chatID string, status 
 
 func containsText(text string, expected string) bool {
 	return text != "" && expected != "" && strings.Contains(text, expected)
+}
+
+func writeAttachmentFile(t *testing.T, root string, relativePath string, content string) {
+	t.Helper()
+
+	path := filepath.Join(root, relativePath)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir attachment dir: %v", err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write attachment file: %v", err)
+	}
 }

@@ -11,6 +11,7 @@ import (
 
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
+	"setta/internal/chatattachments"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/projectstate"
 )
@@ -31,6 +32,7 @@ var (
 	ErrSendConfigStoreRequired               = errors.New("external agent send config store is required")
 	ErrSendRuntimeRequired                   = errors.New("external agent send runtime is required")
 	ErrSendPreflightCheckerRequired          = errors.New("external agent send preflight checker is required")
+	ErrSendAttachmentsRequired               = errors.New("external agent send attachments service is required")
 	ErrExecutorUnavailable                   = errors.New("external agent executor is not available")
 	ErrExternalAgentEngineRequired           = errors.New("engine config must be external_agent")
 	ErrExternalAgentConfigIDRequired         = errors.New("external agent engine config missing external agent config id")
@@ -84,6 +86,7 @@ type SendServiceOptions struct {
 	Configs      *externalagentconfigs.Store
 	Runtime      *Runtime
 	Preflight    externalagentconfigs.Checker
+	Attachments  *chatattachments.Service
 	Executor     Executor
 	TimeNow      func() time.Time
 }
@@ -96,6 +99,7 @@ type SendService struct {
 	configs      *externalagentconfigs.Store
 	runtime      *Runtime
 	preflight    externalagentconfigs.Checker
+	attachments  *chatattachments.Service
 	executor     Executor
 	timeNow      func() time.Time
 }
@@ -201,6 +205,7 @@ func NewSendService(options SendServiceOptions) (*SendService, error) {
 		configs:      options.Configs,
 		runtime:      options.Runtime,
 		preflight:    options.Preflight,
+		attachments:  options.Attachments,
 		executor:     options.Executor,
 		timeNow:      timeNow,
 	}, nil
@@ -396,6 +401,24 @@ func (s *SendService) StartChat(ctx context.Context, request StartChatRequest) (
 		"permissionMode":  string(request.PermissionMode),
 		"searchEnabled":   request.SearchEnabled,
 		"messages":        messageSliceToJSONList(priorMessages),
+	}
+	if chatattachments.HasAttachments(priorMessages) {
+		if s.attachments == nil {
+			return StartChatResult{}, ErrSendAttachmentsRequired
+		}
+		attachmentPayload, err := s.attachments.BuildPayload(chatattachments.BuildPayloadRequest{
+			Messages:            priorMessages,
+			ProjectConfigID:     projectConfigID,
+			IncludeText:         externalConfig.ToolType == externalagentconfigs.ToolTypeClaudeCode,
+			IncludeTextNoImages: externalConfig.ToolType == externalagentconfigs.ToolTypeCodex,
+			IncludeDownloadURLs: externalConfig.ToolType == externalagentconfigs.ToolTypeCodex || externalConfig.ToolType == externalagentconfigs.ToolTypeOpenCode,
+		})
+		if err != nil {
+			return StartChatResult{}, err
+		}
+		for key, value := range attachmentPayload.AsMap() {
+			inputs[key] = value
+		}
 	}
 	applyExternalReasoningDefaults(inputs, externalConfig.ToolType, request.Thinking)
 	if approvalPolicyOverride := resolveExternalApprovalPolicyOverride(request.PermissionMode, externalConfig.ToolType); approvalPolicyOverride != nil {

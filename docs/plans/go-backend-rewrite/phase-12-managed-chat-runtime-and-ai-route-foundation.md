@@ -69,7 +69,7 @@ Current repo status as of 2026-03-09:
   surface:
   - only any residual external-agent product-visible gap that may still remain
     after the now-landed Codex/OpenCode/Claude parity, Codex raw tool-item,
-    prompt/app-generation, and the remaining attachment-payload follow-on
+    prompt/app-generation, and attachment-payload follow-on slices
 - current work is no longer pure planning/inventory:
   - the hydration read path is implemented in Go
   - the active runtime, stop route, approval/question routes, send-route
@@ -88,8 +88,8 @@ Current repo status as of 2026-03-09:
   - the bounded external-agent prompt/app-generation follow-on in
     `phase-12-external-agent-prompt-and-app-generation-parity.md` is now
     complete
-  - the attempted final reassessment found one more bounded attachment gap
-    tracked in `phase-12-external-agent-attachment-payload-parity.md`
+  - the bounded external-agent attachment follow-on in
+    `phase-12-external-agent-attachment-payload-parity.md` is now complete
 
 ## Scope
 

@@ -30,19 +30,48 @@ Completed before this slice:
 - Codex raw non-`response_item` tool-item parity
 - Go-owned external prompt/app-generation shaping
 
-Still missing before this slice:
+Completed in this slice:
 
-- Go external-agent send path does not yet derive attachment payload inputs
-  from chat messages
-- Codex/OpenCode/Claude executors can consume attachment payload inputs, but
-  Go never produces them
-- Go does not yet expose the token-backed attachment download route needed by
+- `internal/chatattachments/service.go`
+  - explicit Go-owned attachment collection/deduping from chat messages
+  - explicit attachment prompt-text shaping with the same artifacts-root
+    restrictions Python uses
+  - explicit token-backed attachment URL minting for external-agent runs
+  - explicit download-token validation and artifact serving inputs for the
+    thin HTTP route
+- `internal/externalagents/send.go`
+  - Go-owned attachment payload composition before executor start
+  - explicit adapter-specific payload shaping:
+    - Claude: `attachmentText`
+    - Codex: `attachmentTextNoImages` plus `attachmentUrls`
+    - OpenCode: `attachmentUrls`
+- `internal/httpapi/attachment_routes.go`
+  - thin unauthenticated token-backed attachment download transport at
+    `/api/attachments/{token}`
+- focused tests in:
+  - `internal/chatattachments/service_test.go`
+  - `internal/externalagents/send_test.go`
+  - `internal/httpapi/attachment_routes_test.go`
+
+Resolved by this slice:
+
+- Go external-agent send path now derives attachment payload inputs from chat
+  messages
+- Codex/OpenCode/Claude executors now receive the attachment payload inputs
+  they already know how to consume
+- Go now exposes the token-backed attachment download route needed by
   external-agent `attachmentUrls`
-- focused Go tests do not yet prove external-agent attachment behavior
+- focused Go tests now prove external-agent attachment behavior
+
+Still missing after this slice:
+
+- only final Phase 12 inventory/closeout work to determine whether any
+  concrete external-agent product-visible gap still remains after the landed
+  runtime, executor, parity, prompt-composition, and attachment slices
 
 ## Scope
 
-This slice should deliver:
+This slice delivered:
 
 - a bounded Go attachment payload builder for external-agent runs
   - collect and dedupe file attachments from chat messages
@@ -122,18 +151,19 @@ This slice should deliver:
 
 ## Landing Outcome
 
-1. Restore external-agent attachment payload shaping in the Go send path.
-2. Restore a Go-owned token-backed attachment download route for external-agent
-   URLs.
-3. Add focused tests proving attachment prompt/url behavior and download-token
-   validation.
-4. Reassess whether Phase 12 can finally return to closeout/inventory after
-   this landing.
+1. Restored external-agent attachment payload shaping in the Go send path.
+2. Restored a Go-owned token-backed attachment download route for
+   external-agent URLs.
+3. Added focused tests proving attachment prompt/url behavior and
+   download-token validation.
+4. Returned the remaining Phase 12 work to final closeout/inventory rather
+   than another known external-agent slice.
 
 ## Verification
 
 - `./scripts/go.sh test ./internal/externalagents -run 'Send|Codex|OpenCode|Claude|Attachment'`
 - `./scripts/go.sh test ./internal/httpapi -run 'Attachment|AI|ExternalAgent'`
+- `./scripts/go.sh test ./internal/chatattachments ./internal/externalagents ./internal/httpapi -count=1`
 - `./scripts/go.sh test ./internal/app -run '^$'`
 
 ## Decisions Made
@@ -148,11 +178,12 @@ This slice should deliver:
 
 ## Open Questions
 
-- whether frontend-facing helper routes like `getAttachmentDownloadUrl(s)` need
-  migration during Phase 12 or belong to a different frontend/transport slice
-  - recommendation: not in this slice unless a concrete dependency appears
+- whether any concrete product-visible external-agent gap still remains after
+  restoring attachment payload shaping and token-backed downloads
+  - recommendation: answer this with the final Phase 12 inventory/closeout
+    pass rather than broadening attachment transport speculatively
 
 ## Next Recommended Step
 
-- land this bounded external-agent attachment payload slice, then reassess
-  whether the Phase 12 external-agent surface is finally complete
+- run the final Phase 12 external-agent inventory/closeout pass and only open
+  another slice if that reassessment finds a concrete user-facing gap

@@ -449,7 +449,7 @@ Use the docs in this order:
     prompt gap: agent-profile system prompt plus app-generation-mode prompt
     shaping over the completed Go runtime/executor boundary
 138. `phase-12-external-agent-attachment-payload-parity.md`
-  - focused implementation-plan doc for the bounded remaining external-agent
+  - focused completed-slice doc for the bounded remaining external-agent
     attachment gap: payload shaping plus the minimal token-backed download
     transport required by external-agent URLs
 139. `spike-mcp.md`
