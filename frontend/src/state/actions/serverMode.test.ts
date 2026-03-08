@@ -1,36 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { useServerMode } from "state/definitions";
+import { resetProjectStores } from "state/utils";
 import * as endpoints from "utils/generatedEndpoints";
 
 import { initializeServerMode } from "./serverMode";
 
-const { useServerMode } = vi.hoisted(() => {
-  const state = {
-    mode: null as "ide" | "share" | "app" | "launcher" | null,
-    modeResolved: false,
-    modeError: null as string | null,
-  };
-  return {
-    useServerMode: {
-      getState: () => state,
-      setState: (
-        next:
-          | Partial<typeof state>
-          | ((prev: typeof state) => Partial<typeof state>),
-      ) => {
-        const patch = typeof next === "function" ? next(state) : next;
-        Object.assign(state, patch);
-      },
-    },
-  };
-});
-
-vi.mock("state/definitions", () => ({
-  useServerMode,
-}));
-
 describe("initializeServerMode", () => {
   beforeEach(() => {
+    resetProjectStores();
     useServerMode.setState({
       mode: null,
       modeResolved: false,
@@ -40,11 +18,7 @@ describe("initializeServerMode", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
-    useServerMode.setState({
-      mode: null,
-      modeResolved: false,
-      modeError: null,
-    });
+    resetProjectStores();
   });
 
   it("returns cached mode when already resolved", async () => {
