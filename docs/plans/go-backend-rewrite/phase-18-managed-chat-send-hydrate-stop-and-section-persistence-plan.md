@@ -52,8 +52,9 @@ Landed during this phase:
 
 Remaining managed follow-ons inside this phase:
 
-- tool-preview / AI-follow parity only if the active managed frontend surface
-  still proves it necessary after the landed bounded tool path
+- managed AI-follow result parity plus any extra preview kinds beyond the
+  landed app-spec patch preview path only if the active managed frontend
+  surface still proves they are necessary
 - broader provider-native managed reasoning defaults only if the active
   product surface still needs more than the landed explicit-config /
   explicit-reject behavior
@@ -349,8 +350,16 @@ Recommended option if provider breadth becomes the first architecture tradeoff:
     params
   - unsupported reasoning no longer appears as an asynchronous post-start run
     failure
+- 2026-03-09: landed the eighth executable Phase 18 slice in Go for bounded
+  managed tool preview parity:
+  - shared tool-preview metadata in `internal/tools` plus MCP descriptor
+    propagation in `internal/mcpx`
+  - bounded managed `tool_argument_preview_delta` emission for
+    `stream_app_definition`
+  - real IDE app websocket coverage for the managed preview path
 - 2026-03-09: the remaining managed-chat follow-on inside this phase is now
-  tool-preview / AI-follow parity plus any optional broader provider-native
+  managed AI-follow result parity plus any extra preview kinds beyond the
+  landed app-spec patch path, or any optional broader provider-native
   reasoning defaults, not route movement or basic tool execution ownership.
 
 ## Verification
@@ -361,11 +370,14 @@ Recommended option if provider breadth becomes the first architecture tradeoff:
 - `./scripts/go.sh test ./internal/app ./internal/httpapi ./internal/managedllm ./internal/agentruns ./internal/managedchat -run 'Test(AppServesManagedChatSendThroughManagedExecutor|AppWiresManagedAgentRunFoundationInIDEMode|AppServesManagedAgentRunRoutesWithManagedExecutor|Executor|RuntimeStopRun|RuntimeStartRun|ServiceRunSubAgent|ServiceGetChatUsesConcreteLiveRuntimeOverlay|RegisterAIRoutes)' -count=1`
 - `./scripts/go.sh test ./internal/app ./internal/managedllm ./internal/mcpx ./internal/agentruns ./internal/httpapi ./internal/managedchat -run 'Test(AppServesManaged(ChatSendThroughManagedExecutor|ChatToolCallThroughInternalMCPClient)|Executor|Client|RuntimeStopRun|RuntimeStartRun|ServiceRunSubAgent|RegisterAIRoutes|ServiceGetChatUsesConcreteLiveRuntimeOverlay)' -count=1`
 - `./scripts/go.sh test ./internal/agentruns ./internal/managedllm ./internal/httpapi ./internal/app -run 'Test(ServiceRunSubAgentRejectsValidatedRequestBeforeSave|Executor(RejectsThinkingWithoutExplicitProviderConfig|ValidateAllowsThinkingWithExplicitReasoningConfig)|RegisterAIRoutesReturnsBadRequestForManagedThinkingUnsupported|AppServesManagedChatThinkingUnsupportedWithoutExplicitProviderConfig)' -count=1`
+- `./scripts/go.sh test ./internal/managedllm ./internal/mcpx ./internal/agentruns ./internal/app -run 'Test(ParseToolMetadataIncludesToolArgumentPreview|ServerListsToolsAndScopesToolCalls|ToolPreviewAccumulatorBuildsAppSpecPatchEvent|ScanPartialJSONStringsHandlesEscapedPreviewString|ExecutorExecuteStreamsManagedToolArgumentPreview|AppStreamsManagedToolArgumentPreviewOverFrontendWebsocket)' -count=1`
+- `./scripts/go.sh test ./internal/app ./internal/managedllm ./internal/mcpx ./internal/agentruns ./internal/httpapi ./internal/managedchat -run 'Test(AppServesManaged(ChatSendThroughManagedExecutor|ChatToolCallThroughInternalMCPClient|StreamsManagedToolArgumentPreviewOverFrontendWebsocket|ChatThinkingUnsupportedWithoutExplicitProviderConfig)|Executor|ToolPreviewAccumulator|ParseToolMetadataIncludesToolArgumentPreview|ServerListsToolsAndScopesToolCalls|ServiceRunSubAgent|RegisterAIRoutes|ServiceGetChatUsesConcreteLiveRuntimeOverlay)' -count=1`
 
 ## Next Recommended Step
 
-- add tool-preview or AI-follow parity only if a concrete current frontend
-  caller still needs those websocket surfaces after the landed tool loop
+- add managed AI-follow result parity or extra preview kinds only if a
+  concrete current frontend caller still needs those websocket surfaces after
+  the landed app-spec patch preview slice
 - add broader provider-native managed reasoning defaults only if the active
   surface still needs more than explicit config plus early rejection
 - otherwise rerank the adjacent transcription-session runtime slice instead of
@@ -449,13 +461,14 @@ Recommended option if provider breadth becomes the first architecture tradeoff:
 
 ## Open Questions
 
-- which provider adapters should be in the first managed executor landing
-  - recommendation: start with the minimum provider set required by the active
-    managed chat caller path and fail unsupported providers explicitly
-- whether `internal/managedchat` should also own chat-section persistence or
-  whether a tiny adjacent project-state helper keeps that boundary clearer
-  - recommendation: keep section persistence close to the project-state
-    mutation helpers unless that creates route-level coupling
+- whether any concrete current managed caller still needs
+  `AIFollowToolResultUpdate` before the adjacent transcription runtime slice
+  - recommendation: only reopen that websocket surface if the active frontend
+    still proves it is required
+- whether non-app preview kinds now justify broader target-id extraction over
+  the landed app-spec patch preview slice
+  - recommendation: keep preview support bounded to current callers and extend
+    only when the active product surface demands it
 
 ## Verification
 
@@ -465,7 +478,7 @@ Recommended option if provider breadth becomes the first architecture tradeoff:
 
 ## Next Recommended Step
 
-- use the landed send/hydrate/stop and chat-section persistence foundations as
-  the base for a separate provider-executor follow-on
-- keep transcription-session runtime as the next adjacent AI/runtime phase
-  unless the provider-executor work uncovers a concrete shared dependency
+- implement managed AI-follow result parity only if the active surface still
+  needs it after the landed tool-preview slice
+- otherwise keep transcription-session runtime as the next adjacent AI/runtime
+  phase

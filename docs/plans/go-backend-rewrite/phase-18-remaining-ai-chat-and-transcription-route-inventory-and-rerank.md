@@ -45,11 +45,14 @@ Current Go state relevant to this inventory:
   - now owns the first bounded managed provider executor
   - now supports bounded OpenAI chat-completions text streaming plus managed
     MCP tool-call execution over resolved `MCPServerIDs`
+  - now supports bounded managed `tool_argument_preview_delta` emission for
+    `stream_app_definition` over shared MCP tool metadata
   - now rejects unsupported managed `thinking=true` requests at start time
     unless the selected config already declares explicit provider-native
     reasoning params
-  - still leaves any optional tool-preview / AI-follow parity plus broader
-    provider-native reasoning defaults as explicit follow-ons
+  - still leaves any optional managed AI-follow result parity, broader
+    preview-kind coverage, plus broader provider-native reasoning defaults as
+    explicit follow-ons
 - `internal/httpapi/project_routes.go`
   - already owns the broad project-state mutation transport pattern with
     `frontendOpId` handling
@@ -254,14 +257,18 @@ Rerank:
 - 2026-03-09: landed the later managed follow-ons for live in-flight overlay,
   the bounded OpenAI executor, and bounded MCP tool execution over resolved
   `MCPServerIDs`.
+- 2026-03-09: landed the bounded managed tool-preview follow-on for
+  `stream_app_definition` over shared MCP tool metadata and the existing
+  managed websocket contract.
 - 2026-03-09: the direct frontend managed-chat route cluster and its bounded
   current runtime surface are now Go-owned.
 - 2026-03-09: landed managed reasoning preflight so unsupported
   `thinking=true` sends now fail synchronously unless explicit provider-native
   reasoning params are already present in the selected config.
-- 2026-03-09: the remaining managed follow-on is now any still-needed
-  tool-preview / AI-follow parity plus optional broader provider-native
-  reasoning defaults, while transcription remains separate.
+- 2026-03-09: the remaining managed follow-on is now any still-needed managed
+  AI-follow result parity or broader preview-kind coverage, plus optional
+  broader provider-native reasoning defaults, while transcription remains
+  separate.
 
 ## Verification
 
@@ -273,13 +280,15 @@ Rerank:
   - `./scripts/go.sh test ./internal/app -run 'TestAppServesManaged(ChatHydrateAndStopRoutes|ChatSendAsUnavailableWithoutExecutor)' -count=1`
   - `./scripts/go.sh test ./internal/app ./internal/managedllm ./internal/mcpx ./internal/agentruns ./internal/httpapi ./internal/managedchat -run 'Test(AppServesManaged(ChatSendThroughManagedExecutor|ChatToolCallThroughInternalMCPClient)|Executor|Client|RuntimeStopRun|RuntimeStartRun|ServiceRunSubAgent|RegisterAIRoutes|ServiceGetChatUsesConcreteLiveRuntimeOverlay)' -count=1`
   - `./scripts/go.sh test ./internal/agentruns ./internal/managedllm ./internal/httpapi ./internal/app -run 'Test(ServiceRunSubAgentRejectsValidatedRequestBeforeSave|Executor(RejectsThinkingWithoutExplicitProviderConfig|ValidateAllowsThinkingWithExplicitReasoningConfig)|RegisterAIRoutesReturnsBadRequestForManagedThinkingUnsupported|AppServesManagedChatThinkingUnsupportedWithoutExplicitProviderConfig)' -count=1`
+  - `./scripts/go.sh test ./internal/managedllm ./internal/mcpx ./internal/agentruns ./internal/app -run 'Test(ParseToolMetadataIncludesToolArgumentPreview|ServerListsToolsAndScopesToolCalls|ToolPreviewAccumulatorBuildsAppSpecPatchEvent|ScanPartialJSONStringsHandlesEscapedPreviewString|ExecutorExecuteStreamsManagedToolArgumentPreview|AppStreamsManagedToolArgumentPreviewOverFrontendWebsocket)' -count=1`
   - `./scripts/go.sh test ./internal/httpapi -run 'TestRegisterProjectRoutesChatSectionMutations|TestRegisterProjectRoutesLayoutPresentationMutationsPersistInLatestState' -count=1`
   - `./scripts/go.sh test ./internal/app -run '^TestAppServesChatSectionMutationRoutes$' -count=1`
 
 ## Next Recommended Step
 
-- add tool-preview or AI-follow parity only if a concrete current frontend
-  caller still depends on those surfaces
+- add managed AI-follow result parity or broader preview-kind coverage only if
+  a concrete current frontend caller still depends on those surfaces after the
+  landed app-spec patch preview slice
 - add broader provider-native managed reasoning defaults only if the active
   product surface still needs more than explicit config plus early rejection
 - otherwise keep transcription-session runtime as the next adjacent bounded

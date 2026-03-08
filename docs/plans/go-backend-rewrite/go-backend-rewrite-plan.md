@@ -42,11 +42,13 @@ AI/chat transport is now Go-owned for the current direct frontend managed and
 external route surface, and managed OpenAI text execution is now wired through
 Go as well. The rewrite still does not plan to recreate a broad
 LiteLLM-equivalent managed runtime in Go. The remaining managed-chat
-follow-on is now narrower: any still-needed tool-preview / AI-follow parity
-plus optional broader provider-native managed reasoning defaults beyond the
-landed explicit-config / explicit-reject `thinking=true` behavior behind the
-landed `/getLLMResponse` send owner, the landed managed live chat runtime, the
-bounded OpenAI executor, and the bounded MCP tool path.
+follow-on is now narrower: any still-needed managed AI-follow result parity,
+any broader preview-kind coverage beyond the landed app-spec patch
+`tool_argument_preview_delta` path, plus any optional broader provider-native
+managed reasoning defaults beyond the landed explicit-config / explicit-reject
+`thinking=true` behavior behind the landed `/getLLMResponse` send owner, the
+landed managed live chat runtime, the bounded OpenAI executor, and the bounded
+MCP tool path.
 
 The first Phase 18 slice is now landed for the adjacent project-state-backed
 chat-section persistence cluster:
@@ -92,6 +94,17 @@ execution:
 - persisted assistant `tool_calls` plus tool-result transcript support
 - real IDE app coverage for managed chats calling the internal Setta MCP
   server through the shared MCP client/runtime
+
+The seventh Phase 18 slice is now landed for bounded managed tool-preview
+parity:
+
+- shared Go tool-preview metadata in `internal/tools.Metadata`
+- MCP server/client propagation of `toolArgumentPreview` metadata for internal
+  Setta tools
+- bounded managed `tool_argument_preview_delta` emission for
+  `stream_app_definition` over streamed OpenAI tool-call arguments
+- real IDE app websocket coverage proving the existing frontend preview
+  consumer path now receives managed app-spec patch preview deltas
 
 The separate transcription-session runtime remains a later bounded AI follow-on
 instead of being bundled into that managed-chat slice. The current bounded

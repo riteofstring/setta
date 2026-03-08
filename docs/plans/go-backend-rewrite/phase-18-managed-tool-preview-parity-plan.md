@@ -39,14 +39,24 @@ Already landed in Phase 18:
 - synchronous managed `thinking=true` preflight rejection unless explicit
   provider-native reasoning config is already present
 
-Still missing for concrete managed preview parity:
+Landed during this slice:
 
-- Go tool metadata for managed tool-argument preview semantics
-- MCP server/client propagation of that preview metadata
-- managed executor extraction of preview deltas from streamed tool-call
-  arguments
-- bounded app coverage proving `stream_app_definition` previews reach the
-  existing frontend websocket contract
+- shared Go tool-preview metadata in `internal/tools.Metadata`
+- MCP server/client propagation of `toolArgumentPreview` metadata through
+  internal Setta tool descriptors
+- bounded managed executor preview extraction from streamed tool-call
+  arguments in `internal/managedllm`
+- preview metadata on the Go `stream_app_definition` MCP tool definition
+- bounded real-app websocket coverage proving managed
+  `stream_app_definition` previews now reach the existing frontend
+  `LLMStreamingResponse` contract
+
+Remaining managed follow-ons after this slice:
+
+- managed `AIFollowToolResultUpdate` parity only if the active surface still
+  proves it necessary
+- additional preview kinds with target-id extraction only if a concrete
+  current caller needs more than the landed app-spec patch preview path
 
 ## Scope
 
@@ -125,7 +135,39 @@ them.
 - whether the next preview kinds after app-spec patch need extra structured
   target-id extraction beyond the first bounded slice
 
+## Decisions Made
+
+- keep tool preview semantics in shared MCP tool metadata instead of
+  hardcoding managed-executor behavior per tool name
+- start with the active `stream_app_definition` preview path and do not
+  broaden to non-app preview kinds until a concrete caller proves they are
+  needed
+- keep preview delivery on the existing `LLMStreamingResponse` websocket
+  contract through the landed managed live runtime
+
+## Verification
+
+- `./scripts/go.sh test ./internal/managedllm ./internal/mcpx ./internal/agentruns ./internal/app -run 'Test(ParseToolMetadataIncludesToolArgumentPreview|ServerListsToolsAndScopesToolCalls|ToolPreviewAccumulatorBuildsAppSpecPatchEvent|ScanPartialJSONStringsHandlesEscapedPreviewString|ExecutorExecuteStreamsManagedToolArgumentPreview|AppStreamsManagedToolArgumentPreviewOverFrontendWebsocket)' -count=1`
+- `./scripts/go.sh test ./internal/app ./internal/managedllm ./internal/mcpx ./internal/agentruns ./internal/httpapi ./internal/managedchat -run 'Test(AppServesManaged(ChatSendThroughManagedExecutor|ChatToolCallThroughInternalMCPClient|StreamsManagedToolArgumentPreviewOverFrontendWebsocket|ChatThinkingUnsupportedWithoutExplicitProviderConfig)|Executor|ToolPreviewAccumulator|ParseToolMetadataIncludesToolArgumentPreview|ServerListsToolsAndScopesToolCalls|ServiceRunSubAgent|RegisterAIRoutes|ServiceGetChatUsesConcreteLiveRuntimeOverlay)' -count=1`
+
+## Progress Notes
+
+- 2026-03-09: repo inspection confirmed that managed tool preview parity still
+  had a concrete current caller through `stream_app_definition` app preview
+  streaming, while managed AI-follow result updates were a separate narrower
+  follow-on.
+- 2026-03-09: landed the shared tool-preview metadata surface in
+  `internal/tools` plus MCP server/client propagation for internal Setta tool
+  descriptors.
+- 2026-03-09: landed bounded managed executor preview extraction from streamed
+  tool-call argument buffers using metadata-driven preview paths instead of
+  hardcoded tool-name behavior.
+- 2026-03-09: landed real IDE app websocket coverage proving managed
+  `stream_app_definition` preview deltas now reach the existing frontend
+  preview consumer path.
+
 ## Next Recommended Step
 
-Implement the preview metadata surface first, then add managed executor preview
-emission for `stream_app_definition` end to end.
+Implement managed `AIFollowToolResultUpdate` parity only if a concrete current
+caller still needs it; otherwise rerank the adjacent transcription-session
+runtime slice instead of broadening managed chat further by default.

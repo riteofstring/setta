@@ -678,7 +678,7 @@ Use the docs in this order:
   - focused Phase 18 follow-on doc for the landed bounded managed MCP tool
     execution slice over resolved `MCPServerIDs` and per-call MCP metadata
 186. `phase-18-managed-tool-preview-parity-plan.md`
-  - focused Phase 18 follow-on doc for the bounded managed
+  - focused Phase 18 follow-on doc for the landed bounded managed
     `tool_argument_preview_delta` parity slice over shared MCP tool metadata
     and the landed live chat runtime
 187. `spike-mcp.md`

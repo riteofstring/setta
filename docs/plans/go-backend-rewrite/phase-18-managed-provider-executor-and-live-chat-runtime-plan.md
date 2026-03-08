@@ -22,8 +22,10 @@ Already landed in Phase 18:
 
 Remaining direct gaps for managed `setta_llm` chats:
 
-- additional websocket parity only if the active managed surface still proves
-  it necessary
+- additional managed AI-follow result parity only if the active surface still
+  proves it necessary
+- additional preview kinds only if the active surface requires more than the
+  landed app-spec patch preview path
 - additional provider adapters only if the active managed surface requires
   them
 - broader provider-native managed reasoning defaults only if the active
@@ -64,6 +66,17 @@ Landed during Slice 3:
   tool-result messages with `tool_call_id`
 - real IDE app coverage proving managed chats can call the internal Setta MCP
   server through the same MCP client/runtime used elsewhere in Go
+
+Landed during Slice 4:
+
+- shared Go tool-preview metadata in `internal/tools.Metadata`
+- MCP server/client propagation of `toolArgumentPreview` metadata for
+  internal Setta tools
+- bounded managed `tool_argument_preview_delta` emission from streamed OpenAI
+  tool-call arguments in `internal/managedllm`
+- preview metadata on the Go `stream_app_definition` tool definition
+- real IDE app websocket coverage proving managed tool previews reach the
+  existing frontend `LLMStreamingResponse` consumer path
 
 Repo findings that shaped this follow-on:
 
@@ -176,6 +189,13 @@ are required for the current direct managed chat product surface.
 
 Status: landed on 2026-03-09.
 
+### Slice 4
+
+Bounded managed tool-preview parity for the active `stream_app_definition`
+frontend preview path.
+
+Status: landed on 2026-03-09.
+
 ## Decisions Made
 
 - treat the managed live runtime as a direct dependency of provider execution
@@ -195,15 +215,19 @@ Status: landed on 2026-03-09.
   source-of-truth config path as the rest of the runtime
 - prefer per-call MCP request `meta` over session-scoped `set_agentic_context`
   because the Go client intentionally reuses long-lived sessions per server
+- keep managed tool preview extraction metadata-driven through shared MCP tool
+  descriptors instead of hardcoding preview behavior per tool name
 
 ## Open Questions
 
+- whether the active managed surface now needs managed
+  `AIFollowToolResultUpdate` parity before the separate transcription runtime
+  slice
+- whether the next preview kinds after app-spec patch need extra target-id
+  extraction support beyond the landed bounded metadata path
 - whether the active managed surface now needs broader provider-native
   `thinking=true` defaults beyond the landed explicit-config / early-reject
   boundary before the separate transcription runtime slice
-- whether provider-visible tool-definition pruning needs to mirror additional
-  Python scope filtering beyond the already-landed invocation-time MCP scope
-  enforcement
 
 ## Verification
 
@@ -218,6 +242,11 @@ Slice 2 verification:
 Slice 3 verification:
 
 - `./scripts/go.sh test ./internal/app ./internal/managedllm ./internal/mcpx ./internal/agentruns ./internal/httpapi ./internal/managedchat -run 'Test(AppServesManaged(ChatSendThroughManagedExecutor|ChatToolCallThroughInternalMCPClient)|Executor|Client|RuntimeStopRun|RuntimeStartRun|ServiceRunSubAgent|RegisterAIRoutes|ServiceGetChatUsesConcreteLiveRuntimeOverlay)' -count=1`
+
+Slice 4 verification:
+
+- `./scripts/go.sh test ./internal/managedllm ./internal/mcpx ./internal/agentruns ./internal/app -run 'Test(ParseToolMetadataIncludesToolArgumentPreview|ServerListsToolsAndScopesToolCalls|ToolPreviewAccumulatorBuildsAppSpecPatchEvent|ScanPartialJSONStringsHandlesEscapedPreviewString|ExecutorExecuteStreamsManagedToolArgumentPreview|AppStreamsManagedToolArgumentPreviewOverFrontendWebsocket)' -count=1`
+- `./scripts/go.sh test ./internal/app ./internal/managedllm ./internal/mcpx ./internal/agentruns ./internal/httpapi ./internal/managedchat -run 'Test(AppServesManaged(ChatSendThroughManagedExecutor|ChatToolCallThroughInternalMCPClient|StreamsManagedToolArgumentPreviewOverFrontendWebsocket|ChatThinkingUnsupportedWithoutExplicitProviderConfig)|Executor|ToolPreviewAccumulator|ParseToolMetadataIncludesToolArgumentPreview|ServerListsToolsAndScopesToolCalls|ServiceRunSubAgent|RegisterAIRoutes|ServiceGetChatUsesConcreteLiveRuntimeOverlay)' -count=1`
 
 ## Progress Notes
 
@@ -244,17 +273,19 @@ Slice 3 verification:
   `internal/agentruns` plus route/app error mapping so `thinking=true`
   requests now fail synchronously unless the selected config already declares
   explicit provider-native reasoning params.
+- 2026-03-09: landed Slice 4 with shared tool-preview metadata, MCP
+  descriptor propagation, bounded managed `tool_argument_preview_delta`
+  emission for `stream_app_definition`, and real app websocket coverage.
 
 ## Next Recommended Step
 
 Implement the next bounded follow-on only if the active managed surface still
 needs it:
 
-- resolve managed `thinking=true` through explicit provider-native config or a
-  separate bounded product/default decision only if the active surface still
-  needs more than the landed explicit-config / early-reject behavior, not
-  model-name heuristics
-- add tool-preview or AI-follow parity only if a concrete current caller still
-  depends on those websocket surfaces
+- implement managed `AIFollowToolResultUpdate` parity only if a concrete
+  current caller still depends on that websocket surface
+- resolve broader managed `thinking=true` defaults only if the active surface
+  still needs more than the landed explicit-config / early-reject behavior,
+  not model-name heuristics
 - otherwise rerank the adjacent transcription-session runtime slice instead of
   broadening managed chat further by default
