@@ -208,6 +208,12 @@ Missing Go owners:
   source of truth
   - current recommendation: keep the first slice aligned with the persisted
     run path already owned by `internal/agentruns`
+- how the first provider-backed managed executor should talk to real model
+  providers from Go
+  - current recommendation: add explicit provider adapters under
+    `internal/llm` using official SDKs only at the adapter edge, starting with
+    the providers already exercised by the managed-chat configs/tests instead of
+    trying to recreate LiteLLM as a generic abstraction in Go
 - whether AI-follow and reveal-side integration must land in Stage 1 or can be
   deferred behind the same live-state owner until the frontend proves it is
   blocked
