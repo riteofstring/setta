@@ -132,7 +132,7 @@ func functionDeclaration(
 		Exported:       exported,
 		FunctionParams: append([]TypeProperty(nil), params...),
 		FunctionReturn: returnType,
-		FunctionBody:   body,
+		FunctionBody:   strings.TrimRight(body, "\n"),
 	}
 }
 

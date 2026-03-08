@@ -195,77 +195,58 @@ func writeWebsocketStringFieldReadTS(
 	builder.WriteString("),\n")
 }
 
-func buildWebsocketSafeParseTypesTS() string {
-	var builder strings.Builder
-	builder.WriteString("type SafeParseSuccess<T> = {\n")
-	builder.WriteString("  success: true;\n")
-	builder.WriteString("  data: T;\n")
-	builder.WriteString("};\n\n")
-	builder.WriteString("type SafeParseFailure = {\n")
-	builder.WriteString("  success: false;\n")
-	builder.WriteString("  error: {\n")
-	builder.WriteString("    issues: Array<string>;\n")
-	builder.WriteString("  };\n")
-	builder.WriteString("};\n\n")
-	builder.WriteString("type SafeParseResult<T> = SafeParseSuccess<T> | SafeParseFailure;")
-	return builder.String()
+func websocketSafeParseDeclarations() []TypeDeclaration {
+	return []TypeDeclaration{
+		localAliasDeclaration("SafeParseSuccess", "<T>", `{
+  success: true;
+  data: T;
+}`),
+		localAliasDeclaration("SafeParseFailure", "", `{
+  success: false;
+  error: {
+    issues: Array<string>;
+  };
+}`),
+		localAliasDeclaration("SafeParseResult", "<T>", "SafeParseSuccess<T> | SafeParseFailure"),
+	}
 }
 
-func buildWebsocketSchemaHelperFunctionsTS() string {
-	var builder strings.Builder
-	builder.WriteString("function websocketSupportIsRecord(\n")
-	builder.WriteString("  value: unknown,\n")
-	builder.WriteString("): value is Record<string, unknown> {\n")
-	builder.WriteString("  return value !== null && typeof value === \"object\" && !Array.isArray(value);\n")
-	builder.WriteString("}\n\n")
-	builder.WriteString("function websocketSupportReadRequiredString(\n")
-	builder.WriteString("  value: unknown,\n")
-	builder.WriteString("  fieldName: string,\n")
-	builder.WriteString("  issues: Array<string>,\n")
-	builder.WriteString("): string {\n")
-	builder.WriteString("  if (typeof value === \"string\") {\n")
-	builder.WriteString("    return value;\n")
-	builder.WriteString("  }\n")
-	builder.WriteString("  issues.push(fieldName + \" must be a string.\");\n")
-	builder.WriteString("  return \"\";\n")
-	builder.WriteString("}\n\n")
-	builder.WriteString("function websocketSupportReadOptionalString(\n")
-	builder.WriteString("  value: unknown,\n")
-	builder.WriteString("  fieldName: string,\n")
-	builder.WriteString("  issues: Array<string>,\n")
-	builder.WriteString("): string | null {\n")
-	builder.WriteString("  if (value === undefined || value === null) {\n")
-	builder.WriteString("    return null;\n")
-	builder.WriteString("  }\n")
-	builder.WriteString("  if (typeof value === \"string\") {\n")
-	builder.WriteString("    return value;\n")
-	builder.WriteString("  }\n")
-	builder.WriteString("  issues.push(fieldName + \" must be a string or null.\");\n")
-	builder.WriteString("  return null;\n")
-	builder.WriteString("}\n\n")
-	builder.WriteString("function websocketSupportReadDurationMs(\n")
-	builder.WriteString("  value: unknown,\n")
-	builder.WriteString("  issues: Array<string>,\n")
-	builder.WriteString("): number {\n")
-	builder.WriteString("  if (value === undefined) {\n")
-	builder.WriteString("    return 3000;\n")
-	builder.WriteString("  }\n")
-	builder.WriteString("  if (typeof value === \"number\" && Number.isFinite(value)) {\n")
-	builder.WriteString("    return value;\n")
-	builder.WriteString("  }\n")
-	builder.WriteString("  issues.push(\"durationMs must be a finite number.\");\n")
-	builder.WriteString("  return 3000;\n")
-	builder.WriteString("}")
-	return builder.String()
+func buildWebsocketSupportIsRecordBodyTS() string {
+	return `  return value !== null && typeof value === "object" && !Array.isArray(value);`
 }
 
-func buildWebsocketReadActivationStepsTS() string {
+func buildWebsocketSupportReadRequiredStringBodyTS() string {
+	return `  if (typeof value === "string") {
+    return value;
+  }
+  issues.push(fieldName + " must be a string.");
+  return "";`
+}
+
+func buildWebsocketSupportReadOptionalStringBodyTS() string {
+	return `  if (value === undefined || value === null) {
+    return null;
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  issues.push(fieldName + " must be a string or null.");
+  return null;`
+}
+
+func buildWebsocketSupportReadDurationMsBodyTS() string {
+	return `  if (value === undefined) {
+    return 3000;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  issues.push("durationMs must be a finite number.");
+  return 3000;`
+}
+
+func buildWebsocketReadActivationStepsBodyTS() string {
 	var builder strings.Builder
-	builder.WriteString("function websocketSupportReadActivationSteps(\n")
-	builder.WriteString("  value: unknown,\n")
-	builder.WriteString("  fieldName: string,\n")
-	builder.WriteString("  issues: Array<string>,\n")
-	builder.WriteString("): Array<UISettingRevealActivationStep> {\n")
 	builder.WriteString("  if (value === undefined) {\n")
 	builder.WriteString("    return [];\n")
 	builder.WriteString("  }\n")
@@ -293,16 +274,11 @@ func buildWebsocketReadActivationStepsTS() string {
 	builder.WriteString("    });\n")
 	builder.WriteString("  });\n")
 	builder.WriteString("  return steps;\n")
-	builder.WriteString("}")
 	return builder.String()
 }
 
-func buildWebsocketReadRevealTargetsTS() string {
+func buildWebsocketReadRevealTargetsBodyTS() string {
 	var builder strings.Builder
-	builder.WriteString("function websocketSupportReadRevealTargets(\n")
-	builder.WriteString("  value: unknown,\n")
-	builder.WriteString("  issues: Array<string>,\n")
-	builder.WriteString("): Array<UISettingRevealTarget> {\n")
 	builder.WriteString("  if (!Array.isArray(value)) {\n")
 	builder.WriteString("    issues.push(\"reveals must be an array.\");\n")
 	builder.WriteString("    return [];\n")
@@ -334,13 +310,12 @@ func buildWebsocketReadRevealTargetsTS() string {
 	builder.WriteString("    });\n")
 	builder.WriteString("  });\n")
 	builder.WriteString("  return targets;\n")
-	builder.WriteString("}")
 	return builder.String()
 }
 
-func buildUISettingRevealContentSchemaTS() string {
+func buildUISettingRevealContentSchemaExprTS() string {
 	var builder strings.Builder
-	builder.WriteString("export const UISettingRevealContentSchema = {\n")
+	builder.WriteString("{\n")
 	builder.WriteString("  safeParse(value: unknown): SafeParseResult<UISettingRevealContent> {\n")
 	builder.WriteString("    if (!websocketSupportIsRecord(value)) {\n")
 	builder.WriteString("      return {\n")
@@ -372,13 +347,13 @@ func buildUISettingRevealContentSchemaTS() string {
 	builder.WriteString("      data: parsed,\n")
 	builder.WriteString("    };\n")
 	builder.WriteString("  },\n")
-	builder.WriteString("};")
+	builder.WriteString("}")
 	return builder.String()
 }
 
-func buildDependencyEventSchemaTS() string {
+func buildDependencyEventSchemaExprTS() string {
 	var builder strings.Builder
-	builder.WriteString("export const DependencyEventSchema = {\n")
+	builder.WriteString("{\n")
 	builder.WriteString("  shape: {\n")
 	for _, fieldName := range []string{"dependencyKey", "payload", "timestampMs"} {
 		builder.WriteString("    ")
@@ -426,17 +401,66 @@ func buildDependencyEventSchemaTS() string {
 	builder.WriteString("      },\n")
 	builder.WriteString("    };\n")
 	builder.WriteString("  },\n")
-	builder.WriteString("};")
+	builder.WriteString("}")
 	return builder.String()
 }
 
 func websocketSupportDeclarations() []TypeDeclaration {
-	return []TypeDeclaration{
-		rawDeclaration("WebsocketSafeParseTypes", buildWebsocketSafeParseTypesTS()),
-		rawDeclaration("WebsocketSchemaHelpers", buildWebsocketSchemaHelperFunctionsTS()),
-		rawDeclaration("WebsocketActivationStepSchemaHelper", buildWebsocketReadActivationStepsTS()),
-		rawDeclaration("WebsocketRevealTargetSchemaHelper", buildWebsocketReadRevealTargetsTS()),
-		rawDeclaration("UISettingRevealContentSchemaSupport", buildUISettingRevealContentSchemaTS()),
-		rawDeclaration("DependencyEventSchemaSupport", buildDependencyEventSchemaTS()),
-	}
+	declarations := append([]TypeDeclaration{}, websocketSafeParseDeclarations()...)
+	declarations = append(
+		declarations,
+		functionDeclaration(
+			"websocketSupportIsRecord",
+			false,
+			"value is Record<string, unknown>",
+			buildWebsocketSupportIsRecordBodyTS(),
+			TypeProperty{Name: "value", TypeExpr: "unknown"},
+		),
+		functionDeclaration(
+			"websocketSupportReadRequiredString",
+			false,
+			"string",
+			buildWebsocketSupportReadRequiredStringBodyTS(),
+			TypeProperty{Name: "value", TypeExpr: "unknown"},
+			TypeProperty{Name: "fieldName", TypeExpr: "string"},
+			TypeProperty{Name: "issues", TypeExpr: "Array<string>"},
+		),
+		functionDeclaration(
+			"websocketSupportReadOptionalString",
+			false,
+			"string | null",
+			buildWebsocketSupportReadOptionalStringBodyTS(),
+			TypeProperty{Name: "value", TypeExpr: "unknown"},
+			TypeProperty{Name: "fieldName", TypeExpr: "string"},
+			TypeProperty{Name: "issues", TypeExpr: "Array<string>"},
+		),
+		functionDeclaration(
+			"websocketSupportReadDurationMs",
+			false,
+			"number",
+			buildWebsocketSupportReadDurationMsBodyTS(),
+			TypeProperty{Name: "value", TypeExpr: "unknown"},
+			TypeProperty{Name: "issues", TypeExpr: "Array<string>"},
+		),
+		functionDeclaration(
+			"websocketSupportReadActivationSteps",
+			false,
+			"Array<UISettingRevealActivationStep>",
+			buildWebsocketReadActivationStepsBodyTS(),
+			TypeProperty{Name: "value", TypeExpr: "unknown"},
+			TypeProperty{Name: "fieldName", TypeExpr: "string"},
+			TypeProperty{Name: "issues", TypeExpr: "Array<string>"},
+		),
+		functionDeclaration(
+			"websocketSupportReadRevealTargets",
+			false,
+			"Array<UISettingRevealTarget>",
+			buildWebsocketReadRevealTargetsBodyTS(),
+			TypeProperty{Name: "value", TypeExpr: "unknown"},
+			TypeProperty{Name: "issues", TypeExpr: "Array<string>"},
+		),
+		constDeclaration("UISettingRevealContentSchema", true, buildUISettingRevealContentSchemaExprTS()),
+		constDeclaration("DependencyEventSchema", true, buildDependencyEventSchemaExprTS()),
+	)
+	return declarations
 }

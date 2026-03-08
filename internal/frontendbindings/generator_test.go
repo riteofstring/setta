@@ -196,6 +196,37 @@ func TestBuildBindingsIncludesWebsocketSchemaSupport(t *testing.T) {
 	}
 }
 
+func TestWebsocketSchemaSupportUsesStructuredDeclarations(t *testing.T) {
+	t.Helper()
+
+	declarations := websocketSupportDeclarations()
+	seenLocalAliases := 0
+	seenFunctions := 0
+	seenConsts := 0
+	for _, declaration := range declarations {
+		switch declaration.Kind {
+		case "local_alias":
+			seenLocalAliases++
+		case "function":
+			seenFunctions++
+		case "const":
+			seenConsts++
+		case "raw":
+			t.Fatalf("websocket schema support still uses raw declaration %q", declaration.Name)
+		}
+	}
+
+	if seenLocalAliases != 3 {
+		t.Fatalf("websocket local alias declaration count = %d, want 3", seenLocalAliases)
+	}
+	if seenFunctions != 6 {
+		t.Fatalf("websocket function declaration count = %d, want 6", seenFunctions)
+	}
+	if seenConsts != 2 {
+		t.Fatalf("websocket const declaration count = %d, want 2", seenConsts)
+	}
+}
+
 func TestBuildDoesNotEmitProjectStateFrontendSupportMarker(t *testing.T) {
 	t.Helper()
 

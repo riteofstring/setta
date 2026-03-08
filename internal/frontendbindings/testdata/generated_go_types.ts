@@ -8551,12 +8551,14 @@ type SafeParseSuccess<T> = {
   data: T;
 };
 
+
 type SafeParseFailure = {
   success: false;
   error: {
     issues: Array<string>;
   };
 };
+
 
 type SafeParseResult<T> = SafeParseSuccess<T> | SafeParseFailure;
 
@@ -8566,6 +8568,7 @@ function websocketSupportIsRecord(
 ): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
+
 
 function websocketSupportReadRequiredString(
   value: unknown,
@@ -8578,6 +8581,7 @@ function websocketSupportReadRequiredString(
   issues.push(fieldName + " must be a string.");
   return "";
 }
+
 
 function websocketSupportReadOptionalString(
   value: unknown,
@@ -8593,6 +8597,7 @@ function websocketSupportReadOptionalString(
   issues.push(fieldName + " must be a string or null.");
   return null;
 }
+
 
 function websocketSupportReadDurationMs(
   value: unknown,
