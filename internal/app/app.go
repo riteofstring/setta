@@ -31,6 +31,7 @@ import (
 	"setta/internal/externalagentconfigs"
 	"setta/internal/externalagents"
 	"setta/internal/frontendorigins"
+	"setta/internal/gitread"
 	"setta/internal/httpapi"
 	"setta/internal/launcher"
 	"setta/internal/llmconfig"
@@ -162,6 +163,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		managedLiveRuntime    *managedchat.LiveRuntime
 		managedChatService    *managedchat.Service
 		chatSectionChatIDs    *chatsections.Service
+		gitReadService        *gitread.Service
 		projectShellService   *projectshell.Service
 		notificationStore     *notifications.Store
 		notificationService   *notifications.Service
@@ -793,6 +795,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
+		gitReadService, err = gitread.NewService(gitread.ServiceOptions{
+			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
 		broadcastAllProjectMetadata := func(ctx context.Context, snapshot projectstate.Snapshot) error {
 			var defaultProjectID *string
 			if trimmedDefaultProjectID := strings.TrimSpace(snapshot.Document.DefaultProjectID); trimmedDefaultProjectID != "" {
@@ -1320,6 +1329,12 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				ModePolicy:    modePolicy,
 				Shell:         projectShellService,
 				Notifications: notificationService,
+			}); err != nil {
+				panic(err)
+			}
+			if err := httpapi.RegisterGitRoutes(r, httpapi.GitRouteDependencies{
+				ModePolicy: modePolicy,
+				Git:        gitReadService,
 			}); err != nil {
 				panic(err)
 			}
