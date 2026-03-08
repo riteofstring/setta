@@ -30,7 +30,11 @@ func TestServiceCodeAreaCompletionReturnsFixtureCompletion(t *testing.T) {
 
 	service := newFixtureCompletionService(t, settaFilesRoot, "", 0)
 	defer func() {
-		if err := service.lspService.Close(context.Background()); err != nil {
+		closer, ok := service.lspService.(interface{ Close(context.Context) error })
+		if !ok {
+			t.Fatal("expected completion lsp service to expose Close")
+		}
+		if err := closer.Close(context.Background()); err != nil {
 			t.Fatalf("close lsp service: %v", err)
 		}
 	}()
@@ -72,7 +76,11 @@ func TestServiceTextFieldCompletionDoesNotBlockRuntimeMutation(t *testing.T) {
 	completionStartedPath := filepath.Join(t.TempDir(), "completion-started")
 	service := newBlockingCompletionService(t, settaFilesRoot, "", completionStartedPath, 400)
 	defer func() {
-		if err := service.lspService.Close(context.Background()); err != nil {
+		closer, ok := service.lspService.(interface{ Close(context.Context) error })
+		if !ok {
+			t.Fatal("expected blocking completion lsp service to expose Close")
+		}
+		if err := closer.Close(context.Background()); err != nil {
 			t.Fatalf("close lsp service: %v", err)
 		}
 	}()

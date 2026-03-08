@@ -17,16 +17,22 @@ import (
 type ProjectSynchronizerOptions struct {
 	SettaFilesRoot              string
 	RuntimeRoot                 string
-	Service                     *Service
+	Service                     documentSyncer
 	Diagnostics                 *projectstate.LSPDiagnosticsRegistry
 	OnCallableSymbolsResolved   func(context.Context, string, []string)
 	OnCallableSignatureMismatch func(context.Context, string, []string)
 }
 
+type documentSyncer interface {
+	SyncDocuments(context.Context, map[string]SyncedDocument) error
+	UpsertDocument(context.Context, SyncedDocument) error
+	Close(context.Context) error
+}
+
 type ProjectSynchronizer struct {
 	settaFilesRoot              string
 	runtimeRoot                 string
-	service                     *Service
+	service                     documentSyncer
 	diagnostics                 *projectstate.LSPDiagnosticsRegistry
 	onCallableSymbolsResolved   func(context.Context, string, []string)
 	onCallableSignatureMismatch func(context.Context, string, []string)
@@ -122,16 +128,16 @@ func (s *ProjectSynchronizer) buildDocuments(document projectstate.Document) (ma
 	for _, projectID := range projectIDs {
 		project := document.Projects[projectID]
 
-		sectionFiles, err := project.ActivePythonCodeSectionFiles()
+		activeSectionFiles, err := project.ActiveCodeSectionFiles()
 		if err != nil {
-			return nil, fmt.Errorf("lsp: project %q active python code sections: %w", projectID, err)
+			return nil, fmt.Errorf("lsp: project %q active code sections: %w", projectID, err)
 		}
-		for _, sectionFile := range sectionFiles {
+		for _, sectionFile := range activeSectionFiles {
 			ignoreState, err := project.CodeSectionDiagnosticsIgnoreStateForSection(sectionFile.SectionID)
 			if err != nil {
 				return nil, err
 			}
-			path, err := statefs.ResolveWithinRoot(s.settaFilesRoot, sectionFile.Binding.Path, "python code section path")
+			path, err := statefs.ResolveWithinRoot(s.settaFilesRoot, sectionFile.Binding.Path, "code section path")
 			if err != nil {
 				return nil, err
 			}
@@ -141,7 +147,7 @@ func (s *ProjectSynchronizer) buildDocuments(document projectstate.Document) (ma
 			}
 			documents[path] = SyncedDocument{
 				Path:       path,
-				LanguageID: "python",
+				LanguageID: string(sectionFile.Language),
 				Content:    content,
 				Callback:   s.codeSectionDiagnosticsCallback(project.ID, sectionFile.SectionID, ignoreState),
 			}
@@ -159,10 +165,10 @@ func (s *ProjectSynchronizer) buildDocuments(document projectstate.Document) (ma
 	return documents, nil
 }
 
-func (s *ProjectSynchronizer) resolveSectionContent(path string, sectionFile projectstate.PythonCodeSectionFile) (string, error) {
+func (s *ProjectSynchronizer) resolveSectionContent(path string, sectionFile projectstate.ActiveCodeSectionFile) (string, error) {
 	if sectionFile.HasInlineCode {
 		if err := statefs.AtomicWriteFile(path, []byte(sectionFile.Code), 0o644); err != nil {
-			return "", fmt.Errorf("lsp: write python code section %q: %w", sectionFile.SectionID, err)
+			return "", fmt.Errorf("lsp: write code section %q: %w", sectionFile.SectionID, err)
 		}
 		return sectionFile.Code, nil
 	}
@@ -172,10 +178,10 @@ func (s *ProjectSynchronizer) resolveSectionContent(path string, sectionFile pro
 		return string(content), nil
 	}
 	if !errors.Is(err, os.ErrNotExist) {
-		return "", fmt.Errorf("lsp: read python code section %q: %w", sectionFile.SectionID, err)
+		return "", fmt.Errorf("lsp: read code section %q: %w", sectionFile.SectionID, err)
 	}
 	if err := statefs.AtomicWriteFile(path, []byte{}, 0o644); err != nil {
-		return "", fmt.Errorf("lsp: initialize empty python code section %q: %w", sectionFile.SectionID, err)
+		return "", fmt.Errorf("lsp: initialize empty code section %q: %w", sectionFile.SectionID, err)
 	}
 	return "", nil
 }

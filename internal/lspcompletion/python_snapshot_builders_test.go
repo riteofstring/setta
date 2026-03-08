@@ -6,13 +6,13 @@ import (
 	"setta/internal/projectstate"
 )
 
-// Python code-area completion should point at the canonical section binding and
+// Code-area completion should point at the canonical section binding and
 // preserve the caller-provided editor content and cursor location.
-func TestBuildPythonCodeAreaSnapshotRequestUsesCanonicalBinding(t *testing.T) {
+func TestBuildCodeAreaSnapshotRequestUsesCanonicalBinding(t *testing.T) {
 	t.Parallel()
 
 	project := completionTestProject(t)
-	request, ok, err := BuildPythonCodeAreaSnapshotRequest(project, "code-section", "value.\n", 6)
+	request, ok, err := BuildCodeAreaSnapshotRequest(project, "code-section", "value.\n", 6)
 	if err != nil {
 		t.Fatalf("build code area completion request: %v", err)
 	}
@@ -27,6 +27,42 @@ func TestBuildPythonCodeAreaSnapshotRequestUsesCanonicalBinding(t *testing.T) {
 	}
 	if request.Line != 0 || request.Character != 6 {
 		t.Fatalf("unexpected code area completion position line=%d character=%d", request.Line, request.Character)
+	}
+}
+
+// Plugin-defined code-area completion should use the normalized language id and
+// the deterministic extension derived from the section code language.
+func TestBuildCodeAreaSnapshotRequestUsesPluginLanguageBinding(t *testing.T) {
+	t.Parallel()
+
+	project := completionTestProject(t)
+	project.SectionImpls["code-impl-1"] = projectstate.SectionImpl{
+		ID:   "code-impl-1",
+		Kind: projectstate.SectionKindCode,
+		Code: &projectstate.CodeSectionImpl{
+			Language: projectstate.CodeLanguage("FixtureDSL"),
+		},
+		Payload: projectstate.RawJSON(`{
+			"id":"code-impl-1",
+			"type":"Code",
+			"code":"fixture.value()\n",
+			"codeLanguage":"FixtureDSL",
+			"children":[]
+		}`),
+	}
+
+	request, ok, err := BuildCodeAreaSnapshotRequest(project, "code-section", "fixture.", 8)
+	if err != nil {
+		t.Fatalf("build plugin code area completion request: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected plugin code-area completion request")
+	}
+	if request.RelativePath != projectstate.ProjectCodeSectionsRelativeRoot(project.Name)+"/editor.fixturedsl" {
+		t.Fatalf("unexpected plugin code area completion path %q", request.RelativePath)
+	}
+	if request.LanguageID != "fixturedsl" {
+		t.Fatalf("expected normalized plugin language id, got %q", request.LanguageID)
 	}
 }
 

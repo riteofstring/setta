@@ -574,6 +574,28 @@ is now landed:
 - full plugin-defined language-server execution/runtime ownership remains
   deferred to the later LSP/runtime phases
 
+The bounded Phase 5 follow-on tracked in
+`phase-5-plugin-language-server-code-section-runtime.md` is now landed:
+
+- Go now owns:
+  - top-level `Code` section creation for plugin-defined `codeLanguage`
+    values
+  - deterministic canonical bindings for active non-generated code sections
+    across arbitrary languages
+  - language-aware LSP routing for code-section diagnostics and
+    `POST /codeAreaCompletion`
+- backend-registration snapshots now absorb `register_router` calls so mixed
+  backend plugins can still surface language-server registrations without
+  broadening into full backend route serving
+- shared LSP session processes now outlive the HTTP request context that first
+  started them, which closes a real runtime ownership bug in the Go LSP
+  service boundary
+- focused app/runtime/route coverage and the real
+  `plugin-language-server.spec.ts` Playwright caller now pass against the Go
+  app
+- full plugin backend route serving remains a separate higher-level
+  plugin-runtime slice
+
 The bounded plugin dependency cleanup tracked in
 `phase-11-plugin-version-range-owner-and-dependency-cleanup.md` is now also
 landed:

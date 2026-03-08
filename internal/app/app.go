@@ -154,6 +154,10 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		agenticSummaryStatus  *agenticsummarycache.Service
 		promptTemplateStore   *prompttemplates.Store
 		pluginWorkerRuntime   plugins.WorkerRuntimeProvider
+		pluginStore           *plugins.Store
+		pluginDiscovery       *plugins.DiscoveryService
+		pluginBackendRegs     plugins.BackendRegistrationSource
+		pythonPackages        *pythonenv.Runtime
 	)
 	if authService.SupportsSessionAuth() {
 		trustedOrigins, err = frontendorigins.NewService(frontendorigins.Options{
@@ -275,6 +279,35 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		if err != nil {
 			return nil, err
 		}
+		pythonPackages, err = pythonenv.NewRuntime(pythonenv.RuntimeOptions{})
+		if err != nil {
+			logger.Warn("python package inspection runtime unavailable", "error", err)
+		}
+		pluginStore, err = plugins.NewStore(plugins.StoreOptions{
+			WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
+			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+			SettaHome:      cfg.Paths.SettaHome,
+		})
+		if err != nil {
+			return nil, err
+		}
+		pluginDiscovery, err = plugins.NewDiscoveryService(plugins.DiscoveryServiceOptions{
+			Store:                 pluginStore,
+			ServerMode:            cfg.Server.Mode,
+			PackageManagerRuntime: pythonPackages,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if pluginWorkerRuntime != nil {
+			pluginBackendRegs, err = plugins.NewBackendRegistrationLoader(plugins.BackendRegistrationLoaderOptions{
+				RuntimeProvider: pluginWorkerRuntime,
+				ServerMode:      cfg.Server.Mode,
+			})
+			if err != nil {
+				return nil, err
+			}
+		}
 		lspDiagnostics = projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{
 			OnChange: func(payload projectstate.LSPDiagnosticsPayload) {
 				_, _ = websocketHub.BroadcastJSON(
@@ -284,17 +317,30 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				)
 			},
 		})
-		pythonSession, err := lsp.NewCurrentProcessPythonSession(lsp.CurrentProcessPythonSessionOptions{
+		languageServerSpecs, err := snapshotAppLanguageServerSpecs(pluginDiscovery, pluginBackendRegs)
+		if err != nil {
+			return nil, err
+		}
+		lspRouter, err := lsp.NewRouter(lsp.RouterOptions{
 			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
+			LookupEnv:     os.LookupEnv,
+			Environ:       os.Environ,
+			Settings: func() map[string]any {
+				if settingsStateRuntime == nil {
+					return nil
+				}
+				document := settingsStateRuntime.Snapshot().Document.Clone()
+				return map[string]any(document)
+			},
+			AdditionalSpecs: languageServerSpecs,
 		})
 		if err != nil {
 			return nil, err
 		}
-		lspService := lsp.NewService(pythonSession)
 		projectLSPSyncer, err = lsp.NewProjectSynchronizer(lsp.ProjectSynchronizerOptions{
 			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
 			RuntimeRoot:    cfg.Paths.RuntimeRoot,
-			Service:        lspService,
+			Service:        lspRouter,
 			Diagnostics:    lspDiagnostics,
 		})
 		if err != nil {
@@ -303,7 +349,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		lspCompletion, err = lspcompletion.NewService(lspcompletion.ServiceOptions{
 			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
 			RuntimeRoot:    cfg.Paths.RuntimeRoot,
-			LSPService:     lspService,
+			LSPService:     lspRouter,
 		})
 		if err != nil {
 			return nil, err
@@ -311,7 +357,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		lspSignature, err = lspsignature.NewService(lspsignature.ServiceOptions{
 			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
 			RuntimeRoot:    cfg.Paths.RuntimeRoot,
-			LSPService:     lspService,
+			LSPService:     lspRouter,
 		})
 		if err != nil {
 			return nil, err
@@ -548,24 +594,10 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	}
 	var agentRunService *agentruns.Service
 	var pluginMutationService *plugins.Service
-	var pluginBackendRegistrations plugins.BackendRegistrationSource
-	var pythonPackages *pythonenv.Runtime
-	pythonPackages, err = pythonenv.NewRuntime(pythonenv.RuntimeOptions{})
-	if err != nil {
-		logger.Warn("python package inspection runtime unavailable", "error", err)
-	}
-	if pluginWorkerRuntime != nil {
-		pluginBackendRegistrations, err = plugins.NewBackendRegistrationLoader(plugins.BackendRegistrationLoaderOptions{
-			RuntimeProvider: pluginWorkerRuntime,
-			ServerMode:      cfg.Server.Mode,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-	}
 	pluginMutationService, err = plugins.NewService(plugins.ServiceOptions{
-		BackendRuntimeRegistrations: pluginBackendRegistrations,
+		Store:                       pluginStore,
+		DiscoveryService:            pluginDiscovery,
+		BackendRuntimeRegistrations: pluginBackendRegs,
 		WorkspaceRoot:               cfg.Paths.WorkspaceRoot,
 		SettaFilesRoot:              cfg.Paths.SettaFilesRoot,
 		SettaHome:                   cfg.Paths.SettaHome,

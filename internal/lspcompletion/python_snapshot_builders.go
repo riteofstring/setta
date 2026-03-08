@@ -16,14 +16,14 @@ type SnapshotRequest struct {
 	Character    int
 }
 
-func BuildPythonCodeAreaSnapshotRequest(
+func BuildCodeAreaSnapshotRequest(
 	project projectstate.Project,
 	sectionID string,
 	fullText string,
 	position int,
 ) (SnapshotRequest, bool, error) {
 	completionProject := project.Clone()
-	if err := completionProject.ReconcilePythonCodeSectionBindings(); err != nil {
+	if err := completionProject.ReconcileCodeSectionBindings(); err != nil {
 		return SnapshotRequest{}, false, err
 	}
 
@@ -31,17 +31,17 @@ func BuildPythonCodeAreaSnapshotRequest(
 	if err != nil {
 		return SnapshotRequest{}, false, err
 	}
-	if !impl.IsCode() || impl.Code == nil || impl.Code.Language != projectstate.CodeLanguagePython {
+	if !impl.IsCode() || impl.Code == nil {
 		return SnapshotRequest{}, false, nil
 	}
 	if impl.Code.Binding == nil || strings.TrimSpace(impl.Code.Binding.Path) == "" {
-		return SnapshotRequest{}, false, fmt.Errorf("lspcompletion: python code section %q missing binding", strings.TrimSpace(sectionID))
+		return SnapshotRequest{}, false, fmt.Errorf("lspcompletion: code section %q missing binding", strings.TrimSpace(sectionID))
 	}
 
 	line, character := positionToLineCol(fullText, position)
 	return SnapshotRequest{
 		RelativePath: impl.Code.Binding.Path,
-		LanguageID:   "python",
+		LanguageID:   string(projectstate.CodeLanguage(strings.ToLower(strings.TrimSpace(string(impl.Code.Language))))),
 		Content:      fullText,
 		Line:         line,
 		Character:    character,

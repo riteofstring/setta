@@ -136,7 +136,11 @@ func newFixtureSignatureService(t *testing.T, settaFilesRoot string) (*Service, 
 		t.Fatalf("new signature service: %v", err)
 	}
 	return service, func() {
-		if err := service.lspService.Close(context.Background()); err != nil {
+		closer, ok := service.lspService.(interface{ Close(context.Context) error })
+		if !ok {
+			t.Fatal("expected signature lsp service to expose Close")
+		}
+		if err := closer.Close(context.Background()); err != nil {
 			t.Fatalf("close lsp service: %v", err)
 		}
 	}

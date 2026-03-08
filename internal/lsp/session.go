@@ -187,7 +187,7 @@ func (s *Session) Start(ctx context.Context) error {
 		return nil
 	}
 
-	cmd := exec.CommandContext(ctx, s.options.Command, s.options.Args...)
+	cmd := exec.Command(s.options.Command, s.options.Args...)
 	if len(s.options.Environment) > 0 {
 		cmd.Env = append([]string(nil), s.options.Environment...)
 	}

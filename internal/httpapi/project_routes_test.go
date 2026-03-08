@@ -282,6 +282,66 @@ func TestRegisterProjectRoutesSetCodeInvokesServiceAndReturnsOK(t *testing.T) {
 	}
 }
 
+func TestRegisterProjectRoutesCreatesTopLevelPluginLanguageSection(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteCreateTopLevelSection,
+		strings.NewReader(`{"projectConfigId":"project-alpha","implType":"Code","implOverrides":{"type":"Code","codeLanguage":"FixtureDSL"}}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload projectstate.CreateTopLevelSectionResult
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode createTopLevelSection response: %v", err)
+	}
+	if strings.TrimSpace(payload.SectionID) == "" {
+		t.Fatalf("expected created section id, got %#v", payload)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project snapshot: %v", err)
+	}
+	_, _, impl, err := project.ResolveSection(payload.SectionID)
+	if err != nil {
+		t.Fatalf("resolve created section: %v", err)
+	}
+	if !impl.IsCode() || impl.Code == nil {
+		t.Fatalf("expected created code section, got %#v", impl)
+	}
+	if impl.Code.Language != projectstate.CodeLanguage("fixturedsl") {
+		t.Fatalf("expected plugin code language fixturedsl, got %q", impl.Code.Language)
+	}
+}
+
 func TestRegisterProjectRoutesFormatCodeInvokesServiceAndReturnsOK(t *testing.T) {
 	t.Parallel()
 

@@ -19,13 +19,17 @@ var parameterNamePattern = regexp.MustCompile(`\*{1,2}?[A-Za-z_]\w*|\b[A-Za-z_]\
 type ServiceOptions struct {
 	SettaFilesRoot string
 	RuntimeRoot    string
-	LSPService     *lsp.Service
+	LSPService     snapshotSignatureHelper
 }
 
 type Service struct {
 	settaFilesRoot string
 	runtimeRoot    string
-	lspService     *lsp.Service
+	lspService     snapshotSignatureHelper
+}
+
+type snapshotSignatureHelper interface {
+	SignatureHelpSnapshot(context.Context, lsp.SnapshotSignatureHelpRequest) (lsp.SignatureHelpResult, error)
 }
 
 func NewService(options ServiceOptions) (*Service, error) {

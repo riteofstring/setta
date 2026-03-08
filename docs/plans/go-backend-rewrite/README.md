@@ -109,6 +109,10 @@ Use the docs in this order:
    - focused current-work plan for Go-owned section-name validation, rename-refactor flow, and frontend op tracking needed by rename prompts
 27. `phase-5-lsp-diagnostics-and-completion-runtime.md`
    - focused current-work plan for the first Go-owned LSP runtime, diagnostics, and completion transport
+- `phase-5-plugin-language-server-code-section-runtime.md`
+  - focused landed follow-on for plugin-defined `Code` sections, multi-language
+    LSP routing, and `codeAreaCompletion` over the bounded backend-registration
+    snapshot dependency
 28. `phase-5-snapshot-completion-transport.md`
    - focused current-work plan for Go-owned read-only LSP completion transport over canonical and generated Python snapshot documents
 29. `phase-5-signature-help-callable-refetch-and-param-synthesis.md`

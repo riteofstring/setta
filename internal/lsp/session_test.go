@@ -209,6 +209,46 @@ while True:
 	}
 }
 
+// Shared LSP sessions should outlive the request context that first started
+// them so later save/completion routes can reuse the same process.
+func TestSessionStartDoesNotTieProcessLifetimeToStartContext(t *testing.T) {
+	t.Parallel()
+
+	pythonBinary := resolveTestPythonBinary(t)
+	workspaceRoot := t.TempDir()
+	session := newFixtureSession(t, pythonBinary, workspaceRoot)
+
+	startCtx, cancelStart := context.WithCancel(context.Background())
+	if err := session.Start(startCtx); err != nil {
+		t.Fatalf("start session: %v", err)
+	}
+	cancelStart()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	defer func() {
+		if err := session.Close(context.Background()); err != nil {
+			t.Fatalf("close session: %v", err)
+		}
+	}()
+
+	documentPath := filepath.Join(workspaceRoot, "survives.ts")
+	if err := statefs.AtomicWriteFile(documentPath, []byte("fixture.\n"), 0o644); err != nil {
+		t.Fatalf("seed fixture document: %v", err)
+	}
+	if err := session.OpenDocument(ctx, documentPath, "fixturedsl", "fixture.\n", nil); err != nil {
+		t.Fatalf("open document after start-context cancellation: %v", err)
+	}
+
+	completion, err := session.Completion(ctx, documentPath, 0, len("fixture."))
+	if err != nil {
+		t.Fatalf("completion after start-context cancellation: %v", err)
+	}
+	if len(completion.Items) != 1 || completion.Items[0].Label != "fixtureCompletion" {
+		t.Fatalf("unexpected completion payload %#v", completion.Items)
+	}
+}
+
 // The sync service is the app-facing layer for later save-hook wiring, so it
 // should deterministically open, update, and close the tracked document set.
 func TestServiceSyncDocuments(t *testing.T) {

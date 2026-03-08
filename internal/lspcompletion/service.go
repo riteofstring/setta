@@ -2,6 +2,7 @@ package lspcompletion
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -21,16 +22,20 @@ type CodeMirrorCompletion struct {
 type ServiceOptions struct {
 	SettaFilesRoot string
 	RuntimeRoot    string
-	LSPService     *lsp.Service
+	LSPService     snapshotCompleter
 }
 
 type Service struct {
 	settaFilesRoot string
 	runtimeRoot    string
-	lspService     *lsp.Service
+	lspService     snapshotCompleter
 }
 
 var tempSnapshotLabelPattern = regexp.MustCompile(`__[0-9a-f]{32}$`)
+
+type snapshotCompleter interface {
+	CompleteSnapshot(context.Context, lsp.SnapshotCompletionRequest) (lsp.CompletionResult, error)
+}
 
 func NewService(options ServiceOptions) (*Service, error) {
 	if options.LSPService == nil {
@@ -66,7 +71,7 @@ func (s *Service) CodeAreaCompletion(
 	if err != nil {
 		return nil, err
 	}
-	request, ok, err := BuildPythonCodeAreaSnapshotRequest(project, sectionID, fullText, position)
+	request, ok, err := BuildCodeAreaSnapshotRequest(project, sectionID, fullText, position)
 	if err != nil {
 		return nil, err
 	}
@@ -219,6 +224,9 @@ func (s *Service) completeSnapshot(
 		Character:     request.Character,
 	})
 	if err != nil {
+		if errors.Is(err, lsp.ErrLanguageServerNotConfigured) {
+			return []CodeMirrorCompletion{}, nil
+		}
 		return nil, err
 	}
 	return mapCodeMirrorCompletions(result), nil

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,6 +22,7 @@ import (
 
 const (
 	CapabilityEmitListenerEvents           = "emitListenerEvents"
+	CapabilityRegisterRouter               = "registerRouter"
 	CapabilityRegisterLanguageServer       = "registerLanguageServer"
 	CapabilityRegisterExternalAgentAdapter = "registerExternalAgentAdapter"
 	CapabilityRegisterCodegenTarget        = "registerCodegenTarget"
@@ -28,6 +30,7 @@ const (
 
 const (
 	HostMethodEmitListenerDependencyEvent = "host.emit_listener_dependency_event"
+	HostMethodRegisterRouter              = "host.register_router"
 	HostMethodRegisterLanguageServer      = "host.register_language_server"
 	HostMethodRegisterExternalAgent       = "host.register_external_agent_adapter"
 	HostMethodRegisterCodegenTarget       = "host.register_codegen_target"
@@ -36,6 +39,7 @@ const (
 var (
 	ErrWorkerHostServiceRequired                         = errors.New("plugins: worker host requires at least one registered service")
 	ErrWorkerHostListenerProducerRequired                = errors.New("plugins: listener producer is required")
+	ErrWorkerHostRouterRegistrarRequired                 = errors.New("plugins: router registrar is required")
 	ErrWorkerHostLanguageServerRegistrarRequired         = errors.New("plugins: language server registrar is required")
 	ErrWorkerHostExternalAgentRegistrarRequired          = errors.New("plugins: external agent adapter registrar is required")
 	ErrWorkerHostCodegenTargetRegistrarNeeded            = errors.New("plugins: codegen target registrar is required")
@@ -87,6 +91,7 @@ var supportedExternalAgentRunModes = map[string]struct{}{
 type WorkerHostOptions struct {
 	ListenerProducer              *realtime.ListenerProducer
 	Deployment                    *deployments.Runtime
+	RouterRegistrar               BackendRouterRegistrar
 	LanguageServerRegistrar       BackendLanguageServerRegistrar
 	ExternalAgentAdapterRegistrar BackendExternalAgentAdapterRegistrar
 	CodegenTargetRegistrar        BackendCodegenTargetRegistrar
@@ -108,6 +113,18 @@ type EmitListenerDependencyEventsRequest struct {
 	ProjectID        string                    `json:"projectConfigId"`
 	DependencyEvents []ListenerDependencyEvent `json:"dependencyEvents"`
 	ShareSessionID   string                    `json:"shareSessionId,omitempty"`
+}
+
+type RegisterRouterRequest struct {
+	Prefix *string                        `json:"prefix"`
+	Routes []workerBackendRouteDescriptor `json:"routes"`
+}
+
+type workerBackendRouteDescriptor struct {
+	RouteID      string   `json:"routeId"`
+	Path         string   `json:"path"`
+	Methods      []string `json:"methods"`
+	NeedsRawBody *bool    `json:"needsRawBody"`
 }
 
 type RegisterLanguageServerRequest struct {
@@ -150,6 +167,7 @@ type workerCodegenTargetRegistrationPayload struct {
 type WorkerHost struct {
 	listener                  *realtime.ListenerProducer
 	deployment                *deployments.Runtime
+	routerStore               BackendRouterRegistrar
 	languageServerStore       BackendLanguageServerRegistrar
 	externalAgentAdapterStore BackendExternalAgentAdapterRegistrar
 	codegenTargetStore        BackendCodegenTargetRegistrar
@@ -157,6 +175,7 @@ type WorkerHost struct {
 
 func NewWorkerHost(options WorkerHostOptions) (*WorkerHost, error) {
 	if options.ListenerProducer == nil &&
+		options.RouterRegistrar == nil &&
 		options.LanguageServerRegistrar == nil &&
 		options.ExternalAgentAdapterRegistrar == nil &&
 		options.CodegenTargetRegistrar == nil {
@@ -166,6 +185,7 @@ func NewWorkerHost(options WorkerHostOptions) (*WorkerHost, error) {
 	return &WorkerHost{
 		listener:                  options.ListenerProducer,
 		deployment:                options.Deployment,
+		routerStore:               options.RouterRegistrar,
 		languageServerStore:       options.LanguageServerRegistrar,
 		externalAgentAdapterStore: options.ExternalAgentAdapterRegistrar,
 		codegenTargetStore:        options.CodegenTargetRegistrar,
@@ -243,6 +263,28 @@ func (h *WorkerHost) RegisterLanguageServer(
 	return nil
 }
 
+func (h *WorkerHost) RegisterRouter(
+	ctx context.Context,
+	worker WorkerContext,
+	request RegisterRouterRequest,
+) error {
+	if h == nil || h.routerStore == nil {
+		return ErrWorkerHostRouterRegistrarRequired
+	}
+	if !worker.hasCapability(CapabilityRegisterRouter) {
+		return fmt.Errorf("%w: %s", ErrWorkerHostCapabilityDenied, CapabilityRegisterRouter)
+	}
+
+	registration, err := normalizeWorkerRouterRegistration(worker, request)
+	if err != nil {
+		return err
+	}
+	if err := h.routerStore.RegisterRouter(ctx, registration); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (h *WorkerHost) RegisterExternalAgentAdapter(
 	ctx context.Context,
 	worker WorkerContext,
@@ -313,6 +355,15 @@ func (h *WorkerHost) Dispatch(
 			return nil, err
 		}
 		return json.RawMessage(`{"ok":true}`), nil
+	case HostMethodRegisterRouter:
+		var request RegisterRouterRequest
+		if err := decodeWorkerHostParamsStrict(params, &request); err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrWorkerHostParamsInvalid, err)
+		}
+		if err := h.RegisterRouter(ctx, worker, request); err != nil {
+			return nil, err
+		}
+		return json.RawMessage(`{"ok":true}`), nil
 	case HostMethodRegisterLanguageServer:
 		var request RegisterLanguageServerRequest
 		if err := decodeWorkerHostParamsStrict(params, &request); err != nil {
@@ -356,6 +407,94 @@ func (c WorkerContext) hasCapability(capability string) bool {
 		}
 	}
 	return false
+}
+
+func normalizeWorkerRouterRegistration(
+	worker WorkerContext,
+	request RegisterRouterRequest,
+) (RegisteredBackendRouter, error) {
+	pluginID := strings.TrimSpace(worker.PluginID)
+	if pluginID == "" {
+		return RegisteredBackendRouter{}, ErrWorkerHostPluginIDRequired
+	}
+
+	prefix, err := normalizeOptionalWorkerRoutePrefix(request.Prefix)
+	if err != nil {
+		return RegisteredBackendRouter{}, err
+	}
+
+	routes := make([]RegisteredBackendRoute, 0, len(request.Routes))
+	for _, rawRoute := range request.Routes {
+		routeID := strings.TrimSpace(rawRoute.RouteID)
+		if routeID == "" {
+			return RegisteredBackendRouter{}, ErrWorkerHostRouteIDRequired
+		}
+		routePath := strings.TrimSpace(rawRoute.Path)
+		if routePath == "" {
+			return RegisteredBackendRouter{}, ErrWorkerHostRoutePathRequired
+		}
+		if !strings.HasPrefix(routePath, "/") {
+			routePath = "/" + routePath
+		}
+
+		routeMethods, err := normalizeWorkerRouteMethods(rawRoute.Methods)
+		if err != nil {
+			return RegisteredBackendRouter{}, err
+		}
+
+		needsRawBody := true
+		if rawRoute.NeedsRawBody != nil {
+			needsRawBody = *rawRoute.NeedsRawBody
+		}
+
+		routes = append(routes, RegisteredBackendRoute{
+			RouteID:      routeID,
+			Path:         routePath,
+			Methods:      routeMethods,
+			NeedsRawBody: needsRawBody,
+		})
+	}
+
+	return RegisteredBackendRouter{
+		PluginID: pluginID,
+		Prefix:   prefix,
+		Routes:   routes,
+	}, nil
+}
+
+func normalizeWorkerRouteMethods(rawMethods []string) ([]string, error) {
+	if rawMethods == nil {
+		return nil, ErrWorkerHostRouteMethodsInvalid
+	}
+
+	allowedMethods := map[string]struct{}{
+		http.MethodGet:    {},
+		http.MethodPost:   {},
+		http.MethodPut:    {},
+		http.MethodPatch:  {},
+		http.MethodDelete: {},
+	}
+
+	normalized := make([]string, 0, len(rawMethods))
+	seen := make(map[string]struct{}, len(rawMethods))
+	for _, rawMethod := range rawMethods {
+		method := strings.ToUpper(strings.TrimSpace(rawMethod))
+		if method == "" {
+			return nil, ErrWorkerHostRouteMethodsInvalid
+		}
+		if _, ok := allowedMethods[method]; !ok {
+			return nil, fmt.Errorf("%w: %s", ErrWorkerHostRouteMethodUnsupported, method)
+		}
+		if _, ok := seen[method]; ok {
+			continue
+		}
+		seen[method] = struct{}{}
+		normalized = append(normalized, method)
+	}
+	if len(normalized) == 0 {
+		return nil, ErrWorkerHostRouteMethodsInvalid
+	}
+	return normalized, nil
 }
 
 func normalizeWorkerLanguageServerRegistration(

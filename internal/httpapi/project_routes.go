@@ -18,6 +18,7 @@ import (
 
 const (
 	RouteGetLatestProjectState          = "/getLatestProjectState"
+	RouteCreateTopLevelSection          = "/createTopLevelSection"
 	RouteCreateViewMode                 = "/createViewMode"
 	RouteSetActiveViewMode              = "/setActiveViewMode"
 	RouteToggleIsEditingViewMode        = "/toggleIsEditingViewMode"
@@ -93,6 +94,15 @@ type SetProjectConfigCodegenTargetsRequest struct {
 type GetLatestProjectStateRequest struct {
 	FrontendOpID *string `json:"frontendOpId"`
 	ProjectID    string  `json:"projectConfigId"`
+}
+
+type CreateTopLevelSectionRequest struct {
+	FrontendOpID       *string                `json:"frontendOpId"`
+	ProjectID          string                 `json:"projectConfigId"`
+	ImplType           string                 `json:"implType"`
+	ControlCodeObjType *string                `json:"controlCodeObjType"`
+	ImplOverrides      map[string]any         `json:"implOverrides"`
+	Position           *projectstate.Position `json:"position"`
 }
 
 type CreateViewModeRequest struct {
@@ -321,6 +331,7 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	}
 
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetLatestProjectState, getLatestProjectStateHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateTopLevelSection, createTopLevelSectionHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateViewMode, createViewModeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetActiveViewMode, setActiveViewModeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteToggleIsEditingViewMode, toggleIsEditingViewModeHandler(deps))
@@ -388,6 +399,49 @@ func getLatestProjectStateHandler(deps ProjectRouteDependencies) http.HandlerFun
 			CompletedOpIDs: frontendOps.Completed,
 			PendingOpIDs:   frontendOps.Pending,
 		})
+	}
+}
+
+func createTopLevelSectionHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[CreateTopLevelSectionRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil || deps.SettingsState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		settings, err := resolveStructuralMutationSettingsFromRuntime(deps.SettingsState)
+		if err != nil {
+			writeCreateTopLevelSectionError(w, r, err)
+			return
+		}
+
+		_, result, err := deps.ProjectState.CreateTopLevelSection(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			projectstate.CreateTopLevelSectionInput{
+				ImplType:           payload.ImplType,
+				ControlCodeObjType: payload.ControlCodeObjType,
+				ImplOverrides:      payload.ImplOverrides,
+				Position:           payload.Position,
+			},
+			settings,
+		)
+		if err != nil {
+			writeCreateTopLevelSectionError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
 	}
 }
 
@@ -1356,6 +1410,24 @@ func writeProjectLayoutMutationError(w http.ResponseWriter, r *http.Request, err
 		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
 	case errors.Is(err, projectstate.ErrSectionNotFound):
 		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeCreateTopLevelSectionError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrTopLevelSectionImplTypeRequired):
+		writeError(w, r, http.StatusBadRequest, "impl_type_required", "Top-level section implType is required.")
+	case errors.Is(err, projectstate.ErrTopLevelSectionImplTypeUnsupported):
+		writeError(w, r, http.StatusUnprocessableEntity, "impl_type_unsupported", err.Error())
+	case errors.Is(err, projectstate.ErrTopLevelMetaControlCodeObjTypeUnsupported),
+		errors.Is(err, projectstate.ErrTopLevelMetaControlCodeObjTypeNotAllowed):
+		writeError(w, r, http.StatusUnprocessableEntity, "control_code_obj_type_invalid", err.Error())
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}

@@ -34,23 +34,24 @@ That caller requires all of the following to work in Go:
 
 ## Status
 
-Current repo status as of 2026-03-09:
+Landed on 2026-03-09.
 
-- Go project-state creation still rejects plugin-defined `codeLanguage`
-  values in `createTopLevelSection`
-- Go project normalization only reconciles canonical bindings for Python code
-  sections
-- Go LSP runtime wiring in `internal/app/app.go` still constructs a single
-  current-process Python session
-- Go `internal/lspcompletion` snapshot builders still special-case Python for
-  all completion entry points
-- the lower-level Go LSP session boundary is already generic enough to speak
-  to non-Python servers
-- plugin runtime/status already expose registered language-server metadata,
-  including `language`, `command`, `args`, and `settingsKey`
-- Python reference code already uses deterministic canonical bindings for
-  non-generated code sections across arbitrary languages via
-  `get_code_language_extension(...)`
+Completed in this slice:
+
+- Go `createTopLevelSection` now accepts plugin-defined `codeLanguage` values
+  for top-level `Code` sections
+- project normalization now reconciles deterministic canonical bindings for
+  active non-generated code sections across arbitrary languages
+- the app now owns a language-aware LSP router above `internal/lsp.Session`
+  for:
+  - built-in Python
+  - plugin-registered language servers
+- `internal/lspcompletion` now routes `codeAreaCompletion` by section language
+- diagnostics for plugin-defined code sections now flow through the existing
+  Go diagnostics registry and frontend payloads
+- the active Playwright caller
+  `frontend/tests/e2e/overview/plugins/plugin-language-server.spec.ts`
+  now passes against the real Go app
 
 ## Scope
 
@@ -129,6 +130,15 @@ should mirror instead of inventing a new one:
 - keep diagnostics storage shared
   - plugin-language diagnostics must flow through the existing
     `projectstate.LSPDiagnosticsRegistry`
+- allow backend-registration snapshots to absorb router registrations without
+  claiming backend route serving in this slice
+  - mixed backend plugins can register routes and language servers in one
+    entrypoint
+  - the registration snapshot must not drop the language-server registration
+    just because route serving is still deferred
+- keep shared LSP process lifetime owned by the app/runtime boundary
+  - do not tie process lifetime to the HTTP request context that first starts
+    a session
 
 ## Recommended Option
 
@@ -153,6 +163,8 @@ caller.
   appears
 - consider non-Python text-field/output/gen-code completion only if a caller
   appears
+- treat full plugin backend route serving as a separate higher-level plugin
+  backend-runtime slice instead of widening this LSP/runtime follow-on
 
 ## Proposed Go Boundaries
 
@@ -217,3 +229,38 @@ This doc is complete when all of the following are true:
 - diagnostics for that section appear in the existing Go diagnostics payload
 - the focused app/route/runtime tests and the Playwright plugin
   language-server spec pass
+
+## Landed in This Slice
+
+- `internal/projectstate`
+  - arbitrary code-language normalization and extension-derived canonical
+    bindings for active non-generated `Code` sections
+  - top-level `Code` section creation now accepts plugin-defined languages
+- `internal/lsp`
+  - language-aware router above the generic session boundary
+  - session start no longer ties process lifetime to the request context that
+    first touched the service
+- `internal/lspcompletion`
+  - section-language-aware `codeAreaCompletion` snapshot routing
+- `internal/app`
+  - real app wiring now snapshots plugin language-server registrations and
+    feeds them into the shared LSP router
+- `internal/plugins`
+  - backend-registration loading now absorbs router registrations so mixed
+    backend entrypoints can still surface language-server metadata in this
+    slice without claiming full backend route serving
+- focused coverage now exists in:
+  - `internal/projectstate/*`
+  - `internal/lsp/router_test.go`
+  - `internal/lsp/session_test.go`
+  - `internal/lspcompletion/*`
+  - `internal/httpapi/project_routes_test.go`
+  - `internal/app/app_test.go`
+  - `frontend/tests/e2e/overview/plugins/plugin-language-server.spec.ts`
+
+## Next Recommended Step
+
+- keep non-Python watch-code, bound-code, and non-`codeAreaCompletion`
+  completion paths deferred unless a real caller appears
+- treat plugin backend route serving as the next separate plugin-runtime slice
+  if the `plugin-backend-route-payload` caller is promoted into active work
