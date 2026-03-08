@@ -28,10 +28,16 @@ let memoryStorage: Storage;
 vi.mock("@radix-ui/react-menubar", async () => {
   const React = await import("react");
   const passthrough = (Tag: React.ElementType) => {
-    return ({ children, ...props }) =>
+    return ({
+      children,
+      align,
+      sideOffset,
+      alignOffset,
+      ...props
+    }: { children?: React.ReactNode } & Record<string, unknown>) =>
       React.createElement(Tag, props, children);
   };
-  const Fragment = ({ children }) =>
+  const Fragment = ({ children }: { children?: React.ReactNode }) =>
     React.createElement(React.Fragment, null, children);
   return {
     Root: passthrough("div"),

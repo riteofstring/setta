@@ -77,19 +77,7 @@ export function useUpdateAgenticScopeHighlights(
   ]);
 
   const highlightMaps = useMemo(() => {
-    if (activeChatSectionIds.length === 0) {
-      return { readMap: {}, writeMap: {} };
-    }
-    const scope = resolveAgenticScopeForChatSections(
-      agenticEdges,
-      activeChatSectionIds,
-    );
-    const effectiveReadIds = new Set<string>(scope.readSectionIds);
-    scope.peerChatSectionIds.forEach((id) => effectiveReadIds.add(id));
-    return {
-      readMap: buildSectionIdLookup(effectiveReadIds),
-      writeMap: buildSectionIdLookup(scope.writeSectionIds),
-    };
+    return buildAgenticScopeHighlightMaps(agenticEdges, activeChatSectionIds);
   }, [activeChatSectionIds, agenticEdges]);
 
   useEffect(() => {
@@ -108,4 +96,24 @@ export function useUpdateAgenticScopeHighlights(
       }
     });
   }, [highlightMaps, projectConfigId]);
+}
+
+export function buildAgenticScopeHighlightMaps(
+  agenticEdges: Array<AgenticEdge>,
+  activeChatSectionIds: Array<string>,
+): {
+  readMap: Record<string, true>;
+  writeMap: Record<string, true>;
+} {
+  if (activeChatSectionIds.length === 0) {
+    return { readMap: {}, writeMap: {} };
+  }
+  const scope = resolveAgenticScopeForChatSections(
+    agenticEdges,
+    activeChatSectionIds,
+  );
+  return {
+    readMap: buildSectionIdLookup(scope.readSectionIds),
+    writeMap: buildSectionIdLookup(scope.writeSectionIds),
+  };
 }
