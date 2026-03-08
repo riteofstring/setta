@@ -57,6 +57,11 @@ function createWindowStub() {
   } as unknown as Window & typeof globalThis;
 }
 
+async function flushPromises() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 describe("activeSections", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -410,6 +415,48 @@ describe("activeSections", () => {
     });
 
     expect(useActiveSectionUI.getState().activeIds).toEqual(["section-b"]);
+    expect(useActiveSectionUI.getState().pendingBackendSyncOpIds).toEqual([]);
+  });
+
+  it("lets the next backend snapshot restore backend selection after a non-200 durable sync failure", async () => {
+    useProjectState.setState(
+      buildProjectState("project-a", [], ["section-a"]).projectState,
+    );
+    vi.spyOn(endpoints, "route_set_active_ids").mockResolvedValue({
+      status: 500,
+      hasResponse: true,
+      data: undefined,
+    });
+
+    setActiveSectionIds(["section-a"], { syncMode: "immediate" });
+    await flushPromises();
+
+    expect(useActiveSectionUI.getState().activeIds).toEqual(["section-a"]);
+    expect(useActiveSectionUI.getState().pendingBackendSyncOpIds).toEqual([]);
+
+    processProjectStateUpdateFromBackend(buildProjectState("project-a", []));
+
+    expect(useActiveSectionUI.getState().activeIds).toEqual([]);
+    expect(useActiveSectionUI.getState().pendingBackendSyncOpIds).toEqual([]);
+  });
+
+  it("lets the next backend snapshot restore backend selection after a rejected durable sync failure", async () => {
+    useProjectState.setState(
+      buildProjectState("project-a", [], ["section-a"]).projectState,
+    );
+    vi.spyOn(endpoints, "route_set_active_ids").mockRejectedValue(
+      new Error("setActiveIds failed"),
+    );
+
+    setActiveSectionIds(["section-a"], { syncMode: "immediate" });
+    await flushPromises();
+
+    expect(useActiveSectionUI.getState().activeIds).toEqual(["section-a"]);
+    expect(useActiveSectionUI.getState().pendingBackendSyncOpIds).toEqual([]);
+
+    processProjectStateUpdateFromBackend(buildProjectState("project-a", []));
+
+    expect(useActiveSectionUI.getState().activeIds).toEqual([]);
     expect(useActiveSectionUI.getState().pendingBackendSyncOpIds).toEqual([]);
   });
 

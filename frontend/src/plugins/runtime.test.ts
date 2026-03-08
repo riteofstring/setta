@@ -21,6 +21,8 @@ import {
 } from "plugins/runtime";
 import React from "react";
 import { renderToString } from "react-dom/server";
+import { setActiveSectionIds } from "state/actions/activeSections";
+import { processProjectStateUpdateFromBackend } from "state/actions/sectionInfos";
 import * as websocketReceive from "state/actions/websocketReceive";
 import { useActiveSectionUI } from "state/activeSectionUI";
 import { useProjectState, useShareSession } from "state/definitions";
@@ -331,6 +333,52 @@ function seedRuntimePluginSectionState(sectionId: string): void {
       nonPresetImpls: [implId],
     });
   });
+}
+
+function buildPluginRuntimeProjectStateUpdate(activeIds: string[]) {
+  const state = useProjectState.getState();
+  return {
+    projectState: {
+      projectConfig: {
+        ...state.projectConfig,
+        activeIds: [...activeIds],
+      },
+      sections: {
+        ...state.sections,
+      },
+      sectionImpls: {
+        ...state.sectionImpls,
+      },
+      sectionVariants: {
+        ...state.sectionVariants,
+      },
+      codeObjs: {
+        ...state.codeObjs,
+      },
+      codeObjImpls: {
+        ...state.codeObjImpls,
+      },
+      codeObjVariants: {
+        ...state.codeObjVariants,
+      },
+      artifactGroups: {
+        ...state.artifactGroups,
+      },
+      singletonSections: {
+        ...state.singletonSections,
+      },
+      parentSectionMap: {
+        ...state.parentSectionMap,
+      },
+      shownParamIds: {
+        ...state.shownParamIds,
+      },
+      requiredDecodedImages: [...state.requiredDecodedImages],
+      genCodeBinding: state.genCodeBinding,
+    },
+    completedOpIds: [],
+    pendingOpIds: [],
+  };
 }
 
 describe("plugin runtime helpers", () => {
@@ -2003,6 +2051,75 @@ describe("plugin runtime helpers", () => {
 
     unsubscribeProjectConfig();
     unsubscribeActiveIds();
+  });
+
+  it("restores activeSectionIds subscribers to backend truth after a failed durable selection publish", async () => {
+    const sectionId = "section-runtime-plugin-failed-selection";
+    seedRuntimePluginSectionState(sectionId);
+    useActiveSectionUI.setState({ activeIds: [] });
+    vi.spyOn(generatedEndpoints, "route_set_active_ids").mockResolvedValue({
+      status: 500,
+      hasResponse: true,
+      data: undefined,
+    });
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  globalThis.__settaCapturedPluginHost = host;\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: ["subscribeProjectState"],
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      plugin,
+      "ide",
+    );
+    expect(result?.error).toBeNull();
+
+    const host = getCapturedPluginHost();
+    const updates: Array<{
+      nextValue: unknown;
+      prevValue: unknown | null;
+    }> = [];
+    const unsubscribe = host.subscribeProjectState(
+      { kind: "activeSectionIds" },
+      (nextValue, prevValue) => {
+        updates.push({
+          nextValue,
+          prevValue,
+        });
+      },
+      {
+        fireImmediately: false,
+      },
+    );
+
+    setActiveSectionIds([sectionId], { syncMode: "immediate" });
+    await Promise.resolve();
+    await Promise.resolve();
+    processProjectStateUpdateFromBackend(
+      buildPluginRuntimeProjectStateUpdate([]),
+    );
+    unsubscribe();
+
+    expect(updates).toEqual([
+      {
+        nextValue: [sectionId],
+        prevValue: [],
+      },
+      {
+        nextValue: [],
+        prevValue: [sectionId],
+      },
+    ]);
   });
 
   it("rejects subscribeProjectState full selectors and invalid throttle options", async () => {

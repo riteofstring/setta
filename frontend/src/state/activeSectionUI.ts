@@ -43,6 +43,7 @@ export function setActiveSectionUIIds(nextActiveIds: Array<string>) {
   }
   useActiveSectionUI.setState({
     activeIds: [...nextActiveIds],
+    backendHydrationEnabled: false,
     selectionGeneration: getNextSelectionGeneration(),
   });
 }
@@ -50,7 +51,8 @@ export function setActiveSectionUIIds(nextActiveIds: Array<string>) {
 export function getHydratedActiveSectionUIState(nextActiveIds: Array<string>) {
   const state = useActiveSectionUI.getState();
   const generationsAlreadyAuthoritative =
-    state.selectionGeneration === state.backendGeneration;
+    state.selectionGeneration === state.backendGeneration &&
+    state.backendHydrationEnabled;
   if (
     areStringArraysEqual(state.activeIds, nextActiveIds) &&
     generationsAlreadyAuthoritative &&
@@ -64,10 +66,18 @@ export function getHydratedActiveSectionUIState(nextActiveIds: Array<string>) {
     activeIds: [...nextActiveIds],
     selectionGeneration: nextGeneration,
     backendGeneration: nextGeneration,
+    backendHydrationEnabled: true,
     pendingBackendSyncOpIds: [],
     pendingBackendSyncGenerationByOpId: {},
     scheduledBackendSync: null,
   } satisfies ActiveSectionUIStatePatch;
+}
+
+export function disableActiveSectionUIBackendHydration() {
+  if (!useActiveSectionUI.getState().backendHydrationEnabled) {
+    return;
+  }
+  useActiveSectionUI.setState({ backendHydrationEnabled: false });
 }
 
 export function markPendingActiveSectionBackendSyncOp(
@@ -88,7 +98,7 @@ export function markPendingActiveSectionBackendSyncOp(
   });
 }
 
-export function clearPendingActiveSectionBackendSyncOp(opId: string) {
+function clearPendingActiveSectionBackendSyncOp(opId: string) {
   const state = useActiveSectionUI.getState();
   const pending = state.pendingBackendSyncOpIds;
   if (!pending.includes(opId)) {
@@ -103,6 +113,42 @@ export function clearPendingActiveSectionBackendSyncOp(opId: string) {
       (pendingOpId) => pendingOpId !== opId,
     ),
     pendingBackendSyncGenerationByOpId: nextPendingBackendSyncGenerationByOpId,
+  });
+}
+
+export function failPendingActiveSectionBackendSyncOp(opId: string) {
+  const state = useActiveSectionUI.getState();
+  const pending = state.pendingBackendSyncOpIds;
+  if (!pending.includes(opId)) {
+    return;
+  }
+  const failedGeneration = state.pendingBackendSyncGenerationByOpId[opId];
+  const nextPendingBackendSyncOpIds = pending.filter(
+    (pendingOpId) => pendingOpId !== opId,
+  );
+  const nextPendingBackendSyncGenerationByOpId = {
+    ...state.pendingBackendSyncGenerationByOpId,
+  };
+  delete nextPendingBackendSyncGenerationByOpId[opId];
+  const currentGenerationStillPending = nextPendingBackendSyncOpIds.some(
+    (pendingOpId) =>
+      nextPendingBackendSyncGenerationByOpId[pendingOpId] ===
+      state.selectionGeneration,
+  );
+  const scheduledCurrentGeneration =
+    state.scheduledBackendSync !== null &&
+    state.scheduledBackendSync.generation === state.selectionGeneration;
+  const enableBackendHydration =
+    failedGeneration === state.selectionGeneration &&
+    !currentGenerationStillPending &&
+    !scheduledCurrentGeneration;
+
+  useActiveSectionUI.setState({
+    pendingBackendSyncOpIds: nextPendingBackendSyncOpIds,
+    pendingBackendSyncGenerationByOpId: nextPendingBackendSyncGenerationByOpId,
+    backendHydrationEnabled: enableBackendHydration
+      ? true
+      : state.backendHydrationEnabled,
   });
 }
 
@@ -185,12 +231,13 @@ export function getReconciledActiveSectionUIStateFromBackend(
   const hasScheduledBackendSync =
     state.scheduledBackendSync !== null &&
     state.scheduledBackendSync.projectConfigId === projectConfigId;
+  const backendHydrationEnabled =
+    state.backendHydrationEnabled || completedCurrentGeneration;
   const nextBackendGeneration = completedCurrentGeneration
     ? state.selectionGeneration
     : state.backendGeneration;
   const canHydrateFromBackend =
-    !hasScheduledBackendSync &&
-    nextBackendGeneration === state.selectionGeneration;
+    !hasScheduledBackendSync && backendHydrationEnabled;
 
   const nextState: ActiveSectionUIStatePatch = {};
 
@@ -202,6 +249,9 @@ export function getReconciledActiveSectionUIStateFromBackend(
   if (nextBackendGeneration !== state.backendGeneration) {
     nextState.backendGeneration = nextBackendGeneration;
   }
+  if (backendHydrationEnabled !== state.backendHydrationEnabled) {
+    nextState.backendHydrationEnabled = backendHydrationEnabled;
+  }
   if (
     canHydrateFromBackend &&
     !areStringArraysEqual(state.activeIds, backendActiveIds)
@@ -210,6 +260,7 @@ export function getReconciledActiveSectionUIStateFromBackend(
     nextState.activeIds = [...backendActiveIds];
     nextState.selectionGeneration = nextGeneration;
     nextState.backendGeneration = nextGeneration;
+    nextState.backendHydrationEnabled = true;
   }
   if (Object.keys(nextState).length === 0) {
     return null;

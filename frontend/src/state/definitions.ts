@@ -283,6 +283,7 @@ type ActiveSectionUIState = {
   activeIds: Array<string>;
   selectionGeneration: number;
   backendGeneration: number;
+  backendHydrationEnabled: boolean;
   pendingBackendSyncOpIds: Array<string>;
   pendingBackendSyncGenerationByOpId: Record<string, number>;
   scheduledBackendSync: {
@@ -299,6 +300,7 @@ export const useActiveSectionUI = withProjectState(
         activeIds: [],
         selectionGeneration: 0,
         backendGeneration: 0,
+        backendHydrationEnabled: true,
         pendingBackendSyncOpIds: [],
         pendingBackendSyncGenerationByOpId: {},
         scheduledBackendSync: null,

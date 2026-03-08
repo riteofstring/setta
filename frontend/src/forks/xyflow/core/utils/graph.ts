@@ -3,6 +3,7 @@ import { getActiveSectionUIIds } from "state/activeSectionUI";
 import {
   useLocalStorage,
   useNodeInternals,
+  useProjectState,
   useSectionRefs,
 } from "state/definitions";
 import { Position } from "utils/generatedTypes";
@@ -98,8 +99,10 @@ export function getNodesInside(
   };
 
   const visibleNodes = [];
+  const nodeInternals = useNodeInternals.getState().x;
+  const handledSectionIds = new Set<string>();
 
-  for (const node of useNodeInternals.getState().x.values()) {
+  for (const node of nodeInternals.values()) {
     const isVisible = isNodeOverlappingWithRect(
       node,
       rectToLookInside,
@@ -108,6 +111,16 @@ export function getNodesInside(
 
     if (isVisible) {
       visibleNodes.push(node.id);
+    }
+    handledSectionIds.add(node.id);
+  }
+
+  for (const sectionId of Object.keys(useProjectState.getState().sections)) {
+    if (handledSectionIds.has(sectionId)) {
+      continue;
+    }
+    if (isSectionOverlappingWithRect(sectionId, rectToLookInside, partially)) {
+      visibleNodes.push(sectionId);
     }
   }
 
@@ -258,7 +271,7 @@ function isSectionOverlappingWithRect(
   otherRect: Rect,
   partially: boolean,
 ) {
-  const rect = getSectionRect(sectionId);
+  const rect = getSectionRect(sectionId, true);
   if (!rect) {
     return false;
   }

@@ -121,3 +121,42 @@ New/updated automated coverage:
 
 Manual/CDP verification:
 - In the running app on `http://127.0.0.1:3009`, opened a real project through Chrome DevTools MCP and verified the selected section rendered normally with the Quick Info pane intact after the publication/order fixes. No new console errors appeared beyond pre-existing accessibility issues about unnamed form fields.
+
+## 2026-03-09 10:24:28 PDT
+
+Summary:
+- Implemented the remaining correctness fixes from the consolidated top-level reviews: failed durable active-section writes now return authority to backend reconciliation, and marquee hit testing again covers nested selectable sections that do not exist in React Flow node internals.
+- Added targeted unit, integration, and browser regression coverage around both issue classes, then re-verified the nested selection flow in the live headed app through Chrome DevTools MCP.
+
+Detailed findings addressed:
+- A rejected or non-`200` `route_set_active_ids(...)` response previously cleared pending-op bookkeeping without changing selection authority. That left `useActiveSectionUI` permanently ahead of backend truth until another successful durable selection or a full reload, even though the backend remained canonical.
+- `getNodesInside(...)` had narrowed its geometry source to `useNodeInternals` only. Since node internals intentionally contain top-level React Flow nodes rather than nested selectable group/list children, marquee selection silently lost coverage for nested sections that still participate in normal click selection.
+
+Fixes implemented:
+- Extended `useActiveSectionUI` with an explicit `backendHydrationEnabled` authority bit and added a failed-op path that clears the pending op while marking the current selection generation as backend-reconcilable when no newer scheduled/in-flight sync still owns that generation.
+- Updated `setActiveSectionIds(...)` durable and `ui-only` paths to disable backend hydration while local UI state is intentionally ahead, and updated backend reconciliation to re-enable hydration only when a durable generation is acknowledged or a failed generation is explicitly released back to backend authority.
+- Reworked marquee hit testing so `getNodesInside(...)` still uses node-internals geometry for top-level nodes, but then scans the full selectable section set and falls back to DOM section geometry for ids that are absent from node internals.
+- Reused the existing section-rect overlap helper for the fallback path instead of leaving nested-section geometry as an unhandled special case.
+
+Behavioral impact before vs after:
+- UX before: a transient `/setActiveIds` failure could leave the canvas, minimap, right pane, keyboard actions, and plugin `activeSectionIds` targeting a selection the backend never accepted; dragging a marquee over a nested child section could miss it entirely unless the user clicked it directly.
+- UX after: failed durable selection writes now converge back to backend truth on the next backend snapshot, and marquee selection once again includes nested selectable children in real grouped layouts.
+- DX before: selection authority depended on implicit generation equality and failure had no explicit handoff back to backend state; marquee geometry had a hidden mismatch between the selectable-section model and the top-level node-internals model.
+- DX after: failure handling is explicit in the active-section coordinator, plugin/live-selection behavior stays coherent after backend errors, and marquee geometry now has one deterministic rule for top-level and nested sections.
+
+Automated verification completed:
+- `pnpm -C frontend exec vitest run src/state/actions/activeSections.test.ts src/state/actions/uiSettingReveal.test.ts src/forks/xyflow/core/utils/graph.test.ts src/plugins/runtime.test.ts`
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/nested-marquee-selection.spec.ts`
+
+New/updated automated coverage:
+- `frontend/src/state/actions/activeSections.test.ts`
+  - covers non-`200` and rejected durable active-id writes and asserts the next backend project-state snapshot can restore backend-authoritative selection.
+- `frontend/src/plugins/runtime.test.ts`
+  - covers plugin `activeSectionIds` subscriptions observing rollback to backend truth after a failed durable selection publish.
+- `frontend/src/forks/xyflow/core/utils/graph.test.ts`
+  - covers nested marquee fallback geometry for a selectable child section that is absent from `useNodeInternals` but present in `useSectionRefs`.
+- `frontend/tests/e2e/sections/nested-marquee-selection.spec.ts`
+  - covers the browser-level regression by creating a real group with a nested child, dragging a marquee across the child, and asserting the nested child appears in the live active-section UI store.
+
+Manual/CDP verification:
+- In the running headed app via Chrome DevTools MCP on `http://127.0.0.1:3009`, created a temporary project, seeded a group plus nested child through the live backend, verified the nested child rendered and could be selected in the real UI, then deleted the temporary project after verification.

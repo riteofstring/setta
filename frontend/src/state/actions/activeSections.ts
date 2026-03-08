@@ -1,7 +1,8 @@
 import _ from "lodash";
 import {
-  clearPendingActiveSectionBackendSyncOp,
   clearScheduledActiveSectionBackendSync,
+  disableActiveSectionUIBackendHydration,
+  failPendingActiveSectionBackendSyncOp,
   getActiveSectionUIIds,
   getActiveSectionUISelectionGeneration,
   getScheduledActiveSectionBackendSync,
@@ -62,10 +63,10 @@ function sendProjectActiveSectionIdsToBackend(
       if (res200(res)) {
         return;
       }
-      clearPendingActiveSectionBackendSyncOp(frontendOpId);
+      failPendingActiveSectionBackendSyncOp(frontendOpId);
     })
     .catch(() => {
-      clearPendingActiveSectionBackendSyncOp(frontendOpId);
+      failPendingActiveSectionBackendSyncOp(frontendOpId);
     });
 }
 
@@ -150,6 +151,7 @@ export function setActiveSectionIds(
 
   if (syncMode === "ui-only") {
     cancelPendingProjectActiveIdsSync();
+    disableActiveSectionUIBackendHydration();
     return;
   }
 
@@ -167,6 +169,7 @@ export function setActiveSectionIds(
   if (resolvedSyncMode === "immediate") {
     const projectConfigId = getCurrProjectConfigId();
     cancelPendingProjectActiveIdsSync();
+    disableActiveSectionUIBackendHydration();
     sendProjectActiveSectionIdsToBackend(
       projectConfigId,
       ids,
@@ -178,6 +181,7 @@ export function setActiveSectionIds(
   if (!projectConfigId || projectConfigId === NULL_PROJECT_CONFIG_ID) {
     throw new Error("Deferred active-section sync requires a real project id.");
   }
+  disableActiveSectionUIBackendHydration();
   scheduleProjectActiveSectionIdsSync(projectConfigId, ids);
 }
 

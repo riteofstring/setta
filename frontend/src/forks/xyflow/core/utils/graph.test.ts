@@ -1,6 +1,11 @@
 import { setActiveSectionUIIds } from "state/activeSectionUI";
-import { useNodeInternals } from "state/definitions";
+import {
+  useNodeInternals,
+  useProjectState,
+  useSectionRefs,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import { createCore } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screenToFlowPosition } from "../hooks/useViewportHelper";
 import type { ReactFlowState } from "../types";
@@ -11,6 +16,29 @@ vi.mock("../hooks/useViewportHelper", () => ({
 }));
 
 const mockedScreenToFlowPosition = vi.mocked(screenToFlowPosition);
+
+function createSectionElement(rect: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}) {
+  return {
+    clientWidth: rect.width,
+    clientHeight: rect.height,
+    getBoundingClientRect: () => ({
+      x: rect.x,
+      y: rect.y,
+      left: rect.x,
+      top: rect.y,
+      right: rect.x + rect.width,
+      bottom: rect.y + rect.height,
+      width: rect.width,
+      height: rect.height,
+      toJSON: () => "",
+    }),
+  } as unknown as HTMLElement;
+}
 
 describe("getPaneRect", () => {
   beforeEach(() => {
@@ -149,6 +177,40 @@ describe("getNodesInside", () => {
 
     expect(getNodesInside({ x: 500, y: 500, width: 10, height: 10 })).toEqual([
       "section-a",
+    ]);
+  });
+
+  it("falls back to nested section DOM geometry when a selectable section has no node internals entry", () => {
+    useProjectState.setState((state) => {
+      state.sections["group-section"] = createCore({ id: "group-section" });
+      state.sections["group-child-a"] = createCore({ id: "group-child-a" });
+    });
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          "group-section",
+          {
+            id: "group-section",
+            position: { x: 300, y: 120 },
+            width: 260,
+            height: 220,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+      ]),
+    });
+    useSectionRefs.setState((state) => {
+      state.selfOnly["group-child-a"] = createSectionElement({
+        x: 360,
+        y: 180,
+        width: 120,
+        height: 64,
+      });
+    });
+
+    expect(getNodesInside({ x: 350, y: 170, width: 140, height: 84 })).toEqual([
+      "group-child-a",
     ]);
   });
 });
