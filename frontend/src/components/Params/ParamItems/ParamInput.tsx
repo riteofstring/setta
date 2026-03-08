@@ -32,7 +32,7 @@ import { ParamUI } from "../ParamUIs/ParamUI";
 
 function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
-  const baseValue = useProjectState((x) => {
+  const { baseValue, codeObjType } = useProjectState((x) => {
     const impl = getCurrEffectiveCodeObjImplWithTypeGuard(
       x,
       sectionId,
@@ -40,17 +40,7 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
       isBaseChildlessCodeObjImpl,
       true, // preview
     );
-    return impl.value;
-  });
-  const codeObjType = useProjectState((x) => {
-    const impl = getCurrEffectiveCodeObjImplWithTypeGuard(
-      x,
-      sectionId,
-      paramInfoId,
-      isBaseChildlessCodeObjImpl,
-      true, // preview
-    );
-    return impl.type;
+    return { baseValue: impl.value, codeObjType: impl.type };
   });
   const isPasswordParam = codeObjType === CodeObjTypeEnum.PasswordParam;
   const previewValue = useToolArgumentPreview((state) => {
