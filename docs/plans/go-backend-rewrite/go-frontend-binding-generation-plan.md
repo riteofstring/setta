@@ -4,7 +4,8 @@
 
 Execute the selected follow-on from `CURRENT.md`: move frontend-facing Go
 HTTP/websocket contracts onto a Go-owned source of truth using a real
-Go-to-TypeScript conversion pipeline, not handwritten TypeScript emitters.
+Go-to-TypeScript conversion pipeline, not handwritten TypeScript emitters, and
+sever frontend ties to Python-generated backend bindings.
 
 ## Why This Slice Is Open Now
 
@@ -21,11 +22,18 @@ Go-to-TypeScript conversion pipeline, not handwritten TypeScript emitters.
 Use explicit Go contract types plus explicit endpoint specs, then convert those
 Go definitions into TypeScript in a reusable generator pipeline.
 
+The transition goal is not a long-lived mixed Go/Python frontend binding
+state. During the rewrite, prefer cutting over frontend imports and generated
+artifacts to Go ownership even if the overall app is temporarily not in a
+working state.
+
 This follow-on does not permit:
 
 - handwritten TS wrappers added one route at a time
 - handwritten TS request/response type definitions added one route at a time
 - per-route string-builder emission as the primary generator architecture
+- preserving Python-generated frontend contract outputs as a parallel steady
+  state just to keep partial coexistence working
 
 If a Go runtime type is not suitable for stable frontend generation, introduce
 a dedicated Go contract type for the frontend boundary and convert that type.
@@ -45,9 +53,15 @@ The Go-side generator should mirror the roles of the current Python generators:
 
 Expected outputs:
 
-- `frontend/src/utils/generatedGoRoutes.ts`
-- `frontend/src/utils/generatedGoTypes.ts`
-- `frontend/src/utils/generatedGoEndpoints.ts`
+- canonical frontend generated contract files
+  - `frontend/src/utils/generatedRoutes.ts` where applicable
+  - `frontend/src/utils/generatedTypes.ts`
+  - `frontend/src/utils/generatedEndpoints.ts`
+
+Temporary bootstrap outputs such as `generatedGo*` are allowed only while
+proving the converter or landing a bounded cutover slice. They are not the
+target architecture and should be deleted once the canonical generated files
+are Go-owned.
 
 ## Initial Slice
 
@@ -121,6 +135,16 @@ Current landed wedge:
   - `LauncherHomePage` now consumes the Go-generated launcher-home bindings
   - `DesktopLauncherSettingsSection` now consumes the Go-generated
     launcher-management bindings
+
+## Cutover Rule
+
+- The steady state is a single frontend-generated contract surface, not
+  parallel Python-owned and Go-owned modules.
+- The next structural cutover should replace the canonical generated frontend
+  files and remove `generatedGo*` imports rather than expanding the shadow
+  track indefinitely.
+- Do not spend rewrite effort preserving Python-generated binding consumers
+  that only exist to keep the app partially working during the transition.
 
 ## Rules
 

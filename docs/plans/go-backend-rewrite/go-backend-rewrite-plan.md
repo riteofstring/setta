@@ -28,6 +28,9 @@ Historical phase planning, reranks, closeouts, and spikes live under
 
 - No backward-compatibility work is required unless a current caller or release
   path actually needs it.
+- The rewrite does not need to keep the app continuously working while Python
+  boundaries are being removed; prefer severing frontend/backend ties to Python
+  over maintaining temporary mixed-source compatibility.
 - Prefer explicit runtime ownership, typed boundaries, and deterministic source
   of truth over Python-era incidental behavior.
 - Prefer robust implementations over heuristics when provider/runtime metadata
@@ -40,6 +43,8 @@ Historical phase planning, reranks, closeouts, and spikes live under
   that as an explicit planning decision instead of silently adding bespoke
   transport code.
 - Do not preserve old route shapes just because the Python backend had them.
+- Do not preserve Python-generated frontend contract artifacts just to keep a
+  partial mixed Go/Python frontend working during the rewrite.
 
 ## How To Use This Doc Set
 
@@ -60,6 +65,10 @@ Historical phase planning, reranks, closeouts, and spikes live under
   - build a converter-style pipeline analogous to the existing
     Python-to-TypeScript generators, driven by explicit Go contract types and
     endpoint specs
+  - sever frontend ties to Python-generated backend bindings rather than
+    maintaining a parallel mixed-source steady state
+  - replace the canonical generated frontend contract files instead of keeping
+    long-lived `generatedGo*` shadow outputs
   - do not land handwritten TS emitters or endpoint-by-endpoint string-builder
     wedges as the follow-on implementation
   - if a runtime type does not convert cleanly, add a dedicated Go contract

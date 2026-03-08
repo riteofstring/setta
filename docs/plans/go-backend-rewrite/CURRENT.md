@@ -35,6 +35,10 @@ Last verified: `2026-03-10`
   - use a converter-style pipeline analogous to the existing
     Python-to-TypeScript generators, driven by explicit Go contract types and
     endpoint specs rather than handwritten TS emitters
+  - sever frontend ties to Python-generated backend bindings rather than
+    preserving a mixed-source transitional state
+  - replace the canonical generated frontend contract files instead of keeping
+    `generatedGo*` as a long-lived parallel track
   - if a runtime type does not convert cleanly, add a dedicated Go contract
     type or converter rule instead of hand-writing TS for that route
   - current slice doc: `go-frontend-binding-generation-plan.md`
