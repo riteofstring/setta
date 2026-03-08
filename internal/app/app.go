@@ -724,11 +724,18 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			Broadcaster: websocketHub,
 		})
 		agentRunService, err = agentruns.NewService(agentruns.ServiceOptions{
-			ProjectState:           projectRuntime,
-			Engines:                engineStore,
-			Runs:                   agentRunStore,
-			LLM:                    llmRuntime,
-			Executor:               managedllm.NewExecutor(managedllm.ExecutorOptions{Live: managedLiveRuntime, Tools: mcpClient}),
+			ProjectState: projectRuntime,
+			Engines:      engineStore,
+			Runs:         agentRunStore,
+			LLM:          llmRuntime,
+			Executor: managedllm.NewExecutor(managedllm.ExecutorOptions{
+				Live:  managedLiveRuntime,
+				Tools: mcpClient,
+				ResultFollow: managedllm.NewToolResultFollowEmitter(managedllm.ToolResultFollowEmitterOptions{
+					Broadcaster:  websocketHub,
+					TemporaryIDs: temporaryIDs,
+				}),
+			}),
 			TemporaryIDs:           temporaryIDs,
 			CompletionGuardEnabled: true,
 		})

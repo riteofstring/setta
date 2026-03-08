@@ -38,15 +38,17 @@ var (
 )
 
 type ExecutorOptions struct {
-	Live       *managedchat.LiveRuntime
-	Tools      ToolClient
-	HTTPClient *http.Client
+	Live         *managedchat.LiveRuntime
+	Tools        ToolClient
+	HTTPClient   *http.Client
+	ResultFollow *ToolResultFollowEmitter
 }
 
 type Executor struct {
-	live       *managedchat.LiveRuntime
-	tools      ToolClient
-	httpClient *http.Client
+	live         *managedchat.LiveRuntime
+	tools        ToolClient
+	httpClient   *http.Client
+	resultFollow *ToolResultFollowEmitter
 }
 
 type preparedExecution struct {
@@ -94,9 +96,10 @@ func NewExecutor(options ExecutorOptions) *Executor {
 		httpClient = http.DefaultClient
 	}
 	return &Executor{
-		live:       options.Live,
-		tools:      options.Tools,
-		httpClient: httpClient,
+		live:         options.Live,
+		tools:        options.Tools,
+		httpClient:   httpClient,
+		resultFollow: options.ResultFollow,
 	}
 }
 
@@ -535,15 +538,20 @@ func (e *Executor) executeToolCalls(ctx context.Context, prepared preparedExecut
 			arguments = map[string]any{}
 		}
 
+		var descriptor mcpx.ToolDescriptor
 		var result mcpx.ToolCallResult
 		if toolName == "" {
 			result = buildMissingToolResult(toolName)
 		} else if prepared.availableTools != nil {
-			if _, ok := prepared.availableTools[mcpx.NormalizeToolName(toolName)]; !ok {
+			normalizedToolName := mcpx.NormalizeToolName(toolName)
+			nextDescriptor, ok := prepared.availableTools[normalizedToolName]
+			if !ok {
 				result = buildMissingToolResult(toolName)
 			} else if !isToolAllowed(toolName, prepared.toolAllowlist, request.CompletionGuardEnabled) {
+				descriptor = nextDescriptor
 				result = buildDisallowedToolResult(toolName)
 			} else {
+				descriptor = nextDescriptor
 				if e.tools == nil {
 					return nil, nil, fmt.Errorf("%w: MCP tool client is unavailable", ErrToolsUnsupported)
 				}
@@ -567,6 +575,9 @@ func (e *Executor) executeToolCalls(ctx context.Context, prepared preparedExecut
 				return nil, nil, err
 			}
 		}
+		if err := e.emitToolResultFollow(ctx, prepared, descriptor, result); err != nil {
+			return nil, nil, err
+		}
 
 		payload, include, err := providerPayloadForMessage(toolMessage)
 		if err != nil {
@@ -577,6 +588,24 @@ func (e *Executor) executeToolCalls(ctx context.Context, prepared preparedExecut
 		}
 	}
 	return toolMessages, providerMessages, nil
+}
+
+func (e *Executor) emitToolResultFollow(
+	ctx context.Context,
+	prepared preparedExecution,
+	descriptor mcpx.ToolDescriptor,
+	result mcpx.ToolCallResult,
+) error {
+	if e == nil || e.resultFollow == nil || !prepared.emitStream || prepared.projectConfigID == nil {
+		return nil
+	}
+	return e.resultFollow.Emit(
+		ctx,
+		*prepared.projectConfigID,
+		prepared.chatID,
+		descriptor,
+		result,
+	)
 }
 
 func shouldPersistMessage(message map[string]any) bool {

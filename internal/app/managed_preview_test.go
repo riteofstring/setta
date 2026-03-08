@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -34,6 +35,16 @@ func TestAppStreamsManagedToolArgumentPreviewOverFrontendWebsocket(t *testing.T)
 	cfg.Server.Host = "127.0.0.1"
 	prepareAppCurrentSession(t, cfg)
 	t.Setenv("OPENAI_API_KEY", "secret")
+	t.Cleanup(func() {
+		deadline := time.Now().Add(2 * time.Second)
+		for time.Now().Before(deadline) {
+			_ = os.RemoveAll(cfg.Paths.WorkspaceRoot)
+			if _, err := os.Stat(cfg.Paths.WorkspaceRoot); errors.Is(err, os.ErrNotExist) {
+				return
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+	})
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

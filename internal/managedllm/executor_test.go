@@ -21,19 +21,26 @@ import (
 )
 
 type captureBroadcaster struct {
-	mu       sync.Mutex
-	messages []realtime.LLMStreamingResponseMessage
+	mu                   sync.Mutex
+	messages             []realtime.LLMStreamingResponseMessage
+	resultFollowMessages []realtime.AIFollowToolResultUpdateMessage
 }
 
 func (c *captureBroadcaster) BroadcastJSON(_ context.Context, message any, _ realtime.Selection) (int, error) {
-	typed, ok := message.(realtime.LLMStreamingResponseMessage)
-	if !ok {
+	switch typed := message.(type) {
+	case realtime.LLMStreamingResponseMessage:
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		c.messages = append(c.messages, typed)
+		return 1, nil
+	case realtime.AIFollowToolResultUpdateMessage:
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		c.resultFollowMessages = append(c.resultFollowMessages, typed)
+		return 1, nil
+	default:
 		return 0, nil
 	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.messages = append(c.messages, typed)
-	return 1, nil
 }
 
 func (c *captureBroadcaster) Count() int {
@@ -47,6 +54,16 @@ func (c *captureBroadcaster) Messages() []realtime.LLMStreamingResponseMessage {
 	defer c.mu.Unlock()
 	cloned := make([]realtime.LLMStreamingResponseMessage, 0, len(c.messages))
 	for _, message := range c.messages {
+		cloned = append(cloned, message)
+	}
+	return cloned
+}
+
+func (c *captureBroadcaster) ResultFollowMessages() []realtime.AIFollowToolResultUpdateMessage {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	cloned := make([]realtime.AIFollowToolResultUpdateMessage, 0, len(c.resultFollowMessages))
+	for _, message := range c.resultFollowMessages {
 		cloned = append(cloned, message)
 	}
 	return cloned
@@ -515,6 +532,16 @@ func TestExecutorValidateAllowsThinkingWithExplicitReasoningConfig(t *testing.T)
 func TestExecutorExecuteRunsToolCallsThroughMCPAndContinuesProviderTurns(t *testing.T) {
 	t.Parallel()
 
+	root := t.TempDir()
+	temporaryIDs, err := mcpx.NewTemporaryIDStore(mcpx.TemporaryIDMapPath(root))
+	if err != nil {
+		t.Fatalf("new temporary id store: %v", err)
+	}
+	createdSectionID, err := temporaryIDs.EnsureTemporaryID("section-created")
+	if err != nil {
+		t.Fatalf("ensure temporary section id: %v", err)
+	}
+
 	requestBodies := make([]map[string]any, 0, 2)
 	requestCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -532,7 +559,7 @@ func TestExecutorExecuteRunsToolCallsThroughMCPAndContinuesProviderTurns(t *test
 
 		switch requestCount {
 		case 0:
-			fmt.Fprint(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"tool-call-1\",\"type\":\"function\",\"function\":{\"name\":\"setta__report_completion_status\",\"arguments\":\"{\\\"completionIntent\\\":true}\"}}]},\"finish_reason\":\"tool_calls\"}]}\n\n")
+			fmt.Fprint(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"tool-call-1\",\"type\":\"function\",\"function\":{\"name\":\"setta__create_top_level_section\",\"arguments\":\"{\\\"projectConfigId\\\":\\\"project-alpha\\\",\\\"implType\\\":\\\"Dict\\\"}\"}}]},\"finish_reason\":\"tool_calls\"}]}\n\n")
 			flusher.Flush()
 			fmt.Fprint(w, "data: [DONE]\n\n")
 		case 1:
@@ -558,13 +585,18 @@ func TestExecutorExecuteRunsToolCallsThroughMCPAndContinuesProviderTurns(t *test
 	}, 0, 1)
 	toolClient := &stubToolClient{
 		discoverableTools: map[string]mcpx.ToolDescriptor{
-			"setta__report_completion_status": {
+			"setta__create_top_level_section": {
 				ServerID:       mcpx.DefaultServerID,
-				NamespacedName: "setta__report_completion_status",
-				RemoteName:     "report_completion_status",
-				Description:    "Report completion status.",
+				NamespacedName: "setta__create_top_level_section",
+				RemoteName:     "create_top_level_section",
+				Description:    "Create a top-level section.",
 				InputSchema: map[string]any{
 					"type": "object",
+				},
+				Metadata: &tools.Metadata{
+					ResultIDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection: {"sectionId"},
+					},
 				},
 			},
 		},
@@ -579,8 +611,8 @@ func TestExecutorExecuteRunsToolCallsThroughMCPAndContinuesProviderTurns(t *test
 				Meta:      meta,
 			})
 			return mcpx.ToolCallResult{
-				StructuredContent: map[string]any{"status": "ok"},
-				Text:              "{\"status\":\"ok\"}",
+				StructuredContent: map[string]any{"sectionId": createdSectionID},
+				Text:              "{\"sectionId\":\"" + createdSectionID + "\"}",
 			}, nil
 		},
 	}
@@ -589,6 +621,10 @@ func TestExecutorExecuteRunsToolCallsThroughMCPAndContinuesProviderTurns(t *test
 		Live:       live,
 		Tools:      toolClient,
 		HTTPClient: server.Client(),
+		ResultFollow: NewToolResultFollowEmitter(ToolResultFollowEmitterOptions{
+			Broadcaster:  broadcaster,
+			TemporaryIDs: temporaryIDs,
+		}),
 	})
 	result, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
 		Profile: agentprofiles.Profile{
@@ -633,10 +669,10 @@ func TestExecutorExecuteRunsToolCallsThroughMCPAndContinuesProviderTurns(t *test
 	if len(capturedCalls) != 1 {
 		t.Fatalf("expected one tool call, got %#v", capturedCalls)
 	}
-	if capturedCalls[0].ToolName != "setta__report_completion_status" {
+	if capturedCalls[0].ToolName != "setta__create_top_level_section" {
 		t.Fatalf("unexpected tool name %#v", capturedCalls[0])
 	}
-	if capturedCalls[0].Arguments["completionIntent"] != true {
+	if capturedCalls[0].Arguments["projectConfigId"] != "project-alpha" {
 		t.Fatalf("unexpected tool arguments %#v", capturedCalls[0].Arguments)
 	}
 	if capturedCalls[0].Meta["projectConfigId"] != "project-alpha" {
@@ -690,6 +726,16 @@ func TestExecutorExecuteRunsToolCallsThroughMCPAndContinuesProviderTurns(t *test
 	}
 	if broadcaster.Count() != 9 {
 		t.Fatalf("expected 9 managed stream broadcasts, got %d", broadcaster.Count())
+	}
+	followMessages := broadcaster.ResultFollowMessages()
+	if len(followMessages) != 1 {
+		t.Fatalf("expected one result-follow update, got %#v", followMessages)
+	}
+	if followMessages[0].Content.ProjectConfigID != "project-alpha" || followMessages[0].Content.ChatID != "chat-alpha" {
+		t.Fatalf("unexpected result-follow message %#v", followMessages[0])
+	}
+	if got := followMessages[0].Content.IDsByType["section"]; len(got) != 1 || got[0] != "section-created" {
+		t.Fatalf("expected canonical section follow id, got %#v", followMessages[0].Content.IDsByType)
 	}
 }
 

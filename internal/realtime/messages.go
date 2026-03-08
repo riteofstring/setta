@@ -15,6 +15,7 @@ const (
 	MessageTypeFrontendIdentity            = "FrontendIdentity"
 	MessageTypeLLMStreamingResponse        = "LLMStreamingResponse"
 	MessageTypeAIFollowToolArgumentsUpdate = "AIFollowToolArgumentsUpdate"
+	MessageTypeAIFollowToolResultUpdate    = "AIFollowToolResultUpdate"
 	MessageTypeUISettingReveal             = "UISettingReveal"
 	MessageTypeUISettingRevealResult       = "UISettingRevealResult"
 	MessageTypeLSPDiagnostics              = "LSPDiagnostics"
@@ -53,6 +54,12 @@ type FrontendIdentityContent struct {
 }
 
 type AIFollowToolArgumentsUpdateContent struct {
+	ProjectConfigID string              `json:"projectConfigId"`
+	ChatID          string              `json:"chatId"`
+	IDsByType       map[string][]string `json:"idsByType"`
+}
+
+type AIFollowToolResultUpdateContent struct {
 	ProjectConfigID string              `json:"projectConfigId"`
 	ChatID          string              `json:"chatId"`
 	IDsByType       map[string][]string `json:"idsByType"`
@@ -205,6 +212,11 @@ type AIFollowToolArgumentsUpdateMessage struct {
 	Content     AIFollowToolArgumentsUpdateContent `json:"content"`
 }
 
+type AIFollowToolResultUpdateMessage struct {
+	MessageType string                          `json:"messageType"`
+	Content     AIFollowToolResultUpdateContent `json:"content"`
+}
+
 type UISettingRevealResultMessage struct {
 	ID          *string                      `json:"id"`
 	MessageType string                       `json:"messageType"`
@@ -291,6 +303,13 @@ func NewLLMStreamingResponseMessage(content LLMStreamingResponseContent) LLMStre
 func NewAIFollowToolArgumentsUpdateMessage(content AIFollowToolArgumentsUpdateContent) AIFollowToolArgumentsUpdateMessage {
 	return AIFollowToolArgumentsUpdateMessage{
 		MessageType: MessageTypeAIFollowToolArgumentsUpdate,
+		Content:     content,
+	}
+}
+
+func NewAIFollowToolResultUpdateMessage(content AIFollowToolResultUpdateContent) AIFollowToolResultUpdateMessage {
+	return AIFollowToolResultUpdateMessage{
+		MessageType: MessageTypeAIFollowToolResultUpdate,
 		Content:     content,
 	}
 }
