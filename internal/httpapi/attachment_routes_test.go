@@ -2,6 +2,8 @@ package httpapi
 
 import (
 	"encoding/json"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,6 +15,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"setta/internal/auth"
 	"setta/internal/chatattachments"
+	"setta/internal/config"
+	"setta/internal/deployments"
+	"setta/internal/modes"
 	"setta/internal/projectstate"
 )
 
@@ -78,10 +83,16 @@ func TestRegisterAttachmentRootRoutesServesDownloadedAttachment(t *testing.T) {
 	path := strings.TrimPrefix(downloadURL, "http://127.0.0.1:8000")
 
 	router := chi.NewRouter()
-	if err := RegisterAttachmentRootRoutes(router, AttachmentRootRouteDependencies{Service: service}); err != nil {
+	if err := RegisterAttachmentRootRoutes(router, AttachmentRootRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Service:    service,
+	}); err != nil {
 		t.Fatalf("register attachment routes: %v", err)
 	}
 	request := httptest.NewRequest(http.MethodGet, path, nil)
+	request = request.WithContext(modes.ContextWithRequestInfo(request.Context(), modes.RequestInfo{
+		Policy: modes.NewPolicy(config.ModeIDE),
+	}))
 	response := httptest.NewRecorder()
 
 	router.ServeHTTP(response, request)
@@ -129,10 +140,16 @@ func TestRegisterAttachmentRootRoutesRejectsInvalidToken(t *testing.T) {
 	}
 
 	router := chi.NewRouter()
-	if err := RegisterAttachmentRootRoutes(router, AttachmentRootRouteDependencies{Service: service}); err != nil {
+	if err := RegisterAttachmentRootRoutes(router, AttachmentRootRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Service:    service,
+	}); err != nil {
 		t.Fatalf("register attachment routes: %v", err)
 	}
 	request := httptest.NewRequest(http.MethodGet, "/api/attachments/invalid", nil)
+	request = request.WithContext(modes.ContextWithRequestInfo(request.Context(), modes.RequestInfo{
+		Policy: modes.NewPolicy(config.ModeIDE),
+	}))
 	response := httptest.NewRecorder()
 
 	router.ServeHTTP(response, request)
@@ -160,4 +177,259 @@ func TestRegisterAttachmentRootRoutesRequiresService(t *testing.T) {
 	if !strings.Contains(err.Error(), "attachment service is required") {
 		t.Fatalf("expected missing service error, got %v", err)
 	}
+}
+
+func TestRegisterAttachmentRoutesReturnsDownloadURLAndServesAttachment(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	artifactsRoot := filepath.Join(root, "artifacts")
+	if err := os.MkdirAll(artifactsRoot, 0o755); err != nil {
+		t.Fatalf("mkdir artifacts root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(artifactsRoot, "notes.txt"), []byte("attachment body"), 0o644); err != nil {
+		t.Fatalf("write attachment: %v", err)
+	}
+
+	authService := newTestAuthService(t)
+	service := newAttachmentRouteTestService(t, root, nil)
+	handler := newAttachmentRouteTestHandler(t, config.ModeIDE, authService, service, nil)
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetAttachmentDownloadURL, strings.NewReader(`{"artifactId":"artifacts/notes.txt","projectConfigId":"project-alpha"}`))
+	request.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload GetAttachmentDownloadURLResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode attachment url payload: %v", err)
+	}
+	if !strings.HasPrefix(payload.URL, "http://example.com/api/attachments/") {
+		t.Fatalf("expected absolute attachment url, got %q", payload.URL)
+	}
+
+	fileRequest := httptest.NewRequest(http.MethodGet, strings.TrimPrefix(payload.URL, "http://example.com"), nil)
+	fileResponse := httptest.NewRecorder()
+	handler.ServeHTTP(fileResponse, fileRequest)
+	if fileResponse.Code != http.StatusOK {
+		t.Fatalf("expected download 200, got %d with body %q", fileResponse.Code, fileResponse.Body.String())
+	}
+	if body := fileResponse.Body.String(); body != "attachment body" {
+		t.Fatalf("expected attachment body %q, got %q", "attachment body", body)
+	}
+}
+
+func TestRegisterAttachmentRoutesSkipsMissingEntriesInPluralResponse(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	artifactsRoot := filepath.Join(root, "artifacts")
+	if err := os.MkdirAll(artifactsRoot, 0o755); err != nil {
+		t.Fatalf("mkdir artifacts root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(artifactsRoot, "notes.txt"), []byte("attachment body"), 0o644); err != nil {
+		t.Fatalf("write attachment: %v", err)
+	}
+
+	authService := newTestAuthService(t)
+	service := newAttachmentRouteTestService(t, root, nil)
+	handler := newAttachmentRouteTestHandler(t, config.ModeIDE, authService, service, nil)
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetAttachmentDownloadURLs, strings.NewReader(`{"artifactIds":["artifacts/notes.txt","artifacts/missing.txt"],"projectConfigId":"project-alpha"}`))
+	request.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload []AttachmentDownloadURLEntry
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode attachment url entries: %v", err)
+	}
+	if len(payload) != 1 {
+		t.Fatalf("expected one attachment url entry, got %#v", payload)
+	}
+	if payload[0].ArtifactID != "artifacts/notes.txt" {
+		t.Fatalf("expected surviving attachment id, got %#v", payload)
+	}
+}
+
+func TestRegisterAttachmentRoutesIncludesShareSessionForDeployment(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
+	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+		Mode:        config.ModeShare,
+		Now:         &now,
+		GeneratedID: "share-session",
+		Policy: map[string]any{
+			"allowFileDownloads": true,
+		},
+	})
+	shareSession, _, err := deploymentRuntime.GetOrCreateSession("share-session")
+	if err != nil {
+		t.Fatalf("create deployment session: %v", err)
+	}
+	deploymentArtifactsRoot := filepath.Join(deploymentRuntime.Paths().DeploymentRoot, "artifacts")
+	if err := os.MkdirAll(deploymentArtifactsRoot, 0o755); err != nil {
+		t.Fatalf("mkdir deployment artifacts root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(deploymentArtifactsRoot, "notes.txt"), []byte("deployment attachment"), 0o644); err != nil {
+		t.Fatalf("write deployment attachment: %v", err)
+	}
+
+	authService := newTestAuthService(t)
+	service := newAttachmentRouteTestService(t, t.TempDir(), deploymentRuntime)
+	handler := newAttachmentRouteTestHandler(t, config.ModeShare, authService, service, deploymentRuntime)
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetAttachmentDownloadURL, strings.NewReader(`{"artifactId":"artifacts/notes.txt","projectConfigId":"project-alpha"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(modes.ShareSessionHeaderName, shareSession.ID)
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload GetAttachmentDownloadURLResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode deployment attachment url payload: %v", err)
+	}
+	if !strings.Contains(payload.URL, "shareSessionId="+shareSession.ID) {
+		t.Fatalf("expected share session query in attachment url, got %q", payload.URL)
+	}
+
+	fileRequest := httptest.NewRequest(http.MethodGet, strings.TrimPrefix(payload.URL, "http://example.com"), nil)
+	fileResponse := httptest.NewRecorder()
+	handler.ServeHTTP(fileResponse, fileRequest)
+	if fileResponse.Code != http.StatusOK {
+		t.Fatalf("expected deployment download 200, got %d with body %q", fileResponse.Code, fileResponse.Body.String())
+	}
+	if body := fileResponse.Body.String(); body != "deployment attachment" {
+		t.Fatalf("expected deployment attachment body %q, got %q", "deployment attachment", body)
+	}
+}
+
+func TestRegisterAttachmentRoutesRejectsDeploymentDownloadsWhenPolicyDisabled(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
+	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+		Mode:        config.ModeShare,
+		Now:         &now,
+		GeneratedID: "share-session",
+		Policy: map[string]any{
+			"allowFileDownloads": false,
+		},
+	})
+	shareSession, _, err := deploymentRuntime.GetOrCreateSession("share-session")
+	if err != nil {
+		t.Fatalf("create deployment session: %v", err)
+	}
+
+	authService := newTestAuthService(t)
+	service := newAttachmentRouteTestService(t, t.TempDir(), deploymentRuntime)
+	handler := newAttachmentRouteTestHandler(t, config.ModeShare, authService, service, deploymentRuntime)
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetAttachmentDownloadURL, strings.NewReader(`{"artifactId":"artifacts/notes.txt","projectConfigId":"project-alpha"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(modes.ShareSessionHeaderName, shareSession.ID)
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "Deployment policy disallows file downloads.") {
+		t.Fatalf("expected deployment policy message, got %q", response.Body.String())
+	}
+}
+
+func newAttachmentRouteTestService(
+	t *testing.T,
+	settaFilesRoot string,
+	deploymentRuntime *deployments.Runtime,
+) *chatattachments.Service {
+	t.Helper()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {ID: "project-alpha", Name: "Alpha"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	service, err := chatattachments.NewService(chatattachments.ServiceOptions{
+		SettaFilesRoot: settaFilesRoot,
+		Host:           "127.0.0.1",
+		Port:           8000,
+		ProjectState:   projectRuntime,
+		Deployment:     deploymentRuntime,
+		Sessions: attachmentRouteSessionProvider{current: &auth.CurrentSession{
+			Metadata: auth.SessionMetadata{ID: "session-1"},
+			Secret:   []byte("secret"),
+		}},
+		TimeNow: func() time.Time {
+			return time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new attachment service: %v", err)
+	}
+	return service
+}
+
+func newAttachmentRouteTestHandler(
+	t *testing.T,
+	mode config.Mode,
+	authService *auth.Service,
+	service *chatattachments.Service,
+	deploymentRuntime *deployments.Runtime,
+) http.Handler {
+	t.Helper()
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: string(mode), info: RuntimeInfo{Mode: string(mode)}},
+		Auth:       authService,
+		ModePolicy: modes.NewPolicy(mode),
+		RegisterRoot: func(r chi.Router) {
+			if err := RegisterAttachmentRootRoutes(r, AttachmentRootRouteDependencies{
+				ModePolicy:    modes.NewPolicy(mode),
+				ShareSessions: deploymentRuntime,
+				Deployment:    deploymentRuntime,
+				Service:       service,
+			}); err != nil {
+				t.Fatalf("register attachment root routes: %v", err)
+			}
+		},
+		Register: func(r chi.Router) {
+			if err := RegisterAttachmentRoutes(r, AttachmentRouteDependencies{
+				ModePolicy:    modes.NewPolicy(mode),
+				ShareSessions: deploymentRuntime,
+				Deployment:    deploymentRuntime,
+				Service:       service,
+			}); err != nil {
+				t.Fatalf("register attachment routes: %v", err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+	return handler
 }

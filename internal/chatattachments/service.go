@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"setta/internal/auth"
+	"setta/internal/deployments"
 	"setta/internal/projectstate"
 	"setta/internal/statefs"
 )
@@ -29,6 +30,7 @@ var (
 	ErrAttachmentTokenUnavailable   = errors.New("attachment token secret unavailable")
 	ErrAttachmentDownloadURLMissing = errors.New("attachment download URL origin is unavailable")
 	ErrInvalidAttachmentToken       = errors.New("invalid or expired attachment token")
+	ErrAttachmentSessionMismatch    = errors.New("attachment token session mismatch")
 	ErrAttachmentNotFound           = errors.New("attachment not found")
 	ErrAttachmentPathIsDirectory    = errors.New("attachment path is a directory")
 )
@@ -93,6 +95,7 @@ type ServiceOptions struct {
 	Host           string
 	Port           int
 	ProjectState   *projectstate.Runtime
+	Deployment     *deployments.Runtime
 	Sessions       SessionProvider
 	TimeNow        func() time.Time
 }
@@ -103,6 +106,7 @@ type Service struct {
 	host           string
 	port           int
 	projectState   *projectstate.Runtime
+	deployment     *deployments.Runtime
 	sessions       SessionProvider
 	timeNow        func() time.Time
 	tokenTTL       time.Duration
@@ -126,6 +130,12 @@ type DownloadResult struct {
 	Content   []byte
 	MediaType string
 	Filename  string
+}
+
+type DownloadURLEntry struct {
+	ArtifactID string
+	URL        string
+	ExpiresAt  int64
 }
 
 type tokenPayload struct {
@@ -169,6 +179,7 @@ func NewService(opts ServiceOptions) (*Service, error) {
 		host:           strings.TrimSpace(opts.Host),
 		port:           opts.Port,
 		projectState:   opts.ProjectState,
+		deployment:     opts.Deployment,
 		sessions:       opts.Sessions,
 		timeNow:        timeNow,
 		tokenTTL:       defaultTokenTTL,
@@ -208,6 +219,10 @@ func (s *Service) BuildPayload(req BuildPayloadRequest) (BuildPayloadResult, err
 }
 
 func (s *Service) Download(token string) (DownloadResult, error) {
+	return s.DownloadForShareSession(token, "")
+}
+
+func (s *Service) DownloadForShareSession(token string, shareSessionID string) (DownloadResult, error) {
 	if s == nil {
 		return DownloadResult{}, ErrAttachmentTokenUnavailable
 	}
@@ -219,16 +234,25 @@ func (s *Service) Download(token string) (DownloadResult, error) {
 	if err != nil {
 		return DownloadResult{}, err
 	}
+	resolvedShareSessionID := strings.TrimSpace(shareSessionID)
+	if strings.TrimSpace(payload.ShareSessionID) != resolvedShareSessionID {
+		return DownloadResult{}, ErrAttachmentSessionMismatch
+	}
+
+	baseRoot, artifactsRoot, snapshot, err := s.resolveAttachmentRoots(resolvedShareSessionID)
+	if err != nil {
+		return DownloadResult{}, err
+	}
 	if strings.TrimSpace(payload.ProjectConfigID) != "" {
-		if _, err := s.projectState.Snapshot().Document.ProjectByID(payload.ProjectConfigID); err != nil {
+		if _, err := snapshot.Document.ProjectByID(payload.ProjectConfigID); err != nil {
 			return DownloadResult{}, &ProjectConfigNotFoundError{ProjectConfigID: payload.ProjectConfigID}
 		}
 	}
 
 	resolvedPath, err := resolveAttachmentPath(
 		payload.ArtifactID,
-		s.settaFilesRoot,
-		s.artifactsRoot,
+		baseRoot,
+		artifactsRoot,
 		true,
 	)
 	if err != nil {
@@ -246,6 +270,92 @@ func (s *Service) Download(token string) (DownloadResult, error) {
 		MediaType: normalizeMimeType(guessMimeFromValue(resolvedPath)),
 		Filename:  filepath.Base(resolvedPath),
 	}, nil
+}
+
+func (s *Service) BuildDownloadURL(
+	artifactID string,
+	projectConfigID string,
+	shareSessionID string,
+	buildURL func(token string, shareSessionID string) string,
+) (DownloadURLEntry, error) {
+	if s == nil {
+		return DownloadURLEntry{}, ErrAttachmentTokenUnavailable
+	}
+	currentSession, ok := s.sessions.CurrentSession()
+	if !ok || currentSession == nil || len(currentSession.Secret) == 0 {
+		return DownloadURLEntry{}, ErrAttachmentTokenUnavailable
+	}
+	now := s.timeNow()
+	expiresAt := now.Unix() + int64(s.tokenTTL/time.Second)
+	trimmedProjectConfigID := strings.TrimSpace(projectConfigID)
+	trimmedShareSessionID := strings.TrimSpace(shareSessionID)
+
+	baseRoot, artifactsRoot, snapshot, err := s.resolveAttachmentRoots(trimmedShareSessionID)
+	if err != nil {
+		return DownloadURLEntry{}, err
+	}
+	if trimmedProjectConfigID != "" {
+		if _, err := snapshot.Document.ProjectByID(trimmedProjectConfigID); err != nil {
+			return DownloadURLEntry{}, &ProjectConfigNotFoundError{ProjectConfigID: trimmedProjectConfigID}
+		}
+	}
+	resolvedPath, err := resolveAttachmentPath(
+		artifactID,
+		baseRoot,
+		artifactsRoot,
+		true,
+	)
+	if err != nil {
+		return DownloadURLEntry{}, err
+	}
+	normalizedArtifactID, err := normalizeArtifactID(resolvedPath, artifactsRoot)
+	if err != nil {
+		return DownloadURLEntry{}, err
+	}
+	token, err := mintToken(tokenPayload{
+		ArtifactID:      normalizedArtifactID,
+		Exp:             expiresAt,
+		ProjectConfigID: trimmedProjectConfigID,
+		ShareSessionID:  trimmedShareSessionID,
+	}, currentSession.Secret)
+	if err != nil {
+		return DownloadURLEntry{}, err
+	}
+	downloadURL := ""
+	if buildURL != nil {
+		downloadURL = strings.TrimSpace(buildURL(token, trimmedShareSessionID))
+	}
+	if downloadURL == "" {
+		downloadURL = buildDefaultDownloadURL(s.host, s.port, token, trimmedShareSessionID)
+	}
+	if downloadURL == "" {
+		return DownloadURLEntry{}, ErrAttachmentDownloadURLMissing
+	}
+	return DownloadURLEntry{
+		ArtifactID: strings.TrimSpace(artifactID),
+		URL:        downloadURL,
+		ExpiresAt:  expiresAt,
+	}, nil
+}
+
+func (s *Service) BuildDownloadURLs(
+	artifactIDs []string,
+	projectConfigID string,
+	shareSessionID string,
+	buildURL func(token string, shareSessionID string) string,
+) ([]DownloadURLEntry, error) {
+	if len(artifactIDs) == 0 {
+		return nil, nil
+	}
+	entries := make([]DownloadURLEntry, 0, len(artifactIDs))
+	for _, artifactID := range artifactIDs {
+		entry, err := s.BuildDownloadURL(artifactID, projectConfigID, shareSessionID, buildURL)
+		if err != nil {
+			continue
+		}
+		entries = append(entries, entry)
+	}
+	return entries, nil
 }
 
 func (r BuildPayloadResult) AsMap() map[string]any {
@@ -297,6 +407,18 @@ func (s *Service) buildAttachmentURLs(attachments []chatAttachment, projectConfi
 		urls[attachment.ID] = origin + "/api/attachments/" + token
 	}
 	return urls, nil
+}
+
+func (s *Service) resolveAttachmentRoots(shareSessionID string) (string, string, projectstate.Snapshot, error) {
+	trimmedShareSessionID := strings.TrimSpace(shareSessionID)
+	if trimmedShareSessionID == "" {
+		return s.settaFilesRoot, s.artifactsRoot, s.projectState.Snapshot(), nil
+	}
+	if s.deployment == nil {
+		return "", "", projectstate.Snapshot{}, ErrAttachmentNotFound
+	}
+	deploymentRoot := s.deployment.Paths().DeploymentRoot
+	return deploymentRoot, filepath.Join(deploymentRoot, "artifacts"), s.deployment.Base().Snapshot(), nil
 }
 
 func (s *Service) buildPromptTextPair(attachments []chatAttachment) (string, string) {
@@ -431,6 +553,43 @@ func resolveAttachmentPath(artifactID string, baseRoot string, artifactsRoot str
 		return "", ErrAttachmentNotFound
 	}
 	return resolvedCandidate, nil
+}
+
+func normalizeArtifactID(resolvedPath string, artifactsRoot string) (string, error) {
+	resolvedArtifactsRoot, err := resolvePath(artifactsRoot)
+	if err != nil {
+		return "", ErrAttachmentNotFound
+	}
+	resolvedCandidate, err := resolvePath(resolvedPath)
+	if err != nil {
+		return "", ErrAttachmentNotFound
+	}
+	if !isWithinRoot(resolvedArtifactsRoot, resolvedCandidate) {
+		return "", ErrAttachmentNotFound
+	}
+	relativePath, err := filepath.Rel(resolvedArtifactsRoot, resolvedCandidate)
+	if err != nil {
+		return "", ErrAttachmentNotFound
+	}
+	if relativePath == "." || relativePath == "" {
+		return "", ErrAttachmentNotFound
+	}
+	if relativePath == ".." || strings.HasPrefix(relativePath, ".."+string(filepath.Separator)) {
+		return "", ErrAttachmentNotFound
+	}
+	return filepath.ToSlash(filepath.Join("artifacts", relativePath)), nil
+}
+
+func buildDefaultDownloadURL(host string, port int, token string, shareSessionID string) string {
+	origin := buildBackendOrigin(host, port)
+	if origin == "" {
+		return ""
+	}
+	downloadURL := origin + "/api/attachments/" + token
+	if strings.TrimSpace(shareSessionID) == "" {
+		return downloadURL
+	}
+	return downloadURL + "?shareSessionId=" + urlQueryEscape(shareSessionID)
 }
 
 func resolvePath(raw string) (string, error) {

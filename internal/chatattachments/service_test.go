@@ -1,6 +1,8 @@
 package chatattachments
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"net/url"
 	"os"
@@ -10,6 +12,7 @@ import (
 	"time"
 
 	"setta/internal/auth"
+	"setta/internal/deployments"
 	"setta/internal/projectstate"
 )
 
@@ -252,5 +255,179 @@ func TestDownloadRejectsInvalidToken(t *testing.T) {
 
 	if _, err := service.Download("invalid"); !errors.Is(err, ErrInvalidAttachmentToken) {
 		t.Fatalf("expected invalid token error, got %v", err)
+	}
+}
+
+func TestBuildDownloadURLNormalizesArtifactID(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	artifactsRoot := filepath.Join(root, "artifacts", "nested")
+	if err := os.MkdirAll(artifactsRoot, 0o755); err != nil {
+		t.Fatalf("mkdir artifacts root: %v", err)
+	}
+	attachmentPath := filepath.Join(artifactsRoot, "notes.txt")
+	if err := os.WriteFile(attachmentPath, []byte("attachment body"), 0o644); err != nil {
+		t.Fatalf("write attachment: %v", err)
+	}
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {ID: "project-alpha", Name: "Alpha"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	now := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
+	currentSession := &auth.CurrentSession{
+		Metadata: auth.SessionMetadata{ID: "session-1"},
+		Secret:   []byte("secret"),
+	}
+	service, err := NewService(ServiceOptions{
+		SettaFilesRoot: root,
+		Host:           "127.0.0.1",
+		Port:           8000,
+		ProjectState:   projectRuntime,
+		Sessions:       staticSessionProvider{current: currentSession},
+		TimeNow: func() time.Time {
+			return now
+		},
+	})
+	if err != nil {
+		t.Fatalf("new attachment service: %v", err)
+	}
+
+	entry, err := service.BuildDownloadURL(attachmentPath, "project-alpha", "", nil)
+	if err != nil {
+		t.Fatalf("build download url: %v", err)
+	}
+	parsed, err := url.Parse(entry.URL)
+	if err != nil {
+		t.Fatalf("parse attachment url: %v", err)
+	}
+	payload, err := validateToken(strings.TrimPrefix(parsed.Path, "/api/attachments/"), currentSession.Secret, now)
+	if err != nil {
+		t.Fatalf("validate attachment token: %v", err)
+	}
+	if payload.ArtifactID != "artifacts/nested/notes.txt" {
+		t.Fatalf("expected normalized artifact id, got %#v", payload)
+	}
+}
+
+func TestDownloadForShareSessionServesDeploymentArtifacts(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {ID: "project-alpha", Name: "Alpha"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	deploymentRoot, deploymentRuntime := newChatAttachmentTestDeploymentRuntime(t)
+	shareSession, _, err := deploymentRuntime.GetOrCreateSession("share-session")
+	if err != nil {
+		t.Fatalf("create deployment session: %v", err)
+	}
+	artifactsRoot := filepath.Join(deploymentRoot, "artifacts")
+	if err := os.MkdirAll(artifactsRoot, 0o755); err != nil {
+		t.Fatalf("mkdir deployment artifacts root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(artifactsRoot, "notes.txt"), []byte("deployment attachment"), 0o644); err != nil {
+		t.Fatalf("write deployment attachment: %v", err)
+	}
+	now := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
+	service, err := NewService(ServiceOptions{
+		SettaFilesRoot: t.TempDir(),
+		Host:           "127.0.0.1",
+		Port:           8000,
+		ProjectState:   projectRuntime,
+		Deployment:     deploymentRuntime,
+		Sessions: staticSessionProvider{current: &auth.CurrentSession{
+			Metadata: auth.SessionMetadata{ID: "session-1"},
+			Secret:   []byte("secret"),
+		}},
+		TimeNow: func() time.Time {
+			return now
+		},
+	})
+	if err != nil {
+		t.Fatalf("new attachment service: %v", err)
+	}
+
+	entry, err := service.BuildDownloadURL("artifacts/notes.txt", "project-alpha", shareSession.ID, nil)
+	if err != nil {
+		t.Fatalf("build share attachment url: %v", err)
+	}
+	parsed, err := url.Parse(entry.URL)
+	if err != nil {
+		t.Fatalf("parse share attachment url: %v", err)
+	}
+	if parsed.Query().Get("shareSessionId") != shareSession.ID {
+		t.Fatalf("expected share session query, got %q", parsed.RawQuery)
+	}
+	result, err := service.DownloadForShareSession(strings.TrimPrefix(parsed.Path, "/api/attachments/"), shareSession.ID)
+	if err != nil {
+		t.Fatalf("download deployment attachment: %v", err)
+	}
+	if string(result.Content) != "deployment attachment" {
+		t.Fatalf("expected deployment attachment content, got %q", string(result.Content))
+	}
+}
+
+func newChatAttachmentTestDeploymentRuntime(t *testing.T) (string, *deployments.Runtime) {
+	t.Helper()
+
+	deploymentRoot := t.TempDir()
+	runtimeRoot := t.TempDir()
+	document := projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {ID: "project-alpha", Name: "Alpha"},
+		},
+	}
+	writeChatAttachmentTestJSON(t, filepath.Join(deploymentRoot, projectstate.MainFileName), document)
+	writeChatAttachmentTestJSON(t, filepath.Join(deploymentRoot, "manifest.json"), map[string]any{
+		"version":                1,
+		"deploymentName":         "demo-share",
+		"deploymentType":         "share",
+		"defaultProjectConfigId": "project-alpha",
+		"deploymentVersion":      "v1",
+	})
+	writeChatAttachmentTestJSON(t, filepath.Join(deploymentRoot, "policy.json"), map[string]any{
+		"allowFileDownloads": true,
+	})
+	runtime, err := deployments.Open(context.Background(), deployments.RuntimeOptions{
+		DeploymentRoot: deploymentRoot,
+		RuntimeRoot:    runtimeRoot,
+	})
+	if err != nil {
+		t.Fatalf("open deployment runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = runtime.Close()
+	})
+	return deploymentRoot, runtime
+}
+
+func writeChatAttachmentTestJSON(t *testing.T, path string, value any) {
+	t.Helper()
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir parent dir: %v", err)
+	}
+	payload, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("marshal json: %v", err)
+	}
+	if err := os.WriteFile(path, payload, 0o644); err != nil {
+		t.Fatalf("write json file: %v", err)
 	}
 }

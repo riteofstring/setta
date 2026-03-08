@@ -998,6 +998,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			Host:           cfg.Server.Host,
 			Port:           cfg.Server.Port,
 			ProjectState:   projectRuntime,
+			Deployment:     deploymentRuntime,
 			Sessions:       authService,
 		})
 		if err != nil {
@@ -1239,7 +1240,10 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			}
 			if attachmentService != nil {
 				if err := httpapi.RegisterAttachmentRootRoutes(r, httpapi.AttachmentRootRouteDependencies{
-					Service: attachmentService,
+					ModePolicy:    modePolicy,
+					ShareSessions: shareSessions,
+					Deployment:    deploymentRuntime,
+					Service:       attachmentService,
 				}); err != nil {
 					panic(err)
 				}
@@ -1355,6 +1359,14 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			if err := httpapi.RegisterBinaryRoutes(r, httpapi.BinaryRouteDependencies{
 				ModePolicy: modePolicy,
 				Store:      binaryStore,
+			}); err != nil {
+				panic(err)
+			}
+			if err := httpapi.RegisterAttachmentRoutes(r, httpapi.AttachmentRouteDependencies{
+				ModePolicy:    modePolicy,
+				ShareSessions: shareSessions,
+				Deployment:    deploymentRuntime,
+				Service:       attachmentService,
 			}); err != nil {
 				panic(err)
 			}

@@ -171,7 +171,7 @@ Primary sources used for this checklist:
 | Partial | IDE artifact import/update/delete and cached artifact reads | Go owns the current artifact cluster, but `updateArtifacts` is intentionally bounded to `File`, `BrushStroke`, and `DrawAreaLayerItemTransform`, `deleteArtifacts` only supports `File`, and the draw-area canvas still uses Python-owned `appendDrawAreaLayerItem`. |
 | Partial | Share/app artifact overlays | Go owns per-session overlay reads and writes, but the same bounded artifact limits still apply: overlay updates are restricted to `File`, `BrushStroke`, and `DrawAreaLayerItemTransform`, and overlay deletes only support `File`. |
 | Missing | Legacy artifact helper routes still used by the current frontend | The UI still calls Python-owned `loadAvailableArtifacts`; other older helpers like `loadArtifacts`, `loadArtifactFromDisk`, `sendArtifact`, and `getArtifactIdsFromNamePathType` are not recreated in Go either. |
-| Missing | Legacy attachment URL helper routes still used by the current frontend | Chat/UI callers still use `getAttachmentDownloadUrl` and `getAttachmentDownloadUrls`; the Go-owned surface is the token-backed download endpoint itself. |
+| Complete | Attachment URL helper routes used by the current frontend | Chat/UI callers now reach Go-owned `getAttachmentDownloadUrl` and `getAttachmentDownloadUrls` handlers in `internal/httpapi/attachment_routes.go`, backed by `internal/chatattachments` for artifact-path normalization, token minting, deployment/share query binding, and token-backed download serving. |
 
 ## 9. Remaining Python-only or intentionally omitted legacy route families
 
@@ -192,9 +192,6 @@ callers.
   - `revealPathInOsFileExplorer`
 - Python-era websocket route shapes still used by the current frontend:
   - deployment/share/app terminal websocket path `/{projectConfigId}/{sectionId}/{id}`
-- Attachment URL helper routes:
-  - `getAttachmentDownloadUrl`
-  - `getAttachmentDownloadUrls`
 - Password and subprocess helper routes:
 - Artifact helper routes:
   - `loadAvailableArtifacts`

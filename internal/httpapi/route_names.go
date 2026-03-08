@@ -35,6 +35,8 @@ var bareRouteNames = map[string]struct{}{
 	bareRouteName(RouteWriteFileBrowserContent):                 {},
 	bareRouteName(RouteTransferFileBrowserEntry):                {},
 	bareRouteName(RouteFileBrowserDownload):                     {},
+	bareRouteName(RouteGetAttachmentDownloadURL):                {},
+	bareRouteName(RouteGetAttachmentDownloadURLs):               {},
 	bareRouteName(RouteShareDeploymentCurrentSession):           {},
 	bareRouteName(RouteAppDeploymentCurrentSession):             {},
 	bareRouteName(RouteShareDeploymentState):                    {},
