@@ -221,7 +221,7 @@ callers.
   - `/pythonScript/{id}`
 - Legacy default-project read helper:
   - `getDefaultConfigName`
-- Legacy artifact helper constant without a current caller-backed transport:
+- Dead legacy artifact helper constant retained only in Python route enums:
   - `loadAvailableArtifacts`
 - Generic chat CRUD/metadata routes:
   - `createChat`
@@ -271,7 +271,9 @@ main product-facing runtime surface:
 The remaining gaps are concentrated in older Python-only route tails,
 intentionally bounded AI/plugin behavior, still-live frontend callers that
 continue to hit Python-owned HTTP routes, and the remaining deployment/share/app
-terminal websocket path shape.
+terminal websocket path shape. The old `loadAvailableArtifacts` helper no
+longer has a reachable frontend caller in this worktree and should be treated as
+dormant route-enum residue, not active rewrite surface.
 
 Treat the active caller-backed gaps as remaining rewrite surface, not as
 dormant historical debris.
