@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { act, type ReactNode } from "react";
+import { act, useEffect, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import "testUtils/reactRefreshPreamble";
@@ -35,6 +35,7 @@ const hoisted = vi.hoisted(() => {
       agentRunsAuthorityState: "ready",
       chatDetails: {},
     } as MockAIState,
+    projectChatBlockedErrorCode: null as string | null,
     chatHistoryEntries: [] as Array<{ chatId: string; label: string }>,
     loadProjectConfigResult: [true, false] as [boolean, boolean],
   };
@@ -78,11 +79,40 @@ vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
     dataTestId,
     projectChatId,
     setProjectChatId,
+    onProjectChatBlockedErrorCodeChange,
   }: {
     dataTestId?: string;
     projectChatId?: string | null;
     setProjectChatId?: (next: string | null) => void;
+    onProjectChatBlockedErrorCodeChange?: (errorCode: string | null) => void;
   }) => (
+    <MockUnifiedChatSurface
+      dataTestId={dataTestId}
+      projectChatId={projectChatId}
+      setProjectChatId={setProjectChatId}
+      onProjectChatBlockedErrorCodeChange={onProjectChatBlockedErrorCodeChange}
+    />
+  ),
+}));
+
+function MockUnifiedChatSurface({
+  dataTestId,
+  projectChatId,
+  setProjectChatId,
+  onProjectChatBlockedErrorCodeChange,
+}: {
+  dataTestId?: string;
+  projectChatId?: string | null;
+  setProjectChatId?: (next: string | null) => void;
+  onProjectChatBlockedErrorCodeChange?: (errorCode: string | null) => void;
+}) {
+  useEffect(() => {
+    onProjectChatBlockedErrorCodeChange?.(
+      hoisted.state.projectChatBlockedErrorCode,
+    );
+  }, [onProjectChatBlockedErrorCodeChange]);
+
+  return (
     <div
       data-testid={dataTestId ?? "mock-unified-chat-surface"}
       data-project-chat-id={projectChatId ?? ""}
@@ -106,8 +136,8 @@ vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
         Select chat beta
       </button>
     </div>
-  ),
-}));
+  );
+}
 
 vi.mock("components/Section/Container/ManyNestedSections", () => ({
   MaybeManyNestedSections: () => (
@@ -206,6 +236,7 @@ describe("StandaloneProjectSurfacePage", () => {
       agentRunsAuthorityState: "ready",
       chatDetails: {},
     };
+    hoisted.state.projectChatBlockedErrorCode = null;
     hoisted.state.chatHistoryEntries = [
       { chatId: "chat-alpha", label: "Alpha Chat" },
       { chatId: "chat-beta", label: "Beta Chat" },
@@ -293,8 +324,36 @@ describe("StandaloneProjectSurfacePage", () => {
     );
   });
 
-  it("shows standalone thread not found without mutating the workspace chat selection", async () => {
+  it("still mounts the standalone thread surface when local history is empty", async () => {
     hoisted.state.chatHistoryEntries = [];
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={["/demo/chat/missing-thread"]}>
+          <Routes>
+            <Route
+              path="/:projectConfigName/chat/:chatId"
+              element={<StandaloneProjectSurfacePage />}
+            />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+
+    expect(
+      host.querySelector(
+        '[data-testid="standalone-project-chat-thread-surface"]',
+      ),
+    ).not.toBeNull();
+    expect(host.textContent).not.toContain("Thread Not Found");
+    expect(hoisted.useAIStoreMock.getState().activeChatId).toBe(
+      "workspace-chat",
+    );
+  });
+
+  it("shows standalone thread not found only after hydration reports chat_not_found", async () => {
+    hoisted.state.chatHistoryEntries = [];
+    hoisted.state.projectChatBlockedErrorCode = "chat_not_found";
 
     await act(async () => {
       root.render(

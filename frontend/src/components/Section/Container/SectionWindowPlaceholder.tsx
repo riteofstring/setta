@@ -2,6 +2,7 @@ import { RiExternalLinkLine } from "react-icons/ri";
 import {
   bootProjectChatWindowToCanvasSection,
   focusProjectChatWindow,
+  reopenProjectChatWindow,
 } from "state/actions/projectChatWindowing";
 import { useProjectState } from "state/definitions";
 
@@ -50,6 +51,7 @@ export function SectionWindowPlaceholder({
               type="button"
               className="inline-flex items-center rounded-md border border-setta-300 bg-white px-2.5 py-1 text-xs font-medium text-setta-800 shadow-sm transition-colors hover:bg-setta-100 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100 dark:hover:bg-setta-850"
               onClick={() => {
+                reopenProjectChatWindow(instanceId);
                 focusProjectChatWindow(instanceId);
               }}
               data-testid="section-window-placeholder-focus"

@@ -2304,6 +2304,64 @@ test("minimized docked section windows keep their section icon in the tray", asy
   }
 });
 
+test("minimized floating section windows keep their canvas placeholder", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "ProjectAIChat");
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+    await collapseSidePanesForWindowInteraction(page);
+    const { sectionId } = await createTextBlockSection(
+      page,
+      projectContext.projectConfigId,
+      "Hidden Window Notes",
+    );
+
+    await page.evaluate(async (targetSectionId) => {
+      const { showSectionInProjectChatWindow } = await import(
+        "/src/state/actions/projectChatWindowing.ts"
+      );
+      const { ChatWindowPlacementEnum } = await import(
+        "/src/utils/generatedTypes.ts"
+      );
+      showSectionInProjectChatWindow(
+        targetSectionId,
+        ChatWindowPlacementEnum.floating,
+      );
+    }, sectionId);
+
+    const placeholder = page.locator(
+      `[data-testid="section-canvas-window-placeholder"][data-chat-window-section-id="${sectionId}"]`,
+    );
+    await expect(placeholder).toBeVisible();
+
+    const floatingSectionWindow = page
+      .getByTestId("project-chat-floating-window")
+      .filter({
+        has: page.locator(
+          `[data-testid="section-window-surface"][data-section-id="${sectionId}"]`,
+        ),
+      });
+    await expect(floatingSectionWindow).toBeVisible();
+
+    await floatingSectionWindow
+      .getByTestId("project-chat-window-minimize")
+      .click();
+
+    await expect(page.getByTestId("project-chat-bottom-dock-pill")).toHaveCount(
+      1,
+    );
+    await expect(placeholder).toBeVisible();
+    await expect(placeholder).toContainText("moved to a window");
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("project chat move-to-canvas keeps the project-ai surface and the source window size", async ({
   page,
 }) => {

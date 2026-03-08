@@ -139,3 +139,44 @@ Verification:
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "keeps standalone project surfaces isolated from workspace selection and windowing state"` passed.
 - CDP verification confirmed the standalone `/chat` surface rendered without workspace panes while the workspace page stayed on its own route and project view.
 - During verification, this worktree’s frontend install was missing `jsdom` even though it was declared in `frontend/package.json`; installing frontend deps restored the test environment and allowed the new standalone route unit test to run.
+
+## 2026-03-09 20:36 PDT
+
+Implemented the remaining consolidated review fixes for runtime-safe chat continuity, authoritative standalone thread hydration, external-window binding semantics, project-scoped git graph state, dead route cleanup, and no-op slug validation removal.
+
+Backend/runtime fixes:
+- Hardened chat continuity in `backend/setta/agentic/chat_continuity.py` so managed project-chat reuse now treats persisted `scriptable_chat` runs as incompatible history instead of silently reusing the same `chatId` across runtimes.
+- Reused that stricter continuity behavior in both the main managed-chat entry path and linked-chat invocation tests, so mixed-runtime reuse now fails fast with the same `409` mismatch contract rather than splitting or corrupting history.
+- Removed the unused `set_window_space_state` backend route and request model, then removed the matching generated listener/frontend endpoint surface so the repo no longer advertises a write path with no real product caller.
+- Removed the dead reserved-standalone-slug scaffolding from backend/frontend validation. Names remain governed by the actual namespaced route model rather than an empty “reserved” set that could never trigger.
+
+Frontend behavior fixes:
+- Share-mode standalone routes for project chat, project chat thread, section, and window space now render the real standalone surface via `ShareStandaloneProjectSurfacePage` instead of redirecting users back to the project root and losing the deep-link target.
+- Standalone `/:project/chat/:chatId` no longer declares “Thread Not Found” from stale local history. The route now mounts the standalone chat surface first, listens for authoritative blocked-error callbacks, and only renders not-found UI after a real backend `chat_not_found`.
+- Filled the remaining hydration gap for missing-provenance standalone chats: `ProjectChatCore` now probes both managed and external hydration endpoints when local provenance is absent and prefers authoritative backend success over client-side warning state. This fixes valid standalone threads that existed only on the backend.
+- Externalized section rendering now keys off authoritative non-canvas binding, not window visibility. Minimized or closed external windows keep their placeholder on the canvas until the section is explicitly returned to canvas, preserving the single-host invariant.
+- The placeholder “Focus window” action now reopens minimized/closed windows before focusing them, so the recovery path matches user intent instead of focusing a hidden window record.
+- Git graph overlay state now carries `projectConfigId`, reloads when the active project changes, and discards stale async graph responses when project identity changes mid-request. This prevents saved/standalone graph windows from rendering another project’s repo.
+
+Test and fixture fixes:
+- Fixed the linked-chat pytest fixture to construct backend state through the real merge pathway so `projectChatWindowingByProjectConfigId` exists just like production state.
+- Updated share-mode backend fixture writers to seed authoritative `projectChatWindowingByProjectConfigId`, which was required after removing the old backend fallback behavior.
+- Added backend regression coverage for scriptable-history rejection in managed chat continuity, linked-chat continuity rejection, and share-policy behavior after the dead route removal.
+- Added Vitest coverage for minimized/closed external-window placeholders, non-chat section placeholder rendering under hidden external binding, standalone thread not-found gating, share standalone route rendering, git graph project reload behavior, and fallback chat hydration behavior.
+- Added Playwright coverage for standalone thread hydration when local history is empty and for minimized floating section windows preserving their canvas placeholder.
+- Updated E2E helper API-error allowlists so expected `404`s from cross-runtime hydration probes do not abort browser verification.
+
+UX before vs after:
+- Before: standalone share links could land on the generic project page, valid backend-only chats could false-404, externalized sections could pop back into the canvas when hidden, and git graph windows could show a different project’s history. After: standalone URLs stay canonical, backend hydration decides thread existence, placeholders persist while a section is externally bound, and git graph state is scoped to the current project.
+- Before: a reused `chatId` could silently cross from `scriptable_chat` into managed project chat. After: runtime mismatch is explicit and immediate, and the user is forced onto a new thread instead of inheriting incompatible history.
+
+DX before vs after:
+- Before: the repo still had a few misleading surfaces, including a generated but unused window-space overwrite API and reserved-slug validation that could never fire. After: the endpoint/type surface is smaller and the validation logic reflects the real routing model.
+- Before: E2E and backend fixtures could pass with older, non-authoritative backend state shapes. After: the touched tests seed the same backend windowing contract that production code now requires, so regressions fail where the real app would fail.
+
+Verification:
+- `pnpm -C frontend exec vitest run src/state/actions/aiStopProjectChat.test.ts src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx src/components/Pages/Project/ShareStandaloneProjectSurfacePage.test.tsx src/components/ChatWindowing/UnifiedChatSurface.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/state/actions/projectChatWindowing.test.ts src/state/actions/git.test.ts src/utils/sectionSlugPaths.test.ts` passed: 8 files, 98 tests.
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/agentic/test_chat_continuity.py tests/routers/test_mcp_linked_chat_tool.py tests/routers/test_share_policy_routes.py tests/routers/test_ai_agent_run_chats.py::TestAgentRunChatRoutes::test_managed_engine_rejects_scriptable_history_on_reused_chat_id -q` passed: 30 tests.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts` passed: 11 tests.
+- `./scripts/run-playwright-e2e.sh --grep "minimized floating section windows keep their canvas placeholder" frontend/tests/e2e/overview/project-ai/project-chat-bottom-dock.spec.ts` passed.
+- CDP verification completed on a disposable local app instance. The standalone `/sample_project/chat/cdp-visual-thread` route rendered hydrated thread content with no workspace panes, and a minimized floating section preserved the canvas placeholder with the expected recovery actions visible.

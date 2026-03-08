@@ -1,4 +1,5 @@
 import { ensureTrackedGitPaneGraphWindow } from "state/actions/projectChatWindowing";
+import { useProjectState } from "state/definitions";
 import { useGitStore } from "state/git";
 import {
   route_get_git_commit_details,
@@ -19,6 +20,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildGitDiffAvailabilityByPath,
   clearGitGraphSelectedCommit,
+  ensureGitGraphStateLoaded,
   loadMoreGitGraphCommits,
   openGitDiffOverlay,
   openGitGraphOverlay,
@@ -81,10 +83,12 @@ function createLogResponse({
 }
 
 function setGraphOverlayState({
+  projectConfigId = "project-config-1",
   response,
   filterText = "",
   loadMoreError = null,
 }: {
+  projectConfigId?: string;
   response: GetGitLogResponse;
   filterText?: string;
   loadMoreError?: string | null;
@@ -93,6 +97,7 @@ function setGraphOverlayState({
   useGitStore.setState((state) => ({
     ...state,
     graph: {
+      projectConfigId,
       allRefs: true,
       response,
       seenCommitHashes: new Set(response.commits.map((commit) => commit.hash)),
@@ -167,11 +172,17 @@ describe("git graph actions", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     useGitStore.getState().reset();
+    useProjectState.setState((state) => {
+      state.projectConfig.id = "project-config-1";
+    });
   });
 
   afterEach(() => {
     vi.resetAllMocks();
     useGitStore.getState().reset();
+    useProjectState.setState((state) => {
+      state.projectConfig.id = "project-config-1";
+    });
   });
 
   it("appends additional git-log pages without duplicating commit hashes", async () => {
@@ -283,6 +294,50 @@ describe("git graph actions", () => {
       "backend failed while loading more commits",
     );
     expect(graph.nextOffset).toBe(2);
+  });
+
+  it("reloads git graph state when the current project config changes", async () => {
+    const currentProjectResponse = createLogResponse({
+      commits: [commit("old-1", [])],
+      offset: 0,
+      pageSize: 2,
+      nextOffset: null,
+      hasMore: false,
+      isCapped: false,
+    });
+    setGraphOverlayState({
+      projectConfigId: "project-config-1",
+      response: currentProjectResponse,
+    });
+    useProjectState.setState((state) => {
+      state.projectConfig.id = "project-config-2";
+    });
+    vi.mocked(route_get_git_log).mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: createLogResponse({
+        commits: [commit("new-1", [])],
+        offset: 0,
+        pageSize: 2,
+        nextOffset: null,
+        hasMore: false,
+        isCapped: false,
+      }),
+    });
+
+    await ensureGitGraphStateLoaded();
+
+    expect(route_get_git_log).toHaveBeenCalledWith({
+      rev: "HEAD",
+      allRefs: false,
+      offset: 0,
+      pageSize: 250,
+    });
+    const graph = getGraphState();
+    expect(graph.projectConfigId).toBe("project-config-2");
+    expect(graph.response?.commits.map((entry) => entry.hash)).toEqual([
+      "new-1",
+    ]);
   });
 
   it("does not auto-load more again after a load-more error until retry is explicit", async () => {

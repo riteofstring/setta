@@ -1021,13 +1021,6 @@ class ListenerSetWindowSpaceSortOrderRequestPayload(TypedDict):
     orderedWindowSpaceIds: list[ID]
 
 
-class ListenerSetWindowSpaceStateRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    windowSpaceId: ID
-    state: WindowSpaceState
-
-
 class ListenerTextFieldCompletionRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -1751,11 +1744,6 @@ class RouterEndpointAPI:
         self, payload: ListenerSetWindowSpaceSortOrderRequestPayload
     ) -> None:
         return await self._caller("route_set_window_space_sort_order", payload)
-
-    async def set_window_space_state(
-        self, payload: ListenerSetWindowSpaceStateRequestPayload
-    ) -> None:
-        return await self._caller("route_set_window_space_state", payload)
 
     async def text_field_completion(
         self, payload: ListenerTextFieldCompletionRequestPayload

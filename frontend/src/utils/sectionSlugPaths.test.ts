@@ -10,10 +10,7 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
-import {
-  getReservedStandaloneSectionSlugErrorForName,
-  resolveStandaloneSectionSlug,
-} from "./sectionSlugPaths";
+import { resolveStandaloneSectionSlug } from "./sectionSlugPaths";
 
 function createSectionState(input: {
   sections: Record<string, { name: string }>;
@@ -135,7 +132,6 @@ describe("sectionSlugPaths", () => {
       },
     });
 
-    expect(getReservedStandaloneSectionSlugErrorForName("Chat_")).toBeNull();
     expect(resolveStandaloneSectionSlug(state, "chat")).toEqual({
       kind: "found",
       sectionId: "chatSection",

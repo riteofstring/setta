@@ -716,7 +716,6 @@ export const RouteEnum = {
   SET_WINDOW_SPACE_NAME: "/setWindowSpaceName",
   SET_WINDOW_SPACE_SORT_ORDER: "/setWindowSpaceSortOrder",
   DELETE_WINDOW_SPACE: "/deleteWindowSpace",
-  SET_WINDOW_SPACE_STATE: "/setWindowSpaceState",
   UNDO: "/undo",
   REDO: "/redo",
   GET_LATEST_PROJECT_STATE: "/getLatestProjectState",
@@ -11434,17 +11433,6 @@ const SetWindowSpaceSortOrderRequestSchema = z.object({
 
 export type SetWindowSpaceSortOrderRequestInput = z.input<
   typeof SetWindowSpaceSortOrderRequestSchema
->;
-
-const SetWindowSpaceStateRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  windowSpaceId: IDSchema,
-  state: WindowSpaceStateSchema,
-});
-
-export type SetWindowSpaceStateRequestInput = z.input<
-  typeof SetWindowSpaceStateRequestSchema
 >;
 
 const TextFieldCompletionRequestSchema = z.object({

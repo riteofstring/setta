@@ -6,7 +6,7 @@ import { FloatingBox } from "components/Utils/FloatingBox";
 import { SectionDndContext } from "forks/dnd-kit/SectionDndContext";
 import { useAddMouseLocationListener } from "forks/xyflow/core/utils/mouseLocation";
 import { usePluginRuntimeBootstrap } from "plugins/runtime";
-import { useEffect, useMemo, type SetStateAction } from "react";
+import { useEffect, useMemo, useState, type SetStateAction } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { buildChatHistoryEntries } from "state/actions/chatHistory";
 import { useAIStore, useProjectState } from "state/definitions";
@@ -175,8 +175,25 @@ function StandaloneSurfaceShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+type StandaloneProjectSurfacePageLoadState = {
+  doneLoading: boolean;
+  is404: boolean;
+};
+
 export function StandaloneProjectSurfacePage() {
   const [doneLoading, is404] = useLoadProjectConfig();
+  return (
+    <StandaloneProjectSurfacePageWithLoadState
+      doneLoading={doneLoading}
+      is404={is404}
+    />
+  );
+}
+
+export function StandaloneProjectSurfacePageWithLoadState({
+  doneLoading,
+  is404,
+}: StandaloneProjectSurfacePageLoadState) {
   const { projectConfigName, sectionSlug, chatId, windowSpaceSlug } =
     useParams();
   const navigate = useNavigate();
@@ -197,20 +214,7 @@ export function StandaloneProjectSurfacePage() {
     }
     return state.projectConfig.windowSpaces[target.windowSpaceId] ?? null;
   }, shallow);
-  const {
-    agentRuns,
-    agentRunsAuthorityState,
-    hasStandaloneProjectChatThreadDetails,
-  } = useAIStore(
-    (state) => ({
-      agentRuns: state.agentRuns,
-      agentRunsAuthorityState: state.agentRunsAuthorityState,
-      hasStandaloneProjectChatThreadDetails:
-        target.kind === "project_chat_thread" &&
-        state.chatDetails[target.chatId] !== undefined,
-    }),
-    shallow,
-  );
+  const agentRuns = useAIStore((state) => state.agentRuns);
   const projectChatHistoryEntries = useMemo(
     () =>
       buildChatHistoryEntries(agentRuns, {
@@ -234,15 +238,17 @@ export function StandaloneProjectSurfacePage() {
       ? standaloneProjectChatThreadEntry?.label ??
         `Chat ${target.chatId.slice(0, 8)}`
       : null;
-  const standaloneProjectChatThreadMissing =
-    target.kind === "project_chat_thread" &&
-    agentRunsAuthorityState === "ready" &&
-    standaloneProjectChatThreadEntry === null &&
-    !hasStandaloneProjectChatThreadDetails;
+  const [
+    standaloneProjectChatBlockedErrorCode,
+    setStandaloneProjectChatBlockedErrorCode,
+  ] = useState<string | null>(null);
   const resolvedDoneLoading = doneLoading === true;
   const resolvedIs404 = is404 === true;
   const standaloneProjectChatId =
     target.kind === "project_chat_thread" ? target.chatId : null;
+  const standaloneProjectChatThreadMissing =
+    target.kind === "project_chat_thread" &&
+    standaloneProjectChatBlockedErrorCode === "chat_not_found";
 
   useCodeMirrorStyleLoader(resolvedDoneLoading, resolvedIs404);
   useAddMouseLocationListener();
@@ -314,6 +320,9 @@ export function StandaloneProjectSurfacePage() {
           host="standalone_page"
           projectChatId={standaloneProjectChatId}
           setProjectChatId={setStandaloneProjectChatId}
+          onProjectChatBlockedErrorCodeChange={
+            setStandaloneProjectChatBlockedErrorCode
+          }
           dataTestId={
             target.kind === "project_chat_thread"
               ? "standalone-project-chat-thread-surface"

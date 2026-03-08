@@ -1,7 +1,7 @@
 import { GitPane } from "components/Panes/Overview/Git/GitPane";
 import { useEffect } from "react";
 import { ensureGitGraphStateLoaded } from "state/actions/git";
-import { useMisc } from "state/definitions";
+import { useMisc, useProjectState } from "state/definitions";
 import { GitGraphOverlay } from "./GitGraphOverlay";
 
 type GitGraphWindowContentProps = {
@@ -17,9 +17,11 @@ export function GitGraphWindowContent({
   embeddedGitPaneVisible,
   onEmbeddedGitPaneVisibleChange,
 }: GitGraphWindowContentProps) {
+  const projectConfigId = useProjectState((state) => state.projectConfig.id);
+
   useEffect(() => {
     void ensureGitGraphStateLoaded();
-  }, []);
+  }, [projectConfigId]);
 
   const storedEmbeddedGitPaneVisible = useMisc((state) => {
     if (!instanceId) {

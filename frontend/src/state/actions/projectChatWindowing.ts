@@ -660,6 +660,33 @@ export function getOpenExternalProjectChatWindowInstanceForSectionInState(
   state: ProjectChatWindowingState,
   sectionId: string,
 ): ProjectChatWindowInstance | null {
+  return getExternalProjectChatWindowInstanceForSectionInState(
+    state,
+    sectionId,
+    {
+      visibleOnly: true,
+    },
+  );
+}
+
+export function getExternalProjectChatWindowBindingForSectionInState(
+  state: ProjectChatWindowingState,
+  sectionId: string,
+): ProjectChatWindowInstance | null {
+  return getExternalProjectChatWindowInstanceForSectionInState(
+    state,
+    sectionId,
+    {
+      visibleOnly: false,
+    },
+  );
+}
+
+function getExternalProjectChatWindowInstanceForSectionInState(
+  state: ProjectChatWindowingState,
+  sectionId: string,
+  { visibleOnly }: { visibleOnly: boolean },
+): ProjectChatWindowInstance | null {
   const normalized = normalizeProjectChatWindowingOrder(state).state;
   let bestMatch: ProjectChatWindowInstance | null = null;
   for (const instanceId of normalized.order) {
@@ -670,7 +697,7 @@ export function getOpenExternalProjectChatWindowInstanceForSectionInState(
     if (instance.placement === ChatWindowPlacementEnum.canvas_section) {
       continue;
     }
-    if (instance.isClosed || instance.isMinimized) {
+    if (visibleOnly && (instance.isClosed || instance.isMinimized)) {
       continue;
     }
     if (!isPreferredSectionBindingCandidate(instance, bestMatch)) {

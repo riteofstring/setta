@@ -4,7 +4,7 @@ import _ from "lodash";
 import type { SetStateAction } from "react";
 import React from "react";
 import {
-  getOpenExternalProjectChatWindowInstanceForSectionInState,
+  getExternalProjectChatWindowBindingForSectionInState,
   getProjectChatWindowModeForSectionInState,
 } from "state/actions/projectChatWindowing";
 import {
@@ -292,7 +292,7 @@ function CanvasSectionBody({
       return null;
     }
     return (
-      getOpenExternalProjectChatWindowInstanceForSectionInState(
+      getExternalProjectChatWindowBindingForSectionInState(
         state.projectChatWindowing,
         sectionId,
       )?.instanceId ?? null

@@ -3,7 +3,7 @@ import { ProjectChat } from "components/Panes/Overview/ProjectLevelAI/ProjectCha
 import { SectionWindowPlaceholder } from "components/Section/Container/SectionWindowPlaceholder";
 import { ChatArea } from "components/Section/Layouts/ChatArea";
 import type { SetStateAction } from "react";
-import { getOpenExternalProjectChatWindowInstanceForSectionInState } from "state/actions/projectChatWindowing";
+import { getExternalProjectChatWindowBindingForSectionInState } from "state/actions/projectChatWindowing";
 import { useProjectState } from "state/definitions";
 import {
   ChatWindowModeEnum,
@@ -22,6 +22,7 @@ type UnifiedChatSurfaceProps = {
   dataTestId?: string;
   projectChatId?: string | null;
   setProjectChatId?: (next: SetStateAction<string | null | undefined>) => void;
+  onProjectChatBlockedErrorCodeChange?: (errorCode: string | null) => void;
 };
 
 function resolveSurfaceHostClasses(
@@ -49,10 +50,12 @@ export function UnifiedChatSurface({
   dataTestId,
   projectChatId,
   setProjectChatId,
+  onProjectChatBlockedErrorCodeChange,
 }: UnifiedChatSurfaceProps) {
   const projectChatProps: {
     chatId?: string | null;
     setChatId?: (next: SetStateAction<string | null | undefined>) => void;
+    onBlockedErrorCodeChange?: (errorCode: string | null) => void;
   } = {};
   if (projectChatId !== undefined) {
     projectChatProps.chatId = projectChatId;
@@ -60,12 +63,16 @@ export function UnifiedChatSurface({
   if (setProjectChatId !== undefined) {
     projectChatProps.setChatId = setProjectChatId;
   }
+  if (onProjectChatBlockedErrorCodeChange !== undefined) {
+    projectChatProps.onBlockedErrorCodeChange =
+      onProjectChatBlockedErrorCodeChange;
+  }
   const externalizedWindowId = useProjectState((state) => {
     if (host !== "section_layout" || !sectionId) {
       return null;
     }
     return (
-      getOpenExternalProjectChatWindowInstanceForSectionInState(
+      getExternalProjectChatWindowBindingForSectionInState(
         state.projectChatWindowing,
         sectionId,
       )?.instanceId ?? null

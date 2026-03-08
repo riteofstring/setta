@@ -128,7 +128,6 @@ from setta.project_state.project_manager_types import (
     SetWatchCodeInputsRequest,
     SetWindowSpaceNameRequest,
     SetWindowSpaceSortOrderRequest,
-    SetWindowSpaceStateRequest,
     TextFieldCompletionRequest,
     ToggleGroupOrientationRequest,
     ToggleIsEditingViewModeRequest,
@@ -566,18 +565,6 @@ async def route_delete_window_space(
     manager = ctx.get_project_manager(x.projectConfigId)
     try:
         await manager.delete_window_space(x)
-    except (KeyError, ValueError) as exc:
-        _raise_window_space_route_error(exc)
-
-
-@router.post(Route.SET_WINDOW_SPACE_STATE)
-async def route_set_window_space_state(
-    x: SetWindowSpaceStateRequest, ctx: RuntimeContextFromRequest
-) -> None:
-    await _enforce_window_space_layout_policy(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    try:
-        await manager.set_window_space_state(x)
     except (KeyError, ValueError) as exc:
         _raise_window_space_route_error(exc)
 

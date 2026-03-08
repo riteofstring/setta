@@ -25,7 +25,6 @@ import {
 import {
   collectDescendantSectionIds,
   getSectionSlugIndex as getCachedSectionSlugIndex,
-  getReservedStandaloneSectionSlugError,
   resolveSectionFullPathName,
 } from "utils/sectionSlugPaths";
 
@@ -286,10 +285,6 @@ function getSectionSlugConflictError(sectionId: string, value: string) {
     const slug = sanitizeNameForSlug(fullPathName);
     if (!slug) {
       return "Section name is invalid after sanitization.";
-    }
-    const reservedSlugError = getReservedStandaloneSectionSlugError(slug);
-    if (reservedSlugError) {
-      return reservedSlugError;
     }
     if (!affectedSlugToIds[slug]) {
       affectedSlugToIds[slug] = [];

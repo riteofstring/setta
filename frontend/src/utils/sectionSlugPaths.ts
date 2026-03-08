@@ -169,24 +169,6 @@ export function collectDescendantSectionIds(
   return visited;
 }
 
-export function getReservedStandaloneSectionSlugError(
-  _slug: string,
-): string | null {
-  return null;
-}
-
-export function getReservedStandaloneSectionSlugErrorForName(
-  name: string,
-): string | null {
-  const normalizedName = name.trim();
-  if (!normalizedName) {
-    return null;
-  }
-  return getReservedStandaloneSectionSlugError(
-    sanitizeNameForSlug(normalizedName),
-  );
-}
-
 export function resolveStandaloneSectionSlug(
   state: SectionSlugProjectState,
   sectionSlug: string,

@@ -876,6 +876,100 @@ test.describe.serial("standalone project surface routes", () => {
     }
   });
 
+  test("standalone thread routes hydrate valid chats even when local history is empty", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const cleanupManagedEngine = await ensureManagedChatEngine(page);
+    const standalonePage = await page.context().newPage();
+    const standaloneThreadChatId = "standalone-thread-hydrate-only";
+
+    try {
+      const projectConfigName = getProjectConfigNameFromUrl(page.url());
+
+      await page.context().route("**/api/getAgentRuns", async (route) => {
+        const response = await route.fetch();
+        const runs = (await response.json()) as AgentRunRecord[];
+        await route.fulfill({
+          status: response.status(),
+          headers: {
+            ...response.headers(),
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(
+            runs.filter((run) => run.inputs?.chatId !== standaloneThreadChatId),
+          ),
+        });
+      });
+      await page.context().route("**/api/getLLMChat", async (route) => {
+        const payload = route.request().postDataJSON() as
+          | { chatId?: string }
+          | undefined;
+        if (payload?.chatId !== standaloneThreadChatId) {
+          await route.continue();
+          return;
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            messages: [
+              {
+                id: "hydrated-assistant-message",
+                role: "assistant",
+                content: [
+                  {
+                    type: "text",
+                    text: "Hydrated without local history.",
+                  },
+                ],
+                attachments: [],
+                tool_calls: null,
+              },
+            ],
+            waitingForResponse: false,
+            llmConfig: {
+              id: "standalone-thread-config",
+              model: "gpt-4o-mini",
+              provider: "openai",
+              base_url: null,
+              api_key_env: null,
+              other_params: null,
+              mcpServerIds: [],
+              temporary: false,
+            },
+            contextUsage: null,
+          }),
+        });
+      });
+
+      await standalonePage.goto(
+        buildStandaloneUrl(
+          page.url(),
+          `/${encodeURIComponent(projectConfigName)}/chat/${encodeURIComponent(standaloneThreadChatId)}`,
+        ),
+        { waitUntil: "domcontentloaded" },
+      );
+
+      await expect(
+        standalonePage.getByTestId("standalone-project-chat-thread-surface"),
+      ).toBeVisible();
+      await expect(
+        standalonePage.getByText("Hydrated without local history."),
+      ).toBeVisible();
+      await expect(
+        standalonePage.getByTestId("standalone-project-chat-thread-not-found"),
+      ).toHaveCount(0);
+    } finally {
+      await standalonePage.close();
+      await page.context().unroute("**/api/getAgentRuns");
+      await page.context().unroute("**/api/getLLMChat");
+      await cleanupManagedEngine();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("saved window spaces preserve distinct project chat threads per window in both workspace and standalone views", async ({
     page,
   }) => {
@@ -1320,20 +1414,11 @@ test.describe.serial("standalone project surface routes", () => {
           return findProjectChatWindowIdForSection(state, terminalId) ?? "";
         })
         .not.toBe("");
-      const resolvedTerminalWindowId = await page.evaluate(
-        async (sectionId) => {
-          const { useProjectState } = await import("/src/state/definitions.ts");
-          const { getOpenFloatingProjectChatWindowInstanceForSectionInState } =
-            await import("/src/state/actions/projectChatWindowing.ts");
-          return (
-            getOpenFloatingProjectChatWindowInstanceForSectionInState(
-              useProjectState.getState().projectChatWindowing,
-              sectionId,
-            )?.instanceId ?? ""
-          );
-        },
-        terminalId,
-      );
+      const resolvedTerminalWindowId =
+        findProjectChatWindowIdForSection(
+          await readProjectChatWindowingState(page),
+          terminalId,
+        ) ?? "";
       if (!resolvedTerminalWindowId) {
         throw new Error("Expected a floating terminal window instance id.");
       }

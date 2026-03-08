@@ -18,6 +18,7 @@ import {
   closeProjectChatWindowInState,
   ensureTrackedGitPaneGraphWindow,
   focusProjectChatWindowInState,
+  getExternalProjectChatWindowBindingForSectionInState,
   getOpenExternalProjectChatWindowInstanceForSectionInState,
   getProjectChatWindowModeForSectionInState,
   getVisibleProjectChatWindowInstances,
@@ -969,6 +970,41 @@ describe("project chat windowing reducer helpers", () => {
         "section-1",
       )?.instanceId,
     ).toBe(docked.instanceId);
+  });
+
+  it("keeps the non-canvas section binding authoritative even when hidden", () => {
+    const hiddenFloating = createProjectChatWindowInstance({
+      instanceId: "chat-window-hidden",
+      placement: ChatWindowPlacementEnum.floating,
+      sectionIdOrNull: "section-1",
+      isClosed: true,
+      zIndex: 3,
+    });
+    const canvas = createProjectChatWindowInstance({
+      instanceId: "chat-window-canvas",
+      placement: ChatWindowPlacementEnum.canvas_section,
+      sectionIdOrNull: "section-1",
+      zIndex: 1,
+    });
+    const initial = createProjectChatWindowingState({
+      instancesById: {
+        [hiddenFloating.instanceId]: hiddenFloating,
+        [canvas.instanceId]: canvas,
+      },
+      order: [canvas.instanceId, hiddenFloating.instanceId],
+      nextInstanceNumber: 3,
+    });
+
+    expect(
+      getExternalProjectChatWindowBindingForSectionInState(initial, "section-1")
+        ?.instanceId,
+    ).toBe(hiddenFloating.instanceId);
+    expect(
+      getOpenExternalProjectChatWindowInstanceForSectionInState(
+        initial,
+        "section-1",
+      ),
+    ).toBeNull();
   });
 
   it("shows an existing section binding in a floating window without resetting its mode", () => {

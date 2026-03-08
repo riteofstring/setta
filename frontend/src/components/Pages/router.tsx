@@ -39,6 +39,7 @@ import {
   type ModeRouteElements,
 } from "./modeRouteResolver";
 import { MainContainer } from "./Project/MainContainer";
+import { ShareStandaloneProjectSurfacePage } from "./Project/ShareStandaloneProjectSurfacePage";
 import { StandaloneProjectSurfacePage } from "./Project/StandaloneProjectSurfacePage";
 import { APP_ROUTE_IDS } from "./routeConfig";
 
@@ -220,6 +221,10 @@ const ideStandaloneProjectRouteElement = (
   </GlobalWrapper>
 );
 
+const shareStandaloneProjectRouteElement = (
+  <ShareStandaloneProjectSurfacePage />
+);
+
 const ideWorkspaceLaunchRouteElement = (
   <GlobalWrapper>
     <WorkspaceLaunchPage />
@@ -375,7 +380,7 @@ const projectChatStandaloneRoute = {
   element: (
     <ModeWrapper
       ide={ideStandaloneProjectRouteElement}
-      share={<ProjectRootRedirect />}
+      share={shareStandaloneProjectRouteElement}
       app={appRouteElement}
       launcher={<ProjectRootRedirect />}
     />
@@ -388,7 +393,7 @@ const projectChatThreadStandaloneRoute = {
   element: (
     <ModeWrapper
       ide={ideStandaloneProjectRouteElement}
-      share={<ProjectRootRedirect />}
+      share={shareStandaloneProjectRouteElement}
       app={appRouteElement}
       launcher={<ProjectRootRedirect />}
     />
@@ -401,7 +406,7 @@ const windowSpaceStandaloneRoute = {
   element: (
     <ModeWrapper
       ide={ideStandaloneProjectRouteElement}
-      share={<ProjectRootRedirect />}
+      share={shareStandaloneProjectRouteElement}
       app={appRouteElement}
       launcher={<ProjectRootRedirect />}
     />
@@ -414,7 +419,7 @@ const sectionStandaloneRoute = {
   element: (
     <ModeWrapper
       ide={ideStandaloneProjectRouteElement}
-      share={<ProjectRootRedirect />}
+      share={shareStandaloneProjectRouteElement}
       app={appRouteElement}
       launcher={<ProjectRootRedirect />}
     />

@@ -939,12 +939,6 @@ export async function route_delete_window_space(
   return await post("/deleteWindowSpace", x);
 }
 
-export async function route_set_window_space_state(
-  x: gt.SetWindowSpaceStateRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setWindowSpaceState", x);
-}
-
 export async function route_undo(
   x: gt.UndoRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

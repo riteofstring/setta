@@ -45,7 +45,6 @@ PROJECT_RESERVED_NAMES: frozenset[str] = frozenset(
     }
 )
 SECTION_RESERVED_NAMES: frozenset[str] = frozenset()
-RESERVED_STANDALONE_SECTION_SLUGS: frozenset[str] = frozenset()
 PARAM_RESERVED_NAMES: frozenset[str] = frozenset()
 ALLOWED_SIMPLE_NAME_CHARS: frozenset[str] = frozenset(
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _-"
@@ -73,12 +72,6 @@ def _contains_control_chars(name: str) -> bool:
 
 def _raise_invalid_name(message: str, exc_type: type[ValueError]) -> None:
     raise exc_type(message)
-
-
-def _get_reserved_section_slug_error(slug: str) -> str | None:
-    if slug in RESERVED_STANDALONE_SECTION_SLUGS:
-        return f'Section path slug "{slug}" is reserved.'
-    return None
 
 
 _TEXT_BLOCK_HEADING_REGEX = re.compile(r"(^|\n)(#+)\s*(.*?)(?=\n|$)")
@@ -278,9 +271,6 @@ def _section_name_format_error(normalized: str) -> str | None:
             )
     if normalized.lower() in SECTION_RESERVED_NAMES:
         return f"Section name '{normalized}' is reserved."
-    reserved_slug_error = _get_reserved_section_slug_error(sanitize_slug(normalized))
-    if reserved_slug_error:
-        return reserved_slug_error
     return None
 
 
@@ -407,9 +397,6 @@ def _get_section_name_validation_error(
     section_slug = slug_by_section_id.get(section_id, "")
     if not section_slug:
         return "Section name is invalid after sanitization."
-    reserved_slug_error = _get_reserved_section_slug_error(section_slug)
-    if reserved_slug_error:
-        return reserved_slug_error
     if len(slug_to_section_ids.get(section_slug, [])) > 1:
         return f'Section path slug "{section_slug}" conflicts with another section.'
     return None
@@ -457,9 +444,6 @@ def _get_section_name_validation_error_with_slug_index(
     section_slug = sanitize_slug(section_full_name)
     if not section_slug:
         return "Section name is invalid after sanitization."
-    reserved_slug_error = _get_reserved_section_slug_error(section_slug)
-    if reserved_slug_error:
-        return reserved_slug_error
     existing_ids = slug_to_section_ids.get(section_slug, [])
     if any(existing_id != section_id for existing_id in existing_ids):
         return f'Section path slug "{section_slug}" conflicts with another section.'
@@ -683,11 +667,6 @@ def collect_section_name_conflicts(
             for section_id in ids:
                 add_error(section_id, message)
             continue
-        reserved_slug_error = _get_reserved_section_slug_error(slug)
-        if reserved_slug_error:
-            for section_id in ids:
-                add_error(section_id, reserved_slug_error)
-            continue
         if len(ids) > 1:
             message = f'Section path slug "{slug}" conflicts with another section.'
             for section_id in ids:
@@ -860,11 +839,7 @@ def get_section_slug_conflict_ids(
     conflict_ids: set["ID"] = set()
     slug_by_section_id, slug_to_section_ids = _collect_section_slug_map(project_state)
     for slug, ids in slug_to_section_ids.items():
-        if (
-            not slug
-            or len(ids) > 1
-            or _get_reserved_section_slug_error(slug) is not None
-        ):
+        if not slug or len(ids) > 1:
             conflict_ids.update(ids)
             continue
     for section_id, slug in slug_by_section_id.items():

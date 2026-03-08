@@ -83,6 +83,7 @@ import { ProjectAISettings } from "./ProjectAISettings";
 import {
   getDefaultProjectChatPermissionMode,
   ProjectChatCore,
+  type ProjectChatBlockedErrorCode,
 } from "./ProjectChatCore";
 import {
   focusInputWithoutSelectionById,
@@ -208,6 +209,9 @@ type ResolveProjectChatDraftMessageByProjectConfigIdUpdateInput = {
 type ProjectChatProps = {
   chatId?: string | null | undefined;
   setChatId?: (next: SetStateAction<string | null | undefined>) => void;
+  onBlockedErrorCodeChange?: (
+    errorCode: ProjectChatBlockedErrorCode | null,
+  ) => void;
 };
 
 export function resolveProjectChatThreadVisibilityFromResize({
@@ -440,6 +444,7 @@ export function setProjectChatAuxViewForActiveProject(
 export function ProjectChat({
   chatId: controlledChatId,
   setChatId: controlledSetChatId,
+  onBlockedErrorCodeChange,
 }: ProjectChatProps = {}) {
   const globalChatId = useAIStore((state) => state.activeChatId);
   const agentRuns = useAIStore((state) => state.agentRuns);
@@ -2099,6 +2104,7 @@ export function ProjectChat({
                   onDraftThreadSettled={handleDraftThreadSettled}
                   onThinkingChange={setThinking}
                   onPermissionModeChange={setRuntimePermissionMode}
+                  onBlockedErrorCodeChange={onBlockedErrorCodeChange}
                   activeConversationSearchMatchMessageId={
                     activeConversationSearchMatchMessageId
                   }
@@ -2163,6 +2169,7 @@ export function ProjectChat({
               onDraftThreadSettled={handleDraftThreadSettled}
               onThinkingChange={setThinking}
               onPermissionModeChange={setRuntimePermissionMode}
+              onBlockedErrorCodeChange={onBlockedErrorCodeChange}
               activeConversationSearchMatchMessageId={
                 activeConversationSearchMatchMessageId
               }

@@ -22,6 +22,7 @@ type GitDiffOverlayState = {
 };
 
 type GitGraphOverlayState = {
+  projectConfigId: string | null;
   allRefs: boolean;
   response: GetGitLogResponse | null;
   seenCommitHashes: Set<string>;

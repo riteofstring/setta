@@ -536,17 +536,6 @@ class DeleteWindowSpaceRequest(ProjectManagerRequestWithProjectConfig):
     )
 
 
-class SetWindowSpaceStateRequest(ProjectManagerRequestWithProjectConfig):
-    """Replace the saved floating-window state for a window space."""
-
-    windowSpaceId: ID = Field(
-        description="Identifier of the window space to update.",
-    )
-    state: WindowSpaceState = Field(
-        description="Serialized floating-window arrangement to persist.",
-    )
-
-
 class UndoRequest(ProjectManagerRequestWithProjectConfig):
     steps: int
 

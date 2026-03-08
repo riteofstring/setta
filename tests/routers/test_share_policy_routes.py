@@ -9,7 +9,6 @@ from setta.project_state.project_manager_types import (
     AcceptRenameRefactorRequest,
     AddKwargRequest,
     AppendDrawAreaLayerItemRequest,
-    AutoLayoutTopLevelSectionsRequest,
     ChangeParamImplRequest,
     CreateTopLevelSectionRequest,
     CreateViewModeRequest,
@@ -40,23 +39,19 @@ from setta.project_state.project_manager_types import (
     SetParamEnteredValueRequest,
     SetParentDefaultChildSectionTypeRequest,
     SetSectionNameRequest,
-    SetSectionVariantNameRequest,
     SetSocialUrlRequest,
     SetSpreadsheetFilePathRequest,
     SetSpreadsheetSectionSettingsRequest,
     SetTaskBoardSectionStateRequest,
     SetTextBlockMasterFontSizeRequest,
     SetTextBlockTextRequest,
-    SetTopLevelSectionLayoutRequest,
     SetTypeErrorIgnoreRequest,
     SetViewModeNameRequest,
     SetWindowSpaceNameRequest,
     SetWindowSpaceSortOrderRequest,
-    SetWindowSpaceStateRequest,
     ToggleIsEditingViewModeRequest,
     ToggleParamSelectedRequest,
     ToggleSectionVisibilityRequest,
-    ToggleVariantFrozenRequest,
     ToggleViewModeTabRequest,
     ToggleViewModeUserFacingRequest,
     UngroupGroupsRequest,
@@ -75,7 +70,6 @@ from setta.routers.project_manager import (
     route_accept_rename_refactor,
     route_add_kwarg,
     route_append_draw_area_layer_item,
-    route_auto_layout_top_level_sections,
     route_change_param_impl,
     route_create_top_level_section,
     route_create_view_mode,
@@ -105,23 +99,19 @@ from setta.routers.project_manager import (
     route_set_param_entered_value,
     route_set_parent_default_child_section_type,
     route_set_section_name,
-    route_set_section_variant_name,
     route_set_social_url,
     route_set_spreadsheet_file_path,
     route_set_spreadsheet_section_settings,
     route_set_task_board_section_state,
     route_set_text_block_master_font_size,
     route_set_text_block_text,
-    route_set_top_level_section_layout,
     route_set_type_error_ignore,
     route_set_view_mode_name,
     route_set_window_space_name,
     route_set_window_space_sort_order,
-    route_set_window_space_state,
     route_toggle_is_editing_view_mode,
     route_toggle_param_selected,
     route_toggle_section_visibility,
-    route_toggle_variant_frozen,
     route_toggle_view_mode_tab,
     route_toggle_view_mode_user_facing,
     route_ungroup_groups,
@@ -155,12 +145,12 @@ from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.types.project_config import (
     Position,
     ProjectConfig,
-    TopLevelSectionLayout,
     WindowSpaceConfig,
     WindowSpaceState,
     WindowSpaceWindow,
 )
 from setta.types.project_state import (
+    ProjectChatWindowingState,
     ProjectStateBackend,
     ProjectStateCore,
     ProjectStateSingleConfig,
@@ -196,6 +186,9 @@ def _write_share_project(
     project_config = ProjectConfig(name=project_config_name)
     project_state = ProjectStateBackend(
         projectConfigs={project_config.id: project_config},
+        projectChatWindowingByProjectConfigId={
+            project_config.id: ProjectChatWindowingState()
+        },
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
@@ -228,6 +221,9 @@ def _write_share_project_with_window_space(
     project_config.windowSpaces = {window_space.id: window_space}
     project_state = ProjectStateBackend(
         projectConfigs={project_config.id: project_config},
+        projectChatWindowingByProjectConfigId={
+            project_config.id: ProjectChatWindowingState()
+        },
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
@@ -254,6 +250,9 @@ def _write_share_project_with_configs(
     dbe = DBE(root)
     project_state = ProjectStateBackend(
         projectConfigs={config.id: config for config in project_configs},
+        projectChatWindowingByProjectConfigId={
+            config.id: ProjectChatWindowingState() for config in project_configs
+        },
         defaultProjectConfigId=default_project_config_id,
     )
     dbe.write_project(project_state)
@@ -283,6 +282,9 @@ def _write_share_project_with_entry_code(
     )
     project_state = ProjectStateBackend(
         projectConfigs={project_config.id: project_config},
+        projectChatWindowingByProjectConfigId={
+            project_config.id: ProjectChatWindowingState()
+        },
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
@@ -325,6 +327,9 @@ def _write_share_project_with_section(
     project_config.sectionVariantMap = {section_id: variant_id}
     project_state = ProjectStateBackend(
         projectConfigs={project_config.id: project_config},
+        projectChatWindowingByProjectConfigId={
+            project_config.id: ProjectChatWindowingState()
+        },
         defaultProjectConfigId=project_config.id,
         sections={section_id: core},
         sectionImpls={section_impl.id: section_impl},
@@ -1262,15 +1267,6 @@ class TestSharePolicyRoutes:
                         windowSpaceId=window_space_id,
                     ),
                 ),
-                (
-                    "set_window_space_state",
-                    route_set_window_space_state,
-                    SetWindowSpaceStateRequest(
-                        projectConfigId=project_config_id,
-                        windowSpaceId=window_space_id,
-                        state=next_window_state,
-                    ),
-                ),
             ]
 
             with runtime_context(state, session.id) as runtime_ctx:
@@ -1310,7 +1306,7 @@ class TestSharePolicyRoutes:
                 created_window_space_id = await route_create_window_space(
                     CreateWindowSpaceRequest(
                         projectConfigId=project_config_id,
-                        state=WindowSpaceState(),
+                        state=next_window_state,
                         name="First Layout",
                     ),
                     runtime_ctx,
@@ -1325,16 +1321,6 @@ class TestSharePolicyRoutes:
                     ),
                     runtime_ctx,
                 )
-
-                await route_set_window_space_state(
-                    SetWindowSpaceStateRequest(
-                        projectConfigId=project_config_id,
-                        windowSpaceId=created_window_space_id,
-                        state=next_window_state,
-                    ),
-                    runtime_ctx,
-                )
-
                 second_window_space_id = await route_create_window_space(
                     CreateWindowSpaceRequest(
                         projectConfigId=project_config_id,
@@ -1410,14 +1396,6 @@ class TestSharePolicyRoutes:
                     DeleteWindowSpaceRequest(
                         projectConfigId=project_config_id,
                         windowSpaceId=missing_window_space_id,
-                    ),
-                ),
-                (
-                    route_set_window_space_state,
-                    SetWindowSpaceStateRequest(
-                        projectConfigId=project_config_id,
-                        windowSpaceId=missing_window_space_id,
-                        state=WindowSpaceState(),
                     ),
                 ),
             ]

@@ -1,4 +1,5 @@
 import { ensureTrackedGitPaneGraphWindow } from "state/actions/projectChatWindowing";
+import { useProjectState } from "state/definitions";
 import { useGitStore } from "state/git";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
@@ -22,6 +23,14 @@ let commitDetailsRequestId = 0;
 let commitFileDiffRequestId = 0;
 
 const DEFAULT_GIT_GRAPH_PAGE_SIZE = 250;
+
+function getCurrentGitGraphProjectConfigId(): string | null {
+  const projectConfigId = useProjectState.getState().projectConfig.id;
+  if (typeof projectConfigId !== "string" || projectConfigId.trim() === "") {
+    return null;
+  }
+  return projectConfigId;
+}
 
 function createClearedGitGraphSelectionState() {
   return {
@@ -69,13 +78,16 @@ export function buildGitDiffAvailabilityByPath(
 }
 
 function createInitialGitGraphState({
+  projectConfigId,
   allRefs,
   filterText,
 }: {
+  projectConfigId: string | null;
   allRefs: boolean;
   filterText: string;
 }) {
   return {
+    projectConfigId,
     allRefs,
     response: null,
     seenCommitHashes: new Set<string>(),
@@ -306,6 +318,7 @@ async function refreshGitGraph({
   skipPreloadState?: boolean;
 }): Promise<void> {
   const requestId = (logRequestId += 1);
+  const requestProjectConfigId = getCurrentGitGraphProjectConfigId();
   if (!skipPreloadState) {
     useGitStore.setState((state) => {
       if (!state.graph) {
@@ -333,6 +346,9 @@ async function refreshGitGraph({
   if (requestId !== logRequestId) {
     return;
   }
+  if (requestProjectConfigId !== getCurrentGitGraphProjectConfigId()) {
+    return;
+  }
   if (res200(res)) {
     const responseData = res.data;
     const commits = responseData.commits;
@@ -350,6 +366,7 @@ async function refreshGitGraph({
         ...state,
         graph: {
           ...state.graph,
+          projectConfigId: requestProjectConfigId,
           allRefs,
           response: responseData,
           seenCommitHashes,
@@ -379,6 +396,7 @@ async function refreshGitGraph({
       ...state,
       graph: {
         ...state.graph,
+        projectConfigId: requestProjectConfigId,
         response: null,
         seenCommitHashes: new Set<string>(),
         rows: [],
@@ -424,6 +442,7 @@ export async function loadMoreGitGraphCommits({
   const nextOffset = graph.nextOffset;
   const pageSize = graph.pageSize;
   const allRefs = graph.allRefs;
+  const requestProjectConfigId = graph.projectConfigId;
 
   useGitStore.setState((state) => {
     if (!state.graph) {
@@ -448,11 +467,17 @@ export async function loadMoreGitGraphCommits({
   if (requestId !== logRequestId) {
     return;
   }
+  if (requestProjectConfigId !== getCurrentGitGraphProjectConfigId()) {
+    return;
+  }
 
   if (res200(res)) {
     const nextPage = res.data;
     useGitStore.setState((state) => {
       if (!state.graph) {
+        return state;
+      }
+      if (state.graph.projectConfigId !== requestProjectConfigId) {
         return state;
       }
       const existingResponse = state.graph.response;
@@ -465,6 +490,7 @@ export async function loadMoreGitGraphCommits({
           ...state,
           graph: {
             ...state.graph,
+            projectConfigId: requestProjectConfigId,
             response: nextPage,
             seenCommitHashes: initialSeenCommitHashes,
             rows: initialRows.rows,
@@ -513,6 +539,7 @@ export async function loadMoreGitGraphCommits({
         ...state,
         graph: {
           ...state.graph,
+          projectConfigId: requestProjectConfigId,
           response: mergedResponse,
           seenCommitHashes: nextSeenCommitHashes,
           rows: state.graph.rows.concat(appendedRows),
@@ -533,6 +560,9 @@ export async function loadMoreGitGraphCommits({
     if (!state.graph) {
       return state;
     }
+    if (state.graph.projectConfigId !== requestProjectConfigId) {
+      return state;
+    }
     return {
       ...state,
       graph: {
@@ -546,14 +576,22 @@ export async function loadMoreGitGraphCommits({
 }
 
 export async function ensureGitGraphStateLoaded(): Promise<void> {
+  const projectConfigId = getCurrentGitGraphProjectConfigId();
   const existingGraphState = getGitGraphState();
-  if (existingGraphState) {
+  if (
+    existingGraphState &&
+    existingGraphState.projectConfigId === projectConfigId
+  ) {
     return;
   }
   const allRefs = false;
   useGitStore.setState((state) => ({
     ...state,
-    graph: createInitialGitGraphState({ allRefs, filterText: "" }),
+    graph: createInitialGitGraphState({
+      projectConfigId,
+      allRefs,
+      filterText: "",
+    }),
   }));
   await refreshGitGraph({ allRefs, skipPreloadState: true });
 }
@@ -563,10 +601,15 @@ export async function openGitGraphOverlay(): Promise<void> {
   ensureTrackedGitPaneGraphWindow({
     title: "Git Graph",
   });
+  const projectConfigId = getCurrentGitGraphProjectConfigId();
   useGitStore.setState((state) => ({
     ...state,
     overlay: { kind: "none" },
-    graph: createInitialGitGraphState({ allRefs, filterText: "" }),
+    graph: createInitialGitGraphState({
+      projectConfigId,
+      allRefs,
+      filterText: "",
+    }),
   }));
   await refreshGitGraph({ allRefs, skipPreloadState: true });
 }

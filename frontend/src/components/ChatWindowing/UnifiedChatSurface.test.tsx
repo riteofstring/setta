@@ -252,6 +252,74 @@ describe("UnifiedChatSurface", () => {
     expect(markup).not.toContain('data-testid="mock-project-chat"');
   });
 
+  it("keeps the canvas placeholder when the external chat window is minimized", () => {
+    mockProjectState = {
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["project-chat-window-1"],
+        instancesById: {
+          "project-chat-window-1": {
+            instanceId: "project-chat-window-1",
+            placement: ChatWindowPlacementEnum.floating,
+            sectionIdOrNull: "section-123",
+            mode: ChatWindowModeEnum.project_ai_mode,
+            isClosed: false,
+            isMinimized: true,
+          },
+        },
+      }),
+      sections: {
+        "section-123": { name: "Section Chat" },
+      },
+    };
+
+    const markup = renderToStaticMarkup(
+      <UnifiedChatSurface
+        mode={ChatWindowModeEnum.project_ai_mode}
+        host="section_layout"
+        sectionId="section-123"
+      />,
+    );
+
+    expect(markup).toContain(
+      'data-testid="project-chat-canvas-floating-placeholder"',
+    );
+    expect(markup).not.toContain('data-testid="mock-project-chat"');
+  });
+
+  it("keeps the canvas placeholder when the external chat window is closed", () => {
+    mockProjectState = {
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["project-chat-window-1"],
+        instancesById: {
+          "project-chat-window-1": {
+            instanceId: "project-chat-window-1",
+            placement: ChatWindowPlacementEnum.floating,
+            sectionIdOrNull: "section-123",
+            mode: ChatWindowModeEnum.section_mode,
+            isClosed: true,
+            isMinimized: false,
+          },
+        },
+      }),
+      sections: {
+        "section-123": { name: "Section Chat" },
+      },
+    };
+
+    const markup = renderToStaticMarkup(
+      <UnifiedChatSurface
+        mode={ChatWindowModeEnum.section_mode}
+        host="section_layout"
+        sectionId="section-123"
+      />,
+    );
+
+    expect(markup).toContain(
+      'data-testid="project-chat-canvas-floating-placeholder"',
+    );
+    expect(markup).not.toContain('data-testid="mock-section-chat"');
+  });
+
   it("bypasses canvas placeholders for standalone section chat surfaces", () => {
     mockProjectState = {
       projectChatWindowing: createProjectChatWindowingState({

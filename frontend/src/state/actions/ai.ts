@@ -1983,11 +1983,13 @@ export type ChatHydrationErrorCode =
   | "chat_not_found"
   | "terminal_hydration_failure";
 
-type ChatHydrationOutcome = {
+export type ChatHydrationOutcome = {
   outcome: ChatHydrationOutcomeType;
   status: number | undefined;
   errorCode: ChatHydrationErrorCode | null;
 };
+
+type ProjectChatHydrationRunType = "llm_chat" | "external_agent";
 
 function parseChatHydrationErrorCode(
   value: string | null,
@@ -2208,6 +2210,40 @@ export async function getExternalAgentChat(
     sectionId,
   );
   return outcome.outcome === "success";
+}
+
+export async function getProjectChatHydrationOutcomeWithFallback(
+  chatId: string,
+  projectConfigId: string | null,
+  preferredRunType: ProjectChatHydrationRunType | null,
+  sectionId?: string,
+): Promise<ChatHydrationOutcome> {
+  const [llmOutcome, externalOutcome] = await Promise.all([
+    getLLMChatHydrationOutcome(chatId, sectionId),
+    getExternalAgentChatHydrationOutcome(chatId, projectConfigId, sectionId),
+  ]);
+
+  if (
+    llmOutcome.outcome === "success" &&
+    externalOutcome.outcome !== "success"
+  ) {
+    return llmOutcome;
+  }
+  if (
+    externalOutcome.outcome === "success" &&
+    llmOutcome.outcome !== "success"
+  ) {
+    return externalOutcome;
+  }
+
+  const orderedOutcomes =
+    preferredRunType === "external_agent"
+      ? [externalOutcome, llmOutcome]
+      : [llmOutcome, externalOutcome];
+  const prioritizedOutcome = orderedOutcomes.find(
+    (outcome) => outcome.errorCode !== "chat_not_found",
+  );
+  return prioritizedOutcome ?? orderedOutcomes[0];
 }
 
 export async function submitMessage(

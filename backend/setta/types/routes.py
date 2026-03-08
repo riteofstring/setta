@@ -177,7 +177,6 @@ class Route(str, Enum):
     SET_WINDOW_SPACE_NAME = "/setWindowSpaceName"
     SET_WINDOW_SPACE_SORT_ORDER = "/setWindowSpaceSortOrder"
     DELETE_WINDOW_SPACE = "/deleteWindowSpace"
-    SET_WINDOW_SPACE_STATE = "/setWindowSpaceState"
     UNDO = "/undo"
     REDO = "/redo"
     GET_LATEST_PROJECT_STATE = "/getLatestProjectState"

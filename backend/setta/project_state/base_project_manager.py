@@ -228,7 +228,6 @@ from setta.project_state.project_manager_types import (
     SetWatchCodeInputsRequest,
     SetWindowSpaceNameRequest,
     SetWindowSpaceSortOrderRequest,
-    SetWindowSpaceStateRequest,
     TextFieldCompletionRequest,
     ToggleGroupOrientationRequest,
     ToggleIsEditingViewModeRequest,
@@ -4655,17 +4654,6 @@ class BaseProjectManager(ABC):
         )
         for index, window_space in enumerate(sorted_window_spaces):
             window_space.sortIndex = index
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
-
-    @enqueue_method
-    async def set_window_space_state(self, x: SetWindowSpaceStateRequest) -> None:
-        project_state = self.get_single_config_state(x.projectConfigId)
-        window_spaces = project_state.projectConfig.windowSpaces
-        if x.windowSpaceId not in window_spaces:
-            raise KeyError(f"Window space {x.windowSpaceId} not found")
-        window_space = window_spaces[x.windowSpaceId]
-        window_space.windowsById = x.state.windowsById
-        window_space.order = x.state.order
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method

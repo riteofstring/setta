@@ -3,10 +3,12 @@ from typing import Any
 from setta.agentic.chat_view import (
     EXTERNAL_AGENT_RUN_TYPE,
     LLM_CHAT_RUN_TYPE,
+    SCRIPTABLE_CHAT_RUN_TYPE,
     build_chat_state_from_run,
     get_run_engine_config_id,
     get_run_project_config_id,
     get_run_sort_key,
+    get_run_type,
 )
 from setta.agentic.store import list_agent_runs_by_metadata
 from setta.types.agentic import AgentRun, EngineType
@@ -15,6 +17,17 @@ from setta.types.id import ID
 
 CHAT_ENGINE_MISMATCH_MESSAGE = "Chat engine mismatch; start a new chat."
 CHAT_PROJECT_CONFIG_MISMATCH_MESSAGE = "Chat project config mismatch; start a new chat."
+
+_CHAT_RUN_TYPES = {
+    LLM_CHAT_RUN_TYPE,
+    SCRIPTABLE_CHAT_RUN_TYPE,
+    EXTERNAL_AGENT_RUN_TYPE,
+}
+
+
+def _list_chat_runs_for_chat_id(*, dbe: Any, chat_id: ID) -> list[AgentRun]:
+    runs = list_agent_runs_by_metadata(dbe, chat_id=chat_id)
+    return [run for run in runs if get_run_type(run) in _CHAT_RUN_TYPES]
 
 
 def list_compatible_chat_runs(
@@ -25,28 +38,18 @@ def list_compatible_chat_runs(
     project_config_id: ID | None,
     engine_config_id: ID,
 ) -> list[AgentRun]:
-    if engine_type == EngineType.external_agent:
-        conflicting_runs = list_agent_runs_by_metadata(
-            dbe,
-            run_type=LLM_CHAT_RUN_TYPE,
-            chat_id=chat_id,
-        )
-        compatible_runs = list_agent_runs_by_metadata(
-            dbe,
-            run_type=EXTERNAL_AGENT_RUN_TYPE,
-            chat_id=chat_id,
-        )
-    else:
-        conflicting_runs = list_agent_runs_by_metadata(
-            dbe,
-            run_type=EXTERNAL_AGENT_RUN_TYPE,
-            chat_id=chat_id,
-        )
-        compatible_runs = list_agent_runs_by_metadata(
-            dbe,
-            run_type=LLM_CHAT_RUN_TYPE,
-            chat_id=chat_id,
-        )
+    compatible_run_type = (
+        EXTERNAL_AGENT_RUN_TYPE
+        if engine_type == EngineType.external_agent
+        else LLM_CHAT_RUN_TYPE
+    )
+    compatible_runs: list[AgentRun] = []
+    conflicting_runs: list[AgentRun] = []
+    for run in _list_chat_runs_for_chat_id(dbe=dbe, chat_id=chat_id):
+        if get_run_type(run) == compatible_run_type:
+            compatible_runs.append(run)
+            continue
+        conflicting_runs.append(run)
 
     if conflicting_runs:
         raise ValueError(CHAT_ENGINE_MISMATCH_MESSAGE)
