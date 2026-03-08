@@ -2,6 +2,7 @@ import _ from "lodash";
 import React from "react";
 
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
+import { useIsSectionUIActive } from "state/activeSectionUI";
 import { useProjectState } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
@@ -93,9 +94,7 @@ function ContainerGroup({
       size: impl.size,
     };
   }, shallow);
-  const isActiveSection = useProjectState((x) =>
-    x.projectConfig.activeIds.includes(sectionId),
-  );
+  const isActiveSection = useIsSectionUIActive(sectionId);
 
   const disablePointerEvents = useShouldDisablePointerEvents();
   const { ref: overflowRef, isScrollable } = useIsScrollable();

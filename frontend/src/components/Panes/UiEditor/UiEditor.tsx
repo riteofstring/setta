@@ -8,7 +8,8 @@ import { FiEdit3 } from "react-icons/fi";
 import { MdOutlineSettingsApplications } from "react-icons/md";
 import { PiCursorTextFill } from "react-icons/pi";
 import { TbEdit, TbVersions } from "react-icons/tb";
-import { useLocalStorage, useProjectState } from "state/definitions";
+import { useSolelyActiveSectionUIId } from "state/activeSectionUI";
+import { useLocalStorage } from "state/definitions";
 import { useUIEditorTab } from "state/hooks/uiTypes";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
 import {
@@ -39,9 +40,7 @@ export function UiEditor() {
     rootRef: uiEditorRef,
   });
   const hasViewModeTabs = useHasViewModeTabs();
-  const activeSectionId = useProjectState(
-    (x) => x.projectConfig.activeIds[0] ?? null,
-  );
+  const activeSectionId = useSolelyActiveSectionUIId();
   const { selectedTabName, requiredTabs, sectionType } = useUIEditorTab(
     activeSectionId,
   );

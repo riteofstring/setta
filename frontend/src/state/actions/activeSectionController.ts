@@ -1,6 +1,7 @@
 import { getRequestedSettingsAllSettingsBenchmarkStageFromWindow } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
+import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { useMisc, useProjectState } from "state/definitions";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import {
@@ -134,7 +135,7 @@ function buildPolicyContext(
 export function applyActiveSectionChange(
   intent: ActiveSectionIntent,
 ): ActiveSectionControllerResult {
-  const activeIds = useProjectState.getState().projectConfig.activeIds;
+  const activeIds = getActiveSectionUIIds();
   const isSelectingParams = useMisc.getState().isSelectingParams;
   const multiSelectionActive = useReactFlow.getState().multiSelectionActive;
 

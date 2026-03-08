@@ -30,6 +30,7 @@ const STAGES = [
   "code-widgets",
   "full-ui-editor-shell",
   "full-no-zindex",
+  "full-ui-active-store",
   "full",
   "full-section-snapdom",
   "full-section-opacity-hidden",

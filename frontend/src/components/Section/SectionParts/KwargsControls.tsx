@@ -10,6 +10,7 @@ import {
   setCurrEffectiveSectionImplValue,
   updateShownParamIdsForPinnedParams,
 } from "state/actions/sectionInfos";
+import { useIsSolelySectionUIActive } from "state/activeSectionUI";
 import {
   useLocalStorage,
   useProjectState,
@@ -511,10 +512,7 @@ function ParamFilter({
     ),
   );
   const paramFilterValue = paramsImpl.paramFilter;
-  const sectionIsActive = useProjectState((x) =>
-    x.projectConfig.activeIds.length === 1 &&
-    x.projectConfig.activeIds[0] === sectionId,
-  );
+  const sectionIsActive = useIsSolelySectionUIActive(sectionId);
 
   const searchShortcut = useSettings((x) =>
     shortcutPrettified(x.shortcuts.searchShortcut),

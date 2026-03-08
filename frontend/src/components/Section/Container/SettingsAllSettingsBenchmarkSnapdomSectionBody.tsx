@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useProjectState } from "state/definitions";
+import { useIsSectionUIActive } from "state/activeSectionUI";
 
 type SnapdomStatus = "pending" | "ready" | "error" | "live-active";
 type CaptureSize = {
@@ -51,9 +51,8 @@ export function SettingsAllSettingsBenchmarkSnapdomSectionBody({
     shouldUseSnapdomPreview ||
     shouldUseOpacityHidden ||
     shouldKeepMountedWithSnapdomPreview;
-  const isActiveSection = useProjectState((x) =>
-    shouldTrackActiveState && x.projectConfig.activeIds.includes(sectionId),
-  );
+  const trackedIsActiveSection = useIsSectionUIActive(sectionId);
+  const isActiveSection = shouldTrackActiveState && trackedIsActiveSection;
 
   useEffect(() => {
     const liveBodyRoot = liveBodyRootRef.current;

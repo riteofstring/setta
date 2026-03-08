@@ -3368,3 +3368,75 @@ New benchmark stages:
   - `~3.6ms` for click to visual settle
 - So this change is worth keeping, but it does not explain the whole remaining `frame-only -> full` gap by itself.
 - The next remaining work is not overlay chrome or bulk z-index normalization. It is the shared activation floor in the section/store path.
+
+## Addendum: a split active-section UI store removes another meaningful chunk of activation latency in a benchmarked prototype
+
+- Date: `2026-03-08`
+- Goal: test whether the remaining activation floor is the giant project-store write itself by splitting UI-facing active section state off the durable `projectConfig.activeIds` path.
+- Prototype:
+  - added a small `useActiveSectionUI` store and mirrored it from `projectConfig.activeIds`
+  - switched the UI-facing active-shell consumers to the new store:
+    - section shells
+    - joined group shells
+    - active title styling
+    - `UiEditor`
+    - `ParamFilter`
+    - benchmark SnapDOM/hidden-body wrappers
+  - added a benchmark-only `full-ui-active-store` stage
+  - in that stage only, `setActiveSectionIds(...)`:
+    - updates `useActiveSectionUI` immediately
+    - defers the durable `useProjectState.setState(...)` / optimistic backend path to the next animation frame
+
+### Method
+
+- Kept the normal overlays on:
+  - agentic edges: on
+  - arg edges: on
+  - minimap: on
+- Used the same browser-side activation harness as the recent addenda:
+  - click to `data-section-active="true"`
+  - click to visual settle using stable computed-style sampling on the activated shell
+- Measured the same-session sequence:
+  - `full`
+  - `full-ui-active-store`
+  - `full` rerun
+
+### Visual validation
+
+- `full` baseline:
+  - `perf/artifacts/frontend/settings-all-settings/activation-ui-active-store-2026-03-08/full-baseline-visible.png`
+- `full-ui-active-store`:
+  - `perf/artifacts/frontend/settings-all-settings/activation-ui-active-store-2026-03-08/full-ui-active-store-visible.png`
+- `full` rerun:
+  - `perf/artifacts/frontend/settings-all-settings/activation-ui-active-store-2026-03-08/full-rerun-visible.png`
+
+### Results
+
+- `full` first same-session run:
+  - average click to active: `55.91ms`
+  - average click to visual settle: `77.87ms`
+  - average extra time after active: `21.96ms`
+
+- `full-ui-active-store` prototype stage:
+  - average click to active: `43.99ms`
+  - average click to visual settle: `57.16ms`
+  - average extra time after active: `13.17ms`
+
+- `full` rerun after the prototype stage:
+  - average click to active: `47.96ms`
+  - average click to visual settle: `66.43ms`
+  - average extra time after active: `18.47ms`
+
+### Conclusion
+
+- This is the clearest evidence so far that the remaining activation floor is the durable `projectConfig.activeIds` write path, not section-body rerendering.
+- Even with same-session warm variance, the benchmark-only split-store stage improved activation by roughly:
+  - `~4ms` to `~12ms` for click to active
+  - `~9ms` to `~21ms` for click to visual settle
+- The important architectural conclusion is stronger than the exact number:
+  - activation gets materially faster when the shell and pane stop waiting on the giant project store
+  - the durable project-state / optimistic-backend sync can move off the critical paint path
+- So the next production step is clear:
+  - promote the active-section UI store out of benchmark-only mode
+  - keep it as the immediate source for active shell/pane state
+  - mirror to `projectConfig.activeIds` asynchronously, with follow-up coverage for any behavior that currently assumes same-tick project-store updates

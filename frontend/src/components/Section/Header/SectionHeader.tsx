@@ -13,6 +13,7 @@ import {
   getCurrEffectiveSectionImplOfType,
   isBaseCodeSectionType,
 } from "state/actions/sectionInfos";
+import { useIsSectionUIActive } from "state/activeSectionUI";
 import {
   useAIFollow,
   useLspDiagnostics,
@@ -531,9 +532,7 @@ function MaybeCardTitle({
     "section-title-active",
     sectionId,
   );
-  const isActiveSection = useProjectState((x) =>
-    x.projectConfig.activeIds.includes(sectionId),
-  );
+  const isActiveSection = useIsSectionUIActive(sectionId);
   return sectionTypeName === SectionTypeEnum.TextBlock ? (
     <TextBlockCardTitle
       sectionId={sectionId}

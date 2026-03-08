@@ -8,6 +8,7 @@ import {
   getCurrEffectiveSectionImpl,
   getEmbeddedAttachedTerminalParentIdForTerminalSection,
 } from "state/actions/sectionInfos";
+import { useIsSectionUIActive } from "state/activeSectionUI";
 import {
   useAgenticScopeHighlights,
   useLocalStorage,
@@ -78,9 +79,7 @@ function _SectionContainerCore({
       isJoinedAttachedTerminalChild,
     };
   }, shallow);
-  const isActiveSection = useProjectState((x) =>
-    x.projectConfig.activeIds.includes(sectionId),
-  );
+  const isActiveSection = useIsSectionUIActive(sectionId);
   const showAiHighlight = useAiSectionHighlight(sectionId, projectConfigId);
   const aiHighlightClassName = showAiHighlight
     ? "setta-ai-gradient-border setta-ai-gradient-border-active"

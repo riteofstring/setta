@@ -9,6 +9,7 @@ import {
   getSectionViewModeVisibility,
   isBaseCodeSectionType,
 } from "state/actions/sectionInfos";
+import { useIsSectionUIActive } from "state/activeSectionUI";
 import { useProjectState } from "state/definitions";
 import {
   getPythonCodegenTarget,
@@ -82,13 +83,9 @@ function _SectionContainer({
       isJoinedAttachedTerminalGroup,
     };
   }, shallow);
-  const isActiveSection = useProjectState((x) =>
-    x.projectConfig.activeIds.includes(sectionId),
-  );
-  const isAttachedTerminalActive = useProjectState((x) =>
-    attachedTerminalId === null
-      ? false
-      : x.projectConfig.activeIds.includes(attachedTerminalId),
+  const isActiveSection = useIsSectionUIActive(sectionId);
+  const isAttachedTerminalActive = useIsSectionUIActive(
+    attachedTerminalId ?? "__no_active_terminal__",
   );
   const isJoinedGroupActive = isActiveSection || isAttachedTerminalActive;
 
