@@ -41,9 +41,18 @@ Current repo status as of 2026-03-08:
     `internal/launcher/management.go`,
     `internal/launcher/artifacts.go`, and
     `internal/launcher/artifact_launch.go`
+  - workspace launch-intent transport/runtime ownership in
+    `internal/httpapi/workspace_launch_routes.go` and
+    `internal/workspacelaunch/intents.go`
+  - trusted frontend-origin storage/proof validation in
+    `internal/frontendorigins/service.go`
+  - bootstrap handoff parity for workspace-history and launcher-origin
+    storage in `internal/httpapi/bootstrap_page.go` and
+    `internal/httpapi/httpapi.go`
 - Python still appears to own major non-MCP backend surface in:
   - launcher and launch/session bootstrap flows
-  - bootstrap and launcher-origin handoff behavior around launched workspaces
+  - local `/launch` plus SSH/remote launch behavior
+  - trust persistence and rollback behavior around launched workspaces
 - nothing is currently in progress in the worktree
 
 ## Inputs
@@ -72,13 +81,9 @@ Current repo status as of 2026-03-08:
      - `/launcherFilesystemRoots`
      - `/listLauncherDirectory`
      - `/openLauncherWorkspace`
-   - the remaining Python-owned launcher/runtime routes are concentrated in:
-     - `/launch`
-     - `/createWorkspaceLaunchIntent`
    - the remaining Python-owned launcher/runtime behavior is now concentrated
      in:
      - `/launch`
-     - `/createWorkspaceLaunchIntent`
      - bootstrap/origin handoff policy around those flows
    - the next obvious Go slice is now launch/bootstrap handoff, not launcher
      management
@@ -189,6 +194,12 @@ That is now the highest-leverage next step because:
   `phase-7-launch-intent-local-launch-and-bootstrap-handoff.md` to split the
   remaining launcher gap into a first local handoff slice and a later SSH
   remote-launch follow-up.
+- 2026-03-08: completed Stage 1 from
+  `phase-7-launch-intent-local-launch-and-bootstrap-handoff.md` by adding the
+  Go-owned workspace launch-intent runtime, the trusted frontend-origin store,
+  `POST /createWorkspaceLaunchIntent`, and bootstrap-page parity for
+  workspace-history plus launcher-origin handoff. The next recommended step is
+  Stage 2: Go-owned local `/launch`.
 
 ## Verification
 

@@ -15,22 +15,22 @@ As of 2026-03-08:
 - Go owns:
   - launcher-mode home/runtime browser routes
   - `POST /openLauncherWorkspace`
+  - `POST /createWorkspaceLaunchIntent`
   - bootstrap HTML at `GET /__setta__/bootstrap`
   - bootstrap token consumption at `POST /__setta__/bootstrap/consume`
+  - launch-intent storage and return-url validation/runtime ownership
+  - launcher-origin trust storage plus proof validation for bootstrap consume
+  - bootstrap-page parity for:
+    - workspace-history handoff hash storage
+    - launcher-origin storage and proof handoff
+    - open-workspace-switcher redirect hints
   - launcher management/status plus managed artifact ownership
 - Python still owns:
-  - `POST /createWorkspaceLaunchIntent`
   - `POST /launch`
-  - return-url validation and launch-intent store semantics
   - launcher-origin trust persistence and rollback behavior around launched
     workspaces
-  - bootstrap-page parity for workspace-history handoff, launcher-origin
-    storage, and workspace-switcher redirect hints
-- the current Go bootstrap page is intentionally smaller than Python:
-  - it consumes `token`, `lo`, and `lop`
-  - it does not yet persist workspace-history handoff state
-  - it does not yet propagate verified `launcherOrigin` back into browser
-    storage or redirect query state
+  - SSH/remote launch and remote rollback behavior
+  - launcher-mode CORS/trusted-origin behavior around `/launch`
 
 ## Inputs
 
@@ -109,15 +109,23 @@ Do not include:
   management and confirming that the remaining launcher gap is now the
   local launch/bootstrap handoff cluster, with SSH remote launch still large
   enough to keep separate.
+- 2026-03-08: completed Stage 1 from this doc by adding the Go-owned
+  launch-intent runtime in `internal/workspacelaunch`, the trusted
+  frontend-origin runtime in `internal/frontendorigins`,
+  `POST /createWorkspaceLaunchIntent` in
+  `internal/httpapi/workspace_launch_routes.go`, and bootstrap consume/page
+  parity in `internal/httpapi/httpapi.go` and
+  `internal/httpapi/bootstrap_page.go`.
 
 ## Recommended Next Step
 
-Implement Stage 1 from this doc: Go-owned launch-intent storage/transport plus
-the bootstrap-page parity needed before a Go-owned local `/launch` path can
-land cleanly.
+Implement Stage 2 from this doc: a Go-owned local `POST /launch` path that
+consumes stored launch intents, reuses the completed local IDE session owner,
+appends launcher-origin handoff proof when needed, and rolls back newly
+started local sessions if trust persistence fails.
 
 ## Verification
 
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/frontendorigins ./internal/workspacelaunch -count=1 -timeout 300s`
 - `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -count=1 -timeout 300s`
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestApp.*Launcher|TestApp.*Launch' -count=1 -timeout 420s`
-- add focused tests for the new launch-intent/runtime package once it exists
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEModeCreatesWorkspaceLaunchIntentsOverHTTP' -count=1 -timeout 420s`

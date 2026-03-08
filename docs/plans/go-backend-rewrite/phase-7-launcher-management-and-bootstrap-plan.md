@@ -38,8 +38,8 @@ As of 2026-03-08:
   - bootstrap HTML at `GET /__setta__/bootstrap`
   - launcher-mode fallback startup without an explicit project workspace
 - Python still owns:
-  - launch-intent creation, workspace launch, and bootstrap token/origin
-    handoff in `launch.py` and `bootstrap.py`
+  - workspace launch plus SSH/remote handoff behavior in `launch.py`
+  - the remaining launcher-origin trust/rollback behavior coupled to `/launch`
 - the remaining Phase 7 launcher gap is now concentrated around
   launch/bootstrap handoff
 
@@ -240,3 +240,9 @@ Recommended landing order:
   `phase-7-launch-intent-local-launch-and-bootstrap-handoff.md` to split that
   remaining gap into a first local launch/bootstrap handoff slice and a later
   SSH/remote launch follow-up.
+- 2026-03-08: completed Stage 1 from
+  `phase-7-launch-intent-local-launch-and-bootstrap-handoff.md`; Go now owns
+  `POST /createWorkspaceLaunchIntent`, launch-intent storage, trusted
+  frontend-origin storage/proof validation, and bootstrap-page parity for
+  workspace-history and launcher-origin handoff. The next recommended step is
+  Stage 2 from that doc: Go-owned local `/launch`.
