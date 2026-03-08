@@ -596,6 +596,18 @@ The bounded Phase 5 follow-on tracked in
 - full plugin backend route serving remains a separate higher-level
   plugin-runtime slice
 
+That next higher-level plugin runtime follow-on is now opened in
+`phase-15-plugin-backend-route-runtime-and-transport.md`:
+
+- the active remaining frontend caller is
+  `plugin-backend-route-payload.spec.ts`
+- the bounded next step is not more registration visibility or thin transport;
+  it is a live backend worker runtime for plugins that call
+  `register_router(...)`
+- the recommended first slice stays narrow to IDE-mode
+  `/api/plugins/{pluginId}/...` proxy serving and explicitly defers static-dir
+  plus other backend host surfaces
+
 The bounded plugin dependency cleanup tracked in
 `phase-11-plugin-version-range-owner-and-dependency-cleanup.md` is now also
 landed:
