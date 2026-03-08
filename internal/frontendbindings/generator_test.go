@@ -113,6 +113,26 @@ func TestBuildBindingsIncludesProjectStateTypeGuardSupport(t *testing.T) {
 	}
 }
 
+func TestBuildBindingsIncludesWebsocketSchemaSupport(t *testing.T) {
+	t.Helper()
+
+	bindings, err := Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+
+	for _, snippet := range []string{
+		"type SafeParseResult<T> = SafeParseSuccess<T> | SafeParseFailure;",
+		"function websocketSupportReadRevealTargets(",
+		"export const UISettingRevealContentSchema = {",
+		"export const DependencyEventSchema = {",
+	} {
+		if !strings.Contains(bindings.TypesTS, snippet) {
+			t.Fatalf("types output missing websocket schema support %q:\n%s", snippet, bindings.TypesTS)
+		}
+	}
+}
+
 func TestBuildDoesNotEmitProjectStateFrontendSupportMarker(t *testing.T) {
 	t.Helper()
 

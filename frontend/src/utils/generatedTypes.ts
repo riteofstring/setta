@@ -8533,8 +8533,6 @@ export function isBaseSectionWithParamsImpl(
 }
 
 
-
-
 type SafeParseSuccess<T> = {
   success: true;
   data: T;
@@ -8548,6 +8546,7 @@ type SafeParseFailure = {
 };
 
 type SafeParseResult<T> = SafeParseSuccess<T> | SafeParseFailure;
+
 
 function websocketSupportIsRecord(
   value: unknown,
@@ -8596,6 +8595,7 @@ function websocketSupportReadDurationMs(
   return 3000;
 }
 
+
 function websocketSupportReadActivationSteps(
   value: unknown,
   fieldName: string,
@@ -8629,6 +8629,7 @@ function websocketSupportReadActivationSteps(
   });
   return steps;
 }
+
 
 function websocketSupportReadRevealTargets(
   value: unknown,
@@ -8700,6 +8701,7 @@ function websocketSupportReadRevealTargets(
   return targets;
 }
 
+
 export const UISettingRevealContentSchema = {
   safeParse(value: unknown): SafeParseResult<UISettingRevealContent> {
     if (!websocketSupportIsRecord(value)) {
@@ -8718,7 +8720,11 @@ export const UISettingRevealContentSchema = {
         "projectConfigId",
         issues,
       ),
-      chatId: websocketSupportReadOptionalString(value.chatId, "chatId", issues),
+      chatId: websocketSupportReadOptionalString(
+        value.chatId,
+        "chatId",
+        issues,
+      ),
       activeSectionId: websocketSupportReadOptionalString(
         value.activeSectionId,
         "activeSectionId",
@@ -8748,6 +8754,7 @@ export const UISettingRevealContentSchema = {
     };
   },
 };
+
 
 export const DependencyEventSchema = {
   shape: {
@@ -8799,5 +8806,4 @@ export const DependencyEventSchema = {
     };
   },
 };
-
 

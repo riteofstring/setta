@@ -1,4 +1,5 @@
 import {
+  DependencyEventSchema,
   type FrontendWebsocketMsgUnion,
   UISettingRevealContentSchema,
   WebsocketConnectionTypeEnum,
@@ -82,6 +83,28 @@ describe("generated git and websocket support", () => {
       expect(validResult.data.reveals[0]?.revealActivationSteps).toEqual([
         { type: "click", itemValue: "setting-1" },
       ]);
+    }
+    expect(invalidResult.success).toBe(false);
+  });
+
+  it("validates dependency-event payloads with the canonical schema", () => {
+    const validResult = DependencyEventSchema.safeParse({
+      dependencyKey: {
+        type: "Section",
+        sectionId: "section-1",
+      },
+      payload: null,
+      timestampMs: 1,
+    });
+    const invalidResult = DependencyEventSchema.safeParse({
+      payload: null,
+      timestampMs: "bad",
+    });
+
+    expect(validResult.success).toBe(true);
+    if (validResult.success) {
+      expect(validResult.data.timestampMs).toBe(1);
+      expect(validResult.data.payload).toBeNull();
     }
     expect(invalidResult.success).toBe(false);
   });
