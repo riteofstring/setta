@@ -106,6 +106,9 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		renameRefactors    *renameRefactorService
 		plannerFilesRoot   string
 		artifactsRoot      string
+		deploymentCatalog  *deployments.Catalog
+		sharePublisher     *deployments.SharePublisher
+		appPublisher       *deployments.AppPublisher
 		shareSessions      modes.ShareSessionStore
 	)
 	if modePolicy.IsDeployment() {
@@ -527,6 +530,38 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return runDeploymentSessionCleanupLoop(ctx, deploymentRuntime, terminalService, listenerBroadcaster, 0)
 		})
 	}
+	if modePolicy.IsIDE() {
+		catalogRoot, err := deployments.DefaultCatalogRoot(cfg.Paths.SettaFilesRoot)
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+		deploymentCatalog, err = deployments.NewCatalog(deployments.CatalogOptions{
+			Root: catalogRoot,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+		sharePublisher, err = deployments.NewSharePublisher(deployments.SharePublisherOptions{
+			Catalog:        deploymentCatalog,
+			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+			WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+		appPublisher, err = deployments.NewAppPublisher(deployments.AppPublisherOptions{
+			Catalog:        deploymentCatalog,
+			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+			WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+	}
 	handler, err := httpapi.NewHandler(httpapi.Dependencies{
 		Logger: logger,
 		Info: infoService{
@@ -577,6 +612,15 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			if err := httpapi.RegisterDeploymentRoutes(r, httpapi.DeploymentRouteDependencies{
 				ModePolicy: modePolicy,
 				Deployment: deploymentRuntime,
+			}); err != nil {
+				panic(err)
+			}
+			if err := httpapi.RegisterDeploymentIDERoutes(r, httpapi.DeploymentIDERouteDependencies{
+				ModePolicy:     modePolicy,
+				ProjectState:   projectRuntime,
+				Catalog:        deploymentCatalog,
+				SharePublisher: sharePublisher,
+				AppPublisher:   appPublisher,
 			}); err != nil {
 				panic(err)
 			}

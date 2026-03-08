@@ -25,10 +25,11 @@ Current repo status as of 2026-03-08:
     `internal/deployments/share_publish.go`
   - app deployment publication from the live runtime snapshot in
     `internal/deployments/app_publish.go`
+  - IDE-mode share/app deployment publish/list/latest routes in
+    `internal/httpapi/deployment_ide_routes.go`
 - Python still appears to own major non-MCP backend surface in:
   - launcher and launch/session bootstrap flows
   - launcher installation and status management
-  - share/app deployment publish and listing routes
   - bootstrap and launcher-origin handoff behavior around launched workspaces
 - nothing is currently in progress in the worktree
 
@@ -70,28 +71,14 @@ Current repo status as of 2026-03-08:
      - `/openLauncherWorkspace`
    - there is no obvious Go HTTP route cluster that owns those flows today
 
-2. Deployment runtime has partial Go ownership
-   - Go already serves current-session and state/project-config reads for share
-     and app deployments
-   - Python still owns the IDE deployment publish/list/latest route layer in
-     `share_deployments.py` and `app_deployments.py`
-   - current missing route overlap includes:
-     - `GET /share/deployments`
-     - `GET /share/deployments/{deploymentName}/versions`
-     - `GET /share/deployments/{deploymentName}/latest`
-     - `POST /share/deployments`
-     - `GET /app/deployments`
-     - `GET /app/deployments/{deploymentName}/versions`
-     - `GET /app/deployments/{deploymentName}/latest`
-     - `POST /app/deployments`
-   - Python tests show that this slice depends on:
-     - publish-time copy/rebase of artifacts, code files, and structured-data
-       sources into the deployment root
-     - share/app policy defaults and `runSnapshotMode != never`
-     - monotonically increasing deployment version directories per deployment
-       name
-     - app-spec copy/rebase for app deployments
-     - optional listener entrypoint copy into `listener/app.py`
+2. Deployment runtime handoff is now complete for the current bounded slice
+   - Go now serves:
+     - IDE publish/list/latest routes for share and app deployments
+     - deployment-mode current-session and state/project-config reads
+     - deployment metadata catalog/version allocation
+     - share/app publish-time snapshot materialization and policy writing
+   - the remaining Phase 7 runtime gap is no longer deployment transport; it
+     has shifted to launcher/bootstrap ownership
 
 3. Bootstrap and launcher-origin handoff are still tied to Python routers
    - `backend/setta/routers/bootstrap.py` still carries launcher-origin trust
@@ -106,27 +93,23 @@ Current repo status as of 2026-03-08:
   owner cluster with clear persistence/process boundaries
 - prefer a cluster that already has partial Go runtime support underneath it
   when that yields a smaller and more coherent first Phase 7 slice
-- treat deployment publication/listing as the strongest first Phase 7
-  candidate because Go already owns the deployment manifest/policy/session
-  runtime below it
-- keep launcher/bootstrap work deferred until deployment publication/listing is
-  scoped cleanly, because launcher still spans auth handoff, filesystem
-  browsing, OS integration, and origin-trust behavior
+- treat deployment publication/listing as complete for the current bounded
+  Phase 7 slice
+- move the next Phase 7 plan to launcher/bootstrap ownership, because that is
+  now the largest coherent Python-owned backend cluster left outside MCP
 
 ## Recommended Next Step
 
-Move to the dedicated deployment IDE publish/list transport plan doc in
-`phase-7-deployment-ide-publish-list-transport.md`.
+Create the next Phase 7 plan doc for launcher/bootstrap ownership.
 
 That is now the highest-leverage next step because:
 
-- Stage 1 deployment catalog/version allocation is complete
-- Stage 2 share deployment publish ownership is complete
-- Stage 3 app deployment publish ownership is complete
-- Go already owns `internal/deployments`, deployment read/session routes, and
-  `internal/appspec`
-- thin IDE publish/list/latest transport is now the smallest remaining
-  deployment-runtime slice before launcher/bootstrap work
+- the bounded deployment slice is complete end to end
+- the remaining Python-owned runtime surface is concentrated in launcher and
+  bootstrap flows rather than deployment transport
+- launcher work now has clearer boundaries: launch intents, installation and
+  status management, recent-workspace storage, filesystem browsing, and
+  launcher-origin trust/bootstrap handoff
 
 ## Progress Notes
 
@@ -143,7 +126,13 @@ That is now the highest-leverage next step because:
 - 2026-03-08: completed Stage 3 by adding a Go-owned app deployment publish
   owner in `internal/deployments/app_publish.go`; next recommended step is the
   IDE publish/list/latest transport slice.
+- 2026-03-08: completed Stage 4 by adding Go-owned IDE deployment
+  publish/list/latest transport in `internal/httpapi/deployment_ide_routes.go`
+  and wiring it from `internal/app/app.go`; next recommended step is a
+  dedicated launcher/bootstrap Phase 7 plan doc.
 
 ## Verification
 
-- doc-only inventory update; no runtime or transport code changed
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/deployments -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEModePublishesAndListsShareDeploymentsOverHTTP' -count=1 -timeout 420s`

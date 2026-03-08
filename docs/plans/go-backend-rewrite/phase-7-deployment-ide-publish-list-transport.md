@@ -19,16 +19,14 @@ Current repo status as of 2026-03-08:
   - app deployment publication in `internal/deployments/app_publish.go`
   - deployment runtime/session overlays and deployment-mode read routes in
     `internal/httpapi/deployment_routes.go`
+  - IDE-mode share/app deployment publish/list/latest routes in
+    `internal/httpapi/deployment_ide_routes.go`
   - app-spec storage and validation in `internal/appspec`
-- Go does not yet own:
-  - IDE-mode share deployment list/latest/publish HTTP routes
-  - IDE-mode app deployment list/latest/publish HTTP routes
-  - route-level mode guards and response mapping for those owners
-- nothing is currently in progress in the worktree
+- nothing is currently in progress in the worktree; this slice is complete
 
 ## Scope
 
-This slice should cover:
+This slice covered:
 
 - thin IDE-mode HTTP routes for:
   - `GET /share/deployments`
@@ -39,7 +37,6 @@ This slice should cover:
   - `GET /app/deployments/{deploymentName}/versions`
   - `GET /app/deployments/{deploymentName}/latest`
   - `POST /app/deployments`
-- route-level mode checks that reject publish/list in deployment mode
 - request decoding and response mapping over the completed deployment owners
 - focused HTTP/app wiring tests for the new IDE transport
 
@@ -98,8 +95,8 @@ This slice should cover:
      session/state transport patterns
 
 2. Missing transport seam
-   - there is still no IDE-mode route registration for share/app deployment
-     list/latest/publish over those owners
+   - Go now registers the IDE-mode deployment transport separately from the
+     deployment-mode read routes in `internal/httpapi/deployment_ide_routes.go`
 
 ## Working Decisions
 
@@ -108,6 +105,12 @@ This slice should cover:
   route shape materially reduces complexity
 - keep IDE-mode publish/list transport separate from deployment-mode read route
   registration if that keeps mode boundaries clearer
+- mount the new transport only in IDE mode instead of carrying deployment-mode
+  special cases into the new Go route layer
+- preserve the existing frontend JSON shape for deployment metadata responses;
+  do not expose `deploymentType` on this route family
+- surface invalid stored app-spec path/read/validation failures as explicit app
+  publish validation errors instead of opaque internal errors
 - do not reintroduce Python manager wrappers or compatibility shims
 
 ## Recommended Implementation Order
@@ -129,24 +132,32 @@ This slice should cover:
    - add HTTP route tests covering:
      - IDE-mode publish success for share and app
      - list/latest responses sorted and filtered correctly
-     - deployment-mode rejection for IDE publish/list routes
+     - non-IDE route absence for the IDE-only transport
      - listener/config override request decoding
 
-## Open Questions
+## Progress Notes
 
-- whether these IDE-mode routes should be registered in
-  `internal/httpapi/deployment_routes.go` or a separate deployment IDE route
-  file to keep deployment-mode and IDE-mode seams distinct
-- whether the metadata response should reuse the current frontend route shape
-  exactly or add the internal `deploymentType` field now that Go owns the
-  transport
+- 2026-03-08: completed this slice in
+  `internal/httpapi/deployment_ide_routes.go`,
+  `internal/httpapi/deployment_ide_routes_test.go`,
+  `internal/app/deployment_ide_test.go`, and `internal/app/app.go`, including
+  thin IDE-only share/app deployment publish/list/latest handlers, app wiring,
+  and focused route tests over the completed deployment owners.
+- 2026-03-08: kept the existing frontend route paths and metadata response
+  shape, but mounted the transport in a separate IDE-only route file rather
+  than merging it into the deployment-mode read transport.
+- 2026-03-08: tightened app publish error propagation so invalid stored app
+  spec path/read/validation failures now reach the IDE transport as explicit
+  4xx app-spec errors instead of collapsing into generic internal failures.
 
 ## Verification Targets
 
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestRegisterDeploymentRoutes' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestApp.*Deployment' -count=1 -timeout 420s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/deployments -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEModePublishesAndListsShareDeploymentsOverHTTP' -count=1 -timeout 420s`
 
 ## Next Recommended Step
 
-Implement the IDE-mode share/app deployment publish/list/latest HTTP transport
-over the completed deployment owners.
+Plan the next bounded Phase 7 slice around launcher/bootstrap ownership:
+launcher status/install flows, launch intents, recent workspaces, filesystem
+browsing, and launcher-origin bootstrap handoff.

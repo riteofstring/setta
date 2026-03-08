@@ -215,11 +215,11 @@ func (p *AppPublisher) preparePublishedAppDefinition(
 	projectRoot := p.share.settaFilesRoot
 	targetAppSpecPath, err := appspec.NormalizePath(projectRoot, current.AppSpecPath)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, nil, "", fmt.Errorf("%w: %v", ErrAppPublishAppSpecInvalid, err)
 	}
 	appSpec, err := appspec.Read(projectRoot, current.AppSpecPath)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, nil, "", fmt.Errorf("%w: %v", ErrAppPublishAppSpecInvalid, err)
 	}
 	if appSpec == nil {
 		return nil, nil, "", ErrAppPublishAppSpecNotFound

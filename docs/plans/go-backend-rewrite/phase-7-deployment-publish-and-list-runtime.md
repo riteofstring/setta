@@ -22,12 +22,12 @@ Current repo status as of 2026-03-08:
     `internal/deployments/share_publish.go`
   - app deployment publication from the live runtime snapshot in
     `internal/deployments/app_publish.go`
+  - IDE-mode share/app deployment publish/list/latest transport in
+    `internal/httpapi/deployment_ide_routes.go`
   - deployment runtime/session overlays in `internal/deployments/runtime.go`
   - deployment session/state/project-config read routes in
     `internal/httpapi/deployment_routes.go`
   - app-spec store and validation owners in `internal/appspec`
-- Go does not yet own:
-  - thin IDE HTTP routes for those publish/list/latest flows
 
 ## Scope
 
@@ -147,8 +147,7 @@ This slice should cover:
    - register the list/latest/publish routes in IDE mode only
    - keep handlers limited to request decoding, mode checks, owner invocation,
      and response mapping
-   - next focused slice: move to
-     `phase-7-deployment-ide-publish-list-transport.md`
+   - status: complete in `internal/httpapi/deployment_ide_routes.go`
 
 5. Focused verification
    - add deployment-owner tests covering:
@@ -160,16 +159,15 @@ This slice should cover:
      - newest-first version/latest metadata selection
    - add HTTP route coverage for the new IDE publish/list/latest surface
 
-## Open Questions
+## Slice Closeout
 
-- whether deployment publication should first target the existing frontend route
-  shapes for convenience or introduce a cleaner Go-native route cluster and
-  migrate frontend callers later
-- how much of the Python structured-data save pipeline should be lifted into a
-  reusable Go owner versus handled directly during the first publish slice
-- whether deployment metadata listing should live entirely under
-  `internal/deployments` or share a lower-level filesystem catalog helper with
-  later launcher/runtime inventory work
+- the transport kept the existing frontend route paths and metadata JSON shape
+  for this slice
+- IDE publish/list/latest handlers live in a separate
+  `internal/httpapi/deployment_ide_routes.go` file, while deployment-mode read
+  routes remain in `internal/httpapi/deployment_routes.go`
+- deployment metadata listing continues to live under `internal/deployments`
+  as the source of truth for this slice
 
 ## Progress Notes
 
@@ -185,14 +183,20 @@ This slice should cover:
   owner in `internal/deployments/app_publish.go`, including app-definition
   preconditions, app-spec validation and deployment-local write, app-mode
   policy defaults, and focused publish tests.
+- 2026-03-08: completed Stage 4 by adding the thin IDE deployment publish,
+  list, versions, and latest transport in
+  `internal/httpapi/deployment_ide_routes.go`, wiring it from
+  `internal/app/app.go`, and adding focused `internal/httpapi` and
+  `internal/app` transport tests.
 
 ## Verification Targets
 
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/deployments -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestRegisterDeploymentRoutes' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEModePublishesAndListsShareDeploymentsOverHTTP' -count=1 -timeout 420s`
 
 ## Next Recommended Step
 
-Implement Stage 4 of this slice: thin IDE publish/list/latest transport in
-`phase-7-deployment-ide-publish-list-transport.md` over the completed catalog,
-share publish, and app publish owners.
+Move Phase 7 to the remaining launcher/bootstrap cluster: launch/session
+bootstrap flows, launcher installation/status management, recent workspaces,
+filesystem browsing, and launcher-origin trust handoff.
