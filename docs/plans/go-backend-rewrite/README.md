@@ -322,11 +322,15 @@ Use the docs in this order:
 108. `phase-7-closeout-and-cli-follow-up-boundary.md`
   - focused Phase 7 closeout doc that separates the remaining Python CLI and
     distribution surface from the completed backend rewrite
-109. `spike-mcp.md`
+109. `phase-8-cli-session-auth-foundation.md`
+  - focused implementation-plan doc for the first Go `cmd/setta-cli` slice:
+    local read-only session discovery plus auth/bootstrap output over the
+    completed Go session/auth runtime owners
+110. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-110. `spike-pty.md`
+111. `spike-pty.md`
    - PTY uncertainty-reduction plan
-111. `spike-lsp.md`
+112. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
