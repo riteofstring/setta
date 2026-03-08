@@ -144,6 +144,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		localSessionLauncher  *launcher.LocalIDESessionLauncher
 		sshRuntime            *sshx.Service
 		llmRuntime            *llmconfig.Runtime
+		llmService            *llmconfig.Service
 		engineStore           *agentruns.EngineStore
 		agentRunStore         *agentruns.RunStore
 		agentRunRuntime       *agentruns.Runtime
@@ -681,6 +682,15 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			workspaceEnv,
 			llmconfig.CurrentProcessEnv(),
 		))
+		llmService, err = llmconfig.NewService(llmconfig.ServiceOptions{
+			ConfigPath:         llmconfig.Path(cfg.Paths.SettaFilesRoot),
+			ManagedAPIKeysPath: llmconfig.ManagedAPIKeysPath(cfg.Paths.WorkspaceRoot),
+			Runtime:            llmRuntime,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
 		transcriptionProfiles, err = transcriptionprofiles.NewService(transcriptionprofiles.ServiceOptions{
 			Profiles: transcriptionStore,
 			LLM:      llmRuntime,
@@ -1193,6 +1203,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			if err := httpapi.RegisterTranscriptionProfileRoutes(r, httpapi.TranscriptionProfileRouteDependencies{
 				ModePolicy: modePolicy,
 				Profiles:   transcriptionProfiles,
+			}); err != nil {
+				panic(err)
+			}
+			if err := httpapi.RegisterLLMRoutes(r, httpapi.LLMRouteDependencies{
+				ModePolicy:   modePolicy,
+				Service:      llmService,
+				WebsocketHub: websocketHub,
 			}); err != nil {
 				panic(err)
 			}

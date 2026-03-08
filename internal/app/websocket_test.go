@@ -19,6 +19,7 @@ import (
 	binarypayload "setta/internal/binary"
 	"setta/internal/config"
 	"setta/internal/httpapi"
+	"setta/internal/llmconfig"
 	"setta/internal/observability"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
@@ -162,6 +163,184 @@ func TestAppSaveSettingsBroadcastsUpdateSettings(t *testing.T) {
 	}
 	if got := app.SettingsState().Snapshot().Document["backend"].(map[string]any)["renameRefactorMode"]; got != "ALWAYS_RENAME" {
 		t.Fatalf("expected runtime renameRefactorMode ALWAYS_RENAME, got %#v", got)
+	}
+}
+
+func TestAppSaveLLMConfigBroadcastsLLMUpdates(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+	if err := os.WriteFile(
+		llmconfig.ManagedAPIKeysPath(cfg.Paths.WorkspaceRoot),
+		[]byte("ANTHROPIC_API_KEY=managed-secret\nSETTA_MANAGED_LLM_API_KEY_NAMES=[\"ANTHROPIC_API_KEY\"]\n"),
+		0o644,
+	); err != nil {
+		t.Fatalf("seed managed api keys: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	payload, err := json.Marshal(llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"anthropic-main": {
+				ID:        "anthropic-main",
+				Model:     "claude-sonnet",
+				Provider:  "anthropic",
+				APIKeyEnv: "ANTHROPIC_API_KEY",
+			},
+		},
+		MCPServers:      map[string]llmconfig.ServerConfig{},
+		DefaultConfigID: "anthropic-main",
+	})
+	if err != nil {
+		t.Fatalf("marshal llm config request: %v", err)
+	}
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteLLMConfig, strings.NewReader(string(payload)))
+	if err != nil {
+		t.Fatalf("new llm config request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post llm config: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	configEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeLLMConfigUpdated, 4)
+	var configPayload llmconfig.AllConfigs
+	if err := json.Unmarshal(configEnvelope.Content, &configPayload); err != nil {
+		t.Fatalf("decode llm config websocket payload: %v", err)
+	}
+	if configPayload.DefaultConfigID != "anthropic-main" {
+		t.Fatalf("expected websocket default config id anthropic-main, got %#v", configPayload)
+	}
+
+	apiKeysEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeLLMAPIKeysUpdated, 4)
+	var apiKeysPayload llmconfig.ManagedAPIKeysSnapshot
+	if err := json.Unmarshal(apiKeysEnvelope.Content, &apiKeysPayload); err != nil {
+		t.Fatalf("decode llm api keys websocket payload: %v", err)
+	}
+	if got := apiKeysPayload.APIKeys["ANTHROPIC_API_KEY"]; got != "managed-secret" {
+		t.Fatalf("expected managed api key refresh after config save, got %#v", apiKeysPayload)
+	}
+	if apiKeysPayload.Revision <= 0 {
+		t.Fatalf("expected positive managed api key revision, got %#v", apiKeysPayload)
+	}
+}
+
+func TestAppSetLLMAPIKeysBroadcastsRevisionedSnapshot(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"openai-main": {
+				ID:        "openai-main",
+				Model:     "gpt-4o",
+				Provider:  "openai",
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers:      map[string]llmconfig.ServerConfig{},
+		DefaultConfigID: "openai-main",
+	}); err != nil {
+		t.Fatalf("seed llm config: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteLLMAPIKeys,
+		strings.NewReader(`{"apiKeys":{"OPENAI_API_KEY":"saved-secret"},"expectedRevision":0}`),
+	)
+	if err != nil {
+		t.Fatalf("new llm api keys request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post llm api keys: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+	var routePayload llmconfig.ManagedAPIKeysSnapshot
+	if err := json.NewDecoder(response.Body).Decode(&routePayload); err != nil {
+		t.Fatalf("decode llm api keys response: %v", err)
+	}
+	if routePayload.Revision <= 0 {
+		t.Fatalf("expected positive revision, got %#v", routePayload)
+	}
+
+	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeLLMAPIKeysUpdated, 4)
+	var websocketPayload llmconfig.ManagedAPIKeysSnapshot
+	if err := json.Unmarshal(envelope.Content, &websocketPayload); err != nil {
+		t.Fatalf("decode llm api keys websocket payload: %v", err)
+	}
+	if got := websocketPayload.APIKeys["OPENAI_API_KEY"]; got != "saved-secret" {
+		t.Fatalf("expected saved secret in websocket payload, got %#v", websocketPayload)
+	}
+	if websocketPayload.Revision != routePayload.Revision {
+		t.Fatalf("expected websocket revision %d, got %#v", routePayload.Revision, websocketPayload)
 	}
 }
 

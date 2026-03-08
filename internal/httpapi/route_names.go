@@ -114,6 +114,8 @@ var bareRouteNames = map[string]struct{}{
 	bareRouteName(RouteCreateTranscriptionProfile):              {},
 	bareRouteName(RouteUpdateTranscriptionProfile):              {},
 	bareRouteName(RouteDeleteTranscriptionProfile):              {},
+	bareRouteName(RouteLLMConfig):                               {},
+	bareRouteName(RouteLLMAPIKeys):                              {},
 	bareRouteName(RouteCreatePromptTemplate):                    {},
 	bareRouteName(RouteUpdatePromptTemplate):                    {},
 	bareRouteName(RouteDeletePromptTemplate):                    {},

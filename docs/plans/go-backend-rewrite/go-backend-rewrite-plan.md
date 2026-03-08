@@ -27,10 +27,11 @@ Prefer the Go stdlib or well established Go libraries for this rewrite.
 
 ## Current Status
 
-As of 2026-03-09, the phase docs through Phase 11 and the recorded spike
+As of 2026-03-09, the phase docs through Phase 16 and the recorded spike
 outcomes describe a repo state where the deployment/launcher runtime slices,
-the shipped CLI migration slices, and the MCP/tooling foundations are complete
-for their bounded scopes.
+the shipped CLI migration slices, the MCP/tooling foundations, the bounded
+plugin runtime surface, and the direct frontend LLM settings transport are
+complete for their bounded scopes.
 
 That does not mean the full backend runtime is fully Go-owned. User-facing
 AI/chat routing is still partially Python-owned, but the rewrite no longer
@@ -727,6 +728,28 @@ The bounded closeout inventory tracked in
   and the remaining deferred plugin items should stay caller-driven rather than
   being reopened speculatively
 
+The bounded post-Phase-15 follow-on tracked in
+`phase-16-llm-config-and-managed-api-key-transport.md` is now landed:
+
+- Go now owns:
+  - `GET /llm/config`
+  - `POST /llm/config`
+  - `GET /llm/apiKeys`
+  - `POST /llm/apiKeys`
+- `internal/llmconfig` now owns:
+  - revisioned managed API-key snapshot reads and writes over workspace `.env`
+  - direct `llm_config.json` save orchestration above the existing runtime
+  - immediate runtime API-key refresh after config changes instead of leaving
+    newly referenced keys pending until a later watcher event
+- the live IDE app now broadcasts:
+  - `LLMConfigUpdated`
+  - `LLMApiKeysUpdated`
+- broad external file-watch parity for `.env` and `llm_config.json` remains
+  explicitly deferred until a concrete caller requires it
+- after this slice, the remaining direct frontend Python-owned AI/app-
+  generation surface is no longer LLM settings transport; it should be reranked
+  from real callers such as app-gen skills or a later explicit watcher slice
+
 The bounded plugin dependency cleanup tracked in
 `phase-11-plugin-version-range-owner-and-dependency-cleanup.md` is now also
 landed:
@@ -1376,9 +1399,9 @@ Do not weaken this rule during the rewrite.
    requirement breaks them, and keep any remaining PTY discussion bounded to
    explicit Windows follow-up or caller-backed terminal features rather than
    reopening terminal architecture more broadly.
-3. Start any future agentic follow-on from the Phase 14 runtime-mutation plan,
-   the Phase 14 run-chain closeout inventory, and real caller analysis, not by
-   reopening completed Phase 12 runtime work or early spikes.
+3. Start any future AI/app-generation follow-on from the latest closeout docs
+   plus real caller analysis, not by reopening completed Phase 12 runtime
+   work, Phase 15 plugin work, or early spikes.
 4. Prefer stabilization and reference-suite expansion where completed runtime
    owners still have thin regression protection, but do not use that as a
    substitute for choosing a concrete next caller-backed or product-backed
@@ -1401,9 +1424,14 @@ Do not weaken this rule during the rewrite.
 5. Treat Go-owned managed `setta_llm` runtime mutation work as explicitly
    deferred unless a later product decision reopens the Phase 14 managed
    `start/stopAgentRun` slice.
-6. Limit future Python follow-up outside Phase 12 to explicitly chosen
-   packaging, installer, or release-surface work rather than rediscovering
-   backend-runtime scope.
+6. Rerank the remaining Python-owned direct frontend AI/app-generation surface
+   from real callers after Phase 16 instead of assuming another transport
+   cleanup cluster still exists.
+   - the next likely direct caller-backed candidate is app-gen skills / custom
+     skill transport
+   - external `.env` or `llm_config.json` watch parity should only reopen if a
+     concrete runtime caller proves that polling or direct mutation responses
+     are insufficient
 
 ## Planning Conclusion
 

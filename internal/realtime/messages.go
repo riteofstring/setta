@@ -3,6 +3,7 @@ package realtime
 import (
 	"strings"
 
+	"setta/internal/llmconfig"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/settingsstate"
@@ -16,6 +17,8 @@ const (
 	MessageTypeUISettingReveal             = "UISettingReveal"
 	MessageTypeUISettingRevealResult       = "UISettingRevealResult"
 	MessageTypeLSPDiagnostics              = "LSPDiagnostics"
+	MessageTypeLLMConfigUpdated            = "LLMConfigUpdated"
+	MessageTypeLLMAPIKeysUpdated           = "LLMApiKeysUpdated"
 	MessageTypeUpdateFrontendProjectState  = "UpdateFrontendProjectState"
 	MessageTypeUpdateSettings              = "UpdateSettings"
 	MessageTypeReturnRenameRefactorResults = "ReturnRenameRefactorResults"
@@ -131,6 +134,16 @@ type LSPDiagnosticsMessage struct {
 	Content     projectstate.LSPDiagnosticsPayload `json:"content"`
 }
 
+type LLMConfigUpdatedMessage struct {
+	MessageType string               `json:"messageType"`
+	Content     llmconfig.AllConfigs `json:"content"`
+}
+
+type LLMAPIKeysUpdatedMessage struct {
+	MessageType string                           `json:"messageType"`
+	Content     llmconfig.ManagedAPIKeysSnapshot `json:"content"`
+}
+
 type ProjectStateUpdateContent struct {
 	ProjectState   projectview.SingleConfig `json:"projectState"`
 	CompletedOpIDs []string                 `json:"completedOpIds"`
@@ -219,6 +232,20 @@ func NewAllConnectionsMessage(connections []Connection) AllConnectionsMessage {
 func NewLSPDiagnosticsMessage(content projectstate.LSPDiagnosticsPayload) LSPDiagnosticsMessage {
 	return LSPDiagnosticsMessage{
 		MessageType: MessageTypeLSPDiagnostics,
+		Content:     content,
+	}
+}
+
+func NewLLMConfigUpdatedMessage(content llmconfig.AllConfigs) LLMConfigUpdatedMessage {
+	return LLMConfigUpdatedMessage{
+		MessageType: MessageTypeLLMConfigUpdated,
+		Content:     content,
+	}
+}
+
+func NewLLMAPIKeysUpdatedMessage(content llmconfig.ManagedAPIKeysSnapshot) LLMAPIKeysUpdatedMessage {
+	return LLMAPIKeysUpdatedMessage{
+		MessageType: MessageTypeLLMAPIKeysUpdated,
 		Content:     content,
 	}
 }

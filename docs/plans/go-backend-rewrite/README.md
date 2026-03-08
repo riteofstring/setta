@@ -652,12 +652,16 @@ Use the docs in this order:
   - focused closeout inventory doc confirming the landed Phase 15 plugin
     surface has no remaining caller-backed gap under the current clean-break
     scope
-179. `spike-mcp.md`
+179. `phase-16-llm-config-and-managed-api-key-transport.md`
+  - focused completed-slice doc for Go-owned direct frontend LLM config and
+    managed API-key transport, live runtime mutation, and websocket snapshot
+    updates over the existing `internal/llmconfig` runtime owner
+180. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-180. `spike-pty.md`
+181. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-181. `spike-lsp.md`
+182. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:
