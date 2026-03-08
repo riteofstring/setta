@@ -23,6 +23,7 @@ import {
 } from "./agentRunUtils";
 import { loadAgentRuns } from "./ai";
 import { getCurrProjectConfigId } from "./sectionInfos";
+import { logWorkflowDebug } from "./stateMachineDebug";
 
 const STATE_MACHINE_RUN_TYPE = "state_machine";
 
@@ -242,12 +243,34 @@ async function runStateMachineMutation({
     projectConfigId === NULL_PROJECT_CONFIG_ID ||
     normalizedMachineGroupId === ""
   ) {
+    logWorkflowDebug("workflow mutation rejected before request", {
+      projectConfigId,
+      machineGroupId: normalizedMachineGroupId,
+      startSectionId: normalizedStartSectionId,
+      failureMessage,
+    });
     return false;
   }
+  logWorkflowDebug("workflow mutation request", {
+    projectConfigId,
+    machineGroupId: normalizedMachineGroupId,
+    startSectionId: normalizedStartSectionId,
+    failureMessage,
+  });
   const res = await send({
     projectConfigId,
     machineGroupId: normalizedMachineGroupId,
     startSectionId: normalizedStartSectionId,
+  });
+  logWorkflowDebug("workflow mutation response", {
+    projectConfigId,
+    machineGroupId: normalizedMachineGroupId,
+    startSectionId: normalizedStartSectionId,
+    failureMessage,
+    status: res.status,
+    hasResponse: res.hasResponse,
+    ok: res200(res),
+    errorDetail: res200(res) ? null : getErrorDetail(res.data),
   });
   if (!res200(res)) {
     addTemporaryNotification(

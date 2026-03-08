@@ -18,6 +18,10 @@ import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
 } from "./sectionInfos";
+import {
+  getConnectionDebugPayload,
+  logWorkflowDebug,
+} from "./stateMachineDebug";
 
 export const STATE_MACHINE_EDGE_HANDLE_IDS = {
   source: "workflow-source",
@@ -334,17 +338,46 @@ export function createStateMachineEdgeFromConnection(
   connection: Connection,
 ): void {
   if (useShareSession.getState().isDeploymentMode) {
+    logWorkflowDebug("workflow edge creation skipped in deployment mode", {
+      ...getConnectionDebugPayload(connection),
+    });
     return;
   }
   const state = useProjectState.getState();
   const nextEdge = buildStateMachineEdgeForConnection(connection, state);
   if (!nextEdge) {
+    logWorkflowDebug("workflow edge creation rejected", {
+      ...getConnectionDebugPayload(connection),
+      normalizedConnection: getConnectionDebugPayload(
+        normalizeWorkflowConnectionHandles(connection),
+      ),
+      sourceInfo: connection.source
+        ? getWorkflowSectionInfo(state, connection.source)
+        : null,
+      targetInfo: connection.target
+        ? getWorkflowSectionInfo(state, connection.target)
+        : null,
+      resolvedMachineGroupId: resolveMachineGroupIdForConnection(
+        normalizeWorkflowConnectionHandles(connection),
+        state,
+      ),
+    });
     addTemporaryNotification(
       "Workflow edges require compatible workflow ports and one resolvable machine group.",
       "warning",
     );
     return;
   }
+  logWorkflowDebug("workflow edge created", {
+    edgeId: nextEdge.id,
+    machineGroupId: nextEdge.machineGroupId,
+    sourceSectionId: nextEdge.sourceSectionId,
+    sourcePortId: nextEdge.sourcePortId,
+    targetSectionId: nextEdge.targetSectionId,
+    targetPortId: nextEdge.targetPortId,
+    sourceFilterType: nextEdge.sourceFilter?.type ?? null,
+    targetActionType: nextEdge.targetAction?.type ?? null,
+  });
   dispatchOptimisticProjectStateUpdate({
     apply: (draft) => {
       if (

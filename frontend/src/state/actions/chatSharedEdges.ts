@@ -7,6 +7,10 @@ import {
 } from "./agenticEdges";
 import type { ChatSharedEdgeMode } from "./chatSharedHandleIds";
 import {
+  getConnectionDebugPayload,
+  logWorkflowDebug,
+} from "./stateMachineDebug";
+import {
   createStateMachineEdgeFromConnection,
   isValidStateMachineEdgeConnection,
   normalizeWorkflowConnectionHandles,
@@ -68,8 +72,22 @@ export function createSharedChatEdgeFromConnection(
 ): void {
   const resolvedConnection = resolveSharedChatConnection(connection);
   if (!resolvedConnection) {
+    logWorkflowDebug("shared chat connection rejected", {
+      ...getConnectionDebugPayload(connection),
+      agenticValid: isValidAgenticEdgeConnection(connection),
+      workflowValid: isValidStateMachineEdgeConnection(connection),
+      preferredMode: useLocalStorage.getState().chatSharedEdgeMode,
+    });
     return;
   }
+  logWorkflowDebug("shared chat connection resolved", {
+    ...getConnectionDebugPayload(connection),
+    family: resolvedConnection.family,
+    resolvedConnection: getConnectionDebugPayload(
+      resolvedConnection.connection,
+    ),
+    preferredMode: useLocalStorage.getState().chatSharedEdgeMode,
+  });
   if (resolvedConnection.family === "workflow") {
     createStateMachineEdgeFromConnection(resolvedConnection.connection);
     return;
