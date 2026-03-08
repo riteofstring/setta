@@ -32,7 +32,6 @@ import {
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
-  createProjectChatWindowingState,
   createProjectConfig,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
@@ -160,7 +159,6 @@ export const useProjectState = withProjectState(
           singletonSections: createSingletonSections(),
           parentSectionMap: {},
           shownParamIds: {},
-          projectChatWindowing: createProjectChatWindowingState(),
           previewSectionVariantMap: {},
           requiredDecodedImages: [],
         })),
@@ -830,11 +828,6 @@ export const useMisc = withProjectState(
         requestUpdateNodeDimensions: false,
         updateAllDrawAreas: 0,
         updateDrawArea: {}, // sectionId to number that increments every time we want to update
-        projectChatTrackedGitPaneGraphWindowInstanceId: null as string | null,
-        projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {} as Record<
-          string,
-          true
-        >,
       })),
     ),
   ),
@@ -870,7 +863,6 @@ type ZustandAIStore = {
   projectChatSelectedEngineId: string | null;
   chatDetails: Record<string, ChatDetails>;
   pendingChatDetails: ChatDetails | null;
-  pendingChatDetailsBySurfaceId: Record<string, ChatDetails>;
   interruptedAssistantMessageIdsByChatId: Record<string, Record<string, true>>;
   viewThreads: boolean;
   projectChatThreadsExplicitlyClosedAtLargeWidth: boolean;
@@ -931,7 +923,6 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         projectChatSelectedEngineId: null,
         chatDetails: {},
         pendingChatDetails: null,
-        pendingChatDetailsBySurfaceId: {},
         interruptedAssistantMessageIdsByChatId: {},
         viewThreads: false,
         projectChatThreadsExplicitlyClosedAtLargeWidth: false,
@@ -1088,7 +1079,6 @@ export const useToolArgumentPreview = withProjectState(
 
 export type ColorModePreference = "dark" | "light" | "auto";
 export type HomeProjectGalleryViewMode = "thumbnails" | "list";
-type MiniMapSide = "left" | "right";
 
 type ZustandLocalStorage = {
   snapToGrid: boolean;
@@ -1097,7 +1087,6 @@ type ZustandLocalStorage = {
   darkMode: boolean;
   colorMode: ColorModePreference;
   showMinimap: boolean;
-  minimapSide: MiniMapSide;
   projectConfigPreviewEnabled: boolean;
   appSpecStreamingEnabled: boolean;
   homeProjectGalleryViewMode: HomeProjectGalleryViewMode;
@@ -1173,7 +1162,6 @@ export const useLocalStorage = createWithEqualityFn(
       darkMode: true,
       colorMode: "dark",
       showMinimap: true,
-      minimapSide: "left",
       projectConfigPreviewEnabled: true,
       appSpecStreamingEnabled: false,
       homeProjectGalleryViewMode: "thumbnails",
@@ -1329,6 +1317,7 @@ export const useLocalStorage = createWithEqualityFn(
         ) {
           merged.trashedProjectChatThreadIdsByProjectConfigId = {};
         }
+
         return merged;
       },
       partialize: (state) => ({

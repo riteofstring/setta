@@ -19,16 +19,14 @@ type ShareWrapperChildren =
 type ShareWrapperProps = {
   children: ShareWrapperChildren;
   mode?: "project" | "home";
-  manageTitle?: boolean;
 };
 
 export function ShareWrapper({
   children,
   mode = "project",
-  manageTitle = true,
 }: ShareWrapperProps) {
   useShareWebsocket();
-  useShareHTMLTitle(mode, manageTitle);
+  useShareHTMLTitle(mode);
   const loadProject = mode === "project";
   const [doneLoading, is404] = useLoadShareDeployment(loadProject);
   const shareSessionId = useShareSession((x) => x.shareSessionId);
@@ -64,15 +62,12 @@ function useShareWebsocket() {
   }, [location.pathname, shareSessionId]);
 }
 
-function useShareHTMLTitle(mode: "project" | "home", enabled: boolean) {
+function useShareHTMLTitle(mode: "project" | "home") {
   const { projectConfigName } = useParams();
 
   useEffect(() => {
-    if (!enabled) {
-      return;
-    }
     document.title = resolveShareTitle(mode, projectConfigName);
-  }, [enabled, mode, projectConfigName]);
+  }, [mode, projectConfigName]);
 }
 
 function resolveShareTitle(

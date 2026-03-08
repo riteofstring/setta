@@ -992,7 +992,6 @@ function getComparableProjectState(
     shownParamIds: state.shownParamIds,
     requiredDecodedImages: state.requiredDecodedImages,
     genCodeBinding: state.genCodeBinding ?? null,
-    projectChatWindowing: state.projectChatWindowing,
   });
 }
 
