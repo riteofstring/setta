@@ -63,7 +63,7 @@ type MinimapSvgProps = Omit<MiniMapNodesType, "onClick"> & {
   y: number;
   width: number;
   height: number;
-  svgRef: RefObject<SVGSVGElement>;
+  svgRef?: RefObject<SVGSVGElement>;
   onSvgClick?: (event: ReactMouseEvent<SVGSVGElement>) => void;
   onSvgNodeClick?: MiniMapNodesType["onClick"];
   offset: number;
@@ -86,12 +86,11 @@ function areStringArraysEqual(left: string[], right: string[]) {
   return true;
 }
 
-function syncSelectedMiniMapNodes(
-  svgRef: RefObject<SVGSVGElement>,
+export function syncSelectedMiniMapNodes(
+  svg: SVGSVGElement | null | undefined,
   activeIds: string[],
   previousIds: string[],
 ) {
-  const svg = svgRef.current;
   if (!svg) {
     return;
   }
@@ -337,13 +336,17 @@ export default memo(MiniMap);
 function MiniMapSelectionSync({
   svgRef,
 }: {
-  svgRef: RefObject<SVGSVGElement>;
+  svgRef?: RefObject<SVGSVGElement>;
 }) {
   const previousIdsRef = useRef<string[]>([]);
 
   useEffect(() => {
     const applySelection = (activeIds: string[]) => {
-      syncSelectedMiniMapNodes(svgRef, activeIds, previousIdsRef.current);
+      syncSelectedMiniMapNodes(
+        svgRef?.current,
+        activeIds,
+        previousIdsRef.current,
+      );
       previousIdsRef.current = [...activeIds];
     };
 
