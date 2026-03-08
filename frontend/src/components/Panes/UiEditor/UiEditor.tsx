@@ -1,6 +1,5 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
-import _ from "lodash";
 import { useRef } from "react";
 import { BiHelpCircle } from "react-icons/bi";
 import { BsCardChecklist } from "react-icons/bs";
@@ -8,7 +7,8 @@ import { FiEdit3 } from "react-icons/fi";
 import { MdOutlineSettingsApplications } from "react-icons/md";
 import { PiCursorTextFill } from "react-icons/pi";
 import { TbEdit, TbVersions } from "react-icons/tb";
-import { useLocalStorage, useProjectState } from "state/definitions";
+import { useSolelyActiveSectionUIId } from "state/activeSectionUI";
+import { useLocalStorage } from "state/definitions";
 import { useUIEditorTab } from "state/hooks/uiTypes";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
 import {
@@ -39,20 +39,15 @@ export function UiEditor() {
     rootRef: uiEditorRef,
   });
   const hasViewModeTabs = useHasViewModeTabs();
-  const sectionIds = useProjectState(
-    (x) => x.projectConfig.activeIds,
-    _.isEqual,
-  );
+  const activeSectionId = useSolelyActiveSectionUIId();
+
   const { selectedTabName, requiredTabs, sectionType } = useUIEditorTab(
-    sectionIds[0] ?? null,
+    activeSectionId,
   );
   const { vis, width } = useLocalStorage(
     (x) => ({ vis: x.uiEditorVis, width: x.uiEditorWidth }),
     shallow,
   );
-  // const infoTabTooltip = renderMarkdown ? "Markdown Editor" : "Text Editor";
-  // const inputTitle =
-  // selectedTabName === UIEditorTabNameEnum.InfoConfig ? infoTabTooltip : null;
 
   const commonProps = {
     vis,
@@ -131,9 +126,9 @@ export function UiEditor() {
         vis={vis}
         width={width}
       >
-        {sectionIds.length === 1 && sectionIds[0] && vis && selectedTabName ? (
+        {activeSectionId && vis && selectedTabName ? (
           <TabsVisible
-            sectionId={sectionIds[0]}
+            sectionId={activeSectionId}
             selectedTabName={selectedTabName}
             // inputTitle={inputTitle}
           />

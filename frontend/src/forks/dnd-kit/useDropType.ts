@@ -29,6 +29,7 @@ import {
   isDescendantOfSectionSelection,
   orderSectionIdsByParent,
 } from "state/actions/sections/sectionSelection";
+import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import {
   useProjectState,
@@ -769,7 +770,7 @@ function resolveSectionDragSelection(
   }
 
   const state = useProjectState.getState();
-  const activeIds = state.projectConfig.activeIds;
+  const activeIds = getActiveSectionUIIds();
   if (!activeIds.includes(activeId)) {
     return buildSectionSelection([activeId], activeId, activeRect);
   }

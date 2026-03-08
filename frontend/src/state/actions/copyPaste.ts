@@ -3,6 +3,7 @@ import {
   getSectionRect,
 } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
+import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { useMisc, useProjectState, useShareSession } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import {
@@ -18,7 +19,7 @@ import { addTemporaryNotification } from "./notifications";
 import { getCurrProjectConfigId } from "./sectionInfos";
 
 export async function copy() {
-  const activeSectionIds = useProjectState.getState().projectConfig.activeIds;
+  const activeSectionIds = getActiveSectionUIIds();
   if (activeSectionIds.length > 0 && window.getSelection()?.toString() === "") {
     addTemporaryNotification("Copying...");
     const res = await route_prepare_sections_for_copy({
@@ -61,7 +62,7 @@ export async function paste({ asRef = false }) {
 }
 
 function getPasteLocation() {
-  if (useProjectState.getState().projectConfig.activeIds.length === 0) {
+  if (getActiveSectionUIIds().length === 0) {
     return useMisc.getState().lastPaneClickLocation;
   }
   // paste directly to the right of the active sections

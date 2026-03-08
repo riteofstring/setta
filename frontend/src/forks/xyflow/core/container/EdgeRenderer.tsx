@@ -34,10 +34,11 @@ const EdgeRenderer = () => {
   );
   const positions = useEdgeHandleRegistry((state) => state.positions);
   const { width, height } = useReactFlow((state) => ({
-    width: state.width,
-    height: state.height,
-  }));
-
+      width: state.width,
+      height: state.height,
+    }),
+    _.isEqual,
+  );
   useEffect(() => {
     recomputeEdgeHandlePositions();
   }, [edges, width, height, topLevelSections]);

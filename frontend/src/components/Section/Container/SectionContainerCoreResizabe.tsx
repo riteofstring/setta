@@ -1,5 +1,6 @@
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import _ from "lodash";
+import React from "react";
 import {
   getCurrEffectiveSectionImpl,
   getEmbeddedAttachedTerminalForCodeSection,
@@ -39,7 +40,6 @@ import { getBgColor } from "./utils";
 type SectionContainerCoreResizableProps = {
   sectionId: string;
   sectionTypeName: SectionType;
-  isActiveSection: boolean;
   isInOtherProjectConfigs: boolean;
   isUserView: boolean;
   positionAndSizeLocked: boolean;
@@ -47,10 +47,9 @@ type SectionContainerCoreResizableProps = {
   hideHeader?: boolean;
 };
 
-export function SectionContainerCoreResizable({
+function _SectionContainerCoreResizable({
   sectionId,
   sectionTypeName,
-  isActiveSection,
   isInOtherProjectConfigs,
   isUserView,
   positionAndSizeLocked,
@@ -96,6 +95,15 @@ export function SectionContainerCoreResizable({
   const metaControlLayoutClassName = isMetaControl
     ? "grid-cols-1 grid-rows-1"
     : undefined;
+  const sectionBody = !isMinimized ? (
+    <AreaSwitch
+      sectionId={sectionId}
+      sectionTypeName={sectionTypeName}
+      bgColor={bgColor}
+      isMinimized={isMinimized}
+      isUserView={isUserView}
+    />
+  ) : null;
 
   return (
     <CustomResizable
@@ -103,7 +111,6 @@ export function SectionContainerCoreResizable({
       as="section"
       bgColor={bgColor}
       isYouTube={isYouTube}
-      isActiveSection={isActiveSection}
       isMetaControl={useMetaControlStyle}
       positionAndSizeLocked={positionAndSizeLocked}
       hasSectionStyleTheme={hasSectionStyleTheme}
@@ -141,28 +148,27 @@ export function SectionContainerCoreResizable({
             </div>
           </div>
         )
-      ) : hideHeader ? null : (
+      ) : !hideHeader ? (
         <SectionHeader
           sectionId={sectionId}
-          isActiveSection={isActiveSection}
           sectionTypeName={sectionTypeName}
           isInOtherProjectConfigs={isInOtherProjectConfigs}
           isUserView={isUserView}
           isRoot={isRoot}
           hasSectionStyleTheme={hasSectionStyleTheme}
         />
+      ) : null}
+      {isRoot && (
+        <Incrementer sectionId={sectionId} isRoot={isRoot} />
       )}
-      {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
-      <AreaSwitch
-        sectionId={sectionId}
-        sectionTypeName={sectionTypeName}
-        bgColor={bgColor}
-        isMinimized={isMinimized}
-        isUserView={isUserView}
-      />
+      {sectionBody}
     </CustomResizable>
   );
 }
+
+export const SectionContainerCoreResizable = React.memo(
+  _SectionContainerCoreResizable,
+);
 
 function AreaSwitch({
   sectionId,
