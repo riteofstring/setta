@@ -370,11 +370,15 @@ Use the docs in this order:
   - focused closeout/inventory doc for the remaining Python-owned maintenance
     commands after the completed Phase 10 local-runtime migration, with
     `backups` as the first recommended follow-up slice
-122. `spike-mcp.md`
+122. `phase-11-backups-command-stage1.md`
+  - focused implementation-plan doc for the first bounded Phase 11 slice:
+    Go-owned `setta backups list|restore` over the completed runtime-path and
+    local-session foundations
+123. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-123. `spike-pty.md`
+124. `spike-pty.md`
    - PTY uncertainty-reduction plan
-124. `spike-lsp.md`
+125. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

@@ -148,6 +148,8 @@ As of 2026-03-08:
 If product priorities require another shipped CLI migration slice, start with a
 focused Stage 1 plan for `setta backups` only.
 
+That plan now lives in `phase-11-backups-command-stage1.md`.
+
 That slice should cover:
 
 1. `setta backups list`
