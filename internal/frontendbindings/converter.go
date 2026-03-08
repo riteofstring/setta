@@ -18,7 +18,6 @@ type TypeDeclaration struct {
 	EnumValues      []EnumValue
 	CreateExpr      string
 	CreateBody      string
-	FactoryTS       string
 	Exported        bool
 	SetElementType  string
 	SetMembers      []string
@@ -63,12 +62,6 @@ func objectDeclarationWithCreateBody(name string, createBody string, properties 
 	return declaration
 }
 
-func objectDeclarationWithFactory(name string, factoryTS string, properties ...TypeProperty) TypeDeclaration {
-	declaration := objectDeclaration(name, properties...)
-	declaration.FactoryTS = factoryTS
-	return declaration
-}
-
 func aliasDeclaration(name string, alias string) TypeDeclaration {
 	return TypeDeclaration{
 		Name:  name,
@@ -80,12 +73,6 @@ func aliasDeclaration(name string, alias string) TypeDeclaration {
 func aliasDeclarationWithCreateExpr(name string, alias string, createExpr string) TypeDeclaration {
 	declaration := aliasDeclaration(name, alias)
 	declaration.CreateExpr = createExpr
-	return declaration
-}
-
-func aliasDeclarationWithFactory(name string, alias string, factoryTS string) TypeDeclaration {
-	declaration := aliasDeclaration(name, alias)
-	declaration.FactoryTS = factoryTS
 	return declaration
 }
 

@@ -1506,9 +1506,6 @@ func TestProjectStateSectionSupportPrimitiveContractsUseConverterDeclarations(t 
 			if declaration.CreateExpr != "" {
 				t.Fatalf("%s CreateExpr should be empty, got %q", tt.name, declaration.CreateExpr)
 			}
-			if declaration.FactoryTS != "" {
-				t.Fatalf("%s FactoryTS should be empty, got %q", tt.name, declaration.FactoryTS)
-			}
 		})
 	}
 }
@@ -1521,7 +1518,6 @@ func TestChatSupportContractsUseConverterDeclarations(t *testing.T) {
 		alias               string
 		properties          []TypeProperty
 		hasCreateExpr       bool
-		hasFactoryTS        bool
 		factoryFunctionName string
 	}{
 		{
@@ -1772,9 +1768,6 @@ func TestChatSupportContractsUseConverterDeclarations(t *testing.T) {
 			if (declaration.CreateExpr != "") != tt.hasCreateExpr {
 				t.Fatalf("%s CreateExpr presence = %t, want %t", tt.name, declaration.CreateExpr != "", tt.hasCreateExpr)
 			}
-			if (declaration.FactoryTS != "") != tt.hasFactoryTS {
-				t.Fatalf("%s FactoryTS presence = %t, want %t", tt.name, declaration.FactoryTS != "", tt.hasFactoryTS)
-			}
 			if tt.factoryFunctionName != "" {
 				factoryDecl := requireDeclaration(t, converter.Declarations(), tt.factoryFunctionName)
 				if factoryDecl.Kind != "function" {
@@ -1797,7 +1790,6 @@ func TestBrowserSupportContractsUseConverterDeclarations(t *testing.T) {
 		properties          []TypeProperty
 		hasCreateExpr       bool
 		hasCreateBody       bool
-		hasFactoryTS        bool
 		factoryFunctionName string
 	}{
 		{
@@ -1886,9 +1878,6 @@ func TestBrowserSupportContractsUseConverterDeclarations(t *testing.T) {
 			if (declaration.CreateExpr != "") != tt.hasCreateExpr {
 				t.Fatalf("%s CreateExpr presence = %t, want %t", tt.name, declaration.CreateExpr != "", tt.hasCreateExpr)
 			}
-			if (declaration.FactoryTS != "") != tt.hasFactoryTS {
-				t.Fatalf("%s FactoryTS presence = %t, want %t", tt.name, declaration.FactoryTS != "", tt.hasFactoryTS)
-			}
 			if tt.factoryFunctionName != "" {
 				factoryDecl := requireDeclaration(t, converter.Declarations(), tt.factoryFunctionName)
 				if factoryDecl.Kind != "function" {
@@ -1911,7 +1900,6 @@ func TestTaskBoardSupportContractsUseConverterDeclarations(t *testing.T) {
 		properties          []TypeProperty
 		hasCreateExpr       bool
 		hasCreateBody       bool
-		hasFactoryTS        bool
 		factoryFunctionName string
 	}{
 		{
@@ -1997,9 +1985,6 @@ func TestTaskBoardSupportContractsUseConverterDeclarations(t *testing.T) {
 			if (declaration.CreateExpr != "") != tt.hasCreateExpr {
 				t.Fatalf("%s CreateExpr presence = %t, want %t", tt.name, declaration.CreateExpr != "", tt.hasCreateExpr)
 			}
-			if (declaration.FactoryTS != "") != tt.hasFactoryTS {
-				t.Fatalf("%s FactoryTS presence = %t, want %t", tt.name, declaration.FactoryTS != "", tt.hasFactoryTS)
-			}
 			if tt.factoryFunctionName != "" {
 				factoryDecl := requireDeclaration(t, converter.Declarations(), tt.factoryFunctionName)
 				if factoryDecl.Kind != "function" {
@@ -2021,7 +2006,6 @@ func TestChartSupportContractsUseConverterDeclarations(t *testing.T) {
 		alias               string
 		properties          []TypeProperty
 		hasCreateExpr       bool
-		hasFactoryTS        bool
 		factoryFunctionName string
 	}{
 		{
@@ -2108,9 +2092,6 @@ func TestChartSupportContractsUseConverterDeclarations(t *testing.T) {
 			if (declaration.CreateExpr != "") != tt.hasCreateExpr {
 				t.Fatalf("%s CreateExpr presence = %t, want %t", tt.name, declaration.CreateExpr != "", tt.hasCreateExpr)
 			}
-			if (declaration.FactoryTS != "") != tt.hasFactoryTS {
-				t.Fatalf("%s FactoryTS presence = %t, want %t", tt.name, declaration.FactoryTS != "", tt.hasFactoryTS)
-			}
 			if tt.factoryFunctionName != "" {
 				factoryDecl := requireDeclaration(t, converter.Declarations(), tt.factoryFunctionName)
 				if factoryDecl.Kind != "function" {
@@ -2132,7 +2113,6 @@ func TestSpreadsheetSupportContractsUseConverterDeclarations(t *testing.T) {
 		alias               string
 		properties          []TypeProperty
 		hasCreateExpr       bool
-		hasFactoryTS        bool
 		factoryFunctionName string
 	}{
 		{
@@ -2192,9 +2172,6 @@ func TestSpreadsheetSupportContractsUseConverterDeclarations(t *testing.T) {
 			}
 			if (declaration.CreateExpr != "") != tt.hasCreateExpr {
 				t.Fatalf("%s CreateExpr presence = %t, want %t", tt.name, declaration.CreateExpr != "", tt.hasCreateExpr)
-			}
-			if (declaration.FactoryTS != "") != tt.hasFactoryTS {
-				t.Fatalf("%s FactoryTS presence = %t, want %t", tt.name, declaration.FactoryTS != "", tt.hasFactoryTS)
 			}
 			if tt.factoryFunctionName != "" {
 				factoryDecl := requireDeclaration(t, converter.Declarations(), tt.factoryFunctionName)
@@ -2260,7 +2237,6 @@ func TestSettingsSizingContractsUseConverterDeclarations(t *testing.T) {
 		properties    []TypeProperty
 		hasCreateExpr bool
 		hasCreateBody bool
-		hasFactoryTS  bool
 	}{
 		{
 			name:  "SectionSizeValue",
@@ -2409,9 +2385,6 @@ func TestSettingsSizingContractsUseConverterDeclarations(t *testing.T) {
 			if (declaration.CreateBody != "") != tt.hasCreateBody {
 				t.Fatalf("%s CreateBody presence = %t, want %t", tt.name, declaration.CreateBody != "", tt.hasCreateBody)
 			}
-			if (declaration.FactoryTS != "") != tt.hasFactoryTS {
-				t.Fatalf("%s FactoryTS presence = %t, want %t", tt.name, declaration.FactoryTS != "", tt.hasFactoryTS)
-			}
 		})
 	}
 }
@@ -2495,7 +2468,6 @@ func TestSettingsSupportContractsUseConverterDeclarations(t *testing.T) {
 		properties    []TypeProperty
 		hasCreateExpr bool
 		hasCreateBody bool
-		hasFactoryTS  bool
 	}{
 		{
 			name: "SharePolicy",
@@ -2674,9 +2646,6 @@ func TestSettingsSupportContractsUseConverterDeclarations(t *testing.T) {
 			if (declaration.CreateBody != "") != tt.hasCreateBody {
 				t.Fatalf("%s CreateBody presence = %t, want %t", tt.name, declaration.CreateBody != "", tt.hasCreateBody)
 			}
-			if (declaration.FactoryTS != "") != tt.hasFactoryTS {
-				t.Fatalf("%s FactoryTS presence = %t, want %t", tt.name, declaration.FactoryTS != "", tt.hasFactoryTS)
-			}
 		})
 	}
 }
@@ -2752,7 +2721,6 @@ func TestProjectCodegenSupportContractsUseConverterDeclarations(t *testing.T) {
 		properties    []TypeProperty
 		hasCreateExpr bool
 		hasCreateBody bool
-		hasFactoryTS  bool
 	}{
 		{
 			name: "SectionTypeCodegenPolicy",
@@ -2869,9 +2837,6 @@ func TestProjectCodegenSupportContractsUseConverterDeclarations(t *testing.T) {
 			}
 			if (declaration.CreateBody != "") != tt.hasCreateBody {
 				t.Fatalf("%s CreateBody presence = %t, want %t", tt.name, declaration.CreateBody != "", tt.hasCreateBody)
-			}
-			if (declaration.FactoryTS != "") != tt.hasFactoryTS {
-				t.Fatalf("%s FactoryTS presence = %t, want %t", tt.name, declaration.FactoryTS != "", tt.hasFactoryTS)
 			}
 		})
 	}
@@ -3080,9 +3045,6 @@ func TestProjectShellSupportContractsUseConverterDeclarations(t *testing.T) {
 			if (declaration.CreateExpr != "") != tt.hasCreateExpr {
 				t.Fatalf("%s CreateExpr presence = %t, want %t", tt.name, declaration.CreateExpr != "", tt.hasCreateExpr)
 			}
-			if declaration.FactoryTS != "" {
-				t.Fatalf("%s FactoryTS should be empty, got %q", tt.name, declaration.FactoryTS)
-			}
 		})
 	}
 }
@@ -3289,9 +3251,6 @@ func TestProjectStateCoreSupportContractsUseConverterDeclarations(t *testing.T) 
 			if (declaration.CreateExpr != "") != tt.hasCreateExpr {
 				t.Fatalf("%s CreateExpr presence = %t, want %t", tt.name, declaration.CreateExpr != "", tt.hasCreateExpr)
 			}
-			if declaration.FactoryTS != "" {
-				t.Fatalf("%s FactoryTS should be empty, got %q", tt.name, declaration.FactoryTS)
-			}
 		})
 	}
 }
@@ -3337,9 +3296,6 @@ func TestProjectConfigSupportContractsUseConverterDeclarations(t *testing.T) {
 	if declaration.CreateExpr == "" {
 		t.Fatalf("ProjectConfig CreateExpr should be present")
 	}
-	if declaration.FactoryTS != "" {
-		t.Fatalf("ProjectConfig FactoryTS should be empty, got %q", declaration.FactoryTS)
-	}
 }
 
 func TestProjectStateSectionSupportContractsUseConverterDeclarations(t *testing.T) {
@@ -3350,7 +3306,6 @@ func TestProjectStateSectionSupportContractsUseConverterDeclarations(t *testing.
 		alias               string
 		properties          []TypeProperty
 		hasCreateExpr       bool
-		hasFactoryTS        bool
 		factoryFunctionName string
 	}{
 		{
@@ -4059,9 +4014,6 @@ func TestProjectStateSectionSupportContractsUseConverterDeclarations(t *testing.
 			}
 			if (declaration.CreateExpr != "") != tt.hasCreateExpr {
 				t.Fatalf("%s CreateExpr presence = %t, want %t", tt.name, declaration.CreateExpr != "", tt.hasCreateExpr)
-			}
-			if (declaration.FactoryTS != "") != tt.hasFactoryTS {
-				t.Fatalf("%s FactoryTS presence = %t, want %t", tt.name, declaration.FactoryTS != "", tt.hasFactoryTS)
 			}
 			if tt.factoryFunctionName != "" {
 				factoryDecl := requireDeclaration(t, converter.Declarations(), tt.factoryFunctionName)

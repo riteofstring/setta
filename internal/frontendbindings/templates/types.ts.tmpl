@@ -180,8 +180,6 @@ export function create{{ .Name }}(options: Partial<{{ .Name }}> = {}): {{ .Name 
 export function create{{ .Name }}(options: Partial<{{ .Name }}> = {}): {{ .Name }} {
 {{ .CreateBody }}
 }
-{{- else if .FactoryTS }}
-{{ .FactoryTS }}
 {{- else }}
 export function create{{ .Name }}(options: Partial<{{ .Name }}> = {}): {{ .Name }} {
   return options as {{ .Name }};
@@ -200,8 +198,6 @@ export type {{ .Name }} = {{ .Alias }};
 export function create{{ .Name }}(options: Partial<{{ .Name }}> = {}): {{ .Name }} {
   return {{ .CreateExpr }};
 }
-{{- else if .FactoryTS }}
-{{ .FactoryTS }}
 {{- end }}
 {{ else if eq .Kind "local_alias" }}
 type {{ .Name }}{{ .TypeParams }} = {{ .Alias }};
