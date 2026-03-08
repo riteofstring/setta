@@ -13,7 +13,7 @@ class SettaToolType(str, Enum):
 
 FollowIdType = Literal["section", "codeObj"]
 ToolArgumentPreviewIdType = Literal["section", "codeObj"]
-ToolAccessType = Literal["read", "write", "structural"]
+ToolAccessType = Literal["read", "write", "structural", "peer_chat"]
 ToolResultFilterType = Literal["project_state_summary", "lsp_diagnostics"]
 
 
@@ -34,6 +34,7 @@ TOOL_ARGUMENT_PREVIEW_ATTR = "_setta_tool_argument_preview"
 TOOL_SEARCH_TAGS_ATTR = "_setta_tool_search_tags"
 TOOL_SEARCH_CATEGORY_ATTR = "_setta_tool_search_category"
 TOOL_ACCESS_ATTR = "_setta_tool_access"
+TOOL_RUNTIME_POLICY_ATTR = "_setta_tool_runtime_policy"
 TOOL_RESULT_FILTER_ATTR = "_setta_tool_result_filter"
 
 
@@ -121,6 +122,9 @@ def get_tool_search_category(fn: Callable[..., Any]) -> str | None:
 class SettaToolAnnotations(ToolAnnotations):
     settaToolType: SettaToolType
     accessType: ToolAccessType = "structural"
+    requiresLLM: bool = False
+    startsRun: bool = False
+    retryOnDisconnect: bool = True
     idPathsByType: dict[FollowIdType, list[str]] = Field(default_factory=dict)
     defaultTargetSingletonSection: str | None = None
     resultFilter: ToolResultFilterType | None = None
@@ -133,6 +137,7 @@ class SettaToolAnnotations(ToolAnnotations):
 
 class ToolAccessMetadata(BaseModel):
     accessType: ToolAccessType
+    retryOnDisconnect: bool = True
     idPathsByType: dict[FollowIdType, list[str]] = Field(default_factory=dict)
     defaultTargetSingletonSection: str | None = None
 
@@ -148,6 +153,26 @@ def attach_tool_access(
 
 def get_tool_access(fn: Callable[..., Any]) -> ToolAccessMetadata | None:
     return getattr(fn, TOOL_ACCESS_ATTR, None)
+
+
+class ToolRuntimePolicyMetadata(BaseModel):
+    requiresLLM: bool = False
+    startsRun: bool = False
+
+
+def attach_tool_runtime_policy(
+    fn: Callable[..., Any],
+    metadata: ToolRuntimePolicyMetadata | None,
+) -> None:
+    if metadata is None:
+        return
+    setattr(fn, TOOL_RUNTIME_POLICY_ATTR, metadata)
+
+
+def get_tool_runtime_policy(
+    fn: Callable[..., Any],
+) -> ToolRuntimePolicyMetadata | None:
+    return getattr(fn, TOOL_RUNTIME_POLICY_ATTR, None)
 
 
 def attach_tool_result_filter(
