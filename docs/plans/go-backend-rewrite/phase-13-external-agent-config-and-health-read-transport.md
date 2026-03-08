@@ -103,7 +103,8 @@ Closeout rerun after the landing:
   config and health reads is now gone
 - richer Python-only plugin/env-var/cache preflight semantics remain deferred
   and are no longer hidden inside the hydration move
-- the current remaining direct frontend Python-owned agentic routes are:
+- at that point, the current remaining direct frontend Python-owned agentic
+  routes were:
   - `POST /createExternalAgentConfig`
   - `POST /updateExternalAgentConfig`
   - `POST /deleteExternalAgentConfig`

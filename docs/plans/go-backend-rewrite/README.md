@@ -509,12 +509,16 @@ Use the docs in this order:
     Go-owned `create/update/delete` external-agent-config transport over the
     landed store/service boundary, with plugin-registry parity and shared
     Claude settings-file ownership explicitly deferred
-152. `spike-mcp.md`
+152. `phase-13-remaining-agentic-route-inventory-and-rerank.md`
+  - focused closeout inventory doc for the remaining Python-owned agentic
+    routes after the landed Phase 13 direct-surface work, including actual
+    caller checks and reranked follow-on options
+153. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-153. `spike-pty.md`
+154. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-154. `spike-lsp.md`
+155. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

@@ -312,6 +312,20 @@ The next bounded post-Phase-13 slice tracked in
 - the direct frontend settings mutation surface tracked through Phase 13 is now
   Go-owned for the current bounded scope
 
+The bounded closeout inventory tracked in
+`phase-13-remaining-agentic-route-inventory-and-rerank.md` is now landed:
+
+- the remaining Python-owned routes in `backend/setta/routers/agentic.py` no
+  longer hide another direct Phase 13 settings or hydration blocker
+- current leftover routes split into:
+  - dormant single-item reads with no live frontend caller
+  - dormant engine-config create/delete transport with no live frontend caller
+  - managed-agent / run-chain runtime routes tied to intentionally de-scoped
+    managed `setta_llm` and Python runtime owners
+- the next rewrite slice should therefore come from a concrete new caller or
+  an explicit product/runtime decision, not from assuming another automatic
+  transport migration is still pending
+
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are
 already locked in practice by the current Go implementation. The PTY runtime
@@ -319,9 +333,10 @@ shape is also proven, but the PTY library choice still has a bounded Unix-path
 follow-up tracked in `spike-pty.md`. New work should start from the remaining
 real callers and product dependencies, not by reopening the completed
 external-agent runtime or Phase 13 settings surfaces. The next bounded priority
-should therefore be inventory/rerank work over the remaining Python-owned
-agentic routes and generated single-item reads before another transport slice
-is chosen.
+is no longer that inventory work itself; that is now complete. The next
+bounded priority should only be chosen after a concrete caller or explicit
+product/runtime decision identifies which of the remaining Python-owned routes
+actually matters.
 
 ## Current Reality
 
@@ -884,7 +899,8 @@ Do not weaken this rule during the rewrite.
 
 1. Keep the roadmap and phase docs synchronized with the current shipped code
    so closed phases do not look active again and the remaining Python-owned
-   agentic route inventory does not disappear from planning context.
+   agentic route inventory plus its reranked outcome do not disappear from
+   planning context.
 2. Treat MCP, LSP, and file-state choices as locked unless a concrete new
    requirement breaks them, and keep the PTY discussion bounded to the planned
    `go-pty` to `creack/pty` Unix follow-up rather than reopening terminal
@@ -894,7 +910,8 @@ Do not weaken this rule during the rewrite.
    spikes.
 4. Prefer stabilization and reference-suite expansion where completed runtime
    owners still have thin regression protection, but do not use that as a
-   substitute for the remaining Python-owned agentic inventory and rerank.
+   substitute for choosing a concrete next caller-backed or product-backed
+   Python-owned agentic follow-on.
 5. Treat Go-owned managed `setta_llm` as de-scoped unless a later product
    decision explicitly reopens it.
 6. Limit future Python follow-up outside Phase 12 to explicitly chosen

@@ -85,7 +85,8 @@ Closeout rerun after the landing:
   route
 - a later closeout audit after the prompt-template CRUD landing corrected an
   earlier stale inventory in this doc
-- the current remaining direct frontend Python-owned agentic routes are:
+- at that point, the current remaining direct frontend Python-owned agentic
+  routes were:
   - `POST /createExternalAgentConfig`
   - `POST /updateExternalAgentConfig`
   - `POST /deleteExternalAgentConfig`
@@ -97,7 +98,8 @@ Closeout rerun after the landing:
   - `POST /getEngineConfig`
   but no direct frontend caller was found for them in the current worktree
 
-Remaining Python-owned agentic routes outside this slice:
+At that point, the remaining Python-owned agentic routes outside this slice
+were:
 
 - `POST /createExternalAgentConfig`
 - `POST /updateExternalAgentConfig`

@@ -261,8 +261,7 @@ This slice delivered:
 
 ## Next Recommended Step
 
-- rerank the remaining Python-owned agentic routes from actual frontend/runtime
-  callers before opening another transport slice
-- recommendation: treat that as bounded inventory work first, because current
-  direct app-start hydration and direct settings mutation flows are already
-  Go-owned
+- that rerank follow-on is now recorded in
+  `phase-13-remaining-agentic-route-inventory-and-rerank.md`
+- do not open another automatic transport slice until that inventory produces a
+  concrete caller-backed dependency

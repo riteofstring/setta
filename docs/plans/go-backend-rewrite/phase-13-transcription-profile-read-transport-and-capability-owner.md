@@ -101,7 +101,8 @@ Closeout rerun after the landing:
   now cleared
 - the Go route intentionally stays IDE-gated for the current bounded settings
   surface even though Python exposed the read more broadly
-- the current remaining direct frontend Python-owned agentic routes are:
+- at that point, the current remaining direct frontend Python-owned agentic
+  routes were:
   - `POST /createExternalAgentConfig`
   - `POST /updateExternalAgentConfig`
   - `POST /deleteExternalAgentConfig`
