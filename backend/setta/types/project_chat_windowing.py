@@ -168,11 +168,26 @@ def validate_project_chat_thread_bindings_unchanged(
     current_windowing: "ProjectChatWindowingState",
     next_windowing: "ProjectChatWindowingState",
 ) -> None:
-    for instance_id, next_instance in next_windowing.instancesById.items():
-        current_instance = current_windowing.instancesById.get(instance_id)
+    for instance_id, current_instance in current_windowing.instancesById.items():
         current_chat_id = _normalize_thread_bound_chat_id(current_instance)
+        if current_chat_id is None:
+            continue
+        next_instance = next_windowing.instancesById.get(instance_id)
+        if next_instance is None:
+            raise ValueError(
+                f"Project chat window {instance_id} cannot be removed via layout updates while it still has a bound chatId."
+            )
         next_chat_id = _normalize_thread_bound_chat_id(next_instance)
         if current_chat_id == next_chat_id:
+            continue
+        raise ValueError(
+            f"Project chat window {instance_id} cannot change chatId via layout updates."
+        )
+    for instance_id, next_instance in next_windowing.instancesById.items():
+        if instance_id in current_windowing.instancesById:
+            continue
+        next_chat_id = _normalize_thread_bound_chat_id(next_instance)
+        if next_chat_id is None:
             continue
         raise ValueError(
             f"Project chat window {instance_id} cannot change chatId via layout updates."

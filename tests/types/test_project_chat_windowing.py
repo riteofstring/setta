@@ -121,6 +121,63 @@ def test_set_project_chat_windowing_state_rejects_new_project_chat_with_bound_th
     assert project_state.projectChatWindowing == ProjectChatWindowingState()
 
 
+def test_set_project_chat_windowing_state_rejects_omitting_existing_bound_project_chat() -> (
+    None
+):
+    project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="x"))
+    current_instance = ProjectChatWindowInstance(
+        instanceId="project-chat-window-1",
+        placement=ChatWindowPlacement.floating,
+        mode=ChatWindowMode.project_ai_mode,
+        chatId="chat-before",
+    )
+    project_state.projectChatWindowing = ProjectChatWindowingState(
+        instancesById={current_instance.instanceId: current_instance},
+        order=[current_instance.instanceId],
+        nextInstanceNumber=2,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Project chat window project-chat-window-1 cannot be removed "
+            "via layout updates while it still has a bound chatId."
+        ),
+    ):
+        set_project_chat_windowing_state(
+            project_state,
+            ProjectChatWindowingState(),
+        )
+
+    assert (
+        project_state.projectChatWindowing.instancesById[
+            current_instance.instanceId
+        ].chatId
+        == "chat-before"
+    )
+
+
+def test_set_project_chat_windowing_state_allows_omitting_existing_unbound_project_chat() -> (
+    None
+):
+    project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="x"))
+    current_instance = ProjectChatWindowInstance(
+        instanceId="project-chat-window-1",
+        placement=ChatWindowPlacement.floating,
+        mode=ChatWindowMode.project_ai_mode,
+        chatId=None,
+    )
+    project_state.projectChatWindowing = ProjectChatWindowingState(
+        instancesById={current_instance.instanceId: current_instance},
+        order=[current_instance.instanceId],
+        nextInstanceNumber=2,
+    )
+
+    set_project_chat_windowing_state(project_state, ProjectChatWindowingState())
+
+    assert project_state.projectChatWindowing == ProjectChatWindowingState()
+
+
 def test_set_project_chat_window_chat_id_updates_the_target_window() -> None:
     project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="x"))
     instance = ProjectChatWindowInstance(

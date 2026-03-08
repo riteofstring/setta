@@ -457,6 +457,26 @@ class _DummyAgentRunner:
         return self._runs_by_id[run_id]
 
 
+class _CustomReplyDummyAgentRunner(_DummyAgentRunner):
+    def __init__(self, assistant_text: str) -> None:
+        super().__init__()
+        self.assistant_text = assistant_text
+
+    def _build_completed_run(self, run_id: ID, inputs) -> AgentRun:
+        return AgentRun(
+            id=run_id,
+            status=AgentRunStatus.completed,
+            inputs=inputs,
+            outputs={
+                "messages": [
+                    AssistantChatMessage(
+                        content=[MessageTextContent(text=self.assistant_text)]
+                    ).model_dump(mode="json")
+                ]
+            },
+        )
+
+
 class _BlockingDummyAgentRunner(_DummyAgentRunner):
     def __init__(self) -> None:
         super().__init__()
@@ -979,6 +999,99 @@ async def test_tools_call_invoke_linked_chat_runs_direct_linked_target(
         str(caller_section_id)
     ]
     assert manager.set_chat_section_chat_id_calls == []
+
+
+@pytest.mark.asyncio
+async def test_tools_call_invoke_linked_chat_does_not_mark_whitespace_normalization_as_truncation(
+    tmp_path,
+) -> None:
+    (
+        app,
+        _agent_runner,
+        _manager,
+        canonical_to_temporary,
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+    ) = _build_test_app(
+        tmp_path,
+        agent_runner_override=_CustomReplyDummyAgentRunner("  hello  "),
+    )
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_caller_section_id = canonical_to_temporary[caller_section_id]
+    tmp_target_section_id = canonical_to_temporary[target_section_id]
+    tmp_caller_chat_id = canonical_to_temporary[ID("caller-chat-1")]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/__setta__/tools/call",
+            json={
+                "tool": "invoke_linked_chat",
+                "arguments": {
+                    "targetSectionId": str(tmp_target_section_id),
+                    "prompt": "Plan the next implementation step.",
+                },
+                "agenticContext": {
+                    "projectConfigId": str(tmp_project_id),
+                    "chatId": str(tmp_caller_chat_id),
+                    "sectionId": str(tmp_caller_section_id),
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["structuredContent"]["assistantText"] == "hello"
+    assert payload["structuredContent"]["truncated"] is False
+    assert not payload["content"][0]["text"].endswith("...")
+
+
+@pytest.mark.asyncio
+async def test_tools_call_invoke_linked_chat_marks_true_length_truncation(
+    tmp_path,
+) -> None:
+    long_reply = "x" * 4001
+    (
+        app,
+        _agent_runner,
+        _manager,
+        canonical_to_temporary,
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+    ) = _build_test_app(
+        tmp_path,
+        agent_runner_override=_CustomReplyDummyAgentRunner(long_reply),
+    )
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_caller_section_id = canonical_to_temporary[caller_section_id]
+    tmp_target_section_id = canonical_to_temporary[target_section_id]
+    tmp_caller_chat_id = canonical_to_temporary[ID("caller-chat-1")]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/__setta__/tools/call",
+            json={
+                "tool": "invoke_linked_chat",
+                "arguments": {
+                    "targetSectionId": str(tmp_target_section_id),
+                    "prompt": "Plan the next implementation step.",
+                },
+                "agenticContext": {
+                    "projectConfigId": str(tmp_project_id),
+                    "chatId": str(tmp_caller_chat_id),
+                    "sectionId": str(tmp_caller_section_id),
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["structuredContent"]["truncated"] is True
+    assert payload["structuredContent"]["assistantText"].endswith("...")
+    assert len(payload["structuredContent"]["assistantText"]) == 4003
 
 
 @pytest.mark.asyncio

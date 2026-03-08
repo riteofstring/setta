@@ -47,6 +47,7 @@ type ProjectChatWindowingSnapshot = {
       placement: string;
       mode: string;
       chatId: string | null;
+      zIndex: number;
       bounds: {
         x: number;
         y: number;
@@ -284,6 +285,7 @@ async function readProjectChatWindowingState(
               placement: instance.placement,
               mode: instance.mode,
               chatId: instance.chatId ?? null,
+              zIndex: instance.zIndex,
               bounds: {
                 x: instance.bounds.x,
                 y: instance.bounds.y,
@@ -472,12 +474,31 @@ async function clearProjectChatWindowingState(
   projectConfigId: string,
 ): Promise<void> {
   await page.evaluate(async (nextProjectConfigId) => {
+    const { useProjectState } = await import("/src/state/definitions.ts");
     const { route_set_project_chat_windowing_state } = await import(
       "/src/utils/generatedEndpoints.ts"
     );
+    const { route_set_project_chat_window_chat_id } = await import(
+      "/src/utils/generatedEndpoints.ts"
+    );
+    const { ChatWindowModeEnum } = await import("/src/utils/generatedTypes.ts");
     const { createProjectChatWindowingState } = await import(
       "/src/utils/generatedTypes.ts"
     );
+    const currentWindowing = useProjectState.getState().projectChatWindowing;
+    for (const instance of Object.values(currentWindowing.instancesById)) {
+      if (
+        instance.mode !== ChatWindowModeEnum.project_ai_mode ||
+        instance.chatId == null
+      ) {
+        continue;
+      }
+      await route_set_project_chat_window_chat_id({
+        projectConfigId: nextProjectConfigId,
+        instanceId: instance.instanceId,
+        chatId: null,
+      });
+    }
     await route_set_project_chat_windowing_state({
       projectConfigId: nextProjectConfigId,
       state: createProjectChatWindowingState(),
@@ -2269,9 +2290,9 @@ test.describe.serial("standalone project surface routes", () => {
       });
 
       await setProjectChatWindowBounds(page, alphaWindowId, {
-        x: 40,
-        y: 40,
-        width: 440,
+        x: 680,
+        y: 140,
+        width: 420,
         height: 300,
       });
       await setProjectChatWindowBounds(page, betaWindowId, {
@@ -2387,6 +2408,187 @@ test.describe.serial("standalone project surface routes", () => {
       await page.context().unroute("**/api/getLLMChat");
       await cleanupManagedEngine();
       await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("restoring a saved window space keeps the saved thread after the user refocuses a restored window before layout sync completes", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const cleanupManagedEngine = await ensureManagedChatEngine(page);
+    await setOverviewTabInStore(page, "ViewModes");
+    await expect(page.getByTestId("window-spaces-pane")).toBeVisible();
+
+    let releaseRestoreLayoutWrite: (() => void) | null = null;
+
+    try {
+      const alphaWindowId = await createFloatingProjectChatWindow(
+        page,
+        "Alpha Chat",
+      );
+      const fixture: ProjectChatThreadFixture = {
+        instanceId: alphaWindowId,
+        chatId: "window-chat-alpha",
+        assistantText: "Workspace alpha thread marker",
+      };
+
+      await page.context().route("**/api/getAgentRuns", async (route) => {
+        const response = await route.fetch();
+        const runs = (await response.json()) as AgentRunRecord[];
+        const fixtureRun = {
+          id: `run-${fixture.chatId}`,
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-03-07T00:00:00Z",
+          finishedAt: "2026-03-07T00:00:10Z",
+          events: [],
+          inputs: {
+            runType: "llm_chat",
+            projectConfigId: projectContext.projectConfigId,
+            chatId: fixture.chatId,
+            sectionId: null,
+            messages: [
+              {
+                id: `user-${fixture.chatId}`,
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: `Prompt for ${fixture.chatId}`,
+                  },
+                ],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {},
+        };
+        await route.fulfill({
+          status: response.status(),
+          headers: {
+            ...response.headers(),
+            "content-type": "application/json",
+          },
+          body: JSON.stringify([
+            ...runs.filter((run) => run.inputs.chatId !== fixture.chatId),
+            fixtureRun,
+          ]),
+        });
+      });
+      await page.context().route("**/api/getLLMChat", async (route) => {
+        const payload = route.request().postDataJSON() as
+          | { chatId?: string }
+          | undefined;
+        if (payload?.chatId !== fixture.chatId) {
+          await route.continue();
+          return;
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            messages: [
+              {
+                id: `assistant-${fixture.chatId}`,
+                role: "assistant",
+                content: [
+                  {
+                    type: "text",
+                    text: fixture.assistantText,
+                  },
+                ],
+                attachments: [],
+                tool_calls: null,
+              },
+            ],
+            waitingForResponse: false,
+            llmConfig: {
+              id: "standalone-thread-config",
+              model: "gpt-4o-mini",
+              provider: "openai",
+              base_url: null,
+              api_key_env: null,
+              other_params: null,
+              mcpServerIds: [],
+              temporary: false,
+            },
+            contextUsage: null,
+          }),
+        });
+      });
+
+      await setProjectChatWindowBounds(page, alphaWindowId, {
+        x: 40,
+        y: 40,
+        width: 440,
+        height: 300,
+      });
+      await seedProjectChatWindowThreads(page, [fixture]);
+
+      await page.getByTestId("window-space-save-current-layout").click();
+      await expect(page.getByTestId("window-space-open")).toHaveCount(1);
+
+      await clearProjectChatWindowingState(
+        page,
+        projectContext.projectConfigId,
+      );
+
+      let delayedFirstRestoreWrite = false;
+      await page.route("**/api/setProjectChatWindowingState", async (route) => {
+        if (!delayedFirstRestoreWrite) {
+          delayedFirstRestoreWrite = true;
+          await new Promise<void>((resolve) => {
+            releaseRestoreLayoutWrite = resolve;
+          });
+        }
+        await route.continue();
+      });
+
+      const alphaWorkspaceWindow = page.locator(
+        `[data-testid="project-chat-floating-window"][data-chat-window-instance-id="${alphaWindowId}"]`,
+      );
+
+      await page.getByTestId("window-space-open").click();
+      await expect(alphaWorkspaceWindow).toBeVisible();
+      await page.evaluate(async (instanceId) => {
+        const { focusProjectChatWindow } = await import(
+          "/src/state/actions/projectChatWindowing.ts"
+        );
+        focusProjectChatWindow(instanceId, 1234);
+      }, alphaWindowId);
+
+      await expect
+        .poll(async () => {
+          const state = await readProjectChatWindowingState(page);
+          return state.instancesById[alphaWindowId]?.zIndex ?? -1;
+        })
+        .toBeGreaterThan(1);
+
+      releaseRestoreLayoutWrite?.();
+      await expect
+        .poll(async () => {
+          const state = await readProjectChatWindowingState(page);
+          return state.instancesById[alphaWindowId]?.chatId ?? null;
+        })
+        .toBe("window-chat-alpha");
+    } finally {
+      releaseRestoreLayoutWrite?.();
+      await page
+        .unroute("**/api/setProjectChatWindowingState")
+        .catch(() => null);
+      await page
+        .context()
+        .unroute("**/api/getAgentRuns")
+        .catch(() => null);
+      await page
+        .context()
+        .unroute("**/api/getLLMChat")
+        .catch(() => null);
+      if (!page.isClosed()) {
+        await cleanupManagedEngine();
+        await cleanupIsolatedProject(page, projectContext);
+      }
     }
   });
 

@@ -1161,3 +1161,32 @@ Verification:
 - `pnpm -C frontend exec vitest run src/state/actions/windowSpaces.test.ts` passed: 32 tests.
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/layout/window-space-layout-permissions.spec.ts` passed: 3 tests.
 - CDP verification on the live dev instance at `http://127.0.0.1:3098/storm_staying` seeded a two-window floating workspace (`Keep Window` plus `Stale Window`) and confirmed the live surface dropped the stale window as soon as authoritative windowing was reduced to a single surviving window. The end-to-end save interaction itself was covered by the Playwright spec above.
+
+## 2026-03-11 12:11:47 PDT
+
+Implemented the remaining three review-driven fixes: stale full-layout writes can no longer delete bound project chat windows by omission, saved window-space restore now rebinds threads by stable window identity instead of volatile layout metadata, and linked-chat truncation metadata now reports only real character-cap truncation.
+
+What changed:
+- Simplified `backend/setta/types/project_chat_windowing.py` so full `ProjectChatWindowingState` writes preserve every existing bound `project_ai_mode` window. Layout updates may still move, resize, open, close, and reorder windows, but they can no longer remove a bound project-chat window implicitly by leaving it out of a stale snapshot. The dedicated chat-id route remains the only place that changes thread ownership.
+- Refactored `frontend/src/state/actions/windowSpaces.ts` restore reconciliation so saved thread rebinding follows stable window identity. The restore code now matches windows using persisted identity fields instead of `zIndex`, `lastFocusedAt`, or other transient layout values that can change during user interaction before the second-phase sync finishes.
+- Cleaned up `backend/setta/agentic/linked_chat_invocation.py` so truncation is decided from the raw capped string before display trimming. The backend now appends `...` and sets `structuredContent.truncated=true` only when the max-length limit was actually exceeded.
+- Added focused backend coverage in `tests/types/test_project_chat_windowing.py` and `tests/project_state/test_project_chat_windowing_persistence.py` for omission rejection and restore-thread persistence.
+- Added frontend restore-race coverage in `frontend/src/state/actions/windowSpaces.test.ts` and browser coverage in `frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts` proving a user can refocus or restack a restored window before layout sync completes without losing the saved thread.
+- Added linked-chat truncation regressions in `tests/routers/test_mcp_linked_chat_tool.py` so whitespace-only normalization no longer produces false truncation.
+
+UX before vs after:
+- Before: a stale client layout snapshot could silently drop an existing bound project-chat window and lose its saved thread binding. After: the backend preserves that bound window instead of accepting destructive omission through the layout route.
+- Before: restoring a saved window space could reopen the wrong thread if the user focused a restored window before the delayed rebinding step completed. After: restored windows keep the saved thread even if focus order or z-order changes during restore.
+- Before: linked-chat replies could show `...` and `truncated=true` even when the only removed characters were surrounding whitespace. After: ellipsis and truncation metadata mean the response actually hit the configured length cap.
+
+DX before vs after:
+- Before: layout writes and thread-binding ownership were still partially entangled, so stale-state bugs were hard to reason about and easy to miss in review. After: the contract is simpler: layout routes manage layout, and thread rebinding stays on the dedicated chat-id path.
+- Before: window-space restore correctness depended on transient presentation fields that were not designed to identify logical windows. After: restore reconciliation uses stable identity, which makes the code easier to follow and the behavior deterministic under interaction.
+- Before: downstream callers could not fully trust linked-chat truncation metadata because display cleanup could flip the flag. After: truncation state is a direct reflection of the raw cap decision and is safe for UI or tool consumers to rely on.
+
+Verification:
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/types/test_project_chat_windowing.py tests/project_state/test_project_chat_windowing_persistence.py tests/routers/test_mcp_linked_chat_tool.py` passed: 70 tests.
+- `pnpm -C frontend exec vitest run src/state/actions/windowSpaces.test.ts` passed: 34 tests.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "restoring a saved window space keeps the saved thread after the user refocuses a restored window before layout sync completes"` passed: 1 test.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "saved window spaces preserve distinct project chat threads per window in both workspace and standalone views"` passed: 1 test.
+- CDP verification was intentionally not run for this restore flow because the live headed app instance did not have a disposable project loaded, and exercising the scenario there would have mutated the active workspace state.

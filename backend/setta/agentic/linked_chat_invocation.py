@@ -450,8 +450,8 @@ def _build_success_result(
     invocation_depth: int,
 ) -> CallToolResult:
     assistant_text = _extract_latest_assistant_text(run)
+    truncated = len(assistant_text) > MAX_LINKED_CHAT_RESULT_CHARS
     bounded_text = assistant_text[:MAX_LINKED_CHAT_RESULT_CHARS].strip()
-    truncated = len(assistant_text) > len(bounded_text)
     if truncated:
         bounded_text = f"{bounded_text}..."
     if not bounded_text:

@@ -428,6 +428,74 @@ async def test_set_project_chat_window_chat_id_returns_updated_windowing_state()
 
 
 @pytest.mark.asyncio
+async def test_set_project_chat_windowing_state_rejects_omitting_existing_bound_project_chat() -> (
+    None
+):
+    async with real_project_manager() as fixture:
+        manager = fixture.manager
+        project_config_id = manager.project_state_backend.defaultProjectConfigId
+        if project_config_id is None:
+            raise AssertionError("Expected a default project config id.")
+
+        initial = await manager.set_project_chat_windowing_state(
+            SetProjectChatWindowingStateRequest(
+                projectConfigId=project_config_id,
+                state=ProjectChatWindowingState(
+                    instancesById={
+                        "project-chat-window-1": ProjectChatWindowInstance(
+                            instanceId="project-chat-window-1",
+                            placement=ChatWindowPlacement.floating,
+                            mode=ChatWindowMode.project_ai_mode,
+                            chatId=None,
+                            zIndex=1,
+                            bounds=ChatWindowBounds(
+                                x=48,
+                                y=64,
+                                width=520,
+                                height=360,
+                            ),
+                        ),
+                    },
+                    order=["project-chat-window-1"],
+                    nextInstanceNumber=2,
+                ),
+            )
+        )
+        assert initial.instancesById["project-chat-window-1"].chatId is None
+
+        updated = await manager.set_project_chat_window_chat_id(
+            SetProjectChatWindowChatIdRequest(
+                projectConfigId=project_config_id,
+                instanceId="project-chat-window-1",
+                chatId="chat-before",
+            )
+        )
+        assert updated.instancesById["project-chat-window-1"].chatId == "chat-before"
+
+        with pytest.raises(
+            ValueError,
+            match=(
+                "Project chat window project-chat-window-1 cannot be removed "
+                "via layout updates while it still has a bound chatId."
+            ),
+        ):
+            await manager.set_project_chat_windowing_state(
+                SetProjectChatWindowingStateRequest(
+                    projectConfigId=project_config_id,
+                    state=ProjectChatWindowingState(),
+                )
+            )
+
+        project_state = manager.get_single_config_state(project_config_id)
+        assert (
+            project_state.projectChatWindowing.instancesById[
+                "project-chat-window-1"
+            ].chatId
+            == "chat-before"
+        )
+
+
+@pytest.mark.asyncio
 async def test_set_project_chat_window_chat_id_rejects_git_graph_windows() -> None:
     # Dedicated thread binding only applies to project-ai windows.
     async with real_project_manager() as fixture:

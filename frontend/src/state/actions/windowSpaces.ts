@@ -906,6 +906,7 @@ function buildRestoredGitGraphEmbeddedPaneVisibleInstanceIds(
 type RestoredProjectChatThreadBinding = {
   instanceId: string;
   chatId: string | null;
+  sectionIdOrNull: string | null;
 };
 
 function canRestoreWindowSpaceInWorkspace(): boolean {
@@ -923,36 +924,6 @@ function resolveProjectChatThreadBindingChatId(
     return null;
   }
   return instance.chatId ?? null;
-}
-
-function areWorkspaceRestoreBoundsEqual(
-  a: ProjectChatWindowInstance["bounds"],
-  b: ProjectChatWindowInstance["bounds"],
-): boolean {
-  return (
-    a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height
-  );
-}
-
-function doesWorkspaceRestoreLayoutMatch(
-  current: ProjectChatWindowInstance,
-  expected: ProjectChatWindowInstance,
-): boolean {
-  return (
-    current.instanceId === expected.instanceId &&
-    current.placement === expected.placement &&
-    current.mode === expected.mode &&
-    current.sectionIdOrNull === expected.sectionIdOrNull &&
-    current.title === expected.title &&
-    current.isClosed === expected.isClosed &&
-    current.isMinimized === expected.isMinimized &&
-    current.isMaximized === expected.isMaximized &&
-    current.lastPlacementBeforeMaximize ===
-      expected.lastPlacementBeforeMaximize &&
-    current.zIndex === expected.zIndex &&
-    current.lastFocusedAt === expected.lastFocusedAt &&
-    areWorkspaceRestoreBoundsEqual(current.bounds, expected.bounds)
-  );
 }
 
 function buildWorkspaceRestoreLayoutState(
@@ -982,6 +953,7 @@ function buildWorkspaceRestoreLayoutState(
       threadBindings.push({
         instanceId,
         chatId: desiredChatId,
+        sectionIdOrNull: instance.sectionIdOrNull ?? null,
       });
     }
     layoutInstancesById[instanceId] =
@@ -1004,7 +976,6 @@ function buildWorkspaceRestoreLayoutState(
 
 async function restoreWorkspaceProjectChatThreadBindings(
   projectConfigId: string,
-  layoutWindowing: ProjectChatWindowingState,
   threadBindings: Array<RestoredProjectChatThreadBinding>,
 ): Promise<void> {
   await flushPendingProjectChatWindowingWrites();
@@ -1021,18 +992,13 @@ async function restoreWorkspaceProjectChatThreadBindings(
     const authoritativeWindowing =
       getAuthoritativeProjectChatWindowingState(projectConfigId) ??
       useProjectState.getState().projectChatWindowing;
-    const expectedLayoutInstance =
-      layoutWindowing.instancesById[threadBinding.instanceId];
     const currentInstance =
       authoritativeWindowing.instancesById[threadBinding.instanceId];
     if (
-      !expectedLayoutInstance ||
       !currentInstance ||
       currentInstance.mode !== ChatWindowModeEnum.project_ai_mode ||
-      !doesWorkspaceRestoreLayoutMatch(
-        currentInstance,
-        expectedLayoutInstance,
-      ) ||
+      (currentInstance.sectionIdOrNull ?? null) !==
+        threadBinding.sectionIdOrNull ||
       (currentInstance.chatId ?? null) === threadBinding.chatId
     ) {
       continue;
@@ -1190,7 +1156,6 @@ export async function restoreWindowSpaceInWorkspace(
   try {
     await restoreWorkspaceProjectChatThreadBindings(
       state.projectConfig.id,
-      layoutWindowing,
       threadBindings,
     );
   } catch (error) {
