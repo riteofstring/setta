@@ -64,6 +64,7 @@ def _write_project_state(dbe: DBE, project_configs: list[ProjectConfig]) -> ID:
     default_id = project_configs[0].id
     project_state = ProjectStateBackend(
         projectConfigs={config.id: config for config in project_configs},
+        projectChatWindowingByProjectConfigId={config.id: {} for config in project_configs},
         defaultProjectConfigId=default_id,
     )
     dbe.write_project(project_state)
@@ -233,9 +234,7 @@ class TestAgentRunner:
 
             assert allowlist is not None
             assert allowlist.server_ids == {"other", SETTA_MCP_SERVER_ID}
-            assert runner._is_tool_allowed(
-                "setta__report_completion_status", allowlist
-            )
+            assert runner._is_tool_allowed("setta__report_completion_status", allowlist)
             assert not runner._is_tool_allowed(
                 "other__report_completion_status", allowlist
             )
@@ -410,7 +409,10 @@ class TestAgentRunner:
                 ),
             }
             runner.mcp_client.routing = {
-                "other__report_completion_status": ("other", "report_completion_status"),
+                "other__report_completion_status": (
+                    "other",
+                    "report_completion_status",
+                ),
                 "other__tool_alpha": ("other", "tool_alpha"),
                 "setta__report_completion_status": (
                     SETTA_MCP_SERVER_ID,
@@ -486,7 +488,10 @@ class TestAgentRunner:
                 ),
             }
             runner.mcp_client.routing = {
-                "other__report_completion_status": ("other", "report_completion_status"),
+                "other__report_completion_status": (
+                    "other",
+                    "report_completion_status",
+                ),
                 "setta__report_completion_status": (
                     SETTA_MCP_SERVER_ID,
                     "report_completion_status",
@@ -652,7 +657,9 @@ class TestAgentRunner:
 
         assert assistant_message.content[0].text == MISSING_REPORT_MESSAGE
 
-    def test_completion_guard_blocks_non_completion_text_when_report_missing(self) -> None:
+    def test_completion_guard_blocks_non_completion_text_when_report_missing(
+        self,
+    ) -> None:
         prior_messages = [
             UserChatMessage(content=[MessageTextContent(text="Investigate bug B.")])
         ]
@@ -962,6 +969,7 @@ class TestAgentRunner:
             )
             backend_state = ProjectStateBackend(
                 projectConfigs={second_config.id: project_state.projectConfig},
+                projectChatWindowingByProjectConfigId={second_config.id: {}},
                 defaultProjectConfigId=second_config.id,
                 sections=project_state.sections,
                 sectionImpls=project_state.sectionImpls,
@@ -986,7 +994,48 @@ class TestAgentRunner:
             assert override_context.chat_id == ID("chat-1")
             assert override_context.section_id == chat_section_id
             assert override_context.thinking is True
-            assert override_context.agentic_context.frontend_affinity_token == "frontend-1"
+            assert (
+                override_context.agentic_context.frontend_affinity_token == "frontend-1"
+            )
+
+    def test_context_parses_linked_chat_invocation_metadata(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe, [ProjectConfig()])
+            config = AllLLMConfigs(
+                configs={
+                    "primary": LLMConfig(
+                        id="primary",
+                        model="gpt-4o-mini",
+                        provider="openai",
+                        api_key_env="OPENAI_API_KEY",
+                        mcpServerIds=[],
+                    )
+                },
+                mcpServers={},
+            )
+            runner = _build_runner(dbe, config)
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            profile = AgentProfile(name="Alpha", engineConfigId=engine_config_id)
+
+            context = runner._build_context(
+                profile,
+                inputs={
+                    "allowUnscoped": True,
+                    "linkedChatInvocationDepth": "1",
+                    "linkedChatInvocationChainSectionIds": [
+                        "section-root",
+                        "section-mid",
+                    ],
+                },
+            )
+
+            assert context.agentic_context.linked_chat_invocation_depth == 1
+            assert context.agentic_context.linked_chat_invocation_chain_section_ids == (
+                ID("section-root"),
+                ID("section-mid"),
+            )
 
     def test_context_caches_completion_guard_toggle_for_run(self) -> None:
         with TemporaryDirectory() as tmpdir:

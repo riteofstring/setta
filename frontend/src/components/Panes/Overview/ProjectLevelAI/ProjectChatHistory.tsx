@@ -155,10 +155,12 @@ export function ProjectChatHistory({
   inline = false,
   closeOnSelect = true,
   draftThread = null,
+  draftWaitingForResponse = false,
   selectedGroupId = null,
   onSelectedGroupChange,
   onStartNewThread,
   onStartNewThreadInGroup,
+  onCloseThreadsView,
   headerPortalTarget = null,
 }: {
   chatId: string | null | undefined;
@@ -168,10 +170,12 @@ export function ProjectChatHistory({
   inline?: boolean;
   closeOnSelect?: boolean;
   draftThread?: { chatId: string | null; groupId: string | null } | null;
+  draftWaitingForResponse?: boolean;
   selectedGroupId?: string | null;
   onSelectedGroupChange?: (groupId: string | null) => void;
   onStartNewThread?: () => void;
   onStartNewThreadInGroup?: (groupId: string) => void;
+  onCloseThreadsView?: () => void;
   headerPortalTarget?: HTMLDivElement | null;
 }) {
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
@@ -193,7 +197,7 @@ export function ProjectChatHistory({
   );
   const activeThreadWaitingForResponse = useAIStore((state) => {
     if (chatId === null) {
-      return Boolean(state.pendingChatDetails?.waitingForResponse);
+      return draftWaitingForResponse;
     }
     if (typeof chatId !== "string") {
       return false;
@@ -813,7 +817,7 @@ export function ProjectChatHistory({
       if (isDraftThreadEntry(entry)) {
         setChatId(undefined);
         if (closeOnSelect) {
-          useAIStore.setState({ viewThreads: false });
+          onCloseThreadsView?.();
         }
         return;
       }
@@ -822,9 +826,9 @@ export function ProjectChatHistory({
       if (!closeOnSelect) {
         return;
       }
-      useAIStore.setState({ viewThreads: false });
+      onCloseThreadsView?.();
     },
-    [closeOnSelect, projectConfigId, setChatId],
+    [closeOnSelect, onCloseThreadsView, projectConfigId, setChatId],
   );
   const handleStartThreadInGroup = useCallback(
     (groupId: string) => {
@@ -837,9 +841,15 @@ export function ProjectChatHistory({
       if (!closeOnSelect) {
         return;
       }
-      useAIStore.setState({ viewThreads: false });
+      onCloseThreadsView?.();
     },
-    [closeOnSelect, onSelectedGroupChange, onStartNewThreadInGroup, setChatId],
+    [
+      closeOnSelect,
+      onCloseThreadsView,
+      onSelectedGroupChange,
+      onStartNewThreadInGroup,
+      setChatId,
+    ],
   );
   const handleStartNewThread = useCallback(() => {
     if (onStartNewThread) {
@@ -854,10 +864,11 @@ export function ProjectChatHistory({
     if (!closeOnSelect) {
       return;
     }
-    useAIStore.setState({ viewThreads: false });
+    onCloseThreadsView?.();
   }, [
     closeOnSelect,
     handleStartThreadInGroup,
+    onCloseThreadsView,
     onStartNewThread,
     onStartNewThreadInGroup,
     selectedGroupId,
