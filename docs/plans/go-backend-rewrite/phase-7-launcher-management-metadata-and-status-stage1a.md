@@ -12,18 +12,19 @@ platform artifact generation and removal into the same landing.
 
 As of 2026-03-08:
 
-- Go owns the launcher runtime/browser prerequisite:
-  - launcher-mode recent workspaces and directory browsing
-  - local IDE/launcher session registration
-  - bootstrap HTML at `GET /__setta__/bootstrap`
-  - `POST /openLauncherWorkspace`
-- Python still owns IDE launcher management/status through:
-  - `backend/setta/routers/status.py`
-  - `backend/setta/launcher_setup.py`
-  - `backend/setta/launcher_metadata.py`
-- the full launcher-management cluster is not a good single-step landing
-  because platform artifact install/remove is large, OS-specific, and still
-  coupled to Python-shaped launcher command templates
+- Stage 1a is complete.
+- Go now owns:
+  - launcher metadata parsing, validation, and persistence in
+    `internal/launcher/metadata.go`
+  - launcher metadata-only status/setup/repair/remove/update semantics in
+    `internal/launcher/management.go`
+  - IDE launcher management/status transport in
+    `internal/httpapi/launcher_management_routes.go`
+  - IDE app wiring for that route cluster in `internal/app/app.go`
+- Python still owns:
+  - platform desktop artifact generation/install/remove templates
+  - launcher artifact marker and cleanup semantics
+  - launch/bootstrap handoff routes outside this management slice
 
 ## Inputs
 
@@ -81,6 +82,9 @@ Stage 1a should:
 - report managed artifact state read-only when metadata already contains it
 - fail explicitly when a request requires Go-owned artifact mutation that this
   stage does not yet implement
+- default first-time `setupLauncher` requests to metadata-only install mode when
+  `installArtifacts` is omitted, because Go does not yet own artifact-writing
+  setup paths in this stage
 
 ## Working Decisions
 
@@ -95,6 +99,8 @@ Stage 1a should:
   launcher` shape
 - implement update directly in Go service code instead of depending on a Go CLI
   `launcher setup` subcommand
+- keep setup request decoding strict for this route so stale frontend or manual
+  payload fields fail loudly instead of being silently ignored
 
 ## Recommended Landing Order
 
@@ -108,14 +114,20 @@ Stage 1a should:
 - 2026-03-08: created this focused Stage 1a doc after confirming that the full
   launcher-management cluster is too large for one landing and that the
   platform artifact layer should be split from metadata/status ownership.
+- 2026-03-08: completed Stage 1a in Go. `GET /launcherStatus`,
+  `POST /setupLauncher`, `POST /repairLauncher`, `POST /removeLauncher`, and
+  `POST /updateLauncher` now route to Go-owned metadata/status logic; fresh
+  setup defaults to metadata-only install mode; explicit artifact mutation now
+  fails with `ArtifactMutationUnavailable`; in-app update is supported for
+  metadata-only `uv-tool` installs.
 
 ## Recommended Next Step
 
-Implement Stage 1a from this doc: Go-owned launcher metadata/status routes and
-runtime, with metadata-only setup/repair/remove/update support.
+Move to Stage 1b artifact ownership with a dedicated plan doc:
+`phase-7-launcher-management-artifact-ownership-stage1b.md`.
 
 ## Verification
 
 - `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/launcher -count=1 -timeout 300s`
 - `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -count=1 -timeout 300s`
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestApp.*Launcher' -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestApp(IDEModeManagesMetadataOnlyLauncherInstallOverHTTP|LauncherModeListsAndMutatesRecentWorkspacesOverHTTP)' -count=1 -timeout 420s`

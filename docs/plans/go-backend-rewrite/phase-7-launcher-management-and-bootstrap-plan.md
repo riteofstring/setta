@@ -24,16 +24,22 @@ As of 2026-03-08:
   - local IDE session spawn/reuse for launcher-mode opens
   - bootstrap URL fragment minting for launched IDE sessions
   - launcher last-used-workspace and recent-workspace updates
+- Go now owns the Stage 1a launcher management/status slice:
+  - launcher metadata parsing, validation, and persistence
+  - metadata-only setup/repair/remove/update runtime ownership
+  - IDE routes for `launcherStatus`, `setupLauncher`, `repairLauncher`,
+    `removeLauncher`, and `updateLauncher`
 - Go owns the launcher executable/bootstrap prerequisite:
   - local IDE/launcher session registration and cleanup
   - bootstrap HTML at `GET /__setta__/bootstrap`
   - launcher-mode fallback startup without an explicit project workspace
 - Python still owns:
-  - IDE launcher installation/status/update/remove routes in `status.py`
+  - platform launcher artifact generation/install/remove behavior that those
+    management routes still defer
   - launch-intent creation, workspace launch, and bootstrap token/origin
     handoff in `launch.py` and `bootstrap.py`
 - the remaining Phase 7 launcher gap is now concentrated around IDE launcher
-  management/status plus launch/bootstrap handoff
+  artifact ownership plus launch/bootstrap handoff
 
 ## Inputs
 
@@ -98,15 +104,16 @@ Stage 1 moves launcher management/status transport and runtime ownership to Go:
   frontend does not need to move in the same slice
 - keep transport thin and put launcher semantics in a dedicated package
 
-Stage 1 may also own artifact install/remove/repair if that is required to keep
-the management routes coherent. If artifact ownership turns out to force larger
-OS-integration design choices, split the work into:
+Stage 1 is now intentionally split:
 
-- Stage 1a: status/read-only plus metadata-only setup/remove/repair behavior
-- Stage 1b: managed artifact installation/removal for current platforms
+- Stage 1a: status/read-only plus metadata-only setup/remove/repair/update
+  behavior
+- Stage 1b: managed artifact installation/removal/update ownership for current
+  platforms
 
-The preferred path is to keep the full management route cluster together if the
-artifact boundary stays local to the launcher package.
+That split is now the preferred path because the metadata/status owner is
+landed and the remaining artifact work has its own clear OS-integration
+boundary.
 
 ## Architecture Check
 
@@ -168,8 +175,8 @@ Do not broaden Stage 1 into:
 
 ## Recommended Option
 
-Implement IDE launcher management/status next, now that the runtime prerequisite
-and launcher-mode workspace-open slice are complete.
+Implement Stage 1b launcher artifact ownership next, now that the runtime
+prerequisite and Stage 1a metadata/status owner are complete.
 
 This remains the recommended option because:
 
@@ -181,16 +188,15 @@ This remains the recommended option because:
 
 ## Recommended Next Step
 
-Create and execute the next focused slice for IDE launcher management/status
+Create and execute the next focused slice for Stage 1b launcher artifact
 ownership.
 
 Recommended landing order:
 
-1. IDE launcher management/status transport and runtime
-2. any launcher artifact install/update ownership that still belongs inside
-   that slice
-3. launch/bootstrap handoff ownership
-4. remote launch / launch-intent ownership
+1. managed launcher artifact planning/install/remove/update ownership
+2. launch/bootstrap handoff ownership
+3. remote launch / launch-intent ownership
+4. any follow-up CLI or cleanup work after those owners land
 
 ## Progress Notes
 
@@ -218,3 +224,8 @@ Recommended landing order:
   `phase-7-launcher-open-workspace-and-bootstrap-contract.md`; Go now owns the
   launcher-mode workspace-open path end to end. The next recommended step is a
   focused launcher management/status slice above that runtime prerequisite.
+- 2026-03-08: completed Stage 1a from
+  `phase-7-launcher-management-metadata-and-status-stage1a.md`; Go now owns
+  launcher metadata/status plus metadata-only setup/repair/remove/update. The
+  next recommended step is Stage 1b artifact ownership, tracked in
+  `phase-7-launcher-management-artifact-ownership-stage1b.md`.
