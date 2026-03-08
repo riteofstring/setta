@@ -625,15 +625,18 @@ Use the docs in this order:
 170. `phase-15-plugin-backend-route-runtime-and-transport.md`
   - focused completed-slice doc for the first Go-owned live plugin backend
     route runtime and `/api/plugins/{pluginId}/...` proxy transport
-171. `phase-15-plugin-lock-transport.md`
+171. `phase-15-plugin-backend-mcp-tool-runtime.md`
+  - focused current-work doc for Go-owned plugin-defined backend MCP tool
+    registration and runtime over live worker sessions and the Go MCP server
+172. `phase-15-plugin-lock-transport.md`
   - focused completed-slice doc for Go-owned plugin lockfile write/apply
     transport over the existing shared plugin lockfile service
-172. `spike-mcp.md`
+173. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-173. `spike-pty.md`
+174. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-174. `spike-lsp.md`
+175. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:
