@@ -40,10 +40,10 @@ import {
   route_delete_sections,
   route_group_sections,
   route_set_top_level_section_layout,
+  route_set_viewport,
   route_toggle_param_selected,
   route_ungroup_groups,
   route_unselect_all_params,
-  route_set_viewport,
 } from "utils/generatedEndpoints";
 import {
   AllProjectMetadata,
@@ -68,6 +68,7 @@ import {
 import { createNewId } from "utils/idNameCreation";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { applyActiveSectionChange } from "./activeSectionController";
+import { reconcileProjectChatWindowingEphemeralState } from "./projectChatWindowingEphemeral";
 
 const effectiveImplCacheByImpl = new WeakMap<
   object,
@@ -543,8 +544,18 @@ export function getCurrEffectiveSectionImplOfType<T extends SectionType>(
   return impl as Extract<BaseSectionImplUnion, { type: T }>;
 }
 
+export type ManagedChatSectionAuthorityState = Pick<
+  ZustandProjectState,
+  "sections" | "sectionVariants" | "sectionImpls"
+> & {
+  projectConfig: Pick<
+    ZustandProjectState["projectConfig"],
+    "sectionVariantMap"
+  >;
+};
+
 export function isManagedChatSection(
-  state: ZustandProjectState,
+  state: ManagedChatSectionAuthorityState,
   sectionId: string,
 ): boolean {
   const variantId = state.projectConfig.sectionVariantMap[sectionId];
@@ -992,6 +1003,7 @@ function getComparableProjectState(
     shownParamIds: state.shownParamIds,
     requiredDecodedImages: state.requiredDecodedImages,
     genCodeBinding: state.genCodeBinding ?? null,
+    projectChatWindowing: state.projectChatWindowing,
   });
 }
 
@@ -1055,6 +1067,10 @@ export function processProjectStateUpdateFromBackend(
   const nextNodesMap = createNodesMapFromProjectConfigChildren(
     x.projectState,
     useNodeInternals.getState().x,
+  );
+  reconcileProjectChatWindowingEphemeralState(
+    sanitizedProjectState.projectChatWindowing,
+    sanitizedProjectState.projectConfig.id,
   );
   runWithAtomicallyPublishedProjectStores(
     {
@@ -1738,10 +1754,7 @@ export async function ungroupActiveGroups() {
     return;
   }
   const groupIds = getActiveSectionUIIds();
-  route_ungroup_groups({
-    projectConfigId: getCurrProjectConfigId(),
-    groupIds,
-  });
+  route_ungroup_groups({ projectConfigId: getCurrProjectConfigId(), groupIds });
 }
 
 function addPendingOp(apply: (x: ZustandProjectState) => void) {
@@ -1774,6 +1787,39 @@ function removePendingOp(opId: string) {
   }));
 }
 
+function removePendingOpAndGetReplayOps(opId: string): Array<PendingOperation> {
+  const pendingBeforeRemoval = usePendingOperations.getState().pending;
+  const failedOpIndex = pendingBeforeRemoval.findIndex(
+    (opInfo) => opInfo.opId === opId,
+  );
+  removePendingOp(opId);
+  if (failedOpIndex < 0) {
+    return [];
+  }
+  const remainingOpIds = new Set(
+    usePendingOperations.getState().pending.map((opInfo) => opInfo.opId),
+  );
+  return pendingBeforeRemoval
+    .slice(failedOpIndex + 1)
+    .filter((opInfo) => remainingOpIds.has(opInfo.opId));
+}
+
+function rollbackOptimisticProjectStateUpdate(
+  opId: string,
+  rollback?: (state: ZustandProjectState) => void,
+) {
+  const replayOps = removePendingOpAndGetReplayOps(opId);
+  if (!rollback) {
+    return;
+  }
+  useProjectState.setState((state) => {
+    rollback(state);
+    for (const opInfo of replayOps) {
+      opInfo.apply(state);
+    }
+  });
+}
+
 function isResponseDataAndStatus(
   value: unknown,
 ): value is ResponseDataAndStatus<unknown> {
@@ -1790,26 +1836,29 @@ export function dispatchOptimisticProjectStateUpdate({
   apply,
   send,
   rollback,
+  reapply,
 }: {
   apply: (state: ZustandProjectState) => void;
   send: (frontendOpId: string) => void | Promise<unknown>;
   rollback?: (state: ZustandProjectState) => void;
+  reapply?: (state: ZustandProjectState) => void;
 }) {
   useProjectState.setState(apply);
-  const opId = addPendingOp(apply);
+  const opId = addPendingOp(reapply ?? apply);
   const result = send(opId);
   if (result instanceof Promise) {
-    void result.then((res) => {
-      // A 200 response means the backend accepted the op; don't keep reapplying it.
-      if (isResponseDataAndStatus(res) && res200(res)) {
-        acknowledgePendingOp(opId);
-      } else if (isResponseDataAndStatus(res) && res.hasResponse) {
-        removePendingOp(opId);
-        if (rollback) {
-          useProjectState.setState(rollback);
+    void result
+      .then((res) => {
+        // A 200 response means the backend accepted the op; don't keep reapplying it.
+        if (isResponseDataAndStatus(res) && res200(res)) {
+          acknowledgePendingOp(opId);
+        } else if (isResponseDataAndStatus(res)) {
+          rollbackOptimisticProjectStateUpdate(opId, rollback);
         }
-      }
-    });
+      })
+      .catch(() => {
+        rollbackOptimisticProjectStateUpdate(opId, rollback);
+      });
   }
   return opId;
 }
