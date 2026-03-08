@@ -1,6 +1,9 @@
 import { useRef } from "react";
 import { useProjectLoading, useShareSession } from "state/definitions";
-import { PROJECT_CONFIG_ROUTER_PATH } from "utils/constants";
+import {
+  APP_CHROME_Z_INDEX_CLASS_NAME,
+  PROJECT_CONFIG_ROUTER_PATH,
+} from "utils/constants";
 import { useTabScope } from "utils/focusManager";
 import { Notification } from "./Notification";
 import { PluginRestartBanner } from "./PluginRestartBanner";
@@ -24,7 +27,7 @@ export function HeaderContainer({ path }: { path: string }) {
 
   return (
     <header
-      className={`z-20 flex h-9 min-h-9 w-[100vw] flex-row items-center border-b border-setta-200/75 bg-white px-2 dark:border-setta-850 dark:bg-setta-875 `}
+      className={`relative ${APP_CHROME_Z_INDEX_CLASS_NAME} flex h-9 min-h-9 w-[100vw] flex-row items-center border-b border-setta-200/75 bg-white px-2 dark:border-setta-850 dark:bg-setta-875 `}
       ref={headerRef}
       data-tab-scope="header"
     >

@@ -71,4 +71,84 @@ describe("resolveAgenticScopeForChatSections", () => {
       sortSet(expected.peerChatSectionIds),
     );
   });
+
+  it("includes only direct outgoing edges from the active chat section", () => {
+    const edges = [
+      createAgenticEdge({
+        id: "edge-incoming-section",
+        sourceSectionId: "section-incoming",
+        targetSectionId: "chat-1",
+        kind: AgenticEdgeKindEnum.section_chat,
+      }),
+      createAgenticEdge({
+        id: "edge-incoming-chat",
+        sourceSectionId: "chat-2",
+        targetSectionId: "chat-1",
+        kind: AgenticEdgeKindEnum.chat_chat,
+      }),
+      createAgenticEdge({
+        id: "edge-outgoing-chat",
+        sourceSectionId: "chat-1",
+        targetSectionId: "chat-3",
+        kind: AgenticEdgeKindEnum.chat_chat,
+      }),
+      createAgenticEdge({
+        id: "edge-outgoing-section",
+        sourceSectionId: "chat-1",
+        targetSectionId: "section-outgoing",
+        kind: AgenticEdgeKindEnum.chat_section,
+      }),
+      createAgenticEdge({
+        id: "edge-other-chat",
+        sourceSectionId: "chat-2",
+        targetSectionId: "section-other",
+        kind: AgenticEdgeKindEnum.chat_section,
+      }),
+    ];
+
+    const scope = resolveAgenticScopeFromEdges(edges, "chat-1");
+    expect(sortSet(scope.readSectionIds)).toEqual(["section-outgoing"]);
+    expect(sortSet(scope.writeSectionIds)).toEqual(["section-outgoing"]);
+    expect(sortSet(scope.contextSectionIds)).toEqual(["section-outgoing"]);
+    expect(sortSet(scope.peerChatSectionIds)).toEqual(["chat-3"]);
+  });
+
+  it("recomputes scope from the latest edge edits", () => {
+    const baseEdge = createAgenticEdge({
+      id: "edge-chat-section",
+      sourceSectionId: "chat-1",
+      targetSectionId: "section-a",
+      kind: AgenticEdgeKindEnum.chat_section,
+    });
+    const peerEdge = createAgenticEdge({
+      id: "edge-chat-peer",
+      sourceSectionId: "chat-1",
+      targetSectionId: "chat-2",
+      kind: AgenticEdgeKindEnum.chat_chat,
+    });
+
+    const initialScope = resolveAgenticScopeFromEdges([baseEdge], "chat-1");
+    expect(sortSet(initialScope.readSectionIds)).toEqual(["section-a"]);
+    expect(sortSet(initialScope.peerChatSectionIds)).toEqual([]);
+
+    const editedScope = resolveAgenticScopeFromEdges(
+      [{ ...baseEdge, targetSectionId: "section-b" }],
+      "chat-1",
+    );
+    expect(sortSet(editedScope.readSectionIds)).toEqual(["section-b"]);
+    expect(sortSet(editedScope.writeSectionIds)).toEqual(["section-b"]);
+    expect(sortSet(editedScope.contextSectionIds)).toEqual(["section-b"]);
+
+    const withPeerScope = resolveAgenticScopeFromEdges(
+      [{ ...baseEdge, targetSectionId: "section-b" }, peerEdge],
+      "chat-1",
+    );
+    expect(sortSet(withPeerScope.peerChatSectionIds)).toEqual(["chat-2"]);
+
+    const clearedScope = resolveAgenticScopeFromEdges([], "chat-1");
+    expect(sortSet(clearedScope.readSectionIds)).toEqual([]);
+    expect(sortSet(clearedScope.writeSectionIds)).toEqual([]);
+    expect(sortSet(clearedScope.contextSectionIds)).toEqual([]);
+    expect(sortSet(clearedScope.peerChatSectionIds)).toEqual([]);
+  });
 });

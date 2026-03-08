@@ -1,18 +1,31 @@
+import { buildWorkspaceSectionProjectChatSurfaceId } from "components/ChatWindowing/projectChatSurfaceIds";
+import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import _ from "lodash";
+import type { SetStateAction } from "react";
 import React from "react";
+import {
+  getExternalProjectChatWindowBindingForSectionInState,
+  getProjectChatWindowModeForSectionInState,
+} from "state/actions/projectChatWindowing";
 import {
   getCurrEffectiveSectionImpl,
   getEmbeddedAttachedTerminalForCodeSection,
 } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
-import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
+import {
+  ChatWindowModeEnum,
+  SectionTypeEnum,
+  type ChatWindowMode,
+  type ChatWindowPlacement,
+  type SectionType,
+} from "utils/generatedTypes";
 import { SectionHeader } from "../Header/SectionHeader";
+import { SectionWindowToggleButton } from "../Header/SectionWindowToggleButton";
 import { BrowserArea } from "../Layouts/BrowserArea";
 import { CallableArea } from "../Layouts/CallableArea";
 import { ChartArea } from "../Layouts/ChartArea/ChartArea";
-import { ChatArea } from "../Layouts/ChatArea";
 import {
   CodeArea,
   GenPythonCodeArea,
@@ -34,6 +47,7 @@ import { TextBlock } from "../Layouts/TextBlock";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
 import { MetaControlMenuButton } from "./MetaControlMenuButton";
+import { SectionWindowPlaceholder } from "./SectionWindowPlaceholder";
 import { TextBlockMetaControlMenuButton } from "./TextBlockMetaControlMenuButton";
 import { getBgColor } from "./utils";
 
@@ -70,7 +84,6 @@ function _SectionContainerCoreResizable({
     return {
       isMinimized: impl.isMinimized,
       isYouTube: false,
-      // isYouTube: getIsYouTubeSection(sectionId, x),
       textBlockMetaControlStyle:
         impl.type === SectionTypeEnum.TextBlock ? impl.metaControlStyle : false,
       hasEmbeddedTerminal:
@@ -95,15 +108,6 @@ function _SectionContainerCoreResizable({
   const metaControlLayoutClassName = isMetaControl
     ? "grid-cols-1 grid-rows-1"
     : undefined;
-  const sectionBody = !isMinimized ? (
-    <AreaSwitch
-      sectionId={sectionId}
-      sectionTypeName={sectionTypeName}
-      bgColor={bgColor}
-      isMinimized={isMinimized}
-      isUserView={isUserView}
-    />
-  ) : null;
 
   return (
     <CustomResizable
@@ -156,10 +160,26 @@ function _SectionContainerCoreResizable({
           isUserView={isUserView}
           isRoot={isRoot}
           hasSectionStyleTheme={hasSectionStyleTheme}
+          extraControls={
+            !isUserView ? (
+              <SectionWindowToggleButton
+                sectionId={sectionId}
+                sectionTypeName={sectionTypeName}
+                isRoot={isRoot}
+                hasSectionStyleTheme={hasSectionStyleTheme}
+              />
+            ) : null
+          }
         />
       ) : null}
       {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
-      {sectionBody}
+      <CanvasSectionBody
+        sectionId={sectionId}
+        sectionTypeName={sectionTypeName}
+        bgColor={bgColor}
+        isMinimized={isMinimized}
+        isUserView={isUserView}
+      />
     </CustomResizable>
   );
 }
@@ -168,18 +188,28 @@ export const SectionContainerCoreResizable = React.memo(
   _SectionContainerCoreResizable,
 );
 
-function AreaSwitch({
+export function AreaSwitch({
   sectionId,
   sectionTypeName,
   bgColor,
   isMinimized,
   isUserView,
+  chatHost = "section_layout",
+  chatModeOverride,
+  projectChatId,
+  setProjectChatId,
+  projectChatSurfaceId,
 }: {
   sectionId: string;
   sectionTypeName: SectionType;
   bgColor: string;
   isMinimized: boolean;
   isUserView: boolean;
+  chatHost?: ChatWindowPlacement | "section_layout" | "standalone_page";
+  chatModeOverride?: ChatWindowMode;
+  projectChatId?: string | null;
+  setProjectChatId?: (next: SetStateAction<string | null | undefined>) => void;
+  projectChatSurfaceId?: string;
 }) {
   if (isMinimized) {
     return null;
@@ -218,11 +248,20 @@ function AreaSwitch({
     case SectionTypeEnum.GenPythonMetadata:
       return <GenPythonMetadataArea sectionId={sectionId} />;
     case SectionTypeEnum.Terminal:
-      return <TerminalArea sectionId={sectionId} />;
+      return <TerminalArea sectionId={sectionId} host={chatHost} />;
     case SectionTypeEnum.IFrame:
       return <IframeArea sectionId={sectionId} />;
     case SectionTypeEnum.Chat:
-      return <ChatArea sectionId={sectionId} />;
+      return (
+        <ChatSectionArea
+          sectionId={sectionId}
+          host={chatHost}
+          modeOverride={chatModeOverride}
+          projectChatId={projectChatId}
+          setProjectChatId={setProjectChatId}
+          surfaceId={projectChatSurfaceId}
+        />
+      );
     case SectionTypeEnum.Browser:
       return <BrowserArea sectionId={sectionId} />;
     case SectionTypeEnum.Plugin:
@@ -237,4 +276,91 @@ function AreaSwitch({
     default:
       return sectionTypeName satisfies never;
   }
+}
+
+function CanvasSectionBody({
+  sectionId,
+  sectionTypeName,
+  bgColor,
+  isMinimized,
+  isUserView,
+}: {
+  sectionId: string;
+  sectionTypeName: SectionType;
+  bgColor: string;
+  isMinimized: boolean;
+  isUserView: boolean;
+}) {
+  const externalizedWindowId = useProjectState((state) => {
+    if (sectionTypeName === SectionTypeEnum.Chat) {
+      return null;
+    }
+    return (
+      getExternalProjectChatWindowBindingForSectionInState(
+        state.projectChatWindowing,
+        sectionId,
+      )?.instanceId ?? null
+    );
+  });
+
+  if (externalizedWindowId) {
+    return (
+      <SectionWindowPlaceholder
+        instanceId={externalizedWindowId}
+        sectionId={sectionId}
+        dataTestId="section-canvas-window-placeholder"
+      />
+    );
+  }
+  if (isMinimized) {
+    return null;
+  }
+
+  return (
+    <AreaSwitch
+      sectionId={sectionId}
+      sectionTypeName={sectionTypeName}
+      bgColor={bgColor}
+      isMinimized={isMinimized}
+      isUserView={isUserView}
+    />
+  );
+}
+
+function ChatSectionArea({
+  sectionId,
+  host,
+  modeOverride,
+  projectChatId,
+  setProjectChatId,
+  surfaceId,
+}: {
+  sectionId: string;
+  host: ChatWindowPlacement | "section_layout" | "standalone_page";
+  modeOverride?: ChatWindowMode;
+  projectChatId?: string | null;
+  setProjectChatId?: (next: SetStateAction<string | null | undefined>) => void;
+  surfaceId?: string;
+}) {
+  const derivedMode = useProjectState((state) =>
+    modeOverride === undefined
+      ? getProjectChatWindowModeForSectionInState(
+          state.projectChatWindowing,
+          sectionId,
+        )
+      : null,
+  );
+  const mode = modeOverride ?? derivedMode ?? ChatWindowModeEnum.section_mode;
+  return (
+    <UnifiedChatSurface
+      mode={mode}
+      host={host}
+      sectionId={sectionId}
+      surfaceId={
+        surfaceId ?? buildWorkspaceSectionProjectChatSurfaceId(sectionId)
+      }
+      projectChatId={projectChatId}
+      setProjectChatId={setProjectChatId}
+    />
+  );
 }

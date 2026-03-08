@@ -136,6 +136,7 @@ def _build_project_state() -> tuple[ProjectStateBackend, ID, ID, ID, ID]:
         codeObjImpls=single.codeObjImpls,
         codeObjVariants=single.codeObjVariants,
         projectConfigs={single.projectConfig.id: single.projectConfig},
+        projectChatWindowingByProjectConfigId={single.projectConfig.id: {}},
         defaultProjectConfigId=single.projectConfig.id,
     )
     return (

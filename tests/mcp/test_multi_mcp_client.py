@@ -163,7 +163,8 @@ class TestMultiMCPClientCallTool:
         )
         client.tool_annotations_by_name[namespaced_tool_name] = SettaToolAnnotations(
             settaToolType=SettaToolType.discoverable,
-            accessType="write",
+            accessType="read",
+            retryOnDisconnect=False,
         )
         client._sessions[SETTA_MCP_SERVER_ID] = _ClosedSession()
 
@@ -177,6 +178,33 @@ class TestMultiMCPClientCallTool:
 
         with pytest.raises(anyio.ClosedResourceError):
             await client.call_tool(namespaced_tool_name, {"path": "README.md"})
+
+    @pytest.mark.asyncio
+    async def test_does_not_retry_invoke_linked_chat_after_disconnect(self) -> None:
+        client = MultiMCPClient({})
+        namespaced_tool_name = f"{SETTA_MCP_SERVER_ID}__invoke_linked_chat"
+        client.routing[namespaced_tool_name] = (
+            SETTA_MCP_SERVER_ID,
+            "invoke_linked_chat",
+        )
+        client.tool_annotations_by_name[namespaced_tool_name] = SettaToolAnnotations(
+            settaToolType=SettaToolType.discoverable,
+            accessType="write",
+        )
+        client._sessions[SETTA_MCP_SERVER_ID] = _ClosedSession()
+
+        async def _unexpected_reconnect(
+            _server_id: str, *, previous_session: Any
+        ) -> Any:
+            del previous_session
+            raise AssertionError(
+                "Reconnect should not be attempted for invoke_linked_chat"
+            )
+
+        client._wait_for_session_reconnect = _unexpected_reconnect  # type: ignore[method-assign]
+
+        with pytest.raises(anyio.ClosedResourceError):
+            await client.call_tool(namespaced_tool_name, {"targetSectionId": "sec-1"})
 
     @pytest.mark.asyncio
     async def test_raises_when_reconnect_is_unavailable(
