@@ -366,11 +366,15 @@ Use the docs in this order:
 120. `phase-10-app-deployment-stage4.md`
   - focused implementation-plan doc for the Go-owned `setta app` command
     over the sibling `setta-server` runtime and Go deployment catalog
-121. `spike-mcp.md`
+121. `phase-11-maintenance-command-inventory.md`
+  - focused closeout/inventory doc for the remaining Python-owned maintenance
+    commands after the completed Phase 10 local-runtime migration, with
+    `backups` as the first recommended follow-up slice
+122. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-122. `spike-pty.md`
+123. `spike-pty.md`
    - PTY uncertainty-reduction plan
-123. `spike-lsp.md`
+124. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

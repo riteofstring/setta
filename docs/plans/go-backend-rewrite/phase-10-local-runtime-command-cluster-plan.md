@@ -242,9 +242,15 @@ That slice should:
 
 Phase 10 local-runtime migration is complete.
 
+The next rewrite planning boundary now lives in
+`phase-11-maintenance-command-inventory.md`.
+
 Keep the remaining maintenance commands explicitly Python-owned unless a later
 separate maintenance/authoring slice is justified:
 
 1. `backups`
 2. `plugins`
 3. `export-db`
+
+If another shipped CLI slice is needed, start with `backups`, not `plugins` or
+`export-db`.

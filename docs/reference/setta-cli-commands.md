@@ -35,7 +35,7 @@ another host.
 | `setta share` | yes | no | Start the server in share deployment mode. |
 | `setta app` | yes | no | Start the server in app deployment mode. |
 | `setta version` | yes | no | Prints the local install version. |
-| `setta export-db` | yes | no | Placeholder export command. |
+| `setta export-db` | yes | no | Write a readable YAML export of the current project state. |
 | `setta backups` | yes | no | List and restore local project backups. |
 | `setta plugins` | yes | no | Plugin scaffold, install/update/link, runtime state, and lockfile commands. |
 | `setta status` | yes | no | Reads local session registry; SSH in to run remotely. |
@@ -173,13 +173,27 @@ setta version
 
 ## `setta export-db`
 
-Reserved for exporting the database. The handler is currently a placeholder
-(`TODO` in the code), so this command does not produce output yet.
+Exports the current project state in readable YAML form.
+
+If neither `--readable` nor `--readable-with-variants` is provided, the command
+defaults to `--readable-with-variants`.
 
 Options:
-- `--readable` exports in a human-readable format.
-- `--readable-with-variants` includes variants in the readable export.
+- `--readable` exports a readable YAML payload without section variant names.
+- `--readable-with-variants` includes section variant names in the readable
+  export.
 - `--output PATH` writes the readable export to a custom path (default: `setta_files/project.readable.yaml`).
+
+Output:
+- writes YAML to the selected path
+- prints `Wrote readable export to <path>` on success
+
+Examples:
+```sh
+setta export-db
+setta export-db --readable
+setta export-db --output /tmp/project.readable.yaml
+```
 
 ## `setta backups`
 
