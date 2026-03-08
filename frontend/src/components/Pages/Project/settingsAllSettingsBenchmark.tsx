@@ -43,6 +43,7 @@ export const SETTINGS_ALL_SETTINGS_BENCHMARK_STAGES = [
   "full-section-opacity-hidden",
   "full-section-opacity-1pct",
   "full-section-snapdom-hidden-live",
+  "full-section-semantic-preview-hidden-live",
 ] as const;
 
 export type SettingsAllSettingsBenchmarkStage =
@@ -128,6 +129,7 @@ type SettingsAllSettingsBenchmarkValue = {
   renderUiEditorContent?: boolean;
   skipActivationZIndexReorder?: boolean;
   renderSectionBodySnapdomPreview: boolean;
+  renderSectionBodySemanticPreview?: boolean;
   sectionBodyHiddenOpacity?: number | null;
   keepSectionBodyMountedWithSnapdomPreview?: boolean;
 };
@@ -158,6 +160,7 @@ const DEFAULT_VALUE: SettingsAllSettingsBenchmarkValue = {
   renderUiEditorContent: true,
   skipActivationZIndexReorder: false,
   renderSectionBodySnapdomPreview: false,
+  renderSectionBodySemanticPreview: false,
   sectionBodyHiddenOpacity: null,
   keepSectionBodyMountedWithSnapdomPreview: false,
 };
@@ -976,8 +979,36 @@ function resolveBenchmarkValue(
         renderParamChrome: true,
         renderParamSortable: true,
         renderSectionBodySnapdomPreview: true,
+        renderSectionBodySemanticPreview: false,
         sectionBodyHiddenOpacity: null,
         keepSectionBodyMountedWithSnapdomPreview: true,
+      };
+    case "full-section-semantic-preview-hidden-live":
+      return {
+        active: true,
+        stage,
+        renderSectionHeader: true,
+        renderSectionBody: true,
+        renderFullSectionBody: true,
+        useSyntheticSectionBody: false,
+        renderStaticParamList: false,
+        renderGroupContainerStaticRows: false,
+        renderSectionHandles: true,
+        renderLiveParamLabels: true,
+        renderFlatParamLayout: false,
+        renderSimpleGridParamLayout: false,
+        renderNestedChildSubtrees: true,
+        paramStructureScope: "all",
+        renderParamInput: true,
+        renderParamWidgets: true,
+        textFamilyWidgetScope: "all",
+        nonTextWidgetScope: "all",
+        renderParamChrome: true,
+        renderParamSortable: true,
+        renderSectionBodySnapdomPreview: false,
+        renderSectionBodySemanticPreview: true,
+        sectionBodyHiddenOpacity: null,
+        keepSectionBodyMountedWithSnapdomPreview: false,
       };
     default:
       return stage satisfies never;

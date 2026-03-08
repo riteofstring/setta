@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { useIsSectionUIActive } from "state/activeSectionUI";
+import { SettingsAllSettingsBenchmarkSemanticSectionPreview } from "./SettingsAllSettingsBenchmarkSemanticSectionPreview";
 
 type SnapdomStatus = "pending" | "ready" | "error" | "live-active";
 type CaptureSize = {
@@ -22,6 +23,7 @@ type SectionBodyBounds = {
   height: number;
 };
 type HiddenLiveMode = "none" | "opacity" | "visibility";
+type SemanticPreviewStatus = "pending" | "ready" | "live-active";
 
 type SettingsAllSettingsBenchmarkSnapdomSectionBodyProps = PropsWithChildren<{
   sectionId: string;
@@ -41,6 +43,8 @@ export function SettingsAllSettingsBenchmarkSnapdomSectionBody({
 
   const shouldUseSnapdomPreview =
     benchmark.active && benchmark.renderSectionBodySnapdomPreview;
+  const shouldUseSemanticPreview =
+    benchmark.active && benchmark.renderSectionBodySemanticPreview === true;
   const hiddenOpacity = benchmark.sectionBodyHiddenOpacity ?? null;
   const shouldUseOpacityHidden =
     benchmark.active && hiddenOpacity !== null && hiddenOpacity >= 0;
@@ -49,6 +53,7 @@ export function SettingsAllSettingsBenchmarkSnapdomSectionBody({
     benchmark.keepSectionBodyMountedWithSnapdomPreview === true;
   const shouldTrackActiveState =
     shouldUseSnapdomPreview ||
+    shouldUseSemanticPreview ||
     shouldUseOpacityHidden ||
     shouldKeepMountedWithSnapdomPreview;
   const trackedIsActiveSection = useIsSectionUIActive(sectionId);
@@ -69,7 +74,9 @@ export function SettingsAllSettingsBenchmarkSnapdomSectionBody({
     if (!shouldUseSnapdomPreview) {
       setPreviewSrc(null);
       setCaptureSize(null);
-      setBodyBounds(null);
+      if (!shouldUseSemanticPreview) {
+        setBodyBounds(null);
+      }
       setStatus(isActiveSection ? "live-active" : "pending");
       return;
     }
@@ -158,11 +165,39 @@ export function SettingsAllSettingsBenchmarkSnapdomSectionBody({
     return () => {
       cancelled = true;
     };
-  }, [isActiveSection, previewHost, sectionId, shouldUseSnapdomPreview]);
+  }, [
+    isActiveSection,
+    previewHost,
+    sectionId,
+    shouldUseSemanticPreview,
+    shouldUseSnapdomPreview,
+  ]);
+
+  useLayoutEffect(() => {
+    if (!shouldUseSemanticPreview || isActiveSection) {
+      if (!shouldUseSnapdomPreview) {
+        setBodyBounds(null);
+      }
+      return;
+    }
+
+    const liveBodyRoot = liveBodyRootRef.current;
+    const root = previewHost;
+    if (liveBodyRoot === null || root === null) {
+      return;
+    }
+
+    setBodyBounds(resolveSectionBodyBounds(liveBodyRoot, root));
+  }, [isActiveSection, previewHost, shouldUseSemanticPreview, shouldUseSnapdomPreview]);
 
   const effectiveStatus: SnapdomStatus = isActiveSection
     ? "live-active"
     : status;
+  const semanticPreviewStatus: SemanticPreviewStatus = isActiveSection
+    ? "live-active"
+    : shouldUseSemanticPreview && bodyBounds !== null
+      ? "ready"
+      : "pending";
   const shouldShowSnapdomPreview =
     shouldUseSnapdomPreview &&
     !isActiveSection &&
@@ -170,9 +205,11 @@ export function SettingsAllSettingsBenchmarkSnapdomSectionBody({
     captureSize !== null &&
     bodyBounds !== null &&
     status === "ready";
+  const shouldShowSemanticPreview =
+    shouldUseSemanticPreview && !isActiveSection && bodyBounds !== null;
   const hiddenLiveStatus = isActiveSection
     ? "visible-active"
-    : shouldShowSnapdomPreview
+    : shouldShowSnapdomPreview || shouldShowSemanticPreview
       ? "hidden-ready"
       : status === "error"
         ? "visible-error"
@@ -183,6 +220,8 @@ export function SettingsAllSettingsBenchmarkSnapdomSectionBody({
     shouldUseOpacityHidden,
     shouldUseSnapdomPreview,
     shouldShowSnapdomPreview,
+    shouldUseSemanticPreview,
+    shouldShowSemanticPreview,
     shouldKeepMountedWithSnapdomPreview,
   });
 
@@ -245,6 +284,16 @@ export function SettingsAllSettingsBenchmarkSnapdomSectionBody({
           previewHost,
         )
       : null;
+  const semanticPreviewOverlay =
+    shouldShowSemanticPreview && previewHost !== null && bodyBounds !== null
+      ? createPortal(
+          <SectionSemanticPreviewOverlay
+            bodyBounds={bodyBounds}
+            sectionId={sectionId}
+          />,
+          previewHost,
+        )
+      : null;
 
   return (
     <>
@@ -286,15 +335,23 @@ export function SettingsAllSettingsBenchmarkSnapdomSectionBody({
             ? String(bodyBounds.height)
             : undefined
         }
+        data-settings-benchmark-section-semantic-preview={
+          shouldUseSemanticPreview ? sectionId : undefined
+        }
+        data-settings-benchmark-section-semantic-preview-status={
+          shouldUseSemanticPreview ? semanticPreviewStatus : undefined
+        }
         data-settings-benchmark-section-opacity-hidden={
-          shouldUseOpacityHidden || shouldKeepMountedWithSnapdomPreview
+          shouldUseOpacityHidden ||
+          shouldKeepMountedWithSnapdomPreview ||
+          shouldUseSemanticPreview
             ? sectionId
             : undefined
         }
         data-settings-benchmark-section-opacity-hidden-status={
           shouldUseOpacityHidden
             ? opacityStatus
-            : shouldKeepMountedWithSnapdomPreview
+            : shouldKeepMountedWithSnapdomPreview || shouldUseSemanticPreview
               ? hiddenLiveStatus
               : undefined
         }
@@ -303,6 +360,7 @@ export function SettingsAllSettingsBenchmarkSnapdomSectionBody({
         {children}
       </div>
       {previewOverlay}
+      {semanticPreviewOverlay}
     </>
   );
 }
@@ -312,18 +370,25 @@ function resolveHiddenLiveMode({
   shouldUseOpacityHidden,
   shouldUseSnapdomPreview,
   shouldShowSnapdomPreview,
+  shouldUseSemanticPreview,
+  shouldShowSemanticPreview,
   shouldKeepMountedWithSnapdomPreview,
 }: {
   isActiveSection: boolean;
   shouldUseOpacityHidden: boolean;
   shouldUseSnapdomPreview: boolean;
   shouldShowSnapdomPreview: boolean;
+  shouldUseSemanticPreview: boolean;
+  shouldShowSemanticPreview: boolean;
   shouldKeepMountedWithSnapdomPreview: boolean;
 }): HiddenLiveMode {
   if (isActiveSection) {
     return "none";
   }
   if (shouldUseOpacityHidden) {
+    return "opacity";
+  }
+  if (shouldUseSemanticPreview && shouldShowSemanticPreview) {
     return "opacity";
   }
   if (!shouldUseSnapdomPreview || !shouldShowSnapdomPreview) {
@@ -375,6 +440,32 @@ function SectionSnapdomPreviewOverlay({
         src={previewSrc}
         style={imageStyle}
       />
+    </div>
+  );
+}
+
+function SectionSemanticPreviewOverlay({
+  bodyBounds,
+  sectionId,
+}: {
+  bodyBounds: SectionBodyBounds;
+  sectionId: string;
+}) {
+  const overlayStyle: CSSProperties = {
+    left: `${bodyBounds.left}px`,
+    top: `${bodyBounds.top}px`,
+    width: `${bodyBounds.width}px`,
+    height: `${bodyBounds.height}px`,
+  };
+
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute z-10 overflow-hidden"
+      data-settings-benchmark-section-semantic-preview-overlay={sectionId}
+      style={overlayStyle}
+    >
+      <SettingsAllSettingsBenchmarkSemanticSectionPreview sectionId={sectionId} />
     </div>
   );
 }

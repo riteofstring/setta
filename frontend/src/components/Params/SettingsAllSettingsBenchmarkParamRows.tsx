@@ -2,17 +2,23 @@ import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import { buildParamTreeView } from "state/actions/params/paramTree";
 import {
+  getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImplWithTypeGuard,
   getParamDisplayName,
 } from "state/actions/sectionInfos";
 import { useProjectState, type ZustandProjectState } from "state/definitions";
-import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
+import {
+  CodeObjTypeEnum,
+  isBaseSectionWithParamsImpl,
+} from "utils/generatedTypes";
 
 export type SettingsAllSettingsBenchmarkParamRow = {
   depth: number;
   id: string;
   isParent: boolean;
   label: string;
+  previewKind: string;
+  previewTone: "group" | "code" | "text" | "toggle" | "choice" | "value";
 };
 
 export function useSettingsAllSettingsBenchmarkParamRows({
@@ -54,8 +60,53 @@ export function useSettingsAllSettingsBenchmarkParamRows({
         id: item.id,
         isParent: item.isParent,
         label: getParamDisplayName(state, sectionId, item.id),
+        ...getPreviewMetadataForBenchmarkRow(state, sectionId, item.id, item.isParent),
       }));
   }, _.isEqual);
+}
+
+function getPreviewMetadataForBenchmarkRow(
+  state: ZustandProjectState,
+  sectionId: string,
+  paramId: string,
+  isParent: boolean,
+): Pick<SettingsAllSettingsBenchmarkParamRow, "previewKind" | "previewTone"> {
+  if (isParent) {
+    return {
+      previewKind: "Group",
+      previewTone: "group",
+    };
+  }
+
+  const impl = getCurrEffectiveCodeObjImpl(state, sectionId, paramId);
+  switch (impl.type) {
+    case CodeObjTypeEnum.CodeParam:
+      return {
+        previewKind: "Code",
+        previewTone: "code",
+      };
+    case CodeObjTypeEnum.TextParam:
+    case CodeObjTypeEnum.TextAreaParam:
+      return {
+        previewKind: "Text",
+        previewTone: "text",
+      };
+    case CodeObjTypeEnum.SwitchParam:
+      return {
+        previewKind: "Toggle",
+        previewTone: "toggle",
+      };
+    case CodeObjTypeEnum.DropdownParam:
+      return {
+        previewKind: "Choice",
+        previewTone: "choice",
+      };
+    default:
+      return {
+        previewKind: "Value",
+        previewTone: "value",
+      };
+  }
 }
 
 function buildVisibleRowIdSet({

@@ -6,6 +6,8 @@ const SETTINGS_URL = new URL("/settings", BASE_URL);
 const READY_SELECTOR = ".react-flow__pane";
 const QUERY_PARAM = "settingsBenchmarkStage";
 
+test.describe.configure({ timeout: 180_000 });
+
 const STAGES = [
   "frame-only",
   "header-only",
@@ -36,6 +38,7 @@ const STAGES = [
   "full-section-opacity-hidden",
   "full-section-opacity-1pct",
   "full-section-snapdom-hidden-live",
+  "full-section-semantic-preview-hidden-live",
 ] as const;
 
 type StageMetrics = {
@@ -84,6 +87,11 @@ type StageMetrics = {
   sectionSnapdomErrorCount: number;
   sectionSnapdomLiveActiveCount: number;
   sectionSnapdomPreviewCount: number;
+  sectionSemanticPreviewCount: number;
+  sectionSemanticPreviewReadyCount: number;
+  sectionSemanticPreviewLiveActiveCount: number;
+  sectionSemanticPreviewOverlayCount: number;
+  sectionSemanticPreviewRowCount: number;
   sectionOpacityHiddenCount: number;
   sectionOpacityHiddenHiddenCount: number;
   sectionOpacityHiddenVisibleActiveCount: number;
@@ -653,6 +661,8 @@ test("all settings benchmark stages progressively restore section complexity", a
   expect(metricsByStage.get("full")?.sampleParamRowNarrowCount).toBe(0);
   expect(metricsByStage.get("full")?.sectionSnapdomCount).toBe(0);
   expect(metricsByStage.get("full")?.sectionSnapdomPreviewCount).toBe(0);
+  expect(metricsByStage.get("full")?.sectionSemanticPreviewCount).toBe(0);
+  expect(metricsByStage.get("full")?.sectionSemanticPreviewOverlayCount).toBe(0);
 
   expect(metricsByStage.get("full-section-snapdom")?.staticRowCount).toBe(0);
   expect(
@@ -683,6 +693,9 @@ test("all settings benchmark stages progressively restore section complexity", a
   ).toBeGreaterThan(250);
   expect(
     metricsByStage.get("full-section-snapdom")?.sampleParamRowNarrowCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-snapdom")?.sectionSemanticPreviewCount,
   ).toBe(0);
 
   expect(
@@ -786,6 +799,63 @@ test("all settings benchmark stages progressively restore section complexity", a
     metricsByStage.get("full-section-snapdom-hidden-live")
       ?.sampleParamRowNarrowCount,
   ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-snapdom-hidden-live")
+      ?.sectionSemanticPreviewCount,
+  ).toBe(0);
+
+  expect(
+    metricsByStage.get("full-section-semantic-preview-hidden-live")
+      ?.staticRowCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-semantic-preview-hidden-live")
+      ?.sectionSnapdomCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-semantic-preview-hidden-live")
+      ?.sectionSemanticPreviewCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-semantic-preview-hidden-live")
+      ?.sectionSemanticPreviewReadyCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-semantic-preview-hidden-live")
+      ?.sectionSemanticPreviewOverlayCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-semantic-preview-hidden-live")
+      ?.sectionSemanticPreviewRowCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-semantic-preview-hidden-live")
+      ?.sectionOpacityHiddenCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-semantic-preview-hidden-live")
+      ?.sectionOpacityHiddenHiddenCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-semantic-preview-hidden-live")
+      ?.sectionOpacityHiddenVisibleActiveCount,
+  ).toBeLessThanOrEqual(1);
+  expect(
+    metricsByStage.get("full-section-semantic-preview-hidden-live")
+      ?.textInputDummyCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-semantic-preview-hidden-live")
+      ?.sampleParamRowCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-semantic-preview-hidden-live")
+      ?.sampleParamRowMinWidth,
+  ).toBeGreaterThan(250);
+  expect(
+    metricsByStage.get("full-section-semantic-preview-hidden-live")
+      ?.sampleParamRowNarrowCount,
+  ).toBe(0);
 
   expect(metricsByStage.get("frame-only")?.domCount).toBeLessThan(
     metricsByStage.get("header-only")?.domCount ?? 0,
@@ -870,6 +940,9 @@ test("all settings benchmark stages progressively restore section complexity", a
   expect(
     metricsByStage.get("full-section-snapdom-hidden-live")?.domCount,
   ).toBeGreaterThanOrEqual(metricsByStage.get("full")?.domCount ?? 0);
+  expect(
+    metricsByStage.get("full-section-semantic-preview-hidden-live")?.domCount,
+  ).toBeGreaterThanOrEqual(metricsByStage.get("full")?.domCount ?? 0);
 });
 
 test("full-section-snapdom hydrates a clicked section body back to live controls", async ({
@@ -886,6 +959,16 @@ test("full-section-snapdom-hidden-live reveals a clicked section body without lo
   await assertSectionStageActivatesToLiveControls(
     page,
     "full-section-snapdom-hidden-live",
+  );
+});
+
+test("full-section-semantic-preview-hidden-live reveals a clicked section body without losing live controls", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await assertSectionStageActivatesToLiveControls(
+    page,
+    "full-section-semantic-preview-hidden-live",
   );
 });
 
@@ -993,6 +1076,10 @@ async function openBenchmarkStage(
   if (stage === "full-section-snapdom-hidden-live") {
     await waitForSectionSnapdomStage(page, true);
     await assertSectionSnapdomPreviewFidelity(page);
+  }
+  if (stage === "full-section-semantic-preview-hidden-live") {
+    await waitForSectionSemanticPreviewStage(page);
+    await assertSectionSemanticPreviewFidelity(page);
   }
   if (
     stage === "full-section-opacity-hidden" ||
@@ -1216,7 +1303,10 @@ async function assertSectionSnapdomPreviewFidelity(page: Page): Promise<void> {
 
 async function assertSectionStageActivatesToLiveControls(
   page: Page,
-  stage: "full-section-snapdom" | "full-section-snapdom-hidden-live",
+  stage:
+    | "full-section-snapdom"
+    | "full-section-snapdom-hidden-live"
+    | "full-section-semantic-preview-hidden-live",
 ): Promise<void> {
   await openBenchmarkStage(page, stage);
 
@@ -1226,7 +1316,7 @@ async function assertSectionStageActivatesToLiveControls(
 
   await page.waitForFunction(() => {
     const liveSections = document.querySelectorAll(
-      '[data-settings-benchmark-section-snapdom-status="live-active"]',
+      '[data-settings-benchmark-section-snapdom-status="live-active"], [data-settings-benchmark-section-semantic-preview-status="live-active"]',
     );
     if (liveSections.length !== 1) {
       return false;
@@ -1247,7 +1337,7 @@ async function assertSectionStageActivatesToLiveControls(
   const activationMetrics = await page.evaluate(() => {
     const liveSections = Array.from(
       document.querySelectorAll<HTMLElement>(
-        '[data-settings-benchmark-section-snapdom-status="live-active"]',
+        '[data-settings-benchmark-section-snapdom-status="live-active"], [data-settings-benchmark-section-semantic-preview-status="live-active"]',
       ),
     );
     const liveBody = liveSections[0] ?? null;
@@ -1261,6 +1351,9 @@ async function assertSectionStageActivatesToLiveControls(
       ).length,
       previewCount: document.querySelectorAll(
         "[data-settings-benchmark-section-snapdom-preview]",
+      ).length,
+      semanticPreviewCount: document.querySelectorAll(
+        "[data-settings-benchmark-section-semantic-preview-overlay]",
       ).length,
       liveParamRowCount:
         liveBody?.querySelectorAll('[data-param-row="true"]').length ?? 0,
@@ -1276,13 +1369,92 @@ async function assertSectionStageActivatesToLiveControls(
     expect(activationMetrics.readyPreviewCount).toBeGreaterThan(0);
     expect(activationMetrics.hiddenReadyCount).toBe(0);
     expect(activationMetrics.previewCount).toBeGreaterThan(0);
-  } else {
+  } else if (stage === "full-section-snapdom-hidden-live") {
     expect(activationMetrics.readyPreviewCount).toBeGreaterThan(0);
     expect(activationMetrics.hiddenReadyCount).toBeGreaterThan(0);
     expect(activationMetrics.previewCount).toBeGreaterThan(0);
+  } else {
+    expect(activationMetrics.readyPreviewCount).toBe(0);
+    expect(activationMetrics.hiddenReadyCount).toBeGreaterThan(0);
+    expect(activationMetrics.previewCount).toBe(0);
+    expect(activationMetrics.semanticPreviewCount).toBeGreaterThan(0);
   }
   expect(activationMetrics.liveParamRowCount).toBeGreaterThan(0);
   expect(activationMetrics.interactiveControlCount).toBeGreaterThan(0);
+}
+
+async function waitForSectionSemanticPreviewStage(page: Page): Promise<void> {
+  await page.waitForFunction(() => {
+    const roots = document.querySelectorAll(
+      "[data-settings-benchmark-section-semantic-preview]",
+    ).length;
+    const readyRoots = document.querySelectorAll(
+      '[data-settings-benchmark-section-semantic-preview-status="ready"]',
+    ).length;
+    const hiddenRoots = document.querySelectorAll(
+      '[data-settings-benchmark-section-opacity-hidden-status="hidden-ready"]',
+    ).length;
+    const previews = document.querySelectorAll(
+      "[data-settings-benchmark-section-semantic-preview-overlay]",
+    ).length;
+    const rows = document.querySelectorAll(
+      "[data-settings-benchmark-section-semantic-preview-row]",
+    ).length;
+
+    return (
+      roots > 0 &&
+      readyRoots > 0 &&
+      hiddenRoots > 0 &&
+      previews === readyRoots &&
+      rows > 0
+    );
+  });
+}
+
+async function assertSectionSemanticPreviewFidelity(page: Page): Promise<void> {
+  const fidelity = await page.evaluate(() => {
+    const flowRoot = document.querySelector(".react-flow");
+    const viewport = flowRoot?.querySelector(".react-flow__viewport");
+    const viewportTransform =
+      viewport instanceof HTMLElement
+        ? window.getComputedStyle(viewport).transform
+        : "none";
+    const viewportScale =
+      viewportTransform !== "none"
+        ? new DOMMatrixReadOnly(viewportTransform).m11 || 1
+        : 1;
+    const overlays = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        "[data-settings-benchmark-section-semantic-preview-overlay]",
+      ),
+    );
+    const sample = overlays.slice(0, 8).map((overlay) => ({
+      width: overlay.getBoundingClientRect().width / viewportScale,
+      height: overlay.getBoundingClientRect().height / viewportScale,
+      rowCount: overlay.querySelectorAll(
+        "[data-settings-benchmark-section-semantic-preview-row]",
+      ).length,
+      groupCount: overlay.querySelectorAll(
+        "[data-settings-benchmark-section-semantic-preview-group]",
+      ).length,
+    }));
+    return {
+      overlayCount: overlays.length,
+      sampleCount: sample.length,
+      zeroRowCount: sample.filter((entry) => entry.rowCount === 0).length,
+      undersizedCount: sample.filter(
+        (entry) => entry.width < 250 || entry.height < 40,
+      ).length,
+      zeroGroupCount: sample.filter((entry) => entry.groupCount === 0).length,
+      sample,
+    };
+  });
+
+  expect(fidelity.overlayCount).toBeGreaterThan(0);
+  expect(fidelity.sampleCount).toBeGreaterThan(0);
+  expect(fidelity.zeroRowCount).toBe(0);
+  expect(fidelity.undersizedCount).toBe(0);
+  expect(fidelity.zeroGroupCount).toBe(0);
 }
 
 async function collectStageMetrics(page: Page): Promise<StageMetrics> {
@@ -1433,6 +1605,21 @@ async function collectStageMetrics(page: Page): Promise<StageMetrics> {
       ).length,
       sectionSnapdomPreviewCount: flowRoot.querySelectorAll(
         "[data-settings-benchmark-section-snapdom-preview]",
+      ).length,
+      sectionSemanticPreviewCount: flowRoot.querySelectorAll(
+        "[data-settings-benchmark-section-semantic-preview]",
+      ).length,
+      sectionSemanticPreviewReadyCount: flowRoot.querySelectorAll(
+        '[data-settings-benchmark-section-semantic-preview-status="ready"]',
+      ).length,
+      sectionSemanticPreviewLiveActiveCount: flowRoot.querySelectorAll(
+        '[data-settings-benchmark-section-semantic-preview-status="live-active"]',
+      ).length,
+      sectionSemanticPreviewOverlayCount: flowRoot.querySelectorAll(
+        "[data-settings-benchmark-section-semantic-preview-overlay]",
+      ).length,
+      sectionSemanticPreviewRowCount: flowRoot.querySelectorAll(
+        "[data-settings-benchmark-section-semantic-preview-row]",
       ).length,
       sectionOpacityHiddenCount: flowRoot.querySelectorAll(
         "[data-settings-benchmark-section-opacity-hidden]",

@@ -3865,3 +3865,152 @@ New benchmark stages:
 - The first click is now already in the low-`20ms` / mid-`40ms` band on the live Settings benchmark page.
 - Warmed direct switching is now about half the previous click-to-active latency.
 - The remaining activation floor is no longer dominated by giant-store active-id writes; after this change, the remaining trace is mostly regular interaction processing plus a smaller presentation delay.
+
+## 2026-03-08 addendum: compare whole-section SnapDOM vs semantic inactive previews with hidden live bodies
+
+### Goal
+
+- Compare the two realistic inactive-section UX directions:
+  - `SnapDOM` whole-section previews with the real live body hidden underneath
+  - semantic read-only previews with the real live body hidden underneath
+- Keep the comparison tied to the same hidden-live activation model, so the only meaningful difference is the preview layer itself.
+
+### Implementation
+
+- Added a benchmark-only stage:
+  - `full-section-semantic-preview-hidden-live`
+- Stage wiring:
+  - `frontend/src/components/Pages/Project/settingsAllSettingsBenchmark.tsx`
+  - `frontend/src/components/Section/Container/SettingsAllSettingsBenchmarkSnapdomSectionBody.tsx`
+  - `frontend/src/components/Section/Container/SettingsAllSettingsBenchmarkSemanticSectionPreview.tsx`
+  - `frontend/src/components/Params/SettingsAllSettingsBenchmarkParamRows.tsx`
+- The semantic preview renders shallow read-only row summaries from project state, while the real section body remains mounted underneath with hidden/inert live children.
+
+### Visual validation
+
+- `full`:
+  - `perf/artifacts/frontend/settings-all-settings/semantic-preview-vs-snapdom-2026-03-08/full-visible.png`
+- `full-section-opacity-hidden`:
+  - `perf/artifacts/frontend/settings-all-settings/semantic-preview-vs-snapdom-2026-03-08/full-section-opacity-hidden-visible.png`
+- `full-section-snapdom-hidden-live`:
+  - `perf/artifacts/frontend/settings-all-settings/semantic-preview-vs-snapdom-2026-03-08/full-section-snapdom-hidden-live-visible.png`
+- `full-section-semantic-preview-hidden-live`:
+  - `perf/artifacts/frontend/settings-all-settings/semantic-preview-vs-snapdom-2026-03-08/full-section-semantic-preview-hidden-live-visible.png`
+
+### Stage readiness / structure
+
+- `full-section-snapdom-hidden-live`
+  - `41` ready SnapDOM previews
+  - `41` hidden live bodies
+  - DOM count in the live page: `8677`
+- `full-section-semantic-preview-hidden-live`
+  - `41` ready semantic preview overlays
+  - `680` semantic preview rows
+  - `41` hidden live bodies
+  - DOM count in the live page: `12136`
+
+### Pan/zoom comparison
+
+- Comparison method for this addendum:
+  - fit the viewport so all `42` sections are visible
+  - run the same browser-side pan+zoom replay for `180` frames
+  - compare within this addendum first
+
+#### `full` fit-all replay baseline
+
+- DOM count: `8595`
+- Runs:
+  - `48.27 FPS`
+  - `49.15 FPS`
+  - `49.24 FPS`
+- Average:
+  - `48.89 FPS`
+
+#### `full-section-opacity-hidden` fit-all replay reference
+
+- DOM count: `8595`
+- Runs:
+  - `117.68 FPS`
+  - `118.33 FPS`
+  - `119.34 FPS`
+- Average:
+  - `118.45 FPS`
+
+#### `full-section-snapdom-hidden-live` fit-all replay
+
+- DOM count: `8677`
+- Runs:
+  - `60.50 FPS`
+  - `62.89 FPS`
+  - `62.63 FPS`
+- Average:
+  - `62.01 FPS`
+
+#### `full-section-semantic-preview-hidden-live` fit-all replay
+
+- DOM count: `12136`
+- Runs:
+  - `62.60 FPS`
+  - `62.81 FPS`
+  - `62.90 FPS`
+- Average:
+  - `62.77 FPS`
+
+### Activation comparison
+
+- Comparison method for this addendum:
+  - default loaded stage view
+  - first click from one inactive section
+  - then `5` warmed direct section-to-section switches
+  - `click to active` = `data-section-active="true"` flips
+  - `click to visual settle` = shell visual state stabilizes for `4` consecutive frames
+
+#### `full` reference
+
+- first click:
+  - `16.30ms` active
+  - `45.80ms` settle
+- warmed averages:
+  - `21.40ms` active
+  - `49.80ms` settle
+
+#### `full-section-opacity-hidden` reference
+
+- first click:
+  - `21.50ms` active
+  - `58.20ms` settle
+- warmed averages:
+  - `19.68ms` active
+  - `50.54ms` settle
+
+#### `full-section-snapdom-hidden-live`
+
+- first click:
+  - `21.10ms` active
+  - `257.50ms` settle
+- warmed averages:
+  - `25.08ms` active
+  - `172.34ms` settle
+
+#### `full-section-semantic-preview-hidden-live`
+
+- first click:
+  - `26.10ms` active
+  - `53.60ms` settle
+- warmed averages:
+  - `25.18ms` active
+  - `52.98ms` settle
+
+### Conclusion
+
+- `SnapDOM` and semantic previews land in essentially the same pan/zoom band in this corrected fit-all replay:
+  - `SnapDOM hidden-live`: `62.01 FPS`
+  - `semantic hidden-live`: `62.77 FPS`
+- Both are a real improvement over fully live sections:
+  - `full`: `48.89 FPS`
+- But both still fall far short of the hidden-body upper bound:
+  - `full-section-opacity-hidden`: `118.45 FPS`
+- The decisive difference is activation:
+  - semantic preview hidden-live keeps activation close to the current live/opacity-hidden path
+  - `SnapDOM hidden-live` still has a very large visual-settle penalty
+- So if the product direction is “show an acceptable inactive preview while keeping activation fast,” the semantic-preview path is the better candidate.
