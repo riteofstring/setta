@@ -148,6 +148,59 @@ export function clearTrackedGitPaneGraphWindowIfMatches(
   clearTrackedGitPaneGraphWindowInstanceIdIfMatches(instanceId);
 }
 
+function pruneProjectChatGitGraphEmbeddedPaneVisibility(
+  nextProjectChatWindowing: ProjectChatWindowingState,
+): void {
+  useMisc.setState((state) => {
+    const visibilityByInstanceId =
+      state.projectChatGitGraphEmbeddedPaneVisibleByInstanceId;
+    const nextVisibilityByInstanceId: Record<string, true> = {};
+    let changed = false;
+
+    for (const instanceId of Object.keys(visibilityByInstanceId)) {
+      const instance = nextProjectChatWindowing.instancesById[instanceId];
+      if (
+        !instance ||
+        instance.mode !== ChatWindowModeEnum.git_graph_mode ||
+        instance.isClosed
+      ) {
+        changed = true;
+        continue;
+      }
+      nextVisibilityByInstanceId[instanceId] = true;
+    }
+
+    if (
+      !changed &&
+      Object.keys(nextVisibilityByInstanceId).length ===
+        Object.keys(visibilityByInstanceId).length
+    ) {
+      return state;
+    }
+
+    return {
+      ...state,
+      projectChatGitGraphEmbeddedPaneVisibleByInstanceId:
+        nextVisibilityByInstanceId,
+    };
+  });
+}
+
+function resetProjectChatGitGraphEmbeddedPaneVisibility(): void {
+  useMisc.setState((state) => {
+    if (
+      Object.keys(state.projectChatGitGraphEmbeddedPaneVisibleByInstanceId)
+        .length === 0
+    ) {
+      return state;
+    }
+    return {
+      ...state,
+      projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {},
+    };
+  });
+}
+
 function resolveTrackedGitPaneGraphWindowInstanceId(
   state: ProjectChatWindowingState,
 ): string | null {
@@ -1309,6 +1362,7 @@ export function getVisibleProjectChatWindowInstances(
 function setProjectChatWindowingStateInStore(
   nextProjectChatWindowing: ProjectChatWindowingState,
 ): void {
+  pruneProjectChatGitGraphEmbeddedPaneVisibility(nextProjectChatWindowing);
   const projectConfigId = getCurrProjectConfigId();
   if (!projectConfigId || projectConfigId === NULL_PROJECT_CONFIG_ID) {
     useProjectState.setState((state) => {
@@ -1345,6 +1399,7 @@ export async function flushPendingProjectChatWindowingWrites(): Promise<void> {
 export function replaceProjectChatWindowingState(
   nextProjectChatWindowing: ProjectChatWindowingState,
 ): void {
+  resetProjectChatGitGraphEmbeddedPaneVisibility();
   setProjectChatWindowingStateInStore(nextProjectChatWindowing);
 }
 

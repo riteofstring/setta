@@ -14,6 +14,7 @@ import {
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   addProjectChatWindowInstanceInState,
+  closeProjectChatWindow,
   closeProjectChatWindowInState,
   ensureTrackedGitPaneGraphWindow,
   focusProjectChatWindowInState,
@@ -238,6 +239,31 @@ describe("project chat windowing reducer helpers", () => {
     }
     expect(reopenedInstance.isClosed).toBe(false);
     expect(reopenedInstance.isMinimized).toBe(false);
+  });
+
+  it("clears embedded git-pane visibility when a graph window closes", () => {
+    useProjectState.setState({
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["graph-window-1"],
+        instancesById: {
+          "graph-window-1": createProjectChatWindowInstance({
+            instanceId: "graph-window-1",
+            mode: ChatWindowModeEnum.git_graph_mode,
+          }),
+        },
+      }),
+    });
+    useMisc.setState({
+      projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {
+        "graph-window-1": true,
+      },
+    });
+
+    closeProjectChatWindow("graph-window-1");
+
+    expect(
+      useMisc.getState().projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
+    ).toEqual({});
   });
 
   it("minimizes without closing and allows reopen", () => {

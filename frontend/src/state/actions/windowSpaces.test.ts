@@ -3,7 +3,7 @@ import {
   buildFloatingSnapResizeHandles,
   resolveFloatingSnapPresetFromBounds,
 } from "components/ChatWindowing/projectChatSnapLayout";
-import { useProjectState } from "state/definitions";
+import { useMisc, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   ChatWindowModeEnum,
@@ -949,5 +949,57 @@ describe("restoreWindowSpaceInWorkspace", () => {
     });
     expect(nextState.instancesById["project-chat-window-3"]).toBeUndefined();
     expect(nextState.nextInstanceNumber).toBe(3);
+  });
+
+  it("clears stale embedded git-pane visibility when restoring a saved workspace layout", () => {
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+        windowSpaces: {
+          "space-1": {
+            id: "space-1",
+            name: "Git Layout",
+            sortIndex: 0,
+            windowsById: {
+              "project-chat-window-2": {
+                surfaceKind: "project_chat",
+                mode: ChatWindowModeEnum.git_graph_mode,
+                title: "Git Graph",
+                zIndex: 2,
+                normalizedBounds: {
+                  x: 0.0,
+                  y: 0.0,
+                  width: 0.4,
+                  height: 0.5,
+                },
+              },
+            },
+            order: ["project-chat-window-2"],
+          },
+        },
+      }),
+      sections: {},
+      projectChatWindowing: createProjectChatWindowingState(),
+    });
+    useMisc.setState({
+      projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {
+        "project-chat-window-2": true,
+      },
+    });
+    routeSetProjectChatWindowingStateMock.mockResolvedValue({
+      data: null,
+      status: 200,
+      hasResponse: true,
+    });
+
+    restoreWindowSpaceInWorkspace("space-1");
+
+    expect(
+      useMisc.getState().projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
+    ).toEqual({});
+    expect(useProjectState.getState().projectChatWindowing.order).toEqual([
+      "project-chat-window-2",
+    ]);
   });
 });

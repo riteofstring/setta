@@ -6,8 +6,8 @@ import { FloatingBox } from "components/Utils/FloatingBox";
 import { SectionDndContext } from "forks/dnd-kit/SectionDndContext";
 import { useAddMouseLocationListener } from "forks/xyflow/core/utils/mouseLocation";
 import { usePluginRuntimeBootstrap } from "plugins/runtime";
-import { useEffect, useMemo } from "react";
-import { useParams } from "react-router-dom";
+import { useEffect, useMemo, type SetStateAction } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { buildChatHistoryEntries } from "state/actions/chatHistory";
 import { useAIStore, useProjectState } from "state/definitions";
 import { useLoadProjectConfig } from "state/hooks/project";
@@ -45,12 +45,25 @@ type StandaloneSurfaceTarget =
       kind: "window_space_not_found";
     };
 
-function normalizeStandaloneChatId(chatId: string | undefined): string | null {
+function normalizeStandaloneChatId(
+  chatId: string | null | undefined,
+): string | null {
   const normalizedChatId = chatId?.trim() ?? "";
   if (!normalizedChatId) {
     return null;
   }
   return normalizedChatId;
+}
+
+function buildStandaloneProjectChatPath(
+  projectConfigName: string,
+  chatId: string | null,
+): string {
+  const basePath = `/${encodeURIComponent(projectConfigName)}/chat`;
+  if (chatId === null) {
+    return basePath;
+  }
+  return `${basePath}/${encodeURIComponent(chatId)}`;
 }
 
 function resolveStandaloneSurfaceTarget(
@@ -166,6 +179,7 @@ export function StandaloneProjectSurfacePage() {
   const [doneLoading, is404] = useLoadProjectConfig();
   const { projectConfigName, sectionSlug, chatId, windowSpaceSlug } =
     useParams();
+  const navigate = useNavigate();
   const target = useProjectState(
     (state) =>
       resolveStandaloneSurfaceTarget(
@@ -183,11 +197,17 @@ export function StandaloneProjectSurfacePage() {
     }
     return state.projectConfig.windowSpaces[target.windowSpaceId] ?? null;
   }, shallow);
-  const { activeChatId, agentRuns, agentRunsAuthorityState } = useAIStore(
+  const {
+    agentRuns,
+    agentRunsAuthorityState,
+    hasStandaloneProjectChatThreadDetails,
+  } = useAIStore(
     (state) => ({
-      activeChatId: state.activeChatId,
       agentRuns: state.agentRuns,
       agentRunsAuthorityState: state.agentRunsAuthorityState,
+      hasStandaloneProjectChatThreadDetails:
+        target.kind === "project_chat_thread" &&
+        state.chatDetails[target.chatId] !== undefined,
     }),
     shallow,
   );
@@ -217,25 +237,33 @@ export function StandaloneProjectSurfacePage() {
   const standaloneProjectChatThreadMissing =
     target.kind === "project_chat_thread" &&
     agentRunsAuthorityState === "ready" &&
-    standaloneProjectChatThreadEntry === null;
-  const standaloneProjectChatThreadSyncPending =
-    target.kind === "project_chat_thread" && activeChatId !== target.chatId;
+    standaloneProjectChatThreadEntry === null &&
+    !hasStandaloneProjectChatThreadDetails;
   const resolvedDoneLoading = doneLoading === true;
   const resolvedIs404 = is404 === true;
+  const standaloneProjectChatId =
+    target.kind === "project_chat_thread" ? target.chatId : null;
 
   useCodeMirrorStyleLoader(resolvedDoneLoading, resolvedIs404);
   useAddMouseLocationListener();
   usePluginRuntimeBootstrap(resolvedDoneLoading && !resolvedIs404);
-
-  useEffect(() => {
-    if (target.kind !== "project_chat_thread") {
+  const setStandaloneProjectChatId = (
+    next: SetStateAction<string | null | undefined>,
+  ) => {
+    if (!projectConfigName) {
       return;
     }
-    if (activeChatId === target.chatId) {
-      return;
-    }
-    useAIStore.setState({ activeChatId: target.chatId });
-  }, [activeChatId, target]);
+    const resolvedChatId =
+      typeof next === "function"
+        ? next(standaloneProjectChatId ?? undefined)
+        : next;
+    navigate(
+      buildStandaloneProjectChatPath(
+        projectConfigName,
+        normalizeStandaloneChatId(resolvedChatId),
+      ),
+    );
+  };
 
   useEffect(() => {
     document.title = resolveStandaloneDocumentTitle(
@@ -279,15 +307,13 @@ export function StandaloneProjectSurfacePage() {
       );
     }
 
-    if (standaloneProjectChatThreadSyncPending) {
-      return <LoadingSpinner />;
-    }
-
     return (
       <StandaloneSurfaceShell>
         <UnifiedChatSurface
           mode="project_ai_mode"
           host="standalone_page"
+          projectChatId={standaloneProjectChatId}
+          setProjectChatId={setStandaloneProjectChatId}
           dataTestId={
             target.kind === "project_chat_thread"
               ? "standalone-project-chat-thread-surface"

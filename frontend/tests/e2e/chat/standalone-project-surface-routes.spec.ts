@@ -691,12 +691,25 @@ test.describe.serial("standalone project surface routes", () => {
         .poll(async () => {
           return {
             workspaceChatId: await readActiveProjectChatId(page),
-            standaloneChatId: await readActiveProjectChatId(standalonePage),
+            standalonePath: new URL(standalonePage.url()).pathname,
           };
         })
         .toEqual({
           workspaceChatId: "workspace-thread",
-          standaloneChatId: standaloneThreadChatId,
+          standalonePath: `/${projectConfigName}/chat/${standaloneThreadChatId}`,
+        });
+
+      await standalonePage.getByRole("button", { name: "New Chat" }).click();
+      await expect
+        .poll(async () => {
+          return {
+            workspaceChatId: await readActiveProjectChatId(page),
+            standalonePath: new URL(standalonePage.url()).pathname,
+          };
+        })
+        .toEqual({
+          workspaceChatId: "workspace-thread",
+          standalonePath: `/${projectConfigName}/chat`,
         });
     } finally {
       await standalonePage.close();

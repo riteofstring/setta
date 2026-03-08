@@ -107,3 +107,35 @@ Verification:
 - `pnpm -C frontend exec vitest run src/state/actions/project/loadProject.test.ts src/state/actions/projectChatWindowing.test.ts src/components/Git/GitGraphWindowContent.test.tsx src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx` passed.
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/chat-composer-controls.spec.ts frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "canvas-created chat sections|standalone git graph windows"` passed.
 - CDP verification confirmed that a newly created canvas chat section shows the `Chat Mode` control before any window binding exists, and that the standalone git-graph surface kept its pane state isolated from the workspace view.
+
+## 2026-03-09 19:06 PDT
+
+Implemented the last consolidated review fixes for backend windowing authority, copied-window-space chat ownership, standalone route authority, and workspace git-pane state leakage.
+
+What changed:
+- Removed the remaining load-time compatibility fallback in `convert_backend_to_single_config(...)`. Backend project loads now require an authoritative `projectChatWindowingByProjectConfigId[projectConfigId]` entry and raise immediately if it is missing.
+- Fixed the legitimate creation boundary that the stricter backend contract exposed: `save_as_new_project_config(..., withRefs=True)` now seeds a fresh empty `ProjectChatWindowingState()` for the new config instead of relying on a load-time fallback.
+- Normalized copied window spaces so saved window `chatId`s do not cross project-config boundaries anymore. `copy_project_config(...)` / `remap_window_spaces(...)` now clear `chatId` for both project-chat and section windows while still remapping section ids when needed.
+- Reworked standalone `/:projectConfigName/chat/:chatId` ownership so the route is the single source of truth for project-chat thread identity. `StandaloneProjectSurfacePage` now passes a controlled `projectChatId` plus setter into `UnifiedChatSurface`, and thread changes navigate the URL instead of mutating `useAIStore.activeChatId`.
+- Removed the standalone page’s old “repair” effect and loading interstitial that depended on global `activeChatId` catching up to the route thread.
+- Tightened workspace git-graph embedded-pane state so stale per-instance visibility cannot leak across restore/reuse. Windowing updates now prune visibility entries for removed, closed, or non-git windows, and full workspace window-space restores clear the ephemeral visibility map before applying the restored layout.
+- Updated the temp project-manager fixture seed data so test fixtures obey the same backend-authoritative windowing contract as production state.
+
+UX before vs after:
+- Before: missing backend windowing state could still degrade into an empty-looking but valid layout, allowing users to overwrite real persisted state after a backend regression. After: the app fails at the real contract boundary, making state corruption visible immediately.
+- Before: copying a project config could preserve foreign saved-chat ids inside window spaces, so copied layouts reopened “valid” chat windows that failed on first send with a project-config mismatch. After: copied layouts reopen with fresh local chat state and no foreign thread ownership.
+- Before: standalone chat routes were only partially standalone; thread navigation still depended on and could interfere with the global workspace chat selection. After: the URL fully owns standalone thread identity, deep links are stable, `New Chat` navigates to `/chat`, and workspace selection remains untouched.
+- Before: workspace git-graph sidebars could reopen from stale `instanceId`-keyed state after a restore or lifecycle reuse. After: embedded git-pane visibility is explicitly ephemeral and scoped to the currently live graph windows only.
+
+DX before vs after:
+- Before: there was still a hidden dual-path backend model where missing authoritative state was silently synthesized on load. After: there is a single backend-authoritative path, and missing initialization has to be fixed at write/copy/fixture boundaries.
+- Before: debugging copied window spaces required following a delayed failure from frontend restore into backend chat continuity checks. After: copy-time normalization removes the invalid state at the source.
+- Before: standalone thread behavior required reasoning about a router/store tug-of-war. After: ownership is explicit in the route layer, and the controlled chat surface behaves the same way as other window-owned chat surfaces.
+- Before: stale git-pane leakage depended on incidental `instanceId` reuse. After: the cleanup policy is deterministic and attached to windowing lifecycle changes.
+
+Verification:
+- `./scripts/run_backend_tests.sh tests/project_state/test_project_chat_windowing_persistence.py tests/types/test_project_state_window_spaces.py` passed.
+- `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx src/state/actions/project/loadProject.test.ts src/state/actions/projectChatWindowing.test.ts src/state/actions/windowSpaces.test.ts` passed.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "keeps standalone project surfaces isolated from workspace selection and windowing state"` passed.
+- CDP verification confirmed the standalone `/chat` surface rendered without workspace panes while the workspace page stayed on its own route and project view.
+- During verification, this worktree’s frontend install was missing `jsdom` even though it was declared in `frontend/package.json`; installing frontend deps restored the test environment and allowed the new standalone route unit test to run.
