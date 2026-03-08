@@ -359,6 +359,78 @@ func TestProjectStateRequestContractsUseConverterObjects(t *testing.T) {
 			},
 		},
 		{
+			name: "CreateChildSectionsRequestInput",
+			root: reflect.TypeOf(CreateChildSectionsRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "parentId", TypeExpr: "string", Optional: false},
+				{Name: "implType", TypeExpr: "SectionType", Optional: false},
+				{Name: "numChildren", TypeExpr: "number", Optional: false},
+				{Name: "startIdx", TypeExpr: "number | null", Optional: true},
+			},
+		},
+		{
+			name: "CreateChildSectionsViaIncrementerRequestInput",
+			root: reflect.TypeOf(CreateChildSectionsViaIncrementerRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "calledBy", TypeExpr: "string", Optional: false},
+				{Name: "implType", TypeExpr: "SectionType", Optional: false},
+				{Name: "numChildren", TypeExpr: "number", Optional: false},
+			},
+		},
+		{
+			name: "DeleteChildSectionsViaDecrementerRequestInput",
+			root: reflect.TypeOf(DeleteChildSectionsViaDecrementerRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "calledBy", TypeExpr: "string", Optional: false},
+				{Name: "numChildren", TypeExpr: "number", Optional: false},
+			},
+		},
+		{
+			name: "PrepareSectionsForCopyRequestInput",
+			root: reflect.TypeOf(PrepareSectionsForCopyRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionIds", TypeExpr: "Array<string>", Optional: false},
+			},
+		},
+		{
+			name: "PasteSectionsRequestInput",
+			root: reflect.TypeOf(PasteSectionsRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "data", TypeExpr: "ClipboardProjectStateCoreWithSectionVariantMap", Optional: false},
+				{Name: "position", TypeExpr: "Position", Optional: false},
+				{Name: "asRef", TypeExpr: "boolean", Optional: false},
+			},
+		},
+		{
+			name: "MoveSectionsRequestInput",
+			root: reflect.TypeOf(MoveSectionsRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionIds", TypeExpr: "Array<string>", Optional: false},
+				{Name: "newParentId", TypeExpr: "string | null", Optional: false},
+				{Name: "newIndex", TypeExpr: "number | null", Optional: false},
+				{Name: "positionsById", TypeExpr: "Record<string, Position> | null", Optional: false},
+			},
+		},
+		{
+			name: "SetSectionSizesRequestInput",
+			root: reflect.TypeOf(SetSectionSizesRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionSizes", TypeExpr: "Record<string, SectionSize>", Optional: false},
+			},
+		},
+		{
 			name: "SetMetaControlShowSectionTitleRequestInput",
 			root: reflect.TypeOf(SetMetaControlShowSectionTitleRequestInput{}),
 			properties: []TypeProperty{

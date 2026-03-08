@@ -81,15 +81,33 @@ type SetSectionVariantNameRequestInput struct {
 	Name            string  `json:"name"`
 }
 
-type CreateChildSectionsRequestInput struct{}
+type CreateChildSectionsRequestInput struct {
+	FrontendOpID    *string     `json:"frontendOpId,omitempty"`
+	ProjectConfigID string      `json:"projectConfigId"`
+	ParentID        string      `json:"parentId"`
+	ImplType        SectionType `json:"implType"`
+	NumChildren     int         `json:"numChildren"`
+	StartIdx        *int        `json:"startIdx,omitempty"`
+}
 
-type CreateChildSectionsViaIncrementerRequestInput struct{}
+type CreateChildSectionsViaIncrementerRequestInput struct {
+	FrontendOpID    *string     `json:"frontendOpId,omitempty"`
+	ProjectConfigID string      `json:"projectConfigId"`
+	CalledBy        string      `json:"calledBy"`
+	ImplType        SectionType `json:"implType"`
+	NumChildren     int         `json:"numChildren"`
+}
 
 type CreateChildSectionsResponse struct {
 	SectionIDs []string `json:"sectionIds"`
 }
 
-type DeleteChildSectionsViaDecrementerRequestInput struct{}
+type DeleteChildSectionsViaDecrementerRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	CalledBy        string  `json:"calledBy"`
+	NumChildren     int     `json:"numChildren"`
+}
 
 type DeleteChildSectionsViaDecrementerResponse struct {
 	SectionIDs []string `json:"sectionIds"`
@@ -108,9 +126,17 @@ type DeleteSelectedParamsRequestInput struct {
 	ParamInfoIDs    []string `json:"paramInfoIds"`
 }
 
-type PrepareSectionsForCopyRequestInput struct{}
+type PrepareSectionsForCopyRequestInput struct {
+	ProjectConfigID string   `json:"projectConfigId"`
+	SectionIDs      []string `json:"sectionIds"`
+}
 
-type PasteSectionsRequestInput struct{}
+type PasteSectionsRequestInput struct {
+	ProjectConfigID string                                         `json:"projectConfigId"`
+	Data            ClipboardProjectStateCoreWithSectionVariantMap `json:"data"`
+	Position        Position                                       `json:"position"`
+	AsRef           bool                                           `json:"asRef"`
+}
 
 type SectionsClipboardDataResponse struct{}
 
@@ -132,7 +158,14 @@ type DeleteAgenticEdgesRequestInput struct{}
 
 type SetAgenticEdgesRequestInput struct{}
 
-type MoveSectionsRequestInput struct{}
+type MoveSectionsRequestInput struct {
+	FrontendOpID    *string             `json:"frontendOpId,omitempty"`
+	ProjectConfigID string              `json:"projectConfigId"`
+	SectionIDs      []string            `json:"sectionIds"`
+	NewParentID     *string             `json:"newParentId"`
+	NewIndex        *int                `json:"newIndex"`
+	PositionsByID   map[string]Position `json:"positionsById"`
+}
 
 type MoveParamGroup struct {
 	ParamIDs    []string `json:"paramIds"`
@@ -234,6 +267,10 @@ type Position struct {
 	Y float64 `json:"y"`
 }
 
+type SectionSize struct{}
+
+type ClipboardProjectStateCoreWithSectionVariantMap struct{}
+
 type CreateTopLevelSectionRequestInput struct {
 	FrontendOpID       *string         `json:"frontendOpId,omitempty"`
 	ProjectConfigID    string          `json:"projectConfigId"`
@@ -317,7 +354,11 @@ type UngroupGroupsRequestInput struct {
 	GroupIDs        []string `json:"groupIds"`
 }
 
-type SetSectionSizesRequestInput struct{}
+type SetSectionSizesRequestInput struct {
+	FrontendOpID    *string                `json:"frontendOpId,omitempty"`
+	ProjectConfigID string                 `json:"projectConfigId"`
+	SectionSizes    map[string]SectionSize `json:"sectionSizes"`
+}
 
 type ToggleParamSelectedRequestInput struct {
 	FrontendOpID    *string `json:"frontendOpId,omitempty"`
@@ -651,52 +692,6 @@ type SetActiveIDsRequestInput struct {
 	ActiveIDs       []string `json:"activeIds"`
 }
 
-const createChildSectionsRequestInputRawTS = `
-export type CreateChildSectionsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  parentId: string;
-  implType: SectionType;
-  numChildren: number;
-  startIdx?: number | null;
-};
-`
-
-const createChildSectionsViaIncrementerRequestInputRawTS = `
-export type CreateChildSectionsViaIncrementerRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  calledBy: string;
-  implType: SectionType;
-  numChildren: number;
-};
-`
-
-const deleteChildSectionsViaDecrementerRequestInputRawTS = `
-export type DeleteChildSectionsViaDecrementerRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  calledBy: string;
-  numChildren: number;
-};
-`
-
-const prepareSectionsForCopyRequestInputRawTS = `
-export type PrepareSectionsForCopyRequestInput = {
-  projectConfigId: string;
-  sectionIds: Array<string>;
-};
-`
-
-const pasteSectionsRequestInputRawTS = `
-export type PasteSectionsRequestInput = {
-  projectConfigId: string;
-  data: ClipboardProjectStateCoreWithSectionVariantMap;
-  position: Position;
-  asRef: boolean;
-};
-`
-
 const createEdgeRequestInputRawTS = `
 export type CreateEdgeRequestInput = {
   frontendOpId?: string | null;
@@ -791,25 +786,6 @@ export type SetAgenticEdgesRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   edges: Array<AgenticEdge>;
-};
-`
-
-const moveSectionsRequestInputRawTS = `
-export type MoveSectionsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionIds: Array<string>;
-  newParentId: string | null;
-  newIndex: number | null;
-  positionsById: Record<string, Position> | null;
-};
-`
-
-const setSectionSizesRequestInputRawTS = `
-export type SetSectionSizesRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionSizes: Record<string, SectionSize>;
 };
 `
 

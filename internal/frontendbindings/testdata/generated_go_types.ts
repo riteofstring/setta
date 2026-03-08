@@ -5706,7 +5706,6 @@ export function createSetSectionVariantNameRequestInput(options: Partial<SetSect
 }
 
 
-
 export type CreateChildSectionsRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
@@ -5715,7 +5714,9 @@ export type CreateChildSectionsRequestInput = {
   numChildren: number;
   startIdx?: number | null;
 };
-
+export function createCreateChildSectionsRequestInput(options: Partial<CreateChildSectionsRequestInput> = {}): CreateChildSectionsRequestInput {
+  return options as CreateChildSectionsRequestInput;
+}
 
 
 export type CreateChildSectionsResponse = {
@@ -5726,7 +5727,6 @@ export function createCreateChildSectionsResponse(options: Partial<CreateChildSe
 }
 
 
-
 export type CreateChildSectionsViaIncrementerRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
@@ -5734,8 +5734,9 @@ export type CreateChildSectionsViaIncrementerRequestInput = {
   implType: SectionType;
   numChildren: number;
 };
-
-
+export function createCreateChildSectionsViaIncrementerRequestInput(options: Partial<CreateChildSectionsViaIncrementerRequestInput> = {}): CreateChildSectionsViaIncrementerRequestInput {
+  return options as CreateChildSectionsViaIncrementerRequestInput;
+}
 
 
 export type DeleteChildSectionsViaDecrementerRequestInput = {
@@ -5744,7 +5745,9 @@ export type DeleteChildSectionsViaDecrementerRequestInput = {
   calledBy: string;
   numChildren: number;
 };
-
+export function createDeleteChildSectionsViaDecrementerRequestInput(options: Partial<DeleteChildSectionsViaDecrementerRequestInput> = {}): DeleteChildSectionsViaDecrementerRequestInput {
+  return options as DeleteChildSectionsViaDecrementerRequestInput;
+}
 
 
 export type DeleteChildSectionsViaDecrementerResponse = {
@@ -5776,16 +5779,16 @@ export function createDeleteSelectedParamsRequestInput(options: Partial<DeleteSe
 }
 
 
-
 export type PrepareSectionsForCopyRequestInput = {
   projectConfigId: string;
   sectionIds: Array<string>;
 };
-
+export function createPrepareSectionsForCopyRequestInput(options: Partial<PrepareSectionsForCopyRequestInput> = {}): PrepareSectionsForCopyRequestInput {
+  return options as PrepareSectionsForCopyRequestInput;
+}
 
 
 export type SectionsClipboardDataResponse = SectionsClipboardData;
-
 
 
 export type PasteSectionsRequestInput = {
@@ -5794,7 +5797,9 @@ export type PasteSectionsRequestInput = {
   position: Position;
   asRef: boolean;
 };
-
+export function createPasteSectionsRequestInput(options: Partial<PasteSectionsRequestInput> = {}): PasteSectionsRequestInput {
+  return options as PasteSectionsRequestInput;
+}
 
 
 
@@ -5903,7 +5908,6 @@ export type SetAgenticEdgesRequestInput = {
 
 
 
-
 export type MoveSectionsRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
@@ -5912,7 +5916,9 @@ export type MoveSectionsRequestInput = {
   newIndex: number | null;
   positionsById: Record<string, Position> | null;
 };
-
+export function createMoveSectionsRequestInput(options: Partial<MoveSectionsRequestInput> = {}): MoveSectionsRequestInput {
+  return options as MoveSectionsRequestInput;
+}
 
 
 export type MoveParamsRequestInput = {
@@ -7372,13 +7378,14 @@ export function createUngroupGroupsRequestInput(options: Partial<UngroupGroupsRe
 }
 
 
-
 export type SetSectionSizesRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   sectionSizes: Record<string, SectionSize>;
 };
-
+export function createSetSectionSizesRequestInput(options: Partial<SetSectionSizesRequestInput> = {}): SetSectionSizesRequestInput {
+  return options as SetSectionSizesRequestInput;
+}
 
 
 export type SetActiveIDsRequestInput = {
