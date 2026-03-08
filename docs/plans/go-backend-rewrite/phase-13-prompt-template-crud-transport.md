@@ -84,9 +84,9 @@ Closeout rerun after the landing:
 - a closeout audit after this landing corrected an earlier stale inventory in
   the Phase 13 docs: prompt-template writes were not the last remaining direct
   frontend-owned Python agentic routes
+- the external-agent config plus health hydration follow-up is now landed in
+  `phase-13-external-agent-config-and-health-read-transport.md`
 - the remaining direct frontend Python-owned agentic routes are currently:
-  - `GET /getExternalAgentConfigs`
-  - `GET /getExternalAgentHealth`
   - `GET /getEngineConfigs`
   - `GET /getTranscriptionProfiles`
   - `POST /createAgentProfile`
@@ -212,9 +212,7 @@ This slice delivered:
 
 ## Next Recommended Step
 
-- open the next bounded Phase 13 doc around external-agent config plus
-  external-agent health hydration transport over the already-landed Go
-  `externalagentconfigs` store and preflight primitives
-- after that hydration slice, reassess whether agent-profile CRUD or
-  engine/transcription settings transport is the smaller remaining direct
-  frontend dependency
+- the external-agent config plus health hydration follow-up is now landed in
+  `phase-13-external-agent-config-and-health-read-transport.md`
+- the next bounded direct-hydration dependency is engine-config transport over
+  the already-landed Go `internal/agentruns.EngineStore`

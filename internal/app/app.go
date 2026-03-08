@@ -134,6 +134,8 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		localSessionLauncher  *launcher.LocalIDESessionLauncher
 		sshRuntime            *sshx.Service
 		agentRunStore         *agentruns.RunStore
+		externalConfigStore   *externalagentconfigs.Store
+		externalPreflight     externalagentconfigs.Checker
 		agenticSummaryStatus  *agenticsummarycache.Service
 		promptTemplateStore   *prompttemplates.Store
 	)
@@ -502,7 +504,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
-		externalConfigStore, err := externalagentconfigs.NewStore(cfg.Paths.SettaFilesRoot)
+		externalConfigStore, err = externalagentconfigs.NewStore(cfg.Paths.SettaFilesRoot)
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
@@ -514,6 +516,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
+		externalPreflight = externalPreflightChecker
 		llmConfigs, err := llmconfig.Load(
 			llmconfig.Path(cfg.Paths.SettaFilesRoot),
 			llmconfig.LoadOptions{
@@ -910,6 +913,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			if err := httpapi.RegisterPromptTemplateRoutes(r, httpapi.PromptTemplateRouteDependencies{
 				ModePolicy: modePolicy,
 				Templates:  promptTemplateStore,
+			}); err != nil {
+				panic(err)
+			}
+			if err := httpapi.RegisterExternalAgentConfigRoutes(r, httpapi.ExternalAgentConfigRouteDependencies{
+				ModePolicy: modePolicy,
+				Configs:    externalConfigStore,
+				Preflight:  externalPreflight,
 			}); err != nil {
 				panic(err)
 			}

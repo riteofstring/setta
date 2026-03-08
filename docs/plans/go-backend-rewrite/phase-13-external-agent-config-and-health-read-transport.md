@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This doc records the next bounded post-Phase-13 slice and its landing plan.
+This doc records the next bounded post-Phase-13 slice and its landing.
 
 The prior Phase 13 slices moved agent profiles, prompt templates,
 summary-cache-status, and prompt-template CRUD to Go. The next
@@ -82,9 +82,51 @@ Current frontend behavior relevant to scoping:
 - the direct callers do not require prompt-template-style websocket fan-out for
   correctness in the same tab
 
+Landed in this slice:
+
+- `internal/httpapi/external_agent_config_routes.go`
+  - thin IDE-gated `GET /getExternalAgentConfigs` transport
+  - thin IDE-gated `GET /getExternalAgentHealth` transport
+  - thin payload adaptation from the Go checker to the frontend health shape
+- `internal/app/app.go`
+  - explicit external-agent config store and preflight wiring into route
+    registration
+- `internal/httpapi/route_names.go`
+  - bare-route registration for `getExternalAgentConfigs` and
+    `getExternalAgentHealth`
+- focused coverage in:
+  - `internal/httpapi/external_agent_config_routes_test.go`
+
+Closeout rerun after the landing:
+
+- the direct frontend hydration dependency on Python-owned external-agent
+  config and health reads is now gone
+- richer Python-only plugin/env-var/cache preflight semantics remain deferred
+  and are no longer hidden inside the hydration move
+- the current remaining direct frontend Python-owned agentic routes are:
+  - `GET /getEngineConfigs`
+  - `GET /getTranscriptionProfiles`
+  - `POST /createAgentProfile`
+  - `POST /updateAgentProfile`
+  - `POST /deleteAgentProfile`
+  - `POST /createExternalAgentConfig`
+  - `POST /updateExternalAgentConfig`
+  - `POST /deleteExternalAgentConfig`
+  - `POST /updateEngineConfig`
+  - `POST /createTranscriptionProfile`
+  - `POST /updateTranscriptionProfile`
+  - `POST /deleteTranscriptionProfile`
+- generated single-item reads still exist for:
+  - `POST /getAgentProfile`
+  - `POST /getAgentRun`
+  - `POST /getPromptTemplate`
+  - `POST /getExternalAgentConfig`
+  - `POST /getEngineConfig`
+  but no direct frontend caller was found for them in the current worktree
+
 ## Scope
 
-This slice is responsible for:
+This slice delivered:
 
 - thin Go transport for:
   - `GET /getExternalAgentConfigs`
@@ -184,7 +226,7 @@ This slice is responsible for:
 
 ## Next Recommended Step
 
-- land the thin Go config and health read routes plus focused tests
-- after that landing, reassess whether agent-profile CRUD or engine-config
-  hydration is the smaller remaining direct frontend Python-owned settings
-  dependency
+- open the next bounded Phase 13 doc around engine-config hydration transport
+  over the already-landed Go `internal/agentruns.EngineStore`
+- keep transcription-profile hydration and the remaining CRUD routes separate
+  unless a dependency forces them to combine with engine-config reads

@@ -477,12 +477,16 @@ Use the docs in this order:
     Go-owned `create/update/delete` prompt-template transport over the landed
     prompt-template file store, with watcher/websocket fan-out intentionally
     deferred
-145. `spike-mcp.md`
+145. `phase-13-external-agent-config-and-health-read-transport.md`
+  - focused completed-slice doc for the bounded external-agent hydration gap:
+    Go-owned `getExternalAgentConfigs` and `getExternalAgentHealth` transport
+    over the landed config store and bounded preflight checker
+146. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-146. `spike-pty.md`
+147. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-147. `spike-lsp.md`
+148. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

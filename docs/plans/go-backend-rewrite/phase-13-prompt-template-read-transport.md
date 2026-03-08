@@ -141,6 +141,8 @@ This slice delivered:
   `phase-13-agentic-summary-cache-status-transport-and-owner.md`
 - the prompt-template CRUD follow-up is now landed in
   `phase-13-prompt-template-crud-transport.md`
-- the next bounded hydration/settings dependency is external-agent config plus
-  external-agent health transport, because
-  `useHydrateAgenticState()` still loads those Python-owned routes on app start
+- the external-agent config plus health follow-up is now landed in
+  `phase-13-external-agent-config-and-health-read-transport.md`
+- the next bounded hydration/settings dependency is engine-config transport,
+  because `useHydrateAgenticState()` still loads `GET /getEngineConfigs` on app
+  start over an already-landed Go file owner

@@ -190,9 +190,18 @@ The next bounded post-Phase-13 slice tracked in
 - the closeout rerun corrected an earlier stale inventory in the Phase 13 docs:
   prompt-template writes were not the last remaining direct frontend Python
   agentic routes
-- the current remaining direct frontend Python-owned agentic routes are:
+
+The next bounded post-Phase-13 slice tracked in
+`phase-13-external-agent-config-and-health-read-transport.md` is now landed:
+
+- Go now owns:
   - `GET /getExternalAgentConfigs`
   - `GET /getExternalAgentHealth`
+- the frontend now hydrates external-agent config list and availability from Go
+  over the landed config store and bounded checker
+- richer Python-only plugin/env-var/cache preflight semantics remain deferred
+  instead of being silently bundled into this read slice
+- the current remaining direct frontend Python-owned agentic routes are:
   - `GET /getEngineConfigs`
   - `GET /getTranscriptionProfiles`
   - `POST /createAgentProfile`
@@ -214,11 +223,11 @@ follow-up tracked in `spike-pty.md`. New work should start from a newly scoped
 post-Phase-12 priority, not by reopening the completed external-agent runtime
 choices. The current bounded priority is no longer prompt-template hydration or
 summary-cache-status transport; both are landed. Prompt-template CRUD is also
-now landed. The next bounded post-Phase-13 priority is external-agent config
-plus external-agent health hydration transport, because
-`useHydrateAgenticState()` still loads those Python-owned routes at app start
-and the Go rewrite already has the store and preflight primitives needed to
-move them cleanly.
+now landed. External-agent config plus health hydration is also now landed. The
+next bounded post-Phase-13 priority is engine-config hydration transport,
+because `useHydrateAgenticState()` still loads `GET /getEngineConfigs` at app
+start and the Go rewrite already has the file-backed `EngineStore` needed to
+move that slice cleanly.
 
 ## Current Reality
 
