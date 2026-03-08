@@ -25,16 +25,24 @@ As of 2026-03-08:
     - `stop`
     - `connect`
     - alias `c`
+- Go now also owns the first shipped-entrypoint slice in:
+  - `cmd/setta`
+  - `internal/buildinfo`
+  - `internal/settacmd`
+  - direct `version` handling
+  - direct routing for the already-completed Go helper-command cluster
+  - launcher management commands:
+    - `launcher setup`
+    - `launcher status`
+    - `launcher repair`
+    - `launcher remove`
+    - `launcher update`
 - Python still owns the shipped user-facing `setta` entrypoint:
   - `pyproject.toml` publishes `setta = "setta.start:cli"`
   - `backend/setta/__main__.py` also enters through `setta.start`
 - Python still owns the launcher command tree in `backend/setta/start.py`:
   - `launcher`
-  - `launcher setup`
-  - `launcher status`
-  - `launcher repair`
-  - `launcher remove`
-  - `launcher update`
+  - plus legacy Python copies of `launcher setup|status|repair|remove|update`
 - installer/release scripts still bind to that Python command tree:
   - `scripts/install_desktop_launcher.sh`
   - `scripts/install_desktop_launcher.ps1`
@@ -209,6 +217,14 @@ the actual Go command tree that installer scripts can target next.
   migration and the closeout inventory confirmed that the remaining rewrite
   boundary is shipped entrypoint plus launcher/distribution ownership, not
   backend or SSH-helper runtime behavior.
+- 2026-03-08: completed the first bounded implementation slice. `cmd/setta`
+  now exists, `version` and the completed helper-command cluster route directly
+  to Go, and launcher management (`setup|status|repair|remove|update`) is now
+  Go-owned in `internal/settacmd` over the existing `internal/launcher`
+  service layer.
+- 2026-03-08: kept `launcher` run itself out of this slice on purpose. The
+  remaining Stage 1 boundary is now launcher run plus packaging/module-entrypoint
+  and installer-script retargeting, not launcher management JSON/text behavior.
 
 ## Verification
 
@@ -217,5 +233,10 @@ the actual Go command tree that installer scripts can target next.
 
 ## Recommended Next Step
 
-Implement Stage 1 from this doc, starting with the first bounded slice:
-`cmd/setta` router plus Go-owned `version` and launcher management commands.
+Implement the next Stage 1 slice from this doc:
+
+1. add Go-owned `setta launcher` run behavior on top of the completed launcher
+   runtime and `cmd/setta` router
+2. retarget launcher install/smoke scripts to the Go `cmd/setta` contract
+3. only after those land, decide whether to switch the shipped Python entrypoint
+   to exec the Go binary directly

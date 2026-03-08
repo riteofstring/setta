@@ -106,7 +106,7 @@ func Run(args []string, options RunOptions) error {
 		cwd = resolvedCWD
 	}
 
-	_, remaining, err := parseGlobalFlags(args, stderr)
+	global, remaining, err := parseGlobalFlags(args, stderr)
 	if err != nil {
 		return err
 	}
@@ -131,7 +131,7 @@ func Run(args []string, options RunOptions) error {
 			CWD:       cwd,
 		})
 	case "launcher":
-		return fmt.Errorf("launcher commands are not implemented in cmd/setta yet")
+		return runLauncher(remaining[1:], global, stdout, stderr, envLookup, cwd)
 	default:
 		return fmt.Errorf("unknown command %q", remaining[0])
 	}
