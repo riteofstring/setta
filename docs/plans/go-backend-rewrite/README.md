@@ -771,12 +771,16 @@ Use the docs in this order:
   - focused rerank doc showing that the startup/distribution track is now
     effectively closed for the current clean-break scope after the landed
     packaged-entrypoint and shared-helper follow-ons
-210. `spike-mcp.md`
+210. `phase-30-post-phase-29-broader-rewrite-rerank.md`
+  - focused broader rerank doc showing that the remaining Python launcher,
+    installer, and dev-reload surfaces do not currently select another
+    evidence-backed rewrite phase
+211. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-211. `spike-pty.md`
+212. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-212. `spike-lsp.md`
+213. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

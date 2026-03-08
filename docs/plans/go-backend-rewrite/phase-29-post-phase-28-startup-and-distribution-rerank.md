@@ -155,7 +155,8 @@ Rerank implication:
 
 Do not broaden startup/distribution cleanup by inertia.
 
-If rewrite work continues, the next honest step is a broader rerank outside
-this track or a new focused slice selected by a concrete release/runtime
-problem. There is no evidence-backed startup/distribution implementation slice
-to open right now.
+That broader rerank is now recorded in:
+
+- `phase-30-post-phase-29-broader-rewrite-rerank.md`
+
+Use this doc as the historical closeout for the startup/distribution track.

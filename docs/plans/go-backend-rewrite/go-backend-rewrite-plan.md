@@ -1921,6 +1921,8 @@ Do not weaken this rule during the rewrite.
      `phase-28-dev-startup-shared-helper-owner-plan.md`
    - the post-Phase-28 startup/distribution rerank is recorded in
      `phase-29-post-phase-28-startup-and-distribution-rerank.md`
+   - the broader post-Phase-29 closeout rerank is recorded in
+     `phase-30-post-phase-29-broader-rewrite-rerank.md`
    - Phase 20 is now complete for:
      - `POST /git/status`
      - `POST /git/diff`
@@ -1946,8 +1948,12 @@ Do not weaken this rule during the rewrite.
      into `backend/setta/startup_runtime.py`
    - the startup/distribution track is now effectively closed for the current
      clean-break scope
+   - the broader rewrite is now also at a closeout boundary for the current
+     scope
    - there is no new startup/distribution implementation slice selected by the
      current evidence alone
+   - there is no new evidence-backed implementation slice selected by the
+     current repo state alone
    - dormant listener-chat, detached-run, and non-caller-backed
      default-project routes should remain out of scope until a concrete caller
      proves otherwise
