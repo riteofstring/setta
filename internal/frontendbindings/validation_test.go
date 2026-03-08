@@ -386,6 +386,17 @@ func TestBuildBindingsRejectsInvalidDeclarationShapes(t *testing.T) {
 			want: `declaration ThingEnum: enum value "bad-value" must be a valid TypeScript identifier`,
 		},
 		{
+			name: "enum value __proto__ is rejected",
+			declaration: TypeDeclaration{
+				Name: "ThingEnum",
+				Kind: "enum",
+				EnumValues: []EnumValue{
+					{Name: "__proto__", Value: "proto"},
+				},
+			},
+			want: `declaration ThingEnum: enum value "__proto__" cannot be "__proto__" in generated object literals`,
+		},
+		{
 			name: "object property invalid identifier",
 			declaration: TypeDeclaration{
 				Name: "Thing",
@@ -593,6 +604,16 @@ func TestBuildBindingsRejectsInvalidRouteGroups(t *testing.T) {
 			want: `route group "Go-HTTPRoutes" const name must be a valid TypeScript identifier`,
 		},
 		{
+			name: "route group const name conflicts with generated export",
+			routeGroup: RouteGroup{
+				ConstName: "RouteEnum",
+				Routes: []NamedRoute{
+					{Name: "saveThing", Path: "/saveThing", EnumName: "SAVE_THING"},
+				},
+			},
+			want: `route group "RouteEnum" const name conflicts with generated routes export "RouteEnum"`,
+		},
+		{
 			name: "invalid route name",
 			routeGroup: RouteGroup{
 				ConstName: "GoHTTPRoutes",
@@ -600,7 +621,17 @@ func TestBuildBindingsRejectsInvalidRouteGroups(t *testing.T) {
 					{Name: "save-thing", Path: "/saveThing", EnumName: "SAVE_THING"},
 				},
 			},
-			want: `route group "GoHTTPRoutes" contains route "save-thing" with invalid TypeScript identifier`,
+			want: `route group "GoHTTPRoutes" contains route "save-thing" must be a valid TypeScript identifier`,
+		},
+		{
+			name: "route name __proto__ is rejected",
+			routeGroup: RouteGroup{
+				ConstName: "GoHTTPRoutes",
+				Routes: []NamedRoute{
+					{Name: "__proto__", Path: "/saveThing", EnumName: "SAVE_THING"},
+				},
+			},
+			want: `route group "GoHTTPRoutes" contains route "__proto__" cannot be "__proto__" in generated object literals`,
 		},
 		{
 			name: "invalid route enum name",
@@ -611,6 +642,16 @@ func TestBuildBindingsRejectsInvalidRouteGroups(t *testing.T) {
 				},
 			},
 			want: `route group "GoHTTPRoutes" route "saveThing" enum name "SAVE-THING" must be a valid TypeScript identifier`,
+		},
+		{
+			name: "route enum name __proto__ is rejected",
+			routeGroup: RouteGroup{
+				ConstName: "GoHTTPRoutes",
+				Routes: []NamedRoute{
+					{Name: "saveThing", Path: "/saveThing", EnumName: "__proto__"},
+				},
+			},
+			want: `route group "GoHTTPRoutes" route "saveThing" enum name "__proto__" cannot be "__proto__" in generated object literals`,
 		},
 		{
 			name: "duplicate route enum name",

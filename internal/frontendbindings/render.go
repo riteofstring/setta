@@ -67,6 +67,10 @@ var generatedEndpointsImportContract = endpointImportContract{
 	},
 }
 
+var generatedRoutesReservedValueSymbols = map[string]string{
+	"RouteEnum": "generated routes export",
+}
+
 func Build() (GeneratedBindings, error) {
 	return buildBindings(
 		CurrentRouteGroups(),
@@ -368,7 +372,7 @@ func validateTypeDeclarationShape(declaration TypeDeclaration) error {
 			if value.Name == "" {
 				return fmt.Errorf("declaration %s: enum value at index %d has empty name", declaration.Name, index)
 			}
-			if err := validateTSIdentifier(
+			if err := validateTSObjectLiteralPropertyName(
 				fmt.Sprintf("declaration %s: enum value %q", declaration.Name, value.Name),
 				value.Name,
 			); err != nil {
@@ -457,6 +461,16 @@ func validateTSIdentifier(context string, name string) error {
 	return fmt.Errorf("%s must be a valid TypeScript identifier", context)
 }
 
+func validateTSObjectLiteralPropertyName(context string, name string) error {
+	if err := validateTSIdentifier(context, name); err != nil {
+		return err
+	}
+	if name == "__proto__" {
+		return fmt.Errorf("%s cannot be %q in generated object literals", context, name)
+	}
+	return nil
+}
+
 func buildRouteCollectionLookup(routeGroups []RouteGroup) (map[string]map[string]struct{}, error) {
 	collections := make(map[string]map[string]struct{}, len(routeGroups))
 	enumNames := make(map[string]string)
@@ -467,6 +481,14 @@ func buildRouteCollectionLookup(routeGroups []RouteGroup) (map[string]map[string
 		if !tsIdentifierPattern.MatchString(group.ConstName) {
 			return nil, fmt.Errorf("route group %q const name must be a valid TypeScript identifier", group.ConstName)
 		}
+		if previousOrigin, exists := generatedRoutesReservedValueSymbols[group.ConstName]; exists {
+			return nil, fmt.Errorf(
+				"route group %q const name conflicts with %s %q",
+				group.ConstName,
+				previousOrigin,
+				group.ConstName,
+			)
+		}
 		if _, exists := collections[group.ConstName]; exists {
 			return nil, fmt.Errorf("duplicate route group %q", group.ConstName)
 		}
@@ -475,12 +497,11 @@ func buildRouteCollectionLookup(routeGroups []RouteGroup) (map[string]map[string
 			if route.Name == "" {
 				return nil, fmt.Errorf("route group %q contains an empty route name", group.ConstName)
 			}
-			if !tsIdentifierPattern.MatchString(route.Name) {
-				return nil, fmt.Errorf(
-					"route group %q contains route %q with invalid TypeScript identifier",
-					group.ConstName,
-					route.Name,
-				)
+			if err := validateTSObjectLiteralPropertyName(
+				fmt.Sprintf("route group %q contains route %q", group.ConstName, route.Name),
+				route.Name,
+			); err != nil {
+				return nil, err
 			}
 			if _, exists := routes[route.Name]; exists {
 				return nil, fmt.Errorf("route group %q contains duplicate route %q", group.ConstName, route.Name)
@@ -489,13 +510,16 @@ func buildRouteCollectionLookup(routeGroups []RouteGroup) (map[string]map[string
 				return nil, fmt.Errorf("route group %q route %q has empty path", group.ConstName, route.Name)
 			}
 			if route.EnumName != "" {
-				if !tsIdentifierPattern.MatchString(route.EnumName) {
-					return nil, fmt.Errorf(
-						"route group %q route %q enum name %q must be a valid TypeScript identifier",
+				if err := validateTSObjectLiteralPropertyName(
+					fmt.Sprintf(
+						"route group %q route %q enum name %q",
 						group.ConstName,
 						route.Name,
 						route.EnumName,
-					)
+					),
+					route.EnumName,
+				); err != nil {
+					return nil, err
 				}
 				if previousPath, exists := enumNames[route.EnumName]; exists {
 					return nil, fmt.Errorf(
