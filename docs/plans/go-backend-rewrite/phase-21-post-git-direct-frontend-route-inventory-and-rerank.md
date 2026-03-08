@@ -21,13 +21,15 @@ Correction:
 - this doc now records that corrected outcome, and Phase 22 is the follow-on
   plan created from it
 
-Postscript after the landed Phase 22 Slice 1:
+Postscript after the landed Phase 22 Slices 1 and 2:
 
 - the rerank in this doc was correct, but the status of the selected cluster
   has since changed
 - Go now owns the workspace file-browser routes plus `GET /binary/{contentId}`
-- the remaining Phase 22 gap is now the artifact import/cached-read/mutation
-  surface, not the workspace file-browser subset
+- Go now also owns the bounded IDE artifact import/cached-read/mutation
+  surface
+- the remaining Phase 22 gap is now only the share/deployment artifact overlay
+  follow-on for that same cluster
 
 ## Current Status
 
@@ -143,14 +145,16 @@ Current callers include:
 - `frontend/src/utils/nativeFileImport.ts`
 - deployment publish modals and the Home workspace browser
 
-Current Go ownership status after the landed Phase 22 Slice 1:
+Current Go ownership status after the landed Phase 22 Slices 1 and 2:
 
 - `internal/filebrowser` plus thin `internal/httpapi` transport now own the
   workspace file-browser subset
 - `internal/binary` now owns both upload storage and bounded IDE binary
   download transport for the active file-browser preview/editor callers
-- the remaining artifact import/update/delete and cached-read surface still
-  remains Python-owned
+- `internal/artifacts` plus thin `internal/httpapi` transport now own the
+  bounded IDE artifact import/update/delete and cached-read surface
+- only the share/deployment artifact overlay behavior remains Python-owned in
+  this cluster
 
 Rerank result that remains valid:
 
@@ -245,7 +249,7 @@ Rerank:
 
 ## Next Recommended Step
 
-- continue Phase 22 with Slice 2 for IDE artifact import, cached reads, and
-  mutation ownership
+- continue Phase 22 with Slice 3 for share/deployment artifact overlay
+  ownership only if the current deployment caller surface still requires it
 - keep listener-chat, detached runs, and default-project transport closed
   unless a new concrete caller appears

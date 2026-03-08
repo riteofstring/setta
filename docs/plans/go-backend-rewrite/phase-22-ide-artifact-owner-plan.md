@@ -13,15 +13,25 @@ behavior into the IDE owner.
 
 ## Status
 
-Current repo status as of 2026-03-10 before this slice:
+Landed on 2026-03-10.
 
-- Phase 22 Slice 1 is landed for workspace file-browser ownership and
-  `GET /binary/{contentId}`
-- the remaining Phase 22 gap is the artifact surface
-- share/deployment artifact overlay behavior is still deferred to Phase 22
-  Slice 3
+Completed in this slice:
 
-This doc covers only the IDE owner needed for the active caller surface.
+- new explicit `internal/artifacts` owner for IDE artifact import, cached
+  reads, active caller-backed writes, and file deletes
+- thin `internal/httpapi` transport for:
+  - `POST /importFilesToArtifacts`
+  - `POST /loadCachedImageArtifacts`
+  - `POST /loadCachedChartData`
+  - `POST /loadCachedBrushStrokes`
+  - `POST /loadCachedDrawAreaLayerItemTransform`
+  - `POST /updateArtifacts`
+  - `POST /deleteArtifacts`
+- real IDE app wiring and focused service/route/app coverage
+
+Still deferred after this slice:
+
+- share/deployment artifact overlay behavior in Phase 22 Slice 3
 
 ## Inputs
 
@@ -199,30 +209,25 @@ Add thin `internal/httpapi` artifact routes that only own:
 Do not put artifact path resolution, conflict handling, or upload-policy logic
 in the route layer.
 
-## Tests
+## Decisions Confirmed In Code
 
-Add focused coverage for:
+- public Go artifact ids are now state-relative `artifacts/...` ids even when
+  callers provide absolute artifact paths
+- disk files under the artifact root are the durable source of truth
+- image cached loads materialize durable binary refs through
+  `internal/binary.Store`
+- current caller-backed writes are bounded to `File`, `BrushStroke`, and
+  `DrawAreaLayerItemTransform`
+- `Image` and `ChartData` updates now return a typed unsupported-artifact error
+  instead of silently broadening the slice
 
-- service:
-  - import success and invalid path cases
-  - cached image/chart/brush/transform loads
-  - file policy rejection
-  - file/brush/transform update flows including conflict strategy handling
-  - file delete and outside-root rejection
-- routes:
-  - IDE success path
-  - launcher/share mode guard behavior
-  - typed route error mapping
-  - unsupported image/chart update error
-- app:
-  - real IDE app import/update/load/delete flow
-  - binary download round-trip from loaded image artifact
+## Verification
+
+- `./scripts/go.sh test ./internal/artifacts ./internal/httpapi ./internal/app -run 'Test(Service|RegisterArtifactRoutes|AppServesArtifactRoutes)' -count=1`
 
 ## Next Recommended Step
 
-Implement this focused IDE owner slice, then update the parent Phase 22 doc to
-record:
-
-- the landed bounded artifact owner
-- the explicit state-relative artifact id decision
-- the intentionally deferred share/deployment overlay slice
+- continue with Phase 22 Slice 3 only for the remaining share/deployment
+  artifact-session overlay behavior
+- keep the bounded IDE owner intact; do not reopen a broad Python-shaped
+  artifact manager

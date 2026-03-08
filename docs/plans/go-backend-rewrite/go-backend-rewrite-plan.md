@@ -263,6 +263,7 @@ That corrected rerank is recorded in
 current direct-frontend implementation plan is now Phase 22:
 
 - `phase-22-artifact-and-file-browser-route-cluster-plan.md`
+- `phase-22-ide-artifact-owner-plan.md`
 
 The first Phase 22 slice is now landed for the workspace file-browser and
 download surface:
@@ -284,8 +285,7 @@ download surface:
 - thin `internal/httpapi` transport plus real IDE app wiring and focused
   service/route/app coverage
 
-With that first Phase 22 slice landed, the remaining caller-backed gap in
-this cluster is now narrower:
+The second Phase 22 slice is now landed for the bounded IDE artifact owner:
 
 - `POST /importFilesToArtifacts`
 - `POST /loadCachedImageArtifacts`
@@ -294,10 +294,23 @@ this cluster is now narrower:
 - `POST /loadCachedDrawAreaLayerItemTransform`
 - `POST /updateArtifacts`
 - `POST /deleteArtifacts`
+- explicit `internal/artifacts` ownership for state-relative artifact ids,
+  workspace imports, cached reads, active caller-backed writes, and file
+  deletes
+- thin `internal/httpapi` transport plus real IDE app wiring and focused
+  service/route/app coverage
+- bounded write support for `File`, `BrushStroke`, and
+  `DrawAreaLayerItemTransform`
+- typed unsupported-artifact behavior for `Image` and `ChartData` updates in
+  this slice
 
-The next recommended step is therefore Phase 22 Slice 2: explicit IDE
-artifact import, cached-read, and mutation ownership, while keeping
-share/deployment artifact-session overlays as the separate Slice 3 follow-on.
+With that second Phase 22 slice landed, the remaining caller-backed gap in
+this cluster is now only the share/deployment artifact overlay behavior for
+the same route surface.
+
+The next recommended step is therefore Phase 22 Slice 3: explicit
+share/deployment artifact-session overlay ownership above the landed IDE
+artifact owner.
 
 Dormant listener-chat routes, detached-run routes, and non-caller-backed
 default-project routes still remain out of scope until a concrete caller

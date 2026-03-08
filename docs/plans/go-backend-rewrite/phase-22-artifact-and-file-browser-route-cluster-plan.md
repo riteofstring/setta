@@ -24,7 +24,7 @@ attachments, deployment publish modals, and artifact-backed param UIs.
 
 ## Status
 
-Current repo status as of 2026-03-10 after the landed Slice 1:
+Current repo status as of 2026-03-10 after the landed Slices 1 and 2:
 
 - Phase 19 project-shell route ownership is complete for the current
   caller-backed surface
@@ -45,7 +45,7 @@ Current repo status as of 2026-03-10 after the landed Slice 1:
   - `POST /transferFileBrowserEntry`
   - `GET /fileBrowser/{token}`
   - `GET /binary/{contentId}`
-- the remaining caller-backed Phase 22 gap is now the artifact owner surface:
+- the IDE artifact owner surface is now also Go-owned:
   - `POST /importFilesToArtifacts`
   - `POST /loadCachedImageArtifacts`
   - `POST /loadCachedChartData`
@@ -53,6 +53,8 @@ Current repo status as of 2026-03-10 after the landed Slice 1:
   - `POST /loadCachedDrawAreaLayerItemTransform`
   - `POST /updateArtifacts`
   - `POST /deleteArtifacts`
+- the remaining caller-backed Phase 22 gap is now only the share/deployment
+  overlay behavior for the artifact routes above
 
 ## Scope
 
@@ -129,7 +131,6 @@ Explicit non-goals for the first artifact/file-browser phase:
 
 What is still missing:
 
-- a Go owner for artifact import/update/delete and cached-artifact reads
 - explicit share/deployment-session artifact overlay behavior over the current
   Go runtime boundaries
 
@@ -304,7 +305,18 @@ Why this is second:
 
 Status:
 
-- planned
+- landed on 2026-03-10
+
+Completed in this slice:
+
+- new explicit `internal/artifacts` owner for state-relative artifact id
+  normalization, workspace-file imports, cached image/chart/brush/transform
+  reads, active caller-backed writes, and file deletes
+- thin `internal/httpapi` transport plus real IDE app wiring
+- active write support bounded to `File`, `BrushStroke`, and
+  `DrawAreaLayerItemTransform`
+- typed unsupported-artifact behavior for `Image` and `ChartData` updates in
+  this bounded slice
 
 Focused current-work doc:
 
@@ -352,8 +364,8 @@ Status:
 
 ## Next Recommended Step
 
-- implement Slice 2 from this plan:
-  - add an explicit Go artifact owner for IDE artifact import/update/delete
-    and cached reads
-  - keep share/deployment artifact-session overlay behavior separate for Slice
-    3 instead of mixing it into the IDE artifact owner
+- implement Slice 3 from this plan:
+  - add explicit share/deployment artifact-session overlay ownership for the
+    remaining deployment-mode caller surface
+  - keep the landed IDE owner separate instead of folding share behavior back
+    into a mixed artifact manager

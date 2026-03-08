@@ -717,9 +717,9 @@ Use the docs in this order:
     and binary-download transport over explicit file-browser and artifact
     owners
 196. `phase-22-ide-artifact-owner-plan.md`
-  - focused current-work doc for the bounded IDE-only artifact owner slice:
-    file import, cached artifact reads, active caller-backed artifact writes,
-    and file deletes over state-relative artifact ids
+  - focused landed slice doc for the bounded IDE-only artifact owner: file
+    import, cached artifact reads, active caller-backed artifact writes, and
+    file deletes over state-relative artifact ids
 197. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
 198. `spike-pty.md`
