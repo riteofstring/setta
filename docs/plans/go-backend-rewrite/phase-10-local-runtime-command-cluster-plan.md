@@ -51,6 +51,7 @@ As of 2026-03-08:
 - `docs/plans/go-backend-rewrite/phase-9-shipped-entrypoint-and-launcher-distribution-plan.md`
 - `docs/plans/go-backend-rewrite/phase-9-native-installer-bundled-package-stage2.md`
 - `docs/plans/go-backend-rewrite/phase-10-default-local-ide-start-stage2.md`
+- `docs/plans/go-backend-rewrite/phase-10-share-deployment-stage3.md`
 - `docs/reference/setta-cli-commands.md`
 - `backend/setta/start.py`
 - `tests/start/test_launch.py`
@@ -209,6 +210,10 @@ That slice should:
     packaged Go binary
   - `cmd/setta-server` now owns startup output and browser-open behavior for
     local IDE mode
+- 2026-03-08: added the focused Stage 3 plan for the next bounded slice.
+  - `setta share` now has an explicit implementation boundary
+  - named deployment resolution is locked to the Go deployment catalog, not
+    path heuristics
 
 ## Open Questions
 

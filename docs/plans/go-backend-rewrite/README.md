@@ -360,11 +360,14 @@ Use the docs in this order:
 118. `phase-10-default-local-ide-start-stage2.md`
   - focused implementation-plan doc for the Go-owned default local `setta`
     start path over the sibling `setta-server` runtime boundary
-119. `spike-mcp.md`
+119. `phase-10-share-deployment-stage3.md`
+  - focused implementation-plan doc for the Go-owned `setta share` command
+    over the sibling `setta-server` runtime and Go deployment catalog
+120. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-120. `spike-pty.md`
+121. `spike-pty.md`
    - PTY uncertainty-reduction plan
-121. `spike-lsp.md`
+122. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
