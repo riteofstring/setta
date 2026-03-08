@@ -82,6 +82,7 @@ It should preserve the current rewrite constraints:
 ## Inputs
 
 - `docs/plans/go-backend-rewrite/phase-12-managed-chat-runtime-and-ai-route-foundation.md`
+- `docs/plans/go-backend-rewrite/phase-12-external-agent-send-route-foundation.md`
 - `docs/reference/external-agents.md`
 - `backend/setta/routers/ai.py`
 - `backend/setta/routers/agentic.py`
@@ -197,8 +198,11 @@ It should preserve the current rewrite constraints:
 
 ## Next Recommended Step
 
-- implement the external-agent send path next
-- use the completed runtime as the execution owner; do not add a parallel send
+- execute the bounded send-route foundation in
+  `phase-12-external-agent-send-route-foundation.md`
+- keep the completed runtime as the execution owner; do not add a parallel send
   path that bypasses it
-- start with adapter/runtime interfaces and a bounded test adapter, then land
-  the `getLLMResponse` external-agent branch over that owner
+- stop after the Go-owned send route, persisted running-run creation, runtime
+  activation, and bounded executor interface are in place
+- leave real Codex, Claude Code, and OpenCode execution wiring for the
+  follow-on slice after this foundation lands
