@@ -70,7 +70,7 @@ function useFileExists(delay) {
 
   const debouncedCheckIfFileExists = useCallback(
     asyncDebounce(async (f) => {
-      const res = await route_check_if_file_exists({ filepath: f });
+      const res = await route_check_if_file_exists(f);
       if (res200(res)) {
         setFileExists(res.data);
       }
