@@ -71,6 +71,14 @@ func aliasDeclarationWithFactory(name string, alias string, factoryTS string) Ty
 	return declaration
 }
 
+func rawDeclaration(name string, raw string) TypeDeclaration {
+	return TypeDeclaration{
+		Name: name,
+		Kind: "raw",
+		Raw:  raw,
+	}
+}
+
 const metaControlSizingPolicyByTypeFactoryTS = `export function createMetaControlSizingPolicyByType(
   options: Partial<MetaControlSizingPolicyByType> = {},
 ): MetaControlSizingPolicyByType {

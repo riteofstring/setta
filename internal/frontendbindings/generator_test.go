@@ -53,6 +53,21 @@ func TestRenderTypesUsesCustomFactoryBody(t *testing.T) {
 	}
 }
 
+func TestBuildBindingsIncludesAdditionalDeclarations(t *testing.T) {
+	t.Helper()
+
+	bindings, err := buildBindings(nil, nil, nil, []TypeDeclaration{
+		rawDeclaration("GeneratedSupport", `export const generatedSupport = "ok";`),
+	})
+	if err != nil {
+		t.Fatalf("buildBindings(...) error = %v", err)
+	}
+
+	if !strings.Contains(bindings.TypesTS, `export const generatedSupport = "ok";`) {
+		t.Fatalf("types output missing additional declaration:\n%s", bindings.TypesTS)
+	}
+}
+
 func assertGoldenFile(t *testing.T, name string, actual string) {
 	t.Helper()
 

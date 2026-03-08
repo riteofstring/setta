@@ -1071,6 +1071,10 @@ func CurrentRouteGroups() []RouteGroup {
 	}
 }
 
+func CurrentAdditionalDeclarations() []TypeDeclaration {
+	return nil
+}
+
 func CurrentEndpoints() []EndpointSpec {
 	return []EndpointSpec{
 		{

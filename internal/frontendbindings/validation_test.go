@@ -93,7 +93,7 @@ func TestBuildBindingsRejectsInvalidEndpointSpecs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := buildBindings(routeGroups, []EndpointSpec{tt.spec}, nil)
+			_, err := buildBindings(routeGroups, []EndpointSpec{tt.spec}, nil, nil)
 			if err == nil {
 				t.Fatalf("buildBindings(...) unexpectedly succeeded")
 			}

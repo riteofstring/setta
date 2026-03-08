@@ -41,10 +41,20 @@ type routeEnumEntry struct {
 }
 
 func Build() (GeneratedBindings, error) {
-	return buildBindings(CurrentRouteGroups(), CurrentEndpoints(), CurrentAdditionalTypeRoots())
+	return buildBindings(
+		CurrentRouteGroups(),
+		CurrentEndpoints(),
+		CurrentAdditionalTypeRoots(),
+		CurrentAdditionalDeclarations(),
+	)
 }
 
-func buildBindings(routeGroups []RouteGroup, endpointSpecs []EndpointSpec, extraTypes []reflect.Type) (GeneratedBindings, error) {
+func buildBindings(
+	routeGroups []RouteGroup,
+	endpointSpecs []EndpointSpec,
+	extraTypes []reflect.Type,
+	extraDeclarations []TypeDeclaration,
+) (GeneratedBindings, error) {
 	if err := validateEndpointSpecs(routeGroups, endpointSpecs); err != nil {
 		return GeneratedBindings{}, err
 	}
@@ -91,7 +101,7 @@ func buildBindings(routeGroups []RouteGroup, endpointSpecs []EndpointSpec, extra
 	}
 
 	typesTS, err := renderTemplate(typesTemplateText, map[string]any{
-		"Declarations": converter.Declarations(),
+		"Declarations": append(converter.Declarations(), extraDeclarations...),
 	})
 	if err != nil {
 		return GeneratedBindings{}, err
