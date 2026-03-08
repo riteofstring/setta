@@ -11,11 +11,11 @@ import (
 )
 
 var (
-	ErrChangeParamImplUnsupported        = errors.New("section does not support change_param_impl")
-	ErrChangeParamImplSelectedRequired   = errors.New("selected impl or code object type is required")
-	ErrChangeParamImplCodeObjTypeUnknown = errors.New("selected code object type is unsupported")
+	ErrChangeParamImplUnsupported           = errors.New("section does not support change_param_impl")
+	ErrChangeParamImplSelectedRequired      = errors.New("selected impl or code object type is required")
+	ErrChangeParamImplCodeObjTypeUnknown    = errors.New("selected code object type is unsupported")
 	ErrChangeParamImplCodeObjTypeNotAllowed = errors.New("selected code object type is not allowed for section")
-	ErrPasswordParamMutationUnsupported = errors.New("password param mutation requires password secret store")
+	ErrPasswordParamMutationUnsupported     = errors.New("password param mutation requires password secret store")
 )
 
 var controlCodeObjectTypes = map[string]struct{}{
@@ -203,6 +203,8 @@ func canonicalSectionType(raw string, impl SectionImpl) string {
 		return "Callable"
 	case "dict":
 		return "Dict"
+	case "globalvariables":
+		return "GlobalVariables"
 	}
 	switch strings.ToLower(strings.TrimSpace(fallbackSectionType(impl))) {
 	case "metacontrol":
@@ -211,6 +213,8 @@ func canonicalSectionType(raw string, impl SectionImpl) string {
 		return "Callable"
 	case "dict":
 		return "Dict"
+	case "globalvariables":
+		return "GlobalVariables"
 	default:
 		return strings.TrimSpace(raw)
 	}

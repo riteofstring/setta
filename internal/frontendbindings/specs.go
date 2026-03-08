@@ -422,6 +422,11 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "SET_ACTIVE_IDS",
 				},
 				{
+					Name:     "setSectionColumnWidth",
+					Path:     httpapi.RouteSetSectionColumnWidth,
+					EnumName: "SET_SECTION_COLUMN_WIDTH",
+				},
+				{
 					Name:     "setBrowserColumnWidths",
 					Path:     httpapi.RouteSetBrowserColumnWidths,
 					EnumName: "SET_BROWSER_COLUMN_WIDTHS",
@@ -1316,6 +1321,13 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "setActiveIds",
 			RequestType:     reflect.TypeOf(SetActiveIDsRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_section_column_width",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setSectionColumnWidth",
+			RequestType:     reflect.TypeOf(SetSectionColumnWidthRequestInput{}),
 		},
 		{
 			FunctionName:    "route_set_browser_column_widths",

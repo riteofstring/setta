@@ -135,6 +135,8 @@ type UnselectAllParamsRequestInput struct {
 	ProjectConfigID string  `json:"projectConfigId"`
 }
 
+type SetSectionColumnWidthRequestInput struct{}
+
 type SetBrowserColumnWidthsRequestInput struct{}
 
 type SetBrowserAreaViewModeRequestInput struct{}
@@ -176,6 +178,15 @@ type SetActiveIDsRequestInput struct {
 	ProjectConfigID string   `json:"projectConfigId"`
 	ActiveIDs       []string `json:"activeIds"`
 }
+
+const setSectionColumnWidthRequestInputRawTS = `
+export type SetSectionColumnWidthRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  columnWidth: number | null;
+};
+`
 
 const setBrowserColumnWidthsRequestInputRawTS = `
 export type SetBrowserColumnWidthsRequestInput = {

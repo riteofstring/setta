@@ -156,6 +156,10 @@ func TestRuntimeLayoutPresentationMutationsUpdateProjectAndEffectivePayload(t *t
 	if _, err := runtime.SetSectionStyleColor(context.Background(), "project-alpha", "callable-section", &styleColor); err != nil {
 		t.Fatalf("SetSectionStyleColor returned error: %v", err)
 	}
+	columnWidth := 248.5
+	if _, err := runtime.SetSectionColumnWidth(context.Background(), "project-alpha", "callable-section", &columnWidth); err != nil {
+		t.Fatalf("SetSectionColumnWidth returned error: %v", err)
+	}
 	if _, err := runtime.SetCallableHideParams(context.Background(), "project-alpha", "callable-section", true); err != nil {
 		t.Fatalf("SetCallableHideParams returned error: %v", err)
 	}
@@ -186,6 +190,9 @@ func TestRuntimeLayoutPresentationMutationsUpdateProjectAndEffectivePayload(t *t
 	}
 	if got := payloadRawStringField(payload, "styleColor"); got != "#654321" {
 		t.Fatalf("expected styleColor #654321, got %q", got)
+	}
+	if got, ok := payload["columnWidth"].(float64); !ok || got != 248.5 {
+		t.Fatalf("expected columnWidth 248.5, got %#v", payload["columnWidth"])
 	}
 	if !payloadBoolField(payload, "hideParams") {
 		t.Fatal("expected hideParams=true")
@@ -267,6 +274,31 @@ func TestRuntimeGroupLayoutMutationsRejectNonGroupSections(t *testing.T) {
 	}
 	if _, err := runtime.SetGroupOverflowMode(context.Background(), "project-alpha", "plain-section", true); !errors.Is(err, ErrGroupSectionRequired) {
 		t.Fatalf("expected ErrGroupSectionRequired from SetGroupOverflowMode, got %v", err)
+	}
+}
+
+func TestRuntimeSetSectionColumnWidthRejectsNonParamSections(t *testing.T) {
+	t.Parallel()
+
+	runtime, err := OpenOverlayRuntime(Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": layoutPresentationTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	columnWidth := 180.0
+	if _, err := runtime.SetSectionColumnWidth(context.Background(), "project-alpha", "plain-section", &columnWidth); !errors.Is(err, ErrSectionParamColumnWidthUnsupported) {
+		t.Fatalf("expected ErrSectionParamColumnWidthUnsupported, got %v", err)
 	}
 }
 

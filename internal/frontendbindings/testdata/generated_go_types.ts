@@ -6530,6 +6530,16 @@ export function createSetActiveIDsRequestInput(options: Partial<SetActiveIDsRequ
 
 
 
+export type SetSectionColumnWidthRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  columnWidth: number | null;
+};
+
+
+
+
 export type SetBrowserColumnWidthsRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;

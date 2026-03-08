@@ -359,6 +359,11 @@ func newTypeConverter() *typeConverter {
 				Kind: "raw",
 				Raw:  setChatSectionStateRequestInputRawTS,
 			},
+			reflect.TypeOf(SetSectionColumnWidthRequestInput{}): {
+				Name: "SetSectionColumnWidthRequestInput",
+				Kind: "raw",
+				Raw:  setSectionColumnWidthRequestInputRawTS,
+			},
 			reflect.TypeOf(SetBrowserColumnWidthsRequestInput{}): {
 				Name: "SetBrowserColumnWidthsRequestInput",
 				Kind: "raw",

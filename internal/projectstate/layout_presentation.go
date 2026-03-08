@@ -8,6 +8,7 @@ import (
 )
 
 var ErrActiveViewModeRequired = errors.New("active view mode id is required")
+var ErrSectionParamColumnWidthUnsupported = errors.New("section does not support param column width")
 
 func (d *Document) SetShowParamDisplayNames(projectID string, show bool) error {
 	project, err := d.ProjectByID(projectID)
@@ -282,6 +283,43 @@ func (d *Document) SetCallableHideParams(projectID string, sectionID string, hid
 func (r *Runtime) SetCallableHideParams(ctx context.Context, projectID string, sectionID string, hideParams bool) (Snapshot, error) {
 	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
 		if err := document.SetCallableHideParams(projectID, sectionID, hideParams); err != nil {
+			return Document{}, err
+		}
+		return document, nil
+	})
+}
+
+func (p *Project) SetSectionColumnWidth(sectionID string, columnWidth *float64) error {
+	if p == nil {
+		return ErrProjectNotFound
+	}
+
+	trimmedSectionID := strings.TrimSpace(sectionID)
+	sectionType, err := p.resolveCurrentSectionPresentationType(trimmedSectionID)
+	if err != nil {
+		return err
+	}
+	if !sectionTypeSupportsParamPresentation(sectionType) {
+		return fmt.Errorf("%w: section=%q type=%q", ErrSectionParamColumnWidthUnsupported, trimmedSectionID, sectionType)
+	}
+	return p.setCurrentSectionField(trimmedSectionID, "columnWidth", optionalFloat64Value(columnWidth))
+}
+
+func (d *Document) SetSectionColumnWidth(projectID string, sectionID string, columnWidth *float64) error {
+	project, err := d.ProjectByID(projectID)
+	if err != nil {
+		return err
+	}
+	if err := project.SetSectionColumnWidth(sectionID, columnWidth); err != nil {
+		return err
+	}
+	d.Projects[project.ID] = project
+	return nil
+}
+
+func (r *Runtime) SetSectionColumnWidth(ctx context.Context, projectID string, sectionID string, columnWidth *float64) (Snapshot, error) {
+	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
+		if err := document.SetSectionColumnWidth(projectID, sectionID, columnWidth); err != nil {
 			return Document{}, err
 		}
 		return document, nil

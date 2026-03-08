@@ -43,7 +43,7 @@ func (p *Project) SetSectionParamFilter(sectionID string, value string) error {
 	if err != nil {
 		return err
 	}
-	if !sectionTypeSupportsParamFilter(sectionType) {
+	if !sectionTypeSupportsParamPresentation(sectionType) {
 		return fmt.Errorf("%w: section=%q type=%q", ErrSectionParamFilterUnsupported, trimmedSectionID, sectionType)
 	}
 	return p.setCurrentSectionField(trimmedSectionID, "paramFilter", value)
@@ -103,7 +103,7 @@ func (p Project) resolveCurrentSectionPresentationType(sectionID string) (string
 	return canonicalSectionType(payloadStringField(payload, "type"), impl), nil
 }
 
-func sectionTypeSupportsParamFilter(sectionType string) bool {
+func sectionTypeSupportsParamPresentation(sectionType string) bool {
 	switch strings.TrimSpace(sectionType) {
 	case "Callable", "Dict", "GlobalVariables":
 		return true

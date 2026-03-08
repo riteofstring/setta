@@ -1481,6 +1481,10 @@ func TestRegisterProjectRoutesLayoutPresentationMutationsProjectLatestState(t *t
 			body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","styleColor":"#654321"}`,
 		},
 		{
+			route: RouteSetSectionColumnWidth,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","columnWidth":248.5}`,
+		},
+		{
 			route: RouteSetCallableHideParams,
 			body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","hideParams":true}`,
 		},
@@ -1560,6 +1564,9 @@ func TestRegisterProjectRoutesLayoutPresentationMutationsProjectLatestState(t *t
 	}
 	if got := callableSharedModifier["styleColor"]; got != "#654321" {
 		t.Fatalf("expected styleColor #654321, got %#v", got)
+	}
+	if got := callableSharedModifier["columnWidth"]; got != 248.5 {
+		t.Fatalf("expected columnWidth 248.5, got %#v", got)
 	}
 	if got := callableSharedModifier["hideParams"]; got != true {
 		t.Fatalf("expected hideParams=true, got %#v", got)
@@ -2100,6 +2107,42 @@ func TestRegisterProjectRoutesBrowserMetadataMutationsRejectInvalidInputs(t *tes
 		if !strings.Contains(response.Body.String(), requestSpec.expectedBody) {
 			t.Fatalf("expected response body to contain %s, got %q", requestSpec.expectedBody, response.Body.String())
 		}
+	}
+}
+
+func TestRegisterProjectRoutesSetSectionColumnWidthRejectsUnsupportedSection(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": layoutPresentationRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetSectionColumnWidth,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"plain-section","columnWidth":180}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"section_param_column_width_unsupported"`) {
+		t.Fatalf("expected section_param_column_width_unsupported body, got %q", response.Body.String())
 	}
 }
 

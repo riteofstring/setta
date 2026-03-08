@@ -69,6 +69,7 @@ import {
   route_set_chat_section_state,
   route_set_code_file_binding,
   route_set_llm_api_keys,
+  route_set_section_column_width,
   route_set_section_name,
   route_set_top_level_section_layout,
   route_set_type_error_ignore,
@@ -670,6 +671,29 @@ describe("generatedEndpoints project shell and layout", () => {
         columnWidth: 240.5,
         typesColumnWidth: null,
         frontendOpId: "frontend-op-browser-width",
+      }),
+    });
+  });
+
+  it("posts param column-width writes with nullable widths", async () => {
+    await route_set_section_column_width({
+      projectConfigId: "project-alpha",
+      sectionId: "callable-section",
+      columnWidth: null,
+      frontendOpId: "frontend-op-param-width",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setSectionColumnWidth`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "callable-section",
+        columnWidth: null,
+        frontendOpId: "frontend-op-param-width",
       }),
     });
   });

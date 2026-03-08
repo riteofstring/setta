@@ -49,6 +49,7 @@ const (
 	RouteSetViewport                    = "/setViewport"
 	RouteSetSectionTagColor             = "/setSectionTagColor"
 	RouteSetSectionStyleColor           = "/setSectionStyleColor"
+	RouteSetSectionColumnWidth          = "/setSectionColumnWidth"
 	RouteSetCallableHideParams          = "/setCallableHideParams"
 	RouteSetSectionHideUnpinnedParams   = "/setSectionHideUnpinnedParams"
 	RouteSetSectionPinnedParams         = "/setSectionPinnedParams"
@@ -337,6 +338,13 @@ type SetSectionStyleColorRequest struct {
 	StyleColor   *string `json:"styleColor"`
 }
 
+type SetSectionColumnWidthRequest struct {
+	FrontendOpID *string  `json:"frontendOpId"`
+	ProjectID    string   `json:"projectConfigId"`
+	SectionID    string   `json:"sectionId"`
+	ColumnWidth  *float64 `json:"columnWidth"`
+}
+
 type SetCallableHideParamsRequest struct {
 	FrontendOpID *string `json:"frontendOpId"`
 	ProjectID    string  `json:"projectConfigId"`
@@ -525,6 +533,7 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetViewport, setViewportHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionTagColor, setSectionTagColorHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionStyleColor, setSectionStyleColorHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionColumnWidth, setSectionColumnWidthHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCallableHideParams, setCallableHideParamsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionHideUnpinnedParams, setSectionHideUnpinnedParamsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionPinnedParams, setSectionPinnedParamsHandler(deps))
@@ -1656,6 +1665,42 @@ func setCallableHideParamsHandler(deps ProjectRouteDependencies) http.HandlerFun
 	}
 }
 
+func setSectionColumnWidthHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetSectionColumnWidthRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetSectionColumnWidth(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.ColumnWidth,
+		); err != nil {
+			writeProjectLayoutMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
 func setSectionHideUnpinnedParamsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		payload, err := decodeJSONBody[SetSectionHideUnpinnedParamsRequest](r)
@@ -2296,6 +2341,8 @@ func writeProjectLayoutMutationError(w http.ResponseWriter, r *http.Request, err
 		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
 	case errors.Is(err, projectstate.ErrSectionNotFound):
 		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+	case errors.Is(err, projectstate.ErrSectionParamColumnWidthUnsupported):
+		writeError(w, r, http.StatusUnprocessableEntity, "section_param_column_width_unsupported", err.Error())
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}
