@@ -220,7 +220,8 @@ Use the docs in this order:
 81. `phase-6-app-definition-read-and-validation-tool-parity.md`
   - focused implementation-plan doc for Go-owned `get_app_definition` and
     `validate_app_definition` parity over the completed app-definition
-    mutation/store foundations and the still-missing diagnostics owner
+    mutation/store foundations and the bounded diagnostics owner in
+    `internal/appspec`
 82. `spike-mcp.md`
    - MCP uncertainty-reduction plan
 83. `spike-pty.md`

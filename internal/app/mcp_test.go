@@ -97,8 +97,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 51 {
-		t.Fatalf("expected 51 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 56 {
+		t.Fatalf("expected 56 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -116,8 +116,11 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 51 {
-		t.Fatalf("expected 51 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 56 {
+		t.Fatalf("expected 56 registered tool names, got %d", len(rawNames))
+	}
+	if !containsStructuredStringValue(rawNames, "get_app_definition") {
+		t.Fatalf("expected get_app_definition in registered tool names, got %#v", rawNames)
 	}
 	if !containsStructuredStringValue(rawNames, "set_app_definition") {
 		t.Fatalf("expected set_app_definition in registered tool names, got %#v", rawNames)
@@ -145,6 +148,9 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	}
 	if !containsStructuredStringValue(rawNames, "update_app_definition") {
 		t.Fatalf("expected update_app_definition in registered tool names, got %#v", rawNames)
+	}
+	if !containsStructuredStringValue(rawNames, "validate_app_definition") {
+		t.Fatalf("expected validate_app_definition in registered tool names, got %#v", rawNames)
 	}
 	if !containsStructuredStringValue(rawNames, "toggle_group_orientation") {
 		t.Fatalf("expected toggle_group_orientation in registered tool names, got %#v", rawNames)
@@ -2510,6 +2516,286 @@ func TestAppIDEMCPServerSupportsSetAppDefinitionOverAuthenticatedSSE(t *testing.
 	}
 	if app.ProjectStates().Main().Snapshot().Document.AppDefinition == nil || app.ProjectStates().Main().Snapshot().Document.AppDefinition.AppSpecPath != "app_specs/custom.json" {
 		t.Fatalf("expected persisted app definition after SSE mutation, got %#v", app.ProjectStates().Main().Snapshot().Document.AppDefinition)
+	}
+}
+
+func TestAppIDEMCPServerSupportsGetAppDefinitionOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	if _, _, err := app.ProjectStates().Main().SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
+		AppSpec: map[string]any{
+			"root":     map[string]any{"key": "root", "type": "Stack"},
+			"elements": map[string]any{},
+		},
+	}); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_app_definition",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call get_app_definition: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected get_app_definition success, got %#v", result.StructuredContent)
+	}
+
+	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, appspec.DefaultPath())
+	if err != nil {
+		t.Fatalf("read stored app spec: %v", err)
+	}
+	payload := mustStructuredMapValue(t, result.StructuredContent)
+	appDefinition := mustStructuredMapValue(t, payload["appDefinition"])
+	if appDefinition["appSpecPath"] != appspec.DefaultPath() {
+		t.Fatalf("expected default app spec path %q, got %#v", appspec.DefaultPath(), appDefinition["appSpecPath"])
+	}
+	if !reflect.DeepEqual(storedSpec, mustStructuredMapValue(t, payload["appSpec"])) {
+		t.Fatalf("expected stored app spec %#v, got %#v", storedSpec, mustStructuredMapValue(t, payload["appSpec"]))
+	}
+}
+
+func TestAppIDEMCPServerSupportsTemporaryIDsForGetAppDefinitionOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
+		"project-alpha": "11",
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	if _, _, err := app.ProjectStates().Main().SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
+		AppSpec: map[string]any{
+			"root":     map[string]any{"key": "root", "type": "Stack"},
+			"elements": map[string]any{},
+		},
+	}); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_app_definition",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id get_app_definition: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id get_app_definition success, got %#v", result.StructuredContent)
+	}
+
+	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, appspec.DefaultPath())
+	if err != nil {
+		t.Fatalf("read stored app spec: %v", err)
+	}
+	if !reflect.DeepEqual(storedSpec, mustStructuredMapValue(t, mustStructuredMapValue(t, result.StructuredContent)["appSpec"])) {
+		t.Fatalf("expected stored app spec %#v, got %#v", storedSpec, mustStructuredMapValue(t, mustStructuredMapValue(t, result.StructuredContent)["appSpec"]))
+	}
+}
+
+func TestAppIDEMCPServerSupportsValidateAppDefinitionOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "validate_app_definition",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"appSpec": map[string]any{
+				"root": map[string]any{
+					"key":  "run-btn",
+					"type": "ActionButton",
+					"props": map[string]any{
+						"label":  "Run",
+						"action": "run",
+					},
+				},
+				"elements": map[string]any{},
+			},
+			"theme": map[string]any{
+				"vars": map[string]any{
+					"accent":       "#fff",
+					"--app-accent": "#fff",
+				},
+			},
+			"assets": []any{
+				map[string]any{"href": "https://example.com/app.css"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call validate_app_definition: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected validate_app_definition success, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMapValue(t, result.StructuredContent)
+	errors, ok := payload["errors"].([]any)
+	if !ok {
+		t.Fatalf("expected errors array, got %#v", payload["errors"])
+	}
+	if len(errors) != 0 {
+		t.Fatalf("expected no validation errors, got %#v", errors)
+	}
+	warnings, ok := payload["warnings"].([]any)
+	if !ok {
+		t.Fatalf("expected warnings array, got %#v", payload["warnings"])
+	}
+	if len(warnings) < 3 {
+		t.Fatalf("expected multiple warnings, got %#v", warnings)
+	}
+	capabilities := mustStructuredMapValue(t, payload["capabilities"])
+	if capabilities["catalogId"] != appspec.DefaultCatalogID {
+		t.Fatalf("expected catalog id %q, got %#v", appspec.DefaultCatalogID, capabilities["catalogId"])
+	}
+}
+
+func TestAppIDEMCPServerSupportsTemporaryIDsForValidateAppDefinitionOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
+		"project-alpha": "11",
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "validate_app_definition",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"appSpec": map[string]any{
+				"root":     map[string]any{"key": "root", "type": "Stack"},
+				"elements": map[string]any{},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id validate_app_definition: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id validate_app_definition success, got %#v", result.StructuredContent)
+	}
+
+	capabilities := mustStructuredMapValue(t, mustStructuredMapValue(t, result.StructuredContent)["capabilities"])
+	if capabilities["catalogId"] != appspec.DefaultCatalogID {
+		t.Fatalf("expected catalog id %q, got %#v", appspec.DefaultCatalogID, capabilities["catalogId"])
 	}
 }
 
@@ -7658,6 +7944,157 @@ func TestAppIDEMCPToolCallRouteSupportsSetAppDefinition(t *testing.T) {
 	}
 	if !reflect.DeepEqual(storedSpec, mustStructuredMapValue(t, mustStructuredMapValue(t, payload.StructuredContent)["appSpec"])) {
 		t.Fatalf("expected stored app spec %#v, got %#v", mustStructuredMapValue(t, mustStructuredMapValue(t, payload.StructuredContent)["appSpec"]), storedSpec)
+	}
+}
+
+func TestAppIDEMCPToolCallRouteSupportsGetAppDefinition(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	if _, _, err := app.ProjectStates().Main().SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
+		AppSpec: map[string]any{
+			"root":     map[string]any{"key": "root", "type": "Stack"},
+			"elements": map[string]any{},
+		},
+	}); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"get_app_definition",
+			"arguments":{
+				"projectConfigId":"project-alpha"
+			},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"allowUnscoped":true
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post get_app_definition tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		StructuredContent any  `json:"structuredContent"`
+		IsError           bool `json:"isError"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode get_app_definition tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected get_app_definition success, got %#v", payload.StructuredContent)
+	}
+
+	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, appspec.DefaultPath())
+	if err != nil {
+		t.Fatalf("read stored app spec: %v", err)
+	}
+	if !reflect.DeepEqual(storedSpec, mustStructuredMapValue(t, mustStructuredMapValue(t, payload.StructuredContent)["appSpec"])) {
+		t.Fatalf("expected stored app spec %#v, got %#v", storedSpec, mustStructuredMapValue(t, mustStructuredMapValue(t, payload.StructuredContent)["appSpec"]))
+	}
+}
+
+func TestAppIDEMCPToolCallRouteSupportsValidateAppDefinition(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"validate_app_definition",
+			"arguments":{
+				"projectConfigId":"project-alpha",
+				"appSpec":{
+					"root":{
+						"key":"run-btn",
+						"type":"ActionButton",
+						"props":{"label":"Run","action":"run"}
+					},
+					"elements":{}
+				},
+				"theme":{"vars":{"accent":"#fff","--app-accent":"#fff"}},
+				"assets":[{"href":"https://example.com/app.css"}]
+			},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"allowUnscoped":true
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post validate_app_definition tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		StructuredContent any  `json:"structuredContent"`
+		IsError           bool `json:"isError"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode validate_app_definition tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected validate_app_definition success, got %#v", payload.StructuredContent)
+	}
+
+	result := mustStructuredMapValue(t, payload.StructuredContent)
+	warnings, ok := result["warnings"].([]any)
+	if !ok {
+		t.Fatalf("expected warnings array, got %#v", result["warnings"])
+	}
+	if len(warnings) < 3 {
+		t.Fatalf("expected multiple warnings, got %#v", warnings)
+	}
+	capabilities := mustStructuredMapValue(t, result["capabilities"])
+	if capabilities["catalogId"] != appspec.DefaultCatalogID {
+		t.Fatalf("expected catalog id %q, got %#v", appspec.DefaultCatalogID, capabilities["catalogId"])
 	}
 }
 

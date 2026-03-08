@@ -5,24 +5,21 @@
 This doc tracks the remaining Phase 6 MCP mutation surface after the completed
 section-filter and MetaControl-title slice.
 
-The mutation backlog tracked by this doc is now complete on the Go-owned MCP
-boundary. The remaining Python-owned app-definition gap is now read-only, not
-mutation transport.
+That mutation backlog is now complete, and the follow-on app-definition
+read/validation slice is also complete. This doc now serves as the closeout
+record for the Python `BaseProjectManager.@project_state_tool` MCP surface.
 
 ## Status
 
 Current repo status as of 2026-03-08:
 
 - Phase 6 MCP parity is still the active phase
-- Go MCP now exposes 54 tools total
-- 51 current Go tool names overlap with Python
+- Go MCP now exposes 56 tools total
+- 53 current Go tool names overlap with Python
   `BaseProjectManager.@project_state_tool` names
-- 49 of those overlaps are mutation or structural tools
-- Python has no remaining mutation or structural project-state MCP tools
-  without Go parity
-- the remaining Python-owned app-definition MCP gaps are the read-only tools:
-  - `get_app_definition`
-  - `validate_app_definition`
+- 51 of those overlaps are mutation or structural tools
+- Python has no remaining `BaseProjectManager.@project_state_tool`
+  project-state MCP tools without Go parity
 
 ## Inputs
 
@@ -106,42 +103,36 @@ MCP server:
 
 ### 2. After The Mutation Backlog
 
-- close the remaining app-definition read gap:
+- the app-definition read gap is also closed:
   - `get_app_definition`
   - `validate_app_definition`
-- use the follow-on slice doc:
-  - `phase-6-app-definition-read-and-validation-tool-parity.md`
 
 ### 3. Gaps That Still Need More Go Runtime Work First
 
-These should not be turned into MCP work until the new diagnostics owner lands:
-
-- `validate_app_definition`
+- none within the Python project-state MCP surface
 
 ### 4. Non-Mutation Read Gaps
 
-These are still Python-owned MCP tools, but they are not the next mutation
-priority:
-
-- `get_app_definition`
-- `validate_app_definition`
+- none within the Python project-state MCP surface
 
 ## Recommended Next Step
 
-- use `phase-6-app-definition-read-and-validation-tool-parity.md` as the next
-  bounded Phase 6 slice
-- start with the Go diagnostics/capabilities owner needed by
-  `validate_app_definition`
+- run a repo-wide inventory of any remaining Python-owned MCP surface outside
+  `BaseProjectManager.@project_state_tool`
+- decide whether that follow-on belongs in Phase 6 closeout work or should
+  move directly into Phase 7 planning
 
 ## Open Questions
 
-- none after inventory
+- none after the project-state MCP closeout
 
 ## Verification
 
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/appspec -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/deployments -run 'TestRuntimeLoadAppSpecReadsDeploymentRelativePath' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/deployments -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -run 'TestRuntime(GetAppDefinition|ValidateAppDefinition|SetAppDefinition|UpdateAppDefinition)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|GetAppDefinition|ValidateAppDefinition|SetAppDefinition|UpdateAppDefinition)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsGetAppDefinition|GetAppDefinitionAcceptsTemporaryIDs|SupportsValidateAppDefinition|ValidateAppDefinitionAcceptsTemporaryIDs|SupportsSetAppDefinition|SetAppDefinitionAcceptsTemporaryIDs|SupportsUpdateAppDefinition|UpdateAppDefinitionAcceptsTemporaryIDs)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsAuthenticatedSSECalls|ServerSupportsGetAppDefinitionOverAuthenticatedSSE|ServerSupportsTemporaryIDsForGetAppDefinitionOverAuthenticatedSSE|ServerSupportsValidateAppDefinitionOverAuthenticatedSSE|ServerSupportsTemporaryIDsForValidateAppDefinitionOverAuthenticatedSSE|ServerSupportsSetAppDefinitionOverAuthenticatedSSE|ServerSupportsTemporaryIDsForSetAppDefinitionOverAuthenticatedSSE|ServerSupportsUpdateAppDefinitionOverAuthenticatedSSE|ServerSupportsTemporaryIDsForUpdateAppDefinitionOverAuthenticatedSSE|ToolCallRouteSupportsGetAppDefinition|ToolCallRouteSupportsValidateAppDefinition|ToolCallRouteSupportsSetAppDefinition|ToolCallRouteSupportsUpdateAppDefinition)' -count=1 -timeout 420s`
 
 ## Progress Notes
 
@@ -254,3 +245,7 @@ priority:
 - 2026-03-08: the app-definition mutation transport slice is now complete
   across the Go MCP server, HTTP tool-call route, and authenticated SSE
   boundary, so the mutation backlog tracked by this doc is now complete.
+- 2026-03-08: the app-definition read/validation slice is now complete across
+  the Go diagnostics owner, document-level read owner, MCP server, HTTP
+  tool-call route, and authenticated SSE boundary, so the Python
+  `BaseProjectManager.@project_state_tool` overlap is fully closed.

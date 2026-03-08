@@ -2267,6 +2267,301 @@ func TestMCPToolCallRouteSupportsSetAppDefinition(t *testing.T) {
 	}
 }
 
+func TestMCPToolCallRouteSupportsGetAppDefinition(t *testing.T) {
+	t.Parallel()
+
+	root, projectRuntime := openPersistedMCPToolRouteAppDefinitionRuntime(t)
+	if _, _, err := projectRuntime.SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
+		AppSpec: map[string]any{
+			"root":     map[string]any{"key": "root", "type": "Stack"},
+			"elements": map[string]any{},
+		},
+	}); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
+
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"get_app_definition",
+		"arguments":{
+			"projectConfigId":"project-alpha"
+		},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected get_app_definition success, got %#v", payload.StructuredContent)
+	}
+
+	result := mustStructuredMapForRoute(t, payload.StructuredContent)
+	appDefinition := mustStructuredMapForRoute(t, result["appDefinition"])
+	if appDefinition["appSpecPath"] != appspec.DefaultPath() {
+		t.Fatalf("expected default app spec path %q, got %#v", appspec.DefaultPath(), appDefinition["appSpecPath"])
+	}
+	storedSpec, err := appspec.Read(root, appspec.DefaultPath())
+	if err != nil {
+		t.Fatalf("read stored app spec: %v", err)
+	}
+	if !reflect.DeepEqual(storedSpec, result["appSpec"]) {
+		t.Fatalf("expected stored app spec %#v, got %#v", storedSpec, result["appSpec"])
+	}
+}
+
+func TestMCPToolCallRouteGetAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	root, projectRuntime := openPersistedMCPToolRouteAppDefinitionRuntime(t)
+	if _, _, err := projectRuntime.SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
+		AppSpec: map[string]any{
+			"root":     map[string]any{"key": "root", "type": "Stack"},
+			"elements": map[string]any{},
+		},
+	}); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
+
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
+	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
+		"project-alpha": "11",
+	})
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		SectionNames:       routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics:     diagnostics,
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"get_app_definition",
+		"arguments":{
+			"projectConfigId":"11"
+		},
+		"agenticContext":{
+			"projectConfigId":"11",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected temp-id get_app_definition success, got %#v", payload.StructuredContent)
+	}
+
+	result := mustStructuredMapForRoute(t, payload.StructuredContent)
+	storedSpec, err := appspec.Read(root, appspec.DefaultPath())
+	if err != nil {
+		t.Fatalf("read stored app spec: %v", err)
+	}
+	if !reflect.DeepEqual(storedSpec, result["appSpec"]) {
+		t.Fatalf("expected stored app spec %#v, got %#v", storedSpec, result["appSpec"])
+	}
+}
+
+func TestMCPToolCallRouteSupportsValidateAppDefinition(t *testing.T) {
+	t.Parallel()
+
+	_, projectRuntime := openPersistedMCPToolRouteAppDefinitionRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"validate_app_definition",
+		"arguments":{
+			"projectConfigId":"project-alpha",
+			"appSpec":{
+				"root":{
+					"key":"run-btn",
+					"type":"ActionButton",
+					"props":{"label":"Run","action":"run"}
+				},
+				"elements":{}
+			},
+			"theme":{"vars":{"accent":"#fff","--app-accent":"#fff"}},
+			"assets":[{"href":"https://example.com/app.css"}]
+		},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected validate_app_definition success, got %#v", payload.StructuredContent)
+	}
+
+	result := mustStructuredMapForRoute(t, payload.StructuredContent)
+	errors, ok := result["errors"].([]any)
+	if !ok {
+		t.Fatalf("expected errors array, got %#v", result["errors"])
+	}
+	if len(errors) != 0 {
+		t.Fatalf("expected no validation errors, got %#v", errors)
+	}
+	warnings, ok := result["warnings"].([]any)
+	if !ok {
+		t.Fatalf("expected warnings array, got %#v", result["warnings"])
+	}
+	if len(warnings) < 3 {
+		t.Fatalf("expected multiple warnings, got %#v", warnings)
+	}
+	capabilities := mustStructuredMapForRoute(t, result["capabilities"])
+	if capabilities["catalogId"] != appspec.DefaultCatalogID {
+		t.Fatalf("expected catalog id %q, got %#v", appspec.DefaultCatalogID, capabilities["catalogId"])
+	}
+}
+
+func TestMCPToolCallRouteValidateAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	_, projectRuntime := openPersistedMCPToolRouteAppDefinitionRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
+	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
+		"project-alpha": "11",
+	})
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		SectionNames:       routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics:     diagnostics,
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"validate_app_definition",
+		"arguments":{
+			"projectConfigId":"11",
+			"appSpec":{"root":{"key":"root","type":"Stack"},"elements":{}}
+		},
+		"agenticContext":{
+			"projectConfigId":"11",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected temp-id validate_app_definition success, got %#v", payload.StructuredContent)
+	}
+
+	result := mustStructuredMapForRoute(t, payload.StructuredContent)
+	capabilities := mustStructuredMapForRoute(t, result["capabilities"])
+	if capabilities["catalogId"] != appspec.DefaultCatalogID {
+		t.Fatalf("expected catalog id %q, got %#v", appspec.DefaultCatalogID, capabilities["catalogId"])
+	}
+}
+
 func TestMCPToolCallRouteSetAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 	t.Parallel()
 

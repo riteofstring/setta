@@ -138,8 +138,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 54 {
-		t.Fatalf("expected 54 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 56 {
+		t.Fatalf("expected 56 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -160,6 +160,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var setShowParamDisplayNamesTool *sdkmcp.Tool
 	var setWatchCodeEnabledTool *sdkmcp.Tool
 	var setWatchCodeInputsTool *sdkmcp.Tool
+	var getAppDefinitionTool *sdkmcp.Tool
+	var validateAppDefinitionTool *sdkmcp.Tool
 	var setAppDefinitionTool *sdkmcp.Tool
 	var updateAppDefinitionTool *sdkmcp.Tool
 	var compareAndSetShowParamDisplayNamesTool *sdkmcp.Tool
@@ -246,6 +248,12 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "set_watch_code_inputs" {
 			setWatchCodeInputsTool = tool
+		}
+		if tool.Name == "get_app_definition" {
+			getAppDefinitionTool = tool
+		}
+		if tool.Name == "validate_app_definition" {
+			validateAppDefinitionTool = tool
 		}
 		if tool.Name == "set_app_definition" {
 			setAppDefinitionTool = tool
@@ -368,6 +376,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"delete_sections",
 		"delete_selected_params",
 		"format_code",
+		"get_app_definition",
 		"get_latest_lsp_diagnostics",
 		"get_latest_project_state_summary",
 		"list_mcp_tools",
@@ -406,6 +415,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"toggle_position_locks",
 		"update_app_definition",
 		"update_param_impl_config",
+		"validate_app_definition",
 	}
 	for index, name := range expectedNames {
 		if names[index] != name {
@@ -463,6 +473,12 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if setWatchCodeInputsTool == nil {
 		t.Fatal("expected set_watch_code_inputs tool")
+	}
+	if getAppDefinitionTool == nil {
+		t.Fatal("expected get_app_definition tool")
+	}
+	if validateAppDefinitionTool == nil {
+		t.Fatal("expected validate_app_definition tool")
 	}
 	if setAppDefinitionTool == nil {
 		t.Fatal("expected set_app_definition tool")
@@ -732,6 +748,14 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if setWatchCodeInputsMeta["accessType"] != string(tools.AccessTypeStructural) {
 		t.Fatalf("expected structural access type for set_watch_code_inputs, got %#v", setWatchCodeInputsMeta["accessType"])
 	}
+	getAppDefinitionMeta := mustStructuredMap(t, getAppDefinitionTool.Meta[toolMetaNamespace])
+	if getAppDefinitionMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for get_app_definition, got %#v", getAppDefinitionMeta["accessType"])
+	}
+	validateAppDefinitionMeta := mustStructuredMap(t, validateAppDefinitionTool.Meta[toolMetaNamespace])
+	if validateAppDefinitionMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for validate_app_definition, got %#v", validateAppDefinitionMeta["accessType"])
+	}
 	setAppDefinitionMeta := mustStructuredMap(t, setAppDefinitionTool.Meta[toolMetaNamespace])
 	if setAppDefinitionMeta["accessType"] != string(tools.AccessTypeStructural) {
 		t.Fatalf("expected structural access type for set_app_definition, got %#v", setAppDefinitionMeta["accessType"])
@@ -966,8 +990,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 54 {
-		t.Fatalf("expected 54 registered tool names, got %#v", listNames)
+	if len(listNames) != 56 {
+		t.Fatalf("expected 56 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -3331,6 +3355,142 @@ func TestServerSetAppDefinitionRequiresStructuralScope(t *testing.T) {
 	payload := mustStructuredMap(t, result.StructuredContent)
 	if payload["reason"] != "structural_denied" {
 		t.Fatalf("expected structural_denied reason, got %#v", payload["reason"])
+	}
+}
+
+func TestServerGetAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTemporaryProjectID(t *testing.T) {
+	t.Parallel()
+
+	root, projectRuntime := openPersistedAppDefinitionTestProjectRuntime(t)
+	if _, _, err := projectRuntime.SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
+		AppSpec: map[string]any{
+			"root":     map[string]any{"key": "root", "type": "Stack"},
+			"elements": map[string]any{},
+		},
+	}); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
+
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha": "11",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_app_definition",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id get_app_definition: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id get_app_definition success, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	appDefinition := mustStructuredMap(t, payload["appDefinition"])
+	if appDefinition["appSpecPath"] != appspec.DefaultPath() {
+		t.Fatalf("expected default app spec path %q, got %#v", appspec.DefaultPath(), appDefinition["appSpecPath"])
+	}
+	storedSpec, err := appspec.Read(root, appspec.DefaultPath())
+	if err != nil {
+		t.Fatalf("read stored app spec: %v", err)
+	}
+	if !reflect.DeepEqual(storedSpec, payload["appSpec"]) {
+		t.Fatalf("expected stored app spec %#v, got %#v", storedSpec, payload["appSpec"])
+	}
+}
+
+func TestServerValidateAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTemporaryProjectID(t *testing.T) {
+	t.Parallel()
+
+	_, projectRuntime := openPersistedAppDefinitionTestProjectRuntime(t)
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha": "11",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "validate_app_definition",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"appSpec": map[string]any{
+				"root": map[string]any{
+					"key":  "run-btn",
+					"type": "ActionButton",
+					"props": map[string]any{
+						"label":  "Run",
+						"action": "run",
+					},
+				},
+				"elements": map[string]any{},
+			},
+			"theme": map[string]any{
+				"vars": map[string]any{
+					"accent":       "#fff",
+					"--app-accent": "#fff",
+				},
+			},
+			"assets": []any{
+				map[string]any{"href": "https://example.com/app.css"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id validate_app_definition: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id validate_app_definition success, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	errors, ok := payload["errors"].([]any)
+	if !ok {
+		t.Fatalf("expected errors array, got %#v", payload["errors"])
+	}
+	if len(errors) != 0 {
+		t.Fatalf("expected no validation errors, got %#v", errors)
+	}
+	warnings, ok := payload["warnings"].([]any)
+	if !ok {
+		t.Fatalf("expected warnings array, got %#v", payload["warnings"])
+	}
+	if len(warnings) < 3 {
+		t.Fatalf("expected multiple warnings, got %#v", warnings)
+	}
+	capabilities := mustStructuredMap(t, payload["capabilities"])
+	if capabilities["catalogId"] != appspec.DefaultCatalogID {
+		t.Fatalf("expected catalog id %q, got %#v", appspec.DefaultCatalogID, capabilities["catalogId"])
+	}
+	features := mustStructuredMap(t, capabilities["features"])
+	if features["responsive"] != true || features["motion"] != true {
+		t.Fatalf("expected responsive and motion feature flags, got %#v", features)
 	}
 }
 

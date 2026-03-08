@@ -65,6 +65,8 @@ type toolDefinition struct {
 
 type projectStateProvider interface {
 	Snapshot() projectstate.Snapshot
+	GetAppDefinition(ctx context.Context) (projectstate.AppDefinitionReadResult, error)
+	ValidateAppDefinition(ctx context.Context, input projectstate.ValidateAppDefinitionInput) (projectstate.AppDefinitionValidationResult, error)
 	SetAppDefinition(ctx context.Context, input projectstate.SetAppDefinitionInput) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error)
 	UpdateAppDefinition(ctx context.Context, patch any) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error)
 	AddKwarg(ctx context.Context, projectID string, sectionID string) (projectstate.Snapshot, projectstate.AddKwargResult, error)
@@ -1358,6 +1360,109 @@ func newSetWatchCodeInputsHandler(projectState projectStateProvider, workspaceRo
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newGetAppDefinitionHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state app-definition runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural app-definition invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		result, err := projectState.GetAppDefinition(ctx)
+		if err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return result, nil
+	}
+}
+
+func newValidateAppDefinitionHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		appSpec, err := readRequiredObjectArgument(arguments, "appSpec")
+		if err != nil {
+			return nil, err
+		}
+		appSpecVersion, err := readOptionalNullableStringPointerArgument(arguments, "appSpecVersion")
+		if err != nil {
+			return nil, err
+		}
+		catalogID, err := readOptionalNullableStringPointerArgument(arguments, "catalogId")
+		if err != nil {
+			return nil, err
+		}
+		routes, err := readOptionalAppRoutesArgument(arguments, "routes")
+		if err != nil {
+			return nil, err
+		}
+		dataBindings, err := readOptionalObjectPointerArgument(arguments, "dataBindings")
+		if err != nil {
+			return nil, err
+		}
+		actions, err := readOptionalObjectPointerArgument(arguments, "actions")
+		if err != nil {
+			return nil, err
+		}
+		theme, err := readOptionalObjectPointerArgument(arguments, "theme")
+		if err != nil {
+			return nil, err
+		}
+		assets, err := readOptionalArrayPointerArgument(arguments, "assets")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state app-definition runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural app-definition invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		result, err := projectState.ValidateAppDefinition(ctx, projectstate.ValidateAppDefinitionInput{
+			AppSpec:        appSpec,
+			AppSpecVersion: appSpecVersion,
+			CatalogID:      catalogID,
+			Routes:         routes,
+			DataBindings:   dataBindings,
+			Actions:        actions,
+			Theme:          theme,
+			Assets:         assets,
+		})
+		if err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return result, nil
 	}
 }
 
@@ -3438,6 +3543,135 @@ func defaultToolDefinitions(
 					},
 				},
 				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "get_app_definition",
+				Description: "Fetch the stored app UI spec and document-level app-definition metadata for the active project.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "app",
+					SearchTags:     []string{"app", "definition", "spec", "ui", "read", "structural"},
+				},
+				Handler: newGetAppDefinitionHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose document-level app definition should be read.",
+					},
+				},
+				"required": []string{"projectConfigId"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"appSpec": map[string]any{
+						"description": "Stored JSON Render app spec, or null when no spec is configured or stored.",
+					},
+					"appDefinition": map[string]any{
+						"type":        "object",
+						"description": "Current document-level app-definition metadata, or null when none is configured.",
+					},
+				},
+				"required": []string{"appSpec"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "validate_app_definition",
+				Description: "Validate an app spec and optional app-definition metadata overrides without persisting them.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "app",
+					SearchTags:     []string{"app", "definition", "spec", "validate", "diagnostics", "structural"},
+				},
+				Handler: newValidateAppDefinitionHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose app definition should be validated.",
+					},
+					"appSpec": map[string]any{
+						"type":        "object",
+						"description": "Full JSON Render app spec to validate.",
+					},
+					"appSpecVersion": map[string]any{
+						"type":        "string",
+						"description": "Optional app-spec version override used only for validation and capabilities.",
+					},
+					"catalogId": map[string]any{
+						"type":        "string",
+						"description": "Optional app catalog id override used only for validation and capabilities.",
+					},
+					"routes": map[string]any{
+						"type":        "array",
+						"description": "Optional app routes metadata to validate alongside the app definition.",
+						"items": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"path": map[string]any{
+									"type": "string",
+								},
+								"name": map[string]any{
+									"type": "string",
+								},
+								"rootKey": map[string]any{
+									"type": "string",
+								},
+							},
+							"required": []string{"path"},
+						},
+					},
+					"dataBindings": map[string]any{
+						"type":        "object",
+						"description": "Optional app data-binding overrides to validate.",
+					},
+					"actions": map[string]any{
+						"type":        "object",
+						"description": "Optional app action-definition overrides to validate.",
+					},
+					"theme": map[string]any{
+						"type":        "object",
+						"description": "Optional app theme overrides to validate.",
+					},
+					"assets": map[string]any{
+						"type":        "array",
+						"description": "Optional asset list overrides to validate.",
+					},
+				},
+				"required": []string{"projectConfigId", "appSpec"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"errors": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "object",
+						},
+					},
+					"warnings": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "object",
+						},
+					},
+					"capabilities": map[string]any{
+						"type": "object",
+					},
+				},
+				"required": []string{"errors", "warnings", "capabilities"},
 			},
 		})
 
@@ -5974,6 +6208,8 @@ func normalizeProjectStateMutationError(err error) error {
 		return newToolError("invalid_arguments", "%s", err.Error())
 	case errors.Is(err, projectstate.ErrAppSpecNotFound):
 		return newToolError("file_not_found", "%s", err.Error())
+	case errors.Is(err, projectstate.ErrAppSpecStoreUnsupported):
+		return newToolError("internal_error", "%s", err.Error())
 	case errors.Is(err, projectstate.ErrProjectCodegenTargetLanguage),
 		errors.Is(err, projectstate.ErrProjectCodegenTargetDuplicateLanguage),
 		errors.Is(err, projectstate.ErrProjectCodegenTargetValidatorRequired),

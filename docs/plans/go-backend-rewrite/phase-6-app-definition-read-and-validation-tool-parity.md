@@ -22,11 +22,13 @@ Current repo status as of 2026-03-08:
 - Phase 6 MCP parity remains the active phase
 - Go now owns the app-spec validation/catalog/store foundation in
   `internal/appspec`
-- Go now owns the document-level app-definition mutation owner in
+- Go now owns the app-definition diagnostics/capabilities owner in
+  `internal/appspec`
+- Go now owns the document-level app-definition read/validation owner in
   `internal/projectstate`
 - Go now owns MCP/HTTP/authenticated-SSE transport parity for
-  `set_app_definition` and `update_app_definition`
-- the remaining app-definition gap is the read/validation pair
+  `get_app_definition` and `validate_app_definition`
+- the Python `BaseProjectManager.@project_state_tool` overlap is now complete
 
 ## Scope
 
@@ -78,36 +80,44 @@ This focused slice should cover:
 - keep `get_app_definition` as a document-level read over the stored app-spec
   path source of truth
 - do not route validation back through Python
-- build a Go-owned diagnostics/capabilities owner before transport wiring for
-  `validate_app_definition`
+- keep the diagnostics/capabilities owner in `internal/appspec` so it can
+  reuse catalog/spec helpers and stay below the transport layer
 - keep the transport thin once that owner exists
 
 ## Dependency Status
 
-The app-spec persisted-write foundation is complete, but the diagnostics and
-capabilities builder used by `validate_app_definition` is still Python-owned.
+The app-spec persisted-write foundation and the diagnostics/capabilities owner
+used by `validate_app_definition` are now complete on the Go side.
 
-## Implementation Outline
+## Completed Work
 
-1. Add a bounded Go diagnostics/capabilities owner.
+1. Added a bounded Go diagnostics/capabilities owner in `internal/appspec`.
    - capability payload builder
-   - error/warning collection for theme, assets, and action wiring
-   - reuse existing `internal/appspec` validation where it fits
+   - multi-issue spec/action validation collection
+   - theme, asset, and run-button warning collection
 
-2. Add document-level read ownership for `get_app_definition`.
+2. Added document-level read/validation ownership in `internal/projectstate`.
    - metadata read from `Document.AppDefinition`
    - stored app-spec read from the configured path when present
+   - non-persisting metadata overlay for validation
 
-3. Add MCP/HTTP/authenticated-SSE parity for the read pair.
+3. Added MCP/HTTP/authenticated-SSE parity for the read pair.
+
+## Verification
+
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/appspec -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -run 'TestRuntime(GetAppDefinition|ValidateAppDefinition|SetAppDefinition|UpdateAppDefinition)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|GetAppDefinition|ValidateAppDefinition|SetAppDefinition|UpdateAppDefinition)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsGetAppDefinition|GetAppDefinitionAcceptsTemporaryIDs|SupportsValidateAppDefinition|ValidateAppDefinitionAcceptsTemporaryIDs|SupportsSetAppDefinition|SetAppDefinitionAcceptsTemporaryIDs|SupportsUpdateAppDefinition|UpdateAppDefinitionAcceptsTemporaryIDs)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsAuthenticatedSSECalls|ServerSupportsGetAppDefinitionOverAuthenticatedSSE|ServerSupportsTemporaryIDsForGetAppDefinitionOverAuthenticatedSSE|ServerSupportsValidateAppDefinitionOverAuthenticatedSSE|ServerSupportsTemporaryIDsForValidateAppDefinitionOverAuthenticatedSSE|ServerSupportsSetAppDefinitionOverAuthenticatedSSE|ServerSupportsTemporaryIDsForSetAppDefinitionOverAuthenticatedSSE|ServerSupportsUpdateAppDefinitionOverAuthenticatedSSE|ServerSupportsTemporaryIDsForUpdateAppDefinitionOverAuthenticatedSSE|ToolCallRouteSupportsGetAppDefinition|ToolCallRouteSupportsValidateAppDefinition|ToolCallRouteSupportsSetAppDefinition|ToolCallRouteSupportsUpdateAppDefinition)' -count=1 -timeout 420s`
 
 ## Open Questions
 
-- whether the diagnostics builder should extend `internal/appspec` directly or
-  live beside it as a separate app-definition diagnostics package
+- none after landing the bounded diagnostics owner in `internal/appspec`
 
 ## Next Recommended Step
 
-- start with the Go diagnostics/capabilities owner needed by
-  `validate_app_definition`
-- once that exists, land `get_app_definition` and `validate_app_definition`
-  transport together as one bounded read-only slice
+- inventory any remaining Python-owned MCP surface outside
+  `BaseProjectManager.@project_state_tool`
+- decide whether that follow-on belongs in a short Phase 6 closeout doc or
+  should move directly into Phase 7 planning
