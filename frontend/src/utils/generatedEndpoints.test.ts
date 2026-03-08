@@ -13,6 +13,7 @@ import {
   route_get_latest_lsp_diagnostics,
   route_get_launcher_recent_workspaces,
   route_get_launcher_status,
+  route_get_listener_coverage,
   route_get_mcp_server_runtime_status,
   route_get_password_param_value,
   route_restart_language_server,
@@ -545,6 +546,23 @@ describe("generatedEndpoints listener helpers", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       `${C_ADDRESSES.BACKEND}/forceRefreshListener`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-1",
+      }),
+    });
+  });
+
+  it("posts listener-coverage reads with the active project id", async () => {
+    await route_get_listener_coverage({
+      projectConfigId: "project-1",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/getListenerCoverage`,
     );
     expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
       method: "POST",

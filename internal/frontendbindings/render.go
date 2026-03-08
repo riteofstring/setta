@@ -44,6 +44,11 @@ func Build() (GeneratedBindings, error) {
 	endpointSpecs := CurrentEndpoints()
 	routeGroups := CurrentRouteGroups()
 	renderEndpoints := make([]endpointRenderData, 0, len(endpointSpecs))
+	for _, extraType := range CurrentAdditionalTypeRoots() {
+		if err := converter.AddRootType(extraType); err != nil {
+			return GeneratedBindings{}, err
+		}
+	}
 	for _, spec := range endpointSpecs {
 		if err := converter.AddRootType(spec.RequestType); err != nil {
 			return GeneratedBindings{}, err

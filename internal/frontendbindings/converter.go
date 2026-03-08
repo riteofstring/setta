@@ -14,6 +14,12 @@ type TypeDeclaration struct {
 	Kind       string
 	Alias      string
 	Properties []TypeProperty
+	EnumValues []EnumValue
+}
+
+type EnumValue struct {
+	Name  string
+	Value string
 }
 
 type TypeProperty struct {
@@ -25,22 +31,119 @@ type TypeProperty struct {
 type typeConverter struct {
 	declarations []TypeDeclaration
 	seen         map[reflect.Type]struct{}
-	stringEnums  map[reflect.Type][]string
+	stringEnums  map[reflect.Type][]EnumValue
+	manualTypes  map[reflect.Type]TypeDeclaration
 }
 
 func newTypeConverter() *typeConverter {
 	return &typeConverter{
 		seen: make(map[reflect.Type]struct{}),
-		stringEnums: map[reflect.Type][]string{
-			reflect.TypeOf(ServerMode("")):                       {"ide", "share", "app", "launcher"},
-			reflect.TypeOf(LaunchSettaFilesLocation("")):         {"auto", "local", "global"},
-			reflect.TypeOf(LaunchResolvedSettaFilesLocation("")): {"local", "global"},
-			reflect.TypeOf(LauncherOpenMode("")):                 {"browser", "chrome-app"},
-			reflect.TypeOf(LauncherWorkspaceBehavior("")):        {"last_used_or_prompt", "always_prompt"},
-			reflect.TypeOf(SetupLauncherWorkspaceBehavior("")):   {"last-used-or-prompt", "always-prompt"},
-			reflect.TypeOf(LauncherInstallSource("")):            {"uv-tool", "installer-managed", "unsupported"},
-			reflect.TypeOf(LauncherUpdateCapability("")):         {"in_app", "installer_managed", "unsupported"},
-			reflect.TypeOf(AppCatalogPropType("")):               {"string", "number", "dimension", "boolean"},
+		stringEnums: map[reflect.Type][]EnumValue{
+			reflect.TypeOf(DependencyKeyType("")): {
+				{Name: "Section", Value: "Section"},
+				{Name: "SectionParam", Value: "SectionParam"},
+			},
+			reflect.TypeOf(DependencyValueType("")): {
+				{Name: "Literal", Value: "Literal"},
+				{Name: "Binary", Value: "Binary"},
+				{Name: "FileRead", Value: "FileRead"},
+			},
+			reflect.TypeOf(ServerMode("")): {
+				{Name: "IDE", Value: "ide"},
+				{Name: "Share", Value: "share"},
+				{Name: "App", Value: "app"},
+				{Name: "Launcher", Value: "launcher"},
+			},
+			reflect.TypeOf(LaunchSettaFilesLocation("")): {
+				{Name: "Auto", Value: "auto"},
+				{Name: "Local", Value: "local"},
+				{Name: "Global", Value: "global"},
+			},
+			reflect.TypeOf(LaunchResolvedSettaFilesLocation("")): {
+				{Name: "Local", Value: "local"},
+				{Name: "Global", Value: "global"},
+			},
+			reflect.TypeOf(LauncherOpenMode("")): {
+				{Name: "Browser", Value: "browser"},
+				{Name: "ChromeApp", Value: "chrome-app"},
+			},
+			reflect.TypeOf(LauncherWorkspaceBehavior("")): {
+				{Name: "LastUsedOrPrompt", Value: "last_used_or_prompt"},
+				{Name: "AlwaysPrompt", Value: "always_prompt"},
+			},
+			reflect.TypeOf(SetupLauncherWorkspaceBehavior("")): {
+				{Name: "LastUsedOrPrompt", Value: "last-used-or-prompt"},
+				{Name: "AlwaysPrompt", Value: "always-prompt"},
+			},
+			reflect.TypeOf(LauncherInstallSource("")): {
+				{Name: "UVTool", Value: "uv-tool"},
+				{Name: "InstallerManaged", Value: "installer-managed"},
+				{Name: "Unsupported", Value: "unsupported"},
+			},
+			reflect.TypeOf(LauncherUpdateCapability("")): {
+				{Name: "InApp", Value: "in_app"},
+				{Name: "InstallerManaged", Value: "installer_managed"},
+				{Name: "Unsupported", Value: "unsupported"},
+			},
+			reflect.TypeOf(AppCatalogPropType("")): {
+				{Name: "String", Value: "string"},
+				{Name: "Number", Value: "number"},
+				{Name: "Dimension", Value: "dimension"},
+				{Name: "Boolean", Value: "boolean"},
+			},
+		},
+		manualTypes: map[reflect.Type]TypeDeclaration{
+			reflect.TypeOf(SectionDependencyKey{}): {
+				Name: "SectionDependencyKey",
+				Kind: "object",
+				Properties: []TypeProperty{
+					{Name: "sectionId", TypeExpr: "string"},
+					{Name: "type", TypeExpr: "typeof DependencyKeyTypeEnum.Section"},
+				},
+			},
+			reflect.TypeOf(SectionParamDependencyKey{}): {
+				Name: "SectionParamDependencyKey",
+				Kind: "object",
+				Properties: []TypeProperty{
+					{Name: "sectionId", TypeExpr: "string"},
+					{Name: "codeObjId", TypeExpr: "string"},
+					{Name: "type", TypeExpr: "typeof DependencyKeyTypeEnum.SectionParam"},
+				},
+			},
+			reflect.TypeOf(BaseDependencyKeyUnion{}): {
+				Name:  "BaseDependencyKeyUnion",
+				Kind:  "alias",
+				Alias: "SectionDependencyKey | SectionParamDependencyKey",
+			},
+			reflect.TypeOf(LiteralDependencyValue{}): {
+				Name: "LiteralDependencyValue",
+				Kind: "object",
+				Properties: []TypeProperty{
+					{Name: "payload", TypeExpr: "string"},
+					{Name: "type", TypeExpr: "typeof DependencyValueTypeEnum.Literal"},
+				},
+			},
+			reflect.TypeOf(FileReadDependencyValue{}): {
+				Name: "FileReadDependencyValue",
+				Kind: "object",
+				Properties: []TypeProperty{
+					{Name: "payload", TypeExpr: "string"},
+					{Name: "type", TypeExpr: "typeof DependencyValueTypeEnum.FileRead"},
+				},
+			},
+			reflect.TypeOf(BinaryDependencyValue{}): {
+				Name: "BinaryDependencyValue",
+				Kind: "object",
+				Properties: []TypeProperty{
+					{Name: "payload", TypeExpr: "BinaryContentRef"},
+					{Name: "type", TypeExpr: "typeof DependencyValueTypeEnum.Binary"},
+				},
+			},
+			reflect.TypeOf(BaseDependencyValueUnion{}): {
+				Name:  "BaseDependencyValueUnion",
+				Kind:  "alias",
+				Alias: "LiteralDependencyValue | FileReadDependencyValue | BinaryDependencyValue",
+			},
 		},
 	}
 }
@@ -130,15 +233,16 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 	}
 	c.seen[t] = struct{}{}
 
+	if decl, ok := c.manualTypes[t]; ok {
+		c.declarations = append(c.declarations, decl)
+		return nil
+	}
+
 	if values, ok := c.stringEnums[t]; ok {
-		literals := make([]string, 0, len(values))
-		for _, value := range values {
-			literals = append(literals, fmt.Sprintf("%q", value))
-		}
 		c.declarations = append(c.declarations, TypeDeclaration{
-			Name:  t.Name(),
-			Kind:  "alias",
-			Alias: strings.Join(literals, " | "),
+			Name:       t.Name(),
+			Kind:       "enum",
+			EnumValues: values,
 		})
 		return nil
 	}

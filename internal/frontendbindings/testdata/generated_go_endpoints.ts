@@ -137,6 +137,11 @@ export async function route_force_refresh_listener(x: gt.ForceRefreshListenerReq
   return await post(GoHTTPRoutes.forceRefreshListener, x);
 
 }
+export async function route_get_listener_coverage(x: gt.ListenerCoverageRequestInput): Promise<ResponseDataAndStatus<gt.ListenerCoverageSnapshot>> {
+
+  return await post(GoHTTPRoutes.getListenerCoverage, x);
+
+}
 export async function route_get_app_catalog(): Promise<ResponseDataAndStatus<gt.AppCatalogResponse>> {
 
   return await get(GoHTTPRoutes.getAppCatalog);

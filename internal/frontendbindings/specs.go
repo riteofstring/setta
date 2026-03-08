@@ -196,6 +196,11 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "FORCE_REFRESH_LISTENER",
 				},
 				{
+					Name:     "getListenerCoverage",
+					Path:     httpapi.RouteGetListenerCoverage,
+					EnumName: "GET_LISTENER_COVERAGE",
+				},
+				{
 					Name:     "getAppDefinition",
 					Path:     httpapi.RouteGetAppDefinition,
 					EnumName: "GET_APP_DEFINITION",
@@ -471,6 +476,14 @@ func CurrentEndpoints() []EndpointSpec {
 			RequestType:     reflect.TypeOf(ForceRefreshListenerRequestInput{}),
 		},
 		{
+			FunctionName:    "route_get_listener_coverage",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "getListenerCoverage",
+			RequestType:     reflect.TypeOf(ListenerCoverageRequestInput{}),
+			ResponseType:    reflect.TypeOf(ListenerCoverageSnapshot{}),
+		},
+		{
 			FunctionName:    "route_get_app_catalog",
 			Method:          "GET",
 			RouteCollection: "GoHTTPRoutes",
@@ -529,5 +542,21 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteName:       "setTypeErrorIgnore",
 			RequestType:     reflect.TypeOf(SetTypeErrorIgnoreRequestInput{}),
 		},
+	}
+}
+
+func CurrentAdditionalTypeRoots() []reflect.Type {
+	return []reflect.Type{
+		reflect.TypeOf(DependencyKeyType("")),
+		reflect.TypeOf(SectionDependencyKey{}),
+		reflect.TypeOf(SectionParamDependencyKey{}),
+		reflect.TypeOf(BaseDependencyKeyUnion{}),
+		reflect.TypeOf(DependencyValueType("")),
+		reflect.TypeOf(BinaryContentRef{}),
+		reflect.TypeOf(LiteralDependencyValue{}),
+		reflect.TypeOf(FileReadDependencyValue{}),
+		reflect.TypeOf(BinaryDependencyValue{}),
+		reflect.TypeOf(BaseDependencyValueUnion{}),
+		reflect.TypeOf(DependencyEvent{}),
 	}
 }

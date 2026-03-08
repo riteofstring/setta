@@ -601,3 +601,55 @@ type GetAttachmentDownloadURLsResponse []AttachmentDownloadURLEntry
 type ForceRefreshListenerRequestInput struct {
 	ProjectConfigID string `json:"projectConfigId"`
 }
+
+type ListenerCoverageRequestInput struct {
+	ProjectConfigID string `json:"projectConfigId"`
+}
+
+type DependencyKeyType string
+
+const (
+	DependencyKeyTypeSection      DependencyKeyType = "Section"
+	DependencyKeyTypeSectionParam DependencyKeyType = "SectionParam"
+)
+
+type SectionDependencyKey struct{}
+
+type SectionParamDependencyKey struct{}
+
+type BaseDependencyKeyUnion struct{}
+
+type DependencyValueType string
+
+const (
+	DependencyValueTypeLiteral  DependencyValueType = "Literal"
+	DependencyValueTypeBinary   DependencyValueType = "Binary"
+	DependencyValueTypeFileRead DependencyValueType = "FileRead"
+)
+
+type BinaryContentRef struct {
+	ContentID  string  `json:"contentId"`
+	ByteLength int     `json:"byteLength"`
+	MimeType   *string `json:"mimeType"`
+	Sha256     *string `json:"sha256"`
+}
+
+type LiteralDependencyValue struct{}
+
+type FileReadDependencyValue struct{}
+
+type BinaryDependencyValue struct{}
+
+type BaseDependencyValueUnion struct{}
+
+type DependencyEvent struct {
+	DependencyKey BaseDependencyKeyUnion    `json:"dependencyKey"`
+	Payload       *BaseDependencyValueUnion `json:"payload"`
+	TimestampMs   int64                     `json:"timestampMs"`
+}
+
+type ListenerCoverageSnapshot struct {
+	ProjectConfigID     string                   `json:"projectConfigId"`
+	Dependencies        []BaseDependencyKeyUnion `json:"dependencies"`
+	HasRealtimeWildcard bool                     `json:"hasRealtimeWildcard"`
+}

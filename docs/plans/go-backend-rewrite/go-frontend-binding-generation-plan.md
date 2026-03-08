@@ -178,6 +178,22 @@ Current landed wedge:
     - `GetAttachmentDownloadURLsResponse`
   - listener force-refresh endpoint wrapper
     - `route_force_refresh_listener`
+  - listener coverage endpoint wrapper
+    - `route_get_listener_coverage`
+  - listener coverage and realtime dependency contract types
+    - `ListenerCoverageRequestInput`
+    - `ListenerCoverageSnapshot`
+    - `DependencyKeyType`
+    - `SectionDependencyKey`
+    - `SectionParamDependencyKey`
+    - `BaseDependencyKeyUnion`
+    - `DependencyValueType`
+    - `BinaryContentRef`
+    - `LiteralDependencyValue`
+    - `FileReadDependencyValue`
+    - `BinaryDependencyValue`
+    - `BaseDependencyValueUnion`
+    - `DependencyEvent`
   - listener force-refresh contract type
     - `ForceRefreshListenerRequestInput`
 - active caller adoption
@@ -203,8 +219,9 @@ Current landed wedge:
     now covered by the canonical Go-generated password-value helper binding
   - `AppRenderer` and `ChatMessages` are now covered by canonical
     Go-generated attachment download helper bindings
-  - `triggerListenerForceRefresh` now consumes the canonical Go-generated
-    listener force-refresh binding
+  - `triggerListenerForceRefresh`, `fetchListenerCoverageSnapshot`, and the
+    current listener-coverage dependency-key helpers now consume canonical
+    Go-generated listener bindings and dependency contracts
 
 ## Cutover Rule
 
