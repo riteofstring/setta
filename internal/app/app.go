@@ -19,6 +19,7 @@ import (
 	"setta/internal/codegen"
 	"setta/internal/config"
 	"setta/internal/deployments"
+	"setta/internal/externalagents"
 	"setta/internal/frontendorigins"
 	"setta/internal/httpapi"
 	"setta/internal/launcher"
@@ -105,6 +106,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		pluginMaterializer    *codegen.PluginMaterializer
 		watchCodeService      *watchcode.Service
 		boundCodeService      *boundcode.Service
+		externalAgentChats    *externalagents.Service
 		watchCodeWarnings     *watchCodeWarningTracker
 		codeUpdates           *codeUpdateService
 		renameRefactors       *renameRefactorService
@@ -520,6 +522,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
+		externalAgentChats, err = externalagents.NewService(externalagents.ServiceOptions{
+			Runs: runStore,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
 		pluginMutationService, err = plugins.NewService(plugins.ServiceOptions{
 			WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
 			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
@@ -758,6 +767,12 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				CallableSignatures:             lspSignature,
 				CodeUpdates:                    codeUpdates,
 				RenameRefactors:                renameRefactors,
+			}); err != nil {
+				panic(err)
+			}
+			if err := httpapi.RegisterAIRoutes(r, httpapi.AIRouteDependencies{
+				ModePolicy:         modePolicy,
+				ExternalAgentChats: externalAgentChats,
 			}); err != nil {
 				panic(err)
 			}

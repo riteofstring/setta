@@ -20,19 +20,30 @@ the shipped CLI migration slices, and the MCP/tooling foundations are complete
 for their bounded scopes.
 
 That does not mean the full backend runtime is fully Go-owned. User-facing
-AI/chat routing still remains Python-owned, but the rewrite no longer plans to
-recreate managed `setta_llm` in Go. The current Phase 12 target is the
-external-agent AI path still owned in `backend/setta/routers/ai.py`,
+AI/chat routing is still mostly Python-owned, but the rewrite no longer plans
+to recreate managed `setta_llm` in Go. A first bounded Phase 12 read slice now
+exists in Go for external-agent chat hydration:
+
+- `internal/externalagents`
+  - persisted external-run lookup, latest-run selection, durable chat-state
+    reconstruction, placeholder filtering, and context-usage normalization
+- `internal/httpapi/ai_routes.go`
+  - thin Go transport for `/getExternalAgentChat`
+
+The remaining Phase 12 target is the active external-agent runtime plus the
+send/stop/approval route surface still owned in `backend/setta/routers/ai.py`,
 `backend/setta/routers/agentic.py`, and
 `backend/setta/agentic/external_agent_runner.py`, tracked explicitly in
-`phase-12-managed-chat-runtime-and-ai-route-foundation.md`.
+`phase-12-managed-chat-runtime-and-ai-route-foundation.md` and the focused
+follow-on doc `phase-12-external-agent-active-runtime-stop-approval-and-send.md`.
 
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are
 already locked in practice by the current Go implementation. The PTY runtime
 shape is also proven, but the PTY library choice still has a bounded Unix-path
 follow-up tracked in `spike-pty.md`. New work should start from the remaining
-concrete gap in Phase 12, not by reopening completed foundation choices.
+concrete Phase 12 gap above the completed hydration read path, not by reopening
+completed foundation choices.
 
 ## Current Reality
 

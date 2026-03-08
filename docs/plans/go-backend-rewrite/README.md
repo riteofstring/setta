@@ -421,12 +421,16 @@ Use the docs in this order:
     Go-owned external-agent chat send/hydrate/stop/approval over the completed
     `internal/agentruns`, `internal/mcpx`, and realtime/http foundations;
     managed `setta_llm` is intentionally de-scoped for now
-131. `spike-mcp.md`
+131. `phase-12-external-agent-active-runtime-stop-approval-and-send.md`
+  - focused next-step implementation-plan doc for the active external-agent
+    runtime plus the remaining send/stop/approval ownership after the completed
+    hydration read slice
+132. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-132. `spike-pty.md`
+133. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-133. `spike-lsp.md`
+134. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

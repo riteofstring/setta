@@ -27,6 +27,14 @@ Current repo status as of 2026-03-08:
   - `internal/mcpx` for scoped MCP transport and tool execution
   - `internal/httpapi`, `internal/realtime`, and `internal/app` for thin route
     wiring and websocket fanout infrastructure
+- Go now also owns the first bounded external-agent read slice:
+  - `internal/externalagents`
+    - persisted external-run lookup by metadata
+    - latest-run selection by event/finished/start timestamps
+    - durable chat-state reconstruction and response-placeholder filtering
+    - external `contextUsage` normalization from canonical run outputs
+  - `internal/httpapi/ai_routes.go`
+    - thin Go transport for `/getExternalAgentChat`
 - Python still owns the external-agent AI/chat path in:
   - `backend/setta/routers/ai.py`
   - `backend/setta/routers/agentic.py`
@@ -34,13 +42,17 @@ Current repo status as of 2026-03-08:
   - `backend/setta/agentic/external_adapters/*`
 - managed `EngineType.setta_llm` remains Python-owned, but it is no longer the
   planned Go target for the current rewrite scope
-- there is still no Go-owned AI route cluster for the external-agent path:
+- Go does not yet own the remaining active external-agent route/runtime
+  surface:
   - the `EngineType.external_agent` branch of `route_get_llm_response`
-  - `route_get_external_agent_chat`
   - `route_stop_external_agent_run`
   - `route_respond_external_agent_approval`
-- current work is planning/inventory for that remaining backend-runtime gap,
-  not another CLI or launcher slice
+  - the live in-memory runtime needed to overlay active chat state, stop runs,
+    and broker approvals
+- current work is no longer pure planning/inventory:
+  - the hydration read path is implemented in Go
+  - the remaining bounded gap is the active runtime plus send/stop/approval
+    transport, not another CLI or launcher slice
 
 ## Scope
 
@@ -168,12 +180,38 @@ It should include:
 
 Missing Go owners:
 
-- external-agent adapter registry and runtime owner
+- external-agent adapter registry and active runtime owner
 - live chat-state registry for active external runs
 - approval request/response runtime boundary
 - external-agent websocket/event streaming owner
-- AI HTTP routes for external send/hydrate/stop
+- AI HTTP routes for external send/stop
 - Go ownership of the user-facing external-agent approval transport
+
+## Completed In This Slice
+
+- added `internal/externalagents` as the first Go-owned external-agent runtime
+  sibling above `internal/agentruns`
+  - selects the latest persisted external-agent run for a chat
+  - rebuilds durable chat state from canonical run inputs/outputs
+  - filters placeholder response messages the same way the Python read path
+    does
+  - derives external `contextUsage` from run outputs without consulting live
+    adapter config
+- added `internal/httpapi/ai_routes.go`
+  - thin `/getExternalAgentChat` transport with:
+    - IDE-mode gating
+    - request validation
+    - typed `chat_not_found` 404 behavior
+    - response mapping for `messages`, `waitingForResponse`,
+      `toolCallArguments`, and `contextUsage`
+- wired the first AI route into `internal/app/app.go` and
+  `internal/httpapi/route_names.go`
+- added focused Go tests for:
+  - persisted hydration
+  - latest-run selection
+  - context-usage normalization
+  - placeholder filtering
+  - typed route-not-found and bad-request behavior
 
 ## Working Decisions
 
@@ -247,6 +285,18 @@ Missing Go owners:
   - external chat hydration
   - external-agent preflight failures
 
+## Verification Notes
+
+- passed:
+  - `./scripts/go.sh test ./internal/externalagents ./internal/httpapi`
+- attempted:
+  - `./scripts/go.sh test ./internal/app`
+- current `internal/app` failures were environment/runtime issues outside this
+  slice:
+  - LSP bootstrap failures (`lsp: initialize failed (0): EOF`)
+  - missing formatter executable (`Ruff executable was not found on PATH.`)
+  - unrelated remote-launch and UI-setting test expectations
+
 ## Open Questions
 
 - whether to broaden `internal/agentruns.Service` for external-agent execution
@@ -255,6 +305,11 @@ Missing Go owners:
   - current recommendation: keep managed and external execution separate at the
     runtime-service layer, even if they share the persisted run store and engine
     config types
+- whether the new `internal/externalagents` package should remain read/hydration
+  focused while a separate active-runtime type owns live execution state
+  - current recommendation: yes; keep persisted read reconstruction and active
+    execution ownership separate but composed so hydration can stay deterministic
+    and testable even when no run is active
 - whether Claude Code should stay behind a narrow Python/CLI boundary or switch
   to a pure Go edge if a stable official interface exists
   - current recommendation: use the most stable official interface available at
@@ -275,15 +330,22 @@ Missing Go owners:
 - 2026-03-08: external agents (`codex`, `claude code`, `opencode`) are now the
   planned AI surface for the rewrite; managed `setta_llm` is intentionally
   de-scoped unless a later product decision reopens it.
+- 2026-03-08: landed the first bounded Go-owned external-agent route:
+  persisted `/getExternalAgentChat` hydration over the new
+  `internal/externalagents` read service.
 
 ## Verification
 
-- docs-only planning update; no runtime tests were needed for this decision
+- `./scripts/go.sh test ./internal/externalagents ./internal/httpapi`
+- `./scripts/go.sh test ./internal/app`
+  - fails in the current environment due missing LSP/formatting dependencies
+    and unrelated runtime expectations; see Verification Notes above
 
 ## Recommended Next Step
 
-Implement Phase 12 Stage 1 from this doc:
+Implement the focused active-runtime follow-on doc:
 
-- add the explicit Go external-agent runtime owner
-- keep the adapter edges explicit
+- `phase-12-external-agent-active-runtime-stop-approval-and-send.md`
+- keep `internal/externalagents` as the durable hydration/read owner
+- add a composed active-runtime sibling for live execution, stop, and approval
 - do not broaden into managed `setta_llm` or transcription work
