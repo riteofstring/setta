@@ -158,9 +158,25 @@ Phase 11 Stage 3 is complete in
 Phase 11 Stage 4 is now complete in
 `phase-11-plugin-lifecycle-controls-stage4.md`.
 
-The next bounded rewrite slice should be a dedicated Phase 11 Stage 5 plan for
-the remaining plugin source-acquisition, authoring, lockfile, and restart
-surface.
+The dedicated Phase 11 Stage 5 plan now exists in
+`phase-11-plugin-authoring-and-local-link-stage5.md`.
+
+The current bounded rewrite slice is:
+
+- plugin authoring and local link:
+  - `plugins init`
+  - `plugins validate`
+  - `plugins link`
+
+The remaining later plugin surface after Stage 5 should stay explicitly out of
+scope until a separate follow-on plan lands:
+
+- `plugins install`
+- `plugins update`
+- `plugins pin`
+- `plugins lock write`
+- `plugins lock apply`
+- `plugins restart`
 
 ## Progress Notes
 
@@ -197,6 +213,12 @@ surface.
   - package-manager discovery is now Go-owned for the shipped plugin CLI
   - the only remaining Python-owned maintenance surface is the plugin
     source-acquisition, authoring, lockfile, and restart cluster
+- 2026-03-08: added the dedicated plugin Stage 5 plan.
+  - the next bounded slice is now explicitly `setta plugins init|validate|link`
+  - remote install/update/pin and lockfile apply stay blocked on the missing
+    production candidate-provider path
+  - `plugins restart` stays separate until a later stage decides whether to
+    keep it manual-only or land a real Go restart boundary
 
 ## Verification
 
