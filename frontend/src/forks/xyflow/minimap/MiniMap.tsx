@@ -10,7 +10,11 @@ import {
   type RefObject,
 } from "react";
 import { getNodes } from "state/actions/nodeInternals";
-import { useLocalStorage, useNodeInternals } from "state/definitions";
+import {
+  useActiveSectionUI,
+  useLocalStorage,
+  useNodeInternals,
+} from "state/definitions";
 import { shallow } from "zustand/shallow";
 import Panel from "../core/components/Panel";
 import type {
@@ -21,7 +25,11 @@ import type {
 } from "../core/types";
 import { getBoundsOfRects, getWheelDelta } from "../core/utils";
 import { getNodesBounds, getPaneRect } from "../core/utils/graph";
-import { MiniMapNodes, MiniMapNodesReactive } from "./MiniMapNodes";
+import {
+  areMiniMapNodesGeometriesEqual,
+  MiniMapNodes,
+  MiniMapNodesReactive,
+} from "./MiniMapNodes";
 import type { MiniMapNodesType, MiniMapProps } from "./types";
 
 const defaultWidth = 200;
@@ -55,7 +63,7 @@ type MinimapSvgProps = Omit<MiniMapNodesType, "onClick"> & {
   y: number;
   width: number;
   height: number;
-  svgRef: RefObject<SVGSVGElement>;
+  svgRef?: RefObject<SVGSVGElement>;
   onSvgClick?: (event: ReactMouseEvent<SVGSVGElement>) => void;
   onSvgNodeClick?: MiniMapNodesType["onClick"];
   offset: number;
@@ -65,6 +73,51 @@ type MinimapSvgProps = Omit<MiniMapNodesType, "onClick"> & {
   maskStrokeWidth: number;
   nodes: Node[] | null;
 };
+
+function areStringArraysEqual(left: string[], right: string[]) {
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function syncSelectedMiniMapNodes(
+  svg: SVGSVGElement | null | undefined,
+  activeIds: string[],
+  previousIds: string[],
+) {
+  if (!svg) {
+    return;
+  }
+
+  const previousIdSet = new Set(previousIds);
+  const activeIdSet = new Set(activeIds);
+
+  for (const sectionId of previousIds) {
+    if (activeIdSet.has(sectionId)) {
+      continue;
+    }
+    const node = svg.querySelector<SVGRectElement>(
+      `[data-minimap-node-id="${sectionId}"]`,
+    );
+    node?.classList.remove("selected");
+  }
+
+  for (const sectionId of activeIds) {
+    if (previousIdSet.has(sectionId)) {
+      continue;
+    }
+    const node = svg.querySelector<SVGRectElement>(
+      `[data-minimap-node-id="${sectionId}"]`,
+    );
+    node?.classList.add("selected");
+  }
+}
 
 function getSelector(
   nodes: Node[],
@@ -127,7 +180,7 @@ function MiniMap({
   offsetScale = 5,
 }: MiniMapProps) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const nodes = useNodeInternals(getNodes, shallow);
+  const nodes = useNodeInternals(getNodes, areMiniMapNodesGeometriesEqual);
   const overviewWidth = useLocalStorage((x) => x.overviewTrueWidth);
   const uiEditorWidth = useLocalStorage((x) => x.uiEditorTrueWidth);
   const { boundingRect, viewBB } = useReactFlow(
@@ -280,6 +333,43 @@ MiniMap.displayName = "MiniMap";
 
 export default memo(MiniMap);
 
+function MiniMapSelectionSync({
+  svgRef,
+}: {
+  svgRef?: RefObject<SVGSVGElement>;
+}) {
+  const previousIdsRef = useRef<string[]>([]);
+
+  useEffect(() => {
+    const applySelection = (activeIds: string[]) => {
+      syncSelectedMiniMapNodes(
+        svgRef?.current,
+        activeIds,
+        previousIdsRef.current,
+      );
+      previousIdsRef.current = [...activeIds];
+    };
+
+    applySelection(useActiveSectionUI.getState().activeIds);
+
+    const unsubscribe = useActiveSectionUI.subscribe(
+      (state) => state.activeIds,
+      (activeIds) => {
+        applySelection(activeIds);
+      },
+      {
+        equalityFn: areStringArraysEqual,
+      },
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, [svgRef]);
+
+  return null;
+}
+
 export function MinimapSvg({
   elementWidth,
   elementHeight,
@@ -327,6 +417,7 @@ export function MinimapSvg({
       ) : (
         <MiniMapNodesReactive {...minimapNodesProps} />
       )}
+      <MiniMapSelectionSync svgRef={svgRef} />
       {viewBB && (
         <path
           className="react-flow__minimap-mask"

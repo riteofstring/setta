@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getXYWidthHeight } from "./MiniMap";
+import { getXYWidthHeight, syncSelectedMiniMapNodes } from "./MiniMap";
 
 describe("getXYWidthHeight", () => {
   it("centers bounds and applies offset when bounds are smaller", () => {
@@ -32,5 +32,14 @@ describe("getXYWidthHeight", () => {
     expect(result.y).toBeCloseTo(-8);
     expect(result.width).toBeCloseTo(306);
     expect(result.height).toBeCloseTo(156);
+  });
+});
+
+describe("syncSelectedMiniMapNodes", () => {
+  it("does nothing when the minimap svg is not available yet", () => {
+    // Route transitions can briefly mount the selection sync before the svg ref exists.
+    expect(() => {
+      syncSelectedMiniMapNodes(undefined, ["alpha"], []);
+    }).not.toThrow();
   });
 });

@@ -2,6 +2,10 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { useNavigate } from "react-router-dom";
 import { applyPendingNameValidationErrors } from "state/actions/nameValidation";
 import {
+  hydrateActiveSectionUIIds,
+  sanitizeProjectStateActiveIds,
+} from "state/activeSectionUI";
+import {
   useAllProjectMetadata,
   useLocalStorage,
   useNodeInternals,
@@ -59,7 +63,11 @@ export async function loadProjectState(p: ProjectStateSingleConfig) {
       transform: [x, y, zoom],
     });
   }
-  useProjectState.setState({ ...p, previewSectionVariantMap: {} });
+  hydrateActiveSectionUIIds(p.projectConfig.activeIds);
+  useProjectState.setState({
+    ...sanitizeProjectStateActiveIds(p),
+    previewSectionVariantMap: {},
+  });
   applyPendingNameValidationErrors(p.projectConfig.id);
   useNodeInternals.setState((state) => ({
     x: createNodesMapFromProjectConfigChildren(
