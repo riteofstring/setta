@@ -61,9 +61,7 @@ App deployments default to:
 - Layout structure: set/auto layout of top-level sections, set section sizes, move sections (`Route.SET_TOP_LEVEL_SECTION_LAYOUT`, `Route.AUTO_LAYOUT_TOP_LEVEL_SECTIONS`, `Route.SET_SECTION_SIZES`, `Route.MOVE_SECTIONS`).
 - Positioning/visibility UI: toggle position locks, minimize, group orientation (`Route.TOGGLE_POSITION_LOCKS`, `Route.TOGGLE_MINIMIZED`, `Route.TOGGLE_GROUP_ORIENTATION`).
 - Viewport/layout UI: set viewport, section color chrome/tag, show param display names, section param filter, hide params toggles, text block display mode/format, column widths and browser view modes (`Route.SET_VIEWPORT`, `Route.SET_SECTION_TAG_COLOR`, `Route.SET_SECTION_STYLE_COLOR`, `Route.SET_SHOW_PARAM_DISPLAY_NAMES`, `Route.SET_SECTION_PARAM_FILTER`, `Route.SET_CALLABLE_HIDE_PARAMS`, `Route.SET_SECTION_HIDE_UNPINNED_PARAMS`, `Route.SET_TEXT_BLOCK_DISPLAY_MODE`, `Route.SET_TEXT_BLOCK_FORMAT`, `Route.SET_SECTION_COLUMN_WIDTH`, `Route.SET_BROWSER_COLUMN_WIDTHS`, `Route.SET_BROWSER_AREA_VIEW_MODE`, `Route.SET_BROWSER_HIDE_COLUMN`).
-- Project-chat window layout persistence and window-space CRUD (`Route.SET_PROJECT_CHAT_WINDOWING_STATE`, `Route.CREATE_WINDOW_SPACE`, `Route.SET_WINDOW_SPACE_NAME`, `Route.SET_WINDOW_SPACE_SORT_ORDER`, `Route.DELETE_WINDOW_SPACE`).
 - Example: viewer drags/resizes sections or changes browser panel widths -> allowed only if `allowLayoutChanges` is true.
-- Note: existing project-chat windows may still update transient local focus or reopen state client-side so already-visible windows remain usable, but those layout changes are not persisted when `allowLayoutChanges` is false.
 
 **allowRun** (runs + terminals)
 - Code execution: run code (`Route.RUN_CODE`).
@@ -73,15 +71,10 @@ App deployments default to:
 
 **allowLLM** (chat + AI follow)
 - Chat routes: request response, get chat metadata/state, stop/delete chat (`Route.GET_LLM_RESPONSE`, `Route.GET_ALL_LLM_CHAT_METADATA`, `Route.GET_LLM_CHAT`, `Route.STOP_LLM_CHAT`, `Route.DELETE_LLM_CHAT`).
-- Project-chat thread binding writes (`Route.SET_PROJECT_CHAT_WINDOW_CHAT_ID`).
 - AI follow snapshots (`Route.GET_AI_FOLLOW_SNAPSHOT`).
 - Example: viewer uses project chat -> allowed only if `allowLLM` is true.
 - Note: LLM config/API key reads or writes remain IDE-only.
 - Note: deployment mode chat uses an in-memory store (no MCP tools).
-- Note: standalone project-chat routes fail closed when `allowLLM` is false. Standalone window-space routes also hide or block managed-chat windows while leaving purely non-managed windows available.
-
-Project-chat/window-space behavior is documented in
-`docs/reference/project-chat-windowing.md`.
 
 **allowExternalLinks** (external URLs + remote assets)
 - App mode: gates opening external URLs (for example, a Link action that opens `https://...`).

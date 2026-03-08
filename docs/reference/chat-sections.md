@@ -23,7 +23,8 @@ Chat sections store the following fields on the section impl:
 
 ## Managed mode
 
-Managed mode uses the central LLM chat manager:
+Managed mode uses the AI routes backed by `backend/setta/routers/ai.py` and
+`backend/setta/llm/agent_runner.py`:
 
 - The UI blocks sends until `engineConfigId` is selected and at least one engine config is available.
 - `submitMessage` calls `route_get_llm_response` with `chatId`, `engineConfigId`, `thinking`, plus optional `agentProfileId` and `sectionId` (Chat sections pass their section id; Project Chat passes `null`).
@@ -115,17 +116,6 @@ Agentic edges are also used for agentic scope enforcement: MCP tool calls made o
 behalf of a scoped Chat section are restricted to the sections reachable via
 these edges. If a Chat section has no edges, it effectively has no tool access.
 Use Project Chat (unscoped) for full access.
-
-Linked chat edges also back the `invoke_linked_chat` MCP tool:
-
-- It can invoke only a directly linked target from a `chat_chat` edge.
-- It requires section-scoped agentic context; unscoped Project Chat cannot call
-  it implicitly.
-- The target chat section reuses or persists its managed `chatId` binding before
-  starting the run.
-- Recursion is bounded to one nested hop and cycles are rejected explicitly.
-- Runtime policy still applies: linked-chat invocation requires LLM access and
-  run-start authorization.
 
 ## Realtime action events
 
@@ -221,4 +211,3 @@ async def on_chat(state, ctx) -> None:
 
 - `docs/reference/chat-toolkit.md`
 - `docs/reference/mcp-system-overview.md`
-- `docs/reference/project-chat-windowing.md`

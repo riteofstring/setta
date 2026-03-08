@@ -22,8 +22,7 @@ git route contracts it depends on.
   - Repo root path.
   - File groups: `Conflicts`, `Staged Changes`, `Changes`, `Untracked`.
 - `Refresh` reloads status.
-- `Graph` opens or focuses the tracked Git Graph window (disabled when not in a
-  git repo).
+- `Graph` opens the graph overlay (disabled when not in a git repo).
 - Clicking a file row opens the diff overlay in the matching mode:
   - `staged` entries -> staged diff.
   - `unstaged`, `conflict`, `untracked` entries -> unstaged diff.
@@ -49,26 +48,15 @@ git route contracts it depends on.
     - `.toml`
     - `.md`, `.markdown`
 
-## Graph Window
+## Graph Overlay
 
-- Core content UI: `frontend/src/components/Git/GitGraphOverlay.tsx`
-- Window host wrapper: `frontend/src/components/Git/GitGraphWindowContent.tsx`
+- UI file: `frontend/src/components/Git/GitGraphOverlay.tsx`.
 - Opened from the pane `Graph` button.
-- The `Graph` button now opens or focuses a tracked `git_graph_mode` project
-  window instead of rendering commit history in the center overlay layer.
-- That tracked window participates in:
-  - project-chat window focus/maximize state
-  - saved window spaces
-  - standalone `/windowspace/...` surfaces
-- The window header can optionally expose a `Git pane` toggle, which embeds the
-  Overview Git status pane alongside the graph content.
-
-Inside the Git Graph window:
 - Header controls:
   - commit filter input (`Filter commits…`),
   - branch scope toggle (`Branch` / `All refs`),
   - refresh,
-  - window chrome close/minimize/maximize actions from the shared window layer.
+  - close.
 - Commit list behavior:
   - Virtualized list (react-window).
   - Auto-pagination near the bottom when no filter is active.
@@ -88,12 +76,10 @@ Inside the Git Graph window:
 ## Overlay Layer and Escape Behavior
 
 - Host file: `frontend/src/components/Git/GitOverlayLayer.tsx`.
-- Only the diff overlay still renders in the center canvas layer, between
+- Both diff and graph overlays render in the center canvas layer, between
   Overview and UI Editor pane widths.
-- `Escape` closes the active diff overlay unless focus is in an editable target
+- `Escape` closes the active git overlay unless focus is in an editable target
   (`input`, `textarea`, `contenteditable`).
-- Git Graph uses the shared tracked window layer described in
-  `docs/reference/project-chat-windowing.md`.
 
 ## Backend Routes
 
@@ -157,7 +143,5 @@ From `backend/setta/routers/git.py`:
   - `frontend/src/components/Git/GitDiffOverlay.tsx`
   - `frontend/src/components/Git/GitDiffCodeMirror.tsx`
   - `frontend/src/components/Git/GitGraphOverlay.tsx`
-  - `frontend/src/components/Git/GitGraphWindowContent.tsx`
   - `frontend/src/state/actions/git.ts`
-  - `frontend/src/state/actions/projectChatWindowing.ts`
   - `frontend/src/state/git.ts`

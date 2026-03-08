@@ -54,25 +54,15 @@
   order (not insertion order), then compacts `sortIndex` values.
 
 ## Overview pane behavior
-- `ViewingEditingMode` now includes:
-  - a `Window Spaces` pane at the top
+- `ViewingEditingMode` contains two stacked panes:
   - `View Modes` (collapsible)
   - `Project Configs` (collapsible + vertically resizable)
-- The `Window Spaces` pane lets the user save the current floating-window
-  layout, restore saved layouts into the workspace, rename/reorder/delete saved
-  window spaces, and open standalone `/windowspace/...` routes.
-- Saving a window space is only enabled when at least one visible floating
-  window exists.
-- Reorder/edit controls in the `Window Spaces` pane are disabled in
-  deployment/read-only mode when layout edits are blocked.
 - The embedded `Project Configs` list supports drag-reorder and persists local
   order in `useLocalStorage().overviewProjectConfigOrder`.
 - Persisted project-config order is merged with server metadata:
   - stale ids are removed;
   - unseen ids are appended in server order.
 - Reorder/edit controls are disabled in deployment/read-only mode.
-- Project-chat/window-space behavior is documented separately in
-  `docs/reference/project-chat-windowing.md`.
 
 ## Layout + viewport storage
 - Each view mode stores its own `topLevelSections` layout and

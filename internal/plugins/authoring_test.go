@@ -1,0 +1,279 @@
+package plugins
+
+import (
+	"errors"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"setta/internal/config"
+)
+
+// Init should scaffold a publish-ready plugin template that validates immediately.
+func TestServiceInitTemplateGeneratesPublishReadyScaffold(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	pluginRoot, err := service.InitTemplate(InitTemplateOptions{
+		PluginID: "setta-init-fixture",
+		Template: "full",
+		OutDir:   roots.workspaceRoot,
+	})
+	if err != nil {
+		t.Fatalf("init template: %v", err)
+	}
+
+	for _, relativePath := range []string{
+		"setta.plugin.json",
+		"pyproject.toml",
+		"README.md",
+		filepath.Join(".github", "workflows", "release.yml"),
+		filepath.Join("frontend", "dist", "index.js"),
+		filepath.Join("backend", "entrypoint.py"),
+		filepath.Join("content", "blueprints", "starter-blueprint.json"),
+	} {
+		if _, err := os.Stat(filepath.Join(pluginRoot, relativePath)); err != nil {
+			t.Fatalf("expected scaffold file %s: %v", relativePath, err)
+		}
+	}
+
+	workflowPayload, err := os.ReadFile(filepath.Join(pluginRoot, ".github", "workflows", "release.yml"))
+	if err != nil {
+		t.Fatalf("read workflow: %v", err)
+	}
+	if !strings.Contains(string(workflowPayload), "python -m pip install --upgrade build twine setta") {
+		t.Fatalf("expected publish workflow prerequisites, got %q", string(workflowPayload))
+	}
+	if !strings.Contains(string(workflowPayload), "setta plugins validate .") {
+		t.Fatalf("expected workflow validate step, got %q", string(workflowPayload))
+	}
+
+	if _, err := service.ValidateFolder(ValidateFolderOptions{PluginRoot: pluginRoot}); err != nil {
+		t.Fatalf("validate scaffolded plugin: %v", err)
+	}
+}
+
+// Init should reject invalid plugin ids and existing target roots before writing files.
+func TestServiceInitTemplateRejectsInvalidIDsAndExistingTarget(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	_, err := service.InitTemplate(InitTemplateOptions{
+		PluginID: "bad/id",
+		Template: "frontend",
+		OutDir:   roots.workspaceRoot,
+	})
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeInitInvalidID)
+
+	existingRoot := filepath.Join(roots.workspaceRoot, "setta-existing-plugin")
+	if err := os.MkdirAll(existingRoot, 0o755); err != nil {
+		t.Fatalf("mkdir existing root: %v", err)
+	}
+	_, err = service.InitTemplate(InitTemplateOptions{
+		PluginID: "setta-existing-plugin",
+		Template: "frontend",
+		OutDir:   roots.workspaceRoot,
+	})
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeInitTargetExists)
+}
+
+// Validate should reject unsupported capability values, schema versions, metadata mismatches, and invalid host versions.
+func TestServiceValidateFolderRejectsAuthoringFailures(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	invalidCapabilityRoot := mustInitAuthoringTestPlugin(t, service, roots.workspaceRoot, "setta-invalid-capability", "frontend")
+	rewritePluginManifest(t, invalidCapabilityRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerPane", "notARealCapability"}
+	})
+	_, err := service.ValidateFolder(ValidateFolderOptions{PluginRoot: invalidCapabilityRoot})
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeManifestInvalidCap)
+
+	unsupportedSchemaRoot := mustInitAuthoringTestPlugin(t, service, roots.workspaceRoot, "setta-unsupported-schema", "frontend")
+	rewritePluginManifest(t, unsupportedSchemaRoot, func(payload map[string]any) {
+		payload["schemaVersion"] = 999
+	})
+	_, err = service.ValidateFolder(ValidateFolderOptions{PluginRoot: unsupportedSchemaRoot})
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeManifestUnsupported)
+
+	metadataMismatchRoot := mustInitAuthoringTestPlugin(t, service, roots.workspaceRoot, "setta-metadata-mismatch", "frontend")
+	if err := os.WriteFile(filepath.Join(metadataMismatchRoot, "pyproject.toml"), []byte("[project]\nname = \"other-plugin\"\nversion = \"0.1.0\"\n"), 0o644); err != nil {
+		t.Fatalf("write mismatched pyproject: %v", err)
+	}
+	_, err = service.ValidateFolder(ValidateFolderOptions{PluginRoot: metadataMismatchRoot})
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeSourceIdentityMismatch)
+
+	invalidRangeRoot := mustInitAuthoringTestPlugin(t, service, roots.workspaceRoot, "setta-invalid-range", "frontend")
+	rewritePluginManifest(t, invalidRangeRoot, func(payload map[string]any) {
+		payload["settaVersionRange"] = "~=1"
+	})
+	_, err = service.ValidateFolder(ValidateFolderOptions{PluginRoot: invalidRangeRoot})
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeManifestInvalid)
+
+	invalidHostVersionService, err := NewService(ServiceOptions{
+		WorkspaceRoot:  roots.workspaceRoot,
+		SettaFilesRoot: roots.settaFilesRoot,
+		SettaHome:      roots.settaHome,
+		ServerMode:     config.ModeIDE,
+		SettaVersion:   "not-a-version",
+	})
+	if err != nil {
+		t.Fatalf("new service with invalid host version: %v", err)
+	}
+	validRoot := mustInitAuthoringTestPlugin(t, service, roots.workspaceRoot, "setta-invalid-host-version", "frontend")
+	_, err = invalidHostVersionService.ValidateFolder(ValidateFolderOptions{
+		PluginRoot: validRoot,
+	})
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeHostVersionInvalid)
+}
+
+// Link should create a symlinked install with local metadata ownership and active runtime state.
+func TestServiceLinkCreatesSymlinkedInstallMetadata(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	sourceRoot := mustInitAuthoringTestPlugin(t, service, roots.workspaceRoot, "setta-local-frontend-plugin", "frontend")
+
+	result, err := service.Link(LinkOptions{
+		LocalPluginRoot: sourceRoot,
+		Enable:          true,
+		Force:           false,
+	})
+	if err != nil {
+		t.Fatalf("link local plugin: %v", err)
+	}
+	if result.PluginID != "setta-local-frontend-plugin" || result.State != PluginRuntimeStateActive || result.RestartRequired {
+		t.Fatalf("unexpected link result %#v", result)
+	}
+	if result.SourceScopeLabel != "workspace" {
+		t.Fatalf("expected workspace source scope label, got %#v", result.SourceScopeLabel)
+	}
+	if result.TrustStatus != PluginSourceTrustStatusUnverified {
+		t.Fatalf("expected unverified trust status, got %#v", result.TrustStatus)
+	}
+	if result.TrustWarning != unverifiedSourceWarning {
+		t.Fatalf("expected trust warning %q, got %#v", unverifiedSourceWarning, result.TrustWarning)
+	}
+
+	targetRoot := filepath.Join(roots.workspaceRoot, ".setta_plugins", "setta-local-frontend-plugin")
+	info, err := os.Lstat(targetRoot)
+	if err != nil {
+		t.Fatalf("stat linked target: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("expected symlink target, got mode %#o", info.Mode())
+	}
+	linkDestination, err := os.Readlink(targetRoot)
+	if err != nil {
+		t.Fatalf("read linked target: %v", err)
+	}
+	if linkDestination != sourceRoot {
+		t.Fatalf("expected symlink destination %q, got %q", sourceRoot, linkDestination)
+	}
+
+	metadata, ok, err := service.store.GetInstallMetadata("setta-local-frontend-plugin", PluginScopeWorkspace)
+	if err != nil {
+		t.Fatalf("read install metadata: %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected install metadata entry")
+	}
+	if metadata.SourceSpec != "local:"+sourceRoot || metadata.CanonicalSourceKey != "local:"+sourceRoot {
+		t.Fatalf("unexpected local metadata %#v", metadata)
+	}
+}
+
+// Link should preserve restart-required behavior when replacing a backend plugin with a frontend-only source.
+func TestServiceLinkBackendReplacementRequiresRestart(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	backendRoot := mustInitAuthoringTestPlugin(t, service, roots.workspaceRoot, "setta-local-backend-plugin", "backend")
+	initial, err := service.Link(LinkOptions{
+		LocalPluginRoot: backendRoot,
+		Enable:          true,
+		Force:           false,
+	})
+	if err != nil {
+		t.Fatalf("link backend plugin: %v", err)
+	}
+	if !initial.RestartRequired || initial.State != PluginRuntimeStatePendingRestart {
+		t.Fatalf("expected backend link to require restart, got %#v", initial)
+	}
+
+	replacementRoot := mustInitAuthoringTestPlugin(t, service, roots.workspaceRoot, "setta-frontend-replacement", "frontend")
+	rewritePluginManifest(t, replacementRoot, func(payload map[string]any) {
+		payload["id"] = "setta-local-backend-plugin"
+		payload["name"] = "setta-local-backend-plugin"
+	})
+
+	replaced, err := service.Link(LinkOptions{
+		LocalPluginRoot: replacementRoot,
+		Enable:          true,
+		Force:           true,
+	})
+	if err != nil {
+		t.Fatalf("replace backend plugin with frontend source: %v", err)
+	}
+	if !replaced.RestartRequired || replaced.State != PluginRuntimeStatePendingRestart {
+		t.Fatalf("expected replacement link to keep restart requirement, got %#v", replaced)
+	}
+}
+
+// Link should fail before mutation when the local source does not satisfy host-version checks.
+func TestServiceLinkRejectsIncompatibleSettaVersionBeforeMutation(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	sourceRoot := mustInitAuthoringTestPlugin(t, service, roots.workspaceRoot, "setta-incompatible-link-plugin", "frontend")
+	rewritePluginManifest(t, sourceRoot, func(payload map[string]any) {
+		payload["settaVersionRange"] = ">=999.0.0"
+	})
+
+	_, err := service.Link(LinkOptions{
+		LocalPluginRoot: sourceRoot,
+		Enable:          true,
+		Force:           false,
+	})
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeManifestVersionMismatch)
+
+	targetRoot := filepath.Join(roots.workspaceRoot, ".setta_plugins", "setta-incompatible-link-plugin")
+	if _, statErr := os.Stat(targetRoot); !os.IsNotExist(statErr) {
+		t.Fatalf("expected no target plugin after failed link, got err=%v", statErr)
+	}
+
+	metadata, err := service.store.LoadInstallMetadata()
+	if err != nil {
+		t.Fatalf("load install metadata after failed link: %v", err)
+	}
+	if len(metadata.Entries) != 0 {
+		t.Fatalf("expected no install metadata after failed link, got %#v", metadata.Entries)
+	}
+}
+
+func assertPluginServiceErrorCode(t *testing.T, err error, expected ServiceErrorCode) {
+	t.Helper()
+
+	var serviceErr *ServiceError
+	if !errors.As(err, &serviceErr) {
+		t.Fatalf("expected service error %q, got %v", expected, err)
+	}
+	if serviceErr.Code != expected {
+		t.Fatalf("expected service error code %q, got %q", expected, serviceErr.Code)
+	}
+}
+
+func mustInitAuthoringTestPlugin(t *testing.T, service *Service, outDir string, pluginID string, template string) string {
+	t.Helper()
+
+	pluginRoot, err := service.InitTemplate(InitTemplateOptions{
+		PluginID: pluginID,
+		Template: template,
+		OutDir:   outDir,
+	})
+	if err != nil {
+		t.Fatalf("init authoring test plugin %s: %v", pluginID, err)
+	}
+	return pluginRoot
+}

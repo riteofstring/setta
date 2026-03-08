@@ -18,10 +18,7 @@ from setta.types.id import (
     TemporaryToCanonicalIDMap,
 )
 from setta.types.notifications import SettaNotification
-from setta.types.project_state import (
-    ProjectStateBackend,
-    ProjectStateSingleConfig,
-)
+from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.share_deployment import DeploymentManifest
 from setta.utils.paths import normalize_state_path, normalize_workspace_path
 from setta.utils.utils import compute_md5_prefix
@@ -211,7 +208,9 @@ class DBE:
 
     def read_project(self):
         payload = self.read_json(self.project)
-        return self._load_project_state_from_payload(payload)
+        if not isinstance(payload, dict):
+            raise TypeError("Project payload must be a JSON object.")
+        return ProjectStateBackend.model_validate(payload)
 
     def write_project(self, project: ProjectStateBackend):
         self.write_json(self.project, project.model_dump(mode="json"))
@@ -222,12 +221,6 @@ class DBE:
         payload = json.loads(self.project.read_text(encoding="utf-8"))
         if not payload:
             raise ValueError(f"Project file is empty: {self.project}")
-        return self._load_project_state_from_payload(payload)
-
-    def _load_project_state_from_payload(
-        self,
-        payload: Any,
-    ) -> ProjectStateBackend:
         if not isinstance(payload, dict):
             raise TypeError("Project payload must be a JSON object.")
         return ProjectStateBackend.model_validate(payload)

@@ -21,8 +21,6 @@ from setta.agentic.agentic_context_payload_builder import (
 from setta.agentic.agentic_scope import (
     AgenticContext,
     AgenticScope,
-    normalize_linked_chat_invocation_chain_section_ids,
-    normalize_linked_chat_invocation_depth,
     resolve_agentic_scope,
 )
 from setta.agentic.agentic_summary_cache import (
@@ -309,14 +307,12 @@ class AgentRunner:
         *,
         emit_stream: bool = True,
         emit_ai_follow: bool = True,
-        project_state: ProjectStateSingleConfig | None = None,
     ) -> AgentRun:
         context = self._build_context(
             profile,
             inputs,
             emit_stream=emit_stream,
             emit_ai_follow=emit_ai_follow,
-            project_state=project_state,
         )
         run = context.run
         self._runs[run.id] = run
@@ -361,6 +357,35 @@ class AgentRunner:
         if run is None:
             raise KeyError(f"Agent run {run_id} not found")
         return run
+
+    async def run_sub_agent(
+        self,
+        profile: AgentProfile,
+        inputs: dict[str, Any] | None,
+    ) -> AgentRun:
+        context = self._build_context(
+            profile,
+            inputs,
+            emit_stream=False,
+            emit_ai_follow=False,
+        )
+        run = context.run
+        save_agent_run(self.dbe, run)
+        self._record_event(
+            run,
+            "run_started",
+            {
+                "profileId": str(profile.id),
+                "engineConfigId": str(context.engine_config_id),
+                "projectConfigId": str(context.project_config_id),
+                "chatId": str(context.chat_id),
+                "sectionId": str(context.section_id) if context.section_id else None,
+            },
+        )
+        self._record_snapshot(run, context.project_config_id)
+        await self._run_agent(context)
+        loaded = load_agent_run(self.dbe, run.id)
+        return loaded if loaded is not None else run
 
     async def stop_run(self, run_id: ID) -> AgentRun:
         task = self._tasks.get(run_id)
@@ -825,7 +850,6 @@ class AgentRunner:
         *,
         emit_stream: bool = True,
         emit_ai_follow: bool = True,
-        project_state: ProjectStateSingleConfig | None = None,
     ) -> AgentRunContext:
         project_state_backend = self.dbe.read_project_required()
         if project_state_backend.defaultProjectConfigId is None:
@@ -868,18 +892,6 @@ class AgentRunner:
             frontend_affinity_token = parse_frontend_affinity_token(
                 inputs["frontendAffinityToken"]
             )
-        linked_chat_invocation_depth = 0
-        linked_chat_invocation_chain_section_ids: tuple[ID, ...] = ()
-        if inputs and "linkedChatInvocationDepth" in inputs:
-            linked_chat_invocation_depth = normalize_linked_chat_invocation_depth(
-                inputs["linkedChatInvocationDepth"]
-            )
-        if inputs and "linkedChatInvocationChainSectionIds" in inputs:
-            linked_chat_invocation_chain_section_ids = (
-                normalize_linked_chat_invocation_chain_section_ids(
-                    inputs["linkedChatInvocationChainSectionIds"]
-                )
-            )
         thinking = False
         if inputs and "thinking" in inputs:
             raw_thinking = inputs["thinking"]
@@ -906,14 +918,9 @@ class AgentRunner:
             profile,
             completion_guard_enabled=completion_guard_enabled,
         )
-        if project_state is None:
-            project_state = convert_backend_to_single_config(
-                project_state_backend, project_config_id
-            )
-        elif project_state.projectConfig.id != project_config_id:
-            raise KeyError(
-                f"project_state override does not match project config {project_config_id}"
-            )
+        project_state = convert_backend_to_single_config(
+            project_state_backend, project_config_id
+        )
         agentic_scope = resolve_agentic_scope(
             project_state,
             section_id,
@@ -935,11 +942,8 @@ class AgentRunner:
             project_config_id=project_config_id,
             chat_id=resolved_chat_id,
             section_id=section_id,
-            run_id=run.id,
             frontend_affinity_token=frontend_affinity_token,
             allow_unscoped=allow_unscoped,
-            linked_chat_invocation_depth=linked_chat_invocation_depth,
-            linked_chat_invocation_chain_section_ids=linked_chat_invocation_chain_section_ids,
         )
         return AgentRunContext(
             run=run,
@@ -1121,7 +1125,6 @@ class AgentRunner:
             self.dbe,
             project_state,
             section_id,
-            llm_configs=self.config,
             canonical_to_temporary=canonical_to_temporary,
             temporary_to_canonical=temporary_to_canonical,
             summary_text_by_section_id=summary_text_by_section_id,
@@ -1743,7 +1746,6 @@ class AgentRunner:
             return tool_names
         has_structural = agentic_scope.structural_allowed
         has_read = bool(agentic_scope.effective_read_section_ids())
-        has_peer_chat = bool(agentic_scope.peer_chat_section_ids)
         has_write = bool(agentic_scope.write_section_ids)
         required_internal_tool_names = _required_internal_tool_names(
             completion_guard_enabled
@@ -1768,8 +1770,6 @@ class AgentRunner:
             if access_type == "structural" and not has_structural:
                 continue
             if access_type == "read" and not has_read:
-                continue
-            if access_type == "peer_chat" and not has_peer_chat:
                 continue
             if access_type == "write" and not has_write:
                 continue

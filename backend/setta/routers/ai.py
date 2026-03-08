@@ -1,20 +1,18 @@
 import base64
 import binascii
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Literal
 
 from fastapi import HTTPException, status
 from pydantic import BaseModel, Field
 
-from setta.agentic.chat_continuity import (
-    get_prior_messages_for_chat_engine,
-    list_compatible_chat_runs,
-)
 from setta.agentic.chat_view import (
     EXTERNAL_AGENT_RUN_TYPE,
     LLM_CHAT_RUN_TYPE,
     build_chat_state_from_run,
     get_run_engine_config_id,
+    get_run_project_config_id,
     get_run_sort_key,
 )
 from setta.agentic.context_usage import (
@@ -22,20 +20,21 @@ from setta.agentic.context_usage import (
     resolve_external_run_context_usage,
     resolve_internal_run_context_usage,
 )
-from setta.agentic.managed_chat_dispatch import (
-    AppGenerationMode,
-    ManagedChatDispatcher,
-    ManagedChatDispatchRequestBase,
-    ManagedChatDispatchResponse,
+from setta.agentic.engine_resolver import resolve_engine_config
+from setta.agentic.external_agent_preflight import (
+    build_external_agent_preflight_status,
 )
+from setta.agentic.external_tool_allowlist import build_external_tool_allowlist
 from setta.agentic.store import (
     list_agent_runs_by_metadata,
+    require_agent_profile,
     require_engine_config,
 )
 from setta.agentic.transcription_profile_resolver import (
     TranscriptionProfileNotFoundError,
     resolve_transcription_profile,
 )
+from setta.database.utils import create_new_id
 from setta.llm.transcription_sessions import (
     TranscriptionAudioLimitExceededError,
     TranscriptionSessionError,
@@ -43,11 +42,13 @@ from setta.llm.transcription_sessions import (
 )
 from setta.llm.user_facing_errors import get_user_facing_llm_error_message
 from setta.logging.project_id_route import require_project_context
+from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.routers.app_generation_limits import (
     MAX_REFERENCE_IMAGE_NOTES_CHARS,
     MAX_REFERENCE_IMAGE_URL_CHARS,
 )
 from setta.routers.dependencies import RuntimeContextFromRequest
+from setta.routers.frontend_affinity_token import require_frontend_affinity_token
 from setta.routers.setta_api_router import SettaProjectContextFullRuntimeAPIRouter
 from setta.types.agentic import (
     AgentProfile,
@@ -69,6 +70,20 @@ from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 from setta.utils.constants import C
 
 router = SettaProjectContextFullRuntimeAPIRouter()
+
+AppGenerationMode = Literal[
+    "json_render",
+    "json_render_with_image",
+    "prompt_builder",
+    "mcp_server",
+]
+
+_REQUIRED_ERROR_CHECK_PROMPT = (
+    "## Required completion gate for create/scaffold work\n"
+    "- For project creation, section creation, or scaffolding tasks: do not claim completion until you run error checks.\n"
+    "- Report check outcomes explicitly as pass/fail before any completion claim.\n"
+    "- If checks were not run or checks failed, state that explicitly instead of saying the work is done.\n"
+)
 _TRANSCRIPTION_PCM_MAX_BYTES = (
     C.REALTIME_BINARY_MAX_BYTES if C.REALTIME_BINARY_MAX_BYTES > 0 else 10 * 1024 * 1024
 )
@@ -221,16 +236,29 @@ def _ensure_external_chat_id_compatible(
 ) -> list[AgentRun]:
     if chat_id is None:
         return []
-    try:
-        return list_compatible_chat_runs(
-            dbe=dbe,
-            engine_type=EngineType.external_agent,
-            chat_id=chat_id,
-            project_config_id=project_config_id,
-            engine_config_id=engine_config_id,
+    llm_runs = _get_llm_chat_runs(dbe=dbe, chat_id=chat_id)
+    if llm_runs:
+        raise HTTPException(
+            status_code=409,
+            detail="Chat engine mismatch; start a new chat.",
         )
-    except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    external_runs = _get_external_agent_chat_runs(dbe=dbe, chat_id=chat_id)
+    if not external_runs:
+        return []
+    for run in external_runs:
+        existing_engine = get_run_engine_config_id(run)
+        if existing_engine != engine_config_id:
+            raise HTTPException(
+                status_code=409,
+                detail="Chat engine mismatch; start a new chat.",
+            )
+        existing_project = get_run_project_config_id(run)
+        if existing_project != project_config_id:
+            raise HTTPException(
+                status_code=409,
+                detail="Chat project config mismatch; start a new chat.",
+            )
+    return external_runs
 
 
 def _get_prior_messages_for_engine(
@@ -239,18 +267,26 @@ def _get_prior_messages_for_engine(
     engine_type: EngineType,
     chat_id: ID,
     project_config_id: ID | None,
-    engine_config_id: ID,
+    external_runs: list[AgentRun] | None = None,
 ) -> list[BaseChatMessageUnion]:
-    try:
-        return get_prior_messages_for_chat_engine(
+    if engine_type == EngineType.external_agent:
+        if external_runs is None:
+            external_runs = _get_external_agent_chat_runs(
+                dbe=dbe,
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+            )
+        latest_run = _select_latest_run(external_runs)
+    else:
+        llm_runs = _get_llm_chat_runs(
             dbe=dbe,
-            engine_type=engine_type,
             chat_id=chat_id,
             project_config_id=project_config_id,
-            engine_config_id=engine_config_id,
         )
-    except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        latest_run = _select_latest_run(llm_runs)
+    if latest_run is None:
+        return []
+    return build_chat_state_from_run(latest_run).messages
 
 
 def _get_prior_messages_for_seed_chat(
@@ -524,12 +560,39 @@ def _normalize_reference_image_inputs(
     )
 
 
-class GetLLMResponseRequest(ManagedChatDispatchRequestBase):
-    pass
-
-
-class GetLLMResponseResponse(ManagedChatDispatchResponse):
-    pass
+class GetLLMResponseRequest(BaseModel):
+    chatId: ID | None
+    continueFromChatId: ID | None = None
+    message: BaseChatMessageUnionWithDiscriminator
+    engineConfigId: ID
+    agentProfileId: ID | None = None
+    thinking: bool
+    projectConfigId: ID
+    sectionId: ID | None = None
+    frontendAffinityToken: str | None = None
+    allowUnscoped: bool = False
+    branchParentChatId: ID | None = None
+    branchFromMessageId: ID | None = None
+    appSpecStreamingEnabled: bool = Field(
+        default=False,
+        description=(
+            "Whether the UI is configured to stream app spec patches for live preview."
+        ),
+    )
+    permissionMode: ChatPermissionMode
+    searchEnabled: bool
+    appGenerationMode: AppGenerationMode | None = Field(
+        default=None,
+        description="Optional app generation mode selected in the UI.",
+    )
+    appGenerationReferenceImageUrl: str | None = Field(
+        default=None,
+        description="Optional reference image URL for app generation fidelity.",
+    )
+    appGenerationReferenceImageNotes: str | None = Field(
+        default=None,
+        description="Optional notes describing reference-image fidelity goals.",
+    )
 
 
 class GetLLMChatRequest(BaseModel):
@@ -773,14 +836,290 @@ def _resolve_transcription_session_error_code(
 async def route_get_llm_response(
     x: GetLLMResponseRequest,
     ctx: RuntimeContextFromRequest,
-) -> GetLLMResponseResponse:
+) -> str | None:
     await ctx.enforce_llm_allowed()
-    response = ManagedChatDispatcher(
-        dbe=ctx.state.dbe,
-        agent_runner=ctx.state.agent_runner,
-        external_agent_runner=ctx.state.external_agent_runner,
-    ).dispatch(x)
-    return GetLLMResponseResponse.model_validate(response.model_dump(mode="json"))
+    if x.sectionId is None and not x.allowUnscoped:
+        raise HTTPException(
+            status_code=400,
+            detail="sectionId is required unless allowUnscoped is true.",
+        )
+    if x.sectionId is not None and x.allowUnscoped:
+        raise HTTPException(
+            status_code=400,
+            detail="allowUnscoped requires sectionId to be omitted.",
+        )
+    is_branch_request = (
+        x.branchParentChatId is not None or x.branchFromMessageId is not None
+    )
+    if is_branch_request and x.continueFromChatId is not None:
+        raise HTTPException(
+            status_code=400,
+            detail="continueFromChatId cannot be used with branch edits.",
+        )
+    if x.chatId is not None and x.continueFromChatId is not None:
+        raise HTTPException(
+            status_code=400,
+            detail="continueFromChatId requires chatId to be omitted.",
+        )
+    if is_branch_request:
+        if x.branchParentChatId is None or x.branchFromMessageId is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Branch edits require branchParentChatId and branchFromMessageId.",
+            )
+        chat_id = create_new_id()
+    else:
+        chat_id = x.chatId or create_new_id()
+    resolved = resolve_engine_config(
+        ctx.state.dbe, ctx.state.agent_runner.config, x.engineConfigId
+    )
+    external_runs_for_chat_id: list[AgentRun] | None = None
+    if resolved.engine_config.engineType == EngineType.external_agent:
+        external_runs_for_chat_id = _ensure_external_chat_id_compatible(
+            dbe=ctx.state.dbe,
+            chat_id=x.branchParentChatId if is_branch_request else x.chatId,
+            engine_config_id=x.engineConfigId,
+            project_config_id=x.projectConfigId,
+        )
+    prior_messages: list[BaseChatMessageUnion] = []
+    parent_run: AgentRun | None = None
+    if is_branch_request:
+        parent_run = _get_latest_run_for_engine(
+            dbe=ctx.state.dbe,
+            engine_type=resolved.engine_config.engineType,
+            chat_id=x.branchParentChatId,
+            project_config_id=x.projectConfigId,
+        )
+        if parent_run is not None:
+            prior_messages = build_chat_state_from_run(parent_run).messages
+            if not _has_message_id(prior_messages, x.branchFromMessageId):
+                prior_messages = _get_run_input_messages(parent_run)
+        try:
+            combined_messages = _build_branch_messages(
+                prior_messages=prior_messages,
+                edited_message=x.message,
+                branch_from_message_id=x.branchFromMessageId,
+            )
+        except KeyError as exc:
+            raise HTTPException(
+                status_code=404,
+                detail=(f"Message {x.branchFromMessageId} not found in chat history"),
+            ) from exc
+    else:
+        if x.chatId is not None:
+            if (
+                resolved.engine_config.engineType == EngineType.external_agent
+                and external_runs_for_chat_id is None
+            ):
+                raise RuntimeError(
+                    "Expected prefetched external runs before loading external-agent chat history."
+                )
+            prior_messages = _get_prior_messages_for_engine(
+                dbe=ctx.state.dbe,
+                engine_type=resolved.engine_config.engineType,
+                chat_id=chat_id,
+                project_config_id=x.projectConfigId,
+                external_runs=external_runs_for_chat_id,
+            )
+        elif x.continueFromChatId is not None:
+            try:
+                prior_messages = _get_prior_messages_for_seed_chat(
+                    dbe=ctx.state.dbe,
+                    chat_id=x.continueFromChatId,
+                    project_config_id=x.projectConfigId,
+                )
+            except KeyError:
+                _raise_continue_from_chat_http_error(
+                    status_code=404,
+                    message=(
+                        f"Continuation source chat {x.continueFromChatId} not found."
+                    ),
+                    error_code=ContinueFromChatErrorCode.source_chat_not_found,
+                )
+        combined_messages = _build_inputs_messages(
+            prior_messages=prior_messages,
+            message=x.message,
+        )
+    profile: AgentProfile | None = None
+    if x.agentProfileId is not None:
+        try:
+            profile = require_agent_profile(ctx.state.dbe, x.agentProfileId)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    resolved_mode = x.appGenerationMode
+    normalized_reference_image_url, normalized_reference_image_notes = (
+        _normalize_reference_image_inputs(
+            reference_image_url=x.appGenerationReferenceImageUrl,
+            reference_image_notes=x.appGenerationReferenceImageNotes,
+        )
+    )
+    if resolved_mode == "json_render_with_image":
+        reference_image_url = normalized_reference_image_url
+        reference_image_notes = normalized_reference_image_notes
+    else:
+        reference_image_url, reference_image_notes = (None, None)
+    app_generation_mode_prompt = _build_app_generation_mode_prompt(
+        mode=resolved_mode,
+        app_spec_streaming_enabled=x.appSpecStreamingEnabled,
+        reference_image_url=reference_image_url,
+        reference_image_notes=reference_image_notes,
+    )
+    execution_policy_prompt = _build_execution_policy_prompt(
+        x.permissionMode,
+        x.searchEnabled,
+    )
+    normalized_frontend_affinity_token = require_frontend_affinity_token(
+        x.frontendAffinityToken
+    )
+    if resolved.engine_config.engineType == EngineType.setta_llm:
+        if ctx.state.agent_runner.disabled:
+            raise HTTPException(status_code=503, detail="Agent runner is not available")
+        if profile is None:
+            profile = AgentProfile(
+                name="Managed chat",
+                description="",
+                systemPrompt="",
+                engineConfigId=x.engineConfigId,
+            )
+        combined_system_prompt = _combine_prompt_sections(
+            profile.systemPrompt or "",
+            app_generation_mode_prompt,
+            execution_policy_prompt,
+            _REQUIRED_ERROR_CHECK_PROMPT,
+        )
+        profile = profile.model_copy(
+            update={
+                "engineConfigId": x.engineConfigId,
+                "systemPrompt": combined_system_prompt,
+            }
+        )
+        inputs = {
+            "chatId": str(chat_id),
+            "projectConfigId": str(x.projectConfigId),
+            "thinking": x.thinking,
+            "engineConfigId": str(x.engineConfigId),
+            "runType": LLM_CHAT_RUN_TYPE,
+            "permissionMode": x.permissionMode.value,
+            "searchEnabled": x.searchEnabled,
+            "messages": [
+                message.model_dump(mode="json") for message in combined_messages
+            ],
+        }
+        if is_branch_request:
+            branch_root_chat_id = _resolve_branch_root_chat_id(
+                parent_run=parent_run,
+                parent_chat_id=x.branchParentChatId,
+            )
+            inputs["branchParentChatId"] = str(x.branchParentChatId)
+            inputs["branchFromMessageId"] = str(x.branchFromMessageId)
+            inputs["branchRootChatId"] = str(branch_root_chat_id)
+            inputs["branchCreatedAt"] = int(
+                datetime.now(timezone.utc).timestamp() * 1000
+            )
+        if x.sectionId is not None:
+            inputs["sectionId"] = str(x.sectionId)
+        if x.allowUnscoped:
+            inputs["allowUnscoped"] = True
+        if normalized_frontend_affinity_token is not None:
+            inputs["frontendAffinityToken"] = normalized_frontend_affinity_token
+        ctx.state.agent_runner.start_run(profile, inputs)
+        return chat_id
+    if resolved.engine_config.engineType == EngineType.external_agent:
+        runner = ctx.state.external_agent_runner
+        if runner.disabled:
+            raise HTTPException(
+                status_code=503, detail="External agent runner is not available"
+            )
+        external_config = resolved.external_agent_config
+        if external_config is None:
+            raise HTTPException(
+                status_code=500, detail="External agent config not found"
+            )
+        plugin_external_agent_adapters = runner.get_plugin_external_agent_adapters()
+        status = build_external_agent_preflight_status(
+            ctx.state.dbe,
+            external_config,
+            plugin_external_agent_adapters=plugin_external_agent_adapters,
+        )
+        if not status.available:
+            issues = "; ".join(status.issues) if status.issues else "preflight failed"
+            raise HTTPException(
+                status_code=503,
+                detail=f"External agent config is not available: {issues}",
+            )
+        profile = _build_chat_profile_with_app_generation_mode(
+            profile=profile,
+            engine_config_id=x.engineConfigId,
+            app_generation_mode_prompt=app_generation_mode_prompt,
+            default_name="External chat",
+            require_profile=False,
+        )
+        if profile is not None and profile.toolAllowlist:
+            _, error = build_external_tool_allowlist(
+                profile.toolAllowlist,
+                server_id=SETTA_MCP_SERVER_ID,
+            )
+            if error:
+                raise HTTPException(status_code=400, detail=error)
+        inputs = {
+            "chatId": str(chat_id),
+            "projectConfigId": str(x.projectConfigId),
+            "thinking": x.thinking,
+            "engineConfigId": str(x.engineConfigId),
+            "permissionMode": x.permissionMode.value,
+            "searchEnabled": x.searchEnabled,
+            "messages": [
+                message.model_dump(mode="json") for message in combined_messages
+            ],
+        }
+        _apply_external_reasoning_defaults(
+            inputs=inputs,
+            tool_type=external_config.toolType,
+            thinking=x.thinking,
+        )
+        approval_policy_override = _resolve_external_approval_policy_override(
+            x.permissionMode,
+            external_config.toolType,
+        )
+        if approval_policy_override is not None:
+            inputs["approvalPolicy"] = approval_policy_override
+        sandbox_policy_override = _resolve_external_sandbox_policy_override(
+            x.permissionMode,
+            external_config.toolType,
+        )
+        if sandbox_policy_override is not None:
+            inputs["sandboxPolicy"] = sandbox_policy_override
+        inputs["systemPrompt"] = _combine_prompt_sections(
+            execution_policy_prompt,
+            _REQUIRED_ERROR_CHECK_PROMPT,
+        )
+        if is_branch_request:
+            branch_root_chat_id = _resolve_branch_root_chat_id(
+                parent_run=parent_run,
+                parent_chat_id=x.branchParentChatId,
+            )
+            inputs["branchParentChatId"] = str(x.branchParentChatId)
+            inputs["branchFromMessageId"] = str(x.branchFromMessageId)
+            inputs["branchRootChatId"] = str(branch_root_chat_id)
+            inputs["branchCreatedAt"] = int(
+                datetime.now(timezone.utc).timestamp() * 1000
+            )
+        if x.sectionId is not None:
+            inputs["sectionId"] = str(x.sectionId)
+        if x.allowUnscoped:
+            inputs["allowUnscoped"] = True
+        if normalized_frontend_affinity_token is not None:
+            inputs["frontendAffinityToken"] = normalized_frontend_affinity_token
+        try:
+            runner.start_run(x.engineConfigId, external_config, profile, inputs)
+        except KeyError as exc:
+            raise HTTPException(
+                status_code=409,
+                detail="Chat engine mismatch; start a new chat.",
+            ) from exc
+        return chat_id
+    raise HTTPException(status_code=400, detail="Unsupported engine config")
 
 
 def _to_transcription_delta_response(

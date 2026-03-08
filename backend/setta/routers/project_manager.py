@@ -1,5 +1,4 @@
 import logging
-from typing import NoReturn
 
 from fastapi import HTTPException
 
@@ -19,11 +18,9 @@ from setta.project_state.project_manager_types import (
     CreateChildSectionsViaIncrementerRequest,
     CreateEdgeRequest,
     CreateNewSectionVariantRequest,
-    CreateStateMachineEdgeRequest,
     CreateTopLevelSectionRequest,
     CreateTopLevelSectionResponse,
     CreateViewModeRequest,
-    CreateWindowSpaceRequest,
     DeclineRenameRefactorRequest,
     DeleteAgenticEdgesRequest,
     DeleteChildSectionsViaDecrementerRequest,
@@ -33,9 +30,7 @@ from setta.project_state.project_manager_types import (
     DeleteSectionsRequest,
     DeleteSectionVariantOrAskRequest,
     DeleteSelectedParamsRequest,
-    DeleteStateMachineEdgesRequest,
     DeleteViewModeRequest,
-    DeleteWindowSpaceRequest,
     ForceRefreshProjectRequest,
     FormatCodeRequest,
     GenCodePrefixCompletionRequest,
@@ -91,8 +86,6 @@ from setta.project_state.project_manager_types import (
     SetMetaControlShowSectionTitleRequest,
     SetParamEnteredValueRequest,
     SetParentDefaultChildSectionTypeRequest,
-    SetProjectChatWindowChatIdRequest,
-    SetProjectChatWindowingStateRequest,
     SetProjectConfigCodegenTargetsRequest,
     SetPromptFormatRequest,
     SetPromptInputsRequest,
@@ -114,8 +107,6 @@ from setta.project_state.project_manager_types import (
     SetSocialUrlRequest,
     SetSpreadsheetFilePathRequest,
     SetSpreadsheetSectionSettingsRequest,
-    SetStateMachineEdgesRequest,
-    SetStateMachineSectionSettingsRequest,
     SetTaskBoardSectionStateRequest,
     SetTextBlockDisplayModeRequest,
     SetTextBlockFormatRequest,
@@ -131,8 +122,6 @@ from setta.project_state.project_manager_types import (
     SetViewportRequest,
     SetWatchCodeEnabledRequest,
     SetWatchCodeInputsRequest,
-    SetWindowSpaceNameRequest,
-    SetWindowSpaceSortOrderRequest,
     TextFieldCompletionRequest,
     ToggleGroupOrientationRequest,
     ToggleIsEditingViewModeRequest,
@@ -152,7 +141,6 @@ from setta.project_state.project_manager_types import (
     UpdateAppDefinitionRequest,
     UpdateEdgeRequest,
     UpdateParamImplConfigRequest,
-    UpdateStateMachineEdgeRequest,
     ValidateAppDefinitionRequest,
     ValidateAppDefinitionResponse,
 )
@@ -176,47 +164,19 @@ from setta.types.clipboard import SectionsClipboardData
 from setta.types.code_obj_impls import PasswordParamCodeObjImpl
 from setta.types.helpers_lvl1 import get_curr_effective_code_obj_impl_with_type_guard
 from setta.types.lsp import SettaLspDiagnosticsPayload
-from setta.types.project_config import WindowSpaceConfig
-from setta.types.project_state import ProjectChatWindowingState
 from setta.types.routes import Route
 from setta.types.section_impls import SectionType
 from setta.utils.errors import (
     InvalidParamName,
     InvalidSectionName,
     InvalidViewModeName,
-    InvalidWindowSpaceName,
 )
 
 logger = logging.getLogger(__name__)
 
-
-def _raise_http_from_key_error(exc: KeyError) -> NoReturn:
-    message = (
-        exc.args[0]
-        if exc.args and isinstance(exc.args[0], str)
-        else str(exc) or exc.__class__.__name__
-    )
-    status_code = 404 if "not found" in message.lower() else 400
-    raise HTTPException(status_code=status_code, detail=message) from exc
-
-
-def _raise_window_space_route_error(exc: KeyError | ValueError) -> NoReturn:
-    if isinstance(exc, KeyError):
-        _raise_http_from_key_error(exc)
-    raise HTTPException(status_code=422, detail=str(exc)) from exc
-
-
 router = SettaProjectContextNonLauncherAPIRouter(
     require_project_context_by_default=True,
 )
-
-
-def _raise_structural_write_http_exception(exc: Exception) -> None:
-    if isinstance(exc, KeyError):
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    if isinstance(exc, (TypeError, ValueError)):
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    raise exc
 
 
 async def _deny_deployment_mode_lsp(ctx) -> None:
@@ -271,13 +231,6 @@ async def _deny_deployment_mode_view_modes(ctx) -> None:
         message="Deployment mode disallows view mode changes.",
         share_session_id=ctx.share_session_id,
     )
-
-
-async def _enforce_window_space_layout_policy(ctx) -> None:
-    if not ctx.share_mode:
-        await _deny_deployment_mode_view_modes(ctx)
-        return
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
 
 
 async def _deny_deployment_mode_diagnostics(ctx) -> None:
@@ -523,7 +476,13 @@ async def route_set_view_mode_sort_order(
     try:
         await manager.set_view_mode_sort_order(x)
     except KeyError as exc:
-        _raise_http_from_key_error(exc)
+        message = (
+            exc.args[0]
+            if exc.args and isinstance(exc.args[0], str)
+            else str(exc) or exc.__class__.__name__
+        )
+        status_code = 404 if "not found" in message.lower() else 400
+        raise HTTPException(status_code=status_code, detail=message) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -535,54 +494,6 @@ async def route_delete_view_mode(
     await _deny_deployment_mode_view_modes(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.delete_view_mode(x)
-
-
-@router.post(Route.CREATE_WINDOW_SPACE)
-async def route_create_window_space(
-    x: CreateWindowSpaceRequest, ctx: RuntimeContextFromRequest
-) -> WindowSpaceConfig:
-    await _enforce_window_space_layout_policy(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    try:
-        return await manager.create_window_space(x)
-    except (InvalidWindowSpaceName, ValueError) as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-
-
-@router.post(Route.SET_WINDOW_SPACE_NAME)
-async def route_set_window_space_name(
-    x: SetWindowSpaceNameRequest, ctx: RuntimeContextFromRequest
-) -> None:
-    await _enforce_window_space_layout_policy(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    try:
-        await manager.set_window_space_name(x)
-    except (KeyError, ValueError) as exc:
-        _raise_window_space_route_error(exc)
-
-
-@router.post(Route.SET_WINDOW_SPACE_SORT_ORDER)
-async def route_set_window_space_sort_order(
-    x: SetWindowSpaceSortOrderRequest, ctx: RuntimeContextFromRequest
-) -> None:
-    await _enforce_window_space_layout_policy(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    try:
-        await manager.set_window_space_sort_order(x)
-    except (KeyError, ValueError) as exc:
-        _raise_window_space_route_error(exc)
-
-
-@router.post(Route.DELETE_WINDOW_SPACE)
-async def route_delete_window_space(
-    x: DeleteWindowSpaceRequest, ctx: RuntimeContextFromRequest
-) -> None:
-    await _enforce_window_space_layout_policy(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    try:
-        await manager.delete_window_space(x)
-    except (KeyError, ValueError) as exc:
-        _raise_window_space_route_error(exc)
 
 
 @router.post(Route.UNDO)
@@ -796,7 +707,13 @@ async def route_update_app_definition(
     try:
         return await manager.update_app_definition(x)
     except KeyError as exc:
-        _raise_http_from_key_error(exc)
+        message = (
+            exc.args[0]
+            if exc.args and isinstance(exc.args[0], str)
+            else str(exc) or exc.__class__.__name__
+        )
+        status_code = 404 if "not found" in message.lower() else 400
+        raise HTTPException(status_code=status_code, detail=message) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -1109,10 +1026,7 @@ async def route_create_agentic_edge(
 ):
     await _deny_deployment_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
-    try:
-        await manager.create_agentic_edge(x)
-    except (KeyError, TypeError, ValueError) as exc:
-        _raise_structural_write_http_exception(exc)
+    await manager.create_agentic_edge(x)
 
 
 @router.post(Route.UPDATE_AGENTIC_EDGE)
@@ -1121,10 +1035,7 @@ async def route_update_agentic_edge(
 ):
     await _deny_deployment_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
-    try:
-        await manager.update_agentic_edge(x)
-    except (KeyError, TypeError, ValueError) as exc:
-        _raise_structural_write_http_exception(exc)
+    await manager.update_agentic_edge(x)
 
 
 @router.post(Route.DELETE_AGENTIC_EDGES)
@@ -1133,10 +1044,7 @@ async def route_delete_agentic_edges(
 ):
     await _deny_deployment_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
-    try:
-        await manager.delete_agentic_edges(x)
-    except (KeyError, TypeError, ValueError) as exc:
-        _raise_structural_write_http_exception(exc)
+    await manager.delete_agentic_edges(x)
 
 
 @router.post(Route.SET_AGENTIC_EDGES)
@@ -1145,58 +1053,7 @@ async def route_set_agentic_edges(
 ):
     await _deny_deployment_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
-    try:
-        await manager.set_agentic_edges(x)
-    except (KeyError, TypeError, ValueError) as exc:
-        _raise_structural_write_http_exception(exc)
-
-
-@router.post(Route.CREATE_STATE_MACHINE_EDGE)
-async def route_create_state_machine_edge(
-    x: CreateStateMachineEdgeRequest, ctx: RuntimeContextFromRequest
-):
-    await _deny_deployment_mode_structural(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    try:
-        await manager.create_state_machine_edge(x)
-    except (KeyError, TypeError, ValueError) as exc:
-        _raise_structural_write_http_exception(exc)
-
-
-@router.post(Route.UPDATE_STATE_MACHINE_EDGE)
-async def route_update_state_machine_edge(
-    x: UpdateStateMachineEdgeRequest, ctx: RuntimeContextFromRequest
-):
-    await _deny_deployment_mode_structural(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    try:
-        await manager.update_state_machine_edge(x)
-    except (KeyError, TypeError, ValueError) as exc:
-        _raise_structural_write_http_exception(exc)
-
-
-@router.post(Route.DELETE_STATE_MACHINE_EDGES)
-async def route_delete_state_machine_edges(
-    x: DeleteStateMachineEdgesRequest, ctx: RuntimeContextFromRequest
-):
-    await _deny_deployment_mode_structural(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    try:
-        await manager.delete_state_machine_edges(x)
-    except (KeyError, TypeError, ValueError) as exc:
-        _raise_structural_write_http_exception(exc)
-
-
-@router.post(Route.SET_STATE_MACHINE_EDGES)
-async def route_set_state_machine_edges(
-    x: SetStateMachineEdgesRequest, ctx: RuntimeContextFromRequest
-):
-    await _deny_deployment_mode_structural(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    try:
-        await manager.set_state_machine_edges(x)
-    except (KeyError, TypeError, ValueError) as exc:
-        _raise_structural_write_http_exception(exc)
+    await manager.set_agentic_edges(x)
 
 
 @router.post(Route.SET_SECTION_VARIANT)
@@ -1504,18 +1361,6 @@ async def route_set_chat_section_settings(
     await manager.set_chat_section_settings(x)
 
 
-@router.post(Route.SET_STATE_MACHINE_SECTION_SETTINGS)
-async def route_set_state_machine_section_settings(
-    x: SetStateMachineSectionSettingsRequest, ctx: RuntimeContextFromRequest
-):
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
-    try:
-        await manager.set_state_machine_section_settings(x)
-    except (KeyError, TypeError, ValueError) as exc:
-        _raise_structural_write_http_exception(exc)
-
-
 @router.post(Route.SET_CHAT_SECTION_STATE)
 async def route_set_chat_section_state(
     x: SetChatSectionStateRequest, ctx: RuntimeContextFromRequest
@@ -1523,35 +1368,6 @@ async def route_set_chat_section_state(
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_chat_section_state(x)
-
-
-@router.post(Route.SET_PROJECT_CHAT_WINDOWING_STATE)
-async def route_set_project_chat_windowing_state(
-    x: SetProjectChatWindowingStateRequest, ctx: RuntimeContextFromRequest
-) -> ProjectChatWindowingState:
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
-    try:
-        return await manager.set_project_chat_windowing_state(x)
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-
-
-@router.post(Route.SET_PROJECT_CHAT_WINDOW_CHAT_ID)
-async def route_set_project_chat_window_chat_id(
-    x: SetProjectChatWindowChatIdRequest, ctx: RuntimeContextFromRequest
-) -> ProjectChatWindowingState:
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await ctx.enforce_policy(
-        policy_flag="allowLLM",
-        denied_message="Deployment policy disallows LLM access.",
-    )
-    try:
-        return await manager.set_project_chat_window_chat_id(x)
-    except KeyError as exc:
-        _raise_http_from_key_error(exc)
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post(Route.GET_CHAT_SECTION_CHAT_ID)
@@ -1567,14 +1383,7 @@ async def route_set_chat_section_chat_id(
     x: SetChatSectionChatIdRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await ctx.enforce_policy(
-        policy_flag="allowLLM",
-        denied_message="Deployment policy disallows LLM access.",
-    )
-    try:
-        await manager.set_chat_section_chat_id(x)
-    except KeyError as exc:
-        _raise_http_from_key_error(exc)
+    await manager.set_chat_section_chat_id(x)
 
 
 @router.post(Route.SET_SOCIAL_URL)

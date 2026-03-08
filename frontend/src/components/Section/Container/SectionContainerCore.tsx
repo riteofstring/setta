@@ -18,13 +18,14 @@ import { SectionTypeEnum } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
-import { ChatSharedEdgeHandles } from "./ChatSharedEdgeHandles";
 import "./dndline.css";
 import { MinimizedDataEdgeHandles } from "./MinimizedDataEdgeHandles";
-import { getSectionContainerShellClassName } from "./sectionChrome";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
-import { StateMachineEdgeHandles } from "./StateMachineEdgeHandles";
-import { getOnSectionClick, useAiSectionHighlight } from "./utils";
+import {
+  getOnSectionClick,
+  getOutlineColor,
+  useAiSectionHighlight,
+} from "./utils";
 
 type SectionContainerCoreProps = {
   sectionId: string;
@@ -45,6 +46,7 @@ function _SectionContainerCore({
 }: SectionContainerCoreProps) {
   const {
     sectionTypeName,
+    // jsonSourceMissing,
     isInOtherProjectConfigs,
     positionAndSizeLocked,
     textBlockMetaControlStyle,
@@ -61,6 +63,7 @@ function _SectionContainerCore({
         null && !impl.isMinimized;
     return {
       sectionTypeName: impl.type,
+      // jsonSourceMissing: x.sections[sectionId].jsonSourceMissing,
       isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
       positionAndSizeLocked: impl.positionAndSizeLocked,
       textBlockMetaControlStyle:
@@ -111,6 +114,7 @@ function _SectionContainerCore({
   const viewportInteractionActive = useReactFlow(
     (state) => state.viewportInteractionActive,
   );
+  const shouldPromoteSectionShellLayer = viewportInteractionActive;
   const sectionStyleVars = sectionStyleTheme
     ? ({
         "--setta-section-style-bg": sectionStyleTheme.bg,
@@ -125,21 +129,7 @@ function _SectionContainerCore({
         "--setta-section-style-agentic-handle": sectionStyleTheme.outline,
       } as React.CSSProperties)
     : undefined;
-  const sectionShellClassName = getSectionContainerShellClassName({
-    isActiveSection,
-    isGlobalVariables,
-    isInOtherProjectConfigs,
-    useMetaControlStyle,
-    hasSectionStyleTheme,
-    positionAndSizeLocked,
-    forceHideOutline,
-    joinedCorners,
-    isJoinedAttachedTerminalChild,
-    omitAgenticHandleScopeClass,
-    aiHighlightClassName,
-    scopeHighlightClassName,
-  });
-  const sectionShellStyle = viewportInteractionActive
+  const sectionShellStyle = shouldPromoteSectionShellLayer
     ? ({
         ...sectionStyleVars,
         willChange: "transform",
@@ -148,24 +138,65 @@ function _SectionContainerCore({
         isolation: "isolate",
       } as React.CSSProperties)
     : sectionStyleVars;
-  const shouldRenderSharedChatHandles =
-    !hideAgenticEdgeHandles && !isAttachedTerminalChild;
-  const isWorkflowOnlyNodeSection =
-    sectionTypeName === SectionTypeEnum.StateMachineStart ||
-    sectionTypeName === SectionTypeEnum.StateMachineGate ||
-    sectionTypeName === SectionTypeEnum.StateMachineEnd;
-  const shouldRenderChatSharedHandles =
-    shouldRenderSharedChatHandles && sectionTypeName === SectionTypeEnum.Chat;
-  const shouldRenderAgenticEdgeHandles =
-    shouldRenderSharedChatHandles &&
-    !shouldRenderChatSharedHandles &&
-    !isWorkflowOnlyNodeSection;
-  const shouldRenderStateMachineEdgeHandles =
-    shouldRenderSharedChatHandles && isWorkflowOnlyNodeSection;
+  const sectionStyleChromeClassName = hasSectionStyleTheme
+    ? "!border-[color:var(--setta-section-style-border)] !bg-[color:var(--setta-section-style-bg)]"
+    : "";
 
+  // const boxShadow = !positionAndSizeLocked
+  //   ? isActiveSection
+  //     ? "shadow-2xl dark:shadow-setta-925"
+  //     : "shadow-md dark:shadow-setta-900/30 [&:active:not(:has(button:active,:active.setta-prevent-section-active-css))]:shadow-2xl dark:[&:active:not(:has(button:active,:active.setta-prevent-section-active-css))]:shadow-[0_35px_60px_-15px_rgba(0,0,0,0.7)]"
+  //   : "";
+
+  const boxShadow = !positionAndSizeLocked
+    ? "shadow-md dark:shadow-setta-900/30"
+    : "";
+
+  const outlineColor = getOutlineColor({
+    isActiveSection,
+    isGlobalVariables,
+    isInOtherProjectConfigs,
+    // jsonSourceMissing,
+  });
+  const sectionStyleOutlineClassName = hasSectionStyleTheme
+    ? isActiveSection
+      ? "outline-[color:var(--setta-section-style-outline)]"
+      : "outline-transparent [&:active:not(:has(button:active,:active.setta-prevent-section-active-css))]:outline-[color:var(--setta-section-style-outline)]"
+    : outlineColor;
+  const containerBgClass = useMetaControlStyle
+    ? "bg-transparent dark:bg-transparent"
+    : "bg-white dark:bg-setta-925";
+  const containerBorderClass = useMetaControlStyle
+    ? "!border-transparent dark:!border-transparent"
+    : "";
+  const outlineClassName = useMetaControlStyle
+    ? "outline-transparent group-hover/card-section:outline-setta-400/60 dark:group-hover/card-section:outline-setta-700/60"
+    : sectionStyleOutlineClassName;
+  const shouldHideOutline = forceHideOutline || isJoinedAttachedTerminalChild;
+  let outlineSizeClassName = useMetaControlStyle ? "outline-2" : "outline-4";
+  if (shouldHideOutline) {
+    outlineSizeClassName = "outline-0";
+  }
+  const themedHandleScopeClassName = hasSectionStyleTheme
+    ? "agentic-handle-scope--themed"
+    : "";
+  let joinedCornerClassName = "";
+  if (joinedCorners === "code-terminal-parent") {
+    joinedCornerClassName = "rounded-b-none";
+  } else if (isJoinedAttachedTerminalChild) {
+    joinedCornerClassName = "rounded-t-none";
+  }
+  const handleScopeClassName = omitAgenticHandleScopeClass
+    ? ""
+    : "agentic-handle-scope";
+  const shouldRenderAgenticEdgeHandles =
+    !hideAgenticEdgeHandles && !isAttachedTerminalChild;
+
+  // [transition:_outline-color_200ms_ease] [transition:_box-shadow_500ms_ease]
+  // {boxShadow}
   return (
     <section
-      className={`${sectionShellClassName} ${isActiveSection ? "z-[150]" : "z-10"}`}
+      className={`${handleScopeClassName} ${themedHandleScopeClassName} group/card-section transition-radius relative ${isActiveSection ? "z-[150]" : "z-10"} ${!positionAndSizeLocked ? "rounded-lg border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} ${joinedCornerClassName} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${scopeHighlightClassName} ${outlineClassName} ${sectionStyleChromeClassName}`}
       onClick={getOnSectionClick(sectionId)}
       ref={refForPosition}
       data-section-id={sectionId}
@@ -173,15 +204,9 @@ function _SectionContainerCore({
       data-section-active={isActiveSection ? "true" : "false"}
       style={sectionShellStyle}
     >
-      {shouldRenderChatSharedHandles ? (
-        <ChatSharedEdgeHandles isUserView={isUserView} />
-      ) : null}
-      {shouldRenderAgenticEdgeHandles ? (
+      {shouldRenderAgenticEdgeHandles && (
         <AgenticEdgeHandles isUserView={isUserView} />
-      ) : null}
-      {shouldRenderStateMachineEdgeHandles ? (
-        <StateMachineEdgeHandles isUserView={isUserView} />
-      ) : null}
+      )}
       <MinimizedDataEdgeHandles sectionId={sectionId} />
       <SectionContainerCoreResizable
         sectionId={sectionId}

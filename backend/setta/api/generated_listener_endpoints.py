@@ -64,9 +64,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     PromptSectionImplArgs,
     SocialSectionImplArgs,
     SpreadsheetSectionImplArgs,
-    StateMachineEndSectionImplArgs,
-    StateMachineGateSectionImplArgs,
-    StateMachineStartSectionImplArgs,
     TaskBoardSectionImplArgs,
     TerminalSectionImplArgs,
     TextBlockSectionImplArgs,
@@ -82,10 +79,7 @@ from setta.types.project_config import (
     Viewport,
     ViewportBounds,
     WatchCodeFolder,
-    WindowSpaceConfig,
-    WindowSpaceState,
 )
-from setta.types.project_state import ProjectChatWindowingState
 from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
@@ -97,7 +91,6 @@ from setta.types.section_impls import (
     SectionSize,
     SectionType,
     SpreadsheetGridDensity,
-    StateMachineGateType,
     TaskBoardColumn,
     TaskBoardTask,
     TaskBoardViewMode,
@@ -105,11 +98,6 @@ from setta.types.section_impls import (
     TextBlockFormat,
 )
 from setta.types.settings_state import RunSnapshotMode
-from setta.types.state_machine_edges import (
-    StateMachineEdge,
-    StateMachineSourceFilter,
-    StateMachineTargetAction,
-)
 
 
 class ListenerAcceptRenameRefactorRequestPayload(TypedDict):
@@ -228,22 +216,6 @@ class ListenerCreateNewSectionVariantRequestPayload(TypedDict):
     sectionId: ID
 
 
-class ListenerCreateStateMachineEdgeRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    id: NotRequired[ID | None]
-    machineGroupId: str
-    sourceSectionId: ID
-    sourcePortId: str
-    targetSectionId: ID
-    targetPortId: str
-    sourceFilter: NotRequired[StateMachineSourceFilter | None]
-    targetAction: NotRequired[StateMachineTargetAction | None]
-    style: NotRequired[dict[str, str | int | float] | None]
-    hidden: NotRequired[bool]
-    zIndex: NotRequired[int]
-
-
 class ListenerCreateTopLevelSectionRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -254,9 +226,6 @@ class ListenerCreateTopLevelSectionRequestPayload(TypedDict):
         | DictSectionImplArgs
         | ListRootSectionImplArgs
         | GroupSectionImplArgs
-        | StateMachineStartSectionImplArgs
-        | StateMachineGateSectionImplArgs
-        | StateMachineEndSectionImplArgs
         | ImageSectionImplArgs
         | ChartSectionImplArgs
         | DrawSectionImplArgs
@@ -278,7 +247,6 @@ class ListenerCreateTopLevelSectionRequestPayload(TypedDict):
         | None
     ]
     position: NotRequired[Position | None]
-    name: NotRequired[str | None]
     topLevelSections: NotRequired[dict[ID, TopLevelSectionLayout] | None]
     viewportBounds: NotRequired[ViewportBounds | None]
 
@@ -286,13 +254,6 @@ class ListenerCreateTopLevelSectionRequestPayload(TypedDict):
 class ListenerCreateViewModeRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
-
-
-class ListenerCreateWindowSpaceRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    state: WindowSpaceState
-    name: NotRequired[str | None]
 
 
 class ListenerDeclineRenameRefactorRequestPayload(TypedDict):
@@ -357,22 +318,10 @@ class ListenerDeleteSelectedParamsRequestPayload(TypedDict):
     paramInfoIds: list[ID]
 
 
-class ListenerDeleteStateMachineEdgesRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    edgeIds: list[ID]
-
-
 class ListenerDeleteViewModeRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     viewModeId: ID
-
-
-class ListenerDeleteWindowSpaceRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    windowSpaceId: ID
 
 
 class ListenerEmitChatStreamDeltaRequestPayload(TypedDict):
@@ -785,19 +734,6 @@ class ListenerSetParentDefaultChildSectionTypeRequestPayload(TypedDict):
     defaultChildSectionType: SectionType
 
 
-class ListenerSetProjectChatWindowChatIdRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    instanceId: ID
-    chatId: ID | None
-
-
-class ListenerSetProjectChatWindowingStateRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    state: ProjectChatWindowingState
-
-
 class ListenerSetProjectConfigCodegenTargetsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -946,22 +882,6 @@ class ListenerSetSpreadsheetSectionSettingsRequestPayload(TypedDict):
     autoReloadOnExternalChange: bool
 
 
-class ListenerSetStateMachineEdgesRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    edges: list[StateMachineEdge]
-
-
-class ListenerSetStateMachineSectionSettingsRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    machineGroupId: str
-    label: str
-    gateType: NotRequired[StateMachineGateType | None]
-    maxIterations: NotRequired[int | None]
-
-
 class ListenerSetTaskBoardSectionStateRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -1065,19 +985,6 @@ class ListenerSetWatchCodeInputsRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     watchCodeFolders: list[WatchCodeFolder]
     watchCodeFiles: list[str]
-
-
-class ListenerSetWindowSpaceNameRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    windowSpaceId: ID
-    name: str
-
-
-class ListenerSetWindowSpaceSortOrderRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    orderedWindowSpaceIds: list[ID]
 
 
 class ListenerTextFieldCompletionRequestPayload(TypedDict):
@@ -1198,12 +1105,6 @@ class ListenerUpdateParamImplConfigRequestPayload(TypedDict):
     newConfig: dict
 
 
-class ListenerUpdateStateMachineEdgeRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    edge: StateMachineEdge
-
-
 class RouterEndpointAPI:
     def __init__(self, caller: Callable[[str, object], Awaitable[object]]) -> None:
         self._caller = caller
@@ -1274,11 +1175,6 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_create_new_section_variant", payload)
 
-    async def create_state_machine_edge(
-        self, payload: ListenerCreateStateMachineEdgeRequestPayload
-    ) -> None:
-        return await self._caller("route_create_state_machine_edge", payload)
-
     async def create_top_level_section(
         self, payload: ListenerCreateTopLevelSectionRequestPayload
     ) -> CreateTopLevelSectionResponse:
@@ -1288,11 +1184,6 @@ class RouterEndpointAPI:
         self, payload: ListenerCreateViewModeRequestPayload
     ) -> str:
         return await self._caller("route_create_view_mode", payload)
-
-    async def create_window_space(
-        self, payload: ListenerCreateWindowSpaceRequestPayload
-    ) -> WindowSpaceConfig:
-        return await self._caller("route_create_window_space", payload)
 
     async def decline_rename_refactor(
         self, payload: ListenerDeclineRenameRefactorRequestPayload
@@ -1340,20 +1231,10 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_delete_selected_params", payload)
 
-    async def delete_state_machine_edges(
-        self, payload: ListenerDeleteStateMachineEdgesRequestPayload
-    ) -> None:
-        return await self._caller("route_delete_state_machine_edges", payload)
-
     async def delete_view_mode(
         self, payload: ListenerDeleteViewModeRequestPayload
     ) -> None:
         return await self._caller("route_delete_view_mode", payload)
-
-    async def delete_window_space(
-        self, payload: ListenerDeleteWindowSpaceRequestPayload
-    ) -> None:
-        return await self._caller("route_delete_window_space", payload)
 
     async def emit_chat_stream_delta(
         self, payload: ListenerEmitChatStreamDeltaRequestPayload
@@ -1627,16 +1508,6 @@ class RouterEndpointAPI:
             "route_set_parent_default_child_section_type", payload
         )
 
-    async def set_project_chat_window_chat_id(
-        self, payload: ListenerSetProjectChatWindowChatIdRequestPayload
-    ) -> ProjectChatWindowingState:
-        return await self._caller("route_set_project_chat_window_chat_id", payload)
-
-    async def set_project_chat_windowing_state(
-        self, payload: ListenerSetProjectChatWindowingStateRequestPayload
-    ) -> ProjectChatWindowingState:
-        return await self._caller("route_set_project_chat_windowing_state", payload)
-
     async def set_project_config_codegen_targets(
         self, payload: ListenerSetProjectConfigCodegenTargetsRequestPayload
     ) -> None:
@@ -1740,16 +1611,6 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_set_spreadsheet_section_settings", payload)
 
-    async def set_state_machine_edges(
-        self, payload: ListenerSetStateMachineEdgesRequestPayload
-    ) -> None:
-        return await self._caller("route_set_state_machine_edges", payload)
-
-    async def set_state_machine_section_settings(
-        self, payload: ListenerSetStateMachineSectionSettingsRequestPayload
-    ) -> None:
-        return await self._caller("route_set_state_machine_section_settings", payload)
-
     async def set_task_board_section_state(
         self, payload: ListenerSetTaskBoardSectionStateRequestPayload
     ) -> None:
@@ -1824,16 +1685,6 @@ class RouterEndpointAPI:
         self, payload: ListenerSetWatchCodeInputsRequestPayload
     ) -> None:
         return await self._caller("route_set_watch_code_inputs", payload)
-
-    async def set_window_space_name(
-        self, payload: ListenerSetWindowSpaceNameRequestPayload
-    ) -> None:
-        return await self._caller("route_set_window_space_name", payload)
-
-    async def set_window_space_sort_order(
-        self, payload: ListenerSetWindowSpaceSortOrderRequestPayload
-    ) -> None:
-        return await self._caller("route_set_window_space_sort_order", payload)
 
     async def text_field_completion(
         self, payload: ListenerTextFieldCompletionRequestPayload
@@ -1923,8 +1774,3 @@ class RouterEndpointAPI:
         self, payload: ListenerUpdateParamImplConfigRequestPayload
     ) -> None:
         return await self._caller("route_update_param_impl_config", payload)
-
-    async def update_state_machine_edge(
-        self, payload: ListenerUpdateStateMachineEdgeRequestPayload
-    ) -> None:
-        return await self._caller("route_update_state_machine_edge", payload)

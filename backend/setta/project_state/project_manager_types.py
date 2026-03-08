@@ -32,12 +32,8 @@ from setta.types.project_config import (
     Viewport,
     ViewportBounds,
     WatchCodeFolder,
-    WindowSpaceState,
 )
-from setta.types.project_state import (
-    ProjectChatWindowingState,
-    ProjectStateSingleConfig,
-)
+from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
@@ -50,7 +46,6 @@ from setta.types.section_impls import (
     SectionSize,
     SectionType,
     SpreadsheetGridDensity,
-    StateMachineGateType,
     TaskBoardColumn,
     TaskBoardTask,
     TaskBoardViewMode,
@@ -58,11 +53,6 @@ from setta.types.section_impls import (
     TextBlockFormat,
 )
 from setta.types.settings_state import RenameRefactorMode, RunSnapshotMode
-from setta.types.state_machine_edges import (
-    StateMachineEdge,
-    StateMachineSourceFilter,
-    StateMachineTargetAction,
-)
 from setta.utils.constants import C
 
 
@@ -362,10 +352,6 @@ class CreateTopLevelSectionRequest(ProjectManagerRequestWithProjectConfig):
         default=None,
         description="Canvas coordinates where the section should be placed.",
     )
-    name: str | None = Field(
-        default=None,
-        description="Optional initial section name to apply atomically at creation.",
-    )
     topLevelSections: dict[ID, TopLevelSectionLayout] | None = Field(
         default=None,
         description="Latest top-level section layout snapshot for smart placement.",
@@ -504,45 +490,6 @@ class DeleteViewModeRequest(ProjectManagerRequestWithProjectConfig):
 
     viewModeId: ID = Field(
         description="Identifier of the view mode to delete.",
-    )
-
-
-class CreateWindowSpaceRequest(ProjectManagerRequestWithProjectConfig):
-    """Create a saved window space from a floating-window snapshot."""
-
-    state: WindowSpaceState = Field(
-        description="Serialized floating-window arrangement to persist.",
-    )
-    name: str | None = Field(
-        default=None,
-        description="Optional initial display name for the saved window space.",
-    )
-
-
-class SetWindowSpaceNameRequest(ProjectManagerRequestWithProjectConfig):
-    """Rename a saved window space."""
-
-    windowSpaceId: ID = Field(
-        description="Identifier of the window space to rename.",
-    )
-    name: str = Field(
-        description="New display name for the window space.",
-    )
-
-
-class SetWindowSpaceSortOrderRequest(ProjectManagerRequestWithProjectConfig):
-    """Persist a full ordered list of window-space IDs."""
-
-    orderedWindowSpaceIds: list[ID] = Field(
-        description="Complete list of window-space IDs in desired order.",
-    )
-
-
-class DeleteWindowSpaceRequest(ProjectManagerRequestWithProjectConfig):
-    """Delete a saved window space."""
-
-    windowSpaceId: ID = Field(
-        description="Identifier of the window space to delete.",
     )
 
 
@@ -996,32 +943,6 @@ class SetAgenticEdgesRequest(ProjectManagerRequestWithProjectConfig):
     edges: list[AgenticEdge]
 
 
-class CreateStateMachineEdgeRequest(ProjectManagerRequestWithProjectConfig):
-    id: ID | None = None
-    machineGroupId: str
-    sourceSectionId: ID
-    sourcePortId: str
-    targetSectionId: ID
-    targetPortId: str
-    sourceFilter: StateMachineSourceFilter | None = None
-    targetAction: StateMachineTargetAction | None = None
-    style: dict[str, str | int | float] | None = None
-    hidden: bool = False
-    zIndex: int = 0
-
-
-class UpdateStateMachineEdgeRequest(ProjectManagerRequestWithProjectConfig):
-    edge: StateMachineEdge
-
-
-class DeleteStateMachineEdgesRequest(ProjectManagerRequestWithProjectConfig):
-    edgeIds: list[ID]
-
-
-class SetStateMachineEdgesRequest(ProjectManagerRequestWithProjectConfig):
-    edges: list[StateMachineEdge]
-
-
 class SetSectionVariantRequest(ProjectManagerRequestWithSectionVariant):
     """Swap a section to the specified variant."""
 
@@ -1200,13 +1121,6 @@ class SetSpreadsheetSectionSettingsRequest(ProjectManagerRequestWithSection):
     autoReloadOnExternalChange: bool
 
 
-class SetStateMachineSectionSettingsRequest(ProjectManagerRequestWithSection):
-    machineGroupId: str
-    label: str
-    gateType: StateMachineGateType | None = None
-    maxIterations: int | None = None
-
-
 class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):
     managed: bool
     engineConfigId: ID | None
@@ -1220,15 +1134,6 @@ class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):
 
 class SetChatSectionStateRequest(ProjectManagerRequestWithSection):
     state: ChatSectionState
-
-
-class SetProjectChatWindowingStateRequest(ProjectManagerRequestWithProjectConfig):
-    state: ProjectChatWindowingState
-
-
-class SetProjectChatWindowChatIdRequest(ProjectManagerRequestWithProjectConfig):
-    instanceId: ID
-    chatId: ID | None
 
 
 class GetChatSectionChatIdRequest(ProjectManagerRequestWithSection):
