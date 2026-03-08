@@ -35,6 +35,8 @@ export const GoHTTPRoutes = {
   repairLauncher: "/repairLauncher",
   removeLauncher: "/removeLauncher",
   updateLauncher: "/updateLauncher",
+  getAttachmentDownloadUrl: "/getAttachmentDownloadUrl",
+  getAttachmentDownloadUrls: "/getAttachmentDownloadUrls",
   binaryDownload: "/binary/{contentId}",
 } as const;
 

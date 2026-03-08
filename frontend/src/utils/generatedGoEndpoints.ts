@@ -245,6 +245,27 @@ export type UpdateLauncherRequestInput = {
   packageSpec?: string | null;
 };
 
+export type AttachmentDownloadUrlEntry = {
+  artifactId: string;
+  url: string;
+  expiresAt: number;
+};
+
+export type GetAttachmentDownloadUrlRequestInput = {
+  artifactId: string;
+  projectConfigId?: string | null;
+};
+
+export type GetAttachmentDownloadUrlResponse = {
+  url: string;
+  expiresAt: number;
+};
+
+export type GetAttachmentDownloadUrlsRequestInput = {
+  artifactIds: Array<string>;
+  projectConfigId?: string | null;
+};
+
 export async function route_get_backend_init_status(): Promise<ResponseDataAndStatus<BackendInitStatusResponse>> {
   return await get(GoHTTPRoutes.getBackendInitStatus);
 }
@@ -311,4 +332,12 @@ export async function route_remove_launcher(x: LauncherRequestBaseInput): Promis
 
 export async function route_update_launcher(x: UpdateLauncherRequestInput): Promise<ResponseDataAndStatus<LauncherUpdateResponse>> {
   return await post(GoHTTPRoutes.updateLauncher, x);
+}
+
+export async function route_get_attachment_download_url(x: GetAttachmentDownloadUrlRequestInput): Promise<ResponseDataAndStatus<GetAttachmentDownloadUrlResponse>> {
+  return await post(GoHTTPRoutes.getAttachmentDownloadUrl, x);
+}
+
+export async function route_get_attachment_download_urls(x: GetAttachmentDownloadUrlsRequestInput): Promise<ResponseDataAndStatus<Array<AttachmentDownloadUrlEntry>>> {
+  return await post(GoHTTPRoutes.getAttachmentDownloadUrls, x);
 }

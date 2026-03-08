@@ -127,6 +127,14 @@ func CurrentHTTPRoutes() []HTTPRoute {
 			Path: httpapi.RouteUpdateLauncher,
 		},
 		{
+			Name: "getAttachmentDownloadUrl",
+			Path: httpapi.RouteGetAttachmentDownloadURL,
+		},
+		{
+			Name: "getAttachmentDownloadUrls",
+			Path: httpapi.RouteGetAttachmentDownloadURLs,
+		},
+		{
 			Name: "binaryDownload",
 			Path: httpapi.RouteBinaryDownload,
 		},

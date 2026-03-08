@@ -16,10 +16,8 @@ import { addTemporaryNotification } from "state/actions/notifications";
 import { useAppConfigs, useShareSession } from "state/definitions";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { replaceAddressParams, res200 } from "utils/endpointUtils";
-import {
-  route_get_attachment_download_url,
-  route_run_code,
-} from "utils/generatedEndpoints";
+import { route_run_code } from "utils/generatedEndpoints";
+import { route_get_attachment_download_url } from "utils/generatedGoEndpoints";
 import { GoHTTPRoutes } from "utils/generatedGoRoutes";
 import type { AppDefinition, SharePolicy } from "utils/generatedTypes";
 import { normalizeActionDefinitions, resolveActionType } from "./appBindings";

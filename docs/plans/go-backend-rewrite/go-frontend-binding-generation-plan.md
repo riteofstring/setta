@@ -49,6 +49,8 @@ Start with explicit route ownership wedges, not full schema reflection.
     filesystem-root reads, directory listing, and open-workspace
   - current landed wedge: active launcher-management endpoint wrappers plus
     request/response types for launcher status/setup/repair/remove/update
+  - current landed wedge: active attachment download helper endpoint wrappers
+    plus request/response types for single and bulk attachment URL reads
 - keep schema reflection as a bounded tool, not the default owner
 
 ## Non-Goals
