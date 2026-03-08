@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -16,6 +17,33 @@ import (
 	"setta/internal/modes"
 	"setta/internal/projectstate"
 )
+
+type stubLSPAdminService struct {
+	restartDocument   *projectstate.Document
+	typeCheckDocument *projectstate.Document
+	typeCheckProject  string
+	restartErr        error
+	typeCheckErr      error
+}
+
+func (s *stubLSPAdminService) Restart(_ context.Context, document projectstate.Document) error {
+	if s.restartErr != nil {
+		return s.restartErr
+	}
+	cloned := document.Clone()
+	s.restartDocument = &cloned
+	return nil
+}
+
+func (s *stubLSPAdminService) TypeCheckProject(_ context.Context, document projectstate.Document, projectID string) error {
+	if s.typeCheckErr != nil {
+		return s.typeCheckErr
+	}
+	cloned := document.Clone()
+	s.typeCheckDocument = &cloned
+	s.typeCheckProject = projectID
+	return nil
+}
 
 // The diagnostics route should return the current project-scoped payload from
 // the Go-owned registry after validating that the project exists.
@@ -191,12 +219,149 @@ func TestRegisterLSPRoutesMutesCodeSectionDiagnostics(t *testing.T) {
 	}
 }
 
+// The current edit-menu restart action should now hit the Go-owned admin
+// surface and hand it the live project document set.
+func TestRegisterLSPRoutesRestartsLanguageServer(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := completionRouteTestRuntime(t)
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	admin := &stubLSPAdminService{}
+	handler := newLSPRouteTestHandlerWithAdmin(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{}),
+		nil,
+		admin,
+	)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteRestartLanguageServer, strings.NewReader("null"))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if admin.restartDocument == nil {
+		t.Fatal("expected restart admin call")
+	}
+	if _, ok := admin.restartDocument.Projects["project-alpha"]; !ok {
+		t.Fatalf("expected live project document, got %#v", admin.restartDocument.Projects)
+	}
+}
+
+// Manual type-check should target the requested project through the Go-owned
+// admin surface instead of the Python manager helper.
+func TestRegisterLSPRoutesTypeChecksProject(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := completionRouteTestRuntime(t)
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	admin := &stubLSPAdminService{}
+	handler := newLSPRouteTestHandlerWithAdmin(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{}),
+		nil,
+		admin,
+	)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteTypeCheck,
+		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if admin.typeCheckDocument == nil || admin.typeCheckProject != "project-alpha" {
+		t.Fatalf("expected type-check admin call for project-alpha, got %#v / %q", admin.typeCheckDocument, admin.typeCheckProject)
+	}
+}
+
+// Ignoring type errors should persist through the Go project-state runtime so
+// the existing context-menu caller no longer needs the Python helper route.
+func TestRegisterLSPRoutesSetsTypeErrorIgnore(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := completionRouteTestRuntime(t)
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	handler := newLSPRouteTestHandler(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{}),
+		nil,
+	)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetTypeErrorIgnore,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"callable-section","paramInfoId":"param-1","ignoreTypeErrors":true}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after set type error ignore: %v", err)
+	}
+	ignoreState, err := project.TypeErrorIgnoreStateForSection("callable-section")
+	if err != nil {
+		t.Fatalf("type error ignore state: %v", err)
+	}
+	if !ignoreState.Params["param-1"] {
+		t.Fatalf("expected param-1 ignore state, got %#v", ignoreState)
+	}
+}
+
 func newLSPRouteTestHandler(
 	t *testing.T,
 	mode config.Mode,
 	projectRuntime *projectstate.Runtime,
 	diagnostics *projectstate.LSPDiagnosticsRegistry,
 	completions *lspcompletion.Service,
+) http.Handler {
+	return newLSPRouteTestHandlerWithAdmin(
+		t,
+		mode,
+		projectRuntime,
+		diagnostics,
+		completions,
+		nil,
+	)
+}
+
+func newLSPRouteTestHandlerWithAdmin(
+	t *testing.T,
+	mode config.Mode,
+	projectRuntime *projectstate.Runtime,
+	diagnostics *projectstate.LSPDiagnosticsRegistry,
+	completions *lspcompletion.Service,
+	admin LSPAdminService,
 ) http.Handler {
 	t.Helper()
 
@@ -210,6 +375,9 @@ func newLSPRouteTestHandler(
 			t.Fatalf("new completion service: %v", err)
 		}
 	}
+	if mode == config.ModeIDE && admin == nil {
+		admin = &stubLSPAdminService{}
+	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -221,6 +389,7 @@ func newLSPRouteTestHandler(
 				ProjectState: projectRuntime,
 				Diagnostics:  diagnostics,
 				Completions:  completions,
+				Admin:        admin,
 			}); err != nil {
 				t.Fatalf("register lsp routes: %v", err)
 			}

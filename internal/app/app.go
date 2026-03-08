@@ -1494,6 +1494,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				ProjectState: projectRuntime,
 				Diagnostics:  lspDiagnostics,
 				Completions:  lspCompletion,
+				Admin:        projectLSPSyncer,
 			}); err != nil {
 				panic(err)
 			}

@@ -97,9 +97,9 @@ Primary sources used for this checklist:
 | Status | Capability | Notes |
 | --- | --- | --- |
 | Go-owned | LSP server/runtime ownership | `internal/lsp` owns language-server registration and runtime orchestration in the rewrite scope. |
-| Go-owned | Diagnostics/completion/signature help/watch-code/format/codegen/pythonenv helpers | `internal/lspcompletion`, `internal/lspsignature`, `internal/watchcode`, `internal/codeformat`, `internal/boundcode`, `internal/codegen`, and `internal/pythonenv` are Go-owned. |
+| Go-owned | Diagnostics/completion/signature help/watch-code/format/codegen/pythonenv helpers | `internal/lsp`, `internal/lspcompletion`, `internal/lspsignature`, `internal/watchcode`, `internal/codeformat`, `internal/boundcode`, `internal/codegen`, and `internal/pythonenv` now cover the active diagnostics/completion surface plus the current frontend-facing `typeCheck`, `restartLanguageServer`, and `setTypeErrorIgnore` helper routes. |
 | Go-owned | Run planning and run-chain runtime | `internal/runs` and `internal/runchains` own the active run/runtime orchestration slice. |
-| Python-owned | Legacy helper/admin execution surface | Python still owns the omitted helper/admin and detached transport surface such as `typeCheck`, `restartLanguageServer`, `setTypeErrorIgnore`, `runDetached`, and old CLI/python-script transports. |
+| Python-owned | Legacy helper/admin execution surface | Python still owns the omitted helper/admin and detached transport surface such as `runDetached`, `docstringToMarkdown`, `revealPathInOsFileExplorer`, and old CLI/python-script transports. |
 
 ## 7. MCP, app-spec, UI settings, and app generation
 

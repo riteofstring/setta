@@ -274,6 +274,45 @@ func (r *Router) SyncDocuments(ctx context.Context, desired map[string]SyncedDoc
 	return nil
 }
 
+func (r *Router) RefreshDocuments(ctx context.Context, documents map[string]SyncedDocument) error {
+	if r == nil || len(documents) == 0 {
+		return nil
+	}
+
+	desiredByLanguage := map[string]map[string]SyncedDocument{}
+	for path, document := range documents {
+		languageID := normalizeLanguageID(document.LanguageID)
+		if languageID == "" || !r.hasLanguage(languageID) {
+			continue
+		}
+		document.LanguageID = languageID
+		if desiredByLanguage[languageID] == nil {
+			desiredByLanguage[languageID] = map[string]SyncedDocument{}
+		}
+		desiredByLanguage[languageID][path] = document
+	}
+
+	languages := make([]string, 0, len(desiredByLanguage))
+	for languageID := range desiredByLanguage {
+		languages = append(languages, languageID)
+	}
+	slices.Sort(languages)
+
+	for _, languageID := range languages {
+		service, ok, err := r.serviceForLanguage(languageID)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			continue
+		}
+		if err := service.RefreshDocuments(ctx, desiredByLanguage[languageID]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (r *Router) UpsertDocument(ctx context.Context, document SyncedDocument) error {
 	if r == nil {
 		return nil

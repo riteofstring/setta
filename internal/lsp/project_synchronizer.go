@@ -25,6 +25,7 @@ type ProjectSynchronizerOptions struct {
 
 type documentSyncer interface {
 	SyncDocuments(context.Context, map[string]SyncedDocument) error
+	RefreshDocuments(context.Context, map[string]SyncedDocument) error
 	UpsertDocument(context.Context, SyncedDocument) error
 	Close(context.Context) error
 }
@@ -79,6 +80,32 @@ func (s *ProjectSynchronizer) MaterializeDocument(ctx context.Context, document 
 	return s.reconcileGeneratedDiagnosticsState(document)
 }
 
+func (s *ProjectSynchronizer) Restart(ctx context.Context, document projectstate.Document) error {
+	if s == nil {
+		return nil
+	}
+	if err := s.service.Close(ctx); err != nil {
+		return err
+	}
+	return s.MaterializeDocument(ctx, document)
+}
+
+func (s *ProjectSynchronizer) TypeCheckProject(ctx context.Context, document projectstate.Document, projectID string) error {
+	if s == nil {
+		return nil
+	}
+
+	project, err := document.ProjectByID(projectID)
+	if err != nil {
+		return err
+	}
+	documents, err := s.buildProjectDocuments(project)
+	if err != nil {
+		return err
+	}
+	return s.service.RefreshDocuments(ctx, documents)
+}
+
 func (s *ProjectSynchronizer) Close(ctx context.Context) error {
 	if s == nil {
 		return nil
@@ -127,41 +154,53 @@ func (s *ProjectSynchronizer) buildDocuments(document projectstate.Document) (ma
 
 	for _, projectID := range projectIDs {
 		project := document.Projects[projectID]
-
-		activeSectionFiles, err := project.ActiveCodeSectionFiles()
-		if err != nil {
-			return nil, fmt.Errorf("lsp: project %q active code sections: %w", projectID, err)
-		}
-		for _, sectionFile := range activeSectionFiles {
-			ignoreState, err := project.CodeSectionDiagnosticsIgnoreStateForSection(sectionFile.SectionID)
-			if err != nil {
-				return nil, err
-			}
-			path, err := statefs.ResolveWithinRoot(s.settaFilesRoot, sectionFile.Binding.Path, "code section path")
-			if err != nil {
-				return nil, err
-			}
-			content, err := s.resolveSectionContent(path, sectionFile)
-			if err != nil {
-				return nil, err
-			}
-			documents[path] = SyncedDocument{
-				Path:       path,
-				LanguageID: string(sectionFile.Language),
-				Content:    content,
-				Callback:   s.codeSectionDiagnosticsCallback(project.ID, sectionFile.SectionID, ignoreState),
-			}
-		}
-
-		generatedDocuments, err := s.generatedPythonDocuments(project)
+		projectDocuments, err := s.buildProjectDocuments(project)
 		if err != nil {
 			return nil, err
 		}
-		for path, document := range generatedDocuments {
-			documents[path] = document
+		for path, syncedDocument := range projectDocuments {
+			documents[path] = syncedDocument
 		}
 	}
 
+	return documents, nil
+}
+
+func (s *ProjectSynchronizer) buildProjectDocuments(project projectstate.Project) (map[string]SyncedDocument, error) {
+	documents := map[string]SyncedDocument{}
+
+	activeSectionFiles, err := project.ActiveCodeSectionFiles()
+	if err != nil {
+		return nil, fmt.Errorf("lsp: project %q active code sections: %w", project.ID, err)
+	}
+	for _, sectionFile := range activeSectionFiles {
+		ignoreState, err := project.CodeSectionDiagnosticsIgnoreStateForSection(sectionFile.SectionID)
+		if err != nil {
+			return nil, err
+		}
+		path, err := statefs.ResolveWithinRoot(s.settaFilesRoot, sectionFile.Binding.Path, "code section path")
+		if err != nil {
+			return nil, err
+		}
+		content, err := s.resolveSectionContent(path, sectionFile)
+		if err != nil {
+			return nil, err
+		}
+		documents[path] = SyncedDocument{
+			Path:       path,
+			LanguageID: string(sectionFile.Language),
+			Content:    content,
+			Callback:   s.codeSectionDiagnosticsCallback(project.ID, sectionFile.SectionID, ignoreState),
+		}
+	}
+
+	generatedDocuments, err := s.generatedPythonDocuments(project)
+	if err != nil {
+		return nil, err
+	}
+	for path, syncedDocument := range generatedDocuments {
+		documents[path] = syncedDocument
+	}
 	return documents, nil
 }
 

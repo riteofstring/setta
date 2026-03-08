@@ -14,6 +14,31 @@ import (
 	"setta/internal/statefs"
 )
 
+type recordingDocumentSyncer struct {
+	synced     map[string]SyncedDocument
+	refreshed  map[string]SyncedDocument
+	closeCalls int
+}
+
+func (s *recordingDocumentSyncer) SyncDocuments(_ context.Context, documents map[string]SyncedDocument) error {
+	s.synced = cloneSyncedDocuments(documents)
+	return nil
+}
+
+func (s *recordingDocumentSyncer) RefreshDocuments(_ context.Context, documents map[string]SyncedDocument) error {
+	s.refreshed = cloneSyncedDocuments(documents)
+	return nil
+}
+
+func (s *recordingDocumentSyncer) UpsertDocument(context.Context, SyncedDocument) error {
+	return nil
+}
+
+func (s *recordingDocumentSyncer) Close(context.Context) error {
+	s.closeCalls += 1
+	return nil
+}
+
 // The project synchronizer should write active Python code sections to their
 // canonical bindings, include generated Python outputs, and push the resulting
 // document set through the live LSP service.
@@ -468,6 +493,92 @@ func TestProjectSynchronizerClearsGeneratedMetadataDiagnosticsWhenMetadataDisabl
 	cleared := diagnostics.Snapshot("project-alpha")
 	if len(cleared.UnmappedGenCode) != 0 {
 		t.Fatalf("expected metadata diagnostics to clear, got %#v", cleared.UnmappedGenCode)
+	}
+}
+
+// Manual type-check should refresh the target project's tracked LSP documents
+// without replacing the whole tracked set.
+func TestProjectSynchronizerTypeCheckProjectRefreshesProjectDocuments(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := t.TempDir()
+	runtimeRoot := t.TempDir()
+	syncer := &recordingDocumentSyncer{}
+	synchronizer, err := NewProjectSynchronizer(ProjectSynchronizerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		RuntimeRoot:    runtimeRoot,
+		Service:        syncer,
+	})
+	if err != nil {
+		t.Fatalf("new project synchronizer: %v", err)
+	}
+
+	document, sectionPath, generatedPath, metadataPath := lspTestDocument(t, settaFilesRoot)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	materializePythonGeneratedFiles(t, ctx, settaFilesRoot, runtimeRoot, document)
+
+	if err := synchronizer.TypeCheckProject(ctx, document, "project-alpha"); err != nil {
+		t.Fatalf("type check project: %v", err)
+	}
+
+	if syncer.synced != nil {
+		t.Fatalf("expected type check to use refresh, got sync %#v", syncer.synced)
+	}
+	if len(syncer.refreshed) != 3 {
+		t.Fatalf("expected refreshed project documents, got %#v", syncer.refreshed)
+	}
+	if _, ok := syncer.refreshed[sectionPath]; !ok {
+		t.Fatalf("expected section path %q in refresh set", sectionPath)
+	}
+	if _, ok := syncer.refreshed[generatedPath]; !ok {
+		t.Fatalf("expected generated path %q in refresh set", generatedPath)
+	}
+	if _, ok := syncer.refreshed[metadataPath]; !ok {
+		t.Fatalf("expected metadata path %q in refresh set", metadataPath)
+	}
+}
+
+// Manual restart should close existing sessions before re-materializing the
+// current tracked document set.
+func TestProjectSynchronizerRestartClosesBeforeRematerializing(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := t.TempDir()
+	runtimeRoot := t.TempDir()
+	syncer := &recordingDocumentSyncer{}
+	synchronizer, err := NewProjectSynchronizer(ProjectSynchronizerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		RuntimeRoot:    runtimeRoot,
+		Service:        syncer,
+	})
+	if err != nil {
+		t.Fatalf("new project synchronizer: %v", err)
+	}
+
+	document, sectionPath, generatedPath, metadataPath := lspTestDocument(t, settaFilesRoot)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	materializePythonGeneratedFiles(t, ctx, settaFilesRoot, runtimeRoot, document)
+
+	if err := synchronizer.Restart(ctx, document); err != nil {
+		t.Fatalf("restart synchronizer: %v", err)
+	}
+
+	if syncer.closeCalls != 1 {
+		t.Fatalf("expected one close call before restart, got %d", syncer.closeCalls)
+	}
+	if len(syncer.synced) != 3 {
+		t.Fatalf("expected rematerialized sync set, got %#v", syncer.synced)
+	}
+	if _, ok := syncer.synced[sectionPath]; !ok {
+		t.Fatalf("expected section path %q in rematerialized set", sectionPath)
+	}
+	if _, ok := syncer.synced[generatedPath]; !ok {
+		t.Fatalf("expected generated path %q in rematerialized set", generatedPath)
+	}
+	if _, ok := syncer.synced[metadataPath]; !ok {
+		t.Fatalf("expected metadata path %q in rematerialized set", metadataPath)
 	}
 }
 

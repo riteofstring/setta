@@ -631,6 +631,54 @@ func (s *Service) SyncDocuments(ctx context.Context, desired map[string]SyncedDo
 	return nil
 }
 
+func (s *Service) RefreshDocuments(ctx context.Context, desired map[string]SyncedDocument) error {
+	if s == nil || len(desired) == 0 {
+		return nil
+	}
+	if err := s.session.Start(ctx); err != nil {
+		return err
+	}
+
+	s.mu.Lock()
+	current := cloneSyncedDocuments(s.tracked)
+	s.mu.Unlock()
+
+	for _, path := range sortedDocumentPaths(desired) {
+		doc := desired[path]
+		existing, ok := current[path]
+		switch {
+		case !ok:
+			if err := s.session.OpenDocument(ctx, path, doc.LanguageID, doc.Content, doc.Callback); err != nil {
+				return err
+			}
+		case existing.LanguageID != doc.LanguageID:
+			if err := s.session.CloseDocument(path); err != nil {
+				return err
+			}
+			if err := s.session.OpenDocument(ctx, path, doc.LanguageID, doc.Content, doc.Callback); err != nil {
+				return err
+			}
+		default:
+			if err := s.session.SetDiagnosticsCallback(path, doc.Callback); err != nil {
+				return err
+			}
+			if err := s.session.UpdateDocument(ctx, path, doc.Content); err != nil {
+				return err
+			}
+		}
+	}
+
+	s.mu.Lock()
+	if s.tracked == nil {
+		s.tracked = map[string]SyncedDocument{}
+	}
+	for path, doc := range desired {
+		s.tracked[path] = doc
+	}
+	s.mu.Unlock()
+	return nil
+}
+
 func (s *Service) UpsertDocument(ctx context.Context, document SyncedDocument) error {
 	if s == nil {
 		return nil

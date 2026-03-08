@@ -98,8 +98,8 @@ Primary sources used for this checklist:
 | Complete | Watch-code runtime and transport | `internal/watchcode` owns the current watch-code runtime plus `setWatchCodeEnabled` and `setWatchCodeInputs`. |
 | Complete | LSP diagnostics and completion surface | Go owns text-field, output-accessor, code-area, prefix/suffix completion, diagnostics reads, and diagnostics mute/suppression routes. |
 | Complete | Plugin-defined code-language routing for LSP | Go owns language-aware routing for plugin-defined `Code` sections in the current caller-backed scope. |
-| Missing | LSP/admin helper routes still used by the current frontend | Edit-menu and shortcut flows still call Python-owned `typeCheck` and `restartLanguageServer`; Go does not register those HTTP endpoints today. |
-| Missing | Type-error ignore HTTP route still used by the current frontend | The type-error context menu still POSTs Python-owned `setTypeErrorIgnore`; Go exposes the bounded write only as the MCP tool `set_type_error_ignore`, not as a legacy HTTP route. |
+| Complete | LSP/admin helper routes used by the current frontend | Edit-menu and shortcut flows now reach Go-owned `typeCheck` and `restartLanguageServer`, backed by the Go LSP project-synchronizer refresh/restart surface. |
+| Complete | Type-error ignore HTTP route used by the current frontend | The type-error context menu now POSTs Go-owned `setTypeErrorIgnore`, and the existing project-state save hooks rematerialize Go-owned codegen/LSP state after the mutation. |
 | Missing | Password/subprocess helper routes still used by the current frontend | Param inputs and stop-code flows still call Python-owned `getPasswordParamValue` and `killSubprocesses`; Go does not register those HTTP endpoints today. |
 | Missing | Large tail of direct HTTP project-graph and section-config mutations from Python | Child-section creation/deletion, edge and agentic-edge mutation, copy/paste/group-orientation/group/ungroup/move/undo/redo flows, section-variant create/delete/select/default/name/sort/frozen and JSON-source-key mutation, param entered-value/order/selection/indent/update and kwarg helpers, prompt/codegen-prefix-suffix and code-object naming/display/file-binding/attached-terminal helpers, section sizing/filter/meta-control-title/edge-IO/group-overflow/list-root/parent-default-child/column-width helpers, and text-block display/format, browser view/search/column, spreadsheet, task-board, chart, image, and social/link mutations are still current-frontend callers but do not have direct Go HTTP routes. |
 | Missing | Input-area and JSON-source file helpers still used by the current frontend | Current callers still use Python-owned `createFile` and `deleteJsonSourceFileAndVariant`. |
@@ -188,12 +188,8 @@ callers.
   - `getAppCatalog`
   - `streamAppSpec`
 - Helper/admin routes:
-  - `restartLanguageServer`
-  - `typeCheck`
   - `docstringToMarkdown`
   - `revealPathInOsFileExplorer`
-- Type-error helper route:
-  - `setTypeErrorIgnore`
 - Python-era websocket route shapes still used by the current frontend:
   - deployment/share/app terminal websocket path `/{projectConfigId}/{sectionId}/{id}`
 - Attachment URL helper routes:

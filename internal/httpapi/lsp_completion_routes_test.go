@@ -275,6 +275,7 @@ func newCompletionRouteTestHandler(
 				ProjectState: projectRuntime,
 				Diagnostics:  projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{}),
 				Completions:  completions,
+				Admin:        &stubLSPAdminService{},
 			}); err != nil {
 				t.Fatalf("register lsp routes: %v", err)
 			}
