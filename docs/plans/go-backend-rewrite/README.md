@@ -448,12 +448,16 @@ Use the docs in this order:
   - focused completed-slice doc for the bounded external-agent send-time
     prompt gap: agent-profile system prompt plus app-generation-mode prompt
     shaping over the completed Go runtime/executor boundary
-138. `spike-mcp.md`
+138. `phase-12-external-agent-attachment-payload-parity.md`
+  - focused implementation-plan doc for the bounded remaining external-agent
+    attachment gap: payload shaping plus the minimal token-backed download
+    transport required by external-agent URLs
+139. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-139. `spike-pty.md`
+140. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-140. `spike-lsp.md`
+141. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

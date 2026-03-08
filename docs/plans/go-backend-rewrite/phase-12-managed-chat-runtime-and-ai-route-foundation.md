@@ -69,7 +69,7 @@ Current repo status as of 2026-03-09:
   surface:
   - only any residual external-agent product-visible gap that may still remain
     after the now-landed Codex/OpenCode/Claude parity, Codex raw tool-item,
-    and prompt/app-generation follow-on slices
+    prompt/app-generation, and the remaining attachment-payload follow-on
 - current work is no longer pure planning/inventory:
   - the hydration read path is implemented in Go
   - the active runtime, stop route, approval/question routes, send-route
@@ -88,6 +88,8 @@ Current repo status as of 2026-03-09:
   - the bounded external-agent prompt/app-generation follow-on in
     `phase-12-external-agent-prompt-and-app-generation-parity.md` is now
     complete
+  - the attempted final reassessment found one more bounded attachment gap
+    tracked in `phase-12-external-agent-attachment-payload-parity.md`
 
 ## Scope
 
@@ -217,7 +219,7 @@ Missing Go owners:
 
 - only any still-user-facing residual external-agent runtime behavior that
   proves to be missing after the now-landed Codex/OpenCode/Claude parity,
-  Codex raw tool-item, and prompt/app-generation slices
+  Codex raw tool-item, prompt/app-generation, and attachment-payload slices
 - any remaining external-agent websocket/event streaming closeout only if the
   current frontend UX still depends on behavior not covered by the landed
   persisted/live chat path

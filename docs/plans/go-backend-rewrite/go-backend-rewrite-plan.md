@@ -110,16 +110,26 @@ landed:
   inputs now reach Go-owned external runs with Go-owned normalization and typed
   validation
 
-That returns the remaining Phase 12 work to final inventory/closeout. If that
-reassessment finds no other concrete product-visible gap, Phase 12 is
-effectively complete for the external-agent surface.
+The attempted final reassessment found one more concrete Phase 12 gap:
+external-agent attachment payload shaping is still incomplete in Go. The
+current next step is the bounded follow-on tracked in
+`phase-12-external-agent-attachment-payload-parity.md`:
+
+- external-agent runs must build `attachmentText`,
+  `attachmentTextNoImages`, and `attachmentUrls` from chat message
+  attachments
+- Go must expose the token-backed attachment download route required by those
+  external-agent URLs
+
+If that slice lands cleanly and no other concrete product-visible gap remains,
+Phase 12 is effectively complete for the external-agent surface.
 
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are
 already locked in practice by the current Go implementation. The PTY runtime
 shape is also proven, but the PTY library choice still has a bounded Unix-path
-follow-up tracked in `spike-pty.md`. New work should start from the final
-Phase 12 external-agent reassessment above the completed hydration, runtime,
+follow-up tracked in `spike-pty.md`. New work should start from the remaining
+concrete Phase 12 attachment gap above the completed hydration, runtime,
 executor, parity, and prompt-composition foundations, not by reopening
 completed foundation choices.
 

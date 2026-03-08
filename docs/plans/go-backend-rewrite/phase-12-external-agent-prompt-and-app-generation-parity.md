@@ -66,9 +66,9 @@ Resolved by this slice:
 
 Still missing after this slice:
 
-- only final Phase 12 inventory/closeout work to determine whether any
-  concrete external-agent product-visible gap still remains after the landed
-  runtime, executor, parity, and prompt-composition slices
+- the attempted final Phase 12 inventory found one more concrete
+  external-agent product-visible gap in attachment payload shaping, tracked in
+  `phase-12-external-agent-attachment-payload-parity.md`
 
 ## Scope
 
@@ -143,8 +143,9 @@ This slice delivered:
    prompt text where applicable.
 3. Added focused tests proving external prompt composition and input
    validation.
-4. Returned the remaining Phase 12 work to final closeout/inventory rather
-   than another known external-agent runtime slice.
+4. Returned the remaining Phase 12 work to final closeout/inventory, which then
+   identified the bounded attachment-payload follow-on instead of another
+   executor/runtime rewrite.
 
 ## Verification
 
@@ -164,13 +165,13 @@ This slice delivered:
 
 ## Open Questions
 
-- whether any concrete product-visible external-agent prompt gap still remains
-  after restoring profile-system-prompt delivery and app-generation prompt
-  shaping
-  - recommendation: answer this with the final Phase 12 inventory/closeout
-    pass rather than widening prompt construction speculatively
+- whether any concrete product-visible external-agent gap still remains after
+  restoring profile-system-prompt delivery and app-generation prompt shaping
+  - answer: yes, attachment payload shaping remains missing and is now tracked
+    in `phase-12-external-agent-attachment-payload-parity.md`
 
 ## Next Recommended Step
 
-- run the final Phase 12 external-agent inventory/closeout pass and only open
-  another slice if that reassessment finds a concrete user-facing gap
+- land the bounded external-agent attachment follow-on tracked in
+  `phase-12-external-agent-attachment-payload-parity.md`, then rerun the final
+  Phase 12 closeout/inventory pass
