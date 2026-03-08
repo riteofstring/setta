@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -71,12 +72,267 @@ func TestRegisterAgentProfileRoutesReturnsEmptyList(t *testing.T) {
 	}
 }
 
-func TestRegisterAgentProfileRoutesBlocksShareMode(t *testing.T) {
+func TestRegisterAgentProfileRoutesCreatesProfile(t *testing.T) {
+	t.Parallel()
+
+	store := newAgentProfileRouteTestStore(t)
+	handler := newAgentProfileRouteTestHandler(t, config.ModeIDE, store)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteCreateAgentProfile,
+		strings.NewReader(`{"name":"Planner","description":"Planning profile","systemPrompt":"Plan tasks","enableBackgroundSummaryFill":true,"enableLlmChatTitles":true,"engineConfigId":"engine-1","toolAllowlist":["tool.a"],"memoryScope":"workspace"}`),
+	)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var created agentprofiles.Profile
+	if err := json.Unmarshal(response.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode created profile: %v", err)
+	}
+	if created.ID == "" {
+		t.Fatalf("expected created profile id, got %#v", created)
+	}
+	if created.Name != "Planner" || created.SystemPrompt != "Plan tasks" {
+		t.Fatalf("unexpected created profile %#v", created)
+	}
+	if created.ToolAllowlist == nil || len(created.ToolAllowlist) != 1 || created.ToolAllowlist[0] != "tool.a" {
+		t.Fatalf("expected created tool allowlist to roundtrip, got %#v", created)
+	}
+
+	persisted, err := store.Get(created.ID)
+	if err != nil {
+		t.Fatalf("load persisted profile: %v", err)
+	}
+	if persisted.Name != "Planner" || persisted.Description != "Planning profile" {
+		t.Fatalf("unexpected persisted profile %#v", persisted)
+	}
+}
+
+func TestRegisterAgentProfileRoutesUpdatesProfile(t *testing.T) {
+	t.Parallel()
+
+	store := newAgentProfileRouteTestStore(t)
+	if err := store.Write([]agentprofiles.Profile{
+		newAgentProfileRouteTestProfile("profile-1", "Planner"),
+	}); err != nil {
+		t.Fatalf("write profiles: %v", err)
+	}
+
+	handler := newAgentProfileRouteTestHandler(t, config.ModeIDE, store)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteUpdateAgentProfile,
+		strings.NewReader(`{"profile":{"id":"profile-1","name":"Planner v2","description":"Updated profile","systemPrompt":"Plan better","enableBackgroundSummaryFill":true,"enableLlmChatTitles":true,"engineConfigId":"engine-2","toolAllowlist":["tool.b"],"memoryScope":"project"}}`),
+	)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var updated agentprofiles.Profile
+	if err := json.Unmarshal(response.Body.Bytes(), &updated); err != nil {
+		t.Fatalf("decode updated profile: %v", err)
+	}
+	if updated.ID != "profile-1" || updated.Name != "Planner v2" {
+		t.Fatalf("unexpected updated profile %#v", updated)
+	}
+	if updated.MemoryScope == nil || *updated.MemoryScope != "project" {
+		t.Fatalf("expected updated memory scope, got %#v", updated)
+	}
+
+	persisted, err := store.Get("profile-1")
+	if err != nil {
+		t.Fatalf("load updated profile: %v", err)
+	}
+	if persisted.Name != "Planner v2" || persisted.SystemPrompt != "Plan better" {
+		t.Fatalf("unexpected persisted updated profile %#v", persisted)
+	}
+}
+
+func TestRegisterAgentProfileRoutesDeletesProfile(t *testing.T) {
+	t.Parallel()
+
+	store := newAgentProfileRouteTestStore(t)
+	if err := store.Write([]agentprofiles.Profile{
+		newAgentProfileRouteTestProfile("profile-1", "Planner"),
+	}); err != nil {
+		t.Fatalf("write profiles: %v", err)
+	}
+
+	handler := newAgentProfileRouteTestHandler(t, config.ModeIDE, store)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteDeleteAgentProfile,
+		strings.NewReader(`{"profileId":"profile-1"}`),
+	)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	profiles, err := store.List()
+	if err != nil {
+		t.Fatalf("list profiles after delete: %v", err)
+	}
+	if len(profiles) != 0 {
+		t.Fatalf("expected no profiles after delete, got %#v", profiles)
+	}
+}
+
+func TestRegisterAgentProfileRoutesReturnsNotFoundForMissingProfile(t *testing.T) {
+	t.Parallel()
+
+	store := newAgentProfileRouteTestStore(t)
+	handler := newAgentProfileRouteTestHandler(t, config.ModeIDE, store)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteUpdateAgentProfile,
+		strings.NewReader(`{"profile":{"id":"missing-profile","name":"Missing"}}`),
+	)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "agent_profile_not_found" {
+		t.Fatalf("expected agent_profile_not_found, got %#v", payload)
+	}
+}
+
+func TestRegisterAgentProfileRoutesReturnsNotFoundForDeletingMissingProfile(t *testing.T) {
+	t.Parallel()
+
+	store := newAgentProfileRouteTestStore(t)
+	handler := newAgentProfileRouteTestHandler(t, config.ModeIDE, store)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteDeleteAgentProfile,
+		strings.NewReader(`{"profileId":"missing-profile"}`),
+	)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "agent_profile_not_found" {
+		t.Fatalf("expected agent_profile_not_found, got %#v", payload)
+	}
+}
+
+func TestRegisterAgentProfileRoutesRejectsInvalidJSON(t *testing.T) {
+	t.Parallel()
+
+	store := newAgentProfileRouteTestStore(t)
+	handler := newAgentProfileRouteTestHandler(t, config.ModeIDE, store)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteCreateAgentProfile, strings.NewReader(`{"name"`))
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "invalid_json" {
+		t.Fatalf("expected invalid_json, got %#v", payload)
+	}
+}
+
+func TestRegisterAgentProfileRoutesRejectMissingProfilePayloads(t *testing.T) {
+	t.Parallel()
+
+	store := newAgentProfileRouteTestStore(t)
+	handler := newAgentProfileRouteTestHandler(t, config.ModeIDE, store)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteUpdateAgentProfile, strings.NewReader(`{}`))
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "agent_profile_required" {
+		t.Fatalf("expected agent_profile_required, got %#v", payload)
+	}
+}
+
+func TestRegisterAgentProfileRoutesRejectMissingName(t *testing.T) {
+	t.Parallel()
+
+	store := newAgentProfileRouteTestStore(t)
+	handler := newAgentProfileRouteTestHandler(t, config.ModeIDE, store)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteCreateAgentProfile, strings.NewReader(`{"name":"   "}`))
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "agent_profile_name_required" {
+		t.Fatalf("expected agent_profile_name_required, got %#v", payload)
+	}
+}
+
+func TestRegisterAgentProfileRoutesRejectMissingDeleteProfileID(t *testing.T) {
+	t.Parallel()
+
+	store := newAgentProfileRouteTestStore(t)
+	handler := newAgentProfileRouteTestHandler(t, config.ModeIDE, store)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteDeleteAgentProfile, strings.NewReader(`{}`))
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "profile_id_required" {
+		t.Fatalf("expected profile_id_required, got %#v", payload)
+	}
+}
+
+func TestRegisterAgentProfileRoutesBlocksShareModeForCRUD(t *testing.T) {
 	t.Parallel()
 
 	store := newAgentProfileRouteTestStore(t)
 	handler := newAgentProfileRouteTestHandler(t, config.ModeShare, store)
-	request := httptest.NewRequest(http.MethodGet, "/api"+RouteGetAgentProfiles, nil)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteCreateAgentProfile, strings.NewReader(`{"name":"Planner"}`))
 	response := httptest.NewRecorder()
 
 	handler.ServeHTTP(response, request)

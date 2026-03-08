@@ -102,9 +102,6 @@ Closeout rerun after the landing:
 - the Go route intentionally stays IDE-gated for the current bounded settings
   surface even though Python exposed the read more broadly
 - the current remaining direct frontend Python-owned agentic routes are:
-  - `POST /createAgentProfile`
-  - `POST /updateAgentProfile`
-  - `POST /deleteAgentProfile`
   - `POST /createExternalAgentConfig`
   - `POST /updateExternalAgentConfig`
   - `POST /deleteExternalAgentConfig`
@@ -216,7 +213,9 @@ This slice delivered:
 
 - the engine-config update follow-up is now landed in
   `phase-13-engine-config-update-transport.md`
-- open the next bounded Phase 13 doc around agent-profile CRUD transport over
-  the already-landed Go agent-profile store
-- keep the external-agent-config and transcription-profile CRUD clusters
-  separate unless a dependency forces them to combine
+- the agent-profile CRUD follow-up is now landed in
+  `phase-13-agent-profile-crud-transport.md`
+- open the next bounded Phase 13 doc around transcription-profile CRUD
+  transport over the already-landed Go transcription-profile owner
+- keep external-agent-config CRUD separate because it still carries the larger
+  settings-file and plugin/preflight side-effect surface

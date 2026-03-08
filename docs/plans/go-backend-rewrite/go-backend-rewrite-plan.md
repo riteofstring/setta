@@ -202,10 +202,6 @@ The next bounded post-Phase-13 slice tracked in
 - richer Python-only plugin/env-var/cache preflight semantics remain deferred
   instead of being silently bundled into this read slice
 - the current remaining direct frontend Python-owned agentic routes are:
-  - `GET /getTranscriptionProfiles`
-  - `POST /createAgentProfile`
-  - `POST /updateAgentProfile`
-  - `POST /deleteAgentProfile`
   - `POST /createExternalAgentConfig`
   - `POST /updateExternalAgentConfig`
   - `POST /deleteExternalAgentConfig`
@@ -224,9 +220,6 @@ The next bounded post-Phase-13 slice tracked in
   surface instead of preserving Python's broader read exposure without a
   concrete caller
 - the current remaining direct frontend Python-owned agentic routes are:
-  - `POST /createAgentProfile`
-  - `POST /updateAgentProfile`
-  - `POST /deleteAgentProfile`
   - `POST /createExternalAgentConfig`
   - `POST /updateExternalAgentConfig`
   - `POST /deleteExternalAgentConfig`
@@ -248,9 +241,6 @@ landed:
   surface instead of preserving Python's broader read exposure without a
   concrete caller
 - the current remaining direct frontend Python-owned agentic routes are:
-  - `POST /createAgentProfile`
-  - `POST /updateAgentProfile`
-  - `POST /deleteAgentProfile`
   - `POST /createExternalAgentConfig`
   - `POST /updateExternalAgentConfig`
   - `POST /deleteExternalAgentConfig`
@@ -269,9 +259,26 @@ The next bounded post-Phase-13 slice tracked in
   because the current direct callers already update local state from the
   mutation response
 - the current remaining direct frontend Python-owned agentic routes are:
+  - `POST /createExternalAgentConfig`
+  - `POST /updateExternalAgentConfig`
+  - `POST /deleteExternalAgentConfig`
+  - `POST /createTranscriptionProfile`
+  - `POST /updateTranscriptionProfile`
+  - `POST /deleteTranscriptionProfile`
+
+The next bounded post-Phase-13 slice tracked in
+`phase-13-agent-profile-crud-transport.md` is now landed:
+
+- Go now owns:
   - `POST /createAgentProfile`
   - `POST /updateAgentProfile`
   - `POST /deleteAgentProfile`
+- the frontend now mutates agent-profile state through Go-owned CRUD routes
+  over the landed `internal/agentprofiles.Store`
+- watcher and websocket fan-out remain intentionally deferred because the
+  current Python route handlers do not broadcast directly and the current
+  frontend callers already update local state from the mutation response
+- the current remaining direct frontend Python-owned agentic routes are:
   - `POST /createExternalAgentConfig`
   - `POST /updateExternalAgentConfig`
   - `POST /deleteExternalAgentConfig`
@@ -290,10 +297,11 @@ summary-cache-status transport; both are landed. Prompt-template CRUD is also
 now landed. External-agent config plus health hydration is also landed.
 Engine-config hydration transport is now also landed. Transcription-profile
 hydration transport is now also landed. Engine-config update transport is now
-also landed. The next bounded post-Phase-13 priority is agent-profile CRUD
-transport, because it is the smallest remaining direct frontend write cluster
-over an already-landed Go file store and it avoids pulling external-agent or
-transcription-specific validation into the next slice.
+also landed. Agent-profile CRUD transport is now also landed. The next bounded
+post-Phase-13 priority is transcription-profile CRUD transport, because it is
+the smallest remaining direct frontend write cluster over an already-landed Go
+owner while external-agent-config writes still carry the larger settings-file
+and plugin/preflight side-effect surface.
 
 ## Current Reality
 

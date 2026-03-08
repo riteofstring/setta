@@ -158,7 +158,9 @@ This slice delivered:
 
 ## Next Recommended Step
 
-- open the next bounded Phase 13 doc around agent-profile CRUD transport over
-  the already-landed Go agent-profile store
-- keep the external-agent-config and transcription-profile CRUD clusters
-  separate unless a dependency forces them to combine
+- the agent-profile CRUD follow-up is now landed in
+  `phase-13-agent-profile-crud-transport.md`
+- open the next bounded Phase 13 doc around transcription-profile CRUD
+  transport over the already-landed Go transcription-profile owner
+- keep external-agent-config CRUD separate because it still carries the larger
+  settings-file and plugin/preflight side-effect surface

@@ -494,12 +494,17 @@ Use the docs in this order:
     Go-owned `POST /updateEngineConfig` transport over the landed
     `internal/agentruns.EngineStore`, with websocket fan-out intentionally
     deferred
-149. `spike-mcp.md`
+149. `phase-13-agent-profile-crud-transport.md`
+  - focused completed-slice doc for the bounded agent-profile write gap:
+    Go-owned `create/update/delete` agent-profile transport over the landed
+    `internal/agentprofiles.Store`, with watcher/realtime work intentionally
+    deferred
+150. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-150. `spike-pty.md`
+151. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-151. `spike-lsp.md`
+152. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

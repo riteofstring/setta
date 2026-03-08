@@ -2,7 +2,8 @@
 
 ## Purpose
 
-This doc records the next bounded post-Phase-13 slice and its landing plan.
+This doc records the landed bounded post-Phase-13 slice for agent-profile CRUD
+transport.
 
 The prior Phase 13 slices cleared the direct frontend hydration-read backlog,
 prompt-template CRUD, and engine-config update transport. The next
@@ -34,7 +35,7 @@ Completed before this slice:
 
 Concrete dependency that triggered this slice:
 
-- direct frontend callers still use:
+- direct frontend callers used:
   - `createAgentProfile(...)`
   - `updateAgentProfile(...)`
   - `deleteAgentProfile(...)`
@@ -43,7 +44,7 @@ Concrete dependency that triggered this slice:
   - `frontend/src/state/actions/ai.ts`
 - the frontend action layer already updates local AI state directly from the
   mutation response
-- Python still owns the three routes in `backend/setta/routers/agentic.py`
+- Python owned the three routes in `backend/setta/routers/agentic.py`
 - Go already owns the canonical `agent_profiles.json` store in
   `internal/agentprofiles/store.go`
 
@@ -67,14 +68,17 @@ Current Python behavior relevant to this slice:
 - unlike several other Python settings routes, these route handlers do not
   broadcast a websocket update directly
 
-Current Go behavior relevant to this slice:
+Current Go behavior after this slice:
 
 - `internal/agentprofiles.Store` already owns:
   - file path resolution for `agent_profiles.json`
   - strict decode and normalization
-  - list/get/write operations
+  - list/get/write/create/update/delete operations
 - Go already owns `GET /getAgentProfiles`
-- Go does not yet own create/update/delete transport
+- Go now owns:
+  - `POST /createAgentProfile`
+  - `POST /updateAgentProfile`
+  - `POST /deleteAgentProfile`
 
 Current frontend behavior relevant to scoping:
 
@@ -85,7 +89,7 @@ Current frontend behavior relevant to scoping:
 
 ## Scope
 
-This slice should deliver:
+This slice delivered:
 
 - thin Go transport for:
   - `POST /createAgentProfile`
@@ -163,10 +167,10 @@ This slice should deliver:
 
 ## Decisions Made
 
-- this slice needs a focused doc first because it introduces a three-route
+- this slice needed a focused doc first because it introduced a three-route
   write cluster and an explicit defer decision for watcher/realtime work
-- reuse the landed Go agent-profile store directly instead of inventing a
-  larger agent-profile service boundary for one CRUD cluster
+- keep agent-profile write ownership in `Store` with bounded create/update/delete
+  helpers instead of inventing a larger agent-profile service boundary
 - keep `getAgentProfile` and engine-config referential validation out of scope
   because no current direct frontend caller requires them for this slice
 
@@ -179,7 +183,7 @@ This slice should deliver:
 
 ## Next Recommended Step
 
-- land this bounded agent-profile CRUD slice first
-- after closeout, re-rank the remaining direct frontend CRUD clusters instead
-  of assuming external-agent-config and transcription-profile writes should
-  move together
+- open the next bounded Phase 13 doc around transcription-profile CRUD
+  transport over the already-landed Go transcription-profile owner
+- keep external-agent-config CRUD separate because it still carries the larger
+  settings-file and plugin/preflight side-effect surface

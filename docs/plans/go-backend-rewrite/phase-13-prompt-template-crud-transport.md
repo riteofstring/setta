@@ -91,9 +91,6 @@ Closeout rerun after the landing:
 - the transcription-profile hydration follow-up is now landed in
   `phase-13-transcription-profile-read-transport-and-capability-owner.md`
 - the remaining direct frontend Python-owned agentic routes are currently:
-  - `POST /createAgentProfile`
-  - `POST /updateAgentProfile`
-  - `POST /deleteAgentProfile`
   - `POST /createExternalAgentConfig`
   - `POST /updateExternalAgentConfig`
   - `POST /deleteExternalAgentConfig`
@@ -221,5 +218,7 @@ This slice delivered:
   `phase-13-transcription-profile-read-transport-and-capability-owner.md`
 - the engine-config update follow-up is now landed in
   `phase-13-engine-config-update-transport.md`
-- the next bounded direct frontend dependency is agent-profile CRUD transport
-  over the already-landed Go agent-profile store
+- the agent-profile CRUD follow-up is now landed in
+  `phase-13-agent-profile-crud-transport.md`
+- the next bounded direct frontend dependency is transcription-profile CRUD
+  transport over the already-landed Go transcription-profile owner

@@ -86,9 +86,6 @@ Closeout rerun after the landing:
 - a later closeout audit after the prompt-template CRUD landing corrected an
   earlier stale inventory in this doc
 - the current remaining direct frontend Python-owned agentic routes are:
-  - `POST /createAgentProfile`
-  - `POST /updateAgentProfile`
-  - `POST /deleteAgentProfile`
   - `POST /createExternalAgentConfig`
   - `POST /updateExternalAgentConfig`
   - `POST /deleteExternalAgentConfig`
@@ -105,9 +102,6 @@ Closeout rerun after the landing:
 
 Remaining Python-owned agentic routes outside this slice:
 
-- `POST /createAgentProfile`
-- `POST /updateAgentProfile`
-- `POST /deleteAgentProfile`
 - `POST /createExternalAgentConfig`
 - `POST /updateExternalAgentConfig`
 - `POST /deleteExternalAgentConfig`
@@ -216,7 +210,10 @@ This slice delivered:
   `phase-13-transcription-profile-read-transport-and-capability-owner.md`
 - the engine-config update follow-up is now landed in
   `phase-13-engine-config-update-transport.md`
-- open the next bounded Phase 13 doc around agent-profile CRUD transport
+- the agent-profile CRUD follow-up is now landed in
+  `phase-13-agent-profile-crud-transport.md`
+- open the next bounded Phase 13 doc around transcription-profile CRUD
+  transport
 - keep `getAgentProfile`, `getAgentRun`, `getPromptTemplate`,
   `getExternalAgentConfig`, and `getEngineConfig` deferred until a concrete
   caller makes one of them higher leverage than the remaining direct frontend

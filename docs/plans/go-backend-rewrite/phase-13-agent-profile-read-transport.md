@@ -129,5 +129,9 @@ This slice delivered:
 
 - the follow-up prompt-template slice is now landed in
   `phase-13-prompt-template-read-transport.md`
-- the next bounded dependency after that landing is now
-  summary-cache-status ownership
+- the summary-cache-status follow-up is now landed in
+  `phase-13-agentic-summary-cache-status-transport-and-owner.md`
+- the agent-profile CRUD follow-up is now landed in
+  `phase-13-agent-profile-crud-transport.md`
+- the next bounded dependency for the remaining direct settings writes is now
+  transcription-profile CRUD transport

@@ -19,6 +19,7 @@ const (
 
 var (
 	ErrRootRequired    = errors.New("agent profiles root is required")
+	ErrInvalidProfile  = errors.New("invalid agent profile")
 	ErrProfileNotFound = errors.New("agent profile not found")
 )
 
@@ -124,6 +125,75 @@ func (s *Store) Write(profiles []Profile) error {
 	return nil
 }
 
+func (s *Store) Create(profile Profile) (Profile, error) {
+	if s == nil || strings.TrimSpace(s.path) == "" {
+		return Profile{}, ErrRootRequired
+	}
+
+	normalizedProfile, err := normalizeSingleProfile(profile)
+	if err != nil {
+		return Profile{}, err
+	}
+	profiles, err := s.List()
+	if err != nil {
+		return Profile{}, err
+	}
+	profiles = append(profiles, normalizedProfile)
+	if err := s.Write(profiles); err != nil {
+		return Profile{}, err
+	}
+	return cloneProfile(normalizedProfile), nil
+}
+
+func (s *Store) Update(profile Profile) (Profile, error) {
+	if s == nil || strings.TrimSpace(s.path) == "" {
+		return Profile{}, ErrRootRequired
+	}
+
+	normalizedProfile, err := normalizeSingleProfile(profile)
+	if err != nil {
+		return Profile{}, err
+	}
+	profiles, err := s.List()
+	if err != nil {
+		return Profile{}, err
+	}
+	for index, existing := range profiles {
+		if existing.ID != normalizedProfile.ID {
+			continue
+		}
+		profiles[index] = normalizedProfile
+		if err := s.Write(profiles); err != nil {
+			return Profile{}, err
+		}
+		return cloneProfile(normalizedProfile), nil
+	}
+	return Profile{}, fmt.Errorf("%w: %q", ErrProfileNotFound, normalizedProfile.ID)
+}
+
+func (s *Store) Delete(profileID string) error {
+	if s == nil || strings.TrimSpace(s.path) == "" {
+		return ErrRootRequired
+	}
+
+	trimmedProfileID := strings.TrimSpace(profileID)
+	if trimmedProfileID == "" {
+		return fmt.Errorf("%w: profile id is required", ErrProfileNotFound)
+	}
+	profiles, err := s.List()
+	if err != nil {
+		return err
+	}
+	for index, profile := range profiles {
+		if profile.ID != trimmedProfileID {
+			continue
+		}
+		profiles = append(profiles[:index], profiles[index+1:]...)
+		return s.Write(profiles)
+	}
+	return fmt.Errorf("%w: %q", ErrProfileNotFound, trimmedProfileID)
+}
+
 func decodeProfiles(content []byte) ([]Profile, error) {
 	trimmedContent := bytes.TrimSpace(content)
 	if len(trimmedContent) == 0 {
@@ -170,16 +240,28 @@ func decodeProfile(content []byte, index int) (Profile, error) {
 }
 
 func normalizeProfile(profile Profile, index int) (Profile, error) {
+	label := "agent profile"
+	if index >= 0 {
+		label = fmt.Sprintf("agent profile %d", index)
+	}
 	if strings.TrimSpace(profile.ID) == "" {
-		return Profile{}, fmt.Errorf("agent profile %d id is required", index)
+		return Profile{}, fmt.Errorf("%s id is required", label)
 	}
 	if strings.TrimSpace(profile.Name) == "" {
-		return Profile{}, fmt.Errorf("agent profile %d name is required", index)
+		return Profile{}, fmt.Errorf("%s name is required", label)
 	}
 
 	normalized := cloneProfile(profile)
 	if normalized.ToolAllowlist == nil {
 		normalized.ToolAllowlist = []string{}
+	}
+	return normalized, nil
+}
+
+func normalizeSingleProfile(profile Profile) (Profile, error) {
+	normalized, err := normalizeProfile(profile, -1)
+	if err != nil {
+		return Profile{}, fmt.Errorf("%w: %v", ErrInvalidProfile, err)
 	}
 	return normalized, nil
 }
