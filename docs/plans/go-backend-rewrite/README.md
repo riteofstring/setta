@@ -699,8 +699,9 @@ Use the docs in this order:
     reranking project-shell routes ahead of git and dormant listener/run
     transport
 191. `phase-19-project-shell-route-cluster-plan.md`
-  - focused current-work plan for Go-owned project-shell load, rename,
-    notification, save, and project lifecycle transport over the landed
+  - focused current-work plan for the landed project-shell read plus rename /
+    notification slices and the remaining save / lifecycle transport over the
+    landed
     `projectstate` and `projectview` foundations
 192. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record

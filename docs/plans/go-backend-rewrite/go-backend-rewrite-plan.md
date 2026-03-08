@@ -187,12 +187,25 @@ The first Phase 19 slice is now landed for project-shell read ownership:
 - thin `internal/httpapi` transport plus real IDE app wiring and focused
   service/route/app coverage
 
-The current highest-leverage next step inside Phase 19 is now the bounded
-rename and notification slice:
+The second Phase 19 slice is now landed for project-shell rename and
+notification ownership:
 
 - `POST /setProjectConfigName`
 - `POST /getNotifications`
 - `POST /deleteNotification`
+- explicit `internal/projectstate` project-name validation/mutation with trim,
+  reserved-name rejection, and slug-collision rejection
+- explicit `internal/notifications` persisted read/delete ownership
+- real IDE app websocket `UpdateFrontendProjectState` plus
+  `AllProjectMetadata` rename broadcasts for the active shell caller
+
+The current highest-leverage next step inside Phase 19 is now the remaining
+project lifecycle slice:
+
+- `POST /saveProject`
+- `POST /createProjectConfig`
+- `POST /saveAsNewProjectConfig`
+- `POST /deleteProjectConfigs`
 
 The current bounded Go-owned Phase 12 surface now includes:
 

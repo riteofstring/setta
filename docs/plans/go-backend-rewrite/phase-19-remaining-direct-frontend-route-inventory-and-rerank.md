@@ -33,6 +33,18 @@ Question this inventory answers:
 - after the landed Phase 18 closeout, which remaining Python-owned direct
   frontend route cluster should become the next Go rewrite phase?
 
+Update after the initial Phase 19 execution:
+
+- Slice 1 is now landed for:
+  - `POST /loadAllProjectMetadata`
+  - `POST /loadProjectConfig`
+- Slice 2 is now landed for:
+  - `POST /setProjectConfigName`
+  - `POST /getNotifications`
+  - `POST /deleteNotification`
+- the selected project-shell phase remains correct, but its remaining bounded
+  gap is now the save/create/save-as/delete lifecycle slice
+
 ## Inputs
 
 - `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md`
@@ -119,10 +131,7 @@ Current Go foundations already in place:
 
 What is still missing:
 
-- a Go owner for project-shell load metadata/config reads
 - a Go owner for project lifecycle mutations across create/save/save-as/delete
-  and rename
-- an explicit notification persistence/read/delete owner
 - a delete-time terminal cleanup hook above the landed terminal runtime
 
 Implication:

@@ -27,9 +27,15 @@ Current repo status as of 2026-03-10:
   - deterministic document-level project lookup by config name with explicit
     ambiguity rejection
   - thin `internal/httpapi` transport and real IDE app wiring
+- Slice 2 is now landed:
+  - Go-owned `POST /setProjectConfigName`
+  - Go-owned `POST /getNotifications`
+  - Go-owned `POST /deleteNotification`
+  - explicit `internal/projectstate` project-name validation/mutation helper
+  - explicit `internal/notifications` persisted store/service
+  - real IDE app websocket metadata/project-state rename broadcast plus focused
+    service/route/app coverage
 - the current Phase 19 gap is now narrower:
-  - rename ownership
-  - notification read/delete ownership
   - later save/create/save-as/delete lifecycle ownership
 
 ## Scope
@@ -99,6 +105,11 @@ Go needs an explicit owner above `projectstate.Registry` that can:
 - save the current main document on demand
 - rename/create/clone/delete project configs
 
+Status:
+
+- landed for read and rename ownership
+- still missing the later create/save/save-as/delete lifecycle slice
+
 Recommendation:
 
 - add a dedicated `internal/projectshell` service instead of broadening
@@ -114,6 +125,12 @@ yet expose explicit helpers for:
 - delete project configs
 - rename project config with validation
 
+Status:
+
+- rename helper is now landed through explicit
+  `internal/projectstate.Document.SetProjectName(...)`
+- create/clone/delete helpers are still missing
+
 Recommendation:
 
 - add focused `internal/projectstate` helpers where the behavior is truly
@@ -126,6 +143,11 @@ Recommendation:
 The frontend still calls `getNotifications` and `deleteNotification`, but the
 landed Go runtime only broadcasts websocket notifications; it does not own a
 persisted notification store yet.
+
+Status:
+
+- landed through a dedicated `internal/notifications` JSON store/service and
+  thin project-shell transport
 
 Recommendation:
 
@@ -224,7 +246,42 @@ Why this is next:
 
 Status:
 
-- current next step
+- complete
+
+Completed:
+
+- added explicit `internal/projectstate` project-name validation/mutation with:
+  - trim/format validation
+  - reserved-name rejection
+  - slug-based collision rejection
+- added explicit `internal/notifications` persisted store/service for:
+  - project-scoped reads
+  - idempotent delete
+- added thin `internal/httpapi` transport for:
+  - `POST /setProjectConfigName`
+  - `POST /getNotifications`
+  - `POST /deleteNotification`
+- wired real IDE app ownership for:
+  - persisted rename through the main `projectstate.Runtime`
+  - websocket `UpdateFrontendProjectState` and `AllProjectMetadata` broadcasts
+    after rename
+  - persisted notification reads/deletes under `setta_files/notifications.json`
+- added focused tests in:
+  - `internal/projectstate`
+  - `internal/notifications`
+  - `internal/projectshell`
+  - `internal/httpapi`
+  - `internal/app`
+
+Decisions made:
+
+- keep project-name validation as document/source-of-truth logic in
+  `internal/projectstate`, not route-local string checking
+- keep persisted notifications outside project-state documents and websocket
+  transport
+- keep rename error transport thin, but preserve a direct `detail` payload for
+  invalid project-name responses because the current caller reads that field
+  directly
 
 ### Slice 3: Save and project lifecycle mutations
 
@@ -287,16 +344,22 @@ Rationale:
 - this keeps persistence separate from websocket transport and project-state
   mutations
 
+Status:
+
+- answered and landed in Slice 2
+
 ## Current Recommendation
 
 - Slice 1 is landed
-- implement Slice 2 next:
-  - `POST /setProjectConfigName`
-  - `POST /getNotifications`
-  - `POST /deleteNotification`
-- do not broaden immediately into save/delete/create until the rename and
-  notification owner exists
+- Slice 2 is landed
+- implement Slice 3 next:
+  - `POST /saveProject`
+  - `POST /createProjectConfig`
+  - `POST /saveAsNewProjectConfig`
+  - `POST /deleteProjectConfigs`
+- keep delete-time cleanup explicit instead of reaching into terminal internals
+  from routes
 
 ## Verification
 
-- `./scripts/go.sh test ./internal/projectstate ./internal/projectshell ./internal/httpapi ./internal/app -run 'Test(DocumentProjectIDByName|ServiceLoad(AllProjectMetadataReturnsDefaultAndSortedMetadata|ProjectConfig(LoadsByName|ReturnsProjectNotFound|RejectsAmbiguousName))|RegisterProjectShellRoutes(ReturnsAllProjectMetadata|LoadsProjectConfigByName|ReturnsNotFoundForMissingProjectConfig|BlocksLauncherMode)|AppServesProjectShellReadRoutes)' -count=1`
+- `./scripts/go.sh test ./internal/projectstate ./internal/notifications ./internal/projectshell ./internal/httpapi ./internal/app -run 'Test(DocumentSetProjectName|StoreListByProjectAndDelete|Service(Get|SetProjectConfigName|Load)|RegisterProjectShellRoutes|AppServesProjectShell|AppSetProjectConfigNameRouteBroadcastsProjectAndMetadataUpdates)' -count=1`
