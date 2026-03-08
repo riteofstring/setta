@@ -376,6 +376,21 @@ That remaining runtime-only surface is now tracked in
 - run-chain remains a separate later runtime decision instead of being bundled
   into the first follow-on slice
 
+The bounded follow-on tracked in
+`phase-14-managed-agent-start-stop-runtime-and-transport.md` is now landed:
+
+- Go now owns:
+  - `POST /startAgentRun`
+  - `POST /stopAgentRun`
+- managed active-run registry, cancellation, and transport ownership now live
+  in Go over the existing managed-run service foundations
+- the route is intentionally managed-only in Go and rejects
+  external-agent-backed profiles instead of preserving Python's hybrid
+  dispatch behavior
+- the remaining Python-owned agentic runtime mutation surface is now only:
+  - `POST /startRunChain`
+  - `POST /stopRunChain`
+
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are
 already locked in practice by the current Go implementation. The PTY runtime
@@ -385,8 +400,8 @@ real callers and product dependencies, not by reopening the completed
 external-agent runtime or Phase 13 settings surfaces. The next bounded priority
 is no longer inventory or transport cleanup; those are now complete. The next
 bounded priority should only be chosen after an explicit product/runtime
-decision identifies whether the remaining managed-agent or run-chain Python
-runtime surface still matters.
+decision identifies whether the remaining run-chain Python runtime surface
+still matters.
 
 ## Current Reality
 

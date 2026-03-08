@@ -19,17 +19,24 @@ Completed before this slice:
 - Phase 14 broad runtime-mutation planning in
   `phase-14-managed-agent-and-run-chain-runtime-mutation-plan.md`
 
-Current Go state before this slice:
+Current Go state after this slice:
 
-- `internal/agentruns.Service`
-  - owns managed run context building, persisted lifecycle events, and
-    completion-oriented execution through an injected executor
-  - does not yet expose an active runtime owner or cancellation registry
+- `internal/agentruns`
+  - now includes a managed active-run runtime owner over the existing
+    completion-oriented service
+  - now shares managed run start, completion, and cancellation persistence
+    through the existing `Service` source-of-truth instead of duplicating that
+    logic in transport
 - `internal/httpapi/agent_run_routes.go`
-  - owns only `GET /getAgentRuns` and `POST /getAgentRun`
+  - now owns:
+    - `GET /getAgentRuns`
+    - `POST /getAgentRun`
+    - `POST /startAgentRun`
+    - `POST /stopAgentRun`
 - `internal/app.App`
-  - wires a managed run service in IDE mode
-  - currently leaves that service disabled until a real executor is wired
+  - now wires the managed runtime in IDE mode
+  - still leaves that runtime disabled in real app behavior until a provider
+    executor is wired
 
 Current Python behavior relevant to this slice:
 
@@ -43,7 +50,7 @@ Current Python behavior relevant to this slice:
 
 ## Scope
 
-This slice should cover:
+This slice delivered:
 
 - explicit Go managed active-run runtime above `internal/agentruns.Service`
 - thin Go transport for:
@@ -80,62 +87,67 @@ This slice should cover:
 - `internal/app/app.go`
 - `internal/app/app_test.go`
 
-## Recommended Design
+## Implementation Notes
 
-1. Add a bounded managed active-run runtime in `internal/agentruns`.
-   - keep it above the completion-oriented `Service`
-   - own:
-     - active run registry
-     - cancellation handles
-     - asynchronous completion cleanup
+1. `internal/agentruns.Service` now splits its managed execution flow into
+   package-local prepare, execute, and cancel helpers.
+   - the new runtime reuses that source-of-truth for persisted `run_started`,
+     `snapshot`, `run_completed`, `run_failed`, and `run_cancelled` behavior
 
-2. Refactor the managed service only enough to support that runtime.
-   - keep context building, lifecycle persistence, and executor invocation
-     source-of-truth in `Service`
-   - avoid duplicating system-prompt, engine-resolution, or persistence logic
-     inside route handlers or runtime glue
+2. `internal/agentruns.Runtime` now owns:
+   - active run registry
+   - per-run cancellation contexts
+   - async completion cleanup
+   - wait-for-run test support
 
-3. Keep `startAgentRun` managed-only in Go.
-   - load the profile in transport or a thin owner above transport
-   - reject profiles whose engine resolves to `EngineType.external_agent`
-   - do not preserve Python's hybrid dispatch behavior
+3. `POST /startAgentRun` is now managed-only in Go.
+   - the route loads the profile from the landed Go profile store
+   - profiles whose engine resolves to `EngineType.external_agent` now fail
+     explicitly instead of tunneling through the external-agent runtime
 
-4. Keep transport thin in `internal/httpapi/agent_run_routes.go`.
-   - strict JSON decode
-   - explicit required-field validation
-   - clear status mapping for:
-     - missing profile
-     - missing run
-     - disabled managed runtime
-     - unsupported engine type
+4. `POST /stopAgentRun` now delegates only to the managed runtime.
+   - active runs are cancelled immediately
+   - persisted running runs also transition to cancelled deterministically
+   - completed/failed/cancelled runs are returned unchanged
 
-5. Keep the real app honest.
-   - wire the managed runtime in IDE mode even before a real executor exists
-   - return `503` from start/stop when managed execution is still disabled in
-     production wiring
+5. Real app wiring stays honest.
+   - IDE app assembly now constructs the managed runtime
+   - start/stop still return `503` in production wiring until a real executor
+     exists, which matches the current disabled managed-run service state
 
-## Verification Targets
+## Verification
 
-- `./scripts/go.sh test ./internal/agentruns -run 'Runtime|Service' -count=1`
-- `./scripts/go.sh test ./internal/httpapi -run 'AgentRun|StartAgentRun|StopAgentRun' -count=1`
-- `./scripts/go.sh test ./internal/app -run 'AgentRun|ManagedAgentRun' -count=1`
+- `./scripts/go.sh test ./internal/agentruns ./internal/httpapi -run 'AgentRun|Runtime|Service' -count=1`
+- `./scripts/go.sh test ./internal/app -run 'ManagedAgentRun|AgentRun' -count=1`
+
+## Decisions Made
+
+- keep managed `start/stopAgentRun` Go-owned and managed-only
+- reject external-agent-backed profiles on this route instead of preserving the
+  Python hybrid dispatch path
+- wire the managed runtime in the real IDE app now, even though it remains
+  disabled without a provider executor
+- keep run-chain entirely out of scope for this slice
 
 ## Open Questions
 
-- whether the managed runtime should eventually expose wait/shutdown helpers for
-  future app lifecycle integration; current recommendation is yes for tests and
-  bounded cleanup, but not to broaden this slice into full app shutdown
-  orchestration
 - whether a future provider-backed executor should land here or in a later
   bounded follow-on; current recommendation is later
+- whether run-chain still has a real caller after this managed start/stop
+  landing, or whether it should remain deferred indefinitely
 
 ## Progress Notes
 
 - 2026-03-09: opened the first focused executable Phase 14 slice for managed
   `start/stopAgentRun` over the landed managed-run service foundations.
+- 2026-03-09: landed `internal/agentruns.Runtime` as the first Go-owned
+  managed active-run owner above the completion-oriented service.
+- 2026-03-09: landed thin Go transport for `POST /startAgentRun` and
+  `POST /stopAgentRun` with focused route coverage and explicit
+  external-agent-engine rejection.
 
 ## Next Recommended Step
 
-- land the bounded managed runtime owner plus thin `start/stopAgentRun`
-  transport
-- keep run-chain deferred until this slice is complete
+- treat managed `start/stopAgentRun` as complete for the current bounded scope
+- do not open run-chain automatically; require an explicit caller or product
+  decision before reopening `POST /startRunChain` and `POST /stopRunChain`

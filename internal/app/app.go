@@ -61,6 +61,7 @@ type App struct {
 	binaryStore   *binarypayload.Store
 	runCode       *runs.Service
 	agentRuns     *agentruns.Service
+	agentRuntime  *agentruns.Runtime
 	websocketHub  *realtime.WebsocketHub
 	listeners     *realtime.ListenerBroadcaster
 	lspSync       *lsp.ProjectSynchronizer
@@ -137,6 +138,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		llmRuntime            *llmconfig.Runtime
 		engineStore           *agentruns.EngineStore
 		agentRunStore         *agentruns.RunStore
+		agentRunRuntime       *agentruns.Runtime
 		externalConfigStore   *externalagentconfigs.Store
 		externalConfigService *externalagentconfigs.Service
 		externalPreflight     externalagentconfigs.Checker
@@ -587,6 +589,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
+		agentRunRuntime, err = agentruns.NewRuntime(agentruns.RuntimeOptions{
+			Service: agentRunService,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
 		externalAgentFollow, err = externalagents.NewFollowService(externalagents.FollowServiceOptions{
 			Tools:        mcpClient,
 			TemporaryIDs: temporaryIDs,
@@ -972,7 +981,9 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			}
 			if err := httpapi.RegisterAgentRunRoutes(r, httpapi.AgentRunRouteDependencies{
 				ModePolicy: modePolicy,
+				Profiles:   agentProfileStore,
 				Runs:       agentRunStore,
+				Managed:    agentRunRuntime,
 			}); err != nil {
 				panic(err)
 			}
@@ -1015,6 +1026,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		binaryStore:   binaryStore,
 		runCode:       runCodeService,
 		agentRuns:     agentRunService,
+		agentRuntime:  agentRunRuntime,
 		websocketHub:  websocketHub,
 		listeners:     listenerBroadcaster,
 		lspSync:       projectLSPSyncer,
@@ -1076,6 +1088,10 @@ func (a *App) RunCode() *runs.Service {
 
 func (a *App) AgentRuns() *agentruns.Service {
 	return a.agentRuns
+}
+
+func (a *App) ManagedAgentRuntime() *agentruns.Runtime {
+	return a.agentRuntime
 }
 
 func (a *App) WebsocketHub() *realtime.WebsocketHub {

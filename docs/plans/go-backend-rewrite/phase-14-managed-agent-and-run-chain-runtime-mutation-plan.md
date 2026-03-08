@@ -6,7 +6,7 @@ This doc scopes the remaining Python-owned agentic mutation surface after the
 Phase 13 transport closeout.
 
 At this point, the rewrite no longer has a hidden hydration or settings
-transport gap. The remaining routes are runtime-owned mutations:
+transport gap. The remaining runtime-shaped follow-on surface originally was:
 
 - `POST /startAgentRun`
 - `POST /stopAgentRun`
@@ -26,10 +26,8 @@ Completed before this plan:
 - Phase 13 direct hydration, settings mutation, dormant single-item read, and
   persisted agent-run read transport ownership
 
-Current Python-owned surface:
+Current Python-owned surface after the landed managed follow-on:
 
-- `POST /startAgentRun`
-- `POST /stopAgentRun`
 - `POST /startRunChain`
 - `POST /stopRunChain`
 
@@ -56,9 +54,10 @@ Current Go foundations already landed:
 
 What is still missing in Go:
 
-- a managed-agent active runtime with start/stop ownership
 - a run-chain runtime owner that composes child managed/external runs
-- transport for the four remaining mutation routes above
+- transport for:
+  - `POST /startRunChain`
+  - `POST /stopRunChain`
 
 ## Inputs
 
@@ -145,6 +144,14 @@ These are related, but they are not the same slice:
 Trying to land both together would broaden scope immediately into orchestration
 and cross-runtime cancellation.
 
+Later outcome:
+
+- the user explicitly requested that runtime work proceed
+- that led to the bounded follow-on now landed in
+  `phase-14-managed-agent-start-stop-runtime-and-transport.md`
+- Go now owns managed `POST /startAgentRun` and `POST /stopAgentRun`
+- the only remaining Python-owned runtime mutation surface is now run-chain
+
 ### 4. No concrete caller currently forces this work
 
 The prior inventory still holds:
@@ -155,17 +162,15 @@ The prior inventory still holds:
 
 ## Recommended Design
 
-### Slice A: managed-agent start/stop runtime, only if a caller/product decision reopens it
+### Slice A: managed-agent start/stop runtime
 
-Recommended first executable follow-on:
+Later outcome:
 
-- add an explicit managed active runtime in Go above `internal/agentruns`
-- own:
+- landed in `phase-14-managed-agent-start-stop-runtime-and-transport.md`
+- Go now owns:
   - `POST /startAgentRun`
   - `POST /stopAgentRun`
-- keep the route scope to managed `EngineType.setta_llm`
-- reject profiles backed by `EngineType.external_agent` instead of preserving
-  Python's hybrid dispatch behavior
+- that route remains managed-only and rejects external-agent-backed profiles
 
 Recommended owner shape:
 
@@ -192,7 +197,7 @@ Non-goals for Slice A:
 - run-chain orchestration
 - broad managed chat/runtime parity with Python `AgentRunner`
 
-### Slice B: run-chain runtime, only after Slice A and only if still needed
+### Slice B: run-chain runtime, only if still needed
 
 Recommended second executable follow-on, if the product still needs it:
 
@@ -246,12 +251,10 @@ Open design questions for that future slice:
 
 ## Open Questions
 
-- whether any current product flow still needs managed `start/stopAgentRun`
-  outside MCP `run_agent_profile`
 - whether run-chain still has a real caller or is purely dormant legacy
   surface
-- whether the first future executable slice should be docs-only until a caller
-  appears, or whether the user wants the managed runtime reopened proactively
+- whether a future run-chain slice still needs both managed and external-agent
+  step types in the clean-break Go design
 
 ## Verification
 
@@ -261,8 +264,6 @@ Open design questions for that future slice:
 
 - treat this Phase 14 plan as the current handoff for the remaining runtime
   mutation surface
-- do not open implementation work here automatically without a caller or
+- treat managed `start/stopAgentRun` as complete for the current bounded scope
+- do not open run-chain implementation automatically without a caller or
   explicit product/runtime decision
-- runtime work is now explicitly reopened through
-  `phase-14-managed-agent-start-stop-runtime-and-transport.md`
-- keep run-chain out of scope until that first managed runtime owner exists

@@ -100,6 +100,8 @@ var bareRouteNames = map[string]struct{}{
 	bareRouteName(RouteGetLLMResponse):                          {},
 	bareRouteName(RouteGetAgentRun):                             {},
 	bareRouteName(RouteGetAgentRuns):                            {},
+	bareRouteName(RouteStartAgentRun):                           {},
+	bareRouteName(RouteStopAgentRun):                            {},
 	bareRouteName(RouteGetExternalAgentChat):                    {},
 	bareRouteName(RouteGetAIFollowSnapshot):                     {},
 	bareRouteName(RouteStopExternalAgentRun):                    {},

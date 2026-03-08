@@ -529,7 +529,7 @@ Use the docs in this order:
     managed `start/stopAgentRun` before any run-chain work and to avoid
     reintroducing external-agent compatibility through that route
 157. `phase-14-managed-agent-start-stop-runtime-and-transport.md`
-  - focused executable slice doc for the first bounded Phase 14 follow-on:
+  - focused completed-slice doc for the first bounded Phase 14 follow-on:
     Go-owned managed `start/stopAgentRun` runtime and transport over the
     landed managed-run service foundations, with external-agent dispatch and
     run-chain kept out of scope

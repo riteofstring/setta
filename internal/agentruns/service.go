@@ -22,6 +22,7 @@ var (
 	ErrManagedExecutorUnavailable  = errors.New("managed agent executor is not available")
 	ErrProfileEngineConfigRequired = errors.New("agent profile missing engine config id")
 	ErrManagedLLMEngineRequired    = errors.New("managed agent runs require a Setta LLM engine config")
+	ErrInvalidRunInput             = errors.New("invalid agent run input")
 )
 
 type TemporaryIDs interface {
@@ -132,31 +133,49 @@ func (s *Service) Disabled() bool {
 }
 
 func (s *Service) RunSubAgent(ctx context.Context, profile agentprofiles.Profile, inputs map[string]any) (Run, error) {
+	prepared, err := s.prepareRun(profile, inputs)
+	if err != nil {
+		return Run{}, err
+	}
+	return s.executeRun(ctx, prepared)
+}
+
+func (s *Service) prepareRun(profile agentprofiles.Profile, inputs map[string]any) (runContext, error) {
+	if s == nil {
+		return runContext{}, ErrManagedExecutorUnavailable
+	}
+	if s.executor == nil {
+		return runContext{}, ErrManagedExecutorUnavailable
+	}
+	prepared, err := s.buildContext(profile, inputs)
+	if err != nil {
+		return runContext{}, err
+	}
+
+	if err := s.runs.Save(prepared.run); err != nil {
+		return runContext{}, err
+	}
+	if err := s.recordEvent(&prepared.run, "run_started", map[string]any{
+		"profileId":       profile.ID,
+		"engineConfigId":  prepared.engine.EngineConfig.ID,
+		"projectConfigId": prepared.projectConfigID,
+		"chatId":          prepared.chatID,
+		"sectionId":       derefString(prepared.sectionID),
+	}); err != nil {
+		return runContext{}, err
+	}
+	if err := s.recordSnapshot(&prepared.run, prepared.projectConfigID); err != nil {
+		return runContext{}, err
+	}
+	return prepared, nil
+}
+
+func (s *Service) executeRun(ctx context.Context, runContext runContext) (Run, error) {
 	if s == nil {
 		return Run{}, ErrManagedExecutorUnavailable
 	}
 	if s.executor == nil {
 		return Run{}, ErrManagedExecutorUnavailable
-	}
-	runContext, err := s.buildContext(profile, inputs)
-	if err != nil {
-		return Run{}, err
-	}
-
-	if err := s.runs.Save(runContext.run); err != nil {
-		return Run{}, err
-	}
-	if err := s.recordEvent(&runContext.run, "run_started", map[string]any{
-		"profileId":       profile.ID,
-		"engineConfigId":  runContext.engine.EngineConfig.ID,
-		"projectConfigId": runContext.projectConfigID,
-		"chatId":          runContext.chatID,
-		"sectionId":       derefString(runContext.sectionID),
-	}); err != nil {
-		return Run{}, err
-	}
-	if err := s.recordSnapshot(&runContext.run, runContext.projectConfigID); err != nil {
-		return Run{}, err
 	}
 
 	requestParams, apiKeyEnv := s.llm.Configs().BuildRequestParams(runContext.engine.LLMConfig)
@@ -170,7 +189,7 @@ func (s *Service) RunSubAgent(ctx context.Context, profile agentprofiles.Profile
 		})
 	}
 	result, execErr := s.executor.Execute(ctx, ExecutionRequest{
-		Profile:         profile,
+		Profile:         runContext.profile,
 		Run:             runContext.run.Clone(),
 		EngineConfig:    runContext.engine.EngineConfig,
 		LLMConfig:       runContext.engine.LLMConfig,
@@ -183,6 +202,12 @@ func (s *Service) RunSubAgent(ctx context.Context, profile agentprofiles.Profile
 		Thinking:        runContext.thinking,
 		Inputs:          cloneAnyMap(runContext.inputs),
 	})
+	if persistedRun, err := s.runs.Load(runContext.run.ID); err == nil {
+		runContext.run = persistedRun
+	}
+	if ctx.Err() != nil || errors.Is(execErr, context.Canceled) || runContext.run.Status == RunStatusCancelled {
+		return s.cancelRun(runContext.run.ID)
+	}
 	if execErr != nil {
 		runContext.run.Outputs = buildOutputs(nil, s.buildRunMetadata(runContext), nil)
 		runContext.run.Status = RunStatusFailed
@@ -210,6 +235,29 @@ func (s *Service) RunSubAgent(ctx context.Context, profile agentprofiles.Profile
 		return Run{}, err
 	}
 	return s.runs.Load(runContext.run.ID)
+}
+
+func (s *Service) cancelRun(runID string) (Run, error) {
+	if s == nil {
+		return Run{}, ErrManagedExecutorUnavailable
+	}
+	run, err := s.runs.Load(runID)
+	if err != nil {
+		return Run{}, err
+	}
+	if run.Status == RunStatusCompleted || run.Status == RunStatusFailed || run.Status == RunStatusCancelled {
+		return run, nil
+	}
+	run.Status = RunStatusCancelled
+	finishedAt := s.timeNow().UTC()
+	run.FinishedAt = &finishedAt
+	if err := s.runs.Save(run); err != nil {
+		return Run{}, err
+	}
+	if err := s.recordEvent(&run, "run_cancelled", map[string]any{}); err != nil {
+		return Run{}, err
+	}
+	return s.runs.Load(run.ID)
 }
 
 func ResolveManagedEngine(store *EngineStore, configs llmconfig.AllConfigs, engineConfigID string) (ResolvedEngine, error) {
@@ -261,19 +309,19 @@ func (s *Service) buildContext(profile agentprofiles.Profile, inputs map[string]
 	if rawProjectConfigID, ok := inputs["projectConfigId"]; ok {
 		projectConfigIDValue, ok := rawProjectConfigID.(string)
 		if !ok {
-			return runContext{}, fmt.Errorf("projectConfigId must be a string")
+			return runContext{}, fmt.Errorf("%w: projectConfigId must be a string", ErrInvalidRunInput)
 		}
 		projectConfigID = strings.TrimSpace(projectConfigIDValue)
 	}
 	project, err := projectSnapshot.ProjectByID(projectConfigID)
 	if err != nil {
-		return runContext{}, err
+		return runContext{}, fmt.Errorf("%w: %v", ErrInvalidRunInput, err)
 	}
 	var chatID string
 	if rawChatID, ok := inputs["chatId"]; ok {
 		chatIDValue, ok := rawChatID.(string)
 		if !ok {
-			return runContext{}, fmt.Errorf("chatId must be a string")
+			return runContext{}, fmt.Errorf("%w: chatId must be a string", ErrInvalidRunInput)
 		}
 		chatID = strings.TrimSpace(chatIDValue)
 	}
@@ -281,7 +329,7 @@ func (s *Service) buildContext(profile agentprofiles.Profile, inputs map[string]
 	if rawSectionID, ok := inputs["sectionId"]; ok {
 		sectionIDValue, ok := rawSectionID.(string)
 		if !ok {
-			return runContext{}, fmt.Errorf("sectionId must be a string")
+			return runContext{}, fmt.Errorf("%w: sectionId must be a string", ErrInvalidRunInput)
 		}
 		trimmed := strings.TrimSpace(sectionIDValue)
 		sectionID = &trimmed
@@ -290,37 +338,37 @@ func (s *Service) buildContext(profile agentprofiles.Profile, inputs map[string]
 	if rawAllowUnscoped, ok := inputs["allowUnscoped"]; ok {
 		allowValue, ok := rawAllowUnscoped.(bool)
 		if !ok {
-			return runContext{}, fmt.Errorf("allowUnscoped must be a boolean")
+			return runContext{}, fmt.Errorf("%w: allowUnscoped must be a boolean", ErrInvalidRunInput)
 		}
 		allowUnscoped = allowValue
 	}
 	if sectionID == nil && !allowUnscoped {
-		return runContext{}, fmt.Errorf("sectionId is required unless allowUnscoped is true.")
+		return runContext{}, fmt.Errorf("%w: sectionId is required unless allowUnscoped is true.", ErrInvalidRunInput)
 	}
 	if sectionID != nil && allowUnscoped {
-		return runContext{}, fmt.Errorf("allowUnscoped requires sectionId to be omitted.")
+		return runContext{}, fmt.Errorf("%w: allowUnscoped requires sectionId to be omitted.", ErrInvalidRunInput)
 	}
 	if sectionID != nil {
 		if _, _, _, err := project.ResolveSection(*sectionID); err != nil {
-			return runContext{}, err
+			return runContext{}, fmt.Errorf("%w: %v", ErrInvalidRunInput, err)
 		}
 	}
 	thinking := false
 	if rawThinking, ok := inputs["thinking"]; ok {
 		thinkingValue, ok := rawThinking.(bool)
 		if !ok {
-			return runContext{}, fmt.Errorf("thinking must be a boolean")
+			return runContext{}, fmt.Errorf("%w: thinking must be a boolean", ErrInvalidRunInput)
 		}
 		thinking = thinkingValue
 	}
 	if rawPrompt, ok := inputs["prompt"]; ok {
 		if _, ok := rawPrompt.(string); !ok {
-			return runContext{}, fmt.Errorf("prompt must be a string")
+			return runContext{}, fmt.Errorf("%w: prompt must be a string", ErrInvalidRunInput)
 		}
 	}
 	if rawMessages, ok := inputs["messages"]; ok {
 		if _, ok := rawMessages.([]any); !ok {
-			return runContext{}, fmt.Errorf("messages must be a list")
+			return runContext{}, fmt.Errorf("%w: messages must be a list", ErrInvalidRunInput)
 		}
 	}
 	engineConfigID := ""
@@ -342,10 +390,10 @@ func (s *Service) buildContext(profile agentprofiles.Profile, inputs map[string]
 	if rawEngineConfigID, ok := payloadInputs["engineConfigId"]; ok {
 		engineConfigIDValue, ok := rawEngineConfigID.(string)
 		if !ok {
-			return runContext{}, fmt.Errorf("engineConfigId must be a string")
+			return runContext{}, fmt.Errorf("%w: engineConfigId must be a string", ErrInvalidRunInput)
 		}
 		if strings.TrimSpace(engineConfigIDValue) != engine.EngineConfig.ID {
-			return runContext{}, fmt.Errorf("engineConfigId does not match resolved engine config")
+			return runContext{}, fmt.Errorf("%w: engineConfigId does not match resolved engine config", ErrInvalidRunInput)
 		}
 	}
 	payloadInputs["engineConfigId"] = engine.EngineConfig.ID
