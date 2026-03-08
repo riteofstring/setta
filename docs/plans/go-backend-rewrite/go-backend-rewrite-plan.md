@@ -1919,6 +1919,8 @@ Do not weaken this rule during the rewrite.
      `phase-27-packaged-entrypoint-fallback-hardening-plan.md`
    - the landed bounded startup follow-on is recorded in
      `phase-28-dev-startup-shared-helper-owner-plan.md`
+   - the post-Phase-28 startup/distribution rerank is recorded in
+     `phase-29-post-phase-28-startup-and-distribution-rerank.md`
    - Phase 20 is now complete for:
      - `POST /git/status`
      - `POST /git/diff`
@@ -1942,6 +1944,8 @@ Do not weaken this rule during the rewrite.
      Phase 25 is now Go-owned after the landed Phase 27 slice
    - the active shared helper dependency recorded after Phase 27 is now moved
      into `backend/setta/startup_runtime.py`
+   - the startup/distribution track is now effectively closed for the current
+     clean-break scope
    - there is no new startup/distribution implementation slice selected by the
      current evidence alone
    - dormant listener-chat, detached-run, and non-caller-backed

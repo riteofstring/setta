@@ -111,6 +111,14 @@ Completed during the Phase 28 follow-on:
   over shared helper imports instead of being the helper implementation source
   of truth for active dev startup
 
+Completed after the Phase 29 rerank:
+
+- `phase-29-post-phase-28-startup-and-distribution-rerank.md` now records that
+  the startup/distribution track is effectively closed for the current
+  clean-break scope
+- no new implementation slice is selected after the landed packaged-entrypoint
+  and shared-helper follow-ons
+
 Still owned outside Go:
 
 - legacy `backend/setta/start.py` command/fallback behavior

@@ -767,12 +767,16 @@ Use the docs in this order:
 208. `phase-28-dev-startup-shared-helper-owner-plan.md`
   - focused closeout doc for extracting the remaining active shared startup
     helper surface out of `setta.start` for the explicit dev reload owner
-209. `spike-mcp.md`
+209. `phase-29-post-phase-28-startup-and-distribution-rerank.md`
+  - focused rerank doc showing that the startup/distribution track is now
+    effectively closed for the current clean-break scope after the landed
+    packaged-entrypoint and shared-helper follow-ons
+210. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-210. `spike-pty.md`
+211. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-211. `spike-lsp.md`
+212. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:
