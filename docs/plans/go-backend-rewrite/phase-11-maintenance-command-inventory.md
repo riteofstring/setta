@@ -27,17 +27,17 @@ As of 2026-03-08:
 - Go now also owns the first maintenance command slice:
   - `setta backups` in `internal/settacmd`
   - backup listing/restore semantics in `internal/projectbackup`
+- Go now also owns the readable-export maintenance slice:
+  - shared readable export in `internal/projectstate`
+  - thin `setta export-db` routing in `internal/settacmd`
 - Python still owns the remaining maintenance/authoring commands in
   `backend/setta/start.py`:
   - `plugins`
-  - `export-db`
 - Go already owns substantial plugin runtime and mutation foundations in:
   - `internal/plugins`
   - `internal/mcpx`
 - Go does not yet own:
-  - a shipped CLI boundary for the remaining maintenance commands
-  - a shared readable project export builder matching
-    `backend/setta/project_state/readable_export.py`
+  - a shipped CLI boundary for `plugins`
 
 ## Inputs
 
@@ -106,53 +106,38 @@ As of 2026-03-08:
      - plugin CLI parity should be its own dedicated slice, not bundled with
        `backups` or `export-db`
 
-4. `export-db` is a small CLI entrypoint over a not-yet-ported semantic owner
-   - the current Python command itself is thin:
-     - load the current project
-     - build the readable export payload
-     - YAML-serialize it
-     - write `setta_files/project.readable.yaml` or a custom output path
-   - the product semantics live in
-     `backend/setta/project_state/readable_export.py`, not in the CLI wrapper
-   - the same readable-export builder is also used on project save in
+4. `export-db` is now complete
+   - Go now owns the shared readable-export builder in `internal/projectstate`
+   - Go now owns the shipped `setta export-db` CLI wrapper in
+     `internal/settacmd`
+   - Python still owns only the optional save-hook export path in
      `backend/setta/project_state/session_project_manager.py`
    - rewrite implication:
-     - do not port `export-db` as a one-off CLI serializer
-     - first add a shared Go readable-export owner for project-state export
-       structure, then hang the CLI command off that owner
+     - do not reopen readable export under a vague "finish maintenance
+       commands" label unless the runtime save hook explicitly needs to move
 
 ## Working Decisions
 
 - close the Phase 10 local runtime track; do not reopen it under a broad
   "finish the CLI" label
-- treat the remaining Python-owned `backups`, `plugins`, and `export-db`
-  commands as a separate maintenance/authoring track
-- if another shipped CLI migration slice is needed, start with `backups`
-  because it is the smallest bounded command with the least missing product
-  runtime ownership
-- keep `export-db` behind a shared readable-export foundation; do not build a
-  CLI-only Go exporter
-- keep `plugins` as a later dedicated slice over `internal/plugins`, not as an
-  opportunistic add-on to `backups`
+- treat the completed `backups` and `export-db` slices as closed
+- keep `plugins` as the only remaining maintenance/authoring CLI slice
+- keep readable export owned by `internal/projectstate`; do not fork a separate
+  CLI-only exporter path
+- keep `plugins` as a dedicated slice over `internal/plugins`, not as an
+  opportunistic add-on to the already-completed maintenance work
 
 ## Recommended Landing Order
 
-1. readable export foundation for `export-db`
-   - shared project-state export owner first
-   - CLI wrapper only after that owner exists
-2. `plugins`
+1. `plugins`
    - dedicated authoring/maintenance CLI parity slice with its own plan doc
 
 ## Recommended Next Step
 
-Phase 11 Stage 1 is complete in `phase-11-backups-command-stage1.md`.
-
-The next bounded rewrite slice should be the readable-export foundation needed
-before `setta export-db` can move cleanly, now scoped in
+Phase 11 Stage 2 is complete in
 `phase-11-readable-export-foundation-stage2.md`.
 
-Do not jump to `plugins` first unless product priorities explicitly outweigh
-the smaller readable-export foundation.
+The next bounded rewrite slice should be a dedicated `plugins` plan doc.
 
 ## Progress Notes
 
@@ -162,13 +147,17 @@ the smaller readable-export foundation.
   `backups` first, shared readable-export foundation second, `plugins` last.
 - 2026-03-08: completed the first maintenance-command slice.
   - `setta backups` is now Go-owned
-  - the remaining Python-owned maintenance commands are `export-db` and
+  - the remaining Python-owned maintenance commands were `export-db` and
     `plugins`
 - 2026-03-08: added the dedicated readable-export Stage 2 plan.
   - the next bounded slice is now explicitly the shared readable-export owner
     plus thin `setta export-db` routing
+- 2026-03-08: completed the readable-export Stage 2 slice.
+  - readable export and `setta export-db` are now Go-owned
+  - the only remaining Python-owned maintenance command is `plugins`
 
 ## Verification
 
-- docs-only update; runtime tests not needed
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate ./internal/settacmd -count=1 -timeout 300s`
+- `source activate.sh && python -m pytest tests/start/test_module_entrypoint.py -q`
 - `git diff --check`

@@ -17,17 +17,14 @@ As of 2026-03-08:
   - `cmd/setta`
   - `internal/settacmd`
   - `backend/setta/entrypoint.py`
-- Go already owns the normalized project document and effective payload
-  helpers in:
-  - `internal/projectstate`
-- Python still owns readable export in:
-  - `backend/setta/project_state/readable_export.py`
-  - `backend/setta/start.py`
-  - the save-path hook in
-    `backend/setta/project_state/session_project_manager.py`
-- this stage has not landed yet:
-  - there is no shared Go readable-export builder
-  - `setta export-db` still routes through Python
+- this stage is now complete:
+  - `internal/projectstate` now owns the shared readable-export builder
+  - `internal/settacmd` now owns thin `setta export-db` routing
+  - `backend/setta/entrypoint.py` now dispatches `export-db` to the packaged
+    Go CLI
+- Python still owns only the save-path hook that optionally writes
+  `project.readable.yaml` during project saves in
+  `backend/setta/project_state/session_project_manager.py`
 
 ## Inputs
 
@@ -156,14 +153,22 @@ Do not include:
 - 2026-03-08: created this Stage 2 plan to keep the next maintenance-command
   slice bounded around the shared readable-export owner required by
   `setta export-db`.
+- 2026-03-08: completed this Stage 2 slice.
+  - readable export now has a shared Go owner in `internal/projectstate`
+  - `setta export-db` now routes through the shipped Go CLI
+  - the shipped Python entrypoint now dispatches `export-db` to Go
+  - the remaining Python-owned maintenance command is `plugins`
 
 ## Verification
 
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate ./internal/settacmd -count=1 -timeout 300s`
+- `source activate.sh && python -m pytest tests/start/test_module_entrypoint.py -q`
 - `git diff --check`
 
 ## Recommended Next Step
 
-Implement this Stage 2 slice:
+Move to the remaining maintenance-command surface:
 
-1. shared readable export in `internal/projectstate`
-2. thin Go-owned `setta export-db` routing
+1. dedicated `plugins` plan doc
+2. bounded Go-owned `setta plugins` migration over the existing
+   `internal/plugins` foundations

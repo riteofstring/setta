@@ -55,6 +55,13 @@ def test_resolve_go_dispatch_command_routes_backups_to_go() -> None:
     assert command == "backups"
 
 
+def test_resolve_go_dispatch_command_routes_export_db_to_go() -> None:
+    # Export-db is now owned by the shipped Go CLI readable-export boundary.
+    command = resolve_go_dispatch_command(["export-db", "--readable"])
+
+    assert command == "export-db"
+
+
 def test_resolve_go_dispatch_command_routes_app_to_go() -> None:
     # App is now owned by the shipped Go CLI runtime boundary.
     command = resolve_go_dispatch_command(["app"])
@@ -191,6 +198,32 @@ def test_python_module_entrypoint_dispatches_go_owned_backups_command(
     assert result.returncode == 0, (result.stderr or result.stdout).strip()
     assert "setta version from go" in result.stdout
     assert args_capture_path.read_text(encoding="utf-8").strip() == "backups list --json"
+
+
+def test_python_module_entrypoint_dispatches_go_owned_export_db_command(
+    tmp_path: Path,
+) -> None:
+    args_capture_path = tmp_path / "go-args.txt"
+    go_stub = _write_go_stub(
+        path=tmp_path / "bin" / "setta-go",
+        args_capture_path=args_capture_path,
+    )
+
+    env = os.environ.copy()
+    env["SETTA_GO_CLI_BIN"] = str(go_stub)
+
+    result = subprocess.run(
+        [sys.executable, "-m", "setta", "export-db", "--readable"],
+        cwd=_repo_root(),
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, (result.stderr or result.stdout).strip()
+    assert "setta version from go" in result.stdout
+    assert args_capture_path.read_text(encoding="utf-8").strip() == "export-db --readable"
 
 
 def test_python_module_entrypoint_dispatches_go_owned_app_command(

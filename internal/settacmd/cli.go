@@ -126,6 +126,8 @@ func Run(args []string, options RunOptions) error {
 		}
 		_, err := fmt.Fprintf(stdout, "setta version %s\n", buildinfo.Version())
 		return err
+	case "export-db":
+		return runExportDB(remaining[1:], global, stdout, stderr, envLookup, cwd)
 	case "backups":
 		return runBackups(remaining[1:], global, stdin, stdout, stderr, envLookup, cwd)
 	case "launch":

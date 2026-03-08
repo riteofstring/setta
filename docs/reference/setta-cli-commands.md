@@ -4,7 +4,7 @@ This doc covers the commands exposed by the shipped `setta` CLI. The published
 entrypoint now uses `backend/setta/entrypoint.py` as a thin dispatcher:
 Go-owned commands are handed off to packaged Go binaries, while the remaining
 Python-owned local commands still route through `backend/setta/start.py`
-(`plugins` and `export-db`).
+(`plugins`).
 Local commands operate on a workspace root (code operations) and a
 `setta_files` root (state/runtime). By default both roots follow the current
 working directory and the default Setta home, but you can override runtime
@@ -182,7 +182,8 @@ Options:
 - `--readable` exports a readable YAML payload without section variant names.
 - `--readable-with-variants` includes section variant names in the readable
   export.
-- `--output PATH` writes the readable export to a custom path (default: `setta_files/project.readable.yaml`).
+- `--output PATH` writes the readable export to a custom path (default:
+  `setta_files/project.readable.yaml`).
 
 Output:
 - writes YAML to the selected path
