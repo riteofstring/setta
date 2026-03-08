@@ -10,6 +10,7 @@ import {
   createBrowserSectionImpl,
   createCallableSectionImpl,
   createCodeParamCodeObjImpl,
+  createSectionSize,
   createCodeSectionImpl,
   createTextBlockSectionImpl,
   createUserDefaultBrowserSectionImpl,
@@ -19,6 +20,7 @@ import {
   createViewModeConfig,
   ParamNameTypeEnum,
   RouteEnum,
+  SectionSizeModeEnum,
   SectionTypeEnum,
   TextBlockFormatEnum,
 } from "utils/generatedTypes";
@@ -95,6 +97,15 @@ describe("generated project state factories", () => {
     expect(CodeFileAccessModeEnum.read_write).toBe("read_write");
     expect(CodeFileAccessModeEnum.read_only).toBe("read_only");
     expect(CodeFileAccessModeEnum.write_only).toBe("write_only");
+  });
+
+  it("exports section-size helpers with explicit auto sizing support", () => {
+    const autoSize = createSectionSize();
+    const fixedSize = createSectionSize({ width: 360, height: 140 });
+
+    expect(SectionSizeModeEnum.auto).toBe("auto");
+    expect(autoSize).toEqual({ width: "auto", height: "auto" });
+    expect(fixedSize).toEqual({ width: 360, height: 140 });
   });
 
   it("exports browser-section helpers and saved-search defaults", () => {

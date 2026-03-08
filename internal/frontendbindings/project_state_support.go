@@ -562,10 +562,28 @@ function mergeGeneratedOptions<T extends object>(
   } as T;
 }
 
+export const SectionSizeModeEnum = {
+  auto: "auto",
+} as const;
+export type SectionSizeMode = ObjectValues<typeof SectionSizeModeEnum>;
+
+export type SectionSizeValue = number | SectionSizeMode;
+
 export type SectionSize = {
-  width: number;
-  height: number;
+  width: SectionSizeValue;
+  height: SectionSizeValue;
 };
+export function createSectionSize(
+  options: Partial<SectionSize> = {},
+): SectionSize {
+  return mergeGeneratedOptions(
+    {
+      width: SectionSizeModeEnum.auto,
+      height: SectionSizeModeEnum.auto,
+    },
+    options,
+  );
+}
 
 export type EdgePort = {
   id: string;

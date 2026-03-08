@@ -172,6 +172,11 @@ Current landed wedge:
       - shared code binding enums/types
         - `CodeFileAccessMode`
         - `CodeFileBinding`
+      - current section sizing enums/types/helpers used by current callers
+        - `SectionSizeMode`
+        - `SectionSizeValue`
+        - `SectionSize`
+        - `createSectionSize`
       - current project-codegen target enums/types/helpers used by current
         callers
         - `ProjectCodegenLanguage`
