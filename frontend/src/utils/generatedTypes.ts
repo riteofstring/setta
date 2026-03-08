@@ -7423,6 +7423,11 @@ export type SetSectionParamFilterRequestInput = {
   sectionId: string;
   value: string;
 };
+export function createSetSectionParamFilterRequestInput(
+  options: Partial<SetSectionParamFilterRequestInput> = {},
+): SetSectionParamFilterRequestInput {
+  return options as SetSectionParamFilterRequestInput;
+}
 
 export type SetMetaControlShowSectionTitleRequestInput = {
   frontendOpId?: string | null;
@@ -7430,6 +7435,11 @@ export type SetMetaControlShowSectionTitleRequestInput = {
   sectionId: string;
   showSectionTitle: boolean;
 };
+export function createSetMetaControlShowSectionTitleRequestInput(
+  options: Partial<SetMetaControlShowSectionTitleRequestInput> = {},
+): SetMetaControlShowSectionTitleRequestInput {
+  return options as SetMetaControlShowSectionTitleRequestInput;
+}
 
 export type SetSectionColumnWidthRequestInput = {
   frontendOpId?: string | null;
@@ -7437,6 +7447,11 @@ export type SetSectionColumnWidthRequestInput = {
   sectionId: string;
   columnWidth: number | null;
 };
+export function createSetSectionColumnWidthRequestInput(
+  options: Partial<SetSectionColumnWidthRequestInput> = {},
+): SetSectionColumnWidthRequestInput {
+  return options as SetSectionColumnWidthRequestInput;
+}
 
 export type SetSectionEdgeInputsRequestInput = {
   frontendOpId?: string | null;
@@ -7444,6 +7459,11 @@ export type SetSectionEdgeInputsRequestInput = {
   sectionId: string;
   edgeInputParams: Array<string>;
 };
+export function createSetSectionEdgeInputsRequestInput(
+  options: Partial<SetSectionEdgeInputsRequestInput> = {},
+): SetSectionEdgeInputsRequestInput {
+  return options as SetSectionEdgeInputsRequestInput;
+}
 
 export type SetSectionEdgeOutputsRequestInput = {
   frontendOpId?: string | null;
@@ -7471,6 +7491,11 @@ export type ToggleGroupOrientationRequestInput = {
   projectConfigId: string;
   sectionId: string;
 };
+export function createToggleGroupOrientationRequestInput(
+  options: Partial<ToggleGroupOrientationRequestInput> = {},
+): ToggleGroupOrientationRequestInput {
+  return options as ToggleGroupOrientationRequestInput;
+}
 
 export type SetGroupOverflowModeRequestInput = {
   frontendOpId?: string | null;
@@ -7478,6 +7503,11 @@ export type SetGroupOverflowModeRequestInput = {
   sectionId: string;
   overflowMode: boolean;
 };
+export function createSetGroupOverflowModeRequestInput(
+  options: Partial<SetGroupOverflowModeRequestInput> = {},
+): SetGroupOverflowModeRequestInput {
+  return options as SetGroupOverflowModeRequestInput;
+}
 
 export type SetBrowserColumnWidthsRequestInput = {
   frontendOpId?: string | null;
@@ -7486,6 +7516,11 @@ export type SetBrowserColumnWidthsRequestInput = {
   columnWidth: number | null;
   typesColumnWidth: number | null;
 };
+export function createSetBrowserColumnWidthsRequestInput(
+  options: Partial<SetBrowserColumnWidthsRequestInput> = {},
+): SetBrowserColumnWidthsRequestInput {
+  return options as SetBrowserColumnWidthsRequestInput;
+}
 
 export type SetBrowserAreaViewModeRequestInput = {
   frontendOpId?: string | null;
@@ -7500,6 +7535,11 @@ export type SetBrowserHideColumnRequestInput = {
   sectionId: string;
   hideColumn: boolean;
 };
+export function createSetBrowserHideColumnRequestInput(
+  options: Partial<SetBrowserHideColumnRequestInput> = {},
+): SetBrowserHideColumnRequestInput {
+  return options as SetBrowserHideColumnRequestInput;
+}
 
 export type SetBrowserSavedSearchesRequestInput = {
   frontendOpId?: string | null;

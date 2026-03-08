@@ -439,30 +439,10 @@ func newTypeConverter() *typeConverter {
 				Kind: "raw",
 				Raw:  moveSectionsRequestInputRawTS,
 			},
-			reflect.TypeOf(SetSectionParamFilterRequestInput{}): {
-				Name: "SetSectionParamFilterRequestInput",
-				Kind: "raw",
-				Raw:  setSectionParamFilterRequestInputRawTS,
-			},
 			reflect.TypeOf(SetSectionSizesRequestInput{}): {
 				Name: "SetSectionSizesRequestInput",
 				Kind: "raw",
 				Raw:  setSectionSizesRequestInputRawTS,
-			},
-			reflect.TypeOf(SetMetaControlShowSectionTitleRequestInput{}): {
-				Name: "SetMetaControlShowSectionTitleRequestInput",
-				Kind: "raw",
-				Raw:  setMetaControlShowSectionTitleRequestInputRawTS,
-			},
-			reflect.TypeOf(SetSectionColumnWidthRequestInput{}): {
-				Name: "SetSectionColumnWidthRequestInput",
-				Kind: "raw",
-				Raw:  setSectionColumnWidthRequestInputRawTS,
-			},
-			reflect.TypeOf(SetSectionEdgeInputsRequestInput{}): {
-				Name: "SetSectionEdgeInputsRequestInput",
-				Kind: "raw",
-				Raw:  setSectionEdgeInputsRequestInputRawTS,
 			},
 			reflect.TypeOf(SetSectionEdgeOutputsRequestInput{}): {
 				Name: "SetSectionEdgeOutputsRequestInput",
@@ -479,30 +459,10 @@ func newTypeConverter() *typeConverter {
 				Kind: "raw",
 				Raw:  setListRootViewModeRequestInputRawTS,
 			},
-			reflect.TypeOf(ToggleGroupOrientationRequestInput{}): {
-				Name: "ToggleGroupOrientationRequestInput",
-				Kind: "raw",
-				Raw:  toggleGroupOrientationRequestInputRawTS,
-			},
-			reflect.TypeOf(SetGroupOverflowModeRequestInput{}): {
-				Name: "SetGroupOverflowModeRequestInput",
-				Kind: "raw",
-				Raw:  setGroupOverflowModeRequestInputRawTS,
-			},
-			reflect.TypeOf(SetBrowserColumnWidthsRequestInput{}): {
-				Name: "SetBrowserColumnWidthsRequestInput",
-				Kind: "raw",
-				Raw:  setBrowserColumnWidthsRequestInputRawTS,
-			},
 			reflect.TypeOf(SetBrowserAreaViewModeRequestInput{}): {
 				Name: "SetBrowserAreaViewModeRequestInput",
 				Kind: "raw",
 				Raw:  setBrowserAreaViewModeRequestInputRawTS,
-			},
-			reflect.TypeOf(SetBrowserHideColumnRequestInput{}): {
-				Name: "SetBrowserHideColumnRequestInput",
-				Kind: "raw",
-				Raw:  setBrowserHideColumnRequestInputRawTS,
 			},
 			reflect.TypeOf(SetBrowserSavedSearchesRequestInput{}): {
 				Name: "SetBrowserSavedSearchesRequestInput",

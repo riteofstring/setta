@@ -331,13 +331,33 @@ type UnselectAllParamsRequestInput struct {
 	ProjectConfigID string  `json:"projectConfigId"`
 }
 
-type SetSectionParamFilterRequestInput struct{}
+type SetSectionParamFilterRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	SectionID       string  `json:"sectionId"`
+	Value           string  `json:"value"`
+}
 
-type SetMetaControlShowSectionTitleRequestInput struct{}
+type SetMetaControlShowSectionTitleRequestInput struct {
+	FrontendOpID     *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID  string  `json:"projectConfigId"`
+	SectionID        string  `json:"sectionId"`
+	ShowSectionTitle bool    `json:"showSectionTitle"`
+}
 
-type SetSectionColumnWidthRequestInput struct{}
+type SetSectionColumnWidthRequestInput struct {
+	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
+	ProjectConfigID string   `json:"projectConfigId"`
+	SectionID       string   `json:"sectionId"`
+	ColumnWidth     *float64 `json:"columnWidth"`
+}
 
-type SetSectionEdgeInputsRequestInput struct{}
+type SetSectionEdgeInputsRequestInput struct {
+	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
+	ProjectConfigID string   `json:"projectConfigId"`
+	SectionID       string   `json:"sectionId"`
+	EdgeInputParams []string `json:"edgeInputParams"`
+}
 
 type SetSectionEdgeOutputsRequestInput struct{}
 
@@ -345,15 +365,35 @@ type SetParentDefaultChildSectionTypeRequestInput struct{}
 
 type SetListRootViewModeRequestInput struct{}
 
-type ToggleGroupOrientationRequestInput struct{}
+type ToggleGroupOrientationRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	SectionID       string  `json:"sectionId"`
+}
 
-type SetGroupOverflowModeRequestInput struct{}
+type SetGroupOverflowModeRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	SectionID       string  `json:"sectionId"`
+	OverflowMode    bool    `json:"overflowMode"`
+}
 
-type SetBrowserColumnWidthsRequestInput struct{}
+type SetBrowserColumnWidthsRequestInput struct {
+	FrontendOpID     *string  `json:"frontendOpId,omitempty"`
+	ProjectConfigID  string   `json:"projectConfigId"`
+	SectionID        string   `json:"sectionId"`
+	ColumnWidth      *float64 `json:"columnWidth"`
+	TypesColumnWidth *float64 `json:"typesColumnWidth"`
+}
 
 type SetBrowserAreaViewModeRequestInput struct{}
 
-type SetBrowserHideColumnRequestInput struct{}
+type SetBrowserHideColumnRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	SectionID       string  `json:"sectionId"`
+	HideColumn      bool    `json:"hideColumn"`
+}
 
 type SetBrowserSavedSearchesRequestInput struct{}
 
@@ -420,15 +460,6 @@ type SetActiveIDsRequestInput struct {
 	ProjectConfigID string   `json:"projectConfigId"`
 	ActiveIDs       []string `json:"activeIds"`
 }
-
-const setSectionParamFilterRequestInputRawTS = `
-export type SetSectionParamFilterRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  value: string;
-};
-`
 
 const createChildSectionsRequestInputRawTS = `
 export type CreateChildSectionsRequestInput = {
@@ -592,33 +623,6 @@ export type SetSectionSizesRequestInput = {
 };
 `
 
-const setMetaControlShowSectionTitleRequestInputRawTS = `
-export type SetMetaControlShowSectionTitleRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  showSectionTitle: boolean;
-};
-`
-
-const setSectionColumnWidthRequestInputRawTS = `
-export type SetSectionColumnWidthRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  columnWidth: number | null;
-};
-`
-
-const setSectionEdgeInputsRequestInputRawTS = `
-export type SetSectionEdgeInputsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  edgeInputParams: Array<string>;
-};
-`
-
 const setSectionEdgeOutputsRequestInputRawTS = `
 export type SetSectionEdgeOutputsRequestInput = {
   frontendOpId?: string | null;
@@ -646,48 +650,12 @@ export type SetListRootViewModeRequestInput = {
 };
 `
 
-const toggleGroupOrientationRequestInputRawTS = `
-export type ToggleGroupOrientationRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-};
-`
-
-const setGroupOverflowModeRequestInputRawTS = `
-export type SetGroupOverflowModeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  overflowMode: boolean;
-};
-`
-
-const setBrowserColumnWidthsRequestInputRawTS = `
-export type SetBrowserColumnWidthsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  columnWidth: number | null;
-  typesColumnWidth: number | null;
-};
-`
-
 const setBrowserAreaViewModeRequestInputRawTS = `
 export type SetBrowserAreaViewModeRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   viewMode: BrowserAreaViewMode;
-};
-`
-
-const setBrowserHideColumnRequestInputRawTS = `
-export type SetBrowserHideColumnRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  hideColumn: boolean;
 };
 `
 

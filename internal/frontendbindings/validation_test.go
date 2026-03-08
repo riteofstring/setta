@@ -342,6 +342,112 @@ func TestTypeConverterRendersOptionalFieldsMapsAndTime(t *testing.T) {
 	}
 }
 
+func TestPrimitiveProjectStateRequestContractsUseConverterObjects(t *testing.T) {
+	tests := []struct {
+		name       string
+		root       reflect.Type
+		properties []TypeProperty
+	}{
+		{
+			name: "SetSectionParamFilterRequestInput",
+			root: reflect.TypeOf(SetSectionParamFilterRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "value", TypeExpr: "string", Optional: false},
+			},
+		},
+		{
+			name: "SetMetaControlShowSectionTitleRequestInput",
+			root: reflect.TypeOf(SetMetaControlShowSectionTitleRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "showSectionTitle", TypeExpr: "boolean", Optional: false},
+			},
+		},
+		{
+			name: "SetSectionColumnWidthRequestInput",
+			root: reflect.TypeOf(SetSectionColumnWidthRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "columnWidth", TypeExpr: "number | null", Optional: false},
+			},
+		},
+		{
+			name: "SetSectionEdgeInputsRequestInput",
+			root: reflect.TypeOf(SetSectionEdgeInputsRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "edgeInputParams", TypeExpr: "Array<string>", Optional: false},
+			},
+		},
+		{
+			name: "ToggleGroupOrientationRequestInput",
+			root: reflect.TypeOf(ToggleGroupOrientationRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+			},
+		},
+		{
+			name: "SetGroupOverflowModeRequestInput",
+			root: reflect.TypeOf(SetGroupOverflowModeRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "overflowMode", TypeExpr: "boolean", Optional: false},
+			},
+		},
+		{
+			name: "SetBrowserColumnWidthsRequestInput",
+			root: reflect.TypeOf(SetBrowserColumnWidthsRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "columnWidth", TypeExpr: "number | null", Optional: false},
+				{Name: "typesColumnWidth", TypeExpr: "number | null", Optional: false},
+			},
+		},
+		{
+			name: "SetBrowserHideColumnRequestInput",
+			root: reflect.TypeOf(SetBrowserHideColumnRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "hideColumn", TypeExpr: "boolean", Optional: false},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != "object" {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, "object")
+			}
+			if !reflect.DeepEqual(declaration.Properties, tt.properties) {
+				t.Fatalf("%s properties = %#v, want %#v", tt.name, declaration.Properties, tt.properties)
+			}
+		})
+	}
+}
+
 func TestTypeConverterUsesManualDiscriminatedUnionDeclarations(t *testing.T) {
 	converter := newTypeConverter()
 	roots := []reflect.Type{
