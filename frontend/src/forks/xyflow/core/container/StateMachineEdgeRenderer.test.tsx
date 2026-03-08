@@ -241,12 +241,13 @@ describe("StateMachineEdgeRenderer", () => {
     useReactFlow.setState({ ...initialState });
   });
 
-  it("renders selected workflow edges with signal and send-prompt styles", () => {
+  it("renders workflow edges without action-specific style classes", () => {
     const markup = renderToStaticMarkup(<StateMachineEdgeRenderer />);
 
-    expect(markup).toContain("workflow-edge--signal");
-    expect(markup).toContain("workflow-edge--send-prompt");
     expect(markup).toContain("workflow-edge--selected");
+    expect(markup).not.toContain("workflow-edge--signal");
+    expect(markup).not.toContain("workflow-edge--reset-thread");
+    expect(markup).not.toContain("workflow-edge--send-prompt");
     expect(markup).toContain('data-edgeid="edge-visible"');
     expect(markup).not.toContain('data-edgeid="edge-hidden"');
   });

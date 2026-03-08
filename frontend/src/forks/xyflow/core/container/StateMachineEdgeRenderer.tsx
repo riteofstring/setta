@@ -65,15 +65,6 @@ function getEdgeClassNames(edge: WorkflowEdge): string {
   if (edge.selected) {
     classNames.push("workflow-edge--selected");
   }
-  if (edge.sourceFilter?.type === "signal") {
-    classNames.push("workflow-edge--signal");
-  }
-  if (edge.targetAction?.type === "reset_thread") {
-    classNames.push("workflow-edge--reset-thread");
-  }
-  if (edge.targetAction?.type === "send_prompt") {
-    classNames.push("workflow-edge--send-prompt");
-  }
   return classNames.join(" ");
 }
 

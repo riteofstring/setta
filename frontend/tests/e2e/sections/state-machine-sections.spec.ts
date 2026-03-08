@@ -490,6 +490,20 @@ test.describe.serial("state machine sections", () => {
       if (!gateToChatEdge?.id || !chatToEndEdge?.id) {
         throw new Error("Expected workflow edge ids after connecting handles.");
       }
+      const gateToChatEdgeStyleBefore = await readWorkflowEdgeStyle(
+        page,
+        gateToChatEdge.id,
+      );
+      const chatToEndEdgeStyleBefore = await readWorkflowEdgeStyle(
+        page,
+        chatToEndEdge.id,
+      );
+      expect(gateToChatEdgeStyleBefore.className).not.toContain(
+        "workflow-edge--reset-thread",
+      );
+      expect(chatToEndEdgeStyleBefore.className).not.toContain(
+        "workflow-edge--signal",
+      );
 
       await page
         .getByTestId(`workflow-edge-hitbox-${chatToEndEdge.id}`)
@@ -526,6 +540,16 @@ test.describe.serial("state machine sections", () => {
             equals: "retry",
           },
         });
+      const chatToEndEdgeStyleAfter = await readWorkflowEdgeStyle(
+        page,
+        chatToEndEdge.id,
+      );
+      expect(chatToEndEdgeStyleAfter.className).not.toContain(
+        "workflow-edge--signal",
+      );
+      expect(chatToEndEdgeStyleAfter.strokeDasharray).toBe(
+        chatToEndEdgeStyleBefore.strokeDasharray,
+      );
 
       await selectStateMachineEdge(
         page,
@@ -561,6 +585,16 @@ test.describe.serial("state machine sections", () => {
             threadStrategy: "continue_current_thread",
           },
         });
+      const gateToChatEdgeStyleAfter = await readWorkflowEdgeStyle(
+        page,
+        gateToChatEdge.id,
+      );
+      expect(gateToChatEdgeStyleAfter.className).not.toContain(
+        "workflow-edge--send-prompt",
+      );
+      expect(gateToChatEdgeStyleAfter.strokeDasharray).toBe(
+        gateToChatEdgeStyleBefore.strokeDasharray,
+      );
 
       const startStatus = page.getByTestId(
         `state-machine-run-status-${startSectionId}`,
@@ -918,6 +952,23 @@ async function readStateMachineEdges(
         : null,
     }),
   );
+}
+
+async function readWorkflowEdgeStyle(
+  page: Page,
+  edgeId: string,
+): Promise<{ className: string; strokeDasharray: string }> {
+  const path = page.locator(
+    `[data-edgeid="${edgeId}"] .react-flow__state-machine-edge-path`,
+  );
+  await expect(path).toBeVisible();
+  return path.evaluate((element) => {
+    const computed = window.getComputedStyle(element);
+    return {
+      className: element.getAttribute("class") ?? "",
+      strokeDasharray: computed.strokeDasharray,
+    };
+  });
 }
 
 async function readStateMachineEdge(
