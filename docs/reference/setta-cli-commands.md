@@ -4,7 +4,7 @@ This doc covers the commands exposed by the shipped `setta` CLI. The published
 entrypoint now uses `backend/setta/entrypoint.py` as a thin dispatcher:
 Go-owned commands are handed off to packaged Go binaries, while the remaining
 Python-owned local commands still route through `backend/setta/start.py`
-(`share`, `app`, `backups`, `plugins`, and `export-db`).
+(`app`, `backups`, `plugins`, and `export-db`).
 Local commands operate on a workspace root (code operations) and a
 `setta_files` root (state/runtime). By default both roots follow the current
 working directory and the default Setta home, but you can override runtime
@@ -117,6 +117,10 @@ Options:
 - `--deployment-name NAME` selects a deployment under `setta_files/deployments/`.
   Pair this with:
   - `--version vN` or `--latest`.
+- omitted `--host` / `--port` values default to `127.0.0.1` and an OS-assigned
+  port.
+- binding to a non-loopback host prints a warning because share mode disables
+  auth.
 - `--reload` is rejected in deployment mode.
 - Global options are shared with `setta`: `--host`, `--port`, `--log-level`,
   `--no-open`, plus runtime path flags (`--workspace`, `--profile`,

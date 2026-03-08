@@ -2,12 +2,17 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
+	"net"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"setta/internal/auth"
 	"setta/internal/config"
+	"setta/internal/deployments"
 )
 
 func TestBuildBootstrapURLsRewritesWildcardHosts(t *testing.T) {
@@ -136,6 +141,127 @@ func TestShouldAutoOpenLocalStartRejectsSSHSession(t *testing.T) {
 	if autoOpen {
 		t.Fatal("expected ssh session to disable auto-open")
 	}
+}
+
+func TestEmitShareStartupOutputWarnsForPublicHostAndPrintsURL(t *testing.T) {
+	t.Parallel()
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer listener.Close()
+
+	deploymentRoot := writeShareManifest(t, filepath.Join(t.TempDir(), "deployments", "demo-share", "v3"), "demo-share", "v3")
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	err = emitShareStartupOutput(
+		config.Config{
+			Server: config.Server{
+				Host: "0.0.0.0",
+			},
+			Paths: config.Paths{
+				DeploymentRoot: deploymentRoot,
+			},
+		},
+		listener,
+		true,
+		&stdout,
+		&stderr,
+		shareStartupDependencies{},
+	)
+	if err != nil {
+		t.Fatalf("emit share startup output: %v", err)
+	}
+
+	if !strings.Contains(stderr.String(), `WARNING: share mode disables auth. Binding to "0.0.0.0" may expose your deployment publicly.`) {
+		t.Fatalf("expected public host warning, got %q", stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Starting share backend for demo-share/v3") {
+		t.Fatalf("expected share startup heading, got %q", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "Share URL: http://0.0.0.0:") {
+		t.Fatalf("expected share url output, got %q", stdout.String())
+	}
+}
+
+func TestEmitShareStartupOutputFallsBackWhenBrowserOpenFails(t *testing.T) {
+	t.Parallel()
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer listener.Close()
+
+	deploymentRoot := writeShareManifest(t, filepath.Join(t.TempDir(), "deployments", "demo-share", "v4"), "demo-share", "v4")
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	err = emitShareStartupOutput(
+		config.Config{
+			Server: config.Server{
+				Host: "127.0.0.1",
+			},
+			Paths: config.Paths{
+				DeploymentRoot: deploymentRoot,
+			},
+		},
+		listener,
+		false,
+		&stdout,
+		&stderr,
+		shareStartupDependencies{
+			openBrowser: func(string) error {
+				return startupAssertiveError("browser missing")
+			},
+			envLookup: func(string) (string, bool) {
+				return "", false
+			},
+			stdinIsTTY: func() bool {
+				return true
+			},
+			hasGUI: func(func(string) (string, bool)) bool {
+				return true
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("emit share startup output: %v", err)
+	}
+
+	if !strings.Contains(stderr.String(), "Failed to open browser automatically. Open manually: http://127.0.0.1:") {
+		t.Fatalf("expected browser fallback message, got %q", stderr.String())
+	}
+	if strings.Contains(stderr.String(), "WARNING:") {
+		t.Fatalf("expected loopback host to skip public warning, got %q", stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Starting share backend for demo-share/v4") {
+		t.Fatalf("expected share startup heading, got %q", stdout.String())
+	}
+}
+
+func writeShareManifest(t *testing.T, deploymentRoot string, deploymentName string, deploymentVersion string) string {
+	t.Helper()
+
+	payload, err := json.MarshalIndent(deployments.Manifest{
+		Version:           1,
+		DeploymentName:    deploymentName,
+		DeploymentType:    deployments.TypeShare,
+		DefaultProjectID:  "project-alpha",
+		DeploymentVersion: deploymentVersion,
+		CreatedAt:         time.Date(2026, time.March, 8, 12, 30, 0, 0, time.UTC),
+	}, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal manifest: %v", err)
+	}
+	payload = append(payload, '\n')
+	if err := os.MkdirAll(deploymentRoot, 0o755); err != nil {
+		t.Fatalf("mkdir deployment root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(deploymentRoot, "manifest.json"), payload, 0o644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+	return deploymentRoot
 }
 
 type startupAssertiveError string

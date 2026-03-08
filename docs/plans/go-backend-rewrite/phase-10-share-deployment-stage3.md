@@ -25,12 +25,13 @@ As of 2026-03-08:
   - `internal/deployments/catalog.go`
   - `internal/deployments/manifest.go`
   - `internal/deployments/runtime.go`
-- Python still owns the user-facing `setta share` command in
-  `backend/setta/start.py`, including:
-  - `--deployment-root` versus `--deployment-name` / `--version` / `--latest`
-    selection
-  - public-host no-auth warning
-  - startup URL output and browser auto-open behavior
+- this stage is now complete:
+  - `cmd/setta` exposes `setta share`
+  - named share deployments resolve through the Go deployment catalog
+  - explicit `--deployment-root` validation is Go-owned and manifest-backed
+  - `cmd/setta-server` owns share startup warning/output and browser-open
+    fallback
+  - the thin Python entrypoint dispatches `share` to the packaged Go binary
 
 ## Inputs
 
@@ -48,15 +49,21 @@ As of 2026-03-08:
 - `internal/deployments/paths.go`
 - `internal/app/app.go`
 
-## Problem Shape
+## Completed Work
 
-The backend runtime already supports share mode.
+This stage shipped the remaining user-facing `setta share` contract onto the
+Go-owned runtime boundary:
 
-The remaining gap is the user-facing `setta share` command contract:
-
-1. the shipped router does not yet expose a `share` subcommand
-2. named deployment selection still lives in Python
-3. startup output and no-auth warning for share mode are still Python-owned
+1. added `share` routing in `internal/settacmd` and `cmd/setta`
+2. resolved named deployments through `internal/deployments.DefaultCatalogRoot`
+   plus `Catalog.Latest` / `Catalog.ListVersions`
+3. kept explicit `--deployment-root` validation manifest-backed and
+   deterministic
+4. delegated long-lived share runs to the sibling `setta-server` executable
+5. moved share startup warning/output and browser-open fallback into
+   `cmd/setta-server`
+6. updated `backend/setta/entrypoint.py` so packaged `python -m setta share`
+   dispatches to Go
 
 ## Scope
 
@@ -91,23 +98,14 @@ Do not include:
   - require `deploymentType == share`
 - reject `--reload` explicitly in the shipped Go CLI for share mode
 
-## Implementation Shape
+## Decisions Made
 
-1. add `share` routing to `internal/settacmd`
-2. implement share deployment resolution in Go
-   - explicit `--deployment-root`
-   - catalog-backed `--deployment-name` + `--latest`
-   - catalog-backed `--deployment-name` + `--version`
-3. delegate resolved share runs to the sibling `setta-server`
-   - pass `--mode share`
-   - pass the resolved `--deployment-root`
-   - pass relevant global host/port/log/no-open/runtime flags
-4. extend `cmd/setta-server` startup UX for share mode
-   - public-host no-auth warning
-   - `Starting share backend for ...`
-   - `Share URL: ...`
-   - browser-open fallback
-5. update the thin Python wrapper to dispatch `share` to Go
+- share deployment selection in Go uses the deployment catalog as the source of
+  truth for named lookups
+- `setta-server` startup output now owns the share-mode warning and printed
+  share URL, matching the runtime boundary used for local IDE mode
+- omitted host/port values still resolve to the shipped runtime defaults
+  (`127.0.0.1` and an OS-assigned port via `--port 0`)
 
 ## Test Strategy
 
@@ -138,8 +136,12 @@ Do not include:
 - `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./cmd/setta-server -count=1 -timeout 300s`
 - `source activate.sh && python -m pytest tests/start/test_module_entrypoint.py -q`
 
+## Open Questions
+
+- none for this stage; the remaining work is the next command migration slice
+
 ## Recommended Next Step
 
-Implement this Stage 3 slice, then move to the remaining local-runtime command:
+Port the remaining deployment command:
 
 1. `app`

@@ -58,6 +58,10 @@ func buildDefaultStartArgs(global globalFlags) []string {
 		"--host", defaultStartStringValue(global.host, defaultLocalStartHost),
 		"--port", defaultStartStringValue(global.port, defaultLocalStartPort),
 	}
+	return appendStartRuntimeArgs(args, global)
+}
+
+func appendStartRuntimeArgs(args []string, global globalFlags) []string {
 	if global.noOpen {
 		args = append(args, "--no-open")
 	}

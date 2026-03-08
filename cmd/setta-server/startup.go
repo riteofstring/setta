@@ -13,6 +13,7 @@ import (
 
 	"setta/internal/auth"
 	"setta/internal/config"
+	"setta/internal/deployments"
 )
 
 const (
@@ -27,6 +28,14 @@ type localStartupDependencies struct {
 	envLookup          func(string) (string, bool)
 	stdinIsTTY         func() bool
 	hasGUI             func(func(string) (string, bool)) bool
+}
+
+type shareStartupDependencies struct {
+	loadManifest func(string) (deployments.Manifest, error)
+	openBrowser  func(string) error
+	envLookup    func(string) (string, bool)
+	stdinIsTTY   func() bool
+	hasGUI       func(func(string) (string, bool)) bool
 }
 
 func emitLocalStartupOutput(cfg config.Config, localSession *localProcessSession, noOpen bool, stdout io.Writer, stderr io.Writer, deps localStartupDependencies) error {
@@ -126,6 +135,81 @@ func processHasGUI(envLookup func(string) (string, bool)) bool {
 		return true
 	}
 	return false
+}
+
+func emitShareStartupOutput(cfg config.Config, listener net.Listener, noOpen bool, stdout io.Writer, stderr io.Writer, deps shareStartupDependencies) error {
+	if listener == nil {
+		return fmt.Errorf("share listener is required")
+	}
+	if deps.loadManifest == nil {
+		deps.loadManifest = deployments.LoadManifest
+	}
+	if deps.openBrowser == nil {
+		deps.openBrowser = openBrowserURL
+	}
+	if deps.envLookup == nil {
+		deps.envLookup = os.LookupEnv
+	}
+	if deps.stdinIsTTY == nil {
+		deps.stdinIsTTY = stdinIsTTY
+	}
+	if deps.hasGUI == nil {
+		deps.hasGUI = processHasGUI
+	}
+
+	manifest, err := deps.loadManifest(cfg.Paths.DeploymentRoot)
+	if err != nil {
+		return err
+	}
+	shareURL, err := buildShareURL(cfg.Server.Host, listener)
+	if err != nil {
+		return err
+	}
+	if !isLoopbackHost(cfg.Server.Host) && stderr != nil {
+		_, _ = fmt.Fprintf(
+			stderr,
+			"WARNING: share mode disables auth. Binding to %q may expose your deployment publicly.\n",
+			cfg.Server.Host,
+		)
+	}
+
+	if shouldAutoOpenLocalStart(noOpen, deps.envLookup, deps.stdinIsTTY, deps.hasGUI) {
+		if err := deps.openBrowser(shareURL); err != nil && stderr != nil {
+			_, _ = fmt.Fprintf(stderr, "Failed to open browser automatically. Open manually: %s (%v)\n", shareURL, err)
+		}
+	}
+
+	if stdout == nil {
+		return nil
+	}
+	_, err = fmt.Fprintf(
+		stdout,
+		"Starting share backend for %s/%s\nShare URL: %s\n",
+		manifest.DeploymentName,
+		manifest.DeploymentVersion,
+		shareURL,
+	)
+	return err
+}
+
+func buildShareURL(host string, listener net.Listener) (string, error) {
+	trimmedHost := strings.TrimSpace(host)
+	if trimmedHost == "" {
+		return "", fmt.Errorf("share host is required")
+	}
+	tcpAddr, ok := listener.Addr().(*net.TCPAddr)
+	if !ok || tcpAddr == nil {
+		return "", fmt.Errorf("share listener must be tcp")
+	}
+	if tcpAddr.Port <= 0 {
+		return "", fmt.Errorf("share listener port must be positive")
+	}
+	return "http://" + net.JoinHostPort(trimmedHost, strconv.Itoa(tcpAddr.Port)), nil
+}
+
+func isLoopbackHost(host string) bool {
+	normalizedHost := strings.ToLower(strings.TrimSpace(host))
+	return normalizedHost == "127.0.0.1" || normalizedHost == "localhost" || normalizedHost == "::1"
 }
 
 func isSSHSession(envLookup func(string) (string, bool)) bool {

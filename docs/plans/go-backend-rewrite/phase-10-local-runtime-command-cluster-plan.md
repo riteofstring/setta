@@ -214,6 +214,12 @@ That slice should:
   - `setta share` now has an explicit implementation boundary
   - named deployment resolution is locked to the Go deployment catalog, not
     path heuristics
+- 2026-03-08: completed the third bounded implementation slice.
+  - `setta share` now routes through `cmd/setta` / `internal/settacmd`
+  - named share deployment resolution now uses the Go deployment catalog
+  - `cmd/setta-server` now owns share startup warning/output and browser-open
+    fallback
+  - the thin Python wrapper now dispatches `share` to the packaged Go binary
 
 ## Open Questions
 
@@ -229,7 +235,6 @@ That slice should:
 
 Implement the next bounded Phase 10 slice from this doc:
 
-1. port `share` onto the Go-owned backend runtime
-2. port `app` onto the Go-owned backend runtime
-3. keep `backups`, `plugins`, and `export-db` explicitly out of scope until
+1. port `app` onto the Go-owned backend runtime
+2. keep `backups`, `plugins`, and `export-db` explicitly out of scope until
    the local-runtime cluster is complete

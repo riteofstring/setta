@@ -41,11 +41,11 @@ def test_resolve_go_dispatch_command_uses_first_non_global_token() -> None:
     assert command == "status"
 
 
-def test_resolve_go_dispatch_command_leaves_python_owned_commands_local() -> None:
-    # Python-owned commands must stay on the Python side of the explicit wrapper.
+def test_resolve_go_dispatch_command_routes_share_to_go() -> None:
+    # Share is now owned by the shipped Go CLI runtime boundary.
     command = resolve_go_dispatch_command(["share"])
 
-    assert command is None
+    assert command == "share"
 
 
 def test_resolve_go_dispatch_command_routes_root_start_without_subcommand() -> None:
@@ -114,6 +114,43 @@ def test_python_module_entrypoint_dispatches_go_owned_launch_command(
     assert result.returncode == 0, (result.stderr or result.stdout).strip()
     assert "setta version from go" in result.stdout
     assert args_capture_path.read_text(encoding="utf-8").strip() == "launch --json"
+
+
+def test_python_module_entrypoint_dispatches_go_owned_share_command(
+    tmp_path: Path,
+) -> None:
+    args_capture_path = tmp_path / "go-args.txt"
+    go_stub = _write_go_stub(
+        path=tmp_path / "bin" / "setta-go",
+        args_capture_path=args_capture_path,
+    )
+
+    env = os.environ.copy()
+    env["SETTA_GO_CLI_BIN"] = str(go_stub)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "setta",
+            "share",
+            "--deployment-name",
+            "demo-share",
+            "--latest",
+        ],
+        cwd=_repo_root(),
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, (result.stderr or result.stdout).strip()
+    assert "setta version from go" in result.stdout
+    assert (
+        args_capture_path.read_text(encoding="utf-8").strip()
+        == "share --deployment-name demo-share --latest"
+    )
 
 
 def test_python_module_entrypoint_dispatches_go_owned_default_start_command(

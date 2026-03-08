@@ -128,6 +128,8 @@ func Run(args []string, options RunOptions) error {
 		return err
 	case "launch":
 		return runLaunch(remaining[1:], global, stdout, stderr, envLookup, cwd)
+	case "share":
+		return runShare(remaining[1:], global, stdin, stdout, stderr, envLookup, cwd)
 	case "status", "auth", "tools", "api", "stop", "connect", "c":
 		return settacli.Run(args, settacli.RunOptions{
 			Stdout:    stdout,

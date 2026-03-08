@@ -43,7 +43,7 @@ func run(args []string) (err error) {
 	flags.StringVar(&cli.Port, "port", "", "Listen port.")
 	flags.StringVar(&cli.Mode, "mode", "", "Server mode: ide, share, app, or launcher.")
 	flags.StringVar(&cli.LogLevel, "log-level", "", "Log level: debug, info, warn, or error.")
-	flags.BoolVar(&noOpen, "no-open", false, "Accepted for compatibility; browser launch is not implemented in Go.")
+	flags.BoolVar(&noOpen, "no-open", false, "Skip automatic browser opening.")
 	flags.BoolVar(&launcherArtifactRun, "launcher-artifact-run", false, "Run the managed desktop launcher entrypoint.")
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -79,9 +79,6 @@ func run(args []string) (err error) {
 	}
 
 	logger := observability.NewLogger(cfg.Server.LogLevel, os.Stderr)
-	if noOpen {
-		logger.Debug("browser launch requested but not implemented in go runtime")
-	}
 
 	application, err := app.New(cfg, logger)
 	if err != nil {
@@ -107,8 +104,15 @@ func run(args []string) (err error) {
 			err = cleanupErr
 		}
 	}()
-	if err := emitLocalStartupOutput(cfg, localSession, noOpen, os.Stdout, os.Stderr, localStartupDependencies{}); err != nil {
-		return err
+	switch cfg.Server.Mode {
+	case config.ModeIDE:
+		if err := emitLocalStartupOutput(cfg, localSession, noOpen, os.Stdout, os.Stderr, localStartupDependencies{}); err != nil {
+			return err
+		}
+	case config.ModeShare:
+		if err := emitShareStartupOutput(cfg, listener, noOpen, os.Stdout, os.Stderr, shareStartupDependencies{}); err != nil {
+			return err
+		}
 	}
 
 	server := &http.Server{
