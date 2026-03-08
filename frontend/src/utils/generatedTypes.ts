@@ -2348,9 +2348,7 @@ export type SectionCodegenPolicy = {
   typePolicies: Record<SectionType, SectionTypeCodegenPolicy>;
   sectionOverrides: Record<string, SectionCodegenOverride>;
 };
-export function createSectionCodegenPolicy(
-  options: Partial<SectionCodegenPolicy> = {},
-): SectionCodegenPolicy {
+export function createSectionCodegenPolicy(options: Partial<SectionCodegenPolicy> = {}): SectionCodegenPolicy {
   const defaultSectionCodegenAllowlist: Array<SectionType> = [
     SectionTypeEnum.Callable,
     SectionTypeEnum.Dict,
@@ -2470,9 +2468,7 @@ export type CodeObjValuePolicy = {
   typePolicies: Record<CodeObjType, CodeObjTypeValuePolicy>;
   codeObjOverrides: Record<string, CodeObjValueOverride>;
 };
-export function createCodeObjValuePolicy(
-  options: Partial<CodeObjValuePolicy> = {},
-): CodeObjValuePolicy {
+export function createCodeObjValuePolicy(options: Partial<CodeObjValuePolicy> = {}): CodeObjValuePolicy {
   function defaultCodeObjValueRepresentation(
     codeObjType: CodeObjType,
   ): CodeObjValueRepresentationMode {
@@ -2531,9 +2527,7 @@ export type ProjectCodegenPythonTarget = {
   sectionPolicy: SectionCodegenPolicy;
   codeObjValuePolicy: CodeObjValuePolicy;
 };
-export function createProjectCodegenPythonTarget(
-  options: Partial<ProjectCodegenPythonTarget> = {},
-): ProjectCodegenPythonTarget {
+export function createProjectCodegenPythonTarget(options: Partial<ProjectCodegenPythonTarget> = {}): ProjectCodegenPythonTarget {
   const sectionPolicy = createSectionCodegenPolicy(options.sectionPolicy ?? {});
   const codeObjValuePolicy = createCodeObjValuePolicy(
     options.codeObjValuePolicy ?? {},

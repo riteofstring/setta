@@ -2691,6 +2691,7 @@ func TestProjectCodegenSupportContractsUseConverterDeclarations(t *testing.T) {
 		alias         string
 		properties    []TypeProperty
 		hasCreateExpr bool
+		hasCreateBody bool
 		hasFactoryTS  bool
 	}{
 		{
@@ -2724,7 +2725,7 @@ func TestProjectCodegenSupportContractsUseConverterDeclarations(t *testing.T) {
 				{Name: "typePolicies", TypeExpr: "Record<SectionType, SectionTypeCodegenPolicy>", Optional: false},
 				{Name: "sectionOverrides", TypeExpr: "Record<string, SectionCodegenOverride>", Optional: false},
 			},
-			hasFactoryTS: true,
+			hasCreateBody: true,
 		},
 		{
 			name: "CodeObjTypeValuePolicy",
@@ -2752,7 +2753,7 @@ func TestProjectCodegenSupportContractsUseConverterDeclarations(t *testing.T) {
 				{Name: "typePolicies", TypeExpr: "Record<CodeObjType, CodeObjTypeValuePolicy>", Optional: false},
 				{Name: "codeObjOverrides", TypeExpr: "Record<string, CodeObjValueOverride>", Optional: false},
 			},
-			hasFactoryTS: true,
+			hasCreateBody: true,
 		},
 		{
 			name: "ProjectCodegenPythonTarget",
@@ -2766,7 +2767,7 @@ func TestProjectCodegenSupportContractsUseConverterDeclarations(t *testing.T) {
 				{Name: "sectionPolicy", TypeExpr: "SectionCodegenPolicy", Optional: false},
 				{Name: "codeObjValuePolicy", TypeExpr: "CodeObjValuePolicy", Optional: false},
 			},
-			hasFactoryTS: true,
+			hasCreateBody: true,
 		},
 		{
 			name: "ProjectCodegenPluginTarget",
@@ -2805,6 +2806,9 @@ func TestProjectCodegenSupportContractsUseConverterDeclarations(t *testing.T) {
 			}
 			if (declaration.CreateExpr != "") != tt.hasCreateExpr {
 				t.Fatalf("%s CreateExpr presence = %t, want %t", tt.name, declaration.CreateExpr != "", tt.hasCreateExpr)
+			}
+			if (declaration.CreateBody != "") != tt.hasCreateBody {
+				t.Fatalf("%s CreateBody presence = %t, want %t", tt.name, declaration.CreateBody != "", tt.hasCreateBody)
 			}
 			if (declaration.FactoryTS != "") != tt.hasFactoryTS {
 				t.Fatalf("%s FactoryTS presence = %t, want %t", tt.name, declaration.FactoryTS != "", tt.hasFactoryTS)
