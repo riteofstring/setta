@@ -60,8 +60,8 @@ Expected outputs:
 
 Temporary bootstrap outputs such as `generatedGo*` are allowed only while
 proving the converter or landing a bounded cutover slice. They are not the
-target architecture and should be deleted once the canonical generated files
-are Go-owned.
+target architecture and should be deleted as soon as the canonical generated
+files are Go-owned.
 
 ## Initial Slice
 
@@ -76,13 +76,13 @@ before widening it across more caller-backed Go routes.
 
 Current landed wedge:
 
-- `frontend/src/utils/generatedGoRoutes.ts`
+- `frontend/src/utils/generatedRoutes.ts`
   - current websocket route constants
   - current status/meta route constants
   - current workspace-launch route constants
   - current launcher-home route constants
   - current launcher-management route constants
-- `frontend/src/utils/generatedGoTypes.ts`
+- `frontend/src/utils/generatedTypes.ts`
   - current status/meta request/response contract types
   - explicit workspace-launch boundary contract types
     - `LaunchRequestInput`
@@ -105,7 +105,7 @@ Current landed wedge:
     - setup/update request payloads
     - launcher status-query and request-base payloads
     - launcher state enums used by the frontend
-- `frontend/src/utils/generatedGoEndpoints.ts`
+- `frontend/src/utils/generatedEndpoints.ts`
   - current status/meta endpoint wrappers
   - workspace-launch endpoint wrappers
     - `route_create_workspace_launch_intent`
@@ -127,22 +127,22 @@ Current landed wedge:
 - active caller adoption
   - `GlobalWrapper`, `WorktreeHint`, `initializeServerMode`,
     `websocketReceive`, and the `settaHomeInfo` read in
-    `WorkspaceSwitcherModal` now consume the Go-generated modules for this
-    initial slice
+    `WorkspaceSwitcherModal` now consume the canonical Go-generated modules
+    for this initial slice
   - `WorkspaceSwitcherModal`, `WorkspaceLaunchPage`,
     `workspaceSwitcherLaunch`, and `launchRequestDedupeKey` now consume the
-    Go-generated workspace-launch bindings
-  - `LauncherHomePage` now consumes the Go-generated launcher-home bindings
-  - `DesktopLauncherSettingsSection` now consumes the Go-generated
+    canonical Go-generated workspace-launch bindings
+  - `LauncherHomePage` now consumes the canonical Go-generated launcher-home
+    bindings
+  - `DesktopLauncherSettingsSection` now consumes the canonical Go-generated
     launcher-management bindings
 
 ## Cutover Rule
 
 - The steady state is a single frontend-generated contract surface, not
   parallel Python-owned and Go-owned modules.
-- The next structural cutover should replace the canonical generated frontend
-  files and remove `generatedGo*` imports rather than expanding the shadow
-  track indefinitely.
+- The canonical generated frontend files are now the active cutover target for
+  the converted slice; do not reintroduce `generatedGo*` shadow outputs.
 - Do not spend rewrite effort preserving Python-generated binding consumers
   that only exist to keep the app partially working during the transition.
 

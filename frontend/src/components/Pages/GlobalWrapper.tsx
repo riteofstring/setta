@@ -12,8 +12,8 @@ import {
 } from "state/definitions";
 import { HOME_ROUTER_PATH, SETTINGS_ROUTER_PATH } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
-import { route_get_backend_init_status } from "utils/generatedGoEndpoints";
-import type { BackendInitStatusResponse } from "utils/generatedGoTypes";
+import { route_get_backend_init_status } from "utils/generatedEndpoints";
+import type { BackendInitStatusResponse } from "utils/generatedTypes";
 import { AppShell } from "./AppShell";
 import {
   resolveDefaultProjectConfigName,

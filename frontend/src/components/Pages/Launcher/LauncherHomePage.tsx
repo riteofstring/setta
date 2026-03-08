@@ -10,13 +10,13 @@ import {
   route_open_launcher_workspace,
   route_pin_launcher_recent_workspace,
   route_remove_launcher_recent_workspace,
-} from "utils/generatedGoEndpoints";
+} from "utils/generatedEndpoints";
 import type {
   LauncherDirectoryEntryPayload,
   LauncherListDirectoryRequestInput,
   LauncherListDirectoryResponse,
   LauncherRecentWorkspacePayload,
-} from "utils/generatedGoTypes";
+} from "utils/generatedTypes";
 import { appendLauncherOriginToBootstrapUrlFragment } from "utils/launcherOrigin";
 import { resolveServerModeCapabilities } from "utils/serverModeCapabilities";
 

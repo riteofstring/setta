@@ -1,6 +1,6 @@
 import { useServerMode } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
-import { route_get_server_mode } from "utils/generatedGoEndpoints";
+import { route_get_server_mode } from "utils/generatedEndpoints";
 
 export async function initializeServerMode(): Promise<
   "ide" | "share" | "app" | "launcher" | null

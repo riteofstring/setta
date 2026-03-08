@@ -34,9 +34,15 @@ type endpointRenderData struct {
 	UsesGet         bool
 }
 
+type routeEnumEntry struct {
+	EnumName string
+	Path     string
+}
+
 func Build() (GeneratedBindings, error) {
 	converter := newTypeConverter()
 	endpointSpecs := CurrentEndpoints()
+	routeGroups := CurrentRouteGroups()
 	renderEndpoints := make([]endpointRenderData, 0, len(endpointSpecs))
 	for _, spec := range endpointSpecs {
 		if err := converter.AddRootType(spec.RequestType); err != nil {
@@ -64,7 +70,8 @@ func Build() (GeneratedBindings, error) {
 	}
 
 	routesTS, err := renderTemplate(routesTemplateText, map[string]any{
-		"RouteGroups": CurrentRouteGroups(),
+		"RouteGroups":      routeGroups,
+		"RouteEnumEntries": flattenRouteEnumEntries(routeGroups),
 	})
 	if err != nil {
 		return GeneratedBindings{}, err
@@ -89,6 +96,22 @@ func Build() (GeneratedBindings, error) {
 		TypesTS:     typesTS,
 		EndpointsTS: endpointsTS,
 	}, nil
+}
+
+func flattenRouteEnumEntries(routeGroups []RouteGroup) []routeEnumEntry {
+	entries := make([]routeEnumEntry, 0)
+	for _, group := range routeGroups {
+		for _, route := range group.Routes {
+			if route.EnumName == "" {
+				continue
+			}
+			entries = append(entries, routeEnumEntry{
+				EnumName: route.EnumName,
+				Path:     route.Path,
+			})
+		}
+	}
+	return entries
 }
 
 func namedTypeName(t reflect.Type) string {

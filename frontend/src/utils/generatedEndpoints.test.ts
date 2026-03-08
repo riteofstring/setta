@@ -7,6 +7,22 @@ import {
   route_get_launcher_status,
 } from "./generatedEndpoints";
 
+vi.mock("state/definitions", () => ({
+  useServerMode: {
+    getState: () => ({
+      mode: null,
+      modeResolved: false,
+      modeError: null,
+    }),
+  },
+  useShareSession: {
+    getState: () => ({
+      isDeploymentMode: false,
+      shareSessionId: null,
+    }),
+  },
+}));
+
 describe("generatedEndpoints launcher recent-workspaces", () => {
   const fetchMock = vi.fn();
 
@@ -30,7 +46,9 @@ describe("generatedEndpoints launcher recent-workspaces", () => {
 
   it("transmits setta_home as a query parameter", async () => {
     // This endpoint's backend contract uses a query param, not a path segment.
-    await route_get_launcher_recent_workspaces("/tmp/launcher-home");
+    await route_get_launcher_recent_workspaces({
+      setta_home: "/tmp/launcher-home",
+    });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
@@ -39,7 +57,9 @@ describe("generatedEndpoints launcher recent-workspaces", () => {
   });
 
   it("omits setta_home query parameter when null", async () => {
-    await route_get_launcher_recent_workspaces(null);
+    await route_get_launcher_recent_workspaces({
+      setta_home: null,
+    });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
@@ -79,7 +99,9 @@ describe("generatedEndpoints launcher status", () => {
     );
     expect(resolveEndpointOrigin("/launcherStatus")).toBe("backend");
 
-    await route_get_launcher_status("/tmp/launcher-home");
+    await route_get_launcher_status({
+      setta_home: "/tmp/launcher-home",
+    });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
@@ -96,7 +118,9 @@ describe("generatedEndpoints launcher status", () => {
     );
     expect(resolveEndpointOrigin("/launcherStatus")).toBe("backend");
 
-    await route_get_launcher_status(null);
+    await route_get_launcher_status({
+      setta_home: null,
+    });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(

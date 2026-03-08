@@ -8,8 +8,9 @@ import (
 )
 
 type NamedRoute struct {
-	Name string
-	Path string
+	Name     string
+	Path     string
+	EnumName string
 }
 
 type RouteGroup struct {
@@ -31,24 +32,28 @@ func CurrentRouteGroups() []RouteGroup {
 		{
 			ConstName: "GoRoutePrefixes",
 			Routes: []NamedRoute{{
-				Name: "api",
-				Path: httpapi.RouteAPIPrefix,
+				Name:     "api",
+				Path:     httpapi.RouteAPIPrefix,
+				EnumName: "PREFIX",
 			}},
 		},
 		{
 			ConstName: "GoRootRoutes",
 			Routes: []NamedRoute{
 				{
-					Name: "bootstrapPage",
-					Path: httpapi.RouteBootstrapPage,
+					Name:     "bootstrapPage",
+					Path:     httpapi.RouteBootstrapPage,
+					EnumName: "BOOTSTRAP_PAGE",
 				},
 				{
-					Name: "bootstrapConsume",
-					Path: httpapi.RouteBootstrapConsume,
+					Name:     "bootstrapConsume",
+					Path:     httpapi.RouteBootstrapConsume,
+					EnumName: "BOOTSTRAP_CONSUME",
 				},
 				{
-					Name: "toolsCall",
-					Path: httpapi.RouteMCPToolCall,
+					Name:     "toolsCall",
+					Path:     httpapi.RouteMCPToolCall,
+					EnumName: "TOOLS_CALL",
 				},
 			},
 		},
@@ -56,80 +61,99 @@ func CurrentRouteGroups() []RouteGroup {
 			ConstName: "GoHTTPRoutes",
 			Routes: []NamedRoute{
 				{
-					Name: "getBackendInitStatus",
-					Path: httpapi.RouteGetBackendInitStatus,
+					Name:     "getBackendInitStatus",
+					Path:     httpapi.RouteGetBackendInitStatus,
+					EnumName: "GET_BACKEND_INIT_STATUS",
 				},
 				{
-					Name: "getAuthRefreshStatus",
-					Path: httpapi.RouteGetAuthRefreshStatus,
+					Name:     "getAuthRefreshStatus",
+					Path:     httpapi.RouteGetAuthRefreshStatus,
+					EnumName: "GET_AUTH_REFRESH_STATUS",
 				},
 				{
-					Name: "getServerMode",
-					Path: httpapi.RouteGetServerMode,
+					Name:     "getServerMode",
+					Path:     httpapi.RouteGetServerMode,
+					EnumName: "GET_SERVER_MODE",
 				},
 				{
-					Name: "getSettaHomeInfo",
-					Path: httpapi.RouteGetSettaHomeInfo,
+					Name:     "getSettaHomeInfo",
+					Path:     httpapi.RouteGetSettaHomeInfo,
+					EnumName: "GET_SETTA_HOME_INFO",
 				},
 				{
-					Name: "createWorkspaceLaunchIntent",
-					Path: httpapi.RouteCreateWorkspaceLaunchIntent,
+					Name:     "createWorkspaceLaunchIntent",
+					Path:     httpapi.RouteCreateWorkspaceLaunchIntent,
+					EnumName: "CREATE_WORKSPACE_LAUNCH_INTENT",
 				},
 				{
-					Name: "launch",
-					Path: httpapi.RouteLaunch,
+					Name:     "launch",
+					Path:     httpapi.RouteLaunch,
+					EnumName: "LAUNCH",
 				},
 				{
-					Name: "getLauncherRecentWorkspaces",
-					Path: httpapi.RouteGetLauncherRecentWorkspaces,
+					Name:     "getLauncherRecentWorkspaces",
+					Path:     httpapi.RouteGetLauncherRecentWorkspaces,
+					EnumName: "GET_LAUNCHER_RECENT_WORKSPACES",
 				},
 				{
-					Name: "addLauncherRecentWorkspace",
-					Path: httpapi.RouteAddLauncherRecentWorkspace,
+					Name:     "addLauncherRecentWorkspace",
+					Path:     httpapi.RouteAddLauncherRecentWorkspace,
+					EnumName: "ADD_LAUNCHER_RECENT_WORKSPACE",
 				},
 				{
-					Name: "removeLauncherRecentWorkspace",
-					Path: httpapi.RouteRemoveLauncherRecentWorkspace,
+					Name:     "removeLauncherRecentWorkspace",
+					Path:     httpapi.RouteRemoveLauncherRecentWorkspace,
+					EnumName: "REMOVE_LAUNCHER_RECENT_WORKSPACE",
 				},
 				{
-					Name: "pinLauncherRecentWorkspace",
-					Path: httpapi.RoutePinLauncherRecentWorkspace,
+					Name:     "pinLauncherRecentWorkspace",
+					Path:     httpapi.RoutePinLauncherRecentWorkspace,
+					EnumName: "PIN_LAUNCHER_RECENT_WORKSPACE",
 				},
 				{
-					Name: "getLauncherFilesystemRoots",
-					Path: httpapi.RouteGetLauncherFilesystemRoots,
+					Name:     "getLauncherFilesystemRoots",
+					Path:     httpapi.RouteGetLauncherFilesystemRoots,
+					EnumName: "GET_LAUNCHER_FILESYSTEM_ROOTS",
 				},
 				{
-					Name: "listLauncherDirectory",
-					Path: httpapi.RouteListLauncherDirectory,
+					Name:     "listLauncherDirectory",
+					Path:     httpapi.RouteListLauncherDirectory,
+					EnumName: "LIST_LAUNCHER_DIRECTORY",
 				},
 				{
-					Name: "openLauncherWorkspace",
-					Path: httpapi.RouteOpenLauncherWorkspace,
+					Name:     "openLauncherWorkspace",
+					Path:     httpapi.RouteOpenLauncherWorkspace,
+					EnumName: "OPEN_LAUNCHER_WORKSPACE",
 				},
 				{
-					Name: "getLauncherStatus",
-					Path: httpapi.RouteGetLauncherStatus,
+					Name:     "getLauncherStatus",
+					Path:     httpapi.RouteGetLauncherStatus,
+					EnumName: "GET_LAUNCHER_STATUS",
 				},
 				{
-					Name: "setupLauncher",
-					Path: httpapi.RouteSetupLauncher,
+					Name:     "setupLauncher",
+					Path:     httpapi.RouteSetupLauncher,
+					EnumName: "SETUP_LAUNCHER",
 				},
 				{
-					Name: "repairLauncher",
-					Path: httpapi.RouteRepairLauncher,
+					Name:     "repairLauncher",
+					Path:     httpapi.RouteRepairLauncher,
+					EnumName: "REPAIR_LAUNCHER",
 				},
 				{
-					Name: "removeLauncher",
-					Path: httpapi.RouteRemoveLauncher,
+					Name:     "removeLauncher",
+					Path:     httpapi.RouteRemoveLauncher,
+					EnumName: "REMOVE_LAUNCHER",
 				},
 				{
-					Name: "updateLauncher",
-					Path: httpapi.RouteUpdateLauncher,
+					Name:     "updateLauncher",
+					Path:     httpapi.RouteUpdateLauncher,
+					EnumName: "UPDATE_LAUNCHER",
 				},
 				{
-					Name: "revealPathInOsFileExplorer",
-					Path: httpapi.RouteRevealPathInOSFileExplorer,
+					Name:     "revealPathInOsFileExplorer",
+					Path:     httpapi.RouteRevealPathInOSFileExplorer,
+					EnumName: "REVEAL_PATH_IN_OS_FILE_EXPLORER",
 				},
 			},
 		},
@@ -137,16 +161,19 @@ func CurrentRouteGroups() []RouteGroup {
 			ConstName: "GoWebsocketRoutes",
 			Routes: []NamedRoute{
 				{
-					Name: "frontend",
-					Path: wsapi.RouteFrontend,
+					Name:     "frontend",
+					Path:     wsapi.RouteFrontend,
+					EnumName: "WEBSOCKET_FRONTEND",
 				},
 				{
-					Name: "listenerById",
-					Path: wsapi.RouteListenerByID,
+					Name:     "listenerById",
+					Path:     wsapi.RouteListenerByID,
+					EnumName: "WEBSOCKET_LISTENER_BY_ID",
 				},
 				{
-					Name: "terminalBySection",
-					Path: wsapi.RouteTerminalBySection,
+					Name:     "terminalBySection",
+					Path:     wsapi.RouteTerminalBySection,
+					EnumName: "WEBSOCKET_TERMINAL_BY_SECTION",
 				},
 			},
 		},

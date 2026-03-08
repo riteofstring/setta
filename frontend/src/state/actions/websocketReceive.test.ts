@@ -27,10 +27,6 @@ vi.mock("utils/generatedEndpoints", () => ({
   route_get_latest_lsp_diagnostics: vi.fn(),
 }));
 
-vi.mock("utils/generatedGoEndpoints", () => ({
-  route_get_auth_refresh_status: routeGetAuthRefreshStatusMock,
-}));
-
 vi.mock("state/actions/lspDiagnostics", () => ({
   processLspDiagnostics: vi.fn(),
 }));
