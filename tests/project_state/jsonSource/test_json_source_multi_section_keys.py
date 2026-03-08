@@ -82,6 +82,9 @@ class TestJsonSourceMultiSectionKeys:
             projectConfigs={
                 self.project_state.projectConfig.id: self.project_state.projectConfig
             },
+            projectChatWindowingByProjectConfigId={
+                self.project_state.projectConfig.id: self.project_state.projectChatWindowing
+            },
             defaultProjectConfigId=self.project_state.projectConfig.id,
         )
         convert_backend_to_single_config(backend, self.project_state.projectConfig.id)

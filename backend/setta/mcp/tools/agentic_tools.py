@@ -2,11 +2,18 @@ from typing import Any
 
 from mcp.server.fastmcp.server import Context
 
-from setta.agentic.agentic_scope import AgenticContext
+from setta.agentic.agentic_scope import (
+    AgenticContext,
+    normalize_linked_chat_invocation_chain_section_ids,
+    normalize_linked_chat_invocation_depth,
+)
 from setta.agentic.completion_report import (
     CheckResult,
     CompletionStatusReport,
     build_completion_status_report,
+)
+from setta.agentic.linked_chat_invocation import (
+    invoke_linked_chat as invoke_linked_chat_impl,
 )
 from setta.agentic.store import load_agent_profiles
 from setta.frontend_affinity_token import parse_frontend_affinity_token
@@ -25,6 +32,8 @@ def set_agentic_context(
     sectionId: ID | None = None,
     frontendAffinityToken: str | None = None,
     allowUnscoped: bool = False,
+    linkedChatInvocationDepth: int = 0,
+    linkedChatInvocationChainSectionIds: list[ID] | None = None,
     ctx: Context,
 ) -> dict[str, Any]:
     """
@@ -36,6 +45,8 @@ def set_agentic_context(
         sectionId: Chat section id (required unless allowUnscoped=true).
         frontendAffinityToken: Frontend affinity token for reveal routing.
         allowUnscoped: Allow an unscoped/project-level context (required when sectionId is omitted).
+        linkedChatInvocationDepth: Current linked-chat recursion depth.
+        linkedChatInvocationChainSectionIds: Current linked-chat caller chain.
     """
     if sectionId is None and not allowUnscoped:
         raise InvalidToolArgumentsError(
@@ -47,6 +58,14 @@ def set_agentic_context(
         )
     try:
         frontend_affinity_token = parse_frontend_affinity_token(frontendAffinityToken)
+        linked_chat_invocation_depth = normalize_linked_chat_invocation_depth(
+            linkedChatInvocationDepth
+        )
+        linked_chat_invocation_chain_section_ids = (
+            normalize_linked_chat_invocation_chain_section_ids(
+                linkedChatInvocationChainSectionIds
+            )
+        )
     except (TypeError, ValueError) as exc:
         raise InvalidToolArgumentsError(str(exc)) from exc
     ctx.fastmcp.set_agentic_context_for_session(
@@ -57,6 +76,8 @@ def set_agentic_context(
             section_id=sectionId,
             frontend_affinity_token=frontend_affinity_token,
             allow_unscoped=allowUnscoped,
+            linked_chat_invocation_depth=linked_chat_invocation_depth,
+            linked_chat_invocation_chain_section_ids=linked_chat_invocation_chain_section_ids,
         ),
     )
     return {"status": "ok"}
@@ -147,4 +168,35 @@ async def run_agent_profile(
 attach_tool_access(
     run_agent_profile,
     ToolAccessMetadata(accessType="structural"),
+)
+
+
+@setta_tool
+async def invoke_linked_chat(
+    *,
+    targetSectionId: ID,
+    prompt: str,
+    ctx: Context,
+):
+    """
+    Invoke a directly linked chat section as a bounded tool endpoint.
+
+    Args:
+        targetSectionId: Linked target chat section id from a direct `chat_chat` edge.
+        prompt: Prompt to send to the linked chat.
+    """
+    return await invoke_linked_chat_impl(
+        target_section_id=targetSectionId,
+        prompt=prompt,
+        ctx=ctx,
+    )
+
+
+attach_tool_access(
+    invoke_linked_chat,
+    ToolAccessMetadata(
+        accessType="peer_chat",
+        retryOnDisconnect=False,
+        idPathsByType={"section": ["targetSectionId"]},
+    ),
 )
