@@ -242,9 +242,13 @@ Use the docs in this order:
   - focused implementation-plan doc for Go-owned `run_agent_profile` parity
     over the completed agent-profile store/read foundation and the completed
     managed agent-run runtime foundation
-88. `spike-mcp.md`
+88. `phase-6-ui-setting-registry-and-reveal-tools-parity.md`
+  - focused implementation-plan doc for the next Go-owned UI-setting
+    registry/search/value/reveal foundation above the completed compare-and-set
+    project-state subset
+89. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-89. `spike-pty.md`
+90. `spike-pty.md`
    - PTY uncertainty-reduction plan
 90. `spike-lsp.md`
    - LSP uncertainty-reduction plan

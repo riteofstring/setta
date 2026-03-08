@@ -150,5 +150,5 @@ Existing Go foundations reused:
 
 ## Next Recommended Step
 
-- execute `phase-6-managed-agent-run-runtime-foundation.md` first, then land
-  `phase-6-run-agent-profile-tool-parity.md` over that completed foundation
+- treat the bounded agent-profile slice as complete and continue with
+  `phase-6-ui-setting-registry-and-reveal-tools-parity.md`

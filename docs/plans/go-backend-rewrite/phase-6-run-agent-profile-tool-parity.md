@@ -16,23 +16,24 @@ Current repo status as of 2026-03-08:
 
 - Phase 6 MCP parity remains the active rewrite phase
 - `list_agent_profiles` and `get_agent_profile` are complete in Go
-- `run_agent_profile` is still the next remaining agentic MCP tool
+- `run_agent_profile` is now complete in Go
 - `phase-6-managed-agent-run-runtime-foundation.md` is now complete
 - Go now owns the managed agent-run stores, config/runtime boundary, and
   service boundary behind this tool
 - the managed-run service currently exposes an explicit disabled state until a
-  provider-backed executor is wired
+  provider-backed executor is wired, and the real app now surfaces that state
+  cleanly through MCP
 
 ## Scope
 
-This slice should cover:
+This slice covered:
 
 - Go-owned `run_agent_profile`
 - bounded profile lookup and preflight validation over completed stores
 - final managed-run start/wait/load behavior over the completed runtime
   foundation
 
-It should include:
+It included:
 
 - thin delegation from the MCP tool into the completed managed-run service
 - clean error handling for missing profiles, unavailable runtime wiring, and
@@ -94,6 +95,8 @@ It should include:
 - reuse the completed agent-profile store rather than reopening storage design
 - keep the first Go `run_agent_profile` tool limited to returning the final
   persisted `AgentRun`
+- keep the current app behavior honest by surfacing the disabled managed-run
+  runtime as a structured MCP `internal_error` until a provider executor exists
 - defer AI-follow, websocket fanout, and richer run-management APIs until a
   concrete dependency requires them
 
@@ -122,6 +125,33 @@ Already complete:
   additional MCP-specific error shaping; current recommendation is to keep the
   first transport thin and reuse the foundation's explicit runtime errors
 
+## Implementation Notes
+
+- `internal/mcpx` now exposes unscoped structural `run_agent_profile` over the
+  completed `internal/agentruns.Service`.
+- the tool keeps Python’s thin profile-lookup behavior: missing profile ids
+  fail before managed-run invocation, and unavailable managed execution returns
+  `Agent runner is not available`
+- focused server and HTTP coverage use the real managed-run service plus a
+  bounded executor implementation, while authenticated app coverage exercises
+  the real current disabled-executor app wiring
+
+## Verification
+
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|RunAgentProfile)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsRunAgentProfile|SupportsAgentProfileReadTools)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsAuthenticatedSSECalls|ServerSupportsAgentProfileReadToolsOverAuthenticatedSSE|ServerSupportsRunAgentProfileOverAuthenticatedSSE|ToolCallRouteSupportsAgentProfileReadTools|ToolCallRouteSupportsRunAgentProfile)' -count=1 -timeout 420s`
+
+## Progress Notes
+
+- 2026-03-08: added Go MCP parity for `run_agent_profile`, including unscoped
+  discoverable tool registration and thin delegation into the completed
+  managed-run service.
+- 2026-03-08: added focused HTTP tool-route coverage for successful managed
+  sub-agent execution over the real Go stores and service.
+- 2026-03-08: added authenticated SSE and tool-route coverage for the real app
+  behavior when the managed-run executor is still disabled.
+
 ## Next Recommended Step
 
-- land this transport slice now
+- execute `phase-6-ui-setting-registry-and-reveal-tools-parity.md`

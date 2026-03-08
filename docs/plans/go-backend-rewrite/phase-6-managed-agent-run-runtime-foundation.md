@@ -194,4 +194,5 @@ Completed owners in this slice:
 
 ## Next Recommended Step
 
-- implement `phase-6-run-agent-profile-tool-parity.md`
+- treat the managed-agent-run foundation as complete and continue with
+  `phase-6-ui-setting-registry-and-reveal-tools-parity.md`

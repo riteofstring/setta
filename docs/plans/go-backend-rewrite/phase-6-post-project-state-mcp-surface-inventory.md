@@ -19,7 +19,7 @@ Current repo status as of 2026-03-08:
   `BaseProjectManager.@project_state_tool` surface
 - Python currently exposes 25 non-project-state MCP tools in
   `backend/setta/mcp/tools/*.py`
-- 13 of those now have Go parity:
+- 14 of those now have Go parity:
   - `set_agentic_context`
   - `list_mcp_tools`
   - `read_file_range`
@@ -33,8 +33,9 @@ Current repo status as of 2026-03-08:
   - `report_completion_status`
   - `list_agent_profiles`
   - `get_agent_profile`
-- the remaining 12 tools now fall into one agentic-run transport slice plus
-  several larger missing runtime foundations
+  - `run_agent_profile`
+- the remaining 11 tools now fall into one UI-setting registry/reveal cluster
+  plus several larger missing runtime foundations
 
 ## Inputs
 
@@ -84,17 +85,11 @@ Go already owns the following Python MCP tools that do not come from
 - `report_completion_status`
 - `list_agent_profiles`
 - `get_agent_profile`
+- `run_agent_profile`
 
 ## Remaining Python-Owned MCP Surface
 
-### 1. Agentic Run Transport Gap
-
-- `run_agent_profile`
-  - Go now owns the agent-profile store/read foundation and the bounded
-    managed-run stores/runtime owners behind this tool, but MCP/HTTP/SSE
-    transport parity is still missing.
-
-### 2. Generic UI-Setting Registry And Reveal Gaps
+### 1. Generic UI-Setting Registry And Reveal Gaps
 
 - `search_ui_settings`
 - `get_ui_setting_value`
@@ -106,7 +101,7 @@ Go only owns the bounded compare-and-set project-state subset in
 broader UI-setting registry, schema validation, plugin-setting integration, or
 frontend reveal coordinator that Python keeps under `setta/ui_settings/`.
 
-### 3. Plugin Management Gaps
+### 2. Plugin Management Gaps
 
 - `install_plugin`
 - `uninstall_plugin`
@@ -118,7 +113,7 @@ These are blocked on missing Go ownership for plugin discovery/install/update
 runtime behavior. Current Go plugin work is still centered on codegen/runtime
 materialization, not MCP-facing package management.
 
-### 4. App-Generation Patch Streaming Gap
+### 3. App-Generation Patch Streaming Gap
 
 - `stream_app_definition`
 
@@ -126,7 +121,7 @@ Go now owns stored app-definition reads, writes, and validation, but it does
 not yet own the newline-delimited patch parser plus live-preview semantics that
 Python exposes through `setta.app.spec_patch_stream`.
 
-### 5. Environment Introspection Gap
+### 4. Environment Introspection Gap
 
 - `getInstalledPythonPackages`
 
@@ -142,33 +137,35 @@ heuristics.
 - treat `report_completion_status` as complete and closed
 - treat the bounded agent-profile store/read slice as complete and closed
 - treat the managed agent-run foundation as complete and closed
-- keep the next step focused on `run_agent_profile` transport before broader
-  UI-setting or plugin-management work
+- treat `run_agent_profile` transport as complete and closed
+- keep the next step focused on the UI-setting registry/reveal cluster before
+  plugin-management or patch-stream work
 - do not route missing MCP tools back through Python
 - keep transport thin and add explicit Go owners where the current runtime
   boundary is still implicit
 
 ## Recommended Next Step
 
-Execute the dedicated `run_agent_profile` transport plan in
-`phase-6-run-agent-profile-tool-parity.md`.
+Execute the dedicated UI-setting plan in
+`phase-6-ui-setting-registry-and-reveal-tools-parity.md`.
 
 This is now the highest-leverage next slice because:
 
-- `run_agent_profile` is still the only remaining agentic MCP tool before the
-  broader plugin and UI-setting registry gaps
-- the managed agent-run stores and service boundary now exist in Go, so the
-  next missing work is transport and tool-call behavior rather than another
-  foundational owner
-- it keeps the next runtime addition bounded to managed sub-agent execution
-  instead of broadening immediately into plugin management or patch streaming
+- four remaining Python MCP tools sit behind the same missing Go-owned
+  registry/search/value-schema/reveal subsystem
+- the bounded compare-and-set UI-setting owners already exist in Go, so the
+  next missing work is the broader registry/value/reveal runtime above those
+  foundations rather than another transport-only slice
+- it reduces the largest remaining non-plugin MCP gap before broader plugin
+  management or patch-stream work
 
 ## Verification
 
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/agentprofiles -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|ListAgentProfilesAndGetAgentProfile)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsAgentProfileReadTools|SupportsReportCompletionStatus|SupportsUtilityReadInitTools)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsAuthenticatedSSECalls|ServerSupportsAgentProfileReadToolsOverAuthenticatedSSE|ToolCallRouteSupportsAgentProfileReadTools)' -count=1 -timeout 420s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/agentruns -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|RunAgentProfile|ListAgentProfilesAndGetAgentProfile)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsRunAgentProfile|SupportsAgentProfileReadTools|SupportsReportCompletionStatus|SupportsUtilityReadInitTools)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsAuthenticatedSSECalls|ServerSupportsAgentProfileReadToolsOverAuthenticatedSSE|ServerSupportsRunAgentProfileOverAuthenticatedSSE|ToolCallRouteSupportsAgentProfileReadTools|ToolCallRouteSupportsRunAgentProfile)' -count=1 -timeout 420s`
 
 ## Progress Notes
 
@@ -194,3 +191,6 @@ This is now the highest-leverage next slice because:
 - 2026-03-08: completed the dedicated managed-agent-run foundation slice in
   `internal/llmconfig`, `internal/agentruns`, and `internal/app`, so the next
   step is now the bounded `run_agent_profile` transport slice.
+- 2026-03-08: completed Go parity for `run_agent_profile`, reducing the
+  remaining non-project-state Python MCP gap count from 12 to 11 and removing
+  the last remaining agentic MCP transport gap.
