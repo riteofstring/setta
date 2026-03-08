@@ -910,15 +910,15 @@ func TestRegisterAIRoutesRunsFileModeTranscriptionSession(t *testing.T) {
 	}
 }
 
-func TestRegisterAIRoutesReturnsRealtimeTranscriptionRuntimeUnavailable(t *testing.T) {
+func TestRegisterAIRoutesReturnsTypedUnsupportedRealtimeTranscriptionModel(t *testing.T) {
 	t.Parallel()
 
 	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
 	if err := fixture.llm.UpdateConfig(llmconfig.AllConfigs{
 		Configs: map[string]llmconfig.Config{
-			"openai-realtime": {
-				ID:        "openai-realtime",
-				Model:     "gpt-4o-mini-transcribe",
+			"openai-file": {
+				ID:        "openai-file",
+				Model:     "whisper-1",
 				Provider:  "openai",
 				BaseURL:   "https://example.com/v1",
 				APIKeyEnv: "OPENAI_API_KEY",
@@ -935,7 +935,7 @@ func TestRegisterAIRoutesReturnsRealtimeTranscriptionRuntimeUnavailable(t *testi
 		{
 			ID:                       "profile-realtime",
 			Name:                     "Realtime",
-			TranscriptionLLMConfigID: "openai-realtime",
+			TranscriptionLLMConfigID: "openai-file",
 			TransportMode:            transcriptionprofiles.TransportModeRealtime,
 			ChunkMs:                  1200,
 		},
@@ -965,15 +965,15 @@ func TestRegisterAIRoutesReturnsRealtimeTranscriptionRuntimeUnavailable(t *testi
 
 	handler.ServeHTTP(response, request)
 
-	if response.Code != http.StatusServiceUnavailable {
-		t.Fatalf("expected 503, got %d with body %q", response.Code, response.Body.String())
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
 	}
 	var payload errorResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode error payload: %v", err)
 	}
-	if payload.Error.Code != "transcription_runtime_unavailable" {
-		t.Fatalf("expected transcription_runtime_unavailable, got %#v", payload)
+	if payload.Error.Code != "unsupported_model" {
+		t.Fatalf("expected unsupported_model, got %#v", payload)
 	}
 }
 

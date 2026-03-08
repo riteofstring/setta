@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coder/websocket"
+
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/auth"
@@ -743,6 +745,268 @@ func TestAppServesFileModeTranscriptionSessionRoutes(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for provider request")
 	}
+}
+
+func TestAppServesRealtimeTranscriptionSessionRoutes(t *testing.T) {
+	// The real IDE app should own realtime transcription session lifecycle and
+	// stream incremental transcript deltas through the bounded Go runtime.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	t.Setenv("OPENAI_API_KEY", "app-realtime-secret")
+
+	type handshake struct {
+		Path          string
+		Query         string
+		Authorization string
+		OpenAIBeta    string
+	}
+
+	handshakes := make(chan handshake, 1)
+	updates := make(chan map[string]any, 1)
+	appends := make(chan map[string]any, 1)
+	commits := make(chan map[string]any, 1)
+	closed := make(chan error, 1)
+	emitFinal := make(chan struct{})
+
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handshakes <- handshake{
+			Path:          r.URL.Path,
+			Query:         r.URL.RawQuery,
+			Authorization: r.Header.Get("Authorization"),
+			OpenAIBeta:    r.Header.Get("OpenAI-Beta"),
+		}
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close(websocket.StatusNormalClosure, "")
+
+		update, err := readRealtimeProviderMessage(context.Background(), conn)
+		if err != nil {
+			return
+		}
+		updates <- update
+
+		appendPayload, err := readRealtimeProviderMessage(context.Background(), conn)
+		if err != nil {
+			return
+		}
+		appends <- appendPayload
+
+		commitPayload, err := readRealtimeProviderMessage(context.Background(), conn)
+		if err != nil {
+			return
+		}
+		commits <- commitPayload
+
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.completed","item_id":"item-1","transcript":"ready"}`)); err != nil {
+			return
+		}
+		<-emitFinal
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.completed","item_id":"item-2","transcript":"now"}`)); err != nil {
+			return
+		}
+		_, _, err = conn.Read(context.Background())
+		closed <- err
+	}))
+	defer provider.Close()
+
+	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"openai-realtime": {
+				ID:        "openai-realtime",
+				Model:     "gpt-4o-mini-transcribe",
+				Provider:  "openai",
+				BaseURL:   provider.URL + "/v1",
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	}); err != nil {
+		t.Fatalf("save llm config: %v", err)
+	}
+
+	transcriptionStore, err := transcriptionprofiles.NewStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("new transcription store: %v", err)
+	}
+	if err := transcriptionStore.Write([]transcriptionprofiles.Profile{
+		{
+			ID:                       "profile-realtime",
+			Name:                     "Realtime",
+			TranscriptionLLMConfigID: "openai-realtime",
+			TransportMode:            transcriptionprofiles.TransportModeRealtime,
+			ChunkMs:                  200,
+		},
+	}); err != nil {
+		t.Fatalf("write transcription profile: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	startRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteStartTranscriptionSession,
+		strings.NewReader(`{"transcriptionProfileId":"profile-realtime","language":"en"}`),
+	)
+	if err != nil {
+		t.Fatalf("new start request: %v", err)
+	}
+	startRequest.Header.Set("Content-Type", "application/json")
+	startRequest.AddCookie(authCookie)
+
+	startResponse, err := http.DefaultClient.Do(startRequest)
+	if err != nil {
+		t.Fatalf("start realtime transcription session: %v", err)
+	}
+	defer startResponse.Body.Close()
+	if startResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(startResponse.Body)
+		t.Fatalf("expected realtime start 200, got %d with body %q", startResponse.StatusCode, string(body))
+	}
+	var started httpapi.StartTranscriptionSessionResponse
+	if err := json.NewDecoder(startResponse.Body).Decode(&started); err != nil {
+		t.Fatalf("decode realtime start payload: %v", err)
+	}
+	if started.ResolvedTransportMode != "realtime" || started.ChunkMs != 200 {
+		t.Fatalf("unexpected realtime start payload %#v", started)
+	}
+
+	appendRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteAppendTranscriptionAudio,
+		strings.NewReader(`{"sessionId":"`+started.SessionID+`","audioPcm16Base64":"`+base64.StdEncoding.EncodeToString([]byte{0x00, 0x00, 0x01, 0x00})+`","sampleRateHz":24000,"channels":1}`),
+	)
+	if err != nil {
+		t.Fatalf("new realtime append request: %v", err)
+	}
+	appendRequest.Header.Set("Content-Type", "application/json")
+	appendRequest.AddCookie(authCookie)
+
+	appendResponse, err := http.DefaultClient.Do(appendRequest)
+	if err != nil {
+		t.Fatalf("append realtime transcription audio: %v", err)
+	}
+	defer appendResponse.Body.Close()
+	if appendResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(appendResponse.Body)
+		t.Fatalf("expected realtime append 200, got %d with body %q", appendResponse.StatusCode, string(body))
+	}
+	var appendPayload httpapi.TranscriptionSessionDeltaResponse
+	if err := json.NewDecoder(appendResponse.Body).Decode(&appendPayload); err != nil {
+		t.Fatalf("decode realtime append payload: %v", err)
+	}
+	if appendPayload.IsFinal || appendPayload.AppendText != "ready" || appendPayload.FullText != "ready" {
+		t.Fatalf("unexpected realtime append payload %#v", appendPayload)
+	}
+
+	close(emitFinal)
+	stopRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteStopTranscriptionSession,
+		strings.NewReader(`{"sessionId":"`+started.SessionID+`"}`),
+	)
+	if err != nil {
+		t.Fatalf("new realtime stop request: %v", err)
+	}
+	stopRequest.Header.Set("Content-Type", "application/json")
+	stopRequest.AddCookie(authCookie)
+
+	stopResponse, err := http.DefaultClient.Do(stopRequest)
+	if err != nil {
+		t.Fatalf("stop realtime transcription session: %v", err)
+	}
+	defer stopResponse.Body.Close()
+	if stopResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(stopResponse.Body)
+		t.Fatalf("expected realtime stop 200, got %d with body %q", stopResponse.StatusCode, string(body))
+	}
+	var stopPayload httpapi.TranscriptionSessionDeltaResponse
+	if err := json.NewDecoder(stopResponse.Body).Decode(&stopPayload); err != nil {
+		t.Fatalf("decode realtime stop payload: %v", err)
+	}
+	if !stopPayload.IsFinal || stopPayload.AppendText != " now" || stopPayload.FullText != "ready now" {
+		t.Fatalf("unexpected realtime stop payload %#v", stopPayload)
+	}
+
+	select {
+	case captured := <-handshakes:
+		if captured.Path != "/v1/realtime" {
+			t.Fatalf("unexpected realtime path %q", captured.Path)
+		}
+		if captured.Query != "model=gpt-4o-mini-transcribe" {
+			t.Fatalf("unexpected realtime query %q", captured.Query)
+		}
+		if captured.Authorization != "Bearer app-realtime-secret" {
+			t.Fatalf("unexpected realtime authorization %q", captured.Authorization)
+		}
+		if captured.OpenAIBeta != "realtime=v1" {
+			t.Fatalf("unexpected OpenAI-Beta header %q", captured.OpenAIBeta)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for realtime handshake")
+	}
+
+	select {
+	case payload := <-updates:
+		if payload["type"] != "transcription_session.update" {
+			t.Fatalf("unexpected realtime update payload %#v", payload)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for realtime session update")
+	}
+
+	select {
+	case payload := <-appends:
+		if payload["type"] != "input_audio_buffer.append" {
+			t.Fatalf("unexpected realtime append payload %#v", payload)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for realtime append payload")
+	}
+
+	select {
+	case payload := <-commits:
+		if payload["type"] != "input_audio_buffer.commit" {
+			t.Fatalf("unexpected realtime commit payload %#v", payload)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for realtime commit payload")
+	}
+
+	select {
+	case err := <-closed:
+		if websocket.CloseStatus(err) != websocket.StatusNormalClosure {
+			t.Fatalf("expected normal realtime close, got %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for realtime close")
+	}
+}
+
+func readRealtimeProviderMessage(ctx context.Context, conn *websocket.Conn) (map[string]any, error) {
+	_, payload, err := conn.Read(ctx)
+	if err != nil {
+		return nil, err
+	}
+	decoded := map[string]any{}
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		return nil, err
+	}
+	return decoded, nil
 }
 
 func TestAppServesManagedChatThinkingUnsupportedWithoutExplicitProviderConfig(t *testing.T) {

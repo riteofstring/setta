@@ -336,6 +336,8 @@ func writeTranscriptionServiceError(w http.ResponseWriter, r *http.Request, err 
 		writeError(w, r, http.StatusRequestEntityTooLarge, "audio_payload_too_large", buildAudioPayloadTooLargeDetail(transcriptionsessions.DefaultMaxPendingPCMBytes))
 	case errors.Is(err, transcriptionsessions.ErrMissingAPIKey):
 		writeError(w, r, http.StatusBadRequest, "missing_api_key", err.Error())
+	case errors.Is(err, transcriptionsessions.ErrUnsupportedModel):
+		writeError(w, r, http.StatusBadRequest, "unsupported_model", err.Error())
 	case errors.Is(err, transcriptionsessions.ErrInvalidRequest):
 		writeError(w, r, http.StatusBadRequest, "invalid_request", err.Error())
 	case errors.Is(err, transcriptionsessions.ErrRuntimeUnavailable):

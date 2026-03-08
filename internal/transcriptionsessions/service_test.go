@@ -177,13 +177,13 @@ func TestServiceAutoProfilesResolveToFileMode(t *testing.T) {
 	}
 }
 
-func TestServiceStartRejectsRealtimeProfilesAsUnavailable(t *testing.T) {
+func TestServiceStartRejectsRealtimeProfilesWithUnsupportedModel(t *testing.T) {
 	t.Parallel()
 
 	runtime := newTranscriptionSessionRuntime(t, map[string]llmconfig.Config{
-		"openai-realtime": {
-			ID:        "openai-realtime",
-			Model:     "gpt-4o-mini-transcribe",
+		"openai-file": {
+			ID:        "openai-file",
+			Model:     "whisper-1",
 			Provider:  "openai",
 			BaseURL:   "https://example.com/v1",
 			APIKeyEnv: "OPENAI_API_KEY",
@@ -198,12 +198,12 @@ func TestServiceStartRejectsRealtimeProfilesAsUnavailable(t *testing.T) {
 
 	_, err = service.StartSession(context.Background(), StartRequest{
 		ScopeID:         "scope-1",
-		ResolvedProfile: resolvedProfile("profile-1", transcriptionprofiles.TransportModeRealtime, runtime, "openai-realtime"),
+		ResolvedProfile: resolvedProfile("profile-1", transcriptionprofiles.TransportModeRealtime, runtime, "openai-file"),
 	})
-	if !errors.Is(err, ErrRuntimeUnavailable) {
-		t.Fatalf("expected runtime unavailable, got %v", err)
+	if !errors.Is(err, ErrUnsupportedModel) {
+		t.Fatalf("expected unsupported model, got %v", err)
 	}
-	if err.Error() != "Realtime transcription is not implemented in the Go runtime yet." {
+	if err.Error() != "Realtime transcription is unavailable for this provider/model." {
 		t.Fatalf("unexpected error message %q", err.Error())
 	}
 }
