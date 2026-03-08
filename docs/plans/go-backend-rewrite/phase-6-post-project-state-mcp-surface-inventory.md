@@ -19,7 +19,7 @@ Current repo status as of 2026-03-08:
   `BaseProjectManager.@project_state_tool` surface
 - Python currently exposes 25 non-project-state MCP tools in
   `backend/setta/mcp/tools/*.py`
-- 11 of those now have Go parity:
+- 13 of those now have Go parity:
   - `set_agentic_context`
   - `list_mcp_tools`
   - `read_file_range`
@@ -31,8 +31,10 @@ Current repo status as of 2026-03-08:
   - `list_app_components`
   - `get_setta_docs`
   - `report_completion_status`
-- the remaining 14 tools now fall into a bounded agent-profile store/read
-  slice plus several larger missing runtime foundations
+  - `list_agent_profiles`
+  - `get_agent_profile`
+- the remaining 12 tools now fall into one agentic run slice plus several
+  larger missing runtime foundations
 
 ## Inputs
 
@@ -80,25 +82,19 @@ Go already owns the following Python MCP tools that do not come from
 - `list_app_components`
 - `get_setta_docs`
 - `report_completion_status`
+- `list_agent_profiles`
+- `get_agent_profile`
 
 ## Remaining Python-Owned MCP Surface
 
-### 1. Agent-Profile Store And Read Gaps
-
-- `list_agent_profiles`
-- `get_agent_profile`
-  - Python reads `agent_profiles.json` through the agentic store and validates
-    entries as `AgentProfile`.
-  - Go does not yet own the file-backed agent-profile store, schema
-    validation, or the bounded read surface above it.
-
-### 2. Agentic Run Gap
+### 1. Agentic Run Gap
 
 - `run_agent_profile`
-  - Python depends on the same agent-profile store plus an agent-runner
-    runtime. Go does not yet own that run boundary.
+  - Go now owns the agent-profile store/read foundation but still does not own
+    the agent-runner runtime, run persistence lifecycle, or managed LLM
+    execution path behind this tool.
 
-### 3. Generic UI-Setting Registry And Reveal Gaps
+### 2. Generic UI-Setting Registry And Reveal Gaps
 
 - `search_ui_settings`
 - `get_ui_setting_value`
@@ -110,7 +106,7 @@ Go only owns the bounded compare-and-set project-state subset in
 broader UI-setting registry, schema validation, plugin-setting integration, or
 frontend reveal coordinator that Python keeps under `setta/ui_settings/`.
 
-### 4. Plugin Management Gaps
+### 3. Plugin Management Gaps
 
 - `install_plugin`
 - `uninstall_plugin`
@@ -122,7 +118,7 @@ These are blocked on missing Go ownership for plugin discovery/install/update
 runtime behavior. Current Go plugin work is still centered on codegen/runtime
 materialization, not MCP-facing package management.
 
-### 5. App-Generation Patch Streaming Gap
+### 4. App-Generation Patch Streaming Gap
 
 - `stream_app_definition`
 
@@ -130,7 +126,7 @@ Go now owns stored app-definition reads, writes, and validation, but it does
 not yet own the newline-delimited patch parser plus live-preview semantics that
 Python exposes through `setta.app.spec_patch_stream`.
 
-### 6. Environment Introspection Gap
+### 5. Environment Introspection Gap
 
 - `getInstalledPythonPackages`
 
@@ -144,33 +140,32 @@ heuristics.
 - treat the Python project-state MCP overlap as complete and closed
 - treat the general utility/read cluster as complete and closed
 - treat `report_completion_status` as complete and closed
-- keep the next step focused on the smallest remaining bounded non-run gap:
-  agent-profile store plus read-tool parity
+- treat the bounded agent-profile store/read slice as complete and closed
+- keep the next step focused on the remaining agentic run boundary before
+  broader UI-setting or plugin-management work
 - do not route missing MCP tools back through Python
 - keep transport thin and add explicit Go owners where the current runtime
   boundary is still implicit
 
 ## Recommended Next Step
 
-Execute the bounded agent-profile store/read slice in
-`phase-6-agent-profile-store-and-read-tools-parity.md`.
+Execute the dedicated `run_agent_profile` planning slice in
+`phase-6-run-agent-profile-tool-parity.md`.
 
 This is now the highest-leverage next slice because:
 
-- it covers the smallest remaining user-facing MCP read tools
-- it creates the storage foundation `run_agent_profile` will eventually need
-- it avoids broadening immediately into the much larger agent-runner runtime
-
-## Open Questions
-
-- whether agent-profile default/example seeding should be included in the first
-  Go store/read slice or deferred until broader agentic runtime migration
+- it is the only remaining agentic MCP tool not blocked by a broader plugin or
+  UI-setting registry migration
+- the required agent-profile store/read foundation is now complete
+- it keeps the next runtime addition bounded to managed sub-agent execution
+  instead of broadening immediately into plugin management or patch streaming
 
 ## Verification
 
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'Test(BuildCompletionStatusReport|ServerListsToolsAndScopesToolCalls|ServerReportCompletionStatusBuildsStructuredReportAndRejectsInvalidChecks)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsUtilityReadInitTools|SupportsReportCompletionStatus|SupportsAppCatalogReadTools|SupportsGetTerminalOutput|GetSettaDocsRejectsPathEscapes)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsAuthenticatedSSECalls|ServerSupportsUtilityReadToolsOverAuthenticatedSSE|ServerSupportsReportCompletionStatusOverAuthenticatedSSE|ServerSupportsGetMCPServerRuntimeStatusOverAuthenticatedSSE|ServerSupportsGetTerminalOutputOverAuthenticatedSSE|ServerSupportsTemporaryIDsForGetTerminalOutputOverAuthenticatedSSE|ToolCallRouteSupportsUtilityReadInitTools|ToolCallRouteSupportsReportCompletionStatus|ToolCallRouteSupportsGetMCPServerRuntimeStatus|ToolCallRouteSupportsAppCatalogReadTools|ToolCallRouteSupportsGetTerminalOutput|ToolCallRouteGetSettaDocsRejectsPathEscapes|RuntimeStatusRouteReportsConnectedSelfClient)' -count=1 -timeout 420s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/agentprofiles -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|ListAgentProfilesAndGetAgentProfile)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsAgentProfileReadTools|SupportsReportCompletionStatus|SupportsUtilityReadInitTools)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsAuthenticatedSSECalls|ServerSupportsAgentProfileReadToolsOverAuthenticatedSSE|ToolCallRouteSupportsAgentProfileReadTools)' -count=1 -timeout 420s`
 
 ## Progress Notes
 
@@ -186,3 +181,6 @@ This is now the highest-leverage next slice because:
   count from 22 to 15.
 - 2026-03-08: completed Go parity for `report_completion_status`, reducing the
   remaining non-project-state Python MCP gap count from 15 to 14.
+- 2026-03-08: completed Go parity for `list_agent_profiles` and
+  `get_agent_profile`, reducing the remaining non-project-state Python MCP gap
+  count from 14 to 12.

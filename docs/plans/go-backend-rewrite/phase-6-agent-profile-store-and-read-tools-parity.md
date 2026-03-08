@@ -15,9 +15,11 @@ Current repo status as of 2026-03-08:
 
 - Phase 6 MCP parity remains the active rewrite phase
 - `report_completion_status` is complete
-- the next smallest remaining Python-owned MCP gaps are
-  `list_agent_profiles` and `get_agent_profile`
-- Go does not yet own any agent-profile store, schema, or read runtime
+- `list_agent_profiles` and `get_agent_profile` are now complete in Go
+- Go now owns the bounded file-backed `agent_profiles.json` read/write owner in
+  `internal/agentprofiles`
+- Go now exposes both read tools over MCP, the HTTP tool route, and
+  authenticated SSE
 
 ## Scope
 
@@ -90,11 +92,13 @@ It should include:
 
 ## Dependency Status
 
-New owner needed:
+Completed in this slice:
 
 - file-backed agent-profile store with validation for `agent_profiles.json`
+- MCP read handlers for `list_agent_profiles` and `get_agent_profile`
+- authenticated HTTP tool-route and SSE coverage over the completed owner
 
-Existing Go foundations already available:
+Existing Go foundations reused:
 
 - MCP server/session plumbing
 - authenticated SSE and MCP tool-route harnesses
@@ -113,14 +117,39 @@ Existing Go foundations already available:
 - `internal/app`
   - authenticated SSE and tool-route coverage
 
-## Open Questions
+## Decisions Landed
 
-- whether default/example agent-profile seeding belongs in this slice or should
-  stay deferred until broader agentic runtime migration; current recommendation
-  is to keep the initial store owner read-only and return `[]` for a missing
-  file unless a concrete product dependency forces default seeding sooner
+- `internal/agentprofiles.Store` is the bounded owner for
+  `setta_files/agent_profiles.json`
+- missing or empty files return `[]`
+- stored profiles are decoded strictly and reject unknown fields or non-array
+  payloads
+- `toolAllowlist` is normalized to `[]` on persisted writes instead of `null`
+- default/example agent-profile seeding stays deferred; the first Go owner
+  returns `[]` when the file is absent
+- `get_agent_profile` maps missing profile ids to an `invalid_arguments` MCP
+  tool error instead of adding a new error-code family
+
+## Verification
+
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/agentprofiles -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|ListAgentProfilesAndGetAgentProfile)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsAgentProfileReadTools|SupportsReportCompletionStatus|SupportsUtilityReadInitTools)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsAuthenticatedSSECalls|ServerSupportsAgentProfileReadToolsOverAuthenticatedSSE|ToolCallRouteSupportsAgentProfileReadTools)' -count=1 -timeout 420s`
+
+## Progress Notes
+
+- 2026-03-08: added `internal/agentprofiles.Store` as the first explicit Go
+  owner for `agent_profiles.json`, including strict JSON-array validation,
+  bounded not-found errors, and deterministic writes.
+- 2026-03-08: added Go MCP parity for `list_agent_profiles` and
+  `get_agent_profile`, including unscoped discoverable tool registration and
+  focused server coverage.
+- 2026-03-08: added HTTP tool-route and authenticated SSE coverage for the new
+  agent-profile read tools.
 
 ## Next Recommended Step
 
-- implement this bounded agent-profile store/read slice end-to-end before
-  attempting `run_agent_profile`
+- execute `phase-6-run-agent-profile-tool-parity.md`, which is now the next
+  bounded missing Python MCP surface after the completed agent-profile read
+  slice

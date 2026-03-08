@@ -232,14 +232,17 @@ Use the docs in this order:
   - completed slice doc for Go-owned `report_completion_status` parity over
     the completed post-project-state utility/read transport foundations
 85. `phase-6-agent-profile-store-and-read-tools-parity.md`
-  - focused implementation-plan doc for the file-backed agent-profile store
-    foundation plus Go-owned `list_agent_profiles` and `get_agent_profile`
-    parity
-86. `spike-mcp.md`
+  - completed slice doc for the file-backed agent-profile store foundation
+    plus Go-owned `list_agent_profiles` and `get_agent_profile` parity
+86. `phase-6-run-agent-profile-tool-parity.md`
+  - focused implementation-plan doc for Go-owned `run_agent_profile` parity
+    over the completed agent-profile store/read foundation and the missing
+    managed agent-run runtime boundary
+87. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-87. `spike-pty.md`
+88. `spike-pty.md`
    - PTY uncertainty-reduction plan
-88. `spike-lsp.md`
+89. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
