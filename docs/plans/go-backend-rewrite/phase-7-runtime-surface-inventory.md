@@ -6,8 +6,9 @@ This doc started the post-MCP handoff after the completed Phase 6 parity work.
 
 The goal is to inventory the remaining Python-owned backend runtime surface
 outside MCP so the rewrite can pick the first bounded Phase 7 owner without
-guesswork. That inventory is now complete enough to close the backend-runtime
-portion of Phase 7.
+guesswork. That inventory is complete for the deployment/launcher cluster that
+Phase 7 actually implemented, but later review showed that the AI/chat runtime
+was never part of that closeout and still remains Python-owned.
 
 ## Status
 
@@ -59,13 +60,20 @@ Current repo status as of 2026-03-08:
     `internal/sshx/runtime.go` and `internal/sshx/tunnel.go`
   - SSH/remote `/launch` transport/runtime integration and rollback ownership
     in `internal/workspacelaunch/remote_launch.go`
-- Python still appears to own major non-MCP backend surface in:
-  - none confirmed after re-reading the current route/runtime inventory
+- Python still owns major non-MCP backend surface in:
+  - `backend/setta/routers/ai.py` for managed chat, external-agent chat, and
+    transcription routes
+  - `backend/setta/llm/agent_runner.py` for managed Setta-LLM orchestration,
+    live chat state, stop handling, and streaming fanout
+  - `backend/setta/agentic/external_agent_runner.py` for the external-agent
+    chat runtime
 - Python still owns adjacent but out-of-scope CLI/distribution surface in:
   - `backend/setta/start.py`
   - the CLI-focused tests under `tests/start/`
   - installer/release scripts under `scripts/`
-- current work is the closeout/scope-boundary pass, not another runtime port
+- current work in this doc is the historical closeout/scope-boundary pass for
+  the deployment/launcher cluster, not a claim that every backend runtime owner
+  already moved
 
 ## Inputs
 
@@ -118,46 +126,48 @@ Current repo status as of 2026-03-08:
    - deployment is no longer the source of the next backend rewrite slice, and
      the launcher/bootstrap follow-up that succeeded it is now complete too
 
-3. The next Phase 7 step is likely planning or closure, not another implicit
-   launcher port
+3. The next step after the completed launcher/deployment slice is a fresh
+   bounded phase, not another implicit launcher port
    - the inventory that started with deployment and launcher/bootstrap work no
      longer shows a clear remaining backend runtime owner inside that cluster
-   - any follow-up around remote CLI behavior should be selected deliberately as
-     a new bounded slice, not assumed to be leftover `/launch` work
+   - any follow-up should be selected deliberately as a new bounded slice, not
+     assumed to be leftover `/launch` work
 
-4. The remaining Python surface is CLI/distribution work, not backend runtime
-   - `backend/setta/start.py` still owns the Click-based command surface for
-     session helpers, remote `connect`, remote `stop`, and launcher subcommands
-   - the Go work landed in `cmd/setta-server`, `internal/httpapi`,
-     `internal/workspacelaunch`, and `internal/sshx` already covers the backend
-     runtime side of those product flows
-   - the rewrite should not keep Phase 7 open just because `cmd/setta-cli` has
-     not been planned yet
+4. The remaining Python surface is not just CLI/distribution
+   - `backend/setta/start.py` still owns adjacent shipped CLI/distribution
+     surface
+   - the launcher/deployment runtime side of those flows is already covered by
+     `cmd/setta-server`, `internal/httpapi`, `internal/workspacelaunch`, and
+     `internal/sshx`
+   - separate AI/chat runtime ownership still remains in
+     `backend/setta/routers/ai.py` and `backend/setta/llm/agent_runner.py`
+   - the correct fix is a new bounded phase for AI/chat, not reopening the
+     completed Phase 7 launcher work
 
 ## Working Decisions
 
 - treat Phase 6 MCP parity as complete and closed
 - treat deployment publication/listing and launcher/bootstrap ownership as
   complete for the current bounded Phase 7 slices
-- close Phase 7 for the backend rewrite once the inventory shows no remaining
-  backend runtime gap
+- close Phase 7 for the deployment/launcher cluster only
 - do not treat Python CLI/distribution ownership as a hidden backend blocker
+- track the remaining AI/chat runtime separately instead of relabeling it as
+  launcher or CLI work
 - scope any future Go CLI work separately instead of reopening Phase 7
 
 ## Recommended Next Step
 
-Treat Phase 7 as complete for the backend rewrite and keep any remaining
-Python CLI/distribution work on a separate track, documented in
-`phase-7-closeout-and-cli-follow-up-boundary.md`.
+Treat the deployment/launcher portion of Phase 7 as complete and keep the
+remaining AI/chat runtime on a separate track, now documented in
+`phase-12-managed-chat-runtime-and-ai-route-foundation.md`.
 
 That is now the highest-leverage next step because:
 
 - the previously remaining `/launch` and rollback gap is complete in Go
-- the current inventory no longer shows a bounded non-MCP backend runtime owner
-  left in Python
-- the only clear Python ownership that remains is `backend/setta/start.py` and
-  related scripts/tests, which is CLI/distribution scope rather than backend
-  server runtime scope
+- the current launcher/deployment inventory no longer shows a bounded runtime
+  owner left in that cluster
+- the still-Python-owned backend runtime that remains is the AI/chat stack, so
+  continuing from a fresh bounded plan is more honest than stretching Phase 7
 
 ## Progress Notes
 
@@ -259,11 +269,13 @@ That is now the highest-leverage next step because:
   plus Python-reference verification. The next recommended step is to revisit
   the broader inventory instead of assuming more launcher work remains.
 - 2026-03-08: re-read the current repo state against the Phase 7 inventory and
-  confirmed that no Python-owned non-MCP backend runtime surface remains. The
-  remaining Python surface is CLI/distribution work in `backend/setta/start.py`
-  and related scripts/tests, so Phase 7 is now closed for the backend rewrite.
-  The separate follow-up boundary is documented in
-  `phase-7-closeout-and-cli-follow-up-boundary.md`.
+  confirmed that the launcher/deployment cluster was complete in Go.
+- 2026-03-08: later repo-wide review after the Phase 11 CLI closeout found
+  that AI/chat runtime ownership had not moved with the launcher/deployment
+  work. The remaining backend gap is now tracked separately in
+  `phase-12-managed-chat-runtime-and-ai-route-foundation.md`, while this doc
+  remains the historical closeout record for the Phase 7 deployment/launcher
+  slice.
 
 ## Verification
 

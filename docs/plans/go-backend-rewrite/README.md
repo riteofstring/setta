@@ -397,11 +397,16 @@ Use the docs in this order:
   - focused implementation-plan doc for the completed final packaged plugin
     CLI gap: Go-owned manual-only `setta plugins restart`, closing the shipped
     plugin CLI migration
-130. `spike-mcp.md`
+130. `phase-12-managed-chat-runtime-and-ai-route-foundation.md`
+  - focused implementation-plan doc for the next bounded backend-runtime gap:
+    Go-owned managed Setta-LLM chat send/hydrate/stop over the completed
+    `internal/llmconfig`, `internal/agentruns`, and `internal/mcpx`
+    foundations
+131. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-131. `spike-pty.md`
+132. `spike-pty.md`
    - completed PTY spike outcome and terminal boundary decision record
-132. `spike-lsp.md`
+133. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

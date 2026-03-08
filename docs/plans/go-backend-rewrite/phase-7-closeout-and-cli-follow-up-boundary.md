@@ -6,7 +6,9 @@ This doc closes the backend-runtime portion of Phase 7 after the completed
 deployment, launcher, bootstrap, and SSH launch slices.
 
 The goal is to record the current boundary explicitly: the remaining Python
-surface is CLI/distribution work, not a hidden backend runtime gap.
+surface inside this cluster is not a hidden launcher/runtime gap. Later review
+showed that AI/chat runtime ownership still remained elsewhere and is now
+tracked separately in Phase 12.
 
 ## Current Status
 
@@ -25,8 +27,12 @@ As of 2026-03-08:
   - `backend/setta/start.py`
   - the CLI-focused tests under `tests/start/`
   - installer/release scripts under `scripts/`
-- there is no confirmed Python-owned backend route/runtime gap left inside the
-  rewrite scope
+- there is no confirmed Python-owned launcher/deployment runtime gap left
+  inside Phase 7's scope
+- a later repo-wide review found that AI/chat runtime ownership still remains
+  Python-owned in `backend/setta/routers/ai.py` and
+  `backend/setta/llm/agent_runner.py`; that work is now tracked separately in
+  `phase-12-managed-chat-runtime-and-ai-route-foundation.md`
 
 ## Inputs
 
@@ -52,13 +58,16 @@ As of 2026-03-08:
      `internal/httpapi/bootstrap_page.go` own bootstrap consumption and
      launcher-origin handoff behavior
 
-2. The remaining Python ownership is CLI and distribution oriented
+2. The remaining Python ownership inside this closeout is CLI and distribution
+   oriented
    - `backend/setta/start.py` still owns the Click-based commands for
      `launcher` plus other legacy CLI/distribution surfaces
    - remote helper behavior (`status`, `auth`, `tools`, `api`, `stop`,
      `connect`) has since moved into Go `cmd/setta-cli`
    - `cmd/setta-server/main.go` is a server entrypoint, not a replacement for a
      future `cmd/setta-cli`
+   - this does not erase the separate AI/chat runtime still owned by Python;
+     it only means Phase 7 is not where that work belongs
 
 3. The master rewrite plan already allows this split
    - `go-backend-rewrite-plan.md` treats `cmd/setta-cli` as optional
@@ -71,6 +80,7 @@ As of 2026-03-08:
 
 - close Phase 7 for the backend rewrite
 - do not treat Python CLI parity as a hidden backend blocker
+- do not treat the remaining AI/chat runtime as a hidden launcher or CLI issue
 - if a Go CLI still matters, scope it separately around `cmd/setta-cli`,
   launcher packaging, and distribution scripts
 - keep the clean-break rule: a future Go CLI should reuse product semantics,
@@ -88,9 +98,11 @@ The backend-to-product handoff is now explicit:
 2. `phase-9-shipped-entrypoint-and-launcher-distribution-plan.md` is the
    active implementation plan if rewrite work continues beyond the completed
    helper-command migration.
+3. `phase-12-managed-chat-runtime-and-ai-route-foundation.md` now tracks the
+   separate still-Python-owned AI/chat backend runtime.
 
 Otherwise move the rewrite effort to stabilization, verification, and release
-readiness for the completed Go backend runtime.
+readiness only for the completed Phase 7 launcher/deployment runtime owners.
 
 ## Progress Notes
 
@@ -106,6 +118,11 @@ readiness for the completed Go backend runtime.
 - 2026-03-08: the remaining post-Phase-8 rewrite work is now planned
   separately in `phase-9-shipped-entrypoint-and-launcher-distribution-plan.md`
   so this closeout doc does not carry active implementation scope.
+- 2026-03-08: later repo-wide review after the packaged CLI migration found
+  that the remaining backend runtime gap was AI/chat ownership in
+  `backend/setta/routers/ai.py` and `backend/setta/llm/agent_runner.py`, not a
+  Phase 7 launcher issue. That follow-on now lives in
+  `phase-12-managed-chat-runtime-and-ai-route-foundation.md`.
 
 ## Verification
 

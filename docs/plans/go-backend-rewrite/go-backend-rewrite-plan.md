@@ -14,15 +14,22 @@ This rewrite is a clean break. We can reuse good ideas from the current backend,
 
 ## Current Status
 
-As of 2026-03-08, the phase docs through Phase 11 describe a repo state where
-the tracked backend-runtime and shipped CLI migration slices are complete for
-the current rewrite scope.
+As of 2026-03-08, the phase docs through Phase 11 and the recorded spike
+outcomes describe a repo state where the deployment/launcher runtime slices,
+the shipped CLI migration slices, and the MCP/tooling foundations are complete
+for their bounded scopes.
 
-That means the practical next step is no longer "run the early spikes" or
-re-decide the initial library choices. The MCP, PTY, LSP, and file-state
-decisions are already locked in practice by the current Go implementation. New
-work should start from a concrete remaining gap or a fresh bounded plan doc,
-not by reopening completed foundation choices.
+That does not mean the full backend runtime is fully Go-owned. Managed
+Setta-LLM chat and the AI route cluster in `backend/setta/routers/ai.py` and
+`backend/setta/llm/agent_runner.py` remain Python-owned and are now tracked
+explicitly in
+`phase-12-managed-chat-runtime-and-ai-route-foundation.md`.
+
+The practical next step is still not "rerun the early spikes" or re-decide the
+initial library choices. MCP, PTY, LSP, and file-state decisions are already
+locked in practice by the current Go implementation. New work should start
+from the remaining concrete gap in Phase 12, not by reopening completed
+foundation choices.
 
 ## Current Reality
 
@@ -46,9 +53,11 @@ The backend seams that matter most for planning are:
   - `backend/setta/project_state/*.py`
   - `docs/reference/setta-files.md`
 - LLM and MCP:
+  - `backend/setta/routers/ai.py`
   - `backend/setta/llm/*.py`
   - `backend/setta/mcp/*.py`
   - `docs/reference/mcp-system-overview.md`
+  - `docs/reference/chat-sections.md`
 - Terminals, LSP, and subprocesses:
   - `backend/setta/terminals/*.py`
   - `backend/setta/lsp/*.py`
@@ -567,16 +576,20 @@ Do not weaken this rule during the rewrite.
 
 ## Immediate Next Actions
 
-1. Keep the roadmap and phase docs synchronized with the current shipped code so
-   closed phases do not look active again.
+1. Keep the roadmap and phase docs synchronized with the current shipped code
+   so closed phases do not look active again and the remaining AI/chat gap does
+   not disappear from planning context.
 2. Treat MCP, PTY, LSP, and file-state choices as locked unless a concrete new
    requirement breaks them.
-3. Start any future rewrite work from a fresh bounded phase/spike doc tied to a
-   confirmed gap, not by reopening closed phases.
+3. Start the next runtime work from
+   `phase-12-managed-chat-runtime-and-ai-route-foundation.md`, not by
+   reopening closed phases or early spikes.
 4. Prefer stabilization and reference-suite expansion where completed runtime
-   owners still have thin regression protection.
-5. Limit future Python follow-up to explicitly chosen packaging, installer, or
-   release-surface work rather than rediscovering backend-runtime scope.
+   owners still have thin regression protection, but do not use that as a
+   substitute for the remaining managed-chat migration.
+5. Limit future Python follow-up outside Phase 12 to explicitly chosen
+   packaging, installer, or release-surface work rather than rediscovering
+   backend-runtime scope.
 
 ## Planning Conclusion
 
