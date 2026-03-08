@@ -738,10 +738,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return nil, err
 		}
 		managedChatService, err = managedchat.NewService(managedchat.ServiceOptions{
-			Runs:    agentRunStore,
-			Engines: engineStore,
-			LLM:     llmRuntime,
-			Stopper: agentRunRuntime,
+			ProjectState: projectRuntime,
+			Runs:         agentRunStore,
+			Engines:      engineStore,
+			LLM:          llmRuntime,
+			Profiles:     agentProfileStore,
+			Starter:      agentRunRuntime,
+			Stopper:      agentRunRuntime,
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))

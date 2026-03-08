@@ -58,6 +58,37 @@ func (s *aiRouteStubExecutor) Start(_ context.Context, request externalagents.St
 	return s.response, nil
 }
 
+type aiRouteStubManagedStarter struct {
+	lastProfile *agentprofiles.Profile
+	lastInputs  map[string]any
+	run         agentruns.Run
+	err         error
+	disabled    bool
+}
+
+func (s *aiRouteStubManagedStarter) Disabled() bool {
+	return s == nil || s.disabled
+}
+
+func (s *aiRouteStubManagedStarter) StartRun(profile agentprofiles.Profile, inputs map[string]any) (agentruns.Run, error) {
+	s.lastProfile = cloneAIRouteProfile(&profile)
+	s.lastInputs = cloneRouteAnyMap(inputs)
+	if s.err != nil {
+		return agentruns.Run{}, s.err
+	}
+	if strings.TrimSpace(s.run.ID) != "" {
+		cloned := s.run.Clone()
+		cloned.Inputs = cloneRouteAnyMap(s.run.Inputs)
+		return cloned, nil
+	}
+	profileID := strings.TrimSpace(profile.ID)
+	var runProfileID *string
+	if profileID != "" {
+		runProfileID = &profileID
+	}
+	return agentruns.NewRun(runProfileID, inputs, time.Date(2026, 3, 9, 9, 0, 0, 0, time.UTC)), nil
+}
+
 type aiRouteStubPreflightChecker struct {
 	status externalagentconfigs.Status
 	err    error
@@ -160,6 +191,9 @@ func TestRegisterAIRoutesStartsExternalAgentChat(t *testing.T) {
 	if chatID == "" {
 		t.Fatal("expected chat id")
 	}
+	if fixture.managedStarter.lastInputs != nil {
+		t.Fatalf("expected external send to bypass managed starter, got %#v", fixture.managedStarter.lastInputs)
+	}
 	runs, err := fixture.store.List()
 	if err != nil {
 		t.Fatalf("list runs: %v", err)
@@ -176,6 +210,69 @@ func TestRegisterAIRoutesStartsExternalAgentChat(t *testing.T) {
 	}
 	if state == nil || !state.WaitingForResponse {
 		t.Fatalf("expected active waiting state, got %#v", state)
+	}
+}
+
+func TestRegisterAIRoutesStartsManagedChat(t *testing.T) {
+	t.Parallel()
+
+	managedStarter := &aiRouteStubManagedStarter{}
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{managedStarter: managedStarter})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLLMResponse,
+		strings.NewReader(`{
+			"chatId":null,
+			"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Create a managed project."}]},
+			"engineConfigId":"engine-managed",
+			"agentProfileId":null,
+			"thinking":false,
+			"projectConfigId":"project-alpha",
+			"sectionId":null,
+			"frontendAffinityToken":"  frontend-managed  ",
+			"allowUnscoped":true,
+			"permissionMode":"minimal",
+			"searchEnabled":false
+		}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var chatID string
+	if err := json.Unmarshal(response.Body.Bytes(), &chatID); err != nil {
+		t.Fatalf("decode managed chat id: %v", err)
+	}
+	if chatID == "" {
+		t.Fatal("expected managed chat id")
+	}
+	if fixture.managedStarter.lastInputs == nil {
+		t.Fatal("expected managed starter to receive inputs")
+	}
+	if fixture.managedStarter.lastInputs["chatId"] != chatID {
+		t.Fatalf("expected managed chat id %q in starter inputs, got %#v", chatID, fixture.managedStarter.lastInputs["chatId"])
+	}
+	if fixture.managedStarter.lastInputs["runType"] != managedchat.RunTypeManagedChat {
+		t.Fatalf("expected managed run type, got %#v", fixture.managedStarter.lastInputs["runType"])
+	}
+	rawMessages, ok := fixture.managedStarter.lastInputs["messages"].([]any)
+	if !ok || len(rawMessages) != 1 {
+		t.Fatalf("expected managed message payload, got %#v", fixture.managedStarter.lastInputs["messages"])
+	}
+	if message, ok := rawMessages[0].(map[string]any); !ok || message["id"] != "user-managed" {
+		t.Fatalf("expected managed message in starter inputs, got %#v", rawMessages[0])
+	}
+	runs, err := fixture.store.List()
+	if err != nil {
+		t.Fatalf("list runs: %v", err)
+	}
+	if len(runs) != 0 {
+		t.Fatalf("expected managed route test not to persist external runs through the stubbed starter, got %#v", runs)
 	}
 }
 
@@ -214,6 +311,44 @@ func TestRegisterAIRoutesRejectsWhitespaceFrontendAffinityTokenForExternalSend(t
 	}
 	if payload.Error.Code != "frontend_affinity_token_invalid" {
 		t.Fatalf("expected frontend affinity token error, got %#v", payload)
+	}
+}
+
+func TestRegisterAIRoutesReturnsUnavailableForManagedChatWhenStarterDisabled(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLLMResponse,
+		strings.NewReader(`{
+			"chatId":null,
+			"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Create a managed project."}]},
+			"engineConfigId":"engine-managed",
+			"agentProfileId":null,
+			"thinking":false,
+			"projectConfigId":"project-alpha",
+			"sectionId":null,
+			"allowUnscoped":true,
+			"permissionMode":"minimal",
+			"searchEnabled":false
+		}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "agent_runner_unavailable" {
+		t.Fatalf("expected agent_runner_unavailable, got %#v", payload)
 	}
 }
 
@@ -963,17 +1098,19 @@ func newAIRouteTestHandler(t *testing.T, mode config.Mode, managed *managedchat.
 }
 
 type aiRouteFixture struct {
-	store   *agentruns.RunStore
-	managed *managedchat.Service
-	runtime *externalagents.Runtime
-	service *externalagents.Service
-	send    *externalagents.SendService
-	follow  *externalagents.FollowService
+	store          *agentruns.RunStore
+	managed        *managedchat.Service
+	managedStarter *aiRouteStubManagedStarter
+	runtime        *externalagents.Runtime
+	service        *externalagents.Service
+	send           *externalagents.SendService
+	follow         *externalagents.FollowService
 }
 
 type aiRouteFixtureOptions struct {
 	executorErr     error
 	preflightStatus *externalagentconfigs.Status
+	managedStarter  *aiRouteStubManagedStarter
 }
 
 func newAIRouteFixture(t *testing.T, options aiRouteFixtureOptions) aiRouteFixture {
@@ -1084,11 +1221,18 @@ func newAIRouteFixture(t *testing.T, options aiRouteFixtureOptions) aiRouteFixtu
 	if err != nil {
 		t.Fatalf("new managed runtime: %v", err)
 	}
+	managedStarter := options.managedStarter
+	if managedStarter == nil {
+		managedStarter = &aiRouteStubManagedStarter{disabled: true}
+	}
 	managedService, err := managedchat.NewService(managedchat.ServiceOptions{
-		Runs:    store,
-		Engines: engineStore,
-		LLM:     llmRuntime,
-		Stopper: managedRunRuntime,
+		ProjectState: projectRuntime,
+		Runs:         store,
+		Engines:      engineStore,
+		LLM:          llmRuntime,
+		Profiles:     agentProfileStore,
+		Starter:      managedStarter,
+		Stopper:      managedRunRuntime,
 	})
 	if err != nil {
 		t.Fatalf("new managed chat service: %v", err)
@@ -1144,12 +1288,13 @@ func newAIRouteFixture(t *testing.T, options aiRouteFixtureOptions) aiRouteFixtu
 		t.Fatalf("new send service: %v", err)
 	}
 	return aiRouteFixture{
-		store:   store,
-		managed: managedService,
-		runtime: runtime,
-		service: service,
-		send:    send,
-		follow:  follow,
+		store:          store,
+		managed:        managedService,
+		managedStarter: managedStarter,
+		runtime:        runtime,
+		service:        service,
+		send:           send,
+		follow:         follow,
 	}
 }
 
@@ -1340,6 +1485,25 @@ func cloneRouteAnyValue(value any) any {
 	default:
 		return typed
 	}
+}
+
+func cloneAIRouteProfile(profile *agentprofiles.Profile) *agentprofiles.Profile {
+	if profile == nil {
+		return nil
+	}
+	cloned := *profile
+	if profile.EngineConfigID != nil {
+		engineConfigID := *profile.EngineConfigID
+		cloned.EngineConfigID = &engineConfigID
+	}
+	if profile.MemoryScope != nil {
+		memoryScope := *profile.MemoryScope
+		cloned.MemoryScope = &memoryScope
+	}
+	if profile.ToolAllowlist != nil {
+		cloned.ToolAllowlist = append([]string(nil), profile.ToolAllowlist...)
+	}
+	return &cloned
 }
 
 func stringPtr(value string) *string {

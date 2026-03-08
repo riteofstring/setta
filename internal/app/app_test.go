@@ -319,6 +319,114 @@ func TestAppServesManagedChatHydrateAndStopRoutes(t *testing.T) {
 	}
 }
 
+func TestAppServesManagedChatSendAsUnavailableWithoutExecutor(t *testing.T) {
+	// The real IDE app should route managed /getLLMResponse requests into the Go
+	// owner and surface an explicit 503 until a managed executor is wired.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"primary": {
+				ID:        "primary",
+				Model:     "gpt-4o-mini",
+				Provider:  "openai",
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	}); err != nil {
+		t.Fatalf("save llm config: %v", err)
+	}
+
+	engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("new engine store: %v", err)
+	}
+	managedConfigID := "primary"
+	if err := engineStore.Write([]agentruns.EngineConfig{
+		{
+			ID:               "engine-managed",
+			Name:             "Managed Engine",
+			EngineType:       agentruns.EngineTypeSettaLLM,
+			SettaLLMConfigID: &managedConfigID,
+		},
+	}); err != nil {
+		t.Fatalf("write engine config: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:   "project-alpha",
+			Name: "Alpha",
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed app project: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteGetLLMResponse,
+		strings.NewReader(`{
+			"chatId":null,
+			"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Create a managed project."}]},
+			"engineConfigId":"engine-managed",
+			"agentProfileId":null,
+			"thinking":false,
+			"projectConfigId":"project-alpha",
+			"sectionId":null,
+			"allowUnscoped":true,
+			"permissionMode":"minimal",
+			"searchEnabled":false
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("new send request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("send managed chat: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusServiceUnavailable {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 503, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		Error struct {
+			Code   string `json:"code"`
+			Detail string `json:"detail"`
+		} `json:"error"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode send error payload: %v", err)
+	}
+	if payload.Error.Code != "agent_runner_unavailable" {
+		t.Fatalf("expected agent_runner_unavailable, got %#v", payload)
+	}
+}
+
 func TestAppServesAppGenSkillRoutes(t *testing.T) {
 	// The real app should serve the skills browser routes from the Go-owned filesystem owner.
 	cfg := testConfig(t)

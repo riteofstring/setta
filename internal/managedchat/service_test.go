@@ -2,9 +2,11 @@ package managedchat
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
+	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/llmconfig"
 	"setta/internal/projectstate"
@@ -30,6 +32,45 @@ func (s *stubLiveChatStateProvider) GetLiveChatState(runID string) (*ChatState, 
 type managedChatFixture struct {
 	service *Service
 	runs    *agentruns.RunStore
+	start   *stubManagedChatStarter
+}
+
+type stubManagedChatStarter struct {
+	lastProfile *agentprofiles.Profile
+	lastInputs  map[string]any
+	run         agentruns.Run
+	err         error
+	disabled    bool
+}
+
+func (s *stubManagedChatStarter) Disabled() bool {
+	return s == nil || s.disabled
+}
+
+func (s *stubManagedChatStarter) StartRun(profile agentprofiles.Profile, inputs map[string]any) (agentruns.Run, error) {
+	clonedProfile := profile
+	if profile.EngineConfigID != nil {
+		engineConfigID := *profile.EngineConfigID
+		clonedProfile.EngineConfigID = &engineConfigID
+	}
+	if profile.ToolAllowlist != nil {
+		clonedProfile.ToolAllowlist = append([]string(nil), profile.ToolAllowlist...)
+	}
+	s.lastProfile = &clonedProfile
+	s.lastInputs = cloneAnyMap(inputs)
+	if s.err != nil {
+		return agentruns.Run{}, s.err
+	}
+	if s.run.ID != "" {
+		cloned := s.run.Clone()
+		cloned.Inputs = cloneAnyMap(s.run.Inputs)
+		return cloned, nil
+	}
+	var profileID *string
+	if profile.ID != "" {
+		profileID = stringPtr(profile.ID)
+	}
+	return agentruns.NewRun(profileID, inputs, time.Date(2026, 3, 9, 9, 0, 0, 0, time.UTC)), nil
 }
 
 // Hydration should prefer the latest persisted run and recover the LLM config
@@ -285,7 +326,186 @@ func TestServiceStopChatReturnsAlreadyStoppedWhenNoRunningRun(t *testing.T) {
 	}
 }
 
-func newManagedChatFixture(t *testing.T, live LiveChatStateProvider) managedChatFixture {
+// Managed send should own request validation, prompt shaping, and run inputs
+// before handing execution off to the injected runtime boundary.
+func TestServiceStartChatBuildsManagedInputsAndCombinedPrompt(t *testing.T) {
+	t.Parallel()
+
+	starter := &stubManagedChatStarter{}
+	fixture := newManagedChatFixture(t, nil, starter)
+
+	result, err := fixture.service.StartChat(StartChatRequest{
+		Message:                 userMessage("user-managed", "Create a new project."),
+		EngineConfigID:          "engine-managed",
+		AgentProfileID:          stringPtr("profile-alpha"),
+		Thinking:                false,
+		ProjectConfigID:         "project-alpha",
+		AllowUnscoped:           true,
+		FrontendAffinityToken:   stringPtr("  frontend-managed  "),
+		PermissionMode:          ChatPermissionModeYolo,
+		SearchEnabled:           false,
+		AppGenerationMode:       stringPtr(AppGenerationModeJSONRender),
+		AppSpecStreamingEnabled: true,
+	})
+	if err != nil {
+		t.Fatalf("start chat: %v", err)
+	}
+	if result.ChatID == "" {
+		t.Fatal("expected generated chat id")
+	}
+	if starter.lastProfile == nil {
+		t.Fatal("expected starter to capture profile")
+	}
+	systemPrompt := starter.lastProfile.SystemPrompt
+	if !strings.Contains(systemPrompt, "Follow the active profile rules.") {
+		t.Fatalf("expected profile system prompt in managed prompt, got %q", systemPrompt)
+	}
+	if !strings.Contains(systemPrompt, "## Runtime execution settings") {
+		t.Fatalf("expected execution settings in managed prompt, got %q", systemPrompt)
+	}
+	if !strings.Contains(systemPrompt, "- permissionMode: yolo") {
+		t.Fatalf("expected permission mode in managed prompt, got %q", systemPrompt)
+	}
+	if !strings.Contains(systemPrompt, "- searchEnabled: false") {
+		t.Fatalf("expected search flag in managed prompt, got %q", systemPrompt)
+	}
+	if !strings.Contains(systemPrompt, "## Required completion gate for create/scaffold work") {
+		t.Fatalf("expected completion gate in managed prompt, got %q", systemPrompt)
+	}
+	if !strings.Contains(systemPrompt, "streamingPreview: enabled") {
+		t.Fatalf("expected app generation prompt in managed prompt, got %q", systemPrompt)
+	}
+	if starter.lastInputs["permissionMode"] != "yolo" {
+		t.Fatalf("expected permissionMode input, got %#v", starter.lastInputs["permissionMode"])
+	}
+	if starter.lastInputs["searchEnabled"] != false {
+		t.Fatalf("expected searchEnabled=false, got %#v", starter.lastInputs["searchEnabled"])
+	}
+	if starter.lastInputs["frontendAffinityToken"] != "frontend-managed" {
+		t.Fatalf("expected normalized frontend affinity token, got %#v", starter.lastInputs["frontendAffinityToken"])
+	}
+	if starter.lastInputs["runType"] != RunTypeManagedChat {
+		t.Fatalf("expected managed run type, got %#v", starter.lastInputs["runType"])
+	}
+}
+
+// Continuation should seed history from the latest available run even when the
+// source chat was last written by an external-agent runtime.
+func TestServiceStartChatContinueFromChatSeedsExternalSourceHistory(t *testing.T) {
+	t.Parallel()
+
+	starter := &stubManagedChatStarter{}
+	fixture := newManagedChatFixture(t, nil, starter)
+	sourceRun := agentruns.NewRun(nil, map[string]any{
+		"runType":         "external_agent",
+		"chatId":          "chat-source",
+		"projectConfigId": "project-alpha",
+		"messages": []any{
+			userMessage("source-user", "Seed prompt"),
+		},
+	}, time.Date(2026, 3, 8, 17, 0, 0, 0, time.UTC))
+	sourceRun.Status = agentruns.RunStatusCompleted
+	finishedAt := time.Date(2026, 3, 8, 17, 0, 5, 0, time.UTC)
+	sourceRun.FinishedAt = &finishedAt
+	sourceRun.Outputs = map[string]any{
+		"messages": []any{
+			userMessage("source-user", "Seed prompt"),
+			assistantMessage("source-assistant", "Seed reply"),
+		},
+	}
+	saveManagedChatRun(t, fixture.runs, sourceRun)
+
+	_, err := fixture.service.StartChat(StartChatRequest{
+		ContinueFromChatID: stringPtr("chat-source"),
+		Message:            userMessage("new-user", "Continue this chat."),
+		EngineConfigID:     "engine-managed",
+		ProjectConfigID:    "project-alpha",
+		AllowUnscoped:      true,
+		PermissionMode:     ChatPermissionModeMinimal,
+		SearchEnabled:      true,
+	})
+	if err != nil {
+		t.Fatalf("start chat: %v", err)
+	}
+	rawMessages, ok := starter.lastInputs["messages"].([]any)
+	if !ok {
+		t.Fatalf("expected managed messages payload, got %#v", starter.lastInputs["messages"])
+	}
+	if len(rawMessages) != 3 {
+		t.Fatalf("expected seeded history plus new message, got %#v", rawMessages)
+	}
+	if message, ok := rawMessages[0].(map[string]any); !ok || message["id"] != "source-user" {
+		t.Fatalf("expected first seeded message, got %#v", rawMessages[0])
+	}
+	if message, ok := rawMessages[1].(map[string]any); !ok || message["id"] != "source-assistant" {
+		t.Fatalf("expected second seeded message, got %#v", rawMessages[1])
+	}
+	if message, ok := rawMessages[2].(map[string]any); !ok || message["id"] != "new-user" {
+		t.Fatalf("expected final new message, got %#v", rawMessages[2])
+	}
+}
+
+// Branch-edit validation should fail before runtime start if the branch source
+// message cannot be found in the parent managed chat history.
+func TestServiceStartChatBranchEditMissingMessageReturnsNotFound(t *testing.T) {
+	t.Parallel()
+
+	starter := &stubManagedChatStarter{}
+	fixture := newManagedChatFixture(t, nil, starter)
+	run := newManagedChatRun(
+		t,
+		managedChatRunOptions{
+			chatID:          "chat-parent",
+			projectConfigID: "project-alpha",
+			engineConfigID:  "engine-managed",
+			startedAt:       time.Date(2026, 3, 8, 18, 0, 0, 0, time.UTC),
+			status:          agentruns.RunStatusCompleted,
+			inputMessages:   []map[string]any{userMessage("msg-1", "Original prompt")},
+			outputMessages:  []map[string]any{userMessage("msg-1", "Original prompt")},
+		},
+	)
+	saveManagedChatRun(t, fixture.runs, run)
+
+	_, err := fixture.service.StartChat(StartChatRequest{
+		Message:             userMessage("edited", "Edited prompt"),
+		EngineConfigID:      "engine-managed",
+		ProjectConfigID:     "project-alpha",
+		AllowUnscoped:       true,
+		BranchParentChatID:  stringPtr("chat-parent"),
+		BranchFromMessageID: stringPtr("missing"),
+		PermissionMode:      ChatPermissionModeMinimal,
+		SearchEnabled:       true,
+	})
+	var branchErr *BranchMessageNotFoundError
+	if !errors.As(err, &branchErr) {
+		t.Fatalf("expected branch message not found error, got %v", err)
+	}
+	if starter.lastInputs != nil {
+		t.Fatalf("expected branch validation failure before start, got %#v", starter.lastInputs)
+	}
+}
+
+// Managed sends should fail explicitly when the runtime boundary exists but the
+// underlying executor is still unavailable in the real app wiring.
+func TestServiceStartChatReturnsExecutorUnavailableWhenStarterDisabled(t *testing.T) {
+	t.Parallel()
+
+	fixture := newManagedChatFixture(t, nil, &stubManagedChatStarter{disabled: true})
+
+	_, err := fixture.service.StartChat(StartChatRequest{
+		Message:         userMessage("user-1", "Hello"),
+		EngineConfigID:  "engine-managed",
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   true,
+	})
+	if !errors.Is(err, agentruns.ErrManagedExecutorUnavailable) {
+		t.Fatalf("expected managed executor unavailable, got %v", err)
+	}
+}
+
+func newManagedChatFixture(t *testing.T, live LiveChatStateProvider, starters ...ChatStarter) managedChatFixture {
 	t.Helper()
 
 	root := t.TempDir()
@@ -296,6 +516,10 @@ func newManagedChatFixture(t *testing.T, live LiveChatStateProvider) managedChat
 	engines, err := agentruns.NewEngineStore(root)
 	if err != nil {
 		t.Fatalf("new engine store: %v", err)
+	}
+	profiles, err := agentprofiles.NewStore(root)
+	if err != nil {
+		t.Fatalf("new profile store: %v", err)
 	}
 	managedConfigID := "primary"
 	externalConfigID := "external-config"
@@ -357,19 +581,42 @@ func newManagedChatFixture(t *testing.T, live LiveChatStateProvider) managedChat
 	if err != nil {
 		t.Fatalf("new managed run runtime: %v", err)
 	}
+	var starter ChatStarter = runtime
+	var starterStub *stubManagedChatStarter
+	if len(starters) != 0 && starters[0] != nil {
+		starter = starters[0]
+		if resolved, ok := starters[0].(*stubManagedChatStarter); ok {
+			starterStub = resolved
+		}
+	}
 	service, err := NewService(ServiceOptions{
-		Runs:    runs,
-		Engines: engines,
-		LLM:     llmRuntime,
-		Live:    live,
-		Stopper: runtime,
+		ProjectState: projectRuntime,
+		Runs:         runs,
+		Engines:      engines,
+		LLM:          llmRuntime,
+		Profiles:     profiles,
+		Starter:      starter,
+		Live:         live,
+		Stopper:      runtime,
 	})
 	if err != nil {
 		t.Fatalf("new managed chat service: %v", err)
 	}
+	if err := profiles.Write([]agentprofiles.Profile{
+		{
+			ID:             "profile-alpha",
+			Name:           "Alpha",
+			Description:    "Helpful profile",
+			SystemPrompt:   "Follow the active profile rules.",
+			EngineConfigID: stringPtr("engine-managed"),
+		},
+	}); err != nil {
+		t.Fatalf("write profiles: %v", err)
+	}
 	return managedChatFixture{
 		service: service,
 		runs:    runs,
+		start:   starterStub,
 	}
 }
 
