@@ -10,11 +10,7 @@ import { Resizable } from "re-resizable";
 import { useEffect, useRef } from "react";
 import { RiExpandDiagonalLine } from "react-icons/ri";
 import { useWindowSize } from "state/hooks/utils";
-import {
-  APP_PANE_Z_INDEX_CLASS_NAME,
-  CLOSED_PANE_WIDTH,
-  PaneName,
-} from "utils/constants";
+import { CLOSED_PANE_WIDTH, PaneName } from "utils/constants";
 import { clamp } from "utils/utils";
 
 const FULL_WIDTH_BORDER_EPSILON = 2;
@@ -161,7 +157,7 @@ export function PaneContainer({
         bottomLeft: false,
         topLeft: false,
       }}
-      className={`single-cell-container ${APP_PANE_Z_INDEX_CLASS_NAME} col-start-1 col-end-2 row-start-2 row-end-3 min-h-0 min-w-0 border-setta-200 bg-setta-50 shadow-md transition-transform dark:border-setta-800 dark:bg-setta-900 ${paddingClasses} ${rightCondition} overflow-x-hidden overflow-y-hidden`}
+      className={`single-cell-container z-10 col-start-1 col-end-2 row-start-2 row-end-3 min-h-0 min-w-0 border-setta-200 bg-setta-50 shadow-md transition-transform dark:border-setta-800 dark:bg-setta-900 ${paddingClasses} ${rightCondition} overflow-x-hidden overflow-y-hidden`}
       style={{ transform: `translateX(${vis ? "0" : style})` }}
     >
       {vis ? (

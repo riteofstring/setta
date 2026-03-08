@@ -1,62 +1,57 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-import pytest
 from fastapi import FastAPI, HTTPException
-from pydantic import ValidationError
+import pytest
+
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
 from setta.project_state.project_manager_types import (
     AcceptRenameRefactorRequest,
     AddKwargRequest,
+    AutoLayoutTopLevelSectionsRequest,
     AppendDrawAreaLayerItemRequest,
     ChangeParamImplRequest,
     CreateTopLevelSectionRequest,
     CreateViewModeRequest,
-    CreateWindowSpaceRequest,
     DeclineRenameRefactorRequest,
+    DeleteViewModeRequest,
     DeleteKwargRequest,
     DeleteSectionsRequest,
-    DeleteViewModeRequest,
-    DeleteWindowSpaceRequest,
-    FormatCodeRequest,
-    GetChatSectionChatIdRequest,
     GetPasswordParamValueRequest,
     GroupSectionsRequest,
+    FormatCodeRequest,
     PasteSectionsRequest,
-    RunCodeRequest,
     SetCallableHideParamsRequest,
     SetCallableRequest,
     SetChartAreaDataPathRequest,
     SetChartSettingsRequest,
     SetChartTypeRequest,
-    SetChatSectionChatIdRequest,
+    SetCodeRequest,
     SetCodeFileBindingRequest,
     SetCodeObjDisplayNameRequest,
     SetCodeObjNameRequest,
-    SetCodeRequest,
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
     SetImageAreaImagePathRequest,
     SetListRootViewModeRequest,
     SetParamEnteredValueRequest,
     SetParentDefaultChildSectionTypeRequest,
-    SetProjectChatWindowChatIdRequest,
-    SetProjectChatWindowingStateRequest,
     SetSectionNameRequest,
     SetSocialUrlRequest,
     SetSpreadsheetFilePathRequest,
     SetSpreadsheetSectionSettingsRequest,
+    SetTopLevelSectionLayoutRequest,
+    SetSectionVariantNameRequest,
     SetTaskBoardSectionStateRequest,
     SetTextBlockMasterFontSizeRequest,
+    SetViewModeNameRequest,
     SetTextBlockTextRequest,
     SetTypeErrorIgnoreRequest,
-    SetViewModeNameRequest,
-    SetWindowSpaceNameRequest,
-    SetWindowSpaceSortOrderRequest,
     ToggleIsEditingViewModeRequest,
     ToggleParamSelectedRequest,
     ToggleSectionVisibilityRequest,
+    ToggleVariantFrozenRequest,
     ToggleViewModeTabRequest,
     ToggleViewModeUserFacingRequest,
     UngroupGroupsRequest,
@@ -73,54 +68,50 @@ from setta.routers.llm import (
 )
 from setta.routers.project_manager import (
     route_accept_rename_refactor,
-    route_add_kwarg,
     route_append_draw_area_layer_item,
+    route_add_kwarg,
+    route_auto_layout_top_level_sections,
     route_change_param_impl,
     route_create_top_level_section,
     route_create_view_mode,
-    route_create_window_space,
-    route_decline_rename_refactor,
-    route_delete_kwarg,
     route_delete_sections,
     route_delete_view_mode,
-    route_delete_window_space,
-    route_format_code,
-    route_get_chat_section_chat_id,
-    route_get_password_param_value,
+    route_delete_kwarg,
+    route_decline_rename_refactor,
     route_group_sections,
     route_paste_sections,
-    route_set_callable,
     route_set_callable_hide_params,
+    route_set_callable,
     route_set_chart_area_data_path,
     route_set_chart_settings,
     route_set_chart_type,
-    route_set_chat_section_chat_id,
     route_set_code,
     route_set_code_file_binding,
+    route_format_code,
     route_set_code_obj_display_name,
     route_set_code_obj_name,
     route_set_gen_code_prefix,
     route_set_gen_code_suffix,
+    route_get_password_param_value,
     route_set_image_area_image_path,
     route_set_list_root_view_mode,
     route_set_param_entered_value,
     route_set_parent_default_child_section_type,
-    route_set_project_chat_window_chat_id,
-    route_set_project_chat_windowing_state,
     route_set_section_name,
     route_set_social_url,
     route_set_spreadsheet_file_path,
     route_set_spreadsheet_section_settings,
+    route_set_top_level_section_layout,
+    route_set_section_variant_name,
     route_set_task_board_section_state,
     route_set_text_block_master_font_size,
+    route_set_view_mode_name,
     route_set_text_block_text,
     route_set_type_error_ignore,
-    route_set_view_mode_name,
-    route_set_window_space_name,
-    route_set_window_space_sort_order,
     route_toggle_is_editing_view_mode,
     route_toggle_param_selected,
     route_toggle_section_visibility,
+    route_toggle_variant_frozen,
     route_toggle_view_mode_tab,
     route_toggle_view_mode_user_facing,
     route_ungroup_groups,
@@ -131,6 +122,7 @@ from setta.routers.share_deployments import (
     PublishShareDeploymentRequest,
     route_publish_share_deployment,
 )
+from setta.project_state.project_manager_types import RunCodeRequest
 from setta.routers.terminals import (
     KillSubprocessesRequest,
     route_kill_subprocesses,
@@ -143,45 +135,31 @@ from setta.types.artifact import (
     DrawAreaLayerItem,
     LineChartSettings,
 )
-from setta.types.chat_messages import MessageTextContent, UserChatMessage
-from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.generated.settings_state import SettingsState
-from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
 from setta.types.helpers_lvl2 import add_kwarg, create_top_level_section
-from setta.types.helpers_lvl3 import (
-    convert_backend_to_single_config,
-    merge_single_config_into_backend,
-)
+from setta.types.helpers_lvl3 import merge_single_config_into_backend
+from setta.types.chat_messages import MessageTextContent, UserChatMessage
+from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.types.project_config import (
     Position,
     ProjectConfig,
-    WindowSpaceConfig,
-    WindowSpaceState,
-    WindowSpaceSurfaceKind,
-    WindowSpaceWindow,
-    WindowSpaceWindowMode,
+    TopLevelSectionLayout,
 )
 from setta.types.project_state import (
-    ChatWindowMode,
-    ChatWindowPlacement,
-    ProjectChatWindowingState,
-    ProjectChatWindowInstance,
     ProjectStateBackend,
     ProjectStateCore,
     ProjectStateSingleConfig,
 )
 from setta.types.section_impls import (
     ChatPermissionMode,
-    ChatSectionImpl,
     CodeFileAccessMode,
     SectionType,
     TextBlockSectionImpl,
 )
-from setta.types.share_deployment import DeploymentManifest, DeploymentType, SharePolicy
-
+from setta.types.share_deployment import DeploymentManifest, SharePolicy, DeploymentType
 from tests.utils.runtime_context import runtime_context
 
 
@@ -205,9 +183,6 @@ def _write_share_project(
     project_config = ProjectConfig(name=project_config_name)
     project_state = ProjectStateBackend(
         projectConfigs={project_config.id: project_config},
-        projectChatWindowingByProjectConfigId={
-            project_config.id: ProjectChatWindowingState()
-        },
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
@@ -224,41 +199,6 @@ def _write_share_project(
     return project_config.id
 
 
-def _write_share_project_with_window_space(
-    root: Path,
-    *,
-    project_config_name: str,
-    deployment_version: str,
-) -> tuple[ID, ID]:
-    dbe = DBE(root)
-    project_config = ProjectConfig(name=project_config_name)
-    window_space = WindowSpaceConfig(
-        id=create_new_id(),
-        name="Saved Layout",
-        sortIndex=0,
-    )
-    project_config.windowSpaces = {window_space.id: window_space}
-    project_state = ProjectStateBackend(
-        projectConfigs={project_config.id: project_config},
-        projectChatWindowingByProjectConfigId={
-            project_config.id: ProjectChatWindowingState()
-        },
-        defaultProjectConfigId=project_config.id,
-    )
-    dbe.write_project(project_state)
-    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
-    deployment_name = root.parent.name
-    manifest = DeploymentManifest(
-        version=1,
-        deploymentName=deployment_name,
-        deploymentType=DeploymentType.share,
-        defaultProjectConfigId=project_config.id,
-        deploymentVersion=deployment_version,
-    )
-    dbe.write_json(root / "manifest.json", manifest.model_dump())
-    return project_config.id, window_space.id
-
-
 def _write_share_project_with_configs(
     root: Path,
     *,
@@ -269,9 +209,6 @@ def _write_share_project_with_configs(
     dbe = DBE(root)
     project_state = ProjectStateBackend(
         projectConfigs={config.id: config for config in project_configs},
-        projectChatWindowingByProjectConfigId={
-            config.id: ProjectChatWindowingState() for config in project_configs
-        },
         defaultProjectConfigId=default_project_config_id,
     )
     dbe.write_project(project_state)
@@ -301,9 +238,6 @@ def _write_share_project_with_entry_code(
     )
     project_state = ProjectStateBackend(
         projectConfigs={project_config.id: project_config},
-        projectChatWindowingByProjectConfigId={
-            project_config.id: ProjectChatWindowingState()
-        },
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
@@ -346,9 +280,6 @@ def _write_share_project_with_section(
     project_config.sectionVariantMap = {section_id: variant_id}
     project_state = ProjectStateBackend(
         projectConfigs={project_config.id: project_config},
-        projectChatWindowingByProjectConfigId={
-            project_config.id: ProjectChatWindowingState()
-        },
         defaultProjectConfigId=project_config.id,
         sections={section_id: core},
         sectionImpls={section_impl.id: section_impl},
@@ -399,38 +330,6 @@ def _write_share_project_with_code_param(
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
     return project_config.id, section_id, param_info_id
-
-
-def _write_share_project_with_chat_section(
-    root: Path,
-    *,
-    project_config_name: str,
-    deployment_version: str,
-) -> tuple[ID, ID]:
-    settings = SettingsState()
-    project_config = ProjectConfig(name=project_config_name)
-    project_state = ProjectStateSingleConfig(projectConfig=project_config)
-    section_id = create_top_level_section(
-        settings,
-        project_state,
-        SectionType.Chat,
-        Position(),
-    )
-    backend = merge_single_config_into_backend(ProjectStateBackend(), project_state)
-    backend.defaultProjectConfigId = project_config.id
-    dbe = DBE(root)
-    dbe.write_project(backend)
-    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
-    deployment_name = root.parent.name
-    manifest = DeploymentManifest(
-        version=1,
-        deploymentName=deployment_name,
-        deploymentType=DeploymentType.share,
-        defaultProjectConfigId=project_config.id,
-        deploymentVersion=deployment_version,
-    )
-    dbe.write_json(root / "manifest.json", manifest.model_dump())
-    return project_config.id, section_id
 
 
 def _write_share_policy(root: Path, policy: SharePolicy) -> None:
@@ -1260,755 +1159,6 @@ class TestSharePolicyRoutes:
                     with pytest.raises(HTTPException) as ctx:
                         await handler(request, runtime_ctx)
                     assert ctx.value.status_code == 403, name
-
-    async def test_window_space_routes_blocked_when_layout_changes_disallowed(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-policy-route-test"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config_id, window_space_id = _write_share_project_with_window_space(
-                root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
-            )
-            _write_share_policy(root, SharePolicy(allowLayoutChanges=False))
-            state = await self._build_state(root)
-            session = state.share_session_store.create_session()
-            next_window_state = WindowSpaceState(
-                windowsById={
-                    "project-chat-window-1": WindowSpaceWindow(
-                        title="Research Chat",
-                    )
-                },
-                order=["project-chat-window-1"],
-            )
-            next_project_chat_windowing = ProjectChatWindowingState(
-                instancesById={
-                    "project-chat-window-1": ProjectChatWindowInstance(
-                        instanceId="project-chat-window-1",
-                        placement=ChatWindowPlacement.floating,
-                        mode=ChatWindowMode.project_ai_mode,
-                        title="Research Chat",
-                    )
-                },
-                order=["project-chat-window-1"],
-                nextInstanceNumber=2,
-            )
-            requests = [
-                (
-                    "set_project_chat_windowing_state",
-                    route_set_project_chat_windowing_state,
-                    SetProjectChatWindowingStateRequest(
-                        projectConfigId=project_config_id,
-                        state=next_project_chat_windowing,
-                    ),
-                ),
-                (
-                    "create_window_space",
-                    route_create_window_space,
-                    CreateWindowSpaceRequest(
-                        projectConfigId=project_config_id,
-                        state=next_window_state,
-                        name="Blocked Layout",
-                    ),
-                ),
-                (
-                    "set_window_space_name",
-                    route_set_window_space_name,
-                    SetWindowSpaceNameRequest(
-                        projectConfigId=project_config_id,
-                        windowSpaceId=window_space_id,
-                        name="Renamed Layout",
-                    ),
-                ),
-                (
-                    "set_window_space_sort_order",
-                    route_set_window_space_sort_order,
-                    SetWindowSpaceSortOrderRequest(
-                        projectConfigId=project_config_id,
-                        orderedWindowSpaceIds=[window_space_id],
-                    ),
-                ),
-                (
-                    "delete_window_space",
-                    route_delete_window_space,
-                    DeleteWindowSpaceRequest(
-                        projectConfigId=project_config_id,
-                        windowSpaceId=window_space_id,
-                    ),
-                ),
-            ]
-
-            with runtime_context(state, session.id) as runtime_ctx:
-                for name, handler, request in requests:
-                    with pytest.raises(HTTPException) as ctx:
-                        await handler(request, runtime_ctx)
-                    assert ctx.value.status_code == 403, name
-                    assert (
-                        ctx.value.detail
-                        == "Deployment policy disallows layout changes."
-                    ), name
-
-    async def test_window_space_routes_reject_invalid_window_owners(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-policy-route-test"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config_id, _window_space_id = (
-                _write_share_project_with_window_space(
-                    root,
-                    project_config_name=project_config_name,
-                    deployment_version=root.name,
-                )
-            )
-            state = await self._build_state(root)
-            session = state.share_session_store.create_session()
-            initial_project_state = convert_backend_to_single_config(
-                state.share_runtime_state.project_state_backend,
-                project_config_id,
-            )
-            initial_windowing = initial_project_state.projectChatWindowing.model_dump()
-            initial_window_spaces = {
-                window_space_id: window_space.model_dump()
-                for window_space_id, window_space in initial_project_state.projectConfig.windowSpaces.items()
-            }
-
-            with runtime_context(state, session.id) as runtime_ctx:
-                with pytest.raises(HTTPException) as windowing_ctx:
-                    await route_set_project_chat_windowing_state(
-                        SetProjectChatWindowingStateRequest(
-                            projectConfigId=project_config_id,
-                            state=ProjectChatWindowingState(
-                                instancesById={
-                                    "project-chat-window-1": ProjectChatWindowInstance(
-                                        instanceId="project-chat-window-1",
-                                        placement=ChatWindowPlacement.floating,
-                                        mode=ChatWindowMode.section_mode,
-                                        sectionIdOrNull=None,
-                                    )
-                                },
-                                order=["project-chat-window-1"],
-                                nextInstanceNumber=2,
-                            ),
-                        ),
-                        runtime_ctx,
-                    )
-                assert windowing_ctx.value.status_code == 422
-
-                with pytest.raises(HTTPException) as git_graph_ctx:
-                    await route_set_project_chat_windowing_state(
-                        SetProjectChatWindowingStateRequest(
-                            projectConfigId=project_config_id,
-                            state=ProjectChatWindowingState(
-                                instancesById={
-                                    "project-chat-window-2": ProjectChatWindowInstance(
-                                        instanceId="project-chat-window-2",
-                                        placement=ChatWindowPlacement.canvas_section,
-                                        mode=ChatWindowMode.git_graph_mode,
-                                    )
-                                },
-                                order=["project-chat-window-2"],
-                                nextInstanceNumber=3,
-                            ),
-                        ),
-                        runtime_ctx,
-                    )
-                assert git_graph_ctx.value.status_code == 422
-
-                with pytest.raises(
-                    ValidationError,
-                    match="Project-chat window-space windows cannot carry sectionIdOrNull",
-                ):
-                    WindowSpaceWindow(
-                        surfaceKind=WindowSpaceSurfaceKind.project_chat,
-                        sectionIdOrNull="section-1",
-                    )
-
-                with pytest.raises(
-                    ValidationError,
-                    match="Section window-space windows cannot use git_graph_mode",
-                ):
-                    WindowSpaceWindow(
-                        surfaceKind=WindowSpaceSurfaceKind.section,
-                        mode=WindowSpaceWindowMode.git_graph_mode,
-                        sectionIdOrNull="section-1",
-                    )
-
-            updated_project_state = convert_backend_to_single_config(
-                state.share_runtime_state.project_state_backend,
-                project_config_id,
-            )
-            assert (
-                updated_project_state.projectChatWindowing.model_dump()
-                == initial_windowing
-            )
-            assert {
-                window_space_id: window_space.model_dump()
-                for window_space_id, window_space in updated_project_state.projectConfig.windowSpaces.items()
-            } == initial_window_spaces
-
-    async def test_section_chat_thread_binding_allowed_when_llm_allowed_and_layout_blocked(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-policy-route-test"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config_id, section_id = _write_share_project_with_chat_section(
-                root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
-            )
-            _write_share_policy(
-                root,
-                SharePolicy(allowLLM=True, allowLayoutChanges=False),
-            )
-            state = await self._build_state(root)
-            session = state.share_session_store.create_session()
-            state.share_runtime_state.create_session_backend(session.id)
-
-            with runtime_context(state, session.id) as runtime_ctx:
-                await route_set_chat_section_chat_id(
-                    SetChatSectionChatIdRequest(
-                        projectConfigId=project_config_id,
-                        sectionId=section_id,
-                        chatId="chat-bound",
-                    ),
-                    runtime_ctx,
-                )
-            session_backend = state.share_runtime_state.get_session_backend(session.id)
-            session_project_state = convert_backend_to_single_config(
-                session_backend,
-                project_config_id,
-            )
-            persisted_chat_id = get_curr_effective_section_impl_with_type_guard(
-                session_project_state,
-                section_id,
-                ChatSectionImpl,
-            ).chatId
-
-            assert persisted_chat_id == "chat-bound"
-
-    async def test_section_chat_thread_binding_blocked_when_llm_is_disallowed(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-policy-route-test"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config_id, section_id = _write_share_project_with_chat_section(
-                root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
-            )
-            _write_share_policy(
-                root,
-                SharePolicy(allowLLM=False, allowLayoutChanges=False),
-            )
-            state = await self._build_state(root)
-            session = state.share_session_store.create_session()
-            state.share_runtime_state.create_session_backend(session.id)
-
-            with pytest.raises(HTTPException) as ctx:
-                with runtime_context(state, session.id) as runtime_ctx:
-                    await route_set_chat_section_chat_id(
-                        SetChatSectionChatIdRequest(
-                            projectConfigId=project_config_id,
-                            sectionId=section_id,
-                            chatId="chat-bound",
-                        ),
-                        runtime_ctx,
-                    )
-
-            with runtime_context(state, session.id) as runtime_ctx:
-                persisted_chat_id = await route_get_chat_section_chat_id(
-                    GetChatSectionChatIdRequest(
-                        projectConfigId=project_config_id,
-                        sectionId=section_id,
-                    ),
-                    runtime_ctx,
-                )
-
-            assert ctx.value.status_code == 403
-            assert ctx.value.detail == "Deployment policy disallows LLM access."
-            assert persisted_chat_id is None
-
-    async def test_project_chat_window_thread_binding_allowed_when_llm_allowed_and_layout_blocked(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-policy-route-test"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config_id = _write_share_project(
-                root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
-            )
-            _write_share_policy(
-                root,
-                SharePolicy(allowLLM=True, allowLayoutChanges=False),
-            )
-            dbe = DBE(root)
-            project_state = dbe.read_project()
-            project_state.projectChatWindowingByProjectConfigId[project_config_id] = (
-                ProjectChatWindowingState(
-                    instancesById={
-                        "project-chat-window-1": ProjectChatWindowInstance(
-                            instanceId="project-chat-window-1",
-                            placement=ChatWindowPlacement.floating,
-                            mode=ChatWindowMode.project_ai_mode,
-                            chatId=None,
-                        )
-                    },
-                    order=["project-chat-window-1"],
-                    nextInstanceNumber=2,
-                )
-            )
-            dbe.write_project(project_state)
-            state = await self._build_state(root)
-            session = state.share_session_store.create_session()
-            state.share_runtime_state.create_session_backend(session.id)
-
-            with runtime_context(state, session.id) as runtime_ctx:
-                updated = await route_set_project_chat_window_chat_id(
-                    SetProjectChatWindowChatIdRequest(
-                        projectConfigId=project_config_id,
-                        instanceId="project-chat-window-1",
-                        chatId="chat-bound",
-                    ),
-                    runtime_ctx,
-                )
-
-            assert updated.instancesById["project-chat-window-1"].chatId == "chat-bound"
-            session_state = state.share_runtime_state.get_session_state(
-                session.id,
-                project_config_id,
-            )
-            assert (
-                session_state.projectChatWindowing.instancesById[
-                    "project-chat-window-1"
-                ].chatId
-                == "chat-bound"
-            )
-
-    async def test_project_chat_window_thread_binding_blocked_when_llm_is_disallowed(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-policy-route-test"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config_id = _write_share_project(
-                root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
-            )
-            _write_share_policy(
-                root,
-                SharePolicy(allowLLM=False, allowLayoutChanges=False),
-            )
-            dbe = DBE(root)
-            project_state = dbe.read_project()
-            project_state.projectChatWindowingByProjectConfigId[project_config_id] = (
-                ProjectChatWindowingState(
-                    instancesById={
-                        "project-chat-window-1": ProjectChatWindowInstance(
-                            instanceId="project-chat-window-1",
-                            placement=ChatWindowPlacement.floating,
-                            mode=ChatWindowMode.project_ai_mode,
-                            chatId=None,
-                        )
-                    },
-                    order=["project-chat-window-1"],
-                    nextInstanceNumber=2,
-                )
-            )
-            dbe.write_project(project_state)
-            state = await self._build_state(root)
-            session = state.share_session_store.create_session()
-            state.share_runtime_state.create_session_backend(session.id)
-
-            with pytest.raises(HTTPException) as ctx:
-                with runtime_context(state, session.id) as runtime_ctx:
-                    await route_set_project_chat_window_chat_id(
-                        SetProjectChatWindowChatIdRequest(
-                            projectConfigId=project_config_id,
-                            instanceId="project-chat-window-1",
-                            chatId="chat-bound",
-                        ),
-                        runtime_ctx,
-                    )
-
-            session_state = state.share_runtime_state.get_session_state(
-                session.id,
-                project_config_id,
-            )
-            assert ctx.value.status_code == 403
-            assert ctx.value.detail == "Deployment policy disallows LLM access."
-            assert (
-                session_state.projectChatWindowing.instancesById[
-                    "project-chat-window-1"
-                ].chatId
-                is None
-            )
-
-    async def test_project_chat_window_thread_binding_rejects_git_graph_windows(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-policy-route-test"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config_id = _write_share_project(
-                root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
-            )
-            _write_share_policy(
-                root,
-                SharePolicy(allowLLM=True, allowLayoutChanges=False),
-            )
-            dbe = DBE(root)
-            project_state = dbe.read_project()
-            project_state.projectChatWindowingByProjectConfigId[project_config_id] = (
-                ProjectChatWindowingState(
-                    instancesById={
-                        "project-chat-window-1": ProjectChatWindowInstance(
-                            instanceId="project-chat-window-1",
-                            placement=ChatWindowPlacement.floating,
-                            mode=ChatWindowMode.git_graph_mode,
-                            chatId=None,
-                        )
-                    },
-                    order=["project-chat-window-1"],
-                    nextInstanceNumber=2,
-                )
-            )
-            dbe.write_project(project_state)
-            state = await self._build_state(root)
-            session = state.share_session_store.create_session()
-            state.share_runtime_state.create_session_backend(session.id)
-
-            with pytest.raises(HTTPException) as ctx:
-                with runtime_context(state, session.id) as runtime_ctx:
-                    await route_set_project_chat_window_chat_id(
-                        SetProjectChatWindowChatIdRequest(
-                            projectConfigId=project_config_id,
-                            instanceId="project-chat-window-1",
-                            chatId="chat-bound",
-                        ),
-                        runtime_ctx,
-                    )
-
-            session_state = state.share_runtime_state.get_session_state(
-                session.id,
-                project_config_id,
-            )
-            assert ctx.value.status_code == 422
-            assert (
-                ctx.value.detail
-                == "Project chat window project-chat-window-1 must use project_ai_mode to bind chatId."
-            )
-            assert (
-                session_state.projectChatWindowing.instancesById[
-                    "project-chat-window-1"
-                ].chatId
-                is None
-            )
-
-    async def test_project_chat_window_layout_route_cannot_rebind_thread_when_llm_is_disallowed(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-policy-route-test"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config_id = _write_share_project(
-                root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
-            )
-            _write_share_policy(
-                root,
-                SharePolicy(allowLLM=False, allowLayoutChanges=True),
-            )
-            dbe = DBE(root)
-            project_state = dbe.read_project()
-            project_state.projectChatWindowingByProjectConfigId[project_config_id] = (
-                ProjectChatWindowingState(
-                    instancesById={
-                        "project-chat-window-1": ProjectChatWindowInstance(
-                            instanceId="project-chat-window-1",
-                            placement=ChatWindowPlacement.floating,
-                            mode=ChatWindowMode.project_ai_mode,
-                            chatId="chat-before",
-                        )
-                    },
-                    order=["project-chat-window-1"],
-                    nextInstanceNumber=2,
-                )
-            )
-            dbe.write_project(project_state)
-            state = await self._build_state(root)
-            session = state.share_session_store.create_session()
-            state.share_runtime_state.create_session_backend(session.id)
-
-            with pytest.raises(HTTPException) as ctx:
-                with runtime_context(state, session.id) as runtime_ctx:
-                    await route_set_project_chat_windowing_state(
-                        SetProjectChatWindowingStateRequest(
-                            projectConfigId=project_config_id,
-                            state=ProjectChatWindowingState(
-                                instancesById={
-                                    "project-chat-window-1": ProjectChatWindowInstance(
-                                        instanceId="project-chat-window-1",
-                                        placement=ChatWindowPlacement.floating,
-                                        mode=ChatWindowMode.project_ai_mode,
-                                        chatId="chat-after",
-                                    )
-                                },
-                                order=["project-chat-window-1"],
-                                nextInstanceNumber=2,
-                            ),
-                        ),
-                        runtime_ctx,
-                    )
-
-            session_state = state.share_runtime_state.get_session_state(
-                session.id,
-                project_config_id,
-            )
-            assert ctx.value.status_code == 422
-            assert (
-                ctx.value.detail
-                == "Project chat window project-chat-window-1 cannot change chatId via layout updates."
-            )
-            assert (
-                session_state.projectChatWindowing.instancesById[
-                    "project-chat-window-1"
-                ].chatId
-                == "chat-before"
-            )
-
-    async def test_project_chat_window_layout_route_never_rebinds_thread_even_when_llm_is_allowed(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-policy-route-test"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config_id = _write_share_project(
-                root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
-            )
-            _write_share_policy(
-                root,
-                SharePolicy(allowLLM=True, allowLayoutChanges=True),
-            )
-            dbe = DBE(root)
-            project_state = dbe.read_project()
-            project_state.projectChatWindowingByProjectConfigId[project_config_id] = (
-                ProjectChatWindowingState(
-                    instancesById={
-                        "project-chat-window-1": ProjectChatWindowInstance(
-                            instanceId="project-chat-window-1",
-                            placement=ChatWindowPlacement.floating,
-                            mode=ChatWindowMode.project_ai_mode,
-                            chatId="chat-before",
-                        )
-                    },
-                    order=["project-chat-window-1"],
-                    nextInstanceNumber=2,
-                )
-            )
-            dbe.write_project(project_state)
-            state = await self._build_state(root)
-            session = state.share_session_store.create_session()
-            state.share_runtime_state.create_session_backend(session.id)
-
-            with pytest.raises(HTTPException) as layout_ctx:
-                with runtime_context(state, session.id) as runtime_ctx:
-                    await route_set_project_chat_windowing_state(
-                        SetProjectChatWindowingStateRequest(
-                            projectConfigId=project_config_id,
-                            state=ProjectChatWindowingState(
-                                instancesById={
-                                    "project-chat-window-1": ProjectChatWindowInstance(
-                                        instanceId="project-chat-window-1",
-                                        placement=ChatWindowPlacement.floating,
-                                        mode=ChatWindowMode.project_ai_mode,
-                                        chatId="chat-after",
-                                    )
-                                },
-                                order=["project-chat-window-1"],
-                                nextInstanceNumber=2,
-                            ),
-                        ),
-                        runtime_ctx,
-                    )
-
-            with runtime_context(state, session.id) as runtime_ctx:
-                updated = await route_set_project_chat_window_chat_id(
-                    SetProjectChatWindowChatIdRequest(
-                        projectConfigId=project_config_id,
-                        instanceId="project-chat-window-1",
-                        chatId="chat-after",
-                    ),
-                    runtime_ctx,
-                )
-
-            assert layout_ctx.value.status_code == 422
-            assert updated.instancesById["project-chat-window-1"].chatId == "chat-after"
-
-    async def test_window_space_routes_allowed_when_layout_changes_allowed(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-policy-route-test"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config_id = _write_share_project(
-                root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
-            )
-            _write_share_policy(root, SharePolicy(allowLayoutChanges=True))
-            state = await self._build_state(root)
-            session = state.share_session_store.create_session()
-            next_window_state = WindowSpaceState(
-                windowsById={
-                    "project-chat-window-1": WindowSpaceWindow(
-                        title="Research Chat",
-                    )
-                },
-                order=["project-chat-window-1"],
-            )
-            next_project_chat_windowing = ProjectChatWindowingState(
-                instancesById={
-                    "project-chat-window-1": ProjectChatWindowInstance(
-                        instanceId="project-chat-window-1",
-                        placement=ChatWindowPlacement.floating,
-                        mode=ChatWindowMode.project_ai_mode,
-                        title="Research Chat",
-                    )
-                },
-                order=["project-chat-window-1"],
-                nextInstanceNumber=2,
-            )
-
-            with runtime_context(state, session.id) as runtime_ctx:
-                normalized_windowing = await route_set_project_chat_windowing_state(
-                    SetProjectChatWindowingStateRequest(
-                        projectConfigId=project_config_id,
-                        state=next_project_chat_windowing,
-                    ),
-                    runtime_ctx,
-                )
-                assert normalized_windowing.order == ["project-chat-window-1"]
-
-                created_window_space = await route_create_window_space(
-                    CreateWindowSpaceRequest(
-                        projectConfigId=project_config_id,
-                        state=next_window_state,
-                        name="First Layout",
-                    ),
-                    runtime_ctx,
-                )
-                assert created_window_space.id
-
-                await route_set_window_space_name(
-                    SetWindowSpaceNameRequest(
-                        projectConfigId=project_config_id,
-                        windowSpaceId=created_window_space.id,
-                        name="Renamed Layout",
-                    ),
-                    runtime_ctx,
-                )
-                second_window_space = await route_create_window_space(
-                    CreateWindowSpaceRequest(
-                        projectConfigId=project_config_id,
-                        state=WindowSpaceState(),
-                        name="Second Layout",
-                    ),
-                    runtime_ctx,
-                )
-
-                await route_set_window_space_sort_order(
-                    SetWindowSpaceSortOrderRequest(
-                        projectConfigId=project_config_id,
-                        orderedWindowSpaceIds=[
-                            second_window_space.id,
-                            created_window_space.id,
-                        ],
-                    ),
-                    runtime_ctx,
-                )
-
-                await route_delete_window_space(
-                    DeleteWindowSpaceRequest(
-                        projectConfigId=project_config_id,
-                        windowSpaceId=second_window_space.id,
-                    ),
-                    runtime_ctx,
-                )
-
-            session_state = state.share_runtime_state.get_session_state(
-                session.id,
-                project_config_id,
-            )
-            created_window_space = session_state.projectConfig.windowSpaces[
-                created_window_space.id
-            ]
-            assert session_state.projectChatWindowing.order == ["project-chat-window-1"]
-            assert created_window_space.name == "Renamed Layout"
-            assert created_window_space.sortIndex == 0
-            assert created_window_space.order == ["project-chat-window-1"]
-            assert (
-                created_window_space.windowsById["project-chat-window-1"].title
-                == "Research Chat"
-            )
-            assert (
-                second_window_space.id not in session_state.projectConfig.windowSpaces
-            )
-
-    async def test_window_space_routes_return_404_for_missing_window_space_ids(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-policy-route-test"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config_id = _write_share_project(
-                root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
-            )
-            _write_share_policy(root, SharePolicy(allowLayoutChanges=True))
-            state = await self._build_state(root)
-            session = state.share_session_store.create_session()
-            missing_window_space_id = "missing-window-space"
-            requests = [
-                (
-                    route_set_window_space_name,
-                    SetWindowSpaceNameRequest(
-                        projectConfigId=project_config_id,
-                        windowSpaceId=missing_window_space_id,
-                        name="Renamed Layout",
-                    ),
-                ),
-                (
-                    route_delete_window_space,
-                    DeleteWindowSpaceRequest(
-                        projectConfigId=project_config_id,
-                        windowSpaceId=missing_window_space_id,
-                    ),
-                ),
-            ]
-
-            with runtime_context(state, session.id) as runtime_ctx:
-                for handler, request in requests:
-                    with pytest.raises(HTTPException) as ctx:
-                        await handler(request, runtime_ctx)
-                    assert ctx.value.status_code == 404
-                    assert (
-                        ctx.value.detail
-                        == f"Window space {missing_window_space_id} not found"
-                    )
 
     async def test_paste_sections_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
