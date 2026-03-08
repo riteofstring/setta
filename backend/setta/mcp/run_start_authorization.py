@@ -75,6 +75,13 @@ def _resolve_pending_run_start_session(ctx: Context) -> object | None:
     return getattr(request_context, "session", None)
 
 
+def has_pending_mcp_run_start_authorization(ctx: Context) -> bool:
+    session = _resolve_pending_run_start_session(ctx)
+    if session is None:
+        return False
+    return getattr(session, _PENDING_MCP_RUN_START_AUTHORIZATION_ATTR, None) is not None
+
+
 async def authorize_pending_mcp_run_start(ctx: Context) -> None:
     authorization = await authorize_mcp_run_start(ctx)
     session = _resolve_pending_run_start_session(ctx)

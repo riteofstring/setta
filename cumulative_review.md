@@ -1,3 +1,43 @@
+## 2026-03-11 01:33:01 PDT
+
+Implemented the remaining consolidated fixes from the current top-level reviews for transport-independent MCP runtime policy, project-state summary filtering, standalone saved window-space rehydration, and dead project-chat API cleanup, then verified the affected paths with backend pytest, Vitest, Playwright, and a live CDP browser check.
+
+Shared MCP runtime-policy enforcement:
+- Centralized `requiresLLM` and `startsRun` enforcement inside the shared Setta MCP tool dispatch path instead of splitting policy between the native MCP server and the `/__setta__/tools/call` router.
+- Native MCP clients and HTTP bridge callers now go through the same admission contract for deployment/share `allowLLM`, `allowRun`, single-run-slot exhaustion, and pending-run reservation rollback.
+- Added an explicit pending-run authorization query helper and moved reservation commit/rollback timing into one place. A tool that never actually starts a run no longer leaves the session in a reserved state.
+- Removed the route-local duplicate policy wrapper from `backend/setta/routers/mcp_tools.py`, so the backend now has one authoritative dispatch path instead of two partially overlapping implementations.
+
+Project-state summary and dead API cleanup:
+- Fixed scoped project-state summaries so non-section saved windows are preserved verbatim. Section windows are still filtered by the allowed section ids, but project chat and git-graph windows no longer disappear from summaries just because the current scope excludes section content.
+- Removed the dead specialized `/setProjectChatWindowChatId` backend endpoint and the associated request/helper types instead of carrying a second persistence contract for project-chat thread updates.
+- Regenerated frontend and backend endpoint bindings after removing that route so the generated client/server surface matches the live API set.
+
+Standalone window-space hydration correctness:
+- Simplified same-layout standalone hydration so it explicitly compares the current local window against the previous hydrated window. Local state is only preserved when the local window actually diverged from the last hydrated value.
+- Saved `chatId` updates now flow through to standalone project-chat windows when the user has not locally changed that window, and saved `embeddedGitPaneVisible` updates now do the same for standalone git-graph windows.
+- Added a stable remount key for standalone project-chat surfaces keyed by the authoritative saved thread id, so React does not preserve stale nested chat state when the saved layout switches the window to another thread.
+
+UX before vs after:
+- Before: MCP runtime policy depended on transport. A deployment could block LLM or run access on the HTTP bridge while a native MCP client still executed the same tool. After: both transports fail closed under one shared policy boundary.
+- Before: project-scoped summaries could report that a saved layout had no windows even when it still contained valid project-chat or git-graph windows. After: summaries keep those windows and only trim disallowed section-backed entries.
+- Before: a standalone `/windowspace/:slug` tab could keep showing a stale project-chat thread or stale git-pane visibility after the same saved layout changed elsewhere. After: authoritative saved state rehydrates into that already-open tab unless the local standalone window intentionally diverged.
+- Before: the codebase carried an unused chat-id persistence endpoint that suggested a second source of truth for project-chat thread syncing. After: the full windowing sync path is the only supported persistence contract.
+
+DX before vs after:
+- Before: understanding MCP tool admission required checking both route code and native server code, plus tool-local behavior. After: the runtime policy boundary is attached to tool metadata and enforced once in shared dispatch.
+- Before: project-state summary rules disagreed with persisted window-space validity, which made tests and downstream consumers reason about two different models. After: summary filtering and persisted state follow the same window validity rules.
+- Before: standalone hydration behavior was implicit and partial, with some fields refreshed and others accidentally preserved. After: the merge rules are field-aware and explicit, which makes the behavior easier to read and extend without reintroducing stale-state bugs.
+- Before: generated endpoint code still reflected a superseded backend route. After: the generated bindings only expose the surviving contract.
+
+Verification:
+- `source activate.sh && pytest tests/routers/test_mcp_tools_call_runtime_policy.py` passed: 14 tests.
+- `source activate.sh && pytest tests/routers/test_mcp_linked_chat_tool.py -k 'native_mcp_invoke_linked_chat_denials_are_transport_independent or tools_call_invoke_linked_chat_denies_deployment_runs_when_allow_run_is_false or tools_call_invoke_linked_chat_denies_second_deployment_run_when_multiple_runs_are_disabled or tools_call_invoke_linked_chat_rolls_back_reserved_deployment_run_when_binding_persistence_fails or tools_call_invoke_linked_chat_denies_managed_runs_when_llm_is_disallowed'` passed: 7 selected tests.
+- `source activate.sh && pytest tests/types/test_project_state_summary_filter.py tests/mcp/test_mcp_agentic_project_state_summary_filtering.py tests/types/test_project_chat_windowing.py tests/routers/test_share_policy_routes.py -k 'test_filter_project_state_summary_trims_window_spaces_to_allowed_sections or test_get_latest_project_state_summary_filtered_by_scope_meta or section_chat_thread_binding_allowed_when_llm_allowed_and_layout_blocked'` passed: 3 selected tests.
+- `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx src/state/actions/projectChatWindowing.permissions.test.ts` passed: 22 tests.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep 'saved window spaces preserve distinct project chat threads per window in both workspace and standalone views|standalone window spaces adopt same-layout saved chat and git updates without navigation|standalone git graph windows keep git-pane visibility local to the standalone surface'` passed: 3 tests.
+- CDP verification used the running dev app to open a live saved standalone window-space route, confirm both the standalone project-chat and git-graph windows rendered, and verify the affected standalone surface path directly in-browser.
+
 ## 2026-03-11 00:37:13 PDT
 
 Implemented the remaining top-level review fixes for standalone managed-chat scoping, project-scoped project-chat stop/hydration, restore collision ownership, and MCP linked-chat runtime-policy centralization, then verified the changed paths with frontend unit/integration tests, backend pytest, Playwright, and CDP.

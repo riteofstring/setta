@@ -9,17 +9,15 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const routeSetProjectChatWindowingStateMock = vi.fn();
-const routeSetProjectChatWindowChatIdMock = vi.fn();
 
 vi.mock("utils/generatedEndpoints", () => ({
-  route_set_project_chat_window_chat_id: (...args: unknown[]) =>
-    routeSetProjectChatWindowChatIdMock(...args),
   route_set_project_chat_windowing_state: (...args: unknown[]) =>
     routeSetProjectChatWindowingStateMock(...args),
 }));
 
 import {
   createProjectChatWindowInstance,
+  flushPendingProjectChatWindowingWrites,
   focusProjectChatWindow,
   minimizeProjectChatWindow,
   setProjectChatWindowChatId,
@@ -30,7 +28,6 @@ describe("project chat windowing permissions", () => {
   beforeEach(() => {
     resetProjectStores();
     routeSetProjectChatWindowingStateMock.mockReset();
-    routeSetProjectChatWindowChatIdMock.mockReset();
     routeSetProjectChatWindowingStateMock.mockImplementation(
       async (request) => ({
         data: request.state,
@@ -38,11 +35,6 @@ describe("project chat windowing permissions", () => {
         hasResponse: true,
       }),
     );
-    routeSetProjectChatWindowChatIdMock.mockImplementation(async (request) => ({
-      data: request,
-      status: 200,
-      hasResponse: true,
-    }));
     useProjectState.setState({
       projectConfig: createProjectConfig({
         id: "project-id",
@@ -87,8 +79,8 @@ describe("project chat windowing permissions", () => {
     expect(routeSetProjectChatWindowingStateMock).not.toHaveBeenCalled();
   });
 
-  it("persists project chat thread binding even when read-only deployments block layout edits", () => {
-    // Thread ownership should follow chat permissions, not layout permissions.
+  it("rolls back project chat thread binding writes when read-only deployments block layout edits", async () => {
+    // Project chat windowing persists through the shared layout endpoint, so denied writes must roll back cleanly.
     useShareSession.setState({
       isDeploymentMode: true,
       shareSessionId: "share-session-1",
@@ -118,22 +110,32 @@ describe("project chat windowing permissions", () => {
         },
       }),
     });
+    routeSetProjectChatWindowingStateMock.mockResolvedValue({
+      data: { detail: "Deployment policy disallows layout changes." },
+      status: 403,
+      hasResponse: true,
+    });
 
     setProjectChatWindowChatId("project-chat-window-1", "chat-after");
+    await flushPendingProjectChatWindowingWrites();
 
     expect(
       useProjectState.getState().projectChatWindowing.instancesById[
         "project-chat-window-1"
       ]?.chatId,
-    ).toBe("chat-after");
-    expect(routeSetProjectChatWindowChatIdMock).toHaveBeenCalledWith(
+    ).toBeNull();
+    expect(routeSetProjectChatWindowingStateMock).toHaveBeenCalledWith(
       expect.objectContaining({
         projectConfigId: "project-id",
-        instanceId: "project-chat-window-1",
-        chatId: "chat-after",
+        state: expect.objectContaining({
+          instancesById: expect.objectContaining({
+            "project-chat-window-1": expect.objectContaining({
+              chatId: "chat-after",
+            }),
+          }),
+        }),
       }),
     );
-    expect(routeSetProjectChatWindowingStateMock).not.toHaveBeenCalled();
   });
 
   it("updates focus locally when read-only deployments block layout edits", () => {
@@ -216,8 +218,7 @@ describe("project chat windowing permissions", () => {
     });
 
     minimizeProjectChatWindow("project-chat-window-1");
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushPendingProjectChatWindowingWrites();
 
     expect(
       useProjectState.getState().projectChatWindowing.instancesById[

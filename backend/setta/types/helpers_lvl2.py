@@ -3221,21 +3221,6 @@ def set_project_chat_windowing_state(
     normalize_project_chat_windowing(p.projectChatWindowing, set(p.sections.keys()))
 
 
-def set_project_chat_window_chat_id(
-    p: "ProjectStateSingleConfig",
-    instanceId: "ID",
-    chatId: "ID | None",
-):
-    if instanceId not in p.projectChatWindowing.instancesById:
-        raise KeyError(f"Project chat window instance not found: {instanceId}")
-    instance = p.projectChatWindowing.instancesById[instanceId]
-    normalized_chat_id = (
-        chatId.strip() if isinstance(chatId, str) and chatId.strip() else None
-    )
-    instance.chatId = normalized_chat_id
-    normalize_project_chat_windowing(p.projectChatWindowing, set(p.sections.keys()))
-
-
 def set_chat_section_settings(
     p: "ProjectStateSingleConfig",
     sectionId: ID,

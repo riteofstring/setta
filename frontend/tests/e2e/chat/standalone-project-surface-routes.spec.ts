@@ -3136,6 +3136,270 @@ test.describe.serial("standalone project surface routes", () => {
     }
   });
 
+  test("standalone window spaces adopt same-layout saved chat and git updates without navigation", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const cleanupManagedEngine = await ensureManagedChatEngine(page);
+    const gitFixture = await seedGitOverlayFixture(getWorkspaceRootOrThrow(), {
+      historyCommitCount: 4,
+    });
+    const standalonePage = await page.context().newPage();
+
+    try {
+      const projectConfigName = getProjectConfigNameFromUrl(page.url());
+      const projectChatWindowId = await createFloatingProjectChatWindow(
+        page,
+        "Saved Workspace Chat",
+      );
+      const projectChatFixtures: ProjectChatThreadFixture[] = [
+        {
+          instanceId: projectChatWindowId,
+          chatId: "window-chat-a",
+          assistantText: "Window chat A marker",
+        },
+        {
+          instanceId: projectChatWindowId,
+          chatId: "window-chat-b",
+          assistantText: "Window chat B marker",
+        },
+      ];
+      await page.context().route("**/api/getAgentRuns", async (route) => {
+        const response = await route.fetch();
+        const runs = (await response.json()) as AgentRunRecord[];
+        const fixtureRuns = projectChatFixtures.map((fixture, index) => ({
+          id: `run-${fixture.chatId}`,
+          profileId: null,
+          status: "completed",
+          startedAt: `2026-03-11T00:00:0${index}Z`,
+          finishedAt: `2026-03-11T00:00:1${index}Z`,
+          events: [],
+          inputs: {
+            runType: "llm_chat",
+            projectConfigId: projectContext.projectConfigId,
+            chatId: fixture.chatId,
+            sectionId: null,
+            messages: [
+              {
+                id: `user-${fixture.chatId}`,
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: `Prompt for ${fixture.chatId}`,
+                  },
+                ],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {},
+        }));
+        await route.fulfill({
+          status: response.status(),
+          headers: {
+            ...response.headers(),
+            "content-type": "application/json",
+          },
+          body: JSON.stringify([
+            ...runs.filter(
+              (run) =>
+                !projectChatFixtures.some(
+                  (fixture) => fixture.chatId === run.inputs.chatId,
+                ),
+            ),
+            ...fixtureRuns,
+          ]),
+        });
+      });
+      await page.context().route("**/api/getLLMChat", async (route) => {
+        const payload = route.request().postDataJSON() as
+          | { chatId?: string }
+          | undefined;
+        const fixture = projectChatFixtures.find(
+          (candidate) => candidate.chatId === payload?.chatId,
+        );
+        if (!fixture) {
+          await route.continue();
+          return;
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            messages: [
+              {
+                id: `assistant-${fixture.chatId}`,
+                role: "assistant",
+                content: [
+                  {
+                    type: "text",
+                    text: fixture.assistantText,
+                  },
+                ],
+                attachments: [],
+                tool_calls: null,
+              },
+            ],
+            waitingForResponse: false,
+            llmConfig: {
+              id: "standalone-thread-config",
+              model: "gpt-4o-mini",
+              provider: "openai",
+              base_url: null,
+              api_key_env: null,
+              other_params: null,
+              mcpServerIds: [],
+              temporary: false,
+            },
+            contextUsage: null,
+          }),
+        });
+      });
+      await seedProjectChatWindowThreads(page, [projectChatFixtures[0]]);
+
+      await setOverviewTabInStore(page, "Git");
+      await expect(page.getByRole("heading", { name: "Git" })).toBeVisible();
+      const graphButton = page
+        .getByTestId("overview-tab-content-shell")
+        .getByRole("button", { name: "Graph" });
+      await expect(graphButton).toBeEnabled();
+      await graphButton.click();
+
+      const trackedWindow = page.getByTestId("project-chat-maximized-window");
+      await expect(trackedWindow).toBeVisible();
+      const gitWindowId = await trackedWindow.getAttribute(
+        "data-chat-window-instance-id",
+      );
+      if (!gitWindowId) {
+        throw new Error("Expected workspace git graph window instance id.");
+      }
+      await trackedWindow.getByTestId("project-chat-window-restore").click();
+
+      await setOverviewTabInStore(page, "ViewModes");
+      await expect(page.getByTestId("window-spaces-pane")).toBeVisible();
+      await page.getByTestId("window-space-save-current-layout").click();
+      await expect(page.getByTestId("window-space-open")).toHaveCount(1);
+
+      const resolvedWindowSpace = await loadProjectConfigState(
+        page,
+        projectConfigName,
+      );
+      const [windowSpace] = Object.values(
+        resolvedWindowSpace.projectConfig.windowSpaces ?? {},
+      );
+      if (!windowSpace) {
+        throw new Error("Expected a saved standalone window space.");
+      }
+      const windowSpaceSlug = await page.evaluate(async (name) => {
+        const { sanitizeNameForSlug } = await import(
+          "/src/utils/nameValidation.ts"
+        );
+        return sanitizeNameForSlug(name);
+      }, windowSpace.name);
+
+      await standalonePage.goto(
+        buildStandaloneUrl(
+          page.url(),
+          `/${encodeURIComponent(projectConfigName)}/windowspace/${encodeURIComponent(windowSpaceSlug)}`,
+        ),
+        { waitUntil: "domcontentloaded" },
+      );
+      await seedProjectChatDetails(
+        standalonePage,
+        projectChatFixtures,
+        "window-chat-a",
+      );
+
+      const standaloneProjectChatWindow = standalonePage.locator(
+        `[data-testid="standalone-window-space-window"][data-chat-window-instance-id="${projectChatWindowId}"]`,
+      );
+      const standaloneGitWindow = standalonePage.locator(
+        `[data-testid="standalone-window-space-window"][data-chat-window-instance-id="${gitWindowId}"]`,
+      );
+      const standaloneGitToggle = standaloneGitWindow.getByTestId(
+        "git-graph-toggle-embedded-git-pane",
+      );
+
+      await expect(standaloneProjectChatWindow).toContainText(
+        "Window chat A marker",
+      );
+      await expect(standaloneProjectChatWindow).not.toContainText(
+        "Window chat B marker",
+      );
+      await expect(standaloneGitToggle).toHaveAttribute("aria-pressed", "false");
+
+      await standalonePage.evaluate(
+        async ({
+          nextWindowSpaceId,
+          nextProjectChatWindowId,
+          nextGitWindowId,
+        }: {
+          nextWindowSpaceId: string;
+          nextProjectChatWindowId: string;
+          nextGitWindowId: string;
+        }) => {
+          const { useProjectState } = await import("/src/state/definitions.ts");
+          useProjectState.setState((state) => {
+            const savedWindowSpace =
+              state.projectConfig.windowSpaces[nextWindowSpaceId];
+            if (!savedWindowSpace) {
+              throw new Error("Missing saved standalone window space.");
+            }
+            const savedProjectChatWindow =
+              savedWindowSpace.windowsById[nextProjectChatWindowId];
+            if (!savedProjectChatWindow) {
+              throw new Error("Missing saved standalone chat window.");
+            }
+
+            const savedGitWindow = savedWindowSpace.windowsById[nextGitWindowId];
+            if (!savedGitWindow) {
+              throw new Error("Missing saved standalone git window.");
+            }
+            state.projectConfig.windowSpaces = {
+              ...state.projectConfig.windowSpaces,
+              [nextWindowSpaceId]: {
+                ...savedWindowSpace,
+                windowsById: {
+                  ...savedWindowSpace.windowsById,
+                  [nextProjectChatWindowId]: {
+                    ...savedProjectChatWindow,
+                    chatId: "window-chat-b",
+                  },
+                  [nextGitWindowId]: {
+                    ...savedGitWindow,
+                    embeddedGitPaneVisible: true,
+                  },
+                },
+              },
+            };
+          });
+        },
+        {
+          nextWindowSpaceId: windowSpace.id,
+          nextProjectChatWindowId: projectChatWindowId,
+          nextGitWindowId: gitWindowId,
+        },
+      );
+
+      await expect(standaloneProjectChatWindow).toContainText(
+        "Window chat B marker",
+      );
+      await expect(standaloneProjectChatWindow).not.toContainText(
+        "Window chat A marker",
+      );
+      await expect(standaloneGitToggle).toHaveAttribute("aria-pressed", "true");
+    } finally {
+      await standalonePage.close();
+      await page.context().unroute("**/api/getAgentRuns");
+      await page.context().unroute("**/api/getLLMChat");
+      await cleanupGitOverlayFixture(gitFixture);
+      await cleanupManagedEngine();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("standalone git graph windows keep git-pane visibility local to the standalone surface", async ({
     page,
   }) => {

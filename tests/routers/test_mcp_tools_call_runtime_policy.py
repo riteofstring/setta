@@ -2,8 +2,11 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from httpx import ASGITransport, AsyncClient
+from mcp.server.fastmcp.exceptions import ToolError
+from mcp.server.fastmcp.server import Context
+from mcp.shared.context import RequestContext
 
 from setta.agentic.store import save_agent_profiles
 from setta.database.db_objs import DBE
@@ -247,6 +250,49 @@ def _build_unscoped_agentic_context(
         "projectConfigId": str(canonical_to_temporary[project_config_id]),
         "allowUnscoped": True,
     }
+
+
+def _build_native_deployment_context(
+    *,
+    mcp_server: SettaFastMCP,
+    canonical_to_temporary: dict[ID, ID],
+    project_config_id: ID,
+    share_session_id: str,
+) -> Context:
+    class _RawMeta:
+        def __init__(self, payload: dict[str, object]) -> None:
+            self._payload = payload
+
+        def model_dump(self) -> dict[str, object]:
+            return dict(self._payload)
+
+    request_context = RequestContext(
+        request_id=1,
+        meta=_RawMeta(
+            {
+                **_build_unscoped_agentic_context(
+                    canonical_to_temporary,
+                    project_config_id,
+                ),
+                "shareSessionId": share_session_id,
+            }
+        ),
+        session=type("_NativeMCPToolSession", (), {})(),
+        lifespan_context=object(),
+    )
+    return Context(fastmcp=mcp_server, request_context=request_context)
+
+
+def _assert_tool_http_exception(
+    raised: pytest.ExceptionInfo[ToolError],
+    *,
+    status_code: int,
+    detail: str,
+) -> None:
+    cause = raised.value.__cause__
+    assert isinstance(cause, HTTPException)
+    assert cause.status_code == status_code
+    assert cause.detail == detail
 
 
 @pytest.mark.asyncio
@@ -626,3 +672,216 @@ async def test_tools_call_run_agent_profile_rolls_back_reserved_slot_when_start_
     assert share_runtime_state.get_session_run_count(request_session_id) == 0
     assert share_runtime_state.increment_calls == []
     assert share_runtime_state.rollback_calls == [request_session_id]
+
+
+@pytest.mark.asyncio
+async def test_native_mcp_list_agent_profiles_denies_llm_disabled_deployments(
+    tmp_path,
+) -> None:
+    """Native MCP transport must reject LLM-gated profile reads before scope resolution."""
+
+    (
+        app,
+        _agent_runner,
+        share_runtime_state,
+        switcher,
+        canonical_to_temporary,
+        project_config_id,
+        _profile,
+        request_session_id,
+    ) = _build_deployment_app(
+        tmp_path,
+        share_policy=SharePolicy(allowRun=True, allowLLM=False),
+    )
+    mcp_server = app.state.setta.mcp_server
+    context = _build_native_deployment_context(
+        mcp_server=mcp_server,
+        canonical_to_temporary=canonical_to_temporary,
+        project_config_id=project_config_id,
+        share_session_id=request_session_id,
+    )
+    tool = mcp_server.get_tool("list_agent_profiles")
+    assert tool is not None
+
+    with pytest.raises(ToolError) as raised:
+        await tool.run({}, context=context)
+
+    _assert_tool_http_exception(
+        raised,
+        status_code=403,
+        detail="Deployment policy disallows LLM access.",
+    )
+    assert switcher.calls == []
+    assert share_runtime_state.session_backend_calls == []
+
+
+@pytest.mark.asyncio
+async def test_native_mcp_get_agent_profile_denies_llm_disabled_deployments(
+    tmp_path,
+) -> None:
+    """Native MCP transport must apply the same LLM gate to single-profile reads."""
+
+    (
+        app,
+        _agent_runner,
+        share_runtime_state,
+        switcher,
+        canonical_to_temporary,
+        project_config_id,
+        profile,
+        request_session_id,
+    ) = _build_deployment_app(
+        tmp_path,
+        share_policy=SharePolicy(allowRun=True, allowLLM=False),
+    )
+    mcp_server = app.state.setta.mcp_server
+    context = _build_native_deployment_context(
+        mcp_server=mcp_server,
+        canonical_to_temporary=canonical_to_temporary,
+        project_config_id=project_config_id,
+        share_session_id=request_session_id,
+    )
+    tool = mcp_server.get_tool("get_agent_profile")
+    assert tool is not None
+
+    with pytest.raises(ToolError) as raised:
+        await tool.run(
+            {"profileId": str(canonical_to_temporary[profile.id])},
+            context=context,
+        )
+
+    _assert_tool_http_exception(
+        raised,
+        status_code=403,
+        detail="Deployment policy disallows LLM access.",
+    )
+    assert switcher.calls == []
+    assert share_runtime_state.session_backend_calls == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("share_policy", "initial_run_count", "expected_detail"),
+    [
+        (
+            SharePolicy(allowRun=False, allowLLM=True),
+            0,
+            "Deployment policy disallows run and terminal access.",
+        ),
+        (
+            SharePolicy(allowRun=True, allowLLM=False),
+            0,
+            "Deployment policy disallows LLM access.",
+        ),
+        (
+            SharePolicy(
+                allowRun=True,
+                allowLLM=True,
+                allowMultipleRuns=False,
+            ),
+            1,
+            "Deployment policy allows only one run per session.",
+        ),
+    ],
+)
+async def test_native_mcp_run_agent_profile_denials_are_transport_independent(
+    tmp_path,
+    share_policy: SharePolicy,
+    initial_run_count: int,
+    expected_detail: str,
+) -> None:
+    """Native MCP transport must fail closed for every run-start policy denial."""
+
+    (
+        app,
+        agent_runner,
+        share_runtime_state,
+        switcher,
+        canonical_to_temporary,
+        project_config_id,
+        profile,
+        request_session_id,
+    ) = _build_deployment_app(
+        tmp_path,
+        share_policy=share_policy,
+    )
+    if initial_run_count > 0:
+        share_runtime_state._session_run_counts[request_session_id] = initial_run_count
+
+    mcp_server = app.state.setta.mcp_server
+    context = _build_native_deployment_context(
+        mcp_server=mcp_server,
+        canonical_to_temporary=canonical_to_temporary,
+        project_config_id=project_config_id,
+        share_session_id=request_session_id,
+    )
+    tool = mcp_server.get_tool("run_agent_profile")
+    assert tool is not None
+
+    with pytest.raises(ToolError) as raised:
+        await tool.run(
+            {
+                "profileId": str(canonical_to_temporary[profile.id]),
+                "inputs": {"allowUnscoped": True},
+            },
+            context=context,
+        )
+
+    _assert_tool_http_exception(
+        raised,
+        status_code=403,
+        detail=expected_detail,
+    )
+    assert agent_runner.start_calls == []
+    assert switcher.calls == []
+    assert share_runtime_state.get_session_run_count(request_session_id) == (
+        initial_run_count
+    )
+    assert share_runtime_state.increment_calls == []
+    assert share_runtime_state.rollback_calls == []
+
+
+@pytest.mark.asyncio
+async def test_native_mcp_run_agent_profile_tracks_started_runs(
+    tmp_path,
+) -> None:
+    """Successful native MCP run starts must commit their reserved session slot once."""
+
+    (
+        app,
+        agent_runner,
+        share_runtime_state,
+        switcher,
+        canonical_to_temporary,
+        project_config_id,
+        profile,
+        request_session_id,
+    ) = _build_deployment_app(
+        tmp_path,
+        share_policy=SharePolicy(allowRun=True, allowLLM=True),
+    )
+    mcp_server = app.state.setta.mcp_server
+    context = _build_native_deployment_context(
+        mcp_server=mcp_server,
+        canonical_to_temporary=canonical_to_temporary,
+        project_config_id=project_config_id,
+        share_session_id=request_session_id,
+    )
+    tool = mcp_server.get_tool("run_agent_profile")
+    assert tool is not None
+
+    result = await tool.run(
+        {
+            "profileId": str(canonical_to_temporary[profile.id]),
+            "inputs": {"allowUnscoped": True},
+        },
+        context=context,
+    )
+
+    assert result.status == AgentRunStatus.completed
+    assert len(agent_runner.start_calls) == 1
+    assert len(agent_runner.wait_calls) == 1
+    assert switcher.calls == [(project_config_id, request_session_id)]
+    assert share_runtime_state.get_session_run_count(request_session_id) == 1
+    assert share_runtime_state.increment_calls == [request_session_id]
+    assert share_runtime_state.rollback_calls == []

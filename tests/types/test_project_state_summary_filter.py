@@ -122,6 +122,10 @@ def test_filter_project_state_summary_trims_window_spaces_to_allowed_sections() 
             name="Scoped Layout",
             sortIndex=0,
             windowsById={
+                "project-window": WindowSpaceWindow(
+                    surfaceKind=WindowSpaceSurfaceKind.project_chat,
+                    title="Global Chat",
+                ),
                 "allowed-window": WindowSpaceWindow(
                     surfaceKind=WindowSpaceSurfaceKind.section,
                     sectionIdOrNull=allowed_section_id,
@@ -131,7 +135,7 @@ def test_filter_project_state_summary_trims_window_spaces_to_allowed_sections() 
                     sectionIdOrNull=blocked_section_id,
                 ),
             },
-            order=["blocked-window", "allowed-window"],
+            order=["blocked-window", "project-window", "allowed-window"],
         )
     }
 
@@ -143,5 +147,8 @@ def test_filter_project_state_summary_trims_window_spaces_to_allowed_sections() 
 
     assert set(filtered.projectConfig.windowSpaces.keys()) == {"space-1"}
     filtered_space = filtered.projectConfig.windowSpaces["space-1"]
-    assert set(filtered_space.windowsById.keys()) == {"allowed-window"}
-    assert filtered_space.order == ["allowed-window"]
+    assert set(filtered_space.windowsById.keys()) == {
+        "project-window",
+        "allowed-window",
+    }
+    assert filtered_space.order == ["project-window", "allowed-window"]

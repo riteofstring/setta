@@ -623,9 +623,10 @@ def _filter_window_spaces_for_summary(
     for window_space_id, window_space in window_spaces.items():
         next_windows_by_id = {}
         for instance_id, window in window_space.windowsById.items():
-            if window.surfaceKind != WindowSpaceSurfaceKind.section:
-                continue
-            if window.sectionIdOrNull not in allowed_section_ids:
+            if (
+                window.surfaceKind == WindowSpaceSurfaceKind.section
+                and window.sectionIdOrNull not in allowed_section_ids
+            ):
                 continue
             next_windows_by_id[instance_id] = window
         if not next_windows_by_id:

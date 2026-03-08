@@ -327,7 +327,10 @@ async def test_get_latest_project_state_summary_filtered_by_scope_meta(
     assert {entry.sectionId for entry in canonical.sections} == allowed_ids
     assert set(canonical.projectConfig.sectionVariantMap.keys()) == allowed_ids
     assert blocked_section_id not in canonical.parentSectionMap
-    assert canonical.projectConfig.windowSpaces == {}
+    assert set(canonical.projectConfig.windowSpaces.keys()) == {ID("space-1")}
+    filtered_space = canonical.projectConfig.windowSpaces[ID("space-1")]
+    assert set(filtered_space.windowsById.keys()) == {ID("project-window")}
+    assert filtered_space.order == [ID("project-window")]
 
 
 @pytest.mark.asyncio

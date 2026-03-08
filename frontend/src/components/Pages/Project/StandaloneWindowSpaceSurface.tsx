@@ -306,6 +306,17 @@ export function mergeHydratedStandaloneWindows(
           sectionIdOrNull: nextHydratedWindow.sectionIdOrNull,
           mode: nextHydratedWindow.mode,
           title: nextHydratedWindow.title,
+          chatId:
+            previousHydratedWindow &&
+            currentWindow.chatId !== previousHydratedWindow.chatId
+              ? currentWindow.chatId
+              : nextHydratedWindow.chatId,
+          embeddedGitPaneVisible:
+            previousHydratedWindow &&
+            currentWindow.embeddedGitPaneVisible !==
+              previousHydratedWindow.embeddedGitPaneVisible
+              ? currentWindow.embeddedGitPaneVisible
+              : nextHydratedWindow.embeddedGitPaneVisible,
           bounds:
             previousHydratedWindow &&
             !areBoundsEqual(currentWindow.bounds, previousHydratedWindow.bounds)
@@ -824,6 +835,11 @@ export function StandaloneWindowSpaceSurface({
                 />
               ) : (
                 <UnifiedChatSurface
+                  key={`${buildStandaloneWindowSpaceProjectChatSurfaceId(
+                    projectConfigId,
+                    windowSpace.id,
+                    window.instanceId,
+                  )}:${window.chatId ?? "global"}`}
                   mode={window.mode}
                   host={ChatWindowPlacementEnum.floating}
                   surfaceId={buildStandaloneWindowSpaceProjectChatSurfaceId(

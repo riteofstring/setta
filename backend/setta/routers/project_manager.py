@@ -89,7 +89,6 @@ from setta.project_state.project_manager_types import (
     SetMetaControlShowSectionTitleRequest,
     SetParamEnteredValueRequest,
     SetParentDefaultChildSectionTypeRequest,
-    SetProjectChatWindowChatIdRequest,
     SetProjectChatWindowingStateRequest,
     SetProjectConfigCodegenTargetsRequest,
     SetPromptFormatRequest,
@@ -1459,21 +1458,6 @@ async def route_set_project_chat_windowing_state(
         return await manager.set_project_chat_windowing_state(x)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-
-
-@router.post(Route.SET_PROJECT_CHAT_WINDOW_CHAT_ID)
-async def route_set_project_chat_window_chat_id(
-    x: SetProjectChatWindowChatIdRequest, ctx: RuntimeContextFromRequest
-) -> ProjectChatWindowingState:
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await ctx.enforce_policy(
-        policy_flag="allowLLM",
-        denied_message="Deployment policy disallows LLM access.",
-    )
-    try:
-        return await manager.set_project_chat_window_chat_id(x)
-    except KeyError as exc:
-        _raise_http_from_key_error(exc)
 
 
 @router.post(Route.GET_CHAT_SECTION_CHAT_ID)

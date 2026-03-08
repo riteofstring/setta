@@ -41,7 +41,6 @@ from setta.project_state.project_manager_types import (
     SetListRootViewModeRequest,
     SetParamEnteredValueRequest,
     SetParentDefaultChildSectionTypeRequest,
-    SetProjectChatWindowChatIdRequest,
     SetProjectChatWindowingStateRequest,
     SetSectionNameRequest,
     SetSocialUrlRequest,
@@ -105,7 +104,6 @@ from setta.routers.project_manager import (
     route_set_list_root_view_mode,
     route_set_param_entered_value,
     route_set_parent_default_child_section_type,
-    route_set_project_chat_window_chat_id,
     route_set_project_chat_windowing_state,
     route_set_section_name,
     route_set_social_url,
@@ -1428,154 +1426,6 @@ class TestSharePolicyRoutes:
                 window_space_id: window_space.model_dump()
                 for window_space_id, window_space in updated_project_state.projectConfig.windowSpaces.items()
             } == initial_window_spaces
-
-    async def test_project_chat_thread_binding_uses_llm_policy_not_layout_policy(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-policy-route-test"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config_id = _write_share_project(
-                root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
-            )
-            _write_share_policy(
-                root,
-                SharePolicy(allowLLM=True, allowLayoutChanges=False),
-            )
-            state = await self._build_state(root)
-            state.share_runtime_state.project_state_backend.projectChatWindowingByProjectConfigId[
-                project_config_id
-            ] = ProjectChatWindowingState(
-                instancesById={
-                    "project-chat-window-1": ProjectChatWindowInstance(
-                        instanceId="project-chat-window-1",
-                        placement=ChatWindowPlacement.floating,
-                        mode=ChatWindowMode.project_ai_mode,
-                        chatId=None,
-                    )
-                },
-                order=["project-chat-window-1"],
-                nextInstanceNumber=2,
-            )
-            if state.share_runtime_state._base_backend is not None:
-                state.share_runtime_state._base_backend.projectChatWindowingByProjectConfigId[
-                    project_config_id
-                ] = ProjectChatWindowingState(
-                    instancesById={
-                        "project-chat-window-1": ProjectChatWindowInstance(
-                            instanceId="project-chat-window-1",
-                            placement=ChatWindowPlacement.floating,
-                            mode=ChatWindowMode.project_ai_mode,
-                            chatId=None,
-                        )
-                    },
-                    order=["project-chat-window-1"],
-                    nextInstanceNumber=2,
-                )
-            session = state.share_session_store.create_session()
-            state.share_runtime_state.create_session_backend(session.id)
-
-            with runtime_context(state, session.id) as runtime_ctx:
-                updated_windowing = await route_set_project_chat_window_chat_id(
-                    SetProjectChatWindowChatIdRequest(
-                        projectConfigId=project_config_id,
-                        instanceId="project-chat-window-1",
-                        chatId="chat-bound",
-                    ),
-                    runtime_ctx,
-                )
-                with pytest.raises(HTTPException) as ctx:
-                    await route_set_project_chat_windowing_state(
-                        SetProjectChatWindowingStateRequest(
-                            projectConfigId=project_config_id,
-                            state=ProjectChatWindowingState(
-                                instancesById={
-                                    "project-chat-window-1": ProjectChatWindowInstance(
-                                        instanceId="project-chat-window-1",
-                                        placement=ChatWindowPlacement.maximized,
-                                        mode=ChatWindowMode.project_ai_mode,
-                                        chatId="chat-bound",
-                                    )
-                                },
-                                order=["project-chat-window-1"],
-                                nextInstanceNumber=2,
-                            ),
-                        ),
-                        runtime_ctx,
-                    )
-
-            # Thread binding should remain available when chat is allowed, while layout edits stay blocked.
-            assert (
-                updated_windowing.instancesById["project-chat-window-1"].chatId
-                == "chat-bound"
-            )
-            assert ctx.value.status_code == 403
-            assert ctx.value.detail == "Deployment policy disallows layout changes."
-
-    async def test_project_chat_thread_binding_blocked_when_llm_is_disallowed(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-policy-route-test"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config_id = _write_share_project(
-                root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
-            )
-            _write_share_policy(
-                root,
-                SharePolicy(allowLLM=False, allowLayoutChanges=False),
-            )
-            state = await self._build_state(root)
-            state.share_runtime_state.project_state_backend.projectChatWindowingByProjectConfigId[
-                project_config_id
-            ] = ProjectChatWindowingState(
-                instancesById={
-                    "project-chat-window-1": ProjectChatWindowInstance(
-                        instanceId="project-chat-window-1",
-                        placement=ChatWindowPlacement.floating,
-                        mode=ChatWindowMode.project_ai_mode,
-                        chatId=None,
-                    )
-                },
-                order=["project-chat-window-1"],
-                nextInstanceNumber=2,
-            )
-            if state.share_runtime_state._base_backend is not None:
-                state.share_runtime_state._base_backend.projectChatWindowingByProjectConfigId[
-                    project_config_id
-                ] = ProjectChatWindowingState(
-                    instancesById={
-                        "project-chat-window-1": ProjectChatWindowInstance(
-                            instanceId="project-chat-window-1",
-                            placement=ChatWindowPlacement.floating,
-                            mode=ChatWindowMode.project_ai_mode,
-                            chatId=None,
-                        )
-                    },
-                    order=["project-chat-window-1"],
-                    nextInstanceNumber=2,
-                )
-            session = state.share_session_store.create_session()
-            state.share_runtime_state.create_session_backend(session.id)
-
-            with pytest.raises(HTTPException) as ctx:
-                with runtime_context(state, session.id) as runtime_ctx:
-                    await route_set_project_chat_window_chat_id(
-                        SetProjectChatWindowChatIdRequest(
-                            projectConfigId=project_config_id,
-                            instanceId="project-chat-window-1",
-                            chatId="chat-bound",
-                        ),
-                        runtime_ctx,
-                    )
-
-            # Chat-id writes should follow the deployment's chat permission gate.
-            assert ctx.value.status_code == 403
-            assert ctx.value.detail == "Deployment policy disallows LLM access."
 
     async def test_section_chat_thread_binding_allowed_when_llm_allowed_and_layout_blocked(
         self,
