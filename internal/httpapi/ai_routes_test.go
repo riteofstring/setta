@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -14,6 +15,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
+	"setta/internal/auth"
 	"setta/internal/config"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/externalagents"
@@ -25,6 +27,8 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/realtime"
 	"setta/internal/tools"
+	"setta/internal/transcriptionprofiles"
+	"setta/internal/transcriptionsessions"
 )
 
 type aiRouteStubController struct {
@@ -96,6 +100,17 @@ type aiRouteStubPreflightChecker struct {
 }
 
 type aiRouteStaticFollowToolProvider struct{}
+
+type aiRouteStaticSessionProvider struct {
+	current *auth.CurrentSession
+}
+
+func (p aiRouteStaticSessionProvider) CurrentSession() (*auth.CurrentSession, bool) {
+	if p.current == nil {
+		return nil, false
+	}
+	return p.current, true
+}
 
 func (aiRouteStaticFollowToolProvider) ToolDescriptorsForServers(serverIDs map[string]struct{}) map[string]mcpx.ToolDescriptor {
 	if len(serverIDs) != 0 {
@@ -728,6 +743,317 @@ func TestRegisterAIRoutesReturnsContextUsage(t *testing.T) {
 	}
 }
 
+func TestRegisterAIRoutesRunsFileModeTranscriptionSession(t *testing.T) {
+	t.Parallel()
+
+	type providerRequest struct {
+		Path          string
+		Authorization string
+		Model         string
+		Language      string
+		FileSize      int
+	}
+	providerRequests := make(chan providerRequest, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseMultipartForm(2 << 20); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		file, _, err := r.FormFile("file")
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		defer file.Close()
+		fileBytes, err := io.ReadAll(file)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		providerRequests <- providerRequest{
+			Path:          r.URL.Path,
+			Authorization: r.Header.Get("Authorization"),
+			Model:         r.FormValue("model"),
+			Language:      r.FormValue("language"),
+			FileSize:      len(fileBytes),
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{"text": "hello from route"})
+	}))
+	defer server.Close()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	if err := fixture.llm.UpdateConfig(llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"openai-file": {
+				ID:        "openai-file",
+				Model:     "whisper-1",
+				Provider:  "openai",
+				BaseURL:   server.URL + "/v1",
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	}); err != nil {
+		t.Fatalf("update llm config: %v", err)
+	}
+	fixture.llm.UpdateAPIKeys(map[string]string{
+		"OPENAI_API_KEY": "route-secret",
+	})
+	if err := fixture.transcriptionStore.Write([]transcriptionprofiles.Profile{
+		{
+			ID:                       "profile-file",
+			Name:                     "File",
+			TranscriptionLLMConfigID: "openai-file",
+			TransportMode:            transcriptionprofiles.TransportModeFile,
+			ChunkMs:                  1200,
+		},
+	}); err != nil {
+		t.Fatalf("write transcription profile: %v", err)
+	}
+
+	handler := newAIRouteTestHandlerWithTranscription(
+		t,
+		config.ModeIDE,
+		fixture.managed,
+		fixture.send,
+		fixture.service,
+		fixture.runtime,
+		fixture.transcriptionProfiles,
+		fixture.transcriptionSessions,
+		fixture.sessions,
+		fixture.follow,
+	)
+
+	startRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteStartTranscriptionSession,
+		strings.NewReader(`{"transcriptionProfileId":"profile-file","language":"en"}`),
+	)
+	startRequest.Header.Set("Content-Type", "application/json")
+	startResponse := httptest.NewRecorder()
+
+	handler.ServeHTTP(startResponse, startRequest)
+
+	if startResponse.Code != http.StatusOK {
+		t.Fatalf("expected start 200, got %d with body %q", startResponse.Code, startResponse.Body.String())
+	}
+	var started StartTranscriptionSessionResponse
+	if err := json.Unmarshal(startResponse.Body.Bytes(), &started); err != nil {
+		t.Fatalf("decode start response: %v", err)
+	}
+	if started.ResolvedTransportMode != transcriptionsessions.ResolvedTransportModeFile || started.ChunkMs != 0 {
+		t.Fatalf("unexpected start payload %#v", started)
+	}
+
+	appendRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteAppendTranscriptionAudio,
+		strings.NewReader(`{"sessionId":"`+started.SessionID+`","audioPcm16Base64":"`+base64.StdEncoding.EncodeToString([]byte{0x00, 0x00, 0x01, 0x00})+`","sampleRateHz":24000,"channels":1}`),
+	)
+	appendRequest.Header.Set("Content-Type", "application/json")
+	appendResponse := httptest.NewRecorder()
+
+	handler.ServeHTTP(appendResponse, appendRequest)
+
+	if appendResponse.Code != http.StatusOK {
+		t.Fatalf("expected append 200, got %d with body %q", appendResponse.Code, appendResponse.Body.String())
+	}
+	var appendPayload TranscriptionSessionDeltaResponse
+	if err := json.Unmarshal(appendResponse.Body.Bytes(), &appendPayload); err != nil {
+		t.Fatalf("decode append response: %v", err)
+	}
+	if appendPayload.AppendText != "" || appendPayload.IsFinal {
+		t.Fatalf("unexpected append payload %#v", appendPayload)
+	}
+
+	stopRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteStopTranscriptionSession,
+		strings.NewReader(`{"sessionId":"`+started.SessionID+`"}`),
+	)
+	stopRequest.Header.Set("Content-Type", "application/json")
+	stopResponse := httptest.NewRecorder()
+
+	handler.ServeHTTP(stopResponse, stopRequest)
+
+	if stopResponse.Code != http.StatusOK {
+		t.Fatalf("expected stop 200, got %d with body %q", stopResponse.Code, stopResponse.Body.String())
+	}
+	var stopPayload TranscriptionSessionDeltaResponse
+	if err := json.Unmarshal(stopResponse.Body.Bytes(), &stopPayload); err != nil {
+		t.Fatalf("decode stop response: %v", err)
+	}
+	if !stopPayload.IsFinal || stopPayload.FullText != "hello from route" || stopPayload.AppendText != "hello from route" {
+		t.Fatalf("unexpected stop payload %#v", stopPayload)
+	}
+
+	select {
+	case captured := <-providerRequests:
+		if captured.Path != "/v1/audio/transcriptions" {
+			t.Fatalf("unexpected provider path %q", captured.Path)
+		}
+		if captured.Authorization != "Bearer route-secret" {
+			t.Fatalf("unexpected authorization %q", captured.Authorization)
+		}
+		if captured.Model != "whisper-1" {
+			t.Fatalf("unexpected model %q", captured.Model)
+		}
+		if captured.Language != "en" {
+			t.Fatalf("unexpected language %q", captured.Language)
+		}
+		if captured.FileSize <= 44 {
+			t.Fatalf("expected wav payload larger than header, got %d bytes", captured.FileSize)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for provider request")
+	}
+}
+
+func TestRegisterAIRoutesReturnsRealtimeTranscriptionRuntimeUnavailable(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	if err := fixture.llm.UpdateConfig(llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"openai-realtime": {
+				ID:        "openai-realtime",
+				Model:     "gpt-4o-mini-transcribe",
+				Provider:  "openai",
+				BaseURL:   "https://example.com/v1",
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	}); err != nil {
+		t.Fatalf("update llm config: %v", err)
+	}
+	fixture.llm.UpdateAPIKeys(map[string]string{
+		"OPENAI_API_KEY": "route-secret",
+	})
+	if err := fixture.transcriptionStore.Write([]transcriptionprofiles.Profile{
+		{
+			ID:                       "profile-realtime",
+			Name:                     "Realtime",
+			TranscriptionLLMConfigID: "openai-realtime",
+			TransportMode:            transcriptionprofiles.TransportModeRealtime,
+			ChunkMs:                  1200,
+		},
+	}); err != nil {
+		t.Fatalf("write transcription profile: %v", err)
+	}
+
+	handler := newAIRouteTestHandlerWithTranscription(
+		t,
+		config.ModeIDE,
+		fixture.managed,
+		fixture.send,
+		fixture.service,
+		fixture.runtime,
+		fixture.transcriptionProfiles,
+		fixture.transcriptionSessions,
+		fixture.sessions,
+		fixture.follow,
+	)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteStartTranscriptionSession,
+		strings.NewReader(`{"transcriptionProfileId":"profile-realtime"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "transcription_runtime_unavailable" {
+		t.Fatalf("expected transcription_runtime_unavailable, got %#v", payload)
+	}
+}
+
+func TestRegisterAIRoutesReturnsTypedTranscriptionSessionNotFound(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	handler := newAIRouteTestHandlerWithTranscription(
+		t,
+		config.ModeIDE,
+		fixture.managed,
+		fixture.send,
+		fixture.service,
+		fixture.runtime,
+		fixture.transcriptionProfiles,
+		fixture.transcriptionSessions,
+		fixture.sessions,
+		fixture.follow,
+	)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteAppendTranscriptionAudio,
+		strings.NewReader(`{"sessionId":"missing-session","audioPcm16Base64":"`+base64.StdEncoding.EncodeToString([]byte{0x00, 0x00})+`","sampleRateHz":24000,"channels":1}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "session_not_found" {
+		t.Fatalf("expected session_not_found, got %#v", payload)
+	}
+}
+
+func TestRegisterAIRoutesRejectsOversizedTranscriptionPCMBeforeDecode(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	handler := newAIRouteTestHandlerWithTranscription(
+		t,
+		config.ModeIDE,
+		fixture.managed,
+		fixture.send,
+		fixture.service,
+		fixture.runtime,
+		fixture.transcriptionProfiles,
+		fixture.transcriptionSessions,
+		fixture.sessions,
+		fixture.follow,
+	)
+	oversizedBase64 := strings.Repeat("A", ((transcriptionsessions.DefaultAppendPCMMaxBytes+1)*4)/3+8)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteAppendTranscriptionAudio,
+		strings.NewReader(`{"sessionId":"session-1","audioPcm16Base64":"`+oversizedBase64+`","sampleRateHz":24000,"channels":1}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("expected 413, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "audio_payload_too_large" {
+		t.Fatalf("expected audio_payload_too_large, got %#v", payload)
+	}
+}
+
 func TestRegisterAIRoutesReturnsTypedNotFound(t *testing.T) {
 	t.Parallel()
 
@@ -1100,6 +1426,35 @@ func TestRegisterAIRoutesStopsManagedChat(t *testing.T) {
 func newAIRouteTestHandler(t *testing.T, mode config.Mode, managed *managedchat.Service, send *externalagents.SendService, service *externalagents.Service, runtime *externalagents.Runtime, follows ...*externalagents.FollowService) http.Handler {
 	t.Helper()
 
+	support := newAIRouteFallbackTranscriptionSupport(t)
+	return newAIRouteTestHandlerWithTranscription(
+		t,
+		mode,
+		managed,
+		send,
+		service,
+		runtime,
+		support.profiles,
+		support.sessions,
+		support.sessionProvider,
+		follows...,
+	)
+}
+
+func newAIRouteTestHandlerWithTranscription(
+	t *testing.T,
+	mode config.Mode,
+	managed *managedchat.Service,
+	send *externalagents.SendService,
+	service *externalagents.Service,
+	runtime *externalagents.Runtime,
+	profiles *transcriptionprofiles.Service,
+	sessions *transcriptionsessions.Service,
+	sessionProvider aiRouteStaticSessionProvider,
+	follows ...*externalagents.FollowService,
+) http.Handler {
+	t.Helper()
+
 	var follow *externalagents.FollowService
 	if len(follows) != 0 {
 		follow = follows[0]
@@ -1120,12 +1475,15 @@ func newAIRouteTestHandler(t *testing.T, mode config.Mode, managed *managedchat.
 		ModePolicy: modes.NewPolicy(mode),
 		Register: func(r chi.Router) {
 			if err := RegisterAIRoutes(r, AIRouteDependencies{
-				ModePolicy:          modes.NewPolicy(mode),
-				ManagedChats:        managed,
-				ExternalAgentSend:   send,
-				ExternalAgentChats:  service,
-				ExternalAgentFollow: follow,
-				ExternalAgentRuns:   runtime,
+				ModePolicy:            modes.NewPolicy(mode),
+				ManagedChats:          managed,
+				ExternalAgentSend:     send,
+				ExternalAgentChats:    service,
+				ExternalAgentFollow:   follow,
+				ExternalAgentRuns:     runtime,
+				TranscriptionProfiles: profiles,
+				TranscriptionSessions: sessions,
+				Sessions:              sessionProvider,
 			}); err != nil {
 				t.Fatalf("register ai routes: %v", err)
 			}
@@ -1138,13 +1496,18 @@ func newAIRouteTestHandler(t *testing.T, mode config.Mode, managed *managedchat.
 }
 
 type aiRouteFixture struct {
-	store          *agentruns.RunStore
-	managed        *managedchat.Service
-	managedStarter *aiRouteStubManagedStarter
-	runtime        *externalagents.Runtime
-	service        *externalagents.Service
-	send           *externalagents.SendService
-	follow         *externalagents.FollowService
+	store                 *agentruns.RunStore
+	llm                   *llmconfig.Runtime
+	transcriptionStore    *transcriptionprofiles.Store
+	transcriptionProfiles *transcriptionprofiles.Service
+	transcriptionSessions *transcriptionsessions.Service
+	sessions              aiRouteStaticSessionProvider
+	managed               *managedchat.Service
+	managedStarter        *aiRouteStubManagedStarter
+	runtime               *externalagents.Runtime
+	service               *externalagents.Service
+	send                  *externalagents.SendService
+	follow                *externalagents.FollowService
 }
 
 type aiRouteFixtureOptions struct {
@@ -1196,6 +1559,30 @@ func newAIRouteFixture(t *testing.T, options aiRouteFixtureOptions) aiRouteFixtu
 	})
 	if err != nil {
 		t.Fatalf("new llm runtime: %v", err)
+	}
+	transcriptionStore, err := transcriptionprofiles.NewStore(root)
+	if err != nil {
+		t.Fatalf("new transcription store: %v", err)
+	}
+	transcriptionProfileService, err := transcriptionprofiles.NewService(transcriptionprofiles.ServiceOptions{
+		Profiles: transcriptionStore,
+		LLM:      llmRuntime,
+	})
+	if err != nil {
+		t.Fatalf("new transcription profile service: %v", err)
+	}
+	transcriptionSessionService, err := transcriptionsessions.NewService(transcriptionsessions.ServiceOptions{
+		LLM: llmRuntime,
+	})
+	if err != nil {
+		t.Fatalf("new transcription session service: %v", err)
+	}
+	sessionProvider := aiRouteStaticSessionProvider{
+		current: &auth.CurrentSession{
+			Metadata: auth.SessionMetadata{
+				ID: "session-route",
+			},
+		},
 	}
 	commandPath := "/usr/local/bin/codex"
 	configID := "external-config"
@@ -1328,13 +1715,65 @@ func newAIRouteFixture(t *testing.T, options aiRouteFixtureOptions) aiRouteFixtu
 		t.Fatalf("new send service: %v", err)
 	}
 	return aiRouteFixture{
-		store:          store,
-		managed:        managedService,
-		managedStarter: managedStarter,
-		runtime:        runtime,
-		service:        service,
-		send:           send,
-		follow:         follow,
+		store:                 store,
+		llm:                   llmRuntime,
+		transcriptionStore:    transcriptionStore,
+		transcriptionProfiles: transcriptionProfileService,
+		transcriptionSessions: transcriptionSessionService,
+		sessions:              sessionProvider,
+		managed:               managedService,
+		managedStarter:        managedStarter,
+		runtime:               runtime,
+		service:               service,
+		send:                  send,
+		follow:                follow,
+	}
+}
+
+type aiRouteFallbackTranscriptionSupport struct {
+	profiles        *transcriptionprofiles.Service
+	sessions        *transcriptionsessions.Service
+	sessionProvider aiRouteStaticSessionProvider
+}
+
+func newAIRouteFallbackTranscriptionSupport(t *testing.T) aiRouteFallbackTranscriptionSupport {
+	t.Helper()
+
+	root := t.TempDir()
+	llmRuntime, err := llmconfig.NewRuntime(llmconfig.AllConfigs{
+		Configs:    map[string]llmconfig.Config{},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	})
+	if err != nil {
+		t.Fatalf("new fallback llm runtime: %v", err)
+	}
+	store, err := transcriptionprofiles.NewStore(root)
+	if err != nil {
+		t.Fatalf("new fallback transcription store: %v", err)
+	}
+	profiles, err := transcriptionprofiles.NewService(transcriptionprofiles.ServiceOptions{
+		Profiles: store,
+		LLM:      llmRuntime,
+	})
+	if err != nil {
+		t.Fatalf("new fallback transcription profiles: %v", err)
+	}
+	sessions, err := transcriptionsessions.NewService(transcriptionsessions.ServiceOptions{
+		LLM: llmRuntime,
+	})
+	if err != nil {
+		t.Fatalf("new fallback transcription sessions: %v", err)
+	}
+	return aiRouteFallbackTranscriptionSupport{
+		profiles: profiles,
+		sessions: sessions,
+		sessionProvider: aiRouteStaticSessionProvider{
+			current: &auth.CurrentSession{
+				Metadata: auth.SessionMetadata{
+					ID: "session-route",
+				},
+			},
+		},
 	}
 }
 

@@ -3,6 +3,7 @@ package app
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
@@ -33,6 +34,7 @@ import (
 	"setta/internal/projectview"
 	"setta/internal/settingsstate"
 	"setta/internal/terminals"
+	"setta/internal/transcriptionprofiles"
 	"setta/internal/watchcode"
 )
 
@@ -544,6 +546,201 @@ func TestAppServesManagedChatSendThroughManagedExecutor(t *testing.T) {
 			t.Fatalf("unexpected provider model %#v", captured.Body["model"])
 		}
 	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for provider request")
+	}
+}
+
+func TestAppServesFileModeTranscriptionSessionRoutes(t *testing.T) {
+	// The real IDE app should own file-mode transcription session lifecycle and
+	// upload buffered WAV audio through the Go runtime.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	t.Setenv("OPENAI_API_KEY", "app-transcription-secret")
+
+	type providerRequest struct {
+		Path          string
+		Authorization string
+		Model         string
+		Language      string
+		FileSize      int
+	}
+	providerRequests := make(chan providerRequest, 1)
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseMultipartForm(2 << 20); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		file, _, err := r.FormFile("file")
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		defer file.Close()
+		fileBytes, err := io.ReadAll(file)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		providerRequests <- providerRequest{
+			Path:          r.URL.Path,
+			Authorization: r.Header.Get("Authorization"),
+			Model:         r.FormValue("model"),
+			Language:      r.FormValue("language"),
+			FileSize:      len(fileBytes),
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{"text": "transcribed by go"})
+	}))
+	defer provider.Close()
+
+	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"openai-file": {
+				ID:        "openai-file",
+				Model:     "whisper-1",
+				Provider:  "openai",
+				BaseURL:   provider.URL + "/v1",
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	}); err != nil {
+		t.Fatalf("save llm config: %v", err)
+	}
+
+	transcriptionStore, err := transcriptionprofiles.NewStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("new transcription store: %v", err)
+	}
+	if err := transcriptionStore.Write([]transcriptionprofiles.Profile{
+		{
+			ID:                       "profile-file",
+			Name:                     "File",
+			TranscriptionLLMConfigID: "openai-file",
+			TransportMode:            transcriptionprofiles.TransportModeFile,
+			ChunkMs:                  1200,
+		},
+	}); err != nil {
+		t.Fatalf("write transcription profile: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	startRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteStartTranscriptionSession,
+		strings.NewReader(`{"transcriptionProfileId":"profile-file","language":"en"}`),
+	)
+	if err != nil {
+		t.Fatalf("new start request: %v", err)
+	}
+	startRequest.Header.Set("Content-Type", "application/json")
+	startRequest.AddCookie(authCookie)
+
+	startResponse, err := http.DefaultClient.Do(startRequest)
+	if err != nil {
+		t.Fatalf("start transcription session: %v", err)
+	}
+	defer startResponse.Body.Close()
+	if startResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(startResponse.Body)
+		t.Fatalf("expected start 200, got %d with body %q", startResponse.StatusCode, string(body))
+	}
+	var started httpapi.StartTranscriptionSessionResponse
+	if err := json.NewDecoder(startResponse.Body).Decode(&started); err != nil {
+		t.Fatalf("decode start payload: %v", err)
+	}
+	if started.ResolvedTransportMode != "file" || started.ChunkMs != 0 {
+		t.Fatalf("unexpected start payload %#v", started)
+	}
+
+	appendRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteAppendTranscriptionAudio,
+		strings.NewReader(`{"sessionId":"`+started.SessionID+`","audioPcm16Base64":"`+base64.StdEncoding.EncodeToString([]byte{0x00, 0x00, 0x01, 0x00})+`","sampleRateHz":24000,"channels":1}`),
+	)
+	if err != nil {
+		t.Fatalf("new append request: %v", err)
+	}
+	appendRequest.Header.Set("Content-Type", "application/json")
+	appendRequest.AddCookie(authCookie)
+
+	appendResponse, err := http.DefaultClient.Do(appendRequest)
+	if err != nil {
+		t.Fatalf("append transcription audio: %v", err)
+	}
+	defer appendResponse.Body.Close()
+	if appendResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(appendResponse.Body)
+		t.Fatalf("expected append 200, got %d with body %q", appendResponse.StatusCode, string(body))
+	}
+	var appendPayload httpapi.TranscriptionSessionDeltaResponse
+	if err := json.NewDecoder(appendResponse.Body).Decode(&appendPayload); err != nil {
+		t.Fatalf("decode append payload: %v", err)
+	}
+	if appendPayload.AppendText != "" || appendPayload.IsFinal {
+		t.Fatalf("unexpected append payload %#v", appendPayload)
+	}
+
+	stopRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteStopTranscriptionSession,
+		strings.NewReader(`{"sessionId":"`+started.SessionID+`"}`),
+	)
+	if err != nil {
+		t.Fatalf("new stop request: %v", err)
+	}
+	stopRequest.Header.Set("Content-Type", "application/json")
+	stopRequest.AddCookie(authCookie)
+
+	stopResponse, err := http.DefaultClient.Do(stopRequest)
+	if err != nil {
+		t.Fatalf("stop transcription session: %v", err)
+	}
+	defer stopResponse.Body.Close()
+	if stopResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(stopResponse.Body)
+		t.Fatalf("expected stop 200, got %d with body %q", stopResponse.StatusCode, string(body))
+	}
+	var stopPayload httpapi.TranscriptionSessionDeltaResponse
+	if err := json.NewDecoder(stopResponse.Body).Decode(&stopPayload); err != nil {
+		t.Fatalf("decode stop payload: %v", err)
+	}
+	if !stopPayload.IsFinal || stopPayload.AppendText != "transcribed by go" || stopPayload.FullText != "transcribed by go" {
+		t.Fatalf("unexpected stop payload %#v", stopPayload)
+	}
+
+	select {
+	case captured := <-providerRequests:
+		if captured.Path != "/v1/audio/transcriptions" {
+			t.Fatalf("unexpected provider path %q", captured.Path)
+		}
+		if captured.Authorization != "Bearer app-transcription-secret" {
+			t.Fatalf("unexpected authorization %q", captured.Authorization)
+		}
+		if captured.Model != "whisper-1" {
+			t.Fatalf("unexpected model %q", captured.Model)
+		}
+		if captured.Language != "en" {
+			t.Fatalf("unexpected language %q", captured.Language)
+		}
+		if captured.FileSize <= 44 {
+			t.Fatalf("expected wav payload larger than header, got %d bytes", captured.FileSize)
+		}
+	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for provider request")
 	}
 }

@@ -50,6 +50,7 @@ import (
 	"setta/internal/sshx"
 	"setta/internal/terminals"
 	"setta/internal/transcriptionprofiles"
+	"setta/internal/transcriptionsessions"
 	"setta/internal/uisettings"
 	"setta/internal/watchcode"
 	"setta/internal/workspacelaunch"
@@ -160,6 +161,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		externalPreflight     externalagentconfigs.Checker
 		transcriptionStore    *transcriptionprofiles.Store
 		transcriptionProfiles *transcriptionprofiles.Service
+		transcriptionSessions *transcriptionsessions.Service
 		agenticSummaryStatus  *agenticsummarycache.Service
 		promptTemplateStore   *prompttemplates.Store
 		pluginWorkerRuntime   plugins.WorkerRuntimeProvider
@@ -715,6 +717,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
+		transcriptionSessions, err = transcriptionsessions.NewService(transcriptionsessions.ServiceOptions{
+			LLM: llmRuntime,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
 		temporaryIDs, err := mcpx.NewTemporaryIDStore(mcpx.TemporaryIDMapPath(cfg.Paths.RuntimeRoot))
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
@@ -933,6 +942,11 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	if deploymentRuntime != nil {
 		manager.Go("deployment-session-cleanup", func(ctx context.Context) error {
 			return runDeploymentSessionCleanupLoop(ctx, deploymentRuntime, terminalService, listenerBroadcaster, 0)
+		})
+	}
+	if modePolicy.IsIDE() && transcriptionSessions != nil {
+		manager.Go("transcription-session-cleanup", func(ctx context.Context) error {
+			return runTranscriptionSessionCleanupLoop(ctx, transcriptionSessions, 0)
 		})
 	}
 	if modePolicy.IsIDE() {
@@ -1209,12 +1223,15 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				panic(err)
 			}
 			if err := httpapi.RegisterAIRoutes(r, httpapi.AIRouteDependencies{
-				ModePolicy:          modePolicy,
-				ManagedChats:        managedChatService,
-				ExternalAgentSend:   externalAgentSend,
-				ExternalAgentChats:  externalAgentChats,
-				ExternalAgentFollow: externalAgentFollow,
-				ExternalAgentRuns:   externalAgentRuntime,
+				ModePolicy:            modePolicy,
+				ManagedChats:          managedChatService,
+				ExternalAgentSend:     externalAgentSend,
+				ExternalAgentChats:    externalAgentChats,
+				ExternalAgentFollow:   externalAgentFollow,
+				ExternalAgentRuns:     externalAgentRuntime,
+				TranscriptionProfiles: transcriptionProfiles,
+				TranscriptionSessions: transcriptionSessions,
+				Sessions:              authService,
 			}); err != nil {
 				panic(err)
 			}

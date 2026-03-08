@@ -9,12 +9,15 @@ import (
 	"github.com/go-chi/chi/v5"
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
+	"setta/internal/auth"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/externalagents"
 	"setta/internal/managedchat"
 	"setta/internal/managedllm"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
+	"setta/internal/transcriptionprofiles"
+	"setta/internal/transcriptionsessions"
 )
 
 const RouteGetLLMResponse = "/getLLMResponse"
@@ -27,12 +30,19 @@ const RouteRespondExternalAgentApproval = "/respondExternalAgentApproval"
 const RouteRespondExternalAgentQuestion = "/respondExternalAgentQuestion"
 
 type AIRouteDependencies struct {
-	ModePolicy          modes.Policy
-	ManagedChats        *managedchat.Service
-	ExternalAgentSend   *externalagents.SendService
-	ExternalAgentChats  *externalagents.Service
-	ExternalAgentFollow *externalagents.FollowService
-	ExternalAgentRuns   *externalagents.Runtime
+	ModePolicy            modes.Policy
+	ManagedChats          *managedchat.Service
+	ExternalAgentSend     *externalagents.SendService
+	ExternalAgentChats    *externalagents.Service
+	ExternalAgentFollow   *externalagents.FollowService
+	ExternalAgentRuns     *externalagents.Runtime
+	TranscriptionProfiles *transcriptionprofiles.Service
+	TranscriptionSessions *transcriptionsessions.Service
+	Sessions              aiRouteSessionProvider
+}
+
+type aiRouteSessionProvider interface {
+	CurrentSession() (*auth.CurrentSession, bool)
 }
 
 type GetLLMResponseRequest struct {
@@ -115,11 +125,24 @@ func RegisterAIRoutes(router chi.Router, deps AIRouteDependencies) error {
 		if deps.ExternalAgentRuns == nil {
 			return fmt.Errorf("external agent runtime is required in ide mode")
 		}
+		if deps.TranscriptionProfiles == nil {
+			return fmt.Errorf("transcription profile service is required in ide mode")
+		}
+		if deps.TranscriptionSessions == nil {
+			return fmt.Errorf("transcription session service is required in ide mode")
+		}
+		if deps.Sessions == nil {
+			return fmt.Errorf("session provider is required in ide mode")
+		}
 	}
 
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetLLMResponse, getLLMResponseHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetLLMChat, getLLMChatHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteStopLLMChat, stopLLMChatHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteStartTranscriptionSession, startTranscriptionSessionHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteAppendTranscriptionAudio, appendTranscriptionAudioHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteStopTranscriptionSession, stopTranscriptionSessionHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCancelTranscriptionSession, cancelTranscriptionSessionHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetExternalAgentChat, getExternalAgentChatHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetAIFollowSnapshot, getAIFollowSnapshotHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteStopExternalAgentRun, stopExternalAgentRunHandler(deps))
