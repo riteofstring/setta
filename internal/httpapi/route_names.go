@@ -98,6 +98,7 @@ var bareRouteNames = map[string]struct{}{
 	bareRouteName(RouteDeletePromptTemplate):                    {},
 	bareRouteName(RouteGetAgenticSummaryCacheStatus):            {},
 	bareRouteName(RouteGetLLMResponse):                          {},
+	bareRouteName(RouteGetAgentRun):                             {},
 	bareRouteName(RouteGetAgentRuns):                            {},
 	bareRouteName(RouteGetExternalAgentChat):                    {},
 	bareRouteName(RouteGetAIFollowSnapshot):                     {},

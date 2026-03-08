@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This doc records the bounded follow-on slice for `POST /getAgentRun` after the
+This doc records the landed bounded follow-on slice for `POST /getAgentRun` after the
 landed dormant single-item settings-read cleanup.
 
 At this point, the remaining Python-owned agentic surface is almost entirely
@@ -33,12 +33,13 @@ Current Python behavior relevant to this slice:
 - it loads the persisted run from `agent_runs/`
 - it returns `404` when the run is missing
 
-Current Go behavior before this slice:
+Current Go behavior after this slice:
 
 - Go already owns the canonical persisted run owner in `internal/agentruns.RunStore`
-- Go already owns `GET /getAgentRuns` in `internal/httpapi/agent_run_routes.go`
-- Go does not yet expose the single-run lookup transport even though the owner
-  and list transport are already landed
+- Go already owns:
+  - `GET /getAgentRuns`
+  - `POST /getAgentRun`
+  in `internal/httpapi/agent_run_routes.go`
 
 Current caller status relevant to scoping:
 
@@ -50,7 +51,7 @@ Current caller status relevant to scoping:
 
 ## Scope
 
-This slice will deliver:
+This slice delivered:
 
 - thin Go transport for:
   - `POST /getAgentRun`
@@ -121,6 +122,9 @@ This slice will deliver:
 
 ## Next Recommended Step
 
-- land `POST /getAgentRun` over the existing `RunStore`
-- after landing, update the Phase 13 closeout docs so the remaining
-  Python-owned agentic surface is explicitly runtime-only mutation work
+- treat agent-run read transport as complete for the current bounded scope
+- if rewrite work continues here, require a new bounded runtime doc for:
+  - `POST /startAgentRun`
+  - `POST /stopAgentRun`
+  - `POST /startRunChain`
+  - `POST /stopRunChain`

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -74,28 +75,110 @@ func TestRegisterAgentRunRoutesReturnsEmptyList(t *testing.T) {
 	}
 }
 
-func TestRegisterAgentRunRoutesBlocksShareMode(t *testing.T) {
+func TestRegisterAgentRunRoutesGetsRun(t *testing.T) {
 	t.Parallel()
 
 	store := newAgentRunRouteTestStore(t)
-	handler := newAgentRunRouteTestHandler(t, config.ModeShare, store)
-	request := httptest.NewRequest(http.MethodGet, "/api"+RouteGetAgentRuns, nil)
+	run := newAgentRunRouteTestRun("run-a", "chat-a", "project-a", agentruns.RunStatusRunning)
+	if err := store.Save(run); err != nil {
+		t.Fatalf("save run: %v", err)
+	}
+
+	handler := newAgentRunRouteTestHandler(t, config.ModeIDE, store)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetAgentRun, strings.NewReader(`{"runId":"run-a"}`))
 	response := httptest.NewRecorder()
 
 	handler.ServeHTTP(response, request)
 
-	if response.Code != http.StatusForbidden {
-		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
-	if response.Body.String() == "" {
-		t.Fatal("expected error payload")
+	var loaded agentruns.Run
+	if err := json.Unmarshal(response.Body.Bytes(), &loaded); err != nil {
+		t.Fatalf("decode run: %v", err)
+	}
+	if loaded.ID != "run-a" || loaded.Status != agentruns.RunStatusRunning {
+		t.Fatalf("unexpected run %#v", loaded)
+	}
+}
+
+func TestRegisterAgentRunRoutesReturnsNotFoundForMissingRun(t *testing.T) {
+	t.Parallel()
+
+	store := newAgentRunRouteTestStore(t)
+	handler := newAgentRunRouteTestHandler(t, config.ModeIDE, store)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetAgentRun, strings.NewReader(`{"runId":"run-missing"}`))
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
 	}
 	var payload errorResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode error payload: %v", err)
 	}
-	if payload.Error.Code != "mode_forbidden" {
-		t.Fatalf("expected mode_forbidden, got %#v", payload)
+	if payload.Error.Code != "agent_run_not_found" {
+		t.Fatalf("expected agent_run_not_found, got %#v", payload)
+	}
+}
+
+func TestRegisterAgentRunRoutesRejectsMissingRunID(t *testing.T) {
+	t.Parallel()
+
+	store := newAgentRunRouteTestStore(t)
+	handler := newAgentRunRouteTestHandler(t, config.ModeIDE, store)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetAgentRun, strings.NewReader(`{}`))
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "run_id_required" {
+		t.Fatalf("expected run_id_required, got %#v", payload)
+	}
+}
+
+func TestRegisterAgentRunRoutesBlocksShareMode(t *testing.T) {
+	t.Parallel()
+
+	store := newAgentRunRouteTestStore(t)
+	handler := newAgentRunRouteTestHandler(t, config.ModeShare, store)
+	testCases := []struct {
+		method string
+		path   string
+		body   string
+	}{
+		{method: http.MethodGet, path: RouteGetAgentRuns},
+		{method: http.MethodPost, path: RouteGetAgentRun, body: `{"runId":"run-a"}`},
+	}
+
+	for _, testCase := range testCases {
+		request := httptest.NewRequest(testCase.method, "/api"+testCase.path, strings.NewReader(testCase.body))
+		response := httptest.NewRecorder()
+
+		handler.ServeHTTP(response, request)
+
+		if response.Code != http.StatusForbidden {
+			t.Fatalf("expected 403 for %s, got %d with body %q", testCase.path, response.Code, response.Body.String())
+		}
+		if response.Body.String() == "" {
+			t.Fatal("expected error payload")
+		}
+		var payload errorResponse
+		if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("decode error payload: %v", err)
+		}
+		if payload.Error.Code != "mode_forbidden" {
+			t.Fatalf("expected mode_forbidden, got %#v", payload)
+		}
 	}
 }
 

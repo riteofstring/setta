@@ -197,6 +197,8 @@ Later outcome:
   `phase-13-engine-config-create-delete-transport.md`
 - continued execution then landed the dormant single-item read cleanup in
   `phase-13-agentic-single-item-read-transport.md`
+- continued execution then landed the final thin persisted run read in
+  `phase-13-agent-run-read-transport-closeout.md`
 
 ## Verification
 

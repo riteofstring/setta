@@ -521,7 +521,7 @@ Use the docs in this order:
   - focused completed-slice doc for the remaining dormant single-item agentic
     reads over the landed Go stores and services
 155. `phase-13-agent-run-read-transport-closeout.md`
-  - focused bounded follow-on doc for the last thin persisted agent-run read
+  - focused completed-slice doc for the last thin persisted agent-run read
     route before the remaining Python agentic surface becomes runtime-only
 156. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record

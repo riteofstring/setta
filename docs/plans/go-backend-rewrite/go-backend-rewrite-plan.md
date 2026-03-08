@@ -345,10 +345,22 @@ The bounded follow-on tracked in
   - `POST /getEngineConfig`
 - the remaining non-runtime single-item agentic transport is now Go-owned over
   the landed stores and service boundaries
-- the remaining Python-owned agentic surface is now runtime-only:
+- the remaining Python-owned agentic surface was reduced to:
+  - `POST /getAgentRun`
   - `POST /startAgentRun`
   - `POST /stopAgentRun`
+  - `POST /startRunChain`
+  - `POST /stopRunChain`
+
+The bounded follow-on tracked in
+`phase-13-agent-run-read-transport-closeout.md` is now landed:
+
+- Go now owns:
   - `POST /getAgentRun`
+- the remaining Python-owned agentic surface is now runtime-only mutation
+  work:
+  - `POST /startAgentRun`
+  - `POST /stopAgentRun`
   - `POST /startRunChain`
   - `POST /stopRunChain`
 
