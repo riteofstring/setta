@@ -217,6 +217,24 @@ With that third slice landed, the caller-backed Phase 19 project-shell route
 cluster is now Go-owned for the current clean-break scope. The adjacent git
 read cluster is now the highest-leverage next direct-frontend phase.
 
+The first Phase 20 slice is now landed for bounded git repo/status/diff
+ownership:
+
+- Go-owned `POST /git/status`
+- Go-owned `POST /git/diff`
+- explicit `internal/gitread` owner for repo discovery, bounded git CLI
+  execution, porcelain-v2 status parsing, literal pathspec/file validation,
+  and synthesized untracked-file diffs
+- thin `internal/httpapi` transport plus real IDE app wiring and focused
+  service/route/app coverage
+
+With that first Phase 20 slice landed, the remaining caller-backed git gap is
+now the history slice:
+
+- `POST /git/log`
+- `POST /git/commitDetails`
+- `POST /git/commitFileDiff`
+
 The current bounded Go-owned Phase 12 surface now includes:
 
 - `internal/externalagentconfigs`
@@ -1631,6 +1649,13 @@ Do not weaken this rule during the rewrite.
      `phase-19-project-lifecycle-mutations-plan.md`
    - the next executable direct-frontend phase is recorded in
      `phase-20-git-read-route-cluster-plan.md`
+   - the first Phase 20 git slice is now landed for:
+     - `POST /git/status`
+     - `POST /git/diff`
+   - the remaining bounded Phase 20 gap is the git history slice:
+     - `POST /git/log`
+     - `POST /git/commitDetails`
+     - `POST /git/commitFileDiff`
    - dormant listener-chat, detached-run, and non-caller-backed
      default-project routes should remain out of scope until a concrete caller
      proves otherwise

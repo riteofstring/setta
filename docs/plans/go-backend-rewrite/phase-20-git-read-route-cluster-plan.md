@@ -25,8 +25,18 @@ Current repo status as of 2026-03-10:
 
 - Phase 19 project-shell route ownership is complete for the current
   caller-backed surface
-- there is no landed Go git-read owner yet
-- the git read cluster is now the next caller-backed direct-frontend phase
+- Slice 1 is now landed:
+  - Go-owned `POST /git/status`
+  - Go-owned `POST /git/diff`
+  - explicit `internal/gitread` owner for repo-root discovery, bounded git
+    CLI execution, porcelain-v2 status parsing, literal pathspec validation,
+    and synthesized untracked diffs
+  - thin `internal/httpapi` transport plus real IDE app wiring and focused
+    service/route/app coverage
+- the remaining Phase 20 caller-backed gap is now the commit-history slice:
+  - `POST /git/log`
+  - `POST /git/commitDetails`
+  - `POST /git/commitFileDiff`
 
 ## Scope
 
@@ -74,9 +84,9 @@ Explicit non-goals for the first git phase:
 
 What is still missing:
 
-- a dedicated Go git-read owner above subprocess execution
-- typed repo-root, revision, and path validation helpers outside route code
-- explicit stdout/stderr cap and timeout ownership on the Go side
+- commit-log pagination and projection
+- commit-details and historical file-diff reads
+- revision-validation helpers for the remaining history slice
 
 ## Desired Go Boundaries
 
@@ -166,6 +176,38 @@ Why this goes first:
 - it establishes the subprocess, timeout, and truncation boundary reused by
   the log/history slice
 
+Status:
+
+- complete
+
+Completed:
+
+- added `internal/gitread` as the explicit Go owner for:
+  - workspace repo-root discovery through the real `git` CLI
+  - bounded stdout/stderr capture with timeout and cap enforcement
+  - porcelain-v2 status parsing with separate staged/unstaged entries
+  - literal-pathspec diff loading
+  - synthesized untracked-file diff generation
+- added thin `internal/httpapi` transport for:
+  - `POST /git/status`
+  - `POST /git/diff`
+- wired the real IDE app to the new git-read owner
+- added focused tests in:
+  - `internal/gitread`
+  - `internal/httpapi`
+  - `internal/app`
+
+Decisions made:
+
+- keep using the real `git` CLI as the source of truth instead of adding a
+  Go git compatibility layer
+- keep `POST /git/status` as a non-repo-tolerant read that returns
+  `isGitRepo=false`
+- keep `POST /git/diff` as a repo-required read that returns a direct
+  client error when the workspace is not a repo
+- enable explicit rename detection in the Go diff owner so staged rename diffs
+  remain visible when the caller supplies `oldPath`
+
 ### Slice 2: Commit graph and historical diff reads
 
 Routes:
@@ -203,9 +245,14 @@ backend verification gate for this phase.
 
 ## Next Recommended Step
 
-Implement Slice 1 now:
+Implement Slice 2 now:
 
-- add `internal/gitread`
-- own `POST /git/status`
-- own `POST /git/diff`
-- keep transport thin and keep the real `git` CLI as the source of truth
+- own `POST /git/log`
+- own `POST /git/commitDetails`
+- own `POST /git/commitFileDiff`
+- reuse the landed `internal/gitread` subprocess, timeout, and path-validation
+  boundary instead of creating route-local history helpers
+
+## Verification
+
+- `./scripts/go.sh test ./internal/gitread ./internal/httpapi ./internal/app -run 'Test(Service|RegisterGitRoutes|AppServesGitStatusAndDiffRoutes)' -count=1`

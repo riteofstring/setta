@@ -706,9 +706,9 @@ Use the docs in this order:
   - focused closeout doc for the landed Phase 19 save / create / save-as /
     delete lifecycle mutation slice plus its clean-break clone decision
 193. `phase-20-git-read-route-cluster-plan.md`
-  - focused next-work plan for the caller-backed git read route cluster over
-    explicit Go repo-root resolution, subprocess execution, and typed
-    transport boundaries
+  - focused current-work plan for the landed git status/diff slice and the
+    remaining commit-history slice over explicit Go repo-root resolution,
+    subprocess execution, and typed transport boundaries
 194. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
 195. `spike-pty.md`
