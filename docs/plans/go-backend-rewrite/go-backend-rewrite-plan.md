@@ -2002,9 +2002,20 @@ Do not weaken this rule during the rewrite.
        test now guard both the repo-local bootstrap path and the slimmed
        packaged import path
    - Phase 31 is now complete for the current clean-break scope
-   - the next honest step is no longer another packaged-Python trim; it is a
-     broader rerank outside this track unless a concrete shipped runtime edge
-     proves more package-boundary work is still needed
+   - the post-Phase-31 distribution-artifact rerank is recorded in
+     `phase-32-post-phase-31-distribution-artifact-rerank.md`
+   - the focused wheel-first installer artifact plan is recorded in
+     `phase-32-wheel-first-installer-artifact-boundary-plan.md`
+   - the broader rerank after Phase 31 did select one more evidence-backed
+     packaging/distribution track:
+     - native macOS and Windows installers still bundle the broader sdist
+     - `verify_install.sh` and optional built-install docs still treat sdist as
+       a real install artifact
+     - the launcher bootstrap contract itself remains generic package-path
+       based and does not require sdist semantics
+   - the next selected work is now wheel-first retargeting for the
+     installer-managed distribution artifact boundary, while keeping sdist as an
+     explicit separate source-smoke question
    - dormant listener-chat, detached-run, and non-caller-backed
       default-project routes should remain out of scope until a concrete caller
       proves otherwise

@@ -785,12 +785,20 @@ Use the docs in this order:
   - focused implementation-plan doc for the landed explicit wheel boundary,
     the landed packaged-vs-source dependency split, and the landed explicit
     repo-local source/dev bootstrap closeout for the current scope
-213. `spike-mcp.md`
+213. `phase-32-post-phase-31-distribution-artifact-rerank.md`
+  - focused rerank doc showing that the remaining evidence-backed packaging
+    surface is no longer generic packaged-Python trimming; it is the
+    installer-managed distribution artifact boundary still anchored on sdist
+214. `phase-32-wheel-first-installer-artifact-boundary-plan.md`
+  - focused implementation-plan doc for retargeting native installers and
+    adjacent built-install docs to a wheel-first packaged-user artifact
+    boundary while keeping sdist as a separate explicit source-smoke question
+215. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-214. `spike-pty.md`
+216. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-215. `spike-lsp.md`
+217. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:
