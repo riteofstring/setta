@@ -25,7 +25,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := os.WriteFile(trimmedOutputPath, []byte(frontendbindings.RenderWebsocketRoutesTS()), 0o644); err != nil {
+	if err := os.WriteFile(trimmedOutputPath, []byte(frontendbindings.RenderRoutesTS()), 0o644); err != nil {
 		fmt.Fprintf(os.Stderr, "setta-gen-frontend-bindings: write output: %v\n", err)
 		os.Exit(1)
 	}

@@ -33,6 +33,7 @@ import {
   route_get_latest_lsp_diagnostics,
   route_get_latest_project_state,
 } from "utils/generatedEndpoints";
+import { GoRootRoutes, GoWebsocketRoutes } from "utils/generatedGoRoutes";
 import {
   BaseDependencyKeyUnion,
   BaseDependencyValueUnion,
@@ -42,7 +43,6 @@ import {
   DependencyValueTypeEnum,
   FrontendWebsocketMsgUnion,
   LiteralDependencyValue,
-  RouteEnum,
   SectionDependencyKey,
   SectionParamDependencyKey,
   SettaNotificationTypeEnum,
@@ -58,7 +58,6 @@ import {
   createWebsocketConnectionInfo,
   createWebsocketMsgCurrentAddressUpdate,
 } from "utils/generatedTypes";
-import { GoWebsocketRoutes } from "utils/generatedGoRoutes";
 import { createNewId } from "utils/idNameCreation";
 import {
   receiveAgentProfilesUpdate,
@@ -108,7 +107,7 @@ let authLost = false;
 const AUTH_CLOSE_CODE = 4401;
 const SHARE_SESSION_MISSING_CODE = 4400;
 const SHARE_SESSION_UNKNOWN_CODE = 4404;
-const BOOTSTRAP_URL = `${C_ADDRESSES.BACKEND_ORIGIN}${RouteEnum.BOOTSTRAP_PAGE}`;
+const BOOTSTRAP_URL = `${C_ADDRESSES.BACKEND_ORIGIN}${GoRootRoutes.bootstrapPage}`;
 const AUTH_RECOVERY_INTERVAL_MS = 2000;
 const DEFAULT_AUTH_REFRESH_WINDOW_SECONDS =
   C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS;

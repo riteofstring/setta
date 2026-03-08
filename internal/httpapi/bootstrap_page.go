@@ -18,6 +18,11 @@ const (
 	devFrontendSchemeEnv     = "SETTA_DEV_FRONTEND_SCHEME"
 )
 
+const (
+	RouteBootstrapPage    = bootstrapPagePath
+	RouteBootstrapConsume = bootstrapConsumePath
+)
+
 const bootstrapPageHTMLTemplate = `<!DOCTYPE html>
 <html lang="en">
   <head>
