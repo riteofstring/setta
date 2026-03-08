@@ -108,7 +108,7 @@ Primary sources used for this checklist:
 | Go-owned | MCP server/client/tool registry/search | `internal/mcpx` and `internal/tools` are the active Go owners. |
 | Go-owned | UI-setting runtime and reveal routing | `internal/uisettings` plus `internal/realtime` own reveal/result behavior and routing. |
 | Go-owned | App-spec store/patch/diagnostics and app-gen skills | `internal/appspec` and `internal/appgenskills` are the active Go owners. |
-| Shared boundary | Legacy app-definition REST plus older app-spec HTTP helpers | Go owns the newer app-spec runtime, but Python still serves the legacy app-definition REST routes the app-config pane still calls, along with older app-spec helpers like `streamAppSpec`, `updateAppDefinition`, and `listAppComponents` that remain Python-owned even though they are not proven current non-test frontend callers. |
+| Shared boundary | Legacy app-definition REST plus app-spec streaming/helper HTTP boundary | Go owns the newer app-spec runtime, but Python still serves the legacy app-definition REST routes and `streamAppSpec` generation stream that the app-config pane still calls; older helpers like `updateAppDefinition` and `listAppComponents` also remain Python-owned even without proven current non-test callers. |
 | Go-owned | LLM config and managed API-key storage | `internal/llmconfig` is Go-owned. |
 
 ## 8. AI, agentic runtime, and transcription
