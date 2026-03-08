@@ -137,6 +137,7 @@ class TestWatchCode:
         )
         backend = ProjectStateBackend(
             projectConfigs={project_state.projectConfig.id: project_state.projectConfig},
+            projectChatWindowingByProjectConfigId={project_state.projectConfig.id: {}},
             defaultProjectConfigId=project_state.projectConfig.id,
             sections=project_state.sections,
             sectionImpls=project_state.sectionImpls,
@@ -1294,6 +1295,7 @@ class TestWatchCodeLspOrdering:
         )
         backend = ProjectStateBackend(
             projectConfigs={project_state.projectConfig.id: project_state.projectConfig},
+            projectChatWindowingByProjectConfigId={project_state.projectConfig.id: {}},
             defaultProjectConfigId=project_state.projectConfig.id,
             sections=project_state.sections,
             sectionImpls=project_state.sectionImpls,

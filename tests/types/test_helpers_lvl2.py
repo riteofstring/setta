@@ -2,7 +2,6 @@ import json
 import logging
 
 import pytest
-
 from setta.types.code_obj_impls import (
     CodeCallableCodeObjImpl,
     CodeObjType,
@@ -12,8 +11,11 @@ from setta.types.code_obj_impls import (
     DropzoneParamCodeObjImpl,
     NestedParamCodeObjImpl,
 )
-from setta.types.dropzone import parse_dropzone_value
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
+from setta.types.dropzone import parse_dropzone_value
+from setta.types.generated.impl_args_as_typed_dicts import (
+    BaseSectionWithParamsImplArgsWithCallable,
+)
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl_with_type_guard,
@@ -26,10 +28,10 @@ from setta.types.helpers_lvl2 import (
     apply_top_level_section_layout_snapshot,
     change_param_impl,
     compute_smart_top_level_section_position,
-    create_top_level_section,
-    delete_selected_params,
-    delete_sections,
     create_child_sections_via_incrementer,
+    create_top_level_section,
+    delete_sections,
+    delete_selected_params,
     get_curr_top_level_param_ids,
     get_first_markdown_heading,
     indent_params,
@@ -37,31 +39,33 @@ from setta.types.helpers_lvl2 import (
     move_params_within_parent,
     set_chat_section_chat_id,
     set_chat_section_settings,
+    set_list_root_view_mode,
     set_param_entered_value,
+    set_parent_default_child_section_type,
     set_prompt_section_format,
     set_prompt_section_inputs,
     set_prompt_section_template,
-    set_list_root_view_mode,
     set_section_param_filter,
-    set_parent_default_child_section_type,
     set_spreadsheet_section_settings,
-    set_text_block_master_font_size,
     set_text_block_heading_as_section_name,
+    set_text_block_master_font_size,
     set_text_block_text,
     unindent_params,
     update_param_impl_config,
 )
-from setta.types.generated.impl_args_as_typed_dicts import (
-    BaseSectionWithParamsImplArgsWithCallable,
-)
+from setta.types.id import ID
 from setta.types.project_config import (
     Position,
     ProjectConfig,
     TopLevelSectionLayout,
     ViewportBounds,
 )
-from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.id import ID
+from setta.types.project_state import (
+    ChatWindowPlacement,
+    ProjectChatWindowingState,
+    ProjectChatWindowInstance,
+    ProjectStateSingleConfig,
+)
 from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BaseDictSectionImpl,
@@ -294,6 +298,33 @@ class TestDeleteSections:
         assert section_id not in self.project_state.sections
         assert section_id not in self.project_state.projectConfig.sectionVariantMap
         self.project_state.validate_code_file_bindings()
+
+    def test_delete_sections_prunes_project_chat_windowing_for_removed_sections(
+        self,
+    ) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Chat,
+            Position(),
+        )
+        window = ProjectChatWindowInstance(
+            instanceId="project-chat-window-1",
+            placement=ChatWindowPlacement.floating,
+            sectionIdOrNull=section_id,
+        )
+        self.project_state.projectChatWindowing = ProjectChatWindowingState(
+            instancesById={window.instanceId: window},
+            order=[window.instanceId],
+            nextInstanceNumber=2,
+        )
+        self.project_state.validate_parent_section_map()
+
+        delete_sections(self.project_state, [section_id])
+
+        assert self.project_state.projectChatWindowing.instancesById == {}
+        assert self.project_state.projectChatWindowing.order == []
+        assert self.project_state.projectChatWindowing.nextInstanceNumber == 2
 
 
 class TestChatSectionChatId:

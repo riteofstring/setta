@@ -110,6 +110,10 @@ from setta.types.helpers_lvl1 import (
 )
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.id import ID
+from setta.types.project_chat_windowing import (
+    normalize_project_chat_windowing,
+    validate_project_chat_thread_bindings_unchanged,
+)
 from setta.types.project_config import Position, TopLevelSectionLayout, ViewportBounds
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
@@ -163,6 +167,7 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from setta.types.project_state import (
+        ProjectChatWindowingState,
         ProjectStateBackend,
         ProjectStateCore,
         ProjectStateSingleConfig,
@@ -1525,6 +1530,7 @@ def delete_sections(p: "ProjectStateSingleConfig", sectionIds: list[ID]):
                     del p.sectionImpls[impl_id]
 
     _prune_unused_code_objs(p)
+    normalize_project_chat_windowing(p.projectChatWindowing, set(p.sections.keys()))
     p.validate_active_ids()
 
 
@@ -2927,6 +2933,19 @@ def set_agentic_edges(p: "ProjectStateSingleConfig", edges: list[AgenticEdge]):
     p.projectConfig.agenticEdges = edges
 
 
+def _prune_invalid_agentic_edges(p: "ProjectStateSingleConfig") -> None:
+    if not p.projectConfig.agenticEdges:
+        return
+    remaining_edges: list[AgenticEdge] = []
+    for edge in p.projectConfig.agenticEdges:
+        try:
+            _ensure_agentic_edge_endpoints_valid(p, edge)
+        except (KeyError, TypeError):
+            continue
+        remaining_edges.append(edge)
+    p.projectConfig.agenticEdges = remaining_edges
+
+
 def set_section_param_filter(p: "ProjectStateSingleConfig", sectionId: ID, value: str):
     set_curr_effective_section_impl_value(
         p,
@@ -2937,6 +2956,7 @@ def set_section_param_filter(p: "ProjectStateSingleConfig", sectionId: ID, value
 
 def set_section_variant(p: "ProjectStateSingleConfig", sectionId: ID, variantId: ID):
     p.projectConfig.sectionVariantMap[sectionId] = variantId
+    _prune_invalid_agentic_edges(p)
 
 
 def set_default_section_variant(
@@ -3194,6 +3214,29 @@ def set_prompt_section_format(
             renderError=result.render_error,
         ),
     )
+
+
+def set_project_chat_windowing_state(
+    p: "ProjectStateSingleConfig",
+    state: "ProjectChatWindowingState",
+):
+    validate_project_chat_thread_bindings_unchanged(
+        p.projectChatWindowing,
+        state,
+    )
+    p.projectChatWindowing = state
+    normalize_project_chat_windowing(p.projectChatWindowing, set(p.sections.keys()))
+
+
+def set_project_chat_window_chat_id(
+    p: "ProjectStateSingleConfig",
+    instanceId: ID,
+    chatId: ID | None,
+):
+    if instanceId not in p.projectChatWindowing.instancesById:
+        raise KeyError(f"Project chat window {instanceId} not found.")
+    p.projectChatWindowing.instancesById[instanceId].chatId = chatId
+    normalize_project_chat_windowing(p.projectChatWindowing, set(p.sections.keys()))
 
 
 def set_chat_section_settings(
