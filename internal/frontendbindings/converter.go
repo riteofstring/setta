@@ -414,6 +414,11 @@ func newTypeConverter() *typeConverter {
 				Kind: "raw",
 				Raw:  setListRootViewModeRequestInputRawTS,
 			},
+			reflect.TypeOf(ToggleGroupOrientationRequestInput{}): {
+				Name: "ToggleGroupOrientationRequestInput",
+				Kind: "raw",
+				Raw:  toggleGroupOrientationRequestInputRawTS,
+			},
 			reflect.TypeOf(SetGroupOverflowModeRequestInput{}): {
 				Name: "SetGroupOverflowModeRequestInput",
 				Kind: "raw",
@@ -438,6 +443,31 @@ func newTypeConverter() *typeConverter {
 				Name: "SetBrowserSavedSearchesRequestInput",
 				Kind: "raw",
 				Raw:  setBrowserSavedSearchesRequestInputRawTS,
+			},
+			reflect.TypeOf(SetSpreadsheetFilePathRequestInput{}): {
+				Name: "SetSpreadsheetFilePathRequestInput",
+				Kind: "raw",
+				Raw:  setSpreadsheetFilePathRequestInputRawTS,
+			},
+			reflect.TypeOf(SetSpreadsheetSectionSettingsRequestInput{}): {
+				Name: "SetSpreadsheetSectionSettingsRequestInput",
+				Kind: "raw",
+				Raw:  setSpreadsheetSectionSettingsRequestInputRawTS,
+			},
+			reflect.TypeOf(SetTaskBoardSectionStateRequestInput{}): {
+				Name: "SetTaskBoardSectionStateRequestInput",
+				Kind: "raw",
+				Raw:  setTaskBoardSectionStateRequestInputRawTS,
+			},
+			reflect.TypeOf(SetImageAreaImagePathRequestInput{}): {
+				Name: "SetImageAreaImagePathRequestInput",
+				Kind: "raw",
+				Raw:  setImageAreaImagePathRequestInputRawTS,
+			},
+			reflect.TypeOf(SetSocialURLRequestInput{}): {
+				Name: "SetSocialURLRequestInput",
+				Kind: "raw",
+				Raw:  setSocialURLRequestInputRawTS,
 			},
 			reflect.TypeOf(SetTextBlockTextRequestInput{}): {
 				Name: "SetTextBlockTextRequestInput",

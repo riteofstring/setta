@@ -77,6 +77,7 @@ const (
 	RouteSetSectionEdgeOutputs             = "/setSectionEdgeOutputs"
 	RouteSetParentDefaultChildSectionType  = "/setParentDefaultChildSectionType"
 	RouteSetListRootViewMode               = "/setListRootViewMode"
+	RouteToggleGroupOrientation            = "/toggleGroupOrientation"
 	RouteSetCallableHideParams             = "/setCallableHideParams"
 	RouteSetSectionHideUnpinnedParams      = "/setSectionHideUnpinnedParams"
 	RouteSetSectionPinnedParams            = "/setSectionPinnedParams"
@@ -84,6 +85,11 @@ const (
 	RouteSetBrowserAreaViewMode            = "/setBrowserAreaViewMode"
 	RouteSetBrowserHideColumn              = "/setBrowserHideColumn"
 	RouteSetBrowserSavedSearches           = "/setBrowserSavedSearches"
+	RouteSetSpreadsheetFilePath            = "/setSpreadsheetFilePath"
+	RouteSetSpreadsheetSectionSettings     = "/setSpreadsheetSectionSettings"
+	RouteSetTaskBoardSectionState          = "/setTaskBoardSectionState"
+	RouteSetImageAreaImagePath             = "/setImageAreaImagePath"
+	RouteSetSocialURL                      = "/setSocialUrl"
 	RouteSetTextBlockText                  = "/setTextBlockText"
 	RouteSetTextBlockDisplayMode           = "/setTextBlockDisplayMode"
 	RouteSetTextBlockFormat                = "/setTextBlockFormat"
@@ -625,6 +631,12 @@ type SetListRootViewModeRequest struct {
 	ViewMode     projectstate.ListRootViewMode `json:"viewMode"`
 }
 
+type ToggleGroupOrientationRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	SectionID    string  `json:"sectionId"`
+}
+
 type SetGroupOverflowModeRequest struct {
 	FrontendOpID *string `json:"frontendOpId"`
 	ProjectID    string  `json:"projectConfigId"`
@@ -692,6 +704,47 @@ type SetBrowserSavedSearchesRequest struct {
 	ProjectID     string                            `json:"projectConfigId"`
 	SectionID     string                            `json:"sectionId"`
 	SavedSearches []projectstate.BrowserSavedSearch `json:"savedSearches"`
+}
+
+type SetSpreadsheetFilePathRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	SectionID    string  `json:"sectionId"`
+	FilePath     string  `json:"filePath"`
+	ActiveSheet  *string `json:"activeSheet"`
+}
+
+type SetSpreadsheetSectionSettingsRequest struct {
+	FrontendOpID               *string                             `json:"frontendOpId"`
+	ProjectID                  string                              `json:"projectConfigId"`
+	SectionID                  string                              `json:"sectionId"`
+	ReadOnly                   bool                                `json:"readOnly"`
+	ShowRowNumbers             bool                                `json:"showRowNumbers"`
+	Density                    projectstate.SpreadsheetGridDensity `json:"density"`
+	AutoReloadOnExternalChange bool                                `json:"autoReloadOnExternalChange"`
+}
+
+type SetTaskBoardSectionStateRequest struct {
+	FrontendOpID *string                        `json:"frontendOpId"`
+	ProjectID    string                         `json:"projectConfigId"`
+	SectionID    string                         `json:"sectionId"`
+	ViewMode     projectstate.TaskBoardViewMode `json:"viewMode"`
+	Columns      []projectstate.TaskBoardColumn `json:"columns"`
+	Tasks        []projectstate.TaskBoardTask   `json:"tasks"`
+}
+
+type SetImageAreaImagePathRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	SectionID    string  `json:"sectionId"`
+	ImagePath    string  `json:"imagePath"`
+}
+
+type SetSocialURLRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	SectionID    string  `json:"sectionId"`
+	URL          string  `json:"url"`
 }
 
 type SetTextBlockTextRequest struct {
@@ -925,6 +978,7 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionEdgeOutputs, setSectionEdgeOutputsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetParentDefaultChildSectionType, setParentDefaultChildSectionTypeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetListRootViewMode, setListRootViewModeHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteToggleGroupOrientation, toggleGroupOrientationHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetGroupOverflowMode, setGroupOverflowModeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCallableHideParams, setCallableHideParamsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionHideUnpinnedParams, setSectionHideUnpinnedParamsHandler(deps))
@@ -933,6 +987,11 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetBrowserAreaViewMode, setBrowserAreaViewModeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetBrowserHideColumn, setBrowserHideColumnHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetBrowserSavedSearches, setBrowserSavedSearchesHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSpreadsheetFilePath, setSpreadsheetFilePathHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSpreadsheetSectionSettings, setSpreadsheetSectionSettingsHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetTaskBoardSectionState, setTaskBoardSectionStateHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetImageAreaImagePath, setImageAreaImagePathHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSocialURL, setSocialURLHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetTextBlockText, setTextBlockTextHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetTextBlockDisplayMode, setTextBlockDisplayModeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetTextBlockFormat, setTextBlockFormatHandler(deps))
@@ -3167,6 +3226,41 @@ func setListRootViewModeHandler(deps ProjectRouteDependencies) http.HandlerFunc 
 	}
 }
 
+func toggleGroupOrientationHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[ToggleGroupOrientationRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.ToggleGroupOrientation(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+		); err != nil {
+			writeProjectLayoutMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
 func setSectionHideUnpinnedParamsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		payload, err := decodeJSONBody[SetSectionHideUnpinnedParamsRequest](r)
@@ -3430,6 +3524,192 @@ func setBrowserSavedSearchesHandler(deps ProjectRouteDependencies) http.HandlerF
 			payload.SavedSearches,
 		); err != nil {
 			writeBrowserSectionMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setSpreadsheetFilePathHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetSpreadsheetFilePathRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetSpreadsheetFilePath(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.FilePath,
+			payload.ActiveSheet,
+		); err != nil {
+			writeSectionDataMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setSpreadsheetSectionSettingsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetSpreadsheetSectionSettingsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetSpreadsheetSectionSettings(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.ReadOnly,
+			payload.ShowRowNumbers,
+			payload.Density,
+			payload.AutoReloadOnExternalChange,
+		); err != nil {
+			writeSectionDataMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setTaskBoardSectionStateHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetTaskBoardSectionStateRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetTaskBoardSectionState(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.ViewMode,
+			payload.Columns,
+			payload.Tasks,
+		); err != nil {
+			writeSectionDataMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setImageAreaImagePathHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetImageAreaImagePathRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetImageAreaImagePath(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.ImagePath,
+		); err != nil {
+			writeSectionDataMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setSocialURLHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetSocialURLRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetSocialURL(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.URL,
+		); err != nil {
+			writeSectionDataMutationError(w, r, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -4448,6 +4728,25 @@ func writeBrowserSectionMutationError(w http.ResponseWriter, r *http.Request, er
 		writeError(w, r, http.StatusBadRequest, "browser_area_view_mode_invalid", err.Error())
 	case errors.Is(err, projectstate.ErrBrowserSearchScopeInvalid):
 		writeError(w, r, http.StatusBadRequest, "browser_search_scope_invalid", err.Error())
+	default:
+		writeProjectLayoutMutationError(w, r, err)
+	}
+}
+
+func writeSectionDataMutationError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrSpreadsheetSectionRequired):
+		writeError(w, r, http.StatusUnprocessableEntity, "spreadsheet_section_required", "Section must resolve to a spreadsheet section.")
+	case errors.Is(err, projectstate.ErrSpreadsheetGridDensityInvalid):
+		writeError(w, r, http.StatusBadRequest, "spreadsheet_grid_density_invalid", err.Error())
+	case errors.Is(err, projectstate.ErrTaskBoardSectionRequired):
+		writeError(w, r, http.StatusUnprocessableEntity, "task_board_section_required", "Section must resolve to a task board section.")
+	case errors.Is(err, projectstate.ErrTaskBoardViewModeInvalid):
+		writeError(w, r, http.StatusBadRequest, "task_board_view_mode_invalid", err.Error())
+	case errors.Is(err, projectstate.ErrImageSectionRequired):
+		writeError(w, r, http.StatusUnprocessableEntity, "image_section_required", "Section must resolve to an image section.")
+	case errors.Is(err, projectstate.ErrSocialSectionRequired):
+		writeError(w, r, http.StatusUnprocessableEntity, "social_section_required", "Section must resolve to a social section.")
 	default:
 		writeProjectLayoutMutationError(w, r, err)
 	}

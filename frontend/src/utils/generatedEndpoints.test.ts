@@ -75,6 +75,7 @@ import {
   route_set_browser_column_widths,
   route_set_browser_hide_column,
   route_set_browser_saved_searches,
+  route_set_image_area_image_path,
   route_set_chat_section_state,
   route_set_code_file_binding,
   route_set_code_obj_display_name,
@@ -104,6 +105,10 @@ import {
   route_set_text_block_master_font_size,
   route_set_text_block_meta_control_style,
   route_set_text_block_text,
+  route_set_social_url,
+  route_set_spreadsheet_file_path,
+  route_set_spreadsheet_section_settings,
+  route_set_task_board_section_state,
   route_set_top_level_section_layout,
   route_set_type_error_ignore,
   route_set_variant_json_source_keys,
@@ -111,6 +116,7 @@ import {
   route_set_view_mode_sort_order,
   route_set_viewport,
   route_start_transcription_session,
+  route_toggle_group_orientation,
   route_toggle_is_editing_view_mode,
   route_toggle_param_selected,
   route_toggle_variant_frozen,
@@ -1192,6 +1198,27 @@ describe("generatedEndpoints project shell and layout", () => {
     });
   });
 
+  it("posts group-orientation writes", async () => {
+    await route_toggle_group_orientation({
+      projectConfigId: "project-alpha",
+      sectionId: "group-section",
+      frontendOpId: "frontend-op-group-orientation",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/toggleGroupOrientation`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "group-section",
+        frontendOpId: "frontend-op-group-orientation",
+      }),
+    });
+  });
+
   it("posts browser column-width writes with nullable widths", async () => {
     await route_set_browser_column_widths({
       projectConfigId: "project-alpha",
@@ -1213,6 +1240,165 @@ describe("generatedEndpoints project shell and layout", () => {
         columnWidth: 240.5,
         typesColumnWidth: null,
         frontendOpId: "frontend-op-browser-width",
+      }),
+    });
+  });
+
+  it("posts spreadsheet file-path writes", async () => {
+    await route_set_spreadsheet_file_path({
+      projectConfigId: "project-alpha",
+      sectionId: "spreadsheet-section",
+      filePath: "reports/q1.xlsx",
+      activeSheet: "Sheet 2",
+      frontendOpId: "frontend-op-spreadsheet-path",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setSpreadsheetFilePath`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "spreadsheet-section",
+        filePath: "reports/q1.xlsx",
+        activeSheet: "Sheet 2",
+        frontendOpId: "frontend-op-spreadsheet-path",
+      }),
+    });
+  });
+
+  it("posts spreadsheet settings writes", async () => {
+    await route_set_spreadsheet_section_settings({
+      projectConfigId: "project-alpha",
+      sectionId: "spreadsheet-section",
+      readOnly: true,
+      showRowNumbers: false,
+      density: "comfortable",
+      autoReloadOnExternalChange: true,
+      frontendOpId: "frontend-op-spreadsheet-settings",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setSpreadsheetSectionSettings`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "spreadsheet-section",
+        readOnly: true,
+        showRowNumbers: false,
+        density: "comfortable",
+        autoReloadOnExternalChange: true,
+        frontendOpId: "frontend-op-spreadsheet-settings",
+      }),
+    });
+  });
+
+  it("posts task-board state writes", async () => {
+    await route_set_task_board_section_state({
+      projectConfigId: "project-alpha",
+      sectionId: "task-board-section",
+      viewMode: "task_list",
+      columns: [
+        { id: "todo", name: "Todo", color: "#3b82f6", sortIndex: 0 },
+      ],
+      tasks: [
+        {
+          id: "task-1",
+          title: "Task One",
+          description: "",
+          completed: false,
+          columnId: "todo",
+          dueDateIso: "",
+          recurrence: "none",
+          recurrenceDays: [],
+          recurrenceMonths: [],
+          recurrenceYears: [],
+          sortIndex: 0,
+        },
+      ],
+      frontendOpId: "frontend-op-task-board",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setTaskBoardSectionState`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "task-board-section",
+        viewMode: "task_list",
+        columns: [
+          { id: "todo", name: "Todo", color: "#3b82f6", sortIndex: 0 },
+        ],
+        tasks: [
+          {
+            id: "task-1",
+            title: "Task One",
+            description: "",
+            completed: false,
+            columnId: "todo",
+            dueDateIso: "",
+            recurrence: "none",
+            recurrenceDays: [],
+            recurrenceMonths: [],
+            recurrenceYears: [],
+            sortIndex: 0,
+          },
+        ],
+        frontendOpId: "frontend-op-task-board",
+      }),
+    });
+  });
+
+  it("posts image-path writes", async () => {
+    await route_set_image_area_image_path({
+      projectConfigId: "project-alpha",
+      sectionId: "image-section",
+      imagePath: "/tmp/updated.png",
+      frontendOpId: "frontend-op-image-path",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setImageAreaImagePath`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "image-section",
+        imagePath: "/tmp/updated.png",
+        frontendOpId: "frontend-op-image-path",
+      }),
+    });
+  });
+
+  it("posts social-url writes", async () => {
+    await route_set_social_url({
+      projectConfigId: "project-alpha",
+      sectionId: "social-section",
+      url: "https://example.com/watch?v=123",
+      frontendOpId: "frontend-op-social-url",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setSocialUrl`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "social-section",
+        url: "https://example.com/watch?v=123",
+        frontendOpId: "frontend-op-social-url",
       }),
     });
   });

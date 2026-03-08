@@ -84,6 +84,7 @@ Current landed wedge:
   - current child-section helper route constants
   - current param value/config, code-object naming/display,
     python-codegen prefix/suffix, and attached-terminal helper route constants
+  - current group-orientation and section-data helper route constants
   - current text-block helper route constants
   - current section param-filter, meta-control-title, and group-overflow route
     constants
@@ -142,6 +143,12 @@ Current landed wedge:
       - `SetParentDefaultChildSectionTypeRequestInput`
       - `SetListRootViewModeRequestInput`
       - `SetGroupOverflowModeRequestInput`
+      - `ToggleGroupOrientationRequestInput`
+      - `SetSpreadsheetFilePathRequestInput`
+      - `SetSpreadsheetSectionSettingsRequestInput`
+      - `SetTaskBoardSectionStateRequestInput`
+      - `SetImageAreaImagePathRequestInput`
+      - `SetSocialURLRequestInput`
     - current param value/config, code-object naming/display,
       python-codegen prefix/suffix, and attached-terminal helper payloads
       - `SetParamEnteredValueRequestInput`

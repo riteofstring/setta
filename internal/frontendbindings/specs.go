@@ -612,6 +612,11 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "SET_LIST_ROOT_VIEW_MODE",
 				},
 				{
+					Name:     "toggleGroupOrientation",
+					Path:     httpapi.RouteToggleGroupOrientation,
+					EnumName: "TOGGLE_GROUP_ORIENTATION",
+				},
+				{
 					Name:     "setGroupOverflowMode",
 					Path:     httpapi.RouteSetGroupOverflowMode,
 					EnumName: "SET_GROUP_OVERFLOW_MODE",
@@ -635,6 +640,31 @@ func CurrentRouteGroups() []RouteGroup {
 					Name:     "setBrowserSavedSearches",
 					Path:     httpapi.RouteSetBrowserSavedSearches,
 					EnumName: "SET_BROWSER_SAVED_SEARCHES",
+				},
+				{
+					Name:     "setSpreadsheetFilePath",
+					Path:     httpapi.RouteSetSpreadsheetFilePath,
+					EnumName: "SET_SPREADSHEET_FILE_PATH",
+				},
+				{
+					Name:     "setSpreadsheetSectionSettings",
+					Path:     httpapi.RouteSetSpreadsheetSectionSettings,
+					EnumName: "SET_SPREADSHEET_SECTION_SETTINGS",
+				},
+				{
+					Name:     "setTaskBoardSectionState",
+					Path:     httpapi.RouteSetTaskBoardSectionState,
+					EnumName: "SET_TASK_BOARD_SECTION_STATE",
+				},
+				{
+					Name:     "setImageAreaImagePath",
+					Path:     httpapi.RouteSetImageAreaImagePath,
+					EnumName: "SET_IMAGE_AREA_IMAGE_PATH",
+				},
+				{
+					Name:     "setSocialURL",
+					Path:     httpapi.RouteSetSocialURL,
+					EnumName: "SET_SOCIAL_URL",
 				},
 				{
 					Name:     "setCodeFileBinding",
@@ -1783,6 +1813,13 @@ func CurrentEndpoints() []EndpointSpec {
 			RequestType:     reflect.TypeOf(SetListRootViewModeRequestInput{}),
 		},
 		{
+			FunctionName:    "route_toggle_group_orientation",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "toggleGroupOrientation",
+			RequestType:     reflect.TypeOf(ToggleGroupOrientationRequestInput{}),
+		},
+		{
 			FunctionName:    "route_set_group_overflow_mode",
 			Method:          "POST",
 			RouteCollection: "GoHTTPRoutes",
@@ -1816,6 +1853,41 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "setBrowserSavedSearches",
 			RequestType:     reflect.TypeOf(SetBrowserSavedSearchesRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_spreadsheet_file_path",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setSpreadsheetFilePath",
+			RequestType:     reflect.TypeOf(SetSpreadsheetFilePathRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_spreadsheet_section_settings",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setSpreadsheetSectionSettings",
+			RequestType:     reflect.TypeOf(SetSpreadsheetSectionSettingsRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_task_board_section_state",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setTaskBoardSectionState",
+			RequestType:     reflect.TypeOf(SetTaskBoardSectionStateRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_image_area_image_path",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setImageAreaImagePath",
+			RequestType:     reflect.TypeOf(SetImageAreaImagePathRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_social_url",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setSocialURL",
+			RequestType:     reflect.TypeOf(SetSocialURLRequestInput{}),
 		},
 		{
 			FunctionName:    "route_set_code_file_binding",

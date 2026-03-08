@@ -3331,6 +3331,226 @@ func TestRegisterProjectRoutesBrowserMetadataMutationsRejectInvalidInputs(t *tes
 	}
 }
 
+func TestRegisterProjectRoutesSectionDataMutationsPersistLatestState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": sectionDataRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	post := func(route string, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		request := httptest.NewRequest(http.MethodPost, "/api"+route, strings.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	for _, requestSpec := range []struct {
+		route string
+		body  string
+	}{
+		{
+			route: RouteToggleGroupOrientation,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"group-section"}`,
+		},
+		{
+			route: RouteSetSpreadsheetFilePath,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"spreadsheet-section","filePath":"  reports/q1.xlsx  ","activeSheet":"Sheet 2"}`,
+		},
+		{
+			route: RouteSetSpreadsheetSectionSettings,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"spreadsheet-section","readOnly":true,"showRowNumbers":false,"density":"comfortable","autoReloadOnExternalChange":true}`,
+		},
+		{
+			route: RouteSetTaskBoardSectionState,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"task-board-section","viewMode":"task_list","columns":[{"id":"todo","name":"Todo","color":"#3b82f6","sortIndex":0},{"id":"todo","name":"Duplicate","color":"#ef4444","sortIndex":1},{"id":"done","name":"Done","color":"#10b981","sortIndex":2}],"tasks":[{"id":"task-1","title":"Task One","description":"","completed":false,"columnId":"todo","dueDateIso":"","recurrence":"none","recurrenceDays":[],"recurrenceMonths":[],"recurrenceYears":[],"sortIndex":0},{"id":"task-2","title":"Task Two","description":"","completed":true,"columnId":"missing","dueDateIso":"","recurrence":"daily","recurrenceDays":[],"recurrenceMonths":[],"recurrenceYears":[],"sortIndex":1}]}`,
+		},
+		{
+			route: RouteSetImageAreaImagePath,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"image-section","imagePath":"/tmp/updated.png"}`,
+		},
+		{
+			route: RouteSetSocialURL,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"social-section","url":"https://example.com/watch?v=123"}`,
+		},
+	} {
+		response := post(requestSpec.route, requestSpec.body)
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+		}
+	}
+
+	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+
+	groupModifier := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["group-section"].SharedModifier)
+	if groupModifier["isHorizontalOrientation"] != true {
+		t.Fatalf("expected group orientation toggle to persist, got %#v", groupModifier["isHorizontalOrientation"])
+	}
+
+	spreadsheetModifier := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["spreadsheet-section"].SharedModifier)
+	if spreadsheetModifier["filePath"] != "reports/q1.xlsx" {
+		t.Fatalf("expected trimmed spreadsheet filePath, got %#v", spreadsheetModifier["filePath"])
+	}
+	if spreadsheetModifier["activeSheet"] != "Sheet 2" {
+		t.Fatalf("expected spreadsheet activeSheet Sheet 2, got %#v", spreadsheetModifier["activeSheet"])
+	}
+	if spreadsheetModifier["readOnly"] != true {
+		t.Fatalf("expected spreadsheet readOnly=true, got %#v", spreadsheetModifier["readOnly"])
+	}
+	if spreadsheetModifier["showRowNumbers"] != false {
+		t.Fatalf("expected spreadsheet showRowNumbers=false, got %#v", spreadsheetModifier["showRowNumbers"])
+	}
+	if spreadsheetModifier["density"] != "comfortable" {
+		t.Fatalf("expected spreadsheet density comfortable, got %#v", spreadsheetModifier["density"])
+	}
+	if spreadsheetModifier["autoReloadOnExternalChange"] != true {
+		t.Fatalf("expected spreadsheet autoReloadOnExternalChange=true, got %#v", spreadsheetModifier["autoReloadOnExternalChange"])
+	}
+
+	taskBoardModifier := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["task-board-section"].SharedModifier)
+	if taskBoardModifier["viewMode"] != "task_list" {
+		t.Fatalf("expected task board viewMode task_list, got %#v", taskBoardModifier["viewMode"])
+	}
+	rawColumns, ok := taskBoardModifier["columns"].([]any)
+	if !ok || len(rawColumns) != 2 {
+		t.Fatalf("expected two normalized task board columns, got %#v", taskBoardModifier["columns"])
+	}
+	firstColumn, ok := rawColumns[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected first task board column object, got %#v", rawColumns[0])
+	}
+	if firstColumn["name"] != "Todo" {
+		t.Fatalf("expected first task board column to preserve original entry, got %#v", firstColumn["name"])
+	}
+	rawTasks, ok := taskBoardModifier["tasks"].([]any)
+	if !ok || len(rawTasks) != 2 {
+		t.Fatalf("expected two task board tasks, got %#v", taskBoardModifier["tasks"])
+	}
+	secondTask, ok := rawTasks[1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected second task board task object, got %#v", rawTasks[1])
+	}
+	if secondTask["columnId"] != nil {
+		t.Fatalf("expected unknown task columnId to normalize to nil, got %#v", secondTask["columnId"])
+	}
+
+	imageModifier := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["image-section"].SharedModifier)
+	if imageModifier["imagePath"] != "/tmp/updated.png" {
+		t.Fatalf("expected imagePath /tmp/updated.png, got %#v", imageModifier["imagePath"])
+	}
+
+	socialModifier := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["social-section"].SharedModifier)
+	if socialModifier["url"] != "https://example.com/watch?v=123" {
+		t.Fatalf("expected social url to persist, got %#v", socialModifier["url"])
+	}
+}
+
+func TestRegisterProjectRoutesSectionDataMutationsRejectInvalidInputs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": sectionDataRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	for _, requestSpec := range []struct {
+		route        string
+		body         string
+		expectedCode int
+		expectedBody string
+	}{
+		{
+			route:        RouteToggleGroupOrientation,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"plain-section"}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"group_section_required"`,
+		},
+		{
+			route:        RouteSetSpreadsheetFilePath,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"plain-section","filePath":"data.csv","activeSheet":null}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"spreadsheet_section_required"`,
+		},
+		{
+			route:        RouteSetSpreadsheetSectionSettings,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"spreadsheet-section","readOnly":false,"showRowNumbers":true,"density":"dense","autoReloadOnExternalChange":false}`,
+			expectedCode: http.StatusBadRequest,
+			expectedBody: `"code":"spreadsheet_grid_density_invalid"`,
+		},
+		{
+			route:        RouteSetTaskBoardSectionState,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"plain-section","viewMode":"kanban","columns":[],"tasks":[]}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"task_board_section_required"`,
+		},
+		{
+			route:        RouteSetTaskBoardSectionState,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"task-board-section","viewMode":"calendar","columns":[],"tasks":[]}`,
+			expectedCode: http.StatusBadRequest,
+			expectedBody: `"code":"task_board_view_mode_invalid"`,
+		},
+		{
+			route:        RouteSetImageAreaImagePath,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"plain-section","imagePath":"/tmp/image.png"}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"image_section_required"`,
+		},
+		{
+			route:        RouteSetSocialURL,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"plain-section","url":"https://example.com"}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"social_section_required"`,
+		},
+	} {
+		request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != requestSpec.expectedCode {
+			t.Fatalf("expected %d for %s, got %d with body %q", requestSpec.expectedCode, requestSpec.route, response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), requestSpec.expectedBody) {
+			t.Fatalf("expected response body to contain %s, got %q", requestSpec.expectedBody, response.Body.String())
+		}
+	}
+}
+
 func TestRegisterProjectRoutesTextBlockMutationsPersistLatestState(t *testing.T) {
 	t.Parallel()
 
@@ -5949,6 +6169,149 @@ func browserSectionRouteTestProject(t *testing.T) projectstate.Project {
 	}.Normalized()
 	if err != nil {
 		t.Fatalf("normalize browser route project: %v", err)
+	}
+	return project
+}
+
+func sectionDataRouteTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"group-section":       "group-variant",
+			"spreadsheet-section": "spreadsheet-variant",
+			"task-board-section":  "task-board-variant",
+			"image-section":       "image-variant",
+			"social-section":      "social-variant",
+			"plain-section":       "plain-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"group-section": {
+				ID:               "group-section",
+				Name:             "Group Section",
+				VariantIDs:       []string{"group-variant"},
+				DefaultVariantID: "group-variant",
+			},
+			"spreadsheet-section": {
+				ID:               "spreadsheet-section",
+				Name:             "Spreadsheet Section",
+				VariantIDs:       []string{"spreadsheet-variant"},
+				DefaultVariantID: "spreadsheet-variant",
+			},
+			"task-board-section": {
+				ID:               "task-board-section",
+				Name:             "Task Board Section",
+				VariantIDs:       []string{"task-board-variant"},
+				DefaultVariantID: "task-board-variant",
+			},
+			"image-section": {
+				ID:               "image-section",
+				Name:             "Image Section",
+				VariantIDs:       []string{"image-variant"},
+				DefaultVariantID: "image-variant",
+			},
+			"social-section": {
+				ID:               "social-section",
+				Name:             "Social Section",
+				VariantIDs:       []string{"social-variant"},
+				DefaultVariantID: "social-variant",
+			},
+			"plain-section": {
+				ID:               "plain-section",
+				Name:             "Plain Section",
+				VariantIDs:       []string{"plain-variant"},
+				DefaultVariantID: "plain-variant",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"group-variant":       {ID: "group-variant", ImplID: "group-impl"},
+			"spreadsheet-variant": {ID: "spreadsheet-variant", ImplID: "spreadsheet-impl"},
+			"task-board-variant":  {ID: "task-board-variant", ImplID: "task-board-impl"},
+			"image-variant":       {ID: "image-variant", ImplID: "image-impl"},
+			"social-variant":      {ID: "social-variant", ImplID: "social-impl"},
+			"plain-variant":       {ID: "plain-variant", ImplID: "plain-impl"},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"group-impl": {
+				ID:   "group-impl",
+				Kind: projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{
+					"id":                      "group-impl",
+					"type":                    "Group",
+					"isHorizontalOrientation": false,
+					"overflowMode":            false,
+				}),
+			},
+			"spreadsheet-impl": {
+				ID:   "spreadsheet-impl",
+				Kind: projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{
+					"id":                         "spreadsheet-impl",
+					"type":                       "Spreadsheet",
+					"filePath":                   "seed.csv",
+					"activeSheet":                nil,
+					"readOnly":                   false,
+					"showRowNumbers":             true,
+					"density":                    "compact",
+					"autoReloadOnExternalChange": false,
+				}),
+			},
+			"task-board-impl": {
+				ID:   "task-board-impl",
+				Kind: projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{
+					"id":       "task-board-impl",
+					"type":     "TaskBoard",
+					"viewMode": "kanban",
+					"columns": []map[string]any{
+						{"id": "seed-column", "name": "Backlog", "color": "#3b82f6", "sortIndex": 0},
+					},
+					"tasks": []map[string]any{
+						{
+							"id":               "seed-task",
+							"title":            "Seed Task",
+							"description":      "",
+							"completed":        false,
+							"columnId":         "seed-column",
+							"dueDateIso":       "",
+							"recurrence":       "none",
+							"recurrenceDays":   []string{},
+							"recurrenceMonths": []string{},
+							"recurrenceYears":  []int{},
+							"sortIndex":        0,
+						},
+					},
+				}),
+			},
+			"image-impl": {
+				ID:   "image-impl",
+				Kind: projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{
+					"id":        "image-impl",
+					"type":      "Image",
+					"imagePath": "/tmp/seed.png",
+				}),
+			},
+			"social-impl": {
+				ID:   "social-impl",
+				Kind: projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{
+					"id":   "social-impl",
+					"type": "Social",
+					"url":  "https://example.com/seed",
+				}),
+			},
+			"plain-impl": {
+				ID:      "plain-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "plain-impl", "type": "TextBlock"}),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize section data route project: %v", err)
 	}
 	return project
 }

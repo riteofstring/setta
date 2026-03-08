@@ -319,6 +319,8 @@ type SetParentDefaultChildSectionTypeRequestInput struct{}
 
 type SetListRootViewModeRequestInput struct{}
 
+type ToggleGroupOrientationRequestInput struct{}
+
 type SetGroupOverflowModeRequestInput struct{}
 
 type SetBrowserColumnWidthsRequestInput struct{}
@@ -328,6 +330,16 @@ type SetBrowserAreaViewModeRequestInput struct{}
 type SetBrowserHideColumnRequestInput struct{}
 
 type SetBrowserSavedSearchesRequestInput struct{}
+
+type SetSpreadsheetFilePathRequestInput struct{}
+
+type SetSpreadsheetSectionSettingsRequestInput struct{}
+
+type SetTaskBoardSectionStateRequestInput struct{}
+
+type SetImageAreaImagePathRequestInput struct{}
+
+type SetSocialURLRequestInput struct{}
 
 type SetTextBlockTextRequestInput struct{}
 
@@ -476,6 +488,14 @@ export type SetListRootViewModeRequestInput = {
 };
 `
 
+const toggleGroupOrientationRequestInputRawTS = `
+export type ToggleGroupOrientationRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+};
+`
+
 const setGroupOverflowModeRequestInputRawTS = `
 export type SetGroupOverflowModeRequestInput = {
   frontendOpId?: string | null;
@@ -519,6 +539,57 @@ export type SetBrowserSavedSearchesRequestInput = {
   projectConfigId: string;
   sectionId: string;
   savedSearches: Array<BrowserSavedSearch>;
+};
+`
+
+const setSpreadsheetFilePathRequestInputRawTS = `
+export type SetSpreadsheetFilePathRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  filePath: string;
+  activeSheet: string | null;
+};
+`
+
+const setSpreadsheetSectionSettingsRequestInputRawTS = `
+export type SetSpreadsheetSectionSettingsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  readOnly: boolean;
+  showRowNumbers: boolean;
+  density: SpreadsheetGridDensity;
+  autoReloadOnExternalChange: boolean;
+};
+`
+
+const setTaskBoardSectionStateRequestInputRawTS = `
+export type SetTaskBoardSectionStateRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  viewMode: TaskBoardViewMode;
+  columns: Array<TaskBoardColumn>;
+  tasks: Array<TaskBoardTask>;
+};
+`
+
+const setImageAreaImagePathRequestInputRawTS = `
+export type SetImageAreaImagePathRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  imagePath: string;
+};
+`
+
+const setSocialURLRequestInputRawTS = `
+export type SetSocialURLRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  url: string;
 };
 `
 

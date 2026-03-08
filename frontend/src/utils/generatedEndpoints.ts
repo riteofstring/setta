@@ -552,6 +552,11 @@ export async function route_set_list_root_view_mode(x: gt.SetListRootViewModeReq
   return await post(GoHTTPRoutes.setListRootViewMode, x);
 
 }
+export async function route_toggle_group_orientation(x: gt.ToggleGroupOrientationRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.toggleGroupOrientation, x);
+
+}
 export async function route_set_group_overflow_mode(x: gt.SetGroupOverflowModeRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.setGroupOverflowMode, x);
@@ -575,6 +580,31 @@ export async function route_set_browser_hide_column(x: gt.SetBrowserHideColumnRe
 export async function route_set_browser_saved_searches(x: gt.SetBrowserSavedSearchesRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.setBrowserSavedSearches, x);
+
+}
+export async function route_set_spreadsheet_file_path(x: gt.SetSpreadsheetFilePathRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setSpreadsheetFilePath, x);
+
+}
+export async function route_set_spreadsheet_section_settings(x: gt.SetSpreadsheetSectionSettingsRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setSpreadsheetSectionSettings, x);
+
+}
+export async function route_set_task_board_section_state(x: gt.SetTaskBoardSectionStateRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setTaskBoardSectionState, x);
+
+}
+export async function route_set_image_area_image_path(x: gt.SetImageAreaImagePathRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setImageAreaImagePath, x);
+
+}
+export async function route_set_social_url(x: gt.SetSocialURLRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setSocialURL, x);
 
 }
 export async function route_set_code_file_binding(x: gt.SetCodeFileBindingRequestInput): Promise<ResponseDataAndStatus<null>> {

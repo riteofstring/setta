@@ -6964,6 +6964,15 @@ export type SetListRootViewModeRequestInput = {
 
 
 
+export type ToggleGroupOrientationRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+
+
+
 export type SetGroupOverflowModeRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
@@ -7010,6 +7019,62 @@ export type SetBrowserSavedSearchesRequestInput = {
   projectConfigId: string;
   sectionId: string;
   savedSearches: Array<BrowserSavedSearch>;
+};
+
+
+
+
+export type SetSpreadsheetFilePathRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  filePath: string;
+  activeSheet: string | null;
+};
+
+
+
+
+export type SetSpreadsheetSectionSettingsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  readOnly: boolean;
+  showRowNumbers: boolean;
+  density: SpreadsheetGridDensity;
+  autoReloadOnExternalChange: boolean;
+};
+
+
+
+
+export type SetTaskBoardSectionStateRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  viewMode: TaskBoardViewMode;
+  columns: Array<TaskBoardColumn>;
+  tasks: Array<TaskBoardTask>;
+};
+
+
+
+
+export type SetImageAreaImagePathRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  imagePath: string;
+};
+
+
+
+
+export type SetSocialURLRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  url: string;
 };
 
 
