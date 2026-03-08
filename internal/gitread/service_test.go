@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -199,6 +200,185 @@ func TestServiceDiffTreatsPathspecsAsLiteralAndRejectsDirectories(t *testing.T) 
 	}
 }
 
+func TestServiceLogPaginatesAndPreservesDecorations(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initGitReadTestRepo(t)
+	appendGitReadCommits(t, repoRoot, 4, "page")
+	runGitReadCommand(t, repoRoot, "branch", "feature,comma")
+	runGitReadCommand(t, repoRoot, "tag", "release,1")
+	headHash := strings.TrimSpace(runGitReadCommand(t, repoRoot, "rev-parse", "HEAD"))
+
+	service, err := NewService(ServiceOptions{WorkspaceRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	firstPage, err := service.Log(context.Background(), LogRequest{
+		Rev:      "HEAD",
+		AllRefs:  true,
+		Offset:   0,
+		PageSize: 3,
+	})
+	if err != nil {
+		t.Fatalf("log first page: %v", err)
+	}
+	if firstPage.HeadBranch == nil || *firstPage.HeadBranch == "" {
+		t.Fatalf("expected head branch, got %#v", firstPage.HeadBranch)
+	}
+	if len(firstPage.Commits) != 3 || !firstPage.HasMore || firstPage.NextOffset == nil || *firstPage.NextOffset != 3 {
+		t.Fatalf("unexpected first page %#v", firstPage)
+	}
+
+	secondPage, err := service.Log(context.Background(), LogRequest{
+		Rev:      "HEAD",
+		AllRefs:  true,
+		Offset:   *firstPage.NextOffset,
+		PageSize: 3,
+	})
+	if err != nil {
+		t.Fatalf("log second page: %v", err)
+	}
+	if secondPage.HeadBranch != nil {
+		t.Fatalf("expected no head branch on later page, got %#v", secondPage.HeadBranch)
+	}
+
+	firstHashes := make(map[string]struct{}, len(firstPage.Commits))
+	for _, commit := range firstPage.Commits {
+		firstHashes[commit.Hash] = struct{}{}
+	}
+	for _, commit := range secondPage.Commits {
+		if _, exists := firstHashes[commit.Hash]; exists {
+			t.Fatalf("duplicate commit %s across pages", commit.Hash)
+		}
+	}
+
+	foundDecoratedHead := false
+	for _, commit := range firstPage.Commits {
+		if commit.Hash != headHash {
+			continue
+		}
+		foundDecoratedHead = true
+		if !containsString(commit.Decorations, "feature,comma") || !containsString(commit.Decorations, "tag: release,1") {
+			t.Fatalf("unexpected decorations %#v", commit.Decorations)
+		}
+	}
+	if !foundDecoratedHead {
+		t.Fatalf("expected head commit %s in first page %#v", headHash, firstPage.Commits)
+	}
+}
+
+func TestServiceLogRejectsInvalidRevision(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initGitReadTestRepo(t)
+	service, err := NewService(ServiceOptions{WorkspaceRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	_, err = service.Log(context.Background(), LogRequest{
+		Rev:      "does-not-exist",
+		AllRefs:  false,
+		Offset:   0,
+		PageSize: 20,
+	})
+
+	var serviceErr *Error
+	if !errors.As(err, &serviceErr) {
+		t.Fatalf("expected gitread error, got %v", err)
+	}
+	if serviceErr.Kind != ErrorInvalidRevision || serviceErr.Message != "Invalid revision: does-not-exist" {
+		t.Fatalf("unexpected revision error %#v", serviceErr)
+	}
+}
+
+func TestServiceCommitDetailsAndFileDiffCoverRenamesAndHistoricalPaths(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initGitReadTestRepo(t)
+	writeFile(t, filepath.Join(repoRoot, "rename-src.txt"), "rename\n")
+	runGitReadCommand(t, repoRoot, "add", "rename-src.txt")
+	runGitReadCommand(t, repoRoot, "commit", "-m", "add rename source")
+	runGitReadCommand(t, repoRoot, "mv", "rename-src.txt", "rename-dst.txt")
+	runGitReadCommand(t, repoRoot, "commit", "-m", "rename source to dest")
+	renameCommit := strings.TrimSpace(runGitReadCommand(t, repoRoot, "rev-parse", "HEAD"))
+
+	swapPath := filepath.Join(repoRoot, "swap-path")
+	writeFile(t, swapPath, "v1\n")
+	runGitReadCommand(t, repoRoot, "add", "swap-path")
+	runGitReadCommand(t, repoRoot, "commit", "-m", "add swap-path file")
+	fileCommit := strings.TrimSpace(runGitReadCommand(t, repoRoot, "rev-parse", "HEAD"))
+	if err := os.Remove(swapPath); err != nil {
+		t.Fatalf("remove swap-path: %v", err)
+	}
+	if err := os.MkdirAll(swapPath, 0o755); err != nil {
+		t.Fatalf("mkdir swap-path directory: %v", err)
+	}
+	writeFile(t, filepath.Join(swapPath, "nested.txt"), "dir now\n")
+	runGitReadCommand(t, repoRoot, "add", "-A")
+	runGitReadCommand(t, repoRoot, "commit", "-m", "replace file with directory")
+
+	service, err := NewService(ServiceOptions{WorkspaceRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	details, err := service.CommitDetails(context.Background(), CommitDetailsRequest{CommitHash: renameCommit})
+	if err != nil {
+		t.Fatalf("commit details: %v", err)
+	}
+	foundRename := false
+	for _, file := range details.Files {
+		if file.Path != "rename-dst.txt" {
+			continue
+		}
+		foundRename = true
+		if file.OldPath == nil || *file.OldPath != "rename-src.txt" || !strings.HasPrefix(file.Status, "R") {
+			t.Fatalf("unexpected rename file %#v", file)
+		}
+	}
+	if !foundRename {
+		t.Fatalf("expected rename file in %#v", details.Files)
+	}
+
+	oldPath := "rename-src.txt"
+	renameDiff, err := service.CommitFileDiff(context.Background(), CommitFileDiffRequest{
+		CommitHash: renameCommit,
+		Path:       "rename-dst.txt",
+		OldPath:    &oldPath,
+	})
+	if err != nil {
+		t.Fatalf("commit file diff rename: %v", err)
+	}
+	if !strings.Contains(renameDiff.Diff, "rename from rename-src.txt") || !strings.Contains(renameDiff.Diff, "rename to rename-dst.txt") {
+		t.Fatalf("unexpected rename diff %q", renameDiff.Diff)
+	}
+
+	historicalDiff, err := service.CommitFileDiff(context.Background(), CommitFileDiffRequest{
+		CommitHash: fileCommit,
+		Path:       "swap-path",
+	})
+	if err != nil {
+		t.Fatalf("historical file diff: %v", err)
+	}
+	if !strings.Contains(historicalDiff.Diff, "diff --git a/swap-path b/swap-path") {
+		t.Fatalf("unexpected historical diff %q", historicalDiff.Diff)
+	}
+
+	_, err = service.CommitFileDiff(context.Background(), CommitFileDiffRequest{
+		CommitHash: fileCommit,
+		Path:       "tracked.txt",
+	})
+	var serviceErr *Error
+	if !errors.As(err, &serviceErr) {
+		t.Fatalf("expected gitread error, got %v", err)
+	}
+	if serviceErr.Kind != ErrorNotFound || serviceErr.Message != "File is not part of this commit diff." {
+		t.Fatalf("unexpected missing diff error %#v", serviceErr)
+	}
+}
+
 func initGitReadTestRepo(t *testing.T) string {
 	t.Helper()
 
@@ -236,5 +416,15 @@ func writeFile(t *testing.T, path string, contents string) {
 
 	if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
 		t.Fatalf("write file %s: %v", path, err)
+	}
+}
+
+func appendGitReadCommits(t *testing.T, cwd string, count int, prefix string) {
+	t.Helper()
+
+	for index := 0; index < count; index++ {
+		writeFile(t, filepath.Join(cwd, "tracked.txt"), prefix+"-"+strconv.Itoa(index)+"\n")
+		runGitReadCommand(t, cwd, "add", "tracked.txt")
+		runGitReadCommand(t, cwd, "commit", "-m", prefix+"-"+strconv.Itoa(index))
 	}
 }

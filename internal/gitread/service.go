@@ -38,13 +38,16 @@ const (
 type ErrorKind string
 
 const (
-	ErrorInvalidRequest ErrorKind = "invalid_request"
-	ErrorNotGitRepo     ErrorKind = "not_git_repo"
-	ErrorPathNotFile    ErrorKind = "path_not_file"
-	ErrorPathForbidden  ErrorKind = "path_forbidden"
-	ErrorPathNotFound   ErrorKind = "path_not_found"
-	ErrorTimedOut       ErrorKind = "timed_out"
-	ErrorCommandFailed  ErrorKind = "command_failed"
+	ErrorInvalidRequest  ErrorKind = "invalid_request"
+	ErrorInvalidRevision ErrorKind = "invalid_revision"
+	ErrorInvalidCommit   ErrorKind = "invalid_commit"
+	ErrorNotFound        ErrorKind = "not_found"
+	ErrorNotGitRepo      ErrorKind = "not_git_repo"
+	ErrorPathNotFile     ErrorKind = "path_not_file"
+	ErrorPathForbidden   ErrorKind = "path_forbidden"
+	ErrorPathNotFound    ErrorKind = "path_not_found"
+	ErrorTimedOut        ErrorKind = "timed_out"
+	ErrorCommandFailed   ErrorKind = "command_failed"
 )
 
 type Error struct {

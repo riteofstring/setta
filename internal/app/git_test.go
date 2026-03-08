@@ -108,6 +108,110 @@ func TestAppServesGitStatusAndDiffRoutes(t *testing.T) {
 	}
 }
 
+func TestAppServesGitLogDetailsAndCommitFileDiffRoutes(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	initAppGitRepo(t, cfg.Paths.WorkspaceRoot)
+	writeAppGitFile(t, filepath.Join(cfg.Paths.WorkspaceRoot, "rename-src.txt"), "rename\n")
+	runAppGitCommand(t, cfg.Paths.WorkspaceRoot, "add", "rename-src.txt")
+	runAppGitCommand(t, cfg.Paths.WorkspaceRoot, "commit", "-m", "add rename source")
+	runAppGitCommand(t, cfg.Paths.WorkspaceRoot, "mv", "rename-src.txt", "rename-dst.txt")
+	runAppGitCommand(t, cfg.Paths.WorkspaceRoot, "commit", "-m", "rename source to dest")
+	headHash := strings.TrimSpace(runAppGitCommand(t, cfg.Paths.WorkspaceRoot, "rev-parse", "HEAD"))
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+
+	logRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteGetGitLog, strings.NewReader(`{"rev":"HEAD","allRefs":false,"offset":0,"pageSize":20}`))
+	if err != nil {
+		t.Fatalf("new log request: %v", err)
+	}
+	logRequest.Header.Set("Content-Type", "application/json")
+	logRequest.AddCookie(authCookie)
+
+	logResponse, err := http.DefaultClient.Do(logRequest)
+	if err != nil {
+		t.Fatalf("git log request: %v", err)
+	}
+	defer logResponse.Body.Close()
+	if logResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(logResponse.Body)
+		t.Fatalf("expected log 200, got %d with body %q", logResponse.StatusCode, string(body))
+	}
+
+	var logPayload gitread.LogResponse
+	if err := json.NewDecoder(logResponse.Body).Decode(&logPayload); err != nil {
+		t.Fatalf("decode log payload: %v", err)
+	}
+	if len(logPayload.Commits) == 0 || logPayload.Commits[0].Hash == "" {
+		t.Fatalf("unexpected log payload %#v", logPayload)
+	}
+
+	detailsRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteGetGitCommitDetails, strings.NewReader(`{"commitHash":"`+headHash+`"}`))
+	if err != nil {
+		t.Fatalf("new details request: %v", err)
+	}
+	detailsRequest.Header.Set("Content-Type", "application/json")
+	detailsRequest.AddCookie(authCookie)
+
+	detailsResponse, err := http.DefaultClient.Do(detailsRequest)
+	if err != nil {
+		t.Fatalf("git details request: %v", err)
+	}
+	defer detailsResponse.Body.Close()
+	if detailsResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(detailsResponse.Body)
+		t.Fatalf("expected details 200, got %d with body %q", detailsResponse.StatusCode, string(body))
+	}
+
+	var detailsPayload gitread.CommitDetailsResponse
+	if err := json.NewDecoder(detailsResponse.Body).Decode(&detailsPayload); err != nil {
+		t.Fatalf("decode details payload: %v", err)
+	}
+	if len(detailsPayload.Files) == 0 {
+		t.Fatalf("expected commit files, got %#v", detailsPayload)
+	}
+
+	commitDiffRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteGetGitCommitFileDiff, strings.NewReader(`{"commitHash":"`+headHash+`","path":"rename-dst.txt","oldPath":"rename-src.txt"}`))
+	if err != nil {
+		t.Fatalf("new commit diff request: %v", err)
+	}
+	commitDiffRequest.Header.Set("Content-Type", "application/json")
+	commitDiffRequest.AddCookie(authCookie)
+
+	commitDiffResponse, err := http.DefaultClient.Do(commitDiffRequest)
+	if err != nil {
+		t.Fatalf("git commit diff request: %v", err)
+	}
+	defer commitDiffResponse.Body.Close()
+	if commitDiffResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(commitDiffResponse.Body)
+		t.Fatalf("expected commit diff 200, got %d with body %q", commitDiffResponse.StatusCode, string(body))
+	}
+
+	var commitDiffPayload gitread.CommitFileDiffResponse
+	if err := json.NewDecoder(commitDiffResponse.Body).Decode(&commitDiffPayload); err != nil {
+		t.Fatalf("decode commit diff payload: %v", err)
+	}
+	if !strings.Contains(commitDiffPayload.Diff, "rename from rename-src.txt") || !strings.Contains(commitDiffPayload.Diff, "rename to rename-dst.txt") {
+		t.Fatalf("unexpected commit diff payload %q", commitDiffPayload.Diff)
+	}
+}
+
 func initAppGitRepo(t *testing.T, workspaceRoot string) {
 	t.Helper()
 

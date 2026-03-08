@@ -172,6 +172,105 @@ func TestRegisterGitRoutesReturnsNotRepoForDiffAndBlocksLauncherMode(t *testing.
 	}
 }
 
+func TestRegisterGitRoutesReturnsLogDetailsAndCommitFileDiff(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initGitRouteTestRepo(t)
+	writeGitRouteFile(t, filepath.Join(repoRoot, "rename-src.txt"), "rename\n")
+	runGitRouteCommand(t, repoRoot, "add", "rename-src.txt")
+	runGitRouteCommand(t, repoRoot, "commit", "-m", "add rename source")
+	runGitRouteCommand(t, repoRoot, "mv", "rename-src.txt", "rename-dst.txt")
+	runGitRouteCommand(t, repoRoot, "commit", "-m", "rename source to dest")
+	headHash := strings.TrimSpace(runGitRouteCommand(t, repoRoot, "rev-parse", "HEAD"))
+
+	handler := newGitRouteTestHandler(t, config.ModeIDE, repoRoot)
+
+	logRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetGitLog, strings.NewReader(`{"rev":"HEAD","allRefs":false,"offset":0,"pageSize":20}`))
+	logRequest.Header.Set("Content-Type", "application/json")
+	logResponse := httptest.NewRecorder()
+	handler.ServeHTTP(logResponse, logRequest)
+	if logResponse.Code != http.StatusOK {
+		t.Fatalf("expected log 200, got %d with body %q", logResponse.Code, logResponse.Body.String())
+	}
+
+	var logPayload gitread.LogResponse
+	if err := json.Unmarshal(logResponse.Body.Bytes(), &logPayload); err != nil {
+		t.Fatalf("decode log payload: %v", err)
+	}
+	if len(logPayload.Commits) == 0 || logPayload.Commits[0].Hash == "" {
+		t.Fatalf("unexpected log payload %#v", logPayload)
+	}
+
+	detailsRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetGitCommitDetails, strings.NewReader(`{"commitHash":"`+headHash+`"}`))
+	detailsRequest.Header.Set("Content-Type", "application/json")
+	detailsResponse := httptest.NewRecorder()
+	handler.ServeHTTP(detailsResponse, detailsRequest)
+	if detailsResponse.Code != http.StatusOK {
+		t.Fatalf("expected details 200, got %d with body %q", detailsResponse.Code, detailsResponse.Body.String())
+	}
+
+	var detailsPayload gitread.CommitDetailsResponse
+	if err := json.Unmarshal(detailsResponse.Body.Bytes(), &detailsPayload); err != nil {
+		t.Fatalf("decode details payload: %v", err)
+	}
+	foundRename := false
+	for _, file := range detailsPayload.Files {
+		if file.Path == "rename-dst.txt" {
+			foundRename = true
+			break
+		}
+	}
+	if !foundRename {
+		t.Fatalf("expected rename file in %#v", detailsPayload.Files)
+	}
+
+	commitDiffRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetGitCommitFileDiff, strings.NewReader(`{"commitHash":"`+headHash+`","path":"rename-dst.txt","oldPath":"rename-src.txt"}`))
+	commitDiffRequest.Header.Set("Content-Type", "application/json")
+	commitDiffResponse := httptest.NewRecorder()
+	handler.ServeHTTP(commitDiffResponse, commitDiffRequest)
+	if commitDiffResponse.Code != http.StatusOK {
+		t.Fatalf("expected commit diff 200, got %d with body %q", commitDiffResponse.Code, commitDiffResponse.Body.String())
+	}
+
+	var commitDiffPayload gitread.CommitFileDiffResponse
+	if err := json.Unmarshal(commitDiffResponse.Body.Bytes(), &commitDiffPayload); err != nil {
+		t.Fatalf("decode commit diff payload: %v", err)
+	}
+	if !strings.Contains(commitDiffPayload.Diff, "rename from rename-src.txt") || !strings.Contains(commitDiffPayload.Diff, "rename to rename-dst.txt") {
+		t.Fatalf("unexpected commit diff payload %q", commitDiffPayload.Diff)
+	}
+}
+
+func TestRegisterGitRoutesMapsInvalidRevisionAndMissingCommitDiff(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initGitRouteTestRepo(t)
+	headHash := strings.TrimSpace(runGitRouteCommand(t, repoRoot, "rev-parse", "HEAD"))
+	handler := newGitRouteTestHandler(t, config.ModeIDE, repoRoot)
+
+	logRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetGitLog, strings.NewReader(`{"rev":"does-not-exist","allRefs":false,"offset":0,"pageSize":20}`))
+	logRequest.Header.Set("Content-Type", "application/json")
+	logResponse := httptest.NewRecorder()
+	handler.ServeHTTP(logResponse, logRequest)
+	if logResponse.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid revision 400, got %d with body %q", logResponse.Code, logResponse.Body.String())
+	}
+	if !strings.Contains(logResponse.Body.String(), "Invalid revision: does-not-exist") {
+		t.Fatalf("unexpected invalid revision response %q", logResponse.Body.String())
+	}
+
+	commitDiffRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetGitCommitFileDiff, strings.NewReader(`{"commitHash":"`+headHash+`","path":"missing.txt"}`))
+	commitDiffRequest.Header.Set("Content-Type", "application/json")
+	commitDiffResponse := httptest.NewRecorder()
+	handler.ServeHTTP(commitDiffResponse, commitDiffRequest)
+	if commitDiffResponse.Code != http.StatusNotFound {
+		t.Fatalf("expected missing commit diff 404, got %d with body %q", commitDiffResponse.Code, commitDiffResponse.Body.String())
+	}
+	if !strings.Contains(commitDiffResponse.Body.String(), "File is not part of this commit diff.") {
+		t.Fatalf("unexpected missing commit diff response %q", commitDiffResponse.Body.String())
+	}
+}
+
 func newGitRouteTestHandler(t *testing.T, mode config.Mode, workspaceRoot string) http.Handler {
 	t.Helper()
 
