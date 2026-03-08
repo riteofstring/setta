@@ -8,6 +8,7 @@ import {
   getEmptySpacePosition,
 } from "state/actions/sections/createSections";
 import { useLocalStorage, useSettings } from "state/definitions";
+import { APP_FLOATING_BOX_Z_INDEX_CLASS_NAME } from "utils/constants";
 import { SectionTypeEnum, TextBlockFormatEnum } from "utils/generatedTypes";
 import { positiveMod, shortcutPrettified } from "utils/utils";
 import { create } from "zustand";
@@ -116,7 +117,7 @@ export function FloatingBox() {
   return (
     <div
       id={TOOLTIP_DIV_ID}
-      className="absolute left-0 top-0 z-20"
+      className={`absolute left-0 top-0 ${APP_FLOATING_BOX_Z_INDEX_CLASS_NAME}`}
       ref={boxRef}
       style={{
         transform: `translate(${positionRef.current.x}px, ${positionRef.current.y}px)`,

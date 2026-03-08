@@ -1,0 +1,65 @@
+from dataclasses import dataclass
+
+from mcp.server.fastmcp.server import Context
+
+from setta.runtime.context import RuntimeContext
+
+
+@dataclass(frozen=True)
+class MCPRunStartAuthorization:
+    share_session_id: str | None
+    reserved_single_run: bool
+
+
+async def authorize_mcp_run_start(ctx: Context) -> MCPRunStartAuthorization:
+    share_session_id = ctx.fastmcp._resolve_share_session_id(ctx)
+    runtime_context = RuntimeContext(
+        ctx.fastmcp.state,
+        share_session_id=share_session_id,
+    )
+    await runtime_context.enforce_run_allowed()
+    reserved_single_run = await runtime_context.enforce_multiple_runs_allowed()
+    return MCPRunStartAuthorization(
+        share_session_id=share_session_id,
+        reserved_single_run=reserved_single_run,
+    )
+
+
+async def enforce_mcp_llm_allowed(
+    ctx: Context,
+    *,
+    share_session_id: str | None,
+) -> None:
+    runtime_context = RuntimeContext(
+        ctx.fastmcp.state,
+        share_session_id=share_session_id,
+    )
+    await runtime_context.enforce_llm_allowed()
+
+
+def commit_mcp_run_start(
+    ctx: Context,
+    authorization: MCPRunStartAuthorization,
+) -> None:
+    if (
+        ctx.fastmcp.state.deployment_mode
+        and authorization.share_session_id is not None
+        and not authorization.reserved_single_run
+    ):
+        ctx.fastmcp.state.share_runtime_state.increment_session_run_count(
+            authorization.share_session_id
+        )
+
+
+async def rollback_mcp_run_start(
+    ctx: Context,
+    authorization: MCPRunStartAuthorization,
+) -> None:
+    if (
+        authorization.reserved_single_run
+        and ctx.fastmcp.state.deployment_mode
+        and authorization.share_session_id is not None
+    ):
+        await ctx.fastmcp.state.share_runtime_state.rollback_reserved_session_run_count(
+            authorization.share_session_id
+        )
