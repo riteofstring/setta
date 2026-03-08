@@ -14,6 +14,7 @@ import (
 	"setta/internal/agenticsummarycache"
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
+	"setta/internal/appgenskills"
 	"setta/internal/auth"
 	"setta/internal/backendlogs"
 	binarypayload "setta/internal/binary"
@@ -148,6 +149,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		engineStore           *agentruns.EngineStore
 		agentRunStore         *agentruns.RunStore
 		agentRunRuntime       *agentruns.Runtime
+		appGenSkillService    *appgenskills.Service
 		runChainRuntime       *runchains.Runtime
 		externalConfigStore   *externalagentconfigs.Store
 		externalConfigService *externalagentconfigs.Service
@@ -597,6 +599,16 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	if err != nil {
 		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 		return nil, err
+	}
+	if modePolicy.IsIDE() {
+		appGenSkillService, err = appgenskills.NewService(appgenskills.ServiceOptions{
+			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
+			LookupEnv:     os.LookupEnv,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
 	}
 	var agentRunService *agentruns.Service
 	var pluginMutationService *plugins.Service
@@ -1184,6 +1196,12 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			if err := httpapi.RegisterPromptTemplateRoutes(r, httpapi.PromptTemplateRouteDependencies{
 				ModePolicy: modePolicy,
 				Templates:  promptTemplateStore,
+			}); err != nil {
+				panic(err)
+			}
+			if err := httpapi.RegisterAppGenSkillRoutes(r, httpapi.AppGenSkillRouteDependencies{
+				ModePolicy: modePolicy,
+				Service:    appGenSkillService,
 			}); err != nil {
 				panic(err)
 			}

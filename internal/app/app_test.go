@@ -138,6 +138,143 @@ func TestAppServesStatusMetaRoutes(t *testing.T) {
 	}
 }
 
+func TestAppServesAppGenSkillRoutes(t *testing.T) {
+	// The real app should serve the skills browser routes from the Go-owned filesystem owner.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	fakeHome := filepath.Join(filepath.Dir(cfg.Paths.WorkspaceRoot), "home")
+	if err := os.MkdirAll(fakeHome, 0o755); err != nil {
+		t.Fatalf("mkdir fake home: %v", err)
+	}
+	t.Setenv("HOME", fakeHome)
+	t.Setenv("AGENTS_HOME", "")
+	t.Setenv("CODEX_HOME", "")
+	t.Setenv("XDG_CONFIG_HOME", "")
+
+	skillDocPath := filepath.Join(cfg.Paths.WorkspaceRoot, ".agents", "skills", "ui-layout", "SKILL.md")
+	if err := os.MkdirAll(filepath.Dir(skillDocPath), 0o755); err != nil {
+		t.Fatalf("mkdir skill dir: %v", err)
+	}
+	if err := os.WriteFile(skillDocPath, []byte("# UI Layout\n\nCreate dense dashboard layouts.\n"), 0o644); err != nil {
+		t.Fatalf("write skill doc: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+
+	listRequest, err := http.NewRequest(http.MethodGet, server.URL+"/api"+httpapi.RouteGetAppGenSkills, nil)
+	if err != nil {
+		t.Fatalf("new list request: %v", err)
+	}
+	listRequest.AddCookie(authCookie)
+	listResponse, err := http.DefaultClient.Do(listRequest)
+	if err != nil {
+		t.Fatalf("list app gen skills: %v", err)
+	}
+	defer listResponse.Body.Close()
+	if listResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(listResponse.Body)
+		t.Fatalf("expected list 200, got %d with body %q", listResponse.StatusCode, string(body))
+	}
+
+	var listPayload struct {
+		Skills []struct {
+			SkillID string `json:"skillId"`
+		} `json:"skills"`
+		CustomSkillCreateRootPath *string `json:"customSkillCreateRootPath"`
+	}
+	if err := json.NewDecoder(listResponse.Body).Decode(&listPayload); err != nil {
+		t.Fatalf("decode list payload: %v", err)
+	}
+	if len(listPayload.Skills) != 1 || listPayload.Skills[0].SkillID != "workspace_agents_skills::ui-layout" {
+		t.Fatalf("unexpected list payload %#v", listPayload)
+	}
+	expectedCreateRoot := filepath.Join(fakeHome, ".agents", "skills")
+	if listPayload.CustomSkillCreateRootPath == nil || *listPayload.CustomSkillCreateRootPath != expectedCreateRoot {
+		t.Fatalf("unexpected create root %#v", listPayload.CustomSkillCreateRootPath)
+	}
+
+	contentRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteGetAppGenSkillContent, strings.NewReader(`{"skillId":"workspace_agents_skills::ui-layout"}`))
+	if err != nil {
+		t.Fatalf("new content request: %v", err)
+	}
+	contentRequest.Header.Set("Content-Type", "application/json")
+	contentRequest.AddCookie(authCookie)
+	contentResponse, err := http.DefaultClient.Do(contentRequest)
+	if err != nil {
+		t.Fatalf("read app gen skill content: %v", err)
+	}
+	defer contentResponse.Body.Close()
+	if contentResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(contentResponse.Body)
+		t.Fatalf("expected content 200, got %d with body %q", contentResponse.StatusCode, string(body))
+	}
+
+	var contentPayload struct {
+		Content string `json:"content"`
+	}
+	if err := json.NewDecoder(contentResponse.Body).Decode(&contentPayload); err != nil {
+		t.Fatalf("decode content payload: %v", err)
+	}
+	if !strings.Contains(contentPayload.Content, "Create dense dashboard layouts.") {
+		t.Fatalf("unexpected content payload %#v", contentPayload)
+	}
+
+	upsertRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteUpsertAppGenCustomSkill,
+		strings.NewReader(`{"skillId":null,"relativePath":"route-created","content":"# route-created\n\nBody.\n"}`),
+	)
+	if err != nil {
+		t.Fatalf("new upsert request: %v", err)
+	}
+	upsertRequest.Header.Set("Content-Type", "application/json")
+	upsertRequest.AddCookie(authCookie)
+	upsertResponse, err := http.DefaultClient.Do(upsertRequest)
+	if err != nil {
+		t.Fatalf("upsert app gen skill: %v", err)
+	}
+	defer upsertResponse.Body.Close()
+	if upsertResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(upsertResponse.Body)
+		t.Fatalf("expected upsert 200, got %d with body %q", upsertResponse.StatusCode, string(body))
+	}
+
+	var upsertPayload struct {
+		SkillID      string `json:"skillId"`
+		SkillDocPath string `json:"skillDocPath"`
+		Created      bool   `json:"created"`
+	}
+	if err := json.NewDecoder(upsertResponse.Body).Decode(&upsertPayload); err != nil {
+		t.Fatalf("decode upsert payload: %v", err)
+	}
+	expectedSkillDocPath := filepath.Join(fakeHome, ".agents", "skills", "route-created", "SKILL.md")
+	if upsertPayload.SkillID != "user_agents_skills::route-created" || !upsertPayload.Created || upsertPayload.SkillDocPath != expectedSkillDocPath {
+		t.Fatalf("unexpected upsert payload %#v", upsertPayload)
+	}
+	content, err := os.ReadFile(expectedSkillDocPath)
+	if err != nil {
+		t.Fatalf("read created skill doc: %v", err)
+	}
+	if string(content) != "# route-created\n\nBody.\n" {
+		t.Fatalf("unexpected created skill doc content %q", string(content))
+	}
+}
+
 func TestAppServesPluginRuntimeAndFrontendAssets(t *testing.T) {
 	// The real app should serve plugin runtime hydration plus declared frontend assets from Go.
 	cfg := testConfig(t)

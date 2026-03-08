@@ -656,12 +656,15 @@ Use the docs in this order:
   - focused completed-slice doc for Go-owned direct frontend LLM config and
     managed API-key transport, live runtime mutation, and websocket snapshot
     updates over the existing `internal/llmconfig` runtime owner
-180. `spike-mcp.md`
+180. `phase-17-app-gen-skills-and-custom-skill-transport.md`
+  - focused completed-slice doc for Go-owned app-gen skill browser and custom-
+    skill editor transport over a bounded multi-root filesystem owner
+181. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-181. `spike-pty.md`
+182. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-182. `spike-lsp.md`
+183. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

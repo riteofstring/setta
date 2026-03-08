@@ -27,11 +27,12 @@ Prefer the Go stdlib or well established Go libraries for this rewrite.
 
 ## Current Status
 
-As of 2026-03-09, the phase docs through Phase 16 and the recorded spike
+As of 2026-03-09, the phase docs through Phase 17 and the recorded spike
 outcomes describe a repo state where the deployment/launcher runtime slices,
 the shipped CLI migration slices, the MCP/tooling foundations, the bounded
-plugin runtime surface, and the direct frontend LLM settings transport are
-complete for their bounded scopes.
+plugin runtime surface, the direct frontend LLM settings transport, and the
+direct app-gen skills/custom-skill transport are complete for their bounded
+scopes.
 
 That does not mean the full backend runtime is fully Go-owned. User-facing
 AI/chat routing is still partially Python-owned, but the rewrite no longer
@@ -746,9 +747,24 @@ The bounded post-Phase-15 follow-on tracked in
   - `LLMApiKeysUpdated`
 - broad external file-watch parity for `.env` and `llm_config.json` remains
   explicitly deferred until a concrete caller requires it
-- after this slice, the remaining direct frontend Python-owned AI/app-
-  generation surface is no longer LLM settings transport; it should be reranked
-  from real callers such as app-gen skills or a later explicit watcher slice
+
+The bounded post-Phase-16 follow-on tracked in
+`phase-17-app-gen-skills-and-custom-skill-transport.md` is now landed:
+
+- Go now owns:
+  - `GET /getAppGenSkills`
+  - `POST /getAppGenSkillContent`
+  - `POST /upsertAppGenCustomSkill`
+- `internal/appgenskills` now owns:
+  - discoverable skill-root enumeration over workspace, user, admin, and env
+    roots
+  - skill list/editability metadata and streamed description extraction
+  - bounded `SKILL.md` preview reads with truncation metadata
+  - custom-skill create/update semantics over the prioritized editable roots
+- the live IDE app now serves that route surface directly from Go through the
+  real session-gated app stack
+- broader app-generation runtime work and watcher parity remain explicitly
+  deferred until a concrete caller requires them
 
 The bounded plugin dependency cleanup tracked in
 `phase-11-plugin-version-range-owner-and-dependency-cleanup.md` is now also
@@ -1425,13 +1441,14 @@ Do not weaken this rule during the rewrite.
    deferred unless a later product decision reopens the Phase 14 managed
    `start/stopAgentRun` slice.
 6. Rerank the remaining Python-owned direct frontend AI/app-generation surface
-   from real callers after Phase 16 instead of assuming another transport
+   from real callers after Phase 17 instead of assuming another transport
    cleanup cluster still exists.
-   - the next likely direct caller-backed candidate is app-gen skills / custom
-     skill transport
+   - app-gen skills / custom-skill transport is now landed
    - external `.env` or `llm_config.json` watch parity should only reopen if a
      concrete runtime caller proves that polling or direct mutation responses
      are insufficient
+   - if no direct caller clearly dominates, do bounded inventory work before
+     selecting another app-generation runtime slice
 
 ## Planning Conclusion
 

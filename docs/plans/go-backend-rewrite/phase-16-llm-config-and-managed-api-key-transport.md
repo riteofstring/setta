@@ -226,6 +226,8 @@ This slice delivered:
   `LLMApiKeysUpdated`.
 - 2026-03-09: kept external `.env` / `llm_config.json` file-watch parity
   explicitly deferred instead of silently broadening the slice.
+- 2026-03-09: the next caller-backed follow-on identified here later landed as
+  `phase-17-app-gen-skills-and-custom-skill-transport.md`.
 
 ## Open Questions
 
@@ -238,9 +240,7 @@ This slice delivered:
 
 ## Next Recommended Step
 
-- rerank the remaining Python-owned AI/app-generation routes after this landed
-  LLM settings slice instead of assuming another transport cleanup cluster
-  exists automatically
-- the next likely caller-backed candidate is app-gen skills / custom skill
-  transport, unless a concrete runtime caller reopens external `.env` or
-  `llm_config.json` watch parity first
+- rerank the remaining Python-owned AI/app-generation routes after the landed
+  Phase 17 follow-on instead of assuming watcher parity is next automatically
+- external `.env` or `llm_config.json` watch parity should still only reopen
+  if a concrete runtime caller proves the need
