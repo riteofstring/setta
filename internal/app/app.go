@@ -18,6 +18,7 @@ import (
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/appgenskills"
+	"setta/internal/artifacts"
 	"setta/internal/auth"
 	"setta/internal/backendlogs"
 	binarypayload "setta/internal/binary"
@@ -166,6 +167,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		chatSectionChatIDs    *chatsections.Service
 		gitReadService        *gitread.Service
 		fileBrowserService    *filebrowser.Service
+		artifactService       *artifacts.Service
 		projectShellService   *projectshell.Service
 		notificationStore     *notifications.Store
 		notificationService   *notifications.Service
@@ -614,6 +616,16 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			GlobalSettaFilesBase: cfg.User.GlobalSettaFilesBase,
 			BinaryStore:          binaryStore,
 			Sessions:             authService,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+		artifactService, err = artifacts.NewService(artifacts.ServiceOptions{
+			WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
+			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+			ArtifactsRoot:  artifactsRoot,
+			BinaryStore:    binaryStore,
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
@@ -1336,6 +1348,12 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			if err := httpapi.RegisterFileBrowserRoutes(r, httpapi.FileBrowserRouteDependencies{
 				ModePolicy: modePolicy,
 				Browser:    fileBrowserService,
+			}); err != nil {
+				panic(err)
+			}
+			if err := httpapi.RegisterArtifactRoutes(r, httpapi.ArtifactRouteDependencies{
+				ModePolicy: modePolicy,
+				Artifacts:  artifactService,
 			}); err != nil {
 				panic(err)
 			}
