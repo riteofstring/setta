@@ -1072,8 +1072,13 @@ func CurrentRouteGroups() []RouteGroup {
 }
 
 func CurrentAdditionalDeclarations() []TypeDeclaration {
-	declarations := make([]TypeDeclaration, 0, len(projectStateSupportDeclarations()))
+	declarations := make(
+		[]TypeDeclaration,
+		0,
+		len(projectStateSupportDeclarations())+len(websocketSupportDeclarations()),
+	)
 	declarations = append(declarations, projectStateSupportDeclarations()...)
+	declarations = append(declarations, websocketSupportDeclarations()...)
 	return declarations
 }
 
@@ -2811,6 +2816,5 @@ func CurrentAdditionalTypeRoots() []reflect.Type {
 		reflect.TypeOf(WebsocketMsgUISettingRevealResult{}),
 		reflect.TypeOf(WebsocketMsg{}),
 		reflect.TypeOf(FrontendWebsocketMsgUnion{}),
-		reflect.TypeOf(WebsocketFrontendSupport{}),
 	}
 }

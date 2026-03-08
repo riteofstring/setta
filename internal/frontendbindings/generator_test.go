@@ -81,6 +81,19 @@ func TestBuildDoesNotEmitProjectStateFrontendSupportMarker(t *testing.T) {
 	}
 }
 
+func TestBuildDoesNotEmitWebsocketFrontendSupportMarker(t *testing.T) {
+	t.Helper()
+
+	bindings, err := Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+
+	if strings.Contains(bindings.TypesTS, "WebsocketFrontendSupport") {
+		t.Fatalf("types output still emits legacy websocket support marker:\n%s", bindings.TypesTS)
+	}
+}
+
 func assertGoldenFile(t *testing.T, name string, actual string) {
 	t.Helper()
 

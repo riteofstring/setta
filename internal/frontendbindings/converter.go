@@ -4743,11 +4743,6 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "messageType", TypeExpr: "WebsocketMsgTypeForFrontend"},
 				TypeProperty{Name: "content", TypeExpr: "any"},
 			),
-			reflect.TypeOf(WebsocketFrontendSupport{}): {
-				Name: "WebsocketFrontendSupport",
-				Kind: "raw",
-				Raw:  websocketFrontendSupportRawTS,
-			},
 		},
 	}
 }

@@ -1,7 +1,5 @@
 package frontendbindings
 
-type WebsocketFrontendSupport struct{}
-
 type WebsocketConnectionType string
 
 const (
@@ -136,7 +134,7 @@ type WebsocketMsg struct{}
 
 type FrontendWebsocketMsgUnion struct{}
 
-const websocketFrontendSupportRawTS = `
+const websocketFrontendSupportSchemaTS = `
 
 type SafeParseSuccess<T> = {
   success: true;
@@ -403,3 +401,9 @@ export const DependencyEventSchema = {
   },
 };
 `
+
+func websocketSupportDeclarations() []TypeDeclaration {
+	return []TypeDeclaration{
+		rawDeclaration("WebsocketSupportSchemas", websocketFrontendSupportSchemaTS),
+	}
+}
