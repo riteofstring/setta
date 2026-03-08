@@ -66,10 +66,10 @@ type pluginsRescanJSON struct {
 
 func runPlugins(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string) error {
 	if len(args) == 0 {
-		return &ExitError{
-			Code: 2,
-			Err:  fmt.Errorf("missing plugins subcommand (supported: init, validate, list, install, update, pin, rescan, restart, restart-required, link, enable, disable, uninstall, rollback, lock)"),
-		}
+		return writePluginsUsage(stdout)
+	}
+	if args[0] == "-h" || args[0] == "--help" {
+		return writePluginsUsage(stdout)
 	}
 
 	switch args[0] {
@@ -104,19 +104,20 @@ func runPlugins(args []string, global globalFlags, stdout io.Writer, stderr io.W
 	case "lock":
 		return runPluginsLock(args[1:], global, stdout, stderr, envLookup, cwd)
 	default:
-		return &ExitError{
-			Code: 2,
-			Err:  fmt.Errorf("unknown plugins subcommand %q", args[0]),
+		err := fmt.Errorf("unknown plugins subcommand %q", args[0])
+		if writeErr := writeUsageError(stderr, err.Error(), writePluginsUsage); writeErr != nil {
+			return writeErr
 		}
+		return &ExitError{Code: 2, Err: err, Silent: true}
 	}
 }
 
 func runPluginsLock(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string) error {
 	if len(args) == 0 {
-		return &ExitError{
-			Code: 2,
-			Err:  fmt.Errorf("missing plugins lock subcommand (supported: write, apply)"),
-		}
+		return writePluginsLockUsage(stdout)
+	}
+	if args[0] == "-h" || args[0] == "--help" {
+		return writePluginsLockUsage(stdout)
 	}
 
 	switch args[0] {
@@ -125,10 +126,11 @@ func runPluginsLock(args []string, global globalFlags, stdout io.Writer, stderr 
 	case "apply":
 		return runPluginsLockApply(args[1:], global, stdout, stderr, envLookup, cwd)
 	default:
-		return &ExitError{
-			Code: 2,
-			Err:  fmt.Errorf("unknown plugins lock subcommand %q", args[0]),
+		err := fmt.Errorf("unknown plugins lock subcommand %q", args[0])
+		if writeErr := writeUsageError(stderr, err.Error(), writePluginsLockUsage); writeErr != nil {
+			return writeErr
 		}
+		return &ExitError{Code: 2, Err: err, Silent: true}
 	}
 }
 

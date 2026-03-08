@@ -31,6 +31,27 @@ func TestRunVersionPrintsVersion(t *testing.T) {
 	}
 }
 
+func TestRunRootHelpPrintsUsage(t *testing.T) {
+	t.Parallel()
+
+	stdout, stderr, err := runSettaCommand(t, "--help")
+	if err != nil {
+		t.Fatalf("run setta --help: %v", err)
+	}
+	if stderr != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if !strings.Contains(stdout, "Usage:") {
+		t.Fatalf("expected usage header, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "setta <command> [options]") {
+		t.Fatalf("expected root usage synopsis, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "plugins       Manage plugin authoring and install state.") {
+		t.Fatalf("expected plugins command summary, got %q", stdout)
+	}
+}
+
 func TestRunDelegatesToolsToSettacli(t *testing.T) {
 	t.Parallel()
 
@@ -65,12 +86,42 @@ func TestRunDelegatesToolsToSettacli(t *testing.T) {
 func TestRunRejectsUnknownCommand(t *testing.T) {
 	t.Parallel()
 
-	_, _, err := runSettaCommand(t, "unknown-command")
+	stdout, stderr, err := runSettaCommand(t, "unknown-command")
 	if err == nil {
 		t.Fatal("expected error for unknown command")
 	}
-	if got := DisplayError(err); !strings.Contains(got, `unknown command "unknown-command"`) {
-		t.Fatalf("unexpected error message %q", got)
+	if ExitCode(err) != 2 {
+		t.Fatalf("expected exit code 2, got %d", ExitCode(err))
+	}
+	if stdout != "" {
+		t.Fatalf("expected empty stdout, got %q", stdout)
+	}
+	if strings.Count(stderr, `unknown command "unknown-command"`) != 1 {
+		t.Fatalf("expected one unknown-command message, got %q", stderr)
+	}
+	if !strings.Contains(stderr, "Usage:") {
+		t.Fatalf("expected usage in stderr, got %q", stderr)
+	}
+}
+
+func TestRunRejectsUnknownGlobalFlagOnce(t *testing.T) {
+	t.Parallel()
+
+	stdout, stderr, err := runSettaCommand(t, "--unknown-flag")
+	if err == nil {
+		t.Fatal("expected unknown flag error")
+	}
+	if ExitCode(err) != 2 {
+		t.Fatalf("expected exit code 2, got %d", ExitCode(err))
+	}
+	if stdout != "" {
+		t.Fatalf("expected empty stdout, got %q", stdout)
+	}
+	if strings.Count(stderr, "flag provided but not defined: -unknown-flag") != 1 {
+		t.Fatalf("expected one unknown-flag message, got %q", stderr)
+	}
+	if !strings.Contains(stderr, "Usage:") {
+		t.Fatalf("expected usage in stderr, got %q", stderr)
 	}
 }
 

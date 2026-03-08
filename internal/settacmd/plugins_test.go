@@ -56,6 +56,38 @@ func TestRunPluginsListJSONIncludesStatusPayload(t *testing.T) {
 	}
 }
 
+// Bare plugins navigation should now render Go-owned usage instead of failing through Python fallback.
+func TestRunPluginsHelpNavigationPrintsUsage(t *testing.T) {
+	t.Parallel()
+
+	cwd := t.TempDir()
+
+	stdout, stderr, err := runPluginsSettaCommand(t, cwd, "plugins")
+	if err != nil {
+		t.Fatalf("run bare plugins help navigation: %v", err)
+	}
+	if stderr != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if !strings.Contains(stdout, "Usage:") {
+		t.Fatalf("expected usage header, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "setta plugins <subcommand> [options]") {
+		t.Fatalf("expected plugins synopsis, got %q", stdout)
+	}
+
+	helpStdout, helpStderr, err := runPluginsSettaCommand(t, cwd, "plugins", "--help")
+	if err != nil {
+		t.Fatalf("run plugins --help: %v", err)
+	}
+	if helpStderr != "" {
+		t.Fatalf("expected empty stderr, got %q", helpStderr)
+	}
+	if !strings.Contains(helpStdout, "Subcommands:") {
+		t.Fatalf("expected subcommands section, got %q", helpStdout)
+	}
+}
+
 // Plugins list text should include pending-restart markers, shadowed suffixes, and invalid-manifest details.
 func TestRunPluginsListTextIncludesRestartShadowedAndErrors(t *testing.T) {
 	t.Parallel()
@@ -542,17 +574,78 @@ func TestRunPluginsLockWriteTextAndJSON(t *testing.T) {
 	}
 }
 
-// Plugins lock should fail fast when the nested subcommand is missing.
-func TestRunPluginsLockRequiresSubcommand(t *testing.T) {
+// Plugins lock navigation should now render Go-owned usage when no nested subcommand is selected yet.
+func TestRunPluginsLockHelpNavigationPrintsUsage(t *testing.T) {
 	t.Parallel()
 
 	cwd := t.TempDir()
-	_, _, err := runPluginsSettaCommand(t, cwd, "plugins", "lock")
-	if err == nil {
-		t.Fatal("expected plugins lock error")
+
+	stdout, stderr, err := runPluginsSettaCommand(t, cwd, "plugins", "lock")
+	if err != nil {
+		t.Fatalf("run plugins lock help navigation: %v", err)
 	}
-	if DisplayError(err) != "missing plugins lock subcommand (supported: write, apply)" {
-		t.Fatalf("unexpected plugins lock error %q", DisplayError(err))
+	if stderr != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if !strings.Contains(stdout, "setta plugins lock <subcommand> [options]") {
+		t.Fatalf("expected plugins lock synopsis, got %q", stdout)
+	}
+
+	helpStdout, helpStderr, err := runPluginsSettaCommand(t, cwd, "plugins", "lock", "--help")
+	if err != nil {
+		t.Fatalf("run plugins lock --help: %v", err)
+	}
+	if helpStderr != "" {
+		t.Fatalf("expected empty stderr, got %q", helpStderr)
+	}
+	if !strings.Contains(helpStdout, "write  Write the plugins lockfile.") {
+		t.Fatalf("expected lock subcommand summary, got %q", helpStdout)
+	}
+}
+
+// Invalid plugins root argv should print usage once from the Go-owned plugins boundary.
+func TestRunPluginsRejectsUnknownSubcommandWithUsage(t *testing.T) {
+	t.Parallel()
+
+	cwd := t.TempDir()
+	stdout, stderr, err := runPluginsSettaCommand(t, cwd, "plugins", "unknown-subcommand")
+	if err == nil {
+		t.Fatal("expected plugins subcommand error")
+	}
+	if ExitCode(err) != 2 {
+		t.Fatalf("expected exit code 2, got %d", ExitCode(err))
+	}
+	if stdout != "" {
+		t.Fatalf("expected empty stdout, got %q", stdout)
+	}
+	if strings.Count(stderr, `unknown plugins subcommand "unknown-subcommand"`) != 1 {
+		t.Fatalf("expected one plugins error message, got %q", stderr)
+	}
+	if !strings.Contains(stderr, "setta plugins <subcommand> [options]") {
+		t.Fatalf("expected plugins usage, got %q", stderr)
+	}
+}
+
+// Invalid plugins lock argv should print usage once from the Go-owned lock boundary.
+func TestRunPluginsLockRejectsUnknownSubcommandWithUsage(t *testing.T) {
+	t.Parallel()
+
+	cwd := t.TempDir()
+	stdout, stderr, err := runPluginsSettaCommand(t, cwd, "plugins", "lock", "unknown-subcommand")
+	if err == nil {
+		t.Fatal("expected plugins lock subcommand error")
+	}
+	if ExitCode(err) != 2 {
+		t.Fatalf("expected exit code 2, got %d", ExitCode(err))
+	}
+	if stdout != "" {
+		t.Fatalf("expected empty stdout, got %q", stdout)
+	}
+	if strings.Count(stderr, `unknown plugins lock subcommand "unknown-subcommand"`) != 1 {
+		t.Fatalf("expected one plugins lock error message, got %q", stderr)
+	}
+	if !strings.Contains(stderr, "setta plugins lock <subcommand> [options]") {
+		t.Fatalf("expected plugins lock usage, got %q", stderr)
 	}
 }
 

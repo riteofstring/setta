@@ -155,9 +155,16 @@ func TestRunWithoutCommandUsesDefaultLocalStart(t *testing.T) {
 func TestParseGlobalFlagsSupportsWorkspaceAlias(t *testing.T) {
 	t.Parallel()
 
-	parsed, remaining, err := parseGlobalFlags([]string{"-w", "/tmp/workspace", "--no-open", "launch", "--json"}, io.Discard)
+	parsed, remaining, helpShown, err := parseGlobalFlags(
+		[]string{"-w", "/tmp/workspace", "--no-open", "launch", "--json"},
+		io.Discard,
+		io.Discard,
+	)
 	if err != nil {
 		t.Fatalf("parse global flags: %v", err)
+	}
+	if helpShown {
+		t.Fatal("expected helpShown to be false")
 	}
 	if parsed.workspaceRoot != "/tmp/workspace" {
 		t.Fatalf("expected workspace alias to parse, got %q", parsed.workspaceRoot)

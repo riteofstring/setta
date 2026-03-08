@@ -142,6 +142,35 @@ def test_resolve_go_dispatch_command_routes_empty_argv_to_go_root() -> None:
     assert command == ""
 
 
+def test_resolve_go_dispatch_command_routes_root_help_to_go_root() -> None:
+    # Root help should now come from the packaged Go CLI instead of Click fallback.
+    command = resolve_go_dispatch_command(["--help"])
+
+    assert command == ""
+
+
+def test_resolve_go_dispatch_command_routes_plugins_help_navigation_to_go() -> None:
+    # Bare plugins/help navigation should stay on the Go-owned packaged boundary.
+    bare_command = resolve_go_dispatch_command(["plugins"])
+    help_command = resolve_go_dispatch_command(["plugins", "--help"])
+    lock_command = resolve_go_dispatch_command(["plugins", "lock"])
+    lock_help_command = resolve_go_dispatch_command(["plugins", "lock", "--help"])
+
+    assert bare_command == "plugins"
+    assert help_command == "plugins"
+    assert lock_command == "plugins"
+    assert lock_help_command == "plugins"
+
+
+def test_resolve_go_dispatch_command_routes_invalid_root_argv_to_go_root() -> None:
+    # Invalid root argv should now be rejected by the Go CLI, not Python fallback.
+    unknown_command = resolve_go_dispatch_command(["unknown-command"])
+    unknown_flag = resolve_go_dispatch_command(["--unknown-flag"])
+
+    assert unknown_command == ""
+    assert unknown_flag == ""
+
+
 def test_python_module_entrypoint_dispatches_go_owned_version_command(
     tmp_path: Path,
 ) -> None:
@@ -521,6 +550,84 @@ def test_python_module_entrypoint_dispatches_go_owned_app_command(
         args_capture_path.read_text(encoding="utf-8").strip()
         == "app --deployment-name demo-app --latest"
     )
+
+
+def test_python_module_entrypoint_dispatches_root_help_to_go(
+    tmp_path: Path,
+) -> None:
+    args_capture_path = tmp_path / "go-args.txt"
+    go_stub = _write_go_stub(
+        path=tmp_path / "bin" / "setta-go",
+        args_capture_path=args_capture_path,
+    )
+
+    env = os.environ.copy()
+    env["SETTA_GO_CLI_BIN"] = str(go_stub)
+
+    result = subprocess.run(
+        [sys.executable, "-m", "setta", "--help"],
+        cwd=_repo_root(),
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, (result.stderr or result.stdout).strip()
+    assert "setta version from go" in result.stdout
+    assert args_capture_path.read_text(encoding="utf-8").strip() == "--help"
+
+
+def test_python_module_entrypoint_dispatches_plugins_help_navigation_to_go(
+    tmp_path: Path,
+) -> None:
+    args_capture_path = tmp_path / "go-args.txt"
+    go_stub = _write_go_stub(
+        path=tmp_path / "bin" / "setta-go",
+        args_capture_path=args_capture_path,
+    )
+
+    env = os.environ.copy()
+    env["SETTA_GO_CLI_BIN"] = str(go_stub)
+
+    result = subprocess.run(
+        [sys.executable, "-m", "setta", "plugins", "--help"],
+        cwd=_repo_root(),
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, (result.stderr or result.stdout).strip()
+    assert "setta version from go" in result.stdout
+    assert args_capture_path.read_text(encoding="utf-8").strip() == "plugins --help"
+
+
+def test_python_module_entrypoint_dispatches_invalid_root_argv_to_go(
+    tmp_path: Path,
+) -> None:
+    args_capture_path = tmp_path / "go-args.txt"
+    go_stub = _write_go_stub(
+        path=tmp_path / "bin" / "setta-go",
+        args_capture_path=args_capture_path,
+    )
+
+    env = os.environ.copy()
+    env["SETTA_GO_CLI_BIN"] = str(go_stub)
+
+    result = subprocess.run(
+        [sys.executable, "-m", "setta", "unknown-command"],
+        cwd=_repo_root(),
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, (result.stderr or result.stdout).strip()
+    assert "setta version from go" in result.stdout
+    assert args_capture_path.read_text(encoding="utf-8").strip() == "unknown-command"
 
 
 def test_python_module_entrypoint_dispatches_go_owned_default_start_command(

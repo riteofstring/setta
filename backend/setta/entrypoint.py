@@ -41,11 +41,6 @@ _GO_OWNED_SUBCOMMANDS = {
         }
     ),
 }
-_GO_OWNED_NESTED_SUBCOMMANDS = {
-    "plugins": {
-        "lock": frozenset({"write", "apply"}),
-    }
-}
 _GO_GLOBAL_OPTIONS_WITH_VALUES = frozenset(
     {
         "-w",
@@ -80,15 +75,15 @@ def resolve_go_dispatch_command(argv: list[str]) -> str | None:
     while index < len(argv):
         token = argv[index]
         if token == "--":
-            return None
+            return ""
         if token in {"-h", "--help"}:
-            return None
+            return ""
         if not token.startswith("-"):
             if token in _GO_OWNED_COMMANDS:
                 return token
             if token in _GO_OWNED_SUBCOMMANDS:
-                return _resolve_go_dispatch_subcommand(token, effective_argv=argv[index + 1 :])
-            return None
+                return token
+            return ""
 
         option_name = token.split("=", 1)[0]
         if option_name in _GO_GLOBAL_OPTIONS_WITH_VALUES:
@@ -102,61 +97,9 @@ def resolve_go_dispatch_command(argv: list[str]) -> str | None:
         if option_name in _GO_GLOBAL_FLAG_OPTIONS:
             index += 1
             continue
-        return None
+        return ""
 
     return ""
-
-
-def _resolve_go_dispatch_subcommand(
-    command: str,
-    *,
-    effective_argv: list[str],
-) -> str | None:
-    go_owned_subcommands = _GO_OWNED_SUBCOMMANDS.get(command)
-    if go_owned_subcommands is None:
-        return None
-    go_owned_nested_subcommands = _GO_OWNED_NESTED_SUBCOMMANDS.get(command, {})
-
-    for token in effective_argv:
-        if token == "--":
-            return None
-        if token in {"-h", "--help"}:
-            return None
-        if token.startswith("-"):
-            return None
-        if token in go_owned_subcommands:
-            return command
-        nested_subcommands = go_owned_nested_subcommands.get(token)
-        if nested_subcommands is None:
-            return None
-        return _resolve_go_dispatch_nested_subcommand(
-            command,
-            go_owned_subcommands=nested_subcommands,
-            effective_argv=effective_argv[1:],
-        )
-        return None
-
-    return None
-
-
-def _resolve_go_dispatch_nested_subcommand(
-    command: str,
-    *,
-    go_owned_subcommands: frozenset[str],
-    effective_argv: list[str],
-) -> str | None:
-    for token in effective_argv:
-        if token == "--":
-            return None
-        if token in {"-h", "--help"}:
-            return None
-        if token.startswith("-"):
-            return None
-        if token in go_owned_subcommands:
-            return command
-        return None
-
-    return None
 
 
 def run_go_dispatch(argv: list[str]) -> int:

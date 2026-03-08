@@ -111,9 +111,12 @@ func Run(args []string, options RunOptions) error {
 		cwd = resolvedCWD
 	}
 
-	global, remaining, err := parseGlobalFlags(args, stderr)
+	global, remaining, helpShown, err := parseGlobalFlags(args, stdout, stderr)
 	if err != nil {
 		return err
+	}
+	if helpShown {
+		return nil
 	}
 	if len(remaining) == 0 {
 		return runDefaultStart(global, stdin, stdout, stderr, envLookup)
@@ -150,29 +153,30 @@ func Run(args []string, options RunOptions) error {
 	case "launcher":
 		return runLauncher(remaining[1:], global, stdout, stderr, envLookup, cwd)
 	default:
-		return fmt.Errorf("unknown command %q", remaining[0])
+		err := fmt.Errorf("unknown command %q", remaining[0])
+		if writeErr := writeUsageError(stderr, err.Error(), writeRootUsage); writeErr != nil {
+			return writeErr
+		}
+		return &ExitError{Code: 2, Err: err, Silent: true}
 	}
 }
 
-func parseGlobalFlags(args []string, stderr io.Writer) (globalFlags, []string, error) {
+func parseGlobalFlags(args []string, stdout io.Writer, stderr io.Writer) (globalFlags, []string, bool, error) {
 	var parsed globalFlags
 	flags := flag.NewFlagSet("setta", flag.ContinueOnError)
-	flags.SetOutput(stderr)
-	flags.BoolVar(&parsed.reload, "reload", false, "Reload is not supported in the Go CLI.")
-	flags.StringVar(&parsed.host, "host", "", "Listen host.")
-	flags.StringVar(&parsed.port, "port", "", "Listen port.")
-	flags.StringVar(&parsed.workspaceRoot, "workspace", "", "Workspace root.")
-	flags.StringVar(&parsed.workspaceRoot, "w", "", "Workspace root.")
-	flags.StringVar(&parsed.profile, "profile", "", "Runtime profile name.")
-	flags.StringVar(&parsed.settaHome, "setta-home", "", "Setta home.")
-	flags.StringVar(&parsed.profileLookupHome, "profile-lookup-home", "", "Setta profile lookup home.")
-	flags.StringVar(&parsed.settaFilesRoot, "setta-files-root", "", "Explicit setta_files root.")
-	flags.StringVar(&parsed.settaFilesLocation, "setta-files-location", "", "setta_files location mode: auto, local, or global.")
-	flags.StringVar(&parsed.runtimeRoot, "runtime-root", "", "Runtime root.")
-	flags.StringVar(&parsed.logLevel, "log-level", "", "Log level.")
-	flags.BoolVar(&parsed.noOpen, "no-open", false, "Skip automatic browser opening.")
+	flags.SetOutput(io.Discard)
+	configureGlobalFlags(flags, &parsed)
 	if err := flags.Parse(args); err != nil {
-		return globalFlags{}, nil, err
+		if errors.Is(err, flag.ErrHelp) {
+			if writeErr := writeRootUsage(stdout); writeErr != nil {
+				return globalFlags{}, nil, false, writeErr
+			}
+			return globalFlags{}, nil, true, nil
+		}
+		if writeErr := writeUsageError(stderr, err.Error(), writeRootUsage); writeErr != nil {
+			return globalFlags{}, nil, false, writeErr
+		}
+		return globalFlags{}, nil, false, &ExitError{Code: 2, Err: err, Silent: true}
 	}
-	return parsed, flags.Args(), nil
+	return parsed, flags.Args(), false, nil
 }
