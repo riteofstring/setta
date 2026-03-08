@@ -222,11 +222,17 @@ Use the docs in this order:
     `validate_app_definition` parity over the completed app-definition
     mutation/store foundations and the bounded diagnostics owner in
     `internal/appspec`
-82. `spike-mcp.md`
+82. `phase-6-post-project-state-mcp-surface-inventory.md`
+  - focused Phase 6 closeout inventory for the remaining Python-owned MCP
+    surface outside `BaseProjectManager.@project_state_tool`
+83. `phase-6-general-mcp-utility-read-tools-parity.md`
+  - focused implementation-plan doc for the next bounded Go MCP utility/read
+    tool cluster outside project-state parity
+84. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-83. `spike-pty.md`
+85. `spike-pty.md`
    - PTY uncertainty-reduction plan
-84. `spike-lsp.md`
+86. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

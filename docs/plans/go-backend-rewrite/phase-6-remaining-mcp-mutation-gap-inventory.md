@@ -8,6 +8,8 @@ section-filter and MetaControl-title slice.
 That mutation backlog is now complete, and the follow-on app-definition
 read/validation slice is also complete. This doc now serves as the closeout
 record for the Python `BaseProjectManager.@project_state_tool` MCP surface.
+The broader follow-on inventory now lives in
+`phase-6-post-project-state-mcp-surface-inventory.md`.
 
 ## Status
 
@@ -20,6 +22,8 @@ Current repo status as of 2026-03-08:
 - 51 of those overlaps are mutation or structural tools
 - Python has no remaining `BaseProjectManager.@project_state_tool`
   project-state MCP tools without Go parity
+- remaining Python-owned MCP surface outside that project-state tool set is now
+  tracked separately in `phase-6-post-project-state-mcp-surface-inventory.md`
 
 ## Inputs
 
@@ -117,10 +121,10 @@ MCP server:
 
 ## Recommended Next Step
 
-- run a repo-wide inventory of any remaining Python-owned MCP surface outside
-  `BaseProjectManager.@project_state_tool`
-- decide whether that follow-on belongs in Phase 6 closeout work or should
-  move directly into Phase 7 planning
+- execute the bounded utility/read tool cluster in
+  `phase-6-general-mcp-utility-read-tools-parity.md`
+- keep the broader non-project-state MCP inventory in
+  `phase-6-post-project-state-mcp-surface-inventory.md`
 
 ## Open Questions
 
@@ -249,3 +253,7 @@ MCP server:
   the Go diagnostics owner, document-level read owner, MCP server, HTTP
   tool-call route, and authenticated SSE boundary, so the Python
   `BaseProjectManager.@project_state_tool` overlap is fully closed.
+- 2026-03-08: broader repo-wide inventory of the remaining Python-owned
+  non-project-state MCP surface completed in
+  `phase-6-post-project-state-mcp-surface-inventory.md`; the next bounded
+  slice moved to `phase-6-general-mcp-utility-read-tools-parity.md`.

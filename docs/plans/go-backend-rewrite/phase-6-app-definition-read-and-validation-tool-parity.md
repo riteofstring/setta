@@ -117,7 +117,8 @@ used by `validate_app_definition` are now complete on the Go side.
 
 ## Next Recommended Step
 
-- inventory any remaining Python-owned MCP surface outside
-  `BaseProjectManager.@project_state_tool`
-- decide whether that follow-on belongs in a short Phase 6 closeout doc or
-  should move directly into Phase 7 planning
+- the broader remaining Python-owned MCP surface outside
+  `BaseProjectManager.@project_state_tool` is now tracked in
+  `phase-6-post-project-state-mcp-surface-inventory.md`
+- execute the next bounded utility/read tool cluster in
+  `phase-6-general-mcp-utility-read-tools-parity.md`
