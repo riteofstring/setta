@@ -1065,6 +1065,61 @@ test("all settings benchmark stages progressively restore section complexity", a
   ).toBeGreaterThanOrEqual(metricsByStage.get("full")?.domCount ?? 0);
 });
 
+test("manual save keeps visible section shells stable", async ({ page }) => {
+  await ensureAppReady(page);
+  await openBenchmarkStage(page, "full");
+
+  const trackedShells = await page.evaluate(() => {
+    return Array.from(
+      document.querySelectorAll<HTMLElement>(".react-flow [data-section-id]"),
+    )
+      .slice(0, 8)
+      .map((element, index) => {
+        const sectionId = element.getAttribute("data-section-id");
+        const token = `save-shell-${index}`;
+        (element as HTMLElement & { __saveShellToken?: string }).__saveShellToken =
+          token;
+        return {
+          sectionId,
+          token,
+        };
+      })
+      .filter(
+        (
+          entry,
+        ): entry is {
+          sectionId: string;
+          token: string;
+        } => entry.sectionId !== null,
+      );
+  });
+
+  expect(trackedShells.length).toBeGreaterThan(0);
+
+  const saveResponsePromise = page.waitForResponse((response) =>
+    response.url().includes("/api/saveProject"),
+  );
+  await page.keyboard.press(
+    process.platform === "darwin" ? "Meta+S" : "Control+S",
+  );
+  await saveResponsePromise;
+  await page.waitForTimeout(1000);
+
+  const stability = await page.evaluate((entries) => {
+    return entries.map(({ sectionId, token }) => {
+      const element = document.querySelector<HTMLElement>(
+        `.react-flow [data-section-id="${sectionId}"]`,
+      ) as (HTMLElement & { __saveShellToken?: string }) | null;
+      return {
+        sectionId,
+        stable: element?.__saveShellToken === token,
+      };
+    });
+  }, trackedShells);
+
+  expect(stability.every((entry) => entry.stable)).toBe(true);
+});
+
 test("full-section-snapdom hydrates a clicked section body back to live controls", async ({
   page,
 }) => {
@@ -1159,6 +1214,147 @@ test("section shells do not transition outline on activation", async ({
   // Keep the active ring instant so perceived activation latency is not dominated
   // by outline-color animation on the section shell.
   expect(transition.transitionProperty).not.toContain("outline");
+});
+
+test("wheel zoom promotes section shells during viewport interaction", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await openBenchmarkStage(page, "full");
+
+  const pane = page.locator(".react-flow__pane");
+  await expect(pane).toBeVisible();
+  const box = await pane.boundingBox();
+  expect(box).not.toBeNull();
+  if (!box) {
+    throw new Error("Missing pane bounding box.");
+  }
+
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(() => {
+          return document.querySelectorAll(
+            "[data-settings-benchmark-section-shell-layer-promotion]",
+          ).length;
+        }),
+      { message: "Shell promotion should be idle before zooming." },
+    )
+    .toBe(0);
+
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.wheel(0, -400);
+
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(() => {
+          return document.querySelectorAll(
+            "[data-settings-benchmark-section-shell-layer-promotion]",
+          ).length;
+        }),
+      { timeout: 2_000, message: "Wheel zoom should promote section shells." },
+    )
+    .toBeGreaterThan(0);
+
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(() => {
+          return document.querySelectorAll(
+            "[data-settings-benchmark-section-shell-layer-promotion]",
+          ).length;
+        }),
+      {
+        timeout: 2_000,
+        message: "Shell promotion should clear again after wheel zoom settles.",
+      },
+    )
+    .toBe(0);
+});
+
+test("ctrl-wheel zoom also promotes section shells during viewport interaction", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await openBenchmarkStage(page, "full");
+
+  const pane = page.locator(".react-flow__pane");
+  await expect(pane).toBeVisible();
+  const box = await pane.boundingBox();
+  expect(box).not.toBeNull();
+  if (!box) {
+    throw new Error("Missing pane bounding box.");
+  }
+
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(() => {
+          return document.querySelectorAll(
+            "[data-settings-benchmark-section-shell-layer-promotion]",
+          ).length;
+        }),
+      { message: "Shell promotion should be idle before ctrl-wheel zooming." },
+    )
+    .toBe(0);
+
+  await page.evaluate(
+    ({ clientX, clientY }) => {
+      const paneElement = document.querySelector(".react-flow__pane");
+      if (!(paneElement instanceof HTMLElement)) {
+        throw new Error("Missing pane element.");
+      }
+      for (let index = 0; index < 5; index += 1) {
+        paneElement.dispatchEvent(
+          new WheelEvent("wheel", {
+            deltaY: -40,
+            deltaMode: 0,
+            ctrlKey: true,
+            bubbles: true,
+            cancelable: true,
+            clientX,
+            clientY,
+          }),
+        );
+      }
+    },
+    {
+      clientX: box.x + box.width / 2,
+      clientY: box.y + box.height / 2,
+    },
+  );
+
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(() => {
+          return document.querySelectorAll(
+            "[data-settings-benchmark-section-shell-layer-promotion]",
+          ).length;
+        }),
+      {
+        timeout: 2_000,
+        message: "Ctrl-wheel zoom should promote section shells.",
+      },
+    )
+    .toBeGreaterThan(0);
+
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(() => {
+          return document.querySelectorAll(
+            "[data-settings-benchmark-section-shell-layer-promotion]",
+          ).length;
+        }),
+      {
+        timeout: 2_000,
+        message:
+          "Shell promotion should clear again after ctrl-wheel zoom settles.",
+      },
+    )
+    .toBe(0);
 });
 
 async function openBenchmarkStage(

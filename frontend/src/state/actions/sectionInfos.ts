@@ -971,6 +971,25 @@ export function manualDndChildrenReset() {
   );
 }
 
+function getComparableProjectState(
+  state: ZustandProjectState,
+): ProjectStateSingleConfig {
+  return {
+    sections: state.sections,
+    sectionImpls: state.sectionImpls,
+    sectionVariants: state.sectionVariants,
+    codeObjs: state.codeObjs,
+    codeObjImpls: state.codeObjImpls,
+    codeObjVariants: state.codeObjVariants,
+    projectConfig: state.projectConfig,
+    singletonSections: state.singletonSections,
+    parentSectionMap: state.parentSectionMap,
+    shownParamIds: state.shownParamIds,
+    requiredDecodedImages: state.requiredDecodedImages,
+    genCodeBinding: state.genCodeBinding ?? null,
+  };
+}
+
 export function processProjectStateUpdateFromBackend(
   x: ProjectStateSingleConfigWithCompletedOpIds,
 ) {
@@ -1006,12 +1025,25 @@ export function processProjectStateUpdateFromBackend(
     x.projectState.projectConfig.activeIds,
     x.completedOpIds,
   );
+  const sanitizedProjectState = sanitizeProjectStateActiveIds(x.projectState);
+  const projectStateChanged = !_.isEqual(
+    getComparableProjectState(currentState),
+    sanitizedProjectState,
+  );
+
+  if (!projectStateChanged) {
+    usePendingOperations.setState({ pending: nextPending });
+    markRenameBroadcastsReady(completedIds);
+    maybeOpenNextRenamePrompt();
+    clearToolArgumentPreviewForProjectState(projectConfigId, currentState);
+    return;
+  }
+
   const shouldRequestFitView = applyViewportFromProjectState(x.projectState);
   const nextNodesMap = createNodesMapFromProjectConfigChildren(
     x.projectState,
     useNodeInternals.getState().x,
   );
-  const sanitizedProjectState = sanitizeProjectStateActiveIds(x.projectState);
   unstable_batchedUpdates(() => {
     usePendingOperations.setState({ pending: nextPending });
     useNodeInternals.setState({ x: nextNodesMap });

@@ -4348,3 +4348,96 @@ New benchmark stages:
   - no semantic preview
   - no SnapDOM
   - shell-level compositor promotion only during active viewport motion
+
+## Addendum: save/autosave websocket echo was degrading zoom until refresh
+
+### Goal
+
+- Investigate the user-reported regression where wheel zoom felt fast after a hard refresh, then stayed slower after the first autosave/manual save until the page was reloaded.
+- Isolate whether the trigger was the save notification, some other websocket message, or a frontend state rewrite after save.
+
+### Save-triggered frontend traffic
+
+- A real manual save produced these frontend-visible events:
+  - `POST /api/saveProject`
+  - websocket `Notification` with `Saved!`
+  - websocket `UpdateFrontendProjectState`
+  - websocket `NameValidationErrors`
+  - websocket `UpdateSettings`
+- The save route itself does not wait for any backend round-trip on zoom; the persistent zoom regression came from what happened after those websocket messages landed.
+
+### A/B suppression pass
+
+- Comparison method for this addendum:
+  - live headed browser
+  - fresh page per run on `http://127.0.0.1:3009/settings?settingsBenchmarkStage=full`
+  - one zoom burst before save, then manual `save`, then the same zoom burst after save
+  - websocket message suppression installed before page boot for the selected message type
+
+#### `normal`
+
+- Run 1:
+  - baseline `94.19 FPS`
+  - after save `87.53 FPS`
+- Run 2:
+  - baseline `91.62 FPS`
+  - after save `87.93 FPS`
+
+#### `drop-project-state`
+
+- Run 1:
+  - baseline `92.70 FPS`
+  - after save `95.48 FPS`
+- Run 2:
+  - baseline `93.72 FPS`
+  - after save `94.37 FPS`
+
+#### `drop-settings`
+
+- Run 1:
+  - baseline `83.88 FPS`
+  - after save `88.40 FPS`
+- Run 2:
+  - baseline `95.42 FPS`
+  - after save `90.46 FPS`
+
+### Root cause
+
+- Suppressing only websocket `UpdateFrontendProjectState` removed the save regression.
+- Suppressing `UpdateSettings` did not.
+- So the real trigger was the backend save echo path in `processProjectStateUpdateFromBackend(...)`, not the temporary `Saved!` notification and not the settings refresh.
+- In the save case, the backend was echoing an effectively unchanged project state, and the frontend was still rebuilding the giant `useProjectState` store and `useNodeInternals`.
+
+### Fix under test
+
+- File:
+  - `frontend/src/state/actions/sectionInfos.ts`
+- Change:
+  - `processProjectStateUpdateFromBackend(...)` now compares the incoming sanitized backend project state against the current comparable frontend project state.
+  - If the project state is semantically unchanged, it still reconciles pending-op bookkeeping and active-section UI state, but it skips the expensive `useProjectState.setState(...)` and `useNodeInternals.setState(...)` rewrite path.
+
+### Post-fix rerun
+
+- Comparison method for this rerun:
+  - same live headed browser setup
+  - fresh page per run
+  - one zoom burst before save and one after manual save
+  - normal production path with no websocket suppression
+
+#### `full` after no-op save-echo skip
+
+- Run 1:
+  - baseline `94.34 FPS`
+  - after save `92.61 FPS`
+- Run 2:
+  - baseline `94.36 FPS`
+  - after save `95.92 FPS`
+- Run 3:
+  - baseline `91.83 FPS`
+  - after save `92.90 FPS`
+
+### Conclusion
+
+- The long-lived save/autosave zoom regression was caused by the identical backend `UpdateFrontendProjectState` echo, not by the `Saved!` notification and not by `UpdateSettings`.
+- Skipping semantically identical backend project-state rewrites removed the persistent post-save zoom drop in the live browser.
+- After the fix, save no longer pushes zoom into the lower-FPS band; before/after-save runs stay in the same `~92-96 FPS` class.
