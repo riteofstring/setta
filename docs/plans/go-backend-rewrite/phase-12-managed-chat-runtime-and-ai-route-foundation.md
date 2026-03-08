@@ -76,9 +76,11 @@ Current repo status as of 2026-03-09:
     in Go
   - the first Codex-focused MCP-rich parity closeout slice is now complete in
     `phase-12-codex-rich-item-tool-result-and-mcp-status-parity.md`
-  - the remaining bounded gap is now the OpenCode/Claude rich item/tool-result
-    closeout plus any still-missing Codex non-`response_item` rich items, not
-    another executor or launcher slice
+  - the current bounded parity step is now the OpenCode follow-on tracked in
+    `phase-12-opencode-rich-item-tool-result-and-mcp-status-parity.md`
+  - the remaining bounded gap after that will be Claude rich item/tool-result
+    and MCP status closeout plus any still-missing Codex non-`response_item`
+    rich items, not another executor or launcher slice
 
 ## Scope
 

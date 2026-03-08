@@ -432,12 +432,16 @@ Use the docs in this order:
 133. `phase-12-claude-sdk-bridge-executor-runtime.md`
   - focused completed-slice doc for the bounded Claude Code executor landing
     using a narrow Claude SDK bridge above the completed Go runtime
-134. `spike-mcp.md`
+134. `phase-12-opencode-rich-item-tool-result-and-mcp-status-parity.md`
+  - focused implementation-plan doc for the bounded OpenCode follow-on over the
+    completed Codex/runtime helpers: richer tool-result persistence plus
+    OpenCode external MCP status ownership
+135. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-135. `spike-pty.md`
+136. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-136. `spike-lsp.md`
+137. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

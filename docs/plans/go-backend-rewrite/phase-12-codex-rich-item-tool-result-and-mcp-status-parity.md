@@ -165,6 +165,6 @@ This slice should deliver:
 
 ## Next Recommended Step
 
-- reuse the landed runtime snapshot helpers and tool-result message builders to
-  scope the next bounded OpenCode parity slice instead of reopening transport or
-  executor-boundary questions
+- land the bounded OpenCode follow-on tracked in
+  `phase-12-opencode-rich-item-tool-result-and-mcp-status-parity.md` instead of
+  reopening transport or executor-boundary questions
