@@ -320,12 +320,18 @@ func appspecDefinition(definition AppDefinition) (appspec.Definition, error) {
 	if err != nil {
 		return appspec.Definition{}, err
 	}
+	assets, err := decodeAppDefinitionJSONArray(definition.Assets, "appDefinition.assets")
+	if err != nil {
+		return appspec.Definition{}, err
+	}
 
 	return appspec.Definition{
-		CatalogID:    definition.CatalogID,
-		ActionMap:    actions,
-		DataBindings: dataBindings,
-		Theme:        theme,
+		AppSpecVersion: definition.AppSpecVersion,
+		CatalogID:      definition.CatalogID,
+		ActionMap:      actions,
+		DataBindings:   dataBindings,
+		Theme:          theme,
+		Assets:         assets,
 	}, nil
 }
 
@@ -357,6 +363,25 @@ func decodeAppDefinitionJSONObject(raw RawJSON, field string) (map[string]any, e
 		return nil, fmt.Errorf("%s must be a JSON object", field)
 	}
 	return object, nil
+}
+
+func decodeAppDefinitionJSONArray(raw RawJSON, field string) ([]any, error) {
+	if len(strings.TrimSpace(string(raw))) == 0 {
+		return nil, nil
+	}
+
+	var value any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return nil, fmt.Errorf("decode %s: %w", field, err)
+	}
+	if value == nil {
+		return nil, nil
+	}
+	array, ok := value.([]any)
+	if !ok {
+		return nil, fmt.Errorf("%s must be a JSON array", field)
+	}
+	return array, nil
 }
 
 func cloneAppDefinitionPointer(appDefinition *AppDefinition) *AppDefinition {

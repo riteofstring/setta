@@ -29,10 +29,12 @@ var (
 )
 
 type Definition struct {
-	CatalogID    string
-	ActionMap    map[string]any
-	DataBindings map[string]any
-	Theme        map[string]any
+	AppSpecVersion string
+	CatalogID      string
+	ActionMap      map[string]any
+	DataBindings   map[string]any
+	Theme          map[string]any
+	Assets         []any
 }
 
 func (d Definition) Normalized() Definition {
