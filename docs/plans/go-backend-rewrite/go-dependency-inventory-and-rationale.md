@@ -26,7 +26,7 @@ recommendation docs. If this file disagrees with planning notes, `go.mod` wins.
 
 ## Snapshot Context
 
-- captured at: `2026-03-09 10:41 PDT`
+- captured at: `2026-03-09 18:51 PDT`
 - module totals: `12` direct, `17` indirect, `29` total
 - source of truth:
   - `go.mod`
@@ -38,6 +38,9 @@ recommendation docs. If this file disagrees with planning notes, `go.mod` wins.
 - `direct` means we pinned the module explicitly in `go.mod`.
 - `indirect` means the module is pulled in by another dependency or by that
   dependency's module graph; we usually do not import those modules directly.
+- current exception: `github.com/google/jsonschema-go` is still marked
+  indirect in `go.mod`, but `internal/plugins/config_write.go` now imports it
+  directly for plugin-config validation.
 - Some older docs still describe `github.com/creack/pty` as only a planned
   candidate. That is stale. It is a direct dependency now.
 - Some recommendation docs mention future candidates such as
@@ -110,26 +113,40 @@ The managed-run `.env` read path now uses the bounded internal parser in
 That cleanup removed the previous direct `godotenv` dependency instead of
 keeping a module around for one bounded llmconfig read helper.
 
+### Why `google/jsonschema-go` is still indirect even though we import it
+
+The landed plugin config-write path now imports
+`github.com/google/jsonschema-go/jsonschema` directly in
+`internal/plugins/config_write.go`.
+
+`go.mod` still marks the module `indirect` because it is also carried by the
+MCP SDK graph. Treat that as a current-state bookkeeping quirk, not as proof
+that the module is unused by Setta code.
+
 ## Indirect Dependencies
 
 These modules are present in `go.mod` but are not part of the deliberate public
-shape of the rewrite. They mostly come from four roots:
+shape of the rewrite. They mostly come from four roots plus one mixed
+current-state case:
 
 - the MCP SDK
 - `gopsutil`
 - `go-pty`
-- a small amount of upstream test-support baggage
+- a small amount of upstream test-support baggage from `gopkg.in/yaml.v3`
+- the Go-owned plugin config-write path, which currently imports
+  `github.com/google/jsonschema-go` while `go.mod` still leaves it marked
+  indirect
 
 | module | comes from | why it is here |
 | --- | --- | --- |
 | `github.com/ebitengine/purego` | `github.com/shirou/gopsutil/v4` | Upstream low-level syscall glue used by `gopsutil` on some platforms. |
 | `github.com/go-ole/go-ole` | `github.com/yusufpapurcu/wmi` via `gopsutil` | Windows COM support used by upstream WMI access. |
-| `github.com/google/jsonschema-go` | `github.com/modelcontextprotocol/go-sdk` | Schema support inside the MCP SDK. This is not the app-side JSON Schema library discussed in older planning docs. |
-| `github.com/kr/text` | `github.com/gofrs/flock` -> `gopkg.in/check.v1` -> `github.com/kr/pretty` | Upstream test-only pretty-print helper retained by the module graph. |
+| `github.com/google/jsonschema-go` | direct import in `internal/plugins/config_write.go`; also reachable via `github.com/modelcontextprotocol/go-sdk` | JSON Schema resolution and validation for Go-owned plugin config writes. It is no longer just passive MCP SDK baggage. |
+| `github.com/kr/text` | `gopkg.in/yaml.v3.test` -> `gopkg.in/check.v1` -> `github.com/kr/pretty` | Upstream YAML-package test-support baggage retained by the module graph. |
 | `github.com/lufia/plan9stats` | `github.com/shirou/gopsutil/v4` | Upstream cross-platform process/stat support. |
 | `github.com/mattn/go-pointer` | tree-sitter bindings | Cgo pointer bridge required by tree-sitter Go bindings. |
 | `github.com/power-devops/perfstat` | `github.com/shirou/gopsutil/v4` | Upstream AIX perf-stat support. |
-| `github.com/rogpeppe/go-internal` | `github.com/gofrs/flock` -> `gopkg.in/check.v1` -> `github.com/kr/pretty` | Upstream test-support helper retained by the module graph. |
+| `github.com/rogpeppe/go-internal` | `gopkg.in/yaml.v3.test` -> `gopkg.in/check.v1` -> `github.com/kr/pretty` | Upstream YAML-package test-support helper retained by the module graph. |
 | `github.com/segmentio/asm` | `github.com/segmentio/encoding` via MCP SDK | Low-level optimization dependency used by `segmentio/encoding`. |
 | `github.com/segmentio/encoding` | `github.com/modelcontextprotocol/go-sdk` | Encoding helpers used by the SDK. |
 | `github.com/tklauser/go-sysconf` | `github.com/shirou/gopsutil/v4` | Sysconf helpers used by `gopsutil`. |
@@ -156,9 +173,11 @@ shape of the rewrite. They mostly come from four roots:
   reason
 - Those removals were bounded helper cleanups, not a rewrite-wide policy
   against using libraries.
-- The indirect list is mostly explanatory. We should avoid importing those
-  packages directly unless we intentionally promote them to first-class
-  dependencies.
+- The indirect list is mostly explanatory. The current exception is
+  `github.com/google/jsonschema-go`, which is already imported directly by the
+  plugin config-write path even though `go.mod` still marks it indirect.
+- We should avoid importing other indirect packages directly unless we
+  intentionally promote them to first-class dependencies.
 - If we switch major roots, the indirect set will change automatically:
   - replacing the MCP SDK changes the schema, encoding, URI-template, and
     OAuth transitives

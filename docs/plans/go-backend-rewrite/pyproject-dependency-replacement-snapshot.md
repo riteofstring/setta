@@ -11,8 +11,8 @@ that every Python import is already gone.
 
 ## Snapshot Context
 
-- captured at: `2026-03-09 09:55:40 PDT`
-- repo commit: `dfa94fd46ad80a67c8e8da6155787b6a10d0ba29`
+- captured at: `2026-03-09 18:51:52 PDT`
+- repo commit: `0da9c1e02bb34bcb997d710f144751d928701794`
 - worktree status when captured: clean
 
 ## Classification Rule
@@ -53,10 +53,11 @@ those cases, the bucket below reflects the dominant rewrite story.
   - Go Unix terminal support uses `github.com/creack/pty`
 - `psutil`
   - Go session and process inspection uses `github.com/shirou/gopsutil/v4`
-- `python-dotenv`
-  - Go config loading uses `github.com/joho/godotenv`
 - `mcp`
   - Go MCP ownership uses `github.com/modelcontextprotocol/go-sdk`
+- `jsonschema`
+  - Go-owned plugin config validation uses
+    `github.com/google/jsonschema-go/jsonschema`
 
 ## Bucket 2: Replaced With Our Own Logic
 
@@ -67,9 +68,9 @@ those cases, the bucket below reflects the dominant rewrite story.
 - `pydantic`
   - rewritten Go surfaces use Go structs plus explicit normalization and
     validation
-- `jsonschema`
-  - rewritten Go surfaces currently use app-specific validation code rather
-    than a generic JSON Schema runtime
+- `python-dotenv`
+  - managed-run `.env` parsing now uses the bounded parser in
+    `internal/llmconfig/env_parser.go`
 - `lsprotocol`
   - Go LSP ownership uses a custom session and transport layer
 - `bm25s`
@@ -77,10 +78,9 @@ those cases, the bucket below reflects the dominant rewrite story.
 - `rectangle-packer`
   - auto-layout packing was rewritten as custom Setta logic
 - `packaging`
-  - plugin compatibility and version-range handling currently use
-    `github.com/aquasecurity/go-pep440-version` plus explicit Setta manifest
-    parsing and validation code; the library choice should be treated as
-    transitional because the rewrite prefers non-obscure Go dependencies
+  - plugin compatibility and version-range handling now use the bounded parser
+    and comparator in `internal/plugins/version_specifiers.go` plus explicit
+    Setta manifest parsing and validation code
 - `docstring_parser`
   - Go now uses explicit MCP tool metadata plus LSP-derived callable signature
     payloads instead of parsing Python docstrings on rewritten surfaces
@@ -119,11 +119,17 @@ This snapshot accounts for all `27`.
 
 ## Mixed Cases To Remember
 
-- `packaging` and `docstring_parser` still exist in Python code, but the active
-  Go rewrite no longer depends on them for the rewritten plugin, MCP, and
-  callable-signature surfaces.
-- `packaging` currently maps to `go-pep440-version` plus custom Go logic, but
-  that specific library is not the desired long-term dependency choice.
+- `packaging`, `jsonschema`, and `docstring_parser` still exist in Python code,
+  but the active Go rewrite no longer depends on the Python implementations for
+  the rewritten plugin, config-write, MCP, and callable-signature surfaces.
+- `packaging` now maps to the bounded internal parser and comparator in
+  `internal/plugins/version_specifiers.go`; there is no third-party Go
+  version-specifier dependency in the current module graph.
+- `python-dotenv` no longer maps to `godotenv`; the Go-managed `.env` read path
+  is now handled by the bounded parser in `internal/llmconfig/env_parser.go`.
+- `jsonschema` is mixed: Go-owned plugin config writes now validate through
+  `google/jsonschema-go`, while remaining Python plugin-manager paths still
+  import `jsonschema`.
 - `pywinpty` and `ptyprocess` now split cleanly in Go by platform:
   `go-pty` on Windows and `creack/pty` on Unix.
 - `requests` overlaps with Go `net/http` in rewritten areas, but the remaining
@@ -150,10 +156,14 @@ This snapshot accounts for all `27`.
   - Windows PTY ownership via `go-pty`
 - `internal/localsessions/registry.go`
   - Go process/session inspection ownership
-- `internal/llmconfig/config.go`
-  - Go dotenv ownership
+- `internal/llmconfig/env_parser.go`
+  - Go internal `.env` parser replacing `python-dotenv`
 - `internal/plugins/authoring.go`
-  - Go plugin version/specifier handling and TOML parsing
+  - Go plugin manifest and TOML parsing
+- `internal/plugins/version_specifiers.go`
+  - Go internal replacement for `packaging` version/specifier handling
+- `internal/plugins/config_write.go`
+  - Go JSON Schema validation for plugin config writes
 - `internal/lspsignature/service.go`
   - Go callable signature synthesis
 - `internal/mcpx/server.go`

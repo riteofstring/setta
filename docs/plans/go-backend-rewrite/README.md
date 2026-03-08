@@ -29,7 +29,7 @@ Use the repo-pinned wrapper instead of searching for a system Go install:
 
 ## Additional Snapshots
 
-- `pyproject-dependency-replacement-snapshot-2026-03-08.md`
+- `pyproject-dependency-replacement-snapshot.md`
   - point-in-time classification of every root `pyproject.toml` runtime
     dependency into Go-library replacement, custom Go replacement, still
     Python, not yet ported, or no-longer-needed buckets
