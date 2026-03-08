@@ -418,6 +418,8 @@ That narrow packaged-entrypoint fallback-hardening slice is now also landed in
   `plugins lock`, and invalid root argv shapes to the packaged Go binary
 - `internal/settacmd` now owns explicit root/plugins/lock help rendering and
   usage-once invalid argv handling for that packaged boundary
+- the packaged `python -m setta` shim no longer keeps a live branch back into
+  `setta.start`
 - focused Go and Python regression coverage now guards the module-entrypoint
   fallback boundary without reopening broad Click parity work
 

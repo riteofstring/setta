@@ -3,103 +3,12 @@ import subprocess
 import sys
 from pathlib import Path
 
-_GO_OWNED_COMMANDS = frozenset(
-    {
-        "version",
-        "export-db",
-        "backups",
-        "launch",
-        "share",
-        "app",
-        "launcher",
-        "status",
-        "auth",
-        "tools",
-        "api",
-        "stop",
-        "connect",
-        "c",
-    }
-)
-_GO_OWNED_SUBCOMMANDS = {
-    "plugins": frozenset(
-        {
-            "init",
-            "validate",
-            "list",
-            "install",
-            "update",
-            "pin",
-            "rescan",
-            "restart",
-            "restart-required",
-            "link",
-            "enable",
-            "disable",
-            "uninstall",
-            "rollback",
-        }
-    ),
-}
-_GO_GLOBAL_OPTIONS_WITH_VALUES = frozenset(
-    {
-        "-w",
-        "--workspace",
-        "--host",
-        "--port",
-        "--profile",
-        "--profile-lookup-home",
-        "--setta-home",
-        "--setta-files-root",
-        "--setta-files-location",
-        "--runtime-root",
-        "--log-level",
-    }
-)
-_GO_GLOBAL_FLAG_OPTIONS = frozenset({"--no-open", "--reload"})
 _GO_BINARY_OVERRIDE_ENV = "SETTA_GO_CLI_BIN"
 
 
 def main(argv: list[str] | None = None) -> None:
     effective_argv = list(sys.argv[1:] if argv is None else argv)
-    if resolve_go_dispatch_command(effective_argv) is not None:
-        raise SystemExit(run_go_dispatch(effective_argv))
-
-    from setta.start import cli
-
-    cli.main(args=effective_argv, prog_name="setta", standalone_mode=True)
-
-
-def resolve_go_dispatch_command(argv: list[str]) -> str | None:
-    index = 0
-    while index < len(argv):
-        token = argv[index]
-        if token == "--":
-            return ""
-        if token in {"-h", "--help"}:
-            return ""
-        if not token.startswith("-"):
-            if token in _GO_OWNED_COMMANDS:
-                return token
-            if token in _GO_OWNED_SUBCOMMANDS:
-                return token
-            return ""
-
-        option_name = token.split("=", 1)[0]
-        if option_name in _GO_GLOBAL_OPTIONS_WITH_VALUES:
-            if "=" in token:
-                index += 1
-                continue
-            if index + 1 >= len(argv):
-                return ""
-            index += 2
-            continue
-        if option_name in _GO_GLOBAL_FLAG_OPTIONS:
-            index += 1
-            continue
-        return ""
-
-    return ""
+    raise SystemExit(run_go_dispatch(effective_argv))
 
 
 def run_go_dispatch(argv: list[str]) -> int:

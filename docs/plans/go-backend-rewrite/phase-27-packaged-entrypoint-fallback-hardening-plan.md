@@ -39,6 +39,9 @@ Completed during this slice:
   typed non-zero exit codes without falling back to Python Click output
 - `backend/setta/entrypoint.py` now dispatches root help, bare `plugins`,
   `plugins lock`, and invalid root argv shapes to the packaged Go binary
+- the packaged module entrypoint no longer has a live import/branch back into
+  `setta.start`; it is now an unconditional thin launcher for the packaged Go
+  binary
 - focused Go and Python regression coverage now guards that boundary
 
 ## Inputs
