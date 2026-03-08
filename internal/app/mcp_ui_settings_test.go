@@ -2,17 +2,22 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/coder/websocket"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/observability"
+	"setta/internal/realtime"
+	"setta/internal/wsapi"
 )
 
 func TestAppIDEMCPServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE(t *testing.T) {
@@ -380,4 +385,210 @@ func TestAppIDEMCPToolCallRouteUISettingReadWriteAcceptsTemporaryIDs(t *testing.
 	if setPayload.IsError {
 		t.Fatalf("expected temp-id set_ui_setting_value success, got %#v", setPayload.StructuredContent)
 	}
+}
+
+func TestAppIDEMCPServerSupportsRevealUISettingOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	frontendConn, frontendAffinityToken := dialAppRevealFrontend(t, app, server.URL)
+	defer frontendConn.CloseNow()
+
+	ackErrCh := make(chan error, 1)
+	go func() {
+		ackErrCh <- ackNextAppUISettingReveal(t, frontendConn, "allowed-callable-section")
+	}()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	setContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_agentic_context",
+		Arguments: map[string]any{
+			"projectConfigId":       "project-alpha",
+			"allowUnscoped":         true,
+			"frontendAffinityToken": frontendAffinityToken,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_agentic_context: %v", err)
+	}
+	if setContextResult.IsError {
+		t.Fatalf("expected set_agentic_context success, got %#v", setContextResult.StructuredContent)
+	}
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "reveal_ui_setting",
+		Arguments: map[string]any{
+			"projectConfigId":     "project-alpha",
+			"settingId":           "core.project.show_param_display_names",
+			"sectionIdToActivate": "allowed-callable-section",
+			"durationMs":          1500,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call reveal_ui_setting: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected reveal_ui_setting success, got %#v", result.StructuredContent)
+	}
+	if err := <-ackErrCh; err != nil {
+		t.Fatalf("ack reveal websocket round-trip: %v", err)
+	}
+
+	payload := mustStructuredMapValue(t, result.StructuredContent)
+	statuses := mustStructuredListValue(t, payload["statuses"])
+	if len(statuses) != 1 || mustStructuredMapValue(t, statuses[0])["status"] != "revealed" {
+		t.Fatalf("expected single revealed status, got %#v", statuses)
+	}
+}
+
+func TestAppIDEMCPToolCallRouteSupportsRevealUISetting(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	frontendConn, frontendAffinityToken := dialAppRevealFrontend(t, app, server.URL)
+	defer frontendConn.CloseNow()
+
+	ackErrCh := make(chan error, 1)
+	go func() {
+		ackErrCh <- ackNextAppUISettingReveal(t, frontendConn, "allowed-callable-section")
+	}()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"reveal_ui_setting",
+			"arguments":{"projectConfigId":"project-alpha","settingId":"core.project.show_param_display_names","sectionIdToActivate":"allowed-callable-section","durationMs":1500},
+			"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true,"frontendAffinityToken":"`+frontendAffinityToken+`"}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post reveal_ui_setting tool call route: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+	if err := <-ackErrCh; err != nil {
+		t.Fatalf("ack reveal websocket round-trip: %v", err)
+	}
+
+	payload := decodeAppToolCallRoutePayload(t, response.Body)
+	if payload.IsError {
+		t.Fatalf("expected reveal_ui_setting success, got %#v", payload.StructuredContent)
+	}
+	result := mustStructuredMapValue(t, payload.StructuredContent)
+	statuses := mustStructuredListValue(t, result["statuses"])
+	if len(statuses) != 1 || mustStructuredMapValue(t, statuses[0])["status"] != "revealed" {
+		t.Fatalf("expected single revealed status, got %#v", statuses)
+	}
+}
+
+func dialAppRevealFrontend(t *testing.T, app *App, serverURL string) (*websocket.Conn, string) {
+	t.Helper()
+
+	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+	cookieName, err := app.Auth().CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(serverURL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{cookieName + "=" + token},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+
+	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+	var identity realtime.FrontendIdentityContent
+	if err := json.Unmarshal(envelope.Content, &identity); err != nil {
+		t.Fatalf("decode frontend identity: %v", err)
+	}
+	if strings.TrimSpace(identity.FrontendAffinityToken) == "" {
+		t.Fatal("expected frontend affinity token from frontend identity")
+	}
+	return conn, identity.FrontendAffinityToken
+}
+
+func ackNextAppUISettingReveal(t *testing.T, conn *websocket.Conn, expectedSectionID string) error {
+	t.Helper()
+
+	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUISettingReveal, 3)
+	var content realtime.UISettingRevealContent
+	if err := json.Unmarshal(envelope.Content, &content); err != nil {
+		return err
+	}
+	if content.ActiveSectionID == nil || *content.ActiveSectionID != expectedSectionID {
+		return io.ErrUnexpectedEOF
+	}
+	if len(content.Reveals) != 1 || content.Reveals[0].SettingID != "core.project.show_param_display_names" {
+		return io.ErrUnexpectedEOF
+	}
+
+	payload, err := json.Marshal(realtime.NewUISettingRevealResultMessage(realtime.UISettingRevealResultContent{
+		ProjectConfigID: content.ProjectConfigID,
+		RequestID:       content.RequestID,
+		Statuses: []realtime.UISettingRevealResultStatus{
+			{
+				SettingID:    "core.project.show_param_display_names",
+				Status:       "revealed",
+				ErrorCode:    nil,
+				ErrorMessage: nil,
+			},
+		},
+	}))
+	if err != nil {
+		return err
+	}
+
+	writeCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	return conn.Write(writeCtx, websocket.MessageText, payload)
 }

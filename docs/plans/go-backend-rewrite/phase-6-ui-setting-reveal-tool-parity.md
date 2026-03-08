@@ -17,20 +17,22 @@ Current repo status as of 2026-03-08:
 - Stage 1 core UI-setting registry foundation is complete in Go
 - Stage 2 `search_ui_settings`, `get_ui_setting_value`, and
   `set_ui_setting_value` transport parity is complete in Go
-- the remaining non-project-state Python MCP gap count is 8
-- the remaining UI-setting MCP gap has narrowed to `reveal_ui_setting`
+- the remaining non-project-state Python MCP gap count has now dropped from 8
+  to 7
+- the remaining UI-setting MCP gap is now closed
 - Go already has the necessary bounded metadata to resolve core reveal targets:
   - `internal/uisettings` owns core setting metadata, location, highlight, and
     reveal activation steps
   - `internal/realtime` already owns frontend connection registration,
     affinity-token issuance, share-session-aware connection selection, and JSON
     delivery
-- Go does not yet own:
-  - a `UISettingReveal` websocket message type
-  - a `UISettingRevealResult` inbound websocket acknowledgement path
-  - a reveal result hub/coordinator that fails closed on ambiguity, mismatch,
-    or disconnect
-  - the `reveal_ui_setting` MCP tool
+- Go now also owns:
+  - explicit `UISettingReveal` and `UISettingRevealResult` websocket message
+    types in `internal/realtime`
+  - reveal-result request tracking and strict ACK validation in
+    `internal/realtime.UISettingRevealResultHub`
+  - the bounded reveal coordinator/runtime in `internal/uisettings`
+  - MCP parity for `reveal_ui_setting` in `internal/mcpx`
 
 ## Scope
 
@@ -108,7 +110,7 @@ This slice should cover:
 
 ## Current Go Foundation
 
-Already complete:
+Completed:
 
 - bounded core UI-setting registry metadata and read/write delegates in
   `internal/uisettings`
@@ -120,14 +122,14 @@ Already complete:
   `internal/realtime.WebsocketHub`
 - authenticated websocket ingress in `internal/wsapi`
 - scoped MCP context and temporary-id translation in `internal/mcpx`
-
-Still missing:
-
-- reveal websocket message types in Go
-- reveal-result request tracking
-- inbound websocket ack parsing and handoff
-- a coordinator that owns deterministic frontend selection and timeout rules
-- `reveal_ui_setting` transport parity
+- reveal websocket message types in `internal/realtime/messages.go`
+- reveal-result request tracking and fail-closed ACK validation in
+  `internal/realtime/ui_setting_reveal_results.go`
+- inbound websocket ACK parsing and disconnect cleanup in `internal/wsapi`
+- deterministic reveal coordination and right-pane compatibility validation in
+  `internal/uisettings/reveal.go`
+- scoped MCP transport, HTTP route, and authenticated SSE parity for
+  `reveal_ui_setting`
 
 ## Working Decisions
 
@@ -171,11 +173,28 @@ Still missing:
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute.*RevealUISetting' -count=1 -timeout 300s`
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP.*RevealUISetting|TestAppWebsocket.*Reveal' -count=1 -timeout 420s`
 
-## Open Questions
+## Decisions Landed
 
-- whether the reveal-result hub belongs under `internal/realtime` or
-  `internal/mcpx`; current recommendation is to keep it near websocket
-  transport/runtime ownership unless the coordinator needs a narrower package
-  boundary
-- whether the reveal coordinator should accept a clock/request-id source for
-  deterministic tests; current recommendation is yes
+- the reveal-result hub stays under `internal/realtime` because websocket
+  transport/disconnect ownership is the source of truth for pending reveal ACKs
+- the reveal coordinator accepts an injected request-id source for deterministic
+  unit tests
+- right-pane compatibility validation uses the current Go `projectview`
+  payloads instead of keyword matching or Python-side helpers
+
+## Next Recommended Step
+
+Execute the dedicated `stream_app_definition` slice in
+`phase-6-stream-app-definition-tool-parity.md`.
+
+## Progress Notes
+
+- 2026-03-08: completed the realtime foundation for `UISettingReveal` and
+  `UISettingRevealResult`, including strict reveal-result tracking and
+  disconnect cancellation in `internal/realtime` plus inbound ACK handling in
+  `internal/wsapi`.
+- 2026-03-08: completed the bounded reveal runtime in `internal/uisettings`,
+  including explicit frontend selection, right-pane compatibility validation,
+  and fail-closed timeout/disconnect handling.
+- 2026-03-08: completed `reveal_ui_setting` MCP parity with focused MCP, HTTP
+  route, and authenticated SSE coverage, closing the last UI-setting MCP gap.

@@ -99,8 +99,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 70 {
-		t.Fatalf("expected 70 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 71 {
+		t.Fatalf("expected 71 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -118,8 +118,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 70 {
-		t.Fatalf("expected 70 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 71 {
+		t.Fatalf("expected 71 registered tool names, got %d", len(rawNames))
 	}
 	if !containsStructuredStringValue(rawNames, "get_app_definition") {
 		t.Fatalf("expected get_app_definition in registered tool names, got %#v", rawNames)
@@ -165,6 +165,9 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	}
 	if !containsStructuredStringValue(rawNames, "report_completion_status") {
 		t.Fatalf("expected report_completion_status in registered tool names, got %#v", rawNames)
+	}
+	if !containsStructuredStringValue(rawNames, "reveal_ui_setting") {
+		t.Fatalf("expected reveal_ui_setting in registered tool names, got %#v", rawNames)
 	}
 	if !containsStructuredStringValue(rawNames, "run_agent_profile") {
 		t.Fatalf("expected run_agent_profile in registered tool names, got %#v", rawNames)

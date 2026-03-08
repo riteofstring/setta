@@ -33,6 +33,7 @@ import (
 	"setta/internal/runs"
 	"setta/internal/runtime"
 	"setta/internal/terminals"
+	"setta/internal/uisettings"
 	"setta/internal/watchcode"
 	"setta/internal/wsapi"
 )
@@ -455,6 +456,14 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 		return nil, err
 	}
+	uiSettingRevealService, err := uisettings.NewRevealService(uisettings.RevealServiceOptions{
+		Transport: websocketHub,
+		Results:   uiSettingRevealResults,
+	})
+	if err != nil {
+		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+		return nil, err
+	}
 	runCodeService, err := runs.NewService(runs.ServiceOptions{
 		Planner:           runPlanner,
 		ProjectState:      projectRuntime,
@@ -487,6 +496,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			TemporaryIDMapPath:             mcpx.TemporaryIDMapPath(cfg.Paths.RuntimeRoot),
 			AgentProfiles:                  agentProfileStore,
 			AgentRuns:                      agentRunService,
+			UISettingReveals:               uiSettingRevealService,
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))

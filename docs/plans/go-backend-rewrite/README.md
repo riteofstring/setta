@@ -244,16 +244,20 @@ Use the docs in this order:
     managed agent-run runtime foundation
 88. `phase-6-ui-setting-registry-and-reveal-tools-parity.md`
   - focused implementation-plan doc for the Go-owned UI-setting
-    registry/search/value/reveal slice; Stage 2 search/get/set transport
-    parity is now complete and the next step is Stage 3 reveal runtime parity
+    registry/search/value/reveal slice; the bounded core UI-setting slice is
+    now complete
 89. `phase-6-ui-setting-reveal-tool-parity.md`
-  - focused Stage 3 implementation-plan doc for Go-owned `reveal_ui_setting`
-    parity over explicit realtime message, ACK, and frontend-selection owners
-90. `spike-mcp.md`
+  - completed Stage 3 implementation-plan doc for Go-owned
+    `reveal_ui_setting` parity over explicit realtime message, ACK, and
+    frontend-selection owners
+90. `phase-6-stream-app-definition-tool-parity.md`
+  - focused implementation-plan doc for Go-owned `stream_app_definition`
+    parity over the completed app-definition read/write/validation owners
+91. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-91. `spike-pty.md`
+92. `spike-pty.md`
    - PTY uncertainty-reduction plan
-92. `spike-lsp.md`
+93. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

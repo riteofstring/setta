@@ -39,9 +39,16 @@ Current repo status as of 2026-03-08:
     `internal/mcpx/ui_setting_tools_test.go`,
     `internal/httpapi/mcp_tool_ui_settings_test.go`, and
     `internal/app/mcp_ui_settings_test.go`
-- Go still does not own the frontend reveal coordinator/runtime for
-  `reveal_ui_setting`, `revealAfterSet` behavior, plugin setting integration,
-  or plugin-contributed registry metadata
+- Stage 3 reveal parity is now complete in Go:
+  - `internal/realtime` owns `UISettingReveal` / `UISettingRevealResult`
+    messages plus strict ACK tracking
+  - `internal/uisettings/reveal.go` owns the explicit reveal coordinator,
+    right-pane compatibility validation, and frontend selection rules
+  - `internal/mcpx/ui_setting_tools.go` and `internal/mcpx/server.go` now
+    expose `reveal_ui_setting` with focused MCP/HTTP/app coverage
+- the bounded core UI-setting slice is now complete; only `revealAfterSet`,
+  plugin setting integration, and plugin-contributed registry metadata remain
+  outside this closed slice
 
 ## Scope
 
@@ -175,15 +182,15 @@ Still missing:
 
 ## Next Recommended Step
 
-- execute the dedicated Stage 3 reveal slice in
-  `phase-6-ui-setting-reveal-tool-parity.md`
+- execute the dedicated app-definition patch-stream slice in
+  `phase-6-stream-app-definition-tool-parity.md`
 
 ## Verification
 
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/uisettings -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|UISettingToolsExposeScopedSingletonMetadata|SearchUISettingsReturnsRankedCoreResults|GetUISettingValueReturnsStructuredPayload|SetUISettingValueWritesAndValidates|SetUISettingValueRejectsWriterOldValueDrift|UISettingToolsTranslateTemporaryProjectIDs)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsUISettingSearchReadWrite|UISettingReadWriteAcceptsTemporaryIDs)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsAuthenticatedSSECalls|ServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE|ServerSupportsTemporaryIDsForUISettingReadWriteOverAuthenticatedSSE|ToolCallRouteSupportsUISettingSearchReadWrite|ToolCallRouteUISettingReadWriteAcceptsTemporaryIDs)' -count=1 -timeout 420s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|UISettingToolsExposeScopedSingletonMetadata|SearchUISettingsReturnsRankedCoreResults|GetUISettingValueReturnsStructuredPayload|RevealUISetting|SetUISettingValueWritesAndValidates|SetUISettingValueRejectsWriterOldValueDrift|UISettingToolsTranslateTemporaryProjectIDs)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsUISettingSearchReadWrite|UISettingReadWriteAcceptsTemporaryIDs|SupportsRevealUISetting|RevealUISettingAcceptsTemporaryIDs)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsAuthenticatedSSECalls|ServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE|ServerSupportsTemporaryIDsForUISettingReadWriteOverAuthenticatedSSE|ToolCallRouteSupportsUISettingSearchReadWrite|ToolCallRouteUISettingReadWriteAcceptsTemporaryIDs|ServerSupportsRevealUISettingOverAuthenticatedSSE|ToolCallRouteSupportsRevealUISetting)' -count=1 -timeout 420s`
 
 ## Progress Notes
 
@@ -199,3 +206,6 @@ Still missing:
   `phase-6-ui-setting-reveal-tool-parity.md` because the remaining
   `reveal_ui_setting` slice spans realtime message ownership, websocket ACK
   ingress, and MCP transport rather than a single thin handler.
+- 2026-03-08: completed Stage 3 by landing the explicit reveal coordinator,
+  strict websocket ACK handling, and `reveal_ui_setting` MCP parity, closing
+  the bounded core UI-setting slice.

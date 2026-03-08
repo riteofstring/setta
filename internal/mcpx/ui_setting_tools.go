@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strings"
 
+	"setta/internal/realtime"
 	"setta/internal/tools"
 	"setta/internal/uisettings"
 )
@@ -44,6 +45,21 @@ type setUISettingValueResult struct {
 	NormalizedValue any                       `json:"normalizedValue"`
 	Changed         bool                      `json:"changed"`
 	Error           *uiSettingToolErrorResult `json:"error,omitempty"`
+}
+
+type revealUISettingStatusResult struct {
+	SettingID string                          `json:"settingId"`
+	Status    string                          `json:"status"`
+	Target    *realtime.UISettingRevealTarget `json:"target,omitempty"`
+	Error     *uiSettingToolErrorResult       `json:"error,omitempty"`
+}
+
+type revealUISettingResult struct {
+	RequestID          string                        `json:"requestId"`
+	ProjectConfigID    string                        `json:"projectConfigId"`
+	DurationMS         int                           `json:"durationMs"`
+	EmittedRevealCount int                           `json:"emittedRevealCount"`
+	Statuses           []revealUISettingStatusResult `json:"statuses"`
 }
 
 func newSearchUISettingsHandler(projectState projectStateProvider, workspaceRoot string) tools.Handler {
@@ -225,6 +241,75 @@ func newSetUISettingValueHandler(projectState projectStateProvider, workspaceRoo
 	}
 }
 
+func newRevealUISettingHandler(server *Server, workspaceRoot string) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		if server == nil || server.uiSettingReveals == nil {
+			return nil, newToolError("internal_error", "UI setting reveal runtime is unavailable.")
+		}
+
+		projectConfigID, registry, err := resolveScopedUISettingRegistry(ctx, arguments, server.projectState, workspaceRoot, "Scoped UI-setting reveal")
+		if err != nil {
+			return nil, err
+		}
+
+		settingID, err := readRequiredStringArgument(arguments, "settingId")
+		if err != nil {
+			return nil, err
+		}
+		sectionIDToActivate, err := readOptionalNonBlankStringArgument(arguments, "sectionIdToActivate")
+		if err != nil {
+			return nil, err
+		}
+
+		durationMS := 3000
+		if resolvedDuration, err := readOptionalIntArgument(arguments, "durationMs"); err != nil {
+			return nil, err
+		} else if resolvedDuration != nil {
+			durationMS = *resolvedDuration
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.ProjectView == nil || invocation.AgenticContext == nil {
+			return nil, newToolError("internal_error", "Scoped UI-setting reveal invocation context is unavailable.")
+		}
+
+		result, err := server.uiSettingReveals.Reveal(ctx, uisettings.RevealInput{
+			ProjectConfigID:       projectConfigID,
+			ProjectView:           invocation.ProjectView,
+			Registry:              registry,
+			SettingID:             settingID,
+			SectionIDToActivate:   sectionIDToActivate,
+			ContextSectionID:      invocation.AgenticContext.SectionID,
+			ChatID:                invocation.AgenticContext.ChatID,
+			FrontendAffinityToken: invocation.AgenticContext.FrontendAffinityToken,
+			DurationMS:            durationMS,
+		})
+		if err != nil {
+			return nil, newToolError("internal_error", "UI setting reveal failed: %s", err.Error())
+		}
+
+		payload := revealUISettingResult{
+			RequestID:          result.RequestID,
+			ProjectConfigID:    result.ProjectConfigID,
+			DurationMS:         result.DurationMS,
+			EmittedRevealCount: result.EmittedRevealCount,
+			Statuses:           make([]revealUISettingStatusResult, 0, len(result.Statuses)),
+		}
+		for _, status := range result.Statuses {
+			payloadStatus := revealUISettingStatusResult{
+				SettingID: status.SettingID,
+				Status:    status.Status,
+				Target:    cloneRevealTarget(status.Target),
+			}
+			if status.Error != nil {
+				payloadStatus.Error = newUISettingToolErrorResult(status.Error.Code, status.Error.Message)
+			}
+			payload.Statuses = append(payload.Statuses, payloadStatus)
+		}
+		return payload, nil
+	}
+}
+
 func resolveScopedUISettingRegistry(
 	ctx context.Context,
 	arguments map[string]any,
@@ -318,6 +403,33 @@ func buildUISettingResultSummary(entry uisettings.Entry) uiSettingResultSummary 
 
 func summaryPointer(summary uiSettingResultSummary) *uiSettingResultSummary {
 	return &summary
+}
+
+func cloneRevealTarget(value *realtime.UISettingRevealTarget) *realtime.UISettingRevealTarget {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	if value.OverviewTabKey != nil {
+		cloned.OverviewTabKey = cloneStringPtr(value.OverviewTabKey)
+	}
+	if value.UIEditorTabName != nil {
+		cloned.UIEditorTabName = cloneStringPtr(value.UIEditorTabName)
+	}
+	if value.PluginID != nil {
+		cloned.PluginID = cloneStringPtr(value.PluginID)
+	}
+	if value.PaneID != nil {
+		cloned.PaneID = cloneStringPtr(value.PaneID)
+	}
+	if value.AnchorID != nil {
+		cloned.AnchorID = cloneStringPtr(value.AnchorID)
+	}
+	if value.PluginRevealKey != nil {
+		cloned.PluginRevealKey = cloneStringPtr(value.PluginRevealKey)
+	}
+	cloned.RevealActivationSteps = append([]realtime.UISettingRevealActivationStep(nil), value.RevealActivationSteps...)
+	return &cloned
 }
 
 func uiSettingErrorSchema() map[string]any {
@@ -433,5 +545,77 @@ func uiSettingSummarySchema() map[string]any {
 			"valueSchema": uiSettingValueSchemaSchema(),
 		},
 		"required": []string{"settingId", "title", "description", "source", "mutability", "location", "valueSchema"},
+	}
+}
+
+func uiSettingRevealActivationStepSchema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"type": map[string]any{
+				"type": "string",
+			},
+			"itemValue": map[string]any{
+				"type": "string",
+			},
+		},
+		"required": []string{"type", "itemValue"},
+	}
+}
+
+func uiSettingRevealTargetSchema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"settingId": map[string]any{
+				"type": "string",
+			},
+			"side": map[string]any{
+				"type": "string",
+			},
+			"overviewTabKey": map[string]any{
+				"type": "string",
+			},
+			"uiEditorTabName": map[string]any{
+				"type": "string",
+			},
+			"pluginId": map[string]any{
+				"type": "string",
+			},
+			"paneId": map[string]any{
+				"type": "string",
+			},
+			"strategy": map[string]any{
+				"type": "string",
+			},
+			"anchorId": map[string]any{
+				"type": "string",
+			},
+			"pluginRevealKey": map[string]any{
+				"type": "string",
+			},
+			"revealActivationSteps": map[string]any{
+				"type":  "array",
+				"items": uiSettingRevealActivationStepSchema(),
+			},
+		},
+		"required": []string{"settingId", "side", "strategy"},
+	}
+}
+
+func uiSettingRevealStatusSchema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"settingId": map[string]any{
+				"type": "string",
+			},
+			"status": map[string]any{
+				"type": "string",
+			},
+			"target": uiSettingRevealTargetSchema(),
+			"error":  uiSettingErrorSchema(),
+		},
+		"required": []string{"settingId", "status"},
 	}
 }

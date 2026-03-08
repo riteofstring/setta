@@ -25,6 +25,7 @@ import (
 	"setta/internal/settadocs"
 	"setta/internal/statefs"
 	"setta/internal/tools"
+	"setta/internal/uisettings"
 )
 
 const (
@@ -45,6 +46,7 @@ type Server struct {
 	temporaryIDs         *TemporaryIDStore
 	agentProfiles        agentProfileProvider
 	agentRuns            agentRunProvider
+	uiSettingReveals     uisettings.RevealService
 	server               *sdkmcp.Server
 	handler              http.Handler
 	agenticContextMu     sync.RWMutex
@@ -69,6 +71,7 @@ type ServerOptions struct {
 	TemporaryIDMapPath             string
 	AgentProfiles                  agentProfileProvider
 	AgentRuns                      agentRunProvider
+	UISettingReveals               uisettings.RevealService
 }
 
 type toolDefinition struct {
@@ -243,6 +246,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		terminals:            opts.Terminals,
 		agentProfiles:        opts.AgentProfiles,
 		agentRuns:            opts.AgentRuns,
+		uiSettingReveals:     opts.UISettingReveals,
 		server:               server,
 		agenticContextBySess: map[string]AgenticContext{},
 	}
@@ -3234,6 +3238,68 @@ func defaultToolDefinitions(
 					"error":   uiSettingErrorSchema(),
 				},
 				"required": []string{"value"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "reveal_ui_setting",
+				Description: "Open the UI pane/tab for a canonical UI setting and highlight its control.",
+				Metadata: tools.Metadata{
+					Kind:                          tools.KindDiscoverable,
+					AccessType:                    tools.AccessTypeRead,
+					DefaultTargetSingletonSection: "GlobalVariables",
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection: {"sectionIdToActivate"},
+					},
+					SearchCategory: "project",
+					SearchTags:     []string{"ui", "settings", "reveal", "highlight"},
+				},
+				Handler: newRevealUISettingHandler(server, workspaceRoot),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Canonical project config id whose UI setting should be revealed.",
+					},
+					"settingId": map[string]any{
+						"type":        "string",
+						"description": "Canonical UI setting id to reveal.",
+					},
+					"sectionIdToActivate": map[string]any{
+						"type":        "string",
+						"description": "Optional section id to activate before revealing right-pane settings.",
+					},
+					"durationMs": map[string]any{
+						"type":        "integer",
+						"description": "Optional highlight duration in milliseconds.",
+					},
+				},
+				"required": []string{"projectConfigId", "settingId"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"requestId": map[string]any{
+						"type": "string",
+					},
+					"projectConfigId": map[string]any{
+						"type": "string",
+					},
+					"durationMs": map[string]any{
+						"type": "integer",
+					},
+					"emittedRevealCount": map[string]any{
+						"type": "integer",
+					},
+					"statuses": map[string]any{
+						"type":  "array",
+						"items": uiSettingRevealStatusSchema(),
+					},
+				},
+				"required": []string{"requestId", "projectConfigId", "durationMs", "emittedRevealCount", "statuses"},
 			},
 		})
 

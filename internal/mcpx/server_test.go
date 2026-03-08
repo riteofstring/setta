@@ -144,8 +144,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 70 {
-		t.Fatalf("expected 70 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 71 {
+		t.Fatalf("expected 71 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -409,6 +409,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"list_mcp_tools",
 		"read_file_range",
 		"report_completion_status",
+		"reveal_ui_setting",
 		"run_agent_profile",
 		"search_mcp_tools",
 		"search_ui_settings",
@@ -1052,8 +1053,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 70 {
-		t.Fatalf("expected 70 registered tool names, got %#v", listNames)
+	if len(listNames) != 71 {
+		t.Fatalf("expected 71 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{

@@ -8,12 +8,19 @@ import (
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"setta/internal/appspec"
 	"setta/internal/projectstate"
+	"setta/internal/realtime"
 	"setta/internal/tools"
 	"setta/internal/uisettings"
 )
 
 type uiSettingDriftProjectState struct {
 	*projectstate.Runtime
+}
+
+type recordingRevealService struct {
+	input  uisettings.RevealInput
+	result uisettings.RevealResult
+	err    error
 }
 
 func setUISettingAgenticContext(
@@ -61,6 +68,11 @@ func (s uiSettingDriftProjectState) CompareAndSetShowParamDisplayNames(
 	return snapshot, result, nil
 }
 
+func (s *recordingRevealService) Reveal(_ context.Context, input uisettings.RevealInput) (uisettings.RevealResult, error) {
+	s.input = input
+	return s.result, s.err
+}
+
 func TestServerUISettingToolsExposeScopedSingletonMetadata(t *testing.T) {
 	t.Parallel()
 
@@ -76,6 +88,7 @@ func TestServerUISettingToolsExposeScopedSingletonMetadata(t *testing.T) {
 	expected := map[string]tools.AccessType{
 		"search_ui_settings":   tools.AccessTypeRead,
 		"get_ui_setting_value": tools.AccessTypeRead,
+		"reveal_ui_setting":    tools.AccessTypeRead,
 		"set_ui_setting_value": tools.AccessTypeWrite,
 	}
 	for _, tool := range toolsResult.Tools {
@@ -90,6 +103,96 @@ func TestServerUISettingToolsExposeScopedSingletonMetadata(t *testing.T) {
 		if meta["defaultTargetSingletonSection"] != "GlobalVariables" {
 			t.Fatalf("expected GlobalVariables singleton target for %s, got %#v", tool.Name, meta["defaultTargetSingletonSection"])
 		}
+	}
+}
+
+func TestServerRevealUISettingReturnsStructuredPayload(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	revealService := &recordingRevealService{
+		result: uisettings.RevealResult{
+			RequestID:          "request-1",
+			ProjectConfigID:    "project-alpha",
+			DurationMS:         1500,
+			EmittedRevealCount: 1,
+			Statuses: []uisettings.RevealStatus{
+				{
+					SettingID: "core.project.show_param_display_names",
+					Status:    "revealed",
+					Target: &realtime.UISettingRevealTarget{
+						SettingID:       "core.project.show_param_display_names",
+						Side:            "right",
+						UIEditorTabName: testStringPointer("QuickInfoConfig"),
+						Strategy:        "dom_anchor",
+						AnchorID:        testStringPointer("core.project.show_param_display_names"),
+					},
+				},
+			},
+		},
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:    t.TempDir(),
+		ProjectState:     projectRuntime,
+		UISettingReveals: revealService,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", false)
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "reveal_ui_setting",
+		Arguments: map[string]any{
+			"projectConfigId":     "project-alpha",
+			"settingId":           "core.project.show_param_display_names",
+			"sectionIdToActivate": "allowed-callable-section",
+			"durationMs":          1500,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call reveal_ui_setting: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected reveal_ui_setting success, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["requestId"] != "request-1" {
+		t.Fatalf("expected requestId=request-1, got %#v", payload["requestId"])
+	}
+	if payload["emittedRevealCount"] != float64(1) && payload["emittedRevealCount"] != 1 {
+		t.Fatalf("expected emittedRevealCount=1, got %#v", payload["emittedRevealCount"])
+	}
+	statuses := mustStructuredList(t, payload["statuses"])
+	if len(statuses) != 1 {
+		t.Fatalf("expected one reveal status, got %#v", statuses)
+	}
+	status := mustStructuredMap(t, statuses[0])
+	if status["status"] != "revealed" {
+		t.Fatalf("expected revealed status, got %#v", status["status"])
+	}
+
+	if revealService.input.ProjectConfigID != "project-alpha" {
+		t.Fatalf("expected canonical project id, got %q", revealService.input.ProjectConfigID)
+	}
+	if revealService.input.SettingID != "core.project.show_param_display_names" {
+		t.Fatalf("expected setting id to be forwarded, got %q", revealService.input.SettingID)
+	}
+	if revealService.input.SectionIDToActivate != "allowed-callable-section" {
+		t.Fatalf("expected explicit section id to be forwarded, got %q", revealService.input.SectionIDToActivate)
+	}
+	if revealService.input.ContextSectionID != "chat-section" {
+		t.Fatalf("expected context section id chat-section, got %q", revealService.input.ContextSectionID)
+	}
+	if revealService.input.ChatID != "chat-1" {
+		t.Fatalf("expected chat-1 chat context, got %q", revealService.input.ChatID)
+	}
+	if revealService.input.ProjectView == nil {
+		t.Fatal("expected project view to be forwarded to reveal service")
+	}
+	if revealService.input.Registry == nil {
+		t.Fatal("expected scoped registry to be forwarded to reveal service")
 	}
 }
 
@@ -348,4 +451,72 @@ func TestServerUISettingToolsTranslateTemporaryProjectIDs(t *testing.T) {
 	if !project.ShowParamDisplayNames {
 		t.Fatal("expected temporary-id write to persist to canonical project")
 	}
+}
+
+func TestServerRevealUISettingTranslatesTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":            "11",
+		"chat-1":                   "12",
+		"chat-section":             "13",
+		"allowed-callable-section": "14",
+	})
+
+	revealService := &recordingRevealService{
+		result: uisettings.RevealResult{
+			RequestID:          "request-temp",
+			ProjectConfigID:    "project-alpha",
+			DurationMS:         3000,
+			EmittedRevealCount: 0,
+			Statuses: []uisettings.RevealStatus{
+				{
+					SettingID: "core.project.show_param_display_names",
+					Status:    "failed",
+					Error: &uisettings.SettingError{
+						Code:    uisettings.ErrorCodeMutationFailed,
+						Message: "test failure",
+					},
+				},
+			},
+		},
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		UISettingReveals:   revealService,
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "11", "12", "13", true)
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "reveal_ui_setting",
+		Arguments: map[string]any{
+			"projectConfigId":     "11",
+			"settingId":           "core.project.show_param_display_names",
+			"sectionIdToActivate": "14",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temporary reveal_ui_setting: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temporary reveal_ui_setting success, got %#v", result.StructuredContent)
+	}
+
+	if revealService.input.ProjectConfigID != "project-alpha" {
+		t.Fatalf("expected canonical project id, got %q", revealService.input.ProjectConfigID)
+	}
+	if revealService.input.SectionIDToActivate != "allowed-callable-section" {
+		t.Fatalf("expected canonical section id, got %q", revealService.input.SectionIDToActivate)
+	}
+}
+
+func testStringPointer(value string) *string {
+	return &value
 }
