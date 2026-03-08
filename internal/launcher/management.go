@@ -10,9 +10,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"runtime/debug"
 	"sort"
 	"strings"
+
+	"setta/internal/buildinfo"
 )
 
 type LauncherUpdateCapability string
@@ -1022,14 +1023,7 @@ func launcherExecutableExtensions() []string {
 }
 
 func currentSettaVersion() string {
-	buildInfo, ok := debug.ReadBuildInfo()
-	if ok {
-		version := strings.TrimSpace(buildInfo.Main.Version)
-		if version != "" {
-			return version
-		}
-	}
-	return "dev"
+	return buildinfo.Version()
 }
 
 func (m *LauncherInstallMetadata) SettaVersionPointer() *string {
