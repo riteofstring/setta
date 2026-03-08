@@ -135,7 +135,13 @@ type UnselectAllParamsRequestInput struct {
 	ProjectConfigID string  `json:"projectConfigId"`
 }
 
+type SetSectionParamFilterRequestInput struct{}
+
+type SetMetaControlShowSectionTitleRequestInput struct{}
+
 type SetSectionColumnWidthRequestInput struct{}
+
+type SetGroupOverflowModeRequestInput struct{}
 
 type SetBrowserColumnWidthsRequestInput struct{}
 
@@ -179,12 +185,39 @@ type SetActiveIDsRequestInput struct {
 	ActiveIDs       []string `json:"activeIds"`
 }
 
+const setSectionParamFilterRequestInputRawTS = `
+export type SetSectionParamFilterRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  value: string;
+};
+`
+
+const setMetaControlShowSectionTitleRequestInputRawTS = `
+export type SetMetaControlShowSectionTitleRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  showSectionTitle: boolean;
+};
+`
+
 const setSectionColumnWidthRequestInputRawTS = `
 export type SetSectionColumnWidthRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   columnWidth: number | null;
+};
+`
+
+const setGroupOverflowModeRequestInputRawTS = `
+export type SetGroupOverflowModeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  overflowMode: boolean;
 };
 `
 

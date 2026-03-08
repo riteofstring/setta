@@ -362,9 +362,24 @@ export async function route_set_active_ids(x: gt.SetActiveIDsRequestInput): Prom
   return await post(GoHTTPRoutes.setActiveIds, x);
 
 }
+export async function route_set_section_param_filter(x: gt.SetSectionParamFilterRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setSectionParamFilter, x);
+
+}
+export async function route_set_meta_control_show_section_title(x: gt.SetMetaControlShowSectionTitleRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setMetaControlShowSectionTitle, x);
+
+}
 export async function route_set_section_column_width(x: gt.SetSectionColumnWidthRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.setSectionColumnWidth, x);
+
+}
+export async function route_set_group_overflow_mode(x: gt.SetGroupOverflowModeRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setGroupOverflowMode, x);
 
 }
 export async function route_set_browser_column_widths(x: gt.SetBrowserColumnWidthsRequestInput): Promise<ResponseDataAndStatus<null>> {

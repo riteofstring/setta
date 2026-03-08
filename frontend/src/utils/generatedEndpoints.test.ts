@@ -69,6 +69,9 @@ import {
   route_set_chat_section_state,
   route_set_code_file_binding,
   route_set_llm_api_keys,
+  route_set_meta_control_show_section_title,
+  route_set_group_overflow_mode,
+  route_set_section_param_filter,
   route_set_section_column_width,
   route_set_section_name,
   route_set_top_level_section_layout,
@@ -694,6 +697,75 @@ describe("generatedEndpoints project shell and layout", () => {
         sectionId: "callable-section",
         columnWidth: null,
         frontendOpId: "frontend-op-param-width",
+      }),
+    });
+  });
+
+  it("posts section param-filter writes", async () => {
+    await route_set_section_param_filter({
+      projectConfigId: "project-alpha",
+      sectionId: "params-section",
+      value: "alpha",
+      frontendOpId: "frontend-op-param-filter",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setSectionParamFilter`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "params-section",
+        value: "alpha",
+        frontendOpId: "frontend-op-param-filter",
+      }),
+    });
+  });
+
+  it("posts meta-control title visibility writes", async () => {
+    await route_set_meta_control_show_section_title({
+      projectConfigId: "project-alpha",
+      sectionId: "meta-section",
+      showSectionTitle: true,
+      frontendOpId: "frontend-op-meta-title",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setMetaControlShowSectionTitle`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "meta-section",
+        showSectionTitle: true,
+        frontendOpId: "frontend-op-meta-title",
+      }),
+    });
+  });
+
+  it("posts group overflow-mode writes", async () => {
+    await route_set_group_overflow_mode({
+      projectConfigId: "project-alpha",
+      sectionId: "group-section",
+      overflowMode: true,
+      frontendOpId: "frontend-op-group-overflow",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setGroupOverflowMode`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "group-section",
+        overflowMode: true,
+        frontendOpId: "frontend-op-group-overflow",
       }),
     });
   });

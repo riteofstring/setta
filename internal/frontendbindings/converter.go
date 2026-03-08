@@ -359,10 +359,25 @@ func newTypeConverter() *typeConverter {
 				Kind: "raw",
 				Raw:  setChatSectionStateRequestInputRawTS,
 			},
+			reflect.TypeOf(SetSectionParamFilterRequestInput{}): {
+				Name: "SetSectionParamFilterRequestInput",
+				Kind: "raw",
+				Raw:  setSectionParamFilterRequestInputRawTS,
+			},
+			reflect.TypeOf(SetMetaControlShowSectionTitleRequestInput{}): {
+				Name: "SetMetaControlShowSectionTitleRequestInput",
+				Kind: "raw",
+				Raw:  setMetaControlShowSectionTitleRequestInputRawTS,
+			},
 			reflect.TypeOf(SetSectionColumnWidthRequestInput{}): {
 				Name: "SetSectionColumnWidthRequestInput",
 				Kind: "raw",
 				Raw:  setSectionColumnWidthRequestInputRawTS,
+			},
+			reflect.TypeOf(SetGroupOverflowModeRequestInput{}): {
+				Name: "SetGroupOverflowModeRequestInput",
+				Kind: "raw",
+				Raw:  setGroupOverflowModeRequestInputRawTS,
 			},
 			reflect.TypeOf(SetBrowserColumnWidthsRequestInput{}): {
 				Name: "SetBrowserColumnWidthsRequestInput",

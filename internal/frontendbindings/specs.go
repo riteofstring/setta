@@ -422,9 +422,24 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "SET_ACTIVE_IDS",
 				},
 				{
+					Name:     "setSectionParamFilter",
+					Path:     httpapi.RouteSetSectionParamFilter,
+					EnumName: "SET_SECTION_PARAM_FILTER",
+				},
+				{
+					Name:     "setMetaControlShowSectionTitle",
+					Path:     httpapi.RouteSetMetaControlShowSectionTitle,
+					EnumName: "SET_META_CONTROL_SHOW_SECTION_TITLE",
+				},
+				{
 					Name:     "setSectionColumnWidth",
 					Path:     httpapi.RouteSetSectionColumnWidth,
 					EnumName: "SET_SECTION_COLUMN_WIDTH",
+				},
+				{
+					Name:     "setGroupOverflowMode",
+					Path:     httpapi.RouteSetGroupOverflowMode,
+					EnumName: "SET_GROUP_OVERFLOW_MODE",
 				},
 				{
 					Name:     "setBrowserColumnWidths",
@@ -1323,11 +1338,32 @@ func CurrentEndpoints() []EndpointSpec {
 			RequestType:     reflect.TypeOf(SetActiveIDsRequestInput{}),
 		},
 		{
+			FunctionName:    "route_set_section_param_filter",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setSectionParamFilter",
+			RequestType:     reflect.TypeOf(SetSectionParamFilterRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_meta_control_show_section_title",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setMetaControlShowSectionTitle",
+			RequestType:     reflect.TypeOf(SetMetaControlShowSectionTitleRequestInput{}),
+		},
+		{
 			FunctionName:    "route_set_section_column_width",
 			Method:          "POST",
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "setSectionColumnWidth",
 			RequestType:     reflect.TypeOf(SetSectionColumnWidthRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_group_overflow_mode",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setGroupOverflowMode",
+			RequestType:     reflect.TypeOf(SetGroupOverflowModeRequestInput{}),
 		},
 		{
 			FunctionName:    "route_set_browser_column_widths",

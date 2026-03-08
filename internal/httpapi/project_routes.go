@@ -42,6 +42,7 @@ const (
 	RouteDeclineRenameRefactor          = "/declineRenameRefactor"
 	RouteTogglePositionLocks            = "/togglePositionLocks"
 	RouteToggleMinimized                = "/toggleMinimized"
+	RouteSetGroupOverflowMode           = "/setGroupOverflowMode"
 	RouteSetCode                        = "/setCode"
 	RouteSetCodeFileBinding             = "/setCodeFileBinding"
 	RouteFormatCode                     = "/formatCode"
@@ -49,6 +50,8 @@ const (
 	RouteSetViewport                    = "/setViewport"
 	RouteSetSectionTagColor             = "/setSectionTagColor"
 	RouteSetSectionStyleColor           = "/setSectionStyleColor"
+	RouteSetSectionParamFilter          = "/setSectionParamFilter"
+	RouteSetMetaControlShowSectionTitle = "/setMetaControlShowSectionTitle"
 	RouteSetSectionColumnWidth          = "/setSectionColumnWidth"
 	RouteSetCallableHideParams          = "/setCallableHideParams"
 	RouteSetSectionHideUnpinnedParams   = "/setSectionHideUnpinnedParams"
@@ -338,11 +341,32 @@ type SetSectionStyleColorRequest struct {
 	StyleColor   *string `json:"styleColor"`
 }
 
+type SetSectionParamFilterRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	SectionID    string  `json:"sectionId"`
+	Value        string  `json:"value"`
+}
+
+type SetMetaControlShowSectionTitleRequest struct {
+	FrontendOpID     *string `json:"frontendOpId"`
+	ProjectID        string  `json:"projectConfigId"`
+	SectionID        string  `json:"sectionId"`
+	ShowSectionTitle bool    `json:"showSectionTitle"`
+}
+
 type SetSectionColumnWidthRequest struct {
 	FrontendOpID *string  `json:"frontendOpId"`
 	ProjectID    string   `json:"projectConfigId"`
 	SectionID    string   `json:"sectionId"`
 	ColumnWidth  *float64 `json:"columnWidth"`
+}
+
+type SetGroupOverflowModeRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	SectionID    string  `json:"sectionId"`
+	OverflowMode bool    `json:"overflowMode"`
 }
 
 type SetCallableHideParamsRequest struct {
@@ -533,7 +557,10 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetViewport, setViewportHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionTagColor, setSectionTagColorHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionStyleColor, setSectionStyleColorHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionParamFilter, setSectionParamFilterHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetMetaControlShowSectionTitle, setMetaControlShowSectionTitleHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionColumnWidth, setSectionColumnWidthHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetGroupOverflowMode, setGroupOverflowModeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCallableHideParams, setCallableHideParamsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionHideUnpinnedParams, setSectionHideUnpinnedParamsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionPinnedParams, setSectionPinnedParamsHandler(deps))
@@ -1634,6 +1661,78 @@ func setSectionStyleColorHandler(deps ProjectRouteDependencies) http.HandlerFunc
 	}
 }
 
+func setSectionParamFilterHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetSectionParamFilterRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetSectionParamFilter(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.Value,
+		); err != nil {
+			writeProjectLayoutMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setMetaControlShowSectionTitleHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetMetaControlShowSectionTitleRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetMetaControlShowSectionTitle(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.ShowSectionTitle,
+		); err != nil {
+			writeProjectLayoutMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
 func setCallableHideParamsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		payload, err := decodeJSONBody[SetCallableHideParamsRequest](r)
@@ -1658,6 +1757,42 @@ func setCallableHideParamsHandler(deps ProjectRouteDependencies) http.HandlerFun
 		}
 
 		if _, err := deps.ProjectState.SetCallableHideParams(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, payload.HideParams); err != nil {
+			writeProjectLayoutMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setGroupOverflowModeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetGroupOverflowModeRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetGroupOverflowMode(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.OverflowMode,
+		); err != nil {
 			writeProjectLayoutMutationError(w, r, err)
 			return
 		}
@@ -2341,6 +2476,12 @@ func writeProjectLayoutMutationError(w http.ResponseWriter, r *http.Request, err
 		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
 	case errors.Is(err, projectstate.ErrSectionNotFound):
 		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+	case errors.Is(err, projectstate.ErrGroupSectionRequired):
+		writeError(w, r, http.StatusUnprocessableEntity, "group_section_required", "Section must resolve to a group section.")
+	case errors.Is(err, projectstate.ErrSectionParamFilterUnsupported):
+		writeError(w, r, http.StatusUnprocessableEntity, "section_param_filter_unsupported", err.Error())
+	case errors.Is(err, projectstate.ErrMetaControlSectionRequired):
+		writeError(w, r, http.StatusUnprocessableEntity, "meta_control_section_required", "Section must resolve to a meta control section.")
 	case errors.Is(err, projectstate.ErrSectionParamColumnWidthUnsupported):
 		writeError(w, r, http.StatusUnprocessableEntity, "section_param_column_width_unsupported", err.Error())
 	default:

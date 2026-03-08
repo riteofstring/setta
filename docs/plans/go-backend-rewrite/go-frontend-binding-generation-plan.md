@@ -81,6 +81,8 @@ Current landed wedge:
   - current status/meta route constants
   - current project-shell route constants
   - current project-state layout/presence/structure-selection route constants
+  - current section param-filter, meta-control-title, and group-overflow route
+    constants
   - current section param column-width route constants
   - current top-level section creation, view-mode lifecycle, and section-rename
     route constants
@@ -129,7 +131,10 @@ Current landed wedge:
       - `SetActiveIDsRequestInput`
       - `ViewportInput`
       - `SetViewportRequestInput`
+      - `SetSectionParamFilterRequestInput`
+      - `SetMetaControlShowSectionTitleRequestInput`
       - `SetSectionColumnWidthRequestInput`
+      - `SetGroupOverflowModeRequestInput`
     - current structure/param-selection mutation payloads
       - `DeleteSectionsRequestInput`
       - `DeleteSelectedParamsRequestInput`

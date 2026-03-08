@@ -6530,11 +6530,41 @@ export function createSetActiveIDsRequestInput(options: Partial<SetActiveIDsRequ
 
 
 
+export type SetSectionParamFilterRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  value: string;
+};
+
+
+
+
+export type SetMetaControlShowSectionTitleRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  showSectionTitle: boolean;
+};
+
+
+
+
 export type SetSectionColumnWidthRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   columnWidth: number | null;
+};
+
+
+
+
+export type SetGroupOverflowModeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  overflowMode: boolean;
 };
 
 

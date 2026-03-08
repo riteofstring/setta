@@ -1481,6 +1481,10 @@ func TestRegisterProjectRoutesLayoutPresentationMutationsProjectLatestState(t *t
 			body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","styleColor":"#654321"}`,
 		},
 		{
+			route: RouteSetGroupOverflowMode,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"group-section","overflowMode":true}`,
+		},
+		{
 			route: RouteSetSectionColumnWidth,
 			body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","columnWidth":248.5}`,
 		},
@@ -1587,6 +1591,11 @@ func TestRegisterProjectRoutesLayoutPresentationMutationsProjectLatestState(t *t
 	plainSharedModifier := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["plain-section"].SharedModifier)
 	if got := plainSharedModifier["positionAndSizeLocked"]; got != true {
 		t.Fatalf("expected plain section position lock=true, got %#v", got)
+	}
+
+	groupSharedModifier := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["group-section"].SharedModifier)
+	if got := groupSharedModifier["overflowMode"]; got != true {
+		t.Fatalf("expected group overflowMode=true, got %#v", got)
 	}
 }
 
@@ -2143,6 +2152,143 @@ func TestRegisterProjectRoutesSetSectionColumnWidthRejectsUnsupportedSection(t *
 	}
 	if !strings.Contains(response.Body.String(), `"code":"section_param_column_width_unsupported"`) {
 		t.Fatalf("expected section_param_column_width_unsupported body, got %q", response.Body.String())
+	}
+}
+
+func TestRegisterProjectRoutesSectionFilterAndMetaControlMutationsPersistLatestState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": sectionFilterMetaControlRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	post := func(route string, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+route,
+			strings.NewReader(body),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	for _, requestSpec := range []struct {
+		route string
+		body  string
+	}{
+		{
+			route: RouteSetSectionParamFilter,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"params-section","value":"   "}`,
+		},
+		{
+			route: RouteSetMetaControlShowSectionTitle,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"meta-section","showSectionTitle":true}`,
+		},
+	} {
+		response := post(requestSpec.route, requestSpec.body)
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+		}
+	}
+
+	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+
+	paramsSharedModifier := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["params-section"].SharedModifier)
+	if got := paramsSharedModifier["paramFilter"]; got != "   " {
+		t.Fatalf("expected raw paramFilter whitespace to persist, got %#v", got)
+	}
+
+	metaSharedModifier := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["meta-section"].SharedModifier)
+	if got := metaSharedModifier["showSectionTitle"]; got != true {
+		t.Fatalf("expected showSectionTitle=true, got %#v", got)
+	}
+}
+
+func TestRegisterProjectRoutesSectionFilterAndMetaControlMutationsRejectInvalidInputs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": sectionFilterMetaControlRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	for _, requestSpec := range []struct {
+		route        string
+		body         string
+		expectedCode int
+		expectedBody string
+	}{
+		{
+			route:        RouteSetSectionParamFilter,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"code-section","value":"alpha"}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"section_param_filter_unsupported"`,
+		},
+		{
+			route:        RouteSetMetaControlShowSectionTitle,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"params-section","showSectionTitle":true}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"meta_control_section_required"`,
+		},
+		{
+			route:        RouteSetGroupOverflowMode,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"plain-section","overflowMode":true}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"group_section_required"`,
+		},
+	} {
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+requestSpec.route,
+			strings.NewReader(requestSpec.body),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != requestSpec.expectedCode {
+			t.Fatalf("expected %d for %s, got %d with body %q", requestSpec.expectedCode, requestSpec.route, response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), requestSpec.expectedBody) {
+			t.Fatalf("expected response body to contain %s, got %q", requestSpec.expectedBody, response.Body.String())
+		}
 	}
 }
 
@@ -3176,6 +3322,7 @@ func layoutPresentationRouteTestProject(t *testing.T) projectstate.Project {
 		},
 		SectionVariantMap: map[string]string{
 			"callable-section": "callable-variant",
+			"group-section":    "group-variant",
 			"plain-section":    "plain-variant",
 		},
 		Sections: map[string]projectstate.Section{
@@ -3184,6 +3331,12 @@ func layoutPresentationRouteTestProject(t *testing.T) projectstate.Project {
 				Name:             "Callable Section",
 				VariantIDs:       []string{"callable-variant"},
 				DefaultVariantID: "callable-variant",
+			},
+			"group-section": {
+				ID:               "group-section",
+				Name:             "Group Section",
+				VariantIDs:       []string{"group-variant"},
+				DefaultVariantID: "group-variant",
 			},
 			"plain-section": {
 				ID:               "plain-section",
@@ -3197,6 +3350,10 @@ func layoutPresentationRouteTestProject(t *testing.T) projectstate.Project {
 				ID:     "callable-variant",
 				ImplID: "callable-impl",
 			},
+			"group-variant": {
+				ID:     "group-variant",
+				ImplID: "group-impl",
+			},
 			"plain-variant": {
 				ID:     "plain-variant",
 				ImplID: "plain-impl",
@@ -3208,6 +3365,16 @@ func layoutPresentationRouteTestProject(t *testing.T) projectstate.Project {
 				Kind:    projectstate.SectionKind("frontend"),
 				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "callable-impl", "type": "Callable"}),
 			},
+			"group-impl": {
+				ID:   "group-impl",
+				Kind: projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{
+					"id":                      "group-impl",
+					"type":                    "Group",
+					"isHorizontalOrientation": false,
+					"overflowMode":            false,
+				}),
+			},
 			"plain-impl": {
 				ID:      "plain-impl",
 				Kind:    projectstate.SectionKind("frontend"),
@@ -3217,6 +3384,82 @@ func layoutPresentationRouteTestProject(t *testing.T) projectstate.Project {
 	}.Normalized()
 	if err != nil {
 		t.Fatalf("normalize layout presentation route project: %v", err)
+	}
+	return project
+}
+
+func sectionFilterMetaControlRouteTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"params-section": "params-variant",
+			"meta-section":   "meta-variant",
+			"code-section":   "code-variant",
+			"plain-section":  "plain-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"params-section": {
+				ID:               "params-section",
+				Name:             "Params",
+				VariantIDs:       []string{"params-variant"},
+				DefaultVariantID: "params-variant",
+			},
+			"meta-section": {
+				ID:               "meta-section",
+				Name:             "Meta",
+				VariantIDs:       []string{"meta-variant"},
+				DefaultVariantID: "meta-variant",
+			},
+			"code-section": {
+				ID:               "code-section",
+				Name:             "Code",
+				VariantIDs:       []string{"code-variant"},
+				DefaultVariantID: "code-variant",
+			},
+			"plain-section": {
+				ID:               "plain-section",
+				Name:             "Plain",
+				VariantIDs:       []string{"plain-variant"},
+				DefaultVariantID: "plain-variant",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"params-variant": {ID: "params-variant", ImplID: "params-impl"},
+			"meta-variant":   {ID: "meta-variant", ImplID: "meta-impl"},
+			"code-variant":   {ID: "code-variant", ImplID: "code-impl"},
+			"plain-variant":  {ID: "plain-variant", ImplID: "plain-impl"},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"params-impl": {
+				ID:      "params-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "params-impl", "type": "Dict", "paramFilter": "", "codeObjVariantMap": map[string]any{}}),
+			},
+			"meta-impl": {
+				ID:      "meta-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "meta-impl", "type": "MetaControl", "showSectionTitle": false, "codeObjVariantMap": map[string]any{}}),
+			},
+			"code-impl": {
+				ID:   "code-impl",
+				Kind: projectstate.SectionKindCode,
+				Code: &projectstate.CodeSectionImpl{
+					Language: projectstate.CodeLanguagePython,
+				},
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "code-impl", "type": "Code", "codeLanguage": "python", "code": "print('alpha')\n", "children": []any{}}),
+			},
+			"plain-impl": {
+				ID:      "plain-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "plain-impl", "type": "TextBlock"}),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize section filter/meta control route project: %v", err)
 	}
 	return project
 }
