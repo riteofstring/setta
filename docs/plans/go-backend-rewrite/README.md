@@ -363,11 +363,14 @@ Use the docs in this order:
 119. `phase-10-share-deployment-stage3.md`
   - focused implementation-plan doc for the Go-owned `setta share` command
     over the sibling `setta-server` runtime and Go deployment catalog
-120. `spike-mcp.md`
+120. `phase-10-app-deployment-stage4.md`
+  - focused implementation-plan doc for the Go-owned `setta app` command
+    over the sibling `setta-server` runtime and Go deployment catalog
+121. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-121. `spike-pty.md`
+122. `spike-pty.md`
    - PTY uncertainty-reduction plan
-122. `spike-lsp.md`
+123. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

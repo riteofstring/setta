@@ -52,6 +52,7 @@ As of 2026-03-08:
 - `docs/plans/go-backend-rewrite/phase-9-native-installer-bundled-package-stage2.md`
 - `docs/plans/go-backend-rewrite/phase-10-default-local-ide-start-stage2.md`
 - `docs/plans/go-backend-rewrite/phase-10-share-deployment-stage3.md`
+- `docs/plans/go-backend-rewrite/phase-10-app-deployment-stage4.md`
 - `docs/reference/setta-cli-commands.md`
 - `backend/setta/start.py`
 - `tests/start/test_launch.py`
@@ -220,6 +221,10 @@ That slice should:
   - `cmd/setta-server` now owns share startup warning/output and browser-open
     fallback
   - the thin Python wrapper now dispatches `share` to the packaged Go binary
+- 2026-03-08: added the focused Stage 4 plan for the last local-runtime slice.
+  - `setta app` now has an explicit implementation boundary
+  - the app slice is constrained to deployment selection, validation, thin
+    CLI routing, and startup UX only
 
 ## Open Questions
 
