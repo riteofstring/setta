@@ -191,7 +191,8 @@ This remains the recommended option because:
 ## Recommended Next Step
 
 Create and execute the next focused slice for launch/bootstrap handoff
-ownership.
+ownership, tracked in
+`phase-7-launch-intent-local-launch-and-bootstrap-handoff.md`.
 
 Recommended landing order:
 
@@ -235,3 +236,7 @@ Recommended landing order:
   managed launcher artifact planning/install/remove/update plus the dedicated
   `--launcher-artifact-run` contract. The next recommended step is the
   remaining launch/bootstrap handoff slice.
+- 2026-03-08: created
+  `phase-7-launch-intent-local-launch-and-bootstrap-handoff.md` to split that
+  remaining gap into a first local launch/bootstrap handoff slice and a later
+  SSH/remote launch follow-up.

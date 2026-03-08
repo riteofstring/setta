@@ -114,7 +114,7 @@ Current repo status as of 2026-03-08:
 
 Create and execute the next focused Phase 7 slice for launch/bootstrap
 handoff ownership under
-`phase-7-launcher-management-and-bootstrap-plan.md`.
+`phase-7-launch-intent-local-launch-and-bootstrap-handoff.md`.
 
 That is now the highest-leverage next step because:
 
@@ -185,6 +185,10 @@ That is now the highest-leverage next step because:
   `internal/httpapi/launcher_management_routes_test.go`, and
   `internal/app/launcher_management_test.go`; next recommended step is the
   remaining launch/bootstrap handoff slice.
+- 2026-03-08: created
+  `phase-7-launch-intent-local-launch-and-bootstrap-handoff.md` to split the
+  remaining launcher gap into a first local handoff slice and a later SSH
+  remote-launch follow-up.
 
 ## Verification
 

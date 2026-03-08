@@ -289,11 +289,29 @@ Use the docs in this order:
   - focused implementation-plan doc for the remaining bounded Phase 7
     deployment slice: thin IDE-mode share/app deployment publish/list/latest
     transport over the completed deployment owners
-100. `spike-mcp.md`
+100. `phase-7-launcher-management-and-bootstrap-plan.md`
+  - broader Phase 7 launcher/bootstrap plan after the completed deployment
+    slice; launcher management is now complete and the remaining gap is
+    launch/bootstrap handoff
+101. `phase-7-launcher-open-workspace-and-bootstrap-contract.md`
+  - focused implementation-plan doc for the launcher executable/bootstrap
+    prerequisite and Go-owned `openLauncherWorkspace` runtime path; this slice
+    is now complete
+102. `phase-7-launcher-management-metadata-and-status-stage1a.md`
+  - focused historical implementation-plan doc for the metadata-only launcher
+    management landing completed before managed artifact ownership
+103. `phase-7-launcher-management-artifact-ownership-stage1b.md`
+  - focused implementation-plan doc for Go-owned managed launcher artifact
+    planning/install/remove/update and desktop-launch contract ownership; this
+    slice is now complete
+104. `phase-7-launch-intent-local-launch-and-bootstrap-handoff.md`
+  - focused implementation-plan doc for the remaining local launch/bootstrap
+    handoff slice after launcher management completion
+105. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-101. `spike-pty.md`
+106. `spike-pty.md`
    - PTY uncertainty-reduction plan
-102. `spike-lsp.md`
+107. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
