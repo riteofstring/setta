@@ -2,14 +2,14 @@
 
 ## Purpose
 
-This doc narrows the next bounded Phase 15 follow-on to the remaining direct
-frontend plugin restart transport gap after the landed runtime-read and config
-write slices:
+This doc records the landed bounded Phase 15 follow-on for the remaining direct
+frontend plugin restart transport gap after the runtime-read and config-write
+slices:
 
 - `POST /plugins/restart`
 
-The goal is to move plugin restart request handling onto the existing Go plugin
-service without broadening into a brand-new app restart runtime, daemon
+The goal was to move plugin restart request handling onto the existing Go
+plugin service without broadening into a brand-new app restart runtime, daemon
 supervisor work, or unrelated plugin mutation routes.
 
 ## Status
@@ -47,9 +47,20 @@ Current Python behavior relevant to this slice:
   - manual-fallback payload when the callback returns falsy
   - `PLUGIN_RESTART_FAILED` with HTTP 503 when the callback raises
 
+Landed in this slice:
+
+- Go now owns the direct frontend plugin restart route:
+  - `POST /plugins/restart`
+- `internal/plugins` now owns:
+  - optional programmatic restart callback capability detection
+  - programmatic accepted/rejected restart result shaping
+  - explicit restart-callback failure errors
+- the real Go app remains manual-only because no concrete restart hook is
+  configured there yet
+
 ## Scope
 
-This slice should cover only:
+This slice covered only:
 
 - thin IDE-only Go transport for:
   - `POST /plugins/restart`
@@ -130,11 +141,43 @@ This slice should cover only:
    - Wire the route through the shared service.
    - Do not claim a real app restart hook unless one already exists.
 
+## Decisions Made
+
+- keep restart semantics in `internal/plugins`
+  - the HTTP layer stays thin and only serializes the service result/error
+- complete the optional callback boundary now
+  - `plugins.Service` now models the full programmatic accepted/rejected/failure
+    path instead of cementing a manual-only contract
+  - the real app still supplies no callback and remains manual-only
+- map callback failures explicitly
+  - `PLUGIN_RESTART_FAILED` now returns HTTP 503 from the route
+  - no fake restart fallback path was introduced
+
+## Landed in This Slice
+
+- `internal/plugins/service.go`
+  - optional restart callback wiring in the shared plugin service
+- `internal/plugins/status.go`
+  - programmatic restart capability detection in IDE mode
+  - accepted/rejected restart response shaping
+  - explicit restart callback failure errors
+- `internal/httpapi/plugin_routes.go`
+  - thin IDE-only `POST /plugins/restart`
+- `internal/httpapi/route_names.go`
+  - bare-route registration for the restart route
+- `internal/app/app.go`
+  - real app wiring through the shared plugin service
+- focused coverage in:
+  - `internal/plugins/status_test.go`
+  - `internal/httpapi/plugin_routes_test.go`
+  - `internal/app/app_test.go`
+
 ## Verification
 
 - `./scripts/go.sh test ./internal/plugins -run 'Restart' -count=1`
 - `./scripts/go.sh test ./internal/httpapi -run 'Plugin' -count=1`
-- `./scripts/go.sh test ./internal/app -run 'Plugin.*Restart|PluginRuntimeAndFrontendAssets' -count=1`
+- `./scripts/go.sh test ./internal/app -run 'Plugin.*Restart|PluginRuntimeAndFrontendAssets|Plugin.*Config' -count=1`
+- `git diff --check`
 
 ## Open Questions
 
@@ -142,8 +185,13 @@ This slice should cover only:
   - recommendation: only when there is a real process-lifecycle owner for it;
     do not fabricate one in this transport slice
 
-## Next Recommended Step
+## Closeout
 
-- implement the bounded `POST /plugins/restart` slice above
-- after that, the remaining direct frontend plugin mutation routes are the
+- the direct frontend plugin restart request no longer depends on
+  `backend/setta/routers/plugins.py`
+- the shared Go plugin service now exposes the full bounded programmatic
+  restart contract used by the frontend helpers and CLI
+- the real app remains manual-only until a concrete restart lifecycle owner
+  exists
+- the remaining direct frontend plugin mutation gap is the
   install/link/enable/disable/update/rollback cluster

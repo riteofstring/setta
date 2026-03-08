@@ -10,6 +10,7 @@ var bareRouteNames = map[string]struct{}{
 	bareRouteName(RouteGetSettaHomeInfo):                        {},
 	bareRouteName(RouteLoadSettings):                            {},
 	bareRouteName(RoutePluginsConfig):                           {},
+	bareRouteName(RoutePluginsRestart):                          {},
 	bareRouteName(RoutePluginsRuntime):                          {},
 	bareRouteName(RouteSaveSettings):                            {},
 	bareRouteName(RouteShareDeploymentCurrentSession):           {},

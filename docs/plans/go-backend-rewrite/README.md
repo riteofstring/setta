@@ -602,7 +602,7 @@ Use the docs in this order:
   - focused completed-slice doc for Go-owned direct frontend plugin config
     validation and persistence over the existing plugin service/store boundary
 165. `phase-15-plugin-restart-transport.md`
-  - focused current-work plan for Go-owned direct frontend plugin restart
+  - focused completed-slice doc for Go-owned direct frontend plugin restart
     transport plus the bounded optional restart-callback service boundary
 166. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record

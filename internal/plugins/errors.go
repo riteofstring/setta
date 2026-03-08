@@ -26,6 +26,7 @@ const (
 	ServiceErrorCodeManifestUnsupported     ServiceErrorCode = "PLUGIN_MANIFEST_UNSUPPORTED_SCHEMA"
 	ServiceErrorCodeManifestVersionMismatch ServiceErrorCode = "PLUGIN_MANIFEST_VERSION_INCOMPATIBLE"
 	ServiceErrorCodeNotFound                ServiceErrorCode = "PLUGIN_NOT_FOUND"
+	ServiceErrorCodeRestartFailed           ServiceErrorCode = "PLUGIN_RESTART_FAILED"
 	ServiceErrorCodeRollbackUnavailable     ServiceErrorCode = "PLUGIN_ROLLBACK_UNAVAILABLE"
 	ServiceErrorCodeScopeInvalid            ServiceErrorCode = "PLUGIN_SCOPE_INVALID"
 	ServiceErrorCodeSourceArchiveTraversal  ServiceErrorCode = "PLUGIN_SOURCE_ARCHIVE_TRAVERSAL"

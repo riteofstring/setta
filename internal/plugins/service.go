@@ -19,6 +19,8 @@ type CandidateProvider interface {
 	ResolveCandidate(ctx context.Context, spec ParsedSourceSpec, installer PluginInstallerBackend) (CandidatePlugin, error)
 }
 
+type RestartCallback func(context.Context) (bool, error)
+
 type ServiceOptions struct {
 	Store                     *Store
 	DiscoveryService          *DiscoveryService
@@ -27,6 +29,7 @@ type ServiceOptions struct {
 	SettaHome                 string
 	ServerMode                config.Mode
 	RestartCommand            string
+	RestartCallback           RestartCallback
 	SettaVersion              string
 	CandidateProvider         CandidateProvider
 	PackageManagerRuntime     *pythonenv.Runtime
@@ -38,6 +41,7 @@ type Service struct {
 	discoveryService  *DiscoveryService
 	candidateProvider CandidateProvider
 	restartCommand    string
+	restartCallback   RestartCallback
 	settaVersion      string
 
 	mu                          sync.Mutex
@@ -78,6 +82,7 @@ func NewService(options ServiceOptions) (*Service, error) {
 		discoveryService:            discoveryService,
 		candidateProvider:           options.CandidateProvider,
 		restartCommand:              defaultRestartCommand(options.RestartCommand),
+		restartCallback:             options.RestartCallback,
 		settaVersion:                resolvedSettaVersion(options.SettaVersion),
 		installTargetReservations:   map[string]struct{}{},
 		pendingRestartRemovedPlugin: map[string]PendingRestartRemovedBackendPlugin{},

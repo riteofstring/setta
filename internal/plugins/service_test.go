@@ -509,12 +509,18 @@ func (p *fixtureCandidateProvider) ResolveCandidate(_ context.Context, spec Pars
 
 func mustNewPluginMutationService(t *testing.T, roots filesystemResolverTestRoots, provider CandidateProvider, mode config.Mode) *Service {
 	t.Helper()
+	return mustNewPluginMutationServiceWithRestartCallback(t, roots, provider, mode, nil)
+}
+
+func mustNewPluginMutationServiceWithRestartCallback(t *testing.T, roots filesystemResolverTestRoots, provider CandidateProvider, mode config.Mode, callback RestartCallback) *Service {
+	t.Helper()
 
 	service, err := NewService(ServiceOptions{
 		WorkspaceRoot:     roots.workspaceRoot,
 		SettaFilesRoot:    roots.settaFilesRoot,
 		SettaHome:         roots.settaHome,
 		ServerMode:        mode,
+		RestartCallback:   callback,
 		CandidateProvider: provider,
 	})
 	if err != nil {

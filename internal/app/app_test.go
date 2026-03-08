@@ -325,6 +325,65 @@ func TestAppWritesPluginConfigAndUpdatesRuntime(t *testing.T) {
 	}
 }
 
+func TestAppServesManualPluginRestartRoute(t *testing.T) {
+	// The real app should expose the plugin restart route and stay manual-only without a restart hook.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RoutePluginsRestart, nil)
+	if err != nil {
+		t.Fatalf("new plugin restart request: %v", err)
+	}
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post plugin restart: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected plugin restart 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		Accepted bool    `json:"accepted"`
+		Mode     string  `json:"mode"`
+		Command  *string `json:"command"`
+		Reason   *string `json:"reason"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode plugin restart payload: %v", err)
+	}
+	if payload.Accepted {
+		t.Fatalf("expected manual restart payload, got %#v", payload)
+	}
+	if payload.Mode != "manual" {
+		t.Fatalf("expected manual restart mode, got %#v", payload.Mode)
+	}
+	if payload.Command == nil || *payload.Command != "setta" {
+		t.Fatalf("expected manual restart command, got %#v", payload.Command)
+	}
+	if payload.Reason == nil || *payload.Reason != "Programmatic restart is not available in this runtime." {
+		t.Fatalf("unexpected manual restart reason %#v", payload.Reason)
+	}
+}
+
 func TestAppSaveProjectsPythonCodeSectionFilesForLSP(t *testing.T) {
 	cfg := testConfig(t)
 	prepareAppLSPFixture(t)

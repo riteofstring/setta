@@ -140,15 +140,41 @@ func (s *Service) RestartRequiredSummary() (RestartRequiredResponse, error) {
 	}, nil
 }
 
-func (s *Service) Restart(_ context.Context) (PluginRestartResult, error) {
+func (s *Service) Restart(ctx context.Context) (PluginRestartResult, error) {
 	if s == nil {
 		return PluginRestartResult{}, ErrWorkspaceRootRequired
 	}
 
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	capability := s.restartCapability()
+	callback := s.restartCallback
+	restartCommand := defaultRestartCommand(s.restartCommand)
+	s.mu.Unlock()
+
+	if capability.Mode == RestartCapabilityModeProgrammatic {
+		if callback == nil {
+			return PluginRestartResult{}, newServiceError(ServiceErrorCodeRestartFailed, "Programmatic restart callback missing.")
+		}
+		accepted, err := callback(ctx)
+		if err != nil {
+			return PluginRestartResult{}, newServiceError(ServiceErrorCodeRestartFailed, "Programmatic restart callback failed: %s", err.Error())
+		}
+		if accepted {
+			return PluginRestartResult{
+				Accepted: true,
+				Mode:     capability.Mode,
+				Command:  nil,
+				Reason:   nil,
+			}, nil
+		}
+		return PluginRestartResult{
+			Accepted: false,
+			Mode:     capability.Mode,
+			Command:  stringPointer(restartCommand),
+			Reason:   stringPointer("Programmatic restart request was rejected."),
+		}, nil
+	}
+
 	return PluginRestartResult{
 		Accepted: false,
 		Mode:     capability.Mode,
@@ -226,6 +252,13 @@ func (s *Service) restartCapability() RestartCapability {
 			Reason:  stringPointer("Plugin runtime restart is available only in IDE mode."),
 		}
 	default:
+		if s.restartCallback != nil {
+			return RestartCapability{
+				Mode:    RestartCapabilityModeProgrammatic,
+				Command: nil,
+				Reason:  nil,
+			}
+		}
 		return RestartCapability{
 			Mode:    RestartCapabilityModeManual,
 			Command: command,

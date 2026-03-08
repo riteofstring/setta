@@ -493,14 +493,15 @@ The next bounded plugin follow-on tracked in
 - `internal/plugins` now owns config validation and scoped persistence over the
   existing plugin discovery/store foundations
 
-The next bounded plugin follow-on is now tracked in
-`phase-15-plugin-restart-transport.md`:
+The next bounded plugin follow-on tracked in
+`phase-15-plugin-restart-transport.md` is now landed:
 
-- the next direct frontend plugin ownership gap is `POST /plugins/restart`
-- that slice stays bounded to thin IDE-only transport plus the existing
-  service's optional programmatic-restart callback semantics
-- a real app restart hook remains deferred unless a concrete lifecycle owner is
-  introduced
+- Go now owns:
+  - `POST /plugins/restart`
+- `internal/plugins` now owns the bounded optional programmatic-restart
+  callback contract behind that route and the existing CLI surface
+- the real app remains manual-only because no concrete restart hook is wired
+  there yet
 
 The bounded plugin dependency cleanup tracked in
 `phase-11-plugin-version-range-owner-and-dependency-cleanup.md` is now also

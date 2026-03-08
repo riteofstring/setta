@@ -14,6 +14,7 @@ import (
 
 const RoutePluginsRuntime = "/plugins/runtime"
 const RoutePluginsConfig = "/plugins/config"
+const RoutePluginsRestart = "/plugins/restart"
 
 type PluginRouteDependencies struct {
 	ModePolicy modes.Policy
@@ -34,6 +35,7 @@ func RegisterPluginRoutes(router chi.Router, deps PluginRouteDependencies) error
 
 	router.Get(RoutePluginsRuntime, pluginRuntimeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsConfig, pluginConfigHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsRestart, pluginRestartHandler(deps))
 	return nil
 }
 
@@ -79,6 +81,17 @@ func pluginConfigHandler(deps PluginRouteDependencies) http.HandlerFunc {
 			PluginID: payload.PluginID,
 			Config:   payload.Config,
 		})
+		if err != nil {
+			writePluginRouteError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, response)
+	}
+}
+
+func pluginRestartHandler(deps PluginRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		response, err := deps.Service.Restart(r.Context())
 		if err != nil {
 			writePluginRouteError(w, r, err)
 			return
@@ -153,6 +166,9 @@ func writePluginRouteError(w http.ResponseWriter, r *http.Request, err error) {
 		switch serviceErr.Code {
 		case plugins.ServiceErrorCodeNotFound, plugins.ServiceErrorCodeAssetNotFound:
 			writeError(w, r, http.StatusNotFound, string(serviceErr.Code), serviceErr.Message)
+			return
+		case plugins.ServiceErrorCodeRestartFailed:
+			writeError(w, r, http.StatusServiceUnavailable, string(serviceErr.Code), serviceErr.Message)
 			return
 		case plugins.ServiceErrorCodeAssetInvalidPath, plugins.ServiceErrorCodeConfigInvalid, plugins.ServiceErrorCodeConfigSchemaInvalid:
 			writeError(w, r, http.StatusBadRequest, string(serviceErr.Code), serviceErr.Message)

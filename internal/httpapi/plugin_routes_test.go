@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -146,6 +147,126 @@ func TestRegisterPluginRoutesRejectsInvalidJSONForConfigWrite(t *testing.T) {
 	}
 }
 
+func TestRegisterPluginRoutesReturnsManualRestartPayload(t *testing.T) {
+	t.Parallel()
+
+	service, _ := newPluginRouteTestService(t, config.ModeIDE)
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsRestart, nil)
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected plugin restart 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload plugins.PluginRestartResult
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode plugin restart response: %v", err)
+	}
+	if payload.Accepted {
+		t.Fatalf("expected manual restart payload, got %#v", payload)
+	}
+	if payload.Mode != plugins.RestartCapabilityModeManual {
+		t.Fatalf("expected manual restart mode, got %#v", payload.Mode)
+	}
+	if payload.Command == nil || *payload.Command != "setta" {
+		t.Fatalf("expected manual restart command, got %#v", payload.Command)
+	}
+	if payload.Reason == nil || *payload.Reason != "Programmatic restart is not available in this runtime." {
+		t.Fatalf("unexpected manual restart reason %#v", payload.Reason)
+	}
+}
+
+func TestRegisterPluginRoutesAcceptsProgrammaticRestart(t *testing.T) {
+	t.Parallel()
+
+	restartCalls := 0
+	service, _ := newPluginRouteTestServiceWithRestartCallback(t, config.ModeIDE, func(context.Context) (bool, error) {
+		restartCalls++
+		return true, nil
+	})
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsRestart, nil)
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected accepted plugin restart 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload plugins.PluginRestartResult
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode accepted plugin restart response: %v", err)
+	}
+	if !payload.Accepted {
+		t.Fatalf("expected accepted restart payload, got %#v", payload)
+	}
+	if payload.Mode != plugins.RestartCapabilityModeProgrammatic {
+		t.Fatalf("expected programmatic restart mode, got %#v", payload.Mode)
+	}
+	if restartCalls != 1 {
+		t.Fatalf("expected one restart callback call, got %d", restartCalls)
+	}
+}
+
+func TestRegisterPluginRoutesHandlesProgrammaticRestartRejection(t *testing.T) {
+	t.Parallel()
+
+	service, _ := newPluginRouteTestServiceWithRestartCallback(t, config.ModeIDE, func(context.Context) (bool, error) {
+		return false, nil
+	})
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsRestart, nil)
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected rejected plugin restart 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload plugins.PluginRestartResult
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode rejected plugin restart response: %v", err)
+	}
+	if payload.Accepted {
+		t.Fatalf("expected rejected restart payload, got %#v", payload)
+	}
+	if payload.Mode != plugins.RestartCapabilityModeProgrammatic {
+		t.Fatalf("expected programmatic restart mode, got %#v", payload.Mode)
+	}
+	if payload.Command == nil || *payload.Command != "setta" {
+		t.Fatalf("expected fallback restart command, got %#v", payload.Command)
+	}
+	if payload.Reason == nil || *payload.Reason != "Programmatic restart request was rejected." {
+		t.Fatalf("unexpected rejected restart reason %#v", payload.Reason)
+	}
+}
+
+func TestRegisterPluginRoutesMapsProgrammaticRestartFailureTo503(t *testing.T) {
+	t.Parallel()
+
+	service, _ := newPluginRouteTestServiceWithRestartCallback(t, config.ModeIDE, func(context.Context) (bool, error) {
+		return false, os.ErrPermission
+	})
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsRestart, nil)
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected restart failure 503, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode restart failure response: %v", err)
+	}
+	if payload.Error.Code != string(plugins.ServiceErrorCodeRestartFailed) {
+		t.Fatalf("expected restart failed error code, got %q", payload.Error.Code)
+	}
+}
+
 func TestRegisterPluginRoutesBlocksConfigWriteOutsideIDE(t *testing.T) {
 	t.Parallel()
 
@@ -158,6 +279,23 @@ func TestRegisterPluginRoutesBlocksConfigWriteOutsideIDE(t *testing.T) {
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusForbidden {
 		t.Fatalf("expected share-mode config write 403, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"mode_forbidden"`) {
+		t.Fatalf("expected mode_forbidden envelope, got %q", response.Body.String())
+	}
+}
+
+func TestRegisterPluginRoutesBlocksRestartOutsideIDE(t *testing.T) {
+	t.Parallel()
+
+	service, _ := newPluginRouteTestService(t, config.ModeShare)
+	handler := newPluginRouteTestHandler(t, config.ModeShare, service)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsRestart, nil)
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected share-mode restart 403, got %d with body %q", response.Code, response.Body.String())
 	}
 	if !strings.Contains(response.Body.String(), `"code":"mode_forbidden"`) {
 		t.Fatalf("expected mode_forbidden envelope, got %q", response.Body.String())
@@ -283,6 +421,11 @@ type pluginRouteTestRoots struct {
 
 func newPluginRouteTestService(t *testing.T, mode config.Mode) (*plugins.Service, pluginRouteTestRoots) {
 	t.Helper()
+	return newPluginRouteTestServiceWithRestartCallback(t, mode, nil)
+}
+
+func newPluginRouteTestServiceWithRestartCallback(t *testing.T, mode config.Mode, callback plugins.RestartCallback) (*plugins.Service, pluginRouteTestRoots) {
+	t.Helper()
 
 	baseRoot := t.TempDir()
 	roots := pluginRouteTestRoots{
@@ -297,10 +440,11 @@ func newPluginRouteTestService(t *testing.T, mode config.Mode) (*plugins.Service
 	}
 
 	service, err := plugins.NewService(plugins.ServiceOptions{
-		WorkspaceRoot:  roots.workspaceRoot,
-		SettaFilesRoot: roots.settaFilesRoot,
-		SettaHome:      roots.settaHome,
-		ServerMode:     mode,
+		WorkspaceRoot:   roots.workspaceRoot,
+		SettaFilesRoot:  roots.settaFilesRoot,
+		SettaHome:       roots.settaHome,
+		ServerMode:      mode,
+		RestartCallback: callback,
 	})
 	if err != nil {
 		t.Fatalf("new plugin route service: %v", err)

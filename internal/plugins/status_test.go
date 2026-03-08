@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -136,7 +137,7 @@ func TestServiceRestartRequiredSummaryIncludesPendingIDsWithoutStatus(t *testing
 	}
 }
 
-// Restart should preserve the shipped manual-only packaged CLI payload until a real Go restart hook exists.
+// Restart should preserve the packaged manual payload when no restart hook exists.
 func TestServiceRestartReturnsManualCapabilityPayload(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
@@ -156,6 +157,107 @@ func TestServiceRestartReturnsManualCapabilityPayload(t *testing.T) {
 	}
 	if result.Reason == nil || *result.Reason != "Programmatic restart is not available in this runtime." {
 		t.Fatalf("unexpected restart reason %#v", result.Reason)
+	}
+}
+
+// Restart should expose programmatic capability and accept the request when a restart callback exists.
+func TestServiceRestartAcceptsProgrammaticCallback(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	restartCalls := 0
+	service := mustNewPluginMutationServiceWithRestartCallback(
+		t,
+		roots,
+		nil,
+		config.ModeIDE,
+		func(context.Context) (bool, error) {
+			restartCalls++
+			return true, nil
+		},
+	)
+
+	status, err := service.Status()
+	if err != nil {
+		t.Fatalf("load status: %v", err)
+	}
+	if status.RestartCapability.Mode != RestartCapabilityModeProgrammatic {
+		t.Fatalf("expected programmatic restart capability, got %#v", status.RestartCapability)
+	}
+	if status.RestartCapability.Command != nil || status.RestartCapability.Reason != nil {
+		t.Fatalf("expected programmatic capability without manual fallback payload, got %#v", status.RestartCapability)
+	}
+
+	result, err := service.Restart(context.Background())
+	if err != nil {
+		t.Fatalf("restart service: %v", err)
+	}
+	if !result.Accepted {
+		t.Fatalf("expected restart request to be accepted, got %#v", result)
+	}
+	if result.Mode != RestartCapabilityModeProgrammatic {
+		t.Fatalf("expected programmatic restart mode, got %#v", result.Mode)
+	}
+	if result.Command != nil || result.Reason != nil {
+		t.Fatalf("expected accepted restart payload without fallback fields, got %#v", result)
+	}
+	if restartCalls != 1 {
+		t.Fatalf("expected one restart callback call, got %d", restartCalls)
+	}
+}
+
+// A rejected programmatic restart should preserve explicit manual fallback details.
+func TestServiceRestartProgrammaticRejectionFallsBackToManualCommand(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationServiceWithRestartCallback(
+		t,
+		roots,
+		nil,
+		config.ModeIDE,
+		func(context.Context) (bool, error) {
+			return false, nil
+		},
+	)
+
+	result, err := service.Restart(context.Background())
+	if err != nil {
+		t.Fatalf("restart service: %v", err)
+	}
+	if result.Accepted {
+		t.Fatalf("expected rejected restart request, got %#v", result)
+	}
+	if result.Mode != RestartCapabilityModeProgrammatic {
+		t.Fatalf("expected programmatic restart mode, got %#v", result.Mode)
+	}
+	if result.Command == nil || *result.Command != "setta" {
+		t.Fatalf("expected fallback restart command, got %#v", result.Command)
+	}
+	if result.Reason == nil || *result.Reason != "Programmatic restart request was rejected." {
+		t.Fatalf("unexpected fallback restart reason %#v", result.Reason)
+	}
+}
+
+// Programmatic restart callback failures should surface as explicit restart service errors.
+func TestServiceRestartProgrammaticFailureReturnsServiceError(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationServiceWithRestartCallback(
+		t,
+		roots,
+		nil,
+		config.ModeIDE,
+		func(context.Context) (bool, error) {
+			return false, os.ErrPermission
+		},
+	)
+
+	_, err := service.Restart(context.Background())
+	if err == nil {
+		t.Fatal("expected restart callback failure")
+	}
+	var serviceErr *ServiceError
+	if !errors.As(err, &serviceErr) {
+		t.Fatalf("expected service error, got %v", err)
+	}
+	if serviceErr.Code != ServiceErrorCodeRestartFailed {
+		t.Fatalf("expected restart failed error code, got %#v", serviceErr.Code)
 	}
 }
 
