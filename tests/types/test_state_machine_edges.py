@@ -141,8 +141,9 @@ class TestStateMachineEdges:
         with pytest.raises(ValueError):
             create_state_machine_edge(self.project_state, edge)
 
-    def test_connected_machine_requires_single_start_and_end(self) -> None:
-        # Connected groups use all workflow sections with the same machineGroupId.
+    def test_connected_machine_groups_can_remain_incomplete_while_editing(self) -> None:
+        # Draft workflows can temporarily have incomplete Start/End coverage while
+        # users lay out the machine on canvas.
         extra_start_id = create_top_level_section(
             self.settings,
             self.project_state,
@@ -159,8 +160,11 @@ class TestStateMachineEdges:
             targetSectionId=self.end_section_id,
             targetPortId=STATE_MACHINE_EDGE_TARGET_PORT_ID,
         )
-        with pytest.raises(ValueError, match="exactly one Start"):
-            create_state_machine_edge(self.project_state, edge)
+        create_state_machine_edge(self.project_state, edge)
+        assert self.project_state.projectConfig.stateMachineEdges == [edge]
+
+        delete_state_machine_edges(self.project_state, [edge.id])
+        assert self.project_state.projectConfig.stateMachineEdges == []
 
         self.project_state.sections[extra_start_id].sharedModifier["machineGroupId"] = (
             "other-machine"
@@ -168,8 +172,8 @@ class TestStateMachineEdges:
         self.project_state.sections[self.end_section_id].sharedModifier["machineGroupId"] = (
             "other-machine"
         )
-        with pytest.raises(ValueError, match="at least one End"):
-            self._create_edge(self.start_section_id, self.gate_section_id)
+        second_edge = self._create_edge(self.start_section_id, self.gate_section_id)
+        assert self.project_state.projectConfig.stateMachineEdges == [second_edge]
 
     def test_chat_target_requires_valid_action(self) -> None:
         chat_section_id = create_top_level_section(
@@ -260,17 +264,20 @@ class TestStateMachineEdges:
                 ),
             )
 
-    def test_section_settings_reject_group_changes_that_break_connected_graph(self) -> None:
+    def test_section_settings_allow_draft_structure_changes_but_reject_edge_group_mismatches(
+        self,
+    ) -> None:
         self._create_edge(self.start_section_id, self.end_section_id)
 
         with pytest.raises(ValueError, match="does not match the source section"):
             set_state_machine_section_settings(
-                self.project_state,
-                self.start_section_id,
-                "other-machine",
-                "Start",
-                None,
-            )
+            self.project_state,
+            self.start_section_id,
+            "other-machine",
+            "Start",
+            None,
+            None,
+        )
 
         extra_start_id = create_top_level_section(
             self.settings,
@@ -278,14 +285,16 @@ class TestStateMachineEdges:
             SectionType.StateMachineStart,
             Position(x=720, y=0),
         )
-        with pytest.raises(ValueError, match="exactly one Start"):
-            set_state_machine_section_settings(
-                self.project_state,
-                extra_start_id,
-                self.machine_group_id,
-                "Extra Start",
-                None,
-            )
+        set_state_machine_section_settings(
+            self.project_state,
+            extra_start_id,
+            self.machine_group_id,
+            "Extra Start",
+            None,
+            None,
+        )
+        extra_start_impl = self.project_state.sections[extra_start_id]
+        assert extra_start_impl.sharedModifier["machineGroupId"] == self.machine_group_id
 
         # Label-only updates still succeed when the machine group remains valid.
         set_state_machine_section_settings(
@@ -294,6 +303,7 @@ class TestStateMachineEdges:
             self.machine_group_id,
             "Gate Label",
             StateMachineGateType.AND,
+            None,
         )
 
     def test_project_config_round_trip(self) -> None:

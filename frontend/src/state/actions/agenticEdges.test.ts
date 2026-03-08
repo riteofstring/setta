@@ -16,9 +16,11 @@ import {
   createCodeSectionImpl,
   createCore,
   createProjectConfig,
+  createSectionSize,
   createUserDefaultChatSectionImpl,
   createVariant,
   SectionTypeEnum,
+  StateMachineGateTypeEnum,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -37,12 +39,15 @@ const projectConfigId = "project-1";
 const sectionA = "section-a";
 const sectionB = "section-b";
 const sectionCode = "section-code";
+const sectionGate = "section-gate";
 const variantA = "variant-a";
 const variantB = "variant-b";
 const variantCode = "variant-code";
+const variantGate = "variant-gate";
 const implA = "impl-a";
 const implB = "impl-b";
 const implCode = "impl-code";
+const implGate = "impl-gate";
 
 function seedChatSections() {
   const coreA = createCore({
@@ -63,6 +68,12 @@ function seedChatSections() {
     variants: [variantCode],
     defaultVariant: variantCode,
   });
+  const coreGate = createCore({
+    id: sectionGate,
+    name: "Gate",
+    variants: [variantGate],
+    defaultVariant: variantGate,
+  });
   const variantEntryA = createVariant({
     id: variantA,
     name: "Chat A Variant",
@@ -79,6 +90,12 @@ function seedChatSections() {
     id: variantCode,
     name: "Code Variant",
     impl: implCode,
+    nonPresetImpls: [],
+  });
+  const variantEntryGate = createVariant({
+    id: variantGate,
+    name: "Gate Variant",
+    impl: implGate,
     nonPresetImpls: [],
   });
   const implEntryA = createChatSectionImpl(
@@ -111,6 +128,26 @@ function seedChatSections() {
       type: SectionTypeEnum.Code,
     },
   );
+  const implEntryGate = {
+    id: implGate,
+    type: SectionTypeEnum.StateMachineGate,
+    name: "Gate",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    tagColor: null,
+    styleColor: null,
+    size: createSectionSize({ width: 240, height: 120 }),
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isPreset: false,
+    machineGroupId: "workflow-main",
+    gateType: StateMachineGateTypeEnum.AND,
+    label: "Gate",
+    ui: { showDetails: false },
+  };
 
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({ id: projectConfigId });
@@ -118,21 +155,25 @@ function seedChatSections() {
       [sectionA]: coreA,
       [sectionB]: coreB,
       [sectionCode]: coreCode,
+      [sectionGate]: coreGate,
     };
     state.sectionVariants = {
       [variantA]: variantEntryA,
       [variantB]: variantEntryB,
       [variantCode]: variantEntryCode,
+      [variantGate]: variantEntryGate,
     };
     state.sectionImpls = {
       [implA]: implEntryA,
       [implB]: implEntryB,
       [implCode]: implEntryCode,
+      [implGate]: implEntryGate,
     };
     state.projectConfig.sectionVariantMap = {
       [sectionA]: variantA,
       [sectionB]: variantB,
       [sectionCode]: variantCode,
+      [sectionGate]: variantGate,
     };
     state.previewSectionVariantMap = {};
   });
@@ -283,5 +324,36 @@ describe("agentic edge connections", () => {
         kind: AgenticEdgeKindEnum.section_chat,
       }),
     );
+  });
+
+  it("rejects workflow nodes as agentic endpoints", async () => {
+    const route_create_agentic_edge = (await import("utils/generatedEndpoints"))
+      .route_create_agentic_edge as unknown as vi.Mock;
+    route_create_agentic_edge.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    const connection = {
+      source: sectionA,
+      target: sectionGate,
+      sourceHandle: AGENTIC_EDGE_HANDLE_IDS.source,
+      targetHandle: AGENTIC_EDGE_HANDLE_IDS.target,
+    };
+
+    expect(isValidAgenticEdgeConnection(connection)).toBe(false);
+
+    createAgenticEdgeFromConnection(connection);
+    createAgenticEdgeFromSections({
+      sourceSectionId: sectionA,
+      targetSectionId: sectionGate,
+      kind: AgenticEdgeKindEnum.chat_section,
+    });
+
+    expect(useProjectState.getState().projectConfig.agenticEdges).toHaveLength(
+      0,
+    );
+    expect(route_create_agentic_edge).not.toHaveBeenCalled();
   });
 });

@@ -2466,6 +2466,51 @@ async def test_state_machine_runner_reset_clears_latest_running_machine_state(
 
 
 @pytest.mark.asyncio
+async def test_state_machine_run_routes_reject_draft_machine_groups_without_end_sections() -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        project_config_id = (
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        assert project_config_id is not None
+        await project_fixture.manager.finish_pending_operations()
+
+        start_response = await project_fixture.manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.StateMachineStart,
+                position=Position(x=0, y=0),
+            ),
+        )
+        await project_fixture.manager.set_state_machine_section_settings(
+            SetStateMachineSectionSettingsRequest(
+                projectConfigId=project_config_id,
+                sectionId=start_response.sectionId,
+                machineGroupId="workflow-main",
+                label="Draft Start",
+            )
+        )
+
+        state, _, _, _ = _build_runtime_state(project_fixture, settings_fixture)
+
+        with runtime_context(state) as ctx:
+            with pytest.raises(HTTPException) as exc_info:
+                await route_start_state_machine_run(
+                    StartStateMachineRunRequest(
+                        projectConfigId=project_config_id,
+                        machineGroupId="workflow-main",
+                        startSectionId=start_response.sectionId,
+                    ),
+                    ctx,
+                )
+
+        assert exc_info.value.status_code == 400
+        assert "at least one End" in str(exc_info.value.detail)
+
+
+@pytest.mark.asyncio
 async def test_state_machine_run_routes_reject_missing_machine_group() -> None:
     async with (
         real_project_manager() as project_fixture,

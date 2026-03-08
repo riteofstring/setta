@@ -198,6 +198,11 @@ test.describe.serial("state machine sections", () => {
       // The edited workflow metadata must stay inside the visible node shell.
       await expectNodeTextWithinBounds(gateNode, "Review Gate");
       await expectNodeTextWithinBounds(gateNode, "workflow-main");
+      await expect(
+        page.getByTestId(`state-machine-draft-warning-${gateSectionId}`),
+      ).toBeVisible();
+      await expect(gateNode.getByLabel("Agentic link target")).toHaveCount(0);
+      await expect(gateNode.getByLabel("Agentic link source")).toHaveCount(0);
 
       await setStateMachineSectionSettings(
         page,
@@ -250,6 +255,9 @@ test.describe.serial("state machine sections", () => {
 
       await expect(startNode).toContainText("workflow-main");
       await expect(endNode).toContainText("workflow-main");
+      await expect(
+        page.getByTestId(`state-machine-draft-warning-${gateSectionId}`),
+      ).toHaveCount(0);
       await expect
         .poll(
           async () =>

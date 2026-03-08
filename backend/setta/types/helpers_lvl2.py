@@ -2692,6 +2692,14 @@ def _ensure_agentic_edge_endpoints_valid(
         )
     if source_exists:
         source_impl = get_curr_effective_section_impl(p, edge.sourceSectionId)
+        if source_impl.type in {
+            SectionType.StateMachineStart,
+            SectionType.StateMachineGate,
+            SectionType.StateMachineEnd,
+        }:
+            raise TypeError(
+                f"Agentic edge {edge.id} does not support state machine nodes."
+            )
         if edge.kind in {AgenticEdgeKind.chat_chat, AgenticEdgeKind.chat_section}:
             if source_impl.type != SectionType.Chat:
                 raise TypeError(
@@ -2699,6 +2707,14 @@ def _ensure_agentic_edge_endpoints_valid(
                 )
     if target_exists:
         target_impl = get_curr_effective_section_impl(p, edge.targetSectionId)
+        if target_impl.type in {
+            SectionType.StateMachineStart,
+            SectionType.StateMachineGate,
+            SectionType.StateMachineEnd,
+        }:
+            raise TypeError(
+                f"Agentic edge {edge.id} does not support state machine nodes."
+            )
         if edge.kind in {AgenticEdgeKind.chat_chat, AgenticEdgeKind.section_chat}:
             if target_impl.type != SectionType.Chat:
                 raise TypeError(
@@ -2948,44 +2964,13 @@ def _ensure_state_machine_reset_thread_action_valid(
         )
 
 
-def _ensure_connected_state_machine_groups_valid(
+def _ensure_state_machine_edges_valid(
     p: "ProjectStateSingleConfig",
     edges: list[StateMachineEdge],
     machine_group_overrides: dict[ID, str] | None = None,
 ):
-    connected_machine_groups: set[str] = set()
     for edge in edges:
         _ensure_state_machine_edge_endpoints_valid(p, edge, machine_group_overrides)
-        connected_machine_groups.add(edge.machineGroupId)
-    if not connected_machine_groups:
-        return
-    start_counts = {
-        machine_group_id: 0 for machine_group_id in connected_machine_groups
-    }
-    end_counts = {machine_group_id: 0 for machine_group_id in connected_machine_groups}
-    for section_id in p.sections:
-        section_impl = get_curr_effective_section_impl(p, section_id)
-        machine_group_id = _resolve_state_machine_section_machine_group_id(
-            section_id,
-            section_impl,
-            machine_group_overrides,
-            "",
-        )
-        if machine_group_id not in connected_machine_groups:
-            continue
-        if isinstance(section_impl, StateMachineStartSectionImpl):
-            start_counts[machine_group_id] += 1
-        elif isinstance(section_impl, StateMachineEndSectionImpl):
-            end_counts[machine_group_id] += 1
-    for machine_group_id in connected_machine_groups:
-        if start_counts[machine_group_id] != 1:
-            raise ValueError(
-                f"Connected state machine group {machine_group_id} must have exactly one Start section."
-            )
-        if end_counts[machine_group_id] < 1:
-            raise ValueError(
-                f"Connected state machine group {machine_group_id} must have at least one End section."
-            )
 
 
 def _maybe_clear_edge_target_value(p: "ProjectStateSingleConfig", edge: Edge):
@@ -3244,9 +3229,7 @@ def set_agentic_edges(p: "ProjectStateSingleConfig", edges: list[AgenticEdge]):
 def create_state_machine_edge(p: "ProjectStateSingleConfig", edge: StateMachineEdge):
     if any(existing.id == edge.id for existing in p.projectConfig.stateMachineEdges):
         raise KeyError(f"State machine edge {edge.id} already exists.")
-    _ensure_connected_state_machine_groups_valid(
-        p, [*p.projectConfig.stateMachineEdges, edge]
-    )
+    _ensure_state_machine_edges_valid(p, [*p.projectConfig.stateMachineEdges, edge])
     p.projectConfig.stateMachineEdges.append(edge)
 
 
@@ -3256,7 +3239,7 @@ def update_state_machine_edge(p: "ProjectStateSingleConfig", edge: StateMachineE
             continue
         next_edges = list(p.projectConfig.stateMachineEdges)
         next_edges[idx] = edge
-        _ensure_connected_state_machine_groups_valid(p, next_edges)
+        _ensure_state_machine_edges_valid(p, next_edges)
         p.projectConfig.stateMachineEdges[idx] = edge
         return
     raise KeyError(f"State machine edge {edge.id} not found.")
@@ -3273,7 +3256,7 @@ def delete_state_machine_edges(p: "ProjectStateSingleConfig", edgeIds: list[ID])
         if edge.id in edge_ids:
             continue
         remaining_edges.append(edge)
-    _ensure_connected_state_machine_groups_valid(p, remaining_edges)
+    _ensure_state_machine_edges_valid(p, remaining_edges)
     p.projectConfig.stateMachineEdges = remaining_edges
 
 
@@ -3285,7 +3268,7 @@ def set_state_machine_edges(
         if edge.id in edge_ids:
             raise KeyError(f"Duplicate state machine edge id {edge.id} in update.")
         edge_ids.add(edge.id)
-    _ensure_connected_state_machine_groups_valid(p, edges)
+    _ensure_state_machine_edges_valid(p, edges)
     p.projectConfig.stateMachineEdges = edges
 
 
@@ -3304,7 +3287,7 @@ def set_state_machine_section_settings(
         raise ValueError("State machine maxIterations must be at least 1.")
     impl = get_curr_effective_section_impl(p, sectionId)
     if isinstance(impl, StateMachineStartSectionImpl):
-        _ensure_connected_state_machine_groups_valid(
+        _ensure_state_machine_edges_valid(
             p,
             p.projectConfig.stateMachineEdges,
             {sectionId: machineGroupId},
@@ -3320,7 +3303,7 @@ def set_state_machine_section_settings(
         )
         return
     if isinstance(impl, StateMachineEndSectionImpl):
-        _ensure_connected_state_machine_groups_valid(
+        _ensure_state_machine_edges_valid(
             p,
             p.projectConfig.stateMachineEdges,
             {sectionId: machineGroupId},
@@ -3337,7 +3320,7 @@ def set_state_machine_section_settings(
     if isinstance(impl, StateMachineGateSectionImpl):
         if gateType is None:
             raise ValueError("Gate sections require a gate type.")
-        _ensure_connected_state_machine_groups_valid(
+        _ensure_state_machine_edges_valid(
             p,
             p.projectConfig.stateMachineEdges,
             {sectionId: machineGroupId},

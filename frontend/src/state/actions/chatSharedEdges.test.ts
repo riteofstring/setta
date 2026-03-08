@@ -16,9 +16,12 @@ import {
   createChatSectionImpl,
   createCore,
   createProjectConfig,
+  createSectionSize,
   createStateMachineStartSectionImpl,
   createUserDefaultChatSectionImpl,
   createVariant,
+  SectionTypeEnum,
+  StateMachineGateTypeEnum,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -38,12 +41,15 @@ const machineGroupId = "workflow-main";
 const startSectionId = "section-start";
 const chatSectionA = "section-chat-a";
 const chatSectionB = "section-chat-b";
+const gateSectionId = "section-gate";
 const startVariantId = "variant-start";
 const chatVariantA = "variant-chat-a";
 const chatVariantB = "variant-chat-b";
+const gateVariantId = "variant-gate";
 const startImplId = "impl-start";
 const chatImplA = "impl-chat-a";
 const chatImplB = "impl-chat-b";
+const gateImplId = "impl-gate";
 
 function createSharedChatConnection(): Connection {
   return {
@@ -83,6 +89,26 @@ function seedWorkflowAwareChats() {
       thinking: false,
     },
   );
+  const gateImpl = {
+    id: gateImplId,
+    type: SectionTypeEnum.StateMachineGate,
+    name: "Gate",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    tagColor: null,
+    styleColor: null,
+    size: createSectionSize({ width: 240, height: 120 }),
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isPreset: false,
+    machineGroupId,
+    gateType: StateMachineGateTypeEnum.AND,
+    label: "Gate",
+    ui: { showDetails: false },
+  };
 
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({
@@ -91,6 +117,7 @@ function seedWorkflowAwareChats() {
         [startSectionId]: startVariantId,
         [chatSectionA]: chatVariantA,
         [chatSectionB]: chatVariantB,
+        [gateSectionId]: gateVariantId,
       },
       stateMachineEdges: [
         {
@@ -138,6 +165,12 @@ function seedWorkflowAwareChats() {
         variants: [chatVariantB],
         defaultVariant: chatVariantB,
       }),
+      [gateSectionId]: createCore({
+        id: gateSectionId,
+        name: "Gate",
+        variants: [gateVariantId],
+        defaultVariant: gateVariantId,
+      }),
     };
     state.sectionVariants = {
       [startVariantId]: createVariant({
@@ -158,11 +191,18 @@ function seedWorkflowAwareChats() {
         impl: chatImplB,
         nonPresetImpls: [],
       }),
+      [gateVariantId]: createVariant({
+        id: gateVariantId,
+        name: "Gate Variant",
+        impl: gateImplId,
+        nonPresetImpls: [],
+      }),
     };
     state.sectionImpls = {
       [startImplId]: startImpl,
       [chatImplA]: chatAImpl,
       [chatImplB]: chatBImpl,
+      [gateImplId]: gateImpl,
     };
     state.previewSectionVariantMap = {};
   });
@@ -256,5 +296,44 @@ describe("shared chat edge connections", () => {
     };
 
     expect(isValidSharedChatEdgeConnection(invalidConnection)).toBe(false);
+  });
+
+  it("routes chat-to-gate shared connections to the workflow family regardless of mode", async () => {
+    useLocalStorage.setState({ chatSharedEdgeMode: "agentic" });
+    const route_create_state_machine_edge = (
+      await import("utils/generatedEndpoints")
+    ).route_create_state_machine_edge as unknown as vi.Mock;
+    route_create_state_machine_edge.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+    const route_create_agentic_edge = (await import("utils/generatedEndpoints"))
+      .route_create_agentic_edge as unknown as vi.Mock;
+    route_create_agentic_edge.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    const connection: Connection = {
+      source: chatSectionA,
+      target: gateSectionId,
+      sourceHandle: SHARED_CHAT_EDGE_HANDLE_IDS.source,
+      targetHandle: STATE_MACHINE_EDGE_HANDLE_IDS.target,
+    };
+
+    expect(isValidSharedChatEdgeConnection(connection)).toBe(true);
+
+    createSharedChatEdgeFromConnection(connection);
+
+    expect(useProjectState.getState().projectConfig.agenticEdges).toHaveLength(
+      0,
+    );
+    expect(
+      useProjectState.getState().projectConfig.stateMachineEdges,
+    ).toHaveLength(2);
+    expect(route_create_state_machine_edge).toHaveBeenCalledTimes(1);
+    expect(route_create_agentic_edge).not.toHaveBeenCalled();
   });
 });

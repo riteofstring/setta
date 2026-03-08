@@ -177,10 +177,20 @@ function _SectionContainerCore({
   const handleScopeClassName = omitAgenticHandleScopeClass
     ? ""
     : "agentic-handle-scope";
-  const shouldRenderAgenticEdgeHandles =
-    !hideAgenticEdgeHandles && !isAttachedTerminalChild;
   const shouldRenderSharedChatHandles =
-    shouldRenderAgenticEdgeHandles && sectionTypeName === SectionTypeEnum.Chat;
+    !hideAgenticEdgeHandles && !isAttachedTerminalChild;
+  const isWorkflowOnlyNodeSection =
+    sectionTypeName === SectionTypeEnum.StateMachineStart ||
+    sectionTypeName === SectionTypeEnum.StateMachineGate ||
+    sectionTypeName === SectionTypeEnum.StateMachineEnd;
+  const shouldRenderChatSharedHandles =
+    shouldRenderSharedChatHandles && sectionTypeName === SectionTypeEnum.Chat;
+  const shouldRenderAgenticEdgeHandles =
+    shouldRenderSharedChatHandles &&
+    !shouldRenderChatSharedHandles &&
+    !isWorkflowOnlyNodeSection;
+  const shouldRenderStateMachineEdgeHandles =
+    shouldRenderSharedChatHandles && isWorkflowOnlyNodeSection;
 
   // [transition:_outline-color_200ms_ease] [transition:_box-shadow_500ms_ease]
   // {boxShadow}
@@ -193,15 +203,15 @@ function _SectionContainerCore({
       data-section-type={sectionTypeName}
       style={sectionStyleVars}
     >
-      {shouldRenderSharedChatHandles ? (
+      {shouldRenderChatSharedHandles ? (
         <ChatSharedEdgeHandles isUserView={isUserView} />
       ) : null}
-      {shouldRenderAgenticEdgeHandles && !shouldRenderSharedChatHandles && (
+      {shouldRenderAgenticEdgeHandles ? (
         <AgenticEdgeHandles isUserView={isUserView} />
-      )}
-      {shouldRenderAgenticEdgeHandles && !shouldRenderSharedChatHandles && (
+      ) : null}
+      {shouldRenderStateMachineEdgeHandles ? (
         <StateMachineEdgeHandles isUserView={isUserView} />
-      )}
+      ) : null}
       <MinimizedDataEdgeHandles sectionId={sectionId} />
       <SectionContainerCoreResizable
         sectionId={sectionId}

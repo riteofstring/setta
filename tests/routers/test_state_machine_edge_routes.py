@@ -200,13 +200,93 @@ async def test_state_machine_edge_routes_crud() -> None:
             )
             assert project_state.projectConfig.stateMachineEdges == [replacement]
 
-            with pytest.raises(ValueError, match="at least one End"):
-                await route_set_state_machine_section_settings(
-                    SetStateMachineSectionSettingsRequest(
-                        projectConfigId=project_config_id,
-                        sectionId=end_response.sectionId,
-                        machineGroupId="other-machine",
-                        label="Done elsewhere",
-                    ),
-                    ctx,
-                )
+            await route_set_state_machine_section_settings(
+                SetStateMachineSectionSettingsRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=end_response.sectionId,
+                    machineGroupId="other-machine",
+                    label="Done elsewhere",
+                ),
+                ctx,
+            )
+
+            project_state = project_fixture.manager.get_single_config_state(
+                project_config_id
+            )
+            end_impl = get_curr_effective_section_impl_with_type_guard(
+                project_state,
+                end_response.sectionId,
+                StateMachineEndSectionImpl,
+            )
+            assert end_impl.machineGroupId == "other-machine"
+
+
+@pytest.mark.asyncio
+async def test_state_machine_edge_routes_allow_incomplete_draft_machine_groups() -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        project_config_id = (
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        assert project_config_id is not None
+        await project_fixture.manager.finish_pending_operations()
+
+        state = SimpleNamespace(
+            share_mode=False,
+            deployment_mode=False,
+            wmh_frontend_sender=project_fixture.manager.websocket_msg_handler,
+            project_manager_switcher=ProjectManagerSwitcher(
+                main_manager=project_fixture.manager,
+                settings_manager=settings_fixture.manager,
+            ),
+        )
+
+        with runtime_context(state) as ctx:
+            gate_response = await project_fixture.manager.create_top_level_section(
+                CreateTopLevelSectionRequest(
+                    projectConfigId=project_config_id,
+                    implType=SectionType.StateMachineGate,
+                    position=Position(x=280, y=0),
+                ),
+            )
+            chat_response = await project_fixture.manager.create_top_level_section(
+                CreateTopLevelSectionRequest(
+                    projectConfigId=project_config_id,
+                    implType=SectionType.Chat,
+                    position=Position(x=0, y=0),
+                ),
+            )
+
+            await route_set_state_machine_section_settings(
+                SetStateMachineSectionSettingsRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=gate_response.sectionId,
+                    machineGroupId="workflow-main",
+                    label="Join",
+                    gateType=StateMachineGateType.OR,
+                ),
+                ctx,
+            )
+
+            await route_create_state_machine_edge(
+                CreateStateMachineEdgeRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                    sourceSectionId=chat_response.sectionId,
+                    sourcePortId=STATE_MACHINE_EDGE_SOURCE_PORT_ID,
+                    targetSectionId=gate_response.sectionId,
+                    targetPortId=STATE_MACHINE_EDGE_TARGET_PORT_ID,
+                ),
+                ctx,
+            )
+
+            project_state = project_fixture.manager.get_single_config_state(
+                project_config_id
+            )
+            assert len(project_state.projectConfig.stateMachineEdges) == 1
+            assert (
+                project_state.projectConfig.stateMachineEdges[0].targetSectionId
+                == gate_response.sectionId
+            )

@@ -48,6 +48,16 @@ function resolveAgenticEdgeKind(
   targetType: SectionTypeEnum,
 ): AgenticEdgeKindEnum | null {
   if (
+    sourceType === SectionTypeEnum.StateMachineStart ||
+    sourceType === SectionTypeEnum.StateMachineGate ||
+    sourceType === SectionTypeEnum.StateMachineEnd ||
+    targetType === SectionTypeEnum.StateMachineStart ||
+    targetType === SectionTypeEnum.StateMachineGate ||
+    targetType === SectionTypeEnum.StateMachineEnd
+  ) {
+    return null;
+  }
+  if (
     sourceType === SectionTypeEnum.Chat &&
     targetType === SectionTypeEnum.Chat
   ) {
@@ -320,6 +330,15 @@ export function createAgenticEdgeFromSections({
     return;
   }
   if (sourceSectionId === targetSectionId) {
+    return;
+  }
+  const state = useProjectState.getState();
+  const sourceType = getSectionTypeById(state, sourceSectionId);
+  const targetType = getSectionTypeById(state, targetSectionId);
+  if (!sourceType || !targetType) {
+    return;
+  }
+  if (resolveAgenticEdgeKind(sourceType, targetType) !== kind) {
     return;
   }
   const existingEdges = useProjectState.getState().projectConfig.agenticEdges;

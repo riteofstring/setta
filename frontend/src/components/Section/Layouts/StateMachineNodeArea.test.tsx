@@ -206,6 +206,33 @@ describe("StateMachineNodeArea", () => {
     );
   });
 
+  it("shows a small draft warning on gate nodes that are missing workflow endpoints", () => {
+    seedWorkflowSection({
+      sectionId: "section-gate-warning",
+      variantId: "variant-gate-warning",
+      impl: {
+        id: "impl-gate-warning",
+        type: SectionTypeEnum.StateMachineGate,
+        name: "Gate Warning Node",
+        size: createSectionSize({ width: 240, height: 120 }),
+        machineGroupId: "workflow-main",
+        gateType: StateMachineGateTypeEnum.AND,
+        label: "Draft Gate",
+        ui: { showDetails: false },
+        ...COMMON_MACHINE_IMPL_FIELDS,
+      },
+    });
+
+    const markup = renderToStaticMarkup(
+      <StateMachineNodeArea sectionId="section-gate-warning" />,
+    );
+
+    expect(markup).toContain(
+      'data-testid="state-machine-draft-warning-section-gate-warning"',
+    );
+    expect(markup).toContain('aria-label="Workflow draft warning"');
+  });
+
   it("renders recent workflow activity and iteration details on start nodes", () => {
     seedWorkflowSection({
       sectionId: "section-start-activity",

@@ -1,6 +1,8 @@
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
+import { getStateMachineDraftWarning } from "state/actions/stateMachineDraftValidation";
 import {
   resetStateMachineRun,
   startStateMachineRun,
@@ -91,6 +93,10 @@ function getNodeThemeClasses(type: StateMachineNodeSnapshot["type"]): string {
 
 export function StateMachineNodeArea({ sectionId }: StateMachineNodeAreaProps) {
   const snapshot = useProjectState(() => getNodeSnapshot(sectionId), _.isEqual);
+  const draftWarning = useProjectState(
+    (state) => getStateMachineDraftWarning(state, snapshot.machineGroupId),
+    _.isEqual,
+  );
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const isDeploymentMode = useShareSession((state) => state.isDeploymentMode);
   const machineRun = useAIStore(
@@ -113,6 +119,8 @@ export function StateMachineNodeArea({ sectionId }: StateMachineNodeAreaProps) {
   const showMachineStatus = snapshot.type !== SectionTypeEnum.StateMachineEnd;
   const showControls = snapshot.type === SectionTypeEnum.StateMachineStart;
   const showActivityPanel = showMachineStatus && machineRun.hasRun;
+  const showDraftWarning =
+    snapshot.type === SectionTypeEnum.StateMachineGate && draftWarning !== null;
   const controlsDisabled =
     pendingAction !== null || machineGroupId === "" || isDeploymentMode;
 
@@ -189,9 +197,23 @@ export function StateMachineNodeArea({ sectionId }: StateMachineNodeAreaProps) {
           <span className="text-[10px] font-semibold uppercase tracking-[0.22em] opacity-70">
             Workflow
           </span>
-          <span className="border-current/15 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]">
-            {kindLabel}
-          </span>
+          <div className="flex items-center gap-1.5">
+            {showDraftWarning ? (
+              <span
+                className="inline-flex h-4 min-w-4 items-center justify-center rounded-full border border-amber-500/40 bg-amber-500/15 px-1 text-[10px] font-bold leading-none text-amber-950 dark:border-amber-400/40 dark:bg-amber-400/10 dark:text-amber-100"
+                data-testid={`state-machine-draft-warning-${sectionId}`}
+                aria-label="Workflow draft warning"
+                {...getFloatingBoxHandlers({
+                  content: draftWarning.detail,
+                })}
+              >
+                !
+              </span>
+            ) : null}
+            <span className="border-current/15 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]">
+              {kindLabel}
+            </span>
+          </div>
         </header>
         <div className="mt-1 min-h-0 space-y-0.5">
           <p className="truncate text-sm font-semibold leading-tight">

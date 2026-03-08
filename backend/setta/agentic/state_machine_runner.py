@@ -542,22 +542,27 @@ class StateMachineRunner:
             elif isinstance(section_impl, StateMachineEndSectionImpl):
                 end_section_ids.append(section_id)
 
-        if start_section_id is None:
-            if not start_section_ids:
-                raise KeyError(
-                    f"State machine group {machine_group_id} does not have a Start section."
-                )
-            if len(start_section_ids) != 1:
-                raise ValueError(
-                    f"State machine group {machine_group_id} must resolve to exactly one Start section."
-                )
-            resolved_start_section_id = start_section_ids[0]
-        else:
-            if start_section_id not in start_section_ids:
-                raise KeyError(
-                    f"State machine start {start_section_id} not found in group {machine_group_id}."
-                )
-            resolved_start_section_id = start_section_id
+        if not start_section_ids:
+            raise KeyError(
+                f"State machine group {machine_group_id} does not have a Start section."
+            )
+        if len(start_section_ids) != 1:
+            raise ValueError(
+                f"State machine group {machine_group_id} must resolve to exactly one Start section."
+            )
+        if not end_section_ids:
+            raise ValueError(
+                f"State machine group {machine_group_id} must resolve to at least one End section."
+            )
+
+        resolved_start_section_id = start_section_ids[0]
+        if (
+            start_section_id is not None
+            and start_section_id != resolved_start_section_id
+        ):
+            raise KeyError(
+                f"State machine start {start_section_id} not found in group {machine_group_id}."
+            )
 
         start_impl = get_curr_effective_section_impl_with_type_guard(
             project_state,
