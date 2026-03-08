@@ -24,6 +24,8 @@ import {
   filterExecutableLinkedChatTargets,
 } from "./ChatAreaSettings";
 
+let mockCanEditLayout = true;
+
 vi.mock(
   "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState",
   () => ({
@@ -40,7 +42,20 @@ vi.mock("components/Params/ParamUIs/SwitchInput", () => ({
 }));
 
 vi.mock("components/Utils/Combobox/IdNameCombobox", () => ({
-  IdNameCombobox: () => <div data-testid="mock-id-name-combobox" />,
+  IdNameCombobox: ({ isDisabled }: { isDisabled?: boolean }) => (
+    <div
+      data-testid="mock-id-name-combobox"
+      data-disabled={isDisabled ? "true" : "false"}
+    />
+  ),
+}));
+
+vi.mock("state/hooks/share", () => ({
+  useShareCapabilities: () => ({
+    canEditLayout: mockCanEditLayout,
+    canEditParams: true,
+    canEditStructure: true,
+  }),
 }));
 
 function syncStoreInitialState(store: {
@@ -178,6 +193,7 @@ function seedChatSections() {
 
 describe("ChatAreaSettings", () => {
   beforeEach(() => {
+    mockCanEditLayout = true;
     resetProjectStores();
   });
 
@@ -271,5 +287,17 @@ describe("ChatAreaSettings", () => {
     expect(markup).toContain("Linked agents");
     expect(markup).toContain("Target Chat");
     expect(markup.match(/Target Chat/g)?.length ?? 0).toBe(1);
+  });
+
+  it("disables the chat mode combobox when layout edits are disallowed", () => {
+    mockCanEditLayout = false;
+    const { sourceSectionId } = seedChatSections();
+
+    const markup = renderToStaticMarkup(
+      <ChatAreaSettings sectionId={sourceSectionId} />,
+    );
+
+    expect(markup).toContain('data-testid="chat-area-settings-chat-mode"');
+    expect(markup).toContain('data-disabled="true"');
   });
 });

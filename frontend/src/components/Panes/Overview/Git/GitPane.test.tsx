@@ -1,8 +1,16 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useGitStore } from "state/git";
 import { GitPane } from "./GitPane";
+
+let mockCanEditLayout = true;
+
+vi.mock("state/hooks/share", () => ({
+  useShareCapabilities: () => ({
+    canEditLayout: mockCanEditLayout,
+  }),
+}));
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
@@ -23,6 +31,7 @@ function renderPane(
 
 describe("GitPane", () => {
   beforeEach(() => {
+    mockCanEditLayout = true;
     useGitStore.getState().reset();
   });
 
@@ -81,5 +90,32 @@ describe("GitPane", () => {
 
     expect(markup).not.toContain(">Graph<");
     expect(markup).toContain(">Refresh<");
+  });
+
+  it("disables the graph launcher when layout edits are disallowed", () => {
+    mockCanEditLayout = false;
+    useGitStore.setState((state) => ({
+      ...state,
+      status: {
+        response: {
+          repo: {
+            isGitRepo: true,
+            repoRoot: "/repo",
+            headBranch: "main",
+            headCommit: "abc1234",
+          },
+          entries: [],
+          isTruncated: false,
+        },
+        diffAvailabilityByPath: new Map(),
+        isLoading: false,
+        error: null,
+      },
+    }));
+
+    const markup = renderPane();
+
+    expect(markup).toContain(">Graph<");
+    expect(markup).toContain('disabled=""');
   });
 });

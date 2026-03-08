@@ -1,8 +1,10 @@
 import {
+  isManagedChatSection,
+  type ManagedChatSectionAuthorityState,
+} from "state/actions/sectionInfos";
+import {
   ChatWindowModeEnum,
-  SectionTypeEnum,
-  WindowSpaceSurfaceKindEnum,
-  type SectionType,
+  type ChatWindowMode,
   type WindowSpaceConfig,
 } from "utils/generatedTypes";
 import type { ChatSlashCommandDefinition } from "./chatComposerControls";
@@ -35,36 +37,50 @@ type StandaloneWindowSpaceWindowConfig = NonNullable<
   WindowSpaceConfig["windowsById"][string]
 >;
 
+type ManagedChatSurfaceWindow = {
+  mode: ChatWindowMode;
+  sectionIdOrNull: string | null;
+};
+
+export type ManagedChatSurfaceAuthorityState = ManagedChatSectionAuthorityState;
+
 export function standaloneSectionRequiresManagedChat(
-  sectionType: SectionType,
+  state: ManagedChatSurfaceAuthorityState,
+  sectionId: string,
 ): boolean {
-  return sectionType === SectionTypeEnum.Chat;
+  return isManagedChatSection(state, sectionId);
 }
 
-export function standaloneWindowRequiresManagedChat(
-  window: StandaloneWindowSpaceWindowConfig,
-  sectionTypesById: Record<string, SectionType>,
+export function windowSurfaceRequiresManagedChat(
+  window: ManagedChatSurfaceWindow,
+  state: ManagedChatSurfaceAuthorityState,
 ): boolean {
-  if (window.surfaceKind === WindowSpaceSurfaceKindEnum.project_chat) {
-    return window.mode !== ChatWindowModeEnum.git_graph_mode;
+  if (window.mode === ChatWindowModeEnum.project_ai_mode) {
+    return true;
+  }
+  if (window.mode === ChatWindowModeEnum.git_graph_mode) {
+    return false;
   }
   const sectionId = window.sectionIdOrNull;
   if (sectionId === null) {
     return false;
   }
-  const sectionType = sectionTypesById[sectionId];
-  if (sectionType === undefined) {
-    return false;
-  }
-  return standaloneSectionRequiresManagedChat(sectionType);
+  return standaloneSectionRequiresManagedChat(state, sectionId);
+}
+
+export function standaloneWindowRequiresManagedChat(
+  window: StandaloneWindowSpaceWindowConfig,
+  state: ManagedChatSurfaceAuthorityState,
+): boolean {
+  return windowSurfaceRequiresManagedChat(window, state);
 }
 
 export function standaloneWindowSpaceRequiresManagedChat(
   windowSpace: Pick<WindowSpaceConfig, "windowsById">,
-  sectionTypesById: Record<string, SectionType>,
+  state: ManagedChatSurfaceAuthorityState,
 ): boolean {
   for (const window of Object.values(windowSpace.windowsById)) {
-    if (standaloneWindowRequiresManagedChat(window, sectionTypesById)) {
+    if (standaloneWindowRequiresManagedChat(window, state)) {
       return true;
     }
   }

@@ -1,3 +1,36 @@
+## 2026-03-10 18:09:50 PDT
+
+Implemented the consolidated top-level review fixes for authoritative managed-chat surface admission, project-scoped chat hydration, and truthful layout-permission affordances, then verified the changed paths with Vitest, Playwright, and CDP.
+
+Managed-chat surface authority:
+- Replaced proxy/type-based admission checks with effective runtime section authority. Standalone section routes, standalone window-space routes, and workspace chat windowing now all determine managed-chat eligibility from the effective section impl plus chat mode instead of `SectionType.Chat` shortcuts or `sections[*].type` lookups.
+- `project_ai_mode` remains managed-chat gated, `section_mode` is gated only when the effective section impl is managed, and `git_graph_mode` is never treated as managed chat. This fixes the deployment/share regressions where `allowLLM=false` could wrongly hide scriptable section chat or git graph surfaces, or inconsistently block/allow saved window spaces.
+- Workspace window filtering now removes only the blocked managed surfaces instead of collapsing the entire shared host. Scriptable section windows and git graph windows remain available in deployment mode even when managed chat is disallowed.
+
+Project-chat hydration scoping:
+- `ProjectChatCore` now preserves `projectConfigId` through runtime hydration and fallback probing instead of broadening lookup scope with `null`.
+- Missing-provenance fallback continues to work, but it now stays inside the current project boundary. Reused `chatId`s in another project can no longer hydrate the wrong external transcript into a `/:project/chat/:chatId` route.
+- Added a focused runtime helper test to lock the project-scoped hydration contract in place.
+
+Layout-permission affordance cleanup:
+- The overview Git pane now disables the `Graph` launcher when layout edits are blocked, matching the reducer/backend policy instead of exposing a button that silently no-ops.
+- The section chat-mode control now disables under `allowLayoutChanges=false`, so deployment/share sessions no longer advertise a mutating control that downstream state logic rejects.
+- This keeps UI affordances aligned with the actual layout-permission boundary instead of relying on reducer-level rejection alone.
+
+UX before vs after:
+- Before: deployment/share sessions with `allowLLM=false` could hide the whole chat windowing host, deny scriptable standalone chat incorrectly, allow/block saved standalone window spaces inconsistently, and show layout actions that did nothing when clicked. After: only truly managed chat surfaces fail closed, scriptable section chat and git graph remain usable where intended, and blocked layout actions render as disabled instead of deceptively clickable.
+- Before: a standalone project-chat route could broaden fallback hydration beyond the current project and display another project's transcript when `chatId`s overlapped. After: project chat hydrates only within the active project and fails deterministically if the scoped runtime cannot satisfy the request.
+
+DX before vs after:
+- Before: permission behavior was duplicated across route parsing, workspace windowing, and share-policy helpers, with brittle proxy checks that were easy to regress when adding a new surface. After: the managed-chat admission logic is centralized around authoritative runtime metadata and reused consistently.
+- Before: project-chat hydration undermined route ownership with a silent client-side scope broadening. After: project scope is explicit in the hydration path and directly testable.
+- Before: UI permission correctness depended on remembering that reducers would reject layout mutations later. After: the control layer reflects the same permission model as the state layer.
+
+Verification:
+- `pnpm -C frontend exec vitest run src/components/Chat/sharePolicyChatAccess.test.ts src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx src/components/Panes/Overview/Git/GitPane.test.tsx src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.test.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationRuntime.test.ts` passed: 5 files, 26 tests.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts -g "deployment allowLLM=false"` passed: 2 tests.
+- CDP verification confirmed a live sharing-mode workspace kept scriptable section chat and git graph surfaces visible while suppressing managed project-chat windows under `allowLLM=false`, and confirmed the blocked/disabled affordance state matched the updated permission model.
+
 ## 2026-03-10 13:04:27 PDT
 
 Implemented the remaining consolidated review fixes for managed section-chat thread ownership and strict separation between read scope and peer-chat scope, then verified the behavior at backend, frontend, Playwright, and CDP layers.

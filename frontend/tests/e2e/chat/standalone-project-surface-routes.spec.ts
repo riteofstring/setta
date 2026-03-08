@@ -433,6 +433,66 @@ async function clearProjectChatWindowingState(
   }, projectConfigId);
 }
 
+async function setDeploymentSharePolicy(
+  page: Page,
+  {
+    allowLLM,
+    allowLayoutChanges,
+  }: {
+    allowLLM: boolean;
+    allowLayoutChanges: boolean;
+  },
+): Promise<void> {
+  await page.evaluate(
+    async ({
+      nextAllowLLM,
+      nextAllowLayoutChanges,
+    }: {
+      nextAllowLLM: boolean;
+      nextAllowLayoutChanges: boolean;
+    }) => {
+      const { useShareSession } = await import("/src/state/definitions.ts");
+      useShareSession.setState({
+        isDeploymentMode: true,
+        shareSessionId: "share-session-standalone-surfaces",
+        sessionRunCount: 0,
+        sharePolicy: {
+          allowLLM: nextAllowLLM,
+          allowLayoutChanges: nextAllowLayoutChanges,
+          allowParamChanges: false,
+          allowVariantChanges: false,
+          allowRun: false,
+          allowMultipleRuns: false,
+        },
+        shareDeploymentName: "deployment",
+        shareDeploymentVersion: "v1",
+        deploymentMode: "share",
+      });
+    },
+    {
+      nextAllowLLM: allowLLM,
+      nextAllowLayoutChanges: allowLayoutChanges,
+    },
+  );
+  await expect
+    .poll(async () => {
+      return page.evaluate(async () => {
+        const { useShareSession } = await import("/src/state/definitions.ts");
+        const state = useShareSession.getState();
+        return {
+          isDeploymentMode: state.isDeploymentMode,
+          allowLLM: state.sharePolicy?.allowLLM ?? null,
+          allowLayoutChanges: state.sharePolicy?.allowLayoutChanges ?? null,
+        };
+      });
+    })
+    .toEqual({
+      isDeploymentMode: true,
+      allowLLM,
+      allowLayoutChanges,
+    });
+}
+
 function getProjectChatWindowOrder(
   state: ProjectChatWindowingSnapshot,
 ): string[] {
@@ -3064,6 +3124,398 @@ test.describe.serial("standalone project surface routes", () => {
           return Object.keys(state.projectConfig.windowSpaces ?? {}).length;
         })
         .toBe(0);
+    } finally {
+      await cleanupManagedEngine();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("deployment allowLLM=false keeps scriptable section and git graph surfaces available while blocking managed project chat windows", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const gitFixture = await seedGitOverlayFixture(getWorkspaceRootOrThrow(), {
+      historyCommitCount: 4,
+    });
+    const standalonePage = await page.context().newPage();
+
+    try {
+      const projectConfigName = getProjectConfigNameFromUrl(page.url());
+      const { sectionId: scriptableSectionId, sectionName: scriptableSectionName } =
+        await createChatSection(
+          page,
+          projectContext.projectConfigId,
+          "Scriptable Chat",
+        );
+      await postBackend(page, "/setChatSectionSettings", {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId: scriptableSectionId,
+        managed: false,
+        engineConfigId: null,
+        transcriptionProfileId: null,
+        agentProfileId: null,
+        thinking: false,
+        permissionMode: "minimal",
+        searchEnabled: true,
+        dictationMode: "auto",
+      });
+      const scriptableSectionSlug = await resolveSectionSlug(
+        page,
+        scriptableSectionName,
+      );
+      const allowedWindowSpaceName = "Allowed Mixed Space";
+      const allowedWindowSpaceSlug = await page.evaluate(async (name) => {
+        const { sanitizeNameForSlug } = await import(
+          "/src/utils/nameValidation.ts"
+        );
+        return sanitizeNameForSlug(name);
+      }, allowedWindowSpaceName);
+      const seededStates = await page.evaluate(async (sectionId) => {
+        const {
+          ChatWindowModeEnum,
+          ChatWindowPlacementEnum,
+          WindowSpaceSurfaceKindEnum,
+          createProjectChatWindowingState,
+          createWindowSpaceState,
+        } = await import("/src/utils/generatedTypes.ts");
+        return {
+          windowingState: createProjectChatWindowingState({
+            order: [
+              "blocked-project-chat",
+              "scriptable-section-window",
+              "git-graph-window",
+            ],
+            instancesById: {
+              "blocked-project-chat": {
+                instanceId: "blocked-project-chat",
+                placement: ChatWindowPlacementEnum.floating,
+                mode: ChatWindowModeEnum.project_ai_mode,
+                sectionIdOrNull: null,
+                title: "Blocked Project Chat",
+                chatId: null,
+                isClosed: false,
+                isMinimized: false,
+                isMaximized: false,
+                zIndex: 1,
+                bounds: {
+                  x: 80,
+                  y: 80,
+                  width: 360,
+                  height: 280,
+                },
+              },
+              "scriptable-section-window": {
+                instanceId: "scriptable-section-window",
+                placement: ChatWindowPlacementEnum.floating,
+                mode: ChatWindowModeEnum.section_mode,
+                sectionIdOrNull: sectionId,
+                title: "Scriptable Section Chat",
+                chatId: null,
+                isClosed: false,
+                isMinimized: false,
+                isMaximized: false,
+                zIndex: 2,
+                bounds: {
+                  x: 480,
+                  y: 80,
+                  width: 360,
+                  height: 280,
+                },
+              },
+              "git-graph-window": {
+                instanceId: "git-graph-window",
+                placement: ChatWindowPlacementEnum.floating,
+                mode: ChatWindowModeEnum.git_graph_mode,
+                sectionIdOrNull: null,
+                title: "Git Graph",
+                chatId: null,
+                isClosed: false,
+                isMinimized: false,
+                isMaximized: false,
+                zIndex: 3,
+                bounds: {
+                  x: 280,
+                  y: 400,
+                  width: 420,
+                  height: 260,
+                },
+              },
+            },
+            nextInstanceNumber: 4,
+          }),
+          windowSpaceState: createWindowSpaceState({
+            windowsById: {
+              "scriptable-section-window": {
+                surfaceKind: WindowSpaceSurfaceKindEnum.section,
+                sectionIdOrNull: sectionId,
+                mode: ChatWindowModeEnum.section_mode,
+                title: "Scriptable Section Chat",
+                chatId: null,
+                zIndex: 1,
+                normalizedBounds: {
+                  x: 0.05,
+                  y: 0.08,
+                  width: 0.42,
+                  height: 0.44,
+                },
+              },
+              "git-graph-window": {
+                surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+                sectionIdOrNull: null,
+                mode: ChatWindowModeEnum.git_graph_mode,
+                title: "Git Graph",
+                chatId: null,
+                zIndex: 2,
+                normalizedBounds: {
+                  x: 0.52,
+                  y: 0.08,
+                  width: 0.43,
+                  height: 0.44,
+                },
+              },
+            },
+            order: ["scriptable-section-window", "git-graph-window"],
+          }),
+        };
+      }, scriptableSectionId);
+
+      await page.evaluate(async (windowingState) => {
+        const { useProjectState } = await import("/src/state/definitions.ts");
+        useProjectState.setState((state) => {
+          state.projectChatWindowing = windowingState;
+        });
+      }, seededStates.windowingState);
+      await postBackend(page, "/createWindowSpace", {
+        projectConfigId: projectContext.projectConfigId,
+        name: allowedWindowSpaceName,
+        state: seededStates.windowSpaceState,
+      });
+      await setDeploymentSharePolicy(page, {
+        allowLLM: false,
+        allowLayoutChanges: false,
+      });
+
+      await expect(
+        page.locator(
+          '[data-testid="project-chat-floating-window"][data-chat-window-instance-id="scriptable-section-window"]',
+        ),
+      ).toBeVisible();
+      await expect(
+        page.locator(
+          '[data-testid="project-chat-floating-window"][data-chat-window-instance-id="git-graph-window"]',
+        ),
+      ).toBeVisible();
+      await expect(
+        page.locator(
+          '[data-testid="project-chat-floating-window"][data-chat-window-instance-id="blocked-project-chat"]',
+        ),
+      ).toHaveCount(0);
+
+      await standalonePage.goto(
+        buildStandaloneUrl(
+          page.url(),
+          `/${encodeURIComponent(projectConfigName)}/section/${encodeURIComponent(scriptableSectionSlug)}`,
+        ),
+        { waitUntil: "domcontentloaded" },
+      );
+      await expect(
+        standalonePage.getByTestId("standalone-section-surface"),
+      ).toBeVisible();
+      await setDeploymentSharePolicy(standalonePage, {
+        allowLLM: false,
+        allowLayoutChanges: false,
+      });
+      await expect(
+        standalonePage.getByTestId("standalone-section-surface"),
+      ).toBeVisible();
+      await expect(
+        standalonePage.getByTestId("standalone-managed-chat-blocked"),
+      ).toHaveCount(0);
+
+      await standalonePage.goto(
+        buildStandaloneUrl(
+          page.url(),
+          `/${encodeURIComponent(projectConfigName)}/windowspace/${encodeURIComponent(allowedWindowSpaceSlug)}`,
+        ),
+        { waitUntil: "domcontentloaded" },
+      );
+      await expect(
+        standalonePage.getByTestId("standalone-window-space-surface"),
+      ).toBeVisible();
+      await setDeploymentSharePolicy(standalonePage, {
+        allowLLM: false,
+        allowLayoutChanges: false,
+      });
+      await expect(
+        standalonePage.getByTestId("standalone-window-space-surface"),
+      ).toBeVisible();
+      await expect(
+        standalonePage.getByTestId("standalone-managed-chat-blocked"),
+      ).toHaveCount(0);
+
+    } finally {
+      await standalonePage.close();
+      await cleanupGitOverlayFixture(gitFixture);
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("deployment allowLLM=false blocks managed standalone section and window-space routes", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const cleanupManagedEngine = await ensureManagedChatEngine(page);
+
+    try {
+      const projectConfigName = getProjectConfigNameFromUrl(page.url());
+      const { sectionId: managedSectionId, sectionName: managedSectionName } =
+        await createChatSection(
+          page,
+          projectContext.projectConfigId,
+          "Managed Chat",
+        );
+      let managedEngineId: string | null = null;
+      await expect
+        .poll(async () => {
+          managedEngineId = await page.evaluate(async () => {
+            const { useAIStore } = await import("/src/state/definitions.ts");
+            return (
+              useAIStore
+                .getState()
+                .engineConfigs.find(
+                  (config) => config.engineType === "setta_llm",
+                )?.id ?? null
+            );
+          });
+          return managedEngineId;
+        })
+        .not.toBeNull();
+      if (!managedEngineId) {
+        throw new Error("Missing managed chat engine for standalone block test.");
+      }
+      await postBackend(page, "/setChatSectionSettings", {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId: managedSectionId,
+        managed: true,
+        engineConfigId: managedEngineId,
+        transcriptionProfileId: null,
+        agentProfileId: null,
+        thinking: false,
+        permissionMode: "minimal",
+        searchEnabled: true,
+        dictationMode: "auto",
+      });
+      await expect
+        .poll(async () => {
+          return page.evaluate(async (sectionId) => {
+            const { isManagedChatSection } = await import(
+              "/src/state/actions/sectionInfos.ts"
+            );
+            const { useProjectState } = await import("/src/state/definitions.ts");
+            const state = useProjectState.getState();
+            return isManagedChatSection(
+              {
+                projectConfig: {
+                  sectionVariantMap: state.projectConfig.sectionVariantMap,
+                },
+                sections: state.sections,
+                sectionVariants: state.sectionVariants,
+                sectionImpls: state.sectionImpls,
+              },
+              sectionId,
+            );
+          }, managedSectionId);
+        })
+        .toBe(true);
+      const managedSectionSlug = await resolveSectionSlug(
+        page,
+        managedSectionName,
+      );
+      const blockedWindowSpaceName = "Blocked Managed Space";
+      const blockedWindowSpaceSlug = await page.evaluate(async (name) => {
+        const { sanitizeNameForSlug } = await import(
+          "/src/utils/nameValidation.ts"
+        );
+        return sanitizeNameForSlug(name);
+      }, blockedWindowSpaceName);
+      const blockedWindowSpaceState = await page.evaluate(async (sectionId) => {
+        const {
+          ChatWindowModeEnum,
+          WindowSpaceSurfaceKindEnum,
+          createWindowSpaceState,
+        } = await import("/src/utils/generatedTypes.ts");
+        return createWindowSpaceState({
+          windowsById: {
+            "managed-section-window": {
+              surfaceKind: WindowSpaceSurfaceKindEnum.section,
+              sectionIdOrNull: sectionId,
+              mode: ChatWindowModeEnum.section_mode,
+              title: "Managed Section Chat",
+              chatId: null,
+              zIndex: 1,
+              normalizedBounds: {
+                x: 0.08,
+                y: 0.1,
+                width: 0.52,
+                height: 0.5,
+              },
+            },
+          },
+          order: ["managed-section-window"],
+        });
+      }, managedSectionId);
+
+      await postBackend(page, "/createWindowSpace", {
+        projectConfigId: projectContext.projectConfigId,
+        name: blockedWindowSpaceName,
+        state: blockedWindowSpaceState,
+      });
+      await setDeploymentSharePolicy(page, {
+        allowLLM: false,
+        allowLayoutChanges: false,
+      });
+
+      await page.goto(
+        buildStandaloneUrl(
+          page.url(),
+          `/${encodeURIComponent(projectConfigName)}/section/${encodeURIComponent(managedSectionSlug)}`,
+        ),
+        { waitUntil: "domcontentloaded" },
+      );
+      await expect(page.getByTestId("standalone-section-surface")).toBeVisible();
+      await setDeploymentSharePolicy(page, {
+        allowLLM: false,
+        allowLayoutChanges: false,
+      });
+      await expect(
+        page.getByTestId("standalone-managed-chat-blocked"),
+      ).toBeVisible();
+      await expect(
+        page.getByTestId("standalone-section-surface"),
+      ).toHaveCount(0);
+
+      await page.goto(
+        buildStandaloneUrl(
+          page.url(),
+          `/${encodeURIComponent(projectConfigName)}/windowspace/${encodeURIComponent(blockedWindowSpaceSlug)}`,
+        ),
+        { waitUntil: "domcontentloaded" },
+      );
+      await expect(
+        page.getByTestId("standalone-window-space-surface"),
+      ).toBeVisible();
+      await setDeploymentSharePolicy(page, {
+        allowLLM: false,
+        allowLayoutChanges: false,
+      });
+      await expect(
+        page.getByTestId("standalone-managed-chat-blocked"),
+      ).toBeVisible();
+      await expect(
+        page.getByTestId("standalone-window-space-surface"),
+      ).toHaveCount(0);
     } finally {
       await cleanupManagedEngine();
       await cleanupIsolatedProject(page, projectContext);

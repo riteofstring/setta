@@ -186,6 +186,34 @@ export function buildProjectChatHydrationCacheKey({
   return `${normalizedChatId}:${hydrationRunType}:${normalizedRevision}`;
 }
 
+export async function hydrateProjectChatFromRuntime({
+  chatId,
+  projectConfigId,
+  hydrationRunType,
+  shouldProbeMissingProvenance,
+}: {
+  chatId: string;
+  projectConfigId: string;
+  hydrationRunType: ChatRunType | null;
+  shouldProbeMissingProvenance: boolean;
+}): Promise<ChatHydrationOutcome> {
+  const preferredHydrationRunType =
+    hydrationRunType === "llm_chat" || hydrationRunType === "external_agent"
+      ? hydrationRunType
+      : null;
+  if (shouldProbeMissingProvenance) {
+    return getProjectChatHydrationOutcomeWithFallback(
+      chatId,
+      projectConfigId,
+      preferredHydrationRunType,
+    );
+  }
+  if (hydrationRunType === "external_agent") {
+    return getExternalAgentChatHydrationOutcome(chatId, projectConfigId);
+  }
+  return getLLMChatHydrationOutcome(chatId);
+}
+
 export function resolveProjectChatComposerNativeSlashCommandTokens({
   runtimeNativeSlashCommandTokens,
   agentRunsAuthorityState,
@@ -1568,21 +1596,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         });
       touchProjectChatHydrationRetryEntry(state);
       state.status = "in_flight";
-      let hydrationOutcome: ChatHydrationOutcome;
-      if (shouldProbeMissingProvenance) {
-        hydrationOutcome = await getProjectChatHydrationOutcomeWithFallback(
-          chatId,
-          null,
-          hydrationRunType,
-        );
-      } else if (hydrationRunType === "external_agent") {
-        hydrationOutcome = await getExternalAgentChatHydrationOutcome(
-          chatId,
-          null,
-        );
-      } else {
-        hydrationOutcome = await getLLMChatHydrationOutcome(chatId);
-      }
+      const hydrationOutcome = await hydrateProjectChatFromRuntime({
+        chatId,
+        projectConfigId,
+        hydrationRunType,
+        shouldProbeMissingProvenance,
+      });
       if (cancelled) {
         return;
       }
@@ -1654,6 +1673,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     hydrationAuthority.blockedErrorCode,
     hydrationMetadataRevision,
     hydrationRunType,
+    projectConfigId,
     waitingForResponse,
   ]);
 

@@ -12,24 +12,39 @@ import {
 import "testUtils/reactRefreshPreamble";
 import {
   ChatWindowModeEnum,
+  SectionTypeEnum,
   WindowSpaceSurfaceKindEnum,
   createWindowSpaceConfig,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StandaloneProjectSurfacePage } from "./StandaloneProjectSurfacePage";
 
+type MockSectionCore = {
+  name: string;
+  sharedModifier?: Record<string, unknown>;
+};
+
+type MockSectionVariant = {
+  impl: string;
+  modifier?: Record<string, unknown>;
+};
+
+type MockSectionImpl = {
+  type: string;
+  managed?: boolean;
+  children?: string[];
+};
+
 type MockProjectState = {
   projectConfig: {
     id: string;
     windowSpaces: Record<string, unknown>;
+    sectionVariantMap: Record<string, string>;
   };
-  sections: Record<
-    string,
-    {
-      name: string;
-      type: string;
-    }
-  >;
+  sections: Record<string, MockSectionCore>;
+  sectionVariants: Record<string, MockSectionVariant>;
+  sectionImpls: Record<string, MockSectionImpl>;
+  parentSectionMap: Record<string, string | null>;
 };
 
 type MockAIState = {
@@ -52,8 +67,12 @@ const hoisted = vi.hoisted(() => {
       projectConfig: {
         id: "project-config-1",
         windowSpaces: {},
+        sectionVariantMap: {},
       },
       sections: {},
+      sectionVariants: {},
+      sectionImpls: {},
+      parentSectionMap: {},
     } as MockProjectState,
     aiState: {
       activeChatId: "workspace-chat",
@@ -120,10 +139,12 @@ vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
     setProjectChatId,
     onProjectChatBlockedErrorCodeChange,
   }: {
-    dataTestId?: string;
-    projectChatId?: string | null;
-    setProjectChatId?: (next: string | null) => void;
-    onProjectChatBlockedErrorCodeChange?: (errorCode: string | null) => void;
+    dataTestId?: string | undefined;
+    projectChatId?: string | null | undefined;
+    setProjectChatId?: ((next: string | null) => void) | undefined;
+    onProjectChatBlockedErrorCodeChange?:
+      | ((errorCode: string | null) => void)
+      | undefined;
   }) => (
     <MockUnifiedChatSurface
       dataTestId={dataTestId}
@@ -140,10 +161,12 @@ function MockUnifiedChatSurface({
   setProjectChatId,
   onProjectChatBlockedErrorCodeChange,
 }: {
-  dataTestId?: string;
-  projectChatId?: string | null;
-  setProjectChatId?: (next: string | null) => void;
-  onProjectChatBlockedErrorCodeChange?: (errorCode: string | null) => void;
+  dataTestId?: string | undefined;
+  projectChatId?: string | null | undefined;
+  setProjectChatId?: ((next: string | null) => void) | undefined;
+  onProjectChatBlockedErrorCodeChange?:
+    | ((errorCode: string | null) => void)
+    | undefined;
 }) {
   useEffect(() => {
     onProjectChatBlockedErrorCodeChange?.(
@@ -274,6 +297,63 @@ function click(node: Element | null): void {
   node.click();
 }
 
+function createChatSectionFixture({
+  sectionId,
+  sectionName,
+  managed,
+}: {
+  sectionId: string;
+  sectionName: string;
+  managed: boolean;
+}) {
+  const variantId = `${sectionId}-variant`;
+  const implId = `${sectionId}-impl`;
+  return {
+    sectionId,
+    core: {
+      name: sectionName,
+      sharedModifier: {},
+    } satisfies MockSectionCore,
+    variantId,
+    variant: {
+      impl: implId,
+      modifier: {},
+    } satisfies MockSectionVariant,
+    implId,
+    impl: {
+      type: SectionTypeEnum.Chat,
+      managed,
+    } satisfies MockSectionImpl,
+  };
+}
+
+function createTextSectionFixture({
+  sectionId,
+  sectionName,
+}: {
+  sectionId: string;
+  sectionName: string;
+}) {
+  const variantId = `${sectionId}-variant`;
+  const implId = `${sectionId}-impl`;
+  return {
+    sectionId,
+    core: {
+      name: sectionName,
+      sharedModifier: {},
+    } satisfies MockSectionCore,
+    variantId,
+    variant: {
+      impl: implId,
+      modifier: {},
+    } satisfies MockSectionVariant,
+    implId,
+    impl: {
+      type: SectionTypeEnum.TextBlock,
+    } satisfies MockSectionImpl,
+  };
+}
+
 describe("StandaloneProjectSurfacePage", () => {
   let host: HTMLDivElement;
   let root: Root;
@@ -283,8 +363,12 @@ describe("StandaloneProjectSurfacePage", () => {
       projectConfig: {
         id: "project-config-1",
         windowSpaces: {},
+        sectionVariantMap: {},
       },
       sections: {},
+      sectionVariants: {},
+      sectionImpls: {},
+      parentSectionMap: {},
     };
     hoisted.state.aiState = {
       activeChatId: "workspace-chat",
@@ -539,6 +623,7 @@ describe("StandaloneProjectSurfacePage", () => {
                 mode: ChatWindowModeEnum.project_ai_mode,
                 title: "Research Chat",
                 chatId: null,
+                embeddedGitPaneVisible: false,
                 zIndex: 1,
                 normalizedBounds: {
                   x: 0,
@@ -551,8 +636,12 @@ describe("StandaloneProjectSurfacePage", () => {
             order: ["chat-window"],
           }),
         },
+        sectionVariantMap: {},
       },
       sections: {},
+      sectionVariants: {},
+      sectionImpls: {},
+      parentSectionMap: {},
     };
 
     await act(async () => {
@@ -575,6 +664,238 @@ describe("StandaloneProjectSurfacePage", () => {
       host.querySelector(
         '[data-testid="mock-standalone-window-space-surface"]',
       ),
+    ).toBeNull();
+  });
+
+  it("keeps standalone scriptable chat section routes available when deployment policy disallows managed chat", async () => {
+    const scriptableChat = createChatSectionFixture({
+      sectionId: "section-scriptable",
+      sectionName: "scriptable_chat",
+      managed: false,
+    });
+    hoisted.state.shareSessionState = {
+      isDeploymentMode: true,
+      sharePolicy: {
+        allowLLM: false,
+      },
+    };
+    hoisted.state.projectState = {
+      projectConfig: {
+        id: "project-config-1",
+        windowSpaces: {},
+        sectionVariantMap: {
+          [scriptableChat.sectionId]: scriptableChat.variantId,
+        },
+      },
+      sections: {
+        [scriptableChat.sectionId]: scriptableChat.core,
+      },
+      sectionVariants: {
+        [scriptableChat.variantId]: scriptableChat.variant,
+      },
+      sectionImpls: {
+        [scriptableChat.implId]: scriptableChat.impl,
+      },
+      parentSectionMap: {},
+    };
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={["/demo/section/scriptable_chat"]}>
+          <Routes>
+            <Route
+              path="/:projectConfigName/section/:sectionSlug"
+              element={<StandaloneProjectSurfacePage />}
+            />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+
+    expect(
+      host.querySelector('[data-testid="standalone-section-surface"]'),
+    ).not.toBeNull();
+    expect(
+      host.querySelector('[data-testid="standalone-managed-chat-blocked"]'),
+    ).toBeNull();
+  });
+
+  it("fails closed for standalone window spaces with managed section-mode chat windows when deployment policy disallows managed chat", async () => {
+    const managedChat = createChatSectionFixture({
+      sectionId: "section-managed",
+      sectionName: "managed_chat",
+      managed: true,
+    });
+    hoisted.state.shareSessionState = {
+      isDeploymentMode: true,
+      sharePolicy: {
+        allowLLM: false,
+      },
+    };
+    hoisted.state.projectState = {
+      projectConfig: {
+        id: "project-config-1",
+        windowSpaces: {
+          "space-1": createWindowSpaceConfig({
+            id: "space-1",
+            name: "Managed Space",
+            windowsById: {
+              "managed-window": {
+                surfaceKind: WindowSpaceSurfaceKindEnum.section,
+                sectionIdOrNull: managedChat.sectionId,
+                mode: ChatWindowModeEnum.section_mode,
+                title: "Managed Chat",
+                chatId: null,
+                embeddedGitPaneVisible: false,
+                zIndex: 1,
+                normalizedBounds: {
+                  x: 0,
+                  y: 0,
+                  width: 0.5,
+                  height: 0.5,
+                },
+              },
+            },
+            order: ["managed-window"],
+          }),
+        },
+        sectionVariantMap: {
+          [managedChat.sectionId]: managedChat.variantId,
+        },
+      },
+      sections: {
+        [managedChat.sectionId]: managedChat.core,
+      },
+      sectionVariants: {
+        [managedChat.variantId]: managedChat.variant,
+      },
+      sectionImpls: {
+        [managedChat.implId]: managedChat.impl,
+      },
+      parentSectionMap: {},
+    };
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={["/demo/windowspace/managed_space"]}>
+          <Routes>
+            <Route
+              path="/:projectConfigName/windowspace/:windowSpaceSlug"
+              element={<StandaloneProjectSurfacePage />}
+            />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+
+    expect(
+      host.querySelector('[data-testid="standalone-managed-chat-blocked"]'),
+    ).not.toBeNull();
+    expect(
+      host.querySelector(
+        '[data-testid="mock-standalone-window-space-surface"]',
+      ),
+    ).toBeNull();
+  });
+
+  it("keeps standalone window spaces with only scriptable chat and git graph windows available when deployment policy disallows managed chat", async () => {
+    const scriptableChat = createChatSectionFixture({
+      sectionId: "section-scriptable",
+      sectionName: "scriptable_chat",
+      managed: false,
+    });
+    const textSection = createTextSectionFixture({
+      sectionId: "section-text",
+      sectionName: "notes",
+    });
+    hoisted.state.shareSessionState = {
+      isDeploymentMode: true,
+      sharePolicy: {
+        allowLLM: false,
+      },
+    };
+    hoisted.state.projectState = {
+      projectConfig: {
+        id: "project-config-1",
+        windowSpaces: {
+          "space-1": createWindowSpaceConfig({
+            id: "space-1",
+            name: "Scriptable Space",
+            windowsById: {
+              "graph-window": {
+                surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+                sectionIdOrNull: null,
+                mode: ChatWindowModeEnum.git_graph_mode,
+                title: "Git Graph",
+                chatId: null,
+                embeddedGitPaneVisible: false,
+                zIndex: 1,
+                normalizedBounds: {
+                  x: 0,
+                  y: 0,
+                  width: 0.5,
+                  height: 0.5,
+                },
+              },
+              "scriptable-window": {
+                surfaceKind: WindowSpaceSurfaceKindEnum.section,
+                sectionIdOrNull: scriptableChat.sectionId,
+                mode: ChatWindowModeEnum.section_mode,
+                title: "Scriptable Chat",
+                chatId: null,
+                embeddedGitPaneVisible: false,
+                zIndex: 2,
+                normalizedBounds: {
+                  x: 0.5,
+                  y: 0,
+                  width: 0.5,
+                  height: 0.5,
+                },
+              },
+            },
+            order: ["graph-window", "scriptable-window"],
+          }),
+        },
+        sectionVariantMap: {
+          [scriptableChat.sectionId]: scriptableChat.variantId,
+          [textSection.sectionId]: textSection.variantId,
+        },
+      },
+      sections: {
+        [scriptableChat.sectionId]: scriptableChat.core,
+        [textSection.sectionId]: textSection.core,
+      },
+      sectionVariants: {
+        [scriptableChat.variantId]: scriptableChat.variant,
+        [textSection.variantId]: textSection.variant,
+      },
+      sectionImpls: {
+        [scriptableChat.implId]: scriptableChat.impl,
+        [textSection.implId]: textSection.impl,
+      },
+      parentSectionMap: {},
+    };
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={["/demo/windowspace/scriptable_space"]}>
+          <Routes>
+            <Route
+              path="/:projectConfigName/windowspace/:windowSpaceSlug"
+              element={<StandaloneProjectSurfacePage />}
+            />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+
+    expect(
+      host.querySelector(
+        '[data-testid="mock-standalone-window-space-surface"]',
+      ),
+    ).not.toBeNull();
+    expect(
+      host.querySelector('[data-testid="standalone-managed-chat-blocked"]'),
     ).toBeNull();
   });
 

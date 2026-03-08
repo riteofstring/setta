@@ -10,6 +10,7 @@ import {
   refreshGitStatus,
 } from "state/actions/git";
 import { useGitStore } from "state/git";
+import { useShareCapabilities } from "state/hooks/share";
 import type { GitStatusEntry } from "utils/generatedTypes";
 
 export function GitPane({
@@ -17,6 +18,7 @@ export function GitPane({
 }: {
   showGraphButton?: boolean;
 }) {
+  const { canEditLayout } = useShareCapabilities();
   const { response, isLoading, error } = useGitStore((x) => x.status);
 
   useEffect(() => {
@@ -87,7 +89,7 @@ export function GitPane({
               type="button"
               className="rounded-md px-2 py-1 text-xs font-semibold text-setta-600 hover:bg-setta-100 hover:text-setta-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-60 dark:text-setta-300 dark:hover:bg-setta-800/60 dark:hover:text-setta-50"
               onClick={() => void openGitGraphOverlay()}
-              disabled={!isGitRepo}
+              disabled={!isGitRepo || !canEditLayout}
             >
               Graph
             </button>

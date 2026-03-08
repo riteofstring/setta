@@ -163,7 +163,8 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   useHydrateLLMState();
   useHydrateAgenticState();
   const projectConfigId = getCurrProjectConfigId();
-  const { canEditParams, canEditStructure } = useShareCapabilities();
+  const { canEditLayout, canEditParams, canEditStructure } =
+    useShareCapabilities();
   const { isDeploymentMode, allowLLM } = useShareSession((x) => ({
     isDeploymentMode: x.isDeploymentMode,
     allowLLM: x.sharePolicy?.allowLLM ?? false,
@@ -300,7 +301,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     ],
     [],
   );
-  const isChatModeControlDisabled = isDisabled;
+  const isChatModeControlDisabled = isDisabled || !canEditLayout;
   const effectiveEngineConfigId =
     engineConfigId ?? selectedProfile?.engineConfigId ?? null;
   const selectedEngineConfig = useMemo(() => {

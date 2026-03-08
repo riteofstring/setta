@@ -2,6 +2,7 @@ import {
   canUseManagedChatLLM,
   standaloneSectionRequiresManagedChat,
   standaloneWindowSpaceRequiresManagedChat,
+  type ManagedChatSurfaceAuthorityState,
 } from "components/Chat/sharePolicyChatAccess";
 import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
 import {
@@ -213,8 +214,8 @@ export function StandaloneProjectSurfacePage() {
   const [doneLoading, is404] = useLoadProjectConfig();
   return (
     <StandaloneProjectSurfacePageWithLoadState
-      doneLoading={doneLoading}
-      is404={is404}
+      doneLoading={doneLoading === true}
+      is404={is404 === true}
     />
   );
 }
@@ -237,15 +238,26 @@ export function StandaloneProjectSurfacePageWithLoadState({
     shallow,
   );
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
-  const sectionTypesById = useProjectState(
-    (state) =>
-      Object.fromEntries(
-        Object.entries(state.sections).map(([sectionId, section]) => [
-          sectionId,
-          section.type,
-        ]),
-      ),
-    shallow,
+  const { sections, sectionVariants, sectionImpls, sectionVariantMap } =
+    useProjectState(
+      (state) => ({
+        sections: state.sections,
+        sectionVariants: state.sectionVariants,
+        sectionImpls: state.sectionImpls,
+        sectionVariantMap: state.projectConfig.sectionVariantMap,
+      }),
+      shallow,
+    );
+  const managedChatAuthorityState = useMemo<ManagedChatSurfaceAuthorityState>(
+    () => ({
+      projectConfig: {
+        sectionVariantMap,
+      },
+      sections,
+      sectionVariants,
+      sectionImpls,
+    }),
+    [sectionImpls, sectionVariantMap, sectionVariants, sections],
   );
   const standaloneWindowSpace = useProjectState((state) => {
     if (target.kind !== "window_space") {
@@ -318,11 +330,14 @@ export function StandaloneProjectSurfacePageWithLoadState({
     target.kind === "project_chat" || target.kind === "project_chat_thread"
       ? true
       : target.kind === "section"
-        ? standaloneSectionRequiresManagedChat(target.sectionType)
+        ? standaloneSectionRequiresManagedChat(
+            managedChatAuthorityState,
+            target.sectionId,
+          )
         : target.kind === "window_space" && standaloneWindowSpace
           ? standaloneWindowSpaceRequiresManagedChat(
               standaloneWindowSpace,
-              sectionTypesById,
+              managedChatAuthorityState,
             )
           : false;
   const shouldBlockStandaloneManagedChat =

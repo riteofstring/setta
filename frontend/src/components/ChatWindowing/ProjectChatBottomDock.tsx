@@ -1,5 +1,9 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
+  canUseManagedChatLLM,
+  windowSurfaceRequiresManagedChat,
+} from "components/Chat/sharePolicyChatAccess";
+import {
   buildFloatingSnapBounds,
   buildFloatingSnapResizeBounds,
   buildFloatingSnapResizeHandles,
@@ -84,6 +88,7 @@ import {
   type ChatWindowBounds,
 } from "utils/generatedTypes";
 import { isMacOs } from "utils/utils";
+import { shallow } from "zustand/shallow";
 
 type ResolvedWindowPill = {
   instanceId: string;
@@ -783,7 +788,7 @@ type MinimizedPillStripProps = {
   menuPills: ResolvedWindowPill[];
   pillExitAnimationsById: Record<string, ChatWindowPillExitAnimationKind>;
   useCompactPills: boolean;
-  canEditLayout: boolean;
+  canCreateWindow: boolean;
   canCycleBackward: boolean;
   canCycleForward: boolean;
   maxCycleStartIndex: number;
@@ -803,7 +808,7 @@ function MinimizedPillStrip({
   menuPills,
   pillExitAnimationsById,
   useCompactPills,
-  canEditLayout,
+  canCreateWindow,
   canCycleBackward,
   canCycleForward,
   maxCycleStartIndex,
@@ -1034,7 +1039,7 @@ function MinimizedPillStrip({
         </button>
       ) : null}
       <div className="flex min-w-0 items-end justify-end gap-1 overflow-hidden">
-        {canEditLayout ? (
+        {canCreateWindow ? (
           <button
             type="button"
             className={createTabClassName}
@@ -1190,7 +1195,11 @@ export function ProjectChatBottomDock() {
     isDeploymentMode: state.isDeploymentMode,
     allowLLM: state.sharePolicy?.allowLLM ?? false,
   }));
-  const showChatWindowing = !isDeploymentMode || allowLLM;
+  const canUseManagedChat = canUseManagedChatLLM({
+    isDeploymentMode,
+    allowLLM,
+  });
+  const canCreateManagedChatWindow = canEditLayout && canUseManagedChat;
   const autoCreateInitialChat = useSettings(
     (state) => state.chatWindowing?.autoCreateInitialChat ?? true,
   );
@@ -1233,6 +1242,27 @@ export function ProjectChatBottomDock() {
       ),
     }),
     _.isEqual,
+  );
+  const { sections, sectionVariants, sectionImpls, sectionVariantMap } =
+    useProjectState(
+      (state) => ({
+        sections: state.sections,
+        sectionVariants: state.sectionVariants,
+        sectionImpls: state.sectionImpls,
+        sectionVariantMap: state.projectConfig.sectionVariantMap,
+      }),
+      shallow,
+    );
+  const managedChatAuthorityState = useMemo(
+    () => ({
+      projectConfig: {
+        sectionVariantMap,
+      },
+      sections,
+      sectionVariants,
+      sectionImpls,
+    }),
+    [sectionImpls, sectionVariantMap, sectionVariants, sections],
   );
   const { overviewTrueWidth, uiEditorTrueWidth } = useLocalStorage(
     (state) => ({
@@ -1314,7 +1344,7 @@ export function ProjectChatBottomDock() {
   );
 
   useEffect(() => {
-    if (!showChatWindowing) {
+    if (!canUseManagedChat) {
       return;
     }
     if (!canEditLayout) {
@@ -1337,9 +1367,9 @@ export function ProjectChatBottomDock() {
   }, [
     autoCreateInitialChat,
     canEditLayout,
+    canUseManagedChat,
     order.length,
     projectConfigId,
-    showChatWindowing,
   ]);
 
   useEffect(() => {
@@ -1467,75 +1497,67 @@ export function ProjectChatBottomDock() {
   const orderedPills = useMemo<ResolvedWindowPill[]>(() => {
     const output: ResolvedWindowPill[] = [];
     const seen = new Set<string>();
+    const maybePushPill = (
+      instanceId: string,
+      instance: (typeof instancesById)[string] | undefined,
+    ) => {
+      if (!instance) {
+        return;
+      }
+      if (
+        !canUseManagedChat &&
+        windowSurfaceRequiresManagedChat(instance, managedChatAuthorityState)
+      ) {
+        return;
+      }
+      if (
+        instance.sectionIdOrNull &&
+        !Object.hasOwn(sectionNamesById, instance.sectionIdOrNull)
+      ) {
+        return;
+      }
+      output.push({
+        instanceId,
+        title: buildProjectChatWindowTitle(
+          instance.mode,
+          instanceId,
+          instance.sectionIdOrNull,
+          instance.title,
+          sectionNamesById,
+        ),
+        mode: instance.mode,
+        isClosed: instance.isClosed,
+        isMinimized: instance.isMinimized,
+        placement: instance.placement,
+        zIndex: instance.zIndex,
+        bounds: instance.bounds,
+        dockWidthFraction: instance.dockMetrics.widthFraction,
+        dockPreferredWidthPx: instance.dockMetrics.preferredWidthPx,
+        sectionId: instance.sectionIdOrNull,
+        chatId: instance.chatId,
+      });
+    };
     for (const instanceId of order) {
       if (seen.has(instanceId)) {
         continue;
       }
       seen.add(instanceId);
-      const instance = instancesById[instanceId];
-      if (!instance) {
-        continue;
-      }
-      if (
-        instance.sectionIdOrNull &&
-        !Object.hasOwn(sectionNamesById, instance.sectionIdOrNull)
-      ) {
-        continue;
-      }
-      output.push({
-        instanceId,
-        title: buildProjectChatWindowTitle(
-          instance.mode,
-          instanceId,
-          instance.sectionIdOrNull,
-          instance.title,
-          sectionNamesById,
-        ),
-        mode: instance.mode,
-        isClosed: instance.isClosed,
-        isMinimized: instance.isMinimized,
-        placement: instance.placement,
-        zIndex: instance.zIndex,
-        bounds: instance.bounds,
-        dockWidthFraction: instance.dockMetrics.widthFraction,
-        dockPreferredWidthPx: instance.dockMetrics.preferredWidthPx,
-        sectionId: instance.sectionIdOrNull,
-        chatId: instance.chatId,
-      });
+      maybePushPill(instanceId, instancesById[instanceId]);
     }
     for (const [instanceId, instance] of Object.entries(instancesById)) {
       if (seen.has(instanceId)) {
         continue;
       }
-      if (
-        instance.sectionIdOrNull &&
-        !Object.hasOwn(sectionNamesById, instance.sectionIdOrNull)
-      ) {
-        continue;
-      }
-      output.push({
-        instanceId,
-        title: buildProjectChatWindowTitle(
-          instance.mode,
-          instanceId,
-          instance.sectionIdOrNull,
-          instance.title,
-          sectionNamesById,
-        ),
-        mode: instance.mode,
-        isClosed: instance.isClosed,
-        isMinimized: instance.isMinimized,
-        placement: instance.placement,
-        zIndex: instance.zIndex,
-        bounds: instance.bounds,
-        dockWidthFraction: instance.dockMetrics.widthFraction,
-        dockPreferredWidthPx: instance.dockMetrics.preferredWidthPx,
-        sectionId: instance.sectionIdOrNull,
-        chatId: instance.chatId,
-      });
+      maybePushPill(instanceId, instance);
     }
     return output;
-  }, [instancesById, order, sectionNamesById]);
+  }, [
+    canUseManagedChat,
+    instancesById,
+    managedChatAuthorityState,
+    order,
+    sectionNamesById,
+  ]);
 
   const openDockedPills = useMemo(
     () =>
@@ -2016,7 +2038,7 @@ export function ProjectChatBottomDock() {
   const showStandaloneMinimizedPills = !showDockedChatSurface;
 
   const handleCreate = useCallback(() => {
-    if (!canEditLayout) {
+    if (!canCreateManagedChatWindow) {
       return;
     }
     const instanceId = createProjectChatWindowInstance();
@@ -2025,7 +2047,7 @@ export function ProjectChatBottomDock() {
     }
     focusProjectChatWindow(instanceId);
     setIsCanvasVisibilitySuppressed(false);
-  }, [canEditLayout]);
+  }, [canCreateManagedChatWindow]);
 
   const clearWindowExitAnimation = useCallback((instanceId: string) => {
     const activeTimeoutId = windowExitTimeoutsRef.current[instanceId];
@@ -2231,20 +2253,19 @@ export function ProjectChatBottomDock() {
           return next;
         });
         if (focusAfterClose) {
-          const nextVisibleWindowId = order.find(
-            (candidateInstanceId) =>
-              candidateInstanceId !== instanceId &&
-              instancesById[candidateInstanceId] &&
-              !instancesById[candidateInstanceId].isClosed &&
-              !instancesById[candidateInstanceId].isMinimized,
+          const nextVisibleWindowId = orderedPills.find(
+            (candidatePill) =>
+              candidatePill.instanceId !== instanceId &&
+              !candidatePill.isClosed &&
+              !candidatePill.isMinimized,
           );
           if (nextVisibleWindowId) {
-            focusProjectChatWindow(nextVisibleWindowId);
+            focusProjectChatWindow(nextVisibleWindowId.instanceId);
           }
         }
       }, durationMs);
     },
-    [clearWindowEnterAnimation, instancesById, order],
+    [clearWindowEnterAnimation, instancesById, orderedPills, projectConfigId],
   );
 
   const handleOpenWindow = useCallback(
@@ -3670,7 +3691,7 @@ export function ProjectChatBottomDock() {
     openMaximizedWindow?.mode === ChatWindowModeEnum.git_graph_mode &&
     openMaximizedWindow?.instanceId === trackedGitPaneGraphWindowInstanceId;
 
-  if (!showChatWindowing) {
+  if (!canUseManagedChat && orderedPills.length === 0) {
     return null;
   }
 
@@ -3694,7 +3715,7 @@ export function ProjectChatBottomDock() {
                 menuPills={dockMenuPills}
                 pillExitAnimationsById={pillExitAnimationsById}
                 useCompactPills={useCompactPills}
-                canEditLayout={canEditLayout}
+                canCreateWindow={canCreateManagedChatWindow}
                 canCycleBackward={canCycleBackward}
                 canCycleForward={canCycleForward}
                 maxCycleStartIndex={maxCycleStartIndex}
@@ -4742,7 +4763,7 @@ export function ProjectChatBottomDock() {
             menuPills={dockMenuPills}
             pillExitAnimationsById={pillExitAnimationsById}
             useCompactPills={useCompactPills}
-            canEditLayout={canEditLayout}
+            canCreateWindow={canCreateManagedChatWindow}
             canCycleBackward={canCycleBackward}
             canCycleForward={canCycleForward}
             maxCycleStartIndex={maxCycleStartIndex}

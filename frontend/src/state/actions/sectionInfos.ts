@@ -544,8 +544,18 @@ export function getCurrEffectiveSectionImplOfType<T extends SectionType>(
   return impl as Extract<BaseSectionImplUnion, { type: T }>;
 }
 
+export type ManagedChatSectionAuthorityState = Pick<
+  ZustandProjectState,
+  "sections" | "sectionVariants" | "sectionImpls"
+> & {
+  projectConfig: Pick<
+    ZustandProjectState["projectConfig"],
+    "sectionVariantMap"
+  >;
+};
+
 export function isManagedChatSection(
-  state: ZustandProjectState,
+  state: ManagedChatSectionAuthorityState,
   sectionId: string,
 ): boolean {
   const variantId = state.projectConfig.sectionVariantMap[sectionId];
