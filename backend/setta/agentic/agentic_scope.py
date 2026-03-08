@@ -39,7 +39,7 @@ class AgenticScope:
     structural_allowed: bool = False
 
     def effective_read_section_ids(self) -> set[ID]:
-        return set(self.read_section_ids) | set(self.peer_chat_section_ids)
+        return set(self.read_section_ids)
 
 
 @dataclass(frozen=True)
@@ -119,12 +119,11 @@ def resolve_agentic_scope(
         if not allow_unscoped:
             return AgenticScope()
         all_section_ids = set(project_state.sections.keys())
-        peer_chat_ids = _collect_chat_section_ids(project_state)
         return AgenticScope(
             read_section_ids=set(all_section_ids),
             write_section_ids=set(all_section_ids),
             context_section_ids=set(all_section_ids),
-            peer_chat_section_ids=set(peer_chat_ids),
+            peer_chat_section_ids=set(),
             structural_allowed=True,
         )
     if chat_section_id not in project_state.sections:
@@ -465,10 +464,7 @@ def _resolve_missing_edge_kind(
 ) -> AgenticEdgeKind | None:
     if access_type == "structural":
         return None
-    if _is_chat_section(project_state, section_id) and access_type in (
-        "read",
-        "peer_chat",
-    ):
+    if _is_chat_section(project_state, section_id) and access_type == "peer_chat":
         return AgenticEdgeKind.chat_chat
     return AgenticEdgeKind.chat_section
 

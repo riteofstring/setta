@@ -1,3 +1,32 @@
+## 2026-03-10 13:04:27 PDT
+
+Implemented the remaining consolidated review fixes for managed section-chat thread ownership and strict separation between read scope and peer-chat scope, then verified the behavior at backend, frontend, Playwright, and CDP layers.
+
+Managed chat permission enforcement:
+- `route_set_chat_section_chat_id(...)` now enforces `allowLLM` instead of leaving section-chat thread rebinding outside the deployment/share LLM gate.
+- Shared managed-chat UI now derives a single `canUseManagedChat` decision from deployment mode plus `sharePolicy.allowLLM`, and uses that to block all thread mutation paths for section-backed managed chat.
+- In restricted share/deployment mode, managed section chat no longer renders `History` or `New Chat`, no longer exposes `/new` or `/resume`, and disables composer submission and message editing instead of allowing a partial thread-management surface.
+- Section config settings now apply the same gate to their managed `New Chat` action, so the settings pane cannot bypass the main chat surface restriction.
+
+Agentic scope model cleanup:
+- `chat_chat` edges now grant only peer-chat access; they no longer bleed into generic read scope via `effective_read_section_ids()`.
+- Unscoped/project chat resolution now keeps full read/write/context access where intended while setting `peer_chat_section_ids` to empty, so project chat stops advertising linked-chat capability it cannot actually execute.
+- Missing-edge guidance now distinguishes read access from peer-chat access correctly, pointing users toward `chat_section` for reads instead of suggesting `chat_chat` as a generic fallback.
+
+UX before vs after:
+- Before: a share/deployment user with `allowLLM=false` could still hit managed section-chat thread mutation paths from parts of the UI, including thread switching and new-thread creation affordances. After: those controls are consistently hidden or disabled across the managed section-chat surfaces, and the composer/edit paths fail closed.
+- Before: linked-chat-only sections could inherit read-oriented tool visibility and filtered data access from `chat_chat` edges, and project chat could surface linked-chat affordances that later failed at runtime. After: peer-chat-only scope exposes only peer-chat behavior, read-only outputs require actual read scope, and unscoped project chat no longer advertises dead-end linked-chat actions.
+
+DX before vs after:
+- Before: thread ownership was gated by one rule for project chat and a different rule for section chat, which made share-policy reasoning inconsistent and easy to regress. After: managed thread mutation follows the same `allowLLM` invariant everywhere.
+- Before: scope classification differed across resolution, tool filtering, and runtime admission because peer-chat and read access were partially conflated. After: read scope and peer-chat scope are separate concepts with matching enforcement and clearer tests.
+
+Verification:
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/agentic/test_agentic_scope.py tests/llm/test_agent_runner.py tests/mcp/test_mcp_agentic_project_state_summary_filtering.py tests/mcp/test_mcp_agentic_lsp_diagnostics_filtering.py tests/routers/test_share_policy_routes.py tests/routers/test_mcp_linked_chat_tool.py` passed: 110 tests.
+- `pnpm -C frontend exec vitest run src/components/Chat/sharePolicyChatAccess.test.ts src/state/actions/projectChatWindowing.permissions.test.ts` passed: 2 files, 7 tests.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/chat-composer-controls.spec.ts --grep "managed chat sections hide thread controls when deployment policy disallows LLM access"` passed: 1 test.
+- CDP verification mounted a managed section-chat preview on the live app with deployment mode enabled and `allowLLM=false`, confirmed `History` and `New Chat` were absent, confirmed the composer was disabled, and saved a screenshot to `perf/cdp-managed-chat-share-policy-check.png`.
+
 ## 2026-03-10 01:10:58 PDT
 
 Implemented the remaining top-level review fixes for linked-chat admission safety, managed linked-chat runtime typing, canonical chat-surface remounting, authoritative window-space persistence, and layout-permission gating.

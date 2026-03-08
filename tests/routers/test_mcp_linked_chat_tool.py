@@ -215,9 +215,7 @@ class _DummyLinkedChatProjectManager:
         if reservation is None or reservation["chat_id"] != chat_id:
             return
         if bool(reservation["has_started_run"]):
-            raise ValueError(
-                "Linked chat reservation success reported more than once."
-            )
+            raise ValueError("Linked chat reservation success reported more than once.")
         reservation["has_started_run"] = True
         project_state = convert_backend_to_single_config(
             self._backend, project_config_id
@@ -718,6 +716,50 @@ async def test_tools_call_invoke_linked_chat_runs_direct_linked_target(
         str(caller_section_id)
     ]
     assert manager.set_chat_section_chat_id_calls == []
+
+
+@pytest.mark.asyncio
+async def test_tools_call_invoke_linked_chat_blocks_unscoped_project_chat(
+    tmp_path,
+) -> None:
+    (
+        app,
+        agent_runner,
+        manager,
+        canonical_to_temporary,
+        project_config_id,
+        _caller_section_id,
+        target_section_id,
+    ) = _build_test_app(tmp_path)
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_target_section_id = canonical_to_temporary[target_section_id]
+    tmp_caller_chat_id = canonical_to_temporary[ID("caller-chat-1")]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/__setta__/tools/call",
+            json={
+                "tool": "invoke_linked_chat",
+                "arguments": {
+                    "targetSectionId": str(tmp_target_section_id),
+                    "prompt": "Plan the next implementation step.",
+                },
+                "agenticContext": {
+                    "projectConfigId": str(tmp_project_id),
+                    "chatId": str(tmp_caller_chat_id),
+                    "allowUnscoped": True,
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["isError"] is True
+    assert payload["structuredContent"]["reason"] == "empty_scope"
+    assert payload["structuredContent"]["accessType"] == "peer_chat"
+    assert manager.set_chat_section_chat_id_calls == []
+    assert agent_runner.calls == []
 
 
 @pytest.mark.asyncio
@@ -1793,7 +1835,9 @@ async def test_tools_call_invoke_linked_chat_blocks_overlapping_runs_for_fresh_t
             }
         }
 
-        second_response = await client.post("/__setta__/tools/call", json=request_payload)
+        second_response = await client.post(
+            "/__setta__/tools/call", json=request_payload
+        )
         blocking_runner.release_calls.set()
         first_response = await first_request
 
@@ -1876,7 +1920,9 @@ async def test_tools_call_invoke_linked_chat_blocks_overlapping_runs_for_existin
         )
         await asyncio.wait_for(blocking_runner.first_call_started.wait(), timeout=1)
 
-        second_response = await client.post("/__setta__/tools/call", json=request_payload)
+        second_response = await client.post(
+            "/__setta__/tools/call", json=request_payload
+        )
         blocking_runner.release_calls.set()
         first_response = await first_request
 

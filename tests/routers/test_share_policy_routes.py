@@ -19,12 +19,14 @@ from setta.project_state.project_manager_types import (
     DeleteViewModeRequest,
     DeleteWindowSpaceRequest,
     FormatCodeRequest,
+    GetChatSectionChatIdRequest,
     GetPasswordParamValueRequest,
     GroupSectionsRequest,
     PasteSectionsRequest,
     RunCodeRequest,
     SetCallableHideParamsRequest,
     SetCallableRequest,
+    SetChatSectionChatIdRequest,
     SetChartAreaDataPathRequest,
     SetChartSettingsRequest,
     SetChartTypeRequest,
@@ -82,11 +84,13 @@ from setta.routers.project_manager import (
     route_delete_view_mode,
     route_delete_window_space,
     route_format_code,
+    route_get_chat_section_chat_id,
     route_get_password_param_value,
     route_group_sections,
     route_paste_sections,
     route_set_callable,
     route_set_callable_hide_params,
+    route_set_chat_section_chat_id,
     route_set_chart_area_data_path,
     route_set_chart_settings,
     route_set_chart_type,
@@ -142,8 +146,12 @@ from setta.types.chat_messages import MessageTextContent, UserChatMessage
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.generated.settings_state import SettingsState
+from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
 from setta.types.helpers_lvl2 import add_kwarg, create_top_level_section
-from setta.types.helpers_lvl3 import merge_single_config_into_backend
+from setta.types.helpers_lvl3 import (
+    convert_backend_to_single_config,
+    merge_single_config_into_backend,
+)
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.types.project_config import (
@@ -163,6 +171,7 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.section_impls import (
+    ChatSectionImpl,
     ChatPermissionMode,
     CodeFileAccessMode,
     SectionType,
@@ -387,6 +396,38 @@ def _write_share_project_with_code_param(
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
     return project_config.id, section_id, param_info_id
+
+
+def _write_share_project_with_chat_section(
+    root: Path,
+    *,
+    project_config_name: str,
+    deployment_version: str,
+) -> tuple[ID, ID]:
+    settings = SettingsState()
+    project_config = ProjectConfig(name=project_config_name)
+    project_state = ProjectStateSingleConfig(projectConfig=project_config)
+    section_id = create_top_level_section(
+        settings,
+        project_state,
+        SectionType.Chat,
+        Position(),
+    )
+    backend = merge_single_config_into_backend(ProjectStateBackend(), project_state)
+    backend.defaultProjectConfigId = project_config.id
+    dbe = DBE(root)
+    dbe.write_project(backend)
+    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
+    deployment_name = root.parent.name
+    manifest = DeploymentManifest(
+        version=1,
+        deploymentName=deployment_name,
+        deploymentType=DeploymentType.share,
+        defaultProjectConfigId=project_config.id,
+        deploymentVersion=deployment_version,
+    )
+    dbe.write_json(root / "manifest.json", manifest.model_dump())
+    return project_config.id, section_id
 
 
 def _write_share_policy(root: Path, policy: SharePolicy) -> None:
@@ -1453,6 +1494,90 @@ class TestSharePolicyRoutes:
             # Chat-id writes should follow the deployment's chat permission gate.
             assert ctx.value.status_code == 403
             assert ctx.value.detail == "Deployment policy disallows LLM access."
+
+    async def test_section_chat_thread_binding_allowed_when_llm_allowed_and_layout_blocked(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-policy-route-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config_id, section_id = _write_share_project_with_chat_section(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            _write_share_policy(
+                root,
+                SharePolicy(allowLLM=True, allowLayoutChanges=False),
+            )
+            state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+            state.share_runtime_state.create_session_backend(session.id)
+
+            with runtime_context(state, session.id) as runtime_ctx:
+                await route_set_chat_section_chat_id(
+                    SetChatSectionChatIdRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_id,
+                        chatId="chat-bound",
+                    ),
+                    runtime_ctx,
+                )
+            session_backend = state.share_runtime_state.get_session_backend(session.id)
+            session_project_state = convert_backend_to_single_config(
+                session_backend,
+                project_config_id,
+            )
+            persisted_chat_id = get_curr_effective_section_impl_with_type_guard(
+                session_project_state,
+                section_id,
+                ChatSectionImpl,
+            ).chatId
+
+            assert persisted_chat_id == "chat-bound"
+
+    async def test_section_chat_thread_binding_blocked_when_llm_is_disallowed(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-policy-route-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config_id, section_id = _write_share_project_with_chat_section(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            _write_share_policy(
+                root,
+                SharePolicy(allowLLM=False, allowLayoutChanges=False),
+            )
+            state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+            state.share_runtime_state.create_session_backend(session.id)
+
+            with pytest.raises(HTTPException) as ctx:
+                with runtime_context(state, session.id) as runtime_ctx:
+                    await route_set_chat_section_chat_id(
+                        SetChatSectionChatIdRequest(
+                            projectConfigId=project_config_id,
+                            sectionId=section_id,
+                            chatId="chat-bound",
+                        ),
+                        runtime_ctx,
+                    )
+
+            with runtime_context(state, session.id) as runtime_ctx:
+                persisted_chat_id = await route_get_chat_section_chat_id(
+                    GetChatSectionChatIdRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_id,
+                    ),
+                    runtime_ctx,
+                )
+
+            assert ctx.value.status_code == 403
+            assert ctx.value.detail == "Deployment policy disallows LLM access."
+            assert persisted_chat_id is None
 
     async def test_window_space_routes_allowed_when_layout_changes_allowed(
         self,

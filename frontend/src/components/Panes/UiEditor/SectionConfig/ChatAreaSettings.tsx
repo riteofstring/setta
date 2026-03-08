@@ -5,6 +5,7 @@ import {
   countLLMConfigs,
   pickDefaultConfigId,
 } from "components/Chat/llmConfigUtils";
+import { canUseManagedChatLLM } from "components/Chat/sharePolicyChatAccess";
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
@@ -70,7 +71,14 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   useHydrateAgenticState();
   const projectConfigId = getCurrProjectConfigId();
   const { canEditParams, canEditStructure } = useShareCapabilities();
-  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
+  const { isDeploymentMode, allowLLM } = useShareSession((x) => ({
+    isDeploymentMode: x.isDeploymentMode,
+    allowLLM: x.sharePolicy?.allowLLM ?? false,
+  }));
+  const canManageManagedChatThreads = canUseManagedChatLLM({
+    isDeploymentMode,
+    allowLLM,
+  });
 
   const {
     managed,
@@ -655,7 +663,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   );
 
   const handleNewChat = useCallback(() => {
-    if (isDisabled || !managed) {
+    if (isDisabled || !managed || !canManageManagedChatThreads) {
       return;
     }
     dispatchOptimisticProjectStateUpdate({
@@ -671,7 +679,13 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
           chatId: null,
         }),
     });
-  }, [isDisabled, managed, projectConfigId, sectionId]);
+  }, [
+    canManageManagedChatThreads,
+    isDisabled,
+    managed,
+    projectConfigId,
+    sectionId,
+  ]);
 
   const handleEngineChange = useCallback(
     (value: string | null) => {
@@ -855,7 +869,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
           <div className="flex justify-end">
             <button
               type="button"
-              disabled={isDisabled}
+              disabled={isDisabled || !canManageManagedChatThreads}
               className="rounded-md bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
               onClick={handleNewChat}
             >

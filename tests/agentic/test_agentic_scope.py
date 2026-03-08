@@ -110,6 +110,7 @@ class TestAgenticScope:
         assert project_scope.structural_allowed
         assert context_section_id in project_scope.read_section_ids
         assert writable_section_id in project_scope.write_section_ids
+        assert project_scope.peer_chat_section_ids == set()
 
         denied_project_scope = resolve_agentic_scope(project_state, None)
         assert not denied_project_scope.structural_allowed
@@ -163,7 +164,7 @@ class TestAgenticScope:
             {
                 "sourceSectionId": chat_id,
                 "targetSectionId": peer_chat_id,
-                "kind": "chat_chat",
+                "kind": "chat_section",
             }
         ]
 
@@ -256,7 +257,29 @@ class TestAgenticScope:
         assert not denied.allowed
         assert denied.blocked_section_ids == {ID(writable_section_id)}
 
-    def test_check_agentic_scope_for_tool_infers_singleton_section_targets(self) -> None:
+    def test_peer_chat_edges_do_not_expand_read_scope(self) -> None:
+        project_state, chat_id, peer_chat_id, _, _ = _build_project_state()
+        scope = resolve_agentic_scope(project_state, chat_id)
+
+        annotations = SettaToolAnnotations(
+            settaToolType=SettaToolType.discoverable,
+            accessType="read",
+            idPathsByType={"section": ["sectionId"]},
+        )
+        blocked = check_agentic_scope_for_tool(
+            tool_args={"sectionId": peer_chat_id},
+            annotations=annotations,
+            project_state=project_state,
+            scope=scope,
+        )
+
+        assert not blocked.allowed
+        assert blocked.reason == "out_of_scope"
+        assert blocked.blocked_section_ids == {ID(peer_chat_id)}
+
+    def test_check_agentic_scope_for_tool_infers_singleton_section_targets(
+        self,
+    ) -> None:
         settings = SettingsState()
         project_state = ProjectStateSingleConfig(
             projectConfig=ProjectConfig(name="singleton-scope-test")

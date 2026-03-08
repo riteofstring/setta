@@ -25,6 +25,10 @@ import {
   pickDefaultConfigId,
 } from "components/Chat/llmConfigUtils";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
+import {
+  canUseManagedChatLLM,
+  filterManagedChatThreadSlashCommands,
+} from "components/Chat/sharePolicyChatAccess";
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import _ from "lodash";
@@ -60,7 +64,11 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { sendRealtimeDependencyEvent } from "state/actions/websocketReceive";
-import { useAIStore, useProjectState } from "state/definitions";
+import {
+  useAIStore,
+  useProjectState,
+  useShareSession,
+} from "state/definitions";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
 import { hasPendingToolInteraction } from "utils/claudeTools";
@@ -1066,6 +1074,17 @@ function ManagedChatArea({
   useHydrateAgenticState();
   const { ref, isScrollable } = useIsScrollable();
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
+  const { isDeploymentMode, allowLLM } = useShareSession(
+    (state) => ({
+      isDeploymentMode: state.isDeploymentMode,
+      allowLLM: state.sharePolicy?.allowLLM ?? false,
+    }),
+    shallow,
+  );
+  const canUseManagedChat = canUseManagedChatLLM({
+    isDeploymentMode,
+    allowLLM,
+  });
   const agenticEdges = useProjectState(
     (state) => state.projectConfig.agenticEdges,
   );
@@ -1120,6 +1139,11 @@ function ManagedChatArea({
   const [showHistory, setShowHistory] = useState(false);
   const lastChatIdRef = useRef<string | null>(null);
   const notifiedExternalEngineIssueRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!canUseManagedChat) {
+      setShowHistory(false);
+    }
+  }, [canUseManagedChat]);
   useEffect(() => {
     if (typeof chatId === "string") {
       lastChatIdRef.current = chatId;
@@ -1348,6 +1372,9 @@ function ManagedChatArea({
 
   const setChatId = useCallback(
     (next: ChatSectionChatIdUpdate) => {
+      if (!canUseManagedChat) {
+        return;
+      }
       if (setControlledChatId) {
         const resolved = typeof next === "function" ? next(chatId) : next;
         if (resolved === chatId) {
@@ -1380,16 +1407,25 @@ function ManagedChatArea({
           }),
       });
     },
-    [chatId, projectConfigId, sectionId, setControlledChatId],
+    [
+      canUseManagedChat,
+      chatId,
+      projectConfigId,
+      sectionId,
+      setControlledChatId,
+    ],
   );
 
   const handleNewChatStart = useCallback(() => {
+    if (!canUseManagedChat) {
+      return;
+    }
     if (surfaceId) {
       initializePendingChatDetails(surfaceId);
     }
     setChatId(null);
     setShowHistory(false);
-  }, [setChatId, surfaceId]);
+  }, [canUseManagedChat, setChatId, surfaceId]);
 
   const handleNewChatSettled = useCallback(
     (newChatId: string | null, succeeded: boolean) => {
@@ -1410,18 +1446,24 @@ function ManagedChatArea({
   );
   const slashCommands = useMemo(
     () =>
-      buildChatSlashCommands({
-        model: false,
-        permissions: false,
-        search: false,
-      }),
-    [],
+      filterManagedChatThreadSlashCommands(
+        buildChatSlashCommands({
+          model: false,
+          permissions: false,
+          search: false,
+        }),
+        canUseManagedChat,
+      ),
+    [canUseManagedChat],
   );
 
   const handleSubmit = useCallback(
     async (message: string, attachments: ChatFileAttachment[]) => {
       const trimmed = message.trim();
       if (!trimmed && attachments.length === 0) {
+        return false;
+      }
+      if (!canUseManagedChat) {
         return false;
       }
       if (!hasEngineConfig) {
@@ -1498,6 +1540,7 @@ function ManagedChatArea({
       sectionId,
       surfaceId,
       thinking,
+      canUseManagedChat,
     ],
   );
 
@@ -1525,6 +1568,9 @@ function ManagedChatArea({
       const resolvedChatId =
         typeof chatId === "string" ? chatId : lastChatIdRef.current;
       if (!resolvedChatId) {
+        return false;
+      }
+      if (!canUseManagedChat) {
         return false;
       }
       if (isExternalEngine && !externalEngineAvailable) {
@@ -1561,6 +1607,7 @@ function ManagedChatArea({
       sectionId,
       surfaceId,
       thinking,
+      canUseManagedChat,
     ],
   );
 
@@ -1587,6 +1634,9 @@ function ManagedChatArea({
   );
 
   const handleResumeLatestChat = useCallback(async (): Promise<boolean> => {
+    if (!canUseManagedChat) {
+      return false;
+    }
     await loadAgentRuns();
     const latestEntry = toSortedHistoryEntries(
       useAIStore.getState().agentRuns,
@@ -1600,10 +1650,26 @@ function ManagedChatArea({
     setChatId(latestEntry.chatId);
     setShowHistory(false);
     return true;
-  }, [chatId, historyCompatibility, projectConfigId, sectionId, setChatId]);
+  }, [
+    chatId,
+    historyCompatibility,
+    projectConfigId,
+    sectionId,
+    setChatId,
+    canUseManagedChat,
+  ]);
 
   const handleSlashCommand = useCallback(
     async (command: ChatSlashCommand): Promise<ChatSlashCommandResult> => {
+      if (
+        !canUseManagedChat &&
+        (command.action === "new" || command.action === "resume")
+      ) {
+        return {
+          feedback: "Chat thread changes are disabled by share policy.",
+          keepInput: true,
+        };
+      }
       if (command.action === "new") {
         handleNewChatStart();
         return { feedback: "Started a new chat thread." };
@@ -1624,32 +1690,40 @@ function ManagedChatArea({
       }
       return false;
     },
-    [handleNewChatStart, handleResumeLatestChat, slashCommands],
+    [
+      canUseManagedChat,
+      handleNewChatStart,
+      handleResumeLatestChat,
+      slashCommands,
+    ],
   );
 
   const scrollClassName = isScrollable ? NO_WHEEL_CLASS_NAME : "";
   const chatWidthShellClassName = "mx-auto w-full max-w-[72rem] px-2";
   const isDisabled =
+    !canUseManagedChat ||
     !hasEngineConfig ||
     (!isExternalEngine && (!hasLLMConfig || noConfigsAvailable)) ||
     (isExternalEngine && !externalEngineAvailable);
-  const editDisabledReason = useMemo(
-    () =>
-      getChatEditDisabledReason({
-        hasEngineConfig,
-        hasLLMConfig,
-        isExternalEngine,
-        externalEngineAvailable,
-        noLLMConfigsAvailable: noConfigsAvailable,
-      }),
-    [
-      externalEngineAvailable,
+  const editDisabledReason = useMemo(() => {
+    if (!canUseManagedChat) {
+      return "Editing disabled by share policy.";
+    }
+    return getChatEditDisabledReason({
       hasEngineConfig,
       hasLLMConfig,
       isExternalEngine,
-      noConfigsAvailable,
-    ],
-  );
+      externalEngineAvailable,
+      noLLMConfigsAvailable: noConfigsAvailable,
+    });
+  }, [
+    canUseManagedChat,
+    externalEngineAvailable,
+    hasEngineConfig,
+    hasLLMConfig,
+    isExternalEngine,
+    noConfigsAvailable,
+  ]);
   const submitDisabled = useMemo(
     () => !waitingForResponse && hasPendingToolInteraction(messages),
     [messages, waitingForResponse],
@@ -1719,24 +1793,26 @@ function ManagedChatArea({
             </span>
           ) : null}
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="rounded-md border border-setta-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
-            onClick={() => setShowHistory((current) => !current)}
-          >
-            {showHistory ? "Back" : "History"}
-          </button>
-          <button
-            type="button"
-            className="rounded-md border border-setta-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
-            onClick={handleNewChatStart}
-          >
-            New Chat
-          </button>
-        </div>
+        {canUseManagedChat ? (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="rounded-md border border-setta-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
+              onClick={() => setShowHistory((current) => !current)}
+            >
+              {showHistory ? "Back" : "History"}
+            </button>
+            <button
+              type="button"
+              className="rounded-md border border-setta-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
+              onClick={handleNewChatStart}
+            >
+              New Chat
+            </button>
+          </div>
+        ) : null}
       </div>
-      {showHistory ? (
+      {showHistory && canUseManagedChat ? (
         <div
           className={`${chatWidthShellClassName} min-h-0 flex-1`}
           data-chat-width-shell="true"

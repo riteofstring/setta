@@ -169,6 +169,24 @@ test.describe.serial("chat composer controls", () => {
     }
   });
 
+  test("managed chat sections hide thread controls when deployment policy disallows LLM access", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const preview = await mountManagedChatAreaForSharePolicy(page, {
+      allowLLM: false,
+    });
+
+    await expect(preview).toBeVisible();
+    await expect(preview.getByRole("button", { name: "History" })).toHaveCount(
+      0,
+    );
+    await expect(preview.getByRole("button", { name: "New Chat" })).toHaveCount(
+      0,
+    );
+    await expect(preview.locator("textarea").first()).toBeDisabled();
+  });
+
   test("managed section zero-scope banner is dismissible per browser session", async ({
     page,
   }) => {
@@ -2105,6 +2123,117 @@ function findSectionByName(page: Page, name: string): Locator {
     .locator('section[class*="card-section"]')
     .filter({ has: page.locator("header.section-title p", { hasText: name }) })
     .first();
+}
+
+async function mountManagedChatAreaForSharePolicy(
+  page: Page,
+  { allowLLM }: { allowLLM: boolean },
+): Promise<Locator> {
+  const containerId = `managed-chat-preview-${Date.now()}`;
+  await page.evaluate(
+    async ({ containerId, allowLLM }) => {
+      const { useProjectState, useShareSession } = await import(
+        "/src/state/definitions.ts"
+      );
+      const { resetProjectStores } = await import("/src/state/utils.ts");
+      const {
+        createChatSectionImpl,
+        createCore,
+        createProjectConfig,
+        createUserDefaultChatSectionImpl,
+        createVariant,
+      } = await import("/src/utils/generatedTypes.ts");
+      const { React, createRoot } = await import(
+        "/src/testUtils/appRouteTestUtils.ts"
+      );
+      const { ChatArea } = await import(
+        "/src/components/Section/Layouts/ChatArea.tsx"
+      );
+
+      resetProjectStores();
+      useShareSession.setState({
+        isDeploymentMode: true,
+        sharePolicy: {
+          allowLLM,
+          allowLayoutChanges: false,
+          allowParamChanges: false,
+          allowVariantChanges: false,
+          allowRun: false,
+          allowMultipleRuns: false,
+        },
+        shareSessionId: null,
+        sessionRunCount: 0,
+        shareDeploymentName: null,
+        shareDeploymentVersion: null,
+        deploymentMode: null,
+      });
+
+      const sectionId = "managed-chat-preview-section";
+      const variantId = "managed-chat-preview-variant";
+      const implId = "managed-chat-preview-impl";
+      useProjectState.setState({
+        projectConfig: createProjectConfig({
+          id: "managed-chat-preview-project",
+          name: "Managed Chat Preview",
+          sectionVariantMap: { [sectionId]: variantId },
+          topLevelSections: {
+            [sectionId]: { x: 0, y: 0, zIndex: 0, w: null, h: null },
+          },
+          agenticEdges: [],
+        }),
+        sections: {
+          [sectionId]: createCore({
+            id: sectionId,
+            name: "Managed Chat Preview",
+            variants: [variantId],
+            defaultVariant: variantId,
+          }),
+        },
+        sectionVariants: {
+          [variantId]: createVariant({
+            id: variantId,
+            name: "Managed Chat Preview Variant",
+            impl: implId,
+            nonPresetImpls: [],
+          }),
+        },
+        sectionImpls: {
+          [implId]: createChatSectionImpl(
+            createUserDefaultChatSectionImpl({
+              managed: true,
+              chatId: null,
+              thinking: false,
+            }),
+            {
+              id: implId,
+            },
+          ),
+        },
+        parentSectionMap: { [sectionId]: null },
+        previewSectionVariantMap: {},
+      });
+
+      const existing = document.getElementById(containerId);
+      existing?.remove();
+      const container = document.createElement("div");
+      container.id = containerId;
+      document.body.appendChild(container);
+
+      const root = createRoot(container);
+      root.render(React.createElement(ChatArea, { sectionId }));
+
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        if (container.querySelector("textarea")) {
+          return;
+        }
+      }
+      throw new Error("Managed chat preview did not render.");
+    },
+    { containerId, allowLLM },
+  );
+
+  return page.locator(`#${containerId}`);
 }
 
 async function selectProjectAiEngine(

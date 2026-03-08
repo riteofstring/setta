@@ -86,7 +86,10 @@ class _StrictProjectManagerSwitcher:
         return self._manager
 
 
-def _build_project_state() -> tuple[ProjectStateSingleConfig, ID, ID, ID, ID, ID]:
+def _build_project_state(
+    *,
+    include_read_edge: bool = True,
+) -> tuple[ProjectStateSingleConfig, ID, ID, ID, ID, ID]:
     settings = SettingsState()
     single = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="summary-scope"))
     chat_section_id = create_top_level_section(
@@ -113,16 +116,17 @@ def _build_project_state() -> tuple[ProjectStateSingleConfig, ID, ID, ID, ID, ID
         SectionType.Dict,
         Position(),
     )
-    create_agentic_edge(
-        single,
-        AgenticEdge(
-            id=ID("edge-context"),
-            sourceSectionId=allowed_section_id,
-            targetSectionId=chat_section_id,
-            kind=AgenticEdgeKind.section_chat,
-            contextMode=AgenticEdgeContextMode.reference_only,
-        ),
-    )
+    if include_read_edge:
+        create_agentic_edge(
+            single,
+            AgenticEdge(
+                id=ID("edge-read"),
+                sourceSectionId=chat_section_id,
+                targetSectionId=allowed_section_id,
+                kind=AgenticEdgeKind.chat_section,
+                contextMode=AgenticEdgeContextMode.reference_only,
+            ),
+        )
     create_agentic_edge(
         single,
         AgenticEdge(
@@ -319,7 +323,7 @@ async def test_get_latest_project_state_summary_filtered_by_scope_meta(
     temporary_to_canonical, _ = dbe.read_temporary_id_map()
     canonical = convert_temporary_ids_to_canonical(result, temporary_to_canonical)
 
-    allowed_ids = {peer_chat_section_id}
+    allowed_ids = {allowed_section_id}
     assert {entry.sectionId for entry in canonical.sections} == allowed_ids
     assert set(canonical.projectConfig.sectionVariantMap.keys()) == allowed_ids
     assert blocked_section_id not in canonical.parentSectionMap
@@ -389,7 +393,7 @@ async def test_get_latest_project_state_summary_filtered_by_scope_headers(
     temporary_to_canonical, _ = dbe.read_temporary_id_map()
     canonical = convert_temporary_ids_to_canonical(result, temporary_to_canonical)
 
-    allowed_ids = {peer_chat_section_id}
+    allowed_ids = {allowed_section_id}
     assert {entry.sectionId for entry in canonical.sections} == allowed_ids
     assert set(canonical.projectConfig.sectionVariantMap.keys()) == allowed_ids
     assert blocked_section_id not in canonical.parentSectionMap
@@ -459,7 +463,7 @@ async def test_get_latest_project_state_summary_allows_temporary_agentic_context
     temporary_to_canonical, _ = dbe.read_temporary_id_map()
     canonical = convert_temporary_ids_to_canonical(result, temporary_to_canonical)
 
-    allowed_ids = {peer_chat_section_id}
+    allowed_ids = {allowed_section_id}
     assert {entry.sectionId for entry in canonical.sections} == allowed_ids
     assert set(canonical.projectConfig.sectionVariantMap.keys()) == allowed_ids
     assert blocked_section_id not in canonical.parentSectionMap
@@ -671,10 +675,79 @@ async def test_set_agentic_context_allows_session_scoped_tool_calls(tmp_path) ->
     temporary_to_canonical, _ = dbe.read_temporary_id_map()
     canonical = convert_temporary_ids_to_canonical(result, temporary_to_canonical)
 
-    allowed_ids = {peer_chat_section_id}
+    allowed_ids = {allowed_section_id}
     assert {entry.sectionId for entry in canonical.sections} == allowed_ids
     assert set(canonical.projectConfig.sectionVariantMap.keys()) == allowed_ids
     assert blocked_section_id not in canonical.parentSectionMap
+
+
+@pytest.mark.asyncio
+async def test_get_latest_project_state_summary_excludes_peer_chat_only_targets(
+    tmp_path,
+) -> None:
+    dbe = DBE(tmp_path)
+    (
+        project_state,
+        project_config_id,
+        chat_section_id,
+        peer_chat_section_id,
+        allowed_section_id,
+        blocked_section_id,
+    ) = _build_project_state(include_read_edge=False)
+    tmp_map = _seed_temporary_ids(
+        dbe,
+        [
+            project_config_id,
+            chat_section_id,
+            peer_chat_section_id,
+            allowed_section_id,
+            blocked_section_id,
+        ],
+    )
+    tmp_project_id = tmp_map[project_config_id]
+
+    manager = _DummyProjectManager(project_state)
+    switcher = _StrictProjectManagerSwitcher(project_config_id, manager)
+    websocket_manager = WebsocketManager()
+    frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+    state = type(
+        "_State",
+        (),
+        {
+            "project_manager_switcher": switcher,
+            "dbe": dbe,
+            "deployment_mode": False,
+        },
+    )()
+    app = FastAPI()
+    mcp_server = SettaFastMCP(
+        app,
+        state,
+        "/mcp-test",
+        "Test MCP Server",
+        frontend_sender,
+        dbe,
+    )
+
+    ctx = _build_context_with_meta(
+        mcp_server=mcp_server,
+        project_config_id=project_config_id,
+        chat_id=ID("chat-1"),
+        section_id=chat_section_id,
+    )
+    tool = mcp_server.get_tool("get_latest_project_state_summary")
+    assert tool is not None
+    result = await tool.run({"projectConfigId": str(tmp_project_id)}, context=ctx)
+    assert manager.summary_calls == 0
+
+    temporary_to_canonical, _ = dbe.read_temporary_id_map()
+    canonical = convert_temporary_ids_to_canonical(result, temporary_to_canonical)
+
+    assert isinstance(canonical, CallToolResult)
+    assert canonical.isError
+    assert canonical.structuredContent is not None
+    assert canonical.structuredContent["reason"] == "empty_scope"
+    assert canonical.structuredContent["accessType"] == "read"
 
 
 @pytest.mark.asyncio

@@ -64,7 +64,9 @@ def _write_project_state(dbe: DBE, project_configs: list[ProjectConfig]) -> ID:
     default_id = project_configs[0].id
     project_state = ProjectStateBackend(
         projectConfigs={config.id: config for config in project_configs},
-        projectChatWindowingByProjectConfigId={config.id: {} for config in project_configs},
+        projectChatWindowingByProjectConfigId={
+            config.id: {} for config in project_configs
+        },
         defaultProjectConfigId=default_id,
     )
     dbe.write_project(project_state)
@@ -695,6 +697,95 @@ class TestAgentRunner:
                     structural_allowed=False,
                 ),
             ) == [linked_chat_tool_name]
+
+    def test_scope_filter_does_not_treat_peer_chat_scope_as_read(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe, [ProjectConfig()])
+            config = AllLLMConfigs(
+                configs={
+                    "primary": LLMConfig(
+                        id="primary",
+                        model="gpt-4o-mini",
+                        provider="openai",
+                        api_key_env="OPENAI_API_KEY",
+                        mcpServerIds=[SETTA_MCP_SERVER_ID],
+                    )
+                },
+                mcpServers={
+                    SETTA_MCP_SERVER_ID: MCPServerConfig(
+                        transport="sse",
+                        url="http://localhost:8000/mcp",
+                    )
+                },
+            )
+            runner = _build_runner(dbe, config)
+            read_tool_name = f"{SETTA_MCP_SERVER_ID}__search_ui_settings"
+            runner.mcp_client.tool_annotations_by_name[read_tool_name] = (
+                SettaToolAnnotations(
+                    settaToolType=SettaToolType.discoverable,
+                    accessType="read",
+                )
+            )
+
+            filtered = runner._filter_tool_names_by_scope(
+                [read_tool_name],
+                AgenticScope(
+                    read_section_ids=set(),
+                    write_section_ids=set(),
+                    context_section_ids=set(),
+                    peer_chat_section_ids={ID("peer-chat-section")},
+                    structural_allowed=False,
+                ),
+            )
+
+            assert filtered == []
+
+    def test_scope_filter_does_not_expose_linked_chat_for_unscoped_project_chat(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe, [ProjectConfig()])
+            config = AllLLMConfigs(
+                configs={
+                    "primary": LLMConfig(
+                        id="primary",
+                        model="gpt-4o-mini",
+                        provider="openai",
+                        api_key_env="OPENAI_API_KEY",
+                        mcpServerIds=[SETTA_MCP_SERVER_ID],
+                    )
+                },
+                mcpServers={
+                    SETTA_MCP_SERVER_ID: MCPServerConfig(
+                        transport="sse",
+                        url="http://localhost:8000/mcp",
+                    )
+                },
+            )
+            runner = _build_runner(dbe, config)
+            linked_chat_tool_name = f"{SETTA_MCP_SERVER_ID}__invoke_linked_chat"
+            runner.mcp_client.tool_annotations_by_name[linked_chat_tool_name] = (
+                SettaToolAnnotations(
+                    settaToolType=SettaToolType.discoverable,
+                    accessType="peer_chat",
+                    idPathsByType={"section": ["targetSectionId"]},
+                )
+            )
+
+            filtered = runner._filter_tool_names_by_scope(
+                [linked_chat_tool_name],
+                AgenticScope(
+                    read_section_ids={ID("section-a")},
+                    write_section_ids={ID("section-a")},
+                    context_section_ids={ID("section-a")},
+                    peer_chat_section_ids=set(),
+                    structural_allowed=True,
+                ),
+            )
+
+            assert filtered == []
 
     def test_completion_guard_blocks_missing_report_when_enabled(self) -> None:
         prior_messages = [

@@ -1477,7 +1477,14 @@ async def route_set_chat_section_chat_id(
     x: SetChatSectionChatIdRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await manager.set_chat_section_chat_id(x)
+    await ctx.enforce_policy(
+        policy_flag="allowLLM",
+        denied_message="Deployment policy disallows LLM access.",
+    )
+    try:
+        await manager.set_chat_section_chat_id(x)
+    except KeyError as exc:
+        _raise_http_from_key_error(exc)
 
 
 @router.post(Route.SET_SOCIAL_URL)
