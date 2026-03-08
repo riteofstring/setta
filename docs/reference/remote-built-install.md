@@ -10,16 +10,22 @@ After running `./build.sh`, the deployable artifacts live in `dist/`. Upload the
 ./build.sh
 ```
 
-2. Upload the wheel to the remote host:
+2. Resolve the platform wheel that `./build.sh` produced:
 
 ```bash
-scp dist/setta-0.0.18-py3-none-any.whl paperspace:/tmp/
+WHEEL_PATH="$(printf '%s\n' dist/setta-0.0.18-*.whl)"
 ```
 
-3. Install on the remote server:
+3. Upload the wheel to the remote host:
 
 ```bash
-uv pip install --force-reinstall /tmp/setta-0.0.18-py3-none-any.whl
+scp "${WHEEL_PATH}" paperspace:/tmp/
+```
+
+4. Install on the remote server:
+
+```bash
+uv pip install --force-reinstall "/tmp/$(basename "${WHEEL_PATH}")"
 ```
 
 If you prefer a source install, upload `dist/setta-0.0.18.tar.gz` and install that instead.
@@ -29,7 +35,7 @@ If you prefer a source install, upload `dist/setta-0.0.18.tar.gz` and install th
 If you uploaded or unpacked source artifacts on the remote host, remove them explicitly:
 
 ```bash
-rm -f /tmp/setta-0.0.18-py3-none-any.whl /tmp/setta-0.0.18.tar.gz
+rm -f "/tmp/$(basename "${WHEEL_PATH}")" /tmp/setta-0.0.18.tar.gz
 rm -rf /tmp/setta-0.0.18
 ```
 
