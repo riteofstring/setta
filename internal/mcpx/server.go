@@ -46,6 +46,7 @@ type Server struct {
 	terminals            terminalHistoryProvider
 	docs                 *settadocs.Loader
 	toolSearch           *tools.SearchIndex
+	searchEntries        []tools.SearchEntry
 	temporaryIDs         *TemporaryIDStore
 	agentProfiles        agentProfileProvider
 	agentRuns            agentRunProvider
@@ -80,6 +81,12 @@ type ServerOptions struct {
 }
 
 type toolDefinition struct {
+	Spec         tools.Spec
+	InputSchema  map[string]any
+	OutputSchema map[string]any
+}
+
+type ToolRegistration struct {
 	Spec         tools.Spec
 	InputSchema  map[string]any
 	OutputSchema map[string]any
@@ -319,6 +326,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 			})
 		}
 	}
+	instance.searchEntries = append([]tools.SearchEntry(nil), searchEntries...)
 	instance.toolSearch = tools.BuildSearchIndex(searchEntries)
 
 	instance.handler = sdkmcp.NewSSEHandler(func(*http.Request) *sdkmcp.Server {
@@ -341,12 +349,35 @@ func (s *Server) Registry() *tools.Registry {
 	return s.registry
 }
 
+func (s *Server) RegisterTool(registration ToolRegistration) (tools.Registered, error) {
+	if s == nil {
+		return tools.Registered{}, fmt.Errorf("mcpx: server is required")
+	}
+
+	registered, err := s.registry.Register(registration.Spec)
+	if err != nil {
+		return tools.Registered{}, err
+	}
+
+	s.addTool(registered, registration.InputSchema, registration.OutputSchema)
+	if registered.Metadata.Kind == tools.KindDiscoverable {
+		s.searchEntries = append(s.searchEntries, tools.SearchEntry{
+			Name:        registered.Name,
+			Description: registered.Description,
+			Metadata:    registered.Metadata,
+			InputSchema: registration.InputSchema,
+		})
+		s.toolSearch = tools.BuildSearchIndex(s.searchEntries)
+	}
+	return registered, nil
+}
+
 func (s *Server) addTool(registered tools.Registered, inputSchema map[string]any, outputSchema map[string]any) {
 	s.server.AddTool(&sdkmcp.Tool{
 		Name:         registered.Name,
 		Description:  registered.Description,
 		InputSchema:  inputSchema,
-		OutputSchema: outputSchema,
+		OutputSchema: normalizeSDKToolOutputSchema(outputSchema),
 		Annotations:  buildSDKToolAnnotations(registered.Metadata),
 		Meta:         buildSDKToolMeta(registered.Metadata),
 	}, func(ctx context.Context, req *sdkmcp.CallToolRequest) (*sdkmcp.CallToolResult, error) {
@@ -356,6 +387,16 @@ func (s *Server) addTool(registered tools.Registered, inputSchema map[string]any
 		}
 		return s.invokeRegisteredTool(ctx, registered, arguments, requestContextFromSDK(req)), nil
 	})
+}
+
+func normalizeSDKToolOutputSchema(outputSchema map[string]any) map[string]any {
+	if schemaType, ok := outputSchema["type"].(string); ok && strings.TrimSpace(schemaType) == "object" {
+		return outputSchema
+	}
+	return map[string]any{
+		"type":                 "object",
+		"additionalProperties": true,
+	}
 }
 
 func (s *Server) InvokeTool(ctx context.Context, toolName string, arguments map[string]any, requestContext ToolRequestContext) (*sdkmcp.CallToolResult, error) {
@@ -7297,6 +7338,10 @@ func buildSDKToolMeta(metadata tools.Metadata) sdkmcp.Meta {
 	return sdkmcp.Meta{
 		toolMetaNamespace: payload,
 	}
+}
+
+func NewToolError(code string, format string, args ...any) error {
+	return newToolError(code, format, args...)
 }
 
 func newToolError(code string, format string, args ...any) error {

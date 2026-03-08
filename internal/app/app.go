@@ -46,6 +46,7 @@ import (
 	"setta/internal/settingsstate"
 	"setta/internal/sshx"
 	"setta/internal/terminals"
+	"setta/internal/tools"
 	"setta/internal/transcriptionprofiles"
 	"setta/internal/uisettings"
 	"setta/internal/watchcode"
@@ -950,6 +951,12 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return nil, err
 		}
 	}
+	if mcpServer != nil && pluginBackendRoutes != nil {
+		if err := registerPluginMCPTools(mcpServer, pluginBackendRoutes); err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+	}
 	authRefreshWindowSeconds := int(authService.AuthCookieRefreshWindow() / time.Second)
 	worktreeName := devworktree.ActiveName()
 	statusReadyAt := time.Now().UTC()
@@ -1257,6 +1264,44 @@ func (a *App) ShareSessions() modes.ShareSessionStore {
 
 func (a *App) MCPServer() *mcpx.Server {
 	return a.mcpServer
+}
+
+func registerPluginMCPTools(server *mcpx.Server, runtime *plugins.BackendRouteRuntime) error {
+	if server == nil || runtime == nil {
+		return nil
+	}
+
+	for _, registration := range runtime.MCPTools() {
+		toolRegistration := registration
+		if _, err := server.RegisterTool(mcpx.ToolRegistration{
+			Spec: tools.Spec{
+				Name:        toolRegistration.Name,
+				Description: toolRegistration.Description,
+				Metadata:    toolRegistration.Metadata,
+				Handler: func(ctx context.Context, arguments map[string]any) (any, error) {
+					result, err := runtime.InvokeMCPTool(ctx, toolRegistration.Name, arguments)
+					if err == nil {
+						return result, nil
+					}
+
+					var toolErr *plugins.BackendMCPToolCallError
+					if errors.As(err, &toolErr) {
+						code := toolErr.Code
+						if code == "" {
+							code = "internal_error"
+						}
+						return nil, mcpx.NewToolError(code, "%s", toolErr.Message)
+					}
+					return nil, err
+				},
+			},
+			InputSchema:  toolRegistration.InputSchema,
+			OutputSchema: toolRegistration.OutputSchema,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (a *App) MCPClient() *mcpx.Client {

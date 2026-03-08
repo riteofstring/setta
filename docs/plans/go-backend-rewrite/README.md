@@ -626,7 +626,7 @@ Use the docs in this order:
   - focused completed-slice doc for the first Go-owned live plugin backend
     route runtime and `/api/plugins/{pluginId}/...` proxy transport
 171. `phase-15-plugin-backend-mcp-tool-runtime.md`
-  - focused current-work doc for Go-owned plugin-defined backend MCP tool
+  - focused completed-slice doc for Go-owned plugin-defined backend MCP tool
     registration and runtime over live worker sessions and the Go MCP server
 172. `phase-15-plugin-lock-transport.md`
   - focused completed-slice doc for Go-owned plugin lockfile write/apply

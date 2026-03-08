@@ -8789,6 +8789,95 @@ func assertDiagnosticsPayload(t *testing.T, payload any) {
 	}
 }
 
+func TestServerRegisterToolAddsRuntimePluginTools(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	server, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	_, err := server.RegisterTool(ToolRegistration{
+		Spec: tools.Spec{
+			Name:        "setta_plugin_runtime_tool",
+			Description: "Runtime-registered plugin tool.",
+			Metadata: tools.Metadata{
+				Kind:       tools.KindDiscoverable,
+				AccessType: tools.AccessTypeRead,
+				SearchTags: []string{"plugin", "runtime"},
+			},
+			Handler: func(_ context.Context, arguments map[string]any) (any, error) {
+				return map[string]any{
+					"value": arguments["value"],
+				}, nil
+			},
+		},
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"value": map[string]any{
+					"type": "string",
+				},
+			},
+			"required": []string{"value"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("register runtime plugin tool: %v", err)
+	}
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-section", "chat-section")
+
+	toolsResult, err := clientSession.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("list tools after runtime registration: %v", err)
+	}
+	if !slices.ContainsFunc(toolsResult.Tools, func(tool *sdkmcp.Tool) bool {
+		return tool != nil && tool.Name == "setta_plugin_runtime_tool"
+	}) {
+		t.Fatalf("expected runtime plugin tool in tool list, got %#v", toolsResult.Tools)
+	}
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "setta_plugin_runtime_tool",
+		Arguments: map[string]any{
+			"value": "alpha",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call runtime plugin tool: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected runtime plugin tool success, got %#v", result.StructuredContent)
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["value"] != "alpha" {
+		t.Fatalf("expected value alpha, got %#v", payload["value"])
+	}
+
+	searchResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "search_mcp_tools",
+		Arguments: map[string]any{
+			"query": "plugin runtime",
+			"limit": 5,
+		},
+	})
+	if err != nil {
+		t.Fatalf("search tools after runtime registration: %v", err)
+	}
+	if searchResult.IsError {
+		t.Fatalf("expected runtime search success, got %#v", searchResult.StructuredContent)
+	}
+	searchPayload := mustStructuredMap(t, searchResult.StructuredContent)
+	results := mustStructuredList(t, searchPayload["results"])
+	if len(results) == 0 {
+		t.Fatal("expected runtime search results")
+	}
+	first := mustStructuredMap(t, results[0])
+	if first["name"] != "setta_plugin_runtime_tool" {
+		t.Fatalf("expected runtime plugin tool search result, got %#v", results)
+	}
+}
+
 func TestServerSearchMCPToolsUsesDiscoverableToolsAndServerFilters(t *testing.T) {
 	t.Parallel()
 

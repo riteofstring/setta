@@ -18,10 +18,12 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/realtime"
 	"setta/internal/statefs"
+	"setta/internal/tools"
 )
 
 const (
 	CapabilityEmitListenerEvents           = "emitListenerEvents"
+	CapabilityRegisterMCPTools             = "registerMcpTools"
 	CapabilityRegisterRouter               = "registerRouter"
 	CapabilityRegisterLanguageServer       = "registerLanguageServer"
 	CapabilityRegisterExternalAgentAdapter = "registerExternalAgentAdapter"
@@ -30,6 +32,7 @@ const (
 
 const (
 	HostMethodEmitListenerDependencyEvent = "host.emit_listener_dependency_event"
+	HostMethodRegisterMCPTool             = "host.register_mcp_tool"
 	HostMethodRegisterRouter              = "host.register_router"
 	HostMethodRegisterLanguageServer      = "host.register_language_server"
 	HostMethodRegisterExternalAgent       = "host.register_external_agent_adapter"
@@ -40,6 +43,7 @@ var (
 	ErrWorkerHostServiceRequired                         = errors.New("plugins: worker host requires at least one registered service")
 	ErrWorkerHostListenerProducerRequired                = errors.New("plugins: listener producer is required")
 	ErrWorkerHostRouterRegistrarRequired                 = errors.New("plugins: router registrar is required")
+	ErrWorkerHostMCPToolRegistrarRequired                = errors.New("plugins: mcp tool registrar is required")
 	ErrWorkerHostLanguageServerRegistrarRequired         = errors.New("plugins: language server registrar is required")
 	ErrWorkerHostExternalAgentRegistrarRequired          = errors.New("plugins: external agent adapter registrar is required")
 	ErrWorkerHostCodegenTargetRegistrarNeeded            = errors.New("plugins: codegen target registrar is required")
@@ -72,6 +76,10 @@ var (
 	ErrWorkerHostCodegenTargetLanguageNeeded             = errors.New("plugins: codegen target language is required")
 	ErrWorkerHostCodegenTargetLanguageInvalid            = errors.New("plugins: codegen target language is reserved")
 	ErrWorkerHostCodegenHandlerIDRequired                = errors.New("plugins: codegen target handler id is required")
+	ErrWorkerHostMCPToolRequired                         = errors.New("plugins: mcp tool registration is required")
+	ErrWorkerHostMCPToolNameRequired                     = errors.New("plugins: mcp tool name is required")
+	ErrWorkerHostMCPToolInputSchemaRequired              = errors.New("plugins: mcp tool input schema is required")
+	ErrWorkerHostMCPToolMetadataRequired                 = errors.New("plugins: mcp tool metadata is required")
 	ErrWorkerHostMethodRequired                          = errors.New("plugins: worker host method is required")
 	ErrWorkerHostUnsupportedMethod                       = errors.New("plugins: unsupported worker host method")
 	ErrWorkerHostParamsInvalid                           = errors.New("plugins: worker host params are invalid")
@@ -92,6 +100,7 @@ type WorkerHostOptions struct {
 	ListenerProducer              *realtime.ListenerProducer
 	Deployment                    *deployments.Runtime
 	RouterRegistrar               BackendRouterRegistrar
+	MCPToolRegistrar              BackendMCPToolRegistrar
 	LanguageServerRegistrar       BackendLanguageServerRegistrar
 	ExternalAgentAdapterRegistrar BackendExternalAgentAdapterRegistrar
 	CodegenTargetRegistrar        BackendCodegenTargetRegistrar
@@ -120,11 +129,34 @@ type RegisterRouterRequest struct {
 	Routes []workerBackendRouteDescriptor `json:"routes"`
 }
 
+type RegisterMCPToolRequest struct {
+	Tool *workerMCPToolRegistrationPayload `json:"tool"`
+}
+
 type workerBackendRouteDescriptor struct {
 	RouteID      string   `json:"routeId"`
 	Path         string   `json:"path"`
 	Methods      []string `json:"methods"`
 	NeedsRawBody *bool    `json:"needsRawBody"`
+}
+
+type workerMCPToolRegistrationPayload struct {
+	Name         string                           `json:"name"`
+	Description  string                           `json:"description,omitempty"`
+	InputSchema  map[string]any                   `json:"inputSchema"`
+	OutputSchema map[string]any                   `json:"outputSchema,omitempty"`
+	Metadata     *workerMCPToolMetadataDescriptor `json:"metadata"`
+}
+
+type workerMCPToolMetadataDescriptor struct {
+	Kind                          string              `json:"kind"`
+	AccessType                    string              `json:"accessType,omitempty"`
+	IDPathsByType                 map[string][]string `json:"idPathsByType,omitempty"`
+	ResultIDPathsByType           map[string][]string `json:"resultIdPathsByType,omitempty"`
+	DefaultTargetSingletonSection string              `json:"defaultTargetSingletonSection,omitempty"`
+	ResultFilter                  string              `json:"resultFilter,omitempty"`
+	SearchTags                    []string            `json:"searchTags,omitempty"`
+	SearchCategory                string              `json:"searchCategory,omitempty"`
 }
 
 type RegisterLanguageServerRequest struct {
@@ -168,6 +200,7 @@ type WorkerHost struct {
 	listener                  *realtime.ListenerProducer
 	deployment                *deployments.Runtime
 	routerStore               BackendRouterRegistrar
+	mcpToolStore              BackendMCPToolRegistrar
 	languageServerStore       BackendLanguageServerRegistrar
 	externalAgentAdapterStore BackendExternalAgentAdapterRegistrar
 	codegenTargetStore        BackendCodegenTargetRegistrar
@@ -176,6 +209,7 @@ type WorkerHost struct {
 func NewWorkerHost(options WorkerHostOptions) (*WorkerHost, error) {
 	if options.ListenerProducer == nil &&
 		options.RouterRegistrar == nil &&
+		options.MCPToolRegistrar == nil &&
 		options.LanguageServerRegistrar == nil &&
 		options.ExternalAgentAdapterRegistrar == nil &&
 		options.CodegenTargetRegistrar == nil {
@@ -186,6 +220,7 @@ func NewWorkerHost(options WorkerHostOptions) (*WorkerHost, error) {
 		listener:                  options.ListenerProducer,
 		deployment:                options.Deployment,
 		routerStore:               options.RouterRegistrar,
+		mcpToolStore:              options.MCPToolRegistrar,
 		languageServerStore:       options.LanguageServerRegistrar,
 		externalAgentAdapterStore: options.ExternalAgentAdapterRegistrar,
 		codegenTargetStore:        options.CodegenTargetRegistrar,
@@ -258,6 +293,28 @@ func (h *WorkerHost) RegisterLanguageServer(
 		return err
 	}
 	if err := h.languageServerStore.RegisterLanguageServer(ctx, registration); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (h *WorkerHost) RegisterMCPTool(
+	ctx context.Context,
+	worker WorkerContext,
+	request RegisterMCPToolRequest,
+) error {
+	if h == nil || h.mcpToolStore == nil {
+		return ErrWorkerHostMCPToolRegistrarRequired
+	}
+	if !worker.hasCapability(CapabilityRegisterMCPTools) {
+		return fmt.Errorf("%w: %s", ErrWorkerHostCapabilityDenied, CapabilityRegisterMCPTools)
+	}
+
+	registration, err := normalizeWorkerMCPToolRegistration(worker, request)
+	if err != nil {
+		return err
+	}
+	if err := h.mcpToolStore.RegisterMCPTool(ctx, registration); err != nil {
 		return err
 	}
 	return nil
@@ -364,6 +421,15 @@ func (h *WorkerHost) Dispatch(
 			return nil, err
 		}
 		return json.RawMessage(`{"ok":true}`), nil
+	case HostMethodRegisterMCPTool:
+		var request RegisterMCPToolRequest
+		if err := decodeWorkerHostParamsStrict(params, &request); err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrWorkerHostParamsInvalid, err)
+		}
+		if err := h.RegisterMCPTool(ctx, worker, request); err != nil {
+			return nil, err
+		}
+		return json.RawMessage(`{"ok":true}`), nil
 	case HostMethodRegisterLanguageServer:
 		var request RegisterLanguageServerRequest
 		if err := decodeWorkerHostParamsStrict(params, &request); err != nil {
@@ -460,6 +526,80 @@ func normalizeWorkerRouterRegistration(
 		Prefix:   prefix,
 		Routes:   routes,
 	}, nil
+}
+
+func normalizeWorkerMCPToolRegistration(
+	worker WorkerContext,
+	request RegisterMCPToolRequest,
+) (RegisteredMCPTool, error) {
+	pluginID := strings.TrimSpace(worker.PluginID)
+	if pluginID == "" {
+		return RegisteredMCPTool{}, ErrWorkerHostPluginIDRequired
+	}
+	if request.Tool == nil {
+		return RegisteredMCPTool{}, ErrWorkerHostMCPToolRequired
+	}
+
+	name := strings.TrimSpace(request.Tool.Name)
+	if name == "" {
+		return RegisteredMCPTool{}, ErrWorkerHostMCPToolNameRequired
+	}
+	if request.Tool.InputSchema == nil {
+		return RegisteredMCPTool{}, ErrWorkerHostMCPToolInputSchemaRequired
+	}
+	if request.Tool.Metadata == nil {
+		return RegisteredMCPTool{}, ErrWorkerHostMCPToolMetadataRequired
+	}
+
+	metadata, err := normalizeWorkerMCPToolMetadata(name, request.Tool.Metadata)
+	if err != nil {
+		return RegisteredMCPTool{}, err
+	}
+
+	return RegisteredMCPTool{
+		PluginID:     pluginID,
+		Name:         name,
+		Description:  strings.TrimSpace(request.Tool.Description),
+		InputSchema:  cloneStringAnyMap(request.Tool.InputSchema),
+		OutputSchema: cloneStringAnyMap(request.Tool.OutputSchema),
+		Metadata:     metadata,
+	}, nil
+}
+
+func normalizeWorkerMCPToolMetadata(
+	toolName string,
+	payload *workerMCPToolMetadataDescriptor,
+) (tools.Metadata, error) {
+	if payload == nil {
+		return tools.Metadata{}, ErrWorkerHostMCPToolMetadataRequired
+	}
+
+	metadata := tools.Metadata{
+		Kind:                          tools.Kind(strings.TrimSpace(payload.Kind)),
+		AccessType:                    tools.AccessType(strings.TrimSpace(payload.AccessType)),
+		DefaultTargetSingletonSection: strings.TrimSpace(payload.DefaultTargetSingletonSection),
+		ResultFilter:                  tools.ResultFilter(strings.TrimSpace(payload.ResultFilter)),
+		SearchTags:                    append([]string(nil), payload.SearchTags...),
+		SearchCategory:                strings.TrimSpace(payload.SearchCategory),
+	}
+	if len(payload.IDPathsByType) != 0 {
+		metadata.IDPathsByType = make(map[tools.IDType][]string, len(payload.IDPathsByType))
+		for rawIDType, paths := range payload.IDPathsByType {
+			metadata.IDPathsByType[tools.IDType(strings.TrimSpace(rawIDType))] = append([]string(nil), paths...)
+		}
+	}
+	if len(payload.ResultIDPathsByType) != 0 {
+		metadata.ResultIDPathsByType = make(map[tools.IDType][]string, len(payload.ResultIDPathsByType))
+		for rawIDType, paths := range payload.ResultIDPathsByType {
+			metadata.ResultIDPathsByType[tools.IDType(strings.TrimSpace(rawIDType))] = append([]string(nil), paths...)
+		}
+	}
+
+	normalized, err := metadata.Normalize(toolName)
+	if err != nil {
+		return tools.Metadata{}, err
+	}
+	return normalized, nil
 }
 
 func normalizeWorkerRouteMethods(rawMethods []string) ([]string, error) {

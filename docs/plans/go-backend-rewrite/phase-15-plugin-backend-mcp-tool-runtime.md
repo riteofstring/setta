@@ -13,66 +13,39 @@ plugin static-dir serving, listener-endpoint dispatch, or the full
 
 ## Current Status
 
-As of 2026-03-09:
+As of 2026-03-09, this bounded slice is landed in IDE mode.
 
-- Go already owns:
-  - plugin discovery, status/runtime payloads, config/lifecycle/link/lock HTTP
-    transport
-  - worker-backed backend registration visibility for:
-    - language servers
-    - external-agent adapters
-    - codegen targets
-  - live backend route proxying for plugins that call `register_router(...)`
-- Go does not yet own plugin-defined backend MCP tool runtime
-- current concrete reference material for this gap lives in:
-  - `tests/plugins/test_plugin_manager.py`
-    - backend fixture route + MCP tool registration
-    - backend MCP fixture registration and callable behavior
-  - `tests/mcp/test_plugin_tools.py`
-    - backend MCP fixture registration visibility in the Python MCP tool set
-- the current Go MCP server only registers static built-in tools at startup in:
-  - `internal/mcpx/server.go`
-- the current Go worker host advertises `host.register_mcp_tool` in the worker
-  launcher allowlist, but `internal/plugins/worker_host.go` does not implement
-  it yet
-- the current Python worker `register_mcp_tool(...)` payload only sends:
-  - `toolName`
-  - `annotations`
-  which is not a sufficient source of truth for a robust Go MCP tool schema
-  contract
+- Go now owns plugin-defined backend MCP tool runtime through the Go MCP
+  server/runtime
+- the Python worker now emits a typed `host.register_mcp_tool` payload with:
+  - tool name
+  - description
+  - input schema
+  - optional output schema
+  - normalized MCP metadata derived from the same Python tool-introspection
+    path used by the Python MCP registry
+- `internal/plugins/worker_host.go` now validates and stores backend MCP tool
+  registrations
+- `internal/plugins/backend_route_runtime.go` now keeps long-lived worker
+  sessions alive for:
+  - route-only backend plugins
+  - tool-only backend plugins
+  - mixed route + MCP backend plugins
+- `internal/mcpx/server.go` now supports bounded dynamic tool registration
+  after server construction
+- the real app now registers plugin-backed MCP tools into the authenticated Go
+  MCP server at startup and proxies invocation through `plugin.invoke_mcp_tool`
 
-## Problem Shape
+## Completed Scope
 
-This slice is not another thin route migration.
-
-To expose plugin MCP tools through the Go MCP server, the runtime needs:
-
-1. a real registration owner for backend plugin tools
-   - tool names must be captured at backend plugin startup
-   - later tool calls must route back to the correct live worker session
-2. source-of-truth MCP metadata from the worker/plugin side
-   - Go cannot infer parameter schemas or descriptions from a Python callable
-   - a robust contract requires explicit schema/metadata payloads from the
-     worker, not heuristics or generic catch-all schemas guessed in Go
-3. dynamic MCP server registration after app startup wiring
-   - `internal/mcpx.Server` currently only adds tools from the static default
-     catalog during construction
-
-## Scope
-
-This slice should cover only:
+This slice landed:
 
 - worker-host support for `host.register_mcp_tool`
-- an explicit cross-runtime registration payload for plugin MCP tools that
-  includes enough metadata for Go to register them honestly
-- a Go-owned plugin MCP tool runtime that:
-  - starts active backend plugins with effective `registerMcpTools`
-    capability
-  - stores live worker sessions for registered tool owners
-  - registers plugin tool handlers into the Go MCP server
-  - proxies later tool invocations through `plugin.invoke_mcp_tool`
-- focused Go tests and any necessary worker-side tests for:
-  - registration payload normalization
+- an explicit cross-runtime registration payload for plugin MCP tools
+- a Go-owned live plugin MCP tool runtime over persistent worker sessions
+- dynamic plugin tool registration into the Go MCP server
+- focused worker/plugin/runtime/app coverage for:
+  - payload normalization
   - tool listing visibility
   - tool invocation success/failure mapping
   - mixed route + MCP backend fixtures
@@ -107,14 +80,14 @@ This slice should cover only:
 - `internal/tools/registry.go`
 - `internal/app/app.go`
 
-## Working Decisions
+## Decisions Made
 
 - keep the MCP registration contract explicit
   - do not guess schemas from tool names or fallback to opaque `args/kwargs`
     blobs unless the worker explicitly declares such a schema
-- keep worker lifetime explicit
-  - plugin tool calls should target a real live worker session owned by a Go
-    runtime, not ad hoc per-call subprocess launches
+- keep worker lifetime shared and explicit
+  - plugin tool calls now target the same long-lived worker-session runtime
+    used by backend route proxying when a plugin owns both surfaces
 - keep transport/runtime boundaries thin and typed
   - `internal/plugins` should own plugin worker startup, registration capture,
     and worker call proxying
@@ -125,77 +98,74 @@ This slice should cover only:
 - prefer one source-of-truth registration payload from the worker
   - description, input schema, and tool metadata should arrive from the worker
     in a typed payload instead of being recomputed inconsistently in Go
+- accept the current Go SDK output-schema constraint at the transport edge
+  - `github.com/modelcontextprotocol/go-sdk/mcp` requires SDK-registered tool
+    output schemas to be object-shaped
+  - plugin tools can currently return scalar payloads
+  - the bounded server-side decision for this slice is:
+    - keep actual tool results unchanged
+    - normalize only the SDK-facing output schema to a permissive object when
+      the worker does not provide an object schema
 
-## Recommended Design
+## Landed Design
 
-1. Extend the worker registration payload for `host.register_mcp_tool`.
-   - Add a typed payload that includes:
-     - `toolName`
-     - `description`
-     - `inputSchema`
-     - optional typed metadata derived from annotations
-   - Build it in Python from the actual callable using the same introspection
-     pathway already used by the Python MCP tool registry.
+1. The worker registration payload for `host.register_mcp_tool` is now typed.
+   - The worker builds the payload from the actual callable using the Python
+     MCP tool-introspection path under `backend/setta/mcp/tool_registry.py`.
 
-2. Add a Go-side MCP tool registrar/runtime owner.
-   - Introduce a typed `RegisteredMCPTool` plus registrar in
-     `internal/plugins`.
-   - Capture registrations during backend plugin startup.
+2. Go now has a typed MCP tool registrar/runtime owner.
+   - `internal/plugins` carries `RegisteredMCPTool` plus `MCPToolRegistry`.
+   - registrations are captured during backend plugin startup.
 
-3. Add dynamic MCP registration support in `internal/mcpx.Server`.
-   - Expose a bounded registration method that:
-     - registers the tool in the shared `tools.Registry`
-     - adds the tool to the SDK server
-     - updates tool-search indexing if the tool is discoverable
+3. `internal/mcpx.Server` now supports bounded dynamic tool registration.
+   - plugin tools register into the shared `tools.Registry`
+   - plugin tools are added to the SDK server
+   - discoverable plugin tools are appended to tool-search indexing
 
-4. Start live worker sessions for tool-owning plugins.
-   - Either extend the current backend runtime boundary or add a sibling
-     runtime that uses the same worker-launcher/session model.
-   - The design should avoid per-call worker launches and avoid fake schema
-     fallback.
+4. Tool-owning plugins now start through the existing live backend runtime.
+   - the runtime no longer assumes "route ownership only"
+   - tool-only and mixed route+tool fixtures keep a live worker session
 
-5. Keep invocation bounded.
-   - Tool handlers should forward canonical arguments to `plugin.invoke_mcp_tool`
-     and return the worker `result` payload unchanged unless explicit typed
-     translation is required.
+5. Invocation remains bounded.
+   - tool handlers forward canonical arguments to `plugin.invoke_mcp_tool`
+   - worker `result` payloads are returned unchanged
+   - worker RPC failures surface through MCP tool errors without adding route-
+     shaped transport shims
 
-## Test Strategy
+## Verification
 
-- add focused `internal/plugins` tests for:
-  - worker-host MCP registration payload validation
-  - runtime registration capture and later invocation
-  - mixed route + MCP plugin startup
-- add focused `internal/mcpx` tests for:
-  - dynamic tool registration into the server
-  - discoverable tool listing and metadata exposure
-- add focused `internal/app` tests for:
-  - backend MCP fixture tool visibility through the authenticated MCP server
-  - successful tool invocation roundtrip against a real worker-backed fixture
-- if the worker payload changes, run the relevant Python worker/plugin tests
-  for that contract as part of verification
+- Python:
+  - targeted worker tests for MCP tool payload shape and invalid payloads
+  - targeted plugin-manager tests for worker-request parsing and backend MCP
+    fixture behavior
+- Go `internal/plugins`:
+  - worker-host MCP registration validation
+  - tool-only backend MCP runtime startup and invocation
+  - mixed route + MCP runtime startup and invocation
+- Go `internal/mcpx`:
+  - dynamic runtime tool registration into the server
+  - discoverable tool search/listing after runtime registration
+- Go `internal/app`:
+  - authenticated MCP listing/invocation for backend plugin tools
+  - existing backend-route app test rerun against the updated mixed fixture
 
 ## Open Questions
 
-- whether plugin MCP tools should reuse the exact same long-lived worker
-  session as the backend-route runtime for mixed route+tool plugins, or whether
-  a separate but still long-lived MCP-specific runtime is acceptable
-  - recommendation: prefer one shared worker lifetime when it does not force a
-    broad unstable refactor
-- whether plugin tool metadata needs more than:
-  - access type
-  - description
-  - input schema
-  for the first bounded slice
-  - recommendation: no; carry only the metadata needed for honest MCP
-    registration now, and leave richer plugin tool annotations for a separate
-    follow-on if a caller needs them
+- No blocking open question remains inside this bounded slice.
+- Deferred follow-ons remain unchanged:
+  - plugin static-dir serving
+  - plugin listener-endpoint registration/dispatch
+  - `host.read_project_state` support
+  - plugin tool hot-reload after install/link/rescan/update flows
 
 ## Next Recommended Step
 
-Implement this slice in a bounded way:
+Do not broaden plugin backend-host work speculatively.
 
-1. worker payload upgrade for `register_mcp_tool`
-2. Go worker-host MCP registration support
-3. dynamic registration in `internal/mcpx`
-4. real app/runtime tests proving a plugin-defined MCP tool appears and can be
-   called through the Go MCP server
+The next plugin follow-on should only be pulled forward when a concrete caller
+requires one of:
+
+1. plugin static-dir serving
+2. plugin listener-endpoint dispatch
+3. `host.read_project_state` inside live backend workers
+4. plugin runtime refresh/hot-reload after mutation flows

@@ -108,6 +108,76 @@ func TestBackendRouteRuntimeProxiesFixtureRoutePayloads(t *testing.T) {
 	}
 }
 
+// Tool-only backend plugins should stay live and proxy MCP tool calls over the worker RPC boundary.
+func TestBackendRouteRuntimeInvokesToolOnlyFixtureMCPTools(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend-mcp-tools")
+
+	runtime := mustNewBackendRouteRuntime(t, roots, config.ModeIDE)
+	defer func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close backend route runtime: %v", err)
+		}
+	}()
+
+	tools := runtime.MCPTools()
+	if len(tools) != 2 {
+		t.Fatalf("expected 2 registered backend mcp tools, got %#v", tools)
+	}
+
+	result, err := runtime.InvokeMCPTool(context.Background(), "setta_fixture_mcp_read", map[string]any{
+		"value": "alpha",
+	})
+	if err != nil {
+		t.Fatalf("invoke read tool: %v", err)
+	}
+	if result != "read:setta-fixture-backend-mcp-tools:alpha" {
+		t.Fatalf("unexpected read tool result %#v", result)
+	}
+}
+
+// Mixed route+tool backend plugins should reuse one live worker session for both HTTP proxying and MCP tool calls.
+func TestBackendRouteRuntimeSupportsMixedRouteAndMCPFixtures(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend-language-server-e2e")
+
+	runtime := mustNewBackendRouteRuntime(t, roots, config.ModeIDE)
+	defer func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close backend route runtime: %v", err)
+		}
+	}()
+
+	routes := runtime.Routes()
+	if len(routes) != 9 {
+		t.Fatalf("expected 9 registered backend routes, got %#v", routes)
+	}
+	tools := runtime.MCPTools()
+	if len(tools) != 1 {
+		t.Fatalf("expected 1 registered backend mcp tool, got %#v", tools)
+	}
+
+	route := mustFindBackendRoute(t, routes, "/payload/echo-query")
+	request := httptest.NewRequest(http.MethodGet, "http://setta.test"+route.Pattern+"?alpha=route", nil)
+	response, err := runtime.ProxyRoute(context.Background(), route, request, nil)
+	if err != nil {
+		t.Fatalf("proxy mixed fixture route: %v", err)
+	}
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected mixed fixture route status 200, got %#v", response.StatusCode)
+	}
+
+	result, err := runtime.InvokeMCPTool(context.Background(), "setta_fixture_backend_route_runtime_tool", map[string]any{
+		"value": "tool",
+	})
+	if err != nil {
+		t.Fatalf("invoke mixed fixture tool: %v", err)
+	}
+	if result != "route-runtime:setta-fixture-backend-language-server-e2e:tool" {
+		t.Fatalf("unexpected mixed fixture tool result %#v", result)
+	}
+}
+
 func mustNewBackendRouteRuntime(t *testing.T, roots filesystemResolverTestRoots, mode config.Mode) *BackendRouteRuntime {
 	t.Helper()
 

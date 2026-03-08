@@ -33,9 +33,11 @@ type BackendRouteRuntimeOptions struct {
 type BackendRouteRuntime struct {
 	logger *slog.Logger
 
-	routes    []BackendRoute
-	sessions  map[string]*StartedWorkerSession
-	routeByID map[string]BackendRoute
+	routes      []BackendRoute
+	mcpTools    []RegisteredMCPTool
+	sessions    map[string]*StartedWorkerSession
+	routeByID   map[string]BackendRoute
+	mcpToolByID map[string]RegisteredMCPTool
 }
 
 type BackendRoute struct {
@@ -68,7 +70,25 @@ type BackendRouteProxyError struct {
 	Message    string
 }
 
+type BackendMCPToolCallError struct {
+	Code    string
+	Message string
+}
+
 func (e *BackendRouteProxyError) Error() string {
+	if e == nil {
+		return ""
+	}
+	if strings.TrimSpace(e.Code) == "" {
+		return e.Message
+	}
+	if strings.TrimSpace(e.Message) == "" {
+		return e.Code
+	}
+	return e.Code + ": " + e.Message
+}
+
+func (e *BackendMCPToolCallError) Error() string {
 	if e == nil {
 		return ""
 	}
@@ -100,14 +120,16 @@ func NewBackendRouteRuntime(ctx context.Context, options BackendRouteRuntimeOpti
 		return nil, err
 	}
 
-	routePlugins := collectBackendRoutePlugins(snapshot.Plugins)
+	runtimePlugins := collectBackendRuntimePlugins(snapshot.Plugins)
 	runtime := &BackendRouteRuntime{
-		logger:    options.Logger,
-		routes:    []BackendRoute{},
-		sessions:  map[string]*StartedWorkerSession{},
-		routeByID: map[string]BackendRoute{},
+		logger:      options.Logger,
+		routes:      []BackendRoute{},
+		mcpTools:    []RegisteredMCPTool{},
+		sessions:    map[string]*StartedWorkerSession{},
+		routeByID:   map[string]BackendRoute{},
+		mcpToolByID: map[string]RegisteredMCPTool{},
 	}
-	if len(routePlugins) == 0 {
+	if len(runtimePlugins) == 0 {
 		return runtime, nil
 	}
 
@@ -116,12 +138,12 @@ func NewBackendRouteRuntime(ctx context.Context, options BackendRouteRuntimeOpti
 		return nil, err
 	}
 
-	for _, entry := range routePlugins {
+	for _, entry := range runtimePlugins {
 		if err := runtime.startPlugin(ctx, entry, workerRuntime, options.ServerMode); err != nil {
 			runtime.logStartupError(entry.PluginID, err)
 		}
 	}
-	runtime.sortRoutes()
+	runtime.sortRegistrations()
 	return runtime, nil
 }
 
@@ -142,6 +164,18 @@ func (r *BackendRouteRuntime) Routes() []BackendRoute {
 		}
 	}
 	return routes
+}
+
+func (r *BackendRouteRuntime) MCPTools() []RegisteredMCPTool {
+	if r == nil || len(r.mcpTools) == 0 {
+		return nil
+	}
+
+	registrations := make([]RegisteredMCPTool, len(r.mcpTools))
+	for index, registration := range r.mcpTools {
+		registrations[index] = cloneRegisteredMCPTool(registration)
+	}
+	return registrations
 }
 
 func (r *BackendRouteRuntime) ProxyRoute(
@@ -239,6 +273,59 @@ func (r *BackendRouteRuntime) Close() error {
 	return closeErr
 }
 
+func (r *BackendRouteRuntime) InvokeMCPTool(ctx context.Context, toolName string, arguments map[string]any) (any, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	tool, ok := r.mcpToolByID[strings.TrimSpace(toolName)]
+	if !ok {
+		return nil, &BackendMCPToolCallError{
+			Code:    "PLUGIN_BACKEND_REGISTER_FAILED",
+			Message: fmt.Sprintf("Plugin MCP tool not found: %s", strings.TrimSpace(toolName)),
+		}
+	}
+
+	session := r.session(tool.PluginID)
+	if session == nil || session.Session == nil {
+		return nil, backendMCPToolUnavailableError(tool.PluginID, tool.Name)
+	}
+
+	workerArguments := cloneStringAnyMap(arguments)
+	if workerArguments == nil {
+		workerArguments = map[string]any{}
+	}
+
+	payload, err := session.Session.Call(ctx, "plugin.invoke_mcp_tool", map[string]any{
+		"toolName": tool.Name,
+		"args":     []any{},
+		"kwargs":   workerArguments,
+	})
+	if err != nil {
+		var workerErr *WorkerRPCError
+		switch {
+		case errors.Is(err, ErrWorkerSessionClosed):
+			return nil, backendMCPToolUnavailableError(tool.PluginID, tool.Name)
+		case errors.As(err, &workerErr):
+			return nil, &BackendMCPToolCallError{
+				Code:    strings.TrimSpace(workerErr.Code),
+				Message: strings.TrimSpace(workerErr.Message),
+			}
+		default:
+			return nil, &BackendMCPToolCallError{
+				Code:    workerRPCTransportErrorCode,
+				Message: fmt.Sprintf("Plugin worker MCP tool call failed for %s:%s: %v", tool.PluginID, tool.Name, err),
+			}
+		}
+	}
+
+	decoded, decodeErr := decodeBackendMCPToolResult(payload)
+	if decodeErr != nil {
+		return nil, decodeErr
+	}
+	return decoded, nil
+}
+
 func (r *BackendRouteRuntime) session(pluginID string) *StartedWorkerSession {
 	if r == nil {
 		return nil
@@ -258,11 +345,13 @@ func (r *BackendRouteRuntime) startPlugin(
 	}
 
 	routers := NewBackendRouterRegistry()
+	mcpTools := NewMCPToolRegistry()
 	languageServers := NewLanguageServerRegistry()
 	externalAgentAdapters := NewExternalAgentAdapterRegistry()
 	codegenTargets := NewCodegenTargetRegistry()
 	host, err := NewWorkerHost(WorkerHostOptions{
 		RouterRegistrar:               routers,
+		MCPToolRegistrar:              mcpTools,
 		LanguageServerRegistrar:       languageServers,
 		ExternalAgentAdapterRegistrar: externalAgentAdapters,
 		CodegenTargetRegistrar:        codegenTargets,
@@ -293,7 +382,8 @@ func (r *BackendRouteRuntime) startPlugin(
 
 	registrations := routers.Registrations()
 	routes := flattenRegisteredBackendRoutes(registrations)
-	if len(routes) == 0 {
+	toolRegistrations := mcpTools.Registrations()
+	if len(routes) == 0 && len(toolRegistrations) == 0 {
 		return started.Close()
 	}
 
@@ -302,10 +392,14 @@ func (r *BackendRouteRuntime) startPlugin(
 		r.routes = append(r.routes, route)
 		r.routeByID[route.PluginID+":"+route.RouteID] = route
 	}
+	for _, registration := range toolRegistrations {
+		r.mcpTools = append(r.mcpTools, registration)
+		r.mcpToolByID[registration.Name] = registration
+	}
 	return nil
 }
 
-func (r *BackendRouteRuntime) sortRoutes() {
+func (r *BackendRouteRuntime) sortRegistrations() {
 	sort.Slice(r.routes, func(left int, right int) bool {
 		if r.routes[left].Pattern != r.routes[right].Pattern {
 			return r.routes[left].Pattern < r.routes[right].Pattern
@@ -314,6 +408,12 @@ func (r *BackendRouteRuntime) sortRoutes() {
 			return r.routes[left].PluginID < r.routes[right].PluginID
 		}
 		return r.routes[left].RouteID < r.routes[right].RouteID
+	})
+	sort.Slice(r.mcpTools, func(left int, right int) bool {
+		if r.mcpTools[left].Name != r.mcpTools[right].Name {
+			return r.mcpTools[left].Name < r.mcpTools[right].Name
+		}
+		return r.mcpTools[left].PluginID < r.mcpTools[right].PluginID
 	})
 }
 
@@ -324,10 +424,10 @@ func (r *BackendRouteRuntime) logStartupError(pluginID string, err error) {
 	r.logger.Error("plugin backend route runtime startup failed", "pluginId", pluginID, "error", err)
 }
 
-func collectBackendRoutePlugins(entries []DiscoveredPlugin) []DiscoveredPlugin {
+func collectBackendRuntimePlugins(entries []DiscoveredPlugin) []DiscoveredPlugin {
 	plugins := make([]DiscoveredPlugin, 0, len(entries))
 	for _, entry := range entries {
-		if !shouldStartBackendRouteRuntime(entry) {
+		if !shouldStartBackendRuntime(entry) {
 			continue
 		}
 		plugins = append(plugins, entry)
@@ -338,7 +438,7 @@ func collectBackendRoutePlugins(entries []DiscoveredPlugin) []DiscoveredPlugin {
 	return plugins
 }
 
-func shouldStartBackendRouteRuntime(entry DiscoveredPlugin) bool {
+func shouldStartBackendRuntime(entry DiscoveredPlugin) bool {
 	if entry.ShadowedBySourcePath != "" {
 		return false
 	}
@@ -348,7 +448,8 @@ func shouldStartBackendRouteRuntime(entry DiscoveredPlugin) bool {
 	if entry.State != PluginRuntimeStateActive && entry.State != PluginRuntimeStatePendingRestart {
 		return false
 	}
-	return containsCapability(entry.EffectiveCapabilities, CapabilityRegisterRouter)
+	return containsCapability(entry.EffectiveCapabilities, CapabilityRegisterRouter) ||
+		containsCapability(entry.EffectiveCapabilities, CapabilityRegisterMCPTools)
 }
 
 func flattenRegisteredBackendRoutes(registrations []RegisteredBackendRouter) []BackendRoute {
@@ -379,6 +480,26 @@ func buildBackendRoutePattern(pluginID string, prefix string, routePath string) 
 		normalizedPath = "/" + normalizedPath
 	}
 	return base + normalizedPath
+}
+
+func decodeBackendMCPToolResult(payload json.RawMessage) (any, error) {
+	var decoded struct {
+		Result any `json:"result"`
+	}
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		return nil, &BackendMCPToolCallError{
+			Code:    workerRPCTransportErrorCode,
+			Message: fmt.Sprintf("Plugin backend MCP tool response is invalid: %v", err),
+		}
+	}
+	return decoded.Result, nil
+}
+
+func backendMCPToolUnavailableError(pluginID string, toolName string) error {
+	return &BackendMCPToolCallError{
+		Code:    workerRPCTransportErrorCode,
+		Message: fmt.Sprintf("Plugin backend MCP tool is unavailable for %s:%s.", strings.TrimSpace(pluginID), strings.TrimSpace(toolName)),
+	}
 }
 
 func normalizeBackendRouteQueryParams(request *http.Request) map[string]any {

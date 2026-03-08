@@ -625,16 +625,17 @@ That next higher-level plugin runtime follow-on tracked in
 - plugin static-dir plus broader backend host surfaces remain explicitly
   deferred until a concrete caller requires them
 
-The next caller-driven plugin backend-runtime follow-on is now opened in
-`phase-15-plugin-backend-mcp-tool-runtime.md`:
+The bounded plugin backend MCP follow-on tracked in
+`phase-15-plugin-backend-mcp-tool-runtime.md` is now also landed:
 
-- the bounded target is Go-owned plugin-defined backend MCP tool registration
-  and invocation through the Go MCP server
-- the current blocker is explicit metadata, not route transport:
-  - the worker must send source-of-truth MCP tool registration payloads that
-    Go can register honestly instead of guessing schemas
+- Go now owns plugin-defined backend MCP tool registration and invocation
+  through the authenticated Go MCP server in IDE mode
+- backend workers now send explicit tool metadata/schema payloads instead of
+  the earlier partial `toolName`/`annotations` host request
+- the backend runtime now keeps long-lived worker sessions for route-only,
+  tool-only, and mixed route+tool plugins
 - plugin static-dir, listener-endpoint, and broader backend-host runtime
-  surfaces remain deferred outside that bounded MCP slice
+  surfaces remain deferred until a concrete caller requires them
 
 The bounded plugin dependency cleanup tracked in
 `phase-11-plugin-version-range-owner-and-dependency-cleanup.md` is now also
