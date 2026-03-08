@@ -21,6 +21,7 @@ import (
 	"setta/internal/codegen"
 	"setta/internal/config"
 	"setta/internal/deployments"
+	"setta/internal/devworktree"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/externalagents"
 	"setta/internal/frontendorigins"
@@ -842,6 +843,9 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return nil, err
 		}
 	}
+	authRefreshWindowSeconds := int(authService.AuthCookieRefreshWindow() / time.Second)
+	worktreeName := devworktree.ActiveName()
+	statusReadyAt := time.Now().UTC()
 	handler, err := httpapi.NewHandler(httpapi.Dependencies{
 		Logger: logger,
 		Info: infoService{
@@ -888,6 +892,18 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			}
 		},
 		Register: func(r chi.Router) {
+			if err := httpapi.RegisterStatusRoutes(r, httpapi.StatusRouteDependencies{
+				ModePolicy:               modePolicy,
+				SettaHome:                cfg.Paths.SettaHome,
+				GlobalSettaFilesBase:     cfg.User.GlobalSettaFilesBase,
+				ActiveSettaFilesLocation: cfg.Paths.ActiveSettaFilesLocation(),
+				SettaFilesRoot:           cfg.Paths.SettaFilesRoot,
+				AuthRefreshWindowSeconds: authRefreshWindowSeconds,
+				WorktreeName:             worktreeName,
+				ReadyAt:                  statusReadyAt,
+			}); err != nil {
+				panic(err)
+			}
 			if err := httpapi.RegisterListenerRoutes(r, httpapi.ListenerRouteDependencies{
 				ModePolicy:          modePolicy,
 				ShareSessions:       shareSessions,

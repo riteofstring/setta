@@ -86,6 +86,56 @@ func TestAppServesFoundationRoutes(t *testing.T) {
 	}
 }
 
+func TestAppServesStatusMetaRoutes(t *testing.T) {
+	// These live frontend reads should all resolve from the real app stack in IDE mode.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	cookie := newAppTestAuthCookie(t, app)
+
+	for _, testCase := range []struct {
+		name string
+		path string
+	}{
+		{name: "backend init status", path: "/api" + httpapi.RouteGetBackendInitStatus},
+		{name: "auth refresh status", path: "/api" + httpapi.RouteGetAuthRefreshStatus},
+		{name: "setta home info", path: "/api" + httpapi.RouteGetSettaHomeInfo},
+	} {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			request, err := http.NewRequest(http.MethodGet, server.URL+testCase.path, nil)
+			if err != nil {
+				t.Fatalf("new request: %v", err)
+			}
+			request.AddCookie(cookie)
+
+			response, err := http.DefaultClient.Do(request)
+			if err != nil {
+				t.Fatalf("get %s: %v", testCase.name, err)
+			}
+			defer response.Body.Close()
+			if response.StatusCode != http.StatusOK {
+				body, _ := io.ReadAll(response.Body)
+				t.Fatalf("expected %s 200, got %d with body %q", testCase.name, response.StatusCode, string(body))
+			}
+		})
+	}
+}
+
 func TestAppSaveProjectsPythonCodeSectionFilesForLSP(t *testing.T) {
 	cfg := testConfig(t)
 	prepareAppLSPFixture(t)

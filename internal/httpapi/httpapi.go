@@ -124,7 +124,7 @@ func NewHandler(deps Dependencies) (http.Handler, error) {
 		if deps.Auth != nil && deps.Auth.Enabled() {
 			r.Use(authMiddleware(deps.Auth))
 		}
-		r.Get("/serverMode", func(w http.ResponseWriter, r *http.Request) {
+		r.Get(RouteGetServerMode, func(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusOK, map[string]string{
 				"mode": deps.Info.ServerMode(r.Context()),
 			})

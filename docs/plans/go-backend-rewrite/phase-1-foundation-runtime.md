@@ -78,6 +78,10 @@ Phase-1 tooling decision:
   - user config `autoMode`
   - canonical root naming
 - use a consolidated `runtimeInfo` endpoint instead of preserving the narrower Python `settaHomeInfo` route shape
+  - later outcome:
+    - live IDE workspace-switcher callers still required `GET /settaHomeInfo`
+    - the bounded follow-on is now landed in
+      `phase-2-status-meta-read-route-closeout.md`
 - keep the transport layer thin:
   - handlers expose only health/runtime metadata
   - path policy lives in `internal/config` and `internal/statefs`

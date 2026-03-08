@@ -4,6 +4,10 @@ import "strings"
 
 var bareRouteNames = map[string]struct{}{
 	bareRouteName(RouteBinaryUpload):                            {},
+	bareRouteName(RouteGetBackendInitStatus):                    {},
+	bareRouteName(RouteGetAuthRefreshStatus):                    {},
+	bareRouteName(RouteGetServerMode):                           {},
+	bareRouteName(RouteGetSettaHomeInfo):                        {},
 	bareRouteName(RouteShareDeploymentCurrentSession):           {},
 	bareRouteName(RouteAppDeploymentCurrentSession):             {},
 	bareRouteName(RouteShareDeploymentState):                    {},

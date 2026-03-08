@@ -50,6 +50,10 @@ Use the docs in this order:
    - first implementation phase
 7. `phase-2-auth-modes-request-context.md`
    - auth, mode-policy, and request-context implementation plan
+- `phase-2-status-meta-read-route-closeout.md`
+  - focused completed-slice doc for the live status/meta read follow-on:
+    Go-owned `GET /backendInitStatus`, `GET /authRefreshStatus`, and
+    IDE-only `GET /settaHomeInfo`
 8. `phase-3-project-state-core.md`
    - project-state persistence, runtime ownership, and revision plan
 9. `phase-4-realtime-and-terminal-runtime.md`

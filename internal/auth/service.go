@@ -100,6 +100,13 @@ func (s *Service) CurrentSession() (*CurrentSession, bool) {
 	return s.currentSession, true
 }
 
+func (s *Service) AuthCookieRefreshWindow() time.Duration {
+	if s == nil {
+		return defaultAuthRefreshWindow
+	}
+	return s.settings.CookieRefreshWindow
+}
+
 func (s *Service) CookieName(sessionID string) (string, error) {
 	return authCookieName(s.AuthCookieBaseName(), sessionID)
 }

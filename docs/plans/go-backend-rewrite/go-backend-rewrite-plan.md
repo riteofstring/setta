@@ -511,6 +511,19 @@ The bounded listener coverage read follow-on tracked in
 - the remaining live listener coverage read no longer depends on the Python
   route/runtime path
 
+The bounded status/meta read follow-on tracked in
+`phase-2-status-meta-read-route-closeout.md` is now also landed:
+
+- Go now owns:
+  - `GET /backendInitStatus`
+  - `GET /authRefreshStatus`
+  - `GET /settaHomeInfo`
+- the current frontend backend-ready poll, worktree hint, websocket
+  refresh-window read, and workspace-switcher launcher-scope read no longer
+  depend on `backend/setta/routers/status.py`
+- `POST /loadSettings` remains a separate deferred settings-state boundary
+  instead of being silently bundled into this status/meta closeout
+
 ## Current Reality
 
 The backend seams that matter most for planning are:

@@ -160,6 +160,12 @@ Deferred:
 - non-API auth refresh behavior
 - share-mode request-context helpers
 
+Later outcome:
+
+- the live `GET /api/authRefreshStatus` read is now Go-owned through
+  `phase-2-status-meta-read-route-closeout.md`
+- the other deferred items above remain out of scope for that closeout
+
 ### Slice 3: Mode Policy And Share Session Extraction
 
 Deliver:
