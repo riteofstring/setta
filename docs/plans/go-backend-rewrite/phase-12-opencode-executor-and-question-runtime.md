@@ -33,20 +33,39 @@ Completed before this slice:
   creation
 - real Codex app-server execution behind the bounded executor interface
 
-Blocking dependency surfaced during repo inspection:
+Completed in this slice:
 
-- `internal/externalagentconfigs.Store` currently drops
-  `settingsManagedBlock`, so the Go runtime cannot yet read the managed
-  OpenCode permission/model config that exists in `setta_files/external_agents.json`
+- `internal/externalagentconfigs`
+  - typed Go read access to the OpenCode-managed subset of
+    `settingsManagedBlock`
+  - cloned config round-tripping so OpenCode-managed model/permission config is
+    no longer dropped by the Go store
+- `internal/externalagents/runtime.go`
+  - pending-question registry keyed by `toolCallId`
+  - runtime-owned question-response dispatch and persisted tool-result /
+    `question_response` event materialization
+- `internal/httpapi/ai_routes.go`
+  - thin `/respondExternalAgentQuestion` transport with typed
+    not-found/bad-request mapping
+- `internal/externalagents/send.go`
+  - same-chat OpenCode `sessionId` continuity seeded from the latest persisted
+    external run for the chat
+- `internal/externalagents/opencode_executor.go`
+  - real OpenCode sidecar execution behind the bounded executor interface
+  - bounded runtime `opencode.json` generation under
+    `external_agent_settings/opencode/<config-id>/sessions/<chat-id>/`
+  - live assistant delta/tool-call/question persistence during active runs
+  - terminal completion/failure closeout with persisted `sessionId`
+- `internal/app/app.go`
+  - bounded multi-executor wiring with the real OpenCode executor installed in
+    IDE mode
 
-Still missing after the Codex slice:
+Remaining gap after this slice:
 
-- OpenCode executor implementation
-- Go-owned pending-question registry and response dispatch
-- `/respondExternalAgentQuestion`
-- OpenCode same-chat `sessionId` continuity
-- bounded OpenCode settings-file generation in Go
 - Claude Code execution
+- broader OpenCode and Codex MCP/tool-result parity
+- any deferred external-agent auth/header config work needed for MCP parity
+- any remaining websocket/event fanout closeout for active external-agent runs
 
 ## Why This Slice Exists
 
@@ -143,16 +162,19 @@ The runtime owner should continue to be the source of truth for:
 5. Seed `sessionId` from the latest same-chat external run for OpenCode.
    - Do not keep OpenCode chat continuity as an implicit Python-only behavior.
 
-## Landing Order
+## Landing Outcome
 
-1. Add this focused plan doc.
-2. Extend external-agent config parsing for the OpenCode-managed settings block.
-3. Add runtime question registration and `respondExternalAgentQuestion`.
-4. Land the OpenCode executor and runtime config writer.
-5. Seed OpenCode `sessionId` continuity in the send path.
-6. Update the Phase 12 docs with completed work and the remaining Claude gap.
+1. Added the focused plan doc for the OpenCode slice.
+2. Extended external-agent config parsing for the OpenCode-managed settings
+   block and preflight.
+3. Added runtime question registration plus
+   `/respondExternalAgentQuestion`.
+4. Landed the OpenCode executor and runtime config writer.
+5. Seeded OpenCode `sessionId` continuity in the send path.
+6. Updated the Phase 12 docs so the remaining gap is now explicitly Claude
+   Code plus deferred MCP-rich parity work.
 
-## Verification Targets
+## Verification
 
 - `./scripts/go.sh test ./internal/externalagentconfigs ./internal/externalagents ./internal/httpapi`
 - `./scripts/go.sh test ./internal/app -run '^$'`
@@ -169,11 +191,18 @@ The runtime owner should continue to be the source of truth for:
   - recommendation: no, keep the adapter bridge reuse explicit in this slice
     and defer path relocation until the adapter surface is proven in Go
 
-## Expected Remaining Gap After This Slice
+## Decisions Made
 
-After this OpenCode landing, the remaining Phase 12 work should be:
+- keep OpenCode execution behind the existing bounded executor interface
+  instead of broadening the HTTP or send service layers
+- keep the checked-in Node sidecar at the adapter edge for this slice instead
+  of relocating it in the same change
+- keep runtime question ownership keyed by the UI-facing `toolCallId`; the
+  sidecar already resolves that id back to the underlying OpenCode question id
+- keep OpenCode runtime config writing bounded to model / permission /
+  config-file ownership and defer Setta-specific MCP auth/header injection
 
-- Claude Code execution
-- broader OpenCode and Codex MCP/tool-result parity
-- any deferred external-agent auth/header config work needed for MCP parity
-- any remaining websocket/event fanout closeout for active external-agent runs
+## Next Recommended Step
+
+- land a bounded Claude Code execution edge on the same runtime boundary now
+  that Codex and OpenCode both execute through Go-owned adapters

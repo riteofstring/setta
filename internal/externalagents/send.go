@@ -403,10 +403,15 @@ func (s *SendService) StartChat(ctx context.Context, request StartChatRequest) (
 	if frontendAffinityToken != nil {
 		inputs["frontendAffinityToken"] = *frontendAffinityToken
 	}
-	if externalConfig.ToolType == externalagentconfigs.ToolTypeCodex {
-		if latestRun, ok := selectLatestRun(externalRunsForChat); ok {
+	if latestRun, ok := selectLatestRun(externalRunsForChat); ok {
+		switch externalConfig.ToolType {
+		case externalagentconfigs.ToolTypeCodex:
 			if threadID := resolveRunOutputString(latestRun.Clone(), "threadId"); threadID != "" {
 				inputs["threadId"] = threadID
+			}
+		case externalagentconfigs.ToolTypeOpenCode:
+			if sessionID := resolveRunOutputString(latestRun.Clone(), "sessionId"); sessionID != "" {
+				inputs["sessionId"] = sessionID
 			}
 		}
 	}

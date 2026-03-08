@@ -20,6 +20,14 @@ question-response routing remain follow-on work.
 
 ## Current Status
 
+Historical note after later Phase 12 slices:
+
+- the follow-on OpenCode executor and `respondExternalAgentQuestion` work
+  tracked here as missing has since landed in
+  `phase-12-opencode-executor-and-question-runtime.md`
+- the remaining current execution gap is now Claude Code plus deferred
+  Codex/OpenCode MCP-rich parity work
+
 Completed before this slice:
 
 - Go-owned external-agent chat hydration over persisted runs

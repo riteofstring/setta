@@ -304,6 +304,83 @@ func TestSendServiceSeedsCodexThreadIDFromLatestExternalRun(t *testing.T) {
 	}
 }
 
+func TestSendServiceSeedsOpenCodeSessionIDFromLatestExternalRun(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSendServiceFixture(t, sendFixtureOptions{
+		externalToolType: externalagentconfigs.ToolTypeOpenCode,
+		externalRunMode:  externalagentconfigs.RunModeSDK,
+	})
+	chatID := "chat-opencode-session"
+	fixture.seedExternalRun(t, chatID, agentruns.RunStatusCompleted, []map[string]any{
+		{
+			"id":   "source-user",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Resume this OpenCode chat"},
+			},
+		},
+	}, []map[string]any{
+		{
+			"id":   "source-user",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Resume this OpenCode chat"},
+			},
+		},
+		{
+			"id":   "source-assistant",
+			"role": "assistant",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Prior OpenCode reply"},
+			},
+		},
+	})
+
+	runs, err := fixture.runs.ListByMetadata(agentruns.RunFilter{
+		RunType:         stringPtr(RunTypeExternalAgent),
+		ChatID:          stringPtr(chatID),
+		ProjectConfigID: stringPtr("project-alpha"),
+	})
+	if err != nil {
+		t.Fatalf("list prior external runs: %v", err)
+	}
+	latestRun, ok := selectLatestRun(runs)
+	if !ok {
+		t.Fatal("expected prior external run")
+	}
+	latestRun.Outputs = ensureAnyMap(latestRun.Outputs)
+	latestRun.Outputs["sessionId"] = "session-opencode-prior"
+	if err := fixture.runs.Save(latestRun); err != nil {
+		t.Fatalf("save prior session id: %v", err)
+	}
+
+	_, err = fixture.service.StartChat(context.Background(), StartChatRequest{
+		ChatID: stringPtr(chatID),
+		Message: map[string]any{
+			"id":   "new-message",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Continue on the same session"},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   true,
+	})
+	if err != nil {
+		t.Fatalf("start opencode chat with prior session: %v", err)
+	}
+	if fixture.executor.last == nil {
+		t.Fatal("expected executor request")
+	}
+	if got := fixture.executor.last.Inputs["sessionId"]; got != "session-opencode-prior" {
+		t.Fatalf("expected prior session id to seed executor inputs, got %#v", got)
+	}
+}
+
 func TestSendServiceRejectsWhitespaceFrontendAffinityToken(t *testing.T) {
 	t.Parallel()
 

@@ -13,6 +13,14 @@ adapter work can plug into.
 
 ## Current Status
 
+Historical note after later Phase 12 slices:
+
+- the real Codex and OpenCode executors plus
+  `respondExternalAgentQuestion` called out below as follow-on work have since
+  landed in later Phase 12 slices
+- the remaining current execution gap is now Claude Code plus deferred
+  Codex/OpenCode MCP-rich parity work
+
 Completed in this slice:
 
 - `internal/externalagentconfigs`

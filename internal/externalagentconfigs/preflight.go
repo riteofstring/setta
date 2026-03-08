@@ -63,6 +63,11 @@ func (c *SystemChecker) Check(config Config) (Status, error) {
 	if commandIssue != "" {
 		issues = append(issues, commandIssue)
 	}
+	if normalized.ToolType == ToolTypeOpenCode && normalized.RunMode == RunModeSDK && strings.TrimSpace(derefOptionalString(normalized.BaseURL)) == "" {
+		if _, err := exec.LookPath("opencode"); err != nil {
+			issues = append(issues, "opencode CLI not found (install opencode CLI)")
+		}
+	}
 
 	status := Status{
 		ConfigID:    normalized.ID,
@@ -149,9 +154,16 @@ func defaultCommand(config Config) string {
 	switch {
 	case config.ToolType == ToolTypeCodex && config.RunMode == RunModeAppServer:
 		return "codex"
-	case config.ToolType == ToolTypeOpenCode && config.RunMode == RunModeSDK:
+	case config.ToolType == ToolTypeOpenCode && (config.RunMode == RunModeSDK || config.RunMode == RunModeServer):
 		return "node"
 	default:
 		return ""
 	}
+}
+
+func derefOptionalString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return strings.TrimSpace(*value)
 }

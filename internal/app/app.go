@@ -564,8 +564,20 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
+		openCodeExecutor, err := externalagents.NewOpenCodeExecutor(externalagents.OpenCodeExecutorOptions{
+			Runs:           runStore,
+			Runtime:        externalAgentRuntime,
+			WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
+			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+			ProcessEnv:     llmconfig.CurrentProcessEnv(),
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
 		externalAgentExecutor = externalagents.NewMultiExecutor(externalagents.MultiExecutorOptions{
-			Codex: codexExecutor,
+			Codex:    codexExecutor,
+			OpenCode: openCodeExecutor,
 		})
 		externalAgentSend, err = externalagents.NewSendService(externalagents.SendServiceOptions{
 			ProjectState: projectRuntime,

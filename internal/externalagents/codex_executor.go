@@ -41,18 +41,24 @@ var (
 	errCodexExecutorWorkspaceRootRequired = errors.New("codex executor workspace root is required")
 	errCodexExecutorFilesRootRequired     = errors.New("codex executor setta files root is required")
 	errCodexThreadStartFailed             = errors.New("codex app-server did not return a thread id")
+	errCodexToolResponsesUnsupported      = errors.New("codex executor does not support tool responses")
 )
 
 type MultiExecutorOptions struct {
-	Codex *CodexExecutor
+	Codex    *CodexExecutor
+	OpenCode *OpenCodeExecutor
 }
 
 type MultiExecutor struct {
-	codex *CodexExecutor
+	codex    *CodexExecutor
+	openCode *OpenCodeExecutor
 }
 
 func NewMultiExecutor(options MultiExecutorOptions) *MultiExecutor {
-	return &MultiExecutor{codex: options.Codex}
+	return &MultiExecutor{
+		codex:    options.Codex,
+		openCode: options.OpenCode,
+	}
 }
 
 func (e *MultiExecutor) Start(ctx context.Context, request StartRequest) (StartResponse, error) {
@@ -65,6 +71,11 @@ func (e *MultiExecutor) Start(ctx context.Context, request StartRequest) (StartR
 			return StartResponse{}, ErrExecutorUnavailable
 		}
 		return e.codex.Start(ctx, request)
+	case externalagentconfigs.ToolTypeOpenCode:
+		if e.openCode == nil {
+			return StartResponse{}, ErrExecutorUnavailable
+		}
+		return e.openCode.Start(ctx, request)
 	default:
 		return StartResponse{}, ErrExecutorUnavailable
 	}
@@ -659,6 +670,13 @@ func (c *codexRunController) SendApprovalResponse(approvalID string, approved bo
 			"decision": decision,
 		},
 	})
+}
+
+func (c *codexRunController) SendToolResponse(_ string, _ map[string]any) error {
+	if c == nil || c.session == nil {
+		return ErrRunNotActive
+	}
+	return errCodexToolResponsesUnsupported
 }
 
 func (c *codexRunController) markRuntimeReady() {

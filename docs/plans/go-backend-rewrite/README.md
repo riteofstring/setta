@@ -426,9 +426,9 @@ Use the docs in this order:
     runtime plus the remaining send/stop/approval ownership after the completed
     hydration read slice
 132. `phase-12-opencode-executor-and-question-runtime.md`
-  - focused current-work implementation-plan doc for the OpenCode executor,
+  - focused completed-slice doc for the OpenCode executor,
     OpenCode-managed settings parsing/writing, and the first Go-owned
-    `respondExternalAgentQuestion` slice above the completed Codex runtime
+    `respondExternalAgentQuestion` landing above the completed Codex runtime
 133. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
 134. `spike-pty.md`

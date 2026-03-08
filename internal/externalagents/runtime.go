@@ -14,14 +14,17 @@ var (
 	ErrRuntimeRunStoreRequired = errors.New("external agent runtime run store is required")
 	ErrRunIDRequired           = errors.New("external agent run id is required")
 	ErrApprovalIDRequired      = errors.New("external agent approval id is required")
+	ErrToolCallIDRequired      = errors.New("external agent tool call id is required")
 	ErrRunControllerRequired   = errors.New("external agent run controller is required")
 	ErrRunNotActive            = errors.New("external agent run is not active")
 	ErrApprovalNotFound        = errors.New("external agent approval not found")
+	ErrQuestionNotFound        = errors.New("external agent question not found")
 )
 
 type RunController interface {
 	Cancel() error
 	SendApprovalResponse(approvalID string, approved bool) error
+	SendToolResponse(toolCallID string, payload map[string]any) error
 }
 
 type RuntimeOptions struct {
@@ -36,6 +39,7 @@ type Runtime struct {
 	mu         sync.RWMutex
 	activeRuns map[string]runState
 	approvals  map[string]ApprovalState
+	questions  map[string]QuestionState
 }
 
 type runState struct {
@@ -45,6 +49,15 @@ type runState struct {
 
 type ApprovalState struct {
 	ApprovalID      string  `json:"approvalId"`
+	RunID           string  `json:"runId"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	ChatID          string  `json:"chatId"`
+	SectionID       *string `json:"sectionId,omitempty"`
+}
+
+type QuestionState struct {
+	ToolCallID      string  `json:"toolCallId"`
+	ResponseID      *string `json:"responseId,omitempty"`
 	RunID           string  `json:"runId"`
 	ProjectConfigID string  `json:"projectConfigId"`
 	ChatID          string  `json:"chatId"`
@@ -66,6 +79,7 @@ func NewRuntime(options RuntimeOptions) (*Runtime, error) {
 		timeNow:    timeNow,
 		activeRuns: map[string]runState{},
 		approvals:  map[string]ApprovalState{},
+		questions:  map[string]QuestionState{},
 	}, nil
 }
 
@@ -100,6 +114,7 @@ func (r *Runtime) DeactivateRun(runID string) {
 	defer r.mu.Unlock()
 	delete(r.activeRuns, trimmedRunID)
 	r.clearApprovalsLocked(trimmedRunID)
+	r.clearQuestionsLocked(trimmedRunID)
 }
 
 func (r *Runtime) SetLiveChatState(runID string, state ChatState) error {
@@ -220,6 +235,95 @@ func (r *Runtime) RespondToApproval(approvalID string, approved bool) error {
 	return nil
 }
 
+func (r *Runtime) RegisterQuestion(state QuestionState) error {
+	if r == nil || r.runs == nil {
+		return ErrRuntimeRunStoreRequired
+	}
+	normalized, err := state.normalized()
+	if err != nil {
+		return err
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, ok := r.activeRuns[normalized.RunID]; !ok {
+		return ErrRunNotActive
+	}
+	r.questions[normalized.ToolCallID] = normalized
+	return nil
+}
+
+func (r *Runtime) RespondToQuestion(toolCallID string, answers map[string]string) error {
+	if r == nil || r.runs == nil {
+		return ErrRuntimeRunStoreRequired
+	}
+	trimmedToolCallID := strings.TrimSpace(toolCallID)
+	if trimmedToolCallID == "" {
+		return ErrToolCallIDRequired
+	}
+
+	r.mu.RLock()
+	questionState, ok := r.questions[trimmedToolCallID]
+	if !ok {
+		r.mu.RUnlock()
+		return ErrQuestionNotFound
+	}
+	runState, active := r.activeRuns[questionState.RunID]
+	r.mu.RUnlock()
+	if !active || runState.controller == nil {
+		return ErrRunNotActive
+	}
+
+	run, err := r.runs.Load(questionState.RunID)
+	if err != nil {
+		return err
+	}
+	responseID := trimmedToolCallID
+	if questionState.ResponseID != nil && strings.TrimSpace(*questionState.ResponseID) != "" {
+		responseID = strings.TrimSpace(*questionState.ResponseID)
+	}
+	answerPayload := map[string]any{
+		"answers": stringMapToAnyMap(answers),
+	}
+	if err := runState.controller.SendToolResponse(responseID, answerPayload); err != nil {
+		return err
+	}
+	liveState := runState.liveChat
+	if liveState == nil {
+		built, err := buildChatStateFromRun(run.Clone())
+		if err != nil {
+			return err
+		}
+		liveState = built
+	}
+	if liveState != nil {
+		nextState := liveState.Clone()
+		appendQuestionResultMessage(nextState, trimmedToolCallID, answers)
+		run.Outputs = ensureAnyMap(run.Outputs)
+		run.Outputs["messages"] = messageSliceToJSONList(nextState.Messages)
+		runState.liveChat = nextState.Clone()
+		r.mu.Lock()
+		r.activeRuns[questionState.RunID] = runState
+		r.mu.Unlock()
+	}
+	appendRunEvent(&run, "tool_result", map[string]any{
+		"toolCallId": trimmedToolCallID,
+		"toolName":   askUserQuestionToolName,
+		"isError":    false,
+	}, r.timeNow())
+	appendRunEvent(&run, "question_response", map[string]any{
+		"toolCallId": trimmedToolCallID,
+		"answers":    stringMapToAnyMap(answers),
+	}, r.timeNow())
+	if err := r.runs.Save(run); err != nil {
+		return err
+	}
+
+	r.mu.Lock()
+	delete(r.questions, trimmedToolCallID)
+	r.mu.Unlock()
+	return nil
+}
+
 func (r *Runtime) StopRun(runID string) (agentruns.Run, error) {
 	if r == nil || r.runs == nil {
 		return agentruns.Run{}, ErrRuntimeRunStoreRequired
@@ -257,6 +361,7 @@ func (r *Runtime) StopRun(runID string) (agentruns.Run, error) {
 	r.mu.Lock()
 	delete(r.activeRuns, trimmedRunID)
 	r.clearApprovalsLocked(trimmedRunID)
+	r.clearQuestionsLocked(trimmedRunID)
 	r.mu.Unlock()
 	return run, nil
 }
@@ -289,12 +394,65 @@ func (s ApprovalState) normalized() (ApprovalState, error) {
 	return normalized, nil
 }
 
+func (s QuestionState) normalized() (QuestionState, error) {
+	normalized := QuestionState{
+		ToolCallID:      strings.TrimSpace(s.ToolCallID),
+		RunID:           strings.TrimSpace(s.RunID),
+		ProjectConfigID: strings.TrimSpace(s.ProjectConfigID),
+		ChatID:          strings.TrimSpace(s.ChatID),
+	}
+	if normalized.ToolCallID == "" {
+		return QuestionState{}, ErrToolCallIDRequired
+	}
+	if normalized.RunID == "" {
+		return QuestionState{}, ErrRunIDRequired
+	}
+	if normalized.ProjectConfigID == "" {
+		return QuestionState{}, fmt.Errorf("external agent question project config id is required")
+	}
+	if normalized.ChatID == "" {
+		return QuestionState{}, fmt.Errorf("external agent question chat id is required")
+	}
+	if s.ResponseID != nil {
+		trimmedResponseID := strings.TrimSpace(*s.ResponseID)
+		if trimmedResponseID != "" {
+			normalized.ResponseID = &trimmedResponseID
+		}
+	}
+	if s.SectionID != nil {
+		trimmedSectionID := strings.TrimSpace(*s.SectionID)
+		if trimmedSectionID != "" {
+			normalized.SectionID = &trimmedSectionID
+		}
+	}
+	return normalized, nil
+}
+
 func (r *Runtime) clearApprovalsLocked(runID string) {
 	for approvalID, state := range r.approvals {
 		if state.RunID == runID {
 			delete(r.approvals, approvalID)
 		}
 	}
+}
+
+func (r *Runtime) clearQuestionsLocked(runID string) {
+	for toolCallID, state := range r.questions {
+		if state.RunID == runID {
+			delete(r.questions, toolCallID)
+		}
+	}
+}
+
+func stringMapToAnyMap(input map[string]string) map[string]any {
+	if len(input) == 0 {
+		return map[string]any{}
+	}
+	output := make(map[string]any, len(input))
+	for key, value := range input {
+		output[key] = value
+	}
+	return output
 }
 
 func appendRunEvent(run *agentruns.Run, eventType string, payload map[string]any, now time.Time) {

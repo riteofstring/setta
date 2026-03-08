@@ -60,9 +60,7 @@ Completed in this slice:
 Still missing:
 
 - Claude Code execution
-- OpenCode execution
-- active question production during live execution
-- `respondExternalAgentQuestion`
+- broader Codex/OpenCode MCP and tool-result parity during live execution
 
 ## Scope
 
@@ -183,26 +181,33 @@ It should preserve the current rewrite constraints:
 - implemented stop ownership against persisted runs plus active controllers
 - implemented approval-response dispatch plus persisted approval tool-result
   messages
+- extended `internal/externalagents/runtime.go` with a typed pending-question
+  registry plus runtime-owned question-response dispatch
+- added `internal/externalagents/opencode_executor.go` so OpenCode-backed
+  external chats now launch and complete through a real Go-owned sidecar
+  runtime with bounded runtime `opencode.json` generation
+- seeded persisted OpenCode `sessionId` into same-chat follow-up runs so
+  OpenCode session continuity is now Go-owned
+- added thin `/respondExternalAgentQuestion` transport with typed
+  not-found/bad-request mapping
 - added focused tests for:
   - external-agent config reads and preflight gating
   - external-agent send-path validation, continuation seeding, and conflict
     handling
   - real Codex executor completion and approval round-trip over stdio
+  - real OpenCode executor completion and question-response round-trip over
+    stdio
   - `/getLLMResponse` transport over the new send service
   - live overlay retrieval
   - cancellation persistence and cleanup
-  - approval dispatch and event persistence
-  - stop/approval HTTP transport behavior
+  - approval/question dispatch and event persistence
+  - stop/approval/question HTTP transport behavior
 
 ## Verification
 
 - passed:
-  - `./scripts/go.sh test ./internal/externalagents`
-  - `./scripts/go.sh test ./internal/httpapi -run 'AI|ExternalAgent|GetLLMResponse|RespondExternalAgentApproval|StopExternalAgentRun'`
+  - `./scripts/go.sh test ./internal/externalagentconfigs ./internal/externalagents ./internal/httpapi`
   - `./scripts/go.sh test ./internal/app -run '^$'`
-- noted:
-  - `./scripts/go.sh test ./internal/httpapi` still has unrelated terminal-route
-    failures outside this external-agent slice
 
 ## Verification Targets
 
@@ -236,7 +241,6 @@ It should preserve the current rewrite constraints:
 
 - keep the completed runtime as the execution owner; do not add a parallel send
   path that bypasses it
-- land Claude Code and OpenCode executors on the same bounded runtime boundary
-  now that Codex execution, stop, and approval ownership are proven
-- land `respondExternalAgentQuestion` only after question production exists in a
-  real adapter-backed runtime
+- land a bounded Claude Code execution edge on the same runtime boundary now
+  that Codex and OpenCode execution, stop, approval, and question ownership are
+  proven

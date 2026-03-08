@@ -19,6 +19,7 @@ const RouteGetLLMResponse = "/getLLMResponse"
 const RouteGetExternalAgentChat = "/getExternalAgentChat"
 const RouteStopExternalAgentRun = "/stopExternalAgentRun"
 const RouteRespondExternalAgentApproval = "/respondExternalAgentApproval"
+const RouteRespondExternalAgentQuestion = "/respondExternalAgentQuestion"
 
 type AIRouteDependencies struct {
 	ModePolicy         modes.Policy
@@ -69,6 +70,11 @@ type RespondExternalAgentApprovalRequest struct {
 	Approved   bool   `json:"approved"`
 }
 
+type RespondExternalAgentQuestionRequest struct {
+	ToolCallID string            `json:"toolCallId"`
+	Answers    map[string]string `json:"answers"`
+}
+
 func RegisterAIRoutes(router chi.Router, deps AIRouteDependencies) error {
 	if router == nil {
 		return fmt.Errorf("router is required")
@@ -89,6 +95,7 @@ func RegisterAIRoutes(router chi.Router, deps AIRouteDependencies) error {
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetExternalAgentChat, getExternalAgentChatHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteStopExternalAgentRun, stopExternalAgentRunHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteRespondExternalAgentApproval, respondExternalAgentApprovalHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteRespondExternalAgentQuestion, respondExternalAgentQuestionHandler(deps))
 	return nil
 }
 
@@ -238,6 +245,46 @@ func respondExternalAgentApprovalHandler(deps AIRouteDependencies) http.HandlerF
 			return
 		case errors.Is(err, externalagents.ErrApprovalIDRequired):
 			writeError(w, r, http.StatusBadRequest, "approval_id_required", "Approval id is required.")
+			return
+		case err != nil:
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func respondExternalAgentQuestionHandler(deps AIRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[RespondExternalAgentQuestionRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+		toolCallID := strings.TrimSpace(payload.ToolCallID)
+		if toolCallID == "" {
+			writeError(w, r, http.StatusBadRequest, "tool_call_id_required", "Tool call id is required.")
+			return
+		}
+		if deps.ExternalAgentRuns == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		err = deps.ExternalAgentRuns.RespondToQuestion(toolCallID, payload.Answers)
+		switch {
+		case errors.Is(err, externalagents.ErrQuestionNotFound):
+			writeError(w, r, http.StatusNotFound, "question_not_found", "Question not found.")
+			return
+		case errors.Is(err, externalagents.ErrRunNotActive):
+			writeError(w, r, http.StatusNotFound, "external_agent_run_not_active", "External agent run is not active.")
+			return
+		case errors.Is(err, agentruns.ErrRunNotFound):
+			writeError(w, r, http.StatusNotFound, "external_agent_run_not_found", "External agent run not found.")
+			return
+		case errors.Is(err, externalagents.ErrToolCallIDRequired):
+			writeError(w, r, http.StatusBadRequest, "tool_call_id_required", "Tool call id is required.")
 			return
 		case err != nil:
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")

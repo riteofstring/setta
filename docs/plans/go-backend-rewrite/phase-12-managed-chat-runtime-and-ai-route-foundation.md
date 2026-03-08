@@ -31,24 +31,30 @@ Current repo status as of 2026-03-08:
   - `internal/externalagentconfigs`
     - read access to `external_agents.json`
     - bounded preflight checker interface and a minimal concrete checker
+    - typed OpenCode-managed `settingsManagedBlock` reads for model /
+      permission / MCP config
   - `internal/externalagents`
     - persisted external-run lookup by metadata
     - latest-run selection by event/finished/start timestamps
     - durable chat-state reconstruction and response-placeholder filtering
     - external `contextUsage` normalization from canonical run outputs
     - active-run registry, live chat overlay storage, cancellation ownership,
-      and approval-response dispatch foundations
+      approval-response dispatch, and question-response dispatch
     - Go-owned send-path validation, history shaping, persisted running-run
       creation, and runtime activation for the external-agent branch of
       `getLLMResponse`
     - real Codex app-server execution, approval production, persisted
       completion/failure closeout, and same-chat `threadId` continuity
+    - real OpenCode sidecar execution, bounded runtime `opencode.json`
+      generation, persisted `sessionId` continuity, and live question/tool
+      persistence
   - `internal/httpapi/ai_routes.go`
     - thin Go transport for:
       - `/getLLMResponse` (external-agent branch only)
       - `/getExternalAgentChat`
       - `/stopExternalAgentRun`
       - `/respondExternalAgentApproval`
+      - `/respondExternalAgentQuestion`
 - Python still owns the external-agent AI/chat path in:
   - `backend/setta/routers/ai.py`
   - `backend/setta/routers/agentic.py`
@@ -58,9 +64,8 @@ Current repo status as of 2026-03-08:
   planned Go target for the current rewrite scope
 - Go does not yet own the remaining active external-agent route/runtime
   surface:
-  - Claude Code and OpenCode adapter-backed execution
-  - broader Codex item-type parity for MCP/tool-result rich flows
-  - `route_respond_external_agent_question`
+  - Claude Code adapter-backed execution
+  - broader Codex and OpenCode item-type parity for MCP/tool-result rich flows
 - current work is no longer pure planning/inventory:
   - the hydration read path is implemented in Go
   - the active runtime, stop route, approval-response route, send-route
@@ -194,10 +199,10 @@ It should include:
 
 Missing Go owners:
 
-- external-agent adapter registry and real execution runtime
-- active approval request production and question waiters
-- external-agent websocket/event streaming owner
-- `respondExternalAgentQuestion`
+- Claude Code execution
+- richer Codex/OpenCode MCP and tool-result item parity
+- any remaining external-agent websocket/event streaming closeout that the
+  current frontend UX still depends on
 
 ## Completed In This Slice
 
@@ -229,6 +234,18 @@ Missing Go owners:
     external-agent branch of `/getLLMResponse`
 - extended `internal/httpapi/ai_routes.go`
   - thin `/getLLMResponse` transport for the external-agent engine branch
+  - thin `/respondExternalAgentQuestion` transport
+- extended `internal/externalagents/runtime.go`
+  - typed pending-question registration and runtime-owned question-response
+    dispatch
+- added `internal/externalagents/opencode_executor.go`
+  - OpenCode sidecar execution behind the same bounded executor interface as
+    Codex
+  - bounded runtime `opencode.json` generation and persisted `sessionId`
+    closeout
+- extended `internal/externalagents/send.go`
+  - same-chat OpenCode `sessionId` continuity seeding from the latest persisted
+    external run
 - added focused Go tests for:
   - persisted hydration
   - latest-run selection
@@ -238,6 +255,8 @@ Missing Go owners:
   - external-agent config reads
   - external-agent send-path validation, continuation seeding, and conflict
     handling
+  - real OpenCode executor completion and question-response round-trip over
+    stdio
   - external-agent preflight failures and send-route transport behavior
   - active-run live overlay retrieval
   - runtime cancellation persistence
@@ -319,16 +338,12 @@ Missing Go owners:
 ## Verification Notes
 
 - passed:
-  - `./scripts/go.sh test ./internal/externalagents ./internal/httpapi`
-- attempted:
-  - `./scripts/go.sh test ./internal/app`
-- current `internal/app` failures were environment/runtime issues outside this
-  slice:
-  - LSP bootstrap failures (`lsp: initialize failed (0): EOF`)
-  - missing formatter executable (`Ruff executable was not found on PATH.`)
-  - unrelated remote-launch and UI-setting test expectations
-- compile-only app wiring check passes:
+  - `./scripts/go.sh test ./internal/externalagentconfigs ./internal/externalagents ./internal/httpapi`
   - `./scripts/go.sh test ./internal/app -run '^$'`
+- not run:
+  - full `./scripts/go.sh test ./internal/app`
+  - it is still broader than this external-agent slice and was not needed once
+    the bounded app wiring compile check passed
 
 ## Open Questions
 
@@ -369,14 +384,14 @@ Missing Go owners:
 - 2026-03-08: landed the active runtime foundation plus Go-owned
   `/stopExternalAgentRun` and `/respondExternalAgentApproval` transport over
   the new runtime.
+- 2026-03-08: landed the OpenCode executor slice plus
+  `/respondExternalAgentQuestion`, so the remaining Phase 12 execution gap is
+  now Claude Code and deferred Codex/OpenCode MCP-rich parity work.
 
 ## Verification
 
-- `./scripts/go.sh test ./internal/externalagents ./internal/httpapi`
+- `./scripts/go.sh test ./internal/externalagentconfigs ./internal/externalagents ./internal/httpapi`
 - `./scripts/go.sh test ./internal/app -run '^$'`
-- `./scripts/go.sh test ./internal/app`
-  - fails in the current environment due missing LSP/formatting dependencies
-    and unrelated runtime expectations; see Verification Notes above
 
 ## Recommended Next Step
 

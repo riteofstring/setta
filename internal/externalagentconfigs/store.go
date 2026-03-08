@@ -59,26 +59,39 @@ const (
 	SettingsModeExplicitPath   SettingsMode = "explicit_path"
 )
 
+type SettingsManagedBlock struct {
+	Claude   map[string]any         `json:"claude,omitempty"`
+	Codex    map[string]any         `json:"codex,omitempty"`
+	OpenCode *OpenCodeSettingsBlock `json:"opencode,omitempty"`
+}
+
+type OpenCodeSettingsBlock struct {
+	MCP        map[string]any `json:"mcp,omitempty"`
+	Model      *string        `json:"model,omitempty"`
+	Permission any            `json:"permission,omitempty"`
+}
+
 type Config struct {
-	ID                      string             `json:"id"`
-	Name                    string             `json:"name"`
-	Description             string             `json:"description,omitempty"`
-	ToolType                ToolType           `json:"toolType"`
-	PluginAdapterID         *string            `json:"pluginAdapterId,omitempty"`
-	RunMode                 RunMode            `json:"runMode"`
-	CommandPath             *string            `json:"commandPath,omitempty"`
-	BaseURL                 *string            `json:"baseUrl,omitempty"`
-	DefaultModel            *string            `json:"defaultModel,omitempty"`
-	SandboxPolicy           *string            `json:"sandboxPolicy,omitempty"`
-	ApprovalPolicy          *string            `json:"approvalPolicy,omitempty"`
-	SettingsMode            SettingsMode       `json:"settingsMode,omitempty"`
-	SettingsSources         []string           `json:"settingsSources,omitempty"`
-	SettingsFilePath        *string            `json:"settingsFilePath,omitempty"`
-	SettingsAllowSettaEdits bool               `json:"settingsAllowSettaEdits"`
-	EnvVarWhitelist         []string           `json:"envVarWhitelist,omitempty"`
-	WorkingDirStrategy      WorkingDirStrategy `json:"workingDirStrategy,omitempty"`
-	WorkingDir              *string            `json:"workingDir,omitempty"`
-	CodexSkipGitRepoCheck   *bool              `json:"codexSkipGitRepoCheck,omitempty"`
+	ID                      string                `json:"id"`
+	Name                    string                `json:"name"`
+	Description             string                `json:"description,omitempty"`
+	ToolType                ToolType              `json:"toolType"`
+	PluginAdapterID         *string               `json:"pluginAdapterId,omitempty"`
+	RunMode                 RunMode               `json:"runMode"`
+	CommandPath             *string               `json:"commandPath,omitempty"`
+	BaseURL                 *string               `json:"baseUrl,omitempty"`
+	DefaultModel            *string               `json:"defaultModel,omitempty"`
+	SandboxPolicy           *string               `json:"sandboxPolicy,omitempty"`
+	ApprovalPolicy          *string               `json:"approvalPolicy,omitempty"`
+	SettingsMode            SettingsMode          `json:"settingsMode,omitempty"`
+	SettingsSources         []string              `json:"settingsSources,omitempty"`
+	SettingsFilePath        *string               `json:"settingsFilePath,omitempty"`
+	SettingsManagedBlock    *SettingsManagedBlock `json:"settingsManagedBlock,omitempty"`
+	SettingsAllowSettaEdits bool                  `json:"settingsAllowSettaEdits"`
+	EnvVarWhitelist         []string              `json:"envVarWhitelist,omitempty"`
+	WorkingDirStrategy      WorkingDirStrategy    `json:"workingDirStrategy,omitempty"`
+	WorkingDir              *string               `json:"workingDir,omitempty"`
+	CodexSkipGitRepoCheck   *bool                 `json:"codexSkipGitRepoCheck,omitempty"`
 }
 
 type Store struct {
@@ -258,6 +271,7 @@ func cloneConfig(config Config) Config {
 	cloned.SandboxPolicy = cloneStringPtr(config.SandboxPolicy)
 	cloned.ApprovalPolicy = cloneStringPtr(config.ApprovalPolicy)
 	cloned.SettingsFilePath = cloneStringPtr(config.SettingsFilePath)
+	cloned.SettingsManagedBlock = cloneSettingsManagedBlock(config.SettingsManagedBlock)
 	cloned.WorkingDir = cloneStringPtr(config.WorkingDir)
 	cloned.CodexSkipGitRepoCheck = cloneBoolPtr(config.CodexSkipGitRepoCheck)
 	if config.SettingsSources != nil {
@@ -283,6 +297,55 @@ func cloneBoolPtr(value *bool) *bool {
 	}
 	cloned := *value
 	return &cloned
+}
+
+func cloneSettingsManagedBlock(value *SettingsManagedBlock) *SettingsManagedBlock {
+	if value == nil {
+		return nil
+	}
+	cloned := &SettingsManagedBlock{}
+	if value.Claude != nil {
+		cloned.Claude = cloneJSONMap(value.Claude)
+	}
+	if value.Codex != nil {
+		cloned.Codex = cloneJSONMap(value.Codex)
+	}
+	if value.OpenCode != nil {
+		cloned.OpenCode = &OpenCodeSettingsBlock{
+			MCP:        cloneJSONMap(value.OpenCode.MCP),
+			Model:      cloneStringPtr(value.OpenCode.Model),
+			Permission: cloneJSONValue(value.OpenCode.Permission),
+		}
+	}
+	return cloned
+}
+
+func cloneJSONMap(value map[string]any) map[string]any {
+	if value == nil {
+		return nil
+	}
+	cloned := make(map[string]any, len(value))
+	for key, entry := range value {
+		cloned[key] = cloneJSONValue(entry)
+	}
+	return cloned
+}
+
+func cloneJSONValue(value any) any {
+	switch typed := value.(type) {
+	case nil:
+		return nil
+	case map[string]any:
+		return cloneJSONMap(typed)
+	case []any:
+		cloned := make([]any, 0, len(typed))
+		for _, entry := range typed {
+			cloned = append(cloned, cloneJSONValue(entry))
+		}
+		return cloned
+	default:
+		return typed
+	}
 }
 
 func isEmptyJSONValue(value any) bool {

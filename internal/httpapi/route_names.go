@@ -75,6 +75,7 @@ var bareRouteNames = map[string]struct{}{
 	bareRouteName(RouteGetExternalAgentChat):                    {},
 	bareRouteName(RouteStopExternalAgentRun):                    {},
 	bareRouteName(RouteRespondExternalAgentApproval):            {},
+	bareRouteName(RouteRespondExternalAgentQuestion):            {},
 	bareRouteName(RouteDeleteTerminals):                         {},
 	bareRouteName(RouteInterruptTerminalProcesses):              {},
 	bareRouteName(RouteRunCode):                                 {},

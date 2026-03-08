@@ -24,11 +24,17 @@ import (
 type aiRouteStubController struct {
 	cancelCalls   int
 	approvalCalls []aiRouteApprovalCall
+	toolCalls     []aiRouteToolCall
 }
 
 type aiRouteApprovalCall struct {
 	ApprovalID string
 	Approved   bool
+}
+
+type aiRouteToolCall struct {
+	ToolCallID string
+	Payload    map[string]any
 }
 
 type aiRouteStubExecutor struct {
@@ -78,6 +84,14 @@ func (s *aiRouteStubController) SendApprovalResponse(approvalID string, approved
 	s.approvalCalls = append(s.approvalCalls, aiRouteApprovalCall{
 		ApprovalID: approvalID,
 		Approved:   approved,
+	})
+	return nil
+}
+
+func (s *aiRouteStubController) SendToolResponse(toolCallID string, payload map[string]any) error {
+	s.toolCalls = append(s.toolCalls, aiRouteToolCall{
+		ToolCallID: toolCallID,
+		Payload:    cloneRouteAnyMap(payload),
 	})
 	return nil
 }
@@ -539,6 +553,73 @@ func TestRegisterAIRoutesReturnsNotFoundForMissingApproval(t *testing.T) {
 	}
 	if payload.Error.Code != "approval_not_found" {
 		t.Fatalf("expected approval_not_found, got %#v", payload)
+	}
+}
+
+func TestRegisterAIRoutesRespondsToExternalAgentQuestion(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	run := fixture.seedRun("run-question", agentruns.RunStatusRunning)
+	controller := &aiRouteStubController{}
+	if err := fixture.runtime.ActivateRun(run.ID, controller); err != nil {
+		t.Fatalf("activate run: %v", err)
+	}
+	if err := fixture.runtime.RegisterQuestion(externalagents.QuestionState{
+		ToolCallID:      "question-1",
+		RunID:           run.ID,
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+	}); err != nil {
+		t.Fatalf("register question: %v", err)
+	}
+
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteRespondExternalAgentQuestion,
+		strings.NewReader(`{"toolCallId":"question-1","answers":{"Language":"Go"}}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if len(controller.toolCalls) != 1 {
+		t.Fatalf("expected one tool response call, got %#v", controller.toolCalls)
+	}
+	if controller.toolCalls[0].ToolCallID != "question-1" {
+		t.Fatalf("unexpected tool response call %#v", controller.toolCalls[0])
+	}
+}
+
+func TestRegisterAIRoutesReturnsNotFoundForMissingQuestion(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteRespondExternalAgentQuestion,
+		strings.NewReader(`{"toolCallId":"missing-question","answers":{"Language":"Go"}}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode question error payload: %v", err)
+	}
+	if payload.Error.Code != "question_not_found" {
+		t.Fatalf("expected question_not_found, got %#v", payload)
 	}
 }
 

@@ -13,11 +13,18 @@ type stubRunController struct {
 	cancelErr     error
 	approvalCalls []stubApprovalCall
 	approvalErr   error
+	toolCalls     []stubToolCall
+	toolErr       error
 }
 
 type stubApprovalCall struct {
 	ApprovalID string
 	Approved   bool
+}
+
+type stubToolCall struct {
+	ToolCallID string
+	Payload    map[string]any
 }
 
 func (s *stubRunController) Cancel() error {
@@ -31,6 +38,14 @@ func (s *stubRunController) SendApprovalResponse(approvalID string, approved boo
 		Approved:   approved,
 	})
 	return s.approvalErr
+}
+
+func (s *stubRunController) SendToolResponse(toolCallID string, payload map[string]any) error {
+	s.toolCalls = append(s.toolCalls, stubToolCall{
+		ToolCallID: toolCallID,
+		Payload:    cloneAnyMap(payload),
+	})
+	return s.toolErr
 }
 
 func TestRuntimeActivatesRunAndStoresLiveChatState(t *testing.T) {
@@ -225,6 +240,103 @@ func TestRuntimeRejectsApprovalRegistrationForInactiveRun(t *testing.T) {
 	})
 	if !errors.Is(err, ErrRunNotActive) {
 		t.Fatalf("expected ErrRunNotActive, got %v", err)
+	}
+}
+
+func TestRuntimeRespondToQuestionDispatchesAndPersistsEvent(t *testing.T) {
+	t.Parallel()
+
+	store, runtime := buildRuntimeFixture(t)
+	run := newPersistedRuntimeRun(t, store, "run-question", agentruns.RunStatusRunning)
+	controller := &stubRunController{}
+	if err := runtime.ActivateRun(run.ID, controller); err != nil {
+		t.Fatalf("activate run: %v", err)
+	}
+	if err := runtime.SetLiveChatState(run.ID, ChatState{
+		Messages: []map[string]any{
+			{
+				"id":      "assistant-1",
+				"role":    "assistant",
+				"content": []any{},
+				"tool_calls": []any{
+					map[string]any{
+						"id": "question-1",
+						"function": map[string]any{
+							"name": askUserQuestionToolName,
+							"arguments": map[string]any{
+								"questions": []any{
+									map[string]any{"question": "Language", "options": []any{"Go", "Python"}},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		WaitingForResponse: true,
+		ToolCallArguments: map[string]string{
+			"question-1": "{\"questions\":[{\"question\":\"Language\",\"options\":[\"Go\",\"Python\"]}]}",
+		},
+	}); err != nil {
+		t.Fatalf("set live question state: %v", err)
+	}
+	if err := runtime.RegisterQuestion(QuestionState{
+		ToolCallID:      "question-1",
+		RunID:           run.ID,
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+	}); err != nil {
+		t.Fatalf("register question: %v", err)
+	}
+
+	answers := map[string]string{"Language": "Go"}
+	if err := runtime.RespondToQuestion("question-1", answers); err != nil {
+		t.Fatalf("respond to question: %v", err)
+	}
+	if len(controller.toolCalls) != 1 {
+		t.Fatalf("expected one tool response dispatch, got %#v", controller.toolCalls)
+	}
+	if controller.toolCalls[0].ToolCallID != "question-1" {
+		t.Fatalf("unexpected tool response dispatch %#v", controller.toolCalls[0])
+	}
+	if got := controller.toolCalls[0].Payload["answers"]; got == nil {
+		t.Fatalf("expected answers payload, got %#v", controller.toolCalls[0].Payload)
+	}
+	persisted, err := store.Load(run.ID)
+	if err != nil {
+		t.Fatalf("load run after question response: %v", err)
+	}
+	lastEvent := persisted.Events[len(persisted.Events)-1]
+	if lastEvent.Type != "question_response" {
+		t.Fatalf("expected question_response event, got %#v", lastEvent)
+	}
+	if len(persisted.Events) < 2 || persisted.Events[len(persisted.Events)-2].Type != "tool_result" {
+		t.Fatalf("expected tool_result before question_response, got %#v", persisted.Events)
+	}
+	rawMessages, ok := persisted.Outputs["messages"].([]any)
+	if !ok || len(rawMessages) == 0 {
+		t.Fatalf("expected persisted output messages, got %#v", persisted.Outputs)
+	}
+	lastMessage, ok := rawMessages[len(rawMessages)-1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected question tool result message, got %#v", rawMessages[len(rawMessages)-1])
+	}
+	if lastMessage["role"] != "tool" {
+		t.Fatalf("expected tool role, got %#v", lastMessage)
+	}
+	if lastMessage["tool_name"] != askUserQuestionToolName {
+		t.Fatalf("expected question tool name, got %#v", lastMessage)
+	}
+	result, ok := lastMessage["result"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected result payload, got %#v", lastMessage["result"])
+	}
+	answerPayload, ok := result["answers"].(map[string]any)
+	if !ok || answerPayload["Language"] != "Go" {
+		t.Fatalf("unexpected answers payload %#v", result)
+	}
+	if err := runtime.RespondToQuestion("question-1", answers); !errors.Is(err, ErrQuestionNotFound) {
+		t.Fatalf("expected question to be removed after response, got %v", err)
 	}
 }
 
