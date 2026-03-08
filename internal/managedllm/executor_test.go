@@ -17,6 +17,7 @@ import (
 	"setta/internal/managedchat"
 	"setta/internal/mcpx"
 	"setta/internal/realtime"
+	"setta/internal/tools"
 )
 
 type captureBroadcaster struct {
@@ -39,6 +40,16 @@ func (c *captureBroadcaster) Count() int {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return len(c.messages)
+}
+
+func (c *captureBroadcaster) Messages() []realtime.LLMStreamingResponseMessage {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	cloned := make([]realtime.LLMStreamingResponseMessage, 0, len(c.messages))
+	for _, message := range c.messages {
+		cloned = append(cloned, message)
+	}
+	return cloned
 }
 
 type stubToolClient struct {
@@ -183,6 +194,128 @@ func TestExecutorExecuteStreamsManagedChatAndReturnsOutputs(t *testing.T) {
 	first, ok := providerMessages[0].(map[string]any)
 	if !ok || first["role"] != "system" || first["content"] != "System prompt" {
 		t.Fatalf("unexpected system message %#v", providerMessages[0])
+	}
+}
+
+func TestExecutorExecuteStreamsManagedToolArgumentPreview(t *testing.T) {
+	t.Parallel()
+
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected flusher")
+		}
+		switch requestCount {
+		case 0:
+			fmt.Fprint(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"tool-call-1\",\"type\":\"function\",\"function\":{\"name\":\"setta__stream_app_definition\",\"arguments\":\"{\\\"projectConfigId\\\":\\\"project-alpha\\\",\\\"patches\\\":\\\"{\\\\\\\"op\\\\\\\":\\\\\\\"set\\\\\\\",\\\\\\\"path\\\\\\\":\\\\\\\"/root\\\\\\\",\\\\\\\"value\\\\\\\":\\\\\\\"stream-root\\\\\\\"}\\\\n\\\"}\"}}]},\"finish_reason\":\"tool_calls\"}]}\n\n")
+			flusher.Flush()
+			fmt.Fprint(w, "data: [DONE]\n\n")
+		case 1:
+			fmt.Fprint(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Preview applied\"},\"finish_reason\":\"stop\"}]}\n\n")
+			flusher.Flush()
+			fmt.Fprint(w, "data: [DONE]\n\n")
+		default:
+			t.Fatalf("unexpected provider request count %d", requestCount)
+		}
+		requestCount++
+	}))
+	defer server.Close()
+
+	broadcaster := &captureBroadcaster{}
+	live := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{Broadcaster: broadcaster})
+	run := newManagedChatTestRun()
+	live.ActivateRun(run)
+
+	toolClient := &stubToolClient{
+		discoverableTools: map[string]mcpx.ToolDescriptor{
+			"setta__stream_app_definition": {
+				ServerID:       mcpx.DefaultServerID,
+				NamespacedName: "setta__stream_app_definition",
+				RemoteName:     "stream_app_definition",
+				Description:    "Stream app definition patches.",
+				InputSchema: map[string]any{
+					"type": "object",
+				},
+				Metadata: &tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeStructural,
+					ToolArgumentPreview: &tools.ToolArgumentPreviewMetadata{
+						TargetIDPathsByType: map[tools.IDType][]string{},
+						PreviewValuePath:    "patches",
+						PreviewKind:         tools.PreviewKindAppSpecPatch,
+					},
+				},
+			},
+		},
+		call: func(context.Context, string, map[string]any, map[string]any) (mcpx.ToolCallResult, error) {
+			return mcpx.ToolCallResult{
+				StructuredContent: map[string]any{"status": "ok"},
+				Text:              "{\"status\":\"ok\"}",
+			}, nil
+		},
+	}
+
+	executor := NewExecutor(ExecutorOptions{
+		Live:       live,
+		Tools:      toolClient,
+		HTTPClient: server.Client(),
+	})
+	_, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
+		Run: run,
+		LLMConfig: llmconfig.Config{
+			ID:        "primary",
+			Model:     "gpt-4o-mini",
+			Provider:  "openai",
+			BaseURL:   server.URL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+		MCPServerIDs: []string{mcpx.DefaultServerID},
+		APIKeys: map[string]string{
+			"OPENAI_API_KEY": "secret",
+		},
+		SystemPrompt:    "System prompt",
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+			"messages": []any{
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Stream the app definition"},
+					},
+					"attachments": []any{},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("execute managed llm preview stream: %v", err)
+	}
+
+	var previewEvent *realtime.ToolArgumentPreviewDeltaEvent
+	for _, message := range broadcaster.Messages() {
+		chunk, ok := message.Content.Chunk.(realtime.ToolArgumentPreviewDeltaEvent)
+		if !ok {
+			continue
+		}
+		previewEvent = &chunk
+		break
+	}
+	if previewEvent == nil {
+		t.Fatalf("expected tool preview event in %#v", broadcaster.Messages())
+	}
+	if previewEvent.ToolName != "setta__stream_app_definition" {
+		t.Fatalf("unexpected preview event %#v", previewEvent)
+	}
+	if previewEvent.PreviewKind != string(tools.PreviewKindAppSpecPatch) {
+		t.Fatalf("unexpected preview kind %#v", previewEvent)
+	}
+	if previewEvent.PreviewValueDelta != "{\"op\":\"set\",\"path\":\"/root\",\"value\":\"stream-root\"}\n" {
+		t.Fatalf("unexpected preview delta %#v", previewEvent)
 	}
 }
 

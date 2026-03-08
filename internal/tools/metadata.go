@@ -37,11 +37,27 @@ const (
 	ResultFilterLSPDiagnostics      ResultFilter = "lsp_diagnostics"
 )
 
+type PreviewKind string
+
+const (
+	PreviewKindCode         PreviewKind = "code"
+	PreviewKindParamValue   PreviewKind = "paramValue"
+	PreviewKindCallableName PreviewKind = "callableName"
+	PreviewKindAppSpecPatch PreviewKind = "appSpecPatch"
+)
+
+type ToolArgumentPreviewMetadata struct {
+	TargetIDPathsByType map[IDType][]string
+	PreviewValuePath    string
+	PreviewKind         PreviewKind
+}
+
 type Metadata struct {
 	Kind                          Kind
 	AccessType                    AccessType
 	IDPathsByType                 map[IDType][]string
 	ResultIDPathsByType           map[IDType][]string
+	ToolArgumentPreview           *ToolArgumentPreviewMetadata
 	DefaultTargetSingletonSection string
 	ResultFilter                  ResultFilter
 	SearchTags                    []string
@@ -54,6 +70,8 @@ var (
 	ErrToolAccessTypeInvalid   = fmt.Errorf("tools: tool access type is invalid")
 	ErrToolIDTypeInvalid       = fmt.Errorf("tools: tool id type is invalid")
 	ErrToolResultFilterInvalid = fmt.Errorf("tools: tool result filter is invalid")
+	ErrToolPreviewKindInvalid  = fmt.Errorf("tools: tool preview kind is invalid")
+	ErrToolPreviewPathRequired = fmt.Errorf("tools: tool preview value path is required")
 )
 
 var camelSplitPattern = regexp.MustCompile(`([a-z0-9])([A-Z])`)
@@ -167,6 +185,14 @@ func (m Metadata) Normalize(toolName string) (Metadata, error) {
 		}
 		resultIDPathsByType[idType] = normalizePathList(paths)
 	}
+	var toolArgumentPreview *ToolArgumentPreviewMetadata
+	if m.ToolArgumentPreview != nil {
+		normalizedPreview, err := normalizeToolArgumentPreviewMetadata(*m.ToolArgumentPreview)
+		if err != nil {
+			return Metadata{}, err
+		}
+		toolArgumentPreview = &normalizedPreview
+	}
 
 	searchTags, searchCategory := buildSearchMetadata(
 		toolName,
@@ -179,6 +205,7 @@ func (m Metadata) Normalize(toolName string) (Metadata, error) {
 		AccessType:                    normalizedAccessType,
 		IDPathsByType:                 idPathsByType,
 		ResultIDPathsByType:           resultIDPathsByType,
+		ToolArgumentPreview:           toolArgumentPreview,
 		DefaultTargetSingletonSection: strings.TrimSpace(m.DefaultTargetSingletonSection),
 		ResultFilter:                  normalizedResultFilter,
 		SearchTags:                    searchTags,
@@ -253,6 +280,45 @@ func normalizeKind(kind Kind) (Kind, error) {
 		return "", ErrToolKindRequired
 	default:
 		return "", fmt.Errorf("%w: %q", ErrToolKindInvalid, kind)
+	}
+}
+
+func normalizeToolArgumentPreviewMetadata(metadata ToolArgumentPreviewMetadata) (ToolArgumentPreviewMetadata, error) {
+	normalizedKind, err := normalizePreviewKind(metadata.PreviewKind)
+	if err != nil {
+		return ToolArgumentPreviewMetadata{}, err
+	}
+	previewValuePath := strings.TrimSpace(metadata.PreviewValuePath)
+	if previewValuePath == "" {
+		return ToolArgumentPreviewMetadata{}, ErrToolPreviewPathRequired
+	}
+	targetIDPathsByType := make(map[IDType][]string, len(metadata.TargetIDPathsByType))
+	for rawIDType, paths := range metadata.TargetIDPathsByType {
+		idType, err := normalizeIDType(rawIDType)
+		if err != nil {
+			return ToolArgumentPreviewMetadata{}, err
+		}
+		targetIDPathsByType[idType] = normalizePathList(paths)
+	}
+	return ToolArgumentPreviewMetadata{
+		TargetIDPathsByType: targetIDPathsByType,
+		PreviewValuePath:    previewValuePath,
+		PreviewKind:         normalizedKind,
+	}, nil
+}
+
+func normalizePreviewKind(kind PreviewKind) (PreviewKind, error) {
+	switch PreviewKind(strings.TrimSpace(string(kind))) {
+	case PreviewKindCode:
+		return PreviewKindCode, nil
+	case PreviewKindParamValue:
+		return PreviewKindParamValue, nil
+	case PreviewKindCallableName:
+		return PreviewKindCallableName, nil
+	case PreviewKindAppSpecPatch:
+		return PreviewKindAppSpecPatch, nil
+	default:
+		return "", fmt.Errorf("%w: %q", ErrToolPreviewKindInvalid, kind)
 	}
 }
 

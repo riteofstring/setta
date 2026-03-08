@@ -287,6 +287,37 @@ func TestClientMissingEnvFailureDoesNotRetry(t *testing.T) {
 	}
 }
 
+func TestParseToolMetadataIncludesToolArgumentPreview(t *testing.T) {
+	t.Parallel()
+
+	metadata, err := parseToolMetadata("stream_app_definition", sdkmcp.Meta{
+		toolMetaNamespace: map[string]any{
+			"toolKind":   string(tools.KindDiscoverable),
+			"accessType": string(tools.AccessTypeStructural),
+			"toolArgumentPreview": map[string]any{
+				"targetIdPathsByType": map[string]any{},
+				"previewValuePath":    "patches",
+				"previewKind":         string(tools.PreviewKindAppSpecPatch),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("parse tool metadata: %v", err)
+	}
+	if metadata == nil || metadata.ToolArgumentPreview == nil {
+		t.Fatalf("expected tool preview metadata, got %#v", metadata)
+	}
+	if metadata.ToolArgumentPreview.PreviewValuePath != "patches" {
+		t.Fatalf("unexpected preview value path %#v", metadata.ToolArgumentPreview)
+	}
+	if metadata.ToolArgumentPreview.PreviewKind != tools.PreviewKindAppSpecPatch {
+		t.Fatalf("unexpected preview kind %#v", metadata.ToolArgumentPreview)
+	}
+	if len(metadata.ToolArgumentPreview.TargetIDPathsByType) != 0 {
+		t.Fatalf("expected no preview target ids, got %#v", metadata.ToolArgumentPreview.TargetIDPathsByType)
+	}
+}
+
 func mustMetadata(t *testing.T, toolName string, metadata tools.Metadata) *tools.Metadata {
 	t.Helper()
 	normalized, err := metadata.Normalize(toolName)

@@ -887,6 +887,7 @@ func parseToolMetadata(toolName string, meta sdkmcp.Meta) (*tools.Metadata, erro
 		SearchCategory:                readOptionalString(payload, "searchCategory"),
 		IDPathsByType:                 parseIDPathsByType(payload["idPathsByType"]),
 		ResultIDPathsByType:           parseIDPathsByType(payload["resultIdPathsByType"]),
+		ToolArgumentPreview:           parseToolArgumentPreviewMetadata(payload["toolArgumentPreview"]),
 	}
 	normalized, err := metadata.Normalize(toolName)
 	if err != nil {
@@ -1040,6 +1041,18 @@ func parseIDPathsByType(value any) map[tools.IDType][]string {
 	return paths
 }
 
+func parseToolArgumentPreviewMetadata(value any) *tools.ToolArgumentPreviewMetadata {
+	payload, ok := value.(map[string]any)
+	if !ok {
+		return nil
+	}
+	return &tools.ToolArgumentPreviewMetadata{
+		TargetIDPathsByType: parseIDPathsByType(payload["targetIdPathsByType"]),
+		PreviewValuePath:    readOptionalString(payload, "previewValuePath"),
+		PreviewKind:         tools.PreviewKind(readOptionalString(payload, "previewKind")),
+	}
+}
+
 func cloneDescriptor(descriptor ToolDescriptor) ToolDescriptor {
 	return ToolDescriptor{
 		ServerID:       descriptor.ServerID,
@@ -1062,10 +1075,28 @@ func cloneMetadataPtr(metadata *tools.Metadata) *tools.Metadata {
 	for idType, paths := range metadata.IDPathsByType {
 		clonedPaths[idType] = append([]string(nil), paths...)
 	}
+	clonedResultPaths := make(map[tools.IDType][]string, len(metadata.ResultIDPathsByType))
+	for idType, paths := range metadata.ResultIDPathsByType {
+		clonedResultPaths[idType] = append([]string(nil), paths...)
+	}
+	var clonedPreview *tools.ToolArgumentPreviewMetadata
+	if metadata.ToolArgumentPreview != nil {
+		clonedTargetPaths := make(map[tools.IDType][]string, len(metadata.ToolArgumentPreview.TargetIDPathsByType))
+		for idType, paths := range metadata.ToolArgumentPreview.TargetIDPathsByType {
+			clonedTargetPaths[idType] = append([]string(nil), paths...)
+		}
+		clonedPreview = &tools.ToolArgumentPreviewMetadata{
+			TargetIDPathsByType: clonedTargetPaths,
+			PreviewValuePath:    metadata.ToolArgumentPreview.PreviewValuePath,
+			PreviewKind:         metadata.ToolArgumentPreview.PreviewKind,
+		}
+	}
 	cloned := &tools.Metadata{
 		Kind:                          metadata.Kind,
 		AccessType:                    metadata.AccessType,
 		IDPathsByType:                 clonedPaths,
+		ResultIDPathsByType:           clonedResultPaths,
+		ToolArgumentPreview:           clonedPreview,
 		DefaultTargetSingletonSection: metadata.DefaultTargetSingletonSection,
 		ResultFilter:                  metadata.ResultFilter,
 		SearchTags:                    append([]string(nil), metadata.SearchTags...),

@@ -115,7 +115,7 @@ func parseToolCallArguments(raw string) (map[string]any, error) {
 	return arguments, nil
 }
 
-func buildToolDefinitions(request agentruns.ExecutionRequest, tools ToolClient) ([]map[string]any, map[string]struct{}, *toolAllowlist, error) {
+func buildToolDefinitions(request agentruns.ExecutionRequest, tools ToolClient) ([]map[string]any, map[string]mcpx.ToolDescriptor, *toolAllowlist, error) {
 	if len(request.MCPServerIDs) == 0 {
 		return nil, nil, nil, nil
 	}
@@ -128,7 +128,7 @@ func buildToolDefinitions(request agentruns.ExecutionRequest, tools ToolClient) 
 	}
 	serverIDs := resolveAllowedServerIDs(request.MCPServerIDs, allowlist)
 	if len(serverIDs) == 0 {
-		return nil, map[string]struct{}{}, allowlist, nil
+		return nil, map[string]mcpx.ToolDescriptor{}, allowlist, nil
 	}
 
 	serverSet := make(map[string]struct{}, len(serverIDs))
@@ -140,7 +140,7 @@ func buildToolDefinitions(request agentruns.ExecutionRequest, tools ToolClient) 
 		combined[name] = descriptor
 	}
 	if len(combined) == 0 {
-		return nil, map[string]struct{}{}, allowlist, nil
+		return nil, map[string]mcpx.ToolDescriptor{}, allowlist, nil
 	}
 
 	toolNames := make([]string, 0, len(combined))
@@ -156,7 +156,7 @@ func buildToolDefinitions(request agentruns.ExecutionRequest, tools ToolClient) 
 	sort.Strings(toolNames)
 
 	payload := make([]map[string]any, 0, len(toolNames))
-	available := make(map[string]struct{}, len(toolNames))
+	available := make(map[string]mcpx.ToolDescriptor, len(toolNames))
 	for _, name := range toolNames {
 		descriptor := combined[name]
 		toolPayload := map[string]any{
@@ -168,7 +168,7 @@ func buildToolDefinitions(request agentruns.ExecutionRequest, tools ToolClient) 
 			},
 		}
 		payload = append(payload, toolPayload)
-		available[name] = struct{}{}
+		available[name] = descriptor
 	}
 	return payload, available, allowlist, nil
 }

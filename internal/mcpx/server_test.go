@@ -925,6 +925,16 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if streamAppDefinitionMeta["accessType"] != string(tools.AccessTypeStructural) {
 		t.Fatalf("expected structural access type for stream_app_definition, got %#v", streamAppDefinitionMeta["accessType"])
 	}
+	streamAppDefinitionPreviewMeta := mustStructuredMap(t, streamAppDefinitionMeta["toolArgumentPreview"])
+	if streamAppDefinitionPreviewMeta["previewValuePath"] != "patches" {
+		t.Fatalf("expected stream_app_definition preview path patches, got %#v", streamAppDefinitionPreviewMeta["previewValuePath"])
+	}
+	if streamAppDefinitionPreviewMeta["previewKind"] != string(tools.PreviewKindAppSpecPatch) {
+		t.Fatalf("expected stream_app_definition preview kind appSpecPatch, got %#v", streamAppDefinitionPreviewMeta["previewKind"])
+	}
+	if targetPaths, ok := streamAppDefinitionPreviewMeta["targetIdPathsByType"]; ok && len(mustStructuredMap(t, targetPaths)) != 0 {
+		t.Fatalf("expected stream_app_definition preview to have no target id paths, got %#v", targetPaths)
+	}
 	updateAppDefinitionMeta := mustStructuredMap(t, updateAppDefinitionTool.Meta[toolMetaNamespace])
 	if updateAppDefinitionMeta["accessType"] != string(tools.AccessTypeStructural) {
 		t.Fatalf("expected structural access type for update_app_definition, got %#v", updateAppDefinitionMeta["accessType"])

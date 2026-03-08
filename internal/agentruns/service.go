@@ -51,6 +51,7 @@ type ExecutionRequest struct {
 	ProjectConfigID        string
 	ChatID                 string
 	SectionID              *string
+	TemporaryIDs           TemporaryIDs
 	Thinking               bool
 	Inputs                 map[string]any
 }
@@ -268,6 +269,7 @@ func cloneExecutionRequest(request ExecutionRequest) ExecutionRequest {
 		ProjectConfigID:        request.ProjectConfigID,
 		ChatID:                 request.ChatID,
 		SectionID:              cloneStringPtr(request.SectionID),
+		TemporaryIDs:           request.TemporaryIDs,
 		Thinking:               request.Thinking,
 		Inputs:                 cloneAnyMap(request.Inputs),
 	}
@@ -312,6 +314,7 @@ func (s *Service) buildExecutionRequest(runContext runContext) (ExecutionRequest
 		ProjectConfigID:        runContext.projectConfigID,
 		ChatID:                 runContext.chatID,
 		SectionID:              cloneStringPtr(runContext.sectionID),
+		TemporaryIDs:           s.temporaryIDs,
 		Thinking:               runContext.thinking,
 		Inputs:                 cloneAnyMap(runContext.inputs),
 	}, nil

@@ -4818,8 +4818,13 @@ func defaultToolDefinitions(
 				Name:        "stream_app_definition",
 				Description: "Persist an app spec by applying newline-delimited JSON Pointer patch operations to a base or stored app definition.",
 				Metadata: tools.Metadata{
-					Kind:           tools.KindDiscoverable,
-					AccessType:     tools.AccessTypeStructural,
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeStructural,
+					ToolArgumentPreview: &tools.ToolArgumentPreviewMetadata{
+						TargetIDPathsByType: map[tools.IDType][]string{},
+						PreviewValuePath:    "patches",
+						PreviewKind:         tools.PreviewKindAppSpecPatch,
+					},
 					SearchCategory: "app",
 					SearchTags:     []string{"app", "definition", "spec", "stream", "patch", "structural"},
 				},
@@ -7430,6 +7435,19 @@ func buildSDKToolMeta(metadata tools.Metadata) sdkmcp.Meta {
 		copied := append([]string(nil), paths...)
 		resultIDPathsByType[string(idType)] = copied
 	}
+	var toolArgumentPreview map[string]any
+	if metadata.ToolArgumentPreview != nil {
+		targetIDPathsByType := make(map[string]any, len(metadata.ToolArgumentPreview.TargetIDPathsByType))
+		for idType, paths := range metadata.ToolArgumentPreview.TargetIDPathsByType {
+			copied := append([]string(nil), paths...)
+			targetIDPathsByType[string(idType)] = copied
+		}
+		toolArgumentPreview = map[string]any{
+			"targetIdPathsByType": targetIDPathsByType,
+			"previewValuePath":    metadata.ToolArgumentPreview.PreviewValuePath,
+			"previewKind":         string(metadata.ToolArgumentPreview.PreviewKind),
+		}
+	}
 
 	payload := map[string]any{
 		"toolKind":       string(metadata.Kind),
@@ -7446,6 +7464,9 @@ func buildSDKToolMeta(metadata tools.Metadata) sdkmcp.Meta {
 	}
 	if len(resultIDPathsByType) != 0 {
 		payload["resultIdPathsByType"] = resultIDPathsByType
+	}
+	if toolArgumentPreview != nil {
+		payload["toolArgumentPreview"] = toolArgumentPreview
 	}
 
 	return sdkmcp.Meta{

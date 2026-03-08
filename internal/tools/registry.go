@@ -162,11 +162,24 @@ func cloneMetadata(metadata Metadata) Metadata {
 	for idType, paths := range metadata.ResultIDPathsByType {
 		clonedResultPaths[idType] = append([]string(nil), paths...)
 	}
+	var clonedPreview *ToolArgumentPreviewMetadata
+	if metadata.ToolArgumentPreview != nil {
+		clonedTargetPaths := make(map[IDType][]string, len(metadata.ToolArgumentPreview.TargetIDPathsByType))
+		for idType, paths := range metadata.ToolArgumentPreview.TargetIDPathsByType {
+			clonedTargetPaths[idType] = append([]string(nil), paths...)
+		}
+		clonedPreview = &ToolArgumentPreviewMetadata{
+			TargetIDPathsByType: clonedTargetPaths,
+			PreviewValuePath:    metadata.ToolArgumentPreview.PreviewValuePath,
+			PreviewKind:         metadata.ToolArgumentPreview.PreviewKind,
+		}
+	}
 	return Metadata{
 		Kind:                          metadata.Kind,
 		AccessType:                    metadata.AccessType,
 		IDPathsByType:                 clonedPaths,
 		ResultIDPathsByType:           clonedResultPaths,
+		ToolArgumentPreview:           clonedPreview,
 		DefaultTargetSingletonSection: metadata.DefaultTargetSingletonSection,
 		ResultFilter:                  metadata.ResultFilter,
 		SearchTags:                    append([]string(nil), metadata.SearchTags...),

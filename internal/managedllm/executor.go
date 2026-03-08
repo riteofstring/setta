@@ -50,19 +50,20 @@ type Executor struct {
 }
 
 type preparedExecution struct {
-	endpoint         string
-	apiKey           string
-	projectConfigID  *string
-	sectionID        *string
-	chatID           string
-	runID            string
-	emitStream       bool
-	requestOptions   map[string]any
-	transcript       []map[string]any
-	providerMessages []map[string]any
-	toolDefinitions  []map[string]any
-	availableTools   map[string]struct{}
-	toolAllowlist    *toolAllowlist
+	endpoint             string
+	apiKey               string
+	projectConfigID      *string
+	sectionID            *string
+	chatID               string
+	runID                string
+	emitStream           bool
+	requestOptions       map[string]any
+	transcript           []map[string]any
+	providerMessages     []map[string]any
+	toolDefinitions      []map[string]any
+	availableTools       map[string]mcpx.ToolDescriptor
+	toolAllowlist        *toolAllowlist
+	temporaryToCanonical map[string]string
 }
 
 type openAIStreamChunk struct {
@@ -140,6 +141,10 @@ func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (prepare
 	if err != nil {
 		return preparedExecution{}, err
 	}
+	temporaryToCanonical, err := resolveTemporaryToCanonical(request)
+	if err != nil {
+		return preparedExecution{}, err
+	}
 
 	requestOptions := map[string]any{
 		"model":  request.LLMConfig.Model,
@@ -158,19 +163,20 @@ func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (prepare
 	}
 
 	return preparedExecution{
-		endpoint:         endpoint,
-		apiKey:           apiKey,
-		projectConfigID:  optionalStringPointer(request.ProjectConfigID),
-		sectionID:        cloneStringPointer(request.SectionID),
-		chatID:           strings.TrimSpace(request.ChatID),
-		runID:            strings.TrimSpace(request.Run.ID),
-		emitStream:       shouldEmitManagedChatStream(request),
-		requestOptions:   requestOptions,
-		transcript:       transcript,
-		providerMessages: providerMessages,
-		toolDefinitions:  toolDefinitions,
-		availableTools:   availableTools,
-		toolAllowlist:    allowlist,
+		endpoint:             endpoint,
+		apiKey:               apiKey,
+		projectConfigID:      optionalStringPointer(request.ProjectConfigID),
+		sectionID:            cloneStringPointer(request.SectionID),
+		chatID:               strings.TrimSpace(request.ChatID),
+		runID:                strings.TrimSpace(request.Run.ID),
+		emitStream:           shouldEmitManagedChatStream(request),
+		requestOptions:       requestOptions,
+		transcript:           transcript,
+		providerMessages:     providerMessages,
+		toolDefinitions:      toolDefinitions,
+		availableTools:       availableTools,
+		toolAllowlist:        allowlist,
+		temporaryToCanonical: temporaryToCanonical,
 	}, nil
 }
 
@@ -309,6 +315,7 @@ func (e *Executor) consumeSSE(ctx context.Context, reader io.Reader, prepared pr
 	lines := []string{}
 	var usage map[string]any
 	accumulator := newToolCallAccumulator()
+	previewAccumulator := newToolPreviewAccumulator()
 
 	for {
 		select {
@@ -321,7 +328,7 @@ func (e *Executor) consumeSSE(ctx context.Context, reader io.Reader, prepared pr
 		if len(line) > 0 {
 			trimmedLine := strings.TrimRight(line, "\r\n")
 			if trimmedLine == "" {
-				done, nextUsage, processErr := e.processSSEEvent(ctx, lines, prepared, assistantMessage, accumulator)
+				done, nextUsage, processErr := e.processSSEEvent(ctx, lines, prepared, assistantMessage, accumulator, previewAccumulator)
 				if nextUsage != nil {
 					usage = nextUsage
 				}
@@ -350,7 +357,7 @@ func (e *Executor) consumeSSE(ctx context.Context, reader io.Reader, prepared pr
 				}
 				return usage, nil
 			}
-			done, nextUsage, processErr := e.processSSEEvent(ctx, lines, prepared, assistantMessage, accumulator)
+			done, nextUsage, processErr := e.processSSEEvent(ctx, lines, prepared, assistantMessage, accumulator, previewAccumulator)
 			if nextUsage != nil {
 				usage = nextUsage
 			}
@@ -372,7 +379,7 @@ func (e *Executor) consumeSSE(ctx context.Context, reader io.Reader, prepared pr
 	}
 }
 
-func (e *Executor) processSSEEvent(ctx context.Context, lines []string, prepared preparedExecution, assistantMessage map[string]any, accumulator *toolCallAccumulator) (bool, map[string]any, error) {
+func (e *Executor) processSSEEvent(ctx context.Context, lines []string, prepared preparedExecution, assistantMessage map[string]any, accumulator *toolCallAccumulator, previewAccumulator *toolPreviewAccumulator) (bool, map[string]any, error) {
 	if len(lines) == 0 {
 		return false, nil, nil
 	}
@@ -429,6 +436,26 @@ func (e *Executor) processSSEEvent(ctx context.Context, lines []string, prepared
 				ArgumentsDelta: argumentsDelta,
 				ToolName:       toolName,
 			}); err != nil {
+				return false, nil, err
+			}
+			descriptor, ok := prepared.availableTools[mcpx.NormalizeToolName(state.name)]
+			if !ok || descriptor.Metadata == nil || descriptor.Metadata.ToolArgumentPreview == nil {
+				continue
+			}
+			previewEvent, err := previewAccumulator.buildEvent(
+				stringValue(assistantMessage["id"]),
+				state,
+				descriptor.Metadata.ToolArgumentPreview,
+				argumentsDelta,
+				prepared.temporaryToCanonical,
+			)
+			if err != nil {
+				return false, nil, err
+			}
+			if previewEvent == nil {
+				continue
+			}
+			if err := e.applyChunk(ctx, prepared, *previewEvent); err != nil {
 				return false, nil, err
 			}
 		}
@@ -852,6 +879,25 @@ func shouldEmitManagedChatStream(request agentruns.ExecutionRequest) bool {
 		return false
 	}
 	return strings.TrimSpace(stringValue(request.Inputs["runType"])) == managedChatRunType
+}
+
+func resolveTemporaryToCanonical(request agentruns.ExecutionRequest) (map[string]string, error) {
+	if request.TemporaryIDs == nil {
+		return nil, nil
+	}
+	canonicalToTemporary, err := request.TemporaryIDs.Snapshot()
+	if err != nil {
+		return nil, fmt.Errorf("snapshot temporary ids: %w", err)
+	}
+	temporaryToCanonical := make(map[string]string, len(canonicalToTemporary))
+	for canonicalID, temporaryID := range canonicalToTemporary {
+		trimmedTemporaryID := strings.TrimSpace(temporaryID)
+		if trimmedTemporaryID == "" {
+			continue
+		}
+		temporaryToCanonical[trimmedTemporaryID] = canonicalID
+	}
+	return temporaryToCanonical, nil
 }
 
 func collectSSEData(lines []string) string {
