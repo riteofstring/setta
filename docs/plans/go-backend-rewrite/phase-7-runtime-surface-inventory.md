@@ -44,15 +44,17 @@ Current repo status as of 2026-03-08:
   - workspace launch-intent transport/runtime ownership in
     `internal/httpapi/workspace_launch_routes.go` and
     `internal/workspacelaunch/intents.go`
+  - local `/launch` transport/runtime ownership in
+    `internal/httpapi/workspace_launch_routes.go` and
+    `internal/workspacelaunch/local_launch.go`
   - trusted frontend-origin storage/proof validation in
     `internal/frontendorigins/service.go`
   - bootstrap handoff parity for workspace-history and launcher-origin
     storage in `internal/httpapi/bootstrap_page.go` and
     `internal/httpapi/httpapi.go`
 - Python still appears to own major non-MCP backend surface in:
-  - launcher and launch/session bootstrap flows
-  - local `/launch` plus SSH/remote launch behavior
-  - trust persistence and rollback behavior around launched workspaces
+  - SSH/remote launch behavior
+  - remote rollback behavior around launched workspaces
 - nothing is currently in progress in the worktree
 
 ## Inputs
@@ -117,17 +119,17 @@ Current repo status as of 2026-03-08:
 
 ## Recommended Next Step
 
-Create and execute the next focused Phase 7 slice for launch/bootstrap
-handoff ownership under
-`phase-7-launch-intent-local-launch-and-bootstrap-handoff.md`.
+Create the next focused Phase 7 plan doc for SSH/remote launch parity, then
+execute that follow-up slice after the completed local launch/bootstrap
+handoff work.
 
 That is now the highest-leverage next step because:
 
-- launcher management is now complete end to end in Go
-- the remaining Python-owned launcher gap is concentrated in launch intent,
-  launch handoff, and bootstrap/origin trust
-- those remaining routes form a coherent boundary instead of a mixed runtime
-  and OS-integration cluster
+- launcher management and local launch/bootstrap handoff are now complete in Go
+- the remaining Python-owned runtime gap is concentrated in the SSH/remote
+  launch branch and its remote rollback behavior
+- that remaining boundary is large enough to deserve its own explicit Phase 7
+  follow-up plan
 
 ## Progress Notes
 
@@ -200,6 +202,12 @@ That is now the highest-leverage next step because:
   `POST /createWorkspaceLaunchIntent`, and bootstrap-page parity for
   workspace-history plus launcher-origin handoff. The next recommended step is
   Stage 2: Go-owned local `/launch`.
+- 2026-03-08: completed Stage 2 from
+  `phase-7-launch-intent-local-launch-and-bootstrap-handoff.md` by adding the
+  Go-owned local `/launch` runtime and transport, launcher-origin handoff
+  proof append, launched workspace trust persistence, and rollback for newly
+  started local sessions. The next recommended step is a dedicated SSH/remote
+  launch follow-up plan doc.
 
 ## Verification
 

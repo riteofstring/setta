@@ -37,11 +37,15 @@ As of 2026-03-08:
   - local IDE/launcher session registration and cleanup
   - bootstrap HTML at `GET /__setta__/bootstrap`
   - launcher-mode fallback startup without an explicit project workspace
+- Go now owns the local launch/bootstrap handoff slice:
+  - `POST /createWorkspaceLaunchIntent`
+  - local `POST /launch`
+  - launcher-origin proof append and launched-workspace trust persistence
+  - rollback for newly started local sessions when trust persistence fails
 - Python still owns:
-  - workspace launch plus SSH/remote handoff behavior in `launch.py`
-  - the remaining launcher-origin trust/rollback behavior coupled to `/launch`
+  - SSH/remote launch plus remote rollback behavior in `launch.py`
 - the remaining Phase 7 launcher gap is now concentrated around
-  launch/bootstrap handoff
+  SSH/remote launch follow-up work
 
 ## Inputs
 
@@ -190,14 +194,14 @@ This remains the recommended option because:
 
 ## Recommended Next Step
 
-Create and execute the next focused slice for launch/bootstrap handoff
-ownership, tracked in
-`phase-7-launch-intent-local-launch-and-bootstrap-handoff.md`.
+Create the next focused Phase 7 plan doc for SSH/remote launch parity, then
+execute that follow-up slice after the completed local launch/bootstrap
+handoff work.
 
 Recommended landing order:
 
-1. launch/bootstrap handoff ownership
-2. remote launch / launch-intent ownership
+1. SSH/remote launch parity planning
+2. remote launch / rollback ownership
 3. any follow-up CLI or cleanup work after those owners land
 
 ## Progress Notes
@@ -246,3 +250,9 @@ Recommended landing order:
   frontend-origin storage/proof validation, and bootstrap-page parity for
   workspace-history and launcher-origin handoff. The next recommended step is
   Stage 2 from that doc: Go-owned local `/launch`.
+- 2026-03-08: completed Stage 2 from
+  `phase-7-launch-intent-local-launch-and-bootstrap-handoff.md`; Go now owns
+  the local `/launch` handoff path, launcher-origin proof append, launched
+  workspace trust persistence, and rollback for newly started local sessions.
+  The next recommended step is a dedicated SSH/remote launch follow-up plan
+  doc and slice.

@@ -16,21 +16,22 @@ As of 2026-03-08:
   - launcher-mode home/runtime browser routes
   - `POST /openLauncherWorkspace`
   - `POST /createWorkspaceLaunchIntent`
+  - local `POST /launch`
   - bootstrap HTML at `GET /__setta__/bootstrap`
   - bootstrap token consumption at `POST /__setta__/bootstrap/consume`
   - launch-intent storage and return-url validation/runtime ownership
   - launcher-origin trust storage plus proof validation for bootstrap consume
+  - local launch trust persistence plus newly-started-session rollback on
+    trust-store failure
   - bootstrap-page parity for:
     - workspace-history handoff hash storage
     - launcher-origin storage and proof handoff
     - open-workspace-switcher redirect hints
   - launcher management/status plus managed artifact ownership
 - Python still owns:
-  - `POST /launch`
-  - launcher-origin trust persistence and rollback behavior around launched
-    workspaces
   - SSH/remote launch and remote rollback behavior
-  - launcher-mode CORS/trusted-origin behavior around `/launch`
+  - any remaining remote-specific launcher-origin/CORS behavior coupled to the
+    SSH launch path
 
 ## Inputs
 
@@ -90,6 +91,8 @@ Do not include:
   verified origin proof plus trusted-origin store, no heuristic origin fallback
 - reuse the completed Go local session/runtime owners instead of rebuilding
   launch/session discovery inside handlers
+- preserve the current runtime's profile lookup home for profile-based local
+  launches when `settaHome` is not explicitly overridden
 - bootstrap page parity is part of this slice, because `/launch` is not
   actually consumable without the hash/storage behavior the frontend expects
 
@@ -116,16 +119,26 @@ Do not include:
   `internal/httpapi/workspace_launch_routes.go`, and bootstrap consume/page
   parity in `internal/httpapi/httpapi.go` and
   `internal/httpapi/bootstrap_page.go`.
+- 2026-03-08: completed Stage 2 from this doc by adding the Go-owned local
+  launch runtime in `internal/workspacelaunch/local_launch.go`, local launch
+  transport in `internal/httpapi/workspace_launch_routes.go`, app wiring in
+  `internal/app/app.go`, and focused trust/rollback coverage in
+  `internal/workspacelaunch/local_launch_test.go`,
+  `internal/httpapi/workspace_launch_routes_test.go`, and
+  `internal/app/workspace_launch_test.go`. This landing also extends the
+  reusable local IDE session launcher to carry `profileLookupHome` so
+  profile-based local launches keep resolving profiles from the current
+  runtime's lookup home.
 
 ## Recommended Next Step
 
-Implement Stage 2 from this doc: a Go-owned local `POST /launch` path that
-consumes stored launch intents, reuses the completed local IDE session owner,
-appends launcher-origin handoff proof when needed, and rolls back newly
-started local sessions if trust persistence fails.
+Create the next focused Phase 7 plan doc for SSH/remote launch parity, then
+move the remaining remote `/launch` branch and remote rollback behavior as a
+separate follow-up slice.
 
 ## Verification
 
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/launcher -count=1 -timeout 300s`
 - `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/frontendorigins ./internal/workspacelaunch -count=1 -timeout 300s`
 - `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -count=1 -timeout 300s`
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEModeCreatesWorkspaceLaunchIntentsOverHTTP' -count=1 -timeout 420s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMode(CreatesWorkspaceLaunchIntentsOverHTTP|RejectsWorkspaceLaunchWithoutIntentTokenOverHTTP)' -count=1 -timeout 420s`
