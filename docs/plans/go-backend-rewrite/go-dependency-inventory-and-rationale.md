@@ -11,7 +11,14 @@ recommendation docs. If this file disagrees with planning notes, `go.mod` wins.
 ## Dependency Preference
 
 - Prefer the Go stdlib or widely used, well-established libraries.
+- Dependency count is not a goal by itself.
+- Keep a direct dependency when it provides clear value for transport, OS
+  integration, mature parsing/encoding support, or another well-bounded
+  infrastructure concern.
 - Avoid obscure Go libraries when a simpler or more proven option exists.
+- Replace a dependency only when it is obscure, carries disproportionate
+  baggage for one tiny bounded helper, or no longer provides meaningful value
+  over a small Go-owned owner.
 - If an obscure library appears in this document, treat that as current-state
   documentation, not a recommendation.
 - the earlier `github.com/aquasecurity/go-pep440-version` plugin-compatibility
@@ -134,7 +141,12 @@ shape of the rewrite. They mostly come from four roots:
 | `golang.org/x/oauth2` | `github.com/modelcontextprotocol/go-sdk` | OAuth support included by the SDK. |
 ## What This Means In Practice
 
+- We are not trying to minimize `go.mod` for its own sake.
 - The direct dependency list is the part we should debate intentionally.
+- Widely used dependencies that solve real infrastructure problems cleanly are
+  desirable, not suspect.
+- The right question is whether a dependency is well established and earning
+  its keep, not whether we can remove it at all costs.
 - the previous `go-pep440-version` exception is gone, so dependency debates
   should start from the current direct list instead of stale notes about that
   removed module
@@ -142,6 +154,8 @@ shape of the rewrite. They mostly come from four roots:
   reason
 - the previous `godotenv` llmconfig-helper exception is also gone for the same
   reason
+- Those removals were bounded helper cleanups, not a rewrite-wide policy
+  against using libraries.
 - The indirect list is mostly explanatory. We should avoid importing those
   packages directly unless we intentionally promote them to first-class
   dependencies.
