@@ -444,12 +444,16 @@ Use the docs in this order:
   - focused implementation-plan doc for the remaining bounded Codex parity gap:
     raw non-`response_item` tool-item persistence over the completed Codex
     runtime helpers
-137. `spike-mcp.md`
+137. `phase-12-external-agent-prompt-and-app-generation-parity.md`
+  - focused implementation-plan doc for the bounded external-agent send-time
+    prompt gap: agent-profile system prompt plus app-generation-mode prompt
+    shaping over the completed Go runtime/executor boundary
+138. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-138. `spike-pty.md`
+139. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-139. `spike-lsp.md`
+140. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

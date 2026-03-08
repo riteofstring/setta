@@ -84,8 +84,8 @@ Current repo status as of 2026-03-09:
     complete
   - the Codex raw non-`response_item` tool-item follow-on in
     `phase-12-codex-raw-tool-item-parity.md` is now complete
-  - the remaining work is now final Phase 12 inventory/closeout, not another
-    known executor, launcher, or parser slice
+  - the final reassessment found one more bounded send-time prompt gap tracked
+    in `phase-12-external-agent-prompt-and-app-generation-parity.md`
 
 ## Scope
 

@@ -178,6 +178,6 @@ This slice should deliver:
 
 ## Next Recommended Step
 
-- reassess whether any concrete user-facing Codex gap remains; if not, treat
-  the external-agent Phase 12 surface as effectively complete and move to final
-  closeout/inventory work
+- land the bounded external-agent prompt/app-generation follow-on tracked in
+  `phase-12-external-agent-prompt-and-app-generation-parity.md`, then
+  reassess whether the external-agent Phase 12 surface is effectively complete

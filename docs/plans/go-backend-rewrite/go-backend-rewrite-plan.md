@@ -100,10 +100,18 @@ The bounded Codex follow-on tracked in
   omit aggregated output or diff fields
 - persisted `tool_result` run events for those raw Codex tool outputs
 
-The current next step is now a final reassessment of whether any concrete
-user-facing Codex or external-agent runtime gap remains. If that inventory
-finds no additional product-visible gap, Phase 12 is effectively complete for
-the external-agent surface.
+The final reassessment found one more concrete Phase 12 gap: external-agent
+send-time prompt shaping is still incomplete in Go. The current next step is
+the bounded follow-on tracked in
+`phase-12-external-agent-prompt-and-app-generation-parity.md`:
+
+- external agent-profile `systemPrompt` content must reach Go-owned external
+  runs
+- external app-generation-mode prompt sections and reference-image prompt
+  inputs must reach Go-owned external runs
+
+If that slice lands cleanly and no other concrete product-visible gap remains,
+Phase 12 is effectively complete for the external-agent surface.
 
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are
