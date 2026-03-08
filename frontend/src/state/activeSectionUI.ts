@@ -271,9 +271,9 @@ export function getReconciledActiveSectionUIStateFromBackend(
   }
 
   if (!areStringArraysEqual(state.activeIds, reconciledActiveIds)) {
-    nextSelectionGeneration += 1;
+    // Invalid-id pruning is backend reconciliation within the same local
+    // selection ownership, not a newer user selection.
     nextState.activeIds = [...reconciledActiveIds];
-    nextState.selectionGeneration = nextSelectionGeneration;
   }
 
   if (

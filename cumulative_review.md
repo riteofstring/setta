@@ -296,3 +296,49 @@ New/updated automated coverage:
 Manual/CDP verification:
 - In the running headed app via Chrome DevTools MCP on `http://127.0.0.1:3009`, created a temporary project, confirmed the minimap exposed nodes through the new `data-minimap-node-id` contract, changed a text-block style color through the real right-pane appearance control, and verified the section chrome and minimap swatch repainted together in the live UI.
 - In the same live app, forced a top-level node into an unmeasured `width: null` / `height: null` state, replayed the pane's marquee-selection event path across empty canvas space, and verified `useActiveSectionUI.activeIds` remained empty.
+
+## 2026-03-09 13:46:17 PDT
+
+Summary:
+- Closed the remaining active-section reconciler race from the top-level review set: pruning invalid active ids no longer advances local selection ownership, so late durable completions and failures return authority to backend hydration instead of stranding `useActiveSectionUI` in a permanent local-only state.
+- Promoted `data-section-active` from an incidental DOM detail into a tested browser contract by asserting it in the section E2E selection flows and in a new browser-level prune-recovery regression.
+
+Detailed findings addressed:
+- `getReconciledActiveSectionUIStateFromBackend(...)` incremented `selectionGeneration` when backend reconciliation pruned invalid active ids from a locally-owned selection. If the durable active-id write for that same local selection completed later, the reconciler no longer considered it the current generation and left `backendHydrationEnabled` false even after the pending op was gone.
+- The same stuck-local state could be reached after a late durable sync failure: pruning removed the invalid id from the UI, but the failed op cleanup only restored backend authority when its recorded generation still exactly matched the current selection generation.
+- `data-section-active` existed on section shells but did not yet have a stable automated contract in the browser suite, which made it easy to classify as dead or accidental despite being useful for selection-state verification.
+
+Fixes implemented:
+- Updated `frontend/src/state/activeSectionUI.ts` so invalid-id pruning only reconciles `activeIds` and does not advance `selectionGeneration`. That keeps pruning within the same local ownership epoch, allowing the eventual completion or failure of that durable sync to restore backend hydration correctly.
+- Added focused store-level coverage in `frontend/src/state/activeSectionUI.test.ts` for prune ownership and prune-plus-failed-sync recovery.
+- Added action-level integration coverage in `frontend/src/state/actions/activeSections.test.ts` for both prune-plus-late-completion and prune-plus-late-failure paths, with assertions on `backendHydrationEnabled`, pending op cleanup, and final backend-driven reselection.
+- Added `frontend/tests/e2e/sections/active-section-prune-recovery.spec.ts` to exercise the full browser-runtime recovery path, including the live minimap and section-shell active state after backend authority returns.
+- Updated the existing section selection browser tests to read `data-section-active` instead of inferring selection from styling-only outline classes.
+
+Behavioral impact before vs after:
+- UX before: a section deleted or pruned out of the backend snapshot could leave the UI in a locally-owned empty-selection state forever once the stale durable ack or failure arrived, so later backend snapshots stopped reselecting the real active section until reload. Selection-state browser checks also depended on implementation styling rather than the explicit section-shell state.
+- UX after: invalid-id pruning still happens immediately, but once the old durable write resolves or fails, backend authority returns and later backend snapshots rehydrate the correct active section, including shell state and minimap selection. Browser selection checks now target an explicit section-state attribute instead of a visual side effect.
+- DX before: local selection ownership and backend restoration were coupled to generation churn from pruning, which made the reconciler hard to reason about and easy to strand. The section-shell active attribute was present but undocumented by tests.
+- DX after: pruning is modeled as reconciliation within the same ownership epoch, so restoration rules are simpler and easier to audit. The section-shell active attribute now has live browser coverage and is a clearer supported test/perf hook.
+
+Automated verification completed:
+- `pnpm -C frontend exec vitest run src/state/activeSectionUI.test.ts src/state/actions/activeSections.test.ts`
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/active-section-prune-recovery.spec.ts frontend/tests/e2e/sections/pane-click-deselect-persists.spec.ts frontend/tests/e2e/sections/escape-clear-active-section.spec.ts`
+
+New/updated automated coverage:
+- `frontend/src/state/activeSectionUI.test.ts`
+  - covers invalid-id pruning preserving the current local ownership generation.
+  - covers backend hydration recovery after prune plus durable-sync failure.
+- `frontend/src/state/actions/activeSections.test.ts`
+  - covers invalid-id prune followed by late durable completion restoring backend authority.
+  - covers invalid-id prune followed by late durable failure restoring backend authority.
+- `frontend/tests/e2e/sections/active-section-prune-recovery.spec.ts`
+  - covers the browser-runtime path where a real section is selected, pruned out of the incoming project snapshot, later acknowledged as completed, then restored by a later backend snapshot.
+  - asserts both the section shell `data-section-active` contract and minimap `selected` styling after backend authority returns.
+- `frontend/tests/e2e/sections/pane-click-deselect-persists.spec.ts`
+  - now asserts section activity through `data-section-active`.
+- `frontend/tests/e2e/sections/escape-clear-active-section.spec.ts`
+  - now asserts section activity through `data-section-active`.
+
+Manual/CDP verification:
+- In the running headed app via Chrome DevTools MCP on `http://127.0.0.1:3009`, created a temporary project and section, simulated the prune-plus-late-completion recovery path directly against the live frontend stores, and verified that `backendHydrationEnabled` flipped back to `true`, the section shell eventually reported `data-section-active="true"`, and the corresponding minimap node regained `selected`.

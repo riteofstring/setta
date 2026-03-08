@@ -139,6 +139,6 @@ async function isSectionActive(
     if (!(section instanceof HTMLElement)) {
       return false;
     }
-    return section.classList.contains("outline-blue-600");
+    return section.getAttribute("data-section-active") === "true";
   }, sectionId);
 }

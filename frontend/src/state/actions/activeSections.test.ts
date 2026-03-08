@@ -438,6 +438,79 @@ describe("activeSections", () => {
     expect(useProjectState.getState().sections["section-b"]).toBeUndefined();
   });
 
+  it("restores backend hydration after pruning an invalid active id and later receiving the durable completion", () => {
+    useProjectState.setState(
+      buildProjectState("project-a", [], ["section-a"]).projectState,
+    );
+    const endpointSpy = vi
+      .spyOn(endpoints, "route_set_active_ids")
+      .mockImplementation(
+        () =>
+          new Promise(() => {
+            return undefined;
+          }),
+      );
+
+    setActiveSectionIds(["section-a"], { syncMode: "immediate" });
+
+    const staleOpId = endpointSpy.mock.calls[0]?.[0].frontendOpId;
+    if (typeof staleOpId !== "string") {
+      throw new Error("Expected a frontend op id for the durable selection.");
+    }
+
+    processProjectStateUpdateFromBackend(buildProjectState("project-a", []));
+
+    expect(useActiveSectionUI.getState().activeIds).toEqual([]);
+    expect(useActiveSectionUI.getState().backendHydrationEnabled).toBe(false);
+
+    processProjectStateUpdateFromBackend({
+      ...buildProjectState("project-a", []),
+      completedOpIds: [staleOpId],
+    });
+
+    expect(useActiveSectionUI.getState().backendHydrationEnabled).toBe(true);
+    expect(useActiveSectionUI.getState().pendingBackendSyncOpIds).toEqual([]);
+    expect(useActiveSectionUI.getState().activeIds).toEqual([]);
+
+    processProjectStateUpdateFromBackend(
+      buildProjectState("project-a", ["section-a"], ["section-a"]),
+    );
+
+    expect(useActiveSectionUI.getState().activeIds).toEqual(["section-a"]);
+  });
+
+  it("restores backend hydration after pruning an invalid active id and later failing the durable sync", async () => {
+    useProjectState.setState(
+      buildProjectState("project-a", [], ["section-a"]).projectState,
+    );
+    let rejectSetActiveIds: ((reason?: unknown) => void) | null = null;
+    vi.spyOn(endpoints, "route_set_active_ids").mockImplementation(
+      () =>
+        new Promise((_, reject) => {
+          rejectSetActiveIds = reject;
+        }),
+    );
+
+    setActiveSectionIds(["section-a"], { syncMode: "immediate" });
+    processProjectStateUpdateFromBackend(buildProjectState("project-a", []));
+
+    expect(useActiveSectionUI.getState().activeIds).toEqual([]);
+    expect(useActiveSectionUI.getState().backendHydrationEnabled).toBe(false);
+
+    rejectSetActiveIds?.(new Error("setActiveIds failed"));
+    await flushPromises();
+
+    expect(useActiveSectionUI.getState().backendHydrationEnabled).toBe(true);
+    expect(useActiveSectionUI.getState().pendingBackendSyncOpIds).toEqual([]);
+    expect(useActiveSectionUI.getState().activeIds).toEqual([]);
+
+    processProjectStateUpdateFromBackend(
+      buildProjectState("project-a", ["section-a"], ["section-a"]),
+    );
+
+    expect(useActiveSectionUI.getState().activeIds).toEqual(["section-a"]);
+  });
+
   it("lets the next backend snapshot restore backend selection after a non-200 durable sync failure", async () => {
     useProjectState.setState(
       buildProjectState("project-a", [], ["section-a"]).projectState,
