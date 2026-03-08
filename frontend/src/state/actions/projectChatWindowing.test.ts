@@ -4,6 +4,7 @@ import {
   useAIStore,
   useMisc,
   useProjectState,
+  useSettings,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
@@ -12,6 +13,7 @@ import {
   createProjectChatWindowInstance,
   createProjectChatWindowingState,
   createProjectConfig,
+  createSettingsState,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -198,6 +200,44 @@ describe("project chat windowing reducer helpers", () => {
       y: 180,
       width: 900,
       height: 560,
+    });
+  });
+
+  it("falls back to bottom-docked placement when restorePriorStateOnUnmaximize is disabled", () => {
+    const baseInstance = createProjectChatWindowInstance({
+      instanceId: "chat-window-a",
+      placement: ChatWindowPlacementEnum.maximized,
+      isMaximized: true,
+      lastPlacementBeforeMaximize: ChatWindowPlacementEnum.floating,
+      bounds: {
+        x: 240,
+        y: 180,
+        width: 900,
+        height: 560,
+      },
+    });
+    const initial = createProjectChatWindowingState({
+      instancesById: { [baseInstance.instanceId]: baseInstance },
+      order: [baseInstance.instanceId],
+      nextInstanceNumber: 2,
+    });
+
+    const restored = unmaximizeProjectChatWindowInState(
+      initial,
+      baseInstance.instanceId,
+      false,
+    );
+
+    expect(restored.instancesById[baseInstance.instanceId]).toMatchObject({
+      isMaximized: false,
+      placement: ChatWindowPlacementEnum.bottom_docked,
+      lastPlacementBeforeMaximize: null,
+      bounds: {
+        x: 240,
+        y: 180,
+        width: 900,
+        height: 560,
+      },
     });
   });
 
@@ -1064,6 +1104,48 @@ describe("project chat windowing reducer helpers", () => {
       ]?.chatId,
     ).toBe("project-chat");
     expect(useAIStore.getState().activeChatId).toBe("project-chat");
+  });
+
+  it("reads restorePriorStateOnUnmaximize from settings when unmaximizing a live window", async () => {
+    const baseInstance = createProjectChatWindowInstance({
+      instanceId: "chat-window-settings",
+      placement: ChatWindowPlacementEnum.maximized,
+      isMaximized: true,
+      lastPlacementBeforeMaximize: ChatWindowPlacementEnum.floating,
+      bounds: {
+        x: 240,
+        y: 180,
+        width: 900,
+        height: 560,
+      },
+    });
+    useSettings.setState(
+      createSettingsState({
+        chatWindowing: {
+          restorePriorStateOnUnmaximize: false,
+        },
+      }),
+    );
+    useProjectState.setState((state) => {
+      state.projectChatWindowing = createProjectChatWindowingState({
+        instancesById: { [baseInstance.instanceId]: baseInstance },
+        order: [baseInstance.instanceId],
+        nextInstanceNumber: 2,
+      });
+    });
+
+    unmaximizeProjectChatWindow(baseInstance.instanceId);
+    await flushPendingProjectChatWindowingWrites();
+
+    expect(
+      useProjectState.getState().projectChatWindowing.instancesById[
+        baseInstance.instanceId
+      ],
+    ).toMatchObject({
+      isMaximized: false,
+      placement: ChatWindowPlacementEnum.bottom_docked,
+      lastPlacementBeforeMaximize: null,
+    });
   });
 
   it("undocks a canvas-section window back to floating and focuses it", () => {

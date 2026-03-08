@@ -58,6 +58,7 @@ vi.mock("state/actions/notifications", () => ({
 import {
   focusProjectChatWindow,
   replaceProjectChatWindowingState,
+  setProjectChatWindowBounds,
 } from "./projectChatWindowing";
 import {
   applyWindowSpaceSortOrder,
@@ -1325,6 +1326,100 @@ describe("createWindowSpaceFromCurrentFloatingWindows", () => {
     expect(routeCreateWindowSpaceMock).toHaveBeenCalledTimes(1);
   });
 
+  it("saves the latest window bounds and focus when the user keeps interacting during the pre-save sync", async () => {
+    let resolveSync:
+      | ((value: {
+          data: ReturnType<typeof createProjectChatWindowingState>;
+          status: number;
+          hasResponse: boolean;
+        }) => void)
+      | null = null;
+    routeSetProjectChatWindowingStateMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveSync = resolve;
+      }),
+    );
+    routeCreateWindowSpaceMock.mockImplementation(async (request) =>
+      buildCreatedWindowSpaceResponse(request),
+    );
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+      }),
+      sections: {},
+      sectionVariants: {},
+      sectionImpls: {},
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["save-window"],
+        instancesById: {
+          "save-window": {
+            instanceId: "save-window",
+            placement: ChatWindowPlacementEnum.floating,
+            mode: ChatWindowModeEnum.project_ai_mode,
+            title: "Save Window",
+            zIndex: 1,
+            lastFocusedAt: 10,
+            bounds: {
+              x: 100,
+              y: 120,
+              width: 420,
+              height: 320,
+            },
+          },
+        },
+        nextInstanceNumber: 2,
+      }),
+    });
+
+    const savePromise = createWindowSpaceFromCurrentFloatingWindows();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    focusProjectChatWindow("save-window", 4242);
+    setProjectChatWindowBounds("save-window", {
+      x: 260,
+      y: 180,
+      width: 520,
+      height: 360,
+    });
+    await flushOptimisticMutation();
+
+    const firstSyncRequest =
+      routeSetProjectChatWindowingStateMock.mock.calls[0]?.[0];
+    if (!firstSyncRequest) {
+      throw new Error("Expected the pre-save sync request.");
+    }
+    resolveSync?.({
+      data: firstSyncRequest.state,
+      status: 200,
+      hasResponse: true,
+    });
+
+    await expect(savePromise).resolves.toBe("window-space-1");
+
+    const finalWindowing = useProjectState.getState().projectChatWindowing;
+    expect(finalWindowing.instancesById["save-window"]).toMatchObject({
+      lastFocusedAt: 4242,
+      bounds: {
+        x: 260,
+        y: 180,
+        width: 520,
+        height: 360,
+      },
+    });
+    const createRequest = routeCreateWindowSpaceMock.mock.calls[0]?.[0];
+    expect(createRequest?.state).toEqual(
+      snapshotFloatingWindowsForWindowSpace({
+        projectChatWindowing: finalWindowing,
+        projectConfig: useProjectState.getState().projectConfig,
+        sections: useProjectState.getState().sections,
+        sectionImpls: useProjectState.getState().sectionImpls,
+        sectionVariants: useProjectState.getState().sectionVariants,
+      }),
+    );
+  });
+
   it("persists the created window space into local project state after the backend accepts it", async () => {
     const sectionState = buildChatSectionState("section-1", "section-thread");
     useProjectState.setState({
@@ -1480,8 +1575,7 @@ describe("createWindowSpaceFromCurrentFloatingWindows", () => {
       status: 200,
       hasResponse: true,
     });
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushOptimisticMutation();
 
     const createRequest = routeCreateWindowSpaceMock.mock.calls[0]?.[0];
     expect(createRequest?.projectConfigId).toBe("project-id");
@@ -1866,11 +1960,13 @@ describe("restoreWindowSpaceInWorkspace", () => {
       }),
       projectChatWindowing: createProjectChatWindowingState(),
     });
-    routeSetProjectChatWindowingStateMock.mockResolvedValue({
-      data: null,
-      status: 200,
-      hasResponse: true,
-    });
+    routeSetProjectChatWindowingStateMock.mockImplementation(
+      async (request) => ({
+        data: request.state,
+        status: 200,
+        hasResponse: true,
+      }),
+    );
 
     await restoreWindowSpaceInWorkspace("space-1");
 
@@ -1931,11 +2027,13 @@ describe("restoreWindowSpaceInWorkspace", () => {
         },
       }),
     });
-    routeSetProjectChatWindowingStateMock.mockResolvedValue({
-      data: null,
-      status: 200,
-      hasResponse: true,
-    });
+    routeSetProjectChatWindowingStateMock.mockImplementation(
+      async (request) => ({
+        data: request.state,
+        status: 200,
+        hasResponse: true,
+      }),
+    );
 
     await restoreWindowSpaceInWorkspace("space-1");
 
@@ -2475,6 +2573,117 @@ describe("restoreWindowSpaceInWorkspace", () => {
     );
   });
 
+  it("keeps newer bounds and focus when the saved thread binding resolves after more user interaction", async () => {
+    let resolveThreadBinding:
+      | ((value: {
+          data: ReturnType<typeof createProjectChatWindowingState>;
+          status: number;
+          hasResponse: boolean;
+        }) => void)
+      | null = null;
+    routeSetProjectChatWindowChatIdMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveThreadBinding = resolve;
+        }),
+    );
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+        windowSpaces: {
+          "space-1": {
+            id: "space-1",
+            name: "Focused Layout",
+            sortIndex: 0,
+            windowsById: {
+              "saved-window": {
+                surfaceKind: "project_chat",
+                mode: ChatWindowModeEnum.project_ai_mode,
+                title: "Saved Chat",
+                chatId: "chat-restored",
+                zIndex: 4,
+                normalizedBounds: {
+                  x: 0.1,
+                  y: 0.15,
+                  width: 0.45,
+                  height: 0.5,
+                },
+              },
+            },
+            order: ["saved-window"],
+          },
+        },
+      }),
+      sections: {},
+      sectionVariants: {},
+      sectionImpls: {},
+      projectChatWindowing: createProjectChatWindowingState(),
+    });
+
+    const restorePromise = restoreWindowSpaceInWorkspace("space-1");
+    await flushOptimisticMutation();
+
+    expect(routeSetProjectChatWindowChatIdMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        instanceId: "saved-window",
+        chatId: "chat-restored",
+      }),
+    );
+
+    focusProjectChatWindow("saved-window", 4321);
+    setProjectChatWindowBounds("saved-window", {
+      x: 300,
+      y: 220,
+      width: 540,
+      height: 380,
+    });
+    await flushOptimisticMutation();
+
+    const pendingBindingRequest =
+      routeSetProjectChatWindowChatIdMock.mock.calls[0]?.[0];
+    if (!pendingBindingRequest) {
+      throw new Error("Expected the saved thread binding request.");
+    }
+    const reboundWindowing = useProjectState.getState().projectChatWindowing;
+    const reboundWindow = reboundWindowing.instancesById["saved-window"];
+    if (!reboundWindow) {
+      throw new Error("Expected the restored window before thread binding.");
+    }
+    resolveThreadBinding?.({
+      data: createProjectChatWindowingState({
+        ...reboundWindowing,
+        instancesById: {
+          ...reboundWindowing.instancesById,
+          "saved-window": {
+            ...reboundWindow,
+            chatId: pendingBindingRequest.chatId,
+          },
+        },
+      }),
+      status: 200,
+      hasResponse: true,
+    });
+
+    await restorePromise;
+    await flushOptimisticMutation();
+
+    expect(
+      useProjectState.getState().projectChatWindowing.instancesById[
+        "saved-window"
+      ],
+    ).toMatchObject({
+      chatId: "chat-restored",
+      lastFocusedAt: 4321,
+      bounds: {
+        x: 300,
+        y: 220,
+        width: 540,
+        height: 380,
+      },
+    });
+  });
+
   it("remaps restored window ids when a saved floating window collides with an existing non-floating workspace window", async () => {
     useProjectState.setState({
       projectConfig: createProjectConfig({
@@ -2518,11 +2727,13 @@ describe("restoreWindowSpaceInWorkspace", () => {
         nextInstanceNumber: 3,
       }),
     });
-    routeSetProjectChatWindowingStateMock.mockResolvedValue({
-      data: null,
-      status: 200,
-      hasResponse: true,
-    });
+    routeSetProjectChatWindowingStateMock.mockImplementation(
+      async (request) => ({
+        data: request.state,
+        status: 200,
+        hasResponse: true,
+      }),
+    );
 
     await restoreWindowSpaceInWorkspace("space-1");
 
@@ -2595,11 +2806,13 @@ describe("restoreWindowSpaceInWorkspace", () => {
         nextInstanceNumber: 3,
       }),
     });
-    routeSetProjectChatWindowingStateMock.mockResolvedValue({
-      data: null,
-      status: 200,
-      hasResponse: true,
-    });
+    routeSetProjectChatWindowingStateMock.mockImplementation(
+      async (request) => ({
+        data: request.state,
+        status: 200,
+        hasResponse: true,
+      }),
+    );
 
     await restoreWindowSpaceInWorkspace("space-1");
 
@@ -2623,7 +2836,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
     expect(nextState.nextInstanceNumber).toBe(3);
   });
 
-  it("keeps blank project-chat restores idempotent when the same floating instance already exists", async () => {
+  it("remaps a saved blank project chat when its raw instance id collides with a live blank window", async () => {
     useProjectState.setState({
       projectConfig: createProjectConfig({
         id: "project-id",
@@ -2676,26 +2889,31 @@ describe("restoreWindowSpaceInWorkspace", () => {
         nextInstanceNumber: 3,
       }),
     });
-    routeSetProjectChatWindowingStateMock.mockResolvedValue({
-      data: null,
-      status: 200,
-      hasResponse: true,
-    });
 
-    await restoreWindowSpaceInWorkspace("space-1");
     await restoreWindowSpaceInWorkspace("space-1");
 
     const nextState = useProjectState.getState().projectChatWindowing;
-    expect(nextState.order).toEqual(["project-chat-window-2"]);
-    expect(Object.keys(nextState.instancesById)).toEqual([
+    expect(nextState.order).toEqual([
       "project-chat-window-2",
+      "project-chat-window-3",
     ]);
     expect(nextState.instancesById["project-chat-window-2"]).toMatchObject({
+      title: "Live Blank Chat",
+      chatId: null,
+      placement: ChatWindowPlacementEnum.floating,
+      bounds: {
+        x: 500,
+        y: 400,
+        width: 240,
+        height: 180,
+      },
+    });
+    expect(nextState.instancesById["project-chat-window-3"]).toMatchObject({
       title: "Saved Blank Chat",
       chatId: null,
       placement: ChatWindowPlacementEnum.floating,
     });
-    expect(nextState.nextInstanceNumber).toBe(3);
+    expect(nextState.nextInstanceNumber).toBe(4);
   });
 
   it("remaps restored floating windows when the same instance id belongs to a different live owner", async () => {
@@ -2748,11 +2966,13 @@ describe("restoreWindowSpaceInWorkspace", () => {
         nextInstanceNumber: 3,
       }),
     });
-    routeSetProjectChatWindowingStateMock.mockResolvedValue({
-      data: null,
-      status: 200,
-      hasResponse: true,
-    });
+    routeSetProjectChatWindowingStateMock.mockImplementation(
+      async (request) => ({
+        data: request.state,
+        status: 200,
+        hasResponse: true,
+      }),
+    );
 
     await restoreWindowSpaceInWorkspace("space-1");
 
@@ -2838,11 +3058,13 @@ describe("restoreWindowSpaceInWorkspace", () => {
         nextInstanceNumber: 2,
       }),
     });
-    routeSetProjectChatWindowingStateMock.mockResolvedValue({
-      data: null,
-      status: 200,
-      hasResponse: true,
-    });
+    routeSetProjectChatWindowingStateMock.mockImplementation(
+      async (request) => ({
+        data: request.state,
+        status: 200,
+        hasResponse: true,
+      }),
+    );
 
     restoreWindowSpaceInWorkspace("space-1");
 
@@ -2913,11 +3135,13 @@ describe("restoreWindowSpaceInWorkspace", () => {
         nextInstanceNumber: 2,
       }),
     });
-    routeSetProjectChatWindowingStateMock.mockResolvedValue({
-      data: null,
-      status: 200,
-      hasResponse: true,
-    });
+    routeSetProjectChatWindowingStateMock.mockImplementation(
+      async (request) => ({
+        data: request.state,
+        status: 200,
+        hasResponse: true,
+      }),
+    );
 
     await restoreWindowSpaceInWorkspace("space-1");
 
@@ -2976,11 +3200,13 @@ describe("restoreWindowSpaceInWorkspace", () => {
         )]: true,
       },
     });
-    routeSetProjectChatWindowingStateMock.mockResolvedValue({
-      data: null,
-      status: 200,
-      hasResponse: true,
-    });
+    routeSetProjectChatWindowingStateMock.mockImplementation(
+      async (request) => ({
+        data: request.state,
+        status: 200,
+        hasResponse: true,
+      }),
+    );
 
     await restoreWindowSpaceInWorkspace("space-1");
 
@@ -3115,11 +3341,13 @@ describe("restoreWindowSpaceInWorkspace", () => {
         )]: true,
       },
     });
-    routeSetProjectChatWindowingStateMock.mockResolvedValue({
-      data: null,
-      status: 200,
-      hasResponse: true,
-    });
+    routeSetProjectChatWindowingStateMock.mockImplementation(
+      async (request) => ({
+        data: request.state,
+        status: 200,
+        hasResponse: true,
+      }),
+    );
 
     await restoreWindowSpaceInWorkspace("space-1");
 

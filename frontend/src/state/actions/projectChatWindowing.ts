@@ -13,6 +13,7 @@ import {
   NULL_PROJECT_CONFIG_ID,
   useAIStore,
   useProjectState,
+  useSettings,
   useShareSession,
   type ZustandProjectState,
 } from "state/definitions";
@@ -34,6 +35,7 @@ import {
   type ProjectChatWindowInstance,
   type ProjectChatWindowingState,
 } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 import {
   getAuthoritativeProjectChatWindowingState,
   recordAuthoritativeProjectChatWindowingState,
@@ -869,6 +871,7 @@ export function maximizeProjectChatWindowInState(
 export function unmaximizeProjectChatWindowInState(
   state: ProjectChatWindowingState,
   instanceId: string,
+  restorePriorStateOnUnmaximize: boolean = true,
 ): ProjectChatWindowingState {
   return withUpdatedWindow(state, instanceId, (current) => {
     if (!current.isMaximized) {
@@ -877,9 +880,10 @@ export function unmaximizeProjectChatWindowInState(
     return {
       ...current,
       isMaximized: false,
-      placement:
-        current.lastPlacementBeforeMaximize ??
-        ChatWindowPlacementEnum.bottom_docked,
+      placement: restorePriorStateOnUnmaximize
+        ? current.lastPlacementBeforeMaximize ??
+          ChatWindowPlacementEnum.bottom_docked
+        : ChatWindowPlacementEnum.bottom_docked,
       lastPlacementBeforeMaximize: null,
     };
   });
@@ -1303,6 +1307,7 @@ type ProjectChatWindowingSend = (
 
 type ProjectChatWindowingMutationResult = {
   nextProjectChatWindowing: ProjectChatWindowingState;
+  alwaysSend?: boolean;
   options?: ProjectChatWindowingStoreOptions;
   send?: ProjectChatWindowingSend;
 };
@@ -1312,6 +1317,7 @@ type ProjectChatWindowingMutation = (
 ) => ProjectChatWindowingMutationResult;
 
 type PendingProjectChatWindowingMutation = {
+  alwaysSend: boolean;
   mutation: ProjectChatWindowingMutation;
   opId: string;
   send: ProjectChatWindowingSend;
@@ -1458,6 +1464,58 @@ function buildProjectChatWindowingSnapshotForMutation(
   };
 }
 
+function getPendingProjectChatWindowingMutationsAfter(
+  projectConfigId: string,
+  opId: string,
+): Array<PendingProjectChatWindowingMutation> {
+  const pendingMutations =
+    getPendingProjectChatWindowingMutations(projectConfigId);
+  const acknowledgedMutationIndex = pendingMutations.findIndex(
+    (pendingMutation) => pendingMutation.opId === opId,
+  );
+  if (acknowledgedMutationIndex < 0) {
+    return pendingMutations;
+  }
+  return pendingMutations.slice(acknowledgedMutationIndex + 1);
+}
+
+function publishAuthoritativeProjectChatWindowingState(
+  projectConfigId: string,
+  acknowledgedOpId: string,
+  authoritativeWindowing: ProjectChatWindowingState,
+): void {
+  recordAuthoritativeProjectChatWindowingState(
+    projectConfigId,
+    authoritativeWindowing,
+  );
+  if (useProjectState.getState().projectConfig.id !== projectConfigId) {
+    return;
+  }
+
+  const pendingMutations = getPendingProjectChatWindowingMutationsAfter(
+    projectConfigId,
+    acknowledgedOpId,
+  );
+  applyProjectChatWindowingEphemeralState(
+    projectConfigId,
+    authoritativeWindowing,
+    {},
+  );
+  useProjectState.setState((state) => {
+    if (state.projectConfig.id !== projectConfigId) {
+      return;
+    }
+    state.projectChatWindowing = authoritativeWindowing;
+    for (const pendingMutation of pendingMutations) {
+      applyProjectChatWindowingMutationToState(
+        state,
+        projectConfigId,
+        pendingMutation.mutation,
+      );
+    }
+  });
+}
+
 function sendProjectChatWindowingSnapshot(
   projectConfigId: string,
   frontendOpId: string,
@@ -1521,7 +1579,10 @@ function enqueueSerializedProjectChatWindowingWrite(
       return buildSyntheticProjectChatWindowingWriteResponse(projectConfigId);
     }
     const { authoritativeWindowing, nextProjectChatWindowing } = snapshot;
-    if (nextProjectChatWindowing === authoritativeWindowing) {
+    if (
+      !targetMutation.alwaysSend &&
+      nextProjectChatWindowing === authoritativeWindowing
+    ) {
       return buildSyntheticProjectChatWindowingWriteResponse(projectConfigId);
     }
     const response = await targetMutation.send(
@@ -1530,8 +1591,9 @@ function enqueueSerializedProjectChatWindowingWrite(
       nextProjectChatWindowing,
     );
     if (res200(response)) {
-      recordAuthoritativeProjectChatWindowingState(
+      publishAuthoritativeProjectChatWindowingState(
         projectConfigId,
+        opId,
         response.data,
       );
     }
@@ -1616,6 +1678,7 @@ function dispatchProjectChatWindowingMutation(
   const previousActiveChatId = useAIStore.getState().activeChatId;
   const {
     nextProjectChatWindowing,
+    alwaysSend = false,
     options: initialOptions,
     send = sendProjectChatWindowingSnapshot,
   } = mutation(getProjectChatWindowingStateFromStore(currentProjectState));
@@ -1625,7 +1688,10 @@ function dispatchProjectChatWindowingMutation(
       : getProjectChatGitGraphEmbeddedPaneVisibleInstanceIdsForProject(
           projectConfigId,
         );
-  if (nextProjectChatWindowing === previousProjectChatWindowing) {
+  if (
+    !alwaysSend &&
+    nextProjectChatWindowing === previousProjectChatWindowing
+  ) {
     return;
   }
   if (!projectConfigId || projectConfigId === NULL_PROJECT_CONFIG_ID) {
@@ -1673,6 +1739,7 @@ function dispatchProjectChatWindowingMutation(
         projectConfigId,
         frontendOpId,
         {
+          alwaysSend,
           mutation,
           opId: frontendOpId,
           send,
@@ -1713,6 +1780,30 @@ export async function flushPendingProjectChatWindowingWrites(): Promise<void> {
   while (pendingProjectChatWindowingWrites.size > 0) {
     await Promise.allSettled([...pendingProjectChatWindowingWrites]);
   }
+}
+
+export async function syncProjectChatWindowingState() {
+  const projectConfigId = getCurrProjectConfigId();
+  if (!projectConfigId || projectConfigId === NULL_PROJECT_CONFIG_ID) {
+    return null;
+  }
+  const currentWindowing = getProjectChatWindowingStateFromStore(
+    useProjectState.getState(),
+  );
+  primeAuthoritativeProjectChatWindowingState(
+    projectConfigId,
+    currentWindowing,
+  );
+  const opId = createNewId();
+  return enqueueSerializedProjectChatWindowingWrite(projectConfigId, opId, {
+    alwaysSend: true,
+    mutation: (latestWindowing) => ({
+      nextProjectChatWindowing: latestWindowing,
+      alwaysSend: true,
+    }),
+    opId,
+    send: sendProjectChatWindowingSnapshot,
+  });
 }
 
 export function replaceProjectChatWindowingState(
@@ -1790,6 +1881,8 @@ export function unmaximizeProjectChatWindow(instanceId: string): void {
     nextProjectChatWindowing: unmaximizeProjectChatWindowInState(
       currentWindowing,
       instanceId,
+      useSettings.getState().chatWindowing?.restorePriorStateOnUnmaximize ??
+        true,
     ),
   }));
 }

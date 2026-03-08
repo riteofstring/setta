@@ -168,6 +168,70 @@ async function seedWindowSpacePaneWithTwoFloatingWindows(
   await expect(page.getByTestId("window-spaces-pane")).toBeVisible();
 }
 
+async function seedWindowSpacePaneWithSingleFloatingWindow(
+  page: Page,
+): Promise<void> {
+  await page.evaluate(async () => {
+    const { useLocalStorage, useProjectState, useShareSession } = await import(
+      "/src/state/definitions.ts"
+    );
+    const {
+      ChatWindowModeEnum,
+      ChatWindowPlacementEnum,
+      createProjectChatWindowingState,
+    } = await import("/src/utils/generatedTypes.ts");
+
+    useLocalStorage.setState({
+      overviewTab: "ViewModes",
+      overviewVis: true,
+    });
+    useProjectState.setState((state) => {
+      state.projectConfig.isEditingViewMode = true;
+      state.projectConfig.windowSpaces = {};
+      state.projectChatWindowing = createProjectChatWindowingState({
+        order: ["save-window"],
+        instancesById: {
+          "save-window": {
+            instanceId: "save-window",
+            placement: ChatWindowPlacementEnum.floating,
+            mode: ChatWindowModeEnum.project_ai_mode,
+            title: "Save Window",
+            isClosed: false,
+            isMinimized: false,
+            isMaximized: false,
+            zIndex: 1,
+            lastFocusedAt: 10,
+            bounds: {
+              x: 100,
+              y: 120,
+              width: 420,
+              height: 320,
+            },
+          },
+        },
+        nextInstanceNumber: 2,
+      });
+    });
+    useShareSession.setState({
+      isDeploymentMode: true,
+      shareSessionId: "share-session-test",
+      sessionRunCount: 0,
+      sharePolicy: {
+        allowLLM: true,
+        allowParamChanges: false,
+        allowVariantChanges: false,
+        allowLayoutChanges: true,
+        allowRun: false,
+        allowMultipleRuns: false,
+      },
+      shareDeploymentName: "deployment",
+      shareDeploymentVersion: "v1",
+    });
+  });
+
+  await expect(page.getByTestId("window-spaces-pane")).toBeVisible();
+}
+
 async function seedWindowSpacePaneWithBlockedThreadRestore(
   page: Page,
 ): Promise<void> {
@@ -382,6 +446,137 @@ test("saving a window space reconciles the live workspace to the backend-normali
     expect(Object.keys(createRequestState?.windowsById ?? {})).toEqual([
       "keep-window",
     ]);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("saving a window space keeps the latest floating window interaction while sync is delayed", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, { overviewTab: "Overview", overviewVis: true });
+  const projectContext = await openIsolatedProject(page);
+  let createRequestState: {
+    windowsById: Record<string, unknown>;
+    order: Array<string>;
+  } | null = null;
+  let releaseFirstSync: (() => void) | null = null;
+  const firstSyncReleased = new Promise<void>((resolve) => {
+    releaseFirstSync = resolve;
+  });
+  let syncRequestCount = 0;
+
+  try {
+    await seedWindowSpacePaneWithSingleFloatingWindow(page);
+
+    await page.route("**/setProjectChatWindowingState", async (route) => {
+      syncRequestCount += 1;
+      const request = route.request().postDataJSON() as {
+        state: {
+          instancesById: Record<string, Record<string, unknown>>;
+          order: Array<string>;
+          nextInstanceNumber: number;
+        };
+      };
+      if (syncRequestCount === 1) {
+        await firstSyncReleased;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(request.state),
+      });
+    });
+    await page.route("**/createWindowSpace", async (route) => {
+      const request = route.request().postDataJSON() as {
+        state: {
+          windowsById: Record<string, unknown>;
+          order: Array<string>;
+        };
+        name: string;
+      };
+      createRequestState = request.state;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: "window-space-race",
+          name: request.name,
+          sortIndex: 0,
+          windowsById: request.state.windowsById,
+          order: request.state.order,
+        }),
+      });
+    });
+
+    const floatingWindow = page.locator(
+      '[data-testid="project-chat-floating-window"][data-chat-window-instance-id="save-window"]',
+    );
+    await expect(floatingWindow).toBeVisible();
+
+    await page.getByTestId("window-space-save-current-layout").click();
+    await expect.poll(() => syncRequestCount).toBe(1);
+
+    await page.evaluate(async () => {
+      const { focusProjectChatWindow, setProjectChatWindowBounds } =
+        await import("/src/state/actions/projectChatWindowing.ts");
+      focusProjectChatWindow("save-window", 4242);
+      setProjectChatWindowBounds("save-window", {
+        x: 260,
+        y: 180,
+        width: 520,
+        height: 360,
+      });
+    });
+    await expect
+      .poll(async () =>
+        page.evaluate(async () => {
+          const { useProjectState } = await import("/src/state/definitions.ts");
+          const window =
+            useProjectState.getState().projectChatWindowing.instancesById[
+              "save-window"
+            ];
+          return {
+            lastFocusedAt: window?.lastFocusedAt ?? null,
+            bounds: window?.bounds ?? null,
+          };
+        }),
+      )
+      .toEqual({
+        lastFocusedAt: 4242,
+        bounds: {
+          x: 260,
+          y: 180,
+          width: 520,
+          height: 360,
+        },
+      });
+
+    releaseFirstSync?.();
+
+    await expect(page.getByTestId("window-space-edit-open")).toHaveCount(1);
+    await expect.poll(() => syncRequestCount).toBeGreaterThan(1);
+
+    const expectedSnapshot = await page.evaluate(async () => {
+      const { useProjectState } = await import("/src/state/definitions.ts");
+      const { snapshotFloatingWindowsForWindowSpace } = await import(
+        "/src/state/actions/windowSpaces.ts"
+      );
+      const state = useProjectState.getState();
+      return snapshotFloatingWindowsForWindowSpace({
+        projectChatWindowing: state.projectChatWindowing,
+        projectConfig: state.projectConfig,
+        sections: state.sections,
+        sectionImpls: state.sectionImpls,
+        sectionVariants: state.sectionVariants,
+      });
+    });
+
+    expect(createRequestState).toEqual(expectedSnapshot);
+    const floatingWindowBox = await floatingWindow.boundingBox();
+    expect(floatingWindowBox).not.toBeNull();
+    expect(floatingWindowBox?.width ?? 0).toBeGreaterThan(500);
+    expect(floatingWindowBox?.height ?? 0).toBeGreaterThan(350);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }

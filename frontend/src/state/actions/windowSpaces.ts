@@ -6,12 +6,10 @@ import { resolveProjectChatFloatingViewport } from "components/ChatWindowing/pro
 import {
   flushPendingProjectChatWindowingWrites,
   replaceProjectChatWindowingState,
+  setProjectChatWindowChatId,
+  syncProjectChatWindowingState,
 } from "state/actions/projectChatWindowing";
-import {
-  getAuthoritativeProjectChatWindowingState,
-  recordAuthoritativeProjectChatWindowingState,
-} from "state/actions/projectChatWindowingAuthoritative";
-import { reconcileProjectChatWindowingEphemeralState } from "state/actions/projectChatWindowingEphemeral";
+import { getAuthoritativeProjectChatWindowingState } from "state/actions/projectChatWindowingAuthoritative";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
@@ -25,8 +23,6 @@ import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_create_window_space,
   route_delete_window_space,
-  route_set_project_chat_window_chat_id,
-  route_set_project_chat_windowing_state,
   route_set_window_space_name,
   route_set_window_space_sort_order,
 } from "utils/generatedEndpoints";
@@ -846,9 +842,6 @@ function resolveFloatingWindowRestoreOwnerKey(
   ) {
     return `project-chat:${instance.chatId}`;
   }
-  if (instance.mode === ChatWindowModeEnum.project_ai_mode) {
-    return `project-chat-window:${instance.instanceId}`;
-  }
   return null;
 }
 
@@ -1072,6 +1065,16 @@ function isRestoredProjectChatThreadBindingTarget(
   );
 }
 
+function hasRestoredProjectChatThreadBinding(
+  instance: ProjectChatWindowInstance | undefined,
+  threadBinding: RestoredProjectChatThreadBinding,
+): boolean {
+  return (
+    isRestoredProjectChatThreadBindingTarget(instance, threadBinding) &&
+    (instance.chatId ?? null) === threadBinding.chatId
+  );
+}
+
 async function restoreWorkspaceProjectChatThreadBindings(
   projectConfigId: string,
   threadBindings: Array<RestoredProjectChatThreadBinding>,
@@ -1124,24 +1127,32 @@ async function restoreWorkspaceProjectChatThreadBindings(
       continue;
     }
 
-    const response = await route_set_project_chat_window_chat_id({
+    setProjectChatWindowChatId(threadBinding.instanceId, threadBinding.chatId);
+    await flushPendingProjectChatWindowingWrites();
+    if (useProjectState.getState().projectConfig.id !== projectConfigId) {
+      return;
+    }
+
+    const reboundWindowing =
+      getAuthoritativeProjectChatWindowingState(projectConfigId) ??
+      useProjectState.getState().projectChatWindowing;
+    if (
+      hasRestoredProjectChatThreadBinding(
+        reboundWindowing.instancesById[threadBinding.instanceId],
+        threadBinding,
+      )
+    ) {
+      continue;
+    }
+
+    if (!encounteredFailure) {
+      encounteredFailure = true;
+    }
+    console.error("Failed to restore saved project chat thread binding.", {
       projectConfigId,
       instanceId: threadBinding.instanceId,
       chatId: threadBinding.chatId,
-      frontendOpId: null,
     });
-    if (!res200(response)) {
-      encounteredFailure = true;
-      console.error("Failed to restore saved project chat thread binding.", {
-        projectConfigId,
-        instanceId: threadBinding.instanceId,
-        chatId: threadBinding.chatId,
-        status: response.status,
-        detail: getErrorDetail(response.data),
-      });
-      continue;
-    }
-    publishSyncedProjectChatWindowingState(projectConfigId, response.data);
   }
 
   if (encounteredFailure) {
@@ -1306,29 +1317,6 @@ export async function restoreWindowSpaceInWorkspace(
   }
 }
 
-function publishSyncedProjectChatWindowingState(
-  projectConfigId: string,
-  projectChatWindowing: ProjectChatWindowingState,
-): void {
-  recordAuthoritativeProjectChatWindowingState(
-    projectConfigId,
-    projectChatWindowing,
-  );
-  if (useProjectState.getState().projectConfig.id !== projectConfigId) {
-    return;
-  }
-  reconcileProjectChatWindowingEphemeralState(
-    projectChatWindowing,
-    projectConfigId,
-  );
-  useProjectState.setState((state) => {
-    if (state.projectConfig.id !== projectConfigId) {
-      return;
-    }
-    state.projectChatWindowing = projectChatWindowing;
-  });
-}
-
 export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<
   string | null
 > {
@@ -1347,20 +1335,18 @@ export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<
   }
   const projectConfigSnapshot = state.projectConfig;
   const sectionSnapshot = state.sections;
-  const syncResponse = await route_set_project_chat_windowing_state({
-    projectConfigId,
-    state: state.projectChatWindowing,
-    frontendOpId: null,
-  });
-  if (!res200(syncResponse)) {
-    const detail = getErrorDetail(syncResponse.data);
+  const sectionImplSnapshot = state.sectionImpls;
+  const sectionVariantSnapshot = state.sectionVariants;
+  const syncResponse = await syncProjectChatWindowingState();
+  if (!syncResponse || !res200(syncResponse)) {
+    const detail = syncResponse ? getErrorDetail(syncResponse.data) : null;
     const statusSuffix =
-      typeof syncResponse.status === "number"
+      syncResponse && typeof syncResponse.status === "number"
         ? ` (${syncResponse.status})`
         : "";
     const detailSuffix = detail ? `: ${detail}` : ".";
     console.error("Failed to sync project chat windowing before saving.", {
-      status: syncResponse.status,
+      status: syncResponse?.status ?? null,
       detail,
       projectConfigId,
     });
@@ -1370,13 +1356,20 @@ export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<
     );
     return null;
   }
-  publishSyncedProjectChatWindowingState(projectConfigId, syncResponse.data);
+  await flushPendingProjectChatWindowingWrites();
+  const latestState = useProjectState.getState();
+  const syncedWindowing =
+    latestState.projectConfig.id === projectConfigId
+      ? getAuthoritativeProjectChatWindowingState(projectConfigId) ??
+        latestState.projectChatWindowing
+      : getAuthoritativeProjectChatWindowingState(projectConfigId) ??
+        syncResponse.data;
   const authoritativeSnapshot = snapshotFloatingWindowsForWindowSpace({
-    projectChatWindowing: syncResponse.data,
+    projectChatWindowing: syncedWindowing,
     projectConfig: projectConfigSnapshot,
     sections: sectionSnapshot,
-    sectionImpls: state.sectionImpls,
-    sectionVariants: state.sectionVariants,
+    sectionImpls: sectionImplSnapshot,
+    sectionVariants: sectionVariantSnapshot,
   });
   if (Object.keys(authoritativeSnapshot.windowsById).length === 0) {
     return null;

@@ -355,6 +355,10 @@ async def invoke_linked_chat(
             str(section_id) for section_id in invocation_chain
         ],
     }
+    if agentic_context.frontend_affinity_token is not None:
+        linked_chat_inputs["frontendAffinityToken"] = (
+            agentic_context.frontend_affinity_token
+        )
 
     try:
         await _persist_linked_chat_section_binding(

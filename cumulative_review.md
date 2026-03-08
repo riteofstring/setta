@@ -1291,3 +1291,39 @@ Verification:
 - `pnpm -C frontend exec vitest run src/state/actions/windowSpaces.test.ts` passed: 41 tests.
 - `./scripts/run-playwright-e2e.sh tests/e2e/chat/standalone-project-surface-routes.spec.ts -g "restoring a saved window space reuses the live section-owned project-chat window before the first thread exists"` passed: 1 test.
 - CDP verification on the live dev instance at `http://127.0.0.1:3098/home` created a disposable project and chat section, saved a floating section-owned `project_ai_mode` window with `chatId=null`, replaced the workspace with a different live floating window for the same section, restored the saved layout, and confirmed the surviving window id stayed live, the saved id did not return, and the section binding still had no thread.
+
+## 2026-03-11 14:57:48 PDT
+
+Implemented the remaining review-driven fixes around project-chat windowing authority, blank-window restore collisions, linked-chat frontend affinity propagation, and the dormant unmaximize setting. The code in this area is now simpler because the extra direct-publish save/restore path is gone and the queue is the only write authority for live project-chat windowing.
+
+What changed:
+- Refactored `frontend/src/state/actions/projectChatWindowing.ts` so successful queued writes publish the server-authoritative `projectChatWindowing` snapshot back into the live store and then replay only later pending local mutations. This removed the previous split where one code path recorded authoritative state while other code paths manually pushed snapshots into Zustand.
+- Added `syncProjectChatWindowingState()` in the same module so callers can force one serialized backend sync even when there is no local diff, which keeps pre-save behavior explicit and keeps the queue contract shallow.
+- Simplified `frontend/src/state/actions/windowSpaces.ts` restore/save flows to use that single queue-based contract. Restore-time thread rebinding now uses `setProjectChatWindowChatId(...)` plus queued-write flushing instead of a direct backend call with `frontendOpId: null`, and save now waits for an authoritative sync before snapshotting floating windows.
+- Removed the raw `instanceId` ownership fallback for ownerless blank `project_ai_mode` floating windows in `frontend/src/state/actions/windowSpaces.ts`. Blank saved chats without a logical owner now remap on collision instead of superseding an unrelated live blank window that happens to share an incidental generated id.
+- Wired `restorePriorStateOnUnmaximize` through the live unmaximize action in `frontend/src/state/actions/projectChatWindowing.ts`, so the persisted settings contract now matches runtime behavior.
+- Updated `backend/setta/agentic/linked_chat_invocation.py` so linked-chat runs carry `frontendAffinityToken` whenever the calling agentic context has one, matching the direct-chat contract already expected by downstream routing and reveal code.
+- Added focused regressions instead of widening broad tests:
+- `frontend/src/state/actions/projectChatWindowing.test.ts` now covers disabled prior-placement restore both at the reducer/helper level and the live action level.
+- `frontend/src/state/actions/windowSpaces.test.ts` now covers delayed pre-save sync while the user continues moving/focusing a floating window, delayed restore-time thread rebinding after more user interaction, and blank-window collision remapping.
+- `tests/routers/test_mcp_linked_chat_tool.py` now proves linked-chat invocations preserve `frontendAffinityToken` for both managed and external runs.
+- `frontend/tests/e2e/overview/layout/window-space-layout-permissions.spec.ts` now covers the delayed pre-save sync race in the browser and asserts that the saved snapshot matches the final visible floating window state.
+
+UX before/after:
+- Before: a delayed save or restore response could publish stale bounds, focus order, or z-order back into the workspace after the user had already kept interacting. After: successful server acknowledgements rebuild from authoritative state and then replay newer local mutations, so the latest visible interaction wins.
+- Before: restoring a saved blank project-chat window could silently overwrite a live blank chat if both used the same generated `instanceId`. After: the live blank chat remains visible and the restored blank chat appears as a separate floating window with a fresh id.
+- Before: linked-chat-triggered UI/reveal actions could lose their initiating frontend affinity when multiple frontends were connected. After: linked-chat runs carry the same frontend-affinity routing metadata as direct runs.
+- Before: users could set `restorePriorStateOnUnmaximize=false` and still get prior-placement restore behavior. After: unmaximize now follows the setting and falls back to `bottom_docked` when that preference is disabled.
+
+DX before/after:
+- Before: project-chat windowing effectively had two authority models, one queue-based and one manual publish path inside window-space save/restore, which made race behavior hard to reason about. After: the queue is the single write authority and save/restore are simple callers of that path.
+- Before: restore ownership for blank chats depended on incidental transport ids rather than logical ownership, which blurred the distinction between identity and persistence. After: only real logical owners participate in reuse/supersession and ownerless blanks are treated as distinct windows.
+- Before: linked-chat and direct-chat launches preserved different routing metadata, which made frontend targeting feel like an accidental branch-specific detail. After: both run types preserve the same affinity contract explicitly.
+- Before: the settings schema advertised an unmaximize behavior switch that runtime code ignored. After: schema, UI expectation, and action logic are aligned.
+
+Verification:
+- `pnpm exec vitest run src/state/actions/projectChatWindowing.test.ts src/state/actions/windowSpaces.test.ts` passed: 85 tests.
+- `pnpm exec vitest run src/state/actions/projectChatWindowing.rollback.test.ts src/state/actions/projectChatWindowing.permissions.test.ts` passed: 10 tests.
+- `source activate.sh && pytest tests/routers/test_mcp_linked_chat_tool.py -q` passed: 41 tests.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/layout/window-space-layout-permissions.spec.ts --grep "saving a window space keeps the latest floating window interaction while sync is delayed"` passed: 1 selected test.
+- CDP verification on the live dev instance at `http://127.0.0.1:3098` seeded a live blank floating chat plus a saved blank floating chat with the same raw id, restored the saved window space, and confirmed both windows remained visible as separate floating windows. The temporary verification project was deleted afterward.

@@ -990,6 +990,7 @@ async def test_tools_call_invoke_linked_chat_runs_direct_linked_target(
                     "projectConfigId": str(tmp_project_id),
                     "chatId": str(tmp_caller_chat_id),
                     "sectionId": str(tmp_caller_section_id),
+                    "frontendAffinityToken": "frontend-managed",
                 },
             },
         )
@@ -1007,11 +1008,69 @@ async def test_tools_call_invoke_linked_chat_runs_direct_linked_target(
     assert captured_inputs["sectionId"] == str(target_section_id)
     assert captured_inputs["chatId"] == "linked-thread-1"
     assert captured_inputs["runType"] == LLM_CHAT_RUN_TYPE
+    assert captured_inputs["frontendAffinityToken"] == "frontend-managed"
     assert captured_inputs["linkedChatInvocationDepth"] == 1
     assert captured_inputs["linkedChatInvocationChainSectionIds"] == [
         str(caller_section_id)
     ]
     assert manager.set_chat_section_chat_id_calls == []
+
+
+@pytest.mark.asyncio
+async def test_tools_call_invoke_linked_chat_preserves_frontend_affinity_for_external_runs(
+    tmp_path,
+) -> None:
+    external_runner = _DummyExternalAgentRunner()
+    (
+        app,
+        _agent_runner,
+        _manager,
+        canonical_to_temporary,
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+    ) = _build_test_app(
+        tmp_path,
+        seed_target_chat_id=False,
+        engine_type=EngineType.external_agent,
+        external_agent_runner_override=external_runner,
+    )
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_caller_section_id = canonical_to_temporary[caller_section_id]
+    tmp_target_section_id = canonical_to_temporary[target_section_id]
+    tmp_caller_chat_id = canonical_to_temporary[ID("caller-chat-1")]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/__setta__/tools/call",
+            json={
+                "tool": "invoke_linked_chat",
+                "arguments": {
+                    "targetSectionId": str(tmp_target_section_id),
+                    "prompt": "Plan the next implementation step.",
+                },
+                "agenticContext": {
+                    "projectConfigId": str(tmp_project_id),
+                    "chatId": str(tmp_caller_chat_id),
+                    "sectionId": str(tmp_caller_section_id),
+                    "frontendAffinityToken": "frontend-external",
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["isError"] is False
+    assert payload["structuredContent"]["targetSectionId"] == str(tmp_target_section_id)
+    assert payload["structuredContent"]["status"] == "completed"
+    assert external_runner.calls
+    _, _, _, captured_inputs = external_runner.calls[0]
+    assert captured_inputs["frontendAffinityToken"] == "frontend-external"
+    assert captured_inputs["linkedChatInvocationDepth"] == 1
+    assert captured_inputs["linkedChatInvocationChainSectionIds"] == [
+        str(caller_section_id)
+    ]
 
 
 @pytest.mark.asyncio
@@ -1492,18 +1551,14 @@ async def test_tools_call_invoke_linked_chat_releases_reserved_deployment_run_wh
     first_payload = first_response.json()
     assert first_payload["isError"] is True
     assert first_payload["structuredContent"]["reason"] == "run_start_failed"
-    assert (
-        first_payload["structuredContent"]["message"]
-        == "unexpected startup failure"
-    )
+    assert first_payload["structuredContent"]["message"] == "unexpected startup failure"
 
     assert second_response.status_code == 200
     second_payload = second_response.json()
     assert second_payload["isError"] is True
     assert second_payload["structuredContent"]["reason"] == "run_start_failed"
     assert (
-        second_payload["structuredContent"]["message"]
-        == "unexpected startup failure"
+        second_payload["structuredContent"]["message"] == "unexpected startup failure"
     )
 
     assert len(agent_runner.calls) == 2
@@ -2616,18 +2671,14 @@ async def test_tools_call_invoke_linked_chat_retries_cleanly_after_unexpected_ma
     first_payload = first_response.json()
     assert first_payload["isError"] is True
     assert first_payload["structuredContent"]["reason"] == "run_start_failed"
-    assert (
-        first_payload["structuredContent"]["message"]
-        == "unexpected startup failure"
-    )
+    assert first_payload["structuredContent"]["message"] == "unexpected startup failure"
 
     assert second_response.status_code == 200
     second_payload = second_response.json()
     assert second_payload["isError"] is True
     assert second_payload["structuredContent"]["reason"] == "run_start_failed"
     assert (
-        second_payload["structuredContent"]["message"]
-        == "unexpected startup failure"
+        second_payload["structuredContent"]["message"] == "unexpected startup failure"
     )
 
     assert len(agent_runner.calls) == 2
