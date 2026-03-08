@@ -151,13 +151,22 @@ frontend Python-owned agentic reads are now outside that boundary:
 Those routes should only move under a separate bounded doc if product work
 prioritizes them. They are no longer a hidden external-agent blocker.
 
+The first post-Phase-12 bounded slice is now tracked in
+`phase-13-agent-profile-read-transport.md`:
+
+- the frontend still hydrates `GET /getAgentProfiles` through Python even
+  though Go already owns the canonical `agent_profiles.json` store
+- prompt-template transport and agentic summary-cache status remain deferred to
+  later bounded slices because they need different source-of-truth owners
+
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are
 already locked in practice by the current Go implementation. The PTY runtime
 shape is also proven, but the PTY library choice still has a bounded Unix-path
 follow-up tracked in `spike-pty.md`. New work should start from a newly scoped
 post-Phase-12 priority, not by reopening the completed external-agent runtime
-choices.
+choices. The current bounded priority is the list-only agent-profile HTTP read
+transport over the already-landed Go store.
 
 ## Current Reality
 

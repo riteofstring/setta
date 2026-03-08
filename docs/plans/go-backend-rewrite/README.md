@@ -460,9 +460,13 @@ Use the docs in this order:
   - focused completed-slice doc for the last concrete external-agent
     closeout dependency: Go-owned `GET /getAgentRuns` read transport required
     by external stop, history, and agent-run-backed overview state
-141. `spike-mcp.md`
+141. `phase-13-agent-profile-read-transport.md`
+  - focused current-work doc for the first post-Phase-12 bounded agentic
+    read transport: Go-owned `GET /getAgentProfiles` over the canonical
+    agent-profile store
+142. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-142. `spike-pty.md`
+143. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
 142. `spike-lsp.md`
