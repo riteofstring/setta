@@ -52,10 +52,11 @@ Landed during this phase:
 
 Remaining managed follow-ons inside this phase:
 
-- explicit provider-native or explicitly unsupported handling for managed
-  `thinking=true`
 - tool-preview / AI-follow parity only if the active managed frontend surface
   still proves it necessary after the landed bounded tool path
+- broader provider-native managed reasoning defaults only if the active
+  product surface still needs more than the landed explicit-config /
+  explicit-reject behavior
 
 Current callers are concentrated in:
 
@@ -339,9 +340,18 @@ Recommended option if provider breadth becomes the first architecture tradeoff:
   - persisted assistant `tool_calls` plus tool-result transcript support
   - real IDE app coverage for managed chats calling the internal Setta MCP
     server
+- 2026-03-09: landed the seventh executable Phase 18 slice in Go for managed
+  reasoning preflight:
+  - `internal/agentruns` now lets executors validate requests before run
+    persistence
+  - managed `thinking=true` requests now return a typed route/app error unless
+    the selected config already declares explicit provider-native reasoning
+    params
+  - unsupported reasoning no longer appears as an asynchronous post-start run
+    failure
 - 2026-03-09: the remaining managed-chat follow-on inside this phase is now
-  the explicit `thinking=true` decision plus any still-needed tool-preview or
-  AI-follow parity, not route movement or basic tool execution ownership.
+  tool-preview / AI-follow parity plus any optional broader provider-native
+  reasoning defaults, not route movement or basic tool execution ownership.
 
 ## Verification
 
@@ -350,13 +360,14 @@ Recommended option if provider breadth becomes the first architecture tradeoff:
 - `./scripts/go.sh test ./internal/httpapi -run 'TestRegisterAIRoutesStarts(ExternalAgentChat|ManagedChat)|TestRegisterAIRoutesReturnsUnavailableForManagedChatWhenStarterDisabled' -count=1`
 - `./scripts/go.sh test ./internal/app ./internal/httpapi ./internal/managedllm ./internal/agentruns ./internal/managedchat -run 'Test(AppServesManagedChatSendThroughManagedExecutor|AppWiresManagedAgentRunFoundationInIDEMode|AppServesManagedAgentRunRoutesWithManagedExecutor|Executor|RuntimeStopRun|RuntimeStartRun|ServiceRunSubAgent|ServiceGetChatUsesConcreteLiveRuntimeOverlay|RegisterAIRoutes)' -count=1`
 - `./scripts/go.sh test ./internal/app ./internal/managedllm ./internal/mcpx ./internal/agentruns ./internal/httpapi ./internal/managedchat -run 'Test(AppServesManaged(ChatSendThroughManagedExecutor|ChatToolCallThroughInternalMCPClient)|Executor|Client|RuntimeStopRun|RuntimeStartRun|ServiceRunSubAgent|RegisterAIRoutes|ServiceGetChatUsesConcreteLiveRuntimeOverlay)' -count=1`
+- `./scripts/go.sh test ./internal/agentruns ./internal/managedllm ./internal/httpapi ./internal/app -run 'Test(ServiceRunSubAgentRejectsValidatedRequestBeforeSave|Executor(RejectsThinkingWithoutExplicitProviderConfig|ValidateAllowsThinkingWithExplicitReasoningConfig)|RegisterAIRoutesReturnsBadRequestForManagedThinkingUnsupported|AppServesManagedChatThinkingUnsupportedWithoutExplicitProviderConfig)' -count=1`
 
 ## Next Recommended Step
 
-- resolve managed `thinking=true` with an explicit provider-native or product
-  decision instead of model-name heuristics
 - add tool-preview or AI-follow parity only if a concrete current frontend
   caller still needs those websocket surfaces after the landed tool loop
+- add broader provider-native managed reasoning defaults only if the active
+  surface still needs more than explicit config plus early rejection
 - otherwise rerank the adjacent transcription-session runtime slice instead of
   broadening managed chat by default
 

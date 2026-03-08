@@ -22,11 +22,12 @@ Already landed in Phase 18:
 
 Remaining direct gaps for managed `setta_llm` chats:
 
-- a robust non-heuristic path for managed `thinking=true`
 - additional websocket parity only if the active managed surface still proves
   it necessary
 - additional provider adapters only if the active managed surface requires
   them
+- broader provider-native managed reasoning defaults only if the active
+  product surface still needs them beyond explicit config and early rejection
 
 Landed during Slice 1:
 
@@ -197,8 +198,9 @@ Status: landed on 2026-03-09.
 
 ## Open Questions
 
-- whether the active managed surface now needs explicit provider-native
-  `thinking=true` support before the separate transcription runtime slice
+- whether the active managed surface now needs broader provider-native
+  `thinking=true` defaults beyond the landed explicit-config / early-reject
+  boundary before the separate transcription runtime slice
 - whether provider-visible tool-definition pruning needs to mirror additional
   Python scope filtering beyond the already-landed invocation-time MCP scope
   enforcement
@@ -238,6 +240,10 @@ Slice 3 verification:
   OpenAI tool-call execution over resolved `MCPServerIDs`, transcript support
   for `tool_calls` and tool results, and real app coverage against the
   internal Setta MCP server.
+- 2026-03-09: landed managed reasoning preflight validation in
+  `internal/agentruns` plus route/app error mapping so `thinking=true`
+  requests now fail synchronously unless the selected config already declares
+  explicit provider-native reasoning params.
 
 ## Next Recommended Step
 
@@ -245,7 +251,9 @@ Implement the next bounded follow-on only if the active managed surface still
 needs it:
 
 - resolve managed `thinking=true` through explicit provider-native config or a
-  separate bounded product/default decision, not model-name heuristics
+  separate bounded product/default decision only if the active surface still
+  needs more than the landed explicit-config / early-reject behavior, not
+  model-name heuristics
 - add tool-preview or AI-follow parity only if a concrete current caller still
   depends on those websocket surfaces
 - otherwise rerank the adjacent transcription-session runtime slice instead of

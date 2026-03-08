@@ -25,9 +25,10 @@ Landed in this slice:
 
 Remaining bounded follow-ons after this slice:
 
-- explicit provider-native `thinking=true` handling
 - tool-preview / AI-follow parity only if a current managed caller still
   depends on those surfaces
+- broader provider-native `thinking=true` defaults only if the active managed
+  product surface still needs them beyond explicit config and early rejection
 
 ## Repo Findings
 
@@ -121,13 +122,18 @@ Remaining bounded follow-ons after this slice:
   transcript support.
 - 2026-03-09: landed real IDE app coverage proving a managed chat can execute
   the internal Setta completion-report tool through the shared MCP client.
+- 2026-03-09: the adjacent managed reasoning follow-on then landed explicit
+  preflight validation and route-level `thinking_unsupported` behavior so
+  unsupported `thinking=true` sends no longer fail asynchronously after run
+  start.
 
 ## Next Recommended Step
 
 Use this slice as the new managed baseline:
 
 - resolve managed `thinking=true` through explicit provider-native config or a
-  bounded product decision
+  bounded product decision if the active product surface still needs more than
+  the landed explicit-config / early-reject behavior
 - add tool-preview / AI-follow parity only if the active frontend surface
   still has a concrete dependency on it
 - otherwise rerank the adjacent transcription-session runtime slice

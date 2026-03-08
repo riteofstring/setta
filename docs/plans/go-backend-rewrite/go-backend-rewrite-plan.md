@@ -42,10 +42,11 @@ AI/chat transport is now Go-owned for the current direct frontend managed and
 external route surface, and managed OpenAI text execution is now wired through
 Go as well. The rewrite still does not plan to recreate a broad
 LiteLLM-equivalent managed runtime in Go. The remaining managed-chat
-follow-on is now narrower: explicit provider-native or explicitly unsupported
-`thinking=true` behavior plus any still-needed tool-preview / AI-follow
-parity behind the landed `/getLLMResponse` send owner, the landed managed live
-chat runtime, the bounded OpenAI executor, and the bounded MCP tool path.
+follow-on is now narrower: any still-needed tool-preview / AI-follow parity
+plus optional broader provider-native managed reasoning defaults beyond the
+landed explicit-config / explicit-reject `thinking=true` behavior behind the
+landed `/getLLMResponse` send owner, the landed managed live chat runtime, the
+bounded OpenAI executor, and the bounded MCP tool path.
 
 The first Phase 18 slice is now landed for the adjacent project-state-backed
 chat-section persistence cluster:

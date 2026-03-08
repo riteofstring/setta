@@ -45,8 +45,11 @@ Current Go state relevant to this inventory:
   - now owns the first bounded managed provider executor
   - now supports bounded OpenAI chat-completions text streaming plus managed
     MCP tool-call execution over resolved `MCPServerIDs`
-  - still leaves `thinking=true` and any optional tool-preview / AI-follow
-    parity as explicit follow-ons
+  - now rejects unsupported managed `thinking=true` requests at start time
+    unless the selected config already declares explicit provider-native
+    reasoning params
+  - still leaves any optional tool-preview / AI-follow parity plus broader
+    provider-native reasoning defaults as explicit follow-ons
 - `internal/httpapi/project_routes.go`
   - already owns the broad project-state mutation transport pattern with
     `frontendOpId` handling
@@ -123,9 +126,10 @@ Implication:
 
 - the remaining managed-chat work is executor/runtime semantics, not route
   movement
-- the highest-leverage remaining managed follow-on is now the explicit
-  `thinking=true` decision plus any still-needed tool-preview / AI-follow
-  parity behind the now-landed send/hydrate/stop/provider/tool foundations
+- the highest-leverage remaining managed follow-on is now any still-needed
+  tool-preview / AI-follow parity plus optional broader provider-native
+  reasoning defaults behind the now-landed send/hydrate/stop/provider/tool
+  foundations
 
 ### 2. Chat-section persistence is the adjacent direct dependency and should move with managed chat
 
@@ -251,9 +255,13 @@ Rerank:
   the bounded OpenAI executor, and bounded MCP tool execution over resolved
   `MCPServerIDs`.
 - 2026-03-09: the direct frontend managed-chat route cluster and its bounded
-  current runtime surface are now Go-owned; the remaining managed follow-on is
-  explicit `thinking=true` handling plus any still-needed tool-preview /
-  AI-follow parity, while transcription remains separate.
+  current runtime surface are now Go-owned.
+- 2026-03-09: landed managed reasoning preflight so unsupported
+  `thinking=true` sends now fail synchronously unless explicit provider-native
+  reasoning params are already present in the selected config.
+- 2026-03-09: the remaining managed follow-on is now any still-needed
+  tool-preview / AI-follow parity plus optional broader provider-native
+  reasoning defaults, while transcription remains separate.
 
 ## Verification
 
@@ -264,14 +272,15 @@ Rerank:
   - `./scripts/go.sh test ./internal/httpapi -run 'TestRegisterAIRoutesStarts(ExternalAgentChat|ManagedChat)|TestRegisterAIRoutesReturnsUnavailableForManagedChatWhenStarterDisabled' -count=1`
   - `./scripts/go.sh test ./internal/app -run 'TestAppServesManaged(ChatHydrateAndStopRoutes|ChatSendAsUnavailableWithoutExecutor)' -count=1`
   - `./scripts/go.sh test ./internal/app ./internal/managedllm ./internal/mcpx ./internal/agentruns ./internal/httpapi ./internal/managedchat -run 'Test(AppServesManaged(ChatSendThroughManagedExecutor|ChatToolCallThroughInternalMCPClient)|Executor|Client|RuntimeStopRun|RuntimeStartRun|ServiceRunSubAgent|RegisterAIRoutes|ServiceGetChatUsesConcreteLiveRuntimeOverlay)' -count=1`
+  - `./scripts/go.sh test ./internal/agentruns ./internal/managedllm ./internal/httpapi ./internal/app -run 'Test(ServiceRunSubAgentRejectsValidatedRequestBeforeSave|Executor(RejectsThinkingWithoutExplicitProviderConfig|ValidateAllowsThinkingWithExplicitReasoningConfig)|RegisterAIRoutesReturnsBadRequestForManagedThinkingUnsupported|AppServesManagedChatThinkingUnsupportedWithoutExplicitProviderConfig)' -count=1`
   - `./scripts/go.sh test ./internal/httpapi -run 'TestRegisterProjectRoutesChatSectionMutations|TestRegisterProjectRoutesLayoutPresentationMutationsPersistInLatestState' -count=1`
   - `./scripts/go.sh test ./internal/app -run '^TestAppServesChatSectionMutationRoutes$' -count=1`
 
 ## Next Recommended Step
 
-- resolve the remaining managed `thinking=true` behavior explicitly before
-  broadening the managed runtime further
 - add tool-preview or AI-follow parity only if a concrete current frontend
   caller still depends on those surfaces
+- add broader provider-native managed reasoning defaults only if the active
+  product surface still needs more than explicit config plus early rejection
 - otherwise keep transcription-session runtime as the next adjacent bounded
   AI/runtime slice
