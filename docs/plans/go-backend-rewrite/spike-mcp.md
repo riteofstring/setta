@@ -2,102 +2,98 @@
 
 ## Purpose
 
-Reduce uncertainty around MCP before we commit the rewrite to a specific SDK and transport model.
+This doc now records the outcome of the MCP spike rather than a pending
+uncertainty-reduction task.
 
-## Questions To Answer
+The rewrite no longer needs to decide whether MCP is viable in Go. That work is
+already represented by the current `internal/mcpx` implementation and the Phase
+6 follow-up docs that built on it.
 
-- Is `modelcontextprotocol/go-sdk` good enough for both server and client roles?
-- Which transports actually matter for this product?
-- How much custom glue is required for:
-  - auth
-  - namespacing
-  - scope enforcement
-  - tool metadata
-  - frontend affinity
-- What parts of MCP should remain behind our own abstractions?
+## Status
 
-## Scope
+Current repo status as of 2026-03-08:
 
-This spike should cover:
+- `github.com/modelcontextprotocol/go-sdk` is pinned in `go.mod`
+- `internal/mcpx/server.go` owns the Go MCP server boundary
+- `internal/mcpx/client.go` owns the Go internal multi-server MCP client
+- `internal/httpapi/mcp_tool_routes.go` and `internal/app/app.go` own the thin
+  authenticated transport wiring around the MCP runtime
+- the Phase 6 MCP parity work is complete for the tracked Python MCP surface
 
-- one minimal MCP server
-- one minimal MCP client
-- one authenticated tool call path
-- one namespaced tool call
-- one scoped tool call decision point
-- one transport setup that matches the likely production shape
+## Recommendation
 
-## Out Of Scope
+Use `github.com/modelcontextprotocol/go-sdk` behind a tight wrapper.
 
-- full parity with current MCP features
-- rich tool search implementation
-- LLM orchestration integration
-- polished production API design
+The current Go boundary is the right shape:
 
-## Candidate Default
+- keep SDK types inside `internal/mcpx`
+- keep auth outside the SDK and in the route/runtime layer
+- keep namespacing, agentic context, scope enforcement, tool metadata, and
+  temporary-id translation as Setta-owned logic
+- keep tool registration source-of-truth in `internal/tools`, not in SDK-only
+  structures
 
-- `github.com/modelcontextprotocol/go-sdk`
+## Outcome
 
-Alternatives should only be considered if the default spike fails on a concrete requirement.
+### Server role
 
-## Prototype Requirements
+The SDK is good enough for the Setta-owned server role when it stays wrapped.
 
-### Server Prototype
+The rewrite already uses it for:
 
-- expose at least one init-like tool
-- expose at least one regular tool
-- include structured tool metadata
-- show how auth is enforced outside or around the SDK
+- authenticated SSE transport via `internal/mcpx/server.go`
+- tool registration driven by Setta metadata
+- structured tool errors mapped through Setta-owned error codes
+- scoped invocation through Setta-owned request context
 
-### Client Prototype
+### Client role
 
-- connect to one server
-- list tools
-- call one tool successfully
-- handle one auth failure path
+The SDK is also good enough for the internal client role when routing remains
+custom.
 
-### Product-Specific Checks
+The rewrite already uses it for:
 
-- namespaced tool identity
-- scoped tool invocation boundary
-- ability to keep SDK request/response types out of most of the codebase
+- namespaced tool routing by `<serverId>__<toolName>`
+- runtime status tracking per configured MCP server
+- reconnect-aware read-only tool retries
+- transport support for `sse`, `streamable_http`, and `stdio`
 
-## Evaluation Criteria
+### Product-specific glue that stays custom
 
-- transport support quality
-- API ergonomics
-- auth integration friction
-- metadata/schema support
-- streaming behavior
-- stability and maintenance risk
-- amount of wrapper code required
+These concerns should remain outside the SDK boundary:
 
-## Deliverable
+- auth header/cookie injection
+- agentic context extraction and persistence
+- scope enforcement and blocked-target payload shaping
+- tool metadata normalization and search indexing
+- canonical/temporary ID translation
+- frontend-affinity and Setta-specific realtime integration
 
-At the end of the spike we should have:
+## Exit Criteria Result
 
-- a recommendation:
-  - use
-  - use with tight wrapper
-  - do not use
-- a list of MCP concerns that stay custom
-- a minimal internal interface sketch for the Go rewrite
-
-## Exit Criteria
+The original spike exit criteria are satisfied in real code:
 
 - one authenticated end-to-end MCP tool call works
-- server and client integration both feel viable
-- we can name the abstraction boundary we want to keep around the SDK
-- we have a written accept or reject decision
+- server and client integration are both viable
+- the abstraction boundary is explicit in `internal/mcpx` and `internal/tools`
+- the accept decision is now locked in practice
 
-## Failure Conditions
+## Inputs
 
-- SDK hides transport or auth concerns in ways that fight the product
-- schema or tool metadata support is too awkward
-- the client/server split forces too much SDK leakage into application code
+- `docs/reference/mcp-system-overview.md`
+- `backend/setta/mcp/server.py`
+- `backend/setta/mcp/client.py`
+- `tests/mcp/test_mcp_server_registration.py`
+- `tests/mcp/test_multi_mcp_client.py`
+- `internal/mcpx/server.go`
+- `internal/mcpx/client.go`
+- `internal/mcpx/server_test.go`
+- `internal/mcpx/client_test.go`
+- `docs/plans/go-backend-rewrite/phase-6-mcp-server-client-and-tool-registry-foundation.md`
 
-## Follow-Up If Successful
+## Next Step
 
-- lock the SDK choice in the master plan
-- define `internal/mcpx` boundaries
-- move on to Phase 6 with reduced uncertainty
+Treat this spike as closed.
+
+Future MCP work should start from the completed Phase 6 docs or a new bounded
+follow-up doc, not from re-running the library-selection question.

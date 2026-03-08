@@ -2,96 +2,91 @@
 
 ## Purpose
 
-Reduce uncertainty around cross-platform terminal support before Phase 4 depends on it.
+This doc now records the outcome of the PTY spike rather than a pending
+pre-Phase-4 research task.
 
-## Questions To Answer
+The rewrite no longer needs to decide whether a Go PTY layer is viable. That
+decision is already represented by the `internal/terminals` runtime and the
+Phase 4 follow-up docs that built on it.
 
-- Is `aymanbagabas/go-pty` good enough across macOS, Linux, and Windows?
-- What are the real constraints around resize, reconnect, cancellation, and termination?
-- Which current terminal behaviors are worth preserving, and which should be simplified?
-- What internal service boundary keeps PTY details isolated from websocket/session logic?
+## Status
 
-## Scope
+Current repo status as of 2026-03-08:
 
-This spike should cover:
+- `github.com/aymanbagabas/go-pty` is pinned in `go.mod`
+- `internal/terminals/service.go` owns PTY-backed terminal session lifecycle
+- `internal/wsapi/routes.go` and `internal/httpapi/terminal_routes.go` keep the
+  websocket and HTTP layers thin above that service
+- the focused Phase 4 terminal/runtime migration docs are complete
 
-- shell launch
-- streamed output
-- input writes
-- resize handling
-- termination
-- reconnect or reattach behavior
-- basic session history retention strategy
+## Recommendation
 
-## Out Of Scope
+Use `github.com/aymanbagabas/go-pty` behind a custom `internal/terminals`
+service boundary.
 
-- full frontend xterm integration
-- launcher/runtime-control integration
-- production-grade terminal UX polish
-- shell-specific customization
+Keep PTY details isolated from transport and product policy:
 
-## Candidate Default
+- PTY creation, process lifecycle, resize, history, and attachment stay in
+  `internal/terminals`
+- websocket attach/detach and HTTP command routes stay outside the PTY owner
+- deployment/share input rules stay explicit product policy, not PTY behavior
 
-- `github.com/aymanbagabas/go-pty`
-- `golang.org/x/term`
+## Outcome
 
-## Prototype Requirements
+### Behaviors to keep
 
-### Core Session
+The current Go runtime proves that these behaviors are worth keeping:
 
-- create a PTY-backed shell
-- send input
-- read output
-- terminate cleanly
+- PTY-backed shell/process launch
+- streamed output fan-out to active attachments
+- attach, detach, and reattach with buffered history replay
+- explicit resize handling with service-owned stored dimensions
+- clean termination and per-session deletion
+- share-session-scoped terminal filtering
+- explicit input gating for deployment/share restrictions
 
-### Session Management
+### Behaviors intentionally simplified
 
-- attach one client
-- detach
-- reattach
-- verify output history behavior is acceptable
+The rewrite does not need to preserve the Python terminal-manager shape.
 
-### Cross-Platform Checks
+The current Go direction intentionally keeps:
 
-- macOS
-- Linux
-- Windows
+- transport ownership out of the PTY service
+- session IDs and scope boundaries explicit
+- server-owned command execution separate from raw user-input allowance
+- reusable-terminal behavior bounded to explicit service APIs rather than
+  implicit websocket lifetime coupling
 
-Windows does not need perfect polish in the spike, but it does need a credible viability signal.
+### Cross-platform note
 
-## Evaluation Criteria
+macOS and Linux viability are proven by the core terminal service coverage.
 
-- cross-platform behavior
-- API ergonomics
-- control over lifecycle
-- resize behavior
-- termination reliability
-- reconnection friendliness
-- amount of OS-specific branching required
+Windows support is still handled through the chosen PTY library plus
+platform-specific helpers in `internal/terminals`, but Phase 4 did not treat
+Windows UX polish as a blocker before the Unix path was stable.
 
-## Deliverable
+## Exit Criteria Result
 
-At the end of the spike we should have:
+The original spike exit criteria are satisfied well enough to proceed:
 
-- a recommendation on PTY library choice
-- a list of terminal behaviors to keep
-- a list of terminal behaviors to intentionally simplify
-- a proposed `internal/terminals` service boundary
+- shell/process launch works
+- streamed output, input writes, resize, and termination are understood
+- attach/detach/reattach semantics are concrete in the service API
+- the PTY boundary is explicit in `internal/terminals`
 
-## Exit Criteria
+## Inputs
 
-- PTY sessions work on macOS and Linux
-- Windows viability is understood well enough to proceed or to call it a blocker
-- resize and termination behavior are understood
-- attach/detach semantics are concrete enough for Phase 4 planning
+- `docs/reference/setta-realtime-behavior.md`
+- `backend/setta/terminals/terminals.py`
+- `tests/terminals/test_terminal_connect_race.py`
+- `tests/terminals/test_terminal_resize_updates_winsize.py`
+- `internal/terminals/service.go`
+- `internal/terminals/service_test.go`
+- `docs/plans/go-backend-rewrite/phase-4-realtime-and-terminal-runtime.md`
 
-## Failure Conditions
+## Next Step
 
-- Windows behavior is too weak or too opaque
-- session lifecycle control is unreliable
-- the library leaks too much transport-specific behavior into terminal management
+Treat this spike as closed.
 
-## Follow-Up If Successful
-
-- lock the PTY choice in the master plan
-- define terminal session types and websocket attachment semantics for Phase 4
+Future terminal work should start from the completed Phase 4 docs or a new
+bounded runtime follow-up, not from reconsidering the PTY library choice.

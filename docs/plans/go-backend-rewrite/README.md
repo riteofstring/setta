@@ -398,11 +398,11 @@ Use the docs in this order:
     CLI gap: Go-owned manual-only `setta plugins restart`, closing the shipped
     plugin CLI migration
 130. `spike-mcp.md`
-   - MCP uncertainty-reduction plan
+   - completed MCP spike outcome and wrapper-boundary decision record
 131. `spike-pty.md`
-   - PTY uncertainty-reduction plan
+   - completed PTY spike outcome and terminal boundary decision record
 132. `spike-lsp.md`
-   - LSP uncertainty-reduction plan
+   - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:
 

@@ -2,104 +2,98 @@
 
 ## Purpose
 
-Reduce uncertainty around LSP client/session implementation before Phase 5 depends on it.
+This doc now records the outcome of the LSP spike rather than a pending
+uncertainty-reduction task.
 
-## Questions To Answer
+The rewrite no longer needs to decide whether Go can own the LSP session
+boundary. That decision is already represented by `internal/lsp`,
+`internal/lspcompletion`, and the focused Phase 5 follow-up docs.
 
-- Which framing and protocol packages help without taking over the architecture?
-- How much of the LSP session manager should we own directly?
-- What restart, timeout, and process-supervision rules are needed?
-- Which language servers do we need as the minimum viability set?
+## Status
 
-## Scope
+Current repo status as of 2026-03-08:
 
-This spike should cover:
+- `internal/lsp/session.go` owns stdio framing, request correlation, and
+  process lifecycle
+- `internal/lsp/current_process.go` owns current-process Python/basedpyright
+  session startup
+- `internal/lspcompletion` owns snapshot-backed completion builders
+- the Phase 5 focused docs now track follow-up work above the completed base
+  runtime instead of debating the core approach
 
-- launching one real language server
-- stdio framing
-- initialize handshake
-- open/change document flow
-- diagnostics reception
-- one completion request
+## Recommendation
 
-## Out Of Scope
+Keep the LSP manager custom and explicit.
 
-- multi-language production coverage
-- advanced LSP feature completeness
-- deep editor integration
-- final performance tuning
+The current Go boundary is the right shape:
 
-## Candidate Direction
+- own stdio framing and JSON-RPC/LSP message flow inside `internal/lsp`
+- keep process lifecycle, restart, timeout, and shutdown rules explicit
+- support Python via current-process basedpyright first
+- add later language servers above the same session boundary instead of letting
+  a helper library dictate the architecture
 
-- custom LSP manager
-- small helper packages only where they reduce friction
+## Outcome
 
-The spike should assume we own session lifecycle and process supervision ourselves.
+### Framing and types
 
-## Prototype Requirements
+No larger third-party framing package is required today.
 
-### Minimum End-To-End Flow
+The current implementation keeps:
 
-- start server process
+- request/response framing in `internal/lsp/session.go`
+- Setta-owned diagnostic, completion, and signature-help result types
+- timeout/error handling under Setta control instead of library callbacks
+
+### Lifecycle rules that are now concrete
+
+The base lifecycle is established in real code:
+
+- start process
 - initialize
-- open document
-- change document
-- receive diagnostics
-- request completion
+- optionally push configuration
+- open, update, and close documents
+- issue completion and signature-help requests
+- shutdown and exit with explicit timeouts
 
-### Failure Paths
+The current defaults are already codified:
 
-- server start failure
-- server crash or hang
-- restart path
-- timeout or cancellation path
+- request timeout: `5s`
+- shutdown timeout: `3s`
 
-### Type And Framing Boundary
+### Minimum viable server set
 
-- identify what package, if any, should provide:
-  - JSON-RPC framing
-  - LSP message types
-- avoid letting third-party package structure dictate our service design
+The early supported baseline is:
 
-## Evaluation Criteria
+- Python via basedpyright in the current Python environment
 
-- amount of custom logic still required
-- protocol package quality
-- framing package quality
-- process lifecycle control
-- restart friendliness
-- type ergonomics
-- maintenance risk
+The runtime is also structured so later plugin-provided language servers can
+plug in above the same owner boundary once explicitly scoped.
 
-## Deliverable
+## Exit Criteria Result
 
-At the end of the spike we should have:
-
-- a recommended framing/types approach
-- a proposed `internal/lsp` boundary
-- a minimum supported language-server list for early rewrite work
-- a written list of lifecycle rules:
-  - start
-  - initialize
-  - restart
-  - timeout
-  - shutdown
-
-## Exit Criteria
+The original spike exit criteria are satisfied in the current implementation:
 
 - one real language server works end-to-end
-- diagnostics and completion both function
-- failure handling is understood well enough for Phase 5 planning
-- we know which parts stay custom and which helper packages are acceptable
+- diagnostics and completion function through the Go session boundary
+- failure paths such as startup failure and request timeout are understood and
+  tested
+- the custom-vs-helper boundary is explicit and defensible
 
-## Failure Conditions
+## Inputs
 
-- no candidate helper approach reduces enough pain
-- lifecycle control remains unclear
-- language-server behavior varies so much that Phase 5 needs a narrower target
+- `docs/reference/lsp-diagnostics.md`
+- `backend/setta/lsp/managers.py`
+- `tests/lsp/test_lsp_managers.py`
+- `tests/lsp/test_fixture_language_server_integration.py`
+- `internal/lsp/session.go`
+- `internal/lsp/current_process.go`
+- `internal/lsp/session_test.go`
+- `docs/plans/go-backend-rewrite/phase-5-lsp-diagnostics-and-completion-runtime.md`
 
-## Follow-Up If Successful
+## Next Step
 
-- lock the LSP approach in the master plan
-- define the first supported language server for Phase 5
-- write a narrower implementation plan for diagnostics and completion flows
+Treat this spike as closed.
+
+Future LSP work should start from the focused Phase 5 follow-up docs or a new
+bounded runtime doc, not from reopening the base library-selection question.

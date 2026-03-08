@@ -12,6 +12,18 @@ The current backend is a large stateful runtime with:
 
 This rewrite is a clean break. We can reuse good ideas from the current backend, but we do not need backward compatibility, legacy route preservation, storage migrations, or Python-shaped internal structure.
 
+## Current Status
+
+As of 2026-03-08, the phase docs through Phase 11 describe a repo state where
+the tracked backend-runtime and shipped CLI migration slices are complete for
+the current rewrite scope.
+
+That means the practical next step is no longer "run the early spikes" or
+re-decide the initial library choices. The MCP, PTY, LSP, and file-state
+decisions are already locked in practice by the current Go implementation. New
+work should start from a concrete remaining gap or a fresh bounded plan doc,
+not by reopening completed foundation choices.
+
 ## Current Reality
 
 The backend seams that matter most for planning are:
@@ -83,14 +95,21 @@ The main planning implication is simple: this rewrite is mostly about rebuilding
 
 These are strong enough to plan around now.
 
-### Spike Before Locking
+### Locked In Practice
 
 - MCP SDK choice:
-  - likely `github.com/modelcontextprotocol/go-sdk`
+  - using `github.com/modelcontextprotocol/go-sdk` behind `internal/mcpx`
 - PTY layer:
-  - likely `github.com/aymanbagabas/go-pty`
+  - using `github.com/aymanbagabas/go-pty` behind `internal/terminals`
 - LSP stack:
-  - custom manager plus small JSON-RPC/LSP helper packages only where needed
+  - using a custom `internal/lsp` manager with explicit stdio framing and
+    lifecycle control
+
+These no longer need pre-implementation spikes in the current repo state. See
+`spike-mcp.md`, `spike-pty.md`, and `spike-lsp.md` for the recorded outcomes.
+
+### Still Defer Until Needed
+
 - Cookie codec:
   - likely `github.com/gorilla/securecookie`
 - LLM provider SDK boundaries:
@@ -98,7 +117,7 @@ These are strong enough to plan around now.
 - Embedded DB fallback:
   - defer unless a real indexing or transaction need emerges
 
-These need short implementation spikes, not just library reading.
+These should be decided only when a concrete bounded slice needs them.
 
 ### Definitely Custom
 
@@ -415,70 +434,62 @@ Acceptance criteria:
 - share/app isolation semantics are explicitly specified and implemented
 - launcher concerns are either implemented cleanly or explicitly split from the main rewrite
 
-## Required Spikes
+## Early Spike Records
 
-These should be short, code-first spikes with a written result, not open-ended research.
+These were the original uncertainty-reduction areas. They are no longer pending
+prerequisites in the current repo state.
 
 ### MCP Spike
 
-Questions:
+Status:
 
-- Does the Go SDK support the exact transport modes we need?
-- How cleanly can we express tool schemas and metadata?
-- How much custom glue is required for namespacing, scope checks, and auth?
+- complete
 
-Exit criteria:
+Outcome:
 
-- one tool server
-- one external MCP client connection
-- one authenticated end-to-end tool call
+- use `github.com/modelcontextprotocol/go-sdk` behind a tight wrapper in
+  `internal/mcpx`
+- keep auth, namespacing, metadata, scope enforcement, and temporary-id
+  translation custom
+- use authenticated SSE for the Setta-owned server transport; keep the internal
+  client capable of `sse`, `streamable_http`, and `stdio`
 
 ### PTY Spike
 
-Questions:
+Status:
 
-- How well does the candidate library behave on macOS, Linux, and Windows?
-- How do resize, raw mode, cancellation, and reconnect work?
-- Which current terminal behaviors are worth preserving, and which should be simplified in the new runtime?
+- complete
 
-Exit criteria:
+Outcome:
 
-- shell launch
-- streamed output
-- resize
-- termination
-- reconnect/attach behavior
+- use `github.com/aymanbagabas/go-pty` behind `internal/terminals`
+- keep attach/detach/history, resize, termination, scope filtering, and input
+  policy custom
+- keep websocket and HTTP transport layers thin above the PTY owner
 
 ### LSP Spike
 
-Questions:
+Status:
 
-- Which framing/types package gives the least pain?
-- How much of the session logic do we need to own?
-- What restart/timeout rules are required?
+- complete
 
-Exit criteria:
+Outcome:
 
-- launch one real language server
-- initialize
-- open/change document
-- receive diagnostics
-- request completion
+- keep a custom `internal/lsp` session/runtime owner
+- keep stdio framing and lifecycle control explicit
+- support Python via current-process basedpyright first
 
 ### File-State Spike
 
-Questions:
+Status:
 
-- What exact atomic-write and locking strategy works on all supported OSes?
-- What versioning rules does the new on-disk state need?
-- What corruption-recovery rules are acceptable?
+- resolved through implementation
 
-Exit criteria:
+Outcome:
 
-- atomic replace path
-- lock discipline
-- version stamp
-- crash-recovery behavior documented
+- `internal/statefs` plus the Phase 3 project-state/store work now own atomic
+  writes, path policy, schema versioning, and temp-dir persistence coverage
+- this is no longer a pending precondition before other rewrite work
 
 ## Reference And Test Strategy
 
@@ -556,11 +567,16 @@ Do not weaken this rule during the rewrite.
 
 ## Immediate Next Actions
 
-1. Write a capability inventory from `Route`, websocket message types, and MCP tool registration.
-2. Define the first black-box reference suite.
-3. Run the MCP, PTY, and LSP spikes before locking those libraries.
-4. Draft the Go package skeleton and service wiring.
-5. Decide whether CLI/launcher code is in scope for wave 1 or deferred.
+1. Keep the roadmap and phase docs synchronized with the current shipped code so
+   closed phases do not look active again.
+2. Treat MCP, PTY, LSP, and file-state choices as locked unless a concrete new
+   requirement breaks them.
+3. Start any future rewrite work from a fresh bounded phase/spike doc tied to a
+   confirmed gap, not by reopening closed phases.
+4. Prefer stabilization and reference-suite expansion where completed runtime
+   owners still have thin regression protection.
+5. Limit future Python follow-up to explicitly chosen packaging, installer, or
+   release-surface work rather than rediscovering backend-runtime scope.
 
 ## Planning Conclusion
 
@@ -569,6 +585,6 @@ This rewrite is viable, but only if we treat it as a clean-break stateful-runtim
 The safest path is:
 
 - lock the boring infrastructure choices now
-- spike the uncertain subsystems quickly
+- keep uncertain subsystems bounded and explicit when new ones appear
 - rebuild project state and realtime early
-- defer plugins, MCP richness, and cross-platform process edge cases until the core runtime is stable
+- defer scope growth until it is selected deliberately and documented
