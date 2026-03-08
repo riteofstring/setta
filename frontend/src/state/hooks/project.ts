@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { loadProjectConfig } from "state/actions/project/loadProject";
 import { useProjectLoading, useProjectState } from "state/definitions";
@@ -12,7 +12,13 @@ export function useLoadProjectConfig() {
   const pageLoadType = state?.pageLoadType;
   const [doneLoading, setDoneLoading] = useState(false);
   const is404 = useProjectLoading((x) => x.projectIs404);
+  const isProjectLoading = useProjectLoading((x) => x.projectIsLoading);
   const isHotReload = useHotReload();
+  const loadKey = `${projectConfigName ?? ""}:${pageLoadType ?? ""}`;
+  const loadKeyRef = useRef(loadKey);
+  const isStaleLoadKey = loadKeyRef.current !== loadKey;
+  const resolvedDoneLoading = isStaleLoadKey ? false : doneLoading;
+  const resolvedIs404 = isStaleLoadKey ? false : is404;
 
   async function loadFn() {
     resetProjectStores();
@@ -36,18 +42,53 @@ export function useLoadProjectConfig() {
   }
 
   useEffect(() => {
-    if (isHotReload || useProjectLoading.getState().projectIsLoading) {
+    loadKeyRef.current = loadKey;
+    if (isHotReload || isProjectLoading) {
+      return;
+    }
+
+    const currentProjectConfigName =
+      useProjectState.getState().projectConfig.name;
+    const projectConfigMatchesRoute =
+      Boolean(projectConfigName) &&
+      currentProjectConfigName === projectConfigName;
+
+    if (pageLoadType === PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME) {
+      changeFn();
+      if (!doneLoading) {
+        setDoneLoading(true);
+      }
+      return;
+    }
+
+    if (
+      projectConfigMatchesRoute &&
+      pageLoadType !== PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG
+    ) {
+      if (!doneLoading) {
+        setDoneLoading(true);
+      }
       return;
     }
 
     useProjectLoading.setState({ projectIsLoading: true });
 
-    if (!doneLoading || pageLoadType === PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG) {
-      loadFn();
-    } else if (pageLoadType === PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME) {
-      changeFn();
-    }
-  }, [pageLoadType, projectConfigName]);
+    const shouldReloadProjectConfig =
+      pageLoadType === PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG ||
+      !doneLoading ||
+      currentProjectConfigName !== projectConfigName;
 
-  return [doneLoading, is404];
+    if (shouldReloadProjectConfig) {
+      loadFn();
+    }
+  }, [
+    doneLoading,
+    isHotReload,
+    isProjectLoading,
+    loadKey,
+    pageLoadType,
+    projectConfigName,
+  ]);
+
+  return [resolvedDoneLoading, resolvedIs404] as const;
 }

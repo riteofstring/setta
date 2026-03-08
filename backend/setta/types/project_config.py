@@ -10,6 +10,7 @@ from setta.types.agentic_edges import AgenticEdge
 from setta.types.code_obj_impls import CodeObjType
 from setta.types.edges import Edge
 from setta.types.id import ID
+from setta.types.project_chat_windowing import validate_window_space_window_owner
 from setta.types.section_impls import SectionType
 from setta.utils.generate_memorable_string import generate_memorable_string
 
@@ -61,6 +62,57 @@ class ViewModeConfig(BaseModel, extra="forbid"):
     viewport: Viewport | None = Field(default_factory=Viewport)
     viewportInitialized: bool = False
     topLevelSections: dict[ID, TopLevelSectionLayout] = Field(default_factory=dict)
+
+
+class WindowSpaceSurfaceKind(str, Enum):
+    project_chat = "project_chat"
+    section = "section"
+
+
+class WindowSpaceWindowMode(str, Enum):
+    project_ai_mode = "project_ai_mode"
+    section_mode = "section_mode"
+    git_graph_mode = "git_graph_mode"
+
+
+class NormalizedFloatingWindowBounds(BaseModel, extra="forbid"):
+    x: float = Field(default=0.0, ge=0.0, le=1.0)
+    y: float = Field(default=0.0, ge=0.0, le=1.0)
+    width: float = Field(default=1.0, gt=0.0, le=1.0)
+    height: float = Field(default=1.0, gt=0.0, le=1.0)
+
+
+class WindowSpaceWindow(BaseModel, extra="forbid"):
+    surfaceKind: WindowSpaceSurfaceKind = WindowSpaceSurfaceKind.project_chat
+    sectionIdOrNull: ID | None = None
+    mode: WindowSpaceWindowMode = WindowSpaceWindowMode.project_ai_mode
+    title: str | None = None
+    chatId: ID | None = None
+    embeddedGitPaneVisible: bool = False
+    zIndex: int = 0
+    normalizedBounds: NormalizedFloatingWindowBounds = Field(
+        default_factory=NormalizedFloatingWindowBounds
+    )
+
+    @model_validator(mode="after")
+    def _validate_owner(self):
+        validate_window_space_window_owner(
+            surface_kind=self.surfaceKind,
+            mode=self.mode,
+            section_id=self.sectionIdOrNull,
+        )
+        return self
+
+
+class WindowSpaceState(BaseModel, extra="forbid"):
+    windowsById: dict[ID, WindowSpaceWindow] = Field(default_factory=dict)
+    order: list[ID] = Field(default_factory=list)
+
+
+class WindowSpaceConfig(WindowSpaceState, extra="forbid"):
+    id: ID = Field(default_factory=create_new_id)
+    name: str = Field(default_factory=generate_memorable_string)
+    sortIndex: int = 0
 
 
 class ProjectCodegenLanguage(str, Enum):
@@ -458,6 +510,7 @@ class ProjectConfig(BaseModel, extra="forbid"):
     viewport: Viewport | None = Field(default_factory=Viewport)
     viewportInitialized: bool = False
     viewModes: dict[ID, ViewModeConfig] = Field(default_factory=dict)
+    windowSpaces: dict[ID, WindowSpaceConfig] = Field(default_factory=dict)
     activeViewModeId: ID | None = None
     isEditingViewMode: bool = False
     codegenTargets: list[ProjectCodegenTarget] = Field(

@@ -6,7 +6,13 @@ from setta.types.helpers_lvl3 import (
     build_project_state_summary,
     filter_project_state_summary,
 )
-from setta.types.project_config import Position, ProjectConfig
+from setta.types.project_config import (
+    Position,
+    ProjectConfig,
+    WindowSpaceConfig,
+    WindowSpaceSurfaceKind,
+    WindowSpaceWindow,
+)
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import SectionType
 
@@ -91,3 +97,51 @@ def test_filter_project_state_summary_filters_required_decoded_images() -> None:
         allowed_section_ids={allowed_draw_section_id},
     )
     assert set(filtered.requiredDecodedImages) == {allowed_path}
+
+
+def test_filter_project_state_summary_trims_window_spaces_to_allowed_sections() -> None:
+    settings = SettingsState()
+    project_state = ProjectStateSingleConfig(
+        projectConfig=ProjectConfig(name="summary-filter-window-spaces-test")
+    )
+    allowed_section_id = create_top_level_section(
+        settings,
+        project_state,
+        SectionType.TextBlock,
+        Position(),
+    )
+    blocked_section_id = create_top_level_section(
+        settings,
+        project_state,
+        SectionType.Dict,
+        Position(),
+    )
+    project_state.projectConfig.windowSpaces = {
+        "space-1": WindowSpaceConfig(
+            id="space-1",
+            name="Scoped Layout",
+            sortIndex=0,
+            windowsById={
+                "allowed-window": WindowSpaceWindow(
+                    surfaceKind=WindowSpaceSurfaceKind.section,
+                    sectionIdOrNull=allowed_section_id,
+                ),
+                "blocked-window": WindowSpaceWindow(
+                    surfaceKind=WindowSpaceSurfaceKind.section,
+                    sectionIdOrNull=blocked_section_id,
+                ),
+            },
+            order=["blocked-window", "allowed-window"],
+        )
+    }
+
+    summary = build_project_state_summary(project_state)
+    filtered = filter_project_state_summary(
+        summary,
+        allowed_section_ids={allowed_section_id},
+    )
+
+    assert set(filtered.projectConfig.windowSpaces.keys()) == {"space-1"}
+    filtered_space = filtered.projectConfig.windowSpaces["space-1"]
+    assert set(filtered_space.windowsById.keys()) == {"allowed-window"}
+    assert filtered_space.order == ["allowed-window"]
