@@ -160,12 +160,16 @@ class TestProjectConfigViewModes:
             )
 
             stale_section_id = "stale-section-id"
-            project_config = manager.project_state_backend.projectConfigs[project_config_id]
+            project_config = manager.project_state_backend.projectConfigs[
+                project_config_id
+            ]
             project_config.topLevelSections[stale_section_id] = TopLevelSectionLayout()
             active_view_mode_id = project_config.activeViewModeId
             assert active_view_mode_id is not None
             active_view_mode = project_config.viewModes[active_view_mode_id]
-            active_view_mode.topLevelSections[stale_section_id] = TopLevelSectionLayout()
+            active_view_mode.topLevelSections[stale_section_id] = (
+                TopLevelSectionLayout()
+            )
             active_view_mode.visibilityBySectionId[stale_section_id] = True
 
             create_response = await manager.create_top_level_section(
@@ -186,6 +190,62 @@ class TestProjectConfigViewModes:
             for view_mode in updated_state.projectConfig.viewModes.values():
                 assert stale_section_id not in view_mode.topLevelSections
                 assert stale_section_id not in view_mode.visibilityBySectionId
+
+    async def test_create_top_level_section_applies_initial_name_in_one_mutation(
+        self,
+    ) -> None:
+        async with real_project_manager() as fixture:
+            manager = fixture.manager
+            project_config_id = next(
+                iter(manager.project_state_backend.projectConfigs.keys())
+            )
+
+            create_response = await manager.create_top_level_section(
+                CreateTopLevelSectionRequest(
+                    projectConfigId=project_config_id,
+                    implType=SectionType.Chat,
+                    controlCodeObjType=None,
+                    implOverrides=None,
+                    position=None,
+                    name="Planning Chat",
+                    topLevelSections=None,
+                    viewportBounds=None,
+                )
+            )
+
+            updated_state = manager.get_single_config_state(project_config_id)
+            assert (
+                updated_state.sections[create_response.sectionId].name
+                == "Planning Chat"
+            )
+
+    async def test_create_top_level_section_does_not_persist_partial_state_when_name_is_invalid(
+        self,
+    ) -> None:
+        async with real_project_manager() as fixture:
+            manager = fixture.manager
+            project_config_id = next(
+                iter(manager.project_state_backend.projectConfigs.keys())
+            )
+            before_state = manager.get_single_config_state(project_config_id)
+            before_section_ids = set(before_state.sections.keys())
+
+            with pytest.raises(ValueError):
+                await manager.create_top_level_section(
+                    CreateTopLevelSectionRequest(
+                        projectConfigId=project_config_id,
+                        implType=SectionType.Chat,
+                        controlCodeObjType=None,
+                        implOverrides=None,
+                        position=None,
+                        name="   ",
+                        topLevelSections=None,
+                        viewportBounds=None,
+                    )
+                )
+
+            after_state = manager.get_single_config_state(project_config_id)
+            assert set(after_state.sections.keys()) == before_section_ids
 
     async def test_switching_view_modes_swaps_layout_and_viewport(self) -> None:
         async with real_project_manager() as fixture:
@@ -378,7 +438,9 @@ class TestProjectConfigViewModes:
             recovered_layout.x += 240
             recovered_layout.y += 120
 
-            project_config = manager.project_state_backend.projectConfigs[project_config_id]
+            project_config = manager.project_state_backend.projectConfigs[
+                project_config_id
+            ]
             active_view_mode_id = project_config.activeViewModeId
             assert active_view_mode_id is not None
             active_view_mode = project_config.viewModes[active_view_mode_id]
@@ -460,16 +522,16 @@ class TestProjectConfigViewModes:
                     )
                 )
 
-    async def test_set_section_variant_sort_order_raises_for_missing_section(self) -> None:
+    async def test_set_section_variant_sort_order_raises_for_missing_section(
+        self,
+    ) -> None:
         async with real_project_manager() as fixture:
             manager = fixture.manager
             project_config_id = next(
                 iter(manager.project_state_backend.projectConfigs.keys())
             )
 
-            with pytest.raises(
-                KeyError, match="Section missing-section-id not found"
-            ):
+            with pytest.raises(KeyError, match="Section missing-section-id not found"):
                 await manager.set_section_variant_sort_order(
                     SetSectionVariantSortOrderRequest(
                         projectConfigId=project_config_id,
@@ -528,6 +590,5 @@ class TestProjectConfigViewModes:
                 == 0
             )
             assert (
-                updated_state.projectConfig.viewModes[first_view_mode_id].sortIndex
-                == 1
+                updated_state.projectConfig.viewModes[first_view_mode_id].sortIndex == 1
             )
