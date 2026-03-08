@@ -5580,6 +5580,112 @@ export function createDeleteSelectedParamsRequestInput(options: Partial<DeleteSe
 }
 
 
+
+export type CreateEdgeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sourceSectionId: string;
+  sourceVariantId: string;
+  sourcePortId: string;
+  targetSectionId: string;
+  targetVariantId: string;
+  targetPortId: string;
+  type?: string;
+  label?: string | null;
+  style?: Record<string, unknown> | null;
+  animated?: boolean;
+  hidden?: boolean;
+  zIndex?: number;
+  data?: Record<string, unknown> | null;
+};
+
+
+
+
+export type UpdateEdgeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edge: Edge;
+};
+
+
+
+
+export type DeleteEdgesRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edgeIds: Array<string>;
+};
+
+
+
+
+export type ReconnectEdgeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edgeId: string;
+  sourceSectionId: string;
+  sourceVariantId: string;
+  sourcePortId: string;
+  targetSectionId: string;
+  targetVariantId: string;
+  targetPortId: string;
+};
+
+
+
+
+export type SetEdgesRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edges: Array<Edge>;
+};
+
+
+
+
+export type CreateAgenticEdgeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  id?: string | null;
+  sourceSectionId: string;
+  targetSectionId: string;
+  kind: AgenticEdgeKind;
+  contextMode?: AgenticEdgeContextMode | null;
+  style?: Record<string, unknown> | null;
+  hidden?: boolean;
+  zIndex?: number;
+};
+
+
+
+
+export type UpdateAgenticEdgeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edge: AgenticEdge;
+};
+
+
+
+
+export type DeleteAgenticEdgesRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edgeIds: Array<string>;
+};
+
+
+
+
+export type SetAgenticEdgesRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edges: Array<AgenticEdge>;
+};
+
+
+
 export type MoveParamsRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;

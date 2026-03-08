@@ -10,15 +10,19 @@ import {
   route_binary_upload,
   route_check_if_file_exists,
   route_check_workspace_initialized,
+  route_create_agentic_edge,
   route_create_child_sections,
   route_create_child_sections_via_incrementer,
+  route_create_edge,
   route_create_file,
   route_create_new_section_variant,
   route_create_project_config,
   route_create_top_level_section,
   route_create_view_mode,
+  route_delete_agentic_edges,
   route_delete_artifacts,
   route_delete_child_sections_via_decrementer,
+  route_delete_edges,
   route_delete_kwarg,
   route_delete_sections,
   route_delete_selected_params,
@@ -67,10 +71,12 @@ import {
   route_plugins_install,
   route_plugins_restart,
   route_plugins_runtime,
+  route_reconnect_edge,
   route_restart_language_server,
   route_run_code,
   route_set_active_ids,
   route_set_active_view_mode,
+  route_set_agentic_edges,
   route_set_app_definition,
   route_set_browser_area_view_mode,
   route_set_browser_column_widths,
@@ -79,16 +85,17 @@ import {
   route_set_chart_area_data_path,
   route_set_chart_settings,
   route_set_chart_type,
-  route_set_image_area_image_path,
   route_set_chat_section_state,
   route_set_code_file_binding,
   route_set_code_obj_display_name,
   route_set_code_obj_name,
   route_set_code_section_attached_terminal,
   route_set_default_section_variant,
+  route_set_edges,
   route_set_gen_code_prefix,
   route_set_gen_code_suffix,
   route_set_group_overflow_mode,
+  route_set_image_area_image_path,
   route_set_list_root_view_mode,
   route_set_llm_api_keys,
   route_set_meta_control_show_section_title,
@@ -103,16 +110,16 @@ import {
   route_set_section_variant,
   route_set_section_variant_name,
   route_set_section_variant_sort_order,
+  route_set_social_url,
+  route_set_spreadsheet_file_path,
+  route_set_spreadsheet_section_settings,
+  route_set_task_board_section_state,
   route_set_text_block_display_mode,
   route_set_text_block_format,
   route_set_text_block_heading_as_section_name,
   route_set_text_block_master_font_size,
   route_set_text_block_meta_control_style,
   route_set_text_block_text,
-  route_set_social_url,
-  route_set_spreadsheet_file_path,
-  route_set_spreadsheet_section_settings,
-  route_set_task_board_section_state,
   route_set_top_level_section_layout,
   route_set_type_error_ignore,
   route_set_variant_json_source_keys,
@@ -132,7 +139,9 @@ import {
   route_ungroup_groups,
   route_unindent_params,
   route_unselect_all_params,
+  route_update_agentic_edge,
   route_update_artifacts,
+  route_update_edge,
   route_update_param_impl_config,
   route_upsert_app_gen_custom_skill,
   route_validate_app_definition,
@@ -1156,6 +1165,299 @@ describe("generatedEndpoints project shell and layout", () => {
     });
   });
 
+  it("posts create-edge writes with the canonical request shape", async () => {
+    await route_create_edge({
+      projectConfigId: "project-alpha",
+      sourceSectionId: "source-section",
+      sourceVariantId: "source-variant",
+      sourcePortId: "result",
+      targetSectionId: "target-section",
+      targetVariantId: "target-variant",
+      targetPortId: "input",
+      type: "default",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/createEdge`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sourceSectionId: "source-section",
+        sourceVariantId: "source-variant",
+        sourcePortId: "result",
+        targetSectionId: "target-section",
+        targetVariantId: "target-variant",
+        targetPortId: "input",
+        type: "default",
+      }),
+    });
+  });
+
+  it("posts update-edge writes with the canonical request shape", async () => {
+    await route_update_edge({
+      projectConfigId: "project-alpha",
+      edge: {
+        id: "edge-1",
+        sourceSectionId: "source-section",
+        sourceVariantId: "source-variant",
+        sourcePortId: "result",
+        targetSectionId: "target-section",
+        targetVariantId: "target-variant",
+        targetPortId: "input",
+        type: "default",
+        selected: true,
+      },
+      frontendOpId: "frontend-op-edge-update",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/updateEdge`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        edge: {
+          id: "edge-1",
+          sourceSectionId: "source-section",
+          sourceVariantId: "source-variant",
+          sourcePortId: "result",
+          targetSectionId: "target-section",
+          targetVariantId: "target-variant",
+          targetPortId: "input",
+          type: "default",
+          selected: true,
+        },
+        frontendOpId: "frontend-op-edge-update",
+      }),
+    });
+  });
+
+  it("posts delete-edges writes with the canonical request shape", async () => {
+    await route_delete_edges({
+      projectConfigId: "project-alpha",
+      edgeIds: ["edge-1", "edge-2"],
+      frontendOpId: "frontend-op-edge-delete",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/deleteEdges`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        edgeIds: ["edge-1", "edge-2"],
+        frontendOpId: "frontend-op-edge-delete",
+      }),
+    });
+  });
+
+  it("posts reconnect-edge writes with the canonical request shape", async () => {
+    await route_reconnect_edge({
+      projectConfigId: "project-alpha",
+      edgeId: "edge-1",
+      sourceSectionId: "source-section",
+      sourceVariantId: "source-variant",
+      sourcePortId: "summary",
+      targetSectionId: "target-section",
+      targetVariantId: "target-variant",
+      targetPortId: "input",
+      frontendOpId: "frontend-op-edge-reconnect",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/reconnectEdge`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        edgeId: "edge-1",
+        sourceSectionId: "source-section",
+        sourceVariantId: "source-variant",
+        sourcePortId: "summary",
+        targetSectionId: "target-section",
+        targetVariantId: "target-variant",
+        targetPortId: "input",
+        frontendOpId: "frontend-op-edge-reconnect",
+      }),
+    });
+  });
+
+  it("posts set-edges writes with the canonical request shape", async () => {
+    await route_set_edges({
+      projectConfigId: "project-alpha",
+      edges: [
+        {
+          id: "edge-1",
+          sourceSectionId: "source-section",
+          sourceVariantId: "source-variant",
+          sourcePortId: "result",
+          targetSectionId: "target-section",
+          targetVariantId: "target-variant",
+          targetPortId: "input",
+          type: "default",
+          hidden: true,
+        },
+      ],
+      frontendOpId: "frontend-op-edge-set",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setEdges`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        edges: [
+          {
+            id: "edge-1",
+            sourceSectionId: "source-section",
+            sourceVariantId: "source-variant",
+            sourcePortId: "result",
+            targetSectionId: "target-section",
+            targetVariantId: "target-variant",
+            targetPortId: "input",
+            type: "default",
+            hidden: true,
+          },
+        ],
+        frontendOpId: "frontend-op-edge-set",
+      }),
+    });
+  });
+
+  it("posts create-agentic-edge writes with the canonical request shape", async () => {
+    await route_create_agentic_edge({
+      projectConfigId: "project-alpha",
+      id: "agentic-edge-1",
+      sourceSectionId: "chat-a",
+      targetSectionId: "chat-b",
+      kind: "chat_chat",
+      contextMode: "reference_only",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/createAgenticEdge`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        id: "agentic-edge-1",
+        sourceSectionId: "chat-a",
+        targetSectionId: "chat-b",
+        kind: "chat_chat",
+        contextMode: "reference_only",
+      }),
+    });
+  });
+
+  it("posts update-agentic-edge writes with the canonical request shape", async () => {
+    await route_update_agentic_edge({
+      projectConfigId: "project-alpha",
+      edge: {
+        id: "agentic-edge-1",
+        sourceSectionId: "chat-a",
+        targetSectionId: "chat-b",
+        kind: "chat_chat",
+        contextMode: "inline_text",
+        selected: true,
+      },
+      frontendOpId: "frontend-op-agentic-update",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/updateAgenticEdge`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        edge: {
+          id: "agentic-edge-1",
+          sourceSectionId: "chat-a",
+          targetSectionId: "chat-b",
+          kind: "chat_chat",
+          contextMode: "inline_text",
+          selected: true,
+        },
+        frontendOpId: "frontend-op-agentic-update",
+      }),
+    });
+  });
+
+  it("posts delete-agentic-edges writes with the canonical request shape", async () => {
+    await route_delete_agentic_edges({
+      projectConfigId: "project-alpha",
+      edgeIds: ["agentic-edge-1"],
+      frontendOpId: "frontend-op-agentic-delete",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/deleteAgenticEdges`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        edgeIds: ["agentic-edge-1"],
+        frontendOpId: "frontend-op-agentic-delete",
+      }),
+    });
+  });
+
+  it("posts set-agentic-edges writes with the canonical request shape", async () => {
+    await route_set_agentic_edges({
+      projectConfigId: "project-alpha",
+      edges: [
+        {
+          id: "agentic-edge-1",
+          sourceSectionId: "chat-a",
+          targetSectionId: "chat-b",
+          kind: "chat_chat",
+          contextMode: "reference_only",
+          hidden: true,
+        },
+      ],
+      frontendOpId: "frontend-op-agentic-set",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setAgenticEdges`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        edges: [
+          {
+            id: "agentic-edge-1",
+            sourceSectionId: "chat-a",
+            targetSectionId: "chat-b",
+            kind: "chat_chat",
+            contextMode: "reference_only",
+            hidden: true,
+          },
+        ],
+        frontendOpId: "frontend-op-agentic-set",
+      }),
+    });
+  });
+
   it("posts parent default-child writes with the canonical request shape", async () => {
     await route_set_parent_default_child_section_type({
       projectConfigId: "project-alpha",
@@ -1307,9 +1609,7 @@ describe("generatedEndpoints project shell and layout", () => {
       projectConfigId: "project-alpha",
       sectionId: "task-board-section",
       viewMode: "task_list",
-      columns: [
-        { id: "todo", name: "Todo", color: "#3b82f6", sortIndex: 0 },
-      ],
+      columns: [{ id: "todo", name: "Todo", color: "#3b82f6", sortIndex: 0 }],
       tasks: [
         {
           id: "task-1",
@@ -1338,9 +1638,7 @@ describe("generatedEndpoints project shell and layout", () => {
         projectConfigId: "project-alpha",
         sectionId: "task-board-section",
         viewMode: "task_list",
-        columns: [
-          { id: "todo", name: "Todo", color: "#3b82f6", sortIndex: 0 },
-        ],
+        columns: [{ id: "todo", name: "Todo", color: "#3b82f6", sortIndex: 0 }],
         tasks: [
           {
             id: "task-1",

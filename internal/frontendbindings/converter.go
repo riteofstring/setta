@@ -374,6 +374,51 @@ func newTypeConverter() *typeConverter {
 				Kind: "raw",
 				Raw:  deleteChildSectionsViaDecrementerRequestInputRawTS,
 			},
+			reflect.TypeOf(CreateEdgeRequestInput{}): {
+				Name: "CreateEdgeRequestInput",
+				Kind: "raw",
+				Raw:  createEdgeRequestInputRawTS,
+			},
+			reflect.TypeOf(UpdateEdgeRequestInput{}): {
+				Name: "UpdateEdgeRequestInput",
+				Kind: "raw",
+				Raw:  updateEdgeRequestInputRawTS,
+			},
+			reflect.TypeOf(DeleteEdgesRequestInput{}): {
+				Name: "DeleteEdgesRequestInput",
+				Kind: "raw",
+				Raw:  deleteEdgesRequestInputRawTS,
+			},
+			reflect.TypeOf(ReconnectEdgeRequestInput{}): {
+				Name: "ReconnectEdgeRequestInput",
+				Kind: "raw",
+				Raw:  reconnectEdgeRequestInputRawTS,
+			},
+			reflect.TypeOf(SetEdgesRequestInput{}): {
+				Name: "SetEdgesRequestInput",
+				Kind: "raw",
+				Raw:  setEdgesRequestInputRawTS,
+			},
+			reflect.TypeOf(CreateAgenticEdgeRequestInput{}): {
+				Name: "CreateAgenticEdgeRequestInput",
+				Kind: "raw",
+				Raw:  createAgenticEdgeRequestInputRawTS,
+			},
+			reflect.TypeOf(UpdateAgenticEdgeRequestInput{}): {
+				Name: "UpdateAgenticEdgeRequestInput",
+				Kind: "raw",
+				Raw:  updateAgenticEdgeRequestInputRawTS,
+			},
+			reflect.TypeOf(DeleteAgenticEdgesRequestInput{}): {
+				Name: "DeleteAgenticEdgesRequestInput",
+				Kind: "raw",
+				Raw:  deleteAgenticEdgesRequestInputRawTS,
+			},
+			reflect.TypeOf(SetAgenticEdgesRequestInput{}): {
+				Name: "SetAgenticEdgesRequestInput",
+				Kind: "raw",
+				Raw:  setAgenticEdgesRequestInputRawTS,
+			},
 			reflect.TypeOf(SetSectionParamFilterRequestInput{}): {
 				Name: "SetSectionParamFilterRequestInput",
 				Kind: "raw",

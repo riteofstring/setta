@@ -1428,6 +1428,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				ProjectState:                   projectRuntime,
 				SettingsState:                  settingsStateRuntime,
 				ChatSectionChatIDs:             chatSectionChatIDs,
+				EdgeExpressionBuilder:          projectstate.EdgeExpressionBuilderFunc(codegen.BuildPythonEdgeExpression),
 				CodegenTargetValidator:         codegenValidator,
 				PythonCodegenSectionReconciler: pythonMaterializer,
 				CallableSignatures:             lspSignature,

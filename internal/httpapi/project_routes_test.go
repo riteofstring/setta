@@ -4205,6 +4205,370 @@ func TestRegisterProjectRoutesSectionEdgeMutationsRejectInvalidInputs(t *testing
 	}
 }
 
+func TestRegisterProjectRoutesGraphEdgeMutationsPersistLatestState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": graphEdgeRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	post := func(route string, body any) *httptest.ResponseRecorder {
+		t.Helper()
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+route,
+			strings.NewReader(mustMarshalProjectRouteRequest(t, body)),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	createResponse := post(RouteCreateEdge, map[string]any{
+		"projectConfigId": "project-alpha",
+		"sourceSectionId": "source-section",
+		"sourceVariantId": "source-variant",
+		"sourcePortId":    "result",
+		"targetSectionId": "target-a",
+		"targetVariantId": "target-a-variant",
+		"targetPortId":    "input-a",
+		"type":            "default",
+	})
+	if createResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 create-edge response, got %d with body %q", createResponse.Code, createResponse.Body.String())
+	}
+
+	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	if len(project.Edges) != 1 {
+		t.Fatalf("expected one created edge, got %#v", project.Edges)
+	}
+	createdEdge := project.Edges[0]
+	if createdEdge.ID == "" {
+		t.Fatal("expected createEdge to generate an id")
+	}
+	targetAPayload, _, _, _, err := project.ResolveSectionCodeObject("target-a", "input-a")
+	if err != nil {
+		t.Fatalf("ResolveSectionCodeObject target-a/input-a after create: %v", err)
+	}
+	if got := targetAPayload["value"]; got != "state.Source_Call.result" {
+		t.Fatalf("expected created edge expression state.Source_Call.result, got %#v", got)
+	}
+
+	label := "Primary"
+	createdEdge.Label = &label
+	createdEdge.Selected = true
+	updateResponse := post(RouteUpdateEdge, UpdateEdgeRequest{
+		ProjectID: "project-alpha",
+		Edge:      createdEdge,
+	})
+	if updateResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 update-edge response, got %d with body %q", updateResponse.Code, updateResponse.Body.String())
+	}
+
+	project = projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	if len(project.Edges) != 1 {
+		t.Fatalf("expected one updated edge, got %#v", project.Edges)
+	}
+	updatedEdge := project.Edges[0]
+	if updatedEdge.Label == nil || *updatedEdge.Label != "Primary" || !updatedEdge.Selected {
+		t.Fatalf("expected updated edge label/selection to persist, got %#v", updatedEdge)
+	}
+
+	reconnectResponse := post(RouteReconnectEdge, ReconnectEdgeRequest{
+		ProjectID:       "project-alpha",
+		EdgeID:          updatedEdge.ID,
+		SourceSectionID: "source-section",
+		SourceVariantID: "source-variant",
+		SourcePortID:    "summary",
+		TargetSectionID: "target-b",
+		TargetVariantID: "target-b-variant",
+		TargetPortID:    "input-b",
+	})
+	if reconnectResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 reconnect-edge response, got %d with body %q", reconnectResponse.Code, reconnectResponse.Body.String())
+	}
+
+	project = projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	reconnectedEdge := project.Edges[0]
+	if reconnectedEdge.TargetSectionID != "target-b" || reconnectedEdge.TargetPortID != "input-b" || reconnectedEdge.SourcePortID != "summary" {
+		t.Fatalf("expected reconnect to update endpoints, got %#v", reconnectedEdge)
+	}
+	targetAPayload, _, _, _, err = project.ResolveSectionCodeObject("target-a", "input-a")
+	if err != nil {
+		t.Fatalf("ResolveSectionCodeObject target-a/input-a after reconnect: %v", err)
+	}
+	if got := targetAPayload["value"]; got != "" {
+		t.Fatalf("expected reconnect to clear previous target, got %#v", got)
+	}
+	targetBPayload, _, _, _, err := project.ResolveSectionCodeObject("target-b", "input-b")
+	if err != nil {
+		t.Fatalf("ResolveSectionCodeObject target-b/input-b after reconnect: %v", err)
+	}
+	if got := targetBPayload["value"]; got != "state.Source_Call" {
+		t.Fatalf("expected reconnect to write state.Source_Call, got %#v", got)
+	}
+
+	reconnectedEdge.Hidden = true
+	reconnectedEdge.Selected = false
+	setResponse := post(RouteSetEdges, SetEdgesRequest{
+		ProjectID: "project-alpha",
+		Edges:     []projectstate.Edge{reconnectedEdge},
+	})
+	if setResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 set-edges response, got %d with body %q", setResponse.Code, setResponse.Body.String())
+	}
+
+	project = projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	if len(project.Edges) != 1 || !project.Edges[0].Hidden || project.Edges[0].Selected {
+		t.Fatalf("expected setEdges to persist hidden/selected flags, got %#v", project.Edges)
+	}
+
+	deleteResponse := post(RouteDeleteEdges, DeleteEdgesRequest{
+		ProjectID: "project-alpha",
+		EdgeIDs:   []string{reconnectedEdge.ID},
+	})
+	if deleteResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 delete-edges response, got %d with body %q", deleteResponse.Code, deleteResponse.Body.String())
+	}
+
+	project = projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	if len(project.Edges) != 0 {
+		t.Fatalf("expected deleteEdges to remove the edge, got %#v", project.Edges)
+	}
+	targetBPayload, _, _, _, err = project.ResolveSectionCodeObject("target-b", "input-b")
+	if err != nil {
+		t.Fatalf("ResolveSectionCodeObject target-b/input-b after delete: %v", err)
+	}
+	if got := targetBPayload["value"]; got != "" {
+		t.Fatalf("expected deleteEdges to clear target-b value, got %#v", got)
+	}
+
+	createAgenticResponse := post(RouteCreateAgenticEdge, map[string]any{
+		"projectConfigId": "project-alpha",
+		"sourceSectionId": "chat-source",
+		"targetSectionId": "chat-target",
+		"kind":            "chat_chat",
+	})
+	if createAgenticResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 create-agentic-edge response, got %d with body %q", createAgenticResponse.Code, createAgenticResponse.Body.String())
+	}
+
+	project = projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	if len(project.AgenticEdges) != 1 {
+		t.Fatalf("expected one created agentic edge, got %#v", project.AgenticEdges)
+	}
+	createdAgenticEdge := project.AgenticEdges[0]
+	if createdAgenticEdge.ID == "" || createdAgenticEdge.ContextMode != "reference_only" {
+		t.Fatalf("expected createAgenticEdge to normalize id/contextMode, got %#v", createdAgenticEdge)
+	}
+
+	createdAgenticEdge.ContextMode = "inline_text"
+	createdAgenticEdge.Selected = true
+	updateAgenticResponse := post(RouteUpdateAgenticEdge, UpdateAgenticEdgeRequest{
+		ProjectID: "project-alpha",
+		Edge:      createdAgenticEdge,
+	})
+	if updateAgenticResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 update-agentic-edge response, got %d with body %q", updateAgenticResponse.Code, updateAgenticResponse.Body.String())
+	}
+
+	project = projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	updatedAgenticEdge := project.AgenticEdges[0]
+	if updatedAgenticEdge.ContextMode != "inline_text" || !updatedAgenticEdge.Selected {
+		t.Fatalf("expected updateAgenticEdge to persist contextMode/selection, got %#v", updatedAgenticEdge)
+	}
+
+	updatedAgenticEdge.Hidden = true
+	setAgenticResponse := post(RouteSetAgenticEdges, SetAgenticEdgesRequest{
+		ProjectID: "project-alpha",
+		Edges:     []projectstate.AgenticEdge{updatedAgenticEdge},
+	})
+	if setAgenticResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 set-agentic-edges response, got %d with body %q", setAgenticResponse.Code, setAgenticResponse.Body.String())
+	}
+
+	project = projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	if len(project.AgenticEdges) != 1 || !project.AgenticEdges[0].Hidden {
+		t.Fatalf("expected setAgenticEdges to persist hidden flag, got %#v", project.AgenticEdges)
+	}
+
+	deleteAgenticResponse := post(RouteDeleteAgenticEdges, DeleteAgenticEdgesRequest{
+		ProjectID: "project-alpha",
+		EdgeIDs:   []string{updatedAgenticEdge.ID},
+	})
+	if deleteAgenticResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 delete-agentic-edges response, got %d with body %q", deleteAgenticResponse.Code, deleteAgenticResponse.Body.String())
+	}
+
+	project = projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	if len(project.AgenticEdges) != 0 {
+		t.Fatalf("expected deleteAgenticEdges to remove the edge, got %#v", project.AgenticEdges)
+	}
+}
+
+func TestRegisterProjectRoutesGraphEdgeMutationsRejectInvalidInputs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": graphEdgeRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	noPythonProject := graphEdgeRouteTestProject(t)
+	noPythonProject.CodegenTargets = nil
+	noPythonRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": noPythonProject,
+		},
+	})
+	if err != nil {
+		t.Fatalf("open no-python overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := noPythonRuntime.Close(); err != nil {
+			t.Fatalf("close no-python runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	noPythonHandler := newProjectRouteTestHandler(t, config.ModeIDE, noPythonRuntime, t.TempDir(), nil, nil, nil)
+
+	for _, requestSpec := range []struct {
+		name         string
+		handler      http.Handler
+		route        string
+		body         any
+		expectedCode int
+		expectedBody string
+	}{
+		{
+			name:    "create edge missing python target",
+			handler: noPythonHandler,
+			route:   RouteCreateEdge,
+			body: map[string]any{
+				"projectConfigId": "project-alpha",
+				"sourceSectionId": "source-section",
+				"sourceVariantId": "source-variant",
+				"sourcePortId":    "result",
+				"targetSectionId": "target-a",
+				"targetVariantId": "target-a-variant",
+				"targetPortId":    "input-a",
+				"type":            "default",
+			},
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"project_codegen_python_target_missing"`,
+		},
+		{
+			name:    "create edge invalid target port",
+			handler: handler,
+			route:   RouteCreateEdge,
+			body: map[string]any{
+				"projectConfigId": "project-alpha",
+				"sourceSectionId": "source-section",
+				"sourceVariantId": "source-variant",
+				"sourcePortId":    "result",
+				"targetSectionId": "target-a",
+				"targetVariantId": "target-a-variant",
+				"targetPortId":    "missing-port",
+				"type":            "default",
+			},
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"edge_endpoint_invalid"`,
+		},
+		{
+			name:    "reconnect edge missing edge",
+			handler: handler,
+			route:   RouteReconnectEdge,
+			body: ReconnectEdgeRequest{
+				ProjectID:       "project-alpha",
+				EdgeID:          "missing-edge",
+				SourceSectionID: "source-section",
+				SourceVariantID: "source-variant",
+				SourcePortID:    "result",
+				TargetSectionID: "target-a",
+				TargetVariantID: "target-a-variant",
+				TargetPortID:    "input-a",
+			},
+			expectedCode: http.StatusNotFound,
+			expectedBody: `"code":"edge_not_found"`,
+		},
+		{
+			name:    "agentic edge invalid source type",
+			handler: handler,
+			route:   RouteCreateAgenticEdge,
+			body: map[string]any{
+				"projectConfigId": "project-alpha",
+				"sourceSectionId": "plain-section",
+				"targetSectionId": "chat-target",
+				"kind":            "chat_section",
+			},
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"agentic_edge_invalid"`,
+		},
+		{
+			name:    "set agentic edges invalid context mode",
+			handler: handler,
+			route:   RouteSetAgenticEdges,
+			body: SetAgenticEdgesRequest{
+				ProjectID: "project-alpha",
+				Edges: []projectstate.AgenticEdge{
+					{
+						ID:              "edge-invalid-context",
+						SourceSectionID: "chat-source",
+						TargetSectionID: "chat-target",
+						Kind:            "chat_chat",
+						ContextMode:     "bad-mode",
+					},
+				},
+			},
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"agentic_edge_context_mode_invalid"`,
+		},
+	} {
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+requestSpec.route,
+			strings.NewReader(mustMarshalProjectRouteRequest(t, requestSpec.body)),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		requestSpec.handler.ServeHTTP(response, request)
+		if response.Code != requestSpec.expectedCode {
+			t.Fatalf("%s: expected %d for %s, got %d with body %q", requestSpec.name, requestSpec.expectedCode, requestSpec.route, response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), requestSpec.expectedBody) {
+			t.Fatalf("%s: expected response body to contain %s, got %q", requestSpec.name, requestSpec.expectedBody, response.Body.String())
+		}
+	}
+}
+
 func TestSectionSizeValueRequestUnmarshalJSONSupportsAutoAndNumbers(t *testing.T) {
 	t.Parallel()
 
@@ -5392,6 +5756,7 @@ func newProjectRouteTestHandlerWithRenameService(
 				ProjectState:                   projectRuntime,
 				SettingsState:                  settingsRuntime,
 				ChatSectionChatIDs:             chatSectionChatIDs,
+				EdgeExpressionBuilder:          projectstate.EdgeExpressionBuilderFunc(codegen.BuildPythonEdgeExpression),
 				CodegenTargetValidator:         validator,
 				PythonCodegenSectionReconciler: pythonReconciler,
 				CallableSignatures:             callableResolver,
@@ -7169,6 +7534,15 @@ func mustProjectRouteRawJSON(t *testing.T, value map[string]any) projectstate.Ra
 	return projectstate.RawJSON(encoded)
 }
 
+func mustMarshalProjectRouteRequest(t *testing.T, value any) string {
+	t.Helper()
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("marshal project route request: %v", err)
+	}
+	return string(encoded)
+}
+
 func passwordParamRouteTestProject(t *testing.T) projectstate.Project {
 	t.Helper()
 
@@ -7277,6 +7651,218 @@ func genCodePrefixSuffixRouteTestProject(t *testing.T) projectstate.Project {
 			{
 				Language: string(projectstate.CodeLanguagePython),
 				Payload:  projectstate.RawJSON(`{"language":"python","generateMetadata":true}`),
+			},
+		},
+	})
+}
+
+func graphEdgeRouteTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	return mustNormalizedProjectRouteProject(t, projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		CodegenTargets: []projectstate.ProjectCodegenTarget{
+			{
+				Language: string(projectstate.CodeLanguagePython),
+				Payload:  projectstate.RawJSON(`{"language":"python"}`),
+			},
+		},
+		TopLevelSectionIDs: []string{
+			"source-section",
+			"target-a",
+			"target-b",
+			"chat-source",
+			"chat-target",
+			"plain-section",
+		},
+		TopLevelSections: map[string]projectstate.TopLevelSectionLayout{
+			"source-section": {X: 10, Y: 10},
+			"target-a":       {X: 20, Y: 20},
+			"target-b":       {X: 30, Y: 30},
+			"chat-source":    {X: 40, Y: 40},
+			"chat-target":    {X: 50, Y: 50},
+			"plain-section":  {X: 60, Y: 60},
+		},
+		SectionVariantMap: map[string]string{
+			"source-section": "source-variant",
+			"target-a":       "target-a-variant",
+			"target-b":       "target-b-variant",
+			"chat-source":    "chat-source-variant",
+			"chat-target":    "chat-target-variant",
+			"plain-section":  "plain-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"source-section": {
+				ID:               "source-section",
+				Name:             "Source Call",
+				VariantIDs:       []string{"source-variant"},
+				DefaultVariantID: "source-variant",
+			},
+			"target-a": {
+				ID:               "target-a",
+				Name:             "Target A",
+				VariantIDs:       []string{"target-a-variant"},
+				DefaultVariantID: "target-a-variant",
+			},
+			"target-b": {
+				ID:               "target-b",
+				Name:             "Target B",
+				VariantIDs:       []string{"target-b-variant"},
+				DefaultVariantID: "target-b-variant",
+			},
+			"chat-source": {
+				ID:               "chat-source",
+				Name:             "Chat Source",
+				VariantIDs:       []string{"chat-source-variant"},
+				DefaultVariantID: "chat-source-variant",
+			},
+			"chat-target": {
+				ID:               "chat-target",
+				Name:             "Chat Target",
+				VariantIDs:       []string{"chat-target-variant"},
+				DefaultVariantID: "chat-target-variant",
+			},
+			"plain-section": {
+				ID:               "plain-section",
+				Name:             "Plain",
+				VariantIDs:       []string{"plain-variant"},
+				DefaultVariantID: "plain-variant",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"source-variant":      {ID: "source-variant", ImplID: "source-impl"},
+			"target-a-variant":    {ID: "target-a-variant", ImplID: "target-a-impl"},
+			"target-b-variant":    {ID: "target-b-variant", ImplID: "target-b-impl"},
+			"chat-source-variant": {ID: "chat-source-variant", ImplID: "chat-source-impl"},
+			"chat-target-variant": {ID: "chat-target-variant", ImplID: "chat-target-impl"},
+			"plain-variant":       {ID: "plain-variant", ImplID: "plain-impl"},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"source-impl": {
+				ID:   "source-impl",
+				Kind: projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{
+					"id":       "source-impl",
+					"type":     "Callable",
+					"callable": "source-callable",
+					"codeObjVariantMap": map[string]string{
+						"source-callable": "source-callable-variant",
+					},
+					"edgeOutputPorts": []map[string]any{
+						{"id": "result", "accessor": ".result"},
+						{"id": "summary", "accessor": ""},
+					},
+				}),
+			},
+			"target-a-impl": {
+				ID:   "target-a-impl",
+				Kind: projectstate.SectionKind("dict"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{
+					"id":              "target-a-impl",
+					"type":            "Dict",
+					"topLevelParamId": "target-a-root",
+					"codeObjVariantMap": map[string]string{
+						"target-a-root": "target-a-root-variant",
+						"input-a":       "input-a-variant",
+					},
+					"edgeInputParams": []string{"input-a"},
+				}),
+			},
+			"target-b-impl": {
+				ID:   "target-b-impl",
+				Kind: projectstate.SectionKind("dict"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{
+					"id":              "target-b-impl",
+					"type":            "Dict",
+					"topLevelParamId": "target-b-root",
+					"codeObjVariantMap": map[string]string{
+						"target-b-root": "target-b-root-variant",
+						"input-b":       "input-b-variant",
+					},
+					"edgeInputParams": []string{"input-b"},
+				}),
+			},
+			"chat-source-impl": {
+				ID:      "chat-source-impl",
+				Kind:    projectstate.SectionKind("chat"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "chat-source-impl", "type": "Chat"}),
+			},
+			"chat-target-impl": {
+				ID:      "chat-target-impl",
+				Kind:    projectstate.SectionKind("chat"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "chat-target-impl", "type": "Chat"}),
+			},
+			"plain-impl": {
+				ID:      "plain-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "plain-impl", "type": "TextBlock"}),
+			},
+		},
+		CodeObjs: map[string]projectstate.CodeObject{
+			"source-callable": {
+				ID:               "source-callable",
+				Name:             "source_callable",
+				VariantIDs:       []string{"source-callable-variant"},
+				DefaultVariantID: "source-callable-variant",
+			},
+			"target-a-root": {
+				ID:               "target-a-root",
+				Name:             "target_a_root",
+				VariantIDs:       []string{"target-a-root-variant"},
+				DefaultVariantID: "target-a-root-variant",
+			},
+			"input-a": {
+				ID:               "input-a",
+				Name:             "input_a",
+				VariantIDs:       []string{"input-a-variant"},
+				DefaultVariantID: "input-a-variant",
+			},
+			"target-b-root": {
+				ID:               "target-b-root",
+				Name:             "target_b_root",
+				VariantIDs:       []string{"target-b-root-variant"},
+				DefaultVariantID: "target-b-root-variant",
+			},
+			"input-b": {
+				ID:               "input-b",
+				Name:             "input_b",
+				VariantIDs:       []string{"input-b-variant"},
+				DefaultVariantID: "input-b-variant",
+			},
+		},
+		CodeObjVariants: map[string]projectstate.CodeObjectVariant{
+			"source-callable-variant": {ID: "source-callable-variant", ImplID: "source-callable-impl"},
+			"target-a-root-variant":   {ID: "target-a-root-variant", ImplID: "target-a-root-impl"},
+			"input-a-variant":         {ID: "input-a-variant", ImplID: "input-a-impl"},
+			"target-b-root-variant":   {ID: "target-b-root-variant", ImplID: "target-b-root-impl"},
+			"input-b-variant":         {ID: "input-b-variant", ImplID: "input-b-impl"},
+		},
+		CodeObjImpls: map[string]projectstate.CodeObjectImpl{
+			"source-callable-impl": {
+				ID:      "source-callable-impl",
+				Type:    "CodeCallable",
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "source-callable-impl", "type": "CodeCallable", "children": []string{}}),
+			},
+			"target-a-root-impl": {
+				ID:      "target-a-root-impl",
+				Type:    "NestedParam",
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "target-a-root-impl", "type": "NestedParam", "children": []string{"input-a"}}),
+			},
+			"input-a-impl": {
+				ID:      "input-a-impl",
+				Type:    "CodeParam",
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "input-a-impl", "type": "CodeParam", "value": "seed-a"}),
+			},
+			"target-b-root-impl": {
+				ID:      "target-b-root-impl",
+				Type:    "NestedParam",
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "target-b-root-impl", "type": "NestedParam", "children": []string{"input-b"}}),
+			},
+			"input-b-impl": {
+				ID:      "input-b-impl",
+				Type:    "CodeParam",
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "input-b-impl", "type": "CodeParam", "value": "seed-b"}),
 			},
 		},
 	})

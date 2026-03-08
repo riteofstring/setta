@@ -188,6 +188,16 @@ Current landed wedge:
       - `UngroupGroupsRequestInput`
       - `ToggleParamSelectedRequestInput`
       - `UnselectAllParamsRequestInput`
+    - current graph-edge mutation payloads
+      - `CreateEdgeRequestInput`
+      - `UpdateEdgeRequestInput`
+      - `DeleteEdgesRequestInput`
+      - `ReconnectEdgeRequestInput`
+      - `SetEdgesRequestInput`
+      - `CreateAgenticEdgeRequestInput`
+      - `UpdateAgenticEdgeRequestInput`
+      - `DeleteAgenticEdgesRequestInput`
+      - `SetAgenticEdgesRequestInput`
     - current section-variant mutation payloads
       - `CreateNewSectionVariantRequestInput`
       - `CreateNewSectionVariantResponse`
@@ -789,6 +799,10 @@ Current landed wedge:
     supporting Go runtime now treats `GlobalVariables` as the same dict-like
     caller-backed surface already used by the current param-selection and
     edge-input mutation slices
+  - `state/actions/edges` and `state/actions/agenticEdges` now consume
+    canonical Go-generated create/update/delete/reconnect/set edge bindings
+    for both data edges and agentic edges, and the Go runtime now owns the
+    current Python dependency-graph-backed data-edge expression builder path
   - `KwargsControls` and `EdgePortsSettings` now consume canonical
     Go-generated `setSectionEdgeInputs` and `setSectionEdgeOutputs` bindings
     for the current edge-input/output mutation slice, including the

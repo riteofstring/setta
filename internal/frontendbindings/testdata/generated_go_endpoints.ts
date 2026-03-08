@@ -102,6 +102,51 @@ export async function route_delete_selected_params(x: gt.DeleteSelectedParamsReq
   return await post(GoHTTPRoutes.deleteSelectedParams, x);
 
 }
+export async function route_create_edge(x: gt.CreateEdgeRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.createEdge, x);
+
+}
+export async function route_update_edge(x: gt.UpdateEdgeRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.updateEdge, x);
+
+}
+export async function route_delete_edges(x: gt.DeleteEdgesRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.deleteEdges, x);
+
+}
+export async function route_reconnect_edge(x: gt.ReconnectEdgeRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.reconnectEdge, x);
+
+}
+export async function route_set_edges(x: gt.SetEdgesRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setEdges, x);
+
+}
+export async function route_create_agentic_edge(x: gt.CreateAgenticEdgeRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.createAgenticEdge, x);
+
+}
+export async function route_update_agentic_edge(x: gt.UpdateAgenticEdgeRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.updateAgenticEdge, x);
+
+}
+export async function route_delete_agentic_edges(x: gt.DeleteAgenticEdgesRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.deleteAgenticEdges, x);
+
+}
+export async function route_set_agentic_edges(x: gt.SetAgenticEdgesRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setAgenticEdges, x);
+
+}
 export async function route_move_params(x: gt.MoveParamsRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.moveParams, x);

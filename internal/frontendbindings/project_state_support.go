@@ -108,6 +108,24 @@ type DeleteSelectedParamsRequestInput struct {
 	ParamInfoIDs    []string `json:"paramInfoIds"`
 }
 
+type CreateEdgeRequestInput struct{}
+
+type UpdateEdgeRequestInput struct{}
+
+type DeleteEdgesRequestInput struct{}
+
+type ReconnectEdgeRequestInput struct{}
+
+type SetEdgesRequestInput struct{}
+
+type CreateAgenticEdgeRequestInput struct{}
+
+type UpdateAgenticEdgeRequestInput struct{}
+
+type DeleteAgenticEdgesRequestInput struct{}
+
+type SetAgenticEdgesRequestInput struct{}
+
 type MoveParamGroup struct {
 	ParamIDs    []string `json:"paramIds"`
 	NewParentID string   `json:"newParentId"`
@@ -431,6 +449,103 @@ export type DeleteChildSectionsViaDecrementerRequestInput = {
   projectConfigId: string;
   calledBy: string;
   numChildren: number;
+};
+`
+
+const createEdgeRequestInputRawTS = `
+export type CreateEdgeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sourceSectionId: string;
+  sourceVariantId: string;
+  sourcePortId: string;
+  targetSectionId: string;
+  targetVariantId: string;
+  targetPortId: string;
+  type?: string;
+  label?: string | null;
+  style?: Record<string, unknown> | null;
+  animated?: boolean;
+  hidden?: boolean;
+  zIndex?: number;
+  data?: Record<string, unknown> | null;
+};
+`
+
+const updateEdgeRequestInputRawTS = `
+export type UpdateEdgeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edge: Edge;
+};
+`
+
+const deleteEdgesRequestInputRawTS = `
+export type DeleteEdgesRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edgeIds: Array<string>;
+};
+`
+
+const reconnectEdgeRequestInputRawTS = `
+export type ReconnectEdgeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edgeId: string;
+  sourceSectionId: string;
+  sourceVariantId: string;
+  sourcePortId: string;
+  targetSectionId: string;
+  targetVariantId: string;
+  targetPortId: string;
+};
+`
+
+const setEdgesRequestInputRawTS = `
+export type SetEdgesRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edges: Array<Edge>;
+};
+`
+
+const createAgenticEdgeRequestInputRawTS = `
+export type CreateAgenticEdgeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  id?: string | null;
+  sourceSectionId: string;
+  targetSectionId: string;
+  kind: AgenticEdgeKind;
+  contextMode?: AgenticEdgeContextMode | null;
+  style?: Record<string, unknown> | null;
+  hidden?: boolean;
+  zIndex?: number;
+};
+`
+
+const updateAgenticEdgeRequestInputRawTS = `
+export type UpdateAgenticEdgeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edge: AgenticEdge;
+};
+`
+
+const deleteAgenticEdgesRequestInputRawTS = `
+export type DeleteAgenticEdgesRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edgeIds: Array<string>;
+};
+`
+
+const setAgenticEdgesRequestInputRawTS = `
+export type SetAgenticEdgesRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edges: Array<AgenticEdge>;
 };
 `
 
