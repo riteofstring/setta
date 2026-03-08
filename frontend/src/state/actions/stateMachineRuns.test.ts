@@ -135,6 +135,56 @@ describe("stateMachineRuns", () => {
     expect(latestRun?.id).toBe("latest-machine-run");
   });
 
+  it("treats a reset-cleared latest workflow run as idle", () => {
+    const latestRun = getLatestStateMachineRun(
+      [
+        createAgentRun({
+          id: "completed-machine-run",
+          status: AgentRunStatusEnum.completed,
+          startedAt: "2024-01-01T00:00:10Z",
+          finishedAt: "2024-01-01T00:00:20Z",
+          inputs: {
+            runType: "state_machine",
+            projectConfigId: "project-1",
+            machineGroupId: "workflow-main",
+          },
+          events: [
+            {
+              timestamp: "2024-01-01T00:00:20Z",
+              type: "run_completed",
+              payload: {},
+            },
+          ],
+        }),
+        createAgentRun({
+          id: "reset-machine-run",
+          status: AgentRunStatusEnum.cancelled,
+          startedAt: "2024-01-01T00:00:30Z",
+          finishedAt: "2024-01-01T00:00:31Z",
+          inputs: {
+            runType: "state_machine",
+            projectConfigId: "project-1",
+            machineGroupId: "workflow-main",
+          },
+          outputs: {
+            machineStateCleared: true,
+          },
+          events: [
+            {
+              timestamp: "2024-01-01T00:00:31Z",
+              type: "run_reset",
+              payload: {},
+            },
+          ],
+        }),
+      ],
+      "project-1",
+      "workflow-main",
+    );
+
+    expect(latestRun).toBeNull();
+  });
+
   it("uses fast polling while workflows are active or recovering from load errors", () => {
     expect(
       resolveStateMachineRunPollIntervalMs({

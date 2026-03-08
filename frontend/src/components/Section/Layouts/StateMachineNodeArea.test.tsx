@@ -278,6 +278,59 @@ describe("StateMachineNodeArea", () => {
     );
   });
 
+  it("returns start nodes to idle after a workflow reset clears the latest run", () => {
+    seedWorkflowSection({
+      sectionId: "section-start-reset",
+      variantId: "variant-start-reset",
+      impl: {
+        id: "impl-start-reset",
+        type: SectionTypeEnum.StateMachineStart,
+        name: "Reset Start Node",
+        size: createSectionSize({ width: 260, height: 120 }),
+        machineGroupId: "workflow-main",
+        label: "Kickoff",
+        ...COMMON_MACHINE_IMPL_FIELDS,
+      },
+    });
+    useAIStore.setState({
+      agentRuns: [
+        createAgentRun({
+          id: "machine-run-reset",
+          status: AgentRunStatusEnum.cancelled,
+          startedAt: "2024-01-01T00:00:00Z",
+          finishedAt: "2024-01-01T00:00:03Z",
+          inputs: {
+            runType: "state_machine",
+            projectConfigId: "project-1",
+            machineGroupId: "workflow-main",
+          },
+          outputs: {
+            machineStateCleared: true,
+            machineStateClearedAt: "2024-01-01T00:00:03Z",
+          },
+          events: [
+            {
+              id: "event-reset-1",
+              timestamp: "2024-01-01T00:00:03Z",
+              type: "run_reset",
+              payload: {},
+            },
+          ],
+        }),
+      ],
+    });
+    syncStoreInitialState(useAIStore);
+
+    const markup = renderToStaticMarkup(
+      <StateMachineNodeArea sectionId="section-start-reset" />,
+    );
+
+    expect(markup).toContain("Idle");
+    expect(markup).not.toContain(
+      'data-testid="state-machine-activity-panel-section-start-reset"',
+    );
+  });
+
   it("renders a workflow failure summary ahead of generic failure activity", () => {
     seedWorkflowSection({
       sectionId: "section-start-failed",

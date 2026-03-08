@@ -71,18 +71,33 @@ function filterStateMachineRunsByMachineGroup(
     );
 }
 
+function isStateMachineRunCleared(run: AgentRun): boolean {
+  const outputs = run.outputs;
+  if (
+    outputs === null ||
+    typeof outputs !== "object" ||
+    Array.isArray(outputs)
+  ) {
+    return false;
+  }
+  return outputs.machineStateCleared === true;
+}
+
 export function getLatestStateMachineRun(
   runs: AgentRun[],
   projectConfigId: string,
   machineGroupId: string,
 ): AgentRun | null {
-  return (
+  const latestRun =
     filterStateMachineRunsByMachineGroup(
       runs,
       projectConfigId,
       machineGroupId,
-    )[0] ?? null
-  );
+    )[0] ?? null;
+  if (latestRun === null || isStateMachineRunCleared(latestRun)) {
+    return null;
+  }
+  return latestRun;
 }
 
 function hasRunningStateMachineRunsForProject(

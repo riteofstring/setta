@@ -542,10 +542,13 @@ test.describe.serial("state machine sections", () => {
       await expect(gateWorkflowStatus).toHaveText("Satisfied");
 
       await overviewResetButton.click();
-      await expect(overviewWorkflowStatus).toHaveText("Stopped");
-      await expect(startStatus).toHaveText("Stopped");
-      await expect(gateStatus).toHaveText("Stopped");
-      await expect(startActivityPanel).toContainText("Workflow stopped");
+      await expect(overviewWorkflowStatus).toHaveText("Idle");
+      await expect(startStatus).toHaveText("Idle");
+      await expect(gateStatus).toHaveText("Idle");
+      await expect(startActivityPanel).toHaveCount(0);
+      await expect(gateActivityPanel).toHaveCount(0);
+      await expect(overviewStopButton).toBeDisabled();
+      await expect(overviewResetButton).toBeDisabled();
     } finally {
       await engineCleanup();
       await cleanupIsolatedProject(page, projectContext);

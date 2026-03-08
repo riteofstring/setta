@@ -15,6 +15,7 @@ from setta.agentic.store import (
     save_agent_profiles,
     save_agent_run,
     save_engine_configs,
+    load_agent_run,
 )
 from setta.llm.agent_runner import AgentRunner
 from setta.mcp.client import MultiMCPClient
@@ -1006,18 +1007,31 @@ async def test_state_machine_run_routes_complete_structural_machine_and_restart(
                 ),
                 ctx,
             )
-            assert reset.alreadyStopped is True
-            assert reset.stoppedRunId is None
+            assert reset.alreadyStopped is False
+            assert reset.stoppedRunId == restarted.id
 
-            latest_reset = await route_get_state_machine_run(
-                GetStateMachineRunRequest(
-                    projectConfigId=project_config_id,
-                    machineGroupId="workflow-main",
-                ),
-                ctx,
-            )
-            assert latest_reset.id == restarted.id
-            assert latest_reset.status == AgentRunStatus.completed
+            with pytest.raises(HTTPException) as exc_info:
+                await route_get_state_machine_run(
+                    GetStateMachineRunRequest(
+                        projectConfigId=project_config_id,
+                        machineGroupId="workflow-main",
+                    ),
+                    ctx,
+                )
+            assert exc_info.value.status_code == 404
+            assert "not found" in str(exc_info.value.detail)
+
+        reset_run = load_agent_run(project_fixture.dbe, restarted.id)
+        assert reset_run is not None
+        assert reset_run.status == AgentRunStatus.completed
+        assert reset_run.outputs is not None
+        assert reset_run.outputs["machineStateCleared"] is True
+        assert isinstance(reset_run.outputs["machineStateClearedAt"], str)
+        assert reset_run.outputs["activatedEdgeIds"] == []
+        assert reset_run.outputs["firedGateSectionIds"] == []
+        assert reset_run.outputs["reachedEndSectionIds"] == []
+        assert reset_run.outputs["failureSummary"] is None
+        assert reset_run.events[-1].type == "run_reset"
 
 
 @pytest.mark.asyncio
@@ -2355,6 +2369,100 @@ async def test_state_machine_runner_stop_cancels_running_child_runs(
             "childRunIds": [str(child_runs[0].id)]
         }
         assert latest.events[-1].type == "run_cancelled"
+
+
+@pytest.mark.asyncio
+async def test_state_machine_runner_reset_clears_latest_running_machine_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        project_config_id = (
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        assert project_config_id is not None
+        await project_fixture.manager.finish_pending_operations()
+
+        engine_config_id = ID("engine-primary")
+        _seed_engine_config(project_fixture.dbe, engine_config_id)
+        start_section_id, _, _ = await _seed_state_machine_chat_graph(
+            project_fixture=project_fixture,
+            project_config_id=project_config_id,
+            engine_config_id=engine_config_id,
+            target_action=StateMachineTargetAction(
+                type=StateMachineTargetActionType.send_prompt,
+                inlinePrompt="Review this branch carefully.",
+                threadStrategy=StateMachineThreadStrategy.new_thread_before_send,
+            ),
+        )
+
+        state, _, agent_runner, _ = _build_runtime_state(
+            project_fixture,
+            settings_fixture,
+        )
+        child_runs: list[AgentRun] = []
+        stopped_child_run_ids: list[ID] = []
+
+        def _capture_start_run(profile, inputs, **_kwargs):
+            run = create_agent_run(profile_id=profile.id, inputs=inputs)
+            save_agent_run(project_fixture.dbe, run)
+            child_runs.append(run)
+            return run
+
+        async def _capture_stop_run(run_id: ID):
+            stopped_child_run_ids.append(run_id)
+            child_run = child_runs[0]
+            child_run.status = AgentRunStatus.cancelled
+            save_agent_run(project_fixture.dbe, child_run)
+            return child_run
+
+        monkeypatch.setattr(agent_runner, "start_run", _capture_start_run)
+        monkeypatch.setattr(agent_runner, "stop_run", _capture_stop_run)
+
+        with runtime_context(state) as ctx:
+            started = await route_start_state_machine_run(
+                StartStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                    startSectionId=start_section_id,
+                ),
+                ctx,
+            )
+            reset = await route_reset_state_machine(
+                ResetStateMachineRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                ),
+                ctx,
+            )
+            with pytest.raises(HTTPException) as exc_info:
+                await route_get_state_machine_run(
+                    GetStateMachineRunRequest(
+                        projectConfigId=project_config_id,
+                        machineGroupId="workflow-main",
+                    ),
+                    ctx,
+                )
+
+        assert exc_info.value.status_code == 404
+        assert child_runs
+        assert reset.alreadyStopped is False
+        assert reset.stoppedRunId == started.id
+        assert stopped_child_run_ids == [child_runs[0].id]
+
+        reset_run = load_agent_run(project_fixture.dbe, started.id)
+        assert reset_run is not None
+        assert reset_run.status == AgentRunStatus.cancelled
+        assert reset_run.outputs is not None
+        assert reset_run.outputs["machineStateCleared"] is True
+        assert isinstance(reset_run.outputs["machineStateClearedAt"], str)
+        assert reset_run.outputs["childRunIds"] == []
+        assert reset_run.outputs["activeChildRunIds"] == []
+        assert reset_run.events[-3].type == "child_runs_cancelled"
+        assert reset_run.events[-2].type == "run_cancelled"
+        assert reset_run.events[-1].type == "run_reset"
 
 
 @pytest.mark.asyncio

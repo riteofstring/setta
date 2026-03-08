@@ -566,7 +566,6 @@ async def route_reset_state_machine(
         stopped_run = await ctx.state.state_machine_runner.reset_machine(
             project_config_id=x.projectConfigId,
             machine_group_id=x.machineGroupId,
-            share_session_id=ctx.share_session_id,
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

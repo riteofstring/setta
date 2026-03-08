@@ -274,13 +274,39 @@ class StateMachineRunner:
         *,
         project_config_id: ID,
         machine_group_id: str,
-        share_session_id: str | None = None,
     ) -> AgentRun | None:
-        return await self.stop_run(
+        run = self._load_latest_run(
             project_config_id=project_config_id,
             machine_group_id=machine_group_id,
-            share_session_id=share_session_id,
         )
+        if run is None:
+            return None
+        if self._is_machine_run_cleared(run):
+            return None
+        if run.status == AgentRunStatus.running:
+            stopped_child_run_ids = await self._stop_running_child_runs(
+                run=run,
+                project_config_id=project_config_id,
+            )
+            if stopped_child_run_ids:
+                self._record_event(
+                    run,
+                    "child_runs_cancelled",
+                    {
+                        "childRunIds": stopped_child_run_ids,
+                    },
+                )
+            run.status = AgentRunStatus.cancelled
+            run.finishedAt = get_now_timestamp()
+            save_agent_run(self.dbe, run)
+            self._record_event(
+                run,
+                "run_cancelled",
+                {},
+            )
+        self._clear_machine_run_state(run)
+        self._record_event(run, "run_reset", {})
+        return run
 
     async def get_latest_run(
         self,
@@ -295,14 +321,19 @@ class StateMachineRunner:
         )
         if run is None:
             return None
+        if self._is_machine_run_cleared(run):
+            return None
         if run.status != AgentRunStatus.running:
             return run
-        return await self._refresh_run(
+        refreshed_run = await self._refresh_run(
             run=run,
             project_config_id=project_config_id,
             machine_group_id=machine_group_id,
             share_session_id=share_session_id,
         )
+        if self._is_machine_run_cleared(refreshed_run):
+            return None
+        return refreshed_run
 
     async def report_signal(
         self,
@@ -624,10 +655,35 @@ class StateMachineRunner:
             "reachedEndSectionIds": [],
             "activeChildRunIds": [],
             "failureSummary": None,
+            "machineStateCleared": False,
+            "machineStateClearedAt": None,
         }
         for key, value in defaults.items():
             if key not in run.outputs:
                 run.outputs[key] = value
+
+    def _clear_machine_run_state(self, run: AgentRun) -> None:
+        if run.outputs is None:
+            run.outputs = {}
+        run.outputs["stateMachineIteration"] = INITIAL_STATE_MACHINE_ITERATION
+        run.outputs["childRunIds"] = []
+        run.outputs["activatedEdgeIds"] = []
+        run.outputs["processedChildTerminalRunIds"] = []
+        run.outputs["signalEvents"] = []
+        run.outputs["processedSignalEventIds"] = []
+        run.outputs["dispatchedStartEdgeActions"] = []
+        run.outputs["dispatchedEdgeActions"] = []
+        run.outputs["gateInputEdgeIdsBySectionId"] = {}
+        run.outputs["gateStatusBySectionId"] = {}
+        run.outputs["firedGateSectionIds"] = []
+        run.outputs["blockedGateSectionIds"] = []
+        run.outputs["blockedGateDetailsBySectionId"] = {}
+        run.outputs["reachedEndSectionIds"] = []
+        run.outputs["activeChildRunIds"] = []
+        run.outputs["failureSummary"] = None
+        run.outputs["machineStateCleared"] = True
+        run.outputs["machineStateClearedAt"] = get_now_timestamp().isoformat()
+        save_agent_run(self.dbe, run)
 
     def _append_child_run_ids(
         self,
@@ -1422,6 +1478,11 @@ class StateMachineRunner:
         if not isinstance(raw_machine_group_id, str) or raw_machine_group_id == "":
             raise KeyError("State machine run machineGroupId is missing.")
         return raw_machine_group_id
+
+    def _is_machine_run_cleared(self, run: AgentRun) -> bool:
+        if not isinstance(run.outputs, dict):
+            return False
+        return run.outputs.get("machineStateCleared") is True
 
     def _get_section_display_label(
         self,
