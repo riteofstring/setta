@@ -21,6 +21,8 @@ from setta.agentic.agentic_context_payload_builder import (
 from setta.agentic.agentic_scope import (
     AgenticContext,
     AgenticScope,
+    normalize_linked_chat_invocation_chain_section_ids,
+    normalize_linked_chat_invocation_depth,
     resolve_agentic_scope,
 )
 from setta.agentic.agentic_summary_cache import (
@@ -892,6 +894,18 @@ class AgentRunner:
             frontend_affinity_token = parse_frontend_affinity_token(
                 inputs["frontendAffinityToken"]
             )
+        linked_chat_invocation_depth = 0
+        linked_chat_invocation_chain_section_ids: tuple[ID, ...] = ()
+        if inputs and "linkedChatInvocationDepth" in inputs:
+            linked_chat_invocation_depth = normalize_linked_chat_invocation_depth(
+                inputs["linkedChatInvocationDepth"]
+            )
+        if inputs and "linkedChatInvocationChainSectionIds" in inputs:
+            linked_chat_invocation_chain_section_ids = (
+                normalize_linked_chat_invocation_chain_section_ids(
+                    inputs["linkedChatInvocationChainSectionIds"]
+                )
+            )
         thinking = False
         if inputs and "thinking" in inputs:
             raw_thinking = inputs["thinking"]
@@ -944,6 +958,8 @@ class AgentRunner:
             section_id=section_id,
             frontend_affinity_token=frontend_affinity_token,
             allow_unscoped=allow_unscoped,
+            linked_chat_invocation_depth=linked_chat_invocation_depth,
+            linked_chat_invocation_chain_section_ids=linked_chat_invocation_chain_section_ids,
         )
         return AgentRunContext(
             run=run,
@@ -1746,6 +1762,7 @@ class AgentRunner:
             return tool_names
         has_structural = agentic_scope.structural_allowed
         has_read = bool(agentic_scope.effective_read_section_ids())
+        has_peer_chat = bool(agentic_scope.peer_chat_section_ids)
         has_write = bool(agentic_scope.write_section_ids)
         required_internal_tool_names = _required_internal_tool_names(
             completion_guard_enabled
@@ -1770,6 +1787,8 @@ class AgentRunner:
             if access_type == "structural" and not has_structural:
                 continue
             if access_type == "read" and not has_read:
+                continue
+            if access_type == "peer_chat" and not has_peer_chat:
                 continue
             if access_type == "write" and not has_write:
                 continue

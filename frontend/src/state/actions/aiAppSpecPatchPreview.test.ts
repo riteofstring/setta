@@ -86,7 +86,6 @@ describe("ai app spec patch preview streaming", () => {
   it("does not append tool call arguments on app spec patch preview deltas", () => {
     useAIStore.setState({
       activeChatId: "chat-1",
-      pendingChatDetails: null,
       chatDetails: {
         "chat-1": {
           ...getDefaultChatDetails(),
