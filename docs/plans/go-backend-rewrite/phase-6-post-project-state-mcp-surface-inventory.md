@@ -143,19 +143,20 @@ heuristics.
 - do not route missing MCP tools back through Python
 - keep transport thin and add explicit Go owners where the current runtime
   boundary is still implicit
+- treat the UI-setting Stage 1 registry foundation as complete and closed
 
 ## Recommended Next Step
 
-Execute the dedicated UI-setting plan in
+Execute Stage 2 of the dedicated UI-setting plan in
 `phase-6-ui-setting-registry-and-reveal-tools-parity.md`.
 
 This is now the highest-leverage next slice because:
 
-- four remaining Python MCP tools sit behind the same missing Go-owned
-  registry/search/value-schema/reveal subsystem
-- the bounded compare-and-set UI-setting owners already exist in Go, so the
-  next missing work is the broader registry/value/reveal runtime above those
-  foundations rather than another transport-only slice
+- four remaining Python MCP tools still sit behind the same missing Go-owned
+  search/get/set/reveal subsystem
+- the bounded compare-and-set and registry/value-schema UI-setting foundations
+  now exist in Go, so the highest-leverage gap is the thin MCP transport over
+  that runtime rather than more foundation work
 - it reduces the largest remaining non-plugin MCP gap before broader plugin
   management or patch-stream work
 
@@ -194,3 +195,6 @@ This is now the highest-leverage next slice because:
 - 2026-03-08: completed Go parity for `run_agent_profile`, reducing the
   remaining non-project-state Python MCP gap count from 12 to 11 and removing
   the last remaining agentic MCP transport gap.
+- 2026-03-08: completed Stage 1 of the UI-setting slice by adding
+  app-definition compare-and-set owners plus the bounded core UI-setting
+  registry, schema validator, search layer, and read/write delegates in Go.

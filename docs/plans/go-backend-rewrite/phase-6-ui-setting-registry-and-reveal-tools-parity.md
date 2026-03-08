@@ -18,14 +18,20 @@ Current repo status as of 2026-03-08:
 - `run_agent_profile` is now complete in Go
 - the remaining non-project-state Python MCP gap count is 11
 - four of those remaining tools sit behind the Python UI-setting subsystem
-- Go only owns the bounded compare-and-set project-state subset for
-  `core.project.show_param_display_names`,
-  `core.watch_code.enabled`,
-  `core.watch_code.folders`, and
-  `core.watch_code.files`
-- Go does not yet own the broader UI-setting registry, typed value-schema
-  validation, app-definition/core-setting registry metadata, plugin setting
-  integration, or frontend reveal coordinator
+- Stage 1 core registry foundation is now complete in Go:
+  - `internal/projectstate/app_definition_compare_and_set.go` now owns the
+    missing compare-and-set app-definition metadata writes for
+    `core.app.catalog_id`,
+    `core.app.spec_version`,
+    `core.app.spec_path`, and
+    `core.app.theme_mode`
+  - `internal/uisettings/*` now owns the bounded core metadata models,
+    deterministic registry/search layer, value-schema validator, and
+    read/write delegates for the eight Go-owned core settings
+- Go still does not own the MCP transport for `search_ui_settings`,
+  `get_ui_setting_value`, or `set_ui_setting_value`, the frontend reveal
+  coordinator/runtime for `reveal_ui_setting`, plugin setting integration, or
+  plugin-contributed registry metadata
 
 ## Scope
 
@@ -134,28 +140,41 @@ Already complete:
 - compare-and-set owners for the first bounded core UI settings
 - project-state and app-definition runtime owners for the initial core setting
   value sources
+- compare-and-set owners for the four bounded app-definition metadata settings
+- Go-owned UI-setting metadata models, schema validation, and bounded core
+  registry/search/read/write delegates in `internal/uisettings`
 - authenticated MCP transport, scoped/unscoped tool harnesses, and realtime
   plumbing needed by a later reveal coordinator
 
 Still missing:
 
-- Go-owned UI-setting metadata models and registry builder
-- typed value-schema validator shared by read/write pathways
+- MCP transport for `search_ui_settings`, `get_ui_setting_value`, and
+  `set_ui_setting_value` over the completed registry
 - reveal result hub/coordinator over Go realtime ownership
 - deterministic plugin UI-setting metadata source
 
 ## Open Questions
 
-- whether the first execution slice should stop after core search/get/set or
-  include reveal in the same PR; current recommendation is to land the core
-  registry and read/write parity first, then add reveal on top once the setting
+- whether the Stage 2 transport slice should include reveal in the same PR or
+  stop after `search_ui_settings`, `get_ui_setting_value`, and
+  `set_ui_setting_value`; current recommendation remains to land the core
+  search/get/set transport first, then add reveal on top once the setting
   metadata surface is stable
 - whether app-definition-backed core settings should write through the existing
   document-level owners or a UI-setting-specific facade; current recommendation
-  is to keep the existing owners as the source of truth and add only a thin
-  registry delegate layer
+  has been resolved in favor of the existing owners plus a thin registry
+  delegate layer in `internal/uisettings`
 
 ## Next Recommended Step
 
-- start with the Stage 1 core registry foundation above the completed
-  compare-and-set and app-definition owners
+- execute Stage 2: land `search_ui_settings`, `get_ui_setting_value`, and
+  `set_ui_setting_value` over the completed `internal/uisettings` foundation,
+  including scoped MCP metadata, typed transport errors, and stale-write
+  mapping to `mutation_failed`
+
+## Progress Notes
+
+- 2026-03-08: completed Stage 1 by adding compare-and-set app-definition
+  metadata owners in `internal/projectstate` plus the bounded core registry,
+  schema validator, search layer, and core read/write delegates in
+  `internal/uisettings`.
