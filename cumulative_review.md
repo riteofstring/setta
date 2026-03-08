@@ -382,3 +382,47 @@ New/updated automated coverage:
 
 Manual/CDP verification:
 - In the running headed app via Chrome DevTools MCP on `http://127.0.0.1:3009`, opened a live project, injected a zero-width node-internals entry for the visible section, replayed the pane marquee path across empty canvas space, and verified that `useActiveSectionUI.activeIds` remained empty with no console errors.
+
+## 2026-03-09 14:51:34 PDT
+
+Summary:
+- Fixed the remaining same-generation active-section ownership race: backend hydration no longer turns back on after the first ack when another durable active-id sync from the same selection generation is still pending.
+- Tightened the viewport-interaction teardown path so wheel/pinch bursts stay authoritative after drag-pan ends, and removed the dead live-selection branch from static project previews.
+
+Detailed findings addressed:
+- `frontend/src/state/activeSectionUI.ts` treated any completed op in the current `selectionGeneration` as sufficient to re-enable backend hydration. If two durable `route_set_active_ids(...)` writes shared that generation, a stale backend snapshot could overwrite the UI-owned selection after the first ack while the second op was still in flight.
+- `frontend/src/forks/xyflow/core/container/ZoomPane.tsx` cleared `isWheelZooming` during non-wheel drag teardown, so `viewportInteractionActive` could fall to `false` before an active wheel/pinch burst timeout had settled.
+- `frontend/src/components/ProjectConfigs/ProjectConfigPreview.tsx` still carried a selected-node color branch even though preview thumbnails use layout-only nodes and explicitly disable minimap selection sync.
+
+Fixes implemented:
+- Added an explicit current-generation ownership helper in `frontend/src/state/activeSectionUI.ts` and reused it from both backend reconciliation and failed-op cleanup so backend hydration returns only when no scheduled sync and no pending op still belong to the current selection generation.
+- Left same-generation durable completions authoritative only after the last owner of that generation settles, preserving UI-owned `activeIds` across stale backend snapshots in the overlap window.
+- Removed the premature wheel-burst reset from `frontend/src/forks/xyflow/core/container/ZoomPane.tsx` so the wheel timeout remains the only owner of `isWheelZooming` after drag teardown.
+- Simplified `frontend/src/components/ProjectConfigs/ProjectConfigPreview.tsx` to use a constant preview fill instead of an unreachable `selected` branch.
+
+Behavioral impact before vs after:
+- UX before: repeated force-durable deselects or same-generation selection commits could let a stale backend snapshot resurrect old selection state before the final durable ack arrived; wheel/pinch interaction state could drop inactive too early; preview code implied live selection behavior that never actually existed.
+- UX after: active selection remains deterministic until the final same-generation durable sync settles, wheel/pinch interaction remains active until its real timeout ends, and project preview thumbnails stay visibly inert regardless of live selection changes.
+- DX before: active-section ownership relied on a boolean “something in this generation completed” shortcut, `ZoomPane` had no event-sequence guard for wheel/drag overlap, and preview code suggested a false dependency on minimap-selected classes.
+- DX after: ownership is defined by one explicit “is the current generation still locally owned?” rule, wheel/drag overlap has a concrete regression test, and preview rendering is easier to reason about because the dead live-selection path is gone.
+
+Automated verification completed:
+- `pnpm -C frontend exec vitest run src/state/activeSectionUI.test.ts src/state/actions/activeSections.test.ts src/state/actions/uiSettingReveal.test.ts src/forks/xyflow/core/container/ZoomPane.test.ts src/components/ProjectConfigs/ProjectConfigPreview.test.tsx`
+- `./scripts/run-playwright-e2e.sh tests/e2e/sections/active-section-prune-recovery.spec.ts tests/e2e/sections/active-section-same-generation-ownership.spec.ts`
+
+New/updated automated coverage:
+- `frontend/src/state/activeSectionUI.test.ts`
+  - covers same-generation durable completions leaving backend hydration disabled until the last current-generation owner is gone.
+  - covers same-generation durable failures leaving backend hydration disabled until the last current-generation owner is gone.
+- `frontend/src/state/actions/activeSections.test.ts`
+  - covers two same-generation durable publishes where the first stale completion must not clobber UI-owned `activeIds`.
+- `frontend/src/forks/xyflow/core/container/ZoomPane.test.ts`
+  - covers wheel-burst interaction remaining active when a drag lifecycle ends before the wheel timeout settles.
+- `frontend/src/components/ProjectConfigs/ProjectConfigPreview.test.tsx`
+  - asserts static preview minimap fills stay constant and unchanged after live active-section store updates.
+- `frontend/tests/e2e/sections/active-section-same-generation-ownership.spec.ts`
+  - covers the browser-runtime overlap where two same-generation active-id writes are in flight, the first stale completion arrives, and the section shell plus minimap must remain selected until the second completion lands.
+
+Manual/CDP verification:
+- In the running headed app via Chrome DevTools MCP on `http://127.0.0.1:3009`, verified on the home screen that the project preview thumbnail kept the same fixed minimap fill before and after mutating `useActiveSectionUI.activeIds`, with no DOM changes in the preview SVG.
+- In the same live app, simulated two same-generation active-id commits against the current project, replayed backend reconciliation after only the first completion, and verified that `useActiveSectionUI.activeIds`, the section shell `data-section-active`, and the minimap `selected` class all stayed selected until the second completion removed the final current-generation owner.

@@ -503,6 +503,63 @@ describe("activeSections", () => {
     expect(useActiveSectionUI.getState().pendingBackendSyncOpIds).toEqual([]);
   });
 
+  it("keeps the UI selection authoritative until the last same-generation durable completion settles", () => {
+    useProjectState.setState(
+      buildProjectState("project-a", [], ["section-a"]).projectState,
+    );
+    const endpointSpy = vi
+      .spyOn(endpoints, "route_set_active_ids")
+      .mockImplementation(
+        () =>
+          new Promise(() => {
+            return undefined;
+          }),
+      );
+
+    setActiveSectionIds(["section-a"], { syncMode: "immediate" });
+    setActiveSectionIds(["section-a"], {
+      syncMode: "immediate",
+      forceDurableSync: true,
+    });
+
+    const firstOpId = endpointSpy.mock.calls[0]?.[0].frontendOpId;
+    const secondOpId = endpointSpy.mock.calls[1]?.[0].frontendOpId;
+    if (typeof firstOpId !== "string" || typeof secondOpId !== "string") {
+      throw new Error(
+        "Expected two durable frontend op ids for the selection.",
+      );
+    }
+
+    expect(useActiveSectionUI.getState().pendingBackendSyncOpIds).toEqual([
+      firstOpId,
+      secondOpId,
+    ]);
+
+    processProjectStateUpdateFromBackend({
+      projectState: buildProjectStateData("project-a", [], ["section-a"]),
+      completedOpIds: [firstOpId],
+      pendingOpIds: [],
+    });
+
+    // The first ack is stale while the second same-generation sync still owns
+    // the selection, so the backend snapshot must not clobber the UI ids yet.
+    expect(useActiveSectionUI.getState().activeIds).toEqual(["section-a"]);
+    expect(useActiveSectionUI.getState().backendHydrationEnabled).toBe(false);
+    expect(useActiveSectionUI.getState().pendingBackendSyncOpIds).toEqual([
+      secondOpId,
+    ]);
+
+    processProjectStateUpdateFromBackend({
+      projectState: buildProjectStateData("project-a", [], ["section-a"]),
+      completedOpIds: [secondOpId],
+      pendingOpIds: [],
+    });
+
+    expect(useActiveSectionUI.getState().activeIds).toEqual([]);
+    expect(useActiveSectionUI.getState().backendHydrationEnabled).toBe(true);
+    expect(useActiveSectionUI.getState().pendingBackendSyncOpIds).toEqual([]);
+  });
+
   it("prunes ui-only active ids that no longer exist in the incoming project snapshot", () => {
     useProjectState.setState(
       buildProjectState("project-a", [], ["section-a", "section-b"])

@@ -75,4 +75,61 @@ describe("activeSectionUI", () => {
     expect(useActiveSectionUI.getState().activeIds).toEqual(["section-a"]);
     expect(useActiveSectionUI.getState().backendHydrationEnabled).toBe(true);
   });
+
+  it("keeps backend hydration disabled until every same-generation durable completion settles", () => {
+    const applyPatch = applyActiveSectionPatch();
+
+    setActiveSectionUIIds(["section-a"]);
+    const pendingGeneration = getActiveSectionUISelectionGeneration();
+    markPendingActiveSectionBackendSyncOp("op-1", pendingGeneration);
+    markPendingActiveSectionBackendSyncOp("op-2", pendingGeneration);
+
+    // The first same-generation ack must not hand authority back to backend
+    // hydration while another durable owner for that generation is still live.
+    applyPatch(
+      getReconciledActiveSectionUIStateFromBackend([], ["op-1"], "project-a", [
+        "section-a",
+      ]),
+    );
+
+    expect(useActiveSectionUI.getState().activeIds).toEqual(["section-a"]);
+    expect(useActiveSectionUI.getState().backendHydrationEnabled).toBe(false);
+    expect(useActiveSectionUI.getState().pendingBackendSyncOpIds).toEqual([
+      "op-2",
+    ]);
+
+    applyPatch(
+      getReconciledActiveSectionUIStateFromBackend(
+        ["section-a"],
+        ["op-2"],
+        "project-a",
+        ["section-a"],
+      ),
+    );
+
+    expect(useActiveSectionUI.getState().activeIds).toEqual(["section-a"]);
+    expect(useActiveSectionUI.getState().backendHydrationEnabled).toBe(true);
+    expect(useActiveSectionUI.getState().pendingBackendSyncOpIds).toEqual([]);
+  });
+
+  it("keeps backend hydration disabled until every same-generation durable failure settles", () => {
+    setActiveSectionUIIds(["section-a"]);
+    const pendingGeneration = getActiveSectionUISelectionGeneration();
+    markPendingActiveSectionBackendSyncOp("op-1", pendingGeneration);
+    markPendingActiveSectionBackendSyncOp("op-2", pendingGeneration);
+
+    // A partial failure still leaves the generation locally owned until the
+    // remaining durable op for that generation finishes or fails.
+    failPendingActiveSectionBackendSyncOp("op-1");
+
+    expect(useActiveSectionUI.getState().backendHydrationEnabled).toBe(false);
+    expect(useActiveSectionUI.getState().pendingBackendSyncOpIds).toEqual([
+      "op-2",
+    ]);
+
+    failPendingActiveSectionBackendSyncOp("op-2");
+
+    expect(useActiveSectionUI.getState().backendHydrationEnabled).toBe(true);
+    expect(useActiveSectionUI.getState().pendingBackendSyncOpIds).toEqual([]);
+  });
 });

@@ -62,6 +62,12 @@ describe("ProjectConfigPreview", () => {
 
       // Static thumbnails should stay inert and avoid the live minimap-selection store wiring.
       expect(subscribeSpy).not.toHaveBeenCalled();
+      const getPreviewNodeFills = () =>
+        Array.from(
+          host.querySelectorAll<SVGRectElement>(".react-flow__minimap-node"),
+        ).map((node) => node.getAttribute("fill"));
+
+      expect(getPreviewNodeFills()).toEqual(["#d6dee8", "#d6dee8"]);
 
       const markupBeforeSelectionChange = host.innerHTML;
       await act(async () => {
@@ -69,6 +75,7 @@ describe("ProjectConfigPreview", () => {
       });
 
       expect(host.innerHTML).toBe(markupBeforeSelectionChange);
+      expect(getPreviewNodeFills()).toEqual(["#d6dee8", "#d6dee8"]);
     } finally {
       await act(async () => {
         root.unmount();

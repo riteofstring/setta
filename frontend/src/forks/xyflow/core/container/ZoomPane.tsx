@@ -383,8 +383,6 @@ const ZoomPane = ({
           useReactFlow.setState({ paneDragging: false });
           return;
         }
-        isWheelZooming.current = false;
-        clearTimeout(wheelZoomTimeout.current);
         useReactFlow.setState({ paneDragging: false });
         syncViewportInteractionActive({
           isPanScrolling,

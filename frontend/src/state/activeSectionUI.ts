@@ -24,6 +24,14 @@ type ActiveSectionUIStatePatch = Partial<
   ReturnType<typeof useActiveSectionUI.getState>
 >;
 
+type ActiveSectionSyncOwnershipState = Pick<
+  ReturnType<typeof useActiveSectionUI.getState>,
+  | "selectionGeneration"
+  | "pendingBackendSyncOpIds"
+  | "pendingBackendSyncGenerationByOpId"
+  | "scheduledBackendSync"
+>;
+
 function getNextSelectionGeneration() {
   return useActiveSectionUI.getState().selectionGeneration + 1;
 }
@@ -109,6 +117,24 @@ export function disableActiveSectionUIBackendHydration() {
   useActiveSectionUI.setState({ backendHydrationEnabled: false });
 }
 
+function hasLocalActiveSectionOwnershipForCurrentGeneration(
+  state: ActiveSectionSyncOwnershipState,
+  projectConfigId?: string,
+) {
+  const currentGenerationStillPending = state.pendingBackendSyncOpIds.some(
+    (pendingOpId) =>
+      state.pendingBackendSyncGenerationByOpId[pendingOpId] ===
+      state.selectionGeneration,
+  );
+  const scheduledCurrentGeneration =
+    state.scheduledBackendSync !== null &&
+    state.scheduledBackendSync.generation === state.selectionGeneration &&
+    (projectConfigId === undefined ||
+      state.scheduledBackendSync.projectConfigId === projectConfigId);
+
+  return currentGenerationStillPending || scheduledCurrentGeneration;
+}
+
 export function markPendingActiveSectionBackendSyncOp(
   opId: string,
   generation: number,
@@ -141,18 +167,15 @@ export function failPendingActiveSectionBackendSyncOp(opId: string) {
     ...state.pendingBackendSyncGenerationByOpId,
   };
   delete nextPendingBackendSyncGenerationByOpId[opId];
-  const currentGenerationStillPending = nextPendingBackendSyncOpIds.some(
-    (pendingOpId) =>
-      nextPendingBackendSyncGenerationByOpId[pendingOpId] ===
-      state.selectionGeneration,
-  );
-  const scheduledCurrentGeneration =
-    state.scheduledBackendSync !== null &&
-    state.scheduledBackendSync.generation === state.selectionGeneration;
   const enableBackendHydration =
     failedGeneration === state.selectionGeneration &&
-    !currentGenerationStillPending &&
-    !scheduledCurrentGeneration;
+    !hasLocalActiveSectionOwnershipForCurrentGeneration({
+      selectionGeneration: state.selectionGeneration,
+      pendingBackendSyncOpIds: nextPendingBackendSyncOpIds,
+      pendingBackendSyncGenerationByOpId:
+        nextPendingBackendSyncGenerationByOpId,
+      scheduledBackendSync: state.scheduledBackendSync,
+    });
 
   useActiveSectionUI.setState({
     pendingBackendSyncOpIds: nextPendingBackendSyncOpIds,
@@ -225,12 +248,12 @@ export function getReconciledActiveSectionUIStateFromBackend(
   const completedOpIdSet = new Set(completedOpIds);
   const nextPendingBackendSyncOpIds: Array<string> = [];
   const nextPendingBackendSyncGenerationByOpId: Record<string, number> = {};
-  let completedCurrentGeneration = false;
+  let completedCurrentGenerationSync = false;
   for (const pendingOpId of state.pendingBackendSyncOpIds) {
     const generation = state.pendingBackendSyncGenerationByOpId[pendingOpId];
     if (completedOpIdSet.has(pendingOpId)) {
       if (generation === state.selectionGeneration) {
-        completedCurrentGeneration = true;
+        completedCurrentGenerationSync = true;
       }
       continue;
     }
@@ -241,16 +264,26 @@ export function getReconciledActiveSectionUIStateFromBackend(
   }
   const pendingChanged =
     nextPendingBackendSyncOpIds.length !== state.pendingBackendSyncOpIds.length;
-  const hasScheduledBackendSync =
-    state.scheduledBackendSync !== null &&
-    state.scheduledBackendSync.projectConfigId === projectConfigId;
+  const currentGenerationStillOwnedLocally =
+    hasLocalActiveSectionOwnershipForCurrentGeneration(
+      {
+        selectionGeneration: state.selectionGeneration,
+        pendingBackendSyncOpIds: nextPendingBackendSyncOpIds,
+        pendingBackendSyncGenerationByOpId:
+          nextPendingBackendSyncGenerationByOpId,
+        scheduledBackendSync: state.scheduledBackendSync,
+      },
+      projectConfigId,
+    );
+  const releasedCurrentGenerationOwnership =
+    completedCurrentGenerationSync && !currentGenerationStillOwnedLocally;
   const backendHydrationEnabled =
-    state.backendHydrationEnabled || completedCurrentGeneration;
-  const nextBackendGeneration = completedCurrentGeneration
+    state.backendHydrationEnabled || releasedCurrentGenerationOwnership;
+  const nextBackendGeneration = releasedCurrentGenerationOwnership
     ? state.selectionGeneration
     : state.backendGeneration;
   const canHydrateFromBackend =
-    !hasScheduledBackendSync && backendHydrationEnabled;
+    !currentGenerationStillOwnedLocally && backendHydrationEnabled;
   let reconciledActiveIds = state.activeIds.filter((sectionId) =>
     validSectionIdSet.has(sectionId),
   );
