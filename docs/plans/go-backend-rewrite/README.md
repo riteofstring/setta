@@ -47,6 +47,8 @@ Use the docs in this order:
    - focused current-work plan for remaining terminal run-code migration
 12. `phase-4-generated-entry-runs-and-temp-terminals.md`
    - focused current-work plan for generated-entry run support and temporary-terminal fallback
+- `phase-4-terminal-command-dispatch-prompt-readiness-and-echo-stability.md`
+  - focused stabilization plan for prompt-ready terminal dispatch and long-command echo handling in the Go terminal runtime
 13. `phase-4-deployment-run-code-policy-and-session-overlays.md`
    - focused current-work plan for deployment/share run-code policy and session runtime foundations
 14. `phase-4-deployment-session-transport-and-cleanup.md`
