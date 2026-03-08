@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 	"text/template"
 )
@@ -40,6 +41,8 @@ type routeEnumEntry struct {
 	EnumName string
 	Path     string
 }
+
+var tsIdentifierPattern = regexp.MustCompile(`^[A-Za-z_$][A-Za-z0-9_$]*$`)
 
 func Build() (GeneratedBindings, error) {
 	return buildBindings(
@@ -133,11 +136,26 @@ func validateEndpointSpecs(routeGroups []RouteGroup, endpointSpecs []EndpointSpe
 		return err
 	}
 
-	for _, spec := range endpointSpecs {
+	functionNames := make(map[string]EndpointSpec, len(endpointSpecs))
+	routeMethods := make(map[string]EndpointSpec, len(endpointSpecs))
+
+	for index, spec := range endpointSpecs {
+		if spec.FunctionName == "" {
+			return fmt.Errorf("endpoint at index %d has empty function name", index)
+		}
+		if !tsIdentifierPattern.MatchString(spec.FunctionName) {
+			return fmt.Errorf("endpoint %s: function name must be a valid TypeScript identifier", spec.FunctionName)
+		}
 		switch spec.Method {
 		case "GET", "POST":
 		default:
 			return fmt.Errorf("endpoint %s: unsupported method %q", spec.FunctionName, spec.Method)
+		}
+		if spec.RouteCollection == "" {
+			return fmt.Errorf("endpoint %s: route collection is empty", spec.FunctionName)
+		}
+		if spec.RouteName == "" {
+			return fmt.Errorf("endpoint %s: route name is empty", spec.FunctionName)
 		}
 		if spec.BinaryResponse && spec.Method != "GET" {
 			return fmt.Errorf("endpoint %s: binary responses require GET", spec.FunctionName)
@@ -157,6 +175,31 @@ func validateEndpointSpecs(routeGroups []RouteGroup, endpointSpecs []EndpointSpe
 		if spec.ResponseType != nil && frontendTypeName(spec.ResponseType) == "" {
 			return fmt.Errorf("endpoint %s: response type must be a named Go type, got %s", spec.FunctionName, spec.ResponseType.String())
 		}
+
+		if previous, exists := functionNames[spec.FunctionName]; exists {
+			return fmt.Errorf(
+				"duplicate endpoint function %q for %s %s.%s and %s %s.%s",
+				spec.FunctionName,
+				previous.Method,
+				previous.RouteCollection,
+				previous.RouteName,
+				spec.Method,
+				spec.RouteCollection,
+				spec.RouteName,
+			)
+		}
+		functionNames[spec.FunctionName] = spec
+
+		routeMethodKey := spec.Method + " " + spec.RouteCollection + "." + spec.RouteName
+		if previous, exists := routeMethods[routeMethodKey]; exists {
+			return fmt.Errorf(
+				"duplicate endpoint route binding %q for %s and %s",
+				routeMethodKey,
+				previous.FunctionName,
+				spec.FunctionName,
+			)
+		}
+		routeMethods[routeMethodKey] = spec
 	}
 
 	return nil
@@ -276,9 +319,13 @@ func validateDeclarationProperties(declarationName string, propertyKind string, 
 
 func buildRouteCollectionLookup(routeGroups []RouteGroup) (map[string]map[string]struct{}, error) {
 	collections := make(map[string]map[string]struct{}, len(routeGroups))
+	enumNames := make(map[string]string)
 	for _, group := range routeGroups {
 		if group.ConstName == "" {
 			return nil, fmt.Errorf("route group has empty const name")
+		}
+		if !tsIdentifierPattern.MatchString(group.ConstName) {
+			return nil, fmt.Errorf("route group %q const name must be a valid TypeScript identifier", group.ConstName)
 		}
 		if _, exists := collections[group.ConstName]; exists {
 			return nil, fmt.Errorf("duplicate route group %q", group.ConstName)
@@ -288,8 +335,37 @@ func buildRouteCollectionLookup(routeGroups []RouteGroup) (map[string]map[string
 			if route.Name == "" {
 				return nil, fmt.Errorf("route group %q contains an empty route name", group.ConstName)
 			}
+			if !tsIdentifierPattern.MatchString(route.Name) {
+				return nil, fmt.Errorf(
+					"route group %q contains route %q with invalid TypeScript identifier",
+					group.ConstName,
+					route.Name,
+				)
+			}
 			if _, exists := routes[route.Name]; exists {
 				return nil, fmt.Errorf("route group %q contains duplicate route %q", group.ConstName, route.Name)
+			}
+			if route.Path == "" {
+				return nil, fmt.Errorf("route group %q route %q has empty path", group.ConstName, route.Name)
+			}
+			if route.EnumName != "" {
+				if !tsIdentifierPattern.MatchString(route.EnumName) {
+					return nil, fmt.Errorf(
+						"route group %q route %q enum name %q must be a valid TypeScript identifier",
+						group.ConstName,
+						route.Name,
+						route.EnumName,
+					)
+				}
+				if previousPath, exists := enumNames[route.EnumName]; exists {
+					return nil, fmt.Errorf(
+						"duplicate route enum %q for paths %q and %q",
+						route.EnumName,
+						previousPath,
+						route.Path,
+					)
+				}
+				enumNames[route.EnumName] = route.Path
 			}
 			routes[route.Name] = struct{}{}
 		}

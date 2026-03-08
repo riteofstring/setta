@@ -64,6 +64,51 @@ func TestBuildBindingsRejectsInvalidEndpointSpecs(t *testing.T) {
 			want: "route GoHTTPRoutes.missingRoute is not defined",
 		},
 		{
+			name: "empty function name",
+			spec: EndpointSpec{
+				Method:          "POST",
+				RouteCollection: "GoHTTPRoutes",
+				RouteName:       "saveThing",
+				RequestType:     reflect.TypeOf(BuildTestRequest{}),
+				ResponseType:    reflect.TypeOf(BuildTestResponse{}),
+			},
+			want: "endpoint at index 0 has empty function name",
+		},
+		{
+			name: "invalid function name",
+			spec: EndpointSpec{
+				FunctionName:    "route-save-thing",
+				Method:          "POST",
+				RouteCollection: "GoHTTPRoutes",
+				RouteName:       "saveThing",
+				RequestType:     reflect.TypeOf(BuildTestRequest{}),
+				ResponseType:    reflect.TypeOf(BuildTestResponse{}),
+			},
+			want: "function name must be a valid TypeScript identifier",
+		},
+		{
+			name: "empty route collection",
+			spec: EndpointSpec{
+				FunctionName: "route_save_thing",
+				Method:       "POST",
+				RouteName:    "saveThing",
+				RequestType:  reflect.TypeOf(BuildTestRequest{}),
+				ResponseType: reflect.TypeOf(BuildTestResponse{}),
+			},
+			want: "route collection is empty",
+		},
+		{
+			name: "empty route name",
+			spec: EndpointSpec{
+				FunctionName:    "route_save_thing",
+				Method:          "POST",
+				RouteCollection: "GoHTTPRoutes",
+				RequestType:     reflect.TypeOf(BuildTestRequest{}),
+				ResponseType:    reflect.TypeOf(BuildTestResponse{}),
+			},
+			want: "route name is empty",
+		},
+		{
 			name: "unnamed request type",
 			spec: EndpointSpec{
 				FunctionName:    "route_save_thing",
@@ -300,35 +345,167 @@ func TestBuildBindingsRejectsInvalidDeclarationShapes(t *testing.T) {
 	}
 }
 
-func TestCurrentEndpointsUseUniqueFunctionsAndRoutes(t *testing.T) {
-	functionNames := make(map[string]EndpointSpec, len(CurrentEndpoints()))
-	routeMethods := make(map[string]EndpointSpec, len(CurrentEndpoints()))
+func TestBuildBindingsRejectsDuplicateEndpointSpecs(t *testing.T) {
+	routeGroups := []RouteGroup{
+		{
+			ConstName: "GoHTTPRoutes",
+			Routes: []NamedRoute{
+				{Name: "saveThing", Path: "/saveThing", EnumName: "SAVE_THING"},
+				{Name: "loadThing", Path: "/loadThing", EnumName: "LOAD_THING"},
+			},
+		},
+	}
 
-	for _, spec := range CurrentEndpoints() {
-		if previous, exists := functionNames[spec.FunctionName]; exists {
-			t.Fatalf(
-				"duplicate endpoint function %q for %s %s.%s and %s %s.%s",
-				spec.FunctionName,
-				previous.Method,
-				previous.RouteCollection,
-				previous.RouteName,
-				spec.Method,
-				spec.RouteCollection,
-				spec.RouteName,
-			)
-		}
-		functionNames[spec.FunctionName] = spec
+	tests := []struct {
+		name  string
+		specs []EndpointSpec
+		want  string
+	}{
+		{
+			name: "duplicate function name",
+			specs: []EndpointSpec{
+				{
+					FunctionName:    "route_save_thing",
+					Method:          "POST",
+					RouteCollection: "GoHTTPRoutes",
+					RouteName:       "saveThing",
+					RequestType:     reflect.TypeOf(BuildTestRequest{}),
+					ResponseType:    reflect.TypeOf(BuildTestResponse{}),
+				},
+				{
+					FunctionName:    "route_save_thing",
+					Method:          "POST",
+					RouteCollection: "GoHTTPRoutes",
+					RouteName:       "loadThing",
+					RequestType:     reflect.TypeOf(BuildTestRequest{}),
+					ResponseType:    reflect.TypeOf(BuildTestResponse{}),
+				},
+			},
+			want: `duplicate endpoint function "route_save_thing"`,
+		},
+		{
+			name: "duplicate route binding",
+			specs: []EndpointSpec{
+				{
+					FunctionName:    "route_save_thing",
+					Method:          "POST",
+					RouteCollection: "GoHTTPRoutes",
+					RouteName:       "saveThing",
+					RequestType:     reflect.TypeOf(BuildTestRequest{}),
+					ResponseType:    reflect.TypeOf(BuildTestResponse{}),
+				},
+				{
+					FunctionName:    "route_save_thing_again",
+					Method:          "POST",
+					RouteCollection: "GoHTTPRoutes",
+					RouteName:       "saveThing",
+					RequestType:     reflect.TypeOf(BuildTestRequest{}),
+					ResponseType:    reflect.TypeOf(BuildTestResponse{}),
+				},
+			},
+			want: `duplicate endpoint route binding "POST GoHTTPRoutes.saveThing"`,
+		},
+	}
 
-		routeMethodKey := spec.Method + " " + spec.RouteCollection + "." + spec.RouteName
-		if previous, exists := routeMethods[routeMethodKey]; exists {
-			t.Fatalf(
-				"duplicate endpoint route binding %q for %s and %s",
-				routeMethodKey,
-				previous.FunctionName,
-				spec.FunctionName,
-			)
-		}
-		routeMethods[routeMethodKey] = spec
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := buildBindings(routeGroups, tt.specs, nil, nil)
+			if err == nil {
+				t.Fatalf("buildBindings(...) unexpectedly succeeded")
+			}
+			if !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("buildBindings(...) error = %q, want substring %q", err.Error(), tt.want)
+			}
+		})
+	}
+}
+
+func TestBuildBindingsRejectsInvalidRouteGroups(t *testing.T) {
+	tests := []struct {
+		name       string
+		routeGroup RouteGroup
+		want       string
+	}{
+		{
+			name: "invalid route group const name",
+			routeGroup: RouteGroup{
+				ConstName: "Go-HTTPRoutes",
+				Routes: []NamedRoute{
+					{Name: "saveThing", Path: "/saveThing", EnumName: "SAVE_THING"},
+				},
+			},
+			want: `route group "Go-HTTPRoutes" const name must be a valid TypeScript identifier`,
+		},
+		{
+			name: "invalid route name",
+			routeGroup: RouteGroup{
+				ConstName: "GoHTTPRoutes",
+				Routes: []NamedRoute{
+					{Name: "save-thing", Path: "/saveThing", EnumName: "SAVE_THING"},
+				},
+			},
+			want: `route group "GoHTTPRoutes" contains route "save-thing" with invalid TypeScript identifier`,
+		},
+		{
+			name: "invalid route enum name",
+			routeGroup: RouteGroup{
+				ConstName: "GoHTTPRoutes",
+				Routes: []NamedRoute{
+					{Name: "saveThing", Path: "/saveThing", EnumName: "SAVE-THING"},
+				},
+			},
+			want: `route group "GoHTTPRoutes" route "saveThing" enum name "SAVE-THING" must be a valid TypeScript identifier`,
+		},
+		{
+			name: "duplicate route enum name",
+			routeGroup: RouteGroup{
+				ConstName: "GoHTTPRoutesExtra",
+				Routes: []NamedRoute{
+					{Name: "loadThing", Path: "/loadThing", EnumName: "SAVE_THING"},
+				},
+			},
+			want: `duplicate route enum "SAVE_THING" for paths "/saveThing" and "/loadThing"`,
+		},
+		{
+			name: "empty route path",
+			routeGroup: RouteGroup{
+				ConstName: "GoHTTPRoutes",
+				Routes: []NamedRoute{
+					{Name: "saveThing", EnumName: "SAVE_THING"},
+				},
+			},
+			want: `route group "GoHTTPRoutes" route "saveThing" has empty path`,
+		},
+	}
+
+	baseRouteGroup := RouteGroup{
+		ConstName: "GoHTTPRoutes",
+		Routes: []NamedRoute{
+			{Name: "saveThing", Path: "/saveThing", EnumName: "SAVE_THING"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			routeGroups := []RouteGroup{tt.routeGroup}
+			if tt.name == "duplicate route enum name" {
+				routeGroups = []RouteGroup{baseRouteGroup, tt.routeGroup}
+			}
+
+			_, err := buildBindings(routeGroups, nil, nil, nil)
+			if err == nil {
+				t.Fatalf("buildBindings(...) unexpectedly succeeded")
+			}
+			if err.Error() != tt.want {
+				t.Fatalf("buildBindings(...) error = %q, want %q", err.Error(), tt.want)
+			}
+		})
+	}
+}
+
+func TestCurrentEndpointsPassValidation(t *testing.T) {
+	if err := validateEndpointSpecs(CurrentRouteGroups(), CurrentEndpoints()); err != nil {
+		t.Fatalf("validateEndpointSpecs(...) error = %v", err)
 	}
 }
 
