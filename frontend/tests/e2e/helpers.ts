@@ -45,6 +45,7 @@ type UnexpectedApiErrorGuard = {
 };
 const DEFAULT_ALLOWED_API_ERRORS: readonly AllowedApiError[] = [
   { path: "/api/formatCode", statuses: [422], method: "POST" },
+  { path: "/api/getLLMChat", statuses: [404], method: "POST" },
   { path: "/api/getExternalAgentChat", statuses: [404], method: "POST" },
 ];
 const unexpectedApiErrorGuards = new WeakMap<Page, UnexpectedApiErrorGuard>();

@@ -46,5 +46,6 @@ class SettaWheelBuildHook(BuildHookInterface):
                 return candidate
         return None
 
+
 def get_build_hook() -> type[SettaWheelBuildHook]:
     return SettaWheelBuildHook

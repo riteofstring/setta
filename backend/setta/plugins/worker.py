@@ -498,9 +498,7 @@ class _WorkerState:
             "defaultTargetSingletonSection",
         )
         if default_target_singleton_section is not None:
-            metadata["defaultTargetSingletonSection"] = (
-                default_target_singleton_section
-            )
+            metadata["defaultTargetSingletonSection"] = default_target_singleton_section
         result_filter = self._read_mcp_tool_string_metadata(
             annotations_payload,
             "resultFilter",

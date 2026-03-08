@@ -70,7 +70,6 @@ from setta.startup_runtime import (
     _build_ssh_tunnel_command,
     _build_ssh_tunnel_command_for_port,
     _format_bind_hint,
-    _is_loopback_host,
     _is_ssh_session,
     _render_startup_message,
     _resolve_cli_paths,

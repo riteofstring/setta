@@ -22,6 +22,22 @@ Setta exposes its agent surface through the Model Context Protocol (MCP). The ba
 - Derived metadata comes from the tool name: `_derive_search_tags` expands common synonyms (for example `create` -> `add`, `new`, `insert`) and `_derive_search_category` matches token keywords (for example `terminal`, `chat`, `params`) to a category.
 - During registration we merge explicit and derived tags, normalize them to lowercase, and prefer the explicit category when provided. The final values are stored on the MCP tool annotations and returned in `search_mcp_tools` results.
 
+## Tool runtime policy
+- Tools can also declare `ToolRuntimePolicyMetadata`, currently used for:
+  - `requiresLLM`
+  - `startsRun`
+- `SettaFastMCP._run_tool_with_runtime_policy` enforces these annotations before
+  the tool body runs.
+- `requiresLLM` checks the active runtime/deployment policy before execution.
+- `startsRun` performs a request-scoped pending run-start authorization so
+  single-run deployment limits and run permissions are reserved before the tool
+  launches work.
+- If the tool fails before it commits the start, the pending authorization is
+  rolled back automatically.
+- Tools that successfully start work must commit the pending authorization
+  themselves; `run_agent_profile` and `invoke_linked_chat` both opt into this
+  flow.
+
 ## UI setting tools and reveal flow
 - Setta now exposes UI-setting tools as discoverable MCP tools:
   - `search_ui_settings(query, limit, sourceFilter, projectConfigId?)`
@@ -47,6 +63,9 @@ Agentic context inputs:
 - Optional: `chatId` (used to associate follow/highlight state with a specific chat/run).
 - Optional: `frontendAffinityToken` (used to route UI-setting reveal requests back to the originating frontend when multiple frontends are connected).
 - Optional: `allowUnscoped=true` (project-level access; used by Project Chat).
+- Optional: `linkedChatInvocationDepth` and
+  `linkedChatInvocationChainSectionIds` (used to bound nested
+  `invoke_linked_chat` calls).
 
 Ways to provide agentic context:
 - MCP meta (`projectConfigId`, `chatId`, `sectionId`, `frontendAffinityToken`, `allowUnscoped`).
@@ -68,6 +87,22 @@ Tool enforcement details:
   and `search_mcp_tools`); keep this set intentionally small.
 - Some tool results are scope-filtered instead of blocked (for example project
   state summaries and LSP diagnostics).
+
+## Linked chat invocation
+- `invoke_linked_chat(targetSectionId, prompt)` is a discoverable Setta MCP tool
+  implemented in `backend/setta/mcp/tools/agentic_tools.py`.
+- It is intended for direct `chat_chat` agentic edges only; admission goes
+  through `admit_linked_chat_section_invocation`.
+- The tool requires section-scoped agentic context. Missing section context is
+  rejected before admission.
+- Nested linked-chat calls are bounded:
+  - maximum depth is one nested hop
+  - the caller chain is tracked to reject cycles
+- Target chat bindings are reused/persisted before the run starts so the target
+  section remains the source of truth for future invocations.
+- The tool also participates in runtime policy enforcement:
+  - `requiresLLM=true`
+  - `startsRun=true`
 
 ## Frontend affinity routing
 - On websocket connect, each frontend receives a `FrontendIdentity` message with a `frontendAffinityToken`.
@@ -105,7 +140,14 @@ Tool enforcement details:
 - `llm_config.json` stays in `setta_files/`, while managed key values are stored in workspace `.env` (`./.env`). Setta tracks managed ownership with `SETTA_MANAGED_LLM_API_KEY_NAMES`, and both `DotEnvWatcher` and `LLMConfigWatcher` sync key snapshots into runtime + websocket state (`LLMApiKeysUpdated`) with revision/corruption metadata.
 
 ## Frontend chat interface (`frontend/src/components/Panes/Overview/ProjectLevelAI`)
-- `ProjectChat.tsx` hydrates LLM/API-key state and now switches between active chat (`ProjectChatCore`), chat history (`ProjectChatHistory`), and session-local auxiliary views inside Project AI Chat itself (`Skills`, `MCP`, `Slash Commands`, and `AI Settings`).
+- The Overview `Project AI Chat` tab now renders `ProjectChatManager`, which is
+  a window manager for project-chat instances rather than the only chat host.
+- `ProjectChat.tsx` still hydrates LLM/API-key state and switches between active
+  chat (`ProjectChatCore`), chat history (`ProjectChatHistory`), and
+  session-local auxiliary views (`Skills`, `MCP`, `Slash Commands`, and `AI Settings`).
+- `UnifiedChatSurface` is the shared host abstraction used by workspace windows,
+  standalone project-chat routes, standalone section routes, and standalone
+  window-space routes.
 - `ProjectChatCore` pulls chat details from the zustand `useAIStore`. `ChatMessageList`/`ChatMessage` filter out tool-only messages, stitch assistant streams together, and surface edit + branch switcher controls using branch metadata derived from agent runs.
 - Empty-chat state includes a create-project starter action. It seeds a normal project-creation prompt when a codebase exists, and uses a question-first starter prompt when no codebase is detected (`projectChatStarterPrompts.ts`).
 - `ProjectChatSkillsMcpViewer` now handles three aux surfaces:
@@ -115,7 +157,9 @@ Tool enforcement details:
 - The viewer calls `/getAppGenSkills`, `/getAppGenSkillContent`, `/upsertAppGenCustomSkill`, `/settaHomeInfo`, and `/mcpServerRuntimeStatus`, then optionally reveals roots in the OS file explorer through `/revealPathInOsFileExplorer`.
 - `ChatInput` manages optimistic user submissions and attachments via `submitMessage`. `ChatMessageEditor` powers user-message edits and calls `submitEditedMessage`, which POSTs `/getLLMResponse` with `branchParentChatId`/`branchFromMessageId` to create a new branch chat. Pressing the send button while a response is inflight issues `/stopLLMChat`; the stop response includes `alreadyStopped`, `stoppedRunId`, and `stoppedMessageId` so the UI can reconcile interruption markers.
 - Project chat slash-command handling now separates recognized commands from executable commands. This lets the composer keep temporarily unavailable external-agent native commands local, reload authority, and then retry resolution instead of sending the slash text as a normal prompt.
-- Websocket payloads of type `LLMStreamingResponse` are handled in `state/actions/ai.ts`. The reducer updates each chat’s `messages`, `toolCallArguments`, and `waitingForResponse` flags so the React tree stays synchronized with whatever the managed chat runtime is emitting.
+- Websocket payloads of type `LLMStreamingResponse` are handled in `state/actions/ai.ts`. The reducer updates each chat’s `messages`, `toolCallArguments`, and `waitingForResponse` flags so the React tree stays synchronized with whatever the `LLMChatManager` is emitting.
+- Project-chat windowing and window-space behavior is documented in
+  `docs/reference/project-chat-windowing.md`.
 
 ## Third-party access
 - Because Setta speaks standard MCP over SSE, any MCP-compatible client can point at `http://<host>:<port>/mcp` and call `initialize`, `list_tools`, and `call_tool` just like it would against Cursor, Claude, or OpenAI’s tool hosts. Authentication is handled upstream (Setta runs behind whatever protections you configure), so the MCP surface itself simply expects the HTTP socket to be authorized. Most tools also require agentic context (see above) so tool calls are scope-enforced.

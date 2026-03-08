@@ -117,6 +117,17 @@ behalf of a scoped Chat section are restricted to the sections reachable via
 these edges. If a Chat section has no edges, it effectively has no tool access.
 Use Project Chat (unscoped) for full access.
 
+Linked chat edges also back the `invoke_linked_chat` MCP tool:
+
+- It can invoke only a directly linked target from a `chat_chat` edge.
+- It requires section-scoped agentic context; unscoped Project Chat cannot call
+  it implicitly.
+- The target chat section reuses or persists its managed `chatId` binding before
+  starting the run.
+- Recursion is bounded to one nested hop and cycles are rejected explicitly.
+- Runtime policy still applies: linked-chat invocation requires LLM access and
+  run-start authorization.
+
 ## Realtime action events
 
 Both modes emit `RealtimeDependencyEvent` for the chat section when the user sends or stops:
@@ -211,3 +222,4 @@ async def on_chat(state, ctx) -> None:
 
 - `docs/reference/chat-toolkit.md`
 - `docs/reference/mcp-system-overview.md`
+- `docs/reference/project-chat-windowing.md`

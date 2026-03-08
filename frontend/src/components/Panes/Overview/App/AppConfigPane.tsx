@@ -1063,6 +1063,7 @@ export function AppConfigPane() {
         const targetChatId = engineSelection.forceNewChat
           ? null
           : activeChatId ?? null;
+        const hiddenGenerationSurfaceId = `app-config-hidden-generation:${projectConfigId}`;
         if (requestSpecSeed) {
           // Keep the streamed preview aligned with the seed we tell the model
           // to pass as `baseAppSpec` on the upcoming tool call.
@@ -1080,6 +1081,7 @@ export function AppConfigPane() {
             engineSelection.engineConfigId,
             engineSelection.isExternalEngine,
             {
+              pendingSurfaceId: hiddenGenerationSurfaceId,
               appGeneration: {
                 mode,
                 referenceImageUrl,
@@ -1097,7 +1099,7 @@ export function AppConfigPane() {
           throw error;
         }
         if (targetChatId === null) {
-          clearPendingChatDetails();
+          clearPendingChatDetails(hiddenGenerationSurfaceId);
         }
         if (isJsonRenderMode(mode)) {
           const prefix = engineSelection.forceNewChat

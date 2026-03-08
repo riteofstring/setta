@@ -264,7 +264,9 @@ class ClaudeSidecar:
                 "input": to_jsonable(normalized_tool_input),
             }
         )
-        future: asyncio.Future[ApprovalDecision] = asyncio.get_running_loop().create_future()
+        future: asyncio.Future[ApprovalDecision] = (
+            asyncio.get_running_loop().create_future()
+        )
         self.pending_approvals[approval_id] = PendingApproval(
             future=future,
             tool_name=normalized_tool_name,
@@ -326,7 +328,11 @@ class ClaudeSidecar:
                     and answers
                     and pending.tool_name == "AskUserQuestion"
                 ):
-                    base_input = pending.tool_input if isinstance(pending.tool_input, dict) else {}
+                    base_input = (
+                        pending.tool_input
+                        if isinstance(pending.tool_input, dict)
+                        else {}
+                    )
                     updated_input = {**base_input, "answers": answers}
                 pending.future.set_result(
                     ApprovalDecision(
@@ -400,7 +406,10 @@ class ClaudeSidecar:
 
     async def handle_message(self, message: Any) -> None:
         if isinstance(message, StreamEvent):
-            payload = to_jsonable(getattr(message, "event", None) or getattr(message, "stream_event", None))
+            payload = to_jsonable(
+                getattr(message, "event", None)
+                or getattr(message, "stream_event", None)
+            )
             if not isinstance(payload, dict):
                 return
             payload = normalize_stream_event(payload)
@@ -480,11 +489,15 @@ async def read_start_payload(reader: asyncio.StreamReader) -> dict[str, Any]:
     try:
         payload = json.loads(raw.decode("utf-8"))
     except json.JSONDecodeError as exc:
-        raise RuntimeError(f"Claude sidecar start payload is not valid JSON: {exc}") from exc
+        raise RuntimeError(
+            f"Claude sidecar start payload is not valid JSON: {exc}"
+        ) from exc
     if not isinstance(payload, dict):
         raise RuntimeError("Claude sidecar start payload must be a JSON object.")
     if str(payload.get("type") or "").strip() != "start":
-        raise RuntimeError("Claude sidecar expected the first payload to be type=start.")
+        raise RuntimeError(
+            "Claude sidecar expected the first payload to be type=start."
+        )
     return payload
 
 
