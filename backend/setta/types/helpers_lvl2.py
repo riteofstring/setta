@@ -110,7 +110,10 @@ from setta.types.helpers_lvl1 import (
 )
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.id import ID
-from setta.types.project_chat_windowing import normalize_project_chat_windowing
+from setta.types.project_chat_windowing import (
+    normalize_project_chat_windowing,
+    validate_project_chat_thread_bindings_unchanged,
+)
 from setta.types.project_config import Position, TopLevelSectionLayout, ViewportBounds
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
@@ -3217,6 +3220,10 @@ def set_project_chat_windowing_state(
     p: "ProjectStateSingleConfig",
     state: "ProjectChatWindowingState",
 ):
+    validate_project_chat_thread_bindings_unchanged(
+        p.projectChatWindowing,
+        state,
+    )
     p.projectChatWindowing = state
     normalize_project_chat_windowing(p.projectChatWindowing, set(p.sections.keys()))
 

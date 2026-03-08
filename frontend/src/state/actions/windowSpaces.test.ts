@@ -1113,6 +1113,23 @@ describe("createWindowSpaceFromCurrentFloatingWindows", () => {
         order: [],
       }),
     };
+    const projectBWindowing = createProjectChatWindowingState({
+      order: ["project-b-window"],
+      instancesById: {
+        "project-b-window": {
+          instanceId: "project-b-window",
+          placement: ChatWindowPlacementEnum.floating,
+          mode: ChatWindowModeEnum.project_ai_mode,
+          title: "Project B Chat",
+          bounds: {
+            x: 24,
+            y: 48,
+            width: 360,
+            height: 240,
+          },
+        },
+      },
+    });
     const sectionState = buildChatSectionState("section-1", "section-thread");
     useProjectState.setState({
       ...sectionState,
@@ -1157,7 +1174,7 @@ describe("createWindowSpaceFromCurrentFloatingWindows", () => {
         windowSpaces: projectBWindowSpaces,
       }),
       sections: {},
-      projectChatWindowing: createProjectChatWindowingState(),
+      projectChatWindowing: projectBWindowing,
     });
 
     resolveSync?.({
@@ -1198,6 +1215,9 @@ describe("createWindowSpaceFromCurrentFloatingWindows", () => {
     expect(useProjectState.getState().projectConfig.id).toBe("project-b");
     expect(useProjectState.getState().projectConfig.windowSpaces).toEqual(
       projectBWindowSpaces,
+    );
+    expect(useProjectState.getState().projectChatWindowing).toEqual(
+      projectBWindowing,
     );
   });
 
@@ -1245,7 +1265,7 @@ describe("createWindowSpaceFromCurrentFloatingWindows", () => {
     expect(useProjectState.getState().projectConfig.windowSpaces).toEqual({});
   });
 
-  it("uses the post-sync authoritative layout when saving a window space", async () => {
+  it("uses the post-sync authoritative layout for both the saved window space and live workspace", async () => {
     const sectionState = buildChatSectionState("section-1", "section-thread");
     useProjectState.setState({
       ...sectionState,
@@ -1321,6 +1341,24 @@ describe("createWindowSpaceFromCurrentFloatingWindows", () => {
       useProjectState.getState().projectConfig.windowSpaces["window-space-1"]
         ?.order,
     ).toEqual(["floating-project"]);
+    expect(useProjectState.getState().projectChatWindowing.order).toEqual([
+      "floating-project",
+      "canvas-section",
+    ]);
+    expect(
+      useProjectState.getState().projectChatWindowing.instancesById[
+        "floating-section"
+      ],
+    ).toBeUndefined();
+    expect(
+      useProjectState.getState().projectChatWindowing.instancesById[
+        "canvas-section"
+      ],
+    ).toMatchObject({
+      instanceId: "canvas-section",
+      placement: ChatWindowPlacementEnum.canvas_section,
+      sectionIdOrNull: "section-1",
+    });
     expect(
       createRequest?.state.windowsById["floating-section"],
     ).toBeUndefined();

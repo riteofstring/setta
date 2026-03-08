@@ -149,3 +149,28 @@ def normalize_project_chat_windowing(
         seen.add(instance_id)
         next_order.append(instance_id)
     project_chat_windowing.order = next_order
+
+
+def _normalize_layout_route_chat_id(
+    instance: "ProjectChatWindowInstance | None",
+) -> ID | None:
+    if instance is None:
+        return None
+    if _enum_value(instance.mode) == "section_mode":
+        return None
+    return instance.chatId
+
+
+def validate_project_chat_thread_bindings_unchanged(
+    current_windowing: "ProjectChatWindowingState",
+    next_windowing: "ProjectChatWindowingState",
+) -> None:
+    for instance_id, next_instance in next_windowing.instancesById.items():
+        current_instance = current_windowing.instancesById.get(instance_id)
+        current_chat_id = _normalize_layout_route_chat_id(current_instance)
+        next_chat_id = _normalize_layout_route_chat_id(next_instance)
+        if current_chat_id == next_chat_id:
+            continue
+        raise ValueError(
+            f"Project chat window {instance_id} cannot change chatId via layout updates."
+        )

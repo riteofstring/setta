@@ -1550,19 +1550,19 @@ class TestSharePolicyRoutes:
             )
             dbe = DBE(root)
             project_state = dbe.read_project()
-            project_state.projectChatWindowingByProjectConfigId[
-                project_config_id
-            ] = ProjectChatWindowingState(
-                instancesById={
-                    "project-chat-window-1": ProjectChatWindowInstance(
-                        instanceId="project-chat-window-1",
-                        placement=ChatWindowPlacement.floating,
-                        mode=ChatWindowMode.project_ai_mode,
-                        chatId=None,
-                    )
-                },
-                order=["project-chat-window-1"],
-                nextInstanceNumber=2,
+            project_state.projectChatWindowingByProjectConfigId[project_config_id] = (
+                ProjectChatWindowingState(
+                    instancesById={
+                        "project-chat-window-1": ProjectChatWindowInstance(
+                            instanceId="project-chat-window-1",
+                            placement=ChatWindowPlacement.floating,
+                            mode=ChatWindowMode.project_ai_mode,
+                            chatId=None,
+                        )
+                    },
+                    order=["project-chat-window-1"],
+                    nextInstanceNumber=2,
+                )
             )
             dbe.write_project(project_state)
             state = await self._build_state(root)
@@ -1608,19 +1608,19 @@ class TestSharePolicyRoutes:
             )
             dbe = DBE(root)
             project_state = dbe.read_project()
-            project_state.projectChatWindowingByProjectConfigId[
-                project_config_id
-            ] = ProjectChatWindowingState(
-                instancesById={
-                    "project-chat-window-1": ProjectChatWindowInstance(
-                        instanceId="project-chat-window-1",
-                        placement=ChatWindowPlacement.floating,
-                        mode=ChatWindowMode.project_ai_mode,
-                        chatId=None,
-                    )
-                },
-                order=["project-chat-window-1"],
-                nextInstanceNumber=2,
+            project_state.projectChatWindowingByProjectConfigId[project_config_id] = (
+                ProjectChatWindowingState(
+                    instancesById={
+                        "project-chat-window-1": ProjectChatWindowInstance(
+                            instanceId="project-chat-window-1",
+                            placement=ChatWindowPlacement.floating,
+                            mode=ChatWindowMode.project_ai_mode,
+                            chatId=None,
+                        )
+                    },
+                    order=["project-chat-window-1"],
+                    nextInstanceNumber=2,
+                )
             )
             dbe.write_project(project_state)
             state = await self._build_state(root)
@@ -1650,6 +1650,149 @@ class TestSharePolicyRoutes:
                 ].chatId
                 is None
             )
+
+    async def test_project_chat_window_layout_route_cannot_rebind_thread_when_llm_is_disallowed(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-policy-route-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config_id = _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            _write_share_policy(
+                root,
+                SharePolicy(allowLLM=False, allowLayoutChanges=True),
+            )
+            dbe = DBE(root)
+            project_state = dbe.read_project()
+            project_state.projectChatWindowingByProjectConfigId[project_config_id] = (
+                ProjectChatWindowingState(
+                    instancesById={
+                        "project-chat-window-1": ProjectChatWindowInstance(
+                            instanceId="project-chat-window-1",
+                            placement=ChatWindowPlacement.floating,
+                            mode=ChatWindowMode.project_ai_mode,
+                            chatId="chat-before",
+                        )
+                    },
+                    order=["project-chat-window-1"],
+                    nextInstanceNumber=2,
+                )
+            )
+            dbe.write_project(project_state)
+            state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+            state.share_runtime_state.create_session_backend(session.id)
+
+            with pytest.raises(HTTPException) as ctx:
+                with runtime_context(state, session.id) as runtime_ctx:
+                    await route_set_project_chat_windowing_state(
+                        SetProjectChatWindowingStateRequest(
+                            projectConfigId=project_config_id,
+                            state=ProjectChatWindowingState(
+                                instancesById={
+                                    "project-chat-window-1": ProjectChatWindowInstance(
+                                        instanceId="project-chat-window-1",
+                                        placement=ChatWindowPlacement.floating,
+                                        mode=ChatWindowMode.project_ai_mode,
+                                        chatId="chat-after",
+                                    )
+                                },
+                                order=["project-chat-window-1"],
+                                nextInstanceNumber=2,
+                            ),
+                        ),
+                        runtime_ctx,
+                    )
+
+            session_state = state.share_runtime_state.get_session_state(
+                session.id,
+                project_config_id,
+            )
+            assert ctx.value.status_code == 422
+            assert (
+                ctx.value.detail
+                == "Project chat window project-chat-window-1 cannot change chatId via layout updates."
+            )
+            assert (
+                session_state.projectChatWindowing.instancesById[
+                    "project-chat-window-1"
+                ].chatId
+                == "chat-before"
+            )
+
+    async def test_project_chat_window_layout_route_never_rebinds_thread_even_when_llm_is_allowed(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-policy-route-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config_id = _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            _write_share_policy(
+                root,
+                SharePolicy(allowLLM=True, allowLayoutChanges=True),
+            )
+            dbe = DBE(root)
+            project_state = dbe.read_project()
+            project_state.projectChatWindowingByProjectConfigId[project_config_id] = (
+                ProjectChatWindowingState(
+                    instancesById={
+                        "project-chat-window-1": ProjectChatWindowInstance(
+                            instanceId="project-chat-window-1",
+                            placement=ChatWindowPlacement.floating,
+                            mode=ChatWindowMode.project_ai_mode,
+                            chatId="chat-before",
+                        )
+                    },
+                    order=["project-chat-window-1"],
+                    nextInstanceNumber=2,
+                )
+            )
+            dbe.write_project(project_state)
+            state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+            state.share_runtime_state.create_session_backend(session.id)
+
+            with pytest.raises(HTTPException) as layout_ctx:
+                with runtime_context(state, session.id) as runtime_ctx:
+                    await route_set_project_chat_windowing_state(
+                        SetProjectChatWindowingStateRequest(
+                            projectConfigId=project_config_id,
+                            state=ProjectChatWindowingState(
+                                instancesById={
+                                    "project-chat-window-1": ProjectChatWindowInstance(
+                                        instanceId="project-chat-window-1",
+                                        placement=ChatWindowPlacement.floating,
+                                        mode=ChatWindowMode.project_ai_mode,
+                                        chatId="chat-after",
+                                    )
+                                },
+                                order=["project-chat-window-1"],
+                                nextInstanceNumber=2,
+                            ),
+                        ),
+                        runtime_ctx,
+                    )
+
+            with runtime_context(state, session.id) as runtime_ctx:
+                updated = await route_set_project_chat_window_chat_id(
+                    SetProjectChatWindowChatIdRequest(
+                        projectConfigId=project_config_id,
+                        instanceId="project-chat-window-1",
+                        chatId="chat-after",
+                    ),
+                    runtime_ctx,
+                )
+
+            assert layout_ctx.value.status_code == 422
+            assert updated.instancesById["project-chat-window-1"].chatId == "chat-after"
 
     async def test_window_space_routes_allowed_when_layout_changes_allowed(
         self,

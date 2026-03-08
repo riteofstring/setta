@@ -1088,3 +1088,36 @@ Verification:
 - `source activate.sh && pytest tests/project_state/test_project_chat_windowing_persistence.py tests/types/test_project_state_window_spaces.py tests/routers/test_mcp_linked_chat_tool.py tests/routers/test_mcp_tools_call_runtime_policy.py tests/utils/test_name_validation.py -q` passed: 139 tests.
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "workspace floating section windows switch threads through the section binding and survive reload"` passed: 1 test.
 - CDP verification on the live dev instance at `http://127.0.0.1:3098/diving_bold` created a disposable managed chat section, opened it in a floating workspace window, verified the floating section surface rendered correctly at both smaller and larger bounds, and then removed the disposable section.
+
+## 2026-03-11 10:30:25 PDT
+
+Implemented the remaining review fixes around project-chat thread-binding authority and live window-space reconciliation, then added focused coverage at the backend, state, and browser layers.
+
+What changed:
+- Hardened `backend/setta/types/project_chat_windowing.py` with `validate_project_chat_thread_bindings_unchanged(...)`, which rejects any `chatId` delta inside a full `ProjectChatWindowingState` layout write. The layout route can still move, resize, open, and close windows, but it can no longer become a second path for project-chat thread rebinding.
+- Updated `backend/setta/types/helpers_lvl2.py` so `set_project_chat_windowing_state(...)` enforces that new invariant before replacing runtime windowing state. The dedicated `set_project_chat_window_chat_id(...)` helper remains the sole authoritative writer for project-chat thread ownership.
+- Updated `frontend/src/state/actions/windowSpaces.ts` so a successful pre-save `route_set_project_chat_windowing_state(...)` response is immediately published back into the live workspace store through one focused helper. That helper records the authoritative snapshot, reconciles project-chat ephemeral state, and replaces `useProjectState.projectChatWindowing` only if the originating project is still active.
+- Kept the save flow shallow: `createWindowSpaceFromCurrentFloatingWindows()` now uses the same normalized backend response for both the saved window-space payload and the visible workspace, instead of maintaining an authoritative side map that can diverge from the rendered store.
+- Added targeted regressions:
+  - `tests/types/test_project_chat_windowing.py` now proves layout writes cannot rebind an existing project-chat thread and cannot create a new project-chat window already bound to a thread.
+  - `tests/routers/test_share_policy_routes.py` now proves `allowLLM=false` plus `allowLayoutChanges=true` cannot bypass thread-binding policy through `route_set_project_chat_windowing_state(...)`, and also proves the dedicated chat-id route still works when LLM access is allowed.
+  - `frontend/src/state/actions/windowSpaces.test.ts` now proves post-sync authoritative layout is applied to both the saved window-space snapshot and the live workspace store, and that this publish step does not leak into another project after navigation.
+  - `frontend/tests/e2e/overview/layout/window-space-layout-permissions.spec.ts` now proves saving a window space removes a backend-dropped stale floating window from the live workspace before any reload.
+
+UX before/after:
+- Before: a caller with layout permission but no LLM permission could still switch a managed project-chat thread by posting a full layout snapshot with a different `chatId`.
+- After: thread rebinding follows one explicit API path and one permission boundary, so layout edits stay layout-only.
+- Before: saving a window space could persist a normalized snapshot while the visible workspace continued showing stale floating windows that the backend had already removed.
+- After: the save flow is self-healing; the workspace and the saved window-space payload converge on the same authoritative layout immediately.
+
+DX before/after:
+- Before: project-chat thread ownership effectively had two write paths, one intended and one accidental, which made the backend contract harder to reason about and easier to bypass.
+- After: the contract is explicit and local: layout writes must preserve project-chat bindings, and thread rebinding lives only behind `setProjectChatWindowChatId(...)`.
+- Before: window-space save carried an unnecessary split between an authoritative cache and the rendered Zustand store, so successful normalization could still leave the live UI stale.
+- After: one small helper publishes the authoritative response into the visible store, which makes the save flow easier to read and removes the double-source-of-truth drift.
+
+Verification:
+- `source activate.sh && pytest tests/types/test_project_chat_windowing.py tests/routers/test_share_policy_routes.py -q` passed: 42 tests.
+- `pnpm -C frontend exec vitest run src/state/actions/windowSpaces.test.ts` passed: 32 tests.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/layout/window-space-layout-permissions.spec.ts` passed: 3 tests.
+- CDP verification on the live dev instance at `http://127.0.0.1:3098/storm_staying` seeded a two-window floating workspace (`Keep Window` plus `Stale Window`) and confirmed the live surface dropped the stale window as soon as authoritative windowing was reduced to a single surviving window. The end-to-end save interaction itself was covered by the Playwright spec above.

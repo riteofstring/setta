@@ -46,6 +46,82 @@ def test_set_project_chat_windowing_state_replaces_runtime_state() -> None:
     assert project_state.projectChatWindowing.nextInstanceNumber == 2
 
 
+def test_set_project_chat_windowing_state_rejects_rebinding_existing_project_chat() -> (
+    None
+):
+    # Layout writes must not become a second path for changing managed thread ownership.
+    project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="x"))
+    current_instance = ProjectChatWindowInstance(
+        instanceId="project-chat-window-1",
+        placement=ChatWindowPlacement.floating,
+        mode=ChatWindowMode.project_ai_mode,
+        chatId="chat-before",
+    )
+    project_state.projectChatWindowing = ProjectChatWindowingState(
+        instancesById={current_instance.instanceId: current_instance},
+        order=[current_instance.instanceId],
+        nextInstanceNumber=2,
+    )
+    next_state = ProjectChatWindowingState(
+        instancesById={
+            current_instance.instanceId: ProjectChatWindowInstance(
+                instanceId=current_instance.instanceId,
+                placement=ChatWindowPlacement.floating,
+                mode=ChatWindowMode.project_ai_mode,
+                chatId="chat-after",
+            )
+        },
+        order=[current_instance.instanceId],
+        nextInstanceNumber=2,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Project chat window project-chat-window-1 cannot change chatId "
+            "via layout updates."
+        ),
+    ):
+        set_project_chat_windowing_state(project_state, next_state)
+
+    assert (
+        project_state.projectChatWindowing.instancesById[
+            current_instance.instanceId
+        ].chatId
+        == "chat-before"
+    )
+
+
+def test_set_project_chat_windowing_state_rejects_new_project_chat_with_bound_thread() -> (
+    None
+):
+    # New project-chat windows must start unbound and use the dedicated route to bind a thread.
+    project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="x"))
+    next_state = ProjectChatWindowingState(
+        instancesById={
+            "project-chat-window-1": ProjectChatWindowInstance(
+                instanceId="project-chat-window-1",
+                placement=ChatWindowPlacement.floating,
+                mode=ChatWindowMode.project_ai_mode,
+                chatId="chat-before",
+            )
+        },
+        order=["project-chat-window-1"],
+        nextInstanceNumber=2,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Project chat window project-chat-window-1 cannot change chatId "
+            "via layout updates."
+        ),
+    ):
+        set_project_chat_windowing_state(project_state, next_state)
+
+    assert project_state.projectChatWindowing == ProjectChatWindowingState()
+
+
 def test_set_project_chat_window_chat_id_updates_the_target_window() -> None:
     project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="x"))
     instance = ProjectChatWindowInstance(

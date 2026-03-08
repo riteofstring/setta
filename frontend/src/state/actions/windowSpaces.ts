@@ -8,6 +8,7 @@ import {
   replaceProjectChatWindowingState,
 } from "state/actions/projectChatWindowing";
 import { recordAuthoritativeProjectChatWindowingState } from "state/actions/projectChatWindowingAuthoritative";
+import { reconcileProjectChatWindowingEphemeralState } from "state/actions/projectChatWindowingEphemeral";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
@@ -1009,6 +1010,29 @@ export function restoreWindowSpaceInWorkspace(windowSpaceId: string): void {
   });
 }
 
+function publishSyncedProjectChatWindowingState(
+  projectConfigId: string,
+  projectChatWindowing: ProjectChatWindowingState,
+): void {
+  recordAuthoritativeProjectChatWindowingState(
+    projectConfigId,
+    projectChatWindowing,
+  );
+  if (useProjectState.getState().projectConfig.id !== projectConfigId) {
+    return;
+  }
+  reconcileProjectChatWindowingEphemeralState(
+    projectChatWindowing,
+    projectConfigId,
+  );
+  useProjectState.setState((state) => {
+    if (state.projectConfig.id !== projectConfigId) {
+      return;
+    }
+    state.projectChatWindowing = projectChatWindowing;
+  });
+}
+
 export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<
   string | null
 > {
@@ -1047,10 +1071,7 @@ export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<
     );
     return null;
   }
-  recordAuthoritativeProjectChatWindowingState(
-    projectConfigId,
-    syncResponse.data,
-  );
+  publishSyncedProjectChatWindowingState(projectConfigId, syncResponse.data);
   const authoritativeSnapshot = snapshotFloatingWindowsForWindowSpace({
     projectChatWindowing: syncResponse.data,
     projectConfig: projectConfigSnapshot,
