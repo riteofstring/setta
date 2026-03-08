@@ -156,8 +156,9 @@ This slice landed:
   `host.read_project_state` follow-ons that were deferred here landed later in:
   - `phase-15-plugin-read-project-state-and-listener-registration-runtime.md`
   - `phase-15-plugin-listener-endpoint-websocket-dispatch.md`
-- The remaining deferred follow-on from this slice is plugin tool/runtime
-  hot-reload after install/link/rescan/update flows.
+- The plugin tool/runtime hot-reload follow-on that was deferred here landed
+  later in:
+  - `phase-15-plugin-backend-runtime-refresh-after-mutations.md`
 
 ## Next Recommended Step
 
@@ -166,6 +167,7 @@ Do not broaden plugin backend-host work speculatively.
 The next plugin follow-on should only be pulled forward when a concrete caller
 requires one of:
 
-1. plugin runtime refresh/hot-reload after mutation flows
-2. built-in listener endpoint dispatch with a Go-owned source of truth
-3. listener temporary-id negotiation on the Go websocket route
+1. built-in listener endpoint dispatch with a Go-owned source of truth
+2. listener temporary-id negotiation on the Go websocket route
+3. plugin-defined language-server, external-agent adapter, or codegen-target
+   hot refresh

@@ -372,6 +372,119 @@ func (s *Server) RegisterTool(registration ToolRegistration) (tools.Registered, 
 	return registered, nil
 }
 
+func (s *Server) RemoveTools(names ...string) {
+	if s == nil || len(names) == 0 {
+		return
+	}
+
+	normalizedNames := normalizeToolNames(names)
+	if len(normalizedNames) == 0 {
+		return
+	}
+
+	s.server.RemoveTools(normalizedNames...)
+	s.registry.Remove(normalizedNames...)
+	s.removeSearchEntries(normalizedNames)
+}
+
+func (s *Server) ReplaceTools(removeNames []string, registrations []ToolRegistration) error {
+	if s == nil {
+		return fmt.Errorf("mcpx: server is required")
+	}
+
+	normalizedRemoveNames := normalizeToolNames(removeNames)
+	if err := s.validateToolReplacement(normalizedRemoveNames, registrations); err != nil {
+		return err
+	}
+
+	s.RemoveTools(normalizedRemoveNames...)
+	for _, registration := range registrations {
+		if _, err := s.RegisterTool(registration); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func normalizeToolNames(names []string) []string {
+	normalized := make([]string, 0, len(names))
+	seen := map[string]struct{}{}
+	for _, rawName := range names {
+		name := strings.TrimSpace(rawName)
+		if name == "" {
+			continue
+		}
+		if _, exists := seen[name]; exists {
+			continue
+		}
+		seen[name] = struct{}{}
+		normalized = append(normalized, name)
+	}
+	return normalized
+}
+
+func (s *Server) validateToolReplacement(removeNames []string, registrations []ToolRegistration) error {
+	if s == nil {
+		return fmt.Errorf("mcpx: server is required")
+	}
+
+	removeNameSet := make(map[string]struct{}, len(removeNames))
+	for _, name := range removeNames {
+		removeNameSet[name] = struct{}{}
+	}
+
+	protectedNames := map[string]struct{}{}
+	for _, registered := range s.registry.List() {
+		if _, willRemove := removeNameSet[registered.Name]; willRemove {
+			continue
+		}
+		protectedNames[registered.Name] = struct{}{}
+	}
+
+	newNames := map[string]struct{}{}
+	for _, registration := range registrations {
+		name := strings.TrimSpace(registration.Spec.Name)
+		if name == "" {
+			return tools.ErrToolNameRequired
+		}
+		if registration.Spec.Handler == nil {
+			return tools.ErrToolHandlerNil
+		}
+		if _, err := registration.Spec.Metadata.Normalize(name); err != nil {
+			return err
+		}
+		if _, exists := protectedNames[name]; exists {
+			return fmt.Errorf("%w: %s", tools.ErrToolDuplicate, name)
+		}
+		if _, exists := newNames[name]; exists {
+			return fmt.Errorf("%w: %s", tools.ErrToolDuplicate, name)
+		}
+		newNames[name] = struct{}{}
+	}
+	return nil
+}
+
+func (s *Server) removeSearchEntries(names []string) {
+	if s == nil || len(names) == 0 {
+		return
+	}
+
+	nameSet := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		nameSet[name] = struct{}{}
+	}
+
+	filtered := make([]tools.SearchEntry, 0, len(s.searchEntries))
+	for _, entry := range s.searchEntries {
+		if _, exists := nameSet[entry.Name]; exists {
+			continue
+		}
+		filtered = append(filtered, entry)
+	}
+	s.searchEntries = filtered
+	s.toolSearch = tools.BuildSearchIndex(filtered)
+}
+
 func (s *Server) addTool(registered tools.Registered, inputSchema map[string]any, outputSchema map[string]any) {
 	s.server.AddTool(&sdkmcp.Tool{
 		Name:         registered.Name,

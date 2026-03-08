@@ -679,15 +679,20 @@ The next bounded plugin backend follow-on tracked in
   mutation-time runtime refresh remain deferred until a concrete caller
   requires one of those surfaces
 
-The next bounded plugin backend follow-on is now tracked in
-`phase-15-plugin-backend-runtime-refresh-after-mutations.md`:
+The bounded plugin backend runtime-refresh follow-on tracked in
+`phase-15-plugin-backend-runtime-refresh-after-mutations.md` is now also
+landed:
 
-- live IDE-mode plugin-set mutations should rebuild the backend route/tool/
-  static-dir/listener runtime instead of leaving the startup snapshot in place
-- backend plugin HTTP transport should move to runtime path matching so install/
-  remove/enable/disable changes do not depend on chi routes frozen at startup
-- plugin MCP tools should be replaced as a set on refresh instead of keeping
-  stale runtime registrations alive
+- Go now refreshes live IDE-mode plugin backend route/tool/static-dir/listener
+  ownership after successful plugin-set mutations instead of leaving the
+  startup snapshot in place
+- backend plugin HTTP transport now resolves routes dynamically against the
+  current runtime so install/remove/enable/disable changes no longer depend on
+  chi routes frozen at startup
+- plugin-owned MCP tools now refresh as a set on the authenticated Go MCP
+  server during those mutation flows
+- the refresh boundary now builds the next runtime from a post-refresh preview
+  snapshot before committing persisted pending-restart cleanup
 - plugin-defined language-server, external-agent, and codegen-target hot
   refresh remain deferred until a separate concrete caller requires them
 

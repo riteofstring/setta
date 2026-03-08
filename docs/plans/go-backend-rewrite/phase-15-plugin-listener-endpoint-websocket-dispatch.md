@@ -145,7 +145,9 @@ Completed:
 - built-in listener-router endpoint dispatch
 - listener temporary-id remapping
 - Python listener websocket route convergence
-- plugin runtime refresh after install/link/enable/disable/update flows
+- the plugin runtime refresh follow-on that this slice deferred landed later
+  in:
+  - `phase-15-plugin-backend-runtime-refresh-after-mutations.md`
 
 ## Next Recommended Step
 
@@ -155,6 +157,5 @@ The next concrete follow-on should only start when a caller requires one of:
 
 - built-in listener-router endpoint dispatch with a Go-owned source of truth
 - listener temporary-id negotiation on the Go websocket route
-- plugin backend runtime refresh after install/link/enable/disable/update flows
 - any remaining share/app-mode plugin backend-host ownership that cannot stay
   deferred

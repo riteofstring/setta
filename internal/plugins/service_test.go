@@ -244,6 +244,124 @@ func TestServiceBackendUninstallSurfacesPendingRestartTombstone(t *testing.T) {
 	}
 }
 
+// Committing a live backend runtime refresh should clear persisted pending
+// restart markers once the app has already rebuilt the runtime.
+func TestServiceCommitBackendRuntimeRefreshClearsPendingState(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, newFixtureCandidateProvider(t, map[string]fixtureCandidateSpec{
+		"pypi:setta-fixture-backend==0.1.0": {
+			FixtureName: "backend",
+			Version:     "0.1.0",
+		},
+	}), config.ModeIDE)
+
+	installResult, err := service.Install(context.Background(), InstallOptions{
+		SourceSpec: "pypi:setta-fixture-backend==0.1.0",
+		Enable:     true,
+	})
+	if err != nil {
+		t.Fatalf("install backend plugin: %v", err)
+	}
+	if !installResult.RestartRequired || installResult.State != PluginRuntimeStatePendingRestart {
+		t.Fatalf("expected backend install to require restart before commit, got %#v", installResult)
+	}
+
+	committedSnapshot, err := service.CommitBackendRuntimeRefresh()
+	if err != nil {
+		t.Fatalf("commit backend runtime refresh after install: %v", err)
+	}
+	installedEntry := mustFindDiscoveredPlugin(t, committedSnapshot.Plugins, "setta-fixture-backend", PluginScopeWorkspace)
+	if installedEntry.State != PluginRuntimeStateActive || installedEntry.RestartRequired {
+		t.Fatalf("expected backend plugin to become active after commit, got %#v", installedEntry)
+	}
+
+	uninstallResult, err := service.Uninstall(context.Background(), UninstallOptions{
+		PluginID: "setta-fixture-backend",
+	})
+	if err != nil {
+		t.Fatalf("uninstall backend plugin: %v", err)
+	}
+	if !uninstallResult.RestartRequired {
+		t.Fatalf("expected backend uninstall to require restart before commit")
+	}
+
+	committedSnapshot, err = service.CommitBackendRuntimeRefresh()
+	if err != nil {
+		t.Fatalf("commit backend runtime refresh after uninstall: %v", err)
+	}
+	if len(committedSnapshot.Plugins) != 0 {
+		t.Fatalf("expected backend uninstall tombstone to clear after commit, got %#v", committedSnapshot.Plugins)
+	}
+}
+
+// Previewing a live backend runtime refresh should expose the post-refresh
+// runtime view without clearing persisted pending restart markers until commit.
+func TestServicePreviewBackendRuntimeRefreshOmitsPendingRestartState(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, newFixtureCandidateProvider(t, map[string]fixtureCandidateSpec{
+		"pypi:setta-fixture-backend==0.1.0": {
+			FixtureName: "backend",
+			Version:     "0.1.0",
+		},
+	}), config.ModeIDE)
+
+	installResult, err := service.Install(context.Background(), InstallOptions{
+		SourceSpec: "pypi:setta-fixture-backend==0.1.0",
+		Enable:     true,
+	})
+	if err != nil {
+		t.Fatalf("install backend plugin: %v", err)
+	}
+	if !installResult.RestartRequired || installResult.State != PluginRuntimeStatePendingRestart {
+		t.Fatalf("expected backend install to require restart before preview, got %#v", installResult)
+	}
+
+	previewSnapshot, err := service.PreviewBackendRuntimeRefresh()
+	if err != nil {
+		t.Fatalf("preview backend runtime refresh after install: %v", err)
+	}
+	previewEntry := mustFindDiscoveredPlugin(t, previewSnapshot.Plugins, "setta-fixture-backend", PluginScopeWorkspace)
+	if previewEntry.State != PluginRuntimeStateActive || previewEntry.RestartRequired {
+		t.Fatalf("expected preview snapshot to show active backend plugin, got %#v", previewEntry)
+	}
+
+	liveSnapshot, err := service.Rescan()
+	if err != nil {
+		t.Fatalf("rescan after preview install: %v", err)
+	}
+	liveEntry := mustFindDiscoveredPlugin(t, liveSnapshot.Plugins, "setta-fixture-backend", PluginScopeWorkspace)
+	if liveEntry.State != PluginRuntimeStatePendingRestart || !liveEntry.RestartRequired {
+		t.Fatalf("expected persisted state to stay pending_restart before commit, got %#v", liveEntry)
+	}
+
+	uninstallResult, err := service.Uninstall(context.Background(), UninstallOptions{
+		PluginID: "setta-fixture-backend",
+	})
+	if err != nil {
+		t.Fatalf("uninstall backend plugin: %v", err)
+	}
+	if !uninstallResult.RestartRequired {
+		t.Fatalf("expected backend uninstall to require restart before preview")
+	}
+
+	previewSnapshot, err = service.PreviewBackendRuntimeRefresh()
+	if err != nil {
+		t.Fatalf("preview backend runtime refresh after uninstall: %v", err)
+	}
+	if len(previewSnapshot.Plugins) != 0 {
+		t.Fatalf("expected preview snapshot to omit uninstall tombstone, got %#v", previewSnapshot.Plugins)
+	}
+
+	liveSnapshot, err = service.Rescan()
+	if err != nil {
+		t.Fatalf("rescan after preview uninstall: %v", err)
+	}
+	liveEntry = mustFindDiscoveredPlugin(t, liveSnapshot.Plugins, "setta-fixture-backend", PluginScopeWorkspace)
+	if liveEntry.State != PluginRuntimeStatePendingRestart || !liveEntry.RestartRequired {
+		t.Fatalf("expected uninstall tombstone to stay pending_restart before commit, got %#v", liveEntry)
+	}
+}
+
 // Update should reject linked local plugin metadata instead of pretending package-manager updates are available.
 func TestServiceUpdateRejectsLocalSourceMetadata(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)

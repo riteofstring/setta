@@ -467,6 +467,208 @@ func TestAppIDEMCPServerRegistersPluginBackendMCPTools(t *testing.T) {
 	}
 }
 
+func TestAppIDEMCPServerRefreshesPluginBackendMCPToolsAfterLifecycleMutations(t *testing.T) {
+	artifactDir := t.TempDir()
+	buildAppLocalPyPIWheelFromFixture(t, artifactDir, "backend-mcp-tools", "setta-fixture-backend-mcp-tools", "0.1.0")
+	t.Setenv("PIP_NO_INDEX", "1")
+	t.Setenv("PIP_FIND_LINKS", artifactDir)
+
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	prepareAppPluginWorkerRuntime(t)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	postPluginMutation := func(path string, body string) *http.Response {
+		t.Helper()
+
+		request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+path, strings.NewReader(body))
+		if err != nil {
+			t.Fatalf("new %s request: %v", path, err)
+		}
+		request.Header.Set("Content-Type", "application/json")
+		request.AddCookie(authCookie)
+
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			t.Fatalf("post %s: %v", path, err)
+		}
+		return response
+	}
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	assertToolPresence := func(expected bool) {
+		t.Helper()
+
+		toolsResult, err := session.ListTools(context.Background(), nil)
+		if err != nil {
+			t.Fatalf("list tools: %v", err)
+		}
+
+		found := false
+		for _, tool := range toolsResult.Tools {
+			if tool.Name == "setta_fixture_mcp_read" {
+				found = true
+				break
+			}
+		}
+		if found != expected {
+			t.Fatalf("expected plugin MCP tool presence %t, got %#v", expected, toolsResult.Tools)
+		}
+	}
+
+	assertToolPresence(false)
+
+	installResponse := postPluginMutation(httpapi.RoutePluginsInstall, `{"sourceSpec":"pypi:setta-fixture-backend-mcp-tools==0.1.0","scope":"workspace","installer":"pip","enable":true,"force":false}`)
+	defer installResponse.Body.Close()
+	if installResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(installResponse.Body)
+		t.Fatalf("expected plugin install 200, got %d with body %q", installResponse.StatusCode, string(body))
+	}
+
+	var installPayload struct {
+		PluginID         string `json:"pluginId"`
+		State            string `json:"state"`
+		RestartRequired  bool   `json:"restartRequired"`
+		SourceScopeLabel string `json:"sourceScopeLabel"`
+	}
+	if err := json.NewDecoder(installResponse.Body).Decode(&installPayload); err != nil {
+		t.Fatalf("decode install payload: %v", err)
+	}
+	if installPayload.PluginID != "setta-fixture-backend-mcp-tools" || installPayload.State != "active" || installPayload.RestartRequired || installPayload.SourceScopeLabel != "workspace" {
+		t.Fatalf("unexpected install payload %#v", installPayload)
+	}
+
+	assertToolPresence(true)
+
+	setContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_agentic_context",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"chatId":          "chat-section",
+			"sectionId":       "chat-section",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_agentic_context: %v", err)
+	}
+	if setContextResult.IsError {
+		t.Fatalf("expected set_agentic_context success, got %#v", setContextResult.StructuredContent)
+	}
+
+	readResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "setta_fixture_mcp_read",
+		Arguments: map[string]any{
+			"value": "alpha",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call plugin backend read tool after install: %v", err)
+	}
+	if readResult.IsError {
+		t.Fatalf("expected plugin backend read tool success after install, got %#v", readResult.StructuredContent)
+	}
+
+	disableResponse := postPluginMutation(httpapi.RoutePluginsDisable, `{"pluginId":"setta-fixture-backend-mcp-tools"}`)
+	defer disableResponse.Body.Close()
+	if disableResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(disableResponse.Body)
+		t.Fatalf("expected plugin disable 200, got %d with body %q", disableResponse.StatusCode, string(body))
+	}
+
+	var disablePayload struct {
+		PluginID        string `json:"pluginId"`
+		State           string `json:"state"`
+		RestartRequired bool   `json:"restartRequired"`
+	}
+	if err := json.NewDecoder(disableResponse.Body).Decode(&disablePayload); err != nil {
+		t.Fatalf("decode disable payload: %v", err)
+	}
+	if disablePayload.PluginID != "setta-fixture-backend-mcp-tools" || disablePayload.State != "disabled" || disablePayload.RestartRequired {
+		t.Fatalf("unexpected disable payload %#v", disablePayload)
+	}
+
+	assertToolPresence(false)
+
+	enableResponse := postPluginMutation(httpapi.RoutePluginsEnable, `{"pluginId":"setta-fixture-backend-mcp-tools"}`)
+	defer enableResponse.Body.Close()
+	if enableResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(enableResponse.Body)
+		t.Fatalf("expected plugin enable 200, got %d with body %q", enableResponse.StatusCode, string(body))
+	}
+
+	var enablePayload struct {
+		PluginID        string `json:"pluginId"`
+		State           string `json:"state"`
+		RestartRequired bool   `json:"restartRequired"`
+	}
+	if err := json.NewDecoder(enableResponse.Body).Decode(&enablePayload); err != nil {
+		t.Fatalf("decode enable payload: %v", err)
+	}
+	if enablePayload.PluginID != "setta-fixture-backend-mcp-tools" || enablePayload.State != "active" || enablePayload.RestartRequired {
+		t.Fatalf("unexpected enable payload %#v", enablePayload)
+	}
+
+	assertToolPresence(true)
+
+	readResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "setta_fixture_mcp_read",
+		Arguments: map[string]any{
+			"value": "beta",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call plugin backend read tool after enable: %v", err)
+	}
+	if readResult.IsError {
+		t.Fatalf("expected plugin backend read tool success after enable, got %#v", readResult.StructuredContent)
+	}
+
+	uninstallResponse := postPluginMutation(httpapi.RoutePluginsUninstall, `{"pluginId":"setta-fixture-backend-mcp-tools","scope":"workspace"}`)
+	defer uninstallResponse.Body.Close()
+	if uninstallResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(uninstallResponse.Body)
+		t.Fatalf("expected plugin uninstall 200, got %d with body %q", uninstallResponse.StatusCode, string(body))
+	}
+
+	var uninstallPayload struct {
+		PluginID         string `json:"pluginId"`
+		RemovedFromScope string `json:"removedFromScope"`
+		RestartRequired  bool   `json:"restartRequired"`
+	}
+	if err := json.NewDecoder(uninstallResponse.Body).Decode(&uninstallPayload); err != nil {
+		t.Fatalf("decode uninstall payload: %v", err)
+	}
+	if uninstallPayload.PluginID != "setta-fixture-backend-mcp-tools" || uninstallPayload.RemovedFromScope != "workspace" || uninstallPayload.RestartRequired {
+		t.Fatalf("unexpected uninstall payload %#v", uninstallPayload)
+	}
+
+	assertToolPresence(false)
+}
+
 func TestAppIDEMCPServerInvokesPluginBackendProjectStateTool(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE

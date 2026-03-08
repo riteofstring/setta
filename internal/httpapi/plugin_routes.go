@@ -29,12 +29,37 @@ const RoutePluginsRestart = "/plugins/restart"
 
 type PluginRouteDependencies struct {
 	ModePolicy modes.Policy
-	Service    *plugins.Service
+	Service    PluginRouteService
 }
 
 type PluginRootRouteDependencies struct {
-	Service        *plugins.Service
-	BackendRuntime *plugins.BackendRouteRuntime
+	Service        PluginAssetService
+	BackendRuntime PluginStaticAssetRuntime
+}
+
+type PluginAssetService interface {
+	ResolveAssetPath(pluginID string, assetPath string) (string, error)
+}
+
+type PluginStaticAssetRuntime interface {
+	ResolveStaticAssetPath(pluginID string, assetPath string) (string, error)
+}
+
+type PluginRouteService interface {
+	PluginAssetService
+	Runtime(options plugins.RuntimeOptions) (plugins.RuntimeResponse, error)
+	Rescan() (plugins.DiscoverySnapshot, error)
+	Install(ctx context.Context, options plugins.InstallOptions) (plugins.PluginInstallResult, error)
+	Link(options plugins.LinkOptions) (plugins.PluginInstallResult, error)
+	Uninstall(ctx context.Context, options plugins.UninstallOptions) (plugins.PluginUninstallResult, error)
+	Update(ctx context.Context, options plugins.UpdateOptions) (plugins.PluginUpdateResult, error)
+	Rollback(ctx context.Context, options plugins.RollbackOptions) (plugins.PluginRollbackResult, error)
+	Enable(ctx context.Context, options plugins.EnableDisableOptions) (plugins.PluginEnableDisableResult, error)
+	Disable(ctx context.Context, options plugins.EnableDisableOptions) (plugins.PluginEnableDisableResult, error)
+	WriteConfig(ctx context.Context, options plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResult, error)
+	WriteLockfile() (plugins.PluginLockWriteResult, error)
+	ApplyLockfile(ctx context.Context, check bool) (plugins.PluginLockApplyResult, error)
+	Restart(ctx context.Context) (plugins.PluginRestartResult, error)
 }
 
 func RegisterPluginRoutes(router chi.Router, deps PluginRouteDependencies) error {

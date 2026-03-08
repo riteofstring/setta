@@ -113,6 +113,50 @@ func TestBackendRouteRuntimeProxiesFixtureRoutePayloads(t *testing.T) {
 	}
 }
 
+// The runtime matcher should resolve the current backend route by method/path
+// so the HTTP transport can dispatch newly refreshed plugin routes at request
+// time instead of depending on startup-time chi registration.
+func TestBackendRouteRuntimeMatchesRoutesAndAllowedMethods(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend-language-server-e2e")
+
+	runtime := mustNewBackendRouteRuntime(t, roots, config.ModeIDE)
+	defer func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close backend route runtime: %v", err)
+		}
+	}()
+
+	route, pathParams, ok := runtime.MatchRoute(
+		http.MethodPost,
+		"/plugins/setta-fixture-backend-language-server-e2e/payload/echo-body",
+	)
+	if !ok {
+		t.Fatal("expected backend route match")
+	}
+	if route.Pattern != "/plugins/setta-fixture-backend-language-server-e2e/payload/echo-body" {
+		t.Fatalf("unexpected matched route %#v", route)
+	}
+	if len(pathParams) != 0 {
+		t.Fatalf("expected no path params for fixture route, got %#v", pathParams)
+	}
+
+	if _, _, ok := runtime.MatchRoute(
+		http.MethodPatch,
+		"/plugins/setta-fixture-backend-language-server-e2e/payload/echo-body",
+	); ok {
+		t.Fatal("expected unsupported method not to match backend route")
+	}
+
+	allowedMethods := runtime.AllowedMethods("/plugins/setta-fixture-backend-language-server-e2e/payload/echo-body")
+	if len(allowedMethods) != 1 || allowedMethods[0] != http.MethodPost {
+		t.Fatalf("expected POST to be the only allowed method, got %#v", allowedMethods)
+	}
+	if allowedMethods := runtime.AllowedMethods("/plugins/setta-fixture-backend-language-server-e2e/payload/missing"); len(allowedMethods) != 0 {
+		t.Fatalf("expected no allowed methods for unknown backend path, got %#v", allowedMethods)
+	}
+}
+
 // Tool-only backend plugins should stay live and proxy MCP tool calls over the worker RPC boundary.
 func TestBackendRouteRuntimeInvokesToolOnlyFixtureMCPTools(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)

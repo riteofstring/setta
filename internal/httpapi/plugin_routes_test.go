@@ -333,6 +333,60 @@ func TestRegisterPluginBackendRoutesProxiesWorkerPayloads(t *testing.T) {
 	}
 }
 
+func TestRegisterPluginBackendRoutesReturnTypedNotFoundAndMethodNotAllowed(t *testing.T) {
+	service, roots := newPluginRouteTestService(t, config.ModeIDE)
+	copyPluginRouteFixtureToWorkspace(t, roots.workspaceRoot, "backend-language-server-e2e")
+	runtime := newPluginRouteBackendRuntime(t, roots, config.ModeIDE)
+	defer func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close plugin backend runtime: %v", err)
+		}
+	}()
+
+	handler := newPluginRouteTestHandlerWithBackendRuntime(t, config.ModeIDE, service, runtime)
+
+	missingResponse := httptest.NewRecorder()
+	missingRequest := httptest.NewRequest(
+		http.MethodGet,
+		"/api/plugins/setta-fixture-backend-language-server-e2e/payload/missing",
+		nil,
+	)
+	handler.ServeHTTP(missingResponse, missingRequest)
+	if missingResponse.Code != http.StatusNotFound {
+		t.Fatalf("expected dynamic backend route 404, got %d with body %q", missingResponse.Code, missingResponse.Body.String())
+	}
+
+	var missingPayload errorResponse
+	if err := json.Unmarshal(missingResponse.Body.Bytes(), &missingPayload); err != nil {
+		t.Fatalf("decode dynamic backend 404 payload: %v", err)
+	}
+	if missingPayload.Error.Code != "not_found" {
+		t.Fatalf("expected not_found code, got %#v", missingPayload)
+	}
+
+	methodResponse := httptest.NewRecorder()
+	methodRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api/plugins/setta-fixture-backend-language-server-e2e/payload/echo-query",
+		nil,
+	)
+	handler.ServeHTTP(methodResponse, methodRequest)
+	if methodResponse.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected dynamic backend route 405, got %d with body %q", methodResponse.Code, methodResponse.Body.String())
+	}
+	if methodResponse.Header().Get("Allow") != http.MethodGet {
+		t.Fatalf("expected Allow header GET, got %q", methodResponse.Header().Get("Allow"))
+	}
+
+	var methodPayload errorResponse
+	if err := json.Unmarshal(methodResponse.Body.Bytes(), &methodPayload); err != nil {
+		t.Fatalf("decode dynamic backend 405 payload: %v", err)
+	}
+	if methodPayload.Error.Code != "method_not_allowed" {
+		t.Fatalf("expected method_not_allowed code, got %#v", methodPayload)
+	}
+}
+
 func TestRegisterPluginRoutesRejectInvalidJSONForLink(t *testing.T) {
 	t.Parallel()
 

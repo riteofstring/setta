@@ -1578,6 +1578,295 @@ func TestAppWritesAndAppliesPluginLockRoutes(t *testing.T) {
 	}
 }
 
+func TestAppRefreshesPluginBackendRuntimeAfterLifecycleMutations(t *testing.T) {
+	// The real IDE app should hot-refresh backend route ownership after install,
+	// disable, enable, and uninstall instead of leaving backend plugins in
+	// pending_restart until manual restart.
+	sourceSpec := configureAppLocalPyPIFixture(t, "backend", "setta-fixture-backend", "0.1.0")
+
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppPluginWorkerRuntime(t)
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	doRequest := func(method string, path string, body string) *http.Response {
+		t.Helper()
+
+		request, err := http.NewRequest(method, server.URL+path, strings.NewReader(body))
+		if err != nil {
+			t.Fatalf("new %s %s request: %v", method, path, err)
+		}
+		if body != "" {
+			request.Header.Set("Content-Type", "application/json")
+		}
+		request.AddCookie(authCookie)
+
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			t.Fatalf("%s %s: %v", method, path, err)
+		}
+		return response
+	}
+	readRuntimeState := func() *string {
+		t.Helper()
+
+		response := doRequest(http.MethodGet, "/api"+httpapi.RoutePluginsRuntime, "")
+		defer response.Body.Close()
+		if response.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(response.Body)
+			t.Fatalf("expected plugin runtime 200, got %d with body %q", response.StatusCode, string(body))
+		}
+
+		var payload struct {
+			Status struct {
+				Plugins []struct {
+					PluginID string `json:"pluginId"`
+					State    string `json:"state"`
+				} `json:"plugins"`
+			} `json:"status"`
+		}
+		if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+			t.Fatalf("decode plugin runtime payload: %v", err)
+		}
+		for _, entry := range payload.Status.Plugins {
+			if entry.PluginID == "setta-fixture-backend" {
+				return &entry.State
+			}
+		}
+		return nil
+	}
+	readHealth := func() *http.Response {
+		t.Helper()
+		return doRequest(http.MethodGet, "/api/plugins/setta-fixture-backend/health", "")
+	}
+
+	initialHealth := readHealth()
+	defer initialHealth.Body.Close()
+	if initialHealth.StatusCode != http.StatusNotFound {
+		body, _ := io.ReadAll(initialHealth.Body)
+		t.Fatalf("expected backend route to be unavailable before install, got %d with body %q", initialHealth.StatusCode, string(body))
+	}
+
+	installResponse := doRequest(http.MethodPost, "/api"+httpapi.RoutePluginsInstall, `{"sourceSpec":"`+sourceSpec+`","scope":"workspace","installer":"pip","enable":true,"force":false}`)
+	defer installResponse.Body.Close()
+	if installResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(installResponse.Body)
+		t.Fatalf("expected backend install 200, got %d with body %q", installResponse.StatusCode, string(body))
+	}
+
+	var installPayload struct {
+		State           string `json:"state"`
+		RestartRequired bool   `json:"restartRequired"`
+	}
+	if err := json.NewDecoder(installResponse.Body).Decode(&installPayload); err != nil {
+		t.Fatalf("decode backend install payload: %v", err)
+	}
+	if installPayload.State != "active" || installPayload.RestartRequired {
+		t.Fatalf("expected backend install to be live immediately, got %#v", installPayload)
+	}
+	if state := readRuntimeState(); state == nil || *state != "active" {
+		t.Fatalf("expected runtime state active after install, got %#v", state)
+	}
+
+	healthResponse := readHealth()
+	defer healthResponse.Body.Close()
+	if healthResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(healthResponse.Body)
+		t.Fatalf("expected backend route 200 after install, got %d with body %q", healthResponse.StatusCode, string(body))
+	}
+
+	disableResponse := doRequest(http.MethodPost, "/api"+httpapi.RoutePluginsDisable, `{"pluginId":"setta-fixture-backend"}`)
+	defer disableResponse.Body.Close()
+	if disableResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(disableResponse.Body)
+		t.Fatalf("expected backend disable 200, got %d with body %q", disableResponse.StatusCode, string(body))
+	}
+
+	var disablePayload struct {
+		State           string `json:"state"`
+		RestartRequired bool   `json:"restartRequired"`
+	}
+	if err := json.NewDecoder(disableResponse.Body).Decode(&disablePayload); err != nil {
+		t.Fatalf("decode backend disable payload: %v", err)
+	}
+	if disablePayload.State != "disabled" || disablePayload.RestartRequired {
+		t.Fatalf("expected backend disable to be live immediately, got %#v", disablePayload)
+	}
+	if state := readRuntimeState(); state == nil || *state != "disabled" {
+		t.Fatalf("expected runtime state disabled after disable, got %#v", state)
+	}
+
+	disabledHealth := readHealth()
+	defer disabledHealth.Body.Close()
+	if disabledHealth.StatusCode != http.StatusNotFound {
+		body, _ := io.ReadAll(disabledHealth.Body)
+		t.Fatalf("expected backend route 404 after disable, got %d with body %q", disabledHealth.StatusCode, string(body))
+	}
+
+	enableResponse := doRequest(http.MethodPost, "/api"+httpapi.RoutePluginsEnable, `{"pluginId":"setta-fixture-backend"}`)
+	defer enableResponse.Body.Close()
+	if enableResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(enableResponse.Body)
+		t.Fatalf("expected backend enable 200, got %d with body %q", enableResponse.StatusCode, string(body))
+	}
+
+	var enablePayload struct {
+		State           string `json:"state"`
+		RestartRequired bool   `json:"restartRequired"`
+	}
+	if err := json.NewDecoder(enableResponse.Body).Decode(&enablePayload); err != nil {
+		t.Fatalf("decode backend enable payload: %v", err)
+	}
+	if enablePayload.State != "active" || enablePayload.RestartRequired {
+		t.Fatalf("expected backend enable to be live immediately, got %#v", enablePayload)
+	}
+
+	enabledHealth := readHealth()
+	defer enabledHealth.Body.Close()
+	if enabledHealth.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(enabledHealth.Body)
+		t.Fatalf("expected backend route 200 after enable, got %d with body %q", enabledHealth.StatusCode, string(body))
+	}
+
+	uninstallResponse := doRequest(http.MethodPost, "/api"+httpapi.RoutePluginsUninstall, `{"pluginId":"setta-fixture-backend","scope":"workspace"}`)
+	defer uninstallResponse.Body.Close()
+	if uninstallResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(uninstallResponse.Body)
+		t.Fatalf("expected backend uninstall 200, got %d with body %q", uninstallResponse.StatusCode, string(body))
+	}
+
+	var uninstallPayload struct {
+		RestartRequired bool `json:"restartRequired"`
+	}
+	if err := json.NewDecoder(uninstallResponse.Body).Decode(&uninstallPayload); err != nil {
+		t.Fatalf("decode backend uninstall payload: %v", err)
+	}
+	if uninstallPayload.RestartRequired {
+		t.Fatalf("expected backend uninstall to refresh immediately, got %#v", uninstallPayload)
+	}
+	if state := readRuntimeState(); state != nil {
+		t.Fatalf("expected backend plugin to disappear from runtime after uninstall, got %#v", *state)
+	}
+
+	uninstalledHealth := readHealth()
+	defer uninstalledHealth.Body.Close()
+	if uninstalledHealth.StatusCode != http.StatusNotFound {
+		body, _ := io.ReadAll(uninstalledHealth.Body)
+		t.Fatalf("expected backend route 404 after uninstall, got %d with body %q", uninstalledHealth.StatusCode, string(body))
+	}
+}
+
+func TestAppRescanRefreshesPluginBackendRuntime(t *testing.T) {
+	// The real IDE app should rebuild backend route and static-dir ownership on
+	// rescan when plugin files appear or disappear after startup.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppPluginWorkerRuntime(t)
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	doRequest := func(method string, path string, body string) *http.Response {
+		t.Helper()
+
+		request, err := http.NewRequest(method, server.URL+path, strings.NewReader(body))
+		if err != nil {
+			t.Fatalf("new %s %s request: %v", method, path, err)
+		}
+		if body != "" {
+			request.Header.Set("Content-Type", "application/json")
+		}
+		request.AddCookie(authCookie)
+
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			t.Fatalf("%s %s: %v", method, path, err)
+		}
+		return response
+	}
+
+	initialRoute := doRequest(http.MethodGet, "/api/plugins/setta-fixture-backend-static-router/info", "")
+	defer initialRoute.Body.Close()
+	if initialRoute.StatusCode != http.StatusNotFound {
+		body, _ := io.ReadAll(initialRoute.Body)
+		t.Fatalf("expected backend route 404 before rescan install, got %d with body %q", initialRoute.StatusCode, string(body))
+	}
+
+	installAppPluginFixture(t, cfg, "backend-static-router", "setta-fixture-backend-static-router")
+
+	firstRescan := doRequest(http.MethodPost, "/api"+httpapi.RoutePluginsRescan, `{}`)
+	defer firstRescan.Body.Close()
+	if firstRescan.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(firstRescan.Body)
+		t.Fatalf("expected rescan 200 after fixture install, got %d with body %q", firstRescan.StatusCode, string(body))
+	}
+
+	routeResponse := doRequest(http.MethodGet, "/api/plugins/setta-fixture-backend-static-router/info", "")
+	defer routeResponse.Body.Close()
+	if routeResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(routeResponse.Body)
+		t.Fatalf("expected backend route 200 after rescan install, got %d with body %q", routeResponse.StatusCode, string(body))
+	}
+
+	staticResponse := doRequest(http.MethodGet, "/plugin-static/setta-fixture-backend-static-router/fixture/hello.txt", "")
+	defer staticResponse.Body.Close()
+	if staticResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(staticResponse.Body)
+		t.Fatalf("expected backend static 200 after rescan install, got %d with body %q", staticResponse.StatusCode, string(body))
+	}
+
+	if err := os.RemoveAll(filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-backend-static-router")); err != nil {
+		t.Fatalf("remove backend static fixture: %v", err)
+	}
+
+	secondRescan := doRequest(http.MethodPost, "/api"+httpapi.RoutePluginsRescan, `{}`)
+	defer secondRescan.Body.Close()
+	if secondRescan.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(secondRescan.Body)
+		t.Fatalf("expected rescan 200 after fixture removal, got %d with body %q", secondRescan.StatusCode, string(body))
+	}
+
+	removedRoute := doRequest(http.MethodGet, "/api/plugins/setta-fixture-backend-static-router/info", "")
+	defer removedRoute.Body.Close()
+	if removedRoute.StatusCode != http.StatusNotFound {
+		body, _ := io.ReadAll(removedRoute.Body)
+		t.Fatalf("expected backend route 404 after rescan removal, got %d with body %q", removedRoute.StatusCode, string(body))
+	}
+
+	removedStatic := doRequest(http.MethodGet, "/plugin-static/setta-fixture-backend-static-router/fixture/hello.txt", "")
+	defer removedStatic.Body.Close()
+	if removedStatic.StatusCode != http.StatusNotFound {
+		body, _ := io.ReadAll(removedStatic.Body)
+		t.Fatalf("expected backend static 404 after rescan removal, got %d with body %q", removedStatic.StatusCode, string(body))
+	}
+}
+
 func TestAppServesManualPluginRestartRoute(t *testing.T) {
 	// The real app should expose the plugin restart route and stay manual-only without a restart hook.
 	cfg := testConfig(t)

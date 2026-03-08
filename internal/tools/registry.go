@@ -122,6 +122,28 @@ func (r *Registry) ListByKind(kind Kind) []Registered {
 	return filtered
 }
 
+func (r *Registry) Remove(names ...string) bool {
+	if r == nil || len(names) == 0 {
+		return false
+	}
+
+	changed := false
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, rawName := range names {
+		name := strings.TrimSpace(rawName)
+		if name == "" {
+			continue
+		}
+		if _, exists := r.byName[name]; !exists {
+			continue
+		}
+		delete(r.byName, name)
+		changed = true
+	}
+	return changed
+}
+
 func (r Registered) clone() Registered {
 	return Registered{
 		Name:        r.Name,

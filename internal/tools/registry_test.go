@@ -156,3 +156,39 @@ func TestRegistryLookupReturnsClonedMetadata(t *testing.T) {
 		t.Fatalf("expected cloned result id paths, got %#v", second.Metadata.ResultIDPathsByType)
 	}
 }
+
+// Removing tools should update later lookup/list calls without treating missing
+// names as fatal.
+func TestRegistryRemoveDeletesRegisteredTools(t *testing.T) {
+	t.Parallel()
+
+	registry := NewRegistry()
+	handler := func(context.Context, map[string]any) (any, error) {
+		return nil, nil
+	}
+	for _, name := range []string{"listProjects", "setSectionSizes"} {
+		if _, err := registry.Register(Spec{
+			Name: name,
+			Metadata: Metadata{
+				Kind: KindDiscoverable,
+			},
+			Handler: handler,
+		}); err != nil {
+			t.Fatalf("register %s: %v", name, err)
+		}
+	}
+
+	if !registry.Remove("setSectionSizes", "missing-tool") {
+		t.Fatal("expected remove to report a change")
+	}
+	if _, ok := registry.Lookup("setSectionSizes"); ok {
+		t.Fatal("expected removed tool lookup to fail")
+	}
+	remaining := registry.List()
+	if len(remaining) != 1 || remaining[0].Name != "listProjects" {
+		t.Fatalf("expected only listProjects to remain, got %#v", remaining)
+	}
+	if registry.Remove("setSectionSizes") {
+		t.Fatal("expected removing an already-missing tool to report no change")
+	}
+}

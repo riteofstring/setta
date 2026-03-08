@@ -68,6 +68,21 @@ func (s *DiscoveryService) Rescan() (DiscoverySnapshot, error) {
 		return DiscoverySnapshot{}, ErrWorkspaceRootRequired
 	}
 
+	pluginsState, err := s.store.LoadPluginsState()
+	if err != nil {
+		return DiscoverySnapshot{}, err
+	}
+	globalState, err := s.store.LoadPluginsGlobalState()
+	if err != nil {
+		return DiscoverySnapshot{}, err
+	}
+	return s.rescanWithStates(pluginsState, globalState)
+}
+
+func (s *DiscoveryService) rescanWithStates(
+	pluginsState PluginsStateFile,
+	globalState PluginsGlobalStateFile,
+) (DiscoverySnapshot, error) {
 	installMetadata, err := s.store.LoadInstallMetadata()
 	if err != nil {
 		return DiscoverySnapshot{}, err
@@ -81,14 +96,6 @@ func (s *DiscoveryService) Rescan() (DiscoverySnapshot, error) {
 		return DiscoverySnapshot{}, err
 	}
 	entries = append(entries, packageManagerEntries...)
-	pluginsState, err := s.store.LoadPluginsState()
-	if err != nil {
-		return DiscoverySnapshot{}, err
-	}
-	globalState, err := s.store.LoadPluginsGlobalState()
-	if err != nil {
-		return DiscoverySnapshot{}, err
-	}
 
 	grouped := map[string][]DiscoveredPlugin{}
 	for _, entry := range entries {

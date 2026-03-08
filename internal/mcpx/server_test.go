@@ -8878,6 +8878,114 @@ func TestServerRegisterToolAddsRuntimePluginTools(t *testing.T) {
 	}
 }
 
+func TestServerRemoveToolsDropsRuntimePluginTools(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	server, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	if _, err := server.RegisterTool(ToolRegistration{
+		Spec: tools.Spec{
+			Name:        "setta_plugin_runtime_tool",
+			Description: "Runtime-registered plugin tool.",
+			Metadata: tools.Metadata{
+				Kind:       tools.KindDiscoverable,
+				AccessType: tools.AccessTypeRead,
+			},
+			Handler: func(_ context.Context, arguments map[string]any) (any, error) {
+				return arguments, nil
+			},
+		},
+		InputSchema: map[string]any{
+			"type": "object",
+		},
+	}); err != nil {
+		t.Fatalf("register runtime plugin tool: %v", err)
+	}
+
+	server.RemoveTools("setta_plugin_runtime_tool")
+
+	toolsResult, err := clientSession.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("list tools after removal: %v", err)
+	}
+	if slices.ContainsFunc(toolsResult.Tools, func(tool *sdkmcp.Tool) bool {
+		return tool != nil && tool.Name == "setta_plugin_runtime_tool"
+	}) {
+		t.Fatalf("expected runtime plugin tool to be removed, got %#v", toolsResult.Tools)
+	}
+	if _, ok := server.Registry().Lookup("setta_plugin_runtime_tool"); ok {
+		t.Fatal("expected removed runtime plugin tool to be absent from registry")
+	}
+}
+
+func TestServerReplaceToolsSwapsRuntimePluginTools(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	server, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	if _, err := server.RegisterTool(ToolRegistration{
+		Spec: tools.Spec{
+			Name:        "setta_plugin_runtime_tool",
+			Description: "Runtime-registered plugin tool.",
+			Metadata: tools.Metadata{
+				Kind:       tools.KindDiscoverable,
+				AccessType: tools.AccessTypeRead,
+			},
+			Handler: func(_ context.Context, arguments map[string]any) (any, error) {
+				return arguments, nil
+			},
+		},
+		InputSchema: map[string]any{
+			"type": "object",
+		},
+	}); err != nil {
+		t.Fatalf("register initial runtime plugin tool: %v", err)
+	}
+
+	if err := server.ReplaceTools(
+		[]string{"setta_plugin_runtime_tool"},
+		[]ToolRegistration{
+			{
+				Spec: tools.Spec{
+					Name:        "setta_plugin_runtime_tool_replacement",
+					Description: "Replacement runtime plugin tool.",
+					Metadata: tools.Metadata{
+						Kind:       tools.KindDiscoverable,
+						AccessType: tools.AccessTypeRead,
+					},
+					Handler: func(_ context.Context, arguments map[string]any) (any, error) {
+						return map[string]any{"value": arguments["value"]}, nil
+					},
+				},
+				InputSchema: map[string]any{
+					"type": "object",
+				},
+			},
+		},
+	); err != nil {
+		t.Fatalf("replace runtime plugin tools: %v", err)
+	}
+
+	toolsResult, err := clientSession.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("list tools after replacement: %v", err)
+	}
+	if slices.ContainsFunc(toolsResult.Tools, func(tool *sdkmcp.Tool) bool {
+		return tool != nil && tool.Name == "setta_plugin_runtime_tool"
+	}) {
+		t.Fatalf("expected old runtime tool to be removed, got %#v", toolsResult.Tools)
+	}
+	if !slices.ContainsFunc(toolsResult.Tools, func(tool *sdkmcp.Tool) bool {
+		return tool != nil && tool.Name == "setta_plugin_runtime_tool_replacement"
+	}) {
+		t.Fatalf("expected replacement runtime tool in list, got %#v", toolsResult.Tools)
+	}
+}
+
 func TestServerSearchMCPToolsUsesDiscoverableToolsAndServerFilters(t *testing.T) {
 	t.Parallel()
 

@@ -68,12 +68,13 @@ Python manager for:
 
 ## Deferred
 
-- mutation-time backend runtime refresh after plugin install/link/rescan/update
-  flows
 - built-in listener-endpoint-name conflict validation
-  - Go does not yet have a listener-router endpoint source of truth equivalent
-    to the later dispatch surface
+  - Go still does not have a listener-router endpoint source of truth beyond
+    the plugin-owned dispatch surface
   - this slice avoided inventing a heuristic placeholder list
+- the mutation-time backend runtime refresh follow-on that this doc deferred
+  landed later in:
+  - `phase-15-plugin-backend-runtime-refresh-after-mutations.md`
 
 ## Verification
 
@@ -87,5 +88,6 @@ Do not widen plugin backend-host work speculatively.
 
 The next concrete follow-on should only start when a caller requires one of:
 
-- backend runtime refresh after plugin mutation flows
+- built-in listener-endpoint-name conflict validation with a Go-owned source of
+  truth
 - any remaining share/app-mode backend-host ownership that cannot stay deferred

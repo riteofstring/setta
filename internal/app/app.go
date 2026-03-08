@@ -46,7 +46,6 @@ import (
 	"setta/internal/settingsstate"
 	"setta/internal/sshx"
 	"setta/internal/terminals"
-	"setta/internal/tools"
 	"setta/internal/transcriptionprofiles"
 	"setta/internal/uisettings"
 	"setta/internal/watchcode"
@@ -76,7 +75,7 @@ type App struct {
 	boundCode     *boundcode.Service
 	mcpServer     *mcpx.Server
 	mcpClient     *mcpx.Client
-	pluginRoutes  *plugins.BackendRouteRuntime
+	pluginRoutes  *plugins.BackendRuntimeHolder
 	handler       http.Handler
 }
 
@@ -159,7 +158,9 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		pluginStore           *plugins.Store
 		pluginDiscovery       *plugins.DiscoveryService
 		pluginBackendRegs     plugins.BackendRegistrationSource
-		pluginBackendRoutes   *plugins.BackendRouteRuntime
+		pluginBackendRoutes   *plugins.BackendRuntimeHolder
+		pluginRuntimeRefresh  *pluginBackendRuntimeRefresher
+		pluginRouteService    httpapi.PluginRouteService
 		pythonPackages        *pythonenv.Runtime
 	)
 	if authService.SupportsSessionAuth() {
@@ -615,6 +616,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 		return nil, err
 	}
+	pluginRouteService = pluginMutationService
 	if modePolicy.IsIDE() && projectRuntime != nil {
 		engineStore, err = agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
 		if err != nil {
@@ -875,33 +877,6 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 		return nil, err
 	}
-	if modePolicy.IsIDE() {
-		mcpServer, err = mcpx.NewServer(mcpx.ServerOptions{
-			Logger:                         logger,
-			WorkspaceRoot:                  cfg.Paths.WorkspaceRoot,
-			ProjectState:                   projectRuntime,
-			CodegenTargetValidator:         codegenValidator,
-			PythonCodegenSectionReconciler: pythonMaterializer,
-			CodeUpdates:                    codeUpdates,
-			SettingsState:                  settingsStateRuntime,
-			SectionNames:                   renameRefactors,
-			CallableSignatures:             lspSignature,
-			PluginMutations:                pluginMutationService,
-			PythonPackages:                 pythonPackages,
-			LSPDiagnostics:                 lspDiagnostics,
-			MCPStatuses:                    mcpClient,
-			Terminals:                      terminalService,
-			DocsRoot:                       filepath.Join(cfg.Paths.WorkspaceRoot, "docs"),
-			TemporaryIDMapPath:             mcpx.TemporaryIDMapPath(cfg.Paths.RuntimeRoot),
-			AgentProfiles:                  agentProfileStore,
-			AgentRuns:                      agentRunService,
-			UISettingReveals:               uiSettingRevealService,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-	}
 	if deploymentRuntime != nil {
 		manager.Go("deployment-session-cleanup", func(ctx context.Context) error {
 			return runDeploymentSessionCleanupLoop(ctx, deploymentRuntime, terminalService, listenerBroadcaster, 0)
@@ -948,7 +923,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
-		pluginBackendRoutes, err = plugins.NewBackendRouteRuntime(context.Background(), plugins.BackendRouteRuntimeOptions{
+		initialPluginRuntime, err := plugins.NewBackendRouteRuntime(context.Background(), plugins.BackendRouteRuntimeOptions{
 			DiscoveryService: pluginDiscovery,
 			RuntimeProvider:  pluginWorkerRuntime,
 			ListenerProducer: listenerProducer,
@@ -960,11 +935,61 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
+		pluginBackendRoutes = plugins.NewBackendRuntimeHolder(initialPluginRuntime)
+		pluginRuntimeRefresh = &pluginBackendRuntimeRefresher{
+			service:          pluginMutationService,
+			discovery:        pluginDiscovery,
+			runtimeProvider:  pluginWorkerRuntime,
+			listenerProducer: listenerProducer,
+			projectStateRead: pluginProjectStateReader,
+			serverMode:       cfg.Server.Mode,
+			holder:           pluginBackendRoutes,
+		}
+		pluginRouteService = newPluginMutationRuntimeService(pluginMutationService, pluginRuntimeRefresh)
+	}
+	if modePolicy.IsIDE() {
+		mcpServer, err = mcpx.NewServer(mcpx.ServerOptions{
+			Logger:                         logger,
+			WorkspaceRoot:                  cfg.Paths.WorkspaceRoot,
+			ProjectState:                   projectRuntime,
+			CodegenTargetValidator:         codegenValidator,
+			PythonCodegenSectionReconciler: pythonMaterializer,
+			CodeUpdates:                    codeUpdates,
+			SettingsState:                  settingsStateRuntime,
+			SectionNames:                   renameRefactors,
+			CallableSignatures:             lspSignature,
+			PluginMutations:                pluginRouteService,
+			PythonPackages:                 pythonPackages,
+			LSPDiagnostics:                 lspDiagnostics,
+			MCPStatuses:                    mcpClient,
+			Terminals:                      terminalService,
+			DocsRoot:                       filepath.Join(cfg.Paths.WorkspaceRoot, "docs"),
+			TemporaryIDMapPath:             mcpx.TemporaryIDMapPath(cfg.Paths.RuntimeRoot),
+			AgentProfiles:                  agentProfileStore,
+			AgentRuns:                      agentRunService,
+			UISettingReveals:               uiSettingRevealService,
+		})
+		if err != nil {
+			_ = errors.Join(
+				closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()),
+				closePluginBackendRoutes(pluginBackendRoutes),
+				terminalService.Close(context.Background()),
+			)
+			return nil, err
+		}
 	}
 	if mcpServer != nil && pluginBackendRoutes != nil {
-		if err := registerPluginMCPTools(mcpServer, pluginBackendRoutes); err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+		registeredPluginToolNames, err := registerPluginMCPTools(mcpServer, pluginBackendRoutes.Current())
+		if err != nil {
+			_ = errors.Join(
+				closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()),
+				closePluginBackendRoutes(pluginBackendRoutes),
+				terminalService.Close(context.Background()),
+			)
 			return nil, err
+		}
+		if pluginRuntimeRefresh != nil {
+			pluginRuntimeRefresh.AttachMCPServer(mcpServer, registeredPluginToolNames)
 		}
 	}
 	authRefreshWindowSeconds := int(authService.AuthCookieRefreshWindow() / time.Second)
@@ -981,7 +1006,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		ModePolicy:     modes.NewPolicy(cfg.Server.Mode),
 		RegisterRoot: func(r chi.Router) {
 			if err := httpapi.RegisterPluginRootRoutes(r, httpapi.PluginRootRouteDependencies{
-				Service:        pluginMutationService,
+				Service:        pluginRouteService,
 				BackendRuntime: pluginBackendRoutes,
 			}); err != nil {
 				panic(err)
@@ -1044,7 +1069,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			}
 			if err := httpapi.RegisterPluginRoutes(r, httpapi.PluginRouteDependencies{
 				ModePolicy: modePolicy,
-				Service:    pluginMutationService,
+				Service:    pluginRouteService,
 			}); err != nil {
 				panic(err)
 			}
@@ -1278,42 +1303,18 @@ func (a *App) MCPServer() *mcpx.Server {
 	return a.mcpServer
 }
 
-func registerPluginMCPTools(server *mcpx.Server, runtime *plugins.BackendRouteRuntime) error {
+func registerPluginMCPTools(server *mcpx.Server, runtime *plugins.BackendRouteRuntime) ([]string, error) {
 	if server == nil || runtime == nil {
-		return nil
+		return nil, nil
 	}
 
-	for _, registration := range runtime.MCPTools() {
-		toolRegistration := registration
-		if _, err := server.RegisterTool(mcpx.ToolRegistration{
-			Spec: tools.Spec{
-				Name:        toolRegistration.Name,
-				Description: toolRegistration.Description,
-				Metadata:    toolRegistration.Metadata,
-				Handler: func(ctx context.Context, arguments map[string]any) (any, error) {
-					result, err := runtime.InvokeMCPTool(ctx, toolRegistration.Name, arguments)
-					if err == nil {
-						return result, nil
-					}
-
-					var toolErr *plugins.BackendMCPToolCallError
-					if errors.As(err, &toolErr) {
-						code := toolErr.Code
-						if code == "" {
-							code = "internal_error"
-						}
-						return nil, mcpx.NewToolError(code, "%s", toolErr.Message)
-					}
-					return nil, err
-				},
-			},
-			InputSchema:  toolRegistration.InputSchema,
-			OutputSchema: toolRegistration.OutputSchema,
-		}); err != nil {
-			return err
+	registrations := pluginMCPToolRegistrations(runtime)
+	for _, registration := range registrations {
+		if _, err := server.RegisterTool(registration); err != nil {
+			return nil, err
 		}
 	}
-	return nil
+	return toolRegistrationNames(registrations), nil
 }
 
 func (a *App) MCPClient() *mcpx.Client {
@@ -1399,7 +1400,7 @@ func closeProjectResources(projectStates *projectstate.Registry, deploymentRunti
 	return errors.Join(closeProjectStates(projectStates), closeDeploymentRuntime(deploymentRuntime))
 }
 
-func closePluginBackendRoutes(runtime *plugins.BackendRouteRuntime) error {
+func closePluginBackendRoutes(runtime *plugins.BackendRuntimeHolder) error {
 	if runtime == nil {
 		return nil
 	}

@@ -642,8 +642,8 @@ Use the docs in this order:
   - focused completed-slice doc for Go-owned plugin listener-endpoint
     websocket dispatch over the live listener route and backend runtime
 176. `phase-15-plugin-backend-runtime-refresh-after-mutations.md`
-  - focused implementation-plan doc for live IDE-mode refresh of plugin
-    backend route/tool/static/listener ownership after plugin-set mutations
+  - focused completed-slice doc for live IDE-mode refresh of plugin backend
+    route/tool/static/listener ownership after plugin-set mutations
 177. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
 178. `spike-pty.md`

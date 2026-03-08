@@ -108,6 +108,54 @@ func (s *Service) Rescan() (DiscoverySnapshot, error) {
 	return s.rescanLocked()
 }
 
+func (s *Service) PreviewBackendRuntimeRefresh() (DiscoverySnapshot, error) {
+	if s == nil {
+		return DiscoverySnapshot{}, ErrWorkspaceRootRequired
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	state, err := s.store.LoadPluginsState()
+	if err != nil {
+		return DiscoverySnapshot{}, err
+	}
+	globalState, err := s.store.LoadPluginsGlobalState()
+	if err != nil {
+		return DiscoverySnapshot{}, err
+	}
+
+	state.PendingRestartBackendPluginIDs = nil
+	return s.discoveryService.rescanWithStates(state, globalState)
+}
+
+func (s *Service) CommitBackendRuntimeRefresh() (DiscoverySnapshot, error) {
+	if s == nil {
+		return DiscoverySnapshot{}, ErrWorkspaceRootRequired
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	state, err := s.store.LoadPluginsState()
+	if err != nil {
+		return DiscoverySnapshot{}, err
+	}
+
+	stateChanged := len(state.PendingRestartBackendPluginIDs) != 0
+	if stateChanged {
+		state.PendingRestartBackendPluginIDs = nil
+		if err := s.store.SavePluginsState(state); err != nil {
+			return DiscoverySnapshot{}, err
+		}
+	}
+	if len(s.pendingRestartRemovedPlugin) != 0 {
+		s.pendingRestartRemovedPlugin = map[string]PendingRestartRemovedBackendPlugin{}
+	}
+
+	return s.rescanLocked()
+}
+
 func (s *Service) Enable(_ context.Context, options EnableDisableOptions) (PluginEnableDisableResult, error) {
 	if s == nil {
 		return PluginEnableDisableResult{}, ErrWorkspaceRootRequired

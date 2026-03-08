@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,7 +15,13 @@ import (
 
 type PluginBackendRouteDependencies struct {
 	ModePolicy modes.Policy
-	Runtime    *plugins.BackendRouteRuntime
+	Runtime    PluginBackendRuntime
+}
+
+type PluginBackendRuntime interface {
+	MatchRoute(method string, path string) (plugins.BackendRoute, map[string]string, bool)
+	AllowedMethods(path string) []string
+	ProxyRoute(ctx context.Context, route plugins.BackendRoute, request *http.Request, pathParams map[string]string) (plugins.BackendRouteResponse, error)
 }
 
 func RegisterPluginBackendRoutes(router chi.Router, deps PluginBackendRouteDependencies) error {
@@ -25,18 +32,28 @@ func RegisterPluginBackendRoutes(router chi.Router, deps PluginBackendRouteDepen
 		return nil
 	}
 
-	for _, route := range deps.Runtime.Routes() {
-		handler := pluginBackendRouteHandler(deps.Runtime, route)
-		for _, method := range route.Methods {
-			router.With(RequireIDEMode(deps.ModePolicy)).Method(method, route.Pattern, handler)
-		}
-	}
+	handler := pluginBackendRouteHandler(deps.Runtime)
+	router.With(RequireIDEMode(deps.ModePolicy)).Handle("/plugins/{pluginId}", handler)
+	router.With(RequireIDEMode(deps.ModePolicy)).Handle("/plugins/{pluginId}/*", handler)
 	return nil
 }
 
-func pluginBackendRouteHandler(runtime *plugins.BackendRouteRuntime, route plugins.BackendRoute) http.HandlerFunc {
+func pluginBackendRouteHandler(runtime PluginBackendRuntime) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		response, err := runtime.ProxyRoute(r.Context(), route, r, pluginBackendRoutePathParams(r))
+		routePath := pluginBackendRouteMatchPath(r.URL.Path)
+		route, pathParams, ok := runtime.MatchRoute(r.Method, routePath)
+		if !ok {
+			allowedMethods := runtime.AllowedMethods(routePath)
+			if len(allowedMethods) != 0 {
+				w.Header().Set("Allow", strings.Join(allowedMethods, ", "))
+				writeError(w, r, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed.")
+				return
+			}
+			writeError(w, r, http.StatusNotFound, "not_found", "Route not found.")
+			return
+		}
+
+		response, err := runtime.ProxyRoute(r.Context(), route, r, pathParams)
 		if err != nil {
 			writePluginBackendRouteError(w, err)
 			return
@@ -45,20 +62,18 @@ func pluginBackendRouteHandler(runtime *plugins.BackendRouteRuntime, route plugi
 	}
 }
 
-func pluginBackendRoutePathParams(r *http.Request) map[string]string {
-	routeContext := chi.RouteContext(r.Context())
-	if routeContext == nil || len(routeContext.URLParams.Keys) == 0 {
-		return map[string]string{}
+func pluginBackendRouteMatchPath(path string) string {
+	trimmedPath := strings.TrimSpace(path)
+	if strings.HasPrefix(trimmedPath, apiPrefix) {
+		trimmedPath = strings.TrimPrefix(trimmedPath, apiPrefix)
 	}
-
-	pathParams := make(map[string]string, len(routeContext.URLParams.Keys))
-	for index, key := range routeContext.URLParams.Keys {
-		if index >= len(routeContext.URLParams.Values) {
-			continue
-		}
-		pathParams[key] = routeContext.URLParams.Values[index]
+	if trimmedPath == "" {
+		return "/"
 	}
-	return pathParams
+	if !strings.HasPrefix(trimmedPath, "/") {
+		return "/" + trimmedPath
+	}
+	return trimmedPath
 }
 
 func writePluginBackendRouteError(w http.ResponseWriter, err error) {

@@ -15,6 +15,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/go-chi/chi/v5"
 	"setta/internal/config"
 	"setta/internal/realtime"
 	"setta/internal/statefs"
@@ -28,6 +29,7 @@ var (
 
 type BackendRouteRuntimeOptions struct {
 	DiscoveryService *DiscoveryService
+	Snapshot         *DiscoverySnapshot
 	RuntimeProvider  WorkerRuntimeProvider
 	ListenerProducer *realtime.ListenerProducer
 	ProjectStateRead ProjectStateReader
@@ -47,9 +49,11 @@ type BackendRouteRuntime struct {
 	listeners      []RegisteredBackendListenerEndpoint
 	sessions       map[string]*StartedWorkerSession
 	routeByID      map[string]BackendRoute
+	routeByMethod  map[string]BackendRoute
 	mcpToolByID    map[string]RegisteredMCPTool
 	listenerByName map[string]RegisteredBackendListenerEndpoint
 	staticByPID    map[string][]RegisteredBackendStaticDir
+	routeMatcher   *chi.Mux
 }
 
 type BackendRoute struct {
@@ -132,7 +136,7 @@ func (e *BackendListenerEndpointCallError) Error() string {
 }
 
 func NewBackendRouteRuntime(ctx context.Context, options BackendRouteRuntimeOptions) (*BackendRouteRuntime, error) {
-	if options.DiscoveryService == nil {
+	if options.DiscoveryService == nil && options.Snapshot == nil {
 		return nil, ErrBackendRouteRuntimeDiscoveryRequired
 	}
 	if options.RuntimeProvider == nil {
@@ -145,9 +149,15 @@ func NewBackendRouteRuntime(ctx context.Context, options BackendRouteRuntimeOpti
 		ctx = context.Background()
 	}
 
-	snapshot, err := options.DiscoveryService.Rescan()
-	if err != nil {
-		return nil, err
+	snapshot := DiscoverySnapshot{}
+	if options.Snapshot != nil {
+		snapshot = *options.Snapshot
+	} else {
+		discoveredSnapshot, err := options.DiscoveryService.Rescan()
+		if err != nil {
+			return nil, err
+		}
+		snapshot = discoveredSnapshot
 	}
 
 	runtimePlugins := collectBackendRuntimePlugins(snapshot.Plugins)
@@ -161,6 +171,7 @@ func NewBackendRouteRuntime(ctx context.Context, options BackendRouteRuntimeOpti
 		listeners:        []RegisteredBackendListenerEndpoint{},
 		sessions:         map[string]*StartedWorkerSession{},
 		routeByID:        map[string]BackendRoute{},
+		routeByMethod:    map[string]BackendRoute{},
 		mcpToolByID:      map[string]RegisteredMCPTool{},
 		listenerByName:   map[string]RegisteredBackendListenerEndpoint{},
 		staticByPID:      map[string][]RegisteredBackendStaticDir{},
@@ -180,6 +191,7 @@ func NewBackendRouteRuntime(ctx context.Context, options BackendRouteRuntimeOpti
 		}
 	}
 	runtime.sortRegistrations()
+	runtime.buildRouteMatcher()
 	return runtime, nil
 }
 
@@ -509,6 +521,39 @@ func (r *BackendRouteRuntime) ResolveStaticAssetPath(pluginID string, assetPath 
 	return resolvedPath, nil
 }
 
+func (r *BackendRouteRuntime) MatchRoute(method string, path string) (BackendRoute, map[string]string, bool) {
+	if r == nil || r.routeMatcher == nil {
+		return BackendRoute{}, nil, false
+	}
+
+	rctx := chi.NewRouteContext()
+	pattern := r.routeMatcher.Find(rctx, strings.ToUpper(strings.TrimSpace(method)), strings.TrimSpace(path))
+	if pattern == "" {
+		return BackendRoute{}, nil, false
+	}
+
+	route, ok := r.routeByMethod[backendRouteMethodKey(method, pattern)]
+	if !ok {
+		return BackendRoute{}, nil, false
+	}
+	return route, cloneBackendRoutePathParams(routeContextParams(rctx)), true
+}
+
+func (r *BackendRouteRuntime) AllowedMethods(path string) []string {
+	if r == nil || r.routeMatcher == nil {
+		return nil
+	}
+
+	allowed := make([]string, 0, len(backendRouteMatcherMethods))
+	for _, method := range backendRouteMatcherMethods {
+		rctx := chi.NewRouteContext()
+		if r.routeMatcher.Match(rctx, method, strings.TrimSpace(path)) {
+			allowed = append(allowed, method)
+		}
+	}
+	return allowed
+}
+
 func (r *BackendRouteRuntime) session(pluginID string) *StartedWorkerSession {
 	if r == nil {
 		return nil
@@ -587,6 +632,9 @@ func (r *BackendRouteRuntime) startPlugin(
 	for _, route := range routes {
 		r.routes = append(r.routes, route)
 		r.routeByID[route.PluginID+":"+route.RouteID] = route
+		for _, method := range route.Methods {
+			r.routeByMethod[backendRouteMethodKey(method, route.Pattern)] = route
+		}
 	}
 	for _, registration := range toolRegistrations {
 		r.mcpTools = append(r.mcpTools, registration)
@@ -632,6 +680,20 @@ func (r *BackendRouteRuntime) sortRegistrations() {
 	for _, registration := range r.staticDirs {
 		r.staticByPID[registration.PluginID] = append(r.staticByPID[registration.PluginID], registration)
 	}
+}
+
+func (r *BackendRouteRuntime) buildRouteMatcher() {
+	if r == nil {
+		return
+	}
+
+	matcher := chi.NewRouter()
+	for _, route := range r.routes {
+		for _, method := range route.Methods {
+			matcher.MethodFunc(method, route.Pattern, func(http.ResponseWriter, *http.Request) {})
+		}
+	}
+	r.routeMatcher = matcher
 }
 
 func (r *BackendRouteRuntime) logStartupError(pluginID string, err error) {
@@ -717,6 +779,37 @@ func matchBackendStaticDir(
 		}
 	}
 	return RegisteredBackendStaticDir{}, "", false
+}
+
+var backendRouteMatcherMethods = []string{
+	http.MethodConnect,
+	http.MethodDelete,
+	http.MethodGet,
+	http.MethodHead,
+	http.MethodOptions,
+	http.MethodPatch,
+	http.MethodPost,
+	http.MethodPut,
+	http.MethodTrace,
+}
+
+func backendRouteMethodKey(method string, pattern string) string {
+	return strings.ToUpper(strings.TrimSpace(method)) + " " + strings.TrimSpace(pattern)
+}
+
+func routeContextParams(rctx *chi.Context) map[string]string {
+	if rctx == nil || len(rctx.URLParams.Keys) == 0 {
+		return map[string]string{}
+	}
+
+	params := make(map[string]string, len(rctx.URLParams.Keys))
+	for index, key := range rctx.URLParams.Keys {
+		if index >= len(rctx.URLParams.Values) {
+			continue
+		}
+		params[key] = rctx.URLParams.Values[index]
+	}
+	return params
 }
 
 func decodeBackendMCPToolResult(payload json.RawMessage) (any, error) {

@@ -2,21 +2,40 @@
 
 ## Purpose
 
-This doc scopes the next bounded Phase 15 follow-on: refreshing the live
-IDE-mode plugin backend runtime after plugin-set mutations instead of keeping
-the startup snapshot until manual restart.
+This doc records the bounded Phase 15 follow-on that moved live IDE-mode plugin
+backend runtime refresh after plugin-set mutations into Go.
 
-The goal is to make the current Go-owned plugin mutation callers update live
+The goal was to make the existing Go-owned plugin mutation callers update live
 backend route, MCP-tool, static-dir, and listener-endpoint ownership through a
-single explicit runtime-refresh boundary.
+single explicit runtime-refresh boundary instead of leaving the startup backend
+snapshot in place until manual restart.
 
 ## Status
 
-Planned.
+Current repo status as of 2026-03-09:
+
+- this slice is now landed
+- Go now refreshes the live IDE-mode plugin backend runtime after successful:
+  - `POST /plugins/rescan`
+  - `POST /plugins/install`
+  - `POST /plugins/link`
+  - `POST /plugins/uninstall`
+  - `POST /plugins/update`
+  - `POST /plugins/rollback`
+  - `POST /plugins/enable`
+  - `POST /plugins/disable`
+  - `POST /plugins/lock/apply`
+- backend plugin HTTP transport now resolves routes dynamically against the
+  current runtime instead of depending on chi registrations frozen at startup
+- plugin-owned MCP tools now refresh as a set on the live authenticated Go MCP
+  server during those mutation flows
+- the refresh boundary now builds the next runtime from an explicit preview
+  snapshot that reflects the post-refresh plugin state before persisted
+  pending-restart cleanup is committed
 
 ## Scope
 
-This slice covers:
+This slice covers only:
 
 - live IDE-mode refresh of the Go plugin backend runtime after successful:
   - `POST /plugins/rescan`
@@ -69,7 +88,7 @@ This slice covers:
 - `internal/plugins/backend_route_runtime.go`
 - `internal/plugins/service.go`
 
-## Working Decisions
+## Decisions Made
 
 - treat the live backend runtime as an explicit app-owned refreshable boundary
   - keep `internal/plugins.BackendRouteRuntime` immutable once built
@@ -90,98 +109,77 @@ This slice covers:
     only after the new runtime is ready
   - direct mutation responses should reflect the live post-refresh state instead
     of a stale `restartRequired=true` marker when refresh succeeds
+- build refreshed runtime ownership from a preview snapshot
+  - `internal/plugins.Service` now exposes a post-refresh discovery preview
+    that clears pending-restart ids and omits uninstall tombstones without
+    persisting that cleanup yet
+  - `internal/plugins.NewBackendRouteRuntime(...)` now accepts an explicit
+    discovery snapshot so the refreshed runtime can be built from that preview
+  - this keeps disabled/uninstalled backends out of the live runtime before the
+    persisted cleanup commit while preserving the explicit commit step
 - keep the refresh trigger explicit
   - only the mutation flows in this doc trigger runtime rebuilds
   - read routes stay thin and do not try to self-heal or lazily rebuild on
     demand
 
-## Implementation
+## Landed Work
 
-### Slice 1: Refreshable Runtime And Dynamic Transport
-
-Planned:
-
-- add a refreshable holder for the current `BackendRouteRuntime`
-- add runtime route matching inside `internal/plugins` using chi-compatible
-  matching over the registered plugin backend patterns
-- switch `internal/httpapi.RegisterPluginBackendRoutes(...)` from startup-time
-  per-route registration to a catch-all runtime dispatcher
-- keep plugin static-asset and listener-endpoint callers on the same holder so
-  swaps update every live transport consumer together
-
-Done when:
-
-- installing or removing a backend-route-owning plugin no longer requires app
-  restart for HTTP route ownership changes
-- unmatched plugin backend paths return normal API 404 / 405 envelopes instead
-  of worker transport errors
-
-### Slice 2: MCP Tool Replacement Support
-
-Planned:
-
-- add explicit remove/replace support in `internal/mcpx.Server`
-- remove plugin-owned tool names from both the SDK server and the internal tool
-  registry/search index before registering refreshed names
-- keep built-in tools untouched during plugin refresh
-
-Done when:
-
-- newly installed plugin MCP tools appear in `tools/list` without restart
-- disabled or removed plugin MCP tools disappear from `tools/list` and reject
-  further calls
-
-### Slice 3: Mutation Wrapper And Pending-Restart Convergence
-
-Planned:
-
-- add an app-owned wrapper around the Go plugin mutation service for live IDE
-  use
-- after successful backend-affecting mutations:
-  - build the next runtime
-  - replace plugin MCP tools
-  - swap the runtime holder
-  - clear pending-restart backend ids / removed-plugin tombstones through an
-    explicit Go service hook
-- leave mutations that do not affect backend ownership on the existing thin
-  service path
-
-Done when:
-
-- the live IDE app reports backend plugin mutations as already applied when the
-  refresh succeeds
-- `/plugins/runtime` no longer stays stuck in `pending_restart` for those live
-  app mutation flows
-
-### Slice 4: Verification And Closeout
-
-Planned:
-
-- add runtime matcher tests in `internal/plugins`
-- extend `internal/httpapi` tests to cover dynamic route dispatch plus 404 / 405
-- extend `internal/mcpx` tests for plugin tool removal/replacement
-- add real app tests proving live refresh after:
+- `internal/plugins`
+  - added `BackendRuntimeHolder` as the app-owned refreshable runtime boundary
+  - added chi-compatible runtime route matching plus allowed-method lookup in
+    `BackendRouteRuntime`
+  - added `Service.PreviewBackendRuntimeRefresh()` so the app can build the
+    next runtime from the post-refresh discovery view before persisting cleanup
+  - kept `CommitBackendRuntimeRefresh()` as the explicit persisted convergence
+    step for pending-restart ids and uninstall tombstones
+- `internal/httpapi`
+  - replaced startup-time backend plugin route registration with one catch-all
+    dispatcher that resolves method/path against the current runtime
+  - preserved typed 404 vs 405 API behavior for unmatched backend plugin paths
+- `internal/mcpx`
+  - added runtime plugin tool removal and replacement support on the Go MCP
+    server and internal tool registry/search index
+- `internal/app`
+  - wrapped the live IDE plugin mutation service with a runtime refresher that
+    rebuilds route/static/listener/tool ownership after successful backend-
+    affecting mutations
+  - swapped the live runtime holder, updated MCP tools, then committed the
+    persisted pending-restart cleanup
+  - returned post-refresh mutation payloads with live `state` values and
+    `restartRequired=false` when refresh succeeded
+- focused app coverage now proves live refresh after:
   - install / uninstall
   - enable / disable
   - rescan
-  - at least one MCP-tool-owning backend plugin flow
+  - one backend MCP-tool-owning plugin flow
 
-## Verification Plan
+## Verification
 
 - `./scripts/go.sh test ./internal/plugins -run 'TestBackendRouteRuntime|TestBackendRuntimeHolder|TestService.*BackendRuntime' -count=1`
 - `./scripts/go.sh test ./internal/httpapi -run 'TestRegisterPlugin' -count=1`
 - `./scripts/go.sh test ./internal/mcpx -run 'TestServer.*Tool' -count=1`
-- `./scripts/go.sh test ./internal/app -run 'TestApp.*Plugin.*Runtime' -count=1`
+- `./scripts/go.sh test ./internal/app -run 'TestApp(RefreshesPluginBackendRuntimeAfterLifecycleMutations|RescanRefreshesPluginBackendRuntime|IDEMCPServerRegistersPluginBackendMCPTools|IDEMCPServerRefreshesPluginBackendMCPToolsAfterLifecycleMutations)' -count=1`
 - `git diff --check`
 
-## Open Questions
+## Deferred
 
-- No blocking design question remains for this bounded slice.
-- If a later concrete caller needs plugin-defined language-server,
-  external-agent, or codegen-target hot refresh, that should start as a
-  separate follow-on instead of being silently folded into this work.
+- plugin config-write-triggered backend runtime reload
+- plugin-defined language-server runtime refresh
+- plugin-defined external-agent adapter runtime refresh
+- plugin-defined codegen-target runtime refresh
+- built-in listener endpoint dispatch
+- listener temporary-id negotiation
+- share/app-mode plugin backend-host ownership changes
 
 ## Next Recommended Step
 
-Implement Slice 1 first so the app has a real refreshable runtime boundary
-before mutating the live MCP registry or adjusting mutation responses.
+Do not widen plugin backend-host work speculatively.
+
+The next plugin follow-on should only be pulled forward when a concrete caller
+requires one of:
+
+1. plugin config-write-triggered backend runtime reload
+2. plugin-defined language-server, external-agent adapter, or codegen-target
+   hot refresh
+3. built-in listener endpoint dispatch with a Go-owned source of truth
+4. listener temporary-id negotiation on the Go websocket route
