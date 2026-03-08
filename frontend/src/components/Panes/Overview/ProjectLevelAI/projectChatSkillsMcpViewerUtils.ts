@@ -11,13 +11,13 @@ import {
   filterRunsByProjectConfigId,
   getRunLastUpdatedMs,
 } from "state/actions/agentRunUtils";
+import { type AppGenSkillEntry } from "utils/generatedGoEndpoints";
 import {
   EngineTypeEnum,
   ExternalAgentToolTypeEnum,
   type APIKeys,
   type AgentRun,
   type AllLLMConfigs,
-  type AppGenSkillEntry,
   type BaseChatMessageUnion,
   type EngineConfig,
   type ExternalAgentPreflightStatus,

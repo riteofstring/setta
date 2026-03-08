@@ -54,6 +54,10 @@ Start with explicit route ownership wedges, not full schema reflection.
   - current landed wedge: active app-config pane endpoint wrappers plus
     request/response types for app-definition read/write/validate flows and
     app-catalog reads
+  - current landed wedge: active project-level AI skills/MCP viewer endpoint
+    wrappers plus request/response types for `mcpServerRuntimeStatus`,
+    `getAppGenSkills`, `getAppGenSkillContent`,
+    `upsertAppGenCustomSkill`, and `revealPathInOsFileExplorer`
 - keep schema reflection as a bounded tool, not the default owner
 
 ## Non-Goals

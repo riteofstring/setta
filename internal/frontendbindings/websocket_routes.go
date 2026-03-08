@@ -79,6 +79,14 @@ func CurrentHTTPRoutes() []HTTPRoute {
 			Path: httpapi.RouteGetSettaHomeInfo,
 		},
 		{
+			Name: "revealPathInOsFileExplorer",
+			Path: httpapi.RouteRevealPathInOSFileExplorer,
+		},
+		{
+			Name: "getMCPServerRuntimeStatus",
+			Path: httpapi.RouteMCPServerRuntimeStatus,
+		},
+		{
 			Name: "getLauncherRecentWorkspaces",
 			Path: httpapi.RouteGetLauncherRecentWorkspaces,
 		},
@@ -149,6 +157,18 @@ func CurrentHTTPRoutes() []HTTPRoute {
 		{
 			Name: "setAppDefinition",
 			Path: httpapi.RouteSetAppDefinition,
+		},
+		{
+			Name: "getAppGenSkills",
+			Path: httpapi.RouteGetAppGenSkills,
+		},
+		{
+			Name: "getAppGenSkillContent",
+			Path: httpapi.RouteGetAppGenSkillContent,
+		},
+		{
+			Name: "upsertAppGenCustomSkill",
+			Path: httpapi.RouteUpsertAppGenCustomSkill,
 		},
 		{
 			Name: "binaryDownload",

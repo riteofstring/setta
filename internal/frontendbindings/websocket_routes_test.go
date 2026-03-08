@@ -23,6 +23,8 @@ export const GoHTTPRoutes = {
   createWorkspaceLaunchIntent: "/createWorkspaceLaunchIntent",
   launch: "/launch",
   getSettaHomeInfo: "/settaHomeInfo",
+  revealPathInOsFileExplorer: "/revealPathInOsFileExplorer",
+  getMCPServerRuntimeStatus: "/mcpServerRuntimeStatus",
   getLauncherRecentWorkspaces: "/launcherRecentWorkspaces",
   addLauncherRecentWorkspace: "/addLauncherRecentWorkspace",
   removeLauncherRecentWorkspace: "/removeLauncherRecentWorkspace",
@@ -41,6 +43,9 @@ export const GoHTTPRoutes = {
   getAppDefinition: "/getAppDefinition",
   validateAppDefinition: "/validateAppDefinition",
   setAppDefinition: "/setAppDefinition",
+  getAppGenSkills: "/getAppGenSkills",
+  getAppGenSkillContent: "/getAppGenSkillContent",
+  upsertAppGenCustomSkill: "/upsertAppGenCustomSkill",
   binaryDownload: "/binary/{contentId}",
 } as const;
 

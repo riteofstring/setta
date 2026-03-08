@@ -39,6 +39,37 @@ export type SettaHomeInfoResponse = {
   llmConfigPath: string;
 };
 
+export type RevealPathInOsFileExplorerRequestInput = {
+  path: string;
+};
+
+export type GetMCPServerRuntimeStatusRequestInput = {
+  chatId?: string | null;
+  engineConfigId?: string | null;
+};
+
+export type MCPServerRuntimeStatusEntry = {
+  serverId: string;
+  source: string;
+  transport: string;
+  endpoint: string;
+  state: "connected" | "connecting" | "retrying" | "error" | "disabled" | "unknown";
+  lastAttemptAt: string | null;
+  lastConnectedAt: string | null;
+  lastFailureAt: string | null;
+  consecutiveFailures: number;
+  lastError: string | null;
+  missingEnvVar: string | null;
+  toolCount: number;
+};
+
+export type MCPServerRuntimeStatusResponse = {
+  llmConfigPath: string;
+  activeSettaFilesLocation: string | null;
+  servers: Array<MCPServerRuntimeStatusEntry>;
+  externalServers: Array<MCPServerRuntimeStatusEntry>;
+};
+
 export type LaunchRequestInput = {
   launchIntentToken?: string | null;
   workspaceRoot?: string | null;
@@ -353,6 +384,49 @@ export type SetAppDefinitionRequestInput = {
 
 export type AppCatalogResponse = Record<string, unknown>;
 
+export type AppGenSkillContent = {
+  skillId: string;
+  content: string;
+  truncated: boolean;
+  originalSizeBytes: number;
+};
+
+export type AppGenSkillEntry = {
+  skillId: string;
+  name: string;
+  rootLabel: string;
+  rootPath: string;
+  relativePath: string;
+  isEditable: boolean;
+  editabilityReason: string | null;
+  description: string;
+};
+
+export type GetAppGenSkillContentRequestInput = {
+  skillId: string;
+};
+
+export type GetAppGenSkillsResponse = {
+  skills: Array<AppGenSkillEntry>;
+  customSkillCreateRootPath: string | null;
+  customSkillCreateRootActionable: boolean;
+};
+
+export type UpsertAppGenCustomSkillRequestInput = {
+  skillId?: string | null;
+  relativePath?: string | null;
+  content: string;
+};
+
+export type UpsertAppGenCustomSkillResponse = {
+  skillId: string;
+  created: boolean;
+  rootPath: string;
+  skillDocPath: string;
+  skill: AppGenSkillEntry;
+  skillContent: AppGenSkillContent;
+};
+
 export async function route_get_backend_init_status(): Promise<ResponseDataAndStatus<BackendInitStatusResponse>> {
   return await get(GoHTTPRoutes.getBackendInitStatus);
 }
@@ -367,6 +441,14 @@ export async function route_get_server_mode(): Promise<ResponseDataAndStatus<Ser
 
 export async function route_get_setta_home_info(): Promise<ResponseDataAndStatus<SettaHomeInfoResponse>> {
   return await get(GoHTTPRoutes.getSettaHomeInfo);
+}
+
+export async function route_reveal_path_in_os_file_explorer(x: RevealPathInOsFileExplorerRequestInput): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.revealPathInOsFileExplorer, x);
+}
+
+export async function route_get_mcp_server_runtime_status(x: GetMCPServerRuntimeStatusRequestInput): Promise<ResponseDataAndStatus<MCPServerRuntimeStatusResponse>> {
+  return await post(GoHTTPRoutes.getMCPServerRuntimeStatus, x);
 }
 
 export async function route_create_workspace_launch_intent(x: CreateWorkspaceLaunchIntentRequestInput): Promise<ResponseDataAndStatus<CreateWorkspaceLaunchIntentResponse>> {
@@ -443,6 +525,18 @@ export async function route_validate_app_definition(x: ValidateAppDefinitionRequ
 
 export async function route_set_app_definition(x: SetAppDefinitionRequestInput): Promise<ResponseDataAndStatus<AppDefinitionMutationResult>> {
   return await post(GoHTTPRoutes.setAppDefinition, x);
+}
+
+export async function route_get_app_gen_skills(): Promise<ResponseDataAndStatus<GetAppGenSkillsResponse>> {
+  return await get(GoHTTPRoutes.getAppGenSkills);
+}
+
+export async function route_get_app_gen_skill_content(x: GetAppGenSkillContentRequestInput): Promise<ResponseDataAndStatus<AppGenSkillContent>> {
+  return await post(GoHTTPRoutes.getAppGenSkillContent, x);
+}
+
+export async function route_upsert_app_gen_custom_skill(x: UpsertAppGenCustomSkillRequestInput): Promise<ResponseDataAndStatus<UpsertAppGenCustomSkillResponse>> {
+  return await post(GoHTTPRoutes.upsertAppGenCustomSkill, x);
 }
 `
 
