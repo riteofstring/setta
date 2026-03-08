@@ -85,7 +85,7 @@ Primary sources used for this checklist:
 | Complete | Project-state runtime and persistence | The main Go owners are `internal/projectstate`, `internal/projectview`, and `internal/app`. |
 | Complete | Project shell reads | Go owns `loadAllProjectMetadata` and `loadProjectConfig`. |
 | Complete | Project lifecycle mutations | Go owns `saveProject`, `createProjectConfig`, `saveAsNewProjectConfig`, `deleteProjectConfigs`, and `setProjectConfigName`. |
-| Partial | Default-project helper routes still used by the current frontend | `HomePage` now reaches Go-owned `setAsDefaultProject`, but `GlobalWrapper` still POSTs Python-owned `getDefaultConfigName` instead of deriving the redirect target from Go-owned project-shell metadata. |
+| Complete | Default-project redirect and selection flows | `IndexRouteComponent` now derives the default-project redirect target from Go-owned `loadAllProjectMetadata`, and `HomePage` uses the Go-owned `setAsDefaultProject` route. |
 | Complete | Notification reads and deletes | `internal/notifications` plus `internal/httpapi/project_shell_routes.go` own `getNotifications` and `deleteNotification`. |
 | Complete | Latest project-state hydration | Go owns `getLatestProjectState` and frontend-op completion/pending tracking. |
 | Complete | Top-level section creation and view-mode lifecycle | Go owns `createTopLevelSection`, `createViewMode`, `setActiveViewMode`, `toggleIsEditingViewMode`, `toggleViewModeUserFacing`, `toggleViewModeTab`, `setViewModeName`, `setViewModeSortOrder`, and `deleteViewMode`. |
@@ -199,8 +199,6 @@ callers.
 - Attachment URL helper routes:
   - `getAttachmentDownloadUrl`
   - `getAttachmentDownloadUrls`
-- Default-project helper routes:
-  - `getDefaultConfigName`
 - File and JSON-source helper routes:
   - `createFile`
   - `deleteJsonSourceFileAndVariant`
@@ -229,6 +227,8 @@ callers.
   - `/cli`
   - `/cli/{id}`
   - `/pythonScript/{id}`
+- Legacy default-project read helper:
+  - `getDefaultConfigName`
 - Generic chat CRUD/metadata routes:
   - `createChat`
   - `getChat`
