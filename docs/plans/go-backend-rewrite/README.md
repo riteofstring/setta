@@ -56,6 +56,10 @@ Use the docs in this order:
     IDE-only `GET /settaHomeInfo`
 8. `phase-3-project-state-core.md`
    - project-state persistence, runtime ownership, and revision plan
+- `phase-3-settings-state-owner-and-transport.md`
+  - focused next-work plan for the separate Go-owned `SettingsState`
+    source-of-truth, `loadSettings`/`saveSettings` transport, and the
+    relationship to the existing settings-project runtime
 9. `phase-4-realtime-and-terminal-runtime.md`
    - realtime ownership, websocket fan-out, and terminal runtime plan
 10. `phase-4-terminal-transport-migration.md`

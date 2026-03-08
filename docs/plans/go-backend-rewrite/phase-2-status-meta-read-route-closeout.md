@@ -147,3 +147,5 @@ This slice delivered:
 - if this area is reopened next, the honest follow-on is `POST /loadSettings`
   only after a dedicated doc decides the Go-owned `SettingsState`
   source-of-truth boundary
+- that follow-on is now tracked in
+  `phase-3-settings-state-owner-and-transport.md`

@@ -79,6 +79,10 @@ This phase should deliver:
 - persist an explicit schema version instead of inheriting Python defaults or migrations
 - use `internal/statefs` for atomic writes and root-constrained path handling
 - keep main project state and settings project state as separate stores from the start
+- the settings project runtime here refers to `setta-settings-project.json`
+  project state, not the separate live `SettingsState` owner behind
+  `setta-settings.json`; that follow-on is tracked in
+  `phase-3-settings-state-owner-and-transport.md`
 - defer live watchers until the runtime/store contracts are stable
 
 ## Package Direction

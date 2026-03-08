@@ -524,6 +524,18 @@ The bounded status/meta read follow-on tracked in
 - `POST /loadSettings` remains a separate deferred settings-state boundary
   instead of being silently bundled into this status/meta closeout
 
+That deferred settings-state boundary is now tracked explicitly in
+`phase-3-settings-state-owner-and-transport.md`:
+
+- live frontend callers still depend on Python for:
+  - `POST /loadSettings`
+  - `POST /saveSettings`
+- the current Go app already owns a settings project runtime for
+  `setta-settings-project.json`, but that is not the same thing as the live
+  `SettingsState` owner behind `setta-settings.json`
+- the next bounded work should introduce a dedicated Go settings-state owner
+  and move current Go settings-backed reads onto it before route migration
+
 ## Current Reality
 
 The backend seams that matter most for planning are:
