@@ -42,6 +42,7 @@ from setta.types.project_config import (
     Viewport,
     WatchCodeFolder,
     WatchCodeRegistryEntry,
+    WindowSpaceConfig,
 )
 from setta.types.section_impls import (
     BrowserAreaViewMode,
@@ -223,6 +224,7 @@ class ProjectConfigArgs(TypedDict):
     viewport: NotRequired[Viewport | None]
     viewportInitialized: NotRequired[bool]
     viewModes: NotRequired[dict[ID, ViewModeConfig]]
+    windowSpaces: NotRequired[dict[ID, WindowSpaceConfig]]
     activeViewModeId: NotRequired[ID | None]
     isEditingViewMode: NotRequired[bool]
     codegenTargets: NotRequired[

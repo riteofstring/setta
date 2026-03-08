@@ -1,10 +1,7 @@
-import { EngineTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
   type ExternalEngineStatus,
   getExternalEngineIssueMessage,
-  resolveEffectiveThinking,
-  supportsThinkingExecutionControl,
 } from "./engineUtils";
 
 describe("getExternalEngineIssueMessage", () => {
@@ -49,43 +46,5 @@ describe("getExternalEngineIssueMessage", () => {
     expect(getExternalEngineIssueMessage(missing)).toBe(
       "External engine unavailable",
     );
-  });
-});
-
-describe("supportsThinkingExecutionControl", () => {
-  it("only enables the thinking control for external agents", () => {
-    expect(
-      supportsThinkingExecutionControl(EngineTypeEnum.external_agent),
-    ).toBe(true);
-    expect(supportsThinkingExecutionControl(EngineTypeEnum.setta_llm)).toBe(
-      false,
-    );
-    expect(supportsThinkingExecutionControl(null)).toBe(false);
-  });
-});
-
-describe("resolveEffectiveThinking", () => {
-  it("forces thinking off for managed Go engines", () => {
-    expect(
-      resolveEffectiveThinking({
-        engineType: EngineTypeEnum.setta_llm,
-        requestedThinking: true,
-      }),
-    ).toBe(false);
-  });
-
-  it("preserves the requested thinking state for external agents", () => {
-    expect(
-      resolveEffectiveThinking({
-        engineType: EngineTypeEnum.external_agent,
-        requestedThinking: true,
-      }),
-    ).toBe(true);
-    expect(
-      resolveEffectiveThinking({
-        engineType: EngineTypeEnum.external_agent,
-        requestedThinking: false,
-      }),
-    ).toBe(false);
   });
 });

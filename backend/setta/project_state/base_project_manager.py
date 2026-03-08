@@ -7,6 +7,7 @@ import logging
 import shutil
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from functools import wraps
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import (
@@ -25,10 +26,15 @@ from typing import (
 
 from fastapi import HTTPException, status
 
+from setta.agentic.agentic_scope import resolve_agentic_scope
 from setta.agentic.chat_view import (
     EXTERNAL_AGENT_RUN_TYPE,
     LLM_CHAT_RUN_TYPE,
     SCRIPTABLE_CHAT_RUN_TYPE,
+)
+from setta.agentic.linked_chat_targets import (
+    LinkedChatTargetResolutionError,
+    resolve_executable_linked_chat_target,
 )
 from setta.agentic.store import list_agent_run_ids_by_metadata
 from setta.app.definition_diagnostics import (
@@ -53,9 +59,11 @@ from setta.code_gen.dependency_graph import (
 from setta.code_gen.utils import sanitize_slug
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
+from setta.database.utils import create_new_id
 from setta.file_watchers.specific_file_watcher import (
     SpecificFileWatcher,
 )
+from setta.llm.config import load_llm_config
 from setta.logging.errors import log_failure
 from setta.logging.tasks import spawn_background_task
 from setta.lsp.managers import LSPWriters, NoopLSPWriters
@@ -87,6 +95,10 @@ from setta.project_state.jsonSource.jsonSource import (
     ProcessedJSONInfo,
 )
 from setta.project_state.jsonSource.load import load_json_sources_into_data_structures
+from setta.project_state.linked_chat_admission import (
+    LinkedChatAdmissionError,
+    LinkedChatSectionAdmission,
+)
 from setta.project_state.listener_artifact_updates import (
     apply_listener_artifact_updates,
 )
@@ -120,6 +132,7 @@ from setta.project_state.project_manager_types import (
     CreateTopLevelSectionRequest,
     CreateTopLevelSectionResponse,
     CreateViewModeRequest,
+    CreateWindowSpaceRequest,
     DeclineRenameRefactorRequest,
     DeleteAgenticEdgesRequest,
     DeleteChildSectionsViaDecrementerRequest,
@@ -130,6 +143,7 @@ from setta.project_state.project_manager_types import (
     DeleteSectionVariantOrAskRequest,
     DeleteSelectedParamsRequest,
     DeleteViewModeRequest,
+    DeleteWindowSpaceRequest,
     FormatCodeRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
@@ -187,6 +201,8 @@ from setta.project_state.project_manager_types import (
     SetParamEnteredValueRequest,
     SetParamNameAndValueRequest,
     SetParentDefaultChildSectionTypeRequest,
+    SetProjectChatWindowChatIdRequest,
+    SetProjectChatWindowingStateRequest,
     SetProjectConfigCodegenTargetsRequest,
     SetPromptFormatRequest,
     SetPromptInputsRequest,
@@ -223,6 +239,8 @@ from setta.project_state.project_manager_types import (
     SetViewportRequest,
     SetWatchCodeEnabledRequest,
     SetWatchCodeInputsRequest,
+    SetWindowSpaceNameRequest,
+    SetWindowSpaceSortOrderRequest,
     TextFieldCompletionRequest,
     ToggleGroupOrientationRequest,
     ToggleIsEditingViewModeRequest,
@@ -251,7 +269,7 @@ from setta.project_state.watch_code import (
     normalize_watch_code_files,
     normalize_watch_code_folders,
 )
-from setta.types.agentic_edges import AgenticEdge
+from setta.types.agentic_edges import AgenticEdge, AgenticEdgeKind
 from setta.types.app_definition import AppDefinition
 from setta.types.chat_messages import JSONValue
 from setta.types.clipboard import (
@@ -333,6 +351,8 @@ from setta.types.helpers_lvl2 import (
     set_meta_control_show_section_title,
     set_param_entered_value,
     set_parent_default_child_section_type,
+    set_project_chat_window_chat_id,
+    set_project_chat_windowing_state,
     set_project_config_name,
     set_prompt_section_format,
     set_prompt_section_inputs,
@@ -400,6 +420,7 @@ from setta.types.project_config import (
     TopLevelSectionLayout,
     ViewModeConfig,
     Viewport,
+    WindowSpaceConfig,
     get_python_codegen_target,
     get_python_codegen_target_with_type_guard,
     project_config_has_codegen_language,
@@ -441,6 +462,7 @@ from setta.utils.name_validation import (
     validate_param_name_format,
     validate_project_name,
     validate_view_mode_name,
+    validate_window_space_name,
 )
 from setta.utils.paths import get_setta_paths, normalize_workspace_path
 from setta.utils.utils import build_project_sections_dir
@@ -603,6 +625,13 @@ def _is_lsp_code_entry(
     return isinstance(code_entry, (ProjectPythonCode, ProjectLSPCode))
 
 
+@dataclass(slots=True)
+class _LinkedChatSectionReservation:
+    chat_id: ID
+    clear_persisted_binding_on_failure: bool
+    has_started_run: bool = False
+
+
 class BaseProjectManager(ABC):
     def __init__(
         self,
@@ -681,6 +710,9 @@ class BaseProjectManager(ABC):
         self._deferred_json_source_loads: dict[str, set[tuple[str, str]]] = {}
         self.pending_rename_results: dict[
             str, tuple[str, list[RenameReferenceChangedValue]]
+        ] = {}
+        self._linked_chat_section_reservations: dict[
+            tuple[ID, ID], _LinkedChatSectionReservation
         ] = {}
         self._bootstrap_watch_code_baselines()
         self.watch_code_manager.sync_from_backend(self.project_state_backend)
@@ -3607,6 +3639,7 @@ class BaseProjectManager(ABC):
         if x.id is not None:
             edge_kwargs["id"] = x.id
         edge = AgenticEdge(**edge_kwargs)
+        self._validate_executable_linked_chat_edges(project_state, [edge])
         create_agentic_edge(project_state, edge)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
@@ -3614,6 +3647,7 @@ class BaseProjectManager(ABC):
     async def update_agentic_edge(self, x: UpdateAgenticEdgeRequest):
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
+        self._validate_executable_linked_chat_edges(project_state, [x.edge])
         update_agentic_edge(project_state, x.edge)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
@@ -3628,6 +3662,7 @@ class BaseProjectManager(ABC):
     async def set_agentic_edges(self, x: SetAgenticEdgesRequest):
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
+        self._validate_executable_linked_chat_edges(project_state, x.edges)
         set_agentic_edges(project_state, x.edges)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
@@ -3742,6 +3777,18 @@ class BaseProjectManager(ABC):
             x.topLevelSections,
             x.viewportBounds,
         )
+        if x.name is not None:
+            validation_state = project_state.model_copy(deep=True)
+            validation_section_id = create_top_level_section(
+                self.settings_file.settings,
+                validation_state,
+                x.implType,
+                position,
+                x.implOverrides,
+                control_code_obj_type=x.controlCodeObjType,
+            )
+            validation_state.validate_parent_section_map()
+            set_section_name(validation_state, validation_section_id, x.name)
         sectionId = create_top_level_section(
             self.settings_file.settings,
             project_state,
@@ -3750,6 +3797,9 @@ class BaseProjectManager(ABC):
             x.implOverrides,
             control_code_obj_type=x.controlCodeObjType,
         )
+        if x.name is not None:
+            project_state.validate_parent_section_map()
+            set_section_name(project_state, sectionId, x.name)
         meta_control_param_id = (
             get_meta_control_param_id(project_state, sectionId)
             if x.implType == SectionType.MetaControl
@@ -4125,6 +4175,10 @@ class BaseProjectManager(ABC):
             if previous_output_root.exists():
                 shutil.rmtree(previous_output_root)
             del self.project_state_backend.projectConfigs[project_config_id]
+            self.project_state_backend.projectChatWindowingByProjectConfigId.pop(
+                project_config_id,
+                None,
+            )
             gen_code = self.gen_code.pop(project_config_id, None)
             if gen_code is not None:
                 gen_code.callback_cleanup()
@@ -4552,6 +4606,103 @@ class BaseProjectManager(ABC):
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
+    async def create_window_space(
+        self, x: CreateWindowSpaceRequest
+    ) -> WindowSpaceConfig:
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        next_sort_index = (
+            max(
+                (
+                    window_space.sortIndex
+                    for window_space in project_state.projectConfig.windowSpaces.values()
+                ),
+                default=-1,
+            )
+            + 1
+        )
+        if x.name is not None:
+            name = validate_window_space_name(project_state, None, x.name)
+        else:
+            existing_slugs = {
+                sanitize_slug(window_space.name)
+                for window_space in project_state.projectConfig.windowSpaces.values()
+            }
+            name = generate_memorable_string()
+            while sanitize_slug(name) in existing_slugs:
+                name = generate_memorable_string()
+        normalized_state = x.state.model_copy(deep=True)
+        window_space = WindowSpaceConfig(
+            name=name,
+            sortIndex=next_sort_index,
+            windowsById=normalized_state.windowsById,
+            order=normalized_state.order,
+        )
+        project_state.projectConfig.windowSpaces[window_space.id] = window_space
+        project_state.validate_window_spaces()
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        return project_state.projectConfig.windowSpaces[window_space.id]
+
+    @enqueue_method
+    async def set_window_space_name(self, x: SetWindowSpaceNameRequest) -> None:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        window_spaces = project_state.projectConfig.windowSpaces
+        if x.windowSpaceId not in window_spaces:
+            raise KeyError(f"Window space {x.windowSpaceId} not found")
+        normalized_name = validate_window_space_name(
+            project_state,
+            x.windowSpaceId,
+            x.name,
+        )
+        window_spaces[x.windowSpaceId].name = normalized_name
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def set_window_space_sort_order(
+        self, x: SetWindowSpaceSortOrderRequest
+    ) -> None:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        window_spaces = project_state.projectConfig.windowSpaces
+        existing_ids = set(window_spaces.keys())
+        ordered_ids = x.orderedWindowSpaceIds
+        if len(ordered_ids) != len(existing_ids):
+            raise ValueError(
+                "orderedWindowSpaceIds must contain every window space exactly once."
+            )
+        seen: set[str] = set()
+        for window_space_id in ordered_ids:
+            if window_space_id not in window_spaces:
+                raise KeyError(f"Window space {window_space_id} not found")
+            if window_space_id in seen:
+                raise ValueError(
+                    "orderedWindowSpaceIds must not contain duplicate window space IDs."
+                )
+            seen.add(window_space_id)
+        for index, window_space_id in enumerate(ordered_ids):
+            window_spaces[window_space_id].sortIndex = index
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def delete_window_space(self, x: DeleteWindowSpaceRequest) -> None:
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        window_spaces = project_state.projectConfig.windowSpaces
+        if x.windowSpaceId not in window_spaces:
+            raise KeyError(f"Window space {x.windowSpaceId} not found")
+        del window_spaces[x.windowSpaceId]
+        sorted_window_spaces = sorted(
+            window_spaces.values(),
+            key=lambda window_space: (
+                window_space.sortIndex,
+                window_space.name.lower(),
+                window_space.id,
+            ),
+        )
+        for index, window_space in enumerate(sorted_window_spaces):
+            window_space.sortIndex = index
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"]}
@@ -4815,6 +4966,24 @@ class BaseProjectManager(ABC):
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
+    async def set_project_chat_windowing_state(
+        self, x: SetProjectChatWindowingStateRequest
+    ):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_project_chat_windowing_state(project_state, x.state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        return project_state.projectChatWindowing
+
+    @enqueue_method
+    async def set_project_chat_window_chat_id(
+        self, x: SetProjectChatWindowChatIdRequest
+    ):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_project_chat_window_chat_id(project_state, x.instanceId, x.chatId)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        return project_state.projectChatWindowing
+
+    @enqueue_method
     async def set_social_url(self, x: SetSocialUrlRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_social_url(project_state, x.sectionId, x.url)
@@ -4858,6 +5027,258 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_chat_section_chat_id(project_state, x.sectionId, x.chatId)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    def _get_linked_chat_target_label(
+        self,
+        project_state: ProjectStateSingleConfig,
+        section_id: ID,
+    ) -> str:
+        section = project_state.sections.get(section_id)
+        if section is None:
+            return str(section_id)
+        if section.displayName:
+            return section.displayName
+        return section.name or str(section_id)
+
+    def _raise_linked_chat_target_resolution_error(
+        self,
+        project_state: ProjectStateSingleConfig,
+        target_section_id: ID,
+        exc: LinkedChatTargetResolutionError,
+    ) -> None:
+        target_label = self._get_linked_chat_target_label(
+            project_state, target_section_id
+        )
+        if exc.reason == "unsupported_target_type":
+            raise LinkedChatAdmissionError(
+                "unsupported_target_type",
+                (
+                    f"Linked chat target '{target_label}' is no longer an active chat section."
+                ),
+            ) from exc
+        if exc.reason == "unsupported_scriptable_target":
+            raise LinkedChatAdmissionError(
+                "unsupported_scriptable_target",
+                (
+                    f"Linked chat '{target_label}' is scriptable-only. "
+                    "Chat-to-chat invocation requires a managed chat section with a server-side engine."
+                ),
+            ) from exc
+        if exc.reason == "missing_agent_profile":
+            raise LinkedChatAdmissionError(
+                "missing_agent_profile",
+                f"Linked chat '{target_label}' references a missing agent profile.",
+            ) from exc
+        if exc.reason == "missing_engine_config":
+            raise LinkedChatAdmissionError(
+                "missing_engine_config",
+                f"Linked chat '{target_label}' does not have a resolved engine config.",
+            ) from exc
+        if exc.reason == "missing_external_config":
+            raise LinkedChatAdmissionError(
+                "missing_external_config",
+                (
+                    f"Linked chat '{target_label}' is missing its external agent configuration."
+                ),
+            ) from exc
+        raise LinkedChatAdmissionError(
+            "invalid_engine_config",
+            f"Linked chat '{target_label}' does not have a valid engine config.",
+        ) from exc
+
+    def _load_llm_configs(self):
+        return load_llm_config(self.dbe, allow_write=False)
+
+    def _validate_executable_linked_chat_edges(
+        self,
+        project_state: ProjectStateSingleConfig,
+        edges: list[AgenticEdge],
+    ) -> None:
+        linked_chat_edges = [
+            edge for edge in edges if edge.kind == AgenticEdgeKind.chat_chat
+        ]
+        if not linked_chat_edges:
+            return
+        llm_configs = self._load_llm_configs()
+        for edge in linked_chat_edges:
+            try:
+                resolve_executable_linked_chat_target(
+                    project_state,
+                    edge.targetSectionId,
+                    dbe=self.dbe,
+                    llm_configs=llm_configs,
+                )
+            except LinkedChatTargetResolutionError as exc:
+                target_label = self._get_linked_chat_target_label(
+                    project_state,
+                    edge.targetSectionId,
+                )
+                raise ValueError(
+                    f"Linked chat '{target_label}' is not executable: {exc.reason}."
+                ) from exc
+
+    @enqueue_method
+    async def admit_linked_chat_section_invocation(
+        self,
+        project_config_id: ID,
+        caller_section_id: ID,
+        target_section_id: ID,
+    ) -> LinkedChatSectionAdmission:
+        project_state = self.get_single_config_state(project_config_id)
+        caller_scope = resolve_agentic_scope(project_state, caller_section_id)
+        if target_section_id not in caller_scope.peer_chat_section_ids:
+            raise LinkedChatAdmissionError(
+                "not_linked",
+                (
+                    f"Chat section {target_section_id} is not a direct linked chat target for "
+                    f"{caller_section_id}."
+                ),
+            )
+        if target_section_id not in project_state.sections:
+            raise LinkedChatAdmissionError(
+                "missing_target",
+                f"Linked chat target {target_section_id} does not exist.",
+            )
+
+        llm_configs = self._load_llm_configs()
+        try:
+            resolved_target = resolve_executable_linked_chat_target(
+                project_state,
+                target_section_id,
+                dbe=self.dbe,
+                llm_configs=llm_configs,
+            )
+        except LinkedChatTargetResolutionError as exc:
+            self._raise_linked_chat_target_resolution_error(
+                project_state,
+                target_section_id,
+                exc,
+            )
+            raise AssertionError("unreachable")
+
+        target_section_impl = resolved_target.section_impl
+        target_label = self._get_linked_chat_target_label(
+            project_state, target_section_id
+        )
+        selected_profile = resolved_target.selected_profile
+        effective_engine_config_id = resolved_target.effective_engine_config_id
+
+        reservation_key = (project_config_id, target_section_id)
+        if reservation_key in self._linked_chat_section_reservations:
+            raise LinkedChatAdmissionError(
+                "target_busy",
+                (
+                    f"Linked chat '{target_label}' is already handling another linked invocation."
+                ),
+            )
+        current_chat_id = target_section_impl.chatId
+        chat_id = current_chat_id or create_new_id()
+        self._linked_chat_section_reservations[reservation_key] = (
+            _LinkedChatSectionReservation(
+                chat_id=chat_id,
+                clear_persisted_binding_on_failure=current_chat_id is None,
+            )
+        )
+        return LinkedChatSectionAdmission(
+            chat_id=chat_id,
+            target_label=target_label,
+            thinking=target_section_impl.thinking,
+            permission_mode=target_section_impl.permissionMode,
+            search_enabled=target_section_impl.searchEnabled,
+            selected_profile=selected_profile,
+            effective_engine_config_id=effective_engine_config_id,
+        )
+
+    @enqueue_method
+    async def persist_linked_chat_section_binding(
+        self,
+        project_config_id: ID,
+        section_id: ID,
+        chat_id: ID,
+    ) -> None:
+        reservation_key = (project_config_id, section_id)
+        reservation = self._linked_chat_section_reservations.get(reservation_key)
+        if reservation is None:
+            raise KeyError(
+                "Linked chat binding persistence reported without a reservation."
+            )
+        if reservation.chat_id != chat_id:
+            raise KeyError(
+                "Linked chat binding persistence reported for the wrong chat id."
+            )
+        project_state = self.get_single_config_state(project_config_id)
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            section_id,
+            ChatSectionImpl,
+        )
+        if section_impl.chatId == chat_id:
+            return
+        set_chat_section_chat_id(project_state, section_id, chat_id)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def mark_linked_chat_section_run_started(
+        self,
+        project_config_id: ID,
+        section_id: ID,
+        chat_id: ID,
+    ) -> None:
+        reservation_key = (project_config_id, section_id)
+        reservation = self._linked_chat_section_reservations.get(reservation_key)
+        if reservation is None:
+            raise KeyError("Linked chat run start reported without a reservation.")
+        if reservation.chat_id != chat_id:
+            raise KeyError("Linked chat run start reported for the wrong chat id.")
+        if reservation.has_started_run:
+            raise ValueError("Linked chat run start reported more than once.")
+        reservation.has_started_run = True
+
+    @enqueue_method
+    async def release_linked_chat_section_start_failure(
+        self,
+        project_config_id: ID,
+        section_id: ID,
+        chat_id: ID,
+    ) -> None:
+        reservation_key = (project_config_id, section_id)
+        reservation = self._linked_chat_section_reservations.get(reservation_key)
+        if reservation is None or reservation.chat_id != chat_id:
+            return
+        del self._linked_chat_section_reservations[reservation_key]
+        if (
+            reservation.has_started_run
+            or not reservation.clear_persisted_binding_on_failure
+        ):
+            return
+
+        project_state = self.get_single_config_state(project_config_id)
+        if section_id not in project_state.sections:
+            return
+        section_impl = get_curr_effective_section_impl(project_state, section_id)
+        if not isinstance(section_impl, ChatSectionImpl):
+            return
+        if section_impl.chatId != chat_id:
+            return
+        set_chat_section_chat_id(project_state, section_id, None)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def complete_linked_chat_section_invocation(
+        self,
+        project_config_id: ID,
+        section_id: ID,
+        chat_id: ID,
+    ) -> None:
+        reservation_key = (project_config_id, section_id)
+        reservation = self._linked_chat_section_reservations.get(reservation_key)
+        if reservation is None or reservation.chat_id != chat_id:
+            return
+        if not reservation.has_started_run:
+            raise ValueError(
+                "Linked chat reservation completion reported before run start."
+            )
+        del self._linked_chat_section_reservations[reservation_key]
 
     async def _apply_listener_emit_updates_to_state(
         self,

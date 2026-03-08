@@ -30,7 +30,13 @@ from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl2 import create_agentic_edge, create_top_level_section
 from setta.types.helpers_lvl3 import build_project_state_summary
 from setta.types.id import ID
-from setta.types.project_config import Position, ProjectConfig
+from setta.types.project_config import (
+    Position,
+    ProjectConfig,
+    WindowSpaceConfig,
+    WindowSpaceSurfaceKind,
+    WindowSpaceWindow,
+)
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.section_impls import SectionType
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -48,7 +54,12 @@ class _DummyProjectManager:
             codeObjs=project_state_single.codeObjs,
             codeObjImpls=project_state_single.codeObjImpls,
             codeObjVariants=project_state_single.codeObjVariants,
-            projectConfigs={project_state_single.projectConfig.id: project_state_single.projectConfig},
+            projectConfigs={
+                project_state_single.projectConfig.id: project_state_single.projectConfig
+            },
+            projectChatWindowingByProjectConfigId={
+                project_state_single.projectConfig.id: {}
+            },
             defaultProjectConfigId=project_state_single.projectConfig.id,
         )
         self.history = History(backend)
@@ -75,7 +86,10 @@ class _StrictProjectManagerSwitcher:
         return self._manager
 
 
-def _build_project_state() -> tuple[ProjectStateSingleConfig, ID, ID, ID, ID, ID]:
+def _build_project_state(
+    *,
+    include_read_edge: bool = True,
+) -> tuple[ProjectStateSingleConfig, ID, ID, ID, ID, ID]:
     settings = SettingsState()
     single = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="summary-scope"))
     chat_section_id = create_top_level_section(
@@ -102,16 +116,17 @@ def _build_project_state() -> tuple[ProjectStateSingleConfig, ID, ID, ID, ID, ID
         SectionType.Dict,
         Position(),
     )
-    create_agentic_edge(
-        single,
-        AgenticEdge(
-            id=ID("edge-context"),
-            sourceSectionId=allowed_section_id,
-            targetSectionId=chat_section_id,
-            kind=AgenticEdgeKind.section_chat,
-            contextMode=AgenticEdgeContextMode.reference_only,
-        ),
-    )
+    if include_read_edge:
+        create_agentic_edge(
+            single,
+            AgenticEdge(
+                id=ID("edge-read"),
+                sourceSectionId=chat_section_id,
+                targetSectionId=allowed_section_id,
+                kind=AgenticEdgeKind.chat_section,
+                contextMode=AgenticEdgeContextMode.reference_only,
+            ),
+        )
     create_agentic_edge(
         single,
         AgenticEdge(
@@ -185,9 +200,7 @@ def _build_context_with_headers(
         meta=None,
         session=object(),
         lifespan_context=object(),
-        request=_DummyRequest(
-            headers=headers
-        ),
+        request=_DummyRequest(headers=headers),
     )
     return Context(fastmcp=mcp_server, request_context=request_context)
 
@@ -228,7 +241,9 @@ def _build_context_with_raw_meta(
 
 
 @pytest.mark.asyncio
-async def test_get_latest_project_state_summary_filtered_by_scope_meta(tmp_path) -> None:
+async def test_get_latest_project_state_summary_filtered_by_scope_meta(
+    tmp_path,
+) -> None:
     dbe = DBE(tmp_path)
     (
         project_state,
@@ -238,6 +253,26 @@ async def test_get_latest_project_state_summary_filtered_by_scope_meta(tmp_path)
         allowed_section_id,
         blocked_section_id,
     ) = _build_project_state()
+    project_state.projectConfig.windowSpaces = {
+        ID("space-1"): WindowSpaceConfig(
+            id=ID("space-1"),
+            name="Scoped Layout",
+            sortIndex=0,
+            windowsById={
+                ID("project-window"): WindowSpaceWindow(
+                    surfaceKind=WindowSpaceSurfaceKind.project_chat,
+                    title="Global Chat",
+                    chatId=ID("chat-global"),
+                ),
+                ID("blocked-window"): WindowSpaceWindow(
+                    surfaceKind=WindowSpaceSurfaceKind.section,
+                    sectionIdOrNull=blocked_section_id,
+                    chatId=ID("chat-blocked"),
+                ),
+            },
+            order=[ID("project-window"), ID("blocked-window")],
+        )
+    }
 
     tmp_map = _seed_temporary_ids(
         dbe,
@@ -288,14 +323,20 @@ async def test_get_latest_project_state_summary_filtered_by_scope_meta(tmp_path)
     temporary_to_canonical, _ = dbe.read_temporary_id_map()
     canonical = convert_temporary_ids_to_canonical(result, temporary_to_canonical)
 
-    allowed_ids = {allowed_section_id, peer_chat_section_id}
+    allowed_ids = {allowed_section_id}
     assert {entry.sectionId for entry in canonical.sections} == allowed_ids
     assert set(canonical.projectConfig.sectionVariantMap.keys()) == allowed_ids
     assert blocked_section_id not in canonical.parentSectionMap
+    assert set(canonical.projectConfig.windowSpaces.keys()) == {ID("space-1")}
+    filtered_space = canonical.projectConfig.windowSpaces[ID("space-1")]
+    assert set(filtered_space.windowsById.keys()) == {ID("project-window")}
+    assert filtered_space.order == [ID("project-window")]
 
 
 @pytest.mark.asyncio
-async def test_get_latest_project_state_summary_filtered_by_scope_headers(tmp_path) -> None:
+async def test_get_latest_project_state_summary_filtered_by_scope_headers(
+    tmp_path,
+) -> None:
     dbe = DBE(tmp_path)
     (
         project_state,
@@ -355,7 +396,7 @@ async def test_get_latest_project_state_summary_filtered_by_scope_headers(tmp_pa
     temporary_to_canonical, _ = dbe.read_temporary_id_map()
     canonical = convert_temporary_ids_to_canonical(result, temporary_to_canonical)
 
-    allowed_ids = {allowed_section_id, peer_chat_section_id}
+    allowed_ids = {allowed_section_id}
     assert {entry.sectionId for entry in canonical.sections} == allowed_ids
     assert set(canonical.projectConfig.sectionVariantMap.keys()) == allowed_ids
     assert blocked_section_id not in canonical.parentSectionMap
@@ -425,7 +466,7 @@ async def test_get_latest_project_state_summary_allows_temporary_agentic_context
     temporary_to_canonical, _ = dbe.read_temporary_id_map()
     canonical = convert_temporary_ids_to_canonical(result, temporary_to_canonical)
 
-    allowed_ids = {allowed_section_id, peer_chat_section_id}
+    allowed_ids = {allowed_section_id}
     assert {entry.sectionId for entry in canonical.sections} == allowed_ids
     assert set(canonical.projectConfig.sectionVariantMap.keys()) == allowed_ids
     assert blocked_section_id not in canonical.parentSectionMap
@@ -478,7 +519,9 @@ async def test_mcp_blocks_tool_calls_when_agentic_context_missing(tmp_path) -> N
     )
 
     session = type("_Session", (), {})()
-    ctx = _build_context_without_agentic_metadata(mcp_server=mcp_server, session=session)
+    ctx = _build_context_without_agentic_metadata(
+        mcp_server=mcp_server, session=session
+    )
     tool = mcp_server.get_tool("get_latest_project_state_summary")
     assert tool is not None
     result = await tool.run({"projectConfigId": str(tmp_project_id)}, context=ctx)
@@ -607,7 +650,9 @@ async def test_set_agentic_context_allows_session_scoped_tool_calls(tmp_path) ->
     )
 
     session = type("_Session", (), {})()
-    ctx = _build_context_without_agentic_metadata(mcp_server=mcp_server, session=session)
+    ctx = _build_context_without_agentic_metadata(
+        mcp_server=mcp_server, session=session
+    )
 
     init_tool = mcp_server.get_tool("set_agentic_context")
     assert init_tool is not None
@@ -633,16 +678,85 @@ async def test_set_agentic_context_allows_session_scoped_tool_calls(tmp_path) ->
     temporary_to_canonical, _ = dbe.read_temporary_id_map()
     canonical = convert_temporary_ids_to_canonical(result, temporary_to_canonical)
 
-    allowed_ids = {allowed_section_id, peer_chat_section_id}
+    allowed_ids = {allowed_section_id}
     assert {entry.sectionId for entry in canonical.sections} == allowed_ids
     assert set(canonical.projectConfig.sectionVariantMap.keys()) == allowed_ids
     assert blocked_section_id not in canonical.parentSectionMap
 
 
 @pytest.mark.asyncio
-async def test_set_agentic_context_rejects_blank_frontend_affinity_token(tmp_path) -> (
-    None
-):
+async def test_get_latest_project_state_summary_excludes_peer_chat_only_targets(
+    tmp_path,
+) -> None:
+    dbe = DBE(tmp_path)
+    (
+        project_state,
+        project_config_id,
+        chat_section_id,
+        peer_chat_section_id,
+        allowed_section_id,
+        blocked_section_id,
+    ) = _build_project_state(include_read_edge=False)
+    tmp_map = _seed_temporary_ids(
+        dbe,
+        [
+            project_config_id,
+            chat_section_id,
+            peer_chat_section_id,
+            allowed_section_id,
+            blocked_section_id,
+        ],
+    )
+    tmp_project_id = tmp_map[project_config_id]
+
+    manager = _DummyProjectManager(project_state)
+    switcher = _StrictProjectManagerSwitcher(project_config_id, manager)
+    websocket_manager = WebsocketManager()
+    frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+    state = type(
+        "_State",
+        (),
+        {
+            "project_manager_switcher": switcher,
+            "dbe": dbe,
+            "deployment_mode": False,
+        },
+    )()
+    app = FastAPI()
+    mcp_server = SettaFastMCP(
+        app,
+        state,
+        "/mcp-test",
+        "Test MCP Server",
+        frontend_sender,
+        dbe,
+    )
+
+    ctx = _build_context_with_meta(
+        mcp_server=mcp_server,
+        project_config_id=project_config_id,
+        chat_id=ID("chat-1"),
+        section_id=chat_section_id,
+    )
+    tool = mcp_server.get_tool("get_latest_project_state_summary")
+    assert tool is not None
+    result = await tool.run({"projectConfigId": str(tmp_project_id)}, context=ctx)
+    assert manager.summary_calls == 0
+
+    temporary_to_canonical, _ = dbe.read_temporary_id_map()
+    canonical = convert_temporary_ids_to_canonical(result, temporary_to_canonical)
+
+    assert isinstance(canonical, CallToolResult)
+    assert canonical.isError
+    assert canonical.structuredContent is not None
+    assert canonical.structuredContent["reason"] == "empty_scope"
+    assert canonical.structuredContent["accessType"] == "read"
+
+
+@pytest.mark.asyncio
+async def test_set_agentic_context_rejects_blank_frontend_affinity_token(
+    tmp_path,
+) -> None:
     dbe = DBE(tmp_path)
     (
         project_state,
@@ -691,7 +805,9 @@ async def test_set_agentic_context_rejects_blank_frontend_affinity_token(tmp_pat
     )
 
     session = type("_Session", (), {})()
-    ctx = _build_context_without_agentic_metadata(mcp_server=mcp_server, session=session)
+    ctx = _build_context_without_agentic_metadata(
+        mcp_server=mcp_server, session=session
+    )
     init_tool = mcp_server.get_tool("set_agentic_context")
     assert init_tool is not None
 
@@ -845,7 +961,9 @@ async def test_resolve_agentic_context_rejects_blank_frontend_affinity_token_met
 
 
 @pytest.mark.asyncio
-async def test_report_completion_status_allowed_in_scoped_chat_context(tmp_path) -> None:
+async def test_report_completion_status_allowed_in_scoped_chat_context(
+    tmp_path,
+) -> None:
     dbe = DBE(tmp_path)
     (
         project_state,
