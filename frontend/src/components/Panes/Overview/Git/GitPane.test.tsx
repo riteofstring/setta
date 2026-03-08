@@ -14,11 +14,9 @@ function syncStoreInitialState(store: {
   Object.assign(store.getInitialState(), store.getState());
 }
 
-function renderPane(
-  props: Partial<Parameters<typeof GitPane>[0]> = {},
-): string {
+function renderPane(): string {
   syncStoreInitialState(useGitStore);
-  return renderToStaticMarkup(<GitPane {...props} />);
+  return renderToStaticMarkup(<GitPane />);
 }
 
 describe("GitPane", () => {
@@ -55,31 +53,5 @@ describe("GitPane", () => {
     expect(markup).toContain(
       "Git status output was truncated. The file list may be incomplete.",
     );
-  });
-
-  it("can hide the graph launcher when embedded inside a git graph window", () => {
-    useGitStore.setState((state) => ({
-      ...state,
-      status: {
-        response: {
-          repo: {
-            isGitRepo: true,
-            repoRoot: "/repo",
-            headBranch: "main",
-            headCommit: "abc1234",
-          },
-          entries: [],
-          isTruncated: false,
-        },
-        diffAvailabilityByPath: new Map(),
-        isLoading: false,
-        error: null,
-      },
-    }));
-
-    const markup = renderPane({ showGraphButton: false });
-
-    expect(markup).not.toContain(">Graph<");
-    expect(markup).toContain(">Refresh<");
   });
 });
