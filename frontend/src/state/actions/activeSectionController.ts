@@ -150,8 +150,9 @@ export function applyActiveSectionChange(
   );
   const decision = resolveActiveSectionChange(context);
   const activeIdsChanged = !_.isEqual(activeIds, decision.nextActiveIds);
+  const shouldApplyActiveIds = activeIdsChanged || options?.forceDurableSync;
 
-  if (activeIdsChanged) {
+  if (shouldApplyActiveIds) {
     setActiveSectionIds(decision.nextActiveIds, options);
   }
 

@@ -72,6 +72,7 @@ type MinimapSvgProps = Omit<MiniMapNodesType, "onClick"> & {
   maskStrokeColor: string;
   maskStrokeWidth: number;
   nodes: Node[] | null;
+  enableSelectionSync?: boolean;
 };
 
 function areStringArraysEqual(left: string[], right: string[]) {
@@ -310,6 +311,7 @@ function MiniMap({
         maskStrokeColor={maskStrokeColor}
         maskStrokeWidth={maskStrokeWidth}
         nodes={null}
+        enableSelectionSync
       />
     </Panel>
   );
@@ -385,6 +387,7 @@ export function MinimapSvg({
   maskStrokeColor,
   maskStrokeWidth,
   nodes,
+  enableSelectionSync = false,
 }: MinimapSvgProps) {
   const minimapNodesProps: MiniMapNodesType = {
     onClick: onSvgNodeClick,
@@ -410,7 +413,7 @@ export function MinimapSvg({
       ) : (
         <MiniMapNodesReactive {...minimapNodesProps} />
       )}
-      <MiniMapSelectionSync svgRef={svgRef} />
+      {enableSelectionSync ? <MiniMapSelectionSync svgRef={svgRef} /> : null}
       {viewBB && (
         <path
           className="react-flow__minimap-mask"

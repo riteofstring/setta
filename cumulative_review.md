@@ -198,3 +198,44 @@ New/updated automated coverage:
 
 Manual/CDP verification:
 - Attempted Chrome DevTools MCP verification, but the MCP server could not connect to Chrome on the configured CDP port (`http://127.0.0.1:9231/json/version` fetch failure), so no new manual CDP check was completed for this entry.
+
+## 2026-03-09 12:02:26 PDT
+
+Summary:
+- Closed the last two issues from the top-level review consolidation: selection-key blank-canvas deselect now always durably commits its final empty selection, and static project-config thumbnails no longer subscribe to the live minimap selection store.
+- Added controller-level, DOM interaction, and browser persistence coverage around the selection commit path, plus a preview-level guard against reintroducing live thumbnail subscriptions.
+
+Detailed findings addressed:
+- The selection-rect flow cleared `useActiveSectionUI.activeIds` immediately in `ui-only` mode on `mousedown`, but the no-drag `mouseup` path then delegated to `pane-click`, where the active-section controller short-circuited because the UI store was already `[]`. That left the backend durable selection unchanged and let reload/backend reconciliation resurrect stale selection.
+- `MinimapSvg(...)` always mounted `MiniMapSelectionSync`, even when used as a static project-config thumbnail surface. Every live selection change therefore woke inert home-screen previews and ran guaranteed no-op DOM reconciliation work against SVGs that had no live-selection semantics.
+
+Fixes implemented:
+- Updated `applyActiveSectionChange(...)` to honor `forceDurableSync` even when `decision.nextActiveIds` already matches the current UI store, keeping “must durably commit this terminal state” separate from “UI ids changed this render”.
+- Updated `Pane.tsx` so selection-key no-drag blank-canvas completion passes `forceDurableSync` through the pane-click path, and selection-rect `mouseleave` also flushes the final UI-owned selection before teardown instead of abandoning the gesture in a terminal `ui-only` state.
+- Added an explicit `enableSelectionSync` switch to `MinimapSvg(...)`, enabled it only for the live interactive minimap, and left `ProjectConfigPreview` thumbnails explicitly inert.
+- Added a tiny test-only React-refresh preamble shim plus `jsdom` in frontend devDependencies so DOM-backed Vitest coverage can exercise the real pane and preview components without downgrading those regressions to pure store tests.
+
+Behavioral impact before vs after:
+- UX before: clicking empty canvas while the selection key was held could appear to deselect locally, but backend state and reloads could still restore the old section; home/project thumbnails also did unnecessary work on every active-selection change.
+- UX after: blank-canvas deselect converges across live UI state, backend durable state, reload state, and minimap styling, while static project thumbnails remain visually unchanged but fully inert during live selection updates.
+- DX before: end-of-gesture durable commit was implicit and easy to bypass once the UI store had already been updated, and `MinimapSvg` hid live subscription behavior inside a seemingly static rendering helper.
+- DX after: the selection coordinator has an explicit “force final durable publish” path, pane teardown owns the gesture-end flush, and minimap live-selection behavior is opt-in instead of ambient.
+
+Automated verification completed:
+- `pnpm -C frontend exec vitest run src/state/actions/activeSections.test.ts src/state/actions/activeSectionController.test.ts src/forks/xyflow/core/container/Pane.test.tsx src/components/ProjectConfigs/ProjectConfigPreview.test.tsx src/forks/xyflow/minimap/MiniMap.test.ts src/forks/xyflow/minimap/MiniMapNodes.test.tsx`
+- `./scripts/run-playwright-e2e.sh tests/e2e/sections/pane-click-deselect-persists.spec.ts tests/e2e/sections/minimap-selection-persistence.spec.ts`
+
+New/updated automated coverage:
+- `frontend/src/state/actions/activeSectionController.test.ts`
+  - covers forcing one durable empty-selection publish even when the UI store already matches the final cleared state.
+- `frontend/src/forks/xyflow/core/container/Pane.test.tsx`
+  - covers the no-drag selection-key blank-pane `mouseup` path publishing one durable empty selection.
+  - covers the no-drag selection-key `mouseleave` path publishing the same final empty selection before gesture teardown.
+- `frontend/src/components/ProjectConfigs/ProjectConfigPreview.test.tsx`
+  - covers static previews not subscribing to `useActiveSectionUI`.
+  - covers live `activeIds` changes leaving preview SVG markup unchanged after render.
+- `frontend/tests/e2e/sections/pane-click-deselect-persists.spec.ts`
+  - covers selecting a real section, deselecting via blank canvas with the configured selection key, asserting backend `activeIds` converge to `[]`, then reloading and confirming the section/minimap remain deselected.
+
+Manual/CDP verification:
+- In the running headed app via Chrome DevTools MCP on `http://127.0.0.1:3009`, selected the live generated-code section, confirmed the minimap node gained `selected`, then simulated the selection-key blank-canvas deselect path and confirmed both the section outline and minimap `selected` styling cleared in the real UI.

@@ -9,7 +9,10 @@ import React, {
   useRef,
 } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
-import { setActiveSectionIds } from "state/actions/activeSections";
+import {
+  type SetActiveSectionIdsOptions,
+  setActiveSectionIds,
+} from "state/actions/activeSections";
 import { openPaneContextMenu } from "state/actions/contextMenus";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { openFileAsSectionForDrop } from "state/actions/sections/createSections";
@@ -71,12 +74,15 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
     prevSelectedNodesCount.current = 0;
   };
 
-  const onClick = (event: ReactMouseEvent) => {
+  const onClick = (
+    event: ReactMouseEvent,
+    options?: SetActiveSectionIdsOptions,
+  ) => {
     if (useMisc.getState().mouseDownDrawArea) {
       useMisc.setState({ mouseDownDrawArea: false });
       return;
     }
-    applyActiveSectionChange({ interaction: "pane-click" });
+    applyActiveSectionChange({ interaction: "pane-click" }, options);
     useMisc.setState({
       lastPaneClickLocation: screenToFlowPosition({
         x: event.clientX,
@@ -188,7 +194,7 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
       userSelectionRect &&
       event.target === container.current
     ) {
-      onClick(event);
+      onClick(event, { forceDurableSync: true });
     }
 
     useReactFlow
@@ -201,8 +207,13 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
   };
 
   const onMouseLeave = () => {
-    if (userSelectionActive) {
-      useReactFlow.getState().setNodesSelection(prevSelectedNodesCount.current);
+    const { userSelectionRect } = useReactFlow.getState();
+    if (userSelectionRect) {
+      if (userSelectionActive) {
+        useReactFlow
+          .getState()
+          .setNodesSelection(prevSelectedNodesCount.current);
+      }
       syncSelectionRectActiveIds();
     }
     resetUserSelection();
