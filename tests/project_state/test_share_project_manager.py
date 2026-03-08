@@ -70,7 +70,6 @@ def _write_project(
     dbe = DBE(root)
     project_state = ProjectStateBackend(
         projectConfigs={config.id: config for config in project_configs},
-        projectChatWindowingByProjectConfigId={config.id: {} for config in project_configs},
         defaultProjectConfigId=default_id,
     )
     dbe.write_project(project_state)

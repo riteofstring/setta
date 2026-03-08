@@ -15,12 +15,20 @@ import {
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const { routeGetAuthRefreshStatusMock } = vi.hoisted(() => ({
+  routeGetAuthRefreshStatusMock: vi.fn(),
+}));
+
 vi.mock("utils/generatedEndpoints", () => ({
   route_binary_upload: vi.fn(),
-  route_get_auth_refresh_status: vi.fn(),
+  route_get_auth_refresh_status: routeGetAuthRefreshStatusMock,
   route_get_listener_coverage: vi.fn(),
   route_get_latest_project_state: vi.fn(),
   route_get_latest_lsp_diagnostics: vi.fn(),
+}));
+
+vi.mock("utils/generatedGoEndpoints", () => ({
+  route_get_auth_refresh_status: routeGetAuthRefreshStatusMock,
 }));
 
 vi.mock("state/actions/lspDiagnostics", () => ({
@@ -263,6 +271,30 @@ describe("openWebSocket", () => {
       projectConfigId: "project-1",
     });
     expect(processLspDiagnostics).toHaveBeenCalledWith(diagnosticsPayload);
+  });
+
+  it("connects IDE mode through the Go frontend websocket route", async () => {
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+
+    const socket = MockWebSocket.instances[0];
+    expect(socket?.url).toContain("/ws/frontend");
+    expect(socket?.url).not.toContain("/api/frontend");
+    expect(socket?.url).not.toContain("/share/frontend");
+  });
+
+  it("connects deployment mode through the Go frontend websocket route with a share session query", async () => {
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+
+    openWebSocket("/project", "share-session-route");
+    vi.runAllTimers();
+
+    const socket = MockWebSocket.instances[0];
+    expect(socket?.url).toContain("/ws/frontend");
+    expect(socket?.url).toContain("shareSessionId=share-session-route");
+    expect(socket?.url).not.toContain("/share/frontend");
   });
 
   it("sends realtime dependency events when listener coverage is unknown", async () => {

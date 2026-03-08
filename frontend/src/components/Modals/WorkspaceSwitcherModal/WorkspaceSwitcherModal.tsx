@@ -6,14 +6,10 @@ import { closeModal } from "state/actions/modal";
 import { useServerMode } from "state/definitions";
 import { WORKSPACE_LAUNCH_ROUTER_PATH } from "utils/constants";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
-import {
-  route_create_workspace_launch_intent,
-  route_get_setta_home_info,
-} from "utils/generatedEndpoints";
-import {
-  type LaunchRequestInput,
-  type SettaHomeInfoResponse,
-} from "utils/generatedTypes";
+import { route_create_workspace_launch_intent } from "utils/generatedEndpoints";
+import { route_get_setta_home_info } from "utils/generatedGoEndpoints";
+import type { SettaHomeInfoResponse } from "utils/generatedGoTypes";
+import { type LaunchRequestInput } from "utils/generatedTypes";
 import { resolveServerModeCapabilities } from "utils/serverModeCapabilities";
 import {
   normalizeSettaFilesLocation,

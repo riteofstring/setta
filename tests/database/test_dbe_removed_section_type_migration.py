@@ -14,7 +14,6 @@ def test_read_project_required_rejects_removed_clock_calendar_sections(
     project_config = ProjectConfig(id="project-1", name="strict-validation")
     backend = ProjectStateBackend(
         projectConfigs={project_config.id: project_config},
-        projectChatWindowingByProjectConfigId={project_config.id: {}},
         defaultProjectConfigId=project_config.id,
     )
     payload = backend.model_dump(mode="json")
@@ -48,7 +47,6 @@ def test_read_project_required_does_not_auto_expand_allowlist_when_type_policies
     project_config = ProjectConfig(id="project-1", name="no-auto-expansion")
     backend = ProjectStateBackend(
         projectConfigs={project_config.id: project_config},
-        projectChatWindowingByProjectConfigId={project_config.id: {}},
         defaultProjectConfigId=project_config.id,
     )
     payload = backend.model_dump(mode="json")
@@ -79,7 +77,6 @@ def test_read_project_required_preserves_explicit_allowlist_exclusion_for_spread
     )
     backend = ProjectStateBackend(
         projectConfigs={project_config.id: project_config},
-        projectChatWindowingByProjectConfigId={project_config.id: {}},
         defaultProjectConfigId=project_config.id,
     )
     payload = backend.model_dump(mode="json")

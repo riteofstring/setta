@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useServerMode } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import * as endpoints from "utils/generatedEndpoints";
+import * as endpoints from "utils/generatedGoEndpoints";
 
 import { initializeServerMode } from "./serverMode";
 
