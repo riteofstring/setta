@@ -5802,7 +5802,6 @@ export function createPasteSectionsRequestInput(options: Partial<PasteSectionsRe
 }
 
 
-
 export type CreateEdgeRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
@@ -5820,8 +5819,9 @@ export type CreateEdgeRequestInput = {
   zIndex?: number;
   data?: Record<string, unknown> | null;
 };
-
-
+export function createCreateEdgeRequestInput(options: Partial<CreateEdgeRequestInput> = {}): CreateEdgeRequestInput {
+  return options as CreateEdgeRequestInput;
+}
 
 
 export type UpdateEdgeRequestInput = {
@@ -5829,8 +5829,9 @@ export type UpdateEdgeRequestInput = {
   projectConfigId: string;
   edge: Edge;
 };
-
-
+export function createUpdateEdgeRequestInput(options: Partial<UpdateEdgeRequestInput> = {}): UpdateEdgeRequestInput {
+  return options as UpdateEdgeRequestInput;
+}
 
 
 export type DeleteEdgesRequestInput = {
@@ -5838,8 +5839,9 @@ export type DeleteEdgesRequestInput = {
   projectConfigId: string;
   edgeIds: Array<string>;
 };
-
-
+export function createDeleteEdgesRequestInput(options: Partial<DeleteEdgesRequestInput> = {}): DeleteEdgesRequestInput {
+  return options as DeleteEdgesRequestInput;
+}
 
 
 export type ReconnectEdgeRequestInput = {
@@ -5853,8 +5855,9 @@ export type ReconnectEdgeRequestInput = {
   targetVariantId: string;
   targetPortId: string;
 };
-
-
+export function createReconnectEdgeRequestInput(options: Partial<ReconnectEdgeRequestInput> = {}): ReconnectEdgeRequestInput {
+  return options as ReconnectEdgeRequestInput;
+}
 
 
 export type SetEdgesRequestInput = {
@@ -5862,8 +5865,9 @@ export type SetEdgesRequestInput = {
   projectConfigId: string;
   edges: Array<Edge>;
 };
-
-
+export function createSetEdgesRequestInput(options: Partial<SetEdgesRequestInput> = {}): SetEdgesRequestInput {
+  return options as SetEdgesRequestInput;
+}
 
 
 export type CreateAgenticEdgeRequestInput = {
@@ -5878,8 +5882,9 @@ export type CreateAgenticEdgeRequestInput = {
   hidden?: boolean;
   zIndex?: number;
 };
-
-
+export function createCreateAgenticEdgeRequestInput(options: Partial<CreateAgenticEdgeRequestInput> = {}): CreateAgenticEdgeRequestInput {
+  return options as CreateAgenticEdgeRequestInput;
+}
 
 
 export type UpdateAgenticEdgeRequestInput = {
@@ -5887,8 +5892,9 @@ export type UpdateAgenticEdgeRequestInput = {
   projectConfigId: string;
   edge: AgenticEdge;
 };
-
-
+export function createUpdateAgenticEdgeRequestInput(options: Partial<UpdateAgenticEdgeRequestInput> = {}): UpdateAgenticEdgeRequestInput {
+  return options as UpdateAgenticEdgeRequestInput;
+}
 
 
 export type DeleteAgenticEdgesRequestInput = {
@@ -5896,8 +5902,9 @@ export type DeleteAgenticEdgesRequestInput = {
   projectConfigId: string;
   edgeIds: Array<string>;
 };
-
-
+export function createDeleteAgenticEdgesRequestInput(options: Partial<DeleteAgenticEdgesRequestInput> = {}): DeleteAgenticEdgesRequestInput {
+  return options as DeleteAgenticEdgesRequestInput;
+}
 
 
 export type SetAgenticEdgesRequestInput = {
@@ -5905,7 +5912,9 @@ export type SetAgenticEdgesRequestInput = {
   projectConfigId: string;
   edges: Array<AgenticEdge>;
 };
-
+export function createSetAgenticEdgesRequestInput(options: Partial<SetAgenticEdgesRequestInput> = {}): SetAgenticEdgesRequestInput {
+  return options as SetAgenticEdgesRequestInput;
+}
 
 
 export type MoveSectionsRequestInput = {

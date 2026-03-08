@@ -140,23 +140,84 @@ type PasteSectionsRequestInput struct {
 
 type SectionsClipboardDataResponse struct{}
 
-type CreateEdgeRequestInput struct{}
+type CreateEdgeRequestInput struct {
+	FrontendOpID    *string        `json:"frontendOpId,omitempty"`
+	ProjectConfigID string         `json:"projectConfigId"`
+	SourceSectionID string         `json:"sourceSectionId"`
+	SourceVariantID string         `json:"sourceVariantId"`
+	SourcePortID    string         `json:"sourcePortId"`
+	TargetSectionID string         `json:"targetSectionId"`
+	TargetVariantID string         `json:"targetVariantId"`
+	TargetPortID    string         `json:"targetPortId"`
+	Type            *string        `json:"type,omitempty"`
+	Label           *string        `json:"label,omitempty"`
+	Style           map[string]any `json:"style,omitempty"`
+	Animated        *bool          `json:"animated,omitempty"`
+	Hidden          *bool          `json:"hidden,omitempty"`
+	ZIndex          *int           `json:"zIndex,omitempty"`
+	Data            map[string]any `json:"data,omitempty"`
+}
 
-type UpdateEdgeRequestInput struct{}
+type UpdateEdgeRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	Edge            Edge    `json:"edge"`
+}
 
-type DeleteEdgesRequestInput struct{}
+type DeleteEdgesRequestInput struct {
+	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
+	ProjectConfigID string   `json:"projectConfigId"`
+	EdgeIDs         []string `json:"edgeIds"`
+}
 
-type ReconnectEdgeRequestInput struct{}
+type ReconnectEdgeRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	EdgeID          string  `json:"edgeId"`
+	SourceSectionID string  `json:"sourceSectionId"`
+	SourceVariantID string  `json:"sourceVariantId"`
+	SourcePortID    string  `json:"sourcePortId"`
+	TargetSectionID string  `json:"targetSectionId"`
+	TargetVariantID string  `json:"targetVariantId"`
+	TargetPortID    string  `json:"targetPortId"`
+}
 
-type SetEdgesRequestInput struct{}
+type SetEdgesRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	Edges           []Edge  `json:"edges"`
+}
 
-type CreateAgenticEdgeRequestInput struct{}
+type CreateAgenticEdgeRequestInput struct {
+	FrontendOpID    *string                 `json:"frontendOpId,omitempty"`
+	ProjectConfigID string                  `json:"projectConfigId"`
+	ID              *string                 `json:"id,omitempty"`
+	SourceSectionID string                  `json:"sourceSectionId"`
+	TargetSectionID string                  `json:"targetSectionId"`
+	Kind            AgenticEdgeKind         `json:"kind"`
+	ContextMode     *AgenticEdgeContextMode `json:"contextMode,omitempty"`
+	Style           map[string]any          `json:"style,omitempty"`
+	Hidden          *bool                   `json:"hidden,omitempty"`
+	ZIndex          *int                    `json:"zIndex,omitempty"`
+}
 
-type UpdateAgenticEdgeRequestInput struct{}
+type UpdateAgenticEdgeRequestInput struct {
+	FrontendOpID    *string     `json:"frontendOpId,omitempty"`
+	ProjectConfigID string      `json:"projectConfigId"`
+	Edge            AgenticEdge `json:"edge"`
+}
 
-type DeleteAgenticEdgesRequestInput struct{}
+type DeleteAgenticEdgesRequestInput struct {
+	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
+	ProjectConfigID string   `json:"projectConfigId"`
+	EdgeIDs         []string `json:"edgeIds"`
+}
 
-type SetAgenticEdgesRequestInput struct{}
+type SetAgenticEdgesRequestInput struct {
+	FrontendOpID    *string       `json:"frontendOpId,omitempty"`
+	ProjectConfigID string        `json:"projectConfigId"`
+	Edges           []AgenticEdge `json:"edges"`
+}
 
 type MoveSectionsRequestInput struct {
 	FrontendOpID    *string             `json:"frontendOpId,omitempty"`
@@ -400,6 +461,10 @@ type TaskBoardRecurringWeekday string
 
 type TaskBoardRecurringMonth string
 
+type AgenticEdgeKind string
+
+type AgenticEdgeContextMode string
+
 type EdgePort struct {
 	ID       string `json:"id"`
 	Accessor string `json:"accessor"`
@@ -448,6 +513,10 @@ type TaskBoardTask struct {
 	RecurrenceYears  []int                       `json:"recurrenceYears"`
 	SortIndex        int                         `json:"sortIndex"`
 }
+
+type Edge struct{}
+
+type AgenticEdge struct{}
 
 type SetSectionParamFilterRequestInput struct {
 	FrontendOpID    *string `json:"frontendOpId,omitempty"`
@@ -691,103 +760,6 @@ type SetActiveIDsRequestInput struct {
 	ProjectConfigID string   `json:"projectConfigId"`
 	ActiveIDs       []string `json:"activeIds"`
 }
-
-const createEdgeRequestInputRawTS = `
-export type CreateEdgeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sourceSectionId: string;
-  sourceVariantId: string;
-  sourcePortId: string;
-  targetSectionId: string;
-  targetVariantId: string;
-  targetPortId: string;
-  type?: string;
-  label?: string | null;
-  style?: Record<string, unknown> | null;
-  animated?: boolean;
-  hidden?: boolean;
-  zIndex?: number;
-  data?: Record<string, unknown> | null;
-};
-`
-
-const updateEdgeRequestInputRawTS = `
-export type UpdateEdgeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  edge: Edge;
-};
-`
-
-const deleteEdgesRequestInputRawTS = `
-export type DeleteEdgesRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  edgeIds: Array<string>;
-};
-`
-
-const reconnectEdgeRequestInputRawTS = `
-export type ReconnectEdgeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  edgeId: string;
-  sourceSectionId: string;
-  sourceVariantId: string;
-  sourcePortId: string;
-  targetSectionId: string;
-  targetVariantId: string;
-  targetPortId: string;
-};
-`
-
-const setEdgesRequestInputRawTS = `
-export type SetEdgesRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  edges: Array<Edge>;
-};
-`
-
-const createAgenticEdgeRequestInputRawTS = `
-export type CreateAgenticEdgeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  id?: string | null;
-  sourceSectionId: string;
-  targetSectionId: string;
-  kind: AgenticEdgeKind;
-  contextMode?: AgenticEdgeContextMode | null;
-  style?: Record<string, unknown> | null;
-  hidden?: boolean;
-  zIndex?: number;
-};
-`
-
-const updateAgenticEdgeRequestInputRawTS = `
-export type UpdateAgenticEdgeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  edge: AgenticEdge;
-};
-`
-
-const deleteAgenticEdgesRequestInputRawTS = `
-export type DeleteAgenticEdgesRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  edgeIds: Array<string>;
-};
-`
-
-const setAgenticEdgesRequestInputRawTS = `
-export type SetAgenticEdgesRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  edges: Array<AgenticEdge>;
-};
-`
 
 const projectStateFrontendSupportRawTS = `
 export const SectionTypeEnum = {
