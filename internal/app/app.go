@@ -46,6 +46,7 @@ import (
 	"setta/internal/modes"
 	"setta/internal/notifications"
 	"setta/internal/observability"
+	"setta/internal/pathreveal"
 	"setta/internal/plugins"
 	"setta/internal/projectshell"
 	"setta/internal/projectstate"
@@ -174,6 +175,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		notificationStore     *notifications.Store
 		notificationService   *notifications.Service
 		appGenSkillService    *appgenskills.Service
+		pathRevealService     *pathreveal.Service
 		runChainRuntime       *runchains.Runtime
 		externalConfigStore   *externalagentconfigs.Store
 		externalConfigService *externalagentconfigs.Service
@@ -664,6 +666,15 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		appGenSkillService, err = appgenskills.NewService(appgenskills.ServiceOptions{
 			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
 			LookupEnv:     os.LookupEnv,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+		pathRevealService, err = pathreveal.NewService(pathreveal.ServiceOptions{
+			WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
+			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+			Skills:         appGenSkillService,
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
@@ -1284,6 +1295,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				GlobalSettaFilesBase:     cfg.User.GlobalSettaFilesBase,
 				ActiveSettaFilesLocation: cfg.Paths.ActiveSettaFilesLocation(),
 				SettaFilesRoot:           cfg.Paths.SettaFilesRoot,
+				RevealPath:               pathRevealService,
 				AuthRefreshWindowSeconds: authRefreshWindowSeconds,
 				WorktreeName:             worktreeName,
 				ReadyAt:                  statusReadyAt,

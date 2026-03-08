@@ -9,6 +9,7 @@ var bareRouteNames = map[string]struct{}{
 	bareRouteName(RouteGetAuthRefreshStatus):                    {},
 	bareRouteName(RouteGetServerMode):                           {},
 	bareRouteName(RouteGetSettaHomeInfo):                        {},
+	bareRouteName(RouteRevealPathInOSFileExplorer):              {},
 	bareRouteName(RouteLoadSettings):                            {},
 	bareRouteName(RoutePluginsDisable):                          {},
 	bareRouteName(RoutePluginsConfig):                           {},

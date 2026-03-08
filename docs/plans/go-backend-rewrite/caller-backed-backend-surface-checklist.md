@@ -189,7 +189,6 @@ callers.
   - `streamAppSpec`
 - Helper/admin routes:
   - `docstringToMarkdown`
-  - `revealPathInOsFileExplorer`
 - Python-era websocket route shapes still used by the current frontend:
   - deployment/share/app terminal websocket path `/{projectConfigId}/{sectionId}/{id}`
 - Password and subprocess helper routes:

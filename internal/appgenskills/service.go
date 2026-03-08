@@ -180,6 +180,18 @@ func (s *Service) ResolveSkillsResponse() (GetSkillsResponse, error) {
 	}, nil
 }
 
+func (s *Service) SkillRootPaths() ([]string, error) {
+	roots, err := s.skillRoots()
+	if err != nil {
+		return nil, err
+	}
+	paths := make([]string, 0, len(roots))
+	for _, root := range roots {
+		paths = append(paths, root.Path)
+	}
+	return paths, nil
+}
+
 func (s *Service) List() ([]SkillEntry, error) {
 	roots, err := s.skillRoots()
 	if err != nil {
@@ -325,13 +337,13 @@ func (s *Service) UpsertCustomSkill(skillID string, relativePath string, content
 			}
 			return UpsertCustomSkillResponse{}, invalidErrorf("%v", err)
 		}
-			isEditable, editabilityReason := resolveSkillEditability(target.RootID, target.RelativePath, target.SkillDocPath)
-			if !isEditable {
-				if strings.TrimSpace(editabilityReason) == "" {
-					return UpsertCustomSkillResponse{}, invalidErrorf("Selected skill is not editable.")
-				}
-				return UpsertCustomSkillResponse{}, invalidErrorf("%s", editabilityReason)
+		isEditable, editabilityReason := resolveSkillEditability(target.RootID, target.RelativePath, target.SkillDocPath)
+		if !isEditable {
+			if strings.TrimSpace(editabilityReason) == "" {
+				return UpsertCustomSkillResponse{}, invalidErrorf("Selected skill is not editable.")
 			}
+			return UpsertCustomSkillResponse{}, invalidErrorf("%s", editabilityReason)
+		}
 		targetRootID = target.RootID
 		targetRootPath = target.RootPath
 		targetRelativePath = target.RelativePath

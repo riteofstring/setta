@@ -90,7 +90,7 @@ Primary sources used for this checklist:
 | Go-owned | Core project state and project shell | `internal/projectstate`, `internal/projectview`, `internal/projectshell`, `internal/settingsstate`, `internal/chatsections`, and `internal/notifications` own the main project/runtime state slice, including the caller-backed section-variant delete prompt/delete flow. |
 | Go-owned | Artifact, binary, attachment, file-browser, and git-read services | `internal/artifacts`, `internal/binary`, `internal/chatattachments`, `internal/filebrowser`, `internal/gitread`, and `internal/shareartifacts` are Go-owned. |
 | Go-owned | State filesystem and project backup helpers | `internal/statefs` and `internal/projectbackup` are Go-owned support capabilities. |
-| Python-owned | Settings-project runtime and remaining direct helper/mutation runtime | `backend/setta/project_state/**` and Python router-owned legacy helpers still cover settings-project plus the omitted direct helper/mutation tails that were not re-created in Go, including the dormant default-project helper `getDefaultConfigName`, `loadAvailableArtifacts`, `appendDrawAreaLayerItem`, `docstringToMarkdown`, and `revealPathInOsFileExplorer`. |
+| Python-owned | Settings-project runtime and remaining direct helper/mutation runtime | `backend/setta/project_state/**` and Python router-owned legacy helpers still cover settings-project plus the omitted direct helper/mutation tails that were not re-created in Go, including the dormant default-project helper `getDefaultConfigName`, `loadAvailableArtifacts`, `appendDrawAreaLayerItem`, and `docstringToMarkdown`. |
 
 ## 6. Code intelligence, formatting, and execution planning
 
@@ -99,7 +99,7 @@ Primary sources used for this checklist:
 | Go-owned | LSP server/runtime ownership | `internal/lsp` owns language-server registration and runtime orchestration in the rewrite scope. |
 | Go-owned | Diagnostics/completion/signature help/watch-code/format/codegen/pythonenv helpers | `internal/lsp`, `internal/lspcompletion`, `internal/lspsignature`, `internal/watchcode`, `internal/codeformat`, `internal/boundcode`, `internal/codegen`, and `internal/pythonenv` now cover the active diagnostics/completion surface plus the current frontend-facing `typeCheck`, `restartLanguageServer`, and `setTypeErrorIgnore` helper routes. |
 | Go-owned | Run planning and run-chain runtime | `internal/runs` and `internal/runchains` own the active run/runtime orchestration slice. |
-| Python-owned | Legacy helper/admin execution surface | Python still owns the omitted helper/admin and detached transport surface such as `runDetached`, `docstringToMarkdown`, `revealPathInOsFileExplorer`, and old CLI/python-script transports. |
+| Python-owned | Legacy helper/admin execution surface | Python still owns the omitted helper/admin and detached transport surface such as `runDetached`, `docstringToMarkdown`, and old CLI/python-script transports. |
 
 ## 7. MCP, app-spec, UI settings, and app generation
 

@@ -1,17 +1,25 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"reflect"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/config"
 	"setta/internal/modes"
+	"setta/internal/pathreveal"
 )
 
 func TestRegisterStatusRoutesReturnsBackendInitStatus(t *testing.T) {
@@ -139,6 +147,90 @@ func TestRegisterStatusRoutesBlocksSettaHomeInfoOutsideIDEMode(t *testing.T) {
 	}
 }
 
+func TestRegisterStatusRoutesRevealsPathsInIDEMode(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	settaFilesRoot := t.TempDir()
+	targetPath := filepath.Join(workspaceRoot, "skill.md")
+	if err := os.WriteFile(targetPath, []byte("# Skill"), 0o644); err != nil {
+		t.Fatalf("write target file: %v", err)
+	}
+	logPath := filepath.Join(t.TempDir(), "command.json")
+	revealService, err := pathreveal.NewService(pathreveal.ServiceOptions{
+		WorkspaceRoot:  workspaceRoot,
+		SettaFilesRoot: settaFilesRoot,
+		LookPath: func(name string) (string, error) {
+			return name, nil
+		},
+		CommandContext: statusRouteTestCommandContext(logPath, 0, "", ""),
+		GOOS:           "darwin",
+		Timeout:        time.Second,
+	})
+	if err != nil {
+		t.Fatalf("new path reveal service: %v", err)
+	}
+	handler := newStatusRouteTestHandler(t, config.ModeIDE, StatusRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RevealPath: revealService,
+	})
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteRevealPathInOSFileExplorer, strings.NewReader(`{"path":"`+targetPath+`"}`))
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected reveal path 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if strings.TrimSpace(response.Body.String()) != "null" {
+		t.Fatalf("expected null response payload, got %q", response.Body.String())
+	}
+
+	command := readStatusRouteCommandLog(t, logPath)
+	if want := []string{"open", "-R", resolveStatusRouteTestPath(t, targetPath)}; !reflect.DeepEqual(command, want) {
+		t.Fatalf("expected reveal command %#v, got %#v", want, command)
+	}
+}
+
+func TestRegisterStatusRoutesRejectsRevealPathOutsideAllowedRoots(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	settaFilesRoot := t.TempDir()
+	outsidePath := filepath.Join(t.TempDir(), "outside.md")
+	if err := os.WriteFile(outsidePath, []byte("# Outside"), 0o644); err != nil {
+		t.Fatalf("write outside file: %v", err)
+	}
+	revealService, err := pathreveal.NewService(pathreveal.ServiceOptions{
+		WorkspaceRoot:  workspaceRoot,
+		SettaFilesRoot: settaFilesRoot,
+		LookPath: func(name string) (string, error) {
+			return name, nil
+		},
+		CommandContext: statusRouteTestCommandContext(filepath.Join(t.TempDir(), "unused.json"), 0, "", ""),
+		GOOS:           "darwin",
+		Timeout:        time.Second,
+	})
+	if err != nil {
+		t.Fatalf("new path reveal service: %v", err)
+	}
+	handler := newStatusRouteTestHandler(t, config.ModeIDE, StatusRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RevealPath: revealService,
+	})
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteRevealPathInOSFileExplorer, strings.NewReader(`{"path":"`+outsidePath+`"}`))
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected reveal path 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "Path is outside allowed reveal roots.") {
+		t.Fatalf("expected allowed-root message, got %q", response.Body.String())
+	}
+}
+
 func newStatusRouteTestHandler(
 	t *testing.T,
 	mode config.Mode,
@@ -162,4 +254,92 @@ func newStatusRouteTestHandler(
 		t.Fatalf("new status route handler: %v", err)
 	}
 	return handler
+}
+
+func TestStatusRouteHelperProcess(t *testing.T) {
+	if os.Getenv("SETTA_STATUS_ROUTE_HELPER") != "1" {
+		return
+	}
+
+	args := os.Args
+	separator := -1
+	for i, arg := range args {
+		if arg == "--" {
+			separator = i
+			break
+		}
+	}
+	if separator == -1 || len(args) < separator+6 {
+		os.Exit(2)
+	}
+
+	logPath := args[separator+1]
+	exitCode, err := strconv.Atoi(args[separator+2])
+	if err != nil {
+		os.Exit(2)
+	}
+	stdoutText := args[separator+3]
+	stderrText := args[separator+4]
+	command := args[separator+5:]
+	payload, err := json.Marshal(command)
+	if err != nil {
+		os.Exit(2)
+	}
+	if err := os.WriteFile(logPath, payload, 0o644); err != nil {
+		os.Exit(2)
+	}
+	if stdoutText != "" {
+		_, _ = os.Stdout.WriteString(stdoutText)
+	}
+	if stderrText != "" {
+		_, _ = os.Stderr.WriteString(stderrText)
+	}
+	os.Exit(exitCode)
+}
+
+func statusRouteTestCommandContext(
+	logPath string,
+	exitCode int,
+	stdoutText string,
+	stderrText string,
+) func(context.Context, string, ...string) *exec.Cmd {
+	return func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		commandArgs := []string{
+			"-test.run=TestStatusRouteHelperProcess",
+			"--",
+			logPath,
+			strconv.Itoa(exitCode),
+			stdoutText,
+			stderrText,
+			name,
+		}
+		commandArgs = append(commandArgs, args...)
+		cmd := exec.CommandContext(ctx, os.Args[0], commandArgs...)
+		cmd.Env = append(os.Environ(), "SETTA_STATUS_ROUTE_HELPER=1")
+		return cmd
+	}
+}
+
+func readStatusRouteCommandLog(t *testing.T, path string) []string {
+	t.Helper()
+
+	payload, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read command log: %v", err)
+	}
+	var command []string
+	if err := json.Unmarshal(payload, &command); err != nil {
+		t.Fatalf("decode command log: %v", err)
+	}
+	return command
+}
+
+func resolveStatusRouteTestPath(t *testing.T, path string) string {
+	t.Helper()
+
+	resolvedPath, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return path
+	}
+	return resolvedPath
 }
