@@ -1,6 +1,5 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
-import _ from "lodash";
 import { useRef } from "react";
 import { BiHelpCircle } from "react-icons/bi";
 import { BsCardChecklist } from "react-icons/bs";
@@ -8,7 +7,8 @@ import { FiEdit3 } from "react-icons/fi";
 import { MdOutlineSettingsApplications } from "react-icons/md";
 import { PiCursorTextFill } from "react-icons/pi";
 import { TbEdit, TbVersions } from "react-icons/tb";
-import { useLocalStorage, useProjectState } from "state/definitions";
+import { useSolelyActiveSectionUIId } from "state/activeSectionUI";
+import { useLocalStorage } from "state/definitions";
 import { useUIEditorTab } from "state/hooks/uiTypes";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
 import {
@@ -29,7 +29,6 @@ import { MarkdownEditorInPane } from "./MarkdownEditor/MarkdownEditor";
 import { QuickInfoConfig } from "./QuickInfoConfig/QuickInfoConfig";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
 import { VariantList } from "./SectionVariants/VariantList";
-import { StateMachineEdgeInspector } from "./StateMachineEdgeInspector";
 import { UIConfig } from "./UIConfig/UIConfig";
 
 export function UiEditor() {
@@ -40,25 +39,14 @@ export function UiEditor() {
     rootRef: uiEditorRef,
   });
   const hasViewModeTabs = useHasViewModeTabs();
-  const { sectionIds, selectedStateMachineEdgeIds } = useProjectState(
-    (state) => ({
-      sectionIds: state.projectConfig.activeIds,
-      selectedStateMachineEdgeIds: state.projectConfig.stateMachineEdges
-        .filter((edge) => edge.selected)
-        .map((edge) => edge.id),
-    }),
-    _.isEqual,
-  );
-  const { selectedTabName, requiredTabs, sectionType } = useUIEditorTab(
-    sectionIds[0] ?? null,
-  );
+  const activeSectionId = useSolelyActiveSectionUIId();
+
+  const { selectedTabName, requiredTabs, sectionType } =
+    useUIEditorTab(activeSectionId);
   const { vis, width } = useLocalStorage(
     (x) => ({ vis: x.uiEditorVis, width: x.uiEditorWidth }),
     shallow,
   );
-  // const infoTabTooltip = renderMarkdown ? "Markdown Editor" : "Text Editor";
-  // const inputTitle =
-  // selectedTabName === UIEditorTabNameEnum.InfoConfig ? infoTabTooltip : null;
 
   const commonProps = {
     vis,
@@ -137,34 +125,16 @@ export function UiEditor() {
         vis={vis}
         width={width}
       >
-        {sectionIds.length === 1 && sectionIds[0] && vis && selectedTabName ? (
+        {activeSectionId && vis && selectedTabName ? (
           <TabsVisible
-            sectionId={sectionIds[0]}
+            sectionId={activeSectionId}
             selectedTabName={selectedTabName}
             // inputTitle={inputTitle}
           />
-        ) : selectedStateMachineEdgeIds.length === 1 && vis ? (
-          <WorkflowEdgeVisible edgeId={selectedStateMachineEdgeIds[0]} />
-        ) : selectedStateMachineEdgeIds.length > 1 && vis ? (
-          <Placeholder title="Select One Workflow Edge" />
         ) : (
           <Placeholder />
         )}
       </PaneContainer>
-    </div>
-  );
-}
-
-function WorkflowEdgeVisible({ edgeId }: { edgeId: string }) {
-  return (
-    <div
-      data-testid="ui-editor-tab-content-shell"
-      className="mx-auto flex h-full min-h-0 w-[calc(100%_-_1.5rem)] min-w-0 flex-1 flex-col overflow-hidden px-1.5"
-    >
-      <h2 className="mb-1 cursor-pointer select-none pl-4 text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
-        Workflow Edge
-      </h2>
-      <StateMachineEdgeInspector edgeId={edgeId} />
     </div>
   );
 }
@@ -215,17 +185,13 @@ function TabContent({
   }
 }
 
-function Placeholder({
-  title = "Select A Section to Edit",
-}: {
-  title?: string;
-}) {
+function Placeholder() {
   return (
     <aside className="mx-auto grid h-full min-h-0 w-[calc(100%_-_1rem)]">
       <div className="flex flex-col items-center gap-4 place-self-center">
         <FiEdit3 className="h-20 w-20 text-setta-300 dark:text-setta-700 " />
         <h4 className="text-center text-lg font-bold tracking-widest text-setta-300 dark:text-setta-600">
-          {title}
+          Select A Section to Edit
         </h4>
       </div>
     </aside>
