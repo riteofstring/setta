@@ -665,9 +665,9 @@ Use the docs in this order:
     between managed chat, transcription sessions, and dormant chat-section
     read transport
 182. `phase-18-managed-chat-send-hydrate-stop-and-section-persistence-plan.md`
-  - focused implementation-plan doc for the next executable direct frontend
-    AI slice: managed chat send/hydrate/stop plus chat-section persistence
-    over the landed managed-run, LLM-config, and project-state foundations
+  - focused Phase 18 execution doc for the remaining direct frontend
+    managed-chat runtime slice after the landed chat-section persistence
+    transport over the managed-run, LLM-config, and project-state foundations
 183. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
 184. `spike-pty.md`

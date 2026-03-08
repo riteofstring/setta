@@ -21,13 +21,24 @@ Completed before this plan:
 - Phase 18 inventory/rerank in
   `phase-18-remaining-ai-chat-and-transcription-route-inventory-and-rerank.md`
 
-Active direct frontend dependency that now triggers this phase:
+Landed during this phase:
+
+- Go-owned chat-section persistence over `internal/projectstate` and
+  `internal/httpapi/project_routes.go` for:
+  - `POST /setChatSectionSettings`
+  - `POST /setChatSectionState`
+  - `POST /setChatSectionChatId`
+  - explicit `type: "Chat"` validation
+  - explicit permission-mode and dictation-mode validation
+  - `frontendOpId` optimistic-update completion reuse through
+    `getLatestProjectState`
+
+Active direct frontend dependency that still triggers the remaining work in
+this phase:
 
 - `POST /getLLMResponse` for the managed `setta_llm` branch
 - `POST /getLLMChat`
 - `POST /stopLLMChat`
-- `POST /setChatSectionState`
-- `POST /setChatSectionChatId`
 
 Current callers are concentrated in:
 
@@ -52,8 +63,12 @@ Current Go state relevant to this phase:
   - the real IDE app still leaves managed execution unavailable until an
     executor is wired
 - `internal/projectstate` plus `internal/httpapi/project_routes.go`
-  - already own the mutation/runtime pattern needed for section persistence
-    and `frontendOpId`-tracked optimistic updates
+  - now own `POST /setChatSectionSettings`, `POST /setChatSectionState`, and
+    `POST /setChatSectionChatId` over the existing effective-payload mutation
+    pathway
+  - already owned the mutation/runtime pattern needed for section persistence
+    and `frontendOpId`-tracked optimistic updates, which the landed slice now
+    reuses directly
 - `internal/llmconfig`
   - already owns the managed LLM config and API-key source of truth
 
@@ -67,14 +82,11 @@ This phase should cover:
   - the managed `setta_llm` branch of `POST /getLLMResponse`
   - `POST /getLLMChat`
   - `POST /stopLLMChat`
-  - `POST /setChatSectionState`
-  - `POST /setChatSectionChatId`
 - managed chat branch-edit and `continueFromChatId` behavior
 - managed chat hydration from persisted runs plus active live overlay while a
   run is still in flight
 - `llmConfig` lookup from persisted engine metadata
 - `contextUsage` resolution from persisted run outputs
-- share/layout guarded chat-section persistence over the project-state runtime
 - focused route, owner, and app-handler tests mirroring the current Python
   reference coverage and active frontend caller behavior
 
@@ -166,6 +178,8 @@ Python currently:
 
 Python currently:
 
+- handles `POST /setChatSectionSettings` through the project manager with a
+  share layout guard
 - handles `POST /setChatSectionState` through the project manager with a share
   layout guard and `frontendOpId`-aware optimistic update completion
 - handles `POST /setChatSectionChatId` through the project manager as a direct
@@ -209,7 +223,7 @@ Recommendation:
   instead of burying those semantics inside `httpapi` or broadening
   `internal/agentruns` into a chat-specific singleton
 
-### 3. Chat-section persistence should land in the same phase
+### 3. Chat-section persistence belonged in the same phase and is now landed
 
 Managed chat send/hydrate/stop and section `chatId`/state persistence are part
 of the same active user flow:
@@ -217,11 +231,16 @@ of the same active user flow:
 - submit/edit branches update section `chatId`
 - hydration persists section message/input/waiting/tool-argument/branch state
 - new-chat actions clear the section `chatId`
+- settings changes update managed/runtime-facing chat defaults on the same
+  section
 
-Recommendation:
+Landed decision:
 
-- move `/setChatSectionState` and `/setChatSectionChatId` in the same phase so
-  managed chat no longer crosses a Python-owned project-state seam
+- move `/setChatSectionSettings`, `/setChatSectionState`, and
+  `/setChatSectionChatId` in the same phase so managed chat no longer crosses
+  a Python-owned project-state seam for section persistence
+- keep that ownership in `internal/projectstate` instead of introducing a
+  parallel chat-specific persistence package
 
 ### 4. The rewrite still should not recreate LiteLLM
 
@@ -272,11 +291,13 @@ Recommended option if provider breadth becomes the first architecture tradeoff:
      - explicit app-generation-mode inputs
    - do not infer behavior heuristically from message text or route shape
 
-5. Move chat-section persistence into Go over the landed project-state runtime.
-   - add thin route handlers under `internal/httpapi`
-   - reuse existing `frontendOpId` context plumbing for
-     `/setChatSectionState`
-   - keep share/layout policy enforcement explicit
+5. Keep landed chat-section persistence in Go over the project-state runtime.
+   - `internal/projectstate` now owns the bounded chat-section mutation owner
+   - `internal/httpapi/project_routes.go` now owns the thin IDE transport for
+     `/setChatSectionSettings`, `/setChatSectionState`, and
+     `/setChatSectionChatId`
+   - `frontendOpId` optimistic-update completion is already wired through that
+     landed slice
 
 6. Keep transcription out of this slice.
    - after this phase lands, rerank the dictation/runtime follow-on separately
@@ -293,9 +314,9 @@ Recommended option if provider breadth becomes the first architecture tradeoff:
   - live-overlay hydration while a run is active
   - stop latest running run and already-stopped behavior
 - project-state mutation tests
+  - set managed chat section settings
   - set managed chat section state with `frontendOpId`
   - set managed chat section `chatId`
-  - share/layout guard enforcement
 - route tests
   - managed `/getLLMResponse` branch success and explicit unavailable/runtime
     error mapping
@@ -312,7 +333,7 @@ Recommended option if provider breadth becomes the first architecture tradeoff:
 - the managed chat owner should sit above the landed managed-run foundations
   instead of replacing them
 - chat-section persistence belongs in the same phase as managed chat runtime
-  ownership
+  ownership and can stay in `internal/projectstate`
 - transcription remains a separate bounded follow-on
 
 ## Open Questions
@@ -327,11 +348,16 @@ Recommended option if provider breadth becomes the first architecture tradeoff:
 
 ## Verification
 
-- planning doc only; no automated tests were run
+- `./scripts/go.sh test ./internal/projectstate -run 'TestRuntimeChatSectionMutations|TestRuntimeLayoutPresentationMutationsUpdateProjectAndEffectivePayload' -count=1`
+- `./scripts/go.sh test ./internal/httpapi -run 'TestRegisterProjectRoutesChatSectionMutations|TestRegisterProjectRoutesLayoutPresentationMutationsPersistInLatestState' -count=1`
+- `./scripts/go.sh test ./internal/app -run '^TestAppServesChatSectionMutationRoutes$' -count=1`
 
 ## Next Recommended Step
 
-- implement this phase in bounded slices over the landed managed-run,
-  project-state, and LLM-config foundations
+- implement the remaining managed chat runtime slice over the landed
+  managed-run, project-state, and LLM-config foundations:
+  - managed `setta_llm` `/getLLMResponse`
+  - `/getLLMChat`
+  - `/stopLLMChat`
 - defer transcription-session runtime work to the next separate AI/runtime
   phase unless implementation finds a concrete shared dependency

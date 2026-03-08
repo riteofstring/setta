@@ -113,20 +113,26 @@ Implication:
 
 ### 2. Chat-section persistence is the adjacent direct dependency and should move with managed chat
 
-These routes remain Python-owned and have live direct frontend callers:
+These routes were Python-owned when this inventory was written and had live
+direct frontend callers:
 
+- `POST /setChatSectionSettings`
 - `POST /setChatSectionState`
 - `POST /setChatSectionChatId`
 
 Current callers:
 
 - `frontend/src/components/Section/Layouts/ChatArea.tsx`
+  - persists managed/runtime-facing chat settings through
+    `route_set_chat_section_settings(...)`
   - persists section message/input/waiting/tool-argument/branch state through
     `route_set_chat_section_state(...)`
   - persists section `chatId` through `route_set_chat_section_chat_id(...)`
 - `frontend/src/state/actions/ai.ts`
   - updates managed section `chatId` after submit/edit flows
 - `frontend/src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.tsx`
+  - persists section chat settings through
+    `route_set_chat_section_settings(...)`
   - clears section `chatId` when starting a new managed chat after settings
     changes
 
@@ -192,7 +198,8 @@ Rerank:
 
 1. The next executable AI follow-on should be the managed chat cluster:
    managed `/getLLMResponse`, `/getLLMChat`, `/stopLLMChat`, plus
-   `/setChatSectionState` and `/setChatSectionChatId`.
+   `/setChatSectionSettings`, `/setChatSectionState`, and
+   `/setChatSectionChatId`.
 2. The next adjacent AI/runtime slice after that should be transcription
    session ownership if dictation remains an active product dependency.
 3. Dormant `getChatSectionChatId` does not justify a separate route slice now.
@@ -214,16 +221,24 @@ Rerank:
   an adjacent but separable runtime cluster.
 - 2026-03-09: opened the executable follow-on in
   `phase-18-managed-chat-send-hydrate-stop-and-section-persistence-plan.md`.
+- 2026-03-09: landed the first executable Phase 18 slice in Go for
+  `/setChatSectionSettings`, `/setChatSectionState`, and
+  `/setChatSectionChatId`, leaving managed send/hydrate/stop as the remaining
+  direct frontend gap inside this phase.
 
 ## Verification
 
-- docs and inventory only; no automated tests were run
+- inventory follow-on now has landed evidence in:
+  - `./scripts/go.sh test ./internal/projectstate -run 'TestRuntimeChatSectionMutations|TestRuntimeLayoutPresentationMutationsUpdateProjectAndEffectivePayload' -count=1`
+  - `./scripts/go.sh test ./internal/httpapi -run 'TestRegisterProjectRoutesChatSectionMutations|TestRegisterProjectRoutesLayoutPresentationMutationsPersistInLatestState' -count=1`
+  - `./scripts/go.sh test ./internal/app -run '^TestAppServesChatSectionMutationRoutes$' -count=1`
 
 ## Next Recommended Step
 
 - use
   `phase-18-managed-chat-send-hydrate-stop-and-section-persistence-plan.md`
-  as the next executable Phase 18 slice
+  as the next executable Phase 18 slice for the remaining managed send /
+  hydrate / stop work
 - defer transcription-session runtime work to a separate bounded follow-on
   unless implementation of the managed chat slice proves a hard shared
   dependency

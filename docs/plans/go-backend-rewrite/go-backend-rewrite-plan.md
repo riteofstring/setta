@@ -27,12 +27,12 @@ Prefer the Go stdlib or well established Go libraries for this rewrite.
 
 ## Current Status
 
-As of 2026-03-09, the phase docs through Phase 17 and the recorded spike
-outcomes describe a repo state where the deployment/launcher runtime slices,
-the shipped CLI migration slices, the MCP/tooling foundations, the bounded
-plugin runtime surface, the direct frontend LLM settings transport, and the
-direct app-gen skills/custom-skill transport are complete for their bounded
-scopes.
+As of 2026-03-09, the phase docs through the first landed Phase 18 slice and
+the recorded spike outcomes describe a repo state where the deployment/
+launcher runtime slices, the shipped CLI migration slices, the MCP/tooling
+foundations, the bounded plugin runtime surface, the direct frontend LLM
+settings transport, the direct app-gen skills/custom-skill transport, and the
+chat-section persistence transport are complete for their bounded scopes.
 
 That does not mean the full backend runtime is fully Go-owned. User-facing
 AI/chat routing is still partially Python-owned. The rewrite still does not
@@ -43,6 +43,11 @@ bounded Phase 18 follow-on over the landed managed-run foundations:
 - managed `setta_llm` `/getLLMResponse`
 - `/getLLMChat`
 - `/stopLLMChat`
+
+The first Phase 18 slice is now landed for the adjacent project-state-backed
+chat-section persistence cluster:
+
+- `/setChatSectionSettings`
 - `/setChatSectionState`
 - `/setChatSectionChatId`
 
