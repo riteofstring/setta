@@ -311,3 +311,115 @@ type UpdateLauncherRequestInput struct {
 	SettaHome   *string `json:"settaHome,omitempty"`
 	PackageSpec *string `json:"packageSpec,omitempty"`
 }
+
+type AppCatalogPropType string
+
+const (
+	AppCatalogPropTypeString    AppCatalogPropType = "string"
+	AppCatalogPropTypeNumber    AppCatalogPropType = "number"
+	AppCatalogPropTypeDimension AppCatalogPropType = "dimension"
+	AppCatalogPropTypeBoolean   AppCatalogPropType = "boolean"
+)
+
+type AppCatalogProp struct {
+	Type       AppCatalogPropType `json:"type"`
+	Responsive bool               `json:"responsive,omitempty"`
+	Required   bool               `json:"required,omitempty"`
+	Min        *float64           `json:"min,omitempty"`
+	Max        *float64           `json:"max,omitempty"`
+	Enum       []any              `json:"enum,omitempty"`
+	Default    any                `json:"default,omitempty"`
+}
+
+type AppCatalogComponent struct {
+	Type     string                    `json:"type"`
+	Children bool                      `json:"children"`
+	Props    map[string]AppCatalogProp `json:"props,omitempty"`
+}
+
+type AppCatalogAction struct {
+	Name string `json:"name"`
+}
+
+type AppCatalogResponse struct {
+	ID         string                `json:"id"`
+	Version    string                `json:"version"`
+	Components []AppCatalogComponent `json:"components"`
+	Actions    []AppCatalogAction    `json:"actions"`
+}
+
+type AppRoute struct {
+	Path    string  `json:"path"`
+	Name    *string `json:"name,omitempty"`
+	RootKey *string `json:"rootKey,omitempty"`
+}
+
+type AppDefinition struct {
+	AppSpecVersion string         `json:"appSpecVersion,omitempty"`
+	CatalogID      string         `json:"catalogId,omitempty"`
+	AppSpecPath    *string        `json:"appSpecPath,omitempty"`
+	Routes         []AppRoute     `json:"routes,omitempty"`
+	DataBindings   map[string]any `json:"dataBindings,omitempty"`
+	Actions        map[string]any `json:"actions,omitempty"`
+	Theme          map[string]any `json:"theme,omitempty"`
+	Assets         []any          `json:"assets,omitempty"`
+}
+
+type GetAppDefinitionRequestInput struct {
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
+}
+
+type AppDefinitionReadResponse struct {
+	AppSpec       any            `json:"appSpec"`
+	AppDefinition *AppDefinition `json:"appDefinition,omitempty"`
+}
+
+type SetAppDefinitionRequestInput struct {
+	FrontendOpID   *string         `json:"frontendOpId,omitempty"`
+	AppSpec        any             `json:"appSpec"`
+	AppSpecPath    *string         `json:"appSpecPath,omitempty"`
+	AppSpecVersion *string         `json:"appSpecVersion,omitempty"`
+	CatalogID      *string         `json:"catalogId,omitempty"`
+	Routes         *[]AppRoute     `json:"routes,omitempty"`
+	DataBindings   *map[string]any `json:"dataBindings,omitempty"`
+	Actions        *map[string]any `json:"actions,omitempty"`
+	Theme          *map[string]any `json:"theme,omitempty"`
+	Assets         *[]any          `json:"assets,omitempty"`
+}
+
+type ValidateAppDefinitionRequestInput struct {
+	FrontendOpID   *string         `json:"frontendOpId,omitempty"`
+	AppSpec        any             `json:"appSpec"`
+	AppSpecVersion *string         `json:"appSpecVersion,omitempty"`
+	CatalogID      *string         `json:"catalogId,omitempty"`
+	Routes         *[]AppRoute     `json:"routes,omitempty"`
+	DataBindings   *map[string]any `json:"dataBindings,omitempty"`
+	Actions        *map[string]any `json:"actions,omitempty"`
+	Theme          *map[string]any `json:"theme,omitempty"`
+	Assets         *[]any          `json:"assets,omitempty"`
+}
+
+type AppValidationIssue struct {
+	Message     string  `json:"message"`
+	ElementKey  *string `json:"elementKey,omitempty"`
+	ElementType *string `json:"elementType,omitempty"`
+}
+
+type AppCapabilities struct {
+	CatalogID          string          `json:"catalogId"`
+	CatalogVersion     string          `json:"catalogVersion"`
+	AppSpecVersion     string          `json:"appSpecVersion"`
+	ThemeSchemaVersion string          `json:"themeSchemaVersion"`
+	Features           map[string]bool `json:"features"`
+}
+
+type AppDefinitionValidationResponse struct {
+	Errors       []AppValidationIssue `json:"errors"`
+	Warnings     []AppValidationIssue `json:"warnings"`
+	Capabilities AppCapabilities      `json:"capabilities"`
+}
+
+type AppDefinitionMutationResponse struct {
+	AppSpec       any            `json:"appSpec"`
+	AppDefinition *AppDefinition `json:"appDefinition,omitempty"`
+}

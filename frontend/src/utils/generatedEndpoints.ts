@@ -97,3 +97,23 @@ export async function route_reveal_path_in_os_file_explorer(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRoutes.revealPathInOsFileExplorer, x);
 }
+export async function route_get_app_catalog(): Promise<
+  ResponseDataAndStatus<gt.AppCatalogResponse>
+> {
+  return await get(GoHTTPRoutes.getAppCatalog);
+}
+export async function route_get_app_definition(
+  x: gt.GetAppDefinitionRequestInput,
+): Promise<ResponseDataAndStatus<gt.AppDefinitionReadResponse>> {
+  return await post(GoHTTPRoutes.getAppDefinition, x);
+}
+export async function route_set_app_definition(
+  x: gt.SetAppDefinitionRequestInput,
+): Promise<ResponseDataAndStatus<gt.AppDefinitionMutationResponse>> {
+  return await post(GoHTTPRoutes.setAppDefinition, x);
+}
+export async function route_validate_app_definition(
+  x: gt.ValidateAppDefinitionRequestInput,
+): Promise<ResponseDataAndStatus<gt.AppDefinitionValidationResponse>> {
+  return await post(GoHTTPRoutes.validateAppDefinition, x);
+}

@@ -105,6 +105,15 @@ Current landed wedge:
     - setup/update request payloads
     - launcher status-query and request-base payloads
     - launcher state enums used by the frontend
+  - app-config pane contract types
+    - `AppCatalogResponse` and the catalog component/action/prop payloads
+    - `AppDefinition`, `AppRoute`, and the app-definition read/mutation
+      payloads
+    - validation result payloads for `validateAppDefinition`
+    - these are dedicated frontend contract types rather than a direct dump of
+      `projectstate.AppDefinition`, because the runtime metadata uses
+      `json.RawMessage` while the frontend boundary needs structured JSON
+      values
 - `frontend/src/utils/generatedEndpoints.ts`
   - current status/meta endpoint wrappers
   - workspace-launch endpoint wrappers
@@ -124,6 +133,11 @@ Current landed wedge:
     - `route_repair_launcher`
     - `route_remove_launcher`
     - `route_update_launcher`
+  - app-config pane endpoint wrappers
+    - `route_get_app_catalog`
+    - `route_get_app_definition`
+    - `route_set_app_definition`
+    - `route_validate_app_definition`
 - active caller adoption
   - `GlobalWrapper`, `WorktreeHint`, `initializeServerMode`,
     `websocketReceive`, and the `settaHomeInfo` read in
@@ -136,6 +150,8 @@ Current landed wedge:
     bindings
   - `DesktopLauncherSettingsSection` now consumes the canonical Go-generated
     launcher-management bindings
+  - `AppConfigPane` now consumes the canonical Go-generated app-config
+    bindings
 
 ## Cutover Rule
 

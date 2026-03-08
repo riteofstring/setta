@@ -29,7 +29,7 @@ func TestRegisterAppDefinitionRoutesReturnsCatalog(t *testing.T) {
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload appspec.Catalog
+	var payload AppCatalogResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode app catalog payload: %v", err)
 	}
@@ -38,6 +38,12 @@ func TestRegisterAppDefinitionRoutesReturnsCatalog(t *testing.T) {
 	}
 	if len(payload.Components) == 0 {
 		t.Fatalf("expected catalog components, got %#v", payload.Components)
+	}
+	if payload.Components[0].Type == "" {
+		t.Fatalf("expected component type, got %#v", payload.Components[0])
+	}
+	if len(payload.Actions) == 0 || payload.Actions[0].Name == "" {
+		t.Fatalf("expected catalog actions, got %#v", payload.Actions)
 	}
 }
 

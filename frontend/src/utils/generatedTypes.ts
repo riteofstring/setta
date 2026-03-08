@@ -431,3 +431,176 @@ export function createRevealPathInOSFileExplorerRequest(
 ): RevealPathInOSFileExplorerRequest {
   return options as RevealPathInOSFileExplorerRequest;
 }
+
+export type AppCatalogPropType = "string" | "number" | "dimension" | "boolean";
+
+export type AppCatalogProp = {
+  type: AppCatalogPropType;
+  responsive?: boolean;
+  required?: boolean;
+  min?: number | null;
+  max?: number | null;
+  enum?: Array<unknown>;
+  default?: unknown;
+};
+export function createAppCatalogProp(
+  options: Partial<AppCatalogProp> = {},
+): AppCatalogProp {
+  return options as AppCatalogProp;
+}
+
+export type AppCatalogComponent = {
+  type: string;
+  children: boolean;
+  props?: Record<string, AppCatalogProp>;
+};
+export function createAppCatalogComponent(
+  options: Partial<AppCatalogComponent> = {},
+): AppCatalogComponent {
+  return options as AppCatalogComponent;
+}
+
+export type AppCatalogAction = {
+  name: string;
+};
+export function createAppCatalogAction(
+  options: Partial<AppCatalogAction> = {},
+): AppCatalogAction {
+  return options as AppCatalogAction;
+}
+
+export type AppCatalogResponse = {
+  id: string;
+  version: string;
+  components: Array<AppCatalogComponent>;
+  actions: Array<AppCatalogAction>;
+};
+export function createAppCatalogResponse(
+  options: Partial<AppCatalogResponse> = {},
+): AppCatalogResponse {
+  return options as AppCatalogResponse;
+}
+
+export type GetAppDefinitionRequestInput = {
+  frontendOpId?: string | null;
+};
+export function createGetAppDefinitionRequestInput(
+  options: Partial<GetAppDefinitionRequestInput> = {},
+): GetAppDefinitionRequestInput {
+  return options as GetAppDefinitionRequestInput;
+}
+
+export type AppRoute = {
+  path: string;
+  name?: string | null;
+  rootKey?: string | null;
+};
+export function createAppRoute(options: Partial<AppRoute> = {}): AppRoute {
+  return options as AppRoute;
+}
+
+export type AppDefinition = {
+  appSpecVersion?: string;
+  catalogId?: string;
+  appSpecPath?: string | null;
+  routes?: Array<AppRoute>;
+  dataBindings?: Record<string, unknown>;
+  actions?: Record<string, unknown>;
+  theme?: Record<string, unknown>;
+  assets?: Array<unknown>;
+};
+export function createAppDefinition(
+  options: Partial<AppDefinition> = {},
+): AppDefinition {
+  return options as AppDefinition;
+}
+
+export type AppDefinitionReadResponse = {
+  appSpec: unknown;
+  appDefinition?: AppDefinition | null;
+};
+export function createAppDefinitionReadResponse(
+  options: Partial<AppDefinitionReadResponse> = {},
+): AppDefinitionReadResponse {
+  return options as AppDefinitionReadResponse;
+}
+
+export type SetAppDefinitionRequestInput = {
+  frontendOpId?: string | null;
+  appSpec: unknown;
+  appSpecPath?: string | null;
+  appSpecVersion?: string | null;
+  catalogId?: string | null;
+  routes?: Array<AppRoute> | null;
+  dataBindings?: Record<string, unknown> | null;
+  actions?: Record<string, unknown> | null;
+  theme?: Record<string, unknown> | null;
+  assets?: Array<unknown> | null;
+};
+export function createSetAppDefinitionRequestInput(
+  options: Partial<SetAppDefinitionRequestInput> = {},
+): SetAppDefinitionRequestInput {
+  return options as SetAppDefinitionRequestInput;
+}
+
+export type AppDefinitionMutationResponse = {
+  appSpec: unknown;
+  appDefinition?: AppDefinition | null;
+};
+export function createAppDefinitionMutationResponse(
+  options: Partial<AppDefinitionMutationResponse> = {},
+): AppDefinitionMutationResponse {
+  return options as AppDefinitionMutationResponse;
+}
+
+export type ValidateAppDefinitionRequestInput = {
+  frontendOpId?: string | null;
+  appSpec: unknown;
+  appSpecVersion?: string | null;
+  catalogId?: string | null;
+  routes?: Array<AppRoute> | null;
+  dataBindings?: Record<string, unknown> | null;
+  actions?: Record<string, unknown> | null;
+  theme?: Record<string, unknown> | null;
+  assets?: Array<unknown> | null;
+};
+export function createValidateAppDefinitionRequestInput(
+  options: Partial<ValidateAppDefinitionRequestInput> = {},
+): ValidateAppDefinitionRequestInput {
+  return options as ValidateAppDefinitionRequestInput;
+}
+
+export type AppValidationIssue = {
+  message: string;
+  elementKey?: string | null;
+  elementType?: string | null;
+};
+export function createAppValidationIssue(
+  options: Partial<AppValidationIssue> = {},
+): AppValidationIssue {
+  return options as AppValidationIssue;
+}
+
+export type AppCapabilities = {
+  catalogId: string;
+  catalogVersion: string;
+  appSpecVersion: string;
+  themeSchemaVersion: string;
+  features: Record<string, boolean>;
+};
+export function createAppCapabilities(
+  options: Partial<AppCapabilities> = {},
+): AppCapabilities {
+  return options as AppCapabilities;
+}
+
+export type AppDefinitionValidationResponse = {
+  errors: Array<AppValidationIssue>;
+  warnings: Array<AppValidationIssue>;
+  capabilities: AppCapabilities;
+};
+export function createAppDefinitionValidationResponse(
+  options: Partial<AppDefinitionValidationResponse> = {},
+): AppDefinitionValidationResponse {
+  return options as AppDefinitionValidationResponse;
+}

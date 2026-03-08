@@ -155,6 +155,26 @@ func CurrentRouteGroups() []RouteGroup {
 					Path:     httpapi.RouteRevealPathInOSFileExplorer,
 					EnumName: "REVEAL_PATH_IN_OS_FILE_EXPLORER",
 				},
+				{
+					Name:     "getAppDefinition",
+					Path:     httpapi.RouteGetAppDefinition,
+					EnumName: "GET_APP_DEFINITION",
+				},
+				{
+					Name:     "setAppDefinition",
+					Path:     httpapi.RouteSetAppDefinition,
+					EnumName: "SET_APP_DEFINITION",
+				},
+				{
+					Name:     "validateAppDefinition",
+					Path:     httpapi.RouteValidateAppDefinition,
+					EnumName: "VALIDATE_APP_DEFINITION",
+				},
+				{
+					Name:     "getAppCatalog",
+					Path:     httpapi.RouteGetAppCatalog,
+					EnumName: "GET_APP_CATALOG",
+				},
 			},
 		},
 		{
@@ -327,6 +347,37 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "revealPathInOsFileExplorer",
 			RequestType:     reflect.TypeOf(httpapi.RevealPathInOSFileExplorerRequest{}),
+		},
+		{
+			FunctionName:    "route_get_app_catalog",
+			Method:          "GET",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "getAppCatalog",
+			ResponseType:    reflect.TypeOf(AppCatalogResponse{}),
+		},
+		{
+			FunctionName:    "route_get_app_definition",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "getAppDefinition",
+			RequestType:     reflect.TypeOf(GetAppDefinitionRequestInput{}),
+			ResponseType:    reflect.TypeOf(AppDefinitionReadResponse{}),
+		},
+		{
+			FunctionName:    "route_set_app_definition",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setAppDefinition",
+			RequestType:     reflect.TypeOf(SetAppDefinitionRequestInput{}),
+			ResponseType:    reflect.TypeOf(AppDefinitionMutationResponse{}),
+		},
+		{
+			FunctionName:    "route_validate_app_definition",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "validateAppDefinition",
+			RequestType:     reflect.TypeOf(ValidateAppDefinitionRequestInput{}),
+			ResponseType:    reflect.TypeOf(AppDefinitionValidationResponse{}),
 		},
 	}
 }

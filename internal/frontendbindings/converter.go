@@ -40,6 +40,7 @@ func newTypeConverter() *typeConverter {
 			reflect.TypeOf(SetupLauncherWorkspaceBehavior("")):   {"last-used-or-prompt", "always-prompt"},
 			reflect.TypeOf(LauncherInstallSource("")):            {"uv-tool", "installer-managed", "unsupported"},
 			reflect.TypeOf(LauncherUpdateCapability("")):         {"in_app", "installer_managed", "unsupported"},
+			reflect.TypeOf(AppCatalogPropType("")):               {"string", "number", "dimension", "boolean"},
 		},
 	}
 }

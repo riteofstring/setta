@@ -27,6 +27,10 @@ export const GoHTTPRoutes = {
   removeLauncher: "/removeLauncher",
   updateLauncher: "/updateLauncher",
   revealPathInOsFileExplorer: "/revealPathInOsFileExplorer",
+  getAppDefinition: "/getAppDefinition",
+  setAppDefinition: "/setAppDefinition",
+  validateAppDefinition: "/validateAppDefinition",
+  getAppCatalog: "/getAppCatalog",
 } as const;
 export const GoWebsocketRoutes = {
   frontend: "/ws/frontend",
@@ -57,6 +61,10 @@ export const RouteEnum = {
   REMOVE_LAUNCHER: "/removeLauncher",
   UPDATE_LAUNCHER: "/updateLauncher",
   REVEAL_PATH_IN_OS_FILE_EXPLORER: "/revealPathInOsFileExplorer",
+  GET_APP_DEFINITION: "/getAppDefinition",
+  SET_APP_DEFINITION: "/setAppDefinition",
+  VALIDATE_APP_DEFINITION: "/validateAppDefinition",
+  GET_APP_CATALOG: "/getAppCatalog",
   WEBSOCKET_FRONTEND: "/ws/frontend",
   WEBSOCKET_LISTENER_BY_ID: "/ws/listeners/{listenerID}",
   WEBSOCKET_TERMINAL_BY_SECTION: "/ws/terminals/{projectID}/{sectionID}",

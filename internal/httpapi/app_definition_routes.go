@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/appspec"
@@ -52,6 +53,33 @@ type ValidateAppDefinitionRequest struct {
 	Assets         *[]any                   `json:"assets"`
 }
 
+type AppCatalogPropResponse struct {
+	Type       string   `json:"type"`
+	Responsive bool     `json:"responsive,omitempty"`
+	Required   bool     `json:"required,omitempty"`
+	Min        *float64 `json:"min,omitempty"`
+	Max        *float64 `json:"max,omitempty"`
+	Enum       []any    `json:"enum,omitempty"`
+	Default    any      `json:"default,omitempty"`
+}
+
+type AppCatalogComponentResponse struct {
+	Type     string                            `json:"type"`
+	Children bool                              `json:"children"`
+	Props    map[string]AppCatalogPropResponse `json:"props,omitempty"`
+}
+
+type AppCatalogActionResponse struct {
+	Name string `json:"name"`
+}
+
+type AppCatalogResponse struct {
+	ID         string                        `json:"id"`
+	Version    string                        `json:"version"`
+	Components []AppCatalogComponentResponse `json:"components"`
+	Actions    []AppCatalogActionResponse    `json:"actions"`
+}
+
 func RegisterAppDefinitionRoutes(router chi.Router, deps AppDefinitionRouteDependencies) error {
 	if router == nil {
 		return fmt.Errorf("router is required")
@@ -69,9 +97,57 @@ func RegisterAppDefinitionRoutes(router chi.Router, deps AppDefinitionRouteDepen
 }
 
 func getAppCatalogHandler() http.HandlerFunc {
-	catalog := appspec.DefaultCatalog()
+	catalog := buildAppCatalogResponse(appspec.DefaultCatalog())
 	return func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, catalog)
+	}
+}
+
+func buildAppCatalogResponse(catalog appspec.Catalog) AppCatalogResponse {
+	componentNames := make([]string, 0, len(catalog.Components))
+	for name := range catalog.Components {
+		componentNames = append(componentNames, name)
+	}
+	sort.Strings(componentNames)
+
+	components := make([]AppCatalogComponentResponse, 0, len(componentNames))
+	for _, name := range componentNames {
+		component := catalog.Components[name]
+		props := make(map[string]AppCatalogPropResponse, len(component.Props))
+		for propName, prop := range component.Props {
+			props[propName] = AppCatalogPropResponse{
+				Type:       string(prop.Type),
+				Responsive: prop.Responsive,
+				Required:   prop.Required,
+				Min:        prop.Min,
+				Max:        prop.Max,
+				Enum:       append([]any(nil), prop.Enum...),
+				Default:    prop.Default,
+			}
+		}
+		components = append(components, AppCatalogComponentResponse{
+			Type:     component.Type,
+			Children: component.Children,
+			Props:    props,
+		})
+	}
+
+	actionNames := make([]string, 0, len(catalog.Actions))
+	for name := range catalog.Actions {
+		actionNames = append(actionNames, name)
+	}
+	sort.Strings(actionNames)
+
+	actions := make([]AppCatalogActionResponse, 0, len(actionNames))
+	for _, name := range actionNames {
+		actions = append(actions, AppCatalogActionResponse{Name: name})
+	}
+
+	return AppCatalogResponse{
+		ID:         catalog.ID,
+		Version:    catalog.Version,
+		Components: components,
+		Actions:    actions,
 	}
 }
 
