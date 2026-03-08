@@ -1,38 +1,36 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-import pytest
 from fastapi import FastAPI, HTTPException
+import pytest
+
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
 from setta.project_state.project_manager_types import (
     AcceptRenameRefactorRequest,
     AddKwargRequest,
-    AppendDrawAreaLayerItemRequest,
     AutoLayoutTopLevelSectionsRequest,
+    AppendDrawAreaLayerItemRequest,
     ChangeParamImplRequest,
     CreateTopLevelSectionRequest,
     CreateViewModeRequest,
-    CreateWindowSpaceRequest,
     DeclineRenameRefactorRequest,
+    DeleteViewModeRequest,
     DeleteKwargRequest,
     DeleteSectionsRequest,
-    DeleteViewModeRequest,
-    DeleteWindowSpaceRequest,
-    FormatCodeRequest,
     GetPasswordParamValueRequest,
     GroupSectionsRequest,
+    FormatCodeRequest,
     PasteSectionsRequest,
-    RunCodeRequest,
     SetCallableHideParamsRequest,
     SetCallableRequest,
     SetChartAreaDataPathRequest,
     SetChartSettingsRequest,
     SetChartTypeRequest,
+    SetCodeRequest,
     SetCodeFileBindingRequest,
     SetCodeObjDisplayNameRequest,
     SetCodeObjNameRequest,
-    SetCodeRequest,
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
     SetImageAreaImagePathRequest,
@@ -40,19 +38,16 @@ from setta.project_state.project_manager_types import (
     SetParamEnteredValueRequest,
     SetParentDefaultChildSectionTypeRequest,
     SetSectionNameRequest,
-    SetSectionVariantNameRequest,
     SetSocialUrlRequest,
     SetSpreadsheetFilePathRequest,
     SetSpreadsheetSectionSettingsRequest,
+    SetTopLevelSectionLayoutRequest,
+    SetSectionVariantNameRequest,
     SetTaskBoardSectionStateRequest,
     SetTextBlockMasterFontSizeRequest,
-    SetTextBlockTextRequest,
-    SetTopLevelSectionLayoutRequest,
-    SetTypeErrorIgnoreRequest,
     SetViewModeNameRequest,
-    SetWindowSpaceNameRequest,
-    SetWindowSpaceSortOrderRequest,
-    SetWindowSpaceStateRequest,
+    SetTextBlockTextRequest,
+    SetTypeErrorIgnoreRequest,
     ToggleIsEditingViewModeRequest,
     ToggleParamSelectedRequest,
     ToggleSectionVisibilityRequest,
@@ -73,51 +68,46 @@ from setta.routers.llm import (
 )
 from setta.routers.project_manager import (
     route_accept_rename_refactor,
-    route_add_kwarg,
     route_append_draw_area_layer_item,
+    route_add_kwarg,
     route_auto_layout_top_level_sections,
     route_change_param_impl,
     route_create_top_level_section,
     route_create_view_mode,
-    route_create_window_space,
-    route_decline_rename_refactor,
-    route_delete_kwarg,
     route_delete_sections,
     route_delete_view_mode,
-    route_delete_window_space,
-    route_format_code,
-    route_get_password_param_value,
+    route_delete_kwarg,
+    route_decline_rename_refactor,
     route_group_sections,
     route_paste_sections,
-    route_set_callable,
     route_set_callable_hide_params,
+    route_set_callable,
     route_set_chart_area_data_path,
     route_set_chart_settings,
     route_set_chart_type,
     route_set_code,
     route_set_code_file_binding,
+    route_format_code,
     route_set_code_obj_display_name,
     route_set_code_obj_name,
     route_set_gen_code_prefix,
     route_set_gen_code_suffix,
+    route_get_password_param_value,
     route_set_image_area_image_path,
     route_set_list_root_view_mode,
     route_set_param_entered_value,
     route_set_parent_default_child_section_type,
     route_set_section_name,
-    route_set_section_variant_name,
     route_set_social_url,
     route_set_spreadsheet_file_path,
     route_set_spreadsheet_section_settings,
+    route_set_top_level_section_layout,
+    route_set_section_variant_name,
     route_set_task_board_section_state,
     route_set_text_block_master_font_size,
-    route_set_text_block_text,
-    route_set_top_level_section_layout,
-    route_set_type_error_ignore,
     route_set_view_mode_name,
-    route_set_window_space_name,
-    route_set_window_space_sort_order,
-    route_set_window_space_state,
+    route_set_text_block_text,
+    route_set_type_error_ignore,
     route_toggle_is_editing_view_mode,
     route_toggle_param_selected,
     route_toggle_section_visibility,
@@ -132,6 +122,7 @@ from setta.routers.share_deployments import (
     PublishShareDeploymentRequest,
     route_publish_share_deployment,
 )
+from setta.project_state.project_manager_types import RunCodeRequest
 from setta.routers.terminals import (
     KillSubprocessesRequest,
     route_kill_subprocesses,
@@ -144,21 +135,18 @@ from setta.types.artifact import (
     DrawAreaLayerItem,
     LineChartSettings,
 )
-from setta.types.chat_messages import MessageTextContent, UserChatMessage
-from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl2 import add_kwarg, create_top_level_section
 from setta.types.helpers_lvl3 import merge_single_config_into_backend
+from setta.types.chat_messages import MessageTextContent, UserChatMessage
+from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.types.project_config import (
     Position,
     ProjectConfig,
     TopLevelSectionLayout,
-    WindowSpaceConfig,
-    WindowSpaceState,
-    WindowSpaceWindow,
 )
 from setta.types.project_state import (
     ProjectStateBackend,
@@ -171,8 +159,7 @@ from setta.types.section_impls import (
     SectionType,
     TextBlockSectionImpl,
 )
-from setta.types.share_deployment import DeploymentManifest, DeploymentType, SharePolicy
-
+from setta.types.share_deployment import DeploymentManifest, SharePolicy, DeploymentType
 from tests.utils.runtime_context import runtime_context
 
 
@@ -210,38 +197,6 @@ def _write_share_project(
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
     return project_config.id
-
-
-def _write_share_project_with_window_space(
-    root: Path,
-    *,
-    project_config_name: str,
-    deployment_version: str,
-) -> tuple[ID, ID]:
-    dbe = DBE(root)
-    project_config = ProjectConfig(name=project_config_name)
-    window_space = WindowSpaceConfig(
-        id=create_new_id(),
-        name="Saved Layout",
-        sortIndex=0,
-    )
-    project_config.windowSpaces = {window_space.id: window_space}
-    project_state = ProjectStateBackend(
-        projectConfigs={project_config.id: project_config},
-        defaultProjectConfigId=project_config.id,
-    )
-    dbe.write_project(project_state)
-    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
-    deployment_name = root.parent.name
-    manifest = DeploymentManifest(
-        version=1,
-        deploymentName=deployment_name,
-        deploymentType=DeploymentType.share,
-        defaultProjectConfigId=project_config.id,
-        deploymentVersion=deployment_version,
-    )
-    dbe.write_json(root / "manifest.json", manifest.model_dump())
-    return project_config.id, window_space.id
 
 
 def _write_share_project_with_configs(
@@ -1204,233 +1159,6 @@ class TestSharePolicyRoutes:
                     with pytest.raises(HTTPException) as ctx:
                         await handler(request, runtime_ctx)
                     assert ctx.value.status_code == 403, name
-
-    async def test_window_space_routes_blocked_when_layout_changes_disallowed(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-policy-route-test"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config_id, window_space_id = _write_share_project_with_window_space(
-                root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
-            )
-            _write_share_policy(root, SharePolicy(allowLayoutChanges=False))
-            state = await self._build_state(root)
-            session = state.share_session_store.create_session()
-            next_window_state = WindowSpaceState(
-                windowsById={
-                    "project-chat-window-1": WindowSpaceWindow(
-                        title="Research Chat",
-                    )
-                },
-                order=["project-chat-window-1"],
-            )
-            requests = [
-                (
-                    "create_window_space",
-                    route_create_window_space,
-                    CreateWindowSpaceRequest(
-                        projectConfigId=project_config_id,
-                        state=next_window_state,
-                        name="Blocked Layout",
-                    ),
-                ),
-                (
-                    "set_window_space_name",
-                    route_set_window_space_name,
-                    SetWindowSpaceNameRequest(
-                        projectConfigId=project_config_id,
-                        windowSpaceId=window_space_id,
-                        name="Renamed Layout",
-                    ),
-                ),
-                (
-                    "set_window_space_sort_order",
-                    route_set_window_space_sort_order,
-                    SetWindowSpaceSortOrderRequest(
-                        projectConfigId=project_config_id,
-                        orderedWindowSpaceIds=[window_space_id],
-                    ),
-                ),
-                (
-                    "delete_window_space",
-                    route_delete_window_space,
-                    DeleteWindowSpaceRequest(
-                        projectConfigId=project_config_id,
-                        windowSpaceId=window_space_id,
-                    ),
-                ),
-                (
-                    "set_window_space_state",
-                    route_set_window_space_state,
-                    SetWindowSpaceStateRequest(
-                        projectConfigId=project_config_id,
-                        windowSpaceId=window_space_id,
-                        state=next_window_state,
-                    ),
-                ),
-            ]
-
-            with runtime_context(state, session.id) as runtime_ctx:
-                for name, handler, request in requests:
-                    with pytest.raises(HTTPException) as ctx:
-                        await handler(request, runtime_ctx)
-                    assert ctx.value.status_code == 403, name
-                    assert (
-                        ctx.value.detail
-                        == "Deployment policy disallows layout changes."
-                    ), name
-
-    async def test_window_space_routes_allowed_when_layout_changes_allowed(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-policy-route-test"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config_id = _write_share_project(
-                root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
-            )
-            _write_share_policy(root, SharePolicy(allowLayoutChanges=True))
-            state = await self._build_state(root)
-            session = state.share_session_store.create_session()
-            next_window_state = WindowSpaceState(
-                windowsById={
-                    "project-chat-window-1": WindowSpaceWindow(
-                        title="Research Chat",
-                    )
-                },
-                order=["project-chat-window-1"],
-            )
-
-            with runtime_context(state, session.id) as runtime_ctx:
-                created_window_space_id = await route_create_window_space(
-                    CreateWindowSpaceRequest(
-                        projectConfigId=project_config_id,
-                        state=WindowSpaceState(),
-                        name="First Layout",
-                    ),
-                    runtime_ctx,
-                )
-                assert created_window_space_id
-
-                await route_set_window_space_name(
-                    SetWindowSpaceNameRequest(
-                        projectConfigId=project_config_id,
-                        windowSpaceId=created_window_space_id,
-                        name="Renamed Layout",
-                    ),
-                    runtime_ctx,
-                )
-
-                await route_set_window_space_state(
-                    SetWindowSpaceStateRequest(
-                        projectConfigId=project_config_id,
-                        windowSpaceId=created_window_space_id,
-                        state=next_window_state,
-                    ),
-                    runtime_ctx,
-                )
-
-                second_window_space_id = await route_create_window_space(
-                    CreateWindowSpaceRequest(
-                        projectConfigId=project_config_id,
-                        state=WindowSpaceState(),
-                        name="Second Layout",
-                    ),
-                    runtime_ctx,
-                )
-
-                await route_set_window_space_sort_order(
-                    SetWindowSpaceSortOrderRequest(
-                        projectConfigId=project_config_id,
-                        orderedWindowSpaceIds=[
-                            second_window_space_id,
-                            created_window_space_id,
-                        ],
-                    ),
-                    runtime_ctx,
-                )
-
-                await route_delete_window_space(
-                    DeleteWindowSpaceRequest(
-                        projectConfigId=project_config_id,
-                        windowSpaceId=second_window_space_id,
-                    ),
-                    runtime_ctx,
-                )
-
-            session_state = state.share_runtime_state.get_session_state(
-                session.id,
-                project_config_id,
-            )
-            created_window_space = session_state.projectConfig.windowSpaces[
-                created_window_space_id
-            ]
-            assert created_window_space.name == "Renamed Layout"
-            assert created_window_space.sortIndex == 0
-            assert created_window_space.order == ["project-chat-window-1"]
-            assert (
-                created_window_space.windowsById["project-chat-window-1"].title
-                == "Research Chat"
-            )
-            assert (
-                second_window_space_id not in session_state.projectConfig.windowSpaces
-            )
-
-    async def test_window_space_routes_return_404_for_missing_window_space_ids(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-policy-route-test"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config_id = _write_share_project(
-                root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
-            )
-            _write_share_policy(root, SharePolicy(allowLayoutChanges=True))
-            state = await self._build_state(root)
-            session = state.share_session_store.create_session()
-            missing_window_space_id = "missing-window-space"
-            requests = [
-                (
-                    route_set_window_space_name,
-                    SetWindowSpaceNameRequest(
-                        projectConfigId=project_config_id,
-                        windowSpaceId=missing_window_space_id,
-                        name="Renamed Layout",
-                    ),
-                ),
-                (
-                    route_delete_window_space,
-                    DeleteWindowSpaceRequest(
-                        projectConfigId=project_config_id,
-                        windowSpaceId=missing_window_space_id,
-                    ),
-                ),
-                (
-                    route_set_window_space_state,
-                    SetWindowSpaceStateRequest(
-                        projectConfigId=project_config_id,
-                        windowSpaceId=missing_window_space_id,
-                        state=WindowSpaceState(),
-                    ),
-                ),
-            ]
-
-            with runtime_context(state, session.id) as runtime_ctx:
-                for handler, request in requests:
-                    with pytest.raises(HTTPException) as ctx:
-                        await handler(request, runtime_ctx)
-                    assert ctx.value.status_code == 404
-                    assert (
-                        ctx.value.detail
-                        == f"Window space {missing_window_space_id} not found"
-                    )
 
     async def test_paste_sections_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
