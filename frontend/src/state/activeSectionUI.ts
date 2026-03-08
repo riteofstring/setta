@@ -36,13 +36,15 @@ export function hydrateActiveSectionUIIds(nextActiveIds: Array<string>) {
   const state = useActiveSectionUI.getState();
   if (
     areStringArraysEqual(state.activeIds, nextActiveIds) &&
-    state.pendingBackendSyncOpIds.length === 0
+    state.pendingBackendSyncOpIds.length === 0 &&
+    state.scheduledBackendSync === null
   ) {
     return;
   }
   useActiveSectionUI.setState({
     activeIds: [...nextActiveIds],
     pendingBackendSyncOpIds: [],
+    scheduledBackendSync: null,
   });
 }
 
@@ -68,9 +70,57 @@ export function clearPendingActiveSectionBackendSyncOp(opId: string) {
   });
 }
 
+export function schedulePendingActiveSectionBackendSync(
+  projectConfigId: string,
+  activeIds: Array<string>,
+) {
+  const scheduled = useActiveSectionUI.getState().scheduledBackendSync;
+  if (
+    scheduled !== null &&
+    scheduled.projectConfigId === projectConfigId &&
+    areStringArraysEqual(scheduled.activeIds, activeIds)
+  ) {
+    return;
+  }
+  useActiveSectionUI.setState({
+    scheduledBackendSync: {
+      projectConfigId,
+      activeIds: [...activeIds],
+    },
+  });
+}
+
+export function getScheduledActiveSectionBackendSync() {
+  const scheduled = useActiveSectionUI.getState().scheduledBackendSync;
+  if (scheduled === null) {
+    return null;
+  }
+  return {
+    projectConfigId: scheduled.projectConfigId,
+    activeIds: [...scheduled.activeIds],
+  };
+}
+
+export function clearScheduledActiveSectionBackendSync(
+  projectConfigId?: string,
+) {
+  const scheduled = useActiveSectionUI.getState().scheduledBackendSync;
+  if (scheduled === null) {
+    return;
+  }
+  if (
+    projectConfigId !== undefined &&
+    scheduled.projectConfigId !== projectConfigId
+  ) {
+    return;
+  }
+  useActiveSectionUI.setState({ scheduledBackendSync: null });
+}
+
 export function reconcileActiveSectionUIIdsFromBackend(
   backendActiveIds: Array<string>,
   completedOpIds: Array<string>,
+  projectConfigId: string,
 ) {
   const state = useActiveSectionUI.getState();
   const completedOpIdSet = new Set(completedOpIds);
@@ -79,8 +129,12 @@ export function reconcileActiveSectionUIIdsFromBackend(
   );
   const pendingChanged =
     nextPendingBackendSyncOpIds.length !== state.pendingBackendSyncOpIds.length;
+  const hasScheduledBackendSync =
+    state.scheduledBackendSync !== null &&
+    state.scheduledBackendSync.projectConfigId === projectConfigId;
   const shouldHydrateFromBackend =
     nextPendingBackendSyncOpIds.length === 0 &&
+    !hasScheduledBackendSync &&
     !areStringArraysEqual(state.activeIds, backendActiveIds);
 
   if (!pendingChanged && !shouldHydrateFromBackend) {
@@ -119,12 +173,6 @@ export function sanitizeProjectStateActiveIds<
 
 export function useIsSectionUIActive(sectionId: string) {
   return useActiveSectionUI((state) => state.activeIds.includes(sectionId));
-}
-
-function useIsAnySectionUIActive(sectionIds: Array<string>) {
-  return useActiveSectionUI((state) =>
-    sectionIds.some((sectionId) => state.activeIds.includes(sectionId)),
-  );
 }
 
 export function useIsSolelySectionUIActive(sectionId: string) {

@@ -8,8 +8,19 @@ import {
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import * as endpoints from "utils/generatedEndpoints";
+import {
+  createProjectConfig,
+  createSingletonSections,
+  type ProjectStateSingleConfig,
+  type ProjectStateSingleConfigWithCompletedOpIds,
+} from "utils/generatedTypes";
 
-import { setActiveSectionIds } from "./activeSections";
+import {
+  cancelPendingActiveSectionIdsSync,
+  setActiveSectionIds,
+} from "./activeSections";
+import { loadProjectState } from "./project/loadProject";
+import { processProjectStateUpdateFromBackend } from "./sectionInfos";
 
 function createWindowStub() {
   const location = { search: "" };
@@ -42,6 +53,7 @@ function createWindowStub() {
 describe("activeSections", () => {
   beforeEach(() => {
     resetProjectStores();
+    cancelPendingActiveSectionIdsSync();
     vi.stubGlobal("window", createWindowStub());
     window.history.replaceState({}, "", "/");
     useProjectState.setState((state) => {
@@ -53,6 +65,7 @@ describe("activeSections", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    cancelPendingActiveSectionIdsSync();
     resetProjectStores();
   });
 
@@ -91,9 +104,7 @@ describe("activeSections", () => {
   });
 
   it("updates the UI active ids immediately and defers the durable project-state sync when a real project config is loaded", () => {
-    useProjectState.setState((state) => {
-      state.projectConfig.id = "project-a";
-    });
+    useProjectState.setState(buildProjectState("project-a", []).projectState);
     const endpointSpy = vi
       .spyOn(endpoints, "route_set_active_ids")
       .mockResolvedValue({
@@ -128,9 +139,7 @@ describe("activeSections", () => {
   });
 
   it("keeps marquee-style UI-only active-id updates out of the durable project/backend path until forced to sync", () => {
-    useProjectState.setState((state) => {
-      state.projectConfig.id = "project-a";
-    });
+    useProjectState.setState(buildProjectState("project-a", []).projectState);
     const endpointSpy = vi
       .spyOn(endpoints, "route_set_active_ids")
       .mockResolvedValue({
@@ -168,4 +177,157 @@ describe("activeSections", () => {
       projectConfigId: "project-a",
     });
   });
+
+  it("cancels a queued durable sync when a same-id ui-only update arrives", () => {
+    useProjectState.setState(buildProjectState("project-a", []).projectState);
+    const endpointSpy = vi
+      .spyOn(endpoints, "route_set_active_ids")
+      .mockResolvedValue({
+        status: 200,
+        hasResponse: true,
+        data: undefined,
+      });
+
+    let scheduledFrame: FrameRequestCallback | null = null;
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      scheduledFrame = callback;
+      return 42;
+    });
+    const cancelSpy = vi
+      .spyOn(window, "cancelAnimationFrame")
+      .mockImplementation(() => {});
+
+    setActiveSectionIds(["section-a"]);
+    setActiveSectionIds(["section-a"], { syncMode: "ui-only" });
+
+    expect(cancelSpy).toHaveBeenCalledWith(42);
+    scheduledFrame?.(16);
+
+    expect(endpointSpy).not.toHaveBeenCalled();
+  });
+
+  it("drops a deferred sync if the project config changes before the frame flushes", () => {
+    useProjectState.setState(buildProjectState("project-a", []).projectState);
+    const endpointSpy = vi
+      .spyOn(endpoints, "route_set_active_ids")
+      .mockResolvedValue({
+        status: 200,
+        hasResponse: true,
+        data: undefined,
+      });
+
+    let scheduledFrame: FrameRequestCallback | null = null;
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      scheduledFrame = callback;
+      return 7;
+    });
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+
+    setActiveSectionIds(["section-a"]);
+    useProjectState.setState((state) => {
+      state.projectConfig.id = "project-b";
+    });
+
+    scheduledFrame?.(16);
+
+    expect(endpointSpy).not.toHaveBeenCalledWith({
+      activeIds: ["section-a"],
+      frontendOpId: expect.any(String),
+      projectConfigId: "project-b",
+    });
+    expect(endpointSpy).not.toHaveBeenCalled();
+  });
+
+  it("keeps the UI selection stable when backend state arrives before a deferred sync flushes", () => {
+    useProjectState.setState(buildProjectState("project-a", []).projectState);
+    const endpointSpy = vi
+      .spyOn(endpoints, "route_set_active_ids")
+      .mockResolvedValue({
+        status: 200,
+        hasResponse: true,
+        data: undefined,
+      });
+
+    let scheduledFrame: FrameRequestCallback | null = null;
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      scheduledFrame = callback;
+      return 8;
+    });
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+
+    setActiveSectionIds(["section-a"]);
+    processProjectStateUpdateFromBackend(buildProjectState("project-a", []));
+
+    expect(useActiveSectionUI.getState().activeIds).toEqual(["section-a"]);
+
+    scheduledFrame?.(16);
+
+    expect(endpointSpy).toHaveBeenCalledOnce();
+  });
+
+  it("cancels any queued deferred sync when a new project loads", async () => {
+    useProjectState.setState(buildProjectState("project-a", []).projectState);
+    const endpointSpy = vi
+      .spyOn(endpoints, "route_set_active_ids")
+      .mockResolvedValue({
+        status: 200,
+        hasResponse: true,
+        data: undefined,
+      });
+
+    let scheduledFrame: FrameRequestCallback | null = null;
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      scheduledFrame = callback;
+      return 9;
+    });
+    const cancelSpy = vi
+      .spyOn(window, "cancelAnimationFrame")
+      .mockImplementation(() => {});
+
+    setActiveSectionIds(["section-a"]);
+
+    await loadProjectState(buildProjectStateData("project-b", ["section-b"]));
+
+    expect(cancelSpy).toHaveBeenCalledWith(9);
+    expect(useActiveSectionUI.getState().activeIds).toEqual(["section-b"]);
+
+    scheduledFrame?.(16);
+
+    expect(endpointSpy).not.toHaveBeenCalled();
+  });
 });
+
+function buildProjectState(
+  projectConfigId: string,
+  activeIds: Array<string>,
+): ProjectStateSingleConfigWithCompletedOpIds {
+  return {
+    projectState: buildProjectStateData(projectConfigId, activeIds),
+    completedOpIds: [],
+    pendingOpIds: [],
+  };
+}
+
+function buildProjectStateData(
+  projectConfigId: string,
+  activeIds: Array<string>,
+): ProjectStateSingleConfig {
+  return {
+    projectConfig: createProjectConfig({
+      id: projectConfigId,
+      activeIds,
+    }),
+    sections: {},
+    sectionImpls: {},
+    sectionVariants: {},
+    codeObjs: {},
+    codeObjImpls: {},
+    codeObjVariants: {},
+    artifactGroups: {},
+    singletonSections: createSingletonSections(),
+    parentSectionMap: {},
+    shownParamIds: {},
+    requiredDecodedImages: [],
+    genCodeBinding: null,
+  };
+}

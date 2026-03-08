@@ -282,6 +282,10 @@ export const usePendingOperations = withProjectState(
 type ActiveSectionUIState = {
   activeIds: Array<string>;
   pendingBackendSyncOpIds: Array<string>;
+  scheduledBackendSync: {
+    projectConfigId: string;
+    activeIds: Array<string>;
+  } | null;
 };
 
 export const useActiveSectionUI = withProjectState(
@@ -290,6 +294,7 @@ export const useActiveSectionUI = withProjectState(
       withResetFn<ActiveSectionUIState>(() => ({
         activeIds: [],
         pendingBackendSyncOpIds: [],
+        scheduledBackendSync: null,
       })),
     ),
   ),

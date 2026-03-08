@@ -2,7 +2,6 @@ import throttle from "lodash/throttle";
 import { useEffect } from "react";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { sendRealtimeDependencyEvent } from "state/actions/websocketReceive";
-import { getActiveSectionUIIds } from "state/activeSectionUI";
 import {
   useActiveSectionUI,
   useProjectState,
@@ -932,17 +931,6 @@ function getRawSelectedProjectState(
   });
 }
 
-function cloneProjectConfigSnapshot(rawValue: unknown): unknown {
-  const snapshot = cloneProjectStateSnapshot(rawValue);
-  if (!isRecordProjectStateValue(snapshot) || Array.isArray(snapshot)) {
-    return snapshot;
-  }
-  return {
-    ...snapshot,
-    activeIds: [...getActiveSectionUIIds()],
-  };
-}
-
 function projectStateSubscriptionEquality(
   selector: PluginProjectStateSelector,
 ): ((left: unknown, right: unknown) => boolean) | undefined {
@@ -985,9 +973,6 @@ function toProjectStateReadValue(
   selector: PluginProjectStateSelector,
   rawValue: unknown,
 ): unknown {
-  if (selector.kind === "projectConfig") {
-    return cloneProjectConfigSnapshot(rawValue);
-  }
   if (selector.kind !== "sections") {
     return cloneProjectStateSnapshot(rawValue);
   }
@@ -1000,9 +985,6 @@ function toProjectStateSubscriptionValue(
   previousRawValue?: unknown,
   previousSnapshot?: unknown,
 ): unknown {
-  if (selector.kind === "projectConfig") {
-    return cloneProjectConfigSnapshot(rawValue);
-  }
   if (selector.kind !== "sections") {
     if (rawValue === undefined) {
       return null;

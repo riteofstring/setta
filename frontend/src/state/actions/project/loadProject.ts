@@ -1,5 +1,6 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import { useNavigate } from "react-router-dom";
+import { cancelPendingActiveSectionIdsSync } from "state/actions/activeSections";
 import { applyPendingNameValidationErrors } from "state/actions/nameValidation";
 import {
   hydrateActiveSectionUIIds,
@@ -53,6 +54,7 @@ export async function loadProjectConfig({ projectConfigName }) {
 
 export async function loadProjectState(p: ProjectStateSingleConfig) {
   const { viewport, viewportInitialized } = p.projectConfig;
+  cancelPendingActiveSectionIdsSync();
   if (!viewport || !viewportInitialized) {
     useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
   } else {

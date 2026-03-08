@@ -89,33 +89,19 @@ function areStringArraysEqual(left: string[], right: string[]) {
 export function syncSelectedMiniMapNodes(
   svg: SVGSVGElement | null | undefined,
   activeIds: string[],
-  previousIds: string[],
 ) {
   if (!svg) {
     return;
   }
 
-  const previousIdSet = new Set(previousIds);
   const activeIdSet = new Set(activeIds);
-
-  for (const sectionId of previousIds) {
-    if (activeIdSet.has(sectionId)) {
+  const nodes = svg.querySelectorAll<SVGRectElement>("[data-minimap-node-id]");
+  for (const node of nodes) {
+    const sectionId = node.dataset.minimapNodeId;
+    if (!sectionId) {
       continue;
     }
-    const node = svg.querySelector<SVGRectElement>(
-      `[data-minimap-node-id="${sectionId}"]`,
-    );
-    node?.classList.remove("selected");
-  }
-
-  for (const sectionId of activeIds) {
-    if (previousIdSet.has(sectionId)) {
-      continue;
-    }
-    const node = svg.querySelector<SVGRectElement>(
-      `[data-minimap-node-id="${sectionId}"]`,
-    );
-    node?.classList.add("selected");
+    node.classList.toggle("selected", activeIdSet.has(sectionId));
   }
 }
 
@@ -338,16 +324,9 @@ function MiniMapSelectionSync({
 }: {
   svgRef?: RefObject<SVGSVGElement>;
 }) {
-  const previousIdsRef = useRef<string[]>([]);
-
   useEffect(() => {
     const applySelection = (activeIds: string[]) => {
-      syncSelectedMiniMapNodes(
-        svgRef?.current,
-        activeIds,
-        previousIdsRef.current,
-      );
-      previousIdsRef.current = [...activeIds];
+      syncSelectedMiniMapNodes(svgRef?.current, activeIds);
     };
 
     applySelection(useActiveSectionUI.getState().activeIds);
@@ -362,8 +341,22 @@ function MiniMapSelectionSync({
       },
     );
 
+    let observer: MutationObserver | null = null;
+    if (svgRef?.current && typeof MutationObserver !== "undefined") {
+      observer = new MutationObserver(() => {
+        applySelection(useActiveSectionUI.getState().activeIds);
+      });
+      observer.observe(svgRef.current, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ["class", "data-minimap-node-id"],
+      });
+    }
+
     return () => {
       unsubscribe();
+      observer?.disconnect();
     };
   }, [svgRef]);
 

@@ -1024,6 +1024,7 @@ export function processProjectStateUpdateFromBackend(
   reconcileActiveSectionUIIdsFromBackend(
     x.projectState.projectConfig.activeIds,
     x.completedOpIds,
+    x.projectState.projectConfig.id,
   );
   const sanitizedProjectState = sanitizeProjectStateActiveIds(x.projectState);
   const projectStateChanged = !_.isEqual(

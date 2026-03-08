@@ -354,6 +354,7 @@ describe("plugin runtime helpers", () => {
     useActiveSectionUI.setState({
       activeIds: [],
       pendingBackendSyncOpIds: [],
+      scheduledBackendSync: null,
     });
     useShareSession.setState({
       isDeploymentMode: false,
@@ -385,6 +386,7 @@ describe("plugin runtime helpers", () => {
     useActiveSectionUI.setState({
       activeIds: [],
       pendingBackendSyncOpIds: [],
+      scheduledBackendSync: null,
     });
     useShareSession.setState({
       isDeploymentMode: false,
@@ -1835,7 +1837,7 @@ describe("plugin runtime helpers", () => {
       activeIds: string[];
     };
     expect(refreshedProjectConfig.id).toBe("project-config-plugin-initial");
-    expect(refreshedProjectConfig.activeIds).toEqual([sectionId]);
+    expect(refreshedProjectConfig.activeIds).toEqual([]);
 
     const sectionSnapshot = host.readProjectState({
       kind: "section",
@@ -1926,6 +1928,81 @@ describe("plugin runtime helpers", () => {
       nextValue: [sectionId, "section-next"],
       prevValue: [sectionId],
     });
+  });
+
+  it("keeps projectConfig subscriptions structural while activeSectionIds stays live", async () => {
+    const sectionId = "section-runtime-plugin-project-config";
+    seedRuntimePluginSectionState(sectionId);
+    useActiveSectionUI.setState({ activeIds: [] });
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  globalThis.__settaCapturedPluginHost = host;\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: ["readProjectState", "subscribeProjectState"],
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      plugin,
+      "ide",
+    );
+    expect(result?.error).toBeNull();
+
+    const host = getCapturedPluginHost();
+    const projectConfigUpdates: Array<{
+      nextValue: unknown;
+      prevValue: unknown | null;
+    }> = [];
+    const activeSelectionUpdates: Array<{
+      nextValue: unknown;
+      prevValue: unknown | null;
+    }> = [];
+    const unsubscribeProjectConfig = host.subscribeProjectState(
+      { kind: "projectConfig" },
+      (nextValue, prevValue) => {
+        projectConfigUpdates.push({ nextValue, prevValue });
+      },
+      {
+        fireImmediately: false,
+      },
+    );
+    const unsubscribeActiveIds = host.subscribeProjectState(
+      { kind: "activeSectionIds" },
+      (nextValue, prevValue) => {
+        activeSelectionUpdates.push({ nextValue, prevValue });
+      },
+      {
+        fireImmediately: false,
+      },
+    );
+
+    useActiveSectionUI.setState({ activeIds: [sectionId] });
+
+    expect(
+      host.readProjectState({
+        kind: "projectConfig",
+      }) as { activeIds: string[] },
+    ).toMatchObject({
+      activeIds: [],
+    });
+    expect(projectConfigUpdates).toEqual([]);
+    expect(activeSelectionUpdates).toEqual([
+      {
+        nextValue: [sectionId],
+        prevValue: [],
+      },
+    ]);
+
+    unsubscribeProjectConfig();
+    unsubscribeActiveIds();
   });
 
   it("rejects subscribeProjectState full selectors and invalid throttle options", async () => {
