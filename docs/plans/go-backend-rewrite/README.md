@@ -251,13 +251,16 @@ Use the docs in this order:
     `reveal_ui_setting` parity over explicit realtime message, ACK, and
     frontend-selection owners
 90. `phase-6-stream-app-definition-tool-parity.md`
-  - focused implementation-plan doc for Go-owned `stream_app_definition`
+  - completed implementation-plan doc for Go-owned `stream_app_definition`
     parity over the completed app-definition read/write/validation owners
-91. `spike-mcp.md`
+91. `phase-6-plugin-management-runtime-foundation.md`
+  - focused implementation-plan doc for the Go-owned plugin install/discovery
+    runtime foundation required before plugin-management MCP parity can land
+92. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-92. `spike-pty.md`
+93. `spike-pty.md`
    - PTY uncertainty-reduction plan
-93. `spike-lsp.md`
+94. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

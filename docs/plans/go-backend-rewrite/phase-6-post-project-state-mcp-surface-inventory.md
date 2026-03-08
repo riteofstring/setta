@@ -19,7 +19,7 @@ Current repo status as of 2026-03-08:
   `BaseProjectManager.@project_state_tool` surface
 - Python currently exposes 25 non-project-state MCP tools in
   `backend/setta/mcp/tools/*.py`
-- 18 of those now have Go parity:
+- 19 of those now have Go parity:
   - `set_agentic_context`
   - `list_mcp_tools`
   - `read_file_range`
@@ -38,8 +38,9 @@ Current repo status as of 2026-03-08:
   - `get_ui_setting_value`
   - `set_ui_setting_value`
   - `reveal_ui_setting`
-- the remaining 7 tools now fall into one bounded app-definition patch-stream
-  gap plus larger missing runtime foundations
+  - `stream_app_definition`
+- the remaining 6 tools now fall into one larger plugin-management foundation
+  plus one blocked environment-introspection gap
 
 ## Inputs
 
@@ -94,6 +95,7 @@ Go already owns the following Python MCP tools that do not come from
 - `get_ui_setting_value`
 - `set_ui_setting_value`
 - `reveal_ui_setting`
+- `stream_app_definition`
 
 ## Remaining Python-Owned MCP Surface
 
@@ -109,15 +111,7 @@ These are blocked on missing Go ownership for plugin discovery/install/update
 runtime behavior. Current Go plugin work is still centered on codegen/runtime
 materialization, not MCP-facing package management.
 
-### 2. App-Generation Patch Streaming Gap
-
-- `stream_app_definition`
-
-Go now owns stored app-definition reads, writes, and validation, but it does
-not yet own the newline-delimited patch parser plus live-preview semantics that
-Python exposes through `setta.app.spec_patch_stream`.
-
-### 3. Environment Introspection Gap
+### 2. Environment Introspection Gap
 
 - `getInstalledPythonPackages`
 
@@ -134,36 +128,36 @@ heuristics.
 - treat the bounded agent-profile store/read slice as complete and closed
 - treat the managed agent-run foundation as complete and closed
 - treat `run_agent_profile` transport as complete and closed
-- keep the next step focused on the UI-setting registry/reveal cluster before
-  plugin-management or patch-stream work
+- treat the bounded `stream_app_definition` slice as complete and closed
 - do not route missing MCP tools back through Python
 - keep transport thin and add explicit Go owners where the current runtime
   boundary is still implicit
-- treat the UI-setting Stage 1 registry foundation as complete and closed
-- treat the UI-setting Stage 2 search/get/set transport slice as complete and
-  closed
-- treat the UI-setting Stage 3 reveal slice as complete and closed
+- treat `getInstalledPythonPackages` as still blocked on explicit Go ownership
+  of Python-environment selection instead of implementing heuristic interpreter
+  discovery
 
 ## Recommended Next Step
 
-Execute the dedicated app-definition patch-stream slice in
-`phase-6-stream-app-definition-tool-parity.md`.
+Execute the dedicated plugin-management runtime foundation slice in
+`phase-6-plugin-management-runtime-foundation.md`.
 
 This is now the highest-leverage next slice because:
 
-- it is the only remaining bounded non-plugin MCP gap that builds directly on
-  the completed Go app-definition read/write/validation owners
-- it keeps Phase 6 moving on MCP parity instead of jumping immediately into the
-  much larger plugin-management foundation work
-- it avoids broadening into Python-environment heuristics, which still block
-  `getInstalledPythonPackages`
+- it unblocks five remaining MCP tools instead of only one
+- Go already has partial plugin root and manifest-reading foundations under
+  `internal/plugins`, but it still lacks explicit install/discovery/state
+  ownership for package-management mutations
+- `getInstalledPythonPackages` remains blocked on Python-environment
+  source-of-truth work and should not leapfrog the plugin runtime gap with a
+  heuristic shell-out
 
 ## Verification
 
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/uisettings -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|UISettingToolsExposeScopedSingletonMetadata|RevealUISetting|SearchUISettingsReturnsRankedCoreResults|GetUISettingValueReturnsStructuredPayload|SetUISettingValueWritesAndValidates|SetUISettingValueRejectsWriterOldValueDrift|UISettingToolsTranslateTemporaryProjectIDs)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsUISettingSearchReadWrite|UISettingReadWriteAcceptsTemporaryIDs|SupportsRevealUISetting|RevealUISettingAcceptsTemporaryIDs)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsAuthenticatedSSECalls|ServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE|ServerSupportsTemporaryIDsForUISettingReadWriteOverAuthenticatedSSE|ToolCallRouteSupportsUISettingSearchReadWrite|ToolCallRouteUISettingReadWriteAcceptsTemporaryIDs|ServerSupportsRevealUISettingOverAuthenticatedSSE|ToolCallRouteSupportsRevealUISetting)' -count=1 -timeout 420s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/appspec -run 'Test(ParsePatchLinesIgnoresCommentsAndBlanks|ParsePatchLineReturnsNilForInvalidPayloads|ApplyPatchOpsAppliesRootAndElementSet|ApplyPatchOpsDoesNotMutateInitialSpec|ApplyPatchOpsRequiresExistingNestedElement|ApplyPatchOpsListMutationSemantics)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -run 'TestRuntime(StreamAppDefinitionUsesProvidedBaseSpecAndPersistsResult|StreamAppDefinitionUsesStoredSpecWhenBaseSpecOmitted|StreamAppDefinitionFallsBackToEmptySpecWhenConfiguredFileIsMissing|StreamAppDefinitionRejectsInvalidNestedElementPatch)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|StreamAppDefinition.*)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsStreamAppDefinition|StreamAppDefinitionAcceptsTemporaryIDs)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsAuthenticatedSSECalls|ServerSupportsStreamAppDefinitionOverAuthenticatedSSE|ServerSupportsTemporaryIDsForStreamAppDefinitionOverAuthenticatedSSE|ToolCallRouteSupportsStreamAppDefinition)' -count=1 -timeout 420s`
 
 ## Progress Notes
 
@@ -202,3 +196,6 @@ This is now the highest-leverage next slice because:
 - 2026-03-08: completed Stage 3 of the UI-setting slice by adding
   `reveal_ui_setting` parity, reducing the remaining non-project-state Python
   MCP gap count from 8 to 7.
+- 2026-03-08: completed `stream_app_definition` parity, reducing the remaining
+  non-project-state Python MCP gap count from 7 to 6 and closing the last
+  bounded app-definition MCP transport gap.

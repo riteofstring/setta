@@ -14,17 +14,16 @@ the frontend `/api/streamAppSpec` route or plugin-management work.
 Current repo status as of 2026-03-08:
 
 - Phase 6 MCP parity remains the active rewrite phase
-- Go now has full parity for the bounded UI-setting MCP slice, including
-  `reveal_ui_setting`
-- the remaining non-project-state Python MCP gap count is 7
-- `stream_app_definition` is now the highest-leverage bounded gap because it
-  builds directly on the completed Go app-definition ownership already present
-  in `internal/appspec` and `internal/projectstate`
-- Go does not yet own:
+- the bounded `stream_app_definition` slice is now complete
+- the remaining non-project-state Python MCP gap count is 6
+- Go now owns:
   - JSONL JSON-Pointer patch parsing/application for streamed app-spec updates
-  - MCP parity for `stream_app_definition`
-  - the later frontend HTTP patch-stream route semantics in
-    `/api/streamAppSpec`
+    in `internal/appspec/patch_stream.go`
+  - the document-level `stream_app_definition` owner in
+    `internal/projectstate/app_definition_stream.go`
+  - MCP parity for `stream_app_definition` in `internal/mcpx/server.go`
+- Go still does not yet own the later frontend HTTP patch-stream route
+  semantics in `/api/streamAppSpec`
 
 ## Scope
 
@@ -131,3 +130,18 @@ This slice should cover:
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer.*StreamAppDefinition' -count=1 -timeout 300s`
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute.*StreamAppDefinition' -count=1 -timeout 300s`
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP.*StreamAppDefinition' -count=1 -timeout 420s`
+
+## Progress Notes
+
+- 2026-03-08: added `internal/appspec/patch_stream.go` and
+  `internal/appspec/patch_stream_test.go` for Go-owned JSONL patch parsing plus
+  bounded `/root` and `/elements/...` applicator semantics.
+- 2026-03-08: added `internal/projectstate/app_definition_stream.go` and
+  `internal/projectstate/app_definition_stream_test.go` so the runtime resolves
+  `baseAppSpec`, stored-spec fallback, missing-file fallback, and persistence
+  through the completed `set_app_definition` owner.
+- 2026-03-08: added `stream_app_definition` MCP parity plus focused transport
+  coverage in `internal/mcpx`, `internal/httpapi`, and `internal/app`.
+- 2026-03-08: the next highest-leverage step is now the plugin-management
+  runtime foundation in
+  `docs/plans/go-backend-rewrite/phase-6-plugin-management-runtime-foundation.md`.
