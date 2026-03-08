@@ -85,6 +85,39 @@ func TestRegisterProjectShellRoutesLoadsProjectConfigByName(t *testing.T) {
 			"project-alpha": {
 				ID:   "project-alpha",
 				Name: "Alpha",
+				WindowSpaces: map[string]projectstate.WindowSpaceConfig{
+					"space-a": {
+						ID:    "space-a",
+						Name:  "Workspace",
+						Order: []string{"window-a"},
+						WindowsByID: map[string]projectstate.WindowSpaceWindow{
+							"window-a": {
+								SurfaceKind:     projectstate.WindowSpaceSurfaceKindSection,
+								SectionIDOrNull: projectRouteStringPointer("section-a"),
+								Mode:            projectstate.ChatWindowModeSection,
+								Title:           projectRouteStringPointer("Section A"),
+							},
+						},
+					},
+				},
+				ProjectChatWindowing: &projectstate.ProjectChatWindowingState{
+					InstancesByID: map[string]projectstate.ProjectChatWindowInstance{
+						"instance-a": {
+							Placement: projectstate.ChatWindowPlacementFloating,
+							Mode:      projectstate.ChatWindowModeProjectAI,
+							Title:     projectRouteStringPointer("Project AI"),
+							ChatID:    projectRouteStringPointer("chat-a"),
+						},
+					},
+					Order:              []string{"instance-a"},
+					NextInstanceNumber: 2,
+				},
+				Sections: map[string]projectstate.Section{
+					"section-a": {
+						ID:   "section-a",
+						Name: "Section A",
+					},
+				},
 			},
 		},
 	})
@@ -121,6 +154,15 @@ func TestRegisterProjectShellRoutesLoadsProjectConfigByName(t *testing.T) {
 	}
 	if payload.ProjectConfig.Name != "Alpha" {
 		t.Fatalf("expected Alpha, got %q", payload.ProjectConfig.Name)
+	}
+	if payload.ProjectConfig.WindowSpaces["space-a"].Name != "Workspace" {
+		t.Fatalf("expected window space name Workspace, got %#v", payload.ProjectConfig.WindowSpaces)
+	}
+	if payload.ProjectChatWindowing.NextInstanceNumber != 2 {
+		t.Fatalf("expected next instance number 2, got %d", payload.ProjectChatWindowing.NextInstanceNumber)
+	}
+	if payload.ProjectChatWindowing.InstancesByID["instance-a"].ChatID == nil || *payload.ProjectChatWindowing.InstancesByID["instance-a"].ChatID != "chat-a" {
+		t.Fatalf("expected project chat window chat-a, got %#v", payload.ProjectChatWindowing.InstancesByID["instance-a"].ChatID)
 	}
 }
 

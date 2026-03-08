@@ -17,18 +17,19 @@ var (
 )
 
 type SingleConfig struct {
-	Sections              map[string]Core            `json:"sections"`
-	SectionImpls          map[string]json.RawMessage `json:"sectionImpls"`
-	SectionVariants       map[string]Variant         `json:"sectionVariants"`
-	CodeObjs              map[string]Core            `json:"codeObjs"`
-	CodeObjImpls          map[string]json.RawMessage `json:"codeObjImpls"`
-	CodeObjVariants       map[string]Variant         `json:"codeObjVariants"`
-	ProjectConfig         ProjectConfig              `json:"projectConfig"`
-	SingletonSections     SingletonSections          `json:"singletonSections"`
-	ParentSectionMap      map[string]*string         `json:"parentSectionMap"`
-	ShownParamIDs         map[string]ShownParamIDs   `json:"shownParamIds"`
-	RequiredDecodedImages []string                   `json:"requiredDecodedImages"`
-	GenCodeBinding        *CodeFileBinding           `json:"genCodeBinding"`
+	Sections              map[string]Core                        `json:"sections"`
+	SectionImpls          map[string]json.RawMessage             `json:"sectionImpls"`
+	SectionVariants       map[string]Variant                     `json:"sectionVariants"`
+	CodeObjs              map[string]Core                        `json:"codeObjs"`
+	CodeObjImpls          map[string]json.RawMessage             `json:"codeObjImpls"`
+	CodeObjVariants       map[string]Variant                     `json:"codeObjVariants"`
+	ProjectConfig         ProjectConfig                          `json:"projectConfig"`
+	SingletonSections     SingletonSections                      `json:"singletonSections"`
+	ParentSectionMap      map[string]*string                     `json:"parentSectionMap"`
+	ShownParamIDs         map[string]ShownParamIDs               `json:"shownParamIds"`
+	RequiredDecodedImages []string                               `json:"requiredDecodedImages"`
+	GenCodeBinding        *CodeFileBinding                       `json:"genCodeBinding"`
+	ProjectChatWindowing  projectstate.ProjectChatWindowingState `json:"projectChatWindowing"`
 }
 
 type ProjectConfig struct {
@@ -50,6 +51,7 @@ type ProjectConfig struct {
 	WatchCodeBaselineByPath map[string][]string                            `json:"watchCodeBaselineByPath"`
 	EntryCodeBlockID        *string                                        `json:"entryCodeBlockId"`
 	TopLevelSections        map[string]projectstate.TopLevelSectionLayout  `json:"topLevelSections"`
+	WindowSpaces            map[string]projectstate.WindowSpaceConfig      `json:"windowSpaces"`
 	SectionVariantMap       map[string]string                              `json:"sectionVariantMap"`
 	ActiveIDs               []string                                       `json:"activeIds"`
 	Edges                   []projectstate.Edge                            `json:"edges"`
@@ -129,6 +131,7 @@ func SingleConfigByProjectID(document projectstate.Document, projectID string) (
 		ShownParamIDs:         make(map[string]ShownParamIDs),
 		RequiredDecodedImages: deriveRequiredDecodedImages(project),
 		GenCodeBinding:        deriveGenCodeBinding(project),
+		ProjectChatWindowing:  projectstate.DefaultProjectChatWindowingState(),
 	}
 
 	for sectionID, section := range project.Sections {
@@ -163,6 +166,9 @@ func SingleConfigByProjectID(document projectstate.Document, projectID string) (
 		return SingleConfig{}, err
 	}
 	view.ShownParamIDs = shownParamIDs
+	view.ProjectChatWindowing = projectstate.ProjectChatWindowingOrDefault(
+		project.ProjectChatWindowing,
+	)
 
 	return view, nil
 }
@@ -219,6 +225,7 @@ func projectConfigFromProject(project projectstate.Project) ProjectConfig {
 		WatchCodeBaselineByPath: cloneStringSlicesMap(project.WatchCodeBaselineByPath),
 		EntryCodeBlockID:        entryCodeBlockID,
 		TopLevelSections:        topLevelSections,
+		WindowSpaces:            projectstate.CloneWindowSpacesOrEmpty(project.WindowSpaces),
 		SectionVariantMap:       cloneStringMap(project.SectionVariantMap),
 		ActiveIDs:               append([]string(nil), project.ActiveIDs...),
 		Edges:                   edges,

@@ -62,6 +62,67 @@ func TestDefaultSingleConfigDerivesFrontendFieldsFromSnapshot(t *testing.T) {
 	if _, ok := view.ProjectConfig.TopLevelSections["gen-section"]; !ok {
 		t.Fatal("expected top-level layout entry for gen-section from topLevelSectionIds")
 	}
+	if got := view.ProjectConfig.WindowSpaces; len(got) != 0 {
+		t.Fatalf("expected default empty window spaces, got %#v", got)
+	}
+	if got := view.ProjectChatWindowing.NextInstanceNumber; got != 1 {
+		t.Fatalf("expected default next instance number 1, got %d", got)
+	}
+	if len(view.ProjectChatWindowing.InstancesByID) != 0 {
+		t.Fatalf("expected default empty project chat windowing instances, got %#v", view.ProjectChatWindowing.InstancesByID)
+	}
+}
+
+func TestSingleConfigByProjectIDIncludesWindowingFields(t *testing.T) {
+	document := testProjectViewDocument(t)
+	project := document.Projects["project-alpha"]
+	project.WindowSpaces = map[string]projectstate.WindowSpaceConfig{
+		"space-a": {
+			ID:    "space-a",
+			Name:  "Workspace",
+			Order: []string{"window-a"},
+			WindowsByID: map[string]projectstate.WindowSpaceWindow{
+				"window-a": {
+					SurfaceKind:     projectstate.WindowSpaceSurfaceKindSection,
+					SectionIDOrNull: stringPointer("draw-section"),
+					Mode:            projectstate.ChatWindowModeSection,
+					Title:           stringPointer("Draw Section"),
+				},
+			},
+		},
+	}
+	project.ProjectChatWindowing = &projectstate.ProjectChatWindowingState{
+		InstancesByID: map[string]projectstate.ProjectChatWindowInstance{
+			"instance-a": {
+				Placement:       projectstate.ChatWindowPlacementCanvasSection,
+				Mode:            projectstate.ChatWindowModeSection,
+				SectionIDOrNull: stringPointer("draw-section"),
+				Title:           stringPointer("Draw Section"),
+			},
+		},
+		Order:              []string{"instance-a"},
+		NextInstanceNumber: 2,
+	}
+	document.Projects["project-alpha"] = project
+
+	view, err := SingleConfigByProjectID(document, "project-alpha")
+	if err != nil {
+		t.Fatalf("SingleConfigByProjectID returned error: %v", err)
+	}
+
+	windowSpace := view.ProjectConfig.WindowSpaces["space-a"]
+	if windowSpace.Name != "Workspace" {
+		t.Fatalf("expected window space name Workspace, got %q", windowSpace.Name)
+	}
+	if windowSpace.WindowsByID["window-a"].SectionIDOrNull == nil || *windowSpace.WindowsByID["window-a"].SectionIDOrNull != "draw-section" {
+		t.Fatalf("expected window space section draw-section, got %#v", windowSpace.WindowsByID["window-a"].SectionIDOrNull)
+	}
+	if view.ProjectChatWindowing.NextInstanceNumber != 2 {
+		t.Fatalf("expected next instance number 2, got %d", view.ProjectChatWindowing.NextInstanceNumber)
+	}
+	if view.ProjectChatWindowing.InstancesByID["instance-a"].SectionIDOrNull == nil || *view.ProjectChatWindowing.InstancesByID["instance-a"].SectionIDOrNull != "draw-section" {
+		t.Fatalf("expected chat window section draw-section, got %#v", view.ProjectChatWindowing.InstancesByID["instance-a"].SectionIDOrNull)
+	}
 }
 
 func TestSingleConfigByProjectIDPrefersProjectGeneratedCodeBinding(t *testing.T) {

@@ -170,6 +170,12 @@ func (p Project) Clone() Project {
 			cloned.TopLevelSections[sectionID] = layout.Clone()
 		}
 	}
+	if p.WindowSpaces != nil {
+		cloned.WindowSpaces = make(map[string]WindowSpaceConfig, len(p.WindowSpaces))
+		for windowSpaceID, windowSpace := range p.WindowSpaces {
+			cloned.WindowSpaces[windowSpaceID] = windowSpace.Clone()
+		}
+	}
 	if p.Edges != nil {
 		cloned.Edges = make([]Edge, len(p.Edges))
 		for index, edge := range p.Edges {
@@ -181,6 +187,10 @@ func (p Project) Clone() Project {
 		for index, edge := range p.AgenticEdges {
 			cloned.AgenticEdges[index] = edge.Clone()
 		}
+	}
+	if p.ProjectChatWindowing != nil {
+		clonedWindowing := p.ProjectChatWindowing.Clone()
+		cloned.ProjectChatWindowing = &clonedWindowing
 	}
 
 	if p.SectionVariantMap != nil {
@@ -312,6 +322,9 @@ func (p Project) Normalized() (Project, error) {
 	if normalized.TopLevelSections == nil {
 		normalized.TopLevelSections = map[string]TopLevelSectionLayout{}
 	}
+	if normalized.WindowSpaces != nil {
+		normalized.WindowSpaces = normalizeWindowSpaces(normalized.WindowSpaces, normalized.Sections)
+	}
 	if normalized.CodeObjs == nil {
 		normalized.CodeObjs = map[string]CodeObject{}
 	}
@@ -320,6 +333,13 @@ func (p Project) Normalized() (Project, error) {
 	}
 	if normalized.CodeObjImpls == nil {
 		normalized.CodeObjImpls = map[string]CodeObjectImpl{}
+	}
+	if normalized.ProjectChatWindowing != nil {
+		normalizedWindowing := normalizeProjectChatWindowingState(
+			*normalized.ProjectChatWindowing,
+			normalized.Sections,
+		)
+		normalized.ProjectChatWindowing = &normalizedWindowing
 	}
 	for index, target := range normalized.CodegenTargets {
 		normalizedTarget, err := target.Normalized()

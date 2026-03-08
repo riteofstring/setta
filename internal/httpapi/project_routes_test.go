@@ -35,6 +35,39 @@ func TestRegisterProjectRoutesSetsCodegenTargetsAndReturnsProjectState(t *testin
 			"project-alpha": {
 				ID:   "project-alpha",
 				Name: "Alpha",
+				WindowSpaces: map[string]projectstate.WindowSpaceConfig{
+					"space-a": {
+						ID:    "space-a",
+						Name:  "Workspace",
+						Order: []string{"window-a"},
+						WindowsByID: map[string]projectstate.WindowSpaceWindow{
+							"window-a": {
+								SurfaceKind:     projectstate.WindowSpaceSurfaceKindSection,
+								SectionIDOrNull: projectRouteStringPointer("section-a"),
+								Mode:            projectstate.ChatWindowModeSection,
+								Title:           projectRouteStringPointer("Section A"),
+							},
+						},
+					},
+				},
+				ProjectChatWindowing: &projectstate.ProjectChatWindowingState{
+					InstancesByID: map[string]projectstate.ProjectChatWindowInstance{
+						"instance-a": {
+							Placement: projectstate.ChatWindowPlacementFloating,
+							Mode:      projectstate.ChatWindowModeProjectAI,
+							Title:     projectRouteStringPointer("Project AI"),
+							ChatID:    projectRouteStringPointer("chat-a"),
+						},
+					},
+					Order:              []string{"instance-a"},
+					NextInstanceNumber: 2,
+				},
+				Sections: map[string]projectstate.Section{
+					"section-a": {
+						ID:   "section-a",
+						Name: "Section A",
+					},
+				},
 			},
 		},
 	})
@@ -102,6 +135,39 @@ func TestRegisterProjectRoutesReturnsLatestProjectStateEnvelope(t *testing.T) {
 			"project-alpha": {
 				ID:   "project-alpha",
 				Name: "Alpha",
+				WindowSpaces: map[string]projectstate.WindowSpaceConfig{
+					"space-a": {
+						ID:    "space-a",
+						Name:  "Workspace",
+						Order: []string{"window-a"},
+						WindowsByID: map[string]projectstate.WindowSpaceWindow{
+							"window-a": {
+								SurfaceKind:     projectstate.WindowSpaceSurfaceKindSection,
+								SectionIDOrNull: projectRouteStringPointer("section-a"),
+								Mode:            projectstate.ChatWindowModeSection,
+								Title:           projectRouteStringPointer("Section A"),
+							},
+						},
+					},
+				},
+				ProjectChatWindowing: &projectstate.ProjectChatWindowingState{
+					InstancesByID: map[string]projectstate.ProjectChatWindowInstance{
+						"instance-a": {
+							Placement: projectstate.ChatWindowPlacementFloating,
+							Mode:      projectstate.ChatWindowModeProjectAI,
+							Title:     projectRouteStringPointer("Project AI"),
+							ChatID:    projectRouteStringPointer("chat-a"),
+						},
+					},
+					Order:              []string{"instance-a"},
+					NextInstanceNumber: 2,
+				},
+				Sections: map[string]projectstate.Section{
+					"section-a": {
+						ID:   "section-a",
+						Name: "Section A",
+					},
+				},
 			},
 		},
 	})
@@ -133,6 +199,15 @@ func TestRegisterProjectRoutesReturnsLatestProjectStateEnvelope(t *testing.T) {
 	}
 	if payload.ProjectState.ProjectConfig.ID != "project-alpha" {
 		t.Fatalf("expected project-alpha response, got %q", payload.ProjectState.ProjectConfig.ID)
+	}
+	if payload.ProjectState.ProjectConfig.WindowSpaces["space-a"].Name != "Workspace" {
+		t.Fatalf("expected window space name Workspace, got %#v", payload.ProjectState.ProjectConfig.WindowSpaces)
+	}
+	if payload.ProjectState.ProjectChatWindowing.NextInstanceNumber != 2 {
+		t.Fatalf("expected next instance number 2, got %d", payload.ProjectState.ProjectChatWindowing.NextInstanceNumber)
+	}
+	if payload.ProjectState.ProjectChatWindowing.InstancesByID["instance-a"].ChatID == nil || *payload.ProjectState.ProjectChatWindowing.InstancesByID["instance-a"].ChatID != "chat-a" {
+		t.Fatalf("expected project chat window chat-a, got %#v", payload.ProjectState.ProjectChatWindowing.InstancesByID["instance-a"].ChatID)
 	}
 	if len(payload.CompletedOpIDs) != 0 || len(payload.PendingOpIDs) != 0 {
 		t.Fatalf("expected empty op ids, got completed=%#v pending=%#v", payload.CompletedOpIDs, payload.PendingOpIDs)
@@ -8649,4 +8724,8 @@ func mustNormalizedProjectRouteProject(t *testing.T, project projectstate.Projec
 		t.Fatalf("normalize project route project: %v", err)
 	}
 	return normalized
+}
+
+func projectRouteStringPointer(value string) *string {
+	return &value
 }

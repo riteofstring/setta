@@ -49,10 +49,12 @@ type Project struct {
 	EntryCodeBlockID         string                            `json:"entryCodeBlockId,omitempty"`
 	TopLevelSectionIDs       []string                          `json:"topLevelSectionIds,omitempty"`
 	TopLevelSections         map[string]TopLevelSectionLayout  `json:"topLevelSections,omitempty"`
+	WindowSpaces             map[string]WindowSpaceConfig      `json:"windowSpaces,omitempty"`
 	SectionVariantMap        map[string]string                 `json:"sectionVariantMap,omitempty"`
 	ActiveIDs                []string                          `json:"activeIds,omitempty"`
 	Edges                    []Edge                            `json:"edges,omitempty"`
 	AgenticEdges             []AgenticEdge                     `json:"agenticEdges,omitempty"`
+	ProjectChatWindowing     *ProjectChatWindowingState        `json:"projectChatWindowing,omitempty"`
 	Sections                 map[string]Section                `json:"sections,omitempty"`
 	SectionVariants          map[string]SectionVariant         `json:"sectionVariants,omitempty"`
 	SectionImpls             map[string]SectionImpl            `json:"sectionImpls,omitempty"`
