@@ -123,10 +123,8 @@ Closeout rerun after the landing:
   routes is now gone
 - websocket `TranscriptionProfilesUpdated` parity remains deferred and is no
   longer a hidden blocker for the current direct settings surface
-- the current remaining direct frontend Python-owned agentic routes are:
-  - `POST /createExternalAgentConfig`
-  - `POST /updateExternalAgentConfig`
-  - `POST /deleteExternalAgentConfig`
+- the next bounded dependency at the time of this landing was
+  external-agent-config CRUD
 
 ## Scope
 
@@ -219,6 +217,13 @@ This slice delivered:
 - keep websocket fan-out out of scope because the current dependency is local
   settings mutation correctness, not multi-client synchronization
 
+## Next Recommended Step
+
+- that next bounded external-agent-config CRUD follow-on is now landed in
+  `phase-13-external-agent-config-crud-transport.md`
+- rerank any remaining Python-owned agentic routes from real callers instead
+  of assuming another direct settings write slice
+
 ## Open Questions
 
 - whether websocket `TranscriptionProfilesUpdated` parity should follow after
@@ -226,10 +231,3 @@ This slice delivered:
   - recommendation: only if a concrete multi-client UI bug appears, since the
     current direct callers already self-heal local state from the mutation
     response
-
-## Next Recommended Step
-
-- open the next bounded Phase 13 doc around external-agent-config CRUD
-  transport over the already-landed Go config store and checker boundary
-- keep plugin/env-var/cache preflight side effects explicit instead of
-  broadening that write slice into a full Python preflight port

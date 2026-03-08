@@ -138,6 +138,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		engineStore           *agentruns.EngineStore
 		agentRunStore         *agentruns.RunStore
 		externalConfigStore   *externalagentconfigs.Store
+		externalConfigService *externalagentconfigs.Service
 		externalPreflight     externalagentconfigs.Checker
 		transcriptionStore    *transcriptionprofiles.Store
 		transcriptionProfiles *transcriptionprofiles.Service
@@ -515,6 +516,15 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return nil, err
 		}
 		externalConfigStore, err = externalagentconfigs.NewStore(cfg.Paths.SettaFilesRoot)
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+		externalConfigService, err = externalagentconfigs.NewService(externalagentconfigs.ServiceOptions{
+			Configs:        externalConfigStore,
+			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+			SettaServerURL: mcpx.BuildSettaServerURL(cfg.Server.Host, cfg.Server.Port),
+		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
@@ -936,7 +946,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			}
 			if err := httpapi.RegisterExternalAgentConfigRoutes(r, httpapi.ExternalAgentConfigRouteDependencies{
 				ModePolicy: modePolicy,
-				Configs:    externalConfigStore,
+				Configs:    externalConfigService,
 				Preflight:  externalPreflight,
 			}); err != nil {
 				panic(err)

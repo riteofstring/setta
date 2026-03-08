@@ -148,8 +148,10 @@ frontend Python-owned agentic reads are now outside that boundary:
 - `GET /getPromptTemplates`
 - `GET /getAgenticSummaryCacheStatus`
 
-Those routes should only move under a separate bounded doc if product work
-prioritizes them. They are no longer a hidden external-agent blocker.
+Those routes were later moved under bounded Phase 13 docs. They are no longer
+a hidden external-agent blocker, and the direct app-start hydration plus direct
+settings mutation surface discussed below is now Go-owned for the current
+bounded scope.
 
 The first post-Phase-12 bounded slice tracked in
 `phase-13-agent-profile-read-transport.md` is now landed:
@@ -201,7 +203,8 @@ The next bounded post-Phase-13 slice tracked in
   over the landed config store and bounded checker
 - richer Python-only plugin/env-var/cache preflight semantics remain deferred
   instead of being silently bundled into this read slice
-- the current remaining direct frontend Python-owned agentic routes are:
+- at that point, the current remaining direct frontend Python-owned agentic
+  routes were:
   - `POST /createExternalAgentConfig`
   - `POST /updateExternalAgentConfig`
   - `POST /deleteExternalAgentConfig`
@@ -216,7 +219,8 @@ The next bounded post-Phase-13 slice tracked in
 - the Go route intentionally stays IDE-gated for the current bounded settings
   surface instead of preserving Python's broader read exposure without a
   concrete caller
-- the current remaining direct frontend Python-owned agentic routes are:
+- at that point, the current remaining direct frontend Python-owned agentic
+  routes were:
   - `POST /createExternalAgentConfig`
   - `POST /updateExternalAgentConfig`
   - `POST /deleteExternalAgentConfig`
@@ -234,7 +238,8 @@ landed:
 - the Go route intentionally stays IDE-gated for the current bounded settings
   surface instead of preserving Python's broader read exposure without a
   concrete caller
-- the current remaining direct frontend Python-owned agentic routes are:
+- at that point, the current remaining direct frontend Python-owned agentic
+  routes were:
   - `POST /createExternalAgentConfig`
   - `POST /updateExternalAgentConfig`
   - `POST /deleteExternalAgentConfig`
@@ -249,7 +254,8 @@ The next bounded post-Phase-13 slice tracked in
 - websocket `EngineConfigsUpdated` parity remains intentionally deferred
   because the current direct callers already update local state from the
   mutation response
-- the current remaining direct frontend Python-owned agentic routes are:
+- at that point, the current remaining direct frontend Python-owned agentic
+  routes were:
   - `POST /createExternalAgentConfig`
   - `POST /updateExternalAgentConfig`
   - `POST /deleteExternalAgentConfig`
@@ -266,7 +272,8 @@ The next bounded post-Phase-13 slice tracked in
 - watcher and websocket fan-out remain intentionally deferred because the
   current Python route handlers do not broadcast directly and the current
   frontend callers already update local state from the mutation response
-- the current remaining direct frontend Python-owned agentic routes are:
+- at that point, the current remaining direct frontend Python-owned agentic
+  routes were:
   - `POST /createExternalAgentConfig`
   - `POST /updateExternalAgentConfig`
   - `POST /deleteExternalAgentConfig`
@@ -286,31 +293,35 @@ The next bounded post-Phase-13 slice tracked in
 - websocket `TranscriptionProfilesUpdated` parity remains intentionally
   deferred because the current direct callers already update local state from
   the mutation response
-- the current remaining direct frontend Python-owned agentic routes are:
+
+The next bounded post-Phase-13 slice tracked in
+`phase-13-external-agent-config-crud-transport.md` is now landed:
+
+- Go now owns:
   - `POST /createExternalAgentConfig`
   - `POST /updateExternalAgentConfig`
   - `POST /deleteExternalAgentConfig`
+- the frontend now mutates external-agent config state through Go-owned CRUD
+  routes over a new `internal/externalagentconfigs.Service` above the landed
+  config store
+- per-config Codex/OpenCode canonical settings-file sync and stale-artifact
+  cleanup are now Go-owned at that same service boundary
+- shared Claude `.claude/settings*.json` ownership and live plugin-adapter
+  registry validation remain intentionally deferred instead of being bundled
+  into generic config CRUD
+- the direct frontend settings mutation surface tracked through Phase 13 is now
+  Go-owned for the current bounded scope
 
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are
 already locked in practice by the current Go implementation. The PTY runtime
 shape is also proven, but the PTY library choice still has a bounded Unix-path
-follow-up tracked in `spike-pty.md`. New work should start from a newly scoped
-post-Phase-12 priority, not by reopening the completed external-agent runtime
-choices. The current bounded priority is no longer prompt-template hydration or
-summary-cache-status transport; both are landed. Prompt-template CRUD is also
-now landed. External-agent config plus health hydration is also landed.
-Engine-config hydration transport is now also landed. Transcription-profile
-hydration transport is now also landed. Engine-config update transport is now
-also landed. Agent-profile CRUD transport is now also landed.
-Transcription-profile CRUD transport is now also landed. The next bounded
-post-Phase-13 priority is external-agent-config CRUD transport, because it is
-now the last remaining direct frontend settings write cluster and should move
-over the landed config-store boundary without silently bundling Python's
-broader plugin/env-var/cache preflight side effects.
-
-That work is now scoped in
-`phase-13-external-agent-config-crud-transport.md`.
+follow-up tracked in `spike-pty.md`. New work should start from the remaining
+real callers and product dependencies, not by reopening the completed
+external-agent runtime or Phase 13 settings surfaces. The next bounded priority
+should therefore be inventory/rerank work over the remaining Python-owned
+agentic routes and generated single-item reads before another transport slice
+is chosen.
 
 ## Current Reality
 
@@ -872,18 +883,18 @@ Do not weaken this rule during the rewrite.
 ## Immediate Next Actions
 
 1. Keep the roadmap and phase docs synchronized with the current shipped code
-   so closed phases do not look active again and the remaining external-agent
-   AI gap does not disappear from planning context.
+   so closed phases do not look active again and the remaining Python-owned
+   agentic route inventory does not disappear from planning context.
 2. Treat MCP, LSP, and file-state choices as locked unless a concrete new
    requirement breaks them, and keep the PTY discussion bounded to the planned
    `go-pty` to `creack/pty` Unix follow-up rather than reopening terminal
    architecture more broadly.
-3. Start the next runtime work from
-   `phase-12-managed-chat-runtime-and-ai-route-foundation.md`, not by
-   reopening closed phases or early spikes.
+3. Start the next bounded work from the Phase 13 closeout inventory and real
+   caller analysis, not by reopening completed Phase 12 runtime work or early
+   spikes.
 4. Prefer stabilization and reference-suite expansion where completed runtime
    owners still have thin regression protection, but do not use that as a
-   substitute for the remaining external-agent migration.
+   substitute for the remaining Python-owned agentic inventory and rerank.
 5. Treat Go-owned managed `setta_llm` as de-scoped unless a later product
    decision explicitly reopens it.
 6. Limit future Python follow-up outside Phase 12 to explicitly chosen

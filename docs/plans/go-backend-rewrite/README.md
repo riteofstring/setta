@@ -505,9 +505,9 @@ Use the docs in this order:
     the landed transcription-profile store/service owner, with websocket
     parity intentionally deferred
 151. `phase-13-external-agent-config-crud-transport.md`
-  - focused implementation-plan doc for the last direct settings write gap:
+  - focused completed-slice doc for the last direct settings write gap:
     Go-owned `create/update/delete` external-agent-config transport over the
-    landed store/checker boundary, with plugin-registry parity and shared
+    landed store/service boundary, with plugin-registry parity and shared
     Claude settings-file ownership explicitly deferred
 152. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
