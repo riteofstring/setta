@@ -20,11 +20,15 @@ Current repo status as of 2026-03-08:
   - plugin manifest/state/install-metadata/history persistence in
     `internal/plugins`
   - filesystem plugin discovery/rescan in `internal/plugins/discovery.go`
+  - source-spec parsing and retargeting for `github:` and `pypi:` mutation
+    requests in `internal/plugins/source_specs.go`
+  - install/update/uninstall/rollback service methods over plugin roots in
+    `internal/plugins/service.go`
+  - pending-restart tombstones for removed backend plugins inside the mutation
+    service runtime
+  - typed mutation result payloads in `internal/plugins/mutation_types.go`
 - Go does not yet own:
-  - source-spec parsing for `github:` and `pypi:` mutation requests
-  - install/update/uninstall/rollback service methods over plugin roots
-  - pending-restart tombstones for removed backend plugins
-  - typed mutation response payloads and transport wiring
+  - plugin-management MCP transport wiring for the five remaining tools
 
 ## Scope
 
@@ -98,18 +102,22 @@ This slice should cover:
 1. Source-spec and candidate staging layer
    - parse `github:` and `pypi:` source specs
    - define explicit fetch/install interfaces and a candidate descriptor
+   - status: completed 2026-03-08
 
 2. Mutation service methods
    - add install, uninstall, update, and rollback service methods
    - wire metadata/history updates and restart bookkeeping
+   - status: completed 2026-03-08
 
 3. Focused verification
    - add runtime tests for replace, rollback, linked-local rejection, and
      pending-restart tombstone behavior
+   - status: completed 2026-03-08
 
 4. Follow-on transport slice
    - expose `install_plugin`, `uninstall_plugin`, `rescan_plugins`,
      `update_plugin`, and `rollback_plugin` as thin MCP handlers
+   - next detailed scope: `phase-6-plugin-management-tool-parity.md`
 
 ## Verification Targets
 
@@ -122,3 +130,14 @@ This slice should cover:
   adapters that keep the service contract stable
 - where to place the boundary between persistent pending-restart ids and
   in-memory tombstones for removed backend plugins
+
+## Progress Notes
+
+- 2026-03-08: added typed Go source-spec parsing and retarget helpers for
+  `github:` and `pypi:` plugin mutation requests.
+- 2026-03-08: added the Go plugin mutation service with install, uninstall,
+  update, rollback, restart bookkeeping, and rescan+tombstone behavior over the
+  completed store/discovery foundation.
+- 2026-03-08: completed focused runtime coverage for source-spec parsing, the
+  install/update/rollback/uninstall lifecycle, local-source update rejection,
+  and backend uninstall tombstones.

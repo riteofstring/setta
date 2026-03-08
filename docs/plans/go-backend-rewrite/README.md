@@ -258,12 +258,16 @@ Use the docs in this order:
     foundation; the shared store/discovery stages are now complete
 92. `phase-6-plugin-management-mutation-owner.md`
   - focused implementation-plan doc for the remaining Go-owned plugin mutation
-    service above the completed store/discovery foundation
-93. `spike-mcp.md`
+    service above the completed store/discovery foundation; this runtime slice
+    is now complete
+93. `phase-6-plugin-management-tool-parity.md`
+  - focused implementation-plan doc for the remaining Go-owned MCP transport
+    slice over the completed plugin-management runtime owners
+94. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-94. `spike-pty.md`
+95. `spike-pty.md`
    - PTY uncertainty-reduction plan
-95. `spike-lsp.md`
+96. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

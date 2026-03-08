@@ -107,8 +107,8 @@ Go already owns the following Python MCP tools that do not come from
 - `update_plugin`
 - `rollback_plugin`
 
-The store/discovery foundation is now in Go under `internal/plugins`, but the
-mutation owner and transport still need to land for these five tools.
+The full runtime owner is now in Go under `internal/plugins`, but the MCP
+transport still needs to land for these five tools.
 
 ### 2. Environment Introspection Gap
 
@@ -137,15 +137,15 @@ heuristics.
 
 ## Recommended Next Step
 
-Execute the dedicated plugin-management mutation-owner slice in
-`phase-6-plugin-management-mutation-owner.md`.
+Execute the dedicated plugin-management transport slice in
+`phase-6-plugin-management-tool-parity.md`.
 
 This is now the highest-leverage next slice because:
 
 - it unblocks five remaining MCP tools instead of only one
-- Go now has the shared plugin store/discovery foundation under
-  `internal/plugins`, but it still lacks explicit install/update/uninstall/
-  rollback owners and their typed response payloads
+- Go now has the shared plugin store/discovery/mutation foundation under
+  `internal/plugins`, but it still lacks MCP server, route, SSE, and app
+  transport wiring for those five tools
 - `getInstalledPythonPackages` remains blocked on Python-environment
   source-of-truth work and should not leapfrog the plugin runtime gap with a
   heuristic shell-out
@@ -201,3 +201,6 @@ This is now the highest-leverage next slice because:
 - 2026-03-08: completed the plugin-management store/discovery foundation under
   `internal/plugins`, so the highest-leverage remaining runtime gap is now the
   plugin mutation owner above that shared store/discovery layer.
+- 2026-03-08: completed the plugin-management mutation owner under
+  `internal/plugins`, so the highest-leverage remaining plugin gap is now the
+  bounded MCP transport slice for the five plugin-management tools.

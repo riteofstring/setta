@@ -29,9 +29,9 @@ Current repo status as of 2026-03-08:
     `internal/plugins/store.go`
   - a bounded filesystem discovery/rescan owner in
     `internal/plugins/discovery.go`
+  - install/update/uninstall/rollback mutation ownership plus restart
+    bookkeeping in `internal/plugins/service.go`
 - Go does not yet own:
-  - install/update/uninstall mutation owners for plugin package roots
-  - plugin-management response payloads and restart-required bookkeeping
   - plugin-management MCP transport
 
 ## Scope
@@ -134,11 +134,12 @@ This slice should cover:
    - add install, uninstall, update, and rollback service methods above the
      completed store/discovery owners
    - keep installer and archive/network edges behind explicit interfaces
-   - next detailed scope: `phase-6-plugin-management-mutation-owner.md`
+   - status: completed 2026-03-08
 
 4. Follow-on transport slice
    - once the runtime foundation is stable, expose the five plugin-management
      MCP tools as thin structural handlers
+   - next detailed scope: `phase-6-plugin-management-tool-parity.md`
 
 ## Verification Targets
 
@@ -160,5 +161,6 @@ This slice should cover:
 - 2026-03-08: added a Go-owned filesystem discovery/rescan service covering
   precedence, enablement, invalid-manifest visibility, canonical source keys,
   and persisted pending-restart state.
-- 2026-03-08: narrowed the remaining plugin-management runtime gap to the
-  mutation owner for install, uninstall, update, and rollback.
+- 2026-03-08: completed the plugin mutation owner with source-spec parsing,
+  install/update/uninstall/rollback service methods, and pending-restart
+  tombstones, so the remaining gap is now MCP transport over that owner.
