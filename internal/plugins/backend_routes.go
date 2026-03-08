@@ -129,6 +129,14 @@ func normalizeOptionalWorkerRoutePrefix(prefix *string) (string, error) {
 }
 
 func normalizeWorkerMountSubpath(raw string) (string, error) {
+	return normalizeWorkerMountSubpathWithError(raw, ErrWorkerHostRouterPrefixInvalid)
+}
+
+func normalizeWorkerMountSubpathWithError(raw string, invalidError error) (string, error) {
+	if invalidError == nil {
+		invalidError = ErrWorkerHostRouterPrefixInvalid
+	}
+
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" || trimmed == "/" {
 		return "", nil
@@ -143,23 +151,23 @@ func normalizeWorkerMountSubpath(raw string) (string, error) {
 	normalizedSegments := make([]string, 0, len(segments))
 	for _, rawSegment := range segments {
 		if rawSegment == "" {
-			return "", fmt.Errorf("%w: empty path segment", ErrWorkerHostRouterPrefixInvalid)
+			return "", fmt.Errorf("%w: empty path segment", invalidError)
 		}
 		decodedSegment, err := url.PathUnescape(rawSegment)
 		if err != nil {
-			return "", fmt.Errorf("%w: %v", ErrWorkerHostRouterPrefixInvalid, err)
+			return "", fmt.Errorf("%w: %v", invalidError, err)
 		}
 		if decodedSegment == "." || decodedSegment == ".." {
-			return "", fmt.Errorf("%w: dot segment %q", ErrWorkerHostRouterPrefixInvalid, rawSegment)
+			return "", fmt.Errorf("%w: dot segment %q", invalidError, rawSegment)
 		}
 		if strings.TrimSpace(decodedSegment) != decodedSegment {
-			return "", fmt.Errorf("%w: whitespace in path segment %q", ErrWorkerHostRouterPrefixInvalid, rawSegment)
+			return "", fmt.Errorf("%w: whitespace in path segment %q", invalidError, rawSegment)
 		}
 		if strings.Contains(decodedSegment, "/") || strings.Contains(decodedSegment, `\`) {
-			return "", fmt.Errorf("%w: invalid separator in path segment %q", ErrWorkerHostRouterPrefixInvalid, rawSegment)
+			return "", fmt.Errorf("%w: invalid separator in path segment %q", invalidError, rawSegment)
 		}
 		if !backendRouteMountSegmentPattern.MatchString(decodedSegment) {
-			return "", fmt.Errorf("%w: invalid characters in path segment %q", ErrWorkerHostRouterPrefixInvalid, rawSegment)
+			return "", fmt.Errorf("%w: invalid characters in path segment %q", invalidError, rawSegment)
 		}
 		normalizedSegments = append(normalizedSegments, decodedSegment)
 	}

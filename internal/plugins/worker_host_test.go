@@ -127,6 +127,82 @@ func TestWorkerHostRegisterRouterRequiresCapability(t *testing.T) {
 	}
 }
 
+// Static-dir registration should resolve plugin-root-relative directories and normalize the published URL prefix.
+func TestWorkerHostRegisterStaticDirNormalizesRegistration(t *testing.T) {
+	t.Parallel()
+
+	pluginRoot := t.TempDir()
+	staticRoot := filepath.Join(pluginRoot, "backend", "static")
+	if err := os.MkdirAll(staticRoot, 0o755); err != nil {
+		t.Fatalf("mkdir static root: %v", err)
+	}
+
+	registry := NewBackendStaticDirRegistry()
+	host, err := NewWorkerHost(WorkerHostOptions{
+		StaticDirRegistrar: registry,
+	})
+	if err != nil {
+		t.Fatalf("new worker host: %v", err)
+	}
+
+	err = host.RegisterStaticDir(context.Background(), WorkerContext{
+		PluginID:              "fixture-plugin",
+		PluginRoot:            pluginRoot,
+		EffectiveCapabilities: []string{CapabilityRegisterStaticDir},
+	}, RegisterStaticDirRequest{
+		URLPrefix: "/assets",
+		Path:      "backend/static",
+	})
+	if err != nil {
+		t.Fatalf("register static dir: %v", err)
+	}
+
+	registrations := registry.Registrations()
+	if len(registrations) != 1 {
+		t.Fatalf("expected 1 static-dir registration, got %#v", registrations)
+	}
+	registration := registrations[0]
+	if registration.PluginID != "fixture-plugin" {
+		t.Fatalf("expected fixture-plugin, got %q", registration.PluginID)
+	}
+	if registration.URLPrefix != "assets" {
+		t.Fatalf("expected normalized assets prefix, got %q", registration.URLPrefix)
+	}
+	if registration.SourceDir != staticRoot {
+		t.Fatalf("expected resolved static root %q, got %q", staticRoot, registration.SourceDir)
+	}
+}
+
+// Static-dir registration should require the explicit worker capability before mutating runtime state.
+func TestWorkerHostRegisterStaticDirRequiresCapability(t *testing.T) {
+	t.Parallel()
+
+	pluginRoot := t.TempDir()
+	staticRoot := filepath.Join(pluginRoot, "backend", "static")
+	if err := os.MkdirAll(staticRoot, 0o755); err != nil {
+		t.Fatalf("mkdir static root: %v", err)
+	}
+
+	registry := NewBackendStaticDirRegistry()
+	host, err := NewWorkerHost(WorkerHostOptions{
+		StaticDirRegistrar: registry,
+	})
+	if err != nil {
+		t.Fatalf("new worker host: %v", err)
+	}
+
+	err = host.RegisterStaticDir(context.Background(), WorkerContext{
+		PluginID:   "fixture-plugin",
+		PluginRoot: pluginRoot,
+	}, RegisterStaticDirRequest{
+		URLPrefix: "assets",
+		Path:      staticRoot,
+	})
+	if !errors.Is(err, ErrWorkerHostCapabilityDenied) {
+		t.Fatalf("expected capability-denied error, got %v", err)
+	}
+}
+
 // MCP tool registration should require the explicit worker capability before mutating runtime state.
 func TestWorkerHostRegisterMCPToolRequiresCapability(t *testing.T) {
 	t.Parallel()

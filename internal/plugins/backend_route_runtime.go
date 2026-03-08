@@ -10,11 +10,13 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
+	"os"
 	"sort"
 	"strings"
 	"unicode/utf8"
 
 	"setta/internal/config"
+	"setta/internal/statefs"
 )
 
 var (
@@ -35,9 +37,11 @@ type BackendRouteRuntime struct {
 
 	routes      []BackendRoute
 	mcpTools    []RegisteredMCPTool
+	staticDirs  []RegisteredBackendStaticDir
 	sessions    map[string]*StartedWorkerSession
 	routeByID   map[string]BackendRoute
 	mcpToolByID map[string]RegisteredMCPTool
+	staticByPID map[string][]RegisteredBackendStaticDir
 }
 
 type BackendRoute struct {
@@ -125,9 +129,11 @@ func NewBackendRouteRuntime(ctx context.Context, options BackendRouteRuntimeOpti
 		logger:      options.Logger,
 		routes:      []BackendRoute{},
 		mcpTools:    []RegisteredMCPTool{},
+		staticDirs:  []RegisteredBackendStaticDir{},
 		sessions:    map[string]*StartedWorkerSession{},
 		routeByID:   map[string]BackendRoute{},
 		mcpToolByID: map[string]RegisteredMCPTool{},
+		staticByPID: map[string][]RegisteredBackendStaticDir{},
 	}
 	if len(runtimePlugins) == 0 {
 		return runtime, nil
@@ -175,6 +181,16 @@ func (r *BackendRouteRuntime) MCPTools() []RegisteredMCPTool {
 	for index, registration := range r.mcpTools {
 		registrations[index] = cloneRegisteredMCPTool(registration)
 	}
+	return registrations
+}
+
+func (r *BackendRouteRuntime) StaticDirs() []RegisteredBackendStaticDir {
+	if r == nil || len(r.staticDirs) == 0 {
+		return nil
+	}
+
+	registrations := make([]RegisteredBackendStaticDir, len(r.staticDirs))
+	copy(registrations, r.staticDirs)
 	return registrations
 }
 
@@ -326,6 +342,45 @@ func (r *BackendRouteRuntime) InvokeMCPTool(ctx context.Context, toolName string
 	return decoded, nil
 }
 
+func (r *BackendRouteRuntime) ResolveStaticAssetPath(pluginID string, assetPath string) (string, error) {
+	if r == nil {
+		return "", newServiceError(ServiceErrorCodeNotFound, "Plugin static assets unavailable: %s", strings.TrimSpace(pluginID))
+	}
+
+	trimmedPluginID := strings.TrimSpace(pluginID)
+	if trimmedPluginID == "" {
+		return "", newServiceError(ServiceErrorCodeNotFound, "Plugin static assets unavailable: %s", pluginID)
+	}
+
+	registrations := r.staticByPID[trimmedPluginID]
+	if len(registrations) == 0 {
+		return "", newServiceError(ServiceErrorCodeNotFound, "Plugin static assets unavailable: %s", trimmedPluginID)
+	}
+
+	requestPath := strings.TrimPrefix(assetPath, "/")
+	registration, relativePath, ok := matchBackendStaticDir(registrations, requestPath)
+	if !ok || relativePath == "" {
+		return "", newServiceError(ServiceErrorCodeAssetNotFound, "Plugin static asset not found: %s", strings.TrimSpace(assetPath))
+	}
+
+	resolvedPath, err := statefs.ResolveWithinRoot(registration.SourceDir, relativePath, "plugin static asset path")
+	if err != nil {
+		return "", newServiceError(ServiceErrorCodeAssetInvalidPath, "Invalid plugin static asset path: %s", strings.TrimSpace(assetPath))
+	}
+
+	info, err := os.Stat(resolvedPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", newServiceError(ServiceErrorCodeAssetNotFound, "Plugin static asset not found: %s", strings.TrimSpace(assetPath))
+		}
+		return "", err
+	}
+	if !info.Mode().IsRegular() {
+		return "", newServiceError(ServiceErrorCodeAssetNotFound, "Plugin static asset not found: %s", strings.TrimSpace(assetPath))
+	}
+	return resolvedPath, nil
+}
+
 func (r *BackendRouteRuntime) session(pluginID string) *StartedWorkerSession {
 	if r == nil {
 		return nil
@@ -345,12 +400,14 @@ func (r *BackendRouteRuntime) startPlugin(
 	}
 
 	routers := NewBackendRouterRegistry()
+	staticDirs := NewBackendStaticDirRegistry()
 	mcpTools := NewMCPToolRegistry()
 	languageServers := NewLanguageServerRegistry()
 	externalAgentAdapters := NewExternalAgentAdapterRegistry()
 	codegenTargets := NewCodegenTargetRegistry()
 	host, err := NewWorkerHost(WorkerHostOptions{
 		RouterRegistrar:               routers,
+		StaticDirRegistrar:            staticDirs,
 		MCPToolRegistrar:              mcpTools,
 		LanguageServerRegistrar:       languageServers,
 		ExternalAgentAdapterRegistrar: externalAgentAdapters,
@@ -382,12 +439,18 @@ func (r *BackendRouteRuntime) startPlugin(
 
 	registrations := routers.Registrations()
 	routes := flattenRegisteredBackendRoutes(registrations)
+	staticDirRegistrations := staticDirs.Registrations()
 	toolRegistrations := mcpTools.Registrations()
-	if len(routes) == 0 && len(toolRegistrations) == 0 {
-		return started.Close()
+	keepSession := len(routes) != 0 || len(toolRegistrations) != 0
+	if !keepSession {
+		if err := started.Close(); err != nil {
+			return err
+		}
 	}
 
-	r.sessions[entry.PluginID] = started
+	if keepSession {
+		r.sessions[entry.PluginID] = started
+	}
 	for _, route := range routes {
 		r.routes = append(r.routes, route)
 		r.routeByID[route.PluginID+":"+route.RouteID] = route
@@ -395,6 +458,9 @@ func (r *BackendRouteRuntime) startPlugin(
 	for _, registration := range toolRegistrations {
 		r.mcpTools = append(r.mcpTools, registration)
 		r.mcpToolByID[registration.Name] = registration
+	}
+	for _, registration := range staticDirRegistrations {
+		r.staticDirs = append(r.staticDirs, registration)
 	}
 	return nil
 }
@@ -415,6 +481,20 @@ func (r *BackendRouteRuntime) sortRegistrations() {
 		}
 		return r.mcpTools[left].PluginID < r.mcpTools[right].PluginID
 	})
+	sort.Slice(r.staticDirs, func(left int, right int) bool {
+		if r.staticDirs[left].PluginID != r.staticDirs[right].PluginID {
+			return r.staticDirs[left].PluginID < r.staticDirs[right].PluginID
+		}
+		if len(r.staticDirs[left].URLPrefix) != len(r.staticDirs[right].URLPrefix) {
+			return len(r.staticDirs[left].URLPrefix) > len(r.staticDirs[right].URLPrefix)
+		}
+		return r.staticDirs[left].URLPrefix < r.staticDirs[right].URLPrefix
+	})
+
+	r.staticByPID = map[string][]RegisteredBackendStaticDir{}
+	for _, registration := range r.staticDirs {
+		r.staticByPID[registration.PluginID] = append(r.staticByPID[registration.PluginID], registration)
+	}
 }
 
 func (r *BackendRouteRuntime) logStartupError(pluginID string, err error) {
@@ -449,7 +529,8 @@ func shouldStartBackendRuntime(entry DiscoveredPlugin) bool {
 		return false
 	}
 	return containsCapability(entry.EffectiveCapabilities, CapabilityRegisterRouter) ||
-		containsCapability(entry.EffectiveCapabilities, CapabilityRegisterMCPTools)
+		containsCapability(entry.EffectiveCapabilities, CapabilityRegisterMCPTools) ||
+		containsCapability(entry.EffectiveCapabilities, CapabilityRegisterStaticDir)
 }
 
 func flattenRegisteredBackendRoutes(registrations []RegisteredBackendRouter) []BackendRoute {
@@ -480,6 +561,25 @@ func buildBackendRoutePattern(pluginID string, prefix string, routePath string) 
 		normalizedPath = "/" + normalizedPath
 	}
 	return base + normalizedPath
+}
+
+func matchBackendStaticDir(
+	registrations []RegisteredBackendStaticDir,
+	requestPath string,
+) (RegisteredBackendStaticDir, string, bool) {
+	for _, registration := range registrations {
+		if registration.URLPrefix == "" {
+			return registration, requestPath, true
+		}
+		if requestPath == registration.URLPrefix {
+			return registration, "", true
+		}
+		prefix := registration.URLPrefix + "/"
+		if strings.HasPrefix(requestPath, prefix) {
+			return registration, requestPath[len(prefix):], true
+		}
+	}
+	return RegisteredBackendStaticDir{}, "", false
 }
 
 func decodeBackendMCPToolResult(payload json.RawMessage) (any, error) {

@@ -606,6 +606,56 @@ func TestAppServesPluginBackendRoutes(t *testing.T) {
 	}
 }
 
+func TestAppServesPluginBackendStaticAssets(t *testing.T) {
+	// The real app should start static-dir-owning backend plugins at startup and serve authenticated plugin-static assets.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppPluginWorkerRuntime(t)
+	seedAppPluginFixture(t, cfg.Paths.WorkspaceRoot, "backend-static-router")
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+
+	staticRequest, err := http.NewRequest(
+		http.MethodGet,
+		server.URL+"/plugin-static/setta-fixture-backend-static-router/fixture/hello.txt",
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("new backend static request: %v", err)
+	}
+	staticRequest.AddCookie(authCookie)
+	staticResponse, err := http.DefaultClient.Do(staticRequest)
+	if err != nil {
+		t.Fatalf("get backend static response: %v", err)
+	}
+	defer staticResponse.Body.Close()
+	if staticResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(staticResponse.Body)
+		t.Fatalf("expected backend static 200, got %d with body %q", staticResponse.StatusCode, string(body))
+	}
+	staticBody, err := io.ReadAll(staticResponse.Body)
+	if err != nil {
+		t.Fatalf("read backend static body: %v", err)
+	}
+	if strings.TrimSpace(string(staticBody)) != "fixture static payload" {
+		t.Fatalf("unexpected backend static body %q", string(staticBody))
+	}
+}
+
 func TestAppServesPluginRuntimeWithBackendRegistrations(t *testing.T) {
 	// The real app should surface worker-backed backend language-server, external-agent, and codegen registrations through plugin runtime.
 	cfg := testConfig(t)

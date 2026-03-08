@@ -634,19 +634,22 @@ The bounded plugin backend MCP follow-on tracked in
   the earlier partial `toolName`/`annotations` host request
 - the backend runtime now keeps long-lived worker sessions for route-only,
   tool-only, and mixed route+tool plugins
-- plugin static-dir, listener-endpoint, and broader backend-host runtime
-  surfaces remain deferred until a concrete caller requires them
+- plugin listener-endpoint and broader backend-host runtime surfaces remain
+  deferred until a concrete caller requires them
 
-The next bounded plugin backend follow-on is now opened in
+The bounded plugin backend static-dir follow-on tracked in
 `phase-15-plugin-static-dir-runtime.md`:
 
-- the target is Go-owned backend plugin static-directory registration and
-  serving at `/plugin-static/{pluginId}/...` in IDE mode
-- the recommended boundary is to reuse the existing backend runtime startup
-  path for route/tool/static plugins while only keeping worker sessions alive
-  when later live calls are needed
+- Go now owns worker-registered backend plugin static-directory registration
+  and serving at `/plugin-static/{pluginId}/...` in IDE mode
+- the backend runtime now reuses one startup boundary for route/tool/static
+  plugins and only keeps worker sessions alive when later live calls are
+  actually needed
+- static-dir-only plugins now register, persist typed source roots, and close
+  immediately instead of keeping an idle worker alive
 - listener-endpoint dispatch, `host.read_project_state`, and plugin runtime
-  refresh remain deferred outside that static-dir slice
+  refresh remain deferred until a concrete caller requires one of those
+  surfaces
 
 The bounded plugin dependency cleanup tracked in
 `phase-11-plugin-version-range-owner-and-dependency-cleanup.md` is now also

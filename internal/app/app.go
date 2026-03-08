@@ -971,7 +971,8 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		ModePolicy:     modes.NewPolicy(cfg.Server.Mode),
 		RegisterRoot: func(r chi.Router) {
 			if err := httpapi.RegisterPluginRootRoutes(r, httpapi.PluginRootRouteDependencies{
-				Service: pluginMutationService,
+				Service:        pluginMutationService,
+				BackendRuntime: pluginBackendRoutes,
 			}); err != nil {
 				panic(err)
 			}

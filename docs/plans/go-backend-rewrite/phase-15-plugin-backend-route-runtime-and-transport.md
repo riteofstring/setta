@@ -141,15 +141,17 @@ The landed slice is covered by:
   `pending_restart` backend state on real process restart the way the Python
   runtime does, instead of leaving that to a later dedicated runtime-state
   slice
-- whether plugin static-dir or broader backend host surfaces need live runtime
-  ownership once a concrete caller appears
+- whether the remaining listener-endpoint or broader backend host surfaces need
+  live runtime ownership once a concrete caller appears
 
 ## Next Recommended Step
 
-Keep plugin static-dir, listener-endpoint, MCP-tool, and broader backend host
-runtime ownership deferred until a real caller requires one of those surfaces.
-The next plugin follow-on should be caller-driven, not a speculative
-broadening of this runtime boundary.
+This route-runtime slice is complete and later bounded follow-ons for MCP tools
+and static-dir serving have since landed.
+
+Keep the remaining listener-endpoint and broader backend-host runtime
+ownership caller-driven instead of speculatively broadening this route
+boundary.
 
 ## Exit Criteria
 

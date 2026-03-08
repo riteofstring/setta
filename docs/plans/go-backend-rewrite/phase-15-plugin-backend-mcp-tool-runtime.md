@@ -93,8 +93,8 @@ This slice landed:
     and worker call proxying
   - `internal/mcpx` should own MCP-tool registration into the Go server
 - keep this slice MCP-only
-  - static-dir, listener-endpoint, and broader host-runtime surfaces remain
-    separate follow-ons
+  - listener-endpoint and broader host-runtime surfaces remain separate
+    follow-ons
 - prefer one source-of-truth registration payload from the worker
   - description, input schema, and tool metadata should arrive from the worker
     in a typed payload instead of being recomputed inconsistently in Go
@@ -153,7 +153,6 @@ This slice landed:
 
 - No blocking open question remains inside this bounded slice.
 - Deferred follow-ons remain unchanged:
-  - plugin static-dir serving
   - plugin listener-endpoint registration/dispatch
   - `host.read_project_state` support
   - plugin tool hot-reload after install/link/rescan/update flows
@@ -165,7 +164,6 @@ Do not broaden plugin backend-host work speculatively.
 The next plugin follow-on should only be pulled forward when a concrete caller
 requires one of:
 
-1. plugin static-dir serving
-2. plugin listener-endpoint dispatch
-3. `host.read_project_state` inside live backend workers
-4. plugin runtime refresh/hot-reload after mutation flows
+1. plugin listener-endpoint dispatch
+2. `host.read_project_state` inside live backend workers
+3. plugin runtime refresh/hot-reload after mutation flows
