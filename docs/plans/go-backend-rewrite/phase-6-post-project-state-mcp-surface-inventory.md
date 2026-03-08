@@ -3,8 +3,9 @@
 ## Purpose
 
 This doc inventories the remaining Python-owned MCP surface after the completed
-Go parity work for `BaseProjectManager.@project_state_tool` and the completed
-general utility/read cluster.
+Go parity work for `BaseProjectManager.@project_state_tool`, the completed
+general utility/read cluster, and the completed `report_completion_status`
+slice.
 
 The project-state overlap is closed. What remains is the broader Python MCP
 tool set implemented in `backend/setta/mcp/tools/*.py`.
@@ -18,7 +19,7 @@ Current repo status as of 2026-03-08:
   `BaseProjectManager.@project_state_tool` surface
 - Python currently exposes 25 non-project-state MCP tools in
   `backend/setta/mcp/tools/*.py`
-- 10 of those now have Go parity:
+- 11 of those now have Go parity:
   - `set_agentic_context`
   - `list_mcp_tools`
   - `read_file_range`
@@ -29,13 +30,14 @@ Current repo status as of 2026-03-08:
   - `get_app_catalog`
   - `list_app_components`
   - `get_setta_docs`
-- the remaining 15 tools now fall into one small completion-report slice plus
-  several larger missing runtime foundations
+  - `report_completion_status`
+- the remaining 14 tools now fall into a bounded agent-profile store/read
+  slice plus several larger missing runtime foundations
 
 ## Inputs
 
-- `docs/plans/go-backend-rewrite/phase-6-app-definition-read-and-validation-tool-parity.md`
 - `docs/plans/go-backend-rewrite/phase-6-general-mcp-utility-read-tools-parity.md`
+- `docs/plans/go-backend-rewrite/phase-6-report-completion-status-tool-parity.md`
 - `docs/reference/mcp-system-overview.md`
 - `backend/setta/mcp/tool_registry.py`
 - `backend/setta/mcp/tool_setup.py`
@@ -47,12 +49,13 @@ Current repo status as of 2026-03-08:
 - `backend/setta/mcp/tools/plugins.py`
 - `backend/setta/mcp/tools/ui_settings.py`
 - `backend/setta/mcp/tools/app_tools.py`
-- `backend/setta/routers/status.py`
+- `backend/setta/agentic/store.py`
+- `backend/setta/database/db_objs.py`
+- `backend/setta/types/agentic.py`
 - `backend/setta/routers/agentic.py`
-- `backend/setta/routers/project_manager.py`
 - `tests/mcp/test_base_tools.py`
 - `tests/mcp/test_mcp_server_registration.py`
-- `tests/mcp/test_ui_setting_tools.py`
+- `tests/agentic/test_agentic_store.py`
 - `tests/routers/test_agentic_routes.py`
 - `internal/mcpx/server.go`
 - `internal/mcpx/client.go`
@@ -76,23 +79,24 @@ Go already owns the following Python MCP tools that do not come from
 - `get_app_catalog`
 - `list_app_components`
 - `get_setta_docs`
+- `report_completion_status`
 
 ## Remaining Python-Owned MCP Surface
 
-### 1. Bounded Completion-Report Tool
-
-- `report_completion_status`
-  - Python behavior is small and local: validate the structured report payload,
-    normalize optional text fields, and derive `verificationStatus`.
-  - Go does not yet own that completion-report schema or derivation logic.
-
-### 2. Agentic Utility And Agent-Run Gaps
+### 1. Agent-Profile Store And Read Gaps
 
 - `list_agent_profiles`
 - `get_agent_profile`
+  - Python reads `agent_profiles.json` through the agentic store and validates
+    entries as `AgentProfile`.
+  - Go does not yet own the file-backed agent-profile store, schema
+    validation, or the bounded read surface above it.
+
+### 2. Agentic Run Gap
+
 - `run_agent_profile`
-  - Python depends on agent-profile storage plus an agent-runner runtime. Go
-    does not yet own that store/runtime boundary.
+  - Python depends on the same agent-profile store plus an agent-runner
+    runtime. Go does not yet own that run boundary.
 
 ### 3. Generic UI-Setting Registry And Reveal Gaps
 
@@ -139,35 +143,34 @@ heuristics.
 
 - treat the Python project-state MCP overlap as complete and closed
 - treat the general utility/read cluster as complete and closed
-- keep the next step focused on the small completion-report tool before the
-  much larger agent-profile, UI-setting, plugin, and streaming foundations
+- treat `report_completion_status` as complete and closed
+- keep the next step focused on the smallest remaining bounded non-run gap:
+  agent-profile store plus read-tool parity
 - do not route missing MCP tools back through Python
 - keep transport thin and add explicit Go owners where the current runtime
   boundary is still implicit
 
 ## Recommended Next Step
 
-Execute the bounded `report_completion_status` slice in
-`phase-6-report-completion-status-tool-parity.md`.
+Execute the bounded agent-profile store/read slice in
+`phase-6-agent-profile-store-and-read-tools-parity.md`.
 
 This is now the highest-leverage next slice because:
 
-- it is the smallest remaining Python-owned MCP gap
-- it is independent of the larger agent-profile and plugin foundations
-- it supports the existing completion-guard contract without broadening into
-  agent-run execution work
+- it covers the smallest remaining user-facing MCP read tools
+- it creates the storage foundation `run_agent_profile` will eventually need
+- it avoids broadening immediately into the much larger agent-runner runtime
 
 ## Open Questions
 
-- whether `getInstalledPythonPackages` belongs in a later explicit Python
-  runtime-integration slice or should remain out of scope for the Go rewrite
+- whether agent-profile default/example seeding should be included in the first
+  Go store/read slice or deferred until broader agentic runtime migration
 
 ## Verification
 
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/tools ./internal/projectstate ./internal/terminals ./internal/appspec ./internal/settadocs -run 'Test(SearchIndex|DocumentProjectConfigMetadata|ServiceHistory|DefaultCatalog|Loader)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|SearchMCPToolsUsesDiscoverableToolsAndServerFilters|GetMCPServerRuntimeStatusReturnsClientStatuses|GetProjectConfigNamesAndIDsReturnsSortedMetadata|GetTerminalOutputReturnsBufferedHistory|GetAppCatalogAndListAppComponentsReturnDefaultCatalog|GetSettaDocsLoadsDefaultBundleAndRejectsEscapes)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsUtilityReadInitTools|SupportsAppCatalogReadTools|SupportsGetTerminalOutput|GetSettaDocsRejectsPathEscapes)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsAuthenticatedSSECalls|ServerSupportsUtilityReadToolsOverAuthenticatedSSE|ServerSupportsGetMCPServerRuntimeStatusOverAuthenticatedSSE|ServerSupportsGetTerminalOutputOverAuthenticatedSSE|ServerSupportsTemporaryIDsForGetTerminalOutputOverAuthenticatedSSE|ToolCallRouteSupportsUtilityReadInitTools|ToolCallRouteSupportsGetMCPServerRuntimeStatus|ToolCallRouteSupportsAppCatalogReadTools|ToolCallRouteSupportsGetTerminalOutput|ToolCallRouteGetSettaDocsRejectsPathEscapes|RuntimeStatusRouteReportsConnectedSelfClient)' -count=1 -timeout 420s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'Test(BuildCompletionStatusReport|ServerListsToolsAndScopesToolCalls|ServerReportCompletionStatusBuildsStructuredReportAndRejectsInvalidChecks)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsUtilityReadInitTools|SupportsReportCompletionStatus|SupportsAppCatalogReadTools|SupportsGetTerminalOutput|GetSettaDocsRejectsPathEscapes)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsAuthenticatedSSECalls|ServerSupportsUtilityReadToolsOverAuthenticatedSSE|ServerSupportsReportCompletionStatusOverAuthenticatedSSE|ServerSupportsGetMCPServerRuntimeStatusOverAuthenticatedSSE|ServerSupportsGetTerminalOutputOverAuthenticatedSSE|ServerSupportsTemporaryIDsForGetTerminalOutputOverAuthenticatedSSE|ToolCallRouteSupportsUtilityReadInitTools|ToolCallRouteSupportsReportCompletionStatus|ToolCallRouteSupportsGetMCPServerRuntimeStatus|ToolCallRouteSupportsAppCatalogReadTools|ToolCallRouteSupportsGetTerminalOutput|ToolCallRouteGetSettaDocsRejectsPathEscapes|RuntimeStatusRouteReportsConnectedSelfClient)' -count=1 -timeout 420s`
 
 ## Progress Notes
 
@@ -181,3 +184,5 @@ This is now the highest-leverage next slice because:
   `getTerminalOutput`, `get_app_catalog`, `list_app_components`, and
   `get_setta_docs`, reducing the remaining non-project-state Python MCP gap
   count from 22 to 15.
+- 2026-03-08: completed Go parity for `report_completion_status`, reducing the
+  remaining non-project-state Python MCP gap count from 15 to 14.
