@@ -240,6 +240,19 @@ func newTypeConverter() *typeConverter {
 				{Name: "recursive", Value: "recursive"},
 				{Name: "local", Value: "local"},
 			},
+			reflect.TypeOf(ListRootViewMode("")): {
+				{Name: "default", Value: "default"},
+				{Name: "task_list", Value: "task_list"},
+				{Name: "kanban", Value: "kanban"},
+			},
+			reflect.TypeOf(TextBlockDisplayMode("")): {
+				{Name: "Render", Value: "Render"},
+				{Name: "Edit", Value: "Edit"},
+			},
+			reflect.TypeOf(TextBlockFormat("")): {
+				{Name: "Plaintext", Value: "Plaintext"},
+				{Name: "Markdown", Value: "Markdown"},
+			},
 			reflect.TypeOf(TaskBoardViewMode("")): {
 				{Name: "task_list", Value: "task_list"},
 				{Name: "kanban", Value: "kanban"},
@@ -714,6 +727,211 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "projectConfigId", TypeExpr: "string"},
 				TypeProperty{Name: "sectionId", TypeExpr: "string"},
 				TypeProperty{Name: "state", TypeExpr: "ChatSectionState"},
+			),
+			reflect.TypeOf(BaseSectionImpl{}): objectDeclaration(
+				"BaseSectionImpl",
+				TypeProperty{Name: "type", TypeExpr: "SectionType"},
+				TypeProperty{Name: "id", TypeExpr: "string"},
+				TypeProperty{Name: "name", TypeExpr: "string"},
+				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
+				TypeProperty{Name: "isInOtherProjectConfigs", TypeExpr: "boolean"},
+				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "size", TypeExpr: "SectionSize"},
+				TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
+				TypeProperty{Name: "aspectRatioExtraHeight", TypeExpr: "number"},
+				TypeProperty{Name: "aspectRatioExtraWidth", TypeExpr: "number"},
+				TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
+				TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
+				TypeProperty{Name: "isPreset", TypeExpr: "boolean"},
+				TypeProperty{Name: "children", TypeExpr: "Array<string>", Optional: true},
+				TypeProperty{Name: "codeObjVariantMap", TypeExpr: "Record<string, string>", Optional: true},
+				TypeProperty{Name: "hideUnpinnedParams", TypeExpr: "boolean", Optional: true},
+				TypeProperty{Name: "paramFilter", TypeExpr: "string", Optional: true},
+				TypeProperty{Name: "columnWidth", TypeExpr: "number | null", Optional: true},
+				TypeProperty{Name: "configLanguage", TypeExpr: "string", Optional: true},
+				TypeProperty{Name: "pinnedParams", TypeExpr: "Array<string>", Optional: true},
+				TypeProperty{Name: "selectedParams", TypeExpr: "Array<string>", Optional: true},
+				TypeProperty{Name: "ignoreTypeErrors", TypeExpr: "TypeErrorIgnoreState", Optional: true},
+				TypeProperty{Name: "edgeInputParams", TypeExpr: "Array<string>", Optional: true},
+				TypeProperty{Name: "edgeOutputPorts", TypeExpr: "Array<EdgePort>", Optional: true},
+				TypeProperty{Name: "topLevelParamId", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "isJsonSource", TypeExpr: "boolean", Optional: true},
+				TypeProperty{Name: "jsonSourceKeys", TypeExpr: "Array<string>", Optional: true},
+				TypeProperty{Name: "jsonSourceMissing", TypeExpr: "boolean", Optional: true},
+				TypeProperty{Name: "metaControlParamId", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "showSectionTitle", TypeExpr: "boolean", Optional: true},
+				TypeProperty{Name: "attachedTerminalSectionId", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "code", TypeExpr: "string", Optional: true},
+				TypeProperty{Name: "codeLanguage", TypeExpr: "string", Optional: true},
+				TypeProperty{Name: "codeFileBinding", TypeExpr: "CodeFileBinding | null", Optional: true},
+				TypeProperty{Name: "messages", TypeExpr: "Array<BaseChatMessageUnion>", Optional: true},
+				TypeProperty{Name: "inputText", TypeExpr: "string", Optional: true},
+				TypeProperty{Name: "waitingForResponse", TypeExpr: "boolean", Optional: true},
+				TypeProperty{Name: "toolCallArguments", TypeExpr: "Record<string, string>", Optional: true},
+				TypeProperty{Name: "pluginId", TypeExpr: "string", Optional: true},
+				TypeProperty{Name: "kind", TypeExpr: "string", Optional: true},
+				TypeProperty{Name: "data", TypeExpr: "Record<string, unknown>", Optional: true},
+				TypeProperty{Name: "schemaVersion", TypeExpr: "number | null", Optional: true},
+				TypeProperty{Name: "viewMode", TypeExpr: "ListRootViewMode", Optional: true},
+				TypeProperty{Name: "defaultChildSectionType", TypeExpr: "SectionType", Optional: true},
+				TypeProperty{Name: "isHorizontalOrientation", TypeExpr: "boolean", Optional: true},
+				TypeProperty{Name: "overflowMode", TypeExpr: "boolean", Optional: true},
+				TypeProperty{Name: "hideColumn", TypeExpr: "boolean", Optional: true},
+				TypeProperty{Name: "folder", TypeExpr: "string", Optional: true},
+				TypeProperty{Name: "filePath", TypeExpr: "string", Optional: true},
+				TypeProperty{Name: "activeSheet", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "readOnly", TypeExpr: "boolean", Optional: true},
+				TypeProperty{Name: "showRowNumbers", TypeExpr: "boolean", Optional: true},
+				TypeProperty{Name: "density", TypeExpr: "string", Optional: true},
+				TypeProperty{Name: "autoReloadOnExternalChange", TypeExpr: "boolean", Optional: true},
+				TypeProperty{Name: "text", TypeExpr: "string", Optional: true},
+				TypeProperty{Name: "metaControlStyle", TypeExpr: "boolean", Optional: true},
+				TypeProperty{Name: "imagePath", TypeExpr: "string", Optional: true},
+				TypeProperty{Name: "dataPath", TypeExpr: "string", Optional: true},
+				TypeProperty{Name: "chartSettings", TypeExpr: "BaseChartSettingsUnion", Optional: true},
+			),
+			reflect.TypeOf(UserDefaultListRootSectionImpl{}): objectDeclarationWithCreateExpr(
+				"UserDefaultListRootSectionImpl",
+				`mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+      defaultChildSectionType: SectionTypeEnum.Callable,
+      viewMode: ListRootViewModeEnum.default,
+    },
+    options,
+  )`,
+				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
+				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "size", TypeExpr: "SectionSize"},
+				TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
+				TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
+				TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
+				TypeProperty{Name: "defaultChildSectionType", TypeExpr: "SectionType"},
+				TypeProperty{Name: "viewMode", TypeExpr: "ListRootViewMode"},
+			),
+			reflect.TypeOf(ListRootSectionImpl{}): aliasDeclarationWithFactory(
+				"ListRootSectionImpl",
+				`BaseSectionImpl & {
+  type: typeof SectionTypeEnum.ListRoot;
+  children: Array<string>;
+  defaultChildSectionType: SectionType;
+  viewMode: ListRootViewMode;
+}`,
+				`export function createListRootSectionImpl(
+  defaultsOrOverrides:
+    | Partial<UserDefaultListRootSectionImpl>
+    | Partial<ListRootSectionImpl> = {},
+  overrides?: Partial<ListRootSectionImpl>,
+): ListRootSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultListRootSectionImpl,
+    ListRootSectionImpl
+  >(createUserDefaultListRootSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.ListRoot,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      children: [],
+      defaultChildSectionType: resolved.defaults.defaultChildSectionType,
+      viewMode: resolved.defaults.viewMode,
+    },
+    resolved.overrides,
+  );
+}`,
+			),
+			reflect.TypeOf(UserDefaultTextBlockSectionImpl{}): objectDeclarationWithCreateExpr(
+				"UserDefaultTextBlockSectionImpl",
+				`mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+      size: {
+        width: 500,
+        height: 150,
+      },
+      format: TextBlockFormatEnum.Plaintext,
+      masterFontSizePx: 14,
+      headingAsSectionName: false,
+      metaControlStyle: false,
+      textDisplayMode: TextBlockDisplayModeEnum.Render,
+      text: "",
+    },
+    options,
+  )`,
+				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
+				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "size", TypeExpr: "SectionSize"},
+				TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
+				TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
+				TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
+				TypeProperty{Name: "format", TypeExpr: "TextBlockFormat"},
+				TypeProperty{Name: "masterFontSizePx", TypeExpr: "number"},
+				TypeProperty{Name: "headingAsSectionName", TypeExpr: "boolean"},
+				TypeProperty{Name: "metaControlStyle", TypeExpr: "boolean"},
+				TypeProperty{Name: "textDisplayMode", TypeExpr: "TextBlockDisplayMode"},
+				TypeProperty{Name: "text", TypeExpr: "string"},
+			),
+			reflect.TypeOf(TextBlockSectionImpl{}): aliasDeclarationWithFactory(
+				"TextBlockSectionImpl",
+				`BaseSectionImpl & {
+  type: typeof SectionTypeEnum.TextBlock;
+  format: TextBlockFormat;
+  masterFontSizePx: number;
+  headingAsSectionName: boolean;
+  metaControlStyle: boolean;
+  textDisplayMode: TextBlockDisplayMode;
+  text: string;
+}`,
+				`export function createTextBlockSectionImpl(
+  defaultsOrOverrides:
+    | Partial<UserDefaultTextBlockSectionImpl>
+    | Partial<TextBlockSectionImpl> = {},
+  overrides?: Partial<TextBlockSectionImpl>,
+): TextBlockSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultTextBlockSectionImpl,
+    TextBlockSectionImpl
+  >(createUserDefaultTextBlockSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.TextBlock,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      format: resolved.defaults.format,
+      masterFontSizePx: resolved.defaults.masterFontSizePx,
+      headingAsSectionName: resolved.defaults.headingAsSectionName,
+      metaControlStyle: resolved.defaults.metaControlStyle,
+      textDisplayMode: resolved.defaults.textDisplayMode,
+      text: resolved.defaults.text,
+    },
+    resolved.overrides,
+  );
+}`,
 			),
 			reflect.TypeOf(JSONValue{}): aliasDeclaration(
 				"JSONValue",

@@ -577,6 +577,16 @@ type UserDefaultBrowserSectionImpl struct{}
 
 type BrowserSectionImpl struct{}
 
+type BaseSectionImpl struct{}
+
+type UserDefaultListRootSectionImpl struct{}
+
+type ListRootSectionImpl struct{}
+
+type UserDefaultTextBlockSectionImpl struct{}
+
+type TextBlockSectionImpl struct{}
+
 type UserDefaultTaskBoardSectionImpl struct{}
 
 type TaskBoardSectionImpl struct{}
@@ -878,13 +888,6 @@ export const CodeObjTypeEnum = {
 } as const;
 export type CodeObjType = ObjectValues<typeof CodeObjTypeEnum>;
 
-export const ListRootViewModeEnum = {
-  default: "default",
-  task_list: "task_list",
-  kanban: "kanban",
-} as const;
-export type ListRootViewMode = ObjectValues<typeof ListRootViewModeEnum>;
-
 export const CodeLanguageEnum = {
   python: "python",
   bash: "bash",
@@ -903,20 +906,6 @@ export const ConfigLanguageEnum = {
   json: "json",
 } as const;
 export type ConfigLanguage = ObjectValues<typeof ConfigLanguageEnum>;
-
-export const TextBlockDisplayModeEnum = {
-  Render: "Render",
-  Edit: "Edit",
-} as const;
-export type TextBlockDisplayMode = ObjectValues<
-  typeof TextBlockDisplayModeEnum
->;
-
-export const TextBlockFormatEnum = {
-  Plaintext: "Plaintext",
-  Markdown: "Markdown",
-} as const;
-export type TextBlockFormat = ObjectValues<typeof TextBlockFormatEnum>;
 
 export const ParameterPassingStyleEnum = {
   DEFAULT: "DEFAULT",
@@ -2124,69 +2113,6 @@ export function createCodeParamCodeObjImpl(
   );
 }
 
-export type BaseSectionImpl = {
-  type: SectionType;
-  id: string;
-  name: string;
-  isFrozen: boolean;
-  isInOtherProjectConfigs: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  aspectRatioExtraHeight: number;
-  aspectRatioExtraWidth: number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  isPreset: boolean;
-  children?: Array<string>;
-  codeObjVariantMap?: Record<string, string>;
-  hideUnpinnedParams?: boolean;
-  paramFilter?: string;
-  columnWidth?: number | null;
-  configLanguage?: string;
-  pinnedParams?: Array<string>;
-  selectedParams?: Array<string>;
-  ignoreTypeErrors?: TypeErrorIgnoreState;
-  edgeInputParams?: Array<string>;
-  edgeOutputPorts?: Array<EdgePort>;
-  topLevelParamId?: string | null;
-  isJsonSource?: boolean;
-  jsonSourceKeys?: Array<string>;
-  jsonSourceMissing?: boolean;
-  metaControlParamId?: string | null;
-  showSectionTitle?: boolean;
-  attachedTerminalSectionId?: string | null;
-  code?: string;
-  codeLanguage?: string;
-  codeFileBinding?: CodeFileBinding | null;
-  messages?: Array<BaseChatMessageUnion>;
-  inputText?: string;
-  waitingForResponse?: boolean;
-  toolCallArguments?: Record<string, string>;
-  pluginId?: string;
-  kind?: string;
-  data?: Record<string, unknown>;
-  schemaVersion?: number | null;
-  viewMode?: ListRootViewMode;
-  defaultChildSectionType?: SectionType;
-  isHorizontalOrientation?: boolean;
-  overflowMode?: boolean;
-  hideColumn?: boolean;
-  folder?: string;
-  filePath?: string;
-  activeSheet?: string | null;
-  readOnly?: boolean;
-  showRowNumbers?: boolean;
-  density?: string;
-  autoReloadOnExternalChange?: boolean;
-  text?: string;
-  metaControlStyle?: boolean;
-  imagePath?: string;
-  dataPath?: string;
-  chartSettings?: BaseChartSettingsUnion;
-  [key: string]: unknown;
-};
 export type ChartData = ChartDataValue;
 
 export type ChartDataType = ChartDataValue;
@@ -2245,51 +2171,6 @@ export type UserDefaultCallableSectionImpl = {
   edgeInputParams: Array<string>;
   edgeOutputPorts: Array<EdgePort>;
   hideParams: boolean;
-};
-
-export type ListRootSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.ListRoot;
-  children: Array<string>;
-  defaultChildSectionType: SectionType;
-  viewMode: ListRootViewMode;
-};
-
-export type UserDefaultListRootSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  defaultChildSectionType: SectionType;
-  viewMode: ListRootViewMode;
-};
-
-export type TextBlockSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.TextBlock;
-  format: TextBlockFormat;
-  masterFontSizePx: number;
-  headingAsSectionName: boolean;
-  metaControlStyle: boolean;
-  textDisplayMode: TextBlockDisplayMode;
-  text: string;
-};
-
-export type UserDefaultTextBlockSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  format: TextBlockFormat;
-  masterFontSizePx: number;
-  headingAsSectionName: boolean;
-  metaControlStyle: boolean;
-  textDisplayMode: TextBlockDisplayMode;
-  text: string;
 };
 
 export type CodeSectionImpl = BaseSectionImpl & {
@@ -2543,111 +2424,6 @@ export function createCallableSectionImpl(
       edgeOutputPorts: resolved.defaults.edgeOutputPorts,
       callable: null,
       hideParams: resolved.defaults.hideParams,
-    },
-    resolved.overrides,
-  );
-}
-
-export function createUserDefaultListRootSectionImpl(
-  options: Partial<UserDefaultListRootSectionImpl> = {},
-): UserDefaultListRootSectionImpl {
-  return mergeGeneratedOptions(
-    {
-      ...createGeneratedBaseSectionDefaults(),
-      defaultChildSectionType: SectionTypeEnum.Callable,
-      viewMode: ListRootViewModeEnum.default,
-    },
-    options,
-  );
-}
-
-export function createListRootSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultListRootSectionImpl>
-    | Partial<ListRootSectionImpl> = {},
-  overrides?: Partial<ListRootSectionImpl>,
-): ListRootSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultListRootSectionImpl,
-    ListRootSectionImpl
-  >(createUserDefaultListRootSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.ListRoot,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      children: [],
-      defaultChildSectionType: resolved.defaults.defaultChildSectionType,
-      viewMode: resolved.defaults.viewMode,
-    },
-    resolved.overrides,
-  );
-}
-
-export function createUserDefaultTextBlockSectionImpl(
-  options: Partial<UserDefaultTextBlockSectionImpl> = {},
-): UserDefaultTextBlockSectionImpl {
-  return mergeGeneratedOptions(
-    {
-      ...createGeneratedBaseSectionDefaults(),
-      size: {
-        width: 500,
-        height: 150,
-      },
-      format: TextBlockFormatEnum.Plaintext,
-      masterFontSizePx: 14,
-      headingAsSectionName: false,
-      metaControlStyle: false,
-      textDisplayMode: TextBlockDisplayModeEnum.Render,
-      text: "",
-    },
-    options,
-  );
-}
-
-export function createTextBlockSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultTextBlockSectionImpl>
-    | Partial<TextBlockSectionImpl> = {},
-  overrides?: Partial<TextBlockSectionImpl>,
-): TextBlockSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultTextBlockSectionImpl,
-    TextBlockSectionImpl
-  >(createUserDefaultTextBlockSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.TextBlock,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      format: resolved.defaults.format,
-      masterFontSizePx: resolved.defaults.masterFontSizePx,
-      headingAsSectionName: resolved.defaults.headingAsSectionName,
-      metaControlStyle: resolved.defaults.metaControlStyle,
-      textDisplayMode: resolved.defaults.textDisplayMode,
-      text: resolved.defaults.text,
     },
     resolved.overrides,
   );

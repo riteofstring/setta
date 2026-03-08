@@ -12,6 +12,7 @@ import {
   createCallableSectionImpl,
   createCodeParamCodeObjImpl,
   createCodeSectionImpl,
+  createListRootSectionImpl,
   createDictSectionImpl,
   createSectionSize,
   createTextBlockSectionImpl,
@@ -20,15 +21,19 @@ import {
   createUserDefaultCodeParamCodeObjImpl,
   createUserDefaultCodeSectionImpl,
   createUserDefaultDictSectionImpl,
+  createUserDefaultListRootSectionImpl,
+  createUserDefaultTextBlockSectionImpl,
   createViewModeConfig,
   isBaseDictSectionImpl,
   isBaseParentCodeObjImpl,
+  ListRootViewModeEnum,
   ParamNameTypeEnum,
   ParameterPassingStyleEnum,
   RouteEnum,
   SectionParamCodeObjTypeSet,
   SectionSizeModeEnum,
   SectionTypeEnum,
+  TextBlockDisplayModeEnum,
   TextBlockFormatEnum,
   type BaseSectionImplUnion,
 } from "utils/generatedTypes";
@@ -67,6 +72,43 @@ describe("generated project state factories", () => {
     expect(sectionImpl.code).toBe("echo hi");
     expect(sectionImpl.codeLanguage).toBe(CodeLanguageEnum.bash);
     expect(sectionImpl.children).toEqual(["terminal-1"]);
+  });
+
+  it("exports list-root helpers with canonical defaults and overrides", () => {
+    const sectionImpl = createListRootSectionImpl(
+      createUserDefaultListRootSectionImpl({
+        viewMode: ListRootViewModeEnum.kanban,
+      }),
+      {
+        id: "list-root-impl",
+        children: ["child-1", "child-2"],
+      },
+    );
+
+    expect(sectionImpl.type).toBe(SectionTypeEnum.ListRoot);
+    expect(sectionImpl.id).toBe("list-root-impl");
+    expect(sectionImpl.viewMode).toBe(ListRootViewModeEnum.kanban);
+    expect(sectionImpl.children).toEqual(["child-1", "child-2"]);
+    expect(sectionImpl.defaultChildSectionType).toBe(SectionTypeEnum.Callable);
+  });
+
+  it("applies text-block user defaults before impl overrides", () => {
+    const sectionImpl = createTextBlockSectionImpl(
+      createUserDefaultTextBlockSectionImpl({
+        textDisplayMode: TextBlockDisplayModeEnum.Edit,
+        headingAsSectionName: true,
+      }),
+      {
+        id: "text-impl-2",
+        text: "Updated",
+      },
+    );
+
+    expect(sectionImpl.type).toBe(SectionTypeEnum.TextBlock);
+    expect(sectionImpl.id).toBe("text-impl-2");
+    expect(sectionImpl.textDisplayMode).toBe(TextBlockDisplayModeEnum.Edit);
+    expect(sectionImpl.headingAsSectionName).toBe(true);
+    expect(sectionImpl.text).toBe("Updated");
   });
 
   it("builds callable and code-param helpers from canonical defaults", () => {

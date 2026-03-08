@@ -1200,6 +1200,57 @@ func TestSpreadsheetSupportEnumsUseConverterDeclarations(t *testing.T) {
 	}
 }
 
+func TestProjectStateSectionSupportEnumsUseConverterDeclarations(t *testing.T) {
+	tests := []struct {
+		name   string
+		root   reflect.Type
+		values []EnumValue
+	}{
+		{
+			name: "ListRootViewMode",
+			root: reflect.TypeOf(ListRootViewMode("")),
+			values: []EnumValue{
+				{Name: "default", Value: "default"},
+				{Name: "task_list", Value: "task_list"},
+				{Name: "kanban", Value: "kanban"},
+			},
+		},
+		{
+			name: "TextBlockDisplayMode",
+			root: reflect.TypeOf(TextBlockDisplayMode("")),
+			values: []EnumValue{
+				{Name: "Render", Value: "Render"},
+				{Name: "Edit", Value: "Edit"},
+			},
+		},
+		{
+			name: "TextBlockFormat",
+			root: reflect.TypeOf(TextBlockFormat("")),
+			values: []EnumValue{
+				{Name: "Plaintext", Value: "Plaintext"},
+				{Name: "Markdown", Value: "Markdown"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != "enum" {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, "enum")
+			}
+			if !reflect.DeepEqual(declaration.EnumValues, tt.values) {
+				t.Fatalf("%s enum values = %#v, want %#v", tt.name, declaration.EnumValues, tt.values)
+			}
+		})
+	}
+}
+
 func TestChatSupportContractsUseConverterDeclarations(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -1812,6 +1863,177 @@ func TestSpreadsheetSupportContractsUseConverterDeclarations(t *testing.T) {
   showRowNumbers: boolean;
   density: SpreadsheetGridDensity;
   autoReloadOnExternalChange: boolean;
+}`,
+			hasFactoryTS: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != tt.kind {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, tt.kind)
+			}
+			if declaration.Alias != tt.alias {
+				t.Fatalf("%s alias = %q, want %q", tt.name, declaration.Alias, tt.alias)
+			}
+			if !reflect.DeepEqual(declaration.Properties, tt.properties) {
+				t.Fatalf("%s properties = %#v, want %#v", tt.name, declaration.Properties, tt.properties)
+			}
+			if (declaration.CreateExpr != "") != tt.hasCreateExpr {
+				t.Fatalf("%s CreateExpr presence = %t, want %t", tt.name, declaration.CreateExpr != "", tt.hasCreateExpr)
+			}
+			if (declaration.FactoryTS != "") != tt.hasFactoryTS {
+				t.Fatalf("%s FactoryTS presence = %t, want %t", tt.name, declaration.FactoryTS != "", tt.hasFactoryTS)
+			}
+		})
+	}
+}
+
+func TestProjectStateSectionSupportContractsUseConverterDeclarations(t *testing.T) {
+	tests := []struct {
+		name          string
+		root          reflect.Type
+		kind          string
+		alias         string
+		properties    []TypeProperty
+		hasCreateExpr bool
+		hasFactoryTS  bool
+	}{
+		{
+			name: "BaseSectionImpl",
+			root: reflect.TypeOf(BaseSectionImpl{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "SectionType", Optional: false},
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "name", TypeExpr: "string", Optional: false},
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "isInOtherProjectConfigs", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "aspectRatioExtraHeight", TypeExpr: "number", Optional: false},
+				{Name: "aspectRatioExtraWidth", TypeExpr: "number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "isPreset", TypeExpr: "boolean", Optional: false},
+				{Name: "children", TypeExpr: "Array<string>", Optional: true},
+				{Name: "codeObjVariantMap", TypeExpr: "Record<string, string>", Optional: true},
+				{Name: "hideUnpinnedParams", TypeExpr: "boolean", Optional: true},
+				{Name: "paramFilter", TypeExpr: "string", Optional: true},
+				{Name: "columnWidth", TypeExpr: "number | null", Optional: true},
+				{Name: "configLanguage", TypeExpr: "string", Optional: true},
+				{Name: "pinnedParams", TypeExpr: "Array<string>", Optional: true},
+				{Name: "selectedParams", TypeExpr: "Array<string>", Optional: true},
+				{Name: "ignoreTypeErrors", TypeExpr: "TypeErrorIgnoreState", Optional: true},
+				{Name: "edgeInputParams", TypeExpr: "Array<string>", Optional: true},
+				{Name: "edgeOutputPorts", TypeExpr: "Array<EdgePort>", Optional: true},
+				{Name: "topLevelParamId", TypeExpr: "string | null", Optional: true},
+				{Name: "isJsonSource", TypeExpr: "boolean", Optional: true},
+				{Name: "jsonSourceKeys", TypeExpr: "Array<string>", Optional: true},
+				{Name: "jsonSourceMissing", TypeExpr: "boolean", Optional: true},
+				{Name: "metaControlParamId", TypeExpr: "string | null", Optional: true},
+				{Name: "showSectionTitle", TypeExpr: "boolean", Optional: true},
+				{Name: "attachedTerminalSectionId", TypeExpr: "string | null", Optional: true},
+				{Name: "code", TypeExpr: "string", Optional: true},
+				{Name: "codeLanguage", TypeExpr: "string", Optional: true},
+				{Name: "codeFileBinding", TypeExpr: "CodeFileBinding | null", Optional: true},
+				{Name: "messages", TypeExpr: "Array<BaseChatMessageUnion>", Optional: true},
+				{Name: "inputText", TypeExpr: "string", Optional: true},
+				{Name: "waitingForResponse", TypeExpr: "boolean", Optional: true},
+				{Name: "toolCallArguments", TypeExpr: "Record<string, string>", Optional: true},
+				{Name: "pluginId", TypeExpr: "string", Optional: true},
+				{Name: "kind", TypeExpr: "string", Optional: true},
+				{Name: "data", TypeExpr: "Record<string, unknown>", Optional: true},
+				{Name: "schemaVersion", TypeExpr: "number | null", Optional: true},
+				{Name: "viewMode", TypeExpr: "ListRootViewMode", Optional: true},
+				{Name: "defaultChildSectionType", TypeExpr: "SectionType", Optional: true},
+				{Name: "isHorizontalOrientation", TypeExpr: "boolean", Optional: true},
+				{Name: "overflowMode", TypeExpr: "boolean", Optional: true},
+				{Name: "hideColumn", TypeExpr: "boolean", Optional: true},
+				{Name: "folder", TypeExpr: "string", Optional: true},
+				{Name: "filePath", TypeExpr: "string", Optional: true},
+				{Name: "activeSheet", TypeExpr: "string | null", Optional: true},
+				{Name: "readOnly", TypeExpr: "boolean", Optional: true},
+				{Name: "showRowNumbers", TypeExpr: "boolean", Optional: true},
+				{Name: "density", TypeExpr: "string", Optional: true},
+				{Name: "autoReloadOnExternalChange", TypeExpr: "boolean", Optional: true},
+				{Name: "text", TypeExpr: "string", Optional: true},
+				{Name: "metaControlStyle", TypeExpr: "boolean", Optional: true},
+				{Name: "imagePath", TypeExpr: "string", Optional: true},
+				{Name: "dataPath", TypeExpr: "string", Optional: true},
+				{Name: "chartSettings", TypeExpr: "BaseChartSettingsUnion", Optional: true},
+			},
+		},
+		{
+			name: "UserDefaultListRootSectionImpl",
+			root: reflect.TypeOf(UserDefaultListRootSectionImpl{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "defaultChildSectionType", TypeExpr: "SectionType", Optional: false},
+				{Name: "viewMode", TypeExpr: "ListRootViewMode", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "ListRootSectionImpl",
+			root: reflect.TypeOf(ListRootSectionImpl{}),
+			kind: "alias",
+			alias: `BaseSectionImpl & {
+  type: typeof SectionTypeEnum.ListRoot;
+  children: Array<string>;
+  defaultChildSectionType: SectionType;
+  viewMode: ListRootViewMode;
+}`,
+			hasFactoryTS: true,
+		},
+		{
+			name: "UserDefaultTextBlockSectionImpl",
+			root: reflect.TypeOf(UserDefaultTextBlockSectionImpl{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "format", TypeExpr: "TextBlockFormat", Optional: false},
+				{Name: "masterFontSizePx", TypeExpr: "number", Optional: false},
+				{Name: "headingAsSectionName", TypeExpr: "boolean", Optional: false},
+				{Name: "metaControlStyle", TypeExpr: "boolean", Optional: false},
+				{Name: "textDisplayMode", TypeExpr: "TextBlockDisplayMode", Optional: false},
+				{Name: "text", TypeExpr: "string", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "TextBlockSectionImpl",
+			root: reflect.TypeOf(TextBlockSectionImpl{}),
+			kind: "alias",
+			alias: `BaseSectionImpl & {
+  type: typeof SectionTypeEnum.TextBlock;
+  format: TextBlockFormat;
+  masterFontSizePx: number;
+  headingAsSectionName: boolean;
+  metaControlStyle: boolean;
+  textDisplayMode: TextBlockDisplayMode;
+  text: string;
 }`,
 			hasFactoryTS: true,
 		},
