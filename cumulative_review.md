@@ -392,3 +392,31 @@ Verification:
 - `pnpm -C frontend exec vitest run src/state/actions/projectChatWindowing.test.ts` passed after the Playwright-discovered helper fix: 34 tests.
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes stay bound to their section thread and keep workspace project chat isolated|saved window spaces preserve distinct project chat threads per window in both workspace and standalone views|standalone section windows keep their saved project-ai thread even without a live workspace binding"` passed: 3 tests.
 - CDP verification on the live dev instance confirmed that a canvas chat section switched into `project_ai_mode` rendered its bound section transcript on the workspace canvas, and the standalone `/:projectConfigName/section/:sectionSlug` route rendered the standalone host chrome against that same section binding instead of inheriting workspace-global chat selection.
+
+## 2026-03-10 09:15:31 PDT
+
+Implemented the remaining consolidated review fixes for backend-authoritative window-space persistence, layout permissions in read-only share/deployment sessions, and first-run linked-chat concurrency, then tightened the API contract and backfilled the missing browser-level regression coverage.
+
+What changed:
+- `BaseProjectManager.set_project_chat_windowing_state(...)` now returns the normalized authoritative `ProjectChatWindowingState`, and `create_window_space(...)` now returns the authoritative `WindowSpaceConfig` instead of only an id. The frontend save path in `windowSpaces.ts` now persists from those backend responses rather than re-reading the local store and assuming optimistic reconciliation already matches server normalization.
+- Added manager-side linked-chat section reservation methods that serialize “resolve or reserve” behavior for section chat ids. `invoke_linked_chat(...)` now reserves the section binding before runner startup, marks the reservation authoritative only after a successful start, and releases only still-pending reservations on failure paths.
+- Centralized layout-edit gating in `projectChatWindowing.ts` using share capabilities, blocked project-chat layout mutations when `allowLayoutChanges` is false, and added rollback when optimistic layout writes are rejected.
+- Updated the overview Project AI manager, the bottom dock, and the section window toggle button so read-only share/deployment sessions no longer expose mutating layout affordances or auto-create project chat windows.
+- Tightened the router surface by restoring explicit return types for `route_set_project_chat_windowing_state(...)` and `route_create_window_space(...)` so generated/frontend contracts stay aligned with the new authoritative backend responses.
+- Browser verification exposed a real runtime regression from the permission-gating work: `MinimizedPillStrip` referenced `canEditLayout` without receiving it as a prop. That bug is now fixed and covered by the browser path that actually renders the minimized-pill strip.
+
+UX before/after:
+- Before: saving a window space could persist a locally reconstructed layout that still included floating section bindings the backend had already normalized away. After: save/restore is derived from the backend-normalized layout, so reloads and saved spaces match the real authoritative state.
+- Before: read-only deployment/share sessions could still auto-create chat windows, show `New chat` or window-host actions, and then drift locally after a `403`. After: those sessions present the layout as non-editable from the start and rejected writes roll back cleanly.
+- Before: overlapping first linked-chat invocations for the same section could race and fork the section onto different threads or leave last-writer-wins binding. After: concurrent first-run invocations deterministically reuse one reserved section chat id.
+
+DX before/after:
+- Before: the frontend save test for window spaces relied on a mock that mutated local state in a way production transport never did. After: the save path and its tests both consume the actual backend response contract.
+- Before: layout permission checks were fragmented between individual UI surfaces and optimistic writes could leave local windowing state dirty after a rejected request. After: one shared gate controls layout mutation entry points and the optimistic path has an explicit rollback contract.
+- Before: linked-chat tests did not exercise the real queue boundary where section chat binding races occur. After: the manager exposes explicit reservation lifecycle methods and the affected backend tests assert pending reuse and failure cleanup behavior directly.
+
+Verification:
+- `pnpm -C frontend exec vitest run src/state/actions/windowSpaces.test.ts src/state/actions/projectChatWindowing.permissions.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatManager.test.tsx src/components/Section/Header/SectionWindowToggleButton.test.tsx` passed: 4 files, 23 tests.
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_project_chat_windowing_persistence.py tests/routers/test_mcp_linked_chat_tool.py tests/routers/test_share_policy_routes.py` passed: 44 tests.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/layout/project-chat-layout-permissions.spec.ts` passed.
+- CDP verification on the live dev instance confirmed that seeding a read-only share state with empty project chat windowing produced no project-chat surface, no bottom-dock create control, no `New chat` action, and no mutating Project AI manager controls.

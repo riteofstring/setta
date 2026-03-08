@@ -24,7 +24,6 @@ import {
   WindowSpaceSurfaceKindEnum,
   createProjectChatWindowInstance,
   createProjectChatWindowingState,
-  createWindowSpaceConfig,
   createWindowSpaceState,
   createWindowSpaceWindow,
   type ProjectChatWindowingState,
@@ -714,7 +713,11 @@ export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<
     return null;
   }
   const latestState = useProjectState.getState();
-  const authoritativeSnapshot = normalizeWindowSpaceForPersistence(latestState);
+  const authoritativeSnapshot = snapshotFloatingWindowsForWindowSpace({
+    projectChatWindowing: syncResponse.data,
+    projectConfig: latestState.projectConfig,
+    sections: latestState.sections,
+  });
   if (Object.keys(authoritativeSnapshot.windowsById).length === 0) {
     return null;
   }
@@ -745,20 +748,10 @@ export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<
   }
   useProjectState.setState((currentState) => {
     const windowSpaces = currentState.projectConfig.windowSpaces;
-    if (windowSpaces[response.data]) {
+    if (windowSpaces[response.data.id]) {
       return;
     }
-    let nextSortIndex = 0;
-    for (const windowSpace of Object.values(windowSpaces)) {
-      nextSortIndex = Math.max(nextSortIndex, windowSpace.sortIndex + 1);
-    }
-    windowSpaces[response.data] = createWindowSpaceConfig({
-      id: response.data,
-      name: nextWindowSpaceName,
-      sortIndex: nextSortIndex,
-      windowsById: authoritativeSnapshot.windowsById,
-      order: authoritativeSnapshot.order,
-    });
+    windowSpaces[response.data.id] = response.data;
   });
-  return response.data;
+  return response.data.id;
 }

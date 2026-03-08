@@ -38,6 +38,7 @@ from setta.project_state.project_manager_types import (
     SetListRootViewModeRequest,
     SetParamEnteredValueRequest,
     SetParentDefaultChildSectionTypeRequest,
+    SetProjectChatWindowingStateRequest,
     SetSectionNameRequest,
     SetSocialUrlRequest,
     SetSpreadsheetFilePathRequest,
@@ -98,6 +99,7 @@ from setta.routers.project_manager import (
     route_set_list_root_view_mode,
     route_set_param_entered_value,
     route_set_parent_default_child_section_type,
+    route_set_project_chat_windowing_state,
     route_set_section_name,
     route_set_social_url,
     route_set_spreadsheet_file_path,
@@ -150,6 +152,9 @@ from setta.types.project_config import (
     WindowSpaceWindow,
 )
 from setta.types.project_state import (
+    ChatWindowMode,
+    ChatWindowPlacement,
+    ProjectChatWindowInstance,
     ProjectChatWindowingState,
     ProjectStateBackend,
     ProjectStateCore,
@@ -1232,7 +1237,27 @@ class TestSharePolicyRoutes:
                 },
                 order=["project-chat-window-1"],
             )
+            next_project_chat_windowing = ProjectChatWindowingState(
+                instancesById={
+                    "project-chat-window-1": ProjectChatWindowInstance(
+                        instanceId="project-chat-window-1",
+                        placement=ChatWindowPlacement.floating,
+                        mode=ChatWindowMode.project_ai_mode,
+                        title="Research Chat",
+                    )
+                },
+                order=["project-chat-window-1"],
+                nextInstanceNumber=2,
+            )
             requests = [
+                (
+                    "set_project_chat_windowing_state",
+                    route_set_project_chat_windowing_state,
+                    SetProjectChatWindowingStateRequest(
+                        projectConfigId=project_config_id,
+                        state=next_project_chat_windowing,
+                    ),
+                ),
                 (
                     "create_window_space",
                     route_create_window_space,
@@ -1301,9 +1326,30 @@ class TestSharePolicyRoutes:
                 },
                 order=["project-chat-window-1"],
             )
+            next_project_chat_windowing = ProjectChatWindowingState(
+                instancesById={
+                    "project-chat-window-1": ProjectChatWindowInstance(
+                        instanceId="project-chat-window-1",
+                        placement=ChatWindowPlacement.floating,
+                        mode=ChatWindowMode.project_ai_mode,
+                        title="Research Chat",
+                    )
+                },
+                order=["project-chat-window-1"],
+                nextInstanceNumber=2,
+            )
 
             with runtime_context(state, session.id) as runtime_ctx:
-                created_window_space_id = await route_create_window_space(
+                normalized_windowing = await route_set_project_chat_windowing_state(
+                    SetProjectChatWindowingStateRequest(
+                        projectConfigId=project_config_id,
+                        state=next_project_chat_windowing,
+                    ),
+                    runtime_ctx,
+                )
+                assert normalized_windowing.order == ["project-chat-window-1"]
+
+                created_window_space = await route_create_window_space(
                     CreateWindowSpaceRequest(
                         projectConfigId=project_config_id,
                         state=next_window_state,
@@ -1311,17 +1357,17 @@ class TestSharePolicyRoutes:
                     ),
                     runtime_ctx,
                 )
-                assert created_window_space_id
+                assert created_window_space.id
 
                 await route_set_window_space_name(
                     SetWindowSpaceNameRequest(
                         projectConfigId=project_config_id,
-                        windowSpaceId=created_window_space_id,
+                        windowSpaceId=created_window_space.id,
                         name="Renamed Layout",
                     ),
                     runtime_ctx,
                 )
-                second_window_space_id = await route_create_window_space(
+                second_window_space = await route_create_window_space(
                     CreateWindowSpaceRequest(
                         projectConfigId=project_config_id,
                         state=WindowSpaceState(),
@@ -1334,8 +1380,8 @@ class TestSharePolicyRoutes:
                     SetWindowSpaceSortOrderRequest(
                         projectConfigId=project_config_id,
                         orderedWindowSpaceIds=[
-                            second_window_space_id,
-                            created_window_space_id,
+                            second_window_space.id,
+                            created_window_space.id,
                         ],
                     ),
                     runtime_ctx,
@@ -1344,7 +1390,7 @@ class TestSharePolicyRoutes:
                 await route_delete_window_space(
                     DeleteWindowSpaceRequest(
                         projectConfigId=project_config_id,
-                        windowSpaceId=second_window_space_id,
+                        windowSpaceId=second_window_space.id,
                     ),
                     runtime_ctx,
                 )
@@ -1354,8 +1400,9 @@ class TestSharePolicyRoutes:
                 project_config_id,
             )
             created_window_space = session_state.projectConfig.windowSpaces[
-                created_window_space_id
+                created_window_space.id
             ]
+            assert session_state.projectChatWindowing.order == ["project-chat-window-1"]
             assert created_window_space.name == "Renamed Layout"
             assert created_window_space.sortIndex == 0
             assert created_window_space.order == ["project-chat-window-1"]
@@ -1364,7 +1411,7 @@ class TestSharePolicyRoutes:
                 == "Research Chat"
             )
             assert (
-                second_window_space_id not in session_state.projectConfig.windowSpaces
+                second_window_space.id not in session_state.projectConfig.windowSpaces
             )
 
     async def test_window_space_routes_return_404_for_missing_window_space_ids(

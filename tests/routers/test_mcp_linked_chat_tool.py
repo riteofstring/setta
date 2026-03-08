@@ -16,6 +16,7 @@ from setta.agentic.store import (
     save_external_agent_configs,
 )
 from setta.database.db_objs import DBE
+from setta.database.utils import create_new_id
 from setta.mcp.server import SettaFastMCP
 from setta.mcp.tool_registry import ensure_setta_mcp_tools_loaded
 from setta.mcp.utils import convert_canonical_ids_to_temporary
@@ -68,6 +69,9 @@ class _DummyLinkedChatProjectManager:
         )
         self.history = SimpleNamespace(revision=0)
         self.set_chat_section_chat_id_calls: list[tuple[ID, ID, ID | None]] = []
+        self._linked_chat_section_reservations: dict[
+            tuple[ID, ID], dict[str, object]
+        ] = {}
 
     @property
     def project_state_backend(self) -> ProjectStateBackend:
@@ -86,6 +90,88 @@ class _DummyLinkedChatProjectManager:
             payload.sectionId,
             payload.chatId,
         )
+        self._backend = merge_single_config_into_backend(self._backend, project_state)
+        self.history.revision += 1
+
+    async def reserve_linked_chat_section_chat_id(
+        self,
+        project_config_id: ID,
+        section_id: ID,
+    ) -> ID:
+        project_state = convert_backend_to_single_config(self._backend, project_config_id)
+        current_chat_id = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            section_id,
+            ChatSectionImpl,
+        ).chatId
+        reservation_key = (project_config_id, section_id)
+        reservation = self._linked_chat_section_reservations.get(reservation_key)
+        if (
+            reservation is not None
+            and current_chat_id is not None
+            and reservation["chat_id"] == current_chat_id
+        ):
+            reservation["pending_claims"] = int(reservation["pending_claims"]) + 1
+            self.set_chat_section_chat_id_calls.append(
+                (project_config_id, section_id, current_chat_id)
+            )
+            return current_chat_id
+        if current_chat_id is not None:
+            self.set_chat_section_chat_id_calls.append(
+                (project_config_id, section_id, current_chat_id)
+            )
+            return current_chat_id
+
+        next_chat_id = create_new_id()
+        set_chat_section_chat_id(project_state, section_id, next_chat_id)
+        self._backend = merge_single_config_into_backend(self._backend, project_state)
+        self._linked_chat_section_reservations[reservation_key] = {
+            "chat_id": next_chat_id,
+            "pending_claims": 1,
+            "has_started_run": False,
+        }
+        self.set_chat_section_chat_id_calls.append(
+            (project_config_id, section_id, next_chat_id)
+        )
+        self.history.revision += 1
+        return next_chat_id
+
+    async def mark_linked_chat_section_chat_start_succeeded(
+        self,
+        project_config_id: ID,
+        section_id: ID,
+        chat_id: ID,
+    ) -> None:
+        reservation = self._linked_chat_section_reservations.get(
+            (project_config_id, section_id)
+        )
+        if reservation is None or reservation["chat_id"] != chat_id:
+            return
+        reservation["pending_claims"] = int(reservation["pending_claims"]) - 1
+        reservation["has_started_run"] = True
+        if int(reservation["pending_claims"]) == 0:
+            del self._linked_chat_section_reservations[(project_config_id, section_id)]
+
+    async def release_linked_chat_section_chat_start_failure(
+        self,
+        project_config_id: ID,
+        section_id: ID,
+        chat_id: ID,
+    ) -> None:
+        reservation_key = (project_config_id, section_id)
+        reservation = self._linked_chat_section_reservations.get(reservation_key)
+        if reservation is None or reservation["chat_id"] != chat_id:
+            return
+        reservation["pending_claims"] = int(reservation["pending_claims"]) - 1
+        if int(reservation["pending_claims"]) > 0:
+            return
+
+        del self._linked_chat_section_reservations[reservation_key]
+        if bool(reservation["has_started_run"]):
+            return
+
+        project_state = convert_backend_to_single_config(self._backend, project_config_id)
+        set_chat_section_chat_id(project_state, section_id, None)
         self._backend = merge_single_config_into_backend(self._backend, project_state)
         self.history.revision += 1
 
@@ -590,7 +676,9 @@ async def test_tools_call_invoke_linked_chat_rejects_mixed_engine_history(
         == "Chat engine mismatch; start a new chat."
     )
     assert agent_runner.calls == []
-    assert manager.set_chat_section_chat_id_calls == []
+    assert manager.set_chat_section_chat_id_calls == [
+        (project_config_id, target_section_id, ID("linked-thread-1"))
+    ]
 
 
 @pytest.mark.asyncio
@@ -746,7 +834,9 @@ async def test_tools_call_invoke_linked_chat_rejects_scriptable_history(
         == "Chat engine mismatch; start a new chat."
     )
     assert agent_runner.calls == []
-    assert manager.set_chat_section_chat_id_calls == []
+    assert manager.set_chat_section_chat_id_calls == [
+        (project_config_id, target_section_id, ID("linked-thread-1"))
+    ]
 
 
 @pytest.mark.asyncio
@@ -854,7 +944,11 @@ async def test_tools_call_invoke_linked_chat_does_not_bind_chat_when_managed_sta
     assert payload["structuredContent"]["reason"] == "run_start_failed"
     assert payload["structuredContent"]["message"] == "synthetic startup failure"
     assert agent_runner.calls
-    assert manager.set_chat_section_chat_id_calls == []
+    assert len(manager.set_chat_section_chat_id_calls) == 1
+    assert manager.set_chat_section_chat_id_calls[0][:2] == (
+        project_config_id,
+        target_section_id,
+    )
     project_state = convert_backend_to_single_config(
         manager.project_state_backend,
         project_config_id,
@@ -977,7 +1071,11 @@ async def test_tools_call_invoke_linked_chat_does_not_bind_chat_when_external_st
         payload["structuredContent"]["message"] == "synthetic external startup failure"
     )
     assert external_runner.calls
-    assert manager.set_chat_section_chat_id_calls == []
+    assert len(manager.set_chat_section_chat_id_calls) == 1
+    assert manager.set_chat_section_chat_id_calls[0][:2] == (
+        project_config_id,
+        target_section_id,
+    )
     project_state = convert_backend_to_single_config(
         manager.project_state_backend,
         project_config_id,

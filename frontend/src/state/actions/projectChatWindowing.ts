@@ -13,6 +13,7 @@ import {
   NULL_PROJECT_CONFIG_ID,
   useAIStore,
   useProjectState,
+  useShareSession,
   type ZustandProjectState,
 } from "state/definitions";
 import { route_set_project_chat_windowing_state } from "utils/generatedEndpoints";
@@ -122,6 +123,14 @@ function getProjectChatWindowingStateFromStore(
   state: ZustandProjectState,
 ): ProjectChatWindowingState {
   return state.projectChatWindowing;
+}
+
+function canMutateProjectChatWindowingLayout(): boolean {
+  const shareSession = useShareSession.getState();
+  return (
+    !shareSession.isDeploymentMode ||
+    shareSession.sharePolicy?.allowLayoutChanges !== false
+  );
 }
 
 function shouldSyncActiveProjectChatId(
@@ -523,6 +532,9 @@ export function ensureTrackedGitPaneGraphWindow({
   title?: string | null;
   nowMs?: number;
 } = {}): string {
+  if (!canMutateProjectChatWindowingLayout()) {
+    return "";
+  }
   const normalizedTitle = title?.trim() ? title.trim() : "Git Graph";
   const state = useProjectState.getState();
   const projectConfigId = state.projectConfig.id;
@@ -1308,6 +1320,8 @@ function setProjectChatWindowingStateInStore(
   nextProjectChatWindowing: ProjectChatWindowingState,
 ): void {
   const projectConfigId = getCurrProjectConfigId();
+  const previousProjectChatWindowing =
+    useProjectState.getState().projectChatWindowing;
   if (projectConfigId) {
     reconcileProjectChatWindowingEphemeralState(
       nextProjectChatWindowing,
@@ -1324,6 +1338,13 @@ function setProjectChatWindowingStateInStore(
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       state.projectChatWindowing = nextProjectChatWindowing;
+    },
+    rollback: (state) => {
+      reconcileProjectChatWindowingEphemeralState(
+        previousProjectChatWindowing,
+        projectConfigId,
+      );
+      state.projectChatWindowing = previousProjectChatWindowing;
     },
     send: (frontendOpId) => {
       const request = route_set_project_chat_windowing_state({
@@ -1349,6 +1370,9 @@ export async function flushPendingProjectChatWindowingWrites(): Promise<void> {
 export function replaceProjectChatWindowingState(
   nextProjectChatWindowing: ProjectChatWindowingState,
 ): void {
+  if (!canMutateProjectChatWindowingLayout()) {
+    return;
+  }
   resetProjectChatGitGraphEmbeddedPaneVisibility();
   setProjectChatWindowingStateInStore(nextProjectChatWindowing);
 }
@@ -1356,6 +1380,9 @@ export function replaceProjectChatWindowingState(
 export function createProjectChatWindowInstance(
   options: CreateProjectChatWindowInstanceOptions = {},
 ): string {
+  if (!canMutateProjectChatWindowingLayout()) {
+    return "";
+  }
   const state = useProjectState.getState();
   const currentWindowing = getProjectChatWindowingStateFromStore(state);
   const next = addProjectChatWindowInstanceInState(currentWindowing, options);
@@ -1367,6 +1394,9 @@ export function setProjectChatWindowPlacement(
   instanceId: string,
   placement: ChatWindowPlacement,
 ): void {
+  if (!canMutateProjectChatWindowingLayout()) {
+    return;
+  }
   const projectConfigId = getCurrProjectConfigId();
   if (placement !== ChatWindowPlacementEnum.maximized) {
     clearTrackedGitPaneGraphWindowIfMatches(projectConfigId, instanceId);
@@ -1385,6 +1415,9 @@ export function setProjectChatWindowPlacement(
 }
 
 export function maximizeProjectChatWindow(instanceId: string): void {
+  if (!canMutateProjectChatWindowingLayout()) {
+    return;
+  }
   const state = useProjectState.getState();
   const currentWindowing = getProjectChatWindowingStateFromStore(state);
   const next = maximizeProjectChatWindowInState(currentWindowing, instanceId);
@@ -1395,6 +1428,9 @@ export function maximizeProjectChatWindow(instanceId: string): void {
 }
 
 export function unmaximizeProjectChatWindow(instanceId: string): void {
+  if (!canMutateProjectChatWindowingLayout()) {
+    return;
+  }
   clearTrackedGitPaneGraphWindowIfMatches(getCurrProjectConfigId(), instanceId);
   const state = useProjectState.getState();
   const currentWindowing = getProjectChatWindowingStateFromStore(state);
@@ -1406,6 +1442,9 @@ export function unmaximizeProjectChatWindow(instanceId: string): void {
 }
 
 export function closeProjectChatWindow(instanceId: string): void {
+  if (!canMutateProjectChatWindowingLayout()) {
+    return;
+  }
   clearTrackedGitPaneGraphWindowIfMatches(getCurrProjectConfigId(), instanceId);
   const state = useProjectState.getState();
   const currentWindowing = getProjectChatWindowingStateFromStore(state);
@@ -1417,6 +1456,9 @@ export function closeProjectChatWindow(instanceId: string): void {
 }
 
 export function minimizeProjectChatWindow(instanceId: string): void {
+  if (!canMutateProjectChatWindowingLayout()) {
+    return;
+  }
   clearTrackedGitPaneGraphWindowIfMatches(getCurrProjectConfigId(), instanceId);
   const state = useProjectState.getState();
   const currentWindowing = getProjectChatWindowingStateFromStore(state);
@@ -1428,6 +1470,9 @@ export function minimizeProjectChatWindow(instanceId: string): void {
 }
 
 export function reopenProjectChatWindow(instanceId: string): void {
+  if (!canMutateProjectChatWindowingLayout()) {
+    return;
+  }
   const state = useProjectState.getState();
   const currentWindowing = getProjectChatWindowingStateFromStore(state);
   const next = reopenProjectChatWindowInState(currentWindowing, instanceId);
@@ -1441,6 +1486,9 @@ export function focusProjectChatWindow(
   instanceId: string,
   nowMs: number = Date.now(),
 ): void {
+  if (!canMutateProjectChatWindowingLayout()) {
+    return;
+  }
   const state = useProjectState.getState();
   const currentWindowing = getProjectChatWindowingStateFromStore(state);
   const next = focusProjectChatWindowInState(
@@ -1463,6 +1511,9 @@ export function focusProjectChatWindow(
 export function setProjectChatWindowDockFractions(
   options: SetDockFractionsOptions,
 ): void {
+  if (!canMutateProjectChatWindowingLayout()) {
+    return;
+  }
   const state = useProjectState.getState();
   const currentWindowing = getProjectChatWindowingStateFromStore(state);
   const next = setProjectChatWindowDockFractionsInState(
@@ -1479,6 +1530,9 @@ export function setProjectChatWindowBounds(
   instanceId: string,
   bounds: SetBoundsOptions,
 ): void {
+  if (!canMutateProjectChatWindowingLayout()) {
+    return;
+  }
   clearTrackedGitPaneGraphWindowIfMatches(getCurrProjectConfigId(), instanceId);
   const state = useProjectState.getState();
   const currentWindowing = getProjectChatWindowingStateFromStore(state);
@@ -1496,6 +1550,9 @@ export function setProjectChatWindowBounds(
 export function setProjectChatWindowBoundsById(
   boundsByInstanceId: SetBoundsByInstanceIdOptions,
 ): void {
+  if (!canMutateProjectChatWindowingLayout()) {
+    return;
+  }
   const projectConfigId = getCurrProjectConfigId();
   for (const instanceId of Object.keys(boundsByInstanceId)) {
     clearTrackedGitPaneGraphWindowIfMatches(projectConfigId, instanceId);
@@ -1516,6 +1573,9 @@ export function setProjectChatWindowTitle(
   instanceId: string,
   title: string | null,
 ): void {
+  if (!canMutateProjectChatWindowingLayout()) {
+    return;
+  }
   const state = useProjectState.getState();
   const currentWindowing = getProjectChatWindowingStateFromStore(state);
   const next = setProjectChatWindowTitleInState(
@@ -1556,6 +1616,9 @@ export function setProjectChatWindowChatId(
 export async function bootProjectChatWindowToCanvasSection(
   instanceId: string,
 ): Promise<string | null> {
+  if (!canMutateProjectChatWindowingLayout()) {
+    return null;
+  }
   const state = useProjectState.getState();
   const currentWindowing = getProjectChatWindowingStateFromStore(state);
   const currentInstance = currentWindowing.instancesById[instanceId];
@@ -1618,6 +1681,9 @@ export function showSectionInProjectChatWindow(
   sectionId: string,
   placement: ChatWindowPlacement = ChatWindowPlacementEnum.floating,
 ): void {
+  if (!canMutateProjectChatWindowingLayout()) {
+    return;
+  }
   const state = useProjectState.getState();
   const currentWindowing = getProjectChatWindowingStateFromStore(state);
   const next = showSectionInProjectChatWindowInState(
@@ -1636,6 +1702,9 @@ export function showSectionInProjectChatWindow(
 export function undockProjectChatWindowFromCanvasSection(
   instanceId: string,
 ): void {
+  if (!canMutateProjectChatWindowingLayout()) {
+    return;
+  }
   const state = useProjectState.getState();
   const currentWindowing = getProjectChatWindowingStateFromStore(state);
   const currentInstance = currentWindowing.instancesById[instanceId];
@@ -1659,6 +1728,9 @@ export function setProjectChatWindowModeForSection(
   sectionId: string,
   mode: ChatWindowMode,
 ): void {
+  if (!canMutateProjectChatWindowingLayout()) {
+    return;
+  }
   const state = useProjectState.getState();
   const currentWindowing = getProjectChatWindowingStateFromStore(state);
   const next = setProjectChatWindowModeForSectionInState(

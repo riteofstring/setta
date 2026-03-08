@@ -22,14 +22,22 @@ let mockProjectState: MockProjectState = {
   projectChatWindowing: createProjectChatWindowingState(),
   sections: {},
 };
+let mockCanEditLayout = true;
 
 vi.mock("state/definitions", () => ({
   useProjectState: (selector: (state: MockProjectState) => unknown) =>
     selector(mockProjectState),
 }));
 
+vi.mock("state/hooks/share", () => ({
+  useShareCapabilities: () => ({
+    canEditLayout: mockCanEditLayout,
+  }),
+}));
+
 describe("ProjectChatManager", () => {
   beforeEach(() => {
+    mockCanEditLayout = true;
     const renamedWindow = createProjectChatWindowInstance({
       instanceId: "project-chat-window-2",
       placement: ChatWindowPlacementEnum.floating,
@@ -63,5 +71,18 @@ describe("ProjectChatManager", () => {
     expect(markup).toContain("Git Graph");
     expect(markup).not.toContain("Chat Window 2");
     expect(markup).not.toContain("Chat Window 3");
+  });
+
+  it("hides layout mutators when share capabilities disallow layout edits", () => {
+    mockCanEditLayout = false;
+
+    const markup = renderToStaticMarkup(<ProjectChatManager />);
+
+    expect(markup).not.toContain("New chat");
+    expect(markup).not.toContain(">Canvas<");
+    expect(markup).not.toContain(">Float<");
+    expect(markup).not.toContain(">Hide<");
+    expect(markup).not.toContain(">Reopen<");
+    expect(markup).not.toContain(">Focus<");
   });
 });

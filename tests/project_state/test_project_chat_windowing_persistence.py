@@ -1,14 +1,23 @@
+import asyncio
+
 import pytest
-from setta.project_state.project_manager_types import SaveAsNewProjectConfigRequest
+from setta.project_state.project_manager_types import (
+    CreateWindowSpaceRequest,
+    SaveAsNewProjectConfigRequest,
+    SetProjectChatWindowingStateRequest,
+)
+from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
 from setta.types.helpers_lvl3 import (
     convert_backend_to_single_config,
     merge_single_config_into_backend,
 )
 from setta.types.helpers_lvl2 import create_top_level_section
+from setta.types.id import ID
 from setta.types.project_config import (
     Position,
     ProjectConfig,
     WindowSpaceConfig,
+    WindowSpaceState,
     WindowSpaceWindow,
 )
 from setta.types.project_state import (
@@ -20,7 +29,7 @@ from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
 )
-from setta.types.section_impls import SectionType
+from setta.types.section_impls import ChatSectionImpl, SectionType
 from setta.types.generated.settings_state import SettingsState
 
 from tests.utils.manager_fixture import real_project_manager
@@ -139,6 +148,312 @@ async def test_load_project_config_requires_authoritative_windowing() -> None:
             match="Missing project chat windowing state",
         ):
             await manager.load_project_config(project_config_id)
+
+
+@pytest.mark.asyncio
+async def test_set_project_chat_windowing_state_returns_backend_normalized_state() -> (
+    None
+):
+    # The authoritative sync response must reflect backend normalization, not the raw request payload.
+    async with real_project_manager() as fixture:
+        manager = fixture.manager
+        project_config_id = manager.project_state_backend.defaultProjectConfigId
+        if project_config_id is None:
+            raise AssertionError("Expected a default project config id.")
+        project_state = manager.get_single_config_state(project_config_id)
+        section_id = create_top_level_section(
+            SettingsState(),
+            project_state,
+            SectionType.Chat,
+            Position(),
+        )
+        await manager.update(project_state)
+
+        authoritative = await manager.set_project_chat_windowing_state(
+            SetProjectChatWindowingStateRequest(
+                projectConfigId=project_config_id,
+                state=ProjectChatWindowingState(
+                    instancesById={
+                        "project-chat-window-1": ProjectChatWindowInstance(
+                            instanceId="project-chat-window-1",
+                            placement=ChatWindowPlacement.floating,
+                            mode=ChatWindowMode.project_ai_mode,
+                            title="Workspace Chat",
+                            zIndex=1,
+                            bounds=ChatWindowBounds(
+                                x=48,
+                                y=64,
+                                width=520,
+                                height=360,
+                            ),
+                        ),
+                        "project-chat-window-2": ProjectChatWindowInstance(
+                            instanceId="project-chat-window-2",
+                            placement=ChatWindowPlacement.canvas_section,
+                            mode=ChatWindowMode.section_mode,
+                            sectionIdOrNull=section_id,
+                            zIndex=2,
+                        ),
+                        "project-chat-window-3": ProjectChatWindowInstance(
+                            instanceId="project-chat-window-3",
+                            placement=ChatWindowPlacement.floating,
+                            mode=ChatWindowMode.section_mode,
+                            sectionIdOrNull=section_id,
+                            zIndex=3,
+                            bounds=ChatWindowBounds(
+                                x=640,
+                                y=96,
+                                width=420,
+                                height=300,
+                            ),
+                        ),
+                    },
+                    order=[
+                        "project-chat-window-1",
+                        "project-chat-window-3",
+                        "project-chat-window-2",
+                    ],
+                    nextInstanceNumber=4,
+                ),
+            )
+        )
+
+        assert authoritative.order == [
+            "project-chat-window-1",
+            "project-chat-window-2",
+        ]
+        assert set(authoritative.instancesById.keys()) == {
+            "project-chat-window-1",
+            "project-chat-window-2",
+        }
+        assert "project-chat-window-3" not in authoritative.instancesById
+
+
+@pytest.mark.asyncio
+async def test_create_window_space_from_authoritative_windowing_excludes_stale_section_float() -> (
+    None
+):
+    # Saving from the normalized response should not reintroduce the dropped floating section window.
+    async with real_project_manager() as fixture:
+        manager = fixture.manager
+        project_config_id = manager.project_state_backend.defaultProjectConfigId
+        if project_config_id is None:
+            raise AssertionError("Expected a default project config id.")
+        project_state = manager.get_single_config_state(project_config_id)
+        section_id = create_top_level_section(
+            SettingsState(),
+            project_state,
+            SectionType.Chat,
+            Position(),
+        )
+        await manager.update(project_state)
+
+        authoritative = await manager.set_project_chat_windowing_state(
+            SetProjectChatWindowingStateRequest(
+                projectConfigId=project_config_id,
+                state=ProjectChatWindowingState(
+                    instancesById={
+                        "project-chat-window-1": ProjectChatWindowInstance(
+                            instanceId="project-chat-window-1",
+                            placement=ChatWindowPlacement.floating,
+                            mode=ChatWindowMode.project_ai_mode,
+                            title="Workspace Chat",
+                            zIndex=1,
+                            bounds=ChatWindowBounds(
+                                x=48,
+                                y=64,
+                                width=520,
+                                height=360,
+                            ),
+                        ),
+                        "project-chat-window-2": ProjectChatWindowInstance(
+                            instanceId="project-chat-window-2",
+                            placement=ChatWindowPlacement.canvas_section,
+                            mode=ChatWindowMode.section_mode,
+                            sectionIdOrNull=section_id,
+                            zIndex=2,
+                        ),
+                        "project-chat-window-3": ProjectChatWindowInstance(
+                            instanceId="project-chat-window-3",
+                            placement=ChatWindowPlacement.floating,
+                            mode=ChatWindowMode.section_mode,
+                            sectionIdOrNull=section_id,
+                            zIndex=3,
+                            bounds=ChatWindowBounds(
+                                x=640,
+                                y=96,
+                                width=420,
+                                height=300,
+                            ),
+                        ),
+                    },
+                    order=[
+                        "project-chat-window-1",
+                        "project-chat-window-3",
+                        "project-chat-window-2",
+                    ],
+                    nextInstanceNumber=4,
+                ),
+            )
+        )
+        authoritative_snapshot = WindowSpaceState(
+            windowsById={
+                instance_id: WindowSpaceWindow(
+                    title=instance.title,
+                    sectionIdOrNull=instance.sectionIdOrNull,
+                    mode=instance.mode,
+                    zIndex=instance.zIndex,
+                    normalizedBounds={
+                        "x": 0.1,
+                        "y": 0.1,
+                        "width": 0.5,
+                        "height": 0.5,
+                    },
+                )
+                for instance_id, instance in authoritative.instancesById.items()
+                if instance.placement == ChatWindowPlacement.floating
+            },
+            order=[
+                instance_id
+                for instance_id in authoritative.order
+                if authoritative.instancesById[instance_id].placement
+                == ChatWindowPlacement.floating
+            ],
+        )
+
+        created_window_space = await manager.create_window_space(
+            CreateWindowSpaceRequest(
+                projectConfigId=project_config_id,
+                state=authoritative_snapshot,
+                name="Focused Layout",
+            )
+        )
+
+        assert created_window_space.order == ["project-chat-window-1"]
+        assert set(created_window_space.windowsById.keys()) == {
+            "project-chat-window-1"
+        }
+        assert "project-chat-window-3" not in created_window_space.windowsById
+        persisted_window_space = manager.get_single_config_state(
+            project_config_id
+        ).projectConfig.windowSpaces[created_window_space.id]
+        assert persisted_window_space.order == ["project-chat-window-1"]
+
+
+@pytest.mark.asyncio
+async def test_reserve_linked_chat_section_chat_id_reuses_one_pending_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Concurrent first-run reservations must converge on one chat id and allocate it once.
+    async with real_project_manager() as fixture:
+        manager = fixture.manager
+        project_config_id = manager.project_state_backend.defaultProjectConfigId
+        if project_config_id is None:
+            raise AssertionError("Expected a default project config id.")
+        project_state = manager.get_single_config_state(project_config_id)
+        section_id = create_top_level_section(
+            SettingsState(),
+            project_state,
+            SectionType.Chat,
+            Position(),
+        )
+        await manager.update(project_state)
+
+        allocated_ids: list[ID] = []
+
+        def _fake_create_new_id() -> ID:
+            next_id = ID("reserved-chat-1")
+            allocated_ids.append(next_id)
+            return next_id
+
+        monkeypatch.setattr(
+            "setta.project_state.base_project_manager.create_new_id",
+            _fake_create_new_id,
+        )
+
+        first_chat_id, second_chat_id = await asyncio.gather(
+            manager.reserve_linked_chat_section_chat_id(project_config_id, section_id),
+            manager.reserve_linked_chat_section_chat_id(project_config_id, section_id),
+        )
+
+        assert first_chat_id == ID("reserved-chat-1")
+        assert second_chat_id == ID("reserved-chat-1")
+        assert allocated_ids == [ID("reserved-chat-1")]
+        current_project_state = manager.get_single_config_state(project_config_id)
+        assert (
+            get_curr_effective_section_impl_with_type_guard(
+                current_project_state,
+                section_id,
+                ChatSectionImpl,
+            ).chatId
+            == ID("reserved-chat-1")
+        )
+
+
+@pytest.mark.asyncio
+async def test_release_linked_chat_section_chat_start_failure_clears_only_unstarted_binding() -> (
+    None
+):
+    # Failed admissions should clear fresh reservations, but keep the binding once another caller started a run.
+    async with real_project_manager() as fixture:
+        manager = fixture.manager
+        project_config_id = manager.project_state_backend.defaultProjectConfigId
+        if project_config_id is None:
+            raise AssertionError("Expected a default project config id.")
+        project_state = manager.get_single_config_state(project_config_id)
+        section_id = create_top_level_section(
+            SettingsState(),
+            project_state,
+            SectionType.Chat,
+            Position(),
+        )
+        await manager.update(project_state)
+
+        failed_chat_id = await manager.reserve_linked_chat_section_chat_id(
+            project_config_id,
+            section_id,
+        )
+        await manager.release_linked_chat_section_chat_start_failure(
+            project_config_id,
+            section_id,
+            failed_chat_id,
+        )
+        current_project_state = manager.get_single_config_state(project_config_id)
+        assert (
+            get_curr_effective_section_impl_with_type_guard(
+                current_project_state,
+                section_id,
+                ChatSectionImpl,
+            ).chatId
+            is None
+        )
+
+        first_pending_chat_id, second_pending_chat_id = await asyncio.gather(
+            manager.reserve_linked_chat_section_chat_id(project_config_id, section_id),
+            manager.reserve_linked_chat_section_chat_id(project_config_id, section_id),
+        )
+        assert first_pending_chat_id == second_pending_chat_id
+
+        await manager.mark_linked_chat_section_chat_start_succeeded(
+            project_config_id,
+            section_id,
+            first_pending_chat_id,
+        )
+        await manager.release_linked_chat_section_chat_start_failure(
+            project_config_id,
+            section_id,
+            second_pending_chat_id,
+        )
+
+        current_project_state = manager.get_single_config_state(project_config_id)
+        assert (
+            get_curr_effective_section_impl_with_type_guard(
+                current_project_state,
+                section_id,
+                ChatSectionImpl,
+            ).chatId
+            == first_pending_chat_id
+        )
 
 
 @pytest.mark.asyncio

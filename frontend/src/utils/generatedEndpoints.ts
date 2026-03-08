@@ -917,7 +917,7 @@ export async function route_delete_view_mode(
 
 export async function route_create_window_space(
   x: gt.CreateWindowSpaceRequestInput,
-): Promise<ResponseDataAndStatus<string>> {
+): Promise<ResponseDataAndStatus<gt.WindowSpaceConfig>> {
   return await post("/createWindowSpace", x);
 }
 
@@ -1477,7 +1477,7 @@ export async function route_set_chat_section_state(
 
 export async function route_set_project_chat_windowing_state(
   x: gt.SetProjectChatWindowingStateRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
+): Promise<ResponseDataAndStatus<gt.ProjectChatWindowingState>> {
   return await post("/setProjectChatWindowingState", x);
 }
 

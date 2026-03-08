@@ -5,6 +5,7 @@ import {
   showSectionInProjectChatWindow,
 } from "state/actions/projectChatWindowing";
 import { useProjectState } from "state/definitions";
+import { useShareCapabilities } from "state/hooks/share";
 import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
 
 const SECTION_HEADER_WINDOW_BUTTON_CLASS =
@@ -39,6 +40,7 @@ export function SectionWindowToggleButton({
   isRoot,
   hasSectionStyleTheme,
 }: SectionWindowToggleButtonProps) {
+  const { canEditLayout } = useShareCapabilities();
   const externalizedWindowInstance = useProjectState((state) =>
     getOpenExternalProjectChatWindowInstanceForSectionInState(
       state.projectChatWindowing,
@@ -46,7 +48,7 @@ export function SectionWindowToggleButton({
     ),
   );
 
-  if (!supportsSectionWindowing(sectionTypeName, isRoot)) {
+  if (!canEditLayout || !supportsSectionWindowing(sectionTypeName, isRoot)) {
     return null;
   }
 

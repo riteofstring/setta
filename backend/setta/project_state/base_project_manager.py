@@ -7,6 +7,7 @@ import logging
 import shutil
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from functools import wraps
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import (
@@ -53,6 +54,7 @@ from setta.code_gen.dependency_graph import (
 from setta.code_gen.utils import sanitize_slug
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
+from setta.database.utils import create_new_id
 from setta.file_watchers.specific_file_watcher import (
     SpecificFileWatcher,
 )
@@ -611,6 +613,13 @@ def _is_lsp_code_entry(
     return isinstance(code_entry, (ProjectPythonCode, ProjectLSPCode))
 
 
+@dataclass(slots=True)
+class _LinkedChatSectionReservation:
+    chat_id: ID
+    pending_claims: int
+    has_started_run: bool = False
+
+
 class BaseProjectManager(ABC):
     def __init__(
         self,
@@ -689,6 +698,9 @@ class BaseProjectManager(ABC):
         self._deferred_json_source_loads: dict[str, set[tuple[str, str]]] = {}
         self.pending_rename_results: dict[
             str, tuple[str, list[RenameReferenceChangedValue]]
+        ] = {}
+        self._linked_chat_section_reservations: dict[
+            tuple[ID, ID], _LinkedChatSectionReservation
         ] = {}
         self._bootstrap_watch_code_baselines()
         self.watch_code_manager.sync_from_backend(self.project_state_backend)
@@ -4579,7 +4591,9 @@ class BaseProjectManager(ABC):
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
-    async def create_window_space(self, x: CreateWindowSpaceRequest) -> ID:
+    async def create_window_space(
+        self, x: CreateWindowSpaceRequest
+    ) -> WindowSpaceConfig:
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         next_sort_index = (
@@ -4612,7 +4626,7 @@ class BaseProjectManager(ABC):
         project_state.projectConfig.windowSpaces[window_space.id] = window_space
         project_state.validate_window_spaces()
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
-        return window_space.id
+        return project_state.projectConfig.windowSpaces[window_space.id]
 
     @enqueue_method
     async def set_window_space_name(self, x: SetWindowSpaceNameRequest) -> None:
@@ -4943,6 +4957,7 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_project_chat_windowing_state(project_state, x.state)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        return project_state.projectChatWindowing
 
     @enqueue_method
     async def set_social_url(self, x: SetSocialUrlRequest):
@@ -4987,6 +5002,94 @@ class BaseProjectManager(ABC):
     async def set_chat_section_chat_id(self, x: SetChatSectionChatIdRequest) -> None:
         project_state = self.get_single_config_state(x.projectConfigId)
         set_chat_section_chat_id(project_state, x.sectionId, x.chatId)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def reserve_linked_chat_section_chat_id(
+        self, project_config_id: ID, section_id: ID
+    ) -> ID:
+        reservation_key = (project_config_id, section_id)
+        project_state = self.get_single_config_state(project_config_id)
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            section_id,
+            ChatSectionImpl,
+        )
+        current_chat_id = section_impl.chatId
+        reservation = self._linked_chat_section_reservations.get(reservation_key)
+        if (
+            reservation is not None
+            and current_chat_id is not None
+            and reservation.chat_id == current_chat_id
+        ):
+            reservation.pending_claims += 1
+            return reservation.chat_id
+        if current_chat_id is not None:
+            return current_chat_id
+
+        next_chat_id = create_new_id()
+        set_chat_section_chat_id(project_state, section_id, next_chat_id)
+        self._linked_chat_section_reservations[reservation_key] = (
+            _LinkedChatSectionReservation(
+                chat_id=next_chat_id,
+                pending_claims=1,
+            )
+        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        return next_chat_id
+
+    @enqueue_method
+    async def mark_linked_chat_section_chat_start_succeeded(
+        self,
+        project_config_id: ID,
+        section_id: ID,
+        chat_id: ID,
+    ) -> None:
+        reservation_key = (project_config_id, section_id)
+        reservation = self._linked_chat_section_reservations.get(reservation_key)
+        if reservation is None or reservation.chat_id != chat_id:
+            return
+        if reservation.pending_claims < 1:
+            raise ValueError(
+                "Linked chat reservation success reported with no pending claim."
+            )
+        reservation.pending_claims -= 1
+        reservation.has_started_run = True
+        if reservation.pending_claims == 0:
+            del self._linked_chat_section_reservations[reservation_key]
+
+    @enqueue_method
+    async def release_linked_chat_section_chat_start_failure(
+        self,
+        project_config_id: ID,
+        section_id: ID,
+        chat_id: ID,
+    ) -> None:
+        reservation_key = (project_config_id, section_id)
+        reservation = self._linked_chat_section_reservations.get(reservation_key)
+        if reservation is None or reservation.chat_id != chat_id:
+            return
+        if reservation.pending_claims < 1:
+            raise ValueError(
+                "Linked chat reservation failure reported with no pending claim."
+            )
+        reservation.pending_claims -= 1
+        if reservation.pending_claims > 0:
+            return
+
+        del self._linked_chat_section_reservations[reservation_key]
+        if reservation.has_started_run:
+            return
+
+        project_state = self.get_single_config_state(project_config_id)
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            section_id,
+            ChatSectionImpl,
+        )
+        if section_impl.chatId != chat_id:
+            return
+        set_chat_section_chat_id(project_state, section_id, None)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     async def _apply_listener_emit_updates_to_state(

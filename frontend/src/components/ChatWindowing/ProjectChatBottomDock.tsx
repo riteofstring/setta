@@ -76,6 +76,7 @@ import {
   useSettings,
   useShareSession,
 } from "state/definitions";
+import { useShareCapabilities } from "state/hooks/share";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
 import {
   ChatWindowModeEnum,
@@ -782,6 +783,7 @@ type MinimizedPillStripProps = {
   menuPills: ResolvedWindowPill[];
   pillExitAnimationsById: Record<string, ChatWindowPillExitAnimationKind>;
   useCompactPills: boolean;
+  canEditLayout: boolean;
   canCycleBackward: boolean;
   canCycleForward: boolean;
   maxCycleStartIndex: number;
@@ -801,6 +803,7 @@ function MinimizedPillStrip({
   menuPills,
   pillExitAnimationsById,
   useCompactPills,
+  canEditLayout,
   canCycleBackward,
   canCycleForward,
   maxCycleStartIndex,
@@ -1031,17 +1034,19 @@ function MinimizedPillStrip({
         </button>
       ) : null}
       <div className="flex min-w-0 items-end justify-end gap-1 overflow-hidden">
-        <button
-          type="button"
-          className={createTabClassName}
-          ref={setStripItemNode("create")}
-          onClick={onCreateWindow}
-          aria-label="Create chat window"
-          data-testid="project-chat-bottom-dock-create"
-          title="Create chat window"
-        >
-          <MdAdd size={14} />
-        </button>
+        {canEditLayout ? (
+          <button
+            type="button"
+            className={createTabClassName}
+            ref={setStripItemNode("create")}
+            onClick={onCreateWindow}
+            aria-label="Create chat window"
+            data-testid="project-chat-bottom-dock-create"
+            title="Create chat window"
+          >
+            <MdAdd size={14} />
+          </button>
+        ) : null}
         {pillDisplayMode === "menu" ? (
           <DropdownMenu.Root modal={false}>
             <DropdownMenu.Trigger asChild>
@@ -1180,6 +1185,7 @@ function MinimizedPillStrip({
 
 export function ProjectChatBottomDock() {
   const hasViewModeTabs = useHasViewModeTabs();
+  const { canEditLayout } = useShareCapabilities();
   const { isDeploymentMode, allowLLM } = useShareSession((state) => ({
     isDeploymentMode: state.isDeploymentMode,
     allowLLM: state.sharePolicy?.allowLLM ?? false,
@@ -1311,6 +1317,9 @@ export function ProjectChatBottomDock() {
     if (!showChatWindowing) {
       return;
     }
+    if (!canEditLayout) {
+      return;
+    }
     if (!autoCreateInitialChat) {
       return;
     }
@@ -1325,7 +1334,13 @@ export function ProjectChatBottomDock() {
     }
     autoCreateProjectConfigIdRef.current = projectConfigId;
     createProjectChatWindowInstance();
-  }, [autoCreateInitialChat, order.length, projectConfigId, showChatWindowing]);
+  }, [
+    autoCreateInitialChat,
+    canEditLayout,
+    order.length,
+    projectConfigId,
+    showChatWindowing,
+  ]);
 
   useEffect(() => {
     const viewportNode = pillViewportRef.current;
@@ -2001,10 +2016,16 @@ export function ProjectChatBottomDock() {
   const showStandaloneMinimizedPills = !showDockedChatSurface;
 
   const handleCreate = useCallback(() => {
+    if (!canEditLayout) {
+      return;
+    }
     const instanceId = createProjectChatWindowInstance();
+    if (!instanceId) {
+      return;
+    }
     focusProjectChatWindow(instanceId);
     setIsCanvasVisibilitySuppressed(false);
-  }, []);
+  }, [canEditLayout]);
 
   const clearWindowExitAnimation = useCallback((instanceId: string) => {
     const activeTimeoutId = windowExitTimeoutsRef.current[instanceId];
@@ -3673,6 +3694,7 @@ export function ProjectChatBottomDock() {
                 menuPills={dockMenuPills}
                 pillExitAnimationsById={pillExitAnimationsById}
                 useCompactPills={useCompactPills}
+                canEditLayout={canEditLayout}
                 canCycleBackward={canCycleBackward}
                 canCycleForward={canCycleForward}
                 maxCycleStartIndex={maxCycleStartIndex}
@@ -4699,6 +4721,7 @@ export function ProjectChatBottomDock() {
             menuPills={dockMenuPills}
             pillExitAnimationsById={pillExitAnimationsById}
             useCompactPills={useCompactPills}
+            canEditLayout={canEditLayout}
             canCycleBackward={canCycleBackward}
             canCycleForward={canCycleForward}
             maxCycleStartIndex={maxCycleStartIndex}

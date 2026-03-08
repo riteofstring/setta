@@ -11,8 +11,6 @@ from setta.agentic.chat_view import (
 )
 from setta.agentic.engine_resolver import resolve_engine_config
 from setta.agentic.store import require_agent_profile
-from setta.database.utils import create_new_id
-from setta.project_state.project_manager_types import SetChatSectionChatIdRequest
 from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus, EngineType
 from setta.types.chat_messages import MessageTextContent, UserChatMessage
 from setta.types.external_agents import ExternalAgentToolType
@@ -32,18 +30,40 @@ _REQUIRED_ERROR_CHECK_PROMPT = (
 )
 
 
-async def _persist_linked_chat_section_binding(
+async def _reserve_linked_chat_section_binding(
+    manager: Any,
+    project_config_id: ID,
+    section_id: ID,
+) -> ID:
+    return await manager.reserve_linked_chat_section_chat_id(
+        project_config_id,
+        section_id,
+    )
+
+
+async def _mark_linked_chat_section_binding_started(
     manager: Any,
     project_config_id: ID,
     section_id: ID,
     chat_id: ID,
 ) -> None:
-    await manager.set_chat_section_chat_id(
-        SetChatSectionChatIdRequest(
-            projectConfigId=project_config_id,
-            sectionId=section_id,
-            chatId=chat_id,
-        )
+    await manager.mark_linked_chat_section_chat_start_succeeded(
+        project_config_id,
+        section_id,
+        chat_id,
+    )
+
+
+async def _release_linked_chat_section_binding_failure(
+    manager: Any,
+    project_config_id: ID,
+    section_id: ID,
+    chat_id: ID,
+) -> None:
+    await manager.release_linked_chat_section_chat_start_failure(
+        project_config_id,
+        section_id,
+        chat_id,
     )
 
 
@@ -179,7 +199,48 @@ async def invoke_linked_chat(
             reason="invalid_engine_config",
             message=str(exc),
         )
-    chat_id = target_section_impl.chatId or create_new_id()
+    if resolved_engine.engine_config.engineType == EngineType.setta_llm:
+        runner = ctx.fastmcp.state.agent_runner
+        if runner.disabled:
+            return _build_error_result(
+                target_section_id=target_section_id,
+                reason="runner_unavailable",
+                message="Agent runner is not available for linked chat invocation.",
+            )
+    elif resolved_engine.engine_config.engineType == EngineType.external_agent:
+        runner = ctx.fastmcp.state.external_agent_runner
+        if runner.disabled:
+            return _build_error_result(
+                target_section_id=target_section_id,
+                reason="runner_unavailable",
+                message=(
+                    "External agent runner is not available for linked chat invocation."
+                ),
+            )
+        external_config = resolved_engine.external_agent_config
+        if external_config is None:
+            return _build_error_result(
+                target_section_id=target_section_id,
+                reason="missing_external_config",
+                message=(
+                    f"Linked chat '{target_label}' is missing its external agent configuration."
+                ),
+            )
+    else:
+        return _build_error_result(
+            target_section_id=target_section_id,
+            reason="unsupported_engine_type",
+            message=(
+                f"Linked chat '{target_label}' uses unsupported engine type "
+                f"{resolved_engine.engine_config.engineType}."
+            ),
+        )
+
+    chat_id = await _reserve_linked_chat_section_binding(
+        manager,
+        agentic_context.project_config_id,
+        target_section_id,
+    )
     try:
         prior_messages = get_prior_messages_for_chat_engine(
             dbe=ctx.fastmcp.state.dbe,
@@ -189,6 +250,12 @@ async def invoke_linked_chat(
             engine_config_id=effective_engine_config_id,
         )
     except ValueError as exc:
+        await _release_linked_chat_section_binding_failure(
+            manager,
+            agentic_context.project_config_id,
+            target_section_id,
+            chat_id,
+        )
         return _build_error_result(
             target_section_id=target_section_id,
             reason="chat_history_conflict",
@@ -219,13 +286,6 @@ async def invoke_linked_chat(
 
     completed_run: AgentRun
     if resolved_engine.engine_config.engineType == EngineType.setta_llm:
-        runner = ctx.fastmcp.state.agent_runner
-        if runner.disabled:
-            return _build_error_result(
-                target_section_id=target_section_id,
-                reason="runner_unavailable",
-                message="Agent runner is not available for linked chat invocation.",
-            )
         profile = selected_profile
         if profile is None:
             profile = AgentProfile(
@@ -254,12 +314,18 @@ async def invoke_linked_chat(
                 emit_ai_follow=False,
             )
         except (KeyError, ValueError) as exc:
+            await _release_linked_chat_section_binding_failure(
+                manager,
+                agentic_context.project_config_id,
+                target_section_id,
+                chat_id,
+            )
             return _build_error_result(
                 target_section_id=target_section_id,
                 reason="run_start_failed",
                 message=str(exc),
             )
-        await _persist_linked_chat_section_binding(
+        await _mark_linked_chat_section_binding_started(
             manager,
             agentic_context.project_config_id,
             target_section_id,
@@ -267,24 +333,6 @@ async def invoke_linked_chat(
         )
         completed_run = await runner.wait_for_run(run.id)
     elif resolved_engine.engine_config.engineType == EngineType.external_agent:
-        runner = ctx.fastmcp.state.external_agent_runner
-        if runner.disabled:
-            return _build_error_result(
-                target_section_id=target_section_id,
-                reason="runner_unavailable",
-                message=(
-                    "External agent runner is not available for linked chat invocation."
-                ),
-            )
-        external_config = resolved_engine.external_agent_config
-        if external_config is None:
-            return _build_error_result(
-                target_section_id=target_section_id,
-                reason="missing_external_config",
-                message=(
-                    f"Linked chat '{target_label}' is missing its external agent configuration."
-                ),
-            )
         _apply_external_reasoning_defaults(
             inputs=linked_chat_inputs,
             tool_type=external_config.toolType,
@@ -314,27 +362,24 @@ async def invoke_linked_chat(
                 linked_chat_inputs,
             )
         except (KeyError, ValueError) as exc:
+            await _release_linked_chat_section_binding_failure(
+                manager,
+                agentic_context.project_config_id,
+                target_section_id,
+                chat_id,
+            )
             return _build_error_result(
                 target_section_id=target_section_id,
                 reason="run_start_failed",
                 message=str(exc),
             )
-        await _persist_linked_chat_section_binding(
+        await _mark_linked_chat_section_binding_started(
             manager,
             agentic_context.project_config_id,
             target_section_id,
             chat_id,
         )
         completed_run = await runner.wait_for_run(run.id)
-    else:
-        return _build_error_result(
-            target_section_id=target_section_id,
-            reason="unsupported_engine_type",
-            message=(
-                f"Linked chat '{target_label}' uses unsupported engine type "
-                f"{resolved_engine.engine_config.engineType}."
-            ),
-        )
     return _build_success_result(
         target_label=target_label,
         target_section_id=target_section_id,

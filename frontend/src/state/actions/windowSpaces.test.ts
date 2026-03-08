@@ -12,6 +12,7 @@ import {
   createCore,
   createProjectChatWindowingState,
   createProjectConfig,
+  createWindowSpaceConfig,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -44,6 +45,27 @@ import {
   snapshotFloatingWindowsForWindowSpace,
 } from "./windowSpaces";
 
+function buildCreatedWindowSpaceResponse(request: {
+  name: string;
+  state: {
+    windowsById: Record<string, unknown>;
+    order: Array<string>;
+  };
+  id?: string;
+}) {
+  return {
+    data: createWindowSpaceConfig({
+      id: request.id ?? "window-space-1",
+      name: request.name,
+      sortIndex: 0,
+      windowsById: request.state.windowsById,
+      order: request.state.order,
+    }),
+    status: 200,
+    hasResponse: true,
+  };
+}
+
 describe("snapshotFloatingWindowsForWindowSpace", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -51,11 +73,13 @@ describe("snapshotFloatingWindowsForWindowSpace", () => {
     routeSetWindowSpaceSortOrderMock.mockReset();
     routeSetProjectChatWindowingStateMock.mockReset();
     addTemporaryNotificationMock.mockReset();
-    routeSetProjectChatWindowingStateMock.mockResolvedValue({
-      data: null,
-      status: 200,
-      hasResponse: true,
-    });
+    routeSetProjectChatWindowingStateMock.mockImplementation(
+      async (request) => ({
+        data: request.state,
+        status: 200,
+        hasResponse: true,
+      }),
+    );
   });
 
   it("serializes only visible floating windows with normalized bounds", () => {
@@ -450,11 +474,13 @@ describe("applyWindowSpaceSortOrder", () => {
     routeSetWindowSpaceSortOrderMock.mockReset();
     routeSetProjectChatWindowingStateMock.mockReset();
     addTemporaryNotificationMock.mockReset();
-    routeSetProjectChatWindowingStateMock.mockResolvedValue({
-      data: null,
-      status: 200,
-      hasResponse: true,
-    });
+    routeSetProjectChatWindowingStateMock.mockImplementation(
+      async (request) => ({
+        data: request.state,
+        status: 200,
+        hasResponse: true,
+      }),
+    );
   });
 
   it("applies a complete ordered list of window space ids", () => {
@@ -532,32 +558,36 @@ describe("createWindowSpaceFromCurrentFloatingWindows", () => {
     routeSetWindowSpaceSortOrderMock.mockReset();
     routeSetProjectChatWindowingStateMock.mockReset();
     addTemporaryNotificationMock.mockReset();
-    routeSetProjectChatWindowingStateMock.mockResolvedValue({
-      data: null,
-      status: 200,
-      hasResponse: true,
-    });
+    routeSetProjectChatWindowingStateMock.mockImplementation(
+      async (request) => ({
+        data: request.state,
+        status: 200,
+        hasResponse: true,
+      }),
+    );
   });
 
   it("waits for in-flight project chat windowing writes before saving the current layout", async () => {
     let resolveWindowingWrite:
-      | ((value: { status: number; hasResponse: boolean; data: null }) => void)
+      | ((value: {
+          status: number;
+          hasResponse: boolean;
+          data: ReturnType<typeof createProjectChatWindowingState>;
+        }) => void)
       | null = null;
     const pendingWindowingWrite = new Promise<{
       status: number;
       hasResponse: boolean;
-      data: null;
+      data: ReturnType<typeof createProjectChatWindowingState>;
     }>((resolve) => {
       resolveWindowingWrite = resolve;
     });
     routeSetProjectChatWindowingStateMock.mockReturnValue(
       pendingWindowingWrite,
     );
-    routeCreateWindowSpaceMock.mockResolvedValue({
-      data: "window-space-1",
-      status: 200,
-      hasResponse: true,
-    });
+    routeCreateWindowSpaceMock.mockImplementation(async (request) =>
+      buildCreatedWindowSpaceResponse(request),
+    );
     useProjectState.setState({
       projectConfig: createProjectConfig({
         id: "project-id",
@@ -594,7 +624,7 @@ describe("createWindowSpaceFromCurrentFloatingWindows", () => {
     expect(routeCreateWindowSpaceMock).not.toHaveBeenCalled();
 
     resolveWindowingWrite?.({
-      data: null,
+      data: useProjectState.getState().projectChatWindowing,
       status: 200,
       hasResponse: true,
     });
@@ -637,11 +667,9 @@ describe("createWindowSpaceFromCurrentFloatingWindows", () => {
         },
       }),
     });
-    routeCreateWindowSpaceMock.mockResolvedValue({
-      data: "window-space-1",
-      status: 200,
-      hasResponse: true,
-    });
+    routeCreateWindowSpaceMock.mockImplementation(async (request) =>
+      buildCreatedWindowSpaceResponse(request),
+    );
 
     const createdWindowSpaceId =
       await createWindowSpaceFromCurrentFloatingWindows();
@@ -719,15 +747,20 @@ describe("createWindowSpaceFromCurrentFloatingWindows", () => {
         id: "project-id",
         name: "demo",
       }),
-      sections: {},
+      sections: {
+        "section-1": createCore({
+          id: "section-1",
+          name: "Research Notes",
+        }),
+      },
       projectChatWindowing: createProjectChatWindowingState({
-        order: ["floating-before-sync"],
+        order: ["floating-project", "floating-section"],
         instancesById: {
-          "floating-before-sync": {
-            instanceId: "floating-before-sync",
+          "floating-project": {
+            instanceId: "floating-project",
             placement: ChatWindowPlacementEnum.floating,
             mode: ChatWindowModeEnum.project_ai_mode,
-            title: "Before Sync",
+            title: "Workspace Chat",
             bounds: {
               x: 120,
               y: 80,
@@ -735,56 +768,65 @@ describe("createWindowSpaceFromCurrentFloatingWindows", () => {
               height: 360,
             },
           },
+          "floating-section": {
+            instanceId: "floating-section",
+            placement: ChatWindowPlacementEnum.floating,
+            mode: ChatWindowModeEnum.section_mode,
+            sectionIdOrNull: "section-1",
+            bounds: {
+              x: 420,
+              y: 120,
+              width: 420,
+              height: 320,
+            },
+          },
         },
       }),
     });
-    routeSetProjectChatWindowingStateMock.mockImplementation(async () => {
-      useProjectState.setState({
-        projectConfig: createProjectConfig({
-          id: "project-id",
-          name: "demo",
-        }),
-        sections: {},
-        projectChatWindowing: createProjectChatWindowingState({
-          order: ["floating-after-sync"],
-          instancesById: {
-            "floating-after-sync": {
-              instanceId: "floating-after-sync",
-              placement: ChatWindowPlacementEnum.floating,
-              mode: ChatWindowModeEnum.project_ai_mode,
-              title: "After Sync",
-              bounds: {
-                x: 40,
-                y: 60,
-                width: 420,
-                height: 320,
-              },
+    routeSetProjectChatWindowingStateMock.mockResolvedValue({
+      data: createProjectChatWindowingState({
+        order: ["floating-project", "canvas-section"],
+        instancesById: {
+          "floating-project": {
+            instanceId: "floating-project",
+            placement: ChatWindowPlacementEnum.floating,
+            mode: ChatWindowModeEnum.project_ai_mode,
+            title: "Workspace Chat",
+            bounds: {
+              x: 120,
+              y: 80,
+              width: 500,
+              height: 360,
             },
           },
-        }),
-      });
-      return {
-        data: null,
-        status: 200,
-        hasResponse: true,
-      };
-    });
-    routeCreateWindowSpaceMock.mockResolvedValue({
-      data: "window-space-1",
+          "canvas-section": {
+            instanceId: "canvas-section",
+            placement: ChatWindowPlacementEnum.canvas_section,
+            mode: ChatWindowModeEnum.section_mode,
+            sectionIdOrNull: "section-1",
+          },
+        },
+      }),
       status: 200,
       hasResponse: true,
     });
+    routeCreateWindowSpaceMock.mockImplementation(async (request) =>
+      buildCreatedWindowSpaceResponse(request),
+    );
 
     await expect(createWindowSpaceFromCurrentFloatingWindows()).resolves.toBe(
       "window-space-1",
     );
 
     const createRequest = routeCreateWindowSpaceMock.mock.calls[0]?.[0];
-    expect(createRequest?.state.order).toEqual(["floating-after-sync"]);
+    expect(createRequest?.state.order).toEqual(["floating-project"]);
     expect(
       useProjectState.getState().projectConfig.windowSpaces["window-space-1"]
         ?.order,
-    ).toEqual(["floating-after-sync"]);
+    ).toEqual(["floating-project"]);
+    expect(
+      createRequest?.state.windowsById["floating-section"],
+    ).toBeUndefined();
   });
 
   it("shows an error notification when syncing the workspace layout fails before saving", async () => {

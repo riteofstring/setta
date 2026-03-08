@@ -170,6 +170,8 @@ from setta.types.clipboard import SectionsClipboardData
 from setta.types.code_obj_impls import PasswordParamCodeObjImpl
 from setta.types.helpers_lvl1 import get_curr_effective_code_obj_impl_with_type_guard
 from setta.types.lsp import SettaLspDiagnosticsPayload
+from setta.types.project_config import WindowSpaceConfig
+from setta.types.project_state import ProjectChatWindowingState
 from setta.types.routes import Route
 from setta.types.section_impls import SectionType
 from setta.utils.errors import (
@@ -524,7 +526,7 @@ async def route_delete_view_mode(
 @router.post(Route.CREATE_WINDOW_SPACE)
 async def route_create_window_space(
     x: CreateWindowSpaceRequest, ctx: RuntimeContextFromRequest
-) -> str:
+) -> WindowSpaceConfig:
     await _enforce_window_space_layout_policy(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     try:
@@ -1440,10 +1442,10 @@ async def route_set_chat_section_state(
 @router.post(Route.SET_PROJECT_CHAT_WINDOWING_STATE)
 async def route_set_project_chat_windowing_state(
     x: SetProjectChatWindowingStateRequest, ctx: RuntimeContextFromRequest
-):
+) -> ProjectChatWindowingState:
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
-    await manager.set_project_chat_windowing_state(x)
+    return await manager.set_project_chat_windowing_state(x)
 
 
 @router.post(Route.GET_CHAT_SECTION_CHAT_ID)

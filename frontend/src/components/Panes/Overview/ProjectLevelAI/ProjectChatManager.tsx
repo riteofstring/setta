@@ -10,6 +10,7 @@ import {
   undockProjectChatWindowFromCanvasSection,
 } from "state/actions/projectChatWindowing";
 import { useProjectState } from "state/definitions";
+import { useShareCapabilities } from "state/hooks/share";
 import {
   ChatWindowPlacementEnum,
   type ChatWindowMode,
@@ -39,6 +40,7 @@ function formatPlacementLabel(
 }
 
 export function ProjectChatManager() {
+  const { canEditLayout } = useShareCapabilities();
   const { order, instancesById, sectionNamesById } = useProjectState(
     (state) => ({
       order: state.projectChatWindowing.order,
@@ -79,16 +81,21 @@ export function ProjectChatManager() {
           Project chat windows open docked on the right and minimize into the
           bottom tray.
         </p>
-        <button
-          type="button"
-          onClick={() => {
-            const instanceId = createProjectChatWindowInstance();
-            focusProjectChatWindow(instanceId);
-          }}
-          className="inline-flex h-7 items-center gap-1 rounded-md border border-setta-300 bg-setta-50 px-2 text-xs font-semibold text-setta-700 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:bg-setta-850 dark:text-setta-200 dark:hover:bg-setta-800"
-        >
-          <MdAdd size={14} /> New chat
-        </button>
+        {canEditLayout ? (
+          <button
+            type="button"
+            onClick={() => {
+              const instanceId = createProjectChatWindowInstance();
+              if (!instanceId) {
+                return;
+              }
+              focusProjectChatWindow(instanceId);
+            }}
+            className="inline-flex h-7 items-center gap-1 rounded-md border border-setta-300 bg-setta-50 px-2 text-xs font-semibold text-setta-700 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:bg-setta-850 dark:text-setta-200 dark:hover:bg-setta-800"
+          >
+            <MdAdd size={14} /> New chat
+          </button>
+        ) : null}
       </div>
       {rows.length === 0 ? (
         <div className="rounded-md border border-dashed border-setta-300 bg-setta-50/60 px-3 py-2 text-xs text-setta-600 dark:border-setta-700 dark:bg-setta-900/40 dark:text-setta-300">
@@ -116,37 +123,60 @@ export function ProjectChatManager() {
                     {formatPlacementLabel(row.placement)} | z-index {row.zIndex}
                   </p>
                 </div>
-                <div className="flex items-center gap-1">
-                  {row.placement === ChatWindowPlacementEnum.canvas_section ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        undockProjectChatWindowFromCanvasSection(
-                          row.instanceId,
-                        );
-                      }}
-                      className="rounded-md border border-setta-300 px-2 py-1 text-[11px] font-semibold text-setta-700 hover:bg-setta-100 dark:border-setta-600 dark:text-setta-200 dark:hover:bg-setta-800"
-                      data-testid="project-chat-window-undock-from-canvas"
-                      data-chat-window-instance-id={row.instanceId}
-                    >
-                      Float
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void bootProjectChatWindowToCanvasSection(
-                          row.instanceId,
-                        );
-                      }}
-                      className="rounded-md border border-setta-300 px-2 py-1 text-[11px] font-semibold text-setta-700 hover:bg-setta-100 dark:border-setta-600 dark:text-setta-200 dark:hover:bg-setta-800"
-                      data-testid="project-chat-window-move-to-canvas"
-                      data-chat-window-instance-id={row.instanceId}
-                    >
-                      Canvas
-                    </button>
-                  )}
-                  {row.isClosed ? (
+                {canEditLayout ? (
+                  <div className="flex items-center gap-1">
+                    {row.placement ===
+                    ChatWindowPlacementEnum.canvas_section ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          undockProjectChatWindowFromCanvasSection(
+                            row.instanceId,
+                          );
+                        }}
+                        className="rounded-md border border-setta-300 px-2 py-1 text-[11px] font-semibold text-setta-700 hover:bg-setta-100 dark:border-setta-600 dark:text-setta-200 dark:hover:bg-setta-800"
+                        data-testid="project-chat-window-undock-from-canvas"
+                        data-chat-window-instance-id={row.instanceId}
+                      >
+                        Float
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void bootProjectChatWindowToCanvasSection(
+                            row.instanceId,
+                          );
+                        }}
+                        className="rounded-md border border-setta-300 px-2 py-1 text-[11px] font-semibold text-setta-700 hover:bg-setta-100 dark:border-setta-600 dark:text-setta-200 dark:hover:bg-setta-800"
+                        data-testid="project-chat-window-move-to-canvas"
+                        data-chat-window-instance-id={row.instanceId}
+                      >
+                        Canvas
+                      </button>
+                    )}
+                    {row.isClosed ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          reopenProjectChatWindow(row.instanceId);
+                          focusProjectChatWindow(row.instanceId);
+                        }}
+                        className="rounded-md border border-setta-300 px-2 py-1 text-[11px] font-semibold text-setta-700 hover:bg-setta-100 dark:border-setta-600 dark:text-setta-200 dark:hover:bg-setta-800"
+                      >
+                        Reopen
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          minimizeProjectChatWindow(row.instanceId);
+                        }}
+                        className="rounded-md border border-setta-300 px-2 py-1 text-[11px] font-semibold text-setta-700 hover:bg-setta-100 dark:border-setta-600 dark:text-setta-200 dark:hover:bg-setta-800"
+                      >
+                        Hide
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => {
@@ -155,30 +185,10 @@ export function ProjectChatManager() {
                       }}
                       className="rounded-md border border-setta-300 px-2 py-1 text-[11px] font-semibold text-setta-700 hover:bg-setta-100 dark:border-setta-600 dark:text-setta-200 dark:hover:bg-setta-800"
                     >
-                      Reopen
+                      Focus
                     </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        minimizeProjectChatWindow(row.instanceId);
-                      }}
-                      className="rounded-md border border-setta-300 px-2 py-1 text-[11px] font-semibold text-setta-700 hover:bg-setta-100 dark:border-setta-600 dark:text-setta-200 dark:hover:bg-setta-800"
-                    >
-                      Hide
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      reopenProjectChatWindow(row.instanceId);
-                      focusProjectChatWindow(row.instanceId);
-                    }}
-                    className="rounded-md border border-setta-300 px-2 py-1 text-[11px] font-semibold text-setta-700 hover:bg-setta-100 dark:border-setta-600 dark:text-setta-200 dark:hover:bg-setta-800"
-                  >
-                    Focus
-                  </button>
-                </div>
+                  </div>
+                ) : null}
               </div>
             </li>
           ))}

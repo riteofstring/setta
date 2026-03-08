@@ -79,6 +79,7 @@ from setta.types.project_config import (
     Viewport,
     ViewportBounds,
     WatchCodeFolder,
+    WindowSpaceConfig,
     WindowSpaceState,
 )
 from setta.types.project_state import ProjectChatWindowingState
@@ -1222,7 +1223,7 @@ class RouterEndpointAPI:
 
     async def create_window_space(
         self, payload: ListenerCreateWindowSpaceRequestPayload
-    ) -> str:
+    ) -> WindowSpaceConfig:
         return await self._caller("route_create_window_space", payload)
 
     async def decline_rename_refactor(
@@ -1555,7 +1556,7 @@ class RouterEndpointAPI:
 
     async def set_project_chat_windowing_state(
         self, payload: ListenerSetProjectChatWindowingStateRequestPayload
-    ) -> None:
+    ) -> ProjectChatWindowingState:
         return await self._caller("route_set_project_chat_windowing_state", payload)
 
     async def set_project_config_codegen_targets(
