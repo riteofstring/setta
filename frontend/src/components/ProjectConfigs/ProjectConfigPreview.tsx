@@ -46,6 +46,5 @@ export function ProjectConfigPreview({
     maskStrokeColor: "transparent",
     maskStrokeWidth: 1,
     shapeRendering: "geometricPrecision",
-    enableSelectionSync: false,
   });
 }
