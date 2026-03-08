@@ -83,8 +83,9 @@ landed:
 - OpenCode external MCP runtime-status seeding and persisted snapshot parity
 
 The current next step is now the remaining Claude rich item / MCP status
-follow-on over those same helpers, plus any still-missing Codex
-non-`response_item` rich items that prove user-facing.
+follow-on tracked in
+`phase-12-claude-rich-item-tool-result-and-mcp-status-parity.md`, plus any
+still-missing Codex non-`response_item` rich items that prove user-facing.
 
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are

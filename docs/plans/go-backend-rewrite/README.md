@@ -436,12 +436,16 @@ Use the docs in this order:
   - focused implementation-plan doc for the bounded OpenCode follow-on over the
     completed Codex/runtime helpers: richer tool-result persistence plus
     OpenCode external MCP status ownership
-135. `spike-mcp.md`
+135. `phase-12-claude-rich-item-tool-result-and-mcp-status-parity.md`
+  - focused implementation-plan doc for the remaining large Phase 12 external
+    agent parity gap: Claude tool-result persistence plus Claude external MCP
+    runtime-status ownership over the completed runtime helpers
+136. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-136. `spike-pty.md`
+137. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-137. `spike-lsp.md`
+138. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

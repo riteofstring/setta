@@ -80,8 +80,10 @@ Current repo status as of 2026-03-09:
     `phase-12-opencode-rich-item-tool-result-and-mcp-status-parity.md` is now
     complete
   - the remaining bounded gap is now Claude rich item/tool-result and MCP
-    status closeout plus any still-missing Codex non-`response_item` rich
-    items, not another executor or launcher slice
+    status closeout tracked in
+    `phase-12-claude-rich-item-tool-result-and-mcp-status-parity.md`, plus any
+    still-missing Codex non-`response_item` rich items, not another executor
+    or launcher slice
 
 ## Scope
 

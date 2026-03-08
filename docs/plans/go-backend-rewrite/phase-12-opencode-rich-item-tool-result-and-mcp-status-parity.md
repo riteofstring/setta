@@ -169,6 +169,6 @@ This slice should deliver:
 
 ## Next Recommended Step
 
-- scope the remaining Claude rich item/tool-result and MCP status follow-on on
-  the same runtime helpers now that both Codex and OpenCode parity slices are
-  landed
+- land the bounded Claude follow-on tracked in
+  `phase-12-claude-rich-item-tool-result-and-mcp-status-parity.md` on the same
+  runtime helpers now that both Codex and OpenCode parity slices are landed
