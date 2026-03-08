@@ -33,6 +33,17 @@ Out of scope:
 - changing `run-dev-instance.sh` or `scripts/ai.sh` beyond the behavior they
   inherit from `backendStart.sh`
 
+## Current Status
+
+Completed in this slice:
+
+- `frontend/backendStart.sh` no longer defaults to the stale venv `setta` shim
+- non-reload startup now uses `python -m setta`
+- reload startup now uses `python -m setta.legacy_start_entrypoint`
+- `SETTA_BIN` remains as an explicit override for tests and power users
+- focused source/dev tests now fail fast if `backendStart.sh` falls back to the
+  venv `setta` shim again
+
 ## Inputs
 
 - `phase-25-legacy-startup-and-distribution-boundary-plan.md`
@@ -94,8 +105,16 @@ The current source/dev contract is muddled in one specific place:
 - run focused Python tests:
   `./scripts/run_backend_tests.sh tests/start/test_dev_script_wiring_backend_start.py tests/start/test_dev_script_wiring_run_dev_instance.py tests/start/test_dev_script_wiring_ai.py tests/start/test_dev_script_wiring_aireset.py`
 
+Verification run completed:
+
+- `./scripts/run_backend_tests.sh tests/start/test_dev_script_wiring_backend_start.py tests/start/test_dev_script_wiring_run_dev_instance.py tests/start/test_dev_script_wiring_ai.py tests/start/test_dev_script_wiring_aireset.py tests/start/test_dev_script_wiring_structure.py`
+
 ## Next Recommended Step
 
-Land this bounded backendStart command split first. After that, rerank whether
-`run-dev-instance.sh` and `scripts/ai.sh` need any additional hardening beyond
-the behavior they already inherit from `backendStart.sh`.
+Rerank within Phase 25 Slice 2:
+
+- if the inherited `backendStart.sh` behavior is sufficient for
+  `run-dev-instance.sh` and `scripts/ai.sh`, keep those wrappers unchanged
+- if a further source/dev cleanup slice is still warranted, make the next
+  bounded step the reload owner itself rather than reopening the normal
+  non-reload command boundary

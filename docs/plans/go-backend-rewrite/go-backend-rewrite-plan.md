@@ -380,6 +380,16 @@ classification in
   now be treated as legacy fallback by default unless a current workflow still
   proves it necessary
 
+The first bounded Slice 2 step is now also landed:
+
+- `frontend/backendStart.sh` no longer defaults to the stale venv `setta` shim
+- normal dev startup now routes through `python -m setta`
+- reload remains an explicit temporary legacy path through
+  `python -m setta.legacy_start_entrypoint`
+- the focused next question inside Phase 25 is no longer the normal startup
+  boundary; it is whether the remaining reload exception needs its own follow-on
+  slice at all
+
 Dormant listener-chat routes, detached-run routes, and non-caller-backed
 default-project routes still remain out of scope until a concrete caller
 changes that rerank.

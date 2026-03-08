@@ -46,6 +46,14 @@ Focused Slice 2 plan now added:
     make `backendStart.sh` use an explicit routed command boundary for normal
     startup and an explicit dev-only legacy path for reload
 
+Completed during Slice 2 sub-slice:
+
+- `frontend/backendStart.sh` no longer relies on bare `setta` for normal dev
+  startup
+- non-reload startup now uses `python -m setta`
+- reload startup now uses `python -m setta.legacy_start_entrypoint`
+- focused source/dev tests now guard that boundary explicitly
+
 Still owned outside Go:
 
 - legacy `backend/setta/start.py` command/fallback behavior
@@ -239,6 +247,7 @@ Execute Slice 2 next:
   contract boundary
 - use `phase-25-dev-startup-command-boundary-plan.md` as the bounded first
   implementation doc for this slice
-- harden source/dev startup wiring around the explicit Go-owned command surface
-- avoid preserving legacy `setta.start` fallback behavior unless a real current
-  workflow still requires it
+- rerank whether any further source/dev hardening is still needed beyond the
+  landed `backendStart.sh` command split
+- if more work is needed, prefer reducing the explicit reload exception rather
+  than reopening the now-explicit normal startup boundary
