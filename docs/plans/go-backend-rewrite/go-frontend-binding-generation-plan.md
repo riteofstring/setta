@@ -60,6 +60,21 @@ Start by proving the converter pipeline on a small but real Go-owned surface:
 This is intentionally small enough to validate the generator architecture
 before widening it across more caller-backed Go routes.
 
+Current landed wedge:
+
+- `frontend/src/utils/generatedGoRoutes.ts`
+  - current websocket route constants
+  - current status/meta route constants
+- `frontend/src/utils/generatedGoTypes.ts`
+  - current status/meta request/response contract types
+- `frontend/src/utils/generatedGoEndpoints.ts`
+  - current status/meta endpoint wrappers
+- active caller adoption
+  - `GlobalWrapper`, `WorktreeHint`, `initializeServerMode`,
+    `websocketReceive`, and the `settaHomeInfo` read in
+    `WorkspaceSwitcherModal` now consume the Go-generated modules for this
+    initial slice
+
 ## Rules
 
 - Prefer explicit Go contract types over reflection on arbitrary runtime

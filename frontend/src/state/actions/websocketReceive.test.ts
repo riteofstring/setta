@@ -15,12 +15,20 @@ import {
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const { routeGetAuthRefreshStatusMock } = vi.hoisted(() => ({
+  routeGetAuthRefreshStatusMock: vi.fn(),
+}));
+
 vi.mock("utils/generatedEndpoints", () => ({
   route_binary_upload: vi.fn(),
-  route_get_auth_refresh_status: vi.fn(),
+  route_get_auth_refresh_status: routeGetAuthRefreshStatusMock,
   route_get_listener_coverage: vi.fn(),
   route_get_latest_project_state: vi.fn(),
   route_get_latest_lsp_diagnostics: vi.fn(),
+}));
+
+vi.mock("utils/generatedGoEndpoints", () => ({
+  route_get_auth_refresh_status: routeGetAuthRefreshStatusMock,
 }));
 
 vi.mock("state/actions/lspDiagnostics", () => ({

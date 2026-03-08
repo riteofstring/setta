@@ -29,10 +29,11 @@ import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import {
   route_binary_upload,
-  route_get_auth_refresh_status,
   route_get_latest_lsp_diagnostics,
   route_get_latest_project_state,
 } from "utils/generatedEndpoints";
+import { route_get_auth_refresh_status } from "utils/generatedGoEndpoints";
+import { GoWebsocketRoutes } from "utils/generatedGoRoutes";
 import {
   BaseDependencyKeyUnion,
   BaseDependencyValueUnion,
@@ -108,7 +109,7 @@ const AUTH_CLOSE_CODE = 4401;
 const SHARE_SESSION_MISSING_CODE = 4400;
 const SHARE_SESSION_UNKNOWN_CODE = 4404;
 const BOOTSTRAP_URL = `${C_ADDRESSES.BACKEND_ORIGIN}${RouteEnum.BOOTSTRAP_PAGE}`;
-const FRONTEND_WEBSOCKET_ROUTE = "/ws/frontend";
+const FRONTEND_WEBSOCKET_ROUTE = GoWebsocketRoutes.frontend;
 const AUTH_RECOVERY_INTERVAL_MS = 2000;
 const DEFAULT_AUTH_REFRESH_WINDOW_SECONDS =
   C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS;
