@@ -369,3 +369,5 @@ Status:
     remaining deployment-mode caller surface
   - keep the landed IDE owner separate instead of folding share behavior back
     into a mixed artifact manager
+  - execute the bounded implementation in
+    `docs/plans/go-backend-rewrite/phase-22-share-artifact-session-overlay-plan.md`

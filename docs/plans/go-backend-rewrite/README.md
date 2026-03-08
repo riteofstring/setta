@@ -720,12 +720,16 @@ Use the docs in this order:
   - focused landed slice doc for the bounded IDE-only artifact owner: file
     import, cached artifact reads, active caller-backed artifact writes, and
     file deletes over state-relative artifact ids
-197. `spike-mcp.md`
+197. `phase-22-share-artifact-session-overlay-plan.md`
+  - focused active slice doc for the remaining deployment/share artifact
+    overlay behavior over explicit per-session ownership and scoped websocket
+    updates
+198. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-198. `spike-pty.md`
+199. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-199. `spike-lsp.md`
+200. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

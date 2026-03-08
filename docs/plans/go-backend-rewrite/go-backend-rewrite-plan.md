@@ -310,7 +310,8 @@ the same route surface.
 
 The next recommended step is therefore Phase 22 Slice 3: explicit
 share/deployment artifact-session overlay ownership above the landed IDE
-artifact owner.
+artifact owner, tracked in
+`docs/plans/go-backend-rewrite/phase-22-share-artifact-session-overlay-plan.md`.
 
 Dormant listener-chat routes, detached-run routes, and non-caller-backed
 default-project routes still remain out of scope until a concrete caller
