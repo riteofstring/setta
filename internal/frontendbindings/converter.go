@@ -289,6 +289,11 @@ func newTypeConverter() *typeConverter {
 				Kind: "raw",
 				Raw:  projectStateFrontendSupportRawTS,
 			},
+			reflect.TypeOf(SectionsClipboardDataResponse{}): {
+				Name:  "SectionsClipboardDataResponse",
+				Kind:  "alias",
+				Alias: "SectionsClipboardData",
+			},
 			reflect.TypeOf(AIRuntimeSupport{}): {
 				Name: "AIRuntimeSupport",
 				Kind: "raw",
@@ -358,6 +363,16 @@ func newTypeConverter() *typeConverter {
 				Name: "SetChatSectionStateRequestInput",
 				Kind: "raw",
 				Raw:  setChatSectionStateRequestInputRawTS,
+			},
+			reflect.TypeOf(PrepareSectionsForCopyRequestInput{}): {
+				Name: "PrepareSectionsForCopyRequestInput",
+				Kind: "raw",
+				Raw:  prepareSectionsForCopyRequestInputRawTS,
+			},
+			reflect.TypeOf(PasteSectionsRequestInput{}): {
+				Name: "PasteSectionsRequestInput",
+				Kind: "raw",
+				Raw:  pasteSectionsRequestInputRawTS,
 			},
 			reflect.TypeOf(CreateChildSectionsRequestInput{}): {
 				Name: "CreateChildSectionsRequestInput",

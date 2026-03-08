@@ -102,6 +102,16 @@ export async function route_delete_selected_params(x: gt.DeleteSelectedParamsReq
   return await post(GoHTTPRoutes.deleteSelectedParams, x);
 
 }
+export async function route_prepare_sections_for_copy(x: gt.PrepareSectionsForCopyRequestInput): Promise<ResponseDataAndStatus<gt.SectionsClipboardDataResponse>> {
+
+  return await post(GoHTTPRoutes.prepareSectionsForCopy, x);
+
+}
+export async function route_paste_sections(x: gt.PasteSectionsRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.pasteSections, x);
+
+}
 export async function route_create_edge(x: gt.CreateEdgeRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.createEdge, x);

@@ -162,6 +162,16 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "DELETE_SELECTED_PARAMS",
 				},
 				{
+					Name:     "prepareSectionsForCopy",
+					Path:     httpapi.RoutePrepareSectionsForCopy,
+					EnumName: "PREPARE_SECTIONS_FOR_COPY",
+				},
+				{
+					Name:     "pasteSections",
+					Path:     httpapi.RoutePasteSections,
+					EnumName: "PASTE_SECTIONS",
+				},
+				{
 					Name:     "createEdge",
 					Path:     httpapi.RouteCreateEdge,
 					EnumName: "CREATE_EDGE",
@@ -1208,6 +1218,21 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "deleteSelectedParams",
 			RequestType:     reflect.TypeOf(DeleteSelectedParamsRequestInput{}),
+		},
+		{
+			FunctionName:    "route_prepare_sections_for_copy",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "prepareSectionsForCopy",
+			RequestType:     reflect.TypeOf(PrepareSectionsForCopyRequestInput{}),
+			ResponseType:    reflect.TypeOf(SectionsClipboardDataResponse{}),
+		},
+		{
+			FunctionName:    "route_paste_sections",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "pasteSections",
+			RequestType:     reflect.TypeOf(PasteSectionsRequestInput{}),
 		},
 		{
 			FunctionName:    "route_create_edge",

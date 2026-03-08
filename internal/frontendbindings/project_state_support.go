@@ -108,6 +108,12 @@ type DeleteSelectedParamsRequestInput struct {
 	ParamInfoIDs    []string `json:"paramInfoIds"`
 }
 
+type PrepareSectionsForCopyRequestInput struct{}
+
+type PasteSectionsRequestInput struct{}
+
+type SectionsClipboardDataResponse struct{}
+
 type CreateEdgeRequestInput struct{}
 
 type UpdateEdgeRequestInput struct{}
@@ -451,6 +457,22 @@ export type DeleteChildSectionsViaDecrementerRequestInput = {
   projectConfigId: string;
   calledBy: string;
   numChildren: number;
+};
+`
+
+const prepareSectionsForCopyRequestInputRawTS = `
+export type PrepareSectionsForCopyRequestInput = {
+  projectConfigId: string;
+  sectionIds: Array<string>;
+};
+`
+
+const pasteSectionsRequestInputRawTS = `
+export type PasteSectionsRequestInput = {
+  projectConfigId: string;
+  data: ClipboardProjectStateCoreWithSectionVariantMap;
+  position: Position;
+  asRef: boolean;
 };
 `
 
@@ -1383,6 +1405,32 @@ export type CodeFileBinding = {
   access_mode: CodeFileAccessMode;
   autoBinding: boolean;
 };
+
+export const ClipboardDataTypeEnum = {
+  Sections: "Sections",
+} as const;
+export type ClipboardDataType = ObjectValues<typeof ClipboardDataTypeEnum>;
+
+export type ClipboardProjectStateCore = {
+  sections: Record<string, Core>;
+  sectionImpls: Record<string, BaseSectionImplUnion>;
+  sectionVariants: Record<string, Variant>;
+  codeObjs: Record<string, Core>;
+  codeObjImpls: Record<string, BaseCodeObjImplUnion>;
+  codeObjVariants: Record<string, Variant>;
+};
+
+export type ClipboardProjectStateCoreWithSectionVariantMap = {
+  core: ClipboardProjectStateCore;
+  sectionVariantMap: Record<string, string>;
+};
+
+export type SectionsClipboardData = {
+  type: typeof ClipboardDataTypeEnum.Sections;
+  data: ClipboardProjectStateCoreWithSectionVariantMap;
+};
+
+export type BaseClipboardDataUnionWithDiscriminator = SectionsClipboardData;
 
 export type Core = {
   id: string;

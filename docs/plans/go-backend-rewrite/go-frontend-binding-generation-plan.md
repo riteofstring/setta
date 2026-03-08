@@ -84,6 +84,7 @@ Current landed wedge:
   - current child-section helper route constants
   - current param value/config, code-object naming/display,
     python-codegen prefix/suffix, and attached-terminal helper route constants
+  - current clipboard copy/paste route constants
   - current group-orientation and section-data helper route constants
   - current draw-area append helper route constant
   - current chart metadata helper route constants
@@ -164,6 +165,14 @@ Current landed wedge:
       - `SetGenCodeSuffixRequestInput`
       - `SetCodeObjNameRequestInput`
       - `SetCodeObjDisplayNameRequestInput`
+    - current clipboard copy/paste payloads
+      - `PrepareSectionsForCopyRequestInput`
+      - `PasteSectionsRequestInput`
+      - `ClipboardDataType`
+      - `ClipboardProjectStateCore`
+      - `ClipboardProjectStateCoreWithSectionVariantMap`
+      - `SectionsClipboardData`
+      - `BaseClipboardDataUnionWithDiscriminator`
     - current text-block helper payloads
       - `SetTextBlockTextRequestInput`
       - `SetTextBlockDisplayModeRequestInput`
@@ -771,6 +780,10 @@ Current landed wedge:
     `setGenCodePrefix` and `setGenCodeSuffix` bindings for the current
     python-codegen helper writes instead of the legacy Python-generated route
     surface
+  - `state/actions/copyPaste` now consumes canonical Go-generated
+    `prepareSectionsForCopy` and `pasteSections` route wrappers plus the
+    clipboard discriminated-union types from the current project-state
+    contract surface
   - `moveSectionsWithBackend` now consumes the canonical Go-generated
     `moveSections` binding for the current pane/reparent flow, while the
     attached-terminal branch continues consuming the canonical

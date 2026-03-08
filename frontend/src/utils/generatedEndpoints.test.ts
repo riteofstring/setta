@@ -68,10 +68,12 @@ import {
   route_move_param_groups,
   route_move_params,
   route_move_sections,
+  route_paste_sections,
   route_plugins_config,
   route_plugins_install,
   route_plugins_restart,
   route_plugins_runtime,
+  route_prepare_sections_for_copy,
   route_reconnect_edge,
   route_restart_language_server,
   route_run_code,
@@ -647,6 +649,64 @@ describe("generatedEndpoints project shell and layout", () => {
       body: JSON.stringify({
         projectConfigId: "project-alpha",
         sectionId: "dict-section",
+      }),
+    });
+  });
+
+  it("posts clipboard prepare and paste writes with the canonical request shape", async () => {
+    await route_prepare_sections_for_copy({
+      projectConfigId: "project-alpha",
+      sectionIds: ["section-a", "section-b"],
+    });
+
+    await route_paste_sections({
+      projectConfigId: "project-alpha",
+      data: {
+        core: {
+          sections: {},
+          sectionImpls: {},
+          sectionVariants: {},
+          codeObjs: {},
+          codeObjImpls: {},
+          codeObjVariants: {},
+        },
+        sectionVariantMap: {},
+      },
+      position: { x: 220, y: 180 },
+      asRef: false,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/prepareSectionsForCopy`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionIds: ["section-a", "section-b"],
+      }),
+    });
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/pasteSections`,
+    );
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        data: {
+          core: {
+            sections: {},
+            sectionImpls: {},
+            sectionVariants: {},
+            codeObjs: {},
+            codeObjImpls: {},
+            codeObjVariants: {},
+          },
+          sectionVariantMap: {},
+        },
+        position: { x: 220, y: 180 },
+        asRef: false,
       }),
     });
   });

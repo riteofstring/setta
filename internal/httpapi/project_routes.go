@@ -36,6 +36,8 @@ const (
 	RouteCreateTopLevelSection             = "/createTopLevelSection"
 	RouteDeleteSections                    = "/deleteSections"
 	RouteDeleteSelectedParams              = "/deleteSelectedParams"
+	RoutePrepareSectionsForCopy            = "/prepareSectionsForCopy"
+	RoutePasteSections                     = "/pasteSections"
 	RouteCreateEdge                        = "/createEdge"
 	RouteUpdateEdge                        = "/updateEdge"
 	RouteDeleteEdges                       = "/deleteEdges"
@@ -291,6 +293,18 @@ type DeleteSelectedParamsRequest struct {
 	ProjectID    string   `json:"projectConfigId"`
 	SectionID    string   `json:"sectionId"`
 	ParamInfoIDs []string `json:"paramInfoIds"`
+}
+
+type PrepareSectionsForCopyRequest struct {
+	ProjectID  string   `json:"projectConfigId"`
+	SectionIDs []string `json:"sectionIds"`
+}
+
+type PasteSectionsRequest struct {
+	ProjectID string                                                      `json:"projectConfigId"`
+	Data      projectstate.ClipboardProjectStateCoreWithSectionVariantMap `json:"data"`
+	Position  projectstate.Position                                       `json:"position"`
+	AsRef     bool                                                        `json:"asRef"`
 }
 
 type CreateEdgeRequest struct {
@@ -1073,6 +1087,8 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteChildSectionsViaDecrementer, deleteChildSectionsViaDecrementerHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteSections, deleteSectionsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteSelectedParams, deleteSelectedParamsHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePrepareSectionsForCopy, prepareSectionsForCopyHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePasteSections, pasteSectionsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateEdge, createEdgeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUpdateEdge, updateEdgeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteEdges, deleteEdgesHandler(deps))
@@ -1964,6 +1980,67 @@ func deleteSelectedParamsHandler(deps ProjectRouteDependencies) http.HandlerFunc
 			},
 		); err != nil {
 			writeParamSelectionMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func prepareSectionsForCopyHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[PrepareSectionsForCopyRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		response, err := deps.ProjectState.PrepareSectionsForCopy(r.Context(), projectID, payload.SectionIDs)
+		if err != nil {
+			writePrepareSectionsForCopyError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, response)
+	}
+}
+
+func pasteSectionsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[PasteSectionsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.PasteSections(
+			projectMutationContext(r.Context(), nil),
+			projectID,
+			projectstate.PasteSectionsInput{
+				Data:     payload.Data,
+				Position: payload.Position,
+				AsRef:    payload.AsRef,
+			},
+		); err != nil {
+			writePasteSectionsError(w, r, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -5339,6 +5416,89 @@ func writeMoveSectionsError(w http.ResponseWriter, r *http.Request, err error) {
 		errors.Is(err, projectstate.ErrSettingsValueInvalid),
 		errors.Is(err, settingsstate.ErrSettingsValueInvalid):
 		writeError(w, r, http.StatusUnprocessableEntity, "invalid_auto_layout", err.Error())
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writePrepareSectionsForCopyError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrClipboardSectionIDBlank):
+		writeError(w, r, http.StatusBadRequest, "section_ids_invalid", err.Error())
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrSectionNotFound):
+		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+	case errors.Is(err, projectstate.ErrSectionVariantNotFound),
+		errors.Is(err, projectstate.ErrSectionImplNotFound),
+		errors.Is(err, projectstate.ErrCodeObjNotFound),
+		errors.Is(err, projectstate.ErrCodeObjVariantNotFound),
+		errors.Is(err, projectstate.ErrCodeObjImplNotFound),
+		errors.Is(err, projectstate.ErrClipboardSectionVariantMissing):
+		writeError(w, r, http.StatusUnprocessableEntity, "prepare_sections_for_copy_invalid", err.Error())
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func isClipboardProjectStateValidationError(err error) bool {
+	switch {
+	case errors.Is(err, projectstate.ErrSectionIDRequired),
+		errors.Is(err, projectstate.ErrSectionNameRequired),
+		errors.Is(err, projectstate.ErrSectionIDKeyMismatch),
+		errors.Is(err, projectstate.ErrSectionVariantIDRequired),
+		errors.Is(err, projectstate.ErrSectionVariantIDKeyMismatch),
+		errors.Is(err, projectstate.ErrSectionImplIDRequired),
+		errors.Is(err, projectstate.ErrSectionImplIDKeyMismatch),
+		errors.Is(err, projectstate.ErrSectionDefaultVariantMissing),
+		errors.Is(err, projectstate.ErrSectionImplKindRequired),
+		errors.Is(err, projectstate.ErrParentSectionNotFound),
+		errors.Is(err, projectstate.ErrSectionVariantNotFound),
+		errors.Is(err, projectstate.ErrSectionImplNotFound),
+		errors.Is(err, projectstate.ErrSectionVariantMembership),
+		errors.Is(err, projectstate.ErrCodeObjIDRequired),
+		errors.Is(err, projectstate.ErrCodeObjNameRequired),
+		errors.Is(err, projectstate.ErrCodeObjIDKeyMismatch),
+		errors.Is(err, projectstate.ErrCodeObjVariantIDRequired),
+		errors.Is(err, projectstate.ErrCodeObjVariantIDKeyMismatch),
+		errors.Is(err, projectstate.ErrCodeObjImplIDRequired),
+		errors.Is(err, projectstate.ErrCodeObjImplIDKeyMismatch),
+		errors.Is(err, projectstate.ErrCodeObjDefaultVariantMissing),
+		errors.Is(err, projectstate.ErrCodeObjImplTypeRequired),
+		errors.Is(err, projectstate.ErrCodeObjNotFound),
+		errors.Is(err, projectstate.ErrCodeObjVariantNotFound),
+		errors.Is(err, projectstate.ErrCodeObjImplNotFound),
+		errors.Is(err, projectstate.ErrCodeObjVariantMembership),
+		errors.Is(err, projectstate.ErrFrontendPayloadInvalid):
+		return true
+	default:
+		return false
+	}
+}
+
+func writePasteSectionsError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrPasteSectionsPositionInvalid):
+		writeError(w, r, http.StatusBadRequest, "position_invalid", err.Error())
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrClipboardSectionIDBlank),
+		errors.Is(err, projectstate.ErrClipboardSectionVariantMissing),
+		errors.Is(err, projectstate.ErrSectionNotFound),
+		errors.Is(err, projectstate.ErrSectionVariantNotFound),
+		errors.Is(err, projectstate.ErrSectionImplNotFound),
+		errors.Is(err, projectstate.ErrCodeObjNotFound),
+		errors.Is(err, projectstate.ErrCodeObjVariantNotFound),
+		errors.Is(err, projectstate.ErrCodeObjImplNotFound),
+		errors.Is(err, projectstate.ErrSectionVariantMembership),
+		errors.Is(err, projectstate.ErrCodeObjVariantMembership):
+		writeError(w, r, http.StatusUnprocessableEntity, "paste_sections_invalid", err.Error())
+	case isClipboardProjectStateValidationError(err):
+		writeError(w, r, http.StatusUnprocessableEntity, "paste_sections_invalid", err.Error())
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}

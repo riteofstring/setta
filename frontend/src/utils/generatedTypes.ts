@@ -1900,6 +1900,32 @@ export type CodeFileBinding = {
   autoBinding: boolean;
 };
 
+export const ClipboardDataTypeEnum = {
+  Sections: "Sections",
+} as const;
+export type ClipboardDataType = ObjectValues<typeof ClipboardDataTypeEnum>;
+
+export type ClipboardProjectStateCore = {
+  sections: Record<string, Core>;
+  sectionImpls: Record<string, BaseSectionImplUnion>;
+  sectionVariants: Record<string, Variant>;
+  codeObjs: Record<string, Core>;
+  codeObjImpls: Record<string, BaseCodeObjImplUnion>;
+  codeObjVariants: Record<string, Variant>;
+};
+
+export type ClipboardProjectStateCoreWithSectionVariantMap = {
+  core: ClipboardProjectStateCore;
+  sectionVariantMap: Record<string, string>;
+};
+
+export type SectionsClipboardData = {
+  type: typeof ClipboardDataTypeEnum.Sections;
+  data: ClipboardProjectStateCoreWithSectionVariantMap;
+};
+
+export type BaseClipboardDataUnionWithDiscriminator = SectionsClipboardData;
+
 export type Core = {
   id: string;
   name: string;
@@ -5571,6 +5597,20 @@ export function createDeleteSelectedParamsRequestInput(
 ): DeleteSelectedParamsRequestInput {
   return options as DeleteSelectedParamsRequestInput;
 }
+
+export type PrepareSectionsForCopyRequestInput = {
+  projectConfigId: string;
+  sectionIds: Array<string>;
+};
+
+export type SectionsClipboardDataResponse = SectionsClipboardData;
+
+export type PasteSectionsRequestInput = {
+  projectConfigId: string;
+  data: ClipboardProjectStateCoreWithSectionVariantMap;
+  position: Position;
+  asRef: boolean;
+};
 
 export type CreateEdgeRequestInput = {
   frontendOpId?: string | null;

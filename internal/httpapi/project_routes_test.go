@@ -2564,6 +2564,195 @@ func TestRegisterProjectRoutesMoveSectionsRejectsInvalidInputs(t *testing.T) {
 	}
 }
 
+func TestRegisterProjectRoutesPrepareAndPasteSectionsPersistLatestState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-source",
+		Projects: map[string]projectstate.Project{
+			"project-source": copyPasteRouteSourceProject(t),
+			"project-target": {
+				ID:   "project-target",
+				Name: "Target",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	prepareRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RoutePrepareSectionsForCopy,
+		strings.NewReader(`{"projectConfigId":"project-source","sectionIds":["group-root"]}`),
+	)
+	prepareRequest.Header.Set("Content-Type", "application/json")
+	prepareResponse := httptest.NewRecorder()
+	handler.ServeHTTP(prepareResponse, prepareRequest)
+	if prepareResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 for %s, got %d with body %q", RoutePrepareSectionsForCopy, prepareResponse.Code, prepareResponse.Body.String())
+	}
+
+	var clipboard projectstate.SectionsClipboardData
+	if err := json.Unmarshal(prepareResponse.Body.Bytes(), &clipboard); err != nil {
+		t.Fatalf("decode prepareSectionsForCopy payload: %v", err)
+	}
+	if clipboard.Type != projectstate.ClipboardDataTypeSections {
+		t.Fatalf("expected clipboard type %q, got %q", projectstate.ClipboardDataTypeSections, clipboard.Type)
+	}
+	if len(clipboard.Data.Core.Sections) != 3 {
+		t.Fatalf("expected copied subtree with three sections, got %#v", clipboard.Data.Core.Sections)
+	}
+
+	pasteBody, err := json.Marshal(PasteSectionsRequest{
+		ProjectID: "project-target",
+		Data:      clipboard.Data,
+		Position:  projectstate.Position{X: 220, Y: 180},
+		AsRef:     false,
+	})
+	if err != nil {
+		t.Fatalf("marshal pasteSections request: %v", err)
+	}
+	pasteRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RoutePasteSections,
+		strings.NewReader(string(pasteBody)),
+	)
+	pasteRequest.Header.Set("Content-Type", "application/json")
+	pasteResponse := httptest.NewRecorder()
+	handler.ServeHTTP(pasteResponse, pasteRequest)
+	if pasteResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 for %s, got %d with body %q", RoutePasteSections, pasteResponse.Code, pasteResponse.Body.String())
+	}
+
+	targetProject := projectRuntime.Snapshot().Document.Projects["project-target"]
+	if len(targetProject.Sections) != 3 {
+		t.Fatalf("expected three pasted sections in target project, got %#v", targetProject.Sections)
+	}
+
+	var pastedRootID string
+	for sectionID, section := range targetProject.Sections {
+		if section.ParentSectionID != "" {
+			continue
+		}
+		if pastedRootID != "" {
+			t.Fatalf("expected one pasted root section, got %#v", targetProject.Sections)
+		}
+		pastedRootID = sectionID
+	}
+	if pastedRootID == "" {
+		t.Fatalf("expected pasted root section, got %#v", targetProject.Sections)
+	}
+	if pastedRootID == "group-root" {
+		t.Fatalf("expected pasted root section id to be remapped, got %q", pastedRootID)
+	}
+	if !targetProject.HasTopLevelSection(pastedRootID) {
+		t.Fatalf("expected pasted root %q to become top-level", pastedRootID)
+	}
+	layout, ok := targetProject.TopLevelSections[pastedRootID]
+	if !ok {
+		t.Fatalf("expected pasted root layout, got %#v", targetProject.TopLevelSections)
+	}
+	if layout.X != 220 || layout.Y != 180 || layout.ZIndex != 0 {
+		t.Fatalf("expected pasted root layout {220 180 0}, got %#v", layout)
+	}
+
+	rootVariantID := targetProject.SectionVariantMap[pastedRootID]
+	rootPayload, err := targetProject.EffectiveSectionPayload(pastedRootID, rootVariantID)
+	if err != nil {
+		t.Fatalf("resolve pasted root payload: %v", err)
+	}
+	children := decodeProjectRouteStringArray(rootPayload["children"])
+	if len(children) != 2 {
+		t.Fatalf("expected pasted group children to be preserved, got %#v", children)
+	}
+	for _, childID := range children {
+		if childID == "group-child-a" || childID == "group-child-b" {
+			t.Fatalf("expected pasted child id to be remapped, got %#v", children)
+		}
+		childSection := targetProject.Sections[childID]
+		if childSection.ParentSectionID != pastedRootID {
+			t.Fatalf("expected pasted child %q parent %q, got %#v", childID, pastedRootID, childSection)
+		}
+	}
+}
+
+func TestRegisterProjectRoutesPrepareAndPasteSectionsRejectInvalidInputs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-source",
+		Projects: map[string]projectstate.Project{
+			"project-source": copyPasteRouteSourceProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	for _, requestSpec := range []struct {
+		route        string
+		body         string
+		expectedCode int
+		expectedBody string
+	}{
+		{
+			route:        RoutePrepareSectionsForCopy,
+			body:         `{"projectConfigId":"project-source","sectionIds":[""]}`,
+			expectedCode: http.StatusBadRequest,
+			expectedBody: `"code":"section_ids_invalid"`,
+		},
+		{
+			route: RoutePasteSections,
+			body: `{
+				"projectConfigId":"project-source",
+				"data":{
+					"core":{
+						"sections":{"bad":{"id":"bad","name":"Bad","displayName":"","variants":["bad-variant"],"defaultVariant":"bad-variant","sharedModifier":{},"unsharedKeys":[]}},
+						"sectionImpls":{},
+						"sectionVariants":{"bad-variant":{"id":"bad-variant","name":"Bad Variant","implId":"missing-impl","nonPresetImplIds":[],"modifier":{},"isFrozen":false}},
+						"codeObjs":{},
+						"codeObjImpls":{},
+						"codeObjVariants":{}
+					},
+					"sectionVariantMap":{"bad":"bad-variant"}
+				},
+				"position":{"x":1,"y":2},
+				"asRef":false
+			}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"paste_sections_invalid"`,
+		},
+	} {
+		request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != requestSpec.expectedCode {
+			t.Fatalf("expected %d for %s, got %d with body %q", requestSpec.expectedCode, requestSpec.route, response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), requestSpec.expectedBody) {
+			t.Fatalf("expected response body to contain %s, got %q", requestSpec.expectedBody, response.Body.String())
+		}
+	}
+}
+
 func TestRegisterProjectRoutesChildSectionMutationsPersistLatestState(t *testing.T) {
 	t.Parallel()
 
@@ -5920,6 +6109,74 @@ func newProjectRouteTestHandlerWithRenameService(
 		t.Fatalf("new handler: %v", err)
 	}
 	return handler
+}
+
+func copyPasteRouteSourceProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	project, err := (projectstate.Project{
+		ID:   "project-source",
+		Name: "Source",
+		SectionVariantMap: map[string]string{
+			"group-root":    "group-root-variant",
+			"group-child-a": "group-child-a-variant",
+			"group-child-b": "group-child-b-variant",
+		},
+		TopLevelSectionIDs: []string{"group-root"},
+		TopLevelSections: map[string]projectstate.TopLevelSectionLayout{
+			"group-root": {X: 40, Y: 60, ZIndex: 1},
+		},
+		Sections: map[string]projectstate.Section{
+			"group-root": {
+				ID:               "group-root",
+				Name:             "Group Root",
+				VariantIDs:       []string{"group-root-variant"},
+				DefaultVariantID: "group-root-variant",
+			},
+			"group-child-a": {
+				ID:               "group-child-a",
+				Name:             "Group Child A",
+				ParentSectionID:  "group-root",
+				VariantIDs:       []string{"group-child-a-variant"},
+				DefaultVariantID: "group-child-a-variant",
+			},
+			"group-child-b": {
+				ID:               "group-child-b",
+				Name:             "Group Child B",
+				ParentSectionID:  "group-root",
+				VariantIDs:       []string{"group-child-b-variant"},
+				DefaultVariantID: "group-child-b-variant",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"group-root-variant":    {ID: "group-root-variant", ImplID: "group-root-impl"},
+			"group-child-a-variant": {ID: "group-child-a-variant", ImplID: "group-child-a-impl"},
+			"group-child-b-variant": {ID: "group-child-b-variant", ImplID: "group-child-b-impl"},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"group-root-impl": {
+				ID:   "group-root-impl",
+				Kind: projectstate.SectionKind("group"),
+				Payload: projectstate.RawJSON(
+					`{"id":"group-root-impl","type":"Group","children":["group-child-a","group-child-b"]}`,
+				),
+			},
+			"group-child-a-impl": {
+				ID:      "group-child-a-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: projectstate.RawJSON(`{"id":"group-child-a-impl","type":"TextBlock"}`),
+			},
+			"group-child-b-impl": {
+				ID:      "group-child-b-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: projectstate.RawJSON(`{"id":"group-child-b-impl","type":"TextBlock"}`),
+			},
+		},
+	}).Normalized()
+	if err != nil {
+		t.Fatalf("normalize copy/paste route source project: %v", err)
+	}
+	return project
 }
 
 func derefString(value *string) string {
