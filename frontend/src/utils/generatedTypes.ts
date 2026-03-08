@@ -7923,6 +7923,11 @@ export type AgentProfileResponse = AgentProfile;
 export type UpdateAgentProfileRequestInput = {
   profile: AgentProfile;
 };
+export function createUpdateAgentProfileRequestInput(
+  options: Partial<UpdateAgentProfileRequestInput> = {},
+): UpdateAgentProfileRequestInput {
+  return options as UpdateAgentProfileRequestInput;
+}
 
 export type DeleteAgentProfileRequestInput = {
   profileId: string;
@@ -7940,6 +7945,11 @@ export type EngineConfigListResponse = Array<EngineConfig>;
 export type UpdateEngineConfigRequestInput = {
   config: EngineConfig;
 };
+export function createUpdateEngineConfigRequestInput(
+  options: Partial<UpdateEngineConfigRequestInput> = {},
+): UpdateEngineConfigRequestInput {
+  return options as UpdateEngineConfigRequestInput;
+}
 
 export type EngineConfigResponse = EngineConfig;
 
@@ -8036,12 +8046,22 @@ export type CreateTranscriptionProfileRequestInput = {
   chunkMs: number;
   language?: string | null;
 };
+export function createCreateTranscriptionProfileRequestInput(
+  options: Partial<CreateTranscriptionProfileRequestInput> = {},
+): CreateTranscriptionProfileRequestInput {
+  return options as CreateTranscriptionProfileRequestInput;
+}
 
 export type TranscriptionProfileResponse = TranscriptionProfile;
 
 export type UpdateTranscriptionProfileRequestInput = {
   profile: TranscriptionProfile;
 };
+export function createUpdateTranscriptionProfileRequestInput(
+  options: Partial<UpdateTranscriptionProfileRequestInput> = {},
+): UpdateTranscriptionProfileRequestInput {
+  return options as UpdateTranscriptionProfileRequestInput;
+}
 
 export type DeleteTranscriptionProfileRequestInput = {
   profileId: string;
@@ -8242,6 +8262,11 @@ export type SetChatSectionStateRequestInput = {
   sectionId: string;
   state: ChatSectionState;
 };
+export function createSetChatSectionStateRequestInput(
+  options: Partial<SetChatSectionStateRequestInput> = {},
+): SetChatSectionStateRequestInput {
+  return options as SetChatSectionStateRequestInput;
+}
 
 export type SetChatSectionChatIDRequest = {
   frontendOpId: string | null;

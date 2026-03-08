@@ -518,6 +518,8 @@ type Edge struct{}
 
 type AgenticEdge struct{}
 
+type ChatSectionState struct{}
+
 type SetSectionParamFilterRequestInput struct {
 	FrontendOpID    *string `json:"frontendOpId,omitempty"`
 	ProjectConfigID string  `json:"projectConfigId"`

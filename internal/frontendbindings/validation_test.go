@@ -844,6 +844,74 @@ func TestProjectStateRequestContractsUseConverterObjects(t *testing.T) {
 	}
 }
 
+func TestAIRequestContractsUseConverterObjects(t *testing.T) {
+	tests := []struct {
+		name       string
+		root       reflect.Type
+		properties []TypeProperty
+	}{
+		{
+			name: "UpdateAgentProfileRequestInput",
+			root: reflect.TypeOf(UpdateAgentProfileRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "profile", TypeExpr: "AgentProfile", Optional: false},
+			},
+		},
+		{
+			name: "UpdateEngineConfigRequestInput",
+			root: reflect.TypeOf(UpdateEngineConfigRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "config", TypeExpr: "EngineConfig", Optional: false},
+			},
+		},
+		{
+			name: "CreateTranscriptionProfileRequestInput",
+			root: reflect.TypeOf(CreateTranscriptionProfileRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "name", TypeExpr: "string", Optional: false},
+				{Name: "transcriptionLlmConfigId", TypeExpr: "string", Optional: false},
+				{Name: "transportMode", TypeExpr: "TranscriptionTransportMode", Optional: false},
+				{Name: "chunkMs", TypeExpr: "number", Optional: false},
+				{Name: "language", TypeExpr: "string | null", Optional: true},
+			},
+		},
+		{
+			name: "UpdateTranscriptionProfileRequestInput",
+			root: reflect.TypeOf(UpdateTranscriptionProfileRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "profile", TypeExpr: "TranscriptionProfile", Optional: false},
+			},
+		},
+		{
+			name: "SetChatSectionStateRequestInput",
+			root: reflect.TypeOf(SetChatSectionStateRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "state", TypeExpr: "ChatSectionState", Optional: false},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != "object" {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, "object")
+			}
+			if !reflect.DeepEqual(declaration.Properties, tt.properties) {
+				t.Fatalf("%s properties = %#v, want %#v", tt.name, declaration.Properties, tt.properties)
+			}
+		})
+	}
+}
+
 func TestProjectStateValueObjectContractsUseConverterObjects(t *testing.T) {
 	converter := newTypeConverter()
 	if err := converter.AddRootType(reflect.TypeOf(CodeFileBindingUpdate{})); err != nil {

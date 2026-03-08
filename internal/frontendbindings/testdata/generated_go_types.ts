@@ -7756,11 +7756,12 @@ export function createCreateAgentProfileRequestInput(options: Partial<CreateAgen
 export type AgentProfileResponse = AgentProfile;
 
 
-
 export type UpdateAgentProfileRequestInput = {
   profile: AgentProfile;
 };
-
+export function createUpdateAgentProfileRequestInput(options: Partial<UpdateAgentProfileRequestInput> = {}): UpdateAgentProfileRequestInput {
+  return options as UpdateAgentProfileRequestInput;
+}
 
 
 export type DeleteAgentProfileRequestInput = {
@@ -7777,11 +7778,12 @@ export type AgentRunListResponse = Array<AgentRun>;
 export type EngineConfigListResponse = Array<EngineConfig>;
 
 
-
 export type UpdateEngineConfigRequestInput = {
   config: EngineConfig;
 };
-
+export function createUpdateEngineConfigRequestInput(options: Partial<UpdateEngineConfigRequestInput> = {}): UpdateEngineConfigRequestInput {
+  return options as UpdateEngineConfigRequestInput;
+}
 
 
 export type EngineConfigResponse = EngineConfig;
@@ -7870,7 +7872,6 @@ export function createDeleteExternalAgentConfigRequestInput(options: Partial<Del
 export type TranscriptionProfileListResponse = Array<TranscriptionProfile>;
 
 
-
 export type CreateTranscriptionProfileRequestInput = {
   name: string;
   transcriptionLlmConfigId: string;
@@ -7878,17 +7879,20 @@ export type CreateTranscriptionProfileRequestInput = {
   chunkMs: number;
   language?: string | null;
 };
-
+export function createCreateTranscriptionProfileRequestInput(options: Partial<CreateTranscriptionProfileRequestInput> = {}): CreateTranscriptionProfileRequestInput {
+  return options as CreateTranscriptionProfileRequestInput;
+}
 
 
 export type TranscriptionProfileResponse = TranscriptionProfile;
 
 
-
 export type UpdateTranscriptionProfileRequestInput = {
   profile: TranscriptionProfile;
 };
-
+export function createUpdateTranscriptionProfileRequestInput(options: Partial<UpdateTranscriptionProfileRequestInput> = {}): UpdateTranscriptionProfileRequestInput {
+  return options as UpdateTranscriptionProfileRequestInput;
+}
 
 
 export type DeleteTranscriptionProfileRequestInput = {
@@ -8076,14 +8080,15 @@ export function createRespondExternalAgentQuestionRequest(options: Partial<Respo
 }
 
 
-
 export type SetChatSectionStateRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   state: ChatSectionState;
 };
-
+export function createSetChatSectionStateRequestInput(options: Partial<SetChatSectionStateRequestInput> = {}): SetChatSectionStateRequestInput {
+  return options as SetChatSectionStateRequestInput;
+}
 
 
 export type SetChatSectionChatIDRequest = {

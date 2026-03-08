@@ -347,31 +347,33 @@ func newTypeConverter() *typeConverter {
 				Kind:  "alias",
 				Alias: "Array<TranscriptionProfile>",
 			},
-			reflect.TypeOf(UpdateAgentProfileRequestInput{}): {
-				Name: "UpdateAgentProfileRequestInput",
-				Kind: "raw",
-				Raw:  updateAgentProfileRequestInputRawTS,
-			},
-			reflect.TypeOf(UpdateEngineConfigRequestInput{}): {
-				Name: "UpdateEngineConfigRequestInput",
-				Kind: "raw",
-				Raw:  updateEngineConfigRequestInputRawTS,
-			},
-			reflect.TypeOf(CreateTranscriptionProfileRequestInput{}): {
-				Name: "CreateTranscriptionProfileRequestInput",
-				Kind: "raw",
-				Raw:  createTranscriptionProfileRequestInputRawTS,
-			},
-			reflect.TypeOf(UpdateTranscriptionProfileRequestInput{}): {
-				Name: "UpdateTranscriptionProfileRequestInput",
-				Kind: "raw",
-				Raw:  updateTranscriptionProfileRequestInputRawTS,
-			},
-			reflect.TypeOf(SetChatSectionStateRequestInput{}): {
-				Name: "SetChatSectionStateRequestInput",
-				Kind: "raw",
-				Raw:  setChatSectionStateRequestInputRawTS,
-			},
+			reflect.TypeOf(UpdateAgentProfileRequestInput{}): objectDeclaration(
+				"UpdateAgentProfileRequestInput",
+				TypeProperty{Name: "profile", TypeExpr: "AgentProfile"},
+			),
+			reflect.TypeOf(UpdateEngineConfigRequestInput{}): objectDeclaration(
+				"UpdateEngineConfigRequestInput",
+				TypeProperty{Name: "config", TypeExpr: "EngineConfig"},
+			),
+			reflect.TypeOf(CreateTranscriptionProfileRequestInput{}): objectDeclaration(
+				"CreateTranscriptionProfileRequestInput",
+				TypeProperty{Name: "name", TypeExpr: "string"},
+				TypeProperty{Name: "transcriptionLlmConfigId", TypeExpr: "string"},
+				TypeProperty{Name: "transportMode", TypeExpr: "TranscriptionTransportMode"},
+				TypeProperty{Name: "chunkMs", TypeExpr: "number"},
+				TypeProperty{Name: "language", TypeExpr: "string | null", Optional: true},
+			),
+			reflect.TypeOf(UpdateTranscriptionProfileRequestInput{}): objectDeclaration(
+				"UpdateTranscriptionProfileRequestInput",
+				TypeProperty{Name: "profile", TypeExpr: "TranscriptionProfile"},
+			),
+			reflect.TypeOf(SetChatSectionStateRequestInput{}): objectDeclaration(
+				"SetChatSectionStateRequestInput",
+				TypeProperty{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "projectConfigId", TypeExpr: "string"},
+				TypeProperty{Name: "sectionId", TypeExpr: "string"},
+				TypeProperty{Name: "state", TypeExpr: "ChatSectionState"},
+			),
 			reflect.TypeOf(PrepareSectionsForCopyRequestInput{}): objectDeclaration(
 				"PrepareSectionsForCopyRequestInput",
 				TypeProperty{Name: "projectConfigId", TypeExpr: "string"},

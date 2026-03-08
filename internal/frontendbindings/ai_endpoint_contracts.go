@@ -143,56 +143,44 @@ type TranscriptionProfileResponse struct{}
 
 type TranscriptionProfileListResponse struct{}
 
-type UpdateAgentProfileRequestInput struct{}
+type AgentProfile struct{}
 
-type UpdateEngineConfigRequestInput struct{}
+type EngineConfig struct{}
 
-type CreateTranscriptionProfileRequestInput struct{}
+type TranscriptionTransportMode string
 
-type UpdateTranscriptionProfileRequestInput struct{}
+type TranscriptionProfile struct{}
 
-type SetChatSectionStateRequestInput struct{}
+type UpdateAgentProfileRequestInput struct {
+	Profile AgentProfile `json:"profile"`
+}
+
+type UpdateEngineConfigRequestInput struct {
+	Config EngineConfig `json:"config"`
+}
+
+type CreateTranscriptionProfileRequestInput struct {
+	Name                     string                     `json:"name"`
+	TranscriptionLlmConfigID string                     `json:"transcriptionLlmConfigId"`
+	TransportMode            TranscriptionTransportMode `json:"transportMode"`
+	ChunkMS                  int                        `json:"chunkMs"`
+	Language                 *string                    `json:"language,omitempty"`
+}
+
+type UpdateTranscriptionProfileRequestInput struct {
+	Profile TranscriptionProfile `json:"profile"`
+}
+
+type SetChatSectionStateRequestInput struct {
+	FrontendOpID    *string          `json:"frontendOpId,omitempty"`
+	ProjectConfigID string           `json:"projectConfigId"`
+	SectionID       string           `json:"sectionId"`
+	State           ChatSectionState `json:"state"`
+}
 
 type GetLLMChatResponse struct{}
 
 type ExternalAgentChatResponse struct{}
-
-const updateAgentProfileRequestInputRawTS = `
-export type UpdateAgentProfileRequestInput = {
-  profile: AgentProfile;
-};
-`
-
-const updateEngineConfigRequestInputRawTS = `
-export type UpdateEngineConfigRequestInput = {
-  config: EngineConfig;
-};
-`
-
-const createTranscriptionProfileRequestInputRawTS = `
-export type CreateTranscriptionProfileRequestInput = {
-  name: string;
-  transcriptionLlmConfigId: string;
-  transportMode: TranscriptionTransportMode;
-  chunkMs: number;
-  language?: string | null;
-};
-`
-
-const updateTranscriptionProfileRequestInputRawTS = `
-export type UpdateTranscriptionProfileRequestInput = {
-  profile: TranscriptionProfile;
-};
-`
-
-const setChatSectionStateRequestInputRawTS = `
-export type SetChatSectionStateRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  state: ChatSectionState;
-};
-`
 
 const getLLMChatResponseRawTS = `
 export type GetLLMChatResponse = {
