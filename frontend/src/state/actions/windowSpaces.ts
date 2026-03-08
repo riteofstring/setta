@@ -21,6 +21,7 @@ import {
   route_set_window_space_sort_order,
 } from "utils/generatedEndpoints";
 import {
+  ChatWindowModeEnum,
   ChatWindowPlacementEnum,
   SettaNotificationTypeEnum,
   WindowSpaceSurfaceKindEnum,
@@ -35,6 +36,10 @@ import {
 import { createRandomName } from "utils/idNameCreation";
 import { sanitizeNameForSlug } from "utils/nameValidation";
 import { addTemporaryNotification } from "./notifications";
+import {
+  isProjectChatGitGraphEmbeddedPaneVisible,
+  replaceProjectChatGitGraphEmbeddedPaneVisibilityForProject,
+} from "./projectChatWindowingEphemeral";
 
 type AuthoringFloatingViewport = {
   viewportWidthPx: number;
@@ -290,6 +295,14 @@ export function snapshotFloatingWindowsForWindowSpace(
       mode: instance.mode,
       title: instance.sectionIdOrNull ? null : instance.title,
       chatId: instance.chatId,
+      embeddedGitPaneVisible:
+        instance.mode === ChatWindowModeEnum.git_graph_mode &&
+        instance.sectionIdOrNull === null
+          ? isProjectChatGitGraphEmbeddedPaneVisible(
+              state.projectConfig.id,
+              instanceId,
+            )
+          : false,
       zIndex: instance.zIndex,
       normalizedBounds: normalizeFloatingBounds(
         instance.bounds,
@@ -639,7 +652,10 @@ function remapRestoredWindowSpaceInstanceIdsForWorkspace(
   restoredFloatingWindowing: ProjectChatWindowingState,
   currentWindowing: ProjectChatWindowingState,
   supersededFloatingInstanceIds: Set<string>,
-): ProjectChatWindowingState {
+): {
+  windowing: ProjectChatWindowingState;
+  remappedInstanceIdByOriginalId: Record<string, string>;
+} {
   const usedInstanceIds = new Set(
     Object.keys(currentWindowing.instancesById).filter(
       (instanceId) => !supersededFloatingInstanceIds.has(instanceId),
@@ -648,6 +664,7 @@ function remapRestoredWindowSpaceInstanceIdsForWorkspace(
   const processedRestoredInstanceIds = new Set<string>();
   const remappedInstancesById: ProjectChatWindowingState["instancesById"] = {};
   const remappedOrder: Array<string> = [];
+  const remappedInstanceIdByOriginalId: Record<string, string> = {};
   let nextInstanceNumber = Math.max(
     currentWindowing.nextInstanceNumber,
     restoredFloatingWindowing.nextInstanceNumber,
@@ -670,6 +687,7 @@ function remapRestoredWindowSpaceInstanceIdsForWorkspace(
     } else {
       usedInstanceIds.add(instanceId);
     }
+    remappedInstanceIdByOriginalId[instanceId] = nextInstanceId;
     remappedInstancesById[nextInstanceId] =
       nextInstanceId === instanceId
         ? instance
@@ -691,6 +709,7 @@ function remapRestoredWindowSpaceInstanceIdsForWorkspace(
         usedInstanceIds,
         nextInstanceNumber,
       );
+      remappedInstanceIdByOriginalId[instanceId] = allocated.instanceId;
       remappedInstancesById[allocated.instanceId] = {
         ...instance,
         instanceId: allocated.instanceId,
@@ -700,16 +719,20 @@ function remapRestoredWindowSpaceInstanceIdsForWorkspace(
       continue;
     }
     usedInstanceIds.add(instanceId);
+    remappedInstanceIdByOriginalId[instanceId] = instanceId;
     remappedInstancesById[instanceId] = instance;
     remappedOrder.push(instanceId);
   }
 
-  return createProjectChatWindowingState({
-    ...restoredFloatingWindowing,
-    instancesById: remappedInstancesById,
-    order: remappedOrder,
-    nextInstanceNumber,
-  });
+  return {
+    windowing: createProjectChatWindowingState({
+      ...restoredFloatingWindowing,
+      instancesById: remappedInstancesById,
+      order: remappedOrder,
+      nextInstanceNumber,
+    }),
+    remappedInstanceIdByOriginalId,
+  };
 }
 
 function dropRestoredSectionWindowsOwnedByNonFloatingWorkspaceHosts(
@@ -798,6 +821,31 @@ function resolveWorkspaceFloatingWindowsSupersededByRestore(
   return supersededFloatingInstanceIds;
 }
 
+function buildRestoredGitGraphEmbeddedPaneVisibleInstanceIds(
+  windowSpace: WindowSpaceConfig,
+  remappedInstanceIdByOriginalId: Record<string, string>,
+  restoredWindowing: ProjectChatWindowingState,
+): Set<string> {
+  const visibleInstanceIds = new Set<string>();
+  for (const [instanceId, window] of Object.entries(windowSpace.windowsById)) {
+    if (
+      window.surfaceKind !== WindowSpaceSurfaceKindEnum.project_chat ||
+      window.mode !== ChatWindowModeEnum.git_graph_mode ||
+      !window.embeddedGitPaneVisible
+    ) {
+      continue;
+    }
+    const remappedInstanceId = remappedInstanceIdByOriginalId[instanceId];
+    if (
+      remappedInstanceId &&
+      restoredWindowing.instancesById[remappedInstanceId]
+    ) {
+      visibleInstanceIds.add(remappedInstanceId);
+    }
+  }
+  return visibleInstanceIds;
+}
+
 export function restoreWindowSpaceInWorkspace(windowSpaceId: string): void {
   const state = useProjectState.getState();
   const windowSpaces = getProjectWindowSpaces(state.projectConfig);
@@ -821,12 +869,14 @@ export function restoreWindowSpaceInWorkspace(windowSpaceId: string): void {
       restoredFloatingWindowingWithoutNonFloatingSectionCollisions,
       currentWindowing,
     );
-  const remappedRestoredFloatingWindowing = dedupeRestoredSectionBindings(
+  const remappedRestoredFloatingWindowingResult =
     remapRestoredWindowSpaceInstanceIdsForWorkspace(
       restoredFloatingWindowingWithoutNonFloatingSectionCollisions,
       currentWindowing,
       supersededFloatingInstanceIds,
-    ),
+    );
+  const remappedRestoredFloatingWindowing = dedupeRestoredSectionBindings(
+    remappedRestoredFloatingWindowingResult.windowing,
   );
   const preservedInstancesById: ProjectChatWindowingState["instancesById"] = {};
   const preservedOrder: Array<string> = [];
@@ -873,7 +923,43 @@ export function restoreWindowSpaceInWorkspace(windowSpaceId: string): void {
       remappedRestoredFloatingWindowing.nextInstanceNumber,
     ),
   });
+  const restoredGitPaneVisibleInstanceIds =
+    buildRestoredGitGraphEmbeddedPaneVisibleInstanceIds(
+      windowSpace,
+      remappedRestoredFloatingWindowingResult.remappedInstanceIdByOriginalId,
+      remappedRestoredFloatingWindowing,
+    );
+  const restoredInstanceIds = new Set(
+    Object.keys(remappedRestoredFloatingWindowing.instancesById),
+  );
+  const nextGitPaneVisibleInstanceIds: Array<string> = [];
+  for (const instance of Object.values(nextWindowing.instancesById)) {
+    if (
+      instance.mode !== ChatWindowModeEnum.git_graph_mode ||
+      instance.isClosed
+    ) {
+      continue;
+    }
+    if (restoredInstanceIds.has(instance.instanceId)) {
+      if (restoredGitPaneVisibleInstanceIds.has(instance.instanceId)) {
+        nextGitPaneVisibleInstanceIds.push(instance.instanceId);
+      }
+      continue;
+    }
+    if (
+      isProjectChatGitGraphEmbeddedPaneVisible(
+        state.projectConfig.id,
+        instance.instanceId,
+      )
+    ) {
+      nextGitPaneVisibleInstanceIds.push(instance.instanceId);
+    }
+  }
   replaceProjectChatWindowingState(nextWindowing);
+  replaceProjectChatGitGraphEmbeddedPaneVisibilityForProject(
+    state.projectConfig.id,
+    nextGitPaneVisibleInstanceIds,
+  );
 }
 
 export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<

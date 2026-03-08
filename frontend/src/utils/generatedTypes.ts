@@ -4690,6 +4690,7 @@ const WindowSpaceWindowSchema = z.object({
     .default(WindowSpaceWindowModeEnum.project_ai_mode),
   title: z.union([z.string(), z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
+  embeddedGitPaneVisible: z.boolean().default(false),
   zIndex: z.int().default(0),
   normalizedBounds: NormalizedFloatingWindowBoundsSchema.default(
     createNormalizedFloatingWindowBounds,

@@ -2550,6 +2550,8 @@ test.describe.serial("standalone project surface routes", () => {
         "git-graph-toggle-embedded-git-pane",
       );
       await expect(workspaceToggle).toHaveAttribute("aria-pressed", "false");
+      await workspaceToggle.click();
+      await expect(workspaceToggle).toHaveAttribute("aria-pressed", "true");
 
       await setOverviewTabInStore(page, "ViewModes");
       await expect(page.getByTestId("window-spaces-pane")).toBeVisible();
@@ -2588,11 +2590,11 @@ test.describe.serial("standalone project surface routes", () => {
       const standaloneToggle = standaloneWindow.getByTestId(
         "git-graph-toggle-embedded-git-pane",
       );
-      await expect(standaloneToggle).toHaveAttribute("aria-pressed", "false");
+      await expect(standaloneToggle).toHaveAttribute("aria-pressed", "true");
 
       await standaloneToggle.click();
-      await expect(standaloneToggle).toHaveAttribute("aria-pressed", "true");
-      await expect(workspaceToggle).toHaveAttribute("aria-pressed", "false");
+      await expect(standaloneToggle).toHaveAttribute("aria-pressed", "false");
+      await expect(workspaceToggle).toHaveAttribute("aria-pressed", "true");
     } finally {
       await standalonePage.close();
       await cleanupGitOverlayFixture(gitFixture);

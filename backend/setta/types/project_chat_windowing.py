@@ -55,6 +55,8 @@ def validate_window_space_window_owner(
         raise ValueError(
             "Project-chat window-space windows cannot carry sectionIdOrNull."
         )
+    if surface_kind_value == "section" and mode_value == "git_graph_mode":
+        raise ValueError("Section window-space windows cannot use git_graph_mode.")
     if surface_kind_value == "project_chat" and mode_value == "section_mode":
         raise ValueError("Project-chat window-space windows cannot use section_mode.")
 

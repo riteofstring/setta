@@ -601,3 +601,29 @@ Verification:
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-chat-bottom-dock.spec.ts --grep "the Project AI manager reopens minimized windows"` passed: 1 test.
 - CDP verification on the live dev instance at `http://127.0.0.1:3098/having_winning` confirmed two concrete outcomes: minimizing the default Project AI manager row changed its action from `Hide` to `Reopen`, and clicking `Reopen` restored the same docked window; separately, after scripting a saved floating layout plus an unrelated live floating window, restoring the saved layout kept both floating windows visible while returning the restored window to its saved bounds.
 - Browser automation coverage for the standalone share deep-link fail-closed route was left at unit/component level in this change. The route-level gate itself is covered in `StandaloneProjectSurfacePage.test.tsx`, while the added Playwright coverage targets the persisted restore and minimized-manager flows that do not rely on mutating in-memory share-session state across reload boundaries.
+
+## 2026-03-10 15:49:45 PDT
+
+Implemented the remaining consolidated review fixes for linked-chat executability on the real session-backed manager stack and for authoritative saved window-space persistence of git-graph window state.
+
+What changed:
+- Removed the hidden `self.agent_runner` dependency from `backend/setta/project_state/base_project_manager.py` and replaced it with a manager-safe LLM-config loader sourced from `dbe`. Linked-chat admission, linked-edge validation, and linked-edge pruning now all resolve executability through the same canonical config path, so `SessionProjectManager` and share-session managers use the same contract as server-state-backed paths.
+- Tightened window-space owner validation in `backend/setta/types/project_chat_windowing.py` and moved that check onto the `WindowSpaceWindow` model in `backend/setta/types/project_config.py`. Invalid persisted tuples such as `surfaceKind="section"` plus `mode="git_graph_mode"` or project-chat windows carrying a section owner now fail at model construction instead of being accepted and failing later during restore.
+- Added persisted `embeddedGitPaneVisible` state to `WindowSpaceWindow` and regenerated frontend/backend bindings so save/restore now carries that bit as real persisted layout state instead of dropping it into purely ephemeral workspace misc state.
+- Updated `frontend/src/state/actions/windowSpaces.ts` so saving a floating git-graph window snapshots the current embedded-pane visibility, workspace restore remaps that visibility across any instance-id collision handling, and unrelated live git-graph windows keep their current visibility state when a saved layout is restored additively.
+- Updated `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx` so standalone window-space hydration consumes the persisted `embeddedGitPaneVisible` field and reopens standalone git-graph windows exactly as saved instead of always forcing the pane closed.
+
+UX before/after:
+- Before: real linked-chat invocation on `SessionProjectManager` could crash with `AttributeError: 'SessionProjectManager' object has no attribute 'agent_runner'` during admission, edge CRUD, or chat-settings pruning. After: linked-chat flows either admit or fail with structured target-resolution errors on the real manager stack.
+- Before: users could save impossible git-graph window-space ownership state or save a git-graph window with the Git pane visible and later reopen it with the pane forcibly hidden. After: invalid layouts are rejected at the model/API boundary and valid git-graph window spaces reopen with the same sidebar visibility that was saved.
+
+DX before/after:
+- Before: linked-chat executability depended on whether code happened to run under a manager subtype with runtime-only runner state attached, which made the project-state contract inconsistent and easy to regress. After: executability resolution depends only on manager-owned persistence collaborators, so every concrete manager satisfies the same interface.
+- Before: window-space state was not an authoritative serialization of visible git-graph layout state, and some invalid owner/mode records only failed after deeper restore logic. After: the persistence model itself encodes the valid owner contract and the saved graph-pane visibility, so tests can assert round-trip behavior directly against source-of-truth state.
+
+Verification:
+- `source activate.sh && pytest tests/project_state/test_project_chat_windowing_persistence.py tests/types/test_project_state_window_spaces.py tests/routers/test_agentic_edge_routes.py tests/routers/test_mcp_linked_chat_tool.py -q` passed: 43 tests.
+- `source activate.sh && pytest tests/routers/test_share_policy_routes.py -k "window_space_routes_reject_invalid_window_owners" -q` passed: 1 test.
+- `pnpm -C frontend exec vitest run src/state/actions/windowSpaces.test.ts src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx src/state/actions/sectionInfos.projectChatWindowingSync.test.ts src/state/actions/project/loadProject.test.ts` passed: 48 tests.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts -g "standalone git graph windows keep git-pane visibility local to the standalone surface"` passed: 1 test.
+- CDP verification on the live dev instance at `http://127.0.0.1:3098/writing_happy` injected a saved standalone git-graph window-space record with `embeddedGitPaneVisible=true`, navigated to the standalone route, and confirmed the route rendered with the `Hide git pane sidebar` toggle already pressed at both narrow and wide viewport sizes.

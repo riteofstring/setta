@@ -64,6 +64,7 @@ from setta.database.utils import create_new_id
 from setta.file_watchers.specific_file_watcher import (
     SpecificFileWatcher,
 )
+from setta.llm.config import load_llm_config
 from setta.logging.errors import log_failure
 from setta.logging.tasks import spawn_background_task
 from setta.lsp.managers import LSPWriters, NoopLSPWriters
@@ -5088,11 +5089,15 @@ class BaseProjectManager(ABC):
             f"Linked chat '{target_label}' does not have a valid engine config.",
         ) from exc
 
+    def _load_llm_configs(self):
+        return load_llm_config(self.dbe, allow_write=False)
+
     def _validate_executable_linked_chat_edges(
         self,
         project_state: ProjectStateSingleConfig,
         edges: list[AgenticEdge],
     ) -> None:
+        llm_configs = self._load_llm_configs()
         for edge in edges:
             if edge.kind != AgenticEdgeKind.chat_chat:
                 continue
@@ -5101,7 +5106,7 @@ class BaseProjectManager(ABC):
                     project_state,
                     edge.targetSectionId,
                     dbe=self.dbe,
-                    llm_configs=self.agent_runner.config,
+                    llm_configs=llm_configs,
                 )
             except LinkedChatTargetResolutionError as exc:
                 target_label = self._get_linked_chat_target_label(
@@ -5116,6 +5121,7 @@ class BaseProjectManager(ABC):
         self,
         project_state: ProjectStateSingleConfig,
     ) -> None:
+        llm_configs = self._load_llm_configs()
         next_edges: list[AgenticEdge] = []
         for edge in project_state.projectConfig.agenticEdges:
             if edge.kind != AgenticEdgeKind.chat_chat:
@@ -5125,7 +5131,7 @@ class BaseProjectManager(ABC):
                 project_state,
                 edge.targetSectionId,
                 dbe=self.dbe,
-                llm_configs=self.agent_runner.config,
+                llm_configs=llm_configs,
             ):
                 next_edges.append(edge)
         if len(next_edges) != len(project_state.projectConfig.agenticEdges):
@@ -5154,12 +5160,13 @@ class BaseProjectManager(ABC):
                 f"Linked chat target {target_section_id} does not exist.",
             )
 
+        llm_configs = self._load_llm_configs()
         try:
             resolved_target = resolve_executable_linked_chat_target(
                 project_state,
                 target_section_id,
                 dbe=self.dbe,
-                llm_configs=self.agent_runner.config,
+                llm_configs=llm_configs,
             )
         except LinkedChatTargetResolutionError as exc:
             self._raise_linked_chat_target_resolution_error(

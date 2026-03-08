@@ -10,6 +10,7 @@ from setta.types.agentic_edges import AgenticEdge
 from setta.types.code_obj_impls import CodeObjType
 from setta.types.edges import Edge
 from setta.types.id import ID
+from setta.types.project_chat_windowing import validate_window_space_window_owner
 from setta.types.section_impls import SectionType
 from setta.utils.generate_memorable_string import generate_memorable_string
 
@@ -87,10 +88,20 @@ class WindowSpaceWindow(BaseModel, extra="forbid"):
     mode: WindowSpaceWindowMode = WindowSpaceWindowMode.project_ai_mode
     title: str | None = None
     chatId: ID | None = None
+    embeddedGitPaneVisible: bool = False
     zIndex: int = 0
     normalizedBounds: NormalizedFloatingWindowBounds = Field(
         default_factory=NormalizedFloatingWindowBounds
     )
+
+    @model_validator(mode="after")
+    def _validate_owner(self):
+        validate_window_space_window_owner(
+            surface_kind=self.surfaceKind,
+            mode=self.mode,
+            section_id=self.sectionIdOrNull,
+        )
+        return self
 
 
 class WindowSpaceState(BaseModel, extra="forbid"):

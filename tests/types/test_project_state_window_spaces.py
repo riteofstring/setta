@@ -1,4 +1,5 @@
 import pytest
+from pydantic import ValidationError
 
 from setta.types.helpers_lvl3 import copy_project_config
 from setta.types.helpers_lvl2 import create_top_level_section
@@ -202,48 +203,38 @@ def test_copy_project_config_with_refs_clears_window_space_chat_ids():
 
 def test_window_spaces_reject_project_chat_section_mode_without_section_owner() -> None:
     # Project-chat window-space surfaces must not persist section-mode records.
-    project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="x"))
-    project_state.projectConfig.windowSpaces = {
-        "space-id": WindowSpaceConfig(
-            id="space-id",
-            name="Research Board",
-            windowsById={
-                "chat-window": WindowSpaceWindow(
-                    surfaceKind=WindowSpaceSurfaceKind.project_chat,
-                    mode=WindowSpaceWindowMode.section_mode,
-                    sectionIdOrNull=None,
-                )
-            },
-            order=["chat-window"],
-        )
-    }
-
     with pytest.raises(
-        ValueError,
+        ValidationError,
         match="Project-chat window-space windows cannot use section_mode",
     ):
-        project_state.validate_window_spaces()
+        WindowSpaceWindow(
+            surfaceKind=WindowSpaceSurfaceKind.project_chat,
+            mode=WindowSpaceWindowMode.section_mode,
+            sectionIdOrNull=None,
+        )
+
+
+def test_window_space_window_rejects_section_git_graph_mode_owner_combo() -> None:
+    # Section-owned window-space records must follow the same owner/mode contract
+    # as live project chat windows.
+    with pytest.raises(
+        ValidationError,
+        match="Section window-space windows cannot use git_graph_mode",
+    ):
+        WindowSpaceWindow(
+            surfaceKind=WindowSpaceSurfaceKind.section,
+            mode=WindowSpaceWindowMode.git_graph_mode,
+            sectionIdOrNull="section-1",
+        )
 
 
 def test_window_spaces_reject_project_chat_section_binding() -> None:
     # Saved project-chat windows should fail fast instead of carrying inert section ids.
-    project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="x"))
-    project_state.projectConfig.windowSpaces = {
-        "space-id": WindowSpaceConfig(
-            id="space-id",
-            name="Research Board",
-            windowsById={
-                "chat-window": WindowSpaceWindow(
-                    surfaceKind=WindowSpaceSurfaceKind.project_chat,
-                    sectionIdOrNull="section-1",
-                )
-            },
-            order=["chat-window"],
-        )
-    }
-
     with pytest.raises(
-        ValueError,
+        ValidationError,
         match="Project-chat window-space windows cannot carry sectionIdOrNull",
     ):
-        project_state.validate_window_spaces()
+        WindowSpaceWindow(
+            surfaceKind=WindowSpaceSurfaceKind.project_chat,
+            sectionIdOrNull="section-1",
+        )

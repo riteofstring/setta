@@ -3,6 +3,7 @@ import {
   buildFloatingSnapResizeHandles,
   resolveFloatingSnapPresetFromBounds,
 } from "components/ChatWindowing/projectChatSnapLayout";
+import { buildProjectChatEphemeralWindowInstanceKey } from "state/actions/projectChatWindowingEphemeral";
 import {
   useMisc,
   usePendingOperations,
@@ -286,6 +287,50 @@ describe("snapshotFloatingWindowsForWindowSpace", () => {
     expect(snapshot.windowsById["floating-section-b"]?.mode).toBe(
       ChatWindowModeEnum.project_ai_mode,
     );
+  });
+
+  it("persists embedded git-pane visibility for saved git graph windows", () => {
+    useMisc.setState({
+      projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {
+        [buildProjectChatEphemeralWindowInstanceKey(
+          "project-id",
+          "graph-window",
+        )]: true,
+      },
+    });
+
+    const snapshot = snapshotFloatingWindowsForWindowSpace({
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["graph-window"],
+        instancesById: {
+          "graph-window": {
+            instanceId: "graph-window",
+            placement: ChatWindowPlacementEnum.floating,
+            mode: ChatWindowModeEnum.git_graph_mode,
+            isClosed: false,
+            isMinimized: false,
+            isMaximized: false,
+            zIndex: 4,
+            bounds: {
+              x: 24,
+              y: 32,
+              width: 480,
+              height: 320,
+            },
+          },
+        },
+      }),
+      sections: {},
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+      }),
+    });
+
+    expect(snapshot.windowsById["graph-window"]).toMatchObject({
+      mode: ChatWindowModeEnum.git_graph_mode,
+      embeddedGitPaneVisible: true,
+    });
   });
 
   it("clears inert section titles when snapshotting and restoring floating section windows", () => {
@@ -1542,7 +1587,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
     expect(nextState.order).toEqual(["canvas-section-window"]);
   });
 
-  it("clears stale embedded git-pane visibility when restoring a saved workspace layout", () => {
+  it("restores persisted embedded git-pane visibility when restoring a saved workspace layout", () => {
     useProjectState.setState({
       projectConfig: createProjectConfig({
         id: "project-id",
@@ -1557,6 +1602,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
                 surfaceKind: "project_chat",
                 mode: ChatWindowModeEnum.git_graph_mode,
                 title: "Git Graph",
+                embeddedGitPaneVisible: true,
                 zIndex: 2,
                 normalizedBounds: {
                   x: 0.0,
@@ -1575,7 +1621,10 @@ describe("restoreWindowSpaceInWorkspace", () => {
     });
     useMisc.setState({
       projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {
-        "project-chat-window-2": true,
+        [buildProjectChatEphemeralWindowInstanceKey(
+          "project-id",
+          "stale-window",
+        )]: true,
       },
     });
     routeSetProjectChatWindowingStateMock.mockResolvedValue({
@@ -1588,7 +1637,12 @@ describe("restoreWindowSpaceInWorkspace", () => {
 
     expect(
       useMisc.getState().projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
-    ).toEqual({});
+    ).toEqual({
+      [buildProjectChatEphemeralWindowInstanceKey(
+        "project-id",
+        "project-chat-window-2",
+      )]: true,
+    });
     expect(useProjectState.getState().projectChatWindowing.order).toEqual([
       "project-chat-window-2",
     ]);

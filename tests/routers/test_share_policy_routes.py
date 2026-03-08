@@ -3,6 +3,7 @@ from tempfile import TemporaryDirectory
 
 import pytest
 from fastapi import FastAPI, HTTPException
+from pydantic import ValidationError
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
 from setta.project_state.project_manager_types import (
@@ -161,6 +162,7 @@ from setta.types.project_config import (
     WindowSpaceSurfaceKind,
     WindowSpaceState,
     WindowSpaceWindow,
+    WindowSpaceWindowMode,
 )
 from setta.types.project_state import (
     ChatWindowMode,
@@ -1348,7 +1350,7 @@ class TestSharePolicyRoutes:
                         == "Deployment policy disallows layout changes."
                     ), name
 
-    async def test_window_space_routes_reject_invalid_window_owners_with_422(
+    async def test_window_space_routes_reject_invalid_window_owners(
         self,
     ) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1395,24 +1397,24 @@ class TestSharePolicyRoutes:
                     )
                 assert windowing_ctx.value.status_code == 422
 
-                with pytest.raises(HTTPException) as window_space_ctx:
-                    await route_create_window_space(
-                        CreateWindowSpaceRequest(
-                            projectConfigId=project_config_id,
-                            name="Invalid Layout",
-                            state=WindowSpaceState(
-                                windowsById={
-                                    "project-chat-window-1": WindowSpaceWindow(
-                                        surfaceKind=WindowSpaceSurfaceKind.project_chat,
-                                        sectionIdOrNull="section-1",
-                                    )
-                                },
-                                order=["project-chat-window-1"],
-                            ),
-                        ),
-                        runtime_ctx,
+                with pytest.raises(
+                    ValidationError,
+                    match="Project-chat window-space windows cannot carry sectionIdOrNull",
+                ):
+                    WindowSpaceWindow(
+                        surfaceKind=WindowSpaceSurfaceKind.project_chat,
+                        sectionIdOrNull="section-1",
                     )
-                assert window_space_ctx.value.status_code == 422
+
+                with pytest.raises(
+                    ValidationError,
+                    match="Section window-space windows cannot use git_graph_mode",
+                ):
+                    WindowSpaceWindow(
+                        surfaceKind=WindowSpaceSurfaceKind.section,
+                        mode=WindowSpaceWindowMode.git_graph_mode,
+                        sectionIdOrNull="section-1",
+                    )
 
             updated_project_state = convert_backend_to_single_config(
                 state.share_runtime_state.project_state_backend,

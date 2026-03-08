@@ -110,7 +110,7 @@ function hydrateWindowSpaceWindows(
         sectionNamesById,
       ),
       chatId: window.chatId ?? null,
-      embeddedGitPaneVisible: false,
+      embeddedGitPaneVisible: window.embeddedGitPaneVisible,
       zIndex: window.zIndex,
       bounds: denormalizeFloatingBounds(
         window.normalizedBounds,

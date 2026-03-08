@@ -1,9 +1,14 @@
 import pytest
+from setta.agentic.store import save_engine_configs
+from setta.llm.config import save_llm_config
 from setta.project_state.linked_chat_admission import LinkedChatAdmissionError
+from setta.types.agentic import EngineConfig, EngineType
 from setta.types.agentic_edges import AgenticEdge, AgenticEdgeKind
+from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.project_state.project_manager_types import (
     CreateWindowSpaceRequest,
     SaveAsNewProjectConfigRequest,
+    SetChatSectionSettingsRequest,
     SetProjectChatWindowingStateRequest,
 )
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
@@ -43,6 +48,38 @@ from setta.types.section_impls import (
 from setta.types.generated.settings_state import SettingsState
 
 from tests.utils.manager_fixture import real_project_manager
+
+
+def _seed_linked_chat_runtime(manager) -> ID:
+    save_llm_config(
+        AllLLMConfigs(
+            configs={
+                "primary": LLMConfig(
+                    id="primary",
+                    model="gpt-4o-mini",
+                    provider="openai",
+                    api_key_env="OPENAI_API_KEY",
+                    mcpServerIds=[],
+                )
+            },
+            mcpServers={},
+            default_config_id="primary",
+        ),
+        manager.dbe,
+    )
+    engine_config_id = ID("engine-linked")
+    save_engine_configs(
+        manager.dbe,
+        [
+            EngineConfig(
+                id=engine_config_id,
+                name="Linked engine",
+                engineType=EngineType.setta_llm,
+                settaLlmConfigId=ID("primary"),
+            )
+        ],
+    )
+    return engine_config_id
 
 
 def test_merge_single_config_round_trips_project_chat_windowing() -> None:
@@ -351,6 +388,7 @@ async def test_create_window_space_from_authoritative_windowing_excludes_stale_s
 async def _create_linked_chat_sections(
     manager,
 ) -> tuple[ID, ID, ID]:
+    engine_config_id = _seed_linked_chat_runtime(manager)
     project_config_id = manager.project_state_backend.defaultProjectConfigId
     if project_config_id is None:
         raise AssertionError("Expected a default project config id.")
@@ -371,7 +409,7 @@ async def _create_linked_chat_sections(
         project_state,
         target_section_id,
         True,
-        ID("engine-linked"),
+        engine_config_id,
         None,
         None,
         False,
@@ -393,12 +431,56 @@ async def _create_linked_chat_sections(
 
 
 @pytest.mark.asyncio
-async def test_linked_chat_admission_persists_fresh_binding_only_after_start_and_releases_busy_state() -> None:
+async def test_set_chat_section_settings_prunes_non_executable_linked_chat_edges_for_real_manager() -> (
+    None
+):
     async with real_project_manager() as fixture:
         manager = fixture.manager
-        project_config_id, caller_section_id, target_section_id = (
-            await _create_linked_chat_sections(manager)
+        (
+            project_config_id,
+            caller_section_id,
+            target_section_id,
+        ) = await _create_linked_chat_sections(manager)
+        project_state = manager.get_single_config_state(project_config_id)
+        assert project_state.projectConfig.agenticEdges == [
+            AgenticEdge(
+                id=ID("edge-linked"),
+                sourceSectionId=caller_section_id,
+                targetSectionId=target_section_id,
+                kind=AgenticEdgeKind.chat_chat,
+            )
+        ]
+
+        await manager.set_chat_section_settings(
+            SetChatSectionSettingsRequest(
+                projectConfigId=project_config_id,
+                sectionId=target_section_id,
+                managed=False,
+                engineConfigId=None,
+                transcriptionProfileId=None,
+                agentProfileId=None,
+                thinking=False,
+                permissionMode=ChatPermissionMode.minimal,
+                searchEnabled=True,
+                dictationMode=ChatDictationMode.auto,
+            )
         )
+
+        project_state = manager.get_single_config_state(project_config_id)
+        assert project_state.projectConfig.agenticEdges == []
+
+
+@pytest.mark.asyncio
+async def test_linked_chat_admission_persists_fresh_binding_only_after_start_and_releases_busy_state() -> (
+    None
+):
+    async with real_project_manager() as fixture:
+        manager = fixture.manager
+        (
+            project_config_id,
+            caller_section_id,
+            target_section_id,
+        ) = await _create_linked_chat_sections(manager)
         admission = await manager.admit_linked_chat_section_invocation(
             project_config_id,
             caller_section_id,
@@ -460,12 +542,16 @@ async def test_linked_chat_admission_persists_fresh_binding_only_after_start_and
 
 
 @pytest.mark.asyncio
-async def test_linked_chat_start_failure_clears_fresh_reservation_without_persisting_chat_id() -> None:
+async def test_linked_chat_start_failure_clears_fresh_reservation_without_persisting_chat_id() -> (
+    None
+):
     async with real_project_manager() as fixture:
         manager = fixture.manager
-        project_config_id, caller_section_id, target_section_id = (
-            await _create_linked_chat_sections(manager)
-        )
+        (
+            project_config_id,
+            caller_section_id,
+            target_section_id,
+        ) = await _create_linked_chat_sections(manager)
         admission = await manager.admit_linked_chat_section_invocation(
             project_config_id,
             caller_section_id,
@@ -489,14 +575,20 @@ async def test_linked_chat_start_failure_clears_fresh_reservation_without_persis
 
 
 @pytest.mark.asyncio
-async def test_linked_chat_start_failure_preserves_existing_binding_and_releases_busy_state() -> None:
+async def test_linked_chat_start_failure_preserves_existing_binding_and_releases_busy_state() -> (
+    None
+):
     async with real_project_manager() as fixture:
         manager = fixture.manager
-        project_config_id, caller_section_id, target_section_id = (
-            await _create_linked_chat_sections(manager)
-        )
+        (
+            project_config_id,
+            caller_section_id,
+            target_section_id,
+        ) = await _create_linked_chat_sections(manager)
         project_state = manager.get_single_config_state(project_config_id)
-        set_chat_section_chat_id(project_state, target_section_id, ID("linked-thread-1"))
+        set_chat_section_chat_id(
+            project_state, target_section_id, ID("linked-thread-1")
+        )
         await manager.update(project_state)
 
         admission = await manager.admit_linked_chat_section_invocation(
@@ -511,28 +603,22 @@ async def test_linked_chat_start_failure_preserves_existing_binding_and_releases
                 caller_section_id,
                 target_section_id,
             )
-        assert (
-            get_curr_effective_section_impl_with_type_guard(
-                manager.get_single_config_state(project_config_id),
-                target_section_id,
-                ChatSectionImpl,
-            ).chatId
-            == ID("linked-thread-1")
-        )
+        assert get_curr_effective_section_impl_with_type_guard(
+            manager.get_single_config_state(project_config_id),
+            target_section_id,
+            ChatSectionImpl,
+        ).chatId == ID("linked-thread-1")
 
         await manager.release_linked_chat_section_chat_start_failure(
             project_config_id,
             target_section_id,
             admission.chat_id,
         )
-        assert (
-            get_curr_effective_section_impl_with_type_guard(
-                manager.get_single_config_state(project_config_id),
-                target_section_id,
-                ChatSectionImpl,
-            ).chatId
-            == ID("linked-thread-1")
-        )
+        assert get_curr_effective_section_impl_with_type_guard(
+            manager.get_single_config_state(project_config_id),
+            target_section_id,
+            ChatSectionImpl,
+        ).chatId == ID("linked-thread-1")
         assert manager._linked_chat_section_reservations == {}
 
 

@@ -175,6 +175,7 @@ describe("StandaloneWindowSpaceSurface", () => {
               mode: ChatWindowModeEnum.git_graph_mode,
               title: null,
               chatId: null,
+              embeddedGitPaneVisible: true,
               zIndex: 2,
               normalizedBounds: {
                 x: 0,
@@ -213,6 +214,7 @@ describe("StandaloneWindowSpaceSurface", () => {
     );
     expect(markup).toContain('data-testid="mock-git-graph-window-content"');
     expect(markup).toContain('data-show-embedded-git-pane-toggle="true"');
+    expect(markup).toContain('data-embedded-git-pane-visible="true"');
     expect(markup).toContain('data-testid="mock-section-window-surface"');
   });
 
