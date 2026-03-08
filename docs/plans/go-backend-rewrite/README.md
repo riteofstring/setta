@@ -533,12 +533,17 @@ Use the docs in this order:
     Go-owned managed `start/stopAgentRun` runtime and transport over the
     landed managed-run service foundations, with external-agent dispatch and
     run-chain kept out of scope
-158. `spike-mcp.md`
+158. `phase-14-run-chain-managed-runtime-and-transport.md`
+  - focused implementation-plan doc for the next bounded Phase 14 follow-on:
+    Go-owned managed-only `start/stopRunChain` over a dedicated run-chain
+    owner above the landed managed runtime, with external-agent child-step
+    orchestration explicitly deferred
+159. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-159. `spike-pty.md`
+160. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-160. `spike-lsp.md`
+161. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

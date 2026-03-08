@@ -320,9 +320,9 @@ The bounded closeout inventory tracked in
 - current leftover routes split into:
   - managed-agent / run-chain runtime routes tied to intentionally de-scoped
     managed `setta_llm` and Python runtime owners
-- the next rewrite slice should therefore come from a concrete new caller or
-  an explicit product/runtime decision, not from assuming another automatic
-  transport migration is still pending
+- the next rewrite slice therefore had to come from an explicit
+  product/runtime decision, not from assuming another automatic transport
+  migration was still pending
 
 The bounded follow-on tracked in
 `phase-13-engine-config-create-delete-transport.md` is now landed:
@@ -391,6 +391,16 @@ The bounded follow-on tracked in
   - `POST /startRunChain`
   - `POST /stopRunChain`
 
+The next bounded follow-on is now opened in
+`phase-14-run-chain-managed-runtime-and-transport.md`:
+
+- the user explicitly requested runtime work proceed beyond managed
+  `start/stopAgentRun`
+- the next honest executable slice is managed-only run-chain ownership over a
+  new Go run-chain runtime boundary above the landed managed runtime
+- external-agent child-step orchestration is explicitly deferred instead of
+  being silently reintroduced through this route
+
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are
 already locked in practice by the current Go implementation. The PTY runtime
@@ -398,10 +408,10 @@ shape is also proven, but the PTY library choice still has a bounded Unix-path
 follow-up tracked in `spike-pty.md`. New work should start from the remaining
 real callers and product dependencies, not by reopening the completed
 external-agent runtime or Phase 13 settings surfaces. The next bounded priority
-is no longer inventory or transport cleanup; those are now complete. The next
-bounded priority should only be chosen after an explicit product/runtime
-decision identifies whether the remaining run-chain Python runtime surface
-still matters.
+is no longer inventory or transport cleanup; those are now complete. That
+product/runtime decision has now been made, so the active bounded priority is
+the managed-only run-chain slice tracked in
+`phase-14-run-chain-managed-runtime-and-transport.md`.
 
 ## Current Reality
 

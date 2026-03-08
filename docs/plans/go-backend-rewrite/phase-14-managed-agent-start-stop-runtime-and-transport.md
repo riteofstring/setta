@@ -149,5 +149,5 @@ This slice delivered:
 ## Next Recommended Step
 
 - treat managed `start/stopAgentRun` as complete for the current bounded scope
-- do not open run-chain automatically; require an explicit caller or product
-  decision before reopening `POST /startRunChain` and `POST /stopRunChain`
+- the later explicit runtime decision reopened run-chain in the focused
+  follow-on doc `phase-14-run-chain-managed-runtime-and-transport.md`

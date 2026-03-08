@@ -151,6 +151,8 @@ Later outcome:
   `phase-14-managed-agent-start-stop-runtime-and-transport.md`
 - Go now owns managed `POST /startAgentRun` and `POST /stopAgentRun`
 - the only remaining Python-owned runtime mutation surface is now run-chain
+- the next focused executable follow-on is now opened in
+  `phase-14-run-chain-managed-runtime-and-transport.md`
 
 ### 4. No concrete caller currently forces this work
 
@@ -198,6 +200,13 @@ Non-goals for Slice A:
 - broad managed chat/runtime parity with Python `AgentRunner`
 
 ### Slice B: run-chain runtime, only if still needed
+
+Later outcome:
+
+- the user explicitly requested the next runtime step proceed
+- that opened the focused managed-only run-chain slice in
+  `phase-14-run-chain-managed-runtime-and-transport.md`
+- external-agent child-step orchestration remains deferred in that slice
 
 Recommended second executable follow-on, if the product still needs it:
 
@@ -267,3 +276,6 @@ Open design questions for that future slice:
 - treat managed `start/stopAgentRun` as complete for the current bounded scope
 - do not open run-chain implementation automatically without a caller or
   explicit product/runtime decision
+- that explicit decision has now been made, so the active follow-on is the
+  managed-only run-chain slice in
+  `phase-14-run-chain-managed-runtime-and-transport.md`
