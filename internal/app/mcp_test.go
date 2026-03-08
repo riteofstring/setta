@@ -99,8 +99,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 71 {
-		t.Fatalf("expected 71 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 72 {
+		t.Fatalf("expected 72 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -118,14 +118,17 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 71 {
-		t.Fatalf("expected 71 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 72 {
+		t.Fatalf("expected 72 registered tool names, got %d", len(rawNames))
 	}
 	if !containsStructuredStringValue(rawNames, "get_app_definition") {
 		t.Fatalf("expected get_app_definition in registered tool names, got %#v", rawNames)
 	}
 	if !containsStructuredStringValue(rawNames, "set_app_definition") {
 		t.Fatalf("expected set_app_definition in registered tool names, got %#v", rawNames)
+	}
+	if !containsStructuredStringValue(rawNames, "stream_app_definition") {
+		t.Fatalf("expected stream_app_definition in registered tool names, got %#v", rawNames)
 	}
 	if !containsStructuredStringValue(rawNames, "format_code") {
 		t.Fatalf("expected format_code in registered tool names, got %#v", rawNames)

@@ -85,6 +85,7 @@ type projectStateProvider interface {
 	GetAppDefinition(ctx context.Context) (projectstate.AppDefinitionReadResult, error)
 	ValidateAppDefinition(ctx context.Context, input projectstate.ValidateAppDefinitionInput) (projectstate.AppDefinitionValidationResult, error)
 	SetAppDefinition(ctx context.Context, input projectstate.SetAppDefinitionInput) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error)
+	StreamAppDefinition(ctx context.Context, input projectstate.StreamAppDefinitionInput) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error)
 	UpdateAppDefinition(ctx context.Context, patch any) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error)
 	AddKwarg(ctx context.Context, projectID string, sectionID string) (projectstate.Snapshot, projectstate.AddKwargResult, error)
 	AutoLayoutTopLevelSections(ctx context.Context, projectID string, settingsDocument projectstate.Document, margin int) (projectstate.Snapshot, error)
@@ -1608,6 +1609,59 @@ func newSetAppDefinitionHandler(projectState projectStateProvider) tools.Handler
 			Assets:         assets,
 		})
 		if err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return result, nil
+	}
+}
+
+func newStreamAppDefinitionHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		patches, err := readRequiredRawStringArgument(arguments, "patches")
+		if err != nil {
+			return nil, err
+		}
+		if strings.TrimSpace(patches) == "" {
+			return nil, newToolError("invalid_arguments", "patches must be non-empty.")
+		}
+		appSpecPath, err := readOptionalNullableStringPointerArgument(arguments, "appSpecPath")
+		if err != nil {
+			return nil, err
+		}
+		baseAppSpec, err := readOptionalObjectPointerArgument(arguments, "baseAppSpec")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural app-definition invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		_, result, err := projectState.StreamAppDefinition(ctx, projectstate.StreamAppDefinitionInput{
+			Patches:     patches,
+			AppSpecPath: appSpecPath,
+			BaseAppSpec: baseAppSpec,
+		})
+		if err != nil {
+			if errors.Is(err, projectstate.ErrAppSpecPatchInvalid) {
+				return nil, newToolError("invalid_arguments", "Invalid patches payload: %s", err.Error())
+			}
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return result, nil
@@ -4416,6 +4470,45 @@ func defaultToolDefinitions(
 					},
 				},
 				"required": []string{"projectConfigId", "appSpec"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "stream_app_definition",
+				Description: "Persist an app spec by applying newline-delimited JSON Pointer patch operations to a base or stored app definition.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "app",
+					SearchTags:     []string{"app", "definition", "spec", "stream", "patch", "structural"},
+				},
+				Handler: newStreamAppDefinitionHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose app definition should be streamed and persisted.",
+					},
+					"patches": map[string]any{
+						"type":        "string",
+						"description": "Newline-delimited JSON patch operations using the bounded /root and /elements/... pointer format.",
+					},
+					"appSpecPath": map[string]any{
+						"type":        "string",
+						"description": "Optional app-spec file path override. Defaults to the existing configured path or app_specs/app.json.",
+					},
+					"baseAppSpec": map[string]any{
+						"type":        "object",
+						"description": "Optional base app spec object to patch instead of the currently stored spec.",
+					},
+				},
+				"required": []string{"projectConfigId", "patches"},
 			},
 			OutputSchema: map[string]any{
 				"type": "object",

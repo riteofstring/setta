@@ -144,8 +144,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 71 {
-		t.Fatalf("expected 71 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 72 {
+		t.Fatalf("expected 72 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -172,6 +172,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var getAppDefinitionTool *sdkmcp.Tool
 	var validateAppDefinitionTool *sdkmcp.Tool
 	var setAppDefinitionTool *sdkmcp.Tool
+	var streamAppDefinitionTool *sdkmcp.Tool
 	var updateAppDefinitionTool *sdkmcp.Tool
 	var compareAndSetShowParamDisplayNamesTool *sdkmcp.Tool
 	var compareAndSetWatchCodeEnabledTool *sdkmcp.Tool
@@ -275,6 +276,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "set_app_definition" {
 			setAppDefinitionTool = tool
+		}
+		if tool.Name == "stream_app_definition" {
+			streamAppDefinitionTool = tool
 		}
 		if tool.Name == "update_app_definition" {
 			updateAppDefinitionTool = tool
@@ -443,6 +447,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"set_ui_setting_value",
 		"set_watch_code_enabled",
 		"set_watch_code_inputs",
+		"stream_app_definition",
 		"toggle_group_orientation",
 		"toggle_minimized",
 		"toggle_position_locks",
@@ -524,6 +529,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if setAppDefinitionTool == nil {
 		t.Fatal("expected set_app_definition tool")
+	}
+	if streamAppDefinitionTool == nil {
+		t.Fatal("expected stream_app_definition tool")
 	}
 	if updateAppDefinitionTool == nil {
 		t.Fatal("expected update_app_definition tool")
@@ -823,6 +831,10 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if setAppDefinitionMeta["accessType"] != string(tools.AccessTypeStructural) {
 		t.Fatalf("expected structural access type for set_app_definition, got %#v", setAppDefinitionMeta["accessType"])
 	}
+	streamAppDefinitionMeta := mustStructuredMap(t, streamAppDefinitionTool.Meta[toolMetaNamespace])
+	if streamAppDefinitionMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for stream_app_definition, got %#v", streamAppDefinitionMeta["accessType"])
+	}
 	updateAppDefinitionMeta := mustStructuredMap(t, updateAppDefinitionTool.Meta[toolMetaNamespace])
 	if updateAppDefinitionMeta["accessType"] != string(tools.AccessTypeStructural) {
 		t.Fatalf("expected structural access type for update_app_definition, got %#v", updateAppDefinitionMeta["accessType"])
@@ -1053,8 +1065,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 71 {
-		t.Fatalf("expected 71 registered tool names, got %#v", listNames)
+	if len(listNames) != 72 {
+		t.Fatalf("expected 72 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
