@@ -1183,76 +1183,94 @@ export function isBaseSectionWithParamsImpl(
 }
 `
 
-const projectStateImplArgsSupportTS = `
-type ImplArgsBundleWithUpdaters<T> = {
-  [K in keyof T]?: T[K] | ((prev: T[K]) => T[K]);
-};
-
-export type ImplArgsBundleMap = {
+func projectStateSupportDeclarations() []TypeDeclaration {
+	return []TypeDeclaration{
+		aliasDeclaration(
+			"ImplArgsBundleMap",
+			`{
   BaseSection: {
     impl: BaseSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseSectionImplUnion>;
+    args: {
+      [K in keyof BaseSectionImplUnion]?: BaseSectionImplUnion[K] | ((prev: BaseSectionImplUnion[K]) => BaseSectionImplUnion[K]);
+    };
   };
   BaseSectionWithParams: {
     impl: BaseSectionWithParamsImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseSectionWithParamsImplUnion>;
+    args: {
+      [K in keyof BaseSectionWithParamsImplUnion]?: BaseSectionWithParamsImplUnion[K] | ((prev: BaseSectionWithParamsImplUnion[K]) => BaseSectionWithParamsImplUnion[K]);
+    };
   };
   BaseParentSection: {
     impl: BaseParentSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
+    args: {
+      [K in keyof BaseParentSectionImplUnion]?: BaseParentSectionImplUnion[K] | ((prev: BaseParentSectionImplUnion[K]) => BaseParentSectionImplUnion[K]);
+    };
   };
   BaseCodeSection: {
     impl: BaseParentSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
+    args: {
+      [K in keyof BaseParentSectionImplUnion]?: BaseParentSectionImplUnion[K] | ((prev: BaseParentSectionImplUnion[K]) => BaseParentSectionImplUnion[K]);
+    };
   };
   ChatSection: {
     impl: BaseSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseSectionImplUnion>;
+    args: {
+      [K in keyof BaseSectionImplUnion]?: BaseSectionImplUnion[K] | ((prev: BaseSectionImplUnion[K]) => BaseSectionImplUnion[K]);
+    };
   };
   CodeSection: {
     impl: BaseParentSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
+    args: {
+      [K in keyof BaseParentSectionImplUnion]?: BaseParentSectionImplUnion[K] | ((prev: BaseParentSectionImplUnion[K]) => BaseParentSectionImplUnion[K]);
+    };
   };
   GroupSection: {
     impl: BaseParentSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
+    args: {
+      [K in keyof BaseParentSectionImplUnion]?: BaseParentSectionImplUnion[K] | ((prev: BaseParentSectionImplUnion[K]) => BaseParentSectionImplUnion[K]);
+    };
   };
   ListRootSection: {
     impl: BaseParentSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
+    args: {
+      [K in keyof BaseParentSectionImplUnion]?: BaseParentSectionImplUnion[K] | ((prev: BaseParentSectionImplUnion[K]) => BaseParentSectionImplUnion[K]);
+    };
   };
   BrowserSection: {
     impl: BrowserSectionImpl;
-    args: ImplArgsBundleWithUpdaters<BrowserSectionImpl>;
+    args: {
+      [K in keyof BrowserSectionImpl]?: BrowserSectionImpl[K] | ((prev: BrowserSectionImpl[K]) => BrowserSectionImpl[K]);
+    };
   };
   TextBlockSection: {
     impl: BaseSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseSectionImplUnion>;
+    args: {
+      [K in keyof BaseSectionImplUnion]?: BaseSectionImplUnion[K] | ((prev: BaseSectionImplUnion[K]) => BaseSectionImplUnion[K]);
+    };
   };
   BaseDictSection: {
     impl: BaseDictSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseDictSectionImplUnion>;
+    args: {
+      [K in keyof BaseDictSectionImplUnion]?: BaseDictSectionImplUnion[K] | ((prev: BaseDictSectionImplUnion[K]) => BaseDictSectionImplUnion[K]);
+    };
   };
   BaseChildlessCodeObj: {
     impl: BaseChildlessCodeObjImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseChildlessCodeObjImplUnion>;
+    args: {
+      [K in keyof BaseChildlessCodeObjImplUnion]?: BaseChildlessCodeObjImplUnion[K] | ((prev: BaseChildlessCodeObjImplUnion[K]) => BaseChildlessCodeObjImplUnion[K]);
+    };
   };
   BaseCodeObj: {
     impl: BaseCodeObjImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseCodeObjImplUnion>;
+    args: {
+      [K in keyof BaseCodeObjImplUnion]?: BaseCodeObjImplUnion[K] | ((prev: BaseCodeObjImplUnion[K]) => BaseCodeObjImplUnion[K]);
+    };
   };
-};
-`
-
-func projectStateSupportDeclarations() []TypeDeclaration {
-	return []TypeDeclaration{
+}`,
+		),
 		rawDeclaration(
 			"ProjectStateTypeGuardSupport",
 			projectStateTypeGuardSupportTS,
-		),
-		rawDeclaration(
-			"ProjectStateImplArgsSupport",
-			projectStateImplArgsSupportTS,
 		),
 	}
 }

@@ -8326,6 +8326,88 @@ export function createPluginRestartResponse(options: Partial<PluginRestartRespon
 }
 
 
+export type ImplArgsBundleMap = {
+  BaseSection: {
+    impl: BaseSectionImplUnion;
+    args: {
+      [K in keyof BaseSectionImplUnion]?: BaseSectionImplUnion[K] | ((prev: BaseSectionImplUnion[K]) => BaseSectionImplUnion[K]);
+    };
+  };
+  BaseSectionWithParams: {
+    impl: BaseSectionWithParamsImplUnion;
+    args: {
+      [K in keyof BaseSectionWithParamsImplUnion]?: BaseSectionWithParamsImplUnion[K] | ((prev: BaseSectionWithParamsImplUnion[K]) => BaseSectionWithParamsImplUnion[K]);
+    };
+  };
+  BaseParentSection: {
+    impl: BaseParentSectionImplUnion;
+    args: {
+      [K in keyof BaseParentSectionImplUnion]?: BaseParentSectionImplUnion[K] | ((prev: BaseParentSectionImplUnion[K]) => BaseParentSectionImplUnion[K]);
+    };
+  };
+  BaseCodeSection: {
+    impl: BaseParentSectionImplUnion;
+    args: {
+      [K in keyof BaseParentSectionImplUnion]?: BaseParentSectionImplUnion[K] | ((prev: BaseParentSectionImplUnion[K]) => BaseParentSectionImplUnion[K]);
+    };
+  };
+  ChatSection: {
+    impl: BaseSectionImplUnion;
+    args: {
+      [K in keyof BaseSectionImplUnion]?: BaseSectionImplUnion[K] | ((prev: BaseSectionImplUnion[K]) => BaseSectionImplUnion[K]);
+    };
+  };
+  CodeSection: {
+    impl: BaseParentSectionImplUnion;
+    args: {
+      [K in keyof BaseParentSectionImplUnion]?: BaseParentSectionImplUnion[K] | ((prev: BaseParentSectionImplUnion[K]) => BaseParentSectionImplUnion[K]);
+    };
+  };
+  GroupSection: {
+    impl: BaseParentSectionImplUnion;
+    args: {
+      [K in keyof BaseParentSectionImplUnion]?: BaseParentSectionImplUnion[K] | ((prev: BaseParentSectionImplUnion[K]) => BaseParentSectionImplUnion[K]);
+    };
+  };
+  ListRootSection: {
+    impl: BaseParentSectionImplUnion;
+    args: {
+      [K in keyof BaseParentSectionImplUnion]?: BaseParentSectionImplUnion[K] | ((prev: BaseParentSectionImplUnion[K]) => BaseParentSectionImplUnion[K]);
+    };
+  };
+  BrowserSection: {
+    impl: BrowserSectionImpl;
+    args: {
+      [K in keyof BrowserSectionImpl]?: BrowserSectionImpl[K] | ((prev: BrowserSectionImpl[K]) => BrowserSectionImpl[K]);
+    };
+  };
+  TextBlockSection: {
+    impl: BaseSectionImplUnion;
+    args: {
+      [K in keyof BaseSectionImplUnion]?: BaseSectionImplUnion[K] | ((prev: BaseSectionImplUnion[K]) => BaseSectionImplUnion[K]);
+    };
+  };
+  BaseDictSection: {
+    impl: BaseDictSectionImplUnion;
+    args: {
+      [K in keyof BaseDictSectionImplUnion]?: BaseDictSectionImplUnion[K] | ((prev: BaseDictSectionImplUnion[K]) => BaseDictSectionImplUnion[K]);
+    };
+  };
+  BaseChildlessCodeObj: {
+    impl: BaseChildlessCodeObjImplUnion;
+    args: {
+      [K in keyof BaseChildlessCodeObjImplUnion]?: BaseChildlessCodeObjImplUnion[K] | ((prev: BaseChildlessCodeObjImplUnion[K]) => BaseChildlessCodeObjImplUnion[K]);
+    };
+  };
+  BaseCodeObj: {
+    impl: BaseCodeObjImplUnion;
+    args: {
+      [K in keyof BaseCodeObjImplUnion]?: BaseCodeObjImplUnion[K] | ((prev: BaseCodeObjImplUnion[K]) => BaseCodeObjImplUnion[K]);
+    };
+  };
+};
+
+
 
 export const BaseChildlessCodeObjImplTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.CodeParam,
@@ -8450,68 +8532,6 @@ export function isBaseSectionWithParamsImpl(
 ): x is BaseSectionWithParamsImplUnion {
   return BaseSectionWithParamsImplTypeSet.has(x.type);
 }
-
-
-
-
-type ImplArgsBundleWithUpdaters<T> = {
-  [K in keyof T]?: T[K] | ((prev: T[K]) => T[K]);
-};
-
-export type ImplArgsBundleMap = {
-  BaseSection: {
-    impl: BaseSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseSectionImplUnion>;
-  };
-  BaseSectionWithParams: {
-    impl: BaseSectionWithParamsImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseSectionWithParamsImplUnion>;
-  };
-  BaseParentSection: {
-    impl: BaseParentSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
-  };
-  BaseCodeSection: {
-    impl: BaseParentSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
-  };
-  ChatSection: {
-    impl: BaseSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseSectionImplUnion>;
-  };
-  CodeSection: {
-    impl: BaseParentSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
-  };
-  GroupSection: {
-    impl: BaseParentSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
-  };
-  ListRootSection: {
-    impl: BaseParentSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
-  };
-  BrowserSection: {
-    impl: BrowserSectionImpl;
-    args: ImplArgsBundleWithUpdaters<BrowserSectionImpl>;
-  };
-  TextBlockSection: {
-    impl: BaseSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseSectionImplUnion>;
-  };
-  BaseDictSection: {
-    impl: BaseDictSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseDictSectionImplUnion>;
-  };
-  BaseChildlessCodeObj: {
-    impl: BaseChildlessCodeObjImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseChildlessCodeObjImplUnion>;
-  };
-  BaseCodeObj: {
-    impl: BaseCodeObjImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseCodeObjImplUnion>;
-  };
-};
 
 
 
