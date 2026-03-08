@@ -912,6 +912,52 @@ func TestAIRequestContractsUseConverterObjects(t *testing.T) {
 	}
 }
 
+func TestAIResponseContractsUseConverterObjects(t *testing.T) {
+	tests := []struct {
+		name       string
+		root       reflect.Type
+		properties []TypeProperty
+	}{
+		{
+			name: "GetLLMChatResponse",
+			root: reflect.TypeOf(GetLLMChatResponse{}),
+			properties: []TypeProperty{
+				{Name: "messages", TypeExpr: "Array<BaseChatMessageUnion>", Optional: false},
+				{Name: "waitingForResponse", TypeExpr: "boolean", Optional: false},
+				{Name: "llmConfig", TypeExpr: "LLMConfig | null", Optional: true},
+				{Name: "contextUsage", TypeExpr: "ChatContextUsage | null", Optional: true},
+			},
+		},
+		{
+			name: "ExternalAgentChatResponse",
+			root: reflect.TypeOf(ExternalAgentChatResponse{}),
+			properties: []TypeProperty{
+				{Name: "messages", TypeExpr: "Array<BaseChatMessageUnion>", Optional: false},
+				{Name: "waitingForResponse", TypeExpr: "boolean", Optional: false},
+				{Name: "toolCallArguments", TypeExpr: "Record<string, string>", Optional: false},
+				{Name: "contextUsage", TypeExpr: "ChatContextUsage | null", Optional: true},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != "object" {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, "object")
+			}
+			if !reflect.DeepEqual(declaration.Properties, tt.properties) {
+				t.Fatalf("%s properties = %#v, want %#v", tt.name, declaration.Properties, tt.properties)
+			}
+		})
+	}
+}
+
 func TestProjectStateValueObjectContractsUseConverterObjects(t *testing.T) {
 	converter := newTypeConverter()
 	if err := converter.AddRootType(reflect.TypeOf(CodeFileBindingUpdate{})); err != nil {

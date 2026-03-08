@@ -178,24 +178,16 @@ type SetChatSectionStateRequestInput struct {
 	State           ChatSectionState `json:"state"`
 }
 
-type GetLLMChatResponse struct{}
+type GetLLMChatResponse struct {
+	Messages           []BaseChatMessageUnion `json:"messages"`
+	WaitingForResponse bool                   `json:"waitingForResponse"`
+	LLMConfig          *LLMConfig             `json:"llmConfig,omitempty"`
+	ContextUsage       *ChatContextUsage      `json:"contextUsage,omitempty"`
+}
 
-type ExternalAgentChatResponse struct{}
-
-const getLLMChatResponseRawTS = `
-export type GetLLMChatResponse = {
-  messages: Array<BaseChatMessageUnion>;
-  waitingForResponse: boolean;
-  llmConfig?: LLMConfig | null;
-  contextUsage?: ChatContextUsage | null;
-};
-`
-
-const externalAgentChatResponseRawTS = `
-export type ExternalAgentChatResponse = {
-  messages: Array<BaseChatMessageUnion>;
-  waitingForResponse: boolean;
-  toolCallArguments: Record<string, string>;
-  contextUsage?: ChatContextUsage | null;
-};
-`
+type ExternalAgentChatResponse struct {
+	Messages           []BaseChatMessageUnion `json:"messages"`
+	WaitingForResponse bool                   `json:"waitingForResponse"`
+	ToolCallArguments  map[string]string      `json:"toolCallArguments"`
+	ContextUsage       *ChatContextUsage      `json:"contextUsage,omitempty"`
+}

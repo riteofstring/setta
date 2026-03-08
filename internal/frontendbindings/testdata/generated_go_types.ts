@@ -8004,14 +8004,15 @@ export function createGetLLMChatRequest(options: Partial<GetLLMChatRequest> = {}
 }
 
 
-
 export type GetLLMChatResponse = {
   messages: Array<BaseChatMessageUnion>;
   waitingForResponse: boolean;
   llmConfig?: LLMConfig | null;
   contextUsage?: ChatContextUsage | null;
 };
-
+export function createGetLLMChatResponse(options: Partial<GetLLMChatResponse> = {}): GetLLMChatResponse {
+  return options as GetLLMChatResponse;
+}
 
 
 export type StopLLMChatRequest = {
@@ -8041,14 +8042,15 @@ export function createGetExternalAgentChatRequest(options: Partial<GetExternalAg
 }
 
 
-
 export type ExternalAgentChatResponse = {
   messages: Array<BaseChatMessageUnion>;
   waitingForResponse: boolean;
   toolCallArguments: Record<string, string>;
   contextUsage?: ChatContextUsage | null;
 };
-
+export function createExternalAgentChatResponse(options: Partial<ExternalAgentChatResponse> = {}): ExternalAgentChatResponse {
+  return options as ExternalAgentChatResponse;
+}
 
 
 export type StopExternalAgentRunRequest = {

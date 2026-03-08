@@ -8187,6 +8187,11 @@ export type GetLLMChatResponse = {
   llmConfig?: LLMConfig | null;
   contextUsage?: ChatContextUsage | null;
 };
+export function createGetLLMChatResponse(
+  options: Partial<GetLLMChatResponse> = {},
+): GetLLMChatResponse {
+  return options as GetLLMChatResponse;
+}
 
 export type StopLLMChatRequest = {
   chatId: string;
@@ -8224,6 +8229,11 @@ export type ExternalAgentChatResponse = {
   toolCallArguments: Record<string, string>;
   contextUsage?: ChatContextUsage | null;
 };
+export function createExternalAgentChatResponse(
+  options: Partial<ExternalAgentChatResponse> = {},
+): ExternalAgentChatResponse {
+  return options as ExternalAgentChatResponse;
+}
 
 export type StopExternalAgentRunRequest = {
   runId: string;

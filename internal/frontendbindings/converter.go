@@ -607,16 +607,20 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "sectionId", TypeExpr: "string"},
 				TypeProperty{Name: "binding", TypeExpr: "CodeFileBindingUpdate"},
 			),
-			reflect.TypeOf(GetLLMChatResponse{}): {
-				Name: "GetLLMChatResponse",
-				Kind: "raw",
-				Raw:  getLLMChatResponseRawTS,
-			},
-			reflect.TypeOf(ExternalAgentChatResponse{}): {
-				Name: "ExternalAgentChatResponse",
-				Kind: "raw",
-				Raw:  externalAgentChatResponseRawTS,
-			},
+			reflect.TypeOf(GetLLMChatResponse{}): objectDeclaration(
+				"GetLLMChatResponse",
+				TypeProperty{Name: "messages", TypeExpr: "Array<BaseChatMessageUnion>"},
+				TypeProperty{Name: "waitingForResponse", TypeExpr: "boolean"},
+				TypeProperty{Name: "llmConfig", TypeExpr: "LLMConfig | null", Optional: true},
+				TypeProperty{Name: "contextUsage", TypeExpr: "ChatContextUsage | null", Optional: true},
+			),
+			reflect.TypeOf(ExternalAgentChatResponse{}): objectDeclaration(
+				"ExternalAgentChatResponse",
+				TypeProperty{Name: "messages", TypeExpr: "Array<BaseChatMessageUnion>"},
+				TypeProperty{Name: "waitingForResponse", TypeExpr: "boolean"},
+				TypeProperty{Name: "toolCallArguments", TypeExpr: "Record<string, string>"},
+				TypeProperty{Name: "contextUsage", TypeExpr: "ChatContextUsage | null", Optional: true},
+			),
 			reflect.TypeOf(PluginListEntry{}): {
 				Name: "PluginListEntry",
 				Kind: "raw",
