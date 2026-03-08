@@ -179,6 +179,79 @@ export type LauncherOpenWorkspaceResponse = {
   error: LauncherHomeErrorPayload | null;
 };
 
+export type LauncherManagementErrorPayload = {
+  code: string;
+  message: string;
+};
+
+export type LauncherRequestBaseInput = {
+  settaHome?: string | null;
+};
+
+export type LauncherStatusResponse = {
+  ok: boolean;
+  installed: boolean | null;
+  settaHome: string | null;
+  launcherDir: string | null;
+  metadataPath: string | null;
+  targetCommand: Array<string> | null;
+  targetValid: boolean | null;
+  targetError: string | null;
+  channel: string | null;
+  settaVersion: string | null;
+  openMode: "browser" | "chrome-app" | null;
+  workspaceBehavior: "last_used_or_prompt" | "always_prompt" | null;
+  lastUsedWorkspace: string | null;
+  artifactOptions: Record<string, string>;
+  managedArtifacts: Record<string, string>;
+  existingManagedArtifacts: Array<string>;
+  missingManagedArtifacts: Array<string>;
+  updateCapability: "in_app" | "installer_managed" | "unsupported" | null;
+  updateGuidance: string | null;
+  error: LauncherManagementErrorPayload | null;
+};
+
+export type SetupLauncherRequestInput = {
+  settaHome?: string | null;
+  channel?: string | null;
+  installSource?: "uv-tool" | "installer-managed" | "unsupported" | null;
+  openMode?: "browser" | "chrome-app" | null;
+  workspaceBehavior?: "last-used-or-prompt" | "always-prompt" | null;
+  installArtifacts?: boolean | null;
+  artifactOptions?: Record<string, string> | null;
+};
+
+export type LauncherUpdateResponse = {
+  ok: boolean;
+  installed: boolean | null;
+  settaHome: string | null;
+  launcherDir: string | null;
+  metadataPath: string | null;
+  targetCommand: Array<string> | null;
+  targetValid: boolean | null;
+  targetError: string | null;
+  channel: string | null;
+  settaVersion: string | null;
+  openMode: "browser" | "chrome-app" | null;
+  workspaceBehavior: "last_used_or_prompt" | "always_prompt" | null;
+  lastUsedWorkspace: string | null;
+  artifactOptions: Record<string, string>;
+  managedArtifacts: Record<string, string>;
+  existingManagedArtifacts: Array<string>;
+  missingManagedArtifacts: Array<string>;
+  updateCapability: "in_app" | "installer_managed" | "unsupported" | null;
+  updateGuidance: string | null;
+  error: LauncherManagementErrorPayload | null;
+  packageSpec: string | null;
+  fromVersion: string | null;
+  toVersion: string | null;
+};
+
+export type UpdateLauncherRequestInput = {
+  settaHome?: string | null;
+  packageSpec?: string | null;
+};
+
 export async function route_get_backend_init_status(): Promise<ResponseDataAndStatus<BackendInitStatusResponse>> {
   return await get(GoHTTPRoutes.getBackendInitStatus);
 }
@@ -225,6 +298,26 @@ export async function route_list_launcher_directory(x: LauncherListDirectoryRequ
 
 export async function route_open_launcher_workspace(x: LauncherOpenWorkspaceRequestInput): Promise<ResponseDataAndStatus<LauncherOpenWorkspaceResponse>> {
   return await post(GoHTTPRoutes.openLauncherWorkspace, x);
+}
+
+export async function route_get_launcher_status(setta_home: string | null): Promise<ResponseDataAndStatus<LauncherStatusResponse>> {
+  return await get(GoHTTPRoutes.getLauncherStatus, { setta_home });
+}
+
+export async function route_setup_launcher(x: SetupLauncherRequestInput): Promise<ResponseDataAndStatus<LauncherStatusResponse>> {
+  return await post(GoHTTPRoutes.setupLauncher, x);
+}
+
+export async function route_repair_launcher(x: LauncherRequestBaseInput): Promise<ResponseDataAndStatus<LauncherStatusResponse>> {
+  return await post(GoHTTPRoutes.repairLauncher, x);
+}
+
+export async function route_remove_launcher(x: LauncherRequestBaseInput): Promise<ResponseDataAndStatus<LauncherStatusResponse>> {
+  return await post(GoHTTPRoutes.removeLauncher, x);
+}
+
+export async function route_update_launcher(x: UpdateLauncherRequestInput): Promise<ResponseDataAndStatus<LauncherUpdateResponse>> {
+  return await post(GoHTTPRoutes.updateLauncher, x);
 }
 `
 

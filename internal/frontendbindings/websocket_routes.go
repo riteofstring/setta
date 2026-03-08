@@ -107,6 +107,26 @@ func CurrentHTTPRoutes() []HTTPRoute {
 			Path: httpapi.RouteOpenLauncherWorkspace,
 		},
 		{
+			Name: "getLauncherStatus",
+			Path: httpapi.RouteGetLauncherStatus,
+		},
+		{
+			Name: "setupLauncher",
+			Path: httpapi.RouteSetupLauncher,
+		},
+		{
+			Name: "repairLauncher",
+			Path: httpapi.RouteRepairLauncher,
+		},
+		{
+			Name: "removeLauncher",
+			Path: httpapi.RouteRemoveLauncher,
+		},
+		{
+			Name: "updateLauncher",
+			Path: httpapi.RouteUpdateLauncher,
+		},
+		{
 			Name: "binaryDownload",
 			Path: httpapi.RouteBinaryDownload,
 		},

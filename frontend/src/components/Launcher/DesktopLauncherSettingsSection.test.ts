@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createLauncherStatusResponse } from "utils/generatedTypes";
+import { type LauncherStatusResponse } from "utils/generatedGoEndpoints";
 
 import {
   buildSetupLauncherRequest,
@@ -10,10 +10,37 @@ import {
   resolveUpdateProgressLabel,
 } from "./DesktopLauncherSettingsSection";
 
+function createLauncherStatusResponse(
+  options: Partial<LauncherStatusResponse> = {},
+): LauncherStatusResponse {
+  return {
+    ok: true,
+    installed: null,
+    settaHome: null,
+    launcherDir: null,
+    metadataPath: null,
+    targetCommand: null,
+    targetValid: null,
+    targetError: null,
+    channel: null,
+    settaVersion: null,
+    openMode: null,
+    workspaceBehavior: null,
+    lastUsedWorkspace: null,
+    artifactOptions: {},
+    managedArtifacts: {},
+    existingManagedArtifacts: [],
+    missingManagedArtifacts: [],
+    updateCapability: null,
+    updateGuidance: null,
+    error: null,
+    ...options,
+  };
+}
+
 describe("DesktopLauncherSettingsSection helpers", () => {
   it("derives setup state for a fresh installation", () => {
     const status = createLauncherStatusResponse({
-      ok: true,
       installed: false,
       updateCapability: "unsupported",
     });
@@ -32,7 +59,6 @@ describe("DesktopLauncherSettingsSection helpers", () => {
 
   it("derives in-app update state and in-flight setup label", () => {
     const status = createLauncherStatusResponse({
-      ok: true,
       installed: true,
       updateCapability: "in_app",
     });
@@ -51,7 +77,6 @@ describe("DesktopLauncherSettingsSection helpers", () => {
 
   it("marks installer-managed channels and re-run setup label", () => {
     const status = createLauncherStatusResponse({
-      ok: true,
       installed: true,
       updateCapability: "installer_managed",
     });
@@ -102,7 +127,6 @@ describe("DesktopLauncherSettingsSection helpers", () => {
 
   it("builds setup payload from existing launcher status", () => {
     const status = createLauncherStatusResponse({
-      ok: true,
       installed: true,
       channel: "uv-tool",
       openMode: "browser",
@@ -131,7 +155,6 @@ describe("DesktopLauncherSettingsSection helpers", () => {
 
   it("sets installArtifacts=false when launcher has no managed artifacts", () => {
     const status = createLauncherStatusResponse({
-      ok: true,
       installed: true,
       managedArtifacts: {},
     });
@@ -146,7 +169,6 @@ describe("DesktopLauncherSettingsSection helpers", () => {
 
   it("omits setup defaults when launcher is not installed", () => {
     const status = createLauncherStatusResponse({
-      ok: true,
       installed: false,
       updateCapability: "unsupported",
     });

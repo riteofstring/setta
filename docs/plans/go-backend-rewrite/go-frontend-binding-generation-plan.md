@@ -35,8 +35,8 @@ Start with explicit route ownership wedges, not full schema reflection.
 
 - extend Go-owned generation to caller-backed Go HTTP route constants
   - current landed wedge: API prefix plus the active raw-address bootstrap,
-    tools-call, workspace-launch, launcher-home, `settaHomeInfo`, and
-    `binaryDownload` route constants
+    tools-call, workspace-launch, launcher-home, launcher-management,
+    `settaHomeInfo`, and `binaryDownload` route constants
 - decide the minimal typed request/response ownership model for Go-backed HTTP
   contracts
   - current landed wedge: active status/meta read endpoint wrappers and
@@ -47,6 +47,8 @@ Start with explicit route ownership wedges, not full schema reflection.
   - current landed wedge: active launcher-home endpoint wrappers plus
     request/response types for recent-workspace reads/mutations,
     filesystem-root reads, directory listing, and open-workspace
+  - current landed wedge: active launcher-management endpoint wrappers plus
+    request/response types for launcher status/setup/repair/remove/update
 - keep schema reflection as a bounded tool, not the default owner
 
 ## Non-Goals

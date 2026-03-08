@@ -23,6 +23,11 @@ export const GoHTTPRoutes = {
   getLauncherFilesystemRoots: "/launcherFilesystemRoots",
   listLauncherDirectory: "/listLauncherDirectory",
   openLauncherWorkspace: "/openLauncherWorkspace",
+  getLauncherStatus: "/launcherStatus",
+  setupLauncher: "/setupLauncher",
+  repairLauncher: "/repairLauncher",
+  removeLauncher: "/removeLauncher",
+  updateLauncher: "/updateLauncher",
   binaryDownload: "/binary/{contentId}",
 } as const;
 
