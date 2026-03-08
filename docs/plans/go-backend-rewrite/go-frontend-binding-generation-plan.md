@@ -84,6 +84,7 @@ Current landed wedge:
   - current child-section helper route constants
   - current param value/config, code-object naming/display,
     python-codegen prefix/suffix, and attached-terminal helper route constants
+  - current text-block helper route constants
   - current section param-filter, meta-control-title, and group-overflow route
     constants
   - current section param column-width route constants
@@ -150,6 +151,13 @@ Current landed wedge:
       - `SetGenCodeSuffixRequestInput`
       - `SetCodeObjNameRequestInput`
       - `SetCodeObjDisplayNameRequestInput`
+    - current text-block helper payloads
+      - `SetTextBlockTextRequestInput`
+      - `SetTextBlockDisplayModeRequestInput`
+      - `SetTextBlockFormatRequestInput`
+      - `SetTextBlockHeadingAsSectionNameRequestInput`
+      - `SetTextBlockMetaControlStyleRequestInput`
+      - `SetTextBlockMasterFontSizeRequestInput`
     - current structure/param-selection mutation payloads
       - `CreateChildSectionsRequestInput`
       - `CreateChildSectionsViaIncrementerRequestInput`

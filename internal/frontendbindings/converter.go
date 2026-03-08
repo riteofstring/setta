@@ -439,6 +439,36 @@ func newTypeConverter() *typeConverter {
 				Kind: "raw",
 				Raw:  setBrowserSavedSearchesRequestInputRawTS,
 			},
+			reflect.TypeOf(SetTextBlockTextRequestInput{}): {
+				Name: "SetTextBlockTextRequestInput",
+				Kind: "raw",
+				Raw:  setTextBlockTextRequestInputRawTS,
+			},
+			reflect.TypeOf(SetTextBlockDisplayModeRequestInput{}): {
+				Name: "SetTextBlockDisplayModeRequestInput",
+				Kind: "raw",
+				Raw:  setTextBlockDisplayModeRequestInputRawTS,
+			},
+			reflect.TypeOf(SetTextBlockFormatRequestInput{}): {
+				Name: "SetTextBlockFormatRequestInput",
+				Kind: "raw",
+				Raw:  setTextBlockFormatRequestInputRawTS,
+			},
+			reflect.TypeOf(SetTextBlockHeadingAsSectionNameRequestInput{}): {
+				Name: "SetTextBlockHeadingAsSectionNameRequestInput",
+				Kind: "raw",
+				Raw:  setTextBlockHeadingAsSectionNameRequestInputRawTS,
+			},
+			reflect.TypeOf(SetTextBlockMetaControlStyleRequestInput{}): {
+				Name: "SetTextBlockMetaControlStyleRequestInput",
+				Kind: "raw",
+				Raw:  setTextBlockMetaControlStyleRequestInputRawTS,
+			},
+			reflect.TypeOf(SetTextBlockMasterFontSizeRequestInput{}): {
+				Name: "SetTextBlockMasterFontSizeRequestInput",
+				Kind: "raw",
+				Raw:  setTextBlockMasterFontSizeRequestInputRawTS,
+			},
 			reflect.TypeOf(SetCodeFileBindingRequestInput{}): {
 				Name: "SetCodeFileBindingRequestInput",
 				Kind: "raw",

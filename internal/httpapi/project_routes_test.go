@@ -3331,6 +3331,173 @@ func TestRegisterProjectRoutesBrowserMetadataMutationsRejectInvalidInputs(t *tes
 	}
 }
 
+func TestRegisterProjectRoutesTextBlockMutationsPersistLatestState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": textBlockRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	post := func(route string, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+route,
+			strings.NewReader(body),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	for _, requestSpec := range []struct {
+		route string
+		body  string
+	}{
+		{
+			route: RouteSetTextBlockFormat,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"text-section","format":"Markdown"}`,
+		},
+		{
+			route: RouteSetTextBlockHeadingAsSectionName,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"text-section","headingAsSectionName":true}`,
+		},
+		{
+			route: RouteSetTextBlockText,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"text-section","text":"# Updated Heading\n\nBody"}`,
+		},
+		{
+			route: RouteSetTextBlockDisplayMode,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"text-section","textDisplayMode":"Edit"}`,
+		},
+		{
+			route: RouteSetTextBlockMetaControlStyle,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"text-section","metaControlStyle":true}`,
+		},
+		{
+			route: RouteSetTextBlockMasterFontSize,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"text-section","masterFontSizePx":64}`,
+		},
+	} {
+		response := post(requestSpec.route, requestSpec.body)
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+		}
+	}
+
+	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+
+	textSection := payload.ProjectState.Sections["text-section"]
+	if textSection.Name != "Updated Heading" {
+		t.Fatalf("expected section name Updated Heading, got %q", textSection.Name)
+	}
+
+	textSharedModifier := decodeProjectRouteRawObject(t, textSection.SharedModifier)
+	if got := textSharedModifier["format"]; got != "Markdown" {
+		t.Fatalf("expected format Markdown, got %#v", got)
+	}
+	if got := textSharedModifier["text"]; got != "# Updated Heading\n\nBody" {
+		t.Fatalf("expected updated text, got %#v", got)
+	}
+	if got := textSharedModifier["textDisplayMode"]; got != "Edit" {
+		t.Fatalf("expected textDisplayMode Edit, got %#v", got)
+	}
+	if got := textSharedModifier["headingAsSectionName"]; got != true {
+		t.Fatalf("expected headingAsSectionName true, got %#v", got)
+	}
+	if got := textSharedModifier["metaControlStyle"]; got != true {
+		t.Fatalf("expected metaControlStyle true, got %#v", got)
+	}
+	if got := textSharedModifier["masterFontSizePx"]; got != float64(48) {
+		t.Fatalf("expected masterFontSizePx 48, got %#v", got)
+	}
+}
+
+func TestRegisterProjectRoutesTextBlockMutationsRejectInvalidInputs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": textBlockRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	for _, requestSpec := range []struct {
+		route        string
+		body         string
+		expectedCode int
+		expectedBody string
+	}{
+		{
+			route:        RouteSetTextBlockText,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"plain-section","text":"hello"}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"text_block_section_required"`,
+		},
+		{
+			route:        RouteSetTextBlockDisplayMode,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"text-section","textDisplayMode":"Preview"}`,
+			expectedCode: http.StatusBadRequest,
+			expectedBody: `"code":"text_block_display_mode_invalid"`,
+		},
+		{
+			route:        RouteSetTextBlockFormat,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"text-section","format":"HTML"}`,
+			expectedCode: http.StatusBadRequest,
+			expectedBody: `"code":"text_block_format_invalid"`,
+		},
+	} {
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+requestSpec.route,
+			strings.NewReader(requestSpec.body),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != requestSpec.expectedCode {
+			t.Fatalf("expected %d for %s, got %d with body %q", requestSpec.expectedCode, requestSpec.route, response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), requestSpec.expectedBody) {
+			t.Fatalf("expected response body to contain %s, got %q", requestSpec.expectedBody, response.Body.String())
+		}
+	}
+}
+
 func TestRegisterProjectRoutesSetSectionColumnWidthRejectsUnsupportedSection(t *testing.T) {
 	t.Parallel()
 
@@ -5782,6 +5949,71 @@ func browserSectionRouteTestProject(t *testing.T) projectstate.Project {
 	}.Normalized()
 	if err != nil {
 		t.Fatalf("normalize browser route project: %v", err)
+	}
+	return project
+}
+
+func textBlockRouteTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"text-section":  "text-variant",
+			"plain-section": "plain-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"text-section": {
+				ID:               "text-section",
+				Name:             "Seed Section",
+				VariantIDs:       []string{"text-variant"},
+				DefaultVariantID: "text-variant",
+			},
+			"plain-section": {
+				ID:               "plain-section",
+				Name:             "Plain Section",
+				VariantIDs:       []string{"plain-variant"},
+				DefaultVariantID: "plain-variant",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"text-variant": {
+				ID:     "text-variant",
+				ImplID: "text-impl",
+			},
+			"plain-variant": {
+				ID:     "plain-variant",
+				ImplID: "plain-impl",
+			},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"text-impl": {
+				ID:   "text-impl",
+				Kind: projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{
+					"id":                   "text-impl",
+					"type":                 "TextBlock",
+					"text":                 "# Seed Heading\n\nBody",
+					"format":               "Plaintext",
+					"masterFontSizePx":     14.0,
+					"headingAsSectionName": false,
+					"metaControlStyle":     false,
+					"textDisplayMode":      "Render",
+				}),
+			},
+			"plain-impl": {
+				ID:   "plain-impl",
+				Kind: projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{
+					"id":   "plain-impl",
+					"type": "Chat",
+				}),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize text block route project: %v", err)
 	}
 	return project
 }

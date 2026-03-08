@@ -6222,6 +6222,66 @@ export function createSetGenCodeSuffixRequestInput(options: Partial<SetGenCodeSu
 }
 
 
+
+export type SetTextBlockTextRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  text: string;
+};
+
+
+
+
+export type SetTextBlockDisplayModeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  textDisplayMode: TextBlockDisplayMode;
+};
+
+
+
+
+export type SetTextBlockFormatRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  format: TextBlockFormat;
+};
+
+
+
+
+export type SetTextBlockHeadingAsSectionNameRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  headingAsSectionName: boolean;
+};
+
+
+
+
+export type SetTextBlockMetaControlStyleRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  metaControlStyle: boolean;
+};
+
+
+
+
+export type SetTextBlockMasterFontSizeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  masterFontSizePx: number;
+};
+
+
+
 export type KillSubprocessesRequestInput = {
   projectConfigId: string;
 };

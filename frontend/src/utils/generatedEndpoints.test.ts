@@ -98,6 +98,12 @@ import {
   route_set_section_variant,
   route_set_section_variant_name,
   route_set_section_variant_sort_order,
+  route_set_text_block_display_mode,
+  route_set_text_block_format,
+  route_set_text_block_heading_as_section_name,
+  route_set_text_block_master_font_size,
+  route_set_text_block_meta_control_style,
+  route_set_text_block_text,
   route_set_top_level_section_layout,
   route_set_type_error_ignore,
   route_set_variant_json_source_keys,
@@ -1443,6 +1449,144 @@ describe("generatedEndpoints project shell and layout", () => {
         sectionId: "browser-section",
         viewMode: "thumbnail",
         frontendOpId: "frontend-op-browser-view",
+      }),
+    });
+  });
+
+  it("posts text-block text writes", async () => {
+    await route_set_text_block_text({
+      projectConfigId: "project-alpha",
+      sectionId: "text-section",
+      text: "# Updated Heading\n\nBody",
+      frontendOpId: "frontend-op-text-block-text",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setTextBlockText`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "text-section",
+        text: "# Updated Heading\n\nBody",
+        frontendOpId: "frontend-op-text-block-text",
+      }),
+    });
+  });
+
+  it("posts text-block display-mode writes", async () => {
+    await route_set_text_block_display_mode({
+      projectConfigId: "project-alpha",
+      sectionId: "text-section",
+      textDisplayMode: "Edit",
+      frontendOpId: "frontend-op-text-block-display",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setTextBlockDisplayMode`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "text-section",
+        textDisplayMode: "Edit",
+        frontendOpId: "frontend-op-text-block-display",
+      }),
+    });
+  });
+
+  it("posts text-block format writes", async () => {
+    await route_set_text_block_format({
+      projectConfigId: "project-alpha",
+      sectionId: "text-section",
+      format: "Markdown",
+      frontendOpId: "frontend-op-text-block-format",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setTextBlockFormat`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "text-section",
+        format: "Markdown",
+        frontendOpId: "frontend-op-text-block-format",
+      }),
+    });
+  });
+
+  it("posts text-block heading-as-title writes", async () => {
+    await route_set_text_block_heading_as_section_name({
+      projectConfigId: "project-alpha",
+      sectionId: "text-section",
+      headingAsSectionName: true,
+      frontendOpId: "frontend-op-text-block-heading",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setTextBlockHeadingAsSectionName`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "text-section",
+        headingAsSectionName: true,
+        frontendOpId: "frontend-op-text-block-heading",
+      }),
+    });
+  });
+
+  it("posts text-block meta-control-style writes", async () => {
+    await route_set_text_block_meta_control_style({
+      projectConfigId: "project-alpha",
+      sectionId: "text-section",
+      metaControlStyle: true,
+      frontendOpId: "frontend-op-text-block-meta",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setTextBlockMetaControlStyle`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "text-section",
+        metaControlStyle: true,
+        frontendOpId: "frontend-op-text-block-meta",
+      }),
+    });
+  });
+
+  it("posts text-block master-font-size writes", async () => {
+    await route_set_text_block_master_font_size({
+      projectConfigId: "project-alpha",
+      sectionId: "text-section",
+      masterFontSizePx: 22,
+      frontendOpId: "frontend-op-text-block-font",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setTextBlockMasterFontSize`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "text-section",
+        masterFontSizePx: 22,
+        frontendOpId: "frontend-op-text-block-font",
       }),
     });
   });

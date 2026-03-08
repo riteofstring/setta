@@ -329,6 +329,18 @@ type SetBrowserHideColumnRequestInput struct{}
 
 type SetBrowserSavedSearchesRequestInput struct{}
 
+type SetTextBlockTextRequestInput struct{}
+
+type SetTextBlockDisplayModeRequestInput struct{}
+
+type SetTextBlockFormatRequestInput struct{}
+
+type SetTextBlockHeadingAsSectionNameRequestInput struct{}
+
+type SetTextBlockMetaControlStyleRequestInput struct{}
+
+type SetTextBlockMasterFontSizeRequestInput struct{}
+
 type SetCodeFileBindingRequestInput struct{}
 
 type ViewportInput struct {
@@ -507,6 +519,60 @@ export type SetBrowserSavedSearchesRequestInput = {
   projectConfigId: string;
   sectionId: string;
   savedSearches: Array<BrowserSavedSearch>;
+};
+`
+
+const setTextBlockTextRequestInputRawTS = `
+export type SetTextBlockTextRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  text: string;
+};
+`
+
+const setTextBlockDisplayModeRequestInputRawTS = `
+export type SetTextBlockDisplayModeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  textDisplayMode: TextBlockDisplayMode;
+};
+`
+
+const setTextBlockFormatRequestInputRawTS = `
+export type SetTextBlockFormatRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  format: TextBlockFormat;
+};
+`
+
+const setTextBlockHeadingAsSectionNameRequestInputRawTS = `
+export type SetTextBlockHeadingAsSectionNameRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  headingAsSectionName: boolean;
+};
+`
+
+const setTextBlockMetaControlStyleRequestInputRawTS = `
+export type SetTextBlockMetaControlStyleRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  metaControlStyle: boolean;
+};
+`
+
+const setTextBlockMasterFontSizeRequestInputRawTS = `
+export type SetTextBlockMasterFontSizeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  masterFontSizePx: number;
 };
 `
 

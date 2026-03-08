@@ -84,6 +84,12 @@ const (
 	RouteSetBrowserAreaViewMode            = "/setBrowserAreaViewMode"
 	RouteSetBrowserHideColumn              = "/setBrowserHideColumn"
 	RouteSetBrowserSavedSearches           = "/setBrowserSavedSearches"
+	RouteSetTextBlockText                  = "/setTextBlockText"
+	RouteSetTextBlockDisplayMode           = "/setTextBlockDisplayMode"
+	RouteSetTextBlockFormat                = "/setTextBlockFormat"
+	RouteSetTextBlockHeadingAsSectionName  = "/setTextBlockHeadingAsSectionName"
+	RouteSetTextBlockMetaControlStyle      = "/setTextBlockMetaControlStyle"
+	RouteSetTextBlockMasterFontSize        = "/setTextBlockMasterFontSize"
 	RouteToggleParamSelected               = "/toggleParamSelected"
 	RouteUnselectAllParams                 = "/unselectAllParams"
 	RouteSetChatSectionSettings            = "/setChatSectionSettings"
@@ -688,6 +694,48 @@ type SetBrowserSavedSearchesRequest struct {
 	SavedSearches []projectstate.BrowserSavedSearch `json:"savedSearches"`
 }
 
+type SetTextBlockTextRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	SectionID    string  `json:"sectionId"`
+	Text         string  `json:"text"`
+}
+
+type SetTextBlockDisplayModeRequest struct {
+	FrontendOpID    *string                           `json:"frontendOpId"`
+	ProjectID       string                            `json:"projectConfigId"`
+	SectionID       string                            `json:"sectionId"`
+	TextDisplayMode projectstate.TextBlockDisplayMode `json:"textDisplayMode"`
+}
+
+type SetTextBlockFormatRequest struct {
+	FrontendOpID *string                      `json:"frontendOpId"`
+	ProjectID    string                       `json:"projectConfigId"`
+	SectionID    string                       `json:"sectionId"`
+	Format       projectstate.TextBlockFormat `json:"format"`
+}
+
+type SetTextBlockHeadingAsSectionNameRequest struct {
+	FrontendOpID         *string `json:"frontendOpId"`
+	ProjectID            string  `json:"projectConfigId"`
+	SectionID            string  `json:"sectionId"`
+	HeadingAsSectionName bool    `json:"headingAsSectionName"`
+}
+
+type SetTextBlockMetaControlStyleRequest struct {
+	FrontendOpID     *string `json:"frontendOpId"`
+	ProjectID        string  `json:"projectConfigId"`
+	SectionID        string  `json:"sectionId"`
+	MetaControlStyle bool    `json:"metaControlStyle"`
+}
+
+type SetTextBlockMasterFontSizeRequest struct {
+	FrontendOpID     *string `json:"frontendOpId"`
+	ProjectID        string  `json:"projectConfigId"`
+	SectionID        string  `json:"sectionId"`
+	MasterFontSizePx float64 `json:"masterFontSizePx"`
+}
+
 type SetChatSectionSettingsRequest struct {
 	FrontendOpID           *string                         `json:"frontendOpId"`
 	ProjectID              string                          `json:"projectConfigId"`
@@ -885,6 +933,12 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetBrowserAreaViewMode, setBrowserAreaViewModeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetBrowserHideColumn, setBrowserHideColumnHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetBrowserSavedSearches, setBrowserSavedSearchesHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetTextBlockText, setTextBlockTextHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetTextBlockDisplayMode, setTextBlockDisplayModeHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetTextBlockFormat, setTextBlockFormatHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetTextBlockHeadingAsSectionName, setTextBlockHeadingAsSectionNameHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetTextBlockMetaControlStyle, setTextBlockMetaControlStyleHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetTextBlockMasterFontSize, setTextBlockMasterFontSizeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteToggleParamSelected, toggleParamSelectedHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUnselectAllParams, unselectAllParamsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetChatSectionSettings, setChatSectionSettingsHandler(deps))
@@ -3382,6 +3436,222 @@ func setBrowserSavedSearchesHandler(deps ProjectRouteDependencies) http.HandlerF
 	}
 }
 
+func setTextBlockTextHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetTextBlockTextRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetTextBlockText(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.Text,
+		); err != nil {
+			writeTextBlockMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setTextBlockDisplayModeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetTextBlockDisplayModeRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetTextBlockDisplayMode(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.TextDisplayMode,
+		); err != nil {
+			writeTextBlockMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setTextBlockFormatHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetTextBlockFormatRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetTextBlockFormat(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.Format,
+		); err != nil {
+			writeTextBlockMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setTextBlockHeadingAsSectionNameHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetTextBlockHeadingAsSectionNameRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetTextBlockHeadingAsSectionName(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.HeadingAsSectionName,
+		); err != nil {
+			writeTextBlockMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setTextBlockMetaControlStyleHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetTextBlockMetaControlStyleRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetTextBlockMetaControlStyle(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.MetaControlStyle,
+		); err != nil {
+			writeTextBlockMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setTextBlockMasterFontSizeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetTextBlockMasterFontSizeRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetTextBlockMasterFontSize(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.MasterFontSizePx,
+		); err != nil {
+			writeTextBlockMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
 func setChatSectionSettingsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		payload, err := decodeJSONBody[SetChatSectionSettingsRequest](r)
@@ -4178,6 +4448,19 @@ func writeBrowserSectionMutationError(w http.ResponseWriter, r *http.Request, er
 		writeError(w, r, http.StatusBadRequest, "browser_area_view_mode_invalid", err.Error())
 	case errors.Is(err, projectstate.ErrBrowserSearchScopeInvalid):
 		writeError(w, r, http.StatusBadRequest, "browser_search_scope_invalid", err.Error())
+	default:
+		writeProjectLayoutMutationError(w, r, err)
+	}
+}
+
+func writeTextBlockMutationError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrTextBlockSectionRequired):
+		writeError(w, r, http.StatusUnprocessableEntity, "text_block_section_required", "Section must resolve to a text block section.")
+	case errors.Is(err, projectstate.ErrTextBlockDisplayModeInvalid):
+		writeError(w, r, http.StatusBadRequest, "text_block_display_mode_invalid", err.Error())
+	case errors.Is(err, projectstate.ErrTextBlockFormatInvalid):
+		writeError(w, r, http.StatusBadRequest, "text_block_format_invalid", err.Error())
 	default:
 		writeProjectLayoutMutationError(w, r, err)
 	}

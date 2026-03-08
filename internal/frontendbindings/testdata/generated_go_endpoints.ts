@@ -317,6 +317,36 @@ export async function route_set_gen_code_suffix(x: gt.SetGenCodeSuffixRequestInp
   return await post(GoHTTPRoutes.setGenCodeSuffix, x);
 
 }
+export async function route_set_text_block_text(x: gt.SetTextBlockTextRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setTextBlockText, x);
+
+}
+export async function route_set_text_block_display_mode(x: gt.SetTextBlockDisplayModeRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setTextBlockDisplayMode, x);
+
+}
+export async function route_set_text_block_format(x: gt.SetTextBlockFormatRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setTextBlockFormat, x);
+
+}
+export async function route_set_text_block_heading_as_section_name(x: gt.SetTextBlockHeadingAsSectionNameRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setTextBlockHeadingAsSectionName, x);
+
+}
+export async function route_set_text_block_meta_control_style(x: gt.SetTextBlockMetaControlStyleRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setTextBlockMetaControlStyle, x);
+
+}
+export async function route_set_text_block_master_font_size(x: gt.SetTextBlockMasterFontSizeRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setTextBlockMasterFontSize, x);
+
+}
 export async function route_kill_subprocesses(x: gt.KillSubprocessesRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.killSubprocesses, x);
