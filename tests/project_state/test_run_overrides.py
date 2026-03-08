@@ -222,6 +222,7 @@ class TestRunOverride:
             codeObjImpls=project_state.codeObjImpls,
             codeObjVariants=project_state.codeObjVariants,
             projectConfigs={project_config.id: project_config},
+            projectChatWindowingByProjectConfigId={project_config.id: {}},
             defaultProjectConfigId=project_config.id,
         )
         manager = RunOverridesProjectManager(

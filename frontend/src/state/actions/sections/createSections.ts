@@ -22,6 +22,8 @@ import {
   SectionTypeEnum,
   TextBlockDisplayModeEnum,
   TextBlockFormatEnum,
+  TopLevelSectionLayout,
+  ViewportBounds,
 } from "utils/generatedTypes";
 import { validateSectionNameInput } from "utils/nameValidation";
 import {
@@ -30,6 +32,7 @@ import {
 } from "utils/tabbingLogic";
 import { applyActiveSectionChange } from "../activeSectionController";
 import {
+  createTopLevelSectionLayoutDict,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
 } from "../sectionInfos";
@@ -40,6 +43,7 @@ type CreateTopLevelSectionArgs = {
   implOverrides: CreateTopLevelSectionRequestInput["implOverrides"];
   controlCodeObjType?: CreateTopLevelSectionRequestInput["controlCodeObjType"];
   position?: Position | null;
+  name?: string | null;
 };
 
 type CreateTopLevelSectionResult = {
@@ -47,15 +51,22 @@ type CreateTopLevelSectionResult = {
   metaControlParamId: string | null;
 };
 
+type SmartPlacementContext = {
+  topLevelSections: Record<string, TopLevelSectionLayout>;
+  viewportBounds: ViewportBounds | null;
+};
+
 export async function createTopLevelSectionWithResult({
   implType,
   implOverrides,
   controlCodeObjType = null,
   position = null,
+  name = null,
 }: CreateTopLevelSectionArgs): Promise<CreateTopLevelSectionResult | null> {
   if (useShareSession.getState().isDeploymentMode) {
     return null;
   }
+  const placement = getSmartPlacementContext();
   const resolvedImplOverrides = resolveTextBlockImplOverrides(
     implType,
     implOverrides,
@@ -66,6 +77,9 @@ export async function createTopLevelSectionWithResult({
     controlCodeObjType,
     implOverrides: resolvedImplOverrides,
     position,
+    name,
+    topLevelSections: placement.topLevelSections,
+    viewportBounds: placement.viewportBounds,
   });
 
   if (!res200(res)) {
@@ -95,12 +109,14 @@ export async function createTopLevelSection({
   implOverrides,
   controlCodeObjType = null,
   position = null,
+  name = null,
 }: CreateTopLevelSectionArgs): Promise<string | null> {
   const created = await createTopLevelSectionWithResult({
     implType,
     implOverrides,
     controlCodeObjType,
     position,
+    name,
   });
   if (!created) {
     return null;
@@ -148,7 +164,20 @@ export function addTerminalInEmptySpace() {
   addSectionInEmptySpace(SectionTypeEnum.Terminal);
 }
 
-function getViewportBoundsForPlacement() {
+function getTopLevelSectionLayoutSnapshot() {
+  const projectState = useProjectState.getState();
+  const nodeInternals = useNodeInternals.getState().x;
+  if (nodeInternals.size === 0) {
+    return { ...projectState.projectConfig.topLevelSections };
+  }
+  return createTopLevelSectionLayoutDict(
+    projectState.sections,
+    nodeInternals,
+    projectState.projectConfig.topLevelSections,
+  );
+}
+
+function getViewportBoundsForPlacement(): ViewportBounds | null {
   const reactFlowState = useReactFlow.getState();
   const { width, height } = reactFlowState;
   if (width <= 0 || height <= 0) {
@@ -165,6 +194,13 @@ function getViewportBoundsForPlacement() {
     y: paneRect.y,
     w: paneRect.width,
     h: paneRect.height,
+  };
+}
+
+function getSmartPlacementContext(): SmartPlacementContext {
+  return {
+    topLevelSections: getTopLevelSectionLayoutSnapshot(),
+    viewportBounds: getViewportBoundsForPlacement(),
   };
 }
 

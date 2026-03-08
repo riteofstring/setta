@@ -20,7 +20,10 @@ test("git graph clears stale rows when refresh fails", async ({ page }) => {
 
   try {
     await openGitOverview(page);
-    await page.getByRole("button", { name: "Graph" }).click();
+    await page
+      .getByTestId("overview-tab-content-shell")
+      .getByRole("button", { name: "Graph" })
+      .click();
 
     const graphFilter = page.getByPlaceholder(/Filter commits/);
     await expect(graphFilter).toBeVisible();
@@ -75,6 +78,208 @@ test("git graph clears stale rows when refresh fails", async ({ page }) => {
   }
 });
 
+test("git graph follows the overview pane until it leaves the tracked default state", async ({
+  page,
+}) => {
+  const workspaceRoot = getWorkspaceRootOrThrow();
+  const fixture = await seedGitOverlayFixture(workspaceRoot, {
+    historyCommitCount: 8,
+  });
+
+  try {
+    await openGitOverview(page);
+
+    await page
+      .getByTestId("overview-tab-content-shell")
+      .getByRole("button", { name: "Graph" })
+      .click();
+
+    const trackedWindow = page.getByTestId("project-chat-maximized-window");
+    await expect(trackedWindow).toBeVisible();
+    await expect(trackedWindow).toHaveAttribute(
+      "data-chat-window-tracked-pane-target",
+      "git_overview",
+    );
+    await expect(
+      trackedWindow.getByTestId("git-graph-toggle-embedded-git-pane"),
+    ).toHaveCount(0);
+    const firstInstanceId = await trackedWindow.getAttribute(
+      "data-chat-window-instance-id",
+    );
+    if (!firstInstanceId) {
+      throw new Error("Expected initial tracked git graph instance id.");
+    }
+    const layout = await page.evaluate(async () => {
+      const { useLocalStorage } = await import("/src/state/definitions.ts");
+      const state = useLocalStorage.getState();
+      return {
+        innerWidth: window.innerWidth,
+        innerHeight: window.innerHeight,
+        overviewTrueWidth: state.overviewTrueWidth,
+        uiEditorTrueWidth: state.uiEditorTrueWidth,
+      };
+    });
+    const trackedWindowBox = await trackedWindow.boundingBox();
+    if (!trackedWindowBox) {
+      throw new Error("Expected tracked git graph window bounds.");
+    }
+    expect(
+      Math.abs(trackedWindowBox.x - layout.overviewTrueWidth),
+    ).toBeLessThanOrEqual(8);
+    expect(
+      Math.abs(
+        trackedWindowBox.width -
+          (layout.innerWidth -
+            layout.overviewTrueWidth -
+            layout.uiEditorTrueWidth),
+      ),
+    ).toBeLessThanOrEqual(12);
+
+    await page.evaluate(async () => {
+      const { openGitGraphOverlay } = await import("/src/state/actions/git.ts");
+      await openGitGraphOverlay();
+    });
+    await expect(trackedWindow).toHaveAttribute(
+      "data-chat-window-instance-id",
+      firstInstanceId,
+    );
+
+    await trackedWindow.getByTestId("project-chat-window-restore").click();
+    const firstFloatingWindow = page.locator(
+      `[data-testid="project-chat-floating-window"][data-chat-window-instance-id="${firstInstanceId}"]`,
+    );
+    await expect(firstFloatingWindow).toBeVisible();
+    const gitPaneToggle = firstFloatingWindow.getByTestId(
+      "git-graph-toggle-embedded-git-pane",
+    );
+    await expect(gitPaneToggle).toBeVisible();
+    await expect(gitPaneToggle).toHaveAttribute("aria-pressed", "false");
+    await gitPaneToggle.click();
+    await expect(gitPaneToggle).toHaveAttribute("aria-pressed", "true");
+
+    const embeddedGitPane = firstFloatingWindow.getByTestId(
+      "git-graph-left-sidebar",
+    );
+    await expect(embeddedGitPane).toBeVisible();
+    await expect(
+      embeddedGitPane.locator("div").filter({ hasText: /^Git$/ }).first(),
+    ).toBeVisible();
+    await expect(
+      embeddedGitPane.getByRole("button", { name: "Graph" }),
+    ).toHaveCount(0);
+    const embeddedGitPaneBox = await embeddedGitPane.boundingBox();
+    const historyPaneBox = await firstFloatingWindow
+      .getByTestId("git-graph-history-pane")
+      .boundingBox();
+    if (!embeddedGitPaneBox || !historyPaneBox) {
+      throw new Error("Expected embedded git pane and history pane bounds.");
+    }
+    expect(embeddedGitPaneBox.x + embeddedGitPaneBox.width).toBeLessThanOrEqual(
+      historyPaneBox.x + 4,
+    );
+
+    await page.evaluate(async () => {
+      const { openGitGraphOverlay } = await import("/src/state/actions/git.ts");
+      await openGitGraphOverlay();
+    });
+    const replacementTrackedWindow = page.getByTestId(
+      "project-chat-maximized-window",
+    );
+    await expect(replacementTrackedWindow).toBeVisible();
+    const secondInstanceId = await replacementTrackedWindow.getAttribute(
+      "data-chat-window-instance-id",
+    );
+    if (!secondInstanceId) {
+      throw new Error("Expected replacement tracked git graph instance id.");
+    }
+    expect(secondInstanceId).not.toBe(firstInstanceId);
+    await expect(firstFloatingWindow).toBeVisible();
+    await expect(replacementTrackedWindow).toHaveAttribute(
+      "data-chat-window-tracked-pane-target",
+      "git_overview",
+    );
+    await expect(
+      replacementTrackedWindow.getByTestId(
+        "git-graph-toggle-embedded-git-pane",
+      ),
+    ).toHaveCount(0);
+  } finally {
+    await cleanupGitOverlayFixture(fixture);
+  }
+});
+
+test("git graph does not expose a canvas move action", async ({ page }) => {
+  const workspaceRoot = getWorkspaceRootOrThrow();
+  const fixture = await seedGitOverlayFixture(workspaceRoot, {
+    historyCommitCount: 8,
+  });
+
+  try {
+    await openGitOverview(page);
+    await page
+      .getByTestId("overview-tab-content-shell")
+      .getByRole("button", { name: "Graph" })
+      .click();
+
+    const maximizedWindow = page.getByTestId("project-chat-maximized-window");
+    await expect(maximizedWindow).toBeVisible();
+    await expect(
+      maximizedWindow.getByTestId("project-chat-window-show-in-canvas"),
+    ).toHaveCount(0);
+    await expect(
+      maximizedWindow.getByTestId("git-graph-overlay"),
+    ).toBeVisible();
+  } finally {
+    await cleanupGitOverlayFixture(fixture);
+  }
+});
+
+test("git graph opens as a maximized window and can restore, dock, and minimize", async ({
+  page,
+}) => {
+  const workspaceRoot = getWorkspaceRootOrThrow();
+  const fixture = await seedGitOverlayFixture(workspaceRoot, {
+    historyCommitCount: 8,
+  });
+
+  try {
+    await openGitOverview(page);
+    await page
+      .getByTestId("overview-tab-content-shell")
+      .getByRole("button", { name: "Graph" })
+      .click();
+
+    const maximizedWindow = page.getByTestId("project-chat-maximized-window");
+    await expect(maximizedWindow).toBeVisible();
+    await expect(
+      maximizedWindow.getByTestId("project-chat-window-header-icon"),
+    ).toHaveAttribute("data-chat-window-icon-mode", "git_graph_mode");
+    await expect(
+      maximizedWindow.getByTestId("git-graph-overlay"),
+    ).toBeVisible();
+
+    await maximizedWindow.getByTestId("project-chat-window-restore").click();
+    const floatingWindow = page.getByTestId("project-chat-floating-window");
+    await expect(floatingWindow).toBeVisible();
+    await expect(floatingWindow.getByTestId("git-graph-overlay")).toBeVisible();
+
+    await floatingWindow.getByTestId("project-chat-window-dock").click();
+    const dockedWindow = page
+      .getByTestId("project-chat-bottom-dock-window-panel")
+      .filter({ has: page.getByTestId("git-graph-overlay") });
+    await expect(dockedWindow).toBeVisible();
+
+    await dockedWindow.getByTestId("project-chat-window-minimize").click();
+    const minimizedPill = page.getByTestId("project-chat-bottom-dock-pill");
+    await expect(minimizedPill).toHaveCount(1);
+    await expect(
+      minimizedPill.first().getByTestId("project-chat-bottom-dock-pill-icon"),
+    ).toHaveAttribute("data-chat-window-icon-mode", "git_graph_mode");
+  } finally {
+    await cleanupGitOverlayFixture(fixture);
+  }
+});
+
 test("git graph marks non-origin remote refs as remote chips", async ({
   page,
 }) => {
@@ -87,7 +292,10 @@ test("git graph marks non-origin remote refs as remote chips", async ({
     runGit(workspaceRoot, ["update-ref", "refs/remotes/upstream/main", "HEAD"]);
 
     await openGitOverview(page);
-    await page.getByRole("button", { name: "Graph" }).click();
+    await page
+      .getByTestId("overview-tab-content-shell")
+      .getByRole("button", { name: "Graph" })
+      .click();
     const graphFilter = page.getByPlaceholder(/Filter commits/);
     await expect(graphFilter).toBeVisible();
 
@@ -113,7 +321,10 @@ test("git graph keeps local slash branches as branch chips", async ({
     runGit(workspaceRoot, ["branch", "feature/main"]);
 
     await openGitOverview(page);
-    await page.getByRole("button", { name: "Graph" }).click();
+    await page
+      .getByTestId("overview-tab-content-shell")
+      .getByRole("button", { name: "Graph" })
+      .click();
     const graphFilter = page.getByPlaceholder(/Filter commits/);
     await expect(graphFilter).toBeVisible();
 
@@ -163,7 +374,10 @@ test("git graph can open a historical file diff when the current workspace path 
     runGit(workspaceRoot, ["commit", "-m", "replace migrated file with dir"]);
 
     await openGitOverview(page);
-    await page.getByRole("button", { name: "Graph" }).click();
+    await page
+      .getByTestId("overview-tab-content-shell")
+      .getByRole("button", { name: "Graph" })
+      .click();
     const graphFilter = page.getByPlaceholder(/Filter commits/);
     await expect(graphFilter).toBeVisible();
 
@@ -233,7 +447,10 @@ test("git graph clears selected commit diff when selected commit disappears afte
     runGit(workspaceRoot, ["checkout", primaryBranch]);
 
     await openGitOverview(page);
-    await page.getByRole("button", { name: "Graph" }).click();
+    await page
+      .getByTestId("overview-tab-content-shell")
+      .getByRole("button", { name: "Graph" })
+      .click();
     const graphFilter = page.getByPlaceholder(/Filter commits/);
     await expect(graphFilter).toBeVisible();
     const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
@@ -284,7 +501,10 @@ test("git graph drag listeners are cleaned up when the overlay closes mid-drag",
 
   try {
     await openGitOverview(page);
-    await page.getByRole("button", { name: "Graph" }).click();
+    await page
+      .getByTestId("overview-tab-content-shell")
+      .getByRole("button", { name: "Graph" })
+      .click();
 
     const graphFilter = page.getByPlaceholder(/Filter commits/);
     await expect(graphFilter).toBeVisible();
@@ -309,7 +529,10 @@ test("git graph drag listeners are cleaned up when the overlay closes mid-drag",
     await expect(graphFilter).toHaveCount(0);
     await page.mouse.up();
 
-    await page.getByRole("button", { name: "Graph" }).click();
+    await page
+      .getByTestId("overview-tab-content-shell")
+      .getByRole("button", { name: "Graph" })
+      .click();
     const graphFilterAfterReopen = page.getByPlaceholder(/Filter commits/);
     await expect(graphFilterAfterReopen).toBeVisible();
     const graphOverlayAfterReopen = graphFilterAfterReopen.locator(
@@ -359,7 +582,10 @@ test("git graph shows an explicit empty-history state for unborn HEAD", async ({
   try {
     await openGitOverview(page);
 
-    await page.getByRole("button", { name: "Graph" }).click();
+    await page
+      .getByTestId("overview-tab-content-shell")
+      .getByRole("button", { name: "Graph" })
+      .click();
     const graphFilter = page.getByPlaceholder(/Filter commits/);
     await expect(graphFilter).toBeVisible();
 
@@ -386,7 +612,10 @@ test("git graph keeps overlay open when Escape is pressed inside the filter inpu
 
   try {
     await openGitOverview(page);
-    await page.getByRole("button", { name: "Graph" }).click();
+    await page
+      .getByTestId("overview-tab-content-shell")
+      .getByRole("button", { name: "Graph" })
+      .click();
 
     const graphFilter = page.getByPlaceholder(/Filter commits/);
     await expect(graphFilter).toBeVisible();
