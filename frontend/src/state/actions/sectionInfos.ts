@@ -68,7 +68,6 @@ import {
 import { createNewId } from "utils/idNameCreation";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { applyActiveSectionChange } from "./activeSectionController";
-import { reconcileProjectChatWindowingEphemeralState } from "./projectChatWindowingEphemeral";
 
 const effectiveImplCacheByImpl = new WeakMap<
   object,
@@ -544,18 +543,8 @@ export function getCurrEffectiveSectionImplOfType<T extends SectionType>(
   return impl as Extract<BaseSectionImplUnion, { type: T }>;
 }
 
-export type ManagedChatSectionAuthorityState = Pick<
-  ZustandProjectState,
-  "sections" | "sectionVariants" | "sectionImpls"
-> & {
-  projectConfig: Pick<
-    ZustandProjectState["projectConfig"],
-    "sectionVariantMap"
-  >;
-};
-
 export function isManagedChatSection(
-  state: ManagedChatSectionAuthorityState,
+  state: ZustandProjectState,
   sectionId: string,
 ): boolean {
   const variantId = state.projectConfig.sectionVariantMap[sectionId];
@@ -1003,7 +992,6 @@ function getComparableProjectState(
     shownParamIds: state.shownParamIds,
     requiredDecodedImages: state.requiredDecodedImages,
     genCodeBinding: state.genCodeBinding ?? null,
-    projectChatWindowing: state.projectChatWindowing,
   });
 }
 
@@ -1067,10 +1055,6 @@ export function processProjectStateUpdateFromBackend(
   const nextNodesMap = createNodesMapFromProjectConfigChildren(
     x.projectState,
     useNodeInternals.getState().x,
-  );
-  reconcileProjectChatWindowingEphemeralState(
-    sanitizedProjectState.projectChatWindowing,
-    sanitizedProjectState.projectConfig.id,
   );
   runWithAtomicallyPublishedProjectStores(
     {
@@ -1812,24 +1796,17 @@ export function dispatchOptimisticProjectStateUpdate({
   const opId = addPendingOp(apply);
   const result = send(opId);
   if (result instanceof Promise) {
-    void result
-      .then((res) => {
-        // A 200 response means the backend accepted the op; don't keep reapplying it.
-        if (isResponseDataAndStatus(res) && res200(res)) {
-          acknowledgePendingOp(opId);
-        } else if (isResponseDataAndStatus(res)) {
-          removePendingOp(opId);
-          if (rollback) {
-            useProjectState.setState(rollback);
-          }
-        }
-      })
-      .catch(() => {
+    void result.then((res) => {
+      // A 200 response means the backend accepted the op; don't keep reapplying it.
+      if (isResponseDataAndStatus(res) && res200(res)) {
+        acknowledgePendingOp(opId);
+      } else if (isResponseDataAndStatus(res) && res.hasResponse) {
         removePendingOp(opId);
         if (rollback) {
           useProjectState.setState(rollback);
         }
-      });
+      }
+    });
   }
   return opId;
 }
