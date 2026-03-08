@@ -53,6 +53,8 @@ Use the docs in this order:
   - focused completed-slice doc for the bounded Unix PTY backend move from `go-pty` to `creack/pty`
 - `phase-4-terminal-websocket-attach-lifecycle-and-resize-regression-hardening.md`
   - focused completed-slice doc for terminal websocket reconnect/history replay and route-level resize regression hardening
+- `phase-4-terminal-websocket-app-middleware-regression-hardening.md`
+  - focused current-work plan for app-level terminal websocket reconnect/history replay and resize regression coverage
 13. `phase-4-deployment-run-code-policy-and-session-overlays.md`
    - focused current-work plan for deployment/share run-code policy and session runtime foundations
 14. `phase-4-deployment-session-transport-and-cleanup.md`
