@@ -391,6 +391,83 @@ func TestBuildBindingsRejectsInvalidDeclarationShapes(t *testing.T) {
 	}
 }
 
+func TestBuildBindingsRejectsGeneratedSymbolConflicts(t *testing.T) {
+	tests := []struct {
+		name         string
+		declarations []TypeDeclaration
+		want         string
+	}{
+		{
+			name: "shared helper type conflict",
+			declarations: []TypeDeclaration{
+				{
+					Name:  "ObjectValues",
+					Kind:  "alias",
+					Alias: "string",
+				},
+			},
+			want: `type symbol "ObjectValues" conflicts between shared helper type alias and declaration ObjectValues`,
+		},
+		{
+			name: "shared helper function conflict",
+			declarations: []TypeDeclaration{
+				functionDeclaration(
+					"mergeGeneratedOptions",
+					false,
+					"string",
+					"  return value;",
+					TypeProperty{Name: "value", TypeExpr: "string"},
+				),
+			},
+			want: `value symbol "mergeGeneratedOptions" conflicts between shared helper function and declaration mergeGeneratedOptions`,
+		},
+		{
+			name: "factory helper conflict",
+			declarations: []TypeDeclaration{
+				objectDeclarationWithCreateExpr(
+					"Thing",
+					"options as Thing",
+					TypeProperty{Name: "value", TypeExpr: "string"},
+				),
+				functionDeclaration(
+					"createThing",
+					false,
+					"Thing",
+					"  return value as unknown as Thing;",
+					TypeProperty{Name: "value", TypeExpr: "string"},
+				),
+			},
+			want: `value symbol "createThing" conflicts between declaration Thing factory helper and declaration createThing`,
+		},
+		{
+			name: "enum helper conflict",
+			declarations: []TypeDeclaration{
+				{
+					Name: "Thing",
+					Kind: "enum",
+					EnumValues: []EnumValue{
+						{Name: "ok", Value: "ok"},
+					},
+				},
+				constDeclaration("ThingEnum", true, `"ok"`),
+			},
+			want: `value symbol "ThingEnum" conflicts between declaration Thing enum helper and declaration ThingEnum`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := buildBindings(nil, nil, nil, tt.declarations)
+			if err == nil {
+				t.Fatalf("buildBindings(...) unexpectedly succeeded")
+			}
+			if err.Error() != tt.want {
+				t.Fatalf("buildBindings(...) error = %q, want %q", err.Error(), tt.want)
+			}
+		})
+	}
+}
+
 func TestBuildBindingsRejectsDuplicateEndpointSpecs(t *testing.T) {
 	routeGroups := []RouteGroup{
 		{

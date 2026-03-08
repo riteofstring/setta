@@ -42,6 +42,11 @@ type routeEnumEntry struct {
 	Path     string
 }
 
+type emittedSymbol struct {
+	Name   string
+	Origin string
+}
+
 var tsIdentifierPattern = regexp.MustCompile(`^[A-Za-z_$][A-Za-z0-9_$]*$`)
 
 func Build() (GeneratedBindings, error) {
@@ -207,6 +212,20 @@ func validateEndpointSpecs(routeGroups []RouteGroup, endpointSpecs []EndpointSpe
 
 func validateTypeDeclarations(declarations []TypeDeclaration) error {
 	seenNames := make(map[string]string, len(declarations))
+	typeSymbols := map[string]string{
+		"ObjectValues":               "shared helper type alias",
+		"GeneratedMutableValue":      "shared helper type alias",
+		"GeneratedFactoryResolution": "shared helper type alias",
+	}
+	valueSymbols := map[string]string{
+		"cloneGeneratedValue":                          "shared helper function",
+		"mergeGeneratedOptions":                        "shared helper function",
+		"isGeneratedImplOverrideCandidate":             "shared helper function",
+		"resolveGeneratedFactoryInputs":                "shared helper function",
+		"createGeneratedBaseSectionDefaults":           "shared helper function",
+		"createGeneratedBaseSectionWithParamsDefaults": "shared helper function",
+		"createGeneratedBaseCodeSectionDefaults":       "shared helper function",
+	}
 	for index, declaration := range declarations {
 		if declaration.Name == "" {
 			return fmt.Errorf("declaration at index %d has empty name", index)
@@ -231,8 +250,74 @@ func validateTypeDeclarations(declarations []TypeDeclaration) error {
 			)
 		}
 		seenNames[declaration.Name] = declaration.Kind
+
+		if err := recordEmittedSymbols(typeSymbols, emittedTypeSymbolsForDeclaration(declaration), "type"); err != nil {
+			return err
+		}
+		if err := recordEmittedSymbols(valueSymbols, emittedValueSymbolsForDeclaration(declaration), "value"); err != nil {
+			return err
+		}
 	}
 
+	return nil
+}
+
+func emittedTypeSymbolsForDeclaration(declaration TypeDeclaration) []emittedSymbol {
+	switch declaration.Kind {
+	case "object", "enum", "alias", "local_alias":
+		return []emittedSymbol{{
+			Name:   declaration.Name,
+			Origin: "declaration " + declaration.Name,
+		}}
+	default:
+		return nil
+	}
+}
+
+func emittedValueSymbolsForDeclaration(declaration TypeDeclaration) []emittedSymbol {
+	symbols := make([]emittedSymbol, 0, 2)
+	switch declaration.Kind {
+	case "enum":
+		symbols = append(symbols, emittedSymbol{
+			Name:   declaration.Name + "Enum",
+			Origin: "declaration " + declaration.Name + " enum helper",
+		})
+	case "object":
+		if declaration.CreateExpr != "" || declaration.CreateBody != "" {
+			symbols = append(symbols, emittedSymbol{
+				Name:   "create" + declaration.Name,
+				Origin: "declaration " + declaration.Name + " factory helper",
+			})
+		}
+	case "alias":
+		if declaration.CreateExpr != "" {
+			symbols = append(symbols, emittedSymbol{
+				Name:   "create" + declaration.Name,
+				Origin: "declaration " + declaration.Name + " factory helper",
+			})
+		}
+	case "set", "type_guard", "function", "const":
+		symbols = append(symbols, emittedSymbol{
+			Name:   declaration.Name,
+			Origin: "declaration " + declaration.Name,
+		})
+	}
+	return symbols
+}
+
+func recordEmittedSymbols(seen map[string]string, symbols []emittedSymbol, namespace string) error {
+	for _, symbol := range symbols {
+		if previousOrigin, exists := seen[symbol.Name]; exists {
+			return fmt.Errorf(
+				"%s symbol %q conflicts between %s and %s",
+				namespace,
+				symbol.Name,
+				previousOrigin,
+				symbol.Origin,
+			)
+		}
+		seen[symbol.Name] = symbol.Origin
+	}
 	return nil
 }
 
