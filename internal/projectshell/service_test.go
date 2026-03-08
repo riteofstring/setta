@@ -3,6 +3,7 @@ package projectshell
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"setta/internal/projectstate"
@@ -166,5 +167,112 @@ func TestServiceLoadProjectConfigRejectsAmbiguousName(t *testing.T) {
 	}
 	if !errors.Is(err, projectstate.ErrProjectNameAmbiguous) {
 		t.Fatalf("expected ErrProjectNameAmbiguous, got %v", err)
+	}
+}
+
+func TestServiceSetProjectConfigNameRenamesProjectPersistsAndRunsHook(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	store, err := projectstate.NewStore(filepath.Join(root, "project.json"), projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new project store: %v", err)
+	}
+	if err := store.Save(t.Context(), projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("seed project store: %v", err)
+	}
+
+	projectRuntime, err := projectstate.OpenRuntime(t.Context(), store)
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close project runtime: %v", err)
+		}
+	})
+
+	hookCalls := 0
+	service, err := NewService(ServiceOptions{
+		ProjectState: projectRuntime,
+		AfterProjectRename: func(_ context.Context, snapshot projectstate.Snapshot, projectID string) error {
+			hookCalls++
+			if projectID != "project-alpha" {
+				t.Fatalf("expected hook project-alpha, got %q", projectID)
+			}
+			if got := snapshot.Document.Projects["project-alpha"].Name; got != "Renamed Alpha" {
+				t.Fatalf("expected hook snapshot renamed project, got %q", got)
+			}
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("new project shell service: %v", err)
+	}
+
+	if err := service.SetProjectConfigName(context.Background(), "project-alpha", "Renamed Alpha"); err != nil {
+		t.Fatalf("set project config name: %v", err)
+	}
+	if hookCalls != 1 {
+		t.Fatalf("expected rename hook once, got %d", hookCalls)
+	}
+
+	reloaded, err := store.Load(t.Context())
+	if err != nil {
+		t.Fatalf("reload project store: %v", err)
+	}
+	if got := reloaded.Projects["project-alpha"].Name; got != "Renamed Alpha" {
+		t.Fatalf("expected persisted renamed project, got %q", got)
+	}
+}
+
+func TestServiceSetProjectConfigNameNoopSkipsHook(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	hookCalls := 0
+	service, err := NewService(ServiceOptions{
+		ProjectState: projectRuntime,
+		AfterProjectRename: func(context.Context, projectstate.Snapshot, string) error {
+			hookCalls++
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("new project shell service: %v", err)
+	}
+
+	if err := service.SetProjectConfigName(context.Background(), "project-alpha", "Alpha"); err != nil {
+		t.Fatalf("set project config name no-op: %v", err)
+	}
+	if hookCalls != 0 {
+		t.Fatalf("expected no hook calls for rename no-op, got %d", hookCalls)
 	}
 }

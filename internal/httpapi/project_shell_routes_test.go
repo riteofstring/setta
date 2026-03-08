@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"setta/internal/config"
 	"setta/internal/modes"
+	"setta/internal/notifications"
 	"setta/internal/projectshell"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
@@ -48,7 +49,8 @@ func TestRegisterProjectShellRoutesReturnsAllProjectMetadata(t *testing.T) {
 		t.Fatalf("new project shell service: %v", err)
 	}
 
-	handler := newProjectShellRouteTestHandler(t, config.ModeIDE, service)
+	notificationRuntime := newProjectNotificationRuntimeForTest(t)
+	handler := newProjectShellRouteTestHandler(t, config.ModeIDE, service, notificationRuntime.service)
 	request := httptest.NewRequest(http.MethodPost, "/api"+RouteLoadAllProjectMetadata, strings.NewReader("null"))
 	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
@@ -99,7 +101,8 @@ func TestRegisterProjectShellRoutesLoadsProjectConfigByName(t *testing.T) {
 		t.Fatalf("new project shell service: %v", err)
 	}
 
-	handler := newProjectShellRouteTestHandler(t, config.ModeIDE, service)
+	notificationRuntime := newProjectNotificationRuntimeForTest(t)
+	handler := newProjectShellRouteTestHandler(t, config.ModeIDE, service, notificationRuntime.service)
 	request := httptest.NewRequest(http.MethodPost, "/api"+RouteLoadProjectConfig, strings.NewReader(`{"projectConfigName":"Alpha"}`))
 	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
@@ -147,7 +150,8 @@ func TestRegisterProjectShellRoutesReturnsNotFoundForMissingProjectConfig(t *tes
 		t.Fatalf("new project shell service: %v", err)
 	}
 
-	handler := newProjectShellRouteTestHandler(t, config.ModeIDE, service)
+	notificationRuntime := newProjectNotificationRuntimeForTest(t)
+	handler := newProjectShellRouteTestHandler(t, config.ModeIDE, service, notificationRuntime.service)
 	request := httptest.NewRequest(http.MethodPost, "/api"+RouteLoadProjectConfig, strings.NewReader(`{"projectConfigName":"Missing"}`))
 	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
@@ -163,7 +167,7 @@ func TestRegisterProjectShellRoutesReturnsNotFoundForMissingProjectConfig(t *tes
 func TestRegisterProjectShellRoutesBlocksLauncherMode(t *testing.T) {
 	t.Parallel()
 
-	handler := newProjectShellRouteTestHandler(t, config.ModeLauncher, nil)
+	handler := newProjectShellRouteTestHandler(t, config.ModeLauncher, nil, nil)
 	request := httptest.NewRequest(http.MethodPost, "/api"+RouteLoadAllProjectMetadata, strings.NewReader("null"))
 	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
@@ -176,7 +180,214 @@ func TestRegisterProjectShellRoutesBlocksLauncherMode(t *testing.T) {
 	}
 }
 
-func newProjectShellRouteTestHandler(t *testing.T, mode config.Mode, shell ProjectShellService) http.Handler {
+func TestRegisterProjectShellRoutesRenamesProjectConfig(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	service, err := projectshell.NewService(projectshell.ServiceOptions{ProjectState: projectRuntime})
+	if err != nil {
+		t.Fatalf("new project shell service: %v", err)
+	}
+
+	handler := newProjectShellRouteTestHandler(t, config.ModeIDE, service, newProjectNotificationRuntimeForTest(t).service)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteSetProjectConfigName, strings.NewReader(`{"projectConfigId":"project-alpha","newName":"Renamed Alpha"}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	if got := projectRuntime.Snapshot().Document.Projects["project-alpha"].Name; got != "Renamed Alpha" {
+		t.Fatalf("expected renamed project, got %q", got)
+	}
+}
+
+func TestRegisterProjectShellRoutesRejectsInvalidProjectRenameWithDetail(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	service, err := projectshell.NewService(projectshell.ServiceOptions{ProjectState: projectRuntime})
+	if err != nil {
+		t.Fatalf("new project shell service: %v", err)
+	}
+
+	handler := newProjectShellRouteTestHandler(t, config.ModeIDE, service, newProjectNotificationRuntimeForTest(t).service)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteSetProjectConfigName, strings.NewReader(`{"projectConfigId":"project-alpha","newName":"home"}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload map[string]string
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode invalid rename payload: %v", err)
+	}
+	if payload["detail"] != "Project name 'home' is reserved." {
+		t.Fatalf("unexpected invalid rename payload %#v", payload)
+	}
+}
+
+func TestRegisterProjectShellRoutesReturnsProjectNotifications(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	service, err := projectshell.NewService(projectshell.ServiceOptions{ProjectState: projectRuntime})
+	if err != nil {
+		t.Fatalf("new project shell service: %v", err)
+	}
+	notificationRuntime := newProjectNotificationRuntimeForTest(t)
+	if err := notificationRuntime.store.Write([]notifications.Notification{
+		{
+			ID:              "notification-1",
+			ProjectConfigID: "project-alpha",
+			Type:            notifications.TypeInfo,
+			Message:         "Alpha note",
+			Timestamp:       "2026-03-10T10:00:00Z",
+		},
+		{
+			ID:              "notification-2",
+			ProjectConfigID: "project-beta",
+			Type:            notifications.TypeWarning,
+			Message:         "Beta note",
+			Timestamp:       "2026-03-10T11:00:00Z",
+		},
+	}); err != nil {
+		t.Fatalf("seed notifications: %v", err)
+	}
+
+	handler := newProjectShellRouteTestHandler(t, config.ModeIDE, service, notificationRuntime.service)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetNotifications, strings.NewReader(`{"projectConfigId":"project-alpha"}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload []notifications.Notification
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode notifications payload: %v", err)
+	}
+	if len(payload) != 1 || payload[0].ID != "notification-1" {
+		t.Fatalf("unexpected notifications payload %#v", payload)
+	}
+}
+
+func TestRegisterProjectShellRoutesDeletesNotification(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	service, err := projectshell.NewService(projectshell.ServiceOptions{ProjectState: projectRuntime})
+	if err != nil {
+		t.Fatalf("new project shell service: %v", err)
+	}
+	notificationRuntime := newProjectNotificationRuntimeForTest(t)
+	if err := notificationRuntime.store.Write([]notifications.Notification{
+		{
+			ID:              "notification-1",
+			ProjectConfigID: "project-alpha",
+			Type:            notifications.TypeInfo,
+			Message:         "Alpha note",
+			Timestamp:       "2026-03-10T10:00:00Z",
+		},
+	}); err != nil {
+		t.Fatalf("seed notifications: %v", err)
+	}
+
+	handler := newProjectShellRouteTestHandler(t, config.ModeIDE, service, notificationRuntime.service)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteDeleteNotification, strings.NewReader(`{"notificationId":"notification-1"}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	remaining, err := notificationRuntime.store.List()
+	if err != nil {
+		t.Fatalf("list remaining notifications: %v", err)
+	}
+	if len(remaining) != 0 {
+		t.Fatalf("expected notification delete, got %#v", remaining)
+	}
+}
+
+func newProjectShellRouteTestHandler(t *testing.T, mode config.Mode, shell ProjectShellService, notificationService ProjectNotificationService) http.Handler {
 	t.Helper()
 
 	handler, err := NewHandler(Dependencies{
@@ -185,8 +396,9 @@ func newProjectShellRouteTestHandler(t *testing.T, mode config.Mode, shell Proje
 		ModePolicy: modes.NewPolicy(mode),
 		Register: func(r chi.Router) {
 			if err := RegisterProjectShellRoutes(r, ProjectShellRouteDependencies{
-				ModePolicy: modes.NewPolicy(mode),
-				Shell:      shell,
+				ModePolicy:    modes.NewPolicy(mode),
+				Shell:         shell,
+				Notifications: notificationService,
 			}); err != nil {
 				t.Fatalf("register project shell routes: %v", err)
 			}
@@ -196,4 +408,26 @@ func newProjectShellRouteTestHandler(t *testing.T, mode config.Mode, shell Proje
 		t.Fatalf("new handler: %v", err)
 	}
 	return handler
+}
+
+type projectNotificationRuntimeForTest struct {
+	store   *notifications.Store
+	service *notifications.Service
+}
+
+func newProjectNotificationRuntimeForTest(t *testing.T) projectNotificationRuntimeForTest {
+	t.Helper()
+
+	store, err := notifications.NewStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new notification store: %v", err)
+	}
+	service, err := notifications.NewService(notifications.ServiceOptions{Store: store})
+	if err != nil {
+		t.Fatalf("new notification service: %v", err)
+	}
+	return projectNotificationRuntimeForTest{
+		store:   store,
+		service: service,
+	}
 }

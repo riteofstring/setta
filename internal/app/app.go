@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -38,10 +39,12 @@ import (
 	"setta/internal/managedllm"
 	"setta/internal/mcpx"
 	"setta/internal/modes"
+	"setta/internal/notifications"
 	"setta/internal/observability"
 	"setta/internal/plugins"
 	"setta/internal/projectshell"
 	"setta/internal/projectstate"
+	"setta/internal/projectview"
 	"setta/internal/prompttemplates"
 	"setta/internal/pythonenv"
 	"setta/internal/realtime"
@@ -158,6 +161,8 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		managedChatService    *managedchat.Service
 		chatSectionChatIDs    *chatsections.Service
 		projectShellService   *projectshell.Service
+		notificationStore     *notifications.Store
+		notificationService   *notifications.Service
 		appGenSkillService    *appgenskills.Service
 		runChainRuntime       *runchains.Runtime
 		externalConfigStore   *externalagentconfigs.Store
@@ -788,6 +793,50 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		}
 		projectShellService, err = projectshell.NewService(projectshell.ServiceOptions{
 			ProjectState: projectRuntime,
+			AfterProjectRename: func(ctx context.Context, snapshot projectstate.Snapshot, projectID string) error {
+				projectStateView, err := projectview.SingleConfigByProjectID(snapshot.Document, projectID)
+				if err != nil {
+					return err
+				}
+				status := projectRuntime.FrontendOpStatus()
+				if _, err := websocketHub.BroadcastJSON(
+					ctx,
+					realtime.NewProjectStateUpdateMessage(realtime.ProjectStateUpdateContent{
+						ProjectState:   projectStateView,
+						CompletedOpIDs: status.Completed,
+						PendingOpIDs:   status.Pending,
+					}),
+					realtime.Selection{Type: realtime.ConnectionTypeFrontend},
+				); err != nil {
+					return err
+				}
+
+				var defaultProjectID *string
+				if trimmedDefaultProjectID := strings.TrimSpace(snapshot.Document.DefaultProjectID); trimmedDefaultProjectID != "" {
+					defaultProjectID = &trimmedDefaultProjectID
+				}
+				_, err = websocketHub.BroadcastJSON(
+					ctx,
+					realtime.NewAllProjectMetadataMessage(realtime.AllProjectMetadataContent{
+						DefaultProjectConfigID: defaultProjectID,
+						ProjectMetadata:        snapshot.Document.ProjectConfigMetadata(),
+					}),
+					realtime.Selection{Type: realtime.ConnectionTypeFrontend},
+				)
+				return err
+			},
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+		notificationStore, err = notifications.NewStore(cfg.Paths.SettaFilesRoot)
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+		notificationService, err = notifications.NewService(notifications.ServiceOptions{
+			Store: notificationStore,
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
@@ -1229,8 +1278,9 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				panic(err)
 			}
 			if err := httpapi.RegisterProjectShellRoutes(r, httpapi.ProjectShellRouteDependencies{
-				ModePolicy: modePolicy,
-				Shell:      projectShellService,
+				ModePolicy:    modePolicy,
+				Shell:         projectShellService,
+				Notifications: notificationService,
 			}); err != nil {
 				panic(err)
 			}

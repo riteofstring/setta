@@ -11,6 +11,7 @@ import (
 
 const (
 	MessageTypeNotification                = "Notification"
+	MessageTypeAllProjectMetadata          = "AllProjectMetadata"
 	MessageTypeAllConnections              = "AllConnections"
 	MessageTypeFrontendIdentity            = "FrontendIdentity"
 	MessageTypeLLMStreamingResponse        = "LLMStreamingResponse"
@@ -200,6 +201,17 @@ type NotificationMessage struct {
 	Content     NotificationContent `json:"content"`
 }
 
+type AllProjectMetadataContent struct {
+	DefaultProjectConfigID *string                              `json:"defaultProjectConfigId"`
+	ProjectMetadata        []projectstate.ProjectConfigMetadata `json:"projectMetadata"`
+}
+
+type AllProjectMetadataMessage struct {
+	ID          *string                   `json:"id"`
+	MessageType string                    `json:"messageType"`
+	Content     AllProjectMetadataContent `json:"content"`
+}
+
 type FrontendIdentityMessage struct {
 	MessageType string                  `json:"messageType"`
 	Content     FrontendIdentityContent `json:"content"`
@@ -331,6 +343,13 @@ func NewUISettingRevealResultMessage(content UISettingRevealResultContent) UISet
 func NewNotificationMessage(content NotificationContent) NotificationMessage {
 	return NotificationMessage{
 		MessageType: MessageTypeNotification,
+		Content:     content,
+	}
+}
+
+func NewAllProjectMetadataMessage(content AllProjectMetadataContent) AllProjectMetadataMessage {
+	return AllProjectMetadataMessage{
+		MessageType: MessageTypeAllProjectMetadata,
 		Content:     content,
 	}
 }
