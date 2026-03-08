@@ -64,9 +64,6 @@ def _write_project_state(dbe: DBE, project_configs: list[ProjectConfig]) -> ID:
     default_id = project_configs[0].id
     project_state = ProjectStateBackend(
         projectConfigs={config.id: config for config in project_configs},
-        projectChatWindowingByProjectConfigId={
-            config.id: {} for config in project_configs
-        },
         defaultProjectConfigId=default_id,
     )
     dbe.write_project(project_state)
@@ -236,7 +233,9 @@ class TestAgentRunner:
 
             assert allowlist is not None
             assert allowlist.server_ids == {"other", SETTA_MCP_SERVER_ID}
-            assert runner._is_tool_allowed("setta__report_completion_status", allowlist)
+            assert runner._is_tool_allowed(
+                "setta__report_completion_status", allowlist
+            )
             assert not runner._is_tool_allowed(
                 "other__report_completion_status", allowlist
             )
@@ -411,10 +410,7 @@ class TestAgentRunner:
                 ),
             }
             runner.mcp_client.routing = {
-                "other__report_completion_status": (
-                    "other",
-                    "report_completion_status",
-                ),
+                "other__report_completion_status": ("other", "report_completion_status"),
                 "other__tool_alpha": ("other", "tool_alpha"),
                 "setta__report_completion_status": (
                     SETTA_MCP_SERVER_ID,
@@ -490,10 +486,7 @@ class TestAgentRunner:
                 ),
             }
             runner.mcp_client.routing = {
-                "other__report_completion_status": (
-                    "other",
-                    "report_completion_status",
-                ),
+                "other__report_completion_status": ("other", "report_completion_status"),
                 "setta__report_completion_status": (
                     SETTA_MCP_SERVER_ID,
                     "report_completion_status",
@@ -643,150 +636,6 @@ class TestAgentRunner:
 
             assert filtered == [completion_tool_name]
 
-    def test_scope_filter_requires_peer_chat_access_for_linked_chat_tool(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe, [ProjectConfig()])
-            config = AllLLMConfigs(
-                configs={
-                    "primary": LLMConfig(
-                        id="primary",
-                        model="gpt-4o-mini",
-                        provider="openai",
-                        api_key_env="OPENAI_API_KEY",
-                        mcpServerIds=[SETTA_MCP_SERVER_ID],
-                    )
-                },
-                mcpServers={
-                    SETTA_MCP_SERVER_ID: MCPServerConfig(
-                        transport="sse",
-                        url="http://localhost:8000/mcp",
-                    )
-                },
-            )
-            runner = _build_runner(dbe, config)
-            linked_chat_tool_name = f"{SETTA_MCP_SERVER_ID}__invoke_linked_chat"
-            runner.mcp_client.tool_annotations_by_name[linked_chat_tool_name] = (
-                SettaToolAnnotations(
-                    settaToolType=SettaToolType.discoverable,
-                    accessType="peer_chat",
-                    idPathsByType={"section": ["targetSectionId"]},
-                )
-            )
-
-            assert (
-                runner._filter_tool_names_by_scope(
-                    [linked_chat_tool_name],
-                    AgenticScope(
-                        read_section_ids={ID("readable-section")},
-                        write_section_ids=set(),
-                        context_section_ids=set(),
-                        peer_chat_section_ids=set(),
-                        structural_allowed=False,
-                    ),
-                )
-                == []
-            )
-            assert runner._filter_tool_names_by_scope(
-                [linked_chat_tool_name],
-                AgenticScope(
-                    read_section_ids={ID("readable-section")},
-                    write_section_ids=set(),
-                    context_section_ids=set(),
-                    peer_chat_section_ids={ID("peer-chat-section")},
-                    structural_allowed=False,
-                ),
-            ) == [linked_chat_tool_name]
-
-    def test_scope_filter_does_not_treat_peer_chat_scope_as_read(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe, [ProjectConfig()])
-            config = AllLLMConfigs(
-                configs={
-                    "primary": LLMConfig(
-                        id="primary",
-                        model="gpt-4o-mini",
-                        provider="openai",
-                        api_key_env="OPENAI_API_KEY",
-                        mcpServerIds=[SETTA_MCP_SERVER_ID],
-                    )
-                },
-                mcpServers={
-                    SETTA_MCP_SERVER_ID: MCPServerConfig(
-                        transport="sse",
-                        url="http://localhost:8000/mcp",
-                    )
-                },
-            )
-            runner = _build_runner(dbe, config)
-            read_tool_name = f"{SETTA_MCP_SERVER_ID}__search_ui_settings"
-            runner.mcp_client.tool_annotations_by_name[read_tool_name] = (
-                SettaToolAnnotations(
-                    settaToolType=SettaToolType.discoverable,
-                    accessType="read",
-                )
-            )
-
-            filtered = runner._filter_tool_names_by_scope(
-                [read_tool_name],
-                AgenticScope(
-                    read_section_ids=set(),
-                    write_section_ids=set(),
-                    context_section_ids=set(),
-                    peer_chat_section_ids={ID("peer-chat-section")},
-                    structural_allowed=False,
-                ),
-            )
-
-            assert filtered == []
-
-    def test_scope_filter_does_not_expose_linked_chat_for_unscoped_project_chat(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe, [ProjectConfig()])
-            config = AllLLMConfigs(
-                configs={
-                    "primary": LLMConfig(
-                        id="primary",
-                        model="gpt-4o-mini",
-                        provider="openai",
-                        api_key_env="OPENAI_API_KEY",
-                        mcpServerIds=[SETTA_MCP_SERVER_ID],
-                    )
-                },
-                mcpServers={
-                    SETTA_MCP_SERVER_ID: MCPServerConfig(
-                        transport="sse",
-                        url="http://localhost:8000/mcp",
-                    )
-                },
-            )
-            runner = _build_runner(dbe, config)
-            linked_chat_tool_name = f"{SETTA_MCP_SERVER_ID}__invoke_linked_chat"
-            runner.mcp_client.tool_annotations_by_name[linked_chat_tool_name] = (
-                SettaToolAnnotations(
-                    settaToolType=SettaToolType.discoverable,
-                    accessType="peer_chat",
-                    idPathsByType={"section": ["targetSectionId"]},
-                )
-            )
-
-            filtered = runner._filter_tool_names_by_scope(
-                [linked_chat_tool_name],
-                AgenticScope(
-                    read_section_ids={ID("section-a")},
-                    write_section_ids={ID("section-a")},
-                    context_section_ids={ID("section-a")},
-                    peer_chat_section_ids=set(),
-                    structural_allowed=True,
-                ),
-            )
-
-            assert filtered == []
-
     def test_completion_guard_blocks_missing_report_when_enabled(self) -> None:
         prior_messages = [
             UserChatMessage(content=[MessageTextContent(text="Implement task A.")])
@@ -803,9 +652,7 @@ class TestAgentRunner:
 
         assert assistant_message.content[0].text == MISSING_REPORT_MESSAGE
 
-    def test_completion_guard_blocks_non_completion_text_when_report_missing(
-        self,
-    ) -> None:
+    def test_completion_guard_blocks_non_completion_text_when_report_missing(self) -> None:
         prior_messages = [
             UserChatMessage(content=[MessageTextContent(text="Investigate bug B.")])
         ]
@@ -1115,7 +962,6 @@ class TestAgentRunner:
             )
             backend_state = ProjectStateBackend(
                 projectConfigs={second_config.id: project_state.projectConfig},
-                projectChatWindowingByProjectConfigId={second_config.id: {}},
                 defaultProjectConfigId=second_config.id,
                 sections=project_state.sections,
                 sectionImpls=project_state.sectionImpls,
@@ -1140,48 +986,7 @@ class TestAgentRunner:
             assert override_context.chat_id == ID("chat-1")
             assert override_context.section_id == chat_section_id
             assert override_context.thinking is True
-            assert (
-                override_context.agentic_context.frontend_affinity_token == "frontend-1"
-            )
-
-    def test_context_parses_linked_chat_invocation_metadata(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe, [ProjectConfig()])
-            config = AllLLMConfigs(
-                configs={
-                    "primary": LLMConfig(
-                        id="primary",
-                        model="gpt-4o-mini",
-                        provider="openai",
-                        api_key_env="OPENAI_API_KEY",
-                        mcpServerIds=[],
-                    )
-                },
-                mcpServers={},
-            )
-            runner = _build_runner(dbe, config)
-            engine_config_id = ID("engine-primary")
-            _seed_engine_config(dbe, engine_config_id, "primary")
-            profile = AgentProfile(name="Alpha", engineConfigId=engine_config_id)
-
-            context = runner._build_context(
-                profile,
-                inputs={
-                    "allowUnscoped": True,
-                    "linkedChatInvocationDepth": "1",
-                    "linkedChatInvocationChainSectionIds": [
-                        "section-root",
-                        "section-mid",
-                    ],
-                },
-            )
-
-            assert context.agentic_context.linked_chat_invocation_depth == 1
-            assert context.agentic_context.linked_chat_invocation_chain_section_ids == (
-                ID("section-root"),
-                ID("section-mid"),
-            )
+            assert override_context.agentic_context.frontend_affinity_token == "frontend-1"
 
     def test_context_caches_completion_guard_toggle_for_run(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1639,6 +1444,48 @@ class TestAgentRunner:
             assert isinstance(text, str)
             assert "Completion guard is enabled" in text
             assert "report_completion_status" in text
+
+
+class TestAgentRunnerSubAgent:
+    @pytest.mark.asyncio
+    async def test_run_sub_agent_records_events_and_completes(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe, [ProjectConfig()])
+            config = AllLLMConfigs(
+                configs={
+                    "primary": LLMConfig(
+                        id="primary",
+                        model="gpt-4o-mini",
+                        provider="openai",
+                        api_key_env="OPENAI_API_KEY",
+                        mcpServerIds=[],
+                    )
+                },
+                mcpServers={},
+            )
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+            mcp_client = MultiMCPClient(config.mcpServers, disabled=True)
+            runner = _StubAgentRunner(dbe, mcp_client, frontend_sender)
+            runner.update_config(config)
+            runner.update_api_keys(dbe.read_dot_env())
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            profile = AgentProfile(name="Alpha", engineConfigId=engine_config_id)
+
+            run = await runner.run_sub_agent(
+                profile,
+                inputs={"prompt": "hello", "allowUnscoped": True},
+            )
+
+            assert run.status == AgentRunStatus.completed
+            loaded = load_agent_run(dbe, run.id)
+            assert loaded is not None
+            event_types = [event.type for event in loaded.events]
+            assert "run_started" in event_types
+            assert "snapshot" in event_types
+            assert "run_completed" in event_types
 
 
 class TestAgentRunnerStopRun:
