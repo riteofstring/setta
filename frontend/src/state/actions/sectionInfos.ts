@@ -973,22 +973,23 @@ export function manualDndChildrenReset() {
 }
 
 function getComparableProjectState(
-  state: ZustandProjectState,
+  state: ProjectStateSingleConfig | ZustandProjectState,
 ): ProjectStateSingleConfig {
-  return {
+  return sanitizeProjectStateActiveIds({
     sections: state.sections,
     sectionImpls: state.sectionImpls,
     sectionVariants: state.sectionVariants,
     codeObjs: state.codeObjs,
     codeObjImpls: state.codeObjImpls,
     codeObjVariants: state.codeObjVariants,
+    artifactGroups: state.artifactGroups,
     projectConfig: state.projectConfig,
     singletonSections: state.singletonSections,
     parentSectionMap: state.parentSectionMap,
     shownParamIds: state.shownParamIds,
     requiredDecodedImages: state.requiredDecodedImages,
     genCodeBinding: state.genCodeBinding ?? null,
-  };
+  });
 }
 
 export function processProjectStateUpdateFromBackend(
@@ -1027,7 +1028,7 @@ export function processProjectStateUpdateFromBackend(
     x.completedOpIds,
     x.projectState.projectConfig.id,
   );
-  const sanitizedProjectState = sanitizeProjectStateActiveIds(x.projectState);
+  const sanitizedProjectState = getComparableProjectState(x.projectState);
   const projectStateChanged = !_.isEqual(
     getComparableProjectState(currentState),
     sanitizedProjectState,

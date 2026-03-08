@@ -98,24 +98,6 @@ export function markPendingActiveSectionBackendSyncOp(
   });
 }
 
-function clearPendingActiveSectionBackendSyncOp(opId: string) {
-  const state = useActiveSectionUI.getState();
-  const pending = state.pendingBackendSyncOpIds;
-  if (!pending.includes(opId)) {
-    return;
-  }
-  const nextPendingBackendSyncGenerationByOpId = {
-    ...state.pendingBackendSyncGenerationByOpId,
-  };
-  delete nextPendingBackendSyncGenerationByOpId[opId];
-  useActiveSectionUI.setState({
-    pendingBackendSyncOpIds: pending.filter(
-      (pendingOpId) => pendingOpId !== opId,
-    ),
-    pendingBackendSyncGenerationByOpId: nextPendingBackendSyncGenerationByOpId,
-  });
-}
-
 export function failPendingActiveSectionBackendSyncOp(opId: string) {
   const state = useActiveSectionUI.getState();
   const pending = state.pendingBackendSyncOpIds;

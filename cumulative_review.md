@@ -160,3 +160,41 @@ New/updated automated coverage:
 
 Manual/CDP verification:
 - In the running headed app via Chrome DevTools MCP on `http://127.0.0.1:3009`, created a temporary project, seeded a group plus nested child through the live backend, verified the nested child rendered and could be selected in the real UI, then deleted the temporary project after verification.
+
+## 2026-03-09 11:22:25 PDT
+
+Summary:
+- Implemented the follow-up fixes from the latest top-level review consolidation: grouped drag selection now reads the UI-owned active-section store, backend no-op project-state comparison now covers the full backend-owned shape, and the dead pending-op cleanup helper was removed.
+- Added focused unit, store-level, and browser-runtime regression coverage around both correctness paths.
+
+Detailed findings addressed:
+- `getDragItems(...)` in the React Flow drag pipeline still read `projectConfig.activeIds` even though that field is intentionally sanitized to `[]` on the frontend. That left visible multi-selection state, minimap selection, and right-pane state reading one source while drag grouping still read another, so grouped drags could fracture.
+- `processProjectStateUpdateFromBackend(...)` used a hand-maintained comparable project-state object that omitted `artifactGroups`. Backend updates that changed only artifact groups could therefore take the no-op branch and never publish the new backend artifact state into `useProjectState`.
+- `clearPendingActiveSectionBackendSyncOp(...)` in `activeSectionUI.ts` had no call sites and duplicated pending-op cleanup logic that already existed in the live failure path.
+
+Fixes implemented:
+- Switched drag grouping in `frontend/src/forks/xyflow/core/hooks/utils.ts` to `getActiveSectionUIIds()`, keeping the UI selection store as the single live source of truth for selection-dependent drag behavior.
+- Reworked the backend comparison helper in `frontend/src/state/actions/sectionInfos.ts` to normalize and compare the complete backend-owned `ProjectStateSingleConfig` shape, including `artifactGroups`, while still sanitizing frontend-local `projectConfig.activeIds`.
+- Removed the unreachable pending-op cleanup helper from `frontend/src/state/activeSectionUI.ts` so pending-op lifecycle cleanup has one live implementation.
+
+Behavioral impact before vs after:
+- UX before: users could see multiple sections selected yet drag only one of them because drag grouping still trusted the sanitized durable store; artifact-only backend updates could silently fail to appear until some later unrelated project-state publish.
+- UX after: grouped drag behavior matches the visible UI selection state, and artifact-group-only backend updates publish immediately instead of being swallowed by the no-op optimization.
+- DX before: live selection had a hidden split-brain reader in the drag path, backend comparator maintenance was brittle to schema growth, and the active-section sync coordinator carried dead cleanup surface.
+- DX after: drag behavior now follows the same live selection contract as the rest of the frontend, backend comparator coverage follows the real backend-owned shape, and pending-op cleanup is easier to audit.
+
+Automated verification completed:
+- `pnpm -C frontend exec vitest run src/forks/xyflow/core/hooks/utils.test.ts src/state/actions/sectionInfos.test.ts src/state/actions/activeSections.test.ts`
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/multi-selection-drag.spec.ts`
+
+New/updated automated coverage:
+- `frontend/src/forks/xyflow/core/hooks/utils.test.ts`
+  - covers grouped drag selection using UI-only active ids while the durable project config remains sanitized.
+- `frontend/src/state/actions/sectionInfos.test.ts`
+  - covers artifact-group-only backend updates publishing into `useProjectState`.
+  - covers the widened no-op comparator still skipping store churn when the full normalized backend-owned state is unchanged.
+- `frontend/tests/e2e/sections/multi-selection-drag.spec.ts`
+  - covers grouped drag selection inside the browser runtime by seeding real sections, applying UI-only active ids, invoking the real drag grouping helper against live node internals, and asserting both selected nodes move together through the normal position update path.
+
+Manual/CDP verification:
+- Attempted Chrome DevTools MCP verification, but the MCP server could not connect to Chrome on the configured CDP port (`http://127.0.0.1:9231/json/version` fetch failure), so no new manual CDP check was completed for this entry.
