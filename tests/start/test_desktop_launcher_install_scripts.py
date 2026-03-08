@@ -158,12 +158,13 @@ def test_macos_installer_script_runs_postinstall_bootstrap() -> None:
     script_content = script_path.read_text(encoding="utf-8")
 
     assert "SETTA_DESKTOP_INSTALLER_PACKAGE_PATH" in script_content
-    assert "dist/setta-${version}.tar.gz" in script_content
-    assert "setta-package.tar.gz" in script_content
+    assert "setta_resolve_single_dist_artifact" in script_content
+    assert '"setta-${version}-*.whl"' in script_content
+    assert "setta-package.tar.gz" not in script_content
     assert 'cat > "${installer_scripts_root}/postinstall"' in script_content
     assert '--scripts "${installer_scripts_root}"' in script_content
     assert (
-        "--package '/usr/local/share/setta-installer/setta-package.tar.gz' --channel native-installer --install-source installer-managed --open-mode chrome-app"
+        "--package '/usr/local/share/setta-installer/${package_file_name}' --channel native-installer --install-source installer-managed --open-mode chrome-app"
         in script_content
     )
 
@@ -173,8 +174,9 @@ def test_windows_installer_script_runs_custom_action_bootstrap() -> None:
     script_content = script_path.read_text(encoding="utf-8")
 
     assert "SETTA_DESKTOP_INSTALLER_PACKAGE_PATH" in script_content
-    assert 'Join-Path "dist" "setta-$Version.tar.gz"' in script_content
+    assert '-Filter "setta-$Version-*.whl"' in script_content
     assert "PackageArtifactFile" in script_content
+    assert "setta-package.tar.gz" not in script_content
     assert 'Id="RunDesktopBootstrap"' in script_content
     assert 'After="InstallFiles">NOT Installed</Custom>' in script_content
     assert "setta-install-desktop.ps1" in script_content
@@ -258,8 +260,9 @@ def test_release_workflow_builds_native_installer_package_with_go_binaries() -> 
     for installer_section in (macos_section, windows_section):
         assert "actions/setup-python@v5" in installer_section
         assert "actions/setup-go@v5" in installer_section
+        assert "./scripts/build_python_distribution_with_go_binaries.sh --wheel" in installer_section
+        assert "./scripts/build_python_distribution_with_go_binaries.sh --sdist" not in installer_section
         assert "python -m pip install build" in installer_section
-        assert "./scripts/build_python_distribution_with_go_binaries.sh --sdist" in installer_section
 
 
 def test_native_installer_smoke_scripts_verify_expected_setta_version() -> None:

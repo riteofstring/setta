@@ -68,8 +68,8 @@ jobs:
       - name: Install Python build dependency
         run: python -m pip install build
 
-      - name: Build packaged Setta sdist
-        run: ./scripts/build_python_distribution_with_go_binaries.sh --sdist
+      - name: Build packaged Setta wheel
+        run: ./scripts/build_python_distribution_with_go_binaries.sh --wheel
 
       - name: Build macOS installer package
         env:
@@ -101,9 +101,9 @@ jobs:
       - name: Install Python build dependency
         run: python -m pip install build
 
-      - name: Build packaged Setta sdist
+      - name: Build packaged Setta wheel
         shell: bash
-        run: ./scripts/build_python_distribution_with_go_binaries.sh --sdist
+        run: ./scripts/build_python_distribution_with_go_binaries.sh --wheel
 
       - name: Install WiX Toolset
         run: choco install wixtoolset -y --no-progress

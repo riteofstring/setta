@@ -42,23 +42,44 @@ if ($Version -notmatch '^\d+\.\d+\.\d+$') {
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $packageArtifactInput = $env:SETTA_DESKTOP_INSTALLER_PACKAGE_PATH
 if (-not $packageArtifactInput) {
-  $packageArtifactInput = Join-Path "dist" "setta-$Version.tar.gz"
-}
-if ([System.IO.Path]::IsPathRooted($packageArtifactInput)) {
-  $packageArtifactPath = $packageArtifactInput
+  $distDir = Join-Path $repoRoot "dist"
+  $packageArtifactMatches = @(
+    Get-ChildItem `
+      -LiteralPath $distDir `
+      -Filter "setta-$Version-*.whl" `
+      -File `
+      -ErrorAction SilentlyContinue
+  )
+  if (-not $packageArtifactMatches) {
+    Fail "Packaged Setta wheel not found under $distDir matching setta-$Version-*.whl. Build it first with ./scripts/build_python_distribution_with_go_binaries.sh --wheel."
+  }
+  if ($packageArtifactMatches.Count -ne 1) {
+    $matchList = $packageArtifactMatches | ForEach-Object { "  - $($_.FullName)" }
+    Fail (
+      "Expected exactly one packaged Setta wheel under $distDir matching setta-$Version-*.whl, found " +
+      "$($packageArtifactMatches.Count).`n" +
+      ($matchList -join "`n")
+    )
+  }
+  $packageArtifact = $packageArtifactMatches[0]
 }
 else {
-  $packageArtifactPath = Join-Path $repoRoot $packageArtifactInput
+  if ([System.IO.Path]::IsPathRooted($packageArtifactInput)) {
+    $packageArtifactPath = $packageArtifactInput
+  }
+  else {
+    $packageArtifactPath = Join-Path $repoRoot $packageArtifactInput
+  }
+  $packageArtifact = Get-Item -LiteralPath $packageArtifactPath -ErrorAction SilentlyContinue
+  if (-not $packageArtifact) {
+    Fail "Packaged Setta distribution not found at $packageArtifactPath. Build it first with ./scripts/build_python_distribution_with_go_binaries.sh --wheel."
+  }
+  if ($packageArtifact.PSIsContainer) {
+    Fail "Expected packaged Setta distribution file, got directory: $packageArtifactPath"
+  }
 }
-$packageArtifact = Get-Item -LiteralPath $packageArtifactPath -ErrorAction SilentlyContinue
-if (-not $packageArtifact) {
-  Fail "Packaged Setta distribution not found at $packageArtifactPath. Build it first with ./scripts/build_python_distribution_with_go_binaries.sh --sdist."
-}
-if ($packageArtifact.PSIsContainer) {
-  Fail "Expected packaged Setta distribution file, got directory: $packageArtifactPath"
-}
-if (-not $packageArtifact.Name.EndsWith(".tar.gz", [System.StringComparison]::OrdinalIgnoreCase)) {
-  Fail "Native installers currently bundle a Setta sdist (.tar.gz), got '$($packageArtifact.Name)'."
+if (-not $packageArtifact.Name.EndsWith(".whl", [System.StringComparison]::OrdinalIgnoreCase)) {
+  Fail "Native installers currently bundle a Setta wheel (.whl), got '$($packageArtifact.Name)'."
 }
 $installScript = Join-Path $repoRoot "scripts\install_desktop_launcher.ps1"
 if (-not (Test-Path -LiteralPath $installScript -PathType Leaf)) {
@@ -98,7 +119,7 @@ param(
 setta launcher remove --json @Args
 '@ | Set-Content -LiteralPath $removeScriptPath -Encoding UTF8
 
-  $packageCopy = Join-Path $sourceDir "setta-package.tar.gz"
+  $packageCopy = Join-Path $sourceDir $packageArtifact.Name
   Copy-Item -LiteralPath $packageArtifact.FullName -Destination $packageCopy -Force
 
   $wxsPath = Join-Path $tempRoot "installer.wxs"
