@@ -2098,6 +2098,267 @@ func TestSettingsSizingContractsUseConverterDeclarations(t *testing.T) {
 	}
 }
 
+func TestSettingsSupportEnumsUseConverterDeclarations(t *testing.T) {
+	tests := []struct {
+		name   string
+		root   reflect.Type
+		values []EnumValue
+	}{
+		{
+			name: "RunSnapshotMode",
+			root: reflect.TypeOf(RunSnapshotMode("")),
+			values: []EnumValue{
+				{Name: "ephemeral", Value: "ephemeral"},
+				{Name: "always", Value: "always"},
+				{Name: "never", Value: "never"},
+			},
+		},
+		{
+			name: "RenameRefactorMode",
+			root: reflect.TypeOf(RenameRefactorMode("")),
+			values: []EnumValue{
+				{Name: "ALWAYS_ASK", Value: "ALWAYS_ASK"},
+				{Name: "ALWAYS_RENAME", Value: "ALWAYS_RENAME"},
+				{Name: "NEVER_RENAME", Value: "NEVER_RENAME"},
+			},
+		},
+		{
+			name: "BackgroundVariant",
+			root: reflect.TypeOf(BackgroundVariant("")),
+			values: []EnumValue{
+				{Name: "lines", Value: "lines"},
+				{Name: "dots", Value: "dots"},
+				{Name: "cross", Value: "cross"},
+			},
+		},
+		{
+			name: "SelectionMode",
+			root: reflect.TypeOf(SelectionMode("")),
+			values: []EnumValue{
+				{Name: "partial", Value: "partial"},
+				{Name: "full", Value: "full"},
+			},
+		},
+		{
+			name: "PanOnScrollMode",
+			root: reflect.TypeOf(PanOnScrollMode("")),
+			values: []EnumValue{
+				{Name: "free", Value: "free"},
+				{Name: "vertical", Value: "vertical"},
+				{Name: "horizontal", Value: "horizontal"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != "enum" {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, "enum")
+			}
+			if !reflect.DeepEqual(declaration.EnumValues, tt.values) {
+				t.Fatalf("%s enum values = %#v, want %#v", tt.name, declaration.EnumValues, tt.values)
+			}
+		})
+	}
+}
+
+func TestSettingsSupportContractsUseConverterDeclarations(t *testing.T) {
+	tests := []struct {
+		name          string
+		root          reflect.Type
+		kind          string
+		alias         string
+		properties    []TypeProperty
+		hasCreateExpr bool
+		hasFactoryTS  bool
+	}{
+		{
+			name: "SharePolicy",
+			root: reflect.TypeOf(SharePolicy{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "allowParamChanges", TypeExpr: "boolean", Optional: false},
+				{Name: "allowVariantChanges", TypeExpr: "boolean", Optional: false},
+				{Name: "allowLayoutChanges", TypeExpr: "boolean", Optional: false},
+				{Name: "allowRun", TypeExpr: "boolean", Optional: false},
+				{Name: "allowLLM", TypeExpr: "boolean", Optional: false},
+				{Name: "allowExternalLinks", TypeExpr: "boolean", Optional: false},
+				{Name: "allowFileDownloads", TypeExpr: "boolean", Optional: false},
+				{Name: "allowMultipleRuns", TypeExpr: "boolean", Optional: false},
+				{Name: "runSnapshotMode", TypeExpr: "RunSnapshotMode", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "SettingsShortcuts",
+			root: reflect.TypeOf(SettingsShortcuts{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "newCardShortcut", TypeExpr: "string", Optional: false},
+				{Name: "newGroupShortcut", TypeExpr: "string", Optional: false},
+				{Name: "typeCheckShortcut", TypeExpr: "string", Optional: false},
+				{Name: "newProjectConfigShortcut", TypeExpr: "string", Optional: false},
+				{Name: "undoShortcut", TypeExpr: "string", Optional: false},
+				{Name: "redoShortcut", TypeExpr: "string", Optional: false},
+				{Name: "groupShortcut", TypeExpr: "string", Optional: false},
+				{Name: "ungroupShortcut", TypeExpr: "string", Optional: false},
+				{Name: "saveShortcut", TypeExpr: "string", Optional: false},
+				{Name: "saveAsShortcut", TypeExpr: "string", Optional: false},
+				{Name: "loadShortcut", TypeExpr: "string", Optional: false},
+				{Name: "searchShortcut", TypeExpr: "string", Optional: false},
+				{Name: "advancedSearchShortcut", TypeExpr: "string", Optional: false},
+				{Name: "commandPaletteShortcut", TypeExpr: "string", Optional: false},
+				{Name: "resetZoomShortcut", TypeExpr: "string", Optional: false},
+				{Name: "copyShortcut", TypeExpr: "string", Optional: false},
+				{Name: "pasteShortcut", TypeExpr: "string", Optional: false},
+				{Name: "pasteAsRefShortcut", TypeExpr: "string", Optional: false},
+				{Name: "sortingShortcut", TypeExpr: "string", Optional: false},
+				{Name: "movingFreeShortcut", TypeExpr: "string", Optional: false},
+				{Name: "showTooltipShortcut", TypeExpr: "string", Optional: false},
+				{Name: "tooltipToPlaintextShortcut", TypeExpr: "string", Optional: false},
+				{Name: "tooltipToMarkdownShortcut", TypeExpr: "string", Optional: false},
+				{Name: "freezeTooltipShortcut", TypeExpr: "string", Optional: false},
+				{Name: "frozenTooltipToPlaintextShortcut", TypeExpr: "string", Optional: false},
+				{Name: "frozenTooltipToMarkdownShortcut", TypeExpr: "string", Optional: false},
+				{Name: "incrementTooltipPageShortcut", TypeExpr: "string", Optional: false},
+				{Name: "decrementTooltipPageShortcut", TypeExpr: "string", Optional: false},
+				{Name: "copyTooltipTextShortcut", TypeExpr: "string", Optional: false},
+				{Name: "frozenTooltipIncrementShortcut", TypeExpr: "string", Optional: false},
+				{Name: "frozenTooltipDecrementShortcut", TypeExpr: "string", Optional: false},
+				{Name: "frozenTooltipCopyShortcut", TypeExpr: "string", Optional: false},
+				{Name: "newTerminalShortcut", TypeExpr: "string", Optional: false},
+				{Name: "fitViewShortcut", TypeExpr: "string", Optional: false},
+				{Name: "zoomToMouseShortcut", TypeExpr: "string", Optional: false},
+				{Name: "deleteSectionShortcut", TypeExpr: "string", Optional: false},
+				{Name: "selectAll", TypeExpr: "string", Optional: false},
+				{Name: "selectTopLevelNonGroupSections", TypeExpr: "string", Optional: false},
+				{Name: "showVersionsTabShortcut", TypeExpr: "string", Optional: false},
+				{Name: "showParamUITypeTabShortcut", TypeExpr: "string", Optional: false},
+				{Name: "showProjectOverviewTabShortcut", TypeExpr: "string", Optional: false},
+				{Name: "focusHeaderShortcut", TypeExpr: "string", Optional: false},
+				{Name: "focusOverviewShortcut", TypeExpr: "string", Optional: false},
+				{Name: "focusCanvasShortcut", TypeExpr: "string", Optional: false},
+				{Name: "focusUiEditorShortcut", TypeExpr: "string", Optional: false},
+				{Name: "nextTopLevelSectionShortcut", TypeExpr: "string", Optional: false},
+				{Name: "prevTopLevelSectionShortcut", TypeExpr: "string", Optional: false},
+				{Name: "runCodeShortcut", TypeExpr: "string", Optional: false},
+				{Name: "runEntryCodeBlockShortcut", TypeExpr: "string", Optional: false},
+				{Name: "paramSelect", TypeExpr: "string", Optional: false},
+				{Name: "paramIndentShortcut", TypeExpr: "string", Optional: false},
+				{Name: "paramUnindentShortcut", TypeExpr: "string", Optional: false},
+				{Name: "paramMoveUpShortcut", TypeExpr: "string", Optional: false},
+				{Name: "paramMoveDownShortcut", TypeExpr: "string", Optional: false},
+				{Name: "formatCode", TypeExpr: "string", Optional: false},
+				{Name: "selectionKeyCode", TypeExpr: "string", Optional: false},
+				{Name: "multiSelectionKeyCode", TypeExpr: "string", Optional: false},
+				{Name: "panActivationKeyCode", TypeExpr: "string", Optional: false},
+				{Name: "zoomActivationKeyCode", TypeExpr: "string", Optional: false},
+				{Name: "zoomInShortcut", TypeExpr: "string", Optional: false},
+				{Name: "zoomOutShortcut", TypeExpr: "string", Optional: false},
+				{Name: "restartLanguageServerShortcut", TypeExpr: "string", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "SettingsGUI",
+			root: reflect.TypeOf(SettingsGUI{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "snapGrid", TypeExpr: "[number, number]", Optional: false},
+				{Name: "showGridLines", TypeExpr: "boolean", Optional: false},
+				{Name: "gridPattern", TypeExpr: "BackgroundVariant", Optional: false},
+				{Name: "gridPatternSize", TypeExpr: "number", Optional: false},
+				{Name: "gridColor", TypeExpr: "string", Optional: false},
+				{Name: "gridColorDarkMode", TypeExpr: "string", Optional: false},
+				{Name: "wireColor", TypeExpr: "string", Optional: false},
+				{Name: "wireColorDarkMode", TypeExpr: "string", Optional: false},
+				{Name: "defaultZoomLevel", TypeExpr: "number", Optional: false},
+				{Name: "minZoom", TypeExpr: "number", Optional: false},
+				{Name: "maxZoom", TypeExpr: "number", Optional: false},
+				{Name: "panOnDrag", TypeExpr: "boolean", Optional: false},
+				{Name: "panOnScroll", TypeExpr: "boolean", Optional: false},
+				{Name: "panOnScrollSpeed", TypeExpr: "number", Optional: false},
+				{Name: "panOnScrollMode", TypeExpr: "PanOnScrollMode", Optional: false},
+				{Name: "zoomOnScroll", TypeExpr: "boolean", Optional: false},
+				{Name: "zoomOnPinch", TypeExpr: "boolean", Optional: false},
+				{Name: "zoomOnDoubleClick", TypeExpr: "boolean", Optional: false},
+				{Name: "selectionMode", TypeExpr: "SelectionMode", Optional: false},
+				{Name: "leftSidePaneShiftsMap", TypeExpr: "boolean", Optional: false},
+				{Name: "transitionDuration", TypeExpr: "number", Optional: false},
+				{Name: "sectionTagColorChoices", TypeExpr: "Array<{ color: string; description: string; }>", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "SettingsBackend",
+			root: reflect.TypeOf(SettingsBackend{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "showDefaultConfigOnLoad", TypeExpr: "boolean", Optional: false},
+				{Name: "autosave", TypeExpr: "boolean", Optional: false},
+				{Name: "autobackup", TypeExpr: "boolean", Optional: false},
+				{Name: "autobackupFreq", TypeExpr: "number", Optional: false},
+				{Name: "autobackupKeepLastN", TypeExpr: "number", Optional: false},
+				{Name: "clearTerminalBeforeMarkingAsReady", TypeExpr: "boolean", Optional: false},
+				{Name: "defaultTerminalShell", TypeExpr: "string | null", Optional: true},
+				{Name: "exportDbReadableOnSave", TypeExpr: "boolean", Optional: false},
+				{Name: "exportDbReadableWithVariantsOnSave", TypeExpr: "boolean", Optional: false},
+				{Name: "autoRefetchCallableParamsOnLspMismatch", TypeExpr: "boolean", Optional: false},
+				{Name: "renameRefactorMode", TypeExpr: "RenameRefactorMode", Optional: false},
+				{Name: "saveRenderedValues", TypeExpr: "boolean", Optional: false},
+				{Name: "runSnapshotMode", TypeExpr: "RunSnapshotMode", Optional: false},
+				{Name: "completionGuardEnabled", TypeExpr: "boolean", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "SettingsState",
+			root: reflect.TypeOf(SettingsState{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "shortcuts", TypeExpr: "SettingsShortcuts", Optional: false},
+				{Name: "gui", TypeExpr: "SettingsGUI", Optional: false},
+				{Name: "backend", TypeExpr: "SettingsBackend", Optional: false},
+				{Name: "sectionSizingPolicy", TypeExpr: "SectionSizingPolicy", Optional: false},
+				{Name: "languageServer", TypeExpr: "Record<string, unknown>", Optional: false},
+			},
+			hasFactoryTS: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != tt.kind {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, tt.kind)
+			}
+			if declaration.Alias != tt.alias {
+				t.Fatalf("%s alias = %q, want %q", tt.name, declaration.Alias, tt.alias)
+			}
+			if !reflect.DeepEqual(declaration.Properties, tt.properties) {
+				t.Fatalf("%s properties = %#v, want %#v", tt.name, declaration.Properties, tt.properties)
+			}
+			if (declaration.CreateExpr != "") != tt.hasCreateExpr {
+				t.Fatalf("%s CreateExpr presence = %t, want %t", tt.name, declaration.CreateExpr != "", tt.hasCreateExpr)
+			}
+			if (declaration.FactoryTS != "") != tt.hasFactoryTS {
+				t.Fatalf("%s FactoryTS presence = %t, want %t", tt.name, declaration.FactoryTS != "", tt.hasFactoryTS)
+			}
+		})
+	}
+}
+
 func TestProjectStateSectionSupportContractsUseConverterDeclarations(t *testing.T) {
 	tests := []struct {
 		name          string

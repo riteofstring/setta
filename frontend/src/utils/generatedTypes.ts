@@ -1771,6 +1771,359 @@ export function createSectionSizingPolicy(
 }
 
 
+export const RunSnapshotModeEnum = {
+  ephemeral: "ephemeral",
+  always: "always",
+  never: "never",
+} as const;
+export type RunSnapshotMode = ObjectValues<typeof RunSnapshotModeEnum>;
+
+
+export const RenameRefactorModeEnum = {
+  ALWAYS_ASK: "ALWAYS_ASK",
+  ALWAYS_RENAME: "ALWAYS_RENAME",
+  NEVER_RENAME: "NEVER_RENAME",
+} as const;
+export type RenameRefactorMode = ObjectValues<typeof RenameRefactorModeEnum>;
+
+
+export const BackgroundVariantEnum = {
+  lines: "lines",
+  dots: "dots",
+  cross: "cross",
+} as const;
+export type BackgroundVariant = ObjectValues<typeof BackgroundVariantEnum>;
+
+
+export const SelectionModeEnum = {
+  partial: "partial",
+  full: "full",
+} as const;
+export type SelectionMode = ObjectValues<typeof SelectionModeEnum>;
+
+
+export const PanOnScrollModeEnum = {
+  free: "free",
+  vertical: "vertical",
+  horizontal: "horizontal",
+} as const;
+export type PanOnScrollMode = ObjectValues<typeof PanOnScrollModeEnum>;
+
+
+export type SharePolicy = {
+  allowParamChanges: boolean;
+  allowVariantChanges: boolean;
+  allowLayoutChanges: boolean;
+  allowRun: boolean;
+  allowLLM: boolean;
+  allowExternalLinks: boolean;
+  allowFileDownloads: boolean;
+  allowMultipleRuns: boolean;
+  runSnapshotMode: RunSnapshotMode;
+};
+export function createSharePolicy(options: Partial<SharePolicy> = {}): SharePolicy {
+  return mergeGeneratedOptions(
+    {
+      allowParamChanges: true,
+      allowVariantChanges: true,
+      allowLayoutChanges: true,
+      allowRun: false,
+      allowLLM: false,
+      allowExternalLinks: false,
+      allowFileDownloads: false,
+      allowMultipleRuns: true,
+      runSnapshotMode: RunSnapshotModeEnum.ephemeral,
+    },
+    options,
+  );
+}
+
+
+export type SettingsShortcuts = {
+  newCardShortcut: string;
+  newGroupShortcut: string;
+  typeCheckShortcut: string;
+  newProjectConfigShortcut: string;
+  undoShortcut: string;
+  redoShortcut: string;
+  groupShortcut: string;
+  ungroupShortcut: string;
+  saveShortcut: string;
+  saveAsShortcut: string;
+  loadShortcut: string;
+  searchShortcut: string;
+  advancedSearchShortcut: string;
+  commandPaletteShortcut: string;
+  resetZoomShortcut: string;
+  copyShortcut: string;
+  pasteShortcut: string;
+  pasteAsRefShortcut: string;
+  sortingShortcut: string;
+  movingFreeShortcut: string;
+  showTooltipShortcut: string;
+  tooltipToPlaintextShortcut: string;
+  tooltipToMarkdownShortcut: string;
+  freezeTooltipShortcut: string;
+  frozenTooltipToPlaintextShortcut: string;
+  frozenTooltipToMarkdownShortcut: string;
+  incrementTooltipPageShortcut: string;
+  decrementTooltipPageShortcut: string;
+  copyTooltipTextShortcut: string;
+  frozenTooltipIncrementShortcut: string;
+  frozenTooltipDecrementShortcut: string;
+  frozenTooltipCopyShortcut: string;
+  newTerminalShortcut: string;
+  fitViewShortcut: string;
+  zoomToMouseShortcut: string;
+  deleteSectionShortcut: string;
+  selectAll: string;
+  selectTopLevelNonGroupSections: string;
+  showVersionsTabShortcut: string;
+  showParamUITypeTabShortcut: string;
+  showProjectOverviewTabShortcut: string;
+  focusHeaderShortcut: string;
+  focusOverviewShortcut: string;
+  focusCanvasShortcut: string;
+  focusUiEditorShortcut: string;
+  nextTopLevelSectionShortcut: string;
+  prevTopLevelSectionShortcut: string;
+  runCodeShortcut: string;
+  runEntryCodeBlockShortcut: string;
+  paramSelect: string;
+  paramIndentShortcut: string;
+  paramUnindentShortcut: string;
+  paramMoveUpShortcut: string;
+  paramMoveDownShortcut: string;
+  formatCode: string;
+  selectionKeyCode: string;
+  multiSelectionKeyCode: string;
+  panActivationKeyCode: string;
+  zoomActivationKeyCode: string;
+  zoomInShortcut: string;
+  zoomOutShortcut: string;
+  restartLanguageServerShortcut: string;
+};
+export function createSettingsShortcuts(options: Partial<SettingsShortcuts> = {}): SettingsShortcuts {
+  return mergeGeneratedOptions(
+    {
+      newCardShortcut: "N",
+      newGroupShortcut: "G",
+      typeCheckShortcut: "",
+      newProjectConfigShortcut: "",
+      undoShortcut: "Mod + Z",
+      redoShortcut: "Mod + Shift + Z",
+      groupShortcut: "Mod + G",
+      ungroupShortcut: "Shift + Mod + G",
+      saveShortcut: "Mod + S",
+      saveAsShortcut: "Mod + Shift + S",
+      loadShortcut: "Mod + L",
+      searchShortcut: "Mod + K",
+      advancedSearchShortcut: "Mod + P",
+      commandPaletteShortcut: "Mod + Shift + P",
+      resetZoomShortcut: "Mod + Comma",
+      copyShortcut: "Mod + C",
+      pasteShortcut: "Mod + V",
+      pasteAsRefShortcut: "Mod + Shift + V",
+      sortingShortcut: "Mod + Alt",
+      movingFreeShortcut: "Alt",
+      showTooltipShortcut: "Q",
+      tooltipToPlaintextShortcut: "Q + S",
+      tooltipToMarkdownShortcut: "Q + W",
+      freezeTooltipShortcut: "Q + F",
+      frozenTooltipToPlaintextShortcut: "S",
+      frozenTooltipToMarkdownShortcut: "W",
+      incrementTooltipPageShortcut: "Q + ArrowRight",
+      decrementTooltipPageShortcut: "Q + ArrowLeft",
+      copyTooltipTextShortcut: "Q + C",
+      frozenTooltipIncrementShortcut: "ArrowRight",
+      frozenTooltipDecrementShortcut: "ArrowLeft",
+      frozenTooltipCopyShortcut: "C",
+      newTerminalShortcut: "Ctrl + \u0060",
+      fitViewShortcut: "F",
+      zoomToMouseShortcut: "Z",
+      deleteSectionShortcut: "Backspace",
+      selectAll: "Mod + A",
+      selectTopLevelNonGroupSections: "Mod + Shift + A",
+      showVersionsTabShortcut: "V",
+      showParamUITypeTabShortcut: "P",
+      showProjectOverviewTabShortcut: "O",
+      focusHeaderShortcut: "Ctrl + Shift + 1",
+      focusOverviewShortcut: "Ctrl + Shift + 2",
+      focusCanvasShortcut: "Ctrl + Shift + 3",
+      focusUiEditorShortcut: "Ctrl + Shift + 4",
+      nextTopLevelSectionShortcut: "Alt + J",
+      prevTopLevelSectionShortcut: "Alt + K",
+      runCodeShortcut: "Mod + Enter",
+      runEntryCodeBlockShortcut: "Mod + Shift + Enter",
+      paramSelect: "Mod + Shift",
+      paramIndentShortcut: "Tab",
+      paramUnindentShortcut: "Shift + Tab",
+      paramMoveUpShortcut: "Alt + ArrowUp",
+      paramMoveDownShortcut: "Alt + ArrowDown",
+      formatCode: "Shift + Alt + F",
+      selectionKeyCode: "Shift",
+      multiSelectionKeyCode: "Mod",
+      panActivationKeyCode: "Space",
+      zoomActivationKeyCode: "Mod",
+      zoomInShortcut: "Equal",
+      zoomOutShortcut: "Minus",
+      restartLanguageServerShortcut: "Alt + Shift + R",
+    },
+    options,
+  );
+}
+
+
+export type SettingsGUI = {
+  snapGrid: [number, number];
+  showGridLines: boolean;
+  gridPattern: BackgroundVariant;
+  gridPatternSize: number;
+  gridColor: string;
+  gridColorDarkMode: string;
+  wireColor: string;
+  wireColorDarkMode: string;
+  defaultZoomLevel: number;
+  minZoom: number;
+  maxZoom: number;
+  panOnDrag: boolean;
+  panOnScroll: boolean;
+  panOnScrollSpeed: number;
+  panOnScrollMode: PanOnScrollMode;
+  zoomOnScroll: boolean;
+  zoomOnPinch: boolean;
+  zoomOnDoubleClick: boolean;
+  selectionMode: SelectionMode;
+  leftSidePaneShiftsMap: boolean;
+  transitionDuration: number;
+  sectionTagColorChoices: Array<{ color: string; description: string; }>;
+};
+export function createSettingsGUI(options: Partial<SettingsGUI> = {}): SettingsGUI {
+  return mergeGeneratedOptions(
+    {
+      snapGrid: [15, 15],
+      showGridLines: true,
+      gridPattern: BackgroundVariantEnum.dots,
+      gridPatternSize: 2,
+      gridColor: "#afbacf",
+      gridColorDarkMode: "#2b364a",
+      wireColor: "#41506c",
+      wireColorDarkMode: "#bac2d3",
+      defaultZoomLevel: 1.0,
+      minZoom: 0.1,
+      maxZoom: 10.0,
+      panOnDrag: true,
+      panOnScroll: true,
+      panOnScrollSpeed: 1.0,
+      panOnScrollMode: PanOnScrollModeEnum.free,
+      zoomOnScroll: true,
+      zoomOnPinch: true,
+      zoomOnDoubleClick: false,
+      selectionMode: SelectionModeEnum.partial,
+      leftSidePaneShiftsMap: true,
+      transitionDuration: 50,
+      sectionTagColorChoices: [
+        { color: "#ef4444", description: "Red" },
+        { color: "#f97316", description: "Orange" },
+        { color: "#eab308", description: "Yellow" },
+        { color: "#22c55e", description: "Green" },
+        { color: "#06b6d4", description: "Cyan" },
+        { color: "#3b82f6", description: "Blue" },
+        { color: "#a855f7", description: "Purple" },
+        { color: "#64748b", description: "Slate" },
+      ],
+    },
+    options,
+  );
+}
+
+
+export type SettingsBackend = {
+  showDefaultConfigOnLoad: boolean;
+  autosave: boolean;
+  autobackup: boolean;
+  autobackupFreq: number;
+  autobackupKeepLastN: number;
+  clearTerminalBeforeMarkingAsReady: boolean;
+  defaultTerminalShell?: string | null;
+  exportDbReadableOnSave: boolean;
+  exportDbReadableWithVariantsOnSave: boolean;
+  autoRefetchCallableParamsOnLspMismatch: boolean;
+  renameRefactorMode: RenameRefactorMode;
+  saveRenderedValues: boolean;
+  runSnapshotMode: RunSnapshotMode;
+  completionGuardEnabled: boolean;
+};
+export function createSettingsBackend(options: Partial<SettingsBackend> = {}): SettingsBackend {
+  return mergeGeneratedOptions(
+    {
+      showDefaultConfigOnLoad: true,
+      autosave: true,
+      autobackup: true,
+      autobackupFreq: 300,
+      autobackupKeepLastN: 10,
+      clearTerminalBeforeMarkingAsReady: true,
+      defaultTerminalShell: null,
+      exportDbReadableOnSave: false,
+      exportDbReadableWithVariantsOnSave: false,
+      autoRefetchCallableParamsOnLspMismatch: true,
+      renameRefactorMode: RenameRefactorModeEnum.ALWAYS_ASK,
+      saveRenderedValues: false,
+      runSnapshotMode: RunSnapshotModeEnum.ephemeral,
+      completionGuardEnabled: false,
+    },
+    options,
+  );
+}
+
+
+export type SettingsState = {
+  shortcuts: SettingsShortcuts;
+  gui: SettingsGUI;
+  backend: SettingsBackend;
+  sectionSizingPolicy: SectionSizingPolicy;
+  languageServer: Record<string, unknown>;
+};
+export function createSettingsState(
+  options: Partial<SettingsState> = {},
+): SettingsState {
+  const shortcuts = createSettingsShortcuts(options.shortcuts ?? {});
+  const gui = createSettingsGUI(options.gui ?? {});
+  const backend = createSettingsBackend(options.backend ?? {});
+  const sectionSizingPolicy = createSectionSizingPolicy(
+    options.sectionSizingPolicy ?? {},
+  );
+  const defaults: SettingsState = {
+    shortcuts,
+    gui,
+    backend,
+    sectionSizingPolicy,
+    languageServer: {
+      basedpyright: {
+        analysis: {
+          diagnosticSeverityOverrides: {
+            reportUnknownVariableType: "none",
+            reportUnknownMemberType: "none",
+            reportUnannotatedClassAttribute: "none",
+            reportSelfClsParameterName: "none",
+          },
+        },
+      },
+    },
+  };
+  return {
+    ...mergeGeneratedOptions(defaults, options),
+    shortcuts,
+    gui,
+    backend,
+    sectionSizingPolicy,
+    languageServer: cloneGeneratedValue(
+      options.languageServer ?? defaults.languageServer,
+    ),
+  };
+}
+
+
 export const ChatRoleEnum = {
   system: "system",
   user: "user",
@@ -4327,42 +4680,6 @@ export type AgenticEdgeContextMode = ObjectValues<
   typeof AgenticEdgeContextModeEnum
 >;
 
-export const RunSnapshotModeEnum = {
-  ephemeral: "ephemeral",
-  always: "always",
-  never: "never",
-} as const;
-export type RunSnapshotMode = ObjectValues<typeof RunSnapshotModeEnum>;
-
-export const RenameRefactorModeEnum = {
-  ALWAYS_ASK: "ALWAYS_ASK",
-  ALWAYS_RENAME: "ALWAYS_RENAME",
-  NEVER_RENAME: "NEVER_RENAME",
-} as const;
-export type RenameRefactorMode = ObjectValues<
-  typeof RenameRefactorModeEnum
->;
-
-export const BackgroundVariantEnum = {
-  lines: "lines",
-  dots: "dots",
-  cross: "cross",
-} as const;
-export type BackgroundVariant = ObjectValues<typeof BackgroundVariantEnum>;
-
-export const SelectionModeEnum = {
-  partial: "partial",
-  full: "full",
-} as const;
-export type SelectionMode = ObjectValues<typeof SelectionModeEnum>;
-
-export const PanOnScrollModeEnum = {
-  free: "free",
-  vertical: "vertical",
-  horizontal: "horizontal",
-} as const;
-export type PanOnScrollMode = ObjectValues<typeof PanOnScrollModeEnum>;
-
 type GeneratedMutableValue =
   | null
   | boolean
@@ -5164,326 +5481,6 @@ function createGeneratedBaseCodeSectionDefaults(): {
     },
     codeFileBinding: null,
     attachedTerminalSectionId: null,
-  };
-}
-
-export type SharePolicy = {
-  allowParamChanges: boolean;
-  allowVariantChanges: boolean;
-  allowLayoutChanges: boolean;
-  allowRun: boolean;
-  allowLLM: boolean;
-  allowExternalLinks: boolean;
-  allowFileDownloads: boolean;
-  allowMultipleRuns: boolean;
-  runSnapshotMode: RunSnapshotMode;
-};
-export function createSharePolicy(
-  options: Partial<SharePolicy> = {},
-): SharePolicy {
-  return mergeGeneratedOptions(
-    {
-      allowParamChanges: true,
-      allowVariantChanges: true,
-      allowLayoutChanges: true,
-      allowRun: false,
-      allowLLM: false,
-      allowExternalLinks: false,
-      allowFileDownloads: false,
-      allowMultipleRuns: true,
-      runSnapshotMode: RunSnapshotModeEnum.ephemeral,
-    },
-    options,
-  );
-}
-
-export type SettingsShortcuts = {
-  newCardShortcut: string;
-  newGroupShortcut: string;
-  typeCheckShortcut: string;
-  newProjectConfigShortcut: string;
-  undoShortcut: string;
-  redoShortcut: string;
-  groupShortcut: string;
-  ungroupShortcut: string;
-  saveShortcut: string;
-  saveAsShortcut: string;
-  loadShortcut: string;
-  searchShortcut: string;
-  advancedSearchShortcut: string;
-  commandPaletteShortcut: string;
-  resetZoomShortcut: string;
-  copyShortcut: string;
-  pasteShortcut: string;
-  pasteAsRefShortcut: string;
-  sortingShortcut: string;
-  movingFreeShortcut: string;
-  showTooltipShortcut: string;
-  tooltipToPlaintextShortcut: string;
-  tooltipToMarkdownShortcut: string;
-  freezeTooltipShortcut: string;
-  frozenTooltipToPlaintextShortcut: string;
-  frozenTooltipToMarkdownShortcut: string;
-  incrementTooltipPageShortcut: string;
-  decrementTooltipPageShortcut: string;
-  copyTooltipTextShortcut: string;
-  frozenTooltipIncrementShortcut: string;
-  frozenTooltipDecrementShortcut: string;
-  frozenTooltipCopyShortcut: string;
-  newTerminalShortcut: string;
-  fitViewShortcut: string;
-  zoomToMouseShortcut: string;
-  deleteSectionShortcut: string;
-  selectAll: string;
-  selectTopLevelNonGroupSections: string;
-  showVersionsTabShortcut: string;
-  showParamUITypeTabShortcut: string;
-  showProjectOverviewTabShortcut: string;
-  focusHeaderShortcut: string;
-  focusOverviewShortcut: string;
-  focusCanvasShortcut: string;
-  focusUiEditorShortcut: string;
-  nextTopLevelSectionShortcut: string;
-  prevTopLevelSectionShortcut: string;
-  runCodeShortcut: string;
-  runEntryCodeBlockShortcut: string;
-  paramSelect: string;
-  paramIndentShortcut: string;
-  paramUnindentShortcut: string;
-  paramMoveUpShortcut: string;
-  paramMoveDownShortcut: string;
-  formatCode: string;
-  selectionKeyCode: string;
-  multiSelectionKeyCode: string;
-  panActivationKeyCode: string;
-  zoomActivationKeyCode: string;
-  zoomInShortcut: string;
-  zoomOutShortcut: string;
-  restartLanguageServerShortcut: string;
-};
-export function createSettingsShortcuts(
-  options: Partial<SettingsShortcuts> = {},
-): SettingsShortcuts {
-  return mergeGeneratedOptions(
-    {
-      newCardShortcut: "N",
-      newGroupShortcut: "G",
-      typeCheckShortcut: "",
-      newProjectConfigShortcut: "",
-      undoShortcut: "Mod + Z",
-      redoShortcut: "Mod + Shift + Z",
-      groupShortcut: "Mod + G",
-      ungroupShortcut: "Shift + Mod + G",
-      saveShortcut: "Mod + S",
-      saveAsShortcut: "Mod + Shift + S",
-      loadShortcut: "Mod + L",
-      searchShortcut: "Mod + K",
-      advancedSearchShortcut: "Mod + P",
-      commandPaletteShortcut: "Mod + Shift + P",
-      resetZoomShortcut: "Mod + Comma",
-      copyShortcut: "Mod + C",
-      pasteShortcut: "Mod + V",
-      pasteAsRefShortcut: "Mod + Shift + V",
-      sortingShortcut: "Mod + Alt",
-      movingFreeShortcut: "Alt",
-      showTooltipShortcut: "Q",
-      tooltipToPlaintextShortcut: "Q + S",
-      tooltipToMarkdownShortcut: "Q + W",
-      freezeTooltipShortcut: "Q + F",
-      frozenTooltipToPlaintextShortcut: "S",
-      frozenTooltipToMarkdownShortcut: "W",
-      incrementTooltipPageShortcut: "Q + ArrowRight",
-      decrementTooltipPageShortcut: "Q + ArrowLeft",
-      copyTooltipTextShortcut: "Q + C",
-      frozenTooltipIncrementShortcut: "ArrowRight",
-      frozenTooltipDecrementShortcut: "ArrowLeft",
-      frozenTooltipCopyShortcut: "C",
-      newTerminalShortcut: "Ctrl + \u0060",
-      fitViewShortcut: "F",
-      zoomToMouseShortcut: "Z",
-      deleteSectionShortcut: "Backspace",
-      selectAll: "Mod + A",
-      selectTopLevelNonGroupSections: "Mod + Shift + A",
-      showVersionsTabShortcut: "V",
-      showParamUITypeTabShortcut: "P",
-      showProjectOverviewTabShortcut: "O",
-      focusHeaderShortcut: "Ctrl + Shift + 1",
-      focusOverviewShortcut: "Ctrl + Shift + 2",
-      focusCanvasShortcut: "Ctrl + Shift + 3",
-      focusUiEditorShortcut: "Ctrl + Shift + 4",
-      nextTopLevelSectionShortcut: "Alt + J",
-      prevTopLevelSectionShortcut: "Alt + K",
-      runCodeShortcut: "Mod + Enter",
-      runEntryCodeBlockShortcut: "Mod + Shift + Enter",
-      paramSelect: "Mod + Shift",
-      paramIndentShortcut: "Tab",
-      paramUnindentShortcut: "Shift + Tab",
-      paramMoveUpShortcut: "Alt + ArrowUp",
-      paramMoveDownShortcut: "Alt + ArrowDown",
-      formatCode: "Shift + Alt + F",
-      selectionKeyCode: "Shift",
-      multiSelectionKeyCode: "Mod",
-      panActivationKeyCode: "Space",
-      zoomActivationKeyCode: "Mod",
-      zoomInShortcut: "Equal",
-      zoomOutShortcut: "Minus",
-      restartLanguageServerShortcut: "Alt + Shift + R",
-    },
-    options,
-  );
-}
-
-export type SettingsGUI = {
-  snapGrid: [number, number];
-  showGridLines: boolean;
-  gridPattern: BackgroundVariant;
-  gridPatternSize: number;
-  gridColor: string;
-  gridColorDarkMode: string;
-  wireColor: string;
-  wireColorDarkMode: string;
-  defaultZoomLevel: number;
-  minZoom: number;
-  maxZoom: number;
-  panOnDrag: boolean;
-  panOnScroll: boolean;
-  panOnScrollSpeed: number;
-  panOnScrollMode: PanOnScrollMode;
-  zoomOnScroll: boolean;
-  zoomOnPinch: boolean;
-  zoomOnDoubleClick: boolean;
-  selectionMode: SelectionMode;
-  leftSidePaneShiftsMap: boolean;
-  transitionDuration: number;
-  sectionTagColorChoices: Array<{
-    color: string;
-    description: string;
-  }>;
-};
-export function createSettingsGUI(
-  options: Partial<SettingsGUI> = {},
-): SettingsGUI {
-  return mergeGeneratedOptions(
-    {
-      snapGrid: [15, 15],
-      showGridLines: true,
-      gridPattern: BackgroundVariantEnum.dots,
-      gridPatternSize: 2,
-      gridColor: "#afbacf",
-      gridColorDarkMode: "#2b364a",
-      wireColor: "#41506c",
-      wireColorDarkMode: "#bac2d3",
-      defaultZoomLevel: 1.0,
-      minZoom: 0.1,
-      maxZoom: 10.0,
-      panOnDrag: true,
-      panOnScroll: true,
-      panOnScrollSpeed: 1.0,
-      panOnScrollMode: PanOnScrollModeEnum.free,
-      zoomOnScroll: true,
-      zoomOnPinch: true,
-      zoomOnDoubleClick: false,
-      selectionMode: SelectionModeEnum.partial,
-      leftSidePaneShiftsMap: true,
-      transitionDuration: 50,
-      sectionTagColorChoices: [
-        { color: "#ef4444", description: "Red" },
-        { color: "#f97316", description: "Orange" },
-        { color: "#eab308", description: "Yellow" },
-        { color: "#22c55e", description: "Green" },
-        { color: "#06b6d4", description: "Cyan" },
-        { color: "#3b82f6", description: "Blue" },
-        { color: "#a855f7", description: "Purple" },
-        { color: "#64748b", description: "Slate" },
-      ],
-    },
-    options,
-  );
-}
-
-export type SettingsBackend = {
-  showDefaultConfigOnLoad: boolean;
-  autosave: boolean;
-  autobackup: boolean;
-  autobackupFreq: number;
-  autobackupKeepLastN: number;
-  clearTerminalBeforeMarkingAsReady: boolean;
-  defaultTerminalShell?: string | null;
-  exportDbReadableOnSave: boolean;
-  exportDbReadableWithVariantsOnSave: boolean;
-  autoRefetchCallableParamsOnLspMismatch: boolean;
-  renameRefactorMode: RenameRefactorMode;
-  saveRenderedValues: boolean;
-  runSnapshotMode: RunSnapshotMode;
-  completionGuardEnabled: boolean;
-};
-export function createSettingsBackend(
-  options: Partial<SettingsBackend> = {},
-): SettingsBackend {
-  return mergeGeneratedOptions(
-    {
-      showDefaultConfigOnLoad: true,
-      autosave: true,
-      autobackup: true,
-      autobackupFreq: 300,
-      autobackupKeepLastN: 10,
-      clearTerminalBeforeMarkingAsReady: true,
-      defaultTerminalShell: null,
-      exportDbReadableOnSave: false,
-      exportDbReadableWithVariantsOnSave: false,
-      autoRefetchCallableParamsOnLspMismatch: true,
-      renameRefactorMode: RenameRefactorModeEnum.ALWAYS_ASK,
-      saveRenderedValues: false,
-      runSnapshotMode: RunSnapshotModeEnum.ephemeral,
-      completionGuardEnabled: false,
-    },
-    options,
-  );
-}
-
-export type SettingsState = {
-  shortcuts: SettingsShortcuts;
-  gui: SettingsGUI;
-  backend: SettingsBackend;
-  sectionSizingPolicy: SectionSizingPolicy;
-  languageServer: Record<string, unknown>;
-};
-export function createSettingsState(
-  options: Partial<SettingsState> = {},
-): SettingsState {
-  const shortcuts = createSettingsShortcuts(options.shortcuts ?? {});
-  const gui = createSettingsGUI(options.gui ?? {});
-  const backend = createSettingsBackend(options.backend ?? {});
-  const sectionSizingPolicy = createSectionSizingPolicy(
-    options.sectionSizingPolicy ?? {},
-  );
-  const defaults: SettingsState = {
-    shortcuts,
-    gui,
-    backend,
-    sectionSizingPolicy,
-    languageServer: {
-      basedpyright: {
-        analysis: {
-          diagnosticSeverityOverrides: {
-            reportUnknownVariableType: "none",
-            reportUnknownMemberType: "none",
-            reportUnannotatedClassAttribute: "none",
-            reportSelfClsParameterName: "none",
-          },
-        },
-      },
-    },
-  };
-  return {
-    ...mergeGeneratedOptions(defaults, options),
-    shortcuts,
-    gui,
-    backend,
-    sectionSizingPolicy,
-    languageServer: cloneGeneratedValue(
-      options.languageServer ?? defaults.languageServer,
-    ),
   };
 }
 
