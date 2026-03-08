@@ -12,6 +12,7 @@ import {
   useNameValidationErrors,
   useNodeInternals,
   useProjectState,
+  type ZustandProjectState,
 } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useShareCapabilities } from "state/hooks/share";
@@ -22,11 +23,6 @@ import {
   sanitizeNameForSlug,
   validateSectionNameInput,
 } from "utils/nameValidation";
-import {
-  collectDescendantSectionIds,
-  getSectionSlugIndex,
-  resolveSectionFullPathName,
-} from "utils/sectionSlugPaths";
 
 type SectionTitleClassNames = {
   editing?: string;
@@ -38,6 +34,20 @@ type SectionTitleProps = {
   sectionId: string;
   titleProps: SectionTitleClassNames;
 };
+
+type SectionSlugIndex = {
+  slugToIds: Record<string, Array<string>>;
+  childrenByParent: Record<string, Array<string>>;
+};
+
+let cachedSectionSlugIndex: {
+  sectionsRef: ZustandProjectState["sections"];
+  parentMapRef: ZustandProjectState["parentSectionMap"];
+  sectionImplsRef: ZustandProjectState["sectionImpls"];
+  sectionVariantsRef: ZustandProjectState["sectionVariants"];
+  sectionVariantMapRef: ZustandProjectState["projectConfig"]["sectionVariantMap"];
+  index: SectionSlugIndex;
+} | null = null;
 
 export function SectionTitle({ sectionId, titleProps }: SectionTitleProps) {
   const { sectionName, titleIsEditable } = useTitleIsEditable(sectionId);
@@ -267,6 +277,51 @@ function useTitleIsEditable(sectionId: string) {
   });
 }
 
+function resolveSectionName(
+  state: ZustandProjectState,
+  sectionId: string,
+  nameOverrides: Record<string, string> | null,
+) {
+  if (nameOverrides && sectionId in nameOverrides) {
+    return nameOverrides[sectionId];
+  }
+  return state.sections[sectionId]?.name ?? "";
+}
+
+function resolveSectionFullPathName(
+  state: ZustandProjectState,
+  sectionId: string,
+  nameOverrides: Record<string, string> | null,
+) {
+  if (!state.sections[sectionId]) {
+    return "";
+  }
+  if (!(sectionId in state.parentSectionMap)) {
+    return resolveSectionName(state, sectionId, nameOverrides);
+  }
+  let parentId = state.parentSectionMap[sectionId];
+  if (!parentId) {
+    return resolveSectionName(state, sectionId, nameOverrides);
+  }
+  let childId = sectionId;
+  let output = "";
+  while (parentId) {
+    const childImpl = getCurrEffectiveSectionImpl(state, childId);
+    if (childImpl.type === SectionTypeEnum.ListRoot) {
+      const siblings = getSectionChildren(state, parentId);
+      const idx = siblings.indexOf(childId);
+      output = `[${idx}]${output}`;
+    } else {
+      const childName = resolveSectionName(state, childId, nameOverrides);
+      output = `["${childName}"]${output}`;
+    }
+    childId = parentId;
+    parentId = state.parentSectionMap[parentId];
+  }
+  const childName = resolveSectionName(state, childId, nameOverrides);
+  return `${childName}${output}`;
+}
+
 function getSectionSlugConflictError(sectionId: string, value: string) {
   const normalized = value.trim();
   if (!normalized) {
@@ -329,6 +384,69 @@ function getTopLevelPythonIdentifierConflictError(
     }
   }
   return null;
+}
+
+function getSectionSlugIndex(state: ZustandProjectState): SectionSlugIndex {
+  if (
+    cachedSectionSlugIndex &&
+    cachedSectionSlugIndex.sectionsRef === state.sections &&
+    cachedSectionSlugIndex.parentMapRef === state.parentSectionMap &&
+    cachedSectionSlugIndex.sectionImplsRef === state.sectionImpls &&
+    cachedSectionSlugIndex.sectionVariantsRef === state.sectionVariants &&
+    cachedSectionSlugIndex.sectionVariantMapRef ===
+      state.projectConfig.sectionVariantMap
+  ) {
+    return cachedSectionSlugIndex.index;
+  }
+  const slugToIds: Record<string, Array<string>> = {};
+  for (const id of Object.keys(state.sections)) {
+    const fullPathName = resolveSectionFullPathName(state, id, null);
+    const slug = sanitizeNameForSlug(fullPathName);
+    if (!slugToIds[slug]) {
+      slugToIds[slug] = [];
+    }
+    slugToIds[slug].push(id);
+  }
+  const childrenByParent: Record<string, Array<string>> = {};
+  for (const [childId, parentId] of Object.entries(state.parentSectionMap)) {
+    if (!parentId || !(childId in state.sections)) {
+      continue;
+    }
+    if (!childrenByParent[parentId]) {
+      childrenByParent[parentId] = [];
+    }
+    childrenByParent[parentId].push(childId);
+  }
+  const index = { slugToIds, childrenByParent };
+  cachedSectionSlugIndex = {
+    sectionsRef: state.sections,
+    parentMapRef: state.parentSectionMap,
+    sectionImplsRef: state.sectionImpls,
+    sectionVariantsRef: state.sectionVariants,
+    sectionVariantMapRef: state.projectConfig.sectionVariantMap,
+    index,
+  };
+  return index;
+}
+
+function collectDescendantSectionIds(
+  childrenByParent: Record<string, Array<string>>,
+  rootId: string,
+) {
+  const visited = new Set<string>();
+  const stack = [rootId];
+  while (stack.length > 0) {
+    const currentId = stack.pop();
+    if (!currentId || visited.has(currentId)) {
+      continue;
+    }
+    visited.add(currentId);
+    const children = childrenByParent[currentId];
+    if (children) {
+      stack.push(...children);
+    }
+  }
+  return visited;
 }
 
 function getSiblingHasName(sectionId: string, newName: string) {

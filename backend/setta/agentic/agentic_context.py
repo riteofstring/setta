@@ -3,13 +3,10 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from setta.agentic.agentic_scope import resolve_context_edges
-from setta.agentic.linked_chat_targets import is_executable_linked_chat_target
-from setta.database.db_objs import DBE
-from setta.types.agentic_edges import AgenticEdgeContextMode, AgenticEdgeKind
+from setta.types.agentic_edges import AgenticEdgeContextMode
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl
 from setta.types.helpers_lvl3 import build_project_state_summary_section_index
 from setta.types.id import ID
-from setta.types.llm_config import AllLLMConfigs
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
@@ -51,23 +48,15 @@ class AgenticSectionSummarySource:
 
 
 def build_agentic_context_payload(
-    dbe: DBE,
     project_state: ProjectStateSingleConfig,
     chat_section_id: ID,
     *,
-    llm_configs: AllLLMConfigs | None,
     format_section_id: Callable[[ID], str] | None = None,
     summary_text_by_section_id: dict[ID, str] | None = None,
     summary_by_section: dict[ID, object] | None = None,
 ) -> AgenticContextPayload:
     context_edges = resolve_context_edges(project_state, chat_section_id)
-    linked_chat_section_ids = _resolve_linked_chat_section_ids(
-        dbe,
-        project_state,
-        chat_section_id,
-        llm_configs=llm_configs,
-    )
-    if not context_edges and not linked_chat_section_ids:
+    if not context_edges:
         return AgenticContextPayload(text="", section_ids=[])
 
     resolved_summary_by_section: dict[ID, object] = (
@@ -134,81 +123,13 @@ def build_agentic_context_payload(
         blocks.append(block)
         section_ids.append(section_id)
 
-    linked_chat_block = _build_linked_chat_block(
-        project_state,
-        linked_chat_section_ids,
-        format_section_id=format_section_id,
-    )
-    if linked_chat_block:
-        blocks.append(linked_chat_block)
-        section_ids.extend(
-            section_id
-            for section_id in linked_chat_section_ids
-            if section_id in project_state.sections
-        )
-
     combined = "\n\n".join(blocks).strip()
     if not combined:
         return AgenticContextPayload(text="", section_ids=section_ids)
-    header = (
-        "## Agentic Context\n"
-        "These sections and linked chats are in scope via agentic edges.\n"
-    )
+    header = "## Agentic Context\nThese sections are in scope via agentic edges.\n"
     return AgenticContextPayload(
         text=f"{header}\n{combined}".strip(), section_ids=section_ids
     )
-
-
-def _resolve_linked_chat_section_ids(
-    dbe: DBE,
-    project_state: ProjectStateSingleConfig,
-    chat_section_id: ID,
-    *,
-    llm_configs: AllLLMConfigs | None,
-) -> list[ID]:
-    if llm_configs is None:
-        return []
-    linked_chat_section_ids: list[ID] = []
-    for edge in project_state.projectConfig.agenticEdges:
-        if edge.kind != AgenticEdgeKind.chat_chat:
-            continue
-        if edge.sourceSectionId != chat_section_id:
-            continue
-        if not is_executable_linked_chat_target(
-            project_state,
-            edge.targetSectionId,
-            dbe=dbe,
-            llm_configs=llm_configs,
-        ):
-            continue
-        linked_chat_section_ids.append(edge.targetSectionId)
-    linked_chat_section_ids.sort(key=str)
-    return linked_chat_section_ids
-
-
-def _build_linked_chat_block(
-    project_state: ProjectStateSingleConfig,
-    linked_chat_section_ids: list[ID],
-    *,
-    format_section_id: Callable[[ID], str] | None,
-) -> str:
-    if not linked_chat_section_ids:
-        return ""
-    lines = [
-        "## Linked Chats",
-        "These direct chat links can be invoked with the `invoke_linked_chat` tool.",
-    ]
-    for section_id in linked_chat_section_ids:
-        if section_id not in project_state.sections:
-            continue
-        section = project_state.sections[section_id]
-        display_name = (section.displayName or "").strip()
-        label = display_name if display_name else section.name or str(section_id)
-        rendered_id = (
-            format_section_id(section_id) if format_section_id else str(section_id)
-        )
-        lines.append(f"- {label} [id: {rendered_id}]")
-    return "\n".join(lines).strip()
 
 
 def _build_context_block(

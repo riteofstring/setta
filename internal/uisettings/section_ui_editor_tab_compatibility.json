@@ -1,0 +1,79 @@
+{
+  "Callable": [
+    "SectionConfig",
+    "UIConfig",
+    "QuickInfoConfig",
+    "SectionVariantsConfig"
+  ],
+  "Dict": [
+    "SectionConfig",
+    "UIConfig",
+    "QuickInfoConfig",
+    "SectionVariantsConfig"
+  ],
+  "GlobalVariables": [
+    "SectionConfig",
+    "UIConfig",
+    "QuickInfoConfig",
+    "SectionVariantsConfig"
+  ],
+  "ListRoot": [
+    "SectionConfig",
+    "SectionVariantsConfig"
+  ],
+  "Code": [
+    "SectionConfig",
+    "SectionVariantsConfig"
+  ],
+  "GenPythonCode": [
+    "SectionConfig"
+  ],
+  "GenPythonMetadata": [
+    "SectionConfig"
+  ],
+  "TextBlock": [
+    "SectionConfig",
+    "InfoConfig",
+    "SectionVariantsConfig"
+  ],
+  "Prompt": [
+    "SectionConfig"
+  ],
+  "MetaControl": [
+    "SectionConfig"
+  ],
+  "Social": [
+    "SectionConfig"
+  ],
+  "Group": [
+    "SectionConfig"
+  ],
+  "Terminal": [
+    "SectionConfig"
+  ],
+  "Draw": [
+    "SectionConfig"
+  ],
+  "Image": [
+    "SectionConfig"
+  ],
+  "Chart": [
+    "SectionConfig"
+  ],
+  "IFrame": [],
+  "Chat": [
+    "SectionConfig"
+  ],
+  "Browser": [
+    "SectionConfig"
+  ],
+  "Plugin": [
+    "SectionConfig"
+  ],
+  "TaskBoard": [
+    "SectionConfig"
+  ],
+  "Spreadsheet": [
+    "SectionConfig"
+  ]
+}
