@@ -25,19 +25,16 @@ As of 2026-03-08:
   - `internal/settacli/cli.go`
   - `internal/settacli/remote_stop.go`
   - `internal/settacli/remote_connect.go`
-- Python still owns the shipped top-level `setta` entrypoint:
-  - `pyproject.toml`
-  - `backend/setta/start.py`
-- Python still owns the remaining local/distribution command groups in
-  `backend/setta/start.py`:
-  - default `setta` local server start
-  - `share`
-  - `app`
-  - `launch`
-  - `launcher` and `launcher setup|status|repair|remove|update`
-  - `backups`
-  - `plugins`
-  - `export-db`
+- Go now also owns the shipped top-level `setta` command surface in:
+  - `cmd/setta`
+  - `internal/settacmd`
+  - `backend/setta/entrypoint.py`
+  - completed Go-owned default `setta`, `launch`, `share`, `app`,
+    `backups`, `export-db`, `launcher`, and `plugins`
+- Python no longer owns shipped command semantics in `backend/setta/start.py`
+  for the packaged CLI surface
+  - current packaged command ownership is Go behind the thin module-entrypoint
+    wrapper
 - Python/shell/PowerShell still own distribution and installer workflows in:
   - `scripts/install_desktop_launcher.sh`
   - `scripts/install_desktop_launcher.ps1`
@@ -90,19 +87,11 @@ As of 2026-03-08:
        Go-owned launcher/helper commands into packaged Go binaries
 
 3. The remaining Python CLI surface is not one thing
-   - launcher/distribution surface:
-     - `launcher` run/setup/status/repair/remove/update
-     - launcher metadata binding and managed artifact lifecycle
-     - OS-specific install/uninstall scripts
-     - native-installer release scripts and smoke tests
-   - local command surface:
-     - default local `setta` start
-     - `share`
-     - `app`
-     - `launch`
-     - `backups`
-     - `plugins`
-     - `export-db`
+   - follow-up note:
+     - Phases 9, 10, and 11 later moved the shipped local command surface to
+       Go
+     - the remaining adjacent Python/shell ownership from this boundary is now
+       installer/release workflow code, not packaged command semantics
 
 4. The remaining Python surface is no longer a backend blocker
    - `cmd/setta-server` already runs Go-owned IDE/share/app/launcher runtime
@@ -125,22 +114,14 @@ As of 2026-03-08:
 
 ## Recommended Next Step
 
-If product priorities require more rewrite work beyond Phase 8, take the next
-implementation slice from
-`phase-9-shipped-entrypoint-and-launcher-distribution-plan.md`.
+Use this doc as a historical closeout boundary only.
 
-That Phase 9 plan keeps the boundary explicit:
+The follow-on Phase 9, Phase 10, and Phase 11 command migrations are now
+complete. Do not reopen Phase 8 under a broad "finish the CLI" label.
 
-1. replace the Python `project.scripts.setta` entrypoint with an explicit Go
-   packaging/dispatch story
-2. port the launcher run/setup/status/repair/remove/update surface plus managed
-   artifact integration
-3. only after that, decide whether the remaining local command groups
-   (`setta`, `share`, `app`, `launch`, `backups`, `plugins`,
-   `export-db`) should move to Go or remain Python temporarily
-
-Do not combine launcher/distribution migration with backups/plugins/local
-command migration unless a concrete dependency forces it.
+If more rewrite work is needed next, choose it from the broader rewrite plan
+or an explicit subsystem spike rather than from this already-completed CLI
+closeout.
 
 ## Progress Notes
 
@@ -152,6 +133,12 @@ command migration unless a concrete dependency forces it.
   `phase-9-shipped-entrypoint-and-launcher-distribution-plan.md` so this doc
   remains a closeout/inventory boundary instead of carrying implementation
   scope.
+- 2026-03-08: later follow-up note.
+  - Phases 9, 10, and 11 completed the shipped command migration tracked from
+    this boundary
+  - the packaged CLI surface is now Go-owned end-to-end
+  - the remaining adjacent Python/shell ownership from this track is
+    distribution/install workflow code, not packaged command semantics
 
 ## Verification
 

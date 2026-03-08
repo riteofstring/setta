@@ -338,9 +338,9 @@ Use the docs in this order:
   - focused implementation-plan doc for the Go `cmd/setta-cli` `connect` /
     `c` slice above the completed SSH runtime and remote `stop` foundation
 113. `phase-8-cli-closeout-and-launcher-distribution-boundary.md`
-  - focused closeout/inventory doc for the remaining Python-owned shipped
-    entrypoint, launcher, and distribution surface after the completed Go CLI
-    helper-command slices
+  - focused historical closeout/inventory doc for the shipped entrypoint,
+    launcher, and distribution surface after the completed Go helper-command
+    slices; later follow-ons are completed in Phases 9-11
 114. `phase-9-shipped-entrypoint-and-launcher-distribution-plan.md`
   - focused implementation-plan doc for the next rewrite track: Go-owned
     shipped `setta` entrypoint plus launcher/distribution ownership over the
@@ -354,9 +354,8 @@ Use the docs in this order:
     artifact into native macOS/Windows launcher installers so release smoke and
     installer bootstrap bind to the same release bits
 117. `phase-10-local-runtime-command-cluster-plan.md`
-  - focused implementation-plan doc for the next Go-owned local runtime CLI
-    cluster: `launch` first, then default `setta`, `share`, and `app`, while
-    keeping `backups`/`plugins`/`export-db` explicitly out of scope
+  - focused implementation-plan doc for the completed Go-owned local runtime
+    CLI cluster: `launch`, default `setta`, `share`, and `app`
 118. `phase-10-default-local-ide-start-stage2.md`
   - focused implementation-plan doc for the Go-owned default local `setta`
     start path over the sibling `setta-server` runtime boundary
@@ -367,9 +366,8 @@ Use the docs in this order:
   - focused implementation-plan doc for the Go-owned `setta app` command
     over the sibling `setta-server` runtime and Go deployment catalog
 121. `phase-11-maintenance-command-inventory.md`
-  - focused closeout/inventory doc for the remaining Python-owned maintenance
-    commands after the completed Phase 10 local-runtime migration, with
-    `backups` as the first recommended follow-up slice
+  - focused closeout/inventory doc for the completed maintenance-command
+    follow-up after the Phase 10 local-runtime migration
 122. `phase-11-backups-command-stage1.md`
   - focused implementation-plan doc for the first bounded Phase 11 slice:
     Go-owned `setta backups list|restore` over the completed runtime-path and

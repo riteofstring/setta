@@ -49,9 +49,8 @@ As of 2026-03-08:
   - `scripts/release/build_windows_installer.ps1`
   - native installers now bundle the packaged current-platform Setta sdist and
     bootstrap that exact artifact instead of a bare index package name
-- Python still owns the shipped launcher entrypoint path in `backend/setta/start.py`,
-  but only as the temporary owner of still-Python local command groups
-  behind the thin wrapper boundary
+- Python still participates in the shipped module-entrypoint wrapper path, but
+  no longer owns the packaged command semantics
 - installer/release scripts still exist, but their launcher bootstrap contract
   now binds to the Go-owned command surface through the thin wrapper or the
   packaged Go router:
@@ -59,12 +58,10 @@ As of 2026-03-08:
   - `scripts/install_desktop_launcher.ps1`
   - platform launcher install/uninstall scripts
   - `scripts/release/*`
-- unrelated local command groups still remain Python-owned:
-  - `share`
-  - `app`
-  - `backups`
-  - `plugins`
-  - `export-db`
+- later follow-up note:
+  - Phase 10 moved the remaining local runtime command cluster to Go
+  - Phase 11 moved the maintenance/authoring command cluster to Go
+  - the shipped `setta` command surface is now Go-owned end-to-end
 
 ## Inputs
 
@@ -113,9 +110,9 @@ routing, packaging, and script integration.
 
 ## Boundary Choice
 
-Do not combine this track with the unrelated Python local command groups
-(`backups`, `plugins`, `share`, `app`,
-`export-db`) unless a concrete dependency forces it.
+At planning time this track intentionally stayed separate from the unrelated
+local command groups. Those later landed in the dedicated Phase 10 and Phase 11
+tracks.
 
 The first bounded owner should be:
 
@@ -270,6 +267,11 @@ the actual Go command tree that installer scripts can target next.
   The next rewrite-owned CLI slice is the local runtime command cluster
   (`launch` first, then default `setta` / `share` / `app`), while
   `backups` / `plugins` / `export-db` remain explicitly out of scope.
+- 2026-03-08: later follow-up note.
+  - the Phase 10 local-runtime command cluster is complete
+  - the Phase 11 maintenance-command track is complete
+  - the shipped `setta` command surface originally staged from this Phase 9
+    boundary is now fully Go-owned
 
 ## Verification
 
@@ -286,6 +288,12 @@ the actual Go command tree that installer scripts can target next.
 
 ## Recommended Next Step
 
-Use the completed distribution boundary from this doc as the handoff point and
-take the next explicit plan from
-`phase-10-local-runtime-command-cluster-plan.md`.
+Use this doc as a historical handoff boundary only.
+
+The follow-on Phase 10 and Phase 11 command migrations are now complete, so
+the shipped entrypoint/command ownership track no longer needs another slice
+from this plan family.
+
+If more rewrite work is needed next, select it from the broader rewrite plan
+or an explicit subsystem spike rather than reopening the shipped entrypoint
+boundary.

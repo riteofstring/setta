@@ -27,11 +27,6 @@ As of 2026-03-08:
   runtime commands in:
   - `internal/launcher/session_launcher.go`
   - `internal/workspacelaunch`
-- Python still owns the remaining local command groups in
-  `backend/setta/start.py`:
-  - `backups`
-  - `plugins`
-  - `export-db`
 - Go now owns the full local-runtime command cluster in:
   - `cmd/setta`
   - `internal/settacmd`
@@ -39,6 +34,10 @@ As of 2026-03-08:
   - `backend/setta/entrypoint.py`
   - completed Go-owned `setta launch`, default local `setta`, `share`, and
     `app` flows over the sibling `setta-server` runtime boundary
+- later follow-up note:
+  - Phase 11 moved the remaining packaged maintenance/authoring command groups
+    to Go
+  - the shipped `setta` command surface is now Go-owned end-to-end
 
 ## Inputs
 
@@ -62,9 +61,10 @@ As of 2026-03-08:
 
 ## Problem Shape
 
-The remaining local Python command surface is not one coherent migration unit.
+At planning time, the remaining local Python command surface was not one
+coherent migration unit.
 
-There are two clearly different clusters:
+There were two clearly different clusters:
 
 1. local runtime commands
    - default `setta`
@@ -99,8 +99,7 @@ Do not include:
 - `plugins`
 - `export-db`
 
-Those commands should remain explicitly Python-owned until a later separate
-slice is justified.
+Those commands later landed in the dedicated Phase 11 maintenance track.
 
 ## Working Decisions
 
@@ -226,6 +225,10 @@ That slice should:
     fallback
   - the thin Python wrapper now dispatches `app` to the packaged Go binary
   - the Phase 10 local-runtime cluster is complete
+- 2026-03-08: later follow-up note.
+  - the Phase 11 maintenance-command track is complete
+  - the shipped `setta` command surface staged after this local-runtime plan
+    is now fully Go-owned
 
 ## Open Questions
 
@@ -240,17 +243,11 @@ That slice should:
 
 ## Recommended Next Step
 
-Phase 10 local-runtime migration is complete.
+Use this doc as a historical handoff boundary only.
 
-The next rewrite planning boundary now lives in
-`phase-11-maintenance-command-inventory.md`.
+The Phase 11 maintenance-command follow-up is now complete, so the packaged
+local command migration no longer has another slice queued from this plan
+family.
 
-Keep the remaining maintenance commands explicitly Python-owned unless a later
-separate maintenance/authoring slice is justified:
-
-1. `backups`
-2. `plugins`
-3. `export-db`
-
-If another shipped CLI slice is needed, start with `backups`, not `plugins` or
-`export-db`.
+If more rewrite work is needed next, choose it from the broader rewrite plan
+or an explicit subsystem spike rather than reopening the local-runtime track.

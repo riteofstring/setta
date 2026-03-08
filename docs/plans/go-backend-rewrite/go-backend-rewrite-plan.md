@@ -119,12 +119,15 @@ Do not organize the rewrite around Python module parity. Organize it around runt
 
 ### Executables
 
+- `cmd/setta`
+  - main shipped user-facing CLI/router
 - `cmd/setta-server`
   - main backend server
 - `cmd/setta-mcp-bridge`
   - stdio bridge for MCP use cases
 - `cmd/setta-cli`
-  - only if CLI/runtime control is moved into Go in the first rewrite wave
+  - narrower helper/diagnostic CLI surface if it remains useful alongside the
+    shipped `cmd/setta` router
 
 ### Internal Packages
 
