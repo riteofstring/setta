@@ -8,15 +8,15 @@ import {
   getCurrEffectiveSectionImplOfType,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import {
-  useBrushStrokes,
-  useDrawAreaLayerItemTransform,
-  useProjectState,
-} from "state/definitions";
+import { useProjectState } from "state/definitions";
 import {
   useDrawAreaArtifactLoader,
   useDrawAreaArtifactRevisionStamps,
 } from "state/hooks/artifacts";
+import {
+  useBrushStrokes,
+  useDrawAreaLayerItemTransform,
+} from "state/stores/artifactStores";
 import { removeRevisionEntries } from "state/utils/revisions";
 import {
   ArtifactTypeEnum,
