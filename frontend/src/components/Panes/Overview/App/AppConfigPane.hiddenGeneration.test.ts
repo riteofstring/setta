@@ -3,11 +3,10 @@ import { describe, expect, it } from "vitest";
 
 import { EngineTypeEnum } from "utils/generatedTypes";
 
-import { cloneSpecForPreview } from "./appConfigDefinitionUtils";
 import {
-  resolveGenerationFailureMessage,
+  cloneSpecForPreview,
   resolveHiddenGenerationEngineSelection,
-} from "./appConfigHiddenGenerationUtils";
+} from "./AppConfigPane";
 
 describe("AppConfigPane hidden generation helpers", () => {
   it("keeps preview snapshots detached from live streaming spec mutations", () => {
@@ -173,30 +172,5 @@ describe("AppConfigPane hidden generation helpers", () => {
       isExternalEngine: false,
       forceNewChat: false,
     });
-  });
-
-  it("extracts backend message from non-OK stream responses", async () => {
-    const response = new Response(
-      JSON.stringify({ message: "Missing API key for app spec streaming." }),
-      {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      },
-    );
-
-    await expect(resolveGenerationFailureMessage(response)).resolves.toBe(
-      "Missing API key for app spec streaming.",
-    );
-  });
-
-  it("falls back to status text when error payload is non-JSON", async () => {
-    const response = new Response("plain text", {
-      status: 502,
-      headers: { "Content-Type": "text/plain" },
-    });
-
-    await expect(resolveGenerationFailureMessage(response)).resolves.toBe(
-      "Generation request failed (status 502).",
-    );
   });
 });
