@@ -91,6 +91,7 @@ This is the front door for authored frontend code under `frontend/src/`.
 - Need section chrome or param rendering: open `components/Section/` and `components/Params/`.
 - Need managed section-chat history or polling behavior: open `components/Section/Layouts/ChatAreaHistoryPanel.tsx`.
 - Need section-chat realtime dependency actions: open `components/Section/Layouts/chatAreaRealtimeActions.ts`.
+- Need scriptable section-chat state transitions or slash-command runtime behavior: open `components/Section/Layouts/chatAreaScriptableRuntime.ts`.
 - Need section-chat thread-control helpers: open `components/Section/Layouts/chatAreaThreadControls.ts`.
 - Need a mutation path: search in `state/actions/`.
 - Need chat or project-AI commands: start in the extracted domain modules under `state/actions/ai/`.

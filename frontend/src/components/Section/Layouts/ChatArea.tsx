@@ -1,14 +1,9 @@
-import {
-  ChatInput,
-  type ChatSlashCommand,
-  type ChatSlashCommandResult,
-} from "components/Chat/ChatInput";
+import { ChatInput, type ChatSlashCommand } from "components/Chat/ChatInput";
 import { ChatMessageList } from "components/Chat/ChatMessages";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import {
   CHAT_SLASH_COMMANDS,
   buildChatSlashCommands,
-  formatSlashCommandHelp,
   type ChatPermissionModeValue,
 } from "components/Chat/chatComposerControls";
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
@@ -49,7 +44,6 @@ import {
 import { transcribeChatAudioWithProfile } from "state/actions/ai/transcription";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import {
-  buildBranchFromEdit,
   buildBranchIndexFromBranches,
   ensureChatBranchState,
 } from "state/actions/chatBranches";
@@ -82,9 +76,7 @@ import {
   EngineTypeEnum,
   SectionTypeEnum,
   SettaNotificationTypeEnum,
-  createMessageTextContent,
 } from "utils/generatedTypes";
-import { createNewId } from "utils/idNameCreation";
 import { shallow } from "zustand/shallow";
 import {
   ManagedChatHistoryPanel,
@@ -95,6 +87,15 @@ import {
   emitChatSendAction,
   emitChatStopAction,
 } from "./chatAreaRealtimeActions";
+import {
+  editScriptableChatMessage,
+  executeScriptableChatSlashCommand,
+  resetScriptableConversation,
+  resumeLatestScriptableBranch,
+  stopScriptableChatResponse,
+  submitScriptableChatMessage,
+  switchScriptableChatBranch,
+} from "./chatAreaScriptableRuntime";
 import {
   buildManagedZeroScopeBannerSessionKey,
   executeSectionChatSlashCommand,
@@ -360,61 +361,18 @@ function ScriptableChatArea({
   }, [applyChatStateWithoutAck, branchState.didInitialize, effectiveState]);
 
   const handleSubmit = useCallback(
-    async (message: string, attachments: ChatFileAttachment[]) => {
-      const trimmed = message.trim();
-      if (!trimmed && attachments.length === 0) {
-        return false;
-      }
-      if (!effectiveBranchId) {
-        return false;
-      }
-      const messageId = createNewId();
-      const timestampMs = Date.now();
-      const content = [];
-      if (trimmed) {
-        content.push(createMessageTextContent({ text: message }));
-      }
-      const newMessage = {
-        id: messageId,
-        role: ChatRoleEnum.user,
-        content,
+    (message: string, attachments: ChatFileAttachment[]) =>
+      submitScriptableChatMessage({
+        message,
         attachments,
-      };
-      const currentBranch = effectiveBranches[effectiveBranchId];
-      const baseMessages = currentBranch?.messages ?? effectiveMessages;
-      const nextMessages = [...baseMessages, newMessage];
-      const nextBranches = currentBranch
-        ? {
-            ...effectiveBranches,
-            [effectiveBranchId]: {
-              ...currentBranch,
-              messages: nextMessages,
-            },
-          }
-        : effectiveBranches;
-      const nextState = {
-        ...effectiveState,
-        messages: nextMessages,
-        inputText: "",
-        waitingForResponse: true,
+        effectiveBranchId,
+        effectiveBranches,
+        effectiveMessages,
+        effectiveState,
         toolCallArguments,
-        branches: nextBranches,
-      };
-      const sendPromise = applyChatStateWithAck(nextState);
-      if (sendPromise) {
-        await sendPromise;
-      }
-      emitChatSendAction({
+        applyChatStateWithAck,
         sectionId,
-        messageId,
-        text: message,
-        attachments,
-        role: ChatRoleEnum.user,
-        managed: false,
-        timestampMs,
-      });
-      return true;
-    },
+      }),
     [
       applyChatStateWithAck,
       effectiveBranchId,
@@ -426,30 +384,23 @@ function ScriptableChatArea({
     ],
   );
 
-  const handleStop = useCallback(async () => {
-    const nextState = {
-      ...effectiveState,
-      messages: effectiveMessages,
-      inputText: effectiveState.inputText ?? "",
-      waitingForResponse: false,
-      toolCallArguments,
-    };
-    const sendPromise = applyChatStateWithAck(nextState);
-    if (sendPromise) {
-      await sendPromise;
-    }
-    emitChatStopAction({
+  const handleStop = useCallback(
+    () =>
+      stopScriptableChatResponse({
+        effectiveMessages,
+        effectiveState,
+        toolCallArguments,
+        applyChatStateWithAck,
+        sectionId,
+      }),
+    [
+      applyChatStateWithAck,
+      effectiveMessages,
+      effectiveState,
       sectionId,
-      managed: false,
-      timestampMs: Date.now(),
-    });
-  }, [
-    applyChatStateWithAck,
-    effectiveMessages,
-    effectiveState,
-    sectionId,
-    toolCallArguments,
-  ]);
+      toolCallArguments,
+    ],
+  );
 
   const slashCommands = useMemo(
     () =>
@@ -461,73 +412,30 @@ function ScriptableChatArea({
     [],
   );
 
-  const resetScriptableConversation = useCallback(async () => {
-    const nextState: ChatSectionState = {
-      messages: [],
-      inputText: "",
-      waitingForResponse: false,
-      toolCallArguments: {},
-      activeBranchId: null,
-      branches: {},
-    };
-    const sendPromise = applyChatStateWithAck(nextState);
-    if (sendPromise) {
-      await sendPromise;
-    }
-  }, [applyChatStateWithAck]);
+  const resetConversation = useCallback(
+    () => resetScriptableConversation({ applyChatStateWithAck }),
+    [applyChatStateWithAck],
+  );
 
-  const resumeLatestScriptableBranch =
-    useCallback(async (): Promise<boolean> => {
-      const latestBranch = Object.entries(effectiveBranches)
-        .sort(
-          (left, right) => (right[1].createdAt ?? 0) - (left[1].createdAt ?? 0),
-        )
-        .at(0);
-      const branchId = latestBranch?.[0] ?? null;
-      if (!branchId) {
-        return false;
-      }
-      const nextBranch = effectiveBranches[branchId];
-      if (!nextBranch) {
-        return false;
-      }
-      const nextState: ChatSectionState = {
-        ...effectiveState,
-        activeBranchId: branchId,
-        messages: [...(nextBranch.messages ?? [])],
-        waitingForResponse: false,
-        inputText: "",
-      };
-      const sendPromise = applyChatStateWithAck(nextState);
-      if (sendPromise) {
-        await sendPromise;
-      }
-      return true;
-    }, [applyChatStateWithAck, effectiveBranches, effectiveState]);
+  const resumeLatestBranch = useCallback(
+    () =>
+      resumeLatestScriptableBranch({
+        effectiveBranches,
+        effectiveState,
+        applyChatStateWithAck,
+      }),
+    [applyChatStateWithAck, effectiveBranches, effectiveState],
+  );
 
   const handleSlashCommand = useCallback(
-    async (command: ChatSlashCommand): Promise<ChatSlashCommandResult> => {
-      if (command.action === "new") {
-        await resetScriptableConversation();
-        return { feedback: "Started a new scriptable chat." };
-      }
-      if (command.action === "resume") {
-        const resumed = await resumeLatestScriptableBranch();
-        return resumed
-          ? { feedback: "Resumed the latest branch." }
-          : {
-              feedback: "No previous branch found to resume.",
-              keepInput: true,
-            };
-      }
-      if (command.action === "help") {
-        return {
-          feedback: formatSlashCommandHelp(slashCommands),
-        };
-      }
-      return false;
-    },
-    [resetScriptableConversation, resumeLatestScriptableBranch, slashCommands],
+    (command: ChatSlashCommand) =>
+      executeScriptableChatSlashCommand({
+        command,
+        slashCommands,
+        onStartNewChat: resetConversation,
+        onResumeLatestChat: resumeLatestBranch,
+      }),
+    [resetConversation, resumeLatestBranch, slashCommands],
   );
 
   const branchIndex = useMemo(
@@ -557,24 +465,14 @@ function ScriptableChatArea({
   );
 
   const handleBranchSwitch = useCallback(
-    async (nextBranchId: string) => {
-      if (!nextBranchId || nextBranchId === effectiveBranchId) {
-        return;
-      }
-      const nextBranch = effectiveBranches[nextBranchId];
-      if (!nextBranch) {
-        return;
-      }
-      const nextState: ChatSectionState = {
-        ...effectiveState,
-        activeBranchId: nextBranchId,
-        messages: [...(nextBranch.messages ?? [])],
-      };
-      const sendPromise = applyChatStateWithAck(nextState);
-      if (sendPromise) {
-        await sendPromise;
-      }
-    },
+    (nextBranchId: string) =>
+      switchScriptableChatBranch({
+        nextBranchId,
+        effectiveBranchId,
+        effectiveBranches,
+        effectiveState,
+        applyChatStateWithAck,
+      }),
     [
       applyChatStateWithAck,
       effectiveBranchId,
@@ -584,57 +482,17 @@ function ScriptableChatArea({
   );
 
   const handleEditMessage = useCallback(
-    async (
-      messageId: string,
-      text: string,
-      attachments: ChatFileAttachment[],
-    ) => {
-      if (waitingForResponse) {
-        return false;
-      }
-      const trimmed = text.trim();
-      if (!trimmed && attachments.length === 0) {
-        return false;
-      }
-      const content = [];
-      if (trimmed) {
-        content.push(createMessageTextContent({ text }));
-      }
-      const editedMessage = {
-        id: messageId,
-        role: ChatRoleEnum.user,
-        content,
-        attachments,
-      };
-      const result = buildBranchFromEdit({
-        state: effectiveState,
-        editedMessage,
-        branchFromMessageId: messageId,
-      });
-      if (!result) {
-        return false;
-      }
-      const nextState: ChatSectionState = {
-        ...result.nextState,
-        inputText: "",
-        waitingForResponse: true,
-        toolCallArguments,
-      };
-      const sendPromise = applyChatStateWithAck(nextState);
-      if (sendPromise) {
-        await sendPromise;
-      }
-      emitChatSendAction({
-        sectionId,
+    (messageId: string, text: string, attachments: ChatFileAttachment[]) =>
+      editScriptableChatMessage({
         messageId,
         text,
         attachments,
-        role: ChatRoleEnum.user,
-        managed: false,
-        timestampMs: Date.now(),
-      });
-      return true;
-    },
+        waitingForResponse,
+        effectiveState,
+        toolCallArguments,
+        applyChatStateWithAck,
+        sectionId,
+      }),
     [
       applyChatStateWithAck,
       effectiveState,
