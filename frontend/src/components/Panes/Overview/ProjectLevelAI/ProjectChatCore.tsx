@@ -26,17 +26,11 @@ import {
 } from "react";
 import { loadAgentRuns } from "state/actions/ai/agentRuns";
 import {
-  submitEditedMessage,
-  submitMessage,
-} from "state/actions/ai/chatCommands";
-import {
   clearPendingChatDetails,
   finalizePendingChatDetails,
   getDefaultChatDetails,
   initializePendingChatDetails,
-  stopProjectChatResponse,
 } from "state/actions/ai/chatRuntime";
-import { transcribeChatAudioWithProfile } from "state/actions/ai/transcription";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import { type ChatHistoryCompatibility } from "state/actions/chatHistory";
 import {
@@ -61,11 +55,15 @@ import {
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import {
+  editProjectChatComposerMessage,
+  redoProjectChatComposerMessage,
+  stopProjectChatComposerResponse,
+  submitProjectChatComposerMessage,
+  transcribeProjectChatComposerAudio,
+} from "./projectChatComposerRuntime";
+import {
   buildProjectChatSubmittedMessageHistory,
-  extractUserPromptText,
   filterProjectConversationMessagesBySearch,
-  findBranchSourceUserMessage,
-  getMessageAttachments,
   toSortedProjectHistoryEntries,
 } from "./projectChatHistoryUtils";
 import {
@@ -1064,57 +1062,23 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   );
 
   const handleSubmit = useCallback(
-    async (message: string, attachments: ChatFileAttachment[]) => {
-      const trimmed = message.trim();
-      if (!trimmed && attachments.length === 0) {
-        return false;
-      }
-      if (requiresNewThreadContinuation) {
-        return false;
-      }
-      if (!engineConfigId) {
-        return false;
-      }
-      if (!isExternalEngine && !hasLLMConfig) {
-        return false;
-      }
-      if (isExternalEngine && !externalEngineAvailable) {
-        return false;
-      }
-      const isFirstDraftSubmit = chatId === undefined || chatId === null;
-      if (isFirstDraftSubmit) {
-        handleNewChatStart();
-      }
-
-      let submittedChatId: string | null = null;
-      let succeeded = false;
-      try {
-        submittedChatId = await submitMessage(
-          chatId ?? null,
-          message,
-          attachments,
-          thinking,
-          engineConfigId,
-          isExternalEngine,
-          {
-            continueFromChatId: isFirstDraftSubmit ? newThreadSeedChatId : null,
-            pendingSurfaceId: surfaceId,
-            executionSettings: {
-              permissionMode: executionSettings.permissionMode,
-              searchEnabled: executionSettings.searchEnabled,
-            },
-          },
-        );
-        succeeded = Boolean(submittedChatId);
-      } catch (err) {
-        console.error("Failed to submit LLM chat message", err);
-      } finally {
-        if (isFirstDraftSubmit) {
-          handleNewChatSettled(submittedChatId, succeeded);
-        }
-      }
-      return succeeded;
-    },
+    (message: string, attachments: ChatFileAttachment[]) =>
+      submitProjectChatComposerMessage({
+        message,
+        attachments,
+        chatId,
+        thinking,
+        engineConfigId,
+        isExternalEngine,
+        externalEngineAvailable,
+        hasLLMConfig,
+        requiresNewThreadContinuation,
+        newThreadSeedChatId,
+        surfaceId,
+        executionSettings,
+        onStartNewChat: handleNewChatStart,
+        onSettleNewChat: handleNewChatSettled,
+      }),
     [
       chatId,
       thinking,
@@ -1131,49 +1095,34 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     ],
   );
 
-  const handleStop = useCallback(async () => {
-    await stopProjectChatResponse(chatId, isExternalEngine, surfaceId);
-  }, [chatId, isExternalEngine, surfaceId]);
+  const handleStop = useCallback(
+    () =>
+      stopProjectChatComposerResponse({
+        chatId,
+        isExternalEngine,
+        surfaceId,
+      }),
+    [chatId, isExternalEngine, surfaceId],
+  );
 
   const handleEditMessage = useCallback(
-    async (
-      messageId: string,
-      text: string,
-      attachments: ChatFileAttachment[],
-    ) => {
-      const resolvedChatId =
-        typeof chatId === "string" ? chatId : lastChatIdRef.current;
-      if (!resolvedChatId) {
-        return false;
-      }
-      if (requiresNewThreadContinuation) {
-        return false;
-      }
-      if (isExternalEngine && !externalEngineAvailable) {
-        return false;
-      }
-      const nextChatId = await submitEditedMessage({
-        parentChatId: resolvedChatId,
-        messages,
+    (messageId: string, text: string, attachments: ChatFileAttachment[]) =>
+      editProjectChatComposerMessage({
+        resolvedChatId:
+          typeof chatId === "string" ? chatId : lastChatIdRef.current,
         messageId,
-        message: text,
+        text,
         attachments,
+        requiresNewThreadContinuation,
+        isExternalEngine,
+        externalEngineAvailable,
+        messages,
         thinking,
         engineConfigId,
-        isExternalEngine,
-        agentProfileId: null,
-        sectionId: null,
-        pendingSurfaceId: surfaceId,
-        executionSettings: {
-          permissionMode: executionSettings.permissionMode,
-          searchEnabled: executionSettings.searchEnabled,
-        },
-      });
-      if (nextChatId) {
-        setChatId(nextChatId);
-      }
-      return Boolean(nextChatId);
-    },
+        surfaceId,
+        executionSettings,
+        onSelectChatId: setChatId,
+      }),
     [
       chatId,
       engineConfigId,
@@ -1200,55 +1149,23 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   );
 
   const handleRedoMessage = useCallback(
-    async (assistantMessageId: string) => {
-      const resolvedChatId =
-        typeof chatId === "string" ? chatId : lastChatIdRef.current;
-      if (!resolvedChatId || waitingForResponse) {
-        return false;
-      }
-      if (requiresNewThreadContinuation) {
-        return false;
-      }
-      if (!engineConfigId) {
-        return false;
-      }
-      if (!isExternalEngine && !hasLLMConfig) {
-        return false;
-      }
-      if (isExternalEngine && !externalEngineAvailable) {
-        return false;
-      }
-      const sourceUserMessage = findBranchSourceUserMessage(
-        messages,
+    (assistantMessageId: string) =>
+      redoProjectChatComposerMessage({
         assistantMessageId,
-      );
-      if (!sourceUserMessage) {
-        return false;
-      }
-      const sourceText = extractUserPromptText(sourceUserMessage) ?? "";
-      const sourceAttachments = getMessageAttachments(sourceUserMessage);
-      const nextChatId = await submitEditedMessage({
-        parentChatId: resolvedChatId,
-        messages,
-        messageId: sourceUserMessage.id,
-        message: sourceText,
-        attachments: sourceAttachments,
-        thinking,
+        resolvedChatId:
+          typeof chatId === "string" ? chatId : lastChatIdRef.current,
+        waitingForResponse,
+        requiresNewThreadContinuation,
         engineConfigId,
         isExternalEngine,
-        agentProfileId: null,
-        sectionId: null,
-        pendingSurfaceId: surfaceId,
-        executionSettings: {
-          permissionMode: executionSettings.permissionMode,
-          searchEnabled: executionSettings.searchEnabled,
-        },
-      });
-      if (nextChatId) {
-        setChatId(nextChatId);
-      }
-      return Boolean(nextChatId);
-    },
+        externalEngineAvailable,
+        hasLLMConfig,
+        messages,
+        thinking,
+        surfaceId,
+        executionSettings,
+        onSelectChatId: setChatId,
+      }),
     [
       chatId,
       engineConfigId,
@@ -1337,12 +1254,11 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     ],
   );
   const handleProviderDictationTranscribe = useCallback(
-    async (audioBlob: Blob) => {
-      if (!transcriptionProfileId) {
-        throw new Error("Provider dictation is not configured.");
-      }
-      return transcribeChatAudioWithProfile(transcriptionProfileId, audioBlob);
-    },
+    (audioBlob: Blob) =>
+      transcribeProjectChatComposerAudio({
+        transcriptionProfileId,
+        audioBlob,
+      }),
     [transcriptionProfileId],
   );
   const chatWidthShellClassName = "mx-auto w-full min-w-0 max-w-[72rem] px-2";
