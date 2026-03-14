@@ -156,24 +156,7 @@ test("canvas engine host clears active sections on blank pane click", async ({
       `[data-canvas-engine-dom-island="${sectionId}"]`,
     );
     await expect(sectionIsland).toHaveCount(1);
-
-    // Dispatch against the mounted section root so this covers the real
-    // section-click handler while avoiding brittle pixel targeting inside the
-    // section chrome.
-    await page.evaluate((nextSectionId) => {
-      const sectionRoot = document.querySelector(
-        `[data-canvas-engine-dom-island="${nextSectionId}"] [data-section-id="${nextSectionId}"]`,
-      );
-      if (!(sectionRoot instanceof HTMLElement)) {
-        throw new Error(`Missing mounted section root for ${nextSectionId}.`);
-      }
-      sectionRoot.dispatchEvent(
-        new MouseEvent("click", {
-          bubbles: true,
-          cancelable: true,
-        }),
-      );
-    }, sectionId);
+    await dispatchMountedSectionRootClick(page, sectionId);
 
     await expect
       .poll(async () => await readActiveSectionIds(host))
@@ -183,6 +166,54 @@ test("canvas engine host clears active sections on blank pane click", async ({
     await page.mouse.click(panePoint.x, panePoint.y);
 
     await expect.poll(async () => await readActiveSectionIds(host)).toEqual([]);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("canvas engine host ignores section-control clicks for canvas selection", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+
+    const firstSectionId = await createCallableSectionForCanvasEngine(
+      page,
+      projectContext.projectConfigId,
+    );
+    const secondSectionId = await createCallableSectionForCanvasEngine(
+      page,
+      projectContext.projectConfigId,
+    );
+    await expect(
+      host.locator(`[data-canvas-engine-dom-island="${firstSectionId}"]`),
+    ).toHaveCount(1);
+    const secondSectionMenuItems = host.locator(
+      `[data-canvas-engine-dom-island="${secondSectionId}"] [role="menuitem"]`,
+    );
+    await expect
+      .poll(async () => await secondSectionMenuItems.count())
+      .toBeGreaterThan(0);
+
+    // Section controls inside a different island should not steal selection
+    // from the currently active section.
+    await dispatchMountedSectionRootClick(page, firstSectionId);
+    await expect
+      .poll(async () => await readActiveSectionIds(host))
+      .toEqual([firstSectionId]);
+
+    await secondSectionMenuItems.first().click();
+
+    await expect
+      .poll(async () => await readActiveSectionIds(host))
+      .toEqual([firstSectionId]);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -279,6 +310,26 @@ async function readActiveSectionIds(host: Locator): Promise<string[]> {
     .split(",")
     .map((sectionId) => sectionId.trim())
     .filter((sectionId) => sectionId.length > 0);
+}
+
+async function dispatchMountedSectionRootClick(
+  page: Page,
+  sectionId: string,
+): Promise<void> {
+  await page.evaluate((nextSectionId) => {
+    const sectionRoot = document.querySelector(
+      `[data-canvas-engine-dom-island="${nextSectionId}"] [data-section-id="${nextSectionId}"]`,
+    );
+    if (!(sectionRoot instanceof HTMLElement)) {
+      throw new Error(`Missing mounted section root for ${nextSectionId}.`);
+    }
+    sectionRoot.dispatchEvent(
+      new MouseEvent("click", {
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  }, sectionId);
 }
 
 async function readNumericHostAttribute(
