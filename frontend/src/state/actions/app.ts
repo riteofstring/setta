@@ -7,7 +7,7 @@ import {
   useShareSession,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { getErrorCode, res200 } from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
 import {
   route_create_app_session_current,
   route_get_app_deployment_state,
@@ -238,10 +238,8 @@ export async function initializeAppSessionFromCurrentDeployment(
 
 export async function loadAppDeploymentState({
   projectConfigId,
-  allowRetry = true,
 }: {
   projectConfigId?: string;
-  allowRetry?: boolean;
 } = {}): Promise<boolean> {
   const shareSession = useShareSession.getState();
   if (
@@ -264,22 +262,6 @@ export async function loadAppDeploymentState({
         shareSession.shareDeploymentVersion,
       );
   if (!res200(res)) {
-    const errorCode = getErrorCode(res.data);
-    if (
-      allowRetry &&
-      (errorCode === "missing_share_session" ||
-        errorCode === "unknown_share_session")
-    ) {
-      const session = await ensureAppSessionFromCurrentDeployment({
-        forceNewSession: true,
-      });
-      if (session) {
-        return await loadAppDeploymentState({
-          projectConfigId,
-          allowRetry: false,
-        });
-      }
-    }
     return false;
   }
   if (res.data.appDefinition || res.data.appSpec) {

@@ -12,7 +12,7 @@ import {
 
 let useAIStore: typeof import("state/definitions").useAIStore;
 let submitEditedMessage: typeof import("state/actions/ai").submitEditedMessage;
-let getDefaultChatDetails: typeof import("state/actions/ai").getDefaultChatDetails;
+let getDefaultChatDetails: typeof import("state/actions/ai/chatRuntime").getDefaultChatDetails;
 let memoryStorage: Storage;
 
 const chatId = "chat-1";
@@ -42,9 +42,10 @@ describe("submitEditedMessage", () => {
 
     const definitions = await import("state/definitions");
     useAIStore = definitions.useAIStore;
+    const chatRuntime = await import("state/actions/ai/chatRuntime");
     const ai = await import("state/actions/ai");
     submitEditedMessage = ai.submitEditedMessage;
-    getDefaultChatDetails = ai.getDefaultChatDetails;
+    getDefaultChatDetails = chatRuntime.getDefaultChatDetails;
   });
 
   beforeEach(() => {
