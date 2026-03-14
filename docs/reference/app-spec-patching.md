@@ -1,8 +1,8 @@
 # App Spec Patching
 
-Setta currently has two patch/update paths for app definitions, plus an
-app-generation mode contract that decides whether generation is in-pane streaming
-or chat-driven tool execution.
+Setta currently has two low-level patch/update paths for app definitions, plus a
+Project Chat app-generation mode contract that decides how chat turns should
+persist app-definition work back into Setta.
 
 Project Chat is the primary prompt surface for app generation. Built-in slash
 commands `/app-json`, `/app-image`, `/app-prompt`, and `/app-mcp` carry fixed
@@ -82,6 +82,12 @@ Mode behavior:
 - `appGenerationByMessageId` is the authoritative per-user-message submission
   map for the thread. It can encode both app-generation modes and explicit
   `plain_chat` turns.
+- Project Chat follow-up turns inherit the latest active app-generation mode
+  until a slash command explicitly submits as `plain_chat` or the user starts a
+  new thread.
+- `/api/getLLMChat` and `/api/getExternalAgentChat` echo
+  `appGenerationByMessageId` so this per-message provenance survives hydration,
+  edits, and queued replays.
 - `json_render_with_image` requires at least one attached image on the current
   turn or a retained prior user turn whose message id is mapped to
   `json_render_with_image`.
