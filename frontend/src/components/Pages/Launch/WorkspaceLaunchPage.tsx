@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { C_ADDRESSES } from "utils/c_addresses";
-import { HOME_ROUTER_PATH } from "utils/constants/routes";
+import { HOME_ROUTER_PATH } from "utils/constants";
 import { dedupeInFlightJson } from "utils/dedupeInFlight";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { route_launch } from "utils/generatedEndpoints";

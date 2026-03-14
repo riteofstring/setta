@@ -14,7 +14,7 @@ import {
   UIEditorTabLocalStorage,
   UIEditorTabName,
   UIEditorTabNameEnum,
-} from "utils/constants/panes";
+} from "utils/constants";
 import {
   ButtonParamCodeObjImpl,
   CodeObjType,

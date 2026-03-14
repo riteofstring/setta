@@ -24,11 +24,11 @@ import {
   useProjectState,
   useShareSession,
   useTemporaryMiscState,
+  useToolArgumentPreview,
   useTypeErrors,
 } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useSectionImplIsFrozen } from "state/hooks/sectionVariants";
-import { useToolArgumentPreview } from "state/stores/aiFollowStores";
 import {
   CODEMIRROR_TOOLTIP_PARENT_ID,
   NO_PAN_CLASS_NAME,

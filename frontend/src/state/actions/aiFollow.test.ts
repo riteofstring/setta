@@ -1,4 +1,4 @@
-import { useAIFollow } from "state/stores/aiFollowStores";
+import { useAIFollow } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { AgenticEdgeKindEnum } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

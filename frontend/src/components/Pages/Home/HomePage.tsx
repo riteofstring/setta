@@ -32,13 +32,13 @@ import {
 } from "state/actions/project/loadProject";
 import {
   useAllProjectMetadata,
+  useHomeFileBrowserState,
   useHomePageSearch,
   useLocalStorage,
+  useProjectLoading,
   useShareSession,
 } from "state/definitions";
 import { useWindowSize } from "state/hooks/utils";
-import { useProjectLoading } from "state/stores/ephemeralUiStores";
-import { useHomeFileBrowserState } from "state/stores/fileBrowserStores";
 import {
   buildSharePath,
   CLOSED_PANE_WIDTH,
