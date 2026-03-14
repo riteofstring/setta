@@ -244,10 +244,17 @@ func (e *realtimeEngine) writeMessage(ctx context.Context, payload any) error {
 }
 
 func (e *realtimeEngine) drainStartupEvents(ctx context.Context, timeout time.Duration) error {
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
 	readySeen := false
+	deadline := time.Now().Add(timeout)
 	for {
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			if readySeen {
+				return nil
+			}
+			return newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
+		}
+		timer := time.NewTimer(remaining)
 		select {
 		case <-timer.C:
 			if readySeen {
@@ -255,8 +262,20 @@ func (e *realtimeEngine) drainStartupEvents(ctx context.Context, timeout time.Du
 			}
 			return newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
 		case <-ctx.Done():
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
 			return ctx.Err()
 		case result, ok := <-e.events:
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
 			if !ok {
 				return newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
 			}
@@ -274,32 +293,43 @@ func (e *realtimeEngine) drainStartupEvents(ctx context.Context, timeout time.Du
 				return err
 			}
 			if ready {
-				// Keep draining the startup window after the ready ack so immediate
-				// provider rejections do not escape into the first append.
+				// Keep draining a fixed post-ack startup window so immediate
+				// provider rejections do not escape into the first append while
+				// unrelated provider noise cannot extend startup indefinitely.
 				readySeen = true
+				deadline = time.Now().Add(timeout)
 			}
+		}
+	}
+}
+
+func (e *realtimeEngine) drainEvents(ctx context.Context, timeout time.Duration, allowCleanClose bool) (string, error) {
+	appendAccumulator := ""
+	deadline := time.Now().Add(timeout)
+	for {
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			return appendAccumulator, nil
+		}
+		timer := time.NewTimer(remaining)
+		select {
+		case <-timer.C:
+			return appendAccumulator, nil
+		case <-ctx.Done():
 			if !timer.Stop() {
 				select {
 				case <-timer.C:
 				default:
 				}
 			}
-			timer.Reset(timeout)
-		}
-	}
-}
-
-func (e *realtimeEngine) drainEvents(ctx context.Context, timeout time.Duration, allowCleanClose bool) (string, error) {
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
-	appendAccumulator := ""
-	for {
-		select {
-		case <-timer.C:
-			return appendAccumulator, nil
-		case <-ctx.Done():
 			return "", ctx.Err()
 		case result, ok := <-e.events:
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
 			if !ok {
 				return "", newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
 			}
@@ -320,13 +350,6 @@ func (e *realtimeEngine) drainEvents(ctx context.Context, timeout time.Duration,
 				return "", err
 			}
 			appendAccumulator += appendText
-			if !timer.Stop() {
-				select {
-				case <-timer.C:
-				default:
-				}
-			}
-			timer.Reset(timeout)
 		}
 	}
 }

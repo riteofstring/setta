@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -635,6 +636,123 @@ func TestRealtimeEngineWhisperDeltaSnapshotsReplaceItemTranscript(t *testing.T) 
 	}
 	if finalAppendText != "" || engine.fullText != "hello there" {
 		t.Fatalf("unexpected whisper completion result append=%q full=%q", finalAppendText, engine.fullText)
+	}
+}
+
+func TestRealtimeEngineDrainEventsUsesFixedDeadlineDespiteIgnoredEvents(t *testing.T) {
+	t.Parallel()
+
+	engine := &realtimeEngine{
+		events:            make(chan realtimeReadResult, 32),
+		processedEventIDs: map[string]struct{}{},
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
+	defer cancel()
+
+	type drainResult struct {
+		appendText string
+		err        error
+	}
+	done := make(chan drainResult, 1)
+	go func() {
+		appendText, err := engine.drainEvents(ctx, 10*time.Millisecond, false)
+		done <- drainResult{appendText: appendText, err: err}
+	}()
+
+	ticker := time.NewTicker(2 * time.Millisecond)
+	defer ticker.Stop()
+	eventID := 0
+	for {
+		select {
+		case result := <-done:
+			if result.err != nil {
+				t.Fatalf("expected fixed deadline to expire before context, got %v", result.err)
+			}
+			if result.appendText != "" {
+				t.Fatalf("expected empty append text, got %q", result.appendText)
+			}
+			return
+		case <-ticker.C:
+			eventID++
+			engine.events <- realtimeReadResult{
+				payload: []byte(fmt.Sprintf(`{"type":"session.created","event_id":"evt-%d"}`, eventID)),
+			}
+		}
+	}
+}
+
+func TestRealtimeEngineDrainStartupEventsTimesOutDespiteIgnoredEventsBeforeAck(t *testing.T) {
+	t.Parallel()
+
+	engine := &realtimeEngine{
+		events:            make(chan realtimeReadResult, 32),
+		processedEventIDs: map[string]struct{}{},
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
+	defer cancel()
+
+	done := make(chan error, 1)
+	go func() {
+		done <- engine.drainStartupEvents(ctx, 10*time.Millisecond)
+	}()
+
+	ticker := time.NewTicker(2 * time.Millisecond)
+	defer ticker.Stop()
+	eventID := 0
+	for {
+		select {
+		case err := <-done:
+			if !errors.Is(err, ErrProviderFailure) {
+				t.Fatalf("expected provider failure timeout, got %v", err)
+			}
+			if err.Error() != defaultRealtimeProviderErrorMessage {
+				t.Fatalf("unexpected provider failure message %q", err.Error())
+			}
+			return
+		case <-ticker.C:
+			eventID++
+			engine.events <- realtimeReadResult{
+				payload: []byte(fmt.Sprintf(`{"type":"session.created","event_id":"evt-%d"}`, eventID)),
+			}
+		}
+	}
+}
+
+func TestRealtimeEngineDrainStartupEventsUsesFixedPostAckWindowDespiteIgnoredEvents(t *testing.T) {
+	t.Parallel()
+
+	engine := &realtimeEngine{
+		events:            make(chan realtimeReadResult, 32),
+		processedEventIDs: map[string]struct{}{},
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
+	defer cancel()
+
+	done := make(chan error, 1)
+	go func() {
+		done <- engine.drainStartupEvents(ctx, 10*time.Millisecond)
+	}()
+
+	engine.events <- realtimeReadResult{
+		payload: []byte(`{"type":"session.updated","event_id":"evt-ready"}`),
+	}
+
+	ticker := time.NewTicker(2 * time.Millisecond)
+	defer ticker.Stop()
+	eventID := 0
+	for {
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Fatalf("expected nil error after bounded post-ack drain, got %v", err)
+			}
+			return
+		case <-ticker.C:
+			eventID++
+			engine.events <- realtimeReadResult{
+				payload: []byte(fmt.Sprintf(`{"type":"session.created","event_id":"evt-%d"}`, eventID)),
+			}
+		}
 	}
 }
 
