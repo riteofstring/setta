@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 from setta import entrypoint
 
@@ -37,6 +38,91 @@ def test_python_module_entrypoint_prefers_source_checkout_command() -> None:
     assert command[0] == str(_repo_root() / "scripts" / "go.sh")
     assert command[1:] == ["run", "./cmd/setta"]
     assert command_cwd == _repo_root()
+
+
+def test_python_module_entrypoint_sets_source_checkout_server_wrapper(
+    monkeypatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run(
+        args: list[str],
+        *,
+        check: bool,
+        cwd: Path | None,
+        env: dict[str, str],
+    ) -> SimpleNamespace:
+        captured["args"] = list(args)
+        captured["check"] = check
+        captured["cwd"] = cwd
+        captured["env"] = dict(env)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.delenv("SETTA_GO_CLI_BIN", raising=False)
+    monkeypatch.delenv("SETTA_SERVER_BIN", raising=False)
+    monkeypatch.setattr(entrypoint.subprocess, "run", fake_run)
+
+    exit_code = entrypoint.run_go_dispatch(["--no-open"])
+
+    assert exit_code == 0
+    assert captured["args"] == [str(_repo_root() / "scripts" / "go.sh"), "run", "./cmd/setta", "--no-open"]
+    assert captured["check"] is False
+    assert captured["cwd"] == _repo_root()
+    env = captured["env"]
+    assert isinstance(env, dict)
+    assert env["SETTA_SERVER_BIN"] == str(_repo_root() / "scripts" / "run_setta_server.sh")
+
+
+def test_python_module_entrypoint_preserves_explicit_server_override(
+    monkeypatch,
+) -> None:
+    captured: dict[str, object] = {}
+    explicit_server = "/tmp/custom-setta-server"
+
+    def fake_run(
+        args: list[str],
+        *,
+        check: bool,
+        cwd: Path | None,
+        env: dict[str, str],
+    ) -> SimpleNamespace:
+        captured["args"] = list(args)
+        captured["cwd"] = cwd
+        captured["env"] = dict(env)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.delenv("SETTA_GO_CLI_BIN", raising=False)
+    monkeypatch.setenv("SETTA_SERVER_BIN", explicit_server)
+    monkeypatch.setattr(entrypoint.subprocess, "run", fake_run)
+
+    exit_code = entrypoint.run_go_dispatch(["launch", "--json"])
+
+    assert exit_code == 0
+    assert captured["args"] == [str(_repo_root() / "scripts" / "go.sh"), "run", "./cmd/setta", "launch", "--json"]
+    assert captured["cwd"] == _repo_root()
+    env = captured["env"]
+    assert isinstance(env, dict)
+    assert env["SETTA_SERVER_BIN"] == explicit_server
+
+
+def test_python_module_entrypoint_exits_cleanly_on_keyboard_interrupt(
+    monkeypatch,
+) -> None:
+    def fake_run(
+        args: list[str],
+        *,
+        check: bool,
+        cwd: Path | None,
+        env: dict[str, str],
+    ) -> SimpleNamespace:
+        raise KeyboardInterrupt()
+
+    monkeypatch.delenv("SETTA_GO_CLI_BIN", raising=False)
+    monkeypatch.setattr(entrypoint.subprocess, "run", fake_run)
+
+    exit_code = entrypoint.run_go_dispatch(["--no-open"])
+
+    assert exit_code == 0
 
 
 def test_python_module_entrypoint_dispatches_go_owned_version_command(

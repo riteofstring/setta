@@ -272,6 +272,10 @@ This verdict holds under both of the only reasonable definitions:
 - `python -m setta` is a Python wrapper around the packaged Go CLI:
   - `backend/setta/__main__.py`
   - `backend/setta/entrypoint.py`
+- Source-checkout `python -m setta` now also wires the Go server companion
+  through a Go-owned wrapper instead of failing on a missing sibling binary:
+  - `backend/setta/entrypoint.py`
+  - `scripts/run_setta_server.sh`
 - The current Go binaries are real repo entrypoints:
   - `cmd/setta/main.go`
   - `cmd/setta-server/main.go`
@@ -328,6 +332,9 @@ execution paths, so the rewrite is not complete in the repo-wide sense.
   - `source activate.sh && ./scripts/go.sh test ./internal/projectstate -count=1`
   - `source activate.sh && ./scripts/go.sh test ./internal/settacmd -count=1`
   - `source activate.sh && pytest tests/start/test_dev_start.py tests/start/test_dev_script_wiring_structure.py tests/start/test_dev_script_wiring_backend_start.py tests/start/test_module_entrypoint.py -q`
+  - `source activate.sh && python -m setta --no-open --workspace /tmp/setta-go-entrypoint-smoke`
+    - verified live source-checkout boot reaches the Go server and `Ctrl+C`
+      exits without a Python traceback
 - Failed:
   - `./scripts/go.sh test ./...` when first run without the activated Python env
 - Inconclusive / not counted as proof:
@@ -384,8 +391,15 @@ A sixth follow-up rewrite step converted `python -m setta.dev_start` into a
 compatibility shim that forwards to the Go CLI reload path instead of owning a
 Python `uvicorn` server startup flow. The focused start-path Python tests pass.
 
+A seventh follow-up rewrite step fixed the source-checkout `python -m setta`
+handoff so the Go CLI receives a runnable `setta-server` companion through
+`SETTA_SERVER_BIN` instead of failing on the missing sibling-binary assumption
+that only works for packaged installs. The live source-checkout start path now
+boots the Go server successfully and exits cleanly on interrupt.
+
 Those follow-up fixes cleared the targeted Go-owned parity blockers found by
 this audit and moved the default dev reload path and the explicit
-`setta.dev_start` surface onto the Go-owned start path, but the repo still
+`setta.dev_start` surface onto the Go-owned start path, and they fixed the
+source-checkout `python -m setta` companion handoff, but the repo still
 remains `Incomplete` because the retained Python runtime surfaces above are
 still active supported code paths.

@@ -4,7 +4,9 @@ import sys
 from pathlib import Path
 
 _GO_BINARY_OVERRIDE_ENV = "SETTA_GO_CLI_BIN"
+_GO_SERVER_BINARY_OVERRIDE_ENV = "SETTA_SERVER_BIN"
 _SOURCE_CHECKOUT_COMMAND = ["scripts/go.sh", "run", "./cmd/setta"]
+_SOURCE_CHECKOUT_SERVER_WRAPPER = Path("scripts") / "run_setta_server.sh"
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -15,12 +17,20 @@ def main(argv: list[str] | None = None) -> None:
 def run_go_dispatch(argv: list[str]) -> int:
     try:
         command, command_cwd = resolve_go_cli_command()
+        dispatch_env = resolve_go_cli_env(command_cwd)
     except OSError as exc:
         print(str(exc), file=sys.stderr)
         return 1
 
     try:
-        completed = subprocess.run([*command, *argv], check=False, cwd=command_cwd)
+        completed = subprocess.run(
+            [*command, *argv],
+            check=False,
+            cwd=command_cwd,
+            env={**os.environ, **dispatch_env},
+        )
+    except KeyboardInterrupt:
+        return 0
     except OSError as exc:
         print(f"Failed to execute Go Setta command: {exc}", file=sys.stderr)
         return 1
@@ -58,6 +68,18 @@ def resolve_go_cli_command() -> tuple[list[str], Path | None]:
     raise FileNotFoundError(
         "Packaged Go Setta binary was not found. Rebuild the distribution with build.sh or install an official packaged release.",
     )
+
+
+def resolve_go_cli_env(command_cwd: Path | None) -> dict[str, str]:
+    if command_cwd is None or not source_checkout_root(command_cwd):
+        return {}
+    if os.environ.get(_GO_SERVER_BINARY_OVERRIDE_ENV, "").strip():
+        return {}
+    server_wrapper = validate_executable_path(
+        command_cwd / _SOURCE_CHECKOUT_SERVER_WRAPPER,
+        "Source checkout Go server wrapper is missing or invalid",
+    )
+    return {_GO_SERVER_BINARY_OVERRIDE_ENV: str(server_wrapper)}
 
 
 def resolve_source_checkout_root(package_root: Path) -> Path | None:
