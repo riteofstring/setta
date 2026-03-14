@@ -5,8 +5,8 @@ import {
   useModal,
   usePendingOperations,
   useProjectState,
+  useRenameRefactors,
 } from "state/definitions";
-import { useRenameRefactors } from "state/stores/authoringStores";
 import { post } from "utils/endpointUtils";
 import {
   RenameRefactorBroadcastContent,

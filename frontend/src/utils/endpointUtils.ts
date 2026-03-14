@@ -60,6 +60,18 @@ export function getErrorDetail(value: unknown): string | null {
         return nestedDetail;
       }
     }
+    const error = record.error;
+    if (error && typeof error === "object") {
+      const nested = error as Record<string, unknown>;
+      const nestedMessage = nested.message;
+      if (typeof nestedMessage === "string") {
+        return nestedMessage;
+      }
+      const nestedDetail = nested.detail;
+      if (typeof nestedDetail === "string") {
+        return nestedDetail;
+      }
+    }
   }
   return null;
 }
@@ -85,6 +97,14 @@ export function getErrorCode(value: unknown): string | null {
     const errorCode = record.errorCode;
     if (typeof errorCode === "string" && errorCode.trim().length > 0) {
       return errorCode;
+    }
+    const error = record.error;
+    if (error && typeof error === "object") {
+      const nested = error as Record<string, unknown>;
+      const nestedCode = nested.code ?? nested.errorCode;
+      if (typeof nestedCode === "string" && nestedCode.trim().length > 0) {
+        return nestedCode;
+      }
     }
     const detail = record.detail;
     if (detail && typeof detail === "object") {

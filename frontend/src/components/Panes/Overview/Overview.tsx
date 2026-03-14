@@ -23,19 +23,23 @@ import {
 import { RiGitCommitLine, RiPlayList2Fill, RiRadarLine } from "react-icons/ri";
 import { TbFolder, TbLayoutDashboard } from "react-icons/tb";
 import { Link } from "react-router-dom";
-import { useLocalStorage, useShareSession } from "state/definitions";
-import { useHasViewModeTabs } from "state/hooks/viewModes";
-import { useBackendLogEvents } from "state/stores/runtimeStores";
-import { APP_CHROME_Z_INDEX_CLASS_NAME } from "utils/constants/dom";
 import {
+  useBackendLogEvents,
+  useLocalStorage,
+  useShareSession,
+} from "state/definitions";
+import { useHasViewModeTabs } from "state/hooks/viewModes";
+import {
+  APP_CHROME_Z_INDEX_CLASS_NAME,
   OverviewTabKey,
   OverviewTabName,
   OverviewTabNameEnum,
   OverviewTabNamePrettified,
+  PAGE_LOAD_TYPES,
   PaneNameEnum,
   parsePluginPaneOverviewTabName,
-} from "utils/constants/panes";
-import { PAGE_LOAD_TYPES, SETTINGS_ROUTER_PATH } from "utils/constants/routes";
+  SETTINGS_ROUTER_PATH,
+} from "utils/constants";
 import { useTabScope } from "utils/focusManager";
 import {
   onOverviewResizeStop,
