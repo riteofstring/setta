@@ -29,7 +29,10 @@ import {
   isDescendantOfSectionSelection,
   orderSectionIdsByParent,
 } from "state/actions/sections/sectionSelection";
-import { getIsRoot } from "state/actions/uiTypes/utils";
+import {
+  getIsRoot,
+  getIsTopLevelOnlySectionType,
+} from "state/actions/uiTypes/utils";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 import {
   useProjectState,
@@ -472,6 +475,9 @@ export function getBehaviorDropType(activeId: string, newParentId: string) {
   const draggingIds = useDndState.getState().draggingIds;
   const selectedIds = draggingIds.length > 0 ? draggingIds : [String(activeId)];
   const activeType = getSectionType(state, String(activeId));
+  const hasTopLevelOnlySection = selectedIds.some((sectionId) =>
+    getIsTopLevelOnlySectionType(getSectionType(state, sectionId)),
+  );
   // invalid
   // if parent can't have children
   // or if parent variant is frozen
@@ -479,7 +485,8 @@ export function getBehaviorDropType(activeId: string, newParentId: string) {
   if (
     (!isRootParent && !isCodeParent) ||
     getCurrSectionVariant(state, newParentId).isFrozen ||
-    getSectionIsGlobalVariables(activeId)
+    getSectionIsGlobalVariables(activeId) ||
+    hasTopLevelOnlySection
   ) {
     return BehaviorDropTypeEnum.INVALID;
   }

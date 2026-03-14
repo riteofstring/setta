@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING, cast
+
 import pytest
 
 from setta.api.listener import ListenerRuntimeState, SettaListener
@@ -7,6 +9,9 @@ from setta.types.id import ID
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import GroupSectionImpl, TextBlockSectionImpl
+
+if TYPE_CHECKING:
+    from setta.code_gen.python.code_generator import PythonCodeGenerator
 
 
 def _build_project_state_with_duplicate_names():
@@ -120,7 +125,9 @@ class TestSettaListenerDependencyTranslation:
         )
         listener._project_config_id = self.project_state.projectConfig.id
         listener._runtime_state = ListenerRuntimeState(
+            project_state=self.project_state,
             dependency_graph=self.dependency_graph,
+            code_generator=cast("PythonCodeGenerator", object()),
             s_instance=object(),
         )
         return listener
@@ -133,7 +140,7 @@ class TestSettaListenerDependencyTranslation:
         ]
 
         @listener.listen(deps=(sanitized_child,))
-        def _callback(_state, _ctx):
+        def _callback(state, ctx):
             return None
 
         register_content = listener._build_register_content()
@@ -161,7 +168,7 @@ class TestSettaListenerDependencyTranslation:
         ]
 
         @listener.listen(deps=tuple(sanitized_names))
-        def _callback(_state, _ctx):
+        def _callback(state, ctx):
             return None
 
         register_content = listener._build_register_content()

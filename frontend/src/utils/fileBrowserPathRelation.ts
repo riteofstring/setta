@@ -1,11 +1,12 @@
-import { normalizeBrowserPath } from "utils/browserPaths";
+import { getBrowserPathRoot, normalizeBrowserPath } from "utils/browserPaths";
 
 export function normalizeFileBrowserPathForComparison(path: string): string {
   const normalized = normalizeBrowserPath(path).trim();
   if (!normalized) {
     return "";
   }
-  if (normalized === "/") {
+  const root = getBrowserPathRoot(normalized);
+  if (normalized === root) {
     return normalized;
   }
   return normalized.replace(/\/+$/, "");
@@ -20,6 +21,10 @@ export function isSameOrDescendantBrowserPath(
     normalizeFileBrowserPathForComparison(ancestorPath);
   if (!normalizedPath || !normalizedAncestor) {
     return false;
+  }
+  const ancestorRoot = getBrowserPathRoot(normalizedAncestor);
+  if (normalizedAncestor === "/" || normalizedAncestor === ancestorRoot) {
+    return normalizedPath.startsWith(ancestorRoot);
   }
   if (normalizedPath === normalizedAncestor) {
     return true;

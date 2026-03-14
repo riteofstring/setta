@@ -50,4 +50,10 @@ def get_default_section_core_name(implType: SectionType):
             return "Generated Python Code"
         case SectionType.GenPythonMetadata:
             return "Generated Python Metadata"
+        case SectionType.StateMachineStart:
+            return "State Machine Start"
+        case SectionType.StateMachineGate:
+            return "State Machine Gate"
+        case SectionType.StateMachineEnd:
+            return "State Machine End"
     return generate_memorable_string()

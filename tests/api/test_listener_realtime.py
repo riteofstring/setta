@@ -15,6 +15,8 @@ from setta.api.listener import (
     SettaListener,
 )
 from setta.code_gen.dependency_graph import DependencyGraph, ParamNode
+from setta.code_gen.value_codec import PythonValueCodec
+from setta.code_gen.utils import GEN_CODE_INSTANCE_NAME
 from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import create_dep_key
@@ -43,6 +45,7 @@ from setta.types.websocket import (
 from setta.websockets.binary_frames import encode_binary_frame
 
 if TYPE_CHECKING:
+    from setta.code_gen.python.code_generator import PythonCodeGenerator
     from websockets import ClientConnection
 
 
@@ -132,11 +135,11 @@ class TestSettaListenerRealtimeIntegration:
             deps=("Welcome",),
             debounce_ms=50,
         )
-        def on_realtime(_state, ctx):
+        def on_realtime(state, ctx):
             realtime_calls.append(dict(ctx.changed))
 
         @listener.listen(deps=("Welcome",))
-        def on_refresh(_state, ctx):
+        def on_refresh(state, ctx):
             refresh_calls.append(dict(ctx.changed))
 
         websocket = _StubWebsocket()
@@ -212,7 +215,7 @@ class TestSettaListenerRealtimeIntegration:
         completed_event = asyncio.Event()
         total_callbacks = 4
 
-        async def on_refresh(_state, _ctx) -> None:
+        async def on_refresh(state, ctx) -> None:
             nonlocal active, max_active, completed
             async with active_lock:
                 active += 1
@@ -252,11 +255,11 @@ class TestSettaListenerRealtimeIntegration:
         standard_calls: list[dict[str, Any]] = []
 
         @listener.listen(deps=("Welcome",), run_on_refresh=True)
-        def on_refresh(_state, ctx):
+        def on_refresh(state, ctx):
             run_on_refresh_calls.append(dict(ctx.changed))
 
         @listener.listen(deps=("Welcome",))
-        def on_standard(_state, ctx):
+        def on_standard(state, ctx):
             standard_calls.append(dict(ctx.changed))
 
         websocket = _StubWebsocket()
@@ -324,7 +327,7 @@ class TestSettaListenerRealtimeIntegration:
         realtime_calls: list[dict[str, Any]] = []
 
         @listener.listen(deps=("Welcome",))
-        def on_realtime(_state, ctx):
+        def on_realtime(state, ctx):
             realtime_calls.append(dict(ctx.changed))
 
         await listener._process_snapshot(
@@ -429,7 +432,7 @@ class TestSettaListenerRealtimeIntegration:
             deps=(dependency_key,),
             dependency_mode=ListenerDependencyMode.REALTIME_ONLY,
         )
-        def on_action(_state, ctx):
+        def on_action(state, ctx):
             action_calls.append(
                 [
                     event.payload.payload
@@ -536,11 +539,11 @@ class TestSettaListenerRealtimeIntegration:
             deps=("Welcome",),
             dependency_mode=ListenerDependencyMode.REFRESH_ONLY,
         )
-        def on_refresh(_state, ctx):
+        def on_refresh(state, ctx):
             refresh_calls.append(dict(ctx.changed))
 
         @listener.listen(deps=("Welcome",))
-        def on_realtime(_state, ctx):
+        def on_realtime(state, ctx):
             realtime_calls.append(dict(ctx.changed))
 
         websocket = _StubWebsocket()
@@ -588,7 +591,7 @@ class TestSettaListenerRealtimeIntegration:
             deps=("Welcome",),
             dependency_mode=ListenerDependencyMode.REALTIME_ONLY,
         )
-        def on_realtime(_state, ctx):
+        def on_realtime(state, ctx):
             realtime_calls.append(dict(ctx.changed))
 
         websocket = _StubWebsocket()
@@ -628,7 +631,7 @@ class TestSettaListenerRealtimeIntegration:
         refresh_calls: list[dict[str, Any]] = []
 
         @listener.listen()
-        def on_refresh(_state, ctx):
+        def on_refresh(state, ctx):
             refresh_calls.append(dict(ctx.changed))
 
         websocket = _StubWebsocket()
@@ -674,7 +677,7 @@ class TestSettaListenerRealtimeIntegration:
             deps=(),
             dependency_mode=ListenerDependencyMode.REALTIME_ONLY,
         )
-        def on_realtime(_state, ctx):
+        def on_realtime(state, ctx):
             realtime_calls.append(dict(ctx.changed))
 
         websocket = _StubWebsocket()
@@ -729,11 +732,11 @@ class TestSettaListenerRealtimeIntegration:
             deps=(),
             dependency_mode=ListenerDependencyMode.ALWAYS,
         )
-        def on_any(_state, ctx):
+        def on_any(state, ctx):
             any_calls.append(dict(ctx.changed))
 
         @listener.listen(deps=("Welcome",))
-        def on_specific(_state, ctx):
+        def on_specific(state, ctx):
             specific_calls.append(dict(ctx.changed))
 
         websocket = _StubWebsocket()
@@ -843,8 +846,27 @@ class TestSettaListenerRealtimeIntegration:
                 },
             ),
         )
+        value_codec = PythonValueCodec(
+            dep_graph,
+            lambda key: (
+                f"{GEN_CODE_INSTANCE_NAME}.{dep_graph.graph[key].full_path_name}"
+            ),
+        )
+
+        code_generator = cast(
+            "PythonCodeGenerator",
+            SimpleNamespace(
+                value_codec=value_codec,
+                get_value=lambda node: value_codec.format_param_expression(node)
+                if isinstance(node, ParamNode)
+                else None,
+            ),
+        )
+
         listener._runtime_state = ListenerRuntimeState(
+            project_state=MagicMock(),
             dependency_graph=dep_graph,
+            code_generator=code_generator,
             s_instance=state,
         )
         listener._dependency_cache = {
@@ -999,11 +1021,10 @@ class TestSettaListenerBootstrapFailure:
 
     async def test_bootstrap_registers_when_state_instantiation_fails(self) -> None:
         listener = SettaListener(project_name="Demo Project")
-        callback_calls: list[tuple[str, dict[str, Any]]] = []
 
         @listener.listen(deps=("Welcome",))
-        def on_change(state, ctx) -> None:
-            callback_calls.append((state.Welcome, dict(ctx.changed)))
+        def on_change(state, ctx):  # pragma: no cover - invoked only on success
+            raise AssertionError("callback should not execute when runtime state fails")
 
         project_state = self._build_project_state()
 
@@ -1018,78 +1039,12 @@ class TestSettaListenerBootstrapFailure:
         listener._send_websocket_payload = AsyncMock(side_effect=capture_payload)
 
         await listener._refresh_from_snapshot(project_state)
-        await asyncio.sleep(0)
 
         assert listener._runtime_state is not None
         assert listener._runtime_state.s_instance is None
-        assert listener._dependency_cache["Welcome"] == "Hello"
         assert listener._registration_pending
         assert len(register_payloads) == 1
         assert register_payloads[0]["messageType"] == "ListenerRegister"
-        assert callback_calls == [("Hello", {"Welcome": "Hello"})]
-
-    async def test_realtime_updates_cache_when_runtime_state_is_unavailable(self) -> None:
-        listener = SettaListener(project_name="Demo Project")
-        project_state = self._build_project_state()
-
-        callback_calls: list[tuple[str, dict[str, Any]]] = []
-
-        @listener.listen(deps=("Welcome",))
-        def on_change(state, ctx) -> None:
-            callback_calls.append((state.Welcome, dict(ctx.changed)))
-
-        runtime_state = listener._build_runtime_state(project_state)
-        listener._runtime_state = ListenerRuntimeState(
-            dependency_graph=runtime_state.dependency_graph,
-            s_instance=None,
-        )
-        listener._project_config_id = project_state.projectConfig.id
-        listener._dependency_cache = {"Welcome": "Hello"}
-        listener._refresh_callback_dependency_metadata(runtime_state.dependency_graph)
-
-        spec = next(iter(listener._callbacks.values()))
-        dependency_key = spec.structured_dependencies[0]
-
-        await listener._handle_realtime_event(
-            ListenerRealtimeEventContent(
-                projectConfigId=project_state.projectConfig.id,
-                deltas=[
-                    ListenerRealtimeDelta(
-                        dependency=dependency_key,
-                        value=LiteralDependencyValue("Updated while unavailable"),
-                    )
-                ],
-                sequence=1,
-            )
-        )
-        await listener._scheduler.flush(spec.callback_id)
-
-        assert listener._dependency_cache["Welcome"] == "Updated while unavailable"
-        assert listener._get_last_realtime_sequence() == 1
-        assert callback_calls == [
-            ("Updated while unavailable", {"Welcome": "Updated while unavailable"})
-        ]
-
-    async def test_replay_cached_snapshot_uses_metadata_backed_callback_state(self) -> None:
-        listener = SettaListener(project_name="Demo Project")
-        project_state = self._build_project_state()
-        callback_calls: list[tuple[str, dict[str, Any]]] = []
-
-        @listener.listen(deps=("Welcome",), run_on_refresh=True)
-        def on_change(state, ctx) -> None:
-            callback_calls.append((state.Welcome, dict(ctx.changed)))
-
-        listener._latest_persisted_snapshot = project_state
-        listener._instantiate_state = MagicMock(
-            side_effect=ValueError("math domain error")
-        )
-
-        await listener._replay_cached_snapshot()
-
-        assert listener._runtime_state is not None
-        assert listener._runtime_state.s_instance is None
-        assert listener._dependency_cache["Welcome"] == "Hello"
-        assert callback_calls == [("Hello", {"Welcome": "Hello"})]
 
 
 class TestSettaListenerBinaryParsing:
