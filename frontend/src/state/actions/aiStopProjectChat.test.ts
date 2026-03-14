@@ -59,12 +59,12 @@ const mockedAddTemporaryNotification = vi.mocked(addTemporaryNotification);
 let useAIStore: typeof import("state/definitions").useAIStore;
 let useLocalStorage: typeof import("state/definitions").useLocalStorage;
 let useProjectState: typeof import("state/definitions").useProjectState;
-let stopProjectChatResponse: typeof import("state/actions/ai").stopProjectChatResponse;
-let stopManagedSectionChatResponse: typeof import("state/actions/ai").stopManagedSectionChatResponse;
-let getLLMChatHydrationOutcome: typeof import("state/actions/ai").getLLMChatHydrationOutcome;
-let getExternalAgentChatHydrationOutcome: typeof import("state/actions/ai").getExternalAgentChatHydrationOutcome;
-let getProjectChatHydrationOutcomeWithFallback: typeof import("state/actions/ai").getProjectChatHydrationOutcomeWithFallback;
-let getDefaultChatDetails: typeof import("state/actions/ai").getDefaultChatDetails;
+let stopProjectChatResponse: typeof import("state/actions/ai/chatRuntime").stopProjectChatResponse;
+let stopManagedSectionChatResponse: typeof import("state/actions/ai/chatRuntime").stopManagedSectionChatResponse;
+let getLLMChatHydrationOutcome: typeof import("state/actions/ai/chatRuntime").getLLMChatHydrationOutcome;
+let getExternalAgentChatHydrationOutcome: typeof import("state/actions/ai/chatRuntime").getExternalAgentChatHydrationOutcome;
+let getProjectChatHydrationOutcomeWithFallback: typeof import("state/actions/ai/chatRuntime").getProjectChatHydrationOutcomeWithFallback;
+let getDefaultChatDetails: typeof import("state/actions/ai/chatRuntime").getDefaultChatDetails;
 let receiveLLMResponseChunk: typeof import("state/actions/ai").receiveLLMResponseChunk;
 let memoryStorage: Storage;
 
@@ -93,15 +93,16 @@ describe("stopProjectChatResponse", () => {
     useAIStore = definitions.useAIStore;
     useLocalStorage = definitions.useLocalStorage;
     useProjectState = definitions.useProjectState;
+    const chatRuntime = await import("state/actions/ai/chatRuntime");
     const ai = await import("state/actions/ai");
-    stopProjectChatResponse = ai.stopProjectChatResponse;
-    stopManagedSectionChatResponse = ai.stopManagedSectionChatResponse;
-    getLLMChatHydrationOutcome = ai.getLLMChatHydrationOutcome;
+    stopProjectChatResponse = chatRuntime.stopProjectChatResponse;
+    stopManagedSectionChatResponse = chatRuntime.stopManagedSectionChatResponse;
+    getLLMChatHydrationOutcome = chatRuntime.getLLMChatHydrationOutcome;
     getExternalAgentChatHydrationOutcome =
-      ai.getExternalAgentChatHydrationOutcome;
+      chatRuntime.getExternalAgentChatHydrationOutcome;
     getProjectChatHydrationOutcomeWithFallback =
-      ai.getProjectChatHydrationOutcomeWithFallback;
-    getDefaultChatDetails = ai.getDefaultChatDetails;
+      chatRuntime.getProjectChatHydrationOutcomeWithFallback;
+    getDefaultChatDetails = chatRuntime.getDefaultChatDetails;
     receiveLLMResponseChunk = ai.receiveLLMResponseChunk;
   });
 
