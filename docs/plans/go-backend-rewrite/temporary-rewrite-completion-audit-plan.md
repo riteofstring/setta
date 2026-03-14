@@ -300,9 +300,9 @@ This verdict holds under both of the only reasonable definitions:
 
 ### Verified retained Python boundaries
 
-- The legacy Python FastAPI app module still exists as a supported surface:
-  - `backend/setta/server.py`
-  - retained Python listener endpoint discovery no longer imports this module
+- The legacy top-level Python FastAPI app module has been removed:
+  - `backend/setta/server.py` no longer exists in the active source tree
+  - retained Python listener endpoint discovery no longer imports that module
     just to enumerate listener-callable routes
   - local session/process detection no longer treats `setta.server:app` as a
     live Setta backend process shape; the active recognized server shapes are
@@ -319,18 +319,17 @@ This verdict holds under both of the only reasonable definitions:
   - `backend/setta/share/listener_runtime.py`
 
 These are real code-backed supported surfaces, not just stale files. The
-listener runtime is now narrower than before, but the repo is still not "all
-Go" today even though the default packaged/runtime path is predominantly
-Go-owned.
+listener runtime is now narrower than before, and the old top-level Python
+FastAPI app is gone, but the repo is still not "all Go" today even though the
+default packaged/runtime path is predominantly Go-owned.
 
 ### Remaining blocker
 
 No currently reproduced Go-owned parity blocker remains from the targeted audit
-slice. The remaining blocker is repo-wide backend/runtime ownership: the
-active retained Python surfaces listed above still participate in supported
-backend execution paths. Listener graph-backed helper code remains as cleanup
-tail, but the active listener runtime path no longer depends on local
-dependency-metadata rebuilding.
+slice. The remaining blocker is repo-wide backend/runtime ownership outside the
+explicit retained boundary list, most notably the thin Python dev/start
+wrappers and the still-active Python plugin worker path. The old top-level
+Python FastAPI app is no longer part of that blocker set.
 
 ### Test and smoke evidence executed
 
