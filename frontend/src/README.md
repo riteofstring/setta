@@ -168,6 +168,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
     selection plus layout snapshot building from current node internals.
   - `state/actions/topLevelLayoutPersistence.ts` owns pending-op reconciliation
     and debounced backend persistence for top-level section layout writes.
+  - `state/actions/windowSpacePersistence.ts` owns saved window-space sort/name/
+    delete/create mutations plus optimistic persistence flow.
+  - `state/actions/windowSpaceSnapshots.ts` owns floating window-space snapshot
+    building and conversion back into project-chat windowing state.
+  - `state/actions/windowSpaces.ts` now owns workspace restore orchestration for
+    saved window spaces.
   - `state/actions/uiSettingReveal.ts` now just orchestrates reveal requests;
     `uiSettingRevealMutations.ts`, `uiSettingRevealActivation.ts`,
     `uiSettingRevealDom.ts`, and `uiSettingRevealShared.ts` own mutation leases,
@@ -222,9 +228,6 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/windowSpaces.ts` persisted-layout split across optimistic
-  layout writes, floating-bounds normalization, and authoring-to-window-space
-  projection
 - `state/actions/sectionInfos.ts` query/command split across effective-impl
   derivation, streaming chat merge behavior, and section metadata/layout reads
   now that `state/actions/sectionProjectStateSync.ts`,
@@ -233,5 +236,7 @@ feature-local adapters around them when the consuming surface is non-trivial.
   `state/actions/topLevelSectionLayouts.ts`, and
   `state/actions/topLevelLayoutPersistence.ts` own backend sync, shared
   commands, optimistic mutation infrastructure, and top-level layout ownership
+- `state/actions/websocketReceive.ts` protocol/event split across websocket
+  transport handling, snapshot reconciliation, and feature-specific dispatchers
 - shared project chat surfaces under `components/Chat/*`,
   `components/Panes/Overview/ProjectLevelAI/*`, and `components/ChatWindowing/*`

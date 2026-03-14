@@ -90,6 +90,11 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   active-view layout selection, top-level layout snapshot building, pending-op
   reconciliation, and debounced layout persistence, reducing
   `frontend/src/state/actions/sectionInfos.ts` further to 1308 lines.
+- `frontend/src/state/actions/windowSpacePersistence.ts` and
+  `frontend/src/state/actions/windowSpaceSnapshots.ts` now own saved
+  window-space mutations plus floating snapshot/restore conversion, reducing
+  `frontend/src/state/actions/windowSpaces.ts` to 695 lines for the remaining
+  workspace-restore orchestration.
 - `frontend/src/state/actions/uiSettingReveal.ts` is down to 360 lines and now
   delegates reveal mutation leases, pane activation, DOM anchor/highlight
   helpers, and execution-status utilities to

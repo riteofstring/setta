@@ -40,6 +40,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   `frontend/src/state/actions/topLevelLayoutPersistence.ts` now owns pending-op
   reconciliation plus debounced backend persistence for top-level section
   layout writes that previously lived in `frontend/src/state/actions/sectionInfos.ts`.
+- `frontend/src/state/actions/windowSpacePersistence.ts` now owns saved
+  window-space sort/name/delete/create mutations plus optimistic persistence,
+  and `frontend/src/state/actions/windowSpaceSnapshots.ts` now owns floating
+  snapshot building plus conversion back into project-chat windowing state that
+  previously lived in `frontend/src/state/actions/windowSpaces.ts`.
 - `frontend/src/state/actions/uiSettingReveal.ts` is now a 360-line orchestration
   entrypoint; `uiSettingRevealMutations.ts` owns reveal mutation leases and
   rollback, `uiSettingRevealActivation.ts` owns pane/accordion activation
@@ -52,11 +57,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 
 - `frontend/src/state` plus shared infrastructure files in `components/Utils` and `utils` total about 83.6k lines of authored code in the sampled directories.
 - The biggest shared-state hotspots are:
-  - `frontend/src/state/actions/windowSpaces.ts` at 1420 lines
   - `frontend/src/state/actions/sectionInfos.ts` at 1308 lines
   - `frontend/src/state/actions/websocketReceive.ts` at 1023 lines
   - `frontend/src/state/actions/uiSettingRevealMutations.ts` at 771 lines
   - `frontend/src/state/hooks/terminals/terminal.ts` at 752 lines
+  - `frontend/src/state/actions/windowSpaces.ts` at 695 lines
   - `frontend/src/utils/focusManager.ts` at 657 lines
 - `definitions.ts` now defines 14 local `use*` stores and re-exports the extracted AI/chat, app runtime, session/share, browser, search, feedback, project-status, layout-interaction, UI-preference, and editor-diagnostics stores, which is much closer to a thin index but still leaves project-state publication, artifact data, and realtime helper ownership mixed together.
 - `sectionInfos.ts` currently mixes:
@@ -89,11 +94,16 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `uiSettingRevealActivation.ts` for pane-opening and accordion/chat-aux activation writes
   - `uiSettingRevealDom.ts` for anchor lookup, scrolling, and highlight timing
   - `uiSettingRevealShared.ts` for execution-context mismatch and status builders
-- `windowSpaces.ts` mixes:
-  - optimistic layout writes
-  - floating bounds normalization
-  - persisted window-space mutations
-  - projection from authoring state to window-space state
+- `windowSpacePersistence.ts` now owns:
+  - saved window-space sort/name/delete/create mutations
+  - optimistic persistence and layout-mutation rollback
+- `windowSpaceSnapshots.ts` now owns:
+  - floating window-space snapshot building
+  - conversion from saved window-space state back into project-chat windowing state
+- `windowSpaces.ts` now owns:
+  - workspace restore orchestration
+  - restored-instance remapping and merge policy
+  - saved chat-thread rebound flow after layout restore
 - `focusManager.ts` at 657 lines mixes:
   - tab-scope registration
   - keyboard navigation policy
