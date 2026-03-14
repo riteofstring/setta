@@ -2,15 +2,12 @@ import {
   CHAT_STARTER_PROMPTS,
   createManagedExecutionControlHandlers,
   type ChatPermissionModeValue,
-  type ChatStarterPrompt,
   type ManagedChatExecutionSettings,
 } from "components/Chat/chatComposerControls";
 import {
-  ChatInput,
   type ChatSlashCommand,
   type ChatSlashCommandResult,
 } from "components/Chat/ChatInput";
-import { ChatMessageList } from "components/Chat/ChatMessages";
 import {
   Dispatch,
   SetStateAction,
@@ -53,6 +50,7 @@ import {
   transcribeProjectChatComposerAudio,
 } from "./projectChatComposerRuntime";
 import { resolveProjectChatComposerDerivedState } from "./projectChatComposerState";
+import { ProjectChatConversationSurface } from "./ProjectChatConversationSurface";
 import {
   buildProjectChatSubmittedMessageHistory,
   filterProjectConversationMessagesBySearch,
@@ -347,35 +345,6 @@ function useHasPythonInWorkspaceRoot(
   }, [enabled, revalidationTick, workspaceRootIdentity]);
 
   return hasPython;
-}
-
-function EmptyChatState({
-  starterPrompts,
-  disabled,
-  onStarterPrompt,
-}: {
-  starterPrompts: ChatStarterPrompt[];
-  disabled: boolean;
-  onStarterPrompt: (prompt: string) => void;
-}) {
-  const starterButtonClassName =
-    "cursor-pointer rounded-md border border-setta-200 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100";
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-y-auto p-3">
-      {starterPrompts.map((starterPrompt) => (
-        <button
-          key={starterPrompt.id}
-          type="button"
-          className={starterButtonClassName}
-          onClick={() => onStarterPrompt(starterPrompt.prompt)}
-          disabled={disabled}
-        >
-          {starterPrompt.label}
-        </button>
-      ))}
-    </div>
-  );
 }
 
 export const ProjectChatCore = memo(function ProjectChatCore({
@@ -1136,93 +1105,114 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       }),
     [transcriptionProfileId],
   );
-  const chatWidthShellClassName = "mx-auto w-full min-w-0 max-w-[72rem] px-2";
+  const handleStarterPrompt = useCallback(
+    (prompt: string) => {
+      void handleSubmit(prompt, []);
+    },
+    [handleSubmit],
+  );
+  const messageListProps = useMemo(
+    () => ({
+      messages: filteredConversationMessages,
+      allMessagesForToolResults: messages,
+      waitingForResponse,
+      toolCallArguments,
+      interruptedAssistantMessageIds,
+      activeSearchMessageId: activeConversationSearchMatchMessageId,
+      editDisabledReason,
+      onRedoMessage: handleRedoMessage,
+      onEditMessage: handleEditMessage,
+      onBranchSwitch: handleBranchSwitch,
+      branchInfoByMessage,
+    }),
+    [
+      activeConversationSearchMatchMessageId,
+      branchInfoByMessage,
+      editDisabledReason,
+      filteredConversationMessages,
+      handleBranchSwitch,
+      handleEditMessage,
+      handleRedoMessage,
+      interruptedAssistantMessageIds,
+      messages,
+      toolCallArguments,
+      waitingForResponse,
+    ],
+  );
+  const chatInputProps = useMemo(
+    () => ({
+      placeholderText,
+      waitingForResponse,
+      submitDisabled,
+      disabled: isDisabled,
+      value: draftMessage,
+      onChange: setDraftMessage,
+      onSubmit: handleSubmit,
+      onStop: handleStop,
+      slashCommands,
+      recognizedSlashCommands,
+      onSlashCommand: handleSlashCommand,
+      onUnknownSlashCommand: handleUnknownSlashCommand,
+      executionControls,
+      executionControlVisibility: {
+        permissionMode: showPermissionExecutionControl,
+        search: showSearchExecutionControl,
+      },
+      dictationMode,
+      dictationEnabledByProvider: providerDictationAvailable,
+      providerDictationLikelySupported,
+      contextWindowTokens,
+      contextUsedTokens,
+      contextUsageIsEstimated,
+      contextUsageUnavailable: chatInputContextUsageUnavailable,
+      submittedMessageHistory,
+      runtimeActivityCounts,
+      runtimeActivityDetails,
+      onProviderDictationTranscribe: !providerDictationTranscribeEnabled
+        ? undefined
+        : handleProviderDictationTranscribe,
+    }),
+    [
+      chatInputContextUsageUnavailable,
+      contextUsageIsEstimated,
+      contextUsedTokens,
+      contextWindowTokens,
+      dictationMode,
+      draftMessage,
+      executionControls,
+      handleProviderDictationTranscribe,
+      handleSlashCommand,
+      handleStop,
+      handleSubmit,
+      handleUnknownSlashCommand,
+      isDisabled,
+      placeholderText,
+      providerDictationAvailable,
+      providerDictationLikelySupported,
+      providerDictationTranscribeEnabled,
+      recognizedSlashCommands,
+      runtimeActivityCounts,
+      runtimeActivityDetails,
+      setDraftMessage,
+      showPermissionExecutionControl,
+      showSearchExecutionControl,
+      slashCommands,
+      submitDisabled,
+      submittedMessageHistory,
+      waitingForResponse,
+    ],
+  );
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden">
-      {blockedReason ? (
-        <div
-          role="alert"
-          data-testid="project-chat-thread-blocked-banner"
-          className="mx-auto mt-2 w-full max-w-[72rem] rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-600/70 dark:bg-amber-950/40 dark:text-amber-200"
-        >
-          {blockedReason}
-        </div>
-      ) : null}
-      {showEmptyState ? (
-        <div
-          className={`${chatWidthShellClassName} flex min-h-0 flex-1 flex-col`}
-          data-chat-width-shell="true"
-        >
-          <EmptyChatState
-            starterPrompts={visibleStarterPrompts}
-            disabled={isDisabled}
-            onStarterPrompt={(prompt) => {
-              void handleSubmit(prompt, []);
-            }}
-          />
-        </div>
-      ) : showConversationSearchEmptyState ? (
-        <div
-          className={`${chatWidthShellClassName} flex min-h-0 flex-1 items-center justify-center`}
-          data-chat-width-shell="true"
-        >
-          <p className="text-xs text-setta-500 dark:text-setta-400">
-            No messages match this filter.
-          </p>
-        </div>
-      ) : (
-        <ChatMessageList
-          messages={filteredConversationMessages}
-          allMessagesForToolResults={messages}
-          waitingForResponse={waitingForResponse}
-          toolCallArguments={toolCallArguments}
-          interruptedAssistantMessageIds={interruptedAssistantMessageIds}
-          activeSearchMessageId={activeConversationSearchMatchMessageId}
-          editDisabledReason={editDisabledReason}
-          onRedoMessage={handleRedoMessage}
-          onEditMessage={handleEditMessage}
-          onBranchSwitch={handleBranchSwitch}
-          branchInfoByMessage={branchInfoByMessage}
-          contentClassName={chatWidthShellClassName}
-        />
-      )}
-      <div className={chatWidthShellClassName} data-chat-width-shell="true">
-        <ChatInput
-          placeholderText={placeholderText}
-          waitingForResponse={waitingForResponse}
-          submitDisabled={submitDisabled}
-          disabled={isDisabled}
-          value={draftMessage}
-          onChange={setDraftMessage}
-          onSubmit={handleSubmit}
-          onStop={handleStop}
-          slashCommands={slashCommands}
-          recognizedSlashCommands={recognizedSlashCommands}
-          onSlashCommand={handleSlashCommand}
-          onUnknownSlashCommand={handleUnknownSlashCommand}
-          executionControls={executionControls}
-          executionControlVisibility={{
-            permissionMode: showPermissionExecutionControl,
-            search: showSearchExecutionControl,
-          }}
-          dictationMode={dictationMode}
-          dictationEnabledByProvider={providerDictationAvailable}
-          providerDictationLikelySupported={providerDictationLikelySupported}
-          contextWindowTokens={contextWindowTokens}
-          contextUsedTokens={contextUsedTokens}
-          contextUsageIsEstimated={contextUsageIsEstimated}
-          contextUsageUnavailable={chatInputContextUsageUnavailable}
-          submittedMessageHistory={submittedMessageHistory}
-          runtimeActivityCounts={runtimeActivityCounts}
-          runtimeActivityDetails={runtimeActivityDetails}
-          onProviderDictationTranscribe={
-            !providerDictationTranscribeEnabled
-              ? undefined
-              : handleProviderDictationTranscribe
-          }
-        />
-      </div>
-    </div>
+    <ProjectChatConversationSurface
+      blockedReason={blockedReason}
+      showEmptyState={showEmptyState}
+      showConversationSearchEmptyState={showConversationSearchEmptyState}
+      visibleStarterPrompts={visibleStarterPrompts}
+      isDisabled={isDisabled}
+      onStarterPrompt={handleStarterPrompt}
+      messageListProps={messageListProps}
+      chatInputProps={chatInputProps}
+    />
   );
 });
