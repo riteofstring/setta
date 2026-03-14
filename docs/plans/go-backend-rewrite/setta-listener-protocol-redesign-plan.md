@@ -49,16 +49,14 @@ Current state:
     scoped call metadata
   - authoritative `ListenerForceRefresh` follow-up after Go-owned
     `route_set_chat_section_state` calls on that route so chat section sync no
-    longer depends only on client-side heuristic patching
+    longer depends on client-side heuristic patching; the retained Python SDK
+    now waits on the correlated force-refresh `callId` instead
   - listener coverage and force-refresh reads/writes
   - listener websocket DTOs in `internal/realtime`
 - Python still owns:
   - local dependency-graph rebuilding and generated runtime state
   - remaining built-in listener endpoint dispatch outside the current
     manifest-backed `GoHTTPRoutes` subset
-  - remaining local mutation patching and authoritative patch/refresh behavior
-    in
-    `backend/setta/listeners/router_endpoint_local_updates.py`
   - share listener runtime coupling through
     `backend/setta/share/listener_runtime.py`
 
@@ -168,7 +166,8 @@ instead of generating runtime state code locally.
   - explicit full refresh instructions when not
 
 The goal is to remove `router_endpoint_local_updates.py`, not to recreate it
-in another form.
+in another form. The active `route_set_chat_section_state` path now meets that
+goal through correlated authoritative force-refresh handling.
 
 ### 5. Python Binding Ownership
 
@@ -216,8 +215,8 @@ listener tests pass without Python owning dependency graph or runtime state.
   manifest-backed `GoHTTPRoutes` subset to the remaining required listener
   endpoint surface.
 - Unify built-in and plugin listener endpoint invocation.
-- Replace local heuristic mutation patching with authoritative Go patch/refresh
-  results.
+- Replace any remaining local heuristic mutation patching with authoritative Go
+  patch/refresh results.
 
 Exit condition:
 built-in listener router calls no longer require Python backend dispatch or
@@ -274,8 +273,6 @@ Tests that should disappear when the transport leaves Python:
 - `tests/websockets/test_python_script_receiver.py`
 - `tests/websockets/test_python_script_receiver_app_mode.py`
 - `tests/websockets/test_python_script_receiver_share_mode.py`
-- Python-only local-update heuristic tests tied to
-  `router_endpoint_local_updates.py`
 
 ## Closeout Condition
 

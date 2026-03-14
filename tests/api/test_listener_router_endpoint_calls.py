@@ -11,11 +11,16 @@ from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
 )
 from setta.types.id import ID
-from setta.types.listener import ListenerRouterEndpointResultContent
+from setta.types.listener import (
+    ListenerErrorContent,
+    ListenerForceRefreshContent,
+    ListenerRouterEndpointResultContent,
+)
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import TextBlockSectionImpl
 from setta.types.websocket import (
+    WebsocketMsgListenerError,
     WebsocketMsgListenerRouterEndpointCall,
     WebsocketMsgListenerRouterEndpointResult,
 )
@@ -160,3 +165,111 @@ class TestListenerRouterEndpointCall:
             await call_task
         assert "listener_call_failed" in str(ctx.value)
         assert "boom" in str(ctx.value)
+
+    async def test_call_router_endpoint_waits_for_authoritative_force_refresh(
+        self,
+    ) -> None:
+        project_state = _build_project_state(ID("proj-router-refresh"))
+        listener = _build_listener(project_state)
+        sent_payloads: list[str] = []
+
+        async def capture(payload: str) -> None:
+            sent_payloads.append(payload)
+
+        listener._send_websocket_payload = capture
+        call_task = asyncio.create_task(
+            listener._call_router_endpoint(
+                "route_set_chat_section_state",
+                payload={
+                    "projectConfigId": project_state.projectConfig.id,
+                    "sectionId": "section-1",
+                    "state": {"messages": []},
+                },
+            )
+        )
+
+        await asyncio.sleep(0)
+
+        parsed_message = PythonScriptWebsocketMsgTypeAdapter.validate_json(
+            sent_payloads[0]
+        )
+        assert isinstance(parsed_message, WebsocketMsgListenerRouterEndpointCall)
+
+        listener._handle_router_endpoint_result(
+            WebsocketMsgListenerRouterEndpointResult(
+                content=ListenerRouterEndpointResultContent(
+                    projectConfigId=project_state.projectConfig.id,
+                    callId=parsed_message.content.callId,
+                    ok=True,
+                    result=None,
+                )
+            )
+        )
+
+        await asyncio.sleep(0)
+        assert not call_task.done()
+
+        await listener._handle_force_refresh(
+            ListenerForceRefreshContent(
+                callId=parsed_message.content.callId,
+                projectState=project_state,
+            )
+        )
+
+        assert await call_task is None
+
+    async def test_call_router_endpoint_surfaces_authoritative_refresh_failure(
+        self,
+    ) -> None:
+        project_state = _build_project_state(ID("proj-router-refresh-error"))
+        listener = _build_listener(project_state)
+        sent_payloads: list[str] = []
+
+        async def capture(payload: str) -> None:
+            sent_payloads.append(payload)
+
+        listener._send_websocket_payload = capture
+        call_task = asyncio.create_task(
+            listener._call_router_endpoint(
+                "route_set_chat_section_state",
+                payload={
+                    "projectConfigId": project_state.projectConfig.id,
+                    "sectionId": "section-1",
+                    "state": {"messages": []},
+                },
+            )
+        )
+
+        await asyncio.sleep(0)
+
+        parsed_message = PythonScriptWebsocketMsgTypeAdapter.validate_json(
+            sent_payloads[0]
+        )
+        assert isinstance(parsed_message, WebsocketMsgListenerRouterEndpointCall)
+
+        listener._handle_router_endpoint_result(
+            WebsocketMsgListenerRouterEndpointResult(
+                content=ListenerRouterEndpointResultContent(
+                    projectConfigId=project_state.projectConfig.id,
+                    callId=parsed_message.content.callId,
+                    ok=True,
+                    result=None,
+                )
+            )
+        )
+        listener._handle_listener_error(
+            WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="listener_refresh_failed",
+                    details={
+                        "callId": parsed_message.content.callId,
+                        "message": "snapshot rebuild failed",
+                    },
+                )
+            )
+        )
+
+        with pytest.raises(RuntimeError) as ctx:
+            await call_task
+        assert "listener_refresh_failed" in str(ctx.value)
+        assert "snapshot rebuild failed" in str(ctx.value)

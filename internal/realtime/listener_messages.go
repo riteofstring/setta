@@ -148,6 +148,7 @@ type ListenerDependencyEventMessage struct {
 type ListenerForceRefreshContent struct {
 	ProjectConfigID string          `json:"projectConfigId"`
 	ShareSessionID  string          `json:"shareSessionId,omitempty"`
+	CallID          string          `json:"callId,omitempty"`
 	ProjectState    json.RawMessage `json:"projectState,omitempty"`
 }
 

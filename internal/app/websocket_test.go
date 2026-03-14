@@ -2077,6 +2077,9 @@ func TestAppListenerWebsocketSetChatSectionStateTriggersAuthoritativeForceRefres
 	if forceRefreshContent.ProjectConfigID != "project-alpha" {
 		t.Fatalf("expected force refresh for project-alpha, got %#v", forceRefreshContent)
 	}
+	if forceRefreshContent.CallID != "call-set-chat-state" {
+		t.Fatalf("expected force refresh call id call-set-chat-state, got %#v", forceRefreshContent)
+	}
 
 	var refreshed projectview.SingleConfig
 	if err := json.Unmarshal(forceRefreshContent.ProjectState, &refreshed); err != nil {

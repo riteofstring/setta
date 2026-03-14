@@ -56,6 +56,7 @@ type EmitDependencyEventsBinaryParams struct {
 type ForceRefreshParams struct {
 	ProjectID           string
 	ShareSessionID      string
+	CallID              string
 	ProjectState        json.RawMessage
 	TargetConnectionIDs []string
 }
@@ -301,6 +302,7 @@ func (b *ListenerBroadcaster) SendForceRefresh(ctx context.Context, params Force
 		NewListenerForceRefreshMessage(ListenerForceRefreshContent{
 			ProjectConfigID: params.ProjectID,
 			ShareSessionID:  params.ShareSessionID,
+			CallID:          params.CallID,
 			ProjectState:    cloneRawMessage(params.ProjectState),
 		}),
 		targetConnectionIDs,

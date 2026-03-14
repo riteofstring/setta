@@ -928,11 +928,19 @@ func handleListenerRouterEndpointCall(
 	}
 
 	if listenerEndpointRequiresForceRefresh(endpointName) {
-		if err := sendListenerEndpointForceRefresh(ctx, info.Modes, projectID, endpointName, deps); err != nil {
+		if err := sendListenerEndpointForceRefresh(
+			ctx,
+			info.Modes,
+			projectID,
+			strings.TrimSpace(content.CallID),
+			endpointName,
+			deps,
+		); err != nil {
 			_ = sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
 				Error: "listener_refresh_failed",
 				Details: map[string]any{
 					"endpointName": endpointName,
+					"callId":       strings.TrimSpace(content.CallID),
 					"message":      err.Error(),
 				},
 			}, deps)
@@ -993,6 +1001,7 @@ func sendListenerEndpointForceRefresh(
 	ctx context.Context,
 	requestInfo modes.RequestInfo,
 	projectID string,
+	callID string,
 	endpointName string,
 	deps RouteDependencies,
 ) error {
@@ -1018,6 +1027,7 @@ func sendListenerEndpointForceRefresh(
 	_, err = deps.ListenerBroadcaster.SendForceRefresh(ctx, realtime.ForceRefreshParams{
 		ProjectID:      projectID,
 		ShareSessionID: requestInfo.ShareSessionID,
+		CallID:         strings.TrimSpace(callID),
 		ProjectState:   projectStatePayload,
 	})
 	return err

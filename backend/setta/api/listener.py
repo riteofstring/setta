@@ -31,14 +31,12 @@ from setta.auth.session import load_current_session_secret
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
     Node,
+    SectionNode,
 )
 from setta.code_gen.python.code_generator import PythonCodeGenerator
 from setta.code_gen.utils import GEN_CODE_CLASS_NAME, GEN_CODE_INSTANCE_NAME
 from setta.code_gen.value_mode import PythonValueMode
 from setta.frontend_affinity_token import parse_frontend_affinity_token
-from setta.listeners.router_endpoint_local_updates import (
-    build_local_router_endpoint_updates,
-)
 from setta.logging.config import configure_listener_logging
 from setta.logging.context import logging_context
 from setta.logging.tasks import spawn_background_task
@@ -50,6 +48,7 @@ from setta.types.dependency_key import (
     create_dep_key,
 )
 from setta.types.dependency_value import DependencyValueType
+from setta.types.dependency_value import FileReadDependencyValue, LiteralDependencyValue
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.generated.dependency_values import BaseDependencyValueUnion
 from setta.types.generated.unions import (
@@ -60,6 +59,7 @@ from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
 )
 from setta.types.helpers_lvl2 import get_meta_control_param_id
+from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
 from setta.types.listener import (
     DependencyEvent,
     ListenerDependencyEventContent,
@@ -75,9 +75,11 @@ from setta.types.listener import (
 )
 from setta.types.project_config import (
     ProjectCodegenLanguage,
+    SectionRepresentationMode,
     project_config_has_codegen_language,
 )
 from setta.types.project_state import ProjectStateSingleConfig
+from setta.types.section_impls import ChatSectionImpl, ChatSectionState
 from setta.types.routes import Route
 from setta.types.websocket import (
     WebsocketMsgListenerDependencyEvent,
@@ -100,7 +102,6 @@ from .scheduling import ListenerCallbackScheduler
 if TYPE_CHECKING:
     from websockets import ClientConnection
 
-    from setta.listeners.router_endpoint_local_updates import LocalDependencyUpdate
     from setta.types.id import ID
 
     from .hot_reload import ListenerHotReloader
@@ -128,6 +129,10 @@ def _sanitize_cookie_token(value: str) -> str:
     sanitized = _COOKIE_TOKEN_SANITIZE_RE.sub("_", value.strip())
     sanitized = re.sub(r"_+", "_", sanitized).strip("_")
     return sanitized
+
+
+def _listener_endpoint_requires_force_refresh(endpoint_name: str) -> bool:
+    return endpoint_name == "route_set_chat_section_state"
 
 
 # Worktree/dev helpers ---------------------------------------------------------
@@ -305,19 +310,62 @@ class ListenerDependencyIds:
 
 
 class ListenerDependencyValues:
-    def __init__(self, dependency_graph: DependencyGraph, state: Any) -> None:
+    def __init__(
+        self,
+        dependency_graph: DependencyGraph | None = None,
+        state: Any = _MISSING,
+        *,
+        dependency_graph_resolver: Callable[[], DependencyGraph | None] | None = None,
+        state_resolver: Callable[[], Any] | None = None,
+    ) -> None:
+        if dependency_graph_resolver is not None and dependency_graph is not None:
+            raise ValueError(
+                "ListenerDependencyValues accepts either dependency_graph or dependency_graph_resolver"
+            )
+        if dependency_graph_resolver is None and dependency_graph is None:
+            raise ValueError(
+                "ListenerDependencyValues requires dependency_graph or dependency_graph_resolver"
+            )
+        if state_resolver is not None and state is not _MISSING:
+            raise ValueError(
+                "ListenerDependencyValues accepts either state or state_resolver"
+            )
+        if state_resolver is None and state is _MISSING:
+            raise ValueError(
+                "ListenerDependencyValues requires state or state_resolver"
+            )
         self._dependency_graph = dependency_graph
+        self._dependency_graph_resolver = dependency_graph_resolver
         self._state = state
+        self._state_resolver = state_resolver
+
+    def _require_dependency_graph(self) -> DependencyGraph:
+        if self._dependency_graph_resolver is not None:
+            dependency_graph = self._dependency_graph_resolver()
+        else:
+            dependency_graph = self._dependency_graph
+        if dependency_graph is None:
+            raise RuntimeError("Listener dependency graph is unavailable")
+        return dependency_graph
+
+    def _require_state(self) -> Any:
+        if self._state_resolver is not None:
+            state = self._state_resolver()
+        else:
+            state = self._state
+        if state is _MISSING or state is None:
+            raise RuntimeError("Listener runtime state is unavailable")
+        return state
 
     def by_id(self, section_id: "ID", param_id: "ID | None" = None) -> Any:
         dep_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
-        graph = self._dependency_graph.graph
+        graph = self._require_dependency_graph().graph
         if dep_key not in graph:
             raise KeyError(
                 f"Unknown dependency id: sectionId={section_id} paramInfoId={param_id}"
             )
         name = graph[dep_key].full_path_name
-        return getattr(self._state, name)
+        return getattr(self._require_state(), name)
 
 
 ListenerDependencySpec = str | ListenerDependencyId | BaseDependencyKeyUnion
@@ -387,6 +435,9 @@ class SettaListener:
         self._callback_lock = asyncio.Lock()
         self._latest_persisted_snapshot: ProjectStateSingleConfig | None = None
         self._pending_router_endpoint_calls: dict[str, asyncio.Future[Any]] = {}
+        self._pending_router_endpoint_force_refreshes: dict[
+            str, asyncio.Future[None]
+        ] = {}
         self._router_endpoint_api: RouterEndpointAPI | None = None
         self._logging_configured = False
         self._auto_session_metadata: SessionMetadata | None = None
@@ -699,6 +750,20 @@ class SettaListener:
                                     f"Listener connection closed before call {call_id} completed"
                                 )
                             )
+                    if self._pending_router_endpoint_force_refreshes:
+                        pending_force_refreshes = list(
+                            self._pending_router_endpoint_force_refreshes.items()
+                        )
+                        self._pending_router_endpoint_force_refreshes = {}
+                        for call_id, future in pending_force_refreshes:
+                            if future.done():
+                                continue
+                            future.set_exception(
+                                RuntimeError(
+                                    "Listener connection closed before authoritative "
+                                    f"refresh for call {call_id} completed"
+                                )
+                            )
 
     def _parse_websocket_payload(self, payload: str | bytes) -> Any | None:
         """Parse raw websocket payloads into typed messages."""
@@ -853,6 +918,20 @@ class SettaListener:
 
     def _handle_listener_error(self, message: WebsocketMsgListenerError) -> None:
         """Surface listener errors."""
+        if message.content.error == "listener_refresh_failed" and isinstance(
+            message.content.details, dict
+        ):
+            raw_call_id = message.content.details.get("callId")
+            if isinstance(raw_call_id, str):
+                call_id = raw_call_id.strip()
+                future = self._pending_router_endpoint_force_refreshes.get(call_id)
+                if future is not None and not future.done():
+                    detail_suffix = ""
+                    if message.content.details is not None:
+                        detail_suffix = f" (details={message.content.details!r})"
+                    future.set_exception(
+                        RuntimeError(f"listener_refresh_failed{detail_suffix}")
+                    )
         detail_suffix = ""
         if message.content.details is not None:
             detail_suffix = f" (details={message.content.details!r})"
@@ -1208,15 +1287,15 @@ class SettaListener:
         for spec in self._callbacks.values():
             self._scheduler.reset(spec.callback_id)
             changed: dict[str, Any] = {}
-            mode = spec.dependency_mode
-            if mode is ListenerDependencyMode.REALTIME_ONLY:
-                continue
-
-            for dependency in spec.dependency_names:
+            for dep_key, dependency in zip(
+                spec.structured_dependencies, spec.dependency_names
+            ):
                 value = self._get_dependency_value(
+                    runtime_state,
                     runtime_state.s_instance,
                     dependency,
                     snapshot_values,
+                    dep_key=dep_key,
                 )
                 if value is _UNAVAILABLE:
                     continue
@@ -1224,6 +1303,10 @@ class SettaListener:
                 updated_cache[dependency] = value
                 if previous is _MISSING or value != previous:
                     changed[dependency] = value
+
+            mode = spec.dependency_mode
+            if mode is ListenerDependencyMode.REALTIME_ONLY:
+                continue
 
             if mode is ListenerDependencyMode.ALWAYS:
                 should_run = bool(changed) or spec.run_on_refresh
@@ -1307,25 +1390,103 @@ class SettaListener:
 
     def _get_dependency_value(
         self,
+        runtime_state: ListenerRuntimeState,
         s_instance: Any,
         dependency: str,
         snapshot_values: dict[str, Any],
+        *,
+        dep_key: BaseDependencyKeyUnion | None = None,
     ) -> Any:
         if dependency in snapshot_values:
             return snapshot_values[dependency]
         try:
             value = self._resolve_dependency_value(s_instance, dependency)
         except AttributeError as error:
-            logger.warning(
-                "Listener %s missing dependency %s during snapshot: %s",
-                self._log_identifier,
+            fallback_value = self._hydrate_missing_snapshot_dependency(
+                runtime_state,
                 dependency,
-                error,
+                dep_key=dep_key,
             )
-            snapshot_values[dependency] = _UNAVAILABLE
-            return _UNAVAILABLE
+            if fallback_value is _UNAVAILABLE:
+                logger.warning(
+                    "Listener %s missing dependency %s during snapshot: %s",
+                    self._log_identifier,
+                    dependency,
+                    error,
+                )
+                snapshot_values[dependency] = _UNAVAILABLE
+                return _UNAVAILABLE
+            snapshot_values[dependency] = fallback_value
+            return fallback_value
         snapshot_values[dependency] = value
         return value
+
+    def _hydrate_missing_snapshot_dependency(
+        self,
+        runtime_state: ListenerRuntimeState,
+        dependency: str,
+        *,
+        dep_key: BaseDependencyKeyUnion | None,
+    ) -> Any:
+        if dep_key is None:
+            return _UNAVAILABLE
+        if not isinstance(dep_key, SectionDependencyKey):
+            return _UNAVAILABLE
+        node = runtime_state.dependency_graph.graph.get(dep_key)
+        if not isinstance(node, SectionNode):
+            return _UNAVAILABLE
+        dependency_value = self._build_snapshot_dependency_value(
+            runtime_state.project_state,
+            dep_key=dep_key,
+            node=node,
+        )
+        if dependency_value is None:
+            return _UNAVAILABLE
+        if runtime_state.s_instance is None:
+            return _UNAVAILABLE
+        return self._set_dependency_value(
+            runtime_state,
+            runtime_state.s_instance,
+            dependency,
+            dependency_value,
+            node,
+        )
+
+    def _build_snapshot_dependency_value(
+        self,
+        project_state: ProjectStateSingleConfig,
+        *,
+        dep_key: SectionDependencyKey,
+        node: SectionNode,
+    ) -> BaseDependencyValueUnion | None:
+        section_id = dep_key.sectionId
+        try:
+            chat_impl = get_curr_effective_section_impl_with_type_guard(
+                project_state,
+                section_id,
+                ChatSectionImpl,
+            )
+        except (KeyError, TypeError, ValueError):
+            return None
+
+        state = ChatSectionState(
+            messages=chat_impl.messages,
+            inputText=chat_impl.inputText,
+            waitingForResponse=chat_impl.waitingForResponse,
+            toolCallArguments=chat_impl.toolCallArguments,
+            activeBranchId=chat_impl.activeBranchId,
+            branches=chat_impl.branches,
+        )
+        if node.representation is SectionRepresentationMode.expression:
+            return LiteralDependencyValue(payload=repr(state.model_dump(mode="json")))
+        if chat_impl.chatId is None:
+            return LiteralDependencyValue(payload=repr(state.model_dump(mode="json")))
+        chat_path = C.SETTA_FILES_FOLDER / "chats" / f"{chat_impl.chatId}.json"
+        if node.representation is SectionRepresentationMode.file_read:
+            return FileReadDependencyValue(str(chat_path))
+        if node.representation is SectionRepresentationMode.file_path:
+            return LiteralDependencyValue(str(chat_path))
+        return None
 
     def _resolve_dependency_value(self, current: Any, dependency: str) -> Any:
         return getattr(current, dependency)
@@ -1578,27 +1739,43 @@ class SettaListener:
     async def _handle_force_refresh(self, content: ListenerForceRefreshContent) -> None:
         """Handle force refresh payloads by replaying the latest snapshot."""
         self._validate_sequence_session_id(content.shareSessionId)
-        project_state = content.projectState
-        if project_state is not None:
-            await self._refresh_from_snapshot(
+        completed = False
+        try:
+            project_state = content.projectState
+            if project_state is not None:
+                await self._refresh_from_snapshot(
+                    project_state,
+                    share_session_id=content.shareSessionId,
+                )
+                completed = True
+                return
+            project_state = self._latest_persisted_snapshot
+            if project_state is None:
+                logger.warning(
+                    "Listener %s received force refresh without cached project state",
+                    self._log_identifier,
+                )
+                self._reset_realtime_sequence()
+                completed = True
+                return
+
+            await self._process_snapshot(
                 project_state,
+                refresh_kind="force_refresh",
                 share_session_id=content.shareSessionId,
             )
-            return
-        project_state = self._latest_persisted_snapshot
-        if project_state is None:
-            logger.warning(
-                "Listener %s received force refresh without cached project state",
-                self._log_identifier,
-            )
-            self._reset_realtime_sequence()
-            return
-
-        await self._process_snapshot(
-            project_state,
-            refresh_kind="force_refresh",
-            share_session_id=content.shareSessionId,
-        )
+            completed = True
+        finally:
+            if completed:
+                raw_call_id = content.callId
+                if raw_call_id is not None:
+                    call_id = raw_call_id.strip()
+                    if call_id:
+                        future = self._pending_router_endpoint_force_refreshes.get(
+                            call_id
+                        )
+                        if future is not None and not future.done():
+                            future.set_result(None)
 
     async def emit_to_frontend(
         self,
@@ -1660,6 +1837,10 @@ class SettaListener:
         loop = asyncio.get_running_loop()
         future: asyncio.Future[Any] = loop.create_future()
         self._pending_router_endpoint_calls[call_id] = future
+        refresh_future: asyncio.Future[None] | None = None
+        if _listener_endpoint_requires_force_refresh(endpoint_name):
+            refresh_future = loop.create_future()
+            self._pending_router_endpoint_force_refreshes[call_id] = refresh_future
         project_config_id = self._require_project_id()
         serialized_payload = self._serialize_router_endpoint_payload(payload)
         message = WebsocketMsgListenerRouterEndpointCall(
@@ -1676,57 +1857,16 @@ class SettaListener:
             endpoint_name,
             call_id,
         )
-        await self._send_websocket_payload(message.model_dump_json())
         try:
+            await self._send_websocket_payload(message.model_dump_json())
             result = await future
+            if refresh_future is not None:
+                await refresh_future
         finally:
             self._pending_router_endpoint_calls.pop(call_id, None)
-        runtime_state = self._runtime_state
-        updates = (
-            build_local_router_endpoint_updates(
-                endpoint_name=endpoint_name,
-                payload=serialized_payload,
-                dependency_graph=runtime_state.dependency_graph,
-                project_state=runtime_state.project_state,
-            )
-            if runtime_state is not None
-            else []
-        )
-        self._apply_local_dependency_updates(updates=updates)
+            if refresh_future is not None:
+                self._pending_router_endpoint_force_refreshes.pop(call_id, None)
         return result
-
-    def _apply_local_dependency_updates(
-        self,
-        *,
-        updates: list["LocalDependencyUpdate"],
-    ) -> None:
-        runtime_state = self._runtime_state
-        if runtime_state is None or runtime_state.s_instance is None:
-            return
-        if not updates:
-            return
-        graph = runtime_state.dependency_graph.graph
-        for update in updates:
-            dep_key = update.dependency_key
-            if dep_key not in graph:
-                if isinstance(dep_key, SectionDependencyKey):
-                    raise KeyError(
-                        f"Unknown dependency id: sectionId={dep_key.sectionId} paramInfoId=None"
-                    )
-                if isinstance(dep_key, SectionParamDependencyKey):
-                    raise KeyError(
-                        f"Unknown dependency id: sectionId={dep_key.sectionId} paramInfoId={dep_key.codeObjId}"
-                    )
-                raise KeyError(f"Unknown dependency id: {dep_key}")
-            node = graph[dep_key]
-            hydrated = self._set_dependency_value(
-                runtime_state,
-                runtime_state.s_instance,
-                node.full_path_name,
-                update.value,
-                node,
-            )
-            self._dependency_cache[node.full_path_name] = hydrated
 
     def _serialize_listener_artifact_updates(
         self,
@@ -1856,7 +1996,8 @@ class SettaListener:
             runtime_state.dependency_graph, runtime_state.project_state
         )
         values = ListenerDependencyValues(
-            runtime_state.dependency_graph, runtime_state.s_instance
+            dependency_graph_resolver=self._current_runtime_state_dependency_graph,
+            state_resolver=self._current_runtime_state_instance,
         )
         return ListenerCallbackContext(
             changed=changed,
@@ -1871,6 +2012,18 @@ class SettaListener:
             ids=ids,
             values=values,
         )
+
+    def _current_runtime_state_dependency_graph(self) -> DependencyGraph | None:
+        runtime_state = self._runtime_state
+        if runtime_state is None:
+            return None
+        return runtime_state.dependency_graph
+
+    def _current_runtime_state_instance(self) -> Any:
+        runtime_state = self._runtime_state
+        if runtime_state is None:
+            return None
+        return runtime_state.s_instance
 
     def _build_changed_by_id(
         self,
@@ -1968,11 +2121,13 @@ class SettaListener:
                 continue
 
             changed: dict[str, Any] = {}
-            for dependency in dependencies:
+            for dep_key, dependency in zip(spec.structured_dependencies, dependencies):
                 value = self._get_dependency_value(
+                    runtime_state,
                     state_instance,
                     dependency,
                     snapshot_values,
+                    dep_key=dep_key,
                 )
                 if value is _UNAVAILABLE:
                     continue
