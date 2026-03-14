@@ -196,3 +196,37 @@ module map and placement guide while this cleanup progresses.
     submission/edit orchestration and pending-surface setup into a dedicated
     submission module, leaving `ai.ts` focused on streaming reducers and
     optimistic message reconciliation.
+
+## 2026-03-14 15:21:29 PDT
+
+- Slice completed: extracted chat submission/edit orchestration and
+  surface-scoped pending draft state out of `frontend/src/state/actions/ai.ts`
+- Key files touched:
+  - `frontend/src/state/actions/aiChatSubmission.ts`
+  - `frontend/src/state/actions/aiPendingChatState.ts`
+  - `frontend/src/state/actions/aiPendingChatState.test.ts`
+  - `frontend/src/state/actions/ai.ts`
+  - `frontend/src/state/actions/aiSubmitMessage.test.ts`
+  - `frontend/src/state/actions/aiEditedMessage.test.ts`
+  - `frontend/src/state/actions/aiChatPromotion.test.ts`
+  - `frontend/src/state/actions/aiWebsocketAffinitySubmit.test.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
+  - `frontend/src/components/Section/Layouts/ChatArea.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/aiPendingChatState.test.ts src/state/actions/aiSubmitMessage.test.ts src/state/actions/aiEditedMessage.test.ts src/state/actions/aiChatPromotion.test.ts src/state/actions/aiWebsocketAffinitySubmit.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.test.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChat.multiSurface.integration.test.tsx src/components/Section/Layouts/ChatArea.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/actions/ai.ts src/state/actions/aiChatSubmission.ts src/state/actions/aiPendingChatState.ts src/state/actions/aiPendingChatState.test.ts src/state/actions/aiSubmitMessage.test.ts src/state/actions/aiEditedMessage.test.ts src/state/actions/aiChatPromotion.test.ts src/state/actions/aiWebsocketAffinitySubmit.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx src/components/Section/Layouts/ChatArea.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split and
+    did not change frontend rendering behavior.
+- Commit hash:
+  - `440ed86c5`
+- Next highest-value unblocked slice:
+  - Keep shrinking `frontend/src/state/actions/ai.ts` by moving streaming
+    reducers plus tool-preview/app-spec patch handling into a dedicated
+    streaming module, leaving `ai.ts` as a thin compatibility surface or
+    retiring it entirely.
