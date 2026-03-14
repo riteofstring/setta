@@ -143,6 +143,9 @@
     transcription session/audio config models plus the explicit
     `/realtime?intent=transcription` connection shape and
     `transcription_session.update` startup payload
+  - that startup payload now also sends `turn_detection: null` explicitly,
+    because Setta owns speech-turn boundaries in this slice and always sends
+    `input_audio_buffer.commit` after each append
   - the saved local OpenAI references are currently split between the older
     nested `session.update` example and the newer transcription-session flow,
     so the runtime now follows the speech-to-text guide plus SDK constants on
@@ -180,6 +183,10 @@
   outbound source of truth because it matches the speech-to-text guide and SDK
   constants, but readiness handling still accepts either documented ack event
   name
+- the local OpenAI references explicitly allow `turn_detection: null` for
+  manual commit mode, and Setta now sends that null field on startup because
+  the runtime already owns turn boundaries with explicit
+  `input_audio_buffer.commit` writes
 - the saved local OpenAI docs are also split on the streaming event family;
   the repo-owned runtime now accepts both the older
   `conversation.item.input_audio_transcription.*` events and the current
