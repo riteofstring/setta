@@ -309,3 +309,47 @@ module map and placement guide while this cleanup progresses.
   - Extract the remaining app/share/session and app-preview stores out of
     `frontend/src/state/definitions.ts`, leaving `definitions.ts` as a thinner
     index around domain-owned store modules.
+
+## 2026-03-14 15:57:45 PDT
+
+- Slice completed: extracted app definition/config/preview stores plus
+  session/share/server-mode metadata stores out of
+  `frontend/src/state/definitions.ts` into
+  `frontend/src/state/stores/appStores.ts` and
+  `frontend/src/state/stores/sessionStores.ts`
+- Key files touched:
+  - `frontend/src/state/stores/appStores.ts`
+  - `frontend/src/state/stores/sessionStores.ts`
+  - `frontend/src/state/stores/appStores.test.ts`
+  - `frontend/src/state/stores/sessionStores.test.ts`
+  - `frontend/src/state/definitions.ts`
+  - `frontend/src/state/actions/app.ts`
+  - `frontend/src/state/actions/share.ts`
+  - `frontend/src/state/actions/project/loadProject.ts`
+  - `frontend/src/state/actions/aiChatStreaming.ts`
+  - `frontend/src/state/actions/websocketReceive.ts`
+  - `frontend/src/components/App/appRegistry.tsx`
+  - `frontend/src/components/Pages/App/AppPage.tsx`
+  - `frontend/src/components/Pages/Project/AppPreview.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectConfigs.tsx`
+  - `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx`
+  - `frontend/src/components/Modals/WorkspaceSwitcherModal/WorkspaceSwitcherModal.tsx`
+  - `frontend/src/components/AppHeader/ProjectNav.tsx`
+  - `frontend/src/utils/endpointUtils.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/stores/appStores.test.ts src/state/stores/sessionStores.test.ts src/utils/endpointUtils.test.ts src/state/actions/serverMode.test.ts src/state/actions/project/loadProject.test.ts src/state/actions/aiAppSpecApply.test.ts src/state/actions/aiAppSpecPatchPreview.test.ts src/components/Pages/Project/AppPreview.test.tsx src/components/Pages/App/AppPage.test.tsx src/components/App/AppRenderer.test.tsx src/components/App/AppRenderer.policy.test.tsx src/components/Panes/Overview/ProjectConfigs.test.tsx src/components/Modals/WorkspaceSwitcherModal/WorkspaceSwitcherModal.test.tsx src/components/AppHeader/ProjectNav.test.tsx src/components/Modals/FileMenuModal/utils.test.tsx src/components/AppHeader/PluginRestartBanner.test.tsx`
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/BackendLogEventsArea.test.ts`
+  - `(cd frontend && git diff --name-only -- frontend/src docs/plans | grep -E '\\.(ts|tsx|md)$' | sed -e 's#^frontend/##' -e 's#^docs/#../docs/#' | xargs pnpm exec prettier --check)`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/store ownership split and
+    did not change frontend rendering behavior.
+- Commit hash:
+  - `239fa4b79`
+- Next highest-value unblocked slice:
+  - Extract the remaining UI-chrome/layout, browser, and local-editor stores
+    out of `frontend/src/state/definitions.ts` so it can shrink toward a thin
+    compatibility index instead of a shared default landing zone.
