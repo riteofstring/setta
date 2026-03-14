@@ -1155,3 +1155,31 @@ module map and placement guide while this cleanup progresses.
   - Continue splitting `frontend/src/state/actions/aiChatStreaming.ts` by
     extracting chat-section stream reconciliation and finalized-assistant merge
     helpers, leaving `receiveLLMResponseChunk` as a thinner orchestration layer.
+
+## 2026-03-14 20:46:26 PDT
+
+- Slice completed: extracted AI chat streaming message reducers and section-state reconciliation
+- Key files touched:
+  - `frontend/src/state/actions/aiChatStreaming.ts`
+  - `frontend/src/state/actions/aiChatStreamingTools.ts`
+  - `frontend/src/state/actions/aiChatStreamingMessages.ts`
+  - `frontend/src/state/actions/aiChatStreamingMessages.test.ts`
+  - `frontend/src/state/actions/aiChatStreamingSectionState.ts`
+  - `frontend/src/state/actions/aiChatStreamingSectionState.test.ts`
+  - `frontend/src/state/actions/aiSectionStreaming.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/aiChatStreamingMessages.test.ts src/state/actions/aiChatStreamingSectionState.test.ts src/state/actions/aiChatStreamingTools.test.ts src/state/actions/aiSectionStreaming.test.ts src/state/actions/aiStreamingPersistence.test.ts src/state/actions/aiAppSpecPatchPreview.test.ts src/state/actions/aiAppSpecApply.test.ts src/state/actions/aiWaitingForResponse.test.ts src/state/actions/aiStopProjectChat.test.ts src/state/actions/aiSubmitMessage.test.ts src/state/actions/aiChatPromotion.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/aiChatStreaming.ts src/state/actions/aiChatStreamingMessages.ts src/state/actions/aiChatStreamingMessages.test.ts src/state/actions/aiChatStreamingSectionState.ts src/state/actions/aiChatStreamingSectionState.test.ts src/state/actions/aiChatStreamingTools.ts src/state/actions/aiSectionStreaming.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `92a558283`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/projectChatThreads.ts`, now the largest
+    authored state hotspot, into clearer normalization/undo helpers plus
+    thread/group mutation modules.
