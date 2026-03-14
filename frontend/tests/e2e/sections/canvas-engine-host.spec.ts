@@ -3712,11 +3712,9 @@ async function resolveDataHandleScreenPoint(
   sectionId: string,
   handleType: "source" | "target",
 ): Promise<WorldPoint> {
-  const sectionBounds = await host
-    .locator(`[data-canvas-engine-dom-island="${sectionId}"]`)
-    .boundingBox();
+  const sectionBounds = await resolveMountedSectionBounds(host, sectionId);
   if (!sectionBounds) {
-    throw new Error(`Missing DOM-island bounds for section ${sectionId}.`);
+    throw new Error(`Missing mounted section bounds for section ${sectionId}.`);
   }
   return {
     x:
@@ -3745,11 +3743,9 @@ async function resolveAgenticHandleScreenPoint(
   sectionId: string,
   side: "source" | "target",
 ): Promise<WorldPoint> {
-  const sectionBounds = await host
-    .locator(`[data-canvas-engine-dom-island="${sectionId}"]`)
-    .boundingBox();
+  const sectionBounds = await resolveMountedSectionBounds(host, sectionId);
   if (!sectionBounds) {
-    throw new Error(`Missing DOM-island bounds for section ${sectionId}.`);
+    throw new Error(`Missing mounted section bounds for section ${sectionId}.`);
   }
   const zoom = (await readCamera(host)).zoom;
   return {
@@ -3761,6 +3757,30 @@ async function resolveAgenticHandleScreenPoint(
         : sectionBounds.x - AGENTIC_HANDLE_CENTER_OFFSET_WORLD * zoom,
     y: sectionBounds.y + sectionBounds.height / 2,
   };
+}
+
+async function resolveMountedSectionBounds(
+  host: Locator,
+  sectionId: string,
+): Promise<{
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+} | null> {
+  const domIsland = host
+    .locator(`[data-canvas-engine-dom-island="${sectionId}"]`)
+    .first();
+  if ((await domIsland.count()) > 0) {
+    return await domIsland.boundingBox();
+  }
+  const nestedSection = host
+    .locator(`section[data-section-id="${sectionId}"]`)
+    .first();
+  if ((await nestedSection.count()) === 0) {
+    return null;
+  }
+  return await nestedSection.boundingBox();
 }
 
 async function createAgenticEdge({

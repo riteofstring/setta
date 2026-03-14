@@ -1056,6 +1056,101 @@ describe("CanvasEngineHost", () => {
     expect(setEdgesSpy).toHaveBeenCalledOnce();
   });
 
+  it("hovers a cached nested data edge after nested dom nodes disappear", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-12T12:00:00Z"));
+
+    seedNestedSectionsWithDataEdge();
+
+    await act(async () => {
+      root.render(<CanvasEngineHost />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const engineHost = host.querySelector(
+      '[data-canvas-engine-host="v1"]',
+    ) as HTMLDivElement | null;
+    if (!engineHost) {
+      throw new Error("Canvas engine host failed to render.");
+    }
+    setEngineHostBounds(engineHost);
+
+    const domIsland = host.querySelector(
+      '[data-canvas-engine-dom-island="group-a"]',
+    ) as HTMLDivElement | null;
+    if (!domIsland) {
+      throw new Error("Missing DOM island for group-a.");
+    }
+    setElementBounds(domIsland, { x: 80, y: 60, width: 320, height: 220 });
+
+    const sourceSection = document.createElement("section");
+    sourceSection.setAttribute("data-section-id", "child-a");
+    setElementBounds(sourceSection, { x: 120, y: 96, width: 180, height: 88 });
+    domIsland.appendChild(sourceSection);
+
+    const targetSection = document.createElement("section");
+    targetSection.setAttribute("data-section-id", "child-b");
+    setElementBounds(targetSection, { x: 320, y: 96, width: 180, height: 88 });
+    domIsland.appendChild(targetSection);
+
+    await dispatchWheelEvent(engineHost, {
+      clientX: 320,
+      clientY: 180,
+      ctrlKey: true,
+      deltaY: -48,
+    });
+
+    expect(engineHost.dataset.canvasEngineNestedPreviewCount).toBe("2");
+    expect(engineHost.dataset.canvasEngineVisibleResolvedDataEdgeCount).toBe(
+      "1",
+    );
+    expect(engineHost.dataset.canvasEngineDomIslandMountedCount).toBe("1");
+
+    for (let index = 0; index < 32; index += 1) {
+      if (readEngineHostCamera(engineHost).zoom <= 0.11) {
+        break;
+      }
+      await dispatchWheelEvent(engineHost, {
+        clientX: 320,
+        clientY: 180,
+        ctrlKey: true,
+        deltaY: 120,
+      });
+    }
+
+    expect(readEngineHostCamera(engineHost).zoom).toBeLessThanOrEqual(0.11);
+    expect(engineHost.dataset.canvasEngineDomIslandRetainedCount).toBe("1");
+
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+
+    expect(engineHost.dataset.canvasEngineDomIslandMountedCount).toBe("0");
+    expect(engineHost.dataset.canvasEngineNestedPreviewCount).toBe("2");
+    expect(engineHost.dataset.canvasEngineVisibleResolvedDataEdgeCount).toBe(
+      "1",
+    );
+
+    const camera = readEngineHostCamera(engineHost);
+    const edgeMidpointClientX = (300 - camera.x) * camera.zoom;
+    const edgeMidpointClientY = (140 - camera.y) * camera.zoom;
+
+    await dispatchPointerEvent(engineHost, "pointermove", {
+      button: 0,
+      clientX: edgeMidpointClientX,
+      clientY: edgeMidpointClientY,
+      pointerId: 1,
+    });
+
+    expect(engineHost.dataset.canvasEngineHoveredEdgeActive).toBe("true");
+    expect(engineHost.dataset.canvasEngineHoveredEdgeKind).toBe("data");
+    expect(engineHost.dataset.canvasEngineHoveredEdgeId).toBe("edge-data-1");
+  });
+
   it("drags a top-level section and persists the updated layout", async () => {
     const layoutSpy = vi
       .spyOn(endpoints, "route_set_top_level_section_layout")
@@ -1673,6 +1768,18 @@ function setElementBounds(
   });
 }
 
+function readEngineHostCamera(target: HTMLElement): {
+  x: number;
+  y: number;
+  zoom: number;
+} {
+  return {
+    x: Number(target.dataset.canvasEngineCameraX ?? "0"),
+    y: Number(target.dataset.canvasEngineCameraY ?? "0"),
+    zoom: Number(target.dataset.canvasEngineCameraZoom ?? "1"),
+  };
+}
+
 function seedResizableCallableSection(sectionId: string) {
   useProjectState.setState((state) => {
     state.projectConfig.id = "project-a";
@@ -1805,6 +1912,111 @@ function seedSectionsWithDataEdge({
         side: "left",
         x: 420,
         y: 106,
+      },
+    };
+  });
+}
+
+function seedNestedSectionsWithDataEdge() {
+  useProjectState.setState((state) => {
+    state.projectConfig.id = "project-a";
+    state.projectConfig.topLevelSections = {
+      "group-a": {
+        x: 80,
+        y: 60,
+        zIndex: 0,
+        w: 320,
+        h: 220,
+      },
+    };
+    state.projectConfig.sectionVariantMap = {
+      "group-a": "variant-group-a",
+      "child-a": "variant-child-a",
+      "child-b": "variant-child-b",
+    };
+    state.projectConfig.edges = [
+      {
+        id: "edge-data-1",
+        sourceSectionId: "child-a",
+        sourceVariantId: "variant-child-a",
+        sourcePortId: "out-a",
+        targetSectionId: "child-b",
+        targetVariantId: "variant-child-b",
+        targetPortId: "in-b",
+        type: "default",
+        label: null,
+        style: null,
+        animated: false,
+        hidden: false,
+        zIndex: 0,
+        data: null,
+        selected: false,
+      },
+    ];
+    state.projectConfig.agenticEdges = [];
+    state.parentSectionMap = {
+      "group-a": null,
+      "child-a": "group-a",
+      "child-b": "group-a",
+    };
+    state.sections["group-a"] = createCore({ id: "group-a" });
+    state.sections["child-a"] = createCore({ id: "child-a" });
+    state.sections["child-b"] = createCore({ id: "child-b" });
+    state.sectionVariants["variant-group-a"] = createVariant({
+      id: "variant-group-a",
+      impl: "impl-group-a",
+      nonPresetImpls: [],
+    });
+    state.sectionVariants["variant-child-a"] = createVariant({
+      id: "variant-child-a",
+      impl: "impl-child-a",
+      nonPresetImpls: [],
+    });
+    state.sectionVariants["variant-child-b"] = createVariant({
+      id: "variant-child-b",
+      impl: "impl-child-b",
+      nonPresetImpls: [],
+    });
+    state.sectionImpls["impl-group-a"] = createCallableSectionImpl(
+      createUserDefaultCallableSectionImpl(),
+      {
+        id: "impl-group-a",
+      },
+    );
+    state.sectionImpls["impl-child-a"] = createCallableSectionImpl(
+      createUserDefaultCallableSectionImpl(),
+      {
+        id: "impl-child-a",
+        edgeInputParams: [],
+        edgeOutputPorts: [{ id: "out-a", accessor: "output" }],
+      },
+    );
+    state.sectionImpls["impl-child-b"] = createCallableSectionImpl(
+      createUserDefaultCallableSectionImpl(),
+      {
+        id: "impl-child-b",
+        edgeInputParams: ["in-b"],
+        edgeOutputPorts: [],
+      },
+    );
+  });
+  useEdgeHandleRegistry.setState((state) => {
+    state.positions = {
+      [makeEdgeHandleKey("child-a", "out-a", "source")]: {
+        sectionId: "child-a",
+        portId: "out-a",
+        type: "source",
+        side: "right",
+        x: 300,
+        y: 140,
+      },
+      [makeEdgeHandleKey("child-b", "in-b", "target")]: {
+        sectionId: "child-b",
+        portId: "in-b",
+        type: "target",
+        side: "left",
+        x: 320,
+        y: 140,
       },
     };
   });
