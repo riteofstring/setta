@@ -11,7 +11,7 @@ from setta.types.section_impls import (
 
 
 @dataclass
-class ProjectStateSummaryParam:  # setta-convert-pydantic-to-js: skip
+class ProjectStateSummaryParam:
     """Lightweight description of a top-level section parameter."""
 
     paramId: ID
@@ -25,7 +25,7 @@ class ProjectStateSummaryParam:  # setta-convert-pydantic-to-js: skip
 
 
 @dataclass
-class ProjectStateSummarySection:  # setta-convert-pydantic-to-js: skip
+class ProjectStateSummarySection:
     """Minimal layout + status snapshot for a section."""
 
     sectionId: ID
@@ -50,7 +50,7 @@ class ProjectStateSummarySection:  # setta-convert-pydantic-to-js: skip
 
 
 @dataclass
-class ProjectStateSummary:  # setta-convert-pydantic-to-js: skip
+class ProjectStateSummary:
     """High-level snapshot tailored for MCP agents."""
 
     projectConfig: ProjectConfig
