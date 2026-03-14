@@ -71,7 +71,6 @@ class CodegenTargetsProjectManager(BaseProjectManager):
         json_source,
         code_files,
         initial_backend: ProjectStateBackend,
-        plugin_manager: object | None = None,
     ):
         self._initial_backend = initial_backend
         super().__init__(
@@ -84,7 +83,6 @@ class CodegenTargetsProjectManager(BaseProjectManager):
             artifacts,
             json_source,
             code_files,
-            plugin_manager=plugin_manager,
         )
 
     def load_initial_state(self) -> ProjectStateBackend:

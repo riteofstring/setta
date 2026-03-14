@@ -480,9 +480,6 @@ from setta.utils.paths import get_setta_paths, normalize_workspace_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 
-if TYPE_CHECKING:
-    from setta.plugins.manager import PluginManager
-
 logger = logging.getLogger(__name__)
 
 
@@ -647,7 +644,6 @@ class BaseProjectManager(ABC):
         artifacts: Artifacts,
         json_source: JSONSource,
         code_files: CodeFiles,
-        plugin_manager: "PluginManager | None" = None,
     ):
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = websocket_msg_handler
@@ -658,7 +654,6 @@ class BaseProjectManager(ABC):
         self.artifacts = artifacts
         self.json_source = json_source
         self.code_files = code_files
-        self.plugin_manager = plugin_manager
         self._file_watcher_category_prefix = f"{type(self).__name__}:{id(self)}"
         self.history = History(self.load_initial_state())
         watch_loop = None

@@ -553,3 +553,13 @@ tests now pass, including schema-backed plugin search/read/write and
 plugin-unavailable vs setting-not-found behavior. This narrows the remaining
 Python plugin blocker away from UI-setting flows and further toward the
 standalone Python plugin manager/worker runtime itself.
+
+A seventeenth follow-up rewrite step removed dead Python `plugin_manager`
+threading from the legacy project-manager stack. The Python share/session
+project-manager path no longer accepts or stores a plugin manager through
+`BaseProjectManager`, `SessionProjectManager`, or `ProjectManagerSwitcher`, and
+the dead tests that only asserted that constructor plumbing were removed. The
+focused `tests/project_state` and broader share/server-state checks still pass.
+This narrows the remaining Python plugin blocker away from ancillary
+project-manager wiring and leaves the standalone Python plugin manager/worker
+runtime as the primary remaining backend-ownership tail in this area.
