@@ -22,7 +22,6 @@ import {
 import { useProjectState } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
-import { post } from "utils/endpointUtils";
 import { route_set_param_entered_value } from "utils/generatedEndpoints";
 import type {
   BaseCodeObjImplUnion,
@@ -48,7 +47,7 @@ import {
   isBaseChildlessCodeObjImpl,
 } from "utils/generatedTypes";
 import { shouldEmitRealtimeValue } from "utils/paramValue";
-import { buildSettaApiPayload } from "utils/settaApiPresets";
+import { sendButtonSettaRequest } from "./settaApiAction";
 
 type ButtonRequestConfig = Pick<
   ButtonParamCodeObjImpl,
@@ -459,16 +458,4 @@ function sendButtonHttpRequest(config: ButtonRequestConfig) {
     headers,
     body,
   });
-}
-
-function sendButtonSettaRequest(config: ButtonRequestConfig) {
-  const route = config.requestUrl.trim();
-  if (route === "") {
-    return;
-  }
-  // Button-triggered Setta API calls intentionally allow custom user-entered
-  // routes in addition to known presets, so this stays on the low-level post()
-  // boundary instead of a fail-closed generated endpoint wrapper.
-  const payload = buildSettaApiPayload(route, config.requestBody);
-  void post(route, payload);
 }

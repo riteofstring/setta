@@ -217,10 +217,11 @@ Current status:
   cannot silently reintroduce a handwritten contract side surface
 - the validation suite now also checks that direct `get` / `post` /
   `getBinary` helper imports stay confined to `generatedEndpoints.ts` plus
-  the remaining intentional dynamic Setta API button path in
-  `MetaControlArea`; that button action still allows arbitrary custom route
-  strings in addition to preset routes, so it is not yet representable as a
-  fail-closed generated endpoint wrapper without changing product behavior
+  the remaining intentional dynamic Setta API button helper in
+  `frontend/src/components/Section/Layouts/settaApiAction.ts`; that action
+  still allows arbitrary custom route strings in addition to preset routes,
+  so it is not yet representable as a fail-closed generated endpoint wrapper
+  without changing product behavior
 - `generatedRoutes.ts` now also emits canonical websocket route helpers for
   `/ws/frontend`, `/ws/listeners/{listenerID}`, and
   `/ws/terminals/{projectID}/{sectionID}`, so active websocket callers no
@@ -242,11 +243,12 @@ Current status:
   instead of importing the broad `GoHTTPRoutes` constant bag directly, so the
   endpoint wrapper layer shares the same helper-owned boundary as runtime
   callers
-- the remaining intentional dynamic Setta API button path in
-  `MetaControlArea` now has focused component coverage proving both custom
-  route passthrough and preset-body merge behavior over the low-level
-  `post()` boundary, so that explicit exception stays documented and
-  behavior-backed rather than becoming an untested fallback seam
+- the remaining intentional dynamic Setta API button path now flows through
+  `frontend/src/components/Section/Layouts/settaApiAction.ts`, with focused
+  `MetaControlArea` coverage still proving both custom route passthrough and
+  preset-body merge behavior over that low-level `post()` boundary, so the
+  explicit exception stays documented and behavior-backed rather than becoming
+  an untested fallback seam
 - support-layer frontend routing now uses generated Go route helpers for the
   API prefix, launcher-origin policy map, and fixed Setta API presets, so
   non-test runtime code no longer imports the broad legacy `RouteEnum` surface
@@ -298,8 +300,8 @@ Current status:
   thin HTTP verb helpers plus error parsing instead of remaining the URL
   source of truth for narrowed runtime wrappers
 - the remaining direct `endpointUtils` import surface is now limited to
-  `generatedEndpoints.ts` plus the intentional dynamic `MetaControlArea`
-  post boundary
+  `generatedEndpoints.ts` plus the intentional dynamic Setta API helper
+  boundary in `frontend/src/components/Section/Layouts/settaApiAction.ts`
 - the validation suite now also checks that the checked-in
   `generatedRoutes.ts`, `generatedTypes.ts`, and `generatedEndpoints.ts`
   files exactly match the current Go frontend binding generation pipeline

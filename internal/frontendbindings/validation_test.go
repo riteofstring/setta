@@ -1367,7 +1367,7 @@ func TestFrontendTransportHelperImportsStayWithinGeneratedSurface(t *testing.T) 
 			"getBinary": {},
 			"post":      {},
 		},
-		"frontend/src/components/Section/Layouts/MetaControlArea.tsx": {
+		"frontend/src/components/Section/Layouts/settaApiAction.ts": {
 			"post": {},
 		},
 	}
@@ -1420,7 +1420,7 @@ func TestFrontendTransportHelperImportsStayWithinGeneratedSurface(t *testing.T) 
 					if _, allowedBinding := allowedBindings[bindingName]; allowedBinding {
 						continue
 					}
-					if relativePath == "frontend/src/components/Section/Layouts/MetaControlArea.tsx" {
+					if relativePath == "frontend/src/components/Section/Layouts/settaApiAction.ts" {
 						return fmt.Errorf(
 							"%s imports direct transport helper %q from endpointUtils, but the remaining intentional dynamic Setta API button boundary only permits %q",
 							relativePath,
