@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coder/websocket"
 	"github.com/go-chi/chi/v5"
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
@@ -993,6 +994,270 @@ func TestRegisterAIRoutesRunsFileModeTranscriptionSession(t *testing.T) {
 	}
 }
 
+func TestRegisterAIRoutesRunsRealtimeTranscriptionSession(t *testing.T) {
+	t.Parallel()
+
+	type providerHandshake struct {
+		Path          string
+		Query         string
+		Authorization string
+		OpenAIBeta    string
+	}
+
+	handshakes := make(chan providerHandshake, 1)
+	updates := make(chan map[string]any, 1)
+	appends := make(chan map[string]any, 1)
+	commits := make(chan map[string]any, 1)
+	closed := make(chan error, 1)
+	emitFinal := make(chan struct{})
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handshakes <- providerHandshake{
+			Path:          r.URL.Path,
+			Query:         r.URL.RawQuery,
+			Authorization: r.Header.Get("Authorization"),
+			OpenAIBeta:    r.Header.Get("OpenAI-Beta"),
+		}
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close(websocket.StatusNormalClosure, "")
+
+		update, err := readAIRouteRealtimeProviderMessage(context.Background(), conn)
+		if err != nil {
+			return
+		}
+		updates <- update
+
+		appendPayload, err := readAIRouteRealtimeProviderMessage(context.Background(), conn)
+		if err != nil {
+			return
+		}
+		appends <- appendPayload
+
+		commitPayload, err := readAIRouteRealtimeProviderMessage(context.Background(), conn)
+		if err != nil {
+			return
+		}
+		commits <- commitPayload
+
+		// The route-level caller should see additive delta output during append and final completion on stop.
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.delta","event_id":"evt-1","item_id":"item-1","delta":"hel"}`)); err != nil {
+			return
+		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.delta","event_id":"evt-2","item_id":"item-1","delta":"lo"}`)); err != nil {
+			return
+		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.completed","event_id":"evt-3","item_id":"item-1","transcript":"hello"}`)); err != nil {
+			return
+		}
+		<-emitFinal
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.completed","event_id":"evt-4","item_id":"item-2","transcript":"world"}`)); err != nil {
+			return
+		}
+		_, _, err = conn.Read(context.Background())
+		closed <- err
+	}))
+	defer server.Close()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	if err := fixture.llm.UpdateConfig(llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"openai-realtime": {
+				ID:        "openai-realtime",
+				Model:     "gpt-4o-mini-transcribe",
+				Provider:  "openai",
+				BaseURL:   server.URL + "/v1",
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	}); err != nil {
+		t.Fatalf("update llm config: %v", err)
+	}
+	fixture.llm.UpdateAPIKeys(map[string]string{
+		"OPENAI_API_KEY": "route-secret",
+	})
+	if err := fixture.transcriptionStore.Write([]transcriptionprofiles.Profile{
+		{
+			ID:                            "profile-realtime",
+			Name:                          "Realtime",
+			TranscriptionLLMConfigID:      "openai-realtime",
+			TransportMode:                 transcriptionprofiles.TransportModeRealtime,
+			ChunkMs:                       1200,
+			SupportsRealtimeTranscription: true,
+		},
+	}); err != nil {
+		t.Fatalf("write transcription profile: %v", err)
+	}
+
+	handler := newAIRouteTestHandlerWithTranscription(
+		t,
+		config.ModeIDE,
+		fixture.managed,
+		fixture.send,
+		fixture.service,
+		fixture.runtime,
+		fixture.transcriptionProfiles,
+		fixture.transcriptionSessions,
+		fixture.sessions,
+		fixture.follow,
+	)
+
+	startRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteStartTranscriptionSession,
+		strings.NewReader(`{"transcriptionProfileId":"profile-realtime","language":"en"}`),
+	)
+	startRequest.Header.Set("Content-Type", "application/json")
+	startResponse := httptest.NewRecorder()
+
+	handler.ServeHTTP(startResponse, startRequest)
+
+	if startResponse.Code != http.StatusOK {
+		t.Fatalf("expected start 200, got %d with body %q", startResponse.Code, startResponse.Body.String())
+	}
+	var started StartTranscriptionSessionResponse
+	if err := json.Unmarshal(startResponse.Body.Bytes(), &started); err != nil {
+		t.Fatalf("decode start response: %v", err)
+	}
+	if started.ResolvedTransportMode != transcriptionsessions.ResolvedTransportModeRealtime || started.ChunkMs != 1200 {
+		t.Fatalf("unexpected start payload %#v", started)
+	}
+
+	select {
+	case captured := <-handshakes:
+		if captured.Path != "/v1/realtime" {
+			t.Fatalf("unexpected provider path %q", captured.Path)
+		}
+		if captured.Query != "model=gpt-4o-mini-transcribe" {
+			t.Fatalf("unexpected provider query %q", captured.Query)
+		}
+		if captured.Authorization != "Bearer route-secret" {
+			t.Fatalf("unexpected authorization %q", captured.Authorization)
+		}
+		if captured.OpenAIBeta != "realtime=v1" {
+			t.Fatalf("unexpected OpenAI-Beta header %q", captured.OpenAIBeta)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for realtime provider handshake")
+	}
+
+	select {
+	case payload := <-updates:
+		if payload["type"] != "session.update" {
+			t.Fatalf("unexpected session update payload %#v", payload)
+		}
+		sessionPayload, ok := payload["session"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected session payload, got %#v", payload)
+		}
+		audioPayload, ok := sessionPayload["audio"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected audio payload, got %#v", sessionPayload)
+		}
+		inputPayload, ok := audioPayload["input"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected audio input payload, got %#v", audioPayload)
+		}
+		formatPayload, ok := inputPayload["format"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected audio input format payload, got %#v", inputPayload)
+		}
+		if formatPayload["type"] != "audio/pcm" || formatPayload["rate"] != float64(24000) {
+			t.Fatalf("unexpected audio input format %#v", formatPayload)
+		}
+		transcriptionPayload, ok := inputPayload["transcription"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected transcription payload, got %#v", inputPayload)
+		}
+		if transcriptionPayload["model"] != "gpt-4o-mini-transcribe" || transcriptionPayload["language"] != "en" {
+			t.Fatalf("unexpected transcription payload %#v", transcriptionPayload)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for realtime session update")
+	}
+
+	appendRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteAppendTranscriptionAudio,
+		strings.NewReader(`{"sessionId":"`+started.SessionID+`","audioPcm16Base64":"`+base64.StdEncoding.EncodeToString([]byte{0x00, 0x00, 0x01, 0x00})+`","sampleRateHz":24000,"channels":1}`),
+	)
+	appendRequest.Header.Set("Content-Type", "application/json")
+	appendResponse := httptest.NewRecorder()
+
+	handler.ServeHTTP(appendResponse, appendRequest)
+
+	if appendResponse.Code != http.StatusOK {
+		t.Fatalf("expected append 200, got %d with body %q", appendResponse.Code, appendResponse.Body.String())
+	}
+	var appendPayload TranscriptionSessionDeltaResponse
+	if err := json.Unmarshal(appendResponse.Body.Bytes(), &appendPayload); err != nil {
+		t.Fatalf("decode append response: %v", err)
+	}
+	if appendPayload.IsFinal || appendPayload.AppendText != "hello" || appendPayload.FullText != "hello" {
+		t.Fatalf("unexpected append payload %#v", appendPayload)
+	}
+
+	select {
+	case payload := <-appends:
+		if payload["type"] != "input_audio_buffer.append" {
+			t.Fatalf("unexpected append payload %#v", payload)
+		}
+		audio, _ := payload["audio"].(string)
+		decoded, err := base64.StdEncoding.DecodeString(audio)
+		if err != nil {
+			t.Fatalf("decode appended audio: %v", err)
+		}
+		if string(decoded) != string([]byte{0x00, 0x00, 0x01, 0x00}) {
+			t.Fatalf("unexpected appended audio %#v", decoded)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for realtime append payload")
+	}
+
+	select {
+	case payload := <-commits:
+		if payload["type"] != "input_audio_buffer.commit" {
+			t.Fatalf("unexpected commit payload %#v", payload)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for realtime commit payload")
+	}
+
+	close(emitFinal)
+	stopRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteStopTranscriptionSession,
+		strings.NewReader(`{"sessionId":"`+started.SessionID+`"}`),
+	)
+	stopRequest.Header.Set("Content-Type", "application/json")
+	stopResponse := httptest.NewRecorder()
+
+	handler.ServeHTTP(stopResponse, stopRequest)
+
+	if stopResponse.Code != http.StatusOK {
+		t.Fatalf("expected stop 200, got %d with body %q", stopResponse.Code, stopResponse.Body.String())
+	}
+	var stopPayload TranscriptionSessionDeltaResponse
+	if err := json.Unmarshal(stopResponse.Body.Bytes(), &stopPayload); err != nil {
+		t.Fatalf("decode stop response: %v", err)
+	}
+	if !stopPayload.IsFinal || stopPayload.AppendText != " world" || stopPayload.FullText != "hello world" {
+		t.Fatalf("unexpected stop payload %#v", stopPayload)
+	}
+
+	select {
+	case err := <-closed:
+		if websocket.CloseStatus(err) != websocket.StatusNormalClosure {
+			t.Fatalf("expected normal websocket close, got %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for realtime websocket close")
+	}
+}
+
 func TestRegisterAIRoutesReturnsTypedUnsupportedRealtimeTranscriptionModel(t *testing.T) {
 	t.Parallel()
 
@@ -1096,6 +1361,18 @@ func TestRegisterAIRoutesReturnsTypedTranscriptionSessionNotFound(t *testing.T) 
 	if payload.Error.Code != "session_not_found" {
 		t.Fatalf("expected session_not_found, got %#v", payload)
 	}
+}
+
+func readAIRouteRealtimeProviderMessage(ctx context.Context, conn *websocket.Conn) (map[string]any, error) {
+	_, payload, err := conn.Read(ctx)
+	if err != nil {
+		return nil, err
+	}
+	decoded := map[string]any{}
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		return nil, err
+	}
+	return decoded, nil
 }
 
 func TestRegisterAIRoutesRejectsOversizedTranscriptionPCMBeforeDecode(t *testing.T) {
