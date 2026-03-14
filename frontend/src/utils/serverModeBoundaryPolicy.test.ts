@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { RouteEnum } from "./generatedTypes";
 import {
   ENDPOINT_ORIGIN_POLICY,
   resolveEndpointOriginForMode,
   resolveServerModeCapabilities,
   resolveWorkspaceLaunchRouteKind,
 } from "./serverModeBoundaryPolicy";
+import {
+  ROOT_TRANSPORT_ROUTES,
+  SERVER_MODE_BOUNDARY_ROUTES,
+} from "./transportRouteConstants";
 
 function modeSupportsWorkspaceLaunch(
   mode: "ide" | "share" | "app" | "launcher" | null,
@@ -37,25 +40,28 @@ describe("serverModeBoundaryPolicy", () => {
   });
 
   it("keeps launch and launch-intent endpoint origin mode-scoped", () => {
-    expect(resolveEndpointOriginForMode(RouteEnum.LAUNCH, "ide")).toBe(
-      "backend",
-    );
-    expect(resolveEndpointOriginForMode(RouteEnum.LAUNCH, "launcher")).toBe(
-      "launcher",
-    );
-    expect(resolveEndpointOriginForMode(RouteEnum.LAUNCH, null)).toBe(
-      "backend",
-    );
+    expect(
+      resolveEndpointOriginForMode(SERVER_MODE_BOUNDARY_ROUTES.launch, "ide"),
+    ).toBe("backend");
+    expect(
+      resolveEndpointOriginForMode(
+        SERVER_MODE_BOUNDARY_ROUTES.launch,
+        "launcher",
+      ),
+    ).toBe("launcher");
+    expect(
+      resolveEndpointOriginForMode(SERVER_MODE_BOUNDARY_ROUTES.launch, null),
+    ).toBe("backend");
 
     expect(
       resolveEndpointOriginForMode(
-        RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT,
+        SERVER_MODE_BOUNDARY_ROUTES.createWorkspaceLaunchIntent,
         "app",
       ),
     ).toBe("backend");
     expect(
       resolveEndpointOriginForMode(
-        RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT,
+        SERVER_MODE_BOUNDARY_ROUTES.createWorkspaceLaunchIntent,
         "launcher",
       ),
     ).toBe("launcher");
@@ -63,26 +69,35 @@ describe("serverModeBoundaryPolicy", () => {
 
   it("keeps settaHomeInfo on backend across all modes", () => {
     expect(
-      resolveEndpointOriginForMode(RouteEnum.GET_SETTA_HOME_INFO, "ide"),
+      resolveEndpointOriginForMode(
+        SERVER_MODE_BOUNDARY_ROUTES.getSettaHomeInfo,
+        "ide",
+      ),
     ).toBe("backend");
     expect(
-      resolveEndpointOriginForMode(RouteEnum.GET_SETTA_HOME_INFO, "launcher"),
+      resolveEndpointOriginForMode(
+        SERVER_MODE_BOUNDARY_ROUTES.getSettaHomeInfo,
+        "launcher",
+      ),
     ).toBe("backend");
     expect(
-      resolveEndpointOriginForMode(RouteEnum.GET_SETTA_HOME_INFO, null),
+      resolveEndpointOriginForMode(
+        SERVER_MODE_BOUNDARY_ROUTES.getSettaHomeInfo,
+        null,
+      ),
     ).toBe("backend");
   });
 
   it("keeps launcher-home endpoints on launcher origin and bootstrap on backend origin", () => {
     expect(
       resolveEndpointOriginForMode(
-        `${RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES}?setta_home=/tmp/home#x`,
+        `${SERVER_MODE_BOUNDARY_ROUTES.getLauncherRecentWorkspaces}?setta_home=/tmp/home#x`,
         "ide",
       ),
     ).toBe("launcher");
     expect(
       resolveEndpointOriginForMode(
-        `${RouteEnum.BOOTSTRAP_PAGE}#token=abc`,
+        `${ROOT_TRANSPORT_ROUTES.bootstrapPage}#token=abc`,
         "launcher",
       ),
     ).toBe("backend-origin");

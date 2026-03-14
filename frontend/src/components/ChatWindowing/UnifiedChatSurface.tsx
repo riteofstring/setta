@@ -115,14 +115,8 @@ export function UnifiedChatSurface({
       )?.instanceId ?? null
     );
   });
-  const remountKeyBase =
-    surfaceId ?? `${host}:${sectionId ?? "project-chat-surface"}`;
   const remountKey =
-    mode === ChatWindowModeEnum.project_ai_mode &&
-    host === "standalone_page" &&
-    projectChatId !== undefined
-      ? `${remountKeyBase}:chat:${resolvedProjectChatId ?? "__new__"}`
-      : remountKeyBase;
+    surfaceId ?? `${host}:${sectionId ?? "project-chat-surface"}`;
 
   if (externalizedWindowId && sectionId) {
     return (

@@ -1,4 +1,3 @@
-import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import type { ButtonHTMLAttributes } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -27,7 +26,6 @@ export function MinimizeButton({
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
     return impl.isMinimized;
   });
-  const label = isMinimized ? "Expand section" : "Minimize section";
   function onClick() {
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
@@ -54,11 +52,7 @@ export function MinimizeButton({
       className={`focus-visible:ring-2 ${
         grid ? "grid place-items-center" : "inline-flex items-center"
       } nodrag justify-content-center mr-1 flex h-4 w-4 cursor-pointer justify-center rounded-full bg-transparent p-0 ${colorClassName} ${twClasses ?? ""}`}
-      aria-label={label}
       onClick={onClick}
-      title={label}
-      type="button"
-      {...getFloatingBoxHandlers({ content: label })}
       {...buttonProps}
     >
       {!isMinimized ? (
