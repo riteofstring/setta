@@ -211,6 +211,12 @@ describe("StateMachineNodeArea", () => {
           },
           outputs: {
             stateMachineIteration: 1,
+            gateIncomingEdgeIdsBySectionId: {
+              "section-gate": ["edge-a", "edge-b", "edge-c"],
+            },
+            gateInputEdgeIdsBySectionId: {
+              "section-gate": ["edge-a", "edge-b", "edge-c"],
+            },
             gateStatusBySectionId: {
               "section-gate": "satisfied",
             },
@@ -227,6 +233,14 @@ describe("StateMachineNodeArea", () => {
             {
               id: "event-gate-2",
               timestamp: "2024-01-01T00:00:01Z",
+              type: "gate_input_activated",
+              payload: {
+                gateSectionId: "section-gate",
+              },
+            },
+            {
+              id: "event-gate-3",
+              timestamp: "2024-01-01T00:00:02Z",
               type: "gate_satisfied",
               payload: {
                 gateSectionId: "section-gate",
@@ -246,11 +260,15 @@ describe("StateMachineNodeArea", () => {
     expect(markup).toContain("Running");
     expect(markup).toContain("Satisfied");
     expect(markup).toContain("Gate satisfied");
+    expect(markup).toContain("3 / 3");
     expect(markup).toContain(
       'data-testid="state-machine-run-status-section-gate"',
     );
     expect(markup).toContain(
       'data-testid="state-machine-gate-status-section-gate"',
+    );
+    expect(markup).toContain(
+      'data-testid="state-machine-gate-input-progress-section-gate"',
     );
     expect(markup).toContain(
       'data-testid="state-machine-activity-panel-section-gate"',

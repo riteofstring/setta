@@ -58,6 +58,10 @@ import {
 } from "state/actions/chatHistory";
 import { addPersistentNotification } from "state/actions/notifications";
 import {
+  getRunInputString,
+  getRunLastUpdatedMs,
+} from "state/actions/agentRunUtils";
+import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
@@ -136,6 +140,45 @@ export function shouldExitManagedChatHistory({
     return true;
   }
   return !previousWaitingForResponse && nextWaitingForResponse;
+}
+
+export function getManagedChatRunRefreshKey({
+  agentRuns,
+  sectionId,
+  chatId,
+  runType,
+}: {
+  agentRuns: Array<AgentRun>;
+  sectionId: string;
+  chatId: string | null;
+  runType: ChatRunType | null;
+}): string | null {
+  if (!chatId || !runType) {
+    return null;
+  }
+  let latestMatchingRun: AgentRun | null = null;
+  let latestUpdatedMs = -1;
+  for (const run of agentRuns) {
+    if (getRunInputString(run, "runType") !== runType) {
+      continue;
+    }
+    if (getRunInputString(run, "sectionId") !== sectionId) {
+      continue;
+    }
+    if (getRunInputString(run, "chatId") !== chatId) {
+      continue;
+    }
+    const updatedMs = getRunLastUpdatedMs(run);
+    if (updatedMs <= latestUpdatedMs) {
+      continue;
+    }
+    latestMatchingRun = run;
+    latestUpdatedMs = updatedMs;
+  }
+  if (!latestMatchingRun) {
+    return null;
+  }
+  return `${latestMatchingRun.id}:${latestMatchingRun.status}:${latestUpdatedMs}`;
 }
 
 function buildManagedZeroScopeBannerSessionKey(
@@ -1284,6 +1327,14 @@ function ManagedChatArea({
       engineConfigId: effectiveEngineConfigId ?? null,
     };
   }, [effectiveEngineConfigId, engineType]);
+  const managedChatRunRefreshKey = useAIStore((state) =>
+    getManagedChatRunRefreshKey({
+      agentRuns: state.agentRuns,
+      sectionId,
+      chatId,
+      runType: historyCompatibility?.runType ?? null,
+    }),
+  );
   const selectedLLMConfigId = useMemo(() => {
     if (!selectedEngineConfig) {
       return null;
@@ -1403,11 +1454,17 @@ function ManagedChatArea({
       return;
     }
     if (isExternalEngine) {
-      getExternalAgentChat(chatId, projectConfigId);
+      void getExternalAgentChat(chatId, projectConfigId, sectionId);
       return;
     }
-    getLLMChat(chatId);
-  }, [chatId, isExternalEngine, projectConfigId]);
+    void getLLMChat(chatId, sectionId);
+  }, [
+    chatId,
+    isExternalEngine,
+    managedChatRunRefreshKey,
+    projectConfigId,
+    sectionId,
+  ]);
 
   const setChatId = useCallback(
     (next: ChatSectionChatIdUpdate) => {

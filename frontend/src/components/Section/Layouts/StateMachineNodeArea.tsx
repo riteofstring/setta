@@ -349,6 +349,19 @@ export function StateMachineNodeArea({ sectionId }: StateMachineNodeAreaProps) {
                     </span>
                   </div>
                 ) : null}
+                {machineRun.gateInputProgress ? (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-65">
+                      Inputs
+                    </span>
+                    <span
+                      className={`rounded-full border px-2 py-0.5 font-mono text-[10px] font-semibold ${machineRun.gateInputProgress.classes}`}
+                      data-testid={`state-machine-gate-input-progress-${sectionId}`}
+                    >
+                      {machineRun.gateInputProgress.label}
+                    </span>
+                  </div>
+                ) : null}
               </div>
             )}
           </div>

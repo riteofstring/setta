@@ -18,6 +18,11 @@ type StateMachineGateStatusPresentation = {
   classes: string;
 } | null;
 
+type StateMachineGateInputProgressPresentation = {
+  label: string;
+  classes: string;
+} | null;
+
 type StateMachineRunPresentation = {
   statusLabel: string;
   statusClasses: string;
@@ -25,6 +30,7 @@ type StateMachineRunPresentation = {
   hasRun: boolean;
   iterationLabel: string | null;
   gateStatus: StateMachineGateStatusPresentation;
+  gateInputProgress: StateMachineGateInputProgressPresentation;
   failureSummaryLabel: string | null;
   activityItems: StateMachineActivityItem[];
 };
@@ -63,6 +69,10 @@ export function getStateMachineNodePresentation({
     gateStatus:
       sectionType === SectionTypeEnum.StateMachineGate
         ? getGateStatusPresentation(latestRun, sectionId)
+        : null,
+    gateInputProgress:
+      sectionType === SectionTypeEnum.StateMachineGate
+        ? getGateInputProgressPresentation(latestRun, sectionId)
         : null,
     failureSummaryLabel: getFailureSummaryLabel(latestRun),
     activityItems: getRecentActivityItems({
@@ -140,19 +150,7 @@ function getGateStatusPresentation(
   run: AgentRun | null,
   sectionId: string,
 ): StateMachineGateStatusPresentation {
-  const outputs = getRunOutputs(run);
-  if (outputs === null) {
-    return null;
-  }
-  const rawGateStatuses = outputs.gateStatusBySectionId;
-  if (
-    rawGateStatuses === null ||
-    typeof rawGateStatuses !== "object" ||
-    Array.isArray(rawGateStatuses)
-  ) {
-    return null;
-  }
-  const rawGateStatus = rawGateStatuses[sectionId];
+  const rawGateStatus = getGateStatus(run, sectionId);
   if (rawGateStatus === "waiting") {
     return {
       label: "Waiting",
@@ -173,6 +171,89 @@ function getGateStatusPresentation(
       classes:
         "border-rose-400/70 bg-rose-500/10 text-rose-800 dark:border-rose-700 dark:bg-rose-500/15 dark:text-rose-200",
     };
+  }
+  return null;
+}
+
+function getGateInputProgressPresentation(
+  run: AgentRun | null,
+  sectionId: string,
+): StateMachineGateInputProgressPresentation {
+  const outputs = getRunOutputs(run);
+  if (outputs === null) {
+    return null;
+  }
+  const rawIncomingEdgesBySectionId = outputs.gateIncomingEdgeIdsBySectionId;
+  if (
+    rawIncomingEdgesBySectionId === null ||
+    typeof rawIncomingEdgesBySectionId !== "object" ||
+    Array.isArray(rawIncomingEdgesBySectionId)
+  ) {
+    return null;
+  }
+  const rawIncomingEdges = rawIncomingEdgesBySectionId[sectionId];
+  if (!Array.isArray(rawIncomingEdges)) {
+    return null;
+  }
+  const totalCount = rawIncomingEdges.filter(
+    (edgeId): edgeId is string => typeof edgeId === "string",
+  ).length;
+  if (totalCount === 0) {
+    return null;
+  }
+  const rawActivatedEdgesBySectionId = outputs.gateInputEdgeIdsBySectionId;
+  let receivedCount = 0;
+  if (
+    rawActivatedEdgesBySectionId !== null &&
+    typeof rawActivatedEdgesBySectionId === "object" &&
+    !Array.isArray(rawActivatedEdgesBySectionId)
+  ) {
+    const rawActivatedEdges = rawActivatedEdgesBySectionId[sectionId];
+    if (Array.isArray(rawActivatedEdges)) {
+      receivedCount = rawActivatedEdges.filter(
+        (edgeId): edgeId is string => typeof edgeId === "string",
+      ).length;
+    }
+  }
+  const rawGateStatus = getGateStatus(run, sectionId);
+  let classes =
+    "border-amber-400/70 bg-amber-500/10 text-amber-800 dark:border-amber-700 dark:bg-amber-500/15 dark:text-amber-200";
+  if (rawGateStatus === "blocked") {
+    classes =
+      "border-rose-400/70 bg-rose-500/10 text-rose-800 dark:border-rose-700 dark:bg-rose-500/15 dark:text-rose-200";
+  } else if (receivedCount >= totalCount) {
+    classes =
+      "border-emerald-400/70 bg-emerald-500/10 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200";
+  }
+  return {
+    label: `${receivedCount} / ${totalCount}`,
+    classes,
+  };
+}
+
+function getGateStatus(
+  run: AgentRun | null,
+  sectionId: string,
+): "waiting" | "satisfied" | "blocked" | null {
+  const outputs = getRunOutputs(run);
+  if (outputs === null) {
+    return null;
+  }
+  const rawGateStatuses = outputs.gateStatusBySectionId;
+  if (
+    rawGateStatuses === null ||
+    typeof rawGateStatuses !== "object" ||
+    Array.isArray(rawGateStatuses)
+  ) {
+    return null;
+  }
+  const rawGateStatus = rawGateStatuses[sectionId];
+  if (
+    rawGateStatus === "waiting" ||
+    rawGateStatus === "satisfied" ||
+    rawGateStatus === "blocked"
+  ) {
+    return rawGateStatus;
   }
   return null;
 }

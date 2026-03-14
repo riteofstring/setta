@@ -184,6 +184,9 @@ class StateMachineRunner:
                     str(section_id) for section_id in graph.end_section_ids
                 ],
                 "machineEdgeIds": [str(edge.id) for edge in graph.machine_edges],
+                "gateIncomingEdgeIdsBySectionId": (
+                    self._build_gate_incoming_edge_ids_by_section_id(graph)
+                ),
             },
         )
         self._record_event(
@@ -696,6 +699,9 @@ class StateMachineRunner:
     ) -> None:
         if run.outputs is None:
             run.outputs = {}
+        gate_incoming_edge_ids_by_section_id = (
+            self._build_gate_incoming_edge_ids_by_section_id(graph)
+        )
         defaults: dict[str, object] = {
             "machineGroupId": graph.machine_group_id,
             "machineName": graph.machine_name,
@@ -722,6 +728,7 @@ class StateMachineRunner:
             "signalEvents": [],
             "processedSignalEventIds": [],
             "dispatchedEdgeActions": [],
+            "gateIncomingEdgeIdsBySectionId": gate_incoming_edge_ids_by_section_id,
             "gateInputEdgeIdsBySectionId": {},
             "gateStatusBySectionId": {},
             "firedGateSectionIds": [],
@@ -736,6 +743,19 @@ class StateMachineRunner:
         for key, value in defaults.items():
             if key not in run.outputs:
                 run.outputs[key] = value
+
+    def _build_gate_incoming_edge_ids_by_section_id(
+        self,
+        graph: ResolvedStateMachineGraph,
+    ) -> dict[str, list[str]]:
+        return {
+            str(gate_section_id): [
+                str(edge.id)
+                for edge in graph.machine_edges
+                if edge.targetSectionId == gate_section_id
+            ]
+            for gate_section_id in graph.gate_section_ids
+        }
 
     def _clear_machine_run_state(self, run: AgentRun) -> None:
         if run.outputs is None:

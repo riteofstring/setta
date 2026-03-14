@@ -603,6 +603,7 @@ async def _seed_state_machine_gate_chat_graph(
     project_config_id: ID,
     engine_config_id: ID,
     gate_type: StateMachineGateType,
+    prompt_texts: list[str] | None = None,
 ) -> tuple[ID, list[ID], ID, ID]:
     start_response = await project_fixture.manager.create_top_level_section(
         CreateTopLevelSectionRequest(
@@ -650,21 +651,17 @@ async def _seed_state_machine_gate_chat_graph(
             label="Done",
         )
     )
-    chat_section_ids = [
-        await _create_managed_chat_section(
+    if prompt_texts is None:
+        prompt_texts = ["Review branch 1.", "Review branch 2."]
+    chat_section_ids: list[ID] = []
+    for idx, prompt_text in enumerate(prompt_texts, start=1):
+        chat_section_id = await _create_managed_chat_section(
             project_fixture=project_fixture,
             project_config_id=project_config_id,
             engine_config_id=engine_config_id,
-            position=Position(x=280, y=0),
-        ),
-        await _create_managed_chat_section(
-            project_fixture=project_fixture,
-            project_config_id=project_config_id,
-            engine_config_id=engine_config_id,
-            position=Position(x=280, y=160),
-        ),
-    ]
-    for idx, chat_section_id in enumerate(chat_section_ids, start=1):
+            position=Position(x=280, y=(idx - 1) * 160),
+        )
+        chat_section_ids.append(chat_section_id)
         await project_fixture.manager.create_state_machine_edge(
             CreateStateMachineEdgeRequest(
                 projectConfigId=project_config_id,
@@ -675,7 +672,7 @@ async def _seed_state_machine_gate_chat_graph(
                 targetPortId=STATE_MACHINE_EDGE_TARGET_PORT_ID,
                 targetAction=StateMachineTargetAction(
                     type=StateMachineTargetActionType.send_prompt,
-                    inlinePrompt=f"Review branch {idx}.",
+                    inlinePrompt=prompt_text,
                     threadStrategy=StateMachineThreadStrategy.new_thread_before_send,
                 ),
             )
@@ -2315,6 +2312,183 @@ async def test_state_machine_runner_waits_for_all_completed_children_before_and_
         }
         assert latest_completed.outputs["reachedEndSectionIds"] == [str(end_section_id)]
         assert [event.type for event in latest_completed.events[-6:]] == [
+            "child_run_completed",
+            "child_run_edges_activated",
+            "gate_input_activated",
+            "gate_satisfied",
+            "end_reached",
+            "run_completed",
+        ]
+
+
+@pytest.mark.asyncio
+async def test_state_machine_runner_tracks_all_and_gate_inputs_for_three_chat_completions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        project_config_id = (
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        assert project_config_id is not None
+        await project_fixture.manager.finish_pending_operations()
+
+        engine_config_id = ID("engine-primary")
+        _seed_engine_config(project_fixture.dbe, engine_config_id)
+        (
+            start_section_id,
+            _,
+            gate_section_id,
+            end_section_id,
+        ) = await _seed_state_machine_gate_chat_graph(
+            project_fixture=project_fixture,
+            project_config_id=project_config_id,
+            engine_config_id=engine_config_id,
+            gate_type=StateMachineGateType.AND,
+            prompt_texts=[
+                "Review branch 1.",
+                "Review branch 2.",
+                "Review branch 3.",
+            ],
+        )
+
+        state, _, agent_runner, _ = _build_runtime_state(
+            project_fixture,
+            settings_fixture,
+        )
+        child_runs: list[AgentRun] = []
+
+        def _capture_start_run(profile, inputs, **_kwargs):
+            run = create_agent_run(profile_id=profile.id, inputs=inputs)
+            save_agent_run(project_fixture.dbe, run)
+            child_runs.append(run)
+            return run
+
+        monkeypatch.setattr(agent_runner, "start_run", _capture_start_run)
+
+        with runtime_context(state) as ctx:
+            started = await route_start_state_machine_run(
+                StartStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                    startSectionId=start_section_id,
+                ),
+                ctx,
+            )
+
+            first_child_run = child_runs[0]
+            first_child_run.status = AgentRunStatus.completed
+            save_agent_run(project_fixture.dbe, first_child_run)
+            after_first_completion = await route_get_state_machine_run(
+                GetStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                ),
+                ctx,
+            )
+
+            second_child_run = child_runs[1]
+            second_child_run.status = AgentRunStatus.completed
+            save_agent_run(project_fixture.dbe, second_child_run)
+            after_second_completion = await route_get_state_machine_run(
+                GetStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                ),
+                ctx,
+            )
+
+            third_child_run = child_runs[2]
+            third_child_run.status = AgentRunStatus.completed
+            save_agent_run(project_fixture.dbe, third_child_run)
+            after_third_completion = await route_get_state_machine_run(
+                GetStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                ),
+                ctx,
+            )
+
+        gate_section_key = str(gate_section_id)
+        expected_gate_input_edge_ids = {
+            str(edge.id)
+            for edge in convert_backend_to_single_config(
+                project_fixture.manager.project_state_backend,
+                project_config_id,
+            ).projectConfig.stateMachineEdges
+            if edge.targetSectionId == gate_section_id
+        }
+        assert len(expected_gate_input_edge_ids) == 3
+
+        assert started.status == AgentRunStatus.running
+
+        # The run snapshot should preserve the full gate requirement set even
+        # before the AND gate is satisfied, so the frontend can render 1/3, 2/3,
+        # and 3/3 accurately for this specific run.
+        assert after_first_completion.outputs is not None
+        assert set(
+            after_first_completion.outputs["gateIncomingEdgeIdsBySectionId"][
+                gate_section_key
+            ]
+        ) == expected_gate_input_edge_ids
+        assert after_first_completion.outputs["gateStatusBySectionId"] == {
+            gate_section_key: "waiting"
+        }
+        assert len(
+            after_first_completion.outputs["gateInputEdgeIdsBySectionId"][
+                gate_section_key
+            ]
+        ) == 1
+        assert set(
+            after_first_completion.outputs["gateInputEdgeIdsBySectionId"][
+                gate_section_key
+            ]
+        ).issubset(expected_gate_input_edge_ids)
+        assert after_first_completion.outputs["firedGateSectionIds"] == []
+        assert after_first_completion.outputs["reachedEndSectionIds"] == []
+
+        assert after_second_completion.status == AgentRunStatus.running
+        assert after_second_completion.outputs is not None
+        assert set(
+            after_second_completion.outputs["gateIncomingEdgeIdsBySectionId"][
+                gate_section_key
+            ]
+        ) == expected_gate_input_edge_ids
+        assert after_second_completion.outputs["gateStatusBySectionId"] == {
+            gate_section_key: "waiting"
+        }
+        assert len(
+            after_second_completion.outputs["gateInputEdgeIdsBySectionId"][
+                gate_section_key
+            ]
+        ) == 2
+        assert after_second_completion.outputs["firedGateSectionIds"] == []
+        assert after_second_completion.outputs["reachedEndSectionIds"] == []
+
+        assert after_third_completion.status == AgentRunStatus.completed
+        assert after_third_completion.outputs is not None
+        assert set(
+            after_third_completion.outputs["gateIncomingEdgeIdsBySectionId"][
+                gate_section_key
+            ]
+        ) == expected_gate_input_edge_ids
+        assert set(
+            after_third_completion.outputs["gateInputEdgeIdsBySectionId"][
+                gate_section_key
+            ]
+        ) == expected_gate_input_edge_ids
+        assert after_third_completion.outputs["firedGateSectionIds"] == [
+            gate_section_key
+        ]
+        assert after_third_completion.outputs["gateStatusBySectionId"] == {
+            gate_section_key: "satisfied"
+        }
+        assert after_third_completion.outputs["reachedEndSectionIds"] == [
+            str(end_section_id)
+        ]
+        assert [event.type for event in after_third_completion.events[-6:]] == [
             "child_run_completed",
             "child_run_edges_activated",
             "gate_input_activated",
