@@ -42,7 +42,9 @@ test("app action buttons respect policy gating", async ({ page }) => {
 
   await seedLocalStorage(page, { overviewTab: "App", overviewVis: true });
   await ensureAppReady(page);
-  await expect(page.getByText("App Config")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "JSON Render" }),
+  ).toBeVisible();
 
   const specEditor = page.getByRole("textbox", { name: "App Spec JSON" });
   await specEditor.fill(JSON.stringify(appSpec, null, 2));

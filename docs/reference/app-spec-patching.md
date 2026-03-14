@@ -4,6 +4,13 @@ Setta currently has two patch/update paths for app definitions, plus an
 app-generation mode contract that decides whether generation is in-pane streaming
 or chat-driven tool execution.
 
+Project Chat is the primary prompt surface for app generation. Built-in slash
+commands `/app-json`, `/app-image`, `/app-prompt`, and `/app-mcp` carry fixed
+baseline prompts, optionally append user suffix text, and submit chat requests
+with an explicit `appGenerationMode`. App Config remains the advanced workbench
+for previewing, validating, saving, and manually editing the resulting app
+definition.
+
 ## 1) Persistent Updates: JSON Merge Patch
 
 Used by:
@@ -54,31 +61,36 @@ Current behavior:
 
 ## 3) Chat-driven app generation (`/api/getLLMResponse`)
 
-`GetLLMResponseRequest` includes app-generation hints that are appended to the
-effective system prompt when `appGenerationMode` is provided:
+`GetLLMResponseRequest` carries the current-turn app-generation mode plus
+per-message submission state for the thread:
 
 - `appGenerationMode`
-- `appSpecStreamingEnabled`
-- `appGenerationReferenceImageUrl`
-- `appGenerationReferenceImageNotes`
+- `appGenerationByMessageId`
+
+Project Chat built-in app-generation slash commands use this route directly.
+Each command provides its own fixed baseline prompt text and can append a single
+user-authored suffix after that baseline.
 
 Mode behavior:
 
-- If `appGenerationMode` is omitted, no app-generation system prompt is injected
-  (even when `appSpecStreamingEnabled=true`).
+- If `appGenerationMode` is omitted, no app-generation system prompt is
+  injected for the current turn.
 - For `json_render` / `json_render_with_image` / `prompt_builder`, the prompt
   steers tools toward Setta app-definition persistence.
 - For `mcp_server`, the prompt steers MCP-first design flows (including
   Figma-oriented workflows) and then persistence back into Setta.
-- Streaming toggle determines whether prompt guidance prefers
-  `setta__stream_app_definition` or `setta__set_app_definition`.
-- Reference image context is only included for `json_render_with_image`.
+- `appGenerationByMessageId` is the authoritative per-user-message submission
+  map for the thread. It can encode both app-generation modes and explicit
+  `plain_chat` turns.
+- `json_render_with_image` requires at least one attached image on the current
+  turn or a retained prior user turn whose message id is mapped to
+  `json_render_with_image`.
 
 ## When to use which
 
 - Use **JSON Merge Patch** when you need targeted persisted edits.
-- Use **`/api/streamAppSpec` JSONL patch ops** for in-pane generation and live
-  preview (`json_render`, `json_render_with_image`).
-- Use **chat-driven mode** (`prompt_builder`, `mcp_server`) when the app pane
-  should send generation requests into Project Chat and let tools perform final
-  persistence.
+- Use **chat-driven mode** (`json_render`, `json_render_with_image`,
+  `prompt_builder`, `mcp_server`) when Project Chat should drive the generation
+  flow and let tools perform final persistence.
+- Use **App Config** after generation when you need to inspect the saved spec,
+  preview it, validate it, or edit raw JSON/theme/assets manually.
