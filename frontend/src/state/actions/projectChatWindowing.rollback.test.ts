@@ -44,7 +44,7 @@ import {
   setProjectChatWindowChatId,
   setProjectChatWindowTitle,
 } from "./projectChatWindowing";
-import { processProjectStateUpdateFromBackend } from "./sectionInfos";
+import { processProjectStateUpdateFromBackend } from "./sectionProjectStateSync";
 
 async function flushOptimisticMutation(): Promise<void> {
   for (let index = 0; index < 8; index += 1) {

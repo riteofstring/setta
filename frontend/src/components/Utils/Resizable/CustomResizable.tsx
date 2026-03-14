@@ -1,46 +1,56 @@
 import { useDndMode } from "forks/dnd-kit/dndState";
-import _ from "lodash";
-import { useEffect, useRef, useState, type MouseEvent } from "react";
-import {
-  dispatchOptimisticProjectStateUpdate,
-  getAttachedTerminalParentIdForTerminalSection,
-  getCurrEffectiveSectionImpl,
-  getCurrProjectConfigId,
-} from "state/actions/sectionInfos";
-import {
-  adjustSizeToBeAtLeastMin,
-  getResizeStartAutoSizeUpdate,
-  isHeightResizeDirection,
-  setSelfParentSiblingChildrenWidths,
-  type ResizeHandleDirection,
-} from "state/actions/sections/sectionSizes";
-import {
-  useLocalStorage,
-  useMisc,
-  useProjectState,
-  useResizeEvent,
-  useSettings,
-} from "state/definitions";
+import type {
+  ResizableProps,
+  ResizeCallback,
+  ResizeStartCallback,
+} from "re-resizable";
+import { useState, type MouseEvent, type ReactNode } from "react";
+import { getAttachedTerminalParentIdForTerminalSection } from "state/actions/sectionEffectiveImpls";
+import { useProjectState } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionMinMaxDims } from "state/hooks/sectionSizes";
 import { useShareCapabilities } from "state/hooks/share";
-import {
-  NO_PAN_CLASS_NAME,
-  SETTA_PREVENT_SECTION_ACTIVE_CSS,
-  SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
-} from "utils/constants";
-import { route_set_section_sizes } from "utils/generatedEndpoints";
-import { SectionSize } from "utils/generatedTypes";
+import { useLocalStorage, useSettings } from "state/stores/uiPreferenceStores";
 import { getSectionSurfaceClassName } from "../../Section/Container/sectionChrome";
 import { ResizableWithScale } from "./ResizableWithScale";
 import {
-  getChangedSize,
-  getResizeHandleClickState,
-  isResizeDoubleClick,
-  SIZE_MODE,
-} from "./utils";
+  getCustomResizableChromeConfig,
+  getResizeHandleDirectionFromTarget,
+} from "./customResizableChrome";
+import { useCustomResizableBehavior } from "./useCustomResizableBehavior";
 
-const AUTO_CLAMP_TOLERANCE = 2;
+type CustomResizableProps = {
+  sectionId: string;
+  bgColor: string;
+  isYouTube: boolean;
+  isMetaControl: boolean;
+  positionAndSizeLocked: boolean;
+  hasSectionStyleTheme?: boolean;
+  allowPointerEventsDuringDnd?: boolean;
+  frameClassName?: string;
+  layoutClassName?: string;
+  children: ReactNode;
+  as?: ResizableProps["as"];
+};
+
+type CustomResizableSurfaceProps = CustomResizableProps & {
+  size: ReturnType<typeof useCustomResizableBehavior>["size"];
+  minHeight: number;
+  maxHeight: number;
+  minWidth: number;
+  maxWidth: number;
+  heightResizable: boolean;
+  widthResizable: boolean;
+  onResizeStart: ResizeStartCallback;
+  onResize: ResizeCallback;
+  onResizeStop: ResizeCallback;
+  onResizePointerDown: (direction: "bottom" | "bottomRight" | "right") => void;
+  aspectRatio: boolean;
+  aspectRatioExtraHeight: number;
+  aspectRatioExtraWidth: number;
+  snapGrid: [number, number];
+  snapToGrid: boolean;
+};
 
 export function CustomResizable({
   sectionId,
@@ -54,12 +64,35 @@ export function CustomResizable({
   layoutClassName,
   children,
   as,
-}) {
+}: CustomResizableProps) {
   const { minHeight, maxHeight, minWidth, maxWidth, sizeMode } =
     useSectionMinMaxDims(sectionId);
+  const {
+    size,
+    aspectRatio,
+    aspectRatioExtraHeight,
+    aspectRatioExtraWidth,
+    heightResizable,
+    widthResizable,
+    onResizeStart,
+    onResize,
+    onResizeStop,
+    onResizePointerDown,
+  } = useCustomResizableBehavior({
+    sectionId,
+    minHeight,
+    minWidth,
+    maxHeight,
+    sizeMode,
+    positionAndSizeLocked,
+  });
+  const snapGrid = useSettings((state) => state.gui.snapGrid);
+  const snapToGrid = useLocalStorage((state) => state.snapToGrid);
+
   return (
-    <CustomResizableCore
+    <CustomResizableSurface
       sectionId={sectionId}
+      as={as}
       bgColor={bgColor}
       isYouTube={isYouTube}
       isMetaControl={isMetaControl}
@@ -68,329 +101,6 @@ export function CustomResizable({
       allowPointerEventsDuringDnd={allowPointerEventsDuringDnd}
       frameClassName={frameClassName}
       layoutClassName={layoutClassName}
-      minHeight={minHeight}
-      maxHeight={maxHeight}
-      minWidth={minWidth}
-      maxWidth={maxWidth}
-      sizeMode={sizeMode}
-      as={as}
-    >
-      {children}
-    </CustomResizableCore>
-  );
-}
-
-function CustomResizableCore({
-  sectionId,
-  bgColor,
-  isYouTube,
-  isMetaControl,
-  positionAndSizeLocked,
-  hasSectionStyleTheme,
-  allowPointerEventsDuringDnd,
-  frameClassName = "before:border-white dark:before:border-setta-700",
-  layoutClassName,
-  minHeight,
-  maxHeight,
-  minWidth,
-  maxWidth,
-  sizeMode,
-  children,
-  as,
-}) {
-  useEffect(() => {
-    const changedSize: Partial<SectionSize> = {};
-    if (sizeMode.height === SIZE_MODE.auto_only) {
-      changedSize.height = "auto";
-    }
-    if (sizeMode.width === SIZE_MODE.auto_only) {
-      changedSize.width = "auto";
-    }
-    if (_.size(changedSize) > 0) {
-      useProjectState.setState((state) => {
-        setSelfParentSiblingChildrenWidths(sectionId, changedSize, state);
-      });
-    }
-  }, [sizeMode.height, sizeMode.width]);
-
-  const { size, aspectRatio, aspectRatioExtraHeight, aspectRatioExtraWidth } =
-    useAspectRatio(sectionId);
-  const { canEditLayout } = useShareCapabilities();
-  const resizeStartedRef = useRef(false);
-  const autoSizePromotedRef = useRef(false);
-  const resizeAttemptedRef = useRef(false);
-  const resizeClickRef = useRef<{
-    lastTimestampMs: number | null;
-    lastDirection: ResizeHandleDirection | null;
-  }>({ lastTimestampMs: null, lastDirection: null });
-  const doubleClickPendingRef = useRef(false);
-
-  function maybePromoteAutoSize(direction, ref) {
-    if (
-      !autoSizePromotedRef.current &&
-      canEditLayout &&
-      !positionAndSizeLocked
-    ) {
-      if (ref && typeof ref.getBoundingClientRect === "function") {
-        const nextSize = getResizeStartAutoSizeUpdate({
-          size,
-          direction,
-          rect: { width: ref.offsetWidth, height: ref.offsetHeight },
-        });
-        if (nextSize) {
-          autoSizePromotedRef.current = true;
-          let updatedSectionSizes: Record<string, SectionSize> = {};
-          dispatchOptimisticProjectStateUpdate({
-            apply: (state) => {
-              updatedSectionSizes = setSelfParentSiblingChildrenWidths(
-                sectionId,
-                nextSize,
-                state,
-              );
-            },
-            send: (frontendOpId) =>
-              route_set_section_sizes({
-                projectConfigId: getCurrProjectConfigId(),
-                sectionSizes: updatedSectionSizes,
-                frontendOpId,
-              }),
-          });
-        }
-      }
-    }
-  }
-
-  function startResizeEvent(direction) {
-    if (isHeightResizeDirection(direction) && !resizeStartedRef.current) {
-      resizeStartedRef.current = true;
-      useResizeEvent.setState((state) => {
-        setSectionResizeEvent(sectionId, "start", state);
-      });
-    }
-  }
-
-  function beginResize(direction, ref) {
-    maybePromoteAutoSize(direction, ref);
-    startResizeEvent(direction);
-  }
-
-  function onResizeStart(_event, direction, _ref) {
-    resizeStartedRef.current = false;
-    autoSizePromotedRef.current = false;
-    resizeAttemptedRef.current = false;
-    useMisc.setState({ mouseDownDraggingSection: true });
-  }
-
-  function onResize(_event, direction, ref, _delta) {
-    resizeAttemptedRef.current = true;
-    doubleClickPendingRef.current = false;
-    beginResize(direction, ref);
-  }
-
-  function onResizePointerDown(direction: ResizeHandleDirection) {
-    const { nextState, isDoubleClick } = getResizeHandleClickState({
-      state: resizeClickRef.current,
-      direction,
-      timestampMs: Date.now(),
-    });
-    resizeClickRef.current = nextState;
-    if (isDoubleClick) {
-      doubleClickPendingRef.current = true;
-    }
-  }
-
-  function onResizeStop(...props) {
-    const [event, direction, ref, delta] = props;
-    const isZeroDelta = delta.width === 0 && delta.height === 0;
-    const isDoubleClick = isResizeDoubleClick({
-      isPending: doubleClickPendingRef.current,
-      eventDetail: event.detail,
-      isZeroDelta,
-      resizeAttempted: resizeAttemptedRef.current,
-    });
-    const shouldEmitResizeEnd = shouldEmitResizeEndEvent({
-      resizeStarted: resizeStartedRef.current,
-      resizeAttempted: resizeAttemptedRef.current,
-      isZeroDelta,
-      isDoubleClick,
-    });
-    if (isZeroDelta && !isDoubleClick && !resizeAttemptedRef.current) {
-      if (shouldEmitResizeEnd) {
-        useResizeEvent.setState((state) => {
-          setSectionResizeEvent(sectionId, "end", state);
-        });
-      }
-      useMisc.setState({ mouseDownDraggingSection: false });
-      resizeStartedRef.current = false;
-      autoSizePromotedRef.current = false;
-      resizeAttemptedRef.current = false;
-      doubleClickPendingRef.current = false;
-      return;
-    }
-    const changedSize = getChangedSize({
-      props,
-      sizeMode,
-      aspectRatio,
-      isDoubleClickOverride: isDoubleClick,
-    });
-    if (
-      !isDoubleClick &&
-      ref &&
-      typeof ref.getBoundingClientRect === "function"
-    ) {
-      if (
-        changedSize.height === "auto" ||
-        (typeof changedSize.height === "number" &&
-          Number.isNaN(changedSize.height))
-      ) {
-        changedSize.height = Math.round(ref.offsetHeight);
-      }
-      if (
-        changedSize.width === "auto" ||
-        (typeof changedSize.width === "number" &&
-          Number.isNaN(changedSize.width))
-      ) {
-        changedSize.width = Math.round(ref.offsetWidth);
-      }
-    }
-    const clampedSize = clampChangedSize({
-      changedSize,
-      minHeight,
-      minWidth,
-      aspectRatio,
-    });
-    let updatedSectionSizes: Record<string, SectionSize> = {};
-    dispatchOptimisticProjectStateUpdate({
-      apply: (state) => {
-        updatedSectionSizes = setSelfParentSiblingChildrenWidths(
-          sectionId,
-          clampedSize,
-          state,
-        );
-      },
-      send: (frontendOpId) =>
-        route_set_section_sizes({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionSizes: updatedSectionSizes,
-          frontendOpId,
-        }),
-    });
-    if (shouldEmitResizeEnd) {
-      useResizeEvent.setState((state) => {
-        setSectionResizeEvent(sectionId, "end", state);
-      });
-    }
-    useMisc.setState({ mouseDownDraggingSection: false });
-    resizeStartedRef.current = false;
-    autoSizePromotedRef.current = false;
-    resizeAttemptedRef.current = false;
-    doubleClickPendingRef.current = false;
-  }
-
-  useEffect(() => {
-    const hasHeight = typeof size.height === "number";
-    const hasWidth = typeof size.width === "number";
-    const heightDelta = hasHeight ? minHeight - size.height : null;
-    const widthDelta = hasWidth ? minWidth - size.width : null;
-    const shouldClampHeight =
-      sizeMode.height !== SIZE_MODE.auto_only &&
-      heightDelta !== null &&
-      heightDelta > AUTO_CLAMP_TOLERANCE;
-    const shouldClampWidth =
-      sizeMode.width !== SIZE_MODE.auto_only &&
-      widthDelta !== null &&
-      widthDelta > AUTO_CLAMP_TOLERANCE;
-
-    if (!shouldClampHeight && !shouldClampWidth) {
-      return;
-    }
-
-    const nextSize: Partial<SectionSize> = {};
-    if (
-      aspectRatio &&
-      hasHeight &&
-      hasWidth &&
-      sizeMode.height !== SIZE_MODE.auto_only &&
-      sizeMode.width !== SIZE_MODE.auto_only
-    ) {
-      const adjusted = adjustSizeToBeAtLeastMin(
-        size.height,
-        size.width,
-        minHeight,
-        minWidth,
-      );
-      if (
-        sizeMode.height !== SIZE_MODE.auto_only &&
-        adjusted.height !== size.height
-      ) {
-        nextSize.height = adjusted.height;
-      }
-      if (
-        sizeMode.width !== SIZE_MODE.auto_only &&
-        adjusted.width !== size.width
-      ) {
-        nextSize.width = adjusted.width;
-      }
-    } else {
-      if (shouldClampHeight) {
-        nextSize.height = minHeight;
-      }
-      if (shouldClampWidth) {
-        nextSize.width = minWidth;
-      }
-    }
-
-    if (_.size(nextSize) === 0) {
-      return;
-    }
-    if (!canEditLayout || positionAndSizeLocked) {
-      return;
-    }
-    let updatedSectionSizes: Record<string, SectionSize> = {};
-    dispatchOptimisticProjectStateUpdate({
-      apply: (state) => {
-        updatedSectionSizes = setSelfParentSiblingChildrenWidths(
-          sectionId,
-          nextSize,
-          state,
-        );
-      },
-      send: (frontendOpId) =>
-        route_set_section_sizes({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionSizes: updatedSectionSizes,
-          frontendOpId,
-        }),
-    });
-  }, [
-    minHeight,
-    minWidth,
-    sectionId,
-    size.height,
-    size.width,
-    sizeMode.height,
-    sizeMode.width,
-    aspectRatio,
-    canEditLayout,
-    positionAndSizeLocked,
-  ]);
-
-  const heightResizable =
-    minHeight !== maxHeight && sizeMode.height !== SIZE_MODE.auto_only;
-  const widthResizable = sizeMode.width !== SIZE_MODE.auto_only;
-
-  const snapGrid = useSettings((x) => x.gui.snapGrid);
-  const snapToGrid = useLocalStorage((x) => x.snapToGrid);
-
-  return (
-    <CustomResizableSuperCore
-      sectionId={sectionId}
-      as={as}
-      bgColor={bgColor}
-      isYouTube={isYouTube}
-      isMetaControl={isMetaControl}
-      hasSectionStyleTheme={hasSectionStyleTheme}
-      allowPointerEventsDuringDnd={allowPointerEventsDuringDnd}
       size={size}
       minHeight={minHeight}
       maxHeight={maxHeight}
@@ -398,9 +108,6 @@ function CustomResizableCore({
       maxWidth={maxWidth}
       heightResizable={heightResizable}
       widthResizable={widthResizable}
-      positionAndSizeLocked={positionAndSizeLocked}
-      frameClassName={frameClassName}
-      layoutClassName={layoutClassName}
       onResizeStart={onResizeStart}
       onResize={onResize}
       onResizeStop={onResizeStop}
@@ -412,11 +119,11 @@ function CustomResizableCore({
       snapToGrid={snapToGrid}
     >
       {children}
-    </CustomResizableSuperCore>
+    </CustomResizableSurface>
   );
 }
 
-function CustomResizableSuperCore({
+function CustomResizableSurface({
   sectionId,
   as,
   bgColor,
@@ -444,39 +151,23 @@ function CustomResizableSuperCore({
   snapGrid,
   snapToGrid,
   children,
-}) {
+}: CustomResizableSurfaceProps) {
   const { isSorting } = useDndMode();
   const disablePointerEvents = useShouldDisablePointerEvents();
+  const { canEditLayout } = useShareCapabilities();
   const allowPointerEvents = allowPointerEventsDuringDnd && isSorting;
   const shouldDisablePointerEvents =
     disablePointerEvents && !allowPointerEvents;
   const isAttachedTerminalChild = useProjectState(
-    (x) => getAttachedTerminalParentIdForTerminalSection(x, sectionId) !== null,
+    (state) =>
+      getAttachedTerminalParentIdForTerminalSection(state, sectionId) !== null,
   );
-  const [activeResizeHandle, setActiveResizeHandle] = useState<string | null>(
-    null,
-  );
-
-  const enable =
-    disablePointerEvents || positionAndSizeLocked
-      ? false
-      : {
-          top: false,
-          left: false,
-          bottom: heightResizable,
-          right: widthResizable,
-          topRight: false,
-          bottomRight: heightResizable && widthResizable,
-          topLeft: false,
-          bottomLeft: false,
-        };
-
+  const [activeResizeHandle, setActiveResizeHandle] = useState<
+    "bottom" | "bottomRight" | "right" | null
+  >(null);
   const layoutClassNameToUse =
     layoutClassName ?? "section-grid-cols section-grid-rows section-grid-areas";
 
-  // MetaControl sections render outboard controls near the agentic handles.
-  // On hover, raise the resizable stacking context above the handles so menus
-  // remain clickable.
   const metaHoverZIndexClass = isMetaControl
     ? "group-hover/card-section:z-[170]"
     : "";
@@ -490,127 +181,45 @@ function CustomResizableSuperCore({
     layoutClassName: layoutClassNameToUse,
     metaHoverZIndexClassName: metaHoverZIndexClass,
   });
+  const { enable, handleStyles, handleClasses, handleWrapperClassName } =
+    getCustomResizableChromeConfig({
+      disablePointerEvents,
+      allowPointerEvents,
+      positionAndSizeLocked: positionAndSizeLocked || !canEditLayout,
+      heightResizable,
+      widthResizable,
+      isMetaControl,
+      isAttachedTerminalChild,
+      activeResizeHandle,
+    });
 
-  const handleBaseClassName = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME}`;
-  const handleBaseClasses = {
-    right: `${handleBaseClassName} section-resize-handle section-resize-handle-right`,
-    bottom: `${handleBaseClassName} section-resize-handle section-resize-handle-bottom`,
-    bottomRight: `${handleBaseClassName} section-resize-handle section-resize-handle-bottom-right`,
-  };
-  const metaControlHandleBaseClassName =
-    "relative flex items-center justify-center opacity-0 transition-opacity hover:opacity-100 after:absolute after:rounded after:bg-transparent hover:after:bg-blue-500/80 dark:hover:after:bg-blue-400/80";
-
-  function getMetaControlHandleActiveClassName(direction: string) {
-    if (!isMetaControl) {
-      return "";
-    }
-    if (activeResizeHandle !== direction) {
-      return "";
-    }
-    return "opacity-100 after:bg-blue-500/80 dark:after:bg-blue-400/80";
-  }
-
-  const metaControlHandleRightClassName = `${metaControlHandleBaseClassName} ${getMetaControlHandleActiveClassName("right")} cursor-col-resize after:inset-y-1 after:left-1/2 after:w-[3px] after:-translate-x-1/2`;
-  const metaControlHandleBottomClassName = `${metaControlHandleBaseClassName} ${getMetaControlHandleActiveClassName("bottom")} cursor-row-resize after:inset-x-1 after:top-1/2 after:h-[3px] after:-translate-y-1/2`;
-  const metaControlHandleCornerClassName = `${metaControlHandleBaseClassName} ${getMetaControlHandleActiveClassName("bottomRight")} cursor-nwse-resize after:inset-1`;
-
-  let handleStyles = { right: { right: "-8px" }, bottom: { bottom: "-8px" } };
-  let handleClasses = handleBaseClasses;
-  const handleWrapperClassName = isAttachedTerminalChild
-    ? "absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-30"
-    : "absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-20";
-
-  if (isAttachedTerminalChild) {
-    // Keep handles inside the parent code section outline so they don't feel clipped.
-    handleStyles = {
-      right: { right: "-4px", width: 16, top: 0, bottom: 0, height: "100%" },
-      bottom: {
-        bottom: "-4px",
-        height: 16,
-        left: 0,
-        right: 0,
-        width: "100%",
-      },
-      bottomRight: { right: "-4px", bottom: "-4px", width: 24, height: 24 },
-    };
-  }
-
-  function handleResizeMouseDownCapture(event: MouseEvent<HTMLDivElement>) {
-    if (!onResizePointerDown) {
-      return;
-    }
-    const currentTarget = event.currentTarget;
-    if (!(currentTarget instanceof HTMLElement)) {
-      return;
-    }
-    let direction: ResizeHandleDirection | null = null;
-    const target = event.target;
-    if (target instanceof HTMLElement) {
-      const handleElement = target.closest(".section-resize-handle");
-      if (handleElement) {
-        if (
-          handleElement.classList.contains("section-resize-handle-bottom-right")
-        ) {
-          direction = "bottomRight";
-        } else if (
-          handleElement.classList.contains("section-resize-handle-bottom")
-        ) {
-          direction = "bottom";
-        } else if (
-          handleElement.classList.contains("section-resize-handle-right")
-        ) {
-          direction = "right";
-        }
-      }
-    }
+  const handleResizeMouseDownCapture = (event: MouseEvent<HTMLElement>) => {
+    const direction = getResizeHandleDirectionFromTarget(event.target);
     if (!direction) {
       return;
     }
-    onResizePointerDown(direction, currentTarget);
-  }
+    onResizePointerDown(direction);
+  };
 
-  function handleResizeStart(event, direction, ref) {
-    setActiveResizeHandle(direction);
-    if (onResizeStart) {
-      onResizeStart(event, direction, ref);
+  const handleResizeStart: ResizeStartCallback = (event, direction, ref) => {
+    if (
+      direction === "bottom" ||
+      direction === "bottomRight" ||
+      direction === "right"
+    ) {
+      setActiveResizeHandle(direction);
     }
-  }
+    return onResizeStart(event, direction, ref);
+  };
 
-  function handleResize(event, direction, ref, delta) {
-    if (onResize) {
-      onResize(event, direction, ref, delta);
-    }
-  }
-
-  function handleResizeStop(event, direction, ref, delta) {
+  const handleResizeStop: ResizeCallback = (event, direction, ref, delta) => {
     setActiveResizeHandle(null);
-    if (onResizeStop) {
-      onResizeStop(event, direction, ref, delta);
-    }
-  }
-
-  if (isMetaControl) {
-    handleStyles = {
-      right: { right: "-8px", width: 16, top: 0, bottom: 0, height: "100%" },
-      bottom: {
-        bottom: "-8px",
-        height: 16,
-        left: 0,
-        right: 0,
-        width: "100%",
-      },
-      bottomRight: { right: "-8px", bottom: "-8px", width: 16, height: 16 },
-    };
-    handleClasses = {
-      right: `${handleBaseClassName} ${metaControlHandleRightClassName}`,
-      bottom: `${handleBaseClassName} ${metaControlHandleBottomClassName}`,
-      bottomRight: `${handleBaseClassName} ${metaControlHandleCornerClassName}`,
-    };
-  }
+    onResizeStop(event, direction, ref, delta);
+  };
 
   return (
     <ResizableWithScale
-      id={`${sectionId}-CustomResizable`} // IMPORTANT, used for section-scoped DOM lookups
+      id={`${sectionId}-CustomResizable`}
       as={as}
       size={size}
       minHeight={minHeight}
@@ -618,7 +227,7 @@ function CustomResizableSuperCore({
       minWidth={minWidth}
       maxWidth={maxWidth}
       onResizeStart={handleResizeStart}
-      onResize={handleResize}
+      onResize={onResize}
       onResizeStop={handleResizeStop}
       onMouseDownCapture={handleResizeMouseDownCapture}
       lockAspectRatio={aspectRatio}
@@ -634,96 +243,4 @@ function CustomResizableSuperCore({
       {children}
     </ResizableWithScale>
   );
-}
-
-function useAspectRatio(sectionId: string) {
-  return useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    if (impl.isMinimized) {
-      return {
-        size: impl.size,
-        aspectRatio: false,
-        aspectRatioExtraHeight: 0,
-        aspectRatioExtraWidth: 0,
-      };
-    }
-    return {
-      size: impl.size,
-      aspectRatio: impl.aspectRatio ?? false,
-      aspectRatioExtraHeight: impl.aspectRatioExtraHeight ?? 0,
-      aspectRatioExtraWidth: impl.aspectRatioExtraWidth ?? 0,
-    };
-  }, _.isEqual);
-}
-
-function setSectionResizeEvent(sectionId, resizeEvent, state) {
-  state.resizeEvent[sectionId] = resizeEvent;
-}
-
-type ResizeEndDecisionInput = {
-  resizeStarted: boolean;
-  resizeAttempted: boolean;
-  isZeroDelta: boolean;
-  isDoubleClick: boolean;
-};
-
-export function shouldEmitResizeEndEvent({
-  resizeStarted,
-  resizeAttempted,
-  isZeroDelta,
-  isDoubleClick,
-}: ResizeEndDecisionInput): boolean {
-  if (!resizeStarted) {
-    return false;
-  }
-  if (isZeroDelta && !isDoubleClick && !resizeAttempted) {
-    return false;
-  }
-  return true;
-}
-
-export function clampChangedSize({
-  changedSize,
-  minHeight,
-  minWidth,
-  aspectRatio,
-}: {
-  changedSize: Partial<SectionSize>;
-  minHeight: number;
-  minWidth: number;
-  aspectRatio: boolean;
-}) {
-  const clampedSize = { ...changedSize };
-  const hasHeight = typeof changedSize.height === "number";
-  const hasWidth = typeof changedSize.width === "number";
-
-  if (hasHeight && hasWidth) {
-    if (aspectRatio) {
-      const adjusted = adjustSizeToBeAtLeastMin(
-        changedSize.height,
-        changedSize.width,
-        minHeight,
-        minWidth,
-      );
-      clampedSize.height = adjusted.height;
-      clampedSize.width = adjusted.width;
-      return clampedSize;
-    }
-    if (changedSize.height < minHeight) {
-      clampedSize.height = minHeight;
-    }
-    if (changedSize.width < minWidth) {
-      clampedSize.width = minWidth;
-    }
-    return clampedSize;
-  }
-
-  if (hasHeight && changedSize.height < minHeight) {
-    clampedSize.height = minHeight;
-  }
-  if (hasWidth && changedSize.width < minWidth) {
-    clampedSize.width = minWidth;
-  }
-
-  return clampedSize;
 }
