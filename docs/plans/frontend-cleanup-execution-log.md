@@ -765,3 +765,29 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/websocketReceive.ts`, now the largest
     remaining shared-state hotspot, into clearer protocol parsing, snapshot
     reconciliation, and feature-specific dispatch modules.
+
+## 2026-03-14 18:11:02 PDT
+
+- Slice completed: extracted incoming websocket message dispatch and
+  `UISettingReveal` acknowledgment handling out of
+  `frontend/src/state/actions/websocketReceive.ts` into a dedicated
+  `websocketIncomingMessages.ts` owner module
+- Key files touched:
+  - `frontend/src/state/actions/websocketIncomingMessages.ts`
+  - `frontend/src/state/actions/websocketReceive.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/websocketReceive.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/websocketReceive.ts src/state/actions/websocketIncomingMessages.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split and
+    did not change frontend rendering behavior.
+- Commit hash:
+  - `d72cc734cb17`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/hooks/terminals/terminal.ts`, now the largest
+    remaining terminal/runtime hotspot, into clearer transport/session
+    lifecycle, resize/focus wiring, and terminal event helpers.
