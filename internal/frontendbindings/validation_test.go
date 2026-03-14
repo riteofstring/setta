@@ -1583,7 +1583,8 @@ func TestFrontendRouteConstantImportsStayWithinExplicitBoundaries(t *testing.T) 
 		"GoWebsocketRoutes": {},
 	}
 	disallowedWithoutCaller := map[string]struct{}{
-		"GoRootRoutes": {},
+		"GoRootRoutes":       {},
+		"GoPluginRootRoutes": {},
 	}
 	generatedRoutesImportPattern := regexp.MustCompile(`(?s)import\s*\{([^}]*)\}\s*from\s*["'](?:\./generatedRoutes|utils/generatedRoutes)["']`)
 
