@@ -33,11 +33,11 @@ import {
   useCreateAndGoToProjectConfig,
 } from "state/actions/project/loadProject";
 import {
-  useHomeFileBrowserState,
-  useHomePageSearch,
   useLocalStorage,
   useProjectLoading,
 } from "state/definitions";
+import { useHomeFileBrowserState } from "state/stores/fileBrowserStores";
+import { useHomePageSearch } from "state/stores/searchStores";
 import {
   useAllProjectMetadata,
   useShareSession,

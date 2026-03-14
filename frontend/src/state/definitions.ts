@@ -11,15 +11,8 @@ import {
   OverviewNotificationsPaneTabEnum,
   OverviewTabKey,
   OverviewTabNameEnum,
-  ProjectSearchMode,
-  ProjectSearchModeEnum,
   UIEditorTabLocalStorage,
 } from "utils/constants";
-import {
-  DEFAULT_FILE_BROWSER_TYPE_FILTERS,
-  type FileBrowserSearchScope,
-  type FileBrowserTypeFilter,
-} from "utils/fileBrowserTypes";
 import {
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
@@ -60,6 +53,13 @@ export {
   useServerMode,
   useShareSession,
 } from "./stores/sessionStores";
+export {
+  useBrowserSectionFileBrowserState,
+  useDropzoneFileBrowserState,
+  useFileBrowserState,
+  useHomeFileBrowserState,
+} from "./stores/fileBrowserStores";
+export { useHomePageSearch, useProjectSearch } from "./stores/searchStores";
 import type {
   ProjectChatAuxView,
   ProjectChatCustomSlashCommand,
@@ -81,6 +81,8 @@ export type {
   ToolArgumentPreviewEntry,
   ToolArgumentPreviewProjectState,
 } from "./stores/aiStores";
+export type { FileBrowserState } from "./stores/fileBrowserStores";
+export type { ZustandProjectSearch } from "./stores/searchStores";
 
 export const useResizeEvent = withProjectState(
   createWithEqualityFn(
@@ -234,12 +236,6 @@ export const useRenameRefactors = withProjectState(
   ),
 );
 
-export const useHomePageSearch = createWithEqualityFn(
-  withResetFn(() => ({
-    value: "",
-  })),
-);
-
 type ZustandWaitingForLSPResult = {
   textFields: Record<string, boolean>;
   parametersRequest: Record<string, boolean>;
@@ -362,69 +358,6 @@ type ZustandNotificationState = { notifications: Array<SettaNotification> };
 export const useNotifications = createWithEqualityFn(
   withResetFn<ZustandNotificationState>(() => ({
     notifications: [],
-  })),
-);
-
-type FileBrowserState = {
-  rootPath: string | null;
-  selectedPath: string | null;
-  expandedPaths: Record<string, boolean>;
-  filterText: string;
-  pathSeparator: string;
-  ignorePatterns: string[];
-  typeFilters: Record<FileBrowserTypeFilter, boolean>;
-  searchScope: FileBrowserSearchScope;
-};
-
-export const useFileBrowserState = createWithEqualityFn(
-  withResetFn<FileBrowserState>(() => ({
-    rootPath: null,
-    selectedPath: null,
-    expandedPaths: {},
-    filterText: "",
-    pathSeparator: "/",
-    ignorePatterns: [],
-    typeFilters: { ...DEFAULT_FILE_BROWSER_TYPE_FILTERS },
-    searchScope: "recursive",
-  })),
-);
-
-export const useHomeFileBrowserState = createWithEqualityFn(
-  withResetFn<FileBrowserState>(() => ({
-    rootPath: null,
-    selectedPath: null,
-    expandedPaths: {},
-    filterText: "",
-    pathSeparator: "/",
-    ignorePatterns: [],
-    typeFilters: { ...DEFAULT_FILE_BROWSER_TYPE_FILTERS },
-    searchScope: "recursive",
-  })),
-);
-
-export const useBrowserSectionFileBrowserState = createWithEqualityFn(
-  withResetFn<FileBrowserState>(() => ({
-    rootPath: null,
-    selectedPath: null,
-    expandedPaths: {},
-    filterText: "",
-    pathSeparator: "/",
-    ignorePatterns: [],
-    typeFilters: { ...DEFAULT_FILE_BROWSER_TYPE_FILTERS },
-    searchScope: "recursive",
-  })),
-);
-
-export const useDropzoneFileBrowserState = createWithEqualityFn(
-  withResetFn<FileBrowserState>(() => ({
-    rootPath: null,
-    selectedPath: null,
-    expandedPaths: {},
-    filterText: "",
-    pathSeparator: "/",
-    ignorePatterns: [],
-    typeFilters: { ...DEFAULT_FILE_BROWSER_TYPE_FILTERS },
-    searchScope: "recursive",
   })),
 );
 
@@ -559,32 +492,6 @@ export const useBackendLogEvents = withProjectState(
 const useArtifacts = withProjectState(
   createWithEqualityFn(
     subscribeWithSelector(withResetFn(() => ({ x: {}, namePathTypeToId: {} }))),
-  ),
-);
-
-export type ZustandProjectSearch = {
-  codeInfo: Array<{
-    sectionId: string;
-    paramInfoId: string;
-    name: string;
-  }>;
-  focused: {
-    sectionId: string;
-    paramInfoId: string;
-    name: string;
-  } | null;
-  lookup: Set<string>;
-  mode: ProjectSearchMode;
-};
-
-export const useProjectSearch = withProjectState(
-  createWithEqualityFn(
-    withResetFn<ZustandProjectSearch>(() => ({
-      codeInfo: [],
-      focused: null,
-      lookup: new Set(),
-      mode: ProjectSearchModeEnum.find,
-    })),
   ),
 );
 
