@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { RouteEnum } from "./generatedRoutes";
+import { GoHTTPRoutes, GoRootRouteHelpers } from "./generatedRoutes";
 import {
   ENDPOINT_ORIGIN_POLICY,
   resolveEndpointOriginForMode,
@@ -37,25 +37,25 @@ describe("serverModeBoundaryPolicy", () => {
   });
 
   it("keeps launch and launch-intent endpoint origin mode-scoped", () => {
-    expect(resolveEndpointOriginForMode(RouteEnum.LAUNCH, "ide")).toBe(
+    expect(resolveEndpointOriginForMode(GoHTTPRoutes.launch, "ide")).toBe(
       "backend",
     );
-    expect(resolveEndpointOriginForMode(RouteEnum.LAUNCH, "launcher")).toBe(
+    expect(resolveEndpointOriginForMode(GoHTTPRoutes.launch, "launcher")).toBe(
       "launcher",
     );
-    expect(resolveEndpointOriginForMode(RouteEnum.LAUNCH, null)).toBe(
+    expect(resolveEndpointOriginForMode(GoHTTPRoutes.launch, null)).toBe(
       "backend",
     );
 
     expect(
       resolveEndpointOriginForMode(
-        RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT,
+        GoHTTPRoutes.createWorkspaceLaunchIntent,
         "app",
       ),
     ).toBe("backend");
     expect(
       resolveEndpointOriginForMode(
-        RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT,
+        GoHTTPRoutes.createWorkspaceLaunchIntent,
         "launcher",
       ),
     ).toBe("launcher");
@@ -63,26 +63,26 @@ describe("serverModeBoundaryPolicy", () => {
 
   it("keeps settaHomeInfo on backend across all modes", () => {
     expect(
-      resolveEndpointOriginForMode(RouteEnum.GET_SETTA_HOME_INFO, "ide"),
+      resolveEndpointOriginForMode(GoHTTPRoutes.getSettaHomeInfo, "ide"),
     ).toBe("backend");
     expect(
-      resolveEndpointOriginForMode(RouteEnum.GET_SETTA_HOME_INFO, "launcher"),
+      resolveEndpointOriginForMode(GoHTTPRoutes.getSettaHomeInfo, "launcher"),
     ).toBe("backend");
     expect(
-      resolveEndpointOriginForMode(RouteEnum.GET_SETTA_HOME_INFO, null),
+      resolveEndpointOriginForMode(GoHTTPRoutes.getSettaHomeInfo, null),
     ).toBe("backend");
   });
 
   it("keeps launcher-home endpoints on launcher origin and bootstrap on backend origin", () => {
     expect(
       resolveEndpointOriginForMode(
-        `${RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES}?setta_home=/tmp/home#x`,
+        `${GoHTTPRoutes.getLauncherRecentWorkspaces}?setta_home=/tmp/home#x`,
         "ide",
       ),
     ).toBe("launcher");
     expect(
       resolveEndpointOriginForMode(
-        `${RouteEnum.BOOTSTRAP_PAGE}#token=abc`,
+        `${GoRootRouteHelpers.bootstrapPage()}#token=abc`,
         "launcher",
       ),
     ).toBe("backend-origin");

@@ -1523,8 +1523,9 @@ func TestFrontendRouteConstantImportsStayWithinExplicitBoundaries(t *testing.T) 
 	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
 	allowedRouteConstantImports := map[string]map[string]struct{}{
 		"GoHTTPRoutes": {
-			"frontend/src/utils/generatedEndpoints.ts": {},
-			"frontend/src/utils/settaApiPresets.ts":   {},
+			"frontend/src/utils/generatedEndpoints.ts":       {},
+			"frontend/src/utils/serverModeBoundaryPolicy.ts": {},
+			"frontend/src/utils/settaApiPresets.ts":          {},
 		},
 		"GoRoutePrefixes": {
 			"frontend/src/utils/c_addresses.ts": {},
@@ -1596,6 +1597,61 @@ func TestFrontendRouteConstantImportsStayWithinExplicitBoundaries(t *testing.T) 
 	})
 	if err != nil {
 		t.Fatalf("scan frontend route constant imports: %v", err)
+	}
+}
+
+func TestFrontendRuntimeSourceDoesNotImportRouteEnum(t *testing.T) {
+	t.Helper()
+
+	repoRoot := testRepoRoot(t)
+	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
+	generatedRouteImportPattern := regexp.MustCompile(`(?s)import\s*\{([^}]*)\}\s*from\s*["'](?:\./generatedRoutes|utils/generatedRoutes|\./generatedTypes|utils/generatedTypes)["']`)
+
+	err := filepath.WalkDir(frontendSrcRoot, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+
+		base := entry.Name()
+		if !(strings.HasSuffix(base, ".ts") || strings.HasSuffix(base, ".tsx")) {
+			return nil
+		}
+		if strings.Contains(base, ".test.") || strings.Contains(base, ".spec.") {
+			return nil
+		}
+
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		for _, match := range generatedRouteImportPattern.FindAllStringSubmatch(string(contents), -1) {
+			for _, rawSpecifier := range strings.Split(match[1], ",") {
+				specifier := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(rawSpecifier), "type "))
+				if specifier == "" {
+					continue
+				}
+				bindingName := strings.Fields(specifier)[0]
+				if bindingName != "RouteEnum" {
+					continue
+				}
+
+				relativePath, err := filepath.Rel(repoRoot, path)
+				if err != nil {
+					return err
+				}
+				return fmt.Errorf(
+					"%s imports legacy RouteEnum in non-test runtime source; use narrower Go route groups/helpers or a documented explicit boundary instead",
+					filepath.ToSlash(relativePath),
+				)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("scan frontend runtime RouteEnum imports: %v", err)
 	}
 }
 
