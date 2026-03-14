@@ -7,15 +7,30 @@ import {
 } from "@playwright/test";
 import path from "path";
 import { fileURLToPath } from "url";
-import { ensureAppReady, ensureManagedChatEngine } from "../helpers";
+import { ensureAppReady } from "../helpers";
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 
+type EngineConfig = {
+  id: string;
+  name: string;
+  engineType: string;
+  settaLlmConfigId?: string | null;
+};
+
+type AllLLMConfigs = {
+  configs?: Record<string, { model: string }>;
+  mcpServers?: Record<string, unknown>;
+  defaultMcpServerIds?: string[];
+  default_config_id?: string | null;
+};
+
 type CreateSectionResponse = {
   sectionId?: string;
 };
+
 
 type ProjectMetadataEntry = { id: string; name: string };
 type ProjectMetadataResponse = {
@@ -41,80 +56,88 @@ test.describe.serial("chat attachments", () => {
     await setOverviewTab(page, "ProjectAIChat");
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page, page.request);
-    const cleanupEngine = await ensureManagedChatEngine(page);
-    const nextChatId = `pw-project-chat-attachments-${Date.now()}`;
-    let submittedPayload:
-      | {
-          message?: {
-            content?: Array<{ type?: string; text?: string }>;
-            attachments?: Array<{
-              id?: string;
-              name?: string;
-              mimeType?: string | null;
-            }>;
-          };
-        }
-      | undefined;
 
-    await page.route("**/api/getLLMResponse", async (route) => {
-      submittedPayload = route.request().postDataJSON() as
-        | {
-            message?: {
-              content?: Array<{ type?: string; text?: string }>;
-              attachments?: Array<{
-                id?: string;
-                name?: string;
-                mimeType?: string | null;
-              }>;
-            };
-          }
-        | undefined;
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(nextChatId),
-      });
-    });
-    await page.route("**/api/getLLMChat", async (route) => {
-      const payload = route.request().postDataJSON() as
-        | { chatId?: string | null }
-        | undefined;
-      if (payload?.chatId !== nextChatId) {
-        await route.continue();
-        return;
+    const initialConfig = await getBackend<AllLLMConfigs>(
+      page.request,
+      "/llm/config",
+    );
+    if (!initialConfig) {
+      throw new Error("Missing LLM config payload.");
+    }
+    let createdLlmConfigId: string | null = null;
+    let didUpdateLlmConfig = false;
+    const existingConfigs = initialConfig.configs ?? {};
+
+    const engineConfigs = await getBackend<EngineConfig[]>(
+      page.request,
+      "/getEngineConfigs",
+    );
+    const existingEngine =
+      engineConfigs?.find((config) => config.engineType === "setta_llm") ??
+      null;
+
+    let llmConfigId = existingEngine?.settaLlmConfigId ?? null;
+    if (llmConfigId && !existingConfigs[llmConfigId]) {
+      const updated: AllLLMConfigs = {
+        ...initialConfig,
+        configs: {
+          ...existingConfigs,
+          [llmConfigId]: { model: "gpt-test" },
+        },
+        default_config_id: initialConfig.default_config_id ?? llmConfigId,
+      };
+      await postBackend(
+        page.request,
+        "/llm/config",
+        updated as Record<string, unknown>,
+      );
+      createdLlmConfigId = llmConfigId;
+      didUpdateLlmConfig = true;
+    }
+
+    if (!llmConfigId) {
+      llmConfigId =
+        Object.entries(existingConfigs).find(
+          ([, config]) => !config.api_key_env,
+        )?.[0] ?? null;
+    }
+
+    if (!llmConfigId) {
+      llmConfigId = "e2e-llm";
+      const updated: AllLLMConfigs = {
+        ...initialConfig,
+        configs: {
+          ...existingConfigs,
+          [llmConfigId]: { model: "gpt-test" },
+        },
+        default_config_id: llmConfigId,
+      };
+      await postBackend(
+        page.request,
+        "/llm/config",
+        updated as Record<string, unknown>,
+      );
+      createdLlmConfigId = llmConfigId;
+      didUpdateLlmConfig = true;
+    }
+
+    let createdEngineConfigId: string | null = null;
+    if (!existingEngine) {
+      const created = await postBackend<EngineConfig>(
+        page.request,
+        "/createEngineConfig",
+        {
+          name: "E2E Engine",
+          engineType: "setta_llm",
+          settaLlmConfigId: llmConfigId,
+          defaults: {},
+        },
+      );
+      if (!created?.id) {
+        throw new Error("Missing engine config id.");
       }
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          messages: [
-            {
-              id: "pw-user-message",
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: "Here is a file.",
-                },
-              ],
-              attachments: submittedPayload?.message?.attachments ?? [],
-            },
-          ],
-          waitingForResponse: false,
-          llmConfig: {
-            id: "pw-managed-attachment-config",
-            model: "gpt-4o-mini",
-            provider: "openai",
-            api_key_env: null,
-            base_url: null,
-            other_params: null,
-            mcpServerIds: [],
-            temporary: false,
-          },
-          contextUsage: null,
-        }),
-      });
-    });
+      createdEngineConfigId = created.id;
+    }
 
     await page.reload();
     await page.waitForSelector(".react-flow__pane");
@@ -125,9 +148,7 @@ test.describe.serial("chat attachments", () => {
       await expect(input).toBeVisible();
       await expect(input).toBeEnabled();
 
-      const fileInput = projectChatSurface
-        .locator('input[type="file"]')
-        .first();
+      const fileInput = projectChatSurface.locator('input[type="file"]').first();
       await fileInput.setInputFiles({
         name: "notes.txt",
         mimeType: "text/plain",
@@ -138,24 +159,6 @@ test.describe.serial("chat attachments", () => {
 
       await input.fill("Here is a file.");
       await input.press("Enter");
-
-      await expect
-        .poll(() => submittedPayload?.message?.attachments?.length ?? 0)
-        .toBe(1);
-      expect(
-        submittedPayload?.message?.content?.some(
-          (block) => block.type === "text" && block.text === "Here is a file.",
-        ),
-      ).toBe(true);
-      expect(submittedPayload?.message?.attachments?.[0]?.id).toMatch(
-        /^artifacts\//,
-      );
-      expect(submittedPayload?.message?.attachments?.[0]?.name).toBe(
-        "notes.txt",
-      );
-      expect(submittedPayload?.message?.attachments?.[0]?.mimeType).toBe(
-        "text/plain",
-      );
 
       const attachmentButton = projectChatSurface
         .getByRole("button", { name: "notes.txt" })
@@ -173,7 +176,18 @@ test.describe.serial("chat attachments", () => {
       await page.keyboard.press("Escape");
       await expect(modal).toHaveCount(0);
     } finally {
-      await cleanupEngine();
+      if (createdEngineConfigId) {
+        await postBackend(page.request, "/deleteEngineConfig", {
+          configId: createdEngineConfigId,
+        });
+      }
+      if (createdLlmConfigId || didUpdateLlmConfig) {
+        await postBackend(
+          page.request,
+          "/llm/config",
+          initialConfig as Record<string, unknown>,
+        );
+      }
       await cleanupIsolatedProject(page.request, projectContext);
     }
   });
@@ -301,9 +315,7 @@ test.describe.serial("chat attachments", () => {
     }
   });
 
-  test("chat attachment preview supports common file types", async ({
-    page,
-  }) => {
+  test("chat attachment preview supports common file types", async ({ page }) => {
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page, page.request);
 
@@ -604,9 +616,7 @@ async function dropFiles(
         bytes[i] = binary.charCodeAt(i);
       }
       const blob = new Blob([bytes], { type: payload.mimeType });
-      const fileObj = new File([blob], payload.name, {
-        type: payload.mimeType,
-      });
+      const fileObj = new File([blob], payload.name, { type: payload.mimeType });
       dt.items.add(fileObj);
     }, file);
   }

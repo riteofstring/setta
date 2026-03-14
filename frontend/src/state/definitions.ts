@@ -1,20 +1,9 @@
-import { ModalInfoType } from "components/Modals/types";
-import { HandlePosition, HandleType, Node } from "forks/xyflow/core/types";
+import { HandlePosition, HandleType } from "forks/xyflow/core/types";
 import type { AIFollowMode } from "state/types/aiFollow";
-import type { AppGenerationMode } from "state/types/appGenerationMode";
 import {
-  CLOSED_PANE_WIDTH,
-  INITIAL_OVERVIEW_WIDTH,
-  INITIAL_UI_EDITOR_WIDTH,
-  isOverviewTabKey,
-  OverviewNotificationsPaneTab,
-  OverviewNotificationsPaneTabEnum,
-  OverviewTabKey,
-  OverviewTabNameEnum,
   ProjectSearchMode,
   ProjectSearchModeEnum,
-  UIEditorTabLocalStorage,
-} from "utils/constants";
+} from "utils/constants/projectSearch";
 import {
   DEFAULT_FILE_BROWSER_TYPE_FILTERS,
   type FileBrowserSearchScope,
@@ -22,294 +11,66 @@ import {
 } from "utils/fileBrowserTypes";
 import {
   AgenticEdgeKindEnum,
-  AgentProfile,
-  AgentRun,
-  AllLLMConfigs,
-  AllProjectMetadata,
-  APIKeys,
-  AppDefinition,
-  BaseChatMessageUnion,
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
-  createProjectChatWindowingState,
-  createProjectConfig,
-  createSingletonSections,
   DrawAreaLayerItemTransformMapping,
-  EngineConfig,
-  ExternalAgentConfig,
-  ExternalAgentPreflightStatus,
   ImageMapping,
   ListenerCoverageSnapshot,
-  LLMConfig,
-  ProjectStateSingleConfig,
-  PromptTemplate,
   RenameRefactorBroadcastContent,
   SettaBackendLogEvent,
   SettaLspDiagnostic,
-  SettaNotification,
   SettaProjectNameValidationErrors,
   SettingsState,
-  SharePolicy,
-  TranscriptionProfile,
   WebsocketConnectionInfo,
 } from "utils/generatedTypes";
-import {
-  DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,
-  DEFAULT_GIT_GRAPH_COL_WIDTH_PX,
-  DEFAULT_GIT_GRAPH_DATE_WIDTH_PX,
-  DEFAULT_GIT_GRAPH_HASH_WIDTH_PX,
-  DEFAULT_GIT_GRAPH_SPLIT_PCT,
-} from "utils/gitGraphLayoutDefaults";
-import {
-  createJSONStorage,
-  persist,
-  subscribeWithSelector,
-} from "zustand/middleware";
+import { subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import { createWithEqualityFn } from "zustand/traditional";
+import type { CustomRunItem } from "./stores/localStorageStore";
 import { withProjectState, withResetFn } from "./utils";
 
-const createInMemoryStorage = () => {
-  const storage = new Map<string, string>();
-  return {
-    getItem: (name: string) => storage.get(name) ?? null,
-    setItem: (name: string, value: string) => {
-      storage.set(name, value);
-    },
-    removeItem: (name: string) => {
-      storage.delete(name);
-    },
-  };
-};
-
-const getPersistStorage = <S>() =>
-  createJSONStorage<S>(() => {
-    if (typeof localStorage === "undefined") {
-      return createInMemoryStorage();
-    }
-    if (
-      typeof localStorage.getItem !== "function" ||
-      typeof localStorage.setItem !== "function" ||
-      typeof localStorage.removeItem !== "function"
-    ) {
-      return createInMemoryStorage();
-    }
-    return localStorage;
-  });
-
-export const useResizeEvent = withProjectState(
-  createWithEqualityFn(
-    immer(
-      withResetFn(() => ({
-        resizeEvent: {},
-      })),
-    ),
-  ),
-);
-
-type ZustandContextMenu = {
-  pane: { isOpen: boolean; x: number; y: number };
-  selection: { isOpen: boolean; x: number; y: number; nodeIds: Array<string> };
-  typeError: {
-    isOpen: boolean;
-    x: number;
-    y: number;
-    sectionId: string | null;
-    paramInfoId: string | null;
-  };
-};
-
-export const useContextMenus = withProjectState(
-  createWithEqualityFn(
-    withResetFn<ZustandContextMenu>(() => ({
-      pane: { isOpen: false, x: 0, y: 0 },
-      selection: { isOpen: false, x: 0, y: 0, nodeIds: [] },
-      typeError: {
-        isOpen: false,
-        x: 0,
-        y: 0,
-        sectionId: null,
-        paramInfoId: null,
-      },
-    })),
-  ),
-);
-
-// useContextMenus.getState().
-
-export type ZustandProjectState = ProjectStateSingleConfig & {
-  previewSectionVariantMap: Record<string, string>;
-};
-
-export const NULL_PROJECT_CONFIG_ID = "null";
-
-export const useProjectState = withProjectState(
-  createWithEqualityFn(
-    subscribeWithSelector(
-      immer(
-        withResetFn<ZustandProjectState>(() => ({
-          projectConfig: createProjectConfig({ id: NULL_PROJECT_CONFIG_ID }),
-          sections: {},
-          sectionImpls: {},
-          sectionVariants: {},
-          codeObjs: {},
-          codeObjImpls: {},
-          codeObjVariants: {},
-          artifactGroups: {},
-          singletonSections: createSingletonSections(),
-          parentSectionMap: {},
-          shownParamIds: {},
-          projectChatWindowing: createProjectChatWindowingState(),
-          previewSectionVariantMap: {},
-          requiredDecodedImages: [],
-        })),
-      ),
-    ),
-  ),
-);
-
-type AppDefinitionState = {
-  appDefinition: AppDefinition | null;
-  appSpec: unknown | null;
-};
-
-export const useAppDefinition = withProjectState(
-  createWithEqualityFn(
-    withResetFn<AppDefinitionState>(() => ({
-      appDefinition: null,
-      appSpec: null,
-    })),
-  ),
-);
-
-type AppConfigState = ZustandProjectState;
-
-type AppConfigsState = {
-  configs: Record<string, AppConfigState>;
-};
-
-export const useAppConfigs = withProjectState(
-  createWithEqualityFn(
-    withResetFn<AppConfigsState>(() => ({
-      configs: {},
-    })),
-  ),
-);
-
-type ShareSessionState = {
-  isDeploymentMode: boolean;
-  shareSessionId: string | null;
-  sessionRunCount: number;
-  sharePolicy: SharePolicy | null;
-  shareDeploymentName: string | null;
-  shareDeploymentVersion: string | null;
-  deploymentMode: "share" | "app" | null;
-};
-
-export const useShareSession = withProjectState(
-  createWithEqualityFn(
-    withResetFn<ShareSessionState>(() => ({
-      isDeploymentMode: false,
-      shareSessionId: null,
-      sessionRunCount: 0,
-      sharePolicy: null,
-      shareDeploymentName: null,
-      shareDeploymentVersion: null,
-      deploymentMode: null,
-    })),
-  ),
-);
-
-type ServerModeState = {
-  mode: "ide" | "share" | "app" | "launcher" | null;
-  modeResolved: boolean;
-  modeError: string | null;
-};
-
-export const useServerMode = createWithEqualityFn<ServerModeState>(() => ({
-  mode: null,
-  modeResolved: false,
-  modeError: null,
-}));
-
-type AppPreviewState = {
-  isPreviewEnabled: boolean;
-  previewConfigId: string | null;
-  // Draft-only overrides used for live preview while editing App Config.
-  // `undefined` means "no override"; `null` means "explicitly cleared".
-  previewSpecOverride?: unknown | null;
-  // AI-streaming override used while `setta__stream_app_definition` is streaming patches.
-  aiPreviewSpecOverride?: unknown | null;
-  previewThemeOverride?: unknown | null;
-  previewAssetsOverride?: unknown[] | null;
-};
-
-export const useAppPreview = withProjectState(
-  createWithEqualityFn(
-    withResetFn<AppPreviewState>(() => ({
-      isPreviewEnabled: false,
-      previewConfigId: null,
-      previewSpecOverride: undefined,
-      aiPreviewSpecOverride: undefined,
-      previewThemeOverride: undefined,
-      previewAssetsOverride: undefined,
-    })),
-  ),
-);
-
-export const useAllProjectMetadata = createWithEqualityFn(
-  withResetFn<AllProjectMetadata>(() => ({
-    defaultProjectConfigId: null,
-    projectMetadata: [],
-  })),
-);
-
-export type PendingOperation = {
-  opId: string;
-  apply: (x: ZustandProjectState) => void;
-  acknowledged: boolean;
-};
-
-type ZustandPendingOperations = {
-  pending: Array<PendingOperation>;
-};
-
-export const usePendingOperations = withProjectState(
-  createWithEqualityFn(
-    withResetFn<ZustandPendingOperations>(() => ({ pending: [] })),
-  ),
-);
-
-type ActiveSectionUIState = {
-  activeIds: Array<string>;
-  selectionGeneration: number;
-  backendGeneration: number;
-  backendHydrationEnabled: boolean;
-  pendingBackendSyncOpIds: Array<string>;
-  pendingBackendSyncGenerationByOpId: Record<string, number>;
-  scheduledBackendSync: {
-    projectConfigId: string;
-    activeIds: Array<string>;
-    generation: number;
-  } | null;
-};
-
-export const useActiveSectionUI = withProjectState(
-  createWithEqualityFn(
-    subscribeWithSelector(
-      withResetFn<ActiveSectionUIState>(() => ({
-        activeIds: [],
-        selectionGeneration: 0,
-        backendGeneration: 0,
-        backendHydrationEnabled: true,
-        pendingBackendSyncOpIds: [],
-        pendingBackendSyncGenerationByOpId: {},
-        scheduledBackendSync: null,
-      })),
-    ),
-  ),
-);
+export {
+  runWithAtomicallyPublishedProjectStores,
+  useActiveSectionUI,
+  useNodeInternals,
+} from "./stores/activeSectionStores";
+export type {
+  ActiveSectionUIState,
+  ZustandNodeInternalsState,
+} from "./stores/activeSectionStores";
+export { useAIStore } from "./stores/aiStore";
+export type { ChatBranchInfo, ChatDetails } from "./stores/aiStore";
+export { useLocalStorage } from "./stores/localStorageStore";
+export type {
+  ColorModePreference,
+  CustomRunAction,
+  CustomRunItem,
+  HomeProjectGalleryViewMode,
+  ProjectChatAuxView,
+  ProjectChatCustomSlashCommand,
+} from "./stores/localStorageStore";
+export {
+  NULL_PROJECT_CONFIG_ID,
+  useAllProjectMetadata,
+  useAppConfigs,
+  useAppDefinition,
+  useAppPreview,
+  usePendingOperations,
+  useProjectState,
+} from "./stores/projectStores";
+export type {
+  PendingOperation,
+  ZustandProjectState,
+} from "./stores/projectStores";
+export { useServerMode, useShareSession } from "./stores/sessionStores";
+export {
+  useContextMenus,
+  useHomePageSearch,
+  useModal,
+  useNotifications,
+  useResizeEvent,
+} from "./stores/uiStores";
 
 export type ListenerCoverageRecord = {
   hasRealtimeWildcard: ListenerCoverageSnapshot["hasRealtimeWildcard"];
@@ -346,12 +107,6 @@ export const useRenameRefactors = withProjectState(
   ),
 );
 
-export const useHomePageSearch = createWithEqualityFn(
-  withResetFn(() => ({
-    value: "",
-  })),
-);
-
 type ZustandWaitingForLSPResult = {
   textFields: Record<string, boolean>;
   parametersRequest: Record<string, boolean>;
@@ -369,112 +124,6 @@ export const useWaitingForLSPResult = withProjectState(
       })),
     ),
   ),
-);
-
-type ZustandModalState = { open: boolean; modalInfo: ModalInfoType | null };
-
-export const useModal = withProjectState(
-  createWithEqualityFn(
-    withResetFn<ZustandModalState>(() => ({
-      open: false,
-      modalInfo: null,
-    })),
-  ),
-);
-
-export type ZustandNodeInternalsState = { x: Map<string, Node> };
-
-export const useNodeInternals = withProjectState(
-  createWithEqualityFn(
-    withResetFn<ZustandNodeInternalsState>(() => ({
-      x: new Map(),
-    })),
-  ),
-);
-
-type AtomicallyPublishedProjectStoreState = {
-  projectState: ZustandProjectState;
-  nodeInternals: ZustandNodeInternalsState;
-  activeSectionUI: ActiveSectionUIState;
-};
-
-let stagedProjectStorePublication: AtomicallyPublishedProjectStoreState | null =
-  null;
-
-function patchPublishedProjectStoreGetState<TState>(
-  store: {
-    getState: () => TState;
-  },
-  readRawState: () => TState,
-  getPublishedState: (
-    publication: AtomicallyPublishedProjectStoreState,
-  ) => TState,
-) {
-  store.getState = (() => {
-    const publication = stagedProjectStorePublication;
-    if (publication !== null) {
-      return getPublishedState(publication);
-    }
-    return readRawState();
-  }) as typeof store.getState;
-}
-
-const readRawProjectState = useProjectState.getState.bind(useProjectState);
-const readRawActiveSectionUIState =
-  useActiveSectionUI.getState.bind(useActiveSectionUI);
-const readRawNodeInternalsState =
-  useNodeInternals.getState.bind(useNodeInternals);
-
-patchPublishedProjectStoreGetState(
-  useProjectState,
-  readRawProjectState,
-  (publication) => publication.projectState,
-);
-patchPublishedProjectStoreGetState(
-  useActiveSectionUI,
-  readRawActiveSectionUIState,
-  (publication) => publication.activeSectionUI,
-);
-patchPublishedProjectStoreGetState(
-  useNodeInternals,
-  readRawNodeInternalsState,
-  (publication) => publication.nodeInternals,
-);
-
-export function runWithAtomicallyPublishedProjectStores(
-  nextState: {
-    projectState: ZustandProjectState;
-    nodeInternals: ZustandNodeInternalsState;
-    activeSectionUI?: Partial<ActiveSectionUIState> | null;
-  },
-  fn: () => void,
-) {
-  const previousPublication = stagedProjectStorePublication;
-  stagedProjectStorePublication = {
-    projectState: nextState.projectState,
-    nodeInternals: nextState.nodeInternals,
-    activeSectionUI:
-      nextState.activeSectionUI === null ||
-      typeof nextState.activeSectionUI === "undefined"
-        ? readRawActiveSectionUIState()
-        : {
-            ...readRawActiveSectionUIState(),
-            ...nextState.activeSectionUI,
-          },
-  };
-  try {
-    fn();
-  } finally {
-    stagedProjectStorePublication = previousPublication;
-  }
-}
-
-type ZustandNotificationState = { notifications: Array<SettaNotification> };
-
-export const useNotifications = createWithEqualityFn(
-  withResetFn<ZustandNotificationState>(() => ({
-    notifications: [],
-  })),
 );
 
 type FileBrowserState = {
@@ -540,79 +189,8 @@ export const useDropzoneFileBrowserState = createWithEqualityFn(
   })),
 );
 
-type RunMode = "once" | "continuous";
-type RunSnapshotMode = SettingsState["backend"]["runSnapshotMode"];
-
-export type CustomRunAction =
-  | { type: "runCodeBlock"; sectionId: string | null }
-  | { type: "triggerListenerForceRefresh" };
-
-export type CustomRunItem = {
-  id: string;
-  name: string;
-  includeInRunDropdown: boolean;
-  runMode: RunMode;
-  action: CustomRunAction;
-};
-
-export type ProjectChatCustomSlashCommand = {
-  command: string;
-  prompt: string;
-};
-
-export type ProjectChatAuxView =
-  | "none"
-  | "skills"
-  | "mcp"
-  | "slash_commands"
-  | "ai_settings";
-
-function isPersistedRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
-  value: unknown,
-): Record<string, Array<ProjectChatCustomSlashCommand>> {
-  if (!isPersistedRecord(value)) {
-    return {};
-  }
-  const normalized: Record<string, Array<ProjectChatCustomSlashCommand>> = {};
-  for (const [projectConfigId, rawCommands] of Object.entries(value)) {
-    const normalizedProjectConfigId = projectConfigId.trim();
-    if (!normalizedProjectConfigId || !Array.isArray(rawCommands)) {
-      continue;
-    }
-    const normalizedCommands: Array<ProjectChatCustomSlashCommand> = [];
-    for (const rawCommand of rawCommands) {
-      if (!isPersistedRecord(rawCommand)) {
-        continue;
-      }
-      const commandValue = rawCommand.command;
-      const promptValue = rawCommand.prompt;
-      if (typeof commandValue !== "string" || typeof promptValue !== "string") {
-        continue;
-      }
-      const command = commandValue.trim();
-      const prompt = promptValue.trim();
-      if (!command || !prompt) {
-        continue;
-      }
-      normalizedCommands.push({
-        command,
-        prompt,
-      });
-    }
-    if (normalizedCommands.length === 0) {
-      continue;
-    }
-    normalized[normalizedProjectConfigId] = normalizedCommands;
-  }
-  return normalized;
-}
-
 type ZustandRunControl = {
-  runMode: RunMode;
+  runMode: CustomRunItem["runMode"];
   continuousRunStarted: boolean;
   continuousRunCustomRunId: string | null;
 };
@@ -654,6 +232,12 @@ export const useBackendLogEvents = withProjectState(
       filter: { ...DEFAULT_BACKEND_LOG_EVENTS_FILTER },
       unreadHighSeverityCount: 0,
     })),
+  ),
+);
+
+const useArtifacts = withProjectState(
+  createWithEqualityFn(
+    subscribeWithSelector(withResetFn(() => ({ x: {}, namePathTypeToId: {} }))),
   ),
 );
 
@@ -834,165 +418,6 @@ export const useMisc = withProjectState(
   ),
 );
 
-export type ChatDetails = {
-  messages: Array<BaseChatMessageUnion>;
-  toolCallArguments: Record<string, string>;
-  waitingForResponse: boolean;
-  llmConfig: LLMConfig | null;
-  contextUsage: {
-    contextWindowTokens: number | null;
-    contextUsedTokens: number | null;
-    estimated: boolean;
-  } | null;
-};
-
-export type ChatBranchInfo = {
-  chatId: string;
-  branchParentChatId: string | null;
-  branchFromMessageId: string | null;
-  branchRootChatId: string | null;
-  branchCreatedAt: number | null;
-};
-
-type ZustandAIStore = {
-  apiKeys: APIKeys;
-  apiKeysRevision: number;
-  apiKeysAuthoritative: boolean;
-  apiKeysInitialLoadComplete: boolean;
-  apiKeysLoadError: string | null;
-  activeChatId: string | null | undefined;
-  projectChatSelectedEngineId: string | null;
-  chatDetails: Record<string, ChatDetails>;
-  pendingChatDetailsBySurfaceId: Record<string, ChatDetails>;
-  interruptedAssistantMessageIdsByChatId: Record<string, Record<string, true>>;
-  viewThreads: boolean;
-  projectChatThreadsExplicitlyClosedAtLargeWidth: boolean;
-  projectChatActivityAccordionOpenByDefault: boolean;
-  projectChatActivityChildrenOpenByDefault: boolean;
-  allLLMConfigs: AllLLMConfigs | null;
-  allLLMConfigsInitialLoadComplete: boolean;
-  allLLMConfigsLoadError: string | null;
-  agentProfiles: Array<AgentProfile>;
-  agentProfilesInitialLoadComplete: boolean;
-  agentProfilesLoadError: string | null;
-  agentProfilesLoading: boolean;
-  agentRuns: Array<AgentRun>;
-  agentRunsAuthorityState:
-    | "loading"
-    | "ready"
-    | "transient_error"
-    | "terminal_error";
-  agentRunsInitialLoadComplete: boolean;
-  agentRunsLoadError: string | null;
-  promptTemplates: Array<PromptTemplate>;
-  promptTemplatesInitialLoadComplete: boolean;
-  promptTemplatesLoadError: string | null;
-  promptTemplatesLoading: boolean;
-  externalAgentConfigs: Array<ExternalAgentConfig>;
-  externalAgentConfigsInitialLoadComplete: boolean;
-  externalAgentConfigsLoadError: string | null;
-  externalAgentConfigsLoading: boolean;
-  externalAgentHealth: Array<ExternalAgentPreflightStatus>;
-  externalAgentHealthInitialLoadComplete: boolean;
-  externalAgentHealthLoadError: string | null;
-  externalAgentHealthLoading: boolean;
-  engineConfigs: Array<EngineConfig>;
-  engineConfigsInitialLoadComplete: boolean;
-  engineConfigsLoadError: string | null;
-  engineConfigsLoading: boolean;
-  transcriptionProfiles: Array<TranscriptionProfile>;
-  transcriptionProfilesInitialLoadComplete: boolean;
-  transcriptionProfilesLoadError: string | null;
-  transcriptionProfilesLoading: boolean;
-  pendingProjectChatPrompt: string | null;
-  projectChatDictationMode: "auto" | "browser" | "provider";
-  projectChatTranscriptionProfileId: string | null;
-};
-
-export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
-  // @ts-expect-error Zustand's persist function doesn't work well with types
-  subscribeWithSelector(
-    persist(
-      () => ({
-        // State
-        apiKeys: {},
-        apiKeysRevision: 0,
-        apiKeysAuthoritative: false,
-        apiKeysInitialLoadComplete: false,
-        apiKeysLoadError: null,
-        activeChatId: undefined,
-        projectChatSelectedEngineId: null,
-        chatDetails: {},
-        pendingChatDetailsBySurfaceId: {},
-        interruptedAssistantMessageIdsByChatId: {},
-        viewThreads: false,
-        projectChatThreadsExplicitlyClosedAtLargeWidth: false,
-        projectChatActivityAccordionOpenByDefault: false,
-        projectChatActivityChildrenOpenByDefault: false,
-        allLLMConfigs: null,
-        allLLMConfigsInitialLoadComplete: false,
-        allLLMConfigsLoadError: null,
-        agentProfiles: [],
-        agentProfilesInitialLoadComplete: false,
-        agentProfilesLoadError: null,
-        agentProfilesLoading: false,
-        agentRuns: [],
-        agentRunsAuthorityState: "loading",
-        agentRunsInitialLoadComplete: false,
-        agentRunsLoadError: null,
-        promptTemplates: [],
-        promptTemplatesInitialLoadComplete: false,
-        promptTemplatesLoadError: null,
-        promptTemplatesLoading: false,
-        externalAgentConfigs: [],
-        externalAgentConfigsInitialLoadComplete: false,
-        externalAgentConfigsLoadError: null,
-        externalAgentConfigsLoading: false,
-        externalAgentHealth: [],
-        externalAgentHealthInitialLoadComplete: false,
-        externalAgentHealthLoadError: null,
-        externalAgentHealthLoading: false,
-        engineConfigs: [],
-        engineConfigsInitialLoadComplete: false,
-        engineConfigsLoadError: null,
-        engineConfigsLoading: false,
-        transcriptionProfiles: [],
-        transcriptionProfilesInitialLoadComplete: false,
-        transcriptionProfilesLoadError: null,
-        transcriptionProfilesLoading: false,
-        pendingProjectChatPrompt: null,
-        projectChatDictationMode: "auto",
-        projectChatTranscriptionProfileId: null,
-      }),
-      {
-        name: "setta_ai_data",
-        merge: (persistedState, currentState) => {
-          const persisted =
-            (persistedState as Partial<ZustandAIStore> | null) ?? {};
-          return {
-            ...currentState,
-            ...persisted,
-          };
-        },
-        partialize: (state) => ({
-          viewThreads: state.viewThreads,
-          projectChatThreadsExplicitlyClosedAtLargeWidth:
-            state.projectChatThreadsExplicitlyClosedAtLargeWidth,
-          projectChatActivityAccordionOpenByDefault:
-            state.projectChatActivityAccordionOpenByDefault,
-          projectChatActivityChildrenOpenByDefault:
-            state.projectChatActivityChildrenOpenByDefault,
-          projectChatDictationMode: state.projectChatDictationMode,
-          projectChatTranscriptionProfileId:
-            state.projectChatTranscriptionProfileId,
-          projectChatSelectedEngineId: state.projectChatSelectedEngineId,
-        }),
-        storage: getPersistStorage(),
-      },
-    ),
-  ),
-);
-
 type AIFollowState = {
   mode: AIFollowMode;
   isFollowTransitioning: boolean;
@@ -1075,318 +500,6 @@ export const useToolArgumentPreview = withProjectState(
         byProjectConfigId: {},
       })),
     ),
-  ),
-);
-
-export type ColorModePreference = "dark" | "light" | "auto";
-export type HomeProjectGalleryViewMode = "thumbnails" | "list";
-type MiniMapSide = "left" | "right";
-
-type ZustandLocalStorage = {
-  snapToGrid: boolean;
-  showAgenticEdges: boolean;
-  showArgEdges: boolean;
-  darkMode: boolean;
-  colorMode: ColorModePreference;
-  showMinimap: boolean;
-  minimapSide: MiniMapSide;
-  projectConfigPreviewEnabled: boolean;
-  appSpecStreamingEnabled: boolean;
-  homeProjectGalleryViewMode: HomeProjectGalleryViewMode;
-  favoriteProjectConfigIds: string[];
-  overviewProjectConfigOrder: string[];
-  homeWorkspacePaneVis: boolean;
-  homeWorkspacePaneWidth: number;
-  homeWorkspacePaneTrueWidth: number;
-  homeSelectedProjectPaneVis: boolean;
-  homeSelectedProjectPaneWidth: number;
-  homeSelectedProjectPaneTrueWidth: number;
-  appGenerationMode: AppGenerationMode;
-  appGenerationPrompt: string;
-  appGenerationReferenceImageUrl: string;
-  appGenerationReferenceImageNotes: string;
-  overviewVis: boolean;
-  overviewWidth: number;
-  overviewTrueWidth: number;
-  overviewTab: OverviewTabKey;
-  overviewNotificationsPaneTab: OverviewNotificationsPaneTab;
-  watchCodePortalOpen: boolean;
-  gitGraphSplitPct: number;
-  gitGraphColWidthPx: number;
-  gitGraphAuthorWidthPx: number;
-  gitGraphDateWidthPx: number;
-  gitGraphHashWidthPx: number;
-  uiEditorVis: boolean;
-  uiEditorWidth: number;
-  uiEditorTrueWidth: number;
-  uiEditorTab: UIEditorTabLocalStorage;
-  showNavBarHelpMessage: boolean;
-  tooltipWidth: number;
-  customRunsByProjectConfigId: Record<string, Array<CustomRunItem>>;
-  customProjectChatSlashCommandsByProjectConfigId: Record<
-    string,
-    Array<ProjectChatCustomSlashCommand>
-  >;
-  projectChatAuxViewByProjectConfigId: Record<string, ProjectChatAuxView>;
-  runSnapshotModeByProjectConfigId: Record<string, RunSnapshotMode>;
-  runInstructionsAccordionOpenValuesByProjectConfigId: Record<
-    string,
-    Array<string>
-  >;
-  projectAiSettingsAccordionOpenValuesByProjectConfigId: Record<
-    string,
-    Array<string>
-  >;
-  viewedProjectChatThreadIdsByProjectConfigId: Record<string, Array<string>>;
-  projectChatThreadGroupsByProjectConfigId: Record<
-    string,
-    Array<{
-      id: string;
-      name: string;
-      collapsed: boolean;
-      pinned?: boolean;
-    }>
-  >;
-  projectChatThreadAssignmentsByProjectConfigId: Record<
-    string,
-    Record<string, string>
-  >;
-  projectChatThreadOrderByProjectConfigId: Record<string, Array<string>>;
-  pinnedProjectChatThreadIdsByProjectConfigId: Record<string, Array<string>>;
-  trashedProjectChatThreadIdsByProjectConfigId: Record<string, Array<string>>;
-};
-
-export const useLocalStorage = createWithEqualityFn(
-  persist<ZustandLocalStorage>(
-    () => ({
-      snapToGrid: true,
-      showAgenticEdges: true,
-      showArgEdges: true,
-      darkMode: true,
-      colorMode: "dark",
-      showMinimap: true,
-      minimapSide: "left",
-      projectConfigPreviewEnabled: true,
-      appSpecStreamingEnabled: false,
-      homeProjectGalleryViewMode: "thumbnails",
-      favoriteProjectConfigIds: [],
-      overviewProjectConfigOrder: [],
-      homeWorkspacePaneVis: true,
-      homeWorkspacePaneWidth: 320,
-      homeWorkspacePaneTrueWidth: 320,
-      homeSelectedProjectPaneVis: true,
-      homeSelectedProjectPaneWidth: 280,
-      homeSelectedProjectPaneTrueWidth: 280,
-      appGenerationMode: "json_render",
-      appGenerationPrompt: "",
-      appGenerationReferenceImageUrl: "",
-      appGenerationReferenceImageNotes: "",
-      overviewVis: true,
-      overviewWidth: INITIAL_OVERVIEW_WIDTH,
-      overviewTrueWidth: INITIAL_OVERVIEW_WIDTH,
-      overviewTab: OverviewTabNameEnum.Overview,
-      overviewNotificationsPaneTab:
-        OverviewNotificationsPaneTabEnum.Notifications,
-      watchCodePortalOpen: false,
-      gitGraphSplitPct: DEFAULT_GIT_GRAPH_SPLIT_PCT,
-      gitGraphColWidthPx: DEFAULT_GIT_GRAPH_COL_WIDTH_PX,
-      gitGraphAuthorWidthPx: DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,
-      gitGraphDateWidthPx: DEFAULT_GIT_GRAPH_DATE_WIDTH_PX,
-      gitGraphHashWidthPx: DEFAULT_GIT_GRAPH_HASH_WIDTH_PX,
-      uiEditorVis: false,
-      uiEditorWidth: INITIAL_UI_EDITOR_WIDTH,
-      uiEditorTrueWidth: CLOSED_PANE_WIDTH,
-      uiEditorTab: {},
-      showNavBarHelpMessage: true,
-      tooltipWidth: 256,
-      customRunsByProjectConfigId: {},
-      customProjectChatSlashCommandsByProjectConfigId: {},
-      projectChatAuxViewByProjectConfigId: {},
-      runSnapshotModeByProjectConfigId: {},
-      runInstructionsAccordionOpenValuesByProjectConfigId: {},
-      projectAiSettingsAccordionOpenValuesByProjectConfigId: {},
-      viewedProjectChatThreadIdsByProjectConfigId: {},
-      projectChatThreadGroupsByProjectConfigId: {},
-      projectChatThreadAssignmentsByProjectConfigId: {},
-      projectChatThreadOrderByProjectConfigId: {},
-      pinnedProjectChatThreadIdsByProjectConfigId: {},
-      trashedProjectChatThreadIdsByProjectConfigId: {},
-    }),
-    {
-      name: "setta_data", // Same prefix as in your custom implementation
-      merge: (persistedState, currentState) => {
-        const persisted =
-          (persistedState as Partial<ZustandLocalStorage> | null) ?? {};
-        const merged = {
-          ...currentState,
-          ...persisted,
-        };
-
-        if (persisted.colorMode === undefined) {
-          merged.colorMode = merged.darkMode ? "dark" : "light";
-        }
-        if (
-          merged.homeProjectGalleryViewMode !== "thumbnails" &&
-          merged.homeProjectGalleryViewMode !== "list"
-        ) {
-          merged.homeProjectGalleryViewMode = "thumbnails";
-        }
-        if (!Array.isArray(merged.favoriteProjectConfigIds)) {
-          merged.favoriteProjectConfigIds = [];
-        }
-        if (!Array.isArray(merged.overviewProjectConfigOrder)) {
-          merged.overviewProjectConfigOrder = [];
-        }
-        if (typeof merged.homeWorkspacePaneVis !== "boolean") {
-          merged.homeWorkspacePaneVis = true;
-        }
-        if (typeof merged.homeWorkspacePaneWidth !== "number") {
-          merged.homeWorkspacePaneWidth = 320;
-        }
-        if (typeof merged.homeWorkspacePaneTrueWidth !== "number") {
-          merged.homeWorkspacePaneTrueWidth = 320;
-        }
-        if (typeof merged.homeSelectedProjectPaneVis !== "boolean") {
-          merged.homeSelectedProjectPaneVis = true;
-        }
-        if (typeof merged.homeSelectedProjectPaneWidth !== "number") {
-          merged.homeSelectedProjectPaneWidth = 280;
-        }
-        if (typeof merged.homeSelectedProjectPaneTrueWidth !== "number") {
-          merged.homeSelectedProjectPaneTrueWidth = 280;
-        }
-        if (!isOverviewTabKey(merged.overviewTab)) {
-          merged.overviewTab = OverviewTabNameEnum.Overview;
-        }
-        if (
-          merged.overviewNotificationsPaneTab !==
-            OverviewNotificationsPaneTabEnum.Notifications &&
-          merged.overviewNotificationsPaneTab !==
-            OverviewNotificationsPaneTabEnum.BackendLogs
-        ) {
-          merged.overviewNotificationsPaneTab =
-            OverviewNotificationsPaneTabEnum.Notifications;
-        }
-        // Keep transient visibility session-local even though the store itself
-        // is persisted for durable preferences.
-        merged.watchCodePortalOpen = false;
-        merged.customProjectChatSlashCommandsByProjectConfigId =
-          normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
-            merged.customProjectChatSlashCommandsByProjectConfigId,
-          );
-        merged.projectChatAuxViewByProjectConfigId = {};
-        if (
-          !merged.viewedProjectChatThreadIdsByProjectConfigId ||
-          typeof merged.viewedProjectChatThreadIdsByProjectConfigId !==
-            "object" ||
-          Array.isArray(merged.viewedProjectChatThreadIdsByProjectConfigId)
-        ) {
-          merged.viewedProjectChatThreadIdsByProjectConfigId = {};
-        }
-        if (
-          !merged.projectChatThreadGroupsByProjectConfigId ||
-          typeof merged.projectChatThreadGroupsByProjectConfigId !== "object" ||
-          Array.isArray(merged.projectChatThreadGroupsByProjectConfigId)
-        ) {
-          merged.projectChatThreadGroupsByProjectConfigId = {};
-        }
-        if (
-          !merged.projectChatThreadAssignmentsByProjectConfigId ||
-          typeof merged.projectChatThreadAssignmentsByProjectConfigId !==
-            "object" ||
-          Array.isArray(merged.projectChatThreadAssignmentsByProjectConfigId)
-        ) {
-          merged.projectChatThreadAssignmentsByProjectConfigId = {};
-        }
-        if (
-          !merged.projectChatThreadOrderByProjectConfigId ||
-          typeof merged.projectChatThreadOrderByProjectConfigId !== "object" ||
-          Array.isArray(merged.projectChatThreadOrderByProjectConfigId)
-        ) {
-          merged.projectChatThreadOrderByProjectConfigId = {};
-        }
-        if (
-          !merged.pinnedProjectChatThreadIdsByProjectConfigId ||
-          typeof merged.pinnedProjectChatThreadIdsByProjectConfigId !==
-            "object" ||
-          Array.isArray(merged.pinnedProjectChatThreadIdsByProjectConfigId)
-        ) {
-          merged.pinnedProjectChatThreadIdsByProjectConfigId = {};
-        }
-        if (
-          !merged.trashedProjectChatThreadIdsByProjectConfigId ||
-          typeof merged.trashedProjectChatThreadIdsByProjectConfigId !==
-            "object" ||
-          Array.isArray(merged.trashedProjectChatThreadIdsByProjectConfigId)
-        ) {
-          merged.trashedProjectChatThreadIdsByProjectConfigId = {};
-        }
-        return merged;
-      },
-      partialize: (state) => ({
-        snapToGrid: state.snapToGrid,
-        showAgenticEdges: state.showAgenticEdges,
-        showArgEdges: state.showArgEdges,
-        darkMode: state.darkMode,
-        colorMode: state.colorMode,
-        showMinimap: state.showMinimap,
-        projectConfigPreviewEnabled: state.projectConfigPreviewEnabled,
-        appSpecStreamingEnabled: state.appSpecStreamingEnabled,
-        homeProjectGalleryViewMode: state.homeProjectGalleryViewMode,
-        favoriteProjectConfigIds: state.favoriteProjectConfigIds,
-        overviewProjectConfigOrder: state.overviewProjectConfigOrder,
-        homeWorkspacePaneVis: state.homeWorkspacePaneVis,
-        homeWorkspacePaneWidth: state.homeWorkspacePaneWidth,
-        homeWorkspacePaneTrueWidth: state.homeWorkspacePaneTrueWidth,
-        homeSelectedProjectPaneVis: state.homeSelectedProjectPaneVis,
-        homeSelectedProjectPaneWidth: state.homeSelectedProjectPaneWidth,
-        homeSelectedProjectPaneTrueWidth:
-          state.homeSelectedProjectPaneTrueWidth,
-        appGenerationMode: state.appGenerationMode,
-        appGenerationPrompt: state.appGenerationPrompt,
-        appGenerationReferenceImageUrl: state.appGenerationReferenceImageUrl,
-        appGenerationReferenceImageNotes:
-          state.appGenerationReferenceImageNotes,
-        overviewVis: state.overviewVis,
-        overviewWidth: state.overviewWidth,
-        overviewTrueWidth: state.overviewTrueWidth,
-        overviewTab: state.overviewTab,
-        overviewNotificationsPaneTab: state.overviewNotificationsPaneTab,
-        gitGraphSplitPct: state.gitGraphSplitPct,
-        gitGraphColWidthPx: state.gitGraphColWidthPx,
-        gitGraphAuthorWidthPx: state.gitGraphAuthorWidthPx,
-        gitGraphDateWidthPx: state.gitGraphDateWidthPx,
-        gitGraphHashWidthPx: state.gitGraphHashWidthPx,
-        uiEditorVis: state.uiEditorVis,
-        uiEditorWidth: state.uiEditorWidth,
-        uiEditorTrueWidth: state.uiEditorTrueWidth,
-        uiEditorTab: state.uiEditorTab,
-        showNavBarHelpMessage: state.showNavBarHelpMessage,
-        tooltipWidth: state.tooltipWidth,
-        customRunsByProjectConfigId: state.customRunsByProjectConfigId,
-        customProjectChatSlashCommandsByProjectConfigId:
-          state.customProjectChatSlashCommandsByProjectConfigId,
-        runSnapshotModeByProjectConfigId:
-          state.runSnapshotModeByProjectConfigId,
-        runInstructionsAccordionOpenValuesByProjectConfigId:
-          state.runInstructionsAccordionOpenValuesByProjectConfigId,
-        projectAiSettingsAccordionOpenValuesByProjectConfigId:
-          state.projectAiSettingsAccordionOpenValuesByProjectConfigId,
-        viewedProjectChatThreadIdsByProjectConfigId:
-          state.viewedProjectChatThreadIdsByProjectConfigId,
-        projectChatThreadGroupsByProjectConfigId:
-          state.projectChatThreadGroupsByProjectConfigId,
-        projectChatThreadAssignmentsByProjectConfigId:
-          state.projectChatThreadAssignmentsByProjectConfigId,
-        projectChatThreadOrderByProjectConfigId:
-          state.projectChatThreadOrderByProjectConfigId,
-        pinnedProjectChatThreadIdsByProjectConfigId:
-          state.pinnedProjectChatThreadIdsByProjectConfigId,
-        trashedProjectChatThreadIdsByProjectConfigId:
-          state.trashedProjectChatThreadIdsByProjectConfigId,
-      }),
-      storage: getPersistStorage(),
-    },
   ),
 );
 

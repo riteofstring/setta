@@ -25,7 +25,7 @@ import { ProjectPageSearchBarDivId } from "state/actions/sections/sectionParamFi
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { useProjectSearch, useSettings } from "state/definitions";
 import { useUpdateProjectSearch } from "state/hooks/search";
-import { ProjectSearchModeEnum } from "utils/constants";
+import { ProjectSearchModeEnum } from "utils/constants/projectSearch";
 import { shortcutPrettified } from "utils/utils";
 
 export function ProjectPageSearchBar() {
