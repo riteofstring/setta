@@ -1,3 +1,4 @@
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import type { ReactNode } from "react";
 import {
@@ -15,6 +16,7 @@ type LockPositionButtonRenderState = {
   isGroup: boolean;
   positionAndSizeLocked: boolean;
   iconClassName: string;
+  label: string;
   onClick: () => void;
 };
 
@@ -39,6 +41,9 @@ export function LockPositionButton({
   const { canEditLayout } = useShareCapabilities();
 
   const iconClassName = positionAndSizeLocked ? "gg-lock" : "gg-lock-unlock";
+  const label = positionAndSizeLocked
+    ? "Unlock position and size"
+    : "Lock position and size";
 
   let iconSize = "[&>i]:!scale-[.4]"; // when !isGroup
   if (isGroup) {
@@ -74,6 +79,7 @@ export function LockPositionButton({
       isGroup,
       positionAndSizeLocked,
       iconClassName,
+      label,
       onClick,
     });
   }
@@ -112,8 +118,12 @@ export function LockPositionButton({
       } ${
         isGroup ? "h-5 w-5" : "h-4 w-4"
       } ${canEditLayout ? "" : "cursor-not-allowed opacity-50"}`}
+      aria-label={label}
       onClick={onClick}
       disabled={!canEditLayout}
+      title={label}
+      type="button"
+      {...getFloatingBoxHandlers({ content: label })}
     >
       <i className={iconClassName} />
     </button>

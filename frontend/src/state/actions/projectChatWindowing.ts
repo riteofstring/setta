@@ -17,7 +17,7 @@ import {
   useShareSession,
   type ZustandProjectState,
 } from "state/definitions";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
 import {
   route_set_project_chat_window_chat_id,
   route_set_project_chat_windowing_state,
@@ -942,14 +942,14 @@ export function focusProjectChatWindowInState(
   instanceId: string,
   nowMs: number = Date.now(),
 ): ProjectChatWindowingState {
-  const nextZIndex = getHighestWindowZIndex(state) + 1;
+  const highestZIndex = getHighestWindowZIndex(state);
   return withUpdatedWindow(state, instanceId, (current) => {
-    if (current.zIndex === nextZIndex && current.lastFocusedAt === nowMs) {
+    if (current.zIndex >= highestZIndex) {
       return current;
     }
     return {
       ...current,
-      zIndex: nextZIndex,
+      zIndex: highestZIndex + 1,
       lastFocusedAt: nowMs,
     };
   });
@@ -1324,14 +1324,14 @@ type PendingProjectChatWindowingMutation = {
 };
 
 type ProjectChatWindowingWriteResponse =
-  ResponseDataAndStatus<ProjectChatWindowingState>;
+  | Awaited<ReturnType<typeof route_set_project_chat_windowing_state>>
+  | Awaited<ReturnType<typeof route_set_project_chat_window_chat_id>>;
 
-type SyntheticProjectChatWindowingWriteResponse =
-  ProjectChatWindowingWriteResponse & {
-    data: ProjectChatWindowingState;
-    hasResponse: true;
-    status: 200;
-  };
+type SyntheticProjectChatWindowingWriteResponse = {
+  data: ProjectChatWindowingState;
+  hasResponse: true;
+  status: 200;
+};
 
 type ProjectChatWindowingTrackedResponse =
   | ProjectChatWindowingWriteResponse

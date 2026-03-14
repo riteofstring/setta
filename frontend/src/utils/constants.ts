@@ -1,22 +1,13 @@
+import requiredUIEditorTabsBySectionTypePayload from "../../../backend/setta/ui_settings/section_ui_editor_tab_compatibility.json";
 import { C } from "./c";
-import {
-  ObjectValues,
-  UIEditorTabNameEnum,
-  type UIEditorTabName,
-} from "./generatedTypes";
-
-export {
-  REQUIRED_UI_EDITOR_TABS,
-  UIEditorTabNameEnum,
-  type UIEditorTabLocalStorage,
-  type UIEditorTabName,
-} from "./generatedTypes";
+import { ObjectValues, SectionType, SectionTypeEnum } from "./generatedTypes";
 
 export const NO_CONTEXT_MENU = import.meta.env.MODE === "ncm";
 
 export const INITIAL_OVERVIEW_WIDTH = 335;
 export const INITIAL_UI_EDITOR_WIDTH = 500;
 export const CLOSED_PANE_WIDTH = 40;
+export const HOME_COMPACT_LAYOUT_BREAKPOINT_PX = 1100;
 export const NAVBAR_HEIGHT = 36;
 
 export const PaneNameEnum = {
@@ -114,6 +105,16 @@ export function parsePluginPaneOverviewTabName(
   }
 }
 
+export const UIEditorTabNameEnum = {
+  SectionConfig: "SectionConfig",
+  QuickInfoConfig: "QuickInfoConfig",
+  UIConfig: "UIConfig",
+  InfoConfig: "InfoConfig",
+  SectionVariantsConfig: "SectionVariantsConfig",
+} as const;
+
+export type UIEditorTabName = ObjectValues<typeof UIEditorTabNameEnum>;
+
 export const UIEditorTabNamePrettified = {
   [UIEditorTabNameEnum.UIConfig]: "Params",
   [UIEditorTabNameEnum.SectionConfig]: "Section",
@@ -121,6 +122,49 @@ export const UIEditorTabNamePrettified = {
   [UIEditorTabNameEnum.InfoConfig]: "Text Editor",
   [UIEditorTabNameEnum.SectionVariantsConfig]: "Version",
 } as const satisfies Record<UIEditorTabName, string>;
+
+function buildRequiredUIEditorTabs(): Record<
+  SectionType,
+  readonly UIEditorTabName[]
+> {
+  const sectionTypeValues = Object.values(SectionTypeEnum) as SectionType[];
+  const uiEditorTabValues = new Set<string>(Object.values(UIEditorTabNameEnum));
+  const requiredTabsBySectionType: Partial<
+    Record<SectionType, readonly UIEditorTabName[]>
+  > = {};
+
+  for (const sectionType of sectionTypeValues) {
+    const rawRequiredTabs =
+      requiredUIEditorTabsBySectionTypePayload[sectionType];
+    if (!Array.isArray(rawRequiredTabs)) {
+      throw new Error(
+        `Missing required UI editor tabs compatibility entry for section type ${sectionType}.`,
+      );
+    }
+    const requiredTabs: UIEditorTabName[] = [];
+    for (const rawTabName of rawRequiredTabs) {
+      if (
+        typeof rawTabName !== "string" ||
+        !uiEditorTabValues.has(rawTabName)
+      ) {
+        throw new Error(
+          `Invalid UI editor tab compatibility entry for ${sectionType}: ${String(rawTabName)}`,
+        );
+      }
+      requiredTabs.push(rawTabName as UIEditorTabName);
+    }
+    requiredTabsBySectionType[sectionType] = requiredTabs;
+  }
+
+  return requiredTabsBySectionType as Record<
+    SectionType,
+    readonly UIEditorTabName[]
+  >;
+}
+
+export const REQUIRED_UI_EDITOR_TABS = buildRequiredUIEditorTabs();
+
+export type UIEditorTabLocalStorage = Record<SectionType, UIEditorTabName>;
 
 export const PROJECT_CONFIG_PREVIEW_IMG_COLORS = [
   "bg-red-500/60 dark:bg-red-600/30",
