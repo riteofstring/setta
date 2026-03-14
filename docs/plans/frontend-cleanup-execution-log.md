@@ -550,3 +550,12 @@ Append-only log for autonomous frontend cleanup slices.
 - Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
 - Commit hash: `cb8528d1e`
 - Next highest-value unblocked slice: finish the remaining `ChatAreaSettings` cleanup by extracting any last top-level store selection / hydration boundary into a feature-local hook, or move to the next panes/authoring hotspot now that the section-chat settings surface has explicit state, controller, and panel ownership
+
+## 2026-03-12 18:15 PDT
+
+- What changed: Extracted the low-level Project Chat history drag/reorder ownership out of `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` into `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryDragUtils.ts`. The new module now owns thread/group DnD id codecs, drop-target parsing, thread drop resolution, group reorder resolution, pointer event extraction, and default group-name generation. `ProjectChatHistory.tsx` now delegates that behavior to the dedicated utility owner, dropped to 2645 lines, and is more focused on history state plus render orchestration. Added focused Vitest coverage in `projectChatHistoryDragUtils.test.ts` and refreshed the frontend module map.
+- Key files touched: `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`, `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryDragUtils.ts`, `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryDragUtils.test.ts`, `docs/reference/frontend-module-map.md`
+- Tests/verification run: `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryDragUtils.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryCopy.test.ts`; `pnpm -C frontend exec prettier --check src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryDragUtils.ts src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryDragUtils.test.ts ../docs/reference/frontend-module-map.md`; `git diff --check`
+- Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
+- Commit hash: `d874d3478`
+- Next highest-value unblocked slice: keep shrinking `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` by extracting the remaining history grouping/search view-model derivation and entry/group presentation helpers into feature-local modules
