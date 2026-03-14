@@ -58,8 +58,6 @@ import {
 } from "react-icons/md";
 import { RiChat3Line } from "react-icons/ri";
 import {
-  bootProjectChatWindowToCanvasSection,
-  clearTrackedGitPaneGraphWindowIfMatches,
   closeProjectChatWindow,
   createProjectChatWindowInstance,
   focusProjectChatWindow,
@@ -75,7 +73,11 @@ import {
   showSectionInProjectChatWindow,
   unmaximizeProjectChatWindow,
 } from "state/actions/projectChatWindowing";
-import { getTrackedGitPaneGraphWindowInstanceIdForProject } from "state/actions/projectChatWindowingEphemeral";
+import { bootProjectChatWindowToCanvasSection } from "state/actions/projectChatWindowingCanvasBoot";
+import {
+  clearTrackedGitPaneGraphWindowIfMatches,
+  getTrackedGitPaneGraphWindowInstanceIdForProject,
+} from "state/actions/projectChatWindowingEphemeral";
 import {
   getOpenExternalProjectChatWindowInstanceForSectionInState,
   resolveDefaultDockedChatHeightPx,

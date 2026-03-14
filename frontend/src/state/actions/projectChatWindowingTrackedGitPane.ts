@@ -1,0 +1,90 @@
+import { useProjectState } from "state/definitions";
+import {
+  ChatWindowModeEnum,
+  ChatWindowPlacementEnum,
+} from "utils/generatedTypes";
+import {
+  resolveTrackedGitPaneGraphWindowInstanceId,
+  setTrackedGitPaneGraphWindowInstanceId,
+} from "./projectChatWindowingEphemeral";
+import {
+  addProjectChatWindowInstanceInState,
+  focusProjectChatWindowInState,
+  maximizeProjectChatWindowInState,
+  reopenProjectChatWindowInState,
+} from "./projectChatWindowingLayoutState";
+import { setProjectChatWindowTitleInState } from "./projectChatWindowingState";
+import {
+  canMutateProjectChatWindowingLayout,
+  dispatchProjectChatWindowingMutation,
+  getProjectChatWindowingStateFromStore,
+} from "./projectChatWindowingWrites";
+
+export function ensureTrackedGitPaneGraphWindow({
+  title = "Git Graph",
+  nowMs = Date.now(),
+}: {
+  title?: string | null;
+  nowMs?: number;
+} = {}): string {
+  if (!canMutateProjectChatWindowingLayout()) {
+    return "";
+  }
+  const normalizedTitle = title?.trim() ? title.trim() : "Git Graph";
+  const state = useProjectState.getState();
+  const projectConfigId = state.projectConfig.id;
+  const currentWindowing = getProjectChatWindowingStateFromStore(state);
+  const trackedInstanceId = resolveTrackedGitPaneGraphWindowInstanceId(
+    currentWindowing,
+    projectConfigId,
+  );
+
+  if (trackedInstanceId) {
+    dispatchProjectChatWindowingMutation((latestWindowing) => {
+      let next = reopenProjectChatWindowInState(
+        latestWindowing,
+        trackedInstanceId,
+      );
+      next = setProjectChatWindowTitleInState(
+        next,
+        trackedInstanceId,
+        normalizedTitle,
+      );
+      next = maximizeProjectChatWindowInState(next, trackedInstanceId);
+      return {
+        nextProjectChatWindowing: focusProjectChatWindowInState(
+          next,
+          trackedInstanceId,
+          nowMs,
+        ),
+      };
+    });
+    return trackedInstanceId;
+  }
+
+  const created = addProjectChatWindowInstanceInState(currentWindowing, {
+    placement: ChatWindowPlacementEnum.floating,
+    mode: ChatWindowModeEnum.git_graph_mode,
+    title: normalizedTitle,
+    nowMs,
+  });
+  dispatchProjectChatWindowingMutation((latestWindowing) => {
+    const nextCreated = addProjectChatWindowInstanceInState(latestWindowing, {
+      instanceId: created.instanceId,
+      placement: ChatWindowPlacementEnum.floating,
+      mode: ChatWindowModeEnum.git_graph_mode,
+      title: normalizedTitle,
+      nowMs,
+    });
+    let next = maximizeProjectChatWindowInState(
+      nextCreated.state,
+      nextCreated.instanceId,
+    );
+    next = focusProjectChatWindowInState(next, nextCreated.instanceId, nowMs);
+    return {
+      nextProjectChatWindowing: next,
+    };
+  });
+  setTrackedGitPaneGraphWindowInstanceId(projectConfigId, created.instanceId);
+  return created.instanceId;
+}

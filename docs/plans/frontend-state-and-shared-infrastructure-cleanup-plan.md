@@ -24,7 +24,9 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `frontend/src/state/actions/projectChatWindowing.ts` now delegates pure
   windowing normalization and selection to `projectChatWindowingSelectors.ts`,
   layout reducers and instance lifecycle to `projectChatWindowingLayoutState.ts`,
-  section-binding reducers to `projectChatWindowingState.ts`, and still
+  section-binding reducers to `projectChatWindowingState.ts`, canvas boot and
+  DOM surface lookup to `projectChatWindowingCanvasBoot.ts`, tracked git-pane
+  graph window reuse to `projectChatWindowingTrackedGitPane.ts`, and still
   delegates write coordination to `projectChatWindowingWrites.ts`,
   `projectChatWindowingAuthoritative.ts`, and
   `projectChatWindowingEphemeral.ts`; future cleanup should keep building on
@@ -133,19 +135,19 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 89.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/projectChatWindowing.ts` at 695 lines
   - `frontend/src/state/actions/sectionInfos.ts` at 678 lines
   - `frontend/src/state/actions/sectionEffectiveImpls.ts` at 649 lines
   - `frontend/src/state/actions/gitGraph.ts` at 595 lines
-  - `frontend/src/state/actions/projectChatWindowingWrites.ts` at 571 lines
+  - `frontend/src/state/actions/params/moveParams.ts` at 576 lines
+  - `frontend/src/state/actions/aiTranscription.ts` at 572 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
-  - `frontend/src/state/actions/projectChatWindowing.ts` at 695 lines
   - `frontend/src/state/actions/sectionInfos.ts` at 678 lines
   - `frontend/src/state/actions/sectionEffectiveImpls.ts` at 649 lines
   - `frontend/src/state/actions/gitGraph.ts` at 595 lines
   - `frontend/src/state/actions/projectChatWindowingWrites.ts` at 571 lines
   - `frontend/src/state/actions/stateMachineEdgeConnections.ts` at 520 lines
   - `frontend/src/state/actions/websocketLifecycle.ts` at 498 lines
+  - `frontend/src/state/actions/projectChatWindowingLayoutState.ts` at 494 lines
   - `frontend/src/state/actions/windowSpaceWorkspaceRestorePlan.ts` at 460 lines
   - `frontend/src/state/actions/uiSettingRevealMutationSnapshots.ts` at 426 lines
   - `frontend/src/state/actions/keyShortcutRegistrations.ts` at 416 lines
@@ -267,6 +269,13 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - layout write permissions and current-windowing store access
   - optimistic mutation dispatch, rollback, and serialized write barriers
   - authoritative publish flow and explicit sync helpers
+- `projectChatWindowingCanvasBoot.ts` now owns:
+  - DOM surface rect lookup for project chat windows
+  - canvas boot position/size resolution from existing window surfaces
+  - section boot flow that moves externalized chat windows back into the canvas
+- `projectChatWindowingTrackedGitPane.ts` now owns:
+  - tracked git-pane graph window reuse
+  - maximize and title refresh for the pane-following git graph surface
 - `projectChatWindowingSelectors.ts` now owns:
   - pure windowing normalization and section-binding selectors
   - default floating and docked bounds helpers for UI readers and reducers
@@ -277,6 +286,9 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `projectChatWindowingState.ts` now owns:
   - section-binding, title, and chat-id reducers
   - section/canvas transition reducers that compose the layout-state helpers
+- `projectChatWindowing.ts` now owns:
+  - public window command orchestration for placement, focus, bounds, titles,
+    chat ids, and section/window mode transitions
 - `aiLLMConfiguration.ts` now owns:
   - LLM config load/save behavior
   - managed API-key snapshot updates, read failure handling, and queued write conflict resolution

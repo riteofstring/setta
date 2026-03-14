@@ -49,7 +49,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Current State (Observed)
 
 - The biggest readability problem is mixed responsibilities inside large files, not just file count.
-- There are 1029 authored TS/TSX files under `frontend/src`.
+- There are 1031 authored TS/TSX files under `frontend/src`.
 - There are 41 non-generated TS/TSX files at 1000+ lines; several production hotspots are well above 2000 lines.
 - Chat and project-AI code is the densest cluster:
   - `frontend/src/components/Chat/ChatMessages.tsx` at 7959 lines
@@ -134,12 +134,15 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `frontend/src/state/actions/projectChatWindowingLayoutState.ts` now owns
   window-instance creation plus placement, focus, dock-fraction, and bounds
   reducers, `frontend/src/state/actions/projectChatWindowingState.ts` now owns
-  section-binding, title/chat-id, and section/canvas transition reducers, and
+  section-binding, title/chat-id, and section/canvas transition reducers,
+  `frontend/src/state/actions/projectChatWindowingCanvasBoot.ts` now owns DOM
+  surface lookup plus canvas boot flow, `frontend/src/state/actions/projectChatWindowingTrackedGitPane.ts`
+  now owns tracked git-pane graph window reuse/maximize/title coordination, and
   `frontend/src/state/actions/projectChatWindowingWrites.ts` now owns layout
   write permissions, optimistic windowing mutation dispatch, authoritative
   publish flow, and sync helpers, reducing
-  `frontend/src/state/actions/projectChatWindowing.ts` to 695 lines for public
-  window commands plus canvas boot flow.
+  `frontend/src/state/actions/projectChatWindowing.ts` to 404 lines for public
+  window command orchestration.
 - `frontend/src/state/hooks/terminals/terminal.ts` is down to 248 lines and now
   delegates terminal websocket-session caching/transport to
   `frontend/src/state/hooks/terminals/terminalSessions.ts` and xterm

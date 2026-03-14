@@ -10,7 +10,7 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-14`
-- Authored TS/TSX files under `frontend/src`: `1029`
+- Authored TS/TSX files under `frontend/src`: `1031`
 - Non-generated TS/TSX files at `1000+` lines: `41`
 - Biggest current production hotspots:
   - `components/Chat/ChatMessages.tsx` (`7959`)
@@ -111,8 +111,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
     creation plus placement, focus, dock-fraction, and bounds reducers.
   - `state/actions/projectChatWindowingState.ts` owns section-binding, title,
     chat-id, and section/canvas transition reducers.
-  - `state/actions/projectChatWindowing.ts` now owns public window commands and
-    canvas boot flow.
+  - `state/actions/projectChatWindowingCanvasBoot.ts` owns DOM surface lookup,
+    canvas boot positioning/sizing, and the section boot flow from windowed
+    chat surfaces back into the canvas.
+  - `state/actions/projectChatWindowingTrackedGitPane.ts` owns tracked git-pane
+    graph window reuse plus maximize/title coordination.
+  - `state/actions/projectChatWindowing.ts` now owns public window command
+    orchestration.
   - `state/actions/projectChatWindowingWrites.ts` owns layout-write
     permissions, optimistic mutation dispatch, authoritative publish flow, and
     sync helpers.
@@ -314,9 +319,6 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/projectChatWindowing.ts` is now the largest authored/shared
-  hotspot and should keep shrinking around public command orchestration versus
-  its selector, layout-state, reducer, and write-coordination helpers
 - `state/actions/sectionInfos.ts` section metadata/display-tree split now that
   `state/actions/sectionEffectiveImpls.ts`,
   `state/actions/sectionProjectStateSync.ts`,
@@ -326,6 +328,11 @@ feature-local adapters around them when the consuming surface is non-trivial.
   `state/actions/topLevelLayoutPersistence.ts` own effective-impl access,
   backend sync, shared commands, optimistic mutation infrastructure, and
   top-level layout ownership
+- `state/actions/projectChatWindowingWrites.ts` is now the largest remaining
+  windowing mutation surface, so follow-up windowing cleanup should stay local
+  to `projectChatWindowingWrites.ts`, `projectChatWindowingCanvasBoot.ts`, or
+  `projectChatWindowingTrackedGitPane.ts` instead of regrowing the main entry
+  point
 - `state/actions/windowSpaceWorkspaceRestorePlan.ts` now owns the remaining
   restore planning and remapping policy for saved window spaces, so any
   follow-up cleanup there should stay local to restore planning instead of

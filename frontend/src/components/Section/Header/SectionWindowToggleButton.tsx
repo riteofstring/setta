@@ -3,10 +3,8 @@ import {
   getWindowControlQuickInfoText,
 } from "components/Utils/windowControlQuickInfo";
 import { MdFlipToFront, MdOpenInNew } from "react-icons/md";
-import {
-  bootProjectChatWindowToCanvasSection,
-  showSectionInProjectChatWindow,
-} from "state/actions/projectChatWindowing";
+import { showSectionInProjectChatWindow } from "state/actions/projectChatWindowing";
+import { bootProjectChatWindowToCanvasSection } from "state/actions/projectChatWindowingCanvasBoot";
 import { getOpenExternalProjectChatWindowInstanceForSectionInState } from "state/actions/projectChatWindowingSelectors";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";

@@ -1,4 +1,4 @@
-import { ensureTrackedGitPaneGraphWindow } from "state/actions/projectChatWindowing";
+import { ensureTrackedGitPaneGraphWindow } from "state/actions/projectChatWindowingTrackedGitPane";
 import { useProjectState } from "state/definitions";
 import { useGitStore } from "state/git";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
