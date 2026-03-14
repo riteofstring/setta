@@ -876,3 +876,32 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/utils/focusManager.ts`, now the next shared
     infrastructure hotspot, into tab-scope registration, keyboard navigation,
     section focus helpers, and canvas-specific pane movement modules.
+
+## 2026-03-14 18:54:53 PDT
+
+- Slice completed: split focus management ownership into dedicated registry,
+  navigation, section-focus, and focusable-element helper modules
+- Key files touched:
+  - `frontend/src/utils/focusManager.ts`
+  - `frontend/src/utils/focusManagerRegistry.ts`
+  - `frontend/src/utils/focusManagerElements.ts`
+  - `frontend/src/utils/focusManagerNavigation.ts`
+  - `frontend/src/utils/focusManagerSections.ts`
+  - `frontend/src/utils/focusManagerNavigation.test.tsx`
+  - `frontend/src/utils/focusManagerSections.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/utils/focusManagerNavigation.test.tsx src/utils/focusManagerSections.test.ts src/state/actions/keyActivations.test.ts src/state/actions/keyActivationHandlers.test.ts`
+  - `pnpm -C frontend exec prettier --check src/utils/focusManager.ts src/utils/focusManagerRegistry.ts src/utils/focusManagerElements.ts src/utils/focusManagerNavigation.ts src/utils/focusManagerSections.ts src/utils/focusManagerNavigation.test.tsx src/utils/focusManagerSections.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual shared-infrastructure ownership
+    split and did not change frontend rendering behavior.
+- Commit hash:
+  - `57d14815b`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/components/Utils/Resizable/CustomResizable.tsx`, now
+    the largest remaining shared frontend hotspot, into low-level resize math,
+    DOM event wiring, and window/pane-specific resize ownership.
