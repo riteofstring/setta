@@ -200,7 +200,6 @@ describe("resolveProjectChatComposerNativeSlashCommandTokens", () => {
         {
           command: "/deploy",
           prompt: "Ship the current build.",
-          appGenerationMode: null,
         },
       ],
       discoveredAgentNativeSlashCommands,
@@ -264,7 +263,6 @@ describe("resolveProjectChatComposerSlashCommandSets", () => {
         {
           command: "/deploy",
           prompt: "Ship the current build.",
-          appGenerationMode: null,
         },
       ],
       discoveredAgentNativeSlashCommands: ["/deploy"],
@@ -311,7 +309,6 @@ describe("resolveProjectChatComposerSlashCommandSets", () => {
         {
           command: "/deploy",
           prompt: "Ship the current build.",
-          appGenerationMode: null,
         },
       ],
       discoveredAgentNativeSlashCommands: [],
@@ -342,7 +339,6 @@ describe("project chat slash-command resolution", () => {
         {
           command: "/deploy",
           prompt: "Ship the current build.",
-          appGenerationMode: null,
         },
       ],
       discoveredAgentNativeSlashCommands: [],
