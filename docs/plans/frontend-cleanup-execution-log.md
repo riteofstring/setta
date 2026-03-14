@@ -1513,3 +1513,43 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/hooks/sectionSizes.ts`, now the largest
     authored/shared state hotspot, by separating DOM measurement/resize
     observers from size derivation and state-bridge helpers.
+
+## 2026-03-14 22:40:49 PDT
+
+- Slice completed: split section sizing hook ownership into dedicated
+  min/max-derivation, scrollability-observer, and aspect-ratio sizing modules
+- Key files touched:
+  - `frontend/src/state/hooks/sectionMinMaxDims.ts`
+  - `frontend/src/state/hooks/sectionScrollability.ts`
+  - `frontend/src/state/hooks/sectionAspectRatioSizing.ts`
+  - `frontend/src/state/hooks/sectionScrollability.test.tsx`
+  - `frontend/src/state/hooks/sectionAspectRatioSizing.test.ts`
+  - `frontend/src/state/hooks/sectionSizes.ts`
+  - `frontend/src/state/hooks/sectionSizes.test.tsx`
+  - `frontend/src/state/hooks/sectionSizes.integration.test.tsx`
+  - `frontend/src/components/Utils/Resizable/CustomResizable.tsx`
+  - `frontend/src/components/Section/Layouts/CodeArea.tsx`
+  - `frontend/src/components/Section/Layouts/CodeArea.test.tsx`
+  - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
+  - `frontend/src/components/Section/Layouts/ChatArea.tsx`
+  - `frontend/src/components/Section/Layouts/TextBlock.tsx`
+  - `frontend/src/components/Section/Layouts/SocialArea.tsx`
+  - `frontend/src/components/Section/Layouts/DrawArea/canvasUtils.ts`
+  - `frontend/src/components/Params/GroupContainer.tsx`
+  - `frontend/src/components/Section/Container/ContainerCore.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/hooks/sectionSizes.test.tsx src/state/hooks/sectionSizes.integration.test.tsx src/state/hooks/sectionScrollability.test.tsx src/state/hooks/sectionAspectRatioSizing.test.ts src/components/Section/Layouts/CodeArea.test.tsx src/components/Section/Layouts/BrowserArea.test.tsx src/components/Section/Layouts/ChatArea.test.tsx src/components/Section/Layouts/TextBlock.test.tsx src/components/Params/GroupContainer.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/hooks/sectionMinMaxDims.ts src/state/hooks/sectionScrollability.ts src/state/hooks/sectionScrollability.test.tsx src/state/hooks/sectionAspectRatioSizing.ts src/state/hooks/sectionAspectRatioSizing.test.ts src/state/hooks/sectionSizes.ts src/state/hooks/sectionSizes.test.tsx src/state/hooks/sectionSizes.integration.test.tsx src/components/Utils/Resizable/CustomResizable.tsx src/components/Section/Layouts/CodeArea.tsx src/components/Section/Layouts/CodeArea.test.tsx src/components/Section/Layouts/BrowserArea.tsx src/components/Section/Layouts/ChatArea.tsx src/components/Section/Layouts/TextBlock.tsx src/components/Section/Layouts/SocialArea.tsx src/components/Section/Layouts/DrawArea/canvasUtils.ts src/components/Params/GroupContainer.tsx src/components/Section/Container/ContainerCore.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/hook ownership split and
+    did not change frontend rendering behavior.
+- Commit hash:
+  - `0029cc117`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/params/moveParams.ts`, now the largest
+    authored/shared state hotspot, by separating param reparenting and reorder
+    queries from optimistic mutation dispatch and selection synchronization.
