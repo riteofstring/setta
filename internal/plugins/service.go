@@ -94,6 +94,16 @@ func NewService(options ServiceOptions) (*Service, error) {
 	}, nil
 }
 
+func (s *Service) SetRestartCallback(callback RestartCallback) {
+	if s == nil {
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.restartCallback = callback
+}
+
 func resolvedSettaVersion(raw string) string {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed != "" {

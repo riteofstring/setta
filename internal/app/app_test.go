@@ -3511,8 +3511,8 @@ func TestAppRescanRefreshesPluginBackendRuntime(t *testing.T) {
 	}
 }
 
-func TestAppServesManualPluginRestartRoute(t *testing.T) {
-	// The real app should expose the plugin restart route and stay manual-only without a restart hook.
+func TestAppServesProgrammaticPluginRestartRouteInIDE(t *testing.T) {
+	// The real IDE app should wire plugin restart into the live backend-runtime refresh path.
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
@@ -3556,17 +3556,118 @@ func TestAppServesManualPluginRestartRoute(t *testing.T) {
 	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode plugin restart payload: %v", err)
 	}
-	if payload.Accepted {
-		t.Fatalf("expected manual restart payload, got %#v", payload)
+	if !payload.Accepted {
+		t.Fatalf("expected accepted restart payload, got %#v", payload)
 	}
-	if payload.Mode != "manual" {
-		t.Fatalf("expected manual restart mode, got %#v", payload.Mode)
+	if payload.Mode != "programmatic" {
+		t.Fatalf("expected programmatic restart mode, got %#v", payload.Mode)
 	}
-	if payload.Command == nil || *payload.Command != "setta" {
-		t.Fatalf("expected manual restart command, got %#v", payload.Command)
+	if payload.Command != nil {
+		t.Fatalf("expected accepted restart to omit fallback command, got %#v", payload.Command)
 	}
-	if payload.Reason == nil || *payload.Reason != "Programmatic restart is not available in this runtime." {
-		t.Fatalf("unexpected manual restart reason %#v", payload.Reason)
+	if payload.Reason != nil {
+		t.Fatalf("expected accepted restart to omit fallback reason, got %#v", payload.Reason)
+	}
+}
+
+func TestAppPluginRestartClearsPendingBackendPluginState(t *testing.T) {
+	// Programmatic restart should rebuild backend plugin runtime and clear persisted pending_restart markers.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppPluginWorkerRuntime(t)
+	seedAppPluginFixture(t, cfg.Paths.WorkspaceRoot, "backend")
+	if err := os.WriteFile(
+		filepath.Join(cfg.Paths.SettaFilesRoot, "plugins_state.json"),
+		[]byte(`{"pendingRestartBackendPluginIds":["setta-fixture-backend"]}`),
+		0o644,
+	); err != nil {
+		t.Fatalf("write pending restart plugin state: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	doRequest := func(method string, path string) *http.Response {
+		t.Helper()
+
+		request, err := http.NewRequest(method, server.URL+path, nil)
+		if err != nil {
+			t.Fatalf("new %s %s request: %v", method, path, err)
+		}
+		request.AddCookie(authCookie)
+
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			t.Fatalf("%s %s: %v", method, path, err)
+		}
+		return response
+	}
+	readPluginState := func() string {
+		t.Helper()
+
+		response := doRequest(http.MethodGet, "/api"+httpapi.RoutePluginsRuntime)
+		defer response.Body.Close()
+		if response.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(response.Body)
+			t.Fatalf("expected plugin runtime 200, got %d with body %q", response.StatusCode, string(body))
+		}
+
+		var payload struct {
+			Status struct {
+				Plugins []struct {
+					PluginID string `json:"pluginId"`
+					State    string `json:"state"`
+				} `json:"plugins"`
+			} `json:"status"`
+		}
+		if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+			t.Fatalf("decode plugin runtime payload: %v", err)
+		}
+		for _, entry := range payload.Status.Plugins {
+			if entry.PluginID == "setta-fixture-backend" {
+				return entry.State
+			}
+		}
+		t.Fatal("expected backend plugin runtime entry")
+		return ""
+	}
+
+	if state := readPluginState(); state != "pending_restart" {
+		t.Fatalf("expected backend plugin to start pending_restart, got %q", state)
+	}
+
+	restartResponse := doRequest(http.MethodPost, "/api"+httpapi.RoutePluginsRestart)
+	defer restartResponse.Body.Close()
+	if restartResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(restartResponse.Body)
+		t.Fatalf("expected plugin restart 200, got %d with body %q", restartResponse.StatusCode, string(body))
+	}
+
+	var restartPayload struct {
+		Accepted bool   `json:"accepted"`
+		Mode     string `json:"mode"`
+	}
+	if err := json.NewDecoder(restartResponse.Body).Decode(&restartPayload); err != nil {
+		t.Fatalf("decode plugin restart payload: %v", err)
+	}
+	if !restartPayload.Accepted || restartPayload.Mode != "programmatic" {
+		t.Fatalf("expected accepted programmatic restart payload, got %#v", restartPayload)
+	}
+
+	if state := readPluginState(); state != "active" {
+		t.Fatalf("expected backend plugin to be active after restart, got %q", state)
 	}
 }
 

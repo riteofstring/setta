@@ -1183,6 +1183,15 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			lspRouter:        lspRouter,
 			backendRegs:      pluginBackendRegs,
 		}
+		pluginMutationService.SetRestartCallback(func(ctx context.Context) (bool, error) {
+			if pluginRuntimeRefresh == nil {
+				return false, errors.New("plugin backend runtime refresher is not configured")
+			}
+			if _, err := pluginRuntimeRefresh.Refresh(ctx); err != nil {
+				return false, err
+			}
+			return true, nil
+		})
 		pluginRouteService = newPluginMutationRuntimeService(pluginMutationService, pluginRuntimeRefresh)
 	}
 	if modePolicy.IsIDE() {
