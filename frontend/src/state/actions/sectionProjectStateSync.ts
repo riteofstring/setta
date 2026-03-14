@@ -29,11 +29,11 @@ import {
 import {
   clearToolArgumentPreviewForProjectState,
   createNodesMapFromProjectConfigChildren,
-  getActiveViewModeTopLevelSections,
   getCurrProjectConfigId,
   mergeStreamingChatSections,
-  reconcilePendingTopLevelLayout,
 } from "./sectionInfos";
+import { reconcilePendingTopLevelLayout } from "./topLevelLayoutPersistence";
+import { getActiveViewModeTopLevelSections } from "./topLevelSectionLayouts";
 
 function getComparableProjectState(
   state: ProjectStateSingleConfig | ZustandProjectState,

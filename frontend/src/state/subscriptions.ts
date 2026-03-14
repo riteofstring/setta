@@ -17,12 +17,12 @@ import {
 } from "./actions/nodeInternals";
 import { debouncedDispatchViewportUpdate } from "./actions/projectStateCommands";
 import {
-  getActiveViewModeTopLevelSections,
   getCurrEffectiveSectionImpl,
   getDisplayedSectionIdToChildren,
   getSectionShouldRender,
   getSectionViewModeVisibility,
 } from "./actions/sectionInfos";
+import { getActiveViewModeTopLevelSections } from "./actions/topLevelSectionLayouts";
 import { decodeExistingRawImages } from "./hooks/artifacts";
 
 export function subscribe() {

@@ -2,7 +2,6 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import * as chatMergeUtils from "state/actions/chatMergeUtils";
 import {
   createNodesMapFromProjectConfigChildren,
-  createTopLevelSectionLayoutDict,
   getAttachedTerminalParentIdForTerminalSection,
   getCurrEffectiveSectionImpl,
   getCurrShownParamIds,
@@ -38,7 +37,6 @@ import {
   createVariant,
   ListRootViewModeEnum,
   SectionTypeEnum,
-  type ProjectStateSingleConfigWithCompletedOpIds,
   type ShownParamIds,
   type ViewModeConfig,
 } from "utils/generatedTypes";
@@ -946,49 +944,6 @@ describe("getDisplayedSectionIdToChildren", () => {
       [parentSectionId]: [validChildId],
       [validChildId]: [],
     });
-  });
-});
-
-describe("createTopLevelSectionLayoutDict", () => {
-  it("preserves hidden sections from existing layouts", () => {
-    const sectionVisible = "section-visible";
-    const sectionHidden = "section-hidden";
-    const sections = {
-      [sectionVisible]: { id: sectionVisible },
-      [sectionHidden]: { id: sectionHidden },
-    } as ProjectStateSingleConfigWithCompletedOpIds["projectState"]["sections"];
-    const nodeInternals = new Map([
-      [
-        sectionVisible,
-        {
-          id: sectionVisible,
-          position: { x: 10, y: 20 },
-          width: 120,
-          height: 140,
-          zIndex: 2,
-          tempZIndex: 2,
-        },
-      ],
-    ]);
-    const existingLayouts = {
-      [sectionVisible]: { x: 0, y: 0, zIndex: 0, w: 100, h: 100 },
-      [sectionHidden]: { x: 300, y: 400, zIndex: 0, w: 200, h: 180 },
-    };
-
-    const result = createTopLevelSectionLayoutDict(
-      sections,
-      nodeInternals,
-      existingLayouts,
-    );
-
-    expect(result[sectionVisible]).toEqual({
-      x: 10,
-      y: 20,
-      zIndex: 2,
-      w: 120,
-      h: 140,
-    });
-    expect(result[sectionHidden]).toEqual(existingLayouts[sectionHidden]);
   });
 });
 

@@ -35,6 +35,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `frontend/src/state/actions/projectStateOptimisticUpdates.ts` now owns the
   pending-operation queue plus optimistic project-state mutation scaffolding
   that previously lived in `frontend/src/state/actions/sectionInfos.ts`.
+- `frontend/src/state/actions/topLevelSectionLayouts.ts` now owns active-view
+  top-level layout selection plus top-level layout snapshot building, and
+  `frontend/src/state/actions/topLevelLayoutPersistence.ts` now owns pending-op
+  reconciliation plus debounced backend persistence for top-level section
+  layout writes that previously lived in `frontend/src/state/actions/sectionInfos.ts`.
 - `frontend/src/state/actions/uiSettingReveal.ts` is now a 360-line orchestration
   entrypoint; `uiSettingRevealMutations.ts` owns reveal mutation leases and
   rollback, `uiSettingRevealActivation.ts` owns pane/accordion activation
@@ -47,8 +52,8 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 
 - `frontend/src/state` plus shared infrastructure files in `components/Utils` and `utils` total about 83.6k lines of authored code in the sampled directories.
 - The biggest shared-state hotspots are:
-  - `frontend/src/state/actions/sectionInfos.ts` at 1530 lines
   - `frontend/src/state/actions/windowSpaces.ts` at 1420 lines
+  - `frontend/src/state/actions/sectionInfos.ts` at 1308 lines
   - `frontend/src/state/actions/websocketReceive.ts` at 1023 lines
   - `frontend/src/state/actions/uiSettingRevealMutations.ts` at 771 lines
   - `frontend/src/state/hooks/terminals/terminal.ts` at 752 lines
@@ -58,7 +63,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - effective-impl derivation
   - streaming chat merge behavior
   - section metadata and layout queries
-  - top-level layout persistence
 - `sectionProjectStateSync.ts` now owns:
   - backend snapshot reconciliation
   - active-section sync from authoritative project state
@@ -73,6 +77,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - pending-operation queue registration, acknowledgement, and removal
   - optimistic project-state dispatch with project guards
   - rollback and replay of later pending operations after failed requests
+- `topLevelSectionLayouts.ts` now owns:
+  - active-view top-level layout selection
+  - top-level layout snapshot building from current node internals
+- `topLevelLayoutPersistence.ts` now owns:
+  - top-level layout pending-op reconciliation after backend snapshots
+  - debounced backend layout persistence and optimistic layout snapshot writes
 - `uiSettingReveal.ts` and adjacent helpers now split into:
   - `uiSettingReveal.ts` for reveal orchestration and plugin fallback flow
   - `uiSettingRevealMutations.ts` for reveal mutation leases, snapshots, and rollback

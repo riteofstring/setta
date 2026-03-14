@@ -164,6 +164,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/projectStateOptimisticUpdates.ts` owns the pending-operation
     queue and optimistic project-state mutation scaffolding used by shared state
     action modules.
+  - `state/actions/topLevelSectionLayouts.ts` owns active-view top-level layout
+    selection plus layout snapshot building from current node internals.
+  - `state/actions/topLevelLayoutPersistence.ts` owns pending-op reconciliation
+    and debounced backend persistence for top-level section layout writes.
   - `state/actions/uiSettingReveal.ts` now just orchestrates reveal requests;
     `uiSettingRevealMutations.ts`, `uiSettingRevealActivation.ts`,
     `uiSettingRevealDom.ts`, and `uiSettingRevealShared.ts` own mutation leases,
@@ -218,14 +222,16 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/sectionInfos.ts` query/command split across effective-impl
-  derivation, section metadata/layout reads, and top-level layout persistence
-  now that `state/actions/sectionProjectStateSync.ts`,
-  `state/actions/projectStateCommands.ts`, and
-  `state/actions/projectStateOptimisticUpdates.ts` own the main backend sync,
-  shared command entrypoints, and optimistic mutation infrastructure
 - `state/actions/windowSpaces.ts` persisted-layout split across optimistic
   layout writes, floating-bounds normalization, and authoring-to-window-space
   projection
+- `state/actions/sectionInfos.ts` query/command split across effective-impl
+  derivation, streaming chat merge behavior, and section metadata/layout reads
+  now that `state/actions/sectionProjectStateSync.ts`,
+  `state/actions/projectStateCommands.ts`,
+  `state/actions/projectStateOptimisticUpdates.ts`,
+  `state/actions/topLevelSectionLayouts.ts`, and
+  `state/actions/topLevelLayoutPersistence.ts` own backend sync, shared
+  commands, optimistic mutation infrastructure, and top-level layout ownership
 - shared project chat surfaces under `components/Chat/*`,
   `components/Panes/Overview/ProjectLevelAI/*`, and `components/ChatWindowing/*`

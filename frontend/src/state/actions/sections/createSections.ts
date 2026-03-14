@@ -32,10 +32,10 @@ import {
 } from "utils/tabbingLogic";
 import { applyActiveSectionChange } from "../activeSectionController";
 import {
-  createTopLevelSectionLayoutDict,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
 } from "../sectionInfos";
+import { createTopLevelSectionLayoutDict } from "../topLevelSectionLayouts";
 import { goToSection } from "./sectionPositions";
 
 type CreateTopLevelSectionArgs = {

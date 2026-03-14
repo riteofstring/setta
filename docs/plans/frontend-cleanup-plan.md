@@ -85,6 +85,11 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/state/actions/projectStateOptimisticUpdates.ts` now owns the
   pending-operation queue and optimistic project-state mutation scaffolding,
   reducing `frontend/src/state/actions/sectionInfos.ts` further to 1530 lines.
+- `frontend/src/state/actions/topLevelSectionLayouts.ts` and
+  `frontend/src/state/actions/topLevelLayoutPersistence.ts` now own
+  active-view layout selection, top-level layout snapshot building, pending-op
+  reconciliation, and debounced layout persistence, reducing
+  `frontend/src/state/actions/sectionInfos.ts` further to 1308 lines.
 - `frontend/src/state/actions/uiSettingReveal.ts` is down to 360 lines and now
   delegates reveal mutation leases, pane activation, DOM anchor/highlight
   helpers, and execution-status utilities to

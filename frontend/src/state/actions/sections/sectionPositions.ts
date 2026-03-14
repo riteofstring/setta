@@ -10,10 +10,8 @@ import { useNodeInternals, useShareSession } from "state/definitions";
 import { useSettings } from "state/stores/uiPreferenceStores";
 import { route_auto_layout_top_level_sections } from "utils/generatedEndpoints";
 import { applyActiveSectionChange } from "../activeSectionController";
-import {
-  debounced_route_set_top_level_section_layout,
-  getCurrProjectConfigId,
-} from "../sectionInfos";
+import { getCurrProjectConfigId } from "../sectionInfos";
+import { debounced_route_set_top_level_section_layout } from "../topLevelLayoutPersistence";
 
 export function setZIndices(
   sectionIds: Array<string>,
