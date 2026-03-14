@@ -121,6 +121,8 @@ This is the front door for authored frontend code under `frontend/src/`.
 - Need section-chat thread-control helpers: open `components/Section/Layouts/chatAreaThreadControls.ts`.
 - Need section-chat authoring controls for managed mode, engine selection, or transcription/dictation settings: open `components/Panes/UiEditor/SectionConfig/ChatAreaSettings.tsx`.
 - Need section-chat authoring links, summary-cache status, or agentic-scope panel behavior: open `components/Panes/UiEditor/SectionConfig/ChatAreaAgenticLinksPanel.tsx`.
+- Need section-chat authoring managed-settings view-model derivation: open `components/Panes/UiEditor/SectionConfig/chatAreaManagedSettingsState.ts`.
+- Need section-chat authoring managed-settings render surface: open `components/Panes/UiEditor/SectionConfig/ChatAreaManagedSettingsPanel.tsx`.
 - Need a mutation path: search in `state/actions/`.
 - Need chat or project-AI commands: start in the extracted domain modules under `state/actions/ai/`.
 - Need chat submit/edit or external-agent approval/question commands: open `state/actions/ai/chatCommands.ts`.
