@@ -226,6 +226,9 @@ Current status:
   `/ws/terminals/{projectID}/{sectionID}`, so active websocket callers no
   longer need direct `replaceAddressParams` or raw `GoWebsocketRoutes`
   imports in non-test frontend code
+- `generatedRoutes.ts` now also emits canonical root route helpers for the
+  Go-owned bootstrap/tool root paths, so active callers no longer need raw
+  `RouteEnum.BOOTSTRAP_PAGE` access in non-test frontend code
 - `generatedRoutes.ts` now also emits canonical HTTP route helpers for the
   current Go-owned path-param routes such as deployment reads and binary/file
   downloads plus plugin backend dispatch, so active callers no longer need

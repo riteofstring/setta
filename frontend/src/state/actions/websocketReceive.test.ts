@@ -5,7 +5,11 @@ import {
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { C } from "utils/c";
-import { GoWebsocketRouteHelpers } from "utils/generatedRoutes";
+import { C_ADDRESSES } from "utils/c_addresses";
+import {
+  GoRootRouteHelpers,
+  GoWebsocketRouteHelpers,
+} from "utils/generatedRoutes";
 import {
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
@@ -1300,5 +1304,25 @@ describe("openWebSocket", () => {
         errorMessage: "Invalid UISettingReveal payload.",
       },
     ]);
+  });
+
+  it("uses the Go bootstrap root route in auth recovery notifications", async () => {
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+    const { addTemporaryNotification } = await import(
+      "state/actions/notifications"
+    );
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+
+    const socket = MockWebSocket.instances[0];
+    await socket.emit("open");
+    vi.mocked(addTemporaryNotification).mockClear();
+
+    await socket.emit("close", { code: 4401 });
+
+    expect(addTemporaryNotification).toHaveBeenCalledWith(
+      `Authentication required. Open ${C_ADDRESSES.BACKEND_ORIGIN}${GoRootRouteHelpers.bootstrapPage()} to continue.`,
+    );
   });
 });
