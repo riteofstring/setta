@@ -293,6 +293,13 @@ Current status:
 - shared backend URL construction for narrowed app/plugin transport callers
   now also flows through `frontend/src/utils/backendTransport.ts`, so those
   wrappers no longer import `endpointUtils` directly
+- shared backend/backend-origin URL assembly now also flows through
+  `frontend/src/utils/transportUrlCore.ts`, so `endpointUtils` is reduced to
+  thin HTTP verb helpers plus error parsing instead of remaining the URL
+  source of truth for narrowed runtime wrappers
+- the remaining direct `endpointUtils` import surface is now limited to
+  `generatedEndpoints.ts` plus the intentional dynamic `MetaControlArea`
+  post boundary
 - the validation suite now also checks that the checked-in
   `generatedRoutes.ts`, `generatedTypes.ts`, and `generatedEndpoints.ts`
   files exactly match the current Go frontend binding generation pipeline

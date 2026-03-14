@@ -1842,7 +1842,7 @@ func TestFrontendRawOriginAddressUsageLivesInBoundaryUtilities(t *testing.T) {
 	repoRoot := testRepoRoot(t)
 	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
 	allowedRawOriginUsage := map[string]map[string]struct{}{
-		"frontend/src/utils/endpointUtils.ts": {
+		"frontend/src/utils/transportUrlCore.ts": {
 			"BACKEND_ORIGIN": {},
 		},
 		"frontend/src/utils/launcherBootstrapUrl.ts": {
@@ -2447,6 +2447,7 @@ func TestBuildGeneratedBindingsTypeScriptCompile(t *testing.T) {
 	// Compile against the real frontend helper boundary the generated files import in production.
 	for _, repoPath := range []string{
 		"frontend/src/utils/endpointUtils.ts",
+		"frontend/src/utils/transportUrlCore.ts",
 		"frontend/src/utils/c_addresses.ts",
 		"frontend/src/utils/serverModeBoundaryPolicy.ts",
 		"frontend/src/utils/c.ts",

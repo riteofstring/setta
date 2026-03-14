@@ -1,4 +1,4 @@
-import { buildBackendURL as buildBackendURLInternal } from "./endpointUtils";
+import { buildBackendURL as buildBackendURLInternal } from "./transportUrlCore";
 
 export function buildBackendURL(
   address: string,
