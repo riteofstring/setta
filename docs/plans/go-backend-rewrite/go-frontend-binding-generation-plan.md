@@ -11,9 +11,8 @@ sever frontend ties to Python-generated backend bindings.
 
 - The broad-coverage checklist still marks frontend backend-contract binding
   generation as Python-owned even for Go-owned transports.
-- The repo already has a proven Python pattern for this problem:
-  `frontend/generation/convert_pydantic_to_js.py` and
-  `frontend/generation/convert_endpoints.py`.
+- The rewrite started from a Python pattern for this problem, but the active
+  repo workflow now uses the Go-owned generator directly.
 - The rewrite needs the Go equivalent of that pattern, not a growing pile of
   route-by-route TS string assembly.
 
@@ -63,7 +62,8 @@ a dedicated Go contract type for the frontend boundary and convert that type.
 
 ## Generator Shape
 
-The Go-side generator should mirror the roles of the current Python generators:
+The Go-side generator should mirror the roles of the historical Python
+generators it replaced:
 
 - route constants generation
   - source of truth: Go route constants under `internal/httpapi` and
@@ -146,6 +146,9 @@ Current status:
   `internal/frontendbindings`, so `frontend/src/utils/c.ts` is only a thin
   re-export and `frontend/src/utils/constants.ts` no longer imports backend
   JSON directly
+- the old Python frontend contract generators are no longer part of the active
+  repo workflow; canonical route/type/endpoint outputs come from
+  `cmd/setta-gen-frontend-bindings` plus `internal/frontendbindings`
 - widening the converted surface should use structured declarations,
   converter-rule additions, or explicit Go boundary DTOs rather than
   reintroducing inline TypeScript escape hatches
