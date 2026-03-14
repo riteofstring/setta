@@ -60,6 +60,23 @@ test("deployment terminals still use the Go websocket route shape", async ({
   const projectContext = await openIsolatedProject(page);
 
   try {
+    const terminalId = await page.evaluate(async () => {
+      const { createTopLevelSection } = await import(
+        "/src/state/actions/sections/createSections"
+      );
+      const { SectionTypeEnum } = await import("/src/utils/generatedTypes");
+      return await createTopLevelSection({
+        implType: SectionTypeEnum.Terminal,
+        implOverrides: null,
+        position: null,
+      });
+    });
+
+    expect(terminalId).toBeTruthy();
+    await expect(
+      page.locator(`.react-flow__node[data-id="${terminalId}"]`),
+    ).toBeVisible();
+
     await page.evaluate(async () => {
       const { useShareSession } = await import("/src/state/definitions.ts");
       useShareSession.setState({
@@ -79,23 +96,6 @@ test("deployment terminals still use the Go websocket route shape", async ({
         deploymentMode: "share",
       });
     });
-
-    const terminalId = await page.evaluate(async () => {
-      const { createTopLevelSection } = await import(
-        "/src/state/actions/sections/createSections"
-      );
-      const { SectionTypeEnum } = await import("/src/utils/generatedTypes");
-      return await createTopLevelSection({
-        implType: SectionTypeEnum.Terminal,
-        implOverrides: null,
-        position: null,
-      });
-    });
-
-    expect(terminalId).toBeTruthy();
-    await expect(
-      page.locator(`.react-flow__node[data-id="${terminalId}"]`),
-    ).toBeVisible();
 
     await expect
       .poll(() => {
