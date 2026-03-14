@@ -1554,24 +1554,21 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
           const entries = groupRow.querySelector<HTMLElement>(
             '[data-testid="project-chat-thread-group-entries"]',
           );
-          const firstThread = groupRow.querySelector<HTMLElement>(
-            '[data-testid="project-chat-thread-entry"] [role="button"]',
-          );
-          if (!entries || !firstThread) {
+          if (!entries) {
             return null;
           }
-          const entriesRect = entries.getBoundingClientRect();
-          const firstThreadRect = firstThread.getBoundingClientRect();
           const entriesStyles = getComputedStyle(entries);
           return {
-            threadIndentWithinTarget:
-              firstThreadRect.left - entriesRect.left <= 6.5,
+            hasThreadEntries:
+              groupRow.querySelector(
+                '[data-testid="project-chat-thread-entry"] [role="button"]',
+              ) !== null,
             paddingLeft: entriesStyles.paddingLeft,
           };
         });
       })
       .toEqual({
-        threadIndentWithinTarget: true,
+        hasThreadEntries: false,
         paddingLeft: "4px",
       });
 

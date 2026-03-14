@@ -336,9 +336,14 @@ export async function openProjectAiSettingsPopover(page: Page): Promise<void> {
   ) {
     return;
   }
-  await clickDom(page.getByRole("button", { name: "Project AI Settings" }));
+  const projectChatSurface = await getVisibleProjectChatSurface(page);
   await clickDom(
-    page.getByTestId("project-chat-settings-open-project-settings"),
+    projectChatSurface.getByRole("button", { name: "Project AI Settings" }),
+  );
+  await clickDom(
+    page
+      .locator('[data-testid="project-chat-settings-open-project-settings"]:visible')
+      .first(),
   );
 }
 
