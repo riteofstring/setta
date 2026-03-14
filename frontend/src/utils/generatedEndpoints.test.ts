@@ -28,6 +28,7 @@ import {
   route_create_top_level_section,
   route_create_view_mode,
   route_decline_rename_refactor,
+  route_delete_terminals,
   route_delete_agentic_edges,
   route_delete_artifacts,
   route_delete_child_sections_via_decrementer,
@@ -4342,6 +4343,23 @@ describe("generatedEndpoints terminal helpers", () => {
     fetchMock.mockReset();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it("posts terminal deletion requests with the current section-id payload", async () => {
+    await route_delete_terminals({
+      sectionIds: ["section-a", "section-b"],
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/deleteTerminals`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        sectionIds: ["section-a", "section-b"],
+      }),
+    });
   });
 
   it("posts stop-code requests through interruptTerminalProcesses", async () => {

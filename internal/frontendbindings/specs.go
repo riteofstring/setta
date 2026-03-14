@@ -648,6 +648,11 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "DOCSTRING_TO_MARKDOWN",
 				},
 				{
+					Name:     "deleteTerminals",
+					Path:     httpapi.RouteDeleteTerminals,
+					EnumName: "DELETE_TERMINALS",
+				},
+				{
 					Name:     "interruptTerminalProcesses",
 					Path:     httpapi.RouteInterruptTerminalProcesses,
 					EnumName: "INTERRUPT_TERMINAL_PROCESSES",
@@ -2378,6 +2383,13 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteName:       "docstringToMarkdown",
 			RequestType:     reflect.TypeOf(httpapi.DocstringToMarkdownRequest{}),
 			ResponseType:    reflect.TypeOf(DocstringToMarkdownResponse("")),
+		},
+		{
+			FunctionName:    "route_delete_terminals",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "deleteTerminals",
+			RequestType:     reflect.TypeOf(DeleteTerminalsRequestInput{}),
 		},
 		{
 			FunctionName:    "route_interrupt_terminal_processes",

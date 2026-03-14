@@ -719,6 +719,12 @@ export async function route_docstring_to_markdown(x: gt.DocstringToMarkdownReque
 }
 
 
+export async function route_delete_terminals(x: gt.DeleteTerminalsRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.deleteTerminals, x);
+}
+
+
 export async function route_interrupt_terminal_processes(x: gt.InterruptTerminalProcessesRequestInput): Promise<ResponseDataAndStatus<gt.InterruptTerminalProcessesResponse>> {
 
   return await post(GoHTTPRoutes.interruptTerminalProcesses, x);

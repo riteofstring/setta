@@ -7168,6 +7168,14 @@ export function createDocstringToMarkdownRequest(options: Partial<DocstringToMar
 export type DocstringToMarkdownResponse = string;
 
 
+export type DeleteTerminalsRequestInput = {
+  sectionIds: Array<string>;
+};
+export function createDeleteTerminalsRequestInput(options: Partial<DeleteTerminalsRequestInput> = {}): DeleteTerminalsRequestInput {
+  return options as DeleteTerminalsRequestInput;
+}
+
+
 export type InterruptTerminalProcessesRequestInput = {
   projectId: string;
 };

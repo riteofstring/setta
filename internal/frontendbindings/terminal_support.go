@@ -1,5 +1,9 @@
 package frontendbindings
 
+type DeleteTerminalsRequestInput struct {
+	SectionIDs []string `json:"sectionIds"`
+}
+
 type InterruptTerminalProcessesRequestInput struct {
 	ProjectID string `json:"projectId"`
 }
