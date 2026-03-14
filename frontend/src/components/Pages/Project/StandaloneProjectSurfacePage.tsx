@@ -4,6 +4,7 @@ import {
   standaloneWindowSpaceHasAllowedWindows,
   type ManagedChatSurfaceAuthorityState,
 } from "components/Chat/sharePolicyChatAccess";
+import { ProjectChatWindowSurface } from "components/ChatWindowing/ProjectChatWindowSurface";
 import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
 import {
   buildStandalonePageProjectChatSurfaceId,
@@ -31,7 +32,11 @@ import {
   useShareSession,
 } from "state/definitions";
 import { useLoadProjectConfig } from "state/hooks/project";
-import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
+import {
+  ChatWindowModeEnum,
+  SectionTypeEnum,
+  type SectionType,
+} from "utils/generatedTypes";
 import { resolveStandaloneSectionSlug } from "utils/sectionSlugPaths";
 import { resolveStandaloneWindowSpaceSlug } from "utils/windowSpacePaths";
 import { shallow } from "zustand/shallow";
@@ -519,19 +524,30 @@ export function StandaloneProjectSurfacePageWithLoadState({
 
     return (
       <StandaloneSurfaceShell>
-        <UnifiedChatSurface
-          mode="project_ai_mode"
-          host="standalone_page"
-          surfaceId={buildStandalonePageProjectChatSurfaceId(projectConfigId)}
-          projectChatId={standaloneProjectChatId}
-          setProjectChatId={setStandaloneProjectChatId}
-          onProjectChatBlockedErrorCodeChange={setStandaloneSurfaceErrorCode}
-          dataTestId={
-            target.kind === "project_chat_thread"
-              ? "standalone-project-chat-thread-surface"
-              : "standalone-project-chat-surface"
-          }
-        />
+        <ProjectChatWindowSurface
+          title={projectChatThreadTitle ?? "Project AI Chat"}
+          mode={ChatWindowModeEnum.project_ai_mode}
+          instanceId={`standalone-project-chat:${projectConfigId}`}
+          actions={[]}
+          showHeader={false}
+          allowLayoutMutations={false}
+          onTitleClick={() => {}}
+          roundedClassName="rounded-none"
+        >
+          <UnifiedChatSurface
+            mode="project_ai_mode"
+            host="standalone_page"
+            surfaceId={buildStandalonePageProjectChatSurfaceId(projectConfigId)}
+            projectChatId={standaloneProjectChatId}
+            setProjectChatId={setStandaloneProjectChatId}
+            onProjectChatBlockedErrorCodeChange={setStandaloneSurfaceErrorCode}
+            dataTestId={
+              target.kind === "project_chat_thread"
+                ? "standalone-project-chat-thread-surface"
+                : "standalone-project-chat-surface"
+            }
+          />
+        </ProjectChatWindowSurface>
       </StandaloneSurfaceShell>
     );
   }

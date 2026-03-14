@@ -1,3 +1,4 @@
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import _ from "lodash";
 import React, { useLayoutEffect, useRef } from "react";
@@ -291,7 +292,9 @@ function _SectionHeader({
         )}
         {!isDeploymentMode && sectionTypeName === SectionTypeEnum.Chat && (
           <button
-            aria-label="Follow chat"
+            aria-label={
+              isFollowSelected ? "Stop following chat" : "Follow chat"
+            }
             aria-pressed={isFollowSelected}
             className={followButtonClassName}
             onClick={() => {
@@ -313,6 +316,9 @@ function _SectionHeader({
             }}
             title={isFollowSelected ? "Stop following chat" : "Follow chat"}
             type="button"
+            {...getFloatingBoxHandlers({
+              content: isFollowSelected ? "Stop following chat" : "Follow chat",
+            })}
           >
             <RiFocus2Line className="text-[12px]" />
           </button>
