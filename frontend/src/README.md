@@ -234,9 +234,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
     state and low-level websocket send helpers used by the lifecycle and
     realtime owners.
   - `state/actions/sectionEffectiveImpls.ts` owns effective section/code-object
-    resolution, typed current-section/code-object selectors, terminal
-    attachment helpers, and orientation/type queries that previously lived in
-    `sectionInfos.ts`.
+    resolution, typed current-section/code-object selectors, and effective-impl
+    cache access helpers.
+  - `state/actions/sectionLayoutQueries.ts` owns terminal attachment, section
+    orientation, section type, and section-child queries that still depend on
+    effective-impl selectors but no longer live beside the core derivation
+    helpers.
   - `state/actions/sectionEffectiveImplMutations.ts` owns low-level
     section/code-object impl mutation helpers and cache invalidation for local
     impl writes.
@@ -332,12 +335,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/sectionEffectiveImpls.ts` now owns the remaining effective-impl
-  read surface, so follow-up cleanup there should stay local to selectors and
-  terminal/orientation helpers instead of regrowing mutation ownership
-- `state/hooks/sectionSizes.ts` is now the next largest authored/shared state
+- `state/hooks/sectionSizes.ts` is now the largest authored/shared state
   hotspot, so follow-up cleanup should separate DOM measurement/resize observers
   from size derivation and state-bridge helpers
+- `state/actions/sectionEffectiveImpls.ts` is now down to the remaining
+  effective-impl selector surface, so any follow-up there should stay local to
+  selector derivation rather than regrowing layout or mutation ownership
 - `state/actions/projectChatWindowingWrites.ts` is now the largest remaining
   windowing mutation surface, so follow-up windowing cleanup should stay local
   to `projectChatWindowingWrites.ts`, `projectChatWindowingCanvasBoot.ts`, or

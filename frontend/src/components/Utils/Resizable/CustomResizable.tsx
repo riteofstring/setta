@@ -5,7 +5,7 @@ import type {
   ResizeStartCallback,
 } from "re-resizable";
 import { useState, type MouseEvent, type ReactNode } from "react";
-import { getAttachedTerminalParentIdForTerminalSection } from "state/actions/sectionEffectiveImpls";
+import { getAttachedTerminalParentIdForTerminalSection } from "state/actions/sectionLayoutQueries";
 import { useProjectState } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionMinMaxDims } from "state/hooks/sectionSizes";

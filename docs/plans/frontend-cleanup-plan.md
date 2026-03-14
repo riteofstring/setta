@@ -120,10 +120,12 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   surface.
 - `frontend/src/state/actions/sectionEffectiveImpls.ts` now owns effective
   section/code-object resolution, typed current-section/code-object selectors,
-  terminal attachment helpers, and orientation/type queries, while
+  and effective-impl cache helpers, while
+  `frontend/src/state/actions/sectionLayoutQueries.ts` now owns terminal
+  attachment, section orientation, section type, and section-child queries and
   `frontend/src/state/actions/sectionEffectiveImplMutations.ts` now owns the
   local impl mutation helpers for section/code-object writes, reducing the
-  shared section/effective-impl read hotspot to 592 lines.
+  core effective-impl selector surface to 423 lines.
 - `frontend/src/state/actions/websocketIncomingMessages.ts` now owns frontend
   websocket payload dispatch, project/app snapshot routing, and
   `UISettingReveal` ACK handling, reducing

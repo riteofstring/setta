@@ -5,8 +5,8 @@ import {
   getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImpl,
   getCurrSectionVariantId,
-  getSectionType,
 } from "state/actions/sectionInfos";
+import { getSectionType } from "state/actions/sectionLayoutQueries";
 import {
   adjustAspectRatio,
   adjustSizeToBeAtLeastMin,

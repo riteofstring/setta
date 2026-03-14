@@ -51,12 +51,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   layout writes that previously lived in `frontend/src/state/actions/sectionInfos.ts`.
 - `frontend/src/state/actions/sectionEffectiveImpls.ts` now owns effective
   section/code-object resolution, typed current-section/code-object selectors,
-  terminal attachment helpers, and orientation/type queries that previously
-  lived in `frontend/src/state/actions/sectionInfos.ts`, while
-  `frontend/src/state/actions/sectionEffectiveImplMutations.ts` now owns the
-  local impl mutation helpers for section/code-object writes; future cleanup
-  should keep new effective-impl reads and local impl writes on those dedicated
-  surfaces instead of adding them back to the remaining metadata/query file.
+  and effective-impl cache helpers, while
+  `frontend/src/state/actions/sectionLayoutQueries.ts` now owns terminal
+  attachment, section orientation, section type, and section-child queries that
+  previously lived in `frontend/src/state/actions/sectionInfos.ts` and
+  `frontend/src/state/actions/sectionEffectiveImpls.ts`; future cleanup should
+  keep new effective-impl reads, section layout queries, and local impl writes
+  on those dedicated surfaces instead of adding them back to the remaining
+  metadata/query file.
 - `frontend/src/state/actions/sectionDisplayQueries.ts` now owns top-level
   display selection, displayed-child tree derivation, node-map creation, DnD
   child reset, and view-mode visibility queries that previously lived in
@@ -147,15 +149,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/sectionEffectiveImpls.ts` at 592 lines
   - `frontend/src/state/hooks/sectionSizes.ts` at 587 lines
   - `frontend/src/state/actions/params/moveParams.ts` at 576 lines
   - `frontend/src/state/actions/aiTranscription.ts` at 572 lines
   - `frontend/src/state/actions/projectChatWindowingWrites.ts` at 571 lines
   - `frontend/src/state/actions/sections/createSections.ts` at 547 lines
+  - `frontend/src/state/actions/stateMachineEdgeConnections.ts` at 518 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/sectionEffectiveImpls.ts` at 592 lines
   - `frontend/src/state/hooks/sectionSizes.ts` at 587 lines
   - `frontend/src/state/actions/params/moveParams.ts` at 576 lines
   - `frontend/src/state/actions/aiTranscription.ts` at 572 lines
@@ -204,8 +205,10 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `sectionEffectiveImpls.ts` now owns:
   - effective-impl derivation and caching
   - typed current-section and current-code-object selectors
-  - terminal attachment and section-orientation helpers that depend on
-    effective impl resolution
+- `sectionLayoutQueries.ts` now owns:
+  - terminal attachment helpers for embedded code/terminal relationships
+  - section-orientation, section-type, and section-child queries
+  - compatibility-preserving `getSectionType` overloads used across existing callers
 - `sectionEffectiveImplMutations.ts` now owns:
   - in-place impl mutation helpers for section/code-object writes
   - cache invalidation after shared, base-impl, or variant-modifier updates

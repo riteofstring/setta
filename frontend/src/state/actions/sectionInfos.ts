@@ -25,6 +25,15 @@ import {
   getEffectiveImpl,
   getEffectiveSectionImplIfPresent,
 } from "./sectionEffectiveImpls";
+export {
+  getAttachedTerminalParentIdForTerminalSection,
+  getEmbeddedAttachedTerminalForCodeSection,
+  getEmbeddedAttachedTerminalParentIdForTerminalSection,
+  getSectionChildren,
+  getSectionIsHorizontalOrientation,
+  getSectionType,
+  isBaseCodeSectionType,
+} from "./sectionLayoutQueries";
 
 export { dispatchOptimisticProjectStateUpdate } from "./projectStateOptimisticUpdates";
 export {
@@ -34,7 +43,6 @@ export {
   setSectionVariantImplValue,
 } from "./sectionEffectiveImplMutations";
 export {
-  getAttachedTerminalParentIdForTerminalSection,
   getCodeObjCore,
   getCodeObjImpl,
   getCurrCodeObjVariant,
@@ -48,16 +56,10 @@ export {
   getCurrProjectConfigId,
   getCurrSectionVariant,
   getCurrSectionVariantId,
-  getEmbeddedAttachedTerminalForCodeSection,
-  getEmbeddedAttachedTerminalParentIdForTerminalSection,
   getParamDisplayName,
-  getSectionChildren,
   getSectionCore,
-  getSectionIsHorizontalOrientation,
-  getSectionType,
   getSectionVariant,
   getVariantBaseAndEffectiveSectionImpl,
-  isBaseCodeSectionType,
   isManagedChatSection,
 } from "./sectionEffectiveImpls";
 
