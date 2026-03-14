@@ -28,7 +28,6 @@ type StateMachineRunPresentation = {
   statusClasses: string;
   isRunning: boolean;
   hasRun: boolean;
-  iterationLabel: string | null;
   gateStatus: StateMachineGateStatusPresentation;
   gateInputProgress: StateMachineGateInputProgressPresentation;
   failureSummaryLabel: string | null;
@@ -65,7 +64,6 @@ export function getStateMachineNodePresentation({
   const basePresentation = getMachineRunPresentation(latestRun);
   return {
     ...basePresentation,
-    iterationLabel: getIterationLabel(latestRun),
     gateStatus:
       sectionType === SectionTypeEnum.StateMachineGate
         ? getGateStatusPresentation(latestRun, sectionId)
@@ -132,18 +130,6 @@ function getMachineRunPresentation(run: AgentRun | null): {
     isRunning: false,
     hasRun: true,
   };
-}
-
-function getIterationLabel(run: AgentRun | null): string | null {
-  const outputs = getRunOutputs(run);
-  if (outputs === null) {
-    return null;
-  }
-  const rawIteration = outputs.stateMachineIteration;
-  if (!Number.isInteger(rawIteration)) {
-    return null;
-  }
-  return `Iteration ${rawIteration}`;
 }
 
 function getGateStatusPresentation(
@@ -446,21 +432,6 @@ function getMachineActivityItem(
       tone: "default",
     };
   }
-  if (event.type === "iteration_advanced") {
-    const rawIteration = event.payload.stateMachineIteration;
-    if (!Number.isInteger(rawIteration)) {
-      return {
-        id: event.id,
-        label: "Iteration advanced",
-        tone: "warning",
-      };
-    }
-    return {
-      id: event.id,
-      label: `Iteration ${rawIteration}`,
-      tone: "warning",
-    };
-  }
   if (event.type === "gate_blocked") {
     return {
       id: event.id,
@@ -515,13 +486,6 @@ function getMachineActivityItem(
     return {
       id: event.id,
       label: "Start failed",
-      tone: "danger",
-    };
-  }
-  if (event.type === "iteration_limit_reached") {
-    return {
-      id: event.id,
-      label: "Iteration limit reached",
       tone: "danger",
     };
   }

@@ -3692,6 +3692,8 @@ class BaseProjectManager(ABC):
             "targetSectionId": x.targetSectionId,
             "targetPortId": x.targetPortId,
             "sourceFilter": x.sourceFilter,
+            "sourceActivationCountCondition": x.sourceActivationCountCondition,
+            "iterationCondition": x.iterationCondition,
             "targetAction": x.targetAction,
             "style": x.style,
             "hidden": x.hidden,
@@ -5063,7 +5065,6 @@ class BaseProjectManager(ABC):
             x.machineGroupId,
             x.label,
             x.gateType,
-            x.maxIterations,
         )
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 

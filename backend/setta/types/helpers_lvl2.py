@@ -164,6 +164,8 @@ from setta.types.state_machine_edges import (
     STATE_MACHINE_EDGE_SOURCE_PORT_ID,
     STATE_MACHINE_EDGE_TARGET_PORT_ID,
     StateMachineEdge,
+    StateMachineIterationCondition,
+    StateMachineSourceActivationCountCondition,
     StateMachineSourceFilter,
     StateMachineSourceFilterType,
     StateMachineTargetAction,
@@ -2781,6 +2783,11 @@ def _ensure_state_machine_edge_endpoints_valid(
     if target_impl.type == SectionType.StateMachineStart:
         raise TypeError(f"State machine edge {edge.id} cannot target Start.")
     _ensure_state_machine_edge_port_ids_valid(edge, source_impl, target_impl)
+    _ensure_state_machine_iteration_condition_valid(
+        edge.id,
+        edge.sourceActivationCountCondition,
+        edge.iterationCondition,
+    )
     _ensure_state_machine_source_filter_valid(edge, source_impl)
     _ensure_state_machine_target_action_valid(p, edge, target_impl)
     source_machine_group_id = _resolve_state_machine_section_machine_group_id(
@@ -2913,6 +2920,37 @@ def _ensure_state_machine_signal_filter_valid(
     if source_filter.equals.strip() == "":
         raise ValueError(
             f"State machine edge {edge_id} signal equals value must not be empty."
+        )
+
+
+def _ensure_state_machine_iteration_condition_valid(
+    edge_id: ID,
+    source_activation_count_condition: StateMachineSourceActivationCountCondition
+    | None,
+    iteration_condition: StateMachineIterationCondition | None,
+):
+    if (
+        source_activation_count_condition is not None
+        and iteration_condition is not None
+        and source_activation_count_condition
+        != StateMachineSourceActivationCountCondition.model_validate(
+            iteration_condition.model_dump()
+        )
+    ):
+        raise ValueError(
+            f"State machine edge {edge_id} cannot define both sourceActivationCountCondition and iterationCondition."
+        )
+    if source_activation_count_condition is not None:
+        if source_activation_count_condition.value < 0:
+            raise ValueError(
+                f"State machine edge {edge_id} source activation count conditions require a non-negative value."
+            )
+        return
+    if iteration_condition is None:
+        return
+    if iteration_condition.value < 0:
+        raise ValueError(
+            f"State machine edge {edge_id} source activation count conditions require a non-negative value."
         )
 
 
@@ -3439,13 +3477,10 @@ def set_state_machine_section_settings(
     machineGroupId: str,
     label: str,
     gateType: StateMachineGateType | None,
-    maxIterations: int | None,
 ):
     _ensure_state_machine_machine_group_id_valid(
         machineGroupId, f"State machine section {sectionId}"
     )
-    if maxIterations is not None and maxIterations < 1:
-        raise ValueError("State machine maxIterations must be at least 1.")
     impl = get_curr_effective_section_impl(p, sectionId)
     if isinstance(impl, StateMachineStartSectionImpl):
         _ensure_state_machine_edges_valid(
@@ -3459,7 +3494,6 @@ def set_state_machine_section_settings(
             {
                 "machineGroupId": machineGroupId,
                 "label": label,
-                "maxIterations": maxIterations,
             },
         )
         return

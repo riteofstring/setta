@@ -162,6 +162,11 @@ describe("StateMachineEdgeRenderer", () => {
               payloadField: "decision",
               equals: "retry",
             },
+            sourceActivationCountCondition: {
+              operator: "lt",
+              value: 2,
+            },
+            iterationCondition: null,
             targetAction: {
               type: "send_prompt",
               promptTemplateId: null,
@@ -193,6 +198,8 @@ describe("StateMachineEdgeRenderer", () => {
               payloadField: null,
               equals: null,
             },
+            sourceActivationCountCondition: null,
+            iterationCondition: null,
             targetAction: null,
             style: null,
             hidden: true,
@@ -291,6 +298,10 @@ describe("StateMachineEdgeRenderer", () => {
 
     expect(markup).toContain("workflow-edge--selected");
     expect(markup).toContain('data-testid="workflow-prompt-link-edge-visible"');
+    expect(markup).toContain(
+      'data-testid="workflow-edge-source-activation-badge-edge-visible"',
+    );
+    expect(markup).toContain("src count &lt; 2");
     expect(markup).not.toContain("workflow-edge--signal");
     expect(markup).not.toContain("workflow-edge--reset-thread");
     expect(markup).not.toContain("workflow-edge--send-prompt");

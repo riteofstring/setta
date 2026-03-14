@@ -17,7 +17,9 @@ from setta.types.section_impls import SectionType, StateMachineGateType
 from setta.types.state_machine_edges import (
     STATE_MACHINE_EDGE_SOURCE_PORT_ID,
     STATE_MACHINE_EDGE_TARGET_PORT_ID,
+    StateMachineCountOperator,
     StateMachineEdge,
+    StateMachineSourceActivationCountCondition,
     StateMachineSourceFilter,
     StateMachineSourceFilterType,
     StateMachineTargetAction,
@@ -378,6 +380,50 @@ class TestStateMachineEdges:
                 ),
             )
 
+    def test_state_machine_edge_accepts_source_activation_count_condition(self) -> None:
+        edge = self._create_edge(
+            self.gate_section_id,
+            self.end_section_id,
+            source_filter=None,
+            target_action=None,
+        )
+        updated = edge.model_copy(
+            update={
+                "sourceActivationCountCondition": StateMachineSourceActivationCountCondition(
+                    operator=StateMachineCountOperator.gte,
+                    value=2,
+                )
+            },
+            deep=True,
+        )
+        update_state_machine_edge(self.project_state, updated)
+
+        stored = self.project_state.projectConfig.stateMachineEdges[0]
+        assert stored.sourceActivationCountCondition is not None
+        assert (
+            stored.sourceActivationCountCondition.operator
+            == StateMachineCountOperator.gte
+        )
+        assert stored.sourceActivationCountCondition.value == 2
+
+    def test_state_machine_edge_rejects_negative_source_activation_count_condition(
+        self,
+    ) -> None:
+        edge = self._create_edge(self.gate_section_id, self.end_section_id)
+        with pytest.raises(ValueError, match="non-negative value"):
+            update_state_machine_edge(
+                self.project_state,
+                edge.model_copy(
+                    update={
+                        "sourceActivationCountCondition": StateMachineSourceActivationCountCondition(
+                            operator=StateMachineCountOperator.eq,
+                            value=-1,
+                        )
+                    },
+                    deep=True,
+                ),
+            )
+
     def test_section_settings_allow_draft_structure_changes_but_reject_edge_group_mismatches(
         self,
     ) -> None:
@@ -389,7 +435,6 @@ class TestStateMachineEdges:
                 self.start_section_id,
                 "other-machine",
                 "Start",
-                None,
                 None,
             )
 
@@ -405,7 +450,6 @@ class TestStateMachineEdges:
             self.machine_group_id,
             "Extra Start",
             None,
-            None,
         )
         extra_start_impl = self.project_state.sections[extra_start_id]
         assert (
@@ -419,7 +463,6 @@ class TestStateMachineEdges:
             self.machine_group_id,
             "Gate Label",
             StateMachineGateType.AND,
-            None,
         )
 
     def test_project_config_round_trip(self) -> None:

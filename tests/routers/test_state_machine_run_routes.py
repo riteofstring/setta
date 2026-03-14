@@ -72,6 +72,8 @@ from setta.types.section_impls import (
 from setta.types.state_machine_edges import (
     STATE_MACHINE_EDGE_SOURCE_PORT_ID,
     STATE_MACHINE_EDGE_TARGET_PORT_ID,
+    StateMachineCountOperator,
+    StateMachineSourceActivationCountCondition,
     StateMachineSourceFilter,
     StateMachineSourceFilterType,
     StateMachineTargetAction,
@@ -708,6 +710,81 @@ async def _seed_state_machine_gate_chat_graph(
     )
 
 
+async def _seed_state_machine_source_count_loop_graph(
+    *,
+    project_fixture,
+    project_config_id: ID,
+    engine_config_id: ID,
+    final_source_activation_count: int,
+) -> tuple[ID, list[ID], ID, ID]:
+    (
+        start_section_id,
+        chat_section_ids,
+        gate_section_id,
+        end_section_id,
+    ) = await _seed_state_machine_gate_chat_graph(
+        project_fixture=project_fixture,
+        project_config_id=project_config_id,
+        engine_config_id=engine_config_id,
+        gate_type=StateMachineGateType.AND,
+        prompt_texts=[
+            "Review branch 1.",
+            "Review branch 2.",
+            "Review branch 3.",
+        ],
+    )
+    for chat_section_id in chat_section_ids:
+        await project_fixture.manager.create_state_machine_edge(
+            CreateStateMachineEdgeRequest(
+                projectConfigId=project_config_id,
+                machineGroupId="workflow-main",
+                sourceSectionId=gate_section_id,
+                sourcePortId=STATE_MACHINE_EDGE_SOURCE_PORT_ID,
+                targetSectionId=chat_section_id,
+                targetPortId=STATE_MACHINE_EDGE_TARGET_PORT_ID,
+                sourceActivationCountCondition=StateMachineSourceActivationCountCondition(
+                    operator=StateMachineCountOperator.lt,
+                    value=final_source_activation_count,
+                ),
+                targetAction=StateMachineTargetAction(
+                    type=StateMachineTargetActionType.send_prompt,
+                    inlinePrompt="Apply another review pass.",
+                    threadStrategy=StateMachineThreadStrategy.new_thread_before_send,
+                ),
+            )
+        )
+    project_state = convert_backend_to_single_config(
+        project_fixture.manager.project_state_backend,
+        project_config_id,
+    )
+    updated_edges = []
+    for edge in project_state.projectConfig.stateMachineEdges:
+        if (
+            edge.sourceSectionId == gate_section_id
+            and edge.targetSectionId == end_section_id
+        ):
+            updated_edges.append(
+                edge.model_copy(
+                    update={
+                        "sourceActivationCountCondition": StateMachineSourceActivationCountCondition(
+                            operator=StateMachineCountOperator.gte,
+                            value=final_source_activation_count,
+                        )
+                    },
+                    deep=True,
+                )
+            )
+            continue
+        updated_edges.append(edge)
+    await project_fixture.manager.set_state_machine_edges(
+        SetStateMachineEdgesRequest(
+            projectConfigId=project_config_id,
+            edges=updated_edges,
+        )
+    )
+    return start_section_id, chat_section_ids, gate_section_id, end_section_id
+
+
 async def _seed_state_machine_signal_branch_graph(
     *,
     project_fixture,
@@ -821,7 +898,6 @@ async def _seed_state_machine_signal_loop_graph(
     project_fixture,
     project_config_id: ID,
     engine_config_id: ID,
-    max_iterations: int | None = None,
 ) -> tuple[ID, ID, ID]:
     start_response = await project_fixture.manager.create_top_level_section(
         CreateTopLevelSectionRequest(
@@ -843,7 +919,6 @@ async def _seed_state_machine_signal_loop_graph(
             sectionId=start_response.sectionId,
             machineGroupId="workflow-main",
             label="Review Flow",
-            maxIterations=max_iterations,
         )
     )
     await project_fixture.manager.set_state_machine_section_settings(
@@ -1127,7 +1202,7 @@ async def test_state_machine_runner_dispatches_send_prompt_from_start_edges(
             == started.outputs["startOutgoingEdgeIds"][0]
         )
         assert captured_inputs["stateMachineTargetSectionId"] == str(chat_section_id)
-        assert captured_inputs["stateMachineIteration"] == 1
+        assert captured_inputs["stateMachineSourceActivationCount"] == 0
         assert captured_inputs["stateMachineParentRunType"] == STATE_MACHINE_RUN_TYPE
 
         chat_impl = _get_chat_section_impl(
@@ -1146,7 +1221,7 @@ async def test_state_machine_runner_dispatches_send_prompt_from_start_edges(
                 "runId": str(captured["run"].id),
                 "threadStrategy": "new_thread_before_send",
                 "engineType": "setta_llm",
-                "stateMachineIteration": 1,
+                "sourceActivationCount": 0,
             }
         ]
         assert started.outputs["childRunIds"] == [str(captured["run"].id)]
@@ -1565,7 +1640,7 @@ async def test_state_machine_runner_routes_completed_child_run_to_follow_up_chat
                 "runId": str(child_runs[1].id),
                 "threadStrategy": "new_thread_before_send",
                 "engineType": "setta_llm",
-                "stateMachineIteration": 1,
+                "sourceActivationCount": 0,
             }
         ]
         assert dispatched_inputs[1]["stateMachineTargetSectionId"] == str(
@@ -1846,7 +1921,7 @@ async def test_state_machine_runner_routes_signal_filtered_edges(
                 "machineRunId": str(latest.id),
                 "childRunId": str(child_runs[0].id),
                 "sourceSectionId": str(first_chat_id),
-                "stateMachineIteration": 1,
+                "sourceActivationCount": 0,
                 "reportedAt": latest.outputs["signalEvents"][0]["reportedAt"],
             }
         ]
@@ -1859,10 +1934,10 @@ async def test_state_machine_runner_routes_signal_filtered_edges(
                 "runId": str(child_runs[1].id),
                 "threadStrategy": "new_thread_before_send",
                 "engineType": "setta_llm",
-                "stateMachineIteration": 1,
+                "sourceActivationCount": 0,
             }
         ]
-        assert dispatched_inputs[1]["stateMachineIteration"] == 1
+        assert dispatched_inputs[1]["stateMachineSourceActivationCount"] == 0
         assert dispatched_inputs[1]["stateMachineTargetSectionId"] == str(
             second_chat_id
         )
@@ -1874,7 +1949,7 @@ async def test_state_machine_runner_routes_signal_filtered_edges(
 
 
 @pytest.mark.asyncio
-async def test_state_machine_runner_advances_iteration_for_signal_retry_loop(
+async def test_state_machine_runner_counts_source_activations_for_signal_retry_loop(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     async with (
@@ -1972,31 +2047,39 @@ async def test_state_machine_runner_advances_iteration_for_signal_retry_loop(
         assert retry_report["status"] == "ok"
         assert len(dispatched_inputs) == 2
         assert latest_after_retry.outputs is not None
-        assert latest_after_retry.outputs["stateMachineIteration"] == 2
+        assert latest_after_retry.outputs["sourceActivationCountsBySectionId"] == {
+            str(start_section_id): 1,
+            str(loop_chat_id): 1,
+        }
         assert latest_after_retry.outputs["processedSignalEventIds"] == [
             retry_report["signalEventId"]
         ]
         assert dispatched_inputs[1]["stateMachineTargetSectionId"] == str(loop_chat_id)
-        assert dispatched_inputs[1]["stateMachineIteration"] == 2
-        assert child_runs[1].inputs["stateMachineIteration"] == 2
-        assert [event.type for event in latest_after_retry.events[-4:]] == [
+        assert dispatched_inputs[1]["stateMachineSourceActivationCount"] == 0
+        assert child_runs[1].inputs["stateMachineSourceActivationCount"] == 0
+        assert [event.type for event in latest_after_retry.events[-3:]] == [
             "signal_reported",
             "signal_edges_activated",
-            "iteration_advanced",
             "edge_action_dispatched",
         ]
 
         assert latest_after_first_completion.status == AgentRunStatus.running
         assert latest_after_first_completion.outputs is not None
-        assert (
-            latest_after_first_completion.outputs["processedChildTerminalRunIds"] == []
-        )
-        assert latest_after_first_completion.outputs["stateMachineIteration"] == 2
+        assert latest_after_first_completion.outputs["processedChildTerminalRunIds"] == [
+            str(child_runs[0].id)
+        ]
+        assert latest_after_first_completion.outputs["sourceActivationCountsBySectionId"] == {
+            str(start_section_id): 1,
+            str(loop_chat_id): 2,
+        }
 
         assert done_report["status"] == "ok"
         assert latest_completed.status == AgentRunStatus.completed
         assert latest_completed.outputs is not None
-        assert latest_completed.outputs["stateMachineIteration"] == 2
+        assert latest_completed.outputs["sourceActivationCountsBySectionId"] == {
+            str(start_section_id): 1,
+            str(loop_chat_id): 3,
+        }
         assert latest_completed.outputs["reachedEndSectionIds"] == [str(end_section_id)]
         assert [event.type for event in latest_completed.events[-4:]] == [
             "signal_reported",
@@ -2007,7 +2090,7 @@ async def test_state_machine_runner_advances_iteration_for_signal_retry_loop(
 
 
 @pytest.mark.asyncio
-async def test_state_machine_runner_fails_when_loop_exceeds_max_iterations(
+async def test_state_machine_runner_branches_gate_edges_by_source_activation_count(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     async with (
@@ -2022,14 +2105,19 @@ async def test_state_machine_runner_fails_when_loop_exceeds_max_iterations(
 
         engine_config_id = ID("engine-primary")
         _seed_engine_config(project_fixture.dbe, engine_config_id)
-        start_section_id, loop_chat_id, _ = await _seed_state_machine_signal_loop_graph(
+        (
+            start_section_id,
+            chat_section_ids,
+            _gate_section_id,
+            end_section_id,
+        ) = await _seed_state_machine_source_count_loop_graph(
             project_fixture=project_fixture,
             project_config_id=project_config_id,
             engine_config_id=engine_config_id,
-            max_iterations=1,
+            final_source_activation_count=2,
         )
 
-        state, state_machine_runner, agent_runner, _ = _build_runtime_state(
+        state, _, agent_runner, _ = _build_runtime_state(
             project_fixture,
             settings_fixture,
         )
@@ -2054,16 +2142,72 @@ async def test_state_machine_runner_fails_when_loop_exceeds_max_iterations(
                 ),
                 ctx,
             )
+            assert started.outputs is not None
+            assert started.outputs["sourceActivationCountsBySectionId"] == {
+                str(start_section_id): 1
+            }
+            assert len(dispatched_inputs) == 3
+            assert {
+                item["stateMachineSourceActivationCount"] for item in dispatched_inputs
+            } == {0}
 
-            retry_report = await state_machine_runner.report_signal(
-                project_config_id=project_config_id,
-                child_run_id=child_runs[0].id,
-                machine_run_id=None,
-                section_id=None,
-                signal_name="merge_decision",
-                payload={"decision": "retry"},
+            for child_run in child_runs[:3]:
+                child_run.status = AgentRunStatus.completed
+                save_agent_run(project_fixture.dbe, child_run)
+
+            after_first_loop = await route_get_state_machine_run(
+                GetStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                ),
+                ctx,
             )
-            latest_failed = await route_get_state_machine_run(
+            assert after_first_loop.outputs is not None
+            assert after_first_loop.status == AgentRunStatus.running
+            assert after_first_loop.outputs["sourceActivationCountsBySectionId"] == {
+                str(start_section_id): 1,
+                str(chat_section_ids[0]): 1,
+                str(chat_section_ids[1]): 1,
+                str(chat_section_ids[2]): 1,
+                str(_gate_section_id): 1,
+            }
+            assert len(dispatched_inputs) == 6
+            assert {
+                item["stateMachineSourceActivationCount"]
+                for item in dispatched_inputs[3:6]
+            } == {0}
+
+            for child_run in child_runs[3:6]:
+                child_run.status = AgentRunStatus.completed
+                save_agent_run(project_fixture.dbe, child_run)
+
+            after_second_loop = await route_get_state_machine_run(
+                GetStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                ),
+                ctx,
+            )
+            assert after_second_loop.outputs is not None
+            assert after_second_loop.status == AgentRunStatus.running
+            assert after_second_loop.outputs["sourceActivationCountsBySectionId"] == {
+                str(start_section_id): 1,
+                str(chat_section_ids[0]): 2,
+                str(chat_section_ids[1]): 2,
+                str(chat_section_ids[2]): 2,
+                str(_gate_section_id): 2,
+            }
+            assert len(dispatched_inputs) == 9
+            assert {
+                item["stateMachineSourceActivationCount"]
+                for item in dispatched_inputs[6:9]
+            } == {1}
+
+            for child_run in child_runs[6:9]:
+                child_run.status = AgentRunStatus.completed
+                save_agent_run(project_fixture.dbe, child_run)
+
+            latest_completed = await route_get_state_machine_run(
                 GetStateMachineRunRequest(
                     projectConfigId=project_config_id,
                     machineGroupId="workflow-main",
@@ -2072,29 +2216,29 @@ async def test_state_machine_runner_fails_when_loop_exceeds_max_iterations(
             )
 
         assert started.status == AgentRunStatus.running
-        assert retry_report["status"] == "ok"
-        assert len(dispatched_inputs) == 1
-        assert latest_failed.status == AgentRunStatus.failed
-        assert latest_failed.outputs is not None
-        assert latest_failed.outputs["stateMachineIteration"] == 1
-        retry_edge_ids = latest_failed.events[-3].payload["edgeIds"]
-        assert latest_failed.outputs["failureSummary"] == {
-            "reason": "max_iterations_reached",
-            "message": "Workflow reached the max iteration limit (1) before dispatching iteration 2.",
-            "details": {
-                "previousIteration": 1,
-                "attemptedIteration": 2,
-                "maxIterations": 1,
-                "targetSectionIds": [str(loop_chat_id)],
-                "edgeIds": retry_edge_ids,
-            },
+        assert latest_completed.status == AgentRunStatus.completed
+        assert latest_completed.outputs is not None
+        assert latest_completed.outputs["sourceActivationCountsBySectionId"] == {
+            str(start_section_id): 1,
+            str(chat_section_ids[0]): 3,
+            str(chat_section_ids[1]): 3,
+            str(chat_section_ids[2]): 3,
+            str(_gate_section_id): 3,
         }
-        assert [event.type for event in latest_failed.events[-4:]] == [
-            "signal_reported",
-            "signal_edges_activated",
-            "iteration_limit_reached",
-            "run_failed",
+        assert latest_completed.outputs["reachedEndSectionIds"] == [str(end_section_id)]
+        assert len(dispatched_inputs) == 9
+        assert all(
+            item["stateMachineTargetSectionId"] in {str(section_id) for section_id in chat_section_ids}
+            for item in dispatched_inputs
+        )
+        assert [event.type for event in latest_completed.events[-2:]] == [
+            "end_reached",
+            "run_completed",
         ]
+        assert any(
+            event.type == "child_run_edges_activated"
+            for event in latest_completed.events
+        )
 
 
 @pytest.mark.asyncio

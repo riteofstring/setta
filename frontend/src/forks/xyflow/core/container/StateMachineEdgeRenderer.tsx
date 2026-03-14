@@ -82,6 +82,24 @@ function getEdgeClassNames(edge: WorkflowEdge): string {
   return classNames.join(" ");
 }
 
+function getSourceActivationCountLabel(edge: WorkflowEdge): string | null {
+  const condition =
+    edge.sourceActivationCountCondition ?? edge.iterationCondition ?? null;
+  if (!condition) {
+    return null;
+  }
+  const operatorLabelById: Record<string, string> = {
+    lt: "<",
+    lte: "<=",
+    eq: "=",
+    gte: ">=",
+    gt: ">",
+  };
+  const operatorLabel =
+    operatorLabelById[condition.operator] ?? condition.operator;
+  return `src count ${operatorLabel} ${condition.value}`;
+}
+
 function resolveRelativeAnchorSides(
   sourceNode: Node | undefined,
   sourceLayout: TopLevelSectionLayout | undefined,
@@ -189,6 +207,12 @@ const StateMachineEdgeRenderer = () => {
             targetY: targetCenter.y,
             targetPosition: HandlePosition.Left,
           });
+          const sourceActivationCountLabel = getSourceActivationCountLabel(edge);
+          const edgeLabelX = (sourceCenter.x + targetCenter.x) / 2;
+          const edgeLabelY = (sourceCenter.y + targetCenter.y) / 2;
+          const edgeLabelWidth = sourceActivationCountLabel
+            ? Math.max(80, sourceActivationCountLabel.length * 6 + 12)
+            : 0;
           const onClick = (event: MouseEvent<SVGGElement>) => {
             if (!canEditStructure) {
               return;
@@ -275,6 +299,29 @@ const StateMachineEdgeRenderer = () => {
                 strokeOpacity={0}
                 strokeWidth={18}
               />
+              {sourceActivationCountLabel ? (
+                <g
+                  className="react-flow__state-machine-edge-label"
+                  data-testid={`workflow-edge-source-activation-badge-${edge.id}`}
+                  transform={`translate(${edgeLabelX - edgeLabelWidth / 2} ${edgeLabelY - 10})`}
+                >
+                  <rect
+                    className="react-flow__state-machine-edge-label-bg"
+                    width={edgeLabelWidth}
+                    height={20}
+                    rx={10}
+                    ry={10}
+                  />
+                  <text
+                    className="react-flow__state-machine-edge-label-text"
+                    x={edgeLabelWidth / 2}
+                    y={13}
+                    textAnchor="middle"
+                  >
+                    {sourceActivationCountLabel}
+                  </text>
+                </g>
+              ) : null}
             </g>
           );
         })}

@@ -34,6 +34,14 @@ type LatestProjectStateResponse = {
           payloadField?: string | null;
           equals?: string | null;
         } | null;
+        sourceActivationCountCondition?: {
+          operator?: string | null;
+          value?: number | null;
+        } | null;
+        iterationCondition?: {
+          operator?: string | null;
+          value?: number | null;
+        } | null;
         targetAction?: {
           type?: string | null;
           promptTemplateId?: string | null;
@@ -998,6 +1006,159 @@ test.describe.serial("state machine sections", () => {
     }
   });
 
+  test("edits a workflow edge to use a zero-indexed source activation condition", async ({
+    page,
+  }) => {
+    await seedLocalStorage(page, {
+      overviewTab: "Overview",
+      overviewVis: true,
+      uiEditorVis: true,
+    });
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const startSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "StateMachineStart",
+        { x: 80, y: 120 },
+      );
+      const gateSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "StateMachineGate",
+        { x: 420, y: 120 },
+      );
+      const endSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "StateMachineEnd",
+        { x: 760, y: 120 },
+      );
+
+      await setStateMachineSectionSettings(
+        page,
+        projectContext.projectConfigId,
+        startSectionId,
+        {
+          machineGroupId: "workflow-source-count-condition",
+          label: "Loop Start",
+          gateType: null,
+          maxIterations: null,
+        },
+      );
+      await setStateMachineSectionSettings(
+        page,
+        projectContext.projectConfigId,
+        gateSectionId,
+        {
+          machineGroupId: "workflow-source-count-condition",
+          label: "Loop Gate",
+          gateType: "AND",
+          maxIterations: null,
+        },
+      );
+      await setStateMachineSectionSettings(
+        page,
+        projectContext.projectConfigId,
+        endSectionId,
+        {
+          machineGroupId: "workflow-source-count-condition",
+          label: "Done",
+          gateType: null,
+          maxIterations: null,
+        },
+      );
+
+      await createStateMachineEdge(page, projectContext.projectConfigId, {
+        machineGroupId: "workflow-source-count-condition",
+        sourceSectionId: startSectionId,
+        sourcePortId: "workflow-source",
+        targetSectionId: gateSectionId,
+        targetPortId: "workflow-target",
+        sourceFilter: null,
+        sourceActivationCountCondition: null,
+        iterationCondition: null,
+        targetAction: null,
+      });
+      await createStateMachineEdge(page, projectContext.projectConfigId, {
+        machineGroupId: "workflow-source-count-condition",
+        sourceSectionId: gateSectionId,
+        sourcePortId: "workflow-source",
+        targetSectionId: endSectionId,
+        targetPortId: "workflow-target",
+        sourceFilter: null,
+        sourceActivationCountCondition: null,
+        iterationCondition: null,
+        targetAction: null,
+      });
+
+      const edges = await readStateMachineEdges(
+        page,
+        projectContext.projectConfigId,
+      );
+      const gateToEndEdgeId = edges.find(
+        (edge) =>
+          edge.sourceSectionId === gateSectionId &&
+          edge.targetSectionId === endSectionId,
+      )?.id;
+      if (!gateToEndEdgeId) {
+        throw new Error("Missing gate-to-end workflow edge.");
+      }
+
+      await selectStateMachineEdge(
+        page,
+        projectContext.projectConfigId,
+        gateToEndEdgeId,
+      );
+      const inspector = page.getByTestId("workflow-edge-inspector");
+      await expect(inspector).toBeVisible();
+
+      const sourceActivationConditionToggle = inspector.getByTestId(
+        "workflow-edge-enable-source-activation-condition",
+      );
+      await sourceActivationConditionToggle.scrollIntoViewIfNeeded();
+      await inspector
+        .getByText("Limit this edge by source activation count (0-indexed)")
+        .click();
+      await selectComboboxOption(
+        page,
+        "#workflow-edge-source-activation-operator",
+        ">=",
+      );
+      await inspector
+        .getByTestId("workflow-edge-source-activation-value")
+        .fill("2");
+      await inspector.getByTestId("workflow-edge-apply").click();
+
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineEdge(
+              page,
+              projectContext.projectConfigId,
+              gateToEndEdgeId,
+            ),
+          { timeout: 8000 },
+        )
+        .toMatchObject({
+          sourceActivationCountCondition: {
+            operator: "gte",
+            value: 2,
+          },
+        });
+
+      const badge = page.getByTestId(
+        `workflow-edge-source-activation-badge-${gateToEndEdgeId}`,
+      );
+      await expect(badge).toBeVisible();
+      await expect(badge).toContainText("src count >= 2");
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("refreshes running workflow rows through getStateMachineRun when agent runs stay stale", async ({
     page,
   }) => {
@@ -1691,7 +1852,6 @@ async function setStateMachineSectionSettings(
     machineGroupId: payload.machineGroupId,
     label: payload.label,
     gateType: payload.gateType,
-    maxIterations: payload.maxIterations ?? null,
   });
 }
 
@@ -1709,6 +1869,14 @@ async function createStateMachineEdge(
       signalName: string | null;
       payloadField: string | null;
       equals: string | null;
+    } | null;
+    sourceActivationCountCondition?: {
+      operator: string;
+      value: number;
+    } | null;
+    iterationCondition?: {
+      operator: string;
+      value: number;
     } | null;
     targetAction: {
       type: string;
@@ -1867,6 +2035,14 @@ async function readStateMachineEdges(
       payloadField: string | null;
       equals: string | null;
     } | null;
+    sourceActivationCountCondition: {
+      operator: string | null;
+      value: number | null;
+    } | null;
+    iterationCondition: {
+      operator: string | null;
+      value: number | null;
+    } | null;
     targetAction: {
       type: string | null;
       promptTemplateId: string | null;
@@ -1894,6 +2070,18 @@ async function readStateMachineEdges(
             signalName: edge.sourceFilter.signalName ?? null,
             payloadField: edge.sourceFilter.payloadField ?? null,
             equals: edge.sourceFilter.equals ?? null,
+          }
+        : null,
+      sourceActivationCountCondition: edge.sourceActivationCountCondition
+        ? {
+            operator: edge.sourceActivationCountCondition.operator ?? null,
+            value: edge.sourceActivationCountCondition.value ?? null,
+          }
+        : null,
+      iterationCondition: edge.iterationCondition
+        ? {
+            operator: edge.iterationCondition.operator ?? null,
+            value: edge.iterationCondition.value ?? null,
           }
         : null,
       targetAction: edge.targetAction
@@ -1941,6 +2129,14 @@ async function readStateMachineEdge(
     signalName: string | null;
     payloadField: string | null;
     equals: string | null;
+  } | null;
+  sourceActivationCountCondition: {
+    operator: string | null;
+    value: number | null;
+  } | null;
+  iterationCondition: {
+    operator: string | null;
+    value: number | null;
   } | null;
   targetAction: {
     type: string | null;

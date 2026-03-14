@@ -5,13 +5,13 @@ from dataclasses import dataclass
 from setta.agentic.agentic_scope import resolve_context_edges
 from setta.agentic.linked_chat_targets import is_executable_linked_chat_target
 from setta.database.db_objs import DBE
-from setta.types.prompt_section_resolution import resolve_prompt_section_source
 from setta.types.agentic_edges import AgenticEdgeContextMode, AgenticEdgeKind
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl
 from setta.types.helpers_lvl3 import build_project_state_summary_section_index
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs
 from setta.types.project_state import ProjectStateSingleConfig
+from setta.types.prompt_section_resolution import resolve_prompt_section_source
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
     BrowserSectionImpl,

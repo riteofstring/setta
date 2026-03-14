@@ -222,14 +222,6 @@ export function StateMachineNodeArea({ sectionId }: StateMachineNodeAreaProps) {
             <p className="truncate font-mono text-[10px] leading-tight opacity-75">
               {machineGroupId !== "" ? machineGroupId : "machine-group-unset"}
             </p>
-            {machineRun.iterationLabel ? (
-              <span
-                className="border-current/10 shrink-0 rounded-full border bg-white/40 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] opacity-80 dark:bg-slate-950/20"
-                data-testid={`state-machine-iteration-${sectionId}`}
-              >
-                {machineRun.iterationLabel}
-              </span>
-            ) : null}
           </div>
         </div>
         {showMachineStatus ? (

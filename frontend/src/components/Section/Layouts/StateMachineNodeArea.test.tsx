@@ -401,7 +401,7 @@ describe("StateMachineNodeArea", () => {
     expect(markup).toContain("Kickoff");
   });
 
-  it("renders recent workflow activity and iteration details on start nodes", () => {
+  it("renders recent workflow activity on start nodes", () => {
     seedWorkflowSection({
       sectionId: "section-start-activity",
       variantId: "variant-start-activity",
@@ -427,9 +427,7 @@ describe("StateMachineNodeArea", () => {
             projectConfigId: "project-1",
             machineGroupId: "workflow-main",
           },
-          outputs: {
-            stateMachineIteration: 2,
-          },
+          outputs: {},
           events: [
             {
               id: "event-start-1",
@@ -461,15 +459,11 @@ describe("StateMachineNodeArea", () => {
       <StateMachineNodeArea sectionId="section-start-activity" />,
     );
 
-    expect(markup).toContain("Iteration 2");
     expect(markup).toContain("Workflow started");
     expect(markup).toContain("Signal merge_decision reported");
     expect(markup).toContain("Workflow stopped");
     expect(markup).toContain(
       'data-testid="state-machine-activity-panel-section-start-activity"',
-    );
-    expect(markup).toContain(
-      'data-testid="state-machine-iteration-section-start-activity"',
     );
   });
 
@@ -537,7 +531,6 @@ describe("StateMachineNodeArea", () => {
         size: createSectionSize({ width: 260, height: 120 }),
         machineGroupId: "workflow-main",
         label: "Kickoff",
-        maxIterations: 1,
         ...COMMON_MACHINE_IMPL_FIELDS,
       },
     });
@@ -554,11 +547,9 @@ describe("StateMachineNodeArea", () => {
             machineGroupId: "workflow-main",
           },
           outputs: {
-            stateMachineIteration: 1,
             failureSummary: {
-              reason: "max_iterations_reached",
-              message:
-                "Workflow reached the max iteration limit (1) before dispatching iteration 2.",
+              reason: "run_blocked",
+              message: "Workflow blocked at gate Review Gate.",
               details: {},
             },
           },
@@ -566,7 +557,7 @@ describe("StateMachineNodeArea", () => {
             {
               id: "event-failed-1",
               timestamp: "2024-01-01T00:00:01Z",
-              type: "iteration_limit_reached",
+              type: "run_blocked",
               payload: {},
             },
             {
@@ -586,10 +577,8 @@ describe("StateMachineNodeArea", () => {
     );
 
     expect(markup).toContain("Failed");
-    expect(markup).toContain(
-      "Workflow reached the max iteration limit (1) before dispatching iteration 2.",
-    );
-    expect(markup).toContain("Iteration limit reached");
+    expect(markup).toContain("Workflow blocked at gate Review Gate.");
+    expect(markup).toContain("Workflow blocked");
     expect(markup).toContain("Workflow failed");
   });
 });

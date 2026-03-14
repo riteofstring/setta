@@ -8,7 +8,12 @@ import {
 } from "state/actions/stateMachineEdges";
 import { useAIStore, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import { ChatPermissionModeEnum, SectionTypeEnum } from "utils/generatedTypes";
+import {
+  ChatPermissionModeEnum,
+  SectionTypeEnum,
+  StateMachineCountOperatorEnum,
+  type StateMachineCountOperator,
+} from "utils/generatedTypes";
 
 type WorkflowEdge = ReturnType<
   typeof useProjectState.getState
@@ -19,6 +24,7 @@ type WorkflowTargetActionType = "send_prompt" | "reset_thread";
 type WorkflowThreadStrategy =
   | "continue_current_thread"
   | "new_thread_before_send";
+type WorkflowCountOperator = StateMachineCountOperator;
 type WorkflowPromptSourceType =
   | "inline_prompt"
   | "prompt_template"
@@ -86,6 +92,19 @@ const THREAD_STRATEGY_OPTIONS = [
   },
 ];
 
+const SOURCE_ACTIVATION_COUNT_OPERATOR_OPTIONS = [
+  {
+    group: "Count Operators",
+    items: [
+      { id: StateMachineCountOperatorEnum.lt, name: "<" },
+      { id: StateMachineCountOperatorEnum.lte, name: "<=" },
+      { id: StateMachineCountOperatorEnum.eq, name: "=" },
+      { id: StateMachineCountOperatorEnum.gte, name: ">=" },
+      { id: StateMachineCountOperatorEnum.gt, name: ">" },
+    ],
+  },
+];
+
 const PERMISSION_MODE_OPTIONS = [
   {
     group: "Permissions",
@@ -101,9 +120,15 @@ const PERMISSION_MODE_OPTIONS = [
 ];
 
 function cloneWorkflowEdge(edge: WorkflowEdge): WorkflowEdge {
+  const sourceActivationCountCondition =
+    edge.sourceActivationCountCondition ?? edge.iterationCondition ?? null;
   return {
     ...edge,
     sourceFilter: edge.sourceFilter ? { ...edge.sourceFilter } : null,
+    sourceActivationCountCondition: sourceActivationCountCondition
+      ? { ...sourceActivationCountCondition }
+      : null,
+    iterationCondition: null,
     targetAction: edge.targetAction
       ? {
           ...edge.targetAction,
@@ -227,6 +252,7 @@ function sanitizeWorkflowEdge(
   promptSourceType: WorkflowPromptSourceType,
 ): WorkflowEdge {
   const nextEdge = cloneWorkflowEdge(edge);
+  nextEdge.iterationCondition = null;
   if (sourceType !== SectionTypeEnum.Chat) {
     nextEdge.sourceFilter = null;
   } else {
@@ -358,6 +384,14 @@ function getValidationError(
         return "Send Prompt requires exactly one prompt template, prompt section, or inline prompt.";
       }
     }
+  }
+
+  if (
+    sanitizedEdge.sourceActivationCountCondition &&
+    (!Number.isInteger(sanitizedEdge.sourceActivationCountCondition.value) ||
+      sanitizedEdge.sourceActivationCountCondition.value < 0)
+  ) {
+    return "Source activation count conditions require a non-negative integer value.";
   }
 
   return null;
@@ -667,6 +701,101 @@ export function StateMachineEdgeInspector({
           </div>
         </section>
       ) : null}
+
+      <section className="rounded-md border border-setta-200/70 p-3 dark:border-setta-700/70">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-setta-700 dark:text-setta-300">
+          Condition
+        </p>
+        <div className="mt-3 flex flex-col gap-3">
+          <label className="flex items-center gap-2 text-xs text-setta-600 dark:text-setta-300">
+            <input
+              data-testid="workflow-edge-enable-source-activation-condition"
+              type="checkbox"
+              checked={draftEdge.sourceActivationCountCondition !== null}
+              disabled={isDisabled}
+              onChange={(event) =>
+                updateDraft((current) => ({
+                  ...current,
+                  sourceActivationCountCondition: event.target.checked
+                    ? {
+                        operator: StateMachineCountOperatorEnum.eq,
+                        value: 0,
+                      }
+                    : null,
+                  iterationCondition: null,
+                }))
+              }
+            />
+            Limit this edge by source activation count (0-indexed)
+          </label>
+
+          {draftEdge.sourceActivationCountCondition ? (
+            <div className="grid grid-cols-[minmax(0,120px)_minmax(0,1fr)] gap-3">
+              <IdNameCombobox
+                allItems={SOURCE_ACTIVATION_COUNT_OPERATOR_OPTIONS}
+                value={draftEdge.sourceActivationCountCondition.operator}
+                inputDivId="workflow-edge-source-activation-operator"
+                onSelectedItemChange={(value) => {
+                  if (!value) {
+                    return;
+                  }
+                  updateDraft((current) => ({
+                    ...current,
+                    sourceActivationCountCondition:
+                      current.sourceActivationCountCondition
+                      ? {
+                          ...current.sourceActivationCountCondition,
+                          operator: value as WorkflowCountOperator,
+                        }
+                      : {
+                          operator: value as WorkflowCountOperator,
+                          value: 0,
+                        },
+                    iterationCondition: null,
+                  }));
+                }}
+                isDisabled={isDisabled}
+                placeholder="Operator"
+              />
+              <label className="flex flex-col gap-1 text-xs text-setta-600 dark:text-setta-300">
+                Source Count
+                <input
+                  data-testid="workflow-edge-source-activation-value"
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={draftEdge.sourceActivationCountCondition.value}
+                  disabled={isDisabled}
+                  onChange={(event) => {
+                    const parsed = Number(event.target.value);
+                    updateDraft((current) => ({
+                      ...current,
+                      sourceActivationCountCondition:
+                        current.sourceActivationCountCondition
+                        ? {
+                            ...current.sourceActivationCountCondition,
+                            value:
+                              Number.isInteger(parsed) && parsed >= 0
+                                ? parsed
+                                : 0,
+                          }
+                        : {
+                            operator: StateMachineCountOperatorEnum.eq,
+                            value:
+                              Number.isInteger(parsed) && parsed >= 0
+                                ? parsed
+                                : 0,
+                          },
+                      iterationCondition: null,
+                    }));
+                  }}
+                  className="rounded border border-setta-300 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
+                />
+              </label>
+            </div>
+          ) : null}
+        </div>
+      </section>
 
       {edgeDetails.targetType === SectionTypeEnum.Chat ? (
         <section className="rounded-md border border-setta-200/70 p-3 dark:border-setta-700/70">

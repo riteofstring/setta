@@ -249,6 +249,8 @@ describe("state machine edge creation", () => {
         sourceSectionId: startSectionId,
         targetSectionId: chatSectionId,
         sourceFilter: null,
+        sourceActivationCountCondition: null,
+        iterationCondition: null,
         targetAction: expect.objectContaining({
           type: "reset_thread",
           promptTemplateId: null,
@@ -321,6 +323,8 @@ describe("state machine edge creation", () => {
           targetSectionId: chatSectionId,
           targetPortId: STATE_MACHINE_EDGE_HANDLE_IDS.target,
           sourceFilter: null,
+          sourceActivationCountCondition: null,
+          iterationCondition: null,
           targetAction: {
             type: "reset_thread",
             promptTemplateId: null,
@@ -356,6 +360,8 @@ describe("state machine edge creation", () => {
         sourceFilter: expect.objectContaining({
           type: "run_completed",
         }),
+        sourceActivationCountCondition: null,
+        iterationCondition: null,
         targetAction: null,
       }),
     );
@@ -458,6 +464,8 @@ describe("state machine edge creation", () => {
             payloadField: null,
             equals: null,
           },
+          sourceActivationCountCondition: null,
+          iterationCondition: null,
           targetAction: null,
           style: null,
           hidden: false,

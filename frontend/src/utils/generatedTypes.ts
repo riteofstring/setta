@@ -1456,6 +1456,18 @@ export const FileEventTypeEnum = {
 
 export type FileEventType = ObjectValues<typeof FileEventTypeEnum>;
 
+export const StateMachineCountOperatorEnum = {
+  lt: "lt",
+  lte: "lte",
+  eq: "eq",
+  gte: "gte",
+  gt: "gt",
+} as const;
+
+export type StateMachineCountOperator = ObjectValues<
+  typeof StateMachineCountOperatorEnum
+>;
+
 export const StateMachineThreadStrategyEnum = {
   continue_current_thread: "continue_current_thread",
   new_thread_before_send: "new_thread_before_send",
@@ -8745,6 +8757,48 @@ export function createStateMachineSourceFilter(
   return StateMachineSourceFilterSchema.parse(options);
 }
 
+export const StateMachineSourceActivationCountConditionSchema = z.object({
+  operator: z
+    .enum(StateMachineCountOperatorEnum)
+    .default(StateMachineCountOperatorEnum.eq),
+  value: z.int(),
+});
+
+export type StateMachineSourceActivationCountCondition = z.infer<
+  typeof StateMachineSourceActivationCountConditionSchema
+>;
+
+export type StateMachineSourceActivationCountConditionInput = z.input<
+  typeof StateMachineSourceActivationCountConditionSchema
+>;
+
+export function createStateMachineSourceActivationCountCondition(
+  options: Partial<StateMachineSourceActivationCountCondition> = {},
+): StateMachineSourceActivationCountCondition {
+  return StateMachineSourceActivationCountConditionSchema.parse(options);
+}
+
+export const StateMachineIterationConditionSchema = z.object({
+  operator: z
+    .enum(StateMachineCountOperatorEnum)
+    .default(StateMachineCountOperatorEnum.eq),
+  value: z.int(),
+});
+
+export type StateMachineIterationCondition = z.infer<
+  typeof StateMachineIterationConditionSchema
+>;
+
+export type StateMachineIterationConditionInput = z.input<
+  typeof StateMachineIterationConditionSchema
+>;
+
+export function createStateMachineIterationCondition(
+  options: Partial<StateMachineIterationCondition> = {},
+): StateMachineIterationCondition {
+  return StateMachineIterationConditionSchema.parse(options);
+}
+
 export const StateMachineTargetActionSchema = z.object({
   type: z
     .enum(StateMachineTargetActionTypeEnum)
@@ -8786,6 +8840,12 @@ export const StateMachineEdgeSchema = z.object({
   targetPortId: z.string(),
   sourceFilter: z
     .union([StateMachineSourceFilterSchema, z.null()])
+    .default(null),
+  sourceActivationCountCondition: z
+    .union([StateMachineSourceActivationCountConditionSchema, z.null()])
+    .default(null),
+  iterationCondition: z
+    .union([StateMachineIterationConditionSchema, z.null()])
     .default(null),
   targetAction: z
     .union([StateMachineTargetActionSchema, z.null()])
@@ -20697,6 +20757,12 @@ export const CreateStateMachineEdgeRequestSchema = z.object({
   sourceFilter: z
     .union([StateMachineSourceFilterSchema, z.null()])
     .default(null),
+  sourceActivationCountCondition: z
+    .union([StateMachineSourceActivationCountConditionSchema, z.null()])
+    .default(null),
+  iterationCondition: z
+    .union([StateMachineIterationConditionSchema, z.null()])
+    .default(null),
   targetAction: z
     .union([StateMachineTargetActionSchema, z.null()])
     .default(null),
@@ -22835,7 +22901,6 @@ export const SetStateMachineSectionSettingsRequestSchema = z.object({
   machineGroupId: z.string(),
   label: z.string(),
   gateType: z.union([z.enum(StateMachineGateTypeEnum), z.null()]).default(null),
-  maxIterations: z.union([z.int(), z.null()]).default(null),
 });
 
 export type SetStateMachineSectionSettingsRequest = z.infer<

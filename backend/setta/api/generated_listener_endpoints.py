@@ -107,6 +107,8 @@ from setta.types.section_impls import (
 from setta.types.settings_state import RunSnapshotMode
 from setta.types.state_machine_edges import (
     StateMachineEdge,
+    StateMachineIterationCondition,
+    StateMachineSourceActivationCountCondition,
     StateMachineSourceFilter,
     StateMachineTargetAction,
 )
@@ -238,6 +240,10 @@ class ListenerCreateStateMachineEdgeRequestPayload(TypedDict):
     targetSectionId: ID
     targetPortId: str
     sourceFilter: NotRequired[StateMachineSourceFilter | None]
+    sourceActivationCountCondition: NotRequired[
+        StateMachineSourceActivationCountCondition | None
+    ]
+    iterationCondition: NotRequired[StateMachineIterationCondition | None]
     targetAction: NotRequired[StateMachineTargetAction | None]
     style: NotRequired[dict[str, str | int | float] | None]
     hidden: NotRequired[bool]
@@ -966,7 +972,6 @@ class ListenerSetStateMachineSectionSettingsRequestPayload(TypedDict):
     machineGroupId: str
     label: str
     gateType: NotRequired[StateMachineGateType | None]
-    maxIterations: NotRequired[int | None]
 
 
 class ListenerSetTaskBoardSectionStateRequestPayload(TypedDict):

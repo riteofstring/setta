@@ -25,11 +25,31 @@ class StateMachineSourceFilterType(str, Enum):
     signal = "signal"
 
 
+class StateMachineCountOperator(str, Enum):
+    lt = "lt"
+    lte = "lte"
+    eq = "eq"
+    gte = "gte"
+    gt = "gt"
+
+
 class StateMachineSourceFilter(BaseModel, extra="forbid"):
     type: StateMachineSourceFilterType = StateMachineSourceFilterType.run_completed
     signalName: str | None = None
     payloadField: str | None = None
     equals: str | None = None
+
+
+class StateMachineSourceActivationCountCondition(BaseModel, extra="forbid"):
+    operator: StateMachineCountOperator = StateMachineCountOperator.eq
+    value: int
+
+
+class StateMachineIterationCondition(BaseModel, extra="forbid"):
+    """Deprecated compatibility shim for older saved workflow edges."""
+
+    operator: StateMachineCountOperator = StateMachineCountOperator.eq
+    value: int
 
 
 class StateMachineTargetAction(BaseModel, extra="forbid"):
@@ -56,6 +76,10 @@ class StateMachineEdge(BaseModel, extra="forbid"):
     targetSectionId: ID
     targetPortId: str
     sourceFilter: StateMachineSourceFilter | None = None
+    sourceActivationCountCondition: (
+        StateMachineSourceActivationCountCondition | None
+    ) = None
+    iterationCondition: StateMachineIterationCondition | None = None
     targetAction: StateMachineTargetAction | None = None
     style: dict[str, str | int | float] | None = None
     hidden: bool = False

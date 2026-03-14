@@ -1513,11 +1513,6 @@ function WorkflowControlRow({
         >
           {machineRun.statusLabel}
         </span>
-        {machineRun.iterationLabel ? (
-          <span className="rounded-full border border-setta-300/70 bg-white/65 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-setta-600 dark:border-setta-700 dark:bg-setta-950/35 dark:text-setta-300">
-            {machineRun.iterationLabel}
-          </span>
-        ) : null}
       </div>
       {activityLabel ? (
         <p
