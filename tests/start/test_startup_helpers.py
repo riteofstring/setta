@@ -5,11 +5,10 @@ from pathlib import Path
 import click
 import pytest
 
-from setta.start import (
+from setta.start import _ensure_background_process_started, _resolve_deployment_root
+from setta.startup_runtime import (
     _build_ssh_tunnel_command,
-    _ensure_background_process_started,
     _is_loopback_host,
-    _resolve_deployment_root,
     _warn_if_public_host_no_auth,
 )
 from setta.deployments.deployment_utils import parse_deployment_version
