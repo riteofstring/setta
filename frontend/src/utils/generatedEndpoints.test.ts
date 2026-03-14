@@ -57,6 +57,7 @@ import {
   route_get_app_deployment_state,
   route_get_app_gen_skill_content,
   route_get_app_gen_skills,
+  route_get_chat_section_chat_id,
   route_get_attachment_download_url,
   route_get_attachment_download_urls,
   route_get_engine_config,
@@ -952,6 +953,25 @@ describe("generatedEndpoints project shell and layout", () => {
       method: "POST",
       body: JSON.stringify({
         notificationId: "notification-alpha",
+      }),
+    });
+  });
+
+  it("posts chat-section chat-id reads through the backend origin", async () => {
+    await route_get_chat_section_chat_id({
+      projectConfigId: "project-alpha",
+      sectionId: "chat-section",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/getChatSectionChatId`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "chat-section",
       }),
     });
   });

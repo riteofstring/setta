@@ -238,6 +238,8 @@ type SetChatSectionStateRequestInput struct {
 	State           ChatSectionState `json:"state"`
 }
 
+type GetChatSectionChatIDResponse string
+
 type GetLLMChatResponse struct {
 	Messages           []BaseChatMessageUnion `json:"messages"`
 	WaitingForResponse bool                   `json:"waitingForResponse"`

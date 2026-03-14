@@ -1426,6 +1426,12 @@ export async function route_respond_external_agent_question(
   return await post(GoHTTPRoutes.respondExternalAgentQuestion, x);
 }
 
+export async function route_get_chat_section_chat_id(
+  x: gt.GetChatSectionChatIDRequest,
+): Promise<ResponseDataAndStatus<gt.GetChatSectionChatIDResponse | null>> {
+  return await post(GoHTTPRoutes.getChatSectionChatId, x);
+}
+
 export async function route_set_chat_section_settings(
   x: gt.SetChatSectionSettingsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

@@ -8699,6 +8699,18 @@ export function createRespondExternalAgentQuestionRequest(options: Partial<Respo
 }
 
 
+export type GetChatSectionChatIDRequest = {
+  projectConfigId: string;
+  sectionId: string;
+};
+export function createGetChatSectionChatIDRequest(options: Partial<GetChatSectionChatIDRequest> = {}): GetChatSectionChatIDRequest {
+  return options as GetChatSectionChatIDRequest;
+}
+
+
+export type GetChatSectionChatIDResponse = string;
+
+
 export type SetChatSectionSettingsRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;

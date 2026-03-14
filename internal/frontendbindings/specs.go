@@ -1213,6 +1213,11 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "RESPOND_EXTERNAL_AGENT_QUESTION",
 				},
 				{
+					Name:     "getChatSectionChatId",
+					Path:     httpapi.RouteGetChatSectionChatID,
+					EnumName: "GET_CHAT_SECTION_CHAT_ID",
+				},
+				{
 					Name:     "setChatSectionSettings",
 					Path:     httpapi.RouteSetChatSectionSettings,
 					EnumName: "SET_CHAT_SECTION_SETTINGS",
@@ -3171,6 +3176,14 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "respondExternalAgentQuestion",
 			RequestType:     reflect.TypeOf(httpapi.RespondExternalAgentQuestionRequest{}),
+		},
+		{
+			FunctionName:    "route_get_chat_section_chat_id",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "getChatSectionChatId",
+			RequestType:     reflect.TypeOf(httpapi.GetChatSectionChatIDRequest{}),
+			ResponseType:    reflect.TypeOf((*GetChatSectionChatIDResponse)(nil)),
 		},
 		{
 			FunctionName:    "route_set_chat_section_settings",

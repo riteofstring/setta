@@ -624,7 +624,7 @@ Current landed wedge:
           engine-config update plus single-item reads,
           transcription-profile CRUD, prompt-template CRUD plus single-item
           reads, external-agent-config CRUD plus single-item reads, agent-run
-          single-item reads, and chat-section state persistence
+          single-item reads, and chat-section state/chat-id persistence
         - transport payloads for agent/profile/run/config/profile list and
           single-item reads, managed/external chat hydration, managed-chat
           stop results, transcription session start/delta responses, and
@@ -1020,8 +1020,8 @@ Current landed wedge:
     project-level AI settings pane now consume canonical Go-generated AI
     route wrappers and boundary types for LLM config/API keys, agent-profile,
     engine-config, prompt-template, external-agent-config, transcription,
-    managed/external chat hydrate-stop-submit flows, and chat-section state
-    persistence
+    managed/external chat hydrate-stop-submit flows, and chat-section
+    state/chat-id persistence
   - `ParamInput` and the app-mode password reveal path in `appRegistry` are
     now covered by the canonical Go-generated password-value helper binding
   - `ParamInput`, `MetaControlArea`, the app-mode param-input path in
