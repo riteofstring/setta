@@ -7,12 +7,9 @@ import {
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import {
-  useProjectState,
-  useShareSession,
-  useTemporaryMiscState,
-} from "state/definitions";
+import { useProjectState, useShareSession } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import { useTemporaryMiscState } from "state/stores/layoutInteractionStores";
 import { getSectionStylePreviewColorKey } from "utils/constants";
 import { route_set_section_style_color } from "utils/generatedEndpoints";
 
