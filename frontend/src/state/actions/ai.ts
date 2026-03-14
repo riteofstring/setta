@@ -103,8 +103,10 @@ import {
   DeletePromptTemplateRequestInput,
   DeleteTranscriptionProfileRequestInput,
   EngineConfig,
+  ExternalAgentChatResponse,
   ExternalAgentConfig,
   ExternalAgentPreflightStatus,
+  GetLLMChatResponse,
   LLMStreamingResponse,
   ManagedAPIKeysSnapshot,
   MessageDeltaEvent,
@@ -2118,11 +2120,7 @@ type ChatHydrationProbeResult<TPayload> =
 async function probeLLMChatHydration(
   chatId: string,
   projectConfigId: string,
-): Promise<
-  ChatHydrationProbeResult<
-    NonNullable<Awaited<ReturnType<typeof route_get_llm_chat>>["data"]>
-  >
-> {
+): Promise<ChatHydrationProbeResult<GetLLMChatResponse>> {
   const response = await route_get_llm_chat({ chatId, projectConfigId });
   if (!res200(response)) {
     return {
@@ -2141,13 +2139,7 @@ async function probeLLMChatHydration(
 async function probeExternalAgentChatHydration(
   chatId: string,
   projectConfigId: string | null,
-): Promise<
-  ChatHydrationProbeResult<
-    NonNullable<
-      Awaited<ReturnType<typeof route_get_external_agent_chat>>["data"]
-    >
-  >
-> {
+): Promise<ChatHydrationProbeResult<ExternalAgentChatResponse>> {
   const response = await route_get_external_agent_chat({
     chatId,
     projectConfigId,
@@ -2175,7 +2167,7 @@ function applyLLMChatHydrationSuccess({
   chatId: string;
   sectionId?: string;
   projectConfigId: string;
-  payload: NonNullable<Awaited<ReturnType<typeof route_get_llm_chat>>["data"]>;
+  payload: GetLLMChatResponse;
 }): void {
   const { messages, waitingForResponse, llmConfig, contextUsage } = payload;
   useAIStore.setState((state) => {
@@ -2231,9 +2223,7 @@ function applyExternalChatHydrationSuccess({
   chatId: string;
   projectConfigId: string | null;
   sectionId?: string;
-  payload: NonNullable<
-    Awaited<ReturnType<typeof route_get_external_agent_chat>>["data"]
-  >;
+  payload: ExternalAgentChatResponse;
 }): void {
   const { messages, waitingForResponse, toolCallArguments, contextUsage } =
     payload;
