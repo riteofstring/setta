@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"setta/internal/agentruns"
 	"setta/internal/config"
+	"setta/internal/llmconfig"
 	"setta/internal/modes"
 )
 
@@ -65,8 +66,14 @@ func TestRegisterEngineConfigRoutesListsConfigs(t *testing.T) {
 	if configs[0].Defaults.Thinking == nil || !*configs[0].Defaults.Thinking {
 		t.Fatalf("expected normalized defaults to roundtrip, got %#v", configs[0])
 	}
+	if configs[0].RuntimeSupport == nil || !configs[0].RuntimeSupport.Thinking {
+		t.Fatalf("expected managed runtime support in response, got %#v", configs[0])
+	}
 	if configs[1].ExternalAgentConfigID == nil || *configs[1].ExternalAgentConfigID != externalConfigID {
 		t.Fatalf("expected external agent config id to roundtrip, got %#v", configs[1])
+	}
+	if configs[1].RuntimeSupport == nil || !configs[1].RuntimeSupport.Thinking {
+		t.Fatalf("expected external runtime support in response, got %#v", configs[1])
 	}
 }
 
@@ -576,6 +583,26 @@ func TestRegisterEngineConfigRoutesBlocksShareMode(t *testing.T) {
 func newEngineConfigRouteTestHandler(t *testing.T, mode config.Mode, store *agentruns.EngineStore) http.Handler {
 	t.Helper()
 
+	llmRuntime, err := llmconfig.NewRuntime(llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"claude-sonnet": {
+				ID:       "claude-sonnet",
+				Model:    "claude-sonnet-4-5-20250929",
+				Provider: "anthropic",
+				OtherParams: map[string]any{
+					"max_tokens": 4096,
+					"thinking": map[string]any{
+						"type":          "enabled",
+						"budget_tokens": 1024,
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new llm runtime: %v", err)
+	}
+
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Info:       stubInfoService{mode: string(mode), info: RuntimeInfo{Mode: string(mode)}},
@@ -584,6 +611,7 @@ func newEngineConfigRouteTestHandler(t *testing.T, mode config.Mode, store *agen
 			if err := RegisterEngineConfigRoutes(r, EngineConfigRouteDependencies{
 				ModePolicy: modes.NewPolicy(mode),
 				Engines:    store,
+				LLM:        llmRuntime,
 			}); err != nil {
 				t.Fatalf("register engine config routes: %v", err)
 			}

@@ -82,17 +82,7 @@ func resolveThinkingReasoningEffort(request agentruns.ExecutionRequest) (shared.
 	if shouldEnableReasoningOverride(modelName, provider) {
 		return shared.ReasoningEffortHigh, true, nil
 	}
-
-	providerDisplay := provider
-	if strings.TrimSpace(providerDisplay) == "" {
-		providerDisplay = "default"
-	}
-	return "", false, fmt.Errorf(
-		"%w: thinking is not supported for model %q via provider %q",
-		ErrReasoningUnsupported,
-		modelName,
-		providerDisplay,
-	)
+	return "", false, unsupportedThinkingError(request)
 }
 
 func extractExplicitReasoningEffort(params map[string]any) (shared.ReasoningEffort, bool, error) {

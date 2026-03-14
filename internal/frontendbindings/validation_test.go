@@ -5443,6 +5443,14 @@ func TestAIRuntimeSupportUsesConverterDeclarations(t *testing.T) {
 			hasCreateExpr: true,
 		},
 		{
+			name: "EngineRuntimeSupport",
+			root: reflect.TypeOf(EngineRuntimeSupport{}),
+			properties: []TypeProperty{
+				{Name: "thinking", TypeExpr: "boolean", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
 			name: "EngineConfig",
 			root: reflect.TypeOf(EngineConfig{}),
 			properties: []TypeProperty{
@@ -5452,6 +5460,7 @@ func TestAIRuntimeSupportUsesConverterDeclarations(t *testing.T) {
 				{Name: "settaLlmConfigId", TypeExpr: "string | null", Optional: true},
 				{Name: "externalAgentConfigId", TypeExpr: "string | null", Optional: true},
 				{Name: "defaults", TypeExpr: "EngineConfigDefaults", Optional: false},
+				{Name: "runtimeSupport", TypeExpr: "EngineRuntimeSupport | null", Optional: true},
 			},
 			hasCreateExpr: true,
 		},

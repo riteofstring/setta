@@ -93,6 +93,13 @@ func buildAnthropicMessageParams(
 		Messages:  messages,
 		Model:     anthropic.Model(request.LLMConfig.Model),
 	}
+	thinkingConfig, enabled, err := resolveAnthropicThinkingConfig(request)
+	if err != nil {
+		return anthropic.MessageNewParams{}, err
+	}
+	if enabled {
+		params.Thinking = thinkingConfig
+	}
 	if strings.TrimSpace(systemPrompt) != "" {
 		params.System = []anthropic.TextBlockParam{{Text: systemPrompt}}
 	}
@@ -104,6 +111,47 @@ func buildAnthropicMessageParams(
 		params.Tools = tools
 	}
 	return params, nil
+}
+
+func resolveAnthropicThinkingConfig(request agentruns.ExecutionRequest) (anthropic.ThinkingConfigParamUnion, bool, error) {
+	if !request.Thinking {
+		return anthropic.ThinkingConfigParamUnion{}, false, nil
+	}
+	raw, ok := request.RequestParams["thinking"]
+	if !ok {
+		return anthropic.ThinkingConfigParamUnion{}, false, unsupportedThinkingError(request)
+	}
+	maxTokens, err := resolveAnthropicMaxTokens(request)
+	if err != nil {
+		return anthropic.ThinkingConfigParamUnion{}, false, err
+	}
+	return parseAnthropicThinkingConfig(raw, maxTokens)
+}
+
+func parseAnthropicThinkingConfig(raw any, maxTokens int64) (anthropic.ThinkingConfigParamUnion, bool, error) {
+	payload, ok := raw.(map[string]any)
+	if !ok || payload == nil {
+		return anthropic.ThinkingConfigParamUnion{}, false, fmt.Errorf("%w: anthropic thinking config must be an object", ErrReasoningUnsupported)
+	}
+	switch strings.ToLower(strings.TrimSpace(stringValue(payload["type"]))) {
+	case "enabled":
+		budgetTokens, err := parsePositiveInt64(payload["budget_tokens"], "thinking.budget_tokens")
+		if err != nil {
+			return anthropic.ThinkingConfigParamUnion{}, false, fmt.Errorf("%w: invalid anthropic thinking budget: %v", ErrReasoningUnsupported, err)
+		}
+		if budgetTokens < 1024 || budgetTokens >= maxTokens {
+			return anthropic.ThinkingConfigParamUnion{}, false, fmt.Errorf(
+				"%w: anthropic thinking budget_tokens must be at least 1024 and less than max_tokens",
+				ErrReasoningUnsupported,
+			)
+		}
+		return anthropic.ThinkingConfigParamOfEnabled(budgetTokens), true, nil
+	case "adaptive":
+		adaptive := anthropic.NewThinkingConfigAdaptiveParam()
+		return anthropic.ThinkingConfigParamUnion{OfAdaptive: &adaptive}, true, nil
+	default:
+		return anthropic.ThinkingConfigParamUnion{}, false, fmt.Errorf("%w: anthropic thinking config type must be \"enabled\" or \"adaptive\"", ErrReasoningUnsupported)
+	}
 }
 
 func resolveAnthropicMaxTokens(request agentruns.ExecutionRequest) (int64, error) {
@@ -526,6 +574,54 @@ func (e *Executor) processAnthropicContentBlockStart(
 	accumulator *toolCallAccumulator,
 ) error {
 	switch block := event.ContentBlock.AsAny().(type) {
+	case anthropic.TextBlock:
+		if block.Text == "" {
+			return nil
+		}
+		appendAssistantTextAtIndex(assistantMessage, int(event.Index), block.Text)
+		if !prepared.emitStream {
+			return nil
+		}
+		return e.applyChunk(ctx, prepared, realtime.MessageDeltaEvent{
+			Type:      realtime.StreamingEventTypeDelta,
+			MessageID: stringValue(assistantMessage["id"]),
+			Content: []any{
+				realtime.MessageTextDelta{
+					Type:  realtime.MessageContentTypeTextDelta,
+					Index: int(event.Index),
+					Text:  block.Text,
+				},
+			},
+		})
+	case anthropic.ThinkingBlock:
+		if block.Thinking == "" && strings.TrimSpace(block.Signature) == "" {
+			return nil
+		}
+		if block.Thinking != "" {
+			appendAssistantThinkingAtIndex(assistantMessage, int(event.Index), block.Thinking)
+		}
+		if strings.TrimSpace(block.Signature) != "" {
+			setAssistantThinkingSignatureAtIndex(assistantMessage, int(event.Index), block.Signature)
+		}
+		if !prepared.emitStream {
+			return nil
+		}
+		var signature *string
+		if strings.TrimSpace(block.Signature) != "" {
+			signature = optionalStringPointer(block.Signature)
+		}
+		return e.applyChunk(ctx, prepared, realtime.MessageDeltaEvent{
+			Type:      realtime.StreamingEventTypeDelta,
+			MessageID: stringValue(assistantMessage["id"]),
+			Content: []any{
+				realtime.MessageThinkingDelta{
+					Type:      realtime.MessageContentTypeThinkingDelta,
+					Index:     int(event.Index),
+					Thinking:  block.Thinking,
+					Signature: signature,
+				},
+			},
+		})
 	case anthropic.ToolUseBlock:
 		state := accumulator.apply(int(event.Index), block.ID, block.Name, "")
 		if !prepared.emitStream || state == nil {
@@ -557,7 +653,7 @@ func (e *Executor) processAnthropicContentBlockDelta(
 		if text == "" {
 			return nil
 		}
-		appendAssistantText(assistantMessage, text)
+		appendAssistantTextAtIndex(assistantMessage, int(event.Index), text)
 		if !prepared.emitStream {
 			return nil
 		}
@@ -567,8 +663,48 @@ func (e *Executor) processAnthropicContentBlockDelta(
 			Content: []any{
 				realtime.MessageTextDelta{
 					Type:  realtime.MessageContentTypeTextDelta,
-					Index: 0,
+					Index: int(event.Index),
 					Text:  text,
+				},
+			},
+		})
+	case anthropic.ThinkingDelta:
+		if delta.Thinking == "" {
+			return nil
+		}
+		appendAssistantThinkingAtIndex(assistantMessage, int(event.Index), delta.Thinking)
+		if !prepared.emitStream {
+			return nil
+		}
+		return e.applyChunk(ctx, prepared, realtime.MessageDeltaEvent{
+			Type:      realtime.StreamingEventTypeDelta,
+			MessageID: stringValue(assistantMessage["id"]),
+			Content: []any{
+				realtime.MessageThinkingDelta{
+					Type:     realtime.MessageContentTypeThinkingDelta,
+					Index:    int(event.Index),
+					Thinking: delta.Thinking,
+				},
+			},
+		})
+	case anthropic.SignatureDelta:
+		signature := strings.TrimSpace(delta.Signature)
+		if signature == "" {
+			return nil
+		}
+		setAssistantThinkingSignatureAtIndex(assistantMessage, int(event.Index), signature)
+		if !prepared.emitStream {
+			return nil
+		}
+		return e.applyChunk(ctx, prepared, realtime.MessageDeltaEvent{
+			Type:      realtime.StreamingEventTypeDelta,
+			MessageID: stringValue(assistantMessage["id"]),
+			Content: []any{
+				realtime.MessageThinkingDelta{
+					Type:      realtime.MessageContentTypeThinkingDelta,
+					Index:     int(event.Index),
+					Thinking:  "",
+					Signature: optionalStringPointer(signature),
 				},
 			},
 		})

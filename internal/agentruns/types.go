@@ -20,13 +20,18 @@ type EngineConfigDefaults struct {
 	Thinking *bool `json:"thinking,omitempty"`
 }
 
+type EngineRuntimeSupport struct {
+	Thinking bool `json:"thinking"`
+}
+
 type EngineConfig struct {
-	ID                    string               `json:"id"`
-	Name                  string               `json:"name"`
-	EngineType            EngineType           `json:"engineType"`
-	SettaLLMConfigID      *string              `json:"settaLlmConfigId,omitempty"`
-	ExternalAgentConfigID *string              `json:"externalAgentConfigId,omitempty"`
-	Defaults              EngineConfigDefaults `json:"defaults,omitempty"`
+	ID                    string                `json:"id"`
+	Name                  string                `json:"name"`
+	EngineType            EngineType            `json:"engineType"`
+	SettaLLMConfigID      *string               `json:"settaLlmConfigId,omitempty"`
+	ExternalAgentConfigID *string               `json:"externalAgentConfigId,omitempty"`
+	Defaults              EngineConfigDefaults  `json:"defaults,omitempty"`
+	RuntimeSupport        *EngineRuntimeSupport `json:"runtimeSupport,omitempty"`
 }
 
 type RunStatus string
@@ -100,10 +105,11 @@ func NewRunEvent(eventType string, payload map[string]any, now time.Time) RunEve
 
 func (c EngineConfig) normalized() (EngineConfig, error) {
 	normalized := EngineConfig{
-		ID:         strings.TrimSpace(c.ID),
-		Name:       strings.TrimSpace(c.Name),
-		EngineType: EngineType(strings.TrimSpace(string(c.EngineType))),
-		Defaults:   c.Defaults,
+		ID:             strings.TrimSpace(c.ID),
+		Name:           strings.TrimSpace(c.Name),
+		EngineType:     EngineType(strings.TrimSpace(string(c.EngineType))),
+		Defaults:       c.Defaults,
+		RuntimeSupport: nil,
 	}
 	if normalized.ID == "" {
 		return EngineConfig{}, fmt.Errorf("engine config id is required")

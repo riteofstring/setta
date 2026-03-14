@@ -444,6 +444,19 @@ export function createEngineConfigDefaults(options: Partial<EngineConfigDefaults
 }
 
 
+export type EngineRuntimeSupport = {
+  thinking: boolean;
+};
+export function createEngineRuntimeSupport(options: Partial<EngineRuntimeSupport> = {}): EngineRuntimeSupport {
+  return mergeGeneratedOptions(
+    {
+      thinking: false,
+    },
+    options,
+  );
+}
+
+
 export type EngineConfig = {
   id: string;
   name: string;
@@ -451,10 +464,12 @@ export type EngineConfig = {
   settaLlmConfigId?: string | null;
   externalAgentConfigId?: string | null;
   defaults: EngineConfigDefaults;
+  runtimeSupport?: EngineRuntimeSupport | null;
 };
 export function createEngineConfig(options: Partial<EngineConfig> = {}): EngineConfig {
   return (() => {
     const defaults = createEngineConfigDefaults();
+    const runtimeSupport = createEngineRuntimeSupport();
     return {
       ...mergeGeneratedOptions(
         {
@@ -464,10 +479,15 @@ export function createEngineConfig(options: Partial<EngineConfig> = {}): EngineC
           settaLlmConfigId: null,
           externalAgentConfigId: null,
           defaults,
+          runtimeSupport: null,
         },
         options,
       ),
       defaults: mergeGeneratedOptions(defaults, options.defaults ?? {}),
+      runtimeSupport:
+        options.runtimeSupport === undefined || options.runtimeSupport === null
+          ? null
+          : mergeGeneratedOptions(runtimeSupport, options.runtimeSupport),
     };
   })();
 }

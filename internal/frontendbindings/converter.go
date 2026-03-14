@@ -1975,10 +1975,21 @@ func newTypeConverter() *typeConverter {
   )`,
 				TypeProperty{Name: "thinking", TypeExpr: "boolean | null", Optional: true},
 			),
+			reflect.TypeOf(EngineRuntimeSupport{}): objectDeclarationWithCreateExpr(
+				"EngineRuntimeSupport",
+				`mergeGeneratedOptions(
+    {
+      thinking: false,
+    },
+    options,
+  )`,
+				TypeProperty{Name: "thinking", TypeExpr: "boolean"},
+			),
 			reflect.TypeOf(EngineConfig{}): objectDeclarationWithCreateExpr(
 				"EngineConfig",
 				`(() => {
     const defaults = createEngineConfigDefaults();
+    const runtimeSupport = createEngineRuntimeSupport();
     return {
       ...mergeGeneratedOptions(
         {
@@ -1988,10 +1999,15 @@ func newTypeConverter() *typeConverter {
           settaLlmConfigId: null,
           externalAgentConfigId: null,
           defaults,
+          runtimeSupport: null,
         },
         options,
       ),
       defaults: mergeGeneratedOptions(defaults, options.defaults ?? {}),
+      runtimeSupport:
+        options.runtimeSupport === undefined || options.runtimeSupport === null
+          ? null
+          : mergeGeneratedOptions(runtimeSupport, options.runtimeSupport),
     };
   })()`,
 				TypeProperty{Name: "id", TypeExpr: "string"},
@@ -2000,6 +2016,7 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "settaLlmConfigId", TypeExpr: "string | null", Optional: true},
 				TypeProperty{Name: "externalAgentConfigId", TypeExpr: "string | null", Optional: true},
 				TypeProperty{Name: "defaults", TypeExpr: "EngineConfigDefaults"},
+				TypeProperty{Name: "runtimeSupport", TypeExpr: "EngineRuntimeSupport | null", Optional: true},
 			),
 			reflect.TypeOf(AgentProfile{}): objectDeclaration(
 				"AgentProfile",

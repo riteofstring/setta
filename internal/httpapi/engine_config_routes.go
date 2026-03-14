@@ -10,6 +10,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/agentruns"
+	"setta/internal/llmconfig"
+	"setta/internal/managedllm"
 	"setta/internal/modes"
 )
 
@@ -22,6 +24,7 @@ const RouteDeleteEngineConfig = "/deleteEngineConfig"
 type EngineConfigRouteDependencies struct {
 	ModePolicy modes.Policy
 	Engines    *agentruns.EngineStore
+	LLM        *llmconfig.Runtime
 }
 
 type getEngineConfigRequest struct {
@@ -58,15 +61,15 @@ func RegisterEngineConfigRoutes(router chi.Router, deps EngineConfigRouteDepende
 		return fmt.Errorf("engine config store is required in ide mode")
 	}
 
-	router.With(RequireIDEMode(deps.ModePolicy)).Get(RouteGetEngineConfigs, getEngineConfigsHandler(deps.Engines))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetEngineConfig, getEngineConfigHandler(deps.Engines))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateEngineConfig, createEngineConfigHandler(deps.Engines))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUpdateEngineConfig, updateEngineConfigHandler(deps.Engines))
+	router.With(RequireIDEMode(deps.ModePolicy)).Get(RouteGetEngineConfigs, getEngineConfigsHandler(deps.Engines, deps.LLM))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetEngineConfig, getEngineConfigHandler(deps.Engines, deps.LLM))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateEngineConfig, createEngineConfigHandler(deps.Engines, deps.LLM))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUpdateEngineConfig, updateEngineConfigHandler(deps.Engines, deps.LLM))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteEngineConfig, deleteEngineConfigHandler(deps.Engines))
 	return nil
 }
 
-func getEngineConfigsHandler(store *agentruns.EngineStore) http.HandlerFunc {
+func getEngineConfigsHandler(store *agentruns.EngineStore, llm *llmconfig.Runtime) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if store == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
@@ -77,11 +80,11 @@ func getEngineConfigsHandler(store *agentruns.EngineStore) http.HandlerFunc {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
-		writeJSON(w, http.StatusOK, configs)
+		writeJSON(w, http.StatusOK, enrichEngineConfigs(configs, llm))
 	}
 }
 
-func getEngineConfigHandler(store *agentruns.EngineStore) http.HandlerFunc {
+func getEngineConfigHandler(store *agentruns.EngineStore, llm *llmconfig.Runtime) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if store == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
@@ -108,11 +111,11 @@ func getEngineConfigHandler(store *agentruns.EngineStore) http.HandlerFunc {
 			return
 		}
 
-		writeJSON(w, http.StatusOK, config)
+		writeJSON(w, http.StatusOK, enrichEngineConfig(config, llm))
 	}
 }
 
-func createEngineConfigHandler(store *agentruns.EngineStore) http.HandlerFunc {
+func createEngineConfigHandler(store *agentruns.EngineStore, llm *llmconfig.Runtime) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if store == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
@@ -139,11 +142,11 @@ func createEngineConfigHandler(store *agentruns.EngineStore) http.HandlerFunc {
 			return
 		}
 
-		writeJSON(w, http.StatusOK, created)
+		writeJSON(w, http.StatusOK, enrichEngineConfig(created, llm))
 	}
 }
 
-func updateEngineConfigHandler(store *agentruns.EngineStore) http.HandlerFunc {
+func updateEngineConfigHandler(store *agentruns.EngineStore, llm *llmconfig.Runtime) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if store == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
@@ -168,7 +171,7 @@ func updateEngineConfigHandler(store *agentruns.EngineStore) http.HandlerFunc {
 			return
 		}
 
-		writeJSON(w, http.StatusOK, config)
+		writeJSON(w, http.StatusOK, enrichEngineConfig(config, llm))
 	}
 }
 
@@ -244,6 +247,43 @@ func writeEngineConfigStoreError(w http.ResponseWriter, r *http.Request, err err
 		return false
 	}
 	return true
+}
+
+func enrichEngineConfigs(configs []agentruns.EngineConfig, llm *llmconfig.Runtime) []agentruns.EngineConfig {
+	if len(configs) == 0 {
+		return []agentruns.EngineConfig{}
+	}
+	enriched := make([]agentruns.EngineConfig, 0, len(configs))
+	for _, config := range configs {
+		enriched = append(enriched, enrichEngineConfig(config, llm))
+	}
+	return enriched
+}
+
+func enrichEngineConfig(config agentruns.EngineConfig, llm *llmconfig.Runtime) agentruns.EngineConfig {
+	enriched := config
+	enriched.RuntimeSupport = &agentruns.EngineRuntimeSupport{
+		Thinking: engineConfigSupportsThinking(config, llm),
+	}
+	return enriched
+}
+
+func engineConfigSupportsThinking(config agentruns.EngineConfig, llm *llmconfig.Runtime) bool {
+	switch config.EngineType {
+	case agentruns.EngineTypeExternalAgent:
+		return true
+	case agentruns.EngineTypeSettaLLM:
+		if llm == nil {
+			return false
+		}
+		resolvedConfig, err := agentruns.ResolveManagedLLMConfig(config, llm.Configs())
+		if err != nil {
+			return false
+		}
+		return managedllm.SupportsThinkingOutput(resolvedConfig)
+	default:
+		return false
+	}
 }
 
 func newEngineConfigID() string {

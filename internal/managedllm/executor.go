@@ -182,8 +182,23 @@ func resolveManagedProvider(request agentruns.ExecutionRequest) (string, error) 
 }
 
 func validateReasoningRequest(request agentruns.ExecutionRequest) error {
-	_, _, err := resolveThinkingReasoningEffort(request)
-	return err
+	if !request.Thinking {
+		return nil
+	}
+	provider, err := resolveManagedProvider(request)
+	if err != nil {
+		return err
+	}
+	switch provider {
+	case openAIProvider:
+		_, _, err = resolveThinkingReasoningEffort(request)
+		return err
+	case anthropicProvider:
+		_, _, err = resolveAnthropicThinkingConfig(request)
+		return err
+	default:
+		return fmt.Errorf("%w: %q", ErrProviderUnsupported, provider)
+	}
 }
 
 func (e *Executor) executeConversation(ctx context.Context, prepared preparedExecution, request agentruns.ExecutionRequest) (agentruns.ExecutionResult, error) {
@@ -876,30 +891,59 @@ func newAssistantMessage() map[string]any {
 }
 
 func appendAssistantText(message map[string]any, delta string) {
+	appendAssistantTextAtIndex(message, 0, delta)
+}
+
+func appendAssistantTextAtIndex(message map[string]any, index int, delta string) {
 	if strings.TrimSpace(delta) == "" && delta == "" {
 		return
 	}
-	content, _ := message["content"].([]any)
-	if len(content) == 0 {
-		content = append(content, map[string]any{
-			"type": "text",
-			"text": "",
-		})
-	}
-	block, ok := content[0].(map[string]any)
-	if !ok || strings.TrimSpace(stringValue(block["type"])) != "text" {
-		block = map[string]any{
-			"type": "text",
-			"text": "",
-		}
-		if len(content) == 0 {
-			content = append(content, block)
-		} else {
-			content[0] = block
-		}
-	}
+	content, block := ensureAssistantContentBlock(message, index, "text")
 	block["text"] = stringValue(block["text"]) + delta
 	message["content"] = content
+}
+
+func appendAssistantThinkingAtIndex(message map[string]any, index int, delta string) {
+	if strings.TrimSpace(delta) == "" && delta == "" {
+		return
+	}
+	content, block := ensureAssistantContentBlock(message, index, "thinking")
+	block["thinking"] = stringValue(block["thinking"]) + delta
+	message["content"] = content
+}
+
+func setAssistantThinkingSignatureAtIndex(message map[string]any, index int, signature string) {
+	if strings.TrimSpace(signature) == "" {
+		return
+	}
+	content, block := ensureAssistantContentBlock(message, index, "thinking")
+	block["signature"] = signature
+	message["content"] = content
+}
+
+func ensureAssistantContentBlock(message map[string]any, index int, blockType string) ([]any, map[string]any) {
+	content, _ := message["content"].([]any)
+	if index < 0 {
+		index = len(content)
+	}
+	for len(content) <= index {
+		content = append(content, map[string]any{})
+	}
+	block, _ := content[index].(map[string]any)
+	block = cloneAnyMap(block)
+	if block == nil || strings.TrimSpace(stringValue(block["type"])) != blockType {
+		block = map[string]any{
+			"type": blockType,
+		}
+		switch blockType {
+		case "text":
+			block["text"] = ""
+		case "thinking":
+			block["thinking"] = ""
+		}
+	}
+	content[index] = block
+	return content, block
 }
 
 func hasMessageText(message map[string]any) bool {

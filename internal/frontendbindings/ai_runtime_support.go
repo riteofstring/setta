@@ -11,13 +11,18 @@ type EngineConfigDefaults struct {
 	Thinking *bool `json:"thinking,omitempty"`
 }
 
+type EngineRuntimeSupport struct {
+	Thinking bool `json:"thinking"`
+}
+
 type EngineConfig struct {
-	ID                    string               `json:"id"`
-	Name                  string               `json:"name"`
-	EngineType            EngineType           `json:"engineType"`
-	SettaLlmConfigID      *string              `json:"settaLlmConfigId,omitempty"`
-	ExternalAgentConfigID *string              `json:"externalAgentConfigId,omitempty"`
-	Defaults              EngineConfigDefaults `json:"defaults"`
+	ID                    string                `json:"id"`
+	Name                  string                `json:"name"`
+	EngineType            EngineType            `json:"engineType"`
+	SettaLlmConfigID      *string               `json:"settaLlmConfigId,omitempty"`
+	ExternalAgentConfigID *string               `json:"externalAgentConfigId,omitempty"`
+	Defaults              EngineConfigDefaults  `json:"defaults"`
+	RuntimeSupport        *EngineRuntimeSupport `json:"runtimeSupport,omitempty"`
 }
 
 type AgentProfile struct {

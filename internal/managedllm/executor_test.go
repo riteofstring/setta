@@ -927,6 +927,38 @@ func TestExecutorValidateAllowsThinkingForOpenAIReasoningModel(t *testing.T) {
 	}
 }
 
+func TestExecutorValidateAllowsThinkingForAnthropicWithExplicitConfig(t *testing.T) {
+	t.Parallel()
+
+	executor := NewExecutor(ExecutorOptions{})
+	err := executor.Validate(agentruns.ExecutionRequest{
+		Run: agentruns.Run{ID: "run-alpha"},
+		LLMConfig: llmconfig.Config{
+			Model:     "claude-sonnet-4-5-20250929",
+			Provider:  "anthropic",
+			APIKeyEnv: "ANTHROPIC_API_KEY",
+		},
+		RequestParams: map[string]any{
+			"model":               "claude-sonnet-4-5-20250929",
+			"custom_llm_provider": "anthropic",
+			"max_tokens":          4096,
+			"thinking": map[string]any{
+				"type":          "enabled",
+				"budget_tokens": 1024,
+			},
+		},
+		SystemPrompt: "System prompt",
+		ChatID:       "chat-alpha",
+		Thinking:     true,
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected explicit anthropic thinking config to validate, got %v", err)
+	}
+}
+
 func TestExecutorExecuteAddsDefaultReasoningEffortForSupportedThinkingModel(t *testing.T) {
 	t.Parallel()
 
@@ -993,6 +1025,138 @@ func TestExecutorExecuteAddsDefaultReasoningEffortForSupportedThinkingModel(t *t
 	}
 	if int(usage["reasoning_output_tokens"].(float64)) != 2 {
 		t.Fatalf("expected reasoning output tokens in usage, got %#v", usage)
+	}
+}
+
+func TestExecutorExecuteStreamsAnthropicThinkingBlocksAndReturnsOutputs(t *testing.T) {
+	t.Parallel()
+
+	var seenRequest map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&seenRequest); err != nil {
+			t.Fatalf("decode provider request: %v", err)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected flusher")
+		}
+		fmt.Fprint(w, anthropicMessageStartEvent("msg-thinking", "claude-sonnet-4-5-20250929", 12, 0))
+		flusher.Flush()
+		fmt.Fprint(w, anthropicThinkingBlockStartEvent(0, "Planning"))
+		flusher.Flush()
+		fmt.Fprint(w, anthropicThinkingDeltaEvent(0, " deeply"))
+		flusher.Flush()
+		fmt.Fprint(w, anthropicSignatureDeltaEvent(0, "sig-thinking"))
+		flusher.Flush()
+		fmt.Fprint(w, anthropicContentBlockStopEvent(0))
+		flusher.Flush()
+		fmt.Fprint(w, anthropicTextBlockStartEvent(1))
+		flusher.Flush()
+		fmt.Fprint(w, anthropicTextDeltaEvent(1, "Final answer"))
+		flusher.Flush()
+		fmt.Fprint(w, anthropicContentBlockStopEvent(1))
+		flusher.Flush()
+		fmt.Fprint(w, anthropicMessageDeltaEvent("end_turn", 12, 3))
+		flusher.Flush()
+		fmt.Fprint(w, anthropicMessageStopEvent())
+		flusher.Flush()
+	}))
+	defer server.Close()
+
+	broadcaster := &captureBroadcaster{}
+	live := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{Broadcaster: broadcaster})
+	run := newManagedChatTestRun()
+	live.ActivateRun(run)
+
+	executor := NewExecutor(ExecutorOptions{
+		Live:       live,
+		HTTPClient: server.Client(),
+	})
+	result, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
+		Run: run,
+		LLMConfig: llmconfig.Config{
+			ID:       "primary",
+			Model:    "claude-sonnet-4-5-20250929",
+			Provider: "anthropic",
+			BaseURL:  server.URL,
+			OtherParams: map[string]any{
+				"max_tokens": 4096,
+				"thinking": map[string]any{
+					"type":          "enabled",
+					"budget_tokens": 1024,
+				},
+			},
+			APIKeyEnv: "ANTHROPIC_API_KEY",
+		},
+		RequestParams: map[string]any{
+			"max_tokens": 4096,
+			"thinking": map[string]any{
+				"type":          "enabled",
+				"budget_tokens": 1024,
+			},
+		},
+		APIKeys: map[string]string{
+			"ANTHROPIC_API_KEY": "secret",
+		},
+		SystemPrompt:    "System prompt",
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+		Thinking:        true,
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+			"messages": []any{
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Think through this"},
+					},
+					"attachments": []any{},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("execute managed anthropic thinking stream: %v", err)
+	}
+
+	thinkingConfig, ok := seenRequest["thinking"].(map[string]any)
+	if !ok || thinkingConfig["type"] != "enabled" || thinkingConfig["budget_tokens"] != float64(1024) {
+		t.Fatalf("expected anthropic thinking request config, got %#v", seenRequest["thinking"])
+	}
+	if seenRequest["max_tokens"] != float64(4096) {
+		t.Fatalf("expected anthropic max_tokens override, got %#v", seenRequest["max_tokens"])
+	}
+
+	messages, ok := result.Outputs["messages"].([]any)
+	if !ok || len(messages) != 2 {
+		t.Fatalf("expected user and assistant messages, got %#v", result.Outputs["messages"])
+	}
+	assistant, ok := messages[1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected assistant message map, got %#v", messages[1])
+	}
+	content, ok := assistant["content"].([]any)
+	if !ok || len(content) != 2 {
+		t.Fatalf("expected thinking plus text content, got %#v", assistant["content"])
+	}
+	thinkingBlock, ok := content[0].(map[string]any)
+	if !ok || thinkingBlock["type"] != "thinking" {
+		t.Fatalf("expected thinking block at content[0], got %#v", content[0])
+	}
+	if thinkingBlock["thinking"] != "Planning deeply" {
+		t.Fatalf("unexpected thinking content %#v", thinkingBlock)
+	}
+	if thinkingBlock["signature"] != "sig-thinking" {
+		t.Fatalf("unexpected thinking signature %#v", thinkingBlock)
+	}
+	textBlock, ok := content[1].(map[string]any)
+	if !ok || textBlock["text"] != "Final answer" {
+		t.Fatalf("unexpected text block %#v", content[1])
+	}
+	if broadcaster.Count() != 7 {
+		t.Fatalf("expected 7 streaming broadcasts, got %d", broadcaster.Count())
 	}
 }
 
@@ -1279,12 +1443,24 @@ func anthropicTextBlockStartEvent(index int) string {
 	return fmt.Sprintf("event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":%d,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n", index)
 }
 
+func anthropicThinkingBlockStartEvent(index int, thinking string) string {
+	return fmt.Sprintf("event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":%d,\"content_block\":{\"type\":\"thinking\",\"thinking\":%q}}\n\n", index, thinking)
+}
+
 func anthropicToolUseBlockStartEvent(index int, toolCallID string, toolName string) string {
 	return fmt.Sprintf("event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":%d,\"content_block\":{\"type\":\"tool_use\",\"id\":%q,\"name\":%q,\"input\":{}}}\n\n", index, toolCallID, toolName)
 }
 
 func anthropicTextDeltaEvent(index int, text string) string {
 	return fmt.Sprintf("event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":%d,\"delta\":{\"type\":\"text_delta\",\"text\":%q}}\n\n", index, text)
+}
+
+func anthropicThinkingDeltaEvent(index int, thinking string) string {
+	return fmt.Sprintf("event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":%d,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":%q}}\n\n", index, thinking)
+}
+
+func anthropicSignatureDeltaEvent(index int, signature string) string {
+	return fmt.Sprintf("event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":%d,\"delta\":{\"type\":\"signature_delta\",\"signature\":%q}}\n\n", index, signature)
 }
 
 func anthropicInputJSONDeltaEvent(index int, partialJSON string) string {

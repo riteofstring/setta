@@ -378,6 +378,20 @@ func ResolveManagedEngine(store *EngineStore, configs llmconfig.AllConfigs, engi
 	if engine.EngineType != EngineTypeSettaLLM {
 		return ResolvedEngine{}, ErrManagedLLMEngineRequired
 	}
+	llmConfig, err := ResolveManagedLLMConfig(engine, configs)
+	if err != nil {
+		return ResolvedEngine{}, err
+	}
+	return ResolvedEngine{
+		EngineConfig: engine,
+		LLMConfig:    llmConfig,
+	}, nil
+}
+
+func ResolveManagedLLMConfig(engine EngineConfig, configs llmconfig.AllConfigs) (llmconfig.Config, error) {
+	if engine.EngineType != EngineTypeSettaLLM {
+		return llmconfig.Config{}, ErrManagedLLMEngineRequired
+	}
 	llmConfigID := ""
 	if engine.SettaLLMConfigID != nil {
 		llmConfigID = strings.TrimSpace(*engine.SettaLLMConfigID)
@@ -392,19 +406,16 @@ func ResolveManagedEngine(store *EngineStore, configs llmconfig.AllConfigs, engi
 			}
 			sort.Strings(configIDs)
 			if len(configIDs) == 0 {
-				return ResolvedEngine{}, fmt.Errorf("no LLM config available for engine")
+				return llmconfig.Config{}, fmt.Errorf("no LLM config available for engine")
 			}
 			llmConfigID = configIDs[0]
 		}
 	}
 	llmConfig, err := configs.ResolveConfig(llmConfigID)
 	if err != nil {
-		return ResolvedEngine{}, err
+		return llmconfig.Config{}, err
 	}
-	return ResolvedEngine{
-		EngineConfig: engine,
-		LLMConfig:    llmConfig,
-	}, nil
+	return llmConfig, nil
 }
 
 func (s *Service) buildContext(profile agentprofiles.Profile, inputs map[string]any) (runContext, error) {

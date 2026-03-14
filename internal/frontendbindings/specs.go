@@ -3307,6 +3307,7 @@ func CurrentAdditionalTypeRoots() []reflect.Type {
 		reflect.TypeOf(ExternalAgentPreflightStatus{}),
 		reflect.TypeOf(EngineType("")),
 		reflect.TypeOf(EngineConfigDefaults{}),
+		reflect.TypeOf(EngineRuntimeSupport{}),
 		reflect.TypeOf(EngineConfig{}),
 		reflect.TypeOf(AgentProfile{}),
 		reflect.TypeOf(TranscriptionTransportMode("")),
