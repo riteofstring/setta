@@ -19,10 +19,6 @@ test("app config pane persists catalog, version, and spec path", async ({
     /Standalone App Starter/,
   );
 
-  const advancedToggle = page.getByRole("button", { name: "Advanced" });
-  await expect(advancedToggle).toBeVisible();
-  await advancedToggle.click();
-
   const catalogInput = page.getByLabel("Catalog ID");
   const versionInput = page.getByLabel("Spec version");
   const pathInput = page.getByLabel("Spec path");

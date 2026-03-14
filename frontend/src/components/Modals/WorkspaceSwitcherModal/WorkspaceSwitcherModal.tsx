@@ -10,9 +10,9 @@ import {
   route_create_workspace_launch_intent,
   route_get_setta_home_info,
 } from "utils/generatedEndpoints";
-import {
-  type LaunchRequestInput,
-  type SettaHomeInfoResponse,
+import type {
+  LaunchRequestInput,
+  SettaHomeInfoResponse,
 } from "utils/generatedTypes";
 import { resolveServerModeCapabilities } from "utils/serverModeCapabilities";
 import {
