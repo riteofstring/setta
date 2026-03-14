@@ -3105,6 +3105,202 @@ export function createShownParamIds(options: Partial<ShownParamIds> = {}): Shown
 }
 
 
+export const ChatWindowPlacementEnum = {
+  bottom_docked: "bottom_docked",
+  floating: "floating",
+  maximized: "maximized",
+  canvas_section: "canvas_section",
+} as const;
+export type ChatWindowPlacement = ObjectValues<typeof ChatWindowPlacementEnum>;
+
+
+export const ChatWindowModeEnum = {
+  project_ai_mode: "project_ai_mode",
+  section_mode: "section_mode",
+  git_graph_mode: "git_graph_mode",
+} as const;
+export type ChatWindowMode = ObjectValues<typeof ChatWindowModeEnum>;
+
+
+export type ChatWindowBounds = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+export function createChatWindowBounds(options: Partial<ChatWindowBounds> = {}): ChatWindowBounds {
+  return mergeGeneratedOptions(
+    {
+      x: 120,
+      y: 120,
+      width: 820,
+      height: 520,
+    },
+    options,
+  );
+}
+
+
+export type ChatWindowDockMetrics = {
+  widthFraction?: number | null;
+  preferredWidthPx?: number | null;
+};
+export function createChatWindowDockMetrics(options: Partial<ChatWindowDockMetrics> = {}): ChatWindowDockMetrics {
+  return mergeGeneratedOptions(
+    {
+      widthFraction: null,
+      preferredWidthPx: null,
+    },
+    options,
+  );
+}
+
+
+export type ProjectChatWindowInstance = {
+  instanceId: string;
+  placement?: ChatWindowPlacement;
+  isMinimized?: boolean;
+  isClosed?: boolean;
+  isMaximized?: boolean;
+  bounds?: ChatWindowBounds;
+  dockMetrics?: ChatWindowDockMetrics;
+  zIndex?: number;
+  lastPlacementBeforeMaximize?: ChatWindowPlacement | null;
+  mode?: ChatWindowMode;
+  sectionIdOrNull?: string | null;
+  title?: string | null;
+  lastFocusedAt?: number;
+  chatId?: string | null;
+};
+export function createProjectChatWindowInstance(options: Partial<ProjectChatWindowInstance> = {}): ProjectChatWindowInstance {
+  return mergeGeneratedOptions(
+    {
+      instanceId: "",
+      placement: ChatWindowPlacementEnum.bottom_docked,
+      isMinimized: false,
+      isClosed: false,
+      isMaximized: false,
+      bounds: createChatWindowBounds(),
+      dockMetrics: createChatWindowDockMetrics(),
+      zIndex: 0,
+      lastPlacementBeforeMaximize: null,
+      mode: ChatWindowModeEnum.project_ai_mode,
+      sectionIdOrNull: null,
+      title: null,
+      lastFocusedAt: 0,
+      chatId: null,
+    },
+    options,
+  );
+}
+
+
+export type ProjectChatWindowingState = {
+  instancesById: Record<string, ProjectChatWindowInstance>;
+  order: Array<string>;
+  nextInstanceNumber: number;
+};
+export function createProjectChatWindowingState(options: Partial<ProjectChatWindowingState> = {}): ProjectChatWindowingState {
+  return mergeGeneratedOptions(
+    {
+      instancesById: {},
+      order: [],
+      nextInstanceNumber: 1,
+    },
+    options,
+  );
+}
+
+
+export const WindowSpaceSurfaceKindEnum = {
+  project_chat: "project_chat",
+  section: "section",
+} as const;
+export type WindowSpaceSurfaceKind = ObjectValues<typeof WindowSpaceSurfaceKindEnum>;
+
+
+export type NormalizedFloatingWindowBounds = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+export function createNormalizedFloatingWindowBounds(options: Partial<NormalizedFloatingWindowBounds> = {}): NormalizedFloatingWindowBounds {
+  return mergeGeneratedOptions(
+    {
+      x: 0,
+      y: 0,
+      width: 1,
+      height: 1,
+    },
+    options,
+  );
+}
+
+
+export type WindowSpaceWindow = {
+  surfaceKind?: WindowSpaceSurfaceKind;
+  sectionIdOrNull?: string | null;
+  mode?: ChatWindowMode;
+  title?: string | null;
+  chatId?: string | null;
+  embeddedGitPaneVisible?: boolean;
+  zIndex?: number;
+  normalizedBounds?: NormalizedFloatingWindowBounds;
+};
+export function createWindowSpaceWindow(options: Partial<WindowSpaceWindow> = {}): WindowSpaceWindow {
+  return mergeGeneratedOptions(
+    {
+      surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+      sectionIdOrNull: null,
+      mode: ChatWindowModeEnum.project_ai_mode,
+      title: null,
+      chatId: null,
+      embeddedGitPaneVisible: false,
+      zIndex: 0,
+      normalizedBounds: createNormalizedFloatingWindowBounds(),
+    },
+    options,
+  );
+}
+
+
+export type WindowSpaceState = {
+  windowsById: Record<string, WindowSpaceWindow>;
+  order: Array<string>;
+};
+export function createWindowSpaceState(options: Partial<WindowSpaceState> = {}): WindowSpaceState {
+  return mergeGeneratedOptions(
+    {
+      windowsById: {},
+      order: [],
+    },
+    options,
+  );
+}
+
+
+export type WindowSpaceConfig = {
+  windowsById: Record<string, WindowSpaceWindow>;
+  order: Array<string>;
+  id: string;
+  name: string;
+  sortIndex?: number;
+};
+export function createWindowSpaceConfig(options: Partial<WindowSpaceConfig> = {}): WindowSpaceConfig {
+  return mergeGeneratedOptions(
+    {
+      windowsById: {},
+      order: [],
+      id: "",
+      name: "",
+      sortIndex: 0,
+    },
+    options,
+  );
+}
+
+
 export type ProjectConfig = {
   id: string;
   name: string;
@@ -3124,6 +3320,7 @@ export type ProjectConfig = {
   watchCodeBaselineByPath: Record<string, Array<string>>;
   entryCodeBlockId?: string | null;
   topLevelSections: Record<string, TopLevelSectionLayout>;
+  windowSpaces: Record<string, WindowSpaceConfig>;
   sectionVariantMap: Record<string, string>;
   activeIds: Array<string>;
   edges: Array<Edge>;
@@ -3150,6 +3347,7 @@ export function createProjectConfig(options: Partial<ProjectConfig> = {}): Proje
       watchCodeBaselineByPath: {},
       entryCodeBlockId: null,
       topLevelSections: {},
+      windowSpaces: {},
       sectionVariantMap: {},
       activeIds: [],
       edges: [],
@@ -3174,6 +3372,7 @@ export type ProjectStateSingleConfig = {
   shownParamIds: Record<string, ShownParamIds>;
   requiredDecodedImages: Array<string>;
   genCodeBinding?: CodeFileBinding | null;
+  projectChatWindowing: ProjectChatWindowingState;
 };
 export function createProjectStateSingleConfig(options: Partial<ProjectStateSingleConfig> = {}): ProjectStateSingleConfig {
   return mergeGeneratedOptions(
@@ -3191,6 +3390,7 @@ export function createProjectStateSingleConfig(options: Partial<ProjectStateSing
       shownParamIds: {},
       requiredDecodedImages: [],
       genCodeBinding: null,
+      projectChatWindowing: createProjectChatWindowingState(),
     },
     options,
   );

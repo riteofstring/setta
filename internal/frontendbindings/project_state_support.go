@@ -20,6 +20,28 @@ type ShownParamIdDetails struct{}
 
 type ShownParamIds struct{}
 
+type ChatWindowPlacement string
+
+type ChatWindowMode string
+
+type ChatWindowBounds struct{}
+
+type ChatWindowDockMetrics struct{}
+
+type ProjectChatWindowInstance struct{}
+
+type ProjectChatWindowingState struct{}
+
+type WindowSpaceSurfaceKind string
+
+type NormalizedFloatingWindowBounds struct{}
+
+type WindowSpaceWindow struct{}
+
+type WindowSpaceState struct{}
+
+type WindowSpaceConfig struct{}
+
 type SectionsClipboardData struct{}
 
 type BaseClipboardDataUnionWithDiscriminator struct{}
