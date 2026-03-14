@@ -27,14 +27,36 @@ import {
 } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { useActiveSectionUI, useProjectState } from "state/definitions";
-import { NO_WHEEL_CLASS_NAME } from "utils/constants";
+import {
+  NO_WHEEL_CLASS_NAME,
+  SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
+} from "utils/constants";
+import { route_set_top_level_section_layout } from "utils/generatedEndpoints";
 
 type PanePointerSession = {
   pointerId: number;
+  kind: "pane";
   lastClientX: number;
   lastClientY: number;
   moved: boolean;
 };
+
+type SectionPointerSession = {
+  pointerId: number;
+  kind: "section";
+  sectionId: string;
+  anchorWorldX: number;
+  anchorWorldY: number;
+  draggedSections: Array<{
+    sectionId: string;
+    sectionStartX: number;
+    sectionStartY: number;
+  }>;
+  selectionAppliedOnPointerDown: boolean;
+  moved: boolean;
+};
+
+type PointerSession = PanePointerSession | SectionPointerSession;
 
 type DomIslandRenderEntry = {
   rect: CanvasEngineRect;
@@ -91,12 +113,13 @@ export function CanvasEngineHost() {
   const agenticEdges = useProjectState(
     (state) => state.projectConfig.agenticEdges,
   );
+  const projectConfigId = useProjectState((state) => state.projectConfig.id);
 
   const sceneAdapterRef = useRef<CanvasEngineSceneAdapter | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const hostRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<CanvasEngineRenderer | null>(null);
-  const pointerSessionRef = useRef<PanePointerSession | null>(null);
+  const pointerSessionRef = useRef<PointerSession | null>(null);
   const skipInitialCameraSyncRef = useRef(true);
   const domIslandMountedSectionIdsRef = useRef<string[]>([]);
   const domIslandRetentionExpiryByIdRef = useRef<Map<string, number>>(
@@ -392,21 +415,108 @@ export function CanvasEngineHost() {
       if (isCanvasGestureBlockedByTarget(event.target)) {
         return;
       }
+      const worldPoint = resolveWorldPointFromPointerEvent(event, camera);
+      if (!worldPoint) {
+        return;
+      }
+      const sectionId = sceneAdapter.hitTestSectionAtWorldPoint(
+        worldPoint.x,
+        worldPoint.y,
+      );
+      if (sectionId) {
+        const sectionRect = sceneAdapter.getRectById(sectionId);
+        const sectionWasActiveAtPointerDown =
+          activeSectionIds.includes(sectionId);
+        const preserveExistingSelectionForDrag =
+          sectionWasActiveAtPointerDown && activeSectionIds.length > 1;
+        let selectionAppliedOnPointerDown = false;
+        if (!preserveExistingSelectionForDrag) {
+          applyActiveSectionChange({
+            interaction: "section-click",
+            sectionId,
+          });
+          selectionAppliedOnPointerDown = true;
+        }
+        const candidateDraggedSectionIds = sectionWasActiveAtPointerDown
+          ? activeSectionIds
+          : [sectionId];
+        const draggedSections = candidateDraggedSectionIds.flatMap(
+          (candidateSectionId) => {
+            const sectionLayout = topLevelSections[candidateSectionId];
+            if (!sectionLayout) {
+              return [];
+            }
+            return [
+              {
+                sectionId: candidateSectionId,
+                sectionStartX:
+                  typeof sectionLayout.x === "number" ? sectionLayout.x : 0,
+                sectionStartY:
+                  typeof sectionLayout.y === "number" ? sectionLayout.y : 0,
+              },
+            ];
+          },
+        );
+        if (draggedSections.length === 0) {
+          draggedSections.push({
+            sectionId,
+            sectionStartX: sectionRect?.x ?? 0,
+            sectionStartY: sectionRect?.y ?? 0,
+          });
+        }
+        pointerSessionRef.current = {
+          pointerId: event.pointerId,
+          kind: "section",
+          sectionId,
+          anchorWorldX: worldPoint.x,
+          anchorWorldY: worldPoint.y,
+          draggedSections,
+          selectionAppliedOnPointerDown,
+          moved: false,
+        };
+        event.currentTarget.setPointerCapture(event.pointerId);
+        return;
+      }
       pointerSessionRef.current = {
         pointerId: event.pointerId,
+        kind: "pane",
         lastClientX: event.clientX,
         lastClientY: event.clientY,
         moved: false,
       };
       event.currentTarget.setPointerCapture(event.pointerId);
     },
-    [],
+    [activeSectionIds, camera, sceneAdapter, topLevelSections],
   );
 
   const handlePointerMove = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       const pointerSession = pointerSessionRef.current;
       if (!pointerSession || pointerSession.pointerId !== event.pointerId) {
+        return;
+      }
+      if (pointerSession.kind === "section") {
+        const worldPoint = resolveWorldPointFromPointerEvent(event, camera);
+        if (!worldPoint) {
+          return;
+        }
+        const deltaX = worldPoint.x - pointerSession.anchorWorldX;
+        const deltaY = worldPoint.y - pointerSession.anchorWorldY;
+        const hasPositionChangeFromStart = deltaX !== 0 || deltaY !== 0;
+        if (!hasPositionChangeFromStart && !pointerSession.moved) {
+          return;
+        }
+        pointerSession.moved =
+          pointerSession.moved || hasPositionChangeFromStart;
+        setTopLevelSectionLayoutRects(
+          pointerSession.draggedSections.map((section) => ({
+            sectionId: section.sectionId,
+            nextLayoutPatch: {
+              x: section.sectionStartX + deltaX,
+              y: section.sectionStartY + deltaY,
+            },
+          })),
+        );
         return;
       }
 
@@ -426,7 +536,7 @@ export function CanvasEngineHost() {
         zoom: currentCamera.zoom,
       }));
     },
-    [],
+    [camera],
   );
 
   const releasePointerCapture = useCallback(
@@ -435,7 +545,21 @@ export function CanvasEngineHost() {
       if (!pointerSession || pointerSession.pointerId !== event.pointerId) {
         return;
       }
-      if (!pointerSession.moved) {
+      if (pointerSession.kind === "section") {
+        if (pointerSession.moved) {
+          const latestLayouts =
+            useProjectState.getState().projectConfig.topLevelSections;
+          void route_set_top_level_section_layout({
+            projectConfigId,
+            topLevelSections: latestLayouts,
+          });
+        } else if (!pointerSession.selectionAppliedOnPointerDown) {
+          applyActiveSectionChange({
+            interaction: "section-click",
+            sectionId: pointerSession.sectionId,
+          });
+        }
+      } else if (!pointerSession.moved) {
         applyActiveSectionChange({ interaction: "pane-click" });
       }
       pointerSessionRef.current = null;
@@ -443,7 +567,7 @@ export function CanvasEngineHost() {
         event.currentTarget.releasePointerCapture(event.pointerId);
       }
     },
-    [],
+    [projectConfigId],
   );
 
   const handleWheel = useCallback((event: ReactWheelEvent<HTMLDivElement>) => {
@@ -591,9 +715,25 @@ function sortSectionIdsByZIndexThenId(
 }
 
 function isCanvasGestureBlockedByTarget(target: EventTarget | null): boolean {
-  return (
-    target instanceof Element &&
-    target.closest("[data-canvas-engine-dom-island]") !== null
+  if (!(target instanceof Element)) {
+    return false;
+  }
+  if (!target.closest("[data-canvas-engine-dom-island]")) {
+    return false;
+  }
+  return Boolean(
+    target.closest(
+      [
+        "button",
+        "input",
+        "textarea",
+        "select",
+        "option",
+        "[role='menuitem']",
+        "[contenteditable='true']",
+        `.${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER}`,
+      ].join(","),
+    ),
   );
 }
 
@@ -665,4 +805,68 @@ function areRectsEqual(
     left.zIndex === right.zIndex &&
     left.isActive === right.isActive
   );
+}
+
+function resolveWorldPointFromPointerEvent(
+  event: ReactPointerEvent<HTMLElement>,
+  camera: CanvasEngineCamera,
+): { x: number; y: number } | null {
+  const rect = event.currentTarget.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) {
+    return null;
+  }
+  const localX = event.clientX - rect.left;
+  const localY = event.clientY - rect.top;
+  return {
+    x: camera.x + localX / camera.zoom,
+    y: camera.y + localY / camera.zoom,
+  };
+}
+
+type TopLevelSectionLayoutPatch = {
+  sectionId: string;
+  nextLayoutPatch: {
+    x?: number;
+    y?: number;
+    w?: number | null;
+    h?: number | null;
+  };
+};
+
+function setTopLevelSectionLayoutRects(
+  patches: TopLevelSectionLayoutPatch[],
+): void {
+  if (patches.length === 0) {
+    return;
+  }
+  useProjectState.setState((state) => {
+    const { activeViewModeId, viewModes } = state.projectConfig;
+    const activeViewTopLevelSections =
+      activeViewModeId && viewModes[activeViewModeId]
+        ? viewModes[activeViewModeId].topLevelSections
+        : null;
+    for (const patch of patches) {
+      const existingLayout =
+        state.projectConfig.topLevelSections[patch.sectionId];
+      if (!existingLayout) {
+        continue;
+      }
+      const nextLayout = {
+        ...existingLayout,
+        ...patch.nextLayoutPatch,
+      };
+      if (
+        existingLayout.x === nextLayout.x &&
+        existingLayout.y === nextLayout.y &&
+        existingLayout.w === nextLayout.w &&
+        existingLayout.h === nextLayout.h
+      ) {
+        continue;
+      }
+      state.projectConfig.topLevelSections[patch.sectionId] = nextLayout;
+      if (activeViewTopLevelSections) {
+        activeViewTopLevelSections[patch.sectionId] = nextLayout;
+      }
+    }
+  });
 }

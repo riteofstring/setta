@@ -142,9 +142,8 @@ describe("CanvasEngineHost", () => {
         originalReleasePointerCapture,
       );
     } else {
-      delete (
-        HTMLElement.prototype as Partial<HTMLElement>
-      ).releasePointerCapture;
+      delete (HTMLElement.prototype as Partial<HTMLElement>)
+        .releasePointerCapture;
     }
     if (originalHasPointerCapture) {
       Object.defineProperty(
@@ -299,6 +298,96 @@ describe("CanvasEngineHost", () => {
     expect(useReactFlow.getState().transform).toEqual([48, -32, 1.75]);
   });
 
+  it("drags a top-level section and persists the updated layout", async () => {
+    const layoutSpy = vi
+      .spyOn(endpoints, "route_set_top_level_section_layout")
+      .mockResolvedValue({
+        status: 200,
+        hasResponse: true,
+        data: undefined,
+      });
+
+    useProjectState.setState((state) => {
+      state.projectConfig.id = "project-a";
+      state.projectConfig.topLevelSections = {
+        "section-a": {
+          x: 24,
+          y: 16,
+          zIndex: 0,
+          w: 320,
+          h: 180,
+        },
+      };
+      state.projectConfig.activeIds = ["section-a", "section-b"];
+      state.projectConfig.edges = [];
+      state.projectConfig.agenticEdges = [];
+    });
+    useActiveSectionUI.setState({
+      activeIds: ["section-a", "section-b"],
+      selectionGeneration: 1,
+      backendGeneration: 1,
+      backendHydrationEnabled: true,
+      pendingBackendSyncOpIds: [],
+      pendingBackendSyncGenerationByOpId: {},
+      scheduledBackendSync: null,
+    });
+
+    await act(async () => {
+      root.render(<CanvasEngineHost />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const engineHost = host.querySelector(
+      '[data-canvas-engine-host="v1"]',
+    ) as HTMLDivElement | null;
+    if (!engineHost) {
+      throw new Error("Canvas engine host failed to render.");
+    }
+    setEngineHostBounds(engineHost);
+
+    await dispatchPointerEvent(engineHost, "pointerdown", {
+      button: 0,
+      clientX: 80,
+      clientY: 80,
+      pointerId: 1,
+    });
+    await dispatchPointerEvent(engineHost, "pointermove", {
+      button: 0,
+      clientX: 160,
+      clientY: 140,
+      pointerId: 1,
+    });
+    await dispatchPointerEvent(engineHost, "pointerup", {
+      button: 0,
+      clientX: 160,
+      clientY: 140,
+      pointerId: 1,
+    });
+
+    expect(
+      useProjectState.getState().projectConfig.topLevelSections,
+    ).toMatchObject({
+      "section-a": expect.objectContaining({
+        x: 104,
+        y: 76,
+      }),
+    });
+    expect(layoutSpy).toHaveBeenCalledOnce();
+    expect(layoutSpy).toHaveBeenCalledWith({
+      projectConfigId: "project-a",
+      topLevelSections: expect.objectContaining({
+        "section-a": expect.objectContaining({
+          x: 104,
+          y: 76,
+        }),
+      }),
+    });
+  });
+
   it("clears active sections from a stationary blank-pane click", async () => {
     const endpointSpy = vi
       .spyOn(endpoints, "route_set_active_ids")
@@ -355,30 +444,31 @@ describe("CanvasEngineHost", () => {
     if (!engineHost) {
       throw new Error("Canvas engine host failed to render.");
     }
+    setEngineHostBounds(engineHost);
 
-    expect(engineHost.getAttribute("data-canvas-engine-active-section-ids")).toBe(
-      "section-a",
-    );
+    expect(
+      engineHost.getAttribute("data-canvas-engine-active-section-ids"),
+    ).toBe("section-a");
 
     await dispatchPointerEvent(engineHost, "pointerdown", {
       button: 0,
-      clientX: 320,
-      clientY: 180,
+      clientX: 500,
+      clientY: 300,
       pointerId: 1,
     });
     await dispatchPointerEvent(engineHost, "pointerup", {
       button: 0,
-      clientX: 320,
-      clientY: 180,
+      clientX: 500,
+      clientY: 300,
       pointerId: 1,
     });
 
     // A no-move pane click should clear the UI selection immediately and then
     // schedule a single durable backend publish of the cleared state.
     expect(useActiveSectionUI.getState().activeIds).toEqual([]);
-    expect(engineHost.getAttribute("data-canvas-engine-active-section-ids")).toBe(
-      "",
-    );
+    expect(
+      engineHost.getAttribute("data-canvas-engine-active-section-ids"),
+    ).toBe("");
     expect(scheduledFrame).not.toBeNull();
     expect(endpointSpy).not.toHaveBeenCalled();
 
@@ -395,7 +485,7 @@ describe("CanvasEngineHost", () => {
 
 async function dispatchPointerEvent(
   target: HTMLElement,
-  type: "pointerdown" | "pointerup",
+  type: "pointerdown" | "pointermove" | "pointerup",
   init: {
     button: number;
     clientX: number;
@@ -417,5 +507,12 @@ async function dispatchPointerEvent(
 
   await act(async () => {
     target.dispatchEvent(event);
+  });
+}
+
+function setEngineHostBounds(target: HTMLElement) {
+  Object.defineProperty(target, "getBoundingClientRect", {
+    configurable: true,
+    value: () => DOMRect.fromRect({ x: 0, y: 0, width: 640, height: 360 }),
   });
 }

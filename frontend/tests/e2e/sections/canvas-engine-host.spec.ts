@@ -10,6 +10,16 @@ import {
 type LatestProjectStateResponse = {
   projectState?: {
     projectConfig?: {
+      topLevelSections?: Record<
+        string,
+        {
+          x?: number;
+          y?: number;
+          w?: number | null;
+          h?: number | null;
+          zIndex?: number;
+        }
+      >;
       viewport?: {
         x?: number;
         y?: number;
@@ -23,6 +33,11 @@ type CanvasEngineCameraSnapshot = {
   x: number;
   y: number;
   zoom: number;
+};
+
+type WorldPoint = {
+  x: number;
+  y: number;
 };
 
 const MULTI_SELECTION_MODIFIER_KEY =
@@ -271,6 +286,66 @@ test("canvas engine host preserves modifier-click multi-section selection", asyn
   }
 });
 
+test("canvas engine host drags sections and persists top-level layout", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+
+    const sectionId = await createCallableSectionForCanvasEngine(
+      page,
+      projectContext.projectConfigId,
+    );
+    await expect(
+      host.locator(`[data-canvas-engine-dom-island="${sectionId}"]`),
+    ).toHaveCount(1);
+
+    const initialPosition = await readTopLevelSectionPosition(
+      page,
+      projectContext.projectConfigId,
+      sectionId,
+    );
+    const dragDelta = { x: 120, y: 80 };
+
+    await dragWorldPoint(page, host, {
+      start: {
+        x: initialPosition.x + 140,
+        y: initialPosition.y + 110,
+      },
+      end: {
+        x: initialPosition.x + 140 + dragDelta.x,
+        y: initialPosition.y + 110 + dragDelta.y,
+      },
+    });
+
+    await expect
+      .poll(async () => await readActiveSectionIds(host))
+      .toEqual([sectionId]);
+    await expect
+      .poll(
+        async () =>
+          await readTopLevelSectionPosition(
+            page,
+            projectContext.projectConfigId,
+            sectionId,
+          ),
+      )
+      .toEqual({
+        x: initialPosition.x + dragDelta.x,
+        y: initialPosition.y + dragDelta.y,
+      });
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 async function readCamera(host: Locator): Promise<CanvasEngineCameraSnapshot> {
   const xRaw = await host.getAttribute("data-canvas-engine-camera-x");
   const yRaw = await host.getAttribute("data-canvas-engine-camera-y");
@@ -351,6 +426,29 @@ async function readPersistedViewport(
   };
 }
 
+async function readTopLevelSectionPosition(
+  page: Page,
+  projectConfigId: string,
+  sectionId: string,
+): Promise<{ x: number; y: number }> {
+  const response = await postBackend<LatestProjectStateResponse>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
+  );
+  const layout =
+    response?.projectState?.projectConfig?.topLevelSections?.[sectionId];
+  if (!layout || typeof layout.x !== "number" || typeof layout.y !== "number") {
+    throw new Error(
+      `Missing top-level layout for section ${sectionId} in project ${projectConfigId}.`,
+    );
+  }
+  return {
+    x: layout.x,
+    y: layout.y,
+  };
+}
+
 async function readActiveSectionIds(host: Locator): Promise<string[]> {
   const value = await host.getAttribute(
     "data-canvas-engine-active-section-ids",
@@ -382,6 +480,37 @@ async function dispatchMountedSectionRootClick(
       }),
     );
   }, sectionId);
+}
+
+async function worldPointToScreen(
+  host: Locator,
+  worldPoint: WorldPoint,
+): Promise<WorldPoint> {
+  const hostBounds = await host.boundingBox();
+  if (!hostBounds) {
+    throw new Error("Unable to resolve canvas host bounds.");
+  }
+  const camera = await readCamera(host);
+  return {
+    x: hostBounds.x + (worldPoint.x - camera.x) * camera.zoom,
+    y: hostBounds.y + (worldPoint.y - camera.y) * camera.zoom,
+  };
+}
+
+async function dragWorldPoint(
+  page: Page,
+  host: Locator,
+  points: {
+    start: WorldPoint;
+    end: WorldPoint;
+  },
+): Promise<void> {
+  const startScreen = await worldPointToScreen(host, points.start);
+  const endScreen = await worldPointToScreen(host, points.end);
+  await page.mouse.move(startScreen.x, startScreen.y);
+  await page.mouse.down();
+  await page.mouse.move(endScreen.x, endScreen.y, { steps: 10 });
+  await page.mouse.up();
 }
 
 async function readNumericHostAttribute(
