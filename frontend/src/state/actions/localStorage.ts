@@ -2,7 +2,7 @@ import {
   type ColorModePreference,
   type HomeProjectGalleryViewMode,
   useLocalStorage,
-} from "state/stores/uiPreferenceStores";
+} from "state/definitions";
 import { dedupeStringIds } from "utils/dedupeStringIds";
 import type { ChatSharedEdgeMode } from "./chatSharedHandleIds";
 
