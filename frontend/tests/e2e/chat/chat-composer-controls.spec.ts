@@ -87,6 +87,20 @@ type ManagedAnthropicThinkingProviderServer = {
   close: () => Promise<void>;
 };
 
+type ManagedAzureChatProviderRequest = {
+  path: string;
+  query: string;
+  apiKey: string;
+  authorization: string;
+  body: Record<string, unknown>;
+};
+
+type ManagedAzureChatProviderServer = {
+  origin: string;
+  requests: ManagedAzureChatProviderRequest[];
+  close: () => Promise<void>;
+};
+
 test.describe.serial("chat composer controls", () => {
   test("chat sections keep a compact composer with no inline settings controls", async ({
     page,
@@ -1358,12 +1372,14 @@ test.describe.serial("chat composer controls", () => {
     let createdEngineConfigId: string | null = null;
     let initialLLMConfig: LLMConfigPayload | null = null;
     let initialAPIKeysSnapshot: ManagedAPIKeysSnapshot | null = null;
+    let latestAPIKeysSnapshot: ManagedAPIKeysSnapshot | null = null;
     let submittedPayload:
       | {
           thinking?: boolean;
           engineConfigId?: string;
         }
       | undefined;
+    const providerServer = await startManagedAzureOpenAIChatServer();
 
     await page.route("**/api/getLLMResponse", async (route) => {
       submittedPayload = route.request().postDataJSON() as
@@ -1372,11 +1388,9 @@ test.describe.serial("chat composer controls", () => {
             engineConfigId?: string;
           }
         | undefined;
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify("chat-azure-thinking-disabled"),
-      });
+      const response = await route.fetch();
+      const body = await response.body();
+      await route.fulfill({ response, body });
     });
 
     try {
@@ -1392,6 +1406,7 @@ test.describe.serial("chat composer controls", () => {
       expect(apiKeysResponse.ok()).toBe(true);
       initialAPIKeysSnapshot =
         (await apiKeysResponse.json()) as ManagedAPIKeysSnapshot;
+      latestAPIKeysSnapshot = initialAPIKeysSnapshot;
 
       const azureConfigId = `e2e-azure-thinking-${Date.now()}`;
       const updatedLLMConfig: LLMConfigPayload = {
@@ -1402,7 +1417,7 @@ test.describe.serial("chat composer controls", () => {
             model: "gpt-5-codex",
             provider: "azure",
             api_key_env: "AZURE_OPENAI_API_KEY",
-            base_url: "https://example-resource.openai.azure.com",
+            base_url: providerServer.origin,
             other_params: {
               api_version: "2024-06-01",
               reasoning_effort: "high",
@@ -1411,14 +1426,12 @@ test.describe.serial("chat composer controls", () => {
         },
       };
       await postBackend(page, "/llm/config", updatedLLMConfig);
-      await page.request.post(`${backendOrigin}/api/llm/apiKeys`, {
-        data: {
-          apiKeys: {
-            ...initialAPIKeysSnapshot.apiKeys,
-            AZURE_OPENAI_API_KEY: "e2e-azure-secret",
-          },
-          expectedRevision: initialAPIKeysSnapshot.revision,
+      latestAPIKeysSnapshot = await postManagedAPIKeys(page, {
+        apiKeys: {
+          ...initialAPIKeysSnapshot.apiKeys,
+          AZURE_OPENAI_API_KEY: "e2e-azure-secret",
         },
+        expectedRevision: initialAPIKeysSnapshot.revision,
       });
 
       const createdEngine = await postBackend<EngineConfigSummary>(
@@ -1477,6 +1490,18 @@ test.describe.serial("chat composer controls", () => {
         .poll(() => submittedPayload?.engineConfigId ?? null)
         .toBe(createdEngineConfigId);
       expect(submittedPayload?.thinking).toBe(false);
+      await expect.poll(() => providerServer.requests.length).toBe(1);
+
+      const providerRequest = providerServer.requests[0];
+      expect(providerRequest?.path).toBe(
+        "/openai/deployments/gpt-5-codex/chat/completions",
+      );
+      expect(providerRequest?.query).toBe("api-version=2024-06-01");
+      expect(providerRequest?.apiKey).toBe("e2e-azure-secret");
+      expect(providerRequest?.authorization).toBe("");
+      expect(providerRequest?.body.model).toBe("gpt-5-codex");
+
+      await expect(projectChatSurface.getByText("Azure reply")).toBeVisible();
     } finally {
       try {
         await setOverviewTab(page, "ProjectAIChat");
@@ -1501,25 +1526,12 @@ test.describe.serial("chat composer controls", () => {
           .catch(() => {});
       }
       if (initialAPIKeysSnapshot) {
-        const currentApiKeysResponse = await page.request
-          .get(`${backendOrigin}/api/llm/apiKeys`, {
-            timeout: 5000,
-          })
-          .catch(() => null);
-        if (currentApiKeysResponse?.ok()) {
-          const currentApiKeysSnapshot =
-            (await currentApiKeysResponse.json()) as ManagedAPIKeysSnapshot;
-          await page.request
-            .post(`${backendOrigin}/api/llm/apiKeys`, {
-              data: {
-                apiKeys: initialAPIKeysSnapshot.apiKeys,
-                expectedRevision: currentApiKeysSnapshot.revision,
-              },
-              timeout: 5000,
-            })
-            .catch(() => {});
-        }
+        await postManagedAPIKeys(page, {
+          apiKeys: initialAPIKeysSnapshot.apiKeys,
+          expectedRevision: latestAPIKeysSnapshot.revision,
+        }).catch(() => {});
       }
+      await providerServer.close();
       await engineCleanup();
       await cleanupIsolatedProject(page, projectContext);
     }
@@ -3852,6 +3864,80 @@ async function startManagedAnthropicThinkingServer(): Promise<ManagedAnthropicTh
       if (!address || typeof address === "string") {
         server.close(() =>
           reject(new Error("Unable to allocate Anthropic thinking test port.")),
+        );
+        return;
+      }
+      resolve({
+        origin: `http://127.0.0.1:${address.port}`,
+        requests,
+        close: async () =>
+          await new Promise<void>((closeResolve, closeReject) => {
+            server.close((error) => {
+              if (error) {
+                closeReject(error);
+                return;
+              }
+              closeResolve();
+            });
+          }),
+      });
+    });
+  });
+}
+
+async function startManagedAzureOpenAIChatServer(): Promise<ManagedAzureChatProviderServer> {
+  const requests: ManagedAzureChatProviderRequest[] = [];
+  return await new Promise((resolve, reject) => {
+    const server = http.createServer((request, response) => {
+      const chunks: string[] = [];
+      request.setEncoding("utf8");
+      request.on("data", (chunk: string) => {
+        chunks.push(chunk);
+      });
+      request.on("end", () => {
+        try {
+          const rawBody = chunks.join("");
+          const body = rawBody
+            ? (JSON.parse(rawBody) as Record<string, unknown>)
+            : {};
+          const parsedURL = new URL(request.url ?? "/", "http://127.0.0.1");
+          requests.push({
+            path: parsedURL.pathname,
+            query: parsedURL.searchParams.toString(),
+            apiKey: Array.isArray(request.headers["api-key"])
+              ? request.headers["api-key"].join(", ")
+              : request.headers["api-key"] ?? "",
+            authorization: Array.isArray(request.headers.authorization)
+              ? request.headers.authorization.join(", ")
+              : request.headers.authorization ?? "",
+            body,
+          });
+        } catch (error) {
+          response.statusCode = 400;
+          response.end(String(error));
+          return;
+        }
+
+        response.statusCode = 200;
+        response.setHeader("content-type", "text/event-stream");
+        response.write(
+          'data: {"choices":[{"index":0,"delta":{"content":"Azure"}}]}\n\n',
+        );
+        response.write(
+          'data: {"choices":[{"index":0,"delta":{"content":" reply"},"finish_reason":"stop"}]}\n\n',
+        );
+        response.write(
+          'data: {"choices":[],"usage":{"prompt_tokens":17,"completion_tokens":2,"total_tokens":19}}\n\n',
+        );
+        response.end("data: [DONE]\n\n");
+      });
+    });
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close(() =>
+          reject(new Error("Unable to allocate Azure thinking test port.")),
         );
         return;
       }
