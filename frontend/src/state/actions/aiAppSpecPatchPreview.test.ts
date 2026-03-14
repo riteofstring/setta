@@ -8,8 +8,7 @@ import {
   createAssistantChatMessage,
   createProjectConfig,
 } from "utils/generatedTypes";
-import { receiveLLMResponseChunk } from "./ai";
-import { getDefaultChatDetails } from "./ai/chatRuntime";
+import { getDefaultChatDetails, receiveLLMResponseChunk } from "./ai";
 
 describe("ai app spec patch preview streaming", () => {
   beforeEach(() => {

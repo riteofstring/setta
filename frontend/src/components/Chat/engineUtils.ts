@@ -129,3 +129,28 @@ export function getChatPlaceholderText(
   }
   return "Type a message...";
 }
+
+export function supportsThinkingExecutionControl(
+  engineConfig: EngineConfig | null,
+): boolean {
+  if (!engineConfig) {
+    return false;
+  }
+  if (engineConfig.engineType === EngineTypeEnum.external_agent) {
+    return true;
+  }
+  return Boolean(engineConfig.runtimeSupport?.thinking);
+}
+
+export function resolveEffectiveThinking({
+  engineConfig,
+  requestedThinking,
+}: {
+  engineConfig: EngineConfig | null;
+  requestedThinking: boolean;
+}): boolean {
+  if (!supportsThinkingExecutionControl(engineConfig)) {
+    return false;
+  }
+  return requestedThinking;
+}

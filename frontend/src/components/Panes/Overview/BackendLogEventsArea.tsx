@@ -17,8 +17,7 @@ import {
   resetBackendLogEventsFilter,
   setBackendLogEventsFilter,
 } from "state/actions/backendLogEvents";
-import { useAllProjectMetadata } from "state/definitions";
-import { useBackendLogEvents } from "state/stores/runtimeStores";
+import { useAllProjectMetadata, useBackendLogEvents } from "state/definitions";
 import { SettaBackendLogEvent } from "utils/generatedTypes";
 import {
   addBackendLogResizeListeners,
