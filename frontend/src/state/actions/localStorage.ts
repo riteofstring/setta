@@ -2,7 +2,7 @@ import {
   type ColorModePreference,
   type HomeProjectGalleryViewMode,
   useLocalStorage,
-} from "state/stores/localStorageStore";
+} from "state/definitions";
 import { dedupeStringIds } from "utils/dedupeStringIds";
 
 export function setColorModePreference(colorMode: ColorModePreference) {

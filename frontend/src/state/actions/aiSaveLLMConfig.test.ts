@@ -25,7 +25,7 @@ vi.mock("utils/generatedEndpoints", async () => {
 const mockedRouteSetLLMConfig = vi.mocked(route_set_llm_config);
 
 let useAIStore: typeof import("state/definitions").useAIStore;
-let saveLLMConfig: typeof import("state/actions/ai/llmSettings").saveLLMConfig;
+let saveLLMConfig: typeof import("state/actions/ai").saveLLMConfig;
 let memoryStorage: Storage;
 
 function createAllLLMConfigs(defaultConfigId: string | null): AllLLMConfigs {
@@ -82,8 +82,8 @@ describe("saveLLMConfig", () => {
     const definitions = await import("state/definitions");
     useAIStore = definitions.useAIStore;
 
-    const llmSettings = await import("state/actions/ai/llmSettings");
-    saveLLMConfig = llmSettings.saveLLMConfig;
+    const ai = await import("state/actions/ai");
+    saveLLMConfig = ai.saveLLMConfig;
   });
 
   beforeEach(() => {
