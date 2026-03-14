@@ -1,29 +1,24 @@
 # Go Rewrite Docs
 
 This folder is the active working set for the Go backend rewrite.
-If you are starting a rewrite task, read `CURRENT.md` first.
-Use this README as the folder router, not as the default first deep read.
+Start with `CURRENT.md`.
+Use this README only as the folder map.
 
-## Default Read Path
+## Core Docs
 
-1. `CURRENT.md`
-   - entrypoint; task loop, clean-break defaults, and update rules
-2. The checklist that matches the task
-   - `caller-backed-backend-surface-checklist.md` for "does the active caller
-     hit Go?"
-   - `backend-capability-coverage-checklist.md` for "where does ownership
-     live?"
-3. `go-backend-rewrite-plan.md`
-   - decision order, port-first guardrails, and reopening criteria
-4. `testing-strategy.md`
-   - read when changing code, behavior, or verification
+- `CURRENT.md`
+  - entrypoint, task loop, and update rules
+- `caller-backed-backend-surface-checklist.md`
+  - active caller reachability
+- `backend-capability-coverage-checklist.md`
+  - runtime/service ownership
+- `go-backend-rewrite-plan.md`
+  - clean-break rules and port-vs-redesign decisions
+- `testing-strategy.md`
+  - testing contract and coverage expectations
 
-## Read Only When Needed
+## Boundary Docs
 
-- `caller-backed-backend-surface-checklist-audit-plan.md`
-  - rules for maintaining the caller-backed checklist
-- `backend-capability-coverage-checklist-audit-plan.md`
-  - rules for maintaining the ownership checklist
 - `setta-listener-protocol-redesign-plan.md`
   - listener protocol or Python `SettaListener` SDK boundary
 - `go-frontend-binding-generation-plan.md`
@@ -38,30 +33,20 @@ Use this README as the folder router, not as the default first deep read.
   - dependency-doc acquisition/storage rules
 - `pyproject-dependency-replacement-snapshot.md`
   - point-in-time Python dependency classification
+
+## Maintenance Docs
+
+- `caller-backed-backend-surface-checklist-audit-plan.md`
+  - rules for maintaining the caller-backed checklist
+- `backend-capability-coverage-checklist-audit-plan.md`
+  - rules for maintaining the ownership checklist
+
+## History
+
 - `archive/README.md`
-  - historical phase docs and spikes; use only for rationale or archaeology
+  - historical slice docs and spikes; use only for rationale or archaeology
 
-## Quick Router
-
-- Active caller reachability, route usage, websocket usage:
-  `caller-backed-backend-surface-checklist.md`
-- Runtime or service ownership, including Go/Python/shared boundaries:
-  `backend-capability-coverage-checklist.md`
-- Clean-break policy, port-vs-redesign, or "should this open a new slice?":
-  `go-backend-rewrite-plan.md`
-- Listener protocol or Python listener SDK questions:
-  `setta-listener-protocol-redesign-plan.md`
-- Go-owned frontend binding generation:
-  `go-frontend-binding-generation-plan.md`
-- Dependency or provider decisions:
-  `go-dependency-inventory-and-rationale.md` plus
-  `docs/reference/dependencies/`
-- Testing expectations:
-  `testing-strategy.md`
-- Historical rationale:
-  `archive/`
-
-## Maintenance Rules
+## Working Rules
 
 - Do not bulk-read every top-level rewrite doc by default.
 - Start with `CURRENT.md`, not `archive/`.

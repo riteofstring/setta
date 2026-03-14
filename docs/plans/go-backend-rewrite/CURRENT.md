@@ -2,26 +2,28 @@
 
 Last verified: `2026-03-13`
 
-This is the entrypoint for Go rewrite work.
-Read this file first, then the task-matching checklist, then the rewrite plan.
-Pull in subsystem, dependency, and archive docs only when the task actually
-touches those boundaries.
+Use this as the entrypoint for active Go rewrite work.
+Read this file first. Then open only the docs the task actually needs.
 
-## Default Working Docs
+## Read First
 
 - `caller-backed-backend-surface-checklist.md`
-  - fastest answer to "does the active caller already hit Go?"
+  - active caller reachability
 - `backend-capability-coverage-checklist.md`
-  - fastest answer to "where does runtime ownership live?"
+  - runtime/service ownership
 - `go-backend-rewrite-plan.md`
-  - decision order, clean-break rules, and when to open new work
+  - clean-break rules and port-vs-redesign decisions
 - `testing-strategy.md`
-  - testing contract for rewrite work
+  - testing contract and coverage expectations
 
-## Conditional Docs
+## Read Only When Needed
 
 - `README.md`
   - folder map only
+- `caller-backed-backend-surface-checklist-audit-plan.md`
+  - only when editing the caller-backed checklist
+- `backend-capability-coverage-checklist-audit-plan.md`
+  - only when editing the ownership checklist
 - `setta-listener-protocol-redesign-plan.md`
   - listener protocol or Python listener SDK boundary
 - `go-frontend-binding-generation-plan.md`
@@ -39,10 +41,17 @@ touches those boundaries.
 - `archive/README.md`
   - historical phase docs and spikes
 
-## Maintenance-Only Docs
+## How To Read
 
-- `backend-capability-coverage-checklist-audit-plan.md`
-- `caller-backed-backend-surface-checklist-audit-plan.md`
+- Treat the non-archive top-level docs as the current doc source of truth.
+- Treat `archive/` as cold history. Use it only for rationale the current docs
+  no longer summarize.
+- If current planning text and current code or tests disagree, trust the code
+  and tests for current behavior and update the docs.
+- If a checklist is large, jump to the relevant subsystem or feature instead of
+  reading the whole table by default.
+- Start from the active caller, ownership bucket, and current code path. Do not
+  bulk-read the whole folder.
 
 ## Task Router
 
@@ -66,12 +75,11 @@ touches those boundaries.
 
 ## Working Rules
 
-- Treat the non-archive top-level docs as the current source of truth.
-- Start from the active caller, ownership bucket, and current code path. Do
-  not bulk-read the whole folder by default.
 - This is a clean break. Do not preserve backward compatibility, migrations,
   legacy route shapes, storage migrations, or Python compatibility shims
   unless a live repo workflow explicitly requires them.
+- Preserve capability and user-visible behavior, not Python implementation
+  details.
 - Preserve active product behavior and documented workflows, not Python-shaped
   architecture or unused legacy surfaces.
 - Prefer a behavior-first, architecture-conservative port. Reopen redesign

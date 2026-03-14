@@ -5,7 +5,7 @@
 Rewrite the backend from Python to Go as a clean break in runtime ownership
 without bundling that work into a broad architecture redesign.
 
-Default approach:
+Default stance:
 
 - preserve active product behavior for the current caller
 - move runtime ownership to Go
@@ -17,24 +17,9 @@ Do not preserve backward compatibility, legacy route shapes, migrations, or
 Python transition layers unless a current repo workflow explicitly requires a
 bounded exception.
 
-## Source Of Truth
+## Read Order
 
-Start with `CURRENT.md`, then read only the docs the task actually needs.
-
-Default working docs:
-
-- `CURRENT.md`
-- `caller-backed-backend-surface-checklist.md`
-- `backend-capability-coverage-checklist.md`
-- `testing-strategy.md`
-
-Conditional docs:
-
-- `go-dependency-inventory-and-rationale.md`
-- `docs/reference/dependencies/`
-- `setta-listener-protocol-redesign-plan.md`
-- `go-frontend-binding-generation-plan.md`
-
+Start with `CURRENT.md`, then read only the task-matching current docs.
 Use `README.md` only for the folder map.
 Use `archive/` only for historical rationale.
 
@@ -54,6 +39,8 @@ When the right move is unclear, decide in this order:
 
 - Treat the Python code, tests, and docs as reference material for behavior
   and edge cases, not as a compatibility contract.
+- Preserve capability and user-visible behavior, not Python implementation
+  details.
 - Preserve product behavior first, unless a caller, release path, or
   documented product decision requires a behavior change.
 - Do not combine the language rewrite with broad architecture cleanup by
@@ -97,7 +84,7 @@ If a change is behavior-preserving seam creation and meaningfully lowers future
 rewrite cost, take it. If it is a true redesign, defer it unless correctness
 or active caller coverage requires it.
 
-## Task-Specific Infrastructure Tracks
+## Infrastructure Tracks
 
 Use these only when the task touches them:
 

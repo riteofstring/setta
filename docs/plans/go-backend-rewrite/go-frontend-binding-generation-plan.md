@@ -2,16 +2,15 @@
 
 ## Purpose
 
-This doc covers Go-owned frontend binding generation when work touches
-frontend-facing Go HTTP/websocket contracts. Use it for that boundary, not as
-the default driver for unrelated rewrite work.
+Use this doc only when work touches frontend-facing Go HTTP or websocket
+contracts.
 
-The goal here is to move frontend-facing Go HTTP/websocket contracts onto a
-Go-owned source of truth using a real Go-to-TypeScript conversion pipeline,
-not handwritten TypeScript emitters, and to sever frontend ties to
-Python-generated backend bindings.
+The target is a single Go-owned source of truth for frontend routes,
+endpoints, and DTOs. TypeScript should be generated from explicit Go boundary
+declarations, not handwritten one-off wrappers and not Python-generated
+backend bindings.
 
-## Why This Slice Is Open Now
+## Why This Slice Is Still Open
 
 - The broad-coverage checklist now records frontend backend-contract binding
   generation as a shared Go-to-TypeScript boundary with canonical Go-generated
@@ -26,22 +25,19 @@ Python-generated backend bindings.
 
 ## Working Decision
 
-Use explicit Go contract types plus explicit endpoint specs, then convert those
+Use explicit Go contract DTOs plus explicit endpoint specs, then convert those
 Go definitions into TypeScript in a reusable generator pipeline.
 
-The generator architecture should be fail-closed and boundary-owned:
+The generator should stay fail-closed and boundary-owned:
 
-- for each frontend-facing Go endpoint, maintain one explicit Go-owned
-  boundary declaration that names the route, method, request type, and
-  response type
-- generate TypeScript from those boundary declarations rather than from
-  handwritten TypeScript fragments
+- each frontend-facing Go endpoint should have one explicit boundary
+  declaration naming route, method, request type, and response type
+- generate TypeScript from those declarations, not from handwritten fragments
 - if a runtime type does not convert cleanly, add or reshape a dedicated Go
-  boundary DTO instead of teaching the frontend to depend on internal runtime
-  structs
-- if a type still cannot be represented by the current converter, stop and add
-  a converter rule or a dedicated boundary type; do not silently fall back to
-  `null`, empty names, or manual TS drift
+  boundary DTO instead of exposing internal runtime structs
+- if a type still cannot be represented, stop and add a converter rule or
+  boundary type; do not silently fall back to `null`, empty names, or manual
+  TypeScript drift
 
 The transition goal is not a long-lived mixed Go/Python frontend binding
 state. During the rewrite, prefer cutting over frontend imports and generated

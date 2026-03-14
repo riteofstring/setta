@@ -5,8 +5,8 @@
 The Go test surface must match or exceed the meaningful product behavior
 covered by the current Python tests.
 
-This does not require a one-for-one port of Python test files.
-Coverage can be reorganized, but it must not shrink.
+Do not do a one-for-one file port unless that is the clearest shape.
+Coverage can move. Behavioral coverage cannot shrink.
 
 ## Core Rule
 
@@ -25,7 +25,19 @@ The clean-break rule still applies:
 - do not preserve legacy implementation details just because Python does them
 - do preserve or intentionally replace tested product behavior
 
-## Testing Discipline During The Port
+## Default Port Loop
+
+For any subsystem change:
+
+1. Find the matching Python tests, existing Go tests, and current callers.
+2. Decide which behavior must stay the same and which behavior is intentionally
+   changing.
+3. Add or update the Go tests that prove the intended behavior.
+4. Implement the code change.
+5. Run the narrowest relevant suites, then widen if the change crosses
+   boundaries.
+
+## Port Discipline
 
 - The default question is "does the Go runtime preserve the intended
   behavior?", not "is this the final architecture?"
@@ -52,7 +64,7 @@ Use these when deciding what the Go tests must cover:
 - `tests/server_state`
 - relevant backend reference docs under `docs/reference/`
 
-## Coverage Model
+## Test Layers
 
 ### Unit Tests
 

@@ -2,16 +2,17 @@
 
 ## Purpose
 
-Explain the current Go dependency set in `go.mod`, why each dependency is
-present, and which ones are deliberate direct choices versus transitive baggage.
+This doc records the current Go dependency graph in this worktree: what is in
+`go.mod`, why it is there, and which modules are deliberate direct choices
+versus transitive baggage.
 
-This document is about the actual module graph in this worktree, not the older
-recommendation docs. If this file disagrees with planning notes, `go.mod` wins.
+If this file disagrees with older planning notes, trust `go.mod` and the
+current import sites.
 
 ## Dependency Preference
 
 - Prefer the Go stdlib or widely used, well-established libraries.
-- Dependency count is not a goal by itself.
+- Dependency count alone is not a goal.
 - Keep a direct dependency when it provides clear value for transport, OS
   integration, mature parsing/encoding support, or another well-bounded
   infrastructure concern.
@@ -21,7 +22,7 @@ recommendation docs. If this file disagrees with planning notes, `go.mod` wins.
   over a small Go-owned owner.
 - If an obscure library appears in this document, treat that as current-state
   documentation, not a recommendation.
-- the earlier `github.com/aquasecurity/go-pep440-version` plugin-compatibility
+- The earlier `github.com/aquasecurity/go-pep440-version` plugin-compatibility
   debt has now been removed from `go.mod`
 
 ## Snapshot Context
