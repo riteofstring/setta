@@ -18,6 +18,7 @@ import {
   getChatPlaceholderText,
   getExternalEngineIssueMessage,
   getExternalEngineStatus,
+  resolveEffectiveThinking,
 } from "components/Chat/engineUtils";
 import {
   buildLLMConfigGroups,
@@ -31,7 +32,6 @@ import {
 } from "components/Chat/sharePolicyChatAccess";
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
-import { BrailleSpinner } from "components/Utils/BrailleSpinner";
 import _ from "lodash";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -74,6 +74,7 @@ import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
 import { hasPendingToolInteraction } from "utils/claudeTools";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
+import type { ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_set_chat_section_chat_id,
   route_set_chat_section_state,
@@ -116,6 +117,7 @@ type ChatStopActionPayload = {
 type ChatActionPayload = ChatSendActionPayload | ChatStopActionPayload;
 
 type ChatSectionChatId = string | null;
+type ChatSectionStateRouteResponse = ResponseDataAndStatus<null>;
 type ChatSectionChatIdUpdate =
   | ChatSectionChatId
   | ((current: ChatSectionChatId) => ChatSectionChatId);
@@ -432,8 +434,7 @@ function ScriptableChatArea({
 
   const applyChatStateWithAck = useCallback(
     (nextState: ChatSectionState) => {
-      let sendPromise: ReturnType<typeof route_set_chat_section_state> | null =
-        null;
+      let sendPromise: Promise<ChatSectionStateRouteResponse> | null = null;
       dispatchOptimisticProjectStateUpdate({
         apply: (state) => {
           setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
@@ -537,7 +538,6 @@ function ScriptableChatArea({
         role: ChatRoleEnum.user,
         content,
         attachments,
-        createdAt: timestampMs,
       };
       const currentBranch = effectiveBranches[effectiveBranchId];
       const baseMessages = currentBranch?.messages ?? effectiveMessages;
@@ -764,7 +764,6 @@ function ScriptableChatArea({
         role: ChatRoleEnum.user,
         content,
         attachments,
-        createdAt: Date.now(),
       };
       const result = buildBranchFromEdit({
         state: effectiveState,
@@ -939,8 +938,8 @@ function ChatSectionHistoryList({
               </p>
             </div>
             {entry.waitingForResponse ? (
-              <BrailleSpinner
-                className={`single-cell-child text-[11px] ${
+              <i
+                className={`gg-spinner single-cell-child !scale-75 ${
                   entry.chatId === activeChatId
                     ? "text-white dark:text-white"
                     : "text-setta-500/70"
@@ -1238,6 +1237,10 @@ function ManagedChatArea({
   }, [effectiveEngineConfigId, engineConfigs]);
   const engineType = selectedEngineConfig?.engineType ?? null;
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
+  const effectiveThinking = resolveEffectiveThinking({
+    engineConfig: selectedEngineConfig,
+    requestedThinking: thinking,
+  });
   const historyCompatibility = useMemo<ChatHistoryCompatibility | null>(() => {
     const runType = resolveManagedChatRunType(engineType);
     if (!runType) {
@@ -1504,7 +1507,7 @@ function ManagedChatArea({
           chatId,
           message,
           attachments,
-          thinking,
+          effectiveThinking,
           effectiveEngineConfigId,
           isExternalEngine,
           {
@@ -1541,8 +1544,8 @@ function ManagedChatArea({
       permissionMode,
       searchEnabled,
       sectionId,
+      effectiveThinking,
       surfaceId,
-      thinking,
       canUseManagedChat,
     ],
   );
@@ -1585,7 +1588,7 @@ function ManagedChatArea({
         messageId,
         message: text,
         attachments,
-        thinking,
+        thinking: effectiveThinking,
         engineConfigId: effectiveEngineConfigId,
         isExternalEngine,
         agentProfileId,
@@ -1608,8 +1611,8 @@ function ManagedChatArea({
       permissionMode,
       searchEnabled,
       sectionId,
+      effectiveThinking,
       surfaceId,
-      thinking,
       canUseManagedChat,
     ],
   );
