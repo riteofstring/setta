@@ -91,3 +91,12 @@ Append-only log for autonomous frontend cleanup slices.
 - Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
 - Commit hash: `086ddb065`
 - Next highest-value unblocked slice: move from shared-state foundation into the next domain cleanup from the plans, starting with chat/project-AI boundaries that still mix UI, command flows, and store access across `components/Chat*`, `components/Panes/Overview/ProjectLevelAI/`, and related `state/actions/*`
+
+## 2026-03-12 11:57:28 PDT
+
+- What changed: Extracted the provider dictation and transcription session commands from `frontend/src/state/actions/ai.ts` into `frontend/src/state/actions/ai/transcription.ts`, moved the main section-chat and project-chat consumers onto that dedicated command module, updated the transcription tests to target the new owner directly, and extended the frontend module map so AI/chat command work now points contributors at `state/actions/ai/`. `frontend/src/state/actions/ai.ts` is now down to 3830 lines.
+- Key files touched: `frontend/src/state/actions/ai.ts`, `frontend/src/state/actions/ai/transcription.ts`, `frontend/src/state/actions/aiTranscribeChatAudio.test.ts`, `frontend/src/components/Section/Layouts/ChatArea.tsx`, `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`, `docs/reference/frontend-module-map.md`
+- Tests/verification run: `pnpm -C frontend exec vitest run src/state/actions/aiTranscribeChatAudio.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.test.tsx`; `pnpm -C frontend exec prettier --check src/state/actions/ai/transcription.ts src/state/actions/ai.ts src/state/actions/aiTranscribeChatAudio.test.ts src/components/Section/Layouts/ChatArea.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx ../docs/reference/frontend-module-map.md`; `git diff --check`
+- Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
+- Commit hash: `f5bc28bb1`
+- Next highest-value unblocked slice: extract the LLM config and managed API-key commands from `state/actions/ai.ts` into a dedicated AI config module and move the Project AI/App config surfaces onto that boundary
