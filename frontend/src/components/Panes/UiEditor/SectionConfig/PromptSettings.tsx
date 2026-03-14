@@ -263,6 +263,9 @@ export function PromptSettings({ sectionId }: PromptSettingsProps) {
         <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
           Template Text
         </p>
+        <p className="text-[11px] text-setta-500 dark:text-setta-400">
+          Template text is also editable directly in the section body.
+        </p>
         <textarea
           value={templateText}
           onChange={handleTemplateChange}
