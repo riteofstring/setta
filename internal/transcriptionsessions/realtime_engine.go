@@ -311,17 +311,17 @@ func (e *realtimeEngine) drainStartupEvents(ctx context.Context, timeout time.Du
 }
 
 func (e *realtimeEngine) drainEvents(ctx context.Context, timeout time.Duration, allowCleanClose bool) (string, error) {
-	appendAccumulator := ""
+	startFullText := e.fullText
 	deadline := time.Now().Add(timeout)
 	for {
 		remaining := time.Until(deadline)
 		if remaining <= 0 {
-			return appendAccumulator, nil
+			return appendOpenAIRealtimeTranscriptDelta(startFullText, e.fullText), nil
 		}
 		timer := time.NewTimer(remaining)
 		select {
 		case <-timer.C:
-			return appendAccumulator, nil
+			return appendOpenAIRealtimeTranscriptDelta(startFullText, e.fullText), nil
 		case <-ctx.Done():
 			if !timer.Stop() {
 				select {
@@ -342,7 +342,7 @@ func (e *realtimeEngine) drainEvents(ctx context.Context, timeout time.Duration,
 			}
 			if result.closed {
 				if allowCleanClose {
-					return appendAccumulator, nil
+					return appendOpenAIRealtimeTranscriptDelta(startFullText, e.fullText), nil
 				}
 				return "", newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
 			}
@@ -352,11 +352,9 @@ func (e *realtimeEngine) drainEvents(ctx context.Context, timeout time.Duration,
 				}
 				return "", result.err
 			}
-			appendText, err := e.handleEvent(result.payload)
-			if err != nil {
+			if _, err := e.handleEvent(result.payload); err != nil {
 				return "", err
 			}
-			appendAccumulator += appendText
 		}
 	}
 }
