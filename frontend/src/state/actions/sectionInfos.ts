@@ -22,18 +22,20 @@ import { isSectionStreamActive } from "state/aiStreamingTracker";
 import {
   NULL_PROJECT_CONFIG_ID,
   PendingOperation,
-  runWithAtomicallyPublishedProjectStores,
   useAllProjectMetadata,
   useLocalStorage,
-  useMisc,
-  useNodeInternals,
   usePendingOperations,
   useProjectState,
   useShareSession,
-  useToolArgumentPreview,
-  ZustandNodeInternalsState,
   ZustandProjectState,
 } from "state/definitions";
+import {
+  runWithAtomicallyPublishedProjectStores,
+  useNodeInternals,
+  type ZustandNodeInternalsState,
+} from "state/stores/activeSectionStores";
+import { useToolArgumentPreview } from "state/stores/aiFollowStores";
+import { useMisc } from "state/stores/ephemeralUiStores";
 import type { ResponseDataAndStatus } from "utils/endpointUtils";
 import { res200 } from "utils/endpointUtils";
 import {

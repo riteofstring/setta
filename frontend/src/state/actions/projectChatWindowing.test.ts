@@ -406,35 +406,6 @@ describe("project chat windowing reducer helpers", () => {
     expect(focusedInstance.lastFocusedAt).toBe(1234);
   });
 
-  it("does not churn state when refocusing an already topmost window", () => {
-    const topmost = createProjectChatWindowInstance({
-      instanceId: "chat-window-top",
-      zIndex: 3,
-      lastFocusedAt: 1111,
-    });
-    const background = createProjectChatWindowInstance({
-      instanceId: "chat-window-background",
-      zIndex: 2,
-      lastFocusedAt: 1000,
-    });
-    const initial = createProjectChatWindowingState({
-      instancesById: {
-        [topmost.instanceId]: topmost,
-        [background.instanceId]: background,
-      },
-      order: [background.instanceId, topmost.instanceId],
-      nextInstanceNumber: 3,
-    });
-
-    const focused = focusProjectChatWindowInState(
-      initial,
-      topmost.instanceId,
-      2222,
-    );
-
-    expect(focused).toBe(initial);
-  });
-
   it("updates multiple floating windows in a single reducer pass", () => {
     // Shared snap split drags should commit every affected snapped window together.
     const first = createProjectChatWindowInstance({

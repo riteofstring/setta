@@ -82,12 +82,10 @@ class ToolCall(BaseModel):
 class BaseChatMessage(BaseModel):
     id: str = Field(default_factory=create_new_id)
     role: Any
-    createdAt: int = 0
 
     def to_openai_format(self) -> dict[str, Any]:
         output = self.model_dump(exclude_none=True)
         output.pop("id", None)
-        output.pop("createdAt", None)
         output.pop("attachments", None)
         return output
 
