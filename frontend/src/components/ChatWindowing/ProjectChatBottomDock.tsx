@@ -3,6 +3,7 @@ import {
   canUseManagedChatLLM,
   windowSurfaceRequiresManagedChat,
 } from "components/Chat/sharePolicyChatAccess";
+import { resolveProjectChatShortcutActiveSectionId } from "components/ChatWindowing/projectChatActiveSelection";
 import {
   buildFloatingSnapBounds,
   buildFloatingSnapResizeBounds,
@@ -12,7 +13,6 @@ import {
   type FloatingSnapResizeHandle,
   type FloatingWindowBoundaryInsets,
 } from "components/ChatWindowing/projectChatSnapLayout";
-import { resolveProjectChatShortcutActiveSectionId } from "components/ChatWindowing/projectChatActiveSelection";
 import { buildWorkspaceProjectChatWindowSurfaceId } from "components/ChatWindowing/projectChatSurfaceIds";
 import {
   PROJECT_CHAT_FALLBACK_WORKSPACE_TOP_INSET_PX,
@@ -221,8 +221,9 @@ const PERSISTENT_MANAGER_TRIGGER_RESERVED_WIDTH_PX =
   MENU_MODE_TRIGGER_WIDTH_PX + PILL_GAP_PX;
 const CHAT_WINDOW_LAYER_Z_INDEX = 24;
 const TRACKED_PANE_CHAT_WINDOW_LAYER_Z_INDEX = 31;
-const CHAT_WINDOW_SNAP_PREVIEW_Z_INDEX = CHAT_WINDOW_LAYER_Z_INDEX + 1;
-const CHAT_WINDOW_TOGGLE_Z_INDEX = 34;
+const CHAT_WINDOW_CHROME_LAYER_Z_INDEX = CHAT_WINDOW_LAYER_Z_INDEX + 1;
+const CHAT_WINDOW_SNAP_PREVIEW_Z_INDEX = CHAT_WINDOW_CHROME_LAYER_Z_INDEX + 1;
+const CHAT_WINDOW_TOGGLE_Z_INDEX = CHAT_WINDOW_CHROME_LAYER_Z_INDEX + 2;
 const CHAT_WINDOW_ENTER_ANIMATION_PRIME_DELAY_MS = 16;
 const CHAT_WINDOW_ENTER_DURATION_MS = 110;
 const CHAT_WINDOW_STRIP_LAYOUT_DURATION_MS = 110;
@@ -1134,16 +1135,49 @@ function MinimizedPillStrip({
             </DropdownMenu.Portal>
           </DropdownMenu.Root>
         ) : null}
-        {pillDisplayMode !== "menu" ? (
-          visiblePills.map((pill) => {
-            const baseClass = minimizedTabBaseClassName;
-            if (useCompactPills) {
+        {pillDisplayMode !== "menu"
+          ? visiblePills.map((pill) => {
+              const baseClass = minimizedTabBaseClassName;
+              if (useCompactPills) {
+                const pillExitAnimation =
+                  pillExitAnimationsById[pill.instanceId];
+                return (
+                  <button
+                    key={pill.instanceId}
+                    type="button"
+                    className={`${baseClass} w-7 ${pill.isClosed ? "opacity-65" : ""} ${
+                      pillExitAnimation
+                        ? "pointer-events-none translate-y-2 scale-[0.94] opacity-0 transition-[transform,opacity] duration-[72ms] ease-[cubic-bezier(0.32,0,0.15,1)] motion-reduce:transition-none"
+                        : ""
+                    }`}
+                    onClick={() => {
+                      onOpenWindow(pill.instanceId, "pill");
+                    }}
+                    ref={setStripItemNode(`pill:${pill.instanceId}`)}
+                    title={pill.title}
+                    aria-label={pill.title}
+                    data-testid="project-chat-bottom-dock-pill"
+                    data-chat-window-instance-id={pill.instanceId}
+                    data-chat-window-pill-exit-animation={
+                      pillExitAnimationsById[pill.instanceId] ?? undefined
+                    }
+                  >
+                    <ProjectChatWindowIcon
+                      mode={pill.mode}
+                      instanceId={pill.instanceId}
+                      sectionId={pill.sectionId}
+                      className="inline-flex items-center justify-center text-setta-600 dark:text-setta-300"
+                      dataTestId="project-chat-bottom-dock-pill-icon"
+                    />
+                  </button>
+                );
+              }
               const pillExitAnimation = pillExitAnimationsById[pill.instanceId];
               return (
                 <button
                   key={pill.instanceId}
                   type="button"
-                  className={`${baseClass} w-7 ${pill.isClosed ? "opacity-65" : ""} ${
+                  className={`${baseClass} min-w-0 gap-1 px-2 ${pill.isClosed ? "opacity-65" : ""} ${
                     pillExitAnimation
                       ? "pointer-events-none translate-y-2 scale-[0.94] opacity-0 transition-[transform,opacity] duration-[72ms] ease-[cubic-bezier(0.32,0,0.15,1)] motion-reduce:transition-none"
                       : ""
@@ -1153,7 +1187,6 @@ function MinimizedPillStrip({
                   }}
                   ref={setStripItemNode(`pill:${pill.instanceId}`)}
                   title={pill.title}
-                  aria-label={pill.title}
                   data-testid="project-chat-bottom-dock-pill"
                   data-chat-window-instance-id={pill.instanceId}
                   data-chat-window-pill-exit-animation={
@@ -1164,45 +1197,14 @@ function MinimizedPillStrip({
                     mode={pill.mode}
                     instanceId={pill.instanceId}
                     sectionId={pill.sectionId}
-                    className="inline-flex items-center justify-center text-setta-600 dark:text-setta-300"
+                    className="inline-flex shrink-0 items-center justify-center text-setta-600 dark:text-setta-300"
                     dataTestId="project-chat-bottom-dock-pill-icon"
                   />
+                  <span className="max-w-[9.5rem] truncate">{pill.title}</span>
                 </button>
               );
-            }
-            const pillExitAnimation = pillExitAnimationsById[pill.instanceId];
-            return (
-              <button
-                key={pill.instanceId}
-                type="button"
-                className={`${baseClass} min-w-0 gap-1 px-2 ${pill.isClosed ? "opacity-65" : ""} ${
-                  pillExitAnimation
-                    ? "pointer-events-none translate-y-2 scale-[0.94] opacity-0 transition-[transform,opacity] duration-[72ms] ease-[cubic-bezier(0.32,0,0.15,1)] motion-reduce:transition-none"
-                    : ""
-                }`}
-                onClick={() => {
-                  onOpenWindow(pill.instanceId, "pill");
-                }}
-                ref={setStripItemNode(`pill:${pill.instanceId}`)}
-                title={pill.title}
-                data-testid="project-chat-bottom-dock-pill"
-                data-chat-window-instance-id={pill.instanceId}
-                data-chat-window-pill-exit-animation={
-                  pillExitAnimationsById[pill.instanceId] ?? undefined
-                }
-              >
-                <ProjectChatWindowIcon
-                  mode={pill.mode}
-                  instanceId={pill.instanceId}
-                  sectionId={pill.sectionId}
-                  className="inline-flex shrink-0 items-center justify-center text-setta-600 dark:text-setta-300"
-                  dataTestId="project-chat-bottom-dock-pill-icon"
-                />
-                <span className="max-w-[9.5rem] truncate">{pill.title}</span>
-              </button>
-            );
-          })
-        ) : null}
+            })
+          : null}
       </div>
       {pillDisplayMode === "cycle" ? (
         <button
@@ -3748,7 +3750,7 @@ export function ProjectChatBottomDock() {
         <div
           className="pointer-events-none fixed"
           style={{
-            zIndex: CHAT_WINDOW_LAYER_Z_INDEX,
+            zIndex: CHAT_WINDOW_CHROME_LAYER_Z_INDEX,
             left: SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX,
             right: dockSurfaceRightPx,
             bottom: dockBottomOffsetPx,
@@ -3855,9 +3857,11 @@ export function ProjectChatBottomDock() {
                                       className={`${SECTION_WINDOW_ACTION_BUTTON_CLASS} disabled:cursor-not-allowed disabled:opacity-35`}
                                       onClick={handleCycleDockWindowsBackward}
                                       disabled={!canCycleDockBackward}
-                                      aria-label={getWindowControlQuickInfoText({
-                                        action: "show_previous_docked_chat",
-                                      })}
+                                      aria-label={getWindowControlQuickInfoText(
+                                        {
+                                          action: "show_previous_docked_chat",
+                                        },
+                                      )}
                                       data-testid="project-chat-window-cycle-left"
                                       data-chat-window-instance-id={
                                         pill.instanceId
@@ -3873,9 +3877,11 @@ export function ProjectChatBottomDock() {
                                       className={`${SECTION_WINDOW_ACTION_BUTTON_CLASS} disabled:cursor-not-allowed disabled:opacity-35`}
                                       onClick={handleCycleDockWindowsForward}
                                       disabled={!canCycleDockForward}
-                                      aria-label={getWindowControlQuickInfoText({
-                                        action: "show_next_docked_chat",
-                                      })}
+                                      aria-label={getWindowControlQuickInfoText(
+                                        {
+                                          action: "show_next_docked_chat",
+                                        },
+                                      )}
                                       data-testid="project-chat-window-cycle-right"
                                       data-chat-window-instance-id={
                                         pill.instanceId
@@ -4276,7 +4282,7 @@ export function ProjectChatBottomDock() {
       {isCanvasVisibilitySuppressed ? null : (
         <div
           className="pointer-events-none fixed inset-0"
-          style={{ zIndex: CHAT_WINDOW_LAYER_Z_INDEX }}
+          style={{ zIndex: CHAT_WINDOW_CHROME_LAYER_Z_INDEX }}
         >
           {openFloatingPills.map((pill) => {
             const bounds = floatingBoundsById[pill.instanceId] ?? pill.bounds;
@@ -4893,7 +4899,7 @@ export function ProjectChatBottomDock() {
         <div
           className="pointer-events-none fixed"
           style={{
-            zIndex: CHAT_WINDOW_LAYER_Z_INDEX,
+            zIndex: CHAT_WINDOW_CHROME_LAYER_Z_INDEX,
             left: SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX,
             right: dockSurfaceRightPx,
             bottom: dockBottomOffsetPx,
@@ -4929,7 +4935,7 @@ export function ProjectChatBottomDock() {
       <nav
         className="pointer-events-none fixed"
         style={{
-          zIndex: CHAT_WINDOW_LAYER_Z_INDEX,
+          zIndex: CHAT_WINDOW_CHROME_LAYER_Z_INDEX,
           right: dockSurfaceRightPx,
           width: dockSurfaceWidthCss,
           bottom: dockBottomOffsetPx + DOCK_BAR_FLOAT_BOTTOM_OFFSET_PX,
@@ -4953,11 +4959,9 @@ export function ProjectChatBottomDock() {
           onClick={() => {
             setIsCanvasVisibilitySuppressed((current) => !current);
           }}
-          aria-label={
-            getWindowControlQuickInfoText({
-              action: isCanvasVisibilitySuppressed ? "show_chats" : "show_canvas",
-            })
-          }
+          aria-label={getWindowControlQuickInfoText({
+            action: isCanvasVisibilitySuppressed ? "show_chats" : "show_canvas",
+          })}
           aria-pressed={isCanvasVisibilitySuppressed}
           data-testid="project-chat-canvas-visibility-toggle"
           title={getWindowControlQuickInfoText({

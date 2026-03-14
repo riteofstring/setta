@@ -1,13 +1,37 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { ensureAppReady, seedLocalStorage } from "../helpers";
 import {
   getWorkspaceRootOrThrow,
   initializeDisposableGitRepo,
+  openGitOverview,
   runGit,
   toRepoRelativePath,
 } from "./helpers/gitOverlayFixture";
+
+async function openGitGraph(page: Page) {
+  await openGitOverview(page);
+
+  let graphFilter = page
+    .getByTestId("git-graph-overlay")
+    .getByPlaceholder(/Filter commits/)
+    .first();
+  if ((await graphFilter.count()) === 0) {
+    await page
+      .getByTestId("overview-tab-content-shell")
+      .getByRole("button", { name: "Graph" })
+      .click();
+    graphFilter = page
+      .getByTestId("git-graph-overlay")
+      .getByPlaceholder(/Filter commits/)
+      .first();
+  }
+  await expect(graphFilter).toBeVisible();
+  return {
+    graphFilter,
+    graphOverlay: graphFilter.locator("xpath=ancestor::section[1]"),
+  };
+}
 
 test("git graph keeps lanes aligned across join boundaries", async ({
   page,
@@ -91,15 +115,7 @@ test("git graph keeps lanes aligned across join boundaries", async ({
       commitEnv("2000-01-01T00:04:00Z"),
     );
 
-    await seedLocalStorage(page, { overviewTab: "Git", overviewVis: true });
-    await ensureAppReady(page);
-
-    await expect(page.getByRole("heading", { name: "Git" })).toBeVisible();
-
-    await page.getByRole("button", { name: "Graph" }).click();
-    const graphFilter = page.getByPlaceholder(/Filter commits/);
-    await expect(graphFilter).toBeVisible();
-    const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
+    const { graphFilter, graphOverlay } = await openGitGraph(page);
     const showAllRefsButton = graphOverlay.getByRole("button", {
       name: "Show all refs",
     });
@@ -243,15 +259,7 @@ test("git graph assigns distinct colors to more than 8 lanes", async ({
       commitEnv("2000-01-01T00:10:00Z"),
     );
 
-    await seedLocalStorage(page, { overviewTab: "Git", overviewVis: true });
-    await ensureAppReady(page);
-
-    await expect(page.getByRole("heading", { name: "Git" })).toBeVisible();
-
-    await page.getByRole("button", { name: "Graph" }).click();
-    const graphFilter = page.getByPlaceholder(/Filter commits/);
-    await expect(graphFilter).toBeVisible();
-    const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
+    const { graphFilter, graphOverlay } = await openGitGraph(page);
 
     await graphFilter.fill("graph-color M");
     const mergeRow = graphOverlay.getByRole("button", {
@@ -432,16 +440,7 @@ test("git graph keeps merge-to lanes continuous when the branch continues above 
       commitEnv("2000-01-01T00:03:00Z"),
     );
 
-    await seedLocalStorage(page, { overviewTab: "Git", overviewVis: true });
-    await ensureAppReady(page);
-
-    await expect(page.getByRole("heading", { name: "Git" })).toBeVisible();
-
-    await page.getByRole("button", { name: "Graph" }).click();
-    const graphFilter = page.getByPlaceholder(/Filter commits/);
-    await expect(graphFilter).toBeVisible();
-
-    const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
+    const { graphFilter, graphOverlay } = await openGitGraph(page);
     const showAllRefsButton = graphOverlay.getByRole("button", {
       name: "Show all refs",
     });

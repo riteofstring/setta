@@ -119,13 +119,14 @@ def _build_system_prompt(runner: AgentRunner, project_config_id: ID) -> str:
 
 def _build_permissive_agentic_scope() -> AgenticScope:
     # Tool payload tests aren't validating agentic scope filtering; provide a
-    # permissive scope so structural/read/write tools are all available.
+    # permissive scope so structural/read/write/peer-chat tools are all
+    # available.
     allowed = ID("scope-section")
     return AgenticScope(
         read_section_ids={allowed},
         write_section_ids={allowed},
         context_section_ids=set(),
-        peer_chat_section_ids=set(),
+        peer_chat_section_ids={allowed},
         structural_allowed=True,
     )
 

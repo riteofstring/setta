@@ -73,8 +73,9 @@ const HOME_INSET_PANE_CONTENT_CLASS =
   "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden px-2";
 const HOME_COMPACT_LAYOUT_BREAKPOINT_PX = 1100;
 export const HOME_SIDE_RAIL_CLASS_NAME = `${APP_CHROME_Z_INDEX_CLASS_NAME} fixed flex w-10 flex-col items-center gap-1 bg-setta-50 py-2 dark:bg-setta-900`;
-export const HOME_RIGHT_PANE_TITLE_CLASS_NAME =
-  withRightPaneTitleClearance(HOME_PANE_TITLE_CLASS);
+export const HOME_RIGHT_PANE_TITLE_CLASS_NAME = withRightPaneTitleClearance(
+  HOME_PANE_TITLE_CLASS,
+);
 
 export function shouldUseCompactHomeLayout(
   winWidth: number | undefined,

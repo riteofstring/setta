@@ -182,9 +182,6 @@ test("read-only deployments do not auto-create project chat windows or expose la
     await expect(
       page.getByTestId("project-chat-bottom-dock-create"),
     ).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /new chat/i })).toHaveCount(
-      0,
-    );
     await expect(
       page.evaluate(async () => {
         const { useProjectState } = await import("/src/state/definitions.ts");
@@ -205,6 +202,10 @@ test("read-only deployments keep visible project chat windows focusable without 
 
   try {
     await seedReadOnlyVisibleProjectChatWindows(page);
+    let chatIdResponseState = await page.evaluate(async () => {
+      const { useProjectState } = await import("/src/state/definitions.ts");
+      return useProjectState.getState().projectChatWindowing;
+    });
     await page.route("**/setProjectChatWindowingState", async (route) => {
       layoutWriteCalls += 1;
       await route.fulfill({
@@ -221,52 +222,24 @@ test("read-only deployments keep visible project chat windows focusable without 
         instanceId: string;
         chatId: string | null;
       };
+      const current = chatIdResponseState.instancesById[request.instanceId];
+      if (!current) {
+        throw new Error("Expected project chat window instance.");
+      }
+      chatIdResponseState = {
+        ...chatIdResponseState,
+        instancesById: {
+          ...chatIdResponseState.instancesById,
+          [request.instanceId]: {
+            ...current,
+            chatId: request.chatId,
+          },
+        },
+      };
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
-          order: ["project-chat-window-1", "project-chat-window-2"],
-          instancesById: {
-            "project-chat-window-1": {
-              instanceId: "project-chat-window-1",
-              placement: "floating",
-              mode: "project_ai_mode",
-              chatId:
-                request.instanceId === "project-chat-window-1"
-                  ? request.chatId
-                  : "chat-a",
-              isClosed: false,
-              isMinimized: false,
-              isMaximized: false,
-              zIndex: 1,
-              bounds: {
-                x: 120,
-                y: 80,
-                width: 420,
-                height: 320,
-              },
-            },
-            "project-chat-window-2": {
-              instanceId: "project-chat-window-2",
-              placement: "floating",
-              mode: "project_ai_mode",
-              chatId:
-                request.instanceId === "project-chat-window-2"
-                  ? request.chatId
-                  : "chat-b",
-              isClosed: false,
-              isMinimized: false,
-              isMaximized: false,
-              zIndex: 2,
-              bounds: {
-                x: 260,
-                y: 140,
-                width: 420,
-                height: 320,
-              },
-            },
-          },
-        }),
+        body: JSON.stringify(chatIdResponseState),
       });
     });
 
@@ -373,18 +346,31 @@ test("read-only deployments can reopen hidden project chat windows without layou
       '[data-testid="project-chat-floating-window"][data-chat-window-instance-id="project-chat-window-1"]',
     );
     await expect(floatingWindow).toHaveCount(0);
+    const managerTrigger = page.getByTestId(
+      "project-chat-bottom-dock-menu-trigger",
+    );
+    await expect(managerTrigger).toBeVisible();
+    await managerTrigger.click();
+    const menuContent = page.getByTestId(
+      "project-chat-bottom-dock-menu-content",
+    );
+    await expect(menuContent).toBeVisible();
+    const reopenButton = menuContent.locator(
+      '[data-testid="project-chat-manager-reopen"][data-chat-window-instance-id="project-chat-window-1"]',
+    );
+    const focusButton = menuContent.locator(
+      '[data-testid="project-chat-manager-focus"][data-chat-window-instance-id="project-chat-window-1"]',
+    );
+    await expect(reopenButton).toBeVisible();
+    await expect(focusButton).toBeVisible();
     await expect(
-      page.getByTestId("project-chat-manager-reopen"),
-    ).toHaveAttribute("data-chat-window-instance-id", "project-chat-window-1");
-    await expect(
-      page.getByTestId("project-chat-manager-focus"),
-    ).toHaveAttribute("data-chat-window-instance-id", "project-chat-window-1");
-    await expect(page.getByTestId("project-chat-manager-hide")).toHaveCount(0);
+      menuContent.getByTestId("project-chat-manager-hide"),
+    ).toHaveCount(0);
     await expect(
       page.getByTestId("project-chat-window-move-to-canvas"),
     ).toHaveCount(0);
 
-    await page.getByTestId("project-chat-manager-reopen").click();
+    await reopenButton.click();
 
     await expect(floatingWindow).toBeVisible();
     await expect

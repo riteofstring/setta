@@ -22,10 +22,7 @@ import {
 import { createProjectConfig, createSettingsState } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { syncStoreInitialState } from "../paneTestUtils";
-import {
-  Overview,
-  OVERVIEW_MORE_MENU_CONTENT_CLASS_NAME,
-} from "./Overview";
+import { Overview, OVERVIEW_MORE_MENU_CONTENT_CLASS_NAME } from "./Overview";
 
 vi.mock("components/Pages/Project/ViewModeDnd", () => ({
   ViewModeSortableProvider: ({ children }: { children: unknown }) => children,
@@ -392,7 +389,7 @@ describe("Overview rail offsets", () => {
     );
   });
 
-  it("falls back to Overview when a removed project ai settings tab is selected", () => {
+  it("renders project ai settings when that tab is selected", () => {
     useLocalStorage.setState({
       overviewTab: "ProjectAISettings" as never,
     });
@@ -404,7 +401,7 @@ describe("Overview rail offsets", () => {
       </MemoryRouter>,
     );
 
-    expect(markup).toContain(">Overview<");
+    expect(markup).toContain('data-testid="project-ai-settings-scroll-region"');
     expect(markup).not.toContain('data-testid="project-chat-content"');
   });
 
