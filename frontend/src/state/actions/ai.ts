@@ -2202,8 +2202,6 @@ export type ChatHydrationOutcome = {
   errorCode: ChatHydrationErrorCode | null;
 };
 
-type ProjectChatHydrationRunType = "llm_chat" | "external_agent";
-
 function parseChatHydrationErrorCode(
   value: string | null,
 ): ChatHydrationErrorCode | null {
@@ -2539,66 +2537,6 @@ export async function getExternalAgentChat(
     sectionId,
   );
   return outcome.outcome === "success";
-}
-
-export async function getProjectChatHydrationOutcomeWithFallback(
-  chatId: string,
-  projectConfigId: string,
-  preferredRunType: ProjectChatHydrationRunType | null,
-  sectionId?: string,
-): Promise<ChatHydrationOutcome> {
-  const [llmProbe, externalProbe] = await Promise.all([
-    probeLLMChatHydration(chatId, projectConfigId),
-    probeExternalAgentChatHydration(chatId, projectConfigId),
-  ]);
-
-  if (llmProbe.outcome === "success" && externalProbe.outcome === "success") {
-    return {
-      outcome: "terminal_failure",
-      status: 409,
-      errorCode: "chat_runtime_ambiguous",
-    };
-  }
-  if (llmProbe.outcome === "success") {
-    applyLLMChatHydrationSuccess({
-      chatId,
-      sectionId,
-      projectConfigId,
-      payload: llmProbe.payload,
-    });
-    return {
-      outcome: "success",
-      status: llmProbe.status,
-      errorCode: null,
-    };
-  }
-  if (externalProbe.outcome === "success") {
-    applyExternalChatHydrationSuccess({
-      chatId,
-      projectConfigId,
-      sectionId,
-      payload: externalProbe.payload,
-    });
-    return {
-      outcome: "success",
-      status: externalProbe.status,
-      errorCode: null,
-    };
-  }
-
-  const orderedOutcomes =
-    preferredRunType === "external_agent"
-      ? [externalProbe, llmProbe]
-      : [llmProbe, externalProbe];
-  const prioritizedOutcome = orderedOutcomes.find(
-    (outcome) => outcome.errorCode !== "chat_not_found",
-  );
-  const resolvedOutcome = prioritizedOutcome ?? orderedOutcomes[0];
-  return {
-    outcome: resolvedOutcome.outcome,
-    status: resolvedOutcome.status,
-    errorCode: resolvedOutcome.errorCode,
-  };
 }
 
 export async function submitMessage(

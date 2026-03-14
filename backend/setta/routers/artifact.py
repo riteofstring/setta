@@ -87,7 +87,6 @@ class GetFolderContentsRequest(BaseModel):
     allowOutsideWorkspaceRoot: bool = False
     includeMtime: bool = False
     includeSize: bool = False
-    includeHidden: bool = False
     includeSettaInitialized: bool = False
     ignorePatterns: list[str] | None = None
     maxEntries: int | None = Field(default=None, gt=0)

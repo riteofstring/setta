@@ -997,6 +997,40 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(activeMatchContainer).toContain("bg-amber-300/90");
   });
 
+  it("skips fenced and inline code when rendering conversation search highlights", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "search-markdown",
+        role: ChatRoleEnum.assistant,
+        createdAt: 1,
+        content: [
+          createMessageTextContent({
+            text: "Visible alpha\n\n```ts\nalpha in code\n```\n`alpha inline`\nalpha outside",
+          }),
+        ],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList
+        messages={messages}
+        waitingForResponse={false}
+        toolCallArguments={{}}
+        conversationSearchTerms={["alpha"]}
+        activeSearchMessageId="search-markdown"
+      />,
+    );
+
+    expect(countOccurrences(markup, 'data-chat-search-highlight="true"')).toBe(
+      2,
+    );
+    expect(markup).toContain(">alpha</mark>");
+    expect(markup).not.toContain(">alpha in code</mark>");
+    expect(markup).not.toContain(">alpha inline</mark>");
+  });
+
   it("keeps user markdown content on a wrapping width contract in narrow bubbles", () => {
     const messages: BaseChatMessageUnion[] = [
       {

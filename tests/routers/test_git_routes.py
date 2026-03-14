@@ -638,6 +638,56 @@ class TestGitRoutes:
         assert status_res.worktrees[1].headCommit == "def456"
         assert status_res.worktrees[1].isPrunable is True
 
+    async def test_status_route_keeps_primary_status_when_worktree_listing_fails(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fake_run_git(
+            args: list[str],
+            *,
+            cwd: Path,
+            timeout_s: float,
+            max_stdout_bytes: int,
+            max_stderr_bytes: int = 64_000,
+        ) -> GitCommandOutput:
+            assert cwd.resolve(strict=False) == self._workspace_root.resolve(
+                strict=False
+            )
+            if args and args[0] == "status":
+                return GitCommandOutput(
+                    returncode=0,
+                    stdout=(
+                        "# branch.oid abc123\0"
+                        "# branch.head main\0"
+                        "1 .M N... 100644 100644 100644 a b tracked.txt\0"
+                    ),
+                    stderr="",
+                    stdout_truncated=False,
+                    stderr_truncated=False,
+                    timed_out=False,
+                )
+            if args[:4] == ["worktree", "list", "--porcelain", "-z"]:
+                return GitCommandOutput(
+                    returncode=1,
+                    stdout="",
+                    stderr="worktree failed",
+                    stdout_truncated=False,
+                    stderr_truncated=False,
+                    timed_out=False,
+                )
+            raise AssertionError(f"unexpected git command: {args}")
+
+        monkeypatch.setattr(git_router, "run_git", fake_run_git)
+        state = await self._build_state()
+
+        with runtime_context(state) as ctx:
+            status_res = route_get_git_status(ctx)
+
+        assert status_res.repo.headBranch == "main"
+        assert status_res.repo.headCommit == "abc123"
+        assert [entry.path for entry in status_res.entries] == ["tracked.txt"]
+        assert status_res.worktrees == []
+        assert status_res.isTruncated is False
+
     async def test_log_rejects_option_like_revision(self) -> None:
         state = await self._build_state()
 

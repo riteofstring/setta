@@ -201,16 +201,17 @@ describe("local storage merge", () => {
     const merged = merge(
       {
         projectChatDraftMessageByProjectConfigId: {
-          "project-a": "  Keep this draft  ",
+          "project-a": "  Keep this draft  \n",
           "project-b": ["invalid"],
           " ": "ignored",
+          "project-c": "",
         },
       } as Record<string, unknown>,
       current,
     ) as typeof current;
 
     expect(merged.projectChatDraftMessageByProjectConfigId).toEqual({
-      "project-a": "Keep this draft",
+      "project-a": "  Keep this draft  \n",
     });
   });
 

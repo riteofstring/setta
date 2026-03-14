@@ -867,7 +867,7 @@ test("project ai preserves unsent draft text across reloads", async ({
 
   const overviewPane = await getVisibleProjectChatSurface(page);
   const composerInput = overviewPane.getByPlaceholder("Type a message...");
-  const draftText = "keep this unsent draft after reload";
+  const draftText = "  keep this unsent draft after reload  \n";
   await composerInput.fill(draftText);
   await expect(composerInput).toHaveValue(draftText);
 
@@ -880,6 +880,162 @@ test("project ai preserves unsent draft text across reloads", async ({
   await expect(
     reloadedOverviewPane.getByPlaceholder("Type a message..."),
   ).toHaveValue(draftText);
+});
+
+test("project ai conversation search dedupes duplicate terms and ignores code-only matches", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 920 });
+  await seedProjectAIChatOverviewState(page, {
+    width: 1040,
+    viewThreads: true,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+  const backendOrigin =
+    process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+  const engineConfigsResponse = await page.request.get(
+    `${backendOrigin}/api/getEngineConfigs`,
+  );
+  expect(engineConfigsResponse.ok()).toBe(true);
+  const engineConfigs = (await engineConfigsResponse.json()) as Array<{
+    id: string;
+    engineType: string;
+  }>;
+  const primaryConfig =
+    engineConfigs.find((config) => config.engineType === "setta_llm") ??
+    engineConfigs[0];
+  if (!primaryConfig) {
+    throw new Error("Expected at least one engine config for search test.");
+  }
+
+  try {
+    await page.route("**/api/getAgentRuns", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            id: "run-search-thread",
+            profileId: null,
+            status: "completed",
+            startedAt: "2026-01-12T00:00:00Z",
+            finishedAt: "2026-01-12T00:00:02Z",
+            events: [],
+            inputs: {
+              runType: "llm_chat",
+              projectConfigId: projectContext.projectConfigId,
+              chatId: "chat-search-thread",
+              engineConfigId: primaryConfig.id,
+              messages: [
+                {
+                  id: "search-thread-user",
+                  role: "user",
+                  content: [
+                    {
+                      type: "text",
+                      text: "Kickoff request",
+                    },
+                  ],
+                  attachments: [],
+                },
+              ],
+            },
+            outputs: {
+              name: "Search thread",
+              nameSource: "llm",
+            },
+            toolCalls: [],
+            cost: null,
+          },
+        ]),
+      });
+    });
+    await page.route("**/api/getLLMChat", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          messages: [
+            {
+              id: "search-thread-user",
+              role: "user",
+              content: [{ type: "text", text: "Kickoff request" }],
+              attachments: [],
+            },
+            {
+              id: "search-thread-assistant",
+              role: "assistant",
+              content: [
+                {
+                  type: "text",
+                  text: "Visible queue reply queue follow up\n\n```txt\nqueue hidden in code\n```",
+                },
+              ],
+              attachments: [],
+            },
+          ],
+          waitingForResponse: false,
+          llmConfig: null,
+        }),
+      });
+    });
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    const overviewPane = await getVisibleProjectChatSurface(page);
+    const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
+    const searchThreadEntry = threadsPanel
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "Search thread" })
+      .first();
+    await expect(searchThreadEntry).toBeVisible();
+    await clickDom(searchThreadEntry);
+
+    const conversationFilterInput = overviewPane.getByTestId(
+      "project-chat-conversation-filter-input",
+    );
+    await conversationFilterInput.fill("queue queue");
+    await expect(
+      overviewPane.getByTestId("project-chat-conversation-filter"),
+    ).toContainText("1/2");
+
+    const activeSearchMatch = overviewPane.locator(
+      '[data-chat-search-active-match="true"]',
+    );
+    await expect(activeSearchMatch).toContainText(
+      "Visible queue reply queue follow up",
+    );
+    await expect
+      .poll(async () => {
+        return await activeSearchMatch.evaluate((element) => {
+          return element.querySelectorAll(
+            'mark[data-chat-search-highlight="true"]',
+          ).length;
+        });
+      })
+      .toBe(2);
+
+    await conversationFilterInput.press("Enter");
+    await expect(
+      overviewPane.getByTestId("project-chat-conversation-filter"),
+    ).toContainText("2/2");
+    await expect
+      .poll(async () => {
+        return await activeSearchMatch.evaluate((element) => {
+          const marks = Array.from(
+            element.querySelectorAll('mark[data-chat-search-highlight="true"]'),
+          );
+          return marks.findIndex((mark) =>
+            mark.hasAttribute("data-chat-search-highlight-target"),
+          );
+        });
+      })
+      .toBe(1);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
 });
 
 test("project ai ignores legacy viewHistory in persisted ai store", async ({

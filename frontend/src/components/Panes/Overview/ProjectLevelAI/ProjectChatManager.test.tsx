@@ -180,19 +180,4 @@ describe("ProjectChatManager", () => {
     );
     expect(markup).toContain('data-testid="project-chat-manager-focus"');
   });
-
-  it("supports an overview-pane presentation that points users to the dock-first workflow", () => {
-    const markup = renderToStaticMarkup(
-      <ProjectChatManager variant="overview" />,
-    );
-
-    expect(markup).toContain(
-      "Use the bottom dock to create, reopen, and arrange chat windows.",
-    );
-    expect(markup).toContain(
-      "The list below mirrors the dock menu for quick scanning and recovery.",
-    );
-    expect(markup).not.toContain("New chat");
-    expect(markup).toContain('data-testid="project-chat-manager-focus"');
-  });
 });

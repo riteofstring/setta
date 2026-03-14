@@ -172,4 +172,112 @@ describe("chatMergeUtils", () => {
       }),
     ]);
   });
+
+  it("prefers longer backend assistant text while preserving waiting-thread overlays", () => {
+    const reconciled = reconcileHydratedChatMessages({
+      backendMessages: [
+        {
+          id: "assistant-streaming",
+          role: ChatRoleEnum.assistant,
+          content: [createMessageTextContent({ text: "Hello world" })],
+          attachments: [],
+          tool_calls: null,
+        },
+      ],
+      localMessages: [
+        {
+          id: "assistant-streaming",
+          role: ChatRoleEnum.assistant,
+          content: [createMessageTextContent({ text: "Hel" })],
+          attachments: [],
+          tool_calls: null,
+        },
+      ],
+      preserveLocalOnlyMessages: true,
+    });
+
+    expect(reconciled[0]?.content).toEqual([
+      createMessageTextContent({ text: "Hello world" }),
+    ]);
+  });
+
+  it("prefers longer backend thinking text while preserving backend metadata", () => {
+    const reconciled = reconcileHydratedChatMessages({
+      backendMessages: [
+        {
+          id: "assistant-thinking",
+          role: ChatRoleEnum.assistant,
+          content: [
+            createMessageThinkingContent({
+              thinking: "Longer backend thought",
+              summary: "backend-summary",
+              signature: "backend-signature",
+            }),
+          ],
+          attachments: [],
+          tool_calls: null,
+        },
+      ],
+      localMessages: [
+        {
+          id: "assistant-thinking",
+          role: ChatRoleEnum.assistant,
+          content: [
+            createMessageThinkingContent({
+              thinking: "Short",
+              summary: "",
+              signature: "",
+            }),
+          ],
+          attachments: [],
+          tool_calls: null,
+        },
+      ],
+      preserveLocalOnlyMessages: true,
+    });
+
+    expect(reconciled[0]?.content).toEqual([
+      createMessageThinkingContent({
+        thinking: "Longer backend thought",
+        summary: "backend-summary",
+        signature: "backend-signature",
+      }),
+    ]);
+  });
+
+  it("keeps the backend assistant block structure when local streaming content has a different shape", () => {
+    const reconciled = reconcileHydratedChatMessages({
+      backendMessages: [
+        {
+          id: "assistant-mixed",
+          role: ChatRoleEnum.assistant,
+          content: [
+            createMessageThinkingContent({
+              thinking: "Server thought",
+            }),
+            createMessageTextContent({ text: "Server answer" }),
+          ],
+          attachments: [],
+          tool_calls: null,
+        },
+      ],
+      localMessages: [
+        {
+          id: "assistant-mixed",
+          role: ChatRoleEnum.assistant,
+          content: [createMessageTextContent({ text: "Local tail" })],
+          attachments: [],
+          tool_calls: null,
+        },
+      ],
+      preserveLocalOnlyMessages: true,
+    });
+
+    expect(reconciled[0]?.content).toEqual([
+      createMessageThinkingContent({
+        thinking: "Server thought",
+      }),
+      createMessageTextContent({ text: "Server answer" }),
+    ]);
+  });
 });

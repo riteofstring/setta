@@ -551,7 +551,7 @@ class TestFileBrowserRoutes:
         assert ".venv" not in names
         assert "node_modules" not in names
 
-    async def test_get_folder_contents_include_hidden_and_ignore_override(self) -> None:
+    async def test_get_folder_contents_ignore_override_exposes_non_ignored_entries(self) -> None:
         state = await self._build_state()
         with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:
             root_path = Path(tmpdir)
@@ -561,7 +561,6 @@ class TestFileBrowserRoutes:
                 items = route_get_folder_contents(
                     GetFolderContentsRequest(
                         folderPath=str(root_path),
-                        includeHidden=True,
                         ignorePatterns=[],
                         includeMtime=True,
                         includeSize=True,

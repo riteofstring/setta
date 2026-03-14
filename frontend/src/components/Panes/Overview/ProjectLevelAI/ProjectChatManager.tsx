@@ -29,7 +29,7 @@ type ChatWindowManagerRow = {
 };
 
 type ProjectChatManagerProps = {
-  variant?: "pane" | "menu" | "overview";
+  variant?: "pane" | "menu";
   showCreateButton?: boolean;
   onAfterAction?: () => void;
 };
@@ -66,7 +66,6 @@ export function ProjectChatManager({
     _.isEqual,
   );
   const isMenuVariant = variant === "menu";
-  const isOverviewVariant = variant === "overview";
 
   const rows = _.compact(
     order.map((instanceId): ChatWindowManagerRow | null => {
@@ -104,16 +103,6 @@ export function ProjectChatManager({
             Focus, reopen, and move chat windows from the dock.
           </p>
         </div>
-      ) : isOverviewVariant ? (
-        <div className="px-1 py-1">
-          <p className="text-xs text-setta-500 dark:text-setta-400">
-            Use the bottom dock to create, reopen, and arrange chat windows.
-          </p>
-          <p className="pt-1 text-[11px] text-setta-500 dark:text-setta-400">
-            The list below mirrors the dock menu for quick scanning and
-            recovery.
-          </p>
-        </div>
       ) : (
         <div className="flex items-center justify-between px-1 py-1">
           <p className="text-xs text-setta-500 dark:text-setta-400">
@@ -149,9 +138,7 @@ export function ProjectChatManager({
         >
           {isMenuVariant
             ? "No chat windows yet. Use + in the dock to create one."
-            : isOverviewVariant
-              ? "No chat windows yet. Use + in the bottom dock to create one."
-              : "No chat windows yet."}
+            : "No chat windows yet."}
         </div>
       ) : (
         <ul

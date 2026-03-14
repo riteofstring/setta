@@ -171,13 +171,12 @@ export function resolveProjectChatHydrationAuthority({
     };
   }
   if (compatibility.status === "warning") {
-    const fallbackHydrationRunType =
-      selectedScopedChatProvenance.status === "ready"
-        ? selectedScopedChatProvenance.provenance.runType
-        : resolveProjectChatRunTypeForEngine(engineType);
     return {
       status: "ready",
-      hydrationRunType: fallbackHydrationRunType,
+      hydrationRunType:
+        selectedScopedChatProvenance.status === "ready"
+          ? selectedScopedChatProvenance.provenance.runType
+          : null,
       blockedErrorCode: compatibility.errorCode,
     };
   }

@@ -23,14 +23,10 @@ vi.mock("state/actions/ai", async () => {
   return {
     ...actual,
     getLLMChatHydrationOutcome: vi.fn(),
-    getProjectChatHydrationOutcomeWithFallback: vi.fn(),
   };
 });
 
-import {
-  getLLMChatHydrationOutcome,
-  getProjectChatHydrationOutcomeWithFallback,
-} from "state/actions/ai";
+import { getLLMChatHydrationOutcome } from "state/actions/ai";
 import {
   useAIStore,
   useLocalStorage,
@@ -142,13 +138,7 @@ describe("ProjectChatCore hydration while waiting", () => {
     });
   });
 
-  it("probes fallback hydration while waiting when authoritative metadata reports missing provenance", async () => {
-    vi.mocked(getProjectChatHydrationOutcomeWithFallback).mockResolvedValue({
-      outcome: "success",
-      status: 200,
-      errorCode: null,
-    });
-
+  it("does not hydrate while waiting when authoritative metadata reports missing provenance", async () => {
     await act(async () => {
       root.render(
         <ProjectChatCore
@@ -160,7 +150,7 @@ describe("ProjectChatCore hydration while waiting", () => {
           conversationFilterText=""
           hydrationAuthority={{
             status: "ready",
-            hydrationRunType: "llm_chat",
+            hydrationRunType: null,
             blockedErrorCode: "chat_provenance_missing",
           }}
           hydrationMetadataRevision="revision-2"
@@ -179,12 +169,7 @@ describe("ProjectChatCore hydration while waiting", () => {
       );
     });
 
-    await vi.waitFor(() => {
-      expect(getProjectChatHydrationOutcomeWithFallback).toHaveBeenCalledWith(
-        "chat-a",
-        "project-1",
-        "llm_chat",
-      );
-    });
+    await act(async () => {});
+    expect(getLLMChatHydrationOutcome).not.toHaveBeenCalled();
   });
 });

@@ -405,6 +405,27 @@ describe("Overview rail offsets", () => {
     expect(markup).not.toContain('data-testid="project-chat-content"');
   });
 
+  it("renders JSON Render quick info without crashing the App tab", () => {
+    useLocalStorage.setState({
+      overviewTab: OverviewTabNameEnum.App,
+    });
+    syncStoreInitialState(useLocalStorage);
+
+    const markup = renderToStaticMarkup(
+      <MemoryRouter>
+        <Overview />
+      </MemoryRouter>,
+    );
+
+    expect(markup).toContain(">JSON Render<");
+    expect(markup).toContain(
+      "Advanced app-definition workbench for previewing, validating, saving, and editing the current app spec.",
+    );
+    expect(markup).toContain(
+      "Use Project Chat slash commands like /app-json, /app-image, /app-prompt, and /app-mcp to initiate generation.",
+    );
+  });
+
   it("falls back to Overview when a removed backend logs tab is selected", () => {
     useLocalStorage.setState({
       overviewTab: "BackendLogs" as never,

@@ -44,7 +44,6 @@ import {
   getDefaultChatDetails,
   getExternalAgentChatHydrationOutcome,
   getLLMChatHydrationOutcome,
-  getProjectChatHydrationOutcomeWithFallback,
   initializePendingChatDetails,
   loadAgentRuns,
   stopProjectChatResponse,
@@ -203,24 +202,11 @@ export async function hydrateProjectChatFromRuntime({
   chatId,
   projectConfigId,
   hydrationRunType,
-  shouldProbeMissingProvenance,
 }: {
   chatId: string;
   projectConfigId: string;
   hydrationRunType: ChatRunType | null;
-  shouldProbeMissingProvenance: boolean;
 }): Promise<ChatHydrationOutcome> {
-  const preferredHydrationRunType =
-    hydrationRunType === "llm_chat" || hydrationRunType === "external_agent"
-      ? hydrationRunType
-      : null;
-  if (shouldProbeMissingProvenance) {
-    return getProjectChatHydrationOutcomeWithFallback(
-      chatId,
-      projectConfigId,
-      preferredHydrationRunType,
-    );
-  }
   if (hydrationRunType === "external_agent") {
     return getExternalAgentChatHydrationOutcome(chatId, projectConfigId);
   }
@@ -1004,7 +990,6 @@ function useHasPythonInWorkspaceRoot(
       try {
         const contentsResponse = await route_get_folder_contents({
           folderPath: rootPath,
-          includeHidden: false,
           includeMtime: false,
           includeSize: false,
           maxEntries: 5000,
@@ -1682,19 +1667,15 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     if (hydrationAuthority.status !== "ready") {
       return;
     }
-    const shouldProbeMissingProvenance =
-      hydrationAuthority.blockedErrorCode === "chat_provenance_missing";
-    if (hydrationRunType === null && !shouldProbeMissingProvenance) {
+    if (hydrationRunType === null) {
       return;
     }
-    const cacheKey = shouldProbeMissingProvenance
-      ? `${projectConfigId}:${chatId}:chat_provenance_probe:${hydrationMetadataRevision}`
-      : buildProjectChatHydrationCacheKey({
-          projectConfigId,
-          chatId,
-          hydrationRunType,
-          hydrationMetadataRevision,
-        });
+    const cacheKey = buildProjectChatHydrationCacheKey({
+      projectConfigId,
+      chatId,
+      hydrationRunType,
+      hydrationMetadataRevision,
+    });
     if (!cacheKey) {
       return;
     }
@@ -1743,7 +1724,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         chatId,
         projectConfigId,
         hydrationRunType,
-        shouldProbeMissingProvenance,
       });
       if (cancelled) {
         return;

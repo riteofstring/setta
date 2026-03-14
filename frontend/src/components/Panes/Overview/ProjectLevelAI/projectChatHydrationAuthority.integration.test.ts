@@ -135,13 +135,13 @@ describe("project chat hydration authority integration", () => {
 
     expect(authority).toEqual({
       status: "ready",
-      hydrationRunType: "llm_chat",
+      hydrationRunType: null,
       blockedErrorCode: "chat_provenance_missing",
     });
-    expect(cacheKey).toBe("project-1:chat-in-flight:llm_chat:rev-in-flight");
+    expect(cacheKey).toBeNull();
   });
 
-  it("falls back to current engine run type when authoritative metadata is missing provenance", () => {
+  it("blocks hydration when authoritative metadata is missing provenance", () => {
     const authority = resolveProjectChatHydrationAuthority({
       chatId: "chat-missing-provenance",
       selectedScopedChatProvenance: { status: "missing" },
@@ -159,12 +159,10 @@ describe("project chat hydration authority integration", () => {
 
     expect(authority).toEqual({
       status: "ready",
-      hydrationRunType: "llm_chat",
+      hydrationRunType: null,
       blockedErrorCode: "chat_provenance_missing",
     });
-    expect(cacheKey).toBe(
-      "project-1:chat-missing-provenance:llm_chat:rev-missing-provenance",
-    );
+    expect(cacheKey).toBeNull();
   });
 
   it("uses provenance run type for compatible entries even when current engine type differs", () => {
@@ -202,7 +200,7 @@ describe("project chat hydration authority integration", () => {
 
     expect(authority).toEqual({
       status: "ready",
-      hydrationRunType: "external_agent",
+      hydrationRunType: null,
       blockedErrorCode: "chat_provenance_missing",
     });
   });

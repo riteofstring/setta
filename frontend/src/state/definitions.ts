@@ -631,11 +631,10 @@ function normalizePersistedProjectChatDraftMessageByProjectConfigId(
     if (!normalizedProjectConfigId || typeof rawDraftMessage !== "string") {
       continue;
     }
-    const draftMessage = rawDraftMessage.trim();
-    if (!draftMessage) {
+    if (rawDraftMessage === "") {
       continue;
     }
-    normalized[normalizedProjectConfigId] = draftMessage;
+    normalized[normalizedProjectConfigId] = rawDraftMessage;
   }
   return normalized;
 }

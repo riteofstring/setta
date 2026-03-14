@@ -148,43 +148,59 @@ function mergeStreamingAssistantContent(
   backendContent: Array<ChatContentItem>,
   localContent: Array<ChatContentItem>,
 ): Array<ChatContentItem> {
-  const merged: Array<ChatContentItem> = [];
-  const maxLength = Math.max(backendContent.length, localContent.length);
-  for (let index = 0; index < maxLength; index += 1) {
-    const mergedItem = mergeStreamingAssistantContentItem(
-      backendContent[index],
-      localContent[index],
-    );
-    if (mergedItem) {
-      merged.push(mergedItem);
+  if (
+    !areStreamingAssistantContentItemsShapeCompatible(
+      backendContent,
+      localContent,
+    )
+  ) {
+    return backendContent;
+  }
+
+  const merged = backendContent.map((backendItem, index) =>
+    mergeStreamingAssistantContentItem(backendItem, localContent[index]),
+  );
+  if (localContent.length <= backendContent.length) {
+    return merged;
+  }
+  return [...merged, ...localContent.slice(backendContent.length)];
+}
+
+function areStreamingAssistantContentItemsShapeCompatible(
+  backendContent: Array<ChatContentItem>,
+  localContent: Array<ChatContentItem>,
+): boolean {
+  const sharedLength = Math.min(backendContent.length, localContent.length);
+  for (let index = 0; index < sharedLength; index += 1) {
+    const backendItem = backendContent[index];
+    const localItem = localContent[index];
+    if (!backendItem || !localItem || backendItem.type !== localItem.type) {
+      return false;
     }
   }
-  return merged;
+  return true;
 }
 
 function mergeStreamingAssistantContentItem(
-  backendItem: ChatContentItem | undefined,
+  backendItem: ChatContentItem,
   localItem: ChatContentItem | undefined,
-): ChatContentItem | null {
-  if (!backendItem) {
-    return localItem ?? null;
-  }
+): ChatContentItem {
   if (!localItem) {
     return backendItem;
-  }
-  if (backendItem.type !== localItem.type) {
-    return localItem;
   }
   if (backendItem.type === "text" && localItem.type === "text") {
     return {
       ...backendItem,
-      text: localItem.text || backendItem.text,
+      text: pickMoreCompleteAssistantText(backendItem.text, localItem.text),
     };
   }
   if (backendItem.type === "thinking" && localItem.type === "thinking") {
     return {
       ...backendItem,
-      thinking: localItem.thinking || backendItem.thinking,
+      thinking: pickMoreCompleteAssistantText(
+        backendItem.thinking,
+        localItem.thinking,
+      ),
       summary: preferHydratedThinkingMetadata(
         backendItem.summary,
         localItem.summary,
@@ -195,7 +211,23 @@ function mergeStreamingAssistantContentItem(
       ),
     };
   }
-  return localItem;
+  return backendItem;
+}
+
+function pickMoreCompleteAssistantText(
+  backendText: string,
+  localText: string,
+): string {
+  if (!backendText) {
+    return localText;
+  }
+  if (!localText) {
+    return backendText;
+  }
+  if (localText.length > backendText.length) {
+    return localText;
+  }
+  return backendText;
 }
 
 function preferHydratedThinkingMetadata(

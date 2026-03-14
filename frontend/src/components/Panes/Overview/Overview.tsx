@@ -63,6 +63,12 @@ import { ViewingEditingMode } from "./ViewingEditingMode";
 const FILE_BROWSER_META_INSET_CLASS = "mx-auto w-[calc(100%_-_1.5rem)] px-1.5";
 const FILE_BROWSER_LIST_INSET_LEFT = 10;
 export const OVERVIEW_MORE_MENU_CONTENT_CLASS_NAME = `${APP_MENU_Z_INDEX_CLASS_NAME} min-w-[180px] rounded-md border border-solid border-setta-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-setta-700/50 dark:bg-setta-850`;
+const JSON_RENDER_OVERVIEW_QUICK_INFO = {
+  title:
+    "Advanced app-definition workbench for previewing, validating, saving, and editing the current app spec.",
+  moreMenu:
+    "Use Project Chat slash commands like /app-json, /app-image, /app-prompt, and /app-mcp to initiate generation.",
+};
 
 export function Overview() {
   const overviewRef = useRef<HTMLDivElement>(null);
@@ -236,7 +242,7 @@ export function Overview() {
                 aria-label="More"
                 title={
                   vis && effectiveTabName === OverviewTabNameEnum.App
-                    ? JSON_RENDER_OVERVIEW_QUICK_INFO
+                    ? JSON_RENDER_OVERVIEW_QUICK_INFO.moreMenu
                     : "More"
                 }
                 {...getFloatingBoxHandlers({ content: "More" })}
@@ -373,7 +379,7 @@ function TabsVisible({
   const isFullWidth = selectedTabName === OverviewTabNameEnum.FileBrowser;
   const titleQuickInfo =
     selectedTabName === OverviewTabNameEnum.App
-      ? JSON_RENDER_OVERVIEW_QUICK_INFO
+      ? JSON_RENDER_OVERVIEW_QUICK_INFO.title
       : undefined;
   return (
     <div

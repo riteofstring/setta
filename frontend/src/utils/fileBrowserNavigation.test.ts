@@ -59,4 +59,23 @@ describe("fileBrowserNavigation", () => {
       { label: "utils", path: "C:/repo/src/utils" },
     ]);
   });
+
+  it("preserves windows drive roots as absolute breadcrumb and parent targets", () => {
+    expect(
+      buildFileBrowserBreadcrumbs({
+        rootPath: "C:/",
+        currentPath: "C:/repo/src",
+      }),
+    ).toEqual([
+      { label: "C:/", path: "C:/" },
+      { label: "repo", path: "C:/repo" },
+      { label: "src", path: "C:/repo/src" },
+    ]);
+    expect(
+      getFileBrowserParentPath({
+        rootPath: null,
+        currentPath: "C:\\repo",
+      }),
+    ).toBe("C:/");
+  });
 });

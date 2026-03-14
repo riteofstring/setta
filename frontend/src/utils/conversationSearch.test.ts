@@ -25,6 +25,10 @@ describe("conversationSearch", () => {
       "alpha",
       "beta",
     ]);
+    expect(tokenizeConversationSearchQuery("queue queue alpha")).toEqual([
+      "queue",
+      "alpha",
+    ]);
     expect(tokenizeConversationSearchQuery("")).toEqual([]);
   });
 
@@ -34,13 +38,28 @@ describe("conversationSearch", () => {
     expect(matchesConversationSearchText("alpha only", terms)).toBe(false);
   });
 
-  it("counts all term matches only when every term exists", () => {
+  it("counts canonical rendered matches only when every term exists", () => {
     const terms = tokenizeConversationSearchQuery("alpha beta");
     expect(
       countConversationSearchTextMatches("alpha beta alpha gamma beta", terms),
     ).toBe(4);
     expect(countConversationSearchTextMatches("alpha only", terms)).toBe(0);
     expect(countConversationSearchTextMatches("alpha alpha", [])).toBe(0);
+  });
+
+  it("deduplicates duplicate and overlapping query terms into canonical matches", () => {
+    expect(
+      countConversationSearchTextMatches(
+        "queue queue",
+        tokenizeConversationSearchQuery("queue queue"),
+      ),
+    ).toBe(2);
+    expect(
+      countConversationSearchTextMatches(
+        "alphabet",
+        tokenizeConversationSearchQuery("alpha alphabet"),
+      ),
+    ).toBe(1);
   });
 
   it("returns merged text ranges for all matched search terms", () => {
@@ -82,6 +101,29 @@ describe("conversationSearch", () => {
     expect(text).toContain("summary line");
     expect(text).toContain("command_execution");
     expect(text).toContain('"cmd":"ls"');
+  });
+
+  it("excludes inline and fenced code from searchable markdown text", () => {
+    const message = createAssistantChatMessage({
+      content: [
+        createMessageTextContent({
+          text: "Visible alpha\n\n```ts\nalpha in code\n```\n`alpha inline`\nalpha outside",
+        }),
+      ],
+    });
+
+    const text = buildSearchableTextForMessage(message);
+
+    expect(text).toContain("Visible alpha");
+    expect(text).toContain("alpha outside");
+    expect(text).not.toContain("alpha in code");
+    expect(text).not.toContain("alpha inline");
+    expect(
+      countConversationSearchTextMatches(
+        text,
+        tokenizeConversationSearchQuery("alpha"),
+      ),
+    ).toBe(2);
   });
 
   it("builds searchable text across multiple messages", () => {

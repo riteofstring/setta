@@ -1,4 +1,9 @@
-import { normalizeBrowserPath } from "utils/browserPaths";
+import {
+  getBrowserPathRoot,
+  joinBrowserPath,
+  normalizeBrowserPath,
+  splitBrowserPath,
+} from "utils/browserPaths";
 import {
   isSameOrDescendantBrowserPath,
   normalizeFileBrowserPathForComparison,
@@ -9,24 +14,13 @@ export type FileBrowserBreadcrumb = {
   path: string;
 };
 
-function buildPathFromSegments({
-  segments,
-  isAbsolute,
-}: {
-  segments: string[];
-  isAbsolute: boolean;
-}): string {
-  if (segments.length === 0) {
-    return isAbsolute ? "/" : "";
-  }
-  return `${isAbsolute ? "/" : ""}${segments.join("/")}`;
-}
-
 function getPathLabel(path: string): string {
-  if (path === "/") {
-    return "/";
+  const normalizedPath = normalizeBrowserPath(path);
+  const root = getBrowserPathRoot(normalizedPath);
+  if (normalizedPath === root) {
+    return root;
   }
-  const segments = normalizeBrowserPath(path).split("/").filter(Boolean);
+  const segments = splitBrowserPath(normalizedPath).segments;
   if (segments.length === 0) {
     return path;
   }
@@ -47,10 +41,10 @@ export function buildFileBrowserBreadcrumbs(args: {
   const normalizedRoot = args.rootPath
     ? normalizeFileBrowserPathForComparison(args.rootPath)
     : null;
-  const currentIsAbsolute = normalizedCurrent.startsWith("/");
-  const currentSegments = normalizeBrowserPath(normalizedCurrent)
-    .split("/")
-    .filter(Boolean);
+  const currentPathParts = splitBrowserPath(normalizedCurrent);
+  const currentSegments = currentPathParts.segments;
+  const shouldIncludeAbsoluteRootCrumb =
+    normalizedRoot === null && currentPathParts.root.length > 0;
 
   if (
     normalizedRoot &&
@@ -66,18 +60,16 @@ export function buildFileBrowserBreadcrumbs(args: {
       return breadcrumbs;
     }
 
-    const rootSegments = normalizeBrowserPath(normalizedRoot)
-      .split("/")
-      .filter(Boolean);
+    const rootSegments = splitBrowserPath(normalizedRoot).segments;
     for (
       let segmentCount = rootSegments.length + 1;
       segmentCount <= currentSegments.length;
       segmentCount += 1
     ) {
-      const path = buildPathFromSegments({
-        segments: currentSegments.slice(0, segmentCount),
-        isAbsolute: currentIsAbsolute,
-      });
+      const path = joinBrowserPath(
+        currentPathParts.root,
+        currentSegments.slice(0, segmentCount),
+      );
       breadcrumbs.push({
         label: getPathLabel(path),
         path,
@@ -87,15 +79,21 @@ export function buildFileBrowserBreadcrumbs(args: {
   }
 
   const breadcrumbs: FileBrowserBreadcrumb[] = [];
+  if (shouldIncludeAbsoluteRootCrumb) {
+    breadcrumbs.push({
+      label: currentPathParts.root,
+      path: currentPathParts.root,
+    });
+  }
   for (
     let segmentCount = 1;
     segmentCount <= currentSegments.length;
     segmentCount += 1
   ) {
-    const path = buildPathFromSegments({
-      segments: currentSegments.slice(0, segmentCount),
-      isAbsolute: currentIsAbsolute,
-    });
+    const path = joinBrowserPath(
+      currentPathParts.root,
+      currentSegments.slice(0, segmentCount),
+    );
     breadcrumbs.push({
       label: getPathLabel(path),
       path,

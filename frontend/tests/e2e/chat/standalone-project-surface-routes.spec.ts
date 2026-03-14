@@ -861,7 +861,7 @@ test.describe.serial("standalone project surface routes", () => {
       await expect(standaloneSurface).toBeVisible();
       const composerInput =
         standaloneSurface.getByPlaceholder("Type a message...");
-      const draftText = "keep this standalone draft after reload";
+      const draftText = "  keep this standalone draft after reload  \n";
       await composerInput.fill(draftText);
       await expect(composerInput).toHaveValue(draftText);
 

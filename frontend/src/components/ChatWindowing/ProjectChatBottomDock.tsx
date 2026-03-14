@@ -4,6 +4,7 @@ import {
   windowSurfaceRequiresManagedChat,
 } from "components/Chat/sharePolicyChatAccess";
 import { resolveProjectChatShortcutActiveSectionId } from "components/ChatWindowing/projectChatActiveSelection";
+import { resolveDockStripReservedWidthPx } from "components/ChatWindowing/projectChatBottomDockLayout";
 import {
   buildFloatingSnapBounds,
   buildFloatingSnapResizeBounds,
@@ -236,12 +237,6 @@ const DOCKED_MINIMIZED_STRIP_RESERVED_WIDTH_PX =
   CYCLE_CONTROL_BUTTON_WIDTH_PX * 2 +
   COMPACT_PILL_WIDTH_PX * 2 +
   PILL_GAP_PX * 3 +
-  DOCK_WINDOW_GAP_PX;
-const SINGLE_CHAT_MENU_RESERVED_WIDTH_PX =
-  MINIMIZED_PILL_STRIP_HORIZONTAL_PADDING_PX +
-  COMPACT_PILL_WIDTH_PX +
-  MENU_MODE_TRIGGER_WIDTH_PX +
-  PILL_GAP_PX +
   DOCK_WINDOW_GAP_PX;
 const NARROW_CHAT_MENU_BREAKPOINT_PX = 520;
 const FLOATING_WINDOW_MIN_WIDTH_PX = 380;
@@ -1799,11 +1794,10 @@ export function ProjectChatBottomDock() {
     SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX;
   const showDockManagerMenu =
     canCreateManagedChatWindow || orderedPills.length > 0;
-  const dockStripReservedWidthPx =
-    nonClosedPills.length > 1
-      ? DOCKED_MINIMIZED_STRIP_RESERVED_WIDTH_PX +
-        (showDockManagerMenu ? PERSISTENT_MANAGER_TRIGGER_RESERVED_WIDTH_PX : 0)
-      : SINGLE_CHAT_MENU_RESERVED_WIDTH_PX;
+  const dockStripReservedWidthPx = resolveDockStripReservedWidthPx({
+    nonClosedChatCount: nonClosedPills.length,
+    showManagerMenu: showDockManagerMenu,
+  });
   const dockSurfaceAvailableWidthPx = useMemo(() => {
     const fallbackViewportWidth =
       DOCK_SURFACE_MAX_WIDTH_PX +
