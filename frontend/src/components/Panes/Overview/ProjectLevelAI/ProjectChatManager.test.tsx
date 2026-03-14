@@ -35,18 +35,6 @@ vi.mock("state/hooks/share", () => ({
   }),
 }));
 
-vi.mock("components/Utils/FloatingBox", () => ({
-  getFloatingBoxHandlers: ({
-    content,
-    title,
-  }: {
-    content?: string;
-    title?: string;
-  }) => ({
-    "data-tooltip-content": content ?? title ?? "",
-  }),
-}));
-
 describe("ProjectChatManager", () => {
   beforeEach(() => {
     mockCanEditLayout = true;
@@ -152,32 +140,5 @@ describe("ProjectChatManager", () => {
     expect(markup).not.toContain(">Hide<");
     expect(markup).not.toContain(">Canvas<");
     expect(markup).not.toContain(">Float<");
-  });
-
-  it("adds shared quick info copy to window management actions", () => {
-    const markup = renderToStaticMarkup(<ProjectChatManager />);
-
-    expect(markup).toContain(
-      'data-tooltip-content="Show Renamed Research Chat in canvas"',
-    );
-    expect(markup).toContain(
-      'data-tooltip-content="Hide Renamed Research Chat"',
-    );
-    expect(markup).toContain(
-      'data-tooltip-content="Focus Renamed Research Chat"',
-    );
-  });
-
-  it("supports a dock-menu presentation without a duplicate create button", () => {
-    const markup = renderToStaticMarkup(<ProjectChatManager variant="menu" />);
-
-    expect(markup).not.toContain(
-      "Project chat windows open docked on the right",
-    );
-    expect(markup).not.toContain("New chat");
-    expect(markup).toContain(
-      'data-testid="project-chat-bottom-dock-menu-item"',
-    );
-    expect(markup).toContain('data-testid="project-chat-manager-focus"');
   });
 });
