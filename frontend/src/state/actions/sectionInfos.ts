@@ -15,16 +15,24 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import {
+  setCurrEffectiveSectionImplValue,
+  setEffectiveImplValue,
+} from "./sectionEffectiveImplMutations";
+import {
   getCurrEffectiveSectionImpl,
   getCurrSectionVariantId,
   getEffectiveCodeObjImplIfPresent,
   getEffectiveImpl,
   getEffectiveSectionImplIfPresent,
-  setCurrEffectiveSectionImplValue,
-  setEffectiveImplValue,
 } from "./sectionEffectiveImpls";
 
 export { dispatchOptimisticProjectStateUpdate } from "./projectStateOptimisticUpdates";
+export {
+  setCurrEffectiveCodeObjImplValue,
+  setCurrEffectiveSectionImplValue,
+  setEffectiveImplValue,
+  setSectionVariantImplValue,
+} from "./sectionEffectiveImplMutations";
 export {
   getAttachedTerminalParentIdForTerminalSection,
   getCodeObjCore,
@@ -51,9 +59,6 @@ export {
   getVariantBaseAndEffectiveSectionImpl,
   isBaseCodeSectionType,
   isManagedChatSection,
-  setCurrEffectiveCodeObjImplValue,
-  setCurrEffectiveSectionImplValue,
-  setSectionVariantImplValue,
 } from "./sectionEffectiveImpls";
 
 type ChatSectionImpl = Extract<

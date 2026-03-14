@@ -6,10 +6,8 @@ import {
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { isSharedChatHandleId } from "./chatSharedHandleIds";
-import {
-  getCurrEffectiveSectionImpl,
-  setCurrEffectiveSectionImplValue,
-} from "./sectionEffectiveImpls";
+import { setCurrEffectiveSectionImplValue } from "./sectionEffectiveImplMutations";
+import { getCurrEffectiveSectionImpl } from "./sectionEffectiveImpls";
 
 export const STATE_MACHINE_EDGE_HANDLE_IDS = {
   source: "workflow-source",

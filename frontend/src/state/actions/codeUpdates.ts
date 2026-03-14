@@ -6,10 +6,8 @@ import {
   route_set_gen_code_suffix,
 } from "utils/generatedEndpoints";
 import { dispatchOptimisticProjectStateUpdate } from "./projectStateOptimisticUpdates";
-import {
-  getCurrProjectConfigId,
-  setCurrEffectiveSectionImplValue,
-} from "./sectionInfos";
+import { setCurrEffectiveSectionImplValue } from "./sectionEffectiveImplMutations";
+import { getCurrProjectConfigId } from "./sectionInfos";
 
 type PendingCodeUpdate = {
   sectionId: string;

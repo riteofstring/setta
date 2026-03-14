@@ -11,11 +11,11 @@ import {
 import { Position, SectionTypeEnum } from "utils/generatedTypes";
 import { insertIntoArray } from "utils/utils";
 import { dispatchOptimisticProjectStateUpdate } from "../projectStateOptimisticUpdates";
+import { setCurrEffectiveSectionImplValue } from "../sectionEffectiveImplMutations";
 import {
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
   isBaseCodeSectionType,
-  setCurrEffectiveSectionImplValue,
   setSectionChildren,
 } from "../sectionInfos";
 

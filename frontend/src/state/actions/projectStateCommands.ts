@@ -22,11 +22,11 @@ import {
 } from "utils/generatedTypes";
 import { applyActiveSectionChange } from "./activeSectionController";
 import { dispatchOptimisticProjectStateUpdate } from "./projectStateOptimisticUpdates";
+import { setCurrEffectiveSectionImplValue } from "./sectionEffectiveImplMutations";
 import {
   getCurrEffectiveSectionImpl,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
-  setCurrEffectiveSectionImplValue,
 } from "./sectionEffectiveImpls";
 
 export function deleteAllActiveSections() {

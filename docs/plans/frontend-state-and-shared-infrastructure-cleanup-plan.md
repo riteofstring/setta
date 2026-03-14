@@ -51,10 +51,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   layout writes that previously lived in `frontend/src/state/actions/sectionInfos.ts`.
 - `frontend/src/state/actions/sectionEffectiveImpls.ts` now owns effective
   section/code-object resolution, typed current-section/code-object selectors,
-  and in-place impl mutation helpers that previously lived in
-  `frontend/src/state/actions/sectionInfos.ts`; future cleanup should keep new
-  effective-impl reads and local impl writes on that dedicated surface instead
-  of adding them back to the remaining metadata/query file.
+  terminal attachment helpers, and orientation/type queries that previously
+  lived in `frontend/src/state/actions/sectionInfos.ts`, while
+  `frontend/src/state/actions/sectionEffectiveImplMutations.ts` now owns the
+  local impl mutation helpers for section/code-object writes; future cleanup
+  should keep new effective-impl reads and local impl writes on those dedicated
+  surfaces instead of adding them back to the remaining metadata/query file.
 - `frontend/src/state/actions/sectionDisplayQueries.ts` now owns top-level
   display selection, displayed-child tree derivation, node-map creation, DnD
   child reset, and view-mode visibility queries that previously lived in
@@ -141,22 +143,25 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 89.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/sectionEffectiveImpls.ts` at 649 lines
   - `frontend/src/state/actions/gitGraph.ts` at 595 lines
+  - `frontend/src/state/actions/sectionEffectiveImpls.ts` at 592 lines
+  - `frontend/src/state/hooks/sectionSizes.ts` at 587 lines
   - `frontend/src/state/actions/params/moveParams.ts` at 576 lines
   - `frontend/src/state/actions/aiTranscription.ts` at 572 lines
   - `frontend/src/state/actions/projectChatWindowingWrites.ts` at 571 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
-  - `frontend/src/state/actions/sectionEffectiveImpls.ts` at 649 lines
+  - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
   - `frontend/src/state/actions/gitGraph.ts` at 595 lines
+  - `frontend/src/state/actions/sectionEffectiveImpls.ts` at 592 lines
+  - `frontend/src/state/hooks/sectionSizes.ts` at 587 lines
+  - `frontend/src/state/actions/params/moveParams.ts` at 576 lines
+  - `frontend/src/state/actions/aiTranscription.ts` at 572 lines
   - `frontend/src/state/actions/projectChatWindowingWrites.ts` at 571 lines
-  - `frontend/src/state/actions/stateMachineEdgeConnections.ts` at 520 lines
+  - `frontend/src/state/actions/sections/createSections.ts` at 547 lines
+  - `frontend/src/state/actions/stateMachineEdgeConnections.ts` at 518 lines
+  - `frontend/src/state/actions/aiChatControls.ts` at 503 lines
   - `frontend/src/state/actions/websocketLifecycle.ts` at 498 lines
   - `frontend/src/state/actions/projectChatWindowingLayoutState.ts` at 494 lines
-  - `frontend/src/state/actions/windowSpaceWorkspaceRestorePlan.ts` at 460 lines
-  - `frontend/src/state/actions/uiSettingRevealMutationSnapshots.ts` at 426 lines
-  - `frontend/src/state/actions/keyShortcutRegistrations.ts` at 416 lines
-  - `frontend/src/components/Utils/Resizable/useCustomResizableBehavior.ts` at 325 lines
 - `websocketReceive.ts` now owns:
   - compatibility re-exports for callers that have not moved yet
 - `websocketLifecycle.ts` now owns:
@@ -196,9 +201,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `sectionEffectiveImpls.ts` now owns:
   - effective-impl derivation and caching
   - typed current-section and current-code-object selectors
-  - in-place impl mutation helpers for section/code-object writes
   - terminal attachment and section-orientation helpers that depend on
     effective impl resolution
+- `sectionEffectiveImplMutations.ts` now owns:
+  - in-place impl mutation helpers for section/code-object writes
+  - cache invalidation after shared, base-impl, or variant-modifier updates
 - `sectionDisplayQueries.ts` now owns:
   - top-level display selection and displayed-child tree derivation
   - node-map creation from current layouts and effective section styling

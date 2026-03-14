@@ -10,7 +10,7 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-14`
-- Authored TS/TSX files under `frontend/src`: `1032`
+- Authored TS/TSX files under `frontend/src`: `1034`
 - Non-generated TS/TSX files at `1000+` lines: `41`
 - Biggest current production hotspots:
   - `components/Chat/ChatMessages.tsx` (`7959`)
@@ -228,8 +228,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
     state and low-level websocket send helpers used by the lifecycle and
     realtime owners.
   - `state/actions/sectionEffectiveImpls.ts` owns effective section/code-object
-    resolution, typed current-section/code-object selectors, and in-place
-    impl-mutation helpers that previously lived in `sectionInfos.ts`.
+    resolution, typed current-section/code-object selectors, terminal
+    attachment helpers, and orientation/type queries that previously lived in
+    `sectionInfos.ts`.
+  - `state/actions/sectionEffectiveImplMutations.ts` owns low-level
+    section/code-object impl mutation helpers and cache invalidation for local
+    impl writes.
   - `state/actions/sectionInfos.ts` now owns streaming chat merge behavior,
     shown-param/pinned-param updates, ancestry helpers, and tool-preview
     cleanup that still sit beside the remaining shared section helper surface.
@@ -322,9 +326,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/sectionEffectiveImpls.ts` is now the largest authored/shared
-  state hotspot and should keep shrinking around effective-impl reads versus
-  local impl mutation helpers
+- `state/actions/gitGraph.ts` is now the largest authored/shared state hotspot
+  and should split repo-read helpers from graph filter and commit/detail
+  selection ownership
+- `state/actions/sectionEffectiveImpls.ts` now owns the remaining effective-impl
+  read surface, so follow-up cleanup there should stay local to selectors and
+  terminal/orientation helpers instead of regrowing mutation ownership
 - `state/actions/projectChatWindowingWrites.ts` is now the largest remaining
   windowing mutation surface, so follow-up windowing cleanup should stay local
   to `projectChatWindowingWrites.ts`, `projectChatWindowingCanvasBoot.ts`, or

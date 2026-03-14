@@ -1,8 +1,8 @@
 import _ from "lodash";
+import { setCurrEffectiveSectionImplValue } from "state/actions/sectionEffectiveImplMutations";
 import {
   getCurrEffectiveSectionImpl,
   getEmbeddedAttachedTerminalParentIdForTerminalSection,
-  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionEffectiveImpls";
 import {
   getHighestAncestor,

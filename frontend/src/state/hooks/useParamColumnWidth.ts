@@ -6,10 +6,10 @@ import {
   type RefObject,
 } from "react";
 import { dispatchOptimisticProjectStateUpdate } from "state/actions/projectStateOptimisticUpdates";
+import { setCurrEffectiveSectionImplValue } from "state/actions/sectionEffectiveImplMutations";
 import {
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
-  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import {

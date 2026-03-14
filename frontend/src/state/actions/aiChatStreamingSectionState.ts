@@ -12,7 +12,7 @@ import {
   upsertMessage,
 } from "./aiChatStreamingMessages";
 import { applyToolCallDeltaToChatMessages } from "./aiChatStreamingTools";
-import { setCurrEffectiveSectionImplValue } from "./sectionEffectiveImpls";
+import { setCurrEffectiveSectionImplValue } from "./sectionEffectiveImplMutations";
 
 type ChatSectionStreamChunk = LLMStreamingResponse["chunk"];
 

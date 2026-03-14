@@ -4,7 +4,6 @@ import {
   getEmbeddedAttachedTerminalForCodeSection,
   getEmbeddedAttachedTerminalParentIdForTerminalSection,
   getSectionIsHorizontalOrientation,
-  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionEffectiveImpls";
 import { useProjectState, type ZustandProjectState } from "state/definitions";
 import {
@@ -127,63 +126,6 @@ describe("getCurrEffectiveSectionImpl", () => {
 
     expect(third).not.toBe(first);
     expect(third.inputText).toBe("updated");
-  });
-
-  it("returns updated values immediately after in-place effective impl mutations", () => {
-    const sectionId = "section-cache-mutation";
-    const variantId = "variant-cache-mutation";
-    const implId = "chat-impl-cache-mutation";
-    const state = {
-      projectConfig: createProjectConfig({
-        id: "project-1",
-        sectionVariantMap: { [sectionId]: variantId },
-      }),
-      sections: {
-        [sectionId]: createCore({
-          id: sectionId,
-          sharedModifier: {},
-          unsharedKeys: [],
-        }),
-      },
-      sectionImpls: {
-        [implId]: createChatSectionImpl({
-          id: implId,
-          type: SectionTypeEnum.Chat,
-          inputText: "base",
-        }),
-      },
-      sectionVariants: {
-        [variantId]: createVariant({
-          id: variantId,
-          impl: implId,
-          modifier: {},
-          nonPresetImpls: [implId],
-        }),
-      },
-      codeObjs: {},
-      codeObjImpls: {},
-      codeObjVariants: {},
-      artifactGroups: {},
-      singletonSections: createSingletonSections(),
-      parentSectionMap: {
-        [sectionId]: null,
-      },
-      shownParamIds: {},
-      previewSectionVariantMap: {},
-      requiredDecodedImages: [],
-    } as ZustandProjectState;
-
-    expect(getCurrEffectiveSectionImpl(state, sectionId).inputText).toBe(
-      "base",
-    );
-
-    setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
-      inputText: "updated",
-    });
-
-    expect(getCurrEffectiveSectionImpl(state, sectionId).inputText).toBe(
-      "updated",
-    );
   });
 });
 

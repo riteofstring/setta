@@ -12,6 +12,7 @@ import {
   unselectAllParams,
 } from "state/actions/projectStateCommands";
 import { dispatchOptimisticProjectStateUpdate } from "state/actions/projectStateOptimisticUpdates";
+import { setCurrEffectiveCodeObjImplValue } from "state/actions/sectionEffectiveImplMutations";
 import {
   getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImpl,
@@ -19,7 +20,6 @@ import {
   getCurrProjectConfigId,
   getCurrSectionVariantId,
   getCurrShownParamIds,
-  setCurrEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 import type { ZustandProjectState } from "state/definitions";
