@@ -1,8 +1,4 @@
 import { type ChatPermissionModeValue } from "components/Chat/chatComposerControls";
-import {
-  type ChatSlashCommand,
-  type ChatSlashCommandResult,
-} from "components/Chat/ChatInput";
 import { Dispatch, SetStateAction, memo, useCallback, useMemo } from "react";
 import { getDefaultChatDetails } from "state/actions/ai/chatRuntime";
 import {
@@ -13,19 +9,9 @@ import {
 } from "state/definitions";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
 import type { AppGenerationMode } from "state/types/appGenerationMode";
-import {
-  AgentRun,
-  ChatFileAttachment,
-  EngineTypeEnum,
-} from "utils/generatedTypes";
+import { EngineTypeEnum } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
-import {
-  editProjectChatComposerMessage,
-  redoProjectChatComposerMessage,
-  stopProjectChatComposerResponse,
-  submitProjectChatComposerMessage,
-  transcribeProjectChatComposerAudio,
-} from "./projectChatComposerRuntime";
+import { createProjectChatComposerController } from "./projectChatComposerController";
 import { resolveProjectChatComposerDerivedState } from "./projectChatComposerState";
 import { ProjectChatConversationSurface } from "./ProjectChatConversationSurface";
 import {
@@ -40,20 +26,8 @@ import {
   resolveProjectChatContextTelemetry,
   type ProjectChatBlockedErrorCode,
 } from "./projectChatRuntimeUtils";
-import { type AgentRunsAuthorityState } from "./projectChatSkillsMcpViewerUtils";
-import {
-  executeProjectChatSlashCommand,
-  handleUnknownProjectChatSlashCommand,
-  resolveProjectChatSlashCommandState,
-} from "./projectChatSlashCommands";
 import { selectCustomProjectChatSlashCommands } from "./projectChatSlashCommandSelectors";
 import { useProjectChatStarterPrompts } from "./projectChatStarterPromptState";
-import {
-  resumeLatestProjectChat,
-  selectProjectChatThread,
-  settleProjectChatThreadStart,
-  startProjectChatThread,
-} from "./projectChatThreadController";
 
 export const ProjectChatCore = memo(function ProjectChatCore({
   surfaceId,
@@ -218,38 +192,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   const agentRunsAuthorityState = useAIStore(
     (state) => state.agentRunsAuthorityState,
   );
-  const resolveSlashCommandState = useCallback(
-    (state: {
-      agentRuns: AgentRun[];
-      agentRunsAuthorityState: AgentRunsAuthorityState;
-    }) =>
-      resolveProjectChatSlashCommandState({
-        agentRuns: state.agentRuns,
-        agentRunsAuthorityState: state.agentRunsAuthorityState,
-        projectConfigId,
-        engineConfigId,
-        engineType,
-        customProjectChatSlashCommands,
-        isExternalEngine,
-        showPermissionExecutionControl,
-        showSearchExecutionControl,
-      }),
-    [
-      customProjectChatSlashCommands,
-      engineConfigId,
-      engineType,
-      isExternalEngine,
-      projectConfigId,
-      showPermissionExecutionControl,
-      showSearchExecutionControl,
-    ],
-  );
-  const { slashCommands, recognizedSlashCommands } = useMemo(() => {
-    return resolveSlashCommandState({
-      agentRuns,
-      agentRunsAuthorityState,
-    });
-  }, [agentRuns, agentRunsAuthorityState, resolveSlashCommandState]);
   const { blockedReason, lastChatIdRef } = useProjectChatRuntimeController({
     chatId,
     projectConfigId,
@@ -262,28 +204,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     onBlockedErrorCodeChange,
   });
 
-  const handleNewChatStart = useCallback(() => {
-    startProjectChatThread({
-      chatId,
-      surfaceId,
-      onStartNewChat,
-      onDraftThreadStart,
-      setChatId,
-    });
-  }, [chatId, onDraftThreadStart, onStartNewChat, setChatId, surfaceId]);
-
-  const handleNewChatSettled = useCallback(
-    (newChatId: string | null, succeeded: boolean) => {
-      settleProjectChatThreadStart({
-        newChatId,
-        succeeded,
-        surfaceId,
-        onDraftThreadSettled,
-        setChatId,
-      });
-    },
-    [onDraftThreadSettled, setChatId, surfaceId],
-  );
   const handleSetAppGenerationMode = useCallback(
     (nextMode: AppGenerationMode) => {
       useLocalStorage.setState({
@@ -292,181 +212,91 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     },
     [],
   );
-
-  const handleResumeLatestChat = useCallback(async (): Promise<boolean> => {
-    return resumeLatestProjectChat({
-      chatId: typeof chatId === "string" ? chatId : null,
-      projectConfigId,
-      historyCompatibility,
-      agentRuns: useAIStore.getState().agentRuns,
-      setChatId,
-    });
-  }, [chatId, historyCompatibility, projectConfigId, setChatId]);
-
-  const handleSlashCommand = useCallback(
-    async (command: ChatSlashCommand): Promise<ChatSlashCommandResult> => {
-      return executeProjectChatSlashCommand({
-        command,
-        slashCommands,
-        onStartNewChat: handleNewChatStart,
-        onResumeLatestChat: handleResumeLatestChat,
-        onSetPermissionMode: executionControlHandlers.onPermissionModeChange,
-        searchEnabled: executionSettings.searchEnabled,
-        onSetSearchEnabled: executionControlHandlers.onSearchEnabledChange,
-        appGenerationMode,
-        onSetAppGenerationMode: handleSetAppGenerationMode,
-      });
-    },
-    [
-      appGenerationMode,
-      executionSettings.searchEnabled,
-      executionControlHandlers.onPermissionModeChange,
-      executionControlHandlers.onSearchEnabledChange,
-      handleSetAppGenerationMode,
-      handleNewChatStart,
-      handleResumeLatestChat,
-      slashCommands,
-    ],
-  );
-
-  const handleUnknownSlashCommand = useCallback(
-    async (message: string): Promise<ChatSlashCommandResult> => {
-      return handleUnknownProjectChatSlashCommand({
-        message,
-        isExternalEngine,
-        agentRunsAuthorityState,
-        getRefreshedState: () => {
-          const refreshedState = useAIStore.getState();
-          return {
-            agentRuns: refreshedState.agentRuns,
-            agentRunsAuthorityState: refreshedState.agentRunsAuthorityState,
-          };
-        },
-        resolveSlashCommandState,
-      });
-    },
-    [agentRunsAuthorityState, isExternalEngine, resolveSlashCommandState],
-  );
-
-  const handleSubmit = useCallback(
-    (message: string, attachments: ChatFileAttachment[]) =>
-      submitProjectChatComposerMessage({
-        message,
-        attachments,
+  const readAgentRunsState = useCallback(() => {
+    const state = useAIStore.getState();
+    return {
+      agentRuns: state.agentRuns,
+      agentRunsAuthorityState: state.agentRunsAuthorityState,
+    };
+  }, []);
+  const {
+    slashCommands,
+    recognizedSlashCommands,
+    handleSlashCommand,
+    handleUnknownSlashCommand,
+    handleSubmit,
+    handleStop,
+    handleEditMessage,
+    handleBranchSwitch,
+    handleRedoMessage,
+    handleProviderDictationTranscribe,
+    handleStarterPrompt,
+  } = useMemo(
+    () =>
+      createProjectChatComposerController({
         chatId,
-        thinking,
+        surfaceId,
+        projectConfigId,
+        historyCompatibility,
+        appGenerationMode,
         engineConfigId,
+        engineType,
         isExternalEngine,
         externalEngineAvailable,
         hasLLMConfig,
         requiresNewThreadContinuation,
         newThreadSeedChatId,
-        surfaceId,
-        executionSettings,
-        onStartNewChat: handleNewChatStart,
-        onSettleNewChat: handleNewChatSettled,
-      }),
-    [
-      chatId,
-      thinking,
-      engineConfigId,
-      handleNewChatSettled,
-      handleNewChatStart,
-      isExternalEngine,
-      externalEngineAvailable,
-      hasLLMConfig,
-      newThreadSeedChatId,
-      requiresNewThreadContinuation,
-      executionSettings.permissionMode,
-      executionSettings.searchEnabled,
-    ],
-  );
-
-  const handleStop = useCallback(
-    () =>
-      stopProjectChatComposerResponse({
-        chatId,
-        isExternalEngine,
-        surfaceId,
-      }),
-    [chatId, isExternalEngine, surfaceId],
-  );
-
-  const handleEditMessage = useCallback(
-    (messageId: string, text: string, attachments: ChatFileAttachment[]) =>
-      editProjectChatComposerMessage({
-        resolvedChatId:
-          typeof chatId === "string" ? chatId : lastChatIdRef.current,
-        messageId,
-        text,
-        attachments,
-        requiresNewThreadContinuation,
-        isExternalEngine,
-        externalEngineAvailable,
-        messages,
-        thinking,
-        engineConfigId,
-        surfaceId,
-        executionSettings,
-        onSelectChatId: setChatId,
-      }),
-    [
-      chatId,
-      engineConfigId,
-      externalEngineAvailable,
-      isExternalEngine,
-      messages,
-      requiresNewThreadContinuation,
-      setChatId,
-      surfaceId,
-      thinking,
-      executionSettings.permissionMode,
-      executionSettings.searchEnabled,
-    ],
-  );
-
-  const handleBranchSwitch = useCallback(
-    (nextChatId: string) => {
-      selectProjectChatThread({
-        nextChatId,
-        chatId,
-        setChatId,
-      });
-    },
-    [chatId, setChatId],
-  );
-
-  const handleRedoMessage = useCallback(
-    (assistantMessageId: string) =>
-      redoProjectChatComposerMessage({
-        assistantMessageId,
-        resolvedChatId:
-          typeof chatId === "string" ? chatId : lastChatIdRef.current,
         waitingForResponse,
-        requiresNewThreadContinuation,
-        engineConfigId,
-        isExternalEngine,
-        externalEngineAvailable,
-        hasLLMConfig,
-        messages,
         thinking,
-        surfaceId,
+        messages,
         executionSettings,
-        onSelectChatId: setChatId,
+        executionControlHandlers,
+        customProjectChatSlashCommands,
+        showPermissionExecutionControl,
+        showSearchExecutionControl,
+        transcriptionProfileId,
+        agentRuns,
+        agentRunsAuthorityState,
+        setChatId,
+        onStartNewChat,
+        onDraftThreadStart,
+        onDraftThreadSettled,
+        lastChatIdRef,
+        getAgentRunsState: readAgentRunsState,
+        setAppGenerationMode: handleSetAppGenerationMode,
       }),
     [
+      agentRuns,
+      agentRunsAuthorityState,
+      appGenerationMode,
       chatId,
+      customProjectChatSlashCommands,
       engineConfigId,
+      engineType,
+      executionControlHandlers.onPermissionModeChange,
+      executionControlHandlers.onSearchEnabledChange,
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
       externalEngineAvailable,
+      handleSetAppGenerationMode,
       hasLLMConfig,
+      historyCompatibility,
       isExternalEngine,
+      lastChatIdRef,
       messages,
+      newThreadSeedChatId,
+      onDraftThreadSettled,
+      onDraftThreadStart,
+      onStartNewChat,
+      projectConfigId,
+      readAgentRunsState,
       requiresNewThreadContinuation,
       setChatId,
+      showPermissionExecutionControl,
+      showSearchExecutionControl,
       surfaceId,
       thinking,
+      transcriptionProfileId,
       waitingForResponse,
     ],
   );
@@ -527,20 +357,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       thinking,
       waitingForResponse,
     ],
-  );
-  const handleProviderDictationTranscribe = useCallback(
-    (audioBlob: Blob) =>
-      transcribeProjectChatComposerAudio({
-        transcriptionProfileId,
-        audioBlob,
-      }),
-    [transcriptionProfileId],
-  );
-  const handleStarterPrompt = useCallback(
-    (prompt: string) => {
-      void handleSubmit(prompt, []);
-    },
-    [handleSubmit],
   );
   const messageListProps = useMemo(
     () =>
