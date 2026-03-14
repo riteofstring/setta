@@ -11,11 +11,8 @@ import {
 } from "plugins/runtime";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
-import {
-  useProjectState,
-  useSettings,
-  useShareSession,
-} from "state/definitions";
+import { useProjectState, useShareSession } from "state/definitions";
+import { useSettings } from "state/stores/uiPreferenceStores";
 import { C } from "utils/c";
 import { buildPluginPaneOverviewTabName } from "utils/constants";
 import {
@@ -378,7 +375,6 @@ export function PluginsPane() {
     try {
       const restartResult = await requestPluginRestart();
       if (restartResult.kind === "accepted") {
-        await refreshPluginRuntime();
         setActionStatus({
           type: "success",
           message: "Restart request accepted.",
