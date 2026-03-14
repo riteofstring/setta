@@ -54,7 +54,7 @@ vi.mock("forks/xyflow/core/store", () => ({
   ) => selector({ fitViewOnInit: false, fitViewOnInitDone: false }),
 }));
 
-vi.mock("state/hooks/sectionSizes", () => ({
+vi.mock("state/hooks/sectionMinMaxDims", () => ({
   useSectionMinMaxDims: () => ({ maxHeight: 600, maxWidth: 800 }),
   getMinSectionHeight: () => 120,
 }));

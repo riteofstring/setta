@@ -149,15 +149,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/hooks/sectionSizes.ts` at 587 lines
   - `frontend/src/state/actions/params/moveParams.ts` at 576 lines
   - `frontend/src/state/actions/aiTranscription.ts` at 572 lines
   - `frontend/src/state/actions/projectChatWindowingWrites.ts` at 571 lines
   - `frontend/src/state/actions/sections/createSections.ts` at 547 lines
   - `frontend/src/state/actions/stateMachineEdgeConnections.ts` at 518 lines
+  - `frontend/src/state/actions/aiChatControls.ts` at 503 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/hooks/sectionSizes.ts` at 587 lines
   - `frontend/src/state/actions/params/moveParams.ts` at 576 lines
   - `frontend/src/state/actions/aiTranscription.ts` at 572 lines
   - `frontend/src/state/actions/projectChatWindowingWrites.ts` at 571 lines
@@ -201,6 +200,17 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `customResizableChrome.ts` now owns:
   - resize-handle direction lookup from DOM targets
   - handle enablement, hit-area sizing, and MetaControl or attached-terminal chrome
+- `sectionMinMaxDims.ts` now owns:
+  - section sizing-policy reads plus measured min/max dimension derivation
+  - MetaControl sizing-policy lookup and section size-mode resolution
+- `sectionScrollability.ts` now owns:
+  - shared ResizeObserver and MutationObserver wiring for overflow detection
+  - scrollability measurement plus `onMeasure` callback dispatch
+- `sectionAspectRatioSizing.ts` now owns:
+  - draw-area canvas size normalization
+  - social/media aspect-ratio writes and default size promotion
+- `sectionSizes.ts` now owns:
+  - compatibility re-exports for callers that have not moved yet
 - `definitions.ts` now defines 14 local `use*` stores and re-exports the extracted AI/chat, app runtime, session/share, browser, search, feedback, project-status, layout-interaction, UI-preference, and editor-diagnostics stores, which is much closer to a thin index but still leaves project-state publication, artifact data, and realtime helper ownership mixed together.
 - `sectionEffectiveImpls.ts` now owns:
   - effective-impl derivation and caching

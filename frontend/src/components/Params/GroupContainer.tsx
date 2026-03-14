@@ -22,7 +22,7 @@ import {
 import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
 import { useProjectState, useResizeEvent } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
-import { useIsScrollable } from "state/hooks/sectionSizes";
+import { useIsScrollable } from "state/hooks/sectionScrollability";
 import { useShareCapabilities } from "state/hooks/share";
 import { useParamColumnWidth } from "state/hooks/useParamColumnWidth";
 import {

@@ -276,6 +276,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
     owns pane activation writes, `uiSettingRevealDom.ts` owns DOM
     anchor/highlight behavior, and `uiSettingRevealShared.ts` owns
     execution-status helpers.
+  - `state/hooks/sectionMinMaxDims.ts` owns section sizing-policy reads plus
+    measured min/max dimension derivation for section surfaces.
+  - `state/hooks/sectionScrollability.ts` owns the shared overflow observer used
+    by Browser, Chat, TextBlock, Group, and params surfaces.
+  - `state/hooks/sectionAspectRatioSizing.ts` owns draw/social/media aspect-ratio
+    sizing writes and draw-canvas size normalization.
+  - `state/hooks/sectionSizes.ts` is now a thin compatibility surface that
+    re-exports the narrower hook owners.
   - `state/hooks/terminals/terminal.ts` now just orchestrates terminal mount,
     ready/focus wiring, and resize observation; `terminalSessions.ts` owns
     cached terminal websocket sessions, and `terminalFit.ts` owns xterm
@@ -335,9 +343,9 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/hooks/sectionSizes.ts` is now the largest authored/shared state
-  hotspot, so follow-up cleanup should separate DOM measurement/resize observers
-  from size derivation and state-bridge helpers
+- `state/actions/params/moveParams.ts` is now the largest authored/shared state
+  hotspot, so follow-up cleanup should separate param reparenting and reorder
+  queries from optimistic mutation dispatch and selection synchronization
 - `state/actions/sectionEffectiveImpls.ts` is now down to the remaining
   effective-impl selector surface, so any follow-up there should stay local to
   selector derivation rather than regrowing layout or mutation ownership

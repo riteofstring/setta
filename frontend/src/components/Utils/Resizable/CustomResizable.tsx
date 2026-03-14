@@ -8,7 +8,7 @@ import { useState, type MouseEvent, type ReactNode } from "react";
 import { getAttachedTerminalParentIdForTerminalSection } from "state/actions/sectionLayoutQueries";
 import { useProjectState } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
-import { useSectionMinMaxDims } from "state/hooks/sectionSizes";
+import { useSectionMinMaxDims } from "state/hooks/sectionMinMaxDims";
 import { useShareCapabilities } from "state/hooks/share";
 import { useLocalStorage, useSettings } from "state/stores/uiPreferenceStores";
 import { getSectionSurfaceClassName } from "../../Section/Container/sectionChrome";

@@ -23,7 +23,7 @@ import {
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { useSectionMinMaxDims } from "./sectionSizes";
+import { useSectionMinMaxDims } from "./sectionMinMaxDims";
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;

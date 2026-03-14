@@ -126,6 +126,13 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `frontend/src/state/actions/sectionEffectiveImplMutations.ts` now owns the
   local impl mutation helpers for section/code-object writes, reducing the
   core effective-impl selector surface to 423 lines.
+- `frontend/src/state/hooks/sectionMinMaxDims.ts` now owns section sizing-policy
+  reads plus measured min/max dimension derivation,
+  `frontend/src/state/hooks/sectionScrollability.ts` now owns the shared
+  overflow observer, and `frontend/src/state/hooks/sectionAspectRatioSizing.ts`
+  now owns draw/social/media aspect-ratio sizing behavior, reducing
+  `frontend/src/state/hooks/sectionSizes.ts` to a 13-line compatibility
+  surface.
 - `frontend/src/state/actions/websocketIncomingMessages.ts` now owns frontend
   websocket payload dispatch, project/app snapshot routing, and
   `UISettingReveal` ACK handling, reducing

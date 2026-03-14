@@ -54,14 +54,12 @@ import {
   openFileInSpreadsheetSection,
   openFileInTextSection,
 } from "state/actions/sections/createSections";
-import {
-  useProjectState,
-} from "state/definitions";
-import { useBrowserSectionFileBrowserState } from "state/stores/fileBrowserStores";
-import { useIsScrollable } from "state/hooks/sectionSizes";
+import { useProjectState } from "state/definitions";
+import { useIsScrollable } from "state/hooks/sectionScrollability";
 import { useShareCapabilities } from "state/hooks/share";
 import { useBrowserColumnWidth } from "state/hooks/useBrowserColumnWidth";
 import { useLocalPendingValue } from "state/hooks/utils";
+import { useBrowserSectionFileBrowserState } from "state/stores/fileBrowserStores";
 import { getAttachmentPreviewKind } from "utils/attachmentPreview";
 import { formatBytes } from "utils/attachments";
 import { resolvePathWithinRoot } from "utils/browserPaths";

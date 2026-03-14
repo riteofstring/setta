@@ -8,7 +8,7 @@ import { useProjectState, useResizeEvent } from "state/definitions";
 import {
   useTwitterSectionSize,
   useYouTubeSectionSize,
-} from "state/hooks/sectionSizes";
+} from "state/hooks/sectionAspectRatioSizing";
 import { linkIsTwitter, linkIsYouTube } from "state/hooks/social";
 import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import { SectionTypeEnum } from "utils/generatedTypes";

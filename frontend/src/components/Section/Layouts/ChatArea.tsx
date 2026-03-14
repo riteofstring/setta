@@ -76,7 +76,7 @@ import {
   useProjectState,
   useShareSession,
 } from "state/definitions";
-import { useIsScrollable } from "state/hooks/sectionSizes";
+import { useIsScrollable } from "state/hooks/sectionScrollability";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
 import { hasPendingToolInteraction } from "utils/claudeTools";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
