@@ -95,6 +95,12 @@ func TestRegisterProjectRoutesProjectChatWindowingMutationsPersistAndTrackFronte
 	if createdWindowSpace.ID == "" {
 		t.Fatal("expected created window space id")
 	}
+	if createdWindowSpace.WindowsByID == nil {
+		t.Fatal("expected created window space windowsById map to be non-nil")
+	}
+	if createdWindowSpace.Order == nil {
+		t.Fatal("expected created window space order slice to be non-nil")
+	}
 
 	renameRequest := httptest.NewRequest(
 		http.MethodPost,

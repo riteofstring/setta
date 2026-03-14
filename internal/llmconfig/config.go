@@ -52,9 +52,9 @@ type Config struct {
 }
 
 type AllConfigs struct {
-	Configs             map[string]Config       `json:"configs,omitempty"`
-	MCPServers          map[string]ServerConfig `json:"mcpServers,omitempty"`
-	DefaultMCPServerIDs []string                `json:"defaultMcpServerIds,omitempty"`
+	Configs             map[string]Config       `json:"configs"`
+	MCPServers          map[string]ServerConfig `json:"mcpServers"`
+	DefaultMCPServerIDs []string                `json:"defaultMcpServerIds"`
 	DefaultConfigID     string                  `json:"default_config_id,omitempty"`
 	CodexMCPImportedAt  string                  `json:"codexMcpImportedAt,omitempty"`
 }

@@ -73,6 +73,62 @@ func TestDefaultSingleConfigDerivesFrontendFieldsFromSnapshot(t *testing.T) {
 	}
 }
 
+func TestSingleConfigByProjectIDNormalizesEmptySlicesForFrontendContracts(t *testing.T) {
+	document := testProjectViewDocument(t)
+
+	view, err := SingleConfigByProjectID(document, "project-alpha")
+	if err != nil {
+		t.Fatalf("SingleConfigByProjectID returned error: %v", err)
+	}
+
+	if view.ProjectConfig.ActiveIDs == nil {
+		t.Fatal("expected active ids slice to be non-nil")
+	}
+	if view.ProjectConfig.WatchCodeFiles == nil {
+		t.Fatal("expected watch code files slice to be non-nil")
+	}
+	if view.Sections["global-section"].UnsharedKeys == nil {
+		t.Fatal("expected section unshared keys slice to be non-nil")
+	}
+	if view.SectionVariants["draw-variant"].NonPresetImpls == nil {
+		t.Fatal("expected variant non-preset impls slice to be non-nil")
+	}
+	if view.CodeObjs["callable-root"].UnsharedKeys == nil {
+		t.Fatal("expected code object unshared keys slice to be non-nil")
+	}
+
+	jsonPayload, err := json.Marshal(view)
+	if err != nil {
+		t.Fatalf("marshal single config: %v", err)
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(jsonPayload, &decoded); err != nil {
+		t.Fatalf("unmarshal single config json: %v", err)
+	}
+
+	projectConfig, ok := decoded["projectConfig"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected projectConfig object, got %#v", decoded["projectConfig"])
+	}
+	if activeIDs, ok := projectConfig["activeIds"].([]any); !ok || activeIDs == nil {
+		t.Fatalf("expected activeIds json array, got %#v", projectConfig["activeIds"])
+	}
+	if watchCodeFiles, ok := projectConfig["watchCodeFiles"].([]any); !ok || watchCodeFiles == nil {
+		t.Fatalf("expected watchCodeFiles json array, got %#v", projectConfig["watchCodeFiles"])
+	}
+	projectChatWindowing, ok := decoded["projectChatWindowing"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected projectChatWindowing object, got %#v", decoded["projectChatWindowing"])
+	}
+	if instancesByID, ok := projectChatWindowing["instancesById"].(map[string]any); !ok || instancesByID == nil {
+		t.Fatalf("expected instancesById json object, got %#v", projectChatWindowing["instancesById"])
+	}
+	if order, ok := projectChatWindowing["order"].([]any); !ok || order == nil {
+		t.Fatalf("expected projectChatWindowing order json array, got %#v", projectChatWindowing["order"])
+	}
+}
+
 func TestSingleConfigByProjectIDIncludesWindowingFields(t *testing.T) {
 	document := testProjectViewDocument(t)
 	project := document.Projects["project-alpha"]

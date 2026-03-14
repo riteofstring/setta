@@ -63,6 +63,39 @@ func TestRegisterLLMRoutesGetsAndSetsConfig(t *testing.T) {
 	}
 }
 
+func TestRegisterLLMRoutesReturnsEmptyTopLevelCollectionsForDefaultConfig(t *testing.T) {
+	t.Parallel()
+
+	state := newLLMRouteTestState(t, llmconfig.AllConfigs{
+		Configs:             map[string]llmconfig.Config{},
+		MCPServers:          map[string]llmconfig.ServerConfig{},
+		DefaultMCPServerIDs: []string{},
+	}, map[string]string{})
+	handler := newLLMRouteTestHandler(t, config.ModeIDE, state.service)
+
+	request := httptest.NewRequest(http.MethodGet, "/api"+RouteLLMConfig, nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var loaded llmconfig.AllConfigs
+	if err := json.Unmarshal(response.Body.Bytes(), &loaded); err != nil {
+		t.Fatalf("decode loaded config: %v", err)
+	}
+	if loaded.Configs == nil {
+		t.Fatal("expected configs map to be non-nil")
+	}
+	if loaded.MCPServers == nil {
+		t.Fatal("expected mcpServers map to be non-nil")
+	}
+	if loaded.DefaultMCPServerIDs == nil {
+		t.Fatal("expected defaultMcpServerIds slice to be non-nil")
+	}
+}
+
 func TestRegisterLLMRoutesRejectsInvalidConfig(t *testing.T) {
 	t.Parallel()
 

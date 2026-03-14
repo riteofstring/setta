@@ -1370,6 +1370,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     workspaceRootIdentity,
   );
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
+  const showThinkingExecutionControl =
+    supportsThinkingExecutionControl(engineType);
+  const effectiveThinking = resolveEffectiveThinking({
+    engineType,
+    requestedThinking: thinking,
+  });
   const hydrationRunType = hydrationAuthority.hydrationRunType;
   const {
     contextWindowTokens,
@@ -2132,12 +2138,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     }),
     [runtimeActivityDetails],
   );
-  const showThinkingExecutionControl =
-    supportsThinkingExecutionControl(engineType);
-  const effectiveThinking = resolveEffectiveThinking({
-    engineType,
-    requestedThinking: thinking,
-  });
   const executionControls = useMemo(
     () => ({
       thinkingEnabled: effectiveThinking,

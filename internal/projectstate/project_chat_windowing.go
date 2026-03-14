@@ -53,9 +53,9 @@ type ProjectChatWindowInstance struct {
 }
 
 type ProjectChatWindowingState struct {
-	InstancesByID      map[string]ProjectChatWindowInstance `json:"instancesById,omitempty"`
-	Order              []string                             `json:"order,omitempty"`
-	NextInstanceNumber int                                  `json:"nextInstanceNumber,omitempty"`
+	InstancesByID      map[string]ProjectChatWindowInstance `json:"instancesById"`
+	Order              []string                             `json:"order"`
+	NextInstanceNumber int                                  `json:"nextInstanceNumber"`
 }
 
 type WindowSpaceSurfaceKind string
@@ -84,13 +84,13 @@ type WindowSpaceWindow struct {
 }
 
 type WindowSpaceState struct {
-	WindowsByID map[string]WindowSpaceWindow `json:"windowsById,omitempty"`
-	Order       []string                     `json:"order,omitempty"`
+	WindowsByID map[string]WindowSpaceWindow `json:"windowsById"`
+	Order       []string                     `json:"order"`
 }
 
 type WindowSpaceConfig struct {
-	WindowsByID map[string]WindowSpaceWindow `json:"windowsById,omitempty"`
-	Order       []string                     `json:"order,omitempty"`
+	WindowsByID map[string]WindowSpaceWindow `json:"windowsById"`
+	Order       []string                     `json:"order"`
 	ID          string                       `json:"id,omitempty"`
 	Name        string                       `json:"name,omitempty"`
 	SortIndex   int                          `json:"sortIndex,omitempty"`

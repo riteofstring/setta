@@ -220,14 +220,14 @@ func projectConfigFromProject(project projectstate.Project) ProjectConfig {
 		CodegenTargets:          codegenTargets,
 		WatchCodeEnabled:        project.WatchCodeEnabled,
 		WatchCodeFolders:        cloneWatchCodeFolders(project.WatchCodeFolders),
-		WatchCodeFiles:          append([]string(nil), project.WatchCodeFiles...),
+		WatchCodeFiles:          cloneStringSlice(project.WatchCodeFiles),
 		WatchCodeRegistry:       cloneWatchCodeRegistry(project.WatchCodeRegistry),
 		WatchCodeBaselineByPath: cloneStringSlicesMap(project.WatchCodeBaselineByPath),
 		EntryCodeBlockID:        entryCodeBlockID,
 		TopLevelSections:        topLevelSections,
 		WindowSpaces:            projectstate.CloneWindowSpacesOrEmpty(project.WindowSpaces),
 		SectionVariantMap:       cloneStringMap(project.SectionVariantMap),
-		ActiveIDs:               append([]string(nil), project.ActiveIDs...),
+		ActiveIDs:               cloneStringSlice(project.ActiveIDs),
 		Edges:                   edges,
 		AgenticEdges:            agenticEdges,
 	}
@@ -238,10 +238,10 @@ func coreFromSection(section projectstate.Section) Core {
 		ID:             section.ID,
 		Name:           section.Name,
 		DisplayName:    section.DisplayName,
-		Variants:       append([]string(nil), section.VariantIDs...),
+		Variants:       cloneStringSlice(section.VariantIDs),
 		DefaultVariant: stringPointerOrNil(section.DefaultVariantID),
 		SharedModifier: cloneRawJSON(section.SharedModifier),
-		UnsharedKeys:   append([]string(nil), section.UnsharedKeys...),
+		UnsharedKeys:   cloneStringSlice(section.UnsharedKeys),
 	}
 }
 
@@ -250,10 +250,10 @@ func coreFromCodeObject(codeObj projectstate.CodeObject) Core {
 		ID:             codeObj.ID,
 		Name:           codeObj.Name,
 		DisplayName:    codeObj.DisplayName,
-		Variants:       append([]string(nil), codeObj.VariantIDs...),
+		Variants:       cloneStringSlice(codeObj.VariantIDs),
 		DefaultVariant: stringPointerOrNil(codeObj.DefaultVariantID),
 		SharedModifier: cloneRawJSON(codeObj.SharedModifier),
-		UnsharedKeys:   append([]string(nil), codeObj.UnsharedKeys...),
+		UnsharedKeys:   cloneStringSlice(codeObj.UnsharedKeys),
 	}
 }
 
@@ -262,7 +262,7 @@ func variantFromSectionVariant(variant projectstate.SectionVariant) Variant {
 		ID:             variant.ID,
 		Name:           variant.Name,
 		Impl:           variant.ImplID,
-		NonPresetImpls: append([]string(nil), variant.NonPresetImplIDs...),
+		NonPresetImpls: cloneStringSlice(variant.NonPresetImplIDs),
 		Modifier:       cloneRawJSON(variant.Modifier),
 		IsFrozen:       variant.IsFrozen,
 	}
@@ -273,7 +273,7 @@ func variantFromCodeObjectVariant(variant projectstate.CodeObjectVariant) Varian
 		ID:             variant.ID,
 		Name:           variant.Name,
 		Impl:           variant.ImplID,
-		NonPresetImpls: append([]string(nil), variant.NonPresetImplIDs...),
+		NonPresetImpls: cloneStringSlice(variant.NonPresetImplIDs),
 		Modifier:       cloneRawJSON(variant.Modifier),
 		IsFrozen:       variant.IsFrozen,
 	}
@@ -430,16 +430,16 @@ func traverseParamHierarchy(project projectstate.Project, codeObjVariantMap map[
 		if err != nil {
 			return err
 		}
-		currentPath := append(append([]string(nil), path...), codeObjID)
+		currentPath := append(cloneStringSlice(path), codeObjID)
 		codeObjType := codeObjType(project, codeObjID, payload)
 		if isParamType(codeObjType) {
 			paramIDs = append(paramIDs, codeObjID)
-			idToPath[codeObjID] = append([]string(nil), currentPath...)
+			idToPath[codeObjID] = cloneStringSlice(currentPath)
 		}
 
 		children := arrayStringField(payload, "children")
 		if len(children) > 0 {
-			childrenMap[codeObjID] = append([]string(nil), children...)
+			childrenMap[codeObjID] = cloneStringSlice(children)
 		}
 		for _, childID := range children {
 			if err := walk(childID, currentPath); err != nil {
@@ -500,7 +500,9 @@ func buildShownParamArea(paramIDs []string, candidates map[string]struct{}, idTo
 		}
 		path := idToPath[paramID]
 		for _, pathID := range path {
-			result.RequiredParamIDsToPaths[pathID] = append([]string(nil), idToPath[pathID]...)
+			result.RequiredParamIDsToPaths[pathID] = cloneStringSlice(
+				idToPath[pathID],
+			)
 		}
 		included[paramID] = struct{}{}
 	}
@@ -713,7 +715,7 @@ func sectionImplPayloadUnchecked(impl projectstate.SectionImpl) json.RawMessage 
 		if impl.Code.AttachedTerminalSectionID != "" {
 			payload["attachedTerminalSectionId"] = impl.Code.AttachedTerminalSectionID
 		}
-		payload["children"] = append([]string(nil), impl.Code.Children...)
+		payload["children"] = cloneStringSlice(impl.Code.Children)
 	case impl.IsDraw():
 		if impl.Draw.RenderedImagePath != "" {
 			payload["renderedImagePath"] = impl.Draw.RenderedImagePath
@@ -989,6 +991,13 @@ func cloneStringMap(source map[string]string) map[string]string {
 	return cloned
 }
 
+func cloneStringSlice(source []string) []string {
+	if source == nil {
+		return []string{}
+	}
+	return append([]string(nil), source...)
+}
+
 func cloneWatchCodeFolders(source []projectstate.WatchCodeFolder) []projectstate.WatchCodeFolder {
 	if source == nil {
 		return []projectstate.WatchCodeFolder{}
@@ -1010,7 +1019,7 @@ func cloneWatchCodeRegistry(source map[string]projectstate.WatchCodeRegistryEntr
 			SignatureHash: entry.SignatureHash,
 			BodyHash:      entry.BodyHash,
 			SourcePath:    entry.SourcePath,
-			SectionIDs:    append([]string(nil), entry.SectionIDs...),
+			SectionIDs:    cloneStringSlice(entry.SectionIDs),
 			SectionsCount: entry.SectionsCount,
 		}
 	}
@@ -1023,7 +1032,7 @@ func cloneStringSlicesMap(source map[string][]string) map[string][]string {
 	}
 	cloned := make(map[string][]string, len(source))
 	for key, values := range source {
-		cloned[key] = append([]string(nil), values...)
+		cloned[key] = cloneStringSlice(values)
 	}
 	return cloned
 }
