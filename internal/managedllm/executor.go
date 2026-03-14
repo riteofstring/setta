@@ -829,6 +829,17 @@ func (e *Executor) processOpenAIResponseEvent(
 		}
 		return nil, fmt.Errorf("managed llm provider request failed: %s", detail)
 	case responses.ResponseFailedEvent:
+		if err := e.applyOpenAICompletedResponseFallback(
+			ctx,
+			prepared,
+			assistantMessage,
+			typed.Response,
+			streamState,
+			accumulator,
+			previewAccumulator,
+		); err != nil {
+			return nil, err
+		}
 		if strings.TrimSpace(typed.Response.Error.Message) == "" {
 			return nil, fmt.Errorf("managed llm provider request failed: response failed")
 		}
