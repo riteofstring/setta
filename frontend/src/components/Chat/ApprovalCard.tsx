@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { IoMdCheckmark } from "react-icons/io";
 import { MdErrorOutline } from "react-icons/md";
 import { PiWrenchFill } from "react-icons/pi";
+import { BrailleSpinner } from "components/Utils/BrailleSpinner";
 import { respondExternalAgentApproval } from "state/actions/ai";
 import { ToolChatMessage } from "utils/generatedTypes";
 
@@ -142,8 +143,8 @@ function buildStatusIcon(approved: boolean | undefined, isStreaming: boolean) {
     return <MdErrorOutline className="text-red-500" />;
   }
   return (
-    <i
-      className={`gg-spinner !scale-75 ${
+    <BrailleSpinner
+      className={`text-[11px] ${
         isStreaming
           ? "text-setta-400 dark:text-setta-300/70"
           : "text-setta-300/70"

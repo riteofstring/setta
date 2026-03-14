@@ -11,6 +11,7 @@ import {
 import {
   createGetGitCommitDetailsResponse,
   createGetGitLogResponse,
+  createGetGitStatusResponse,
   createGitCommit,
   type GetGitLogResponse,
   type GitCommit,
@@ -159,7 +160,7 @@ function setGitStatusResponse(
   useGitStore.setState((state) => ({
     ...state,
     status: {
-      response: {
+      response: createGetGitStatusResponse({
         repo: {
           isGitRepo: true,
           repoRoot: "/repo",
@@ -168,7 +169,7 @@ function setGitStatusResponse(
         },
         entries,
         isTruncated: false,
-      },
+      }),
       diffAvailabilityByPath,
       isLoading: false,
       error: null,
