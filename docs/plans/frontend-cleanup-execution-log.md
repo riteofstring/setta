@@ -520,3 +520,42 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/sectionInfos.ts` into clearer read/query,
     optimistic mutation, and project-chat-windowing sync modules now that
     `definitions.ts` has been reduced to a thin compatibility index.
+
+## 2026-03-14 16:52:44 PDT
+
+- Slice completed: extracted backend project-state reconciliation and
+  project-chat windowing sync out of `frontend/src/state/actions/sectionInfos.ts`
+  into `frontend/src/state/actions/sectionProjectStateSync.ts`
+- Key files touched:
+  - `frontend/src/state/actions/sectionProjectStateSync.ts`
+  - `frontend/src/state/actions/sectionInfos.ts`
+  - `frontend/src/state/actions/websocketReceive.ts`
+  - `frontend/src/state/actions/websocketReceive.test.ts`
+  - `frontend/src/state/actions/sectionInfos.test.ts`
+  - `frontend/src/state/actions/sectionInfos.projectChatWindowingSync.test.ts`
+  - `frontend/src/state/actions/activeSections.test.ts`
+  - `frontend/src/state/actions/aiSectionResizePersistence.test.ts`
+  - `frontend/src/state/actions/aiSectionStreaming.test.ts`
+  - `frontend/src/state/actions/aiStreamingPersistence.test.ts`
+  - `frontend/src/state/actions/projectChatWindowing.rollback.test.ts`
+  - `frontend/src/state/actions/sections/moveSections.test.ts`
+  - `frontend/src/state/actions/sections/topLevelLayoutPersistence.test.ts`
+  - `frontend/src/state/actions/uiSettingReveal.test.ts`
+  - `frontend/src/plugins/runtime.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/sectionInfos.test.ts src/state/actions/sectionInfos.projectChatWindowingSync.test.ts src/state/actions/activeSections.test.ts src/state/actions/aiSectionResizePersistence.test.ts src/state/actions/aiSectionStreaming.test.ts src/state/actions/aiStreamingPersistence.test.ts src/state/actions/projectChatWindowing.rollback.test.ts src/state/actions/sections/moveSections.test.ts src/state/actions/sections/topLevelLayoutPersistence.test.ts src/state/actions/uiSettingReveal.test.ts src/state/actions/websocketReceive.test.ts src/plugins/runtime.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/sectionProjectStateSync.ts src/state/actions/sectionInfos.ts src/state/actions/websocketReceive.ts src/state/actions/websocketReceive.test.ts src/state/actions/activeSections.test.ts src/state/actions/aiSectionResizePersistence.test.ts src/state/actions/aiSectionStreaming.test.ts src/state/actions/aiStreamingPersistence.test.ts src/state/actions/projectChatWindowing.rollback.test.ts src/state/actions/sectionInfos.projectChatWindowingSync.test.ts src/state/actions/sectionInfos.test.ts src/state/actions/sections/moveSections.test.ts src/state/actions/sections/topLevelLayoutPersistence.test.ts src/state/actions/uiSettingReveal.test.ts src/plugins/runtime.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split and
+    did not change frontend rendering behavior.
+- Commit hash:
+  - `67a936c08`
+- Next highest-value unblocked slice:
+  - Split the remaining `frontend/src/state/actions/sectionInfos.ts` surface
+    into clearer read/effective-impl helpers and optimistic mutation commands,
+    now that backend snapshot reconciliation lives in
+    `frontend/src/state/actions/sectionProjectStateSync.ts`.
