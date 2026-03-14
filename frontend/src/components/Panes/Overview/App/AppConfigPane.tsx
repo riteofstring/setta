@@ -4,13 +4,14 @@ import { pickDefaultConfigId } from "components/Chat/llmConfigUtils";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   clearPendingChatDetails,
-  loadEngineConfigs,
-  loadExternalAgentHealth,
-  loadLLMApiKeys,
-  loadLLMConfig,
   resolveEngineConfigIdForChat,
   submitMessage,
 } from "state/actions/ai";
+import { loadLLMApiKeys, loadLLMConfig } from "state/actions/ai/llmSettings";
+import {
+  loadEngineConfigs,
+  loadExternalAgentHealth,
+} from "state/actions/ai/projectAiResources";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   useAIStore,

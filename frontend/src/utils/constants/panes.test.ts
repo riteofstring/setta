@@ -3,7 +3,7 @@ import {
   parsePluginPaneOverviewTabName,
   REQUIRED_UI_EDITOR_TABS,
   UIEditorTabNameEnum,
-} from "utils/constants";
+} from "utils/constants/panes";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 
@@ -25,6 +25,7 @@ describe("plugin overview tab key helpers", () => {
       "plugin!~*'() /",
       "pane!~*'() :?",
     );
+
     expect(tabKey).toBe("PluginPane:plugin!~*'()%20%2F:pane!~*'()%20%3A%3F");
   });
 
@@ -40,6 +41,7 @@ describe("plugin overview tab key helpers", () => {
 describe("required ui editor tabs compatibility", () => {
   it("includes every section type in the shared compatibility payload", () => {
     const sectionTypes = Object.values(SectionTypeEnum);
+
     expect(Object.keys(REQUIRED_UI_EDITOR_TABS).sort()).toEqual(
       sectionTypes.slice().sort(),
     );
