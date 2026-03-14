@@ -11,13 +11,13 @@ import { useSolelyActiveSectionUIId } from "state/activeSectionUI";
 import { useLocalStorage } from "state/definitions";
 import { useUIEditorTab } from "state/hooks/uiTypes";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
+import { APP_CHROME_Z_INDEX_CLASS_NAME } from "utils/constants/dom";
 import {
-  APP_CHROME_Z_INDEX_CLASS_NAME,
   PaneNameEnum,
   UIEditorTabName,
   UIEditorTabNameEnum,
   UIEditorTabNamePrettified,
-} from "utils/constants";
+} from "utils/constants/panes";
 import { useTabScope } from "utils/focusManager";
 import { shallow } from "zustand/shallow";
 import {

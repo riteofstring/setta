@@ -6,7 +6,7 @@ import {
   resolveProjectChatComposerNativeSlashCommandTokens,
   resolveProjectChatComposerSlashCommandSets,
   resolveProjectChatRuntimeNativeSlashCommandTokens,
-} from "./ProjectChatCore";
+} from "./projectChatRuntimeUtils";
 
 describe("project chat slash command authority integration", () => {
   it("keeps native commands scoped to the active external-agent engine across recognition and execution", () => {

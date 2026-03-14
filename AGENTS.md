@@ -83,7 +83,7 @@
 
 ## Environment & Tooling
 
-- Python uses `uv` + `.venv` (`pyproject.toml` requires Python 3.12+). `init_env.sh` runs `uv sync --extra source --extra dev --extra gemini` and activates the venv.
+- Python uses `uv` + `.venv` (`pyproject.toml` requires Python 3.12+). `init_env.sh` runs `uv sync --all-extras` and activates the venv.
 - `dev_install.sh` is the one-stop local setup (runs `init_env.sh`, installs frontend deps, installs agent sidecars, then cleans). Source it if you want the venv to stay active: `. ./dev_install.sh`.
 - `frontend/backendStart.sh` acts as the bridge to the Python server; keep custom flags documented in the script header when extending it.
 - Clean stale artifacts using `cleanup.sh` before packaging or publishing to avoid shipping stray build outputs.
