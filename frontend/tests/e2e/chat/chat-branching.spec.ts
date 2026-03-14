@@ -276,24 +276,14 @@ test.describe.serial("chat branching", () => {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify({
-            chatId: branchChatId,
-            runId: `${branchChatId}-run`,
-            engineType: "setta_llm",
-            sectionId: null,
-          }),
+          body: JSON.stringify(branchChatId),
         });
         return;
       }
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
-          chatId: rootChatId,
-          runId: `${rootChatId}-run`,
-          engineType: "setta_llm",
-          sectionId: null,
-        }),
+        body: JSON.stringify(rootChatId),
       });
     });
 

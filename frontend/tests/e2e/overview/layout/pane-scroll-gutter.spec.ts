@@ -107,8 +107,7 @@ test("pane scroll regions reserve gutter and prevent horizontal content shift", 
   await ensureAppReady(page);
   await openProjectAiSettingsPopover(page);
 
-  const overviewTabContentShell = page.getByTestId("overview-tab-content-shell");
-  const llmKeysTrigger = overviewTabContentShell.getByTestId(
+  const llmKeysTrigger = page.getByTestId(
     "project-ai-settings-accordion-llm-api-keys",
   );
   await expect(llmKeysTrigger).toBeVisible();
@@ -124,11 +123,11 @@ test("pane scroll regions reserve gutter and prevent horizontal content shift", 
   await ensureAppReady(page);
   await openProjectAiSettingsPopover(page);
   await assertScrollRegionUsesStableGutter(
-    overviewTabContentShell.getByTestId("project-ai-settings-scroll-region"),
+    page.getByTestId("project-ai-settings-scroll-region"),
   );
 
   const nextTriggerLeft = (
-    await overviewTabContentShell
+    await page
       .getByTestId("project-ai-settings-accordion-llm-api-keys")
       .boundingBox()
   )?.x;

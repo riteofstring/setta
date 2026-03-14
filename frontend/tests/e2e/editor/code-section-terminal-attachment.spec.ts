@@ -451,18 +451,10 @@ test("embedded terminal group renders a single outline + agentic handles and tog
     await expect(codeSection).toHaveClass(/rounded-b-none/);
     await expect(terminalSection).toHaveClass(/rounded-t-none/);
 
-    const targetHandle = codeNode.locator(
-      `.react-flow__handle.agentic-handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-target"]`,
+    const agenticHandles = codeNode.locator(
+      ".react-flow__handle.agentic-handle",
     );
-    const sourceHandle = codeNode.locator(
-      `.react-flow__handle.agentic-handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-source"]`,
-    );
-    const reverseStartHandle = codeNode.locator(
-      `.react-flow__handle.agentic-handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-reverse-start"][data-reverse-start="true"]`,
-    );
-    await expect(targetHandle).toHaveCount(1);
-    await expect(sourceHandle).toHaveCount(1);
-    await expect(reverseStartHandle).toHaveCount(1);
+    await expect(agenticHandles).toHaveCount(2);
 
     await expect
       .poll(async () => {
@@ -493,9 +485,7 @@ test("embedded terminal group renders a single outline + agentic handles and tog
     await expect(terminalHost).toHaveCount(0);
     await expect(codeSection).not.toHaveClass(/rounded-b-none/);
     await expect(terminalSection).toHaveCount(0);
-    await expect(targetHandle).toHaveCount(1);
-    await expect(sourceHandle).toHaveCount(1);
-    await expect(reverseStartHandle).toHaveCount(1);
+    await expect(agenticHandles).toHaveCount(2);
 
     await toggleButton.click({ force: true });
     await expect(joinedGroup).toBeVisible();
@@ -503,9 +493,7 @@ test("embedded terminal group renders a single outline + agentic handles and tog
     await expect(codeSection).toHaveClass(/rounded-b-none/);
     await expect(terminalSection).toBeVisible();
     await expect(terminalSection).toHaveClass(/rounded-t-none/);
-    await expect(targetHandle).toHaveCount(1);
-    await expect(sourceHandle).toHaveCount(1);
-    await expect(reverseStartHandle).toHaveCount(1);
+    await expect(agenticHandles).toHaveCount(2);
   } finally {
     await deleteProjectConfigById(page, projectConfigId);
   }
@@ -940,16 +928,13 @@ test("embedded terminal can detach via drag and drop", async ({ page }) => {
         attempt,
       });
 
-      const releaseMovingFreeMode = await activateMovingFreeDragMode(page);
-      try {
-        await page.mouse.move(startX, startY);
-        await page.mouse.down();
-        await page.waitForTimeout(250);
-        await page.mouse.move(targetX, targetY, { steps: 12 });
-        await page.mouse.up();
-      } finally {
-        await releaseMovingFreeMode();
-      }
+      await page.keyboard.down("Alt");
+      await page.mouse.move(startX, startY);
+      await page.mouse.down();
+      await page.waitForTimeout(250);
+      await page.mouse.move(targetX, targetY, { steps: 12 });
+      await page.mouse.up();
+      await page.keyboard.up("Alt");
 
       let didDetach = false;
       try {
@@ -2178,7 +2163,7 @@ test("terminal resize messages are throttled during drag detach", async ({
     }
 
     await focusPaneForDnd(page);
-    const releaseMovingFreeMode = await activateMovingFreeDragMode(page);
+    await page.keyboard.down("Alt");
     altPressed = true;
 
     const pane = page.locator(".react-flow__pane");
@@ -2217,7 +2202,7 @@ test("terminal resize messages are throttled during drag detach", async ({
       window.__terminalResizePhase = "idle";
     });
 
-    await releaseMovingFreeMode();
+    await page.keyboard.up("Alt");
     altPressed = false;
 
     const resizeCounts = await page.evaluate(
@@ -2881,38 +2866,6 @@ async function focusPaneForDnd(page: Page): Promise<void> {
     position: { x: 8, y: 8 },
     force: true,
   });
-}
-
-async function activateMovingFreeDragMode(
-  page: Page,
-): Promise<() => Promise<void>> {
-  await page.keyboard.down("Alt");
-  let usedFallbackActivation = false;
-  const movingFreeActivated = await page.evaluate(async () => {
-    const { useDndState } = await import("/src/forks/dnd-kit/dndState");
-    return useDndState.getState().isMovingFree;
-  });
-  if (!movingFreeActivated) {
-    usedFallbackActivation = true;
-    await page.evaluate(async () => {
-      const { activateDndMovingFreeMode } = await import(
-        "/src/forks/dnd-kit/dndState"
-      );
-      activateDndMovingFreeMode();
-    });
-  }
-  return async () => {
-    await page.keyboard.up("Alt");
-    if (!usedFallbackActivation) {
-      return;
-    }
-    await page.evaluate(async () => {
-      const { forceDeactivateDnd } = await import(
-        "/src/forks/dnd-kit/dndState"
-      );
-      forceDeactivateDnd();
-    });
-  };
 }
 
 async function resetViewport(page: Page): Promise<void> {

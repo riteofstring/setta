@@ -586,19 +586,6 @@ test.describe.serial("chat composer controls", () => {
     try {
       await page.reload();
       await page.waitForSelector(".react-flow__pane");
-      await page.evaluate(async () => {
-        const { useAIStore, useLocalStorage, useProjectState } = await import(
-          "/src/state/definitions.ts"
-        );
-        const projectConfigId = useProjectState.getState().projectConfig.id;
-        useAIStore.setState({ viewThreads: false });
-        useLocalStorage.setState((state) => ({
-          projectChatAuxViewByProjectConfigId: {
-            ...state.projectChatAuxViewByProjectConfigId,
-            [projectConfigId]: "none",
-          },
-        }));
-      });
 
       const overviewPane = page.locator("#OverviewPane");
       await expect(
@@ -779,12 +766,7 @@ test.describe.serial("chat composer controls", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
-          chatId: newChatId,
-          runId: `${newChatId}-run`,
-          engineType: "setta_llm",
-          sectionId: null,
-        }),
+        body: JSON.stringify(newChatId),
       });
     });
     await page.route("**/api/getLLMChat", async (route) => {
@@ -928,12 +910,7 @@ test.describe.serial("chat composer controls", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
-          chatId: "pw-context-chat",
-          runId: "pw-context-chat-run",
-          engineType: "setta_llm",
-          sectionId: null,
-        }),
+        body: JSON.stringify("pw-context-chat"),
       });
     });
     await page.route("**/api/getExternalAgentChat", async (route) => {
@@ -1040,12 +1017,7 @@ test.describe.serial("chat composer controls", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
-          chatId: "pw-context-chat-large-window",
-          runId: "pw-context-chat-large-window-run",
-          engineType: "setta_llm",
-          sectionId: null,
-        }),
+        body: JSON.stringify("pw-context-chat-large-window"),
       });
     });
     await page.route("**/api/getExternalAgentChat", async (route) => {
@@ -1152,12 +1124,7 @@ test.describe.serial("chat composer controls", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
-          chatId: "pw-context-chat-missing-usage",
-          runId: "pw-context-chat-missing-usage-run",
-          engineType: "setta_llm",
-          sectionId: null,
-        }),
+        body: JSON.stringify("pw-context-chat-missing-usage"),
       });
     });
     await page.route("**/api/getExternalAgentChat", async (route) => {
@@ -1251,12 +1218,7 @@ test.describe.serial("chat composer controls", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
-          chatId: "pw-context-chat-partial-usage",
-          runId: "pw-context-chat-partial-usage-run",
-          engineType: "setta_llm",
-          sectionId: null,
-        }),
+        body: JSON.stringify("pw-context-chat-partial-usage"),
       });
     });
     await page.route("**/api/getExternalAgentChat", async (route) => {
@@ -1371,7 +1333,7 @@ test.describe.serial("chat composer controls", () => {
         name: "Project AI Settings",
       });
 
-      await setProjectChatSurfaceWidth(page, 960);
+      await setProjectChatSurfaceWidth(page, 820);
       await expect(historyVisibleLabel).toBeVisible();
       await expect(settingsButton).toBeVisible();
 
@@ -1396,12 +1358,7 @@ test.describe.serial("chat composer controls", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
-          chatId: "pw-managed-unavailable-slash",
-          runId: "pw-managed-unavailable-slash-run",
-          engineType: "setta_llm",
-          sectionId: null,
-        }),
+        body: JSON.stringify("pw-managed-unavailable-slash"),
       });
     });
     await page.route("**/api/getLLMChat", async (route) => {
@@ -1496,12 +1453,7 @@ test.describe.serial("chat composer controls", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
-          chatId: fakeChatId,
-          runId: `${fakeChatId}-run`,
-          engineType: "setta_llm",
-          sectionId: null,
-        }),
+        body: JSON.stringify(fakeChatId),
       });
     });
     await page.route("**/api/getLLMChat", async (route) => {

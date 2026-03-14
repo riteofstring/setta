@@ -27,12 +27,7 @@ test.describe.serial("project chat routing isolation", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
-          chatId: nextChatId,
-          runId: `${nextChatId}-run`,
-          engineType: "setta_llm",
-          sectionId: null,
-        }),
+        body: JSON.stringify(nextChatId),
       });
     });
     await page.route("**/api/getLLMChat", async (route) => {
