@@ -6245,6 +6245,7 @@ func TestAppPluginLanguageServerRoutesDiagnosticsAndCompletion(t *testing.T) {
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
+	seedAppEmptyProject(t, app)
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
@@ -6358,6 +6359,7 @@ func TestAppLinkRefreshesPluginLanguageServerRouter(t *testing.T) {
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
+	seedAppEmptyProject(t, app)
 
 	repoRoot := appTestRepoRoot(t)
 	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", "backend-language-server-e2e")
@@ -10834,6 +10836,24 @@ func saveAppMainProjectDocument(t *testing.T, cfg config.Config, document projec
 		return err
 	}
 	return store.Save(context.Background(), document)
+}
+
+func seedAppEmptyProject(t *testing.T, app *App) {
+	t.Helper()
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:   "project-alpha",
+			Name: "Alpha",
+		}
+		document.DefaultProjectID = "project-alpha"
+		return document, nil
+	}); err != nil {
+		t.Fatalf("mutate empty project: %v", err)
+	}
+	if _, err := app.ProjectStates().Main().Save(context.Background()); err != nil {
+		t.Fatalf("save empty project: %v", err)
+	}
 }
 
 func waitForAppWatchCodeProject(t *testing.T, app *App, projectID string, predicate func(projectstate.Project) bool) {

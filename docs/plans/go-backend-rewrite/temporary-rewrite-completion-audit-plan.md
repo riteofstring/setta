@@ -1,0 +1,355 @@
+# Temporary Rewrite Completion Audit Plan
+
+Drafted: `2026-03-14`
+Updated with execution results: `2026-03-14`
+
+Purpose: determine from current code, registrations, callers, and executable
+behavior whether the Go rewrite is actually complete.
+
+This plan is intentionally stricter than the existing rewrite checklists. Those
+docs are useful indexes and hypotheses, but they are not sufficient evidence on
+their own. The audit must be reproducible from code and runtime proof.
+
+## Decision rule
+
+Return exactly one verdict:
+
+- `Complete`
+- `Incomplete`
+- `Cannot prove complete`
+
+`Complete` requires repo-backed proof that every active backend/runtime surface
+outside the explicit retained Python boundaries is Go-owned today.
+
+`Incomplete` means at least one active backend capability, caller path, or
+runtime owner still depends on Python outside an allowed retained boundary.
+
+`Cannot prove complete` means the code audit found unresolved ambiguity or the
+required runtime/test proof could not be executed. If certainty is the goal,
+missing proof does not count as complete.
+
+## Completion standard
+
+Treat the rewrite as complete only if all of the following are true:
+
+- Every active non-test frontend caller reaches a Go-owned transport/runtime or
+  an explicit retained boundary.
+- Every active packaged/default backend entrypoint resolves to Go-owned command
+  and server behavior, except for explicitly retained Python wrappers.
+- No active Python router, websocket handler, or service owns backend behavior
+  outside the explicit retained boundaries.
+- Every claimed retained Python boundary is real, narrow, and still required by
+  current code or supported public API.
+- Go test coverage plus black-box runtime proof match or exceed the meaningful
+  behavior still covered by the Python backend/tests.
+- No material backend subsystem remains unclassified.
+
+If any one of these statements cannot be proven, do not return `Complete`.
+
+## Explicit retained boundaries to verify
+
+Start with the retained-boundary list in `CURRENT.md`, then verify each claim in
+code rather than accepting the doc at face value:
+
+- packaged/install entrypoints and wheel-facing wrappers, including
+  `python -m setta`
+- dev-only startup/reload
+- public Python APIs:
+  - `setta.api.SettaListener`
+  - `setta.api.ListenerHotReloader`
+  - `setta.api.chat_toolkit`
+  - share listener entrypoints that instantiate `SettaListener`
+  - `setta.api.SettaRunner`
+- retained Python listener generated-runtime fallback, if still required by
+  current code paths
+- Python or other sidecars intentionally executed by Go
+
+Anything outside these verified exceptions is presumptively rewrite scope.
+
+## Non-evidence
+
+Do not treat any of the following as proof:
+
+- phase plans marked complete
+- checklist rows marked `Complete`
+- existence of a Go package, route constant, or handler
+- existence of generated frontend bindings alone
+- absence of recent Python edits
+- assumptions that a Python route is dormant without caller search
+- broad statements like "Go owns this now" without transport, registration,
+  caller, and runtime-owner evidence
+
+## Required evidence sources
+
+### Runtime and entrypoint wiring
+
+- `cmd/setta/main.go`
+- `cmd/setta-server/main.go`
+- `internal/app/*`
+- `internal/runtime/*`
+- `backend/setta/__main__.py`
+- `backend/setta/entrypoint.py`
+- `frontend/backendStart.sh`
+- `build.sh`
+- `scripts/build_packaged_go_binaries.sh`
+- `verify_install.sh`
+
+### Go transport and runtime inventory
+
+- `internal/httpapi/*`
+- `internal/wsapi/*`
+- route/registration wiring under `internal/app/*`
+- relevant `internal/*` packages by feature area
+
+### Python backend/runtime inventory
+
+- `backend/setta/types/routes.py`
+- `backend/setta/routers/*.py`
+- `backend/setta/websockets/**/*`
+- `backend/setta/api/*`
+- other `backend/setta/*` runtime packages when ownership is disputed
+
+### Current caller inventory
+
+- non-test `frontend/src/**/*`
+- `frontend/src/utils/generatedEndpoints.ts`
+- `frontend/src/utils/generatedTypes.ts`
+- direct frontend `fetch`, request helper, and websocket call sites
+- plugin runtime/frontend bridge code
+- retained public Python API callers and wrappers
+
+### Test and behavior inventory
+
+- `internal/**/*_test.go`
+- `tests/**/*`
+- relevant Vitest files under `frontend/src/**/*.test.ts*`
+- Playwright coverage under `frontend/tests/e2e/**/*.spec.ts`
+- `docs/plans/go-backend-rewrite/testing-strategy.md`
+
+## Audit workflow
+
+1. Lock the definition of "complete".
+   - Use this document's decision rule, not the existing checklist statuses.
+   - Treat `CURRENT.md` as the starting claim set for retained boundaries only.
+
+2. Build the actual Go backend inventory.
+   - Enumerate active Go CLI/server entrypoints.
+   - Enumerate registered HTTP and websocket routes from Go.
+   - Map each feature area to its actual Go runtime owner package.
+
+3. Build the actual Python backend inventory.
+   - Enumerate Python HTTP routes, websocket handlers, startup paths, public
+     APIs, and runtime-owning packages.
+   - Classify each Python surface as:
+     - explicit retained boundary
+     - active backend owner
+     - thin wrapper into Go
+     - dormant/unproven
+
+4. Build the actual caller inventory.
+   - Find all non-test frontend calls through generated endpoints.
+   - Find all raw transport usage: `fetch`, request helpers, `new WebSocket`,
+     route interpolation, and mode-specific callers.
+   - Find Python public-API callers that still represent supported runtime
+     surfaces.
+   - Include IDE, launcher, share, and app mode callers separately.
+
+5. Prove caller path ownership feature by feature.
+   - For each active caller, prove the chain:
+     caller -> registered transport -> runtime owner.
+   - If a caller still lands on Python outside an allowed retained boundary,
+     record a blocker immediately.
+   - If Go owns runtime but caller still reaches Python transport, the rewrite is
+     not complete for certainty purposes.
+
+6. Prove broader runtime ownership feature by feature.
+   - Audit the major subsystem buckets:
+     - runtime/process/distribution
+     - auth, modes, sessions, and settings
+     - launcher/workspace launch/deployments
+     - realtime, websockets, listeners, and terminals
+     - project state, editing, LSP, watch-code, and runs
+     - MCP, app-spec, UI settings, and app generation
+     - AI, agents, external runtimes, and transcription
+     - plugins and extensibility
+     - file browser, artifacts, attachments, binaries, and git
+   - For each bucket, decide whether active ownership is Go-owned, shared,
+     Python-owned, or external.
+
+7. Verify retained-boundary claims one by one.
+   - Confirm the Python wrapper really delegates into Go where claimed.
+   - Confirm dev-only Python startup/reload is still dev-only.
+   - Confirm public Python APIs are thin retained surfaces rather than hidden
+     active backend owners.
+   - Confirm any listener fallback still exists for a concrete current caller,
+     not because a plan doc says it might.
+
+8. Build a coverage matrix from tests, not assumptions.
+   - Map meaningful Python behavior/test areas to existing Go tests.
+   - Identify any behavior still proven only by Python tests.
+   - Identify gaps where Go code exists but equivalent behavior proof does not.
+
+9. Execute runtime and test proof.
+   - Run Go tests: `./scripts/go.sh test ./...`
+   - Run backend Python tests for behavior reference and retained-boundary
+     coverage: `source activate.sh && ./scripts/run_backend_tests.sh`
+   - Run relevant frontend/Vitest suites for caller-path proof.
+   - Run relevant Playwright flows for real transport proof.
+   - Run packaged install/smoke proof: `source activate.sh && ./verify_install.sh`
+   - Exercise packaged/default entrypoints enough to prove:
+     - `python -m setta` dispatches into Go
+     - packaged Go binaries are the active runtime target
+     - dev reload remains the bounded Python exception
+
+10. Cross-check the existing rewrite docs last.
+    - Compare audit findings against:
+      - `caller-backed-backend-surface-checklist.md`
+      - `backend-capability-coverage-checklist.md`
+    - Treat mismatches as doc drift until code proves otherwise.
+
+11. Produce the verdict and evidence ledger.
+    - `Complete` only if every gate passes.
+    - `Incomplete` if any active Python-owned backend gap remains.
+    - `Cannot prove complete` if any gap or ambiguity cannot be closed with code
+      and runtime evidence.
+
+## Completeness gates
+
+Do not consider the audit complete until all of the following are true:
+
+- Every active non-test frontend caller has been traced to its transport and
+  runtime owner.
+- Every supported public Python API has been traced to a retained-boundary
+  justification and its actual backend target.
+- Every Go route/websocket claimed as active has been checked for registration.
+- Every Python route/websocket family has been checked for current callers or
+  classified as dormant/unproven with evidence.
+- No active backend behavior is still Python-owned outside the explicit retained
+  boundaries.
+- The packaged/default command path is Go-owned, with Python only as a bounded
+  wrapper where explicitly retained.
+- The retained-boundary list is smaller than "whatever Python is left in the
+  tree"; each boundary is concrete and defended.
+- Meaningful Python-covered behavior has corresponding Go-side proof or an
+  explicit, current, documented reason it remains retained.
+- Required tests/smoke checks have actually been run.
+
+## Expected audit output
+
+The final audit result should include:
+
+- one definitive verdict: `Complete`, `Incomplete`, or `Cannot prove complete`
+- a blocker table for every active Python-owned backend gap
+- a retained-boundary table with code evidence for why each exception is still
+  allowed
+- a caller-path summary showing which current surfaces were proven Go-owned
+- a test-and-smoke summary listing what was executed and what could not be
+  proven
+
+## Key rule
+
+If the repo contains enough ambiguity that the answer depends on trust in the
+existing plan docs, the answer is not "complete". It is at best
+`Cannot prove complete` until the code and runtime evidence close the gap.
+
+## Audit execution result
+
+### Verdict
+
+`Incomplete`
+
+This verdict holds under both of the only reasonable definitions:
+
+- If "complete" means repo-wide backend/runtime ownership is fully in Go, the
+  answer is `Incomplete` because active supported Python runtime surfaces still
+  exist.
+- If "complete" means the rewrite is complete within the explicit retained
+  Python boundary model, the answer is still `Incomplete` because targeted
+  Go-side parity tests still fail under the correct activated environment.
+
+### Proven Go-owned today
+
+- `python -m setta` is a Python wrapper around the packaged Go CLI:
+  - `backend/setta/__main__.py`
+  - `backend/setta/entrypoint.py`
+- The current Go binaries are real repo entrypoints:
+  - `cmd/setta/main.go`
+  - `cmd/setta-server/main.go`
+- Source/dev startup defaults to the Go path unless `--reload` is requested:
+  - `frontend/backendStart.sh`
+- Go owns the currently registered websocket transport:
+  - `internal/wsapi/routes.go`
+- Go owns the main HTTP/runtime registration surface:
+  - `internal/app/app.go`
+- The frontend transport helpers and active websocket callers point at the Go
+  route helpers rather than legacy Python routes:
+  - `frontend/src/utils/transportRouteConstants.ts`
+  - `frontend/src/state/actions/websocketReceive.ts`
+  - `frontend/src/state/hooks/terminals/terminal.ts`
+  - `frontend/src/plugins/listenerEndpointClient.ts`
+
+### Verified retained Python boundaries
+
+- Dev-only startup/reload still runs the Python FastAPI server:
+  - `backend/setta/dev_start.py`
+  - `backend/setta/server.py`
+- Public Python API exports are still active supported surfaces:
+  - `backend/setta/api/__init__.py`
+- The retained listener client still owns websocket registration/bootstrap logic
+  and still contains the metadata-backed generated-runtime fallback:
+  - `backend/setta/api/listener.py`
+  - `backend/setta/api/listener_endpoint_client.py`
+- Share listener runtime still instantiates and runs `SettaListener`:
+  - `backend/setta/share/listener_runtime.py`
+
+These are real code-backed retained surfaces, not just stale files. That means
+the repo is not "all Go" today even though the default packaged/runtime path is
+predominantly Go-owned.
+
+### Blockers
+
+| Blocker | Evidence | Why it blocks a `Complete` verdict |
+| --- | --- | --- |
+| Go MCP parity drift | `source activate.sh && ./scripts/go.sh test ./internal/app -run '^(TestAppIDEMCPServerSupportsAuthenticatedSSECalls)$' -count=1` fails with `expected 78 tools, got 79` | The active Go-owned MCP surface still differs from covered expected behavior. |
+| Go share artifact route construction failure | `source activate.sh && ./scripts/go.sh test ./internal/app -run '^(TestAppShareModeServesArtifactOverlayRoutesAndBroadcastsScopedUpdates)$' -count=1` panics with `attachment service is required` | A covered share-mode route path is not stable enough to claim rewrite completion. |
+| Go projectstate parity failure | `source activate.sh && ./scripts/go.sh test ./internal/projectstate -run '^TestRuntimeSetCodeSectionAttachedTerminalRoundTripsAttachAndDetach$' -count=1` fails because the detached terminal layout is not the expected deterministic value | The Go-owned projectstate/runtime behavior is still mismatched on a covered write path. |
+
+### Test and smoke evidence executed
+
+- Passed:
+  - `source activate.sh && python -m setta version`
+  - `pnpm -C frontend exec vitest run src/utils/requestTransport.test.ts src/utils/backendOriginTransport.test.ts src/utils/transportRouteConstants.test.ts src/utils/endpointUtils.test.ts src/utils/generatedEndpoints.test.ts src/plugins/listenerEndpointClient.test.ts src/state/hooks/terminals/websocketUrl.test.ts src/state/actions/websocketReceive.test.ts`
+  - `source activate.sh && ./scripts/go.sh test ./internal/settacli ./internal/sshx ./internal/codeformat -count=1`
+  - `source activate.sh && ./scripts/go.sh test ./internal/httpapi -run '^TestRegisterProjectRoutesCreatesTopLevelPluginLanguageSection$' -count=1`
+  - `source activate.sh && ./scripts/go.sh test ./internal/app -run '^(TestAppPluginLanguageServerRoutesDiagnosticsAndCompletion|TestAppLinkRefreshesPluginLanguageServerRouter)$' -count=1`
+- Failed:
+  - `./scripts/go.sh test ./...` when first run without the activated Python env
+  - targeted `internal/app` reruns for MCP/share-artifact parity and the
+    targeted `internal/projectstate` rerun when repeated under the correct
+    activated environment
+- Inconclusive / not counted as proof:
+  - `source activate.sh && ./scripts/run-playwright-e2e.sh ...` exited after the
+    Vite frontend logged repeated `EPIPE` pre-transform errors, so it was not
+    used as evidence either way
+  - `source activate.sh && ./scripts/run_backend_tests.sh` was still running at
+    the time the verdict became certain and was stopped once the blocker set was
+    sufficient
+
+### Bottom line
+
+The code audit does show that the default packaged command/server path is now
+Go-owned. But the rewrite is not complete with certainty:
+
+- the repo still has active retained Python runtime surfaces, so "all Go" is
+  false
+- more importantly, the active Go-owned path still has reproducible parity
+  failures in covered tests even when run with the correct environment
+
+### Follow-up after audit
+
+A follow-up rewrite step repaired the two plugin language-server app tests that
+had been failing only because they assumed `project-alpha` already existed in an
+otherwise empty IDE runtime. After explicitly seeding the empty project in the
+test fixture, both targeted reruns passed. That cleared one false blocker, but
+the repo still remains `Incomplete` because the other targeted Go-side parity
+failures above still reproduce.
