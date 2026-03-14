@@ -62,6 +62,19 @@ type ManagedOpenAIResponsesProviderServer = {
   close: () => Promise<void>;
 };
 
+type ManagedGeminiThinkingProviderRequest = {
+  path: string;
+  query: string;
+  apiKey: string;
+  body: Record<string, unknown>;
+};
+
+type ManagedGeminiThinkingProviderServer = {
+  origin: string;
+  requests: ManagedGeminiThinkingProviderRequest[];
+  close: () => Promise<void>;
+};
+
 test.describe.serial("chat composer controls", () => {
   test("chat sections keep a compact composer with no inline settings controls", async ({
     page,
@@ -1093,12 +1106,15 @@ test.describe.serial("chat composer controls", () => {
 
     let createdEngineConfigId: string | null = null;
     let initialLLMConfig: LLMConfigPayload | null = null;
+    let initialAPIKeysSnapshot: ManagedAPIKeysSnapshot | null = null;
+    let latestAPIKeysSnapshot: ManagedAPIKeysSnapshot | null = null;
     let submittedPayload:
       | {
           thinking?: boolean;
           engineConfigId?: string;
         }
       | undefined;
+    const providerServer = await startManagedGeminiThinkingServer();
 
     await page.route("**/api/getLLMResponse", async (route) => {
       submittedPayload = route.request().postDataJSON() as
@@ -1107,11 +1123,9 @@ test.describe.serial("chat composer controls", () => {
             engineConfigId?: string;
           }
         | undefined;
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify("chat-gemini-thinking"),
-      });
+      const response = await route.fetch();
+      const body = await response.body();
+      await route.fulfill({ response, body });
     });
 
     try {
@@ -1120,6 +1134,13 @@ test.describe.serial("chat composer controls", () => {
       );
       expect(llmConfigResponse.ok()).toBe(true);
       initialLLMConfig = (await llmConfigResponse.json()) as LLMConfigPayload;
+      const apiKeysResponse = await page.request.get(
+        `${backendOrigin}/api/llm/apiKeys`,
+      );
+      expect(apiKeysResponse.ok()).toBe(true);
+      initialAPIKeysSnapshot =
+        (await apiKeysResponse.json()) as ManagedAPIKeysSnapshot;
+      latestAPIKeysSnapshot = initialAPIKeysSnapshot;
 
       const geminiConfigId = `e2e-gemini-thinking-${Date.now()}`;
       const updatedLLMConfig: LLMConfigPayload = {
@@ -1129,6 +1150,8 @@ test.describe.serial("chat composer controls", () => {
           [geminiConfigId]: {
             model: "gemini-2.5-pro",
             provider: "gemini",
+            api_key_env: "GEMINI_API_KEY",
+            base_url: providerServer.origin,
             other_params: {
               thinking_config: {
                 thinking_budget: 128,
@@ -1139,6 +1162,13 @@ test.describe.serial("chat composer controls", () => {
         },
       };
       await postBackend(page, "/llm/config", updatedLLMConfig);
+      latestAPIKeysSnapshot = await postManagedAPIKeys(page, {
+        apiKeys: {
+          ...initialAPIKeysSnapshot.apiKeys,
+          GEMINI_API_KEY: "e2e-gemini-secret",
+        },
+        expectedRevision: initialAPIKeysSnapshot.revision,
+      });
 
       const createdEngine = await postBackend<EngineConfigSummary>(
         page,
@@ -1167,10 +1197,10 @@ test.describe.serial("chat composer controls", () => {
       expect(createdRuntimeSupport?.thinking).toBe(true);
 
       await page.evaluate(async () => {
-        const { loadEngineConfigs, loadLLMConfig } = await import(
-          "/src/state/actions/ai.ts"
-        );
+        const { loadEngineConfigs, loadLLMApiKeys, loadLLMConfig } =
+          await import("/src/state/actions/ai.ts");
         await loadLLMConfig();
+        await loadLLMApiKeys();
         await loadEngineConfigs(true);
       });
 
@@ -1199,6 +1229,29 @@ test.describe.serial("chat composer controls", () => {
 
       await expect.poll(() => submittedPayload?.thinking ?? null).toBe(true);
       expect(submittedPayload?.engineConfigId).toBe(createdEngineConfigId);
+      await expect.poll(() => providerServer.requests.length).toBe(1);
+
+      const providerRequest = providerServer.requests[0];
+      expect(providerRequest?.path).toBe(
+        "/v1beta/models/gemini-2.5-pro:streamGenerateContent",
+      );
+      expect(providerRequest?.query).toBe("alt=sse");
+      expect(providerRequest?.apiKey).toBe("e2e-gemini-secret");
+      const generationConfig = providerRequest?.body.generationConfig as
+        | Record<string, unknown>
+        | undefined;
+      const thinkingConfig = generationConfig?.thinkingConfig as
+        | Record<string, unknown>
+        | undefined;
+      expect(thinkingConfig?.includeThoughts).toBe(true);
+      expect(JSON.stringify(providerRequest?.body.contents ?? null)).toContain(
+        "Trigger managed Gemini thinking",
+      );
+
+      await expect(projectChatSurface.getByText("Gemini answer")).toBeVisible();
+      await expect(
+        projectChatSurface.locator('[data-chat-thinking-section="true"]'),
+      ).toContainText("Planning");
     } finally {
       try {
         await setOverviewTab(page, "ProjectAIChat");
@@ -1222,6 +1275,13 @@ test.describe.serial("chat composer controls", () => {
           })
           .catch(() => {});
       }
+      if (initialAPIKeysSnapshot && latestAPIKeysSnapshot) {
+        await postManagedAPIKeys(page, {
+          apiKeys: initialAPIKeysSnapshot.apiKeys,
+          expectedRevision: latestAPIKeysSnapshot.revision,
+        }).catch(() => {});
+      }
+      await providerServer.close();
       await engineCleanup();
       await cleanupIsolatedProject(page, projectContext);
     }
@@ -3581,12 +3641,9 @@ async function postManagedAPIKeys(
 ): Promise<ManagedAPIKeysSnapshot> {
   const backendOrigin =
     process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
-  const response = await page.request.post(
-    `${backendOrigin}/api/llm/apiKeys`,
-    {
-      data: payload,
-    },
-  );
+  const response = await page.request.post(`${backendOrigin}/api/llm/apiKeys`, {
+    data: payload,
+  });
   const text = await response.text();
   if (!response.ok()) {
     const detail = text ? ` ${text}` : "";
@@ -3650,6 +3707,75 @@ async function startManagedOpenAIResponsesThinkingServer(): Promise<ManagedOpenA
       if (!address || typeof address === "string") {
         server.close(() =>
           reject(new Error("Unable to allocate OpenAI thinking test port.")),
+        );
+        return;
+      }
+      resolve({
+        origin: `http://127.0.0.1:${address.port}`,
+        requests,
+        close: async () =>
+          await new Promise<void>((closeResolve, closeReject) => {
+            server.close((error) => {
+              if (error) {
+                closeReject(error);
+                return;
+              }
+              closeResolve();
+            });
+          }),
+      });
+    });
+  });
+}
+
+async function startManagedGeminiThinkingServer(): Promise<ManagedGeminiThinkingProviderServer> {
+  const requests: ManagedGeminiThinkingProviderRequest[] = [];
+  return await new Promise((resolve, reject) => {
+    const server = http.createServer((request, response) => {
+      const chunks: string[] = [];
+      request.setEncoding("utf8");
+      request.on("data", (chunk: string) => {
+        chunks.push(chunk);
+      });
+      request.on("end", () => {
+        try {
+          const rawBody = chunks.join("");
+          const body = rawBody
+            ? (JSON.parse(rawBody) as Record<string, unknown>)
+            : {};
+          requests.push({
+            path: new URL(request.url ?? "/", "http://127.0.0.1").pathname,
+            query: new URL(
+              request.url ?? "/",
+              "http://127.0.0.1",
+            ).searchParams.toString(),
+            apiKey: Array.isArray(request.headers["x-goog-api-key"])
+              ? request.headers["x-goog-api-key"].join(", ")
+              : request.headers["x-goog-api-key"] ?? "",
+            body,
+          });
+        } catch (error) {
+          response.statusCode = 400;
+          response.end(String(error));
+          return;
+        }
+
+        response.statusCode = 200;
+        response.setHeader("content-type", "text/event-stream");
+        response.write(
+          'data: {"candidates":[{"content":{"role":"model","parts":[{"text":"Planning","thought":true,"thoughtSignature":"c2ln"}]}}]}\n\n',
+        );
+        response.end(
+          'data: {"candidates":[{"content":{"role":"model","parts":[{"text":"Gemini answer"}]}}],"usageMetadata":{"promptTokenCount":18,"candidatesTokenCount":3,"totalTokenCount":21,"thoughtsTokenCount":2}}\n\n',
+        );
+      });
+    });
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close(() =>
+          reject(new Error("Unable to allocate Gemini thinking test port.")),
         );
         return;
       }
