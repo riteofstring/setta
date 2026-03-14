@@ -1,14 +1,15 @@
 import { updateDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
-import { useProjectState, ZustandProjectState } from "state/definitions";
-import { useNodeInternals } from "state/stores/activeSectionStores";
 import {
   useDecodedImages,
   useImages,
-  type ZustandImages,
-} from "state/stores/artifactStores";
-import { useMisc } from "state/stores/ephemeralUiStores";
+  useMisc,
+  useNodeInternals,
+  useProjectState,
+  ZustandImages,
+  ZustandProjectState,
+} from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import {
   getNodeUpdateInformation,
