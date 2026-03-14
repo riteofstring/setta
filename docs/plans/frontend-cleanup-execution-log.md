@@ -343,3 +343,12 @@ Append-only log for autonomous frontend cleanup slices.
 - Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
 - Commit hash: `755c780bf`
 - Next highest-value unblocked slice: continue splitting `frontend/src/components/Pages/Home/HomePage.tsx` by moving the remaining selected-project details surface and selection action handlers into feature-local Home page modules, or begin the standalone page loader/guard cleanup in `components/Pages/Project/`
+
+## 2026-03-12 15:34 PDT
+
+- What changed: Extracted the Home page selected-project summary surface from `frontend/src/components/Pages/Home/HomePage.tsx` into `frontend/src/components/Pages/Home/HomeSelectedProjectDetails.tsx`. The new module now owns the selected-project empty state, summary card rendering, open-project link behavior, and top-level section counting helper. Added focused Vitest coverage for the new owner, refreshed the frontend module map, and reduced `HomePage.tsx` to 688 lines.
+- Key files touched: `frontend/src/components/Pages/Home/HomePage.tsx`, `frontend/src/components/Pages/Home/HomeSelectedProjectDetails.tsx`, `frontend/src/components/Pages/Home/HomeSelectedProjectDetails.test.tsx`, `docs/reference/frontend-module-map.md`
+- Tests/verification run: `pnpm -C frontend exec vitest run src/components/Pages/Home/HomeSelectedProjectDetails.test.tsx src/components/Pages/Home/HomeProjectGallery.test.tsx src/components/Pages/Home/homeWorkspaceState.test.ts`; `pnpm -C frontend exec prettier --check src/components/Pages/Home/HomePage.tsx src/components/Pages/Home/HomeProjectGallery.tsx src/components/Pages/Home/HomeProjectGallery.test.tsx src/components/Pages/Home/HomeSelectedProjectDetails.tsx src/components/Pages/Home/HomeSelectedProjectDetails.test.tsx src/components/Pages/Home/homeWorkspaceState.ts src/components/Pages/Home/homeWorkspaceState.test.ts ../docs/reference/frontend-module-map.md`; `git diff --check`
+- Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
+- Commit hash: `8b775dba8`
+- Next highest-value unblocked slice: continue splitting `frontend/src/components/Pages/Home/HomePage.tsx` by moving the remaining selection action handlers and delete-payload shaping into a feature-local Home page state module, or begin the standalone page loader/guard cleanup in `components/Pages/Project/`
