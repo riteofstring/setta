@@ -39,7 +39,9 @@ import {
   type ZustandProjectState,
 } from "state/definitions";
 import {
+  buildChatAppGenerationDetails,
   collectChatAppGenerationDetailsByChatId,
+  deserializeChatAppGenerationByMessageId,
   getDefaultChatAppGenerationDetails,
   mergeChatAppGenerationDetails,
   mergeChatAppGenerationDetailsByChatId,
@@ -2323,7 +2325,13 @@ function applyLLMChatHydrationSuccess({
   projectConfigId: string;
   payload: NonNullable<Awaited<ReturnType<typeof route_get_llm_chat>>["data"]>;
 }): void {
-  const { messages, waitingForResponse, llmConfig, contextUsage } = payload;
+  const {
+    messages,
+    waitingForResponse,
+    llmConfig,
+    contextUsage,
+    appGenerationByMessageId,
+  } = payload;
   let nextWaitingForResponse = Boolean(waitingForResponse);
   useAIStore.setState((state) => {
     const existingDetails = state.chatDetails[chatId];
@@ -2336,6 +2344,10 @@ function applyLLMChatHydrationSuccess({
       localMessages: existingDetails?.messages ?? [],
       preserveLocalOnlyMessages: preserveWaitingForResponse,
     });
+    const nextAppGenerationDetails = buildChatAppGenerationDetails(
+      nextMessages,
+      deserializeChatAppGenerationByMessageId(appGenerationByMessageId),
+    );
     return {
       chatDetails: {
         ...state.chatDetails,
@@ -2387,8 +2399,13 @@ function applyExternalChatHydrationSuccess({
     Awaited<ReturnType<typeof route_get_external_agent_chat>>["data"]
   >;
 }): void {
-  const { messages, waitingForResponse, toolCallArguments, contextUsage } =
-    payload;
+  const {
+    messages,
+    waitingForResponse,
+    toolCallArguments,
+    contextUsage,
+    appGenerationByMessageId,
+  } = payload;
   let nextWaitingForResponse = Boolean(waitingForResponse);
   useAIStore.setState((state) => {
     const existingDetails = state.chatDetails[chatId];
@@ -2401,6 +2418,10 @@ function applyExternalChatHydrationSuccess({
       localMessages: existingDetails?.messages ?? [],
       preserveLocalOnlyMessages: preserveWaitingForResponse,
     });
+    const nextAppGenerationDetails = buildChatAppGenerationDetails(
+      nextMessages,
+      deserializeChatAppGenerationByMessageId(appGenerationByMessageId),
+    );
     return {
       chatDetails: {
         ...state.chatDetails,
