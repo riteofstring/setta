@@ -885,3 +885,15 @@ For each new entry, append:
 - Decisions: Add only a left inset in the lone ungrouped state rather than restoring symmetric padding or the old rail, because the right edge already felt correct and the problem was specifically the left edge being too abrupt.
 - Blockers or open questions: No code blockers. A healthy DevTools MCP session is still needed to visually confirm the lone ungrouped spacing in a live browser.
 - Next recommended slice: Continue only with new follow-up polish items.
+
+### 2026-03-13 14:06
+
+- Date: 2026-03-13 14:06 EDT
+- Scope: Locked the parent activity preview row back to a fixed preview height so it remains visually one level below the title without growing taller as streamed preview text changes.
+- Tests added or updated first: Updated `frontend/src/components/Chat/ChatMessages.test.tsx` so the parent activity preview row is required to carry the fixed-height contract, and updated `frontend/tests/e2e/chat/chat-tool-calls.spec.ts` so the grouped-tool-call regression now checks that the preview row stays within a stable `34px` to `38px` height band at both wide and narrow widths.
+- Production code changed: Updated `frontend/src/components/Chat/ChatMessages.tsx` so `data-chat-assistant-activity-preview-row` now uses a fixed `h-9 overflow-hidden` shell and the inner preview label uses overflow clipping instead of a free-growing auto-height block. This preserves the restored stacked title/preview structure while preventing the preview area from stretching taller during streaming updates.
+- Verification run: Final green runs were `pnpm -C frontend exec vitest run src/components/Chat/ChatMessages.test.tsx` and `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/chat-tool-calls.spec.ts --grep "groups tool calls in one activity container with dense full-width rows"`.
+- CDP visual check: Not run. `chrome-devtools-mcp` still fails in this chat with `Transport closed`, so the required live visual confirmation remains blocked.
+- Decisions: Keep the fixed-height behavior on the preview row itself rather than adding more animation logic around the header container; the bug was the row being auto-height, not the existence of the second stacked level.
+- Blockers or open questions: No code blockers. A healthy DevTools MCP session is still needed to visually confirm the restored fixed-height preview behavior in a live browser.
+- Next recommended slice: Continue only with new follow-up polish items.

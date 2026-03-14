@@ -1731,6 +1731,9 @@ describe("ChatMessages assistant reasoning layout", () => {
       'data-chat-assistant-activity-header-top-row="true"',
     );
     expect(markup).toContain('data-chat-assistant-activity-preview-row="true"');
+    expect(markup).toContain('data-chat-assistant-activity-preview-row="true"');
+    expect(markup).toContain("h-9");
+    expect(markup).toContain("overflow-hidden");
     expect(markup).toContain(
       'data-chat-assistant-activity-primary-label="true"',
     );

@@ -4650,14 +4650,14 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
               {showActivityPreviewLabel ? (
                 <div
                   data-chat-assistant-activity-preview-row="true"
-                  className="min-w-0 pl-[2.35rem] pr-6 pt-0.5 text-[11px] text-setta-500 dark:text-setta-300"
+                  className="h-9 min-w-0 overflow-hidden pl-[2.35rem] pr-6 pt-0.5 text-[11px] text-setta-500 dark:text-setta-300"
                 >
                   <div
                     data-chat-assistant-activity-latest="true"
                     data-chat-assistant-activity-latest-scrambling={
                       preview.shouldScrambleTitle ? "true" : "false"
                     }
-                    className="min-w-0 truncate [&_code]:rounded [&_code]:bg-setta-100/80 [&_code]:px-0.5 [&_code]:font-mono [&_code]:text-[10px] dark:[&_code]:bg-setta-800/80 [&_p]:m-0 [&_p]:inline"
+                    className="min-w-0 overflow-hidden leading-[1.35] [&_code]:rounded [&_code]:bg-setta-100/80 [&_code]:px-0.5 [&_code]:font-mono [&_code]:text-[10px] dark:[&_code]:bg-setta-800/80 [&_p]:m-0"
                   >
                     {preview.shouldScrambleTitle ? (
                       renderConversationSearchHighlightedText(

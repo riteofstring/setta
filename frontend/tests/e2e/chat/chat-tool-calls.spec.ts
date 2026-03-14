@@ -220,6 +220,7 @@ test.describe.serial("chat tool calls", () => {
               latestStartsInsidePreviewRow:
                 latestRect.top >= previewRowRect.top - 1 &&
                 latestRect.bottom <= previewRowRect.bottom + 1,
+              previewRowHeight: Math.round(previewRowRect.height),
               primaryLabelWithinTopRow:
                 primaryLabelRect.top >= topRowRect.top - 1 &&
                 primaryLabelRect.bottom <= topRowRect.bottom + 1,
@@ -258,6 +259,8 @@ test.describe.serial("chat tool calls", () => {
       expect(
         responsiveHeaderGeometry.wide.latestStartsInsidePreviewRow,
       ).toBe(true);
+      expect(responsiveHeaderGeometry.wide.previewRowHeight).toBeGreaterThanOrEqual(34);
+      expect(responsiveHeaderGeometry.wide.previewRowHeight).toBeLessThanOrEqual(38);
       expect(
         responsiveHeaderGeometry.wide.primaryLabelWithinTopRow,
       ).toBe(true);
@@ -268,6 +271,8 @@ test.describe.serial("chat tool calls", () => {
       expect(
         responsiveHeaderGeometry.narrow.latestStartsInsidePreviewRow,
       ).toBe(true);
+      expect(responsiveHeaderGeometry.narrow.previewRowHeight).toBeGreaterThanOrEqual(34);
+      expect(responsiveHeaderGeometry.narrow.previewRowHeight).toBeLessThanOrEqual(38);
       expect(
         responsiveHeaderGeometry.narrow.primaryLabelWithinTopRow,
       ).toBe(true);
