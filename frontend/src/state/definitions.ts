@@ -1098,6 +1098,7 @@ type ZustandLocalStorage = {
   colorMode: ColorModePreference;
   showMinimap: boolean;
   useCanvasEngineV1: boolean;
+  useCanvasEngineAlwaysLiveDom: boolean;
   minimapSide: MiniMapSide;
   projectConfigPreviewEnabled: boolean;
   appSpecStreamingEnabled: boolean;
@@ -1175,6 +1176,7 @@ export const useLocalStorage = createWithEqualityFn(
       colorMode: "dark",
       showMinimap: true,
       useCanvasEngineV1: false,
+      useCanvasEngineAlwaysLiveDom: false,
       minimapSide: "left",
       projectConfigPreviewEnabled: true,
       appSpecStreamingEnabled: false,
@@ -1246,6 +1248,9 @@ export const useLocalStorage = createWithEqualityFn(
         }
         if (typeof merged.useCanvasEngineV1 !== "boolean") {
           merged.useCanvasEngineV1 = false;
+        }
+        if (typeof merged.useCanvasEngineAlwaysLiveDom !== "boolean") {
+          merged.useCanvasEngineAlwaysLiveDom = false;
         }
         if (!Array.isArray(merged.overviewProjectConfigOrder)) {
           merged.overviewProjectConfigOrder = [];
@@ -1344,6 +1349,7 @@ export const useLocalStorage = createWithEqualityFn(
         colorMode: state.colorMode,
         showMinimap: state.showMinimap,
         useCanvasEngineV1: state.useCanvasEngineV1,
+        useCanvasEngineAlwaysLiveDom: state.useCanvasEngineAlwaysLiveDom,
         projectConfigPreviewEnabled: state.projectConfigPreviewEnabled,
         appSpecStreamingEnabled: state.appSpecStreamingEnabled,
         homeProjectGalleryViewMode: state.homeProjectGalleryViewMode,

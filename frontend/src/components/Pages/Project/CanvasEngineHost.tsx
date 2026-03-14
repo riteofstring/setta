@@ -331,6 +331,9 @@ export function CanvasEngineHost() {
   const sectionSizingPolicy = useSettings((state) => state.sectionSizingPolicy);
   const snapGrid = useSettings((state) => state.gui.snapGrid);
   const snapToGrid = useLocalStorage((state) => state.snapToGrid);
+  const useCanvasEngineAlwaysLiveDom = useLocalStorage(
+    (state) => state.useCanvasEngineAlwaysLiveDom,
+  );
   const { canEditStructure } = useShareCapabilities();
   const [nestedPreviewRects, setNestedPreviewRects] = useState<
     CanvasEngineNestedPreviewRect[]
@@ -671,6 +674,12 @@ export function CanvasEngineHost() {
   }, [selectedTopLevelSectionIds, selectedTopLevelSelectionBounds]);
 
   const domIslandViewportSectionIds = useMemo(() => {
+    if (useCanvasEngineAlwaysLiveDom) {
+      return sortSectionIdsByZIndexThenId(
+        Object.keys(topLevelSections),
+        sceneAdapter,
+      );
+    }
     const worldPadding = DOM_ISLAND_VIEWPORT_PADDING_PX / camera.zoom;
     const viewportRect = {
       x: camera.x - worldPadding,
@@ -695,6 +704,8 @@ export function CanvasEngineHost() {
     domIslandRetentionRevision,
     projectSceneRevision,
     sceneAdapter,
+    topLevelSections,
+    useCanvasEngineAlwaysLiveDom,
     viewport,
   ]);
 
@@ -2144,6 +2155,7 @@ export function CanvasEngineHost() {
       data-canvas-engine-camera-zoom={camera.zoom.toFixed(3)}
       data-canvas-engine-active-section-count={activeSectionIds.length}
       data-canvas-engine-active-section-ids={activeSectionIds.join(",")}
+      data-canvas-engine-always-live-dom={String(useCanvasEngineAlwaysLiveDom)}
       data-canvas-engine-nested-preview-count={nestedPreviewRects.length}
       data-canvas-engine-cached-nested-data-handle-count={
         Object.keys(cachedNestedDataHandlePositions).length

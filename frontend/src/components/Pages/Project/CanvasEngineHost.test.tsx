@@ -10,6 +10,7 @@ import {
   useActiveSectionUI,
   useContextMenus,
   useEdgeHandleRegistry,
+  useLocalStorage,
   useProjectState,
   useSettings,
 } from "state/definitions";
@@ -59,6 +60,10 @@ describe("CanvasEngineHost", () => {
     resetProjectStores();
     useReactFlow.setState({ ...initialState });
     useSettings.setState(createSettingsState());
+    useLocalStorage.setState({
+      useCanvasEngineV1: false,
+      useCanvasEngineAlwaysLiveDom: false,
+    });
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
@@ -439,6 +444,64 @@ describe("CanvasEngineHost", () => {
     expect(
       host.querySelector('[data-canvas-engine-dom-island="section-small"]'),
     ).toBeNull();
+  });
+
+  it("mounts all top-level dom islands when the always-live engine flag is enabled", async () => {
+    useLocalStorage.setState({
+      useCanvasEngineAlwaysLiveDom: true,
+    });
+    useProjectState.setState((state) => {
+      state.projectConfig.topLevelSections = {
+        "section-a": {
+          x: 24,
+          y: 16,
+          zIndex: 0,
+          w: 320,
+          h: 180,
+        },
+        "section-b": {
+          x: 2400,
+          y: 16,
+          zIndex: 1,
+          w: 320,
+          h: 180,
+        },
+      };
+      state.projectConfig.viewport = {
+        x: 0,
+        y: 0,
+        zoom: 0.2,
+      };
+      state.projectConfig.viewportInitialized = true;
+      state.projectConfig.edges = [];
+      state.projectConfig.agenticEdges = [];
+    });
+
+    await act(async () => {
+      root.render(<CanvasEngineHost />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const engineHost = host.querySelector(
+      '[data-canvas-engine-host="v1"]',
+    ) as HTMLElement | null;
+    if (!engineHost) {
+      throw new Error("Canvas engine host failed to render.");
+    }
+    setEngineHostBounds(engineHost);
+
+    expect(engineHost.dataset.canvasEngineAlwaysLiveDom).toBe("true");
+    expect(engineHost.dataset.canvasEngineDomIslandMountedCount).toBe("2");
+    expect(
+      host.querySelector('[data-canvas-engine-dom-island="section-a"]'),
+    ).not.toBeNull();
+    expect(
+      host.querySelector('[data-canvas-engine-dom-island="section-b"]'),
+    ).not.toBeNull();
   });
 
   it("syncs an initialized persisted viewport into the engine camera and React Flow store", async () => {
