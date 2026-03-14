@@ -1,11 +1,6 @@
 import { adjustSizeToBeAtLeastMin } from "state/actions/sections/sectionSizes";
 import { describe, expect, it } from "vitest";
-import {
-  clampChangedSize,
-  getAutoClampSize,
-  shouldEmitResizeEndEvent,
-} from "./customResizableSizing";
-import { SIZE_MODE } from "./utils";
+import { clampChangedSize, shouldEmitResizeEndEvent } from "./CustomResizable";
 
 describe("clampChangedSize", () => {
   it("clamps width and height independently when aspect ratio is off", () => {
@@ -61,39 +56,5 @@ describe("shouldEmitResizeEndEvent", () => {
         isDoubleClick: false,
       }),
     ).toBe(true);
-  });
-});
-
-describe("getAutoClampSize", () => {
-  it("returns null when the current size already satisfies the minimums", () => {
-    expect(
-      getAutoClampSize({
-        size: { width: 200, height: 180 },
-        minWidth: 150,
-        minHeight: 120,
-        aspectRatio: false,
-        sizeMode: {
-          width: SIZE_MODE.manual_only,
-          height: SIZE_MODE.manual_only,
-        },
-      }),
-    ).toBeNull();
-  });
-
-  it("adjusts both dimensions together when aspect ratio is locked", () => {
-    const expected = adjustSizeToBeAtLeastMin(80, 140, 120, 150);
-
-    expect(
-      getAutoClampSize({
-        size: { width: 140, height: 80 },
-        minWidth: 150,
-        minHeight: 120,
-        aspectRatio: true,
-        sizeMode: {
-          width: SIZE_MODE.manual_only,
-          height: SIZE_MODE.manual_only,
-        },
-      }),
-    ).toEqual(expected);
   });
 });
