@@ -1029,6 +1029,9 @@ func TestRegisterAIRoutesRunsRealtimeTranscriptionSession(t *testing.T) {
 			return
 		}
 		updates <- update
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"session.updated","event_id":"evt-ready"}`)); err != nil {
+			return
+		}
 
 		appendPayload, err := readAIRouteRealtimeProviderMessage(context.Background(), conn)
 		if err != nil {

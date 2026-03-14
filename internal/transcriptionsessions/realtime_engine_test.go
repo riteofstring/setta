@@ -295,13 +295,13 @@ func TestServiceStopSessionAcceptsCleanProviderCloseAfterFinalRealtimeEvent(t *t
 		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
 			return
 		}
-		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
-			return
-		}
-		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
-			return
-		}
 		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"session.updated","event_id":"evt-ready"}`)); err != nil {
+			return
+		}
+		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
+			return
+		}
+		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
 			return
 		}
 
@@ -390,13 +390,13 @@ func TestServiceRealtimeStopUsesCommittedOrderingForOutOfOrderTurnCompletion(t *
 		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
 			return
 		}
-		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
-			return
-		}
-		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
-			return
-		}
 		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"session.updated","event_id":"evt-ready"}`)); err != nil {
+			return
+		}
+		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
+			return
+		}
+		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
 			return
 		}
 
@@ -654,6 +654,126 @@ func TestServiceStartSessionFailsWhenRealtimeProviderRejectsSessionUpdate(t *tes
 	}
 	if len(service.sessions) != 0 {
 		t.Fatalf("expected no stored session after realtime setup rejection, got %d sessions", len(service.sessions))
+	}
+}
+
+func TestServiceStartSessionFailsWhenRealtimeProviderRejectsImmediatelyAfterSessionUpdated(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close(websocket.StatusNormalClosure, "")
+
+		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
+			return
+		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"session.updated","event_id":"evt-ready"}`)); err != nil {
+			return
+		}
+		// Some provider-side setup failures can land immediately after the update ack.
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"error","event_id":"evt-error","error":{"message":"Realtime session became invalid after update."}}`)); err != nil {
+			return
+		}
+		_ = conn.Close(websocket.StatusNormalClosure, "")
+	}))
+	defer server.Close()
+
+	runtime := newTranscriptionSessionRuntime(t, map[string]llmconfig.Config{
+		"openai-realtime": {
+			ID:        "openai-realtime",
+			Model:     "gpt-4o-mini-transcribe",
+			Provider:  "openai",
+			BaseURL:   server.URL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+	}, map[string]string{
+		"OPENAI_API_KEY": "secret-key",
+	})
+	service, err := NewService(ServiceOptions{
+		LLM:        runtime,
+		HTTPClient: server.Client(),
+		NewID: func() string {
+			return "session-realtime-start-post-ack-error"
+		},
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	resolved := resolvedProfile("profile-rt", transcriptionprofiles.TransportModeRealtime, runtime, "openai-realtime")
+	resolved.Profile.SupportsRealtimeTranscription = true
+	_, err = service.StartSession(context.Background(), StartRequest{
+		ScopeID:         "scope-1",
+		ResolvedProfile: resolved,
+	})
+	if !errors.Is(err, ErrProviderFailure) {
+		t.Fatalf("expected provider failure, got %v", err)
+	}
+	if err.Error() != "Realtime session became invalid after update." {
+		t.Fatalf("unexpected provider failure message %q", err.Error())
+	}
+	if len(service.sessions) != 0 {
+		t.Fatalf("expected no stored session after immediate post-ack rejection, got %d sessions", len(service.sessions))
+	}
+}
+
+func TestServiceStartSessionFailsWhenRealtimeProviderNeverAcksStartup(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close(websocket.StatusNormalClosure, "")
+
+		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
+			return
+		}
+		// A realtime session is not usable until the provider acknowledges the update.
+		time.Sleep(openAIRealtimeStartupDrainTimeout + 25*time.Millisecond)
+	}))
+	defer server.Close()
+
+	runtime := newTranscriptionSessionRuntime(t, map[string]llmconfig.Config{
+		"openai-realtime": {
+			ID:        "openai-realtime",
+			Model:     "gpt-4o-mini-transcribe",
+			Provider:  "openai",
+			BaseURL:   server.URL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+	}, map[string]string{
+		"OPENAI_API_KEY": "secret-key",
+	})
+	service, err := NewService(ServiceOptions{
+		LLM:        runtime,
+		HTTPClient: server.Client(),
+		NewID: func() string {
+			return "session-realtime-start-no-ack"
+		},
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	resolved := resolvedProfile("profile-rt", transcriptionprofiles.TransportModeRealtime, runtime, "openai-realtime")
+	resolved.Profile.SupportsRealtimeTranscription = true
+	_, err = service.StartSession(context.Background(), StartRequest{
+		ScopeID:         "scope-1",
+		ResolvedProfile: resolved,
+	})
+	if !errors.Is(err, ErrProviderFailure) {
+		t.Fatalf("expected provider failure, got %v", err)
+	}
+	if err.Error() != defaultRealtimeProviderErrorMessage {
+		t.Fatalf("unexpected provider failure message %q", err.Error())
+	}
+	if len(service.sessions) != 0 {
+		t.Fatalf("expected no stored session after missing startup ack, got %d sessions", len(service.sessions))
 	}
 }
 

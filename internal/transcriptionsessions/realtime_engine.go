@@ -243,10 +243,14 @@ func (e *realtimeEngine) writeMessage(ctx context.Context, payload any) error {
 func (e *realtimeEngine) drainStartupEvents(ctx context.Context, timeout time.Duration) error {
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
+	readySeen := false
 	for {
 		select {
 		case <-timer.C:
-			return nil
+			if readySeen {
+				return nil
+			}
+			return newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
 		case <-ctx.Done():
 			return ctx.Err()
 		case result, ok := <-e.events:
@@ -267,7 +271,9 @@ func (e *realtimeEngine) drainStartupEvents(ctx context.Context, timeout time.Du
 				return err
 			}
 			if ready {
-				return nil
+				// Keep draining the startup window after the ready ack so immediate
+				// provider rejections do not escape into the first append.
+				readySeen = true
 			}
 			if !timer.Stop() {
 				select {

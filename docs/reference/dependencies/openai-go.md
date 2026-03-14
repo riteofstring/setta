@@ -137,9 +137,11 @@
   - current realtime transcription path now uses the SDK's realtime
     transcription session/audio config models and the current `session.update`
     request shape
-  - the repo-owned startup path now drains immediate setup events after
-    `session.update` so explicit provider rejection events fail
-    `StartSession` instead of surfacing only on the first audio append
+  - the repo-owned startup path now requires an explicit realtime
+    `session.updated` / `transcription_session.updated` readiness ack before
+    `StartSession` succeeds, and still drains the startup window after that
+    ack so explicit provider rejection events immediately after the update do
+    not surface only on the first audio append
   - the repo-owned websocket event loop now also preserves explicit non-normal
     websocket close reasons instead of collapsing them to a generic provider
     failure
