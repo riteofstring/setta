@@ -94,88 +94,92 @@ Output requirements:
 - Group by: `Features`, `Bug Fixes`, `Intentional Behavior Changes To Preserve`.
 - Be concrete and detailed enough that a reviewer on a follow-up branch can quickly avoid undoing intentional work.
 
-Goal: clean up the authored frontend so it is easy for Codex coding agents to navigate, understand, and modify, while preserving behavior and keeping or improving performance.
+Goal: clean up the authored frontend so it is easier for coding agents and humans to navigate, understand, and modify, while preserving behavior and keeping or improving performance.
 
-This is an autonomous execution session. Work independently. Do not pause to ask me questions. Make reasonable assumptions based on the existing code, the repo instructions, and the cleanup plans below. If one slice is blocked, skip it, note the blocker briefly, and continue with the next highest-value unblocked slice.
+This is an autonomous execution session. Work independently and make reasonable assumptions from the current code, repo instructions, and cleanup docs. Only stop to ask a question if behavior intent is genuinely ambiguous after reading the code/docs, or if you hit conflicting local changes that cannot be resolved safely from context. If one slice is blocked by tooling or verification requirements, note the blocker briefly and continue with the next highest-value unblocked slice.
 
-Read these first:
+Read in this order:
 
-- docs/plans/frontend-cleanup-plan-index.md
-- docs/plans/frontend-cleanup-plan.md
-- docs/plans/frontend-pages-shell-cleanup-plan.md
-- docs/plans/frontend-panes-and-authoring-cleanup-plan.md
-- docs/plans/frontend-sections-and-params-cleanup-plan.md
-- docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md
+1. `docs/plans/frontend-cleanup-plan-index.md`
+2. `docs/plans/frontend-cleanup-plan.md`
+3. `docs/plans/frontend-cleanup-execution-log.md` if it exists
+4. The one companion plan that matches the slice you pick:
+   - `docs/plans/frontend-pages-shell-cleanup-plan.md`
+   - `docs/plans/frontend-panes-and-authoring-cleanup-plan.md`
+   - `docs/plans/frontend-sections-and-params-cleanup-plan.md`
+   - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+   - `docs/plans/frontend-forks-cleanup-plan.md` when the slice directly touches `frontend/src/forks/**`
+5. Read a second companion plan only if the chosen slice truly crosses domains.
 
-Treat the plans as a living baseline, not a frozen snapshot. Before picking a slice, verify the current tree and preserve any helper/module seams that already exist. If a file-size claim, hotspot list, or boundary in the docs is stale, update the docs as part of the cleanup instead of following the older snapshot blindly.
+Treat the plans as a living baseline, not a frozen snapshot. Before choosing a slice, verify the current tree, re-measure the current hotspots, and preserve any helper/module seams that already exist. If a file-size claim, hotspot list, or ownership boundary in the docs is stale, update the docs as part of the cleanup instead of following the older snapshot blindly.
 
-Then start implementing the cleanup. Do not spend the session writing more plans unless a small supporting doc is directly needed for implementation.
+Then implement the cleanup. Do not spend the session writing new plans unless a small supporting doc is directly needed for a completed slice.
 
 Autonomy rules:
 
 - Prioritize agent legibility: clear module ownership, smaller files, fewer mixed responsibilities, obvious read/write boundaries, feature-local helpers, and less cross-layer jumping.
-- Preserve user-visible behavior unless you find a concrete issue that should be fixed as part of the cleanup.
-- Prefer incremental refactors over broad directory churn. Prove boundaries first, then move files if it clearly improves ownership.
-- Make reasonable assumptions instead of asking for help.
-- If a task would normally require asking me something, choose the most conservative reasonable path and document the assumption in your progress note or commit message.
-- If a slice is blocked by unavailable tooling, permissions, or verification requirements, move to the next unblocked cleanup slice instead of stopping.
-- Do not touch generated files under frontend/src/utils/generated\* unless absolutely required.
+- Preserve user-visible behavior unless you intentionally fix a concrete bug.
+- Prefer incremental refactors over broad directory churn. Prove boundaries first, then move files only when ownership becomes clearer.
+- Continue from seams that already exist on the branch instead of recreating older plan snapshots.
+- Do not touch generated files under `frontend/src/utils/generated*` unless absolutely required.
 
 Execution rules:
 
-- Start with the highest-leverage foundation work, then continue domain by domain.
+- Complete one cleanup slice end-to-end per turn. Only take a second slice if it is small, adjacent, and uses the same verification context.
+- Start with Phase 0 foundation work if it is missing or stale on the branch. Otherwise take the highest-value hotspot from the execution log or the plans.
 - Add or update Vitest coverage for substantial refactors.
-- Add Playwright coverage when interactive UI behavior changes materially.
-- For visual or performance-sensitive frontend refactors, use chrome-devtools-mcp when available, do the required visual verification, and append before/after notes under perf/reports/frontend/ when the change is meaningful.
+- Add or update Playwright coverage when interactive UI behavior changes materially.
+- For visual or performance-sensitive frontend refactors, use `chrome-devtools-mcp`, do the required visual verification, and append before/after notes under `perf/reports/frontend/` when the change is meaningful.
 - If CDP is unavailable for a slice that truly requires it, defer that slice, note the blocker, and continue with another cleanup area.
-- Commit in small logical increments with clear commit messages after each completed cleanup slice.
-- Do not stop at analysis. Implement, verify, commit, and continue until there is no meaningful unblocked work left in the plans.
+- Commit each completed slice in a small logical commit with a clear message.
+- Do not stop at analysis. Implement, verify, commit, and document the completed slice.
 
 Tracking rules:
 
-- If docs/plans/frontend-cleanup-execution-log.md does not exist yet on the branch, create it first, then maintain it as an append-only work log.
+- If `docs/plans/frontend-cleanup-execution-log.md` does not exist on the branch, create it first and maintain it as an append-only work log.
 - After each completed slice, append:
   - date/time
-  - what you changed
+  - slice completed
   - key files touched
-  - tests/verification run
+  - tests and verification run
   - perf/CDP notes if relevant
   - commit hash
-  - the next highest-value unblocked slice
+  - next highest-value unblocked slice
 - Do not rewrite earlier log entries; only append.
 
 Suggested execution order:
 
-1. Refresh or implement the Phase 0 foundation if it is missing or stale on the branch:
+1. Refresh or implement the Phase 0 foundation if it is missing or stale:
    - module map / placement rules
    - execution log
-   - clearer ownership guidance for where new frontend code should live
-2. Then tackle the largest current shared hotspots in the tree:
-   - `state/actions/ai.ts`
-   - `state/definitions.ts`
+   - ownership guidance for where new frontend code should live
+2. Then tackle the largest shared hotspots currently blocking agent legibility:
+   - `frontend/src/state/actions/ai.ts`
+   - `frontend/src/state/definitions.ts`
    - shared chat / project-AI surface files
 3. Then continue through the remaining domains from the plans:
    - project chat windowing
-   - chat / project AI / shared chat state
    - pages and shell
    - panes and authoring
    - sections and params
-   - remaining runtime/infrastructure cleanup
+   - remaining runtime / infrastructure cleanup
+   - fork cleanup when the selected slice directly touches `frontend/src/forks/**`
 
-When you get a message like “proceed with the next step”, interpret it as:
+When you get a message like "proceed" or "proceed with the next step", interpret it as:
 
 - read the execution log if it exists
-- choose the next highest-value unblocked cleanup slice
-- implement it end-to-end
+- choose the next highest-value unblocked slice
+- read the matching companion plan(s) for that slice
+- implement the slice end-to-end
 - verify it
 - commit it
-- append the log
-- continue until the turn ends
+- append the execution log
+- stop after that slice unless a second small adjacent slice is clearly justified
 
 At the end of each turn, report:
 
-- what slice you completed
+- the slice you completed
 - what files/modules now own the behavior
 - what tests/verification you ran
 - the commit hash
-- the next slice you will take when told to proceed
+- the next slice you would take when told to proceed
