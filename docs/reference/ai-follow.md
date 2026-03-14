@@ -4,17 +4,17 @@ This page explains how AIFollow works end-to-end, covering the backend metadata 
 
 ## Backend flow
 - Tool definitions attach AIFollow metadata via `project_state_tool(...)` so each MCP tool can declare where to find ids in arguments or results (`backend/setta/mcp/tools/project_state_registry.py`, `backend/setta/mcp/tool_metadata.py`).
-- The MCP server registers those annotations so the chat manager can read `aiFollowToolArguments` and `aiFollowToolResult` for each tool name (`backend/setta/mcp/server.py`).
-- While the model streams tool calls, `LLMChatManager` parses partial argument buffers, uses the metadata paths to extract ids, maps temporary ids to canonical ids, filters to known ids, and broadcasts `AIFollowToolArgumentsUpdate` when the follow set changes (`backend/setta/llm/llm_chat_manager.py`).
-- After tool calls finalize, the manager re-parses full arguments, re-canonicalizes ids, stores per-chat follow state, and broadcasts a stable `AIFollowToolArgumentsUpdate` (same file).
-- When a tool call returns and declares result metadata, the manager parses the `CallToolResult` payload, extracts ids, and broadcasts `AIFollowToolResultUpdate` for highlight-only follow events (same file).
+- The MCP server registers those annotations so the managed chat runtime can read `aiFollowToolArguments` and `aiFollowToolResult` for each tool name (`backend/setta/mcp/server.py`).
+- While the model streams tool calls, `AgentRunner` parses partial argument buffers, uses the metadata paths to extract ids, maps temporary ids to canonical ids, filters to known ids, and broadcasts `AIFollowToolArgumentsUpdate` when the follow set changes (`backend/setta/llm/agent_runner.py`).
+- After tool calls finalize, the runtime re-parses full arguments, re-canonicalizes ids, stores per-chat follow state, and broadcasts a stable `AIFollowToolArgumentsUpdate` (same file).
+- When a tool call returns and declares result metadata, the runtime parses the `CallToolResult` payload, extracts ids, and broadcasts `AIFollowToolResultUpdate` for highlight-only follow events (same file).
 - The websocket sender wraps these updates into typed frontend messages (`backend/setta/websockets/msg_handlers/frontend_sender.py`).
 - The `/getAIFollowSnapshot` route returns the in-memory per-chat follow state for a project config so the UI can hydrate on reload (`backend/setta/routers/ai.py`).
 
 ## Backend data model
 - Follow id types are currently `section` and `codeObj` (`backend/setta/mcp/tool_metadata.py`).
 - `pathsByIdType` values are dot-delimited JSON paths; `$` means the entire payload. Argument extraction allows dict keys to count as ids, while result extraction only reads values.
-- Follow state is stored per chat id in memory. It is not persisted and resets on server restart (`backend/setta/llm/llm_chat_manager.py`).
+- Follow state is stored per chat id in memory. It is not persisted and resets on server restart (`backend/setta/llm/agent_runner.py`).
 
 ## Frontend flow
 - AIFollow state lives in a zustand store keyed by `projectConfigId` and `chatId`, plus a frontend-only follow mode (`off`, `all`, `selected`) and per-project selections (`frontend/src/state/definitions.ts`). The current frontend default is `all`.
@@ -26,7 +26,7 @@ This page explains how AIFollow works end-to-end, covering the backend metadata 
 - `useAIFollowViewport` filters ids by the selected chat/section list, groups tool-result bursts within 300ms, computes bounds, and animates a 500ms zoom/pan to keep the sections in view (`frontend/src/state/hooks/aiFollow.ts`).
 - Pan and zoom gestures are disabled only while a follow transition is running (`isFollowTransitioning`), not for the entire follow mode (`frontend/src/forks/xyflow/core/container/FlowRenderer.tsx`).
 - Sections add a gradient border while they are in the active follow set or highlighted by tool results. The highlight lingers for 650ms after ids clear to avoid flicker (`frontend/src/components/Section/Container/utils.tsx`, `frontend/src/components/Section/Container/SectionContainerCore.tsx`).
-- When follow is active (all/selected), the renderer still tags agentic edges that touch tool-argument or tool-result sections, but the current UI no longer gives those tags a distinct edge style. Edges originating from a streaming Chat section still get a visible run highlight (`frontend/src/forks/xyflow/core/container/AgenticEdgeRenderer.tsx`). See `docs/reference/edge-styles.md` for the current visual meanings.
+- When follow is active (all/selected), agentic edges highlight if they touch tool-argument or tool-result sections, and edges originating from a streaming Chat section get a run highlight (`frontend/src/forks/xyflow/core/container/AgenticEdgeRenderer.tsx`).
 
 ## Current limitations
 - Only `section` ids drive viewport and highlighting; `codeObj` ids are tracked but not yet consumed in the UI (`frontend/src/state/aiFollowUtils.ts`).
