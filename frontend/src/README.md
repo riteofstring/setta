@@ -10,16 +10,17 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-14`
-- Authored TS/TSX files under `frontend/src`: `921`
-- Non-generated TS/TSX files at `1000+` lines: `48`
-- Biggest current hotspots:
+- Authored TS/TSX files under `frontend/src`: `934`
+- Non-generated TS/TSX files at `1000+` lines: `47`
+- Biggest current production hotspots:
   - `components/Chat/ChatMessages.tsx` (`7959`)
   - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`4989`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` (`3327`)
   - `components/Chat/ChatInput.tsx` (`3121`)
   - `plugins/runtime.ts` (`2730`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`2723`)
-  - `state/actions/ai.ts` (`2720`)
+  - `components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` (`2478`)
+  - `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` (`2445`)
   - `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` (`2403`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` (`2379`)
   - `state/actions/projectChatWindowing.ts` (`2326`)
@@ -56,13 +57,19 @@ feature-local adapters around them when the consuming surface is non-trivial.
     and project AI settings.
   - `state/actions/ai.ts`, `state/actions/chat*.ts`, and
     `state/actions/projectChatThreads.ts` currently own chat submission,
-    streaming, optimistic updates, and stop/resume behavior.
+    streaming, and optimistic update behavior.
   - `state/actions/aiHydration.ts` owns chat history fetch/reconciliation and
     hydration outcome classification for managed and external threads.
   - `state/actions/aiAgentRuns.ts` owns agent-run loading, retries, and
     single-run/update reconciliation.
+  - `state/actions/aiChatControls.ts` owns stop/resume behavior plus external
+    agent approval/question responses.
+  - `state/actions/aiChatState.ts` owns chat-detail and pending-surface detail
+    writes shared across submission, hydration, and controls.
   - `state/actions/aiChatSectionState.ts` owns persisted chat-section state sync
     shared by hydration and section-state writes.
+  - `state/actions/aiInterruptedAssistantMessages.ts` owns interrupted assistant
+    message tracking and snapshot restoration.
   - `state/actions/aiConfiguration.ts` owns LLM config/API keys plus the AI
     settings catalogs for agent profiles, prompt templates, external agents, and
     engine configs.
@@ -110,8 +117,8 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/definitions.ts` still owns the Zustand store definitions on this
     branch.
   - `state/actions/*` owns named mutation and query helpers, with shared chat
-    helpers split across `aiHydration.ts`, `aiAgentRuns.ts`, and
-    `aiChatSectionState.ts`.
+    helpers split across `aiHydration.ts`, `aiAgentRuns.ts`,
+    `aiChatControls.ts`, `aiChatState.ts`, and `aiChatSectionState.ts`.
   - `state/hooks/*` owns reusable hooks layered on top of stores and actions.
   - `state/types/*` and `state/utils/*` own state-local models and helper logic.
 
@@ -160,8 +167,8 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/ai.ts` remaining submission, streaming, optimistic update, and
-  stop/resume paths
+- `state/actions/ai.ts` remaining submission, streaming, and optimistic update
+  paths
 - `state/definitions.ts`
 - shared project chat surfaces under `components/Chat/*`,
   `components/Panes/Overview/ProjectLevelAI/*`, and `components/ChatWindowing/*`

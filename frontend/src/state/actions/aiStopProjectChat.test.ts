@@ -60,8 +60,8 @@ let useAIStore: typeof import("state/definitions").useAIStore;
 let useAIFollow: typeof import("state/definitions").useAIFollow;
 let useLocalStorage: typeof import("state/definitions").useLocalStorage;
 let useProjectState: typeof import("state/definitions").useProjectState;
-let stopProjectChatResponse: typeof import("state/actions/ai").stopProjectChatResponse;
-let stopManagedSectionChatResponse: typeof import("state/actions/ai").stopManagedSectionChatResponse;
+let stopProjectChatResponse: typeof import("state/actions/aiChatControls").stopProjectChatResponse;
+let stopManagedSectionChatResponse: typeof import("state/actions/aiChatControls").stopManagedSectionChatResponse;
 let getLLMChatHydrationOutcome: typeof import("state/actions/aiHydration").getLLMChatHydrationOutcome;
 let getExternalAgentChatHydrationOutcome: typeof import("state/actions/aiHydration").getExternalAgentChatHydrationOutcome;
 let getDefaultChatDetails: typeof import("state/actions/ai").getDefaultChatDetails;
@@ -121,9 +121,11 @@ describe("stopProjectChatResponse", () => {
     useLocalStorage = definitions.useLocalStorage;
     useProjectState = definitions.useProjectState;
     const ai = await import("state/actions/ai");
+    const aiChatControls = await import("state/actions/aiChatControls");
     const aiHydration = await import("state/actions/aiHydration");
-    stopProjectChatResponse = ai.stopProjectChatResponse;
-    stopManagedSectionChatResponse = ai.stopManagedSectionChatResponse;
+    stopProjectChatResponse = aiChatControls.stopProjectChatResponse;
+    stopManagedSectionChatResponse =
+      aiChatControls.stopManagedSectionChatResponse;
     getLLMChatHydrationOutcome = aiHydration.getLLMChatHydrationOutcome;
     getExternalAgentChatHydrationOutcome =
       aiHydration.getExternalAgentChatHydrationOutcome;

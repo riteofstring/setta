@@ -45,12 +45,12 @@ import {
   clearPendingChatDetails,
   getDefaultChatDetails,
   initializePendingChatDetails,
-  stopManagedSectionChatResponse,
   submitEditedMessage,
   submitMessage,
 } from "state/actions/ai";
 import { loadAgentRuns } from "state/actions/aiAgentRuns";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
+import { stopManagedSectionChatResponse } from "state/actions/aiChatControls";
 import { getExternalAgentChat, getLLMChat } from "state/actions/aiHydration";
 import { transcribeChatAudioWithProfile } from "state/actions/aiTranscription";
 import {

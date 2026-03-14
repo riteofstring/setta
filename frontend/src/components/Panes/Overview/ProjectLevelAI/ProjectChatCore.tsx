@@ -43,12 +43,12 @@ import {
   finalizePendingChatDetails,
   getDefaultChatDetails,
   initializePendingChatDetails,
-  stopProjectChatResponse,
   submitEditedMessage,
   submitMessage,
 } from "state/actions/ai";
 import { loadAgentRuns } from "state/actions/aiAgentRuns";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
+import { stopProjectChatResponse } from "state/actions/aiChatControls";
 import {
   getExternalAgentChatHydrationOutcome,
   getLLMChatHydrationOutcome,
