@@ -1,5 +1,6 @@
 import { ModalInfoType } from "components/Modals/types";
 import { HandlePosition, HandleType, Node } from "forks/xyflow/core/types";
+import type { ChatSharedEdgeMode } from "state/actions/chatSharedHandleIds";
 import type { AIFollowMode } from "state/types/aiFollow";
 import {
   parseAppGenerationMode,
@@ -665,6 +666,12 @@ export const useBackendLogEvents = withProjectState(
   ),
 );
 
+const useArtifacts = withProjectState(
+  createWithEqualityFn(
+    subscribeWithSelector(withResetFn(() => ({ x: {}, namePathTypeToId: {} }))),
+  ),
+);
+
 export type ZustandProjectSearch = {
   codeInfo: Array<{
     sectionId: string;
@@ -1101,6 +1108,7 @@ type ZustandLocalStorage = {
   snapToGrid: boolean;
   showAgenticEdges: boolean;
   showArgEdges: boolean;
+  chatSharedEdgeMode: ChatSharedEdgeMode;
   darkMode: boolean;
   colorMode: ColorModePreference;
   showMinimap: boolean;
@@ -1172,6 +1180,7 @@ export const useLocalStorage = createWithEqualityFn(
       snapToGrid: true,
       showAgenticEdges: true,
       showArgEdges: true,
+      chatSharedEdgeMode: "agentic",
       darkMode: true,
       colorMode: "dark",
       showMinimap: true,
@@ -1235,6 +1244,12 @@ export const useLocalStorage = createWithEqualityFn(
           merged.homeProjectGalleryViewMode !== "list"
         ) {
           merged.homeProjectGalleryViewMode = "thumbnails";
+        }
+        if (
+          merged.chatSharedEdgeMode !== "agentic" &&
+          merged.chatSharedEdgeMode !== "workflow"
+        ) {
+          merged.chatSharedEdgeMode = "agentic";
         }
         if (!Array.isArray(merged.favoriteProjectConfigIds)) {
           merged.favoriteProjectConfigIds = [];
@@ -1332,6 +1347,7 @@ export const useLocalStorage = createWithEqualityFn(
         snapToGrid: state.snapToGrid,
         showAgenticEdges: state.showAgenticEdges,
         showArgEdges: state.showArgEdges,
+        chatSharedEdgeMode: state.chatSharedEdgeMode,
         darkMode: state.darkMode,
         colorMode: state.colorMode,
         showMinimap: state.showMinimap,
