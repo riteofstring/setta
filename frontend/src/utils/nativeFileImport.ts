@@ -85,7 +85,6 @@ export async function importNativeFileToWorkspace(
   const folderRes = await route_get_folder_contents({
     folderPath: rootPath,
     ignorePatterns: rootRes.data.ignorePatterns,
-    includeHidden: true,
     includeMtime: false,
     includeSize: false,
     maxEntries: 5000,

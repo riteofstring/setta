@@ -65,15 +65,10 @@ import {
   type ProjectChatAuxView,
 } from "state/definitions";
 import { getDefaultChatAppGenerationDetails } from "state/utils/chatAppGeneration";
-import {
-  buildSearchableTextForMessage,
-  matchesConversationSearchText,
-  tokenizeConversationSearchQuery,
-} from "utils/conversationSearch";
+import { tokenizeConversationSearchQuery } from "utils/conversationSearch";
 import {
   AllLLMConfigs,
   BaseChatMessageUnion,
-  ChatRoleEnum,
   EngineConfig,
   EngineTypeEnum,
   ExternalAgentPreflightStatus,
@@ -444,6 +439,33 @@ export function setProjectChatAuxViewForActiveProject(
   });
 }
 
+function setProjectChatDraftMessageForProjectConfig(
+  projectConfigId: string,
+  nextDraftMessage: SetStateAction<string>,
+): void {
+  useLocalStorage.setState((state) => {
+    const currentDraftMessage =
+      state.projectChatDraftMessageByProjectConfigId[projectConfigId] ?? "";
+    const resolvedNextDraftMessage =
+      typeof nextDraftMessage === "function"
+        ? nextDraftMessage(currentDraftMessage)
+        : nextDraftMessage;
+    const nextByProjectConfigId =
+      resolveProjectChatDraftMessageByProjectConfigIdUpdate({
+        draftMessageByProjectConfigId:
+          state.projectChatDraftMessageByProjectConfigId,
+        projectConfigId,
+        nextDraftMessage: resolvedNextDraftMessage,
+      });
+    if (!nextByProjectConfigId) {
+      return state;
+    }
+    return {
+      projectChatDraftMessageByProjectConfigId: nextByProjectConfigId,
+    };
+  });
+}
+
 function setProjectChatThreadVisibility(
   nextVisibility: SetStateAction<boolean>,
 ): void {
@@ -533,9 +555,9 @@ function ProjectChatSurface({
     string | null
   >(null);
   const [thinking, setThinking] = useState(true);
-  const [draftMessageByProjectConfigId, setDraftMessageByProjectConfigId] =
-    useState<Record<string, string>>({});
   const [conversationFilterText, setConversationFilterText] = useState("");
+  const [conversationSearchMatchCount, setConversationSearchMatchCount] =
+    useState(0);
   const [conversationSearchMatchIndex, setConversationSearchMatchIndex] =
     useState<number | null>(null);
   const [chatContainerNode, setChatContainerNode] =
@@ -655,6 +677,10 @@ function ProjectChatSurface({
   const projectChatAuxView = useLocalStorage((state): ProjectChatAuxView => {
     return state.projectChatAuxViewByProjectConfigId[projectConfigId] ?? "none";
   });
+  const draftMessageByProjectConfigId = useLocalStorage(
+    (state) => state.projectChatDraftMessageByProjectConfigId,
+    _.isEqual,
+  );
   const viewThreads = useAIStore((state) => state.viewThreads);
   const projectChatThreadsExplicitlyClosedAtLargeWidth = useAIStore(
     (state) => state.projectChatThreadsExplicitlyClosedAtLargeWidth,
@@ -686,18 +712,7 @@ function ProjectChatSurface({
   const draftMessage = draftMessageByProjectConfigId[projectConfigId] ?? "";
   const setDraftMessage = useCallback(
     (next: SetStateAction<string>) => {
-      setDraftMessageByProjectConfigId((current) => {
-        const currentDraftMessage = current[projectConfigId] ?? "";
-        const nextDraftMessage =
-          typeof next === "function" ? next(currentDraftMessage) : next;
-        const nextByProjectConfigId =
-          resolveProjectChatDraftMessageByProjectConfigIdUpdate({
-            draftMessageByProjectConfigId: current,
-            projectConfigId,
-            nextDraftMessage,
-          });
-        return nextByProjectConfigId ?? current;
-      });
+      setProjectChatDraftMessageForProjectConfig(projectConfigId, next);
     },
     [projectConfigId],
   );
@@ -993,7 +1008,6 @@ function ProjectChatSurface({
         engineConfigById,
         engineConfigsAuthoritative:
           engineConfigsInitialLoadComplete && engineConfigsLoadError === null,
-        selectedChatWaitingForResponse,
         engineType,
       }),
     [
@@ -1003,7 +1017,6 @@ function ProjectChatSurface({
       engineConfigById,
       engineConfigsInitialLoadComplete,
       engineConfigsLoadError,
-      selectedChatWaitingForResponse,
       engineType,
     ],
   );
@@ -1506,36 +1519,23 @@ function ProjectChatSurface({
   );
   const hasConversationSearchTerms =
     normalizedConversationSearchTerms.length > 0;
-  const conversationSearchMatchMessageIds = useMemo(() => {
-    if (!hasConversationSearchTerms) {
-      return [];
-    }
-    return activeConversationMessages
-      .filter(
-        (message) =>
-          message.role !== ChatRoleEnum.tool &&
-          matchesConversationSearchText(
-            buildSearchableTextForMessage(message),
-            normalizedConversationSearchTerms,
-          ),
-      )
-      .map((message) => message.id);
-  }, [
-    activeConversationMessages,
-    hasConversationSearchTerms,
-    normalizedConversationSearchTerms,
-  ]);
-  const conversationSearchMatchCount = conversationSearchMatchMessageIds.length;
   const conversationSearchQueryKey = useMemo(
     () => normalizedConversationSearchTerms.join("\u0000"),
     [normalizedConversationSearchTerms],
   );
   useEffect(() => {
-    if (!hasConversationSearchTerms || conversationSearchMatchCount === 0) {
+    if (!hasConversationSearchTerms) {
+      setConversationSearchMatchCount(0);
       setConversationSearchMatchIndex(null);
       return;
     }
-    setConversationSearchMatchIndex(0);
+    if (conversationSearchMatchCount === 0) {
+      setConversationSearchMatchIndex(null);
+      return;
+    }
+    setConversationSearchMatchIndex((current) =>
+      current === null ? 0 : current,
+    );
   }, [
     conversationSearchMatchCount,
     conversationSearchQueryKey,
@@ -1556,14 +1556,6 @@ function ProjectChatSurface({
       return current;
     });
   }, [conversationSearchMatchCount]);
-  const activeConversationSearchMatchMessageId = useMemo(() => {
-    if (conversationSearchMatchIndex === null) {
-      return null;
-    }
-    return (
-      conversationSearchMatchMessageIds[conversationSearchMatchIndex] ?? null
-    );
-  }, [conversationSearchMatchIndex, conversationSearchMatchMessageIds]);
   const conversationSearchCounterText =
     conversationSearchMatchCount > 0 && conversationSearchMatchIndex !== null
       ? `${conversationSearchMatchIndex + 1}/${conversationSearchMatchCount}`
@@ -1585,6 +1577,14 @@ function ProjectChatSurface({
       });
     },
     [conversationSearchMatchCount],
+  );
+  const handleConversationSearchMatchCountChange = useCallback(
+    (nextCount: number) => {
+      setConversationSearchMatchCount((currentCount) =>
+        currentCount === nextCount ? currentCount : nextCount,
+      );
+    },
+    [],
   );
   const showReturnOnlyNav =
     projectChatAuxView !== "none" || showThreadsOnlyView;
@@ -2027,6 +2027,13 @@ function ProjectChatSurface({
                           setConversationFilterText(event.target.value);
                         }}
                         onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            handleStepConversationSearch(
+                              event.shiftKey ? "previous" : "next",
+                            );
+                            return;
+                          }
                           if (event.key !== "Escape") {
                             return;
                           }
@@ -2196,14 +2203,17 @@ function ProjectChatSurface({
                     providerDictationLikelySupported
                   }
                   setChatId={setChatId}
+                  onConversationSearchMatchCountChange={
+                    handleConversationSearchMatchCountChange
+                  }
                   onStartNewChat={handleNewChatStartForSubmit}
                   onDraftThreadStart={handleDraftThreadStart}
                   onDraftThreadSettled={handleDraftThreadSettled}
                   onThinkingChange={setThinking}
                   onPermissionModeChange={setRuntimePermissionMode}
                   onBlockedErrorCodeChange={onBlockedErrorCodeChange}
-                  activeConversationSearchMatchMessageId={
-                    activeConversationSearchMatchMessageId
+                  activeConversationSearchMatchIndex={
+                    conversationSearchMatchIndex
                   }
                 />
               )}
@@ -2266,15 +2276,16 @@ function ProjectChatSurface({
                 providerDictationLikelySupported
               }
               setChatId={setChatId}
+              onConversationSearchMatchCountChange={
+                handleConversationSearchMatchCountChange
+              }
               onStartNewChat={handleNewChatStartForSubmit}
               onDraftThreadStart={handleDraftThreadStart}
               onDraftThreadSettled={handleDraftThreadSettled}
               onThinkingChange={setThinking}
               onPermissionModeChange={setRuntimePermissionMode}
               onBlockedErrorCodeChange={onBlockedErrorCodeChange}
-              activeConversationSearchMatchMessageId={
-                activeConversationSearchMatchMessageId
-              }
+              activeConversationSearchMatchIndex={conversationSearchMatchIndex}
             />
           </>
         )}

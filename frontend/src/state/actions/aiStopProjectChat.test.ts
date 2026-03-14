@@ -57,16 +57,42 @@ const mockedRouteStopLlmChat = vi.mocked(route_stop_llm_chat);
 const mockedAddTemporaryNotification = vi.mocked(addTemporaryNotification);
 
 let useAIStore: typeof import("state/definitions").useAIStore;
+let useAIFollow: typeof import("state/definitions").useAIFollow;
 let useLocalStorage: typeof import("state/definitions").useLocalStorage;
 let useProjectState: typeof import("state/definitions").useProjectState;
 let stopProjectChatResponse: typeof import("state/actions/ai").stopProjectChatResponse;
 let stopManagedSectionChatResponse: typeof import("state/actions/ai").stopManagedSectionChatResponse;
 let getLLMChatHydrationOutcome: typeof import("state/actions/ai").getLLMChatHydrationOutcome;
 let getExternalAgentChatHydrationOutcome: typeof import("state/actions/ai").getExternalAgentChatHydrationOutcome;
-let getProjectChatHydrationOutcomeWithFallback: typeof import("state/actions/ai").getProjectChatHydrationOutcomeWithFallback;
 let getDefaultChatDetails: typeof import("state/actions/ai").getDefaultChatDetails;
 let receiveLLMResponseChunk: typeof import("state/actions/ai").receiveLLMResponseChunk;
 let memoryStorage: Storage;
+
+function seedFollowToolArguments(
+  projectConfigId: string,
+  chatId: string,
+  idsByType: Record<string, string[]> = {
+    section: ["section-follow-highlight"],
+  },
+): void {
+  useAIFollow.setState((state) => {
+    const projectEntries =
+      state.toolArgumentsIdsByProjectConfigId[projectConfigId] ??
+      (state.toolArgumentsIdsByProjectConfigId[projectConfigId] = {});
+    projectEntries[chatId] = idsByType;
+  });
+}
+
+function getFollowToolArguments(
+  projectConfigId: string,
+  chatId: string,
+): Record<string, string[]> | null {
+  return (
+    useAIFollow.getState().toolArgumentsIdsByProjectConfigId[projectConfigId]?.[
+      chatId
+    ] ?? null
+  );
+}
 
 describe("stopProjectChatResponse", () => {
   beforeAll(async () => {
@@ -91,6 +117,7 @@ describe("stopProjectChatResponse", () => {
 
     const definitions = await import("state/definitions");
     useAIStore = definitions.useAIStore;
+    useAIFollow = definitions.useAIFollow;
     useLocalStorage = definitions.useLocalStorage;
     useProjectState = definitions.useProjectState;
     const ai = await import("state/actions/ai");
@@ -99,8 +126,6 @@ describe("stopProjectChatResponse", () => {
     getLLMChatHydrationOutcome = ai.getLLMChatHydrationOutcome;
     getExternalAgentChatHydrationOutcome =
       ai.getExternalAgentChatHydrationOutcome;
-    getProjectChatHydrationOutcomeWithFallback =
-      ai.getProjectChatHydrationOutcomeWithFallback;
     getDefaultChatDetails = ai.getDefaultChatDetails;
     receiveLLMResponseChunk = ai.receiveLLMResponseChunk;
   });
@@ -521,6 +546,69 @@ describe("stopProjectChatResponse", () => {
     expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details?.waitingForResponse).toBe(false);
+  });
+
+  it("clears follow tool-argument highlights on successful project chat stop", async () => {
+    const chatId = "chat-stop-follow-highlight";
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          waitingForResponse: true,
+        },
+      },
+    });
+    seedFollowToolArguments("project-a", chatId);
+    mockedRouteStopLlmChat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    const stopped = await stopProjectChatResponse(chatId, false);
+
+    expect(stopped).toBe(true);
+    // Successful stops should clear the local Follow AI work map immediately,
+    // not wait for a later follow websocket echo.
+    expect(getFollowToolArguments("project-a", chatId)).toBeNull();
+  });
+
+  it("restores follow tool-argument highlights when stop fails but hydration says the chat is still running", async () => {
+    const chatId = "chat-stop-follow-highlight-rollback";
+    const idsByType = {
+      section: ["section-follow-highlight"],
+      file: ["/tmp/example.py"],
+    };
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          waitingForResponse: true,
+        },
+      },
+    });
+    seedFollowToolArguments("project-a", chatId, idsByType);
+    mockedRouteStopLlmChat.mockResolvedValue({
+      status: 500,
+      hasResponse: true,
+      data: { detail: "stop failed" },
+    });
+    mockedRouteGetLLMChat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [],
+        waitingForResponse: true,
+        llmConfig: null,
+      },
+    });
+
+    const stopped = await stopProjectChatResponse(chatId, false);
+
+    expect(stopped).toBe(false);
+    // Failed stop requests must restore the prior Follow AI scope when the
+    // runtime is still active after hydration.
+    expect(getFollowToolArguments("project-a", chatId)).toEqual(idsByType);
   });
 
   it("rehydrates external project chat state when stop endpoint fails", async () => {
@@ -1065,6 +1153,57 @@ describe("stopProjectChatResponse", () => {
     });
   });
 
+  it("clears follow tool-argument highlights when a message stop chunk arrives", async () => {
+    const chatId = "chat-message-stop-follow-highlight";
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          waitingForResponse: true,
+        },
+      },
+    });
+    seedFollowToolArguments("project-a", chatId);
+
+    receiveLLMResponseChunk({
+      chatId,
+      projectConfigId: "project-a",
+      chunk: {
+        type: StreamingEventTypeEnum.MESSAGE_STOP,
+        message_id: "assistant-streaming",
+      },
+    });
+
+    // Stream stop events should tear down Follow AI work highlights even when
+    // no explicit stop button flow ran locally first.
+    expect(getFollowToolArguments("project-a", chatId)).toBeNull();
+  });
+
+  it("clears follow tool-argument highlights when llm hydration resolves to a completed chat", async () => {
+    const chatId = "chat-hydration-follow-highlight";
+    seedFollowToolArguments("project-a", chatId);
+    mockedRouteGetLLMChat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [],
+        waitingForResponse: false,
+        llmConfig: null,
+      },
+    });
+
+    const outcome = await getLLMChatHydrationOutcome(chatId);
+
+    expect(outcome).toEqual({
+      outcome: "success",
+      status: 200,
+      errorCode: null,
+    });
+    // Rehydration after a dropped stream should clear stale Follow AI activity
+    // if the backend now says the chat is no longer running.
+    expect(getFollowToolArguments("project-a", chatId)).toBeNull();
+  });
+
   it("classifies 403 hydration failures as llm_disallowed terminal outcomes", async () => {
     mockedRouteGetLLMChat.mockResolvedValue({
       status: 403,
@@ -1174,180 +1313,6 @@ describe("stopProjectChatResponse", () => {
       outcome: "terminal_failure",
       status: 403,
       errorCode: "llm_disallowed",
-    });
-  });
-
-  it("falls back to llm hydration when the preferred runtime misses but llm succeeds", async () => {
-    const chatId = "chat-fallback-llm";
-    useProjectState.setState({
-      projectConfig: createProjectConfig({ id: "current-project" }),
-    });
-    mockedRouteGetExternalAgentChat.mockResolvedValue({
-      status: 404,
-      hasResponse: true,
-      data: {
-        detail: {
-          errorCode: "chat_not_found",
-          message: "Chat not found.",
-        },
-      },
-    });
-    mockedRouteGetLLMChat.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: {
-        messages: [
-          createAssistantChatMessage({
-            id: "assistant-fallback",
-            content: [
-              createMessageTextContent({
-                text: "Hydrated from managed runtime",
-              }),
-            ],
-          }),
-        ],
-        waitingForResponse: false,
-        llmConfig: null,
-        contextUsage: null,
-      },
-    });
-
-    const outcome = await getProjectChatHydrationOutcomeWithFallback(
-      chatId,
-      "project-a",
-      "external_agent",
-    );
-
-    expect(outcome).toEqual({
-      outcome: "success",
-      status: 200,
-      errorCode: null,
-    });
-    expect(mockedRouteGetExternalAgentChat).toHaveBeenCalledWith({
-      chatId,
-      projectConfigId: "project-a",
-    });
-    expect(mockedRouteGetLLMChat).toHaveBeenCalledWith({
-      chatId,
-      projectConfigId: "project-a",
-    });
-    expect(
-      useAIStore
-        .getState()
-        .chatDetails[
-          chatId
-        ]?.messages.map((message) => (message.role === "assistant" ? message.content[0]?.text : null)),
-    ).toEqual(["Hydrated from managed runtime"]);
-  });
-
-  it("surfaces chat_not_found after probing both runtimes", async () => {
-    mockedRouteGetExternalAgentChat.mockResolvedValue({
-      status: 404,
-      hasResponse: true,
-      data: {
-        detail: {
-          errorCode: "chat_not_found",
-          message: "Chat not found.",
-        },
-      },
-    });
-    mockedRouteGetLLMChat.mockResolvedValue({
-      status: 404,
-      hasResponse: true,
-      data: {
-        detail: {
-          errorCode: "chat_not_found",
-          message: "Chat not found.",
-        },
-      },
-    });
-
-    const outcome = await getProjectChatHydrationOutcomeWithFallback(
-      "chat-fallback-missing",
-      "project-a",
-      null,
-    );
-
-    expect(outcome).toEqual({
-      outcome: "terminal_failure",
-      status: 404,
-      errorCode: "chat_not_found",
-    });
-  });
-
-  it("fails explicitly when both runtimes resolve the same chat id", async () => {
-    const chatId = "chat-fallback-ambiguous";
-    useAIStore.setState({
-      chatDetails: {
-        [chatId]: {
-          ...getDefaultChatDetails(),
-          messages: [
-            createAssistantChatMessage({
-              id: "local-message",
-              content: [createMessageTextContent({ text: "Local only" })],
-            }),
-          ],
-          toolCallArguments: {
-            "local-tool": '{\n  "source": "local"\n}',
-          },
-        },
-      },
-    });
-    mockedRouteGetExternalAgentChat.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: {
-        messages: [
-          createAssistantChatMessage({
-            id: "external-message",
-            content: [createMessageTextContent({ text: "External runtime" })],
-          }),
-        ],
-        waitingForResponse: false,
-        toolCallArguments: {
-          "external-tool": '{\n  "runtime": "external"\n}',
-        },
-        contextUsage: null,
-      },
-    });
-    mockedRouteGetLLMChat.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: {
-        messages: [
-          createAssistantChatMessage({
-            id: "managed-message",
-            content: [createMessageTextContent({ text: "Managed runtime" })],
-          }),
-        ],
-        waitingForResponse: false,
-        llmConfig: null,
-        contextUsage: null,
-      },
-    });
-
-    const outcome = await getProjectChatHydrationOutcomeWithFallback(
-      chatId,
-      "project-a",
-      null,
-    );
-
-    expect(outcome).toEqual({
-      outcome: "terminal_failure",
-      status: 409,
-      errorCode: "chat_runtime_ambiguous",
-    });
-    expect(useAIStore.getState().chatDetails[chatId]).toEqual({
-      ...getDefaultChatDetails(),
-      messages: [
-        createAssistantChatMessage({
-          id: "local-message",
-          content: [createMessageTextContent({ text: "Local only" })],
-        }),
-      ],
-      toolCallArguments: {
-        "local-tool": '{\n  "source": "local"\n}',
-      },
     });
   });
 });

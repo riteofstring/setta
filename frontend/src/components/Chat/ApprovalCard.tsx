@@ -1,3 +1,7 @@
+import {
+  BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME,
+  BrailleSpinner,
+} from "components/Utils/BrailleSpinner";
 import { useEffect, useState } from "react";
 import { IoMdCheckmark } from "react-icons/io";
 import { MdErrorOutline } from "react-icons/md";
@@ -142,8 +146,8 @@ function buildStatusIcon(approved: boolean | undefined, isStreaming: boolean) {
     return <MdErrorOutline className="text-red-500" />;
   }
   return (
-    <i
-      className={`gg-spinner !scale-75 ${
+    <BrailleSpinner
+      className={`${BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME} ${
         isStreaming
           ? "text-setta-400 dark:text-setta-300/70"
           : "text-setta-300/70"

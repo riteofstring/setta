@@ -2054,6 +2054,7 @@ export function createChatFileAttachment(
 export const SystemChatMessageSchema = z.object({
   id: z.string().default(create_new_id),
   role: z.literal("system").default(ChatRoleEnum.system),
+  createdAt: z.int().default(0),
   content: z
     .array(
       z.union([
@@ -2108,6 +2109,7 @@ export function createToolCall(options: Partial<ToolCall> = {}): ToolCall {
 export const AssistantChatMessageSchema = z.object({
   id: z.string().default(create_new_id),
   role: z.literal("assistant").default(ChatRoleEnum.assistant),
+  createdAt: z.int().default(0),
   content: z
     .array(
       z.union([
@@ -2136,6 +2138,7 @@ export function createAssistantChatMessage(
 export const UserChatMessageSchema = z.object({
   id: z.string().default(create_new_id),
   role: z.literal("user").default(ChatRoleEnum.user),
+  createdAt: z.int().default(0),
   content: z
     .array(
       z.union([
@@ -2285,6 +2288,7 @@ export function createToolReferenceContent(
 export const ToolChatMessageSchema = z.object({
   id: z.string().default(create_new_id),
   role: z.literal("tool").default(ChatRoleEnum.tool),
+  createdAt: z.int().default(0),
   tool_call_id: z.string(),
   tool_name: z.union([z.string(), z.null()]).default(null),
   arguments: z
@@ -9328,42 +9332,40 @@ export const SettingsGUISchema = z.object({
   selectionMode: z.enum(SelectionModeEnum).default(SelectionModeEnum.partial),
   leftSidePaneShiftsMap: z.boolean().default(true),
   transitionDuration: z.int().default(50),
-  sectionTagColorChoices: z
-    .array(ColorPickerChoiceSchema)
-    .default(() => [
-      createColorPickerChoice({
-        color: "#ef4444" as const,
-        description: "Red" as const,
-      }),
-      createColorPickerChoice({
-        color: "#f97316" as const,
-        description: "Orange" as const,
-      }),
-      createColorPickerChoice({
-        color: "#eab308" as const,
-        description: "Yellow" as const,
-      }),
-      createColorPickerChoice({
-        color: "#22c55e" as const,
-        description: "Green" as const,
-      }),
-      createColorPickerChoice({
-        color: "#06b6d4" as const,
-        description: "Cyan" as const,
-      }),
-      createColorPickerChoice({
-        color: "#3b82f6" as const,
-        description: "Blue" as const,
-      }),
-      createColorPickerChoice({
-        color: "#a855f7" as const,
-        description: "Purple" as const,
-      }),
-      createColorPickerChoice({
-        color: "#64748b" as const,
-        description: "Slate" as const,
-      }),
-    ]),
+  sectionTagColorChoices: z.array(ColorPickerChoiceSchema).default(() => [
+    createColorPickerChoice({
+      color: "#ef4444" as const,
+      description: "Red" as const,
+    }),
+    createColorPickerChoice({
+      color: "#f97316" as const,
+      description: "Orange" as const,
+    }),
+    createColorPickerChoice({
+      color: "#eab308" as const,
+      description: "Yellow" as const,
+    }),
+    createColorPickerChoice({
+      color: "#22c55e" as const,
+      description: "Green" as const,
+    }),
+    createColorPickerChoice({
+      color: "#06b6d4" as const,
+      description: "Cyan" as const,
+    }),
+    createColorPickerChoice({
+      color: "#3b82f6" as const,
+      description: "Blue" as const,
+    }),
+    createColorPickerChoice({
+      color: "#a855f7" as const,
+      description: "Purple" as const,
+    }),
+    createColorPickerChoice({
+      color: "#64748b" as const,
+      description: "Slate" as const,
+    }),
+  ]),
 });
 
 export type SettingsGUI = z.infer<typeof SettingsGUISchema>;
@@ -11037,20 +11039,18 @@ export const SettingsStateSchema = z.object({
   sectionSizingPolicy: SectionSizingPolicySchema.default(
     createSectionSizingPolicy,
   ),
-  languageServer: z
-    .record(z.string(), z.any())
-    .default(() => ({
-      basedpyright: {
-        analysis: {
-          diagnosticSeverityOverrides: {
-            reportUnknownVariableType: "none" as const,
-            reportUnknownMemberType: "none" as const,
-            reportUnannotatedClassAttribute: "none" as const,
-            reportSelfClsParameterName: "none" as const,
-          },
+  languageServer: z.record(z.string(), z.any()).default(() => ({
+    basedpyright: {
+      analysis: {
+        diagnosticSeverityOverrides: {
+          reportUnknownVariableType: "none" as const,
+          reportUnknownMemberType: "none" as const,
+          reportUnannotatedClassAttribute: "none" as const,
+          reportSelfClsParameterName: "none" as const,
         },
       },
-    })),
+    },
+  })),
   browserSectionDefault: UserDefaultBrowserSectionImplSchema.default(
     createUserDefaultBrowserSectionImpl,
   ),
@@ -16699,10 +16699,31 @@ export function createGitStatusEntry(
   return GitStatusEntrySchema.parse(options);
 }
 
+export const GitWorktreeEntrySchema = z.object({
+  path: z.string(),
+  displayName: z.string(),
+  branchName: z.union([z.string(), z.null()]).default(null),
+  headCommit: z.union([z.string(), z.null()]).default(null),
+  isCurrent: z.boolean(),
+  isPrunable: z.boolean().default(false),
+  prunableReason: z.union([z.string(), z.null()]).default(null),
+});
+
+export type GitWorktreeEntry = z.infer<typeof GitWorktreeEntrySchema>;
+
+export type GitWorktreeEntryInput = z.input<typeof GitWorktreeEntrySchema>;
+
+export function createGitWorktreeEntry(
+  options: Partial<GitWorktreeEntry> = {},
+): GitWorktreeEntry {
+  return GitWorktreeEntrySchema.parse(options);
+}
+
 export const GetGitStatusResponseSchema = z.object({
   repo: GitRepoInfoResponseSchema,
   entries: z.array(GitStatusEntrySchema),
   isTruncated: z.boolean().default(false),
+  worktrees: z.array(GitWorktreeEntrySchema).default(() => []),
 });
 
 export type GetGitStatusResponse = z.infer<typeof GetGitStatusResponseSchema>;
@@ -16710,7 +16731,6 @@ export type GetGitStatusResponse = z.infer<typeof GetGitStatusResponseSchema>;
 export type GetGitStatusResponseInput = z.input<
   typeof GetGitStatusResponseSchema
 >;
-
 export function createGetGitStatusResponse(
   options: Partial<GetGitStatusResponse> = {},
 ): GetGitStatusResponse {
@@ -18841,7 +18861,6 @@ export const GetFolderContentsRequestSchema = z.object({
   allowOutsideWorkspaceRoot: z.boolean().default(false),
   includeMtime: z.boolean().default(false),
   includeSize: z.boolean().default(false),
-  includeHidden: z.boolean().default(false),
   includeSettaInitialized: z.boolean().default(false),
   ignorePatterns: z.union([z.array(z.string()), z.null()]).default(null),
   maxEntries: z.union([z.int(), z.null()]).default(null),
