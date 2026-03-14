@@ -101,11 +101,6 @@ The Python value codec formats params based on representation (`backend/setta/co
 
 Representation determines how section payloads are encoded:
 - `expression` is the only supported representation for most non-Chat/Draw/Image section types; their values are emitted from the dependency graph as literals.
-- Prompt sections are exported as literal prompt text. When a Prompt section is
-  linked to a saved prompt template (`promptTemplateId`) and the dependency
-  graph has DB access, it resolves the current saved template text instead of
-  trusting the cached section snapshot. Missing linked templates therefore
-  raise loudly instead of silently exporting stale prompt content.
 - Image sections support `file_path` and `file_read`. The graph stores either a literal path or a `FileReadDependencyValue` pointing at `imagePath`; if the path is missing, the graph downgrades to `expression` with the literal `"None"`.
 - Draw sections support `file_path` and `file_read`. File modes read `renderedImagePath`; missing paths downgrade to `expression` with the literal `"None"`.
 - Chat sections support `expression`, `file_path`, and `file_read`. `expression` emits a Python dict literal from the chat state; file modes point at `setta_files/chats/<chatId>.json` when `chatId` is present, otherwise they downgrade to `expression` with the in-memory state (`backend/setta/code_gen/dependency_graph.py`, `backend/setta/code_gen/python/value_helpers.py`).

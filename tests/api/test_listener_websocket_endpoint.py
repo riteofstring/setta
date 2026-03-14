@@ -9,6 +9,7 @@ def test_websocket_endpoint_omits_share_session_id_when_missing() -> None:
 
     parsed = urlparse(listener.websocket_endpoint)
 
+    assert parsed.path == f"/ws/listeners/{listener._socket_id}"
     assert parsed.query == ""
 
 
@@ -21,4 +22,5 @@ def test_websocket_endpoint_includes_share_session_id() -> None:
     parsed = urlparse(listener.websocket_endpoint)
     params = parse_qs(parsed.query)
 
+    assert parsed.path == f"/ws/listeners/{listener._socket_id}"
     assert params.get("shareSessionId") == ["session-a"]

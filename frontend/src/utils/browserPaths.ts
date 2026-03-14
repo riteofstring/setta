@@ -1,51 +1,7 @@
 const ABSOLUTE_WINDOWS_PATH_REGEX = /^[A-Za-z]:[\\/]/;
-const WINDOWS_DRIVE_ROOT_REGEX = /^[A-Za-z]:\/$/;
 
 export function normalizeBrowserPath(path: string): string {
   return path.replaceAll("\\", "/");
-}
-
-export function getBrowserPathRoot(path: string): string {
-  const normalizedPath = normalizeBrowserPath(path).trim();
-  if (normalizedPath === "/") {
-    return "/";
-  }
-  const windowsDriveRootMatch = normalizedPath.match(/^([A-Za-z]:)(?:\/|$)/);
-  if (windowsDriveRootMatch?.[1]) {
-    return `${windowsDriveRootMatch[1]}/`;
-  }
-  if (normalizedPath.startsWith("/")) {
-    return "/";
-  }
-  return "";
-}
-
-export function splitBrowserPath(path: string): {
-  root: string;
-  segments: string[];
-} {
-  const normalizedPath = normalizeBrowserPath(path).trim();
-  const root = getBrowserPathRoot(normalizedPath);
-  const pathWithoutRoot =
-    root === "/"
-      ? normalizedPath.slice(1)
-      : root
-        ? normalizedPath.slice(root.length)
-        : normalizedPath;
-  return {
-    root,
-    segments: pathWithoutRoot.split("/").filter((part) => part.length > 0),
-  };
-}
-
-export function joinBrowserPath(root: string, segments: string[]): string {
-  if (root === "/") {
-    return segments.length > 0 ? `/${segments.join("/")}` : "/";
-  }
-  if (root) {
-    return segments.length > 0 ? `${root}${segments.join("/")}` : root;
-  }
-  return segments.join("/");
 }
 
 export function isAbsoluteBrowserPath(path: string): boolean {
@@ -57,9 +13,10 @@ export function isAbsoluteBrowserPath(path: string): boolean {
 }
 
 function normalizeSegments(path: string): string {
-  const { root, segments } = splitBrowserPath(path);
+  const isAbsolute = path.startsWith("/");
+  const parts = path.split("/").filter((part) => part.length > 0);
   const stack: string[] = [];
-  for (const part of segments) {
+  for (const part of parts) {
     if (part === ".") {
       continue;
     }
@@ -68,14 +25,18 @@ function normalizeSegments(path: string): string {
         stack.pop();
         continue;
       }
-      if (!root) {
+      if (!isAbsolute) {
         stack.push("..");
       }
       continue;
     }
     stack.push(part);
   }
-  return joinBrowserPath(root, stack);
+  const joined = stack.join("/");
+  if (!joined) {
+    return isAbsolute ? "/" : "";
+  }
+  return isAbsolute ? `/${joined}` : joined;
 }
 
 function startsWithPathPrefix(value: string, prefix: string): boolean {
@@ -87,10 +48,7 @@ export function resolvePathWithinRoot(
   rootPath: string,
 ): string | null {
   let normalizedRoot = normalizeBrowserPath(rootPath).trim();
-  if (
-    normalizedRoot !== "/" &&
-    !WINDOWS_DRIVE_ROOT_REGEX.test(normalizedRoot)
-  ) {
+  if (normalizedRoot !== "/") {
     normalizedRoot = normalizedRoot.replace(/\/+$/, "");
   }
   if (!normalizedRoot) {
@@ -124,14 +82,8 @@ export function resolvePathWithinRoot(
     ? normalizedInput
     : `${normalizedRoot}/${normalizedInput}`;
   const normalizedCombined = normalizeSegments(combined);
-  const normalizedRootRoot = getBrowserPathRoot(normalizedRoot);
   if (normalizedRoot === "/") {
     return normalizedCombined.startsWith("/") ? normalizedCombined : null;
-  }
-  if (WINDOWS_DRIVE_ROOT_REGEX.test(normalizedRoot)) {
-    return normalizedCombined.startsWith(normalizedRootRoot)
-      ? normalizedCombined
-      : null;
   }
   if (!normalizedCombined.startsWith(normalizedRoot)) {
     return null;

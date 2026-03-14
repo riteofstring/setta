@@ -1,15 +1,13 @@
 from fastapi import HTTPException
 import pytest
 
-from setta.agentic.managed_chat_dispatch import (
-    _build_app_generation_mode_prompt,
-    _normalize_app_generation_by_message_id,
-    _require_image_attachment_for_app_generation_mode,
-)
 from setta.types.generated.chat_messages import UserChatMessage
 
 from setta.routers.ai import (
+    _build_app_generation_mode_prompt,
     _get_run_app_generation_by_message_id,
+    _normalize_app_generation_by_message_id,
+    _require_image_attachment_for_app_generation_mode,
 )
 from setta.types.agentic import AgentRun
 
@@ -18,44 +16,26 @@ class TestAIAppGenerationModeHelpers:
     """Unit tests for app-generation routing helpers in AI routes."""
 
     def test_build_prompt_uses_single_non_streaming_contract(self) -> None:
-        prompt = _build_app_generation_mode_prompt(
-            mode="json_render_with_image",
-            app_spec_streaming_enabled=False,
-            reference_image_url=None,
-            reference_image_notes=None,
-        )
+        prompt = _build_app_generation_mode_prompt(mode="json_render_with_image")
         if prompt is None:
             raise AssertionError("Expected an app-generation mode prompt")
         assert "mode: json_render_with_image" in prompt
         assert "setta__set_app_definition" in prompt
         assert "setta__stream_app_definition" not in prompt
-        assert "streamingPreview: disabled" in prompt
+        assert "streamingPreview" not in prompt
         assert "Reference image URL" not in prompt
 
     def test_build_prompt_returns_none_without_mode(self) -> None:
-        assert (
-            _build_app_generation_mode_prompt(
-                mode=None,
-                app_spec_streaming_enabled=False,
-                reference_image_url=None,
-                reference_image_notes=None,
-            )
-            is None
-        )
+        assert _build_app_generation_mode_prompt(mode=None) is None
 
     def test_build_prompt_ignores_reference_image_fields_and_keeps_prompt_builder_guidance(
         self,
     ) -> None:
-        prompt = _build_app_generation_mode_prompt(
-            mode="prompt_builder",
-            app_spec_streaming_enabled=False,
-            reference_image_url=None,
-            reference_image_notes=None,
-        )
+        prompt = _build_app_generation_mode_prompt(mode="prompt_builder")
         if prompt is None:
             raise AssertionError("Expected an app-generation mode prompt")
         assert "mode: prompt_builder" in prompt
-        assert "Prompt-builder flow" in prompt
+        assert "Project Chat can persist the result directly" in prompt
         assert "Reference image URL" not in prompt
 
     def test_image_mode_requires_an_attached_image(self) -> None:

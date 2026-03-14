@@ -123,60 +123,6 @@ async function assertPaneContentHasHorizontalInset(
   }
 }
 
-async function assertPaneTitleClearsFullscreenButton(
-  page: Page,
-  {
-    fullscreenButtonTestId,
-    headingText,
-    contextLabel,
-  }: {
-    fullscreenButtonTestId: string;
-    headingText: string;
-    contextLabel: string;
-  },
-): Promise<void> {
-  const titleStats = await page.evaluate(
-    ({ targetButtonTestId, targetHeadingText }) => {
-      const button = document.querySelector(
-        `[data-testid="${targetButtonTestId}"]`,
-      );
-      const heading = Array.from(document.querySelectorAll("h2")).find(
-        (node) => node.textContent?.trim() === targetHeadingText,
-      );
-      if (!(button instanceof HTMLElement) || !(heading instanceof HTMLElement)) {
-        return null;
-      }
-      const buttonRect = button.getBoundingClientRect();
-      const textNode = Array.from(heading.childNodes).find(
-        (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim(),
-      );
-      const textRange = textNode ? document.createRange() : null;
-      if (textNode && textRange) {
-        textRange.selectNodeContents(textNode);
-      }
-      const headingRect =
-        textRange?.getBoundingClientRect() ?? heading.getBoundingClientRect();
-      return {
-        buttonRight: buttonRect.right,
-        headingLeft: headingRect.left,
-      };
-    },
-    {
-      targetButtonTestId: fullscreenButtonTestId,
-      targetHeadingText: headingText,
-    },
-  );
-
-  if (!titleStats) {
-    throw new Error(`Unable to compute title clearance for ${contextLabel}.`);
-  }
-  if (titleStats.headingLeft <= titleStats.buttonRight) {
-    throw new Error(
-      `${contextLabel} heading overlaps the fullscreen button: headingLeft=${titleStats.headingLeft}px buttonRight=${titleStats.buttonRight}px`,
-    );
-  }
-}
-
 test("overview and ui-editor pane content stays clipped at narrow widths", async ({
   page,
 }) => {
@@ -245,20 +191,4 @@ test("overview and ui-editor pane content stays clipped at narrow widths", async
       `ui editor tab ${tabTestId}`,
     );
   }
-});
-
-test("right-side pane titles clear the fullscreen button", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await ensureAppReady(page);
-  await page.goto("/home", { waitUntil: "domcontentloaded" });
-  await expect(page.getByTestId("home-selected-project-details")).toBeVisible();
-  await expect(
-    page.getByTestId("homeSelectedProject-pane-fullscreen-button"),
-  ).toBeVisible();
-
-  await assertPaneTitleClearsFullscreenButton(page, {
-    fullscreenButtonTestId: "homeSelectedProject-pane-fullscreen-button",
-    headingText: "Selected Project",
-    contextLabel: "home selected-project pane",
-  });
 });
