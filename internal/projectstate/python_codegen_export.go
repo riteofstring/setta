@@ -91,6 +91,41 @@ func (p Project) PythonCodegenExport() (PythonCodegenExport, bool, error) {
 	}, true, nil
 }
 
+func (p Project) ListenerDependencyExport() (PythonCodegenExport, error) {
+	sectionPolicy := DefaultPythonSectionCodegenPolicy()
+	codeObjValuePolicy := DefaultPythonCodeObjValuePolicy()
+	target, ok, err := p.PythonCodegenTarget()
+	if err != nil {
+		return PythonCodegenExport{}, err
+	}
+	if ok {
+		sectionPolicy, err = target.DecodedSectionPolicy()
+		if err != nil {
+			return PythonCodegenExport{}, err
+		}
+		codeObjValuePolicy, err = target.DecodedCodeObjValuePolicy()
+		if err != nil {
+			return PythonCodegenExport{}, err
+		}
+	}
+
+	projectSnapshot := p.Clone()
+	return PythonCodegenExport{
+		ProjectID:             projectSnapshot.ID,
+		ProjectName:           projectSnapshot.Name,
+		ActiveViewModeID:      projectSnapshot.ActiveViewModeID,
+		EntryCodeBlockID:      projectSnapshot.EntryCodeBlockID,
+		ActiveIDs:             append([]string(nil), projectSnapshot.ActiveIDs...),
+		ShowParamDisplayNames: projectSnapshot.ShowParamDisplayNames,
+		PreviewImgColor:       projectSnapshot.PreviewImgColor,
+		TopLevelSectionIDs:    append([]string(nil), projectSnapshot.TopLevelSectionIDs...),
+		PythonTarget:          target,
+		SectionPolicy:         sectionPolicy,
+		CodeObjValuePolicy:    codeObjValuePolicy,
+		project:               projectSnapshot,
+	}, nil
+}
+
 func (e PythonCodegenExport) ResolveSection(sectionID string) (PythonCodegenSection, error) {
 	section, variant, impl, err := e.project.ResolveSection(sectionID)
 	if err != nil {

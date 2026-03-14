@@ -1,11 +1,16 @@
 package realtime
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"setta/internal/artifacts"
+)
 
 const (
 	MessageTypeListenerInit            = "ListenerInit"
 	MessageTypeListenerRegister        = "ListenerRegister"
 	MessageTypeListenerRegisterAck     = "ListenerRegisterAck"
+	MessageTypeListenerFrontendEmit    = "ListenerFrontendEmit"
 	MessageTypeListenerRouterCall      = "ListenerRouterEndpointCall"
 	MessageTypeListenerRouterResult    = "ListenerRouterEndpointResult"
 	MessageTypeListenerRealtimeEvent   = "ListenerRealtimeEvent"
@@ -54,6 +59,17 @@ type ListenerRegisterContent struct {
 type ListenerRegisterMessage struct {
 	MessageType string                  `json:"messageType"`
 	Content     ListenerRegisterContent `json:"content"`
+}
+
+type ListenerFrontendEmitContent struct {
+	ProjectConfigID  string                     `json:"projectConfigId"`
+	DependencyValues map[string]json.RawMessage `json:"dependencyValues,omitempty"`
+	ArtifactUpdates  []artifacts.RawArtifact    `json:"artifactUpdates,omitempty"`
+}
+
+type ListenerFrontendEmitMessage struct {
+	MessageType string                      `json:"messageType"`
+	Content     ListenerFrontendEmitContent `json:"content"`
 }
 
 type ListenerRegisterAckStatus struct {

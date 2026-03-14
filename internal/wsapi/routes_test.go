@@ -19,6 +19,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/go-chi/chi/v5"
 	"setta/internal/auth"
+	"setta/internal/codegen"
 	"setta/internal/config"
 	"setta/internal/deployments"
 	"setta/internal/modes"
@@ -981,6 +982,163 @@ func TestRegisterRoutesListenerAcceptsPythonRegisterPayloadAndEmitsStructuredDep
 	assertRouteListenerDependencyEvent(t, readNextMessage(t, conn), "project-a", "", 2, "section-action", `{"clicked":true}`)
 }
 
+func TestRegisterRoutesListenerFrontendEmitUpdatesProjectStateAndBroadcastsFrontend(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	textSectionID := createRouteTopLevelSection(t, projectRuntime, "project-a", "TextBlock", "note")
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	frontend := dialRouteConnection(t, server.URL, RouteFrontend, authHeaderForCookie(t, authService))
+	defer frontend.CloseNow()
+	_ = readNextMessages(t, frontend, 2)
+
+	listener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer listener.CloseNow()
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"refresh_only"}}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, listener), "project-a", "")
+
+	dependencyName := routeListenerDependencyName(t, projectRuntime.Snapshot().Document, "project-a", textSectionID, "")
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerFrontendEmit","content":{"projectConfigId":"project-a","dependencyValues":{"`+dependencyName+`":"updated from listener"}}}`)); err != nil {
+		t.Fatalf("write listener frontend emit: %v", err)
+	}
+
+	update := readUntilMessageType(t, frontend, realtime.MessageTypeUpdateFrontendProjectState, 4)
+	assertRouteProjectStateUpdate(t, update, "project-a")
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-a")
+	if err != nil {
+		t.Fatalf("project after listener emit: %v", err)
+	}
+	section, variant, _, err := project.ResolveSection(textSectionID)
+	if err != nil {
+		t.Fatalf("resolve text section after listener emit: %v", err)
+	}
+	payload, err := project.EffectiveSectionPayload(section.ID, variant.ID)
+	if err != nil {
+		t.Fatalf("effective payload after listener emit: %v", err)
+	}
+	if payload["text"] != "updated from listener" {
+		t.Fatalf("expected updated text block payload, got %#v", payload)
+	}
+}
+
+func TestRegisterRoutesListenerFrontendEmitUpdatesSectionParamValue(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	dictSectionID := createRouteTopLevelSection(t, projectRuntime, "project-a", "Dict", "inputs")
+	_, addParamResult, err := projectRuntime.AddKwarg(context.Background(), "project-a", dictSectionID)
+	if err != nil {
+		t.Fatalf("add dict param: %v", err)
+	}
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	frontend := dialRouteConnection(t, server.URL, RouteFrontend, authHeaderForCookie(t, authService))
+	defer frontend.CloseNow()
+	_ = readNextMessages(t, frontend, 2)
+
+	listener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer listener.CloseNow()
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"refresh_only"}}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, listener), "project-a", "")
+
+	dependencyName := routeListenerDependencyName(t, projectRuntime.Snapshot().Document, "project-a", dictSectionID, addParamResult.CodeObjID)
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerFrontendEmit","content":{"projectConfigId":"project-a","dependencyValues":{"`+dependencyName+`":"hello"}}}`)); err != nil {
+		t.Fatalf("write listener frontend emit param update: %v", err)
+	}
+
+	assertRouteProjectStateUpdate(
+		t,
+		readUntilMessageType(t, frontend, realtime.MessageTypeUpdateFrontendProjectState, 4),
+		"project-a",
+	)
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-a")
+	if err != nil {
+		t.Fatalf("project after listener param emit: %v", err)
+	}
+	payload, _, _, _, err := project.ResolveSectionCodeObject(dictSectionID, addParamResult.CodeObjID)
+	if err != nil {
+		t.Fatalf("resolve updated section param: %v", err)
+	}
+	if payload["value"] != "hello" {
+		t.Fatalf("expected updated section param value, got %#v", payload["value"])
+	}
+}
+
+func TestRegisterRoutesListenerFrontendEmitRejectsUnknownDependency(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	createRouteTopLevelSection(t, projectRuntime, "project-a", "TextBlock", "note")
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	listener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer listener.CloseNow()
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"refresh_only"}}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, listener), "project-a", "")
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerFrontendEmit","content":{"projectConfigId":"project-a","dependencyValues":{"MissingDependency":"value"}}}`)); err != nil {
+		t.Fatalf("write listener frontend emit unknown dependency: %v", err)
+	}
+
+	assertRouteListenerError(t, readNextMessage(t, listener), "listener_emit_unknown_dependency", map[string]any{
+		"dependencyName": "MissingDependency",
+	})
+}
+
 func TestRegisterRoutesListenerRegistersCallbacksAndReceivesRealtimeMessages(t *testing.T) {
 	t.Parallel()
 
@@ -1752,6 +1910,68 @@ func newRouteProjectRuntimeWithDocument(t *testing.T, document projectstate.Docu
 	return runtime
 }
 
+func createRouteTopLevelSection(
+	t *testing.T,
+	runtime *projectstate.Runtime,
+	projectID string,
+	implType string,
+	name string,
+) string {
+	t.Helper()
+
+	input := projectstate.CreateTopLevelSectionInput{
+		ImplType: implType,
+	}
+	if strings.TrimSpace(name) != "" {
+		input.Name = &name
+	}
+	_, result, err := runtime.CreateTopLevelSection(
+		context.Background(),
+		projectID,
+		input,
+		projectstate.StructuralMutationSettings{},
+	)
+	if err != nil {
+		t.Fatalf("create top-level section %q for project %q: %v", implType, projectID, err)
+	}
+	return result.SectionID
+}
+
+func routeListenerDependencyName(
+	t *testing.T,
+	document projectstate.Document,
+	projectID string,
+	sectionID string,
+	codeObjID string,
+) string {
+	t.Helper()
+
+	project, err := document.ProjectByID(projectID)
+	if err != nil {
+		t.Fatalf("project %q for dependency lookup: %v", projectID, err)
+	}
+	exported, err := project.ListenerDependencyExport()
+	if err != nil {
+		t.Fatalf("listener dependency export for project %q: %v", projectID, err)
+	}
+	graph, err := codegen.BuildPythonDependencyGraph(exported, codegen.PythonDependencyGraphOptions{})
+	if err != nil {
+		t.Fatalf("build listener dependency graph for project %q: %v", projectID, err)
+	}
+
+	var key codegen.PythonDependencyKey
+	if strings.TrimSpace(codeObjID) == "" {
+		key = codegen.PythonSectionDependencyKey(sectionID)
+	} else {
+		key = codegen.PythonCodeObjectDependencyKey(sectionID, codeObjID)
+	}
+	node, ok := graph.Node(key)
+	if !ok {
+		t.Fatalf("dependency node not found for section=%q codeObj=%q", sectionID, codeObjID)
+	}
+	return node.Base().FullPathName
+}
+
 func routeProjectStatePayload(t *testing.T, document projectstate.Document, projectID string) json.RawMessage {
 	t.Helper()
 
@@ -2172,6 +2392,22 @@ func assertRouteListenerError(
 		if canonicalValueJSON(t, actualValue) != canonicalValueJSON(t, expectedValue) {
 			t.Fatalf("expected detail %q=%#v, got %#v", key, expectedValue, actualValue)
 		}
+	}
+}
+
+func assertRouteProjectStateUpdate(t *testing.T, message routeMessageEnvelope, projectID string) {
+	t.Helper()
+
+	if message.MessageType != realtime.MessageTypeUpdateFrontendProjectState {
+		t.Fatalf("expected project state update, got %q", message.MessageType)
+	}
+
+	var content realtime.ProjectStateUpdateContent
+	if err := json.Unmarshal(message.Content, &content); err != nil {
+		t.Fatalf("decode project state update: %v", err)
+	}
+	if content.ProjectState.ProjectConfig.ID != projectID {
+		t.Fatalf("expected project state update for %q, got %q", projectID, content.ProjectState.ProjectConfig.ID)
 	}
 }
 

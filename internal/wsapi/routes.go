@@ -61,10 +61,11 @@ type listenerEnvelope struct {
 }
 
 type listenerInboundMessage struct {
-	MessageType string
-	Init        *realtime.ListenerInitContent
-	Register    *realtime.ListenerRegisterContent
-	RouterCall  *realtime.ListenerRouterEndpointCallContent
+	MessageType  string
+	Init         *realtime.ListenerInitContent
+	Register     *realtime.ListenerRegisterContent
+	FrontendEmit *realtime.ListenerFrontendEmitContent
+	RouterCall   *realtime.ListenerRouterEndpointCallContent
 }
 
 type frontendCurrentAddressUpdate struct {
@@ -448,6 +449,13 @@ func serveListenerConnection(
 			if err := handleListenerRegister(ctx, connection.ID, *message.Register, deps); err != nil {
 				return err
 			}
+		case realtime.MessageTypeListenerFrontendEmit:
+			if message.FrontendEmit == nil {
+				return &CloseError{Code: CloseCodeBadRequest, Reason: "Invalid websocket message."}
+			}
+			if err := handleListenerFrontendEmit(ctx, connection.ID, info.Modes, *message.FrontendEmit, deps); err != nil {
+				return err
+			}
 		case realtime.MessageTypeListenerRouterCall:
 			if message.RouterCall == nil {
 				return &CloseError{Code: CloseCodeBadRequest, Reason: "Invalid websocket message."}
@@ -604,6 +612,15 @@ func decodeListenerMessage(payload []byte) (listenerInboundMessage, error) {
 		return listenerInboundMessage{
 			MessageType: envelope.MessageType,
 			Register:    &content,
+		}, nil
+	case realtime.MessageTypeListenerFrontendEmit:
+		var content realtime.ListenerFrontendEmitContent
+		if err := json.Unmarshal(envelope.Content, &content); err != nil {
+			return listenerInboundMessage{}, err
+		}
+		return listenerInboundMessage{
+			MessageType:  envelope.MessageType,
+			FrontendEmit: &content,
 		}, nil
 	case realtime.MessageTypeListenerRouterCall:
 		var content realtime.ListenerRouterEndpointCallContent
