@@ -732,6 +732,57 @@ func TestRealtimeEngineWhisperDeltaSnapshotsReplaceItemTranscript(t *testing.T) 
 	}
 }
 
+func TestRebuildOpenAIRealtimeItemOrderUsesKnownFallbackParent(t *testing.T) {
+	t.Parallel()
+
+	parentID := "item-1"
+	ordered := rebuildOpenAIRealtimeItemOrder(
+		[]string{"item-2"},
+		map[string]*string{
+			"item-2": &parentID,
+		},
+		[]string{"item-2", "item-1"},
+	)
+	if got, want := ordered, []string{"item-1", "item-2"}; fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("unexpected item order %v, want %v", got, want)
+	}
+}
+
+func TestRebuildOpenAIRealtimeItemOrderUsesKnownFallbackAncestorChain(t *testing.T) {
+	t.Parallel()
+
+	parentID := "item-2"
+	rootID := "item-1"
+	ordered := rebuildOpenAIRealtimeItemOrder(
+		[]string{"item-3"},
+		map[string]*string{
+			"item-3": &parentID,
+			"item-2": &rootID,
+		},
+		[]string{"item-3", "item-2", "item-1"},
+	)
+	if got, want := ordered, []string{"item-1", "item-2", "item-3"}; fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("unexpected item order %v, want %v", got, want)
+	}
+}
+
+func TestRebuildOpenAIRealtimeItemOrderPreservesCommittedSiblingOrder(t *testing.T) {
+	t.Parallel()
+
+	parentID := "item-1"
+	ordered := rebuildOpenAIRealtimeItemOrder(
+		[]string{"item-3", "item-2"},
+		map[string]*string{
+			"item-3": &parentID,
+			"item-2": &parentID,
+		},
+		[]string{"item-1", "item-2", "item-3"},
+	)
+	if got, want := ordered, []string{"item-1", "item-3", "item-2"}; fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("unexpected item order %v, want %v", got, want)
+	}
+}
+
 func TestRealtimeEngineDrainEventsUsesFixedDeadlineDespiteIgnoredEvents(t *testing.T) {
 	t.Parallel()
 
