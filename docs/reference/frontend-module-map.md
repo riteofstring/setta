@@ -146,6 +146,8 @@ This is the front door for authored frontend code under `frontend/src/`.
 - Need Project Chat history display/search/grouping derivation or agent-badge view models: open `components/Panes/Overview/ProjectLevelAI/projectChatHistoryViewModel.ts`.
 - Need Project Chat history drag ids, drop-target parsing, or thread/group reorder helpers: open `components/Panes/Overview/ProjectLevelAI/projectChatHistoryDragUtils.ts`.
 - Need Project Chat history create/select/start/delete/reorder command wiring: open `components/Panes/Overview/ProjectLevelAI/projectChatHistoryController.ts`.
+- Need Project Chat history toolbar search, badge toggle, undo-delete, or new-group chrome: open `components/Panes/Overview/ProjectLevelAI/ProjectChatHistoryToolbar.tsx`.
+- Need Project Chat history empty-state, grouped-list composition, or page-level render branching: open `components/Panes/Overview/ProjectLevelAI/ProjectChatHistoryContent.tsx`.
 - Need Project Chat history thread-row rendering, indicators, badges, or per-thread action chrome: open `components/Panes/Overview/ProjectLevelAI/ProjectChatHistoryThreadEntry.tsx`.
 - Need Project Chat grouped-folder rendering, inline rename, or per-group action chrome: open `components/Panes/Overview/ProjectLevelAI/ProjectChatHistoryGroupFolder.tsx`.
 - Need Project Chat ungrouped-folder rendering or null-group thread section composition: open `components/Panes/Overview/ProjectLevelAI/ProjectChatHistoryUngroupedFolder.tsx`.
