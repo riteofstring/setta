@@ -267,3 +267,45 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/definitions.ts` into domain-owned store modules so
     new shared state stops defaulting into the single 1500-line definitions
     surface.
+
+## 2026-03-14 15:41:24 PDT
+
+- Slice completed: extracted the AI/chat Zustand stores and shared persist
+  helper out of `frontend/src/state/definitions.ts` into
+  `frontend/src/state/stores/aiStores.ts` and
+  `frontend/src/state/storePersistStorage.ts`
+- Key files touched:
+  - `frontend/src/state/stores/aiStores.ts`
+  - `frontend/src/state/storePersistStorage.ts`
+  - `frontend/src/state/stores/aiStores.test.ts`
+  - `frontend/src/state/definitions.ts`
+  - `frontend/src/state/aiStorePersistence.test.ts`
+  - `frontend/src/state/actions/aiChatStreaming.ts`
+  - `frontend/src/state/actions/aiHydration.ts`
+  - `frontend/src/state/actions/aiChatSubmission.ts`
+  - `frontend/src/state/actions/aiChatControls.ts`
+  - `frontend/src/state/actions/aiChatState.ts`
+  - `frontend/src/state/actions/aiConfiguration.ts`
+  - `frontend/src/state/actions/aiTranscription.ts`
+  - `frontend/src/state/actions/aiAgentRuns.ts`
+  - `frontend/src/state/actions/projectChatWindowing.ts`
+  - `frontend/src/state/actions/stateMachineRuns.ts`
+  - `frontend/src/state/actions/sectionInfos.ts`
+  - `frontend/src/state/hooks/agenticScopeHighlights.ts`
+  - `frontend/src/state/hooks/useChatBranchIndex.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/aiStorePersistence.test.ts src/state/stores/aiStores.test.ts src/state/actions/aiFollow.test.ts src/state/actions/aiAgentRuns.test.ts src/state/actions/aiConfigurationCatalogs.test.ts src/state/actions/aiTranscribeChatAudio.test.ts src/state/actions/aiPendingChatState.test.ts src/state/actions/aiInterruptedAssistantMessages.test.ts src/state/actions/aiAppSpecPatchPreview.test.ts src/state/actions/aiStopProjectChat.test.ts src/state/actions/aiSubmitMessage.test.ts src/state/actions/stateMachineRuns.test.ts src/state/actions/projectChatWindowing.test.ts src/state/actions/websocketReceive.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/storePersistStorage.ts src/state/stores/aiStores.ts src/state/stores/aiStores.test.ts src/state/definitions.ts src/state/aiStorePersistence.test.ts src/state/actions/aiHydration.ts src/state/actions/aiChatState.ts src/state/actions/aiChatControls.ts src/state/actions/aiChatDetails.ts src/state/actions/aiFollow.ts src/state/actions/agenticScopeViolation.ts src/state/actions/aiBranches.ts src/state/actions/chatBranches.ts src/state/actions/chatBranchIndex.ts src/state/hooks/agenticScopeHighlights.ts src/state/hooks/useChatBranchIndex.ts src/state/actions/aiAgentRuns.ts src/state/actions/aiChatSubmission.ts src/state/actions/aiConfiguration.ts src/state/actions/aiTranscription.ts src/state/actions/aiPendingChatState.ts src/state/actions/aiInterruptedAssistantMessages.ts src/state/actions/aiChatStreaming.ts src/state/actions/sectionInfos.ts src/state/actions/projectChatWindowing.ts src/state/actions/stateMachineRuns.ts src/state/actions/aiFollow.test.ts src/state/actions/aiAgentRuns.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/store ownership split and
+    did not change frontend rendering behavior.
+- Commit hash:
+  - `6fa94bac7469`
+- Next highest-value unblocked slice:
+  - Extract the remaining app/share/session and app-preview stores out of
+    `frontend/src/state/definitions.ts`, leaving `definitions.ts` as a thinner
+    index around domain-owned store modules.
