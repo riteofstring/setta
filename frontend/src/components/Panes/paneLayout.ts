@@ -1,5 +1,9 @@
 import { useLocalStorage } from "state/definitions";
-import { CLOSED_PANE_WIDTH, PaneName, PaneNameEnum } from "utils/constants";
+import {
+  CLOSED_PANE_WIDTH,
+  PaneName,
+  PaneNameEnum,
+} from "utils/constants/panes";
 import { clamp } from "utils/utils";
 
 type PaneLayoutState = {
