@@ -1,15 +1,12 @@
 import logging
 import os
-import signal
-import socket
-import subprocess
+import threading
 import time
 import webbrowser
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER
-from setta.entrypoint import resolve_source_checkout_root, validate_executable_path
 from setta.logging.config import configure_logging
 from setta.sessions import SessionMetadata, SessionRegistry
 from setta.sessions.constants import (
@@ -17,55 +14,60 @@ from setta.sessions.constants import (
     SESSION_ID_ENV_VAR,
     SESSIONS_ROOT_ENV_VAR,
 )
+from setta.sessions.utils import resolve_sessions_root
 from setta.utils.constants import IS_DEV_MODE, C
-from setta.utils.env_vars import (
-    FILES_LOCATION_ENV,
-    FILES_ROOT_ENV,
-    PROFILE_ENV,
-    PROFILE_LOOKUP_HOME_ENV,
-    RUNTIME_ROOT_ENV,
-    SETTA_HOME_ENV,
-    WORKSPACE_ROOT_ENV,
-)
 from setta.utils.network import build_bootstrap_urls
 from setta.utils.paths import clear_setta_paths_cache, get_setta_paths
 
 if TYPE_CHECKING:
     from types import TracebackType
 
-_GO_SERVER_BINARY_OVERRIDE_ENV = "SETTA_SERVER_BIN"
-_SOURCE_CHECKOUT_SERVER_WRAPPER = Path("scripts") / "run_setta_server.sh"
+    import uvicorn
+
 _READY_POLL_INTERVAL_SECONDS = 0.05
 _DEFAULT_READY_TIMEOUT_SECONDS = 15.0
 _DEFAULT_JOIN_TIMEOUT_SECONDS = 5.0
 
 
 class BackendServerHandle:
-    """Wrap a background Go Setta server process."""
+    """Wrap a background uvicorn.Server instance."""
 
     def __init__(
         self,
-        process: subprocess.Popen[str],
+        server: "uvicorn.Server",
+        thread: threading.Thread,
         *,
-        session_registry: SessionRegistry,
-        workspace_root: Path,
-        host: str,
-        port: int,
+        session: SessionMetadata | None = None,
+        session_registry: SessionRegistry | None = None,
         bootstrap_url_fragment: str | None = None,
         bootstrap_url_plain: str | None = None,
+        previous_session_id: str | None = None,
+        session_env_updated: bool = False,
+        previous_sessions_root: str | None = None,
+        sessions_root_env_updated: bool = False,
+        previous_in_process: str | None = None,
+        in_process_env_updated: bool = False,
     ) -> None:
-        self._process = process
+        self._server = server
+        self._thread = thread
+        self._session = session
         self._session_registry = session_registry
-        self._workspace_root = workspace_root
-        self._host = host
-        self._port = port
-        self._session: SessionMetadata | None = None
         self._bootstrap_url_fragment = bootstrap_url_fragment
         self._bootstrap_url_plain = bootstrap_url_plain
+        self._previous_session_id = previous_session_id
+        self._session_env_updated = session_env_updated
+        self._previous_sessions_root = previous_sessions_root
+        self._sessions_root_env_updated = sessions_root_env_updated
+        self._previous_in_process = previous_in_process
+        self._in_process_env_updated = in_process_env_updated
 
     @property
-    def process(self) -> subprocess.Popen[str]:
-        return self._process
+    def server(self) -> "uvicorn.Server":
+        return self._server
+
+    @property
+    def thread(self) -> threading.Thread:
+        return self._thread
 
     @property
     def session(self) -> SessionMetadata | None:
@@ -80,46 +82,46 @@ class BackendServerHandle:
         return self._bootstrap_url_plain
 
     def wait_ready(self, timeout: float | None = None) -> bool:
-        """Block until the server listens and writes its local session metadata."""
+        """Block until uvicorn reports startup complete."""
         deadline = None if timeout is None else time.monotonic() + timeout
-        while True:
-            return_code = self._process.poll()
-            if return_code is not None:
-                output = ""
-                if self._process.stdout is not None:
-                    output = self._process.stdout.read()
-                detail = f"Setta backend exited before startup completed (exit {return_code})."
-                if output:
-                    detail = f"{detail}\n{output}"
-                raise RuntimeError(detail)
-            port_ready = _is_tcp_port_ready(self._host, self._port)
-            session_ready = self._refresh_session_metadata()
-            if port_ready and session_ready:
-                return True
+        while not self._server.started:
+            if not self._thread.is_alive():
+                raise RuntimeError("Setta backend exited before startup completed.")
             if deadline is not None and time.monotonic() >= deadline:
                 return False
             time.sleep(_READY_POLL_INTERVAL_SECONDS)
+        return True
 
     def stop(self, join_timeout: float | None = None) -> None:
-        """Signal the server to exit and wait for the process to finish."""
-        timeout = join_timeout or _DEFAULT_JOIN_TIMEOUT_SECONDS
-        if self._process.poll() is None:
-            if os.name == "nt":
-                self._process.terminate()
+        """Signal the server to exit and wait for the worker thread to finish."""
+        if self._thread.is_alive():
+            self._server.should_exit = True
+            self._thread.join(join_timeout or _DEFAULT_JOIN_TIMEOUT_SECONDS)
+            if self._thread.is_alive():
+                self._server.force_exit = True
+                self._thread.join(join_timeout or _DEFAULT_JOIN_TIMEOUT_SECONDS)
+            if self._thread.is_alive():
+                raise RuntimeError("Setta backend thread did not exit cleanly.")
+        if self._session_env_updated:
+            if self._previous_session_id is None:
+                os.environ.pop(SESSION_ID_ENV_VAR, None)
             else:
-                self._process.send_signal(signal.SIGINT)
-            try:
-                self._process.wait(timeout=timeout)
-            except subprocess.TimeoutExpired:
-                self._process.kill()
-                self._process.wait(timeout=timeout)
-        if self._session is not None:
+                os.environ[SESSION_ID_ENV_VAR] = self._previous_session_id
+        if self._sessions_root_env_updated:
+            if self._previous_sessions_root is None:
+                os.environ.pop(SESSIONS_ROOT_ENV_VAR, None)
+            else:
+                os.environ[SESSIONS_ROOT_ENV_VAR] = self._previous_sessions_root
+        if self._in_process_env_updated:
+            if self._previous_in_process is None:
+                os.environ.pop(IN_PROCESS_ENV_VAR, None)
+            else:
+                os.environ[IN_PROCESS_ENV_VAR] = self._previous_in_process
+        if self._session is not None and self._session_registry is not None:
             self._session_registry.delete_session(self._session.id)
-        if self._process.stdout is not None:
-            self._process.stdout.close()
 
     def is_running(self) -> bool:
-        return self._process.poll() is None
+        return self._thread.is_alive()
 
     def __enter__(self) -> "BackendServerHandle":
         return self
@@ -132,32 +134,6 @@ class BackendServerHandle:
     ) -> None:
         self.stop()
 
-    def _refresh_session_metadata(self) -> bool:
-        sessions = self._session_registry.find_sessions_by_workspace(
-            self._workspace_root,
-            prune_stale=False,
-        )
-        matching = [
-            session
-            for session in sessions
-            if session.host == self._host
-            and session.port == self._port
-            and session.serverMode == "ide"
-        ]
-        if not matching:
-            return False
-        matching.sort(key=lambda session: session.startedAt, reverse=True)
-        session = matching[0]
-        self._session = session
-        secret = self._session_registry.load_secret(session)
-        (
-            self._bootstrap_url_fragment,
-            self._bootstrap_url_plain,
-        ) = build_bootstrap_urls(
-            self._host, self._port, BOOTSTRAP_TOKEN_MANAGER.mint(session.id, secret)
-        )
-        return True
-
 
 def start_backend(
     *,
@@ -169,82 +145,101 @@ def start_backend(
     open_browser: bool | str = False,
     ws_protocol: str | None = None,
 ) -> BackendServerHandle:
-    """Start the Go backend in a background process.
+    """Start the packaged FastAPI backend in a background thread.
 
     Parameters
     ----------
     host / port:
         Override the bind address (defaults match the CLI).
     log_level:
-        Optional logging level override passed through to the server command.
+        Optional logging level override passed to the shared logging bootstrap.
     wait_for_ready:
-        When True, block until the server listens and session metadata exists.
+        When True, block until the server reports startup finished.
     ready_timeout:
         Maximum seconds to wait for readiness when wait_for_ready is True.
     open_browser:
         When True open the bootstrap URL; when a string, open that URL.
     ws_protocol:
-        Retained for compatibility with callers that previously configured
-        uvicorn. The Go server ignores this setting.
+        Override uvicorn's websocket protocol selection (e.g. "none" for tests).
     """
 
     _ensure_frontend_bundle_available()
-    clear_setta_paths_cache()
-    paths = get_setta_paths()
-    session_registry = SessionRegistry(sessions_root=paths.runtime_sessions_root)
 
+    clear_setta_paths_cache()
     resolved_host = host or C.DEFAULT_HOST
-    resolved_port = C.DEFAULT_PORT if port is None else port
+    resolved_port = port or C.DEFAULT_PORT
     C.HOST = resolved_host
     C.PORT = resolved_port
 
-    resolved_level = configure_logging(level_override=log_level)
-    child_log_level = logging.getLevelName(resolved_level).lower()
-    if child_log_level == "warning":
-        child_log_level = "warn"
-
-    command, command_cwd = resolve_go_server_command()
-    args = [
-        *command,
-        "--mode",
-        "ide",
-        "--host",
+    paths = get_setta_paths()
+    workspace_root = paths.workspace_root
+    sessions_root = resolve_sessions_root(workspace_root)
+    session_registry = SessionRegistry(sessions_root=sessions_root)
+    session = session_registry.create_session(
+        workspace_root,
         resolved_host,
-        "--port",
-        str(resolved_port),
-        "--workspace",
-        str(paths.workspace_root),
-        "--setta-home",
-        str(paths.setta_home),
-        "--profile-lookup-home",
-        str(paths.profile_lookup_home),
-        "--runtime-root",
-        str(paths.runtime_root),
-        "--no-open",
-        "--log-level",
-        child_log_level,
-    ]
-    if paths.profile_name:
-        args.extend(["--profile", paths.profile_name])
-    if paths.setta_files_location is None:
-        args.extend(["--setta-files-root", str(paths.setta_files_root)])
-    else:
-        args.extend(["--setta-files-location", paths.setta_files_location])
-
-    process = subprocess.Popen(
-        args,
-        cwd=command_cwd,
-        env=build_backend_launcher_env(paths),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
+        resolved_port,
+        os.getpid(),
+        setta_files_location=paths.setta_files_location,
+        setta_files_root=str(paths.setta_files_root),
+        runtime_root=str(paths.runtime_root),
+        setta_home=str(paths.setta_home),
+        profile=paths.profile_name,
+        server_mode="ide",
     )
+    previous_session_id = os.environ.get(SESSION_ID_ENV_VAR)
+    os.environ[SESSION_ID_ENV_VAR] = session.id
+    previous_sessions_root = os.environ.get(SESSIONS_ROOT_ENV_VAR)
+    os.environ[SESSIONS_ROOT_ENV_VAR] = str(sessions_root)
+    previous_in_process = os.environ.get(IN_PROCESS_ENV_VAR)
+    os.environ[IN_PROCESS_ENV_VAR] = "1"
+    secret = session_registry.load_secret(session)
+    token = BOOTSTRAP_TOKEN_MANAGER.mint(session.id, secret)
+    bootstrap_url_fragment, bootstrap_url_plain = build_bootstrap_urls(
+        resolved_host, resolved_port, token
+    )
+
+    resolved_level = configure_logging(level_override=log_level)
+    uvicorn_level = logging.getLevelName(resolved_level).lower()
+
+    import uvicorn
+
+    config_kwargs = {
+        "host": resolved_host,
+        "port": resolved_port,
+        "log_level": uvicorn_level,
+        "log_config": None,
+        "timeout_graceful_shutdown": 1,
+    }
+    if ws_protocol is not None:
+        config_kwargs["ws"] = ws_protocol
+
+    config = uvicorn.Config(
+        "setta.server:app",
+        **config_kwargs,
+    )
+    server = uvicorn.Server(config)
+
+    thread = threading.Thread(
+        target=server.run,
+        name="setta-backend",
+        daemon=True,
+    )
+    thread.start()
+
     handle = BackendServerHandle(
-        process,
+        server,
+        thread,
+        session=session,
         session_registry=session_registry,
-        workspace_root=paths.workspace_root,
-        host=resolved_host,
-        port=resolved_port,
+        bootstrap_url_fragment=bootstrap_url_fragment,
+        bootstrap_url_plain=bootstrap_url_plain,
+        previous_session_id=previous_session_id,
+        session_env_updated=True,
+        previous_sessions_root=previous_sessions_root,
+        sessions_root_env_updated=True,
+        previous_in_process=previous_in_process,
+        in_process_env_updated=True,
     )
 
     if wait_for_ready:
@@ -260,80 +255,12 @@ def start_backend(
             )
 
     target_url = _resolve_frontend_url(
-        open_browser,
-        resolved_host,
-        resolved_port,
-        handle.bootstrap_url_fragment,
+        open_browser, resolved_host, resolved_port, bootstrap_url_fragment
     )
     if target_url:
         webbrowser.open(target_url)
 
     return handle
-
-
-def resolve_go_server_command() -> tuple[list[str], Path | None]:
-    override = os.environ.get(_GO_SERVER_BINARY_OVERRIDE_ENV, "").strip()
-    if override:
-        binary = validate_executable_path(
-            Path(override),
-            f"{_GO_SERVER_BINARY_OVERRIDE_ENV} points to a missing or invalid executable",
-        )
-        return [str(binary)], None
-
-    package_root = Path(__file__).resolve(strict=False).parent
-    source_checkout_root = resolve_source_checkout_root(package_root)
-    if source_checkout_root is not None:
-        wrapper = validate_executable_path(
-            source_checkout_root / _SOURCE_CHECKOUT_SERVER_WRAPPER,
-            "Source checkout Go server wrapper is missing or invalid",
-        )
-        return [str(wrapper)], source_checkout_root
-
-    binary_name = "setta-server.exe" if os.name == "nt" else "setta-server"
-    candidate = package_root / "go_bin" / binary_name
-    binary = validate_executable_path(
-        candidate,
-        "Packaged Go Setta server binary was not found. Rebuild the distribution with build.sh or install an official packaged release.",
-    )
-    return [str(binary)], None
-
-
-def build_backend_launcher_env(paths) -> dict[str, str]:
-    env = dict(os.environ)
-    env[WORKSPACE_ROOT_ENV] = str(paths.workspace_root)
-    env[SETTA_HOME_ENV] = str(paths.setta_home)
-    env[PROFILE_LOOKUP_HOME_ENV] = str(paths.profile_lookup_home)
-    env[RUNTIME_ROOT_ENV] = str(paths.runtime_root)
-    if paths.profile_name:
-        env[PROFILE_ENV] = paths.profile_name
-    else:
-        env.pop(PROFILE_ENV, None)
-    if paths.setta_files_location is None:
-        env[FILES_ROOT_ENV] = str(paths.setta_files_root)
-        env.pop(FILES_LOCATION_ENV, None)
-    else:
-        env[FILES_LOCATION_ENV] = paths.setta_files_location
-        env.pop(FILES_ROOT_ENV, None)
-    if paths.auth_cookie_name:
-        env["SETTA_AUTH_COOKIE_NAME"] = paths.auth_cookie_name
-    else:
-        env.pop("SETTA_AUTH_COOKIE_NAME", None)
-    if IS_DEV_MODE:
-        env["SETTA_DEV_MODE"] = str(IS_DEV_MODE)
-    else:
-        env.pop("SETTA_DEV_MODE", None)
-    env.pop(SESSION_ID_ENV_VAR, None)
-    env.pop(SESSIONS_ROOT_ENV_VAR, None)
-    env.pop(IN_PROCESS_ENV_VAR, None)
-    return env
-
-
-def _is_tcp_port_ready(host: str, port: int) -> bool:
-    try:
-        with socket.create_connection((host, port), timeout=0.2):
-            return True
-    except OSError:
-        return False
 
 
 def _resolve_frontend_url(

@@ -107,7 +107,7 @@ def test_backups_restore_refuses_when_session_running_unless_forced(
             sys.executable,
             "-c",
             "import time; time.sleep(60)",
-            "setta-server",
+            "setta.server:app",
         ],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
