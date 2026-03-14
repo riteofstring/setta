@@ -90,6 +90,7 @@ This is the front door for authored frontend code under `frontend/src/`.
 - Need pane/tab behavior: open `components/Panes/`.
 - Need section chrome or param rendering: open `components/Section/` and `components/Params/`.
 - Need managed section-chat history or polling behavior: open `components/Section/Layouts/ChatAreaHistoryPanel.tsx`.
+- Need managed section-chat thread-controller wiring: open `components/Section/Layouts/chatAreaManagedThreadController.ts`.
 - Need section-chat realtime dependency actions: open `components/Section/Layouts/chatAreaRealtimeActions.ts`.
 - Need scriptable section-chat state transitions or slash-command runtime behavior: open `components/Section/Layouts/chatAreaScriptableRuntime.ts`.
 - Need section-chat thread-control helpers: open `components/Section/Layouts/chatAreaThreadControls.ts`.

@@ -1,4 +1,8 @@
-import { ChatInput, type ChatSlashCommand } from "components/Chat/ChatInput";
+import {
+  ChatInput,
+  type ChatSlashCommand,
+  type ChatSlashCommandResult,
+} from "components/Chat/ChatInput";
 import { ChatMessageList } from "components/Chat/ChatMessages";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import {
@@ -28,17 +32,14 @@ import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import _ from "lodash";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { loadAgentRuns } from "state/actions/ai/agentRuns";
 import {
   submitEditedMessage,
   submitMessage,
 } from "state/actions/ai/chatCommands";
 import {
-  clearPendingChatDetails,
   getDefaultChatDetails,
   getExternalAgentChat,
   getLLMChat,
-  initializePendingChatDetails,
   stopManagedSectionChatResponse,
 } from "state/actions/ai/chatRuntime";
 import { transcribeChatAudioWithProfile } from "state/actions/ai/transcription";
@@ -50,7 +51,6 @@ import {
 import { type ChatHistoryCompatibility } from "state/actions/chatHistory";
 import { addPersistentNotification } from "state/actions/notifications";
 import {
-  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
@@ -64,10 +64,7 @@ import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
 import { hasPendingToolInteraction } from "utils/claudeTools";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
-import {
-  route_set_chat_section_chat_id,
-  route_set_chat_section_state,
-} from "utils/generatedEndpoints";
+import { route_set_chat_section_state } from "utils/generatedEndpoints";
 import {
   AgenticEdgeKindEnum,
   ChatFileAttachment,
@@ -77,12 +74,22 @@ import {
   SectionTypeEnum,
   SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 import { shallow } from "zustand/shallow";
 import {
   ManagedChatHistoryPanel,
   resolveManagedChatRunType,
-  toSortedHistoryEntries,
 } from "./ChatAreaHistoryPanel";
+import {
+  persistManagedSectionChatId,
+  resumeLatestManagedSectionChat,
+  selectManagedSectionChat,
+  setManagedSectionChatId,
+  settleManagedSectionChatThreadStart,
+  startManagedSectionChatThread,
+  type ChatSectionChatId,
+  type ChatSectionChatIdUpdate,
+} from "./chatAreaManagedThreadController";
 import {
   emitChatSendAction,
   emitChatStopAction,
@@ -100,11 +107,6 @@ import {
   buildManagedZeroScopeBannerSessionKey,
   executeSectionChatSlashCommand,
 } from "./chatAreaThreadControls";
-
-type ChatSectionChatId = string | null;
-type ChatSectionChatIdUpdate =
-  | ChatSectionChatId
-  | ((current: ChatSectionChatId) => ChatSectionChatId);
 
 export function ChatArea({
   sectionId,
@@ -903,42 +905,26 @@ function ManagedChatArea({
   }, [chatId, isExternalEngine, projectConfigId]);
 
   const setChatId = useCallback(
-    (next: ChatSectionChatIdUpdate) => {
-      if (!canUseManagedChat) {
-        return;
-      }
-      if (setControlledChatId) {
-        const resolved = typeof next === "function" ? next(chatId) : next;
-        if (resolved === chatId) {
-          return;
-        }
-        setControlledChatId(resolved);
-        return;
-      }
-      const currentState = useProjectState.getState();
-      const currentChatId = getCurrEffectiveSectionImplOfType(
-        currentState,
-        sectionId,
-        SectionTypeEnum.Chat,
-      ).chatId;
-      const resolved = typeof next === "function" ? next(currentChatId) : next;
-      if (resolved === currentChatId) {
-        return;
-      }
-      dispatchOptimisticProjectStateUpdate({
-        apply: (state) => {
-          setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
-            chatId: resolved,
-          });
-        },
-        send: () =>
-          route_set_chat_section_chat_id({
+    (next: ChatSectionChatIdUpdate) =>
+      setManagedSectionChatId({
+        next,
+        canUseManagedChat,
+        chatId,
+        setControlledChatId,
+        resolvePersistedChatId: () =>
+          getCurrEffectiveSectionImplOfType(
+            useProjectState.getState(),
+            sectionId,
+            SectionTypeEnum.Chat,
+          ).chatId,
+        persistChatId: (nextChatId) => {
+          persistManagedSectionChatId({
             projectConfigId,
             sectionId,
-            chatId: resolved,
-          }),
-      });
-    },
+            chatId: nextChatId,
+          });
+        },
+      }),
     [
       canUseManagedChat,
       chatId,
@@ -948,32 +934,25 @@ function ManagedChatArea({
     ],
   );
 
-  const handleNewChatStart = useCallback(() => {
-    if (!canUseManagedChat) {
-      return;
-    }
-    if (surfaceId) {
-      initializePendingChatDetails(surfaceId);
-    }
-    setChatId(null);
-    setShowHistory(false);
-  }, [canUseManagedChat, setChatId, surfaceId]);
+  const handleNewChatStart = useCallback(
+    () =>
+      startManagedSectionChatThread({
+        canUseManagedChat,
+        surfaceId,
+        setChatId,
+        setShowHistory,
+      }),
+    [canUseManagedChat, setChatId, surfaceId],
+  );
 
   const handleNewChatSettled = useCallback(
-    (newChatId: string | null, succeeded: boolean) => {
-      if (surfaceId) {
-        clearPendingChatDetails(surfaceId);
-      }
-      setChatId((currentChatId) => {
-        if (currentChatId !== null) {
-          return currentChatId;
-        }
-        if (!succeeded || !newChatId) {
-          return null;
-        }
-        return newChatId;
-      });
-    },
+    (newChatId: string | null, succeeded: boolean) =>
+      settleManagedSectionChatThreadStart({
+        surfaceId,
+        newChatId,
+        succeeded,
+        setChatId,
+      }),
     [setChatId, surfaceId],
   );
   const slashCommands = useMemo(
@@ -1144,52 +1123,46 @@ function ManagedChatArea({
   );
 
   const handleBranchSwitch = useCallback(
-    (nextChatId: string) => {
-      if (!nextChatId || nextChatId === chatId) {
-        return;
-      }
-      setChatId(nextChatId);
-      setShowHistory(false);
-    },
-    [chatId, setChatId],
-  );
-
-  const handleSelectHistoryChat = useCallback(
-    (nextChatId: string) => {
-      if (!nextChatId) {
-        return;
-      }
-      setChatId(nextChatId);
-      setShowHistory(false);
-    },
+    (nextChatId: string) =>
+      selectManagedSectionChat({
+        nextChatId,
+        setChatId,
+        setShowHistory,
+      }),
     [setChatId],
   );
 
-  const handleResumeLatestChat = useCallback(async (): Promise<boolean> => {
-    if (!canUseManagedChat) {
-      return false;
-    }
-    await loadAgentRuns();
-    const latestEntry = toSortedHistoryEntries(
-      useAIStore.getState().agentRuns,
+  const handleSelectHistoryChat = useCallback(
+    (nextChatId: string) =>
+      selectManagedSectionChat({
+        nextChatId,
+        setChatId,
+        setShowHistory,
+      }),
+    [setChatId],
+  );
+
+  const handleResumeLatestChat = useCallback(
+    () =>
+      resumeLatestManagedSectionChat({
+        canUseManagedChat,
+        chatId,
+        projectConfigId,
+        sectionId,
+        historyCompatibility,
+        agentRuns: useAIStore.getState().agentRuns,
+        setChatId,
+        setShowHistory,
+      }),
+    [
+      canUseManagedChat,
+      chatId,
+      historyCompatibility,
       projectConfigId,
       sectionId,
-      historyCompatibility,
-    ).find((entry) => entry.chatId !== chatId);
-    if (!latestEntry) {
-      return false;
-    }
-    setChatId(latestEntry.chatId);
-    setShowHistory(false);
-    return true;
-  }, [
-    chatId,
-    historyCompatibility,
-    projectConfigId,
-    sectionId,
-    setChatId,
-    canUseManagedChat,
-  ]);
+      setChatId,
+    ],
+  );
 
   const handleSlashCommand = useCallback(
     async (command: ChatSlashCommand): Promise<ChatSlashCommandResult> => {
