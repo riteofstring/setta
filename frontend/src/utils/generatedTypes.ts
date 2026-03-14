@@ -44,11 +44,13 @@ function mergeGeneratedOptions<T extends object>(
   } as T;
 }
 
-type GeneratedFactoryResolution<TDefaults extends object, TImpl extends object> =
-  {
-    defaults: TDefaults;
-    overrides: Partial<TImpl>;
-  };
+type GeneratedFactoryResolution<
+  TDefaults extends object,
+  TImpl extends object,
+> = {
+  defaults: TDefaults;
+  overrides: Partial<TImpl>;
+};
 
 function isGeneratedImplOverrideCandidate(
   value: unknown,
@@ -171,8 +173,9 @@ export const SettaNotificationTypeEnum = {
   info: "info",
   save: "save",
 } as const;
-export type SettaNotificationType = ObjectValues<typeof SettaNotificationTypeEnum>;
-
+export type SettaNotificationType = ObjectValues<
+  typeof SettaNotificationTypeEnum
+>;
 
 export type SettaNotification = {
   id: string;
@@ -184,23 +187,24 @@ export type SettaNotification = {
   metadata: Record<string, unknown>;
   read_status: boolean;
 };
-export function createSettaNotification(options: Partial<SettaNotification> = {}): SettaNotification {
+export function createSettaNotification(
+  options: Partial<SettaNotification> = {},
+): SettaNotification {
   return options as SettaNotification;
 }
-
 
 export type ChatContextUsage = {
   contextWindowTokens?: number | null;
   contextUsedTokens?: number | null;
   estimated: boolean;
 };
-export function createChatContextUsage(options: Partial<ChatContextUsage> = {}): ChatContextUsage {
+export function createChatContextUsage(
+  options: Partial<ChatContextUsage> = {},
+): ChatContextUsage {
   return options as ChatContextUsage;
 }
 
-
 export type APIKeys = Record<string, string>;
-
 
 export type LLMConfig = {
   id: string;
@@ -216,14 +220,12 @@ export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
   return options as LLMConfig;
 }
 
-
 export const MCPServerTransportEnum = {
   sse: "sse",
   streamable_http: "streamable_http",
   stdio: "stdio",
 } as const;
 export type MCPServerTransport = ObjectValues<typeof MCPServerTransportEnum>;
-
 
 export type MCPServerConfig = {
   transport: MCPServerTransport;
@@ -236,10 +238,11 @@ export type MCPServerConfig = {
   encoding?: string | null;
   encoding_error_handler?: string | null;
 };
-export function createMCPServerConfig(options: Partial<MCPServerConfig> = {}): MCPServerConfig {
+export function createMCPServerConfig(
+  options: Partial<MCPServerConfig> = {},
+): MCPServerConfig {
   return options as MCPServerConfig;
 }
-
 
 export type AllLLMConfigs = {
   configs: Record<string, LLMConfig>;
@@ -248,16 +251,16 @@ export type AllLLMConfigs = {
   default_config_id?: string | null;
   codexMcpImportedAt?: string | null;
 };
-export function createAllLLMConfigs(options: Partial<AllLLMConfigs> = {}): AllLLMConfigs {
+export function createAllLLMConfigs(
+  options: Partial<AllLLMConfigs> = {},
+): AllLLMConfigs {
   return options as AllLLMConfigs;
 }
-
 
 export const PromptFormatEnum = {
   Jinja: "Jinja",
 } as const;
 export type PromptFormat = ObjectValues<typeof PromptFormatEnum>;
-
 
 export type PromptTemplate = {
   id: string;
@@ -268,10 +271,11 @@ export type PromptTemplate = {
   inputSchema: Record<string, unknown>;
   metadata: Record<string, unknown>;
 };
-export function createPromptTemplate(options: Partial<PromptTemplate> = {}): PromptTemplate {
+export function createPromptTemplate(
+  options: Partial<PromptTemplate> = {},
+): PromptTemplate {
   return options as PromptTemplate;
 }
-
 
 export const ExternalAgentToolTypeEnum = {
   claude_code: "claude_code",
@@ -279,8 +283,9 @@ export const ExternalAgentToolTypeEnum = {
   opencode: "opencode",
   plugin: "plugin",
 } as const;
-export type ExternalAgentToolType = ObjectValues<typeof ExternalAgentToolTypeEnum>;
-
+export type ExternalAgentToolType = ObjectValues<
+  typeof ExternalAgentToolTypeEnum
+>;
 
 export const ExternalAgentRunModeEnum = {
   mcp: "mcp",
@@ -288,8 +293,9 @@ export const ExternalAgentRunModeEnum = {
   sdk: "sdk",
   app_server: "app_server",
 } as const;
-export type ExternalAgentRunMode = ObjectValues<typeof ExternalAgentRunModeEnum>;
-
+export type ExternalAgentRunMode = ObjectValues<
+  typeof ExternalAgentRunModeEnum
+>;
 
 export const ExternalAgentSettingsModeEnum = {
   read_only: "read_only",
@@ -297,36 +303,40 @@ export const ExternalAgentSettingsModeEnum = {
   managed_project: "managed_project",
   explicit_path: "explicit_path",
 } as const;
-export type ExternalAgentSettingsMode = ObjectValues<typeof ExternalAgentSettingsModeEnum>;
-
+export type ExternalAgentSettingsMode = ObjectValues<
+  typeof ExternalAgentSettingsModeEnum
+>;
 
 export const ClaudeSettingsSourceEnum = {
   user: "user",
   project: "project",
   local: "local",
 } as const;
-export type ClaudeSettingsSource = ObjectValues<typeof ClaudeSettingsSourceEnum>;
-
+export type ClaudeSettingsSource = ObjectValues<
+  typeof ClaudeSettingsSourceEnum
+>;
 
 export type ClaudeSettingsPermissions = {
   allow: Array<string>;
   ask: Array<string>;
   deny: Array<string>;
 };
-export function createClaudeSettingsPermissions(options: Partial<ClaudeSettingsPermissions> = {}): ClaudeSettingsPermissions {
+export function createClaudeSettingsPermissions(
+  options: Partial<ClaudeSettingsPermissions> = {},
+): ClaudeSettingsPermissions {
   return options as ClaudeSettingsPermissions;
 }
-
 
 export type ClaudeSettingsManaged = {
   permissions?: ClaudeSettingsPermissions | null;
   defaultMode?: string | null;
   mcp?: Record<string, unknown> | null;
 };
-export function createClaudeSettingsManaged(options: Partial<ClaudeSettingsManaged> = {}): ClaudeSettingsManaged {
+export function createClaudeSettingsManaged(
+  options: Partial<ClaudeSettingsManaged> = {},
+): ClaudeSettingsManaged {
   return options as ClaudeSettingsManaged;
 }
-
 
 export type CodexSettingsManaged = {
   approvalPolicy?: string | null;
@@ -334,38 +344,42 @@ export type CodexSettingsManaged = {
   enabledTools?: Array<string> | null;
   model?: string | null;
 };
-export function createCodexSettingsManaged(options: Partial<CodexSettingsManaged> = {}): CodexSettingsManaged {
+export function createCodexSettingsManaged(
+  options: Partial<CodexSettingsManaged> = {},
+): CodexSettingsManaged {
   return options as CodexSettingsManaged;
 }
-
 
 export type OpenCodeSettingsManaged = {
   permission?: unknown;
   mcp?: Record<string, unknown> | null;
   model?: string | null;
 };
-export function createOpenCodeSettingsManaged(options: Partial<OpenCodeSettingsManaged> = {}): OpenCodeSettingsManaged {
+export function createOpenCodeSettingsManaged(
+  options: Partial<OpenCodeSettingsManaged> = {},
+): OpenCodeSettingsManaged {
   return options as OpenCodeSettingsManaged;
 }
-
 
 export type ExternalAgentSettingsManagedBlock = {
   claude?: ClaudeSettingsManaged | null;
   codex?: CodexSettingsManaged | null;
   opencode?: OpenCodeSettingsManaged | null;
 };
-export function createExternalAgentSettingsManagedBlock(options: Partial<ExternalAgentSettingsManagedBlock> = {}): ExternalAgentSettingsManagedBlock {
+export function createExternalAgentSettingsManagedBlock(
+  options: Partial<ExternalAgentSettingsManagedBlock> = {},
+): ExternalAgentSettingsManagedBlock {
   return options as ExternalAgentSettingsManagedBlock;
 }
-
 
 export const ExternalAgentWorkingDirStrategyEnum = {
   project_root: "project_root",
   temp_dir: "temp_dir",
   custom: "custom",
 } as const;
-export type ExternalAgentWorkingDirStrategy = ObjectValues<typeof ExternalAgentWorkingDirStrategyEnum>;
-
+export type ExternalAgentWorkingDirStrategy = ObjectValues<
+  typeof ExternalAgentWorkingDirStrategyEnum
+>;
 
 export type ExternalAgentConfig = {
   id: string;
@@ -389,19 +403,21 @@ export type ExternalAgentConfig = {
   workingDir?: string | null;
   codexSkipGitRepoCheck?: boolean | null;
 };
-export function createExternalAgentConfig(options: Partial<ExternalAgentConfig> = {}): ExternalAgentConfig {
+export function createExternalAgentConfig(
+  options: Partial<ExternalAgentConfig> = {},
+): ExternalAgentConfig {
   return options as ExternalAgentConfig;
 }
-
 
 export type ExternalAgentEnvVarStatus = {
   present: Array<string>;
   missing: Array<string>;
 };
-export function createExternalAgentEnvVarStatus(options: Partial<ExternalAgentEnvVarStatus> = {}): ExternalAgentEnvVarStatus {
+export function createExternalAgentEnvVarStatus(
+  options: Partial<ExternalAgentEnvVarStatus> = {},
+): ExternalAgentEnvVarStatus {
   return options as ExternalAgentEnvVarStatus;
 }
-
 
 export type ExternalAgentPreflightStatus = {
   configId: string;
@@ -419,10 +435,11 @@ export type ExternalAgentPreflightStatus = {
   workingDir?: string | null;
   envVars: ExternalAgentEnvVarStatus;
 };
-export function createExternalAgentPreflightStatus(options: Partial<ExternalAgentPreflightStatus> = {}): ExternalAgentPreflightStatus {
+export function createExternalAgentPreflightStatus(
+  options: Partial<ExternalAgentPreflightStatus> = {},
+): ExternalAgentPreflightStatus {
   return options as ExternalAgentPreflightStatus;
 }
-
 
 export const EngineTypeEnum = {
   setta_llm: "setta_llm",
@@ -430,11 +447,12 @@ export const EngineTypeEnum = {
 } as const;
 export type EngineType = ObjectValues<typeof EngineTypeEnum>;
 
-
 export type EngineConfigDefaults = {
   thinking?: boolean | null;
 };
-export function createEngineConfigDefaults(options: Partial<EngineConfigDefaults> = {}): EngineConfigDefaults {
+export function createEngineConfigDefaults(
+  options: Partial<EngineConfigDefaults> = {},
+): EngineConfigDefaults {
   return mergeGeneratedOptions(
     {
       thinking: null,
@@ -442,7 +460,6 @@ export function createEngineConfigDefaults(options: Partial<EngineConfigDefaults
     options,
   );
 }
-
 
 export type EngineConfig = {
   id: string;
@@ -452,7 +469,9 @@ export type EngineConfig = {
   externalAgentConfigId?: string | null;
   defaults: EngineConfigDefaults;
 };
-export function createEngineConfig(options: Partial<EngineConfig> = {}): EngineConfig {
+export function createEngineConfig(
+  options: Partial<EngineConfig> = {},
+): EngineConfig {
   return (() => {
     const defaults = createEngineConfigDefaults();
     return {
@@ -472,7 +491,6 @@ export function createEngineConfig(options: Partial<EngineConfig> = {}): EngineC
   })();
 }
 
-
 export type AgentProfile = {
   id: string;
   name: string;
@@ -484,18 +502,20 @@ export type AgentProfile = {
   toolAllowlist: Array<string>;
   memoryScope?: string | null;
 };
-export function createAgentProfile(options: Partial<AgentProfile> = {}): AgentProfile {
+export function createAgentProfile(
+  options: Partial<AgentProfile> = {},
+): AgentProfile {
   return options as AgentProfile;
 }
-
 
 export const TranscriptionTransportModeEnum = {
   auto: "auto",
   file: "file",
   realtime: "realtime",
 } as const;
-export type TranscriptionTransportMode = ObjectValues<typeof TranscriptionTransportModeEnum>;
-
+export type TranscriptionTransportMode = ObjectValues<
+  typeof TranscriptionTransportModeEnum
+>;
 
 export type TranscriptionProfile = {
   id: string;
@@ -506,10 +526,11 @@ export type TranscriptionProfile = {
   supportsRealtimeTranscription: boolean;
   language?: string | null;
 };
-export function createTranscriptionProfile(options: Partial<TranscriptionProfile> = {}): TranscriptionProfile {
+export function createTranscriptionProfile(
+  options: Partial<TranscriptionProfile> = {},
+): TranscriptionProfile {
   return options as TranscriptionProfile;
 }
-
 
 export const AgentRunStatusEnum = {
   queued: "queued",
@@ -519,7 +540,6 @@ export const AgentRunStatusEnum = {
   cancelled: "cancelled",
 } as const;
 export type AgentRunStatus = ObjectValues<typeof AgentRunStatusEnum>;
-
 
 export type RunEvent = {
   id: string;
@@ -538,7 +558,6 @@ export function createRunEvent(options: Partial<RunEvent> = {}): RunEvent {
     options,
   );
 }
-
 
 export type AgentRun = {
   id: string;
@@ -570,9 +589,7 @@ export function createAgentRun(options: Partial<AgentRun> = {}): AgentRun {
   );
 }
 
-
 export type AgentRunList = Array<AgentRun>;
-
 
 export const StreamingEventTypeEnum = {
   MESSAGE_START: "message_start",
@@ -585,16 +602,16 @@ export const StreamingEventTypeEnum = {
 } as const;
 export type StreamingEventType = ObjectValues<typeof StreamingEventTypeEnum>;
 
-
 export type MessageTextDelta = {
   type: "text_delta";
   index: number;
   text: string;
 };
-export function createMessageTextDelta(options: Partial<MessageTextDelta> = {}): MessageTextDelta {
+export function createMessageTextDelta(
+  options: Partial<MessageTextDelta> = {},
+): MessageTextDelta {
   return options as MessageTextDelta;
 }
-
 
 export type MessageThinkingDelta = {
   type: "thinking_delta";
@@ -603,32 +620,34 @@ export type MessageThinkingDelta = {
   summary?: string | null;
   signature?: string | null;
 };
-export function createMessageThinkingDelta(options: Partial<MessageThinkingDelta> = {}): MessageThinkingDelta {
+export function createMessageThinkingDelta(
+  options: Partial<MessageThinkingDelta> = {},
+): MessageThinkingDelta {
   return options as MessageThinkingDelta;
 }
 
-
 export type MessageContentDelta = MessageTextDelta | MessageThinkingDelta;
-
 
 export type MessageStartEvent = {
   type: typeof StreamingEventTypeEnum.MESSAGE_START;
   message: BaseChatMessageUnion;
 };
-export function createMessageStartEvent(options: Partial<MessageStartEvent> = {}): MessageStartEvent {
+export function createMessageStartEvent(
+  options: Partial<MessageStartEvent> = {},
+): MessageStartEvent {
   return options as MessageStartEvent;
 }
-
 
 export type MessageDeltaEvent = {
   type: typeof StreamingEventTypeEnum.DELTA;
   message_id: string;
   content?: Array<MessageContentDelta> | null;
 };
-export function createMessageDeltaEvent(options: Partial<MessageDeltaEvent> = {}): MessageDeltaEvent {
+export function createMessageDeltaEvent(
+  options: Partial<MessageDeltaEvent> = {},
+): MessageDeltaEvent {
   return options as MessageDeltaEvent;
 }
-
 
 export type ToolCallDeltaEvent = {
   type: typeof StreamingEventTypeEnum.TOOL_CALL_DELTA;
@@ -637,19 +656,21 @@ export type ToolCallDeltaEvent = {
   arguments_delta: string;
   tool_name?: string | null;
 };
-export function createToolCallDeltaEvent(options: Partial<ToolCallDeltaEvent> = {}): ToolCallDeltaEvent {
+export function createToolCallDeltaEvent(
+  options: Partial<ToolCallDeltaEvent> = {},
+): ToolCallDeltaEvent {
   return options as ToolCallDeltaEvent;
 }
-
 
 export type ToolResultEvent = {
   type: typeof StreamingEventTypeEnum.TOOL_RESULT;
   result: ToolChatMessage;
 };
-export function createToolResultEvent(options: Partial<ToolResultEvent> = {}): ToolResultEvent {
+export function createToolResultEvent(
+  options: Partial<ToolResultEvent> = {},
+): ToolResultEvent {
   return options as ToolResultEvent;
 }
-
 
 export type ToolArgumentPreviewDeltaEvent = {
   type: typeof StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA;
@@ -661,31 +682,40 @@ export type ToolArgumentPreviewDeltaEvent = {
   target_ids_by_type: Record<string, Array<string>>;
   preview_value_delta: string;
 };
-export function createToolArgumentPreviewDeltaEvent(options: Partial<ToolArgumentPreviewDeltaEvent> = {}): ToolArgumentPreviewDeltaEvent {
+export function createToolArgumentPreviewDeltaEvent(
+  options: Partial<ToolArgumentPreviewDeltaEvent> = {},
+): ToolArgumentPreviewDeltaEvent {
   return options as ToolArgumentPreviewDeltaEvent;
 }
-
 
 export type MessageStopEvent = {
   type: typeof StreamingEventTypeEnum.MESSAGE_STOP;
   message_id: string;
 };
-export function createMessageStopEvent(options: Partial<MessageStopEvent> = {}): MessageStopEvent {
+export function createMessageStopEvent(
+  options: Partial<MessageStopEvent> = {},
+): MessageStopEvent {
   return options as MessageStopEvent;
 }
-
 
 export type MessageFinalizedEvent = {
   type: typeof StreamingEventTypeEnum.MESSAGE_FINALIZED;
   message: BaseChatMessageUnion;
 };
-export function createMessageFinalizedEvent(options: Partial<MessageFinalizedEvent> = {}): MessageFinalizedEvent {
+export function createMessageFinalizedEvent(
+  options: Partial<MessageFinalizedEvent> = {},
+): MessageFinalizedEvent {
   return options as MessageFinalizedEvent;
 }
 
-
-export type LLMStreamingResponseChunk = MessageStartEvent | MessageDeltaEvent | ToolCallDeltaEvent | ToolResultEvent | ToolArgumentPreviewDeltaEvent | MessageStopEvent | MessageFinalizedEvent;
-
+export type LLMStreamingResponseChunk =
+  | MessageStartEvent
+  | MessageDeltaEvent
+  | ToolCallDeltaEvent
+  | ToolResultEvent
+  | ToolArgumentPreviewDeltaEvent
+  | MessageStopEvent
+  | MessageFinalizedEvent;
 
 export type LLMStreamingResponse = {
   chatId: string;
@@ -693,30 +723,33 @@ export type LLMStreamingResponse = {
   sectionId?: string | null;
   projectConfigId?: string | null;
 };
-export function createLLMStreamingResponse(options: Partial<LLMStreamingResponse> = {}): LLMStreamingResponse {
+export function createLLMStreamingResponse(
+  options: Partial<LLMStreamingResponse> = {},
+): LLMStreamingResponse {
   return options as LLMStreamingResponse;
 }
-
 
 export type AIFollowToolArgumentsUpdateContent = {
   projectConfigId: string;
   chatId: string;
   idsByType: Record<string, Array<string>>;
 };
-export function createAIFollowToolArgumentsUpdateContent(options: Partial<AIFollowToolArgumentsUpdateContent> = {}): AIFollowToolArgumentsUpdateContent {
+export function createAIFollowToolArgumentsUpdateContent(
+  options: Partial<AIFollowToolArgumentsUpdateContent> = {},
+): AIFollowToolArgumentsUpdateContent {
   return options as AIFollowToolArgumentsUpdateContent;
 }
-
 
 export type AIFollowToolResultUpdateContent = {
   projectConfigId: string;
   chatId: string;
   idsByType: Record<string, Array<string>>;
 };
-export function createAIFollowToolResultUpdateContent(options: Partial<AIFollowToolResultUpdateContent> = {}): AIFollowToolResultUpdateContent {
+export function createAIFollowToolResultUpdateContent(
+  options: Partial<AIFollowToolResultUpdateContent> = {},
+): AIFollowToolResultUpdateContent {
   return options as AIFollowToolResultUpdateContent;
 }
-
 
 export const PluginScopeEnum = {
   Workspace: "workspace",
@@ -724,7 +757,6 @@ export const PluginScopeEnum = {
   Global: "global",
 } as const;
 export type PluginScope = ObjectValues<typeof PluginScopeEnum>;
-
 
 export const PluginRuntimeStateEnum = {
   active: "active",
@@ -735,14 +767,14 @@ export const PluginRuntimeStateEnum = {
 } as const;
 export type PluginRuntimeState = ObjectValues<typeof PluginRuntimeStateEnum>;
 
-
 export const PluginInstallerBackendEnum = {
   Auto: "auto",
   Pip: "pip",
   UV: "uv",
 } as const;
-export type PluginInstallerBackend = ObjectValues<typeof PluginInstallerBackendEnum>;
-
+export type PluginInstallerBackend = ObjectValues<
+  typeof PluginInstallerBackendEnum
+>;
 
 export const PluginSourceManagerEnum = {
   Setta: "setta",
@@ -750,12 +782,12 @@ export const PluginSourceManagerEnum = {
 } as const;
 export type PluginSourceManager = ObjectValues<typeof PluginSourceManagerEnum>;
 
-
 export const PluginSourceTrustStatusEnum = {
   Unverified: "unverified",
 } as const;
-export type PluginSourceTrustStatus = ObjectValues<typeof PluginSourceTrustStatusEnum>;
-
+export type PluginSourceTrustStatus = ObjectValues<
+  typeof PluginSourceTrustStatusEnum
+>;
 
 export const PluginEnablementSourceEnum = {
   WorkspaceDisabled: "workspace_disabled",
@@ -763,70 +795,78 @@ export const PluginEnablementSourceEnum = {
   GlobalAutoEnabled: "global_auto_enabled",
   ManifestDefault: "manifest_default",
 } as const;
-export type PluginEnablementSource = ObjectValues<typeof PluginEnablementSourceEnum>;
-
+export type PluginEnablementSource = ObjectValues<
+  typeof PluginEnablementSourceEnum
+>;
 
 export const PluginRestartCapabilityModeEnum = {
   Manual: "manual",
   Programmatic: "programmatic",
 } as const;
-export type PluginRestartCapabilityMode = ObjectValues<typeof PluginRestartCapabilityModeEnum>;
-
+export type PluginRestartCapabilityMode = ObjectValues<
+  typeof PluginRestartCapabilityModeEnum
+>;
 
 export type PluginRestartCapability = {
   mode: PluginRestartCapabilityMode;
   command: string | null;
   reason: string | null;
 };
-export function createPluginRestartCapability(options: Partial<PluginRestartCapability> = {}): PluginRestartCapability {
+export function createPluginRestartCapability(
+  options: Partial<PluginRestartCapability> = {},
+): PluginRestartCapability {
   return options as PluginRestartCapability;
 }
-
 
 export const PluginBlockedCapabilityReasonEnum = {
   ModePolicy: "mode_policy",
   HostPolicy: "host_policy",
   ManifestInvalid: "manifest_invalid",
 } as const;
-export type PluginBlockedCapabilityReason = ObjectValues<typeof PluginBlockedCapabilityReasonEnum>;
-
+export type PluginBlockedCapabilityReason = ObjectValues<
+  typeof PluginBlockedCapabilityReasonEnum
+>;
 
 export type PluginBlockedCapability = {
   capability: string;
   reason: PluginBlockedCapabilityReason;
 };
-export function createPluginBlockedCapability(options: Partial<PluginBlockedCapability> = {}): PluginBlockedCapability {
+export function createPluginBlockedCapability(
+  options: Partial<PluginBlockedCapability> = {},
+): PluginBlockedCapability {
   return options as PluginBlockedCapability;
 }
-
 
 export type PluginErrorInfo = {
   code: string;
   message: string;
 };
-export function createPluginErrorInfo(options: Partial<PluginErrorInfo> = {}): PluginErrorInfo {
+export function createPluginErrorInfo(
+  options: Partial<PluginErrorInfo> = {},
+): PluginErrorInfo {
   return options as PluginErrorInfo;
 }
-
 
 export type PluginFrontendDescriptor = {
   entrypointUrl: string | null;
   styleUrl: string | null;
 };
-export function createPluginFrontendDescriptor(options: Partial<PluginFrontendDescriptor> = {}): PluginFrontendDescriptor {
+export function createPluginFrontendDescriptor(
+  options: Partial<PluginFrontendDescriptor> = {},
+): PluginFrontendDescriptor {
   return options as PluginFrontendDescriptor;
 }
-
 
 export type PluginContentDescriptor = {
   hasBlueprints: boolean;
   hasProjectTemplates: boolean;
   hasPrompts: boolean;
 };
-export function createPluginContentDescriptor(options: Partial<PluginContentDescriptor> = {}): PluginContentDescriptor {
+export function createPluginContentDescriptor(
+  options: Partial<PluginContentDescriptor> = {},
+): PluginContentDescriptor {
   return options as PluginContentDescriptor;
 }
-
 
 export type PluginConfigDescriptor = {
   hasSchema: boolean;
@@ -835,10 +875,11 @@ export type PluginConfigDescriptor = {
   currentConfig: Record<string, unknown>;
   currentConfigDigestSha256: string | null;
 };
-export function createPluginConfigDescriptor(options: Partial<PluginConfigDescriptor> = {}): PluginConfigDescriptor {
+export function createPluginConfigDescriptor(
+  options: Partial<PluginConfigDescriptor> = {},
+): PluginConfigDescriptor {
   return options as PluginConfigDescriptor;
 }
-
 
 export type PluginRegisteredLanguageServer = {
   name: string;
@@ -847,10 +888,11 @@ export type PluginRegisteredLanguageServer = {
   args: Array<string>;
   settingsKey: string | null;
 };
-export function createPluginRegisteredLanguageServer(options: Partial<PluginRegisteredLanguageServer> = {}): PluginRegisteredLanguageServer {
+export function createPluginRegisteredLanguageServer(
+  options: Partial<PluginRegisteredLanguageServer> = {},
+): PluginRegisteredLanguageServer {
   return options as PluginRegisteredLanguageServer;
 }
-
 
 export type PluginRegisteredExternalAgentAdapter = {
   adapterId: string;
@@ -862,10 +904,11 @@ export type PluginRegisteredExternalAgentAdapter = {
   envVarWhitelist: Array<string>;
   defaultModel: string | null;
 };
-export function createPluginRegisteredExternalAgentAdapter(options: Partial<PluginRegisteredExternalAgentAdapter> = {}): PluginRegisteredExternalAgentAdapter {
+export function createPluginRegisteredExternalAgentAdapter(
+  options: Partial<PluginRegisteredExternalAgentAdapter> = {},
+): PluginRegisteredExternalAgentAdapter {
   return options as PluginRegisteredExternalAgentAdapter;
 }
-
 
 export type PluginRegisteredCodegenTarget = {
   targetId: string;
@@ -874,10 +917,11 @@ export type PluginRegisteredCodegenTarget = {
   name: string;
   defaultFileName: string;
 };
-export function createPluginRegisteredCodegenTarget(options: Partial<PluginRegisteredCodegenTarget> = {}): PluginRegisteredCodegenTarget {
+export function createPluginRegisteredCodegenTarget(
+  options: Partial<PluginRegisteredCodegenTarget> = {},
+): PluginRegisteredCodegenTarget {
   return options as PluginRegisteredCodegenTarget;
 }
-
 
 export const DependencyKeyTypeEnum = {
   Section: "Section",
@@ -885,28 +929,30 @@ export const DependencyKeyTypeEnum = {
 } as const;
 export type DependencyKeyType = ObjectValues<typeof DependencyKeyTypeEnum>;
 
-
 export type SectionDependencyKey = {
   sectionId: string;
   type: typeof DependencyKeyTypeEnum.Section;
 };
-export function createSectionDependencyKey(options: Partial<SectionDependencyKey> = {}): SectionDependencyKey {
+export function createSectionDependencyKey(
+  options: Partial<SectionDependencyKey> = {},
+): SectionDependencyKey {
   return options as SectionDependencyKey;
 }
-
 
 export type SectionParamDependencyKey = {
   sectionId: string;
   codeObjId: string;
   type: typeof DependencyKeyTypeEnum.SectionParam;
 };
-export function createSectionParamDependencyKey(options: Partial<SectionParamDependencyKey> = {}): SectionParamDependencyKey {
+export function createSectionParamDependencyKey(
+  options: Partial<SectionParamDependencyKey> = {},
+): SectionParamDependencyKey {
   return options as SectionParamDependencyKey;
 }
 
-
-export type BaseDependencyKeyUnion = SectionDependencyKey | SectionParamDependencyKey;
-
+export type BaseDependencyKeyUnion =
+  | SectionDependencyKey
+  | SectionParamDependencyKey;
 
 export const DependencyValueTypeEnum = {
   Literal: "Literal",
@@ -915,57 +961,63 @@ export const DependencyValueTypeEnum = {
 } as const;
 export type DependencyValueType = ObjectValues<typeof DependencyValueTypeEnum>;
 
-
 export type BinaryContentRef = {
   contentId: string;
   byteLength: number;
   mimeType: string | null;
   sha256: string | null;
 };
-export function createBinaryContentRef(options: Partial<BinaryContentRef> = {}): BinaryContentRef {
+export function createBinaryContentRef(
+  options: Partial<BinaryContentRef> = {},
+): BinaryContentRef {
   return options as BinaryContentRef;
 }
-
 
 export type LiteralDependencyValue = {
   payload: string;
   type: typeof DependencyValueTypeEnum.Literal;
 };
-export function createLiteralDependencyValue(options: Partial<LiteralDependencyValue> = {}): LiteralDependencyValue {
+export function createLiteralDependencyValue(
+  options: Partial<LiteralDependencyValue> = {},
+): LiteralDependencyValue {
   return options as LiteralDependencyValue;
 }
-
 
 export type FileReadDependencyValue = {
   payload: string;
   type: typeof DependencyValueTypeEnum.FileRead;
 };
-export function createFileReadDependencyValue(options: Partial<FileReadDependencyValue> = {}): FileReadDependencyValue {
+export function createFileReadDependencyValue(
+  options: Partial<FileReadDependencyValue> = {},
+): FileReadDependencyValue {
   return options as FileReadDependencyValue;
 }
-
 
 export type BinaryDependencyValue = {
   payload: BinaryContentRef;
   type: typeof DependencyValueTypeEnum.Binary;
 };
-export function createBinaryDependencyValue(options: Partial<BinaryDependencyValue> = {}): BinaryDependencyValue {
+export function createBinaryDependencyValue(
+  options: Partial<BinaryDependencyValue> = {},
+): BinaryDependencyValue {
   return options as BinaryDependencyValue;
 }
 
-
-export type BaseDependencyValueUnion = LiteralDependencyValue | FileReadDependencyValue | BinaryDependencyValue;
-
+export type BaseDependencyValueUnion =
+  | LiteralDependencyValue
+  | FileReadDependencyValue
+  | BinaryDependencyValue;
 
 export type DependencyEvent = {
   dependencyKey: BaseDependencyKeyUnion;
   payload: BaseDependencyValueUnion | null;
   timestampMs: number;
 };
-export function createDependencyEvent(options: Partial<DependencyEvent> = {}): DependencyEvent {
+export function createDependencyEvent(
+  options: Partial<DependencyEvent> = {},
+): DependencyEvent {
   return options as DependencyEvent;
 }
-
 
 export const ArtifactTypeEnum = {
   Image: "Image",
@@ -976,14 +1028,12 @@ export const ArtifactTypeEnum = {
 } as const;
 export type ArtifactType = ObjectValues<typeof ArtifactTypeEnum>;
 
-
 export const DrawAreaBrushShapeEnum = {
   butt: "butt",
   round: "round",
   square: "square",
 } as const;
 export type DrawAreaBrushShape = ObjectValues<typeof DrawAreaBrushShapeEnum>;
-
 
 export const DrawAreaModeEnum = {
   draw: "draw",
@@ -992,12 +1042,16 @@ export const DrawAreaModeEnum = {
 } as const;
 export type DrawAreaMode = ObjectValues<typeof DrawAreaModeEnum>;
 
-
 export type CanvasPoint = [number, number];
 
-
-export type DrawAreaTransform = [number, number, number, number, number, number];
-
+export type DrawAreaTransform = [
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+];
 
 export type BrushStroke = {
   strokeStyle: string;
@@ -1006,7 +1060,9 @@ export type BrushStroke = {
   points: Array<CanvasPoint | "BREAK">;
   globalCompositeOperation: string;
 };
-export function createBrushStroke(options: Partial<BrushStroke> = {}): BrushStroke {
+export function createBrushStroke(
+  options: Partial<BrushStroke> = {},
+): BrushStroke {
   return mergeGeneratedOptions(
     {
       strokeStyle: "",
@@ -1019,7 +1075,6 @@ export function createBrushStroke(options: Partial<BrushStroke> = {}): BrushStro
   );
 }
 
-
 export type BrushStrokeWithTransform = {
   strokeStyle: string;
   lineWidth: number;
@@ -1028,16 +1083,19 @@ export type BrushStrokeWithTransform = {
   globalCompositeOperation: string;
   transform: DrawAreaTransform;
 };
-export function createBrushStrokeWithTransform(options: Partial<BrushStrokeWithTransform> = {}): BrushStrokeWithTransform {
+export function createBrushStrokeWithTransform(
+  options: Partial<BrushStrokeWithTransform> = {},
+): BrushStrokeWithTransform {
   return options as BrushStrokeWithTransform;
 }
-
 
 export type DrawAreaLayerItemTransform = {
   transform: DrawAreaTransform;
   eraserStrokes: Array<BrushStrokeWithTransform>;
 };
-export function createDrawAreaLayerItemTransform(options: Partial<DrawAreaLayerItemTransform> = {}): DrawAreaLayerItemTransform {
+export function createDrawAreaLayerItemTransform(
+  options: Partial<DrawAreaLayerItemTransform> = {},
+): DrawAreaLayerItemTransform {
   return mergeGeneratedOptions(
     {
       transform: [1, 0, 0, 1, 0, 0],
@@ -1047,13 +1105,14 @@ export function createDrawAreaLayerItemTransform(options: Partial<DrawAreaLayerI
   );
 }
 
-
 export type DrawAreaLayerItem = {
   type: typeof ArtifactTypeEnum.Image | typeof ArtifactTypeEnum.BrushStroke;
   dataPath: string;
   transformId: string;
 };
-export function createDrawAreaLayerItem(options: Partial<DrawAreaLayerItem> = {}): DrawAreaLayerItem {
+export function createDrawAreaLayerItem(
+  options: Partial<DrawAreaLayerItem> = {},
+): DrawAreaLayerItem {
   return mergeGeneratedOptions(
     {
       type: ArtifactTypeEnum.BrushStroke,
@@ -1064,14 +1123,15 @@ export function createDrawAreaLayerItem(options: Partial<DrawAreaLayerItem> = {}
   );
 }
 
-
 export type DrawAreaLayer = {
   name: string;
   elements: Array<DrawAreaLayerItem>;
   visible: boolean;
   layerOpacity: number;
 };
-export function createDrawAreaLayer(options: Partial<DrawAreaLayer> = {}): DrawAreaLayer {
+export function createDrawAreaLayer(
+  options: Partial<DrawAreaLayer> = {},
+): DrawAreaLayer {
   return mergeGeneratedOptions(
     {
       name: createRandomName(),
@@ -1083,13 +1143,14 @@ export function createDrawAreaLayer(options: Partial<DrawAreaLayer> = {}): DrawA
   );
 }
 
-
 export type ImageArtifact = {
   type: typeof ArtifactTypeEnum.Image;
   id: string;
   value: BinaryContentRef;
 };
-export function createImageArtifact(options: Partial<ImageArtifact> = {}): ImageArtifact {
+export function createImageArtifact(
+  options: Partial<ImageArtifact> = {},
+): ImageArtifact {
   return mergeGeneratedOptions(
     {
       type: ArtifactTypeEnum.Image,
@@ -1100,13 +1161,14 @@ export function createImageArtifact(options: Partial<ImageArtifact> = {}): Image
   );
 }
 
-
 export type BrushStrokeArtifact = {
   type: typeof ArtifactTypeEnum.BrushStroke;
   id: string;
   value: BrushStroke;
 };
-export function createBrushStrokeArtifact(options: Partial<BrushStrokeArtifact> = {}): BrushStrokeArtifact {
+export function createBrushStrokeArtifact(
+  options: Partial<BrushStrokeArtifact> = {},
+): BrushStrokeArtifact {
   return mergeGeneratedOptions(
     {
       type: ArtifactTypeEnum.BrushStroke,
@@ -1117,13 +1179,14 @@ export function createBrushStrokeArtifact(options: Partial<BrushStrokeArtifact> 
   );
 }
 
-
 export type DrawAreaLayerItemTransformArtifact = {
   type: typeof ArtifactTypeEnum.DrawAreaLayerItemTransform;
   id: string;
   value: DrawAreaLayerItemTransform;
 };
-export function createDrawAreaLayerItemTransformArtifact(options: Partial<DrawAreaLayerItemTransformArtifact> = {}): DrawAreaLayerItemTransformArtifact {
+export function createDrawAreaLayerItemTransformArtifact(
+  options: Partial<DrawAreaLayerItemTransformArtifact> = {},
+): DrawAreaLayerItemTransformArtifact {
   return mergeGeneratedOptions(
     {
       type: ArtifactTypeEnum.DrawAreaLayerItemTransform,
@@ -1134,16 +1197,16 @@ export function createDrawAreaLayerItemTransformArtifact(options: Partial<DrawAr
   );
 }
 
-
 export type ChartDataValue = Record<string, Array<string | number>>;
-
 
 export type ChartDataArtifact = {
   type: typeof ArtifactTypeEnum.ChartData;
   id: string;
   value: ChartDataValue;
 };
-export function createChartDataArtifact(options: Partial<ChartDataArtifact> = {}): ChartDataArtifact {
+export function createChartDataArtifact(
+  options: Partial<ChartDataArtifact> = {},
+): ChartDataArtifact {
   return mergeGeneratedOptions(
     {
       type: ArtifactTypeEnum.ChartData,
@@ -1154,13 +1217,14 @@ export function createChartDataArtifact(options: Partial<ChartDataArtifact> = {}
   );
 }
 
-
 export type FileArtifact = {
   type: typeof ArtifactTypeEnum.File;
   id: string;
   value: BinaryContentRef;
 };
-export function createFileArtifact(options: Partial<FileArtifact> = {}): FileArtifact {
+export function createFileArtifact(
+  options: Partial<FileArtifact> = {},
+): FileArtifact {
   return mergeGeneratedOptions(
     {
       type: ArtifactTypeEnum.File,
@@ -1171,42 +1235,45 @@ export function createFileArtifact(options: Partial<FileArtifact> = {}): FileArt
   );
 }
 
-
-export type ArtifactUnion = ImageArtifact | BrushStrokeArtifact | DrawAreaLayerItemTransformArtifact | ChartDataArtifact | FileArtifact;
-
+export type ArtifactUnion =
+  | ImageArtifact
+  | BrushStrokeArtifact
+  | DrawAreaLayerItemTransformArtifact
+  | ChartDataArtifact
+  | FileArtifact;
 
 export type ImageMapping = Record<string, ImageArtifact>;
 
-
 export type BrushStrokeMapping = Record<string, BrushStrokeArtifact>;
 
-
-export type DrawAreaLayerItemTransformMapping = Record<string, DrawAreaLayerItemTransformArtifact>;
-
+export type DrawAreaLayerItemTransformMapping = Record<
+  string,
+  DrawAreaLayerItemTransformArtifact
+>;
 
 export type ChartDataMapping = Record<string, ChartDataArtifact>;
 
-
 export type FileMapping = Record<string, FileArtifact>;
-
 
 export type UpdateArtifactMsgContent = {
   artifacts: Array<ArtifactUnion>;
   updateType: "update" | "delete";
 };
-export function createUpdateArtifactMsgContent(options: Partial<UpdateArtifactMsgContent> = {}): UpdateArtifactMsgContent {
+export function createUpdateArtifactMsgContent(
+  options: Partial<UpdateArtifactMsgContent> = {},
+): UpdateArtifactMsgContent {
   return options as UpdateArtifactMsgContent;
 }
-
 
 export type CodeFileBindingUpdate = {
   canonical_path: string;
   access_mode: CodeFileAccessMode;
 };
-export function createCodeFileBindingUpdate(options: Partial<CodeFileBindingUpdate> = {}): CodeFileBindingUpdate {
+export function createCodeFileBindingUpdate(
+  options: Partial<CodeFileBindingUpdate> = {},
+): CodeFileBindingUpdate {
   return options as CodeFileBindingUpdate;
 }
-
 
 export const MetaControlSizeModeEnum = {
   any: "any",
@@ -1215,21 +1282,20 @@ export const MetaControlSizeModeEnum = {
 } as const;
 export type MetaControlSizeMode = ObjectValues<typeof MetaControlSizeModeEnum>;
 
-
 export const SectionSizeModeEnum = {
   auto: "auto",
 } as const;
 export type SectionSizeMode = ObjectValues<typeof SectionSizeModeEnum>;
 
-
 export type SectionSizeValue = number | SectionSizeMode;
-
 
 export type SectionSize = {
   width: SectionSizeValue;
   height: SectionSizeValue;
 };
-export function createSectionSize(options: Partial<SectionSize> = {}): SectionSize {
+export function createSectionSize(
+  options: Partial<SectionSize> = {},
+): SectionSize {
   return mergeGeneratedOptions(
     {
       width: SectionSizeModeEnum.auto,
@@ -1239,23 +1305,23 @@ export function createSectionSize(options: Partial<SectionSize> = {}): SectionSi
   );
 }
 
-
 export type SectionSizingPolicyTypeEntry = {
   minHeight: number;
   maxHeight: number;
   minWidth: number;
   maxWidth: number;
 };
-export function createSectionSizingPolicyTypeEntry(options: Partial<SectionSizingPolicyTypeEntry> = {}): SectionSizingPolicyTypeEntry {
+export function createSectionSizingPolicyTypeEntry(
+  options: Partial<SectionSizingPolicyTypeEntry> = {},
+): SectionSizingPolicyTypeEntry {
   return options as SectionSizingPolicyTypeEntry;
 }
 
-
-export type SectionSizingPolicyCallableTypeEntry = SectionSizingPolicyTypeEntry & {
-  hideSearchMinHeight: number;
-  hideParamsMinHeight: number;
-};
-
+export type SectionSizingPolicyCallableTypeEntry =
+  SectionSizingPolicyTypeEntry & {
+    hideSearchMinHeight: number;
+    hideParamsMinHeight: number;
+  };
 
 export type MetaControlSizingPolicyTypeEntry = {
   minHeight: number;
@@ -1263,10 +1329,11 @@ export type MetaControlSizingPolicyTypeEntry = {
   sizeModeHeight: MetaControlSizeMode;
   sizeModeWidth: MetaControlSizeMode;
 };
-export function createMetaControlSizingPolicyTypeEntry(options: Partial<MetaControlSizingPolicyTypeEntry> = {}): MetaControlSizingPolicyTypeEntry {
+export function createMetaControlSizingPolicyTypeEntry(
+  options: Partial<MetaControlSizingPolicyTypeEntry> = {},
+): MetaControlSizingPolicyTypeEntry {
   return options as MetaControlSizingPolicyTypeEntry;
 }
-
 
 export type MetaControlSizingPolicyByType = {
   CodeCallable: MetaControlSizingPolicyTypeEntry;
@@ -1285,7 +1352,9 @@ export type MetaControlSizingPolicyByType = {
   DropzoneParam: MetaControlSizingPolicyTypeEntry;
   NestedParam: MetaControlSizingPolicyTypeEntry;
 };
-export function createMetaControlSizingPolicyByType(options: Partial<MetaControlSizingPolicyByType> = {}): MetaControlSizingPolicyByType {
+export function createMetaControlSizingPolicyByType(
+  options: Partial<MetaControlSizingPolicyByType> = {},
+): MetaControlSizingPolicyByType {
   return {
     ...mergeGeneratedOptions<MetaControlSizingPolicyByType>(
       {
@@ -1520,7 +1589,6 @@ export function createMetaControlSizingPolicyByType(options: Partial<MetaControl
   };
 }
 
-
 export type SectionSizingPolicyGlobals = {
   pinnedParamsAreaMinHeight: number;
   unpinnedParamsAreaMinHeight: number;
@@ -1529,7 +1597,9 @@ export type SectionSizingPolicyGlobals = {
   infiniteMaxWidth: number;
   autoMaxHeight: number;
 };
-export function createSectionSizingPolicyGlobals(options: Partial<SectionSizingPolicyGlobals> = {}): SectionSizingPolicyGlobals {
+export function createSectionSizingPolicyGlobals(
+  options: Partial<SectionSizingPolicyGlobals> = {},
+): SectionSizingPolicyGlobals {
   return mergeGeneratedOptions(
     {
       pinnedParamsAreaMinHeight: 64,
@@ -1542,7 +1612,6 @@ export function createSectionSizingPolicyGlobals(options: Partial<SectionSizingP
     options,
   );
 }
-
 
 export type SectionSizingPolicyByType = {
   Callable: SectionSizingPolicyCallableTypeEntry;
@@ -1568,7 +1637,9 @@ export type SectionSizingPolicyByType = {
   TaskBoard: SectionSizingPolicyTypeEntry;
   Spreadsheet: SectionSizingPolicyTypeEntry;
 };
-export function createSectionSizingPolicyByType(options: Partial<SectionSizingPolicyByType> = {}): SectionSizingPolicyByType {
+export function createSectionSizingPolicyByType(
+  options: Partial<SectionSizingPolicyByType> = {},
+): SectionSizingPolicyByType {
   return {
     ...mergeGeneratedOptions(
       {
@@ -1912,13 +1983,14 @@ export function createSectionSizingPolicyByType(options: Partial<SectionSizingPo
   };
 }
 
-
 export type SectionSizingPolicy = {
   byType: SectionSizingPolicyByType;
   metaControlByType: MetaControlSizingPolicyByType;
   globals: SectionSizingPolicyGlobals;
 };
-export function createSectionSizingPolicy(options: Partial<SectionSizingPolicy> = {}): SectionSizingPolicy {
+export function createSectionSizingPolicy(
+  options: Partial<SectionSizingPolicy> = {},
+): SectionSizingPolicy {
   const byType = createSectionSizingPolicyByType(options.byType ?? {});
   const metaControlByType = createMetaControlSizingPolicyByType(
     options.metaControlByType ?? {},
@@ -1939,14 +2011,12 @@ export function createSectionSizingPolicy(options: Partial<SectionSizingPolicy> 
   };
 }
 
-
 export const RunSnapshotModeEnum = {
   ephemeral: "ephemeral",
   always: "always",
   never: "never",
 } as const;
 export type RunSnapshotMode = ObjectValues<typeof RunSnapshotModeEnum>;
-
 
 export const RenameRefactorModeEnum = {
   ALWAYS_ASK: "ALWAYS_ASK",
@@ -1955,7 +2025,6 @@ export const RenameRefactorModeEnum = {
 } as const;
 export type RenameRefactorMode = ObjectValues<typeof RenameRefactorModeEnum>;
 
-
 export const BackgroundVariantEnum = {
   lines: "lines",
   dots: "dots",
@@ -1963,13 +2032,11 @@ export const BackgroundVariantEnum = {
 } as const;
 export type BackgroundVariant = ObjectValues<typeof BackgroundVariantEnum>;
 
-
 export const SelectionModeEnum = {
   partial: "partial",
   full: "full",
 } as const;
 export type SelectionMode = ObjectValues<typeof SelectionModeEnum>;
-
 
 export const PanOnScrollModeEnum = {
   free: "free",
@@ -1977,7 +2044,6 @@ export const PanOnScrollModeEnum = {
   horizontal: "horizontal",
 } as const;
 export type PanOnScrollMode = ObjectValues<typeof PanOnScrollModeEnum>;
-
 
 export type SharePolicy = {
   allowParamChanges: boolean;
@@ -1990,7 +2056,9 @@ export type SharePolicy = {
   allowMultipleRuns: boolean;
   runSnapshotMode: RunSnapshotMode;
 };
-export function createSharePolicy(options: Partial<SharePolicy> = {}): SharePolicy {
+export function createSharePolicy(
+  options: Partial<SharePolicy> = {},
+): SharePolicy {
   return mergeGeneratedOptions(
     {
       allowParamChanges: true,
@@ -2006,7 +2074,6 @@ export function createSharePolicy(options: Partial<SharePolicy> = {}): SharePoli
     options,
   );
 }
-
 
 export type SettingsShortcuts = {
   newCardShortcut: string;
@@ -2072,7 +2139,9 @@ export type SettingsShortcuts = {
   zoomOutShortcut: string;
   restartLanguageServerShortcut: string;
 };
-export function createSettingsShortcuts(options: Partial<SettingsShortcuts> = {}): SettingsShortcuts {
+export function createSettingsShortcuts(
+  options: Partial<SettingsShortcuts> = {},
+): SettingsShortcuts {
   return mergeGeneratedOptions(
     {
       newCardShortcut: "N",
@@ -2142,7 +2211,6 @@ export function createSettingsShortcuts(options: Partial<SettingsShortcuts> = {}
   );
 }
 
-
 export type SettingsGUI = {
   snapGrid: [number, number];
   showGridLines: boolean;
@@ -2165,9 +2233,11 @@ export type SettingsGUI = {
   selectionMode: SelectionMode;
   leftSidePaneShiftsMap: boolean;
   transitionDuration: number;
-  sectionTagColorChoices: Array<{ color: string; description: string; }>;
+  sectionTagColorChoices: Array<{ color: string; description: string }>;
 };
-export function createSettingsGUI(options: Partial<SettingsGUI> = {}): SettingsGUI {
+export function createSettingsGUI(
+  options: Partial<SettingsGUI> = {},
+): SettingsGUI {
   return mergeGeneratedOptions(
     {
       snapGrid: [15, 15],
@@ -2206,7 +2276,6 @@ export function createSettingsGUI(options: Partial<SettingsGUI> = {}): SettingsG
   );
 }
 
-
 export type SettingsBackend = {
   showDefaultConfigOnLoad: boolean;
   autosave: boolean;
@@ -2223,7 +2292,9 @@ export type SettingsBackend = {
   runSnapshotMode: RunSnapshotMode;
   completionGuardEnabled: boolean;
 };
-export function createSettingsBackend(options: Partial<SettingsBackend> = {}): SettingsBackend {
+export function createSettingsBackend(
+  options: Partial<SettingsBackend> = {},
+): SettingsBackend {
   return mergeGeneratedOptions(
     {
       showDefaultConfigOnLoad: true,
@@ -2245,7 +2316,6 @@ export function createSettingsBackend(options: Partial<SettingsBackend> = {}): S
   );
 }
 
-
 export type SettingsState = {
   shortcuts: SettingsShortcuts;
   gui: SettingsGUI;
@@ -2253,7 +2323,9 @@ export type SettingsState = {
   sectionSizingPolicy: SectionSizingPolicy;
   languageServer: Record<string, unknown>;
 };
-export function createSettingsState(options: Partial<SettingsState> = {}): SettingsState {
+export function createSettingsState(
+  options: Partial<SettingsState> = {},
+): SettingsState {
   const shortcuts = createSettingsShortcuts(options.shortcuts ?? {});
   const gui = createSettingsGUI(options.gui ?? {});
   const backend = createSettingsBackend(options.backend ?? {});
@@ -2290,12 +2362,12 @@ export function createSettingsState(options: Partial<SettingsState> = {}): Setti
   };
 }
 
-
 export const ProjectCodegenLanguageEnum = {
   python: "python",
 } as const;
-export type ProjectCodegenLanguage = ObjectValues<typeof ProjectCodegenLanguageEnum>;
-
+export type ProjectCodegenLanguage = ObjectValues<
+  typeof ProjectCodegenLanguageEnum
+>;
 
 export const SectionCodegenModeEnum = {
   inherit: "inherit",
@@ -2304,14 +2376,14 @@ export const SectionCodegenModeEnum = {
 } as const;
 export type SectionCodegenMode = ObjectValues<typeof SectionCodegenModeEnum>;
 
-
 export const SectionRepresentationModeEnum = {
   expression: "expression",
   file_path: "file_path",
   file_read: "file_read",
 } as const;
-export type SectionRepresentationMode = ObjectValues<typeof SectionRepresentationModeEnum>;
-
+export type SectionRepresentationMode = ObjectValues<
+  typeof SectionRepresentationModeEnum
+>;
 
 export const CodeObjValueRepresentationModeEnum = {
   expression: "expression",
@@ -2320,14 +2392,17 @@ export const CodeObjValueRepresentationModeEnum = {
   file_path: "file_path",
   file_read: "file_read",
 } as const;
-export type CodeObjValueRepresentationMode = ObjectValues<typeof CodeObjValueRepresentationModeEnum>;
-
+export type CodeObjValueRepresentationMode = ObjectValues<
+  typeof CodeObjValueRepresentationModeEnum
+>;
 
 export type SectionTypeCodegenPolicy = {
   mode: SectionCodegenMode;
   representation: SectionRepresentationMode;
 };
-export function createSectionTypeCodegenPolicy(options: Partial<SectionTypeCodegenPolicy> = {}): SectionTypeCodegenPolicy {
+export function createSectionTypeCodegenPolicy(
+  options: Partial<SectionTypeCodegenPolicy> = {},
+): SectionTypeCodegenPolicy {
   return mergeGeneratedOptions(
     {
       mode: SectionCodegenModeEnum.inherit,
@@ -2336,13 +2411,14 @@ export function createSectionTypeCodegenPolicy(options: Partial<SectionTypeCodeg
     options,
   );
 }
-
 
 export type SectionCodegenOverride = {
   mode: SectionCodegenMode;
   representation: SectionRepresentationMode;
 };
-export function createSectionCodegenOverride(options: Partial<SectionCodegenOverride> = {}): SectionCodegenOverride {
+export function createSectionCodegenOverride(
+  options: Partial<SectionCodegenOverride> = {},
+): SectionCodegenOverride {
   return mergeGeneratedOptions(
     {
       mode: SectionCodegenModeEnum.inherit,
@@ -2351,7 +2427,6 @@ export function createSectionCodegenOverride(options: Partial<SectionCodegenOver
     options,
   );
 }
-
 
 export type SectionCodegenPolicy = {
   allowlist?: Array<SectionType> | null;
@@ -2360,7 +2435,9 @@ export type SectionCodegenPolicy = {
   typePolicies: Record<SectionType, SectionTypeCodegenPolicy>;
   sectionOverrides: Record<string, SectionCodegenOverride>;
 };
-export function createSectionCodegenPolicy(options: Partial<SectionCodegenPolicy> = {}): SectionCodegenPolicy {
+export function createSectionCodegenPolicy(
+  options: Partial<SectionCodegenPolicy> = {},
+): SectionCodegenPolicy {
   const defaultSectionCodegenAllowlist: Array<SectionType> = [
     SectionTypeEnum.Callable,
     SectionTypeEnum.Dict,
@@ -2416,10 +2493,12 @@ export function createSectionCodegenPolicy(options: Partial<SectionCodegenPolicy
     typePolicies[sectionType] = createSectionTypeCodegenPolicy(policy);
   }
   const sectionOverrides = Object.fromEntries(
-    Object.entries(options.sectionOverrides ?? {}).map(([sectionId, override]) => [
-      sectionId,
-      createSectionCodegenOverride(override),
-    ]),
+    Object.entries(options.sectionOverrides ?? {}).map(
+      ([sectionId, override]) => [
+        sectionId,
+        createSectionCodegenOverride(override),
+      ],
+    ),
   ) as Record<string, SectionCodegenOverride>;
   return {
     ...mergeGeneratedOptions(
@@ -2449,11 +2528,12 @@ export function createSectionCodegenPolicy(options: Partial<SectionCodegenPolicy
   };
 }
 
-
 export type CodeObjTypeValuePolicy = {
   representation: CodeObjValueRepresentationMode;
 };
-export function createCodeObjTypeValuePolicy(options: Partial<CodeObjTypeValuePolicy> = {}): CodeObjTypeValuePolicy {
+export function createCodeObjTypeValuePolicy(
+  options: Partial<CodeObjTypeValuePolicy> = {},
+): CodeObjTypeValuePolicy {
   return mergeGeneratedOptions(
     {
       representation: CodeObjValueRepresentationModeEnum.expression,
@@ -2461,12 +2541,13 @@ export function createCodeObjTypeValuePolicy(options: Partial<CodeObjTypeValuePo
     options,
   );
 }
-
 
 export type CodeObjValueOverride = {
   representation: CodeObjValueRepresentationMode;
 };
-export function createCodeObjValueOverride(options: Partial<CodeObjValueOverride> = {}): CodeObjValueOverride {
+export function createCodeObjValueOverride(
+  options: Partial<CodeObjValueOverride> = {},
+): CodeObjValueOverride {
   return mergeGeneratedOptions(
     {
       representation: CodeObjValueRepresentationModeEnum.expression,
@@ -2474,13 +2555,14 @@ export function createCodeObjValueOverride(options: Partial<CodeObjValueOverride
     options,
   );
 }
-
 
 export type CodeObjValuePolicy = {
   typePolicies: Record<CodeObjType, CodeObjTypeValuePolicy>;
   codeObjOverrides: Record<string, CodeObjValueOverride>;
 };
-export function createCodeObjValuePolicy(options: Partial<CodeObjValuePolicy> = {}): CodeObjValuePolicy {
+export function createCodeObjValuePolicy(
+  options: Partial<CodeObjValuePolicy> = {},
+): CodeObjValuePolicy {
   function defaultCodeObjValueRepresentation(
     codeObjType: CodeObjType,
   ): CodeObjValueRepresentationMode {
@@ -2499,12 +2581,14 @@ export function createCodeObjValuePolicy(options: Partial<CodeObjValuePolicy> = 
     }
   }
   const typePolicies = Object.fromEntries(
-    (Object.values(CodeObjTypeEnum) as Array<CodeObjType>).map((codeObjType) => [
-      codeObjType,
-      createCodeObjTypeValuePolicy({
-        representation: defaultCodeObjValueRepresentation(codeObjType),
-      }),
-    ]),
+    (Object.values(CodeObjTypeEnum) as Array<CodeObjType>).map(
+      (codeObjType) => [
+        codeObjType,
+        createCodeObjTypeValuePolicy({
+          representation: defaultCodeObjValueRepresentation(codeObjType),
+        }),
+      ],
+    ),
   ) as Record<CodeObjType, CodeObjTypeValuePolicy>;
   for (const [codeObjType, policy] of Object.entries(
     options.typePolicies ?? {},
@@ -2512,10 +2596,12 @@ export function createCodeObjValuePolicy(options: Partial<CodeObjValuePolicy> = 
     typePolicies[codeObjType] = createCodeObjTypeValuePolicy(policy);
   }
   const codeObjOverrides = Object.fromEntries(
-    Object.entries(options.codeObjOverrides ?? {}).map(([codeObjId, override]) => [
-      codeObjId,
-      createCodeObjValueOverride(override),
-    ]),
+    Object.entries(options.codeObjOverrides ?? {}).map(
+      ([codeObjId, override]) => [
+        codeObjId,
+        createCodeObjValueOverride(override),
+      ],
+    ),
   ) as Record<string, CodeObjValueOverride>;
   return {
     ...mergeGeneratedOptions(
@@ -2530,7 +2616,6 @@ export function createCodeObjValuePolicy(options: Partial<CodeObjValuePolicy> = 
   };
 }
 
-
 export type ProjectCodegenPythonTarget = {
   language: typeof ProjectCodegenLanguageEnum.python;
   genCodePrefix: string;
@@ -2539,7 +2624,9 @@ export type ProjectCodegenPythonTarget = {
   sectionPolicy: SectionCodegenPolicy;
   codeObjValuePolicy: CodeObjValuePolicy;
 };
-export function createProjectCodegenPythonTarget(options: Partial<ProjectCodegenPythonTarget> = {}): ProjectCodegenPythonTarget {
+export function createProjectCodegenPythonTarget(
+  options: Partial<ProjectCodegenPythonTarget> = {},
+): ProjectCodegenPythonTarget {
   const sectionPolicy = createSectionCodegenPolicy(options.sectionPolicy ?? {});
   const codeObjValuePolicy = createCodeObjValuePolicy(
     options.codeObjValuePolicy ?? {},
@@ -2562,12 +2649,13 @@ export function createProjectCodegenPythonTarget(options: Partial<ProjectCodegen
   };
 }
 
-
 export type ProjectCodegenPluginTarget = {
   language: string;
   options: Record<string, unknown>;
 };
-export function createProjectCodegenPluginTarget(options: Partial<ProjectCodegenPluginTarget> = {}): ProjectCodegenPluginTarget {
+export function createProjectCodegenPluginTarget(
+  options: Partial<ProjectCodegenPluginTarget> = {},
+): ProjectCodegenPluginTarget {
   return mergeGeneratedOptions(
     {
       language: "",
@@ -2577,9 +2665,9 @@ export function createProjectCodegenPluginTarget(options: Partial<ProjectCodegen
   );
 }
 
-
-export type ProjectCodegenTarget = ProjectCodegenPythonTarget | ProjectCodegenPluginTarget;
-
+export type ProjectCodegenTarget =
+  | ProjectCodegenPythonTarget
+  | ProjectCodegenPluginTarget;
 
 export const SectionTypeEnum = {
   Callable: "Callable",
@@ -2607,7 +2695,6 @@ export const SectionTypeEnum = {
 } as const;
 export type SectionType = ObjectValues<typeof SectionTypeEnum>;
 
-
 export const CodeObjTypeEnum = {
   CodeCallable: "CodeCallable",
   CodeParam: "CodeParam",
@@ -2627,7 +2714,6 @@ export const CodeObjTypeEnum = {
 } as const;
 export type CodeObjType = ObjectValues<typeof CodeObjTypeEnum>;
 
-
 export const CodeLanguageEnum = {
   python: "python",
   bash: "bash",
@@ -2641,16 +2727,13 @@ export const CodeLanguageEnum = {
 } as const;
 export type CodeLanguage = ObjectValues<typeof CodeLanguageEnum>;
 
-
 export type BuiltinCodeLanguage = CodeLanguage;
-
 
 export const ConfigLanguageEnum = {
   python: "python",
   json: "json",
 } as const;
 export type ConfigLanguage = ObjectValues<typeof ConfigLanguageEnum>;
-
 
 export const ParameterPassingStyleEnum = {
   DEFAULT: "DEFAULT",
@@ -2659,8 +2742,9 @@ export const ParameterPassingStyleEnum = {
   POSITIONAL_ONLY: "POSITIONAL_ONLY",
   KEYWORD_ONLY: "KEYWORD_ONLY",
 } as const;
-export type ParameterPassingStyle = ObjectValues<typeof ParameterPassingStyleEnum>;
-
+export type ParameterPassingStyle = ObjectValues<
+  typeof ParameterPassingStyleEnum
+>;
 
 export const ParamNameTypeEnum = {
   CODE: "CODE",
@@ -2668,14 +2752,12 @@ export const ParamNameTypeEnum = {
 } as const;
 export type ParamNameType = ObjectValues<typeof ParamNameTypeEnum>;
 
-
 export const ButtonActionModeEnum = {
   WEBSOCKET_LISTENER: "WEBSOCKET_LISTENER",
   HTTP_REQUEST: "HTTP_REQUEST",
   SETTA_API: "SETTA_API",
 } as const;
 export type ButtonActionMode = ObjectValues<typeof ButtonActionModeEnum>;
-
 
 export const HttpRequestMethodEnum = {
   GET: "GET",
@@ -2688,21 +2770,20 @@ export const HttpRequestMethodEnum = {
 } as const;
 export type HttpRequestMethod = ObjectValues<typeof HttpRequestMethodEnum>;
 
-
 export const DropzoneModeEnum = {
   STATEFUL: "STATEFUL",
   STATELESS: "STATELESS",
 } as const;
 export type DropzoneMode = ObjectValues<typeof DropzoneModeEnum>;
 
-
 export const TextParamInputUITypeEnum = {
   plain: "plain",
   time: "time",
   date: "date",
 } as const;
-export type TextParamInputUIType = ObjectValues<typeof TextParamInputUITypeEnum>;
-
+export type TextParamInputUIType = ObjectValues<
+  typeof TextParamInputUITypeEnum
+>;
 
 export const TimeDisplayFormatEnum = {
   twenty_four_hour: "twenty_four_hour",
@@ -2710,13 +2791,11 @@ export const TimeDisplayFormatEnum = {
 } as const;
 export type TimeDisplayFormat = ObjectValues<typeof TimeDisplayFormatEnum>;
 
-
 export const TimeControlModeEnum = {
   input: "input",
   display: "display",
 } as const;
 export type TimeControlMode = ObjectValues<typeof TimeControlModeEnum>;
-
 
 export const TimeDisplayFontEnum = {
   clock: "clock",
@@ -2724,7 +2803,6 @@ export const TimeDisplayFontEnum = {
   system: "system",
 } as const;
 export type TimeDisplayFont = ObjectValues<typeof TimeDisplayFontEnum>;
-
 
 export const DateDisplayFormatEnum = {
   iso: "iso",
@@ -2734,13 +2812,11 @@ export const DateDisplayFormatEnum = {
 } as const;
 export type DateDisplayFormat = ObjectValues<typeof DateDisplayFormatEnum>;
 
-
 export const DateControlModeEnum = {
   input: "input",
   calendar: "calendar",
 } as const;
 export type DateControlMode = ObjectValues<typeof DateControlModeEnum>;
-
 
 export const DateSelectionModeEnum = {
   single: "single",
@@ -2748,13 +2824,13 @@ export const DateSelectionModeEnum = {
 } as const;
 export type DateSelectionMode = ObjectValues<typeof DateSelectionModeEnum>;
 
-
 export const DateCalendarWeekStartEnum = {
   sunday: "sunday",
   monday: "monday",
 } as const;
-export type DateCalendarWeekStart = ObjectValues<typeof DateCalendarWeekStartEnum>;
-
+export type DateCalendarWeekStart = ObjectValues<
+  typeof DateCalendarWeekStartEnum
+>;
 
 export type EdgePort = {
   id: string;
@@ -2764,15 +2840,15 @@ export function createEdgePort(options: Partial<EdgePort> = {}): EdgePort {
   return options as EdgePort;
 }
 
-
 export type TypeErrorIgnoreState = {
   callable: boolean;
   params: Record<string, boolean>;
 };
-export function createTypeErrorIgnoreState(options: Partial<TypeErrorIgnoreState> = {}): TypeErrorIgnoreState {
+export function createTypeErrorIgnoreState(
+  options: Partial<TypeErrorIgnoreState> = {},
+): TypeErrorIgnoreState {
   return options as TypeErrorIgnoreState;
 }
-
 
 export const AgenticEdgeKindEnum = {
   chat_chat: "chat_chat",
@@ -2781,14 +2857,14 @@ export const AgenticEdgeKindEnum = {
 } as const;
 export type AgenticEdgeKind = ObjectValues<typeof AgenticEdgeKindEnum>;
 
-
 export const AgenticEdgeContextModeEnum = {
   reference_only: "reference_only",
   inline_text: "inline_text",
   summary: "summary",
 } as const;
-export type AgenticEdgeContextMode = ObjectValues<typeof AgenticEdgeContextModeEnum>;
-
+export type AgenticEdgeContextMode = ObjectValues<
+  typeof AgenticEdgeContextModeEnum
+>;
 
 export const CodeFileAccessModeEnum = {
   read_write: "read_write",
@@ -2796,7 +2872,6 @@ export const CodeFileAccessModeEnum = {
   write_only: "write_only",
 } as const;
 export type CodeFileAccessMode = ObjectValues<typeof CodeFileAccessModeEnum>;
-
 
 export type Viewport = {
   x: number;
@@ -2807,7 +2882,6 @@ export function createViewport(options: Partial<Viewport> = {}): Viewport {
   return options as Viewport;
 }
 
-
 export type TopLevelSectionLayout = {
   x: number;
   y: number;
@@ -2815,7 +2889,9 @@ export type TopLevelSectionLayout = {
   w?: number | null;
   h?: number | null;
 };
-export function createTopLevelSectionLayout(options: Partial<TopLevelSectionLayout> = {}): TopLevelSectionLayout {
+export function createTopLevelSectionLayout(
+  options: Partial<TopLevelSectionLayout> = {},
+): TopLevelSectionLayout {
   return mergeGeneratedOptions(
     {
       x: 0,
@@ -2827,7 +2903,6 @@ export function createTopLevelSectionLayout(options: Partial<TopLevelSectionLayo
     options,
   );
 }
-
 
 export type ViewMode = {
   id: string;
@@ -2857,12 +2932,12 @@ export function createViewMode(options: Partial<ViewMode> = {}): ViewMode {
   );
 }
 
-
 export type ViewModeConfig = ViewMode;
-export function createViewModeConfig(options: Partial<ViewModeConfig> = {}): ViewModeConfig {
+export function createViewModeConfig(
+  options: Partial<ViewModeConfig> = {},
+): ViewModeConfig {
   return createViewMode(options);
 }
-
 
 export type Edge = {
   id: string;
@@ -2885,7 +2960,6 @@ export function createEdge(options: Partial<Edge> = {}): Edge {
   return options as Edge;
 }
 
-
 export type AgenticEdge = {
   id: string;
   sourceSectionId: string;
@@ -2897,7 +2971,9 @@ export type AgenticEdge = {
   zIndex?: number;
   selected?: boolean;
 };
-export function createAgenticEdge(options: Partial<AgenticEdge> = {}): AgenticEdge {
+export function createAgenticEdge(
+  options: Partial<AgenticEdge> = {},
+): AgenticEdge {
   return mergeGeneratedOptions(
     {
       id: "",
@@ -2914,15 +2990,15 @@ export function createAgenticEdge(options: Partial<AgenticEdge> = {}): AgenticEd
   );
 }
 
-
 export type WatchCodeFolder = {
   path: string;
   recursive: boolean;
 };
-export function createWatchCodeFolder(options: Partial<WatchCodeFolder> = {}): WatchCodeFolder {
+export function createWatchCodeFolder(
+  options: Partial<WatchCodeFolder> = {},
+): WatchCodeFolder {
   return options as WatchCodeFolder;
 }
-
 
 export type WatchCodeRegistryEntry = {
   callableName: string;
@@ -2933,26 +3009,27 @@ export type WatchCodeRegistryEntry = {
   sectionIds?: Array<string>;
   sectionsCount?: number;
 };
-export function createWatchCodeRegistryEntry(options: Partial<WatchCodeRegistryEntry> = {}): WatchCodeRegistryEntry {
+export function createWatchCodeRegistryEntry(
+  options: Partial<WatchCodeRegistryEntry> = {},
+): WatchCodeRegistryEntry {
   return options as WatchCodeRegistryEntry;
 }
-
 
 export type CodeFileBinding = {
   canonical_path: string;
   access_mode: CodeFileAccessMode;
   autoBinding: boolean;
 };
-export function createCodeFileBinding(options: Partial<CodeFileBinding> = {}): CodeFileBinding {
+export function createCodeFileBinding(
+  options: Partial<CodeFileBinding> = {},
+): CodeFileBinding {
   return options as CodeFileBinding;
 }
-
 
 export const ClipboardDataTypeEnum = {
   Sections: "Sections",
 } as const;
 export type ClipboardDataType = ObjectValues<typeof ClipboardDataTypeEnum>;
-
 
 export type ClipboardProjectStateCore = {
   sections: Record<string, Core>;
@@ -2962,7 +3039,9 @@ export type ClipboardProjectStateCore = {
   codeObjImpls: Record<string, BaseCodeObjImplUnion>;
   codeObjVariants: Record<string, Variant>;
 };
-export function createClipboardProjectStateCore(options: Partial<ClipboardProjectStateCore> = {}): ClipboardProjectStateCore {
+export function createClipboardProjectStateCore(
+  options: Partial<ClipboardProjectStateCore> = {},
+): ClipboardProjectStateCore {
   return mergeGeneratedOptions(
     {
       sections: {},
@@ -2976,12 +3055,13 @@ export function createClipboardProjectStateCore(options: Partial<ClipboardProjec
   );
 }
 
-
 export type ClipboardProjectStateCoreWithSectionVariantMap = {
   core: ClipboardProjectStateCore;
   sectionVariantMap: Record<string, string>;
 };
-export function createClipboardProjectStateCoreWithSectionVariantMap(options: Partial<ClipboardProjectStateCoreWithSectionVariantMap> = {}): ClipboardProjectStateCoreWithSectionVariantMap {
+export function createClipboardProjectStateCoreWithSectionVariantMap(
+  options: Partial<ClipboardProjectStateCoreWithSectionVariantMap> = {},
+): ClipboardProjectStateCoreWithSectionVariantMap {
   return mergeGeneratedOptions(
     {
       core: createClipboardProjectStateCore(),
@@ -2991,12 +3071,13 @@ export function createClipboardProjectStateCoreWithSectionVariantMap(options: Pa
   );
 }
 
-
 export type SectionsClipboardData = {
   type: typeof ClipboardDataTypeEnum.Sections;
   data: ClipboardProjectStateCoreWithSectionVariantMap;
 };
-export function createSectionsClipboardData(options: Partial<SectionsClipboardData> = {}): SectionsClipboardData {
+export function createSectionsClipboardData(
+  options: Partial<SectionsClipboardData> = {},
+): SectionsClipboardData {
   return mergeGeneratedOptions(
     {
       type: ClipboardDataTypeEnum.Sections,
@@ -3006,9 +3087,7 @@ export function createSectionsClipboardData(options: Partial<SectionsClipboardDa
   );
 }
 
-
 export type BaseClipboardDataUnionWithDiscriminator = SectionsClipboardData;
-
 
 export type Core = {
   id: string;
@@ -3034,7 +3113,6 @@ export function createCore(options: Partial<Core> = {}): Core {
   );
 }
 
-
 export type Variant = {
   id: string;
   name: string;
@@ -3057,13 +3135,14 @@ export function createVariant(options: Partial<Variant> = {}): Variant {
   );
 }
 
-
 export type SingletonSections = {
   GlobalVariables: string | null;
   GenPythonCode: string | null;
   GenPythonMetadata: string | null;
 };
-export function createSingletonSections(options: Partial<SingletonSections> = {}): SingletonSections {
+export function createSingletonSections(
+  options: Partial<SingletonSections> = {},
+): SingletonSections {
   return mergeGeneratedOptions(
     {
       GlobalVariables: null,
@@ -3074,12 +3153,13 @@ export function createSingletonSections(options: Partial<SingletonSections> = {}
   );
 }
 
-
 export type ShownParamIdDetails = {
   requiredParamIdsToPaths: Record<string, Array<string>>;
   topLevelParamIds: Array<string>;
 };
-export function createShownParamIdDetails(options: Partial<ShownParamIdDetails> = {}): ShownParamIdDetails {
+export function createShownParamIdDetails(
+  options: Partial<ShownParamIdDetails> = {},
+): ShownParamIdDetails {
   return mergeGeneratedOptions(
     {
       requiredParamIdsToPaths: {},
@@ -3089,12 +3169,13 @@ export function createShownParamIdDetails(options: Partial<ShownParamIdDetails> 
   );
 }
 
-
 export type ShownParamIds = {
   pinned: ShownParamIdDetails;
   unpinned: ShownParamIdDetails;
 };
-export function createShownParamIds(options: Partial<ShownParamIds> = {}): ShownParamIds {
+export function createShownParamIds(
+  options: Partial<ShownParamIds> = {},
+): ShownParamIds {
   return mergeGeneratedOptions(
     {
       pinned: createShownParamIdDetails(),
@@ -3104,7 +3185,6 @@ export function createShownParamIds(options: Partial<ShownParamIds> = {}): Shown
   );
 }
 
-
 export const ChatWindowPlacementEnum = {
   bottom_docked: "bottom_docked",
   floating: "floating",
@@ -3113,7 +3193,6 @@ export const ChatWindowPlacementEnum = {
 } as const;
 export type ChatWindowPlacement = ObjectValues<typeof ChatWindowPlacementEnum>;
 
-
 export const ChatWindowModeEnum = {
   project_ai_mode: "project_ai_mode",
   section_mode: "section_mode",
@@ -3121,14 +3200,15 @@ export const ChatWindowModeEnum = {
 } as const;
 export type ChatWindowMode = ObjectValues<typeof ChatWindowModeEnum>;
 
-
 export type ChatWindowBounds = {
   x: number;
   y: number;
   width: number;
   height: number;
 };
-export function createChatWindowBounds(options: Partial<ChatWindowBounds> = {}): ChatWindowBounds {
+export function createChatWindowBounds(
+  options: Partial<ChatWindowBounds> = {},
+): ChatWindowBounds {
   return mergeGeneratedOptions(
     {
       x: 120,
@@ -3140,12 +3220,13 @@ export function createChatWindowBounds(options: Partial<ChatWindowBounds> = {}):
   );
 }
 
-
 export type ChatWindowDockMetrics = {
   widthFraction?: number | null;
   preferredWidthPx?: number | null;
 };
-export function createChatWindowDockMetrics(options: Partial<ChatWindowDockMetrics> = {}): ChatWindowDockMetrics {
+export function createChatWindowDockMetrics(
+  options: Partial<ChatWindowDockMetrics> = {},
+): ChatWindowDockMetrics {
   return mergeGeneratedOptions(
     {
       widthFraction: null,
@@ -3154,7 +3235,6 @@ export function createChatWindowDockMetrics(options: Partial<ChatWindowDockMetri
     options,
   );
 }
-
 
 export type ProjectChatWindowInstance = {
   instanceId: string;
@@ -3172,7 +3252,9 @@ export type ProjectChatWindowInstance = {
   lastFocusedAt?: number;
   chatId?: string | null;
 };
-export function createProjectChatWindowInstance(options: Partial<ProjectChatWindowInstance> = {}): ProjectChatWindowInstance {
+export function createProjectChatWindowInstance(
+  options: Partial<ProjectChatWindowInstance> = {},
+): ProjectChatWindowInstance {
   return mergeGeneratedOptions(
     {
       instanceId: "",
@@ -3194,13 +3276,14 @@ export function createProjectChatWindowInstance(options: Partial<ProjectChatWind
   );
 }
 
-
 export type ProjectChatWindowingState = {
   instancesById: Record<string, ProjectChatWindowInstance>;
   order: Array<string>;
   nextInstanceNumber: number;
 };
-export function createProjectChatWindowingState(options: Partial<ProjectChatWindowingState> = {}): ProjectChatWindowingState {
+export function createProjectChatWindowingState(
+  options: Partial<ProjectChatWindowingState> = {},
+): ProjectChatWindowingState {
   return mergeGeneratedOptions(
     {
       instancesById: {},
@@ -3211,13 +3294,13 @@ export function createProjectChatWindowingState(options: Partial<ProjectChatWind
   );
 }
 
-
 export const WindowSpaceSurfaceKindEnum = {
   project_chat: "project_chat",
   section: "section",
 } as const;
-export type WindowSpaceSurfaceKind = ObjectValues<typeof WindowSpaceSurfaceKindEnum>;
-
+export type WindowSpaceSurfaceKind = ObjectValues<
+  typeof WindowSpaceSurfaceKindEnum
+>;
 
 export type NormalizedFloatingWindowBounds = {
   x: number;
@@ -3225,7 +3308,9 @@ export type NormalizedFloatingWindowBounds = {
   width: number;
   height: number;
 };
-export function createNormalizedFloatingWindowBounds(options: Partial<NormalizedFloatingWindowBounds> = {}): NormalizedFloatingWindowBounds {
+export function createNormalizedFloatingWindowBounds(
+  options: Partial<NormalizedFloatingWindowBounds> = {},
+): NormalizedFloatingWindowBounds {
   return mergeGeneratedOptions(
     {
       x: 0,
@@ -3237,7 +3322,6 @@ export function createNormalizedFloatingWindowBounds(options: Partial<Normalized
   );
 }
 
-
 export type WindowSpaceWindow = {
   surfaceKind?: WindowSpaceSurfaceKind;
   sectionIdOrNull?: string | null;
@@ -3248,7 +3332,9 @@ export type WindowSpaceWindow = {
   zIndex?: number;
   normalizedBounds?: NormalizedFloatingWindowBounds;
 };
-export function createWindowSpaceWindow(options: Partial<WindowSpaceWindow> = {}): WindowSpaceWindow {
+export function createWindowSpaceWindow(
+  options: Partial<WindowSpaceWindow> = {},
+): WindowSpaceWindow {
   return mergeGeneratedOptions(
     {
       surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
@@ -3264,12 +3350,13 @@ export function createWindowSpaceWindow(options: Partial<WindowSpaceWindow> = {}
   );
 }
 
-
 export type WindowSpaceState = {
   windowsById: Record<string, WindowSpaceWindow>;
   order: Array<string>;
 };
-export function createWindowSpaceState(options: Partial<WindowSpaceState> = {}): WindowSpaceState {
+export function createWindowSpaceState(
+  options: Partial<WindowSpaceState> = {},
+): WindowSpaceState {
   return mergeGeneratedOptions(
     {
       windowsById: {},
@@ -3279,7 +3366,6 @@ export function createWindowSpaceState(options: Partial<WindowSpaceState> = {}):
   );
 }
 
-
 export type WindowSpaceConfig = {
   windowsById: Record<string, WindowSpaceWindow>;
   order: Array<string>;
@@ -3287,7 +3373,9 @@ export type WindowSpaceConfig = {
   name: string;
   sortIndex?: number;
 };
-export function createWindowSpaceConfig(options: Partial<WindowSpaceConfig> = {}): WindowSpaceConfig {
+export function createWindowSpaceConfig(
+  options: Partial<WindowSpaceConfig> = {},
+): WindowSpaceConfig {
   return mergeGeneratedOptions(
     {
       windowsById: {},
@@ -3299,7 +3387,6 @@ export function createWindowSpaceConfig(options: Partial<WindowSpaceConfig> = {}
     options,
   );
 }
-
 
 export type ProjectConfig = {
   id: string;
@@ -3326,7 +3413,9 @@ export type ProjectConfig = {
   edges: Array<Edge>;
   agenticEdges: Array<AgenticEdge>;
 };
-export function createProjectConfig(options: Partial<ProjectConfig> = {}): ProjectConfig {
+export function createProjectConfig(
+  options: Partial<ProjectConfig> = {},
+): ProjectConfig {
   return mergeGeneratedOptions(
     {
       id: "",
@@ -3357,7 +3446,6 @@ export function createProjectConfig(options: Partial<ProjectConfig> = {}): Proje
   );
 }
 
-
 export type ProjectStateSingleConfig = {
   projectConfig: ProjectConfig;
   sections: Record<string, Core>;
@@ -3374,7 +3462,9 @@ export type ProjectStateSingleConfig = {
   genCodeBinding?: CodeFileBinding | null;
   projectChatWindowing: ProjectChatWindowingState;
 };
-export function createProjectStateSingleConfig(options: Partial<ProjectStateSingleConfig> = {}): ProjectStateSingleConfig {
+export function createProjectStateSingleConfig(
+  options: Partial<ProjectStateSingleConfig> = {},
+): ProjectStateSingleConfig {
   return mergeGeneratedOptions(
     {
       projectConfig: createProjectConfig(),
@@ -3396,13 +3486,14 @@ export function createProjectStateSingleConfig(options: Partial<ProjectStateSing
   );
 }
 
-
 export type ProjectStateSingleConfigWithCompletedOpIds = {
   projectState: ProjectStateSingleConfig;
   completedOpIds: Array<string>;
   pendingOpIds: Array<string>;
 };
-export function createProjectStateSingleConfigWithCompletedOpIds(options: Partial<ProjectStateSingleConfigWithCompletedOpIds> = {}): ProjectStateSingleConfigWithCompletedOpIds {
+export function createProjectStateSingleConfigWithCompletedOpIds(
+  options: Partial<ProjectStateSingleConfigWithCompletedOpIds> = {},
+): ProjectStateSingleConfigWithCompletedOpIds {
   return mergeGeneratedOptions(
     {
       projectState: createProjectStateSingleConfig(),
@@ -3413,12 +3504,9 @@ export function createProjectStateSingleConfigWithCompletedOpIds(options: Partia
   );
 }
 
-
 export type ChartData = ChartDataValue;
 
-
 export type ChartDataType = ChartDataValue;
-
 
 export const ChatRoleEnum = {
   system: "system",
@@ -3428,14 +3516,12 @@ export const ChatRoleEnum = {
 } as const;
 export type ChatRole = ObjectValues<typeof ChatRoleEnum>;
 
-
 export const ChatPermissionModeEnum = {
   minimal: "minimal",
   yolo: "yolo",
   config_toml_custom: "config_toml_custom",
 } as const;
 export type ChatPermissionMode = ObjectValues<typeof ChatPermissionModeEnum>;
-
 
 export const ChatDictationModeEnum = {
   auto: "auto",
@@ -3444,7 +3530,6 @@ export const ChatDictationModeEnum = {
 } as const;
 export type ChatDictationMode = ObjectValues<typeof ChatDictationModeEnum>;
 
-
 export const BrowserAreaViewModeEnum = {
   list: "list",
   thumbnail: "thumbnail",
@@ -3452,13 +3537,11 @@ export const BrowserAreaViewModeEnum = {
 } as const;
 export type BrowserAreaViewMode = ObjectValues<typeof BrowserAreaViewModeEnum>;
 
-
 export const BrowserSearchScopeEnum = {
   recursive: "recursive",
   local: "local",
 } as const;
 export type BrowserSearchScope = ObjectValues<typeof BrowserSearchScopeEnum>;
-
 
 export const ListRootViewModeEnum = {
   default: "default",
@@ -3467,13 +3550,13 @@ export const ListRootViewModeEnum = {
 } as const;
 export type ListRootViewMode = ObjectValues<typeof ListRootViewModeEnum>;
 
-
 export const TextBlockDisplayModeEnum = {
   Render: "Render",
   Edit: "Edit",
 } as const;
-export type TextBlockDisplayMode = ObjectValues<typeof TextBlockDisplayModeEnum>;
-
+export type TextBlockDisplayMode = ObjectValues<
+  typeof TextBlockDisplayModeEnum
+>;
 
 export const TextBlockFormatEnum = {
   Plaintext: "Plaintext",
@@ -3481,13 +3564,11 @@ export const TextBlockFormatEnum = {
 } as const;
 export type TextBlockFormat = ObjectValues<typeof TextBlockFormatEnum>;
 
-
 export const TaskBoardViewModeEnum = {
   task_list: "task_list",
   kanban: "kanban",
 } as const;
 export type TaskBoardViewMode = ObjectValues<typeof TaskBoardViewModeEnum>;
-
 
 export const TaskBoardTaskRecurrenceEnum = {
   none: "none",
@@ -3497,8 +3578,9 @@ export const TaskBoardTaskRecurrenceEnum = {
   specified_months: "specified_months",
   specified_years: "specified_years",
 } as const;
-export type TaskBoardTaskRecurrence = ObjectValues<typeof TaskBoardTaskRecurrenceEnum>;
-
+export type TaskBoardTaskRecurrence = ObjectValues<
+  typeof TaskBoardTaskRecurrenceEnum
+>;
 
 export const TaskBoardRecurringWeekdayEnum = {
   monday: "monday",
@@ -3509,8 +3591,9 @@ export const TaskBoardRecurringWeekdayEnum = {
   saturday: "saturday",
   sunday: "sunday",
 } as const;
-export type TaskBoardRecurringWeekday = ObjectValues<typeof TaskBoardRecurringWeekdayEnum>;
-
+export type TaskBoardRecurringWeekday = ObjectValues<
+  typeof TaskBoardRecurringWeekdayEnum
+>;
 
 export const TaskBoardRecurringMonthEnum = {
   january: "january",
@@ -3526,8 +3609,9 @@ export const TaskBoardRecurringMonthEnum = {
   november: "november",
   december: "december",
 } as const;
-export type TaskBoardRecurringMonth = ObjectValues<typeof TaskBoardRecurringMonthEnum>;
-
+export type TaskBoardRecurringMonth = ObjectValues<
+  typeof TaskBoardRecurringMonthEnum
+>;
 
 export const ChartTypeEnum = {
   line: "line",
@@ -3535,13 +3619,13 @@ export const ChartTypeEnum = {
 } as const;
 export type ChartType = ObjectValues<typeof ChartTypeEnum>;
 
-
 export const SpreadsheetGridDensityEnum = {
   compact: "compact",
   comfortable: "comfortable",
 } as const;
-export type SpreadsheetGridDensity = ObjectValues<typeof SpreadsheetGridDensityEnum>;
-
+export type SpreadsheetGridDensity = ObjectValues<
+  typeof SpreadsheetGridDensityEnum
+>;
 
 export type BaseSectionImpl = {
   type: SectionType;
@@ -3605,10 +3689,11 @@ export type BaseSectionImpl = {
   dataPath?: string;
   chartSettings?: BaseChartSettingsUnion;
 };
-export function createBaseSectionImpl(options: Partial<BaseSectionImpl> = {}): BaseSectionImpl {
+export function createBaseSectionImpl(
+  options: Partial<BaseSectionImpl> = {},
+): BaseSectionImpl {
   return options as BaseSectionImpl;
 }
-
 
 export type CallableSectionImpl = BaseSectionImpl & {
   type: typeof SectionTypeEnum.Callable;
@@ -3626,9 +3711,10 @@ export type CallableSectionImpl = BaseSectionImpl & {
   hideParams: boolean;
 };
 
-
 export function createCallableSectionImpl(
-  defaultsOrOverrides: Partial<UserDefaultCallableSectionImpl> | Partial<CallableSectionImpl> = {},
+  defaultsOrOverrides:
+    | Partial<UserDefaultCallableSectionImpl>
+    | Partial<CallableSectionImpl> = {},
   overrides?: Partial<CallableSectionImpl>,
 ): CallableSectionImpl {
   const resolved = resolveGeneratedFactoryInputs<
@@ -3671,16 +3757,13 @@ export function createCallableSectionImpl(
   );
 }
 
-
 export type BaseParentSectionImplUnion = BaseSectionImpl & {
   children: Array<string>;
 };
 
-
 export type BaseSectionWithParamsImplUnion = BaseSectionImpl & {
   codeObjVariantMap: Record<string, string>;
 };
-
 
 export type DictSectionImpl = BaseSectionImpl & {
   type: typeof SectionTypeEnum.Dict;
@@ -3699,7 +3782,6 @@ export type DictSectionImpl = BaseSectionImpl & {
   jsonSourceKeys: Array<string>;
   jsonSourceMissing: boolean;
 };
-
 
 export function createDictSectionImpl(
   defaults: UserDefaultDictSectionImpl,
@@ -3743,7 +3825,6 @@ export function createDictSectionImpl(
   );
 }
 
-
 export type UserDefaultCallableSectionImpl = {
   isFrozen: boolean;
   tagColor: string | null;
@@ -3760,7 +3841,9 @@ export type UserDefaultCallableSectionImpl = {
   edgeOutputPorts: Array<EdgePort>;
   hideParams: boolean;
 };
-export function createUserDefaultCallableSectionImpl(options: Partial<UserDefaultCallableSectionImpl> = {}): UserDefaultCallableSectionImpl {
+export function createUserDefaultCallableSectionImpl(
+  options: Partial<UserDefaultCallableSectionImpl> = {},
+): UserDefaultCallableSectionImpl {
   return mergeGeneratedOptions(
     {
       ...createGeneratedBaseSectionWithParamsDefaults(),
@@ -3769,7 +3852,6 @@ export function createUserDefaultCallableSectionImpl(options: Partial<UserDefaul
     options,
   );
 }
-
 
 export type UserDefaultDictSectionImpl = {
   isFrozen: boolean;
@@ -3788,7 +3870,9 @@ export type UserDefaultDictSectionImpl = {
   isJsonSource: boolean;
   jsonSourceKeys: Array<string>;
 };
-export function createUserDefaultDictSectionImpl(options: Partial<UserDefaultDictSectionImpl> = {}): UserDefaultDictSectionImpl {
+export function createUserDefaultDictSectionImpl(
+  options: Partial<UserDefaultDictSectionImpl> = {},
+): UserDefaultDictSectionImpl {
   return mergeGeneratedOptions(
     {
       ...createGeneratedBaseSectionWithParamsDefaults(),
@@ -3798,7 +3882,6 @@ export function createUserDefaultDictSectionImpl(options: Partial<UserDefaultDic
     options,
   );
 }
-
 
 export type BaseDictSectionImplUnion = BaseSectionImpl & {
   type: typeof SectionTypeEnum.Dict | typeof SectionTypeEnum.GlobalVariables;
@@ -3818,7 +3901,6 @@ export type BaseDictSectionImplUnion = BaseSectionImpl & {
   jsonSourceMissing: boolean;
 };
 
-
 export type BaseCodeObjImpl = {
   type: CodeObjType;
   id: string;
@@ -3835,7 +3917,6 @@ export type BaseCodeObjImpl = {
   [key: string]: unknown;
 };
 
-
 export type CodeParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.CodeParam;
   coreNameType: ParamNameType;
@@ -3846,9 +3927,10 @@ export type CodeParamCodeObjImpl = BaseCodeObjImpl & {
   value: string;
 };
 
-
 export function createCodeParamCodeObjImpl(
-  defaultsOrOverrides: Partial<UserDefaultCodeParamCodeObjImpl> | Partial<CodeParamCodeObjImpl> = {},
+  defaultsOrOverrides:
+    | Partial<UserDefaultCodeParamCodeObjImpl>
+    | Partial<CodeParamCodeObjImpl> = {},
   overrides?: Partial<CodeParamCodeObjImpl>,
 ): CodeParamCodeObjImpl {
   const resolved = resolveGeneratedFactoryInputs<
@@ -3873,12 +3955,10 @@ export function createCodeParamCodeObjImpl(
   );
 }
 
-
 export type CodeCallableCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.CodeCallable;
   children: Array<string>;
 };
-
 
 export type NestedParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.NestedParam;
@@ -3889,8 +3969,8 @@ export type NestedParamCodeObjImpl = BaseCodeObjImpl & {
   typeAnnotation: string;
 };
 
-
-export type BaseCodeObjImplUnion = BaseCodeObjImpl
+export type BaseCodeObjImplUnion =
+  | BaseCodeObjImpl
   | CodeCallableCodeObjImpl
   | CodeParamCodeObjImpl
   | TextParamCodeObjImpl
@@ -3907,8 +3987,8 @@ export type BaseCodeObjImplUnion = BaseCodeObjImpl
   | DropzoneParamCodeObjImpl
   | NestedParamCodeObjImpl;
 
-
-export type BaseChildlessCodeObjImplUnion = BaseCodeObjImpl
+export type BaseChildlessCodeObjImplUnion =
+  | BaseCodeObjImpl
   | CodeParamCodeObjImpl
   | TextParamCodeObjImpl
   | DateParamCodeObjImpl
@@ -3922,8 +4002,8 @@ export type BaseChildlessCodeObjImplUnion = BaseCodeObjImpl
   | TextAreaParamCodeObjImpl
   | DropzoneParamCodeObjImpl;
 
-
-export type BaseParamCodeObjImplUnion = BaseCodeObjImpl
+export type BaseParamCodeObjImplUnion =
+  | BaseCodeObjImpl
   | CodeParamCodeObjImpl
   | TextParamCodeObjImpl
   | DateParamCodeObjImpl
@@ -3939,10 +4019,9 @@ export type BaseParamCodeObjImplUnion = BaseCodeObjImpl
   | DropzoneParamCodeObjImpl
   | NestedParamCodeObjImpl;
 
-
-export type BaseParentCodeObjImplUnion = CodeCallableCodeObjImpl
+export type BaseParentCodeObjImplUnion =
+  | CodeCallableCodeObjImpl
   | NestedParamCodeObjImpl;
-
 
 export type UserDefaultCodeParamCodeObjImpl = {
   coreNameType: ParamNameType;
@@ -3951,7 +4030,9 @@ export type UserDefaultCodeParamCodeObjImpl = {
   defaultVal: string;
   value: string;
 };
-export function createUserDefaultCodeParamCodeObjImpl(options: Partial<UserDefaultCodeParamCodeObjImpl> = {}): UserDefaultCodeParamCodeObjImpl {
+export function createUserDefaultCodeParamCodeObjImpl(
+  options: Partial<UserDefaultCodeParamCodeObjImpl> = {},
+): UserDefaultCodeParamCodeObjImpl {
   return mergeGeneratedOptions(
     {
       coreNameType: ParamNameTypeEnum.TEXT,
@@ -3964,15 +4045,15 @@ export function createUserDefaultCodeParamCodeObjImpl(options: Partial<UserDefau
   );
 }
 
-
 export type ColorPickerChoice = {
   color: string;
   description: string;
 };
-export function createColorPickerChoice(options: Partial<ColorPickerChoice> = {}): ColorPickerChoice {
+export function createColorPickerChoice(
+  options: Partial<ColorPickerChoice> = {},
+): ColorPickerChoice {
   return options as ColorPickerChoice;
 }
-
 
 export type TextParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.TextParam;
@@ -3984,7 +4065,6 @@ export type TextParamCodeObjImpl = BaseCodeObjImpl & {
   value: string;
   uiType: TextParamInputUIType;
 };
-
 
 export type DateParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.DateParam;
@@ -4001,7 +4081,6 @@ export type DateParamCodeObjImpl = BaseCodeObjImpl & {
   dateIncludesTime: boolean;
 };
 
-
 export type TimeParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.TimeParam;
   coreNameType: ParamNameType;
@@ -4016,7 +4095,6 @@ export type TimeParamCodeObjImpl = BaseCodeObjImpl & {
   timeDisplayScale: number;
   timeDisplayFont: TimeDisplayFont;
 };
-
 
 export type ButtonParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.ButtonParam;
@@ -4033,7 +4111,6 @@ export type ButtonParamCodeObjImpl = BaseCodeObjImpl & {
   requestBody: string;
 };
 
-
 export type SliderParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.SliderParam;
   coreNameType: ParamNameType;
@@ -4046,7 +4123,6 @@ export type SliderParamCodeObjImpl = BaseCodeObjImpl & {
   max: number;
   step: number;
 };
-
 
 export type RotaryParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.RotaryParam;
@@ -4061,7 +4137,6 @@ export type RotaryParamCodeObjImpl = BaseCodeObjImpl & {
   step: number;
 };
 
-
 export type SwitchParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.SwitchParam;
   coreNameType: ParamNameType;
@@ -4071,7 +4146,6 @@ export type SwitchParamCodeObjImpl = BaseCodeObjImpl & {
   defaultVal: string;
   value: string;
 };
-
 
 export type ColorPickerParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.ColorPickerParam;
@@ -4084,7 +4158,6 @@ export type ColorPickerParamCodeObjImpl = BaseCodeObjImpl & {
   colorChoices: Array<ColorPickerChoice>;
 };
 
-
 export type DropdownParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.DropdownParam;
   coreNameType: ParamNameType;
@@ -4095,7 +4168,6 @@ export type DropdownParamCodeObjImpl = BaseCodeObjImpl & {
   value: string;
   choices: Array<string>;
 };
-
 
 export type PasswordParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.PasswordParam;
@@ -4108,7 +4180,6 @@ export type PasswordParamCodeObjImpl = BaseCodeObjImpl & {
   hasSecret: boolean;
 };
 
-
 export type TextAreaParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.TextAreaParam;
   coreNameType: ParamNameType;
@@ -4118,7 +4189,6 @@ export type TextAreaParamCodeObjImpl = BaseCodeObjImpl & {
   defaultVal: string;
   value: string;
 };
-
 
 export type DropzoneParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.DropzoneParam;
@@ -4133,7 +4203,6 @@ export type DropzoneParamCodeObjImpl = BaseCodeObjImpl & {
   placeholder: string;
 };
 
-
 export type UserDefaultListRootSectionImpl = {
   isFrozen: boolean;
   tagColor: string | null;
@@ -4145,7 +4214,9 @@ export type UserDefaultListRootSectionImpl = {
   defaultChildSectionType: SectionType;
   viewMode: ListRootViewMode;
 };
-export function createUserDefaultListRootSectionImpl(options: Partial<UserDefaultListRootSectionImpl> = {}): UserDefaultListRootSectionImpl {
+export function createUserDefaultListRootSectionImpl(
+  options: Partial<UserDefaultListRootSectionImpl> = {},
+): UserDefaultListRootSectionImpl {
   return mergeGeneratedOptions(
     {
       ...createGeneratedBaseSectionDefaults(),
@@ -4156,7 +4227,6 @@ export function createUserDefaultListRootSectionImpl(options: Partial<UserDefaul
   );
 }
 
-
 export type ListRootSectionImpl = BaseSectionImpl & {
   type: typeof SectionTypeEnum.ListRoot;
   children: Array<string>;
@@ -4164,9 +4234,10 @@ export type ListRootSectionImpl = BaseSectionImpl & {
   viewMode: ListRootViewMode;
 };
 
-
 export function createListRootSectionImpl(
-  defaultsOrOverrides: Partial<UserDefaultListRootSectionImpl> | Partial<ListRootSectionImpl> = {},
+  defaultsOrOverrides:
+    | Partial<UserDefaultListRootSectionImpl>
+    | Partial<ListRootSectionImpl> = {},
   overrides?: Partial<ListRootSectionImpl>,
 ): ListRootSectionImpl {
   const resolved = resolveGeneratedFactoryInputs<
@@ -4197,7 +4268,6 @@ export function createListRootSectionImpl(
   );
 }
 
-
 export type UserDefaultTextBlockSectionImpl = {
   isFrozen: boolean;
   tagColor: string | null;
@@ -4213,7 +4283,9 @@ export type UserDefaultTextBlockSectionImpl = {
   textDisplayMode: TextBlockDisplayMode;
   text: string;
 };
-export function createUserDefaultTextBlockSectionImpl(options: Partial<UserDefaultTextBlockSectionImpl> = {}): UserDefaultTextBlockSectionImpl {
+export function createUserDefaultTextBlockSectionImpl(
+  options: Partial<UserDefaultTextBlockSectionImpl> = {},
+): UserDefaultTextBlockSectionImpl {
   return mergeGeneratedOptions(
     {
       ...createGeneratedBaseSectionDefaults(),
@@ -4232,7 +4304,6 @@ export function createUserDefaultTextBlockSectionImpl(options: Partial<UserDefau
   );
 }
 
-
 export type TextBlockSectionImpl = BaseSectionImpl & {
   type: typeof SectionTypeEnum.TextBlock;
   format: TextBlockFormat;
@@ -4243,9 +4314,10 @@ export type TextBlockSectionImpl = BaseSectionImpl & {
   text: string;
 };
 
-
 export function createTextBlockSectionImpl(
-  defaultsOrOverrides: Partial<UserDefaultTextBlockSectionImpl> | Partial<TextBlockSectionImpl> = {},
+  defaultsOrOverrides:
+    | Partial<UserDefaultTextBlockSectionImpl>
+    | Partial<TextBlockSectionImpl> = {},
   overrides?: Partial<TextBlockSectionImpl>,
 ): TextBlockSectionImpl {
   const resolved = resolveGeneratedFactoryInputs<
@@ -4279,15 +4351,15 @@ export function createTextBlockSectionImpl(
   );
 }
 
-
 export type CodeSectionDiagnosticsIgnoreState = {
   muted: boolean;
   suppressedCodes: Array<string | number>;
 };
-export function createCodeSectionDiagnosticsIgnoreState(options: Partial<CodeSectionDiagnosticsIgnoreState> = {}): CodeSectionDiagnosticsIgnoreState {
+export function createCodeSectionDiagnosticsIgnoreState(
+  options: Partial<CodeSectionDiagnosticsIgnoreState> = {},
+): CodeSectionDiagnosticsIgnoreState {
   return options as CodeSectionDiagnosticsIgnoreState;
 }
-
 
 export type UserDefaultCodeSectionImpl = {
   isFrozen: boolean;
@@ -4303,7 +4375,9 @@ export type UserDefaultCodeSectionImpl = {
   codeLanguage: string;
   diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
 };
-export function createUserDefaultCodeSectionImpl(options: Partial<UserDefaultCodeSectionImpl> = {}): UserDefaultCodeSectionImpl {
+export function createUserDefaultCodeSectionImpl(
+  options: Partial<UserDefaultCodeSectionImpl> = {},
+): UserDefaultCodeSectionImpl {
   return mergeGeneratedOptions(
     {
       ...createGeneratedBaseCodeSectionDefaults(),
@@ -4317,7 +4391,6 @@ export function createUserDefaultCodeSectionImpl(options: Partial<UserDefaultCod
   );
 }
 
-
 export type CodeSectionImpl = BaseSectionImpl & {
   type: typeof SectionTypeEnum.Code;
   children: Array<string>;
@@ -4328,9 +4401,10 @@ export type CodeSectionImpl = BaseSectionImpl & {
   diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
 };
 
-
 export function createCodeSectionImpl(
-  defaultsOrOverrides: Partial<UserDefaultCodeSectionImpl> | Partial<CodeSectionImpl> = {},
+  defaultsOrOverrides:
+    | Partial<UserDefaultCodeSectionImpl>
+    | Partial<CodeSectionImpl> = {},
   overrides?: Partial<CodeSectionImpl>,
 ): CodeSectionImpl {
   const resolved = resolveGeneratedFactoryInputs<
@@ -4366,7 +4440,6 @@ export function createCodeSectionImpl(
   );
 }
 
-
 export type UserDefaultTerminalSectionImpl = {
   isFrozen: boolean;
   tagColor: string | null;
@@ -4376,7 +4449,9 @@ export type UserDefaultTerminalSectionImpl = {
   isMinimized: boolean;
   positionAndSizeLocked: boolean;
 };
-export function createUserDefaultTerminalSectionImpl(options: Partial<UserDefaultTerminalSectionImpl> = {}): UserDefaultTerminalSectionImpl {
+export function createUserDefaultTerminalSectionImpl(
+  options: Partial<UserDefaultTerminalSectionImpl> = {},
+): UserDefaultTerminalSectionImpl {
   return mergeGeneratedOptions(
     {
       ...createGeneratedBaseSectionDefaults(),
@@ -4385,14 +4460,14 @@ export function createUserDefaultTerminalSectionImpl(options: Partial<UserDefaul
   );
 }
 
-
 export type TerminalSectionImpl = BaseSectionImpl & {
   type: typeof SectionTypeEnum.Terminal;
 };
 
-
 export function createTerminalSectionImpl(
-  defaultsOrOverrides: Partial<UserDefaultTerminalSectionImpl> | Partial<TerminalSectionImpl> = {},
+  defaultsOrOverrides:
+    | Partial<UserDefaultTerminalSectionImpl>
+    | Partial<TerminalSectionImpl> = {},
   overrides?: Partial<TerminalSectionImpl>,
 ): TerminalSectionImpl {
   const resolved = resolveGeneratedFactoryInputs<
@@ -4420,8 +4495,8 @@ export function createTerminalSectionImpl(
   );
 }
 
-
-export type BaseSectionImplUnion = CallableSectionImpl
+export type BaseSectionImplUnion =
+  | CallableSectionImpl
   | DictSectionImpl
   | ListRootSectionImpl
   | TextBlockSectionImpl
@@ -4434,9 +4509,13 @@ export type BaseSectionImplUnion = CallableSectionImpl
   | SpreadsheetSectionImpl
   | BaseSectionImpl;
 
-
-export type JSONValue = null | boolean | number | string | Array<JSONValue> | { [key: string]: JSONValue | undefined };
-
+export type JSONValue =
+  | null
+  | boolean
+  | number
+  | string
+  | Array<JSONValue>
+  | { [key: string]: JSONValue | undefined };
 
 export type ChatFileAttachment = {
   id: string;
@@ -4444,16 +4523,19 @@ export type ChatFileAttachment = {
   mimeType?: string | null;
   size?: number | null;
 };
-export function createChatFileAttachment(options: Partial<ChatFileAttachment> = {}): ChatFileAttachment {
+export function createChatFileAttachment(
+  options: Partial<ChatFileAttachment> = {},
+): ChatFileAttachment {
   return options as ChatFileAttachment;
 }
-
 
 export type MessageTextContent = {
   type: "text";
   text: string;
 };
-export function createMessageTextContent(options: Partial<MessageTextContent> = {}): MessageTextContent {
+export function createMessageTextContent(
+  options: Partial<MessageTextContent> = {},
+): MessageTextContent {
   return mergeGeneratedOptions(
     {
       type: "text",
@@ -4463,24 +4545,25 @@ export function createMessageTextContent(options: Partial<MessageTextContent> = 
   );
 }
 
-
 export type MessageImageUrl = {
   url: string;
   detail?: "auto" | "low" | "high" | null;
 };
-export function createMessageImageUrl(options: Partial<MessageImageUrl> = {}): MessageImageUrl {
+export function createMessageImageUrl(
+  options: Partial<MessageImageUrl> = {},
+): MessageImageUrl {
   return options as MessageImageUrl;
 }
-
 
 export type MessageImageUrlContent = {
   type: "image_url";
   image_url: MessageImageUrl;
 };
-export function createMessageImageUrlContent(options: Partial<MessageImageUrlContent> = {}): MessageImageUrlContent {
+export function createMessageImageUrlContent(
+  options: Partial<MessageImageUrlContent> = {},
+): MessageImageUrlContent {
   return options as MessageImageUrlContent;
 }
-
 
 export type MessageThinkingContent = {
   type: "thinking";
@@ -4488,7 +4571,9 @@ export type MessageThinkingContent = {
   summary?: string | null;
   signature?: string | null;
 };
-export function createMessageThinkingContent(options: Partial<MessageThinkingContent> = {}): MessageThinkingContent {
+export function createMessageThinkingContent(
+  options: Partial<MessageThinkingContent> = {},
+): MessageThinkingContent {
   return mergeGeneratedOptions(
     {
       type: "thinking",
@@ -4500,24 +4585,28 @@ export function createMessageThinkingContent(options: Partial<MessageThinkingCon
   );
 }
 
-
-export type MessageContent = MessageTextContent | MessageImageUrlContent | MessageThinkingContent;
-
+export type MessageContent =
+  | MessageTextContent
+  | MessageImageUrlContent
+  | MessageThinkingContent;
 
 export type ToolReferenceContent = {
   type: "tool_reference";
   tool_name: string;
 };
-export function createToolReferenceContent(options: Partial<ToolReferenceContent> = {}): ToolReferenceContent {
+export function createToolReferenceContent(
+  options: Partial<ToolReferenceContent> = {},
+): ToolReferenceContent {
   return options as ToolReferenceContent;
 }
-
 
 export type ToolCallFunction = {
   name: string;
   arguments: { [key: string]: JSONValue | undefined };
 };
-export function createToolCallFunction(options: Partial<ToolCallFunction> = {}): ToolCallFunction {
+export function createToolCallFunction(
+  options: Partial<ToolCallFunction> = {},
+): ToolCallFunction {
   return mergeGeneratedOptions(
     {
       name: "",
@@ -4526,7 +4615,6 @@ export function createToolCallFunction(options: Partial<ToolCallFunction> = {}):
     options,
   );
 }
-
 
 export type ToolCall = {
   id: string;
@@ -4544,14 +4632,15 @@ export function createToolCall(options: Partial<ToolCall> = {}): ToolCall {
   );
 }
 
-
 export type SystemChatMessage = {
   id: string;
   content: Array<MessageContent>;
   attachments: Array<ChatFileAttachment>;
   role: typeof ChatRoleEnum.system;
 };
-export function createSystemChatMessage(options: Partial<SystemChatMessage> = {}): SystemChatMessage {
+export function createSystemChatMessage(
+  options: Partial<SystemChatMessage> = {},
+): SystemChatMessage {
   return mergeGeneratedOptions(
     {
       id: "",
@@ -4563,7 +4652,6 @@ export function createSystemChatMessage(options: Partial<SystemChatMessage> = {}
   );
 }
 
-
 export type AssistantChatMessage = {
   id: string;
   content: Array<MessageContent>;
@@ -4571,7 +4659,9 @@ export type AssistantChatMessage = {
   role: typeof ChatRoleEnum.assistant;
   tool_calls?: Array<ToolCall> | null;
 };
-export function createAssistantChatMessage(options: Partial<AssistantChatMessage> = {}): AssistantChatMessage {
+export function createAssistantChatMessage(
+  options: Partial<AssistantChatMessage> = {},
+): AssistantChatMessage {
   return mergeGeneratedOptions(
     {
       id: "",
@@ -4584,14 +4674,15 @@ export function createAssistantChatMessage(options: Partial<AssistantChatMessage
   );
 }
 
-
 export type UserChatMessage = {
   id: string;
   content: Array<MessageContent>;
   attachments: Array<ChatFileAttachment>;
   role: typeof ChatRoleEnum.user;
 };
-export function createUserChatMessage(options: Partial<UserChatMessage> = {}): UserChatMessage {
+export function createUserChatMessage(
+  options: Partial<UserChatMessage> = {},
+): UserChatMessage {
   return mergeGeneratedOptions(
     {
       id: "",
@@ -4602,7 +4693,6 @@ export function createUserChatMessage(options: Partial<UserChatMessage> = {}): U
     options,
   );
 }
-
 
 export type ToolChatMessage = {
   id: string;
@@ -4616,7 +4706,9 @@ export type ToolChatMessage = {
   started_at: string;
   completed_at?: string | null;
 };
-export function createToolChatMessage(options: Partial<ToolChatMessage> = {}): ToolChatMessage {
+export function createToolChatMessage(
+  options: Partial<ToolChatMessage> = {},
+): ToolChatMessage {
   return mergeGeneratedOptions(
     {
       id: "",
@@ -4634,9 +4726,11 @@ export function createToolChatMessage(options: Partial<ToolChatMessage> = {}): T
   );
 }
 
-
-export type BaseChatMessageUnion = SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage;
-
+export type BaseChatMessageUnion =
+  | SystemChatMessage
+  | AssistantChatMessage
+  | UserChatMessage
+  | ToolChatMessage;
 
 export type ChatSectionBranch = {
   messages: Array<BaseChatMessageUnion>;
@@ -4644,10 +4738,11 @@ export type ChatSectionBranch = {
   parentBranchId?: string | null;
   branchFromMessageId?: string | null;
 };
-export function createChatSectionBranch(options: Partial<ChatSectionBranch> = {}): ChatSectionBranch {
+export function createChatSectionBranch(
+  options: Partial<ChatSectionBranch> = {},
+): ChatSectionBranch {
   return options as ChatSectionBranch;
 }
-
 
 export type ChatSectionState = {
   messages: Array<BaseChatMessageUnion>;
@@ -4657,10 +4752,11 @@ export type ChatSectionState = {
   activeBranchId?: string | null;
   branches: Record<string, ChatSectionBranch>;
 };
-export function createChatSectionState(options: Partial<ChatSectionState> = {}): ChatSectionState {
+export function createChatSectionState(
+  options: Partial<ChatSectionState> = {},
+): ChatSectionState {
   return options as ChatSectionState;
 }
-
 
 export type UserDefaultChatSectionImpl = {
   isFrozen: boolean;
@@ -4686,7 +4782,9 @@ export type UserDefaultChatSectionImpl = {
   activeBranchId: string | null;
   branches: Record<string, ChatSectionBranch>;
 };
-export function createUserDefaultChatSectionImpl(options: Partial<UserDefaultChatSectionImpl> = {}): UserDefaultChatSectionImpl {
+export function createUserDefaultChatSectionImpl(
+  options: Partial<UserDefaultChatSectionImpl> = {},
+): UserDefaultChatSectionImpl {
   return mergeGeneratedOptions(
     {
       ...createGeneratedBaseSectionDefaults(),
@@ -4714,23 +4812,24 @@ export function createUserDefaultChatSectionImpl(options: Partial<UserDefaultCha
   );
 }
 
-
-export type ChatSectionImpl = BaseSectionImpl & ChatSectionState & {
-  type: typeof SectionTypeEnum.Chat;
-  managed: boolean;
-  engineConfigId?: string | null;
-  transcriptionProfileId?: string | null;
-  agentProfileId?: string | null;
-  chatId?: string | null;
-  thinking: boolean;
-  permissionMode: ChatPermissionMode;
-  searchEnabled: boolean;
-  dictationMode: ChatDictationMode;
-};
-
+export type ChatSectionImpl = BaseSectionImpl &
+  ChatSectionState & {
+    type: typeof SectionTypeEnum.Chat;
+    managed: boolean;
+    engineConfigId?: string | null;
+    transcriptionProfileId?: string | null;
+    agentProfileId?: string | null;
+    chatId?: string | null;
+    thinking: boolean;
+    permissionMode: ChatPermissionMode;
+    searchEnabled: boolean;
+    dictationMode: ChatDictationMode;
+  };
 
 export function createChatSectionImpl(
-  defaultsOrOverrides: Partial<UserDefaultChatSectionImpl> | Partial<ChatSectionImpl> = {},
+  defaultsOrOverrides:
+    | Partial<UserDefaultChatSectionImpl>
+    | Partial<ChatSectionImpl> = {},
   overrides?: Partial<ChatSectionImpl>,
 ): ChatSectionImpl {
   const resolved = resolveGeneratedFactoryInputs<
@@ -4773,7 +4872,6 @@ export function createChatSectionImpl(
   );
 }
 
-
 export type BrowserSavedSearchTypeFilters = {
   image: boolean;
   video: boolean;
@@ -4781,7 +4879,9 @@ export type BrowserSavedSearchTypeFilters = {
   text: boolean;
   data: boolean;
 };
-export function createBrowserSavedSearchTypeFilters(options: Partial<BrowserSavedSearchTypeFilters> = {}): BrowserSavedSearchTypeFilters {
+export function createBrowserSavedSearchTypeFilters(
+  options: Partial<BrowserSavedSearchTypeFilters> = {},
+): BrowserSavedSearchTypeFilters {
   return mergeGeneratedOptions(
     {
       image: true,
@@ -4794,7 +4894,6 @@ export function createBrowserSavedSearchTypeFilters(options: Partial<BrowserSave
   );
 }
 
-
 export type BrowserSavedSearch = {
   id: string;
   name: string;
@@ -4804,7 +4903,9 @@ export type BrowserSavedSearch = {
   color: string;
   quickInfo: string;
 };
-export function createBrowserSavedSearch(options: Partial<BrowserSavedSearch> = {}): BrowserSavedSearch {
+export function createBrowserSavedSearch(
+  options: Partial<BrowserSavedSearch> = {},
+): BrowserSavedSearch {
   return mergeGeneratedOptions(
     {
       id: "",
@@ -4818,7 +4919,6 @@ export function createBrowserSavedSearch(options: Partial<BrowserSavedSearch> = 
     options,
   );
 }
-
 
 export type UserDefaultBrowserSectionImpl = {
   isFrozen: boolean;
@@ -4835,7 +4935,9 @@ export type UserDefaultBrowserSectionImpl = {
   viewMode: BrowserAreaViewMode;
   savedSearches: Array<BrowserSavedSearch>;
 };
-export function createUserDefaultBrowserSectionImpl(options: Partial<UserDefaultBrowserSectionImpl> = {}): UserDefaultBrowserSectionImpl {
+export function createUserDefaultBrowserSectionImpl(
+  options: Partial<UserDefaultBrowserSectionImpl> = {},
+): UserDefaultBrowserSectionImpl {
   return mergeGeneratedOptions(
     {
       ...createGeneratedBaseSectionDefaults(),
@@ -4854,7 +4956,6 @@ export function createUserDefaultBrowserSectionImpl(options: Partial<UserDefault
   );
 }
 
-
 export type BrowserSectionImpl = Omit<BaseSectionImpl, "viewMode"> & {
   type: typeof SectionTypeEnum.Browser;
   folder: string;
@@ -4865,9 +4966,10 @@ export type BrowserSectionImpl = Omit<BaseSectionImpl, "viewMode"> & {
   savedSearches: Array<BrowserSavedSearch>;
 };
 
-
 export function createBrowserSectionImpl(
-  defaultsOrOverrides: Partial<UserDefaultBrowserSectionImpl> | Partial<BrowserSectionImpl> = {},
+  defaultsOrOverrides:
+    | Partial<UserDefaultBrowserSectionImpl>
+    | Partial<BrowserSectionImpl> = {},
   overrides?: Partial<BrowserSectionImpl>,
 ): BrowserSectionImpl {
   const resolved = resolveGeneratedFactoryInputs<
@@ -4901,14 +5003,15 @@ export function createBrowserSectionImpl(
   );
 }
 
-
 export type TaskBoardColumn = {
   id: string;
   name: string;
   color: string;
   sortIndex: number;
 };
-export function createTaskBoardColumn(options: Partial<TaskBoardColumn> = {}): TaskBoardColumn {
+export function createTaskBoardColumn(
+  options: Partial<TaskBoardColumn> = {},
+): TaskBoardColumn {
   return mergeGeneratedOptions(
     {
       id: "",
@@ -4919,7 +5022,6 @@ export function createTaskBoardColumn(options: Partial<TaskBoardColumn> = {}): T
     options,
   );
 }
-
 
 export type TaskBoardTask = {
   id: string;
@@ -4934,7 +5036,9 @@ export type TaskBoardTask = {
   recurrenceYears: Array<number>;
   sortIndex: number;
 };
-export function createTaskBoardTask(options: Partial<TaskBoardTask> = {}): TaskBoardTask {
+export function createTaskBoardTask(
+  options: Partial<TaskBoardTask> = {},
+): TaskBoardTask {
   return mergeGeneratedOptions(
     {
       id: "",
@@ -4953,7 +5057,6 @@ export function createTaskBoardTask(options: Partial<TaskBoardTask> = {}): TaskB
   );
 }
 
-
 export type UserDefaultTaskBoardSectionImpl = {
   isFrozen: boolean;
   tagColor: string | null;
@@ -4966,7 +5069,9 @@ export type UserDefaultTaskBoardSectionImpl = {
   columns: Array<TaskBoardColumn> | null;
   tasks: Array<TaskBoardTask>;
 };
-export function createUserDefaultTaskBoardSectionImpl(options: Partial<UserDefaultTaskBoardSectionImpl> = {}): UserDefaultTaskBoardSectionImpl {
+export function createUserDefaultTaskBoardSectionImpl(
+  options: Partial<UserDefaultTaskBoardSectionImpl> = {},
+): UserDefaultTaskBoardSectionImpl {
   return mergeGeneratedOptions(
     {
       ...createGeneratedBaseSectionDefaults(),
@@ -4982,7 +5087,6 @@ export function createUserDefaultTaskBoardSectionImpl(options: Partial<UserDefau
   );
 }
 
-
 export type TaskBoardSectionImpl = Omit<BaseSectionImpl, "viewMode"> & {
   type: typeof SectionTypeEnum.TaskBoard;
   viewMode: TaskBoardViewMode;
@@ -4990,9 +5094,10 @@ export type TaskBoardSectionImpl = Omit<BaseSectionImpl, "viewMode"> & {
   tasks: Array<TaskBoardTask>;
 };
 
-
 export function createTaskBoardSectionImpl(
-  defaultsOrOverrides: Partial<UserDefaultTaskBoardSectionImpl> | Partial<TaskBoardSectionImpl> = {},
+  defaultsOrOverrides:
+    | Partial<UserDefaultTaskBoardSectionImpl>
+    | Partial<TaskBoardSectionImpl> = {},
   overrides?: Partial<TaskBoardSectionImpl>,
 ): TaskBoardSectionImpl {
   const resolved = resolveGeneratedFactoryInputs<
@@ -5036,7 +5141,6 @@ export function createTaskBoardSectionImpl(
   );
 }
 
-
 export type LineChartSettings = {
   type: typeof ChartTypeEnum.line;
   xAxisColumn?: string | null;
@@ -5045,7 +5149,9 @@ export type LineChartSettings = {
   y1AxisLog: boolean;
   y2AxisLog: boolean;
 };
-export function createLineChartSettings(options: Partial<LineChartSettings> = {}): LineChartSettings {
+export function createLineChartSettings(
+  options: Partial<LineChartSettings> = {},
+): LineChartSettings {
   return mergeGeneratedOptions(
     {
       type: ChartTypeEnum.line,
@@ -5059,7 +5165,6 @@ export function createLineChartSettings(options: Partial<LineChartSettings> = {}
   );
 }
 
-
 export type ScatterChartSettings = {
   type: typeof ChartTypeEnum.scatter;
   xAxisColumn?: string | null;
@@ -5067,7 +5172,9 @@ export type ScatterChartSettings = {
   xAxisLog: boolean;
   yAxisLog: boolean;
 };
-export function createScatterChartSettings(options: Partial<ScatterChartSettings> = {}): ScatterChartSettings {
+export function createScatterChartSettings(
+  options: Partial<ScatterChartSettings> = {},
+): ScatterChartSettings {
   return mergeGeneratedOptions(
     {
       type: ChartTypeEnum.scatter,
@@ -5080,12 +5187,11 @@ export function createScatterChartSettings(options: Partial<ScatterChartSettings
   );
 }
 
-
 export type BaseChartSettingsUnion = LineChartSettings | ScatterChartSettings;
 
-
 export function createBaseChartSettingsUnionWithDiscriminator(
-  options: ({ type: typeof ChartTypeEnum.line } & Partial<LineChartSettings>)
+  options:
+    | ({ type: typeof ChartTypeEnum.line } & Partial<LineChartSettings>)
     | ({ type: typeof ChartTypeEnum.scatter } & Partial<ScatterChartSettings>),
 ): BaseChartSettingsUnion {
   switch (options.type) {
@@ -5098,7 +5204,6 @@ export function createBaseChartSettingsUnionWithDiscriminator(
   }
 }
 
-
 export type UserDefaultChartSectionImpl = {
   isFrozen: boolean;
   tagColor: string | null;
@@ -5110,7 +5215,9 @@ export type UserDefaultChartSectionImpl = {
   dataPath: string;
   chartSettings: BaseChartSettingsUnion;
 };
-export function createUserDefaultChartSectionImpl(options: Partial<UserDefaultChartSectionImpl> = {}): UserDefaultChartSectionImpl {
+export function createUserDefaultChartSectionImpl(
+  options: Partial<UserDefaultChartSectionImpl> = {},
+): UserDefaultChartSectionImpl {
   return mergeGeneratedOptions(
     {
       ...createGeneratedBaseSectionDefaults(),
@@ -5125,16 +5232,16 @@ export function createUserDefaultChartSectionImpl(options: Partial<UserDefaultCh
   );
 }
 
-
 export type ChartSectionImpl = BaseSectionImpl & {
   type: typeof SectionTypeEnum.Chart;
   dataPath: string;
   chartSettings: BaseChartSettingsUnion;
 };
 
-
 export function createChartSectionImpl(
-  defaultsOrOverrides: Partial<UserDefaultChartSectionImpl> | Partial<ChartSectionImpl> = {},
+  defaultsOrOverrides:
+    | Partial<UserDefaultChartSectionImpl>
+    | Partial<ChartSectionImpl> = {},
   overrides?: Partial<ChartSectionImpl>,
 ): ChartSectionImpl {
   const resolved = resolveGeneratedFactoryInputs<
@@ -5164,7 +5271,6 @@ export function createChartSectionImpl(
   );
 }
 
-
 export type UserDefaultSpreadsheetSectionImpl = {
   isFrozen: boolean;
   tagColor: string | null;
@@ -5180,7 +5286,9 @@ export type UserDefaultSpreadsheetSectionImpl = {
   density: SpreadsheetGridDensity;
   autoReloadOnExternalChange: boolean;
 };
-export function createUserDefaultSpreadsheetSectionImpl(options: Partial<UserDefaultSpreadsheetSectionImpl> = {}): UserDefaultSpreadsheetSectionImpl {
+export function createUserDefaultSpreadsheetSectionImpl(
+  options: Partial<UserDefaultSpreadsheetSectionImpl> = {},
+): UserDefaultSpreadsheetSectionImpl {
   return mergeGeneratedOptions(
     {
       ...createGeneratedBaseSectionDefaults(),
@@ -5199,7 +5307,6 @@ export function createUserDefaultSpreadsheetSectionImpl(options: Partial<UserDef
   );
 }
 
-
 export type SpreadsheetSectionImpl = BaseSectionImpl & {
   type: typeof SectionTypeEnum.Spreadsheet;
   filePath: string;
@@ -5210,9 +5317,10 @@ export type SpreadsheetSectionImpl = BaseSectionImpl & {
   autoReloadOnExternalChange: boolean;
 };
 
-
 export function createSpreadsheetSectionImpl(
-  defaultsOrOverrides: Partial<UserDefaultSpreadsheetSectionImpl> | Partial<SpreadsheetSectionImpl> = {},
+  defaultsOrOverrides:
+    | Partial<UserDefaultSpreadsheetSectionImpl>
+    | Partial<SpreadsheetSectionImpl> = {},
   overrides?: Partial<SpreadsheetSectionImpl>,
 ): SpreadsheetSectionImpl {
   const resolved = resolveGeneratedFactoryInputs<
@@ -5246,7 +5354,6 @@ export function createSpreadsheetSectionImpl(
   );
 }
 
-
 export const WebsocketConnectionTypeEnum = {
   CLI: "CLI",
   SERVER: "SERVER",
@@ -5254,8 +5361,9 @@ export const WebsocketConnectionTypeEnum = {
   PYTHON_SCRIPT: "PYTHON_SCRIPT",
   FRONTEND: "FRONTEND",
 } as const;
-export type WebsocketConnectionType = ObjectValues<typeof WebsocketConnectionTypeEnum>;
-
+export type WebsocketConnectionType = ObjectValues<
+  typeof WebsocketConnectionTypeEnum
+>;
 
 export const WebsocketMsgTypeForFrontendEnum = {
   AllConnections: "AllConnections",
@@ -5283,8 +5391,9 @@ export const WebsocketMsgTypeForFrontendEnum = {
   EngineConfigsUpdated: "EngineConfigsUpdated",
   TranscriptionProfilesUpdated: "TranscriptionProfilesUpdated",
 } as const;
-export type WebsocketMsgTypeForFrontend = ObjectValues<typeof WebsocketMsgTypeForFrontendEnum>;
-
+export type WebsocketMsgTypeForFrontend = ObjectValues<
+  typeof WebsocketMsgTypeForFrontendEnum
+>;
 
 export const WebsocketMsgTypeForBackendEnum = {
   CurrentAddressUpdate: "CurrentAddressUpdate",
@@ -5292,8 +5401,9 @@ export const WebsocketMsgTypeForBackendEnum = {
   RealtimeUIChange: "RealtimeUIChange",
   RealtimeDependencyEvent: "RealtimeDependencyEvent",
 } as const;
-export type WebsocketMsgTypeForBackend = ObjectValues<typeof WebsocketMsgTypeForBackendEnum>;
-
+export type WebsocketMsgTypeForBackend = ObjectValues<
+  typeof WebsocketMsgTypeForBackendEnum
+>;
 
 export type WebsocketConnectionInfo = {
   id: string;
@@ -5301,7 +5411,9 @@ export type WebsocketConnectionInfo = {
   currentAddress: string | null;
   shareSessionId: string | null;
 };
-export function createWebsocketConnectionInfo(options: Partial<WebsocketConnectionInfo> = {}): WebsocketConnectionInfo {
+export function createWebsocketConnectionInfo(
+  options: Partial<WebsocketConnectionInfo> = {},
+): WebsocketConnectionInfo {
   return {
     id: "",
     connectionType: WebsocketConnectionTypeEnum.SERVER,
@@ -5311,13 +5423,14 @@ export function createWebsocketConnectionInfo(options: Partial<WebsocketConnecti
   };
 }
 
-
 export type WebsocketMsgCurrentAddressUpdate = {
   id?: string | null;
   messageType: typeof WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate;
   content: string;
 };
-export function createWebsocketMsgCurrentAddressUpdate(options: Partial<WebsocketMsgCurrentAddressUpdate> = {}): WebsocketMsgCurrentAddressUpdate {
+export function createWebsocketMsgCurrentAddressUpdate(
+  options: Partial<WebsocketMsgCurrentAddressUpdate> = {},
+): WebsocketMsgCurrentAddressUpdate {
   return {
     id: null,
     messageType: WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate,
@@ -5326,15 +5439,15 @@ export function createWebsocketMsgCurrentAddressUpdate(options: Partial<Websocke
   };
 }
 
-
 export type UISettingRevealActivationStep = {
   type: string;
   itemValue: string;
 };
-export function createUISettingRevealActivationStep(options: Partial<UISettingRevealActivationStep> = {}): UISettingRevealActivationStep {
+export function createUISettingRevealActivationStep(
+  options: Partial<UISettingRevealActivationStep> = {},
+): UISettingRevealActivationStep {
   return options as UISettingRevealActivationStep;
 }
-
 
 export type UISettingRevealTarget = {
   settingId: string;
@@ -5348,10 +5461,11 @@ export type UISettingRevealTarget = {
   pluginRevealKey?: string | null;
   revealActivationSteps: Array<UISettingRevealActivationStep>;
 };
-export function createUISettingRevealTarget(options: Partial<UISettingRevealTarget> = {}): UISettingRevealTarget {
+export function createUISettingRevealTarget(
+  options: Partial<UISettingRevealTarget> = {},
+): UISettingRevealTarget {
   return options as UISettingRevealTarget;
 }
-
 
 export type UISettingRevealContent = {
   projectConfigId: string;
@@ -5361,10 +5475,11 @@ export type UISettingRevealContent = {
   durationMs: number;
   requestId: string;
 };
-export function createUISettingRevealContent(options: Partial<UISettingRevealContent> = {}): UISettingRevealContent {
+export function createUISettingRevealContent(
+  options: Partial<UISettingRevealContent> = {},
+): UISettingRevealContent {
   return options as UISettingRevealContent;
 }
-
 
 export type UISettingRevealResultStatus = {
   settingId: string;
@@ -5372,91 +5487,103 @@ export type UISettingRevealResultStatus = {
   errorCode?: string | null;
   errorMessage?: string | null;
 };
-export function createUISettingRevealResultStatus(options: Partial<UISettingRevealResultStatus> = {}): UISettingRevealResultStatus {
+export function createUISettingRevealResultStatus(
+  options: Partial<UISettingRevealResultStatus> = {},
+): UISettingRevealResultStatus {
   return options as UISettingRevealResultStatus;
 }
-
 
 export type UISettingRevealResultContent = {
   projectConfigId: string;
   requestId: string;
   statuses: Array<UISettingRevealResultStatus>;
 };
-export function createUISettingRevealResultContent(options: Partial<UISettingRevealResultContent> = {}): UISettingRevealResultContent {
+export function createUISettingRevealResultContent(
+  options: Partial<UISettingRevealResultContent> = {},
+): UISettingRevealResultContent {
   return options as UISettingRevealResultContent;
 }
-
 
 export type WebsocketMsgRealtimeUIChangeContent = {
   projectConfigId: string;
   dependencyKey: BaseDependencyKeyUnion;
   value: BaseDependencyValueUnion;
 };
-export function createWebsocketMsgRealtimeUIChangeContent(options: Partial<WebsocketMsgRealtimeUIChangeContent> = {}): WebsocketMsgRealtimeUIChangeContent {
+export function createWebsocketMsgRealtimeUIChangeContent(
+  options: Partial<WebsocketMsgRealtimeUIChangeContent> = {},
+): WebsocketMsgRealtimeUIChangeContent {
   return options as WebsocketMsgRealtimeUIChangeContent;
 }
-
 
 export type WebsocketMsgRealtimeUIChange = {
   id?: string | null;
   messageType: typeof WebsocketMsgTypeForBackendEnum.RealtimeUIChange;
   content: WebsocketMsgRealtimeUIChangeContent;
 };
-export function createWebsocketMsgRealtimeUIChange(options: Partial<WebsocketMsgRealtimeUIChange> = {}): WebsocketMsgRealtimeUIChange {
+export function createWebsocketMsgRealtimeUIChange(
+  options: Partial<WebsocketMsgRealtimeUIChange> = {},
+): WebsocketMsgRealtimeUIChange {
   return options as WebsocketMsgRealtimeUIChange;
 }
-
 
 export type WebsocketMsgRealtimeDependencyEventContent = {
   projectConfigId: string;
   dependencyEvent: DependencyEvent;
 };
-export function createWebsocketMsgRealtimeDependencyEventContent(options: Partial<WebsocketMsgRealtimeDependencyEventContent> = {}): WebsocketMsgRealtimeDependencyEventContent {
+export function createWebsocketMsgRealtimeDependencyEventContent(
+  options: Partial<WebsocketMsgRealtimeDependencyEventContent> = {},
+): WebsocketMsgRealtimeDependencyEventContent {
   return options as WebsocketMsgRealtimeDependencyEventContent;
 }
-
 
 export type WebsocketMsgRealtimeDependencyEvent = {
   id?: string | null;
   messageType: typeof WebsocketMsgTypeForBackendEnum.RealtimeDependencyEvent;
   content: WebsocketMsgRealtimeDependencyEventContent;
 };
-export function createWebsocketMsgRealtimeDependencyEvent(options: Partial<WebsocketMsgRealtimeDependencyEvent> = {}): WebsocketMsgRealtimeDependencyEvent {
+export function createWebsocketMsgRealtimeDependencyEvent(
+  options: Partial<WebsocketMsgRealtimeDependencyEvent> = {},
+): WebsocketMsgRealtimeDependencyEvent {
   return options as WebsocketMsgRealtimeDependencyEvent;
 }
-
 
 export type WebsocketMsgUISettingRevealResult = {
   id?: string | null;
   messageType: typeof WebsocketMsgTypeForBackendEnum.UISettingRevealResult;
   content: UISettingRevealResultContent;
 };
-export function createWebsocketMsgUISettingRevealResult(options: Partial<WebsocketMsgUISettingRevealResult> = {}): WebsocketMsgUISettingRevealResult {
+export function createWebsocketMsgUISettingRevealResult(
+  options: Partial<WebsocketMsgUISettingRevealResult> = {},
+): WebsocketMsgUISettingRevealResult {
   return options as WebsocketMsgUISettingRevealResult;
 }
 
-
-export type WebsocketMsg = WebsocketMsgCurrentAddressUpdate | WebsocketMsgRealtimeUIChange | WebsocketMsgRealtimeDependencyEvent | WebsocketMsgUISettingRevealResult;
-
+export type WebsocketMsg =
+  | WebsocketMsgCurrentAddressUpdate
+  | WebsocketMsgRealtimeUIChange
+  | WebsocketMsgRealtimeDependencyEvent
+  | WebsocketMsgUISettingRevealResult;
 
 export type FrontendWebsocketMsgUnion = {
   id?: string | null;
   messageType: WebsocketMsgTypeForFrontend;
   content: any;
 };
-export function createFrontendWebsocketMsgUnion(options: Partial<FrontendWebsocketMsgUnion> = {}): FrontendWebsocketMsgUnion {
+export function createFrontendWebsocketMsgUnion(
+  options: Partial<FrontendWebsocketMsgUnion> = {},
+): FrontendWebsocketMsgUnion {
   return options as FrontendWebsocketMsgUnion;
 }
-
 
 export type BackendInitEvent = {
   message: string;
   timestamp: string;
 };
-export function createBackendInitEvent(options: Partial<BackendInitEvent> = {}): BackendInitEvent {
+export function createBackendInitEvent(
+  options: Partial<BackendInitEvent> = {},
+): BackendInitEvent {
   return options as BackendInitEvent;
 }
-
 
 export type BackendInitStatusResponse = {
   events: Array<BackendInitEvent>;
@@ -5465,18 +5592,20 @@ export type BackendInitStatusResponse = {
   authCookieRefreshWindowSeconds: number;
   worktreeName: string | null;
 };
-export function createBackendInitStatusResponse(options: Partial<BackendInitStatusResponse> = {}): BackendInitStatusResponse {
+export function createBackendInitStatusResponse(
+  options: Partial<BackendInitStatusResponse> = {},
+): BackendInitStatusResponse {
   return options as BackendInitStatusResponse;
 }
-
 
 export type AuthRefreshStatusResponse = {
   authCookieRefreshWindowSeconds: number;
 };
-export function createAuthRefreshStatusResponse(options: Partial<AuthRefreshStatusResponse> = {}): AuthRefreshStatusResponse {
+export function createAuthRefreshStatusResponse(
+  options: Partial<AuthRefreshStatusResponse> = {},
+): AuthRefreshStatusResponse {
   return options as AuthRefreshStatusResponse;
 }
-
 
 export const ServerModeEnum = {
   IDE: "ide",
@@ -5486,14 +5615,14 @@ export const ServerModeEnum = {
 } as const;
 export type ServerMode = ObjectValues<typeof ServerModeEnum>;
 
-
 export type ServerModeResponse = {
   mode: ServerMode;
 };
-export function createServerModeResponse(options: Partial<ServerModeResponse> = {}): ServerModeResponse {
+export function createServerModeResponse(
+  options: Partial<ServerModeResponse> = {},
+): ServerModeResponse {
   return options as ServerModeResponse;
 }
-
 
 export type SettaHomeInfoResponse = {
   settaHome: string;
@@ -5501,79 +5630,88 @@ export type SettaHomeInfoResponse = {
   activeSettaFilesLocation: string | null;
   llmConfigPath: string;
 };
-export function createSettaHomeInfoResponse(options: Partial<SettaHomeInfoResponse> = {}): SettaHomeInfoResponse {
+export function createSettaHomeInfoResponse(
+  options: Partial<SettaHomeInfoResponse> = {},
+): SettaHomeInfoResponse {
   return options as SettaHomeInfoResponse;
 }
-
 
 export type SaveSettingsRequestInput = {
   settings: SettingsState;
 };
-export function createSaveSettingsRequestInput(options: Partial<SaveSettingsRequestInput> = {}): SaveSettingsRequestInput {
+export function createSaveSettingsRequestInput(
+  options: Partial<SaveSettingsRequestInput> = {},
+): SaveSettingsRequestInput {
   return options as SaveSettingsRequestInput;
 }
-
 
 export type ProjectMetadataEntry = {
   id: string;
   name: string;
 };
-export function createProjectMetadataEntry(options: Partial<ProjectMetadataEntry> = {}): ProjectMetadataEntry {
+export function createProjectMetadataEntry(
+  options: Partial<ProjectMetadataEntry> = {},
+): ProjectMetadataEntry {
   return options as ProjectMetadataEntry;
 }
-
 
 export type AllProjectMetadata = {
   defaultProjectConfigId: string | null;
   projectMetadata: Array<ProjectMetadataEntry>;
 };
-export function createAllProjectMetadata(options: Partial<AllProjectMetadata> = {}): AllProjectMetadata {
+export function createAllProjectMetadata(
+  options: Partial<AllProjectMetadata> = {},
+): AllProjectMetadata {
   return options as AllProjectMetadata;
 }
-
 
 export type LoadProjectConfigRequestInput = {
   projectConfigName: string;
 };
-export function createLoadProjectConfigRequestInput(options: Partial<LoadProjectConfigRequestInput> = {}): LoadProjectConfigRequestInput {
+export function createLoadProjectConfigRequestInput(
+  options: Partial<LoadProjectConfigRequestInput> = {},
+): LoadProjectConfigRequestInput {
   return options as LoadProjectConfigRequestInput;
 }
-
 
 export type GetLatestProjectStateRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
 };
-export function createGetLatestProjectStateRequestInput(options: Partial<GetLatestProjectStateRequestInput> = {}): GetLatestProjectStateRequestInput {
+export function createGetLatestProjectStateRequestInput(
+  options: Partial<GetLatestProjectStateRequestInput> = {},
+): GetLatestProjectStateRequestInput {
   return options as GetLatestProjectStateRequestInput;
 }
-
 
 export type UndoRequestInput = {
   projectConfigId: string;
   steps: number;
 };
-export function createUndoRequestInput(options: Partial<UndoRequestInput> = {}): UndoRequestInput {
+export function createUndoRequestInput(
+  options: Partial<UndoRequestInput> = {},
+): UndoRequestInput {
   return options as UndoRequestInput;
 }
-
 
 export type RedoRequestInput = {
   projectConfigId: string;
   steps: number;
 };
-export function createRedoRequestInput(options: Partial<RedoRequestInput> = {}): RedoRequestInput {
+export function createRedoRequestInput(
+  options: Partial<RedoRequestInput> = {},
+): RedoRequestInput {
   return options as RedoRequestInput;
 }
-
 
 export type SaveProjectRequestInput = {
   projectConfigId: string;
 };
-export function createSaveProjectRequestInput(options: Partial<SaveProjectRequestInput> = {}): SaveProjectRequestInput {
+export function createSaveProjectRequestInput(
+  options: Partial<SaveProjectRequestInput> = {},
+): SaveProjectRequestInput {
   return options as SaveProjectRequestInput;
 }
-
 
 export type SaveAsNewProjectConfigRequestInput = {
   frontendOpId?: string | null;
@@ -5581,83 +5719,90 @@ export type SaveAsNewProjectConfigRequestInput = {
   newConfigName: string;
   withRefs: boolean;
 };
-export function createSaveAsNewProjectConfigRequestInput(options: Partial<SaveAsNewProjectConfigRequestInput> = {}): SaveAsNewProjectConfigRequestInput {
+export function createSaveAsNewProjectConfigRequestInput(
+  options: Partial<SaveAsNewProjectConfigRequestInput> = {},
+): SaveAsNewProjectConfigRequestInput {
   return options as SaveAsNewProjectConfigRequestInput;
 }
-
 
 export type CreateProjectConfigRequestInput = {
   previewImgColor: string;
 };
-export function createCreateProjectConfigRequestInput(options: Partial<CreateProjectConfigRequestInput> = {}): CreateProjectConfigRequestInput {
+export function createCreateProjectConfigRequestInput(
+  options: Partial<CreateProjectConfigRequestInput> = {},
+): CreateProjectConfigRequestInput {
   return options as CreateProjectConfigRequestInput;
 }
 
-
 export type CreateProjectConfigResponse = string;
-
 
 export type DeleteProjectConfigsRequestInput = {
   ids: Array<string>;
 };
-export function createDeleteProjectConfigsRequestInput(options: Partial<DeleteProjectConfigsRequestInput> = {}): DeleteProjectConfigsRequestInput {
+export function createDeleteProjectConfigsRequestInput(
+  options: Partial<DeleteProjectConfigsRequestInput> = {},
+): DeleteProjectConfigsRequestInput {
   return options as DeleteProjectConfigsRequestInput;
 }
-
 
 export type SetAsDefaultProjectRequestInput = {
   projectConfigId: string;
 };
-export function createSetAsDefaultProjectRequestInput(options: Partial<SetAsDefaultProjectRequestInput> = {}): SetAsDefaultProjectRequestInput {
+export function createSetAsDefaultProjectRequestInput(
+  options: Partial<SetAsDefaultProjectRequestInput> = {},
+): SetAsDefaultProjectRequestInput {
   return options as SetAsDefaultProjectRequestInput;
 }
-
 
 export type SetProjectConfigNameRequestInput = {
   projectConfigId: string;
   newName: string;
 };
-export function createSetProjectConfigNameRequestInput(options: Partial<SetProjectConfigNameRequestInput> = {}): SetProjectConfigNameRequestInput {
+export function createSetProjectConfigNameRequestInput(
+  options: Partial<SetProjectConfigNameRequestInput> = {},
+): SetProjectConfigNameRequestInput {
   return options as SetProjectConfigNameRequestInput;
 }
-
 
 export type GetNotificationsRequestInput = {
   projectConfigId: string;
 };
-export function createGetNotificationsRequestInput(options: Partial<GetNotificationsRequestInput> = {}): GetNotificationsRequestInput {
+export function createGetNotificationsRequestInput(
+  options: Partial<GetNotificationsRequestInput> = {},
+): GetNotificationsRequestInput {
   return options as GetNotificationsRequestInput;
 }
 
-
 export type NotificationsResponse = Array<SettaNotification>;
-
 
 export type DeleteNotificationRequestInput = {
   notificationId: string;
 };
-export function createDeleteNotificationRequestInput(options: Partial<DeleteNotificationRequestInput> = {}): DeleteNotificationRequestInput {
+export function createDeleteNotificationRequestInput(
+  options: Partial<DeleteNotificationRequestInput> = {},
+): DeleteNotificationRequestInput {
   return options as DeleteNotificationRequestInput;
 }
-
 
 export type CreateNewSectionVariantRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
 };
-export function createCreateNewSectionVariantRequestInput(options: Partial<CreateNewSectionVariantRequestInput> = {}): CreateNewSectionVariantRequestInput {
+export function createCreateNewSectionVariantRequestInput(
+  options: Partial<CreateNewSectionVariantRequestInput> = {},
+): CreateNewSectionVariantRequestInput {
   return options as CreateNewSectionVariantRequestInput;
 }
-
 
 export type CreateNewSectionVariantResponse = {
   variantId: string;
 };
-export function createCreateNewSectionVariantResponse(options: Partial<CreateNewSectionVariantResponse> = {}): CreateNewSectionVariantResponse {
+export function createCreateNewSectionVariantResponse(
+  options: Partial<CreateNewSectionVariantResponse> = {},
+): CreateNewSectionVariantResponse {
   return options as CreateNewSectionVariantResponse;
 }
-
 
 export type SetSectionVariantRequestInput = {
   frontendOpId?: string | null;
@@ -5665,10 +5810,11 @@ export type SetSectionVariantRequestInput = {
   sectionId: string;
   variantId: string;
 };
-export function createSetSectionVariantRequestInput(options: Partial<SetSectionVariantRequestInput> = {}): SetSectionVariantRequestInput {
+export function createSetSectionVariantRequestInput(
+  options: Partial<SetSectionVariantRequestInput> = {},
+): SetSectionVariantRequestInput {
   return options as SetSectionVariantRequestInput;
 }
-
 
 export type SetDefaultSectionVariantRequestInput = {
   frontendOpId?: string | null;
@@ -5676,10 +5822,11 @@ export type SetDefaultSectionVariantRequestInput = {
   sectionId: string;
   variantId: string;
 };
-export function createSetDefaultSectionVariantRequestInput(options: Partial<SetDefaultSectionVariantRequestInput> = {}): SetDefaultSectionVariantRequestInput {
+export function createSetDefaultSectionVariantRequestInput(
+  options: Partial<SetDefaultSectionVariantRequestInput> = {},
+): SetDefaultSectionVariantRequestInput {
   return options as SetDefaultSectionVariantRequestInput;
 }
-
 
 export type SetSectionVariantSortOrderRequestInput = {
   frontendOpId?: string | null;
@@ -5687,20 +5834,22 @@ export type SetSectionVariantSortOrderRequestInput = {
   sectionId: string;
   orderedVariantIds: Array<string>;
 };
-export function createSetSectionVariantSortOrderRequestInput(options: Partial<SetSectionVariantSortOrderRequestInput> = {}): SetSectionVariantSortOrderRequestInput {
+export function createSetSectionVariantSortOrderRequestInput(
+  options: Partial<SetSectionVariantSortOrderRequestInput> = {},
+): SetSectionVariantSortOrderRequestInput {
   return options as SetSectionVariantSortOrderRequestInput;
 }
-
 
 export type ToggleVariantFrozenRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   variantId: string;
 };
-export function createToggleVariantFrozenRequestInput(options: Partial<ToggleVariantFrozenRequestInput> = {}): ToggleVariantFrozenRequestInput {
+export function createToggleVariantFrozenRequestInput(
+  options: Partial<ToggleVariantFrozenRequestInput> = {},
+): ToggleVariantFrozenRequestInput {
   return options as ToggleVariantFrozenRequestInput;
 }
-
 
 export type ToggleVariantJSONSourceRequestInput = {
   frontendOpId?: string | null;
@@ -5708,10 +5857,11 @@ export type ToggleVariantJSONSourceRequestInput = {
   sectionId: string;
   variantId: string;
 };
-export function createToggleVariantJSONSourceRequestInput(options: Partial<ToggleVariantJSONSourceRequestInput> = {}): ToggleVariantJSONSourceRequestInput {
+export function createToggleVariantJSONSourceRequestInput(
+  options: Partial<ToggleVariantJSONSourceRequestInput> = {},
+): ToggleVariantJSONSourceRequestInput {
   return options as ToggleVariantJSONSourceRequestInput;
 }
-
 
 export type SetVariantJSONSourceKeysRequestInput = {
   frontendOpId?: string | null;
@@ -5720,10 +5870,11 @@ export type SetVariantJSONSourceKeysRequestInput = {
   variantId: string;
   jsonSourceKeys: Array<string>;
 };
-export function createSetVariantJSONSourceKeysRequestInput(options: Partial<SetVariantJSONSourceKeysRequestInput> = {}): SetVariantJSONSourceKeysRequestInput {
+export function createSetVariantJSONSourceKeysRequestInput(
+  options: Partial<SetVariantJSONSourceKeysRequestInput> = {},
+): SetVariantJSONSourceKeysRequestInput {
   return options as SetVariantJSONSourceKeysRequestInput;
 }
-
 
 export type SetSectionVariantNameRequestInput = {
   frontendOpId?: string | null;
@@ -5731,23 +5882,24 @@ export type SetSectionVariantNameRequestInput = {
   variantId: string;
   name: string;
 };
-export function createSetSectionVariantNameRequestInput(options: Partial<SetSectionVariantNameRequestInput> = {}): SetSectionVariantNameRequestInput {
+export function createSetSectionVariantNameRequestInput(
+  options: Partial<SetSectionVariantNameRequestInput> = {},
+): SetSectionVariantNameRequestInput {
   return options as SetSectionVariantNameRequestInput;
 }
-
 
 export type DeleteSectionVariantOrAskRequest = {
   projectConfigId: string;
   sectionId: string;
   variantId: string;
 };
-export function createDeleteSectionVariantOrAskRequest(options: Partial<DeleteSectionVariantOrAskRequest> = {}): DeleteSectionVariantOrAskRequest {
+export function createDeleteSectionVariantOrAskRequest(
+  options: Partial<DeleteSectionVariantOrAskRequest> = {},
+): DeleteSectionVariantOrAskRequest {
   return options as DeleteSectionVariantOrAskRequest;
 }
 
-
 export type DeleteSectionVariantOrAskResponse = string;
-
 
 export type DeleteJSONSourceFileAndVariantRequest = {
   projectConfigId: string;
@@ -5755,10 +5907,11 @@ export type DeleteJSONSourceFileAndVariantRequest = {
   variantId: string;
   filepath: string;
 };
-export function createDeleteJSONSourceFileAndVariantRequest(options: Partial<DeleteJSONSourceFileAndVariantRequest> = {}): DeleteJSONSourceFileAndVariantRequest {
+export function createDeleteJSONSourceFileAndVariantRequest(
+  options: Partial<DeleteJSONSourceFileAndVariantRequest> = {},
+): DeleteJSONSourceFileAndVariantRequest {
   return options as DeleteJSONSourceFileAndVariantRequest;
 }
-
 
 export type CreateChildSectionsRequestInput = {
   frontendOpId?: string | null;
@@ -5768,18 +5921,20 @@ export type CreateChildSectionsRequestInput = {
   numChildren: number;
   startIdx?: number | null;
 };
-export function createCreateChildSectionsRequestInput(options: Partial<CreateChildSectionsRequestInput> = {}): CreateChildSectionsRequestInput {
+export function createCreateChildSectionsRequestInput(
+  options: Partial<CreateChildSectionsRequestInput> = {},
+): CreateChildSectionsRequestInput {
   return options as CreateChildSectionsRequestInput;
 }
-
 
 export type CreateChildSectionsResponse = {
   sectionIds: Array<string>;
 };
-export function createCreateChildSectionsResponse(options: Partial<CreateChildSectionsResponse> = {}): CreateChildSectionsResponse {
+export function createCreateChildSectionsResponse(
+  options: Partial<CreateChildSectionsResponse> = {},
+): CreateChildSectionsResponse {
   return options as CreateChildSectionsResponse;
 }
-
 
 export type CreateChildSectionsViaIncrementerRequestInput = {
   frontendOpId?: string | null;
@@ -5788,10 +5943,11 @@ export type CreateChildSectionsViaIncrementerRequestInput = {
   implType: SectionType;
   numChildren: number;
 };
-export function createCreateChildSectionsViaIncrementerRequestInput(options: Partial<CreateChildSectionsViaIncrementerRequestInput> = {}): CreateChildSectionsViaIncrementerRequestInput {
+export function createCreateChildSectionsViaIncrementerRequestInput(
+  options: Partial<CreateChildSectionsViaIncrementerRequestInput> = {},
+): CreateChildSectionsViaIncrementerRequestInput {
   return options as CreateChildSectionsViaIncrementerRequestInput;
 }
-
 
 export type DeleteChildSectionsViaDecrementerRequestInput = {
   frontendOpId?: string | null;
@@ -5799,28 +5955,31 @@ export type DeleteChildSectionsViaDecrementerRequestInput = {
   calledBy: string;
   numChildren: number;
 };
-export function createDeleteChildSectionsViaDecrementerRequestInput(options: Partial<DeleteChildSectionsViaDecrementerRequestInput> = {}): DeleteChildSectionsViaDecrementerRequestInput {
+export function createDeleteChildSectionsViaDecrementerRequestInput(
+  options: Partial<DeleteChildSectionsViaDecrementerRequestInput> = {},
+): DeleteChildSectionsViaDecrementerRequestInput {
   return options as DeleteChildSectionsViaDecrementerRequestInput;
 }
-
 
 export type DeleteChildSectionsViaDecrementerResponse = {
   sectionIds: Array<string>;
 };
-export function createDeleteChildSectionsViaDecrementerResponse(options: Partial<DeleteChildSectionsViaDecrementerResponse> = {}): DeleteChildSectionsViaDecrementerResponse {
+export function createDeleteChildSectionsViaDecrementerResponse(
+  options: Partial<DeleteChildSectionsViaDecrementerResponse> = {},
+): DeleteChildSectionsViaDecrementerResponse {
   return options as DeleteChildSectionsViaDecrementerResponse;
 }
-
 
 export type DeleteSectionsRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   sectionIds: Array<string>;
 };
-export function createDeleteSectionsRequestInput(options: Partial<DeleteSectionsRequestInput> = {}): DeleteSectionsRequestInput {
+export function createDeleteSectionsRequestInput(
+  options: Partial<DeleteSectionsRequestInput> = {},
+): DeleteSectionsRequestInput {
   return options as DeleteSectionsRequestInput;
 }
-
 
 export type DeleteSelectedParamsRequestInput = {
   frontendOpId?: string | null;
@@ -5828,22 +5987,23 @@ export type DeleteSelectedParamsRequestInput = {
   sectionId: string;
   paramInfoIds: Array<string>;
 };
-export function createDeleteSelectedParamsRequestInput(options: Partial<DeleteSelectedParamsRequestInput> = {}): DeleteSelectedParamsRequestInput {
+export function createDeleteSelectedParamsRequestInput(
+  options: Partial<DeleteSelectedParamsRequestInput> = {},
+): DeleteSelectedParamsRequestInput {
   return options as DeleteSelectedParamsRequestInput;
 }
-
 
 export type PrepareSectionsForCopyRequestInput = {
   projectConfigId: string;
   sectionIds: Array<string>;
 };
-export function createPrepareSectionsForCopyRequestInput(options: Partial<PrepareSectionsForCopyRequestInput> = {}): PrepareSectionsForCopyRequestInput {
+export function createPrepareSectionsForCopyRequestInput(
+  options: Partial<PrepareSectionsForCopyRequestInput> = {},
+): PrepareSectionsForCopyRequestInput {
   return options as PrepareSectionsForCopyRequestInput;
 }
 
-
 export type SectionsClipboardDataResponse = SectionsClipboardData;
-
 
 export type PasteSectionsRequestInput = {
   projectConfigId: string;
@@ -5851,10 +6011,11 @@ export type PasteSectionsRequestInput = {
   position: Position;
   asRef: boolean;
 };
-export function createPasteSectionsRequestInput(options: Partial<PasteSectionsRequestInput> = {}): PasteSectionsRequestInput {
+export function createPasteSectionsRequestInput(
+  options: Partial<PasteSectionsRequestInput> = {},
+): PasteSectionsRequestInput {
   return options as PasteSectionsRequestInput;
 }
-
 
 export type CreateEdgeRequestInput = {
   frontendOpId?: string | null;
@@ -5873,30 +6034,33 @@ export type CreateEdgeRequestInput = {
   zIndex?: number;
   data?: Record<string, unknown> | null;
 };
-export function createCreateEdgeRequestInput(options: Partial<CreateEdgeRequestInput> = {}): CreateEdgeRequestInput {
+export function createCreateEdgeRequestInput(
+  options: Partial<CreateEdgeRequestInput> = {},
+): CreateEdgeRequestInput {
   return options as CreateEdgeRequestInput;
 }
-
 
 export type UpdateEdgeRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   edge: Edge;
 };
-export function createUpdateEdgeRequestInput(options: Partial<UpdateEdgeRequestInput> = {}): UpdateEdgeRequestInput {
+export function createUpdateEdgeRequestInput(
+  options: Partial<UpdateEdgeRequestInput> = {},
+): UpdateEdgeRequestInput {
   return options as UpdateEdgeRequestInput;
 }
-
 
 export type DeleteEdgesRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   edgeIds: Array<string>;
 };
-export function createDeleteEdgesRequestInput(options: Partial<DeleteEdgesRequestInput> = {}): DeleteEdgesRequestInput {
+export function createDeleteEdgesRequestInput(
+  options: Partial<DeleteEdgesRequestInput> = {},
+): DeleteEdgesRequestInput {
   return options as DeleteEdgesRequestInput;
 }
-
 
 export type ReconnectEdgeRequestInput = {
   frontendOpId?: string | null;
@@ -5909,20 +6073,22 @@ export type ReconnectEdgeRequestInput = {
   targetVariantId: string;
   targetPortId: string;
 };
-export function createReconnectEdgeRequestInput(options: Partial<ReconnectEdgeRequestInput> = {}): ReconnectEdgeRequestInput {
+export function createReconnectEdgeRequestInput(
+  options: Partial<ReconnectEdgeRequestInput> = {},
+): ReconnectEdgeRequestInput {
   return options as ReconnectEdgeRequestInput;
 }
-
 
 export type SetEdgesRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   edges: Array<Edge>;
 };
-export function createSetEdgesRequestInput(options: Partial<SetEdgesRequestInput> = {}): SetEdgesRequestInput {
+export function createSetEdgesRequestInput(
+  options: Partial<SetEdgesRequestInput> = {},
+): SetEdgesRequestInput {
   return options as SetEdgesRequestInput;
 }
-
 
 export type CreateAgenticEdgeRequestInput = {
   frontendOpId?: string | null;
@@ -5936,40 +6102,44 @@ export type CreateAgenticEdgeRequestInput = {
   hidden?: boolean;
   zIndex?: number;
 };
-export function createCreateAgenticEdgeRequestInput(options: Partial<CreateAgenticEdgeRequestInput> = {}): CreateAgenticEdgeRequestInput {
+export function createCreateAgenticEdgeRequestInput(
+  options: Partial<CreateAgenticEdgeRequestInput> = {},
+): CreateAgenticEdgeRequestInput {
   return options as CreateAgenticEdgeRequestInput;
 }
-
 
 export type UpdateAgenticEdgeRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   edge: AgenticEdge;
 };
-export function createUpdateAgenticEdgeRequestInput(options: Partial<UpdateAgenticEdgeRequestInput> = {}): UpdateAgenticEdgeRequestInput {
+export function createUpdateAgenticEdgeRequestInput(
+  options: Partial<UpdateAgenticEdgeRequestInput> = {},
+): UpdateAgenticEdgeRequestInput {
   return options as UpdateAgenticEdgeRequestInput;
 }
-
 
 export type DeleteAgenticEdgesRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   edgeIds: Array<string>;
 };
-export function createDeleteAgenticEdgesRequestInput(options: Partial<DeleteAgenticEdgesRequestInput> = {}): DeleteAgenticEdgesRequestInput {
+export function createDeleteAgenticEdgesRequestInput(
+  options: Partial<DeleteAgenticEdgesRequestInput> = {},
+): DeleteAgenticEdgesRequestInput {
   return options as DeleteAgenticEdgesRequestInput;
 }
-
 
 export type SetAgenticEdgesRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   edges: Array<AgenticEdge>;
 };
-export function createSetAgenticEdgesRequestInput(options: Partial<SetAgenticEdgesRequestInput> = {}): SetAgenticEdgesRequestInput {
+export function createSetAgenticEdgesRequestInput(
+  options: Partial<SetAgenticEdgesRequestInput> = {},
+): SetAgenticEdgesRequestInput {
   return options as SetAgenticEdgesRequestInput;
 }
-
 
 export type MoveSectionsRequestInput = {
   frontendOpId?: string | null;
@@ -5979,10 +6149,11 @@ export type MoveSectionsRequestInput = {
   newIndex: number | null;
   positionsById: Record<string, Position> | null;
 };
-export function createMoveSectionsRequestInput(options: Partial<MoveSectionsRequestInput> = {}): MoveSectionsRequestInput {
+export function createMoveSectionsRequestInput(
+  options: Partial<MoveSectionsRequestInput> = {},
+): MoveSectionsRequestInput {
   return options as MoveSectionsRequestInput;
 }
-
 
 export type MoveParamsRequestInput = {
   frontendOpId?: string | null;
@@ -5992,20 +6163,22 @@ export type MoveParamsRequestInput = {
   newParentId: string;
   newIndex: number;
 };
-export function createMoveParamsRequestInput(options: Partial<MoveParamsRequestInput> = {}): MoveParamsRequestInput {
+export function createMoveParamsRequestInput(
+  options: Partial<MoveParamsRequestInput> = {},
+): MoveParamsRequestInput {
   return options as MoveParamsRequestInput;
 }
-
 
 export type MoveParamGroup = {
   paramIds: Array<string>;
   newParentId: string;
   newIndex: number;
 };
-export function createMoveParamGroup(options: Partial<MoveParamGroup> = {}): MoveParamGroup {
+export function createMoveParamGroup(
+  options: Partial<MoveParamGroup> = {},
+): MoveParamGroup {
   return options as MoveParamGroup;
 }
-
 
 export type MoveParamGroupsRequestInput = {
   frontendOpId?: string | null;
@@ -6013,10 +6186,11 @@ export type MoveParamGroupsRequestInput = {
   sectionId: string;
   moves: Array<MoveParamGroup>;
 };
-export function createMoveParamGroupsRequestInput(options: Partial<MoveParamGroupsRequestInput> = {}): MoveParamGroupsRequestInput {
+export function createMoveParamGroupsRequestInput(
+  options: Partial<MoveParamGroupsRequestInput> = {},
+): MoveParamGroupsRequestInput {
   return options as MoveParamGroupsRequestInput;
 }
-
 
 export type IndentParamsRequestInput = {
   frontendOpId?: string | null;
@@ -6024,10 +6198,11 @@ export type IndentParamsRequestInput = {
   sectionId: string;
   paramIds: Array<string>;
 };
-export function createIndentParamsRequestInput(options: Partial<IndentParamsRequestInput> = {}): IndentParamsRequestInput {
+export function createIndentParamsRequestInput(
+  options: Partial<IndentParamsRequestInput> = {},
+): IndentParamsRequestInput {
   return options as IndentParamsRequestInput;
 }
-
 
 export type UnindentParamsRequestInput = {
   frontendOpId?: string | null;
@@ -6035,28 +6210,31 @@ export type UnindentParamsRequestInput = {
   sectionId: string;
   paramIds: Array<string>;
 };
-export function createUnindentParamsRequestInput(options: Partial<UnindentParamsRequestInput> = {}): UnindentParamsRequestInput {
+export function createUnindentParamsRequestInput(
+  options: Partial<UnindentParamsRequestInput> = {},
+): UnindentParamsRequestInput {
   return options as UnindentParamsRequestInput;
 }
-
 
 export type AddKwargRequestInput = {
   projectConfigId: string;
   sectionId: string;
 };
-export function createAddKwargRequestInput(options: Partial<AddKwargRequestInput> = {}): AddKwargRequestInput {
+export function createAddKwargRequestInput(
+  options: Partial<AddKwargRequestInput> = {},
+): AddKwargRequestInput {
   return options as AddKwargRequestInput;
 }
-
 
 export type DeleteKwargRequestInput = {
   projectConfigId: string;
   sectionId: string;
 };
-export function createDeleteKwargRequestInput(options: Partial<DeleteKwargRequestInput> = {}): DeleteKwargRequestInput {
+export function createDeleteKwargRequestInput(
+  options: Partial<DeleteKwargRequestInput> = {},
+): DeleteKwargRequestInput {
   return options as DeleteKwargRequestInput;
 }
-
 
 export type Position = {
   x: number;
@@ -6066,7 +6244,6 @@ export function createPosition(options: Partial<Position> = {}): Position {
   return options as Position;
 }
 
-
 export type TopLevelSectionLayoutInput = {
   x: number;
   y: number;
@@ -6074,10 +6251,11 @@ export type TopLevelSectionLayoutInput = {
   w?: number | null;
   h?: number | null;
 };
-export function createTopLevelSectionLayoutInput(options: Partial<TopLevelSectionLayoutInput> = {}): TopLevelSectionLayoutInput {
+export function createTopLevelSectionLayoutInput(
+  options: Partial<TopLevelSectionLayoutInput> = {},
+): TopLevelSectionLayoutInput {
   return options as TopLevelSectionLayoutInput;
 }
-
 
 export type ViewportBoundsInput = {
   x: number;
@@ -6085,10 +6263,11 @@ export type ViewportBoundsInput = {
   w: number;
   h: number;
 };
-export function createViewportBoundsInput(options: Partial<ViewportBoundsInput> = {}): ViewportBoundsInput {
+export function createViewportBoundsInput(
+  options: Partial<ViewportBoundsInput> = {},
+): ViewportBoundsInput {
   return options as ViewportBoundsInput;
 }
-
 
 export type CreateTopLevelSectionRequestInput = {
   frontendOpId?: string | null;
@@ -6101,71 +6280,77 @@ export type CreateTopLevelSectionRequestInput = {
   topLevelSections?: Record<string, TopLevelSectionLayoutInput>;
   viewportBounds?: ViewportBoundsInput | null;
 };
-export function createCreateTopLevelSectionRequestInput(options: Partial<CreateTopLevelSectionRequestInput> = {}): CreateTopLevelSectionRequestInput {
+export function createCreateTopLevelSectionRequestInput(
+  options: Partial<CreateTopLevelSectionRequestInput> = {},
+): CreateTopLevelSectionRequestInput {
   return options as CreateTopLevelSectionRequestInput;
 }
-
 
 export type CreateTopLevelSectionResponse = {
   sectionId: string;
   metaControlParamId?: string | null;
   panTo?: Position | null;
 };
-export function createCreateTopLevelSectionResponse(options: Partial<CreateTopLevelSectionResponse> = {}): CreateTopLevelSectionResponse {
+export function createCreateTopLevelSectionResponse(
+  options: Partial<CreateTopLevelSectionResponse> = {},
+): CreateTopLevelSectionResponse {
   return options as CreateTopLevelSectionResponse;
 }
-
 
 export type CreateViewModeRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
 };
-export function createCreateViewModeRequestInput(options: Partial<CreateViewModeRequestInput> = {}): CreateViewModeRequestInput {
+export function createCreateViewModeRequestInput(
+  options: Partial<CreateViewModeRequestInput> = {},
+): CreateViewModeRequestInput {
   return options as CreateViewModeRequestInput;
 }
 
-
 export type CreateViewModeResponse = string;
-
 
 export type SetActiveViewModeRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   activeViewModeId: string;
 };
-export function createSetActiveViewModeRequestInput(options: Partial<SetActiveViewModeRequestInput> = {}): SetActiveViewModeRequestInput {
+export function createSetActiveViewModeRequestInput(
+  options: Partial<SetActiveViewModeRequestInput> = {},
+): SetActiveViewModeRequestInput {
   return options as SetActiveViewModeRequestInput;
 }
-
 
 export type ToggleIsEditingViewModeRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
 };
-export function createToggleIsEditingViewModeRequestInput(options: Partial<ToggleIsEditingViewModeRequestInput> = {}): ToggleIsEditingViewModeRequestInput {
+export function createToggleIsEditingViewModeRequestInput(
+  options: Partial<ToggleIsEditingViewModeRequestInput> = {},
+): ToggleIsEditingViewModeRequestInput {
   return options as ToggleIsEditingViewModeRequestInput;
 }
-
 
 export type ToggleViewModeUserFacingRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   viewModeId: string;
 };
-export function createToggleViewModeUserFacingRequestInput(options: Partial<ToggleViewModeUserFacingRequestInput> = {}): ToggleViewModeUserFacingRequestInput {
+export function createToggleViewModeUserFacingRequestInput(
+  options: Partial<ToggleViewModeUserFacingRequestInput> = {},
+): ToggleViewModeUserFacingRequestInput {
   return options as ToggleViewModeUserFacingRequestInput;
 }
-
 
 export type ToggleViewModeTabRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   viewModeId: string;
 };
-export function createToggleViewModeTabRequestInput(options: Partial<ToggleViewModeTabRequestInput> = {}): ToggleViewModeTabRequestInput {
+export function createToggleViewModeTabRequestInput(
+  options: Partial<ToggleViewModeTabRequestInput> = {},
+): ToggleViewModeTabRequestInput {
   return options as ToggleViewModeTabRequestInput;
 }
-
 
 export type SetViewModeNameRequestInput = {
   frontendOpId?: string | null;
@@ -6173,30 +6358,33 @@ export type SetViewModeNameRequestInput = {
   viewModeId: string;
   name: string;
 };
-export function createSetViewModeNameRequestInput(options: Partial<SetViewModeNameRequestInput> = {}): SetViewModeNameRequestInput {
+export function createSetViewModeNameRequestInput(
+  options: Partial<SetViewModeNameRequestInput> = {},
+): SetViewModeNameRequestInput {
   return options as SetViewModeNameRequestInput;
 }
-
 
 export type SetViewModeSortOrderRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   orderedViewModeIds: Array<string>;
 };
-export function createSetViewModeSortOrderRequestInput(options: Partial<SetViewModeSortOrderRequestInput> = {}): SetViewModeSortOrderRequestInput {
+export function createSetViewModeSortOrderRequestInput(
+  options: Partial<SetViewModeSortOrderRequestInput> = {},
+): SetViewModeSortOrderRequestInput {
   return options as SetViewModeSortOrderRequestInput;
 }
-
 
 export type DeleteViewModeRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   viewModeId: string;
 };
-export function createDeleteViewModeRequestInput(options: Partial<DeleteViewModeRequestInput> = {}): DeleteViewModeRequestInput {
+export function createDeleteViewModeRequestInput(
+  options: Partial<DeleteViewModeRequestInput> = {},
+): DeleteViewModeRequestInput {
   return options as DeleteViewModeRequestInput;
 }
-
 
 export type SetSectionNameRequestInput = {
   frontendOpId?: string | null;
@@ -6204,18 +6392,20 @@ export type SetSectionNameRequestInput = {
   sectionId: string;
   name: string;
 };
-export function createSetSectionNameRequestInput(options: Partial<SetSectionNameRequestInput> = {}): SetSectionNameRequestInput {
+export function createSetSectionNameRequestInput(
+  options: Partial<SetSectionNameRequestInput> = {},
+): SetSectionNameRequestInput {
   return options as SetSectionNameRequestInput;
 }
-
 
 export const LaunchSettaFilesLocationEnum = {
   Auto: "auto",
   Local: "local",
   Global: "global",
 } as const;
-export type LaunchSettaFilesLocation = ObjectValues<typeof LaunchSettaFilesLocationEnum>;
-
+export type LaunchSettaFilesLocation = ObjectValues<
+  typeof LaunchSettaFilesLocationEnum
+>;
 
 export type LaunchRequestInput = {
   launchIntentToken?: string | null;
@@ -6230,28 +6420,31 @@ export type LaunchRequestInput = {
   remoteCmd?: string | null;
   localPort?: number | null;
 };
-export function createLaunchRequestInput(options: Partial<LaunchRequestInput> = {}): LaunchRequestInput {
+export function createLaunchRequestInput(
+  options: Partial<LaunchRequestInput> = {},
+): LaunchRequestInput {
   return options as LaunchRequestInput;
 }
-
 
 export type CreateWorkspaceLaunchIntentRequestInput = {
   launchRequest: LaunchRequestInput;
   returnUrl: string;
 };
-export function createCreateWorkspaceLaunchIntentRequestInput(options: Partial<CreateWorkspaceLaunchIntentRequestInput> = {}): CreateWorkspaceLaunchIntentRequestInput {
+export function createCreateWorkspaceLaunchIntentRequestInput(
+  options: Partial<CreateWorkspaceLaunchIntentRequestInput> = {},
+): CreateWorkspaceLaunchIntentRequestInput {
   return options as CreateWorkspaceLaunchIntentRequestInput;
 }
-
 
 export type LaunchErrorPayload = {
   code: string;
   message: string;
 };
-export function createLaunchErrorPayload(options: Partial<LaunchErrorPayload> = {}): LaunchErrorPayload {
+export function createLaunchErrorPayload(
+  options: Partial<LaunchErrorPayload> = {},
+): LaunchErrorPayload {
   return options as LaunchErrorPayload;
 }
-
 
 export type CreateWorkspaceLaunchIntentResponse = {
   ok: boolean;
@@ -6259,17 +6452,19 @@ export type CreateWorkspaceLaunchIntentResponse = {
   requestedAt: number | null;
   error: LaunchErrorPayload | null;
 };
-export function createCreateWorkspaceLaunchIntentResponse(options: Partial<CreateWorkspaceLaunchIntentResponse> = {}): CreateWorkspaceLaunchIntentResponse {
+export function createCreateWorkspaceLaunchIntentResponse(
+  options: Partial<CreateWorkspaceLaunchIntentResponse> = {},
+): CreateWorkspaceLaunchIntentResponse {
   return options as CreateWorkspaceLaunchIntentResponse;
 }
-
 
 export const LaunchResolvedSettaFilesLocationEnum = {
   Local: "local",
   Global: "global",
 } as const;
-export type LaunchResolvedSettaFilesLocation = ObjectValues<typeof LaunchResolvedSettaFilesLocationEnum>;
-
+export type LaunchResolvedSettaFilesLocation = ObjectValues<
+  typeof LaunchResolvedSettaFilesLocationEnum
+>;
 
 export type LaunchSessionInfo = {
   id: string;
@@ -6280,10 +6475,11 @@ export type LaunchSessionInfo = {
   pid: number;
   startedAt: string;
 };
-export function createLaunchSessionInfo(options: Partial<LaunchSessionInfo> = {}): LaunchSessionInfo {
+export function createLaunchSessionInfo(
+  options: Partial<LaunchSessionInfo> = {},
+): LaunchSessionInfo {
   return options as LaunchSessionInfo;
 }
-
 
 export type LaunchResponse = {
   ok: boolean;
@@ -6301,22 +6497,23 @@ export type LaunchResponse = {
   remoteCmdResolved: string | null;
   error: LaunchErrorPayload | null;
 };
-export function createLaunchResponse(options: Partial<LaunchResponse> = {}): LaunchResponse {
+export function createLaunchResponse(
+  options: Partial<LaunchResponse> = {},
+): LaunchResponse {
   return options as LaunchResponse;
 }
 
-
 export type DeploymentType = string;
-
 
 export type DeploymentListenerConfig = {
   entrypoint: string;
   enabled: boolean;
 };
-export function createDeploymentListenerConfig(options: Partial<DeploymentListenerConfig> = {}): DeploymentListenerConfig {
+export function createDeploymentListenerConfig(
+  options: Partial<DeploymentListenerConfig> = {},
+): DeploymentListenerConfig {
   return options as DeploymentListenerConfig;
 }
-
 
 export type DeploymentManifest = {
   version: number;
@@ -6327,10 +6524,11 @@ export type DeploymentManifest = {
   createdAt: string;
   listener?: DeploymentListenerConfig | null;
 };
-export function createDeploymentManifest(options: Partial<DeploymentManifest> = {}): DeploymentManifest {
+export function createDeploymentManifest(
+  options: Partial<DeploymentManifest> = {},
+): DeploymentManifest {
   return options as DeploymentManifest;
 }
-
 
 export type ShareDeploymentSessionResponse = {
   deploymentName: string;
@@ -6342,10 +6540,11 @@ export type ShareDeploymentSessionResponse = {
   sharePolicy: SharePolicy;
   manifest?: DeploymentManifest | null;
 };
-export function createShareDeploymentSessionResponse(options: Partial<ShareDeploymentSessionResponse> = {}): ShareDeploymentSessionResponse {
+export function createShareDeploymentSessionResponse(
+  options: Partial<ShareDeploymentSessionResponse> = {},
+): ShareDeploymentSessionResponse {
   return options as ShareDeploymentSessionResponse;
 }
-
 
 export type AppDeploymentSessionResponse = {
   deploymentName: string;
@@ -6357,18 +6556,20 @@ export type AppDeploymentSessionResponse = {
   appPolicy: SharePolicy;
   manifest?: DeploymentManifest | null;
 };
-export function createAppDeploymentSessionResponse(options: Partial<AppDeploymentSessionResponse> = {}): AppDeploymentSessionResponse {
+export function createAppDeploymentSessionResponse(
+  options: Partial<AppDeploymentSessionResponse> = {},
+): AppDeploymentSessionResponse {
   return options as AppDeploymentSessionResponse;
 }
-
 
 export type LoadDeploymentProjectConfigRequestInput = {
   projectConfigId: string;
 };
-export function createLoadDeploymentProjectConfigRequestInput(options: Partial<LoadDeploymentProjectConfigRequestInput> = {}): LoadDeploymentProjectConfigRequestInput {
+export function createLoadDeploymentProjectConfigRequestInput(
+  options: Partial<LoadDeploymentProjectConfigRequestInput> = {},
+): LoadDeploymentProjectConfigRequestInput {
   return options as LoadDeploymentProjectConfigRequestInput;
 }
-
 
 export type AppRoute = {
   path: string;
@@ -6378,7 +6579,6 @@ export type AppRoute = {
 export function createAppRoute(options: Partial<AppRoute> = {}): AppRoute {
   return options as AppRoute;
 }
-
 
 export type AppDefinition = {
   appSpecVersion?: string;
@@ -6390,10 +6590,11 @@ export type AppDefinition = {
   theme?: Record<string, unknown>;
   assets?: Array<unknown>;
 };
-export function createAppDefinition(options: Partial<AppDefinition> = {}): AppDefinition {
+export function createAppDefinition(
+  options: Partial<AppDefinition> = {},
+): AppDefinition {
   return options as AppDefinition;
 }
-
 
 export type AppDeploymentStateResponse = {
   projectState: ProjectStateSingleConfig;
@@ -6401,10 +6602,11 @@ export type AppDeploymentStateResponse = {
   appSpec: JSONValue;
   appPolicy: SharePolicy;
 };
-export function createAppDeploymentStateResponse(options: Partial<AppDeploymentStateResponse> = {}): AppDeploymentStateResponse {
+export function createAppDeploymentStateResponse(
+  options: Partial<AppDeploymentStateResponse> = {},
+): AppDeploymentStateResponse {
   return options as AppDeploymentStateResponse;
 }
-
 
 export type ShareDeploymentMetadata = {
   deploymentName: string;
@@ -6415,13 +6617,13 @@ export type ShareDeploymentMetadata = {
   deploymentRoot: string;
   policyPath: string;
 };
-export function createShareDeploymentMetadata(options: Partial<ShareDeploymentMetadata> = {}): ShareDeploymentMetadata {
+export function createShareDeploymentMetadata(
+  options: Partial<ShareDeploymentMetadata> = {},
+): ShareDeploymentMetadata {
   return options as ShareDeploymentMetadata;
 }
 
-
 export type ShareDeploymentMetadataList = Array<ShareDeploymentMetadata>;
-
 
 export type PublishShareDeploymentRequestInput = {
   deploymentName: string;
@@ -6430,10 +6632,11 @@ export type PublishShareDeploymentRequestInput = {
   listenerEntrypoint: string;
   listenerEnabled: boolean;
 };
-export function createPublishShareDeploymentRequestInput(options: Partial<PublishShareDeploymentRequestInput> = {}): PublishShareDeploymentRequestInput {
+export function createPublishShareDeploymentRequestInput(
+  options: Partial<PublishShareDeploymentRequestInput> = {},
+): PublishShareDeploymentRequestInput {
   return options as PublishShareDeploymentRequestInput;
 }
-
 
 export type AppDeploymentMetadata = {
   deploymentName: string;
@@ -6444,13 +6647,13 @@ export type AppDeploymentMetadata = {
   deploymentRoot: string;
   policyPath: string;
 };
-export function createAppDeploymentMetadata(options: Partial<AppDeploymentMetadata> = {}): AppDeploymentMetadata {
+export function createAppDeploymentMetadata(
+  options: Partial<AppDeploymentMetadata> = {},
+): AppDeploymentMetadata {
   return options as AppDeploymentMetadata;
 }
 
-
 export type AppDeploymentMetadataList = Array<AppDeploymentMetadata>;
-
 
 export type PublishAppDeploymentRequestInput = {
   deploymentName: string;
@@ -6459,86 +6662,95 @@ export type PublishAppDeploymentRequestInput = {
   listenerEntrypoint: string;
   listenerEnabled: boolean;
 };
-export function createPublishAppDeploymentRequestInput(options: Partial<PublishAppDeploymentRequestInput> = {}): PublishAppDeploymentRequestInput {
+export function createPublishAppDeploymentRequestInput(
+  options: Partial<PublishAppDeploymentRequestInput> = {},
+): PublishAppDeploymentRequestInput {
   return options as PublishAppDeploymentRequestInput;
 }
-
 
 export type GetLauncherRecentWorkspacesRequestInput = {
   setta_home?: string | null;
 };
-export function createGetLauncherRecentWorkspacesRequestInput(options: Partial<GetLauncherRecentWorkspacesRequestInput> = {}): GetLauncherRecentWorkspacesRequestInput {
+export function createGetLauncherRecentWorkspacesRequestInput(
+  options: Partial<GetLauncherRecentWorkspacesRequestInput> = {},
+): GetLauncherRecentWorkspacesRequestInput {
   return options as GetLauncherRecentWorkspacesRequestInput;
 }
-
 
 export type LauncherRecentWorkspacePayload = {
   workspaceRoot: string;
   pinned: boolean;
   lastUsedAt: number;
 };
-export function createLauncherRecentWorkspacePayload(options: Partial<LauncherRecentWorkspacePayload> = {}): LauncherRecentWorkspacePayload {
+export function createLauncherRecentWorkspacePayload(
+  options: Partial<LauncherRecentWorkspacePayload> = {},
+): LauncherRecentWorkspacePayload {
   return options as LauncherRecentWorkspacePayload;
 }
-
 
 export type LauncherHomeErrorPayload = {
   code: string;
   message: string;
 };
-export function createLauncherHomeErrorPayload(options: Partial<LauncherHomeErrorPayload> = {}): LauncherHomeErrorPayload {
+export function createLauncherHomeErrorPayload(
+  options: Partial<LauncherHomeErrorPayload> = {},
+): LauncherHomeErrorPayload {
   return options as LauncherHomeErrorPayload;
 }
-
 
 export type LauncherRecentWorkspacesResponse = {
   ok: boolean;
   workspaces: Array<LauncherRecentWorkspacePayload>;
   error: LauncherHomeErrorPayload | null;
 };
-export function createLauncherRecentWorkspacesResponse(options: Partial<LauncherRecentWorkspacesResponse> = {}): LauncherRecentWorkspacesResponse {
+export function createLauncherRecentWorkspacesResponse(
+  options: Partial<LauncherRecentWorkspacesResponse> = {},
+): LauncherRecentWorkspacesResponse {
   return options as LauncherRecentWorkspacesResponse;
 }
-
 
 export type LauncherRecentWorkspaceRequestInput = {
   settaHome?: string | null;
   workspaceRoot: string;
   pinned?: boolean | null;
 };
-export function createLauncherRecentWorkspaceRequestInput(options: Partial<LauncherRecentWorkspaceRequestInput> = {}): LauncherRecentWorkspaceRequestInput {
+export function createLauncherRecentWorkspaceRequestInput(
+  options: Partial<LauncherRecentWorkspaceRequestInput> = {},
+): LauncherRecentWorkspaceRequestInput {
   return options as LauncherRecentWorkspaceRequestInput;
 }
-
 
 export type PinLauncherRecentWorkspaceRequestInput = {
   settaHome?: string | null;
   workspaceRoot: string;
   pinned: boolean;
 };
-export function createPinLauncherRecentWorkspaceRequestInput(options: Partial<PinLauncherRecentWorkspaceRequestInput> = {}): PinLauncherRecentWorkspaceRequestInput {
+export function createPinLauncherRecentWorkspaceRequestInput(
+  options: Partial<PinLauncherRecentWorkspaceRequestInput> = {},
+): PinLauncherRecentWorkspaceRequestInput {
   return options as PinLauncherRecentWorkspaceRequestInput;
 }
-
 
 export type LauncherFilesystemRootsResponse = {
   ok: boolean;
   roots: Array<string>;
 };
-export function createLauncherFilesystemRootsResponse(options: Partial<LauncherFilesystemRootsResponse> = {}): LauncherFilesystemRootsResponse {
+export function createLauncherFilesystemRootsResponse(
+  options: Partial<LauncherFilesystemRootsResponse> = {},
+): LauncherFilesystemRootsResponse {
   return options as LauncherFilesystemRootsResponse;
 }
-
 
 export type LauncherListDirectoryRequestInput = {
   path?: string | null;
   cursor?: string | null;
   pageSize?: number | null;
 };
-export function createLauncherListDirectoryRequestInput(options: Partial<LauncherListDirectoryRequestInput> = {}): LauncherListDirectoryRequestInput {
+export function createLauncherListDirectoryRequestInput(
+  options: Partial<LauncherListDirectoryRequestInput> = {},
+): LauncherListDirectoryRequestInput {
   return options as LauncherListDirectoryRequestInput;
 }
-
 
 export type LauncherDirectoryEntryPayload = {
   name: string;
@@ -6546,10 +6758,11 @@ export type LauncherDirectoryEntryPayload = {
   isDirectory: boolean;
   isSymlink: boolean;
 };
-export function createLauncherDirectoryEntryPayload(options: Partial<LauncherDirectoryEntryPayload> = {}): LauncherDirectoryEntryPayload {
+export function createLauncherDirectoryEntryPayload(
+  options: Partial<LauncherDirectoryEntryPayload> = {},
+): LauncherDirectoryEntryPayload {
   return options as LauncherDirectoryEntryPayload;
 }
-
 
 export type LauncherListDirectoryResponse = {
   ok: boolean;
@@ -6561,10 +6774,11 @@ export type LauncherListDirectoryResponse = {
   truncated: boolean;
   error: LauncherHomeErrorPayload | null;
 };
-export function createLauncherListDirectoryResponse(options: Partial<LauncherListDirectoryResponse> = {}): LauncherListDirectoryResponse {
+export function createLauncherListDirectoryResponse(
+  options: Partial<LauncherListDirectoryResponse> = {},
+): LauncherListDirectoryResponse {
   return options as LauncherListDirectoryResponse;
 }
-
 
 export type LauncherOpenWorkspaceRequestInput = {
   workspaceRoot: string;
@@ -6575,10 +6789,11 @@ export type LauncherOpenWorkspaceRequestInput = {
   runtimeRoot?: string | null;
   createIfMissing?: boolean | null;
 };
-export function createLauncherOpenWorkspaceRequestInput(options: Partial<LauncherOpenWorkspaceRequestInput> = {}): LauncherOpenWorkspaceRequestInput {
+export function createLauncherOpenWorkspaceRequestInput(
+  options: Partial<LauncherOpenWorkspaceRequestInput> = {},
+): LauncherOpenWorkspaceRequestInput {
   return options as LauncherOpenWorkspaceRequestInput;
 }
-
 
 export type LauncherOpenWorkspaceResponse = {
   ok: boolean;
@@ -6593,18 +6808,20 @@ export type LauncherOpenWorkspaceResponse = {
   startedNew: boolean | null;
   error: LauncherHomeErrorPayload | null;
 };
-export function createLauncherOpenWorkspaceResponse(options: Partial<LauncherOpenWorkspaceResponse> = {}): LauncherOpenWorkspaceResponse {
+export function createLauncherOpenWorkspaceResponse(
+  options: Partial<LauncherOpenWorkspaceResponse> = {},
+): LauncherOpenWorkspaceResponse {
   return options as LauncherOpenWorkspaceResponse;
 }
-
 
 export type GetLauncherStatusRequestInput = {
   setta_home?: string | null;
 };
-export function createGetLauncherStatusRequestInput(options: Partial<GetLauncherStatusRequestInput> = {}): GetLauncherStatusRequestInput {
+export function createGetLauncherStatusRequestInput(
+  options: Partial<GetLauncherStatusRequestInput> = {},
+): GetLauncherStatusRequestInput {
   return options as GetLauncherStatusRequestInput;
 }
-
 
 export const LauncherOpenModeEnum = {
   Browser: "browser",
@@ -6612,30 +6829,32 @@ export const LauncherOpenModeEnum = {
 } as const;
 export type LauncherOpenMode = ObjectValues<typeof LauncherOpenModeEnum>;
 
-
 export const LauncherWorkspaceBehaviorEnum = {
   LastUsedOrPrompt: "last_used_or_prompt",
   AlwaysPrompt: "always_prompt",
 } as const;
-export type LauncherWorkspaceBehavior = ObjectValues<typeof LauncherWorkspaceBehaviorEnum>;
-
+export type LauncherWorkspaceBehavior = ObjectValues<
+  typeof LauncherWorkspaceBehaviorEnum
+>;
 
 export const LauncherUpdateCapabilityEnum = {
   InApp: "in_app",
   InstallerManaged: "installer_managed",
   Unsupported: "unsupported",
 } as const;
-export type LauncherUpdateCapability = ObjectValues<typeof LauncherUpdateCapabilityEnum>;
-
+export type LauncherUpdateCapability = ObjectValues<
+  typeof LauncherUpdateCapabilityEnum
+>;
 
 export type LauncherOperationErrorPayload = {
   code: string;
   message: string;
 };
-export function createLauncherOperationErrorPayload(options: Partial<LauncherOperationErrorPayload> = {}): LauncherOperationErrorPayload {
+export function createLauncherOperationErrorPayload(
+  options: Partial<LauncherOperationErrorPayload> = {},
+): LauncherOperationErrorPayload {
   return options as LauncherOperationErrorPayload;
 }
-
 
 export type LauncherStatusResponse = {
   ok: boolean;
@@ -6659,25 +6878,28 @@ export type LauncherStatusResponse = {
   updateGuidance?: string | null;
   error?: LauncherOperationErrorPayload | null;
 };
-export function createLauncherStatusResponse(options: Partial<LauncherStatusResponse> = {}): LauncherStatusResponse {
+export function createLauncherStatusResponse(
+  options: Partial<LauncherStatusResponse> = {},
+): LauncherStatusResponse {
   return options as LauncherStatusResponse;
 }
-
 
 export const LauncherInstallSourceEnum = {
   UVTool: "uv-tool",
   InstallerManaged: "installer-managed",
   Unsupported: "unsupported",
 } as const;
-export type LauncherInstallSource = ObjectValues<typeof LauncherInstallSourceEnum>;
-
+export type LauncherInstallSource = ObjectValues<
+  typeof LauncherInstallSourceEnum
+>;
 
 export const SetupLauncherWorkspaceBehaviorEnum = {
   LastUsedOrPrompt: "last-used-or-prompt",
   AlwaysPrompt: "always-prompt",
 } as const;
-export type SetupLauncherWorkspaceBehavior = ObjectValues<typeof SetupLauncherWorkspaceBehaviorEnum>;
-
+export type SetupLauncherWorkspaceBehavior = ObjectValues<
+  typeof SetupLauncherWorkspaceBehaviorEnum
+>;
 
 export type SetupLauncherRequestInput = {
   settaHome?: string | null;
@@ -6688,27 +6910,30 @@ export type SetupLauncherRequestInput = {
   installArtifacts?: boolean | null;
   artifactOptions?: Record<string, string>;
 };
-export function createSetupLauncherRequestInput(options: Partial<SetupLauncherRequestInput> = {}): SetupLauncherRequestInput {
+export function createSetupLauncherRequestInput(
+  options: Partial<SetupLauncherRequestInput> = {},
+): SetupLauncherRequestInput {
   return options as SetupLauncherRequestInput;
 }
-
 
 export type LauncherRequestBaseInput = {
   settaHome?: string | null;
 };
-export function createLauncherRequestBaseInput(options: Partial<LauncherRequestBaseInput> = {}): LauncherRequestBaseInput {
+export function createLauncherRequestBaseInput(
+  options: Partial<LauncherRequestBaseInput> = {},
+): LauncherRequestBaseInput {
   return options as LauncherRequestBaseInput;
 }
-
 
 export type UpdateLauncherRequestInput = {
   settaHome?: string | null;
   packageSpec?: string | null;
 };
-export function createUpdateLauncherRequestInput(options: Partial<UpdateLauncherRequestInput> = {}): UpdateLauncherRequestInput {
+export function createUpdateLauncherRequestInput(
+  options: Partial<UpdateLauncherRequestInput> = {},
+): UpdateLauncherRequestInput {
   return options as UpdateLauncherRequestInput;
 }
-
 
 export type LauncherUpdateResponse = {
   ok: boolean;
@@ -6735,18 +6960,20 @@ export type LauncherUpdateResponse = {
   fromVersion?: string | null;
   toVersion?: string | null;
 };
-export function createLauncherUpdateResponse(options: Partial<LauncherUpdateResponse> = {}): LauncherUpdateResponse {
+export function createLauncherUpdateResponse(
+  options: Partial<LauncherUpdateResponse> = {},
+): LauncherUpdateResponse {
   return options as LauncherUpdateResponse;
 }
-
 
 export type RevealPathInOSFileExplorerRequest = {
   path: string;
 };
-export function createRevealPathInOSFileExplorerRequest(options: Partial<RevealPathInOSFileExplorerRequest> = {}): RevealPathInOSFileExplorerRequest {
+export function createRevealPathInOSFileExplorerRequest(
+  options: Partial<RevealPathInOSFileExplorerRequest> = {},
+): RevealPathInOSFileExplorerRequest {
   return options as RevealPathInOSFileExplorerRequest;
 }
-
 
 export type AppGenSkillEntry = {
   skillId: string;
@@ -6758,28 +6985,31 @@ export type AppGenSkillEntry = {
   editabilityReason: string | null;
   description: string;
 };
-export function createAppGenSkillEntry(options: Partial<AppGenSkillEntry> = {}): AppGenSkillEntry {
+export function createAppGenSkillEntry(
+  options: Partial<AppGenSkillEntry> = {},
+): AppGenSkillEntry {
   return options as AppGenSkillEntry;
 }
-
 
 export type GetAppGenSkillsResponse = {
   skills: Array<AppGenSkillEntry>;
   customSkillCreateRootPath: string | null;
   customSkillCreateRootActionable: boolean;
 };
-export function createGetAppGenSkillsResponse(options: Partial<GetAppGenSkillsResponse> = {}): GetAppGenSkillsResponse {
+export function createGetAppGenSkillsResponse(
+  options: Partial<GetAppGenSkillsResponse> = {},
+): GetAppGenSkillsResponse {
   return options as GetAppGenSkillsResponse;
 }
-
 
 export type GetAppGenSkillContentRequestInput = {
   skillId: string;
 };
-export function createGetAppGenSkillContentRequestInput(options: Partial<GetAppGenSkillContentRequestInput> = {}): GetAppGenSkillContentRequestInput {
+export function createGetAppGenSkillContentRequestInput(
+  options: Partial<GetAppGenSkillContentRequestInput> = {},
+): GetAppGenSkillContentRequestInput {
   return options as GetAppGenSkillContentRequestInput;
 }
-
 
 export type AppGenSkillContent = {
   skillId: string;
@@ -6787,20 +7017,22 @@ export type AppGenSkillContent = {
   truncated: boolean;
   originalSizeBytes: number;
 };
-export function createAppGenSkillContent(options: Partial<AppGenSkillContent> = {}): AppGenSkillContent {
+export function createAppGenSkillContent(
+  options: Partial<AppGenSkillContent> = {},
+): AppGenSkillContent {
   return options as AppGenSkillContent;
 }
-
 
 export type UpsertAppGenCustomSkillRequestInput = {
   skillId: string | null;
   relativePath: string | null;
   content: string;
 };
-export function createUpsertAppGenCustomSkillRequestInput(options: Partial<UpsertAppGenCustomSkillRequestInput> = {}): UpsertAppGenCustomSkillRequestInput {
+export function createUpsertAppGenCustomSkillRequestInput(
+  options: Partial<UpsertAppGenCustomSkillRequestInput> = {},
+): UpsertAppGenCustomSkillRequestInput {
   return options as UpsertAppGenCustomSkillRequestInput;
 }
-
 
 export type UpsertAppGenCustomSkillResponse = {
   skillId: string;
@@ -6810,25 +7042,25 @@ export type UpsertAppGenCustomSkillResponse = {
   skill: AppGenSkillEntry;
   skillContent: AppGenSkillContent;
 };
-export function createUpsertAppGenCustomSkillResponse(options: Partial<UpsertAppGenCustomSkillResponse> = {}): UpsertAppGenCustomSkillResponse {
+export function createUpsertAppGenCustomSkillResponse(
+  options: Partial<UpsertAppGenCustomSkillResponse> = {},
+): UpsertAppGenCustomSkillResponse {
   return options as UpsertAppGenCustomSkillResponse;
 }
-
 
 export type MCPRuntimeStatusRequestInput = {
   chatId: string | null;
   engineConfigId: string | null;
 };
-export function createMCPRuntimeStatusRequestInput(options: Partial<MCPRuntimeStatusRequestInput> = {}): MCPRuntimeStatusRequestInput {
+export function createMCPRuntimeStatusRequestInput(
+  options: Partial<MCPRuntimeStatusRequestInput> = {},
+): MCPRuntimeStatusRequestInput {
   return options as MCPRuntimeStatusRequestInput;
 }
 
-
 export type MCPTransport = string;
 
-
 export type MCPRuntimeState = string;
-
 
 export type MCPServerRuntimeStatus = {
   serverId: string;
@@ -6844,10 +7076,11 @@ export type MCPServerRuntimeStatus = {
   missingEnvVar: string | null;
   toolCount: number;
 };
-export function createMCPServerRuntimeStatus(options: Partial<MCPServerRuntimeStatus> = {}): MCPServerRuntimeStatus {
+export function createMCPServerRuntimeStatus(
+  options: Partial<MCPServerRuntimeStatus> = {},
+): MCPServerRuntimeStatus {
   return options as MCPServerRuntimeStatus;
 }
-
 
 export type MCPRuntimeStatusResponse = {
   llmConfigPath: string;
@@ -6855,28 +7088,31 @@ export type MCPRuntimeStatusResponse = {
   servers: Array<MCPServerRuntimeStatus>;
   externalServers: Array<MCPServerRuntimeStatus>;
 };
-export function createMCPRuntimeStatusResponse(options: Partial<MCPRuntimeStatusResponse> = {}): MCPRuntimeStatusResponse {
+export function createMCPRuntimeStatusResponse(
+  options: Partial<MCPRuntimeStatusResponse> = {},
+): MCPRuntimeStatusResponse {
   return options as MCPRuntimeStatusResponse;
 }
-
 
 export type GetPasswordParamValueRequestInput = {
   projectConfigId: string;
   sectionId: string;
   paramInfoId: string;
 };
-export function createGetPasswordParamValueRequestInput(options: Partial<GetPasswordParamValueRequestInput> = {}): GetPasswordParamValueRequestInput {
+export function createGetPasswordParamValueRequestInput(
+  options: Partial<GetPasswordParamValueRequestInput> = {},
+): GetPasswordParamValueRequestInput {
   return options as GetPasswordParamValueRequestInput;
 }
-
 
 export type GetPasswordParamValueResponse = {
   value: string;
 };
-export function createGetPasswordParamValueResponse(options: Partial<GetPasswordParamValueResponse> = {}): GetPasswordParamValueResponse {
+export function createGetPasswordParamValueResponse(
+  options: Partial<GetPasswordParamValueResponse> = {},
+): GetPasswordParamValueResponse {
   return options as GetPasswordParamValueResponse;
 }
-
 
 export type ChangeParamImplRequest = {
   frontendOpId: string | null;
@@ -6885,10 +7121,11 @@ export type ChangeParamImplRequest = {
   paramInfoId: string;
   selectedId: string;
 };
-export function createChangeParamImplRequest(options: Partial<ChangeParamImplRequest> = {}): ChangeParamImplRequest {
+export function createChangeParamImplRequest(
+  options: Partial<ChangeParamImplRequest> = {},
+): ChangeParamImplRequest {
   return options as ChangeParamImplRequest;
 }
-
 
 export type SetParamEnteredValueRequestInput = {
   frontendOpId?: string | null;
@@ -6897,10 +7134,11 @@ export type SetParamEnteredValueRequestInput = {
   paramInfoId: string;
   value: string;
 };
-export function createSetParamEnteredValueRequestInput(options: Partial<SetParamEnteredValueRequestInput> = {}): SetParamEnteredValueRequestInput {
+export function createSetParamEnteredValueRequestInput(
+  options: Partial<SetParamEnteredValueRequestInput> = {},
+): SetParamEnteredValueRequestInput {
   return options as SetParamEnteredValueRequestInput;
 }
-
 
 export type UpdateParamImplConfigRequestInput = {
   frontendOpId?: string | null;
@@ -6909,10 +7147,11 @@ export type UpdateParamImplConfigRequestInput = {
   paramInfoId: string;
   newConfig: Record<string, unknown>;
 };
-export function createUpdateParamImplConfigRequestInput(options: Partial<UpdateParamImplConfigRequestInput> = {}): UpdateParamImplConfigRequestInput {
+export function createUpdateParamImplConfigRequestInput(
+  options: Partial<UpdateParamImplConfigRequestInput> = {},
+): UpdateParamImplConfigRequestInput {
   return options as UpdateParamImplConfigRequestInput;
 }
-
 
 export type SetCodeObjNameRequestInput = {
   frontendOpId?: string | null;
@@ -6920,10 +7159,11 @@ export type SetCodeObjNameRequestInput = {
   codeObjId: string;
   name: string;
 };
-export function createSetCodeObjNameRequestInput(options: Partial<SetCodeObjNameRequestInput> = {}): SetCodeObjNameRequestInput {
+export function createSetCodeObjNameRequestInput(
+  options: Partial<SetCodeObjNameRequestInput> = {},
+): SetCodeObjNameRequestInput {
   return options as SetCodeObjNameRequestInput;
 }
-
 
 export type SetCodeObjDisplayNameRequestInput = {
   frontendOpId?: string | null;
@@ -6931,10 +7171,11 @@ export type SetCodeObjDisplayNameRequestInput = {
   codeObjId: string;
   displayName: string;
 };
-export function createSetCodeObjDisplayNameRequestInput(options: Partial<SetCodeObjDisplayNameRequestInput> = {}): SetCodeObjDisplayNameRequestInput {
+export function createSetCodeObjDisplayNameRequestInput(
+  options: Partial<SetCodeObjDisplayNameRequestInput> = {},
+): SetCodeObjDisplayNameRequestInput {
   return options as SetCodeObjDisplayNameRequestInput;
 }
-
 
 export type SetCodeSectionAttachedTerminalRequestInput = {
   frontendOpId?: string | null;
@@ -6942,10 +7183,11 @@ export type SetCodeSectionAttachedTerminalRequestInput = {
   sectionId: string;
   terminalSectionId?: string | null;
 };
-export function createSetCodeSectionAttachedTerminalRequestInput(options: Partial<SetCodeSectionAttachedTerminalRequestInput> = {}): SetCodeSectionAttachedTerminalRequestInput {
+export function createSetCodeSectionAttachedTerminalRequestInput(
+  options: Partial<SetCodeSectionAttachedTerminalRequestInput> = {},
+): SetCodeSectionAttachedTerminalRequestInput {
   return options as SetCodeSectionAttachedTerminalRequestInput;
 }
-
 
 export type SetCodeRequestInput = {
   frontendOpId?: string | null;
@@ -6953,20 +7195,22 @@ export type SetCodeRequestInput = {
   sectionId: string;
   code: string;
 };
-export function createSetCodeRequestInput(options: Partial<SetCodeRequestInput> = {}): SetCodeRequestInput {
+export function createSetCodeRequestInput(
+  options: Partial<SetCodeRequestInput> = {},
+): SetCodeRequestInput {
   return options as SetCodeRequestInput;
 }
-
 
 export type FormatCodeRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
 };
-export function createFormatCodeRequestInput(options: Partial<FormatCodeRequestInput> = {}): FormatCodeRequestInput {
+export function createFormatCodeRequestInput(
+  options: Partial<FormatCodeRequestInput> = {},
+): FormatCodeRequestInput {
   return options as FormatCodeRequestInput;
 }
-
 
 export type SetCallableRequestInput = {
   frontendOpId?: string | null;
@@ -6975,72 +7219,78 @@ export type SetCallableRequestInput = {
   callableName: string;
   refetchParams: boolean;
 };
-export function createSetCallableRequestInput(options: Partial<SetCallableRequestInput> = {}): SetCallableRequestInput {
+export function createSetCallableRequestInput(
+  options: Partial<SetCallableRequestInput> = {},
+): SetCallableRequestInput {
   return options as SetCallableRequestInput;
 }
-
 
 export type SetCallableChildCodeObj = {
   codeObjId: string;
   name: string;
 };
-export function createSetCallableChildCodeObj(options: Partial<SetCallableChildCodeObj> = {}): SetCallableChildCodeObj {
+export function createSetCallableChildCodeObj(
+  options: Partial<SetCallableChildCodeObj> = {},
+): SetCallableChildCodeObj {
   return options as SetCallableChildCodeObj;
 }
 
-
 export type SignatureHelpStatus = string;
-
 
 export type SetCallableResponse = {
   callableId?: string | null;
   childCodeObjs: Array<SetCallableChildCodeObj>;
   lspStatus: SignatureHelpStatus;
 };
-export function createSetCallableResponse(options: Partial<SetCallableResponse> = {}): SetCallableResponse {
+export function createSetCallableResponse(
+  options: Partial<SetCallableResponse> = {},
+): SetCallableResponse {
   return options as SetCallableResponse;
 }
-
 
 export type SetProjectConfigCodegenTargetsRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   codegenTargets: Array<ProjectCodegenTarget>;
 };
-export function createSetProjectConfigCodegenTargetsRequestInput(options: Partial<SetProjectConfigCodegenTargetsRequestInput> = {}): SetProjectConfigCodegenTargetsRequestInput {
+export function createSetProjectConfigCodegenTargetsRequestInput(
+  options: Partial<SetProjectConfigCodegenTargetsRequestInput> = {},
+): SetProjectConfigCodegenTargetsRequestInput {
   return options as SetProjectConfigCodegenTargetsRequestInput;
 }
-
 
 export type SetGenCodePrefixRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   genCodePrefix: string;
 };
-export function createSetGenCodePrefixRequestInput(options: Partial<SetGenCodePrefixRequestInput> = {}): SetGenCodePrefixRequestInput {
+export function createSetGenCodePrefixRequestInput(
+  options: Partial<SetGenCodePrefixRequestInput> = {},
+): SetGenCodePrefixRequestInput {
   return options as SetGenCodePrefixRequestInput;
 }
-
 
 export type SetGenCodeSuffixRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   genCodeSuffix: string;
 };
-export function createSetGenCodeSuffixRequestInput(options: Partial<SetGenCodeSuffixRequestInput> = {}): SetGenCodeSuffixRequestInput {
+export function createSetGenCodeSuffixRequestInput(
+  options: Partial<SetGenCodeSuffixRequestInput> = {},
+): SetGenCodeSuffixRequestInput {
   return options as SetGenCodeSuffixRequestInput;
 }
-
 
 export type SetWatchCodeEnabledRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   enabled: boolean;
 };
-export function createSetWatchCodeEnabledRequestInput(options: Partial<SetWatchCodeEnabledRequestInput> = {}): SetWatchCodeEnabledRequestInput {
+export function createSetWatchCodeEnabledRequestInput(
+  options: Partial<SetWatchCodeEnabledRequestInput> = {},
+): SetWatchCodeEnabledRequestInput {
   return options as SetWatchCodeEnabledRequestInput;
 }
-
 
 export type SetWatchCodeInputsRequestInput = {
   frontendOpId?: string | null;
@@ -7048,10 +7298,11 @@ export type SetWatchCodeInputsRequestInput = {
   watchCodeFolders: Array<WatchCodeFolder>;
   watchCodeFiles: Array<string>;
 };
-export function createSetWatchCodeInputsRequestInput(options: Partial<SetWatchCodeInputsRequestInput> = {}): SetWatchCodeInputsRequestInput {
+export function createSetWatchCodeInputsRequestInput(
+  options: Partial<SetWatchCodeInputsRequestInput> = {},
+): SetWatchCodeInputsRequestInput {
   return options as SetWatchCodeInputsRequestInput;
 }
-
 
 export type SetTextBlockTextRequestInput = {
   frontendOpId?: string | null;
@@ -7059,10 +7310,11 @@ export type SetTextBlockTextRequestInput = {
   sectionId: string;
   text: string;
 };
-export function createSetTextBlockTextRequestInput(options: Partial<SetTextBlockTextRequestInput> = {}): SetTextBlockTextRequestInput {
+export function createSetTextBlockTextRequestInput(
+  options: Partial<SetTextBlockTextRequestInput> = {},
+): SetTextBlockTextRequestInput {
   return options as SetTextBlockTextRequestInput;
 }
-
 
 export type SetTextBlockDisplayModeRequestInput = {
   frontendOpId?: string | null;
@@ -7070,10 +7322,11 @@ export type SetTextBlockDisplayModeRequestInput = {
   sectionId: string;
   textDisplayMode: TextBlockDisplayMode;
 };
-export function createSetTextBlockDisplayModeRequestInput(options: Partial<SetTextBlockDisplayModeRequestInput> = {}): SetTextBlockDisplayModeRequestInput {
+export function createSetTextBlockDisplayModeRequestInput(
+  options: Partial<SetTextBlockDisplayModeRequestInput> = {},
+): SetTextBlockDisplayModeRequestInput {
   return options as SetTextBlockDisplayModeRequestInput;
 }
-
 
 export type SetTextBlockFormatRequestInput = {
   frontendOpId?: string | null;
@@ -7081,10 +7334,11 @@ export type SetTextBlockFormatRequestInput = {
   sectionId: string;
   format: TextBlockFormat;
 };
-export function createSetTextBlockFormatRequestInput(options: Partial<SetTextBlockFormatRequestInput> = {}): SetTextBlockFormatRequestInput {
+export function createSetTextBlockFormatRequestInput(
+  options: Partial<SetTextBlockFormatRequestInput> = {},
+): SetTextBlockFormatRequestInput {
   return options as SetTextBlockFormatRequestInput;
 }
-
 
 export type SetTextBlockHeadingAsSectionNameRequestInput = {
   frontendOpId?: string | null;
@@ -7092,10 +7346,11 @@ export type SetTextBlockHeadingAsSectionNameRequestInput = {
   sectionId: string;
   headingAsSectionName: boolean;
 };
-export function createSetTextBlockHeadingAsSectionNameRequestInput(options: Partial<SetTextBlockHeadingAsSectionNameRequestInput> = {}): SetTextBlockHeadingAsSectionNameRequestInput {
+export function createSetTextBlockHeadingAsSectionNameRequestInput(
+  options: Partial<SetTextBlockHeadingAsSectionNameRequestInput> = {},
+): SetTextBlockHeadingAsSectionNameRequestInput {
   return options as SetTextBlockHeadingAsSectionNameRequestInput;
 }
-
 
 export type SetTextBlockMetaControlStyleRequestInput = {
   frontendOpId?: string | null;
@@ -7103,10 +7358,11 @@ export type SetTextBlockMetaControlStyleRequestInput = {
   sectionId: string;
   metaControlStyle: boolean;
 };
-export function createSetTextBlockMetaControlStyleRequestInput(options: Partial<SetTextBlockMetaControlStyleRequestInput> = {}): SetTextBlockMetaControlStyleRequestInput {
+export function createSetTextBlockMetaControlStyleRequestInput(
+  options: Partial<SetTextBlockMetaControlStyleRequestInput> = {},
+): SetTextBlockMetaControlStyleRequestInput {
   return options as SetTextBlockMetaControlStyleRequestInput;
 }
-
 
 export type SetTextBlockMasterFontSizeRequestInput = {
   frontendOpId?: string | null;
@@ -7114,29 +7370,40 @@ export type SetTextBlockMasterFontSizeRequestInput = {
   sectionId: string;
   masterFontSizePx: number;
 };
-export function createSetTextBlockMasterFontSizeRequestInput(options: Partial<SetTextBlockMasterFontSizeRequestInput> = {}): SetTextBlockMasterFontSizeRequestInput {
+export function createSetTextBlockMasterFontSizeRequestInput(
+  options: Partial<SetTextBlockMasterFontSizeRequestInput> = {},
+): SetTextBlockMasterFontSizeRequestInput {
   return options as SetTextBlockMasterFontSizeRequestInput;
 }
-
 
 export type DocstringToMarkdownRequest = {
   docstring: string;
 };
-export function createDocstringToMarkdownRequest(options: Partial<DocstringToMarkdownRequest> = {}): DocstringToMarkdownRequest {
+export function createDocstringToMarkdownRequest(
+  options: Partial<DocstringToMarkdownRequest> = {},
+): DocstringToMarkdownRequest {
   return options as DocstringToMarkdownRequest;
 }
 
-
 export type DocstringToMarkdownResponse = string;
 
-
-export type KillSubprocessesRequestInput = {
-  projectConfigId: string;
+export type InterruptTerminalProcessesRequestInput = {
+  projectId: string;
 };
-export function createKillSubprocessesRequestInput(options: Partial<KillSubprocessesRequestInput> = {}): KillSubprocessesRequestInput {
-  return options as KillSubprocessesRequestInput;
+export function createInterruptTerminalProcessesRequestInput(
+  options: Partial<InterruptTerminalProcessesRequestInput> = {},
+): InterruptTerminalProcessesRequestInput {
+  return options as InterruptTerminalProcessesRequestInput;
 }
 
+export type InterruptTerminalProcessesResponse = {
+  interruptedSessionCount: number;
+};
+export function createInterruptTerminalProcessesResponse(
+  options: Partial<InterruptTerminalProcessesResponse> = {},
+): InterruptTerminalProcessesResponse {
+  return options as InterruptTerminalProcessesResponse;
+}
 
 export type RunCodeRequestInput = {
   projectConfigId: string;
@@ -7148,98 +7415,106 @@ export type RunCodeRequestInput = {
   sectionVariantOverrides?: Record<string, string> | null;
   paramOverrides?: Record<string, string> | null;
 };
-export function createRunCodeRequestInput(options: Partial<RunCodeRequestInput> = {}): RunCodeRequestInput {
+export function createRunCodeRequestInput(
+  options: Partial<RunCodeRequestInput> = {},
+): RunCodeRequestInput {
   return options as RunCodeRequestInput;
 }
-
 
 export type GetAttachmentDownloadURLRequestInput = {
   artifactId: string;
   projectConfigId: string | null;
 };
-export function createGetAttachmentDownloadURLRequestInput(options: Partial<GetAttachmentDownloadURLRequestInput> = {}): GetAttachmentDownloadURLRequestInput {
+export function createGetAttachmentDownloadURLRequestInput(
+  options: Partial<GetAttachmentDownloadURLRequestInput> = {},
+): GetAttachmentDownloadURLRequestInput {
   return options as GetAttachmentDownloadURLRequestInput;
 }
-
 
 export type GetAttachmentDownloadURLResponse = {
   url: string;
   expiresAt: number;
 };
-export function createGetAttachmentDownloadURLResponse(options: Partial<GetAttachmentDownloadURLResponse> = {}): GetAttachmentDownloadURLResponse {
+export function createGetAttachmentDownloadURLResponse(
+  options: Partial<GetAttachmentDownloadURLResponse> = {},
+): GetAttachmentDownloadURLResponse {
   return options as GetAttachmentDownloadURLResponse;
 }
-
 
 export type GetAttachmentDownloadURLsRequestInput = {
   artifactIds: Array<string>;
   projectConfigId: string | null;
 };
-export function createGetAttachmentDownloadURLsRequestInput(options: Partial<GetAttachmentDownloadURLsRequestInput> = {}): GetAttachmentDownloadURLsRequestInput {
+export function createGetAttachmentDownloadURLsRequestInput(
+  options: Partial<GetAttachmentDownloadURLsRequestInput> = {},
+): GetAttachmentDownloadURLsRequestInput {
   return options as GetAttachmentDownloadURLsRequestInput;
 }
-
 
 export type AttachmentDownloadURLEntry = {
   artifactId: string;
   url: string;
   expiresAt: number;
 };
-export function createAttachmentDownloadURLEntry(options: Partial<AttachmentDownloadURLEntry> = {}): AttachmentDownloadURLEntry {
+export function createAttachmentDownloadURLEntry(
+  options: Partial<AttachmentDownloadURLEntry> = {},
+): AttachmentDownloadURLEntry {
   return options as AttachmentDownloadURLEntry;
 }
 
-
-export type GetAttachmentDownloadURLsResponse = Array<AttachmentDownloadURLEntry>;
-
+export type GetAttachmentDownloadURLsResponse =
+  Array<AttachmentDownloadURLEntry>;
 
 export type CreateFileRequestInput = {
   filepath: string;
 };
-export function createCreateFileRequestInput(options: Partial<CreateFileRequestInput> = {}): CreateFileRequestInput {
+export function createCreateFileRequestInput(
+  options: Partial<CreateFileRequestInput> = {},
+): CreateFileRequestInput {
   return options as CreateFileRequestInput;
 }
-
 
 export type CheckIfFileExistsRequestInput = {
   filepath: string;
 };
-export function createCheckIfFileExistsRequestInput(options: Partial<CheckIfFileExistsRequestInput> = {}): CheckIfFileExistsRequestInput {
+export function createCheckIfFileExistsRequestInput(
+  options: Partial<CheckIfFileExistsRequestInput> = {},
+): CheckIfFileExistsRequestInput {
   return options as CheckIfFileExistsRequestInput;
 }
 
-
 export type CheckIfFileExistsResponse = boolean;
-
 
 export type CheckWorkspaceInitializedRequestInput = {
   folderPath: string;
   allowOutsideWorkspaceRoot?: boolean | null;
 };
-export function createCheckWorkspaceInitializedRequestInput(options: Partial<CheckWorkspaceInitializedRequestInput> = {}): CheckWorkspaceInitializedRequestInput {
+export function createCheckWorkspaceInitializedRequestInput(
+  options: Partial<CheckWorkspaceInitializedRequestInput> = {},
+): CheckWorkspaceInitializedRequestInput {
   return options as CheckWorkspaceInitializedRequestInput;
 }
 
-
 export type CheckWorkspaceInitializedResponse = boolean;
-
 
 export type FileBrowserRootResponse = {
   rootPath: string;
   pathSeparator: string;
   ignorePatterns: Array<string>;
 };
-export function createFileBrowserRootResponse(options: Partial<FileBrowserRootResponse> = {}): FileBrowserRootResponse {
+export function createFileBrowserRootResponse(
+  options: Partial<FileBrowserRootResponse> = {},
+): FileBrowserRootResponse {
   return options as FileBrowserRootResponse;
 }
-
 
 export const MissingFolderBehaviorEnum = {
   error: "error",
   empty: "empty",
 } as const;
-export type MissingFolderBehavior = ObjectValues<typeof MissingFolderBehaviorEnum>;
-
+export type MissingFolderBehavior = ObjectValues<
+  typeof MissingFolderBehaviorEnum
+>;
 
 export type GetFolderContentsRequestInput = {
   folderPath: string;
@@ -7252,17 +7527,19 @@ export type GetFolderContentsRequestInput = {
   maxEntries?: number | null;
   missingFolderBehavior?: MissingFolderBehavior | null;
 };
-export function createGetFolderContentsRequestInput(options: Partial<GetFolderContentsRequestInput> = {}): GetFolderContentsRequestInput {
+export function createGetFolderContentsRequestInput(
+  options: Partial<GetFolderContentsRequestInput> = {},
+): GetFolderContentsRequestInput {
   return options as GetFolderContentsRequestInput;
 }
-
 
 export const FolderContentItemTypeEnum = {
   folder: "folder",
   file: "file",
 } as const;
-export type FolderContentItemType = ObjectValues<typeof FolderContentItemTypeEnum>;
-
+export type FolderContentItemType = ObjectValues<
+  typeof FolderContentItemTypeEnum
+>;
 
 export type FolderContentItem = {
   name: string;
@@ -7272,43 +7549,46 @@ export type FolderContentItem = {
   size?: number | null;
   isSettaInitialized?: boolean | null;
 };
-export function createFolderContentItem(options: Partial<FolderContentItem> = {}): FolderContentItem {
+export function createFolderContentItem(
+  options: Partial<FolderContentItem> = {},
+): FolderContentItem {
   return options as FolderContentItem;
 }
 
-
 export type GetFolderContentsResponse = Array<FolderContentItem>;
-
 
 export type GetFileBrowserDownloadURLsRequestInput = {
   paths: Array<string>;
 };
-export function createGetFileBrowserDownloadURLsRequestInput(options: Partial<GetFileBrowserDownloadURLsRequestInput> = {}): GetFileBrowserDownloadURLsRequestInput {
+export function createGetFileBrowserDownloadURLsRequestInput(
+  options: Partial<GetFileBrowserDownloadURLsRequestInput> = {},
+): GetFileBrowserDownloadURLsRequestInput {
   return options as GetFileBrowserDownloadURLsRequestInput;
 }
-
 
 export type FileBrowserDownloadURLEntry = {
   path: string;
   url: string;
   expiresAt: number;
 };
-export function createFileBrowserDownloadURLEntry(options: Partial<FileBrowserDownloadURLEntry> = {}): FileBrowserDownloadURLEntry {
+export function createFileBrowserDownloadURLEntry(
+  options: Partial<FileBrowserDownloadURLEntry> = {},
+): FileBrowserDownloadURLEntry {
   return options as FileBrowserDownloadURLEntry;
 }
 
-
-export type GetFileBrowserDownloadURLsResponse = Array<FileBrowserDownloadURLEntry>;
-
+export type GetFileBrowserDownloadURLsResponse =
+  Array<FileBrowserDownloadURLEntry>;
 
 export type GetFileBrowserFileContentRequestInput = {
   path: string;
   maxBytes?: number | null;
 };
-export function createGetFileBrowserFileContentRequestInput(options: Partial<GetFileBrowserFileContentRequestInput> = {}): GetFileBrowserFileContentRequestInput {
+export function createGetFileBrowserFileContentRequestInput(
+  options: Partial<GetFileBrowserFileContentRequestInput> = {},
+): GetFileBrowserFileContentRequestInput {
   return options as GetFileBrowserFileContentRequestInput;
 }
-
 
 export type FileBrowserFileContentResponse = {
   path: string;
@@ -7317,38 +7597,42 @@ export type FileBrowserFileContentResponse = {
   mtimeNs: number;
   size: number;
 };
-export function createFileBrowserFileContentResponse(options: Partial<FileBrowserFileContentResponse> = {}): FileBrowserFileContentResponse {
+export function createFileBrowserFileContentResponse(
+  options: Partial<FileBrowserFileContentResponse> = {},
+): FileBrowserFileContentResponse {
   return options as FileBrowserFileContentResponse;
 }
-
 
 export type GetFileBrowserFileStatRequestInput = {
   path: string;
 };
-export function createGetFileBrowserFileStatRequestInput(options: Partial<GetFileBrowserFileStatRequestInput> = {}): GetFileBrowserFileStatRequestInput {
+export function createGetFileBrowserFileStatRequestInput(
+  options: Partial<GetFileBrowserFileStatRequestInput> = {},
+): GetFileBrowserFileStatRequestInput {
   return options as GetFileBrowserFileStatRequestInput;
 }
-
 
 export type FileBrowserFileStatResponse = {
   path: string;
   mtimeNs: number;
   size: number;
 };
-export function createFileBrowserFileStatResponse(options: Partial<FileBrowserFileStatResponse> = {}): FileBrowserFileStatResponse {
+export function createFileBrowserFileStatResponse(
+  options: Partial<FileBrowserFileStatResponse> = {},
+): FileBrowserFileStatResponse {
   return options as FileBrowserFileStatResponse;
 }
-
 
 export type WriteFileBrowserFileContentRequestInput = {
   path: string;
   contentId: string;
   expectedMtimeNs?: number | null;
 };
-export function createWriteFileBrowserFileContentRequestInput(options: Partial<WriteFileBrowserFileContentRequestInput> = {}): WriteFileBrowserFileContentRequestInput {
+export function createWriteFileBrowserFileContentRequestInput(
+  options: Partial<WriteFileBrowserFileContentRequestInput> = {},
+): WriteFileBrowserFileContentRequestInput {
   return options as WriteFileBrowserFileContentRequestInput;
 }
-
 
 export type WriteFileBrowserFileContentResponse = {
   path: string;
@@ -7356,10 +7640,11 @@ export type WriteFileBrowserFileContentResponse = {
   mtimeNs: number;
   size: number;
 };
-export function createWriteFileBrowserFileContentResponse(options: Partial<WriteFileBrowserFileContentResponse> = {}): WriteFileBrowserFileContentResponse {
+export function createWriteFileBrowserFileContentResponse(
+  options: Partial<WriteFileBrowserFileContentResponse> = {},
+): WriteFileBrowserFileContentResponse {
   return options as WriteFileBrowserFileContentResponse;
 }
-
 
 export const TransferOperationEnum = {
   copy: "copy",
@@ -7367,40 +7652,40 @@ export const TransferOperationEnum = {
 } as const;
 export type TransferOperation = ObjectValues<typeof TransferOperationEnum>;
 
-
 export type TransferFileBrowserEntryRequestInput = {
   sourcePath: string;
   destinationFolderPath: string;
   operation: TransferOperation;
 };
-export function createTransferFileBrowserEntryRequestInput(options: Partial<TransferFileBrowserEntryRequestInput> = {}): TransferFileBrowserEntryRequestInput {
+export function createTransferFileBrowserEntryRequestInput(
+  options: Partial<TransferFileBrowserEntryRequestInput> = {},
+): TransferFileBrowserEntryRequestInput {
   return options as TransferFileBrowserEntryRequestInput;
 }
-
 
 export type TransferFileBrowserEntryResponse = {
   sourcePath: string;
   destinationPath: string;
   operation: TransferOperation;
 };
-export function createTransferFileBrowserEntryResponse(options: Partial<TransferFileBrowserEntryResponse> = {}): TransferFileBrowserEntryResponse {
+export function createTransferFileBrowserEntryResponse(
+  options: Partial<TransferFileBrowserEntryResponse> = {},
+): TransferFileBrowserEntryResponse {
   return options as TransferFileBrowserEntryResponse;
 }
 
-
 export type BinaryUploadRequestInput = FormData;
-
 
 export type BinaryDownloadRequestInput = {
   contentId: string;
 };
-export function createBinaryDownloadRequestInput(options: Partial<BinaryDownloadRequestInput> = {}): BinaryDownloadRequestInput {
+export function createBinaryDownloadRequestInput(
+  options: Partial<BinaryDownloadRequestInput> = {},
+): BinaryDownloadRequestInput {
   return options as BinaryDownloadRequestInput;
 }
 
-
 export type BinaryDownloadResponse = Uint8Array;
-
 
 export type GitRepoInfo = {
   isGitRepo: boolean;
@@ -7408,10 +7693,11 @@ export type GitRepoInfo = {
   headBranch: string | null;
   headCommit: string | null;
 };
-export function createGitRepoInfo(options: Partial<GitRepoInfo> = {}): GitRepoInfo {
+export function createGitRepoInfo(
+  options: Partial<GitRepoInfo> = {},
+): GitRepoInfo {
   return options as GitRepoInfo;
 }
-
 
 export type GitStatusEntry = {
   path: string;
@@ -7420,20 +7706,22 @@ export type GitStatusEntry = {
   worktreeStatus: string;
   kind: string;
 };
-export function createGitStatusEntry(options: Partial<GitStatusEntry> = {}): GitStatusEntry {
+export function createGitStatusEntry(
+  options: Partial<GitStatusEntry> = {},
+): GitStatusEntry {
   return options as GitStatusEntry;
 }
-
 
 export type GetGitStatusResponse = {
   repo: GitRepoInfo;
   entries: Array<GitStatusEntry>;
   isTruncated: boolean;
 };
-export function createGetGitStatusResponse(options: Partial<GetGitStatusResponse> = {}): GetGitStatusResponse {
+export function createGetGitStatusResponse(
+  options: Partial<GetGitStatusResponse> = {},
+): GetGitStatusResponse {
   return options as GetGitStatusResponse;
 }
-
 
 export const GitDiffModeEnum = {
   unstaged: "unstaged",
@@ -7441,16 +7729,16 @@ export const GitDiffModeEnum = {
 } as const;
 export type GitDiffMode = ObjectValues<typeof GitDiffModeEnum>;
 
-
 export type GetGitDiffRequestInput = {
   path: string;
   oldPath: string | null;
   mode: GitDiffMode;
 };
-export function createGetGitDiffRequestInput(options: Partial<GetGitDiffRequestInput> = {}): GetGitDiffRequestInput {
+export function createGetGitDiffRequestInput(
+  options: Partial<GetGitDiffRequestInput> = {},
+): GetGitDiffRequestInput {
   return options as GetGitDiffRequestInput;
 }
-
 
 export type GetGitDiffResponse = {
   repoRoot: string;
@@ -7459,10 +7747,11 @@ export type GetGitDiffResponse = {
   diff: string;
   isTruncated: boolean;
 };
-export function createGetGitDiffResponse(options: Partial<GetGitDiffResponse> = {}): GetGitDiffResponse {
+export function createGetGitDiffResponse(
+  options: Partial<GetGitDiffResponse> = {},
+): GetGitDiffResponse {
   return options as GetGitDiffResponse;
 }
-
 
 export type GetGitLogRequestInput = {
   rev: string;
@@ -7470,10 +7759,11 @@ export type GetGitLogRequestInput = {
   offset: number;
   pageSize: number;
 };
-export function createGetGitLogRequestInput(options: Partial<GetGitLogRequestInput> = {}): GetGitLogRequestInput {
+export function createGetGitLogRequestInput(
+  options: Partial<GetGitLogRequestInput> = {},
+): GetGitLogRequestInput {
   return options as GetGitLogRequestInput;
 }
-
 
 export type GitCommit = {
   hash: string;
@@ -7488,7 +7778,6 @@ export function createGitCommit(options: Partial<GitCommit> = {}): GitCommit {
   return options as GitCommit;
 }
 
-
 export type GetGitLogResponse = {
   repoRoot: string;
   headBranch: string | null;
@@ -7499,18 +7788,20 @@ export type GetGitLogResponse = {
   hasMore: boolean;
   isCapped: boolean;
 };
-export function createGetGitLogResponse(options: Partial<GetGitLogResponse> = {}): GetGitLogResponse {
+export function createGetGitLogResponse(
+  options: Partial<GetGitLogResponse> = {},
+): GetGitLogResponse {
   return options as GetGitLogResponse;
 }
-
 
 export type GetGitCommitDetailsRequestInput = {
   commitHash: string;
 };
-export function createGetGitCommitDetailsRequestInput(options: Partial<GetGitCommitDetailsRequestInput> = {}): GetGitCommitDetailsRequestInput {
+export function createGetGitCommitDetailsRequestInput(
+  options: Partial<GetGitCommitDetailsRequestInput> = {},
+): GetGitCommitDetailsRequestInput {
   return options as GetGitCommitDetailsRequestInput;
 }
-
 
 export type GitCommitChangedFile = {
   path: string;
@@ -7519,10 +7810,11 @@ export type GitCommitChangedFile = {
   additions: number | null;
   deletions: number | null;
 };
-export function createGitCommitChangedFile(options: Partial<GitCommitChangedFile> = {}): GitCommitChangedFile {
+export function createGitCommitChangedFile(
+  options: Partial<GitCommitChangedFile> = {},
+): GitCommitChangedFile {
   return options as GitCommitChangedFile;
 }
-
 
 export type GetGitCommitDetailsResponse = {
   repoRoot: string;
@@ -7539,20 +7831,22 @@ export type GetGitCommitDetailsResponse = {
   files: Array<GitCommitChangedFile>;
   isTruncated: boolean;
 };
-export function createGetGitCommitDetailsResponse(options: Partial<GetGitCommitDetailsResponse> = {}): GetGitCommitDetailsResponse {
+export function createGetGitCommitDetailsResponse(
+  options: Partial<GetGitCommitDetailsResponse> = {},
+): GetGitCommitDetailsResponse {
   return options as GetGitCommitDetailsResponse;
 }
-
 
 export type GetGitCommitFileDiffRequestInput = {
   commitHash: string;
   path: string;
   oldPath: string | null;
 };
-export function createGetGitCommitFileDiffRequestInput(options: Partial<GetGitCommitFileDiffRequestInput> = {}): GetGitCommitFileDiffRequestInput {
+export function createGetGitCommitFileDiffRequestInput(
+  options: Partial<GetGitCommitFileDiffRequestInput> = {},
+): GetGitCommitFileDiffRequestInput {
   return options as GetGitCommitFileDiffRequestInput;
 }
-
 
 export type GetGitCommitFileDiffResponse = {
   repoRoot: string;
@@ -7561,19 +7855,21 @@ export type GetGitCommitFileDiffResponse = {
   diff: string;
   isTruncated: boolean;
 };
-export function createGetGitCommitFileDiffResponse(options: Partial<GetGitCommitFileDiffResponse> = {}): GetGitCommitFileDiffResponse {
+export function createGetGitCommitFileDiffResponse(
+  options: Partial<GetGitCommitFileDiffResponse> = {},
+): GetGitCommitFileDiffResponse {
   return options as GetGitCommitFileDiffResponse;
 }
-
 
 export type ImportFilesToArtifactsRequestInput = {
   paths: Array<string>;
   uploadScope: string;
 };
-export function createImportFilesToArtifactsRequestInput(options: Partial<ImportFilesToArtifactsRequestInput> = {}): ImportFilesToArtifactsRequestInput {
+export function createImportFilesToArtifactsRequestInput(
+  options: Partial<ImportFilesToArtifactsRequestInput> = {},
+): ImportFilesToArtifactsRequestInput {
   return options as ImportFilesToArtifactsRequestInput;
 }
-
 
 export type ImportFilesToArtifactsResponseItem = {
   kind: string;
@@ -7582,51 +7878,52 @@ export type ImportFilesToArtifactsResponseItem = {
   mimeType: string;
   size: number;
 };
-export function createImportFilesToArtifactsResponseItem(options: Partial<ImportFilesToArtifactsResponseItem> = {}): ImportFilesToArtifactsResponseItem {
+export function createImportFilesToArtifactsResponseItem(
+  options: Partial<ImportFilesToArtifactsResponseItem> = {},
+): ImportFilesToArtifactsResponseItem {
   return options as ImportFilesToArtifactsResponseItem;
 }
 
-
-export type ImportFilesToArtifactsResponse = Array<ImportFilesToArtifactsResponseItem>;
-
+export type ImportFilesToArtifactsResponse =
+  Array<ImportFilesToArtifactsResponseItem>;
 
 export type LoadCachedArtifactsRequestInput = {
   paths: Array<string>;
 };
-export function createLoadCachedArtifactsRequestInput(options: Partial<LoadCachedArtifactsRequestInput> = {}): LoadCachedArtifactsRequestInput {
+export function createLoadCachedArtifactsRequestInput(
+  options: Partial<LoadCachedArtifactsRequestInput> = {},
+): LoadCachedArtifactsRequestInput {
   return options as LoadCachedArtifactsRequestInput;
 }
 
-
 export type LoadCachedImageArtifactsResponse = Array<ImageArtifact | null>;
-
 
 export type LoadCachedChartDataResponse = Array<ChartDataArtifact | null>;
 
-
 export type LoadCachedBrushStrokesResponse = Array<BrushStrokeArtifact | null>;
 
-
-export type LoadCachedDrawAreaLayerItemTransformResponse = Array<DrawAreaLayerItemTransformArtifact | null>;
-
+export type LoadCachedDrawAreaLayerItemTransformResponse =
+  Array<DrawAreaLayerItemTransformArtifact | null>;
 
 export const ArtifactSaveConflictStrategyEnum = {
   skip: "skip",
   backup: "backup",
   overwrite: "overwrite",
 } as const;
-export type ArtifactSaveConflictStrategy = ObjectValues<typeof ArtifactSaveConflictStrategyEnum>;
-
+export type ArtifactSaveConflictStrategy = ObjectValues<
+  typeof ArtifactSaveConflictStrategyEnum
+>;
 
 export type UpdateArtifactsRequestInput = {
   artifacts: Array<ArtifactUnion>;
   conflictStrategy?: ArtifactSaveConflictStrategy | null;
   uploadScope?: string | null;
 };
-export function createUpdateArtifactsRequestInput(options: Partial<UpdateArtifactsRequestInput> = {}): UpdateArtifactsRequestInput {
+export function createUpdateArtifactsRequestInput(
+  options: Partial<UpdateArtifactsRequestInput> = {},
+): UpdateArtifactsRequestInput {
   return options as UpdateArtifactsRequestInput;
 }
-
 
 export const ArtifactSaveStatusEnum = {
   saved: "saved",
@@ -7636,7 +7933,6 @@ export const ArtifactSaveStatusEnum = {
 } as const;
 export type ArtifactSaveStatus = ObjectValues<typeof ArtifactSaveStatusEnum>;
 
-
 export type ArtifactSaveResult = {
   id: string;
   type: ArtifactType;
@@ -7644,33 +7940,34 @@ export type ArtifactSaveResult = {
   backupPath?: string | null;
   message?: string | null;
 };
-export function createArtifactSaveResult(options: Partial<ArtifactSaveResult> = {}): ArtifactSaveResult {
+export function createArtifactSaveResult(
+  options: Partial<ArtifactSaveResult> = {},
+): ArtifactSaveResult {
   return options as ArtifactSaveResult;
 }
 
-
 export type UpdateArtifactsResponse = Array<ArtifactSaveResult>;
-
 
 export type DeleteArtifactRequestItem = {
   id: string;
   type: ArtifactType;
 };
-export function createDeleteArtifactRequestItem(options: Partial<DeleteArtifactRequestItem> = {}): DeleteArtifactRequestItem {
+export function createDeleteArtifactRequestItem(
+  options: Partial<DeleteArtifactRequestItem> = {},
+): DeleteArtifactRequestItem {
   return options as DeleteArtifactRequestItem;
 }
-
 
 export type DeleteArtifactsRequestInput = {
   artifacts: Array<DeleteArtifactRequestItem>;
 };
-export function createDeleteArtifactsRequestInput(options: Partial<DeleteArtifactsRequestInput> = {}): DeleteArtifactsRequestInput {
+export function createDeleteArtifactsRequestInput(
+  options: Partial<DeleteArtifactsRequestInput> = {},
+): DeleteArtifactsRequestInput {
   return options as DeleteArtifactsRequestInput;
 }
 
-
 export type DeleteArtifactsResponse = Array<string>;
-
 
 export type AppendDrawAreaLayerItemRequestInput = {
   frontendOpId?: string | null;
@@ -7679,98 +7976,108 @@ export type AppendDrawAreaLayerItemRequestInput = {
   layerIdx: number;
   element: DrawAreaLayerItem;
 };
-export function createAppendDrawAreaLayerItemRequestInput(options: Partial<AppendDrawAreaLayerItemRequestInput> = {}): AppendDrawAreaLayerItemRequestInput {
+export function createAppendDrawAreaLayerItemRequestInput(
+  options: Partial<AppendDrawAreaLayerItemRequestInput> = {},
+): AppendDrawAreaLayerItemRequestInput {
   return options as AppendDrawAreaLayerItemRequestInput;
 }
-
 
 export type ForceRefreshListenerRequestInput = {
   projectConfigId: string;
 };
-export function createForceRefreshListenerRequestInput(options: Partial<ForceRefreshListenerRequestInput> = {}): ForceRefreshListenerRequestInput {
+export function createForceRefreshListenerRequestInput(
+  options: Partial<ForceRefreshListenerRequestInput> = {},
+): ForceRefreshListenerRequestInput {
   return options as ForceRefreshListenerRequestInput;
 }
-
 
 export type SetTopLevelSectionLayoutRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   topLevelSections: Record<string, TopLevelSectionLayoutInput>;
 };
-export function createSetTopLevelSectionLayoutRequestInput(options: Partial<SetTopLevelSectionLayoutRequestInput> = {}): SetTopLevelSectionLayoutRequestInput {
+export function createSetTopLevelSectionLayoutRequestInput(
+  options: Partial<SetTopLevelSectionLayoutRequestInput> = {},
+): SetTopLevelSectionLayoutRequestInput {
   return options as SetTopLevelSectionLayoutRequestInput;
 }
-
 
 export type ToggleSectionVisibilityRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   sectionIds: Array<string>;
 };
-export function createToggleSectionVisibilityRequestInput(options: Partial<ToggleSectionVisibilityRequestInput> = {}): ToggleSectionVisibilityRequestInput {
+export function createToggleSectionVisibilityRequestInput(
+  options: Partial<ToggleSectionVisibilityRequestInput> = {},
+): ToggleSectionVisibilityRequestInput {
   return options as ToggleSectionVisibilityRequestInput;
 }
-
 
 export type AutoLayoutTopLevelSectionsRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   margin?: number | null;
 };
-export function createAutoLayoutTopLevelSectionsRequestInput(options: Partial<AutoLayoutTopLevelSectionsRequestInput> = {}): AutoLayoutTopLevelSectionsRequestInput {
+export function createAutoLayoutTopLevelSectionsRequestInput(
+  options: Partial<AutoLayoutTopLevelSectionsRequestInput> = {},
+): AutoLayoutTopLevelSectionsRequestInput {
   return options as AutoLayoutTopLevelSectionsRequestInput;
 }
-
 
 export type SetShowParamDisplayNamesRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   showParamDisplayNames: boolean;
 };
-export function createSetShowParamDisplayNamesRequestInput(options: Partial<SetShowParamDisplayNamesRequestInput> = {}): SetShowParamDisplayNamesRequestInput {
+export function createSetShowParamDisplayNamesRequestInput(
+  options: Partial<SetShowParamDisplayNamesRequestInput> = {},
+): SetShowParamDisplayNamesRequestInput {
   return options as SetShowParamDisplayNamesRequestInput;
 }
-
 
 export type GroupSectionsRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   sectionIds: Array<string>;
 };
-export function createGroupSectionsRequestInput(options: Partial<GroupSectionsRequestInput> = {}): GroupSectionsRequestInput {
+export function createGroupSectionsRequestInput(
+  options: Partial<GroupSectionsRequestInput> = {},
+): GroupSectionsRequestInput {
   return options as GroupSectionsRequestInput;
 }
-
 
 export type UngroupGroupsRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   groupIds: Array<string>;
 };
-export function createUngroupGroupsRequestInput(options: Partial<UngroupGroupsRequestInput> = {}): UngroupGroupsRequestInput {
+export function createUngroupGroupsRequestInput(
+  options: Partial<UngroupGroupsRequestInput> = {},
+): UngroupGroupsRequestInput {
   return options as UngroupGroupsRequestInput;
 }
-
 
 export type SetSectionSizesRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   sectionSizes: Record<string, SectionSize>;
 };
-export function createSetSectionSizesRequestInput(options: Partial<SetSectionSizesRequestInput> = {}): SetSectionSizesRequestInput {
+export function createSetSectionSizesRequestInput(
+  options: Partial<SetSectionSizesRequestInput> = {},
+): SetSectionSizesRequestInput {
   return options as SetSectionSizesRequestInput;
 }
-
 
 export type SetActiveIDsRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   activeIds: Array<string>;
 };
-export function createSetActiveIDsRequestInput(options: Partial<SetActiveIDsRequestInput> = {}): SetActiveIDsRequestInput {
+export function createSetActiveIDsRequestInput(
+  options: Partial<SetActiveIDsRequestInput> = {},
+): SetActiveIDsRequestInput {
   return options as SetActiveIDsRequestInput;
 }
-
 
 export type SetSectionParamFilterRequestInput = {
   frontendOpId?: string | null;
@@ -7778,10 +8085,11 @@ export type SetSectionParamFilterRequestInput = {
   sectionId: string;
   value: string;
 };
-export function createSetSectionParamFilterRequestInput(options: Partial<SetSectionParamFilterRequestInput> = {}): SetSectionParamFilterRequestInput {
+export function createSetSectionParamFilterRequestInput(
+  options: Partial<SetSectionParamFilterRequestInput> = {},
+): SetSectionParamFilterRequestInput {
   return options as SetSectionParamFilterRequestInput;
 }
-
 
 export type SetMetaControlShowSectionTitleRequestInput = {
   frontendOpId?: string | null;
@@ -7789,10 +8097,11 @@ export type SetMetaControlShowSectionTitleRequestInput = {
   sectionId: string;
   showSectionTitle: boolean;
 };
-export function createSetMetaControlShowSectionTitleRequestInput(options: Partial<SetMetaControlShowSectionTitleRequestInput> = {}): SetMetaControlShowSectionTitleRequestInput {
+export function createSetMetaControlShowSectionTitleRequestInput(
+  options: Partial<SetMetaControlShowSectionTitleRequestInput> = {},
+): SetMetaControlShowSectionTitleRequestInput {
   return options as SetMetaControlShowSectionTitleRequestInput;
 }
-
 
 export type SetSectionColumnWidthRequestInput = {
   frontendOpId?: string | null;
@@ -7800,30 +8109,33 @@ export type SetSectionColumnWidthRequestInput = {
   sectionId: string;
   columnWidth: number | null;
 };
-export function createSetSectionColumnWidthRequestInput(options: Partial<SetSectionColumnWidthRequestInput> = {}): SetSectionColumnWidthRequestInput {
+export function createSetSectionColumnWidthRequestInput(
+  options: Partial<SetSectionColumnWidthRequestInput> = {},
+): SetSectionColumnWidthRequestInput {
   return options as SetSectionColumnWidthRequestInput;
 }
-
 
 export type TogglePositionLocksRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   sectionIds: Array<string>;
 };
-export function createTogglePositionLocksRequestInput(options: Partial<TogglePositionLocksRequestInput> = {}): TogglePositionLocksRequestInput {
+export function createTogglePositionLocksRequestInput(
+  options: Partial<TogglePositionLocksRequestInput> = {},
+): TogglePositionLocksRequestInput {
   return options as TogglePositionLocksRequestInput;
 }
-
 
 export type ToggleMinimizedRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
 };
-export function createToggleMinimizedRequestInput(options: Partial<ToggleMinimizedRequestInput> = {}): ToggleMinimizedRequestInput {
+export function createToggleMinimizedRequestInput(
+  options: Partial<ToggleMinimizedRequestInput> = {},
+): ToggleMinimizedRequestInput {
   return options as ToggleMinimizedRequestInput;
 }
-
 
 export type SetSectionEdgeInputsRequestInput = {
   frontendOpId?: string | null;
@@ -7831,10 +8143,11 @@ export type SetSectionEdgeInputsRequestInput = {
   sectionId: string;
   edgeInputParams: Array<string>;
 };
-export function createSetSectionEdgeInputsRequestInput(options: Partial<SetSectionEdgeInputsRequestInput> = {}): SetSectionEdgeInputsRequestInput {
+export function createSetSectionEdgeInputsRequestInput(
+  options: Partial<SetSectionEdgeInputsRequestInput> = {},
+): SetSectionEdgeInputsRequestInput {
   return options as SetSectionEdgeInputsRequestInput;
 }
-
 
 export type SetSectionEdgeOutputsRequestInput = {
   frontendOpId?: string | null;
@@ -7842,10 +8155,11 @@ export type SetSectionEdgeOutputsRequestInput = {
   sectionId: string;
   edgeOutputPorts: Array<EdgePort>;
 };
-export function createSetSectionEdgeOutputsRequestInput(options: Partial<SetSectionEdgeOutputsRequestInput> = {}): SetSectionEdgeOutputsRequestInput {
+export function createSetSectionEdgeOutputsRequestInput(
+  options: Partial<SetSectionEdgeOutputsRequestInput> = {},
+): SetSectionEdgeOutputsRequestInput {
   return options as SetSectionEdgeOutputsRequestInput;
 }
-
 
 export type SetParentDefaultChildSectionTypeRequestInput = {
   frontendOpId?: string | null;
@@ -7853,10 +8167,11 @@ export type SetParentDefaultChildSectionTypeRequestInput = {
   sectionId: string;
   defaultChildSectionType: SectionType;
 };
-export function createSetParentDefaultChildSectionTypeRequestInput(options: Partial<SetParentDefaultChildSectionTypeRequestInput> = {}): SetParentDefaultChildSectionTypeRequestInput {
+export function createSetParentDefaultChildSectionTypeRequestInput(
+  options: Partial<SetParentDefaultChildSectionTypeRequestInput> = {},
+): SetParentDefaultChildSectionTypeRequestInput {
   return options as SetParentDefaultChildSectionTypeRequestInput;
 }
-
 
 export type SetListRootViewModeRequestInput = {
   frontendOpId?: string | null;
@@ -7864,20 +8179,22 @@ export type SetListRootViewModeRequestInput = {
   sectionId: string;
   viewMode: ListRootViewMode;
 };
-export function createSetListRootViewModeRequestInput(options: Partial<SetListRootViewModeRequestInput> = {}): SetListRootViewModeRequestInput {
+export function createSetListRootViewModeRequestInput(
+  options: Partial<SetListRootViewModeRequestInput> = {},
+): SetListRootViewModeRequestInput {
   return options as SetListRootViewModeRequestInput;
 }
-
 
 export type ToggleGroupOrientationRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
 };
-export function createToggleGroupOrientationRequestInput(options: Partial<ToggleGroupOrientationRequestInput> = {}): ToggleGroupOrientationRequestInput {
+export function createToggleGroupOrientationRequestInput(
+  options: Partial<ToggleGroupOrientationRequestInput> = {},
+): ToggleGroupOrientationRequestInput {
   return options as ToggleGroupOrientationRequestInput;
 }
-
 
 export type SetGroupOverflowModeRequestInput = {
   frontendOpId?: string | null;
@@ -7885,10 +8202,11 @@ export type SetGroupOverflowModeRequestInput = {
   sectionId: string;
   overflowMode: boolean;
 };
-export function createSetGroupOverflowModeRequestInput(options: Partial<SetGroupOverflowModeRequestInput> = {}): SetGroupOverflowModeRequestInput {
+export function createSetGroupOverflowModeRequestInput(
+  options: Partial<SetGroupOverflowModeRequestInput> = {},
+): SetGroupOverflowModeRequestInput {
   return options as SetGroupOverflowModeRequestInput;
 }
-
 
 export type SetSectionTagColorRequestInput = {
   frontendOpId?: string | null;
@@ -7896,10 +8214,11 @@ export type SetSectionTagColorRequestInput = {
   sectionId: string;
   tagColor?: string | null;
 };
-export function createSetSectionTagColorRequestInput(options: Partial<SetSectionTagColorRequestInput> = {}): SetSectionTagColorRequestInput {
+export function createSetSectionTagColorRequestInput(
+  options: Partial<SetSectionTagColorRequestInput> = {},
+): SetSectionTagColorRequestInput {
   return options as SetSectionTagColorRequestInput;
 }
-
 
 export type SetSectionStyleColorRequestInput = {
   frontendOpId?: string | null;
@@ -7907,10 +8226,11 @@ export type SetSectionStyleColorRequestInput = {
   sectionId: string;
   styleColor?: string | null;
 };
-export function createSetSectionStyleColorRequestInput(options: Partial<SetSectionStyleColorRequestInput> = {}): SetSectionStyleColorRequestInput {
+export function createSetSectionStyleColorRequestInput(
+  options: Partial<SetSectionStyleColorRequestInput> = {},
+): SetSectionStyleColorRequestInput {
   return options as SetSectionStyleColorRequestInput;
 }
-
 
 export type SetCallableHideParamsRequestInput = {
   frontendOpId?: string | null;
@@ -7918,10 +8238,11 @@ export type SetCallableHideParamsRequestInput = {
   sectionId: string;
   hideParams: boolean;
 };
-export function createSetCallableHideParamsRequestInput(options: Partial<SetCallableHideParamsRequestInput> = {}): SetCallableHideParamsRequestInput {
+export function createSetCallableHideParamsRequestInput(
+  options: Partial<SetCallableHideParamsRequestInput> = {},
+): SetCallableHideParamsRequestInput {
   return options as SetCallableHideParamsRequestInput;
 }
-
 
 export type SetSectionHideUnpinnedParamsRequestInput = {
   frontendOpId?: string | null;
@@ -7929,10 +8250,11 @@ export type SetSectionHideUnpinnedParamsRequestInput = {
   sectionId: string;
   hideUnpinnedParams: boolean;
 };
-export function createSetSectionHideUnpinnedParamsRequestInput(options: Partial<SetSectionHideUnpinnedParamsRequestInput> = {}): SetSectionHideUnpinnedParamsRequestInput {
+export function createSetSectionHideUnpinnedParamsRequestInput(
+  options: Partial<SetSectionHideUnpinnedParamsRequestInput> = {},
+): SetSectionHideUnpinnedParamsRequestInput {
   return options as SetSectionHideUnpinnedParamsRequestInput;
 }
-
 
 export type SetSectionPinnedParamsRequestInput = {
   frontendOpId?: string | null;
@@ -7940,10 +8262,11 @@ export type SetSectionPinnedParamsRequestInput = {
   sectionId: string;
   pinnedParams: Array<string>;
 };
-export function createSetSectionPinnedParamsRequestInput(options: Partial<SetSectionPinnedParamsRequestInput> = {}): SetSectionPinnedParamsRequestInput {
+export function createSetSectionPinnedParamsRequestInput(
+  options: Partial<SetSectionPinnedParamsRequestInput> = {},
+): SetSectionPinnedParamsRequestInput {
   return options as SetSectionPinnedParamsRequestInput;
 }
-
 
 export type SetBrowserColumnWidthsRequestInput = {
   frontendOpId?: string | null;
@@ -7952,10 +8275,11 @@ export type SetBrowserColumnWidthsRequestInput = {
   columnWidth: number | null;
   typesColumnWidth: number | null;
 };
-export function createSetBrowserColumnWidthsRequestInput(options: Partial<SetBrowserColumnWidthsRequestInput> = {}): SetBrowserColumnWidthsRequestInput {
+export function createSetBrowserColumnWidthsRequestInput(
+  options: Partial<SetBrowserColumnWidthsRequestInput> = {},
+): SetBrowserColumnWidthsRequestInput {
   return options as SetBrowserColumnWidthsRequestInput;
 }
-
 
 export type SetBrowserAreaViewModeRequestInput = {
   frontendOpId?: string | null;
@@ -7963,10 +8287,11 @@ export type SetBrowserAreaViewModeRequestInput = {
   sectionId: string;
   viewMode: BrowserAreaViewMode;
 };
-export function createSetBrowserAreaViewModeRequestInput(options: Partial<SetBrowserAreaViewModeRequestInput> = {}): SetBrowserAreaViewModeRequestInput {
+export function createSetBrowserAreaViewModeRequestInput(
+  options: Partial<SetBrowserAreaViewModeRequestInput> = {},
+): SetBrowserAreaViewModeRequestInput {
   return options as SetBrowserAreaViewModeRequestInput;
 }
-
 
 export type SetBrowserHideColumnRequestInput = {
   frontendOpId?: string | null;
@@ -7974,10 +8299,11 @@ export type SetBrowserHideColumnRequestInput = {
   sectionId: string;
   hideColumn: boolean;
 };
-export function createSetBrowserHideColumnRequestInput(options: Partial<SetBrowserHideColumnRequestInput> = {}): SetBrowserHideColumnRequestInput {
+export function createSetBrowserHideColumnRequestInput(
+  options: Partial<SetBrowserHideColumnRequestInput> = {},
+): SetBrowserHideColumnRequestInput {
   return options as SetBrowserHideColumnRequestInput;
 }
-
 
 export type SetBrowserSavedSearchesRequestInput = {
   frontendOpId?: string | null;
@@ -7985,10 +8311,11 @@ export type SetBrowserSavedSearchesRequestInput = {
   sectionId: string;
   savedSearches: Array<BrowserSavedSearch>;
 };
-export function createSetBrowserSavedSearchesRequestInput(options: Partial<SetBrowserSavedSearchesRequestInput> = {}): SetBrowserSavedSearchesRequestInput {
+export function createSetBrowserSavedSearchesRequestInput(
+  options: Partial<SetBrowserSavedSearchesRequestInput> = {},
+): SetBrowserSavedSearchesRequestInput {
   return options as SetBrowserSavedSearchesRequestInput;
 }
-
 
 export type SetSpreadsheetFilePathRequestInput = {
   frontendOpId?: string | null;
@@ -7997,10 +8324,11 @@ export type SetSpreadsheetFilePathRequestInput = {
   filePath: string;
   activeSheet: string | null;
 };
-export function createSetSpreadsheetFilePathRequestInput(options: Partial<SetSpreadsheetFilePathRequestInput> = {}): SetSpreadsheetFilePathRequestInput {
+export function createSetSpreadsheetFilePathRequestInput(
+  options: Partial<SetSpreadsheetFilePathRequestInput> = {},
+): SetSpreadsheetFilePathRequestInput {
   return options as SetSpreadsheetFilePathRequestInput;
 }
-
 
 export type SetSpreadsheetSectionSettingsRequestInput = {
   frontendOpId?: string | null;
@@ -8011,10 +8339,11 @@ export type SetSpreadsheetSectionSettingsRequestInput = {
   density: SpreadsheetGridDensity;
   autoReloadOnExternalChange: boolean;
 };
-export function createSetSpreadsheetSectionSettingsRequestInput(options: Partial<SetSpreadsheetSectionSettingsRequestInput> = {}): SetSpreadsheetSectionSettingsRequestInput {
+export function createSetSpreadsheetSectionSettingsRequestInput(
+  options: Partial<SetSpreadsheetSectionSettingsRequestInput> = {},
+): SetSpreadsheetSectionSettingsRequestInput {
   return options as SetSpreadsheetSectionSettingsRequestInput;
 }
-
 
 export type SetTaskBoardSectionStateRequestInput = {
   frontendOpId?: string | null;
@@ -8024,10 +8353,11 @@ export type SetTaskBoardSectionStateRequestInput = {
   columns: Array<TaskBoardColumn>;
   tasks: Array<TaskBoardTask>;
 };
-export function createSetTaskBoardSectionStateRequestInput(options: Partial<SetTaskBoardSectionStateRequestInput> = {}): SetTaskBoardSectionStateRequestInput {
+export function createSetTaskBoardSectionStateRequestInput(
+  options: Partial<SetTaskBoardSectionStateRequestInput> = {},
+): SetTaskBoardSectionStateRequestInput {
   return options as SetTaskBoardSectionStateRequestInput;
 }
-
 
 export type SetImageAreaImagePathRequestInput = {
   frontendOpId?: string | null;
@@ -8035,10 +8365,11 @@ export type SetImageAreaImagePathRequestInput = {
   sectionId: string;
   imagePath: string;
 };
-export function createSetImageAreaImagePathRequestInput(options: Partial<SetImageAreaImagePathRequestInput> = {}): SetImageAreaImagePathRequestInput {
+export function createSetImageAreaImagePathRequestInput(
+  options: Partial<SetImageAreaImagePathRequestInput> = {},
+): SetImageAreaImagePathRequestInput {
   return options as SetImageAreaImagePathRequestInput;
 }
-
 
 export type SetSocialURLRequestInput = {
   frontendOpId?: string | null;
@@ -8046,10 +8377,11 @@ export type SetSocialURLRequestInput = {
   sectionId: string;
   url: string;
 };
-export function createSetSocialURLRequestInput(options: Partial<SetSocialURLRequestInput> = {}): SetSocialURLRequestInput {
+export function createSetSocialURLRequestInput(
+  options: Partial<SetSocialURLRequestInput> = {},
+): SetSocialURLRequestInput {
   return options as SetSocialURLRequestInput;
 }
-
 
 export type SetChartAreaDataPathRequestInput = {
   frontendOpId?: string | null;
@@ -8057,10 +8389,11 @@ export type SetChartAreaDataPathRequestInput = {
   sectionId: string;
   dataPath: string;
 };
-export function createSetChartAreaDataPathRequestInput(options: Partial<SetChartAreaDataPathRequestInput> = {}): SetChartAreaDataPathRequestInput {
+export function createSetChartAreaDataPathRequestInput(
+  options: Partial<SetChartAreaDataPathRequestInput> = {},
+): SetChartAreaDataPathRequestInput {
   return options as SetChartAreaDataPathRequestInput;
 }
-
 
 export type SetChartTypeRequestInput = {
   frontendOpId?: string | null;
@@ -8068,10 +8401,11 @@ export type SetChartTypeRequestInput = {
   sectionId: string;
   chartType: ChartType;
 };
-export function createSetChartTypeRequestInput(options: Partial<SetChartTypeRequestInput> = {}): SetChartTypeRequestInput {
+export function createSetChartTypeRequestInput(
+  options: Partial<SetChartTypeRequestInput> = {},
+): SetChartTypeRequestInput {
   return options as SetChartTypeRequestInput;
 }
-
 
 export type SetChartSettingsRequestInput = {
   frontendOpId?: string | null;
@@ -8080,10 +8414,11 @@ export type SetChartSettingsRequestInput = {
   chartSettings: BaseChartSettingsUnion;
   changedSettings: Array<string>;
 };
-export function createSetChartSettingsRequestInput(options: Partial<SetChartSettingsRequestInput> = {}): SetChartSettingsRequestInput {
+export function createSetChartSettingsRequestInput(
+  options: Partial<SetChartSettingsRequestInput> = {},
+): SetChartSettingsRequestInput {
   return options as SetChartSettingsRequestInput;
 }
-
 
 export type SetCodeFileBindingRequestInput = {
   frontendOpId?: string | null;
@@ -8091,10 +8426,11 @@ export type SetCodeFileBindingRequestInput = {
   sectionId: string;
   binding: CodeFileBindingUpdate;
 };
-export function createSetCodeFileBindingRequestInput(options: Partial<SetCodeFileBindingRequestInput> = {}): SetCodeFileBindingRequestInput {
+export function createSetCodeFileBindingRequestInput(
+  options: Partial<SetCodeFileBindingRequestInput> = {},
+): SetCodeFileBindingRequestInput {
   return options as SetCodeFileBindingRequestInput;
 }
-
 
 export type ToggleParamSelectedRequestInput = {
   frontendOpId?: string | null;
@@ -8102,57 +8438,63 @@ export type ToggleParamSelectedRequestInput = {
   sectionId: string;
   paramInfoId: string;
 };
-export function createToggleParamSelectedRequestInput(options: Partial<ToggleParamSelectedRequestInput> = {}): ToggleParamSelectedRequestInput {
+export function createToggleParamSelectedRequestInput(
+  options: Partial<ToggleParamSelectedRequestInput> = {},
+): ToggleParamSelectedRequestInput {
   return options as ToggleParamSelectedRequestInput;
 }
-
 
 export type UnselectAllParamsRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
 };
-export function createUnselectAllParamsRequestInput(options: Partial<UnselectAllParamsRequestInput> = {}): UnselectAllParamsRequestInput {
+export function createUnselectAllParamsRequestInput(
+  options: Partial<UnselectAllParamsRequestInput> = {},
+): UnselectAllParamsRequestInput {
   return options as UnselectAllParamsRequestInput;
 }
-
 
 export type ViewportInput = {
   x: number;
   y: number;
   zoom: number;
 };
-export function createViewportInput(options: Partial<ViewportInput> = {}): ViewportInput {
+export function createViewportInput(
+  options: Partial<ViewportInput> = {},
+): ViewportInput {
   return options as ViewportInput;
 }
-
 
 export type SetViewportRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   viewport: ViewportInput | null;
 };
-export function createSetViewportRequestInput(options: Partial<SetViewportRequestInput> = {}): SetViewportRequestInput {
+export function createSetViewportRequestInput(
+  options: Partial<SetViewportRequestInput> = {},
+): SetViewportRequestInput {
   return options as SetViewportRequestInput;
 }
-
 
 export type ListenerCoverageRequestInput = {
   projectConfigId: string;
 };
-export function createListenerCoverageRequestInput(options: Partial<ListenerCoverageRequestInput> = {}): ListenerCoverageRequestInput {
+export function createListenerCoverageRequestInput(
+  options: Partial<ListenerCoverageRequestInput> = {},
+): ListenerCoverageRequestInput {
   return options as ListenerCoverageRequestInput;
 }
-
 
 export type ListenerCoverageSnapshot = {
   projectConfigId: string;
   dependencies: Array<BaseDependencyKeyUnion>;
   hasRealtimeWildcard: boolean;
 };
-export function createListenerCoverageSnapshot(options: Partial<ListenerCoverageSnapshot> = {}): ListenerCoverageSnapshot {
+export function createListenerCoverageSnapshot(
+  options: Partial<ListenerCoverageSnapshot> = {},
+): ListenerCoverageSnapshot {
   return options as ListenerCoverageSnapshot;
 }
-
 
 export type ManagedAPIKeysSnapshot = {
   apiKeys: APIKeys;
@@ -8161,22 +8503,23 @@ export type ManagedAPIKeysSnapshot = {
   errorCode?: string | null;
   message?: string | null;
 };
-export function createManagedAPIKeysSnapshot(options: Partial<ManagedAPIKeysSnapshot> = {}): ManagedAPIKeysSnapshot {
+export function createManagedAPIKeysSnapshot(
+  options: Partial<ManagedAPIKeysSnapshot> = {},
+): ManagedAPIKeysSnapshot {
   return options as ManagedAPIKeysSnapshot;
 }
-
 
 export type SetLLMAPIKeysRequestInput = {
   apiKeys: APIKeys;
   expectedRevision: number;
 };
-export function createSetLLMAPIKeysRequestInput(options: Partial<SetLLMAPIKeysRequestInput> = {}): SetLLMAPIKeysRequestInput {
+export function createSetLLMAPIKeysRequestInput(
+  options: Partial<SetLLMAPIKeysRequestInput> = {},
+): SetLLMAPIKeysRequestInput {
   return options as SetLLMAPIKeysRequestInput;
 }
 
-
 export type AgentProfileListResponse = Array<AgentProfile>;
-
 
 export type CreateAgentProfileRequestInput = {
   name?: string | null;
@@ -8188,49 +8531,48 @@ export type CreateAgentProfileRequestInput = {
   toolAllowlist: Array<string>;
   memoryScope?: string | null;
 };
-export function createCreateAgentProfileRequestInput(options: Partial<CreateAgentProfileRequestInput> = {}): CreateAgentProfileRequestInput {
+export function createCreateAgentProfileRequestInput(
+  options: Partial<CreateAgentProfileRequestInput> = {},
+): CreateAgentProfileRequestInput {
   return options as CreateAgentProfileRequestInput;
 }
 
-
 export type AgentProfileResponse = AgentProfile;
-
 
 export type UpdateAgentProfileRequestInput = {
   profile: AgentProfile;
 };
-export function createUpdateAgentProfileRequestInput(options: Partial<UpdateAgentProfileRequestInput> = {}): UpdateAgentProfileRequestInput {
+export function createUpdateAgentProfileRequestInput(
+  options: Partial<UpdateAgentProfileRequestInput> = {},
+): UpdateAgentProfileRequestInput {
   return options as UpdateAgentProfileRequestInput;
 }
-
 
 export type DeleteAgentProfileRequestInput = {
   profileId: string;
 };
-export function createDeleteAgentProfileRequestInput(options: Partial<DeleteAgentProfileRequestInput> = {}): DeleteAgentProfileRequestInput {
+export function createDeleteAgentProfileRequestInput(
+  options: Partial<DeleteAgentProfileRequestInput> = {},
+): DeleteAgentProfileRequestInput {
   return options as DeleteAgentProfileRequestInput;
 }
 
-
 export type AgentRunListResponse = Array<AgentRun>;
 
-
 export type EngineConfigListResponse = Array<EngineConfig>;
-
 
 export type UpdateEngineConfigRequestInput = {
   config: EngineConfig;
 };
-export function createUpdateEngineConfigRequestInput(options: Partial<UpdateEngineConfigRequestInput> = {}): UpdateEngineConfigRequestInput {
+export function createUpdateEngineConfigRequestInput(
+  options: Partial<UpdateEngineConfigRequestInput> = {},
+): UpdateEngineConfigRequestInput {
   return options as UpdateEngineConfigRequestInput;
 }
 
-
 export type EngineConfigResponse = EngineConfig;
 
-
 export type PromptTemplateListResponse = Array<PromptTemplate>;
-
 
 export type CreatePromptTemplateRequestInput = {
   name?: string | null;
@@ -8240,32 +8582,34 @@ export type CreatePromptTemplateRequestInput = {
   inputSchema: Record<string, unknown>;
   metadata: Record<string, unknown>;
 };
-export function createCreatePromptTemplateRequestInput(options: Partial<CreatePromptTemplateRequestInput> = {}): CreatePromptTemplateRequestInput {
+export function createCreatePromptTemplateRequestInput(
+  options: Partial<CreatePromptTemplateRequestInput> = {},
+): CreatePromptTemplateRequestInput {
   return options as CreatePromptTemplateRequestInput;
 }
-
 
 export type UpdatePromptTemplateRequestInput = {
   template: PromptTemplate;
 };
-export function createUpdatePromptTemplateRequestInput(options: Partial<UpdatePromptTemplateRequestInput> = {}): UpdatePromptTemplateRequestInput {
+export function createUpdatePromptTemplateRequestInput(
+  options: Partial<UpdatePromptTemplateRequestInput> = {},
+): UpdatePromptTemplateRequestInput {
   return options as UpdatePromptTemplateRequestInput;
 }
-
 
 export type DeletePromptTemplateRequestInput = {
   templateId: string;
 };
-export function createDeletePromptTemplateRequestInput(options: Partial<DeletePromptTemplateRequestInput> = {}): DeletePromptTemplateRequestInput {
+export function createDeletePromptTemplateRequestInput(
+  options: Partial<DeletePromptTemplateRequestInput> = {},
+): DeletePromptTemplateRequestInput {
   return options as DeletePromptTemplateRequestInput;
 }
 
-
 export type ExternalAgentConfigListResponse = Array<ExternalAgentConfig>;
 
-
-export type ExternalAgentPreflightStatusListResponse = Array<ExternalAgentPreflightStatus>;
-
+export type ExternalAgentPreflightStatusListResponse =
+  Array<ExternalAgentPreflightStatus>;
 
 export type CreateExternalAgentConfigRequestInput = {
   name?: string | null;
@@ -8288,29 +8632,31 @@ export type CreateExternalAgentConfigRequestInput = {
   workingDir?: string | null;
   codexSkipGitRepoCheck?: boolean | null;
 };
-export function createCreateExternalAgentConfigRequestInput(options: Partial<CreateExternalAgentConfigRequestInput> = {}): CreateExternalAgentConfigRequestInput {
+export function createCreateExternalAgentConfigRequestInput(
+  options: Partial<CreateExternalAgentConfigRequestInput> = {},
+): CreateExternalAgentConfigRequestInput {
   return options as CreateExternalAgentConfigRequestInput;
 }
-
 
 export type UpdateExternalAgentConfigRequestInput = {
   config: ExternalAgentConfig;
 };
-export function createUpdateExternalAgentConfigRequestInput(options: Partial<UpdateExternalAgentConfigRequestInput> = {}): UpdateExternalAgentConfigRequestInput {
+export function createUpdateExternalAgentConfigRequestInput(
+  options: Partial<UpdateExternalAgentConfigRequestInput> = {},
+): UpdateExternalAgentConfigRequestInput {
   return options as UpdateExternalAgentConfigRequestInput;
 }
-
 
 export type DeleteExternalAgentConfigRequestInput = {
   configId: string;
 };
-export function createDeleteExternalAgentConfigRequestInput(options: Partial<DeleteExternalAgentConfigRequestInput> = {}): DeleteExternalAgentConfigRequestInput {
+export function createDeleteExternalAgentConfigRequestInput(
+  options: Partial<DeleteExternalAgentConfigRequestInput> = {},
+): DeleteExternalAgentConfigRequestInput {
   return options as DeleteExternalAgentConfigRequestInput;
 }
 
-
 export type TranscriptionProfileListResponse = Array<TranscriptionProfile>;
-
 
 export type CreateTranscriptionProfileRequestInput = {
   name: string;
@@ -8319,48 +8665,52 @@ export type CreateTranscriptionProfileRequestInput = {
   chunkMs: number;
   language?: string | null;
 };
-export function createCreateTranscriptionProfileRequestInput(options: Partial<CreateTranscriptionProfileRequestInput> = {}): CreateTranscriptionProfileRequestInput {
+export function createCreateTranscriptionProfileRequestInput(
+  options: Partial<CreateTranscriptionProfileRequestInput> = {},
+): CreateTranscriptionProfileRequestInput {
   return options as CreateTranscriptionProfileRequestInput;
 }
 
-
 export type TranscriptionProfileResponse = TranscriptionProfile;
-
 
 export type UpdateTranscriptionProfileRequestInput = {
   profile: TranscriptionProfile;
 };
-export function createUpdateTranscriptionProfileRequestInput(options: Partial<UpdateTranscriptionProfileRequestInput> = {}): UpdateTranscriptionProfileRequestInput {
+export function createUpdateTranscriptionProfileRequestInput(
+  options: Partial<UpdateTranscriptionProfileRequestInput> = {},
+): UpdateTranscriptionProfileRequestInput {
   return options as UpdateTranscriptionProfileRequestInput;
 }
-
 
 export type DeleteTranscriptionProfileRequestInput = {
   profileId: string;
 };
-export function createDeleteTranscriptionProfileRequestInput(options: Partial<DeleteTranscriptionProfileRequestInput> = {}): DeleteTranscriptionProfileRequestInput {
+export function createDeleteTranscriptionProfileRequestInput(
+  options: Partial<DeleteTranscriptionProfileRequestInput> = {},
+): DeleteTranscriptionProfileRequestInput {
   return options as DeleteTranscriptionProfileRequestInput;
 }
-
 
 export type StartTranscriptionSessionRequest = {
   transcriptionProfileId: string;
   language: string | null;
 };
-export function createStartTranscriptionSessionRequest(options: Partial<StartTranscriptionSessionRequest> = {}): StartTranscriptionSessionRequest {
+export function createStartTranscriptionSessionRequest(
+  options: Partial<StartTranscriptionSessionRequest> = {},
+): StartTranscriptionSessionRequest {
   return options as StartTranscriptionSessionRequest;
 }
-
 
 export type StartTranscriptionSessionResponse = {
   sessionId: string;
   resolvedTransportMode: string;
   chunkMs: number;
 };
-export function createStartTranscriptionSessionResponse(options: Partial<StartTranscriptionSessionResponse> = {}): StartTranscriptionSessionResponse {
+export function createStartTranscriptionSessionResponse(
+  options: Partial<StartTranscriptionSessionResponse> = {},
+): StartTranscriptionSessionResponse {
   return options as StartTranscriptionSessionResponse;
 }
-
 
 export type AppendTranscriptionAudioRequest = {
   sessionId: string;
@@ -8368,44 +8718,49 @@ export type AppendTranscriptionAudioRequest = {
   sampleRateHz: number;
   channels: number;
 };
-export function createAppendTranscriptionAudioRequest(options: Partial<AppendTranscriptionAudioRequest> = {}): AppendTranscriptionAudioRequest {
+export function createAppendTranscriptionAudioRequest(
+  options: Partial<AppendTranscriptionAudioRequest> = {},
+): AppendTranscriptionAudioRequest {
   return options as AppendTranscriptionAudioRequest;
 }
-
 
 export type TranscriptionSessionDeltaResponse = {
   appendText: string;
   fullText: string;
   isFinal: boolean;
 };
-export function createTranscriptionSessionDeltaResponse(options: Partial<TranscriptionSessionDeltaResponse> = {}): TranscriptionSessionDeltaResponse {
+export function createTranscriptionSessionDeltaResponse(
+  options: Partial<TranscriptionSessionDeltaResponse> = {},
+): TranscriptionSessionDeltaResponse {
   return options as TranscriptionSessionDeltaResponse;
 }
-
 
 export type StopTranscriptionSessionRequest = {
   sessionId: string;
 };
-export function createStopTranscriptionSessionRequest(options: Partial<StopTranscriptionSessionRequest> = {}): StopTranscriptionSessionRequest {
+export function createStopTranscriptionSessionRequest(
+  options: Partial<StopTranscriptionSessionRequest> = {},
+): StopTranscriptionSessionRequest {
   return options as StopTranscriptionSessionRequest;
 }
-
 
 export type CancelTranscriptionSessionRequest = {
   sessionId: string;
 };
-export function createCancelTranscriptionSessionRequest(options: Partial<CancelTranscriptionSessionRequest> = {}): CancelTranscriptionSessionRequest {
+export function createCancelTranscriptionSessionRequest(
+  options: Partial<CancelTranscriptionSessionRequest> = {},
+): CancelTranscriptionSessionRequest {
   return options as CancelTranscriptionSessionRequest;
 }
-
 
 export type CancelTranscriptionSessionResponse = {
   ok: boolean;
 };
-export function createCancelTranscriptionSessionResponse(options: Partial<CancelTranscriptionSessionResponse> = {}): CancelTranscriptionSessionResponse {
+export function createCancelTranscriptionSessionResponse(
+  options: Partial<CancelTranscriptionSessionResponse> = {},
+): CancelTranscriptionSessionResponse {
   return options as CancelTranscriptionSessionResponse;
 }
-
 
 export type GetLLMResponseRequest = {
   chatId: string | null;
@@ -8427,22 +8782,23 @@ export type GetLLMResponseRequest = {
   appGenerationReferenceImageUrl: string | null;
   appGenerationReferenceImageNotes: string | null;
 };
-export function createGetLLMResponseRequest(options: Partial<GetLLMResponseRequest> = {}): GetLLMResponseRequest {
+export function createGetLLMResponseRequest(
+  options: Partial<GetLLMResponseRequest> = {},
+): GetLLMResponseRequest {
   return options as GetLLMResponseRequest;
 }
 
-
 export type GetLLMResponseResponse = string;
-
 
 export type GetLLMChatRequest = {
   chatId: string;
   projectConfigId: string | null;
 };
-export function createGetLLMChatRequest(options: Partial<GetLLMChatRequest> = {}): GetLLMChatRequest {
+export function createGetLLMChatRequest(
+  options: Partial<GetLLMChatRequest> = {},
+): GetLLMChatRequest {
   return options as GetLLMChatRequest;
 }
-
 
 export type GetLLMChatResponse = {
   messages: Array<BaseChatMessageUnion>;
@@ -8450,37 +8806,41 @@ export type GetLLMChatResponse = {
   llmConfig?: LLMConfig | null;
   contextUsage?: ChatContextUsage | null;
 };
-export function createGetLLMChatResponse(options: Partial<GetLLMChatResponse> = {}): GetLLMChatResponse {
+export function createGetLLMChatResponse(
+  options: Partial<GetLLMChatResponse> = {},
+): GetLLMChatResponse {
   return options as GetLLMChatResponse;
 }
-
 
 export type StopLLMChatRequest = {
   chatId: string;
 };
-export function createStopLLMChatRequest(options: Partial<StopLLMChatRequest> = {}): StopLLMChatRequest {
+export function createStopLLMChatRequest(
+  options: Partial<StopLLMChatRequest> = {},
+): StopLLMChatRequest {
   return options as StopLLMChatRequest;
 }
-
 
 export type StopLLMChatResponse = {
   alreadyStopped: boolean;
   stoppedRunId?: string | null;
   stoppedMessageId?: string | null;
 };
-export function createStopLLMChatResponse(options: Partial<StopLLMChatResponse> = {}): StopLLMChatResponse {
+export function createStopLLMChatResponse(
+  options: Partial<StopLLMChatResponse> = {},
+): StopLLMChatResponse {
   return options as StopLLMChatResponse;
 }
-
 
 export type GetExternalAgentChatRequest = {
   chatId: string;
   projectConfigId: string | null;
 };
-export function createGetExternalAgentChatRequest(options: Partial<GetExternalAgentChatRequest> = {}): GetExternalAgentChatRequest {
+export function createGetExternalAgentChatRequest(
+  options: Partial<GetExternalAgentChatRequest> = {},
+): GetExternalAgentChatRequest {
   return options as GetExternalAgentChatRequest;
 }
-
 
 export type ExternalAgentChatResponse = {
   messages: Array<BaseChatMessageUnion>;
@@ -8488,50 +8848,54 @@ export type ExternalAgentChatResponse = {
   toolCallArguments: Record<string, string>;
   contextUsage?: ChatContextUsage | null;
 };
-export function createExternalAgentChatResponse(options: Partial<ExternalAgentChatResponse> = {}): ExternalAgentChatResponse {
+export function createExternalAgentChatResponse(
+  options: Partial<ExternalAgentChatResponse> = {},
+): ExternalAgentChatResponse {
   return options as ExternalAgentChatResponse;
 }
-
 
 export type GetAIFollowSnapshotRequest = {
   projectConfigId: string;
 };
-export function createGetAIFollowSnapshotRequest(options: Partial<GetAIFollowSnapshotRequest> = {}): GetAIFollowSnapshotRequest {
+export function createGetAIFollowSnapshotRequest(
+  options: Partial<GetAIFollowSnapshotRequest> = {},
+): GetAIFollowSnapshotRequest {
   return options as GetAIFollowSnapshotRequest;
 }
 
-
-export type AIFollowSnapshotResponse = Array<AIFollowToolArgumentsUpdateContent>;
-
+export type AIFollowSnapshotResponse =
+  Array<AIFollowToolArgumentsUpdateContent>;
 
 export type StopExternalAgentRunRequest = {
   runId: string;
 };
-export function createStopExternalAgentRunRequest(options: Partial<StopExternalAgentRunRequest> = {}): StopExternalAgentRunRequest {
+export function createStopExternalAgentRunRequest(
+  options: Partial<StopExternalAgentRunRequest> = {},
+): StopExternalAgentRunRequest {
   return options as StopExternalAgentRunRequest;
 }
 
-
 export type AgentRunResponse = AgentRun;
-
 
 export type RespondExternalAgentApprovalRequest = {
   approvalId: string;
   approved: boolean;
 };
-export function createRespondExternalAgentApprovalRequest(options: Partial<RespondExternalAgentApprovalRequest> = {}): RespondExternalAgentApprovalRequest {
+export function createRespondExternalAgentApprovalRequest(
+  options: Partial<RespondExternalAgentApprovalRequest> = {},
+): RespondExternalAgentApprovalRequest {
   return options as RespondExternalAgentApprovalRequest;
 }
-
 
 export type RespondExternalAgentQuestionRequest = {
   toolCallId: string;
   answers: Record<string, string>;
 };
-export function createRespondExternalAgentQuestionRequest(options: Partial<RespondExternalAgentQuestionRequest> = {}): RespondExternalAgentQuestionRequest {
+export function createRespondExternalAgentQuestionRequest(
+  options: Partial<RespondExternalAgentQuestionRequest> = {},
+): RespondExternalAgentQuestionRequest {
   return options as RespondExternalAgentQuestionRequest;
 }
-
 
 export type SetChatSectionSettingsRequestInput = {
   frontendOpId?: string | null;
@@ -8546,10 +8910,11 @@ export type SetChatSectionSettingsRequestInput = {
   searchEnabled: boolean;
   dictationMode: ChatDictationMode;
 };
-export function createSetChatSectionSettingsRequestInput(options: Partial<SetChatSectionSettingsRequestInput> = {}): SetChatSectionSettingsRequestInput {
+export function createSetChatSectionSettingsRequestInput(
+  options: Partial<SetChatSectionSettingsRequestInput> = {},
+): SetChatSectionSettingsRequestInput {
   return options as SetChatSectionSettingsRequestInput;
 }
-
 
 export type SetChatSectionStateRequestInput = {
   frontendOpId?: string | null;
@@ -8557,10 +8922,11 @@ export type SetChatSectionStateRequestInput = {
   sectionId: string;
   state: ChatSectionState;
 };
-export function createSetChatSectionStateRequestInput(options: Partial<SetChatSectionStateRequestInput> = {}): SetChatSectionStateRequestInput {
+export function createSetChatSectionStateRequestInput(
+  options: Partial<SetChatSectionStateRequestInput> = {},
+): SetChatSectionStateRequestInput {
   return options as SetChatSectionStateRequestInput;
 }
-
 
 export type SetChatSectionChatIDRequest = {
   frontendOpId: string | null;
@@ -8568,10 +8934,11 @@ export type SetChatSectionChatIDRequest = {
   sectionId: string;
   chatId: string | null;
 };
-export function createSetChatSectionChatIDRequest(options: Partial<SetChatSectionChatIDRequest> = {}): SetChatSectionChatIDRequest {
+export function createSetChatSectionChatIDRequest(
+  options: Partial<SetChatSectionChatIDRequest> = {},
+): SetChatSectionChatIDRequest {
   return options as SetChatSectionChatIDRequest;
 }
-
 
 export type SetPromptTemplateRequest = {
   frontendOpId: string | null;
@@ -8579,10 +8946,11 @@ export type SetPromptTemplateRequest = {
   sectionId: string;
   template: string;
 };
-export function createSetPromptTemplateRequest(options: Partial<SetPromptTemplateRequest> = {}): SetPromptTemplateRequest {
+export function createSetPromptTemplateRequest(
+  options: Partial<SetPromptTemplateRequest> = {},
+): SetPromptTemplateRequest {
   return options as SetPromptTemplateRequest;
 }
-
 
 export type SetPromptInputsRequest = {
   frontendOpId: string | null;
@@ -8590,10 +8958,11 @@ export type SetPromptInputsRequest = {
   sectionId: string;
   inputs: Record<string, string>;
 };
-export function createSetPromptInputsRequest(options: Partial<SetPromptInputsRequest> = {}): SetPromptInputsRequest {
+export function createSetPromptInputsRequest(
+  options: Partial<SetPromptInputsRequest> = {},
+): SetPromptInputsRequest {
   return options as SetPromptInputsRequest;
 }
-
 
 export type SetPromptFormatRequest = {
   frontendOpId: string | null;
@@ -8601,10 +8970,11 @@ export type SetPromptFormatRequest = {
   sectionId: string;
   format: PromptFormat;
 };
-export function createSetPromptFormatRequest(options: Partial<SetPromptFormatRequest> = {}): SetPromptFormatRequest {
+export function createSetPromptFormatRequest(
+  options: Partial<SetPromptFormatRequest> = {},
+): SetPromptFormatRequest {
   return options as SetPromptFormatRequest;
 }
-
 
 export type CreateWindowSpaceRequest = {
   frontendOpId: string | null;
@@ -8612,10 +8982,11 @@ export type CreateWindowSpaceRequest = {
   state: WindowSpaceState;
   name?: string | null;
 };
-export function createCreateWindowSpaceRequest(options: Partial<CreateWindowSpaceRequest> = {}): CreateWindowSpaceRequest {
+export function createCreateWindowSpaceRequest(
+  options: Partial<CreateWindowSpaceRequest> = {},
+): CreateWindowSpaceRequest {
   return options as CreateWindowSpaceRequest;
 }
-
 
 export type SetWindowSpaceNameRequest = {
   frontendOpId: string | null;
@@ -8623,40 +8994,44 @@ export type SetWindowSpaceNameRequest = {
   windowSpaceId: string;
   name: string;
 };
-export function createSetWindowSpaceNameRequest(options: Partial<SetWindowSpaceNameRequest> = {}): SetWindowSpaceNameRequest {
+export function createSetWindowSpaceNameRequest(
+  options: Partial<SetWindowSpaceNameRequest> = {},
+): SetWindowSpaceNameRequest {
   return options as SetWindowSpaceNameRequest;
 }
-
 
 export type SetWindowSpaceSortOrderRequest = {
   frontendOpId: string | null;
   projectConfigId: string;
   orderedWindowSpaceIds: Array<string>;
 };
-export function createSetWindowSpaceSortOrderRequest(options: Partial<SetWindowSpaceSortOrderRequest> = {}): SetWindowSpaceSortOrderRequest {
+export function createSetWindowSpaceSortOrderRequest(
+  options: Partial<SetWindowSpaceSortOrderRequest> = {},
+): SetWindowSpaceSortOrderRequest {
   return options as SetWindowSpaceSortOrderRequest;
 }
-
 
 export type DeleteWindowSpaceRequest = {
   frontendOpId: string | null;
   projectConfigId: string;
   windowSpaceId: string;
 };
-export function createDeleteWindowSpaceRequest(options: Partial<DeleteWindowSpaceRequest> = {}): DeleteWindowSpaceRequest {
+export function createDeleteWindowSpaceRequest(
+  options: Partial<DeleteWindowSpaceRequest> = {},
+): DeleteWindowSpaceRequest {
   return options as DeleteWindowSpaceRequest;
 }
-
 
 export type SetProjectChatWindowingStateRequest = {
   frontendOpId: string | null;
   projectConfigId: string;
   state: ProjectChatWindowingState;
 };
-export function createSetProjectChatWindowingStateRequest(options: Partial<SetProjectChatWindowingStateRequest> = {}): SetProjectChatWindowingStateRequest {
+export function createSetProjectChatWindowingStateRequest(
+  options: Partial<SetProjectChatWindowingStateRequest> = {},
+): SetProjectChatWindowingStateRequest {
   return options as SetProjectChatWindowingStateRequest;
 }
-
 
 export type SetProjectChatWindowChatIDRequest = {
   frontendOpId: string | null;
@@ -8664,19 +9039,21 @@ export type SetProjectChatWindowChatIDRequest = {
   instanceId: string;
   chatId: string | null;
 };
-export function createSetProjectChatWindowChatIDRequest(options: Partial<SetProjectChatWindowChatIDRequest> = {}): SetProjectChatWindowChatIDRequest {
+export function createSetProjectChatWindowChatIDRequest(
+  options: Partial<SetProjectChatWindowChatIDRequest> = {},
+): SetProjectChatWindowChatIDRequest {
   return options as SetProjectChatWindowChatIDRequest;
 }
-
 
 export type GetAgenticSummaryCacheStatusRequest = {
   projectConfigId: string;
   chatSectionId: string;
 };
-export function createGetAgenticSummaryCacheStatusRequest(options: Partial<GetAgenticSummaryCacheStatusRequest> = {}): GetAgenticSummaryCacheStatusRequest {
+export function createGetAgenticSummaryCacheStatusRequest(
+  options: Partial<GetAgenticSummaryCacheStatusRequest> = {},
+): GetAgenticSummaryCacheStatusRequest {
   return options as GetAgenticSummaryCacheStatusRequest;
 }
-
 
 export type AgenticSummaryCacheStatus = {
   maxSummariesPerRun: number;
@@ -8687,10 +9064,11 @@ export type AgenticSummaryCacheStatus = {
   consideredSectionIds: Array<string>;
   wouldAttemptSectionIds: Array<string>;
 };
-export function createAgenticSummaryCacheStatus(options: Partial<AgenticSummaryCacheStatus> = {}): AgenticSummaryCacheStatus {
+export function createAgenticSummaryCacheStatus(
+  options: Partial<AgenticSummaryCacheStatus> = {},
+): AgenticSummaryCacheStatus {
   return options as AgenticSummaryCacheStatus;
 }
-
 
 export const AppCatalogPropTypeEnum = {
   String: "string",
@@ -8699,7 +9077,6 @@ export const AppCatalogPropTypeEnum = {
   Boolean: "boolean",
 } as const;
 export type AppCatalogPropType = ObjectValues<typeof AppCatalogPropTypeEnum>;
-
 
 export type AppCatalogProp = {
   type: AppCatalogPropType;
@@ -8710,28 +9087,31 @@ export type AppCatalogProp = {
   enum?: Array<unknown>;
   default?: unknown;
 };
-export function createAppCatalogProp(options: Partial<AppCatalogProp> = {}): AppCatalogProp {
+export function createAppCatalogProp(
+  options: Partial<AppCatalogProp> = {},
+): AppCatalogProp {
   return options as AppCatalogProp;
 }
-
 
 export type AppCatalogComponent = {
   type: string;
   children: boolean;
   props?: Record<string, AppCatalogProp>;
 };
-export function createAppCatalogComponent(options: Partial<AppCatalogComponent> = {}): AppCatalogComponent {
+export function createAppCatalogComponent(
+  options: Partial<AppCatalogComponent> = {},
+): AppCatalogComponent {
   return options as AppCatalogComponent;
 }
-
 
 export type AppCatalogAction = {
   name: string;
 };
-export function createAppCatalogAction(options: Partial<AppCatalogAction> = {}): AppCatalogAction {
+export function createAppCatalogAction(
+  options: Partial<AppCatalogAction> = {},
+): AppCatalogAction {
   return options as AppCatalogAction;
 }
-
 
 export type AppCatalogResponse = {
   id: string;
@@ -8739,27 +9119,30 @@ export type AppCatalogResponse = {
   components: Array<AppCatalogComponent>;
   actions: Array<AppCatalogAction>;
 };
-export function createAppCatalogResponse(options: Partial<AppCatalogResponse> = {}): AppCatalogResponse {
+export function createAppCatalogResponse(
+  options: Partial<AppCatalogResponse> = {},
+): AppCatalogResponse {
   return options as AppCatalogResponse;
 }
-
 
 export type GetAppDefinitionRequestInput = {
   frontendOpId?: string | null;
 };
-export function createGetAppDefinitionRequestInput(options: Partial<GetAppDefinitionRequestInput> = {}): GetAppDefinitionRequestInput {
+export function createGetAppDefinitionRequestInput(
+  options: Partial<GetAppDefinitionRequestInput> = {},
+): GetAppDefinitionRequestInput {
   return options as GetAppDefinitionRequestInput;
 }
-
 
 export type AppDefinitionReadResponse = {
   appSpec: unknown;
   appDefinition?: AppDefinition | null;
 };
-export function createAppDefinitionReadResponse(options: Partial<AppDefinitionReadResponse> = {}): AppDefinitionReadResponse {
+export function createAppDefinitionReadResponse(
+  options: Partial<AppDefinitionReadResponse> = {},
+): AppDefinitionReadResponse {
   return options as AppDefinitionReadResponse;
 }
-
 
 export type SetAppDefinitionRequestInput = {
   frontendOpId?: string | null;
@@ -8773,19 +9156,21 @@ export type SetAppDefinitionRequestInput = {
   theme?: Record<string, unknown> | null;
   assets?: Array<unknown> | null;
 };
-export function createSetAppDefinitionRequestInput(options: Partial<SetAppDefinitionRequestInput> = {}): SetAppDefinitionRequestInput {
+export function createSetAppDefinitionRequestInput(
+  options: Partial<SetAppDefinitionRequestInput> = {},
+): SetAppDefinitionRequestInput {
   return options as SetAppDefinitionRequestInput;
 }
-
 
 export type AppDefinitionMutationResponse = {
   appSpec: unknown;
   appDefinition?: AppDefinition | null;
 };
-export function createAppDefinitionMutationResponse(options: Partial<AppDefinitionMutationResponse> = {}): AppDefinitionMutationResponse {
+export function createAppDefinitionMutationResponse(
+  options: Partial<AppDefinitionMutationResponse> = {},
+): AppDefinitionMutationResponse {
   return options as AppDefinitionMutationResponse;
 }
-
 
 export type ValidateAppDefinitionRequestInput = {
   frontendOpId?: string | null;
@@ -8798,20 +9183,22 @@ export type ValidateAppDefinitionRequestInput = {
   theme?: Record<string, unknown> | null;
   assets?: Array<unknown> | null;
 };
-export function createValidateAppDefinitionRequestInput(options: Partial<ValidateAppDefinitionRequestInput> = {}): ValidateAppDefinitionRequestInput {
+export function createValidateAppDefinitionRequestInput(
+  options: Partial<ValidateAppDefinitionRequestInput> = {},
+): ValidateAppDefinitionRequestInput {
   return options as ValidateAppDefinitionRequestInput;
 }
-
 
 export type AppValidationIssue = {
   message: string;
   elementKey?: string | null;
   elementType?: string | null;
 };
-export function createAppValidationIssue(options: Partial<AppValidationIssue> = {}): AppValidationIssue {
+export function createAppValidationIssue(
+  options: Partial<AppValidationIssue> = {},
+): AppValidationIssue {
   return options as AppValidationIssue;
 }
-
 
 export type AppCapabilities = {
   catalogId: string;
@@ -8820,38 +9207,42 @@ export type AppCapabilities = {
   themeSchemaVersion: string;
   features: Record<string, boolean>;
 };
-export function createAppCapabilities(options: Partial<AppCapabilities> = {}): AppCapabilities {
+export function createAppCapabilities(
+  options: Partial<AppCapabilities> = {},
+): AppCapabilities {
   return options as AppCapabilities;
 }
-
 
 export type AppDefinitionValidationResponse = {
   errors: Array<AppValidationIssue>;
   warnings: Array<AppValidationIssue>;
   capabilities: AppCapabilities;
 };
-export function createAppDefinitionValidationResponse(options: Partial<AppDefinitionValidationResponse> = {}): AppDefinitionValidationResponse {
+export function createAppDefinitionValidationResponse(
+  options: Partial<AppDefinitionValidationResponse> = {},
+): AppDefinitionValidationResponse {
   return options as AppDefinitionValidationResponse;
 }
-
 
 export type TypeCheckRequestInput = {
   projectConfigId: string;
 };
-export function createTypeCheckRequestInput(options: Partial<TypeCheckRequestInput> = {}): TypeCheckRequestInput {
+export function createTypeCheckRequestInput(
+  options: Partial<TypeCheckRequestInput> = {},
+): TypeCheckRequestInput {
   return options as TypeCheckRequestInput;
 }
-
 
 export type ClearTextFieldCompletionRequest = {
   projectConfigId: string;
   sectionId: string;
   paramInfoId: string | null;
 };
-export function createClearTextFieldCompletionRequest(options: Partial<ClearTextFieldCompletionRequest> = {}): ClearTextFieldCompletionRequest {
+export function createClearTextFieldCompletionRequest(
+  options: Partial<ClearTextFieldCompletionRequest> = {},
+): ClearTextFieldCompletionRequest {
   return options as ClearTextFieldCompletionRequest;
 }
-
 
 export type TextFieldCompletionRequest = {
   projectConfigId: string;
@@ -8860,22 +9251,23 @@ export type TextFieldCompletionRequest = {
   fullText: string;
   position: number;
 };
-export function createTextFieldCompletionRequest(options: Partial<TextFieldCompletionRequest> = {}): TextFieldCompletionRequest {
+export function createTextFieldCompletionRequest(
+  options: Partial<TextFieldCompletionRequest> = {},
+): TextFieldCompletionRequest {
   return options as TextFieldCompletionRequest;
 }
-
 
 export type CodeMirrorCompletion = {
   label: string;
   type: string;
 };
-export function createCodeMirrorCompletion(options: Partial<CodeMirrorCompletion> = {}): CodeMirrorCompletion {
+export function createCodeMirrorCompletion(
+  options: Partial<CodeMirrorCompletion> = {},
+): CodeMirrorCompletion {
   return options as CodeMirrorCompletion;
 }
 
-
 export type CodeMirrorCompletionResponse = Array<CodeMirrorCompletion>;
-
 
 export type OutputAccessorCompletionRequest = {
   projectConfigId: string;
@@ -8883,10 +9275,11 @@ export type OutputAccessorCompletionRequest = {
   fullText: string;
   position: number;
 };
-export function createOutputAccessorCompletionRequest(options: Partial<OutputAccessorCompletionRequest> = {}): OutputAccessorCompletionRequest {
+export function createOutputAccessorCompletionRequest(
+  options: Partial<OutputAccessorCompletionRequest> = {},
+): OutputAccessorCompletionRequest {
   return options as OutputAccessorCompletionRequest;
 }
-
 
 export type CodeAreaCompletionRequest = {
   projectConfigId: string;
@@ -8894,75 +9287,83 @@ export type CodeAreaCompletionRequest = {
   fullText: string;
   position: number;
 };
-export function createCodeAreaCompletionRequest(options: Partial<CodeAreaCompletionRequest> = {}): CodeAreaCompletionRequest {
+export function createCodeAreaCompletionRequest(
+  options: Partial<CodeAreaCompletionRequest> = {},
+): CodeAreaCompletionRequest {
   return options as CodeAreaCompletionRequest;
 }
-
 
 export type GenCodePrefixCompletionRequest = {
   projectConfigId: string;
   fullText: string;
   position: number;
 };
-export function createGenCodePrefixCompletionRequest(options: Partial<GenCodePrefixCompletionRequest> = {}): GenCodePrefixCompletionRequest {
+export function createGenCodePrefixCompletionRequest(
+  options: Partial<GenCodePrefixCompletionRequest> = {},
+): GenCodePrefixCompletionRequest {
   return options as GenCodePrefixCompletionRequest;
 }
-
 
 export type GenCodeSuffixCompletionRequest = {
   projectConfigId: string;
   fullText: string;
   position: number;
 };
-export function createGenCodeSuffixCompletionRequest(options: Partial<GenCodeSuffixCompletionRequest> = {}): GenCodeSuffixCompletionRequest {
+export function createGenCodeSuffixCompletionRequest(
+  options: Partial<GenCodeSuffixCompletionRequest> = {},
+): GenCodeSuffixCompletionRequest {
   return options as GenCodeSuffixCompletionRequest;
 }
-
 
 export type GetLatestLspDiagnosticsRequestInput = {
   projectConfigId: string;
 };
-export function createGetLatestLspDiagnosticsRequestInput(options: Partial<GetLatestLspDiagnosticsRequestInput> = {}): GetLatestLspDiagnosticsRequestInput {
+export function createGetLatestLspDiagnosticsRequestInput(
+  options: Partial<GetLatestLspDiagnosticsRequestInput> = {},
+): GetLatestLspDiagnosticsRequestInput {
   return options as GetLatestLspDiagnosticsRequestInput;
 }
-
 
 export type SettaSectionTypeErrors = {
   callable: Array<string>;
   params: Record<string, Array<string>>;
 };
-export function createSettaSectionTypeErrors(options: Partial<SettaSectionTypeErrors> = {}): SettaSectionTypeErrors {
+export function createSettaSectionTypeErrors(
+  options: Partial<SettaSectionTypeErrors> = {},
+): SettaSectionTypeErrors {
   return options as SettaSectionTypeErrors;
 }
-
 
 export type SettaProjectConfigDiagnostics = {
   projectConfigId: string;
   errors: Record<string, SettaSectionTypeErrors>;
   isGenCode: boolean;
 };
-export function createSettaProjectConfigDiagnostics(options: Partial<SettaProjectConfigDiagnostics> = {}): SettaProjectConfigDiagnostics {
+export function createSettaProjectConfigDiagnostics(
+  options: Partial<SettaProjectConfigDiagnostics> = {},
+): SettaProjectConfigDiagnostics {
   return options as SettaProjectConfigDiagnostics;
 }
-
 
 export type SettaLspDiagnosticPosition = {
   line: number;
   character: number;
 };
-export function createSettaLspDiagnosticPosition(options: Partial<SettaLspDiagnosticPosition> = {}): SettaLspDiagnosticPosition {
+export function createSettaLspDiagnosticPosition(
+  options: Partial<SettaLspDiagnosticPosition> = {},
+): SettaLspDiagnosticPosition {
   return options as SettaLspDiagnosticPosition;
 }
-
 
 export type SettaLspDiagnosticRange = {
   start: SettaLspDiagnosticPosition;
   end: SettaLspDiagnosticPosition;
 };
-export function createSettaLspDiagnosticRange(options: Partial<SettaLspDiagnosticRange> = {}): SettaLspDiagnosticRange {
+export function createSettaLspDiagnosticRange(
+  options: Partial<SettaLspDiagnosticRange> = {},
+): SettaLspDiagnosticRange {
   return options as SettaLspDiagnosticRange;
 }
-
 
 export type SettaLspDiagnostic = {
   message: string;
@@ -8972,10 +9373,11 @@ export type SettaLspDiagnostic = {
   range: SettaLspDiagnosticRange;
   uri: string | null;
 };
-export function createSettaLspDiagnostic(options: Partial<SettaLspDiagnostic> = {}): SettaLspDiagnostic {
+export function createSettaLspDiagnostic(
+  options: Partial<SettaLspDiagnostic> = {},
+): SettaLspDiagnostic {
   return options as SettaLspDiagnostic;
 }
-
 
 export type SettaLspDiagnosticsPayload = {
   projectConfigId: string;
@@ -8983,10 +9385,11 @@ export type SettaLspDiagnosticsPayload = {
   codeSections: Record<string, Array<SettaLspDiagnostic>>;
   unmappedGenCode: Array<SettaLspDiagnostic>;
 };
-export function createSettaLspDiagnosticsPayload(options: Partial<SettaLspDiagnosticsPayload> = {}): SettaLspDiagnosticsPayload {
+export function createSettaLspDiagnosticsPayload(
+  options: Partial<SettaLspDiagnosticsPayload> = {},
+): SettaLspDiagnosticsPayload {
   return options as SettaLspDiagnosticsPayload;
 }
-
 
 export type SetTypeErrorIgnoreRequestInput = {
   projectConfigId: string;
@@ -8994,20 +9397,22 @@ export type SetTypeErrorIgnoreRequestInput = {
   paramInfoId: string | null;
   ignoreTypeErrors: boolean;
 };
-export function createSetTypeErrorIgnoreRequestInput(options: Partial<SetTypeErrorIgnoreRequestInput> = {}): SetTypeErrorIgnoreRequestInput {
+export function createSetTypeErrorIgnoreRequestInput(
+  options: Partial<SetTypeErrorIgnoreRequestInput> = {},
+): SetTypeErrorIgnoreRequestInput {
   return options as SetTypeErrorIgnoreRequestInput;
 }
-
 
 export type SetCodeSectionDiagnosticsMuteRequest = {
   projectConfigId: string;
   sectionId: string;
   mute: boolean;
 };
-export function createSetCodeSectionDiagnosticsMuteRequest(options: Partial<SetCodeSectionDiagnosticsMuteRequest> = {}): SetCodeSectionDiagnosticsMuteRequest {
+export function createSetCodeSectionDiagnosticsMuteRequest(
+  options: Partial<SetCodeSectionDiagnosticsMuteRequest> = {},
+): SetCodeSectionDiagnosticsMuteRequest {
   return options as SetCodeSectionDiagnosticsMuteRequest;
 }
-
 
 export type SetCodeSectionDiagnosticCodeSuppressionRequest = {
   projectConfigId: string;
@@ -9015,10 +9420,11 @@ export type SetCodeSectionDiagnosticCodeSuppressionRequest = {
   code: unknown;
   suppress: boolean;
 };
-export function createSetCodeSectionDiagnosticCodeSuppressionRequest(options: Partial<SetCodeSectionDiagnosticCodeSuppressionRequest> = {}): SetCodeSectionDiagnosticCodeSuppressionRequest {
+export function createSetCodeSectionDiagnosticCodeSuppressionRequest(
+  options: Partial<SetCodeSectionDiagnosticCodeSuppressionRequest> = {},
+): SetCodeSectionDiagnosticCodeSuppressionRequest {
   return options as SetCodeSectionDiagnosticCodeSuppressionRequest;
 }
-
 
 export type PluginListEntry = {
   pluginId: string;
@@ -9037,10 +9443,11 @@ export type PluginListEntry = {
   enablementSource: PluginEnablementSource | null;
   restartRequired: boolean;
 };
-export function createPluginListEntry(options: Partial<PluginListEntry> = {}): PluginListEntry {
+export function createPluginListEntry(
+  options: Partial<PluginListEntry> = {},
+): PluginListEntry {
   return options as PluginListEntry;
 }
-
 
 export type PluginListResponse = {
   schemaVersion: number;
@@ -9048,10 +9455,11 @@ export type PluginListResponse = {
   restartCapability: PluginRestartCapability;
   plugins: Array<PluginListEntry>;
 };
-export function createPluginListResponse(options: Partial<PluginListResponse> = {}): PluginListResponse {
+export function createPluginListResponse(
+  options: Partial<PluginListResponse> = {},
+): PluginListResponse {
   return options as PluginListResponse;
 }
-
 
 export type PluginStatusEntry = {
   pluginId: string;
@@ -9077,10 +9485,11 @@ export type PluginStatusEntry = {
   runtimePayloadDigestSha256: string;
   errors: Array<PluginErrorInfo>;
 };
-export function createPluginStatusEntry(options: Partial<PluginStatusEntry> = {}): PluginStatusEntry {
+export function createPluginStatusEntry(
+  options: Partial<PluginStatusEntry> = {},
+): PluginStatusEntry {
   return options as PluginStatusEntry;
 }
-
 
 export type PluginStatusResponse = {
   schemaVersion: number;
@@ -9088,20 +9497,22 @@ export type PluginStatusResponse = {
   restartCapability: PluginRestartCapability;
   plugins: Array<PluginStatusEntry>;
 };
-export function createPluginStatusResponse(options: Partial<PluginStatusResponse> = {}): PluginStatusResponse {
+export function createPluginStatusResponse(
+  options: Partial<PluginStatusResponse> = {},
+): PluginStatusResponse {
   return options as PluginStatusResponse;
 }
-
 
 export type PluginRuntimeResponse = {
   schemaVersion: number;
   list: PluginListResponse;
   status: PluginStatusResponse;
 };
-export function createPluginRuntimeResponse(options: Partial<PluginRuntimeResponse> = {}): PluginRuntimeResponse {
+export function createPluginRuntimeResponse(
+  options: Partial<PluginRuntimeResponse> = {},
+): PluginRuntimeResponse {
   return options as PluginRuntimeResponse;
 }
-
 
 export type PluginRescanResponse = {
   schemaVersion: number;
@@ -9109,10 +9520,11 @@ export type PluginRescanResponse = {
   installedPlugins: number;
   activePlugins: number;
 };
-export function createPluginRescanResponse(options: Partial<PluginRescanResponse> = {}): PluginRescanResponse {
+export function createPluginRescanResponse(
+  options: Partial<PluginRescanResponse> = {},
+): PluginRescanResponse {
   return options as PluginRescanResponse;
 }
-
 
 export type PluginInstallRequestInput = {
   sourceSpec: string;
@@ -9121,10 +9533,11 @@ export type PluginInstallRequestInput = {
   enable: boolean | null;
   force: boolean | null;
 };
-export function createPluginInstallRequestInput(options: Partial<PluginInstallRequestInput> = {}): PluginInstallRequestInput {
+export function createPluginInstallRequestInput(
+  options: Partial<PluginInstallRequestInput> = {},
+): PluginInstallRequestInput {
   return options as PluginInstallRequestInput;
 }
-
 
 export type PluginInstallResponse = {
   pluginId: string;
@@ -9141,39 +9554,43 @@ export type PluginInstallResponse = {
   state: PluginRuntimeState;
   restartRequired: boolean;
 };
-export function createPluginInstallResponse(options: Partial<PluginInstallResponse> = {}): PluginInstallResponse {
+export function createPluginInstallResponse(
+  options: Partial<PluginInstallResponse> = {},
+): PluginInstallResponse {
   return options as PluginInstallResponse;
 }
-
 
 export type PluginUninstallRequestInput = {
   pluginId: string;
   scope: PluginScope | null;
 };
-export function createPluginUninstallRequestInput(options: Partial<PluginUninstallRequestInput> = {}): PluginUninstallRequestInput {
+export function createPluginUninstallRequestInput(
+  options: Partial<PluginUninstallRequestInput> = {},
+): PluginUninstallRequestInput {
   return options as PluginUninstallRequestInput;
 }
-
 
 export type PluginUninstallResponse = {
   pluginId: string;
   removedFromScope: PluginScope;
   restartRequired: boolean;
 };
-export function createPluginUninstallResponse(options: Partial<PluginUninstallResponse> = {}): PluginUninstallResponse {
+export function createPluginUninstallResponse(
+  options: Partial<PluginUninstallResponse> = {},
+): PluginUninstallResponse {
   return options as PluginUninstallResponse;
 }
-
 
 export type PluginUpdateRequestInput = {
   pluginId: string;
   scope: PluginScope | null;
   to: string | null;
 };
-export function createPluginUpdateRequestInput(options: Partial<PluginUpdateRequestInput> = {}): PluginUpdateRequestInput {
+export function createPluginUpdateRequestInput(
+  options: Partial<PluginUpdateRequestInput> = {},
+): PluginUpdateRequestInput {
   return options as PluginUpdateRequestInput;
 }
-
 
 export type PluginUpdateResponse = {
   pluginId: string;
@@ -9182,19 +9599,21 @@ export type PluginUpdateResponse = {
   sourceDigestSha256: string | null;
   restartRequired: boolean;
 };
-export function createPluginUpdateResponse(options: Partial<PluginUpdateResponse> = {}): PluginUpdateResponse {
+export function createPluginUpdateResponse(
+  options: Partial<PluginUpdateResponse> = {},
+): PluginUpdateResponse {
   return options as PluginUpdateResponse;
 }
-
 
 export type PluginRollbackRequestInput = {
   pluginId: string;
   scope: PluginScope | null;
 };
-export function createPluginRollbackRequestInput(options: Partial<PluginRollbackRequestInput> = {}): PluginRollbackRequestInput {
+export function createPluginRollbackRequestInput(
+  options: Partial<PluginRollbackRequestInput> = {},
+): PluginRollbackRequestInput {
   return options as PluginRollbackRequestInput;
 }
-
 
 export type PluginRollbackResponse = {
   pluginId: string;
@@ -9202,55 +9621,61 @@ export type PluginRollbackResponse = {
   sourceDigestSha256: string | null;
   restartRequired: boolean;
 };
-export function createPluginRollbackResponse(options: Partial<PluginRollbackResponse> = {}): PluginRollbackResponse {
+export function createPluginRollbackResponse(
+  options: Partial<PluginRollbackResponse> = {},
+): PluginRollbackResponse {
   return options as PluginRollbackResponse;
 }
-
 
 export type PluginEnableDisableRequestInput = {
   pluginId: string;
 };
-export function createPluginEnableDisableRequestInput(options: Partial<PluginEnableDisableRequestInput> = {}): PluginEnableDisableRequestInput {
+export function createPluginEnableDisableRequestInput(
+  options: Partial<PluginEnableDisableRequestInput> = {},
+): PluginEnableDisableRequestInput {
   return options as PluginEnableDisableRequestInput;
 }
-
 
 export type PluginEnableDisableResponse = {
   pluginId: string;
   state: PluginRuntimeState;
   restartRequired: boolean;
 };
-export function createPluginEnableDisableResponse(options: Partial<PluginEnableDisableResponse> = {}): PluginEnableDisableResponse {
+export function createPluginEnableDisableResponse(
+  options: Partial<PluginEnableDisableResponse> = {},
+): PluginEnableDisableResponse {
   return options as PluginEnableDisableResponse;
 }
-
 
 export type PluginConfigWriteRequestInput = {
   pluginId: string;
   config: Record<string, unknown>;
 };
-export function createPluginConfigWriteRequestInput(options: Partial<PluginConfigWriteRequestInput> = {}): PluginConfigWriteRequestInput {
+export function createPluginConfigWriteRequestInput(
+  options: Partial<PluginConfigWriteRequestInput> = {},
+): PluginConfigWriteRequestInput {
   return options as PluginConfigWriteRequestInput;
 }
-
 
 export type PluginConfigValidationResult = {
   ok: boolean;
 };
-export function createPluginConfigValidationResult(options: Partial<PluginConfigValidationResult> = {}): PluginConfigValidationResult {
+export function createPluginConfigValidationResult(
+  options: Partial<PluginConfigValidationResult> = {},
+): PluginConfigValidationResult {
   return options as PluginConfigValidationResult;
 }
-
 
 export type PluginConfigWriteResponse = {
   pluginId: string;
   config: Record<string, unknown>;
   validation: PluginConfigValidationResult;
 };
-export function createPluginConfigWriteResponse(options: Partial<PluginConfigWriteResponse> = {}): PluginConfigWriteResponse {
+export function createPluginConfigWriteResponse(
+  options: Partial<PluginConfigWriteResponse> = {},
+): PluginConfigWriteResponse {
   return options as PluginConfigWriteResponse;
 }
-
 
 export type PluginRestartResponse = {
   accepted: boolean;
@@ -9258,92 +9683,132 @@ export type PluginRestartResponse = {
   command: string | null;
   reason: string | null;
 };
-export function createPluginRestartResponse(options: Partial<PluginRestartResponse> = {}): PluginRestartResponse {
+export function createPluginRestartResponse(
+  options: Partial<PluginRestartResponse> = {},
+): PluginRestartResponse {
   return options as PluginRestartResponse;
 }
-
 
 export type ImplArgsBundleMap = {
   BaseSection: {
     impl: BaseSectionImplUnion;
     args: {
-      [K in keyof BaseSectionImplUnion]?: BaseSectionImplUnion[K] | ((prev: BaseSectionImplUnion[K]) => BaseSectionImplUnion[K]);
+      [K in keyof BaseSectionImplUnion]?:
+        | BaseSectionImplUnion[K]
+        | ((prev: BaseSectionImplUnion[K]) => BaseSectionImplUnion[K]);
     };
   };
   BaseSectionWithParams: {
     impl: BaseSectionWithParamsImplUnion;
     args: {
-      [K in keyof BaseSectionWithParamsImplUnion]?: BaseSectionWithParamsImplUnion[K] | ((prev: BaseSectionWithParamsImplUnion[K]) => BaseSectionWithParamsImplUnion[K]);
+      [K in keyof BaseSectionWithParamsImplUnion]?:
+        | BaseSectionWithParamsImplUnion[K]
+        | ((
+            prev: BaseSectionWithParamsImplUnion[K],
+          ) => BaseSectionWithParamsImplUnion[K]);
     };
   };
   BaseParentSection: {
     impl: BaseParentSectionImplUnion;
     args: {
-      [K in keyof BaseParentSectionImplUnion]?: BaseParentSectionImplUnion[K] | ((prev: BaseParentSectionImplUnion[K]) => BaseParentSectionImplUnion[K]);
+      [K in keyof BaseParentSectionImplUnion]?:
+        | BaseParentSectionImplUnion[K]
+        | ((
+            prev: BaseParentSectionImplUnion[K],
+          ) => BaseParentSectionImplUnion[K]);
     };
   };
   BaseCodeSection: {
     impl: BaseParentSectionImplUnion;
     args: {
-      [K in keyof BaseParentSectionImplUnion]?: BaseParentSectionImplUnion[K] | ((prev: BaseParentSectionImplUnion[K]) => BaseParentSectionImplUnion[K]);
+      [K in keyof BaseParentSectionImplUnion]?:
+        | BaseParentSectionImplUnion[K]
+        | ((
+            prev: BaseParentSectionImplUnion[K],
+          ) => BaseParentSectionImplUnion[K]);
     };
   };
   ChatSection: {
     impl: BaseSectionImplUnion;
     args: {
-      [K in keyof BaseSectionImplUnion]?: BaseSectionImplUnion[K] | ((prev: BaseSectionImplUnion[K]) => BaseSectionImplUnion[K]);
+      [K in keyof BaseSectionImplUnion]?:
+        | BaseSectionImplUnion[K]
+        | ((prev: BaseSectionImplUnion[K]) => BaseSectionImplUnion[K]);
     };
   };
   CodeSection: {
     impl: BaseParentSectionImplUnion;
     args: {
-      [K in keyof BaseParentSectionImplUnion]?: BaseParentSectionImplUnion[K] | ((prev: BaseParentSectionImplUnion[K]) => BaseParentSectionImplUnion[K]);
+      [K in keyof BaseParentSectionImplUnion]?:
+        | BaseParentSectionImplUnion[K]
+        | ((
+            prev: BaseParentSectionImplUnion[K],
+          ) => BaseParentSectionImplUnion[K]);
     };
   };
   GroupSection: {
     impl: BaseParentSectionImplUnion;
     args: {
-      [K in keyof BaseParentSectionImplUnion]?: BaseParentSectionImplUnion[K] | ((prev: BaseParentSectionImplUnion[K]) => BaseParentSectionImplUnion[K]);
+      [K in keyof BaseParentSectionImplUnion]?:
+        | BaseParentSectionImplUnion[K]
+        | ((
+            prev: BaseParentSectionImplUnion[K],
+          ) => BaseParentSectionImplUnion[K]);
     };
   };
   ListRootSection: {
     impl: BaseParentSectionImplUnion;
     args: {
-      [K in keyof BaseParentSectionImplUnion]?: BaseParentSectionImplUnion[K] | ((prev: BaseParentSectionImplUnion[K]) => BaseParentSectionImplUnion[K]);
+      [K in keyof BaseParentSectionImplUnion]?:
+        | BaseParentSectionImplUnion[K]
+        | ((
+            prev: BaseParentSectionImplUnion[K],
+          ) => BaseParentSectionImplUnion[K]);
     };
   };
   BrowserSection: {
     impl: BrowserSectionImpl;
     args: {
-      [K in keyof BrowserSectionImpl]?: BrowserSectionImpl[K] | ((prev: BrowserSectionImpl[K]) => BrowserSectionImpl[K]);
+      [K in keyof BrowserSectionImpl]?:
+        | BrowserSectionImpl[K]
+        | ((prev: BrowserSectionImpl[K]) => BrowserSectionImpl[K]);
     };
   };
   TextBlockSection: {
     impl: BaseSectionImplUnion;
     args: {
-      [K in keyof BaseSectionImplUnion]?: BaseSectionImplUnion[K] | ((prev: BaseSectionImplUnion[K]) => BaseSectionImplUnion[K]);
+      [K in keyof BaseSectionImplUnion]?:
+        | BaseSectionImplUnion[K]
+        | ((prev: BaseSectionImplUnion[K]) => BaseSectionImplUnion[K]);
     };
   };
   BaseDictSection: {
     impl: BaseDictSectionImplUnion;
     args: {
-      [K in keyof BaseDictSectionImplUnion]?: BaseDictSectionImplUnion[K] | ((prev: BaseDictSectionImplUnion[K]) => BaseDictSectionImplUnion[K]);
+      [K in keyof BaseDictSectionImplUnion]?:
+        | BaseDictSectionImplUnion[K]
+        | ((prev: BaseDictSectionImplUnion[K]) => BaseDictSectionImplUnion[K]);
     };
   };
   BaseChildlessCodeObj: {
     impl: BaseChildlessCodeObjImplUnion;
     args: {
-      [K in keyof BaseChildlessCodeObjImplUnion]?: BaseChildlessCodeObjImplUnion[K] | ((prev: BaseChildlessCodeObjImplUnion[K]) => BaseChildlessCodeObjImplUnion[K]);
+      [K in keyof BaseChildlessCodeObjImplUnion]?:
+        | BaseChildlessCodeObjImplUnion[K]
+        | ((
+            prev: BaseChildlessCodeObjImplUnion[K],
+          ) => BaseChildlessCodeObjImplUnion[K]);
     };
   };
   BaseCodeObj: {
     impl: BaseCodeObjImplUnion;
     args: {
-      [K in keyof BaseCodeObjImplUnion]?: BaseCodeObjImplUnion[K] | ((prev: BaseCodeObjImplUnion[K]) => BaseCodeObjImplUnion[K]);
+      [K in keyof BaseCodeObjImplUnion]?:
+        | BaseCodeObjImplUnion[K]
+        | ((prev: BaseCodeObjImplUnion[K]) => BaseCodeObjImplUnion[K]);
     };
   };
 };
-
 
 export const BaseChildlessCodeObjImplTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.CodeParam,
@@ -9359,7 +9824,6 @@ export const BaseChildlessCodeObjImplTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.TextParam,
   CodeObjTypeEnum.TimeParam,
 ]);
-
 
 export const BaseParamCodeObjImplTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.ButtonParam,
@@ -9378,12 +9842,10 @@ export const BaseParamCodeObjImplTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.TimeParam,
 ]);
 
-
 const BaseParentCodeObjImplTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.CodeCallable,
   CodeObjTypeEnum.NestedParam,
 ]);
-
 
 export const ControlCodeObjTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.CodeParam,
@@ -9401,7 +9863,6 @@ export const ControlCodeObjTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.DropzoneParam,
 ]);
 
-
 export const SectionParamCodeObjTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.CodeParam,
   CodeObjTypeEnum.TextParam,
@@ -9418,7 +9879,6 @@ export const SectionParamCodeObjTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.NestedParam,
 ]);
 
-
 const BaseParentSectionImplTypeSet = new Set<SectionType>([
   SectionTypeEnum.Code,
   SectionTypeEnum.GenPythonCode,
@@ -9427,12 +9887,10 @@ const BaseParentSectionImplTypeSet = new Set<SectionType>([
   SectionTypeEnum.ListRoot,
 ]);
 
-
 const BaseDictSectionImplTypeSet = new Set<SectionType>([
   SectionTypeEnum.Dict,
   SectionTypeEnum.GlobalVariables,
 ]);
-
 
 const BaseSectionWithParamsImplTypeSet = new Set<SectionType>([
   SectionTypeEnum.Callable,
@@ -9440,13 +9898,11 @@ const BaseSectionWithParamsImplTypeSet = new Set<SectionType>([
   SectionTypeEnum.GlobalVariables,
 ]);
 
-
 export function isBaseChildlessCodeObjImpl(
   x: BaseCodeObjImplUnion,
 ): x is BaseChildlessCodeObjImplUnion {
   return BaseChildlessCodeObjImplTypeSet.has(x.type);
 }
-
 
 export function isBaseParamCodeObjImpl(
   x: BaseCodeObjImplUnion,
@@ -9454,13 +9910,11 @@ export function isBaseParamCodeObjImpl(
   return BaseParamCodeObjImplTypeSet.has(x.type);
 }
 
-
 export function isBaseParentCodeObjImpl(
   x: BaseCodeObjImplUnion,
 ): x is BaseParentCodeObjImplUnion {
   return BaseParentCodeObjImplTypeSet.has(x.type);
 }
-
 
 export function isBaseParentSectionImpl(
   x: BaseSectionImplUnion,
@@ -9468,13 +9922,11 @@ export function isBaseParentSectionImpl(
   return BaseParentSectionImplTypeSet.has(x.type);
 }
 
-
 export function isBaseDictSectionImpl(
   x: BaseSectionImplUnion,
 ): x is BaseDictSectionImplUnion {
   return BaseDictSectionImplTypeSet.has(x.type);
 }
-
 
 export function isBaseSectionWithParamsImpl(
   x: BaseSectionImplUnion,
@@ -9482,12 +9934,10 @@ export function isBaseSectionWithParamsImpl(
   return BaseSectionWithParamsImplTypeSet.has(x.type);
 }
 
-
 type SafeParseSuccess<T> = {
   success: true;
   data: T;
 };
-
 
 type SafeParseFailure = {
   success: false;
@@ -9496,16 +9946,13 @@ type SafeParseFailure = {
   };
 };
 
-
 type SafeParseResult<T> = SafeParseSuccess<T> | SafeParseFailure;
-
 
 function websocketSupportIsRecord(
   value: unknown,
 ): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
-
 
 function websocketSupportReadRequiredString(
   value: unknown,
@@ -9518,7 +9965,6 @@ function websocketSupportReadRequiredString(
   issues.push(fieldName + " must be a string.");
   return "";
 }
-
 
 function websocketSupportReadOptionalString(
   value: unknown,
@@ -9535,7 +9981,6 @@ function websocketSupportReadOptionalString(
   return null;
 }
 
-
 function websocketSupportReadDurationMs(
   value: unknown,
   issues: Array<string>,
@@ -9549,7 +9994,6 @@ function websocketSupportReadDurationMs(
   issues.push("durationMs must be a finite number.");
   return 3000;
 }
-
 
 function websocketSupportReadActivationSteps(
   value: unknown,
@@ -9584,7 +10028,6 @@ function websocketSupportReadActivationSteps(
   });
   return steps;
 }
-
 
 function websocketSupportReadRevealTargets(
   value: unknown,
@@ -9656,7 +10099,6 @@ function websocketSupportReadRevealTargets(
   return targets;
 }
 
-
 export const UISettingRevealContentSchema = {
   safeParse(value: unknown): SafeParseResult<UISettingRevealContent> {
     if (!websocketSupportIsRecord(value)) {
@@ -9710,7 +10152,6 @@ export const UISettingRevealContentSchema = {
   },
 };
 
-
 export const DependencyEventSchema = {
   shape: {
     dependencyKey: true,
@@ -9761,4 +10202,3 @@ export const DependencyEventSchema = {
     };
   },
 };
-

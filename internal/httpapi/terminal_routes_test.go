@@ -150,13 +150,15 @@ func TestRegisterTerminalRoutesBlocksDeploymentMode(t *testing.T) {
 	t.Parallel()
 
 	terminalService := newHTTPTestTerminalService(t)
-	policy := modes.NewPolicy(config.ModeShare)
+	policy := deployments.DefaultPolicy()
+	policy.AllowRun = true
+	runFixture := newHTTPTestDeploymentRunCodeFixture(t, terminalService, policy)
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
-		ModePolicy: policy,
+		ModePolicy: modes.NewPolicy(config.ModeShare),
 		Register: func(r chi.Router) {
-			registerHTTPTestTerminalRoutes(t, r, policy, terminalService, newHTTPTestRunCodeService(t, terminalService))
+			registerHTTPTestDeploymentTerminalRoutes(t, r, modes.NewPolicy(config.ModeShare), terminalService, runFixture.service, runFixture.deployment)
 		},
 	})
 	if err != nil {
@@ -168,11 +170,123 @@ func TestRegisterTerminalRoutesBlocksDeploymentMode(t *testing.T) {
 
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"missing_share_session"`) {
+		t.Fatalf("expected missing_share_session error, got %q", response.Body.String())
+	}
+}
+
+func TestRegisterTerminalRoutesDeletesDeploymentTerminalSessionsWhenPolicyAllows(t *testing.T) {
+	t.Parallel()
+	skipIfTerminalPTYUnsupported(t)
+
+	terminalService := newHTTPTestTerminalService(t)
+	policy := deployments.DefaultPolicy()
+	policy.AllowRun = true
+	runFixture := newHTTPTestDeploymentRunCodeFixture(t, terminalService, policy)
+	if _, err := runFixture.deployment.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share session share-a: %v", err)
+	}
+	if _, err := runFixture.deployment.CreateSessionWithID("share-b"); err != nil {
+		t.Fatalf("create share session share-b: %v", err)
+	}
+
+	openHTTPTestTerminal(t, terminalService, terminals.OpenOptions{
+		ID:             terminals.BuildTerminalID("section-a", "share-a"),
+		ProjectID:      "project-a",
+		ShareSessionID: "share-a",
+		AllowInput:     false,
+		Command:        quietHTTPTestCatCommand(t),
+	})
+	openHTTPTestTerminal(t, terminalService, terminals.OpenOptions{
+		ID:             terminals.BuildTerminalID("section-b", "share-b"),
+		ProjectID:      "project-a",
+		ShareSessionID: "share-b",
+		AllowInput:     false,
+		Command:        quietHTTPTestCatCommand(t),
+	})
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
+		ModePolicy: modes.NewPolicy(config.ModeShare),
+		Register: func(r chi.Router) {
+			registerHTTPTestDeploymentTerminalRoutes(t, r, modes.NewPolicy(config.ModeShare), terminalService, runFixture.service, runFixture.deployment)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteDeleteTerminals, strings.NewReader(`{"sectionIds":["section-a"]}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if strings.TrimSpace(response.Body.String()) != "null" {
+		t.Fatalf("expected null response payload, got %q", response.Body.String())
+	}
+
+	if _, ok := terminalService.Session(terminals.BuildTerminalID("section-a", "share-a")); ok {
+		t.Fatal("expected share-a terminal session to be deleted")
+	}
+	if _, ok := terminalService.Session(terminals.BuildTerminalID("section-b", "share-b")); !ok {
+		t.Fatal("expected share-b terminal session to remain")
+	}
+}
+
+func TestRegisterTerminalRoutesRejectsDeploymentDeleteWhenPolicyDisallows(t *testing.T) {
+	t.Parallel()
+	skipIfTerminalPTYUnsupported(t)
+
+	terminalService := newHTTPTestTerminalService(t)
+	policy := deployments.DefaultPolicy()
+	policy.AllowRun = false
+	runFixture := newHTTPTestDeploymentRunCodeFixture(t, terminalService, policy)
+	if _, err := runFixture.deployment.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share session: %v", err)
+	}
+
+	openHTTPTestTerminal(t, terminalService, terminals.OpenOptions{
+		ID:             terminals.BuildTerminalID("section-a", "share-a"),
+		ProjectID:      "project-a",
+		ShareSessionID: "share-a",
+		AllowInput:     false,
+		Command:        quietHTTPTestCatCommand(t),
+	})
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
+		ModePolicy: modes.NewPolicy(config.ModeShare),
+		Register: func(r chi.Router) {
+			registerHTTPTestDeploymentTerminalRoutes(t, r, modes.NewPolicy(config.ModeShare), terminalService, runFixture.service, runFixture.deployment)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteDeleteTerminals, strings.NewReader(`{"sectionIds":["section-a"]}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
 	}
-	if !strings.Contains(response.Body.String(), `"code":"mode_forbidden"`) {
-		t.Fatalf("expected mode_forbidden error, got %q", response.Body.String())
+	if !strings.Contains(response.Body.String(), `"code":"deployment_policy_denied"`) {
+		t.Fatalf("expected deployment_policy_denied error, got %q", response.Body.String())
+	}
+	if _, ok := terminalService.Session(terminals.BuildTerminalID("section-a", "share-a")); !ok {
+		t.Fatal("expected denied deployment delete to leave terminal session intact")
 	}
 }
 
@@ -383,17 +497,22 @@ func TestRegisterTerminalRoutesRejectsBlankKillSubprocessesProjectID(t *testing.
 	}
 }
 
-func TestRegisterTerminalRoutesBlocksInterruptInDeploymentMode(t *testing.T) {
+func TestRegisterTerminalRoutesRejectsDeploymentInterruptWhenPolicyDisallows(t *testing.T) {
 	t.Parallel()
 
 	terminalService := newHTTPTestTerminalService(t)
-	policy := modes.NewPolicy(config.ModeShare)
+	policy := deployments.DefaultPolicy()
+	policy.AllowRun = false
+	runFixture := newHTTPTestDeploymentRunCodeFixture(t, terminalService, policy)
+	if _, err := runFixture.deployment.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share session: %v", err)
+	}
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
-		ModePolicy: policy,
+		ModePolicy: modes.NewPolicy(config.ModeShare),
 		Register: func(r chi.Router) {
-			registerHTTPTestTerminalRoutes(t, r, policy, terminalService, newHTTPTestRunCodeService(t, terminalService))
+			registerHTTPTestDeploymentTerminalRoutes(t, r, modes.NewPolicy(config.ModeShare), terminalService, runFixture.service, runFixture.deployment)
 		},
 	})
 	if err != nil {
@@ -402,30 +521,33 @@ func TestRegisterTerminalRoutesBlocksInterruptInDeploymentMode(t *testing.T) {
 
 	request := httptest.NewRequest(http.MethodPost, "/api"+RouteInterruptTerminalProcesses, strings.NewReader(`{"projectId":"project-a"}`))
 	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(modes.ShareSessionHeaderName, "share-a")
 
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
 	}
-	if !strings.Contains(response.Body.String(), `"code":"mode_forbidden"`) {
-		t.Fatalf("expected mode_forbidden error, got %q", response.Body.String())
+	if !strings.Contains(response.Body.String(), `"code":"deployment_policy_denied"`) {
+		t.Fatalf("expected deployment_policy_denied error, got %q", response.Body.String())
 	}
 }
 
 func TestRegisterTerminalRoutesBlocksKillSubprocessesInDeploymentMode(t *testing.T) {
 	t.Parallel()
 
-	// The legacy caller remains IDE-only because share/app terminal control is
-	// still a deferred policy boundary.
+	// The legacy killSubprocesses adapter stays IDE-only while the canonical
+	// deployment/share/app stop path moves to interruptTerminalProcesses.
 	terminalService := newHTTPTestTerminalService(t)
-	policy := modes.NewPolicy(config.ModeShare)
+	policy := deployments.DefaultPolicy()
+	policy.AllowRun = true
+	runFixture := newHTTPTestDeploymentRunCodeFixture(t, terminalService, policy)
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
-		ModePolicy: policy,
+		ModePolicy: modes.NewPolicy(config.ModeShare),
 		Register: func(r chi.Router) {
-			registerHTTPTestTerminalRoutes(t, r, policy, terminalService, newHTTPTestRunCodeService(t, terminalService))
+			registerHTTPTestDeploymentTerminalRoutes(t, r, modes.NewPolicy(config.ModeShare), terminalService, runFixture.service, runFixture.deployment)
 		},
 	})
 	if err != nil {
@@ -443,6 +565,84 @@ func TestRegisterTerminalRoutesBlocksKillSubprocessesInDeploymentMode(t *testing
 	if !strings.Contains(response.Body.String(), `"code":"mode_forbidden"`) {
 		t.Fatalf("expected mode_forbidden error, got %q", response.Body.String())
 	}
+}
+
+func TestRegisterTerminalRoutesInterruptsDeploymentShareSessionsWhenPolicyAllows(t *testing.T) {
+	t.Parallel()
+	skipIfTerminalPTYUnsupported(t)
+
+	terminalService := newHTTPTestTerminalService(t)
+	policy := deployments.DefaultPolicy()
+	policy.AllowRun = true
+	runFixture := newHTTPTestDeploymentRunCodeFixture(t, terminalService, policy)
+	if _, err := runFixture.deployment.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share session share-a: %v", err)
+	}
+	if _, err := runFixture.deployment.CreateSessionWithID("share-b"); err != nil {
+		t.Fatalf("create share session share-b: %v", err)
+	}
+
+	scriptPath := writeHTTPInterruptibleScript(t)
+	sessionA := terminals.BuildTerminalID("section-a", "share-a")
+	sessionB := terminals.BuildTerminalID("section-b", "share-b")
+
+	openHTTPTestTerminal(t, terminalService, terminals.OpenOptions{
+		ID:             sessionA,
+		ProjectID:      "project-a",
+		ShareSessionID: "share-a",
+		AllowInput:     true,
+		Command:        interactiveHTTPTestBashCommand(t),
+	})
+	openHTTPTestTerminal(t, terminalService, terminals.OpenOptions{
+		ID:             sessionB,
+		ProjectID:      "project-a",
+		ShareSessionID: "share-b",
+		AllowInput:     true,
+		Command:        interactiveHTTPTestBashCommand(t),
+	})
+
+	attachmentA := attachHTTPTestTerminal(t, terminalService, sessionA)
+	attachmentB := attachHTTPTestTerminal(t, terminalService, sessionB)
+	prepareHTTPInterruptShell(t, terminalService, sessionA, attachmentA)
+	prepareHTTPInterruptShell(t, terminalService, sessionB, attachmentB)
+	startHTTPInterruptibleForegroundJob(t, terminalService, sessionA, attachmentA, scriptPath)
+	startHTTPInterruptibleForegroundJob(t, terminalService, sessionB, attachmentB, scriptPath)
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
+		ModePolicy: modes.NewPolicy(config.ModeShare),
+		Register: func(r chi.Router) {
+			registerHTTPTestDeploymentTerminalRoutes(t, r, modes.NewPolicy(config.ModeShare), terminalService, runFixture.service, runFixture.deployment)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteInterruptTerminalProcesses, strings.NewReader(`{"projectId":"project-a"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload InterruptTerminalProcessesResponse
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode deployment interrupt response: %v", err)
+	}
+	if payload.InterruptedSessionCount != 1 {
+		t.Fatalf("expected one interrupted deployment session, got %#v", payload)
+	}
+
+	outputA := waitForHTTPTestOutputContains(t, attachmentA, "CHILD_EXIT:130")
+	if !strings.Contains(outputA, "CHILD_INTERRUPTED") {
+		t.Fatalf("expected share-a terminal to report interrupt, got %q", outputA)
+	}
+	ensureNoHTTPTestOutputContains(t, attachmentB, "CHILD_INTERRUPTED", 300*time.Millisecond)
 }
 
 func TestRegisterTerminalRoutesRunsCodeAndEnsuresAttachedTerminal(t *testing.T) {
@@ -1392,16 +1592,14 @@ func newHTTPTestTerminalService(t *testing.T) *terminals.Service {
 func registerHTTPTestTerminalRoutes(t *testing.T, router chi.Router, modePolicy modes.Policy, terminalService *terminals.Service, runCodeService *runs.Service) {
 	t.Helper()
 
-	var shareSessions modes.ShareSessionStore
 	if modePolicy.IsDeployment() {
-		shareSessions = newTestHTTPShareSessionStore("known")
+		t.Fatal("use registerHTTPTestDeploymentTerminalRoutes for deployment terminal route tests")
 	}
 
 	if err := RegisterTerminalRoutes(router, TerminalRouteDependencies{
-		ModePolicy:    modePolicy,
-		ShareSessions: shareSessions,
-		Terminals:     terminalService,
-		RunCode:       runCodeService,
+		ModePolicy: modePolicy,
+		Terminals:  terminalService,
+		RunCode:    runCodeService,
 	}); err != nil {
 		t.Fatalf("register terminal routes: %v", err)
 	}
@@ -1413,13 +1611,14 @@ func registerHTTPTestDeploymentTerminalRoutes(
 	modePolicy modes.Policy,
 	terminalService *terminals.Service,
 	runCodeService *runs.Service,
-	shareSessions modes.ShareSessionStore,
+	deployment *deployments.Runtime,
 ) {
 	t.Helper()
 
 	if err := RegisterTerminalRoutes(router, TerminalRouteDependencies{
 		ModePolicy:    modePolicy,
-		ShareSessions: shareSessions,
+		ShareSessions: deployment,
+		Deployment:    deployment,
 		Terminals:     terminalService,
 		RunCode:       runCodeService,
 	}); err != nil {

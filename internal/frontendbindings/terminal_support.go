@@ -1,7 +1,11 @@
 package frontendbindings
 
-type KillSubprocessesRequestInput struct {
-	ProjectConfigID string `json:"projectConfigId"`
+type InterruptTerminalProcessesRequestInput struct {
+	ProjectID string `json:"projectId"`
+}
+
+type InterruptTerminalProcessesResponse struct {
+	InterruptedSessionCount int `json:"interruptedSessionCount"`
 }
 
 type RunCodeRequestInput struct {

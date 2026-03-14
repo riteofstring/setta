@@ -23,6 +23,7 @@ const RouteRunCode = "/runCode"
 type TerminalRouteDependencies struct {
 	ModePolicy    modes.Policy
 	ShareSessions modes.ShareSessionStore
+	Deployment    *deployments.Runtime
 	Terminals     *terminals.Service
 	RunCode       *runs.Service
 }
@@ -65,25 +66,61 @@ func RegisterTerminalRoutes(router chi.Router, deps TerminalRouteDependencies) e
 		return fmt.Errorf("run-code service is required")
 	}
 
-	router.With(RequireFullIDERuntime(deps.ModePolicy)).Post(RouteDeleteTerminals, deleteTerminalsHandler(deps.Terminals))
-	router.With(RequireFullIDERuntime(deps.ModePolicy)).Post(RouteKillSubprocesses, killSubprocessesHandler(deps.Terminals))
-	router.With(RequireFullIDERuntime(deps.ModePolicy)).Post(RouteInterruptTerminalProcesses, interruptTerminalProcessesHandler(deps.Terminals))
 	if deps.ModePolicy.IsDeployment() {
 		if deps.ShareSessions == nil {
 			return fmt.Errorf("share session store is required in deployment mode")
 		}
-		router.With(RequireShareSession(modes.Resolver{
+		if deps.Deployment == nil {
+			return fmt.Errorf("deployment runtime is required in deployment mode")
+		}
+		shareGuard := RequireShareSession(modes.Resolver{
 			Policy: deps.ModePolicy,
 			Store:  deps.ShareSessions,
-		})).Post(RouteRunCode, runCodeHandler(deps.RunCode))
-	} else {
-		router.With(RequireFullIDERuntime(deps.ModePolicy)).Post(RouteRunCode, runCodeHandler(deps.RunCode))
+		})
+		router.With(shareGuard).Post(RouteDeleteTerminals, deleteTerminalsHandler(deps.Terminals, deps.Deployment))
+		router.With(RequireFullIDERuntime(deps.ModePolicy)).Post(RouteKillSubprocesses, killSubprocessesHandler(deps.Terminals))
+		router.With(shareGuard).Post(RouteInterruptTerminalProcesses, interruptTerminalProcessesHandler(deps.Terminals, deps.Deployment))
+		router.With(shareGuard).Post(RouteRunCode, runCodeHandler(deps.RunCode))
+		return nil
 	}
+	ideGuard := RequireFullIDERuntime(deps.ModePolicy)
+	router.With(ideGuard).Post(RouteDeleteTerminals, deleteTerminalsHandler(deps.Terminals, nil))
+	router.With(ideGuard).Post(RouteKillSubprocesses, killSubprocessesHandler(deps.Terminals))
+	router.With(ideGuard).Post(RouteInterruptTerminalProcesses, interruptTerminalProcessesHandler(deps.Terminals, nil))
+	router.With(ideGuard).Post(RouteRunCode, runCodeHandler(deps.RunCode))
 	return nil
 }
 
-func deleteTerminalsHandler(terminalService *terminals.Service) http.HandlerFunc {
+func ensureTerminalRunAccessAllowed(
+	w http.ResponseWriter,
+	r *http.Request,
+	deployment *deployments.Runtime,
+) bool {
+	if deployment == nil {
+		return true
+	}
+
+	requestInfo, err := modes.RequireRequestInfo(r)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if !requestInfo.Policy.IsDeployment() {
+		return true
+	}
+	if deployment.Policy().AllowRun {
+		return true
+	}
+
+	writeError(w, r, http.StatusForbidden, "deployment_policy_denied", "Deployment policy disallows run and terminal access.")
+	return false
+}
+
+func deleteTerminalsHandler(terminalService *terminals.Service, deployment *deployments.Runtime) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !ensureTerminalRunAccessAllowed(w, r, deployment) {
+			return
+		}
 		payload, err := decodeJSONBody[DeleteTerminalsRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
@@ -153,8 +190,11 @@ func killSubprocessesHandler(terminalService *terminals.Service) http.HandlerFun
 	}
 }
 
-func interruptTerminalProcessesHandler(terminalService *terminals.Service) http.HandlerFunc {
+func interruptTerminalProcessesHandler(terminalService *terminals.Service, deployment *deployments.Runtime) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !ensureTerminalRunAccessAllowed(w, r, deployment) {
+			return
+		}
 		payload, err := decodeJSONBody[InterruptTerminalProcessesRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")

@@ -613,9 +613,9 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "DOCSTRING_TO_MARKDOWN",
 				},
 				{
-					Name:     "killSubprocesses",
-					Path:     httpapi.RouteKillSubprocesses,
-					EnumName: "KILL_SUBPROCESSES",
+					Name:     "interruptTerminalProcesses",
+					Path:     httpapi.RouteInterruptTerminalProcesses,
+					EnumName: "INTERRUPT_TERMINAL_PROCESSES",
 				},
 				{
 					Name:     "runCode",
@@ -2206,11 +2206,12 @@ func CurrentEndpoints() []EndpointSpec {
 			ResponseType:    reflect.TypeOf(DocstringToMarkdownResponse("")),
 		},
 		{
-			FunctionName:    "route_kill_subprocesses",
+			FunctionName:    "route_interrupt_terminal_processes",
 			Method:          "POST",
 			RouteCollection: "GoHTTPRoutes",
-			RouteName:       "killSubprocesses",
-			RequestType:     reflect.TypeOf(KillSubprocessesRequestInput{}),
+			RouteName:       "interruptTerminalProcesses",
+			RequestType:     reflect.TypeOf(InterruptTerminalProcessesRequestInput{}),
+			ResponseType:    reflect.TypeOf(InterruptTerminalProcessesResponse{}),
 		},
 		{
 			FunctionName:    "route_run_code",

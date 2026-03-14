@@ -7130,11 +7130,19 @@ export function createDocstringToMarkdownRequest(options: Partial<DocstringToMar
 export type DocstringToMarkdownResponse = string;
 
 
-export type KillSubprocessesRequestInput = {
-  projectConfigId: string;
+export type InterruptTerminalProcessesRequestInput = {
+  projectId: string;
 };
-export function createKillSubprocessesRequestInput(options: Partial<KillSubprocessesRequestInput> = {}): KillSubprocessesRequestInput {
-  return options as KillSubprocessesRequestInput;
+export function createInterruptTerminalProcessesRequestInput(options: Partial<InterruptTerminalProcessesRequestInput> = {}): InterruptTerminalProcessesRequestInput {
+  return options as InterruptTerminalProcessesRequestInput;
+}
+
+
+export type InterruptTerminalProcessesResponse = {
+  interruptedSessionCount: number;
+};
+export function createInterruptTerminalProcessesResponse(options: Partial<InterruptTerminalProcessesResponse> = {}): InterruptTerminalProcessesResponse {
+  return options as InterruptTerminalProcessesResponse;
 }
 
 

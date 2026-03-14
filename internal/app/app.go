@@ -1406,6 +1406,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			if err := httpapi.RegisterTerminalRoutes(r, httpapi.TerminalRouteDependencies{
 				ModePolicy:    modePolicy,
 				ShareSessions: shareSessions,
+				Deployment:    deploymentRuntime,
 				Terminals:     terminalService,
 				RunCode:       runCodeService,
 			}); err != nil {

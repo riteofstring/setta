@@ -677,9 +677,9 @@ export async function route_docstring_to_markdown(x: gt.DocstringToMarkdownReque
 }
 
 
-export async function route_kill_subprocesses(x: gt.KillSubprocessesRequestInput): Promise<ResponseDataAndStatus<null>> {
+export async function route_interrupt_terminal_processes(x: gt.InterruptTerminalProcessesRequestInput): Promise<ResponseDataAndStatus<gt.InterruptTerminalProcessesResponse>> {
 
-  return await post(GoHTTPRoutes.killSubprocesses, x);
+  return await post(GoHTTPRoutes.interruptTerminalProcesses, x);
 }
 
 

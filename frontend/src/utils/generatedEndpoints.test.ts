@@ -77,7 +77,7 @@ import {
   route_group_sections,
   route_import_files_to_artifacts,
   route_indent_params,
-  route_kill_subprocesses,
+  route_interrupt_terminal_processes,
   route_list_app_deployments,
   route_list_share_deployments,
   route_load_all_project_metadata,
@@ -3972,19 +3972,19 @@ describe("generatedEndpoints terminal helpers", () => {
     vi.unstubAllGlobals();
   });
 
-  it("posts stop-code requests through killSubprocesses", async () => {
-    await route_kill_subprocesses({
-      projectConfigId: "project-1",
+  it("posts stop-code requests through interruptTerminalProcesses", async () => {
+    await route_interrupt_terminal_processes({
+      projectId: "project-1",
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}/killSubprocesses`,
+      `${C_ADDRESSES.BACKEND}/interruptTerminalProcesses`,
     );
     expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
       method: "POST",
       body: JSON.stringify({
-        projectConfigId: "project-1",
+        projectId: "project-1",
       }),
     });
   });
