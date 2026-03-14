@@ -1369,3 +1369,46 @@ module map and placement guide while this cleanup progresses.
     authored/shared state hotspot, by separating displayed-child tree
     derivation and section metadata/layout query ownership into narrower read
     modules.
+
+## 2026-03-14 21:57:00 PDT
+
+- Slice completed: split section display queries out of
+  `frontend/src/state/actions/sectionInfos.ts`
+- Key files touched:
+  - `frontend/src/state/actions/sectionInfos.ts`
+  - `frontend/src/state/actions/sectionDisplayQueries.ts`
+  - `frontend/src/state/actions/sectionInfos.test.ts`
+  - `frontend/src/state/actions/sectionProjectStateSync.ts`
+  - `frontend/src/state/actions/project/loadProject.ts`
+  - `frontend/src/state/actions/activeSections.ts`
+  - `frontend/src/state/subscriptions.ts`
+  - `frontend/src/state/hooks/search.ts`
+  - `frontend/src/utils/focusManagerElements.ts`
+  - `frontend/src/forks/dnd-kit/useDropType.ts`
+  - `frontend/src/forks/dnd-kit/useMoveSection.ts`
+  - `frontend/src/forks/dnd-kit/dndState.ts`
+  - `frontend/src/components/Panes/Overview/ProjectOverview/ProjectOverview.tsx`
+  - `frontend/src/components/Panes/Overview/RunInstructions.tsx`
+  - `frontend/src/components/Section/Container/SectionContainer.tsx`
+  - `frontend/src/components/Section/Container/ContainerWrappers.tsx`
+  - `frontend/src/components/Section/Header/DeleteOrHideButton.tsx`
+  - `frontend/src/components/Section/Layouts/TerminalArea.tsx`
+  - `frontend/src/components/Section/Layouts/TerminalArea.test.tsx`
+  - `frontend/src/components/Utils/ContextMenus/SelectionContextMenu.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/sectionInfos.test.ts src/state/actions/project/loadProject.test.ts src/state/actions/activeSections.test.ts src/components/Section/Layouts/TerminalArea.test.tsx src/forks/dnd-kit/dndState.test.ts src/forks/dnd-kit/useDropType.test.ts`
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectOverview/projectOverviewPolling.test.ts src/components/Section/Header/SectionHeader.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/actions/sectionInfos.ts src/state/actions/sectionDisplayQueries.ts src/state/actions/sectionInfos.test.ts src/state/actions/project/loadProject.ts src/state/actions/activeSections.ts src/state/actions/sectionProjectStateSync.ts src/state/hooks/search.ts src/state/subscriptions.ts src/utils/focusManagerElements.ts src/forks/dnd-kit/useDropType.ts src/forks/dnd-kit/useMoveSection.ts src/forks/dnd-kit/dndState.ts src/components/Panes/Overview/ProjectOverview/ProjectOverview.tsx src/components/Panes/Overview/ProjectOverview/projectOverviewPolling.test.ts src/components/Panes/Overview/RunInstructions.tsx src/components/Section/Header/DeleteOrHideButton.tsx src/components/Section/Header/SectionHeader.test.tsx src/components/Section/Layouts/TerminalArea.tsx src/components/Section/Layouts/TerminalArea.test.tsx src/components/Utils/ContextMenus/SelectionContextMenu.tsx src/components/Section/Container/SectionContainer.tsx src/components/Section/Container/ContainerWrappers.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `66abaecf9`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/sectionEffectiveImpls.ts`, now the
+    largest authored/shared state hotspot, into narrower effective-impl read
+    selectors versus local impl mutation helpers.
