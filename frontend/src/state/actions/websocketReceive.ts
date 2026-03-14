@@ -63,12 +63,14 @@ import {
   receiveAgentProfilesUpdate,
   receiveEngineConfigsUpdate,
   receiveExternalAgentConfigsUpdate,
-  receiveLLMApiKeysSnapshotUpdate,
-  receiveLLMConfigUpdate,
   receiveLLMResponseChunk,
   receivePromptTemplatesUpdate,
   receiveTranscriptionProfilesUpdate,
 } from "./ai";
+import {
+  receiveLLMApiKeysSnapshotUpdate,
+  receiveLLMConfigUpdate,
+} from "./ai/llmSettings";
 import {
   receiveAIFollowToolArgumentsUpdate,
   receiveAIFollowToolResultUpdate,
