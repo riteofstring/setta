@@ -1,4 +1,3 @@
-import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import React from "react";
 import { FaTerminal } from "react-icons/fa";
@@ -116,7 +115,6 @@ export function AttachedTerminalControls({
         onClick={onToggle}
         title={title}
         type="button"
-        {...getFloatingBoxHandlers({ content: title })}
       >
         <FaTerminal className="text-[12px]" />
       </button>
