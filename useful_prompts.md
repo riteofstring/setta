@@ -94,10 +94,6 @@ Output requirements:
 - Group by: `Features`, `Bug Fixes`, `Intentional Behavior Changes To Preserve`.
 - Be concrete and detailed enough that a reviewer on a follow-up branch can quickly avoid undoing intentional work.
 
-Autonomous Codex frontend cleanup session prompt:
-
-You are working in /Users/kevin/Documents/AppDevelopment/setta.clean-code-2.
-
 Goal: clean up the authored frontend so it is easy for Codex coding agents to navigate, understand, and modify, while preserving behavior and keeping or improving performance.
 
 This is an autonomous execution session. Work independently. Do not pause to ask me questions. Make reasonable assumptions based on the existing code, the repo instructions, and the cleanup plans below. If one slice is blocked, skip it, note the blocker briefly, and continue with the next highest-value unblocked slice.
