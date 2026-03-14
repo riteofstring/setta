@@ -1,5 +1,6 @@
 import { HomePageSearchBar } from "components/AppHeader/SearchBar/HomePageSearch";
 import { FileBrowserPane } from "components/Panes/Overview/FileBrowser/FileBrowserPane";
+import { togglePaneVisibility } from "components/Panes/paneLayout";
 import { ProjectConfigThumbnailSurface } from "components/ProjectConfigs/ProjectConfigThumbnailSurface";
 import { InlineCodeMirrorInput } from "components/Utils/CodeMirror/InlineCodeMirrorInput";
 import { createDynamicFolderPathCompletionSource } from "components/Utils/CodeMirror/folderPathCompletions";
@@ -45,6 +46,7 @@ import {
   buildSharePath,
   CLOSED_PANE_WIDTH,
   CODEMIRROR_TOOLTIP_PARENT_ID,
+  HOME_COMPACT_LAYOUT_BREAKPOINT_PX,
   PAGE_LOAD_TYPES,
   PaneNameEnum,
   pathRelativeToProject,
@@ -71,7 +73,6 @@ const HOME_FILE_BROWSER_PANE_CONTENT_CLASS =
   "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden";
 const HOME_INSET_PANE_CONTENT_CLASS =
   "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden px-2";
-const HOME_COMPACT_LAYOUT_BREAKPOINT_PX = 1100;
 export const HOME_SIDE_RAIL_CLASS_NAME = `${APP_CHROME_Z_INDEX_CLASS_NAME} fixed flex w-10 flex-col items-center gap-1 bg-setta-50 py-2 dark:bg-setta-900`;
 export const HOME_RIGHT_PANE_TITLE_CLASS_NAME = withRightPaneTitleClearance(
   HOME_PANE_TITLE_CLASS,
@@ -547,19 +548,11 @@ function getHomeRailButtonColor(isActive: boolean): string {
 }
 
 function toggleHomeWorkspacePaneVisibility() {
-  const { homeWorkspacePaneVis } = useLocalStorage.getState();
-  const nextVis = !homeWorkspacePaneVis;
-  useLocalStorage.setState({
-    homeWorkspacePaneVis: nextVis,
-  });
+  togglePaneVisibility(HOME_WORKSPACE_PANE_NAME);
 }
 
 function toggleHomeSelectedProjectPaneVisibility() {
-  const { homeSelectedProjectPaneVis } = useLocalStorage.getState();
-  const nextVis = !homeSelectedProjectPaneVis;
-  useLocalStorage.setState({
-    homeSelectedProjectPaneVis: nextVis,
-  });
+  togglePaneVisibility(HOME_SELECTED_PROJECT_PANE_NAME);
 }
 
 function HomeLeftIconRail({

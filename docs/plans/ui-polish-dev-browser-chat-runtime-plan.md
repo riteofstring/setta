@@ -89,6 +89,6 @@ Primary implementation surfaces:
 
 - [ ] Run targeted Vitest, pytest, and Playwright after each phase, not only at the end.
 - [ ] Run CDP visual verification after each visual phase and explicitly check small/large sizes for panes, windows, and chat surfaces.
-- [ ] Verify responsive pane behavior at narrow widths: on narrow viewports, clicking side-pane icons should default the pane to fullscreen while still keeping the home page sidebar icons visible and reachable.
+- [x] Verify responsive pane behavior at narrow widths: on narrow viewports, clicking side-pane icons should default the pane to fullscreen while still keeping the home page sidebar icons visible and reachable.
 - [ ] Profile the file browser and chat activity changes in DevTools to make sure the new UX does not add unnecessary render/scroll work.
 - [ ] Do a final readability pass: simplify helpers, remove duplication, tighten naming, and leave only comments that explain non-obvious logic.

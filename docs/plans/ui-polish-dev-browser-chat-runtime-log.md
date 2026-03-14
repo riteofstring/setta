@@ -415,3 +415,27 @@ For each new entry, append:
 - Decisions: Hide the accordion when the repo only has the current worktree, but keep the current worktree row inside the accordion whenever at least one additional worktree exists so the pane presents one complete canonical list. Preserve backend ordering from `git worktree list` instead of re-sorting on the client.
 - Blockers or open questions: None in code. The only environment wrinkle was the stale `3026` backend; I avoided masking that by spinning up a clean `3136/8136` instance for CDP instead of adding frontend fallbacks.
 - Next recommended slice: Move into Phase 7 verification/perf cleanup, starting with the remaining targeted profiling/readability pass on the file-browser and chat-activity changes now that the plan’s behavior work is functionally complete.
+
+### 2026-03-12 18:01
+
+- Date: 2026-03-12 18:01 EDT
+- Scope: Starting Phase 7 verification/perf cleanup with a narrow responsive-pane verification pass plus DevTools profiling for file-browser and chat-activity surfaces.
+- Tests added or updated first: Planned first step is to audit existing Playwright coverage for narrow pane fullscreen behavior and add a failing browser regression if the home-sidebar reachability / pane-fullscreen contract is not already explicit. Profiling/report docs will follow after behavior coverage is settled.
+- Production code changed: None yet for this slice.
+- Verification run: Re-read the plan/log and verification checklist. Confirmed the remaining explicit Phase 7 items are targeted verification, responsive narrow-width checks, DevTools profiling, and cleanup/readability rather than new product-surface behavior.
+- CDP visual check: Not run yet for this slice; reserved for the final responsive + profiling verification.
+- Decisions: Keep this pass measured. If existing behavior is already correct, add/strengthen tests and perf documentation rather than forcing unnecessary UI churn.
+- Blockers or open questions: Need to confirm whether current Playwright coverage already asserts that narrow pane toggles go fullscreen while the home sidebar rail stays reachable, or whether that remains only manually verified.
+- Next recommended slice: Audit the existing narrow-width pane tests, add a failing regression if coverage is missing, then run DevTools profiling on file-browser navigation and chat-activity expansion/scroll.
+
+### 2026-03-12 18:02
+
+- Date: 2026-03-12 18:02 EDT
+- Scope: Completed the Phase 7 narrow responsive-pane verification slice for home side rails and focused full-width pane behavior on narrow desktop viewports.
+- Tests added or updated first: Added a failing layout regression in `frontend/src/components/Panes/paneLayout.test.ts` for hidden home panes reopening on a `1120px` viewport, plus a failing browser regression in `frontend/tests/e2e/home/home-file-manager.spec.ts` that clicks the live home rail buttons and requires the focused pane to reopen at full width while the opposite rail remains reachable.
+- Production code changed: Exported `HOME_COMPACT_LAYOUT_BREAKPOINT_PX` from `frontend/src/utils/constants.ts`, updated `frontend/src/components/Panes/paneLayout.ts` so home panes default to full width in the narrow desktop band just above compact mode, and rewired the home rail button handlers in `frontend/src/components/Pages/Home/HomePage.tsx` to use the shared `togglePaneVisibility(...)` layout helper instead of directly flipping booleans in local storage.
+- Verification run: Captured the red first. `pnpm -C frontend exec vitest run src/components/Panes/paneLayout.test.ts` initially failed because the hidden home pane reopened at `320px` instead of the viewport max, and `./scripts/run-playwright-e2e.sh frontend/tests/e2e/home/home-file-manager.spec.ts --grep "narrow desktop home rail clicks open focused full-width panes while rails stay reachable"` initially failed because the real home rail buttons bypassed the shared pane-layout logic. After routing the rail clicks through the layout helper and updating the older wide-home expectations to keep covering the non-narrow path, the same Vitest run passed (10 tests) and the focused Playwright regression passed (1 test).
+- CDP visual check: Done on the existing dev browser at `http://127.0.0.1:3026/home` with a `1120x900` emulated viewport. I reset both home panes closed, clicked the left workspace rail button, and verified the workspace pane reopened at `1080px` while both icon rails still occupied `40px` rails at `x=0` and `x=1080`. I then clicked the right selected-project rail button and confirmed the right pane replaced the left pane at the same `1080px` width while the opposite rail remained reachable and visible.
+- Decisions: Keep the narrow-fullscreen behavior scoped to the home panes only. The trigger is the narrow desktop band immediately above compact mode, where opening a side pane should clearly focus that pane instead of preserving a cramped split layout.
+- Blockers or open questions: The broader Phase 7 profiling/report work is still open. I have not yet recorded the DevTools traces or appended the perf report under `perf/`.
+- Next recommended slice: Record the file-browser and chat-activity DevTools traces, append the perf report, then do the final Phase 7 readability/cleanup pass.
