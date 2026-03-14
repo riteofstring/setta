@@ -834,6 +834,17 @@ func (e *Executor) processOpenAIResponseEvent(
 		}
 		return nil, fmt.Errorf("managed llm provider request failed: %s", strings.TrimSpace(typed.Response.Error.Message))
 	case responses.ResponseIncompleteEvent:
+		if err := e.applyOpenAICompletedResponseFallback(
+			ctx,
+			prepared,
+			assistantMessage,
+			typed.Response,
+			streamState,
+			accumulator,
+			previewAccumulator,
+		); err != nil {
+			return nil, err
+		}
 		reason := strings.TrimSpace(typed.Response.IncompleteDetails.Reason)
 		if reason == "" {
 			return nil, fmt.Errorf("managed llm provider request failed: response incomplete")

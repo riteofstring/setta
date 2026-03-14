@@ -2992,6 +2992,146 @@ func TestExecutorExecuteRecoversOpenAIResponsesReasoningItemDoneBeforeIncomplete
 	}
 }
 
+func TestExecutorExecuteRecoversOpenAIResponsesIncompletePayloadContentBeforeFailure(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/responses" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected flusher")
+		}
+		fmt.Fprint(w, openAIResponseIncompleteEventWithOutput(
+			"max_output_tokens",
+			[]map[string]any{
+				{
+					"type":    "reasoning",
+					"id":      "reasoning-1",
+					"summary": []map[string]any{{"text": "Plan summary"}},
+					"content": []map[string]any{{"type": "reasoning_text", "text": "Planning deeply"}},
+					"status":  "incomplete",
+				},
+				{
+					"type":    "message",
+					"id":      "message-1",
+					"role":    "assistant",
+					"status":  "incomplete",
+					"content": []map[string]any{{"type": "output_text", "text": "Recovered final answer", "annotations": []any{}}},
+				},
+			},
+			2,
+		))
+		flusher.Flush()
+	}))
+	defer server.Close()
+
+	broadcaster := &captureBroadcaster{}
+	live := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{Broadcaster: broadcaster})
+	run := newManagedChatTestRun()
+	live.ActivateRun(run)
+
+	executor := NewExecutor(ExecutorOptions{
+		Live:       live,
+		HTTPClient: server.Client(),
+	})
+	result, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
+		Run: run,
+		LLMConfig: llmconfig.Config{
+			ID:        "primary",
+			Model:     "gpt-5-codex",
+			Provider:  "openai",
+			BaseURL:   server.URL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+		APIKeys: map[string]string{
+			"OPENAI_API_KEY": "secret",
+		},
+		SystemPrompt:    "System prompt",
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+		SectionID:       testStringPtr("section-chat"),
+		Thinking:        true,
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+			"messages": []any{
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Keep going"},
+					},
+					"attachments": []any{},
+				},
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected provider failure from incomplete response")
+	}
+	if err.Error() != "managed llm provider request failed: response incomplete (max_output_tokens)" {
+		t.Fatalf("unexpected provider error %q", err.Error())
+	}
+
+	messages, ok := result.Outputs["messages"].([]any)
+	if !ok || len(messages) != 2 {
+		t.Fatalf("expected user and partial assistant messages, got %#v", result.Outputs["messages"])
+	}
+	assistant, ok := messages[1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected assistant message map, got %#v", messages[1])
+	}
+	assistantContent, ok := assistant["content"].([]any)
+	if !ok || len(assistantContent) != 2 {
+		t.Fatalf("expected recovered thinking plus text blocks, got %#v", assistant)
+	}
+	thinkingBlock, ok := assistantContent[0].(map[string]any)
+	if !ok || thinkingBlock["summary"] != "Plan summary" || thinkingBlock["thinking"] != "Planning deeply" {
+		t.Fatalf("expected recovered authoritative reasoning block, got %#v", assistant)
+	}
+	textBlock, ok := assistantContent[1].(map[string]any)
+	if !ok || textBlock["text"] != "Recovered final answer" {
+		t.Fatalf("expected recovered authoritative text block, got %#v", assistant)
+	}
+
+	state, stateErr := live.GetLiveChatState(run.ID)
+	if stateErr != nil {
+		t.Fatalf("get live state after provider failure: %v", stateErr)
+	}
+	if state == nil || state.WaitingForResponse {
+		t.Fatalf("expected provider failure to clear waiting state, got %#v", state)
+	}
+	stateContent, ok := state.Messages[1]["content"].([]any)
+	if len(state.Messages) != 2 || !ok || len(stateContent) != 2 {
+		t.Fatalf("expected finalized live recovered content, got %#v", state)
+	}
+	stateThinkingBlock, ok := stateContent[0].(map[string]any)
+	if !ok || stateThinkingBlock["summary"] != "Plan summary" || stateThinkingBlock["thinking"] != "Planning deeply" {
+		t.Fatalf("expected finalized live recovered reasoning block, got %#v", state)
+	}
+	stateTextBlock, ok := stateContent[1].(map[string]any)
+	if !ok || stateTextBlock["text"] != "Recovered final answer" {
+		t.Fatalf("expected finalized live recovered text block, got %#v", state)
+	}
+
+	broadcastMessages := broadcaster.Messages()
+	expectedSummary := "Plan summary"
+	if findBroadcastThinkingDelta(broadcastMessages, 0, "", &expectedSummary) == nil {
+		t.Fatalf("expected incomplete payload summary delta in %#v", broadcastMessages)
+	}
+	if findBroadcastThinkingDelta(broadcastMessages, 0, "Planning deeply", nil) == nil {
+		t.Fatalf("expected incomplete payload thinking delta in %#v", broadcastMessages)
+	}
+	if findBroadcastTextDelta(broadcastMessages, 1, "Recovered final answer") == nil {
+		t.Fatalf("expected incomplete payload text delta in %#v", broadcastMessages)
+	}
+	if broadcaster.Count() != 6 {
+		t.Fatalf("expected start, recovered deltas, stop, finalized broadcasts, got %d", broadcaster.Count())
+	}
+}
+
 func TestExecutorExecuteRunsOpenAIResponsesToolCallsThroughMCPAndContinuesProviderTurns(t *testing.T) {
 	t.Parallel()
 
@@ -4904,6 +5044,10 @@ func openAIResponseCompletedEvent(output []map[string]any, inputTokens int, outp
 }
 
 func openAIResponseIncompleteEvent(reason string) string {
+	return openAIResponseIncompleteEventWithOutput(reason, nil, 0)
+}
+
+func openAIResponseIncompleteEventWithOutput(reason string, output []map[string]any, reasoningTokens int) string {
 	return openAIResponseEvent(map[string]any{
 		"type":            "response.incomplete",
 		"sequence_number": 98,
@@ -4913,7 +5057,7 @@ func openAIResponseIncompleteEvent(reason string) string {
 			"created_at":         1741567200,
 			"status":             "incomplete",
 			"model":              "gpt-5-codex",
-			"output":             []any{},
+			"output":             output,
 			"incomplete_details": map[string]any{"reason": reason},
 			"usage": map[string]any{
 				"input_tokens": 8,
@@ -4922,7 +5066,7 @@ func openAIResponseIncompleteEvent(reason string) string {
 				},
 				"output_tokens": 1,
 				"output_tokens_details": map[string]any{
-					"reasoning_tokens": 0,
+					"reasoning_tokens": reasoningTokens,
 				},
 				"total_tokens": 9,
 			},
