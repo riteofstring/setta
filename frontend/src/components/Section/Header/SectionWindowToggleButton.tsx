@@ -1,3 +1,7 @@
+import {
+  getWindowControlQuickInfoHandlers,
+  getWindowControlQuickInfoText,
+} from "components/Utils/windowControlQuickInfo";
 import { MdFlipToFront, MdOpenInNew } from "react-icons/md";
 import {
   bootProjectChatWindowToCanvasSection,
@@ -57,11 +61,15 @@ export function SectionWindowToggleButton({
     : SECTION_HEADER_WINDOW_BUTTON_CLASS;
 
   if (externalizedWindowInstance) {
+    const showInCanvasLabel = getWindowControlQuickInfoText({
+      action: "show_section_in_canvas",
+    });
+
     return (
       <button
         type="button"
-        aria-label="Show section in canvas"
-        title="Show section in canvas"
+        aria-label={showInCanvasLabel}
+        title={showInCanvasLabel}
         className={className}
         onClick={() => {
           void bootProjectChatWindowToCanvasSection(
@@ -70,23 +78,33 @@ export function SectionWindowToggleButton({
         }}
         data-testid="section-window-toggle"
         data-section-id={sectionId}
+        {...getWindowControlQuickInfoHandlers({
+          action: "show_section_in_canvas",
+        })}
       >
         <MdFlipToFront size={12} />
       </button>
     );
   }
 
+  const openInWindowLabel = getWindowControlQuickInfoText({
+    action: "open_section_in_window",
+  });
+
   return (
     <button
       type="button"
-      aria-label="Open section in floating window"
-      title="Open section in floating window"
+      aria-label={openInWindowLabel}
+      title={openInWindowLabel}
       className={className}
       onClick={() => {
         showSectionInProjectChatWindow(sectionId);
       }}
       data-testid="section-window-toggle"
       data-section-id={sectionId}
+      {...getWindowControlQuickInfoHandlers({
+        action: "open_section_in_window",
+      })}
     >
       <MdOpenInNew size={12} />
     </button>

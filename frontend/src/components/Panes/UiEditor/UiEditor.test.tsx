@@ -3,8 +3,9 @@ import { useLocalStorage, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { createProjectConfig } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { RIGHT_PANE_TITLE_CLEARANCE_CLASS_NAME } from "../../Utils/paneTitleSpacing";
 import { syncStoreInitialState } from "../paneTestUtils";
-import { UiEditor } from "./UiEditor";
+import { UiEditor, UI_EDITOR_PANE_TITLE_CLASS_NAME } from "./UiEditor";
 
 function extractRailStyle(markup: string): string {
   const match = markup.match(
@@ -117,5 +118,11 @@ describe("UiEditor rail offsets", () => {
 
     expect(markup).toContain("z-[32]");
     expect(style).toContain("bottom:36px");
+  });
+
+  it("reserves title clearance for the right pane fullscreen button", () => {
+    expect(UI_EDITOR_PANE_TITLE_CLASS_NAME).toContain(
+      RIGHT_PANE_TITLE_CLEARANCE_CLASS_NAME,
+    );
   });
 });
