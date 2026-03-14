@@ -61,11 +61,14 @@ import {
   UNPINNED_THREAD_DOMAIN,
   type ThreadDropTarget,
 } from "./projectChatHistoryDragUtils";
+import {
+  useProjectChatHistorySearchNavigation,
+  useProjectChatHistorySearchQueryState,
+} from "./projectChatHistorySearchState";
 import { isDraftProjectChatHistoryEntry } from "./projectChatHistoryThreadListShared";
 import {
   buildOrderedVisibleThreadIds,
   buildProjectChatHistoryDisplayEntries,
-  buildProjectChatHistorySearchState,
   buildProjectChatThreadSections,
   buildThreadAgentBadgeLabelByChatId,
   resolveProjectChatHistoryPollIntervalMs,
@@ -140,9 +143,6 @@ export function ProjectChatHistory({
   });
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [showThreadAgentBadges, setShowThreadAgentBadges] = useState(true);
-  const [masterSearchInput, setMasterSearchInput] = useState("");
-  const [activeMasterSearchMatchIndex, setActiveMasterSearchMatchIndex] =
-    useState<number | null>(null);
   const [activeThreadDragId, setActiveThreadDragId] = useState<string | null>(
     null,
   );
@@ -274,18 +274,17 @@ export function ProjectChatHistory({
     });
   }, [chatId, draftThread, engineConfigId, historyEntries, runType]);
   const {
+    masterSearchInput,
+    setMasterSearchInput,
     normalizedMasterSearchTerms,
     hasMasterSearch,
     masterSearchMatchCountByChatId,
     sortedEntries,
-  } = useMemo(() => {
-    return buildProjectChatHistorySearchState({
-      agentRuns,
-      displayEntries,
-      syntheticDraftThreadEntry,
-      masterSearchInput,
-    });
-  }, [agentRuns, displayEntries, masterSearchInput, syntheticDraftThreadEntry]);
+  } = useProjectChatHistorySearchQueryState({
+    agentRuns,
+    displayEntries,
+    syntheticDraftThreadEntry,
+  });
 
   const viewedThreadIdsSet = useMemo(() => {
     return new Set(viewedThreadIds);
@@ -393,81 +392,17 @@ export function ProjectChatHistory({
       ungroupedEntries,
     });
   }, [searchableGroupSections, ungroupedEntries]);
-  const masterSearchMatchCount = hasMasterSearch
-    ? orderedVisibleThreadIds.length
-    : 0;
-  const masterSearchQueryKey = useMemo(
-    () => normalizedMasterSearchTerms.join("\u0000"),
-    [normalizedMasterSearchTerms],
-  );
-  useEffect(() => {
-    if (!hasMasterSearch || masterSearchMatchCount === 0) {
-      setActiveMasterSearchMatchIndex(null);
-      return;
-    }
-    setActiveMasterSearchMatchIndex(0);
-  }, [hasMasterSearch, masterSearchMatchCount, masterSearchQueryKey]);
-  useEffect(() => {
-    if (masterSearchMatchCount === 0) {
-      setActiveMasterSearchMatchIndex(null);
-      return;
-    }
-    setActiveMasterSearchMatchIndex((current) => {
-      if (current === null) {
-        return 0;
-      }
-      if (current >= masterSearchMatchCount) {
-        return masterSearchMatchCount - 1;
-      }
-      return current;
-    });
-  }, [masterSearchMatchCount]);
-  const activeMasterSearchMatchThreadId = useMemo(() => {
-    if (activeMasterSearchMatchIndex === null) {
-      return null;
-    }
-    return orderedVisibleThreadIds[activeMasterSearchMatchIndex] ?? null;
-  }, [activeMasterSearchMatchIndex, orderedVisibleThreadIds]);
-  const masterSearchCounterText =
-    masterSearchMatchCount > 0 && activeMasterSearchMatchIndex !== null
-      ? `${activeMasterSearchMatchIndex + 1}/${masterSearchMatchCount}`
-      : `0/${masterSearchMatchCount}`;
-  const handleStepMasterSearch = useCallback(
-    (direction: "previous" | "next") => {
-      if (masterSearchMatchCount === 0) {
-        return;
-      }
-      setActiveMasterSearchMatchIndex((current) => {
-        const baseIndex = current ?? 0;
-        if (direction === "next") {
-          return (baseIndex + 1) % masterSearchMatchCount;
-        }
-        return (
-          (baseIndex - 1 + masterSearchMatchCount) % masterSearchMatchCount
-        );
-      });
-    },
-    [masterSearchMatchCount],
-  );
-  useEffect(() => {
-    if (!activeMasterSearchMatchThreadId) {
-      return;
-    }
-    const scrollContainer = threadListScrollRef.current;
-    if (!scrollContainer) {
-      return;
-    }
-    const target = scrollContainer.querySelector<HTMLElement>(
-      `[data-thread-id="${activeMasterSearchMatchThreadId}"]`,
-    );
-    if (!target) {
-      return;
-    }
-    target.scrollIntoView({
-      block: "center",
-      behavior: "smooth",
-    });
-  }, [activeMasterSearchMatchThreadId]);
+  const {
+    activeMasterSearchMatchThreadId,
+    masterSearchCounterText,
+    masterSearchMatchCount,
+    handleStepMasterSearch,
+  } = useProjectChatHistorySearchNavigation({
+    hasMasterSearch,
+    normalizedMasterSearchTerms,
+    orderedVisibleThreadIds,
+    threadListScrollRef,
+  });
 
   const threadGroupById = useMemo(() => {
     const next = new Map<string, string | null>();
@@ -994,12 +929,4 @@ function getPlaceholderText(
     return "No threads yet";
   }
   return "";
-}
-
-function normalizeThreadGroupNameForEditing(name: string): string | null {
-  const normalized = name.trim().replace(/\s+/g, " ");
-  if (!normalized) {
-    return null;
-  }
-  return normalized;
 }
