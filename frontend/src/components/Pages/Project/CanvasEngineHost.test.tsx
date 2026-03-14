@@ -4,11 +4,24 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import initialState from "forks/xyflow/core/store/initialState";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { useActiveSectionUI, useProjectState } from "state/definitions";
+import { getCurrEffectiveSectionImplIfPresent } from "state/actions/sectionInfos";
+import {
+  useActiveSectionUI,
+  useProjectState,
+  useSettings,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import * as endpoints from "utils/generatedEndpoints";
-import { createProjectConfig } from "utils/generatedTypes";
+import {
+  createCallableSectionImpl,
+  createCore,
+  createProjectConfig,
+  createSectionSize,
+  createSettingsState,
+  createUserDefaultCallableSectionImpl,
+  createVariant,
+} from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -38,6 +51,7 @@ describe("CanvasEngineHost", () => {
   beforeEach(() => {
     resetProjectStores();
     useReactFlow.setState({ ...initialState });
+    useSettings.setState(createSettingsState());
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
@@ -388,6 +402,103 @@ describe("CanvasEngineHost", () => {
     });
   });
 
+  it("resizes a top-level section and persists layout plus section sizes", async () => {
+    const layoutSpy = vi
+      .spyOn(endpoints, "route_set_top_level_section_layout")
+      .mockResolvedValue({
+        status: 200,
+        hasResponse: true,
+        data: undefined,
+      });
+    const sizeSpy = vi
+      .spyOn(endpoints, "route_set_section_sizes")
+      .mockResolvedValue({
+        status: 200,
+        hasResponse: true,
+        data: undefined,
+      });
+
+    seedResizableCallableSection("section-a");
+
+    await act(async () => {
+      root.render(<CanvasEngineHost />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const engineHost = host.querySelector(
+      '[data-canvas-engine-host="v1"]',
+    ) as HTMLDivElement | null;
+    if (!engineHost) {
+      throw new Error("Canvas engine host failed to render.");
+    }
+    setEngineHostBounds(engineHost);
+
+    await dispatchPointerEvent(engineHost, "pointerdown", {
+      button: 0,
+      clientX: 344,
+      clientY: 196,
+      pointerId: 1,
+    });
+    await dispatchPointerEvent(engineHost, "pointermove", {
+      button: 0,
+      clientX: 404,
+      clientY: 236,
+      pointerId: 1,
+    });
+    await dispatchPointerEvent(engineHost, "pointerup", {
+      button: 0,
+      clientX: 404,
+      clientY: 236,
+      pointerId: 1,
+    });
+
+    expect(
+      useProjectState.getState().projectConfig.topLevelSections,
+    ).toMatchObject({
+      "section-a": expect.objectContaining({
+        x: 24,
+        y: 16,
+        w: 380,
+        h: 220,
+      }),
+    });
+    expect(layoutSpy).toHaveBeenCalledOnce();
+    expect(layoutSpy).toHaveBeenCalledWith({
+      projectConfigId: "project-a",
+      topLevelSections: expect.objectContaining({
+        "section-a": expect.objectContaining({
+          w: 380,
+          h: 220,
+        }),
+      }),
+    });
+    expect(sizeSpy).toHaveBeenCalledOnce();
+    expect(sizeSpy).toHaveBeenCalledWith({
+      projectConfigId: "project-a",
+      sectionSizes: expect.objectContaining({
+        "section-a": expect.objectContaining({
+          width: 380,
+          height: 220,
+        }),
+      }),
+    });
+    expect(
+      getCurrEffectiveSectionImplIfPresent(
+        useProjectState.getState(),
+        "section-a",
+      )?.size,
+    ).toEqual(
+      createSectionSize({
+        width: 380,
+        height: 220,
+      }),
+    );
+  });
+
   it("clears active sections from a stationary blank-pane click", async () => {
     const endpointSpy = vi
       .spyOn(endpoints, "route_set_active_ids")
@@ -514,5 +625,42 @@ function setEngineHostBounds(target: HTMLElement) {
   Object.defineProperty(target, "getBoundingClientRect", {
     configurable: true,
     value: () => DOMRect.fromRect({ x: 0, y: 0, width: 640, height: 360 }),
+  });
+}
+
+function seedResizableCallableSection(sectionId: string) {
+  useProjectState.setState((state) => {
+    state.projectConfig.id = "project-a";
+    state.projectConfig.topLevelSections = {
+      [sectionId]: {
+        x: 24,
+        y: 16,
+        zIndex: 0,
+        w: 320,
+        h: 180,
+      },
+    };
+    state.projectConfig.sectionVariantMap = {
+      [sectionId]: "variant-a",
+    };
+    state.projectConfig.activeIds = [];
+    state.projectConfig.edges = [];
+    state.projectConfig.agenticEdges = [];
+    state.sections[sectionId] = createCore({ id: sectionId });
+    state.sectionVariants["variant-a"] = createVariant({
+      id: "variant-a",
+      impl: "impl-a",
+      nonPresetImpls: [],
+    });
+    state.sectionImpls["impl-a"] = createCallableSectionImpl(
+      createUserDefaultCallableSectionImpl(),
+      {
+        id: "impl-a",
+        size: createSectionSize({
+          width: 320,
+          height: 180,
+        }),
+      },
+    );
   });
 }
