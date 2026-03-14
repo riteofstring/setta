@@ -225,7 +225,7 @@ Current landed wedge:
   - current LSP completion and diagnostics-mute route constants
   - current workspace-launch route constants
   - current deployment/share current-session, state/project-config, and
-    publish/list route constants
+    publish/list/latest/version route constants
   - current launcher-home route constants
   - current launcher-management route constants
   - current plugin-management route constants

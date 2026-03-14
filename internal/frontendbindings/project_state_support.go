@@ -124,6 +124,10 @@ type DeploymentVersionRouteParams struct {
 	Version        string `json:"version"`
 }
 
+type DeploymentNameRouteParams struct {
+	DeploymentName string `json:"deploymentName"`
+}
+
 type LoadDeploymentProjectConfigRequestInput struct {
 	ProjectConfigID string `json:"projectConfigId"`
 }

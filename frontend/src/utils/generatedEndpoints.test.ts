@@ -54,6 +54,7 @@ import {
   route_get_ai_follow_snapshot,
   route_get_app_catalog,
   route_get_app_definition,
+  route_get_app_deployment_latest,
   route_get_app_deployment_state,
   route_get_app_gen_skill_content,
   route_get_app_gen_skills,
@@ -84,12 +85,15 @@ import {
   route_get_notifications,
   route_get_password_param_value,
   route_get_prompt_template,
+  route_get_share_deployment_latest,
   route_group_sections,
   route_import_files_to_artifacts,
   route_indent_params,
   route_interrupt_terminal_processes,
   route_list_app_deployments,
+  route_list_app_deployment_versions,
   route_list_share_deployments,
+  route_list_share_deployment_versions,
   route_load_all_project_metadata,
   route_load_app_project_config,
   route_load_cached_brush_strokes,
@@ -443,6 +447,24 @@ describe("generatedEndpoints deployment surface", () => {
     );
   });
 
+  it("binds share deployment version-list path params into the GET URL", async () => {
+    await route_list_share_deployment_versions("demo-share");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/share/deployments/demo-share/versions`,
+    );
+  });
+
+  it("binds share deployment latest path params into the GET URL", async () => {
+    await route_get_share_deployment_latest("demo-share");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/share/deployments/demo-share/latest`,
+    );
+  });
+
   it("publishes a share deployment with the Go request body shape", async () => {
     await route_publish_share_deployment({
       deploymentName: "share-demo",
@@ -494,6 +516,24 @@ describe("generatedEndpoints deployment surface", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       `${C_ADDRESSES.BACKEND}/app/deployments`,
+    );
+  });
+
+  it("binds app deployment version-list path params into the GET URL", async () => {
+    await route_list_app_deployment_versions("demo-app");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/app/deployments/demo-app/versions`,
+    );
+  });
+
+  it("binds app deployment latest path params into the GET URL", async () => {
+    await route_get_app_deployment_latest("demo-app");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/app/deployments/demo-app/latest`,
     );
   });
 

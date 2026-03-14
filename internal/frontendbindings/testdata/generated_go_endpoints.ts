@@ -437,6 +437,18 @@ export async function route_list_share_deployments(): Promise<ResponseDataAndSta
 }
 
 
+export async function route_list_share_deployment_versions(deploymentName: string): Promise<ResponseDataAndStatus<gt.ShareDeploymentMetadataList>> {
+
+  return await get(GoHTTPRoutes.shareDeploymentVersions, { deploymentName });
+}
+
+
+export async function route_get_share_deployment_latest(deploymentName: string): Promise<ResponseDataAndStatus<gt.ShareDeploymentMetadata>> {
+
+  return await get(GoHTTPRoutes.shareDeploymentLatest, { deploymentName });
+}
+
+
 export async function route_publish_share_deployment(x: gt.PublishShareDeploymentRequestInput): Promise<ResponseDataAndStatus<gt.ShareDeploymentMetadata>> {
 
   return await post(GoHTTPRoutes.shareDeployments, x);
@@ -446,6 +458,18 @@ export async function route_publish_share_deployment(x: gt.PublishShareDeploymen
 export async function route_list_app_deployments(): Promise<ResponseDataAndStatus<gt.AppDeploymentMetadataList>> {
 
   return await get(GoHTTPRoutes.appDeployments);
+}
+
+
+export async function route_list_app_deployment_versions(deploymentName: string): Promise<ResponseDataAndStatus<gt.AppDeploymentMetadataList>> {
+
+  return await get(GoHTTPRoutes.appDeploymentVersions, { deploymentName });
+}
+
+
+export async function route_get_app_deployment_latest(deploymentName: string): Promise<ResponseDataAndStatus<gt.AppDeploymentMetadata>> {
+
+  return await get(GoHTTPRoutes.appDeploymentLatest, { deploymentName });
 }
 
 

@@ -82,7 +82,11 @@ export const GoHTTPRoutes = {
   appDeploymentProjectConfig:
     "/app/deployments/{deploymentName}/{version}/project_config",
   shareDeployments: "/share/deployments",
+  shareDeploymentVersions: "/share/deployments/{deploymentName}/versions",
+  shareDeploymentLatest: "/share/deployments/{deploymentName}/latest",
   appDeployments: "/app/deployments",
+  appDeploymentVersions: "/app/deployments/{deploymentName}/versions",
+  appDeploymentLatest: "/app/deployments/{deploymentName}/latest",
   getLauncherRecentWorkspaces: "/launcherRecentWorkspaces",
   addLauncherRecentWorkspace: "/addLauncherRecentWorkspace",
   removeLauncherRecentWorkspace: "/removeLauncherRecentWorkspace",
@@ -366,7 +370,11 @@ export const RouteEnum = {
   APP_DEPLOYMENT_PROJECT_CONFIG:
     "/app/deployments/{deploymentName}/{version}/project_config",
   SHARE_DEPLOYMENTS: "/share/deployments",
+  SHARE_DEPLOYMENT_VERSIONS: "/share/deployments/{deploymentName}/versions",
+  SHARE_DEPLOYMENT_LATEST: "/share/deployments/{deploymentName}/latest",
   APP_DEPLOYMENTS: "/app/deployments",
+  APP_DEPLOYMENT_VERSIONS: "/app/deployments/{deploymentName}/versions",
+  APP_DEPLOYMENT_LATEST: "/app/deployments/{deploymentName}/latest",
   GET_LAUNCHER_RECENT_WORKSPACES: "/launcherRecentWorkspaces",
   ADD_LAUNCHER_RECENT_WORKSPACE: "/addLauncherRecentWorkspace",
   REMOVE_LAUNCHER_RECENT_WORKSPACE: "/removeLauncherRecentWorkspace",
