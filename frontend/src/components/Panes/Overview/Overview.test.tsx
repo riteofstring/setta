@@ -327,9 +327,7 @@ describe("Overview rail offsets", () => {
       </MemoryRouter>,
     );
 
-    expect(markup).toContain(
-      'data-testid="project-ai-settings-scroll-region"',
-    );
+    expect(markup).toContain('data-testid="project-ai-settings-scroll-region"');
     expect(markup).not.toContain('data-testid="project-chat-content"');
   });
 

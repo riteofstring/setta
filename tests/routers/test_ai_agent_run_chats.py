@@ -954,7 +954,7 @@ class TestAgentRunChatRoutes:
                 return []
 
             monkeypatch.setattr(
-                "setta.agentic.managed_chat_dispatch._get_prior_messages_for_engine",
+                "setta.routers.ai._get_prior_messages_for_engine",
                 _capture_prior_messages,
             )
 
@@ -1193,6 +1193,405 @@ class TestAgentRunChatRoutes:
             assert exc.value.status_code == 404
             assert exc.value.detail == "Message missing not found in chat history"
 
+    async def test_branch_edit_persists_per_message_app_generation_provenance(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-branch-app-generation")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            project_config_id = ID("project-branch-app-generation")
+            parent_chat_id = ID("chat-parent-app-generation")
+            json_user_message = UserChatMessage(
+                id="msg-json",
+                content=[MessageTextContent(text="Build the JSON app.")],
+            )
+            json_assistant_message = AssistantChatMessage(
+                id="assistant-json",
+                content=[MessageTextContent(text="JSON app draft")],
+            )
+            mcp_user_message = UserChatMessage(
+                id="msg-mcp",
+                content=[MessageTextContent(text="Bring this into MCP tools.")],
+            )
+            seed_run = _build_run(
+                chat_id=parent_chat_id,
+                project_config_id=project_config_id,
+                engine_config_id=engine_config_id,
+                started_at=datetime(2024, 1, 4, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[
+                    json_user_message,
+                    json_assistant_message,
+                    mcp_user_message,
+                ],
+                output_messages=[
+                    json_user_message,
+                    json_assistant_message,
+                    mcp_user_message,
+                ],
+            )
+            save_agent_run(dbe, seed_run)
+            captured_inputs: dict[str, object] = {}
+
+            def _capture_start_run(profile, inputs, **_kwargs):
+                captured_inputs.update(inputs)
+                return create_agent_run(profile_id=profile.id, inputs=inputs)
+
+            monkeypatch.setattr(runner, "start_run", _capture_start_run)
+
+            with runtime_context(state) as ctx:
+                created_chat_id = await route_get_llm_response(
+                    GetLLMResponseRequest(
+                        chatId=None,
+                        message=UserChatMessage(
+                            id="msg-mcp",
+                            content=[
+                                MessageTextContent(text="Edited MCP branch prompt")
+                            ],
+                        ),
+                        engineConfigId=engine_config_id,
+                        agentProfileId=None,
+                        thinking=False,
+                        projectConfigId=project_config_id,
+                        allowUnscoped=True,
+                        branchParentChatId=parent_chat_id,
+                        branchFromMessageId=ID("msg-mcp"),
+                        permissionMode=ChatPermissionMode.minimal,
+                        searchEnabled=True,
+                        appGenerationMode="mcp_server",
+                        appGenerationByMessageId={
+                            "msg-json": "json_render",
+                            "msg-mcp": "mcp_server",
+                            "missing": "prompt_builder",
+                        },
+                    ),
+                    ctx,
+                )
+
+            assert created_chat_id is not None
+            assert "appGenerationMode" not in captured_inputs
+            assert captured_inputs.get("appGenerationByMessageId") == {
+                "msg-json": "json_render",
+                "msg-mcp": "mcp_server",
+            }
+
+    async def test_get_llm_response_persists_explicit_plain_chat_turns(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-plain-chat-persistence")
+            project_config_id = ID("project-plain-chat-persistence")
+            chat_id = ID("chat-plain-chat-persistence")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+
+            app_user_message = UserChatMessage(
+                id="msg-app",
+                content=[MessageTextContent(text="Build the JSON app.")],
+            )
+            app_assistant_message = AssistantChatMessage(
+                id="assistant-app",
+                content=[MessageTextContent(text="JSON app draft")],
+            )
+            seed_run = _build_run(
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+                engine_config_id=engine_config_id,
+                started_at=datetime(2024, 1, 4, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[app_user_message],
+                output_messages=[app_user_message, app_assistant_message],
+            )
+            save_agent_run(dbe, seed_run)
+
+            captured_inputs: dict[str, object] = {}
+
+            def _capture_start_run(profile, inputs, **_kwargs):
+                captured_inputs.update(inputs)
+                return create_agent_run(profile_id=profile.id, inputs=inputs)
+
+            monkeypatch.setattr(runner, "start_run", _capture_start_run)
+
+            with runtime_context(state) as ctx:
+                returned_chat_id = await route_get_llm_response(
+                    GetLLMResponseRequest(
+                        chatId=chat_id,
+                        message=UserChatMessage(
+                            id="msg-plain",
+                            content=[
+                                MessageTextContent(text="Now answer in plain chat.")
+                            ],
+                        ),
+                        engineConfigId=engine_config_id,
+                        agentProfileId=None,
+                        thinking=False,
+                        projectConfigId=project_config_id,
+                        allowUnscoped=True,
+                        permissionMode=ChatPermissionMode.minimal,
+                        searchEnabled=True,
+                        appGenerationMode=None,
+                        appGenerationByMessageId={
+                            "msg-app": "json_render",
+                        },
+                    ),
+                    ctx,
+                )
+
+            assert returned_chat_id == chat_id
+            assert captured_inputs.get("appGenerationByMessageId") == {
+                "msg-app": "json_render",
+                "msg-plain": "plain_chat",
+            }
+
+    async def test_get_llm_response_rejects_image_mode_without_image_attachment(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-image-mode")
+            project_config_id = ID("project-image-mode")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            start_run_call_count = 0
+
+            def _capture_start_run(*_args, **_kwargs):
+                nonlocal start_run_call_count
+                start_run_call_count += 1
+                return create_agent_run(profile_id=ID("profile-unexpected"), inputs={})
+
+            monkeypatch.setattr(runner, "start_run", _capture_start_run)
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_get_llm_response(
+                        GetLLMResponseRequest(
+                            chatId=None,
+                            message=UserChatMessage(
+                                id="msg-image",
+                                content=[
+                                    MessageTextContent(
+                                        text="Match the missing reference image."
+                                    )
+                                ],
+                                attachments=[],
+                            ),
+                            engineConfigId=engine_config_id,
+                            agentProfileId=None,
+                            thinking=False,
+                            projectConfigId=project_config_id,
+                            allowUnscoped=True,
+                            permissionMode=ChatPermissionMode.minimal,
+                            searchEnabled=True,
+                            appGenerationMode="json_render_with_image",
+                        ),
+                        ctx,
+                    )
+
+            assert exc.value.status_code == 400
+            assert (
+                exc.value.detail
+                == "json_render_with_image requires at least one image attachment."
+            )
+            assert start_run_call_count == 0
+
+    async def test_get_llm_response_allows_image_mode_follow_up_with_retained_image_history(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-image-follow-up")
+            project_config_id = ID("project-image-follow-up")
+            chat_id = ID("chat-image-follow-up")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+
+            first_user_message = UserChatMessage(
+                id="msg-image-initial",
+                content=[MessageTextContent(text="Match this reference image.")],
+                attachments=[
+                    {
+                        "id": "image-1",
+                        "name": "reference.png",
+                        "mimeType": "image/png",
+                    }
+                ],
+            )
+            first_assistant_message = AssistantChatMessage(
+                id="msg-image-assistant",
+                content=[MessageTextContent(text="Initial image-guided draft.")],
+            )
+            seed_run = _build_run(
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+                engine_config_id=engine_config_id,
+                started_at=datetime(2024, 1, 5, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[first_user_message],
+                output_messages=[first_user_message, first_assistant_message],
+            )
+            save_agent_run(dbe, seed_run)
+
+            captured_inputs: dict[str, object] = {}
+
+            def _capture_start_run(profile, inputs, **_kwargs):
+                captured_inputs.update(inputs)
+                return create_agent_run(profile_id=profile.id, inputs=inputs)
+
+            monkeypatch.setattr(runner, "start_run", _capture_start_run)
+
+            with runtime_context(state) as ctx:
+                returned_chat_id = await route_get_llm_response(
+                    GetLLMResponseRequest(
+                        chatId=chat_id,
+                        message=UserChatMessage(
+                            id="msg-image-follow-up",
+                            content=[
+                                MessageTextContent(text="Make the header taller.")
+                            ],
+                            attachments=[],
+                        ),
+                        engineConfigId=engine_config_id,
+                        agentProfileId=None,
+                        thinking=False,
+                        projectConfigId=project_config_id,
+                        allowUnscoped=True,
+                        permissionMode=ChatPermissionMode.minimal,
+                        searchEnabled=True,
+                        appGenerationMode="json_render_with_image",
+                        appGenerationByMessageId={
+                            "msg-image-initial": "json_render_with_image",
+                        },
+                    ),
+                    ctx,
+                )
+
+            assert returned_chat_id == chat_id
+            assert captured_inputs.get("appGenerationByMessageId") == {
+                "msg-image-initial": "json_render_with_image",
+                "msg-image-follow-up": "json_render_with_image",
+            }
+            raw_messages = captured_inputs.get("messages")
+            assert isinstance(raw_messages, list)
+            # The follow-up run should preserve the retained image message and
+            # append the new text-only user turn.
+            assert [raw.get("id") for raw in raw_messages] == [
+                "msg-image-initial",
+                "msg-image-assistant",
+                "msg-image-follow-up",
+            ]
+
+    async def test_get_llm_response_rejects_plain_chat_image_history_for_image_mode_follow_up(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-image-plain-history")
+            project_config_id = ID("project-image-plain-history")
+            chat_id = ID("chat-image-plain-history")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+
+            first_user_message = UserChatMessage(
+                id="msg-plain-image",
+                content=[MessageTextContent(text="Look at this screenshot.")],
+                attachments=[
+                    {
+                        "id": "image-plain",
+                        "name": "reference.png",
+                        "mimeType": "image/png",
+                    }
+                ],
+            )
+            first_assistant_message = AssistantChatMessage(
+                id="msg-plain-image-assistant",
+                content=[MessageTextContent(text="General discussion only.")],
+            )
+            seed_run = _build_run(
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+                engine_config_id=engine_config_id,
+                started_at=datetime(2024, 1, 5, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[first_user_message],
+                output_messages=[first_user_message, first_assistant_message],
+            )
+            save_agent_run(dbe, seed_run)
+            start_run_call_count = 0
+
+            def _capture_start_run(*_args, **_kwargs):
+                nonlocal start_run_call_count
+                start_run_call_count += 1
+                return create_agent_run(profile_id=ID("profile-unexpected"), inputs={})
+
+            monkeypatch.setattr(runner, "start_run", _capture_start_run)
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_get_llm_response(
+                        GetLLMResponseRequest(
+                            chatId=chat_id,
+                            message=UserChatMessage(
+                                id="msg-image-follow-up",
+                                content=[
+                                    MessageTextContent(
+                                        text="Match that screenshot more closely."
+                                    )
+                                ],
+                                attachments=[],
+                            ),
+                            engineConfigId=engine_config_id,
+                            agentProfileId=None,
+                            thinking=False,
+                            projectConfigId=project_config_id,
+                            allowUnscoped=True,
+                            permissionMode=ChatPermissionMode.minimal,
+                            searchEnabled=True,
+                            appGenerationMode="json_render_with_image",
+                            appGenerationByMessageId={},
+                        ),
+                        ctx,
+                    )
+
+            assert exc.value.status_code == 400
+            assert (
+                exc.value.detail
+                == "json_render_with_image requires at least one image attachment."
+            )
+            assert start_run_call_count == 0
+
     async def test_get_llm_response_continue_from_chat_seeds_prior_messages(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -1253,7 +1652,7 @@ class TestAgentRunChatRoutes:
             monkeypatch.setattr(runner, "start_run", _capture_start_run)
 
             with runtime_context(state) as ctx:
-                response = await route_get_llm_response(
+                created_chat_id = await route_get_llm_response(
                     GetLLMResponseRequest(
                         chatId=None,
                         continueFromChatId=source_chat_id,
@@ -1271,7 +1670,6 @@ class TestAgentRunChatRoutes:
                     ),
                     ctx,
                 )
-                created_chat_id = response.chatId
 
             assert created_chat_id is not None
             assert created_chat_id != source_chat_id
@@ -1336,7 +1734,7 @@ class TestAgentRunChatRoutes:
             monkeypatch.setattr(runner, "start_run", _capture_start_run)
 
             with runtime_context(state) as ctx:
-                response = await route_get_llm_response(
+                created_chat_id = await route_get_llm_response(
                     GetLLMResponseRequest(
                         chatId=None,
                         continueFromChatId=source_chat_id,
@@ -1358,7 +1756,6 @@ class TestAgentRunChatRoutes:
                     ),
                     ctx,
                 )
-                created_chat_id = response.chatId
 
             assert created_chat_id is not None
             raw_messages = captured_inputs.get("messages")
@@ -1530,14 +1927,12 @@ class TestAgentRunChatRoutes:
             def _capture_start_run(profile, inputs, **_kwargs):
                 captured["profile"] = profile
                 captured["inputs"] = inputs
-                run = create_agent_run(profile_id=profile.id, inputs=inputs)
-                captured["run"] = run
-                return run
+                return create_agent_run(profile_id=profile.id, inputs=inputs)
 
             monkeypatch.setattr(runner, "start_run", _capture_start_run)
 
             with runtime_context(state) as ctx:
-                response = await route_get_llm_response(
+                chat_id = await route_get_llm_response(
                     GetLLMResponseRequest(
                         chatId=None,
                         message=UserChatMessage(
@@ -1552,16 +1947,11 @@ class TestAgentRunChatRoutes:
                         permissionMode=ChatPermissionMode.yolo,
                         searchEnabled=False,
                         appGenerationMode="json_render",
-                        appSpecStreamingEnabled=True,
                     ),
                     ctx,
                 )
-                chat_id = response.chatId
 
             assert chat_id is not None
-            assert response.runId == captured["run"].id
-            assert response.engineType == EngineType.setta_llm
-            assert response.sectionId is None
             captured_profile = captured.get("profile")
             assert captured_profile is not None
             system_prompt = captured_profile.systemPrompt
@@ -1571,13 +1961,15 @@ class TestAgentRunChatRoutes:
             assert (
                 "## Required completion gate for create/scaffold work" in system_prompt
             )
-            assert "streamingPreview: enabled" in system_prompt
+            assert "setta__set_app_definition" in system_prompt
+            assert "setta__stream_app_definition" not in system_prompt
 
             captured_inputs = captured.get("inputs")
             assert isinstance(captured_inputs, dict)
             assert captured_inputs.get("permissionMode") == "yolo"
             assert captured_inputs.get("searchEnabled") is False
             assert captured_inputs.get("frontendAffinityToken") == "frontend-managed"
+            assert "appGenerationMode" not in captured_inputs
             assert "skillsEnabled" not in captured_inputs
 
     async def test_get_llm_response_share_scope_preserves_frontend_affinity_token_for_managed_runner(
@@ -1604,7 +1996,7 @@ class TestAgentRunChatRoutes:
             monkeypatch.setattr(runner, "start_run", _capture_start_run)
 
             with runtime_context(state, share_session_id="share-session-1") as ctx:
-                response = await route_get_llm_response(
+                chat_id = await route_get_llm_response(
                     GetLLMResponseRequest(
                         chatId=None,
                         message=UserChatMessage(
@@ -1621,7 +2013,6 @@ class TestAgentRunChatRoutes:
                     ),
                     ctx,
                 )
-                chat_id = response.chatId
 
             assert chat_id is not None
             captured_inputs = captured.get("inputs")
@@ -1719,7 +2110,7 @@ class TestAgentRunChatRoutes:
                 )
 
             monkeypatch.setattr(
-                "setta.agentic.managed_chat_dispatch.build_external_agent_preflight_status",
+                "setta.routers.ai.build_external_agent_preflight_status",
                 _preflight_status_stub,
             )
 
@@ -1743,7 +2134,7 @@ class TestAgentRunChatRoutes:
                 external_runner, "start_run", _capture_external_start_run
             )
             monkeypatch.setattr(
-                "setta.agentic.managed_chat_dispatch.build_external_agent_preflight_status",
+                "setta.routers.ai.build_external_agent_preflight_status",
                 lambda *_args, **_kwargs: SimpleNamespace(
                     available=True,
                     issues=[],
@@ -1751,7 +2142,7 @@ class TestAgentRunChatRoutes:
             )
 
             with runtime_context(state) as ctx:
-                response = await route_get_llm_response(
+                chat_id = await route_get_llm_response(
                     GetLLMResponseRequest(
                         chatId=None,
                         message=UserChatMessage(
@@ -1768,11 +2159,8 @@ class TestAgentRunChatRoutes:
                     ),
                     ctx,
                 )
-                chat_id = response.chatId
 
             assert chat_id is not None
-            assert response.runId is not None
-            assert response.engineType == EngineType.external_agent
             captured_inputs = captured.get("inputs")
             assert isinstance(captured_inputs, dict)
             assert captured_inputs.get("permissionMode") == "minimal"
@@ -1833,7 +2221,7 @@ class TestAgentRunChatRoutes:
             )
 
             monkeypatch.setattr(
-                "setta.agentic.managed_chat_dispatch.build_external_agent_preflight_status",
+                "setta.routers.ai.build_external_agent_preflight_status",
                 lambda *_args, **_kwargs: SimpleNamespace(
                     available=True,
                     issues=[],
@@ -1859,7 +2247,7 @@ class TestAgentRunChatRoutes:
                 external_runner, "start_run", _capture_external_start_run
             )
             monkeypatch.setattr(
-                "setta.agentic.managed_chat_dispatch.build_external_agent_preflight_status",
+                "setta.routers.ai.build_external_agent_preflight_status",
                 lambda *_args, **_kwargs: SimpleNamespace(
                     available=True,
                     issues=[],
@@ -1867,7 +2255,7 @@ class TestAgentRunChatRoutes:
             )
 
             with runtime_context(state) as ctx:
-                response = await route_get_llm_response(
+                chat_id = await route_get_llm_response(
                     GetLLMResponseRequest(
                         chatId=None,
                         message=UserChatMessage(
@@ -1883,7 +2271,6 @@ class TestAgentRunChatRoutes:
                     ),
                     ctx,
                 )
-                chat_id = response.chatId
 
             assert chat_id is not None
             captured_inputs = captured.get("inputs")
@@ -1936,7 +2323,7 @@ class TestAgentRunChatRoutes:
             )
 
             monkeypatch.setattr(
-                "setta.agentic.managed_chat_dispatch.build_external_agent_preflight_status",
+                "setta.routers.ai.build_external_agent_preflight_status",
                 lambda *_args, **_kwargs: SimpleNamespace(
                     available=True,
                     issues=[],
@@ -1963,7 +2350,7 @@ class TestAgentRunChatRoutes:
             )
 
             with runtime_context(state, share_session_id="share-session-1") as ctx:
-                response = await route_get_llm_response(
+                chat_id = await route_get_llm_response(
                     GetLLMResponseRequest(
                         chatId=None,
                         message=UserChatMessage(
@@ -1980,7 +2367,6 @@ class TestAgentRunChatRoutes:
                     ),
                     ctx,
                 )
-                chat_id = response.chatId
 
             assert chat_id is not None
             captured_inputs = captured.get("inputs")
@@ -2048,7 +2434,7 @@ class TestAgentRunChatRoutes:
                 external_runner, "start_run", _capture_external_start_run
             )
             monkeypatch.setattr(
-                "setta.agentic.managed_chat_dispatch.build_external_agent_preflight_status",
+                "setta.routers.ai.build_external_agent_preflight_status",
                 lambda *_args, **_kwargs: SimpleNamespace(
                     available=True,
                     issues=[],
@@ -2056,7 +2442,7 @@ class TestAgentRunChatRoutes:
             )
 
             with runtime_context(state) as ctx:
-                response = await route_get_llm_response(
+                chat_id = await route_get_llm_response(
                     GetLLMResponseRequest(
                         chatId=None,
                         message=UserChatMessage(
@@ -2073,7 +2459,6 @@ class TestAgentRunChatRoutes:
                     ),
                     ctx,
                 )
-                chat_id = response.chatId
 
             assert chat_id is not None
             captured_inputs = captured.get("inputs")
@@ -2145,7 +2530,7 @@ class TestAgentRunChatRoutes:
                 external_runner, "start_run", _capture_external_start_run
             )
             monkeypatch.setattr(
-                "setta.agentic.managed_chat_dispatch.build_external_agent_preflight_status",
+                "setta.routers.ai.build_external_agent_preflight_status",
                 lambda *_args, **_kwargs: SimpleNamespace(
                     available=True,
                     issues=[],
@@ -2153,7 +2538,7 @@ class TestAgentRunChatRoutes:
             )
 
             with runtime_context(state) as ctx:
-                response = await route_get_llm_response(
+                chat_id = await route_get_llm_response(
                     GetLLMResponseRequest(
                         chatId=None,
                         message=UserChatMessage(
@@ -2169,7 +2554,6 @@ class TestAgentRunChatRoutes:
                     ),
                     ctx,
                 )
-                chat_id = response.chatId
 
             assert chat_id is not None
             captured_inputs = captured.get("inputs")
@@ -2215,7 +2599,6 @@ class TestAgentRunChatRoutes:
                         allowUnscoped=True,
                         permissionMode=ChatPermissionMode.minimal,
                         searchEnabled=True,
-                        appSpecStreamingEnabled=True,
                         appGenerationMode=None,
                     ),
                     ctx,
@@ -2225,7 +2608,6 @@ class TestAgentRunChatRoutes:
             assert captured_profile is not None
             system_prompt = captured_profile.systemPrompt
             assert "App generation mode" not in system_prompt
-            assert "streamingPreview: enabled" not in system_prompt
 
     async def test_transcription_session_file_flow_uses_litellm_transcription(
         self,
@@ -2906,7 +3288,7 @@ class TestAgentRunChatRoutes:
                 external_runner, "start_run", _capture_external_start_run
             )
             monkeypatch.setattr(
-                "setta.agentic.managed_chat_dispatch.build_external_agent_preflight_status",
+                "setta.routers.ai.build_external_agent_preflight_status",
                 lambda *_args, **_kwargs: SimpleNamespace(
                     available=True,
                     issues=[],
@@ -2914,7 +3296,7 @@ class TestAgentRunChatRoutes:
             )
 
             with runtime_context(state) as ctx:
-                response = await route_get_llm_response(
+                chat_id = await route_get_llm_response(
                     GetLLMResponseRequest(
                         chatId=None,
                         message=UserChatMessage(
@@ -2930,7 +3312,6 @@ class TestAgentRunChatRoutes:
                     ),
                     ctx,
                 )
-                chat_id = response.chatId
 
             assert chat_id is not None
             captured_inputs = captured.get("inputs")

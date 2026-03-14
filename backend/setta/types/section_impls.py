@@ -30,9 +30,6 @@ class SectionType(str, Enum):
     Dict = "Dict"
     ListRoot = "ListRoot"
     Group = "Group"
-    StateMachineStart = "StateMachineStart"
-    StateMachineGate = "StateMachineGate"
-    StateMachineEnd = "StateMachineEnd"
     Image = "Image"
     Chart = "Chart"
     Draw = "Draw"
@@ -162,12 +159,6 @@ class ChatDictationMode(str, Enum):
 class TaskBoardViewMode(str, Enum):
     task_list = "task_list"
     kanban = "kanban"
-
-
-class StateMachineGateType(str, Enum):
-    AND = "AND"
-    OR = "OR"
-    XOR = "XOR"
 
 
 class BrowserSavedSearchTypeFilters(BaseModel, extra="forbid"):
@@ -351,40 +342,6 @@ class GroupSectionImpl(BaseParentSectionImpl):
     defaultChildSectionType: SectionType = SectionType.Callable
 
 
-class StateMachineStartSectionImpl(BaseSectionImpl):
-    type: Literal[SectionType.StateMachineStart] = SectionType.StateMachineStart
-    size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=240.0, height=96.0)
-    )
-    machineGroupId: str = Field(default_factory=create_new_id)
-    label: str = "Start"
-    maxIterations: int | None = None
-
-
-class StateMachineGateUiState(BaseModel, extra="forbid"):
-    showDetails: bool = False
-
-
-class StateMachineGateSectionImpl(BaseSectionImpl):
-    type: Literal[SectionType.StateMachineGate] = SectionType.StateMachineGate
-    size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=240.0, height=120.0)
-    )
-    machineGroupId: str = Field(default_factory=create_new_id)
-    gateType: StateMachineGateType = StateMachineGateType.AND
-    label: str = ""
-    ui: StateMachineGateUiState = Field(default_factory=StateMachineGateUiState)
-
-
-class StateMachineEndSectionImpl(BaseSectionImpl):
-    type: Literal[SectionType.StateMachineEnd] = SectionType.StateMachineEnd
-    size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=240.0, height=96.0)
-    )
-    machineGroupId: str = Field(default_factory=create_new_id)
-    label: str = "End"
-
-
 class ImageSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.Image] = SectionType.Image
     imagePath: str = ""
@@ -435,7 +392,6 @@ class PromptSectionImpl(BaseSectionImpl):
     size: SectionSize = Field(
         default_factory=lambda: SectionSize(width=300, height=150)
     )
-    promptTemplateId: ID | None = None
     template: str = ""
     format: PromptFormat = PromptFormat.Jinja
     inputs: dict[str, str] = Field(default_factory=dict)

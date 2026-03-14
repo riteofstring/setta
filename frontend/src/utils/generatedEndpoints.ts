@@ -469,7 +469,7 @@ export async function route_set_llm_api_keys(
 
 export async function route_get_llm_response(
   x: gt.GetLLMResponseRequestInput,
-): Promise<ResponseDataAndStatus<gt.GetLLMResponseResponse>> {
+): Promise<ResponseDataAndStatus<string | null>> {
   return await post("/getLLMResponse", x);
 }
 
@@ -583,28 +583,16 @@ export async function route_stop_agent_run(
   return await post("/stopAgentRun", x);
 }
 
-export async function route_start_state_machine_run(
-  x: gt.StartStateMachineRunRequestInput,
+export async function route_start_run_chain(
+  x: gt.StartRunChainRequestInput,
 ): Promise<ResponseDataAndStatus<gt.AgentRun>> {
-  return await post("/startStateMachineRun", x);
+  return await post("/startRunChain", x);
 }
 
-export async function route_stop_state_machine_run(
-  x: gt.StopStateMachineRunRequestInput,
-): Promise<ResponseDataAndStatus<gt.StateMachineRunControlResponse>> {
-  return await post("/stopStateMachineRun", x);
-}
-
-export async function route_reset_state_machine(
-  x: gt.ResetStateMachineRequestInput,
-): Promise<ResponseDataAndStatus<gt.StateMachineRunControlResponse>> {
-  return await post("/resetStateMachine", x);
-}
-
-export async function route_get_state_machine_run(
-  x: gt.GetStateMachineRunRequestInput,
+export async function route_stop_run_chain(
+  x: gt.StopRunChainRequestInput,
 ): Promise<ResponseDataAndStatus<gt.AgentRun>> {
-  return await post("/getStateMachineRun", x);
+  return await post("/stopRunChain", x);
 }
 
 export async function route_stop_external_agent_run(
@@ -1079,12 +1067,6 @@ export async function route_set_prompt_template(
   return await post("/setPromptTemplate", x);
 }
 
-export async function route_set_prompt_template_link(
-  x: gt.SetPromptTemplateLinkRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setPromptTemplateLink", x);
-}
-
 export async function route_set_prompt_inputs(
   x: gt.SetPromptInputsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1289,30 +1271,6 @@ export async function route_set_agentic_edges(
   return await post("/setAgenticEdges", x);
 }
 
-export async function route_create_state_machine_edge(
-  x: gt.CreateStateMachineEdgeRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/createStateMachineEdge", x);
-}
-
-export async function route_update_state_machine_edge(
-  x: gt.UpdateStateMachineEdgeRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/updateStateMachineEdge", x);
-}
-
-export async function route_delete_state_machine_edges(
-  x: gt.DeleteStateMachineEdgesRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/deleteStateMachineEdges", x);
-}
-
-export async function route_set_state_machine_edges(
-  x: gt.SetStateMachineEdgesRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setStateMachineEdges", x);
-}
-
 export async function route_set_section_variant(
   x: gt.SetSectionVariantRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1509,12 +1467,6 @@ export async function route_set_chat_section_settings(
   x: gt.SetChatSectionSettingsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setChatSectionSettings", x);
-}
-
-export async function route_set_state_machine_section_settings(
-  x: gt.SetStateMachineSectionSettingsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setStateMachineSectionSettings", x);
 }
 
 export async function route_set_chat_section_state(

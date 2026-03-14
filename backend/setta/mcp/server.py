@@ -59,7 +59,6 @@ from setta.agentic.agentic_scope import (
     resolve_agentic_scope,
 )
 from setta.agentic.completion_report import REPORT_COMPLETION_STATUS_TOOL_NAME
-from setta.agentic.state_machine_signals import REPORT_STATE_MACHINE_SIGNAL_TOOL_NAME
 from setta.database.db_objs import DBE
 from setta.frontend_affinity_token import parse_frontend_affinity_token
 from setta.logging.tasks import spawn_background_task
@@ -70,7 +69,6 @@ from setta.mcp.agentic_context_headers import (
     AGENTIC_CONTEXT_LINKED_CHAT_CHAIN_HEADER,
     AGENTIC_CONTEXT_LINKED_CHAT_DEPTH_HEADER,
     AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER,
-    AGENTIC_CONTEXT_RUN_ID_HEADER,
     AGENTIC_CONTEXT_SECTION_ID_HEADER,
 )
 from setta.mcp.errors import InvalidToolArgumentsError
@@ -113,7 +111,6 @@ MCP_UNSCOPED_TOOL_NAMES: set[str] = {
     "get_setta_docs",
     "list_mcp_tools",
     REPORT_COMPLETION_STATUS_TOOL_NAME,
-    REPORT_STATE_MACHINE_SIGNAL_TOOL_NAME,
     "search_mcp_tools",
 }
 
@@ -824,7 +821,6 @@ class SettaFastMCP(FastMCP):
                     project_config_id = _canonicalize(project_config_id)
                     chat_id = _canonicalize(_parse_meta_id(payload.get("chatId")))
                     section_id = _canonicalize(_parse_meta_id(payload.get("sectionId")))
-                    run_id = _parse_meta_id(payload.get("runId"))
                     frontend_affinity_token = _parse_frontend_affinity_token(
                         payload.get("frontendAffinityToken")
                     )
@@ -847,7 +843,6 @@ class SettaFastMCP(FastMCP):
                         project_config_id=project_config_id,
                         chat_id=chat_id,
                         section_id=section_id,
-                        run_id=run_id,
                         frontend_affinity_token=frontend_affinity_token,
                         allow_unscoped=allow_unscoped,
                         linked_chat_invocation_depth=linked_chat_invocation_depth,
@@ -870,7 +865,6 @@ class SettaFastMCP(FastMCP):
                     section_id = _canonicalize(
                         _parse_meta_id(headers.get(AGENTIC_CONTEXT_SECTION_ID_HEADER))
                     )
-                    run_id = _parse_meta_id(headers.get(AGENTIC_CONTEXT_RUN_ID_HEADER))
                     frontend_affinity_token = _parse_frontend_affinity_token(
                         headers.get(AGENTIC_CONTEXT_FRONTEND_AFFINITY_TOKEN_HEADER)
                     )
@@ -901,7 +895,6 @@ class SettaFastMCP(FastMCP):
                         project_config_id=project_config_id,
                         chat_id=chat_id,
                         section_id=section_id,
-                        run_id=run_id,
                         frontend_affinity_token=frontend_affinity_token,
                         allow_unscoped=allow_unscoped,
                         linked_chat_invocation_depth=linked_chat_invocation_depth,
