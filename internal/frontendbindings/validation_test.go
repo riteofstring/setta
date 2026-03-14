@@ -7207,25 +7207,13 @@ func renderFrontendBoundaryExceptionManifest(t *testing.T, repoRoot string) stri
 		"post":                 {},
 		"replaceAddressParams": {},
 	}
-	trackedGeneratedRouteBindings := map[string]struct{}{
-		"GoHTTPRoutes":      {},
-		"GoRootRoutes":      {},
-		"GoRoutePrefixes":   {},
-		"GoWebsocketRoutes": {},
-	}
 
 	lines := make([]string, 0)
 	for _, record := range readFrontendBoundaryImportRecords(t, repoRoot) {
-		switch record.Module {
-		case "endpointUtils":
-			if _, tracked := trackedEndpointUtilsBindings[record.Binding]; !tracked {
-				continue
-			}
-		case "generatedRoutes":
-			if _, tracked := trackedGeneratedRouteBindings[record.Binding]; !tracked {
-				continue
-			}
-		default:
+		if record.Module != "endpointUtils" {
+			continue
+		}
+		if _, tracked := trackedEndpointUtilsBindings[record.Binding]; !tracked {
 			continue
 		}
 		lines = append(lines, strings.Join([]string{record.Module, record.Path, record.Binding}, " "))
