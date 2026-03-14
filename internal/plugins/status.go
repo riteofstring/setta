@@ -204,8 +204,7 @@ func statusResponseFromSnapshot(snapshot DiscoverySnapshot, capability RestartCa
 }
 
 func statusEntryFromDiscoveredPlugin(entry DiscoveredPlugin, details pluginStatusRuntimeDetails) StatusEntry {
-	errors := append([]PluginErrorInfo(nil), entry.Errors...)
-	errors = append(errors, details.errors...)
+	errors := mergePluginErrorSlices(entry.Errors, details.errors)
 	runtimeDigest := computeStatusEntryRuntimePayloadDigest(entry, details)
 	return StatusEntry{
 		PluginID:                        entry.PluginID,
@@ -220,12 +219,12 @@ func statusEntryFromDiscoveredPlugin(entry DiscoveredPlugin, details pluginStatu
 		CanonicalSourceKey:              entry.CanonicalSourceKey,
 		SourceDigestSHA256:              cloneOptionalString(entry.SourceDigestSHA256),
 		ShadowedBySourcePath:            optionalStringPointer(entry.ShadowedBySourcePath),
-		RequestedCapabilities:           append([]string(nil), entry.RequestedCapabilities...),
-		EffectiveCapabilities:           append([]string(nil), entry.EffectiveCapabilities...),
-		BlockedCapabilities:             append([]PluginBlockedCapability(nil), entry.BlockedCapabilities...),
-		RegisteredLanguageServers:       append([]PluginRegisteredLanguageServer(nil), details.registeredLanguageServers...),
-		RegisteredExternalAgentAdapters: append([]PluginRegisteredExternalAgentAdapter(nil), details.registeredExternalAgentAdapters...),
-		RegisteredCodegenTargets:        append([]PluginRegisteredCodegenTarget(nil), details.registeredCodegenTargets...),
+		RequestedCapabilities:           cloneStringSliceOrEmpty(entry.RequestedCapabilities),
+		EffectiveCapabilities:           cloneStringSliceOrEmpty(entry.EffectiveCapabilities),
+		BlockedCapabilities:             cloneBlockedCapabilitiesOrEmpty(entry.BlockedCapabilities),
+		RegisteredLanguageServers:       cloneRegisteredLanguageServersOrEmpty(details.registeredLanguageServers),
+		RegisteredExternalAgentAdapters: cloneRegisteredExternalAgentAdaptersOrEmpty(details.registeredExternalAgentAdapters),
+		RegisteredCodegenTargets:        cloneRegisteredCodegenTargetsOrEmpty(details.registeredCodegenTargets),
 		EnablementSource:                cloneOptionalEnablementSource(entry.EnablementSource),
 		RestartRequired:                 entry.RestartRequired,
 		RuntimePayloadDigestSHA256:      runtimeDigest,
@@ -235,13 +234,13 @@ func statusEntryFromDiscoveredPlugin(entry DiscoveredPlugin, details pluginStatu
 
 func computeStatusEntryRuntimePayloadDigest(entry DiscoveredPlugin, details pluginStatusRuntimeDetails) string {
 	payload := statusEntryRuntimeDigestPayload{
-		RequestedCapabilities:           append([]string(nil), entry.RequestedCapabilities...),
-		EffectiveCapabilities:           append([]string(nil), entry.EffectiveCapabilities...),
-		BlockedCapabilities:             append([]PluginBlockedCapability(nil), entry.BlockedCapabilities...),
-		RegisteredLanguageServers:       append([]PluginRegisteredLanguageServer(nil), details.registeredLanguageServers...),
-		RegisteredExternalAgentAdapters: append([]PluginRegisteredExternalAgentAdapter(nil), details.registeredExternalAgentAdapters...),
-		RegisteredCodegenTargets:        append([]PluginRegisteredCodegenTarget(nil), details.registeredCodegenTargets...),
-		Errors:                          append(append([]PluginErrorInfo(nil), entry.Errors...), details.errors...),
+		RequestedCapabilities:           cloneStringSliceOrEmpty(entry.RequestedCapabilities),
+		EffectiveCapabilities:           cloneStringSliceOrEmpty(entry.EffectiveCapabilities),
+		BlockedCapabilities:             cloneBlockedCapabilitiesOrEmpty(entry.BlockedCapabilities),
+		RegisteredLanguageServers:       cloneRegisteredLanguageServersOrEmpty(details.registeredLanguageServers),
+		RegisteredExternalAgentAdapters: cloneRegisteredExternalAgentAdaptersOrEmpty(details.registeredExternalAgentAdapters),
+		RegisteredCodegenTargets:        cloneRegisteredCodegenTargetsOrEmpty(details.registeredCodegenTargets),
+		Errors:                          mergePluginErrorSlices(entry.Errors, details.errors),
 	}
 	encoded, err := json.Marshal(payload)
 	if err != nil {
@@ -269,13 +268,63 @@ func (s *Service) loadStatusRuntimeDetailsLocked(snapshot DiscoverySnapshot) map
 			continue
 		}
 		detailsByPluginID[entry.PluginID] = pluginStatusRuntimeDetails{
-			registeredLanguageServers:       append([]PluginRegisteredLanguageServer(nil), snapshot.LanguageServers...),
-			registeredExternalAgentAdapters: append([]PluginRegisteredExternalAgentAdapter(nil), snapshot.ExternalAgentAdapters...),
-			registeredCodegenTargets:        append([]PluginRegisteredCodegenTarget(nil), snapshot.CodegenTargets...),
-			errors:                          append([]PluginErrorInfo(nil), snapshot.Errors...),
+			registeredLanguageServers:       cloneRegisteredLanguageServersOrEmpty(snapshot.LanguageServers),
+			registeredExternalAgentAdapters: cloneRegisteredExternalAgentAdaptersOrEmpty(snapshot.ExternalAgentAdapters),
+			registeredCodegenTargets:        cloneRegisteredCodegenTargetsOrEmpty(snapshot.CodegenTargets),
+			errors:                          clonePluginErrorsOrEmpty(snapshot.Errors),
 		}
 	}
 	return detailsByPluginID
+}
+
+func cloneStringSliceOrEmpty(values []string) []string {
+	if len(values) == 0 {
+		return []string{}
+	}
+	return append([]string{}, values...)
+}
+
+func cloneBlockedCapabilitiesOrEmpty(values []PluginBlockedCapability) []PluginBlockedCapability {
+	if len(values) == 0 {
+		return []PluginBlockedCapability{}
+	}
+	return append([]PluginBlockedCapability{}, values...)
+}
+
+func cloneRegisteredLanguageServersOrEmpty(values []PluginRegisteredLanguageServer) []PluginRegisteredLanguageServer {
+	if len(values) == 0 {
+		return []PluginRegisteredLanguageServer{}
+	}
+	return append([]PluginRegisteredLanguageServer{}, values...)
+}
+
+func cloneRegisteredExternalAgentAdaptersOrEmpty(values []PluginRegisteredExternalAgentAdapter) []PluginRegisteredExternalAgentAdapter {
+	if len(values) == 0 {
+		return []PluginRegisteredExternalAgentAdapter{}
+	}
+	return append([]PluginRegisteredExternalAgentAdapter{}, values...)
+}
+
+func cloneRegisteredCodegenTargetsOrEmpty(values []PluginRegisteredCodegenTarget) []PluginRegisteredCodegenTarget {
+	if len(values) == 0 {
+		return []PluginRegisteredCodegenTarget{}
+	}
+	return append([]PluginRegisteredCodegenTarget{}, values...)
+}
+
+func clonePluginErrorsOrEmpty(values []PluginErrorInfo) []PluginErrorInfo {
+	if len(values) == 0 {
+		return []PluginErrorInfo{}
+	}
+	return append([]PluginErrorInfo{}, values...)
+}
+
+func mergePluginErrorSlices(primary []PluginErrorInfo, secondary []PluginErrorInfo) []PluginErrorInfo {
+	if len(primary) == 0 && len(secondary) == 0 {
+		return []PluginErrorInfo{}
+	}
+	merged := clonePluginErrorsOrEmpty(primary)
+	return append(merged, secondary...)
 }
 
 func (s *Service) restartCapability() RestartCapability {

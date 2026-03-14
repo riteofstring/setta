@@ -62,6 +62,66 @@ func TestRegisterPluginRoutesReturnsRuntimePayload(t *testing.T) {
 	}
 }
 
+func TestRegisterPluginRoutesRuntimePayloadUsesEmptyCollectionsInsteadOfNull(t *testing.T) {
+	t.Parallel()
+
+	service, roots := newPluginRouteTestService(t, config.ModeIDE)
+	copyPluginRouteFixtureToWorkspace(t, roots.workspaceRoot, "backend")
+	writePluginRouteStateFile(t, roots.settaFilesRoot, map[string]any{
+		"pendingRestartBackendPluginIds": []string{"setta-fixture-backend"},
+	})
+
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api"+RoutePluginsRuntime, nil)
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected plugin runtime 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode plugin runtime response: %v", err)
+	}
+
+	list := payload["list"].(map[string]any)
+	listPlugins := list["plugins"].([]any)
+	if len(listPlugins) != 1 {
+		t.Fatalf("expected one list plugin entry, got %#v", listPlugins)
+	}
+	listEntry := listPlugins[0].(map[string]any)
+	if _, ok := listEntry["effectiveCapabilities"].([]any); !ok {
+		t.Fatalf("expected list effectiveCapabilities array, got %#v", listEntry["effectiveCapabilities"])
+	}
+	configPayload := listEntry["config"].(map[string]any)
+	if _, ok := configPayload["schemaJson"].(map[string]any); !ok {
+		t.Fatalf("expected schemaJson object, got %#v", configPayload["schemaJson"])
+	}
+	if _, ok := configPayload["currentConfig"].(map[string]any); !ok {
+		t.Fatalf("expected currentConfig object, got %#v", configPayload["currentConfig"])
+	}
+
+	status := payload["status"].(map[string]any)
+	statusPlugins := status["plugins"].([]any)
+	if len(statusPlugins) != 1 {
+		t.Fatalf("expected one status plugin entry, got %#v", statusPlugins)
+	}
+	statusEntry := statusPlugins[0].(map[string]any)
+	for _, field := range []string{
+		"requestedCapabilities",
+		"effectiveCapabilities",
+		"blockedCapabilities",
+		"registeredLanguageServers",
+		"registeredExternalAgentAdapters",
+		"registeredCodegenTargets",
+		"errors",
+	} {
+		if _, ok := statusEntry[field].([]any); !ok {
+			t.Fatalf("expected status %s array, got %#v", field, statusEntry[field])
+		}
+	}
+}
+
 func TestRegisterPluginRoutesReturnsRescanSummary(t *testing.T) {
 	t.Parallel()
 

@@ -3570,6 +3570,81 @@ func TestAppServesProgrammaticPluginRestartRouteInIDE(t *testing.T) {
 	}
 }
 
+func TestAppPluginRuntimeReportsProgrammaticRestartCapabilityInIDE(t *testing.T) {
+	// The plugins runtime payload consumed by the overview pane should expose
+	// programmatic restart capability in the real IDE app.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	request, err := http.NewRequest(http.MethodGet, server.URL+"/api"+httpapi.RoutePluginsRuntime, nil)
+	if err != nil {
+		t.Fatalf("new plugin runtime request: %v", err)
+	}
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("get plugin runtime: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected plugin runtime 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		List struct {
+			ServerMode        string `json:"serverMode"`
+			RestartCapability struct {
+				Mode    string  `json:"mode"`
+				Command *string `json:"command"`
+				Reason  *string `json:"reason"`
+			} `json:"restartCapability"`
+		} `json:"list"`
+		Status struct {
+			ServerMode        string `json:"serverMode"`
+			RestartCapability struct {
+				Mode    string  `json:"mode"`
+				Command *string `json:"command"`
+				Reason  *string `json:"reason"`
+			} `json:"restartCapability"`
+		} `json:"status"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode plugin runtime payload: %v", err)
+	}
+	if payload.List.ServerMode != "ide" || payload.Status.ServerMode != "ide" {
+		t.Fatalf("expected ide runtime payload, got list=%q status=%q", payload.List.ServerMode, payload.Status.ServerMode)
+	}
+	if payload.List.RestartCapability.Mode != "programmatic" {
+		t.Fatalf("expected programmatic list restart capability, got %#v", payload.List.RestartCapability)
+	}
+	if payload.Status.RestartCapability.Mode != "programmatic" {
+		t.Fatalf("expected programmatic status restart capability, got %#v", payload.Status.RestartCapability)
+	}
+	if payload.List.RestartCapability.Command != nil || payload.List.RestartCapability.Reason != nil {
+		t.Fatalf("expected list restart capability without fallback payload, got %#v", payload.List.RestartCapability)
+	}
+	if payload.Status.RestartCapability.Command != nil || payload.Status.RestartCapability.Reason != nil {
+		t.Fatalf("expected status restart capability without fallback payload, got %#v", payload.Status.RestartCapability)
+	}
+}
+
 func TestAppPluginRestartClearsPendingBackendPluginState(t *testing.T) {
 	// Programmatic restart should rebuild backend plugin runtime and clear persisted pending_restart markers.
 	cfg := testConfig(t)
