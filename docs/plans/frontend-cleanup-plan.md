@@ -27,6 +27,8 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Status Refresh (2026-03-14)
 
 - The overall direction in this plan is still valid, but this branch is no longer at the original planning snapshot.
+- Phase 0 foundation guidance now lives in `frontend/src/README.md`, and the
+  append-only branch log lives in `docs/plans/frontend-cleanup-execution-log.md`.
 - Some useful seams already exist and should be extended rather than recreated:
   - page routing already uses `frontend/src/components/Pages/routeConfig.ts` and `frontend/src/components/Pages/modeRouteResolver.ts`
   - app generation preview helpers already live in `frontend/src/components/Panes/Overview/App/appDraftPreview.ts`
@@ -39,7 +41,8 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Current State (Observed)
 
 - The biggest readability problem is mixed responsibilities inside large files, not just file count.
-- There are 47 non-generated TS/TSX files at 1000+ lines; several production hotspots are well above 2000 lines.
+- There are 921 authored TS/TSX files under `frontend/src`.
+- There are 48 non-generated TS/TSX files at 1000+ lines; several production hotspots are well above 2000 lines.
 - Chat and project-AI code is the densest cluster:
   - `frontend/src/components/Chat/ChatMessages.tsx` at 7959 lines
   - `frontend/src/components/Chat/ChatInput.tsx` at 3121 lines
@@ -52,6 +55,9 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` at 2403 lines
   - `frontend/src/components/Section/Layouts/ChatArea.tsx` at 1975 lines
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` at 2304 lines
+- App and plugin runtime remain cleanup hotspots:
+  - `frontend/src/plugins/runtime.ts` at 2730 lines
+  - `frontend/src/components/App/appRegistry.tsx` at 1756 lines
 - `frontend/src/state/actions/ai.ts` at 4600 lines currently mixes transcription, config loading, API key management, agent-run loading, chat hydration, streaming, optimistic updates, and stop/resume behavior.
 - `frontend/src/state/definitions.ts` at 1500 lines exports 45 `use*` stores, which makes store ownership and selector boundaries hard to understand.
 - Components and hooks frequently import generated endpoints/types and large action modules directly, which increases context switching and makes it harder for agents to see the true domain boundary.

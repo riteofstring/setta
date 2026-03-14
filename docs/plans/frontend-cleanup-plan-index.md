@@ -4,6 +4,14 @@ This index groups the frontend cleanup work into smaller domain plans so Codex a
 
 These plans describe the intended cleanup direction, but the exact hotspot sizes and helper boundaries can drift as refactors land. Treat the current tree as the source of truth for exact file ownership, and refresh these docs when a cleanup slice materially changes that map.
 
+## Foundation Docs
+
+- [frontend/src/README.md](../../frontend/src/README.md)
+  - Current frontend module map, placement rules, and file-size guidance for
+    authored code under `frontend/src`.
+- [frontend-cleanup-execution-log.md](./frontend-cleanup-execution-log.md)
+  - Append-only log of completed cleanup slices on this branch.
+
 ## Core Plan
 
 - [frontend-cleanup-plan.md](./frontend-cleanup-plan.md)
