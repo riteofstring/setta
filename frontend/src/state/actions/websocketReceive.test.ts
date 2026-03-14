@@ -5,6 +5,7 @@ import {
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { C } from "utils/c";
+import { GoWebsocketRoutes } from "utils/generatedRoutes";
 import {
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
@@ -170,6 +171,8 @@ function findRevealResultPayload(
 }
 
 describe("openWebSocket", () => {
+  const expectedFrontendWebsocketPath = GoWebsocketRoutes.frontend;
+
   beforeEach(async () => {
     resetProjectStores();
     MockWebSocket.instances = [];
@@ -278,8 +281,9 @@ describe("openWebSocket", () => {
     vi.runAllTimers();
 
     const socket = MockWebSocket.instances[0];
-    expect(socket?.url).toContain("/ws/frontend");
-    expect(socket?.url).not.toContain("/api/frontend");
+    expect(new URL(socket?.url ?? "http://invalid").pathname).toBe(
+      expectedFrontendWebsocketPath,
+    );
     expect(socket?.url).not.toContain("/share/frontend");
   });
 
@@ -290,8 +294,11 @@ describe("openWebSocket", () => {
     vi.runAllTimers();
 
     const socket = MockWebSocket.instances[0];
-    expect(socket?.url).toContain("/ws/frontend");
-    expect(socket?.url).toContain("shareSessionId=share-session-route");
+    const socketUrl = new URL(socket?.url ?? "http://invalid");
+    expect(socketUrl.pathname).toBe(expectedFrontendWebsocketPath);
+    expect(socketUrl.searchParams.get("shareSessionId")).toBe(
+      "share-session-route",
+    );
     expect(socket?.url).not.toContain("/share/frontend");
   });
 

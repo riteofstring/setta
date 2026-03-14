@@ -1,3 +1,5 @@
+import { replaceAddressParams } from "utils/endpointUtils";
+import { GoWebsocketRoutes } from "utils/generatedRoutes";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildListenerEndpointWebsocketUrl,
@@ -65,6 +67,9 @@ describe("listenerEndpointClient", () => {
   });
 
   it("builds the canonical Go listener websocket URL for IDE and deployment modes", () => {
+    const idePath = replaceAddressParams(GoWebsocketRoutes.listenerById, {
+      listenerID: "listener-a",
+    });
     const ideUrl = new URL(
       buildListenerEndpointWebsocketUrl({
         listenerId: "listener-a",
@@ -72,10 +77,16 @@ describe("listenerEndpointClient", () => {
         shareSessionId: null,
       }),
     );
-    expect(ideUrl.pathname).toBe("/ws/listeners/listener-a");
+    expect(ideUrl.pathname).toBe(idePath);
     expect(ideUrl.searchParams.get("projectId")).toBe("project-a");
     expect(ideUrl.searchParams.get("shareSessionId")).toBeNull();
 
+    const deploymentPath = replaceAddressParams(
+      GoWebsocketRoutes.listenerById,
+      {
+        listenerID: "listener-b",
+      },
+    );
     const deploymentUrl = new URL(
       buildListenerEndpointWebsocketUrl({
         listenerId: "listener-b",
@@ -83,16 +94,13 @@ describe("listenerEndpointClient", () => {
         shareSessionId: "share-b",
       }),
     );
-    expect(deploymentUrl.pathname).toBe("/ws/listeners/listener-b");
+    expect(deploymentUrl.pathname).toBe(deploymentPath);
     expect(deploymentUrl.searchParams.get("projectId")).toBe("project-b");
     expect(deploymentUrl.searchParams.get("shareSessionId")).toBe("share-b");
   });
 
   it("registers the listener websocket and resolves the router endpoint result", async () => {
-    vi.stubGlobal(
-      "WebSocket",
-      TestWebSocket as unknown as typeof WebSocket,
-    );
+    vi.stubGlobal("WebSocket", TestWebSocket as unknown as typeof WebSocket);
     vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue(
       "listener-call-1",
     );
@@ -165,10 +173,7 @@ describe("listenerEndpointClient", () => {
   });
 
   it("surfaces backend listener endpoint errors and early websocket failures", async () => {
-    vi.stubGlobal(
-      "WebSocket",
-      TestWebSocket as unknown as typeof WebSocket,
-    );
+    vi.stubGlobal("WebSocket", TestWebSocket as unknown as typeof WebSocket);
     vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue(
       "listener-call-2",
     );
