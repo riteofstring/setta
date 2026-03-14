@@ -4228,12 +4228,9 @@ describe("generatedEndpoints ai settings and chat helpers", () => {
       allowUnscoped: true,
       branchParentChatId: null,
       branchFromMessageId: null,
-      appSpecStreamingEnabled: false,
       permissionMode: "minimal",
       searchEnabled: true,
       appGenerationMode: null,
-      appGenerationReferenceImageUrl: null,
-      appGenerationReferenceImageNotes: null,
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -4259,12 +4256,9 @@ describe("generatedEndpoints ai settings and chat helpers", () => {
         allowUnscoped: true,
         branchParentChatId: null,
         branchFromMessageId: null,
-        appSpecStreamingEnabled: false,
         permissionMode: "minimal",
         searchEnabled: true,
         appGenerationMode: null,
-        appGenerationReferenceImageUrl: null,
-        appGenerationReferenceImageNotes: null,
       }),
     });
   });
