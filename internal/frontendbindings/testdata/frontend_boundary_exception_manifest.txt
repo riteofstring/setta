@@ -1,8 +1,0 @@
-endpointUtils frontend/src/components/Section/Layouts/MetaControlArea.tsx post
-endpointUtils frontend/src/utils/generatedEndpoints.ts get
-endpointUtils frontend/src/utils/generatedEndpoints.ts getBinary
-endpointUtils frontend/src/utils/generatedEndpoints.ts post
-generatedRoutes frontend/src/utils/c_addresses.ts GoRoutePrefixes
-generatedRoutes frontend/src/utils/generatedEndpoints.ts GoHTTPRoutes
-generatedRoutes frontend/src/utils/serverModeBoundaryPolicy.ts GoHTTPRoutes
-generatedRoutes frontend/src/utils/settaApiPresets.ts GoHTTPRoutes

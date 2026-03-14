@@ -333,7 +333,9 @@ async function setActiveSections(
     const { setActiveSectionIds } = await import(
       "/src/state/actions/activeSections.ts"
     );
-    setActiveSectionIds(ids);
+    // Keyboard-driven chat routing should follow the immediate UI selection
+    // instead of waiting for the deferred backend-active-id sync.
+    setActiveSectionIds(ids, { syncMode: "ui-only" });
   }, sectionIds);
 }
 
@@ -522,9 +524,9 @@ test("project chat bottom dock auto-creates a chat and supports creating additio
       1,
     );
     await expect(dockPanels).toHaveCount(1);
-    const minimizedPill = page
-      .getByTestId("project-chat-bottom-dock-pill")
-      .first();
+    const minimizedPill = page.locator(
+      `[data-testid="project-chat-bottom-dock-pill"][data-chat-window-instance-id="${minimizedInstanceId}"]`,
+    );
     await expect
       .poll(async () => {
         const currentPillBounds = await minimizedPill.boundingBox();
@@ -675,12 +677,21 @@ test("the Project AI manager reopens minimized windows", async ({ page }) => {
       ),
     ).toHaveCount(0);
 
-    const reopenButton = page.locator(
+    const managerTrigger = page.getByTestId(
+      "project-chat-bottom-dock-menu-trigger",
+    );
+    await expect(managerTrigger).toBeVisible();
+    await managerTrigger.click();
+    const menuContent = page.getByTestId(
+      "project-chat-bottom-dock-menu-content",
+    );
+    await expect(menuContent).toBeVisible();
+    const reopenButton = menuContent.locator(
       `[data-testid="project-chat-manager-reopen"][data-chat-window-instance-id="${instanceId}"]`,
     );
     await expect(reopenButton).toBeVisible();
     await expect(
-      page.locator(
+      menuContent.locator(
         `[data-testid="project-chat-manager-hide"][data-chat-window-instance-id="${instanceId}"]`,
       ),
     ).toHaveCount(0);
@@ -1416,7 +1427,7 @@ test("project chat floating windows keep conversation search inline until narrow
   }
 });
 
-test("project chat floating windows keep titlebar and minimum visibility guardrails across drag/resize/viewport changes", async ({
+test("project chat floating windows keep titlebar and minimum visibility guardrails across drag and viewport changes", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -1434,7 +1445,6 @@ test("project chat floating windows keep titlebar and minimum visibility guardra
     if (!viewportSize) {
       throw new Error("Expected browser viewport size.");
     }
-
     const floatingDragHandle = floatingWindow.getByTestId(
       "project-chat-floating-window-drag-handle",
     );
@@ -1481,13 +1491,18 @@ test("project chat floating windows keep titlebar and minimum visibility guardra
       workArea.bottom - FLOATING_TITLE_BAR_HEIGHT_PX + 0.5,
     );
 
-    if ((await floatingWindow.getAttribute("data-chat-window-snap-preset")) !== null) {
+    if (
+      (await floatingWindow.getAttribute("data-chat-window-snap-preset")) !==
+      null
+    ) {
       await dragHandleToPoint(
         Math.round(viewportSize.width * 0.58),
         Math.round(viewportSize.height * 0.34),
       );
       await expect
-        .poll(async () => floatingWindow.getAttribute("data-chat-window-snap-preset"))
+        .poll(async () =>
+          floatingWindow.getAttribute("data-chat-window-snap-preset"),
+        )
         .toBeNull();
     }
 
@@ -1520,7 +1535,6 @@ test("project chat floating windows keep titlebar and minimum visibility guardra
     expect(largerSizeMetrics.height).toBeGreaterThan(
       minimumSizeMetrics.height + 150,
     );
-
     await page.setViewportSize({ width: 880, height: 620 });
     await expect
       .poll(
@@ -1984,11 +1998,11 @@ test("project chat move-to-canvas anchors new canvas chats to the visible source
     await page.waitForSelector(".react-flow__pane");
     await expect
       .poll(() =>
-        page.getByTestId("project-chat-window-move-to-canvas").count(),
+        page.getByTestId("project-chat-window-show-in-canvas").count(),
       )
       .toBeGreaterThanOrEqual(1);
     const firstInstanceId = await page
-      .getByTestId("project-chat-window-move-to-canvas")
+      .getByTestId("project-chat-window-show-in-canvas")
       .first()
       .getAttribute("data-chat-window-instance-id");
     if (!firstInstanceId) {
@@ -2025,7 +2039,7 @@ test("project chat move-to-canvas anchors new canvas chats to the visible source
       });
     }, insideCursorPoint);
     const firstMoveButton = page.locator(
-      `[data-testid="project-chat-window-move-to-canvas"][data-chat-window-instance-id="${firstInstanceId}"]`,
+      `[data-testid="project-chat-window-show-in-canvas"][data-chat-window-instance-id="${firstInstanceId}"]`,
     );
     await firstMoveButton.focus();
     await page.keyboard.press("Enter");
@@ -2539,11 +2553,11 @@ test("project chat move-to-canvas keeps the project-ai surface and the source wi
     await page.waitForSelector(".react-flow__pane");
     await expect
       .poll(() =>
-        page.getByTestId("project-chat-window-move-to-canvas").count(),
+        page.getByTestId("project-chat-window-show-in-canvas").count(),
       )
       .toBeGreaterThanOrEqual(1);
     const instanceId = await page
-      .getByTestId("project-chat-window-move-to-canvas")
+      .getByTestId("project-chat-window-show-in-canvas")
       .first()
       .getAttribute("data-chat-window-instance-id");
     if (!instanceId) {
@@ -2600,7 +2614,7 @@ test("project chat move-to-canvas keeps the project-ai surface and the source wi
       });
     }, outsideCursorPoint);
     const moveButton = page.locator(
-      `[data-testid="project-chat-window-move-to-canvas"][data-chat-window-instance-id="${instanceId}"]`,
+      `[data-testid="project-chat-window-show-in-canvas"][data-chat-window-instance-id="${instanceId}"]`,
     );
     await moveButton.focus();
     await page.keyboard.press("Enter");
@@ -2701,12 +2715,12 @@ test("project chat undock from canvas-section to floating keeps a visual canvas 
     await page.waitForSelector(".react-flow__pane");
     await expect
       .poll(() =>
-        page.getByTestId("project-chat-window-move-to-canvas").count(),
+        page.getByTestId("project-chat-window-show-in-canvas").count(),
       )
       .toBeGreaterThanOrEqual(1);
 
     const instanceId = await page
-      .getByTestId("project-chat-window-move-to-canvas")
+      .getByTestId("project-chat-window-show-in-canvas")
       .first()
       .getAttribute("data-chat-window-instance-id");
     if (!instanceId) {
@@ -2715,7 +2729,7 @@ test("project chat undock from canvas-section to floating keeps a visual canvas 
 
     await page
       .locator(
-        `[data-testid="project-chat-window-move-to-canvas"][data-chat-window-instance-id="${instanceId}"]`,
+        `[data-testid="project-chat-window-show-in-canvas"][data-chat-window-instance-id="${instanceId}"]`,
       )
       .click();
     await expect
@@ -2729,7 +2743,16 @@ test("project chat undock from canvas-section to floating keeps a visual canvas 
       throw new Error("Expected section binding after move-to-canvas.");
     }
 
-    await page
+    const managerTrigger = page.getByTestId(
+      "project-chat-bottom-dock-menu-trigger",
+    );
+    await expect(managerTrigger).toBeVisible();
+    await managerTrigger.click();
+    const menuContent = page.getByTestId(
+      "project-chat-bottom-dock-menu-content",
+    );
+    await expect(menuContent).toBeVisible();
+    await menuContent
       .locator(
         `[data-testid="project-chat-window-undock-from-canvas"][data-chat-window-instance-id="${instanceId}"]`,
       )

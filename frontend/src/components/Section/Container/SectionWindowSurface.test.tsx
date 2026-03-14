@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   ChatWindowModeEnum,
@@ -41,7 +42,22 @@ vi.mock("state/actions/uiTypes/utils", () => ({
 }));
 
 vi.mock("../Header/SectionHeader", () => ({
-  SectionHeader: () => <div data-testid="mock-section-header" />,
+  SectionHeader: ({
+    showSectionContainerControls = true,
+    extraControls = null,
+  }: {
+    showSectionContainerControls?: boolean;
+    extraControls?: ReactNode;
+  }) => (
+    <div
+      data-testid="mock-section-header"
+      data-show-section-container-controls={
+        showSectionContainerControls ? "true" : "false"
+      }
+    >
+      {extraControls}
+    </div>
+  ),
 }));
 
 vi.mock("./SectionContainerCoreResizabe", () => ({
@@ -111,5 +127,19 @@ describe("SectionWindowSurface", () => {
     expect(markup).toContain('data-project-chat-surface-id="window-surface-1"');
     expect(markup).toContain('data-project-chat-id="chat-section-1"');
     expect(markup).toContain('data-project-chat-controlled="true"');
+  });
+
+  it("disables canvas section controls so window surfaces only render supplied header actions", () => {
+    const markup = renderToStaticMarkup(
+      <SectionWindowSurface
+        sectionId="section-1"
+        headerActions={<button data-testid="window-only-action" />}
+        roundedClassName="rounded-none"
+        chatHost={ChatWindowPlacementEnum.floating}
+      />,
+    );
+
+    expect(markup).toContain('data-show-section-container-controls="false"');
+    expect(markup).toContain('data-testid="window-only-action"');
   });
 });
