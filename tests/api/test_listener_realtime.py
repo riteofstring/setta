@@ -15,8 +15,6 @@ from setta.api.listener import (
     SettaListener,
 )
 from setta.code_gen.dependency_graph import DependencyGraph, ParamNode
-from setta.code_gen.value_codec import PythonValueCodec
-from setta.code_gen.utils import GEN_CODE_INSTANCE_NAME
 from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import create_dep_key
@@ -45,7 +43,6 @@ from setta.types.websocket import (
 from setta.websockets.binary_frames import encode_binary_frame
 
 if TYPE_CHECKING:
-    from setta.code_gen.python.code_generator import PythonCodeGenerator
     from websockets import ClientConnection
 
 
@@ -846,27 +843,9 @@ class TestSettaListenerRealtimeIntegration:
                 },
             ),
         )
-        value_codec = PythonValueCodec(
-            dep_graph,
-            lambda key: (
-                f"{GEN_CODE_INSTANCE_NAME}.{dep_graph.graph[key].full_path_name}"
-            ),
-        )
-
-        code_generator = cast(
-            "PythonCodeGenerator",
-            SimpleNamespace(
-                value_codec=value_codec,
-                get_value=lambda node: value_codec.format_param_expression(node)
-                if isinstance(node, ParamNode)
-                else None,
-            ),
-        )
-
         listener._runtime_state = ListenerRuntimeState(
             project_state=MagicMock(),
             dependency_graph=dep_graph,
-            code_generator=code_generator,
             s_instance=state,
         )
         listener._dependency_cache = {
@@ -1064,7 +1043,6 @@ class TestSettaListenerBootstrapFailure:
         listener._runtime_state = ListenerRuntimeState(
             project_state=runtime_state.project_state,
             dependency_graph=runtime_state.dependency_graph,
-            code_generator=runtime_state.code_generator,
             s_instance=None,
         )
         listener._project_config_id = project_state.projectConfig.id

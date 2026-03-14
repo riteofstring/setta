@@ -4,7 +4,6 @@ import pytest
 
 from setta.api.listener import ListenerRuntimeState, SettaListener
 from setta.code_gen.dependency_graph import DependencyGraph
-from setta.code_gen.python.code_generator import PythonCodeGenerator
 from setta.project_state.project_manager_types import GetChatSectionChatIdRequest
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.generated.websocket_unions import (
@@ -64,11 +63,9 @@ def _build_project_state(project_config_id: ID) -> ProjectStateSingleConfig:
 def _build_listener(project_state: ProjectStateSingleConfig) -> SettaListener:
     listener = SettaListener(project_name=project_state.projectConfig.name)
     dependency_graph = DependencyGraph(project_state)
-    code_generator = PythonCodeGenerator(dependency_graph, "", "")
     listener._runtime_state = ListenerRuntimeState(
         project_state=project_state,
         dependency_graph=dependency_graph,
-        code_generator=code_generator,
         s_instance=None,
     )
     listener._project_config_id = project_state.projectConfig.id

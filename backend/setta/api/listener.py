@@ -35,7 +35,7 @@ from setta.code_gen.dependency_graph import (
     ParamNode,
     SectionNode,
 )
-from setta.code_gen.python.code_generator import PythonCodeGenerator
+from setta.code_gen.value_codec import PythonValueCodec
 from setta.code_gen.utils import GEN_CODE_CLASS_NAME, GEN_CODE_INSTANCE_NAME
 from setta.code_gen.value_mode import PythonValueMode
 from setta.frontend_affinity_token import parse_frontend_affinity_token
@@ -232,7 +232,6 @@ class ListenerCallbackContext:
 class ListenerRuntimeState:
     project_state: ProjectStateSingleConfig
     dependency_graph: DependencyGraph
-    code_generator: PythonCodeGenerator
     s_instance: Any | None
 
 
@@ -1411,7 +1410,6 @@ class SettaListener:
             return ListenerRuntimeState(
                 project_state=project_state,
                 dependency_graph=dep_graph,
-                code_generator=code_generator,
                 s_instance=None,
             )
         try:
@@ -1427,7 +1425,6 @@ class SettaListener:
         return ListenerRuntimeState(
             project_state=project_state,
             dependency_graph=dep_graph,
-            code_generator=code_generator,
             s_instance=s_instance,
         )
 
@@ -1480,12 +1477,14 @@ class SettaListener:
         self,
         runtime_state: ListenerRuntimeState,
     ) -> dict[str, Any]:
+        value_codec = self._new_live_value_codec(runtime_state.dependency_graph)
         values_by_key: dict[BaseDependencyKeyUnion, Any] = {}
         values_by_name: dict[str, Any] = {}
         for name, dep_key in runtime_state.dependency_graph.full_path_name_to_dep_key.items():
             value = self._build_cached_dependency_value(
                 runtime_state,
                 dep_key,
+                value_codec=value_codec,
                 values_by_key=values_by_key,
             )
             if value is _UNAVAILABLE:
@@ -1498,6 +1497,7 @@ class SettaListener:
         runtime_state: ListenerRuntimeState,
         dep_key: BaseDependencyKeyUnion,
         *,
+        value_codec: PythonValueCodec,
         values_by_key: dict[BaseDependencyKeyUnion, Any],
     ) -> Any:
         if dep_key in values_by_key:
@@ -1511,12 +1511,14 @@ class SettaListener:
             value = self._build_cached_param_node_value(
                 runtime_state,
                 node,
+                value_codec=value_codec,
                 values_by_key=values_by_key,
             )
         elif isinstance(node, SectionNode):
             value = self._build_cached_section_node_value(
                 runtime_state,
                 node,
+                value_codec=value_codec,
                 values_by_key=values_by_key,
             )
         else:
@@ -1531,12 +1533,14 @@ class SettaListener:
         runtime_state: ListenerRuntimeState,
         node: ParamNode,
         *,
+        value_codec: PythonValueCodec,
         values_by_key: dict[BaseDependencyKeyUnion, Any],
     ) -> Any:
         if node.type is CodeObjType.NestedParam:
             return self._build_cached_mapping_value(
                 runtime_state,
                 node.deps,
+                value_codec=value_codec,
                 values_by_key=values_by_key,
             )
         if node.type is CodeObjType.PasswordParam:
@@ -1548,19 +1552,21 @@ class SettaListener:
             )
         if node.deps:
             return _UNAVAILABLE
-        return self._build_cached_direct_node_value(runtime_state, node)
+        return self._build_cached_direct_node_value(node, value_codec=value_codec)
 
     def _build_cached_section_node_value(
         self,
         runtime_state: ListenerRuntimeState,
         node: SectionNode,
         *,
+        value_codec: PythonValueCodec,
         values_by_key: dict[BaseDependencyKeyUnion, Any],
     ) -> Any:
         if node.type in {SectionType.Dict, SectionType.Group}:
             return self._build_cached_mapping_value(
                 runtime_state,
                 node.deps,
+                value_codec=value_codec,
                 values_by_key=values_by_key,
             )
         if node.type is SectionType.ListRoot:
@@ -1571,6 +1577,7 @@ class SettaListener:
                 child_value = self._build_cached_dependency_value(
                     runtime_state,
                     child_dep_key,
+                    value_codec=value_codec,
                     values_by_key=values_by_key,
                 )
                 if child_value is _UNAVAILABLE:
@@ -1579,13 +1586,14 @@ class SettaListener:
             return items
         if node.type is SectionType.Callable:
             return _UNAVAILABLE
-        return self._build_cached_direct_node_value(runtime_state, node)
+        return self._build_cached_direct_node_value(node, value_codec=value_codec)
 
     def _build_cached_mapping_value(
         self,
         runtime_state: ListenerRuntimeState,
         deps: dict[BaseDependencyKeyUnion, bool],
         *,
+        value_codec: PythonValueCodec,
         values_by_key: dict[BaseDependencyKeyUnion, Any],
     ) -> Any:
         payload: dict[str, Any] = {}
@@ -1600,6 +1608,7 @@ class SettaListener:
             child_value = self._build_cached_dependency_value(
                 runtime_state,
                 child_dep_key,
+                value_codec=value_codec,
                 values_by_key=values_by_key,
             )
             if child_value is _UNAVAILABLE:
@@ -1609,11 +1618,12 @@ class SettaListener:
 
     def _build_cached_direct_node_value(
         self,
-        runtime_state: ListenerRuntimeState,
         node: Node,
+        *,
+        value_codec: PythonValueCodec,
     ) -> Any:
         try:
-            expression = runtime_state.code_generator.get_value(node)
+            expression = self._render_direct_node_expression(node, value_codec=value_codec)
         except Exception:
             return _UNAVAILABLE
         if not expression:
@@ -1650,11 +1660,11 @@ class SettaListener:
         if runtime_state.s_instance is None:
             return _UNAVAILABLE
         return self._set_dependency_value(
-            runtime_state,
             runtime_state.s_instance,
             dependency,
             dependency_value,
             node,
+            dependency_graph=runtime_state.dependency_graph,
         )
 
     def _build_snapshot_dependency_value(
@@ -1834,11 +1844,11 @@ class SettaListener:
             )
             try:
                 hydrated_value = self._set_dependency_value(
-                    runtime_state,
                     runtime_state.s_instance,
                     dependency,
                     value,
                     node,
+                    dependency_graph=runtime_state.dependency_graph,
                     binary_payload=binary_payload,
                 )
             except (AttributeError, KeyError, IndexError, ValueError) as error:
@@ -2140,12 +2150,12 @@ class SettaListener:
 
     def _set_dependency_value(
         self,
-        runtime_state: ListenerRuntimeState,
         current: Any,
         dependency: str,
         value: BaseDependencyValueUnion,
         node: Node,
         *,
+        dependency_graph: DependencyGraph,
         binary_payload: bytes | None = None,
     ) -> Any:
         """Set a dependency value on the cached state instance."""
@@ -2153,13 +2163,40 @@ class SettaListener:
         if value.type is DependencyValueType.Binary and binary_payload is not None:
             setattr(current, dependency, binary_payload)
             return binary_payload
-        expression = runtime_state.code_generator.get_value(node)
+        expression = self._render_direct_node_expression(
+            node,
+            value_codec=self._new_live_value_codec(dependency_graph),
+        )
         hydrated = self._evaluate_expression(
             dependency=dependency,
             expression=expression,
         )
         setattr(current, dependency, hydrated)
         return hydrated
+
+    def _new_live_value_codec(self, dependency_graph: DependencyGraph) -> PythonValueCodec:
+        def unexpected_dependency_lookup(dep_key: BaseDependencyKeyUnion) -> str:
+            raise ValueError(
+                f"Unexpected dependency lookup while rendering direct listener value for {dep_key!r}"
+            )
+
+        return PythonValueCodec(
+            dependency_graph,
+            unexpected_dependency_lookup,
+            mode=PythonValueMode.LIVE_RUNTIME,
+        )
+
+    def _render_direct_node_expression(
+        self,
+        node: Node,
+        *,
+        value_codec: PythonValueCodec,
+    ) -> str | None:
+        if isinstance(node, ParamNode):
+            return value_codec.format_param_expression(node)
+        if isinstance(node, SectionNode):
+            return value_codec.format_section(node)
+        raise ValueError(f"Unsupported node type {type(node).__name__}")
 
     def _evaluate_expression(
         self,

@@ -64,6 +64,9 @@ Current state:
   - callback execution now falls back to a metadata-backed fail-closed state
     view when the generated Python listener runtime instance is unavailable,
     including snapshot replay and realtime callback scheduling
+  - listener cache rebuilds and direct dependency hydration no longer keep a
+    long-lived `PythonCodeGenerator` inside `ListenerRuntimeState`; they now
+    render direct node expressions from shared dependency metadata instead
   - listener coverage and force-refresh reads/writes
   - listener websocket DTOs in `internal/realtime`
 - Python still owns:

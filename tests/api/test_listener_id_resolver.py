@@ -2,7 +2,6 @@ import pytest
 
 from setta.api.listener import ListenerDependencyIds, ListenerRuntimeState
 from setta.code_gen.dependency_graph import DependencyGraph
-from setta.code_gen.python.code_generator import PythonCodeGenerator
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
@@ -27,11 +26,9 @@ def _build_runtime_state(
     project_state: ProjectStateSingleConfig,
 ) -> ListenerRuntimeState:
     dependency_graph = DependencyGraph(project_state)
-    code_generator = PythonCodeGenerator(dependency_graph, "", "")
     return ListenerRuntimeState(
         project_state=project_state,
         dependency_graph=dependency_graph,
-        code_generator=code_generator,
         s_instance=None,
     )
 
@@ -205,4 +202,3 @@ def _find_param_dependency_name(
             if dep_key.codeObjId == code_obj_id:
                 return name
     raise AssertionError(f"Missing dependency for param {code_obj_id}")
-
