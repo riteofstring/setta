@@ -169,13 +169,15 @@ describe("ProjectChatManager", () => {
   });
 
   it("supports a dock-menu presentation without a duplicate create button", () => {
-    const markup = renderToStaticMarkup(
-      <ProjectChatManager variant="menu" />,
-    );
+    const markup = renderToStaticMarkup(<ProjectChatManager variant="menu" />);
 
-    expect(markup).not.toContain("Project chat windows open docked on the right");
+    expect(markup).not.toContain(
+      "Project chat windows open docked on the right",
+    );
     expect(markup).not.toContain("New chat");
-    expect(markup).toContain('data-testid="project-chat-bottom-dock-menu-item"');
+    expect(markup).toContain(
+      'data-testid="project-chat-bottom-dock-menu-item"',
+    );
     expect(markup).toContain('data-testid="project-chat-manager-focus"');
   });
 
@@ -184,8 +186,12 @@ describe("ProjectChatManager", () => {
       <ProjectChatManager variant="overview" />,
     );
 
-    expect(markup).toContain("Use the bottom dock to create, reopen, and arrange chat windows.");
-    expect(markup).toContain("The list below mirrors the dock menu for quick scanning and recovery.");
+    expect(markup).toContain(
+      "Use the bottom dock to create, reopen, and arrange chat windows.",
+    );
+    expect(markup).toContain(
+      "The list below mirrors the dock menu for quick scanning and recovery.",
+    );
     expect(markup).not.toContain("New chat");
     expect(markup).toContain('data-testid="project-chat-manager-focus"');
   });

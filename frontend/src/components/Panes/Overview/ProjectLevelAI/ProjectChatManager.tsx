@@ -151,7 +151,7 @@ export function ProjectChatManager({
             ? "No chat windows yet. Use + in the dock to create one."
             : isOverviewVariant
               ? "No chat windows yet. Use + in the bottom dock to create one."
-            : "No chat windows yet."}
+              : "No chat windows yet."}
         </div>
       ) : (
         <ul
@@ -175,7 +175,9 @@ export function ProjectChatManager({
                   isMenuVariant ? "bg-setta-50/80 dark:bg-setta-925/95" : ""
                 }`}
                 data-testid={
-                  isMenuVariant ? "project-chat-bottom-dock-menu-item" : undefined
+                  isMenuVariant
+                    ? "project-chat-bottom-dock-menu-item"
+                    : undefined
                 }
                 data-chat-window-instance-id={row.instanceId}
               >
@@ -185,12 +187,14 @@ export function ProjectChatManager({
                       {rowTitle}
                     </p>
                     <p className="text-[11px] text-setta-500 dark:text-setta-400">
-                      {formatPlacementLabel(row.placement)} | z-index {row.zIndex}
+                      {formatPlacementLabel(row.placement)} | z-index{" "}
+                      {row.zIndex}
                     </p>
                   </div>
                   <div className="flex items-center gap-1">
                     {canEditLayout ? (
-                      row.placement === ChatWindowPlacementEnum.canvas_section ? (
+                      row.placement ===
+                      ChatWindowPlacementEnum.canvas_section ? (
                         <button
                           type="button"
                           onClick={() => {

@@ -1,11 +1,11 @@
 import { ProjectChatWindowIcon } from "components/ChatWindowing/ProjectChatWindowIcon";
-import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import {
   getSectionContainerShellClassName,
   getSectionSurfaceClassName,
 } from "components/Section/Container/sectionChrome";
 import { getBgColor } from "components/Section/Container/utils";
 import { getTitleStyles } from "components/Section/Header/SectionHeader";
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import {
   useEffect,
   useRef,

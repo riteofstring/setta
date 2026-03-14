@@ -1,6 +1,6 @@
 import { getFloatingBoxHandlers } from "./FloatingBox";
 
-export type WindowControlQuickInfoAction =
+type WindowControlQuickInfoAction =
   | "close_window"
   | "create_chat_window"
   | "dock_window"
@@ -74,7 +74,9 @@ export function getWindowControlQuickInfoText({
     case "show_chat_windows":
       return "Show chat windows";
     case "show_in_canvas":
-      return title?.trim() ? `Show ${title.trim()} in canvas` : "Show in canvas";
+      return title?.trim()
+        ? `Show ${title.trim()} in canvas`
+        : "Show in canvas";
     case "show_more_chat_windows":
       return "Show more chat windows";
     case "show_next_docked_chat":

@@ -1,9 +1,9 @@
-import { IoMdCheckmark } from "react-icons/io";
-import { MdOutlineRadioButtonUnchecked } from "react-icons/md";
 import {
   BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME,
   BrailleSpinner,
 } from "components/Utils/BrailleSpinner";
+import { IoMdCheckmark } from "react-icons/io";
+import { MdOutlineRadioButtonUnchecked } from "react-icons/md";
 import { TodoItem, TodoStatus } from "utils/claudeTools";
 
 const STATUS_LABELS: Record<TodoStatus, string> = {

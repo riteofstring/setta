@@ -156,11 +156,7 @@ vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
 }));
 
 vi.mock("components/ChatWindowing/ProjectChatWindowSurface", () => ({
-  ProjectChatWindowSurface: ({
-    children,
-  }: {
-    children: ReactNode;
-  }) => (
+  ProjectChatWindowSurface: ({ children }: { children: ReactNode }) => (
     <section
       data-testid="mock-project-chat-window-frame"
       data-chat-window-frame="project-chat"

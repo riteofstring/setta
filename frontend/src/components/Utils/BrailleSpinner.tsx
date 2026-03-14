@@ -1,7 +1,7 @@
 import { useEffect, useState, type ComponentPropsWithoutRef } from "react";
 import spinners from "unicode-animations";
 
-export const BRAILLE_SPINNER_NAME = "braille" as const;
+const BRAILLE_SPINNER_NAME = "braille" as const;
 const BRAILLE_SPINNER = spinners[BRAILLE_SPINNER_NAME];
 export const BRAILLE_SPINNER_FRAMES = [...BRAILLE_SPINNER.frames];
 export const BRAILLE_SPINNER_INTERVAL_MS = BRAILLE_SPINNER.interval;
@@ -31,14 +31,15 @@ export function BrailleSpinner({
 
   const hasAccessibleName =
     props["aria-label"] !== undefined || props["aria-labelledby"] !== undefined;
-  const resolvedAriaHidden = ariaHidden ?? (hasAccessibleName ? undefined : true);
+  const resolvedAriaHidden =
+    ariaHidden ?? (hasAccessibleName ? undefined : true);
 
   return (
     <span
       {...props}
       aria-hidden={resolvedAriaHidden}
       data-unicode-spinner={BRAILLE_SPINNER_NAME}
-      className={`inline-flex min-w-[1ch] select-none items-center justify-center font-mono leading-none tabular-nums ${
+      className={`inline-flex min-w-[1ch] select-none items-center justify-center font-mono tabular-nums leading-none ${
         className ?? ""
       }`.trim()}
     >

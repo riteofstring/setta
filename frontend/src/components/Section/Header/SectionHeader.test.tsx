@@ -379,5 +379,4 @@ describe("SectionHeader follow button", () => {
     expect(markup).toContain('data-testid="window-controls"');
     expect(markup).not.toContain("gg-lock");
   });
-
 });

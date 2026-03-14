@@ -9,9 +9,9 @@ describe("getWindowControlQuickInfoText", () => {
     expect(
       getWindowControlQuickInfoText({ action: "create_chat_window" }),
     ).toBe("Create chat window");
-    expect(
-      getWindowControlQuickInfoText({ action: "show_chat_windows" }),
-    ).toBe("Show chat windows");
+    expect(getWindowControlQuickInfoText({ action: "show_chat_windows" })).toBe(
+      "Show chat windows",
+    );
     expect(
       getWindowControlQuickInfoText({ action: "show_section_in_canvas" }),
     ).toBe("Show section in canvas");
@@ -39,14 +39,14 @@ describe("getWindowControlQuickInfoText", () => {
   });
 
   it("falls back to generic quick info when an optional title is absent", () => {
-    expect(
-      getWindowControlQuickInfoText({ action: "focus_window" }),
-    ).toBe("Focus window");
-    expect(
-      getWindowControlQuickInfoText({ action: "show_in_canvas" }),
-    ).toBe("Show in canvas");
-    expect(
-      getWindowControlQuickInfoText({ action: "hide_window" }),
-    ).toBe("Hide window");
+    expect(getWindowControlQuickInfoText({ action: "focus_window" })).toBe(
+      "Focus window",
+    );
+    expect(getWindowControlQuickInfoText({ action: "show_in_canvas" })).toBe(
+      "Show in canvas",
+    );
+    expect(getWindowControlQuickInfoText({ action: "hide_window" })).toBe(
+      "Hide window",
+    );
   });
 });

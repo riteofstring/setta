@@ -46,10 +46,7 @@ describe("conversationSearch", () => {
   it("returns merged text ranges for all matched search terms", () => {
     const terms = tokenizeConversationSearchQuery("alpha beta");
     expect(
-      findConversationSearchTextRanges(
-        "Alpha beta alphabet soup beta",
-        terms,
-      ),
+      findConversationSearchTextRanges("Alpha beta alphabet soup beta", terms),
     ).toEqual([
       { start: 0, end: 5 },
       { start: 6, end: 10 },

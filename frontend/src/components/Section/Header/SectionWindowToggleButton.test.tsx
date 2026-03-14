@@ -76,9 +76,7 @@ describe("SectionWindowToggleButton", () => {
     );
 
     expect(markup).toContain("Show section in canvas");
-    expect(markup).toContain(
-      'data-tooltip-content="Show section in canvas"',
-    );
+    expect(markup).toContain('data-tooltip-content="Show section in canvas"');
   });
 
   it("hides the toggle when layout edits are disallowed", () => {

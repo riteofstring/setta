@@ -1,12 +1,12 @@
 import SettaSLogo from "assets/icons/s-logo-only-og.svg?react";
+import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
+import { createFolderPathCompletionSource } from "components/Utils/CodeMirror/folderPathCompletions";
+import { InlineCodeMirrorInput } from "components/Utils/CodeMirror/InlineCodeMirrorInput";
 import {
   FileBrowserBreadcrumbs,
   FileBrowserGoUpButton,
   FileBrowserPathInput,
 } from "components/Utils/FileBrowserPathControls";
-import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
-import { createFolderPathCompletionSource } from "components/Utils/CodeMirror/folderPathCompletions";
-import { InlineCodeMirrorInput } from "components/Utils/CodeMirror/InlineCodeMirrorInput";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { useReactFlow } from "forks/xyflow/core/store";
 import type { CSSProperties } from "react";
@@ -44,13 +44,13 @@ import {
   parseFileBrowserFilterText,
 } from "utils/fileBrowserFilter";
 import {
-  isSameOrDescendantBrowserPath,
-  normalizeFileBrowserPathForComparison,
-} from "utils/fileBrowserPathRelation";
-import {
   buildFileBrowserBreadcrumbs,
   getFileBrowserParentPath,
 } from "utils/fileBrowserNavigation";
+import {
+  isSameOrDescendantBrowserPath,
+  normalizeFileBrowserPathForComparison,
+} from "utils/fileBrowserPathRelation";
 import {
   filterFileBrowserItemsByTypeFilters,
   type FileBrowserSearchScope,

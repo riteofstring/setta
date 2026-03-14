@@ -1,4 +1,4 @@
-export type StreamingMarkdownSegments = {
+type StreamingMarkdownSegments = {
   committedMarkdown: string;
   activeTailText: string;
   committedLineCount: number;

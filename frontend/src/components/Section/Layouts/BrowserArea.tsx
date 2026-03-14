@@ -5,12 +5,12 @@ import {
   FileBrowserPane,
 } from "components/Panes/Overview/FileBrowser/FileBrowserPane";
 import { ResizeHandle } from "components/Params/ResizeHandle";
+import { createDynamicFolderPathCompletionSource } from "components/Utils/CodeMirror/folderPathCompletions";
 import {
   FileBrowserBreadcrumbs,
   FileBrowserGoUpButton,
   FileBrowserPathInput,
 } from "components/Utils/FileBrowserPathControls";
-import { createDynamicFolderPathCompletionSource } from "components/Utils/CodeMirror/folderPathCompletions";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import {
   MediaCarousel,

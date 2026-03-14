@@ -3,9 +3,9 @@ import { useCallback, useMemo } from "react";
 import { HiChevronRight } from "react-icons/hi";
 import { TbArrowUp, TbFolder } from "react-icons/tb";
 import { useEditableOnSubmit } from "state/hooks/editableText";
-import { normalizeFileBrowserPathForComparison } from "utils/fileBrowserPathRelation";
-import type { FileBrowserBreadcrumb } from "utils/fileBrowserNavigation";
 import { CODEMIRROR_TOOLTIP_PARENT_ID } from "utils/constants";
+import type { FileBrowserBreadcrumb } from "utils/fileBrowserNavigation";
+import { normalizeFileBrowserPathForComparison } from "utils/fileBrowserPathRelation";
 import { InlineCodeMirrorInput } from "./CodeMirror/InlineCodeMirrorInput";
 
 export function FileBrowserPathInput({
@@ -144,7 +144,10 @@ export function FileBrowserBreadcrumbs({
           normalizeFileBrowserPathForComparison(breadcrumb.path) ===
           normalizedCurrentPath;
         return (
-          <div key={breadcrumb.path} className="flex min-w-0 items-center gap-1">
+          <div
+            key={breadcrumb.path}
+            className="flex min-w-0 items-center gap-1"
+          >
             {index > 0 ? (
               <HiChevronRight
                 className="shrink-0 text-setta-300 dark:text-setta-600"

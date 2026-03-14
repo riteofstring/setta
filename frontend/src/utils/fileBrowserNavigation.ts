@@ -87,7 +87,11 @@ export function buildFileBrowserBreadcrumbs(args: {
   }
 
   const breadcrumbs: FileBrowserBreadcrumb[] = [];
-  for (let segmentCount = 1; segmentCount <= currentSegments.length; segmentCount += 1) {
+  for (
+    let segmentCount = 1;
+    segmentCount <= currentSegments.length;
+    segmentCount += 1
+  ) {
     const path = buildPathFromSegments({
       segments: currentSegments.slice(0, segmentCount),
       isAbsolute: currentIsAbsolute,

@@ -3,8 +3,8 @@ import { createProjectConfig } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import { RIGHT_PANE_TITLE_CLEARANCE_CLASS_NAME } from "../../Utils/paneTitleSpacing";
 import {
-  HOME_SIDE_RAIL_CLASS_NAME,
   HOME_RIGHT_PANE_TITLE_CLASS_NAME,
+  HOME_SIDE_RAIL_CLASS_NAME,
   getHomeProjectConfigsSectionTitle,
   getProjectTopLevelSectionCount,
   partitionProjectsByFavoriteStatus,

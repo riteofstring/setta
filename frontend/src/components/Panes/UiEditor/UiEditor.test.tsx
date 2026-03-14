@@ -5,7 +5,7 @@ import { createProjectConfig } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { RIGHT_PANE_TITLE_CLEARANCE_CLASS_NAME } from "../../Utils/paneTitleSpacing";
 import { syncStoreInitialState } from "../paneTestUtils";
-import { UiEditor, UI_EDITOR_PANE_TITLE_CLASS_NAME } from "./UiEditor";
+import { UI_EDITOR_PANE_TITLE_CLASS_NAME, UiEditor } from "./UiEditor";
 
 function extractRailStyle(markup: string): string {
   const match = markup.match(

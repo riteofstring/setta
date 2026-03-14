@@ -7,8 +7,8 @@ import {
   SectionTypeEnum,
   createChatSectionImpl,
   createCore,
-  createMessageThinkingContent,
   createMessageTextContent,
+  createMessageThinkingContent,
   createProjectConfig,
   createUserDefaultChatSectionImpl,
   createVariant,
@@ -335,7 +335,8 @@ describe("chat history sync to section state", () => {
       SectionTypeEnum.Chat,
     );
     const message = impl.messages.find(
-      (entry) => entry.id === "msg-thinking" && entry.role === ChatRoleEnum.assistant,
+      (entry) =>
+        entry.id === "msg-thinking" && entry.role === ChatRoleEnum.assistant,
     );
     expect(message?.content).toEqual([
       createMessageThinkingContent({
@@ -349,7 +350,9 @@ describe("chat history sync to section state", () => {
     );
     expect(persistedCall).toBeDefined();
     if (!persistedCall) {
-      throw new Error("Expected setChatSectionState call for merged thought hydrate.");
+      throw new Error(
+        "Expected setChatSectionState call for merged thought hydrate.",
+      );
     }
     expect(persistedCall[0].state.messages[0].content).toEqual([
       createMessageThinkingContent({

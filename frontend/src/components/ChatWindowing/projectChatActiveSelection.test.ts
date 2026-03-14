@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import { resolveProjectChatShortcutActiveSectionId } from "components/ChatWindowing/projectChatActiveSelection";
+import { describe, expect, it } from "vitest";
 
 describe("resolveProjectChatShortcutActiveSectionId", () => {
   it("prefers the immediate UI selection when it exists", () => {

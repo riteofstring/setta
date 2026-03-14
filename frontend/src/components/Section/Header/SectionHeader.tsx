@@ -292,7 +292,9 @@ function _SectionHeader({
         )}
         {!isDeploymentMode && sectionTypeName === SectionTypeEnum.Chat && (
           <button
-            aria-label={isFollowSelected ? "Stop following chat" : "Follow chat"}
+            aria-label={
+              isFollowSelected ? "Stop following chat" : "Follow chat"
+            }
             aria-pressed={isFollowSelected}
             className={followButtonClassName}
             onClick={() => {

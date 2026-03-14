@@ -39,9 +39,7 @@ import {
   type ZustandProjectState,
 } from "state/definitions";
 import {
-  buildChatAppGenerationDetails,
   collectChatAppGenerationDetailsByChatId,
-  deserializeChatAppGenerationByMessageId,
   getDefaultChatAppGenerationDetails,
   mergeChatAppGenerationDetails,
   mergeChatAppGenerationDetailsByChatId,
