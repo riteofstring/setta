@@ -1,10 +1,12 @@
 import { HomePageSearchBar } from "components/AppHeader/SearchBar/HomePageSearch";
 import { FileBrowserPane } from "components/Panes/Overview/FileBrowser/FileBrowserPane";
+import { togglePaneVisibility } from "components/Panes/paneLayout";
 import { ProjectConfigThumbnailSurface } from "components/ProjectConfigs/ProjectConfigThumbnailSurface";
 import { InlineCodeMirrorInput } from "components/Utils/CodeMirror/InlineCodeMirrorInput";
 import { createDynamicFolderPathCompletionSource } from "components/Utils/CodeMirror/folderPathCompletions";
 import { GridWrapper } from "components/Utils/GridWrapper";
 import { PaneContainer } from "components/Utils/PaneContainer";
+import { withRightPaneTitleClearance } from "components/Utils/paneTitleSpacing";
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -40,16 +42,18 @@ import {
 } from "state/definitions";
 import { useWindowSize } from "state/hooks/utils";
 import {
+  APP_CHROME_Z_INDEX_CLASS_NAME,
   buildSharePath,
   CLOSED_PANE_WIDTH,
   CODEMIRROR_TOOLTIP_PARENT_ID,
+  HOME_COMPACT_LAYOUT_BREAKPOINT_PX,
   PAGE_LOAD_TYPES,
   PaneNameEnum,
   pathRelativeToProject,
   SETTA_POPOVER_PORTAL_PARENT_ID,
   SETTINGS_ROUTER_PATH,
 } from "utils/constants";
-import { route_set_as_default_project } from "utils/generatedEndpoints";
+import { router_set_as_default_project } from "utils/generatedEndpoints";
 import { ProjectConfig } from "utils/generatedTypes";
 import { LoadingSpinner } from "../LoadingSpinner";
 
@@ -62,7 +66,6 @@ const HOME_FILE_BROWSER_META_INSET_CLASS =
   "mx-auto w-[calc(100%_-_1.5rem)] px-1.5";
 const HOME_FILE_BROWSER_TITLE_INSET_CLASS =
   "mx-auto w-[calc(100%_-_1.5rem)] px-1.5";
-const HOME_ICON_RAIL_Z_INDEX_CLASS = "z-[31]";
 const HOME_FILE_BROWSER_LIST_INSET_LEFT = 10;
 const HOME_PANE_TITLE_CLASS =
   "mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500";
@@ -70,7 +73,10 @@ const HOME_FILE_BROWSER_PANE_CONTENT_CLASS =
   "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden";
 const HOME_INSET_PANE_CONTENT_CLASS =
   "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden px-2";
-const HOME_COMPACT_LAYOUT_BREAKPOINT_PX = 1100;
+export const HOME_SIDE_RAIL_CLASS_NAME = `${APP_CHROME_Z_INDEX_CLASS_NAME} fixed flex w-10 flex-col items-center gap-1 bg-setta-50 py-2 dark:bg-setta-900`;
+export const HOME_RIGHT_PANE_TITLE_CLASS_NAME = withRightPaneTitleClearance(
+  HOME_PANE_TITLE_CLASS,
+);
 
 export function shouldUseCompactHomeLayout(
   winWidth: number | undefined,
@@ -370,7 +376,7 @@ function HomeWorkspaceLayout({
   }
 
   async function onSetDefaultProject(projectConfigId: string) {
-    await route_set_as_default_project({ projectConfigId });
+    await router_set_as_default_project({ projectConfigId });
   }
 
   const commonGalleryProps = {
@@ -450,7 +456,9 @@ function HomeWorkspaceLayout({
         >
           {homeSelectedProjectPaneVis && (
             <section className={HOME_INSET_PANE_CONTENT_CLASS}>
-              <h2 className={HOME_PANE_TITLE_CLASS}>Selected Project</h2>
+              <h2 className={HOME_RIGHT_PANE_TITLE_CLASS_NAME}>
+                Selected Project
+              </h2>
               <SelectedProjectDetails
                 project={selectedDetailProject}
                 isDefault={selectedDetailProject?.id === defaultProjectConfigId}
@@ -540,19 +548,11 @@ function getHomeRailButtonColor(isActive: boolean): string {
 }
 
 function toggleHomeWorkspacePaneVisibility() {
-  const { homeWorkspacePaneVis } = useLocalStorage.getState();
-  const nextVis = !homeWorkspacePaneVis;
-  useLocalStorage.setState({
-    homeWorkspacePaneVis: nextVis,
-  });
+  togglePaneVisibility(HOME_WORKSPACE_PANE_NAME);
 }
 
 function toggleHomeSelectedProjectPaneVisibility() {
-  const { homeSelectedProjectPaneVis } = useLocalStorage.getState();
-  const nextVis = !homeSelectedProjectPaneVis;
-  useLocalStorage.setState({
-    homeSelectedProjectPaneVis: nextVis,
-  });
+  togglePaneVisibility(HOME_SELECTED_PROJECT_PANE_NAME);
 }
 
 function HomeLeftIconRail({
@@ -565,7 +565,7 @@ function HomeLeftIconRail({
   return (
     <div
       data-testid="home-left-icon-rail"
-      className={`fixed left-0 ${HOME_ICON_RAIL_Z_INDEX_CLASS} flex w-10 flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900`}
+      className={`${HOME_SIDE_RAIL_CLASS_NAME} left-0 border-r border-setta-200/75 dark:border-setta-850`}
       style={{
         top: "calc(var(--setta-titlebar-height) + 36px)",
         bottom: "0px",
@@ -607,7 +607,7 @@ function HomeRightIconRail({
   return (
     <div
       data-testid="home-right-icon-rail"
-      className={`fixed right-0 ${HOME_ICON_RAIL_Z_INDEX_CLASS} flex w-10 flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900`}
+      className={`${HOME_SIDE_RAIL_CLASS_NAME} right-0 border-l border-setta-200/75 dark:border-setta-850`}
       style={{
         top: "calc(var(--setta-titlebar-height) + 36px)",
         bottom: "0px",
@@ -766,6 +766,7 @@ function HomeFileBrowserColumn() {
       <div className="min-h-[220px] min-w-0 flex-1">
         <FileBrowserPane
           useFileBrowserStateHook={useHomeFileBrowserState}
+          showPathNavigation={false}
           includeSettaInitializedFolders
           showSettaInitializedBadgePill={false}
           allowOutsideWorkspaceRoot
