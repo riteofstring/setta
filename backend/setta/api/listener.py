@@ -1492,16 +1492,27 @@ class SettaListener:
         self._latest_dependency_snapshot_values = dependency_values
         snapshot_values: dict[str, Any] = {}
         previous_cache = dict(self._dependency_cache)
-        rendered_snapshot_values = self._build_dependency_cache_from_snapshot_values(
+        (
+            rendered_snapshot_values,
+            rendered_snapshot_value_keys,
+        ) = self._build_dependency_cache_from_snapshot_values(
             dependency_values,
             runtime_state.dependency_metadata,
         )
         if runtime_state.s_instance is None:
-            updated_cache = dict(rendered_snapshot_values)
-            for dependency_name, value in self._build_dependency_cache_from_runtime_state(
-                runtime_state
-            ).items():
-                updated_cache.setdefault(dependency_name, value)
+            if dependency_values is None:
+                updated_cache = dict(rendered_snapshot_values)
+                for dependency_name, value in self._build_dependency_cache_from_runtime_state(
+                    runtime_state
+                ).items():
+                    updated_cache.setdefault(dependency_name, value)
+            else:
+                updated_cache = dict(rendered_snapshot_values)
+                self._recompute_metadata_dependents(
+                    runtime_state.dependency_metadata,
+                    updated_cache,
+                    set(rendered_snapshot_value_keys),
+                )
         else:
             updated_cache = dict(self._dependency_cache)
             updated_cache.update(rendered_snapshot_values)
@@ -1678,11 +1689,12 @@ class SettaListener:
         self,
         dependency_values: ListenerRenderedDependencyValues | None,
         dependency_metadata: ListenerDependencyMetadata,
-    ) -> dict[str, Any]:
+    ) -> tuple[dict[str, Any], set[BaseDependencyKeyUnion]]:
         if dependency_values is None:
-            return {}
+            return {}, set()
 
         values_by_name: dict[str, Any] = {}
+        resolved_dependency_keys: set[BaseDependencyKeyUnion] = set()
         for entry in dependency_values.entries:
             try:
                 dependency_name = dependency_metadata.dependency_name(
@@ -1703,6 +1715,7 @@ class SettaListener:
                     dependency=dependency_name,
                     expression=rendered_value,
                 )
+                resolved_dependency_keys.add(entry.dependencyKey)
             except Exception:
                 logger.debug(
                     (
@@ -1714,7 +1727,7 @@ class SettaListener:
                     exc_info=logger.isEnabledFor(logging.DEBUG),
                 )
                 continue
-        return values_by_name
+        return values_by_name, resolved_dependency_keys
 
     def _build_dependency_cache_from_runtime_state(
         self,
@@ -2901,16 +2914,27 @@ class SettaListener:
             self._runtime_state = runtime_state
 
         snapshot_values: dict[str, Any] = {}
-        rendered_snapshot_values = self._build_dependency_cache_from_snapshot_values(
+        (
+            rendered_snapshot_values,
+            rendered_snapshot_value_keys,
+        ) = self._build_dependency_cache_from_snapshot_values(
             self._latest_dependency_snapshot_values,
             runtime_state.dependency_metadata,
         )
         if runtime_state.s_instance is None:
-            updated_cache = dict(rendered_snapshot_values)
-            for dependency_name, value in self._build_dependency_cache_from_runtime_state(
-                runtime_state
-            ).items():
-                updated_cache.setdefault(dependency_name, value)
+            if self._latest_dependency_snapshot_values is None:
+                updated_cache = dict(rendered_snapshot_values)
+                for dependency_name, value in self._build_dependency_cache_from_runtime_state(
+                    runtime_state
+                ).items():
+                    updated_cache.setdefault(dependency_name, value)
+            else:
+                updated_cache = dict(rendered_snapshot_values)
+                self._recompute_metadata_dependents(
+                    runtime_state.dependency_metadata,
+                    updated_cache,
+                    set(rendered_snapshot_value_keys),
+                )
         else:
             updated_cache = dict(self._dependency_cache)
             updated_cache.update(rendered_snapshot_values)

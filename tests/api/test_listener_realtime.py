@@ -1215,6 +1215,85 @@ class TestSettaListenerBootstrapFailure:
             ("From Go snapshot", {"Welcome": "From Go snapshot"})
         ]
 
+    async def test_bootstrap_recomputes_composite_cache_from_go_snapshot_values(
+        self,
+    ) -> None:
+        project_state, section_id, param_id = _build_nested_controls_project_state(
+            ID("project-snapshot-composite")
+        )
+        listener = SettaListener(project_name=project_state.projectConfig.name)
+        callback_calls: list[tuple[dict[str, Any], dict[str, Any]]] = []
+
+        runtime_state = listener._build_runtime_state(project_state)
+        section_key = create_dep_key(sectionId=section_id)
+        count_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
+        section_name = runtime_state.dependency_metadata.dependency_name(section_key)
+        count_name = runtime_state.dependency_metadata.dependency_name(count_key)
+        dependency_catalog = ListenerDependencyCatalog(
+            entries=[
+                ListenerDependencyCatalogEntry(
+                    dependencyKey=entry.dependencyKey,
+                    name=entry.name,
+                    fullPathName=entry.fullPathName,
+                    dependencies=list(entry.dependencies),
+                    sectionType=entry.sectionType,
+                    codeObjType=entry.codeObjType,
+                    controlCodeObjId=entry.controlCodeObjId,
+                    controlCodeObjType=entry.controlCodeObjType,
+                    sectionRepresentation=entry.sectionRepresentation,
+                    controlValueRepresentation=entry.controlValueRepresentation,
+                    valueRepresentation=entry.valueRepresentation,
+                )
+                for entry in [
+                    runtime_state.dependency_metadata.entry_for_name(name)
+                    for name in runtime_state.dependency_metadata.names()
+                ]
+            ]
+        )
+        dependency_values = ListenerRenderedDependencyValues(
+            entries=[
+                ListenerRenderedDependencyValue(
+                    dependencyKey=count_key,
+                    renderedValue="5",
+                )
+            ]
+        )
+
+        @listener.listen(deps=(section_name,), run_on_refresh=True)
+        def on_change(state, ctx) -> None:
+            callback_calls.append((state.Controls, dict(ctx.changed)))
+
+        register_payloads: list[dict[str, Any]] = []
+
+        async def capture_payload(payload: str) -> None:
+            register_payloads.append(json.loads(payload))
+
+        listener._build_runtime_state = MagicMock(
+            return_value=ListenerRuntimeState(
+                dependency_metadata=runtime_state.dependency_metadata,
+                dependency_graph=_GraphlessDependencyGraph(),
+                s_instance=None,
+            )
+        )
+        listener._send_websocket_payload = AsyncMock(side_effect=capture_payload)
+
+        await listener._refresh_from_snapshot(
+            project_state,
+            dependency_catalog=dependency_catalog,
+            dependency_values=dependency_values,
+        )
+        await asyncio.sleep(0)
+
+        assert listener._runtime_state is not None
+        assert listener._runtime_state.s_instance is None
+        assert listener._dependency_cache[count_name] == 5
+        assert listener._dependency_cache[section_name] == {"count": 5}
+        assert callback_calls == [
+            ({"count": 5}, {section_name: {"count": 5}})
+        ]
+        assert len(register_payloads) == 1
+        assert register_payloads[0]["messageType"] == "ListenerRegister"
+
     async def test_realtime_updates_cache_when_runtime_state_is_unavailable(self) -> None:
         listener = SettaListener(project_name="Demo Project")
         project_state = self._build_project_state()
@@ -1467,8 +1546,12 @@ class TestSettaListenerBootstrapFailure:
                 )
             ]
         )
-        listener._instantiate_state = MagicMock(
-            side_effect=ValueError("math domain error")
+        listener._build_runtime_state = MagicMock(
+            return_value=ListenerRuntimeState(
+                dependency_metadata=runtime_state.dependency_metadata,
+                dependency_graph=_GraphlessDependencyGraph(),
+                s_instance=None,
+            )
         )
 
         await listener._replay_cached_snapshot()

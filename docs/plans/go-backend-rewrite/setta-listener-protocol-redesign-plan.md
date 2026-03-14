@@ -89,12 +89,17 @@ Current state:
     edges and node names, and retained Python uses that metadata to recompute
     dict/list-style composite cached values after no-runtime realtime child
     deltas instead of mutating the local Python dependency graph
+  - when Go bootstrap/force-refresh snapshots include authoritative
+    `dependencyValues`, retained Python now rebuilds no-runtime snapshot/replay
+    cache state from those values plus catalog edges instead of falling back to
+    local dependency-graph cache construction
 - listener coverage and force-refresh reads/writes
   - listener websocket DTOs in `internal/realtime`
 - Python still owns:
   - local dependency-graph rebuilding and generated runtime state for
-    generated-state access and any snapshot values or computed dependency
-    shapes the current Go metadata payload still cannot render directly
+    generated-state access, internal/non-Go no-value fallback, and any
+    computed dependency shapes the current Go metadata payload still cannot
+    render directly
   - share listener runtime coupling through
     `backend/setta/share/listener_runtime.py`
   - dormant broader built-in listener endpoint inventory/docs outside the
@@ -263,6 +268,9 @@ Python/share listeners can bootstrap entirely against the Go listener route.
 - Prefer Go-provided dependency edges for no-runtime composite cache
   recomputation after child deltas, and fail closed for unsupported computed
   deltas instead of mutating the retained Python graph in the live path.
+- Prefer Go-provided snapshot dependency values plus dependency edges for
+  no-runtime cache rebuild/replay, and keep the retained local graph fallback
+  only for paths where those authoritative Go snapshot values are absent.
 
 Exit condition:
 listener tests pass without Python owning dependency graph or runtime state.
