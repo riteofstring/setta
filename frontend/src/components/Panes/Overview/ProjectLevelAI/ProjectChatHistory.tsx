@@ -18,7 +18,6 @@ import {
   useRef,
   useState,
   type Dispatch,
-  type ReactNode,
   type SetStateAction,
 } from "react";
 import { createPortal } from "react-dom";
@@ -77,14 +76,18 @@ import {
   resolveNextGroupOrderFromDrag,
   resolveThreadDropTarget,
   toThreadDndId,
-  toThreadDropTargetId,
   toThreadGroupDndId,
   toThreadSectionDropTargetId,
   UNPINNED_THREAD_DOMAIN,
   type ThreadDropTarget,
-  type ThreadPinDomain,
 } from "./projectChatHistoryDragUtils";
 import { ProjectChatHistoryThreadEntry } from "./ProjectChatHistoryThreadEntry";
+import {
+  isDraftProjectChatHistoryEntry,
+  isProjectChatHistoryEntryActive,
+  ProjectChatHistoryThreadDropZone,
+} from "./projectChatHistoryThreadListShared";
+import { ProjectChatHistoryUngroupedFolder } from "./ProjectChatHistoryUngroupedFolder";
 import {
   buildOrderedVisibleThreadIds,
   buildProjectChatHistoryDisplayEntries,
@@ -323,7 +326,8 @@ export function ProjectChatHistory({
   const visibleSortedEntries = useMemo(() => {
     return sortedEntries.filter(
       (entry) =>
-        isDraftThreadEntry(entry) || !trashedThreadIdsSet.has(entry.chatId),
+        isDraftProjectChatHistoryEntry(entry) ||
+        !trashedThreadIdsSet.has(entry.chatId),
     );
   }, [sortedEntries, trashedThreadIdsSet]);
   const threadAgentBadgeLabelByChatId = useMemo(() => {
@@ -1248,7 +1252,7 @@ export function ProjectChatHistory({
               ) : null}
 
               {ungroupedEntries.length > 0 ? (
-                <ThreadUngroupedFolder
+                <ProjectChatHistoryUngroupedFolder
                   entries={ungroupedEntries}
                   hasGroupsAbove={searchableGroupSections.length > 0}
                   chatId={chatId}
@@ -1273,6 +1277,9 @@ export function ProjectChatHistory({
                   activeThreadWaitingForResponse={
                     activeThreadWaitingForResponse
                   }
+                  deleteTooltipContent={getProjectChatDeleteRecoveryTooltipContent(
+                    "thread",
+                  )}
                 />
               ) : null}
             </>
@@ -1653,7 +1660,7 @@ function ThreadGroupFolder({
                 >
                   <span>Pinned</span>
                 </div>
-                <ThreadDropZone
+                <ProjectChatHistoryThreadDropZone
                   groupId={section.id}
                   pinDomain={PINNED_THREAD_DOMAIN}
                 >
@@ -1670,9 +1677,12 @@ function ThreadGroupFolder({
                         threadGroupId={section.id}
                         pinDomain={PINNED_THREAD_DOMAIN}
                         sortableEnabled={threadSortableEnabled}
-                        isActive={isThreadEntryActive(entry, chatId)}
+                        isActive={isProjectChatHistoryEntryActive(
+                          entry,
+                          chatId,
+                        )}
                         isViewed={
-                          isDraftThreadEntry(entry) ||
+                          isDraftProjectChatHistoryEntry(entry) ||
                           viewedThreadIdsSet.has(entry.chatId) ||
                           entry.chatId === chatId
                         }
@@ -1687,7 +1697,7 @@ function ThreadGroupFolder({
                           activeMasterSearchMatchThreadId === entry.chatId
                         }
                         isPinned={pinnedThreadIdsSet.has(entry.chatId)}
-                        isDraft={isDraftThreadEntry(entry)}
+                        isDraft={isDraftProjectChatHistoryEntry(entry)}
                         showAgentBadges={showThreadAgentBadges}
                         agentBadgeLabel={
                           threadAgentBadgeLabelByChatId.get(entry.chatId) ??
@@ -1708,7 +1718,7 @@ function ThreadGroupFolder({
                       />
                     ))}
                   </SortableContext>
-                </ThreadDropZone>
+                </ProjectChatHistoryThreadDropZone>
               </section>
             ) : null}
             {unpinnedEntries.length > 0 || pinnedEntries.length > 0 ? (
@@ -1721,7 +1731,7 @@ function ThreadGroupFolder({
                     <span>Unpinned</span>
                   </div>
                 ) : null}
-                <ThreadDropZone
+                <ProjectChatHistoryThreadDropZone
                   groupId={section.id}
                   pinDomain={UNPINNED_THREAD_DOMAIN}
                 >
@@ -1738,9 +1748,12 @@ function ThreadGroupFolder({
                         threadGroupId={section.id}
                         pinDomain={UNPINNED_THREAD_DOMAIN}
                         sortableEnabled={threadSortableEnabled}
-                        isActive={isThreadEntryActive(entry, chatId)}
+                        isActive={isProjectChatHistoryEntryActive(
+                          entry,
+                          chatId,
+                        )}
                         isViewed={
-                          isDraftThreadEntry(entry) ||
+                          isDraftProjectChatHistoryEntry(entry) ||
                           viewedThreadIdsSet.has(entry.chatId) ||
                           entry.chatId === chatId
                         }
@@ -1755,7 +1768,7 @@ function ThreadGroupFolder({
                           activeMasterSearchMatchThreadId === entry.chatId
                         }
                         isPinned={pinnedThreadIdsSet.has(entry.chatId)}
-                        isDraft={isDraftThreadEntry(entry)}
+                        isDraft={isDraftProjectChatHistoryEntry(entry)}
                         showAgentBadges={showThreadAgentBadges}
                         agentBadgeLabel={
                           threadAgentBadgeLabelByChatId.get(entry.chatId) ??
@@ -1776,7 +1789,7 @@ function ThreadGroupFolder({
                       />
                     ))}
                   </SortableContext>
-                </ThreadDropZone>
+                </ProjectChatHistoryThreadDropZone>
                 {pinnedEntries.length > 0 && unpinnedEntries.length === 0 ? (
                   <p
                     className="px-1 py-1 text-[11px] text-setta-400 dark:text-setta-500"
@@ -1796,251 +1809,6 @@ function ThreadGroupFolder({
         ) : null}
       </div>
     </section>
-  );
-}
-
-function ThreadUngroupedFolder({
-  entries,
-  hasGroupsAbove,
-  chatId,
-  threadSortableEnabled,
-  viewedThreadIdsSet,
-  pinnedThreadIdsSet,
-  hasMasterSearch,
-  masterSearchMatchCountByChatId,
-  activeMasterSearchMatchThreadId,
-  showThreadAgentBadges,
-  threadAgentBadgeLabelByChatId,
-  activeThreadWaitingForResponse,
-  onToggleThreadPinned,
-  onDeleteThread,
-  onSelectThread,
-  onSelectGroup,
-}: {
-  entries: Array<ProjectChatHistoryEntry>;
-  hasGroupsAbove: boolean;
-  chatId: string | null | undefined;
-  threadSortableEnabled: boolean;
-  viewedThreadIdsSet: Set<string>;
-  pinnedThreadIdsSet: Set<string>;
-  hasMasterSearch: boolean;
-  masterSearchMatchCountByChatId: Map<string, number>;
-  activeMasterSearchMatchThreadId: string | null;
-  showThreadAgentBadges: boolean;
-  threadAgentBadgeLabelByChatId: Map<string, string>;
-  activeThreadWaitingForResponse: boolean;
-  onToggleThreadPinned: (threadId: string) => void;
-  onDeleteThread: (threadId: string) => void;
-  onSelectThread: (entry: ProjectChatHistoryEntry) => void;
-  onSelectGroup: (groupId: string | null) => void;
-}) {
-  const pinnedEntries = useMemo(() => {
-    return entries.filter((entry) => pinnedThreadIdsSet.has(entry.chatId));
-  }, [entries, pinnedThreadIdsSet]);
-  const unpinnedEntries = useMemo(() => {
-    return entries.filter((entry) => !pinnedThreadIdsSet.has(entry.chatId));
-  }, [entries, pinnedThreadIdsSet]);
-  const pinnedSortableThreadItemIds = useMemo(() => {
-    return pinnedEntries.map((entry) => toThreadDndId(entry.chatId));
-  }, [pinnedEntries]);
-  const unpinnedSortableThreadItemIds = useMemo(() => {
-    return unpinnedEntries.map((entry) => toThreadDndId(entry.chatId));
-  }, [unpinnedEntries]);
-  return (
-    <section className="flex flex-col">
-      {hasGroupsAbove ? (
-        <hr
-          data-testid="project-chat-ungrouped-divider"
-          className="mx-0.5 mb-2 mt-2 border-setta-200/70 dark:border-setta-700/70"
-        />
-      ) : null}
-      <div
-        className="flex w-full items-center gap-1 rounded px-0.5 py-1 text-left text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-300"
-        data-testid="project-chat-ungrouped-label"
-      >
-        <span className="truncate">Ungrouped</span>
-      </div>
-      <div className="ml-2 mt-1 flex flex-col gap-1 border-l border-setta-200/70 pl-2 dark:border-setta-700/70">
-        {pinnedEntries.length > 0 ? (
-          <section className="flex flex-col gap-1">
-            <div
-              className="flex items-center gap-1 rounded px-0.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-setta-400 dark:text-setta-500"
-              data-testid="project-chat-thread-pinned-section-label"
-            >
-              <span>Pinned</span>
-            </div>
-            <ThreadDropZone groupId={null} pinDomain={PINNED_THREAD_DOMAIN}>
-              <SortableContext
-                id="project-chat-threads:ungrouped:pinned"
-                items={pinnedSortableThreadItemIds}
-                strategy={verticalListSortingStrategy}
-                forceSorting
-              >
-                {pinnedEntries.map((entry) => (
-                  <ProjectChatHistoryThreadEntry
-                    key={entry.chatId}
-                    entry={entry}
-                    threadGroupId={null}
-                    pinDomain={PINNED_THREAD_DOMAIN}
-                    sortableEnabled={threadSortableEnabled}
-                    isActive={isThreadEntryActive(entry, chatId)}
-                    isViewed={
-                      isDraftThreadEntry(entry) ||
-                      viewedThreadIdsSet.has(entry.chatId) ||
-                      entry.chatId === chatId
-                    }
-                    searchMatchCount={
-                      hasMasterSearch
-                        ? masterSearchMatchCountByChatId.get(entry.chatId) ?? 0
-                        : null
-                    }
-                    isSearchMatchActive={
-                      activeMasterSearchMatchThreadId === entry.chatId
-                    }
-                    isPinned={pinnedThreadIdsSet.has(entry.chatId)}
-                    isDraft={isDraftThreadEntry(entry)}
-                    showAgentBadges={showThreadAgentBadges}
-                    agentBadgeLabel={
-                      threadAgentBadgeLabelByChatId.get(entry.chatId) ?? null
-                    }
-                    activeThreadWaitingForResponse={
-                      activeThreadWaitingForResponse
-                    }
-                    deleteTooltipContent={getProjectChatDeleteRecoveryTooltipContent(
-                      "thread",
-                    )}
-                    onTogglePinned={onToggleThreadPinned}
-                    onDelete={onDeleteThread}
-                    onSelect={(selectedEntry) => {
-                      onSelectGroup(null);
-                      onSelectThread(selectedEntry);
-                    }}
-                  />
-                ))}
-              </SortableContext>
-            </ThreadDropZone>
-          </section>
-        ) : null}
-        {unpinnedEntries.length > 0 || pinnedEntries.length > 0 ? (
-          <section className="flex flex-col gap-1">
-            {pinnedEntries.length > 0 ? (
-              <div
-                className="flex items-center gap-1 rounded px-0.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-setta-400 dark:text-setta-500"
-                data-testid="project-chat-thread-unpinned-section-label"
-              >
-                <span>Unpinned</span>
-              </div>
-            ) : null}
-            <ThreadDropZone groupId={null} pinDomain={UNPINNED_THREAD_DOMAIN}>
-              <SortableContext
-                id="project-chat-threads:ungrouped:unpinned"
-                items={unpinnedSortableThreadItemIds}
-                strategy={verticalListSortingStrategy}
-                forceSorting
-              >
-                {unpinnedEntries.map((entry) => (
-                  <ProjectChatHistoryThreadEntry
-                    key={entry.chatId}
-                    entry={entry}
-                    threadGroupId={null}
-                    pinDomain={UNPINNED_THREAD_DOMAIN}
-                    sortableEnabled={threadSortableEnabled}
-                    isActive={isThreadEntryActive(entry, chatId)}
-                    isViewed={
-                      isDraftThreadEntry(entry) ||
-                      viewedThreadIdsSet.has(entry.chatId) ||
-                      entry.chatId === chatId
-                    }
-                    searchMatchCount={
-                      hasMasterSearch
-                        ? masterSearchMatchCountByChatId.get(entry.chatId) ?? 0
-                        : null
-                    }
-                    isSearchMatchActive={
-                      activeMasterSearchMatchThreadId === entry.chatId
-                    }
-                    isPinned={pinnedThreadIdsSet.has(entry.chatId)}
-                    isDraft={isDraftThreadEntry(entry)}
-                    showAgentBadges={showThreadAgentBadges}
-                    agentBadgeLabel={
-                      threadAgentBadgeLabelByChatId.get(entry.chatId) ?? null
-                    }
-                    activeThreadWaitingForResponse={
-                      activeThreadWaitingForResponse
-                    }
-                    deleteTooltipContent={getProjectChatDeleteRecoveryTooltipContent(
-                      "thread",
-                    )}
-                    onTogglePinned={onToggleThreadPinned}
-                    onDelete={onDeleteThread}
-                    onSelect={(selectedEntry) => {
-                      onSelectGroup(null);
-                      onSelectThread(selectedEntry);
-                    }}
-                  />
-                ))}
-              </SortableContext>
-            </ThreadDropZone>
-            {pinnedEntries.length > 0 && unpinnedEntries.length === 0 ? (
-              <p
-                className="px-1 py-1 text-[11px] text-setta-400 dark:text-setta-500"
-                data-testid="project-chat-thread-unpinned-empty-state"
-              >
-                No unpinned threads.
-              </p>
-            ) : null}
-          </section>
-        ) : null}
-      </div>
-    </section>
-  );
-}
-
-function isDraftThreadEntry(entry: ProjectChatHistoryEntry): boolean {
-  return entry.chatId === DRAFT_THREAD_ENTRY_ID;
-}
-
-function isThreadEntryActive(
-  entry: ProjectChatHistoryEntry,
-  chatId: string | null | undefined,
-): boolean {
-  if (isDraftThreadEntry(entry)) {
-    return chatId === null || chatId === undefined;
-  }
-  return entry.chatId === chatId;
-}
-
-function ThreadDropZone({
-  groupId,
-  pinDomain,
-  children,
-}: {
-  groupId: string | null;
-  pinDomain: ThreadPinDomain;
-  children: ReactNode;
-}) {
-  const { isOver, setNodeRef } = useDroppable({
-    id: toThreadDropTargetId(groupId, pinDomain),
-    data: {
-      type: "project-chat-thread-drop-target",
-      groupId,
-      pinDomain,
-    },
-  });
-  return (
-    <div
-      ref={setNodeRef}
-      className={`flex flex-col ${isOver ? "rounded border border-blue-500/60 bg-blue-50/40 dark:bg-blue-950/20" : ""}`}
-      data-testid={
-        groupId
-          ? "project-chat-thread-group-drop-zone"
-          : "project-chat-ungrouped-drop-zone"
-      }
-      data-thread-pin-domain={pinDomain}
-      data-drop-highlight={isOver ? "true" : "false"}
-    >
-      {children}
-    </div>
   );
 }
 

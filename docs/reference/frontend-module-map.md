@@ -147,6 +147,8 @@ This is the front door for authored frontend code under `frontend/src/`.
 - Need Project Chat history drag ids, drop-target parsing, or thread/group reorder helpers: open `components/Panes/Overview/ProjectLevelAI/projectChatHistoryDragUtils.ts`.
 - Need Project Chat history create/select/start/delete/reorder command wiring: open `components/Panes/Overview/ProjectLevelAI/projectChatHistoryController.ts`.
 - Need Project Chat history thread-row rendering, indicators, badges, or per-thread action chrome: open `components/Panes/Overview/ProjectLevelAI/ProjectChatHistoryThreadEntry.tsx`.
+- Need Project Chat ungrouped-folder rendering or null-group thread section composition: open `components/Panes/Overview/ProjectLevelAI/ProjectChatHistoryUngroupedFolder.tsx`.
+- Need Project Chat shared thread-list drop-zone or draft/active row helpers: open `components/Panes/Overview/ProjectLevelAI/projectChatHistoryThreadListShared.tsx`.
 - Need LLM config or managed API-key mutations: open `state/actions/ai/llmSettings.ts`.
 - Need Project AI profiles/templates/engine/transcription resource mutations: open `state/actions/ai/projectAiResources.ts`.
 - Need Project AI settings draft builders, list parsing, or external-agent JSON parsing: open `components/Panes/Overview/ProjectLevelAI/projectAISettingsDraftUtils.ts`.
