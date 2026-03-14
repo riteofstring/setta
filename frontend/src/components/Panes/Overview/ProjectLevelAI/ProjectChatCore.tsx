@@ -28,6 +28,10 @@ import {
 } from "./projectChatComposerRuntime";
 import { resolveProjectChatComposerDerivedState } from "./projectChatComposerState";
 import { ProjectChatConversationSurface } from "./ProjectChatConversationSurface";
+import {
+  buildProjectChatInputProps,
+  buildProjectChatMessageListProps,
+} from "./projectChatConversationSurfaceState";
 import { resolveProjectChatConversationViewModel } from "./projectChatConversationViewModel";
 import { useProjectChatExecutionControls } from "./projectChatExecutionControls";
 import { type ProjectChatHydrationAuthority } from "./projectChatHydrationAuthority";
@@ -539,19 +543,20 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     [handleSubmit],
   );
   const messageListProps = useMemo(
-    () => ({
-      messages: filteredConversationMessages,
-      allMessagesForToolResults: messages,
-      waitingForResponse,
-      toolCallArguments,
-      interruptedAssistantMessageIds,
-      activeSearchMessageId: activeConversationSearchMatchMessageId,
-      editDisabledReason,
-      onRedoMessage: handleRedoMessage,
-      onEditMessage: handleEditMessage,
-      onBranchSwitch: handleBranchSwitch,
-      branchInfoByMessage,
-    }),
+    () =>
+      buildProjectChatMessageListProps({
+        filteredConversationMessages,
+        messages,
+        waitingForResponse,
+        toolCallArguments,
+        interruptedAssistantMessageIds,
+        activeConversationSearchMatchMessageId,
+        editDisabledReason,
+        handleRedoMessage,
+        handleEditMessage,
+        handleBranchSwitch,
+        branchInfoByMessage,
+      }),
     [
       activeConversationSearchMatchMessageId,
       branchInfoByMessage,
@@ -567,38 +572,36 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     ],
   );
   const chatInputProps = useMemo(
-    () => ({
-      placeholderText,
-      waitingForResponse,
-      submitDisabled,
-      disabled: isDisabled,
-      value: draftMessage,
-      onChange: setDraftMessage,
-      onSubmit: handleSubmit,
-      onStop: handleStop,
-      slashCommands,
-      recognizedSlashCommands,
-      onSlashCommand: handleSlashCommand,
-      onUnknownSlashCommand: handleUnknownSlashCommand,
-      executionControls,
-      executionControlVisibility: {
-        permissionMode: showPermissionExecutionControl,
-        search: showSearchExecutionControl,
-      },
-      dictationMode,
-      dictationEnabledByProvider: providerDictationAvailable,
-      providerDictationLikelySupported,
-      contextWindowTokens,
-      contextUsedTokens,
-      contextUsageIsEstimated,
-      contextUsageUnavailable: chatInputContextUsageUnavailable,
-      submittedMessageHistory,
-      runtimeActivityCounts,
-      runtimeActivityDetails,
-      onProviderDictationTranscribe: !providerDictationTranscribeEnabled
-        ? undefined
-        : handleProviderDictationTranscribe,
-    }),
+    () =>
+      buildProjectChatInputProps({
+        placeholderText,
+        waitingForResponse,
+        submitDisabled,
+        isDisabled,
+        draftMessage,
+        setDraftMessage,
+        handleSubmit,
+        handleStop,
+        slashCommands,
+        recognizedSlashCommands,
+        handleSlashCommand,
+        handleUnknownSlashCommand,
+        executionControls,
+        showPermissionExecutionControl,
+        showSearchExecutionControl,
+        dictationMode,
+        providerDictationAvailable,
+        providerDictationLikelySupported,
+        contextWindowTokens,
+        contextUsedTokens,
+        contextUsageIsEstimated,
+        chatInputContextUsageUnavailable,
+        submittedMessageHistory,
+        runtimeActivityCounts,
+        runtimeActivityDetails,
+        providerDictationTranscribeEnabled,
+        handleProviderDictationTranscribe,
+      }),
     [
       chatInputContextUsageUnavailable,
       contextUsageIsEstimated,

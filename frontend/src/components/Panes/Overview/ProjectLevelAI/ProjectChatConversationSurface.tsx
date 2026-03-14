@@ -5,12 +5,12 @@ import { type ComponentProps } from "react";
 
 const CHAT_WIDTH_SHELL_CLASS_NAME = "mx-auto w-full min-w-0 max-w-[72rem] px-2";
 
-type ProjectChatMessageListProps = Omit<
+export type ProjectChatMessageListProps = Omit<
   ComponentProps<typeof ChatMessageList>,
   "contentClassName"
 >;
 
-type ProjectChatInputProps = ComponentProps<typeof ChatInput>;
+export type ProjectChatInputProps = ComponentProps<typeof ChatInput>;
 
 function ProjectChatEmptyState({
   starterPrompts,
