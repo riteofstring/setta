@@ -4686,6 +4686,9 @@ func TestAppServesRealtimeTranscriptionSessionRoutes(t *testing.T) {
 			return
 		}
 		updates <- update
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"session.updated","event_id":"evt-ready"}`)); err != nil {
+			return
+		}
 
 		appendPayload, err := readRealtimeProviderMessage(context.Background(), conn)
 		if err != nil {
@@ -4861,7 +4864,7 @@ func TestAppServesRealtimeTranscriptionSessionRoutes(t *testing.T) {
 
 	select {
 	case payload := <-updates:
-		if payload["type"] != "transcription_session.update" {
+		if payload["type"] != "session.update" {
 			t.Fatalf("unexpected realtime update payload %#v", payload)
 		}
 	case <-time.After(time.Second):
