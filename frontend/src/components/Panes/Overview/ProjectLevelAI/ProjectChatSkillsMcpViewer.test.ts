@@ -592,14 +592,12 @@ describe("resolveCustomSlashDraftByProjectConfigIdUpdate", () => {
         "project-a": {
           command: "/triage",
           prompt: "Summarize open bugs.",
-          appGenerationMode: null,
         },
       },
       projectConfigId: "project-b",
       nextDraft: {
         command: "/ship",
         prompt: "Prepare release notes.",
-        appGenerationMode: null,
       },
     });
 
@@ -607,12 +605,10 @@ describe("resolveCustomSlashDraftByProjectConfigIdUpdate", () => {
       "project-a": {
         command: "/triage",
         prompt: "Summarize open bugs.",
-        appGenerationMode: null,
       },
       "project-b": {
         command: "/ship",
         prompt: "Prepare release notes.",
-        appGenerationMode: null,
       },
     });
   });
@@ -623,19 +619,16 @@ describe("resolveCustomSlashDraftByProjectConfigIdUpdate", () => {
         "project-a": {
           command: "/triage",
           prompt: "Summarize open bugs.",
-          appGenerationMode: null,
         },
         "project-b": {
           command: "/ship",
           prompt: "Prepare release notes.",
-          appGenerationMode: null,
         },
       },
       projectConfigId: "project-b",
       nextDraft: {
         command: "",
         prompt: "",
-        appGenerationMode: null,
       },
     });
 
@@ -643,7 +636,6 @@ describe("resolveCustomSlashDraftByProjectConfigIdUpdate", () => {
       "project-a": {
         command: "/triage",
         prompt: "Summarize open bugs.",
-        appGenerationMode: null,
       },
     });
   });

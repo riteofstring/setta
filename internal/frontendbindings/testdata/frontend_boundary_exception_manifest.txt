@@ -1,0 +1,10 @@
+endpointUtils frontend/src/components/Section/Layouts/MetaControlArea.tsx post
+endpointUtils frontend/src/plugins/listenerEndpointClient.ts replaceAddressParams
+endpointUtils frontend/src/state/hooks/terminals/websocketUrl.ts replaceAddressParams
+endpointUtils frontend/src/utils/generatedEndpoints.ts get
+endpointUtils frontend/src/utils/generatedEndpoints.ts getBinary
+endpointUtils frontend/src/utils/generatedEndpoints.ts post
+generatedRoutes frontend/src/plugins/listenerEndpointClient.ts GoWebsocketRoutes
+generatedRoutes frontend/src/state/actions/websocketReceive.ts GoWebsocketRoutes
+generatedRoutes frontend/src/state/hooks/terminals/websocketUrl.ts GoWebsocketRoutes
+generatedRoutes frontend/src/utils/generatedEndpoints.ts GoHTTPRoutes

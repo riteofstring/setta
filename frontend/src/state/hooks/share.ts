@@ -8,10 +8,10 @@ import { useProjectLoading, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { res200 } from "utils/endpointUtils";
 import { route_load_share_project_config } from "utils/generatedEndpoints";
-import type { ProjectConfig } from "utils/generatedTypes";
+import type { ProjectMetadataEntry } from "utils/generatedTypes";
 
 function resolveProjectConfigId(
-  projectMetadata: ProjectConfig[],
+  projectMetadata: ProjectMetadataEntry[],
   requestedConfigName: string | undefined,
   defaultProjectConfigId: string | null,
 ): string | null {
