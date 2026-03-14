@@ -15,12 +15,9 @@ import {
   useNodeInternals,
   useProjectState,
 } from "state/definitions";
-import {
-  OverviewTabNameEnum,
-  PAGE_LOAD_TYPES,
-  pathRelativeToProject,
-  PROJECT_CONFIG_PREVIEW_IMG_COLORS,
-} from "utils/constants";
+import { OverviewTabNameEnum } from "utils/constants/panes";
+import { PROJECT_CONFIG_PREVIEW_IMG_COLORS } from "utils/constants/projectConfigPreview";
+import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants/routes";
 import { res200 } from "utils/endpointUtils";
 import {
   route_create_project_config,

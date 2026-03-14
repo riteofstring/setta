@@ -8,7 +8,7 @@ import {
   useSettings,
   useShareSession,
 } from "state/definitions";
-import { HOME_ROUTER_PATH, SETTINGS_ROUTER_PATH } from "utils/constants";
+import { HOME_ROUTER_PATH, SETTINGS_ROUTER_PATH } from "utils/constants/routes";
 import { res200 } from "utils/endpointUtils";
 import {
   route_get_backend_init_status,

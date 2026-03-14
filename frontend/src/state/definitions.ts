@@ -2,19 +2,23 @@ import { ModalInfoType } from "components/Modals/types";
 import { HandlePosition, HandleType, Node } from "forks/xyflow/core/types";
 import type { AIFollowMode } from "state/types/aiFollow";
 import type { AppGenerationMode } from "state/types/appGenerationMode";
+import type {
+  OverviewNotificationsPaneTab,
+  OverviewTabKey,
+} from "utils/constants/panes";
 import {
   CLOSED_PANE_WIDTH,
   INITIAL_OVERVIEW_WIDTH,
   INITIAL_UI_EDITOR_WIDTH,
   isOverviewTabKey,
-  OverviewNotificationsPaneTab,
   OverviewNotificationsPaneTabEnum,
-  OverviewTabKey,
   OverviewTabNameEnum,
+  UIEditorTabLocalStorage,
+} from "utils/constants/panes";
+import {
   ProjectSearchMode,
   ProjectSearchModeEnum,
-  UIEditorTabLocalStorage,
-} from "utils/constants";
+} from "utils/constants/projectSearch";
 import {
   DEFAULT_FILE_BROWSER_TYPE_FILTERS,
   type FileBrowserSearchScope,

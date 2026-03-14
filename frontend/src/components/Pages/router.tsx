@@ -27,7 +27,7 @@ import {
   VIEW_MODE_ROUTER_PATH,
   WINDOW_SPACE_STANDALONE_ROUTER_PATH,
   WORKSPACE_LAUNCH_ROUTER_PATH,
-} from "utils/constants";
+} from "utils/constants/routes";
 import type { ProjectConfig } from "utils/generatedTypes";
 import {
   resolveWorkspaceLaunchRouteKind,
