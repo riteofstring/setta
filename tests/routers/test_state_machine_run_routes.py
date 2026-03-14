@@ -7,9 +7,12 @@ import pytest
 from setta.agentic.state_machine_signals import (
     REPORT_STATE_MACHINE_SIGNAL_NAMESPACED_TOOL_NAME,
 )
-from setta.agentic.chat_view import LLM_CHAT_RUN_TYPE
+from setta.agentic.chat_view import LLM_CHAT_RUN_TYPE, SCRIPTABLE_CHAT_RUN_TYPE
 from setta.agentic.external_agent_runner import ExternalAgentRunner
-from setta.agentic.state_machine_runner import STATE_MACHINE_RUN_TYPE, StateMachineRunner
+from setta.agentic.state_machine_runner import (
+    STATE_MACHINE_RUN_TYPE,
+    StateMachineRunner,
+)
 from setta.agentic.store import (
     create_agent_run,
     save_agent_profiles,
@@ -44,7 +47,11 @@ from setta.types.agentic import (
     EngineConfig,
     EngineType,
 )
-from setta.types.chat_messages import MessageTextContent, UserChatMessage
+from setta.types.chat_messages import (
+    AssistantChatMessage,
+    MessageTextContent,
+    UserChatMessage,
+)
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
 from setta.types.helpers_lvl3 import convert_backend_to_single_config
 from setta.types.id import ID
@@ -914,7 +921,9 @@ def _get_chat_section_impl(
 
 
 @pytest.mark.asyncio
-async def test_state_machine_run_routes_complete_structural_machine_and_restart() -> None:
+async def test_state_machine_run_routes_complete_structural_machine_and_restart() -> (
+    None
+):
     async with (
         real_project_manager() as project_fixture,
         real_settings_manager() as settings_fixture,
@@ -1142,6 +1151,78 @@ async def test_state_machine_runner_dispatches_send_prompt_from_start_edges(
 
 
 @pytest.mark.asyncio
+async def test_state_machine_runner_rejects_scriptable_history_on_reused_chat_id() -> (
+    None
+):
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        project_config_id = (
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        assert project_config_id is not None
+        await project_fixture.manager.finish_pending_operations()
+
+        engine_config_id = ID("engine-primary")
+        _seed_engine_config(project_fixture.dbe, engine_config_id)
+        start_section_id, chat_section_id, _ = await _seed_state_machine_chat_graph(
+            project_fixture=project_fixture,
+            project_config_id=project_config_id,
+            engine_config_id=engine_config_id,
+            target_action=StateMachineTargetAction(
+                type=StateMachineTargetActionType.send_prompt,
+                inlinePrompt="Review this branch carefully.",
+                threadStrategy=StateMachineThreadStrategy.continue_current_thread,
+            ),
+        )
+        existing_chat_id = ID("chat-scriptable-history")
+        await project_fixture.manager.set_chat_section_chat_id(
+            SetChatSectionChatIdRequest(
+                projectConfigId=project_config_id,
+                sectionId=chat_section_id,
+                chatId=existing_chat_id,
+            )
+        )
+        save_agent_run(
+            project_fixture.dbe,
+            AgentRun(
+                status=AgentRunStatus.completed,
+                inputs={
+                    "runType": SCRIPTABLE_CHAT_RUN_TYPE,
+                    "chatId": str(existing_chat_id),
+                    "projectConfigId": str(project_config_id),
+                    "engineConfigId": "engine-scriptable",
+                    "messages": [],
+                },
+                outputs={
+                    "messages": [
+                        AssistantChatMessage(
+                            content=[MessageTextContent(text="Scriptable reply")]
+                        ).model_dump(mode="json")
+                    ]
+                },
+            ),
+        )
+
+        state, _, _, _ = _build_runtime_state(project_fixture, settings_fixture)
+
+        with runtime_context(state) as ctx:
+            with pytest.raises(HTTPException) as exc_info:
+                await route_start_state_machine_run(
+                    StartStateMachineRunRequest(
+                        projectConfigId=project_config_id,
+                        machineGroupId="workflow-main",
+                        startSectionId=start_section_id,
+                    ),
+                    ctx,
+                )
+
+        assert exc_info.value.status_code == 409
+        assert exc_info.value.detail == "Chat engine mismatch; start a new chat."
+
+
+@pytest.mark.asyncio
 async def test_state_machine_runner_fans_out_start_edges_in_parallel(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1226,12 +1307,15 @@ async def test_state_machine_runner_routes_completed_child_run_to_follow_up_chat
 
         engine_config_id = ID("engine-primary")
         _seed_engine_config(project_fixture.dbe, engine_config_id)
-        start_section_id, _, second_chat_id, _ = (
-            await _seed_state_machine_chat_chain_graph(
-                project_fixture=project_fixture,
-                project_config_id=project_config_id,
-                engine_config_id=engine_config_id,
-            )
+        (
+            start_section_id,
+            _,
+            second_chat_id,
+            _,
+        ) = await _seed_state_machine_chat_chain_graph(
+            project_fixture=project_fixture,
+            project_config_id=project_config_id,
+            engine_config_id=engine_config_id,
         )
 
         state, _, agent_runner, _ = _build_runtime_state(
@@ -1286,7 +1370,9 @@ async def test_state_machine_runner_routes_completed_child_run_to_follow_up_chat
         assert latest.status == AgentRunStatus.running
         assert latest_again.id == latest.id
         assert latest.outputs is not None
-        assert latest.outputs["processedChildTerminalRunIds"] == [str(first_child_run.id)]
+        assert latest.outputs["processedChildTerminalRunIds"] == [
+            str(first_child_run.id)
+        ]
         assert latest.outputs["childRunIds"] == [str(run.id) for run in child_runs]
         assert latest.outputs["dispatchedEdgeActions"] == [
             {
@@ -1300,7 +1386,9 @@ async def test_state_machine_runner_routes_completed_child_run_to_follow_up_chat
                 "stateMachineIteration": 1,
             }
         ]
-        assert dispatched_inputs[1]["stateMachineTargetSectionId"] == str(second_chat_id)
+        assert dispatched_inputs[1]["stateMachineTargetSectionId"] == str(
+            second_chat_id
+        )
         assert [event.type for event in latest.events[-3:]] == [
             "child_run_completed",
             "child_run_edges_activated",
@@ -1324,7 +1412,11 @@ async def test_state_machine_runner_routes_failed_child_run_to_end(
 
         engine_config_id = ID("engine-primary")
         _seed_engine_config(project_fixture.dbe, engine_config_id)
-        start_section_id, _, end_section_id = await _seed_state_machine_failed_to_end_graph(
+        (
+            start_section_id,
+            _,
+            end_section_id,
+        ) = await _seed_state_machine_failed_to_end_graph(
             project_fixture=project_fixture,
             project_config_id=project_config_id,
             engine_config_id=engine_config_id,
@@ -1397,12 +1489,15 @@ async def test_state_machine_runner_routes_signal_filtered_edges(
 
         engine_config_id = ID("engine-primary")
         _seed_engine_config(project_fixture.dbe, engine_config_id)
-        start_section_id, first_chat_id, second_chat_id, _ = (
-            await _seed_state_machine_signal_branch_graph(
-                project_fixture=project_fixture,
-                project_config_id=project_config_id,
-                engine_config_id=engine_config_id,
-            )
+        (
+            start_section_id,
+            first_chat_id,
+            second_chat_id,
+            _,
+        ) = await _seed_state_machine_signal_branch_graph(
+            project_fixture=project_fixture,
+            project_config_id=project_config_id,
+            engine_config_id=engine_config_id,
         )
 
         state, state_machine_runner, agent_runner, _ = _build_runtime_state(
@@ -1481,7 +1576,9 @@ async def test_state_machine_runner_routes_signal_filtered_edges(
             }
         ]
         assert dispatched_inputs[1]["stateMachineIteration"] == 1
-        assert dispatched_inputs[1]["stateMachineTargetSectionId"] == str(second_chat_id)
+        assert dispatched_inputs[1]["stateMachineTargetSectionId"] == str(
+            second_chat_id
+        )
         assert [event.type for event in latest.events[-3:]] == [
             "signal_reported",
             "signal_edges_activated",
@@ -1505,12 +1602,14 @@ async def test_state_machine_runner_advances_iteration_for_signal_retry_loop(
 
         engine_config_id = ID("engine-primary")
         _seed_engine_config(project_fixture.dbe, engine_config_id)
-        start_section_id, loop_chat_id, end_section_id = (
-            await _seed_state_machine_signal_loop_graph(
-                project_fixture=project_fixture,
-                project_config_id=project_config_id,
-                engine_config_id=engine_config_id,
-            )
+        (
+            start_section_id,
+            loop_chat_id,
+            end_section_id,
+        ) = await _seed_state_machine_signal_loop_graph(
+            project_fixture=project_fixture,
+            project_config_id=project_config_id,
+            engine_config_id=engine_config_id,
         )
 
         state, state_machine_runner, agent_runner, _ = _build_runtime_state(
@@ -1602,7 +1701,9 @@ async def test_state_machine_runner_advances_iteration_for_signal_retry_loop(
 
         assert latest_after_first_completion.status == AgentRunStatus.running
         assert latest_after_first_completion.outputs is not None
-        assert latest_after_first_completion.outputs["processedChildTerminalRunIds"] == []
+        assert (
+            latest_after_first_completion.outputs["processedChildTerminalRunIds"] == []
+        )
         assert latest_after_first_completion.outputs["stateMachineIteration"] == 2
 
         assert done_report["status"] == "ok"
@@ -1776,12 +1877,15 @@ async def test_state_machine_runner_fails_closed_when_signal_tool_is_missing_fro
 
         engine_config_id = ID("engine-primary")
         _seed_engine_config(project_fixture.dbe, engine_config_id)
-        start_section_id, first_chat_id, _, _ = (
-            await _seed_state_machine_signal_branch_graph(
-                project_fixture=project_fixture,
-                project_config_id=project_config_id,
-                engine_config_id=engine_config_id,
-            )
+        (
+            start_section_id,
+            first_chat_id,
+            _,
+            _,
+        ) = await _seed_state_machine_signal_branch_graph(
+            project_fixture=project_fixture,
+            project_config_id=project_config_id,
+            engine_config_id=engine_config_id,
         )
         restricted_profile = AgentProfile(
             id=ID("profile-signal-missing"),
@@ -1840,13 +1944,16 @@ async def test_state_machine_runner_waits_for_all_completed_children_before_and_
 
         engine_config_id = ID("engine-primary")
         _seed_engine_config(project_fixture.dbe, engine_config_id)
-        start_section_id, _, gate_section_id, end_section_id = (
-            await _seed_state_machine_gate_chat_graph(
-                project_fixture=project_fixture,
-                project_config_id=project_config_id,
-                engine_config_id=engine_config_id,
-                gate_type=StateMachineGateType.AND,
-            )
+        (
+            start_section_id,
+            _,
+            gate_section_id,
+            end_section_id,
+        ) = await _seed_state_machine_gate_chat_graph(
+            project_fixture=project_fixture,
+            project_config_id=project_config_id,
+            engine_config_id=engine_config_id,
+            gate_type=StateMachineGateType.AND,
         )
 
         state, _, agent_runner, _ = _build_runtime_state(
@@ -1943,7 +2050,12 @@ async def test_state_machine_runner_blocks_and_gate_when_required_completion_bec
 
         engine_config_id = ID("engine-primary")
         _seed_engine_config(project_fixture.dbe, engine_config_id)
-        start_section_id, _, gate_section_id, _ = await _seed_state_machine_gate_chat_graph(
+        (
+            start_section_id,
+            _,
+            gate_section_id,
+            _,
+        ) = await _seed_state_machine_gate_chat_graph(
             project_fixture=project_fixture,
             project_config_id=project_config_id,
             engine_config_id=engine_config_id,
@@ -2011,7 +2123,9 @@ async def test_state_machine_runner_blocks_and_gate_when_required_completion_bec
         assert len(blocked_detail["requiredEdgeIds"]) == 2
         assert len(blocked_detail["impossibleEdgeIds"]) == 2
         assert latest.outputs["activeChildRunIds"] == []
-        assert latest.outputs["processedChildTerminalRunIds"] == [str(first_child_run.id)]
+        assert latest.outputs["processedChildTerminalRunIds"] == [
+            str(first_child_run.id)
+        ]
         failure_summary = latest.outputs["failureSummary"]
         assert failure_summary["reason"] == "run_blocked"
         assert failure_summary["message"] == "Workflow blocked at gate Join."
@@ -2027,7 +2141,9 @@ async def test_state_machine_runner_blocks_and_gate_when_required_completion_bec
         assert len(latest.events[-4].payload["impossibleEdgeIds"]) == 1
 
 
-@pytest.mark.parametrize("gate_type", [StateMachineGateType.OR, StateMachineGateType.XOR])
+@pytest.mark.parametrize(
+    "gate_type", [StateMachineGateType.OR, StateMachineGateType.XOR]
+)
 @pytest.mark.asyncio
 async def test_state_machine_runner_blocks_or_and_xor_when_all_matching_outputs_are_exhausted(
     gate_type: StateMachineGateType,
@@ -2045,7 +2161,12 @@ async def test_state_machine_runner_blocks_or_and_xor_when_all_matching_outputs_
 
         engine_config_id = ID("engine-primary")
         _seed_engine_config(project_fixture.dbe, engine_config_id)
-        start_section_id, _, gate_section_id, _ = await _seed_state_machine_gate_chat_graph(
+        (
+            start_section_id,
+            _,
+            gate_section_id,
+            _,
+        ) = await _seed_state_machine_gate_chat_graph(
             project_fixture=project_fixture,
             project_config_id=project_config_id,
             engine_config_id=engine_config_id,
@@ -2116,7 +2237,9 @@ async def test_state_machine_runner_blocks_or_and_xor_when_all_matching_outputs_
         ]
 
 
-@pytest.mark.parametrize("gate_type", [StateMachineGateType.OR, StateMachineGateType.XOR])
+@pytest.mark.parametrize(
+    "gate_type", [StateMachineGateType.OR, StateMachineGateType.XOR]
+)
 @pytest.mark.asyncio
 async def test_state_machine_runner_gate_types_or_and_xor_fire_after_single_completion(
     gate_type: StateMachineGateType,
@@ -2134,13 +2257,16 @@ async def test_state_machine_runner_gate_types_or_and_xor_fire_after_single_comp
 
         engine_config_id = ID("engine-primary")
         _seed_engine_config(project_fixture.dbe, engine_config_id)
-        start_section_id, _, gate_section_id, end_section_id = (
-            await _seed_state_machine_gate_chat_graph(
-                project_fixture=project_fixture,
-                project_config_id=project_config_id,
-                engine_config_id=engine_config_id,
-                gate_type=gate_type,
-            )
+        (
+            start_section_id,
+            _,
+            gate_section_id,
+            end_section_id,
+        ) = await _seed_state_machine_gate_chat_graph(
+            project_fixture=project_fixture,
+            project_config_id=project_config_id,
+            engine_config_id=engine_config_id,
+            gate_type=gate_type,
         )
 
         state, _, agent_runner, _ = _build_runtime_state(
@@ -2182,7 +2308,9 @@ async def test_state_machine_runner_gate_types_or_and_xor_fire_after_single_comp
         assert started.status == AgentRunStatus.running
         assert latest.status == AgentRunStatus.completed
         assert latest.outputs is not None
-        assert latest.outputs["processedChildTerminalRunIds"] == [str(first_child_run.id)]
+        assert latest.outputs["processedChildTerminalRunIds"] == [
+            str(first_child_run.id)
+        ]
         assert latest.outputs["firedGateSectionIds"] == [str(gate_section_id)]
         assert latest.outputs["reachedEndSectionIds"] == [str(end_section_id)]
 
@@ -2365,9 +2493,7 @@ async def test_state_machine_runner_stop_cancels_running_child_runs(
         assert stopped_child_run_ids == [child_runs[0].id]
         assert latest.status == AgentRunStatus.cancelled
         assert latest.events[-2].type == "child_runs_cancelled"
-        assert latest.events[-2].payload == {
-            "childRunIds": [str(child_runs[0].id)]
-        }
+        assert latest.events[-2].payload == {"childRunIds": [str(child_runs[0].id)]}
         assert latest.events[-1].type == "run_cancelled"
 
 
@@ -2466,7 +2592,9 @@ async def test_state_machine_runner_reset_clears_latest_running_machine_state(
 
 
 @pytest.mark.asyncio
-async def test_state_machine_run_routes_reject_draft_machine_groups_without_end_sections() -> None:
+async def test_state_machine_run_routes_reject_draft_machine_groups_without_end_sections() -> (
+    None
+):
     async with (
         real_project_manager() as project_fixture,
         real_settings_manager() as settings_fixture,
