@@ -40,6 +40,14 @@ type LLMConfigPayload = {
   codexMcpImportedAt?: string | null;
 };
 
+type ManagedAPIKeysSnapshot = {
+  apiKeys: Record<string, string>;
+  revision: number;
+  corrupt?: boolean;
+  errorCode?: string | null;
+  message?: string | null;
+};
+
 test.describe.serial("chat composer controls", () => {
   test("chat sections keep a compact composer with no inline settings controls", async ({
     page,
@@ -1153,6 +1161,186 @@ test.describe.serial("chat composer controls", () => {
             timeout: 5000,
           })
           .catch(() => {});
+      }
+      await engineCleanup();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("project chat keeps thinking disabled for managed Azure OpenAI engines without backend runtime support", async ({
+    page,
+  }) => {
+    await setOverviewTab(page, "ProjectAIChat");
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const engineCleanup = await ensureManagedChatEngine(page);
+    const backendOrigin =
+      process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+
+    let createdEngineConfigId: string | null = null;
+    let initialLLMConfig: LLMConfigPayload | null = null;
+    let initialAPIKeysSnapshot: ManagedAPIKeysSnapshot | null = null;
+    let submittedPayload:
+      | {
+          thinking?: boolean;
+          engineConfigId?: string;
+        }
+      | undefined;
+
+    await page.route("**/api/getLLMResponse", async (route) => {
+      submittedPayload = route.request().postDataJSON() as
+        | {
+            thinking?: boolean;
+            engineConfigId?: string;
+          }
+        | undefined;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify("chat-azure-thinking-disabled"),
+      });
+    });
+
+    try {
+      const llmConfigResponse = await page.request.get(
+        `${backendOrigin}/api/llm/config`,
+      );
+      expect(llmConfigResponse.ok()).toBe(true);
+      initialLLMConfig = (await llmConfigResponse.json()) as LLMConfigPayload;
+
+      const apiKeysResponse = await page.request.get(
+        `${backendOrigin}/api/llm/apiKeys`,
+      );
+      expect(apiKeysResponse.ok()).toBe(true);
+      initialAPIKeysSnapshot =
+        (await apiKeysResponse.json()) as ManagedAPIKeysSnapshot;
+
+      const azureConfigId = `e2e-azure-thinking-${Date.now()}`;
+      const updatedLLMConfig: LLMConfigPayload = {
+        ...initialLLMConfig,
+        configs: {
+          ...initialLLMConfig.configs,
+          [azureConfigId]: {
+            model: "gpt-5-codex",
+            provider: "azure",
+            api_key_env: "AZURE_OPENAI_API_KEY",
+            base_url: "https://example-resource.openai.azure.com",
+            other_params: {
+              api_version: "2024-06-01",
+              reasoning_effort: "high",
+            },
+          },
+        },
+      };
+      await postBackend(page, "/llm/config", updatedLLMConfig);
+      await page.request.post(`${backendOrigin}/api/llm/apiKeys`, {
+        data: {
+          apiKeys: {
+            ...initialAPIKeysSnapshot.apiKeys,
+            AZURE_OPENAI_API_KEY: "e2e-azure-secret",
+          },
+          expectedRevision: initialAPIKeysSnapshot.revision,
+        },
+      });
+
+      const createdEngine = await postBackend<EngineConfigSummary>(
+        page,
+        "/createEngineConfig",
+        {
+          name: "Azure Thinking Disabled E2E",
+          engineType: "setta_llm",
+          settaLlmConfigId: azureConfigId,
+          defaults: {},
+        },
+      );
+      createdEngineConfigId = createdEngine?.id ?? null;
+      if (!createdEngineConfigId) {
+        throw new Error("Missing Azure engine config id.");
+      }
+
+      const engineConfigsResponse = await page.request.get(
+        `${backendOrigin}/api/getEngineConfigs`,
+      );
+      expect(engineConfigsResponse.ok()).toBe(true);
+      const engineConfigs =
+        (await engineConfigsResponse.json()) as EngineConfigSummary[];
+      const createdRuntimeSupport =
+        engineConfigs.find((config) => config.id === createdEngineConfigId)
+          ?.runtimeSupport ?? null;
+      expect(createdRuntimeSupport?.thinking).toBe(false);
+
+      await page.evaluate(async () => {
+        const { loadEngineConfigs, loadLLMApiKeys, loadLLMConfig } =
+          await import("/src/state/actions/ai.ts");
+        await loadLLMConfig();
+        await loadLLMApiKeys();
+        await loadEngineConfigs(true);
+      });
+
+      await setOverviewTab(page, "ProjectAIChat");
+      const overviewPane = page.locator("#OverviewPane");
+      await expect(
+        overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+      ).toBeVisible();
+
+      const projectChatSurface = await getVisibleProjectChatSurface(page);
+      await selectProjectAiEngine(page, "Azure Thinking Disabled E2E");
+
+      await expect(
+        projectChatSurface.getByRole("button", { name: "Thinking" }),
+      ).toHaveCount(0);
+
+      const input = projectChatSurface.getByPlaceholder("Type a message...");
+      await expect(input).toBeVisible();
+      await input.fill("Trigger managed Azure chat");
+      await input.press("Enter");
+
+      await expect.poll(() => submittedPayload?.engineConfigId ?? null).toBe(
+        createdEngineConfigId,
+      );
+      expect(submittedPayload?.thinking).toBe(false);
+    } finally {
+      try {
+        await setOverviewTab(page, "ProjectAIChat");
+        await selectProjectAiEngine(page, "setta");
+      } catch {
+        // Best-effort teardown: if the test already failed, don't block cleanup.
+      }
+      if (createdEngineConfigId) {
+        await page.request
+          .post(`${backendOrigin}/api/deleteEngineConfig`, {
+            data: { configId: createdEngineConfigId },
+            timeout: 5000,
+          })
+          .catch(() => {});
+      }
+      if (initialLLMConfig) {
+        await page.request
+          .post(`${backendOrigin}/api/llm/config`, {
+            data: initialLLMConfig,
+            timeout: 5000,
+          })
+          .catch(() => {});
+      }
+      if (initialAPIKeysSnapshot) {
+        const currentApiKeysResponse = await page.request
+          .get(`${backendOrigin}/api/llm/apiKeys`, {
+            timeout: 5000,
+          })
+          .catch(() => null);
+        if (currentApiKeysResponse?.ok()) {
+          const currentApiKeysSnapshot =
+            (await currentApiKeysResponse.json()) as ManagedAPIKeysSnapshot;
+          await page.request
+            .post(`${backendOrigin}/api/llm/apiKeys`, {
+              data: {
+                apiKeys: initialAPIKeysSnapshot.apiKeys,
+                expectedRevision: currentApiKeysSnapshot.revision,
+              },
+              timeout: 5000,
+            })
+            .catch(() => {});
+        }
       }
       await engineCleanup();
       await cleanupIsolatedProject(page, projectContext);
