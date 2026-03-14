@@ -1714,3 +1714,32 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/aiChatControls.ts`, now the largest
     authored/shared state hotspot, by separating stop/resume orchestration from
     approval/question response flows and chat-surface sync helpers.
+
+## 2026-03-14 23:52:09 PDT
+
+- Slice completed: split AI chat stop-state snapshots or reconciliation and
+  external approval/question response transport away from stop orchestration
+- Key files touched:
+  - `frontend/src/state/actions/aiChatControls.ts`
+  - `frontend/src/state/actions/aiChatStopState.ts`
+  - `frontend/src/state/actions/aiChatStopState.test.ts`
+  - `frontend/src/state/actions/aiExternalAgentResponses.ts`
+  - `frontend/src/state/actions/aiExternalAgentResponses.test.ts`
+  - `frontend/src/components/Chat/ApprovalCard.tsx`
+  - `frontend/src/components/Chat/QuestionCard.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/aiChatStopState.test.ts src/state/actions/aiExternalAgentResponses.test.ts src/state/actions/aiStopProjectChat.test.ts src/state/actions/aiWaitingForResponse.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.test.tsx src/components/Section/Layouts/ChatArea.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/actions/aiChatControls.ts src/state/actions/aiChatStopState.ts src/state/actions/aiChatStopState.test.ts src/state/actions/aiExternalAgentResponses.ts src/state/actions/aiExternalAgentResponses.test.ts src/components/Chat/ApprovalCard.tsx src/components/Chat/QuestionCard.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `73b8f88d4`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/websocketLifecycle.ts`, now the largest
+    authored/shared state hotspot, by separating reconnect/auth recovery from
+    socket-open bootstrap and share-session restoration.
