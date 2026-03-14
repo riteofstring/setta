@@ -252,7 +252,9 @@ class ListenerDependencyId:
 @dataclass(frozen=True, slots=True)
 class ListenerDependencyMetadataEntry:
     dependencyKey: BaseDependencyKeyUnion
+    name: str
     fullPathName: str
+    dependencies: tuple[BaseDependencyKeyUnion, ...] = ()
     sectionType: SectionType | None = None
     codeObjType: CodeObjType | None = None
     controlCodeObjId: "ID | None" = None
@@ -271,13 +273,24 @@ class ListenerDependencyMetadata:
     def __init__(self, entries: Sequence[ListenerDependencyMetadataEntry]) -> None:
         by_key: dict[BaseDependencyKeyUnion, ListenerDependencyMetadataEntry] = {}
         by_name: dict[str, ListenerDependencyMetadataEntry] = {}
+        dependents_by_key: dict[
+            BaseDependencyKeyUnion, list[BaseDependencyKeyUnion]
+        ] = {}
         ordered_names: list[str] = []
         for entry in entries:
             by_key[entry.dependencyKey] = entry
             by_name[entry.fullPathName] = entry
             ordered_names.append(entry.fullPathName)
+            for dependency_key in entry.dependencies:
+                dependents_by_key.setdefault(dependency_key, []).append(
+                    entry.dependencyKey
+                )
         self._by_key = by_key
         self._by_name = by_name
+        self._dependents_by_key = {
+            dependency_key: tuple(dependents)
+            for dependency_key, dependents in dependents_by_key.items()
+        }
         self._ordered_names = tuple(ordered_names)
 
     @classmethod
@@ -306,7 +319,13 @@ class ListenerDependencyMetadata:
             entries.append(
                 ListenerDependencyMetadataEntry(
                     dependencyKey=dep_key,
+                    name=node.name,
                     fullPathName=node.full_path_name,
+                    dependencies=tuple(
+                        child_dep_key
+                        for child_dep_key, is_used in node.deps.items()
+                        if is_used
+                    ),
                     sectionType=section_type,
                     codeObjType=code_obj_type,
                     controlCodeObjId=control_code_obj_id,
@@ -328,7 +347,9 @@ class ListenerDependencyMetadata:
             [
                 ListenerDependencyMetadataEntry(
                     dependencyKey=entry.dependencyKey,
+                    name=entry.name,
                     fullPathName=entry.fullPathName,
+                    dependencies=tuple(entry.dependencies),
                     sectionType=entry.sectionType,
                     codeObjType=entry.codeObjType,
                     controlCodeObjId=entry.controlCodeObjId,
@@ -367,6 +388,12 @@ class ListenerDependencyMetadata:
 
     def names(self) -> tuple[str, ...]:
         return self._ordered_names
+
+    def dependents(
+        self,
+        dep_key: BaseDependencyKeyUnion,
+    ) -> tuple[BaseDependencyKeyUnion, ...]:
+        return self._dependents_by_key.get(dep_key, ())
 
 
 class ListenerDependencyIds:
@@ -1995,9 +2022,9 @@ class SettaListener:
             return
 
         if runtime_state.s_instance is None:
+            updated_cache = dict(self._dependency_cache)
             affected_dependency_names: dict[BaseDependencyKeyUnion, str] = {}
-            metadata_applied_dependencies: dict[str, Any] = {}
-            fallback_required = False
+            dirty_dependency_keys: set[BaseDependencyKeyUnion] = set()
             for delta in content.deltas:
                 dep_key = delta.dependency
                 try:
@@ -2029,8 +2056,8 @@ class SettaListener:
                 except (AttributeError, KeyError, IndexError, ValueError) as error:
                     logger.debug(
                         (
-                            "Listener %s falling back to local graph for realtime "
-                            "delta %s (%s): %s"
+                            "Listener %s could not hydrate realtime delta %s "
+                            "(%s) from metadata: %s"
                         ),
                         self._log_identifier,
                         dependency_name,
@@ -2041,27 +2068,16 @@ class SettaListener:
                     hydrated_value = _UNAVAILABLE
                 if hydrated_value is not _UNAVAILABLE:
                     affected_dependency_names[dep_key] = dependency_name
-                    metadata_applied_dependencies[dependency_name] = hydrated_value
+                    updated_cache[dependency_name] = hydrated_value
+                    dirty_dependency_keys.add(dep_key)
                     continue
-                node = runtime_state.dependency_graph.graph.get(dep_key)
-                if node is None:
-                    logger.error(
-                        "Listener %s received realtime delta for unsupported dependency key %s without a graph fallback",
-                        self._log_identifier,
-                        dep_key,
-                    )
-                    continue
-                runtime_state.dependency_graph.change_value(dep_key, delta.value)
-                affected_dependency_names[dep_key] = dependency_name
-                fallback_required = True
-            if fallback_required:
-                updated_cache = self._build_dependency_cache_from_runtime_state(
-                    runtime_state
-                )
-                updated_cache.update(metadata_applied_dependencies)
-            else:
-                updated_cache = dict(self._dependency_cache)
-                updated_cache.update(metadata_applied_dependencies)
+                updated_cache.pop(dependency_name, None)
+                dirty_dependency_keys.add(dep_key)
+            self._recompute_metadata_dependents(
+                runtime_state.dependency_metadata,
+                updated_cache,
+                dirty_dependency_keys,
+            )
             self._dependency_cache = updated_cache
 
             callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
@@ -2602,6 +2618,99 @@ class SettaListener:
             dependency=dependency,
             expression=expression,
         )
+
+    def _build_metadata_cached_dependency_value(
+        self,
+        dependency_metadata: ListenerDependencyMetadata,
+        dep_key: BaseDependencyKeyUnion,
+        cache_by_name: dict[str, Any],
+        values_by_key: dict[BaseDependencyKeyUnion, Any],
+        visiting: set[BaseDependencyKeyUnion],
+    ) -> Any:
+        if dep_key in values_by_key:
+            return values_by_key[dep_key]
+        if dep_key in visiting:
+            return _UNAVAILABLE
+        entry = dependency_metadata.entry_for_key(dep_key)
+        if not entry.dependencies:
+            if entry.fullPathName not in cache_by_name:
+                return _UNAVAILABLE
+            values_by_key[dep_key] = cache_by_name[entry.fullPathName]
+            return values_by_key[dep_key]
+
+        visiting.add(dep_key)
+        try:
+            if entry.codeObjType is CodeObjType.NestedParam or entry.sectionType in {
+                SectionType.Dict,
+                SectionType.Group,
+            }:
+                payload: dict[str, Any] = {}
+                for child_dep_key in entry.dependencies:
+                    child_entry = dependency_metadata.entry_for_key(child_dep_key)
+                    child_value = self._build_metadata_cached_dependency_value(
+                        dependency_metadata,
+                        child_dep_key,
+                        cache_by_name,
+                        values_by_key,
+                        visiting,
+                    )
+                    if child_value is _UNAVAILABLE:
+                        return _UNAVAILABLE
+                    payload[child_entry.name] = child_value
+                values_by_key[dep_key] = payload
+                return payload
+            if entry.sectionType is SectionType.ListRoot:
+                items: list[Any] = []
+                for child_dep_key in entry.dependencies:
+                    child_value = self._build_metadata_cached_dependency_value(
+                        dependency_metadata,
+                        child_dep_key,
+                        cache_by_name,
+                        values_by_key,
+                        visiting,
+                    )
+                    if child_value is _UNAVAILABLE:
+                        return _UNAVAILABLE
+                    items.append(child_value)
+                values_by_key[dep_key] = items
+                return items
+            return _UNAVAILABLE
+        finally:
+            visiting.discard(dep_key)
+
+    def _recompute_metadata_dependents(
+        self,
+        dependency_metadata: ListenerDependencyMetadata,
+        cache_by_name: dict[str, Any],
+        dirty_dependency_keys: set[BaseDependencyKeyUnion],
+    ) -> None:
+        if not dirty_dependency_keys:
+            return
+        queue = list(dirty_dependency_keys)
+        queued = set(dirty_dependency_keys)
+        while queue:
+            child_dep_key = queue.pop(0)
+            for parent_dep_key in dependency_metadata.dependents(child_dep_key):
+                parent_entry = dependency_metadata.entry_for_key(parent_dep_key)
+                previous_value = cache_by_name.get(parent_entry.fullPathName, _MISSING)
+                next_value = self._build_metadata_cached_dependency_value(
+                    dependency_metadata,
+                    parent_dep_key,
+                    cache_by_name,
+                    values_by_key={},
+                    visiting=set(),
+                )
+                if next_value is _UNAVAILABLE:
+                    cache_by_name.pop(parent_entry.fullPathName, None)
+                else:
+                    cache_by_name[parent_entry.fullPathName] = next_value
+                current_value = cache_by_name.get(parent_entry.fullPathName, _MISSING)
+                if previous_value == current_value:
+                    continue
+                if parent_dep_key in queued:
+                    continue
+                queue.append(parent_dep_key)
+                queued.add(parent_dep_key)
 
     def _register_scheduler_callback(self, spec: ListenerCallbackSpec) -> None:
         async def executor(

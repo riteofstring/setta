@@ -85,13 +85,16 @@ Current state:
     metadata the retained Python client needs for active realtime delta
     hydration, so no-runtime listener callbacks can apply metadata-expressible
     direct deltas without rebuilding the local Python dependency graph
-  - listener coverage and force-refresh reads/writes
+  - Go listener dependency catalogs now also carry canonical child dependency
+    edges and node names, and retained Python uses that metadata to recompute
+    dict/list-style composite cached values after no-runtime realtime child
+    deltas instead of mutating the local Python dependency graph
+- listener coverage and force-refresh reads/writes
   - listener websocket DTOs in `internal/realtime`
 - Python still owns:
   - local dependency-graph rebuilding and generated runtime state for
-    unsupported live delta hydration fallback, generated-state access, and any
-    snapshot values or dependency shapes the current Go metadata payload still
-    cannot render directly
+    generated-state access and any snapshot values or computed dependency
+    shapes the current Go metadata payload still cannot render directly
   - share listener runtime coupling through
     `backend/setta/share/listener_runtime.py`
   - dormant broader built-in listener endpoint inventory/docs outside the
@@ -257,6 +260,9 @@ Python/share listeners can bootstrap entirely against the Go listener route.
 - Prefer Go-provided dependency metadata for no-runtime direct realtime delta
   hydration, and keep any remaining local graph fallback explicit for
   unsupported composite or computed dependency shapes.
+- Prefer Go-provided dependency edges for no-runtime composite cache
+  recomputation after child deltas, and fail closed for unsupported computed
+  deltas instead of mutating the retained Python graph in the live path.
 
 Exit condition:
 listener tests pass without Python owning dependency graph or runtime state.

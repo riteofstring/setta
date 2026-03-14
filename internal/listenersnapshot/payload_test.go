@@ -78,7 +78,12 @@ func TestBuildListenerDependencyCatalogFromGraphIncludesValueCodecMetadata(t *te
 		Nodes: map[codegen.PythonDependencyKey]codegen.PythonDependencyNode{
 			sectionKey: &codegen.PythonSectionNode{
 				PythonDependencyNodeBase: codegen.PythonDependencyNodeBase{
+					Name:         "meta",
 					FullPathName: "section__meta",
+					Deps: map[codegen.PythonDependencyKey]bool{
+						paramKey: true,
+					},
+					DepOrder: []codegen.PythonDependencyKey{paramKey},
 				},
 				SectionType:                "MetaControl",
 				Representation:             projectstate.PythonSectionRepresentationFilePath,
@@ -88,6 +93,7 @@ func TestBuildListenerDependencyCatalogFromGraphIncludesValueCodecMetadata(t *te
 			},
 			paramKey: &codegen.PythonParamNode{
 				PythonDependencyNodeBase: codegen.PythonDependencyNodeBase{
+					Name:         "dropzone",
 					FullPathName: "section__dropzone",
 				},
 				CodeObjectType:      "DropzoneParam",
@@ -117,6 +123,12 @@ func TestBuildListenerDependencyCatalogFromGraphIncludesValueCodecMetadata(t *te
 	if sectionEntry.SectionType != "MetaControl" {
 		t.Fatalf("expected section type MetaControl, got %q", sectionEntry.SectionType)
 	}
+	if sectionEntry.Name != "meta" {
+		t.Fatalf("expected section entry name meta, got %q", sectionEntry.Name)
+	}
+	if len(sectionEntry.Dependencies) != 1 || sectionEntry.Dependencies[0] != "section-controls.param-dropzone" {
+		t.Fatalf("expected section dependencies [section-controls.param-dropzone], got %#v", sectionEntry.Dependencies)
+	}
 	if sectionEntry.ControlCodeObjID != "param-toggle" {
 		t.Fatalf("expected control code obj id param-toggle, got %q", sectionEntry.ControlCodeObjID)
 	}
@@ -136,6 +148,9 @@ func TestBuildListenerDependencyCatalogFromGraphIncludesValueCodecMetadata(t *te
 	}
 	if paramEntry.CodeObjType != "DropzoneParam" {
 		t.Fatalf("expected code obj type DropzoneParam, got %q", paramEntry.CodeObjType)
+	}
+	if paramEntry.Name != "dropzone" {
+		t.Fatalf("expected param entry name dropzone, got %q", paramEntry.Name)
 	}
 	if paramEntry.ValueRepresentation != "file_read" {
 		t.Fatalf("expected value representation file_read, got %q", paramEntry.ValueRepresentation)

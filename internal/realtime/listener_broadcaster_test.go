@@ -393,7 +393,9 @@ func TestListenerBroadcasterForceRefreshIncludesDependencyCatalog(t *testing.T) 
 			Entries: []ListenerDependencyCatalogEntry{
 				{
 					DependencyKey:              "section-a.param-a",
+					Name:                       "paramA",
 					FullPathName:               "Section__param",
+					Dependencies:               []string{"section-a"},
 					CodeObjType:                "TextParam",
 					ValueRepresentation:        "string",
 					SectionRepresentation:      "expression",
@@ -429,8 +431,14 @@ func TestListenerBroadcasterForceRefreshIncludesDependencyCatalog(t *testing.T) 
 	if entry.DependencyKey != "section-a.param-a" {
 		t.Fatalf("expected dependency key section-a.param-a, got %q", entry.DependencyKey)
 	}
+	if entry.Name != "paramA" {
+		t.Fatalf("expected dependency name paramA, got %q", entry.Name)
+	}
 	if entry.FullPathName != "Section__param" {
 		t.Fatalf("expected dependency full path name Section__param, got %q", entry.FullPathName)
+	}
+	if len(entry.Dependencies) != 1 || entry.Dependencies[0] != "section-a" {
+		t.Fatalf("expected dependency edges [section-a], got %#v", entry.Dependencies)
 	}
 	if entry.CodeObjType != "TextParam" {
 		t.Fatalf("expected dependency code obj type TextParam, got %q", entry.CodeObjType)

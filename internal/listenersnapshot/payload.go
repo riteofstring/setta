@@ -79,7 +79,21 @@ func buildListenerDependencyCatalogFromGraph(graph *codegen.PythonDependencyGrap
 		}
 		entry := realtime.ListenerDependencyCatalogEntry{
 			DependencyKey: canonicalListenerDependencyKey(key),
+			Name:          strings.TrimSpace(node.Base().Name),
 			FullPathName:  strings.TrimSpace(node.Base().FullPathName),
+		}
+		dependencies := orderedListenerDependencyKeys(node.Base().Deps, node.Base().DepOrder)
+		if len(dependencies) > 0 {
+			entry.Dependencies = make([]string, 0, len(dependencies))
+			for _, depKey := range dependencies {
+				if !node.Base().Deps[depKey] {
+					continue
+				}
+				entry.Dependencies = append(
+					entry.Dependencies,
+					canonicalListenerDependencyKey(depKey),
+				)
+			}
 		}
 		switch typed := node.(type) {
 		case *codegen.PythonSectionNode:

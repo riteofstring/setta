@@ -420,7 +420,11 @@ func cloneListenerDependencyCatalog(catalog *ListenerDependencyCatalog) *Listene
 	}
 	clonedEntries := make([]ListenerDependencyCatalogEntry, 0, len(catalog.Entries))
 	for _, entry := range catalog.Entries {
-		clonedEntries = append(clonedEntries, entry)
+		clonedEntry := entry
+		if len(entry.Dependencies) > 0 {
+			clonedEntry.Dependencies = append([]string(nil), entry.Dependencies...)
+		}
+		clonedEntries = append(clonedEntries, clonedEntry)
 	}
 	return &ListenerDependencyCatalog{Entries: clonedEntries}
 }

@@ -16,7 +16,12 @@ from setta.api.listener import (
     SettaListener,
 )
 from setta.code_gen.dependency_graph import DependencyGraph, ParamNode
-from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
+from setta.types.code_obj_impls import (
+    CodeObjType,
+    CodeParamCodeObjImpl,
+    NestedParamCodeObjImpl,
+    ParameterPassingStyle,
+)
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import create_dep_key
 from setta.types.binary_content import BinaryContentRef
@@ -43,7 +48,7 @@ from setta.types.project_config import (
     TopLevelSectionLayout,
 )
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.section_impls import TextBlockSectionImpl
+from setta.types.section_impls import DictSectionImpl, TextBlockSectionImpl
 from setta.types.websocket import (
     WebsocketMsgListenerDependencyEvent,
     WebsocketMsgListenerError,
@@ -85,6 +90,100 @@ PROJECT_TYPED_ID = ID("project-typed")
 SECTION_ONE_ID = ID("section-1")
 PARAM_SLIDER_ID = ID("param-slider")
 PARAM_SWITCH_ID = ID("param-switch")
+
+
+def _build_nested_controls_project_state(
+    project_config_id: ID,
+) -> tuple[ProjectStateSingleConfig, ID, ID]:
+    section_id = ID(f"{project_config_id}-controls")
+    section_impl_id = ID(f"{project_config_id}-section-impl")
+    section_variant_id = ID(f"{project_config_id}-section-variant")
+
+    root_param_id = ID(f"{project_config_id}-root-param")
+    root_param_impl_id = ID(f"{project_config_id}-root-param-impl")
+    root_param_variant_id = ID(f"{project_config_id}-root-param-variant")
+
+    param_id = ID(f"{project_config_id}-count-param")
+    param_impl_id = ID(f"{project_config_id}-count-param-impl")
+    param_variant_id = ID(f"{project_config_id}-count-param-variant")
+
+    root_param_impl = NestedParamCodeObjImpl(
+        id=root_param_impl_id,
+        children=[param_id],
+    )
+    root_param_variant = Variant(
+        id=root_param_variant_id,
+        impl=root_param_impl.id,
+        nonPresetImpls=compute_initial_nonPresetImpls(root_param_impl),
+    )
+    root_param_core = Core(
+        id=root_param_id,
+        name="root",
+        variants=[root_param_variant.id],
+        defaultVariant=root_param_variant.id,
+    )
+
+    param_impl = CodeParamCodeObjImpl(
+        id=param_impl_id,
+        value="1",
+    )
+    param_variant = Variant(
+        id=param_variant_id,
+        impl=param_impl.id,
+        nonPresetImpls=compute_initial_nonPresetImpls(param_impl),
+    )
+    param_core = Core(
+        id=param_id,
+        name="count",
+        variants=[param_variant.id],
+        defaultVariant=param_variant.id,
+    )
+
+    section_impl = DictSectionImpl(
+        id=section_impl_id,
+        topLevelParamId=root_param_id,
+        codeObjVariantMap={
+            root_param_id: root_param_variant.id,
+            param_id: param_variant.id,
+        },
+    )
+    section_variant = Variant(
+        id=section_variant_id,
+        impl=section_impl.id,
+        nonPresetImpls=compute_initial_nonPresetImpls(section_impl),
+    )
+    section_core = Core(
+        id=section_id,
+        name="Controls",
+        variants=[section_variant.id],
+        defaultVariant=section_variant.id,
+    )
+
+    project_config = ProjectConfig(
+        id=project_config_id,
+        name=f"Project {project_config_id}",
+        sectionVariantMap={section_id: section_variant.id},
+        topLevelSections={section_id: TopLevelSectionLayout()},
+    )
+    project_state = ProjectStateSingleConfig(
+        projectConfig=project_config,
+        sections={section_id: section_core},
+        sectionImpls={section_impl.id: section_impl},
+        sectionVariants={section_variant.id: section_variant},
+        codeObjs={
+            root_param_id: root_param_core,
+            param_id: param_core,
+        },
+        codeObjImpls={
+            root_param_impl.id: root_param_impl,
+            param_impl.id: param_impl,
+        },
+        codeObjVariants={
+            root_param_variant.id: root_param_variant,
+            param_variant.id: param_variant,
+        },
+    )
+    return project_state, section_id, param_id
 
 
 @pytest.mark.asyncio
@@ -1071,7 +1170,9 @@ class TestSettaListenerBootstrapFailure:
             entries=[
                 ListenerDependencyCatalogEntry(
                     dependencyKey=dependency_entry.dependencyKey,
+                    name=dependency_entry.name,
                     fullPathName=dependency_entry.fullPathName,
+                    dependencies=list(dependency_entry.dependencies),
                     sectionType=dependency_entry.sectionType,
                     codeObjType=dependency_entry.codeObjType,
                     controlCodeObjId=dependency_entry.controlCodeObjId,
@@ -1188,12 +1289,14 @@ class TestSettaListenerBootstrapFailure:
             entries=[
                 ListenerDependencyCatalogEntry(
                     dependencyKey=slider_key,
+                    name="slider",
                     fullPathName="section__slider",
                     codeObjType=CodeObjType.SliderParam,
                     valueRepresentation=CodeObjValueRepresentationMode.expression,
                 ),
                 ListenerDependencyCatalogEntry(
                     dependencyKey=switch_key,
+                    name="switch",
                     fullPathName="section__switch",
                     codeObjType=CodeObjType.SwitchParam,
                     valueRepresentation=CodeObjValueRepresentationMode.expression,
@@ -1250,6 +1353,76 @@ class TestSettaListenerBootstrapFailure:
 
         assert listener._dependency_cache["section__switch"] is True
         assert switch_events == [(True, True)]
+        assert listener._get_last_realtime_sequence() == 1
+
+    async def test_realtime_recomputes_composite_cache_from_metadata_when_runtime_state_is_unavailable(
+        self,
+    ) -> None:
+        project_state, section_id, param_id = _build_nested_controls_project_state(
+            ID("project-composite")
+        )
+        listener = SettaListener(project_name=project_state.projectConfig.name)
+        runtime_state = listener._build_runtime_state(project_state)
+        initial_cache = listener._build_dependency_cache_from_runtime_state(
+            runtime_state
+        )
+        section_key = create_dep_key(sectionId=section_id)
+        count_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
+        section_name = runtime_state.dependency_metadata.dependency_name(section_key)
+        count_name = runtime_state.dependency_metadata.dependency_name(count_key)
+        composite_names = [
+            name
+            for name in runtime_state.dependency_metadata.names()
+            if name not in {section_name, count_name}
+        ]
+        if composite_names:
+            raise AssertionError(
+                f"expected no intermediate composite dependency, got {composite_names!r}"
+            )
+        callback_calls: list[tuple[dict[str, Any], dict[str, Any], Any]] = []
+
+        @listener.listen(deps=(count_name,))
+        def on_count(state, ctx) -> None:
+            callback_calls.append(
+                (
+                    getattr(state, section_name),
+                    ctx.values.by_id(section_id),
+                    ctx.changed[count_name],
+                )
+            )
+
+        listener._runtime_state = ListenerRuntimeState(
+            dependency_metadata=runtime_state.dependency_metadata,
+            dependency_graph=_GraphlessDependencyGraph(),
+            s_instance=None,
+        )
+        listener._project_config_id = project_state.projectConfig.id
+        listener._dependency_cache = dict(initial_cache)
+        listener._refresh_callback_dependency_metadata(
+            listener._runtime_state.dependency_metadata
+        )
+
+        await listener._handle_realtime_event(
+            ListenerRealtimeEventContent(
+                projectConfigId=project_state.projectConfig.id,
+                deltas=[
+                    ListenerRealtimeDelta(
+                        dependency=count_key,
+                        value=LiteralDependencyValue("5"),
+                    )
+                ],
+                sequence=1,
+            )
+        )
+
+        callback_spec = next(iter(listener._callbacks.values()))
+        await listener._scheduler.flush(callback_spec.callback_id)
+
+        assert listener._dependency_cache[count_name] == 5
+        assert listener._dependency_cache[section_name] == {"count": 5}
+        assert callback_calls == [
+            ({"count": 5}, {"count": 5}, 5)
+        ]
         assert listener._get_last_realtime_sequence() == 1
 
     async def test_replay_cached_snapshot_uses_metadata_backed_callback_state(self) -> None:

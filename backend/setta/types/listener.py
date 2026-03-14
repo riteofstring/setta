@@ -77,7 +77,11 @@ class ListenerDependencyEventContent(BaseModel):
 
 class ListenerDependencyCatalogEntry(BaseModel):
     dependencyKey: BaseDependencyKeyUnionWithDiscriminator
+    name: str
     fullPathName: str
+    dependencies: list[BaseDependencyKeyUnionWithDiscriminator] = Field(
+        default_factory=list
+    )
     sectionType: SectionType | None = None
     codeObjType: CodeObjType | None = None
     controlCodeObjId: ID | None = None

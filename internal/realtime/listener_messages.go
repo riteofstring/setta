@@ -150,15 +150,17 @@ type ListenerDependencyCatalog struct {
 }
 
 type ListenerDependencyCatalogEntry struct {
-	DependencyKey              string `json:"dependencyKey"`
-	FullPathName               string `json:"fullPathName"`
-	SectionType                string `json:"sectionType,omitempty"`
-	CodeObjType                string `json:"codeObjType,omitempty"`
-	ControlCodeObjID           string `json:"controlCodeObjId,omitempty"`
-	ControlCodeObjType         string `json:"controlCodeObjType,omitempty"`
-	SectionRepresentation      string `json:"sectionRepresentation,omitempty"`
-	ControlValueRepresentation string `json:"controlValueRepresentation,omitempty"`
-	ValueRepresentation        string `json:"valueRepresentation,omitempty"`
+	DependencyKey              string   `json:"dependencyKey"`
+	Name                       string   `json:"name"`
+	FullPathName               string   `json:"fullPathName"`
+	Dependencies               []string `json:"dependencies,omitempty"`
+	SectionType                string   `json:"sectionType,omitempty"`
+	CodeObjType                string   `json:"codeObjType,omitempty"`
+	ControlCodeObjID           string   `json:"controlCodeObjId,omitempty"`
+	ControlCodeObjType         string   `json:"controlCodeObjType,omitempty"`
+	SectionRepresentation      string   `json:"sectionRepresentation,omitempty"`
+	ControlValueRepresentation string   `json:"controlValueRepresentation,omitempty"`
+	ValueRepresentation        string   `json:"valueRepresentation,omitempty"`
 }
 
 type ListenerRenderedDependencyValues struct {
@@ -286,18 +288,26 @@ func (e ListenerDependencyCatalogEntry) MarshalJSON() ([]byte, error) {
 	}
 
 	var payload struct {
-		DependencyKey              json.RawMessage `json:"dependencyKey"`
-		FullPathName               string          `json:"fullPathName"`
-		SectionType                string          `json:"sectionType,omitempty"`
-		CodeObjType                string          `json:"codeObjType,omitempty"`
-		ControlCodeObjID           string          `json:"controlCodeObjId,omitempty"`
-		ControlCodeObjType         string          `json:"controlCodeObjType,omitempty"`
-		SectionRepresentation      string          `json:"sectionRepresentation,omitempty"`
-		ControlValueRepresentation string          `json:"controlValueRepresentation,omitempty"`
-		ValueRepresentation        string          `json:"valueRepresentation,omitempty"`
+		DependencyKey              json.RawMessage   `json:"dependencyKey"`
+		Name                       string            `json:"name"`
+		FullPathName               string            `json:"fullPathName"`
+		Dependencies               []json.RawMessage `json:"dependencies,omitempty"`
+		SectionType                string            `json:"sectionType,omitempty"`
+		CodeObjType                string            `json:"codeObjType,omitempty"`
+		ControlCodeObjID           string            `json:"controlCodeObjId,omitempty"`
+		ControlCodeObjType         string            `json:"controlCodeObjType,omitempty"`
+		SectionRepresentation      string            `json:"sectionRepresentation,omitempty"`
+		ControlValueRepresentation string            `json:"controlValueRepresentation,omitempty"`
+		ValueRepresentation        string            `json:"valueRepresentation,omitempty"`
+	}
+	dependencies, err := structuredDependencyKeysJSON(e.Dependencies)
+	if err != nil {
+		return nil, err
 	}
 	payload.DependencyKey = dependencyKey
+	payload.Name = e.Name
 	payload.FullPathName = e.FullPathName
+	payload.Dependencies = dependencies
 	payload.SectionType = e.SectionType
 	payload.CodeObjType = e.CodeObjType
 	payload.ControlCodeObjID = e.ControlCodeObjID
@@ -310,15 +320,17 @@ func (e ListenerDependencyCatalogEntry) MarshalJSON() ([]byte, error) {
 
 func (e *ListenerDependencyCatalogEntry) UnmarshalJSON(data []byte) error {
 	var payload struct {
-		DependencyKey              json.RawMessage `json:"dependencyKey"`
-		FullPathName               string          `json:"fullPathName"`
-		SectionType                string          `json:"sectionType,omitempty"`
-		CodeObjType                string          `json:"codeObjType,omitempty"`
-		ControlCodeObjID           string          `json:"controlCodeObjId,omitempty"`
-		ControlCodeObjType         string          `json:"controlCodeObjType,omitempty"`
-		SectionRepresentation      string          `json:"sectionRepresentation,omitempty"`
-		ControlValueRepresentation string          `json:"controlValueRepresentation,omitempty"`
-		ValueRepresentation        string          `json:"valueRepresentation,omitempty"`
+		DependencyKey              json.RawMessage   `json:"dependencyKey"`
+		Name                       string            `json:"name"`
+		FullPathName               string            `json:"fullPathName"`
+		Dependencies               []json.RawMessage `json:"dependencies,omitempty"`
+		SectionType                string            `json:"sectionType,omitempty"`
+		CodeObjType                string            `json:"codeObjType,omitempty"`
+		ControlCodeObjID           string            `json:"controlCodeObjId,omitempty"`
+		ControlCodeObjType         string            `json:"controlCodeObjType,omitempty"`
+		SectionRepresentation      string            `json:"sectionRepresentation,omitempty"`
+		ControlValueRepresentation string            `json:"controlValueRepresentation,omitempty"`
+		ValueRepresentation        string            `json:"valueRepresentation,omitempty"`
 	}
 	if err := json.Unmarshal(data, &payload); err != nil {
 		return err
@@ -328,9 +340,19 @@ func (e *ListenerDependencyCatalogEntry) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
+	dependencies := make([]string, 0, len(payload.Dependencies))
+	for _, dependency := range payload.Dependencies {
+		canonical, err := canonicalDependencyKeyFromWire(dependency)
+		if err != nil {
+			return err
+		}
+		dependencies = append(dependencies, canonical)
+	}
 
 	e.DependencyKey = dependencyKey
+	e.Name = payload.Name
 	e.FullPathName = payload.FullPathName
+	e.Dependencies = dependencies
 	e.SectionType = payload.SectionType
 	e.CodeObjType = payload.CodeObjType
 	e.ControlCodeObjID = payload.ControlCodeObjID

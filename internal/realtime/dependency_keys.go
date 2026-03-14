@@ -120,6 +120,21 @@ func structuredDependencyKeyJSON(value string) (json.RawMessage, error) {
 	return json.RawMessage(payload), nil
 }
 
+func structuredDependencyKeysJSON(values []string) ([]json.RawMessage, error) {
+	if len(values) == 0 {
+		return nil, nil
+	}
+	payloads := make([]json.RawMessage, 0, len(values))
+	for _, value := range values {
+		payload, err := structuredDependencyKeyJSON(value)
+		if err != nil {
+			return nil, err
+		}
+		payloads = append(payloads, payload)
+	}
+	return payloads, nil
+}
+
 func DependencyValueIsBinary(raw json.RawMessage) (bool, error) {
 	trimmed := strings.TrimSpace(string(raw))
 	if trimmed == "" || trimmed == "null" {

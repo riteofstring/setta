@@ -299,6 +299,7 @@ async def test_listener_context_prefers_catalog_dependency_names() -> None:
         entries=[
             ListenerDependencyCatalogEntry(
                 dependencyKey=dependency_key,
+                name="count",
                 fullPathName=catalog_name,
             )
         ]
