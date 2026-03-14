@@ -1,4 +1,4 @@
-import { useActiveSectionUI } from "./definitions";
+import { useActiveSectionUI } from "./stores/activeSectionStores";
 
 type ProjectStateWithActiveIds = {
   projectConfig: {
@@ -18,7 +18,7 @@ function areStringArraysEqual(left: Array<string>, right: Array<string>) {
   return true;
 }
 
-export { useActiveSectionUI } from "./definitions";
+export { useActiveSectionUI } from "./stores/activeSectionStores";
 
 type ActiveSectionUIStatePatch = Partial<
   ReturnType<typeof useActiveSectionUI.getState>

@@ -1,4 +1,4 @@
-import { useWebsocketConnectionList } from "state/definitions";
+import { useWebsocketConnectionList } from "state/stores/ephemeralUiStores";
 import { WebsocketConnectionInfo } from "utils/generatedTypes";
 
 export function setWebsocketConnections(
