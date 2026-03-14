@@ -90,5 +90,6 @@ This is the front door for authored frontend code under `frontend/src/`.
 - Need pane/tab behavior: open `components/Panes/`.
 - Need section chrome or param rendering: open `components/Section/` and `components/Params/`.
 - Need a mutation path: search in `state/actions/`.
+- Need chat or project-AI commands: start in `state/actions/ai.ts` and extracted domain modules under `state/actions/ai/`.
 - Need shared derived state or a component-facing hook: search in `state/hooks/`.
 - Need a pure cross-feature helper: check `utils/`.

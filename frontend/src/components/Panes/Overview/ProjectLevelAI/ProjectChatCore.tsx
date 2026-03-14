@@ -48,11 +48,11 @@ import {
   stopProjectChatResponse,
   submitEditedMessage,
   submitMessage,
-  transcribeChatAudioWithProfile,
   type ChatHydrationErrorCode,
   type ChatHydrationOutcome,
   type ChatHydrationOutcomeType,
 } from "state/actions/ai";
+import { transcribeChatAudioWithProfile } from "state/actions/ai/transcription";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import {
   buildChatHistoryEntries,
@@ -1320,8 +1320,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       searchEnabled: true,
     }));
   const showEmptyState =
-    typeof chatId === "undefined" ||
-    (chatId === null && messages.length === 0);
+    typeof chatId === "undefined" || (chatId === null && messages.length === 0);
   const normalizedConversationSearchTerms = useMemo(
     () => tokenizeConversationSearchQuery(conversationFilterText),
     [conversationFilterText],
