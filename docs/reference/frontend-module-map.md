@@ -37,6 +37,7 @@ This is the front door for authored frontend code under `frontend/src/`.
 - Validation and diagnostics stores now live in `state/stores/diagnosticsStores.ts`, and transient loading/connection/interaction UI state now lives in `state/stores/ephemeralUiStores.ts`.
 - Shared file-browser store state now lives in `state/stores/fileBrowserStores.ts` for home, overview, browser-section, and dropzone pickers.
 - Authoring workflow stores now live in `state/stores/authoringStores.ts`, runtime/run-log stores now live in `state/stores/runtimeStores.ts`, and global settings now live in `state/stores/settingsStore.ts`.
+- AI follow, agentic-scope highlight, and tool-argument preview state now live in `state/stores/aiFollowStores.ts`.
 - Reads and writes should be easy to distinguish:
   - selectors/query helpers answer questions
   - command modules perform mutations
