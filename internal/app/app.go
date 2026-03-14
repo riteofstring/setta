@@ -1265,6 +1265,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 					ModePolicy:    modePolicy,
 					ShareSessions: shareSessions,
 				},
+				Deployment:              deploymentRuntime,
 				WebsocketHub:            websocketHub,
 				UISettingRevealResults:  uiSettingRevealResults,
 				ListenerBroadcaster:     listenerBroadcaster,

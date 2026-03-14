@@ -1148,10 +1148,14 @@ func TestRegisterRoutesTerminalClosesOnInvalidResizePayload(t *testing.T) {
 	}
 }
 
-func TestRegisterRoutesTerminalRequiresFullIDE(t *testing.T) {
+func TestRegisterRoutesTerminalRejectsDeploymentWhenRunPolicyDisabled(t *testing.T) {
 	t.Parallel()
 
-	store := newTestShareSessionStore("share-a")
+	deploymentRuntime := newRouteDeploymentRuntime(t, config.ModeShare)
+	if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share session: %v", err)
+	}
+
 	terminalService := newRouteTerminalService(t)
 	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
 	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
@@ -1160,8 +1164,9 @@ func TestRegisterRoutesTerminalRequiresFullIDE(t *testing.T) {
 	server := newRouteServer(t, RouteDependencies{
 		Transport: Dependencies{
 			ModePolicy:    modes.NewPolicy(config.ModeShare),
-			ShareSessions: store,
+			ShareSessions: deploymentRuntime,
 		},
+		Deployment:          deploymentRuntime,
 		WebsocketHub:        hub,
 		ListenerBroadcaster: broadcaster,
 		Terminals:           terminalService,
@@ -1174,6 +1179,120 @@ func TestRegisterRoutesTerminalRequiresFullIDE(t *testing.T) {
 	_, _, err := conn.Read(context.Background())
 	if status := websocket.CloseStatus(err); status != CloseCodeForbidden {
 		t.Fatalf("expected forbidden close code %d, got %d", CloseCodeForbidden, status)
+	}
+}
+
+func TestRegisterRoutesDeploymentTerminalConnectsReadOnlySession(t *testing.T) {
+	t.Parallel()
+	skipIfPTYUnsupported(t)
+
+	deploymentRuntime := newRouteDeploymentRuntime(t, config.ModeApp)
+	if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share session: %v", err)
+	}
+
+	terminalService := newRouteTerminalService(t)
+	terminalID := terminals.BuildTerminalID("section-a", "share-a")
+	openRouteTerminalForTest(t, terminalService, terminals.OpenOptions{
+		ID:             terminalID,
+		ProjectID:      "project-a",
+		ShareSessionID: "share-a",
+		AllowInput:     false,
+		Command:        readyQuietCatCommand(t, "deployment history"),
+	})
+	seedRouteTerminalHistory(t, terminalService, terminalID, "deployment history")
+
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			ModePolicy:    modes.NewPolicy(config.ModeApp),
+			ShareSessions: deploymentRuntime,
+		},
+		Deployment:          deploymentRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+		Terminals:           terminalService,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteTerminalBySection+"?shareSessionId=share-a", nil, withTerminalPath("project-a", "section-a"))
+	defer conn.CloseNow()
+
+	ready := readNextRawFrame(t, conn)
+	if ready != TerminalReadyMessage {
+		t.Fatalf("expected terminal ready marker, got %q", ready)
+	}
+	history := readNextRawFrame(t, conn)
+	if !strings.Contains(history, "deployment history") {
+		t.Fatalf("expected deployment terminal history replay, got %q", history)
+	}
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte("blocked input\n")); err != nil {
+		t.Fatalf("write deployment terminal input: %v", err)
+	}
+
+	_, _, err := conn.Read(context.Background())
+	if status := websocket.CloseStatus(err); status != CloseCodeForbidden {
+		t.Fatalf("expected forbidden close code %d, got %d", CloseCodeForbidden, status)
+	}
+
+	info, ok := terminalService.Session(terminalID)
+	if !ok {
+		t.Fatal("expected deployment terminal session to remain available")
+	}
+	if info.AllowInput {
+		t.Fatal("expected deployment terminal session to remain read-only")
+	}
+}
+
+func TestRegisterRoutesDeploymentTerminalAutoOpensReadOnlySession(t *testing.T) {
+	t.Parallel()
+	skipIfPTYUnsupported(t)
+
+	deploymentRuntime := newRouteDeploymentRuntime(t, config.ModeApp)
+	if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share session: %v", err)
+	}
+
+	terminalService := newRouteTerminalService(t)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			ModePolicy:    modes.NewPolicy(config.ModeApp),
+			ShareSessions: deploymentRuntime,
+		},
+		Deployment:          deploymentRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+		Terminals:           terminalService,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteTerminalBySection+"?shareSessionId=share-a", nil, withTerminalPath("project-a", "section-a"))
+	defer conn.CloseNow()
+
+	if ready := readNextRawFrame(t, conn); ready != TerminalReadyMessage {
+		t.Fatalf("expected terminal ready marker, got %q", ready)
+	}
+
+	info, ok := terminalService.Session(terminals.BuildTerminalID("section-a", "share-a"))
+	if !ok {
+		t.Fatal("expected deployment websocket attach to open a terminal session")
+	}
+	if info.ProjectID != "project-a" {
+		t.Fatalf("expected auto-opened deployment terminal project id project-a, got %q", info.ProjectID)
+	}
+	if info.ShareSessionID != "share-a" {
+		t.Fatalf("expected auto-opened deployment share session share-a, got %q", info.ShareSessionID)
+	}
+	if info.AllowInput {
+		t.Fatal("expected auto-opened deployment terminal to disable input")
 	}
 }
 
@@ -1292,8 +1411,10 @@ func newRouteDeploymentRuntime(t *testing.T, mode config.Mode) *deployments.Runt
 	writeRouteDeploymentJSON(t, filepath.Join(root, projectstate.MainFileName), document)
 
 	deploymentType := "share"
+	policy := deployments.DefaultPolicy()
 	if mode == config.ModeApp {
 		deploymentType = "app"
+		policy = deployments.DefaultAppPolicy()
 	}
 	writeRouteDeploymentJSON(t, filepath.Join(root, "manifest.json"), map[string]any{
 		"version":                1,
@@ -1302,7 +1423,7 @@ func newRouteDeploymentRuntime(t *testing.T, mode config.Mode) *deployments.Runt
 		"defaultProjectConfigId": "project-a",
 		"deploymentVersion":      "v1",
 	})
-	writeRouteDeploymentJSON(t, filepath.Join(root, "policy.json"), map[string]any{})
+	writeRouteDeploymentJSON(t, filepath.Join(root, "policy.json"), policy)
 
 	deploymentRuntime, err := deployments.Open(context.Background(), deployments.RuntimeOptions{
 		DeploymentRoot: root,

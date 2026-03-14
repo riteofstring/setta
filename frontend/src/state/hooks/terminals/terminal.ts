@@ -234,7 +234,6 @@ function acquireTerminalSession({
     }
   }
 
-  const id = createNewId();
   const terminal = new Terminal({
     cursorBlink: true,
     theme: terminalTheme,
@@ -247,8 +246,6 @@ function acquireTerminalSession({
     projectConfigId,
     sectionId,
     shareSessionId,
-    isDeploymentMode,
-    legacyClientID: id,
   });
   const ws = new WebSocket(wsTerminalAddress);
 

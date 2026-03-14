@@ -9,7 +9,6 @@ describe("buildTerminalWebsocketUrl", () => {
         projectConfigId: "project-a",
         sectionId: "section-a",
         shareSessionId: null,
-        isDeploymentMode: false,
       }),
     );
 
@@ -17,20 +16,16 @@ describe("buildTerminalWebsocketUrl", () => {
     expect(url.search).toBe("");
   });
 
-  it("keeps the legacy websocket route for deployment terminal sessions", () => {
-    // Deployment/share terminal transport remains on the legacy route until the
-    // Go share-policy boundary is explicitly reopened.
+  it("uses the Go websocket route for deployment terminal sessions", () => {
     const url = new URL(
       buildTerminalWebsocketUrl({
         projectConfigId: "project-a",
         sectionId: "section-a",
         shareSessionId: "share-a",
-        isDeploymentMode: true,
-        legacyClientID: "client-a",
       }),
     );
 
-    expect(url.pathname).toBe("/api/project-a/section-a/client-a");
+    expect(url.pathname).toBe("/api/ws/terminals/project-a/section-a");
     expect(url.searchParams.get("shareSessionId")).toBe("share-a");
   });
 });

@@ -34,6 +34,7 @@ const (
 
 type RouteDependencies struct {
 	Transport               Dependencies
+	Deployment              *deployments.Runtime
 	WebsocketHub            *realtime.WebsocketHub
 	UISettingRevealResults  *realtime.UISettingRevealResultHub
 	ListenerBroadcaster     *realtime.ListenerBroadcaster
@@ -458,8 +459,11 @@ func serveTerminalConnection(
 	info ConnectionInfo,
 	deps RouteDependencies,
 ) error {
-	if err := deps.Transport.ModePolicy.RequireFullIDE(); err != nil {
+	if err := deps.Transport.ModePolicy.RequireNotLauncher(); err != nil {
 		return mapModesError(err)
+	}
+	if err := requireTerminalRouteAccess(info.Modes, deps.Deployment); err != nil {
+		return err
 	}
 
 	projectID := strings.TrimSpace(chi.URLParam(r, "projectID"))
@@ -475,12 +479,17 @@ func serveTerminalConnection(
 	defer cancel()
 
 	terminalID := terminals.BuildTerminalID(sectionID, info.Modes.ShareSessionID)
-	if _, ok := deps.Terminals.Session(terminalID); !ok {
+	allowInput := !info.Modes.Policy.IsDeployment()
+	if sessionInfo, ok := deps.Terminals.Session(terminalID); ok {
+		if sessionInfo.AllowInput != allowInput {
+			return fmt.Errorf("terminal session %q input policy mismatch", terminalID)
+		}
+	} else {
 		if _, _, err := deps.Terminals.Open(terminals.OpenOptions{
 			ID:             terminalID,
 			ProjectID:      projectID,
 			ShareSessionID: info.Modes.ShareSessionID,
-			AllowInput:     true,
+			AllowInput:     allowInput,
 		}); err != nil {
 			return err
 		}
@@ -543,6 +552,22 @@ func serveTerminalConnection(
 				return classifyTerminalWriteError(err)
 			}
 		}
+	}
+}
+
+func requireTerminalRouteAccess(info modes.RequestInfo, deployment *deployments.Runtime) error {
+	if !info.Policy.IsDeployment() {
+		return nil
+	}
+	if deployment == nil {
+		return fmt.Errorf("deployment runtime is required for terminal websocket routes")
+	}
+	if deployment.Policy().AllowRun {
+		return nil
+	}
+	return &CloseError{
+		Code:   CloseCodeForbidden,
+		Reason: "Deployment policy disallows run and terminal access.",
 	}
 }
 
