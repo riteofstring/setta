@@ -219,8 +219,8 @@ const ACTION_TOOL_NAMES = new Set<string>([
 const ACTIVITY_ROW_DETAILS_VALUE = "details";
 
 type AttachmentUrlEntry = {
-  url: string;
-  expiresAt: number;
+  url: AttachmentDownloadURLEntry["url"];
+  expiresAt: AttachmentDownloadURLEntry["expiresAt"];
 };
 type AttachmentTextPreview = {
   text: string;
