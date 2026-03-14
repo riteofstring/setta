@@ -1,5 +1,7 @@
-import { debounced_route_set_top_level_section_layout } from "state/actions/sectionInfos";
-import { processProjectStateUpdateFromBackend } from "state/actions/sectionProjectStateSync";
+import {
+  debounced_route_set_top_level_section_layout,
+  processProjectStateUpdateFromBackend,
+} from "state/actions/sectionInfos";
 import {
   useNodeInternals,
   usePendingOperations,

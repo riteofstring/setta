@@ -1,8 +1,7 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
-import { useProjectState } from "state/definitions";
-import { useMisc } from "state/stores/layoutInteractionStores";
+import { useMisc, useProjectState } from "state/definitions";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import {
   ActiveSectionPolicyContext,

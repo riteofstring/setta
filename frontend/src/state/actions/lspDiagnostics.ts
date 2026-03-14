@@ -1,14 +1,23 @@
-import { useProjectState, useShareSession } from "state/definitions";
-import { useLspDiagnostics } from "state/stores/editorDiagnosticsStores";
+import {
+  useLspDiagnostics,
+  useProjectState,
+  useShareSession,
+} from "state/definitions";
 import {
   route_set_code_section_diagnostic_code_suppression,
   route_set_code_section_diagnostics_mute,
 } from "utils/generatedEndpoints";
 import {
   SettaLspDiagnosticsPayload,
+  SectionTypeEnum,
   type SettaLspDiagnostic,
 } from "utils/generatedTypes";
-import { getCurrProjectConfigId } from "./sectionInfos";
+import { res200 } from "utils/endpointUtils";
+import {
+  getCurrEffectiveSectionImpl,
+  getCurrProjectConfigId,
+  setCurrEffectiveSectionImplValue,
+} from "./sectionInfos";
 import { processTypeErrors } from "./typeCheck";
 
 export const FORMATTER_DIAGNOSTIC_SOURCE = "Formatter";
@@ -187,6 +196,14 @@ export function setCodeSectionDiagnosticsMuted(
     projectConfigId,
     sectionId,
     mute,
+  }).then((res) => {
+    if (res200(res)) {
+      updateLocalCodeSectionDiagnosticsIgnoreState(sectionId, (curr) => ({
+        muted: mute,
+        suppressedCodes: [...curr.suppressedCodes],
+      }));
+    }
+    return res;
   });
 }
 
@@ -207,5 +224,57 @@ export function setCodeSectionDiagnosticCodeSuppression(
     sectionId,
     code,
     suppress,
+  }).then((res) => {
+    if (res200(res)) {
+      updateLocalCodeSectionDiagnosticsIgnoreState(sectionId, (curr) => {
+        const nextCodes = curr.suppressedCodes.filter(
+          (entry) => entry !== code,
+        );
+        if (suppress) {
+          nextCodes.push(code);
+        }
+        return {
+          muted: curr.muted,
+          suppressedCodes: nextCodes,
+        };
+      });
+    }
+    return res;
+  });
+}
+
+function updateLocalCodeSectionDiagnosticsIgnoreState(
+  sectionId: string,
+  update: (curr: { muted: boolean; suppressedCodes: Array<string | number> }) => {
+    muted: boolean;
+    suppressedCodes: Array<string | number>;
+  },
+) {
+  useProjectState.setState((state) => {
+    const variantId = state.projectConfig.sectionVariantMap[sectionId];
+    if (!variantId) {
+      return;
+    }
+    const section = state.sections[sectionId];
+    if (!section) {
+      return;
+    }
+    const variant = state.sectionVariants[variantId];
+    if (!variant) {
+      return;
+    }
+    const impl = state.sectionImpls[variant.impl];
+    if (!impl) {
+      return;
+    }
+
+    const effective = getCurrEffectiveSectionImpl(state, sectionId);
+    if (effective.type !== SectionTypeEnum.Code) {
+      return;
+    }
+
+    setCurrEffectiveSectionImplValue(state, sectionId, {
+      diagnosticsIgnoreState: (curr) => update(curr),
+    });
   });
 }

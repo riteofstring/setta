@@ -1,26 +1,52 @@
 import { updateDndChildren } from "forks/dnd-kit/dndChildren";
+import { getViewport } from "forks/xyflow/core/hooks/useViewportHelper";
+import { useReactFlow } from "forks/xyflow/core/store";
 import { Node } from "forks/xyflow/core/types";
 import _ from "lodash";
+import { unstable_batchedUpdates } from "react-dom";
 import {
   getMessageCompletenessScore,
   mergeChatMessages,
 } from "state/actions/chatMergeUtils";
+import {
+  markRenameBroadcastsReady,
+  maybeOpenNextRenamePrompt,
+} from "state/actions/renameRefactors";
+import {
+  getActiveSectionUIIds,
+  getReconciledActiveSectionUIStateFromBackend,
+  sanitizeProjectStateActiveIds,
+  useActiveSectionUI,
+} from "state/activeSectionUI";
 import { isSectionStreamActive } from "state/aiStreamingTracker";
 import {
   NULL_PROJECT_CONFIG_ID,
   PendingOperation,
+  runWithAtomicallyPublishedProjectStores,
+  useAllProjectMetadata,
+  useLocalStorage,
+  useMisc,
   useNodeInternals,
   usePendingOperations,
   useProjectState,
   useShareSession,
+  useToolArgumentPreview,
   ZustandNodeInternalsState,
   ZustandProjectState,
 } from "state/definitions";
-import { useToolArgumentPreview } from "state/stores/aiStores";
-import { useLocalStorage } from "state/stores/uiPreferenceStores";
+import type { ResponseDataAndStatus } from "utils/endpointUtils";
 import { res200 } from "utils/endpointUtils";
-import { route_set_top_level_section_layout } from "utils/generatedEndpoints";
 import {
+  route_delete_sections,
+  route_group_sections,
+  route_set_top_level_section_layout,
+  route_toggle_param_selected,
+  route_ungroup_groups,
+  route_unselect_all_params,
+  route_set_viewport,
+} from "utils/generatedEndpoints";
+import {
+  AllProjectMetadata,
   BaseChatMessageUnion,
   BaseCodeObjImplUnion,
   BaseSectionImplUnion,
@@ -33,25 +59,22 @@ import {
   isBaseSectionWithParamsImpl,
   ListRootViewModeEnum,
   ProjectStateSingleConfig,
+  ProjectStateSingleConfigWithCompletedOpIds,
   SectionType,
   SectionTypeEnum,
   Variant,
+  Viewport,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
-import {
-  acknowledgePendingProjectStateOperation,
-  addPendingProjectStateOperation,
-  isResponseDataAndStatus,
-  removePendingProjectStateOperation,
-} from "./projectStateOptimisticUpdates";
+import { applyActiveSectionChange } from "./activeSectionController";
+import { recordAuthoritativeProjectChatWindowingState } from "./projectChatWindowingAuthoritative";
+import { reconcileProjectChatWindowingEphemeralState } from "./projectChatWindowingEphemeral";
 
 const effectiveImplCacheByImpl = new WeakMap<
   object,
   WeakMap<object, WeakMap<object, unknown>>
 >();
-
-export { dispatchOptimisticProjectStateUpdate } from "./projectStateOptimisticUpdates";
 
 function getEffectiveImpl<T extends object>(
   impl: T,
@@ -108,7 +131,7 @@ type ChatSectionImpl = Extract<
   { type: SectionTypeEnum.Chat }
 >;
 
-export function mergeStreamingChatSections(
+function mergeStreamingChatSections(
   projectState: ProjectStateSingleConfig,
   currentState: ZustandProjectState,
 ): string[] {
@@ -964,7 +987,184 @@ export function manualDndChildrenReset() {
   );
 }
 
-export function clearToolArgumentPreviewForProjectState(
+function getComparableProjectState(
+  state: ProjectStateSingleConfig | ZustandProjectState,
+): ProjectStateSingleConfig {
+  return sanitizeProjectStateActiveIds({
+    sections: state.sections,
+    sectionImpls: state.sectionImpls,
+    sectionVariants: state.sectionVariants,
+    codeObjs: state.codeObjs,
+    codeObjImpls: state.codeObjImpls,
+    codeObjVariants: state.codeObjVariants,
+    artifactGroups: state.artifactGroups,
+    projectConfig: state.projectConfig,
+    singletonSections: state.singletonSections,
+    parentSectionMap: state.parentSectionMap,
+    shownParamIds: state.shownParamIds,
+    requiredDecodedImages: state.requiredDecodedImages,
+    genCodeBinding: state.genCodeBinding ?? null,
+    projectChatWindowing: state.projectChatWindowing,
+  });
+}
+
+export function processProjectStateUpdateFromBackend(
+  x: ProjectStateSingleConfigWithCompletedOpIds,
+) {
+  const projectConfigId = getCurrProjectConfigId();
+  if (x.projectState.projectConfig.id !== projectConfigId) {
+    return;
+  }
+  const currentState = useProjectState.getState();
+  mergeStreamingChatSections(x.projectState, currentState);
+  recordAuthoritativeProjectChatWindowingState(
+    x.projectState.projectConfig.id,
+    x.projectState.projectChatWindowing,
+  );
+  const backendPendingIds = new Set(x.pendingOpIds);
+  const completedIds = new Set(x.completedOpIds);
+  const currentPending = usePendingOperations.getState().pending;
+  const nextPending = currentPending.reduce<PendingOperation[]>(
+    (acc, opInfo) => {
+      if (completedIds.has(opInfo.opId)) {
+        return acc;
+      }
+      const isBackendPending = backendPendingIds.has(opInfo.opId);
+      const acknowledged = opInfo.acknowledged || isBackendPending;
+      acc.push({
+        ...opInfo,
+        acknowledged,
+      });
+      return acc;
+    },
+    [],
+  );
+  reconcilePendingTopLevelLayout(nextPending);
+  for (const opInfo of nextPending) {
+    opInfo.apply(x.projectState);
+  }
+  const nextActiveSectionUIState = getReconciledActiveSectionUIStateFromBackend(
+    x.projectState.projectConfig.activeIds,
+    x.completedOpIds,
+    x.projectState.projectConfig.id,
+    Object.keys(x.projectState.sections),
+  );
+  const sanitizedProjectState = getComparableProjectState(x.projectState);
+  const projectStateChanged = !_.isEqual(
+    getComparableProjectState(currentState),
+    sanitizedProjectState,
+  );
+
+  if (!projectStateChanged) {
+    unstable_batchedUpdates(() => {
+      usePendingOperations.setState({ pending: nextPending });
+      if (nextActiveSectionUIState !== null) {
+        useActiveSectionUI.setState(nextActiveSectionUIState);
+      }
+    });
+    markRenameBroadcastsReady(completedIds);
+    maybeOpenNextRenamePrompt();
+    clearToolArgumentPreviewForProjectState(projectConfigId, currentState);
+    return;
+  }
+
+  const shouldRequestFitView = applyViewportFromProjectState(x.projectState);
+  const nextNodesMap = createNodesMapFromProjectConfigChildren(
+    x.projectState,
+    useNodeInternals.getState().x,
+  );
+  reconcileProjectChatWindowingEphemeralState(
+    sanitizedProjectState.projectChatWindowing,
+    sanitizedProjectState.projectConfig.id,
+  );
+  runWithAtomicallyPublishedProjectStores(
+    {
+      projectState: sanitizedProjectState,
+      nodeInternals: { x: nextNodesMap },
+      activeSectionUI: nextActiveSectionUIState,
+    },
+    () => {
+      unstable_batchedUpdates(() => {
+        usePendingOperations.setState({ pending: nextPending });
+        useNodeInternals.setState({ x: nextNodesMap });
+        useProjectState.setState(() => sanitizedProjectState);
+        if (nextActiveSectionUIState !== null) {
+          useActiveSectionUI.setState(nextActiveSectionUIState);
+        }
+      });
+    },
+  );
+  if (shouldRequestFitView) {
+    useMisc.setState({ requestUpdateNodeDimensions: true });
+  }
+
+  markRenameBroadcastsReady(completedIds);
+  maybeOpenNextRenamePrompt();
+  clearToolArgumentPreviewForProjectState(
+    projectConfigId,
+    useProjectState.getState(),
+  );
+}
+
+function applyViewportFromProjectState(
+  projectState: ProjectStateSingleConfig,
+): boolean {
+  const { viewport, viewportInitialized } = projectState.projectConfig;
+  const currentConfig = useProjectState.getState().projectConfig;
+  const viewModeChanged =
+    currentConfig.activeViewModeId !==
+    projectState.projectConfig.activeViewModeId;
+  const viewportChanged =
+    !_.isEqual(currentConfig.viewport, viewport) ||
+    currentConfig.viewportInitialized !== viewportInitialized;
+  if (!viewportChanged && !viewModeChanged) {
+    return false;
+  }
+  if (!viewport || !viewportInitialized) {
+    useReactFlow.setState({
+      fitViewOnInit: true,
+      fitViewOnInitDone: false,
+      fitViewOnInitOptions: getFitViewOptionsForVisibleSections(projectState),
+    });
+    return true;
+  }
+  useReactFlow.setState({
+    fitViewOnInit: false,
+    fitViewOnInitDone: true,
+    fitViewOnInitOptions: undefined,
+    transform: [viewport.x, viewport.y, viewport.zoom],
+  });
+  return false;
+}
+
+function getFitViewOptionsForVisibleSections(
+  projectState: ProjectStateSingleConfig,
+) {
+  const { activeViewModeId, isEditingViewMode, viewModes } =
+    projectState.projectConfig;
+  if (isEditingViewMode) {
+    return undefined;
+  }
+  if (!activeViewModeId) {
+    return undefined;
+  }
+  const viewMode = viewModes[activeViewModeId];
+  if (!viewMode) {
+    return undefined;
+  }
+  const topLevelSections = getActiveViewModeTopLevelSections(projectState);
+  const visibleNodeIds = Object.keys(topLevelSections).filter(
+    (sectionId) => viewMode.visibilityBySectionId[sectionId],
+  );
+  if (visibleNodeIds.length === 0) {
+    return undefined;
+  }
+  return {
+    nodes: visibleNodeIds.map((id) => ({ id }) as Node),
+  };
+}
+
+function clearToolArgumentPreviewForProjectState(
   projectConfigId: string,
   projectState: ZustandProjectState,
 ) {
@@ -1324,6 +1524,17 @@ export function getAncestorSameVisibility(
   return false;
 }
 
+export function deleteAllActiveSections() {
+  const shareSession = useShareSession.getState();
+  if (shareSession.isDeploymentMode) {
+    return;
+  }
+  route_delete_sections({
+    projectConfigId: getCurrProjectConfigId(),
+    sectionIds: getActiveSectionUIIds(),
+  });
+}
+
 export function createTopLevelSectionLayoutDict(
   sections: ProjectStateSingleConfig["sections"],
   nodeInternals: ZustandNodeInternalsState["x"],
@@ -1401,7 +1612,7 @@ const sendTopLevelLayoutToBackend = _.debounce(() => {
   pendingTopLevelLayoutRef.hasQueuedSend = false;
   const projectConfigId = getCurrProjectConfigId();
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
-    removePendingProjectStateOperation(opId);
+    removePendingOp(opId);
     if (pendingTopLevelLayoutRef.opId === opId) {
       pendingTopLevelLayoutRef.opId = null;
     }
@@ -1416,9 +1627,9 @@ const sendTopLevelLayoutToBackend = _.debounce(() => {
   if (result instanceof Promise) {
     void result.then((res) => {
       if (isResponseDataAndStatus(res) && res200(res)) {
-        acknowledgePendingProjectStateOperation(opId);
+        acknowledgePendingOp(opId);
       } else if (isResponseDataAndStatus(res) && res.hasResponse) {
-        removePendingProjectStateOperation(opId);
+        removePendingOp(opId);
         if (pendingTopLevelLayoutRef.opId === opId) {
           pendingTopLevelLayoutRef.opId = null;
         }
@@ -1427,9 +1638,7 @@ const sendTopLevelLayoutToBackend = _.debounce(() => {
   }
 }, 500);
 
-export function reconcilePendingTopLevelLayout(
-  nextPending: PendingOperation[],
-) {
+function reconcilePendingTopLevelLayout(nextPending: PendingOperation[]) {
   const currentOpId = pendingTopLevelLayoutRef.opId;
   if (!currentOpId) {
     return;
@@ -1507,15 +1716,17 @@ export function debounced_route_set_top_level_section_layout() {
     }
   });
   if (!pendingTopLevelLayoutRef.opId) {
-    pendingTopLevelLayoutRef.opId = addPendingProjectStateOperation(
-      applyPendingTopLevelLayout,
-    );
+    pendingTopLevelLayoutRef.opId = addPendingOp(applyPendingTopLevelLayout);
   }
   sendTopLevelLayoutToBackend();
 }
 
 export function getCurrProjectConfigId() {
   return useProjectState.getState().projectConfig.id;
+}
+
+function getCurrProjectConfigViewport() {
+  return useReactFlow.getState().fitViewOnInit ? null : getViewport();
 }
 
 export function getSectionChildren(
@@ -1528,3 +1739,295 @@ export function getSectionChildren(
     isBaseParentSectionImpl,
   ).children;
 }
+
+export async function groupActiveSections() {
+  const shareSession = useShareSession.getState();
+  if (shareSession.isDeploymentMode) {
+    return;
+  }
+  const sectionIds = getActiveSectionUIIds();
+  route_group_sections({
+    projectConfigId: getCurrProjectConfigId(),
+    sectionIds,
+  });
+  useReactFlow.setState({ nodesSelectionDims: null });
+}
+
+export async function ungroupActiveGroups() {
+  const shareSession = useShareSession.getState();
+  if (shareSession.isDeploymentMode) {
+    return;
+  }
+  const groupIds = getActiveSectionUIIds();
+  route_ungroup_groups({
+    projectConfigId: getCurrProjectConfigId(),
+    groupIds,
+  });
+}
+
+function addPendingOp(apply: (x: ZustandProjectState) => void) {
+  const opId = createNewId();
+  usePendingOperations.setState((state) => ({
+    pending: [...state.pending, { apply, opId, acknowledged: false }],
+  }));
+  return opId;
+}
+
+function acknowledgePendingOp(opId: string) {
+  // Mark as acknowledged so stale optimistic ops don't override later backend syncs.
+  usePendingOperations.setState((state) => {
+    const index = state.pending.findIndex((opInfo) => opInfo.opId === opId);
+    if (index < 0 || state.pending[index].acknowledged) {
+      return state;
+    }
+    const nextPending = [...state.pending];
+    nextPending[index] = {
+      ...nextPending[index],
+      acknowledged: true,
+    };
+    return { pending: nextPending };
+  });
+}
+
+function removePendingOp(opId: string) {
+  usePendingOperations.setState((state) => ({
+    pending: state.pending.filter((opInfo) => opInfo.opId !== opId),
+  }));
+}
+
+function removePendingOpAndGetReplayOps(opId: string): Array<PendingOperation> {
+  const pendingBeforeRemoval = usePendingOperations.getState().pending;
+  const failedOpIndex = pendingBeforeRemoval.findIndex(
+    (opInfo) => opInfo.opId === opId,
+  );
+  removePendingOp(opId);
+  if (failedOpIndex < 0) {
+    return [];
+  }
+  const remainingOpIds = new Set(
+    usePendingOperations.getState().pending.map((opInfo) => opInfo.opId),
+  );
+  return pendingBeforeRemoval
+    .slice(failedOpIndex + 1)
+    .filter((opInfo) => remainingOpIds.has(opInfo.opId));
+}
+
+function rollbackOptimisticProjectStateUpdate(
+  opId: string,
+  rollback?: (state: ZustandProjectState) => void,
+) {
+  const replayOps = removePendingOpAndGetReplayOps(opId);
+  if (!rollback) {
+    return;
+  }
+  useProjectState.setState((state) => {
+    rollback(state);
+    for (const opInfo of replayOps) {
+      opInfo.apply(state);
+    }
+  });
+}
+
+function applyOptimisticProjectStateUpdateIfProjectMatches(
+  state: ZustandProjectState,
+  projectConfigId: string | undefined,
+  update: (state: ZustandProjectState) => void,
+) {
+  if (
+    projectConfigId !== undefined &&
+    state.projectConfig.id !== projectConfigId
+  ) {
+    return;
+  }
+  update(state);
+}
+
+function isResponseDataAndStatus(
+  value: unknown,
+): value is ResponseDataAndStatus<unknown> {
+  // Narrow unknown send results without relying on try/catch for control flow.
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "status" in value &&
+    "hasResponse" in value
+  );
+}
+
+export function dispatchOptimisticProjectStateUpdate({
+  apply,
+  send,
+  rollback,
+  reapply,
+  projectConfigId,
+}: {
+  apply: (state: ZustandProjectState) => void;
+  send: (frontendOpId: string) => void | Promise<unknown>;
+  rollback?: (state: ZustandProjectState) => void;
+  reapply?: (state: ZustandProjectState) => void;
+  projectConfigId?: string;
+}) {
+  const applyWithProjectGuard = (state: ZustandProjectState) =>
+    applyOptimisticProjectStateUpdateIfProjectMatches(
+      state,
+      projectConfigId,
+      apply,
+    );
+  const reapplyWithProjectGuard = (state: ZustandProjectState) =>
+    applyOptimisticProjectStateUpdateIfProjectMatches(
+      state,
+      projectConfigId,
+      reapply ?? apply,
+    );
+  const rollbackWithProjectGuard =
+    rollback === undefined
+      ? undefined
+      : (state: ZustandProjectState) =>
+          applyOptimisticProjectStateUpdateIfProjectMatches(
+            state,
+            projectConfigId,
+            rollback,
+          );
+
+  useProjectState.setState(applyWithProjectGuard);
+  const opId = addPendingOp(reapplyWithProjectGuard);
+  const result = send(opId);
+  if (result instanceof Promise) {
+    void result
+      .then((res) => {
+        // A 200 response means the backend accepted the op; don't keep reapplying it.
+        if (isResponseDataAndStatus(res) && res200(res)) {
+          if (
+            projectConfigId !== undefined &&
+            useProjectState.getState().projectConfig.id !== projectConfigId
+          ) {
+            removePendingOp(opId);
+            return;
+          }
+          acknowledgePendingOp(opId);
+        } else if (isResponseDataAndStatus(res)) {
+          rollbackOptimisticProjectStateUpdate(opId, rollbackWithProjectGuard);
+        }
+      })
+      .catch(() => {
+        rollbackOptimisticProjectStateUpdate(opId, rollbackWithProjectGuard);
+      });
+  }
+  return opId;
+}
+
+export function toggleParamSelected(sectionId: string, paramInfoId: string) {
+  const currentState = useProjectState.getState();
+  const impl = getCurrEffectiveSectionImplWithTypeGuard(
+    currentState,
+    sectionId,
+    isBaseSectionWithParamsImpl,
+  );
+  const wasSelected = impl.selectedParams.includes(paramInfoId);
+  const nextSelectedCount = wasSelected
+    ? impl.selectedParams.length - 1
+    : impl.selectedParams.length + 1;
+  const hasSelectedParams = nextSelectedCount > 0;
+
+  dispatchOptimisticProjectStateUpdate({
+    apply: (state) => {
+      setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
+        state,
+        sectionId,
+        {
+          selectedParams: (curr) => {
+            if (curr?.includes(paramInfoId)) {
+              return curr.filter((id) => id !== paramInfoId);
+            }
+            return [...(curr ?? []), paramInfoId];
+          },
+        },
+      );
+    },
+    send: (frontendOpId) =>
+      route_toggle_param_selected({
+        projectConfigId: getCurrProjectConfigId(),
+        sectionId,
+        paramInfoId,
+        frontendOpId,
+      }),
+  });
+
+  applyActiveSectionChange({
+    interaction: wasSelected ? "param-unselect" : "param-select",
+    sectionId,
+    hasSelectedParams,
+  });
+}
+
+export function unselectAllParams() {
+  const currentState = useProjectState.getState();
+  const sectionIds = Object.keys(currentState.sections);
+  const hasSelectedParams = sectionIds.some((sectionId) => {
+    const impl = getCurrEffectiveSectionImpl(currentState, sectionId);
+    return (
+      isBaseSectionWithParamsImpl(impl) &&
+      (impl.selectedParams?.length ?? 0) > 0
+    );
+  });
+
+  if (!hasSelectedParams) {
+    return false;
+  }
+
+  dispatchOptimisticProjectStateUpdate({
+    apply: (state) => {
+      for (const sectionId of Object.keys(state.sections)) {
+        const impl = getCurrEffectiveSectionImpl(state, sectionId);
+        if (
+          isBaseSectionWithParamsImpl(impl) &&
+          impl.selectedParams.length > 0
+        ) {
+          setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
+            state,
+            sectionId,
+            { selectedParams: [] },
+          );
+        }
+      }
+    },
+    send: (frontendOpId) =>
+      route_unselect_all_params({
+        projectConfigId: getCurrProjectConfigId(),
+        frontendOpId,
+      }),
+  });
+
+  return true;
+}
+
+export function updateAllProjectMetadata(x: AllProjectMetadata) {
+  useAllProjectMetadata.setState(x);
+}
+
+function dispatchViewportUpdate(viewport: Viewport | null) {
+  const projectConfigId = getCurrProjectConfigId();
+  if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
+    return;
+  }
+  if (_.isEqual(useProjectState.getState().projectConfig.viewport, viewport)) {
+    return;
+  }
+  dispatchOptimisticProjectStateUpdate({
+    apply: (state) => {
+      state.projectConfig.viewport = viewport;
+      state.projectConfig.viewportInitialized = viewport !== null;
+    },
+    send: (frontendOpId) =>
+      route_set_viewport({
+        projectConfigId,
+        viewport,
+        frontendOpId,
+      }),
+  });
+}
+
+export const debouncedDispatchViewportUpdate = _.debounce(
+  () => dispatchViewportUpdate(getCurrProjectConfigViewport()),
+  1000,
+);

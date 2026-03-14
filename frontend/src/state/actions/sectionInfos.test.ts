@@ -11,18 +11,18 @@ import {
   getEmbeddedAttachedTerminalParentIdForTerminalSection,
   getSectionIsHorizontalOrientation,
   getTopLevelSectionIdsForDisplay,
+  processProjectStateUpdateFromBackend,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import { processProjectStateUpdateFromBackend } from "state/actions/sectionProjectStateSync";
 import { resetStreamingTracker } from "state/aiStreamingTracker";
 import {
+  useLocalStorage,
+  useMisc,
   useNodeInternals,
   usePendingOperations,
   useProjectState,
   type ZustandProjectState,
 } from "state/definitions";
-import { useMisc } from "state/stores/layoutInteractionStores";
-import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import {
   ChatRoleEnum,
   createChatSectionImpl,
