@@ -559,13 +559,14 @@ func buildOpenAIResponseReasoningItems(
 		thinking := stringValue(block["thinking"])
 		summary := stringValue(block["summary"])
 		signature := strings.TrimSpace(stringValue(block["signature"]))
+		providerItemID := strings.TrimSpace(stringValue(block["provider_item_id"]))
 		if strings.TrimSpace(thinking) == "" &&
 			strings.TrimSpace(summary) == "" &&
 			signature == "" {
 			continue
 		}
 		reasoning := responses.ResponseReasoningItemParam{
-			ID:      openAIResponseReasoningItemID(messageID, reasoningIndex),
+			ID:      openAIResponseReasoningItemID(messageID, reasoningIndex, providerItemID),
 			Summary: []responses.ResponseReasoningItemSummaryParam{},
 			Status:  responses.ResponseReasoningItemStatusCompleted,
 		}
@@ -593,7 +594,10 @@ func buildOpenAIResponseReasoningItems(
 	return items, true, nil
 }
 
-func openAIResponseReasoningItemID(messageID string, reasoningIndex int) string {
+func openAIResponseReasoningItemID(messageID string, reasoningIndex int, providerItemID string) string {
+	if strings.TrimSpace(providerItemID) != "" {
+		return strings.TrimSpace(providerItemID)
+	}
 	if reasoningIndex <= 0 {
 		return messageID + "_reasoning"
 	}

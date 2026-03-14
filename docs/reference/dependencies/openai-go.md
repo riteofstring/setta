@@ -85,6 +85,8 @@
     reasoning payload in Setta's thinking `signature` field, and follow-up
     Responses turns now round-trip the prior reasoning summary/content plus
     encrypted reasoning item back through the manual-context input transcript
+    while preserving the provider's original reasoning item ID as the
+    transcript source of truth instead of synthesizing a replacement ID
   - the Responses stream now also treats explicit `response.incomplete`
     events as provider failures instead of silently succeeding with truncated
     reasoning output, and still stops/finalizes any partial assistant message

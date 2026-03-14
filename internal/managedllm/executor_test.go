@@ -1809,6 +1809,9 @@ func TestExecutorExecuteStreamsOpenAIResponsesThinkingAndReturnsOutputs(t *testi
 	if thinkingBlock["signature"] != "enc-thinking" {
 		t.Fatalf("expected OpenAI reasoning signature, got %#v", thinkingBlock)
 	}
+	if thinkingBlock["provider_item_id"] != "reasoning-1" {
+		t.Fatalf("expected OpenAI reasoning item id, got %#v", thinkingBlock)
+	}
 	textBlock, ok := content[1].(map[string]any)
 	if !ok || textBlock["text"] != "Final answer" {
 		t.Fatalf("unexpected text block %#v", content[1])
@@ -1830,6 +1833,9 @@ func TestExecutorExecuteStreamsOpenAIResponsesThinkingAndReturnsOutputs(t *testi
 	}
 	if stateThinkingBlock["signature"] != "enc-thinking" {
 		t.Fatalf("expected completed response fallback to preserve encrypted reasoning signature, got %#v", stateThinkingBlock)
+	}
+	if stateThinkingBlock["provider_item_id"] != "reasoning-1" {
+		t.Fatalf("expected completed response fallback to preserve reasoning item id, got %#v", stateThinkingBlock)
 	}
 	stateTextBlock, ok := stateContent[1].(map[string]any)
 	if !ok || stateTextBlock["text"] != "Final answer" {
@@ -3610,7 +3616,7 @@ func TestExecutorExecuteRunsOpenAIResponsesToolCallsThroughMCPAndContinuesProvid
 		if !ok {
 			continue
 		}
-		if item["type"] == "reasoning" && item["encrypted_content"] == "enc-tool-turn" {
+		if item["type"] == "reasoning" && item["encrypted_content"] == "enc-tool-turn" && item["id"] == "reasoning-1" {
 			foundReasoning = true
 		}
 		if item["type"] == "function_call" && item["call_id"] == "tool-call-1" {

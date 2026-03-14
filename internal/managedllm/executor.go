@@ -900,6 +900,7 @@ func (e *Executor) applyOpenAIResponseReasoningItemFallback(
 	if streamState != nil {
 		streamState.reasoningSeen = true
 	}
+	setAssistantThinkingProviderItemIDAtIndex(assistantMessage, 0, item.ID)
 	summary := joinOpenAIResponseReasoningSummary(item.Summary)
 	if strings.TrimSpace(summary) != "" {
 		previousSummary := currentOpenAIResponseSummary(streamState)
@@ -2064,6 +2065,15 @@ func setAssistantThinkingSignatureAtIndex(message map[string]any, index int, sig
 	message["content"] = content
 }
 
+func setAssistantThinkingProviderItemIDAtIndex(message map[string]any, index int, providerItemID string) {
+	if strings.TrimSpace(providerItemID) == "" {
+		return
+	}
+	content, block := ensureAssistantContentBlock(message, index, "thinking")
+	block["provider_item_id"] = providerItemID
+	message["content"] = content
+}
+
 func ensureAssistantContentBlock(message map[string]any, index int, blockType string) ([]any, map[string]any) {
 	content, _ := message["content"].([]any)
 	if index < 0 {
@@ -2099,6 +2109,10 @@ func currentAssistantThinkingTextAtIndex(message map[string]any, index int) stri
 
 func currentAssistantThinkingSignatureAtIndex(message map[string]any, index int) string {
 	return currentAssistantBlockStringAtIndex(message, index, "thinking", "signature")
+}
+
+func currentAssistantThinkingProviderItemIDAtIndex(message map[string]any, index int) string {
+	return currentAssistantBlockStringAtIndex(message, index, "thinking", "provider_item_id")
 }
 
 func currentAssistantBlockStringAtIndex(message map[string]any, index int, blockType string, field string) string {
