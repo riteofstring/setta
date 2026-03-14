@@ -1,9 +1,7 @@
 import {
-  useCallback,
   useEffect,
   useMemo,
   useRef,
-  useState,
   type Dispatch,
   type SetStateAction,
 } from "react";
@@ -12,15 +10,7 @@ import {
   buildChatHistoryEntries,
   type ChatRunType,
 } from "state/actions/chatHistory";
-import {
-  canUndoLastProjectChatThreadStorageMutation,
-  markProjectChatThreadViewed,
-  renameProjectChatThreadGroup,
-  reorderProjectChatThreadGroups,
-  toggleProjectChatThreadGroupPinned,
-  toggleProjectChatThreadPinned,
-  undoLastProjectChatThreadStorageMutation,
-} from "state/actions/projectChatThreads";
+import { markProjectChatThreadViewed } from "state/actions/projectChatThreads";
 import {
   useAIStore,
   useLocalStorage,
@@ -29,19 +19,7 @@ import {
 import { shallow } from "zustand/shallow";
 import { ProjectChatHistoryContent } from "./ProjectChatHistoryContent";
 import { ProjectChatHistoryToolbar } from "./ProjectChatHistoryToolbar";
-import {
-  createProjectChatHistoryGroup,
-  deleteProjectChatHistoryGroup,
-  deleteProjectChatHistoryThread,
-  moveProjectChatHistoryThread,
-  selectProjectChatHistoryEntry,
-  startProjectChatHistoryThread,
-  startProjectChatHistoryThreadInGroup,
-} from "./projectChatHistoryController";
-import {
-  toThreadGroupDndId,
-  type ThreadDropTarget,
-} from "./projectChatHistoryDragUtils";
+import { toThreadGroupDndId } from "./projectChatHistoryDragUtils";
 import {
   useProjectChatHistorySearchNavigation,
   useProjectChatHistorySearchQueryState,
@@ -52,8 +30,8 @@ import {
   buildProjectChatHistoryDisplayEntries,
   buildProjectChatThreadSections,
   buildThreadAgentBadgeLabelByChatId,
-  type ProjectChatHistoryEntry,
 } from "./projectChatHistoryViewModel";
+import { useProjectChatHistoryCommandController } from "./useProjectChatHistoryCommandController";
 import { useProjectChatHistoryDragController } from "./useProjectChatHistoryDragController";
 import { useProjectChatHistoryPolling } from "./useProjectChatHistoryPolling";
 
@@ -123,8 +101,6 @@ export function ProjectChatHistory({
     }
     return Boolean(state.chatDetails[chatId]?.waitingForResponse);
   });
-  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
-  const [showThreadAgentBadges, setShowThreadAgentBadges] = useState(true);
   const threadListScrollRef = useRef<HTMLDivElement | null>(null);
   const {
     threadGroups,
@@ -230,16 +206,6 @@ export function ProjectChatHistory({
       externalAgentConfigs,
     });
   }, [engineConfigs, externalAgentConfigs, visibleSortedEntries]);
-
-  useEffect(() => {
-    if (!editingGroupId) {
-      return;
-    }
-    const exists = threadGroups.some((group) => group.id === editingGroupId);
-    if (!exists) {
-      setEditingGroupId(null);
-    }
-  }, [editingGroupId, threadGroups]);
 
   const { groupSections, ungroupedEntries } = useMemo(() => {
     return buildProjectChatThreadSections({
@@ -347,102 +313,43 @@ export function ProjectChatHistory({
     );
   }, [agentRunsInitialLoadComplete, agentRunsLoadError, sortedEntries.length]);
 
-  const handleCreateGroup = useCallback(() => {
-    createProjectChatHistoryGroup({
-      projectConfigId,
-      existingGroupNames: threadGroups.map((group) => group.name),
-      onSelectedGroupChange,
-      setEditingGroupId,
-    });
-  }, [onSelectedGroupChange, projectConfigId, threadGroups]);
-
-  const handleSelectThread = useCallback(
-    (entry: ProjectChatHistoryEntry) => {
-      selectProjectChatHistoryEntry({
-        entry,
-        closeOnSelect,
-        onCloseThreadsView,
-        projectConfigId,
-        setChatId,
-      });
-    },
-    [closeOnSelect, onCloseThreadsView, projectConfigId, setChatId],
-  );
-  const handleStartThreadInGroup = useCallback(
-    (groupId: string) => {
-      startProjectChatHistoryThreadInGroup({
-        groupId,
-        onSelectedGroupChange,
-        onStartNewThreadInGroup,
-        setChatId,
-        closeOnSelect,
-        onCloseThreadsView,
-      });
-    },
-    [
-      closeOnSelect,
-      onCloseThreadsView,
-      onSelectedGroupChange,
-      onStartNewThreadInGroup,
-      setChatId,
-    ],
-  );
-  const handleStartNewThread = useCallback(() => {
-    startProjectChatHistoryThread({
-      onStartNewThread,
-      selectedGroupId,
-      onStartNewThreadInGroup,
-      startThreadInGroup: handleStartThreadInGroup,
-      setChatId,
-      closeOnSelect,
-      onCloseThreadsView,
-    });
-  }, [
-    closeOnSelect,
+  const {
+    editingGroupId,
+    setEditingGroupId,
+    handleFinishEditing,
+    showThreadAgentBadges,
+    handleToggleThreadAgentBadges,
+    canUndoDeletedThreadOrGroup,
+    handleCreateGroup,
+    handleSelectThread,
+    handleSelectGroup,
     handleStartThreadInGroup,
-    onCloseThreadsView,
+    handleStartNewThread,
+    handleRenameGroup,
+    handleMoveThread,
+    handleReorderGroups,
+    handleToggleGroupPinned,
+    handleToggleThreadPinned,
+    handleDeleteThread,
+    handleDeleteGroup,
+    handleRestoreDeletedThreadOrGroup,
+  } = useProjectChatHistoryCommandController({
+    projectConfigId,
+    threadGroups,
+    selectedGroupId,
+    onSelectedGroupChange,
     onStartNewThread,
     onStartNewThreadInGroup,
-    selectedGroupId,
+    closeOnSelect,
+    onCloseThreadsView,
     setChatId,
-  ]);
-
-  const handleRenameGroup = useCallback(
-    (groupId: string, nextName: string) => {
-      return renameProjectChatThreadGroup(projectConfigId, groupId, nextName);
-    },
-    [projectConfigId],
-  );
-  const handleMoveThread = useCallback(
-    (sourceThreadId: string, dropTarget: ThreadDropTarget) => {
-      moveProjectChatHistoryThread({
-        sourceThreadId,
-        dropTarget,
-        pinnedThreadIdsSet,
-        threadOrderIds,
-        orderedVisibleThreadIds,
-        threadGroupById,
-        threadPinnedById,
-        projectConfigId,
-        onSelectedGroupChange,
-      });
-    },
-    [
-      onSelectedGroupChange,
-      orderedVisibleThreadIds,
-      pinnedThreadIdsSet,
-      projectConfigId,
-      threadGroupById,
-      threadPinnedById,
-      threadOrderIds,
-    ],
-  );
-  const handleReorderGroups = useCallback(
-    (nextOrderedGroupIds: Array<string>) => {
-      reorderProjectChatThreadGroups(projectConfigId, nextOrderedGroupIds);
-    },
-    [projectConfigId],
-  );
+    chatId,
+    pinnedThreadIdsSet,
+    threadOrderIds,
+    orderedVisibleThreadIds,
+    threadGroupById,
+    threadPinnedById,
+  });
   const {
     activeThreadDragId,
     threadDragHoverGroupId,
@@ -464,45 +371,6 @@ export function ProjectChatHistory({
     onMoveThread: handleMoveThread,
     onReorderGroups: handleReorderGroups,
   });
-  const handleToggleGroupPinned = useCallback(
-    (groupId: string) => {
-      toggleProjectChatThreadGroupPinned(projectConfigId, groupId);
-    },
-    [projectConfigId],
-  );
-  const handleToggleThreadPinned = useCallback(
-    (threadId: string) => {
-      toggleProjectChatThreadPinned(projectConfigId, threadId);
-    },
-    [projectConfigId],
-  );
-  const handleDeleteThread = useCallback(
-    (threadId: string) => {
-      deleteProjectChatHistoryThread({
-        projectConfigId,
-        threadId,
-        chatId,
-        setChatId,
-      });
-    },
-    [chatId, projectConfigId, setChatId],
-  );
-  const handleDeleteGroup = useCallback(
-    (groupId: string) => {
-      deleteProjectChatHistoryGroup({
-        projectConfigId,
-        groupId,
-        selectedGroupId,
-        onSelectedGroupChange,
-      });
-    },
-    [onSelectedGroupChange, projectConfigId, selectedGroupId],
-  );
-  const handleRestoreDeletedThreadOrGroup = useCallback(() => {
-    undoLastProjectChatThreadStorageMutation(projectConfigId);
-  }, [projectConfigId]);
-  const canUndoDeletedThreadOrGroup =
-    canUndoLastProjectChatThreadStorageMutation(projectConfigId);
 
   const panelClasses = inline
     ? "flex h-full min-h-0 w-full min-w-0 flex-col border-r border-setta-200 bg-setta-50 dark:border-setta-800 dark:bg-setta-900/40"
@@ -525,9 +393,7 @@ export function ProjectChatHistory({
       canUndoDeletedThreadOrGroup={canUndoDeletedThreadOrGroup}
       onMasterSearchInputChange={setMasterSearchInput}
       onStepMasterSearch={handleStepMasterSearch}
-      onToggleThreadAgentBadges={() => {
-        setShowThreadAgentBadges((prev) => !prev);
-      }}
+      onToggleThreadAgentBadges={handleToggleThreadAgentBadges}
       onRestoreDeletedThreadOrGroup={handleRestoreDeletedThreadOrGroup}
       onCreateGroup={handleCreateGroup}
     />
@@ -580,18 +446,14 @@ export function ProjectChatHistory({
         activeThreadDragId={activeThreadDragId}
         threadDragHoverGroupId={threadDragHoverGroupId}
         onStartEditing={setEditingGroupId}
-        onFinishEditing={() => {
-          setEditingGroupId(null);
-        }}
+        onFinishEditing={handleFinishEditing}
         onRenameGroup={handleRenameGroup}
         onToggleGroupPinned={handleToggleGroupPinned}
         onToggleThreadPinned={handleToggleThreadPinned}
         onDeleteGroup={handleDeleteGroup}
         onDeleteThread={handleDeleteThread}
         onSelectThread={handleSelectThread}
-        onSelectGroup={(groupId) => {
-          onSelectedGroupChange?.(groupId);
-        }}
+        onSelectGroup={handleSelectGroup}
         onStartThreadInGroup={handleStartThreadInGroup}
         hasMasterSearch={hasMasterSearch}
         masterSearchMatchCountByChatId={masterSearchMatchCountByChatId}
