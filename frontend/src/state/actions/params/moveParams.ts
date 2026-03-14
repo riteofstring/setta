@@ -8,16 +8,18 @@ import {
   resolveFullIndexForVisibleInsertion,
 } from "state/actions/params/paramTree";
 import {
-  dispatchOptimisticProjectStateUpdate,
+  toggleParamSelected,
+  unselectAllParams,
+} from "state/actions/projectStateCommands";
+import { dispatchOptimisticProjectStateUpdate } from "state/actions/projectStateOptimisticUpdates";
+import { setCurrEffectiveCodeObjImplValue } from "state/actions/sectionEffectiveImplMutations";
+import {
   getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImpl,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
   getCurrSectionVariantId,
   getCurrShownParamIds,
-  setCurrEffectiveCodeObjImplValue,
-  toggleParamSelected,
-  unselectAllParams,
 } from "state/actions/sectionInfos";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 import type { ZustandProjectState } from "state/definitions";
