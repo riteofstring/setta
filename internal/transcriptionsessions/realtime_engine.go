@@ -647,63 +647,59 @@ func appendOpenAIRealtimeFallbackItemOrder(itemOrder []string, itemID string) []
 }
 
 func rebuildOpenAIRealtimeItemOrder(itemCommitOrder []string, itemPreviousIDs map[string]*string, fallbackOrder []string) []string {
-	orderedChildrenByPreviousID := map[string][]string{}
-	seenCommittedItems := map[string]struct{}{}
+	knownItems := map[string]struct{}{}
 	for _, itemID := range itemCommitOrder {
 		trimmedItemID := strings.TrimSpace(itemID)
 		if trimmedItemID == "" {
 			continue
 		}
-		if _, ok := seenCommittedItems[trimmedItemID]; ok {
-			continue
-		}
-		seenCommittedItems[trimmedItemID] = struct{}{}
-		previousKey := ""
-		if previousItemID, ok := itemPreviousIDs[trimmedItemID]; ok && previousItemID != nil {
-			previousKey = strings.TrimSpace(*previousItemID)
-		}
-		orderedChildrenByPreviousID[previousKey] = append(
-			orderedChildrenByPreviousID[previousKey],
-			trimmedItemID,
-		)
-	}
-
-	ordered := make([]string, 0, len(itemCommitOrder)+len(fallbackOrder))
-	placed := map[string]struct{}{}
-	var appendChain func(string)
-	appendChain = func(previousID string) {
-		for _, itemID := range orderedChildrenByPreviousID[previousID] {
-			if _, ok := placed[itemID]; ok {
-				continue
-			}
-			placed[itemID] = struct{}{}
-			ordered = append(ordered, itemID)
-			appendChain(itemID)
-		}
-	}
-	appendChain("")
-	for _, itemID := range itemCommitOrder {
-		trimmedItemID := strings.TrimSpace(itemID)
-		if trimmedItemID == "" {
-			continue
-		}
-		if _, ok := placed[trimmedItemID]; ok {
-			continue
-		}
-		placed[trimmedItemID] = struct{}{}
-		ordered = append(ordered, trimmedItemID)
-		appendChain(trimmedItemID)
+		knownItems[trimmedItemID] = struct{}{}
 	}
 	for _, itemID := range fallbackOrder {
 		trimmedItemID := strings.TrimSpace(itemID)
 		if trimmedItemID == "" {
 			continue
 		}
+		knownItems[trimmedItemID] = struct{}{}
+	}
+
+	ordered := make([]string, 0, len(itemCommitOrder)+len(fallbackOrder))
+	placed := map[string]struct{}{}
+	visiting := map[string]struct{}{}
+	var placeWithKnownAncestors func(string)
+	placeWithKnownAncestors = func(itemID string) {
+		trimmedItemID := strings.TrimSpace(itemID)
+		if trimmedItemID == "" {
+			return
+		}
 		if _, ok := placed[trimmedItemID]; ok {
-			continue
+			return
+		}
+		if _, ok := visiting[trimmedItemID]; ok {
+			return
+		}
+		visiting[trimmedItemID] = struct{}{}
+		if previousItemID, ok := itemPreviousIDs[trimmedItemID]; ok && previousItemID != nil {
+			trimmedPreviousItemID := strings.TrimSpace(*previousItemID)
+			if trimmedPreviousItemID != "" {
+				if _, known := knownItems[trimmedPreviousItemID]; known {
+					placeWithKnownAncestors(trimmedPreviousItemID)
+				}
+			}
+		}
+		delete(visiting, trimmedItemID)
+		if _, ok := placed[trimmedItemID]; ok {
+			return
 		}
 		placed[trimmedItemID] = struct{}{}
 		ordered = append(ordered, trimmedItemID)
+	}
+
+	for _, itemID := range itemCommitOrder {
+		placeWithKnownAncestors(itemID)
+	}
+	for _, itemID := range fallbackOrder {
+		placeWithKnownAncestors(itemID)
 	}
 	return ordered
 }
