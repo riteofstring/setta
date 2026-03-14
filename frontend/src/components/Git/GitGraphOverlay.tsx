@@ -448,16 +448,6 @@ export function GitGraphOverlay({
     return wrappedCleanup;
   }
 
-  function requestPersistIfConnected(persist: () => void): void {
-    requestAnimationFrame(() => {
-      const root = overlayRef.current;
-      if (!root?.isConnected) {
-        return;
-      }
-      persist();
-    });
-  }
-
   useEffect(() => {
     const wrapper = listWrapperRef.current;
     if (!wrapper) {
@@ -670,7 +660,6 @@ export function GitGraphOverlay({
     }
 
     let rafId: number | null = null;
-    let latestPct = clamp(splitPct, 0, 100);
     const setPct = (pct: number) => {
       root.style.setProperty(CSS_VAR_GIT_GRAPH_SPLIT_PCT, pct.toString());
     };
@@ -682,12 +671,11 @@ export function GitGraphOverlay({
       const deltaX = moveEvent.clientX - startX;
       const nextLeftPx = clamp(startLeftPx + deltaX, minLeft, maxLeft);
       const nextPct = clamp((nextLeftPx / wrapperWidth) * 100, 0, 100);
-      latestPct = nextPct;
       if (rafId !== null) {
         cancelAnimationFrame(rafId);
       }
       rafId = requestAnimationFrame(() => {
-        setPct(latestPct);
+        setPct(nextPct);
         rafId = null;
       });
     };
@@ -696,14 +684,14 @@ export function GitGraphOverlay({
       if (upEvent.pointerId !== pointerId) {
         return;
       }
-      const persisted = clamp(latestPct, 0, 100);
-      if (root.isConnected) {
-        setPct(persisted);
-      }
       teardownDrag();
-      requestPersistIfConnected(() => {
-        useLocalStorage.setState({ gitGraphSplitPct: persisted });
-      });
+
+      const pctRaw = root.style.getPropertyValue(CSS_VAR_GIT_GRAPH_SPLIT_PCT);
+      const pct = Number.parseFloat(pctRaw);
+      const persisted = Number.isFinite(pct)
+        ? clamp(pct, 0, 100)
+        : DEFAULT_GIT_GRAPH_SPLIT_PCT;
+      useLocalStorage.setState({ gitGraphSplitPct: persisted });
     };
 
     const teardownDrag = registerDragCleanup(() => {
@@ -946,7 +934,6 @@ export function GitGraphOverlay({
     const pointerId = event.pointerId;
 
     let rafId: number | null = null;
-    let latestWidths = { ...start };
 
     const handleMove = (moveEvent: PointerEvent) => {
       if (moveEvent.pointerId !== pointerId) {
@@ -954,7 +941,6 @@ export function GitGraphOverlay({
       }
       const deltaX = moveEvent.clientX - startX;
       const next = computeNextFromDelta(deltaX);
-      latestWidths = { ...latestWidths, ...next };
       if (rafId !== null) {
         cancelAnimationFrame(rafId);
       }
@@ -971,24 +957,25 @@ export function GitGraphOverlay({
       if (upEvent.pointerId !== pointerId) {
         return;
       }
+      teardownDrag();
+
       const keys = changedKeysByBoundary[boundary];
       const persisted: Partial<typeof start> = {};
       for (const key of keys) {
-        const value = latestWidths[key];
+        const raw = root.style.getPropertyValue(cssVarByKey[key]).trim();
+        const parsed = Number.parseFloat(raw);
         const minPx = minPxByKey[key];
         const maxPx = maxPxByKey[key];
-        persisted[key] = clamp(value, minPx, maxPx);
+        const fallback = start[key];
+        persisted[key] = Number.isFinite(parsed)
+          ? clamp(parsed, minPx, maxPx)
+          : clamp(fallback, minPx, maxPx);
       }
-      if (root.isConnected) {
-        if (boundary === "graphMessage") {
-          setLiveGraphColWidthPx(persisted.graph ?? start.graph);
-        }
-        applyWidths(persisted);
+      if (boundary === "graphMessage") {
+        setLiveGraphColWidthPx(persisted.graph ?? start.graph);
       }
-      teardownDrag();
-      requestPersistIfConnected(() => {
-        persistWidths(persisted);
-      });
+      applyWidths(persisted);
+      persistWidths(persisted);
     };
 
     const teardownDrag = registerDragCleanup(() => {

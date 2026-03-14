@@ -105,14 +105,12 @@ test.describe.serial("chat composer controls", () => {
       await input.fill("/search off");
       await input.press("Enter");
       await expect(
-        section.getByText("/search is unavailable in the current context. Use /help."),
+        section.getByText("Unknown or unavailable command. Use /help."),
       ).toBeVisible();
       await input.fill("/permissions yolo");
       await input.press("Enter");
       await expect(
-        section.getByText(
-          "/permissions is unavailable in the current context. Use /help.",
-        ),
+        section.getByText("Unknown or unavailable command. Use /help."),
       ).toBeVisible();
       expect(llmSubmitCount).toBe(0);
 
@@ -1301,7 +1299,7 @@ test.describe.serial("chat composer controls", () => {
     }
   });
 
-  test("project chat collapses the threads label below the toolbar label breakpoint while keeping settings accessible", async ({
+  test("project chat collapses nav labels below the toolbar label breakpoint", async ({
     page,
   }) => {
     await setOverviewTab(page, "ProjectAIChat");
@@ -1329,17 +1327,18 @@ test.describe.serial("chat composer controls", () => {
         .getByRole("button", { name: "View Threads" })
         .locator("span", { hasText: /^Threads$/ })
         .first();
-      const settingsButton = projectChatSurface.getByRole("button", {
-        name: "Project AI Settings",
-      });
+      const settingsVisibleLabel = projectChatSurface
+        .getByRole("button", { name: "Project AI Settings" })
+        .locator("span", { hasText: /^Settings$/ })
+        .first();
 
       await setProjectChatSurfaceWidth(page, 820);
       await expect(historyVisibleLabel).toBeVisible();
-      await expect(settingsButton).toBeVisible();
+      await expect(settingsVisibleLabel).toBeVisible();
 
       await setProjectChatSurfaceWidth(page, 700);
       await expect(historyVisibleLabel).toBeHidden();
-      await expect(settingsButton).toBeVisible();
+      await expect(settingsVisibleLabel).toBeHidden();
     } finally {
       await engineCleanup();
       await cleanupIsolatedProject(page, projectContext);

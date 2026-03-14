@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { allowExpectedApiError } from "../helpers";
@@ -12,98 +12,6 @@ import {
   toRepoRelativePath,
 } from "./helpers/gitOverlayFixture";
 
-function getMaximizedGitGraphWindow(page: Page) {
-  return page
-    .getByTestId("project-chat-maximized-window")
-    .filter({ has: page.getByTestId("git-graph-overlay") });
-}
-
-function getMaximizedGitGraphFilter(page: Page) {
-  return getMaximizedGitGraphWindow(page).getByPlaceholder(/Filter commits/);
-}
-
-async function dispatchPointerDrag(
-  page: Page,
-  targetTestId: string,
-  deltaX: number,
-): Promise<void> {
-  await page.getByTestId(targetTestId).evaluate(
-    async (element, dragDeltaX) => {
-      const rect = element.getBoundingClientRect();
-      const startX = rect.left + rect.width / 2;
-      const clientY = rect.top + rect.height / 2;
-      const pointerId = 91;
-
-      element.dispatchEvent(
-        new PointerEvent("pointerdown", {
-          bubbles: true,
-          cancelable: true,
-          composed: true,
-          detail: 1,
-          pointerId,
-          pointerType: "mouse",
-          isPrimary: true,
-          button: 0,
-          buttons: 1,
-          clientX: startX,
-          clientY,
-        }),
-      );
-      window.dispatchEvent(
-        new PointerEvent("pointermove", {
-          bubbles: true,
-          cancelable: true,
-          composed: true,
-          pointerId,
-          pointerType: "mouse",
-          isPrimary: true,
-          button: 0,
-          buttons: 1,
-          clientX: startX + dragDeltaX,
-          clientY,
-        }),
-      );
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => resolve());
-      });
-      window.dispatchEvent(
-        new PointerEvent("pointerup", {
-          bubbles: true,
-          cancelable: true,
-          composed: true,
-          pointerId,
-          pointerType: "mouse",
-          isPrimary: true,
-          button: 0,
-          buttons: 0,
-          clientX: startX + dragDeltaX,
-          clientY,
-        }),
-      );
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => resolve());
-      });
-    },
-    deltaX,
-  );
-}
-
-async function closeVisibleFloatingChatWindows(page: Page): Promise<void> {
-  let floatingWindows = page.getByTestId("project-chat-floating-window");
-  let floatingWindowCount = await floatingWindows.count();
-  while (floatingWindowCount > 0) {
-    await floatingWindows
-      .first()
-      .getByTestId("project-chat-window-close")
-      .evaluate((element: HTMLElement) => {
-        element.click();
-      });
-    await expect(floatingWindows).toHaveCount(floatingWindowCount - 1);
-    floatingWindows = page.getByTestId("project-chat-floating-window");
-    floatingWindowCount = await floatingWindows.count();
-  }
-}
-
 test("git graph clears stale rows when refresh fails", async ({ page }) => {
   const workspaceRoot = getWorkspaceRootOrThrow();
   const fixture = await seedGitOverlayFixture(workspaceRoot, {
@@ -116,9 +24,8 @@ test("git graph clears stale rows when refresh fails", async ({ page }) => {
       .getByTestId("overview-tab-content-shell")
       .getByRole("button", { name: "Graph" })
       .click();
-    await closeVisibleFloatingChatWindows(page);
 
-    const graphFilter = getMaximizedGitGraphFilter(page);
+    const graphFilter = page.getByPlaceholder(/Filter commits/);
     await expect(graphFilter).toBeVisible();
     const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
 
@@ -186,7 +93,6 @@ test("git graph follows the overview pane until it leaves the tracked default st
       .getByTestId("overview-tab-content-shell")
       .getByRole("button", { name: "Graph" })
       .click();
-    await closeVisibleFloatingChatWindows(page);
 
     const trackedWindow = page.getByTestId("project-chat-maximized-window");
     await expect(trackedWindow).toBeVisible();
@@ -314,7 +220,6 @@ test("git graph does not expose a canvas move action", async ({ page }) => {
       .getByTestId("overview-tab-content-shell")
       .getByRole("button", { name: "Graph" })
       .click();
-    await closeVisibleFloatingChatWindows(page);
 
     const maximizedWindow = page.getByTestId("project-chat-maximized-window");
     await expect(maximizedWindow).toBeVisible();
@@ -343,7 +248,6 @@ test("git graph opens as a maximized window and can restore, dock, and minimize"
       .getByTestId("overview-tab-content-shell")
       .getByRole("button", { name: "Graph" })
       .click();
-    await closeVisibleFloatingChatWindows(page);
 
     const maximizedWindow = page.getByTestId("project-chat-maximized-window");
     await expect(maximizedWindow).toBeVisible();
@@ -353,34 +257,20 @@ test("git graph opens as a maximized window and can restore, dock, and minimize"
     await expect(
       maximizedWindow.getByTestId("git-graph-overlay"),
     ).toBeVisible();
-    const instanceId = await maximizedWindow.getAttribute(
-      "data-chat-window-instance-id",
-    );
-    if (!instanceId) {
-      throw new Error("Expected maximized git graph window instance id.");
-    }
 
     await maximizedWindow.getByTestId("project-chat-window-restore").click();
-    const floatingWindow = page.locator(
-      `[data-testid="project-chat-floating-window"][data-chat-window-instance-id="${instanceId}"]`,
-    );
+    const floatingWindow = page.getByTestId("project-chat-floating-window");
     await expect(floatingWindow).toBeVisible();
     await expect(floatingWindow.getByTestId("git-graph-overlay")).toBeVisible();
 
     await floatingWindow.getByTestId("project-chat-window-dock").click();
-    const dockedWindow = page.locator(
-      `[data-testid="project-chat-bottom-dock-window-panel"][data-chat-window-instance-id="${instanceId}"]`,
-    );
+    const dockedWindow = page
+      .getByTestId("project-chat-bottom-dock-window-panel")
+      .filter({ has: page.getByTestId("git-graph-overlay") });
     await expect(dockedWindow).toBeVisible();
 
     await dockedWindow.getByTestId("project-chat-window-minimize").click();
-    const minimizedPill = page
-      .getByTestId("project-chat-bottom-dock-pill")
-      .filter({
-        has: page.locator(
-          '[data-testid="project-chat-bottom-dock-pill-icon"][data-chat-window-icon-mode="git_graph_mode"]',
-        ),
-      });
+    const minimizedPill = page.getByTestId("project-chat-bottom-dock-pill");
     await expect(minimizedPill).toHaveCount(1);
     await expect(
       minimizedPill.first().getByTestId("project-chat-bottom-dock-pill-icon"),
@@ -406,8 +296,7 @@ test("git graph marks non-origin remote refs as remote chips", async ({
       .getByTestId("overview-tab-content-shell")
       .getByRole("button", { name: "Graph" })
       .click();
-    await closeVisibleFloatingChatWindows(page);
-    const graphFilter = getMaximizedGitGraphFilter(page);
+    const graphFilter = page.getByPlaceholder(/Filter commits/);
     await expect(graphFilter).toBeVisible();
 
     const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
@@ -436,8 +325,7 @@ test("git graph keeps local slash branches as branch chips", async ({
       .getByTestId("overview-tab-content-shell")
       .getByRole("button", { name: "Graph" })
       .click();
-    await closeVisibleFloatingChatWindows(page);
-    const graphFilter = getMaximizedGitGraphFilter(page);
+    const graphFilter = page.getByPlaceholder(/Filter commits/);
     await expect(graphFilter).toBeVisible();
 
     const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
@@ -490,8 +378,7 @@ test("git graph can open a historical file diff when the current workspace path 
       .getByTestId("overview-tab-content-shell")
       .getByRole("button", { name: "Graph" })
       .click();
-    await closeVisibleFloatingChatWindows(page);
-    const graphFilter = getMaximizedGitGraphFilter(page);
+    const graphFilter = page.getByPlaceholder(/Filter commits/);
     await expect(graphFilter).toBeVisible();
 
     const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
@@ -564,8 +451,7 @@ test("git graph clears selected commit diff when selected commit disappears afte
       .getByTestId("overview-tab-content-shell")
       .getByRole("button", { name: "Graph" })
       .click();
-    await closeVisibleFloatingChatWindows(page);
-    const graphFilter = getMaximizedGitGraphFilter(page);
+    const graphFilter = page.getByPlaceholder(/Filter commits/);
     await expect(graphFilter).toBeVisible();
     const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
 
@@ -605,7 +491,7 @@ test("git graph clears selected commit diff when selected commit disappears afte
   }
 });
 
-test("git graph drag listeners are cleaned up when the graph window closes mid-drag", async ({
+test("git graph drag listeners are cleaned up when the overlay closes mid-drag", async ({
   page,
 }) => {
   const workspaceRoot = getWorkspaceRootOrThrow();
@@ -619,16 +505,8 @@ test("git graph drag listeners are cleaned up when the graph window closes mid-d
       .getByTestId("overview-tab-content-shell")
       .getByRole("button", { name: "Graph" })
       .click();
-    await closeVisibleFloatingChatWindows(page);
 
-    const graphWindow = getMaximizedGitGraphWindow(page);
-    const graphWindowInstanceId = await graphWindow.getAttribute(
-      "data-chat-window-instance-id",
-    );
-    if (!graphWindowInstanceId) {
-      throw new Error("Expected maximized git graph window instance id.");
-    }
-    const graphFilter = getMaximizedGitGraphFilter(page);
+    const graphFilter = page.getByPlaceholder(/Filter commits/);
     await expect(graphFilter).toBeVisible();
     const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
     const paneSplitter = graphOverlay.getByTestId("git-graph-pane-splitter");
@@ -647,19 +525,15 @@ test("git graph drag listeners are cleaned up when the graph window closes mid-d
       firstSplitterBox.y + firstSplitterBox.height / 2,
       { steps: 8 },
     );
-    await page.evaluate(async (instanceId: string) => {
-      const { closeProjectChatWindow } = await import(
-        "/src/state/actions/projectChatWindowing.ts"
-      );
-      closeProjectChatWindow(instanceId);
-    }, graphWindowInstanceId);
+    await page.keyboard.press("Escape");
+    await expect(graphFilter).toHaveCount(0);
     await page.mouse.up();
 
     await page
       .getByTestId("overview-tab-content-shell")
       .getByRole("button", { name: "Graph" })
       .click();
-    const graphFilterAfterReopen = getMaximizedGitGraphFilter(page);
+    const graphFilterAfterReopen = page.getByPlaceholder(/Filter commits/);
     await expect(graphFilterAfterReopen).toBeVisible();
     const graphOverlayAfterReopen = graphFilterAfterReopen.locator(
       "xpath=ancestor::section[1]",
@@ -673,21 +547,19 @@ test("git graph drag listeners are cleaned up when the graph window closes mid-d
     const historyBefore = await historyPaneAfterReopen.evaluate(
       (el) => el.getBoundingClientRect().width,
     );
-    await expect(paneSplitterAfterReopen).toBeVisible();
-    const paneSplitterAfterReopenBox = await paneSplitterAfterReopen.boundingBox();
-    if (!paneSplitterAfterReopenBox) {
-      throw new Error("Expected reopened pane splitter bounds.");
+    const secondSplitterBox = await paneSplitterAfterReopen.boundingBox();
+    if (!secondSplitterBox) {
+      throw new Error("Expected git graph pane splitter box after reopen.");
     }
+
     await page.mouse.move(
-      paneSplitterAfterReopenBox.x + paneSplitterAfterReopenBox.width / 2,
-      paneSplitterAfterReopenBox.y + paneSplitterAfterReopenBox.height / 2,
+      secondSplitterBox.x + secondSplitterBox.width / 2,
+      secondSplitterBox.y + secondSplitterBox.height / 2,
     );
     await page.mouse.down();
     await page.mouse.move(
-      paneSplitterAfterReopenBox.x +
-        paneSplitterAfterReopenBox.width / 2 +
-        -120,
-      paneSplitterAfterReopenBox.y + paneSplitterAfterReopenBox.height / 2,
+      secondSplitterBox.x + secondSplitterBox.width / 2 + 90,
+      secondSplitterBox.y + secondSplitterBox.height / 2,
       { steps: 8 },
     );
     await page.mouse.up();
@@ -695,7 +567,7 @@ test("git graph drag listeners are cleaned up when the graph window closes mid-d
     const historyAfter = await historyPaneAfterReopen.evaluate(
       (el) => el.getBoundingClientRect().width,
     );
-    expect(historyAfter).toBeLessThan(historyBefore - 20);
+    expect(historyAfter).toBeGreaterThan(historyBefore + 20);
   } finally {
     await cleanupGitOverlayFixture(fixture);
   }
@@ -714,8 +586,7 @@ test("git graph shows an explicit empty-history state for unborn HEAD", async ({
       .getByTestId("overview-tab-content-shell")
       .getByRole("button", { name: "Graph" })
       .click();
-    await closeVisibleFloatingChatWindows(page);
-    const graphFilter = getMaximizedGitGraphFilter(page);
+    const graphFilter = page.getByPlaceholder(/Filter commits/);
     await expect(graphFilter).toBeVisible();
 
     const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
@@ -731,7 +602,7 @@ test("git graph shows an explicit empty-history state for unborn HEAD", async ({
   }
 });
 
-test("git graph window stays open when Escape is pressed from or outside the filter input", async ({
+test("git graph keeps overlay open when Escape is pressed inside the filter input", async ({
   page,
 }) => {
   const workspaceRoot = getWorkspaceRootOrThrow();
@@ -745,9 +616,8 @@ test("git graph window stays open when Escape is pressed from or outside the fil
       .getByTestId("overview-tab-content-shell")
       .getByRole("button", { name: "Graph" })
       .click();
-    await closeVisibleFloatingChatWindows(page);
 
-    const graphFilter = getMaximizedGitGraphFilter(page);
+    const graphFilter = page.getByPlaceholder(/Filter commits/);
     await expect(graphFilter).toBeVisible();
     await graphFilter.fill("history-00");
     await graphFilter.press("Escape");
@@ -757,7 +627,7 @@ test("git graph window stays open when Escape is pressed from or outside the fil
 
     await page.locator("body").click();
     await page.keyboard.press("Escape");
-    await expect(graphFilter).toBeVisible();
+    await expect(graphFilter).toHaveCount(0);
   } finally {
     await cleanupGitOverlayFixture(fixture);
   }

@@ -48,7 +48,7 @@ test.describe.serial("agentic handles", () => {
         "Code",
       );
 
-      const scope = page.locator(`section[data-section-id="${sectionId}"]`);
+      const scope = page.locator(`[data-section-id="${sectionId}"]`);
       await expect(scope).toBeVisible();
 
       const top = await scope.evaluate((el) =>
@@ -72,7 +72,7 @@ test.describe.serial("agentic handles", () => {
         "Prompt",
       );
 
-      const scope = page.locator(`section[data-section-id="${sectionId}"]`);
+      const scope = page.locator(`[data-section-id="${sectionId}"]`);
       await expect(scope).toBeVisible();
 
       const top = await scope.evaluate((el) =>

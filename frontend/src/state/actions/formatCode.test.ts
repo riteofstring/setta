@@ -1,6 +1,8 @@
-import { useActiveSectionUI } from "state/activeSectionUI";
-import { useProjectState, useShareSession } from "state/definitions";
-import { useLspDiagnostics } from "state/stores/diagnosticsStores";
+import {
+  useLspDiagnostics,
+  useProjectState,
+  useShareSession,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { route_format_code, route_set_code } from "utils/generatedEndpoints";
 import {
@@ -83,7 +85,6 @@ describe("formatActiveCodeSection", () => {
       state.sectionImpls = { [implId]: impl };
       state.previewSectionVariantMap = {};
     });
-    useActiveSectionUI.setState({ activeIds: [sectionId] });
     useLspDiagnostics.setState({ codeSections: {}, unmappedGenCode: [] });
   }
 

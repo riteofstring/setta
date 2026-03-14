@@ -1,5 +1,4 @@
-import { useProjectState } from "state/definitions";
-import { useTypeErrors } from "state/stores/diagnosticsStores";
+import { useProjectState, useTypeErrors } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   createProjectConfig,

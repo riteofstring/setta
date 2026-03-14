@@ -32,13 +32,13 @@ import {
 } from "state/actions/project/loadProject";
 import {
   useAllProjectMetadata,
+  useHomeFileBrowserState,
   useHomePageSearch,
   useLocalStorage,
+  useProjectLoading,
   useShareSession,
 } from "state/definitions";
 import { useWindowSize } from "state/hooks/utils";
-import { useProjectLoading } from "state/stores/ephemeralUiStores";
-import { useHomeFileBrowserState } from "state/stores/fileBrowserStores";
 import {
   buildSharePath,
   CLOSED_PANE_WIDTH,
@@ -62,7 +62,6 @@ const HOME_FILE_BROWSER_META_INSET_CLASS =
   "mx-auto w-[calc(100%_-_1.5rem)] px-1.5";
 const HOME_FILE_BROWSER_TITLE_INSET_CLASS =
   "mx-auto w-[calc(100%_-_1.5rem)] px-1.5";
-const HOME_ICON_RAIL_Z_INDEX_CLASS = "z-[31]";
 const HOME_FILE_BROWSER_LIST_INSET_LEFT = 10;
 const HOME_PANE_TITLE_CLASS =
   "mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500";
@@ -565,7 +564,7 @@ function HomeLeftIconRail({
   return (
     <div
       data-testid="home-left-icon-rail"
-      className={`fixed left-0 ${HOME_ICON_RAIL_Z_INDEX_CLASS} flex w-10 flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900`}
+      className="fixed left-0 z-[19] flex w-10 flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900"
       style={{
         top: "calc(var(--setta-titlebar-height) + 36px)",
         bottom: "0px",
@@ -607,7 +606,7 @@ function HomeRightIconRail({
   return (
     <div
       data-testid="home-right-icon-rail"
-      className={`fixed right-0 ${HOME_ICON_RAIL_Z_INDEX_CLASS} flex w-10 flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900`}
+      className="fixed right-0 z-[19] flex w-10 flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900"
       style={{
         top: "calc(var(--setta-titlebar-height) + 36px)",
         bottom: "0px",

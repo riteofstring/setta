@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { C_ADDRESSES } from "utils/c_addresses";
-import { HOME_ROUTER_PATH } from "utils/constants/routes";
+import { HOME_ROUTER_PATH } from "utils/constants";
 import { dedupeInFlightJson } from "utils/dedupeInFlight";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { route_launch } from "utils/generatedEndpoints";
@@ -307,13 +307,11 @@ export function WorkspaceLaunchPage() {
           url.origin === C_ADDRESSES.LAUNCHER_ORIGIN);
       if (isBackendOrLauncherHomeReturn) {
         requestOpenWorkspaceSwitcherOnNextMount();
-        url.searchParams.set("__setta_open_workspace_switcher", "1");
         navigate(`${url.pathname}${url.search}${url.hash}`, { replace: true });
         return;
       }
       if (url.origin === window.location.origin) {
         requestOpenWorkspaceSwitcherOnNextMount();
-        url.searchParams.set("__setta_open_workspace_switcher", "1");
         navigate(`${url.pathname}${url.search}${url.hash}`, { replace: true });
         return;
       }
@@ -321,9 +319,7 @@ export function WorkspaceLaunchPage() {
       window.location.assign(url.toString());
     } catch {
       requestOpenWorkspaceSwitcherOnNextMount();
-      navigate(`${HOME_ROUTER_PATH}?__setta_open_workspace_switcher=1`, {
-        replace: true,
-      });
+      navigate(HOME_ROUTER_PATH, { replace: true });
     }
   }
 

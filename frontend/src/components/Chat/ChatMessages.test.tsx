@@ -1902,8 +1902,9 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).toContain('data-chat-actions-anchor="right"');
     expect(markup).toContain("absolute right-full top-1/2");
     expect(markup).toContain("absolute left-full top-1/2");
-    expect(markup).toContain("pointer-events-none");
-    expect(markup).toContain("inline-flex items-center gap-1");
+    expect(markup).toContain(
+      "pointer-events-none inline-flex items-center gap-1",
+    );
     expect(markup).toContain("group-hover:opacity-100");
     expect(markup).toContain(
       "rounded-md border border-setta-200/90 bg-setta-100/95",
