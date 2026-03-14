@@ -37,7 +37,7 @@ const chatId = "chat-1";
 let useAIStore: typeof useAIStoreType;
 let useProjectState: typeof useProjectStateType;
 let getDefaultChatDetails: typeof import("state/actions/ai").getDefaultChatDetails;
-let getLLMChat: typeof import("state/actions/aiHydration").getLLMChat;
+let getLLMChat: typeof import("state/actions/ai").getLLMChat;
 let memoryStorage: Storage;
 
 function seedProjectConfig() {
@@ -71,9 +71,8 @@ describe("chat hydration waitingForResponse", () => {
     useAIStore = definitions.useAIStore;
     useProjectState = definitions.useProjectState;
     const ai = await import("state/actions/ai");
-    const aiHydration = await import("state/actions/aiHydration");
     getDefaultChatDetails = ai.getDefaultChatDetails;
-    getLLMChat = aiHydration.getLLMChat;
+    getLLMChat = ai.getLLMChat;
   });
 
   beforeEach(() => {
