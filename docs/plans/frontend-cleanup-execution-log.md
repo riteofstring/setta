@@ -593,3 +593,44 @@ module map and placement guide while this cleanup progresses.
     `frontend/src/state/actions/sectionInfos.ts`, especially
     `dispatchOptimisticProjectStateUpdate` and the pending-op plumbing, into a
     dedicated project-state mutation infrastructure module.
+
+## 2026-03-14 17:14:32 PDT
+
+- Slice completed: extracted optimistic project-state mutation scaffolding out
+  of `frontend/src/state/actions/sectionInfos.ts` into
+  `frontend/src/state/actions/projectStateOptimisticUpdates.ts`
+- Key files touched:
+  - `frontend/src/state/actions/projectStateOptimisticUpdates.ts`
+  - `frontend/src/state/actions/projectStateOptimisticUpdates.test.ts`
+  - `frontend/src/state/actions/sectionInfos.ts`
+  - `frontend/src/state/actions/projectStateCommands.ts`
+  - `frontend/src/state/actions/projectChatWindowing.ts`
+  - `frontend/src/state/actions/windowSpaces.ts`
+  - `frontend/src/state/actions/agenticEdges.ts`
+  - `frontend/src/state/actions/aiChatSectionState.ts`
+  - `frontend/src/state/actions/aiChatSubmission.ts`
+  - `frontend/src/state/actions/codeUpdates.ts`
+  - `frontend/src/state/actions/edges.ts`
+  - `frontend/src/state/actions/params/moveParams.ts`
+  - `frontend/src/state/actions/sections/moveSections.ts`
+  - `frontend/src/state/actions/stateMachineEdges.ts`
+  - `frontend/src/state/actions/viewModes.ts`
+  - `frontend/src/state/hooks/useBrowserColumnWidth.ts`
+  - `frontend/src/state/hooks/useParamColumnWidth.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/projectStateOptimisticUpdates.test.ts src/state/actions/projectStateCommands.test.ts src/state/actions/sections/topLevelLayoutPersistence.test.ts src/state/actions/projectChatWindowing.rollback.test.ts src/state/actions/sections/moveSections.test.ts src/state/actions/websocketReceive.test.ts`
+  - `pnpm -C frontend exec vitest run src/state/actions/agenticEdges.test.ts src/state/actions/stateMachineEdges.test.ts src/state/actions/viewModes.test.ts src/state/actions/windowSpaces.test.ts src/state/actions/projectChatWindowing.test.ts src/state/actions/projectChatWindowing.permissions.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/projectStateOptimisticUpdates.ts src/state/actions/projectStateOptimisticUpdates.test.ts src/state/actions/projectStateCommands.ts src/state/actions/sectionInfos.ts src/state/actions/agenticEdges.ts src/state/actions/aiChatSectionState.ts src/state/actions/aiChatSubmission.ts src/state/actions/codeUpdates.ts src/state/actions/edges.ts src/state/actions/params/moveParams.ts src/state/actions/projectChatWindowing.ts src/state/actions/sections/moveSections.ts src/state/actions/stateMachineEdges.ts src/state/actions/viewModes.ts src/state/actions/windowSpaces.ts src/state/hooks/useBrowserColumnWidth.ts src/state/hooks/useParamColumnWidth.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split and
+    did not change frontend rendering behavior.
+- Commit hash:
+  - `ff4eac616`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/uiSettingReveal.ts`, now the largest
+    remaining state-action hotspot, into narrower UI-setting reveal/search
+    modules without changing the authored frontend behavior.
