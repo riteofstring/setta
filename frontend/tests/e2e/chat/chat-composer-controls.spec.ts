@@ -100,6 +100,18 @@ type ManagedAnthropicThinkingProviderServer = {
   close: () => Promise<void>;
 };
 
+type ManagedAnthropicStandardProviderRequest = {
+  path: string;
+  apiKey: string;
+  body: Record<string, unknown>;
+};
+
+type ManagedAnthropicStandardProviderServer = {
+  origin: string;
+  requests: ManagedAnthropicStandardProviderRequest[];
+  close: () => Promise<void>;
+};
+
 type ManagedAzureChatProviderRequest = {
   path: string;
   query: string;
@@ -957,6 +969,185 @@ test.describe.serial("chat composer controls", () => {
       await expect(
         projectChatSurface.locator('[data-chat-thinking-section="true"]'),
       ).toContainText("Planning deeply");
+    } finally {
+      try {
+        await setOverviewTab(page, "ProjectAIChat");
+        await selectProjectAiEngine(page, "setta");
+      } catch {
+        // Best-effort teardown: if the test already failed, don't block cleanup.
+      }
+      if (createdEngineConfigId) {
+        await page.request
+          .post(`${backendOrigin}/api/deleteEngineConfig`, {
+            data: { configId: createdEngineConfigId },
+            timeout: 5000,
+          })
+          .catch(() => {});
+      }
+      if (initialLLMConfig) {
+        await page.request
+          .post(`${backendOrigin}/api/llm/config`, {
+            data: initialLLMConfig,
+            timeout: 5000,
+          })
+          .catch(() => {});
+      }
+      if (initialAPIKeysSnapshot && latestAPIKeysSnapshot) {
+        await postManagedAPIKeys(page, {
+          apiKeys: initialAPIKeysSnapshot.apiKeys,
+          expectedRevision: latestAPIKeysSnapshot.revision,
+        }).catch(() => {});
+      }
+      await providerServer.close();
+      await engineCleanup();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("project chat submits standard managed Anthropic turns through the Go runtime", async ({
+    page,
+  }) => {
+    await setOverviewTab(page, "ProjectAIChat");
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const engineCleanup = await ensureManagedChatEngine(page);
+    const backendOrigin =
+      process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+
+    let createdEngineConfigId: string | null = null;
+    let initialLLMConfig: LLMConfigPayload | null = null;
+    let initialAPIKeysSnapshot: ManagedAPIKeysSnapshot | null = null;
+    let latestAPIKeysSnapshot: ManagedAPIKeysSnapshot | null = null;
+    let submittedPayload:
+      | {
+          thinking?: boolean;
+          engineConfigId?: string;
+        }
+      | undefined;
+    const providerServer = await startManagedAnthropicStandardServer();
+
+    await page.route("**/api/getLLMResponse", async (route) => {
+      submittedPayload = route.request().postDataJSON() as
+        | {
+            thinking?: boolean;
+            engineConfigId?: string;
+          }
+        | undefined;
+      const response = await route.fetch();
+      const body = await response.body();
+      await route.fulfill({ response, body });
+    });
+
+    try {
+      const llmConfigResponse = await page.request.get(
+        `${backendOrigin}/api/llm/config`,
+      );
+      expect(llmConfigResponse.ok()).toBe(true);
+      initialLLMConfig = (await llmConfigResponse.json()) as LLMConfigPayload;
+      const apiKeysResponse = await page.request.get(
+        `${backendOrigin}/api/llm/apiKeys`,
+      );
+      expect(apiKeysResponse.ok()).toBe(true);
+      initialAPIKeysSnapshot =
+        (await apiKeysResponse.json()) as ManagedAPIKeysSnapshot;
+      latestAPIKeysSnapshot = initialAPIKeysSnapshot;
+
+      const anthropicConfigId = `e2e-anthropic-standard-${Date.now()}`;
+      const updatedLLMConfig: LLMConfigPayload = {
+        ...initialLLMConfig,
+        configs: {
+          ...initialLLMConfig.configs,
+          [anthropicConfigId]: {
+            model: "claude-sonnet-4-5-20250929",
+            provider: "anthropic",
+            api_key_env: "ANTHROPIC_API_KEY",
+            base_url: providerServer.origin,
+            other_params: null,
+          },
+        },
+      };
+      await postBackend(page, "/llm/config", updatedLLMConfig);
+      latestAPIKeysSnapshot = await postManagedAPIKeys(page, {
+        apiKeys: {
+          ...initialAPIKeysSnapshot.apiKeys,
+          ANTHROPIC_API_KEY: "e2e-anthropic-secret",
+        },
+        expectedRevision: initialAPIKeysSnapshot.revision,
+      });
+
+      const createdEngine = await postBackend<EngineConfigSummary>(
+        page,
+        "/createEngineConfig",
+        {
+          name: "Anthropic Standard E2E",
+          engineType: "setta_llm",
+          settaLlmConfigId: anthropicConfigId,
+          defaults: {},
+        },
+      );
+      createdEngineConfigId = createdEngine?.id ?? null;
+      if (!createdEngineConfigId) {
+        throw new Error("Missing Anthropic standard engine config id.");
+      }
+
+      const engineConfigsResponse = await page.request.get(
+        `${backendOrigin}/api/getEngineConfigs`,
+      );
+      expect(engineConfigsResponse.ok()).toBe(true);
+      const engineConfigs =
+        (await engineConfigsResponse.json()) as EngineConfigSummary[];
+      const createdRuntimeSupport =
+        engineConfigs.find((config) => config.id === createdEngineConfigId)
+          ?.runtimeSupport ?? null;
+      expect(createdRuntimeSupport?.thinking).toBe(false);
+
+      await page.evaluate(async () => {
+        const { loadEngineConfigs, loadLLMApiKeys, loadLLMConfig } =
+          await import("/src/state/actions/ai.ts");
+        await loadLLMConfig();
+        await loadLLMApiKeys();
+        await loadEngineConfigs(true);
+      });
+
+      await setOverviewTab(page, "ProjectAIChat");
+      const overviewPane = page.locator("#OverviewPane");
+      await expect(
+        overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+      ).toBeVisible();
+
+      const projectChatSurface = await getVisibleProjectChatSurface(page);
+      await selectProjectAiEngine(page, "Anthropic Standard E2E");
+      await expect(
+        projectChatSurface.getByRole("button", { name: "Thinking" }),
+      ).toHaveCount(0);
+
+      const input = projectChatSurface.getByPlaceholder("Type a message...");
+      await expect(input).toBeVisible();
+      await input.fill("Trigger managed Anthropic standard chat");
+      await input.press("Enter");
+
+      await expect
+        .poll(() => submittedPayload?.engineConfigId ?? null)
+        .toBe(createdEngineConfigId);
+      expect(submittedPayload?.thinking).toBe(false);
+      await expect.poll(() => providerServer.requests.length).toBe(1);
+
+      const providerRequest = providerServer.requests[0];
+      expect(providerRequest?.path).toBe("/v1/messages");
+      expect(providerRequest?.apiKey).toBe("e2e-anthropic-secret");
+      expect(providerRequest?.body.model).toBe("claude-sonnet-4-5-20250929");
+      expect(providerRequest?.body.max_tokens).toBe(4096);
+      expect(providerRequest?.body.thinking).toBeUndefined();
+      expect(JSON.stringify(providerRequest?.body.messages ?? null)).toContain(
+        "Trigger managed Anthropic standard chat",
+      );
+
+      await expect(
+        projectChatSurface.getByText("Anthropic standard answer"),
+      ).toBeVisible();
+      await expect(
+        projectChatSurface.locator('[data-chat-thinking-section="true"]'),
+      ).toHaveCount(0);
     } finally {
       try {
         await setOverviewTab(page, "ProjectAIChat");
@@ -4063,6 +4254,84 @@ async function startManagedAnthropicThinkingServer(): Promise<ManagedAnthropicTh
       if (!address || typeof address === "string") {
         server.close(() =>
           reject(new Error("Unable to allocate Anthropic thinking test port.")),
+        );
+        return;
+      }
+      resolve({
+        origin: `http://127.0.0.1:${address.port}`,
+        requests,
+        close: async () =>
+          await new Promise<void>((closeResolve, closeReject) => {
+            server.close((error) => {
+              if (error) {
+                closeReject(error);
+                return;
+              }
+              closeResolve();
+            });
+          }),
+      });
+    });
+  });
+}
+
+async function startManagedAnthropicStandardServer(): Promise<ManagedAnthropicStandardProviderServer> {
+  const requests: ManagedAnthropicStandardProviderRequest[] = [];
+  return await new Promise((resolve, reject) => {
+    const server = http.createServer((request, response) => {
+      const chunks: string[] = [];
+      request.setEncoding("utf8");
+      request.on("data", (chunk: string) => {
+        chunks.push(chunk);
+      });
+      request.on("end", () => {
+        try {
+          const rawBody = chunks.join("");
+          const body = rawBody
+            ? (JSON.parse(rawBody) as Record<string, unknown>)
+            : {};
+          requests.push({
+            path: new URL(request.url ?? "/", "http://127.0.0.1").pathname,
+            apiKey: Array.isArray(request.headers["x-api-key"])
+              ? request.headers["x-api-key"].join(", ")
+              : request.headers["x-api-key"] ?? "",
+            body,
+          });
+        } catch (error) {
+          response.statusCode = 400;
+          response.end(String(error));
+          return;
+        }
+
+        response.statusCode = 200;
+        response.setHeader("content-type", "text/event-stream");
+        response.write(
+          'event: message_start\ndata: {"type":"message_start","message":{"id":"msg-standard","type":"message","role":"assistant","content":[],"model":"claude-sonnet-4-5-20250929","stop_reason":null,"stop_sequence":null,"container":{"id":"container-1","expires_at":"2026-03-12T00:00:00Z"},"usage":{"input_tokens":19,"output_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"inference_geo":"us","server_tool_use":{"web_fetch_requests":0,"web_search_requests":0},"service_tier":"standard","cache_creation":{"ephemeral_1h_input_tokens":0,"ephemeral_5m_input_tokens":0}}}}\n\n',
+        );
+        response.write(
+          'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n\n',
+        );
+        response.write(
+          'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Anthropic"}}\n\n',
+        );
+        response.write(
+          'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":" standard answer"}}\n\n',
+        );
+        response.write(
+          'event: content_block_stop\ndata: {"type":"content_block_stop","index":0}\n\n',
+        );
+        response.write(
+          'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"input_tokens":19,"output_tokens":3,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"server_tool_use":{"web_fetch_requests":0,"web_search_requests":0}}}\n\n',
+        );
+        response.end('event: message_stop\ndata: {"type":"message_stop"}\n\n');
+      });
+    });
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close(() =>
+          reject(new Error("Unable to allocate Anthropic standard test port.")),
         );
         return;
       }
