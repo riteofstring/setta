@@ -80,6 +80,9 @@
     endpoint/API-version request options for standard turns
   - thinking-enabled turns now use Responses streaming so reasoning
     summary/content stays inside the current Setta websocket/message contract
+  - the Responses stream now also treats explicit `response.incomplete`
+    events as provider failures instead of silently succeeding with truncated
+    reasoning output
 - `internal/transcriptionsessions/service.go`
   - file-mode transcription uploads now use `openai-go`
   - bounded adapter keeps Setta-owned auth/base-URL/config semantics intact

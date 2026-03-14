@@ -715,6 +715,12 @@ func (e *Executor) processOpenAIResponseEvent(
 			return nil, fmt.Errorf("managed llm provider request failed: response failed")
 		}
 		return nil, fmt.Errorf("managed llm provider request failed: %s", strings.TrimSpace(typed.Response.Error.Message))
+	case responses.ResponseIncompleteEvent:
+		reason := strings.TrimSpace(typed.Response.IncompleteDetails.Reason)
+		if reason == "" {
+			return nil, fmt.Errorf("managed llm provider request failed: response incomplete")
+		}
+		return nil, fmt.Errorf("managed llm provider request failed: response incomplete (%s)", reason)
 	}
 	return nil, nil
 }

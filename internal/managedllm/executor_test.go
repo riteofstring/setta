@@ -1738,6 +1738,77 @@ func TestExecutorExecuteStreamsOpenAIResponsesThinkingAndReturnsOutputs(t *testi
 	}
 }
 
+func TestExecutorExecuteTreatsOpenAIResponsesIncompleteEventAsProviderFailure(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/responses" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected flusher")
+		}
+		fmt.Fprint(w, openAIResponseOutputTextDeltaEvent("message-1", 0, 0, "Partial answer"))
+		flusher.Flush()
+		fmt.Fprint(w, openAIResponseIncompleteEvent("max_output_tokens"))
+		flusher.Flush()
+	}))
+	defer server.Close()
+
+	executor := NewExecutor(ExecutorOptions{
+		HTTPClient: server.Client(),
+	})
+	result, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
+		Run: agentruns.Run{ID: "run-alpha"},
+		LLMConfig: llmconfig.Config{
+			ID:        "primary",
+			Model:     "gpt-5-codex",
+			Provider:  "openai",
+			BaseURL:   server.URL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+		APIKeys: map[string]string{
+			"OPENAI_API_KEY": "secret",
+		},
+		SystemPrompt: "System prompt",
+		ChatID:       "chat-alpha",
+		Thinking:     true,
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+			"messages": []any{
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Keep going"},
+					},
+					"attachments": []any{},
+				},
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected provider failure from incomplete response")
+	}
+	if err.Error() != "managed llm provider request failed: response incomplete (max_output_tokens)" {
+		t.Fatalf("unexpected provider error %q", err.Error())
+	}
+
+	messages, ok := result.Outputs["messages"].([]any)
+	if !ok || len(messages) != 2 {
+		t.Fatalf("expected user and partial assistant messages, got %#v", result.Outputs["messages"])
+	}
+	assistant, ok := messages[1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected assistant message map, got %#v", messages[1])
+	}
+	if assistantText(assistant) != "Partial answer" {
+		t.Fatalf("expected partial assistant text to be preserved, got %#v", assistant)
+	}
+}
+
 func TestExecutorExecuteRunsOpenAIResponsesToolCallsThroughMCPAndContinuesProviderTurns(t *testing.T) {
 	t.Parallel()
 
@@ -2570,6 +2641,33 @@ func openAIResponseCompletedEvent(output []map[string]any, inputTokens int, outp
 					"reasoning_tokens": reasoningTokens,
 				},
 				"total_tokens": totalTokens,
+			},
+		},
+	})
+}
+
+func openAIResponseIncompleteEvent(reason string) string {
+	return openAIResponseEvent(map[string]any{
+		"type":            "response.incomplete",
+		"sequence_number": 98,
+		"response": map[string]any{
+			"id":                 "response-1",
+			"object":             "response",
+			"created_at":         1741567200,
+			"status":             "incomplete",
+			"model":              "gpt-5-codex",
+			"output":             []any{},
+			"incomplete_details": map[string]any{"reason": reason},
+			"usage": map[string]any{
+				"input_tokens": 8,
+				"input_tokens_details": map[string]any{
+					"cached_tokens": 0,
+				},
+				"output_tokens": 1,
+				"output_tokens_details": map[string]any{
+					"reasoning_tokens": 0,
+				},
+				"total_tokens": 9,
 			},
 		},
 	})
