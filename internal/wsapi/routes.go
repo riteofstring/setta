@@ -15,6 +15,7 @@ import (
 	"setta/internal/deployments"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
+	"setta/internal/projectview"
 	"setta/internal/realtime"
 	"setta/internal/terminals"
 )
@@ -35,6 +36,7 @@ const (
 type RouteDependencies struct {
 	Transport               Dependencies
 	Deployment              *deployments.Runtime
+	ProjectState            *projectstate.Runtime
 	WebsocketHub            *realtime.WebsocketHub
 	UISettingRevealResults  *realtime.UISettingRevealResultHub
 	ListenerBroadcaster     *realtime.ListenerBroadcaster
@@ -60,6 +62,7 @@ type listenerEnvelope struct {
 
 type listenerInboundMessage struct {
 	MessageType string
+	Init        *realtime.ListenerInitContent
 	Register    *realtime.ListenerRegisterContent
 	RouterCall  *realtime.ListenerRouterEndpointCallContent
 }
@@ -392,9 +395,6 @@ func serveListenerConnection(
 		return &CloseError{Code: CloseCodeBadRequest, Reason: "Missing listener id."}
 	}
 	projectID := strings.TrimSpace(r.URL.Query().Get(listenerProjectIDQuery))
-	if projectID == "" {
-		return &CloseError{Code: CloseCodeBadRequest, Reason: "Missing project id."}
-	}
 
 	connection, err := deps.WebsocketHub.Connect(ctx, conn, realtime.ConnectParams{
 		ID:             listenerID,
@@ -407,12 +407,14 @@ func serveListenerConnection(
 	defer deps.WebsocketHub.Disconnect(context.Background(), connection.ID, false)
 	defer deps.ListenerBroadcaster.RemoveConnection(connection.ID)
 
-	if err := deps.ListenerBroadcaster.Registry().RecordBootstrap(realtime.ListenerBootstrap{
-		ConnectionID:   connection.ID,
-		ProjectID:      projectID,
-		ShareSessionID: info.Modes.ShareSessionID,
-	}); err != nil {
-		return err
+	if projectID != "" {
+		if err := deps.ListenerBroadcaster.Registry().RecordBootstrap(realtime.ListenerBootstrap{
+			ConnectionID:   connection.ID,
+			ProjectID:      projectID,
+			ShareSessionID: info.Modes.ShareSessionID,
+		}); err != nil {
+			return err
+		}
 	}
 
 	for {
@@ -432,11 +434,18 @@ func serveListenerConnection(
 			return &CloseError{Code: CloseCodeBadRequest, Reason: "Invalid websocket message."}
 		}
 		switch message.MessageType {
+		case realtime.MessageTypeListenerInit:
+			if message.Init == nil {
+				return &CloseError{Code: CloseCodeBadRequest, Reason: "Invalid websocket message."}
+			}
+			if err := handleListenerInit(ctx, connection.ID, info.Modes, *message.Init, deps); err != nil {
+				return err
+			}
 		case realtime.MessageTypeListenerRegister:
 			if message.Register == nil {
 				return &CloseError{Code: CloseCodeBadRequest, Reason: "Invalid websocket message."}
 			}
-			if err := handleListenerRegister(ctx, connection.ID, projectID, info.Modes.ShareSessionID, *message.Register, deps); err != nil {
+			if err := handleListenerRegister(ctx, connection.ID, *message.Register, deps); err != nil {
 				return err
 			}
 		case realtime.MessageTypeListenerRouterCall:
@@ -578,6 +587,15 @@ func decodeListenerMessage(payload []byte) (listenerInboundMessage, error) {
 	}
 
 	switch envelope.MessageType {
+	case realtime.MessageTypeListenerInit:
+		var content realtime.ListenerInitContent
+		if err := json.Unmarshal(envelope.Content, &content); err != nil {
+			return listenerInboundMessage{}, err
+		}
+		return listenerInboundMessage{
+			MessageType: envelope.MessageType,
+			Init:        &content,
+		}, nil
 	case realtime.MessageTypeListenerRegister:
 		var content realtime.ListenerRegisterContent
 		if err := json.Unmarshal(envelope.Content, &content); err != nil {
@@ -626,8 +644,6 @@ func decodeTerminalControlMessage(payload []byte) (terminalResizeMessage, bool, 
 func handleListenerRegister(
 	ctx context.Context,
 	connectionID string,
-	projectID string,
-	shareSessionID string,
 	content realtime.ListenerRegisterContent,
 	deps RouteDependencies,
 ) error {
@@ -645,16 +661,139 @@ func handleListenerRegister(
 		return &CloseError{Code: CloseCodeBadRequest, Reason: err.Error()}
 	}
 
+	registration, ok := deps.ListenerBroadcaster.Registry().Registration(connectionID)
+	if !ok {
+		return fmt.Errorf("listener registration was not retained for websocket %s", connectionID)
+	}
+
 	_, err := deps.WebsocketHub.SendJSON(
 		ctx,
 		realtime.NewListenerRegisterAckMessage(realtime.ListenerRegisterAckContent{
-			ProjectID:      projectID,
-			ShareSessionID: shareSessionID,
+			ProjectID:      registration.ProjectID,
+			ShareSessionID: registration.ShareSessionID,
 			Callbacks:      ackStatuses,
 		}),
 		connectionID,
 	)
 	return err
+}
+
+func handleListenerInit(
+	ctx context.Context,
+	connectionID string,
+	requestInfo modes.RequestInfo,
+	content realtime.ListenerInitContent,
+	deps RouteDependencies,
+) error {
+	if content.UseTemporaryIDs {
+		return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
+			Error: "listener_invalid_id",
+			Details: map[string]any{
+				"message": "Temporary listener ids are unsupported on the Go listener route.",
+			},
+		}, deps)
+	}
+
+	projectID, projectStatePayload, details, err := resolveListenerBootstrap(
+		requestInfo,
+		content,
+		deps,
+	)
+	if err != nil {
+		if len(details) == 0 {
+			details = map[string]any{
+				"message": err.Error(),
+			}
+		}
+		return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
+			Error:   "project_state_unavailable",
+			Details: details,
+		}, deps)
+	}
+
+	if err := deps.ListenerBroadcaster.Registry().RecordBootstrap(realtime.ListenerBootstrap{
+		ConnectionID:   connectionID,
+		ProjectID:      projectID,
+		ShareSessionID: requestInfo.ShareSessionID,
+	}); err != nil {
+		return err
+	}
+
+	_, err = deps.ListenerBroadcaster.SendForceRefresh(ctx, realtime.ForceRefreshParams{
+		ProjectID:           projectID,
+		ShareSessionID:      requestInfo.ShareSessionID,
+		ProjectState:        projectStatePayload,
+		TargetConnectionIDs: []string{connectionID},
+	})
+	return err
+}
+
+func resolveListenerBootstrap(
+	requestInfo modes.RequestInfo,
+	content realtime.ListenerInitContent,
+	deps RouteDependencies,
+) (string, json.RawMessage, map[string]any, error) {
+	snapshot, err := listenerBootstrapSnapshot(requestInfo, deps)
+	if err != nil {
+		return "", nil, map[string]any{"message": err.Error()}, err
+	}
+
+	projectID := strings.TrimSpace(content.ProjectConfigID)
+	projectName := strings.TrimSpace(content.ProjectName)
+	switch {
+	case projectID != "":
+		// Explicit project config ids stay authoritative when both id and name are sent.
+	case projectName != "":
+		projectID, err = snapshot.Document.ProjectIDByName(projectName)
+		if err != nil {
+			return "", nil, map[string]any{
+				"projectName": projectName,
+				"message":     err.Error(),
+			}, err
+		}
+	default:
+		projectID = strings.TrimSpace(snapshot.Document.DefaultProjectID)
+		if projectID == "" {
+			err := fmt.Errorf("%w: default project id", projectview.ErrProjectConfigIDRequired)
+			return "", nil, map[string]any{"message": err.Error()}, err
+		}
+	}
+
+	projectStateView, err := projectview.SingleConfigByProjectID(snapshot.Document, projectID)
+	if err != nil {
+		details := map[string]any{
+			"message": err.Error(),
+		}
+		if projectID != "" {
+			details["projectConfigId"] = projectID
+		}
+		if projectName != "" {
+			details["projectName"] = projectName
+		}
+		return "", nil, details, err
+	}
+
+	projectStatePayload, err := json.Marshal(projectStateView)
+	if err != nil {
+		return "", nil, map[string]any{"message": err.Error()}, err
+	}
+	return projectID, projectStatePayload, nil, nil
+}
+
+func listenerBootstrapSnapshot(
+	requestInfo modes.RequestInfo,
+	deps RouteDependencies,
+) (projectstate.Snapshot, error) {
+	if requestInfo.Policy.IsDeployment() {
+		if deps.Deployment == nil {
+			return projectstate.Snapshot{}, fmt.Errorf("deployment runtime is required")
+		}
+		return deps.Deployment.SessionSnapshot(requestInfo.ShareSessionID)
+	}
+	if deps.ProjectState == nil {
+		return projectstate.Snapshot{}, fmt.Errorf("project runtime is required")
+	}
+	return deps.ProjectState.Snapshot(), nil
 }
 
 func handleListenerRouterEndpointCall(
@@ -768,6 +907,23 @@ func sendListenerRouterEndpointResult(
 	_, err := deps.WebsocketHub.SendJSON(
 		ctx,
 		realtime.NewListenerRouterEndpointResultMessage(content),
+		connectionID,
+	)
+	return err
+}
+
+func sendListenerError(
+	ctx context.Context,
+	connectionID string,
+	content realtime.ListenerErrorContent,
+	deps RouteDependencies,
+) error {
+	if content.Details == nil {
+		content.Details = map[string]any{}
+	}
+	_, err := deps.WebsocketHub.SendJSON(
+		ctx,
+		realtime.NewListenerErrorMessage(content),
 		connectionID,
 	)
 	return err

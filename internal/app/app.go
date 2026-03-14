@@ -1277,6 +1277,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 					TrustedOrigins: trustedOrigins,
 				},
 				Deployment:              deploymentRuntime,
+				ProjectState:            projectRuntime,
 				WebsocketHub:            websocketHub,
 				UISettingRevealResults:  uiSettingRevealResults,
 				ListenerBroadcaster:     listenerBroadcaster,

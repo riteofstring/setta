@@ -19,11 +19,16 @@ Current state:
 
 - Go already owns:
   - `/ws/listeners/{listenerID}` for the active plugin listener path
+  - listener bootstrap resolution on that route for `projectConfigId`,
+    `projectName`, default-project fallback, and share-session scope
+  - bootstrap success/error replies on that route via
+    `ListenerForceRefresh` and `ListenerError`
   - listener coverage and force-refresh reads/writes
   - listener websocket DTOs in `internal/realtime`
 - Python still owns:
   - the `SettaListener` transport on `/pythonScript/{id}`
-  - project bootstrap and project-name/default-project resolution
+  - the active `SettaListener` caller cutover from `/pythonScript/{id}` to the
+    Go listener route
   - local dependency-graph rebuilding and generated runtime state
   - built-in listener endpoint dispatch
   - heuristic local mutation patching in
@@ -92,7 +97,8 @@ a thin Python HTTP client over backend routes.
   - `projectName`
   - default project when mode allows it
   - share-session scope when applicable
-- Return an explicit bootstrap ack or bootstrap error from Go.
+- Return bootstrap success as a `ListenerForceRefresh` payload or a structured
+  bootstrap error from Go.
 
 Do not add a second long-lived compatibility websocket route for Python
 listeners.

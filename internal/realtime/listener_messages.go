@@ -3,6 +3,7 @@ package realtime
 import "encoding/json"
 
 const (
+	MessageTypeListenerInit            = "ListenerInit"
 	MessageTypeListenerRegister        = "ListenerRegister"
 	MessageTypeListenerRegisterAck     = "ListenerRegisterAck"
 	MessageTypeListenerRouterCall      = "ListenerRouterEndpointCall"
@@ -10,7 +11,29 @@ const (
 	MessageTypeListenerRealtimeEvent   = "ListenerRealtimeEvent"
 	MessageTypeListenerDependencyEvent = "ListenerDependencyEvent"
 	MessageTypeListenerForceRefresh    = "ListenerForceRefresh"
+	MessageTypeListenerError           = "ListenerError"
 )
+
+type ListenerInitContent struct {
+	ProjectConfigID string `json:"projectConfigId,omitempty"`
+	ProjectName     string `json:"projectName,omitempty"`
+	UseTemporaryIDs bool   `json:"useTemporaryIds,omitempty"`
+}
+
+type ListenerInitMessage struct {
+	MessageType string              `json:"messageType"`
+	Content     ListenerInitContent `json:"content"`
+}
+
+type ListenerErrorContent struct {
+	Error   string         `json:"error"`
+	Details map[string]any `json:"details,omitempty"`
+}
+
+type ListenerErrorMessage struct {
+	MessageType string               `json:"messageType"`
+	Content     ListenerErrorContent `json:"content"`
+}
 
 type ListenerRealtimeDelta struct {
 	Dependency    string          `json:"dependency"`
@@ -119,6 +142,13 @@ type ListenerForceRefreshMessage struct {
 func NewListenerRealtimeEventMessage(content ListenerRealtimeEventContent) ListenerRealtimeEventMessage {
 	return ListenerRealtimeEventMessage{
 		MessageType: MessageTypeListenerRealtimeEvent,
+		Content:     content,
+	}
+}
+
+func NewListenerErrorMessage(content ListenerErrorContent) ListenerErrorMessage {
+	return ListenerErrorMessage{
+		MessageType: MessageTypeListenerError,
 		Content:     content,
 	}
 }

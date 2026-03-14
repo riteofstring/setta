@@ -24,6 +24,7 @@ import (
 	"setta/internal/modes"
 	"setta/internal/observability"
 	"setta/internal/projectstate"
+	"setta/internal/projectview"
 	"setta/internal/realtime"
 	"setta/internal/terminals"
 )
@@ -656,6 +657,258 @@ func TestRegisterRoutesListenerRecordsBootstrapAndCleansUpOnDisconnect(t *testin
 	if _, ok := hub.Connection("listener-a"); ok {
 		t.Fatal("expected listener websocket connection to be removed after disconnect")
 	}
+}
+
+func TestRegisterRoutesListenerInitBootstrapsProjectByIDAndSendsForceRefresh(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntimeWithDocument(t, projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-default",
+		Projects: map[string]projectstate.Project{
+			"project-default": {
+				ID:   "project-default",
+				Name: "Default Project",
+			},
+			"project-target": {
+				ID:   "project-target",
+				Name: "Target Project",
+			},
+		},
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteListenerByID, authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer conn.CloseNow()
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerInit","content":{"projectConfigId":"project-target"}}`)); err != nil {
+		t.Fatalf("write listener init by id: %v", err)
+	}
+
+	forceRefresh := readNextMessage(t, conn)
+	assertRouteListenerForceRefresh(t, forceRefresh, "project-target", "", routeProjectStatePayload(t, projectRuntime.Snapshot().Document, "project-target"))
+}
+
+func TestRegisterRoutesListenerInitResolvesProjectNameAndSendsForceRefresh(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntimeWithDocument(t, projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-default",
+		Projects: map[string]projectstate.Project{
+			"project-default": {
+				ID:   "project-default",
+				Name: "Default Project",
+			},
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha Project",
+			},
+		},
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteListenerByID, authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer conn.CloseNow()
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerInit","content":{"projectName":"Alpha Project"}}`)); err != nil {
+		t.Fatalf("write listener init by name: %v", err)
+	}
+
+	forceRefresh := readNextMessage(t, conn)
+	assertRouteListenerForceRefresh(t, forceRefresh, "project-alpha", "", routeProjectStatePayload(t, projectRuntime.Snapshot().Document, "project-alpha"))
+}
+
+func TestRegisterRoutesListenerInitFallsBackToDefaultProject(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntimeWithDocument(t, projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-default",
+		Projects: map[string]projectstate.Project{
+			"project-default": {
+				ID:   "project-default",
+				Name: "Default Project",
+			},
+			"project-secondary": {
+				ID:   "project-secondary",
+				Name: "Secondary Project",
+			},
+		},
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteListenerByID, authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer conn.CloseNow()
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerInit","content":{}}`)); err != nil {
+		t.Fatalf("write listener init without target: %v", err)
+	}
+
+	forceRefresh := readNextMessage(t, conn)
+	assertRouteListenerForceRefresh(t, forceRefresh, "project-default", "", routeProjectStatePayload(t, projectRuntime.Snapshot().Document, "project-default"))
+}
+
+func TestRegisterRoutesShareListenerInitUsesSessionScope(t *testing.T) {
+	t.Parallel()
+
+	deploymentRuntime := newRouteDeploymentRuntime(t, config.ModeShare)
+	if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share session: %v", err)
+	}
+
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			ModePolicy:    modes.NewPolicy(config.ModeShare),
+			ShareSessions: deploymentRuntime,
+		},
+		Deployment:          deploymentRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteListenerByID+"?shareSessionId=share-a", nil, withPathParam("listener-a"))
+	defer conn.CloseNow()
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerInit","content":{}}`)); err != nil {
+		t.Fatalf("write deployment listener init: %v", err)
+	}
+
+	snapshot, err := deploymentRuntime.SessionSnapshot("share-a")
+	if err != nil {
+		t.Fatalf("load share session snapshot: %v", err)
+	}
+
+	forceRefresh := readNextMessage(t, conn)
+	assertRouteListenerForceRefresh(t, forceRefresh, "project-a", "share-a", routeProjectStatePayload(t, snapshot.Document, "project-a"))
+}
+
+func TestRegisterRoutesListenerInitMissingProjectSendsListenerError(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteListenerByID, authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer conn.CloseNow()
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerInit","content":{"projectName":"Missing Project"}}`)); err != nil {
+		t.Fatalf("write listener init missing project: %v", err)
+	}
+
+	listenerError := readNextMessage(t, conn)
+	assertRouteListenerError(t, listenerError, "project_state_unavailable", map[string]any{
+		"projectName": "Missing Project",
+	})
+}
+
+func TestRegisterRoutesListenerRegisterAckUsesBootstrappedProjectAfterInit(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntimeWithDocument(t, projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-default",
+		Projects: map[string]projectstate.Project{
+			"project-default": {
+				ID:   "project-default",
+				Name: "Default Project",
+			},
+			"project-target": {
+				ID:   "project-target",
+				Name: "Target Project",
+			},
+		},
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteListenerByID, authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer conn.CloseNow()
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerInit","content":{"projectName":"Target Project"}}`)); err != nil {
+		t.Fatalf("write listener init before register: %v", err)
+	}
+	assertRouteListenerForceRefresh(t, readNextMessage(t, conn), "project-target", "", routeProjectStatePayload(t, projectRuntime.Snapshot().Document, "project-target"))
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":["section-a.param-a"],"dependencyMode":"realtime_only"}}}}`)); err != nil {
+		t.Fatalf("write listener register after init: %v", err)
+	}
+
+	assertListenerRegisterAck(t, readNextMessage(t, conn), "project-target", "")
 }
 
 func TestRegisterRoutesListenerRegistersCallbacksAndReceivesRealtimeMessages(t *testing.T) {
@@ -1402,7 +1655,7 @@ func dialRouteConnection(t *testing.T, serverURL string, path string, headers ht
 func newRouteProjectRuntime(t *testing.T, projectID string) *projectstate.Runtime {
 	t.Helper()
 
-	runtime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+	return newRouteProjectRuntimeWithDocument(t, projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: projectID,
 		Projects: map[string]projectstate.Project{
@@ -1412,6 +1665,12 @@ func newRouteProjectRuntime(t *testing.T, projectID string) *projectstate.Runtim
 			},
 		},
 	})
+}
+
+func newRouteProjectRuntimeWithDocument(t *testing.T, document projectstate.Document) *projectstate.Runtime {
+	t.Helper()
+
+	runtime, err := projectstate.OpenOverlayRuntime(document)
 	if err != nil {
 		t.Fatalf("open route project runtime: %v", err)
 	}
@@ -1421,6 +1680,20 @@ func newRouteProjectRuntime(t *testing.T, projectID string) *projectstate.Runtim
 		}
 	})
 	return runtime
+}
+
+func routeProjectStatePayload(t *testing.T, document projectstate.Document, projectID string) json.RawMessage {
+	t.Helper()
+
+	view, err := projectview.SingleConfigByProjectID(document, projectID)
+	if err != nil {
+		t.Fatalf("build route project state payload: %v", err)
+	}
+	payload, err := json.Marshal(view)
+	if err != nil {
+		t.Fatalf("marshal route project state payload: %v", err)
+	}
+	return payload
 }
 
 func newRouteDeploymentRuntime(t *testing.T, mode config.Mode) *deployments.Runtime {
@@ -1771,6 +2044,64 @@ func assertListenerRegisterAck(t *testing.T, message routeMessageEnvelope, proje
 	}
 	if status := content.Callbacks["cb-a"].Status; status != "accepted" {
 		t.Fatalf("expected callback status accepted, got %q", status)
+	}
+}
+
+func assertRouteListenerForceRefresh(
+	t *testing.T,
+	message routeMessageEnvelope,
+	projectID string,
+	shareSessionID string,
+	expectedProjectState json.RawMessage,
+) {
+	t.Helper()
+
+	if message.MessageType != realtime.MessageTypeListenerForceRefresh {
+		t.Fatalf("expected listener force refresh, got %q", message.MessageType)
+	}
+
+	var content realtime.ListenerForceRefreshContent
+	if err := json.Unmarshal(message.Content, &content); err != nil {
+		t.Fatalf("decode listener force refresh: %v", err)
+	}
+	if content.ProjectID != projectID {
+		t.Fatalf("expected project id %q, got %q", projectID, content.ProjectID)
+	}
+	if content.ShareSessionID != shareSessionID {
+		t.Fatalf("expected share session id %q, got %q", shareSessionID, content.ShareSessionID)
+	}
+	if canonicalJSON(t, content.ProjectState) != canonicalJSON(t, expectedProjectState) {
+		t.Fatalf("expected project state %s, got %s", string(expectedProjectState), string(content.ProjectState))
+	}
+}
+
+func assertRouteListenerError(
+	t *testing.T,
+	message routeMessageEnvelope,
+	expectedError string,
+	expectedDetailsSubset map[string]any,
+) {
+	t.Helper()
+
+	if message.MessageType != realtime.MessageTypeListenerError {
+		t.Fatalf("expected listener error, got %q", message.MessageType)
+	}
+
+	var content realtime.ListenerErrorContent
+	if err := json.Unmarshal(message.Content, &content); err != nil {
+		t.Fatalf("decode listener error: %v", err)
+	}
+	if content.Error != expectedError {
+		t.Fatalf("expected error %q, got %q", expectedError, content.Error)
+	}
+	for key, expectedValue := range expectedDetailsSubset {
+		actualValue, ok := content.Details[key]
+		if !ok {
+			t.Fatalf("expected listener error details to include %q", key)
+		}
+		if canonicalValueJSON(t, actualValue) != canonicalValueJSON(t, expectedValue) {
+			t.Fatalf("expected detail %q=%#v, got %#v", key, expectedValue, actualValue)
+		}
 	}
 }
 
