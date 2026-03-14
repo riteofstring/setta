@@ -370,6 +370,104 @@ func TestServiceStopSessionAcceptsCleanProviderCloseAfterFinalRealtimeEvent(t *t
 	}
 }
 
+func TestServiceRealtimeStopUsesCommittedOrderingForOutOfOrderTurnCompletion(t *testing.T) {
+	t.Parallel()
+
+	emitFinal := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close(websocket.StatusNormalClosure, "")
+
+		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
+			return
+		}
+		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
+			return
+		}
+		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
+			return
+		}
+
+		// The provider can complete later turns before earlier ones; committed ordering metadata is the source of truth.
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"input_audio_buffer.committed","event_id":"evt-1","item_id":"item-1"}`)); err != nil {
+			return
+		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"input_audio_buffer.committed","event_id":"evt-2","item_id":"item-2","previous_item_id":"item-1"}`)); err != nil {
+			return
+		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.completed","event_id":"evt-3","item_id":"item-2","transcript":"world"}`)); err != nil {
+			return
+		}
+		<-emitFinal
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.completed","event_id":"evt-4","item_id":"item-1","transcript":"hello"}`)); err != nil {
+			return
+		}
+		_ = conn.Close(websocket.StatusNormalClosure, "")
+	}))
+	defer server.Close()
+
+	runtime := newTranscriptionSessionRuntime(t, map[string]llmconfig.Config{
+		"openai-realtime": {
+			ID:        "openai-realtime",
+			Model:     "gpt-4o-mini-transcribe",
+			Provider:  "openai",
+			BaseURL:   server.URL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+	}, map[string]string{
+		"OPENAI_API_KEY": "secret-key",
+	})
+	service, err := NewService(ServiceOptions{
+		LLM:        runtime,
+		HTTPClient: server.Client(),
+		NewID: func() string {
+			return "session-realtime-ordered"
+		},
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	resolved := resolvedProfile("profile-rt", transcriptionprofiles.TransportModeRealtime, runtime, "openai-realtime")
+	resolved.Profile.SupportsRealtimeTranscription = true
+	started, err := service.StartSession(context.Background(), StartRequest{
+		ScopeID:         "scope-1",
+		ResolvedProfile: resolved,
+	})
+	if err != nil {
+		t.Fatalf("start realtime session: %v", err)
+	}
+
+	appendResult, err := service.AppendAudio(context.Background(), AppendRequest{
+		ScopeID:      "scope-1",
+		SessionID:    started.SessionID,
+		AudioPCM16:   []byte{0x00, 0x00, 0x10, 0x00},
+		SampleRateHz: 24_000,
+		Channels:     1,
+	})
+	if err != nil {
+		t.Fatalf("append realtime audio: %v", err)
+	}
+	if appendResult.AppendText != "world" || appendResult.FullText != "world" || appendResult.IsFinal {
+		t.Fatalf("unexpected append result %#v", appendResult)
+	}
+
+	close(emitFinal)
+	stopped, err := service.StopSession(context.Background(), StopRequest{
+		ScopeID:   "scope-1",
+		SessionID: started.SessionID,
+	})
+	if err != nil {
+		t.Fatalf("stop realtime session: %v", err)
+	}
+	if !stopped.IsFinal || stopped.AppendText != "" || stopped.FullText != "hello world" {
+		t.Fatalf("unexpected stop result %#v", stopped)
+	}
+}
+
 func TestServiceAutoProfilesResolveToRealtimeWhenConfigSupportsIt(t *testing.T) {
 	t.Parallel()
 

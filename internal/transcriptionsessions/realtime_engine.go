@@ -45,6 +45,8 @@ type realtimeEngine struct {
 	deltaMode         openAIRealtimeDeltaMode
 	itemOrder         []string
 	itemTexts         map[string]string
+	itemCommitOrder   []string
+	itemPreviousIDs   map[string]*string
 	processedEventIDs map[string]struct{}
 }
 
@@ -81,12 +83,13 @@ type openAIRealtimeCommitMessage struct {
 }
 
 type openAIRealtimeEvent struct {
-	Type       string                    `json:"type"`
-	EventID    string                    `json:"event_id,omitempty"`
-	ItemID     string                    `json:"item_id,omitempty"`
-	Delta      string                    `json:"delta,omitempty"`
-	Transcript string                    `json:"transcript,omitempty"`
-	Error      *openAIRealtimeErrorValue `json:"error,omitempty"`
+	Type           string                    `json:"type"`
+	EventID        string                    `json:"event_id,omitempty"`
+	ItemID         string                    `json:"item_id,omitempty"`
+	PreviousItemID *string                   `json:"previous_item_id,omitempty"`
+	Delta          string                    `json:"delta,omitempty"`
+	Transcript     string                    `json:"transcript,omitempty"`
+	Error          *openAIRealtimeErrorValue `json:"error,omitempty"`
 }
 
 type openAIRealtimeErrorValue struct {
@@ -143,6 +146,7 @@ func newRealtimeEngine(ctx context.Context, opts realtimeEngineOptions) (*realti
 		events:            make(chan realtimeReadResult, 32),
 		deltaMode:         resolveOpenAIRealtimeDeltaMode(model),
 		itemTexts:         map[string]string{},
+		itemPreviousIDs:   map[string]*string{},
 		processedEventIDs: map[string]struct{}{},
 	}
 	go engine.readLoop()
@@ -309,6 +313,9 @@ func (e *realtimeEngine) handleEvent(payload []byte) (string, error) {
 		return "", nil
 	}
 	switch event.Type {
+	case string(openaiconstant.ValueOf[openaiconstant.InputAudioBufferCommitted]()):
+		e.applyCommittedItemOrder(event.ItemID, event.PreviousItemID)
+		return "", nil
 	case string(openaiconstant.ValueOf[openaiconstant.ConversationItemInputAudioTranscriptionDelta]()):
 		if e.deltaMode == openAIRealtimeDeltaModeDisabled {
 			return "", nil
@@ -442,6 +449,36 @@ func (e *realtimeEngine) isDuplicateEvent(eventID string) bool {
 	return false
 }
 
+func (e *realtimeEngine) applyCommittedItemOrder(itemID string, previousItemID *string) {
+	trimmedItemID := strings.TrimSpace(itemID)
+	if trimmedItemID == "" {
+		return
+	}
+	if e.itemPreviousIDs == nil {
+		e.itemPreviousIDs = map[string]*string{}
+	}
+	if _, ok := e.itemPreviousIDs[trimmedItemID]; !ok {
+		e.itemCommitOrder = append(e.itemCommitOrder, trimmedItemID)
+	}
+	if previousItemID == nil {
+		e.itemPreviousIDs[trimmedItemID] = nil
+	} else {
+		trimmedPreviousItemID := strings.TrimSpace(*previousItemID)
+		if trimmedPreviousItemID == "" {
+			e.itemPreviousIDs[trimmedItemID] = nil
+		} else {
+			previousCopy := trimmedPreviousItemID
+			e.itemPreviousIDs[trimmedItemID] = &previousCopy
+		}
+	}
+	e.itemOrder = rebuildOpenAIRealtimeItemOrder(
+		e.itemCommitOrder,
+		e.itemPreviousIDs,
+		e.itemOrder,
+	)
+	e.fullText = rebuildOpenAIRealtimeFullText(e.itemOrder, e.itemTexts)
+}
+
 func (e *realtimeEngine) applyTranscriptUpdate(itemID, rawText string, mode openAIRealtimeDeltaMode) string {
 	if mode == openAIRealtimeDeltaModeDisabled {
 		return ""
@@ -463,11 +500,86 @@ func (e *realtimeEngine) applyTranscriptUpdate(itemID, rawText string, mode open
 		return ""
 	}
 	if !hasExistingItem {
-		e.itemOrder = append(e.itemOrder, trimmedItemID)
+		e.itemOrder = appendOpenAIRealtimeFallbackItemOrder(e.itemOrder, trimmedItemID)
 	}
 	e.itemTexts[trimmedItemID] = nextItemText
 	e.fullText = rebuildOpenAIRealtimeFullText(e.itemOrder, e.itemTexts)
 	return appendOpenAIRealtimeTranscriptDelta(previousFullText, e.fullText)
+}
+
+func appendOpenAIRealtimeFallbackItemOrder(itemOrder []string, itemID string) []string {
+	trimmedItemID := strings.TrimSpace(itemID)
+	if trimmedItemID == "" {
+		return itemOrder
+	}
+	for _, existingItemID := range itemOrder {
+		if existingItemID == trimmedItemID {
+			return itemOrder
+		}
+	}
+	return append(itemOrder, trimmedItemID)
+}
+
+func rebuildOpenAIRealtimeItemOrder(itemCommitOrder []string, itemPreviousIDs map[string]*string, fallbackOrder []string) []string {
+	orderedChildrenByPreviousID := map[string][]string{}
+	seenCommittedItems := map[string]struct{}{}
+	for _, itemID := range itemCommitOrder {
+		trimmedItemID := strings.TrimSpace(itemID)
+		if trimmedItemID == "" {
+			continue
+		}
+		if _, ok := seenCommittedItems[trimmedItemID]; ok {
+			continue
+		}
+		seenCommittedItems[trimmedItemID] = struct{}{}
+		previousKey := ""
+		if previousItemID, ok := itemPreviousIDs[trimmedItemID]; ok && previousItemID != nil {
+			previousKey = strings.TrimSpace(*previousItemID)
+		}
+		orderedChildrenByPreviousID[previousKey] = append(
+			orderedChildrenByPreviousID[previousKey],
+			trimmedItemID,
+		)
+	}
+
+	ordered := make([]string, 0, len(itemCommitOrder)+len(fallbackOrder))
+	placed := map[string]struct{}{}
+	var appendChain func(string)
+	appendChain = func(previousID string) {
+		for _, itemID := range orderedChildrenByPreviousID[previousID] {
+			if _, ok := placed[itemID]; ok {
+				continue
+			}
+			placed[itemID] = struct{}{}
+			ordered = append(ordered, itemID)
+			appendChain(itemID)
+		}
+	}
+	appendChain("")
+	for _, itemID := range itemCommitOrder {
+		trimmedItemID := strings.TrimSpace(itemID)
+		if trimmedItemID == "" {
+			continue
+		}
+		if _, ok := placed[trimmedItemID]; ok {
+			continue
+		}
+		placed[trimmedItemID] = struct{}{}
+		ordered = append(ordered, trimmedItemID)
+		appendChain(trimmedItemID)
+	}
+	for _, itemID := range fallbackOrder {
+		trimmedItemID := strings.TrimSpace(itemID)
+		if trimmedItemID == "" {
+			continue
+		}
+		if _, ok := placed[trimmedItemID]; ok {
+			continue
+		}
+		placed[trimmedItemID] = struct{}{}
+		ordered = append(ordered, trimmedItemID)
+	}
+	return ordered
 }
 
 func mergeOpenAIRealtimeItemText(existingText, rawText string, mode openAIRealtimeDeltaMode) string {

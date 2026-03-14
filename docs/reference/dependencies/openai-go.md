@@ -87,6 +87,9 @@
   - current realtime transcription path now uses the SDK's realtime
     transcription session/audio config models and the current `session.update`
     request shape
+  - the repo-owned event loop now also uses
+    `input_audio_buffer.committed.previous_item_id` ordering metadata so
+    late completion events still rebuild full transcripts in speech-turn order
   - the websocket transport and event loop remain repo-owned because the
     pinned SDK still does not expose a realtime websocket runtime/event client
     for this surface
@@ -96,6 +99,10 @@
 - the remaining bespoke part of realtime transcription is the websocket
   transport/event loop and event parsing; the SDK now covers the session/audio
   request typing but still does not replace the runtime client surface
+- the Realtime transcription docs explicitly call out
+  `input_audio_buffer.committed.previous_item_id` as the ordering source of
+  truth across speech turns; the repo-owned event loop should continue to
+  prefer that metadata over raw completion-event arrival order
 - the rewrite must preserve current Setta event contracts even if the SDK
   prefers different request/response shapes upstream
 - managed chat now splits the OpenAI path on purpose: standard turns stay on
