@@ -1,5 +1,5 @@
-import { useContextMenus } from "state/stores/uiStores";
-import { NO_CONTEXT_MENU } from "utils/constants/environment";
+import { useContextMenus } from "state/definitions";
+import { NO_CONTEXT_MENU } from "utils/constants";
 
 type ContextMenuEvent = {
   preventDefault: () => void;

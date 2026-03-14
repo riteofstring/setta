@@ -7,7 +7,7 @@ import {
 } from "react-router-dom";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import { VIEW_MODE_ROUTER_PATH } from "utils/constants/routes";
+import { VIEW_MODE_ROUTER_PATH } from "utils/constants";
 import { route_set_active_view_mode } from "utils/generatedEndpoints";
 
 type ViewModeUrlSyncOptions = {
