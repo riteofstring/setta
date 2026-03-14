@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 
 	anthropic "github.com/anthropics/anthropic-sdk-go"
@@ -563,6 +564,7 @@ type openAIResponseStreamState struct {
 	reasoningSeen    bool
 	reasoningEmitted bool
 	summary          string
+	summaryParts     map[int]string
 	bufferedText     strings.Builder
 }
 
@@ -583,6 +585,7 @@ func (e *Executor) processOpenAIResponseEvent(
 			summary := joinOpenAIResponseReasoningSummary(item.Summary)
 			if strings.TrimSpace(summary) != "" && strings.TrimSpace(streamState.summary) == "" {
 				streamState.summary = summary
+				streamState.summaryParts = openAIResponseReasoningSummaryParts(item.Summary)
 				streamState.reasoningEmitted = true
 				setAssistantThinkingSummaryAtIndex(assistantMessage, 0, summary)
 			}
@@ -602,17 +605,46 @@ func (e *Executor) processOpenAIResponseEvent(
 			streamState,
 			accumulator,
 		)
+	case responses.ResponseContentPartAddedEvent:
+		if err := e.applyOpenAIResponseContentPartAdded(ctx, prepared, assistantMessage, streamState, typed.Part); err != nil {
+			return nil, err
+		}
 	case responses.ResponseContentPartDoneEvent:
 		if err := e.applyOpenAIResponseContentPartDone(ctx, prepared, assistantMessage, streamState, typed.Part); err != nil {
+			return nil, err
+		}
+	case responses.ResponseReasoningSummaryPartAddedEvent:
+		if err := e.applyOpenAIResponseSummaryPartUpdate(
+			ctx,
+			prepared,
+			assistantMessage,
+			streamState,
+			int(typed.SummaryIndex),
+			typed.Part.Text,
+		); err != nil {
+			return nil, err
+		}
+	case responses.ResponseReasoningSummaryPartDoneEvent:
+		if err := e.applyOpenAIResponseSummaryPartUpdate(
+			ctx,
+			prepared,
+			assistantMessage,
+			streamState,
+			int(typed.SummaryIndex),
+			typed.Part.Text,
+		); err != nil {
 			return nil, err
 		}
 	case responses.ResponseReasoningSummaryTextDeltaEvent:
 		streamState.reasoningSeen = true
 		streamState.reasoningEmitted = true
-		streamState.summary += typed.Delta
+		previousSummary := streamState.summary
+		streamState.summary = appendOpenAIResponseSummaryPartText(streamState, int(typed.SummaryIndex), typed.Delta)
 		setAssistantThinkingSummaryAtIndex(assistantMessage, 0, streamState.summary)
-		if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, "", optionalStringPointer(streamState.summary)); err != nil {
-			return nil, err
+		if strings.TrimSpace(previousSummary) != strings.TrimSpace(streamState.summary) {
+			if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, "", optionalStringPointer(streamState.summary)); err != nil {
+				return nil, err
+			}
 		}
 		if err := e.flushBufferedOpenAIResponseText(ctx, prepared, assistantMessage, streamState, false); err != nil {
 			return nil, err
@@ -623,11 +655,11 @@ func (e *Executor) processOpenAIResponseEvent(
 		}
 		streamState.reasoningSeen = true
 		streamState.reasoningEmitted = true
-		summaryChanged := strings.TrimSpace(streamState.summary) != strings.TrimSpace(typed.Text)
-		streamState.summary = typed.Text
-		setAssistantThinkingSummaryAtIndex(assistantMessage, 0, typed.Text)
-		if summaryChanged {
-			if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, "", optionalStringPointer(typed.Text)); err != nil {
+		previousSummary := streamState.summary
+		streamState.summary = setOpenAIResponseSummaryPartText(streamState, int(typed.SummaryIndex), typed.Text)
+		setAssistantThinkingSummaryAtIndex(assistantMessage, 0, streamState.summary)
+		if strings.TrimSpace(previousSummary) != strings.TrimSpace(streamState.summary) {
+			if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, "", optionalStringPointer(streamState.summary)); err != nil {
 				return nil, err
 			}
 		}
@@ -811,6 +843,89 @@ func (e *Executor) applyOpenAIResponseContentPartDone(
 	}
 }
 
+func (e *Executor) applyOpenAIResponseContentPartAdded(
+	ctx context.Context,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	streamState *openAIResponseStreamState,
+	part responses.ResponseContentPartAddedEventPartUnion,
+) error {
+	switch typed := part.AsAny().(type) {
+	case responses.ResponseOutputText:
+		if strings.TrimSpace(typed.Text) == "" {
+			return nil
+		}
+		if streamState != nil {
+			streamState.bufferedText.Reset()
+		}
+		textIndex := openAIResponseTextIndex(assistantMessage, streamState)
+		textDelta := authoritativeResponseReplacementSuffix(currentAssistantTextAtIndex(assistantMessage, textIndex), typed.Text)
+		setAssistantTextAtIndex(assistantMessage, textIndex, typed.Text)
+		if textDelta == "" {
+			return nil
+		}
+		return e.emitOpenAIResponseTextDelta(ctx, prepared, assistantMessage, textIndex, textDelta)
+	case responses.ResponseOutputRefusal:
+		if strings.TrimSpace(typed.Refusal) == "" {
+			return nil
+		}
+		if streamState != nil {
+			streamState.bufferedText.Reset()
+		}
+		textIndex := openAIResponseTextIndex(assistantMessage, streamState)
+		textDelta := authoritativeResponseReplacementSuffix(currentAssistantTextAtIndex(assistantMessage, textIndex), typed.Refusal)
+		setAssistantTextAtIndex(assistantMessage, textIndex, typed.Refusal)
+		if textDelta == "" {
+			return nil
+		}
+		return e.emitOpenAIResponseTextDelta(ctx, prepared, assistantMessage, textIndex, textDelta)
+	case responses.ResponseContentPartAddedEventPartReasoningText:
+		if strings.TrimSpace(typed.Text) == "" {
+			return nil
+		}
+		if streamState != nil {
+			streamState.reasoningSeen = true
+			streamState.reasoningEmitted = true
+		}
+		thinkingDelta := authoritativeResponseReplacementSuffix(currentAssistantThinkingTextAtIndex(assistantMessage, 0), typed.Text)
+		setAssistantThinkingTextAtIndex(assistantMessage, 0, typed.Text)
+		if thinkingDelta != "" {
+			if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, thinkingDelta, nil); err != nil {
+				return err
+			}
+		}
+		return e.flushBufferedOpenAIResponseText(ctx, prepared, assistantMessage, streamState, false)
+	default:
+		return nil
+	}
+}
+
+func (e *Executor) applyOpenAIResponseSummaryPartUpdate(
+	ctx context.Context,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	streamState *openAIResponseStreamState,
+	summaryIndex int,
+	text string,
+) error {
+	if strings.TrimSpace(text) == "" {
+		return nil
+	}
+	if streamState != nil {
+		streamState.reasoningSeen = true
+		streamState.reasoningEmitted = true
+	}
+	previousSummary := currentOpenAIResponseSummary(streamState)
+	summary := setOpenAIResponseSummaryPartText(streamState, summaryIndex, text)
+	setAssistantThinkingSummaryAtIndex(assistantMessage, 0, summary)
+	if strings.TrimSpace(previousSummary) != strings.TrimSpace(summary) {
+		if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, "", optionalStringPointer(summary)); err != nil {
+			return err
+		}
+	}
+	return e.flushBufferedOpenAIResponseText(ctx, prepared, assistantMessage, streamState, false)
+}
+
 func (e *Executor) applyOpenAIResponseTextDelta(
 	ctx context.Context,
 	prepared preparedExecution,
@@ -940,6 +1055,7 @@ func (e *Executor) applyOpenAIResponseOutputItemFallback(
 		if strings.TrimSpace(summary) != "" {
 			if streamState != nil {
 				streamState.summary = summary
+				streamState.summaryParts = openAIResponseReasoningSummaryParts(item.Summary)
 				streamState.reasoningEmitted = true
 			}
 			setAssistantThinkingSummaryAtIndex(assistantMessage, 0, summary)
@@ -979,14 +1095,73 @@ func openAIResponseTextIndex(assistantMessage map[string]any, streamState *openA
 }
 
 func joinOpenAIResponseReasoningSummary(summary []responses.ResponseReasoningItemSummary) string {
-	parts := make([]string, 0, len(summary))
-	for _, entry := range summary {
-		text := strings.TrimSpace(entry.Text)
+	return joinOpenAIResponseSummaryParts(openAIResponseReasoningSummaryParts(summary))
+}
+
+func openAIResponseReasoningSummaryParts(summary []responses.ResponseReasoningItemSummary) map[int]string {
+	if len(summary) == 0 {
+		return nil
+	}
+	parts := make(map[int]string, len(summary))
+	for index, entry := range summary {
+		if strings.TrimSpace(entry.Text) == "" {
+			continue
+		}
+		parts[index] = entry.Text
+	}
+	if len(parts) == 0 {
+		return nil
+	}
+	return parts
+}
+
+func joinOpenAIResponseSummaryParts(parts map[int]string) string {
+	if len(parts) == 0 {
+		return ""
+	}
+	indexes := make([]int, 0, len(parts))
+	for index := range parts {
+		indexes = append(indexes, index)
+	}
+	sort.Ints(indexes)
+	summaryParts := make([]string, 0, len(parts))
+	for _, index := range indexes {
+		text := strings.TrimSpace(parts[index])
 		if text != "" {
-			parts = append(parts, text)
+			summaryParts = append(summaryParts, text)
 		}
 	}
-	return strings.Join(parts, "\n")
+	return strings.Join(summaryParts, "\n")
+}
+
+func currentOpenAIResponseSummary(streamState *openAIResponseStreamState) string {
+	if streamState == nil {
+		return ""
+	}
+	return streamState.summary
+}
+
+func setOpenAIResponseSummaryPartText(streamState *openAIResponseStreamState, summaryIndex int, text string) string {
+	if streamState == nil {
+		return text
+	}
+	if streamState.summaryParts == nil {
+		streamState.summaryParts = map[int]string{}
+	}
+	streamState.summaryParts[summaryIndex] = text
+	streamState.summary = joinOpenAIResponseSummaryParts(streamState.summaryParts)
+	return streamState.summary
+}
+
+func appendOpenAIResponseSummaryPartText(streamState *openAIResponseStreamState, summaryIndex int, delta string) string {
+	if delta == "" {
+		return currentOpenAIResponseSummary(streamState)
+	}
+	currentPart := ""
+	if streamState != nil && streamState.summaryParts != nil {
+		currentPart = streamState.summaryParts[summaryIndex]
+	}
+	return setOpenAIResponseSummaryPartText(streamState, summaryIndex, currentPart+delta)
 }
 
 func joinOpenAIResponseReasoningContent(content []responses.ResponseReasoningItemContent) string {

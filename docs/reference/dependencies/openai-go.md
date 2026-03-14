@@ -84,8 +84,10 @@
     events as provider failures instead of silently succeeding with truncated
     reasoning output, and still stops/finalizes any partial assistant message
     so the live waiting state clears on provider failure
-  - authoritative finalized reasoning/text content from
-    `response.content_part.done`, the specific `*_done` events,
+  - the Responses reducer now also honors `response.content_part.added` plus
+    `response.reasoning_summary_part.added` / `.done` with explicit
+    `summary_index` ordering, and authoritative finalized reasoning/text
+    content from `response.content_part.done`, the specific `*_done` events,
     `response.output_item.done`, and `response.completed` now replaces partial
     or missing earlier reasoning/text deltas
   - the completed-response fallback now also recovers final function-call

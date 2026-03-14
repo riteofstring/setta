@@ -2171,6 +2171,239 @@ func TestExecutorExecuteUsesOpenAIResponsesContentPartDoneAsAuthoritativeRefusal
 	}
 }
 
+func TestExecutorExecuteUsesOpenAIResponsesSummaryPartAndContentPartAddedEvents(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/responses" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected flusher")
+		}
+		fmt.Fprint(w, openAIResponseReasoningItemAddedEvent(0, "reasoning-1"))
+		flusher.Flush()
+		fmt.Fprint(w, openAIResponseReasoningSummaryPartAddedEvent("reasoning-1", 0, 1, "Second step"))
+		flusher.Flush()
+		fmt.Fprint(w, openAIResponseReasoningSummaryPartAddedEvent("reasoning-1", 0, 0, "First step"))
+		flusher.Flush()
+		fmt.Fprint(w, openAIResponseContentPartAddedReasoningTextEvent("reasoning-1", 0, 0, "Planning deeply"))
+		flusher.Flush()
+		fmt.Fprint(w, openAIResponseContentPartAddedOutputTextEvent("message-1", 1, 0, "Final answer"))
+		flusher.Flush()
+		fmt.Fprint(w, openAIResponseCompletedEvent([]map[string]any{}, 8, 3, 11, 2))
+		flusher.Flush()
+	}))
+	defer server.Close()
+
+	broadcaster := &captureBroadcaster{}
+	live := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{Broadcaster: broadcaster})
+	run := newManagedChatTestRun()
+	live.ActivateRun(run)
+
+	executor := NewExecutor(ExecutorOptions{
+		Live:       live,
+		HTTPClient: server.Client(),
+	})
+	result, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
+		Run: run,
+		LLMConfig: llmconfig.Config{
+			ID:        "primary",
+			Model:     "gpt-5-codex",
+			Provider:  "openai",
+			BaseURL:   server.URL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+		APIKeys: map[string]string{
+			"OPENAI_API_KEY": "secret",
+		},
+		SystemPrompt:    "System prompt",
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+		Thinking:        true,
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+			"messages": []any{
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Think this through"},
+					},
+					"attachments": []any{},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("execute managed llm summary-part/content-part-added request: %v", err)
+	}
+
+	messages, ok := result.Outputs["messages"].([]any)
+	if !ok || len(messages) != 2 {
+		t.Fatalf("expected user and assistant output messages, got %#v", result.Outputs["messages"])
+	}
+	assistant, ok := messages[1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected assistant message map, got %#v", messages[1])
+	}
+	content, ok := assistant["content"].([]any)
+	if !ok || len(content) != 2 {
+		t.Fatalf("expected thinking plus text content, got %#v", assistant["content"])
+	}
+	thinkingBlock, ok := content[0].(map[string]any)
+	if !ok || thinkingBlock["summary"] != "First step\nSecond step" || thinkingBlock["thinking"] != "Planning deeply" {
+		t.Fatalf("unexpected thinking block %#v", content[0])
+	}
+	textBlock, ok := content[1].(map[string]any)
+	if !ok || textBlock["text"] != "Final answer" {
+		t.Fatalf("unexpected text block %#v", content[1])
+	}
+
+	state, stateErr := live.GetLiveChatState(run.ID)
+	if stateErr != nil {
+		t.Fatalf("get live state: %v", stateErr)
+	}
+	if state == nil || state.WaitingForResponse {
+		t.Fatalf("expected finalized live state, got %#v", state)
+	}
+	stateContent, ok := state.Messages[1]["content"].([]any)
+	if len(state.Messages) != 2 || !ok || len(stateContent) != 2 {
+		t.Fatalf("expected finalized live summary-part/content-part-added content, got %#v", state)
+	}
+	stateThinkingBlock, ok := stateContent[0].(map[string]any)
+	if !ok || stateThinkingBlock["summary"] != "First step\nSecond step" || stateThinkingBlock["thinking"] != "Planning deeply" {
+		t.Fatalf("expected finalized live thinking block, got %#v", state)
+	}
+	stateTextBlock, ok := stateContent[1].(map[string]any)
+	if !ok || stateTextBlock["text"] != "Final answer" {
+		t.Fatalf("expected finalized live text block, got %#v", state)
+	}
+	if broadcaster.Count() != 7 {
+		t.Fatalf("expected start, four delta updates, stop, finalized broadcasts, got %d", broadcaster.Count())
+	}
+}
+
+func TestExecutorExecuteRecoversOpenAIResponsesSummaryPartDoneAndContentPartAddedBeforeIncompleteFailure(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/responses" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected flusher")
+		}
+		fmt.Fprint(w, openAIResponseReasoningItemAddedEvent(0, "reasoning-1"))
+		flusher.Flush()
+		fmt.Fprint(w, openAIResponseReasoningSummaryPartDoneEvent("reasoning-1", 0, 1, "Second step"))
+		flusher.Flush()
+		fmt.Fprint(w, openAIResponseReasoningSummaryPartDoneEvent("reasoning-1", 0, 0, "First step"))
+		flusher.Flush()
+		fmt.Fprint(w, openAIResponseContentPartAddedReasoningTextEvent("reasoning-1", 0, 0, "Planning deeply"))
+		flusher.Flush()
+		fmt.Fprint(w, openAIResponseContentPartAddedOutputTextEvent("message-1", 1, 0, "Partial answer"))
+		flusher.Flush()
+		fmt.Fprint(w, openAIResponseIncompleteEvent("max_output_tokens"))
+		flusher.Flush()
+	}))
+	defer server.Close()
+
+	broadcaster := &captureBroadcaster{}
+	live := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{Broadcaster: broadcaster})
+	run := newManagedChatTestRun()
+	live.ActivateRun(run)
+
+	executor := NewExecutor(ExecutorOptions{
+		Live:       live,
+		HTTPClient: server.Client(),
+	})
+	result, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
+		Run: run,
+		LLMConfig: llmconfig.Config{
+			ID:        "primary",
+			Model:     "gpt-5-codex",
+			Provider:  "openai",
+			BaseURL:   server.URL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+		APIKeys: map[string]string{
+			"OPENAI_API_KEY": "secret",
+		},
+		SystemPrompt:    "System prompt",
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+		Thinking:        true,
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+			"messages": []any{
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Keep going"},
+					},
+					"attachments": []any{},
+				},
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected provider failure from incomplete response")
+	}
+	if err.Error() != "managed llm provider request failed: response incomplete (max_output_tokens)" {
+		t.Fatalf("unexpected provider error %q", err.Error())
+	}
+
+	messages, ok := result.Outputs["messages"].([]any)
+	if !ok || len(messages) != 2 {
+		t.Fatalf("expected user and partial assistant messages, got %#v", result.Outputs["messages"])
+	}
+	assistant, ok := messages[1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected assistant message map, got %#v", messages[1])
+	}
+	content, ok := assistant["content"].([]any)
+	if !ok || len(content) != 2 {
+		t.Fatalf("expected thinking plus text content, got %#v", assistant["content"])
+	}
+	thinkingBlock, ok := content[0].(map[string]any)
+	if !ok || thinkingBlock["summary"] != "First step\nSecond step" || thinkingBlock["thinking"] != "Planning deeply" {
+		t.Fatalf("unexpected thinking block %#v", content[0])
+	}
+	textBlock, ok := content[1].(map[string]any)
+	if !ok || textBlock["text"] != "Partial answer" {
+		t.Fatalf("unexpected text block %#v", content[1])
+	}
+
+	state, stateErr := live.GetLiveChatState(run.ID)
+	if stateErr != nil {
+		t.Fatalf("get live state after provider failure: %v", stateErr)
+	}
+	if state == nil || state.WaitingForResponse {
+		t.Fatalf("expected provider failure to clear waiting state, got %#v", state)
+	}
+	stateContent, ok := state.Messages[1]["content"].([]any)
+	if len(state.Messages) != 2 || !ok || len(stateContent) != 2 {
+		t.Fatalf("expected finalized live summary-part/content-part-added failure content, got %#v", state)
+	}
+	stateThinkingBlock, ok := stateContent[0].(map[string]any)
+	if !ok || stateThinkingBlock["summary"] != "First step\nSecond step" || stateThinkingBlock["thinking"] != "Planning deeply" {
+		t.Fatalf("expected finalized live thinking block, got %#v", state)
+	}
+	stateTextBlock, ok := stateContent[1].(map[string]any)
+	if !ok || stateTextBlock["text"] != "Partial answer" {
+		t.Fatalf("expected finalized live text block, got %#v", state)
+	}
+	if broadcaster.Count() != 7 {
+		t.Fatalf("expected start, four delta updates, stop, finalized broadcasts, got %d", broadcaster.Count())
+	}
+}
+
 func TestExecutorExecuteTreatsOpenAIResponsesIncompleteEventAsProviderFailure(t *testing.T) {
 	t.Parallel()
 
@@ -3390,6 +3623,34 @@ func openAIResponseReasoningItemAddedEvent(outputIndex int, itemID string) strin
 	})
 }
 
+func openAIResponseReasoningSummaryPartAddedEvent(itemID string, outputIndex int, summaryIndex int, text string) string {
+	return openAIResponseEvent(map[string]any{
+		"type":            "response.reasoning_summary_part.added",
+		"sequence_number": 2,
+		"item_id":         itemID,
+		"output_index":    outputIndex,
+		"summary_index":   summaryIndex,
+		"part": map[string]any{
+			"type": "summary_text",
+			"text": text,
+		},
+	})
+}
+
+func openAIResponseReasoningSummaryPartDoneEvent(itemID string, outputIndex int, summaryIndex int, text string) string {
+	return openAIResponseEvent(map[string]any{
+		"type":            "response.reasoning_summary_part.done",
+		"sequence_number": 3,
+		"item_id":         itemID,
+		"output_index":    outputIndex,
+		"summary_index":   summaryIndex,
+		"part": map[string]any{
+			"type": "summary_text",
+			"text": text,
+		},
+	})
+}
+
 func openAIResponseReasoningSummaryTextDeltaEvent(itemID string, outputIndex int, summaryIndex int, delta string) string {
 	return openAIResponseEvent(map[string]any{
 		"type":            "response.reasoning_summary_text.delta",
@@ -3448,6 +3709,20 @@ func openAIResponseContentPartDoneReasoningTextEvent(itemID string, outputIndex 
 	})
 }
 
+func openAIResponseContentPartAddedReasoningTextEvent(itemID string, outputIndex int, contentIndex int, text string) string {
+	return openAIResponseEvent(map[string]any{
+		"type":            "response.content_part.added",
+		"sequence_number": 4,
+		"item_id":         itemID,
+		"output_index":    outputIndex,
+		"content_index":   contentIndex,
+		"part": map[string]any{
+			"type": "reasoning_text",
+			"text": text,
+		},
+	})
+}
+
 func openAIResponseReasoningItemDoneEvent(outputIndex int, itemID string, summary string, reasoning string) string {
 	return openAIResponseEvent(map[string]any{
 		"type":            "response.output_item.done",
@@ -3482,6 +3757,22 @@ func openAIResponseOutputTextDoneEvent(itemID string, outputIndex int, contentIn
 func openAIResponseContentPartDoneOutputTextEvent(itemID string, outputIndex int, contentIndex int, text string) string {
 	return openAIResponseEvent(map[string]any{
 		"type":            "response.content_part.done",
+		"sequence_number": 5,
+		"item_id":         itemID,
+		"output_index":    outputIndex,
+		"content_index":   contentIndex,
+		"part": map[string]any{
+			"type":        "output_text",
+			"text":        text,
+			"annotations": []any{},
+			"logprobs":    []any{},
+		},
+	})
+}
+
+func openAIResponseContentPartAddedOutputTextEvent(itemID string, outputIndex int, contentIndex int, text string) string {
+	return openAIResponseEvent(map[string]any{
+		"type":            "response.content_part.added",
 		"sequence_number": 5,
 		"item_id":         itemID,
 		"output_index":    outputIndex,
