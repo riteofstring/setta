@@ -277,4 +277,79 @@ describe("MetaControlArea Setta API button actions", () => {
       host.remove();
     }
   });
+
+  it("does not fetch for blank HTTP request URLs", async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(new Response(null, { status: 200 })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    mocked.currentButtonConfig.actionMode = ButtonActionModeEnum.HTTP_REQUEST;
+    mocked.currentButtonConfig.requestMethod = HttpRequestMethodEnum.POST;
+    mocked.currentButtonConfig.requestUrl = "   ";
+    mocked.currentButtonConfig.requestBody = '{"ignored":true}';
+
+    const { host, root } = await renderMetaControlArea();
+
+    try {
+      const actionButton = host.querySelector<HTMLButtonElement>(
+        '[data-testid="meta-control-action"]',
+      );
+      if (!(actionButton instanceof HTMLButtonElement)) {
+        throw new Error("Expected MetaControlContent action button");
+      }
+
+      await act(async () => {
+        actionButton.click();
+      });
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(mocked.post).not.toHaveBeenCalled();
+      expect(mocked.sendRealtimeDependencyEvent).not.toHaveBeenCalled();
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("omits request bodies for HTTP HEAD button actions", async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(new Response(null, { status: 200 })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    mocked.currentButtonConfig.actionMode = ButtonActionModeEnum.HTTP_REQUEST;
+    mocked.currentButtonConfig.requestMethod = HttpRequestMethodEnum.HEAD;
+    mocked.currentButtonConfig.requestUrl = "https://example.com/head";
+    mocked.currentButtonConfig.requestBody = '{"ignored":true}';
+
+    const { host, root } = await renderMetaControlArea();
+
+    try {
+      const actionButton = host.querySelector<HTMLButtonElement>(
+        '[data-testid="meta-control-action"]',
+      );
+      if (!(actionButton instanceof HTMLButtonElement)) {
+        throw new Error("Expected MetaControlContent action button");
+      }
+
+      await act(async () => {
+        actionButton.click();
+      });
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenCalledWith("https://example.com/head", {
+        method: HttpRequestMethodEnum.HEAD,
+        headers: undefined,
+        body: undefined,
+      });
+      expect(mocked.post).not.toHaveBeenCalled();
+      expect(mocked.sendRealtimeDependencyEvent).not.toHaveBeenCalled();
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
 });
