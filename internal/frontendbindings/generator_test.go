@@ -2,6 +2,7 @@ package frontendbindings
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -21,6 +22,90 @@ func TestBuild(t *testing.T) {
 	assertGoldenFile(t, "generated_go_types.ts", bindings.TypesTS)
 	assertGoldenFile(t, "generated_go_endpoints.ts", bindings.EndpointsTS)
 	assertEndpointTypeReferencesResolve(t, bindings.TypesTS, bindings.EndpointsTS)
+}
+
+func TestBuildMatchesCheckedInFrontendBindings(t *testing.T) {
+	t.Helper()
+
+	bindings, err := Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+
+	formattedBindings := formatGeneratedBindingsForFrontend(t, bindings)
+	repoRoot := testRepoRoot(t)
+	for _, fixture := range []struct {
+		path     string
+		contents string
+	}{
+		{
+			path:     "frontend/src/utils/generatedRoutes.ts",
+			contents: formattedBindings.RoutesTS,
+		},
+		{
+			path:     "frontend/src/utils/generatedTypes.ts",
+			contents: formattedBindings.TypesTS,
+		},
+		{
+			path:     "frontend/src/utils/generatedEndpoints.ts",
+			contents: formattedBindings.EndpointsTS,
+		},
+	} {
+		actualContents, err := os.ReadFile(filepath.Join(repoRoot, fixture.path))
+		if err != nil {
+			t.Fatalf("read %s: %v", fixture.path, err)
+		}
+		if string(actualContents) != fixture.contents {
+			t.Fatalf("%s does not match the canonical formatted generator output; run `pnpm -C frontend generate-go-frontend-bindings`", fixture.path)
+		}
+	}
+}
+
+func formatGeneratedBindingsForFrontend(t *testing.T, bindings GeneratedBindings) GeneratedBindings {
+	t.Helper()
+
+	tempDir := t.TempDir()
+	routesPath := filepath.Join(tempDir, "generatedRoutes.ts")
+	typesPath := filepath.Join(tempDir, "generatedTypes.ts")
+	endpointsPath := filepath.Join(tempDir, "generatedEndpoints.ts")
+	writeTestFile(t, routesPath, bindings.RoutesTS)
+	writeTestFile(t, typesPath, bindings.TypesTS)
+	writeTestFile(t, endpointsPath, bindings.EndpointsTS)
+
+	cmd := exec.Command(
+		"pnpm",
+		"-C",
+		"frontend",
+		"exec",
+		"prettier",
+		routesPath,
+		typesPath,
+		endpointsPath,
+		"--write",
+	)
+	cmd.Dir = testRepoRoot(t)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("prettier generated bindings: %v\n%s", err, string(output))
+	}
+
+	formattedRoutes, err := os.ReadFile(routesPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", routesPath, err)
+	}
+	formattedTypes, err := os.ReadFile(typesPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", typesPath, err)
+	}
+	formattedEndpoints, err := os.ReadFile(endpointsPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", endpointsPath, err)
+	}
+	return GeneratedBindings{
+		RoutesTS:    string(formattedRoutes),
+		TypesTS:     string(formattedTypes),
+		EndpointsTS: string(formattedEndpoints),
+	}
 }
 
 func TestRenderTypesUsesStructuredCreateBody(t *testing.T) {

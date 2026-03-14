@@ -161,6 +161,11 @@ Current status:
   `c_addresses`, `serverModeBoundaryPolicy`, and related utility imports) in
   an isolated temp project rather than proving them only against a pure local
   stub harness
+- the validation suite now also checks that the checked-in canonical frontend
+  files under `frontend/src/utils/` match the canonical Go-owned generator
+  output after the repo's Prettier formatting step, so stale generated
+  bindings fail in Go tests instead of drifting until a manual regeneration
+  pass or later frontend diff
 - a current repo scan shows the only generated frontend contract files under
   `frontend/src` are `generatedRoutes.ts`, `generatedTypes.ts`, and
   `generatedEndpoints.ts`, all emitted by the Go-owned generator; remaining
