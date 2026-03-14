@@ -17,8 +17,6 @@ import {
   useState,
 } from "react";
 import { getDefaultChatDetails } from "state/actions/ai/chatRuntime";
-import { buildMessageBranchInfo } from "state/actions/aiBranches";
-import { type ChatHistoryCompatibility } from "state/actions/chatHistory";
 import {
   useAIStore,
   useLocalStorage,
@@ -27,11 +25,9 @@ import {
 } from "state/definitions";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
 import type { AppGenerationMode } from "state/types/appGenerationMode";
-import { tokenizeConversationSearchQuery } from "utils/conversationSearch";
 import {
   AgentRun,
   ChatFileAttachment,
-  ChatRoleEnum,
   EngineTypeEnum,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
@@ -44,14 +40,8 @@ import {
 } from "./projectChatComposerRuntime";
 import { resolveProjectChatComposerDerivedState } from "./projectChatComposerState";
 import { ProjectChatConversationSurface } from "./ProjectChatConversationSurface";
-import {
-  buildProjectChatSubmittedMessageHistory,
-  filterProjectConversationMessagesBySearch,
-} from "./projectChatHistoryUtils";
-import {
-  resolveProjectChatRunTypeForEngine,
-  type ProjectChatHydrationAuthority,
-} from "./projectChatHydrationAuthority";
+import { resolveProjectChatConversationViewModel } from "./projectChatConversationViewModel";
+import { type ProjectChatHydrationAuthority } from "./projectChatHydrationAuthority";
 import { useProjectChatRuntimeController } from "./projectChatRuntimeController";
 import {
   getDefaultProjectChatPermissionMode,
@@ -156,16 +146,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       return state.chatDetails[chatId] ?? getDefaultChatDetails();
     }, shallow);
   const branchIndex = useChatBranchIndex(typeof chatId === "string");
-  const branchInfoByMessage = useMemo(() => {
-    if (typeof chatId !== "string") {
-      return {};
-    }
-    return buildMessageBranchInfo({
-      chatId,
-      messages,
-      branchIndex,
-    });
-  }, [branchIndex, chatId, messages]);
   const pendingPrompt = useAIStore((state) => state.pendingProjectChatPrompt);
   const agentRuns = useAIStore((state) => state.agentRuns);
   const agentRunsInitialLoadComplete = useAIStore(
@@ -182,27 +162,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       permissionMode: getDefaultProjectChatPermissionMode(engineType),
       searchEnabled: true,
     }));
-  const showEmptyState =
-    typeof chatId === "undefined" || (chatId === null && messages.length === 0);
-  const normalizedConversationSearchTerms = useMemo(
-    () => tokenizeConversationSearchQuery(conversationFilterText),
-    [conversationFilterText],
-  );
-  const filteredConversationMessages = useMemo(
-    () =>
-      filterProjectConversationMessagesBySearch({
-        messages,
-        normalizedSearchTerms: normalizedConversationSearchTerms,
-      }),
-    [messages, normalizedConversationSearchTerms],
-  );
-  const hasVisibleConversationMatches = useMemo(
-    () =>
-      filteredConversationMessages.some(
-        (message) => message.role !== ChatRoleEnum.tool,
-      ),
-    [filteredConversationMessages],
-  );
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const appGenerationMode = useLocalStorage((state) => state.appGenerationMode);
   const customProjectChatSlashCommands = useLocalStorage(
@@ -212,20 +171,42 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         projectConfigId,
       ),
   );
-  const submittedMessageHistory = useMemo(
+  const {
+    showEmptyState,
+    normalizedConversationSearchTerms,
+    filteredConversationMessages,
+    hasVisibleConversationMatches,
+    branchInfoByMessage,
+    submittedMessageHistory,
+    historyCompatibility,
+    isExternalEngine,
+  } = useMemo(
     () =>
-      buildProjectChatSubmittedMessageHistory({
-        runs: agentRuns,
+      resolveProjectChatConversationViewModel({
+        chatId,
+        messages,
+        branchIndex,
+        conversationFilterText,
+        agentRuns,
         projectConfigId,
-        activeMessages: messages,
+        engineType,
+        engineConfigId,
       }),
-    [agentRuns, messages, projectConfigId],
+    [
+      agentRuns,
+      branchIndex,
+      chatId,
+      conversationFilterText,
+      engineConfigId,
+      engineType,
+      messages,
+      projectConfigId,
+    ],
   );
   const visibleStarterPrompts = useProjectChatStarterPrompts({
     enabled: showEmptyState,
     projectConfigId,
   });
-  const isExternalEngine = engineType === EngineTypeEnum.external_agent;
   const {
     contextWindowTokens,
     contextUsedTokens,
@@ -235,16 +216,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     () => resolveProjectChatContextTelemetry(contextUsage),
     [contextUsage],
   );
-  const historyCompatibility = useMemo<ChatHistoryCompatibility | null>(() => {
-    const runType = resolveProjectChatRunTypeForEngine(engineType);
-    if (!runType) {
-      return null;
-    }
-    return {
-      runType,
-      engineConfigId: engineConfigId ?? null,
-    };
-  }, [engineConfigId, engineType]);
   useEffect(() => {
     if (!isExternalEngine) {
       setExecutionSettings((current) => {
