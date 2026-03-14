@@ -13,7 +13,6 @@ import {
   buildLLMConfigGroups,
   countLLMConfigs,
   pickDefaultConfigId,
-  resolveSelectableLLMConfigId,
 } from "components/Chat/llmConfigUtils";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
@@ -46,11 +45,11 @@ import {
   getRunInputString,
   getRunLastUpdatedMs,
 } from "state/actions/agentRunUtils";
+import { seedPendingChatDetails } from "state/actions/aiChatSubmission";
 import {
   saveLLMConfig,
-  seedPendingChatDetails,
   updateEngineConfig,
-} from "state/actions/ai";
+} from "state/actions/aiConfiguration";
 import {
   buildChatHistoryEntries,
   buildChatProvenanceByChatId,
@@ -61,10 +60,10 @@ import { addPersistentNotification } from "state/actions/notifications";
 import { setProjectChatThreadGroupAssignment } from "state/actions/projectChatThreads";
 import {
   useAIStore,
-  useLocalStorage,
   useProjectState,
   type ProjectChatAuxView,
 } from "state/definitions";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import { getDefaultChatAppGenerationDetails } from "state/utils/chatAppGeneration";
 import { tokenizeConversationSearchQuery } from "utils/conversationSearch";
 import {
@@ -871,14 +870,6 @@ function ProjectChatSurface({
   const providerDictationLikelySupported = providerDictationAvailable;
   const hasLLMConfig = Boolean(
     selectedLLMConfigId && availableConfigIds.has(selectedLLMConfigId),
-  );
-  const selectableLLMConfigId = useMemo(
-    () =>
-      resolveSelectableLLMConfigId(
-        availableConfigGroups,
-        selectedLLMConfigId,
-      ),
-    [availableConfigGroups, selectedLLMConfigId],
   );
   const llmSelectionUnavailableReason = useMemo(
     () =>
@@ -1974,7 +1965,7 @@ function ProjectChatSurface({
                         transcriptionProfileGroups={transcriptionProfileGroups}
                         availableConfigGroups={availableConfigGroups}
                         selectedEngineId={effectiveEngineId}
-                        selectedLLMConfigId={selectableLLMConfigId}
+                        selectedLLMConfigId={selectedLLMConfigId}
                         llmSelectionUnavailableReason={
                           llmSelectionUnavailableReason
                         }
@@ -2201,7 +2192,6 @@ function ProjectChatSurface({
                   }
                   thinking={thinking}
                   engineConfigId={effectiveEngineId}
-                  engineConfig={selectedEngineConfig}
                   engineType={engineType}
                   hasLLMConfig={hasLLMConfig}
                   externalEngineAvailable={externalEngineAvailable}
@@ -2275,7 +2265,6 @@ function ProjectChatSurface({
               hydrationMetadataRevision={selectedChatHydrationMetadataRevision}
               thinking={thinking}
               engineConfigId={effectiveEngineId}
-              engineConfig={selectedEngineConfig}
               engineType={engineType}
               hasLLMConfig={hasLLMConfig}
               externalEngineAvailable={externalEngineAvailable}

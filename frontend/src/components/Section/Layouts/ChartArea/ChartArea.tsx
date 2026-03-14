@@ -3,8 +3,9 @@ import _ from "lodash";
 import React, { useEffect, useRef, useState } from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { listenForCanvasToBlobRequests } from "state/actions/temporaryMiscState";
-import { useLocalStorage, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useLoadedChartData } from "state/hooks/artifacts";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import {
   BaseChartSettingsUnion,
