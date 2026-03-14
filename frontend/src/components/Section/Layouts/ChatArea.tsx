@@ -33,16 +33,10 @@ import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/use
 import _ from "lodash";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  submitEditedMessage,
-  submitMessage,
-} from "state/actions/ai/chatCommands";
-import {
   getDefaultChatDetails,
   getExternalAgentChat,
   getLLMChat,
-  stopManagedSectionChatResponse,
 } from "state/actions/ai/chatRuntime";
-import { transcribeChatAudioWithProfile } from "state/actions/ai/transcription";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import {
   buildBranchIndexFromBranches,
@@ -68,18 +62,22 @@ import { route_set_chat_section_state } from "utils/generatedEndpoints";
 import {
   AgenticEdgeKindEnum,
   ChatFileAttachment,
-  ChatRoleEnum,
   ChatSectionState,
   EngineTypeEnum,
   SectionTypeEnum,
   SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
-import { createNewId } from "utils/idNameCreation";
 import { shallow } from "zustand/shallow";
 import {
   ManagedChatHistoryPanel,
   resolveManagedChatRunType,
 } from "./ChatAreaHistoryPanel";
+import {
+  editManagedSectionChatMessage,
+  stopManagedSectionChatWithAction,
+  submitManagedSectionChatMessage,
+  transcribeManagedSectionChatAudio,
+} from "./chatAreaManagedRuntime";
 import {
   persistManagedSectionChatId,
   resumeLatestManagedSectionChat,
@@ -90,10 +88,6 @@ import {
   type ChatSectionChatId,
   type ChatSectionChatIdUpdate,
 } from "./chatAreaManagedThreadController";
-import {
-  emitChatSendAction,
-  emitChatStopAction,
-} from "./chatAreaRealtimeActions";
 import {
   editScriptableChatMessage,
   executeScriptableChatSlashCommand,
@@ -969,83 +963,39 @@ function ManagedChatArea({
   );
 
   const handleSubmit = useCallback(
-    async (message: string, attachments: ChatFileAttachment[]) => {
-      const trimmed = message.trim();
-      if (!trimmed && attachments.length === 0) {
-        return false;
-      }
-      if (!canUseManagedChat) {
-        return false;
-      }
-      if (!hasEngineConfig) {
-        return false;
-      }
-      if (!isExternalEngine && !hasLLMConfig) {
-        return false;
-      }
-      if (isExternalEngine && !externalEngineAvailable) {
-        return false;
-      }
-      const messageId = createNewId();
-      const timestampMs = Date.now();
-      emitChatSendAction({
-        sectionId,
-        messageId,
-        text: message,
+    (message: string, attachments: ChatFileAttachment[]) =>
+      submitManagedSectionChatMessage({
+        message,
         attachments,
-        role: ChatRoleEnum.user,
-        managed: true,
-        timestampMs,
-      });
-      const isFirstMessage = chatId === null;
-      if (isFirstMessage) {
-        handleNewChatStart();
-      }
-
-      let submittedChatId: string | null = null;
-      let succeeded = false;
-      try {
-        if (!effectiveEngineConfigId) {
-          return false;
-        }
-        submittedChatId = await submitMessage(
-          chatId,
-          message,
-          attachments,
-          thinking,
-          effectiveEngineConfigId,
-          isExternalEngine,
-          {
-            messageId,
-            agentProfileId,
-            sectionId,
-            pendingSurfaceId: surfaceId,
-            executionSettings: {
-              permissionMode,
-              searchEnabled,
-            },
-          },
-        );
-        succeeded = Boolean(submittedChatId);
-      } catch (err) {
-        console.error("Failed to submit LLM chat message", err);
-      } finally {
-        if (isFirstMessage) {
-          handleNewChatSettled(submittedChatId, succeeded);
-        }
-      }
-      return succeeded;
-    },
+        chatId,
+        canUseManagedChat,
+        hasEngineConfig,
+        hasLLMConfig,
+        isExternalEngine,
+        externalEngineAvailable,
+        thinking,
+        effectiveEngineConfigId,
+        agentProfileId,
+        sectionId,
+        surfaceId,
+        executionSettings: {
+          permissionMode,
+          searchEnabled,
+        },
+        onStartNewChat: handleNewChatStart,
+        onSettleNewChat: handleNewChatSettled,
+      }),
     [
+      agentProfileId,
+      canUseManagedChat,
       chatId,
       effectiveEngineConfigId,
       handleNewChatSettled,
       handleNewChatStart,
       hasEngineConfig,
-      isExternalEngine,
       externalEngineAvailable,
       hasLLMConfig,
-      agentProfileId,
+      isExternalEngine,
       permissionMode,
       searchEnabled,
       sectionId,
@@ -1055,59 +1005,43 @@ function ManagedChatArea({
     ],
   );
 
-  const handleStop = useCallback(async () => {
-    emitChatStopAction({
-      sectionId,
-      managed: true,
-      timestampMs: Date.now(),
-    });
-    await stopManagedSectionChatResponse(
-      chatId,
-      isExternalEngine,
-      projectConfigId,
-      sectionId,
-      surfaceId,
-    );
-  }, [chatId, isExternalEngine, projectConfigId, sectionId, surfaceId]);
+  const handleStop = useCallback(
+    () =>
+      stopManagedSectionChatWithAction({
+        chatId,
+        isExternalEngine,
+        projectConfigId,
+        sectionId,
+        surfaceId,
+      }),
+    [chatId, isExternalEngine, projectConfigId, sectionId, surfaceId],
+  );
 
   const handleEditMessage = useCallback(
-    async (
-      messageId: string,
-      text: string,
-      attachments: ChatFileAttachment[],
-    ) => {
-      const resolvedChatId =
-        typeof chatId === "string" ? chatId : lastChatIdRef.current;
-      if (!resolvedChatId) {
-        return false;
-      }
-      if (!canUseManagedChat) {
-        return false;
-      }
-      if (isExternalEngine && !externalEngineAvailable) {
-        return false;
-      }
-      const nextChatId = await submitEditedMessage({
-        parentChatId: resolvedChatId,
-        messages,
+    (messageId: string, text: string, attachments: ChatFileAttachment[]) =>
+      editManagedSectionChatMessage({
+        resolvedChatId:
+          typeof chatId === "string" ? chatId : lastChatIdRef.current,
         messageId,
-        message: text,
+        text,
         attachments,
-        thinking,
-        engineConfigId: effectiveEngineConfigId,
+        canUseManagedChat,
         isExternalEngine,
+        externalEngineAvailable,
+        messages,
+        thinking,
+        effectiveEngineConfigId,
         agentProfileId,
         sectionId,
-        pendingSurfaceId: surfaceId,
+        surfaceId,
         executionSettings: {
           permissionMode,
           searchEnabled,
         },
-      });
-      return Boolean(nextChatId);
-    },
+      }),
     [
       agentProfileId,
+      canUseManagedChat,
       chatId,
       effectiveEngineConfigId,
       externalEngineAvailable,
@@ -1118,7 +1052,6 @@ function ManagedChatArea({
       sectionId,
       surfaceId,
       thinking,
-      canUseManagedChat,
     ],
   );
 
@@ -1213,12 +1146,12 @@ function ManagedChatArea({
     [messages, waitingForResponse],
   );
   const handleProviderDictationTranscribe = useCallback(
-    async (audioBlob: Blob) => {
-      if (isExternalEngine || !transcriptionProfileId) {
-        throw new Error("Provider dictation is not configured.");
-      }
-      return transcribeChatAudioWithProfile(transcriptionProfileId, audioBlob);
-    },
+    (audioBlob: Blob) =>
+      transcribeManagedSectionChatAudio({
+        isExternalEngine,
+        transcriptionProfileId,
+        audioBlob,
+      }),
     [isExternalEngine, transcriptionProfileId],
   );
 
