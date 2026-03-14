@@ -43,14 +43,9 @@ import {
 } from "state/actions/chatHistory";
 import {
   canUndoLastProjectChatThreadStorageMutation,
-  createProjectChatThreadGroup,
-  deleteProjectChatThread,
-  deleteProjectChatThreadGroup,
   markProjectChatThreadViewed,
   renameProjectChatThreadGroup,
   reorderProjectChatThreadGroups,
-  reorderProjectChatThreads,
-  setProjectChatThreadGroupAssignment,
   toggleProjectChatThreadGroupCollapsed,
   toggleProjectChatThreadGroupPinned,
   toggleProjectChatThreadPinned,
@@ -63,8 +58,15 @@ import {
 } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import {
-  buildDefaultThreadGroupName,
-  buildNextThreadOrder,
+  createProjectChatHistoryGroup,
+  deleteProjectChatHistoryGroup,
+  deleteProjectChatHistoryThread,
+  moveProjectChatHistoryThread,
+  selectProjectChatHistoryEntry,
+  startProjectChatHistoryThread,
+  startProjectChatHistoryThreadInGroup,
+} from "./projectChatHistoryController";
+import {
   DRAFT_THREAD_ENTRY_ID,
   getGroupIdFromThreadSectionDropTargetId,
   getPointerClientPoint,
@@ -72,7 +74,6 @@ import {
   getThreadIdFromDndId,
   GROUP_DRAG_RELEASE_THRESHOLD_PX,
   isPointerWithinThreadGroupDomain,
-  normalizeUniqueThreadIds,
   PINNED_THREAD_DOMAIN,
   resolveGroupIdFromPointerPosition,
   resolveNextGroupOrderFromDrag,
@@ -542,47 +543,36 @@ export function ProjectChatHistory({
   }, [agentRunsInitialLoadComplete, agentRunsLoadError, sortedEntries.length]);
 
   const handleCreateGroup = useCallback(() => {
-    const groupName = buildDefaultThreadGroupName(
-      threadGroups.map((group) => group.name),
-    );
-    const groupId = createProjectChatThreadGroup(projectConfigId, groupName);
-    if (!groupId) {
-      return;
-    }
-    onSelectedGroupChange?.(groupId);
-    setEditingGroupId(groupId);
+    createProjectChatHistoryGroup({
+      projectConfigId,
+      existingGroupNames: threadGroups.map((group) => group.name),
+      onSelectedGroupChange,
+      setEditingGroupId,
+    });
   }, [onSelectedGroupChange, projectConfigId, threadGroups]);
 
   const handleSelectThread = useCallback(
     (entry: ProjectChatHistoryEntry) => {
-      if (isDraftThreadEntry(entry)) {
-        setChatId(undefined);
-        if (closeOnSelect) {
-          onCloseThreadsView?.();
-        }
-        return;
-      }
-      setChatId(entry.chatId);
-      markProjectChatThreadViewed(projectConfigId, entry.chatId);
-      if (!closeOnSelect) {
-        return;
-      }
-      onCloseThreadsView?.();
+      selectProjectChatHistoryEntry({
+        entry,
+        closeOnSelect,
+        onCloseThreadsView,
+        projectConfigId,
+        setChatId,
+      });
     },
     [closeOnSelect, onCloseThreadsView, projectConfigId, setChatId],
   );
   const handleStartThreadInGroup = useCallback(
     (groupId: string) => {
-      onSelectedGroupChange?.(groupId);
-      if (onStartNewThreadInGroup) {
-        onStartNewThreadInGroup(groupId);
-        return;
-      }
-      setChatId(undefined);
-      if (!closeOnSelect) {
-        return;
-      }
-      onCloseThreadsView?.();
+      startProjectChatHistoryThreadInGroup({
+        groupId,
+        onSelectedGroupChange,
+        onStartNewThreadInGroup,
+        setChatId,
+        closeOnSelect,
+        onCloseThreadsView,
+      });
     },
     [
       closeOnSelect,
@@ -593,19 +583,15 @@ export function ProjectChatHistory({
     ],
   );
   const handleStartNewThread = useCallback(() => {
-    if (onStartNewThread) {
-      onStartNewThread();
-      return;
-    }
-    if (selectedGroupId && onStartNewThreadInGroup) {
-      handleStartThreadInGroup(selectedGroupId);
-      return;
-    }
-    setChatId(undefined);
-    if (!closeOnSelect) {
-      return;
-    }
-    onCloseThreadsView?.();
+    startProjectChatHistoryThread({
+      onStartNewThread,
+      selectedGroupId,
+      onStartNewThreadInGroup,
+      startThreadInGroup: handleStartThreadInGroup,
+      setChatId,
+      closeOnSelect,
+      onCloseThreadsView,
+    });
   }, [
     closeOnSelect,
     handleStartThreadInGroup,
@@ -624,38 +610,17 @@ export function ProjectChatHistory({
   );
   const handleMoveThread = useCallback(
     (sourceThreadId: string, dropTarget: ThreadDropTarget) => {
-      if (!sourceThreadId || sourceThreadId === DRAFT_THREAD_ENTRY_ID) {
-        return;
-      }
-      if (dropTarget.targetThreadId === sourceThreadId) {
-        return;
-      }
-      const sourceThreadPinned = pinnedThreadIdsSet.has(sourceThreadId);
-      const sourceThreadPinDomain = sourceThreadPinned
-        ? PINNED_THREAD_DOMAIN
-        : UNPINNED_THREAD_DOMAIN;
-      if (dropTarget.pinDomain !== sourceThreadPinDomain) {
-        return;
-      }
-      const normalizedThreadOrder = normalizeUniqueThreadIds(threadOrderIds);
-      const nextThreadOrder = buildNextThreadOrder({
+      moveProjectChatHistoryThread({
         sourceThreadId,
-        targetThreadId: dropTarget.targetThreadId,
-        targetGroupId: dropTarget.groupId,
-        placement: dropTarget.placement,
-        sourceThreadPinned,
-        preferredOrder: normalizedThreadOrder,
-        fallbackOrder: orderedVisibleThreadIds,
-        threadGroupById: threadGroupById,
+        dropTarget,
+        pinnedThreadIdsSet,
+        threadOrderIds,
+        orderedVisibleThreadIds,
+        threadGroupById,
         threadPinnedById,
-      });
-      setProjectChatThreadGroupAssignment(
         projectConfigId,
-        sourceThreadId,
-        dropTarget.groupId,
-      );
-      reorderProjectChatThreads(projectConfigId, nextThreadOrder);
-      onSelectedGroupChange?.(dropTarget.groupId);
+        onSelectedGroupChange,
+      });
     },
     [
       onSelectedGroupChange,
@@ -905,25 +870,23 @@ export function ProjectChatHistory({
   );
   const handleDeleteThread = useCallback(
     (threadId: string) => {
-      const deleted = deleteProjectChatThread(projectConfigId, threadId);
-      if (!deleted) {
-        return;
-      }
-      if (chatId === threadId) {
-        setChatId(undefined);
-      }
+      deleteProjectChatHistoryThread({
+        projectConfigId,
+        threadId,
+        chatId,
+        setChatId,
+      });
     },
     [chatId, projectConfigId, setChatId],
   );
   const handleDeleteGroup = useCallback(
     (groupId: string) => {
-      const deleted = deleteProjectChatThreadGroup(projectConfigId, groupId);
-      if (!deleted) {
-        return;
-      }
-      if (selectedGroupId === groupId) {
-        onSelectedGroupChange?.(null);
-      }
+      deleteProjectChatHistoryGroup({
+        projectConfigId,
+        groupId,
+        selectedGroupId,
+        onSelectedGroupChange,
+      });
     },
     [onSelectedGroupChange, projectConfigId, selectedGroupId],
   );
