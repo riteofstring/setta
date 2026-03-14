@@ -788,6 +788,87 @@ test("canvas engine host preserves modifier-click multi-section selection", asyn
   }
 });
 
+test("canvas engine host renders a selection overlay and nudges selected sections with arrow keys", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+
+    const firstSectionId = await createCallableSectionForCanvasEngine(
+      page,
+      projectContext.projectConfigId,
+    );
+    const secondSectionId = await createCallableSectionForCanvasEngine(
+      page,
+      projectContext.projectConfigId,
+    );
+    await expect(
+      host.locator(`[data-canvas-engine-dom-island="${secondSectionId}"]`),
+    ).toHaveCount(1);
+
+    const firstLayoutBefore = await readTopLevelSectionPosition(
+      page,
+      projectContext.projectConfigId,
+      firstSectionId,
+    );
+    const secondLayoutBefore = await readTopLevelSectionPosition(
+      page,
+      projectContext.projectConfigId,
+      secondSectionId,
+    );
+
+    await dispatchMountedSectionRootClick(page, firstSectionId);
+    await page.keyboard.down(MULTI_SELECTION_MODIFIER_KEY);
+    try {
+      await dispatchMountedSectionRootClick(page, secondSectionId);
+    } finally {
+      await page.keyboard.up(MULTI_SELECTION_MODIFIER_KEY);
+    }
+
+    const selectionOverlay = page.locator(
+      '[data-canvas-engine-selection-overlay-rect="v1"]',
+    );
+    await expect(selectionOverlay).toBeVisible();
+
+    await selectionOverlay.press("ArrowRight");
+
+    await expect
+      .poll(async () => {
+        const firstLayoutAfter = await readTopLevelSectionPosition(
+          page,
+          projectContext.projectConfigId,
+          firstSectionId,
+        );
+        const secondLayoutAfter = await readTopLevelSectionPosition(
+          page,
+          projectContext.projectConfigId,
+          secondSectionId,
+        );
+        return {
+          firstDeltaX: firstLayoutAfter.x - firstLayoutBefore.x,
+          firstDeltaY: firstLayoutAfter.y - firstLayoutBefore.y,
+          secondDeltaX: secondLayoutAfter.x - secondLayoutBefore.x,
+          secondDeltaY: secondLayoutAfter.y - secondLayoutBefore.y,
+        };
+      })
+      .toEqual({
+        firstDeltaX: 15,
+        firstDeltaY: 0,
+        secondDeltaX: 15,
+        secondDeltaY: 0,
+      });
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("canvas engine host drags sections and persists top-level layout", async ({
   page,
 }) => {
