@@ -13,7 +13,6 @@ import {
   addNotificationFromWebsocketMsg,
   addTemporaryNotification,
 } from "state/actions/notifications";
-import { registerRealtimeDependencySenders } from "state/actions/realtimeDependencySend";
 import {
   addWebsocketConnection,
   clearAllWebsocketConnections,
@@ -27,33 +26,28 @@ import {
 import { encodeBinaryFrame } from "utils/binaryWebsocket";
 import { C } from "utils/c";
 import { C_ADDRESSES } from "utils/c_addresses";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
 import {
   route_binary_upload,
   route_get_auth_refresh_status,
   route_get_latest_lsp_diagnostics,
   route_get_latest_project_state,
 } from "utils/generatedEndpoints";
-import { GoWebsocketRoutes } from "utils/generatedRoutes";
 import {
   BaseDependencyKeyUnion,
   BaseDependencyValueUnion,
-  type AuthRefreshStatusResponse,
   BinaryDependencyValue,
   DependencyEvent,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   FrontendWebsocketMsgUnion,
-  type ProjectStateSingleConfigWithCompletedOpIds,
   LiteralDependencyValue,
   RouteEnum,
   SectionDependencyKey,
   SectionParamDependencyKey,
   SettaNotificationTypeEnum,
-  type SettaLspDiagnosticsPayload,
   UISettingRevealContent,
   UISettingRevealContentSchema,
-  UISettingRevealResultStatus,
   WebsocketConnectionTypeEnum,
   WebsocketMsg,
   WebsocketMsgRealtimeDependencyEvent,
@@ -65,16 +59,18 @@ import {
   createWebsocketMsgCurrentAddressUpdate,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
+import { receiveLLMResponseChunk } from "./ai/chatStreaming";
+import {
+  receiveLLMApiKeysSnapshotUpdate,
+  receiveLLMConfigUpdate,
+} from "./ai/llmSettings";
 import {
   receiveAgentProfilesUpdate,
   receiveEngineConfigsUpdate,
   receiveExternalAgentConfigsUpdate,
-  receiveLLMApiKeysSnapshotUpdate,
-  receiveLLMConfigUpdate,
-  receiveLLMResponseChunk,
   receivePromptTemplatesUpdate,
   receiveTranscriptionProfilesUpdate,
-} from "./ai";
+} from "./ai/projectAiResources";
 import {
   receiveAIFollowToolArgumentsUpdate,
   receiveAIFollowToolResultUpdate,
@@ -114,7 +110,6 @@ const AUTH_CLOSE_CODE = 4401;
 const SHARE_SESSION_MISSING_CODE = 4400;
 const SHARE_SESSION_UNKNOWN_CODE = 4404;
 const BOOTSTRAP_URL = `${C_ADDRESSES.BACKEND_ORIGIN}${RouteEnum.BOOTSTRAP_PAGE}`;
-const FRONTEND_WEBSOCKET_ROUTE = GoWebsocketRoutes.frontend;
 const AUTH_RECOVERY_INTERVAL_MS = 2000;
 const DEFAULT_AUTH_REFRESH_WINDOW_SECONDS =
   C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS;
@@ -138,35 +133,22 @@ let shareHeartbeatTimer: number | null = null;
 let shareSessionRecoveryAttempts = 0;
 let shareSessionRecoveryInFlight = false;
 let lastRealtimeBinaryOversizeWarningAt = 0;
+type UISettingRevealResultStatusPayload = {
+  settingId: string;
+  status: "revealed" | "failed";
+  errorCode: string | null;
+  errorMessage: string | null;
+};
 type PendingUISettingRevealMessage = {
   content: unknown;
   socketGeneration: number;
 };
-
-type AuthRefreshStatusRouteResponse =
-  ResponseDataAndStatus<AuthRefreshStatusResponse>;
-type LatestProjectStateRouteResponse =
-  ResponseDataAndStatus<ProjectStateSingleConfigWithCompletedOpIds>;
-type LatestLSPDiagnosticsRouteResponse =
-  ResponseDataAndStatus<SettaLspDiagnosticsPayload>;
 
 function beginWebsocketGeneration(): number {
   activeWebsocketGeneration += 1;
   setActiveFrontendWebsocketAffinityGeneration(activeWebsocketGeneration);
   clearFrontendWebsocketAffinity(activeWebsocketGeneration);
   return activeWebsocketGeneration;
-}
-
-function buildFrontendWebsocketUrl(shareSessionId: string | null): string {
-  const targetUrl = new URL(
-    FRONTEND_WEBSOCKET_ROUTE,
-    C_ADDRESSES.BACKEND_ORIGIN,
-  );
-  targetUrl.protocol = targetUrl.protocol === "https:" ? "wss:" : "ws:";
-  if (shareSessionId) {
-    targetUrl.searchParams.set("shareSessionId", shareSessionId);
-  }
-  return targetUrl.toString();
 }
 
 export const openWebSocket = _.debounce(
@@ -180,8 +162,14 @@ export const openWebSocket = _.debounce(
     if (!isDeploymentMode) {
       stopShareHeartbeat();
     }
-    const route = FRONTEND_WEBSOCKET_ROUTE;
-    const targetUrl = buildFrontendWebsocketUrl(shareSessionId);
+    const route = isDeploymentMode
+      ? RouteEnum.WEBSOCKET_SHARE_FRONTEND
+      : RouteEnum.WEBSOCKET_FRONTEND;
+    const targetUrl = isDeploymentMode
+      ? `${C_ADDRESSES.WEBSOCKET}${route}?shareSessionId=${encodeURIComponent(
+          shareSessionId ?? "",
+        )}`
+      : `${C_ADDRESSES.WEBSOCKET}${route}`;
     if (
       wssReady(wss) &&
       currentRoute === route &&
@@ -228,17 +216,15 @@ export const openWebSocket = _.debounce(
           const projectConfigId = getCurrProjectConfigId();
           let runImmediateAuthRefresh = true;
           if (projectConfigId !== NULL_PROJECT_CONFIG_ID) {
-            const res: LatestProjectStateRouteResponse =
-              await route_get_latest_project_state({
-                projectConfigId: getCurrProjectConfigId(),
-              });
+            const res = await route_get_latest_project_state({
+              projectConfigId: getCurrProjectConfigId(),
+            });
             if (res200(res)) {
               processProjectStateUpdateFromBackend(res.data);
               await requestAIFollowSnapshot(projectConfigId);
-              const diagnosticsRes: LatestLSPDiagnosticsRouteResponse =
-                await route_get_latest_lsp_diagnostics({
-                  projectConfigId,
-                });
+              const diagnosticsRes = await route_get_latest_lsp_diagnostics({
+                projectConfigId,
+              });
               if (res200(diagnosticsRes)) {
                 processLspDiagnostics(diagnosticsRes.data);
               }
@@ -343,8 +329,7 @@ async function attemptAuthRecovery(pathname: string) {
     return;
   }
   authRecoveryInFlight = true;
-  const res: AuthRefreshStatusRouteResponse =
-    await route_get_auth_refresh_status();
+  const res = await route_get_auth_refresh_status();
   authRecoveryInFlight = false;
   if (res200(res)) {
     updateAuthRefreshWindowSeconds(res.data.authCookieRefreshWindowSeconds);
@@ -438,8 +423,7 @@ async function runAuthRefresh() {
     return;
   }
   authRefreshInFlight = true;
-  const res: AuthRefreshStatusRouteResponse =
-    await route_get_auth_refresh_status();
+  const res = await route_get_auth_refresh_status();
   authRefreshInFlight = false;
   if (res200(res)) {
     updateAuthRefreshWindowSeconds(res.data.authCookieRefreshWindowSeconds);
@@ -672,7 +656,7 @@ function sendUISettingRevealResult({
 }: {
   projectConfigId: string;
   requestId: string;
-  statuses: UISettingRevealResultStatus[];
+  statuses: UISettingRevealResultStatusPayload[];
   socketGeneration: number;
 }): void {
   const revealResultMessage: WebsocketMsgUISettingRevealResult = {
@@ -725,7 +709,7 @@ function resolveRevealRequestId(content: unknown): string {
 function buildMalformedRevealStatuses(
   content: unknown,
   errorMessage: string,
-): UISettingRevealResultStatus[] {
+): UISettingRevealResultStatusPayload[] {
   const settingIds = extractRevealSettingIds(content);
   return settingIds.map((settingId) => ({
     settingId,
@@ -764,7 +748,7 @@ function resolveAckContextMismatchStatuses({
 }: {
   content: UISettingRevealContent;
   executionContext: UISettingRevealExecutionContext;
-}): UISettingRevealResultStatus[] | null {
+}): UISettingRevealResultStatusPayload[] | null {
   if (!executionContext.isSocketGenerationActive()) {
     return buildExecutionContextMismatchStatuses(
       content.reveals,
@@ -787,7 +771,7 @@ function resolveAckContextMismatchStatuses({
 function buildExecutionContextMismatchStatuses(
   reveals: Array<UISettingRevealContent["reveals"][number]>,
   errorMessage: string,
-): UISettingRevealResultStatus[] {
+): UISettingRevealResultStatusPayload[] {
   return reveals.map((target) => ({
     settingId: target.settingId,
     status: "failed",
@@ -983,11 +967,6 @@ function sendBinaryMessage(message: WebsocketMsg, payload: ArrayBuffer) {
     wss.send(frame);
   }
 }
-
-registerRealtimeDependencySenders({
-  sendBinaryMessage,
-  sendMessage,
-});
 
 function maybeWarnRealtimeOversize(message: string) {
   const now = Date.now();

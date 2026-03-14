@@ -2,7 +2,7 @@ import json
 import os
 from pathlib import Path
 
-from setta.startup_runtime import _apply_paths_to_env
+from setta.start import _apply_paths_to_env
 from setta.utils.constants import C
 from setta.utils.paths import clear_setta_paths_cache, resolve_setta_paths
 
