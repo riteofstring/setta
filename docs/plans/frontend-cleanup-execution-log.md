@@ -1214,3 +1214,35 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/git.ts`, now the largest authored state
     hotspot, into clearer repo-read helpers, branch/worktree mutations, and
     checkout/switch command modules.
+
+## 2026-03-14 21:04:48 PDT
+
+- Slice completed: split git graph and diff/status actions by ownership
+- Key files touched:
+  - `frontend/src/state/actions/git.ts`
+  - `frontend/src/state/actions/gitGraph.ts`
+  - `frontend/src/state/actions/gitStatusAndDiff.ts`
+  - `frontend/src/state/actions/git.test.ts`
+  - `frontend/src/components/Git/GitGraphOverlay.tsx`
+  - `frontend/src/components/Git/GitDiffOverlay.tsx`
+  - `frontend/src/components/Git/GitOverlayLayer.tsx`
+  - `frontend/src/components/Git/GitGraphWindowContent.tsx`
+  - `frontend/src/components/Git/GitGraphWindowContent.test.tsx`
+  - `frontend/src/components/Panes/Overview/Git/GitPane.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/git.test.ts src/components/Panes/Overview/Git/GitPane.test.tsx src/components/Git/GitGraphWindowContent.test.tsx src/components/Git/GitOverlayLayer.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/git.ts src/state/actions/gitGraph.ts src/state/actions/gitStatusAndDiff.ts src/state/actions/git.test.ts src/components/Git/GitGraphOverlay.tsx src/components/Git/GitDiffOverlay.tsx src/components/Git/GitOverlayLayer.tsx src/components/Git/GitGraphWindowContent.tsx src/components/Git/GitGraphWindowContent.test.tsx src/components/Panes/Overview/Git/GitPane.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `73617b893`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/projectChatWindowingState.ts`, now the
+    largest authored state hotspot, into narrower reducer groups so placement,
+    focus, and bounds reducers stop living beside chat-id/title and
+    section-transition reducers.
