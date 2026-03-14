@@ -157,6 +157,39 @@ def test_playwright_runner_reseeds_plugin_fixtures_for_reused_workspaces() -> No
     assert existing_workspace_line < fixture_seed_guard_line
 
 
+def test_playwright_runner_overwrites_seeded_project_state_with_go_runtime_shape() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "_seed_minimal_setta_files(setta_root)" in script
+    assert "./scripts/go.sh run ./cmd/setta-seed-playwright-workspace" in script
+    assert '--setta-files-root "${SETTA_WORKSPACE_ROOT}/setta_files"' in script
+
+
+def test_playwright_runner_reads_bootstrap_token_from_backend_log() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    assert '"${PYTHON_BIN}" - "${LOG_DIR}/backend.log"' in script
+    assert 'token_pattern = re.compile(r"^\\s*Token:\\s+(\\S+)\\s*$")' in script
+    assert "Timed out waiting for bootstrap token in" in script
+
+
+def test_playwright_runner_builds_current_go_cli_binary_by_default() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "prepare_current_setta_cli()" in script
+    assert "./scripts/go.sh build -o" in script
+    assert "./cmd/setta" in script
+    assert "./cmd/setta-server" in script
+    assert 'export SETTA_GO_CLI_BIN="${current_setta_go_bin}"' in script
+    assert 'export SETTA_SERVER_BIN="${current_setta_server_bin}"' in script
+
+
 def test_plugin_fixture_link_script_defaults_to_no_rescan_and_unlink_wrapper_removed() -> None:
     root = repo_root()
     link_script = (root / "scripts" / "plugin-fixtures" / "link.sh").read_text(

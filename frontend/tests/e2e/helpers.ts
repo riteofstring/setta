@@ -364,7 +364,9 @@ export async function openIsolatedProject(
     throw new Error("Missing project config name.");
   }
   const url = new URL(name, BASE_URL).toString();
-  await page.goto(url, { waitUntil: "domcontentloaded" });
+  await page.goto(withBackendOriginOverride(url), {
+    waitUntil: "domcontentloaded",
+  });
   await page.waitForSelector(READY_SELECTOR);
   const projectConfigId = await getCurrentProjectConfigId(page);
   return {

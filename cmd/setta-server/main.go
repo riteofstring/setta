@@ -80,11 +80,6 @@ func run(args []string) (err error) {
 
 	logger := observability.NewLogger(cfg.Server.LogLevel, os.Stderr)
 
-	application, err := app.New(cfg, logger)
-	if err != nil {
-		return err
-	}
-
 	listener, err := net.Listen("tcp", net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port)))
 	if err != nil {
 		return fmt.Errorf("listen: %w", err)
@@ -104,6 +99,11 @@ func run(args []string) (err error) {
 			err = cleanupErr
 		}
 	}()
+
+	application, err := app.New(cfg, logger)
+	if err != nil {
+		return err
+	}
 	switch cfg.Server.Mode {
 	case config.ModeIDE:
 		if err := emitLocalStartupOutput(cfg, localSession, noOpen, os.Stdout, os.Stderr, localStartupDependencies{}); err != nil {
