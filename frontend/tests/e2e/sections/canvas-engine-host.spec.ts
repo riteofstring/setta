@@ -2160,7 +2160,6 @@ test("canvas engine host keeps cached nested reconnect targets after dom islands
       targetPortId: firstTargetPortId,
       type: "default",
     });
-
     const edgeId = await readDataEdgeIdByLink({
       page,
       projectConfigId: projectContext.projectConfigId,
@@ -2250,6 +2249,238 @@ test("canvas engine host keeps cached nested reconnect targets after dom islands
       });
     expect(Number.isFinite(secondTargetHandle.x)).toBe(true);
     expect(Number.isFinite(secondTargetHandle.y)).toBe(true);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("canvas engine host starts cached nested data-edge reconnect sessions after dom islands unmount", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+
+    const viewportBounds = await getEngineViewportBounds(page);
+    const groupId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Group",
+      viewportBounds,
+      position: { x: 420, y: 120 },
+    });
+    const sourceChildId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds,
+      position: { x: 80, y: 120 },
+    });
+    const firstTargetChildId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds,
+      position: { x: 80, y: 320 },
+    });
+    const secondTargetChildId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds,
+      position: { x: 80, y: 520 },
+    });
+
+    await postBackend(page, "/moveSections", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionIds: [sourceChildId],
+      newParentId: groupId,
+      newIndex: 0,
+      positionsById: null,
+    });
+    await postBackend(page, "/moveSections", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionIds: [firstTargetChildId],
+      newParentId: groupId,
+      newIndex: 1,
+      positionsById: null,
+    });
+    await postBackend(page, "/moveSections", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionIds: [secondTargetChildId],
+      newParentId: groupId,
+      newIndex: 2,
+      positionsById: null,
+    });
+
+    const latestStateAfterMove = await loadLatestProjectState(
+      page,
+      projectContext.projectConfigId,
+    );
+    const groupLayout =
+      latestStateAfterMove.projectConfig?.topLevelSections?.[groupId];
+    if (!groupLayout) {
+      throw new Error("Missing group layout for cached nested reconnect.");
+    }
+    await postBackend(page, "/setTopLevelSectionLayout", {
+      projectConfigId: projectContext.projectConfigId,
+      topLevelSections: {
+        ...(latestStateAfterMove.projectConfig?.topLevelSections ?? {}),
+        [groupId]: {
+          ...groupLayout,
+          w: 380,
+          h: 520,
+        },
+      },
+    });
+
+    await setSectionCallable(
+      page,
+      projectContext.projectConfigId,
+      sourceChildId,
+      "sorted",
+    );
+    await setSectionCallable(
+      page,
+      projectContext.projectConfigId,
+      firstTargetChildId,
+      "sorted",
+    );
+    await setSectionCallable(
+      page,
+      projectContext.projectConfigId,
+      secondTargetChildId,
+      "sorted",
+    );
+
+    const sourcePortId = "canvas-engine-cached-nested-reconnect-source-port";
+    const [firstTargetPortId] = await readMountedSectionParamIds(
+      host,
+      firstTargetChildId,
+      1,
+    );
+    const [secondTargetPortId] = await readMountedSectionParamIds(
+      host,
+      secondTargetChildId,
+      1,
+    );
+    await postBackend(page, "/setSectionEdgeOutputs", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId: sourceChildId,
+      edgeOutputPorts: [{ id: sourcePortId, accessor: "output" }],
+    });
+    await postBackend(page, "/setSectionEdgeInputs", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId: firstTargetChildId,
+      edgeInputParams: [firstTargetPortId],
+    });
+    await postBackend(page, "/setSectionEdgeInputs", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId: secondTargetChildId,
+      edgeInputParams: [secondTargetPortId],
+    });
+
+    const sourceVariantId = await readSectionVariantId(
+      page,
+      projectContext.projectConfigId,
+      sourceChildId,
+    );
+    const firstTargetVariantId = await readSectionVariantId(
+      page,
+      projectContext.projectConfigId,
+      firstTargetChildId,
+    );
+    await postBackend(page, "/createEdge", {
+      projectConfigId: projectContext.projectConfigId,
+      sourceSectionId: sourceChildId,
+      sourceVariantId,
+      sourcePortId,
+      targetSectionId: firstTargetChildId,
+      targetVariantId: firstTargetVariantId,
+      targetPortId: firstTargetPortId,
+      type: "default",
+    });
+
+    const edgeId = await readDataEdgeIdByLink({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      sourceSectionId: sourceChildId,
+      sourcePortId,
+      targetSectionId: firstTargetChildId,
+      targetPortId: firstTargetPortId,
+    });
+
+    await expect
+      .poll(
+        async () =>
+          await readNumericHostAttribute(
+            host,
+            "data-canvas-engine-cached-nested-data-handle-count",
+          ),
+      )
+      .toBeGreaterThanOrEqual(3);
+
+    for (let index = 0; index < 16; index += 1) {
+      await page.getByRole("button", { name: "zoom out" }).click();
+    }
+
+    await expect
+      .poll(
+        async () =>
+          await readNumericHostAttribute(
+            host,
+            "data-canvas-engine-dom-island-mounted-count",
+          ),
+      )
+      .toBe(0);
+    await expect
+      .poll(
+        async () =>
+          await readNumericHostAttribute(
+            host,
+            "data-canvas-engine-cached-nested-data-handle-count",
+          ),
+      )
+      .toBeGreaterThanOrEqual(3);
+
+    const firstTargetHandle = await readRegisteredEdgeHandleWorldPoint(
+      page,
+      firstTargetChildId,
+      firstTargetPortId,
+      "target",
+    );
+    await dispatchCanvasHostPointerEventAtWorldPoint(host, "pointerdown", {
+      button: 0,
+      worldX: firstTargetHandle.x,
+      worldY: firstTargetHandle.y,
+      pointerId: 1,
+    });
+
+    await expect
+      .poll(async () => await readConnectionPreviewState(host))
+      .toEqual({
+        active: true,
+        kind: "data-reconnect",
+        valid: false,
+        hasTargetHandle: false,
+      });
+
+    await dispatchCanvasHostPointerEventAtWorldPoint(host, "pointerup", {
+      button: 0,
+      worldX: firstTargetHandle.x,
+      worldY: firstTargetHandle.y,
+      pointerId: 1,
+    });
+
+    await expect
+      .poll(async () => (await readConnectionPreviewState(host)).active)
+      .toBe(false);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -3848,24 +4079,35 @@ async function dispatchCanvasHostPointerEvent(
     clientX: number;
     clientY: number;
     pointerId: number;
+    buttons?: number;
   },
 ): Promise<void> {
   await host.evaluate(
     (element, eventInit) => {
+      const buttons =
+        typeof eventInit.buttons === "number"
+          ? eventInit.buttons
+          : eventInit.type === "pointerup"
+            ? 0
+            : 1;
       element.dispatchEvent(
         new PointerEvent(eventInit.type, {
           bubbles: true,
           cancelable: true,
           button: eventInit.button,
+          buttons,
           clientX: eventInit.clientX,
           clientY: eventInit.clientY,
+          isPrimary: true,
           pointerId: eventInit.pointerId,
+          pointerType: "mouse",
         }),
       );
     },
     {
       type,
       button: init.button,
+      buttons: init.buttons,
       clientX: init.clientX,
       clientY: init.clientY,
       pointerId: init.pointerId,
@@ -3881,6 +4123,7 @@ async function dispatchCanvasHostPointerEventAtWorldPoint(
     worldX: number;
     worldY: number;
     pointerId: number;
+    buttons?: number;
   },
 ): Promise<void> {
   await host.evaluate(
@@ -3898,20 +4141,30 @@ async function dispatchCanvasHostPointerEventAtWorldPoint(
       );
       const clientX = rect.left + (eventInit.worldX - cameraX) * zoom;
       const clientY = rect.top + (eventInit.worldY - cameraY) * zoom;
+      const buttons =
+        typeof eventInit.buttons === "number"
+          ? eventInit.buttons
+          : eventInit.type === "pointerup"
+            ? 0
+            : 1;
       hostElement.dispatchEvent(
         new PointerEvent(eventInit.type, {
           bubbles: true,
           cancelable: true,
           button: eventInit.button,
+          buttons,
           clientX,
           clientY,
+          isPrimary: true,
           pointerId: eventInit.pointerId,
+          pointerType: "mouse",
         }),
       );
     },
     {
       type,
       button: init.button,
+      buttons: init.buttons,
       worldX: init.worldX,
       worldY: init.worldY,
       pointerId: init.pointerId,

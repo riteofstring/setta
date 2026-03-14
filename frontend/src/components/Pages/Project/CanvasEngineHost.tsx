@@ -20,6 +20,7 @@ import {
 } from "canvas-engine/renderer";
 import {
   CanvasEngineSceneAdapter,
+  type CanvasEngineDataHandleHitResult,
   type CanvasEngineEdgeHandlePosition,
   type CanvasEngineProjectSceneInput,
   type CanvasEngineSceneSnapshotResult,
@@ -554,6 +555,27 @@ export function CanvasEngineHost() {
       ...edgeHandlePositions,
     }),
     [cachedNestedDataHandlePositions, edgeHandlePositions],
+  );
+  const hitTestDataHandle = useCallback(
+    (
+      worldX: number,
+      worldY: number,
+      handleType: "source" | "target",
+    ): CanvasEngineDataHandleHitResult | null =>
+      sceneAdapter.hitTestDataHandleAtWorldPoint(
+        worldX,
+        worldY,
+        DATA_HANDLE_HIT_TOLERANCE_WORLD,
+        { handleType },
+      ) ??
+      findRegisteredDataHandleHitAtWorldPoint(
+        mergedDataEdgeHandlePositions,
+        worldX,
+        worldY,
+        DATA_HANDLE_HIT_TOLERANCE_WORLD,
+        { handleType },
+      ),
+    [mergedDataEdgeHandlePositions, sceneAdapter],
   );
 
   useLayoutEffect(() => {
@@ -1166,11 +1188,10 @@ export function CanvasEngineHost() {
         event.currentTarget.setPointerCapture(event.pointerId);
         return;
       }
-      const dataSourceHandleHit = sceneAdapter.hitTestDataHandleAtWorldPoint(
+      const dataSourceHandleHit = hitTestDataHandle(
         worldPoint.x,
         worldPoint.y,
-        DATA_HANDLE_HIT_TOLERANCE_WORLD,
-        { handleType: "source" },
+        "source",
       );
       if (canEditStructure && dataSourceHandleHit) {
         pointerSessionRef.current = {
@@ -1627,11 +1648,10 @@ export function CanvasEngineHost() {
         if (!worldPoint) {
           return;
         }
-        const targetHandleHit = sceneAdapter.hitTestDataHandleAtWorldPoint(
+        const targetHandleHit = hitTestDataHandle(
           worldPoint.x,
           worldPoint.y,
-          DATA_HANDLE_HIT_TOLERANCE_WORLD,
-          { handleType: "target" },
+          "target",
         );
         let endX = worldPoint.x;
         let endY = worldPoint.y;
@@ -1676,11 +1696,10 @@ export function CanvasEngineHost() {
         let targetHandleX: number | null = null;
         let targetHandleY: number | null = null;
         let targetValid = false;
-        const hitHandle = sceneAdapter.hitTestDataHandleAtWorldPoint(
+        const hitHandle = hitTestDataHandle(
           worldPoint.x,
           worldPoint.y,
-          DATA_HANDLE_HIT_TOLERANCE_WORLD,
-          { handleType: pointerSession.endpointType },
+          pointerSession.endpointType,
         );
         if (edge && hitHandle) {
           targetHandleX = hitHandle.handleWorldX;
@@ -1955,11 +1974,10 @@ export function CanvasEngineHost() {
       } else if (pointerSession.kind === "data-connect") {
         const worldPoint = resolveWorldPointFromPointerEvent(event, camera);
         if (worldPoint) {
-          const targetHandleHit = sceneAdapter.hitTestDataHandleAtWorldPoint(
+          const targetHandleHit = hitTestDataHandle(
             worldPoint.x,
             worldPoint.y,
-            DATA_HANDLE_HIT_TOLERANCE_WORLD,
-            { handleType: "target" },
+            "target",
           );
           if (targetHandleHit) {
             const connection: Connection = {
@@ -1980,12 +1998,7 @@ export function CanvasEngineHost() {
           if (edge) {
             if (pointerSession.endpointType === "source") {
               const sourceHandleHit =
-                sceneAdapter.hitTestDataHandleAtWorldPoint(
-                  worldPoint.x,
-                  worldPoint.y,
-                  DATA_HANDLE_HIT_TOLERANCE_WORLD,
-                  { handleType: "source" },
-                );
+                hitTestDataHandle(worldPoint.x, worldPoint.y, "source");
               if (sourceHandleHit) {
                 const connection: Connection = {
                   source: sourceHandleHit.sectionId,
@@ -1999,12 +2012,7 @@ export function CanvasEngineHost() {
               }
             } else {
               const targetHandleHit =
-                sceneAdapter.hitTestDataHandleAtWorldPoint(
-                  worldPoint.x,
-                  worldPoint.y,
-                  DATA_HANDLE_HIT_TOLERANCE_WORLD,
-                  { handleType: "target" },
-                );
+                hitTestDataHandle(worldPoint.x, worldPoint.y, "target");
               if (targetHandleHit) {
                 const connection: Connection = {
                   source: edge.sourceSectionId,
@@ -2039,6 +2047,7 @@ export function CanvasEngineHost() {
       camera,
       projectConfigId,
       sceneAdapter,
+      hitTestDataHandle,
       updateConnectionPreview,
       updateHoveredEdge,
       updateSelectionRect,
@@ -2686,6 +2695,55 @@ function resolveSectionHitToleranceWorld(zoom: number): number {
 
 function resolveDataEdgeEndpointHitToleranceWorld(zoom: number): number {
   return DATA_EDGE_ENDPOINT_HIT_RADIUS_PX / clampZoom(zoom);
+}
+
+function findRegisteredDataHandleHitAtWorldPoint(
+  edgeHandlePositions: Record<string, CanvasEngineEdgeHandlePosition>,
+  worldX: number,
+  worldY: number,
+  toleranceWorld: number,
+  options: {
+    handleType: "source" | "target";
+  },
+): CanvasEngineDataHandleHitResult | null {
+  let hitCandidate: (CanvasEngineDataHandleHitResult & { distance: number }) | null =
+    null;
+  for (const position of Object.values(edgeHandlePositions)) {
+    if (position.type !== options.handleType) {
+      continue;
+    }
+    if (
+      position.portId === AGENTIC_EDGE_HANDLE_IDS.source ||
+      position.portId === AGENTIC_EDGE_HANDLE_IDS.target
+    ) {
+      continue;
+    }
+    const distance = Math.hypot(worldX - position.x, worldY - position.y);
+    if (distance > toleranceWorld) {
+      continue;
+    }
+    const candidate = {
+      sectionId: position.sectionId,
+      portId: position.portId,
+      handleType: position.type,
+      handleWorldX: position.x,
+      handleWorldY: position.y,
+      distance,
+    };
+    if (!hitCandidate || distance < hitCandidate.distance) {
+      hitCandidate = candidate;
+    }
+  }
+  if (!hitCandidate) {
+    return null;
+  }
+  return {
+    sectionId: hitCandidate.sectionId,
+    portId: hitCandidate.portId,
+    handleType: hitCandidate.handleType,
+    handleWorldX: hitCandidate.handleWorldX,
+    handleWorldY: hitCandidate.handleWorldY,
+  };
 }
 
 function createAgenticConnection({

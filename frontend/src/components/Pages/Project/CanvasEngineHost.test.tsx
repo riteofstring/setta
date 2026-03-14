@@ -1263,9 +1263,16 @@ describe("CanvasEngineHost", () => {
     ]);
   });
 
-  it("keeps cached nested reconnect targets valid after nested dom nodes disappear", async () => {
+  it("reconnects cached nested data edges after nested dom nodes disappear", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-03-12T12:00:00Z"));
+    const reconnectEdgeSpy = vi
+      .spyOn(endpoints, "route_reconnect_edge")
+      .mockResolvedValue({
+        status: 200,
+        hasResponse: true,
+        data: undefined,
+      });
 
     seedNestedSectionsWithDataEdge();
     useProjectState.setState((state) => {
@@ -1413,6 +1420,26 @@ describe("CanvasEngineHost", () => {
     expect(
       engineHost.dataset.canvasEngineConnectionPreviewHasTargetHandle,
     ).toBe("true");
+
+    await dispatchPointerEvent(engineHost, "pointerup", {
+      button: 0,
+      clientX: (reconnectTargetHandle.x - camera.x) * camera.zoom,
+      clientY: (reconnectTargetHandle.y - camera.y) * camera.zoom,
+      pointerId: 1,
+    });
+
+    expect(engineHost.dataset.canvasEngineConnectionPreviewActive).toBe("false");
+    expect(reconnectEdgeSpy).toHaveBeenCalledOnce();
+    expect(reconnectEdgeSpy).toHaveBeenCalledWith({
+      projectConfigId: "project-a",
+      edgeId: "edge-data-1",
+      sourceSectionId: "child-a",
+      sourceVariantId: "variant-child-a",
+      sourcePortId: "out-a",
+      targetSectionId: "child-c",
+      targetVariantId: "variant-child-c",
+      targetPortId: "in-c",
+    });
   });
 
   it("selects a cached nested preview after nested dom nodes disappear", async () => {
