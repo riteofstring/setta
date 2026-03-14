@@ -305,6 +305,38 @@ function replaceGeneratedRoutePathParams(
   }
   return output;
 }
+export const GoHTTPRouteHelpers = {
+  shareDeploymentState(deploymentName: string, version: string): string {
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.shareDeploymentState, { deploymentName, version });
+  },
+  shareDeploymentProjectConfig(deploymentName: string, version: string): string {
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.shareDeploymentProjectConfig, { deploymentName, version });
+  },
+  appDeploymentState(deploymentName: string, version: string): string {
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.appDeploymentState, { deploymentName, version });
+  },
+  appDeploymentProjectConfig(deploymentName: string, version: string): string {
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.appDeploymentProjectConfig, { deploymentName, version });
+  },
+  shareDeploymentVersions(deploymentName: string): string {
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.shareDeploymentVersions, { deploymentName });
+  },
+  shareDeploymentLatest(deploymentName: string): string {
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.shareDeploymentLatest, { deploymentName });
+  },
+  appDeploymentVersions(deploymentName: string): string {
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.appDeploymentVersions, { deploymentName });
+  },
+  appDeploymentLatest(deploymentName: string): string {
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.appDeploymentLatest, { deploymentName });
+  },
+  fileBrowserDownload(token: string): string {
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.fileBrowserDownload, { token });
+  },
+  binaryDownload(contentId: string): string {
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.binaryDownload, { contentId });
+  },
+} as const;
 export const GoWebsocketRouteHelpers = {
   frontend(): string {
     return GoWebsocketRoutes.frontend;

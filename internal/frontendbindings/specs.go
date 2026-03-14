@@ -14,9 +14,10 @@ type NamedRoute struct {
 }
 
 type RouteGroup struct {
-	ConstName       string
-	HelperConstName string
-	Routes          []NamedRoute
+	ConstName            string
+	HelperConstName      string
+	HelperOnlyPathParams bool
+	Routes               []NamedRoute
 }
 
 type EndpointSpec struct {
@@ -61,7 +62,9 @@ func CurrentRouteGroups() []RouteGroup {
 			},
 		},
 		{
-			ConstName: "GoHTTPRoutes",
+			ConstName:            "GoHTTPRoutes",
+			HelperConstName:      "GoHTTPRouteHelpers",
+			HelperOnlyPathParams: true,
 			Routes: []NamedRoute{
 				{
 					Name:     "getBackendInitStatus",

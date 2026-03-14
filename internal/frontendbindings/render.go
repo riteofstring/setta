@@ -280,6 +280,9 @@ func renderRouteHelperGroups(routeGroups []RouteGroup) ([]routeHelperGroupRender
 		helpers := make([]routeHelperRenderData, 0, len(group.Routes))
 		for _, route := range group.Routes {
 			paramNames := routePathParamNames(route.Path)
+			if group.HelperOnlyPathParams && len(paramNames) == 0 {
+				continue
+			}
 			functionParams := make([]endpointPathParamRenderData, 0, len(paramNames))
 			for _, paramName := range paramNames {
 				if err := validateTSBindingIdentifier(
@@ -309,6 +312,9 @@ func renderRouteHelperGroups(routeGroups []RouteGroup) ([]routeHelperGroupRender
 				FunctionParams:   functionParams,
 				ReturnExpression: returnExpression,
 			})
+		}
+		if len(helpers) == 0 {
+			continue
 		}
 
 		helperGroups = append(helperGroups, routeHelperGroupRenderData{

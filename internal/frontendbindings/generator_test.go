@@ -259,6 +259,43 @@ func TestBuildBindingsRendersRouteHelperCollections(t *testing.T) {
 	}
 }
 
+func TestBuildBindingsCanLimitRouteHelpersToPathParamRoutes(t *testing.T) {
+	t.Helper()
+
+	bindings, err := buildBindings([]RouteGroup{
+		{
+			ConstName:            "GoHTTPRoutes",
+			HelperConstName:      "GoHTTPRouteHelpers",
+			HelperOnlyPathParams: true,
+			Routes: []NamedRoute{
+				{
+					Name:     "loadThing",
+					Path:     "/things",
+					EnumName: "LOAD_THING",
+				},
+				{
+					Name:     "loadThingByID",
+					Path:     "/things/{thingId}",
+					EnumName: "LOAD_THING_BY_ID",
+				},
+			},
+		},
+	}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("buildBindings(...) error = %v", err)
+	}
+
+	if !strings.Contains(bindings.RoutesTS, "export const GoHTTPRouteHelpers = {") {
+		t.Fatalf("generated routes output missing GoHTTPRouteHelpers:\n%s", bindings.RoutesTS)
+	}
+	if strings.Contains(bindings.RoutesTS, "loadThing(): string") {
+		t.Fatalf("generated routes output unexpectedly rendered helper for non-path route:\n%s", bindings.RoutesTS)
+	}
+	if !strings.Contains(bindings.RoutesTS, "loadThingByID(thingId: string): string {") {
+		t.Fatalf("generated routes output missing path-param helper:\n%s", bindings.RoutesTS)
+	}
+}
+
 func TestBuildBindingsEscapesRoutePathsInGeneratedRoutes(t *testing.T) {
 	t.Helper()
 
