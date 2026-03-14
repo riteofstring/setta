@@ -51,6 +51,7 @@ type realtimeEngine struct {
 type realtimeReadResult struct {
 	payload []byte
 	err     error
+	closed  bool
 }
 
 type openAIRealtimeDeltaMode int
@@ -180,7 +181,7 @@ func (e *realtimeEngine) AppendAudio(ctx context.Context, audioPCM16 []byte, sam
 	}); err != nil {
 		return Delta{}, err
 	}
-	appendText, err := e.drainEvents(ctx, openAIRealtimeAppendDrainTimeout)
+	appendText, err := e.drainEvents(ctx, openAIRealtimeAppendDrainTimeout, false)
 	if err != nil {
 		return Delta{}, err
 	}
@@ -195,7 +196,7 @@ func (e *realtimeEngine) Stop(ctx context.Context) (Delta, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	appendText, err := e.drainEvents(ctx, openAIRealtimeStopDrainTimeout)
+	appendText, err := e.drainEvents(ctx, openAIRealtimeStopDrainTimeout, true)
 	if err != nil {
 		return Delta{}, err
 	}
@@ -230,7 +231,7 @@ func (e *realtimeEngine) writeMessage(ctx context.Context, payload any) error {
 	return nil
 }
 
-func (e *realtimeEngine) drainEvents(ctx context.Context, timeout time.Duration) (string, error) {
+func (e *realtimeEngine) drainEvents(ctx context.Context, timeout time.Duration, allowCleanClose bool) (string, error) {
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 	appendAccumulator := ""
@@ -242,6 +243,12 @@ func (e *realtimeEngine) drainEvents(ctx context.Context, timeout time.Duration)
 			return "", ctx.Err()
 		case result, ok := <-e.events:
 			if !ok {
+				return "", newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
+			}
+			if result.closed {
+				if allowCleanClose {
+					return appendAccumulator, nil
+				}
 				return "", newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
 			}
 			if result.err != nil {
@@ -276,8 +283,12 @@ func (e *realtimeEngine) readLoop() {
 				closed := e.closed
 				e.mu.Unlock()
 				if !closed {
-					e.events <- realtimeReadResult{
-						err: newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage),
+					if closeStatus == websocket.StatusNormalClosure {
+						e.events <- realtimeReadResult{closed: true}
+					} else {
+						e.events <- realtimeReadResult{
+							err: newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage),
+						}
 					}
 				}
 				return
