@@ -188,7 +188,7 @@ before widening it across more caller-backed Go routes.
 
 Current landed wedge:
 
-- `frontend/src/utils/generatedRoutes.ts`
+  - `frontend/src/utils/generatedRoutes.ts`
   - current websocket route constants
   - current status/meta route constants
   - current settings route constants
@@ -209,6 +209,9 @@ Current landed wedge:
   - current AI helper read route constants, including single-item
     agent-profile / prompt-template / external-agent-config /
     engine-config / agent-run reads
+  - current engine-config and managed agent-execution mutation route constants,
+    including engine-config create/delete plus managed agent-run and run-chain
+    start/stop
   - current section param-filter, meta-control-title, and group-overflow route
     constants
   - current section param column-width route constants
@@ -398,6 +401,13 @@ Current landed wedge:
       - `AIFollowSnapshotResponse`
       - `GetAgenticSummaryCacheStatusRequest`
       - `AgenticSummaryCacheStatus`
+    - current engine-config and managed agent-execution mutation payloads
+      - `CreateEngineConfigRequestInput`
+      - `DeleteEngineConfigRequestInput`
+      - `StartAgentRunRequestInput`
+      - `StopAgentRunRequestInput`
+      - `StartRunChainRequestInput`
+      - `StopRunChainRequestInput`
     - current browser section metadata payloads
       - `SetBrowserColumnWidthsRequestInput`
       - `SetBrowserAreaViewModeRequestInput`

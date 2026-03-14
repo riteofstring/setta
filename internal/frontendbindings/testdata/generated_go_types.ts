@@ -8280,6 +8280,66 @@ export function createGetAgentRunRequestInput(options: Partial<GetAgentRunReques
 export type AgentRunResponse = AgentRun;
 
 
+export type StartAgentRunRequestInput = {
+  profileId: string;
+  inputs: Record<string, unknown>;
+};
+export function createStartAgentRunRequestInput(options: Partial<StartAgentRunRequestInput> = {}): StartAgentRunRequestInput {
+  return options as StartAgentRunRequestInput;
+}
+
+
+export type StopAgentRunRequestInput = {
+  runId: string;
+};
+export function createStopAgentRunRequestInput(options: Partial<StopAgentRunRequestInput> = {}): StopAgentRunRequestInput {
+  return options as StopAgentRunRequestInput;
+}
+
+
+export type RunChainStepInput = {
+  id: string;
+  name: string;
+  engineConfigId: string;
+  agentProfileId?: string | null;
+  prompt?: string | null;
+  messages?: Array<Record<string, unknown>>;
+  inputs?: Record<string, unknown>;
+  includePreviousOutputs?: boolean | null;
+};
+export function createRunChainStepInput(options: Partial<RunChainStepInput> = {}): RunChainStepInput {
+  return options as RunChainStepInput;
+}
+
+
+export type RunChainSpecInput = {
+  id: string;
+  name: string;
+  steps: Array<RunChainStepInput>;
+  stopOnFailure?: boolean | null;
+};
+export function createRunChainSpecInput(options: Partial<RunChainSpecInput> = {}): RunChainSpecInput {
+  return options as RunChainSpecInput;
+}
+
+
+export type StartRunChainRequestInput = {
+  spec: RunChainSpecInput;
+  inputs: Record<string, unknown>;
+};
+export function createStartRunChainRequestInput(options: Partial<StartRunChainRequestInput> = {}): StartRunChainRequestInput {
+  return options as StartRunChainRequestInput;
+}
+
+
+export type StopRunChainRequestInput = {
+  runId: string;
+};
+export function createStopRunChainRequestInput(options: Partial<StopRunChainRequestInput> = {}): StopRunChainRequestInput {
+  return options as StopRunChainRequestInput;
+}
+
+
 export type EngineConfigListResponse = Array<EngineConfig>;
 
 
@@ -8294,11 +8354,31 @@ export function createGetEngineConfigRequestInput(options: Partial<GetEngineConf
 export type EngineConfigResponse = EngineConfig;
 
 
+export type CreateEngineConfigRequestInput = {
+  name?: string | null;
+  engineType?: EngineType | null;
+  settaLlmConfigId?: string | null;
+  externalAgentConfigId?: string | null;
+  defaults?: EngineConfigDefaults | null;
+};
+export function createCreateEngineConfigRequestInput(options: Partial<CreateEngineConfigRequestInput> = {}): CreateEngineConfigRequestInput {
+  return options as CreateEngineConfigRequestInput;
+}
+
+
 export type UpdateEngineConfigRequestInput = {
   config: EngineConfig;
 };
 export function createUpdateEngineConfigRequestInput(options: Partial<UpdateEngineConfigRequestInput> = {}): UpdateEngineConfigRequestInput {
   return options as UpdateEngineConfigRequestInput;
+}
+
+
+export type DeleteEngineConfigRequestInput = {
+  configId: string;
+};
+export function createDeleteEngineConfigRequestInput(options: Partial<DeleteEngineConfigRequestInput> = {}): DeleteEngineConfigRequestInput {
+  return options as DeleteEngineConfigRequestInput;
 }
 
 

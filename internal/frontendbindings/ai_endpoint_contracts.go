@@ -151,11 +151,59 @@ type GetAgentRunRequestInput struct {
 	RunID string `json:"runId"`
 }
 
+type StartAgentRunRequestInput struct {
+	ProfileID string         `json:"profileId"`
+	Inputs    map[string]any `json:"inputs"`
+}
+
+type StopAgentRunRequestInput struct {
+	RunID string `json:"runId"`
+}
+
+type RunChainStepInput struct {
+	ID                     string           `json:"id"`
+	Name                   string           `json:"name"`
+	EngineConfigID         string           `json:"engineConfigId"`
+	AgentProfileID         *string          `json:"agentProfileId,omitempty"`
+	Prompt                 *string          `json:"prompt,omitempty"`
+	Messages               []map[string]any `json:"messages,omitempty"`
+	Inputs                 map[string]any   `json:"inputs,omitempty"`
+	IncludePreviousOutputs *bool            `json:"includePreviousOutputs,omitempty"`
+}
+
+type RunChainSpecInput struct {
+	ID            string              `json:"id"`
+	Name          string              `json:"name"`
+	Steps         []RunChainStepInput `json:"steps"`
+	StopOnFailure *bool               `json:"stopOnFailure,omitempty"`
+}
+
+type StartRunChainRequestInput struct {
+	Spec   RunChainSpecInput `json:"spec"`
+	Inputs map[string]any    `json:"inputs"`
+}
+
+type StopRunChainRequestInput struct {
+	RunID string `json:"runId"`
+}
+
 type EngineConfigResponse struct{}
 
 type EngineConfigListResponse struct{}
 
 type GetEngineConfigRequestInput struct {
+	ConfigID string `json:"configId"`
+}
+
+type CreateEngineConfigRequestInput struct {
+	Name                  *string               `json:"name,omitempty"`
+	EngineType            *EngineType           `json:"engineType,omitempty"`
+	SettaLLMConfigID      *string               `json:"settaLlmConfigId,omitempty"`
+	ExternalAgentConfigID *string               `json:"externalAgentConfigId,omitempty"`
+	Defaults              *EngineConfigDefaults `json:"defaults,omitempty"`
+}
+
+type DeleteEngineConfigRequestInput struct {
 	ConfigID string `json:"configId"`
 }
 

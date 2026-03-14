@@ -1181,6 +1181,30 @@ export async function route_get_agent_run(x: gt.GetAgentRunRequestInput): Promis
 }
 
 
+export async function route_start_agent_run(x: gt.StartAgentRunRequestInput): Promise<ResponseDataAndStatus<gt.AgentRunResponse>> {
+
+  return await post(GoHTTPRoutes.startAgentRun, x);
+}
+
+
+export async function route_stop_agent_run(x: gt.StopAgentRunRequestInput): Promise<ResponseDataAndStatus<gt.AgentRunResponse>> {
+
+  return await post(GoHTTPRoutes.stopAgentRun, x);
+}
+
+
+export async function route_start_run_chain(x: gt.StartRunChainRequestInput): Promise<ResponseDataAndStatus<gt.AgentRunResponse>> {
+
+  return await post(GoHTTPRoutes.startRunChain, x);
+}
+
+
+export async function route_stop_run_chain(x: gt.StopRunChainRequestInput): Promise<ResponseDataAndStatus<gt.AgentRunResponse>> {
+
+  return await post(GoHTTPRoutes.stopRunChain, x);
+}
+
+
 export async function route_get_engine_configs(): Promise<ResponseDataAndStatus<gt.EngineConfigListResponse>> {
 
   return await get(GoHTTPRoutes.getEngineConfigs);
@@ -1193,9 +1217,21 @@ export async function route_get_engine_config(x: gt.GetEngineConfigRequestInput)
 }
 
 
+export async function route_create_engine_config(x: gt.CreateEngineConfigRequestInput): Promise<ResponseDataAndStatus<gt.EngineConfigResponse>> {
+
+  return await post(GoHTTPRoutes.createEngineConfig, x);
+}
+
+
 export async function route_update_engine_config(x: gt.UpdateEngineConfigRequestInput): Promise<ResponseDataAndStatus<gt.EngineConfigResponse>> {
 
   return await post(GoHTTPRoutes.updateEngineConfig, x);
+}
+
+
+export async function route_delete_engine_config(x: gt.DeleteEngineConfigRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.deleteEngineConfig, x);
 }
 
 

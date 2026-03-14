@@ -1033,6 +1033,26 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "GET_AGENT_RUN",
 				},
 				{
+					Name:     "startAgentRun",
+					Path:     httpapi.RouteStartAgentRun,
+					EnumName: "START_AGENT_RUN",
+				},
+				{
+					Name:     "stopAgentRun",
+					Path:     httpapi.RouteStopAgentRun,
+					EnumName: "STOP_AGENT_RUN",
+				},
+				{
+					Name:     "startRunChain",
+					Path:     httpapi.RouteStartRunChain,
+					EnumName: "START_RUN_CHAIN",
+				},
+				{
+					Name:     "stopRunChain",
+					Path:     httpapi.RouteStopRunChain,
+					EnumName: "STOP_RUN_CHAIN",
+				},
+				{
 					Name:     "getEngineConfigs",
 					Path:     httpapi.RouteGetEngineConfigs,
 					EnumName: "GET_ENGINE_CONFIGS",
@@ -1043,9 +1063,19 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "GET_ENGINE_CONFIG",
 				},
 				{
+					Name:     "createEngineConfig",
+					Path:     httpapi.RouteCreateEngineConfig,
+					EnumName: "CREATE_ENGINE_CONFIG",
+				},
+				{
 					Name:     "updateEngineConfig",
 					Path:     httpapi.RouteUpdateEngineConfig,
 					EnumName: "UPDATE_ENGINE_CONFIG",
+				},
+				{
+					Name:     "deleteEngineConfig",
+					Path:     httpapi.RouteDeleteEngineConfig,
+					EnumName: "DELETE_ENGINE_CONFIG",
 				},
 				{
 					Name:     "getPromptTemplates",
@@ -2866,6 +2896,38 @@ func CurrentEndpoints() []EndpointSpec {
 			ResponseType:    reflect.TypeOf(AgentRunResponse{}),
 		},
 		{
+			FunctionName:    "route_start_agent_run",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "startAgentRun",
+			RequestType:     reflect.TypeOf(StartAgentRunRequestInput{}),
+			ResponseType:    reflect.TypeOf(AgentRunResponse{}),
+		},
+		{
+			FunctionName:    "route_stop_agent_run",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "stopAgentRun",
+			RequestType:     reflect.TypeOf(StopAgentRunRequestInput{}),
+			ResponseType:    reflect.TypeOf(AgentRunResponse{}),
+		},
+		{
+			FunctionName:    "route_start_run_chain",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "startRunChain",
+			RequestType:     reflect.TypeOf(StartRunChainRequestInput{}),
+			ResponseType:    reflect.TypeOf(AgentRunResponse{}),
+		},
+		{
+			FunctionName:    "route_stop_run_chain",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "stopRunChain",
+			RequestType:     reflect.TypeOf(StopRunChainRequestInput{}),
+			ResponseType:    reflect.TypeOf(AgentRunResponse{}),
+		},
+		{
 			FunctionName:    "route_get_engine_configs",
 			Method:          "GET",
 			RouteCollection: "GoHTTPRoutes",
@@ -2881,12 +2943,27 @@ func CurrentEndpoints() []EndpointSpec {
 			ResponseType:    reflect.TypeOf(EngineConfigResponse{}),
 		},
 		{
+			FunctionName:    "route_create_engine_config",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "createEngineConfig",
+			RequestType:     reflect.TypeOf(CreateEngineConfigRequestInput{}),
+			ResponseType:    reflect.TypeOf(EngineConfigResponse{}),
+		},
+		{
 			FunctionName:    "route_update_engine_config",
 			Method:          "POST",
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "updateEngineConfig",
 			RequestType:     reflect.TypeOf(UpdateEngineConfigRequestInput{}),
 			ResponseType:    reflect.TypeOf(EngineConfigResponse{}),
+		},
+		{
+			FunctionName:    "route_delete_engine_config",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "deleteEngineConfig",
+			RequestType:     reflect.TypeOf(DeleteEngineConfigRequestInput{}),
 		},
 		{
 			FunctionName:    "route_get_prompt_templates",

@@ -20,17 +20,19 @@ import {
   route_create_child_sections,
   route_create_child_sections_via_incrementer,
   route_create_edge,
+  route_create_engine_config,
   route_create_file,
   route_create_new_section_variant,
   route_create_project_config,
   route_create_share_session_current,
   route_create_top_level_section,
   route_create_view_mode,
+  route_decline_rename_refactor,
   route_delete_agentic_edges,
   route_delete_artifacts,
   route_delete_child_sections_via_decrementer,
-  route_decline_rename_refactor,
   route_delete_edges,
+  route_delete_engine_config,
   route_delete_json_source_file_and_variant,
   route_delete_kwarg,
   route_delete_notification,
@@ -42,9 +44,9 @@ import {
   route_docstring_to_markdown,
   route_force_refresh_listener,
   route_format_code,
-  route_get_agent_profile,
   route_gen_code_prefix_completion,
   route_gen_code_suffix_completion,
+  route_get_agent_profile,
   route_get_agent_profiles,
   route_get_agent_run,
   route_get_agent_runs,
@@ -57,6 +59,8 @@ import {
   route_get_app_gen_skills,
   route_get_attachment_download_url,
   route_get_attachment_download_urls,
+  route_get_engine_config,
+  route_get_external_agent_config,
   route_get_file_browser_download_urls,
   route_get_file_browser_file_content,
   route_get_file_browser_file_stat,
@@ -72,8 +76,6 @@ import {
   route_get_launcher_recent_workspaces,
   route_get_launcher_status,
   route_get_listener_coverage,
-  route_get_engine_config,
-  route_get_external_agent_config,
   route_get_llm_chat,
   route_get_llm_config,
   route_get_llm_response,
@@ -186,7 +188,11 @@ import {
   route_set_viewport,
   route_set_watch_code_enabled,
   route_set_watch_code_inputs,
+  route_start_agent_run,
+  route_start_run_chain,
   route_start_transcription_session,
+  route_stop_agent_run,
+  route_stop_run_chain,
   route_text_field_completion,
   route_toggle_group_orientation,
   route_toggle_is_editing_view_mode,
@@ -213,6 +219,7 @@ import {
   route_write_file_browser_file_content,
 } from "./generatedEndpoints";
 import {
+  EngineTypeEnum,
   createProjectCodegenPythonTarget,
   createProjectStateSingleConfigWithCompletedOpIds,
   createSettingsState,
@@ -586,6 +593,172 @@ describe("generatedEndpoints settings", () => {
     expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
       method: "POST",
       body: JSON.stringify({ settings }),
+    });
+  });
+});
+
+describe("generatedEndpoints AI mutation helpers", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        new Response("{}", {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    fetchMock.mockReset();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("posts engine-config creation with the Go request shape", async () => {
+    await route_create_engine_config({
+      name: "Primary Engine",
+      engineType: EngineTypeEnum.setta_llm,
+      settaLlmConfigId: "llm-config-a",
+      defaults: { thinking: true },
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/createEngineConfig`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        name: "Primary Engine",
+        engineType: EngineTypeEnum.setta_llm,
+        settaLlmConfigId: "llm-config-a",
+        defaults: { thinking: true },
+      }),
+    });
+  });
+
+  it("posts engine-config deletion with the config id payload", async () => {
+    await route_delete_engine_config({
+      configId: "engine-config-a",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/deleteEngineConfig`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        configId: "engine-config-a",
+      }),
+    });
+  });
+
+  it("posts managed agent-run starts with profile and input payloads", async () => {
+    await route_start_agent_run({
+      profileId: "profile-a",
+      inputs: {
+        prompt: "Summarize the repo status.",
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/startAgentRun`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        profileId: "profile-a",
+        inputs: {
+          prompt: "Summarize the repo status.",
+        },
+      }),
+    });
+  });
+
+  it("posts managed agent-run stops with the run id payload", async () => {
+    await route_stop_agent_run({
+      runId: "run-a",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/stopAgentRun`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        runId: "run-a",
+      }),
+    });
+  });
+
+  it("posts run-chain starts with the nested spec payload", async () => {
+    await route_start_run_chain({
+      spec: {
+        id: "chain-a",
+        name: "Chain A",
+        steps: [
+          {
+            id: "step-a",
+            name: "Step A",
+            engineConfigId: "engine-config-a",
+            includePreviousOutputs: true,
+          },
+        ],
+        stopOnFailure: true,
+      },
+      inputs: {
+        topic: "frontend bindings",
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/startRunChain`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        spec: {
+          id: "chain-a",
+          name: "Chain A",
+          steps: [
+            {
+              id: "step-a",
+              name: "Step A",
+              engineConfigId: "engine-config-a",
+              includePreviousOutputs: true,
+            },
+          ],
+          stopOnFailure: true,
+        },
+        inputs: {
+          topic: "frontend bindings",
+        },
+      }),
+    });
+  });
+
+  it("posts run-chain stops with the run id payload", async () => {
+    await route_stop_run_chain({
+      runId: "run-chain-a",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/stopRunChain`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        runId: "run-chain-a",
+      }),
     });
   });
 });
