@@ -35,8 +35,8 @@ Status values:
 
 Original checklist reconciliation:
 
-- `UI-001` `open` Duplicate top-right "make into window / show in canvas" control.
-  Current structure is better centralized, but this exact bug is not conclusively closed by a dedicated regression yet. Relevant surfaces: `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`, `frontend/src/components/Section/Header/SectionWindowToggleButton.tsx`, `frontend/src/components/Section/Container/SectionWindowPlaceholder.tsx`.
+- `UI-001` `done` Duplicate top-right "make into window / show in canvas" control.
+  Dedicated regressions now prove floating section windows suppress the normal canvas section controls and keep only the window-owned restore/show-in-canvas action visible. Evidence: `frontend/src/components/Section/Container/SectionWindowSurface.test.tsx`, `frontend/tests/e2e/overview/layout/window-control-quick-info.spec.ts`.
 - `UI-002` `done` Show dev-relevant dotfiles like `.env` by default while still hiding explicit noisy roots.
   Evidence: `backend/setta/routers/artifact.py`, `tests/routers/test_file_browser_routes.py`, `frontend/tests/e2e/file-browser/browser-path-navigation.spec.ts`.
   Notes: default suppression is name/root based (`.git`, `node_modules`, `.venv`, `dist`, `build`, `__pycache__`, plus actual Setta internal roots). There is no extra extension-based hiding policy to unwind right now.
@@ -46,9 +46,8 @@ Original checklist reconciliation:
   Evidence: `frontend/src/utils/fileBrowserNavigation.ts`, `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`, `frontend/src/components/Section/Layouts/BrowserArea.tsx`, `frontend/tests/e2e/file-browser/browser-path-navigation.spec.ts`.
 - `UI-005` `done` Paint the callable args control strip background through the rounded corners and stop list-item bleed-through.
   Evidence: `frontend/src/components/Section/SectionParts/kwargsControlsStyles.ts`, `frontend/src/components/Section/SectionParts/KwargsControls.tsx`, `frontend/src/components/Section/SectionParts/kwargsControlsStyles.test.ts`, `frontend/tests/e2e/editor/section-style-colors.spec.ts`.
-- `UI-006` `open` Expose Q quick info on all window buttons, React Flow controls, and related chrome controls.
-  Shared quick-info wiring is in place for the window-management surfaces, but the exhaustive "all ... etc." audit is still too broad to call fully closed from the current evidence.
-  Evidence already landed: `frontend/src/components/Utils/windowControlQuickInfo.ts`, `frontend/src/components/Utils/windowControlQuickInfo.test.ts`, `frontend/tests/e2e/overview/layout/window-control-quick-info.spec.ts`, `frontend/tests/e2e/overview/layout/app-chrome-window-layering.spec.ts`.
+- `UI-006` `done` Expose Q quick info on all window buttons, React Flow controls, and related chrome controls.
+  The remaining section-header chrome controls are now wired into the shared floating tooltip contract, and the browser audit covers React Flow zoom controls plus the window-management surfaces. Evidence: `frontend/src/components/Section/Header/AttachedTerminalControls.tsx`, `frontend/src/components/Section/Header/LockPositionButton.tsx`, `frontend/src/components/Section/Header/MinimizeButton.tsx`, `frontend/src/components/Section/Header/DeleteOrHideButton.tsx`, `frontend/src/components/Section/Header/SectionHeader.tsx`, `frontend/src/components/Section/Header/SectionHeader.test.tsx`, `frontend/tests/e2e/overview/layout/window-control-quick-info.spec.ts`, `frontend/tests/e2e/overview/layout/app-chrome-window-layering.spec.ts`.
 - `UI-007` `done` Use braille loading spinners for AI/chat/runtime loading states.
   Evidence: `frontend/src/components/Utils/BrailleSpinner.tsx`, `frontend/src/components/Chat/ChatMessages.tsx`, `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx`, `frontend/src/components/Section/Layouts/ChatArea.tsx`.
 - `UI-008` `done` Make minimized thinking previews scroll to the real bottom, pause there, and resume only when more text arrives.
@@ -68,8 +67,7 @@ Original checklist reconciliation:
 
 ## Remaining Work To Fully Close The Original Checklist
 
-- `UI-001`: add a dedicated regression proving the duplicate top-right window-control bug is gone, then either tighten the central rendering path or fix the remaining duplicate if it still reproduces.
-- `UI-006`: finish the explicit audit of the remaining React Flow and chrome controls so the requirement is actually complete rather than mostly true.
+- No original checklist items remain open in code/test terms. If a future chat needs fresh visual reconfirmation, it should rerun the relevant CDP checks once `chrome-devtools-mcp` is healthy again.
 
 ## Historical Note
 

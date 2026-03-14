@@ -21,9 +21,13 @@ async function expectQuickInfoMatchesAriaLabel(
   await page.keyboard.down("q");
   await control.hover();
   await expect(tooltip).toBeVisible();
-  await expect(tooltip).toContainText(ariaLabel);
+  await expect(tooltip).toContainText(new RegExp(escapeRegex(ariaLabel), "i"));
   await page.keyboard.up("q");
   await expect(tooltip).toBeHidden();
+}
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 test("window controls expose q quick info via the shared floating tooltip", async ({
@@ -54,6 +58,10 @@ test("window controls expose q quick info via the shared floating tooltip", asyn
       page,
       sectionCard.getByTestId("section-window-toggle"),
     );
+    await expectQuickInfoMatchesAriaLabel(
+      page,
+      page.getByRole("button", { name: "zoom in" }),
+    );
 
     const createButton = page.getByTestId("project-chat-bottom-dock-create");
     await expect(createButton).toBeVisible();
@@ -71,6 +79,12 @@ test("window controls expose q quick info via the shared floating tooltip", asyn
     await undockButton.click();
     const floatingWindow = page.getByTestId("project-chat-floating-window").last();
     await expect(floatingWindow).toBeVisible();
+    await expect(
+      floatingWindow.getByTestId("project-chat-window-show-in-canvas"),
+    ).toHaveCount(1);
+    await expect(floatingWindow.getByTestId("section-window-toggle")).toHaveCount(
+      0,
+    );
 
     await expectQuickInfoMatchesAriaLabel(
       page,
