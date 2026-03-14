@@ -35,6 +35,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `frontend/src/state/actions/projectStateOptimisticUpdates.ts` now owns the
   pending-operation queue plus optimistic project-state mutation scaffolding
   that previously lived in `frontend/src/state/actions/sectionInfos.ts`.
+- `frontend/src/state/actions/uiSettingReveal.ts` is now a 360-line orchestration
+  entrypoint; `uiSettingRevealMutations.ts` owns reveal mutation leases and
+  rollback, `uiSettingRevealActivation.ts` owns pane/accordion activation
+  writes, `uiSettingRevealDom.ts` owns anchor lookup and highlighting, and
+  `uiSettingRevealShared.ts` owns execution-context/status helpers.
 - `frontend/src/utils/constants.ts` is still unsplit on this branch, so shared-infrastructure cleanup is still high leverage.
 - Shared infrastructure cleanup will still cross fork boundaries at times, but if a slice becomes primarily about code under `frontend/src/forks/**` it should use the more specific companion plan instead of expanding this one.
 
@@ -42,10 +47,10 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 
 - `frontend/src/state` plus shared infrastructure files in `components/Utils` and `utils` total about 83.6k lines of authored code in the sampled directories.
 - The biggest shared-state hotspots are:
-  - `frontend/src/state/actions/uiSettingReveal.ts` at 1598 lines
   - `frontend/src/state/actions/sectionInfos.ts` at 1530 lines
   - `frontend/src/state/actions/windowSpaces.ts` at 1420 lines
   - `frontend/src/state/actions/websocketReceive.ts` at 1023 lines
+  - `frontend/src/state/actions/uiSettingRevealMutations.ts` at 771 lines
   - `frontend/src/state/hooks/terminals/terminal.ts` at 752 lines
   - `frontend/src/utils/focusManager.ts` at 657 lines
 - `definitions.ts` now defines 14 local `use*` stores and re-exports the extracted AI/chat, app runtime, session/share, browser, search, feedback, project-status, layout-interaction, UI-preference, and editor-diagnostics stores, which is much closer to a thin index but still leaves project-state publication, artifact data, and realtime helper ownership mixed together.
@@ -68,6 +73,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - pending-operation queue registration, acknowledgement, and removal
   - optimistic project-state dispatch with project guards
   - rollback and replay of later pending operations after failed requests
+- `uiSettingReveal.ts` and adjacent helpers now split into:
+  - `uiSettingReveal.ts` for reveal orchestration and plugin fallback flow
+  - `uiSettingRevealMutations.ts` for reveal mutation leases, snapshots, and rollback
+  - `uiSettingRevealActivation.ts` for pane-opening and accordion/chat-aux activation writes
+  - `uiSettingRevealDom.ts` for anchor lookup, scrolling, and highlight timing
+  - `uiSettingRevealShared.ts` for execution-context mismatch and status builders
 - `windowSpaces.ts` mixes:
   - optimistic layout writes
   - floating bounds normalization

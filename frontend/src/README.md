@@ -164,6 +164,11 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/projectStateOptimisticUpdates.ts` owns the pending-operation
     queue and optimistic project-state mutation scaffolding used by shared state
     action modules.
+  - `state/actions/uiSettingReveal.ts` now just orchestrates reveal requests;
+    `uiSettingRevealMutations.ts`, `uiSettingRevealActivation.ts`,
+    `uiSettingRevealDom.ts`, and `uiSettingRevealShared.ts` own mutation leases,
+    pane activation, DOM anchor/highlight behavior, and execution-status
+    helpers.
   - `state/hooks/*` owns reusable hooks layered on top of stores and actions.
   - `state/types/*` and `state/utils/*` own state-local models and helper logic.
 
@@ -219,7 +224,8 @@ feature-local adapters around them when the consuming surface is non-trivial.
   `state/actions/projectStateCommands.ts`, and
   `state/actions/projectStateOptimisticUpdates.ts` own the main backend sync,
   shared command entrypoints, and optimistic mutation infrastructure
-- `state/actions/uiSettingReveal.ts` and adjacent pane chrome helpers that still
-  mix persisted-pane writes, window-space reveal logic, and UI recovery paths
+- `state/actions/windowSpaces.ts` persisted-layout split across optimistic
+  layout writes, floating-bounds normalization, and authoring-to-window-space
+  projection
 - shared project chat surfaces under `components/Chat/*`,
   `components/Panes/Overview/ProjectLevelAI/*`, and `components/ChatWindowing/*`
