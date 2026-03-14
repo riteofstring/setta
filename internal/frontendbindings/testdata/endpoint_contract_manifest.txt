@@ -105,6 +105,7 @@ route_get_prompt_templates GET GoHTTPRoutes.getPromptTemplates request=- respons
 route_get_server_mode GET GoHTTPRoutes.getServerMode request=- response=ServerModeResponse binary=false
 route_get_setta_home_info GET GoHTTPRoutes.getSettaHomeInfo request=- response=SettaHomeInfoResponse binary=false
 route_get_share_deployment_latest GET GoHTTPRoutes.shareDeploymentLatest request=- response=ShareDeploymentMetadata binary=false
+route_get_share_deployment_state GET GoHTTPRoutes.shareDeploymentState request=- response=ProjectStateSingleConfigWithCompletedOpIds binary=false
 route_get_transcription_profiles GET GoHTTPRoutes.getTranscriptionProfiles request=- response=TranscriptionProfileListResponse binary=false
 route_group_sections POST GoHTTPRoutes.groupSections request=GroupSectionsRequestInput response=- binary=false
 route_import_files_to_artifacts POST GoHTTPRoutes.importFilesToArtifacts request=ImportFilesToArtifactsRequestInput response=ImportFilesToArtifactsResponse binary=false

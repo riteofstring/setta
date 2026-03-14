@@ -424,6 +424,18 @@ export async function route_create_app_session_current(): Promise<
   return await post(GoHTTPRoutes.appDeploymentCurrentSession, null);
 }
 
+export async function route_get_share_deployment_state(
+  deploymentName: string,
+  version: string,
+): Promise<
+  ResponseDataAndStatus<gt.ProjectStateSingleConfigWithCompletedOpIds>
+> {
+  return await get(GoHTTPRoutes.shareDeploymentState, {
+    deploymentName,
+    version,
+  });
+}
+
 export async function route_load_share_project_config(
   deploymentName: string,
   version: string,

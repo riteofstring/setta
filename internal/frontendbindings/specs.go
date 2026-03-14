@@ -403,6 +403,11 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "APP_DEPLOYMENT_CURRENT_SESSION",
 				},
 				{
+					Name:     "shareDeploymentState",
+					Path:     httpapi.RouteShareDeploymentState,
+					EnumName: "SHARE_DEPLOYMENT_STATE",
+				},
+				{
 					Name:     "shareDeploymentProjectConfig",
 					Path:     httpapi.RouteShareDeploymentProjectConfig,
 					EnumName: "SHARE_DEPLOYMENT_PROJECT_CONFIG",
@@ -1981,6 +1986,14 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "appDeploymentCurrentSession",
 			ResponseType:    reflect.TypeOf(AppDeploymentSessionResponse{}),
+		},
+		{
+			FunctionName:    "route_get_share_deployment_state",
+			Method:          "GET",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "shareDeploymentState",
+			PathParamsType:  reflect.TypeOf(DeploymentVersionRouteParams{}),
+			ResponseType:    reflect.TypeOf(ProjectStateSingleConfigWithCompletedOpIds{}),
 		},
 		{
 			FunctionName:    "route_load_share_project_config",

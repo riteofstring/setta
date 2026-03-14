@@ -800,6 +800,7 @@ Current landed wedge:
   - deployment/share endpoint wrappers
     - `route_create_share_session_current`
     - `route_create_app_session_current`
+    - `route_get_share_deployment_state`
     - `route_load_share_project_config`
     - `route_get_app_deployment_state`
     - `route_load_app_project_config`

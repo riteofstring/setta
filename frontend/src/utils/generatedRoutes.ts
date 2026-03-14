@@ -76,6 +76,7 @@ export const GoHTTPRoutes = {
   launch: "/launch",
   shareDeploymentCurrentSession: "/share/deployments/current/session",
   appDeploymentCurrentSession: "/app/deployments/current/session",
+  shareDeploymentState: "/share/deployments/{deploymentName}/{version}/state",
   shareDeploymentProjectConfig:
     "/share/deployments/{deploymentName}/{version}/project_config",
   appDeploymentState: "/app/deployments/{deploymentName}/{version}/state",
@@ -367,6 +368,7 @@ export const RouteEnum = {
   LAUNCH: "/launch",
   SHARE_DEPLOYMENT_CURRENT_SESSION: "/share/deployments/current/session",
   APP_DEPLOYMENT_CURRENT_SESSION: "/app/deployments/current/session",
+  SHARE_DEPLOYMENT_STATE: "/share/deployments/{deploymentName}/{version}/state",
   SHARE_DEPLOYMENT_PROJECT_CONFIG:
     "/share/deployments/{deploymentName}/{version}/project_config",
   APP_DEPLOYMENT_STATE: "/app/deployments/{deploymentName}/{version}/state",

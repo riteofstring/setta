@@ -85,6 +85,7 @@ import {
   route_get_notifications,
   route_get_password_param_value,
   route_get_prompt_template,
+  route_get_share_deployment_state,
   route_get_share_deployment_latest,
   route_group_sections,
   route_import_files_to_artifacts,
@@ -400,6 +401,15 @@ describe("generatedEndpoints deployment surface", () => {
       method: "POST",
       body: null,
     });
+  });
+
+  it("binds share deployment state path params into the GET URL", async () => {
+    await route_get_share_deployment_state("demo-share", "v2");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/share/deployments/demo-share/v2/state`,
+    );
   });
 
   it("binds app deployment state path params into the GET URL", async () => {
