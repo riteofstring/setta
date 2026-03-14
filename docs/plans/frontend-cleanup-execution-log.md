@@ -1580,3 +1580,34 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/aiTranscription.ts`, now the largest
     authored/shared state hotspot, by separating provider session transport and
     transcription profile/catalog mutations from audio upload orchestration.
+
+## 2026-03-14 23:11:38 PDT
+
+- Slice completed: split AI transcription transport and transcription-profile
+  catalog ownership away from the dictation orchestration surface
+- Key files touched:
+  - `frontend/src/state/actions/aiTranscription.ts`
+  - `frontend/src/state/actions/aiTranscriptionSessions.ts`
+  - `frontend/src/state/actions/aiTranscriptionProfiles.ts`
+  - `frontend/src/state/actions/aiTranscribeChatAudio.test.ts`
+  - `frontend/src/state/actions/aiTranscriptionSessions.test.ts`
+  - `frontend/src/state/actions/aiTranscriptionProfiles.test.ts`
+  - `frontend/src/state/actions/websocketIncomingMessages.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/aiTranscriptionSessions.test.ts src/state/actions/aiTranscriptionProfiles.test.ts src/state/actions/aiTranscribeChatAudio.test.ts src/state/actions/websocketReceive.test.ts src/components/Panes/Overview/ProjectLevelAI/projectAISettingsTranscriptionProfileValidation.test.ts src/components/Section/Layouts/ChatArea.test.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/actions/aiTranscription.ts src/state/actions/aiTranscriptionSessions.ts src/state/actions/aiTranscriptionProfiles.ts src/state/actions/aiTranscribeChatAudio.test.ts src/state/actions/aiTranscriptionSessions.test.ts src/state/actions/aiTranscriptionProfiles.test.ts src/state/actions/websocketIncomingMessages.ts src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx src/components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `0a384bd45`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/projectChatWindowingWrites.ts`, now the
+    largest authored/shared state hotspot, by separating write coordination and
+    authoritative publish flow from the remaining sync helpers.
