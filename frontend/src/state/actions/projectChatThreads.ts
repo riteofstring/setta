@@ -1,4 +1,4 @@
-import { useLocalStorage } from "state/stores/uiPreferenceStores";
+import { useLocalStorage } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 
 type StoredThreadGroup = {

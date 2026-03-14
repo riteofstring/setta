@@ -12,7 +12,7 @@ import {
   createProjectConfig,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { loadAgentRuns } from "./aiAgentRuns";
+import { loadAgentRuns } from "./ai";
 import { addTemporaryNotification } from "./notifications";
 
 vi.mock("utils/generatedEndpoints", async () => {
@@ -28,9 +28,8 @@ vi.mock("utils/generatedEndpoints", async () => {
   };
 });
 
-vi.mock("./aiAgentRuns", async () => {
-  const actual =
-    await vi.importActual<typeof import("./aiAgentRuns")>("./aiAgentRuns");
+vi.mock("./ai", async () => {
+  const actual = await vi.importActual<typeof import("./ai")>("./ai");
   return {
     ...actual,
     loadAgentRuns: vi.fn(),
@@ -401,6 +400,20 @@ describe("stateMachineRuns", () => {
         },
       }),
     });
+    mockedRouteGetStateMachineRun.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: createAgentRun({
+        id: "machine-run-1",
+        status: AgentRunStatusEnum.running,
+        inputs: {
+          runType: "state_machine",
+          projectConfigId: "project-1",
+          machineGroupId: "workflow-main",
+          startSectionId: "section-start",
+        },
+      }),
+    });
 
     const started = await startStateMachineRun(
       "workflow-main",
@@ -413,7 +426,22 @@ describe("stateMachineRuns", () => {
       machineGroupId: "workflow-main",
       startSectionId: "section-start",
     });
-    expect(mockedLoadAgentRuns).toHaveBeenCalledTimes(1);
+    expect(
+      useAIStore.getState().agentRuns.find((run) => run.id === "machine-run-1"),
+    ).toMatchObject({
+      id: "machine-run-1",
+      status: AgentRunStatusEnum.running,
+      inputs: {
+        runType: "state_machine",
+        projectConfigId: "project-1",
+        machineGroupId: "workflow-main",
+      },
+    });
+    expect(mockedRouteGetStateMachineRun).toHaveBeenCalledWith({
+      projectConfigId: "project-1",
+      machineGroupId: "workflow-main",
+    });
+    expect(mockedLoadAgentRuns).not.toHaveBeenCalled();
   });
 
   it("surfaces backend stop failures without refreshing runs", async () => {
@@ -434,6 +462,19 @@ describe("stateMachineRuns", () => {
   });
 
   it("resets a workflow with the current project scope", async () => {
+    useAIStore.setState({
+      agentRuns: [
+        createAgentRun({
+          id: "machine-run-2",
+          status: AgentRunStatusEnum.running,
+          inputs: {
+            runType: "state_machine",
+            projectConfigId: "project-1",
+            machineGroupId: "workflow-main",
+          },
+        }),
+      ],
+    });
     mockedRouteResetStateMachine.mockResolvedValue({
       status: 200,
       hasResponse: true,
@@ -450,6 +491,16 @@ describe("stateMachineRuns", () => {
       projectConfigId: "project-1",
       machineGroupId: "workflow-main",
     });
-    expect(mockedLoadAgentRuns).toHaveBeenCalledTimes(1);
+    expect(
+      useAIStore.getState().agentRuns.find((run) => run.id === "machine-run-2"),
+    ).toMatchObject({
+      id: "machine-run-2",
+      status: AgentRunStatusEnum.cancelled,
+      outputs: {
+        machineStateCleared: true,
+      },
+    });
+    expect(mockedRouteGetStateMachineRun).not.toHaveBeenCalled();
+    expect(mockedLoadAgentRuns).not.toHaveBeenCalled();
   });
 });
