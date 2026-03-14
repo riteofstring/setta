@@ -14,10 +14,8 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
-import { loadAgentRuns } from "state/actions/ai/agentRuns";
 import { getDefaultChatDetails } from "state/actions/ai/chatRuntime";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import { type ChatHistoryCompatibility } from "state/actions/chatHistory";
@@ -54,19 +52,11 @@ import {
   resolveProjectChatRunTypeForEngine,
   type ProjectChatHydrationAuthority,
 } from "./projectChatHydrationAuthority";
+import { useProjectChatRuntimeController } from "./projectChatRuntimeController";
 import {
-  buildProjectChatHydrationCacheKey,
-  clearProjectChatHydrationCacheEntriesForChat,
   getDefaultProjectChatPermissionMode,
-  getProjectChatBlockedReasonMessage,
-  hydrateProjectChatFromRuntime,
   resolveProjectChatContextTelemetry,
-  resolveProjectChatHydrationRetryDecision,
-  shouldSkipProjectChatHydration,
-  touchProjectChatHydrationRetryEntry,
-  trimProjectChatHydrationCache,
   type ProjectChatBlockedErrorCode,
-  type ProjectChatHydrationRetryEntry,
 } from "./projectChatRuntimeUtils";
 import { type AgentRunsAuthorityState } from "./projectChatSkillsMcpViewerUtils";
 import {
@@ -187,8 +177,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     }
     return state.interruptedAssistantMessageIdsByChatId[chatId] ?? {};
   }, shallow);
-  const [hydrationBlockedErrorCode, setHydrationBlockedErrorCode] =
-    useState<ProjectChatBlockedErrorCode | null>(null);
   const [executionSettings, setExecutionSettings] =
     useState<ChatExecutionSettings>(() => ({
       permissionMode: getDefaultProjectChatPermissionMode(engineType),
@@ -238,7 +226,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     projectConfigId,
   });
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
-  const hydrationRunType = hydrationAuthority.hydrationRunType;
   const {
     contextWindowTokens,
     contextUsedTokens,
@@ -289,14 +276,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     }
     onPermissionModeChange(executionSettings.permissionMode);
   }, [executionSettings.permissionMode, onPermissionModeChange]);
-  const blockedErrorCode =
-    hydrationBlockedErrorCode ?? hydrationAuthority.blockedErrorCode;
-  const blockedReason = blockedErrorCode
-    ? getProjectChatBlockedReasonMessage(blockedErrorCode)
-    : null;
-  useEffect(() => {
-    onBlockedErrorCodeChange?.(blockedErrorCode);
-  }, [blockedErrorCode, onBlockedErrorCodeChange]);
   const canConfigureExecutionSettings =
     Boolean(engineConfigId) &&
     (isExternalEngine ? externalEngineAvailable : hasLLMConfig);
@@ -337,206 +316,17 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       agentRunsAuthorityState,
     });
   }, [agentRuns, agentRunsAuthorityState, resolveSlashCommandState]);
-  const lastChatIdRef = useRef<string | null>(null);
-  const hydrationStatusByKeyRef = useRef<
-    Record<string, ProjectChatHydrationRetryEntry>
-  >({});
-  useEffect(() => {
-    if (!agentRunsInitialLoadComplete) {
-      void loadAgentRuns();
-    }
-  }, [agentRunsInitialLoadComplete]);
-
-  useEffect(() => {
-    if (typeof chatId === "string") {
-      lastChatIdRef.current = chatId;
-    }
-  }, [chatId]);
-
-  useEffect(() => {
-    setHydrationBlockedErrorCode(null);
-  }, [chatId, hydrationMetadataRevision, hydrationRunType, projectConfigId]);
-
-  const clearHydrationRetryTimer = useCallback((cacheKey: string) => {
-    const state = hydrationStatusByKeyRef.current[cacheKey];
-    if (!state || state.timerId === null) {
-      return;
-    }
-    globalThis.clearTimeout(state.timerId);
-    state.timerId = null;
-    if (state.status === "retry_scheduled") {
-      state.status = "failed";
-    }
-    touchProjectChatHydrationRetryEntry(state);
-  }, []);
-
-  const clearAllHydrationRetryTimers = useCallback(() => {
-    for (const cacheKey of Object.keys(hydrationStatusByKeyRef.current)) {
-      clearHydrationRetryTimer(cacheKey);
-    }
-  }, [clearHydrationRetryTimer]);
-
-  useEffect(() => {
-    return () => {
-      clearAllHydrationRetryTimers();
-    };
-  }, [clearAllHydrationRetryTimers]);
-
-  useEffect(() => {
-    if (!pendingPrompt) {
-      return;
-    }
-    setDraftMessage((current) => (current.trim() ? current : pendingPrompt));
-    useAIStore.setState({ pendingProjectChatPrompt: null });
-  }, [pendingPrompt]);
-
-  useEffect(() => {
-    if (typeof chatId !== "string") {
-      return;
-    }
-    if (hydrationAuthority.status !== "ready") {
-      return;
-    }
-    const shouldProbeMissingProvenance =
-      hydrationAuthority.blockedErrorCode === "chat_provenance_missing";
-    if (hydrationRunType === null && !shouldProbeMissingProvenance) {
-      return;
-    }
-    if (waitingForResponse) {
-      return;
-    }
-    const cacheKey = shouldProbeMissingProvenance
-      ? `${projectConfigId}:${chatId}:chat_provenance_probe:${hydrationMetadataRevision}`
-      : buildProjectChatHydrationCacheKey({
-          projectConfigId,
-          chatId,
-          hydrationRunType,
-          hydrationMetadataRevision,
-        });
-    if (!cacheKey) {
-      return;
-    }
-    const staleCacheKeys = clearProjectChatHydrationCacheEntriesForChat({
-      cache: hydrationStatusByKeyRef.current,
-      projectConfigId,
-      chatId,
-      keepCacheKey: cacheKey,
-    });
-    for (const staleCacheKey of staleCacheKeys) {
-      clearHydrationRetryTimer(staleCacheKey);
-      delete hydrationStatusByKeyRef.current[staleCacheKey];
-    }
-    const retryState = hydrationStatusByKeyRef.current[cacheKey];
-    if (retryState) {
-      touchProjectChatHydrationRetryEntry(retryState);
-    }
-    if (
-      shouldSkipProjectChatHydration(
-        retryState
-          ? {
-              status: retryState.status,
-              hasLiveRetryTimer: retryState.timerId !== null,
-            }
-          : null,
-      )
-    ) {
-      return;
-    }
-    if (retryState && retryState.status === "retry_scheduled") {
-      retryState.status = "failed";
-    }
-    let cancelled = false;
-    const hydrateChat = async () => {
-      const state =
-        hydrationStatusByKeyRef.current[cacheKey] ??
-        (hydrationStatusByKeyRef.current[cacheKey] = {
-          status: "failed",
-          timerId: null,
-          attempt: 0,
-          lastTouchedAt: Date.now(),
-        });
-      touchProjectChatHydrationRetryEntry(state);
-      state.status = "in_flight";
-      const hydrationOutcome = await hydrateProjectChatFromRuntime({
-        chatId,
-        projectConfigId,
-        hydrationRunType,
-        shouldProbeMissingProvenance,
-      });
-      if (cancelled) {
-        return;
-      }
-      const retryDecision = resolveProjectChatHydrationRetryDecision({
-        outcomeType: hydrationOutcome.outcome,
-        attempt: state.attempt,
-      });
-      if (retryDecision.type === "success") {
-        setHydrationBlockedErrorCode(null);
-        state.status = "succeeded";
-        touchProjectChatHydrationRetryEntry(state);
-        clearHydrationRetryTimer(cacheKey);
-        trimProjectChatHydrationCache({
-          cache: hydrationStatusByKeyRef.current,
-        });
-        return;
-      }
-      if (retryDecision.type === "terminal_failure") {
-        setHydrationBlockedErrorCode(hydrationOutcome.errorCode);
-        clearHydrationRetryTimer(cacheKey);
-        state.status = "terminal_failure";
-        touchProjectChatHydrationRetryEntry(state);
-        trimProjectChatHydrationCache({
-          cache: hydrationStatusByKeyRef.current,
-        });
-        return;
-      }
-      setHydrationBlockedErrorCode(null);
-      clearHydrationRetryTimer(cacheKey);
-      state.attempt = retryDecision.nextAttempt;
-      if (retryDecision.type === "transient_exhausted") {
-        state.status = "failed";
-        touchProjectChatHydrationRetryEntry(state);
-        trimProjectChatHydrationCache({
-          cache: hydrationStatusByKeyRef.current,
-        });
-        return;
-      }
-      state.status = "retry_scheduled";
-      touchProjectChatHydrationRetryEntry(state);
-      state.timerId = globalThis.setTimeout(() => {
-        if (cancelled) {
-          return;
-        }
-        const retryStateForKey = hydrationStatusByKeyRef.current[cacheKey];
-        if (!retryStateForKey) {
-          return;
-        }
-        retryStateForKey.timerId = null;
-        retryStateForKey.status = "failed";
-        touchProjectChatHydrationRetryEntry(retryStateForKey);
-        void hydrateChat();
-      }, retryDecision.delayMs);
-    };
-    void hydrateChat();
-    return () => {
-      cancelled = true;
-      clearHydrationRetryTimer(cacheKey);
-      const state = hydrationStatusByKeyRef.current[cacheKey];
-      if (state?.status === "in_flight") {
-        state.status = "failed";
-        touchProjectChatHydrationRetryEntry(state);
-      }
-    };
-  }, [
+  const { blockedReason, lastChatIdRef } = useProjectChatRuntimeController({
     chatId,
-    clearHydrationRetryTimer,
-    hydrationAuthority.status,
-    hydrationAuthority.blockedErrorCode,
-    hydrationMetadataRevision,
-    hydrationRunType,
     projectConfigId,
+    hydrationAuthority,
+    hydrationMetadataRevision,
     waitingForResponse,
-  ]);
+    pendingPrompt,
+    setDraftMessage,
+    agentRunsInitialLoadComplete,
+    onBlockedErrorCodeChange,
+  });
 
   const handleNewChatStart = useCallback(() => {
     startProjectChatThread({
