@@ -39,11 +39,11 @@ import {
   getExternalAgentChat,
   getLLMChat,
   initializePendingChatDetails,
-  loadAgentRuns,
   stopManagedSectionChatResponse,
   submitEditedMessage,
   submitMessage,
 } from "state/actions/ai";
+import { loadAgentRuns } from "state/actions/ai/agentRuns";
 import { transcribeChatAudioWithProfile } from "state/actions/ai/transcription";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import {

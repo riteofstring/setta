@@ -2,11 +2,8 @@ import type { Spec } from "@json-render/core";
 import * as Switch from "@radix-ui/react-switch";
 import { pickDefaultConfigId } from "components/Chat/llmConfigUtils";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  clearPendingChatDetails,
-  resolveEngineConfigIdForChat,
-  submitMessage,
-} from "state/actions/ai";
+import { clearPendingChatDetails, submitMessage } from "state/actions/ai";
+import { resolveEngineConfigIdForChat } from "state/actions/ai/agentRuns";
 import { loadLLMApiKeys, loadLLMConfig } from "state/actions/ai/llmSettings";
 import {
   loadEngineConfigs,
