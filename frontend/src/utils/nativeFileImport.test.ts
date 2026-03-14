@@ -1,8 +1,3 @@
-import {
-  createFileBrowserRootResponse,
-  createFolderContentItem,
-  createWriteFileBrowserFileContentResponse,
-} from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { importNativeFileToWorkspace } from "./nativeFileImport";
 
@@ -31,13 +26,11 @@ describe("importNativeFileToWorkspace", () => {
     fetchMock.mockImplementation(async (input, init) => {
       const url = String(input);
       if (url.endsWith("/api/getFileBrowserRoot")) {
-        return jsonResponse(
-          createFileBrowserRootResponse({
-            rootPath: "/workspace",
-            pathSeparator: "/",
-            ignorePatterns: [],
-          }),
-        );
+        return jsonResponse({
+          rootPath: "/workspace",
+          pathSeparator: "/",
+          ignorePatterns: [],
+        });
       }
       if (url.endsWith("/api/getFolderContents")) {
         return jsonResponse([]);
@@ -59,14 +52,12 @@ describe("importNativeFileToWorkspace", () => {
         }
         writeCallCount += 1;
         writePayload = JSON.parse(init.body);
-        return jsonResponse(
-          createWriteFileBrowserFileContentResponse({
-            path: "/workspace/drop.csv",
-            mimeType: "text/csv",
-            mtimeNs: 123,
-            size: 11,
-          }),
-        );
+        return jsonResponse({
+          path: "/workspace/drop.csv",
+          mimeType: "text/csv",
+          mtimeNs: 123,
+          size: 11,
+        });
       }
       throw new Error(`Unexpected fetch URL: ${url}`);
     });
@@ -92,13 +83,11 @@ describe("importNativeFileToWorkspace", () => {
     fetchMock.mockImplementation(async (input) => {
       const url = String(input);
       if (url.endsWith("/api/getFileBrowserRoot")) {
-        return jsonResponse(
-          createFileBrowserRootResponse({
-            rootPath: "/workspace",
-            pathSeparator: "/",
-            ignorePatterns: [],
-          }),
-        );
+        return jsonResponse({
+          rootPath: "/workspace",
+          pathSeparator: "/",
+          ignorePatterns: [],
+        });
       }
       if (url.endsWith("/api/getFolderContents")) {
         return jsonResponse([]);
@@ -128,21 +117,19 @@ describe("importNativeFileToWorkspace", () => {
     fetchMock.mockImplementation(async (input, init) => {
       const url = String(input);
       if (url.endsWith("/api/getFileBrowserRoot")) {
-        return jsonResponse(
-          createFileBrowserRootResponse({
-            rootPath: "/workspace",
-            pathSeparator: "/",
-            ignorePatterns: [],
-          }),
-        );
+        return jsonResponse({
+          rootPath: "/workspace",
+          pathSeparator: "/",
+          ignorePatterns: [],
+        });
       }
       if (url.endsWith("/api/getFolderContents")) {
         return jsonResponse([
-          createFolderContentItem({
+          {
             name: "drop.csv",
             fullPath: "/workspace/drop.csv",
             type: "file",
-          }),
+          },
         ]);
       }
       if (url.endsWith("/api/binary/upload")) {
@@ -162,14 +149,12 @@ describe("importNativeFileToWorkspace", () => {
         if (writePayloads.length === 1) {
           return jsonResponse({ detail: "File already exists." }, 409);
         }
-        return jsonResponse(
-          createWriteFileBrowserFileContentResponse({
-            path: "/workspace/drop-2.csv",
-            mimeType: "text/csv",
-            mtimeNs: 123,
-            size: 11,
-          }),
-        );
+        return jsonResponse({
+          path: "/workspace/drop-2.csv",
+          mimeType: "text/csv",
+          mtimeNs: 123,
+          size: 11,
+        });
       }
       throw new Error(`Unexpected fetch URL: ${url}`);
     });
@@ -201,13 +186,11 @@ describe("importNativeFileToWorkspace", () => {
     fetchMock.mockImplementation(async (input, init) => {
       const url = String(input);
       if (url.endsWith("/api/getFileBrowserRoot")) {
-        return jsonResponse(
-          createFileBrowserRootResponse({
-            rootPath: "/workspace",
-            pathSeparator: "/",
-            ignorePatterns: [],
-          }),
-        );
+        return jsonResponse({
+          rootPath: "/workspace",
+          pathSeparator: "/",
+          ignorePatterns: [],
+        });
       }
       if (url.endsWith("/api/getFolderContents")) {
         return jsonResponse([]);
@@ -229,14 +212,12 @@ describe("importNativeFileToWorkspace", () => {
         if (writePayloads.length <= 5) {
           return jsonResponse({ detail: "File already exists." }, 409);
         }
-        return jsonResponse(
-          createWriteFileBrowserFileContentResponse({
-            path: "/workspace/drop-5.csv",
-            mimeType: "text/csv",
-            mtimeNs: 123,
-            size: 11,
-          }),
-        );
+        return jsonResponse({
+          path: "/workspace/drop-5.csv",
+          mimeType: "text/csv",
+          mtimeNs: 123,
+          size: 11,
+        });
       }
       throw new Error(`Unexpected fetch URL: ${url}`);
     });
