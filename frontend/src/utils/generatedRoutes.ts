@@ -309,6 +309,17 @@ function replaceGeneratedRoutePathParams(
   }
   return output;
 }
+export const GoRootRouteHelpers = {
+  bootstrapPage(): string {
+    return GoRootRoutes.bootstrapPage;
+  },
+  bootstrapConsume(): string {
+    return GoRootRoutes.bootstrapConsume;
+  },
+  toolsCall(): string {
+    return GoRootRoutes.toolsCall;
+  },
+} as const;
 export const GoHTTPRouteHelpers = {
   shareDeploymentState(deploymentName: string, version: string): string {
     return replaceGeneratedRoutePathParams(GoHTTPRoutes.shareDeploymentState, {

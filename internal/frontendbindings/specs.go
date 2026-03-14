@@ -42,7 +42,8 @@ func CurrentRouteGroups() []RouteGroup {
 			}},
 		},
 		{
-			ConstName: "GoRootRoutes",
+			ConstName:       "GoRootRoutes",
+			HelperConstName: "GoRootRouteHelpers",
 			Routes: []NamedRoute{
 				{
 					Name:     "bootstrapPage",
