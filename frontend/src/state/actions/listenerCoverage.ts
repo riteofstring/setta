@@ -66,10 +66,6 @@ export function dependencyKeyCovered(
   return record.dependenciesByKey[lookupKey] !== undefined;
 }
 
-function serializeCoverageKey(dependency: BaseDependencyKeyUnion): string {
-  return serializeListenerDependencyKey(dependency);
-}
-
 export async function fetchListenerCoverageSnapshot(
   projectConfigId: string,
 ): Promise<void> {
