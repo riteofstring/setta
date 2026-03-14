@@ -769,6 +769,131 @@ test.describe.serial("chat tool calls", () => {
     }
   });
 
+  test("hides redundant summaries and keeps child timestamps hover-only when all activity details are open", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const { sectionId, sectionName } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "__pw_activity_hover_meta_and_summary__",
+      );
+
+      const section = findSectionByName(page, sectionName);
+      await expect(section).toBeVisible();
+
+      await setChatSectionState(page, {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        state: {
+          messages: [
+            {
+              id: "activity-hover-meta-assistant-message",
+              role: "assistant",
+              content: [
+                {
+                  type: "thinking",
+                  thinking:
+                    "Inspecting the graph state before applying a cleanup.",
+                  summary: "Graph state inspection summary",
+                  signature: null,
+                },
+              ],
+              attachments: [],
+              tool_calls: [
+                {
+                  id: "activity-hover-meta-tool-call",
+                  type: "function",
+                  function: {
+                    name: "command_execution",
+                    arguments: {
+                      command: "pnpm exec vitest run src/components/Chat",
+                    },
+                  },
+                },
+              ],
+            },
+            {
+              id: "activity-hover-meta-tool-result",
+              role: "tool",
+              tool_call_id: "activity-hover-meta-tool-call",
+              tool_name: "command_execution",
+              arguments: {
+                command: "pnpm exec vitest run src/components/Chat",
+              },
+              result: "PASS src/components/Chat/ChatMessages.test.tsx",
+              content: [],
+              is_error: false,
+              started_at: "2026-01-01T00:00:00Z",
+              completed_at: "2026-01-01T00:00:05Z",
+            },
+          ],
+          inputText: "",
+          waitingForResponse: false,
+          toolCallArguments: {},
+        },
+      });
+
+      const activityTrigger = section.locator(
+        '[data-chat-assistant-activity-trigger="true"]',
+      );
+      await activityTrigger.click();
+      await activityTrigger.hover();
+      await section
+        .locator('[data-chat-assistant-activity-open-all-button="true"]')
+        .click();
+
+      const activityLatest = section.locator(
+        '[data-chat-assistant-activity-latest="true"]',
+      );
+      await expect(activityLatest).not.toContainText(
+        "Graph state inspection summary",
+      );
+      await expect(
+        section.locator('[data-chat-assistant-activity-thought-scroll="true"]'),
+      ).toHaveCount(0);
+
+      const thinkingTrigger = section.locator(
+        '[data-chat-thinking-trigger="true"]',
+      );
+      await expect(thinkingTrigger).toContainText("Reasoning");
+      await expect(thinkingTrigger).not.toContainText(
+        "Graph state inspection summary",
+      );
+
+      const rowHoverMeta = section.locator(
+        '[data-chat-activity-item-hover-meta="true"]',
+      );
+      await expect(rowHoverMeta).toHaveCount(2);
+      await expect
+        .poll(async () =>
+          rowHoverMeta.nth(0).evaluate((element) =>
+            Number.parseFloat(
+              window.getComputedStyle(element as HTMLElement).opacity,
+            ),
+          ),
+        )
+        .toBeLessThan(0.2);
+
+      const toolRow = section.locator('[data-chat-action-item="true"]').first();
+      await toolRow.hover();
+      await expect
+        .poll(async () =>
+          rowHoverMeta.nth(1).evaluate((element) =>
+            Number.parseFloat(
+              window.getComputedStyle(element as HTMLElement).opacity,
+            ),
+          ),
+        )
+        .toBeGreaterThan(0.8);
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("shows the braille startup indicator before assistant output begins", async ({
     page,
   }) => {

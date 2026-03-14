@@ -1622,7 +1622,7 @@ describe("ChatMessages assistant reasoning layout", () => {
     );
     expect(activitySectionTag).not.toBeNull();
     expect(activitySectionTag).toContain(
-      'class="w-full overflow-hidden border-l-[3px] border-setta-200/90 bg-transparent pl-1.5 dark:border-setta-700/90"',
+      'class="w-full overflow-hidden bg-transparent"',
     );
     const activityAnchorTag = getTagByMarker(
       markup,
@@ -1647,13 +1647,20 @@ describe("ChatMessages assistant reasoning layout", () => {
       "flex w-full flex-col border border-setta-200/70 dark:border-setta-700/70",
     );
     expect(activityContentTag).not.toContain("border-t");
-    expect(markup).toContain("items-stretch pl-0.5 pr-2 text-left");
+    expect(markup).toContain("items-stretch pl-0.5 text-left");
     expect(markup).not.toContain("px-2 pb-1");
     expect(markup).toContain(
       'data-chat-assistant-activity-open-all-button="true"',
     );
     expect(markup).toContain('title="Open all activity details"');
     expect(markup).toContain(">Open all</button>");
+    const parentHoverMetaTag = getTagByMarker(
+      markup,
+      'data-chat-assistant-activity-hover-meta="true"',
+    );
+    expect(parentHoverMetaTag).not.toBeNull();
+    expect(parentHoverMetaTag).toContain("opacity-0");
+    expect(parentHoverMetaTag).toContain("pointer-events-none");
     expect(
       countOccurrences(markup, 'data-chat-activity-item-copy-button="true"'),
     ).toBe(0);
@@ -1966,6 +1973,123 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).toContain(
       `title="${formatExpectedChatTimestampTitle(secondStartedAtMs)}"`,
     );
+  });
+
+  it("hides redundant activity summaries when the parent and child accordions are already open", () => {
+    useAIStore.setState({
+      projectChatActivityAccordionOpenByDefault: true,
+      projectChatActivityChildrenOpenByDefault: true,
+    });
+    syncStoreInitialState(useAIStore);
+    try {
+      const messages: BaseChatMessageUnion[] = [
+        {
+          id: "m-open-all-suppresses-summary-preview",
+          role: ChatRoleEnum.assistant,
+          content: [
+            createMessageThinkingContent({
+              thinking: "Inspecting the graph state before applying a cleanup.",
+              summary: "Graph state inspection summary",
+            }),
+          ],
+          attachments: [],
+          tool_calls: [
+            {
+              id: "m-open-all-suppresses-summary-preview-call",
+              type: "function",
+              function: {
+                name: "command_execution",
+                arguments: { command: "pnpm exec vitest run src/components/Chat" },
+              },
+            },
+          ],
+        },
+      ];
+
+      const markup = renderToStaticMarkup(
+        <ChatMessageList messages={messages} waitingForResponse={false} />,
+      );
+
+      const activityLatestTag = getDivHtmlByMarker(
+        markup,
+        'data-chat-assistant-activity-latest="true"',
+      );
+      expect(activityLatestTag).not.toBeNull();
+      expect(activityLatestTag).not.toContain("Graph state inspection summary");
+      expect(markup).not.toContain(
+        'data-chat-assistant-activity-thought-scroll="true"',
+      );
+
+      const thoughtTriggerTag = getButtonTagByMarker(
+        markup,
+        'data-chat-thinking-trigger="true"',
+      );
+      expect(thoughtTriggerTag).not.toBeNull();
+      expect(thoughtTriggerTag).not.toContain("Graph state inspection summary");
+      expect(markup).toContain("Reasoning");
+      expect(markup).not.toContain("Graph state inspection summary");
+    } finally {
+      useAIStore.setState({
+        projectChatActivityAccordionOpenByDefault: false,
+        projectChatActivityChildrenOpenByDefault: false,
+      });
+      syncStoreInitialState(useAIStore);
+    }
+  });
+
+  it("renders child activity row metadata in a hover-only overlay so labels own the row width until hover", () => {
+    const startedAtMs = Date.parse("2026-01-01T00:00:00Z");
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-activity-row-hover-meta",
+        role: ChatRoleEnum.assistant,
+        content: [],
+        attachments: [],
+        tool_calls: [
+          {
+            id: "m-activity-row-hover-meta-call",
+            type: "function",
+            function: {
+              name: "command_execution",
+              arguments: { command: "pnpm exec vitest run src/components/Chat" },
+            },
+          },
+        ],
+      },
+      {
+        id: "m-activity-row-hover-meta-result",
+        role: ChatRoleEnum.tool,
+        tool_call_id: "m-activity-row-hover-meta-call",
+        tool_name: "command_execution",
+        arguments: { command: "pnpm exec vitest run src/components/Chat" },
+        result: "PASS src/components/Chat/ChatMessages.test.tsx",
+        content: [],
+        is_error: false,
+        started_at: "2026-01-01T00:00:00Z",
+        completed_at: "2026-01-01T00:00:05Z",
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain(
+      `title="${formatExpectedChatTimestampTitle(startedAtMs)}"`,
+    );
+    const rowHoverMetaTag = getTagByMarker(
+      markup,
+      'data-chat-activity-item-hover-meta="true"',
+    );
+    expect(rowHoverMetaTag).not.toBeNull();
+    expect(rowHoverMetaTag).toContain("opacity-0");
+    expect(rowHoverMetaTag).toContain("pointer-events-none");
+    const rowLabelTag = getTagByMarker(
+      markup,
+      'data-chat-activity-item-label="true"',
+    );
+    expect(rowLabelTag).not.toBeNull();
+    expect(rowLabelTag).toContain("group-hover/chat-activity-row:pr-[");
   });
 
   it("hides activity timers when timing data is unavailable", () => {

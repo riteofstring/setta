@@ -215,15 +215,22 @@ const ASSISTANT_ACTIVITY_CONTENT_CLASS = `${ACTIVITY_ACCORDION_CONTENT_CLASS} pl
 const TOOL_SECTION_CARD_CLASS = "w-full overflow-hidden";
 const TOOL_SECTION_TRIGGER_CLASS = `group grid w-full cursor-pointer ${TOOL_CALL_RAIL_GRID_CLASS} ${ACTIVITY_CHILD_TRIGGER_CLASS} text-left transition-colors [&[data-state=open]_.chat-accordion-chevron]:rotate-180`;
 const TOOL_ROW_TRIGGER_CLASS = `group grid w-full cursor-pointer ${TOOL_CALL_RAIL_GRID_CLASS} ${ACTIVITY_CHILD_TRIGGER_CLASS} text-left transition-colors [&[data-state=open]_.chat-accordion-chevron]:rotate-180`;
-const ASSISTANT_ACTIVITY_PARENT_CLASS =
-  "w-full overflow-hidden border-l-[3px] border-setta-200/90 bg-transparent pl-1.5 dark:border-setta-700/90";
-const ASSISTANT_ACTIVITY_TRIGGER_CLASS = `group flex w-full cursor-pointer items-stretch pl-0.5 pr-2 text-left transition-colors ${ACTIVITY_ROW_HOVER_CLASS} [&[data-state=open]_.chat-accordion-chevron]:rotate-180`;
+const ASSISTANT_ACTIVITY_PARENT_CLASS = "w-full overflow-hidden bg-transparent";
+const ASSISTANT_ACTIVITY_TRIGGER_CLASS = `group group/chat-activity-parent relative flex w-full cursor-pointer items-stretch pl-0.5 text-left transition-colors ${ACTIVITY_ROW_HOVER_CLASS} [&[data-state=open]_.chat-accordion-chevron]:rotate-180`;
 const ACTIVITY_COUNT_BADGE_CLASS =
   "inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full border border-setta-300/80 bg-setta-100 px-1.5 py-[1px] text-[10px] font-semibold leading-none text-setta-700 dark:border-setta-600/80 dark:bg-setta-800 dark:text-setta-200";
 const ACTIVITY_COPY_BUTTON_BASE_CLASS =
   "inline-flex h-5 w-5 items-center justify-center rounded text-[11px] text-setta-500 transition-colors hover:bg-setta-200/80 hover:text-setta-700 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-setta-400 dark:text-setta-300 dark:hover:bg-setta-700 dark:hover:text-setta-100";
 const ACTIVITY_SECTION_COPY_BUTTON_CLASS = `${ACTIVITY_COPY_BUTTON_BASE_CLASS} bg-setta-100/90 dark:bg-setta-800/85`;
 const ACTIVITY_ITEM_HOVER_COPY_BUTTON_CLASS = `${ACTIVITY_SECTION_COPY_BUTTON_CLASS} opacity-0 pointer-events-none transition-opacity group-hover/chat-activity-row:opacity-100 group-hover/chat-activity-row:pointer-events-auto group-focus-within/chat-activity-row:opacity-100 group-focus-within/chat-activity-row:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto`;
+const ACTIVITY_PARENT_HOVER_META_CLASS =
+  "pointer-events-none absolute right-6 top-1/2 z-[1] inline-flex -translate-y-1/2 items-center justify-end gap-x-1 gap-y-0.5 opacity-0 transition-opacity group-hover/chat-activity-parent:pointer-events-auto group-hover/chat-activity-parent:opacity-100 group-focus-within/chat-activity-parent:pointer-events-auto group-focus-within/chat-activity-parent:opacity-100";
+const ACTIVITY_ITEM_HOVER_META_CLASS =
+  "pointer-events-none absolute right-6 top-1/2 z-[1] inline-flex -translate-y-1/2 items-center justify-end gap-x-1 gap-y-0.5 opacity-0 transition-opacity group-hover/chat-activity-row:pointer-events-auto group-hover/chat-activity-row:opacity-100 group-focus-within/chat-activity-row:pointer-events-auto group-focus-within/chat-activity-row:opacity-100";
+const ACTIVITY_PARENT_LABEL_CLASS =
+  "min-w-0 flex-1 pr-5 transition-[padding-right] group-hover/chat-activity-parent:pr-[8.5rem] group-focus-within/chat-activity-parent:pr-[8.5rem]";
+const ACTIVITY_ITEM_LABEL_CLASS =
+  "min-w-0 flex-1 pr-5 transition-[padding-right] group-hover/chat-activity-row:pr-[8.5rem] group-focus-within/chat-activity-row:pr-[8.5rem]";
 const ACTIVITY_THOUGHT_TOP_ONLY_MASK =
   "linear-gradient(to bottom, transparent 0%, black 18%, black 100%)";
 const CHAT_TIMESTAMP_CLASS =
@@ -278,6 +285,7 @@ type AssistantActivityChildAccordionControl = {
   defaultOpen: boolean;
   expandAllSignal: number;
   collapseAllSignal: number;
+  suppressSummaries: boolean;
 };
 
 type ChatMessageListProps = {
@@ -1824,6 +1832,14 @@ function resolveThinkingSummaryHeadline({
   return resolveThinkingSummaryMeta({ content, summary, isStreaming }).headline;
 }
 
+function resolveCollapsedThinkingActivityLabel({
+  isStreaming,
+}: {
+  isStreaming: boolean;
+}): string {
+  return isStreaming ? "Thinking" : "Reasoning";
+}
+
 function resolveLatestThinkingSummary(
   thinkingItems: ThinkingContentItem[],
   isStreaming: boolean,
@@ -3041,6 +3057,7 @@ const ThinkingBox = memo(function ThinkingBox({
   defaultOpen = false,
   expandAllSignal = 0,
   collapseAllSignal = 0,
+  suppressCollapsedSummary = false,
 }: {
   content: string;
   summary: string | null | undefined;
@@ -3054,27 +3071,33 @@ const ThinkingBox = memo(function ThinkingBox({
   defaultOpen?: boolean;
   expandAllSignal?: number;
   collapseAllSignal?: number;
+  suppressCollapsedSummary?: boolean;
 }) {
   const streaming = isStreaming;
   const summaryPreviewRef = useRef<HTMLDivElement | null>(null);
   const summaryText = summary?.trim() ?? "";
   const hasThinkingText = content.trim().length > 0;
   const summaryHasAdditionalLines = /\r?\n/u.test(summaryText);
-  const summaryHeadlineText = resolveThinkingSummaryHeadline({
+  const resolvedSummaryHeadlineText = resolveThinkingSummaryHeadline({
     content,
     summary,
     isStreaming: streaming,
   });
+  const summaryHeadlineText = suppressCollapsedSummary
+    ? resolveCollapsedThinkingActivityLabel({
+        isStreaming: streaming,
+      })
+    : resolvedSummaryHeadlineText;
   const collapsedSummaryText = summaryHeadlineText;
   const collapsedSummaryWithHint =
     activityHint && !hasThinkingText
       ? `${collapsedSummaryText} - ${activityHint}`
       : collapsedSummaryText;
   const shouldRenderPlainSummaryWithHint = Boolean(
-    activityHint && !hasThinkingText,
+    !suppressCollapsedSummary && activityHint && !hasThinkingText,
   );
   const shouldMeasureSummaryOverflow =
-    !hasThinkingText && collapsedSummaryText.length > 0;
+    !suppressCollapsedSummary && !hasThinkingText && collapsedSummaryText.length > 0;
   const [isSummaryTitleTruncated, setIsSummaryTitleTruncated] = useState(false);
   const hasExpandableContent =
     hasThinkingText ||
@@ -3197,8 +3220,11 @@ const ThinkingBox = memo(function ThinkingBox({
             >
               {railIcon ?? <FaBrain size={13} className="min-w-4" />}
             </div>
-            <div className="flex min-w-0 items-start gap-2 py-1 pl-2 pr-2">
-              <div className="min-w-0 flex-1">
+            <div className="relative flex min-w-0 items-start gap-2 py-1 pl-2 pr-2">
+              <div
+                data-chat-activity-item-label="true"
+                className={ACTIVITY_ITEM_LABEL_CLASS}
+              >
                 <div
                   ref={summaryPreviewRef}
                   className="truncate text-[11px] font-semibold text-setta-500 dark:text-setta-200 [&_code]:rounded [&_code]:bg-setta-100/80 [&_code]:px-0.5 [&_code]:font-mono [&_code]:text-[10px] dark:[&_code]:bg-setta-800/80 [&_p]:m-0 [&_p]:inline"
@@ -3218,7 +3244,10 @@ const ThinkingBox = memo(function ThinkingBox({
                   )}
                 </div>
               </div>
-              <div className="ml-auto inline-flex shrink-0 items-center gap-1.5 self-center">
+              <div
+                data-chat-activity-item-hover-meta="true"
+                className={ACTIVITY_ITEM_HOVER_META_CLASS}
+              >
                 {onCopy ? (
                   <button
                     type="button"
@@ -3284,6 +3313,8 @@ const ThinkingBox = memo(function ThinkingBox({
                     ) : null}
                   </span>
                 )}
+              </div>
+              <div className="ml-auto inline-flex shrink-0 items-center gap-1 self-center">
                 {hasExpandableContent ? (
                   <MdKeyboardArrowDown
                     data-chat-thinking-chevron="true"
@@ -3809,6 +3840,7 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
   const [allChildrenExpanded, setAllChildrenExpanded] =
     useState(defaultChildrenOpen);
   const isExpanded = accordionValue === ASSISTANT_ACTIVITY_DETAILS_VALUE;
+  const suppressSummaries = isExpanded && allChildrenExpanded;
   const openAllButtonLabel = allChildrenExpanded ? "Close all" : "Open all";
   const openAllButtonTitle = allChildrenExpanded
     ? "Close all activity details"
@@ -3855,6 +3887,12 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
   useEffect(() => {
     setAllChildrenExpanded(defaultChildrenOpen);
   }, [defaultChildrenOpen]);
+  const activityTitleLabel =
+    suppressSummaries && preview.kind === "thought"
+      ? preview.hasStreamingThought
+        ? "Thinking"
+        : "Reasoning"
+      : displayLabel;
   return (
     <Accordion.Root
       type="single"
@@ -3885,7 +3923,10 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
           >
             <div className="w-full @container">
               <div className="flex w-full min-w-0 items-center gap-2 @[20rem]:h-8">
-                <div className="min-w-0 flex-1">
+                <div
+                  data-chat-assistant-activity-label="true"
+                  className={ACTIVITY_PARENT_LABEL_CLASS}
+                >
                   <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 @[20rem]:flex-nowrap">
                     <span className="inline-flex shrink-0 items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-setta-400 dark:text-setta-500">
                       <span
@@ -3916,7 +3957,7 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
                       className="min-w-0 basis-full truncate text-[11px] text-setta-500 @[20rem]:flex-1 @[20rem]:basis-auto dark:text-setta-300 [&_code]:rounded [&_code]:bg-setta-100/80 [&_code]:px-0.5 [&_code]:font-mono [&_code]:text-[10px] dark:[&_code]:bg-setta-800/80 [&_p]:m-0 [&_p]:inline"
                     >
                       {preview.shouldScrambleTitle ? (
-                        displayLabel
+                        activityTitleLabel
                       ) : (
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
@@ -3925,13 +3966,16 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
                             a: ({ children }) => <span>{children}</span>,
                           }}
                         >
-                          {displayLabel}
+                          {activityTitleLabel}
                         </ReactMarkdown>
                       )}
                     </div>
                   </div>
                 </div>
-                <div className="ml-auto inline-flex shrink-0 flex-wrap items-center justify-end gap-x-1 gap-y-0.5 self-start @[20rem]:self-center">
+                <div
+                  data-chat-assistant-activity-hover-meta="true"
+                  className={ACTIVITY_PARENT_HOVER_META_CLASS}
+                >
                   <button
                     type="button"
                     onPointerDown={handleOpenAllPointerDown}
@@ -3962,13 +4006,15 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
                       {durationLabel}
                     </span>
                   ) : null}
+                </div>
+                <div className="ml-auto inline-flex shrink-0 self-start @[20rem]:self-center">
                   <MdKeyboardArrowDown
                     data-chat-assistant-activity-chevron="true"
                     className="chat-accordion-chevron mt-[1px] shrink-0 text-[16px] text-setta-400 transition-transform dark:text-setta-300/90"
                   />
                 </div>
               </div>
-              {showThoughtScroll ? (
+              {showThoughtScroll && !suppressSummaries ? (
                 <div>
                   <ActivityThoughtPreview
                     text={preview.thoughtText ?? ""}
@@ -3989,6 +4035,7 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
               defaultOpen: defaultChildrenOpen,
               expandAllSignal: openAllSignal,
               collapseAllSignal: closeAllSignal,
+              suppressSummaries,
             })}
           </div>
         </Accordion.Content>
@@ -4636,11 +4683,17 @@ const ActivityToolLikeItem = memo(function ActivityToolLikeItem({
             >
               {railIcon}
             </div>
-            <div className="flex min-w-0 items-start gap-2 py-1 pl-2 pr-2">
-              <div className="min-w-0 flex-1 truncate break-words font-mono text-[11px] font-semibold text-setta-500 dark:text-setta-200">
+            <div className="relative flex min-w-0 items-start gap-2 py-1 pl-2 pr-2">
+              <div
+                data-chat-activity-item-label="true"
+                className={`${ACTIVITY_ITEM_LABEL_CLASS} truncate break-words font-mono text-[11px] font-semibold text-setta-500 dark:text-setta-200`}
+              >
                 {label}
               </div>
-              <div className="ml-auto inline-flex shrink-0 flex-wrap items-center justify-end gap-x-1 gap-y-0.5 self-center">
+              <div
+                data-chat-activity-item-hover-meta="true"
+                className={ACTIVITY_ITEM_HOVER_META_CLASS}
+              >
                 {onCopy ? (
                   <button
                     type="button"
@@ -4667,6 +4720,8 @@ const ActivityToolLikeItem = memo(function ActivityToolLikeItem({
                   </span>
                 ) : null}
                 <ToolCallAccordionStatus runState={runState} />
+              </div>
+              <div className="ml-auto inline-flex shrink-0 items-center self-center">
                 <MdKeyboardArrowDown
                   className="chat-accordion-chevron mt-[1px] shrink-0 text-[16px] text-setta-400 transition-transform dark:text-setta-300/90"
                   {...activityMeta.chevronAttr}
@@ -4987,6 +5042,7 @@ const AssistantActionSection = memo(function AssistantActionSection({
   defaultChildrenOpen = false,
   openAllSignal = 0,
   closeAllSignal = 0,
+  suppressCollapsedSummary = false,
 }: {
   timelineEntries: ActivityTimelineEntry[];
   toolResultsById: Record<string, ToolChatMessage>;
@@ -4995,6 +5051,7 @@ const AssistantActionSection = memo(function AssistantActionSection({
   defaultChildrenOpen?: boolean;
   openAllSignal?: number;
   closeAllSignal?: number;
+  suppressCollapsedSummary?: boolean;
 }) {
   const rows = timelineEntries.map((entry) => {
     const copyText = buildCopyTextForActivityTimelineEntry({
@@ -5026,6 +5083,7 @@ const AssistantActionSection = memo(function AssistantActionSection({
           defaultOpen={defaultChildrenOpen}
           expandAllSignal={openAllSignal}
           collapseAllSignal={closeAllSignal}
+          suppressCollapsedSummary={suppressCollapsedSummary}
         />
       );
     }
@@ -6322,6 +6380,9 @@ const ChatMessage = memo(function ChatMessage({
                       defaultChildrenOpen={childAccordionControl.defaultOpen}
                       openAllSignal={childAccordionControl.expandAllSignal}
                       closeAllSignal={childAccordionControl.collapseAllSignal}
+                      suppressCollapsedSummary={
+                        childAccordionControl.suppressSummaries
+                      }
                     />
                   </AssistantToolCallCard>
                 )}
@@ -6785,6 +6846,9 @@ function ChatMessages({
                         defaultChildrenOpen={childAccordionControl.defaultOpen}
                         openAllSignal={childAccordionControl.expandAllSignal}
                         closeAllSignal={childAccordionControl.collapseAllSignal}
+                        suppressCollapsedSummary={
+                          childAccordionControl.suppressSummaries
+                        }
                       />
                     </AssistantToolCallCard>
                   )}
