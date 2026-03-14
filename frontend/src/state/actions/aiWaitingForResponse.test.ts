@@ -4,6 +4,7 @@ import type {
   useProjectState as useProjectStateType,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import { PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE } from "state/utils/chatAppGeneration";
 import {
   ChatRoleEnum,
   createMessageTextContent,
@@ -252,6 +253,45 @@ describe("chat hydration waitingForResponse", () => {
       appGenerationByMessageId: {
         "user-app-1": {
           mode: "mcp_server",
+        },
+      },
+    });
+  });
+
+  it("hydrates explicit plain-chat provenance without reviving an older app-generation mode", async () => {
+    const route_get_llm_chat = (await import("utils/generatedEndpoints"))
+      .route_get_llm_chat as unknown as vi.Mock;
+    route_get_llm_chat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [
+          {
+            id: "user-plain-1",
+            role: ChatRoleEnum.user,
+            content: [
+              createMessageTextContent({ text: "Just answer normally." }),
+            ],
+            attachments: [],
+          },
+        ],
+        waitingForResponse: false,
+        llmConfig: null,
+        appGenerationByMessageId: {
+          "user-plain-1": PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE,
+        },
+      },
+    });
+
+    await getLLMChat(chatId);
+
+    expect(
+      useAIStore.getState().chatAppGenerationDetailsByChatId[chatId],
+    ).toEqual({
+      activeAppGeneration: null,
+      appGenerationByMessageId: {
+        "user-plain-1": {
+          mode: null,
         },
       },
     });

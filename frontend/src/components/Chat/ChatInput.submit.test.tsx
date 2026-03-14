@@ -940,6 +940,7 @@ describe("ChatInput queued slash-command replay", () => {
       {
         command: "/deploy",
         action: "native_prompt",
+        appGenerationMode: null,
         summary: "Deploy the current build.",
       },
     ];
@@ -1021,7 +1022,9 @@ describe("ChatInput queued slash-command replay", () => {
     });
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
-    expect(onSubmit).toHaveBeenCalledWith("/deploy now", []);
+    expect(onSubmit).toHaveBeenCalledWith("/deploy now", [], {
+      appGeneration: null,
+    });
     expect(host.querySelector('[data-chat-queued-draft="true"]')).toBeNull();
   });
 
@@ -1038,6 +1041,7 @@ describe("ChatInput queued slash-command replay", () => {
       {
         command: "/reload-authority",
         action: "native_prompt",
+        appGenerationMode: null,
         summary: "Refresh native command authority.",
       },
     ];
@@ -1125,7 +1129,94 @@ describe("ChatInput queued slash-command replay", () => {
     });
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
-    expect(onSubmit).toHaveBeenCalledWith("/reload-authority", []);
+    expect(onSubmit).toHaveBeenCalledWith("/reload-authority", [], {
+      appGeneration: null,
+    });
+    expect(host.querySelector('[data-chat-queued-draft="true"]')).toBeNull();
+  });
+
+  it("replays queued slash commands when submitReadinessKey changes after retry_later", async () => {
+    const onSubmit = vi.fn(async () =>
+      submitReadyState ? true : "retry_later",
+    );
+    let setWaitingForResponse:
+      | ((next: boolean | ((current: boolean) => boolean)) => void)
+      | null = null;
+    let setSubmitReady:
+      | ((next: boolean | ((current: boolean) => boolean)) => void)
+      | null = null;
+    let submitReadyState = false;
+
+    const nativeCommand: ChatSlashCommandDefinition[] = [
+      {
+        command: "/deploy",
+        action: "native_prompt",
+        appGenerationMode: null,
+        summary: "Deploy the current build.",
+      },
+    ];
+
+    const App = () => {
+      const [waitingForResponse, setLocalWaitingForResponse] = useState(true);
+      const [submitReady, setLocalSubmitReady] = useState(false);
+      setWaitingForResponse = setLocalWaitingForResponse;
+      setSubmitReady = setLocalSubmitReady;
+      submitReadyState = submitReady;
+
+      return (
+        <ChatInput
+          placeholderText="Type a message..."
+          waitingForResponse={waitingForResponse}
+          slashCommands={nativeCommand}
+          recognizedSlashCommands={nativeCommand}
+          submitReadinessKey={submitReady ? "ready" : "blocked"}
+          onSubmit={onSubmit}
+          onStop={() => {}}
+        />
+      );
+    };
+
+    await act(async () => {
+      root.render(<App />);
+    });
+
+    const { textarea, submitButton } = getComposerElements(host);
+
+    await act(async () => {
+      setTextareaValue(textarea, "/deploy now");
+      submitButton.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    if (!setWaitingForResponse) {
+      throw new Error("Expected waiting state setter.");
+    }
+    await act(async () => {
+      setWaitingForResponse(false);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const callCountBeforeReady = onSubmit.mock.calls.length;
+    expect(callCountBeforeReady).toBeGreaterThan(0);
+    expect(
+      host.querySelector('[data-chat-queued-draft="true"]'),
+    ).not.toBeNull();
+
+    if (!setSubmitReady) {
+      throw new Error("Expected submit readiness setter.");
+    }
+    await act(async () => {
+      setSubmitReady(true);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(onSubmit.mock.calls.length).toBeGreaterThan(callCountBeforeReady);
+    expect(onSubmit).toHaveBeenLastCalledWith("/deploy now", [], {
+      appGeneration: null,
+    });
     expect(host.querySelector('[data-chat-queued-draft="true"]')).toBeNull();
   });
 });

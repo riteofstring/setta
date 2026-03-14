@@ -1774,14 +1774,31 @@ test("custom plain-chat slash commands clear app-generation mode inside active a
       .fill("/plain-review keep the language concise");
     await projectChatSurface.getByLabel("Send message").click();
     await expect.poll(() => capturedRequests.length).toBe(2);
+    await expect(projectChatSurface.getByLabel("Send message")).toBeVisible();
+
+    await projectChatSurface
+      .getByTestId("chat-input-textarea")
+      .fill("tighten the copy further");
+    await projectChatSurface.getByLabel("Send message").click();
+    await expect.poll(() => capturedRequests.length).toBe(3);
 
     expect(capturedRequests[0]?.appGenerationMode).toBe("json_render");
     expect(capturedRequests[1]?.appGenerationMode).toBeNull();
     expect(capturedRequests[1]?.appGenerationByMessageId).toEqual({
       [capturedRequests[0]?.message?.id ?? ""]: "json_render",
+      [capturedRequests[1]?.message?.id ?? ""]: "plain_chat",
     });
     expect(capturedRequests[1]?.message?.content?.[0]?.text).toBe(
       "Review the current plan.\n\nkeep the language concise",
+    );
+    expect(capturedRequests[2]?.appGenerationMode).toBeNull();
+    expect(capturedRequests[2]?.appGenerationByMessageId).toEqual({
+      [capturedRequests[0]?.message?.id ?? ""]: "json_render",
+      [capturedRequests[1]?.message?.id ?? ""]: "plain_chat",
+      [capturedRequests[2]?.message?.id ?? ""]: "plain_chat",
+    });
+    expect(capturedRequests[2]?.message?.content?.[0]?.text).toBe(
+      "tighten the copy further",
     );
   } finally {
     await engineCleanup();

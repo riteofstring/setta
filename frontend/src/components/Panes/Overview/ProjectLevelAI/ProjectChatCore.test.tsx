@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildProjectChatHydrationCacheKey,
+  buildProjectChatSubmitReadinessKey,
   clearProjectChatHydrationCacheEntriesForChat,
   hasRetainedImageAttachmentFromImageModeThread,
   resolveProjectChatSubmitAppGeneration,
@@ -88,6 +89,25 @@ describe("ProjectChatCore submit app-generation resolution", () => {
         },
       }),
     ).toBeNull();
+  });
+
+  it("changes the submit readiness key when runtime prerequisites recover", () => {
+    const unavailableKey = buildProjectChatSubmitReadinessKey({
+      requiresNewThreadContinuation: false,
+      engineConfigId: "engine-1",
+      hasLLMConfig: false,
+      isExternalEngine: false,
+      externalEngineAvailable: true,
+    });
+    const readyKey = buildProjectChatSubmitReadinessKey({
+      requiresNewThreadContinuation: false,
+      engineConfigId: "engine-1",
+      hasLLMConfig: true,
+      isExternalEngine: false,
+      externalEngineAvailable: true,
+    });
+
+    expect(unavailableKey).not.toBe(readyKey);
   });
 
   it("only treats retained images from prior image-mode turns as reusable", () => {

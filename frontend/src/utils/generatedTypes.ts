@@ -8838,6 +8838,7 @@ const GetExternalAgentChatResponseSchema = z.object({
     .record(
       z.string(),
       z.literal([
+        "plain_chat",
         "json_render",
         "json_render_with_image",
         "prompt_builder",
@@ -8874,6 +8875,7 @@ const GetLLMChatRequestResponseSchema = z.object({
     .record(
       z.string(),
       z.literal([
+        "plain_chat",
         "json_render",
         "json_render_with_image",
         "prompt_builder",
@@ -8922,6 +8924,7 @@ const GetLLMResponseRequestSchema = z.object({
     .record(
       z.string(),
       z.literal([
+        "plain_chat",
         "json_render",
         "json_render_with_image",
         "prompt_builder",

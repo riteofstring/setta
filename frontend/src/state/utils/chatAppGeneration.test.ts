@@ -6,6 +6,8 @@ import {
   deserializeChatAppGenerationByMessageId,
   getDefaultChatAppGenerationDetails,
   normalizeChatAppGenerationContext,
+  PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE,
+  resolveChatAppGenerationContextFromMessageState,
   retainChatAppGenerationDetailsForMessages,
   serializeChatAppGenerationByMessageId,
   setChatAppGenerationForMessage,
@@ -19,7 +21,7 @@ describe("chatAppGeneration", () => {
     });
   });
 
-  it("records app-generation context on the submitted message and removes it cleanly", () => {
+  it("records explicit plain-chat turns instead of reviving the earlier app-generation mode", () => {
     const baseDetails = getDefaultChatAppGenerationDetails();
     const messageA = createUserChatMessage({
       id: "msg-a",
@@ -60,8 +62,10 @@ describe("chatAppGeneration", () => {
       null,
     );
 
-    expect(removed.activeAppGeneration?.mode).toBe("prompt_builder");
-    expect(removed.appGenerationByMessageId["msg-b"]).toBeUndefined();
+    expect(removed.activeAppGeneration).toBeNull();
+    expect(removed.appGenerationByMessageId["msg-b"]).toEqual({
+      mode: null,
+    });
   });
 
   it("retains only the preserved message provenance when branch history is truncated", () => {
@@ -130,7 +134,9 @@ describe("chatAppGeneration", () => {
     );
 
     expect(nextDetails.activeAppGeneration).toBeNull();
-    expect(nextDetails.appGenerationByMessageId).toEqual({});
+    expect(nextDetails.appGenerationByMessageId).toEqual({
+      "msg-a": { mode: null },
+    });
   });
 
   it("serializes and deserializes app-generation provenance by message id", () => {
@@ -138,24 +144,32 @@ describe("chatAppGeneration", () => {
       activeAppGeneration: { mode: "prompt_builder" },
       appGenerationByMessageId: {
         "msg-a": { mode: "prompt_builder" },
-        "msg-b": { mode: "json_render" },
+        "msg-b": { mode: null },
       },
     });
 
     expect(serialized).toEqual({
       "msg-a": "prompt_builder",
-      "msg-b": "json_render",
+      "msg-b": PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE,
     });
     expect(
       deserializeChatAppGenerationByMessageId({
         "msg-a": "prompt_builder",
-        "msg-b": "json_render",
+        "msg-b": PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE,
         "msg-c": "not-a-mode",
       }),
     ).toEqual({
       "msg-a": { mode: "prompt_builder" },
-      "msg-b": { mode: "json_render" },
+      "msg-b": { mode: null },
     });
+  });
+
+  it("resolves plain-chat message state to a null active context", () => {
+    expect(
+      resolveChatAppGenerationContextFromMessageState({
+        mode: null,
+      }),
+    ).toBeNull();
   });
 
   it("rebuilds app-generation context from authoritative per-message runs by chat id", () => {
@@ -201,7 +215,12 @@ describe("chatAppGeneration", () => {
         finishedAt: "2026-03-10T00:00:05Z",
         inputs: {
           chatId: "chat-2",
-          messages: [{ id: "msg-3" }],
+          appGenerationByMessageId: {
+            "msg-3": PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE,
+          },
+          messages: [
+            { id: "msg-3", role: "user", content: [], attachments: [] },
+          ],
         },
       }),
     ]);
@@ -222,7 +241,14 @@ describe("chatAppGeneration", () => {
         },
       },
     });
-    expect(detailsByChatId["chat-2"]).toBeUndefined();
+    expect(detailsByChatId["chat-2"]).toEqual({
+      activeAppGeneration: null,
+      appGenerationByMessageId: {
+        "msg-3": {
+          mode: null,
+        },
+      },
+    });
   });
 
   it("ignores legacy run-level app-generation mode when per-message provenance is missing", () => {

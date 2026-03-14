@@ -1,4 +1,5 @@
 import { resetProjectStores } from "state/utils";
+import { PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE } from "state/utils/chatAppGeneration";
 import {
   route_get_agent_runs,
   route_get_llm_chat,
@@ -305,7 +306,7 @@ describe("submitMessage", () => {
     });
   });
 
-  it("does not send app-generation provenance for plain chat submits", async () => {
+  it("persists explicit plain-chat provenance for plain chat submits", async () => {
     mockedRouteGetLLMResponse.mockResolvedValue({
       status: 200,
       hasResponse: true,
@@ -335,10 +336,13 @@ describe("submitMessage", () => {
       {
         appGenerationMode: string | null;
         appGenerationByMessageId: Record<string, string>;
+        message: { id: string };
       },
     ];
     expect(payload.appGenerationMode).toBeNull();
-    expect(payload.appGenerationByMessageId).toEqual({});
+    expect(payload.appGenerationByMessageId).toEqual({
+      [payload.message.id]: PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE,
+    });
   });
 
   it("uses explicit execution settings and keeps app-generation submits deterministic", async () => {

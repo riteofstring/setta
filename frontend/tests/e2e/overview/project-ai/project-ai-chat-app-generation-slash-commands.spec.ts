@@ -211,7 +211,9 @@ test("project ai chat does not reuse a plain-chat image for /app-image", async (
     );
     await expect.poll(() => capturedRequests.length).toBe(1);
     expect(capturedRequests[0]?.appGenerationMode ?? null).toBeNull();
-    expect(capturedRequests[0]?.appGenerationByMessageId ?? {}).toEqual({});
+    expect(capturedRequests[0]?.appGenerationByMessageId ?? {}).toEqual({
+      [capturedRequests[0]?.message?.id ?? ""]: "plain_chat",
+    });
 
     await submitProjectChatMessage(
       page,
@@ -449,6 +451,7 @@ test("project ai chat replays queued /app-json through the same app-generation p
     await expect.poll(() => capturedRequests.length).toBe(2);
     expect(capturedRequests[1]?.appGenerationMode).toBe("json_render");
     expect(capturedRequests[1]?.appGenerationByMessageId).toEqual({
+      [capturedRequests[0]?.message?.id ?? ""]: "plain_chat",
       [capturedRequests[1]?.message?.id ?? ""]: "json_render",
     });
     expect(capturedRequests[1]?.message?.content?.[0]?.text).toBe(

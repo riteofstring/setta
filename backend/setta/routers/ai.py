@@ -77,6 +77,22 @@ AppGenerationMode = Literal[
     "prompt_builder",
     "mcp_server",
 ]
+ChatAppGenerationMessageMode = Literal[
+    "plain_chat",
+    "json_render",
+    "json_render_with_image",
+    "prompt_builder",
+    "mcp_server",
+]
+_CHAT_APP_GENERATION_MESSAGE_MODES = frozenset(
+    {
+        "plain_chat",
+        "json_render",
+        "json_render_with_image",
+        "prompt_builder",
+        "mcp_server",
+    }
+)
 
 _REQUIRED_ERROR_CHECK_PROMPT = (
     "## Required completion gate for create/scaffold work\n"
@@ -443,7 +459,7 @@ def _message_has_image_attachment(message: BaseChatMessageUnion) -> bool:
 def _require_image_attachment_for_app_generation_mode(
     mode: AppGenerationMode | None,
     messages: list[BaseChatMessageUnion],
-    app_generation_by_message_id: dict[str, AppGenerationMode],
+    app_generation_by_message_id: dict[str, ChatAppGenerationMessageMode],
 ) -> None:
     if mode != "json_render_with_image":
         return
@@ -506,31 +522,31 @@ def _build_chat_profile_with_app_generation_mode(
 def _normalize_app_generation_by_message_id(
     *,
     messages: list[BaseChatMessageUnion],
-    app_generation_by_message_id: dict[str, AppGenerationMode],
+    app_generation_by_message_id: dict[str, ChatAppGenerationMessageMode],
     submitted_message_id: ID,
     submitted_mode: AppGenerationMode | None,
-) -> dict[str, AppGenerationMode]:
+) -> dict[str, ChatAppGenerationMessageMode]:
     user_message_ids = {
         message.id for message in messages if getattr(message, "role", None) == "user"
     }
-    normalized: dict[str, AppGenerationMode] = {}
+    normalized: dict[str, ChatAppGenerationMessageMode] = {}
     for message_id, mode in app_generation_by_message_id.items():
         normalized_message_id = message_id.strip()
         if normalized_message_id not in user_message_ids:
             continue
         normalized[normalized_message_id] = mode
     submitted_message_id_str = str(submitted_message_id)
-    if submitted_mode is None:
-        normalized.pop(submitted_message_id_str, None)
-    elif submitted_message_id_str in user_message_ids:
-        normalized[submitted_message_id_str] = submitted_mode
+    if submitted_message_id_str in user_message_ids:
+        normalized[submitted_message_id_str] = (
+            "plain_chat" if submitted_mode is None else submitted_mode
+        )
     return normalized
 
 
 def _apply_app_generation_inputs(
     *,
     inputs: dict[str, object],
-    app_generation_by_message_id: dict[str, AppGenerationMode],
+    app_generation_by_message_id: dict[str, ChatAppGenerationMessageMode],
 ) -> None:
     if app_generation_by_message_id:
         inputs["appGenerationByMessageId"] = app_generation_by_message_id
@@ -555,9 +571,9 @@ class GetLLMResponseRequest(BaseModel):
         default=None,
         description="Optional app generation mode selected in the UI.",
     )
-    appGenerationByMessageId: dict[str, AppGenerationMode] = Field(
+    appGenerationByMessageId: dict[str, ChatAppGenerationMessageMode] = Field(
         default_factory=dict,
-        description="Per-user-message app generation provenance for the chat history.",
+        description="Per-user-message submission mode for the chat history, including plain chat turns.",
     )
 
 
@@ -646,7 +662,9 @@ class GetLLMChatRequestResponse(BaseModel):
     waitingForResponse: bool
     llmConfig: LLMConfig | None
     contextUsage: ChatContextUsage | None = None
-    appGenerationByMessageId: dict[str, AppGenerationMode] = Field(default_factory=dict)
+    appGenerationByMessageId: dict[str, ChatAppGenerationMessageMode] = Field(
+        default_factory=dict
+    )
 
 
 class GetExternalAgentChatRequest(BaseModel):
@@ -659,7 +677,9 @@ class GetExternalAgentChatResponse(BaseModel):
     waitingForResponse: bool
     toolCallArguments: dict[str, str] = Field(default_factory=dict)
     contextUsage: ChatContextUsage | None = None
-    appGenerationByMessageId: dict[str, AppGenerationMode] = Field(default_factory=dict)
+    appGenerationByMessageId: dict[str, ChatAppGenerationMessageMode] = Field(
+        default_factory=dict
+    )
 
 
 class StopLLMChatRequest(BaseModel):
@@ -678,22 +698,17 @@ class GetAIFollowSnapshotRequest(BaseModel):
 
 def _get_run_app_generation_by_message_id(
     run: AgentRun,
-) -> dict[str, AppGenerationMode]:
+) -> dict[str, ChatAppGenerationMessageMode]:
     inputs = run.inputs
     if not inputs:
         return {}
     raw_mapping = inputs.get("appGenerationByMessageId")
     if isinstance(raw_mapping, dict):
-        normalized: dict[str, AppGenerationMode] = {}
+        normalized: dict[str, ChatAppGenerationMessageMode] = {}
         for message_id, raw_mode in raw_mapping.items():
             if not isinstance(message_id, str) or not message_id:
                 continue
-            if raw_mode not in {
-                "json_render",
-                "json_render_with_image",
-                "prompt_builder",
-                "mcp_server",
-            }:
+            if raw_mode not in _CHAT_APP_GENERATION_MESSAGE_MODES:
                 continue
             normalized[message_id] = raw_mode
         if normalized:

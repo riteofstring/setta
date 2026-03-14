@@ -119,7 +119,7 @@ class TestAIAppGenerationModeHelpers:
             {"msg-image": "json_render_with_image"},
         )
 
-    def test_normalize_app_generation_by_message_id_filters_non_user_entries(
+    def test_normalize_app_generation_by_message_id_records_plain_chat_for_the_submitted_turn(
         self,
     ) -> None:
         normalized = _normalize_app_generation_by_message_id(
@@ -134,7 +134,7 @@ class TestAIAppGenerationModeHelpers:
             submitted_mode=None,
         )
 
-        assert normalized == {}
+        assert normalized == {"msg-user": "plain_chat"}
 
     def test_normalize_app_generation_by_message_id_overrides_submitted_message_mode(
         self,
@@ -197,6 +197,40 @@ class TestAIAppGenerationModeHelpers:
         assert _get_run_app_generation_by_message_id(run) == {
             "msg-a": "prompt_builder",
             "msg-b": "json_render",
+        }
+
+    def test_get_run_app_generation_by_message_id_keeps_plain_chat_entries(
+        self,
+    ) -> None:
+        run = AgentRun.model_validate(
+            {
+                "id": "run-plain-chat",
+                "profileId": None,
+                "status": "completed",
+                "startedAt": "2026-03-10T00:00:00Z",
+                "finishedAt": "2026-03-10T00:00:01Z",
+                "events": [],
+                "inputs": {
+                    "messages": [
+                        {
+                            "id": "msg-plain",
+                            "role": "user",
+                            "content": [],
+                            "attachments": [],
+                        }
+                    ],
+                    "appGenerationByMessageId": {
+                        "msg-plain": "plain_chat",
+                    },
+                },
+                "outputs": {},
+                "toolCalls": [],
+                "cost": None,
+            }
+        )
+
+        assert _get_run_app_generation_by_message_id(run) == {
+            "msg-plain": "plain_chat",
         }
 
     def test_get_run_app_generation_by_message_id_ignores_legacy_mode_without_mapping(

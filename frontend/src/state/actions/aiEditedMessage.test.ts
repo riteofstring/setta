@@ -1,4 +1,5 @@
 import { resetProjectStores } from "state/utils";
+import { PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE } from "state/utils/chatAppGeneration";
 import {
   route_get_agent_runs,
   route_get_llm_chat,
@@ -266,6 +267,8 @@ describe("submitEditedMessage", () => {
       },
     ];
     expect(payload.appGenerationMode).toBeNull();
-    expect(payload.appGenerationByMessageId).toEqual({});
+    expect(payload.appGenerationByMessageId).toEqual({
+      "msg-plain": PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE,
+    });
   });
 });

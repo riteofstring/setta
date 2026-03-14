@@ -2665,7 +2665,6 @@ export async function submitMessage(
       chatId,
       userMessageId,
       resolvedPendingSurfaceId,
-      appGeneration,
     );
     throw err;
   }
@@ -3946,20 +3945,16 @@ function applyOptimisticUserMessage(
             waitingForResponse: true,
           },
         },
-        ...(resolvedAppGeneration
-          ? {
-              chatAppGenerationDetailsByChatId: {
-                ...state.chatAppGenerationDetailsByChatId,
-                [chatId]: setChatAppGenerationForMessage(
-                  state.chatAppGenerationDetailsByChatId[chatId] ??
-                    getDefaultChatAppGenerationDetails(),
-                  [...(state.chatDetails[chatId]?.messages ?? []), userMessage],
-                  userMessage.id,
-                  resolvedAppGeneration,
-                ),
-              },
-            }
-          : {}),
+        chatAppGenerationDetailsByChatId: {
+          ...state.chatAppGenerationDetailsByChatId,
+          [chatId]: setChatAppGenerationForMessage(
+            state.chatAppGenerationDetailsByChatId[chatId] ??
+              getDefaultChatAppGenerationDetails(),
+            [...(state.chatDetails[chatId]?.messages ?? []), userMessage],
+            userMessage.id,
+            resolvedAppGeneration,
+          ),
+        },
       };
     }
     const nextDetails = {
@@ -3973,19 +3968,17 @@ function applyOptimisticUserMessage(
     };
     return {
       ...setPendingChatDetailsForSurface(state, surfaceId, nextDetails),
-      ...(resolvedAppGeneration
-        ? setPendingChatAppGenerationDetailsForSurface(
-            state,
-            surfaceId,
-            setChatAppGenerationForMessage(
-              getPendingChatAppGenerationDetailsForSurface(state, surfaceId) ??
-                getDefaultChatAppGenerationDetails(),
-              nextDetails.messages,
-              userMessage.id,
-              resolvedAppGeneration,
-            ),
-          )
-        : {}),
+      ...setPendingChatAppGenerationDetailsForSurface(
+        state,
+        surfaceId,
+        setChatAppGenerationForMessage(
+          getPendingChatAppGenerationDetailsForSurface(state, surfaceId) ??
+            getDefaultChatAppGenerationDetails(),
+          nextDetails.messages,
+          userMessage.id,
+          resolvedAppGeneration,
+        ),
+      ),
     };
   });
 }
@@ -3994,10 +3987,7 @@ function rollbackOptimisticUserMessage(
   chatId: string | null,
   userMessageId: string,
   surfaceId: string | null | undefined = null,
-  appGeneration: ChatAppGenerationContext | null = null,
 ) {
-  const resolvedAppGeneration =
-    normalizeChatAppGenerationContext(appGeneration);
   useAIStore.setState((state) => {
     if (chatId === null) {
       const pendingDetails =
@@ -4012,21 +4002,17 @@ function rollbackOptimisticUserMessage(
           messages: nextMessages,
           waitingForResponse: false,
         }),
-        ...(resolvedAppGeneration
-          ? setPendingChatAppGenerationDetailsForSurface(
-              state,
-              surfaceId,
-              setChatAppGenerationForMessage(
-                getPendingChatAppGenerationDetailsForSurface(
-                  state,
-                  surfaceId,
-                ) ?? getDefaultChatAppGenerationDetails(),
-                nextMessages,
-                userMessageId,
-                null,
-              ),
-            )
-          : {}),
+        ...setPendingChatAppGenerationDetailsForSurface(
+          state,
+          surfaceId,
+          setChatAppGenerationForMessage(
+            getPendingChatAppGenerationDetailsForSurface(state, surfaceId) ??
+              getDefaultChatAppGenerationDetails(),
+            nextMessages,
+            userMessageId,
+            null,
+          ),
+        ),
       };
     }
     const currentDetails = state.chatDetails[chatId] ?? getDefaultChatDetails();
@@ -4042,20 +4028,16 @@ function rollbackOptimisticUserMessage(
           waitingForResponse: false,
         },
       },
-      ...(resolvedAppGeneration
-        ? {
-            chatAppGenerationDetailsByChatId: {
-              ...state.chatAppGenerationDetailsByChatId,
-              [chatId]: setChatAppGenerationForMessage(
-                state.chatAppGenerationDetailsByChatId[chatId] ??
-                  getDefaultChatAppGenerationDetails(),
-                nextMessages,
-                userMessageId,
-                null,
-              ),
-            },
-          }
-        : {}),
+      chatAppGenerationDetailsByChatId: {
+        ...state.chatAppGenerationDetailsByChatId,
+        [chatId]: setChatAppGenerationForMessage(
+          state.chatAppGenerationDetailsByChatId[chatId] ??
+            getDefaultChatAppGenerationDetails(),
+          nextMessages,
+          userMessageId,
+          null,
+        ),
+      },
     };
   });
 }

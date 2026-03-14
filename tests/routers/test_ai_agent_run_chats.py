@@ -1283,6 +1283,81 @@ class TestAgentRunChatRoutes:
                 "msg-mcp": "mcp_server",
             }
 
+    async def test_get_llm_response_persists_explicit_plain_chat_turns(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-plain-chat-persistence")
+            project_config_id = ID("project-plain-chat-persistence")
+            chat_id = ID("chat-plain-chat-persistence")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+
+            app_user_message = UserChatMessage(
+                id="msg-app",
+                content=[MessageTextContent(text="Build the JSON app.")],
+            )
+            app_assistant_message = AssistantChatMessage(
+                id="assistant-app",
+                content=[MessageTextContent(text="JSON app draft")],
+            )
+            seed_run = _build_run(
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+                engine_config_id=engine_config_id,
+                started_at=datetime(2024, 1, 4, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[app_user_message],
+                output_messages=[app_user_message, app_assistant_message],
+            )
+            save_agent_run(dbe, seed_run)
+
+            captured_inputs: dict[str, object] = {}
+
+            def _capture_start_run(profile, inputs, **_kwargs):
+                captured_inputs.update(inputs)
+                return create_agent_run(profile_id=profile.id, inputs=inputs)
+
+            monkeypatch.setattr(runner, "start_run", _capture_start_run)
+
+            with runtime_context(state) as ctx:
+                returned_chat_id = await route_get_llm_response(
+                    GetLLMResponseRequest(
+                        chatId=chat_id,
+                        message=UserChatMessage(
+                            id="msg-plain",
+                            content=[
+                                MessageTextContent(text="Now answer in plain chat.")
+                            ],
+                        ),
+                        engineConfigId=engine_config_id,
+                        agentProfileId=None,
+                        thinking=False,
+                        projectConfigId=project_config_id,
+                        allowUnscoped=True,
+                        permissionMode=ChatPermissionMode.minimal,
+                        searchEnabled=True,
+                        appGenerationMode=None,
+                        appGenerationByMessageId={
+                            "msg-app": "json_render",
+                        },
+                    ),
+                    ctx,
+                )
+
+            assert returned_chat_id == chat_id
+            assert captured_inputs.get("appGenerationByMessageId") == {
+                "msg-app": "json_render",
+                "msg-plain": "plain_chat",
+            }
+
     async def test_get_llm_response_rejects_image_mode_without_image_attachment(
         self,
         monkeypatch: pytest.MonkeyPatch,

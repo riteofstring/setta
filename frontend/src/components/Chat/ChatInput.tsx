@@ -163,6 +163,10 @@ export type ChatSubmitOptions = {
   appGeneration?: ChatAppGenerationContext | null;
 };
 
+export type ChatSubmitDispatchResult = "submitted" | "retry_later" | "failed";
+
+type ChatSubmitResult = boolean | ChatSubmitDispatchResult;
+
 type SlashCommandExecutionOutcome =
   | "submitted"
   | "handled_local"
@@ -413,11 +417,13 @@ function buildQueuedDraftReplayInputsSignature({
   isSubmitDisabled,
   recognizedSlashCommands,
   slashCommands,
+  submitReadinessKey,
   waitingForResponse,
 }: {
   isSubmitDisabled: boolean;
   recognizedSlashCommands: ChatSlashCommandDefinition[];
   slashCommands: ChatSlashCommandDefinition[];
+  submitReadinessKey: string | null;
   waitingForResponse: boolean;
 }): string {
   return JSON.stringify({
@@ -426,8 +432,22 @@ function buildQueuedDraftReplayInputsSignature({
       recognizedSlashCommands,
     ),
     slashCommands: serializeSlashCommandsForReplaySignature(slashCommands),
+    submitReadinessKey,
     waitingForResponse,
   });
+}
+
+function resolveChatSubmitDispatchResult(
+  result: ChatSubmitResult,
+  fallbackFailureResult: Exclude<ChatSubmitDispatchResult, "submitted">,
+): ChatSubmitDispatchResult {
+  if (result === true || result === "submitted") {
+    return "submitted";
+  }
+  if (result === "retry_later" || result === "failed") {
+    return result;
+  }
+  return fallbackFailureResult;
 }
 
 function cloneAttachments(
@@ -559,7 +579,8 @@ type ChatInputProps = {
     message: string,
     attachments: ChatFileAttachment[],
     options?: ChatSubmitOptions,
-  ) => Promise<boolean> | boolean;
+  ) => Promise<ChatSubmitResult> | ChatSubmitResult;
+  submitReadinessKey?: string | null;
   onUnknownSlashCommand?: (
     message: string,
     attachments: ChatFileAttachment[],
@@ -602,6 +623,7 @@ export const ChatInput = memo(function ChatInput({
   value,
   onChange,
   onSubmit,
+  submitReadinessKey = null,
   onUnknownSlashCommand,
   onStop,
   executionControls,
@@ -768,12 +790,14 @@ export const ChatInput = memo(function ChatInput({
         isSubmitDisabled,
         recognizedSlashCommands: slashCommandRecognitionSet,
         slashCommands,
+        submitReadinessKey,
         waitingForResponse,
       }),
     [
       isSubmitDisabled,
       slashCommandRecognitionSet,
       slashCommands,
+      submitReadinessKey,
       waitingForResponse,
     ],
   );
@@ -1006,15 +1030,17 @@ export const ChatInput = memo(function ChatInput({
           setSlashFeedback(imageAttachmentError);
           return "failed";
         }
-        const submitted =
-          (await onSubmit(
+        const submitted = resolveChatSubmitDispatchResult(
+          await onSubmit(
             submission.message,
             submission.attachments,
             resolveSlashCommandSubmitOptions(parsed),
-          )) === true;
-        if (!submitted) {
+          ),
+          "retry_later",
+        );
+        if (submitted !== "submitted") {
           setSlashFeedback(`Failed to submit ${parsed.command}.`);
-          return "retry_later";
+          return submitted;
         }
         setSlashFeedback(`Submitted ${parsed.command}`);
         escClearedComposerDraftRef.current = null;
@@ -1023,11 +1049,17 @@ export const ChatInput = memo(function ChatInput({
         return "submitted";
       }
       if (parsed.action === "native_prompt") {
-        const submitted =
-          (await onSubmit(message, submittedAttachments)) === true;
-        if (!submitted) {
+        const submitted = resolveChatSubmitDispatchResult(
+          await onSubmit(
+            message,
+            submittedAttachments,
+            resolveSlashCommandSubmitOptions(parsed),
+          ),
+          "retry_later",
+        );
+        if (submitted !== "submitted") {
           setSlashFeedback(`Failed to submit ${parsed.command}.`);
-          return "retry_later";
+          return submitted;
         }
         setSlashFeedback(`Submitted ${parsed.command}`);
         escClearedComposerDraftRef.current = null;
@@ -1073,15 +1105,17 @@ export const ChatInput = memo(function ChatInput({
           setSlashFeedback(imageAttachmentError);
           return "failed";
         }
-        const submitted =
-          (await onSubmit(submission.message, submission.attachments, {
+        const submitted = resolveChatSubmitDispatchResult(
+          await onSubmit(submission.message, submission.attachments, {
             appGeneration: {
               mode: slashResult.appGenerationMode,
             },
-          })) === true;
-        if (!submitted) {
+          }),
+          "retry_later",
+        );
+        if (submitted !== "submitted") {
           setSlashFeedback(`Failed to submit ${parsed.command}.`);
-          return "retry_later";
+          return submitted;
         }
         setSlashFeedback(
           slashResult.feedback ?? `Submitted ${parsed.command}.`,
@@ -1211,13 +1245,14 @@ export const ChatInput = memo(function ChatInput({
         return "failed";
       }
       const result = await onSubmit(submittedValue, submittedAttachments);
-      if (result === true) {
+      const submitOutcome = resolveChatSubmitDispatchResult(result, "failed");
+      if (submitOutcome === "submitted") {
         escClearedComposerDraftRef.current = null;
         clearInput();
         clearAttachments();
         return "submitted";
       }
-      return "failed";
+      return submitOutcome;
     },
     [
       clearAttachments,

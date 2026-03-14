@@ -13,9 +13,19 @@ export type ChatAppGenerationContext = {
   mode: AppGenerationMode;
 };
 
+export const PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE = "plain_chat";
+
+type SerializedChatAppGenerationMessageMode =
+  | AppGenerationMode
+  | typeof PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE;
+
+export type ChatAppGenerationMessageState = {
+  mode: AppGenerationMode | null;
+};
+
 export type ChatAppGenerationDetails = {
   activeAppGeneration: ChatAppGenerationContext | null;
-  appGenerationByMessageId: Record<string, ChatAppGenerationContext>;
+  appGenerationByMessageId: Record<string, ChatAppGenerationMessageState>;
 };
 
 export function getDefaultChatAppGenerationDetails(): ChatAppGenerationDetails {
@@ -42,7 +52,7 @@ export function normalizeChatAppGenerationContext(
 
 export function buildChatAppGenerationDetails(
   messages: BaseChatMessageUnion[],
-  appGenerationByMessageId: Record<string, ChatAppGenerationContext>,
+  appGenerationByMessageId: Record<string, ChatAppGenerationMessageState>,
 ): ChatAppGenerationDetails {
   return {
     activeAppGeneration: resolveLatestChatAppGeneration(
@@ -63,15 +73,18 @@ export function setChatAppGenerationForMessage(
   if (!normalizedMessageId) {
     return details;
   }
-  const normalizedContext = normalizeChatAppGenerationContext(context);
+  const hasRetainedMessage = messages.some(
+    (message) => message.id === normalizedMessageId,
+  );
   const nextByMessageId = {
     ...details.appGenerationByMessageId,
   };
-  if (normalizedContext) {
-    nextByMessageId[normalizedMessageId] = normalizedContext;
-  } else {
+  if (!hasRetainedMessage) {
     delete nextByMessageId[normalizedMessageId];
+    return buildChatAppGenerationDetails(messages, nextByMessageId);
   }
+  nextByMessageId[normalizedMessageId] =
+    createChatAppGenerationMessageState(context);
   return buildChatAppGenerationDetails(messages, nextByMessageId);
 }
 
@@ -96,9 +109,12 @@ export function mergeChatAppGenerationDetails(
   existing: ChatAppGenerationDetails,
   incoming: ChatAppGenerationDetails,
 ): ChatAppGenerationDetails {
+  const hasIncomingMessageStates =
+    Object.keys(incoming.appGenerationByMessageId).length > 0;
   return {
-    activeAppGeneration:
-      incoming.activeAppGeneration ?? existing.activeAppGeneration,
+    activeAppGeneration: hasIncomingMessageStates
+      ? incoming.activeAppGeneration
+      : existing.activeAppGeneration,
     appGenerationByMessageId: {
       ...existing.appGenerationByMessageId,
       ...incoming.appGenerationByMessageId,
@@ -127,17 +143,20 @@ export function mergeChatAppGenerationDetailsByChatId(
 
 export function serializeChatAppGenerationByMessageId(
   details: ChatAppGenerationDetails,
-): Record<string, AppGenerationMode> {
+): Record<string, SerializedChatAppGenerationMessageMode> {
   return Object.fromEntries(
     Object.entries(details.appGenerationByMessageId).map(
-      ([messageId, context]) => [messageId, context.mode],
+      ([messageId, messageState]) => [
+        messageId,
+        messageState.mode ?? PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE,
+      ],
     ),
   );
 }
 
 export function deserializeChatAppGenerationByMessageId(
   serialized: unknown,
-): Record<string, ChatAppGenerationContext> {
+): Record<string, ChatAppGenerationMessageState> {
   if (
     !serialized ||
     typeof serialized !== "object" ||
@@ -145,20 +164,19 @@ export function deserializeChatAppGenerationByMessageId(
   ) {
     return {};
   }
-  const nextByMessageId: Record<string, ChatAppGenerationContext> = {};
+  const nextByMessageId: Record<string, ChatAppGenerationMessageState> = {};
   for (const [messageId, rawMode] of Object.entries(
     serialized as Record<string, unknown>,
   )) {
     const normalizedMessageId = messageId.trim();
-    const normalizedContext = normalizeChatAppGenerationContext(
+    const messageState =
       typeof rawMode === "string"
-        ? { mode: rawMode as AppGenerationMode }
-        : null,
-    );
-    if (!normalizedMessageId || !normalizedContext) {
+        ? parseChatAppGenerationMessageState(rawMode)
+        : null;
+    if (!normalizedMessageId || !messageState) {
       continue;
     }
-    nextByMessageId[normalizedMessageId] = normalizedContext;
+    nextByMessageId[normalizedMessageId] = messageState;
   }
   return nextByMessageId;
 }
@@ -186,19 +204,64 @@ export function collectChatAppGenerationDetailsByChatId(
 
 function resolveLatestChatAppGeneration(
   messages: BaseChatMessageUnion[],
-  appGenerationByMessageId: Record<string, ChatAppGenerationContext>,
+  appGenerationByMessageId: Record<string, ChatAppGenerationMessageState>,
 ): ChatAppGenerationContext | null {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const messageId = messages[index]?.id;
     if (typeof messageId !== "string") {
       continue;
     }
-    const context = appGenerationByMessageId[messageId];
-    if (context) {
-      return context;
+    const messageState = appGenerationByMessageId[messageId];
+    if (messageState) {
+      return resolveChatAppGenerationContextFromMessageState(messageState);
     }
   }
   return null;
+}
+
+function createChatAppGenerationMessageState(
+  context:
+    | {
+        mode: AppGenerationMode | null;
+      }
+    | null
+    | undefined,
+): ChatAppGenerationMessageState {
+  return {
+    mode: parseAppGenerationMode(context?.mode),
+  };
+}
+
+function parseChatAppGenerationMessageState(
+  rawMode: string,
+): ChatAppGenerationMessageState | null {
+  if (rawMode === PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE) {
+    return {
+      mode: null,
+    };
+  }
+  const mode = parseAppGenerationMode(rawMode);
+  if (mode === null) {
+    return null;
+  }
+  return {
+    mode,
+  };
+}
+
+export function resolveChatAppGenerationContextFromMessageState(
+  messageState: ChatAppGenerationMessageState | null | undefined,
+): ChatAppGenerationContext | null {
+  if (!messageState) {
+    return null;
+  }
+  const mode = parseAppGenerationMode(messageState.mode);
+  if (mode === null) {
+    return null;
+  }
+  return {
+    mode,
+  };
 }
 
 function getRunAppGenerationDetails(
