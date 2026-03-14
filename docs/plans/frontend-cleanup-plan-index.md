@@ -19,6 +19,8 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
   - Section chrome, param rendering, shared layout/measurement infrastructure, and section-level authoring surfaces.
 - [frontend-state-and-shared-infrastructure-cleanup-plan.md](./frontend-state-and-shared-infrastructure-cleanup-plan.md)
   - Zustand store boundaries, state command/query layering, cross-cutting interaction utilities, and shared UI infrastructure.
+- [frontend-forks-cleanup-plan.md](./frontend-forks-cleanup-plan.md)
+  - `xyflow` and `dnd-kit` cleanup, ownership clarification, and fork-focused verification.
 
 ## Suggested Reading Order
 
@@ -30,4 +32,4 @@ These plans describe the intended cleanup direction, but the exact hotspot sizes
 ## Coverage Notes
 
 - Chat, project-AI, project chat windowing, browser/file-management hotspots, and app/plugin runtime are already covered in [frontend-cleanup-plan.md](./frontend-cleanup-plan.md).
-- The companion plans cover the rest of the authored frontend surface so the cleanup roadmap is distributed rather than concentrated in one document.
+- The companion plans cover the rest of the authored frontend surface, including maintained forked UI infrastructure, so the cleanup roadmap is distributed rather than concentrated in one document.

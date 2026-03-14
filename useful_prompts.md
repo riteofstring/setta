@@ -98,7 +98,7 @@ Autonomous Codex frontend cleanup session prompt:
 
 You are working in /Users/kevin/Documents/AppDevelopment/setta.clean-code-2.
 
-Goal: clean up the authored frontend so it is easy for Codex coding agents to navigate, understand, and modify, while preserving behavior and keeping or improving performance.
+Goal: clean up the authored frontend, including forked UI code under `frontend/src/forks/**`, so it is easy for Codex coding agents to navigate, understand, and modify, while preserving behavior and keeping or improving performance.
 
 This is an autonomous execution session. Work independently. Do not pause to ask me questions. Make reasonable assumptions based on the existing code, the repo instructions, and the cleanup plans below. If one slice is blocked, skip it, note the blocker briefly, and continue with the next highest-value unblocked slice.
 
@@ -110,6 +110,7 @@ Read these first:
 - docs/plans/frontend-panes-and-authoring-cleanup-plan.md
 - docs/plans/frontend-sections-and-params-cleanup-plan.md
 - docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md
+- docs/plans/frontend-forks-cleanup-plan.md
 - if present, docs/reference/frontend-module-map.md
 - if present, docs/plans/frontend-cleanup-execution-log.md
 
@@ -125,7 +126,7 @@ Autonomy rules:
 - Make reasonable assumptions instead of asking for help.
 - If a task would normally require asking me something, choose the most conservative reasonable path and document the assumption in your progress note or commit message.
 - If a slice is blocked by unavailable tooling, permissions, or verification requirements, move to the next unblocked cleanup slice instead of stopping.
-- Do not touch generated files under frontend/src/utils/generated\* or forked code under frontend/src/forks/\*\* unless absolutely required.
+- Do not touch generated files under frontend/src/utils/generated\* unless absolutely required.
 
 Execution rules:
 
@@ -166,6 +167,7 @@ Suggested execution order:
    - pages and shell
    - panes and authoring
    - sections and params
+   - forked xyflow / dnd-kit surfaces
    - remaining runtime/infrastructure cleanup
 
 When you get a message like “proceed with the next step”, interpret it as:
