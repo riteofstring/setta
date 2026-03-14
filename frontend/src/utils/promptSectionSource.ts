@@ -4,7 +4,7 @@ import type {
   PromptTemplate,
 } from "utils/generatedTypes";
 
-export type ResolvedPromptSectionSource = {
+type ResolvedPromptSectionSource = {
   format: PromptFormat;
   isLinked: boolean;
   linkedTemplate: PromptTemplate | null;

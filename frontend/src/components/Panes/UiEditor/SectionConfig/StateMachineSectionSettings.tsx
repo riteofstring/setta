@@ -124,11 +124,7 @@ export function StateMachineSectionSettings({
   React.useEffect(() => {
     setMachineGroupIdDraft(sectionState.machineGroupId);
     setLabelDraft(sectionState.label);
-  }, [
-    sectionState.label,
-    sectionState.machineGroupId,
-    sectionState.type,
-  ]);
+  }, [sectionState.label, sectionState.machineGroupId, sectionState.type]);
 
   function persist(next: {
     machineGroupId: string;

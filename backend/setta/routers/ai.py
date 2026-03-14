@@ -43,11 +43,6 @@ from setta.llm.transcription_sessions import (
 )
 from setta.llm.user_facing_errors import get_user_facing_llm_error_message
 from setta.logging.project_id_route import require_project_context
-from setta.routers.app_generation_limits import (
-    MAX_REFERENCE_IMAGE_NOTES_CHARS,
-    MAX_REFERENCE_IMAGE_URL_CHARS,
-)
-from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaProjectContextFullRuntimeAPIRouter
 from setta.types.agentic import (

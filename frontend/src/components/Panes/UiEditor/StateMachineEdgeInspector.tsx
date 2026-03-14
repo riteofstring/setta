@@ -1,7 +1,7 @@
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
-import { type ChangeEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import {
   deleteSelectedStateMachineEdges,
   replaceStateMachineEdge,
@@ -738,14 +738,14 @@ export function StateMachineEdgeInspector({
                     ...current,
                     sourceActivationCountCondition:
                       current.sourceActivationCountCondition
-                      ? {
-                          ...current.sourceActivationCountCondition,
-                          operator: value as WorkflowCountOperator,
-                        }
-                      : {
-                          operator: value as WorkflowCountOperator,
-                          value: 0,
-                        },
+                        ? {
+                            ...current.sourceActivationCountCondition,
+                            operator: value as WorkflowCountOperator,
+                          }
+                        : {
+                            operator: value as WorkflowCountOperator,
+                            value: 0,
+                          },
                   }));
                 }}
                 isDisabled={isDisabled}
@@ -766,20 +766,20 @@ export function StateMachineEdgeInspector({
                       ...current,
                       sourceActivationCountCondition:
                         current.sourceActivationCountCondition
-                        ? {
-                            ...current.sourceActivationCountCondition,
-                            value:
-                              Number.isInteger(parsed) && parsed >= 0
-                                ? parsed
-                                : 0,
-                          }
-                        : {
-                            operator: StateMachineCountOperatorEnum.eq,
-                            value:
-                              Number.isInteger(parsed) && parsed >= 0
-                                ? parsed
-                                : 0,
-                          },
+                          ? {
+                              ...current.sourceActivationCountCondition,
+                              value:
+                                Number.isInteger(parsed) && parsed >= 0
+                                  ? parsed
+                                  : 0,
+                            }
+                          : {
+                              operator: StateMachineCountOperatorEnum.eq,
+                              value:
+                                Number.isInteger(parsed) && parsed >= 0
+                                  ? parsed
+                                  : 0,
+                            },
                     }));
                   }}
                   className="rounded border border-setta-300 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"

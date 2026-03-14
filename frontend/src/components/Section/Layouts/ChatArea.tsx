@@ -38,6 +38,10 @@ import {
 import _ from "lodash";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  getRunInputString,
+  getRunLastUpdatedMs,
+} from "state/actions/agentRunUtils";
+import {
   clearPendingChatDetails,
   getDefaultChatDetails,
   getExternalAgentChat,
@@ -61,10 +65,6 @@ import {
   type ChatRunType,
 } from "state/actions/chatHistory";
 import { addPersistentNotification } from "state/actions/notifications";
-import {
-  getRunInputString,
-  getRunLastUpdatedMs,
-} from "state/actions/agentRunUtils";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,

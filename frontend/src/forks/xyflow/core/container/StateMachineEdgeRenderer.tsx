@@ -206,7 +206,8 @@ const StateMachineEdgeRenderer = () => {
             targetY: targetCenter.y,
             targetPosition: HandlePosition.Left,
           });
-          const sourceActivationCountLabel = getSourceActivationCountLabel(edge);
+          const sourceActivationCountLabel =
+            getSourceActivationCountLabel(edge);
           const edgeLabelX = (sourceCenter.x + targetCenter.x) / 2;
           const edgeLabelY = (sourceCenter.y + targetCenter.y) / 2;
           const edgeLabelWidth = sourceActivationCountLabel

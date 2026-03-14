@@ -252,8 +252,9 @@ describe("stateMachineRuns", () => {
         machineGroupId: "workflow-main",
       });
       expect(
-        useAIStore.getState().agentRuns.find((run) => run.id === "machine-run-1")
-          ?.status,
+        useAIStore
+          .getState()
+          .agentRuns.find((run) => run.id === "machine-run-1")?.status,
       ).toBe(AgentRunStatusEnum.completed);
     });
 
