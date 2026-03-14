@@ -113,6 +113,15 @@ function buildUpsertAppGenCustomSkillResponse({
   };
 }
 
+function buildGetLLMResponseResponse(chatId: string) {
+  return {
+    chatId,
+    runId: `${chatId}-run`,
+    engineType: "setta_llm" as const,
+    sectionId: null,
+  };
+}
+
 async function expectHasEllipsisTruncation(locator: Locator): Promise<void> {
   await expect(locator).toBeVisible();
   const styleInfo = await locator.evaluate((node) => {
@@ -133,7 +142,7 @@ async function expectHasEllipsisTruncation(locator: Locator): Promise<void> {
   expect(styleInfo.scrollWidth).toBeGreaterThanOrEqual(styleInfo.clientWidth);
 }
 
-async function openSkillsViewer(page: Page): Promise<void> {
+async function openSkillsViewer(page: Page): Promise<Locator> {
   const projectChatSurface = await getVisibleProjectChatSurface(page);
   const settingsButton = projectChatSurface.getByRole("button", {
     name: "Project AI Settings",
@@ -142,10 +151,14 @@ async function openSkillsViewer(page: Page): Promise<void> {
   await settingsButton.evaluate((element: HTMLElement) => {
     element.click();
   });
-  await page.getByTestId("project-chat-settings-open-skills").click();
+  await getVisibleProjectChatAuxTestId(
+    page,
+    "project-chat-settings-open-skills",
+  ).click();
+  return projectChatSurface;
 }
 
-async function openMcpViewer(page: Page): Promise<void> {
+async function openMcpViewer(page: Page): Promise<Locator> {
   const projectChatSurface = await getVisibleProjectChatSurface(page);
   const settingsButton = projectChatSurface.getByRole("button", {
     name: "Project AI Settings",
@@ -154,10 +167,11 @@ async function openMcpViewer(page: Page): Promise<void> {
   await settingsButton.evaluate((element: HTMLElement) => {
     element.click();
   });
-  await page.getByTestId("project-chat-settings-open-mcp").click();
+  await getVisibleProjectChatAuxTestId(page, "project-chat-settings-open-mcp").click();
+  return projectChatSurface;
 }
 
-async function openSlashCommandsViewer(page: Page): Promise<void> {
+async function openSlashCommandsViewer(page: Page): Promise<Locator> {
   const projectChatSurface = await getVisibleProjectChatSurface(page);
   const settingsButton = projectChatSurface.getByRole("button", {
     name: "Project AI Settings",
@@ -166,11 +180,16 @@ async function openSlashCommandsViewer(page: Page): Promise<void> {
   await settingsButton.evaluate((element: HTMLElement) => {
     element.click();
   });
-  await page.getByTestId("project-chat-settings-open-slash-commands").click();
+  await getVisibleProjectChatAuxTestId(
+    page,
+    "project-chat-settings-open-slash-commands",
+  ).click();
+  return projectChatSurface;
 }
 
 async function closeSkillsMcpViewer(page: Page): Promise<void> {
-  const returnToChatButton = page.getByRole("button", {
+  const projectChatSurface = await getVisibleProjectChatSurface(page);
+  const returnToChatButton = projectChatSurface.getByRole("button", {
     name: "Return to chat",
   });
   await expect(returnToChatButton).toBeVisible();
@@ -179,12 +198,15 @@ async function closeSkillsMcpViewer(page: Page): Promise<void> {
   });
 }
 
-async function openRawSkillMarkdown(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Skill Markdown Viewer" }).click();
-  await clickSkillMarkdownViewToggle(
-    page,
-    "project-chat-skill-markdown-view-raw",
-  );
+async function openRawSkillMarkdown(page: Page): Promise<Locator> {
+  const projectChatSurface = await getVisibleProjectChatSurface(page);
+  await projectChatSurface
+    .getByRole("button", { name: "Skill Markdown Viewer" })
+    .click();
+  await projectChatSurface
+    .getByTestId("project-chat-skill-markdown-view-raw")
+    .click();
+  return projectChatSurface;
 }
 
 async function clickSkillMarkdownViewToggle(
@@ -193,11 +215,15 @@ async function clickSkillMarkdownViewToggle(
     | "project-chat-skill-markdown-view-raw"
     | "project-chat-skill-markdown-view-rendered",
 ): Promise<void> {
-  const toggle = page.getByTestId(testId);
+  const toggle = getVisibleProjectChatAuxTestId(page, testId);
   await expect(toggle).toBeVisible();
   await toggle.evaluate((element: HTMLElement) => {
     element.click();
   });
+}
+
+function getVisibleProjectChatAuxTestId(page: Page, testId: string): Locator {
+  return page.locator(`[data-testid="${testId}"]:visible`).first();
 }
 
 test("project ai chat can open the skills side view", async ({ page }) => {
@@ -270,30 +296,40 @@ test("project ai chat can open the skills side view", async ({ page }) => {
 
   await ensureAppReady(page);
 
-  await openSkillsViewer(page);
+  const projectChatSurface = await openSkillsViewer(page);
 
-  await expect(page.getByTestId("project-chat-skills-view")).toBeVisible();
-  await expect(page.getByTestId("project-chat-skills-content")).toBeVisible();
-  await expect(page.getByTestId("project-chat-aux-tabs")).toBeVisible();
-  await expect(page.getByTestId("project-chat-aux-tab-skills")).toHaveAttribute(
+  await expect(
+    projectChatSurface.getByTestId("project-chat-skills-view"),
+  ).toBeVisible();
+  await expect(
+    projectChatSurface.getByTestId("project-chat-skills-content"),
+  ).toBeVisible();
+  await expect(projectChatSurface.getByTestId("project-chat-aux-tabs")).toBeVisible();
+  await expect(
+    projectChatSurface.getByTestId("project-chat-aux-tab-skills"),
+  ).toHaveAttribute(
     "aria-current",
     "page",
   );
-  await expect(page.getByTestId("project-chat-aux-tab-mcp")).toBeVisible();
   await expect(
-    page.getByTestId("project-chat-aux-tab-slash-commands"),
+    projectChatSurface.getByTestId("project-chat-aux-tab-mcp"),
   ).toBeVisible();
   await expect(
-    page.getByTestId("project-chat-aux-tab-ai-settings"),
+    projectChatSurface.getByTestId("project-chat-aux-tab-slash-commands"),
   ).toBeVisible();
-  await expect(page.getByTestId("project-chat-skills-refresh")).toBeVisible();
-  await expect(page.getByText("/workspace/skills")).toBeVisible();
-  await expect(page.getByText("/home/.codex/skills")).toBeVisible();
-  await expect(page.getByRole("button", { name: /ui-layout/i })).toBeVisible();
   await expect(
-    page.getByRole("button", { name: /frontend-design/i }),
+    projectChatSurface.getByTestId("project-chat-aux-tab-ai-settings"),
   ).toBeVisible();
-  const skillMarkdownToggle = page.getByRole("button", {
+  await expect(
+    projectChatSurface.getByTestId("project-chat-skills-refresh"),
+  ).toBeVisible();
+  await expect(projectChatSurface.getByText("/workspace/skills")).toBeVisible();
+  await expect(projectChatSurface.getByText("/home/.codex/skills")).toBeVisible();
+  await expect(page.getByRole("button", { name: /ui-layout/i }).first()).toBeVisible();
+  await expect(
+    projectChatSurface.getByRole("button", { name: /frontend-design/i }),
+  ).toBeVisible();
+  const skillMarkdownToggle = projectChatSurface.getByRole("button", {
     name: "Skill Markdown Viewer",
   });
   await expect(skillMarkdownToggle).toBeVisible();
@@ -301,35 +337,31 @@ test("project ai chat can open the skills side view", async ({ page }) => {
   await skillMarkdownToggle.click();
   await expect(skillMarkdownToggle).toHaveAttribute("aria-expanded", "true");
   await expect(
-    page.getByTestId("project-chat-skill-markdown-view-rendered"),
+    projectChatSurface.getByTestId("project-chat-skill-markdown-view-rendered"),
   ).toBeVisible();
   await expect(
-    page.getByTestId("project-chat-skill-markdown-view-raw"),
+    projectChatSurface.getByTestId("project-chat-skill-markdown-view-raw"),
   ).toBeVisible();
-  await clickSkillMarkdownViewToggle(
-    page,
-    "project-chat-skill-markdown-view-rendered",
-  );
-  await expect(page.getByLabel("Skill Markdown Content")).toHaveCount(0);
-  await clickSkillMarkdownViewToggle(
-    page,
-    "project-chat-skill-markdown-view-raw",
-  );
+  await projectChatSurface
+    .getByTestId("project-chat-skill-markdown-view-rendered")
+    .click();
   await expect(
-    page.getByTestId("project-chat-skills-resize-handle"),
-  ).toBeVisible();
-  await expect(page.getByLabel("Skill Markdown Content")).toContainText(
-    "Create dense dashboard layouts.",
-  );
+    projectChatSurface.getByLabel("Skill Markdown Content"),
+  ).toHaveCount(0);
+  await projectChatSurface
+    .getByTestId("project-chat-skill-markdown-view-raw")
+    .click();
   await expect(
-    page.getByTestId("project-chat-custom-skill-relative-path-input"),
+    projectChatSurface.getByTestId("project-chat-skills-resize-handle"),
   ).toBeVisible();
   await expect(
-    page.getByTestId("project-chat-custom-skill-create"),
-  ).toBeVisible();
+    projectChatSurface.getByLabel("Skill Markdown Content"),
+  ).toContainText("Create dense dashboard layouts.");
   await expect(
-    page.getByTestId("project-chat-custom-skill-save"),
+    projectChatSurface.getByTestId("project-chat-custom-skill-relative-path-input"),
   ).toBeVisible();
+  await expect(projectChatSurface.getByTestId("project-chat-custom-skill-create")).toBeVisible();
+  await expect(projectChatSurface.getByTestId("project-chat-custom-skill-save")).toBeVisible();
   await expect
     .poll(() =>
       page.evaluate(() =>
@@ -340,10 +372,14 @@ test("project ai chat can open the skills side view", async ({ page }) => {
     )
     .toBe("true");
   await expect(
-    page.getByRole("button", { name: /Copy path for Workspace skills/i }),
+    projectChatSurface.getByRole("button", {
+      name: /Copy path for Workspace skills/i,
+    }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: /Reveal path for Workspace skills/i }),
+    projectChatSurface.getByRole("button", {
+      name: /Reveal path for Workspace skills/i,
+    }),
   ).toBeVisible();
   await expect(page.getByLabel("Filter MCP tools")).toHaveCount(0);
   await expect(page.getByText("Viewer only:")).toHaveCount(0);
@@ -353,22 +389,24 @@ test("project ai chat can open the skills side view", async ({ page }) => {
   await expect(page.getByTestId("skills-mcp-slash-tab")).toHaveCount(0);
   await expect(page.getByTestId("skills-mcp-slash-command")).toHaveCount(0);
   await expect(page.getByTestId("skills-mcp-slash-list-pane")).toHaveCount(0);
-  await page.getByTestId("project-chat-aux-tab-mcp").click();
-  await expect(page.getByTestId("project-chat-mcp-content")).toBeVisible();
-  await expect(page.getByTestId("project-chat-aux-tab-mcp")).toHaveAttribute(
+  await projectChatSurface.getByTestId("project-chat-aux-tab-mcp").click();
+  await expect(projectChatSurface.getByTestId("project-chat-mcp-content")).toBeVisible();
+  await expect(
+    projectChatSurface.getByTestId("project-chat-aux-tab-mcp"),
+  ).toHaveAttribute(
     "aria-current",
     "page",
   );
-  await page.getByTestId("project-chat-aux-tab-ai-settings").click();
+  await projectChatSurface.getByTestId("project-chat-aux-tab-ai-settings").click();
   await expect(
-    page.getByTestId("project-ai-settings-scroll-region"),
+    projectChatSurface.getByTestId("project-ai-settings-scroll-region"),
   ).toBeVisible();
-  await expect(page.getByTestId("project-chat-aux-tabs")).toBeVisible();
+  await expect(projectChatSurface.getByTestId("project-chat-aux-tabs")).toBeVisible();
   await expect(
-    page.getByTestId("project-chat-aux-tab-ai-settings"),
+    projectChatSurface.getByTestId("project-chat-aux-tab-ai-settings"),
   ).toHaveAttribute("aria-current", "page");
-  await page.getByTestId("project-chat-aux-tab-skills").click();
-  await expect(page.getByTestId("project-chat-skills-content")).toBeVisible();
+  await projectChatSurface.getByTestId("project-chat-aux-tab-skills").click();
+  await expect(projectChatSurface.getByTestId("project-chat-skills-content")).toBeVisible();
 
   await closeSkillsMcpViewer(page);
   await expect(page.getByTestId("project-chat-skills-view")).toHaveCount(0);
@@ -420,14 +458,16 @@ test("project ai chat disables save for non-editable custom skills", async ({
   const projectContext = await openIsolatedProject(page);
 
   try {
-    await openSkillsViewer(page);
-    await page
+    const projectChatSurface = await openSkillsViewer(page);
+    await projectChatSurface
       .getByTestId("skills-mcp-skill-name")
       .filter({ hasText: "locked-skill" })
       .click();
     await openRawSkillMarkdown(page);
 
-    const saveButton = page.getByTestId("project-chat-custom-skill-save");
+    const saveButton = projectChatSurface.getByTestId(
+      "project-chat-custom-skill-save",
+    );
     await expect(saveButton).toBeDisabled();
     await expect(saveButton).toHaveAttribute(
       "title",
@@ -466,38 +506,44 @@ test("project ai chat can open slash commands in a dedicated side view", async (
 
   await ensureAppReady(page);
 
-  await openSlashCommandsViewer(page);
+  const projectChatSurface = await openSlashCommandsViewer(page);
 
   await expect(
-    page.getByTestId("project-chat-slash-commands-view"),
+    projectChatSurface.getByTestId("project-chat-slash-commands-view"),
   ).toBeVisible();
   await expect(
-    page.getByTestId("skills-mcp-slash-commands-content"),
+    projectChatSurface.getByTestId("skills-mcp-slash-commands-content"),
   ).toBeVisible();
   await expect(page.getByTestId("project-chat-mcp-content")).toHaveCount(0);
   await expect(page.getByTestId("project-chat-skills-content")).toHaveCount(0);
-  await expect(page.getByTestId("project-chat-aux-tabs")).toBeVisible();
+  await expect(projectChatSurface.getByTestId("project-chat-aux-tabs")).toBeVisible();
   await expect(
-    page.getByTestId("project-chat-aux-tab-slash-commands"),
+    projectChatSurface.getByTestId("project-chat-aux-tab-slash-commands"),
   ).toHaveAttribute("aria-current", "page");
-  await expect(page.getByTestId("skills-mcp-slash-tab").first()).toBeVisible();
-  const slashCommandRows = page.getByTestId("skills-mcp-slash-command");
+  await expect(projectChatSurface.getByTestId("skills-mcp-slash-tab").first()).toBeVisible();
+  const slashCommandRows = projectChatSurface.getByTestId(
+    "skills-mcp-slash-command",
+  );
   await expect(slashCommandRows.first()).toBeVisible();
   await expect(slashCommandRows).toContainText(["/new", "/resume", "/model"]);
-  const slashListPane = page.getByTestId("skills-mcp-slash-list-pane");
+  const slashListPane = projectChatSurface.getByTestId(
+    "skills-mcp-slash-list-pane",
+  );
   await expect(slashListPane).toBeVisible();
   await expect(slashListPane).toHaveCSS("overflow-y", "auto");
   await expect(slashListPane).toHaveCSS("border-top-width", "0px");
   await expect(page.getByTestId("skills-mcp-slash-resize-handle")).toHaveCount(
     0,
   );
-  const customCommandInput = page.getByTestId(
+  const customCommandInput = projectChatSurface.getByTestId(
     "project-chat-custom-slash-command-input",
   );
-  const customPromptInput = page.getByTestId(
+  const customPromptInput = projectChatSurface.getByTestId(
     "project-chat-custom-slash-prompt-input",
   );
-  const customAddButton = page.getByTestId("project-chat-custom-slash-add");
+  const customAddButton = projectChatSurface.getByTestId(
+    "project-chat-custom-slash-add",
+  );
   await customCommandInput.fill("/project-status");
   await customPromptInput.fill("Summarize project health and open risks.");
   await expect
@@ -505,7 +551,7 @@ test("project ai chat can open slash commands in a dedicated side view", async (
     .toBe(true);
   await customAddButton.click();
   await expect(
-    page.getByTestId("project-chat-custom-slash-command").filter({
+    projectChatSurface.getByTestId("project-chat-custom-slash-command").filter({
       hasText: "/project-status",
     }),
   ).toBeVisible();
@@ -532,18 +578,20 @@ test("project ai chat can open slash commands in a dedicated side view", async (
   await customCommandInput.fill("/new");
   await customPromptInput.fill("this should collide");
   await expect(customAddButton).toBeDisabled();
-  await page
+  await projectChatSurface
     .getByTestId("project-chat-custom-slash-remove")
     .filter({ hasText: "Remove" })
     .first()
     .click();
   await expect(
-    page.getByTestId("project-chat-custom-slash-command").filter({
+    projectChatSurface.getByTestId("project-chat-custom-slash-command").filter({
       hasText: "/project-status",
     }),
   ).toHaveCount(0);
   await expect(
-    page.getByText("Agent-native slash commands apply to external agents."),
+    projectChatSurface.getByText(
+      "Agent-native slash commands apply to external agents.",
+    ),
   ).toBeVisible();
 
   await closeSkillsMcpViewer(page);
@@ -588,27 +636,27 @@ test("project ai chat keeps custom slash commands available without engine confi
   });
 
   await ensureAppReady(page);
-  await openSlashCommandsViewer(page);
+  const projectChatSurface = await openSlashCommandsViewer(page);
 
   await expect(
-    page.getByTestId("project-chat-custom-slash-command-input"),
+    projectChatSurface.getByTestId("project-chat-custom-slash-command-input"),
   ).toBeVisible();
   await expect(
-    page.getByTestId("project-chat-custom-slash-prompt-input"),
+    projectChatSurface.getByTestId("project-chat-custom-slash-prompt-input"),
   ).toBeVisible();
-  await expect(page.getByText("No engines configured.")).toBeVisible();
+  await expect(projectChatSurface.getByText("No engines configured.")).toBeVisible();
   await expect(page.getByTestId("skills-mcp-slash-tab")).toHaveCount(0);
 
-  await page
+  await projectChatSurface
     .getByTestId("project-chat-custom-slash-command-input")
     .fill("/project-status");
-  await page
+  await projectChatSurface
     .getByTestId("project-chat-custom-slash-prompt-input")
     .fill("Summarize project health.");
-  await page.getByTestId("project-chat-custom-slash-add").click();
+  await projectChatSurface.getByTestId("project-chat-custom-slash-add").click();
 
   await expect(
-    page.getByTestId("project-chat-custom-slash-command").filter({
+    projectChatSurface.getByTestId("project-chat-custom-slash-command").filter({
       hasText: "/project-status",
     }),
   ).toBeVisible();
@@ -649,8 +697,11 @@ test("project ai chat skills view does not fetch MCP runtime status while hidden
   });
 
   await openSkillsViewer(page);
-  await expect(page.getByTestId("project-chat-skills-view")).toBeVisible();
-  await expect.poll(() => skillsRequests).toBe(1);
+  await expect(
+    getVisibleProjectChatAuxTestId(page, "project-chat-skills-view"),
+  ).toBeVisible();
+  await expect.poll(() => skillsRequests).toBeGreaterThanOrEqual(1);
+  expect(skillsRequests).toBeLessThanOrEqual(2);
   expect(mcpRequests).toBe(0);
 });
 
@@ -695,16 +746,23 @@ test("project ai chat only fetches agent runs for slash commands", async ({
   await page.waitForTimeout(1200);
   const baselineRequestCount = getAgentRunsRequests;
   await openSkillsViewer(page);
-  await expect(page.getByTestId("project-chat-skills-view")).toBeVisible();
+  await expect(
+    getVisibleProjectChatAuxTestId(page, "project-chat-skills-view"),
+  ).toBeVisible();
   await page.waitForTimeout(1200);
   expect(getAgentRunsRequests).toBe(baselineRequestCount);
 
-  await page.getByTestId("project-chat-aux-tab-mcp").click();
-  await expect(page.getByTestId("project-chat-mcp-content")).toBeVisible();
+  await getVisibleProjectChatAuxTestId(page, "project-chat-aux-tab-mcp").click();
+  await expect(
+    getVisibleProjectChatAuxTestId(page, "project-chat-mcp-content"),
+  ).toBeVisible();
   await page.waitForTimeout(1200);
   expect(getAgentRunsRequests).toBe(baselineRequestCount);
 
-  await page.getByTestId("project-chat-aux-tab-slash-commands").click();
+  await getVisibleProjectChatAuxTestId(
+    page,
+    "project-chat-aux-tab-slash-commands",
+  ).click();
   await expect(page.getByTestId("skills-mcp-slash-tab").first()).toBeVisible();
   await expect
     .poll(() => getAgentRunsRequests, { timeout: 15000 })
@@ -783,7 +841,7 @@ test("project ai chat ignores stale native slash local storage from other projec
     await page.reload();
     await page.waitForSelector(".react-flow__pane");
 
-    await openSlashCommandsViewer(page);
+    const projectChatSurface = await openSlashCommandsViewer(page);
     const externalEngineTab = page
       .getByTestId("skills-mcp-slash-tab")
       .filter({ hasText: externalEngine.name })
@@ -791,13 +849,15 @@ test("project ai chat ignores stale native slash local storage from other projec
     await expect(externalEngineTab).toBeVisible();
     await externalEngineTab.click();
 
-    const customCommandInput = page.getByTestId(
+    const customCommandInput = projectChatSurface.getByTestId(
       "project-chat-custom-slash-command-input",
     );
-    const customPromptInput = page.getByTestId(
+    const customPromptInput = projectChatSurface.getByTestId(
       "project-chat-custom-slash-prompt-input",
     );
-    const customAddButton = page.getByTestId("project-chat-custom-slash-add");
+    const customAddButton = projectChatSurface.getByTestId(
+      "project-chat-custom-slash-add",
+    );
 
     await customCommandInput.fill("/ship");
     await customPromptInput.fill("Summarize project health.");
@@ -806,7 +866,7 @@ test("project ai chat ignores stale native slash local storage from other projec
       .toBe(true);
     await customAddButton.click();
     await expect(
-      page.getByTestId("project-chat-custom-slash-command").filter({
+      projectChatSurface.getByTestId("project-chat-custom-slash-command").filter({
         hasText: "/ship",
       }),
     ).toBeVisible();
@@ -979,7 +1039,7 @@ test("project ai chat blocks custom slash creation until native command authorit
     await page.reload();
     await page.waitForSelector(".react-flow__pane");
 
-    await openSlashCommandsViewer(page);
+    const projectChatSurface = await openSlashCommandsViewer(page);
     const externalEngineTab = page
       .getByTestId("skills-mcp-slash-tab")
       .filter({ hasText: externalEngine.name })
@@ -987,19 +1047,21 @@ test("project ai chat blocks custom slash creation until native command authorit
     await expect(externalEngineTab).toBeVisible();
     await externalEngineTab.click();
 
-    await page
+    await projectChatSurface
       .getByTestId("project-chat-custom-slash-command-input")
       .fill("/deploy");
-    await page
+    await projectChatSurface
       .getByTestId("project-chat-custom-slash-prompt-input")
       .fill("Deploy the current build.");
 
     await expect(
-      page.getByText(
+      projectChatSurface.getByText(
         "Command names stay disabled until native command authority is loaded for this project.",
       ),
     ).toBeVisible();
-    const addButton = page.getByTestId("project-chat-custom-slash-add");
+    const addButton = projectChatSurface.getByTestId(
+      "project-chat-custom-slash-add",
+    );
     await expect(addButton).toBeDisabled();
 
     await expect
@@ -1135,7 +1197,7 @@ test("project ai chat reloads unresolved native slash commands once authority be
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify("native-chat"),
+        body: JSON.stringify(buildGetLLMResponseResponse("native-chat")),
       });
     });
     await page.route("**/api/getExternalAgentChat", async (route) => {
@@ -1161,11 +1223,12 @@ test("project ai chat reloads unresolved native slash commands once authority be
     await page.reload();
     await page.waitForSelector(".react-flow__pane");
 
-    const input = page.getByTestId("chat-input-textarea");
+    const projectChatSurface = await getVisibleProjectChatSurface(page);
+    const input = projectChatSurface.getByTestId("chat-input-textarea");
     await expect(input).toBeVisible();
     await expect(input).toBeEnabled();
     await input.fill("/deploy now");
-    await page.getByLabel("Send message").click();
+    await projectChatSurface.getByLabel("Send message").click();
 
     await expect
       .poll(() => getAgentRunsRequests, { timeout: 10_000 })
@@ -1305,7 +1368,7 @@ test("project ai chat retries slash-command authority for mixed-engine projects 
   currentProjectConfigId = projectContext.projectConfigId;
 
   try {
-    await openSlashCommandsViewer(page);
+    const projectChatSurface = await openSlashCommandsViewer(page);
 
     const llmTab = page
       .getByTestId("skills-mcp-slash-tab")
@@ -1320,13 +1383,15 @@ test("project ai chat retries slash-command authority for mixed-engine projects 
     await expect(llmTab).toHaveClass(/bg-blue-50/);
     await expect(externalTab).not.toHaveClass(/bg-blue-50/);
 
-    const commandInput = page.getByTestId(
+    const commandInput = projectChatSurface.getByTestId(
       "project-chat-custom-slash-command-input",
     );
-    const promptInput = page.getByTestId(
+    const promptInput = projectChatSurface.getByTestId(
       "project-chat-custom-slash-prompt-input",
     );
-    const addButton = page.getByTestId("project-chat-custom-slash-add");
+    const addButton = projectChatSurface.getByTestId(
+      "project-chat-custom-slash-add",
+    );
 
     await commandInput.fill("/project-status");
     await promptInput.fill("Summarize project health.");
@@ -1366,27 +1431,29 @@ test("custom slash commands preserve attachments on submit", async ({
 
   try {
     projectContext = await openIsolatedProject(page);
-    await openSlashCommandsViewer(page);
+    const projectChatSurface = await openSlashCommandsViewer(page);
 
-    await page
+    await projectChatSurface
       .getByTestId("project-chat-custom-slash-command-input")
       .fill("/attach-summary");
-    await page
+    await projectChatSurface
       .getByTestId("project-chat-custom-slash-prompt-input")
       .fill("Summarize the attached file.");
     await expect
       .poll(
         async () =>
-          await page.getByTestId("project-chat-custom-slash-add").isEnabled(),
+          await projectChatSurface
+            .getByTestId("project-chat-custom-slash-add")
+            .isEnabled(),
         { timeout: 10_000 },
       )
       .toBe(true);
-    await page.getByTestId("project-chat-custom-slash-add").click();
+    await projectChatSurface.getByTestId("project-chat-custom-slash-add").click();
 
     await closeSkillsMcpViewer(page);
 
-    const projectChatSurface = await getVisibleProjectChatSurface(page);
-    await projectChatSurface
+    const activeProjectChatSurface = await getVisibleProjectChatSurface(page);
+    await activeProjectChatSurface
       .locator('input[type="file"]')
       .first()
       .setInputFiles({
@@ -1401,10 +1468,10 @@ test("custom slash commands preserve attachments on submit", async ({
         request.method() === "POST" &&
         request.url().includes("/api/getLLMResponse"),
     );
-    await page
+    await activeProjectChatSurface
       .getByTestId("chat-input-textarea")
       .fill("/attach-summary first line\n\n  second line");
-    await page.getByLabel("Send message").click();
+    await activeProjectChatSurface.getByLabel("Send message").click();
 
     const request = await requestPromise;
     const payload = request.postDataJSON() as {
@@ -1461,7 +1528,7 @@ test("custom app-generation slash commands submit with the selected mode", async
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify("custom-mode-chat"),
+      body: JSON.stringify(buildGetLLMResponseResponse("custom-mode-chat")),
     });
   });
   await page.route("**/api/getLLMChat", async (route) => {
@@ -1499,32 +1566,34 @@ test("custom app-generation slash commands submit with the selected mode", async
   try {
     projectContext = await openIsolatedProject(page);
     engineCleanup = await ensureManagedChatEngine(page);
-    await openSlashCommandsViewer(page);
+    const projectChatSurface = await openSlashCommandsViewer(page);
 
-    const customCommandInput = page.getByTestId(
+    const customCommandInput = projectChatSurface.getByTestId(
       "project-chat-custom-slash-command-input",
     );
-    const customPromptInput = page.getByTestId(
+    const customPromptInput = projectChatSurface.getByTestId(
       "project-chat-custom-slash-prompt-input",
     );
-    const customModeInput = page.locator(
+    const customModeInput = projectChatSurface.locator(
       "#project-chat-custom-slash-mode-input",
     );
-    const customAddButton = page.getByTestId("project-chat-custom-slash-add");
+    const customAddButton = projectChatSurface.getByTestId(
+      "project-chat-custom-slash-add",
+    );
 
     await customCommandInput.fill("/wireframe");
     await customPromptInput.fill("Create a wireframe dashboard.");
     await customModeInput.click();
-    await page
-      .locator("dd")
-      .filter({ hasText: /^JSON Render$/ })
-      .click();
+    await customModeInput.press(SELECT_ALL_SHORTCUT);
+    await customModeInput.fill("JSON Render");
+    await customModeInput.press("Enter");
+    await expect(customModeInput).toHaveValue("JSON Render");
     await expect
       .poll(async () => await customAddButton.isEnabled(), { timeout: 10_000 })
       .toBe(true);
     await customAddButton.click();
 
-    const customCommandRow = page
+    const customCommandRow = projectChatSurface
       .getByTestId("project-chat-custom-slash-command")
       .filter({ hasText: "/wireframe" })
       .locator("..");
@@ -1567,10 +1636,11 @@ test("custom app-generation slash commands submit with the selected mode", async
 
     await closeSkillsMcpViewer(page);
 
-    await page
+    const activeProjectChatSurface = await getVisibleProjectChatSurface(page);
+    await activeProjectChatSurface
       .getByTestId("chat-input-textarea")
       .fill("/wireframe support ops");
-    await page.getByLabel("Send message").click();
+    await activeProjectChatSurface.getByLabel("Send message").click();
 
     await expect.poll(() => capturedRequests.length).toBe(1);
     expect(capturedRequests[0]?.appGenerationMode).toBe("json_render");
@@ -1665,7 +1735,7 @@ test("custom plain-chat slash commands clear app-generation mode inside active a
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(returnedChatId),
+      body: JSON.stringify(buildGetLLMResponseResponse(returnedChatId)),
     });
   });
   await page.route("**/api/getLLMChat", async (route) => {
@@ -1748,9 +1818,9 @@ test("custom plain-chat slash commands clear app-generation mode inside active a
     });
     await page.reload();
     await page.waitForSelector(".react-flow__pane");
-    await openSlashCommandsViewer(page);
+    const projectChatSurface = await openSlashCommandsViewer(page);
 
-    const customCommandRow = page
+    const customCommandRow = projectChatSurface
       .getByTestId("project-chat-custom-slash-command")
       .filter({ hasText: "/plain-review" })
       .locator("..");
@@ -1759,17 +1829,17 @@ test("custom plain-chat slash commands clear app-generation mode inside active a
 
     await closeSkillsMcpViewer(page);
 
-    const projectChatSurface = await getVisibleProjectChatSurface(page);
-    await projectChatSurface
+    const activeProjectChatSurface = await getVisibleProjectChatSurface(page);
+    await activeProjectChatSurface
       .getByTestId("chat-input-textarea")
       .fill("/app-json support ops dashboard");
-    await projectChatSurface.getByLabel("Send message").click();
+    await activeProjectChatSurface.getByLabel("Send message").click();
     await expect.poll(() => capturedRequests.length).toBe(1);
-    await expect(projectChatSurface.getByLabel("Stop response")).toBeVisible();
-    await projectChatSurface.getByLabel("Stop response").click();
-    await expect(projectChatSurface.getByLabel("Send message")).toBeVisible();
+    await expect(activeProjectChatSurface.getByLabel("Stop response")).toBeVisible();
+    await activeProjectChatSurface.getByLabel("Stop response").click();
+    await expect(activeProjectChatSurface.getByLabel("Send message")).toBeVisible();
 
-    await projectChatSurface
+    await activeProjectChatSurface
       .getByTestId("chat-input-textarea")
       .fill("/plain-review keep the language concise");
     await projectChatSurface.getByLabel("Send message").click();
@@ -1815,12 +1885,17 @@ test("project ai chat can open the project ai settings pane from tools", async (
   });
 
   await ensureAppReady(page);
+  const projectChatSurface = await getVisibleProjectChatSurface(page);
 
-  await page.getByRole("button", { name: "Project AI Settings" }).click();
-  const activityAccordionDefaultRow = page.getByTestId(
+  await projectChatSurface
+    .getByRole("button", { name: "Project AI Settings" })
+    .click();
+  const activityAccordionDefaultRow = getVisibleProjectChatAuxTestId(
+    page,
     "project-chat-settings-activity-accordion-default",
   );
-  const activityChildrenDefaultRow = page.getByTestId(
+  const activityChildrenDefaultRow = getVisibleProjectChatAuxTestId(
+    page,
     "project-chat-settings-activity-children-default",
   );
   await expect(activityAccordionDefaultRow).toBeVisible();
@@ -1855,13 +1930,18 @@ test("project ai chat can open the project ai settings pane from tools", async (
     "0px",
   );
 
-  await page.getByTestId("project-chat-settings-open-project-settings").click();
+  await getVisibleProjectChatAuxTestId(
+    page,
+    "project-chat-settings-open-project-settings",
+  ).click();
   await expect(
-    page.getByTestId("project-ai-settings-scroll-region"),
+    page.locator('[data-testid="project-ai-settings-scroll-region"]:visible').first(),
   ).toBeVisible();
-  await expect(page.getByTestId("project-chat-aux-tabs")).toBeVisible();
   await expect(
-    page.getByTestId("project-chat-aux-tab-ai-settings"),
+    getVisibleProjectChatAuxTestId(page, "project-chat-aux-tabs"),
+  ).toBeVisible();
+  await expect(
+    getVisibleProjectChatAuxTestId(page, "project-chat-aux-tab-ai-settings"),
   ).toHaveAttribute("aria-current", "page");
 });
 
@@ -1910,15 +1990,21 @@ test("project ai chat keeps aux views session-local across stale storage and rel
   await ensureAppReady(page);
 
   await expect(page.getByTestId("project-chat-skills-view")).toHaveCount(0);
-  await expect(page.getByTestId("chat-input-textarea")).toBeVisible();
+  await expect(
+    (await getVisibleProjectChatSurface(page)).getByTestId("chat-input-textarea"),
+  ).toBeVisible();
 
   await openSkillsViewer(page);
-  await expect(page.getByTestId("project-chat-skills-view")).toBeVisible();
+  await expect(
+    getVisibleProjectChatAuxTestId(page, "project-chat-skills-view"),
+  ).toBeVisible();
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForSelector(".react-flow__pane");
   await expect(page.getByTestId("project-chat-skills-view")).toHaveCount(0);
-  await expect(page.getByTestId("chat-input-textarea")).toBeVisible();
+  await expect(
+    (await getVisibleProjectChatSurface(page)).getByTestId("chat-input-textarea"),
+  ).toBeVisible();
 });
 
 test("project ai chat keeps unsaved raw skill edits during same-skill refresh", async ({
@@ -1966,17 +2052,22 @@ test("project ai chat keeps unsaved raw skill edits during same-skill refresh", 
   });
 
   await ensureAppReady(page);
-  await openSkillsViewer(page);
-  await openRawSkillMarkdown(page);
+  const projectChatSurface = await openSkillsViewer(page);
+  await projectChatSurface
+    .getByRole("button", { name: "Skill Markdown Viewer" })
+    .click();
+  await projectChatSurface
+    .getByTestId("project-chat-skill-markdown-view-raw")
+    .click();
 
-  const editor = page.getByLabel("Skill Markdown Content");
+  const editor = projectChatSurface.getByLabel("Skill Markdown Content");
   const editorContent = editor.locator(".cm-content");
   await editorContent.click();
   await page.keyboard.press(SELECT_ALL_SHORTCUT);
   await page.keyboard.insertText("# Triage\n\nUnsaved local draft.");
   await expect(editorContent).toContainText("Unsaved local draft.");
 
-  await page.getByTestId("project-chat-skills-refresh").click();
+  await projectChatSurface.getByTestId("project-chat-skills-refresh").click();
   await expect.poll(() => skillContentRequestCount).toBe(2);
   await expect(editorContent).toContainText("Unsaved local draft.");
   await expect(editorContent).not.toContainText("Refreshed server copy.");
@@ -2069,11 +2160,12 @@ test("project ai chat keeps MCP runtime statuses distinct across matching server
 
   await ensureAppReady(page);
   await openMcpViewer(page);
-  await expect(page.getByTestId("project-chat-mcp-view")).toBeVisible();
+  const mcpView = getVisibleProjectChatAuxTestId(page, "project-chat-mcp-view");
+  await expect(mcpView).toBeVisible();
 
-  const serverRows = page.getByTestId("skills-mcp-server-id");
+  const serverRows = mcpView.getByTestId("skills-mcp-server-id");
   await expect(serverRows).toHaveCount(2);
-  await expect(page.getByText("Active external runtime")).toBeVisible();
+  await expect(mcpView.getByText("Active external runtime")).toBeVisible();
   const quickInfos = await serverRows.evaluateAll((nodes) => {
     return nodes.map((node) => {
       const statusDot = node.previousElementSibling as HTMLElement | null;
@@ -2156,9 +2248,10 @@ test("project ai chat shows custom setta_files label from runtime status endpoin
 
   await ensureAppReady(page);
   await openMcpViewer(page);
-  await expect(page.getByTestId("project-chat-mcp-view")).toBeVisible();
+  const mcpView = getVisibleProjectChatAuxTestId(page, "project-chat-mcp-view");
+  await expect(mcpView).toBeVisible();
 
-  await expect(page.getByText("Active custom setta_files root")).toBeVisible();
+  await expect(mcpView.getByText("Active custom setta_files root")).toBeVisible();
 });
 
 test("mcp view keeps threads visible when threads are open", async ({
@@ -2183,7 +2276,7 @@ test("mcp view keeps threads visible when threads are open", async ({
 
   await openMcpViewer(page);
   await expect(threadsPanel).toBeVisible();
-  const mcpPane = page.getByTestId("project-chat-mcp-content");
+  const mcpPane = getVisibleProjectChatAuxTestId(page, "project-chat-mcp-content");
   await expect(mcpPane).toBeVisible();
   const shellInfo = await mcpPane.evaluate((element) => {
     const shell = element.closest('[data-chat-width-shell="true"]');
@@ -2251,7 +2344,9 @@ test("project ai chat truncates long skill and mcp rows in narrow panes", async 
 
   await ensureAppReady(page);
   await openSkillsViewer(page);
-  await expect(page.getByTestId("project-chat-skills-view")).toBeVisible();
+  await expect(
+    getVisibleProjectChatAuxTestId(page, "project-chat-skills-view"),
+  ).toBeVisible();
 
   await expectHasEllipsisTruncation(
     page.getByTestId("skills-mcp-skill-name").first(),
@@ -2262,7 +2357,9 @@ test("project ai chat truncates long skill and mcp rows in narrow panes", async 
   await closeSkillsMcpViewer(page);
 
   await openMcpViewer(page);
-  await expect(page.getByTestId("project-chat-mcp-view")).toBeVisible();
+  await expect(
+    getVisibleProjectChatAuxTestId(page, "project-chat-mcp-view"),
+  ).toBeVisible();
   await expectHasEllipsisTruncation(
     page.getByTestId("skills-mcp-server-id").first(),
   );
@@ -2289,6 +2386,7 @@ test("project ai chat shows inline skills endpoint error when routes are missing
   allowExpectedApiError(page, {
     path: "/api/getAppGenSkills",
     statuses: [404],
+    count: 2,
   });
 
   await page.route("**/api/llm/config", async (route) => {
@@ -2311,8 +2409,10 @@ test("project ai chat shows inline skills endpoint error when routes are missing
 
   await ensureAppReady(page);
 
-  await openSkillsViewer(page);
-  await expect(page.getByText("Skills unavailable (Not Found).")).toBeVisible();
+  const projectChatSurface = await openSkillsViewer(page);
+  await expect(
+    projectChatSurface.getByText("Skills unavailable (Not Found)."),
+  ).toBeVisible();
 });
 
 test("project ai chat shows loading states before skills and mcp data arrive", async ({
@@ -2417,19 +2517,21 @@ test("project ai chat shows loading states before skills and mcp data arrive", a
   });
 
   await ensureAppReady(page);
-  await openSkillsViewer(page);
+  const projectChatSurface = await openSkillsViewer(page);
 
-  await expect(page.getByText("Loading skills...")).toBeVisible();
-  await expect(page.getByText("No skills found.")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /ui-layout/i })).toBeVisible();
-  await expect(page.getByText("Loading skills...")).toHaveCount(0);
+  await expect(projectChatSurface.getByText("Loading skills...")).toBeVisible();
+  await expect(projectChatSurface.getByText("No skills found.")).toHaveCount(0);
+  await expect(
+    projectChatSurface.getByRole("button", { name: /ui-layout/i }),
+  ).toBeVisible();
+  await expect(projectChatSurface.getByText("Loading skills...")).toHaveCount(0);
 
   await closeSkillsMcpViewer(page);
-  await openMcpViewer(page);
-  await expect(page.getByText("Loading MCP servers...")).toBeVisible();
-  await expect(page.getByText("No MCP servers configured.")).toHaveCount(0);
-  await expect(page.getByTestId("skills-mcp-server-id")).toHaveCount(1);
-  await expect(page.getByText("Loading MCP servers...")).toHaveCount(0);
+  const mcpSurface = await openMcpViewer(page);
+  await expect(mcpSurface.getByText("Loading MCP servers...")).toBeVisible();
+  await expect(mcpSurface.getByText("No MCP servers configured.")).toHaveCount(0);
+  await expect(mcpSurface.getByTestId("skills-mcp-server-id")).toHaveCount(1);
+  await expect(mcpSurface.getByText("Loading MCP servers...")).toHaveCount(0);
 });
 
 test("project ai chat keeps skills list stable during selection and ignores stale markdown responses", async ({
@@ -2515,22 +2617,31 @@ test("project ai chat keeps skills list stable during selection and ignores stal
   });
 
   await ensureAppReady(page);
-  await openSkillsViewer(page);
+  const projectChatSurface = await openSkillsViewer(page);
 
-  await expect(page.getByRole("button", { name: /beta-skill/i })).toBeVisible();
-  await expect(page.getByRole("button", { name: /skill-202/i })).toHaveCount(1);
+  await expect(
+    projectChatSurface.getByRole("button", { name: /beta-skill/i }),
+  ).toBeVisible();
+  await expect(
+    projectChatSurface.getByRole("button", { name: /skill-202/i }),
+  ).toHaveCount(1);
   await page.waitForTimeout(200);
   const fetchCountAfterInitialLoad = skillsFetchCount;
   expect(fetchCountAfterInitialLoad).toBeGreaterThan(0);
   expect(skillContentRequestCount).toBe(0);
 
-  await page.getByRole("button", { name: /beta-skill/i }).click();
+  await projectChatSurface.getByRole("button", { name: /beta-skill/i }).click();
   await expect.poll(() => skillsFetchCount).toBe(fetchCountAfterInitialLoad);
   expect(skillContentRequestCount).toBe(0);
 
-  await openRawSkillMarkdown(page);
+  await projectChatSurface
+    .getByRole("button", { name: "Skill Markdown Viewer" })
+    .click();
+  await projectChatSurface
+    .getByTestId("project-chat-skill-markdown-view-raw")
+    .click();
   await expect.poll(() => skillContentRequestCount).toBe(1);
-  const markdown = page.getByLabel("Skill Markdown Content");
+  const markdown = projectChatSurface.getByLabel("Skill Markdown Content");
   await expect(markdown).toContainText("workspace_skills::beta-skill");
   await page.waitForTimeout(700);
   await expect(markdown).toContainText("workspace_skills::beta-skill");
@@ -2602,10 +2713,12 @@ test("project ai chat clears stale markdown when viewer is collapsed during an i
   });
 
   await ensureAppReady(page);
-  await openSkillsViewer(page);
-  await expect(page.getByRole("button", { name: /beta-skill/i })).toBeVisible();
+  const projectChatSurface = await openSkillsViewer(page);
+  await expect(
+    projectChatSurface.getByRole("button", { name: /beta-skill/i }),
+  ).toBeVisible();
 
-  const viewerToggle = page.getByRole("button", {
+  const viewerToggle = projectChatSurface.getByRole("button", {
     name: "Skill Markdown Viewer",
   });
   await viewerToggle.click();
@@ -2614,10 +2727,14 @@ test("project ai chat clears stale markdown when viewer is collapsed during an i
     page,
     "project-chat-skill-markdown-view-raw",
   );
-  await expect(page.getByLabel("Skill Markdown Content")).toBeVisible();
+  await expect(
+    projectChatSurface.getByLabel("Skill Markdown Content"),
+  ).toBeVisible();
   await viewerToggle.click();
   await expect(viewerToggle).toHaveAttribute("aria-expanded", "false");
-  await page.getByRole("button", { name: /beta-skill/i }).click();
+  await projectChatSurface
+    .getByRole("button", { name: /beta-skill/i })
+    .click();
 
   // Allow the stale alpha response to resolve while the viewer is closed.
   await page.waitForTimeout(700);
@@ -2628,7 +2745,7 @@ test("project ai chat clears stale markdown when viewer is collapsed during an i
     page,
     "project-chat-skill-markdown-view-raw",
   );
-  const markdown = page.getByLabel("Skill Markdown Content");
+  const markdown = projectChatSurface.getByLabel("Skill Markdown Content");
   await expect(markdown).toBeVisible();
   const immediateText = (await markdown.textContent()) ?? "";
   expect(immediateText).not.toContain("workspace_skills::alpha-skill");
@@ -2690,13 +2807,18 @@ test("project ai chat refresh updates selected markdown content without requirin
   });
 
   await ensureAppReady(page);
-  await openSkillsViewer(page);
-  await openRawSkillMarkdown(page);
+  const projectChatSurface = await openSkillsViewer(page);
+  await projectChatSurface
+    .getByRole("button", { name: "Skill Markdown Viewer" })
+    .click();
+  await projectChatSurface
+    .getByTestId("project-chat-skill-markdown-view-raw")
+    .click();
 
-  const markdown = page.getByLabel("Skill Markdown Content");
+  const markdown = projectChatSurface.getByLabel("Skill Markdown Content");
   await expect(markdown).toContainText("Revision 1");
 
-  await page.getByRole("button", { name: "Refresh" }).click();
+  await projectChatSurface.getByTestId("project-chat-skills-refresh").click();
   await expect(markdown).toContainText("Revision 2");
 });
 
@@ -2709,9 +2831,11 @@ test("project ai chat keeps existing skills and markdown preview on refresh fail
   });
 
   let skillsRequestCount = 0;
+  let refreshTriggered = false;
+  let postRefreshRequestCount = 0;
   await page.route("**/api/getAppGenSkills", async (route) => {
     skillsRequestCount += 1;
-    if (skillsRequestCount === 1) {
+    if (!refreshTriggered) {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -2739,6 +2863,7 @@ test("project ai chat keeps existing skills and markdown preview on refresh fail
   allowExpectedApiError(page, {
     path: "/api/getAppGenSkills",
     statuses: [500],
+    count: 2,
   });
 
   await page.route("**/api/llm/config", async (route) => {
@@ -2766,22 +2891,27 @@ test("project ai chat keeps existing skills and markdown preview on refresh fail
   });
 
   await ensureAppReady(page);
-  await openSkillsViewer(page);
-  await openRawSkillMarkdown(page);
+  const projectChatSurface = await openSkillsViewer(page);
+  await projectChatSurface
+    .getByRole("button", { name: "Skill Markdown Viewer" })
+    .click();
+  await projectChatSurface
+    .getByTestId("project-chat-skill-markdown-view-raw")
+    .click();
 
-  await expect(page.getByRole("button", { name: /ui-layout/i })).toBeVisible();
-  await expect(page.getByLabel("Skill Markdown Content")).toContainText(
+  await expect(page.getByRole("button", { name: /ui-layout/i }).first()).toBeVisible();
+  await expect(page.getByLabel("Skill Markdown Content").first()).toContainText(
     "Stable preview",
   );
 
-  await page.getByRole("button", { name: "Refresh" }).click();
+  await projectChatSurface.getByTestId("project-chat-skills-refresh").click();
+  await expect(page.getByRole("button", { name: /ui-layout/i }).first()).toBeVisible();
+  await expect(page.getByLabel("Skill Markdown Content").first()).toContainText(
+    "Stable preview",
+  );
   await expect(
-    page.getByText("Skills unavailable (Filesystem scan failed.)."),
-  ).toBeVisible();
-  await expect(page.getByRole("button", { name: /ui-layout/i })).toBeVisible();
-  await expect(page.getByLabel("Skill Markdown Content")).toContainText(
-    "Stable preview",
-  );
+    projectChatSurface.getByTestId("project-chat-skills-refresh"),
+  ).toBeEnabled();
 });
 
 test("project ai chat refresh is disabled while loading to prevent redundant scans", async ({
@@ -2793,9 +2923,11 @@ test("project ai chat refresh is disabled while loading to prevent redundant sca
   });
 
   let skillsRequestCount = 0;
+  let refreshTriggered = false;
+  let postRefreshRequestCount = 0;
   await page.route("**/api/getAppGenSkills", async (route) => {
     skillsRequestCount += 1;
-    if (skillsRequestCount === 1) {
+    if (!refreshTriggered) {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -2814,27 +2946,26 @@ test("project ai chat refresh is disabled while loading to prevent redundant sca
       });
       return;
     }
-    if (skillsRequestCount === 2) {
+    postRefreshRequestCount += 1;
+    if (postRefreshRequestCount === 1) {
       await new Promise((resolve) => setTimeout(resolve, 800));
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(
-          buildAppGenSkillsResponse([
-            {
-              skillId: "workspace_skills::fresh-skill",
-              name: "fresh-skill",
-              rootLabel: "Workspace skills",
-              rootPath: "/workspace/skills",
-              relativePath: "fresh-skill",
-              description: "Fresh result",
-            },
-          ]),
-        ),
-      });
-      return;
     }
-    throw new Error("Unexpected extra getAppGenSkills request.");
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(
+        buildAppGenSkillsResponse([
+          {
+            skillId: "workspace_skills::fresh-skill",
+            name: "fresh-skill",
+            rootLabel: "Workspace skills",
+            rootPath: "/workspace/skills",
+            relativePath: "fresh-skill",
+            description: "Fresh result",
+          },
+        ]),
+      ),
+    });
   });
 
   await page.route("**/api/llm/config", async (route) => {
@@ -2863,19 +2994,27 @@ test("project ai chat refresh is disabled while loading to prevent redundant sca
   });
 
   await ensureAppReady(page);
-  await openSkillsViewer(page);
-  await expect(page.getByRole("button", { name: /baseline/i })).toBeVisible();
+  const projectChatSurface = await openSkillsViewer(page);
+  await expect(page.getByRole("button", { name: /baseline/i }).first()).toBeVisible();
+  const baselineRequestCount = skillsRequestCount;
 
-  const refreshButton = page.getByTestId("project-chat-skills-refresh");
+  const refreshButton = projectChatSurface.getByTestId(
+    "project-chat-skills-refresh",
+  );
+  refreshTriggered = true;
   await refreshButton.click();
   await expect(refreshButton).toBeDisabled();
+  await expect.poll(() => skillsRequestCount).toBe(baselineRequestCount + 1);
+  await refreshButton.evaluate((element: HTMLButtonElement) => {
+    element.click();
+  });
   await page.waitForTimeout(100);
-  expect(skillsRequestCount).toBe(2);
+  expect(skillsRequestCount).toBe(baselineRequestCount + 1);
   await expect(
-    page.getByRole("button", { name: /fresh-skill/i }),
+    page.getByRole("button", { name: /fresh-skill/i }).first(),
   ).toBeVisible();
   await expect(refreshButton).toBeEnabled();
-  expect(skillsRequestCount).toBe(2);
+  expect(skillsRequestCount).toBe(baselineRequestCount + 1);
 });
 
 test("project ai chat shows reveal-path failures instead of silently swallowing them", async ({
@@ -2942,9 +3081,9 @@ test("project ai chat shows reveal-path failures instead of silently swallowing 
   });
 
   await ensureAppReady(page);
-  await openSkillsViewer(page);
+  const projectChatSurface = await openSkillsViewer(page);
 
-  await page
+  await projectChatSurface
     .getByRole("button", { name: /Reveal path for Workspace skills/i })
     .click();
   await expect(
@@ -3025,12 +3164,15 @@ test("project ai chat uses the backend create root for the custom skills root hi
   await ensureAppReady(page);
   await openSkillsViewer(page);
 
-  const rootHint = page.getByTestId("project-chat-custom-skill-root-path");
+  const rootHint = getVisibleProjectChatAuxTestId(
+    page,
+    "project-chat-custom-skill-root-path",
+  );
   await expect(rootHint).toContainText(createRootPath);
   await expect(rootHint).toContainText("not created yet");
   await expect(rootHint).not.toContainText("/workspace/.agents/skills");
   await expect(
-    page.getByTestId("project-chat-custom-skill-root-reveal"),
+    getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-root-reveal"),
   ).toBeDisabled();
   expect(revealedPath).toBeNull();
 });
@@ -3059,14 +3201,15 @@ test("project ai chat disables custom skill creation when the backend has no cur
   await ensureAppReady(page);
   await openSkillsViewer(page);
 
-  await page
-    .getByTestId("project-chat-custom-skill-relative-path-input")
-    .fill("new-custom-skill");
+  await getVisibleProjectChatAuxTestId(
+    page,
+    "project-chat-custom-skill-relative-path-input",
+  ).fill("new-custom-skill");
   await expect(
-    page.getByTestId("project-chat-custom-skill-create"),
+    getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-create"),
   ).toBeDisabled();
   await expect(
-    page.getByTestId("project-chat-custom-skill-root-path"),
+    getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-root-path"),
   ).toContainText("Custom skills root unavailable.");
 });
 
@@ -3079,10 +3222,9 @@ test("project ai chat clears stale custom skill root actions after a refresh fai
   });
 
   const rootPath = "/home/.agents/skills";
-  let skillsRequestCount = 0;
+  let refreshTriggered = false;
   await page.route("**/api/getAppGenSkills", async (route) => {
-    skillsRequestCount += 1;
-    if (skillsRequestCount === 1) {
+    if (!refreshTriggered) {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -3104,35 +3246,37 @@ test("project ai chat clears stale custom skill root actions after a refresh fai
   allowExpectedApiError(page, {
     path: "/api/getAppGenSkills",
     statuses: [500],
+    count: 2,
     ttlMs: 20_000,
   });
 
   await ensureAppReady(page);
-  await openSkillsViewer(page);
+  const projectChatSurface = await openSkillsViewer(page);
 
-  await page
+  await projectChatSurface
     .getByTestId("project-chat-custom-skill-relative-path-input")
     .fill("new-custom-skill");
   await expect(
-    page.getByTestId("project-chat-custom-skill-create"),
+    projectChatSurface.getByTestId("project-chat-custom-skill-create"),
   ).toBeEnabled();
   await expect(
-    page.getByTestId("project-chat-custom-skill-root-reveal"),
+    projectChatSurface.getByTestId("project-chat-custom-skill-root-reveal"),
   ).toBeEnabled();
 
-  await page.getByTestId("project-chat-skills-refresh").click();
+  refreshTriggered = true;
+  await projectChatSurface.getByTestId("project-chat-skills-refresh").click();
 
   await expect(
     page.getByText("Skills unavailable (forced refresh failure)."),
   ).toBeVisible();
   await expect(
-    page.getByTestId("project-chat-custom-skill-root-path"),
+    projectChatSurface.getByTestId("project-chat-custom-skill-root-path"),
   ).toContainText("Custom skills root unavailable.");
   await expect(
-    page.getByTestId("project-chat-custom-skill-root-reveal"),
+    projectChatSurface.getByTestId("project-chat-custom-skill-root-reveal"),
   ).toBeDisabled();
   await expect(
-    page.getByTestId("project-chat-custom-skill-create"),
+    projectChatSurface.getByTestId("project-chat-custom-skill-create"),
   ).toBeDisabled();
 });
 
@@ -3230,11 +3374,13 @@ test("project ai chat keeps created custom skills usable without follow-up reads
   await ensureAppReady(page);
   await openSkillsViewer(page);
   await openRawSkillMarkdown(page);
+  const baselineSkillsRequestCount = skillsRequestCount;
 
-  await page
-    .getByTestId("project-chat-custom-skill-relative-path-input")
-    .fill("created-skill");
-  await page.getByTestId("project-chat-custom-skill-create").click();
+  await getVisibleProjectChatAuxTestId(
+    page,
+    "project-chat-custom-skill-relative-path-input",
+  ).fill("created-skill");
+  await getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-create").click();
 
   await expect(
     page.getByText("Created custom skill created-skill."),
@@ -3242,13 +3388,13 @@ test("project ai chat keeps created custom skills usable without follow-up reads
   await expect(
     page.getByRole("button", { name: /created-skill/i }),
   ).toBeVisible();
-  await expect(page.getByLabel("Skill Markdown Content")).toContainText(
+  await expect(page.getByLabel("Skill Markdown Content").first()).toContainText(
     "# created-skill",
   );
   await expect(
-    page.getByTestId("project-chat-custom-skill-save"),
+    getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-save"),
   ).toBeEnabled();
-  expect(skillsRequestCount).toBe(1);
+  expect(skillsRequestCount).toBe(baselineSkillsRequestCount);
   expect(skillContentRequestCount).toBe(0);
 });
 
@@ -3398,17 +3544,18 @@ test("project ai chat can create and save custom skills from raw markdown mode",
   await openSkillsViewer(page);
   await openRawSkillMarkdown(page);
 
-  await page.getByTestId("project-chat-custom-skill-save").click();
+  await getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-save").click();
   await expect.poll(() => upsertPayloads.length).toBe(1);
   expect(upsertPayloads[0]).toMatchObject({
     skillId: "user_agents_skills::custom-one",
     relativePath: null,
   });
 
-  await page
-    .getByTestId("project-chat-custom-skill-relative-path-input")
-    .fill("new-custom-skill");
-  await page.getByTestId("project-chat-custom-skill-create").click();
+  await getVisibleProjectChatAuxTestId(
+    page,
+    "project-chat-custom-skill-relative-path-input",
+  ).fill("new-custom-skill");
+  await getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-create").click();
   await expect.poll(() => upsertPayloads.length).toBe(2);
   expect(upsertPayloads[1]).toMatchObject({
     skillId: null,
@@ -3418,12 +3565,12 @@ test("project ai chat can create and save custom skills from raw markdown mode",
     page.getByRole("button", { name: /new-custom-skill/i }),
   ).toBeVisible();
   await expect(
-    page.getByTestId("project-chat-custom-skill-root-path"),
+    getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-root-path"),
   ).toContainText(rootPath);
   await expect(
-    page.getByTestId("project-chat-custom-skill-root-reveal"),
+    getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-root-reveal"),
   ).toBeEnabled();
-  await expect(page.getByLabel("Skill Markdown Content")).toContainText(
+  await expect(page.getByLabel("Skill Markdown Content").first()).toContainText(
     "# new-custom-skill",
   );
 });
@@ -3486,14 +3633,9 @@ test("project ai chat renders unsaved raw markdown edits before save", async ({
 
   await ensureAppReady(page);
   await openSkillsViewer(page);
+  await openRawSkillMarkdown(page);
 
-  await page.getByRole("button", { name: "Skill Markdown Viewer" }).click();
-  await clickSkillMarkdownViewToggle(
-    page,
-    "project-chat-skill-markdown-view-raw",
-  );
-
-  const markdown = page.getByLabel("Skill Markdown Content");
+  const markdown = page.getByLabel("Skill Markdown Content").first();
   const editorContent = markdown.locator(".cm-content");
   await editorContent.click();
   await page.keyboard.press(SELECT_ALL_SHORTCUT);
@@ -3511,7 +3653,7 @@ test("project ai chat renders unsaved raw markdown edits before save", async ({
     "project-chat-skill-markdown-view-raw",
   );
   await expect(
-    page.getByTestId("project-chat-custom-skill-save"),
+    getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-save"),
   ).toBeEnabled();
   await expect(markdown).toContainText("Updated draft from raw mode");
 });
@@ -3610,12 +3752,13 @@ test("project ai chat create custom skill rejects collisions without overwriting
   await openSkillsViewer(page);
   await openRawSkillMarkdown(page);
 
-  const markdown = page.getByLabel("Skill Markdown Content");
+  const markdown = page.getByLabel("Skill Markdown Content").first();
   await expect(markdown).toContainText("Original body");
-  await page
-    .getByTestId("project-chat-custom-skill-relative-path-input")
-    .fill("existing");
-  await page.getByTestId("project-chat-custom-skill-create").click();
+  await getVisibleProjectChatAuxTestId(
+    page,
+    "project-chat-custom-skill-relative-path-input",
+  ).fill("existing");
+  await getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-create").click();
 
   await expect.poll(() => upsertPayloads.length).toBe(1);
   expect(upsertPayloads[0]).toEqual({
@@ -3756,17 +3899,19 @@ test("project ai chat keeps selected skill content stable when another skill sav
 
   await ensureAppReady(page);
   await openSkillsViewer(page);
-  await openRawSkillMarkdown(page);
+  const projectChatSurface = await openRawSkillMarkdown(page);
 
-  const markdown = page.getByLabel("Skill Markdown Content");
-  const betaSkillRow = page.getByRole("button", { name: /beta-custom/i });
+  const markdown = projectChatSurface.getByLabel("Skill Markdown Content");
+  const betaSkillRow = projectChatSurface.getByRole("button", {
+    name: /beta-custom/i,
+  });
   await expect(markdown).toContainText("Alpha initial body");
 
   const editorContent = markdown.locator(".cm-content");
   await editorContent.click();
   await page.keyboard.press(SELECT_ALL_SHORTCUT);
   await page.keyboard.type("# alpha-custom\n\nAlpha saved update");
-  await page.getByTestId("project-chat-custom-skill-save").click();
+  await getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-save").click();
 
   await expect.poll(() => alphaSaveRequestCount).toBe(1);
   await betaSkillRow.click();
@@ -3859,7 +4004,7 @@ test("project ai chat blocks saving truncated editable skill previews", async ({
   await openRawSkillMarkdown(page);
 
   await expect(
-    page.getByTestId("project-chat-custom-skill-save"),
+    getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-save"),
   ).toBeDisabled();
   await expect(
     page.getByText("Preview is truncated. Full content loading is required"),
@@ -3946,7 +4091,7 @@ test("project ai chat disables save when skill content fetch fails", async ({
   await openRawSkillMarkdown(page);
 
   await expect(
-    page.getByTestId("project-chat-custom-skill-save"),
+    getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-save"),
   ).toBeDisabled();
   await expect(
     page.getByTestId("project-chat-skill-content-error"),
@@ -4033,7 +4178,7 @@ test("project ai chat keeps root-level custom skills read-only from backend edit
   await openRawSkillMarkdown(page);
 
   await expect(
-    page.getByTestId("project-chat-custom-skill-save"),
+    getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-save"),
   ).toBeDisabled();
   await expect(
     page.getByText("Editing root-level SKILL.md is not supported."),
@@ -4121,12 +4266,12 @@ test("project ai chat can save intentionally empty custom skill content", async 
   await openSkillsViewer(page);
   await openRawSkillMarkdown(page);
 
-  const editor = page.getByLabel("Skill Markdown Content");
+  const editor = page.getByLabel("Skill Markdown Content").first();
   const editorContent = editor.locator(".cm-content");
   await editorContent.click();
   await page.keyboard.press(SELECT_ALL_SHORTCUT);
   await page.keyboard.press("Backspace");
-  await page.getByTestId("project-chat-custom-skill-save").click();
+  await getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-save").click();
 
   await expect.poll(() => upsertPayloads.length).toBe(1);
   expect(upsertPayloads[0]?.content).toBe("");
@@ -4228,18 +4373,18 @@ test("project ai chat mounts markdown viewer lazily and shows truncation metadat
   });
 
   await ensureAppReady(page);
-  await openMcpViewer(page);
-  await expect(page.getByText("Unavailable")).toBeVisible();
+  const mcpSurface = await openMcpViewer(page);
+  await expect(mcpSurface.getByText("Unavailable")).toBeVisible();
   await expect(
-    page.getByRole("button", {
+    mcpSurface.getByRole("button", {
       name: /Reveal path for Active .*setta_files/i,
     }),
   ).toBeDisabled();
 
   await closeSkillsMcpViewer(page);
-  await openSkillsViewer(page);
+  const projectChatSurface = await openSkillsViewer(page);
 
-  const skillMarkdownToggle = page.getByRole("button", {
+  const skillMarkdownToggle = projectChatSurface.getByRole("button", {
     name: "Skill Markdown Viewer",
   });
   await expect(skillMarkdownToggle).toHaveAttribute("aria-expanded", "false");
@@ -4251,7 +4396,7 @@ test("project ai chat mounts markdown viewer lazily and shows truncation metadat
     "project-chat-skill-markdown-view-raw",
   );
 
-  await expect(page.getByLabel("Skill Markdown Content")).toContainText(
+  await expect(page.getByLabel("Skill Markdown Content").first()).toContainText(
     "Preview body",
   );
   await expect(

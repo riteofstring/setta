@@ -1,6 +1,10 @@
+import { APP_CHROME_Z_INDEX_CLASS_NAME } from "utils/constants";
 import { createProjectConfig } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
+import { RIGHT_PANE_TITLE_CLEARANCE_CLASS_NAME } from "../../Utils/paneTitleSpacing";
 import {
+  HOME_RIGHT_PANE_TITLE_CLASS_NAME,
+  HOME_SIDE_RAIL_CLASS_NAME,
   getHomeProjectConfigsSectionTitle,
   getProjectTopLevelSectionCount,
   partitionProjectsByFavoriteStatus,
@@ -11,6 +15,16 @@ import {
 } from "./HomePage";
 
 describe("HomePage", () => {
+  it("uses the shared app chrome layer for desktop side rails", () => {
+    expect(HOME_SIDE_RAIL_CLASS_NAME).toContain(APP_CHROME_Z_INDEX_CLASS_NAME);
+  });
+
+  it("reserves title clearance for the right pane fullscreen button", () => {
+    expect(HOME_RIGHT_PANE_TITLE_CLASS_NAME).toContain(
+      RIGHT_PANE_TITLE_CLEARANCE_CLASS_NAME,
+    );
+  });
+
   it("counts top-level sections from object keys", () => {
     const project = createProjectConfig({
       id: "project-1",

@@ -48,7 +48,6 @@ import {
   getDefaultChatDetails,
   getExternalAgentChatHydrationOutcome,
   getLLMChatHydrationOutcome,
-  getProjectChatHydrationOutcomeWithFallback,
   initializePendingChatDetails,
   loadAgentRuns,
   stopProjectChatResponse,
@@ -90,7 +89,6 @@ import {
 } from "utils/conversationSearch";
 import {
   route_get_file_browser_root,
-  route_get_folder_contents,
 } from "utils/generatedEndpoints";
 import {
   AgentRun,
@@ -118,9 +116,7 @@ import {
 import { selectCustomProjectChatSlashCommands } from "./projectChatSlashCommandSelectors";
 import { buildCreateProjectStarterPrompt } from "./projectChatStarterPrompts";
 import {
-  getCachedWorkspacePythonSignal,
-  hasPythonSignalsInRoot,
-  setCachedWorkspacePythonSignal,
+  loadWorkspacePythonSignal,
   type WorkspacePythonSignalCache,
 } from "./workspacePythonSignals";
 
@@ -208,24 +204,11 @@ export async function hydrateProjectChatFromRuntime({
   chatId,
   projectConfigId,
   hydrationRunType,
-  shouldProbeMissingProvenance,
 }: {
   chatId: string;
   projectConfigId: string;
   hydrationRunType: ChatRunType | null;
-  shouldProbeMissingProvenance: boolean;
 }): Promise<ChatHydrationOutcome> {
-  const preferredHydrationRunType =
-    hydrationRunType === "llm_chat" || hydrationRunType === "external_agent"
-      ? hydrationRunType
-      : null;
-  if (shouldProbeMissingProvenance) {
-    return getProjectChatHydrationOutcomeWithFallback(
-      chatId,
-      projectConfigId,
-      preferredHydrationRunType,
-    );
-  }
   if (hydrationRunType === "external_agent") {
     return getExternalAgentChatHydrationOutcome(chatId, projectConfigId);
   }
@@ -992,53 +975,21 @@ function useHasPythonInWorkspaceRoot(
     const load = async () => {
       const rootPath = scannedRootIdentity;
       pendingRootIdentityRef.current = null;
-      const shouldUseCache = revalidationTick === 0;
-      if (shouldUseCache) {
-        const cached = getCachedWorkspacePythonSignal(
-          hasPythonInWorkspaceRootCache,
-          rootPath,
-        );
-        if (cached !== null) {
-          if (cancelled) {
-            return;
-          }
-          setHasPython(cached);
-          return;
-        }
+      const hasPythonSignals = await loadWorkspacePythonSignal({
+        cache: hasPythonInWorkspaceRootCache,
+        rootPath,
+        revalidate: revalidationTick !== 0,
+      });
+      if (cancelled) {
+        return;
       }
-      try {
-        const contentsResponse = await route_get_folder_contents({
-          folderPath: rootPath,
-          includeHidden: false,
-          includeMtime: false,
-          includeSize: false,
-          maxEntries: 5000,
-        });
-        if (
-          !contentsResponse ||
-          contentsResponse.status !== 200 ||
-          !Array.isArray(contentsResponse.data)
-        ) {
-          if (!cancelled) {
-            setHasPython(false);
-          }
-          return;
-        }
-        if (cancelled) {
-          return;
-        }
-        const hasPythonSignals = hasPythonSignalsInRoot(contentsResponse.data);
-        setCachedWorkspacePythonSignal(
-          hasPythonInWorkspaceRootCache,
-          rootPath,
-          hasPythonSignals,
-        );
-        setHasPython(hasPythonSignals);
-      } catch {
+      if (hasPythonSignals === null) {
         if (!cancelled) {
           setHasPython(false);
         }
+        return;
       }
+      setHasPython(hasPythonSignals);
     };
 
     const loadPromise = load().finally(() => {
@@ -1329,7 +1280,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   requiresNewThreadContinuation = false,
   newThreadContinuationRequiredReason = null,
   newThreadSeedChatId = null,
-  activeConversationSearchMatchMessageId = null,
+  activeConversationSearchMatchIndex = null,
   hydrationAuthority,
   hydrationMetadataRevision,
   thinking,
@@ -1344,6 +1295,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   providerDictationAvailable,
   providerDictationLikelySupported,
   setChatId,
+  onConversationSearchMatchCountChange,
   onStartNewChat,
   onDraftThreadStart,
   onDraftThreadSettled,
@@ -1360,7 +1312,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   requiresNewThreadContinuation?: boolean;
   newThreadContinuationRequiredReason?: string | null;
   newThreadSeedChatId?: string | null;
-  activeConversationSearchMatchMessageId?: string | null;
+  activeConversationSearchMatchIndex?: number | null;
   hydrationAuthority: ProjectChatHydrationAuthority;
   hydrationMetadataRevision: string;
   thinking: boolean;
@@ -1375,6 +1327,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   providerDictationAvailable: boolean;
   providerDictationLikelySupported: boolean;
   setChatId: Dispatch<SetStateAction<string | null | undefined>>;
+  onConversationSearchMatchCountChange?: (count: number) => void;
   onStartNewChat?: () => void;
   onDraftThreadStart?: () => void;
   onDraftThreadSettled?: (
@@ -1693,22 +1646,15 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     if (hydrationAuthority.status !== "ready") {
       return;
     }
-    const shouldProbeMissingProvenance =
-      hydrationAuthority.blockedErrorCode === "chat_provenance_missing";
-    if (hydrationRunType === null && !shouldProbeMissingProvenance) {
+    if (hydrationRunType === null) {
       return;
     }
-    if (waitingForResponse) {
-      return;
-    }
-    const cacheKey = shouldProbeMissingProvenance
-      ? `${projectConfigId}:${chatId}:chat_provenance_probe:${hydrationMetadataRevision}`
-      : buildProjectChatHydrationCacheKey({
-          projectConfigId,
-          chatId,
-          hydrationRunType,
-          hydrationMetadataRevision,
-        });
+    const cacheKey = buildProjectChatHydrationCacheKey({
+      projectConfigId,
+      chatId,
+      hydrationRunType,
+      hydrationMetadataRevision,
+    });
     if (!cacheKey) {
       return;
     }
@@ -1757,7 +1703,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         chatId,
         projectConfigId,
         hydrationRunType,
-        shouldProbeMissingProvenance,
       });
       if (cancelled) {
         return;
@@ -2331,6 +2276,17 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     !hasVisibleConversationMatches &&
     !waitingForResponse;
 
+  useEffect(() => {
+    if (!showEmptyState && !showConversationSearchEmptyState) {
+      return;
+    }
+    onConversationSearchMatchCountChange?.(0);
+  }, [
+    onConversationSearchMatchCountChange,
+    showConversationSearchEmptyState,
+    showEmptyState,
+  ]);
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden">
       {blockedReason ? (
@@ -2371,8 +2327,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           waitingForResponse={waitingForResponse}
           toolCallArguments={toolCallArguments}
           interruptedAssistantMessageIds={interruptedAssistantMessageIds}
-          activeSearchMessageId={activeConversationSearchMatchMessageId}
+          activeSearchMatchIndex={activeConversationSearchMatchIndex}
+          conversationSearchTerms={normalizedConversationSearchTerms}
           editDisabledReason={editDisabledReason}
+          onConversationSearchMatchCountChange={
+            onConversationSearchMatchCountChange
+          }
           onRedoMessage={handleRedoMessage}
           onEditMessage={handleEditMessage}
           onBranchSwitch={handleBranchSwitch}

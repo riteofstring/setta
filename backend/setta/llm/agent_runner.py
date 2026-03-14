@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, AsyncIterator, Iterator, Literal
@@ -258,10 +259,17 @@ class AgentRunner:
             logger=logger,
         )
         self.system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
+        self._terminal_run_listener: Callable[[AgentRun], Awaitable[None]] | None = None
 
     @property
     def disabled(self) -> bool:
         return False
+
+    def set_terminal_run_listener(
+        self,
+        listener: Callable[[AgentRun], Awaitable[None]] | None,
+    ) -> None:
+        self._terminal_run_listener = listener
 
     def update_config(self, config: AllLLMConfigs) -> None:
         self.config = config
@@ -302,6 +310,17 @@ class AgentRunner:
             return
         self.api_keys = filter_env_vars_for_config(self._raw_env_vars, self.config)
 
+    async def _notify_terminal_run_listener(self, run: AgentRun) -> None:
+        if self._terminal_run_listener is None:
+            return
+        try:
+            await self._terminal_run_listener(run)
+        except Exception:
+            logger.exception(
+                "Agent terminal run listener failed for run %s",
+                run.id,
+            )
+
     def start_run(
         self,
         profile: AgentProfile,
@@ -309,12 +328,14 @@ class AgentRunner:
         *,
         emit_stream: bool = True,
         emit_ai_follow: bool = True,
+        project_state: ProjectStateSingleConfig | None = None,
     ) -> AgentRun:
         context = self._build_context(
             profile,
             inputs,
             emit_stream=emit_stream,
             emit_ai_follow=emit_ai_follow,
+            project_state=project_state,
         )
         run = context.run
         self._runs[run.id] = run
@@ -378,12 +399,14 @@ class AgentRunner:
             run.finishedAt = get_now_timestamp()
             save_agent_run(self.dbe, run)
             self._record_event(run, "run_cancelled", {})
+            await self._notify_terminal_run_listener(run)
             task.cancel()
             return run
         run.status = AgentRunStatus.cancelled
         run.finishedAt = get_now_timestamp()
         save_agent_run(self.dbe, run)
         self._record_event(run, "run_cancelled", {})
+        await self._notify_terminal_run_listener(run)
         return run
 
     async def _run_agent(self, context: AgentRunContext) -> None:
@@ -594,6 +617,7 @@ class AgentRunner:
                     save_agent_run(self.dbe, run)
                     if not was_cancelled:
                         self._record_event(run, "run_cancelled", {})
+                        await self._notify_terminal_run_listener(run)
                     raise
                 except Exception as exc:
                     user_facing_message = (
@@ -705,6 +729,7 @@ class AgentRunner:
                         "run_failed",
                         {"error": str(exc)},
                     )
+                    await self._notify_terminal_run_listener(run)
                     return
 
                 should_continue = bool(assistant_message.tool_calls) and bool(
@@ -733,6 +758,7 @@ class AgentRunner:
                 run.cost = cost_value
             save_agent_run(self.dbe, run)
             self._record_event(run, "run_completed", {})
+            await self._notify_terminal_run_listener(run)
         finally:
             self._tasks.pop(run.id, None)
             self._runs.pop(run.id, None)
@@ -823,6 +849,7 @@ class AgentRunner:
         *,
         emit_stream: bool = True,
         emit_ai_follow: bool = True,
+        project_state: ProjectStateSingleConfig | None = None,
     ) -> AgentRunContext:
         project_state_backend = self.dbe.read_project_required()
         if project_state_backend.defaultProjectConfigId is None:
@@ -903,9 +930,14 @@ class AgentRunner:
             profile,
             completion_guard_enabled=completion_guard_enabled,
         )
-        project_state = convert_backend_to_single_config(
-            project_state_backend, project_config_id
-        )
+        if project_state is None:
+            project_state = convert_backend_to_single_config(
+                project_state_backend, project_config_id
+            )
+        elif project_state.projectConfig.id != project_config_id:
+            raise KeyError(
+                f"project_state override does not match project config {project_config_id}"
+            )
         agentic_scope = resolve_agentic_scope(
             project_state,
             section_id,
@@ -927,6 +959,7 @@ class AgentRunner:
             project_config_id=project_config_id,
             chat_id=resolved_chat_id,
             section_id=section_id,
+            run_id=run.id,
             frontend_affinity_token=frontend_affinity_token,
             allow_unscoped=allow_unscoped,
             linked_chat_invocation_depth=linked_chat_invocation_depth,
@@ -1236,6 +1269,7 @@ class AgentRunner:
             source = build_agentic_section_summary_source(
                 project_state,
                 section_id,
+                dbe=self.dbe,
                 summary_by_section=resolved_summary_by_section,
             )
             if not source.raw_text.strip():

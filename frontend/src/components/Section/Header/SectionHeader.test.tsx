@@ -18,7 +18,20 @@ import {
   type SettaLspDiagnostic,
   type Variant,
 } from "utils/generatedTypes";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("components/Utils/FloatingBox", () => ({
+  getFloatingBoxHandlers: ({
+    content,
+    title,
+  }: {
+    content?: string;
+    title?: string;
+  }) => ({
+    "data-tooltip-content": content ?? title ?? "",
+  }),
+}));
+
 import { SectionHeader, hasMarkdownHeadingText } from "./SectionHeader";
 
 function syncStoreInitialState(store: {
@@ -220,6 +233,47 @@ describe("SectionHeader diagnostics badges", () => {
 
     expect(markup).toContain("Color tag: #ff0000");
   });
+
+  it("adds shared quick info to section chrome icon controls", () => {
+    useProjectState.setState((state) => {
+      state.projectConfig.activeViewModeId = "view-mode-1";
+      state.projectConfig.isEditingViewMode = false;
+      state.projectConfig.viewModes = {
+        "view-mode-1": {
+          id: "view-mode-1",
+          name: "Default",
+          sortIndex: 0,
+          isUserFacing: false,
+          isTab: true,
+          visibilityBySectionId: {
+            [sectionId]: true,
+          },
+          viewport: { x: 0, y: 0, zoom: 1 },
+          viewportInitialized: false,
+          topLevelSections: {
+            [sectionId]: { x: 0, y: 0, zIndex: 0, w: 200, h: 160 },
+          },
+        },
+      };
+    });
+    syncStoreInitialState(useProjectState);
+
+    const markup = renderToStaticMarkup(
+      <SectionHeader
+        sectionId={sectionId}
+        sectionTypeName={SectionTypeEnum.Code}
+        isInOtherProjectConfigs={false}
+        isUserView={false}
+        isRoot={false}
+        hasSectionStyleTheme={false}
+      />,
+    );
+
+    expect(markup).toContain('data-tooltip-content="Create terminal"');
+    expect(markup).toContain('data-tooltip-content="Lock position and size"');
+    expect(markup).toContain('data-tooltip-content="Minimize section"');
+    expect(markup).toContain('data-tooltip-content="Delete section"');
+  });
 });
 
 describe("SectionHeader follow button", () => {
@@ -288,8 +342,23 @@ describe("SectionHeader follow button", () => {
       />,
     );
 
-    expect(markup).toContain('aria-label="Follow chat"');
+    expect(markup).toContain('aria-label="Stop following chat"');
     expect(markup).toContain('aria-pressed="true"');
+  });
+
+  it("adds shared quick info to the follow button", () => {
+    const markup = renderToStaticMarkup(
+      <SectionHeader
+        sectionId={sectionId}
+        sectionTypeName={SectionTypeEnum.Chat}
+        isInOtherProjectConfigs={false}
+        isUserView={true}
+        isRoot={false}
+        hasSectionStyleTheme={false}
+      />,
+    );
+
+    expect(markup).toContain('data-tooltip-content="Follow chat"');
   });
 
   it("can render extra controls while hiding canvas container controls", () => {

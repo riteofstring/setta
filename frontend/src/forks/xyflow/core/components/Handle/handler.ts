@@ -4,6 +4,7 @@ import type {
 } from "react";
 import type { StoreApi } from "zustand";
 
+import { canConnectHandleFamilies } from "state/actions/chatSharedHandleIds";
 import { recomputeEdgeHandlePositions } from "state/actions/edgeHandles";
 import { useEdgeHandleRegistry } from "state/definitions";
 import type { Connection, HandleType, ReactFlowState } from "../../types";
@@ -87,15 +88,10 @@ export function handlePointerDown({
     handlePositions,
     `${nodeId}-${handleId}-${handleType}`,
   );
-  const isAgenticStart = Boolean(handleId?.startsWith("agentic-edge-"));
   const shouldFilterByAgentic = handleId !== null;
   const allowHandle = shouldFilterByAgentic
     ? (handle: Pick<ConnectionHandle, "portId" | "type">) => {
-        if (!handle.portId) {
-          return !isAgenticStart;
-        }
-        const isAgenticHandle = handle.portId.startsWith("agentic-edge-");
-        return isAgenticStart ? isAgenticHandle : !isAgenticHandle;
+        return canConnectHandleFamilies(handleId, handle.portId);
       }
     : null;
 
@@ -196,8 +192,46 @@ export function handlePointerDown({
   }
 
   function onPointerUp(event: MouseEvent | TouchEvent) {
-    if ((closestHandle || handleDomNode) && connection && isValid) {
-      onConnect?.(connection);
+    let resolvedClosestHandle = closestHandle;
+    let resolvedConnection = connection;
+    let resolvedIsValid = isValid;
+
+    if (!resolvedClosestHandle && handleId?.includes("reverse")) {
+      const { transform } = getState();
+      const fallback = getClosestHandle(
+        event,
+        doc,
+        pointToRendererPoint(
+          getEventPosition(event, containerBounds),
+          transform,
+          false,
+          [1, 1],
+          true,
+        ),
+        Math.max(connectionRadius, 80),
+        handleLookup,
+        allowHandle,
+        (handle) =>
+          isValidHandle(
+            handle,
+            connectionMode,
+            nodeId,
+            handleId,
+            isTarget ? "target" : "source",
+            isValidConnection,
+            doc,
+          ),
+      );
+      resolvedClosestHandle = fallback.handle;
+      resolvedConnection = fallback.validHandleResult.connection;
+      resolvedIsValid = fallback.validHandleResult.isValid;
+    }
+    if (
+      (resolvedClosestHandle || handleDomNode) &&
+      resolvedConnection &&
+      resolvedIsValid
+    ) {
+      onConnect?.(resolvedConnection);
     }
 
     if (edgeUpdaterType) {

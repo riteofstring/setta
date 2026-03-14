@@ -35,6 +35,9 @@ from setta.types.generated.user_defaults import (
     UserDefaultSliderParamCodeObjImpl,
     UserDefaultSocialSectionImpl,
     UserDefaultSpreadsheetSectionImpl,
+    UserDefaultStateMachineEndSectionImpl,
+    UserDefaultStateMachineGateSectionImpl,
+    UserDefaultStateMachineStartSectionImpl,
     UserDefaultSwitchParamCodeObjImpl,
     UserDefaultTaskBoardSectionImpl,
     UserDefaultTerminalSectionImpl,
@@ -123,6 +126,15 @@ class SettingsState(BaseModel, extra="forbid"):
     spreadsheetSectionDefault: UserDefaultSpreadsheetSectionImpl = Field(
         default_factory=UserDefaultSpreadsheetSectionImpl
     )
+    stateMachineEndSectionDefault: UserDefaultStateMachineEndSectionImpl = Field(
+        default_factory=UserDefaultStateMachineEndSectionImpl
+    )
+    stateMachineGateSectionDefault: UserDefaultStateMachineGateSectionImpl = Field(
+        default_factory=UserDefaultStateMachineGateSectionImpl
+    )
+    stateMachineStartSectionDefault: UserDefaultStateMachineStartSectionImpl = Field(
+        default_factory=UserDefaultStateMachineStartSectionImpl
+    )
     taskBoardSectionDefault: UserDefaultTaskBoardSectionImpl = Field(
         default_factory=UserDefaultTaskBoardSectionImpl
     )
@@ -196,6 +208,15 @@ def get_user_default_section_from_settings(settings: SettingsState, type: Sectio
 
         case SectionType.Group:
             return settings.groupSectionDefault
+
+        case SectionType.StateMachineStart:
+            return settings.stateMachineStartSectionDefault
+
+        case SectionType.StateMachineGate:
+            return settings.stateMachineGateSectionDefault
+
+        case SectionType.StateMachineEnd:
+            return settings.stateMachineEndSectionDefault
 
         case SectionType.Image:
             return settings.imageSectionDefault

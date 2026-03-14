@@ -1,9 +1,13 @@
 import {
+  AGENTIC_EDGE_HANDLE_IDS,
+  createAgenticEdgeFromConnection,
   createAgenticEdgeFromSections,
   deleteSelectedAgenticEdges,
+  isValidAgenticEdgeConnection,
   toggleAgenticEdgeSelection,
   updateAgenticEdgeContextMode,
 } from "state/actions/agenticEdges";
+import { SHARED_CHAT_EDGE_HANDLE_IDS } from "state/actions/chatSharedHandleIds";
 import { useProjectState, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
@@ -11,10 +15,14 @@ import {
   AgenticEdgeKindEnum,
   createAgenticEdge,
   createChatSectionImpl,
+  createCodeSectionImpl,
   createCore,
   createProjectConfig,
+  createSectionSize,
   createUserDefaultChatSectionImpl,
   createVariant,
+  SectionTypeEnum,
+  StateMachineGateTypeEnum,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -34,10 +42,16 @@ vi.mock("utils/generatedEndpoints", async () => {
 const projectConfigId = "project-1";
 const sectionA = "section-a";
 const sectionB = "section-b";
+const sectionCode = "section-code";
+const sectionGate = "section-gate";
 const variantA = "variant-a";
 const variantB = "variant-b";
+const variantCode = "variant-code";
+const variantGate = "variant-gate";
 const implA = "impl-a";
 const implB = "impl-b";
+const implCode = "impl-code";
+const implGate = "impl-gate";
 
 function seedChatSections() {
   const coreA = createCore({
@@ -52,6 +66,18 @@ function seedChatSections() {
     variants: [variantB],
     defaultVariant: variantB,
   });
+  const coreCode = createCore({
+    id: sectionCode,
+    name: "Code",
+    variants: [variantCode],
+    defaultVariant: variantCode,
+  });
+  const coreGate = createCore({
+    id: sectionGate,
+    name: "Gate",
+    variants: [variantGate],
+    defaultVariant: variantGate,
+  });
   const variantEntryA = createVariant({
     id: variantA,
     name: "Chat A Variant",
@@ -62,6 +88,18 @@ function seedChatSections() {
     id: variantB,
     name: "Chat B Variant",
     impl: implB,
+    nonPresetImpls: [],
+  });
+  const variantEntryCode = createVariant({
+    id: variantCode,
+    name: "Code Variant",
+    impl: implCode,
+    nonPresetImpls: [],
+  });
+  const variantEntryGate = createVariant({
+    id: variantGate,
+    name: "Gate Variant",
+    impl: implGate,
     nonPresetImpls: [],
   });
   const implEntryA = createChatSectionImpl(
@@ -84,18 +122,62 @@ function seedChatSections() {
       thinking: false,
     },
   );
+  const implEntryCode = createCodeSectionImpl(
+    {
+      id: implCode,
+      type: SectionTypeEnum.Code,
+    },
+    {
+      id: implCode,
+      type: SectionTypeEnum.Code,
+    },
+  );
+  const implEntryGate = {
+    id: implGate,
+    type: SectionTypeEnum.StateMachineGate,
+    name: "Gate",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    tagColor: null,
+    styleColor: null,
+    size: createSectionSize({ width: 240, height: 120 }),
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isPreset: false,
+    machineGroupId: "workflow-main",
+    gateType: StateMachineGateTypeEnum.AND,
+    label: "Gate",
+    ui: { showDetails: false },
+  };
 
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({ id: projectConfigId });
-    state.sections = { [sectionA]: coreA, [sectionB]: coreB };
+    state.sections = {
+      [sectionA]: coreA,
+      [sectionB]: coreB,
+      [sectionCode]: coreCode,
+      [sectionGate]: coreGate,
+    };
     state.sectionVariants = {
       [variantA]: variantEntryA,
       [variantB]: variantEntryB,
+      [variantCode]: variantEntryCode,
+      [variantGate]: variantEntryGate,
     };
-    state.sectionImpls = { [implA]: implEntryA, [implB]: implEntryB };
+    state.sectionImpls = {
+      [implA]: implEntryA,
+      [implB]: implEntryB,
+      [implCode]: implEntryCode,
+      [implGate]: implEntryGate,
+    };
     state.projectConfig.sectionVariantMap = {
       [sectionA]: variantA,
       [sectionB]: variantB,
+      [sectionCode]: variantCode,
+      [sectionGate]: variantGate,
     };
     state.previewSectionVariantMap = {};
   });
@@ -307,6 +389,112 @@ describe("agentic edge selection and deletion", () => {
         projectConfigId,
         frontendOpId: expect.any(String),
         edgeIds: ["edge-a"],
+      }),
+    );
+  });
+});
+
+describe("agentic edge connections", () => {
+  beforeEach(() => {
+    resetProjectStores();
+    seedChatSections();
+    useShareSession.setState({ isDeploymentMode: false });
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    resetProjectStores();
+  });
+
+  it("accepts shared chat handles when connecting code to chat", async () => {
+    const route_create_agentic_edge = (await import("utils/generatedEndpoints"))
+      .route_create_agentic_edge as unknown as vi.Mock;
+    route_create_agentic_edge.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    const connection = {
+      source: sectionCode,
+      target: sectionA,
+      sourceHandle: AGENTIC_EDGE_HANDLE_IDS.source,
+      targetHandle: SHARED_CHAT_EDGE_HANDLE_IDS.target,
+    };
+
+    expect(isValidAgenticEdgeConnection(connection)).toBe(true);
+
+    createAgenticEdgeFromConnection(connection);
+
+    const edges = useProjectState.getState().projectConfig.agenticEdges;
+    expect(edges).toHaveLength(1);
+    expect(edges[0]).toEqual(
+      expect.objectContaining({
+        sourceSectionId: sectionCode,
+        targetSectionId: sectionA,
+        kind: AgenticEdgeKindEnum.section_chat,
+      }),
+    );
+  });
+
+  it("rejects workflow nodes as agentic endpoints", async () => {
+    const route_create_agentic_edge = (await import("utils/generatedEndpoints"))
+      .route_create_agentic_edge as unknown as vi.Mock;
+    route_create_agentic_edge.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    const connection = {
+      source: sectionA,
+      target: sectionGate,
+      sourceHandle: AGENTIC_EDGE_HANDLE_IDS.source,
+      targetHandle: AGENTIC_EDGE_HANDLE_IDS.target,
+    };
+
+    expect(isValidAgenticEdgeConnection(connection)).toBe(false);
+
+    createAgenticEdgeFromConnection(connection);
+    createAgenticEdgeFromSections({
+      sourceSectionId: sectionA,
+      targetSectionId: sectionGate,
+      kind: AgenticEdgeKindEnum.chat_section,
+    });
+
+    expect(useProjectState.getState().projectConfig.agenticEdges).toHaveLength(
+      0,
+    );
+    expect(route_create_agentic_edge).not.toHaveBeenCalled();
+  });
+
+  it("normalizes reverse drags from agentic targets back to chat-to-section edges", async () => {
+    const route_create_agentic_edge = (await import("utils/generatedEndpoints"))
+      .route_create_agentic_edge as unknown as vi.Mock;
+    route_create_agentic_edge.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    const connection = {
+      source: sectionCode,
+      sourceHandle: AGENTIC_EDGE_HANDLE_IDS.reverseStart,
+      target: sectionA,
+      targetHandle: SHARED_CHAT_EDGE_HANDLE_IDS.source,
+    };
+
+    expect(isValidAgenticEdgeConnection(connection)).toBe(true);
+
+    createAgenticEdgeFromConnection(connection);
+
+    const edges = useProjectState.getState().projectConfig.agenticEdges;
+    expect(edges).toHaveLength(1);
+    expect(edges[0]).toEqual(
+      expect.objectContaining({
+        sourceSectionId: sectionA,
+        targetSectionId: sectionCode,
+        kind: AgenticEdgeKindEnum.chat_section,
       }),
     );
   });

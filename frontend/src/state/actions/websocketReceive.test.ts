@@ -16,6 +16,7 @@ import {
   WebsocketConnectionTypeEnum,
   WebsocketMsgTypeForFrontendEnum,
   createBinaryContentRef,
+  createAgentRun,
   createProjectConfig,
   createSettaLspDiagnosticsPayload,
   createSettaProjectConfigDiagnostics,
@@ -29,6 +30,7 @@ const { routeGetAuthRefreshStatusMock } = vi.hoisted(() => ({
 vi.mock("utils/generatedEndpoints", () => ({
   route_binary_upload: vi.fn(),
   route_get_auth_refresh_status: routeGetAuthRefreshStatusMock,
+  route_get_agent_runs: vi.fn(),
   route_get_listener_coverage: vi.fn(),
   route_get_latest_project_state: vi.fn(),
   route_get_latest_lsp_diagnostics: vi.fn(),
@@ -187,12 +189,18 @@ describe("openWebSocket", () => {
     const { route_get_auth_refresh_status } = await import(
       "utils/generatedEndpoints"
     );
+    const { route_get_agent_runs } = await import("utils/generatedEndpoints");
     const { route_get_listener_coverage } = await import(
       "utils/generatedEndpoints"
     );
     vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,
       data: { authCookieRefreshWindowSeconds: 120 },
+      hasResponse: true,
+    });
+    vi.mocked(route_get_agent_runs).mockResolvedValue({
+      status: 200,
+      data: [],
       hasResponse: true,
     });
     vi.mocked(route_get_listener_coverage).mockResolvedValue({
@@ -304,6 +312,57 @@ describe("openWebSocket", () => {
       "share-session-route",
     );
     expect(socket?.url).not.toContain("/share/frontend");
+  });
+
+  it("merges workflow run websocket updates into the agent run store", async () => {
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+    useAIStore.setState({
+      agentRuns: [
+        createAgentRun({
+          id: "workflow-run-1",
+          status: "running",
+          inputs: {
+            runType: "state_machine",
+            projectConfigId: "project-1",
+            machineGroupId: "workflow-main",
+          },
+        }),
+      ],
+    });
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+
+    const socket = MockWebSocket.instances[0];
+    await socket.emit("open");
+    await socket.emit("message", {
+      data: JSON.stringify({
+        id: "msg-agent-run",
+        messageType: WebsocketMsgTypeForFrontendEnum.AgentRunUpdated,
+        content: createAgentRun({
+          id: "workflow-run-1",
+          status: "completed",
+          finishedAt: "2026-03-13T00:00:05Z",
+          inputs: {
+            runType: "state_machine",
+            projectConfigId: "project-1",
+            machineGroupId: "workflow-main",
+          },
+          events: [
+            {
+              timestamp: "2026-03-13T00:00:05Z",
+              type: "run_completed",
+              payload: {},
+            },
+          ],
+        }),
+      }),
+    });
+
+    expect(
+      useAIStore.getState().agentRuns.find((run) => run.id === "workflow-run-1")
+        ?.status,
+    ).toBe("completed");
   });
 
   it("sends realtime dependency events when listener coverage is unknown", async () => {
