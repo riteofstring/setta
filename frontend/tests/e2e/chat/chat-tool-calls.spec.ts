@@ -714,6 +714,11 @@ test.describe.serial("chat tool calls", () => {
       const assistantBubble = assistantGroup
         .locator('[data-chat-assistant-bubble="true"]')
         .first();
+      await section.evaluate((element) => {
+        const sectionElement = element as HTMLElement;
+        sectionElement.style.width = "340px";
+        sectionElement.style.maxWidth = "340px";
+      });
       await userBubble.scrollIntoViewIfNeeded();
       await assistantBubble.scrollIntoViewIfNeeded();
       await expect(userBubble).toBeVisible();
@@ -723,6 +728,12 @@ test.describe.serial("chat tool calls", () => {
       await expect
         .poll(() => getBubbleWidth(assistantBubble))
         .toBeGreaterThan(120);
+      await expect
+        .poll(() => getHorizontalOverflowMetrics(userBubble))
+        .toMatchObject({
+          overflowPx: 0,
+          hasScrollOverflow: false,
+        });
       await expect(
         section.locator('[data-chat-message-timestamp="true"]'),
       ).toHaveCount(2);
@@ -1278,4 +1289,28 @@ function getMessageGroup(section: Locator, text: string): Locator {
 
 async function getBubbleWidth(bubble: Locator): Promise<number> {
   return bubble.evaluate((element) => element.getBoundingClientRect().width);
+}
+
+async function getHorizontalOverflowMetrics(
+  bubble: Locator,
+): Promise<{
+  overflowPx: number;
+  hasScrollOverflow: boolean;
+}> {
+  return bubble.evaluate((element) => {
+    const bubbleElement = element as HTMLElement;
+    const bubbleRect = bubbleElement.getBoundingClientRect();
+    let overflowPx = 0;
+    for (const child of Array.from(bubbleElement.querySelectorAll("*"))) {
+      const childRect = child.getBoundingClientRect();
+      overflowPx = Math.max(
+        overflowPx,
+        Math.ceil(childRect.right - bubbleRect.right),
+      );
+    }
+    return {
+      overflowPx: Math.max(overflowPx, 0),
+      hasScrollOverflow: bubbleElement.scrollWidth > bubbleElement.clientWidth + 1,
+    };
+  });
 }

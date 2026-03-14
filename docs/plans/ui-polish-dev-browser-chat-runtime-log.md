@@ -535,3 +535,27 @@ For each new entry, append:
 - Decisions: Keep the preview readable instead of trying to preserve a symmetric top/bottom fade. The top-only mask plus a whole-line viewport is a clearer contract than showing a clipped third line. Keep the browser assertion focused on the narrow stacked state and let the unit test own the exact `40rem` breakpoint contract for the shared action bar.
 - Blockers or open questions: None for this follow-up slice.
 - Next recommended slice: No further implementation steps remain in the original plan. Any new chat/runtime polish can proceed as separate follow-up work rather than pretending the old plan still has open product phases.
+
+### 2026-03-12 19:24
+
+- Date: 2026-03-12 19:24 EDT
+- Scope: Starting a follow-up regression fix for narrow floating chat windows where long user messages still bleed horizontally out of the bubble after the earlier timestamp/container-query changes.
+- Tests added or updated first: Planned first coverage is to extend the existing narrow floating-window browser regression in `frontend/tests/e2e/chat/chat-tool-calls.spec.ts` so it also asserts that long user message bubbles wrap without horizontal overflow, plus add a narrow render-state regression in `frontend/src/components/Chat/ChatMessages.test.tsx` to keep user/system markdown content on a wrapping width contract instead of the assistant fit-content contract.
+- Production code changed: None yet for this slice.
+- Verification run: Re-read the latest plan/log state and re-audited the shared chat markdown path in `frontend/src/components/Chat/ChatMessages.tsx`. The most likely root cause is still local to `MarkdownContent`: it currently applies `w-max max-w-full` for every role, which is appropriate for content-fit assistant bubbles but too aggressive for narrow user/system bubbles containing long prose.
+- CDP visual check: Baseline already captured from the user screenshot and the current live rendering. I will rerun a concrete CDP verification after the focused regression fix lands.
+- Decisions: Keep the fix narrow and source-of-truth driven from chat role. Do not back out the earlier container-query/timestamp fixes; instead, split markdown sizing so assistant bubbles can remain content-fit while user/system message content uses a wrapping width contract that cannot bleed outside narrow chat windows.
+- Blockers or open questions: Need to preserve readable assistant markdown and existing fit-content bubble behavior while changing only the long user/system text path.
+- Next recommended slice: Add the failing render/browser regressions, patch `MarkdownContent` role-based sizing, rerun focused tests, verify in CDP, and commit the fix with a descriptive follow-up message.
+
+### 2026-03-12 20:52
+
+- Date: 2026-03-12 20:52 EDT
+- Scope: Completed the follow-up regression fix for long user messages bleeding horizontally out of narrow chat windows.
+- Tests added or updated first: Extended `frontend/tests/e2e/chat/chat-tool-calls.spec.ts` so the existing narrow-width timestamp regression also shrinks the chat surface to `340px` and asserts the visible user bubble has no child overflow or horizontal scroll overflow, and added a narrow render-state regression in `frontend/src/components/Chat/ChatMessages.test.tsx` that keeps user markdown on the wrapping-width contract instead of the assistant fit-content contract.
+- Production code changed: Updated `frontend/src/components/Chat/ChatMessages.tsx` so `MarkdownContent` now applies width classes by chat role: assistant markdown keeps `w-max max-w-full` for content-fit speech bubbles, while user/system markdown uses `w-full max-w-full` so long prose wraps inside narrow chat windows instead of bleeding past the bubble edge.
+- Verification run: Captured red first. `pnpm -C frontend exec vitest run src/components/Chat/ChatMessages.test.tsx` failed on the new user markdown width assertion, and `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/chat-tool-calls.spec.ts --grep "message timestamps do not collapse chat bubbles into narrow columns"` failed with `overflowPx: 276` / `hasScrollOverflow: true` on the long user bubble. After the role-aware width change landed, `pnpm -C frontend exec vitest run src/components/Chat/ChatMessages.test.tsx` passed (58 tests), and `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/chat-tool-calls.spec.ts --grep "message timestamps do not collapse chat bubbles into narrow columns|shows a message timestamp for activity-only assistant messages"` passed (2 tests).
+- CDP visual check: Done on the live `http://127.0.0.1:3026/branch_showing` worktree surface. In the actual `project-chat-window-2` bottom-dock chat window from the user screenshot, the same long user prompt now wraps inside the bubble, and DOM measurements report `bubbleWidth: 454.0`, `bubbleClientWidth: 452`, `bubbleScrollWidth: 452`, and `overflowPx: 0`. I also captured a live viewport screenshot after scrolling the message back into view to confirm the text stays inside the bubble border.
+- Decisions: Keep assistant markdown on the content-fit contract and change only the non-assistant path. This fixes the real regression without reintroducing the earlier one-character bubble collapse or flattening all bubbles to full width.
+- Blockers or open questions: None for this follow-up slice.
+- Next recommended slice: None required from the original UI-polish plan. Further work should be treated as new follow-up polish/regression slices rather than additional hidden plan phases.
