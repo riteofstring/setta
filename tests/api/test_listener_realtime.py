@@ -1021,10 +1021,11 @@ class TestSettaListenerBootstrapFailure:
 
     async def test_bootstrap_registers_when_state_instantiation_fails(self) -> None:
         listener = SettaListener(project_name="Demo Project")
+        callback_calls: list[tuple[str, dict[str, Any]]] = []
 
         @listener.listen(deps=("Welcome",))
-        def on_change(_state, _ctx):  # pragma: no cover - invoked only on success
-            raise AssertionError("callback should not execute when runtime state fails")
+        def on_change(state, ctx) -> None:
+            callback_calls.append((state.Welcome, dict(ctx.changed)))
 
         project_state = self._build_project_state()
 
@@ -1039,6 +1040,7 @@ class TestSettaListenerBootstrapFailure:
         listener._send_websocket_payload = AsyncMock(side_effect=capture_payload)
 
         await listener._refresh_from_snapshot(project_state)
+        await asyncio.sleep(0)
 
         assert listener._runtime_state is not None
         assert listener._runtime_state.s_instance is None
@@ -1046,16 +1048,17 @@ class TestSettaListenerBootstrapFailure:
         assert listener._registration_pending
         assert len(register_payloads) == 1
         assert register_payloads[0]["messageType"] == "ListenerRegister"
+        assert callback_calls == [("Hello", {"Welcome": "Hello"})]
 
     async def test_realtime_updates_cache_when_runtime_state_is_unavailable(self) -> None:
         listener = SettaListener(project_name="Demo Project")
         project_state = self._build_project_state()
 
-        callback_calls: list[dict[str, Any]] = []
+        callback_calls: list[tuple[str, dict[str, Any]]] = []
 
         @listener.listen(deps=("Welcome",))
-        def on_change(_state, ctx) -> None:
-            callback_calls.append(dict(ctx.changed))
+        def on_change(state, ctx) -> None:
+            callback_calls.append((state.Welcome, dict(ctx.changed)))
 
         runtime_state = listener._build_runtime_state(project_state)
         listener._runtime_state = ListenerRuntimeState(
@@ -1083,10 +1086,34 @@ class TestSettaListenerBootstrapFailure:
                 sequence=1,
             )
         )
+        await listener._scheduler.flush(spec.callback_id)
 
         assert listener._dependency_cache["Welcome"] == "Updated while unavailable"
         assert listener._get_last_realtime_sequence() == 1
-        assert callback_calls == []
+        assert callback_calls == [
+            ("Updated while unavailable", {"Welcome": "Updated while unavailable"})
+        ]
+
+    async def test_replay_cached_snapshot_uses_metadata_backed_callback_state(self) -> None:
+        listener = SettaListener(project_name="Demo Project")
+        project_state = self._build_project_state()
+        callback_calls: list[tuple[str, dict[str, Any]]] = []
+
+        @listener.listen(deps=("Welcome",), run_on_refresh=True)
+        def on_change(state, ctx) -> None:
+            callback_calls.append((state.Welcome, dict(ctx.changed)))
+
+        listener._latest_persisted_snapshot = project_state
+        listener._instantiate_state = MagicMock(
+            side_effect=ValueError("math domain error")
+        )
+
+        await listener._replay_cached_snapshot()
+
+        assert listener._runtime_state is not None
+        assert listener._runtime_state.s_instance is None
+        assert listener._dependency_cache["Welcome"] == "Hello"
+        assert callback_calls == [("Hello", {"Welcome": "Hello"})]
 
 
 class TestSettaListenerBinaryParsing:

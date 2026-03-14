@@ -60,6 +60,9 @@ Current state:
   - authoritative cached dependency values now survive snapshot refresh and
     realtime delta application even when the generated Python listener runtime
     instance is unavailable
+  - callback execution now falls back to a metadata-backed fail-closed state
+    view when the generated Python listener runtime instance is unavailable,
+    including snapshot replay and realtime callback scheduling
   - listener coverage and force-refresh reads/writes
   - listener websocket DTOs in `internal/realtime`
 - Python still owns:
@@ -218,6 +221,8 @@ Python/share listeners can bootstrap entirely against the Go listener route.
 - Remove local dependency-graph/codegen/runtime-state ownership.
 - Rebuild the Python-side state helpers on top of Go-provided metadata and
   authoritative cached dependency values.
+- Keep metadata-backed fallback state access fail-closed for unresolved known
+  dependencies instead of synthesizing heuristic values.
 
 Exit condition:
 listener tests pass without Python owning dependency graph or runtime state.

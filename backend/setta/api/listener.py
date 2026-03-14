@@ -376,6 +376,50 @@ class ListenerDependencyValues:
         return getattr(self._require_state(), name)
 
 
+class _ListenerCallbackStateView:
+    def __init__(
+        self,
+        *,
+        dependency_graph_resolver: Callable[[], DependencyGraph | None],
+        value_resolver: Callable[[str], Any],
+        log_identifier: str,
+    ) -> None:
+        self._dependency_graph_resolver = dependency_graph_resolver
+        self._value_resolver = value_resolver
+        self._log_identifier = log_identifier
+
+    def _require_dependency_graph(self) -> DependencyGraph:
+        dependency_graph = self._dependency_graph_resolver()
+        if dependency_graph is None:
+            raise RuntimeError("Listener dependency graph is unavailable")
+        return dependency_graph
+
+    def __getattr__(self, name: str) -> Any:
+        if name.startswith("_"):
+            raise AttributeError(name)
+        dependency_graph = self._require_dependency_graph()
+        if name not in dependency_graph.full_path_name_to_dep_key:
+            raise AttributeError(
+                f"{type(self).__name__!r} object has no attribute {name!r}"
+            )
+        value = self._value_resolver(name)
+        if value is _MISSING:
+            raise RuntimeError(
+                (
+                    f"Listener {self._log_identifier} dependency {name!r} is "
+                    "unavailable in the metadata-backed callback state"
+                )
+            )
+        return value
+
+    def __dir__(self) -> list[str]:
+        base = set(super().__dir__())
+        dependency_graph = self._dependency_graph_resolver()
+        if dependency_graph is None:
+            return sorted(base)
+        return sorted(base | set(dependency_graph.full_path_name_to_dep_key))
+
+
 ListenerDependencySpec = str | ListenerDependencyId | BaseDependencyKeyUnion
 
 
@@ -1265,32 +1309,13 @@ class SettaListener:
                 exc_info=logger.isEnabledFor(logging.DEBUG),
             )
             return
-        if runtime_state.s_instance is None:
-            self._runtime_state = runtime_state
-            self._dependency_cache = self._build_dependency_cache_from_runtime_state(
-                runtime_state
-            )
-            if refresh_kind == "bootstrap":
-                logger.warning(
-                    (
-                        "Listener %s skipping snapshot hydration due to missing runtime "
-                        "state; callbacks will run once the project rebuilds successfully"
-                    ),
-                    self._log_identifier,
-                )
-                await self._send_listener_register()
-            else:
-                logger.debug(
-                    (
-                        "Listener %s ignoring %s snapshot because runtime state "
-                        "is unavailable"
-                    ),
-                    self._log_identifier,
-                    refresh_kind,
-                )
-            return
         snapshot_values: dict[str, Any] = {}
-        updated_cache = dict(self._dependency_cache)
+        previous_cache = dict(self._dependency_cache)
+        updated_cache = (
+            self._build_dependency_cache_from_runtime_state(runtime_state)
+            if runtime_state.s_instance is None
+            else dict(self._dependency_cache)
+        )
         callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
         self._refresh_callback_dependency_metadata(runtime_state.dependency_graph)
 
@@ -1300,16 +1325,19 @@ class SettaListener:
             for dep_key, dependency in zip(
                 spec.structured_dependencies, spec.dependency_names
             ):
-                value = self._get_dependency_value(
-                    runtime_state,
-                    runtime_state.s_instance,
-                    dependency,
-                    snapshot_values,
-                    dep_key=dep_key,
-                )
+                if runtime_state.s_instance is None:
+                    value = updated_cache.get(dependency, _UNAVAILABLE)
+                else:
+                    value = self._get_dependency_value(
+                        runtime_state,
+                        runtime_state.s_instance,
+                        dependency,
+                        snapshot_values,
+                        dep_key=dep_key,
+                    )
                 if value is _UNAVAILABLE:
                     continue
-                previous = self._dependency_cache.get(dependency, _MISSING)
+                previous = previous_cache.get(dependency, _MISSING)
                 updated_cache[dependency] = value
                 if previous is _MISSING or value != previous:
                     changed[dependency] = value
@@ -1332,12 +1360,29 @@ class SettaListener:
         self._dependency_cache = updated_cache
 
         if refresh_kind == "bootstrap":
+            if runtime_state.s_instance is None:
+                logger.warning(
+                    (
+                        "Listener %s continuing bootstrap with metadata-backed "
+                        "callback state because generated runtime state is unavailable"
+                    ),
+                    self._log_identifier,
+                )
             await self._send_listener_register()
+        elif runtime_state.s_instance is None:
+            logger.debug(
+                (
+                    "Listener %s refreshed metadata-backed callback state because "
+                    "generated runtime state is unavailable"
+                ),
+                self._log_identifier,
+            )
 
+        callback_state = self._build_callback_state(runtime_state)
         for spec, changed in callbacks_to_run:
             ctx = self._build_callback_context(spec, changed, events=[])
             spawn_background_task(
-                self._invoke_refresh_callback(spec, runtime_state.s_instance, ctx),
+                self._invoke_refresh_callback(spec, callback_state, ctx),
                 label="listener-refresh-callback",
                 extra_values={
                     "callback_id": spec.callback_id,
@@ -1722,9 +1767,11 @@ class SettaListener:
             return
 
         if runtime_state.s_instance is None:
+            affected_dependency_names: dict[BaseDependencyKeyUnion, str] = {}
             for delta in content.deltas:
                 dep_key = delta.dependency
-                if dep_key not in runtime_state.dependency_graph.graph:
+                node = runtime_state.dependency_graph.graph.get(dep_key)
+                if node is None:
                     logger.error(
                         "Listener %s received realtime delta for unknown dependency key %s",
                         self._log_identifier,
@@ -1732,14 +1779,38 @@ class SettaListener:
                     )
                     continue
                 runtime_state.dependency_graph.change_value(dep_key, delta.value)
-            self._dependency_cache = self._build_dependency_cache_from_runtime_state(
-                runtime_state
-            )
-            logger.debug(
-                "Listener %s updated dependency cache without runtime state for sequence %s",
-                self._log_identifier,
-                content.sequence,
-            )
+                affected_dependency_names[dep_key] = node.full_path_name
+            updated_cache = self._build_dependency_cache_from_runtime_state(runtime_state)
+            self._dependency_cache = updated_cache
+
+            callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
+            for spec in self._callbacks.values():
+                if spec.dependency_mode is ListenerDependencyMode.REFRESH_ONLY:
+                    continue
+                if not spec.structured_dependencies:
+                    changed = {
+                        dependency_name: updated_cache[dependency_name]
+                        for dependency_name in affected_dependency_names.values()
+                        if dependency_name in updated_cache
+                    }
+                    if changed:
+                        callbacks_to_run.append((spec, changed))
+                    continue
+
+                changed: dict[str, Any] = {}
+                for dep_key, dependency in zip(
+                    spec.structured_dependencies, spec.dependency_names
+                ):
+                    if dep_key not in affected_dependency_names:
+                        continue
+                    if dependency in updated_cache:
+                        changed[dependency] = updated_cache[dependency]
+
+                if changed:
+                    callbacks_to_run.append((spec, changed))
+
+            for spec, changed in callbacks_to_run:
+                self._scheduler.submit(spec.callback_id, changed=dict(changed))
             return
 
         applied_dependencies: dict[str, Any] = {}
@@ -1852,13 +1923,6 @@ class SettaListener:
         if runtime_state is None:
             logger.debug(
                 "Listener %s received dependency event before bootstrap; ignoring",
-                self._log_identifier,
-            )
-            return
-
-        if runtime_state.s_instance is None:
-            logger.debug(
-                "Listener %s ignoring dependency event because runtime state is unavailable",
                 self._log_identifier,
             )
             return
@@ -2124,10 +2188,11 @@ class SettaListener:
             changed: dict[str, Any], events: list[DependencyEvent]
         ) -> None:
             runtime_state = self._runtime_state
-            if runtime_state is None or runtime_state.s_instance is None:
+            if runtime_state is None:
                 return
+            state = self._build_callback_state(runtime_state)
             ctx = self._build_callback_context(spec, changed, events)
-            await self._invoke_callback(spec, runtime_state.s_instance, ctx)
+            await self._invoke_callback(spec, state, ctx)
 
         try:
             self._scheduler.register_callback(
@@ -2203,6 +2268,25 @@ class SettaListener:
     def _current_dependency_value_by_name(self, dependency_name: str) -> Any:
         return self._dependency_cache.get(dependency_name, _MISSING)
 
+    def _build_callback_state(
+        self,
+        runtime_state: ListenerRuntimeState,
+        *,
+        value_resolver: Callable[[str], Any] | None = None,
+        dependency_graph_resolver: Callable[[], DependencyGraph | None] | None = None,
+    ) -> Any:
+        if runtime_state.s_instance is not None:
+            return runtime_state.s_instance
+        if value_resolver is None:
+            value_resolver = self._current_dependency_value_by_name
+        if dependency_graph_resolver is None:
+            dependency_graph_resolver = self._current_runtime_state_dependency_graph
+        return _ListenerCallbackStateView(
+            dependency_graph_resolver=dependency_graph_resolver,
+            value_resolver=value_resolver,
+            log_identifier=self._log_identifier,
+        )
+
     def _build_changed_by_id(
         self,
         dependency_graph: DependencyGraph,
@@ -2263,31 +2347,14 @@ class SettaListener:
                     exc_info=logger.isEnabledFor(logging.DEBUG),
                 )
                 return
-            if runtime_state.s_instance is None:
-                self._runtime_state = runtime_state
-                self._dependency_cache = self._build_dependency_cache_from_runtime_state(
-                    runtime_state
-                )
-                logger.warning(
-                    (
-                        "Listener %s cannot replay snapshot because runtime state "
-                        "remains unavailable"
-                    ),
-                    self._log_identifier,
-                )
-                return
             self._runtime_state = runtime_state
 
-        state_instance = runtime_state.s_instance
-        if state_instance is None:
-            logger.debug(
-                "Listener %s cannot replay snapshot because runtime state is unavailable",
-                self._log_identifier,
-            )
-            return
-
         snapshot_values: dict[str, Any] = {}
-        updated_cache = dict(self._dependency_cache)
+        updated_cache = (
+            self._build_dependency_cache_from_runtime_state(runtime_state)
+            if runtime_state.s_instance is None
+            else dict(self._dependency_cache)
+        )
         callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
         self._refresh_callback_dependency_metadata(runtime_state.dependency_graph)
 
@@ -2302,13 +2369,16 @@ class SettaListener:
 
             changed: dict[str, Any] = {}
             for dep_key, dependency in zip(spec.structured_dependencies, dependencies):
-                value = self._get_dependency_value(
-                    runtime_state,
-                    state_instance,
-                    dependency,
-                    snapshot_values,
-                    dep_key=dep_key,
-                )
+                if runtime_state.s_instance is None:
+                    value = updated_cache.get(dependency, _UNAVAILABLE)
+                else:
+                    value = self._get_dependency_value(
+                        runtime_state,
+                        runtime_state.s_instance,
+                        dependency,
+                        snapshot_values,
+                        dep_key=dep_key,
+                    )
                 if value is _UNAVAILABLE:
                     continue
                 updated_cache[dependency] = value
@@ -2319,6 +2389,14 @@ class SettaListener:
 
         self._dependency_cache = updated_cache
 
+        callback_state = self._build_callback_state(
+            runtime_state,
+            value_resolver=lambda dependency_name: updated_cache.get(
+                dependency_name,
+                _MISSING,
+            ),
+            dependency_graph_resolver=lambda: runtime_state.dependency_graph,
+        )
         for spec, changed in callbacks_to_run:
             ctx = self._build_callback_context(spec, changed, events=[])
-            await self._invoke_callback(spec, state_instance, ctx)
+            await self._invoke_callback(spec, callback_state, ctx)

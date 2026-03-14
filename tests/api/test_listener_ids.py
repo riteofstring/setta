@@ -1,3 +1,5 @@
+import pytest
+
 from setta.api import ListenerDependencyId, SettaListener, dep_id
 from setta.api.listener import ListenerRuntimeState
 from setta.code_gen.dependency_graph import DependencyGraph
@@ -209,6 +211,34 @@ def test_listener_context_values_by_id_uses_cached_values_without_runtime_instan
     ctx = listener._build_callback_context(spec, {}, [])
 
     assert ctx.values.by_id(section_id, param_id) == "cached-value"
+
+
+def test_metadata_backed_callback_state_fails_closed_for_unresolved_dependency() -> None:
+    project_state, section_id, param_id = build_project_state("9")
+    listener = SettaListener(project_name=project_state.projectConfig.name)
+
+    param_dep = dep_id(section_id, param_id)
+
+    @listener.listen(deps=[param_dep])
+    def on_param(_state, _ctx) -> None:
+        return None
+
+    runtime_state = listener._build_runtime_state(project_state)
+    listener._runtime_state = ListenerRuntimeState(
+        project_state=runtime_state.project_state,
+        dependency_graph=runtime_state.dependency_graph,
+        code_generator=runtime_state.code_generator,
+        s_instance=None,
+    )
+    listener._project_config_id = project_state.projectConfig.id
+    listener._refresh_callback_dependency_metadata(runtime_state.dependency_graph)
+    spec = next(iter(listener._callbacks.values()))
+    dependency_name = spec.dependency_names[0]
+
+    state = listener._build_callback_state(listener._runtime_state)
+
+    with pytest.raises(RuntimeError, match="metadata-backed callback state"):
+        _ = getattr(state, dependency_name)
 
 
 def test_dependency_graph_exposes_section_and_param() -> None:
