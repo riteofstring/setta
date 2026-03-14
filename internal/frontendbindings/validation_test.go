@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"runtime"
 	"slices"
 	"strconv"
@@ -1311,6 +1312,76 @@ func TestFrontendCShimRemainsThinGeneratedTypesReExport(t *testing.T) {
 	const expected = `export { C } from "./generatedTypes";`
 	if strings.TrimSpace(string(contents)) != expected {
 		t.Fatalf("frontend/src/utils/c.ts must remain a thin generatedTypes re-export")
+	}
+}
+
+func TestFrontendTransportHelperImportsStayWithinGeneratedSurface(t *testing.T) {
+	t.Helper()
+
+	repoRoot := testRepoRoot(t)
+	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
+	allowedDirectTransportImports := map[string]struct{}{
+		"frontend/src/utils/generatedEndpoints.ts":                    {},
+		"frontend/src/components/Section/Layouts/MetaControlArea.tsx": {},
+	}
+	directTransportBindings := map[string]struct{}{
+		"get":       {},
+		"getBinary": {},
+		"post":      {},
+	}
+	importPattern := regexp.MustCompile(`(?s)import\s*\{([^}]*)\}\s*from\s*["'](?:\./endpointUtils|utils/endpointUtils)["']`)
+
+	err := filepath.WalkDir(frontendSrcRoot, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+
+		base := entry.Name()
+		if !(strings.HasSuffix(base, ".ts") || strings.HasSuffix(base, ".tsx")) {
+			return nil
+		}
+		if strings.Contains(base, ".test.") || strings.Contains(base, ".spec.") {
+			return nil
+		}
+
+		relativePath, err := filepath.Rel(repoRoot, path)
+		if err != nil {
+			return err
+		}
+		relativePath = filepath.ToSlash(relativePath)
+
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		matches := importPattern.FindAllStringSubmatch(string(contents), -1)
+		for _, match := range matches {
+			for _, rawSpecifier := range strings.Split(match[1], ",") {
+				specifier := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(rawSpecifier), "type "))
+				if specifier == "" {
+					continue
+				}
+				bindingName := strings.Fields(specifier)[0]
+				if _, directTransport := directTransportBindings[bindingName]; !directTransport {
+					continue
+				}
+				if _, allowed := allowedDirectTransportImports[relativePath]; allowed {
+					continue
+				}
+				return fmt.Errorf(
+					"%s imports direct transport helper %q from endpointUtils outside the generated endpoint surface",
+					relativePath,
+					bindingName,
+				)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("scan frontend transport helper imports: %v", err)
 	}
 }
 
