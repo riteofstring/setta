@@ -301,6 +301,42 @@ test("canvas engine host renders a minimap and recenters from minimap clicks", a
   }
 });
 
+test("canvas engine host renders the shared background grid and updates it on zoom", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, {
+      useCanvasEngineV1: true,
+      snapToGrid: true,
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+    const background = page.getByTestId("rf__background");
+    await expect(background).toBeVisible();
+
+    const patternBeforeZoom = await readBackgroundPatternMetrics(page);
+    await host.hover();
+    await page.mouse.wheel(0, -1200);
+
+    await expect
+      .poll(async () => {
+        const patternAfterZoom = await readBackgroundPatternMetrics(page);
+        return (
+          Math.abs(patternAfterZoom.width - patternBeforeZoom.width) > 0.1 ||
+          Math.abs(patternAfterZoom.height - patternBeforeZoom.height) > 0.1
+        );
+      })
+      .toBe(true);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("canvas engine host mounts readable large sections below the old zoom cutoff", async ({
   page,
 }) => {
@@ -2435,6 +2471,33 @@ async function readActiveSectionIds(host: Locator): Promise<string[]> {
     .split(",")
     .map((sectionId) => sectionId.trim())
     .filter((sectionId) => sectionId.length > 0);
+}
+
+async function readBackgroundPatternMetrics(page: Page): Promise<{
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}> {
+  return await page.evaluate(() => {
+    const pattern = document.querySelector("#ReactFlowBackground");
+    if (!(pattern instanceof SVGPatternElement)) {
+      throw new Error("Missing ReactFlow background pattern.");
+    }
+    const x = Number(pattern.getAttribute("x"));
+    const y = Number(pattern.getAttribute("y"));
+    const width = Number(pattern.getAttribute("width"));
+    const height = Number(pattern.getAttribute("height"));
+    if (
+      Number.isNaN(x) ||
+      Number.isNaN(y) ||
+      Number.isNaN(width) ||
+      Number.isNaN(height)
+    ) {
+      throw new Error("Invalid ReactFlow background pattern metrics.");
+    }
+    return { x, y, width, height };
+  });
 }
 
 async function dispatchMountedSectionRootClick(
