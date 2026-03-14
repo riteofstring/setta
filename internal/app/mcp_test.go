@@ -119,8 +119,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 78 {
-		t.Fatalf("expected 78 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 79 {
+		t.Fatalf("expected 79 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -138,8 +138,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 78 {
-		t.Fatalf("expected 78 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 79 {
+		t.Fatalf("expected 79 registered tool names, got %d", len(rawNames))
 	}
 	if !containsStructuredStringValue(rawNames, "getInstalledPythonPackages") {
 		t.Fatalf("expected getInstalledPythonPackages in registered tool names, got %#v", rawNames)
@@ -384,8 +384,8 @@ func TestAppIDEMCPServerRegistersPluginBackendMCPTools(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 80 {
-		t.Fatalf("expected 80 tools with plugin backend MCP tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 81 {
+		t.Fatalf("expected 81 tools with plugin backend MCP tools, got %d", len(toolsResult.Tools))
 	}
 
 	var readTool *sdkmcp.Tool

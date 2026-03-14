@@ -310,7 +310,6 @@ predominantly Go-owned.
 
 | Blocker | Evidence | Why it blocks a `Complete` verdict |
 | --- | --- | --- |
-| Go MCP parity drift | `source activate.sh && ./scripts/go.sh test ./internal/app -run '^(TestAppIDEMCPServerSupportsAuthenticatedSSECalls)$' -count=1` fails with `expected 78 tools, got 79` | The active Go-owned MCP surface still differs from covered expected behavior. |
 | Go share artifact route construction failure | `source activate.sh && ./scripts/go.sh test ./internal/app -run '^(TestAppShareModeServesArtifactOverlayRoutesAndBroadcastsScopedUpdates)$' -count=1` panics with `attachment service is required` | A covered share-mode route path is not stable enough to claim rewrite completion. |
 | Go projectstate parity failure | `source activate.sh && ./scripts/go.sh test ./internal/projectstate -run '^TestRuntimeSetCodeSectionAttachedTerminalRoundTripsAttachAndDetach$' -count=1` fails because the detached terminal layout is not the expected deterministic value | The Go-owned projectstate/runtime behavior is still mismatched on a covered write path. |
 
@@ -322,6 +321,8 @@ predominantly Go-owned.
   - `source activate.sh && ./scripts/go.sh test ./internal/settacli ./internal/sshx ./internal/codeformat -count=1`
   - `source activate.sh && ./scripts/go.sh test ./internal/httpapi -run '^TestRegisterProjectRoutesCreatesTopLevelPluginLanguageSection$' -count=1`
   - `source activate.sh && ./scripts/go.sh test ./internal/app -run '^(TestAppPluginLanguageServerRoutesDiagnosticsAndCompletion|TestAppLinkRefreshesPluginLanguageServerRouter)$' -count=1`
+  - `source activate.sh && ./scripts/go.sh test ./internal/mcpx -run '^TestServerListsToolsAndScopesToolCalls$' -count=1`
+  - `source activate.sh && ./scripts/go.sh test ./internal/app -run '^(TestAppIDEMCPServerSupportsAuthenticatedSSECalls|TestAppIDEMCPServerRegistersPluginBackendMCPTools)$' -count=1`
 - Failed:
   - `./scripts/go.sh test ./...` when first run without the activated Python env
   - targeted `internal/app` reruns for MCP/share-artifact parity and the
@@ -350,6 +351,13 @@ Go-owned. But the rewrite is not complete with certainty:
 A follow-up rewrite step repaired the two plugin language-server app tests that
 had been failing only because they assumed `project-alpha` already existed in an
 otherwise empty IDE runtime. After explicitly seeding the empty project in the
-test fixture, both targeted reruns passed. That cleared one false blocker, but
-the repo still remains `Incomplete` because the other targeted Go-side parity
-failures above still reproduce.
+test fixture, both targeted reruns passed.
+
+A second follow-up rewrite step updated the stale app MCP tool-count baselines
+to match the canonical `internal/mcpx` server baseline (`79` base tools and
+`81` when the fixture plugin contributes two backend MCP tools). The targeted
+app and `internal/mcpx` reruns passed.
+
+Those two fixes cleared two false blockers, but the repo still remains
+`Incomplete` because the share-artifact and projectstate parity failures above
+still reproduce.
