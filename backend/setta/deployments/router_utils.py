@@ -54,7 +54,7 @@ def list_deployments_metadata(
     sort_key: Callable[[T], object] | None = None,
     sort_reverse: bool = False,
 ) -> list[T]:
-    deployments_root = C.DEPLOYMENTS_FOLDER
+    deployments_root = C.SHARE_DEPLOYMENTS_FOLDER
     if not deployments_root.exists():
         return []
     deployments: list[T] = []
@@ -90,7 +90,7 @@ def list_deployment_versions_metadata(
     metadata_factory: Callable[[DeploymentManifest, Path, str], T],
 ) -> list[T]:
     normalized_name = normalize_deployment_name(deployment_name)
-    deployment_root = normalize_path(C.DEPLOYMENTS_FOLDER / normalized_name)
+    deployment_root = normalize_path(C.SHARE_DEPLOYMENTS_FOLDER / normalized_name)
     if not deployment_root.exists():
         return []
     versions = sorted(
@@ -128,7 +128,7 @@ def get_latest_deployment_metadata_from_disk(
     not_found_label: str,
 ) -> T:
     normalized_name = normalize_deployment_name(deployment_name)
-    deployment_root = normalize_path(C.DEPLOYMENTS_FOLDER / normalized_name)
+    deployment_root = normalize_path(C.SHARE_DEPLOYMENTS_FOLDER / normalized_name)
     not_found_detail = f"{not_found_label} not found: {normalized_name}"
     if not deployment_root.exists():
         raise HTTPException(
