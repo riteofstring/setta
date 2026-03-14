@@ -277,7 +277,10 @@ test("canvas engine host renders a minimap and recenters from minimap clicks", a
     const host = page.locator('[data-canvas-engine-host="v1"]');
     await expect(host).toBeVisible();
 
-    await createCallableSectionForCanvasEngine(page, projectContext.projectConfigId);
+    const sectionId = await createCallableSectionForCanvasEngine(
+      page,
+      projectContext.projectConfigId,
+    );
 
     const minimap = page.getByTestId("rf__minimap");
     await expect(minimap).toBeVisible();
@@ -332,6 +335,70 @@ test("canvas engine host renders the shared background grid and updates it on zo
         );
       })
       .toBe(true);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("canvas engine host viewport controls drive shared zoom and fit-view helpers", async ({
+  page,
+}) => {
+  // The engine path should reuse the shared toolbar controls without needing d3.
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+
+    const sectionId = await createCallableSectionForCanvasEngine(
+      page,
+      projectContext.projectConfigId,
+    );
+
+    const defaultZoomLevel = await readDefaultZoomLevel(page);
+    const cameraBefore = await readCamera(host);
+
+    await page.getByRole("button", { name: "zoom in" }).click();
+    await expect
+      .poll(async () => (await readCamera(host)).zoom)
+      .toBeGreaterThan(cameraBefore.zoom + 0.05);
+
+    const cameraAfterZoomIn = await readCamera(host);
+    await page.getByRole("button", { name: "zoom out" }).click();
+    await expect
+      .poll(async () => (await readCamera(host)).zoom)
+      .toBeLessThan(cameraAfterZoomIn.zoom - 0.05);
+
+    await setTopLevelSectionLayout(page, projectContext.projectConfigId, {
+      sectionId,
+      x: 2800,
+      y: 1800,
+    });
+
+    const cameraBeforeFitView = await readCamera(host);
+    await page.getByRole("button", { name: "fit view" }).click();
+    await expect
+      .poll(async () => {
+        const cameraAfterFitView = await readCamera(host);
+        return (
+          Math.abs(cameraAfterFitView.x - cameraBeforeFitView.x) > 0.5 ||
+          Math.abs(cameraAfterFitView.y - cameraBeforeFitView.y) > 0.5 ||
+          Math.abs(cameraAfterFitView.zoom - cameraBeforeFitView.zoom) > 0.05
+        );
+      })
+      .toBe(true);
+
+    await page.getByRole("button", { name: "reset zoom" }).click();
+    await expect
+      .poll(async () => {
+        const cameraAfterReset = await readCamera(host);
+        return Math.abs(cameraAfterReset.zoom - defaultZoomLevel);
+      })
+      .toBeLessThan(0.02);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -2425,6 +2492,43 @@ async function readTopLevelSectionLayout(
   };
 }
 
+async function setTopLevelSectionLayout(
+  page: Page,
+  projectConfigId: string,
+  args: {
+    sectionId: string;
+    x: number;
+    y: number;
+  },
+): Promise<void> {
+  const response = await postBackend<LatestProjectStateResponse>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
+  );
+  const topLevelSections = response?.projectState?.projectConfig?.topLevelSections;
+  if (!topLevelSections) {
+    throw new Error(`Missing top-level layouts for project ${projectConfigId}.`);
+  }
+  const currentLayout = topLevelSections[args.sectionId];
+  if (!currentLayout) {
+    throw new Error(
+      `Missing top-level layout for section ${args.sectionId} in project ${projectConfigId}.`,
+    );
+  }
+  await postBackend(page, "/setTopLevelSectionLayout", {
+    projectConfigId,
+    topLevelSections: {
+      ...topLevelSections,
+      [args.sectionId]: {
+        ...currentLayout,
+        x: args.x,
+        y: args.y,
+      },
+    },
+  });
+}
+
 async function readPersistedSectionSize(
   page: Page,
   projectConfigId: string,
@@ -2497,6 +2601,13 @@ async function readBackgroundPatternMetrics(page: Page): Promise<{
       throw new Error("Invalid ReactFlow background pattern metrics.");
     }
     return { x, y, width, height };
+  });
+}
+
+async function readDefaultZoomLevel(page: Page): Promise<number> {
+  return await page.evaluate(async () => {
+    const { useSettings } = await import("/src/state/definitions.ts");
+    return useSettings.getState().gui.defaultZoomLevel;
   });
 }
 
