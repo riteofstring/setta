@@ -412,7 +412,7 @@ func TestRegisterAIRoutesReturnsBadRequestForManagedProviderUnsupported(t *testi
 	t.Parallel()
 
 	managedStarter := &aiRouteStubManagedStarter{
-		err: fmt.Errorf("%w: %q", managedllm.ErrProviderUnsupported, "gemini"),
+		err: fmt.Errorf("%w: %q", managedllm.ErrProviderUnsupported, "mistral"),
 	}
 	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{managedStarter: managedStarter})
 	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
@@ -421,7 +421,7 @@ func TestRegisterAIRoutesReturnsBadRequestForManagedProviderUnsupported(t *testi
 		"/api"+RouteGetLLMResponse,
 		strings.NewReader(`{
 			"chatId":null,
-			"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Use Gemini."}]},
+			"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Use Mistral."}]},
 			"engineConfigId":"engine-managed",
 			"agentProfileId":null,
 			"thinking":false,

@@ -628,12 +628,12 @@ func TestExecutorValidateRejectsUnsupportedProvider(t *testing.T) {
 	err := executor.Validate(agentruns.ExecutionRequest{
 		Run: agentruns.Run{ID: "run-alpha"},
 		LLMConfig: llmconfig.Config{
-			Model:     "gemini-2.5-pro",
-			Provider:  "gemini",
-			APIKeyEnv: "GEMINI_API_KEY",
+			Model:     "mistral-large-latest",
+			Provider:  "mistral",
+			APIKeyEnv: "MISTRAL_API_KEY",
 		},
 		APIKeys: map[string]string{
-			"GEMINI_API_KEY": "secret",
+			"MISTRAL_API_KEY": "secret",
 		},
 		SystemPrompt: "System prompt",
 		ChatID:       "chat-alpha",
@@ -643,6 +643,288 @@ func TestExecutorValidateRejectsUnsupportedProvider(t *testing.T) {
 	})
 	if !errors.Is(err, ErrProviderUnsupported) {
 		t.Fatalf("expected provider unsupported, got %v", err)
+	}
+}
+
+func TestExecutorExecuteStreamsGeminiManagedChatAndReturnsOutputs(t *testing.T) {
+	t.Parallel()
+
+	var seenRequest map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1beta/models/gemini-2.5-pro:streamGenerateContent" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+		if r.URL.RawQuery != "alt=sse" {
+			t.Fatalf("unexpected query %q", r.URL.RawQuery)
+		}
+		if got := r.Header.Get("X-Goog-Api-Key"); got != "secret" {
+			t.Fatalf("unexpected api key header %q", got)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&seenRequest); err != nil {
+			t.Fatalf("decode provider request: %v", err)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected flusher")
+		}
+		fmt.Fprint(w, "data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"Hello\"}]}}]}\n\n")
+		flusher.Flush()
+		fmt.Fprint(w, "data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\" world\"}]}}],\"usageMetadata\":{\"promptTokenCount\":11,\"candidatesTokenCount\":2,\"totalTokenCount\":13}}\n\n")
+		flusher.Flush()
+	}))
+	defer server.Close()
+
+	broadcaster := &captureBroadcaster{}
+	live := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{Broadcaster: broadcaster})
+	run := newManagedChatTestRun()
+	live.ActivateRun(run)
+
+	executor := NewExecutor(ExecutorOptions{
+		Live:       live,
+		HTTPClient: server.Client(),
+	})
+	result, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
+		Run: run,
+		LLMConfig: llmconfig.Config{
+			ID:        "primary",
+			Model:     "gemini-2.5-pro",
+			Provider:  "gemini",
+			BaseURL:   server.URL,
+			APIKeyEnv: "GEMINI_API_KEY",
+		},
+		RequestParams: map[string]any{
+			"temperature": 0.2,
+		},
+		APIKeys: map[string]string{
+			"GEMINI_API_KEY": "secret",
+		},
+		SystemPrompt:    "System prompt",
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+		SectionID:       testStringPtr("section-chat"),
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+			"messages": []any{
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Hello from the user"},
+					},
+					"attachments": []any{},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("execute managed gemini stream: %v", err)
+	}
+
+	state, err := live.GetLiveChatState(run.ID)
+	if err != nil {
+		t.Fatalf("get live state: %v", err)
+	}
+	if state == nil || state.WaitingForResponse {
+		t.Fatalf("expected finalized live state, got %#v", state)
+	}
+	if len(state.Messages) != 2 {
+		t.Fatalf("expected user and assistant messages, got %#v", state.Messages)
+	}
+	if assistantText(state.Messages[1]) != "Hello world" {
+		t.Fatalf("unexpected assistant text %#v", state.Messages[1])
+	}
+	if broadcaster.Count() != 5 {
+		t.Fatalf("expected 5 streaming broadcasts, got %d", broadcaster.Count())
+	}
+
+	outputMessages, ok := result.Outputs["messages"].([]any)
+	if !ok || len(outputMessages) != 2 {
+		t.Fatalf("expected two output messages, got %#v", result.Outputs["messages"])
+	}
+	usage, ok := result.Outputs["usage"].(map[string]any)
+	if !ok || int(usage["prompt_tokens"].(float64)) != 11 {
+		t.Fatalf("unexpected usage payload %#v", result.Outputs["usage"])
+	}
+
+	contents, ok := seenRequest["contents"].([]any)
+	if !ok || len(contents) != 1 {
+		t.Fatalf("unexpected gemini contents %#v", seenRequest["contents"])
+	}
+	generationConfig, ok := seenRequest["generationConfig"].(map[string]any)
+	if !ok || generationConfig["temperature"] != 0.2 {
+		t.Fatalf("unexpected generation config %#v", seenRequest["generationConfig"])
+	}
+	systemInstruction, ok := seenRequest["systemInstruction"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected system instruction, got %#v", seenRequest["systemInstruction"])
+	}
+	systemParts, ok := systemInstruction["parts"].([]any)
+	if !ok || len(systemParts) != 1 {
+		t.Fatalf("unexpected system instruction parts %#v", seenRequest["systemInstruction"])
+	}
+}
+
+func TestExecutorExecuteRunsGeminiToolCallsThroughMCPAndContinuesProviderTurns(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	temporaryIDs, err := mcpx.NewTemporaryIDStore(mcpx.TemporaryIDMapPath(root))
+	if err != nil {
+		t.Fatalf("new temporary id store: %v", err)
+	}
+	createdSectionID, err := temporaryIDs.EnsureTemporaryID("section-created")
+	if err != nil {
+		t.Fatalf("ensure temporary section id: %v", err)
+	}
+
+	requestBodies := make([]map[string]any, 0, 2)
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body := map[string]any{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode provider request: %v", err)
+		}
+		requestBodies = append(requestBodies, body)
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected flusher")
+		}
+		switch requestCount {
+		case 0:
+			fmt.Fprint(w, "data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"functionCall\":{\"id\":\"tool-call-1\",\"name\":\"setta__create_top_level_section\",\"args\":{\"projectConfigId\":\"project-alpha\",\"implType\":\"Dict\"}}}]}}],\"usageMetadata\":{\"promptTokenCount\":18,\"candidatesTokenCount\":4,\"totalTokenCount\":22}}\n\n")
+			flusher.Flush()
+		case 1:
+			fmt.Fprint(w, "data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"Tool loop complete\"}]}}],\"usageMetadata\":{\"promptTokenCount\":23,\"candidatesTokenCount\":3,\"totalTokenCount\":26}}\n\n")
+			flusher.Flush()
+		default:
+			t.Fatalf("unexpected provider request count %d", requestCount)
+		}
+		requestCount++
+	}))
+	defer server.Close()
+
+	broadcaster := &captureBroadcaster{}
+	live := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{Broadcaster: broadcaster})
+	run := newManagedChatTestRun()
+	live.ActivateRun(run)
+
+	capturedCalls := make([]struct {
+		ToolName  string
+		Arguments map[string]any
+		Meta      map[string]any
+	}, 0, 1)
+	toolClient := &stubToolClient{
+		discoverableTools: map[string]mcpx.ToolDescriptor{
+			"setta__create_top_level_section": {
+				ServerID:       mcpx.DefaultServerID,
+				NamespacedName: "setta__create_top_level_section",
+				RemoteName:     "create_top_level_section",
+				Description:    "Create a top-level section.",
+				InputSchema: map[string]any{
+					"type": "object",
+				},
+				Metadata: &tools.Metadata{
+					ResultIDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection: {"sectionId"},
+					},
+				},
+			},
+		},
+		call: func(_ context.Context, namespacedToolName string, arguments map[string]any, meta map[string]any) (mcpx.ToolCallResult, error) {
+			capturedCalls = append(capturedCalls, struct {
+				ToolName  string
+				Arguments map[string]any
+				Meta      map[string]any
+			}{
+				ToolName:  namespacedToolName,
+				Arguments: arguments,
+				Meta:      meta,
+			})
+			return mcpx.ToolCallResult{
+				StructuredContent: map[string]any{"sectionId": createdSectionID},
+				Text:              "{\"sectionId\":\"" + createdSectionID + "\"}",
+			}, nil
+		},
+	}
+
+	executor := NewExecutor(ExecutorOptions{
+		Live:       live,
+		Tools:      toolClient,
+		HTTPClient: server.Client(),
+		ResultFollow: NewToolResultFollowEmitter(ToolResultFollowEmitterOptions{
+			Broadcaster:  broadcaster,
+			TemporaryIDs: temporaryIDs,
+		}),
+	})
+	result, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
+		Run: run,
+		LLMConfig: llmconfig.Config{
+			ID:        "primary",
+			Model:     "gemini-2.5-pro",
+			Provider:  "gemini",
+			BaseURL:   server.URL,
+			APIKeyEnv: "GEMINI_API_KEY",
+			MCPServerIDs: []string{
+				mcpx.DefaultServerID,
+			},
+		},
+		APIKeys: map[string]string{
+			"GEMINI_API_KEY": "secret",
+		},
+		SystemPrompt:    "System prompt",
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+			"messages": []any{
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Please create a section"},
+					},
+					"attachments": []any{},
+				},
+			},
+		},
+		MCPServerIDs: []string{mcpx.DefaultServerID},
+		TemporaryIDs: temporaryIDs,
+	})
+	if err != nil {
+		t.Fatalf("execute managed gemini tool stream: %v", err)
+	}
+
+	if len(capturedCalls) != 1 {
+		t.Fatalf("expected one tool call, got %#v", capturedCalls)
+	}
+	if capturedCalls[0].ToolName != "setta__create_top_level_section" {
+		t.Fatalf("unexpected tool name %#v", capturedCalls[0])
+	}
+	if capturedCalls[0].Arguments["projectConfigId"] != "project-alpha" {
+		t.Fatalf("unexpected tool arguments %#v", capturedCalls[0].Arguments)
+	}
+
+	outputMessages, ok := result.Outputs["messages"].([]any)
+	if !ok || len(outputMessages) != 4 {
+		t.Fatalf("expected user, tool-call assistant, tool result, and final assistant messages, got %#v", result.Outputs["messages"])
+	}
+	finalAssistant, ok := outputMessages[3].(map[string]any)
+	if !ok || assistantText(finalAssistant) != "Tool loop complete" {
+		t.Fatalf("unexpected final assistant %#v", outputMessages[3])
+	}
+
+	if len(requestBodies) != 2 {
+		t.Fatalf("expected two provider requests, got %#v", requestBodies)
+	}
+	if _, ok := requestBodies[0]["tools"].([]any); !ok {
+		t.Fatalf("expected gemini tools on first request, got %#v", requestBodies[0])
+	}
+	secondContents, ok := requestBodies[1]["contents"].([]any)
+	if !ok || len(secondContents) < 3 {
+		t.Fatalf("expected follow-up contents with tool history, got %#v", requestBodies[1]["contents"])
 	}
 }
 

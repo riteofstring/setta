@@ -15,6 +15,7 @@ import (
 	openai "github.com/openai/openai-go/v3"
 	openaioption "github.com/openai/openai-go/v3/option"
 	"github.com/openai/openai-go/v3/responses"
+	"google.golang.org/genai"
 	"setta/internal/agentruns"
 	"setta/internal/managedchat"
 	"setta/internal/mcpx"
@@ -24,6 +25,7 @@ import (
 const (
 	openAIProvider       = "openai"
 	anthropicProvider    = "anthropic"
+	geminiProvider       = "gemini"
 	defaultOpenAIBaseURL = "https://api.openai.com/v1"
 	defaultAnthropicBase = "https://api.anthropic.com/"
 	managedChatRunType   = "llm_chat"
@@ -57,6 +59,7 @@ type preparedExecution struct {
 	provider                  string
 	openAIClient              openai.Client
 	anthropicClient           anthropic.Client
+	geminiClient              *genai.Client
 	projectConfigID           *string
 	sectionID                 *string
 	chatID                    string
@@ -168,6 +171,12 @@ func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (prepare
 		}
 		prepared.anthropicClient = client
 		prepared.anthropicRequestOpts = requestOpts
+	case geminiProvider:
+		client, clientErr := buildGeminiClient(request, e.httpClient)
+		if clientErr != nil {
+			return preparedExecution{}, clientErr
+		}
+		prepared.geminiClient = client
 	default:
 		return preparedExecution{}, fmt.Errorf("%w: %q", ErrProviderUnsupported, provider)
 	}
@@ -177,7 +186,7 @@ func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (prepare
 func resolveManagedProvider(request agentruns.ExecutionRequest) (string, error) {
 	provider := strings.ToLower(strings.TrimSpace(resolveProviderHint(request)))
 	switch provider {
-	case openAIProvider, anthropicProvider:
+	case openAIProvider, anthropicProvider, geminiProvider:
 		return provider, nil
 	default:
 		return "", fmt.Errorf("%w: %q", ErrProviderUnsupported, provider)
@@ -199,6 +208,8 @@ func validateReasoningRequest(request agentruns.ExecutionRequest) error {
 	case anthropicProvider:
 		_, _, err = resolveAnthropicThinkingConfig(request)
 		return err
+	case geminiProvider:
+		return unsupportedThinkingError(request)
 	default:
 		return fmt.Errorf("%w: %q", ErrProviderUnsupported, provider)
 	}
@@ -331,6 +342,15 @@ func (e *Executor) consumeProviderStream(
 			return nil, err
 		}
 		return e.consumeAnthropicStream(ctx, prepared, assistantMessage, requestBody)
+	case geminiProvider:
+		return e.consumeGeminiStream(
+			ctx,
+			prepared,
+			assistantMessage,
+			prepared.systemPrompt,
+			providerMessages,
+			request,
+		)
 	default:
 		return nil, fmt.Errorf("%w: %q", ErrProviderUnsupported, prepared.provider)
 	}
@@ -999,6 +1019,8 @@ func providerPayloadForMessage(provider string, message map[string]any) (map[str
 		return buildOpenAIProviderMessage(normalized)
 	case anthropicProvider:
 		return buildAnthropicProviderMessage(normalized)
+	case geminiProvider:
+		return cloneAnyMap(normalized), true, nil
 	default:
 		return nil, false, fmt.Errorf("%w: %q", ErrProviderUnsupported, provider)
 	}
@@ -1091,6 +1113,12 @@ func buildProviderMessages(provider string, systemPrompt string, transcript []ma
 			if include {
 				messages = append(messages, payload)
 			}
+		}
+		return messages, nil
+	case geminiProvider:
+		messages := make([]map[string]any, 0, len(transcript))
+		for _, message := range transcript {
+			messages = append(messages, cloneAnyMap(message))
 		}
 		return messages, nil
 	default:
