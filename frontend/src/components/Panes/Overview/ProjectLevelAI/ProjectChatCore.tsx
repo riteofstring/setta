@@ -6,7 +6,6 @@ import {
   type ChatStarterPrompt,
   type ManagedChatExecutionSettings,
 } from "components/Chat/chatComposerControls";
-import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
 import {
   ChatInput,
   resolveSlashCommandRequest,
@@ -41,7 +40,6 @@ import {
 } from "state/definitions";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
 import type { AppGenerationMode } from "state/types/appGenerationMode";
-import { hasPendingToolInteraction } from "utils/claudeTools";
 import { tokenizeConversationSearchQuery } from "utils/conversationSearch";
 import {
   route_get_file_browser_root,
@@ -61,6 +59,7 @@ import {
   submitProjectChatComposerMessage,
   transcribeProjectChatComposerAudio,
 } from "./projectChatComposerRuntime";
+import { resolveProjectChatComposerDerivedState } from "./projectChatComposerState";
 import {
   buildProjectChatSubmittedMessageHistory,
   filterProjectConversationMessagesBySearch,
@@ -81,8 +80,6 @@ import {
   resolveProjectChatComposerSlashCommandSets,
   resolveProjectChatContextTelemetry,
   resolveProjectChatHydrationRetryDecision,
-  resolveProjectChatProviderDictationTranscribeEnabled,
-  resolveProjectChatRuntimeActivityDetails,
   resolveProjectChatRuntimeNativeSlashCommandTokens,
   resolveWorkspaceRootPollDelayMs,
   shouldSkipProjectChatHydration,
@@ -1183,74 +1180,61 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     ],
   );
 
-  const isDisabled =
-    requiresNewThreadContinuation ||
-    !engineConfigId ||
-    (!isExternalEngine && !hasLLMConfig) ||
-    (isExternalEngine && !externalEngineAvailable);
-  const editDisabledReason = useMemo(() => {
-    if (newThreadContinuationRequiredReason) {
-      return newThreadContinuationRequiredReason;
-    }
-    return getChatEditDisabledReason({
-      hasEngineConfig: Boolean(engineConfigId),
-      hasLLMConfig,
-      isExternalEngine,
-      externalEngineAvailable,
-      noLLMConfigsAvailable,
-    });
-  }, [
-    engineConfigId,
-    externalEngineAvailable,
-    hasLLMConfig,
-    isExternalEngine,
-    newThreadContinuationRequiredReason,
-    noLLMConfigsAvailable,
-  ]);
-  const submitDisabled = useMemo(
+  const {
+    isDisabled,
+    editDisabledReason,
+    submitDisabled,
+    runtimeActivityDetails,
+    runtimeActivityCounts,
+    executionControls,
+    providerDictationTranscribeEnabled,
+    showConversationSearchEmptyState,
+    chatInputContextUsageUnavailable,
+  } = useMemo(
     () =>
-      requiresNewThreadContinuation ||
-      (!waitingForResponse && hasPendingToolInteraction(messages)),
-    [messages, requiresNewThreadContinuation, waitingForResponse],
-  );
-  const runtimeActivityDetails = useMemo(
-    () =>
-      resolveProjectChatRuntimeActivityDetails({
+      resolveProjectChatComposerDerivedState({
+        requiresNewThreadContinuation,
+        engineConfigId,
+        hasLLMConfig,
+        isExternalEngine,
+        externalEngineAvailable,
+        noLLMConfigsAvailable,
+        newThreadContinuationRequiredReason,
         messages,
         waitingForResponse,
+        engineType,
+        thinking,
+        onThinkingChange,
+        executionSettings,
+        executionControlHandlers,
+        normalizedConversationSearchTerms,
+        hasVisibleConversationMatches,
+        providerDictationAvailable,
+        showEmptyState,
+        contextUsageUnavailable,
       }),
-    [messages, waitingForResponse],
-  );
-  const runtimeActivityCounts = useMemo(
-    () => ({
-      activeBackgroundTerminals:
-        runtimeActivityDetails.activeBackgroundTerminals.length,
-      activeSubagents: runtimeActivityDetails.activeSubagents.length,
-    }),
-    [runtimeActivityDetails],
-  );
-  const showThinkingExecutionControl =
-    engineType === EngineTypeEnum.setta_llm ||
-    engineType === EngineTypeEnum.external_agent;
-  const executionControls = useMemo(
-    () => ({
-      thinkingEnabled: thinking,
-      onThinkingEnabledChange: showThinkingExecutionControl
-        ? onThinkingChange
-        : undefined,
-      permissionMode: executionSettings.permissionMode,
-      searchEnabled: executionSettings.searchEnabled,
-      onPermissionModeChange: executionControlHandlers.onPermissionModeChange,
-      onSearchEnabledChange: executionControlHandlers.onSearchEnabledChange,
-    }),
     [
-      thinking,
-      onThinkingChange,
-      showThinkingExecutionControl,
-      executionSettings.permissionMode,
-      executionSettings.searchEnabled,
+      contextUsageUnavailable,
+      engineConfigId,
+      engineType,
       executionControlHandlers.onPermissionModeChange,
       executionControlHandlers.onSearchEnabledChange,
+      executionSettings.permissionMode,
+      executionSettings.searchEnabled,
+      externalEngineAvailable,
+      hasLLMConfig,
+      hasVisibleConversationMatches,
+      isExternalEngine,
+      messages,
+      newThreadContinuationRequiredReason,
+      noLLMConfigsAvailable,
+      normalizedConversationSearchTerms,
+      onThinkingChange,
+      providerDictationAvailable,
+      requiresNewThreadContinuation,
+      showEmptyState,
+      thinking,
+      waitingForResponse,
     ],
   );
   const handleProviderDictationTranscribe = useCallback(
@@ -1262,10 +1246,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     [transcriptionProfileId],
   );
   const chatWidthShellClassName = "mx-auto w-full min-w-0 max-w-[72rem] px-2";
-  const showConversationSearchEmptyState =
-    normalizedConversationSearchTerms.length > 0 &&
-    !hasVisibleConversationMatches &&
-    !waitingForResponse;
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden">
@@ -1341,16 +1321,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           contextWindowTokens={contextWindowTokens}
           contextUsedTokens={contextUsedTokens}
           contextUsageIsEstimated={contextUsageIsEstimated}
-          contextUsageUnavailable={
-            showEmptyState ? false : contextUsageUnavailable
-          }
+          contextUsageUnavailable={chatInputContextUsageUnavailable}
           submittedMessageHistory={submittedMessageHistory}
           runtimeActivityCounts={runtimeActivityCounts}
           runtimeActivityDetails={runtimeActivityDetails}
           onProviderDictationTranscribe={
-            !resolveProjectChatProviderDictationTranscribeEnabled({
-              providerDictationAvailable,
-            })
+            !providerDictationTranscribeEnabled
               ? undefined
               : handleProviderDictationTranscribe
           }

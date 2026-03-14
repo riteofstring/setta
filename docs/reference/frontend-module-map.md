@@ -105,6 +105,7 @@ This is the front door for authored frontend code under `frontend/src/`.
 - Need pending chat state, chat hydration, or stop-response runtime behavior: open `state/actions/ai/chatRuntime.ts`.
 - Need Project Chat hydration/slash-command/runtime helper logic: open `components/Panes/Overview/ProjectLevelAI/projectChatRuntimeUtils.ts`.
 - Need Project Chat submit/edit/redo/stop/dictation composer runtime behavior: open `components/Panes/Overview/ProjectLevelAI/projectChatComposerRuntime.ts`.
+- Need Project Chat disabled-state, runtime-activity, or input-surface state derivation: open `components/Panes/Overview/ProjectLevelAI/projectChatComposerState.ts`.
 - Need Project Chat conversation filtering or submitted-history helpers: open `components/Panes/Overview/ProjectLevelAI/projectChatHistoryUtils.ts`.
 - Need LLM config or managed API-key mutations: open `state/actions/ai/llmSettings.ts`.
 - Need Project AI profiles/templates/engine/transcription resource mutations: open `state/actions/ai/projectAiResources.ts`.
