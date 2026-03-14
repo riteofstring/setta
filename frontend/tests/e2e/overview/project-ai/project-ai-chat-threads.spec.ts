@@ -436,9 +436,18 @@ test("project ai selected thread spinner follows live chat state before agent-ru
       .getByTestId("project-chat-thread-entry")
       .filter({ hasText: "Live state thread" });
     await expect(selectedThreadEntry).toHaveCount(1);
-    await expect(
-      selectedThreadEntry.getByTestId("project-chat-thread-working-indicator"),
-    ).toHaveCount(1);
+    const selectedThreadWorkingIndicator = selectedThreadEntry.getByTestId(
+      "project-chat-thread-working-indicator",
+    );
+    const selectedThreadDragHandle = selectedThreadEntry.getByTestId(
+      "project-chat-thread-drag-handle",
+    );
+    await expect(selectedThreadWorkingIndicator).toHaveCount(1);
+    await expect(selectedThreadWorkingIndicator).toHaveCSS("opacity", "1");
+    await expect(selectedThreadDragHandle).toHaveCSS("opacity", "0");
+    await selectedThreadEntry.locator("[role='button']").first().focus();
+    await expect(selectedThreadWorkingIndicator).toHaveCSS("opacity", "0");
+    await expect(selectedThreadDragHandle).toHaveCSS("opacity", "1");
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }

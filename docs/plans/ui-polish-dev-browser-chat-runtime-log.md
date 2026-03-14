@@ -813,3 +813,15 @@ For each new entry, append:
 - Decisions: Keep this as a single-pixel class change rather than widening the row padding again so the prior tighter title spacing stays intact.
 - Blockers or open questions: No code blockers. A healthy DevTools MCP session is still needed to visually confirm the thread-row spacing in a live browser.
 - Next recommended slice: None from the original plan. Continue only with new follow-up polish or bugfix items.
+
+### 2026-03-13 13:03
+
+- Date: 2026-03-13 13:03 EDT
+- Scope: Reworked the Project AI thread-row leading slot so live status markers occupy the drag-handle position at rest, then yield to the drag handle on hover or keyboard focus.
+- Tests added or updated first: Updated `frontend/tests/e2e/overview/project-ai/project-ai-chat-threads.spec.ts` so the live waiting-thread regression now requires the braille working spinner to stay visible at rest, hide on row focus, and reveal the drag handle in that same slot. Reused the grouped-thread layout regression in the same spec and the touched history-module sanity check in `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryCopy.test.ts`.
+- Production code changed: Updated `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` so the drag handle and the working/unread status markers share a single positioned leading slot. The status marker stays visible until hover/focus, then transitions out while the drag handle transitions in with pointer events enabled only in the visible state.
+- Verification run: Final green runs were `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryCopy.test.ts` and `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-chat-threads.spec.ts --grep "project ai selected thread spinner follows live chat state before agent-runs refresh|project ai threads render folder groups and keep pinned scopes separate"`.
+- CDP visual check: Not run. `chrome-devtools-mcp` still fails in this chat with `Transport closed`, so the required live visual confirmation remains blocked.
+- Decisions: Use one overlay slot rather than separate columns so the title alignment stays unchanged and the hover-state swap does not consume extra horizontal space. Keep hidden-handle pointer events disabled so the rest-state status marker remains interactable.
+- Blockers or open questions: No code blockers. A healthy DevTools MCP session is still needed to visually confirm the leading-slot status/drag swap in a live browser.
+- Next recommended slice: None from the original plan. Continue only with new follow-up polish or bugfix items.
