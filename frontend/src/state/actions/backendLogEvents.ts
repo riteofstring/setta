@@ -1,9 +1,9 @@
+import { useLocalStorage } from "state/definitions";
 import {
-  BackendLogEventsFilter,
   DEFAULT_BACKEND_LOG_EVENTS_FILTER,
   useBackendLogEvents,
-  useLocalStorage,
-} from "state/definitions";
+  type BackendLogEventsFilter,
+} from "state/stores/runtimeStores";
 import {
   OverviewNotificationsPaneTabEnum,
   OverviewTabNameEnum,
