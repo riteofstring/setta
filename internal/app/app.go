@@ -1426,6 +1426,8 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				ModePolicy:                     modePolicy,
 				WorkspaceRoot:                  cfg.Paths.WorkspaceRoot,
 				ProjectState:                   projectRuntime,
+				ShareSessions:                  shareSessions,
+				Deployment:                     deploymentRuntime,
 				SettingsState:                  settingsStateRuntime,
 				ChatSectionChatIDs:             chatSectionChatIDs,
 				EdgeExpressionBuilder:          projectstate.EdgeExpressionBuilderFunc(codegen.BuildPythonEdgeExpression),

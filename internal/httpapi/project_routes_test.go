@@ -19,6 +19,7 @@ import (
 	"setta/internal/chatsections"
 	"setta/internal/codegen"
 	"setta/internal/config"
+	"setta/internal/deployments"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
@@ -6267,6 +6268,15 @@ func newProjectRouteTestHandlerWithRenameService(
 		}
 	})
 
+	var shareSessions modes.ShareSessionStore
+	var deploymentRuntime *deployments.Runtime
+	if mode == config.ModeShare || mode == config.ModeApp {
+		deploymentRuntime = newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+			Mode: mode,
+		})
+		shareSessions = newTestHTTPShareSessionStore("share-a")
+	}
+
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Info:       stubInfoService{mode: string(mode), info: RuntimeInfo{Mode: string(mode)}},
@@ -6276,6 +6286,8 @@ func newProjectRouteTestHandlerWithRenameService(
 				ModePolicy:                     modes.NewPolicy(mode),
 				WorkspaceRoot:                  workspaceRoot,
 				ProjectState:                   projectRuntime,
+				ShareSessions:                  shareSessions,
+				Deployment:                     deploymentRuntime,
 				SettingsState:                  settingsRuntime,
 				ChatSectionChatIDs:             chatSectionChatIDs,
 				EdgeExpressionBuilder:          projectstate.EdgeExpressionBuilderFunc(codegen.BuildPythonEdgeExpression),

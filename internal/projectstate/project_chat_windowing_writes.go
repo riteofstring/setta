@@ -37,6 +37,28 @@ func (e *InvalidWindowSpaceSortOrderError) Error() string {
 	return e.Message
 }
 
+type InvalidWindowSpaceStateError struct {
+	Message string
+}
+
+func (e *InvalidWindowSpaceStateError) Error() string {
+	if e == nil {
+		return ""
+	}
+	return e.Message
+}
+
+type InvalidProjectChatWindowingError struct {
+	Message string
+}
+
+func (e *InvalidProjectChatWindowingError) Error() string {
+	if e == nil {
+		return ""
+	}
+	return e.Message
+}
+
 func (p *Project) SetProjectChatWindowingState(state ProjectChatWindowingState) error {
 	current := ProjectChatWindowingOrDefault(p.ProjectChatWindowing)
 	next := state.Clone()
@@ -92,10 +114,12 @@ func (p *Project) SetProjectChatWindowChatID(instanceID string, chatID *string) 
 		return fmt.Errorf("%w: %q", ErrProjectChatWindowNotFound, trimmedInstanceID)
 	}
 	if instance.Mode != ChatWindowModeProjectAI {
-		return fmt.Errorf(
-			"Project chat window %s must use project_ai_mode to bind chatId.",
-			trimmedInstanceID,
-		)
+		return &InvalidProjectChatWindowingError{
+			Message: fmt.Sprintf(
+				"Project chat window %s must use project_ai_mode to bind chatId.",
+				trimmedInstanceID,
+			),
+		}
 	}
 
 	instance.ChatID = trimOptionalString(chatID)
@@ -418,19 +442,23 @@ func validateProjectChatThreadBindingsUnchanged(
 		}
 		nextInstance, ok := nextWindowing.InstancesByID[instanceID]
 		if !ok {
-			return fmt.Errorf(
-				"Project chat window %s cannot be removed via layout updates while it still has a bound chatId.",
-				instanceID,
-			)
+			return &InvalidProjectChatWindowingError{
+				Message: fmt.Sprintf(
+					"Project chat window %s cannot be removed via layout updates while it still has a bound chatId.",
+					instanceID,
+				),
+			}
 		}
 		nextChatID := threadBoundProjectChatID(nextInstance)
 		if equalOptionalStringValues(currentChatID, nextChatID) {
 			continue
 		}
-		return fmt.Errorf(
-			"Project chat window %s cannot change chatId via layout updates.",
-			instanceID,
-		)
+		return &InvalidProjectChatWindowingError{
+			Message: fmt.Sprintf(
+				"Project chat window %s cannot change chatId via layout updates.",
+				instanceID,
+			),
+		}
 	}
 	for instanceID, nextInstance := range nextWindowing.InstancesByID {
 		if _, ok := currentWindowing.InstancesByID[instanceID]; ok {
@@ -439,10 +467,12 @@ func validateProjectChatThreadBindingsUnchanged(
 		if threadBoundProjectChatID(nextInstance) == nil {
 			continue
 		}
-		return fmt.Errorf(
-			"Project chat window %s cannot change chatId via layout updates.",
-			instanceID,
-		)
+		return &InvalidProjectChatWindowingError{
+			Message: fmt.Sprintf(
+				"Project chat window %s cannot change chatId via layout updates.",
+				instanceID,
+			),
+		}
 	}
 	return nil
 }
@@ -588,13 +618,19 @@ func validateProjectChatWindowOwner(
 	sectionID *string,
 ) error {
 	if mode == ChatWindowModeSection && sectionID == nil {
-		return fmt.Errorf("Project chat section_mode windows require sectionIdOrNull.")
+		return &InvalidProjectChatWindowingError{
+			Message: "Project chat section_mode windows require sectionIdOrNull.",
+		}
 	}
 	if mode == ChatWindowModeGitGraph && sectionID != nil {
-		return fmt.Errorf("Project chat git_graph_mode windows cannot carry sectionIdOrNull.")
+		return &InvalidProjectChatWindowingError{
+			Message: "Project chat git_graph_mode windows cannot carry sectionIdOrNull.",
+		}
 	}
 	if mode == ChatWindowModeGitGraph && placement == ChatWindowPlacementCanvasSection {
-		return fmt.Errorf("Project chat git_graph_mode windows cannot use canvas_section placement.")
+		return &InvalidProjectChatWindowingError{
+			Message: "Project chat git_graph_mode windows cannot use canvas_section placement.",
+		}
 	}
 	return nil
 }
@@ -606,19 +642,29 @@ func validateWindowSpaceWindowOwner(
 	chatID *string,
 ) error {
 	if surfaceKind == WindowSpaceSurfaceKindSection && sectionID == nil {
-		return fmt.Errorf("Section window-space windows require sectionIdOrNull.")
+		return &InvalidWindowSpaceStateError{
+			Message: "Section window-space windows require sectionIdOrNull.",
+		}
 	}
 	if surfaceKind == WindowSpaceSurfaceKindProjectChat && sectionID != nil {
-		return fmt.Errorf("Project-chat window-space windows cannot carry sectionIdOrNull.")
+		return &InvalidWindowSpaceStateError{
+			Message: "Project-chat window-space windows cannot carry sectionIdOrNull.",
+		}
 	}
 	if surfaceKind == WindowSpaceSurfaceKindSection && mode == ChatWindowModeGitGraph {
-		return fmt.Errorf("Section window-space windows cannot use git_graph_mode.")
+		return &InvalidWindowSpaceStateError{
+			Message: "Section window-space windows cannot use git_graph_mode.",
+		}
 	}
 	if surfaceKind == WindowSpaceSurfaceKindProjectChat && mode == ChatWindowModeSection {
-		return fmt.Errorf("Project-chat window-space windows cannot use section_mode.")
+		return &InvalidWindowSpaceStateError{
+			Message: "Project-chat window-space windows cannot use section_mode.",
+		}
 	}
 	if mode != ChatWindowModeProjectAI && chatID != nil {
-		return fmt.Errorf("Window-space windows must use project_ai_mode to bind chatId.")
+		return &InvalidWindowSpaceStateError{
+			Message: "Window-space windows must use project_ai_mode to bind chatId.",
+		}
 	}
 	return nil
 }
@@ -754,5 +800,15 @@ func IsInvalidWindowSpaceNameError(err error) bool {
 
 func IsInvalidWindowSpaceSortOrderError(err error) bool {
 	var invalid *InvalidWindowSpaceSortOrderError
+	return errors.As(err, &invalid)
+}
+
+func IsInvalidWindowSpaceStateError(err error) bool {
+	var invalid *InvalidWindowSpaceStateError
+	return errors.As(err, &invalid)
+}
+
+func IsInvalidProjectChatWindowingError(err error) bool {
+	var invalid *InvalidProjectChatWindowingError
 	return errors.As(err, &invalid)
 }

@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/codegen"
+	"setta/internal/deployments"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
@@ -119,6 +120,12 @@ const (
 	RouteSetChatSectionState               = "/setChatSectionState"
 	RouteGetChatSectionChatID              = "/getChatSectionChatId"
 	RouteSetChatSectionChatID              = "/setChatSectionChatId"
+	RouteCreateWindowSpace                 = "/createWindowSpace"
+	RouteSetWindowSpaceName                = "/setWindowSpaceName"
+	RouteSetWindowSpaceSortOrder           = "/setWindowSpaceSortOrder"
+	RouteDeleteWindowSpace                 = "/deleteWindowSpace"
+	RouteSetProjectChatWindowingState      = "/setProjectChatWindowingState"
+	RouteSetProjectChatWindowChatID        = "/setProjectChatWindowChatId"
 	RouteSetCallable                       = "/setCallable"
 	RouteSetProjectConfigCodegenTargets    = "/setProjectConfigCodegenTargets"
 	RouteSetGenCodePrefix                  = "/setGenCodePrefix"
@@ -144,6 +151,8 @@ type ProjectRouteDependencies struct {
 	ModePolicy                     modes.Policy
 	WorkspaceRoot                  string
 	ProjectState                   *projectstate.Runtime
+	ShareSessions                  modes.ShareSessionStore
+	Deployment                     *deployments.Runtime
 	SettingsState                  *settingsstate.Runtime
 	ChatSectionChatIDs             ChatSectionChatIDService
 	EdgeExpressionBuilder          projectstate.EdgeExpressionBuilder
@@ -971,6 +980,45 @@ type SetChatSectionChatIDRequest struct {
 	ChatID       *string `json:"chatId"`
 }
 
+type CreateWindowSpaceRequest struct {
+	FrontendOpID *string                       `json:"frontendOpId"`
+	ProjectID    string                        `json:"projectConfigId"`
+	State        projectstate.WindowSpaceState `json:"state"`
+	Name         *string                       `json:"name,omitempty"`
+}
+
+type SetWindowSpaceNameRequest struct {
+	FrontendOpID  *string `json:"frontendOpId"`
+	ProjectID     string  `json:"projectConfigId"`
+	WindowSpaceID string  `json:"windowSpaceId"`
+	Name          string  `json:"name"`
+}
+
+type SetWindowSpaceSortOrderRequest struct {
+	FrontendOpID          *string  `json:"frontendOpId"`
+	ProjectID             string   `json:"projectConfigId"`
+	OrderedWindowSpaceIDs []string `json:"orderedWindowSpaceIds"`
+}
+
+type DeleteWindowSpaceRequest struct {
+	FrontendOpID  *string `json:"frontendOpId"`
+	ProjectID     string  `json:"projectConfigId"`
+	WindowSpaceID string  `json:"windowSpaceId"`
+}
+
+type SetProjectChatWindowingStateRequest struct {
+	FrontendOpID *string                                `json:"frontendOpId"`
+	ProjectID    string                                 `json:"projectConfigId"`
+	State        projectstate.ProjectChatWindowingState `json:"state"`
+}
+
+type SetProjectChatWindowChatIDRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	InstanceID   string  `json:"instanceId"`
+	ChatID       *string `json:"chatId"`
+}
+
 type SetWatchCodeEnabledRequest struct {
 	FrontendOpID *string `json:"frontendOpId"`
 	ProjectID    string  `json:"projectConfigId"`
@@ -1036,6 +1084,86 @@ func projectMutationContext(ctx context.Context, frontendOpID *string) context.C
 	return projectstate.ContextWithFrontendOpID(ctx, *frontendOpID)
 }
 
+func projectRuntimeForRequest(
+	deps ProjectRouteDependencies,
+	r *http.Request,
+) (*projectstate.Runtime, error) {
+	if deps.ModePolicy.IsDeployment() {
+		if deps.Deployment == nil {
+			return nil, fmt.Errorf("deployment runtime is required in deployment mode")
+		}
+		requestInfo, ok := modes.RequestInfoFromRequest(r)
+		if !ok {
+			return nil, modes.ErrMissingRequestInfo
+		}
+		return deps.Deployment.Overlay(requestInfo.ShareSessionID)
+	}
+	if deps.ProjectState == nil {
+		return nil, fmt.Errorf("project runtime is required")
+	}
+	return deps.ProjectState, nil
+}
+
+func ensureProjectLayoutMutationsAllowed(
+	w http.ResponseWriter,
+	r *http.Request,
+	deps ProjectRouteDependencies,
+) bool {
+	requestInfo, ok := modes.RequestInfoFromRequest(r)
+	if !ok {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if !requestInfo.Policy.IsDeployment() {
+		return true
+	}
+	if deps.Deployment == nil {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if deps.Deployment.Policy().AllowLayoutChanges {
+		return true
+	}
+	writeError(
+		w,
+		r,
+		http.StatusForbidden,
+		"layout_changes_forbidden",
+		"Deployment policy disallows layout changes.",
+	)
+	return false
+}
+
+func ensureProjectLLMMutationsAllowed(
+	w http.ResponseWriter,
+	r *http.Request,
+	deps ProjectRouteDependencies,
+) bool {
+	requestInfo, ok := modes.RequestInfoFromRequest(r)
+	if !ok {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if !requestInfo.Policy.IsDeployment() {
+		return true
+	}
+	if deps.Deployment == nil {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if deps.Deployment.Policy().AllowLLM {
+		return true
+	}
+	writeError(
+		w,
+		r,
+		http.StatusForbidden,
+		"llm_access_forbidden",
+		"Deployment policy disallows LLM access.",
+	)
+	return false
+}
+
 func resolveStructuralMutationSettingsFromRuntime(
 	runtime *settingsstate.Runtime,
 ) (projectstate.StructuralMutationSettings, error) {
@@ -1076,6 +1204,14 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 		}
 		if deps.PythonCodegenSectionReconciler == nil {
 			return fmt.Errorf("project python generated-section reconciler is required in ide mode")
+		}
+	}
+	if deps.ModePolicy.IsDeployment() {
+		if deps.ShareSessions == nil {
+			return fmt.Errorf("share session store is required in deployment mode")
+		}
+		if deps.Deployment == nil {
+			return fmt.Errorf("deployment runtime is required in deployment mode")
 		}
 	}
 
@@ -1191,6 +1327,25 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUpdateParamImplConfig, updateParamImplConfigHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCodeObjName, setCodeObjNameHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCodeObjDisplayName, setCodeObjDisplayNameHandler(deps))
+	if deps.ModePolicy.IsDeployment() {
+		shareGuard := RequireShareSession(modes.Resolver{
+			Policy: deps.ModePolicy,
+			Store:  deps.ShareSessions,
+		})
+		router.With(shareGuard).Post(RouteCreateWindowSpace, createWindowSpaceHandler(deps))
+		router.With(shareGuard).Post(RouteSetWindowSpaceName, setWindowSpaceNameHandler(deps))
+		router.With(shareGuard).Post(RouteSetWindowSpaceSortOrder, setWindowSpaceSortOrderHandler(deps))
+		router.With(shareGuard).Post(RouteDeleteWindowSpace, deleteWindowSpaceHandler(deps))
+		router.With(shareGuard).Post(RouteSetProjectChatWindowingState, setProjectChatWindowingStateHandler(deps))
+		router.With(shareGuard).Post(RouteSetProjectChatWindowChatID, setProjectChatWindowChatIDHandler(deps))
+		return nil
+	}
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateWindowSpace, createWindowSpaceHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetWindowSpaceName, setWindowSpaceNameHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetWindowSpaceSortOrder, setWindowSpaceSortOrderHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteWindowSpace, deleteWindowSpaceHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetProjectChatWindowingState, setProjectChatWindowingStateHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetProjectChatWindowChatID, setProjectChatWindowChatIDHandler(deps))
 	return nil
 }
 
@@ -4849,6 +5004,247 @@ func setChatSectionChatIDHandler(deps ProjectRouteDependencies) http.HandlerFunc
 	}
 }
 
+func createWindowSpaceHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[CreateWindowSpaceRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		_, windowSpace, err := runtime.CreateWindowSpace(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			payload.State,
+			payload.Name,
+		)
+		if err != nil {
+			writeWindowSpaceMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, windowSpace)
+	}
+}
+
+func setWindowSpaceNameHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetWindowSpaceNameRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		windowSpaceID := strings.TrimSpace(payload.WindowSpaceID)
+		if windowSpaceID == "" {
+			writeError(w, r, http.StatusBadRequest, "window_space_id_required", "Window space id is required.")
+			return
+		}
+		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := runtime.SetWindowSpaceName(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			windowSpaceID,
+			payload.Name,
+		); err != nil {
+			writeWindowSpaceMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setWindowSpaceSortOrderHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetWindowSpaceSortOrderRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := runtime.SetWindowSpaceSortOrder(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			payload.OrderedWindowSpaceIDs,
+		); err != nil {
+			writeWindowSpaceMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func deleteWindowSpaceHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[DeleteWindowSpaceRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		windowSpaceID := strings.TrimSpace(payload.WindowSpaceID)
+		if windowSpaceID == "" {
+			writeError(w, r, http.StatusBadRequest, "window_space_id_required", "Window space id is required.")
+			return
+		}
+		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := runtime.DeleteWindowSpace(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			windowSpaceID,
+		); err != nil {
+			writeWindowSpaceMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setProjectChatWindowingStateHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetProjectChatWindowingStateRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if !ensureProjectLayoutMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		snapshot, err := runtime.SetProjectChatWindowingState(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			payload.State,
+		)
+		if err != nil {
+			writeProjectChatWindowingMutationError(w, r, err)
+			return
+		}
+		project, err := snapshot.Document.ProjectByID(projectID)
+		if err != nil {
+			writeProjectChatWindowingMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, projectstate.ProjectChatWindowingOrDefault(project.ProjectChatWindowing))
+	}
+}
+
+func setProjectChatWindowChatIDHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetProjectChatWindowChatIDRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		instanceID := strings.TrimSpace(payload.InstanceID)
+		if instanceID == "" {
+			writeError(w, r, http.StatusBadRequest, "instance_id_required", "Instance id is required.")
+			return
+		}
+		if !ensureProjectLLMMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		snapshot, err := runtime.SetProjectChatWindowChatID(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			instanceID,
+			payload.ChatID,
+		)
+		if err != nil {
+			writeProjectChatWindowingMutationError(w, r, err)
+			return
+		}
+		project, err := snapshot.Document.ProjectByID(projectID)
+		if err != nil {
+			writeProjectChatWindowingMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, projectstate.ProjectChatWindowingOrDefault(project.ProjectChatWindowing))
+	}
+}
+
 func setProjectConfigCodegenTargetsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		payload, err := decodeJSONBody[SetProjectConfigCodegenTargetsRequest](r)
@@ -5772,6 +6168,48 @@ func writeChatSectionMutationError(w http.ResponseWriter, r *http.Request, err e
 		writeError(w, r, http.StatusBadRequest, "chat_dictation_mode_invalid", err.Error())
 	default:
 		writeProjectLayoutMutationError(w, r, err)
+	}
+}
+
+func writeWindowSpaceMutationError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrWindowSpaceIDRequired):
+		writeError(w, r, http.StatusBadRequest, "window_space_id_required", "Window space id is required.")
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrWindowSpaceNotFound):
+		writeError(w, r, http.StatusNotFound, "window_space_not_found", "Window space not found.")
+	case projectstate.IsInvalidWindowSpaceNameError(err):
+		writeError(w, r, http.StatusUnprocessableEntity, "invalid_window_space_name", err.Error())
+	case projectstate.IsInvalidWindowSpaceSortOrderError(err):
+		writeError(w, r, http.StatusUnprocessableEntity, "invalid_window_space_sort_order", err.Error())
+	case projectstate.IsInvalidWindowSpaceStateError(err):
+		writeError(w, r, http.StatusUnprocessableEntity, "invalid_window_space_state", err.Error())
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeProjectChatWindowingMutationError(
+	w http.ResponseWriter,
+	r *http.Request,
+	err error,
+) {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrProjectChatWindowIDRequired):
+		writeError(w, r, http.StatusBadRequest, "instance_id_required", "Instance id is required.")
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrProjectChatWindowNotFound):
+		writeError(w, r, http.StatusNotFound, "project_chat_window_not_found", "Project chat window not found.")
+	case projectstate.IsInvalidProjectChatWindowingError(err):
+		writeError(w, r, http.StatusUnprocessableEntity, "invalid_project_chat_windowing", err.Error())
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}
 }
 

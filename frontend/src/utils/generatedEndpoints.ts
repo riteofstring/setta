@@ -1350,6 +1350,42 @@ export async function route_set_chat_section_chat_id(
   return await post(GoHTTPRoutes.setChatSectionChatId, x);
 }
 
+export async function route_create_window_space(
+  x: gt.CreateWindowSpaceRequest,
+): Promise<ResponseDataAndStatus<gt.WindowSpaceConfig>> {
+  return await post(GoHTTPRoutes.createWindowSpace, x);
+}
+
+export async function route_set_window_space_name(
+  x: gt.SetWindowSpaceNameRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.setWindowSpaceName, x);
+}
+
+export async function route_set_window_space_sort_order(
+  x: gt.SetWindowSpaceSortOrderRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.setWindowSpaceSortOrder, x);
+}
+
+export async function route_delete_window_space(
+  x: gt.DeleteWindowSpaceRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.deleteWindowSpace, x);
+}
+
+export async function route_set_project_chat_windowing_state(
+  x: gt.SetProjectChatWindowingStateRequest,
+): Promise<ResponseDataAndStatus<gt.ProjectChatWindowingState>> {
+  return await post(GoHTTPRoutes.setProjectChatWindowingState, x);
+}
+
+export async function route_set_project_chat_window_chat_id(
+  x: gt.SetProjectChatWindowChatIDRequest,
+): Promise<ResponseDataAndStatus<gt.ProjectChatWindowingState>> {
+  return await post(GoHTTPRoutes.setProjectChatWindowChatId, x);
+}
+
 export async function route_get_agentic_summary_cache_status(
   x: gt.GetAgenticSummaryCacheStatusRequest,
 ): Promise<ResponseDataAndStatus<gt.AgenticSummaryCacheStatus>> {

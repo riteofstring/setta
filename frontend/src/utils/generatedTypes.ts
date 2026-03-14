@@ -8896,6 +8896,75 @@ export function createSetChatSectionChatIDRequest(
   return options as SetChatSectionChatIDRequest;
 }
 
+export type CreateWindowSpaceRequest = {
+  frontendOpId: string | null;
+  projectConfigId: string;
+  state: WindowSpaceState;
+  name?: string | null;
+};
+export function createCreateWindowSpaceRequest(
+  options: Partial<CreateWindowSpaceRequest> = {},
+): CreateWindowSpaceRequest {
+  return options as CreateWindowSpaceRequest;
+}
+
+export type SetWindowSpaceNameRequest = {
+  frontendOpId: string | null;
+  projectConfigId: string;
+  windowSpaceId: string;
+  name: string;
+};
+export function createSetWindowSpaceNameRequest(
+  options: Partial<SetWindowSpaceNameRequest> = {},
+): SetWindowSpaceNameRequest {
+  return options as SetWindowSpaceNameRequest;
+}
+
+export type SetWindowSpaceSortOrderRequest = {
+  frontendOpId: string | null;
+  projectConfigId: string;
+  orderedWindowSpaceIds: Array<string>;
+};
+export function createSetWindowSpaceSortOrderRequest(
+  options: Partial<SetWindowSpaceSortOrderRequest> = {},
+): SetWindowSpaceSortOrderRequest {
+  return options as SetWindowSpaceSortOrderRequest;
+}
+
+export type DeleteWindowSpaceRequest = {
+  frontendOpId: string | null;
+  projectConfigId: string;
+  windowSpaceId: string;
+};
+export function createDeleteWindowSpaceRequest(
+  options: Partial<DeleteWindowSpaceRequest> = {},
+): DeleteWindowSpaceRequest {
+  return options as DeleteWindowSpaceRequest;
+}
+
+export type SetProjectChatWindowingStateRequest = {
+  frontendOpId: string | null;
+  projectConfigId: string;
+  state: ProjectChatWindowingState;
+};
+export function createSetProjectChatWindowingStateRequest(
+  options: Partial<SetProjectChatWindowingStateRequest> = {},
+): SetProjectChatWindowingStateRequest {
+  return options as SetProjectChatWindowingStateRequest;
+}
+
+export type SetProjectChatWindowChatIDRequest = {
+  frontendOpId: string | null;
+  projectConfigId: string;
+  instanceId: string;
+  chatId: string | null;
+};
+export function createSetProjectChatWindowChatIDRequest(
+  options: Partial<SetProjectChatWindowChatIDRequest> = {},
+): SetProjectChatWindowChatIDRequest {
+  return options as SetProjectChatWindowChatIDRequest;
+}
+
 export type GetAgenticSummaryCacheStatusRequest = {
   projectConfigId: string;
   chatSectionId: string;
