@@ -23,7 +23,7 @@ import { HiChevronDown, HiChevronRight, HiChevronUp } from "react-icons/hi";
 import { TbFile, TbFolder, TbFolders } from "react-icons/tb";
 import { List, useListRef } from "react-window";
 import { addTemporaryNotification } from "state/actions/notifications";
-import { openFileInCodeSection } from "state/actions/sections/createSections";
+import { openFileInCodeSection } from "state/actions/sections/createSectionFileOpeners";
 import { getDefaultColumnWidth } from "state/hooks/columnWidthUtils";
 import { useColumnWidthDrag } from "state/hooks/useColumnWidthDrag";
 import { useFileBrowserState } from "state/stores/fileBrowserStores";

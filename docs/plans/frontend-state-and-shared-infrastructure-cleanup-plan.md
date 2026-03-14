@@ -156,21 +156,21 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/sections/createSections.ts` at 547 lines
   - `frontend/src/state/actions/stateMachineEdgeConnections.ts` at 518 lines
   - `frontend/src/state/actions/aiChatControls.ts` at 503 lines
   - `frontend/src/state/actions/websocketLifecycle.ts` at 498 lines
   - `frontend/src/state/actions/projectChatWindowingLayoutState.ts` at 494 lines
   - `frontend/src/state/actions/projectChatWindowing.ts` at 406 lines
+  - `frontend/src/state/actions/sections/createSectionFileOpeners.ts` at 324 lines
   - `frontend/src/state/actions/projectChatWindowingWritePipeline.ts` at 295 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/sections/createSections.ts` at 547 lines
   - `frontend/src/state/actions/stateMachineEdgeConnections.ts` at 518 lines
   - `frontend/src/state/actions/aiChatControls.ts` at 503 lines
   - `frontend/src/state/actions/websocketLifecycle.ts` at 498 lines
   - `frontend/src/state/actions/projectChatWindowingLayoutState.ts` at 494 lines
   - `frontend/src/state/actions/projectChatWindowing.ts` at 406 lines
+  - `frontend/src/state/actions/sections/createSectionFileOpeners.ts` at 324 lines
   - `frontend/src/state/actions/projectChatWindowingWritePipeline.ts` at 295 lines
 - `websocketReceive.ts` now owns:
   - compatibility re-exports for callers that have not moved yet
@@ -338,6 +338,13 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - authoritative publish/replay flow and explicit sync/flush helpers
 - `projectChatWindowingWrites.ts` now owns:
   - the thin public mutation facade that composes write-state and write-pipeline helpers
+- `sections/createSections.ts`, `sections/createSectionPlacement.ts`,
+  `sections/createSectionFileOpeners.ts`, and
+  `sections/createSectionImplDefaults.ts` now split into:
+  - `createSections.ts` for top-level create orchestration and empty-space add commands
+  - `createSectionPlacement.ts` for smart placement context and empty-space positioning
+  - `createSectionFileOpeners.ts` for file-open reuse/create flows and drop-to-section routing
+  - `createSectionImplDefaults.ts` for per-impl create defaults such as text-block display-mode normalization
 - `projectChatWindowingCanvasBoot.ts` now owns:
   - DOM surface rect lookup for project chat windows
   - canvas boot position/size resolution from existing window surfaces

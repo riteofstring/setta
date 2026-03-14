@@ -139,6 +139,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Section/*` owns section containers, headers, layouts, and shared
     section chrome.
   - `components/Params/*` owns param rendering and param-specific input controls.
+  - `state/actions/sections/createSections.ts` now owns top-level section
+    creation commands plus empty-space add actions.
+  - `state/actions/sections/createSectionPlacement.ts` owns smart placement
+    context and empty-space placement helpers for new sections.
+  - `state/actions/sections/createSectionFileOpeners.ts` owns file-open
+    reuse/create flows and drop-to-section routing.
+  - `state/actions/sections/createSectionImplDefaults.ts` owns per-impl create
+    defaults such as text-block display-mode normalization.
 
 - Browser and file management
 
@@ -352,10 +360,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/sections/createSections.ts` is now the largest
-  authored/shared state hotspot, so follow-up cleanup should separate section
-  creation orchestration from per-impl defaults and placement helpers instead
-  of regrowing the already-split windowing write surface
+- `state/actions/stateMachineEdgeConnections.ts` is now the largest
+  authored/shared state hotspot, so follow-up cleanup should separate workflow
+  graph reads and canonicalization from remaining edge-construction helpers
+  instead of regrowing the already-split section-creation surface
 - `state/actions/sectionEffectiveImpls.ts` is now down to the remaining
   effective-impl selector surface, so any follow-up there should stay local to
   selector derivation rather than regrowing layout or mutation ownership

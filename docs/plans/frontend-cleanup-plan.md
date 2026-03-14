@@ -89,6 +89,16 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   sync/flush helpers, reducing
   `frontend/src/state/actions/projectChatWindowingWrites.ts` to a thinner
   public mutation facade.
+- `frontend/src/state/actions/sections/createSections.ts` now owns top-level
+  section creation commands plus empty-space add actions,
+  `frontend/src/state/actions/sections/createSectionPlacement.ts` now owns
+  smart placement context and empty-space placement helpers,
+  `frontend/src/state/actions/sections/createSectionFileOpeners.ts` now owns
+  file-open/drop-to-section routing plus reuse flows, and
+  `frontend/src/state/actions/sections/createSectionImplDefaults.ts` now owns
+  per-impl create defaults such as text-block display-mode normalization,
+  reducing `frontend/src/state/actions/sections/createSections.ts` to 140
+  lines.
 - `frontend/src/state/actions/projectChatThreadGroupMutations.ts` now owns
   persisted project-chat thread group creation, rename, collapse, pin, reorder,
   assignment, and deletion behavior, `frontend/src/state/actions/projectChatThreadMutations.ts`

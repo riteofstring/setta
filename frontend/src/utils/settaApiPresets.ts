@@ -1,5 +1,5 @@
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
-import { getEmptySpacePosition } from "state/actions/sections/createSections";
+import { getEmptySpacePosition } from "state/actions/sections/createSectionPlacement";
 import { createTopLevelSectionLayoutDict } from "state/actions/topLevelSectionLayouts";
 import { useNodeInternals, useProjectState } from "state/definitions";
 import { RouteEnum, SectionTypeEnum } from "utils/generatedTypes";

@@ -18,12 +18,28 @@ Make section chrome and param rendering easy to change without touching measurem
 
 ## Status Refresh (2026-03-14)
 
-- This domain is still relatively close to the original planning snapshot. Unlike pages and some pane surfaces, the shared section/param layer has not already been split into many new ownership modules on this branch.
-- The main update here is current hotspot sizing, not a major plan reorder.
+- This domain is still relatively close to the original planning snapshot for
+  JSX-heavy section chrome, but section-creation state is no longer a single
+  mixed file on this branch.
+- `frontend/src/state/actions/sections/createSections.ts` now owns top-level
+  section creation commands and empty-space add actions,
+  `frontend/src/state/actions/sections/createSectionPlacement.ts` owns smart
+  placement/empty-space helpers,
+  `frontend/src/state/actions/sections/createSectionFileOpeners.ts` owns
+  file-open/drop-to-section routing, and
+  `frontend/src/state/actions/sections/createSectionImplDefaults.ts` owns
+  per-impl create defaults.
 
 ## Current State (Observed)
 
 - `frontend/src/components/Params` plus `frontend/src/components/Section` totals about 35.9k lines of authored code.
+- Shared section-action ownership no longer defaults into one create surface:
+  - `frontend/src/state/actions/sections/createSections.ts` is down to 140
+    lines for top-level create orchestration
+  - `frontend/src/state/actions/sections/createSectionFileOpeners.ts` is 324
+    lines for file-open/drop routing
+  - `frontend/src/state/actions/sections/createSectionPlacement.ts` is 72
+    lines for smart placement helpers
 - Main shared hotspots include:
   - `frontend/src/components/Params/GroupContainer.tsx` at 999 lines
   - `frontend/src/components/Params/ParamUIs/TextParamInput.tsx` at 944 lines
