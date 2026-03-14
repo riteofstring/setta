@@ -28,9 +28,13 @@ vi.mock("utils/generatedEndpoints", async () => {
   };
 });
 
-vi.mock("./ai", () => ({
-  loadAgentRuns: vi.fn(),
-}));
+vi.mock("./ai", async () => {
+  const actual = await vi.importActual<typeof import("./ai")>("./ai");
+  return {
+    ...actual,
+    loadAgentRuns: vi.fn(),
+  };
+});
 
 vi.mock("./notifications", () => ({
   addTemporaryNotification: vi.fn(),
@@ -49,7 +53,6 @@ let useProjectState: typeof import("state/definitions").useProjectState;
 let useAIStore: typeof import("state/definitions").useAIStore;
 let useShareSession: typeof import("state/definitions").useShareSession;
 let getLatestStateMachineRun: typeof import("./stateMachineRuns").getLatestStateMachineRun;
-let resolveStateMachineRunPollIntervalMs: typeof import("./stateMachineRuns").resolveStateMachineRunPollIntervalMs;
 let startStateMachineRun: typeof import("./stateMachineRuns").startStateMachineRun;
 let stopStateMachineRun: typeof import("./stateMachineRuns").stopStateMachineRun;
 let resetStateMachineRun: typeof import("./stateMachineRuns").resetStateMachineRun;
@@ -65,8 +68,6 @@ describe("stateMachineRuns", () => {
     useShareSession = definitions.useShareSession;
     const stateMachineRuns = await import("./stateMachineRuns");
     getLatestStateMachineRun = stateMachineRuns.getLatestStateMachineRun;
-    resolveStateMachineRunPollIntervalMs =
-      stateMachineRuns.resolveStateMachineRunPollIntervalMs;
     startStateMachineRun = stateMachineRuns.startStateMachineRun;
     stopStateMachineRun = stateMachineRuns.stopStateMachineRun;
     resetStateMachineRun = stateMachineRuns.resetStateMachineRun;
@@ -198,27 +199,6 @@ describe("stateMachineRuns", () => {
     );
 
     expect(latestRun).toBeNull();
-  });
-
-  it("uses fast polling while workflows are active or recovering from load errors", () => {
-    expect(
-      resolveStateMachineRunPollIntervalMs({
-        hasLoadError: false,
-        hasRunningRuns: true,
-      }),
-    ).toBe(2500);
-    expect(
-      resolveStateMachineRunPollIntervalMs({
-        hasLoadError: true,
-        hasRunningRuns: false,
-      }),
-    ).toBe(2500);
-    expect(
-      resolveStateMachineRunPollIntervalMs({
-        hasLoadError: false,
-        hasRunningRuns: false,
-      }),
-    ).toBe(20000);
   });
 
   it("refreshes running workflow runs through the dedicated workflow endpoint", async () => {

@@ -22,7 +22,7 @@ import {
   getRunInputString,
   getRunLastUpdatedMs,
 } from "./agentRunUtils";
-import { loadAgentRuns } from "./ai";
+import { loadAgentRuns, receiveAgentRunUpdate } from "./ai";
 import { getCurrProjectConfigId } from "./sectionInfos";
 import { logWorkflowDebug } from "./stateMachineDebug";
 
@@ -33,22 +33,11 @@ const RUNNING_MACHINE_STATUSES = new Set<AgentRunStatusEnum>([
 ]);
 
 let stateMachineRunPollSubscriberCount = 0;
-let stateMachineRunPollIntervalId: number | null = null;
 let stateMachineRunPollPromise: Promise<void> | null = null;
-let unsubscribeAgentRunPollingStore: (() => void) | null = null;
-let unsubscribeProjectConfigPollingStore: (() => void) | null = null;
 let visibilityChangeHandlerAttached = false;
 
 function isMachinePollingBrowserReady(): boolean {
   return typeof window !== "undefined" && typeof document !== "undefined";
-}
-
-function clearStateMachineRunPollingInterval(): void {
-  if (stateMachineRunPollIntervalId === null || typeof window === "undefined") {
-    return;
-  }
-  window.clearInterval(stateMachineRunPollIntervalId);
-  stateMachineRunPollIntervalId = null;
 }
 
 function isStateMachineRun(run: AgentRun): boolean {
@@ -102,15 +91,6 @@ export function getLatestStateMachineRun(
   return latestRun;
 }
 
-function hasRunningStateMachineRunsForProject(
-  runs: AgentRun[],
-  projectConfigId: string,
-): boolean {
-  return filterRunsByProjectConfigId(runs, projectConfigId)
-    .filter(isStateMachineRun)
-    .some((run) => RUNNING_MACHINE_STATUSES.has(run.status));
-}
-
 function getRunningStateMachineMachineGroupIds(
   runs: AgentRun[],
   projectConfigId: string,
@@ -130,24 +110,6 @@ function getRunningStateMachineMachineGroupIds(
     machineGroupIds.add(machineGroupId);
   }
   return [...machineGroupIds];
-}
-
-function mergeRefreshedStateMachineRun(updatedRun: AgentRun): void {
-  useAIStore.setState((state) => {
-    const existingIndex = state.agentRuns.findIndex(
-      (candidate) => candidate.id === updatedRun.id,
-    );
-    if (existingIndex === -1) {
-      return {
-        agentRuns: [updatedRun, ...state.agentRuns],
-      };
-    }
-    const nextRuns = state.agentRuns.slice();
-    nextRuns[existingIndex] = updatedRun;
-    return {
-      agentRuns: nextRuns,
-    };
-  });
 }
 
 async function refreshRunningStateMachineRunsForProject(
@@ -181,7 +143,7 @@ async function refreshRunningStateMachineRunsForProject(
     if (!res200(res)) {
       continue;
     }
-    mergeRefreshedStateMachineRun(res.data);
+    receiveAgentRunUpdate(res.data);
   }
 }
 
@@ -205,81 +167,19 @@ function requestStateMachineRunPoll(): void {
   });
 }
 
-export function resolveStateMachineRunPollIntervalMs({
-  hasLoadError,
-  hasRunningRuns,
-}: {
-  hasLoadError: boolean;
-  hasRunningRuns: boolean;
-}): number {
-  if (hasLoadError || hasRunningRuns) {
-    return 2500;
-  }
-  return 20000;
-}
-
-function syncStateMachineRunPollingInterval(): void {
-  clearStateMachineRunPollingInterval();
-  if (!isMachinePollingBrowserReady()) {
-    return;
-  }
-  if (stateMachineRunPollSubscriberCount === 0) {
-    return;
-  }
-  if (document.visibilityState !== "visible") {
-    return;
-  }
-  const projectConfigId = useProjectState.getState().projectConfig.id;
-  if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
-    return;
-  }
-  const aiState = useAIStore.getState();
-  const intervalMs = resolveStateMachineRunPollIntervalMs({
-    hasLoadError: Boolean(aiState.agentRunsLoadError),
-    hasRunningRuns: hasRunningStateMachineRunsForProject(
-      aiState.agentRuns,
-      projectConfigId,
-    ),
-  });
-  stateMachineRunPollIntervalId = window.setInterval(() => {
-    requestStateMachineRunPoll();
-  }, intervalMs);
-}
-
 function handleStateMachineRunPollingVisibilityChange(): void {
   if (!isMachinePollingBrowserReady()) {
     return;
   }
   if (document.visibilityState !== "visible") {
-    clearStateMachineRunPollingInterval();
     return;
   }
   requestStateMachineRunPoll();
-  syncStateMachineRunPollingInterval();
 }
 
 function attachStateMachineRunPollingInfrastructure(): void {
   if (!isMachinePollingBrowserReady()) {
     return;
-  }
-  if (unsubscribeAgentRunPollingStore === null) {
-    unsubscribeAgentRunPollingStore = useAIStore.subscribe(
-      (state) => ({
-        agentRuns: state.agentRuns,
-        agentRunsLoadError: state.agentRunsLoadError,
-      }),
-      () => {
-        syncStateMachineRunPollingInterval();
-      },
-    );
-  }
-  if (unsubscribeProjectConfigPollingStore === null) {
-    unsubscribeProjectConfigPollingStore = useProjectState.subscribe(
-      (state) => state.projectConfig.id,
-      () => {
-        syncStateMachineRunPollingInterval();
-      },
-    );
   }
   if (!visibilityChangeHandlerAttached) {
     document.addEventListener(
@@ -291,15 +191,6 @@ function attachStateMachineRunPollingInfrastructure(): void {
 }
 
 function detachStateMachineRunPollingInfrastructure(): void {
-  clearStateMachineRunPollingInterval();
-  if (unsubscribeAgentRunPollingStore) {
-    unsubscribeAgentRunPollingStore();
-    unsubscribeAgentRunPollingStore = null;
-  }
-  if (unsubscribeProjectConfigPollingStore) {
-    unsubscribeProjectConfigPollingStore();
-    unsubscribeProjectConfigPollingStore = null;
-  }
   if (visibilityChangeHandlerAttached && typeof document !== "undefined") {
     document.removeEventListener(
       "visibilitychange",
@@ -314,7 +205,6 @@ export function subscribeStateMachineRunPolling(): () => void {
   if (stateMachineRunPollSubscriberCount === 1) {
     attachStateMachineRunPollingInfrastructure();
     requestStateMachineRunPoll();
-    syncStateMachineRunPollingInterval();
   }
   return () => {
     stateMachineRunPollSubscriberCount = Math.max(
@@ -325,7 +215,6 @@ export function subscribeStateMachineRunPolling(): () => void {
       detachStateMachineRunPollingInfrastructure();
       return;
     }
-    syncStateMachineRunPollingInterval();
   };
 }
 

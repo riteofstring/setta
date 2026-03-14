@@ -115,6 +115,13 @@ def _build_runtime_state(project_fixture, settings_fixture):
         project_manager_switcher,
         agent_runner,
         external_agent_runner,
+        project_fixture.manager.websocket_msg_handler,
+    )
+    agent_runner.set_terminal_run_listener(
+        state_machine_runner.handle_terminal_child_run_update
+    )
+    external_agent_runner.set_terminal_run_listener(
+        state_machine_runner.handle_terminal_child_run_update
     )
     state = SimpleNamespace(
         share_mode=False,
@@ -1393,6 +1400,109 @@ async def test_state_machine_runner_routes_completed_child_run_to_follow_up_chat
             "child_run_completed",
             "child_run_edges_activated",
             "edge_action_dispatched",
+        ]
+
+
+@pytest.mark.asyncio
+async def test_state_machine_runner_broadcasts_parent_update_when_child_run_completes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        project_config_id = (
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        assert project_config_id is not None
+        await project_fixture.manager.finish_pending_operations()
+
+        engine_config_id = ID("engine-primary")
+        _seed_engine_config(project_fixture.dbe, engine_config_id)
+        start_section_id, chat_section_id, end_section_id = (
+            await _seed_state_machine_chat_graph(
+                project_fixture=project_fixture,
+                project_config_id=project_config_id,
+                engine_config_id=engine_config_id,
+                target_action=StateMachineTargetAction(
+                    type=StateMachineTargetActionType.send_prompt,
+                    inlinePrompt="Review the latest output.",
+                    threadStrategy=StateMachineThreadStrategy.new_thread_before_send,
+                ),
+            )
+        )
+        await project_fixture.manager.create_state_machine_edge(
+            CreateStateMachineEdgeRequest(
+                projectConfigId=project_config_id,
+                machineGroupId="workflow-main",
+                sourceSectionId=chat_section_id,
+                sourcePortId=STATE_MACHINE_EDGE_SOURCE_PORT_ID,
+                targetSectionId=end_section_id,
+                targetPortId=STATE_MACHINE_EDGE_TARGET_PORT_ID,
+                sourceFilter=StateMachineSourceFilter(
+                    type=StateMachineSourceFilterType.run_completed
+                ),
+            )
+        )
+
+        state, state_machine_runner, agent_runner, _ = _build_runtime_state(
+            project_fixture,
+            settings_fixture,
+        )
+        child_runs: list[AgentRun] = []
+        broadcast_runs: list[AgentRun] = []
+
+        def _capture_start_run(profile, inputs, **_kwargs):
+            run = create_agent_run(profile_id=profile.id, inputs=inputs)
+            save_agent_run(project_fixture.dbe, run)
+            child_runs.append(run)
+            return run
+
+        async def _capture_broadcast(
+            run: AgentRun,
+            *,
+            share_session_id: str | None = None,
+        ) -> None:
+            assert share_session_id is None
+            broadcast_runs.append(run.model_copy(deep=True))
+
+        monkeypatch.setattr(agent_runner, "start_run", _capture_start_run)
+        monkeypatch.setattr(
+            project_fixture.manager.websocket_msg_handler,
+            "broadcast_agent_run_update",
+            _capture_broadcast,
+        )
+
+        with runtime_context(state) as ctx:
+            started = await route_start_state_machine_run(
+                StartStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                    startSectionId=start_section_id,
+                ),
+                ctx,
+            )
+
+        assert started.status == AgentRunStatus.running
+        assert len(child_runs) == 1
+
+        child_run = child_runs[0]
+        child_run.status = AgentRunStatus.completed
+        child_run.finishedAt = child_run.startedAt
+        save_agent_run(project_fixture.dbe, child_run)
+
+        await state_machine_runner.handle_terminal_child_run_update(child_run)
+
+        refreshed_parent = load_agent_run(project_fixture.dbe, started.id)
+        assert refreshed_parent is not None
+        assert refreshed_parent.status == AgentRunStatus.completed
+        assert broadcast_runs[-1].id == started.id
+        assert broadcast_runs[-1].status == AgentRunStatus.completed
+        assert [event.type for event in refreshed_parent.events[-4:]] == [
+            "child_run_completed",
+            "child_run_edges_activated",
+            "end_reached",
+            "run_completed",
         ]
 
 

@@ -1027,6 +1027,7 @@ export const WebsocketMsgTypeForFrontendEnum = {
   AIFollowToolArgumentsUpdate: "AIFollowToolArgumentsUpdate",
   AIFollowToolResultUpdate: "AIFollowToolResultUpdate",
   UISettingReveal: "UISettingReveal",
+  AgentRunUpdated: "AgentRunUpdated",
   AgentProfilesUpdated: "AgentProfilesUpdated",
   PromptTemplatesUpdated: "PromptTemplatesUpdated",
   ExternalAgentConfigsUpdated: "ExternalAgentConfigsUpdated",
@@ -7467,6 +7468,14 @@ const WebsocketMsgAgentProfilesUpdatedSchema = z.object({
     .default(WebsocketMsgTypeForFrontendEnum.AgentProfilesUpdated),
 });
 
+const WebsocketMsgAgentRunUpdatedSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: z.lazy(() => AgentRunSchema),
+  messageType: z
+    .literal("AgentRunUpdated")
+    .default(WebsocketMsgTypeForFrontendEnum.AgentRunUpdated),
+});
+
 const PromptTemplateSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string(),
@@ -7742,6 +7751,7 @@ const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgLLMConfigUpdatedSchema,
   WebsocketMsgLLMApiKeysUpdatedSchema,
   WebsocketMsgAgentProfilesUpdatedSchema,
+  WebsocketMsgAgentRunUpdatedSchema,
   WebsocketMsgPromptTemplatesUpdatedSchema,
   WebsocketMsgExternalAgentConfigsUpdatedSchema,
   WebsocketMsgEngineConfigsUpdatedSchema,

@@ -995,6 +995,24 @@ export async function loadAgentRuns() {
   }
 }
 
+export function receiveAgentRunUpdate(payload: AgentRun) {
+  useAIStore.setState((state) => {
+    const existingIndex = state.agentRuns.findIndex(
+      (candidate) => candidate.id === payload.id,
+    );
+    if (existingIndex === -1) {
+      return {
+        agentRuns: [payload, ...state.agentRuns],
+      };
+    }
+    const nextRuns = state.agentRuns.slice();
+    nextRuns[existingIndex] = payload;
+    return {
+      agentRuns: nextRuns,
+    };
+  });
+}
+
 function receiveAgentRunsUpdate(payload: Array<AgentRun>) {
   clearScheduledAgentRunsRetry();
   agentRunsTransientFailureCount = 0;

@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from setta.agentic.chat_view import get_run_last_updated, is_external_agent_run
 from setta.agentic.completion_guard import load_completion_guard_enabled
@@ -62,6 +63,9 @@ from setta.types.state_machine_edges import (
 )
 from setta.utils.timestamps import get_now_timestamp
 
+if TYPE_CHECKING:
+    from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+
 STATE_MACHINE_RUN_TYPE = "state_machine"
 INITIAL_STATE_MACHINE_ITERATION = 1
 
@@ -105,11 +109,13 @@ class StateMachineRunner:
         project_manager_switcher: ProjectManagerSwitcher,
         agent_runner: AgentRunner,
         external_agent_runner: ExternalAgentRunner,
+        frontend_sender: "WMHFrontendSender",
     ) -> None:
         self.dbe = dbe
         self.project_manager_switcher = project_manager_switcher
         self.agent_runner = agent_runner
         self.external_agent_runner = external_agent_runner
+        self.frontend_sender = frontend_sender
         self.chat_dispatcher = ManagedChatDispatcher(
             dbe=dbe,
             agent_runner=agent_runner,
@@ -147,6 +153,7 @@ class StateMachineRunner:
                 "machineGroupId": graph.machine_group_id,
                 "startSectionId": str(graph.start_section_id),
                 "machineName": graph.machine_name,
+                "shareSessionId": share_session_id,
             },
         )
         self._ensure_run_outputs_initialized(run, graph)
@@ -229,6 +236,7 @@ class StateMachineRunner:
                     "actions": dispatched_actions,
                 },
             )
+        await self._broadcast_run_update(run, share_session_id=share_session_id)
         return run
 
     async def stop_run(
@@ -267,6 +275,7 @@ class StateMachineRunner:
             "run_cancelled",
             {},
         )
+        await self._broadcast_run_update(run, share_session_id=share_session_id)
         return run
 
     async def reset_machine(
@@ -306,6 +315,7 @@ class StateMachineRunner:
             )
         self._clear_machine_run_state(run)
         self._record_event(run, "run_reset", {})
+        await self._broadcast_run_update(run, share_session_id=None)
         return run
 
     async def get_latest_run(
@@ -334,6 +344,17 @@ class StateMachineRunner:
         if self._is_machine_run_cleared(refreshed_run):
             return None
         return refreshed_run
+
+    async def _broadcast_run_update(
+        self,
+        run: AgentRun,
+        *,
+        share_session_id: str | None,
+    ) -> None:
+        await self.frontend_sender.broadcast_agent_run_update(
+            run,
+            share_session_id=share_session_id,
+        )
 
     async def report_signal(
         self,
@@ -397,6 +418,10 @@ class StateMachineRunner:
             share_session_id=share_session_id,
         )
         save_agent_run(self.dbe, refreshed_run)
+        await self._broadcast_run_update(
+            refreshed_run,
+            share_session_id=share_session_id,
+        )
         return {
             "status": "ok",
             "signalEventId": signal_event["signalEventId"],
@@ -406,6 +431,49 @@ class StateMachineRunner:
             "signalName": signal_name,
             "stateMachineIteration": signal_context.state_machine_iteration,
         }
+
+    async def handle_terminal_child_run_update(
+        self,
+        child_run: AgentRun,
+        *,
+        share_session_id: str | None = None,
+    ) -> None:
+        if child_run.status not in {
+            AgentRunStatus.completed,
+            AgentRunStatus.failed,
+            AgentRunStatus.cancelled,
+        }:
+            return
+        if not isinstance(child_run.inputs, dict):
+            return
+        if child_run.inputs.get("stateMachineParentRunType") != STATE_MACHINE_RUN_TYPE:
+            return
+        parent_run_id = self._get_child_parent_run_id(child_run)
+        parent_run = load_agent_run(self.dbe, parent_run_id)
+        if parent_run is None:
+            raise KeyError(f"State machine run {parent_run_id} not found.")
+        if not isinstance(parent_run.inputs, dict):
+            raise KeyError(f"State machine run {parent_run.id} inputs are missing.")
+        if parent_run.inputs.get("runType") != STATE_MACHINE_RUN_TYPE:
+            raise ValueError(f"Run {parent_run.id} is not a state machine run.")
+        resolved_share_session_id = (
+            share_session_id
+            if share_session_id is not None
+            else self._get_run_share_session_id(parent_run)
+        )
+        refreshed_run = parent_run
+        if parent_run.status == AgentRunStatus.running:
+            refreshed_run = await self._refresh_run(
+                run=parent_run,
+                project_config_id=self._get_run_project_config_id(parent_run),
+                machine_group_id=self._get_machine_group_id(parent_run),
+                share_session_id=resolved_share_session_id,
+            )
+            save_agent_run(self.dbe, refreshed_run)
+        await self._broadcast_run_update(
+            refreshed_run,
+            share_session_id=resolved_share_session_id,
+        )
 
     def _load_latest_run(
         self,
@@ -1483,6 +1551,24 @@ class StateMachineRunner:
         if not isinstance(raw_machine_group_id, str) or raw_machine_group_id == "":
             raise KeyError("State machine run machineGroupId is missing.")
         return raw_machine_group_id
+
+    def _get_run_project_config_id(self, run: AgentRun) -> ID:
+        if not isinstance(run.inputs, dict):
+            raise KeyError("Run inputs are missing.")
+        raw_project_config_id = run.inputs.get("projectConfigId")
+        if not isinstance(raw_project_config_id, str) or raw_project_config_id == "":
+            raise KeyError("Run projectConfigId is missing.")
+        return ID(raw_project_config_id)
+
+    def _get_run_share_session_id(self, run: AgentRun) -> str | None:
+        if not isinstance(run.inputs, dict):
+            raise KeyError("Run inputs are missing.")
+        raw_share_session_id = run.inputs.get("shareSessionId")
+        if raw_share_session_id is None:
+            return None
+        if not isinstance(raw_share_session_id, str) or raw_share_session_id == "":
+            raise KeyError("Run shareSessionId is invalid.")
+        return raw_share_session_id
 
     def _is_machine_run_cleared(self, run: AgentRun) -> bool:
         if not isinstance(run.outputs, dict):

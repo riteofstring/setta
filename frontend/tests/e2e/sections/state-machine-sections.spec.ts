@@ -88,6 +88,7 @@ type WorkflowRunRecord = {
   status?: string;
   startedAt?: string | null;
   finishedAt?: string | null;
+  outputs?: Record<string, unknown> | null;
   inputs?: {
     runType?: string;
     projectConfigId?: string;
@@ -98,6 +99,7 @@ type WorkflowRunRecord = {
     timestamp?: string | null;
     payload?: Record<string, unknown>;
   }>;
+  [key: string]: unknown;
 };
 
 test.describe.serial("state machine sections", () => {
@@ -963,7 +965,266 @@ test.describe.serial("state machine sections", () => {
       await cleanupIsolatedProject(page, projectContext);
     }
   });
+
+  test("updates workflow status from websocket run updates without periodic workflow polling", async ({
+    page,
+  }) => {
+    await installWebSocketMessageHarness(page);
+    await seedLocalStorage(page, {
+      overviewTab: "Overview",
+      overviewVis: true,
+      uiEditorVis: true,
+    });
+
+    let workflowRefreshRequestCount = 0;
+    let latestWorkflowRun: WorkflowRunRecord | null = null;
+    await page.route("**/api/getAgentRuns", async (route) => {
+      const response = await route.fetch();
+      const runs = (await response.json()) as WorkflowRunRecord[];
+      const staleRuns = runs.map((run) => {
+        if (
+          run.inputs?.runType !== "state_machine" ||
+          run.inputs.machineGroupId !== "workflow-push"
+        ) {
+          return run;
+        }
+        latestWorkflowRun = run;
+        return asStaleRunningWorkflowRun(run);
+      });
+      await route.fulfill({
+        status: response.status(),
+        headers: {
+          ...response.headers(),
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(staleRuns),
+      });
+    });
+    await page.route("**/api/getStateMachineRun", async (route) => {
+      const payload = route.request().postDataJSON() as
+        | { machineGroupId?: string }
+        | undefined;
+      if (payload?.machineGroupId !== "workflow-push") {
+        await route.continue();
+        return;
+      }
+      workflowRefreshRequestCount += 1;
+      const response = await route.fetch();
+      const run = (await response.json()) as WorkflowRunRecord;
+      latestWorkflowRun = run;
+      await route.fulfill({
+        status: response.status(),
+        headers: {
+          ...response.headers(),
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(asStaleRunningWorkflowRun(run)),
+      });
+    });
+
+    await ensureAppReady(page);
+    await waitForHarnessedWebSocket(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const startSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "StateMachineStart",
+        { x: 80, y: 120 },
+      );
+      const endSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "StateMachineEnd",
+        { x: 480, y: 120 },
+      );
+
+      await setStateMachineSectionSettings(
+        page,
+        projectContext.projectConfigId,
+        startSectionId,
+        {
+          machineGroupId: "workflow-push",
+          label: "Push Flow",
+          gateType: null,
+          maxIterations: null,
+        },
+      );
+      await setStateMachineSectionSettings(
+        page,
+        projectContext.projectConfigId,
+        endSectionId,
+        {
+          machineGroupId: "workflow-push",
+          label: "Done",
+          gateType: null,
+          maxIterations: null,
+        },
+      );
+      await createStateMachineEdge(page, projectContext.projectConfigId, {
+        machineGroupId: "workflow-push",
+        sourceSectionId: startSectionId,
+        sourcePortId: "workflow-source",
+        targetSectionId: endSectionId,
+        targetPortId: "workflow-target",
+        sourceFilter: null,
+        targetAction: null,
+      });
+
+      await openOverviewMoreDestination(page, "Custom Runs");
+      const overviewWorkflowStatus = page.getByTestId(
+        `run-instructions-workflow-status-${startSectionId}`,
+      );
+      const overviewStartButton = page.getByTestId(
+        `run-instructions-workflow-start-${startSectionId}`,
+      );
+      const startNodeStatus = page.getByTestId(
+        `state-machine-run-status-${startSectionId}`,
+      );
+
+      await expect(overviewWorkflowStatus).toHaveText("Idle");
+      await overviewStartButton.click();
+
+      await expect
+        .poll(() => workflowRefreshRequestCount, { timeout: 15000 })
+        .toBeGreaterThan(0);
+      await expect(overviewWorkflowStatus).toHaveText("Running");
+      await expect(startNodeStatus).toHaveText("Running");
+      await expect
+        .poll(() => latestWorkflowRun?.id ?? null, { timeout: 15000 })
+        .not.toBeNull();
+
+      const refreshCountAfterStart = workflowRefreshRequestCount;
+      await page.waitForTimeout(3000);
+      expect(workflowRefreshRequestCount).toBe(refreshCountAfterStart);
+
+      const finishedAt = new Date().toISOString();
+      const completedWorkflowRun: WorkflowRunRecord = {
+        ...latestWorkflowRun,
+        status: "completed",
+        finishedAt,
+        events: [
+          ...((latestWorkflowRun?.events ?? []).filter(
+            (event) => event.type !== "run_completed",
+          ) as Array<{
+            type?: string;
+            timestamp?: string | null;
+            payload?: Record<string, unknown>;
+          }>),
+          {
+            type: "run_completed",
+            timestamp: finishedAt,
+            payload: {},
+          },
+        ],
+      };
+      await emitSyntheticWebSocketMessage(page, {
+        id: "workflow-run-updated-e2e",
+        messageType: "AgentRunUpdated",
+        content: completedWorkflowRun,
+      });
+
+      await expect(overviewWorkflowStatus).toHaveText("Completed");
+      await expect(startNodeStatus).toHaveText("Completed");
+      await page.waitForTimeout(3000);
+      expect(workflowRefreshRequestCount).toBe(refreshCountAfterStart);
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
 });
+
+function asStaleRunningWorkflowRun(run: WorkflowRunRecord): WorkflowRunRecord {
+  return {
+    ...run,
+    status: "running",
+    finishedAt: null,
+    events: (run.events ?? []).filter((event) => event.type !== "run_completed"),
+  };
+}
+
+async function installWebSocketMessageHarness(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const windowWithSockets = window as typeof window & {
+      __settaTrackedSockets?: WebSocket[];
+      __settaTrackedSocketsInstalled?: boolean;
+    };
+    if (!windowWithSockets.__settaTrackedSockets) {
+      windowWithSockets.__settaTrackedSockets = [];
+    }
+    if (windowWithSockets.__settaTrackedSocketsInstalled) {
+      return;
+    }
+    const OriginalWebSocket = WebSocket;
+    const WrappedWebSocket = function (
+      this: WebSocket,
+      url: string | URL,
+      protocols?: string | string[],
+    ) {
+      const socket =
+        protocols === undefined
+          ? new OriginalWebSocket(url)
+          : new OriginalWebSocket(url, protocols);
+      windowWithSockets.__settaTrackedSockets!.push(socket);
+      socket.addEventListener(
+        "close",
+        () => {
+          windowWithSockets.__settaTrackedSockets =
+            windowWithSockets.__settaTrackedSockets!.filter(
+              (candidate) => candidate !== socket,
+            );
+        },
+        { once: true },
+      );
+      return socket;
+    } as typeof WebSocket;
+    WrappedWebSocket.prototype = OriginalWebSocket.prototype;
+    Object.assign(WrappedWebSocket, OriginalWebSocket);
+    window.WebSocket = WrappedWebSocket;
+    windowWithSockets.__settaTrackedSocketsInstalled = true;
+  });
+}
+
+async function waitForHarnessedWebSocket(page: Page): Promise<void> {
+  await expect
+    .poll(
+      async () =>
+        await page.evaluate(() => {
+          return (
+            (
+              window as typeof window & {
+                __settaTrackedSockets?: WebSocket[];
+              }
+            ).__settaTrackedSockets?.length ?? 0
+          );
+        }),
+      { timeout: 15000 },
+    )
+    .toBeGreaterThan(0);
+}
+
+async function emitSyntheticWebSocketMessage(
+  page: Page,
+  message: Record<string, unknown>,
+): Promise<void> {
+  await page.evaluate((payload) => {
+    const sockets =
+      (
+        window as typeof window & {
+          __settaTrackedSockets?: WebSocket[];
+        }
+      ).__settaTrackedSockets ?? [];
+    const data = JSON.stringify(payload);
+    for (const socket of sockets) {
+      socket.dispatchEvent(
+        new MessageEvent("message", {
+          data,
+        }),
+      );
+    }
+  }, message);
+}
 
 async function createSectionViaCommandPalette(
   page: Page,

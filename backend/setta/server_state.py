@@ -594,6 +594,13 @@ class SettaFastAPIState:
                 self.project_manager_switcher,
                 self.agent_runner,
                 self.external_agent_runner,
+                self.wmh_frontend_sender,
+            )
+            self.agent_runner.set_terminal_run_listener(
+                self.state_machine_runner.handle_terminal_child_run_update
+            )
+            self.external_agent_runner.set_terminal_run_listener(
+                self.state_machine_runner.handle_terminal_child_run_update
             )
 
             self.init_status.record("Starting background services")

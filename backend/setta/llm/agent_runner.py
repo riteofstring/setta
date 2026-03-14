@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, AsyncIterator, Iterator, Literal
@@ -258,10 +259,19 @@ class AgentRunner:
             logger=logger,
         )
         self.system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
+        self._terminal_run_listener: Callable[[AgentRun], Awaitable[None]] | None = (
+            None
+        )
 
     @property
     def disabled(self) -> bool:
         return False
+
+    def set_terminal_run_listener(
+        self,
+        listener: Callable[[AgentRun], Awaitable[None]] | None,
+    ) -> None:
+        self._terminal_run_listener = listener
 
     def update_config(self, config: AllLLMConfigs) -> None:
         self.config = config
@@ -301,6 +311,17 @@ class AgentRunner:
             self.api_keys = {}
             return
         self.api_keys = filter_env_vars_for_config(self._raw_env_vars, self.config)
+
+    async def _notify_terminal_run_listener(self, run: AgentRun) -> None:
+        if self._terminal_run_listener is None:
+            return
+        try:
+            await self._terminal_run_listener(run)
+        except Exception:
+            logger.exception(
+                "Agent terminal run listener failed for run %s",
+                run.id,
+            )
 
     def start_run(
         self,
@@ -380,12 +401,14 @@ class AgentRunner:
             run.finishedAt = get_now_timestamp()
             save_agent_run(self.dbe, run)
             self._record_event(run, "run_cancelled", {})
+            await self._notify_terminal_run_listener(run)
             task.cancel()
             return run
         run.status = AgentRunStatus.cancelled
         run.finishedAt = get_now_timestamp()
         save_agent_run(self.dbe, run)
         self._record_event(run, "run_cancelled", {})
+        await self._notify_terminal_run_listener(run)
         return run
 
     async def _run_agent(self, context: AgentRunContext) -> None:
@@ -596,6 +619,7 @@ class AgentRunner:
                     save_agent_run(self.dbe, run)
                     if not was_cancelled:
                         self._record_event(run, "run_cancelled", {})
+                        await self._notify_terminal_run_listener(run)
                     raise
                 except Exception as exc:
                     user_facing_message = (
@@ -707,6 +731,7 @@ class AgentRunner:
                         "run_failed",
                         {"error": str(exc)},
                     )
+                    await self._notify_terminal_run_listener(run)
                     return
 
                 should_continue = bool(assistant_message.tool_calls) and bool(
@@ -735,6 +760,7 @@ class AgentRunner:
                 run.cost = cost_value
             save_agent_run(self.dbe, run)
             self._record_event(run, "run_completed", {})
+            await self._notify_terminal_run_listener(run)
         finally:
             self._tasks.pop(run.id, None)
             self._runs.pop(run.id, None)
