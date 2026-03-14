@@ -1,9 +1,7 @@
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import type { HandlePosition, HandleType } from "forks/xyflow/core/types";
-import {
-  useEdgeHandleRegistry,
-  type EdgeHandleRecord,
-} from "state/stores/authoringStores";
+import type { EdgeHandleRecord } from "state/definitions";
+import { useEdgeHandleRegistry } from "state/definitions";
 
 export function makeEdgeHandleKey(
   sectionId: string,
