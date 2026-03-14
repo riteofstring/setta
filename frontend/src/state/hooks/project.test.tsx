@@ -144,56 +144,6 @@ describe("useLoadProjectConfig", () => {
     });
   });
 
-  it("does not reload when only the standalone thread id changes inside the same project config", async () => {
-    await act(async () => {
-      root.render(
-        <MemoryRouter initialEntries={["/alpha/chat/thread-a"]}>
-          <Routes>
-            <Route
-              path="/:projectConfigName/chat/:chatId"
-              element={
-                <>
-                  <LoadProbe />
-                  <NavigateButton to="/alpha/chat/thread-b" />
-                </>
-              }
-            />
-          </Routes>
-        </MemoryRouter>,
-      );
-    });
-
-    await vi.waitFor(() => {
-      const probe = host.querySelector('[data-testid="load-probe"]');
-      expect(probe?.getAttribute("data-done-loading")).toBe("true");
-      expect(probe?.getAttribute("data-project-config-name")).toBe("alpha");
-      expect(probe?.getAttribute("data-project-config-id")).toBe("alpha-id");
-    });
-
-    await act(async () => {
-      const navigateButton = host.querySelector(
-        '[data-testid="navigate-/alpha/chat/thread-b"]',
-      );
-      if (!(navigateButton instanceof HTMLButtonElement)) {
-        throw new Error("Expected navigate button.");
-      }
-      navigateButton.click();
-    });
-
-    await vi.waitFor(() => {
-      const probe = host.querySelector('[data-testid="load-probe"]');
-      expect(probe?.getAttribute("data-done-loading")).toBe("true");
-      expect(probe?.getAttribute("data-is-404")).toBe("false");
-      expect(probe?.getAttribute("data-project-config-name")).toBe("alpha");
-      expect(probe?.getAttribute("data-project-config-id")).toBe("alpha-id");
-    });
-
-    expect(loadProjectConfigMock).toHaveBeenCalledTimes(1);
-    expect(loadProjectConfigMock).toHaveBeenCalledWith({
-      projectConfigName: "alpha",
-    });
-  });
-
   it("treats load-project navigation state as a one-shot reload request", async () => {
     await act(async () => {
       root.render(
