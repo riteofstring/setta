@@ -33,7 +33,11 @@ import {
   type DropzoneStatelessAttachment,
   type DropzoneStoredAttachment,
 } from "utils/dropzone";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
+import {
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
 import {
   route_binary_upload,
   route_delete_artifacts,
@@ -48,6 +52,7 @@ import {
   DropzoneModeEnum,
   FileArtifact,
   SettaNotificationTypeEnum,
+  type BinaryContentRef,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import type { ParamValueChange } from "./ConfiguredParamInputs";
@@ -92,6 +97,7 @@ type DropzoneStatelessDisplayAttachment =
 const DROPZONE_STATEFUL_POLICY = getAttachmentPolicy("dropzone_stateful");
 const DROPZONE_STATELESS_POLICY = getAttachmentPolicy("dropzone_stateless");
 const DROPZONE_STATELESS_DISPLAY_LIMIT = 5;
+type BinaryUploadRouteResponse = ResponseDataAndStatus<BinaryContentRef>;
 
 function resolveDropzonePolicy(mode: DropzoneModeEnum) {
   if (mode === DropzoneModeEnum.STATELESS) {
@@ -658,7 +664,8 @@ export function DropzoneInput({
           const form = new FormData();
           form.append("file", file, file.name);
           form.append("durable", "false");
-          const res = await route_binary_upload(form);
+          const res: BinaryUploadRouteResponse =
+            await route_binary_upload(form);
           if (!res200(res)) {
             throw new Error("Upload failed");
           }

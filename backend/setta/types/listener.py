@@ -71,6 +71,7 @@ class ListenerDependencyEventContent(BaseModel):
 
 class ListenerForceRefreshContent(BaseModel):
     shareSessionId: str | None = None
+    callId: str | None = None
     projectState: ProjectStateSingleConfig | None = None
 
 

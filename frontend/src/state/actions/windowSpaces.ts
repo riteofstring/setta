@@ -5,7 +5,6 @@ import {
 import { resolveProjectChatFloatingViewport } from "components/ChatWindowing/projectChatViewport";
 import {
   flushPendingProjectChatWindowingWrites,
-  normalizeProjectChatWindowingState,
   replaceProjectChatWindowingState,
   setProjectChatWindowChatId,
   syncProjectChatWindowingState,
@@ -20,7 +19,11 @@ import {
   useShareSession,
   type ZustandProjectState,
 } from "state/definitions";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
+import {
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
 import {
   route_create_window_space,
   route_delete_window_space,
@@ -65,6 +68,8 @@ type WindowSpaceSnapshotState = Pick<
   | "sectionImpls"
   | "sectionVariants"
 >;
+
+type CreateWindowSpaceRouteResponse = ResponseDataAndStatus<WindowSpaceConfig>;
 
 function resolveAuthoringFloatingViewport(): AuthoringFloatingViewport {
   return resolveProjectChatFloatingViewport();
@@ -315,12 +320,13 @@ export function snapshotFloatingWindowsForWindowSpace(
         ? WindowSpaceSurfaceKindEnum.section
         : WindowSpaceSurfaceKindEnum.project_chat,
       sectionIdOrNull: instance.sectionIdOrNull,
-      mode: instance.mode,
+      mode: resolveProjectChatWindowMode(instance),
       title: instance.sectionIdOrNull ? null : instance.title,
       chatId: resolveWindowSpaceSnapshotChatId(instance),
       embeddedGitPaneVisible:
-        instance.mode === ChatWindowModeEnum.git_graph_mode &&
-        instance.sectionIdOrNull === null
+        resolveProjectChatWindowMode(instance) ===
+          ChatWindowModeEnum.git_graph_mode &&
+        resolveProjectChatWindowSectionId(instance) === null
           ? isProjectChatGitGraphEmbeddedPaneVisible(
               state.projectConfig.id,
               instanceId,
@@ -443,20 +449,54 @@ function normalizeWindowSpaceForPersistence(
   return snapshotFloatingWindowsForWindowSpace(state, viewport);
 }
 
+function normalizeNullableString(
+  value: string | null | undefined,
+): string | null {
+  return value ?? null;
+}
+
+function resolveProjectChatWindowSectionId(
+  instance: Pick<ProjectChatWindowInstance, "sectionIdOrNull">,
+): string | null {
+  return normalizeNullableString(instance.sectionIdOrNull);
+}
+
+function resolveProjectChatWindowChatId(
+  instance: Pick<ProjectChatWindowInstance, "chatId">,
+): string | null {
+  return normalizeNullableString(instance.chatId);
+}
+
+function resolveProjectChatWindowMode(
+  instance: Pick<ProjectChatWindowInstance, "mode">,
+): NonNullable<ProjectChatWindowInstance["mode"]> {
+  return instance.mode ?? ChatWindowModeEnum.project_ai_mode;
+}
+
+function resolveWindowSpaceWindowMode(
+  window: Pick<NonNullable<WindowSpaceState["windowsById"][string]>, "mode">,
+): NonNullable<NonNullable<WindowSpaceState["windowsById"][string]>["mode"]> {
+  return window.mode ?? ChatWindowModeEnum.project_ai_mode;
+}
+
 function resolveWindowSpaceSnapshotChatId(
   instance: ProjectChatWindowInstance,
 ): string | null {
-  if (instance.mode !== ChatWindowModeEnum.project_ai_mode) {
+  if (
+    resolveProjectChatWindowMode(instance) !==
+    ChatWindowModeEnum.project_ai_mode
+  ) {
     return null;
   }
-  return instance.chatId ?? null;
+  return resolveProjectChatWindowChatId(instance);
 }
 
 function resolveRestoredWorkspaceWindowChatId(
   window: NonNullable<WindowSpaceState["windowsById"][string]>,
 ): string | null | undefined {
-  return window.mode === ChatWindowModeEnum.project_ai_mode
-    ? window.chatId
+  return resolveWindowSpaceWindowMode(window) ===
+    ChatWindowModeEnum.project_ai_mode
+    ? normalizeNullableString(window.chatId)
     : null;
 }
 
@@ -653,7 +693,7 @@ export function createProjectChatWindowingStateFromWindowSpace(
     instancesById[instanceId] = createProjectChatWindowInstance({
       instanceId,
       placement: ChatWindowPlacementEnum.floating,
-      mode: window.mode,
+      mode: resolveWindowSpaceWindowMode(window),
       sectionIdOrNull: window.sectionIdOrNull,
       title:
         window.surfaceKind === WindowSpaceSurfaceKindEnum.section
@@ -677,13 +717,11 @@ export function createProjectChatWindowingStateFromWindowSpace(
   }
 
   return dedupeRestoredSectionBindings(
-    normalizeProjectChatWindowingState(
-      createProjectChatWindowingState({
-        instancesById,
-        order,
-        nextInstanceNumber: resolveNextProjectChatWindowInstanceNumber(order),
-      }),
-    ),
+    createProjectChatWindowingState({
+      instancesById,
+      order,
+      nextInstanceNumber: resolveNextProjectChatWindowInstanceNumber(order),
+    }),
   );
 }
 
@@ -766,14 +804,12 @@ function remapRestoredWindowSpaceInstanceIdsForWorkspace(
   }
 
   return {
-    windowing: normalizeProjectChatWindowingState(
-      createProjectChatWindowingState({
-        ...restoredFloatingWindowing,
-        instancesById: remappedInstancesById,
-        order: remappedOrder,
-        nextInstanceNumber,
-      }),
-    ),
+    windowing: createProjectChatWindowingState({
+      ...restoredFloatingWindowing,
+      instancesById: remappedInstancesById,
+      order: remappedOrder,
+      nextInstanceNumber,
+    }),
     remappedInstanceIdByOriginalId,
   };
 }
@@ -785,13 +821,14 @@ function dropRestoredSectionWindowsOwnedByNonFloatingWorkspaceHosts(
   const authoritativeSectionIds = new Set(
     Object.values(currentWindowing.instancesById)
       .map((instance) => {
+        const sectionId = resolveProjectChatWindowSectionId(instance);
         if (
           instance.placement === ChatWindowPlacementEnum.floating ||
-          instance.sectionIdOrNull === null
+          sectionId === null
         ) {
           return null;
         }
-        return instance.sectionIdOrNull;
+        return sectionId;
       })
       .filter((sectionId): sectionId is string => sectionId !== null),
   );
@@ -803,10 +840,12 @@ function dropRestoredSectionWindowsOwnedByNonFloatingWorkspaceHosts(
   const nextOrder: string[] = [];
   for (const instanceId of restoredFloatingWindowing.order) {
     const instance = restoredFloatingWindowing.instancesById[instanceId];
+    const sectionId = instance
+      ? resolveProjectChatWindowSectionId(instance)
+      : null;
     if (
       !instance ||
-      (instance.sectionIdOrNull !== null &&
-        authoritativeSectionIds.has(instance.sectionIdOrNull))
+      (sectionId !== null && authoritativeSectionIds.has(sectionId))
     ) {
       continue;
     }
@@ -816,38 +855,41 @@ function dropRestoredSectionWindowsOwnedByNonFloatingWorkspaceHosts(
   for (const [instanceId, instance] of Object.entries(
     restoredFloatingWindowing.instancesById,
   )) {
+    const sectionId = resolveProjectChatWindowSectionId(instance);
     if (
       instanceId in nextInstancesById ||
-      (instance.sectionIdOrNull !== null &&
-        authoritativeSectionIds.has(instance.sectionIdOrNull))
+      (sectionId !== null && authoritativeSectionIds.has(sectionId))
     ) {
       continue;
     }
     nextInstancesById[instanceId] = instance;
   }
-  return normalizeProjectChatWindowingState(
-    createProjectChatWindowingState({
-      ...restoredFloatingWindowing,
-      instancesById: nextInstancesById,
-      order: nextOrder,
-    }),
-  );
+  return createProjectChatWindowingState({
+    ...restoredFloatingWindowing,
+    instancesById: nextInstancesById,
+    order: nextOrder,
+  });
 }
 
 function resolveFloatingWindowRestoreOwnerKey(
   instance: ProjectChatWindowInstance,
 ): string | null {
-  if (instance.sectionIdOrNull !== null) {
-    return `section:${instance.sectionIdOrNull}`;
-  }
-  if (instance.mode === ChatWindowModeEnum.git_graph_mode) {
-    return "git-graph";
+  const sectionId = resolveProjectChatWindowSectionId(instance);
+  if (sectionId !== null) {
+    return `section:${sectionId}`;
   }
   if (
-    instance.mode === ChatWindowModeEnum.project_ai_mode &&
-    instance.chatId !== null
+    resolveProjectChatWindowMode(instance) === ChatWindowModeEnum.git_graph_mode
   ) {
-    return `project-chat:${instance.chatId}`;
+    return "git-graph";
+  }
+  const chatId = resolveProjectChatWindowChatId(instance);
+  if (
+    resolveProjectChatWindowMode(instance) ===
+      ChatWindowModeEnum.project_ai_mode &&
+    chatId !== null
+  ) {
+    return `project-chat:${chatId}`;
   }
   return null;
 }
@@ -855,14 +897,19 @@ function resolveFloatingWindowRestoreOwnerKey(
 function resolveBoundWorkspaceRestoreOwnerKey(
   instance: ProjectChatWindowInstance,
 ): string | null {
-  if (instance.mode !== ChatWindowModeEnum.project_ai_mode) {
+  if (
+    resolveProjectChatWindowMode(instance) !==
+    ChatWindowModeEnum.project_ai_mode
+  ) {
     return null;
   }
-  if (instance.sectionIdOrNull !== null) {
-    return `section:${instance.sectionIdOrNull}`;
+  const sectionId = resolveProjectChatWindowSectionId(instance);
+  if (sectionId !== null) {
+    return `section:${sectionId}`;
   }
-  if (instance.chatId !== null) {
-    return `project-chat:${instance.chatId}`;
+  const chatId = resolveProjectChatWindowChatId(instance);
+  if (chatId !== null) {
+    return `project-chat:${chatId}`;
   }
   return null;
 }
@@ -1002,10 +1049,14 @@ function getBlockedWindowSpaceRestoreMessage(
 function resolveProjectChatThreadBindingChatId(
   instance: ProjectChatWindowInstance | undefined,
 ): string | null {
-  if (!instance || instance.mode !== ChatWindowModeEnum.project_ai_mode) {
+  if (
+    !instance ||
+    resolveProjectChatWindowMode(instance) !==
+      ChatWindowModeEnum.project_ai_mode
+  ) {
     return null;
   }
-  return instance.chatId ?? null;
+  return resolveProjectChatWindowChatId(instance);
 }
 
 function buildWorkspaceRestoreLayoutState(
@@ -1021,7 +1072,10 @@ function buildWorkspaceRestoreLayoutState(
   for (const [instanceId, instance] of Object.entries(
     restoredWindowing.instancesById,
   )) {
-    if (instance.mode !== ChatWindowModeEnum.project_ai_mode) {
+    if (
+      resolveProjectChatWindowMode(instance) !==
+      ChatWindowModeEnum.project_ai_mode
+    ) {
       layoutInstancesById[instanceId] =
         instance.chatId === null ? instance : { ...instance, chatId: null };
       continue;
@@ -1067,7 +1121,9 @@ function isRestoredProjectChatThreadBindingTarget(
   threadBinding: RestoredProjectChatThreadBinding,
 ): boolean {
   return (
-    instance?.mode === ChatWindowModeEnum.project_ai_mode &&
+    !!instance &&
+    resolveProjectChatWindowMode(instance) ===
+      ChatWindowModeEnum.project_ai_mode &&
     (instance.sectionIdOrNull ?? null) === threadBinding.sectionIdOrNull
   );
 }
@@ -1246,20 +1302,18 @@ export async function restoreWindowSpaceInWorkspace(
     ...preservedInstancesById,
     ...remappedRestoredFloatingWindowing.instancesById,
   };
-  const nextWindowing = normalizeProjectChatWindowingState(
-    createProjectChatWindowingState({
+  const nextWindowing = createProjectChatWindowingState({
+    instancesById,
+    order: mergeProjectChatWindowSpaceOrder(
+      preservedOrder,
+      remappedRestoredFloatingWindowing.order,
       instancesById,
-      order: mergeProjectChatWindowSpaceOrder(
-        preservedOrder,
-        remappedRestoredFloatingWindowing.order,
-        instancesById,
-      ),
-      nextInstanceNumber: Math.max(
-        currentWindowing.nextInstanceNumber,
-        remappedRestoredFloatingWindowing.nextInstanceNumber,
-      ),
-    }),
-  );
+    ),
+    nextInstanceNumber: Math.max(
+      currentWindowing.nextInstanceNumber,
+      remappedRestoredFloatingWindowing.nextInstanceNumber,
+    ),
+  });
   const restoredGitPaneVisibleInstanceIds =
     buildRestoredGitGraphEmbeddedPaneVisibleInstanceIds(
       windowSpace,
@@ -1386,11 +1440,12 @@ export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<
   const nextWindowSpaceName = resolveNextWindowSpaceName(
     getProjectWindowSpaces(projectConfigSnapshot),
   );
-  const response = await route_create_window_space({
-    projectConfigId,
-    state: authoritativeSnapshot,
-    name: nextWindowSpaceName,
-  });
+  const response: CreateWindowSpaceRouteResponse =
+    await route_create_window_space({
+      projectConfigId,
+      state: authoritativeSnapshot,
+      name: nextWindowSpaceName,
+    });
   if (!res200(response)) {
     const detail = getErrorDetail(response.data);
     const statusSuffix =
