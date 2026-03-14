@@ -379,13 +379,7 @@ class SessionRegistry:
             return False
         if not cmdline:
             return False
-        script_basenames = {
-            "setta",
-            "setta.exe",
-            "setta-script.py",
-            "setta-server",
-            "setta-server.exe",
-        }
+        script_basenames = {"setta", "setta.exe", "setta-script.py"}
         first = cmdline[0].lower()
         if os.path.basename(first) in script_basenames:
             return True
