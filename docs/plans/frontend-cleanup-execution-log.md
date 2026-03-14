@@ -791,3 +791,31 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/hooks/terminals/terminal.ts`, now the largest
     remaining terminal/runtime hotspot, into clearer transport/session
     lifecycle, resize/focus wiring, and terminal event helpers.
+
+## 2026-03-14 18:24:11 PDT
+
+- Slice completed: split terminal hook ownership by extracting cached terminal
+  websocket sessions and xterm fit/reflow behavior out of
+  `frontend/src/state/hooks/terminals/terminal.ts`
+- Key files touched:
+  - `frontend/src/state/hooks/terminals/terminal.ts`
+  - `frontend/src/state/hooks/terminals/terminalSessions.ts`
+  - `frontend/src/state/hooks/terminals/terminalFit.ts`
+  - `frontend/src/state/hooks/terminals/terminalSessions.test.ts`
+  - `frontend/src/state/hooks/terminals/terminalFit.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/hooks/terminals/terminalSessions.test.ts src/state/hooks/terminals/terminalFit.test.ts src/components/Section/Layouts/TerminalArea.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/hooks/terminals/terminal.ts src/state/hooks/terminals/terminalSessions.ts src/state/hooks/terminals/terminalFit.ts src/state/hooks/terminals/terminalSessions.test.ts src/state/hooks/terminals/terminalFit.test.ts src/components/Section/Layouts/TerminalArea.test.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/hook ownership split and
+    did not change frontend rendering behavior.
+- Commit hash:
+  - `df2bf5dde`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/uiSettingRevealMutations.ts`, now the
+    next shared-infrastructure hotspot, into clearer snapshot capture,
+    rollback/finalization, and per-surface mutation helpers.
