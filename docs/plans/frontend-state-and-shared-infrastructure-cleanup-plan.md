@@ -62,6 +62,10 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   rollback, `uiSettingRevealActivation.ts` owns pane/accordion activation
   writes, `uiSettingRevealDom.ts` owns anchor lookup and highlighting, and
   `uiSettingRevealShared.ts` owns execution-context/status helpers.
+- `frontend/src/state/hooks/terminals/terminal.ts` is now a 248-line React hook
+  orchestration layer; `terminalSessions.ts` owns cached websocket session
+  reuse and transport wiring, and `terminalFit.ts` owns xterm
+  fit/fallback/reflow behavior.
 - `frontend/src/utils/constants.ts` is still unsplit on this branch, so shared-infrastructure cleanup is still high leverage.
 - Shared infrastructure cleanup will still cross fork boundaries at times, but if a slice becomes primarily about code under `frontend/src/forks/**` it should use the more specific companion plan instead of expanding this one.
 
@@ -69,8 +73,10 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 
 - `frontend/src/state` plus shared infrastructure files in `components/Utils` and `utils` total about 83.6k lines of authored code in the sampled directories.
 - The biggest shared-state hotspots are:
+  - `frontend/src/state/actions/keyActivations.ts` at 960 lines
   - `frontend/src/state/actions/uiSettingRevealMutations.ts` at 771 lines
-  - `frontend/src/state/hooks/terminals/terminal.ts` at 752 lines
+  - `frontend/src/components/Utils/Resizable/CustomResizable.tsx` at 726 lines
+  - `frontend/src/state/actions/stateMachineEdges.ts` at 719 lines
   - `frontend/src/state/actions/websocketReceive.ts` at 706 lines
   - `frontend/src/state/actions/windowSpaces.ts` at 695 lines
   - `frontend/src/state/actions/sectionInfos.ts` at 678 lines
@@ -131,6 +137,10 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - workspace restore orchestration
   - restored-instance remapping and merge policy
   - saved chat-thread rebound flow after layout restore
+- `terminal.ts`, `terminalSessions.ts`, and `terminalFit.ts` now split into:
+  - `terminal.ts` for React mount, ready/focus wiring, and resize observation
+  - `terminalSessions.ts` for cached websocket session reuse, stdin gating, and resize transport
+  - `terminalFit.ts` for xterm fit-addon fallback logic and widen-reflow patching
 - `focusManager.ts` at 657 lines mixes:
   - tab-scope registration
   - keyboard navigation policy

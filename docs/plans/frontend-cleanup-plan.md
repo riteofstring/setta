@@ -41,6 +41,10 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - `RunInstructions.tsx` already delegates some state/parsing work to `runInstructionsAccordionState.ts`, `runInstructionsRunnableCodeBlocks.ts`, and `runInstructionsStateMachineControls.ts`
 - Future cleanup should continue from these seams instead of assuming every hotspot is still a single-file monolith.
 - Before starting a slice, re-measure the current file and check for nearby helper modules/tests.
+- Terminal hook ownership is no longer concentrated in one file: `frontend/src/state/hooks/terminals/terminal.ts`
+  now handles React mount/focus orchestration while `terminalSessions.ts`
+  owns websocket session reuse and `terminalFit.ts` owns xterm fit/fallback
+  sizing behavior.
 
 ## Current State (Observed)
 
@@ -105,6 +109,11 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   window-space mutations plus floating snapshot/restore conversion, reducing
   `frontend/src/state/actions/windowSpaces.ts` to 695 lines for the remaining
   workspace-restore orchestration.
+- `frontend/src/state/hooks/terminals/terminal.ts` is down to 248 lines and now
+  delegates terminal websocket-session caching/transport to
+  `frontend/src/state/hooks/terminals/terminalSessions.ts` and xterm
+  fit/fallback/reflow behavior to
+  `frontend/src/state/hooks/terminals/terminalFit.ts`.
 - `frontend/src/state/actions/uiSettingReveal.ts` is down to 360 lines and now
   delegates reveal mutation leases, pane activation, DOM anchor/highlight
   helpers, and execution-status utilities to

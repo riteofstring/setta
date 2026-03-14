@@ -192,6 +192,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
     `uiSettingRevealDom.ts`, and `uiSettingRevealShared.ts` own mutation leases,
     pane activation, DOM anchor/highlight behavior, and execution-status
     helpers.
+  - `state/hooks/terminals/terminal.ts` now just orchestrates terminal mount,
+    ready/focus wiring, and resize observation; `terminalSessions.ts` owns
+    cached terminal websocket sessions, and `terminalFit.ts` owns xterm
+    fit/fallback/reflow behavior.
   - `state/hooks/*` owns reusable hooks layered on top of stores and actions.
   - `state/types/*` and `state/utils/*` own state-local models and helper logic.
 
@@ -241,10 +245,11 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/hooks/terminals/terminal.ts` terminal-lifecycle split across transport
-  wiring, terminal-session ownership, and feature-specific terminal helpers
 - `state/actions/uiSettingRevealMutations.ts` mutation-lease split across
   snapshot capture, rollback/finalization, and per-surface mutation helpers
+- `utils/focusManager.ts` focus-registry split across tab-scope registration,
+  keyboard navigation policy, section focus behavior, and canvas-specific pane
+  movement
 - `state/actions/sectionInfos.ts` section metadata/display-tree split now that
   `state/actions/sectionEffectiveImpls.ts`,
   `state/actions/sectionProjectStateSync.ts`,
