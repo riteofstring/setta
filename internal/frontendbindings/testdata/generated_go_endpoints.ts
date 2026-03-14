@@ -1325,6 +1325,24 @@ export async function route_set_chat_section_chat_id(x: gt.SetChatSectionChatIDR
 }
 
 
+export async function route_set_prompt_template(x: gt.SetPromptTemplateRequest): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setPromptTemplate, x);
+}
+
+
+export async function route_set_prompt_inputs(x: gt.SetPromptInputsRequest): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setPromptInputs, x);
+}
+
+
+export async function route_set_prompt_format(x: gt.SetPromptFormatRequest): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setPromptFormat, x);
+}
+
+
 export async function route_create_window_space(x: gt.CreateWindowSpaceRequest): Promise<ResponseDataAndStatus<gt.WindowSpaceConfig>> {
 
   return await post(GoHTTPRoutes.createWindowSpace, x);

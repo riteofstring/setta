@@ -1153,6 +1153,21 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "SET_CHAT_SECTION_CHAT_ID",
 				},
 				{
+					Name:     "setPromptTemplate",
+					Path:     httpapi.RouteSetPromptTemplate,
+					EnumName: "SET_PROMPT_TEMPLATE",
+				},
+				{
+					Name:     "setPromptInputs",
+					Path:     httpapi.RouteSetPromptInputs,
+					EnumName: "SET_PROMPT_INPUTS",
+				},
+				{
+					Name:     "setPromptFormat",
+					Path:     httpapi.RouteSetPromptFormat,
+					EnumName: "SET_PROMPT_FORMAT",
+				},
+				{
 					Name:     "createWindowSpace",
 					Path:     httpapi.RouteCreateWindowSpace,
 					EnumName: "CREATE_WINDOW_SPACE",
@@ -2979,6 +2994,27 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "setChatSectionChatId",
 			RequestType:     reflect.TypeOf(httpapi.SetChatSectionChatIDRequest{}),
+		},
+		{
+			FunctionName:    "route_set_prompt_template",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setPromptTemplate",
+			RequestType:     reflect.TypeOf(httpapi.SetPromptTemplateRequest{}),
+		},
+		{
+			FunctionName:    "route_set_prompt_inputs",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setPromptInputs",
+			RequestType:     reflect.TypeOf(httpapi.SetPromptInputsRequest{}),
+		},
+		{
+			FunctionName:    "route_set_prompt_format",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setPromptFormat",
+			RequestType:     reflect.TypeOf(httpapi.SetPromptFormatRequest{}),
 		},
 		{
 			FunctionName:    "route_create_window_space",

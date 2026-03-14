@@ -9,16 +9,17 @@ import {
   route_auto_layout_top_level_sections,
   route_binary_download,
   route_binary_upload,
+  route_change_param_impl,
   route_check_if_file_exists,
   route_check_workspace_initialized,
   route_clear_text_field_completion,
   route_code_area_completion,
   route_create_agentic_edge,
+  route_create_app_session_current,
   route_create_child_sections,
   route_create_child_sections_via_incrementer,
   route_create_edge,
   route_create_file,
-  route_create_app_session_current,
   route_create_new_section_variant,
   route_create_project_config,
   route_create_share_session_current,
@@ -32,8 +33,8 @@ import {
   route_delete_kwarg,
   route_delete_notification,
   route_delete_project_configs,
-  route_delete_sections,
   route_delete_section_variant_or_ask,
+  route_delete_sections,
   route_delete_selected_params,
   route_delete_view_mode,
   route_docstring_to_markdown,
@@ -42,12 +43,12 @@ import {
   route_gen_code_prefix_completion,
   route_gen_code_suffix_completion,
   route_get_agent_profiles,
-  route_get_agentic_summary_cache_status,
   route_get_agent_runs,
+  route_get_agentic_summary_cache_status,
+  route_get_ai_follow_snapshot,
   route_get_app_catalog,
   route_get_app_definition,
   route_get_app_deployment_state,
-  route_get_ai_follow_snapshot,
   route_get_app_gen_skill_content,
   route_get_app_gen_skills,
   route_get_attachment_download_url,
@@ -77,17 +78,17 @@ import {
   route_import_files_to_artifacts,
   route_indent_params,
   route_kill_subprocesses,
+  route_list_app_deployments,
+  route_list_share_deployments,
   route_load_all_project_metadata,
+  route_load_app_project_config,
   route_load_cached_brush_strokes,
   route_load_cached_chart_data,
   route_load_cached_draw_area_layer_item_transform,
   route_load_cached_image_artifacts,
-  route_load_app_project_config,
   route_load_project_config,
-  route_load_share_project_config,
   route_load_settings,
-  route_list_app_deployments,
-  route_list_share_deployments,
+  route_load_share_project_config,
   route_move_param_groups,
   route_move_params,
   route_move_sections,
@@ -120,7 +121,6 @@ import {
   route_set_chart_area_data_path,
   route_set_chart_settings,
   route_set_chart_type,
-  route_change_param_impl,
   route_set_chat_section_settings,
   route_set_chat_section_state,
   route_set_code,
@@ -143,6 +143,9 @@ import {
   route_set_parent_default_child_section_type,
   route_set_project_config_codegen_targets,
   route_set_project_config_name,
+  route_set_prompt_format,
+  route_set_prompt_inputs,
+  route_set_prompt_template,
   route_set_section_column_width,
   route_set_section_edge_inputs,
   route_set_section_edge_outputs,
@@ -3203,6 +3206,65 @@ describe("generatedEndpoints project shell and layout", () => {
         searchEnabled: true,
         dictationMode: "provider",
         frontendOpId: "frontend-op-chat-settings",
+      }),
+    });
+  });
+
+  it("posts prompt-section writes with the canonical generated payload", async () => {
+    await route_set_prompt_template({
+      projectConfigId: "project-alpha",
+      sectionId: "prompt-section",
+      template: "Hello {{ name }}",
+      frontendOpId: "frontend-op-prompt-template",
+    });
+    await route_set_prompt_inputs({
+      projectConfigId: "project-alpha",
+      sectionId: "prompt-section",
+      inputs: { name: "" },
+      frontendOpId: "frontend-op-prompt-inputs",
+    });
+    await route_set_prompt_format({
+      projectConfigId: "project-alpha",
+      sectionId: "prompt-section",
+      format: "Jinja",
+      frontendOpId: "frontend-op-prompt-format",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setPromptTemplate`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "prompt-section",
+        template: "Hello {{ name }}",
+        frontendOpId: "frontend-op-prompt-template",
+      }),
+    });
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setPromptInputs`,
+    );
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "prompt-section",
+        inputs: { name: "" },
+        frontendOpId: "frontend-op-prompt-inputs",
+      }),
+    });
+    expect(fetchMock.mock.calls[2]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setPromptFormat`,
+    );
+    expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "prompt-section",
+        format: "Jinja",
+        frontendOpId: "frontend-op-prompt-format",
       }),
     });
   });

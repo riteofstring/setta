@@ -8541,6 +8541,39 @@ export function createSetChatSectionChatIDRequest(options: Partial<SetChatSectio
 }
 
 
+export type SetPromptTemplateRequest = {
+  frontendOpId: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  template: string;
+};
+export function createSetPromptTemplateRequest(options: Partial<SetPromptTemplateRequest> = {}): SetPromptTemplateRequest {
+  return options as SetPromptTemplateRequest;
+}
+
+
+export type SetPromptInputsRequest = {
+  frontendOpId: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  inputs: Record<string, string>;
+};
+export function createSetPromptInputsRequest(options: Partial<SetPromptInputsRequest> = {}): SetPromptInputsRequest {
+  return options as SetPromptInputsRequest;
+}
+
+
+export type SetPromptFormatRequest = {
+  frontendOpId: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  format: PromptFormat;
+};
+export function createSetPromptFormatRequest(options: Partial<SetPromptFormatRequest> = {}): SetPromptFormatRequest {
+  return options as SetPromptFormatRequest;
+}
+
+
 export type CreateWindowSpaceRequest = {
   frontendOpId: string | null;
   projectConfigId: string;

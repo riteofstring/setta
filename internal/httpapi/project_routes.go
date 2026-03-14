@@ -114,6 +114,9 @@ const (
 	RouteSetTextBlockHeadingAsSectionName  = "/setTextBlockHeadingAsSectionName"
 	RouteSetTextBlockMetaControlStyle      = "/setTextBlockMetaControlStyle"
 	RouteSetTextBlockMasterFontSize        = "/setTextBlockMasterFontSize"
+	RouteSetPromptTemplate                 = "/setPromptTemplate"
+	RouteSetPromptInputs                   = "/setPromptInputs"
+	RouteSetPromptFormat                   = "/setPromptFormat"
 	RouteToggleParamSelected               = "/toggleParamSelected"
 	RouteUnselectAllParams                 = "/unselectAllParams"
 	RouteSetChatSectionSettings            = "/setChatSectionSettings"
@@ -947,6 +950,27 @@ type SetTextBlockMasterFontSizeRequest struct {
 	MasterFontSizePx float64 `json:"masterFontSizePx"`
 }
 
+type SetPromptTemplateRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	SectionID    string  `json:"sectionId"`
+	Template     string  `json:"template"`
+}
+
+type SetPromptInputsRequest struct {
+	FrontendOpID *string           `json:"frontendOpId"`
+	ProjectID    string            `json:"projectConfigId"`
+	SectionID    string            `json:"sectionId"`
+	Inputs       map[string]string `json:"inputs"`
+}
+
+type SetPromptFormatRequest struct {
+	FrontendOpID *string                   `json:"frontendOpId"`
+	ProjectID    string                    `json:"projectConfigId"`
+	SectionID    string                    `json:"sectionId"`
+	Format       projectstate.PromptFormat `json:"format"`
+}
+
 type SetChatSectionSettingsRequest struct {
 	FrontendOpID           *string                         `json:"frontendOpId"`
 	ProjectID              string                          `json:"projectConfigId"`
@@ -1164,6 +1188,36 @@ func ensureProjectLLMMutationsAllowed(
 	return false
 }
 
+func ensureProjectParamMutationsAllowed(
+	w http.ResponseWriter,
+	r *http.Request,
+	deps ProjectRouteDependencies,
+) bool {
+	requestInfo, ok := modes.RequestInfoFromRequest(r)
+	if !ok {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if !requestInfo.Policy.IsDeployment() {
+		return true
+	}
+	if deps.Deployment == nil {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+		return false
+	}
+	if deps.Deployment.Policy().AllowParamChanges {
+		return true
+	}
+	writeError(
+		w,
+		r,
+		http.StatusForbidden,
+		"param_changes_forbidden",
+		"Deployment policy disallows param changes.",
+	)
+	return false
+}
+
 func resolveStructuralMutationSettingsFromRuntime(
 	runtime *settingsstate.Runtime,
 ) (projectstate.StructuralMutationSettings, error) {
@@ -1332,6 +1386,9 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 			Policy: deps.ModePolicy,
 			Store:  deps.ShareSessions,
 		})
+		router.With(shareGuard).Post(RouteSetPromptTemplate, setPromptTemplateHandler(deps))
+		router.With(shareGuard).Post(RouteSetPromptInputs, setPromptInputsHandler(deps))
+		router.With(shareGuard).Post(RouteSetPromptFormat, setPromptFormatHandler(deps))
 		router.With(shareGuard).Post(RouteCreateWindowSpace, createWindowSpaceHandler(deps))
 		router.With(shareGuard).Post(RouteSetWindowSpaceName, setWindowSpaceNameHandler(deps))
 		router.With(shareGuard).Post(RouteSetWindowSpaceSortOrder, setWindowSpaceSortOrderHandler(deps))
@@ -1340,6 +1397,9 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 		router.With(shareGuard).Post(RouteSetProjectChatWindowChatID, setProjectChatWindowChatIDHandler(deps))
 		return nil
 	}
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetPromptTemplate, setPromptTemplateHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetPromptInputs, setPromptInputsHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetPromptFormat, setPromptFormatHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateWindowSpace, createWindowSpaceHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetWindowSpaceName, setWindowSpaceNameHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetWindowSpaceSortOrder, setWindowSpaceSortOrderHandler(deps))
@@ -4869,6 +4929,129 @@ func setTextBlockMasterFontSizeHandler(deps ProjectRouteDependencies) http.Handl
 	}
 }
 
+func setPromptTemplateHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetPromptTemplateRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if !ensureProjectParamMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := runtime.SetPromptTemplate(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.Template,
+		); err != nil {
+			writePromptSectionMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setPromptInputsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetPromptInputsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if !ensureProjectParamMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := runtime.SetPromptInputs(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.Inputs,
+		); err != nil {
+			writePromptSectionMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setPromptFormatHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetPromptFormatRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if !ensureProjectParamMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := runtime.SetPromptFormat(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.Format,
+		); err != nil {
+			writePromptSectionMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
 func setChatSectionSettingsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		payload, err := decodeJSONBody[SetChatSectionSettingsRequest](r)
@@ -6153,6 +6336,17 @@ func writeTextBlockMutationError(w http.ResponseWriter, r *http.Request, err err
 		writeError(w, r, http.StatusBadRequest, "text_block_display_mode_invalid", err.Error())
 	case errors.Is(err, projectstate.ErrTextBlockFormatInvalid):
 		writeError(w, r, http.StatusBadRequest, "text_block_format_invalid", err.Error())
+	default:
+		writeProjectLayoutMutationError(w, r, err)
+	}
+}
+
+func writePromptSectionMutationError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrPromptSectionRequired):
+		writeError(w, r, http.StatusUnprocessableEntity, "prompt_section_required", "Section must resolve to a prompt section.")
+	case errors.Is(err, projectstate.ErrPromptFormatInvalid):
+		writeError(w, r, http.StatusBadRequest, "prompt_format_invalid", err.Error())
 	default:
 		writeProjectLayoutMutationError(w, r, err)
 	}

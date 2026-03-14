@@ -5096,6 +5096,8 @@ func canonicalFrontendBindingType(t reflect.Type) reflect.Type {
 		return reflect.TypeOf(ChatWindowPlacement(""))
 	case reflect.TypeOf(projectstate.ChatWindowMode("")):
 		return reflect.TypeOf(ChatWindowMode(""))
+	case reflect.TypeOf(projectstate.PromptFormat("")):
+		return reflect.TypeOf(PromptFormat(""))
 	case reflect.TypeOf(projectstate.ChatWindowBounds{}):
 		return reflect.TypeOf(ChatWindowBounds{})
 	case reflect.TypeOf(projectstate.ChatWindowDockMetrics{}):
