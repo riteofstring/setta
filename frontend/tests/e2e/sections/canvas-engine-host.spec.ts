@@ -2407,15 +2407,6 @@ test("canvas engine host starts cached nested data-edge reconnect sessions after
       type: "default",
     });
 
-    const edgeId = await readDataEdgeIdByLink({
-      page,
-      projectConfigId: projectContext.projectConfigId,
-      sourceSectionId: sourceChildId,
-      sourcePortId,
-      targetSectionId: firstTargetChildId,
-      targetPortId: firstTargetPortId,
-    });
-
     await expect
       .poll(
         async () =>

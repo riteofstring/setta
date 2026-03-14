@@ -1399,16 +1399,29 @@ describe("CanvasEngineHost", () => {
       throw new Error("Missing cached reconnect handles.");
     }
 
+    const reconnectStartClientX = Math.round(
+      (reconnectStartHandle.x - camera.x) * camera.zoom,
+    );
+    const reconnectStartClientY = Math.round(
+      (reconnectStartHandle.y - camera.y) * camera.zoom,
+    );
+    const reconnectTargetClientX = Math.round(
+      (reconnectTargetHandle.x - camera.x) * camera.zoom,
+    );
+    const reconnectTargetClientY = Math.round(
+      (reconnectTargetHandle.y - camera.y) * camera.zoom,
+    );
+
     await dispatchPointerEvent(engineHost, "pointerdown", {
       button: 0,
-      clientX: (reconnectStartHandle.x - camera.x) * camera.zoom,
-      clientY: (reconnectStartHandle.y - camera.y) * camera.zoom,
+      clientX: reconnectStartClientX,
+      clientY: reconnectStartClientY,
       pointerId: 1,
     });
     await dispatchPointerEvent(engineHost, "pointermove", {
       button: 0,
-      clientX: (reconnectTargetHandle.x - camera.x) * camera.zoom,
-      clientY: (reconnectTargetHandle.y - camera.y) * camera.zoom,
+      clientX: reconnectTargetClientX,
+      clientY: reconnectTargetClientY,
       pointerId: 1,
     });
 
@@ -1423,8 +1436,8 @@ describe("CanvasEngineHost", () => {
 
     await dispatchPointerEvent(engineHost, "pointerup", {
       button: 0,
-      clientX: (reconnectTargetHandle.x - camera.x) * camera.zoom,
-      clientY: (reconnectTargetHandle.y - camera.y) * camera.zoom,
+      clientX: reconnectTargetClientX,
+      clientY: reconnectTargetClientY,
       pointerId: 1,
     });
 

@@ -273,7 +273,7 @@ const RESIZE_HANDLE_HIT_RADIUS_PX = 10;
 const EDGE_HIT_TOLERANCE_PX = 8;
 const SECTION_HIT_TOLERANCE_PX = 6;
 const AGENTIC_HANDLE_HIT_TOLERANCE_WORLD = 12;
-const DATA_HANDLE_HIT_TOLERANCE_WORLD = 10;
+const DATA_HANDLE_HIT_TOLERANCE_PX = 10;
 const DATA_EDGE_ENDPOINT_HIT_RADIUS_PX = 12;
 const SELECTION_RECT_FILL_COLOR = "rgba(0, 89, 220, 0.08)";
 const SELECTION_RECT_BORDER_COLOR = "rgba(0, 89, 220, 0.8)";
@@ -561,21 +561,25 @@ export function CanvasEngineHost() {
       worldX: number,
       worldY: number,
       handleType: "source" | "target",
-    ): CanvasEngineDataHandleHitResult | null =>
-      sceneAdapter.hitTestDataHandleAtWorldPoint(
-        worldX,
-        worldY,
-        DATA_HANDLE_HIT_TOLERANCE_WORLD,
-        { handleType },
-      ) ??
-      findRegisteredDataHandleHitAtWorldPoint(
-        mergedDataEdgeHandlePositions,
-        worldX,
-        worldY,
-        DATA_HANDLE_HIT_TOLERANCE_WORLD,
-        { handleType },
-      ),
-    [mergedDataEdgeHandlePositions, sceneAdapter],
+    ): CanvasEngineDataHandleHitResult | null => {
+      const toleranceWorld = resolveDataHandleHitToleranceWorld(camera.zoom);
+      return (
+        sceneAdapter.hitTestDataHandleAtWorldPoint(
+          worldX,
+          worldY,
+          toleranceWorld,
+          { handleType },
+        ) ??
+        findRegisteredDataHandleHitAtWorldPoint(
+          mergedDataEdgeHandlePositions,
+          worldX,
+          worldY,
+          toleranceWorld,
+          { handleType },
+        )
+      );
+    },
+    [camera.zoom, mergedDataEdgeHandlePositions, sceneAdapter],
   );
 
   useLayoutEffect(() => {
@@ -1188,33 +1192,6 @@ export function CanvasEngineHost() {
         event.currentTarget.setPointerCapture(event.pointerId);
         return;
       }
-      const dataSourceHandleHit = hitTestDataHandle(
-        worldPoint.x,
-        worldPoint.y,
-        "source",
-      );
-      if (canEditStructure && dataSourceHandleHit) {
-        pointerSessionRef.current = {
-          pointerId: event.pointerId,
-          kind: "data-connect",
-          sourceSectionId: dataSourceHandleHit.sectionId,
-          sourcePortId: dataSourceHandleHit.portId,
-          sourceHandleWorldX: dataSourceHandleHit.handleWorldX,
-          sourceHandleWorldY: dataSourceHandleHit.handleWorldY,
-        };
-        updateConnectionPreview({
-          kind: "data-connect",
-          startX: dataSourceHandleHit.handleWorldX,
-          startY: dataSourceHandleHit.handleWorldY,
-          endX: worldPoint.x,
-          endY: worldPoint.y,
-          targetHandleX: null,
-          targetHandleY: null,
-          targetValid: false,
-        });
-        event.currentTarget.setPointerCapture(event.pointerId);
-        return;
-      }
       const dataEdgeEndpointHit =
         sceneAdapter.hitTestDataEdgeEndpointAtWorldPoint(
           worldPoint.x,
@@ -1262,6 +1239,33 @@ export function CanvasEngineHost() {
             dataEdgeEndpointHit.endpointType === "source"
               ? fixedHandleWorldY
               : worldPoint.y,
+          targetHandleX: null,
+          targetHandleY: null,
+          targetValid: false,
+        });
+        event.currentTarget.setPointerCapture(event.pointerId);
+        return;
+      }
+      const dataSourceHandleHit = hitTestDataHandle(
+        worldPoint.x,
+        worldPoint.y,
+        "source",
+      );
+      if (canEditStructure && dataSourceHandleHit) {
+        pointerSessionRef.current = {
+          pointerId: event.pointerId,
+          kind: "data-connect",
+          sourceSectionId: dataSourceHandleHit.sectionId,
+          sourcePortId: dataSourceHandleHit.portId,
+          sourceHandleWorldX: dataSourceHandleHit.handleWorldX,
+          sourceHandleWorldY: dataSourceHandleHit.handleWorldY,
+        };
+        updateConnectionPreview({
+          kind: "data-connect",
+          startX: dataSourceHandleHit.handleWorldX,
+          startY: dataSourceHandleHit.handleWorldY,
+          endX: worldPoint.x,
+          endY: worldPoint.y,
           targetHandleX: null,
           targetHandleY: null,
           targetValid: false,
@@ -2695,6 +2699,10 @@ function resolveSectionHitToleranceWorld(zoom: number): number {
 
 function resolveDataEdgeEndpointHitToleranceWorld(zoom: number): number {
   return DATA_EDGE_ENDPOINT_HIT_RADIUS_PX / clampZoom(zoom);
+}
+
+function resolveDataHandleHitToleranceWorld(zoom: number): number {
+  return DATA_HANDLE_HIT_TOLERANCE_PX / clampZoom(zoom);
 }
 
 function findRegisteredDataHandleHitAtWorldPoint(
