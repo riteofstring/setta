@@ -618,16 +618,45 @@ func (e *Executor) processOpenAIResponseEvent(
 				appendAssistantThinkingAtIndex(assistantMessage, 0, reasoning)
 			}
 		case responses.ResponseFunctionToolCall:
-			accumulator.applyResolved(int(typed.OutputIndex), item.CallID, item.Name, item.Arguments)
+			previousArguments := accumulator.currentArguments(int(typed.OutputIndex))
+			state := accumulator.applyResolved(int(typed.OutputIndex), item.CallID, item.Name, item.Arguments)
+			argumentsDelta := authoritativeResponseReplacementSuffix(previousArguments, item.Arguments)
+			if err := e.emitOpenAIResponseToolArgumentUpdate(
+				ctx,
+				prepared,
+				assistantMessage,
+				previewAccumulator,
+				state,
+				argumentsDelta,
+			); err != nil {
+				return nil, err
+			}
 		}
 	case responses.ResponseOutputItemDoneEvent:
-		e.applyOpenAIResponseOutputItemFallback(
-			assistantMessage,
-			typed.Item,
-			int(typed.OutputIndex),
-			streamState,
-			accumulator,
-		)
+		switch item := typed.Item.AsAny().(type) {
+		case responses.ResponseFunctionToolCall:
+			previousArguments := accumulator.currentArguments(int(typed.OutputIndex))
+			state := accumulator.applyResolved(int(typed.OutputIndex), item.CallID, item.Name, item.Arguments)
+			argumentsDelta := authoritativeResponseReplacementSuffix(previousArguments, item.Arguments)
+			if err := e.emitOpenAIResponseToolArgumentUpdate(
+				ctx,
+				prepared,
+				assistantMessage,
+				previewAccumulator,
+				state,
+				argumentsDelta,
+			); err != nil {
+				return nil, err
+			}
+		default:
+			e.applyOpenAIResponseOutputItemFallback(
+				assistantMessage,
+				typed.Item,
+				int(typed.OutputIndex),
+				streamState,
+				accumulator,
+			)
+		}
 	case responses.ResponseContentPartAddedEvent:
 		if err := e.applyOpenAIResponseContentPartAdded(ctx, prepared, assistantMessage, streamState, typed.Part); err != nil {
 			return nil, err
