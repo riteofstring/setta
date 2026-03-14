@@ -1,8 +1,6 @@
 import { requestAIFollowSnapshot } from "state/actions/aiFollow";
 import { loadProjectState } from "state/actions/project/loadProject";
-import {
-  useProjectLoading,
-} from "state/definitions";
+import { useProjectLoading } from "state/stores/projectStatusStores";
 import {
   useAllProjectMetadata,
   useServerMode,

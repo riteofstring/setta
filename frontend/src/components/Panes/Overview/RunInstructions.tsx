@@ -27,14 +27,16 @@ import {
   subscribeStateMachineRunPolling,
 } from "state/actions/stateMachineRuns";
 import {
-  CustomRunItem,
   useAIStore,
   useLocalStorage,
   useProjectState,
-  useRunControl,
   useSettings,
   ZustandProjectState,
 } from "state/definitions";
+import {
+  type CustomRunItem,
+  useRunControl,
+} from "state/stores/projectStatusStores";
 import { useShareCapabilities } from "state/hooks/share";
 import {
   useAllProjectMetadata,

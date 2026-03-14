@@ -19,7 +19,7 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 
 ## Status Refresh (2026-03-14)
 
-- Unlike the later `clean-code` branch, this branch still has a large `frontend/src/state/definitions.ts` surface, but AI/chat store ownership now lives in `frontend/src/state/stores/aiStores.ts`, app runtime state now lives in `frontend/src/state/stores/appStores.ts`, session/share state now lives in `frontend/src/state/stores/sessionStores.ts`, browser state now lives in `frontend/src/state/stores/fileBrowserStores.ts`, search state now lives in `frontend/src/state/stores/searchStores.ts`, and shared persist fallback logic lives in `frontend/src/state/storePersistStorage.ts`.
+- Unlike the later `clean-code` branch, this branch still has a large `frontend/src/state/definitions.ts` surface, but AI/chat store ownership now lives in `frontend/src/state/stores/aiStores.ts`, app runtime state now lives in `frontend/src/state/stores/appStores.ts`, session/share state now lives in `frontend/src/state/stores/sessionStores.ts`, browser state now lives in `frontend/src/state/stores/fileBrowserStores.ts`, search state now lives in `frontend/src/state/stores/searchStores.ts`, feedback state now lives in `frontend/src/state/stores/feedbackStores.ts`, project-status state now lives in `frontend/src/state/stores/projectStatusStores.ts`, and shared persist fallback logic lives in `frontend/src/state/storePersistStorage.ts`.
 - `frontend/src/state/actions/aiHydration.ts`, `frontend/src/state/actions/aiAgentRuns.ts`, `frontend/src/state/actions/aiConfiguration.ts`, `frontend/src/state/actions/aiTranscription.ts`, `frontend/src/state/actions/aiChatSubmission.ts`, `frontend/src/state/actions/aiChatControls.ts`, `frontend/src/state/actions/aiChatState.ts`, `frontend/src/state/actions/aiPendingChatState.ts`, `frontend/src/state/actions/aiInterruptedAssistantMessages.ts`, and `frontend/src/state/actions/aiChatStreaming.ts` now carry the hydration, agent-run, config/catalog, transcription, submission, chat-control, chat-detail, pending-draft, interruption-tracking, and streaming behavior that previously lived in `frontend/src/state/actions/ai.ts`; future cleanup should keep extending those seams instead of merging behavior back.
 - `frontend/src/state/actions/projectChatWindowing.ts` already delegates some logic to `projectChatWindowingAuthoritative.ts` and `projectChatWindowingEphemeral.ts`; future cleanup should build on those seams.
 - `frontend/src/utils/constants.ts` is still unsplit on this branch, so shared-infrastructure cleanup is still high leverage.
@@ -29,13 +29,13 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 
 - `frontend/src/state` plus shared infrastructure files in `components/Utils` and `utils` total about 83.6k lines of authored code in the sampled directories.
 - The biggest shared-state hotspots are:
-  - `frontend/src/state/definitions.ts` at 1026 lines
+  - `frontend/src/state/definitions.ts` at 956 lines
   - `frontend/src/state/actions/sectionInfos.ts` at 2030 lines
   - `frontend/src/state/actions/windowSpaces.ts` at 1422 lines
   - `frontend/src/state/actions/uiSettingReveal.ts` at 1597 lines
   - `frontend/src/state/actions/websocketReceive.ts` at 1029 lines
   - `frontend/src/state/hooks/terminals/terminal.ts` at 752 lines
-- `definitions.ts` now defines 29 local `use*` stores and re-exports the extracted AI/chat, app runtime, session/share, browser, and search stores, which is better than the previous monolith but still obscures ownership for the remaining UI-chrome and local-editor groups.
+- `definitions.ts` now defines 24 local `use*` stores and re-exports the extracted AI/chat, app runtime, session/share, browser, search, feedback, and project-status stores, which is better than the previous monolith but still obscures ownership for the remaining layout and local-editor groups.
 - `sectionInfos.ts` currently mixes:
   - effective-impl derivation
   - optimistic project-state mutation helpers

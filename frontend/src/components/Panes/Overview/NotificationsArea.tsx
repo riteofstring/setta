@@ -14,11 +14,8 @@ import {
   markAsRead,
   removeNotification,
 } from "state/actions/notifications"; // Assuming this import path
-import {
-  useLocalStorage,
-  useNotifications,
-  useProjectState,
-} from "state/definitions";
+import { useLocalStorage, useProjectState } from "state/definitions";
+import { useNotifications } from "state/stores/feedbackStores";
 import {
   type OverviewNotificationsPaneTab,
   OverviewNotificationsPaneTabEnum,

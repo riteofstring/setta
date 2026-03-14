@@ -1,7 +1,5 @@
-import {
-  useProjectLoading,
-} from "state/definitions";
 import { useAppConfigs, useAppDefinition } from "state/stores/appStores";
+import { useProjectLoading } from "state/stores/projectStatusStores";
 import {
   useAllProjectMetadata,
   useServerMode,

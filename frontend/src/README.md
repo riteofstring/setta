@@ -120,16 +120,20 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
   - `state/definitions.ts` is now the shared index for the remaining
     cross-feature Zustand stores plus the atomic project-store publication
-    helpers on this branch. It is down to `1026` lines after moving the AI/chat,
-    app runtime, session/share, browser, and search clusters into domain-owned
-    modules.
+    helpers on this branch. It is down to `956` lines after moving the AI/chat,
+    app runtime, session/share, browser, search, and feedback/status clusters
+    into domain-owned modules.
   - `state/stores/aiStores.ts` owns the AI/chat Zustand stores and chat-specific
     store types such as `ChatDetails`, `ChatBranchInfo`, and
     `ProjectChatCustomSlashCommand`.
   - `state/stores/appStores.ts` owns app definition/config/preview state used by
     app-mode rendering, app preview, and app deployment surfaces.
+  - `state/stores/feedbackStores.ts` owns modal, notifications, and backend-log
+    store state used across shell and overview surfaces.
   - `state/stores/fileBrowserStores.ts` owns the standalone, home-page,
     browser-section, and dropzone file-browser state surfaces.
+  - `state/stores/projectStatusStores.ts` owns run-control and project-loading
+    status shared across run actions and route/deployment loading flows.
   - `state/stores/searchStores.ts` owns home-page search plus project search
     state used by the header search surfaces and param search highlighting.
   - `state/stores/sessionStores.ts` owns share-session, server-mode, and
@@ -189,7 +193,7 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/definitions.ts` remaining UI-chrome/layout and local-editor store
-  groups
+- `state/definitions.ts` remaining layout/local-editor store groups such as
+  `useMisc`, `useTemporaryMiscState`, and adjacent authoring/layout helpers
 - shared project chat surfaces under `components/Chat/*`,
   `components/Panes/Overview/ProjectLevelAI/*`, and `components/ChatWindowing/*`

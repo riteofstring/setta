@@ -77,8 +77,9 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/state/stores/aiStores.ts` now owns the AI/chat Zustand stores and related chat-state types.
 - `frontend/src/state/stores/appStores.ts` now owns app definition/config/preview state, and `frontend/src/state/stores/sessionStores.ts` now owns share-session, server-mode, and all-project-metadata state.
 - `frontend/src/state/stores/fileBrowserStores.ts` now owns the file-browser state surfaces, and `frontend/src/state/stores/searchStores.ts` now owns the home/project search stores.
+- `frontend/src/state/stores/feedbackStores.ts` now owns modal, notifications, and backend-log state, and `frontend/src/state/stores/projectStatusStores.ts` now owns run-control and project-loading state.
 - `frontend/src/state/storePersistStorage.ts` now owns the shared persisted-storage fallback used by the extracted store modules.
-- `frontend/src/state/definitions.ts` is down to 1026 lines with 29 local `use*` stores plus thin domain re-exports for AI/chat, app, session/share, browser, and search state.
+- `frontend/src/state/definitions.ts` is down to 956 lines with 24 local `use*` stores plus thin domain re-exports for AI/chat, app, session/share, browser, search, feedback, and project-status state.
 - Components and hooks frequently import generated endpoints/types and large action modules directly, which increases context switching and makes it harder for agents to see the true domain boundary.
 - Direct store reach-through is common enough that mutation paths are not obvious from component names alone.
 

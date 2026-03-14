@@ -1,4 +1,3 @@
-import { ModalInfoType } from "components/Modals/types";
 import { HandlePosition, HandleType, Node } from "forks/xyflow/core/types";
 import type { ChatSharedEdgeMode } from "state/actions/chatSharedHandleIds";
 import { parseAppGenerationMode } from "state/types/appGenerationMode";
@@ -25,9 +24,7 @@ import {
   ListenerCoverageSnapshot,
   ProjectStateSingleConfig,
   RenameRefactorBroadcastContent,
-  SettaBackendLogEvent,
   SettaLspDiagnostic,
-  SettaNotification,
   SettaProjectNameValidationErrors,
   SettingsState,
   WebsocketConnectionInfo,
@@ -54,16 +51,26 @@ export {
   useShareSession,
 } from "./stores/sessionStores";
 export {
+  useBackendLogEvents,
+  useModal,
+  useNotifications,
+} from "./stores/feedbackStores";
+export {
   useBrowserSectionFileBrowserState,
   useDropzoneFileBrowserState,
   useFileBrowserState,
   useHomeFileBrowserState,
 } from "./stores/fileBrowserStores";
+export {
+  useProjectLoading,
+  useRunControl,
+} from "./stores/projectStatusStores";
 export { useHomePageSearch, useProjectSearch } from "./stores/searchStores";
 import type {
   ProjectChatAuxView,
   ProjectChatCustomSlashCommand,
 } from "./stores/aiStores";
+import type { CustomRunItem } from "./stores/projectStatusStores";
 import { withProjectState, withResetFn } from "./utils";
 
 export {
@@ -81,7 +88,12 @@ export type {
   ToolArgumentPreviewEntry,
   ToolArgumentPreviewProjectState,
 } from "./stores/aiStores";
+export type { BackendLogEventsFilter } from "./stores/feedbackStores";
 export type { FileBrowserState } from "./stores/fileBrowserStores";
+export type {
+  CustomRunAction,
+  CustomRunItem,
+} from "./stores/projectStatusStores";
 export type { ZustandProjectSearch } from "./stores/searchStores";
 
 export const useResizeEvent = withProjectState(
@@ -255,17 +267,6 @@ export const useWaitingForLSPResult = withProjectState(
   ),
 );
 
-type ZustandModalState = { open: boolean; modalInfo: ModalInfoType | null };
-
-export const useModal = withProjectState(
-  createWithEqualityFn(
-    withResetFn<ZustandModalState>(() => ({
-      open: false,
-      modalInfo: null,
-    })),
-  ),
-);
-
 export type ZustandNodeInternalsState = { x: Map<string, Node> };
 
 export const useNodeInternals = withProjectState(
@@ -353,28 +354,7 @@ export function runWithAtomicallyPublishedProjectStores(
   }
 }
 
-type ZustandNotificationState = { notifications: Array<SettaNotification> };
-
-export const useNotifications = createWithEqualityFn(
-  withResetFn<ZustandNotificationState>(() => ({
-    notifications: [],
-  })),
-);
-
-type RunMode = "once" | "continuous";
 type RunSnapshotMode = SettingsState["backend"]["runSnapshotMode"];
-
-export type CustomRunAction =
-  | { type: "runCodeBlock"; sectionId: string | null }
-  | { type: "triggerListenerForceRefresh" };
-
-export type CustomRunItem = {
-  id: string;
-  name: string;
-  includeInRunDropdown: boolean;
-  runMode: RunMode;
-  action: CustomRunAction;
-};
 
 function isPersistedRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -442,52 +422,6 @@ function normalizePersistedProjectChatDraftMessageByProjectConfigId(
   }
   return normalized;
 }
-
-type ZustandRunControl = {
-  runMode: RunMode;
-  continuousRunStarted: boolean;
-  continuousRunCustomRunId: string | null;
-};
-
-export const useRunControl = withProjectState(
-  createWithEqualityFn(
-    withResetFn<ZustandRunControl>(() => ({
-      runMode: "once",
-      continuousRunStarted: false,
-      continuousRunCustomRunId: null,
-    })),
-  ),
-);
-
-type BackendLogSeverity = SettaBackendLogEvent["severity"];
-
-export type BackendLogEventsFilter = {
-  projectConfigId: string | null;
-  minSeverity: BackendLogSeverity;
-  query: string;
-};
-
-export const DEFAULT_BACKEND_LOG_EVENTS_FILTER: BackendLogEventsFilter = {
-  projectConfigId: null,
-  minSeverity: "info",
-  query: "",
-};
-
-type BackendLogEventsState = {
-  events: Array<SettaBackendLogEvent>;
-  filter: BackendLogEventsFilter;
-  unreadHighSeverityCount: number;
-};
-
-export const useBackendLogEvents = withProjectState(
-  createWithEqualityFn(
-    withResetFn<BackendLogEventsState>(() => ({
-      events: [],
-      filter: { ...DEFAULT_BACKEND_LOG_EVENTS_FILTER },
-      unreadHighSeverityCount: 0,
-    })),
-  ),
-);
 
 const useArtifacts = withProjectState(
   createWithEqualityFn(
@@ -613,10 +547,6 @@ export const useWebsocketConnectionList = createWithEqualityFn(
 
 export const useTemporaryMiscState = withProjectState(
   createWithEqualityFn(subscribeWithSelector(withResetFn(() => ({})))),
-);
-
-export const useProjectLoading = createWithEqualityFn(
-  withResetFn(() => ({ projectIsLoading: false, projectIs404: false })),
 );
 
 export const useMisc = withProjectState(

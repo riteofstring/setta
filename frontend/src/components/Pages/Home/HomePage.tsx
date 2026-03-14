@@ -34,9 +34,9 @@ import {
 } from "state/actions/project/loadProject";
 import {
   useLocalStorage,
-  useProjectLoading,
 } from "state/definitions";
 import { useHomeFileBrowserState } from "state/stores/fileBrowserStores";
+import { useProjectLoading } from "state/stores/projectStatusStores";
 import { useHomePageSearch } from "state/stores/searchStores";
 import {
   useAllProjectMetadata,

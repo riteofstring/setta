@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { useLocalStorage, useNotifications } from "state/definitions";
+import { useLocalStorage } from "state/definitions";
+import { useNotifications } from "state/stores/feedbackStores";
 import { resetProjectStores } from "state/utils";
 import { OverviewNotificationsPaneTabEnum } from "utils/constants";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";

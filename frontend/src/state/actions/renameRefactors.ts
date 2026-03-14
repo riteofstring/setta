@@ -2,11 +2,11 @@ import { ModalTypeEnum } from "components/Modals/types";
 import { openRenameReferencesModal } from "state/actions/modal";
 import {
   NULL_PROJECT_CONFIG_ID,
-  useModal,
   usePendingOperations,
   useProjectState,
   useRenameRefactors,
 } from "state/definitions";
+import { useModal } from "state/stores/feedbackStores";
 import { post } from "utils/endpointUtils";
 import {
   RenameRefactorBroadcastContent,

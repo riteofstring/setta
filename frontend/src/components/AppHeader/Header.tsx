@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { useProjectLoading } from "state/definitions";
+import { useProjectLoading } from "state/stores/projectStatusStores";
 import { useShareSession } from "state/stores/sessionStores";
 import {
   APP_CHROME_Z_INDEX_CLASS_NAME,
