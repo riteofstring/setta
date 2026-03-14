@@ -8,19 +8,18 @@ import {
   sanitizeProjectStateActiveIds,
   useActiveSectionUI,
 } from "state/activeSectionUI";
+import { useLocalStorage } from "state/definitions";
 import {
   runWithAtomicallyPublishedProjectStores,
-  useAllProjectMetadata,
-  useLocalStorage,
   useNodeInternals,
-  useProjectState,
-} from "state/definitions";
+} from "state/stores/activeSectionStores";
 import {
-  OverviewTabNameEnum,
-  PAGE_LOAD_TYPES,
-  pathRelativeToProject,
-  PROJECT_CONFIG_PREVIEW_IMG_COLORS,
-} from "utils/constants";
+  useAllProjectMetadata,
+  useProjectState,
+} from "state/stores/projectStores";
+import { OverviewTabNameEnum } from "utils/constants/panes";
+import { PROJECT_CONFIG_PREVIEW_IMG_COLORS } from "utils/constants/projectConfigPreview";
+import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants/routes";
 import { res200 } from "utils/endpointUtils";
 import {
   route_create_project_config,

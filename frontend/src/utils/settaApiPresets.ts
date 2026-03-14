@@ -3,7 +3,8 @@ import {
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import { getEmptySpacePosition } from "state/actions/sections/createSections";
-import { useNodeInternals, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
+import { useNodeInternals } from "state/stores/activeSectionStores";
 import { RouteEnum, SectionTypeEnum } from "utils/generatedTypes";
 
 type SettaApiPreset = {
