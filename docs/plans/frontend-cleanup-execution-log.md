@@ -559,3 +559,37 @@ module map and placement guide while this cleanup progresses.
     into clearer read/effective-impl helpers and optimistic mutation commands,
     now that backend snapshot reconciliation lives in
     `frontend/src/state/actions/sectionProjectStateSync.ts`.
+
+## 2026-03-14 17:03:37 PDT
+
+- Slice completed: extracted shared project-state command entrypoints out of
+  `frontend/src/state/actions/sectionInfos.ts` into
+  `frontend/src/state/actions/projectStateCommands.ts`
+- Key files touched:
+  - `frontend/src/state/actions/projectStateCommands.ts`
+  - `frontend/src/state/actions/projectStateCommands.test.ts`
+  - `frontend/src/state/actions/sectionInfos.ts`
+  - `frontend/src/state/actions/websocketReceive.ts`
+  - `frontend/src/state/actions/keyActivations.ts`
+  - `frontend/src/state/actions/params/moveParams.ts`
+  - `frontend/src/state/subscriptions.ts`
+  - `frontend/src/components/Params/GroupContainer.tsx`
+  - `frontend/src/components/Params/ParamSwitch.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/projectStateCommands.test.ts src/components/Params/GroupContainer.test.tsx src/state/actions/sectionInfos.test.ts src/state/actions/websocketReceive.test.ts src/state/actions/sections/topLevelLayoutPersistence.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/projectStateCommands.ts src/state/actions/projectStateCommands.test.ts src/state/actions/sectionInfos.ts src/state/actions/websocketReceive.ts src/state/actions/keyActivations.ts src/state/actions/params/moveParams.ts src/state/subscriptions.ts src/components/Params/GroupContainer.tsx src/components/Params/ParamSwitch.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `pnpm -C frontend exec tsc --noEmit`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split and
+    did not change frontend rendering behavior.
+- Commit hash:
+  - `8bb0c0032`
+- Next highest-value unblocked slice:
+  - Extract the remaining optimistic update scaffolding in
+    `frontend/src/state/actions/sectionInfos.ts`, especially
+    `dispatchOptimisticProjectStateUpdate` and the pending-op plumbing, into a
+    dedicated project-state mutation infrastructure module.
