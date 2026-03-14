@@ -1,19 +1,17 @@
 package managedllm
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
-	"net/url"
 	"strings"
 
+	openai "github.com/openai/openai-go/v3"
+	"github.com/openai/openai-go/v3/option"
 	"setta/internal/agentruns"
 	"setta/internal/managedchat"
 	"setta/internal/mcpx"
@@ -21,10 +19,9 @@ import (
 )
 
 const (
-	openAIProvider        = "openai"
-	defaultOpenAIBaseURL  = "https://api.openai.com/v1"
-	managedChatRunType    = "llm_chat"
-	maxProviderErrorBytes = 4096
+	openAIProvider       = "openai"
+	defaultOpenAIBaseURL = "https://api.openai.com/v1"
+	managedChatRunType   = "llm_chat"
 )
 
 var (
@@ -52,42 +49,20 @@ type Executor struct {
 }
 
 type preparedExecution struct {
-	endpoint             string
-	apiKey               string
+	client               openai.Client
 	projectConfigID      *string
 	sectionID            *string
 	chatID               string
 	runID                string
 	emitStream           bool
-	requestOptions       map[string]any
+	requestOverrides     []option.RequestOption
+	model                string
 	transcript           []map[string]any
 	providerMessages     []map[string]any
 	toolDefinitions      []map[string]any
 	availableTools       map[string]mcpx.ToolDescriptor
 	toolAllowlist        *toolAllowlist
 	temporaryToCanonical map[string]string
-}
-
-type openAIStreamChunk struct {
-	Choices []struct {
-		Index int `json:"index"`
-		Delta struct {
-			Content   any                   `json:"content"`
-			ToolCalls []openAIToolCallDelta `json:"tool_calls"`
-		} `json:"delta"`
-		FinishReason *string `json:"finish_reason"`
-	} `json:"choices"`
-	Usage map[string]any `json:"usage"`
-}
-
-type openAIToolCallDelta struct {
-	Index    int    `json:"index"`
-	ID       string `json:"id"`
-	Type     string `json:"type"`
-	Function struct {
-		Name      string `json:"name"`
-		Arguments any    `json:"arguments"`
-	} `json:"function"`
 }
 
 func NewExecutor(options ExecutorOptions) *Executor {
@@ -127,11 +102,7 @@ func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (prepare
 		return preparedExecution{}, err
 	}
 
-	endpoint, err := resolveChatCompletionsEndpoint(request)
-	if err != nil {
-		return preparedExecution{}, err
-	}
-	apiKey, err := resolveAPIKey(request)
+	client, err := buildOpenAIClient(request, e.httpClient)
 	if err != nil {
 		return preparedExecution{}, err
 	}
@@ -149,31 +120,20 @@ func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (prepare
 		return preparedExecution{}, err
 	}
 
-	requestOptions := map[string]any{
-		"model":  request.LLMConfig.Model,
-		"stream": true,
-		"stream_options": map[string]any{
-			"include_usage": true,
-		},
-	}
-	for key, value := range request.RequestParams {
-		switch strings.TrimSpace(key) {
-		case "", "model", "messages", "stream", "stream_options", "api_key", "custom_llm_provider", "api_base", "tools", "tool_choice", "functions", "function_call":
-			continue
-		default:
-			requestOptions[key] = cloneJSONValue(value)
-		}
+	requestOverrides, err := buildOpenAIRequestOverrides(request)
+	if err != nil {
+		return preparedExecution{}, err
 	}
 
 	return preparedExecution{
-		endpoint:             endpoint,
-		apiKey:               apiKey,
+		client:               client,
 		projectConfigID:      optionalStringPointer(request.ProjectConfigID),
 		sectionID:            cloneStringPointer(request.SectionID),
 		chatID:               strings.TrimSpace(request.ChatID),
 		runID:                strings.TrimSpace(request.Run.ID),
 		emitStream:           shouldEmitManagedChatStream(request),
-		requestOptions:       requestOptions,
+		requestOverrides:     requestOverrides,
+		model:                request.LLMConfig.Model,
 		transcript:           transcript,
 		providerMessages:     providerMessages,
 		toolDefinitions:      toolDefinitions,
@@ -184,10 +144,8 @@ func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (prepare
 }
 
 func validateReasoningRequest(request agentruns.ExecutionRequest) error {
-	if request.Thinking && !hasExplicitReasoningConfig(request.RequestParams) {
-		return ErrReasoningUnsupported
-	}
-	return nil
+	_, _, err := resolveThinkingReasoningEffort(request)
+	return err
 }
 
 func (e *Executor) executeConversation(ctx context.Context, prepared preparedExecution, request agentruns.ExecutionRequest) (agentruns.ExecutionResult, error) {
@@ -244,10 +202,9 @@ func (e *Executor) executeConversation(ctx context.Context, prepared preparedExe
 }
 
 func (e *Executor) executeTurn(ctx context.Context, prepared preparedExecution, assistantMessage map[string]any, providerMessages []map[string]any) (map[string]any, error) {
-	requestBody := cloneAnyMap(prepared.requestOptions)
-	requestBody["messages"] = messagesToAnyList(providerMessages)
-	if len(prepared.toolDefinitions) > 0 {
-		requestBody["tools"] = messagesToAnyList(prepared.toolDefinitions)
+	requestBody, err := buildOpenAIChatCompletionParams(prepared.model, providerMessages, prepared.toolDefinitions)
+	if err != nil {
+		return nil, err
 	}
 
 	if prepared.emitStream {
@@ -259,39 +216,7 @@ func (e *Executor) executeTurn(ctx context.Context, prepared preparedExecution, 
 		}
 	}
 
-	body, err := json.Marshal(requestBody)
-	if err != nil {
-		return nil, fmt.Errorf("encode managed llm request: %w", err)
-	}
-	httpRequest, err := http.NewRequestWithContext(ctx, http.MethodPost, prepared.endpoint, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("create managed llm request: %w", err)
-	}
-	httpRequest.Header.Set("Authorization", "Bearer "+prepared.apiKey)
-	httpRequest.Header.Set("Content-Type", "application/json")
-
-	response, err := e.httpClient.Do(httpRequest)
-	if err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
-			if err := e.finishStream(ctx, prepared, assistantMessage, true); err != nil {
-				return nil, err
-			}
-			return nil, context.Canceled
-		}
-		return nil, fmt.Errorf("send managed llm request: %w", err)
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		bodyBytes, _ := io.ReadAll(io.LimitReader(response.Body, maxProviderErrorBytes))
-		detail := strings.TrimSpace(string(bodyBytes))
-		if detail == "" {
-			detail = response.Status
-		}
-		return nil, fmt.Errorf("managed llm provider request failed: %s", detail)
-	}
-
-	usage, err := e.consumeSSE(ctx, response.Body, prepared, assistantMessage)
+	usage, err := e.consumeOpenAIStream(ctx, prepared, assistantMessage, requestBody)
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
 			if finishErr := e.finishStream(ctx, prepared, assistantMessage, true); finishErr != nil {
@@ -313,97 +238,59 @@ func (e *Executor) executeTurn(ctx context.Context, prepared preparedExecution, 
 	return usage, nil
 }
 
-func (e *Executor) consumeSSE(ctx context.Context, reader io.Reader, prepared preparedExecution, assistantMessage map[string]any) (map[string]any, error) {
-	buffered := bufio.NewReader(reader)
-	lines := []string{}
+func (e *Executor) consumeOpenAIStream(
+	ctx context.Context,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	requestBody openai.ChatCompletionNewParams,
+) (map[string]any, error) {
 	var usage map[string]any
 	accumulator := newToolCallAccumulator()
 	previewAccumulator := newToolPreviewAccumulator()
 
-	for {
-		select {
-		case <-ctx.Done():
+	stream := prepared.client.Chat.Completions.NewStreaming(ctx, requestBody, prepared.requestOverrides...)
+	for stream.Next() {
+		if ctx.Err() != nil {
 			return usage, context.Canceled
-		default:
 		}
-
-		line, err := buffered.ReadString('\n')
-		if len(line) > 0 {
-			trimmedLine := strings.TrimRight(line, "\r\n")
-			if trimmedLine == "" {
-				done, nextUsage, processErr := e.processSSEEvent(ctx, lines, prepared, assistantMessage, accumulator, previewAccumulator)
-				if nextUsage != nil {
-					usage = nextUsage
-				}
-				if processErr != nil {
-					return usage, processErr
-				}
-				lines = lines[:0]
-				if done {
-					if finalizeErr := finalizeAssistantToolCalls(assistantMessage, accumulator); finalizeErr != nil {
-						return usage, finalizeErr
-					}
-					return usage, nil
-				}
-			} else {
-				lines = append(lines, trimmedLine)
-			}
+		nextUsage, err := e.processOpenAIChunk(
+			ctx,
+			stream.Current(),
+			prepared,
+			assistantMessage,
+			accumulator,
+			previewAccumulator,
+		)
+		if err != nil {
+			return usage, err
 		}
-
-		if err == nil {
-			continue
+		if nextUsage != nil {
+			usage = nextUsage
 		}
-		if errors.Is(err, io.EOF) {
-			if len(lines) == 0 {
-				if finalizeErr := finalizeAssistantToolCalls(assistantMessage, accumulator); finalizeErr != nil {
-					return usage, finalizeErr
-				}
-				return usage, nil
-			}
-			done, nextUsage, processErr := e.processSSEEvent(ctx, lines, prepared, assistantMessage, accumulator, previewAccumulator)
-			if nextUsage != nil {
-				usage = nextUsage
-			}
-			if processErr != nil {
-				return usage, processErr
-			}
-			if done {
-				if finalizeErr := finalizeAssistantToolCalls(assistantMessage, accumulator); finalizeErr != nil {
-					return usage, finalizeErr
-				}
-				return usage, nil
-			}
-			if finalizeErr := finalizeAssistantToolCalls(assistantMessage, accumulator); finalizeErr != nil {
-				return usage, finalizeErr
-			}
-			return usage, nil
-		}
-		return usage, fmt.Errorf("read managed llm stream: %w", err)
 	}
+	if err := stream.Err(); err != nil {
+		return usage, wrapOpenAIProviderError(err)
+	}
+	if finalizeErr := finalizeAssistantToolCalls(assistantMessage, accumulator); finalizeErr != nil {
+		return usage, finalizeErr
+	}
+	return usage, nil
 }
 
-func (e *Executor) processSSEEvent(ctx context.Context, lines []string, prepared preparedExecution, assistantMessage map[string]any, accumulator *toolCallAccumulator, previewAccumulator *toolPreviewAccumulator) (bool, map[string]any, error) {
-	if len(lines) == 0 {
-		return false, nil, nil
-	}
-	data := collectSSEData(lines)
-	if data == "" {
-		return false, nil, nil
-	}
-	if data == "[DONE]" {
-		return true, nil, nil
-	}
-
-	var chunk openAIStreamChunk
-	if err := json.Unmarshal([]byte(data), &chunk); err != nil {
-		return false, nil, fmt.Errorf("decode managed llm stream chunk: %w", err)
-	}
-	if chunk.Usage != nil {
-		usage := cloneAnyMap(chunk.Usage)
-		return false, usage, nil
+func (e *Executor) processOpenAIChunk(
+	ctx context.Context,
+	chunk openai.ChatCompletionChunk,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	accumulator *toolCallAccumulator,
+	previewAccumulator *toolPreviewAccumulator,
+) (map[string]any, error) {
+	var usage map[string]any
+	if chunk.JSON.Usage.Valid() {
+		usage = buildCompletionUsagePayload(chunk.Usage)
 	}
 	for _, choice := range chunk.Choices {
-		text := normalizeChunkText(choice.Delta.Content)
+		text := choice.Delta.Content
 		if text != "" {
 			appendAssistantText(assistantMessage, text)
 		}
@@ -419,12 +306,12 @@ func (e *Executor) processSSEEvent(ctx context.Context, lines []string, prepared
 					},
 				},
 			}); err != nil {
-				return false, nil, err
+				return usage, err
 			}
 		}
 		for _, toolCall := range choice.Delta.ToolCalls {
-			argumentsDelta := stringValue(toolCall.Function.Arguments)
-			state := accumulator.apply(toolCall.Index, toolCall.ID, toolCall.Function.Name, argumentsDelta)
+			argumentsDelta := toolCall.Function.Arguments
+			state := accumulator.apply(int(toolCall.Index), toolCall.ID, toolCall.Function.Name, argumentsDelta)
 			if !prepared.emitStream || state == nil {
 				continue
 			}
@@ -439,7 +326,7 @@ func (e *Executor) processSSEEvent(ctx context.Context, lines []string, prepared
 				ArgumentsDelta: argumentsDelta,
 				ToolName:       toolName,
 			}); err != nil {
-				return false, nil, err
+				return usage, err
 			}
 			descriptor, ok := prepared.availableTools[mcpx.NormalizeToolName(state.name)]
 			if !ok || descriptor.Metadata == nil || descriptor.Metadata.ToolArgumentPreview == nil {
@@ -453,17 +340,17 @@ func (e *Executor) processSSEEvent(ctx context.Context, lines []string, prepared
 				prepared.temporaryToCanonical,
 			)
 			if err != nil {
-				return false, nil, err
+				return usage, err
 			}
 			if previewEvent == nil {
 				continue
 			}
 			if err := e.applyChunk(ctx, prepared, *previewEvent); err != nil {
-				return false, nil, err
+				return usage, err
 			}
 		}
 	}
-	return false, nil, nil
+	return usage, nil
 }
 
 func (e *Executor) applyChunk(ctx context.Context, prepared preparedExecution, chunk any) error {
@@ -861,23 +748,6 @@ func providerContentValue(content string) any {
 	return content
 }
 
-func resolveChatCompletionsEndpoint(request agentruns.ExecutionRequest) (string, error) {
-	baseURL := strings.TrimSpace(request.LLMConfig.BaseURL)
-	if rawBaseURL, ok := request.RequestParams["api_base"]; ok {
-		if explicit := strings.TrimSpace(stringValue(rawBaseURL)); explicit != "" {
-			baseURL = explicit
-		}
-	}
-	if baseURL == "" {
-		baseURL = defaultOpenAIBaseURL
-	}
-	joined, err := url.JoinPath(baseURL, "chat/completions")
-	if err != nil {
-		return "", fmt.Errorf("resolve managed llm endpoint: %w", err)
-	}
-	return joined, nil
-}
-
 func resolveAPIKey(request agentruns.ExecutionRequest) (string, error) {
 	keyName := strings.TrimSpace(request.LLMConfig.APIKeyEnv)
 	if keyName == "" {
@@ -891,16 +761,8 @@ func resolveAPIKey(request agentruns.ExecutionRequest) (string, error) {
 }
 
 func hasExplicitReasoningConfig(params map[string]any) bool {
-	if params == nil {
-		return false
-	}
-	if _, ok := params["reasoning_effort"]; ok {
-		return true
-	}
-	if _, ok := params["reasoning"]; ok {
-		return true
-	}
-	return false
+	_, ok, err := extractExplicitReasoningEffort(params)
+	return err == nil && ok
 }
 
 func shouldEmitManagedChatStream(request agentruns.ExecutionRequest) bool {
@@ -931,44 +793,6 @@ func resolveTemporaryToCanonical(request agentruns.ExecutionRequest) (map[string
 		temporaryToCanonical[trimmedTemporaryID] = trimmedCanonicalID
 	}
 	return temporaryToCanonical, nil
-}
-
-func collectSSEData(lines []string) string {
-	values := make([]string, 0, len(lines))
-	for _, line := range lines {
-		switch {
-		case strings.HasPrefix(line, "data:"):
-			values = append(values, strings.TrimSpace(strings.TrimPrefix(line, "data:")))
-		case strings.HasPrefix(line, ":"):
-			continue
-		}
-	}
-	return strings.Join(values, "\n")
-}
-
-func normalizeChunkText(raw any) string {
-	switch value := raw.(type) {
-	case string:
-		return value
-	case []any:
-		parts := make([]string, 0, len(value))
-		for _, entry := range value {
-			block, ok := entry.(map[string]any)
-			if !ok {
-				continue
-			}
-			if strings.TrimSpace(stringValue(block["type"])) != "text" {
-				continue
-			}
-			text := stringValue(block["text"])
-			if text != "" {
-				parts = append(parts, text)
-			}
-		}
-		return strings.Join(parts, "")
-	default:
-		return ""
-	}
 }
 
 func newAssistantMessage() map[string]any {

@@ -529,6 +529,101 @@ func TestExecutorValidateAllowsThinkingWithExplicitReasoningConfig(t *testing.T)
 	}
 }
 
+func TestExecutorValidateAllowsThinkingForOpenAIReasoningModel(t *testing.T) {
+	t.Parallel()
+
+	executor := NewExecutor(ExecutorOptions{})
+	err := executor.Validate(agentruns.ExecutionRequest{
+		Run: agentruns.Run{ID: "run-alpha"},
+		LLMConfig: llmconfig.Config{
+			Model:     "gpt-5-codex",
+			Provider:  "openai",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+		APIKeys: map[string]string{
+			"OPENAI_API_KEY": "secret",
+		},
+		SystemPrompt: "System prompt",
+		ChatID:       "chat-alpha",
+		Thinking:     true,
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected supported OpenAI reasoning model to validate, got %v", err)
+	}
+}
+
+func TestExecutorExecuteAddsDefaultReasoningEffortForSupportedThinkingModel(t *testing.T) {
+	t.Parallel()
+
+	var seenRequest map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&seenRequest); err != nil {
+			t.Fatalf("decode provider request: %v", err)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected flusher")
+		}
+		fmt.Fprint(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Reasoned reply\"},\"finish_reason\":\"stop\"}]}\n\n")
+		flusher.Flush()
+		fmt.Fprint(w, "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":8,\"completion_tokens\":3,\"total_tokens\":11,\"completion_tokens_details\":{\"reasoning_tokens\":2}}}\n\n")
+		flusher.Flush()
+		fmt.Fprint(w, "data: [DONE]\n\n")
+	}))
+	defer server.Close()
+
+	executor := NewExecutor(ExecutorOptions{
+		HTTPClient: server.Client(),
+	})
+	result, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
+		Run: agentruns.Run{ID: "run-alpha"},
+		LLMConfig: llmconfig.Config{
+			Model:     "gpt-5-codex",
+			Provider:  "openai",
+			BaseURL:   server.URL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+		APIKeys: map[string]string{
+			"OPENAI_API_KEY": "secret",
+		},
+		SystemPrompt:    "System prompt",
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+		Thinking:        true,
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+			"messages": []any{
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Think this through"},
+					},
+					"attachments": []any{},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("execute managed llm reasoning request: %v", err)
+	}
+
+	if seenRequest["reasoning_effort"] != "high" {
+		t.Fatalf("expected reasoning_effort=high, got %#v", seenRequest["reasoning_effort"])
+	}
+	usage, ok := result.Outputs["usage"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected usage payload, got %#v", result.Outputs["usage"])
+	}
+	if int(usage["reasoning_output_tokens"].(float64)) != 2 {
+		t.Fatalf("expected reasoning output tokens in usage, got %#v", usage)
+	}
+}
+
 func TestExecutorExecuteRunsToolCallsThroughMCPAndContinuesProviderTurns(t *testing.T) {
 	t.Parallel()
 
