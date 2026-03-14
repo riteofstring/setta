@@ -2114,7 +2114,7 @@ func TestFrontendPluginTransportImportsStayWithinExplicitBoundaries(t *testing.T
 	}
 }
 
-func TestFrontendBoundaryModulesUseNamedImportsOnly(t *testing.T) {
+func TestFrontendBoundaryModulesUseNamedImportExportFormsOnly(t *testing.T) {
 	t.Helper()
 
 	repoRoot := testRepoRoot(t)
@@ -2136,6 +2136,8 @@ func TestFrontendBoundaryModulesUseNamedImportsOnly(t *testing.T) {
 		"utils/plugins/transport":       {},
 	}
 	importPattern := regexp.MustCompile(`(?m)^\s*import\s+([^;\n]+?)\s+from\s+["']([^"']+)["']`)
+	namespaceReexportPattern := regexp.MustCompile(`(?m)^\s*export\s+\*\s+as\s+([A-Za-z_$][A-Za-z0-9_$]*)\s+from\s+["']([^"']+)["']`)
+	exportAllPattern := regexp.MustCompile(`(?m)^\s*export\s+\*\s+from\s+["']([^"']+)["']`)
 
 	err := filepath.WalkDir(frontendSrcRoot, func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -2200,10 +2202,35 @@ func TestFrontendBoundaryModulesUseNamedImportsOnly(t *testing.T) {
 				defaultAlias,
 			)
 		}
+
+		for _, match := range namespaceReexportPattern.FindAllStringSubmatch(source, -1) {
+			modulePath := match[2]
+			if _, tracked := boundaryModules[modulePath]; !tracked {
+				continue
+			}
+			return fmt.Errorf(
+				"%s re-exports boundary module %q via namespace export %q; use named exports so caller-specific boundary checks remain authoritative",
+				relativePath,
+				modulePath,
+				match[1],
+			)
+		}
+
+		for _, match := range exportAllPattern.FindAllStringSubmatch(source, -1) {
+			modulePath := match[1]
+			if _, tracked := boundaryModules[modulePath]; !tracked {
+				continue
+			}
+			return fmt.Errorf(
+				"%s re-exports boundary module %q via export-all; use named exports so caller-specific boundary checks remain authoritative",
+				relativePath,
+				modulePath,
+			)
+		}
 		return nil
 	})
 	if err != nil {
-		t.Fatalf("scan frontend boundary-module import styles: %v", err)
+		t.Fatalf("scan frontend boundary-module import/export styles: %v", err)
 	}
 }
 
