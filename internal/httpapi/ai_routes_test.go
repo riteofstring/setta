@@ -1377,6 +1377,296 @@ func TestRegisterAIRoutesReturnsTypedRealtimeProviderFailureFromAppend(t *testin
 	}
 }
 
+func TestRegisterAIRoutesReturnsTypedRealtimeProviderFailureFromStop(t *testing.T) {
+	t.Parallel()
+
+	emitStopFailure := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close(websocket.StatusNormalClosure, "")
+
+		if _, err := readAIRouteRealtimeProviderMessage(context.Background(), conn); err != nil {
+			return
+		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"session.updated","event_id":"evt-ready"}`)); err != nil {
+			return
+		}
+		if _, err := readAIRouteRealtimeProviderMessage(context.Background(), conn); err != nil {
+			return
+		}
+		if _, err := readAIRouteRealtimeProviderMessage(context.Background(), conn); err != nil {
+			return
+		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.completed","event_id":"evt-1","item_id":"item-1","transcript":"hello"}`)); err != nil {
+			return
+		}
+		<-emitStopFailure
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.failed","event_id":"evt-failed","error":{"message":"Realtime transcription finalization failed."}}`)); err != nil {
+			return
+		}
+		_ = conn.Close(websocket.StatusNormalClosure, "")
+	}))
+	defer server.Close()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	if err := fixture.llm.UpdateConfig(llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"openai-realtime": {
+				ID:        "openai-realtime",
+				Model:     "gpt-4o-mini-transcribe",
+				Provider:  "openai",
+				BaseURL:   server.URL + "/v1",
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	}); err != nil {
+		t.Fatalf("update llm config: %v", err)
+	}
+	fixture.llm.UpdateAPIKeys(map[string]string{
+		"OPENAI_API_KEY": "route-secret",
+	})
+	if err := fixture.transcriptionStore.Write([]transcriptionprofiles.Profile{
+		{
+			ID:                            "profile-realtime",
+			Name:                          "Realtime",
+			TranscriptionLLMConfigID:      "openai-realtime",
+			TransportMode:                 transcriptionprofiles.TransportModeRealtime,
+			ChunkMs:                       1200,
+			SupportsRealtimeTranscription: true,
+		},
+	}); err != nil {
+		t.Fatalf("write transcription profile: %v", err)
+	}
+
+	handler := newAIRouteTestHandlerWithTranscription(
+		t,
+		config.ModeIDE,
+		fixture.managed,
+		fixture.send,
+		fixture.service,
+		fixture.runtime,
+		fixture.transcriptionProfiles,
+		fixture.transcriptionSessions,
+		fixture.sessions,
+		fixture.follow,
+	)
+
+	startRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteStartTranscriptionSession,
+		strings.NewReader(`{"transcriptionProfileId":"profile-realtime"}`),
+	)
+	startRequest.Header.Set("Content-Type", "application/json")
+	startResponse := httptest.NewRecorder()
+
+	handler.ServeHTTP(startResponse, startRequest)
+
+	if startResponse.Code != http.StatusOK {
+		t.Fatalf("expected start 200, got %d with body %q", startResponse.Code, startResponse.Body.String())
+	}
+	var started StartTranscriptionSessionResponse
+	if err := json.Unmarshal(startResponse.Body.Bytes(), &started); err != nil {
+		t.Fatalf("decode start response: %v", err)
+	}
+
+	appendRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteAppendTranscriptionAudio,
+		strings.NewReader(`{"sessionId":"`+started.SessionID+`","audioPcm16Base64":"`+base64.StdEncoding.EncodeToString([]byte{0x00, 0x00, 0x01, 0x00})+`","sampleRateHz":24000,"channels":1}`),
+	)
+	appendRequest.Header.Set("Content-Type", "application/json")
+	appendResponse := httptest.NewRecorder()
+
+	handler.ServeHTTP(appendResponse, appendRequest)
+
+	if appendResponse.Code != http.StatusOK {
+		t.Fatalf("expected append 200, got %d with body %q", appendResponse.Code, appendResponse.Body.String())
+	}
+
+	close(emitStopFailure)
+	stopRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteStopTranscriptionSession,
+		strings.NewReader(`{"sessionId":"`+started.SessionID+`"}`),
+	)
+	stopRequest.Header.Set("Content-Type", "application/json")
+	stopResponse := httptest.NewRecorder()
+
+	handler.ServeHTTP(stopResponse, stopRequest)
+
+	if stopResponse.Code != http.StatusBadGateway {
+		t.Fatalf("expected stop 502, got %d with body %q", stopResponse.Code, stopResponse.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(stopResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode stop error response: %v", err)
+	}
+	if payload.Error.Code != "provider_failure" {
+		t.Fatalf("expected provider_failure, got %#v", payload)
+	}
+	if payload.Error.Message != "Realtime transcription finalization failed." {
+		t.Fatalf("unexpected provider failure payload %#v", payload)
+	}
+}
+
+func TestRegisterAIRoutesCancelsRealtimeTranscriptionSession(t *testing.T) {
+	t.Parallel()
+
+	closed := make(chan error, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close(websocket.StatusNormalClosure, "")
+
+		if _, err := readAIRouteRealtimeProviderMessage(context.Background(), conn); err != nil {
+			return
+		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"session.updated","event_id":"evt-ready"}`)); err != nil {
+			return
+		}
+		_, _, err = conn.Read(context.Background())
+		closed <- err
+	}))
+	defer server.Close()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	if err := fixture.llm.UpdateConfig(llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"openai-realtime": {
+				ID:        "openai-realtime",
+				Model:     "gpt-4o-mini-transcribe",
+				Provider:  "openai",
+				BaseURL:   server.URL + "/v1",
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	}); err != nil {
+		t.Fatalf("update llm config: %v", err)
+	}
+	fixture.llm.UpdateAPIKeys(map[string]string{
+		"OPENAI_API_KEY": "route-secret",
+	})
+	if err := fixture.transcriptionStore.Write([]transcriptionprofiles.Profile{
+		{
+			ID:                            "profile-realtime",
+			Name:                          "Realtime",
+			TranscriptionLLMConfigID:      "openai-realtime",
+			TransportMode:                 transcriptionprofiles.TransportModeRealtime,
+			ChunkMs:                       1200,
+			SupportsRealtimeTranscription: true,
+		},
+	}); err != nil {
+		t.Fatalf("write transcription profile: %v", err)
+	}
+
+	handler := newAIRouteTestHandlerWithTranscription(
+		t,
+		config.ModeIDE,
+		fixture.managed,
+		fixture.send,
+		fixture.service,
+		fixture.runtime,
+		fixture.transcriptionProfiles,
+		fixture.transcriptionSessions,
+		fixture.sessions,
+		fixture.follow,
+	)
+
+	startRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteStartTranscriptionSession,
+		strings.NewReader(`{"transcriptionProfileId":"profile-realtime"}`),
+	)
+	startRequest.Header.Set("Content-Type", "application/json")
+	startResponse := httptest.NewRecorder()
+
+	handler.ServeHTTP(startResponse, startRequest)
+
+	if startResponse.Code != http.StatusOK {
+		t.Fatalf("expected start 200, got %d with body %q", startResponse.Code, startResponse.Body.String())
+	}
+	var started StartTranscriptionSessionResponse
+	if err := json.Unmarshal(startResponse.Body.Bytes(), &started); err != nil {
+		t.Fatalf("decode start response: %v", err)
+	}
+
+	cancelRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteCancelTranscriptionSession,
+		strings.NewReader(`{"sessionId":"`+started.SessionID+`"}`),
+	)
+	cancelRequest.Header.Set("Content-Type", "application/json")
+	cancelResponse := httptest.NewRecorder()
+
+	handler.ServeHTTP(cancelResponse, cancelRequest)
+
+	if cancelResponse.Code != http.StatusOK {
+		t.Fatalf("expected cancel 200, got %d with body %q", cancelResponse.Code, cancelResponse.Body.String())
+	}
+	var payload CancelTranscriptionSessionResponse
+	if err := json.Unmarshal(cancelResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode cancel response: %v", err)
+	}
+	if !payload.OK {
+		t.Fatalf("expected ok cancel response, got %#v", payload)
+	}
+
+	select {
+	case err := <-closed:
+		if websocket.CloseStatus(err) != websocket.StatusNormalClosure {
+			t.Fatalf("expected normal websocket close, got %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for realtime cancel close")
+	}
+}
+
+func TestRegisterAIRoutesCancelTranscriptionSessionReturnsOKWhenSessionMissing(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	handler := newAIRouteTestHandlerWithTranscription(
+		t,
+		config.ModeIDE,
+		fixture.managed,
+		fixture.send,
+		fixture.service,
+		fixture.runtime,
+		fixture.transcriptionProfiles,
+		fixture.transcriptionSessions,
+		fixture.sessions,
+		fixture.follow,
+	)
+
+	cancelRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteCancelTranscriptionSession,
+		strings.NewReader(`{"sessionId":"missing-session"}`),
+	)
+	cancelRequest.Header.Set("Content-Type", "application/json")
+	cancelResponse := httptest.NewRecorder()
+
+	handler.ServeHTTP(cancelResponse, cancelRequest)
+
+	if cancelResponse.Code != http.StatusOK {
+		t.Fatalf("expected cancel 200, got %d with body %q", cancelResponse.Code, cancelResponse.Body.String())
+	}
+	var payload CancelTranscriptionSessionResponse
+	if err := json.Unmarshal(cancelResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode cancel response: %v", err)
+	}
+	if !payload.OK {
+		t.Fatalf("expected ok cancel response, got %#v", payload)
+	}
+}
+
 func TestRegisterAIRoutesReturnsTypedUnsupportedRealtimeTranscriptionModel(t *testing.T) {
 	t.Parallel()
 
