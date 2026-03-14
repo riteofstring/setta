@@ -433,3 +433,12 @@ Append-only log for autonomous frontend cleanup slices.
 - Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
 - Commit hash: `3ad0a416f`
 - Next highest-value unblocked slice: extract the remaining standalone window-space viewport sizing and hydration/controller effects from `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx` into a feature-local hook so the surface becomes a thin page-level controller
+
+## 2026-03-12 16:27 PDT
+
+- What changed: Extracted standalone window-space viewport sizing, hydration effects, blocked-window lifecycle, visible-window derivation, and local mutation callback wiring from `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx` into `frontend/src/components/Pages/Project/useStandaloneWindowSpaceController.ts`. The page surface now delegates state/effect orchestration to the hook and renders only the section shell plus `StandaloneWindowSpaceCanvas`. Refreshed the frontend module map and reduced `StandaloneWindowSpaceSurface.tsx` to 58 lines.
+- Key files touched: `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx`, `frontend/src/components/Pages/Project/useStandaloneWindowSpaceController.ts`, `docs/reference/frontend-module-map.md`
+- Tests/verification run: `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneWindowSpaceWindowSurface.test.tsx src/components/Pages/Project/standaloneWindowSpaceState.test.ts src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx`; `pnpm -C frontend exec prettier --check src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx src/components/Pages/Project/StandaloneWindowSpaceCanvas.tsx src/components/Pages/Project/StandaloneWindowSpaceWindowSurface.tsx src/components/Pages/Project/StandaloneWindowSpaceWindowSurface.test.tsx src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx src/components/Pages/Project/standaloneWindowSpaceState.ts src/components/Pages/Project/standaloneWindowSpaceState.test.ts src/components/Pages/Project/useStandaloneWindowSpaceController.ts ../docs/reference/frontend-module-map.md`; `git diff --check`
+- Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
+- Commit hash: `7e86f1ce8`
+- Next highest-value unblocked slice: move to the next `pages and shell` hotspot outside standalone window-space surfaces, or start the next planned frontend domain if standalone page/shell boundaries are now sufficiently reduced
