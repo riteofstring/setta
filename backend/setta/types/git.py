@@ -22,10 +22,21 @@ class GitStatusEntry(BaseModel):
     kind: GitStatusKind
 
 
+class GitWorktreeEntry(BaseModel):
+    path: str
+    displayName: str
+    branchName: str | None = None
+    headCommit: str | None = None
+    isCurrent: bool
+    isPrunable: bool = False
+    prunableReason: str | None = None
+
+
 class GetGitStatusResponse(BaseModel):
     repo: GitRepoInfoResponse
     entries: list[GitStatusEntry]
     isTruncated: bool = False
+    worktrees: list[GitWorktreeEntry] = Field(default_factory=list)
 
 
 class GetGitDiffRequest(BaseModel):

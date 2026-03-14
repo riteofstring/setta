@@ -10,6 +10,13 @@ type ProjectMetadataResponse = {
   projectMetadata: Array<{ id: string; name: string }>;
 };
 
+type PersistedHomePaneState = {
+  homeWorkspacePaneVis: boolean;
+  homeWorkspacePaneTrueWidth: number;
+  homeSelectedProjectPaneVis: boolean;
+  homeSelectedProjectPaneTrueWidth: number;
+};
+
 async function createProjectConfigAndResolveId(page: Page) {
   const createdName = await postBackend<string>(page, "/createProjectConfig", {
     previewImgColor: "bg-indigo-500/60",
@@ -44,6 +51,55 @@ async function readFavoriteProjectConfigIds(page: Page): Promise<string[]> {
   });
 }
 
+async function getNearestLayerZIndex(locator: ReturnType<Page["locator"]>) {
+  return locator.evaluate((node) => {
+    let current: HTMLElement | null = node as HTMLElement;
+    while (current) {
+      const parsed = Number.parseInt(
+        getComputedStyle(current).zIndex || "",
+        10,
+      );
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+      current = current.parentElement;
+    }
+    return 0;
+  });
+}
+
+async function readPersistedHomePaneState(
+  page: Page,
+): Promise<PersistedHomePaneState> {
+  const state = await page.evaluate(() => {
+    const raw = window.localStorage.getItem("setta_data");
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as { state?: Record<string, unknown> };
+    const persisted = parsed.state;
+    if (!persisted) {
+      return null;
+    }
+    return {
+      homeWorkspacePaneVis: Boolean(persisted.homeWorkspacePaneVis),
+      homeWorkspacePaneTrueWidth: Number(
+        persisted.homeWorkspacePaneTrueWidth ?? 0,
+      ),
+      homeSelectedProjectPaneVis: Boolean(
+        persisted.homeSelectedProjectPaneVis,
+      ),
+      homeSelectedProjectPaneTrueWidth: Number(
+        persisted.homeSelectedProjectPaneTrueWidth ?? 0,
+      ),
+    };
+  });
+  if (!state) {
+    throw new Error("Missing persisted home pane state.");
+  }
+  return state;
+}
+
 test("home page renders pane rails and toggles side panes", async ({
   page,
 }) => {
@@ -68,6 +124,24 @@ test("home page renders pane rails and toggles side panes", async ({
   await expect(
     page.getByTestId("home-selected-project-details").first(),
   ).toBeVisible();
+
+  const leftRail = page.getByTestId("home-left-icon-rail");
+  const rightRail = page.getByTestId("home-right-icon-rail");
+  const workspacePane = page
+    .locator("aside.single-cell-container")
+    .filter({ has: page.getByTestId("home-file-browser-column") })
+    .first();
+  const selectedProjectPane = page
+    .locator("aside.single-cell-container")
+    .filter({ has: page.getByTestId("home-selected-project-details") })
+    .first();
+
+  expect(await getNearestLayerZIndex(leftRail)).toBeGreaterThan(
+    await getNearestLayerZIndex(workspacePane),
+  );
+  expect(await getNearestLayerZIndex(rightRail)).toBeGreaterThan(
+    await getNearestLayerZIndex(selectedProjectPane),
+  );
 
   const galleryPane = page.getByTestId("home-project-gallery").first();
   const detailsPane = page.getByTestId("home-selected-project-details").first();
@@ -194,6 +268,57 @@ test("home uses compact layout on narrow viewports", async ({ page }) => {
     );
   }
   expect(galleryBox.width).toBeGreaterThan(layoutBox.width * 0.8);
+});
+
+test("narrow desktop home rail clicks open focused full-width panes while rails stay reachable", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1120, height: 900 });
+  await seedLocalStorage(page, {
+    homeWorkspacePaneVis: false,
+    homeWorkspacePaneWidth: 320,
+    homeWorkspacePaneTrueWidth: 40,
+    homeSelectedProjectPaneVis: false,
+    homeSelectedProjectPaneWidth: 280,
+    homeSelectedProjectPaneTrueWidth: 40,
+  });
+  await ensureAppReady(page);
+  await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
+
+  const expectedFullWidth = 1120 - 40;
+  const leftRail = page.getByTestId("home-left-icon-rail");
+  const rightRail = page.getByTestId("home-right-icon-rail");
+  const workspaceToggle = page.getByTestId("home-left-rail-workspace-toggle");
+  const selectedProjectToggle = page.getByTestId(
+    "home-right-rail-selected-project-toggle",
+  );
+
+  await expect(leftRail).toBeVisible();
+  await expect(rightRail).toBeVisible();
+  await expect(page.getByTestId("home-file-browser-column")).toHaveCount(0);
+  await expect(page.getByTestId("home-selected-project-details")).toHaveCount(
+    0,
+  );
+
+  await workspaceToggle.click();
+  await expect.poll(() => readPersistedHomePaneState(page)).toMatchObject({
+    homeWorkspacePaneVis: true,
+    homeWorkspacePaneTrueWidth: expectedFullWidth,
+    homeSelectedProjectPaneVis: false,
+    homeSelectedProjectPaneTrueWidth: 40,
+  });
+  await expect(page.getByTestId("home-file-browser-column").first()).toBeVisible();
+
+  await selectedProjectToggle.click();
+  await expect.poll(() => readPersistedHomePaneState(page)).toMatchObject({
+    homeWorkspacePaneVis: false,
+    homeWorkspacePaneTrueWidth: 40,
+    homeSelectedProjectPaneVis: true,
+    homeSelectedProjectPaneTrueWidth: expectedFullWidth,
+  });
+  await expect(
+    page.getByTestId("home-selected-project-details").first(),
+  ).toBeVisible();
 });
 
 test("home new config opens project ai chat first", async ({ page }) => {

@@ -1,6 +1,7 @@
 import { PointerSensor } from "@dnd-kit/dom";
 import { arrayMove } from "@dnd-kit/helpers";
 import { useSortableListItem as useDisplacementSortableListItem } from "components/Pages/Project/ViewModeDnd";
+import { BrailleSpinner } from "components/Utils/BrailleSpinner";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import {
   DragDropProvider,
@@ -2428,8 +2429,8 @@ function ThreadEntryLine({
         {showWorkingIndicator || showUnreadIndicator ? (
           <span className="mr-0.5 inline-flex h-2.5 w-2.5 shrink-0 items-center justify-center">
             {showWorkingIndicator ? (
-              <i
-                className="gg-spinner !scale-[0.6] text-blue-500 dark:text-blue-300"
+              <BrailleSpinner
+                className="text-[9px] text-blue-500 dark:text-blue-300"
                 data-testid={"project-chat-thread-working-indicator"}
                 aria-hidden="true"
                 {...(workingIndicatorTooltipHandlers ?? {})}
