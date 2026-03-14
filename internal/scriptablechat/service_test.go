@@ -3,11 +3,13 @@ package scriptablechat
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
 	"setta/internal/agentruns"
 	"setta/internal/llmconfig"
+	"setta/internal/mcpx"
 	"setta/internal/realtime"
 )
 
@@ -22,6 +24,34 @@ func (c *captureStreamBroadcaster) BroadcastJSON(_ context.Context, message any,
 	c.selection = selection
 	c.delivered++
 	return 1, nil
+}
+
+type stubToolCaller struct {
+	descriptors map[string]mcpx.ToolDescriptor
+	call        func(context.Context, string, map[string]any, map[string]any) (mcpx.ToolCallResult, error)
+}
+
+func (s *stubToolCaller) ToolDescriptorsForServers(serverIDs map[string]struct{}) map[string]mcpx.ToolDescriptor {
+	if len(s.descriptors) == 0 {
+		return map[string]mcpx.ToolDescriptor{}
+	}
+	filtered := make(map[string]mcpx.ToolDescriptor)
+	for name, descriptor := range s.descriptors {
+		if serverIDs != nil {
+			if _, ok := serverIDs[descriptor.ServerID]; !ok {
+				continue
+			}
+		}
+		filtered[name] = descriptor
+	}
+	return filtered
+}
+
+func (s *stubToolCaller) CallToolWithMeta(ctx context.Context, namespacedToolName string, arguments map[string]any, meta map[string]any) (mcpx.ToolCallResult, error) {
+	if s.call == nil {
+		return mcpx.ToolCallResult{}, nil
+	}
+	return s.call(ctx, namespacedToolName, arguments, meta)
 }
 
 func TestServiceCRUDRoundTrip(t *testing.T) {
@@ -190,6 +220,37 @@ func TestServiceCreateChatResolvesManagedEngineConfig(t *testing.T) {
 	}
 }
 
+func TestServiceCreateChatPersistsProjectConfigID(t *testing.T) {
+	t.Parallel()
+
+	fixture := newServiceFixture(t)
+
+	created, err := fixture.service.CreateChat(CreateChatRequest{
+		ProjectConfigID: stringPointer(" project-alpha "),
+		FirstMessage: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Scoped chat"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create chat with project config id: %v", err)
+	}
+	if created.ProjectConfigID == nil || *created.ProjectConfigID != "project-alpha" {
+		t.Fatalf("expected projectConfigId project-alpha, got %#v", created.ProjectConfigID)
+	}
+
+	loaded, err := fixture.service.GetChat(GetChatRequest{ChatID: created.ID})
+	if err != nil {
+		t.Fatalf("get scoped chat: %v", err)
+	}
+	if loaded.ProjectConfigID == nil || *loaded.ProjectConfigID != "project-alpha" {
+		t.Fatalf("expected loaded projectConfigId project-alpha, got %#v", loaded.ProjectConfigID)
+	}
+}
+
 func TestServiceEmitStreamDeltaBroadcastsFrontendMessage(t *testing.T) {
 	t.Parallel()
 
@@ -239,9 +300,220 @@ func TestServiceEmitStreamDeltaBroadcastsFrontendMessage(t *testing.T) {
 	}
 }
 
+func TestServiceRunToolsForwardsFrontendAffinityTokenAndContext(t *testing.T) {
+	t.Parallel()
+
+	fixture := newServiceFixture(t)
+	fixture.service.now = func() time.Time {
+		return time.Date(2026, 3, 13, 10, 30, 0, 0, time.UTC)
+	}
+
+	toolCaller := &stubToolCaller{
+		descriptors: map[string]mcpx.ToolDescriptor{
+			"setta__list_mcp_tools": {
+				ServerID:       mcpx.DefaultServerID,
+				NamespacedName: "setta__list_mcp_tools",
+			},
+		},
+	}
+	captured := struct {
+		name      string
+		arguments map[string]any
+		meta      map[string]any
+	}{}
+	toolCaller.call = func(_ context.Context, namespacedToolName string, arguments map[string]any, meta map[string]any) (mcpx.ToolCallResult, error) {
+		captured.name = namespacedToolName
+		captured.arguments = arguments
+		captured.meta = meta
+		return mcpx.ToolCallResult{
+			StructuredContent: map[string]any{"ok": true},
+			Text:              "tool ok",
+		}, nil
+	}
+	fixture.service.tools = toolCaller
+
+	saveScriptableChatRun(t, fixture.runs, agentruns.Run{
+		ID:         "chat-1",
+		Status:     agentruns.RunStatusCompleted,
+		StartedAt:  timePointer(time.Date(2026, 3, 13, 10, 0, 0, 0, time.UTC)),
+		FinishedAt: timePointer(time.Date(2026, 3, 13, 10, 0, 0, 0, time.UTC)),
+		Inputs: map[string]any{
+			"runType":         runTypeScriptableChat,
+			"chatId":          "chat-1",
+			"projectConfigId": "project-alpha",
+			"llmConfig": map[string]any{
+				"id":    "primary",
+				"model": "gpt-test",
+			},
+		},
+		Outputs: map[string]any{
+			"messages":    []any{},
+			"lastUpdated": "2026-03-13T10:00:00Z",
+			"name":        "Chat",
+		},
+	})
+
+	results, err := fixture.service.RunTools(context.Background(), RunToolsRequest{
+		ChatID:                "chat-1",
+		SectionID:             "chat-section",
+		FrontendAffinityToken: stringPointer("frontend-1"),
+		ToolCalls: []map[string]any{
+			{
+				"id":   "tool-call-1",
+				"type": "function",
+				"function": map[string]any{
+					"name":      "mcp__setta__list_mcp_tools",
+					"arguments": map[string]any{},
+				},
+			},
+		},
+		ShareSessionID: "share-session-1",
+	})
+	if err != nil {
+		t.Fatalf("run tools: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected one tool result message, got %#v", results)
+	}
+	if captured.name != "setta__list_mcp_tools" {
+		t.Fatalf("expected normalized tool name setta__list_mcp_tools, got %q", captured.name)
+	}
+	if captured.meta["projectConfigId"] != "project-alpha" || captured.meta["chatId"] != "chat-1" || captured.meta["sectionId"] != "chat-section" {
+		t.Fatalf("unexpected agentic meta %#v", captured.meta)
+	}
+	if captured.meta["frontendAffinityToken"] != "frontend-1" || captured.meta["shareSessionId"] != "share-session-1" {
+		t.Fatalf("expected share/frontend affinity meta, got %#v", captured.meta)
+	}
+
+	result := results[0]
+	if result["tool_name"] != "setta__list_mcp_tools" {
+		t.Fatalf("expected tool result to preserve tool name, got %#v", result["tool_name"])
+	}
+	if result["is_error"] != false {
+		t.Fatalf("expected successful tool result, got %#v", result)
+	}
+	content, ok := result["content"].([]any)
+	if !ok || len(content) != 1 {
+		t.Fatalf("expected text content in tool result, got %#v", result["content"])
+	}
+	textBlock, ok := content[0].(map[string]any)
+	if !ok || textBlock["text"] != "tool ok" {
+		t.Fatalf("unexpected tool result content %#v", result["content"])
+	}
+}
+
+func TestServiceRunToolsRejectsBlankFrontendAffinityToken(t *testing.T) {
+	t.Parallel()
+
+	fixture := newServiceFixture(t)
+	fixture.service.tools = &stubToolCaller{}
+	saveScriptableChatRun(t, fixture.runs, agentruns.Run{
+		ID:         "chat-1",
+		Status:     agentruns.RunStatusCompleted,
+		StartedAt:  timePointer(time.Date(2026, 3, 13, 10, 0, 0, 0, time.UTC)),
+		FinishedAt: timePointer(time.Date(2026, 3, 13, 10, 0, 0, 0, time.UTC)),
+		Inputs: map[string]any{
+			"runType":         runTypeScriptableChat,
+			"chatId":          "chat-1",
+			"projectConfigId": "project-alpha",
+			"llmConfig": map[string]any{
+				"id":    "primary",
+				"model": "gpt-test",
+			},
+		},
+		Outputs: map[string]any{
+			"messages":    []any{},
+			"lastUpdated": "2026-03-13T10:00:00Z",
+			"name":        "Chat",
+		},
+	})
+
+	_, err := fixture.service.RunTools(context.Background(), RunToolsRequest{
+		ChatID:                "chat-1",
+		SectionID:             "chat-section",
+		FrontendAffinityToken: stringPointer("   "),
+		ToolCalls:             []map[string]any{},
+	})
+	if !errors.Is(err, ErrFrontendAffinityTokenInvalid) {
+		t.Fatalf("expected ErrFrontendAffinityTokenInvalid, got %v", err)
+	}
+}
+
+func TestServiceRunToolsReturnsErrorMessageForUnknownTool(t *testing.T) {
+	t.Parallel()
+
+	fixture := newServiceFixture(t)
+	fixture.service.tools = &stubToolCaller{
+		descriptors: map[string]mcpx.ToolDescriptor{
+			"setta__list_mcp_tools": {
+				ServerID:       mcpx.DefaultServerID,
+				NamespacedName: "setta__list_mcp_tools",
+			},
+		},
+	}
+	saveScriptableChatRun(t, fixture.runs, agentruns.Run{
+		ID:         "chat-1",
+		Status:     agentruns.RunStatusCompleted,
+		StartedAt:  timePointer(time.Date(2026, 3, 13, 10, 0, 0, 0, time.UTC)),
+		FinishedAt: timePointer(time.Date(2026, 3, 13, 10, 0, 0, 0, time.UTC)),
+		Inputs: map[string]any{
+			"runType":         runTypeScriptableChat,
+			"chatId":          "chat-1",
+			"projectConfigId": "project-alpha",
+			"llmConfig": map[string]any{
+				"id":           scriptableLLMConfigID,
+				"model":        scriptableLLMConfigID,
+				"mcpServerIds": []any{},
+				"temporary":    true,
+			},
+		},
+		Outputs: map[string]any{
+			"messages":    []any{},
+			"lastUpdated": "2026-03-13T10:00:00Z",
+			"name":        "Chat",
+		},
+	})
+
+	results, err := fixture.service.RunTools(context.Background(), RunToolsRequest{
+		ChatID:    "chat-1",
+		SectionID: "chat-section",
+		ToolCalls: []map[string]any{
+			{
+				"id": "tool-call-1",
+				"function": map[string]any{
+					"name":      "setta__list_mcp_tools",
+					"arguments": map[string]any{},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("run tools: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected one tool error message, got %#v", results)
+	}
+	if results[0]["is_error"] != true {
+		t.Fatalf("expected tool result to be an error, got %#v", results[0])
+	}
+	content, ok := results[0]["content"].([]any)
+	if !ok || len(content) != 1 {
+		t.Fatalf("expected one error text block, got %#v", results[0]["content"])
+	}
+	block, ok := content[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error content block map, got %#v", content[0])
+	}
+	text, _ := block["text"].(string)
+	if text == "" || !containsAll(text, "setta__list_mcp_tools", "not allowed") {
+		t.Fatalf("expected disallowed-tool text, got %q", text)
+	}
+}
+
 type serviceFixture struct {
 	service *Service
 	engines *agentruns.EngineStore
+	runs    *agentruns.RunStore
 }
 
 func newServiceFixture(t *testing.T) serviceFixture {
@@ -265,7 +537,12 @@ func newServiceFixture(t *testing.T) serviceFixture {
 				APIKeyEnv: "OPENAI_API_KEY",
 			},
 		},
-		MCPServers: map[string]llmconfig.ServerConfig{},
+		MCPServers: map[string]llmconfig.ServerConfig{
+			mcpx.DefaultServerID: {
+				Transport: llmconfig.TransportSSE,
+				URL:       "http://127.0.0.1:9999/mcp",
+			},
+		},
 	})
 	if err != nil {
 		t.Fatalf("new llm runtime: %v", err)
@@ -281,9 +558,30 @@ func newServiceFixture(t *testing.T) serviceFixture {
 	return serviceFixture{
 		service: service,
 		engines: engines,
+		runs:    runs,
 	}
 }
 
 func stringPointer(value string) *string {
 	return &value
+}
+
+func timePointer(value time.Time) *time.Time {
+	return &value
+}
+
+func saveScriptableChatRun(t *testing.T, store *agentruns.RunStore, run agentruns.Run) {
+	t.Helper()
+	if err := store.Save(run); err != nil {
+		t.Fatalf("save scriptable chat run: %v", err)
+	}
+}
+
+func containsAll(value string, parts ...string) bool {
+	for _, part := range parts {
+		if !strings.Contains(value, part) {
+			return false
+		}
+	}
+	return true
 }

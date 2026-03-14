@@ -180,6 +180,14 @@ func (i *listenerBuiltInEndpointInvoker) invokeExplicitBuiltInEndpoint(
 		}
 		request.ShareSessionID = info.Modes.ShareSessionID
 		return nil, true, i.scriptableChat.EmitStreamDelta(ctx, request)
+	case "route_run_mcp_tools":
+		request, err := decodeListenerBuiltInPayload[scriptablechat.RunToolsRequest](payload)
+		if err != nil {
+			return nil, true, err
+		}
+		request.ShareSessionID = info.Modes.ShareSessionID
+		result, err := i.scriptableChat.RunTools(ctx, request)
+		return result, true, err
 	default:
 		return nil, false, nil
 	}

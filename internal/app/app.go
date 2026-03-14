@@ -866,6 +866,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			Runs:        agentRunStore,
 			Engines:     engineStore,
 			LLM:         llmRuntime,
+			Tools:       mcpClient,
 			Broadcaster: websocketHub,
 		})
 		if err != nil {

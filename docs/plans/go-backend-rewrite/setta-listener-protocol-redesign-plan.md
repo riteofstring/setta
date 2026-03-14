@@ -42,6 +42,9 @@ Current state:
     `route_delete_chat`
   - frontend `LLMStreamingResponse` broadcasts on that route for
     `route_emit_chat_stream_delta`
+  - scriptable listener chat-toolkit tool execution on that route for
+    `route_run_mcp_tools`, including Setta MCP per-chat allowlist checks and
+    scoped call metadata
   - listener coverage and force-refresh reads/writes
   - listener websocket DTOs in `internal/realtime`
 - Python still owns:
@@ -50,8 +53,7 @@ Current state:
     Go listener route
   - local dependency-graph rebuilding and generated runtime state
   - remaining built-in listener endpoint dispatch outside the current
-    manifest-backed `GoHTTPRoutes` subset plus the remaining
-    `route_run_mcp_tools` chat-toolkit tool-runner surface
+    manifest-backed `GoHTTPRoutes` subset
   - remaining local mutation patching and authoritative patch/refresh behavior
     in
     `backend/setta/listeners/router_endpoint_local_updates.py`

@@ -11,6 +11,7 @@ import (
 
 	"setta/internal/agentruns"
 	"setta/internal/llmconfig"
+	"setta/internal/mcpx"
 	"setta/internal/realtime"
 )
 
@@ -20,11 +21,14 @@ const (
 )
 
 var (
-	ErrRunStoreRequired    = errors.New("scriptable chat run store is required")
-	ErrEngineStoreRequired = errors.New("scriptable chat engine store is required")
-	ErrLLMRuntimeRequired  = errors.New("scriptable chat LLM runtime is required")
-	ErrBroadcasterRequired = errors.New("scriptable chat broadcaster is required")
-	ErrChatNotFound        = errors.New("scriptable chat not found")
+	ErrRunStoreRequired             = errors.New("scriptable chat run store is required")
+	ErrEngineStoreRequired          = errors.New("scriptable chat engine store is required")
+	ErrLLMRuntimeRequired           = errors.New("scriptable chat LLM runtime is required")
+	ErrToolClientRequired           = errors.New("scriptable chat tool client is required")
+	ErrBroadcasterRequired          = errors.New("scriptable chat broadcaster is required")
+	ErrChatNotFound                 = errors.New("scriptable chat not found")
+	ErrChatProjectRequired          = errors.New("scriptable chat missing project config id")
+	ErrFrontendAffinityTokenInvalid = errors.New("frontendAffinityToken must be a non-empty string when provided")
 )
 
 type llmConfigSource interface {
@@ -35,10 +39,16 @@ type streamBroadcaster interface {
 	BroadcastJSON(ctx context.Context, message any, selection realtime.Selection) (int, error)
 }
 
+type toolCaller interface {
+	ToolDescriptorsForServers(serverIDs map[string]struct{}) map[string]mcpx.ToolDescriptor
+	CallToolWithMeta(ctx context.Context, namespacedToolName string, arguments map[string]any, meta map[string]any) (mcpx.ToolCallResult, error)
+}
+
 type ServiceOptions struct {
 	Runs        *agentruns.RunStore
 	Engines     *agentruns.EngineStore
 	LLM         llmConfigSource
+	Tools       toolCaller
 	Broadcaster streamBroadcaster
 	Now         func() time.Time
 }
@@ -47,6 +57,7 @@ type Service struct {
 	runs        *agentruns.RunStore
 	engines     *agentruns.EngineStore
 	llm         llmConfigSource
+	tools       toolCaller
 	broadcaster streamBroadcaster
 	now         func() time.Time
 }
@@ -109,6 +120,15 @@ type EmitStreamDeltaRequest struct {
 	ShareSessionID  string `json:"-"`
 }
 
+type RunToolsRequest struct {
+	ProjectConfigID       *string          `json:"projectConfigId,omitempty"`
+	ChatID                string           `json:"chatId"`
+	SectionID             string           `json:"sectionId"`
+	FrontendAffinityToken *string          `json:"frontendAffinityToken,omitempty"`
+	ToolCalls             []map[string]any `json:"toolCalls"`
+	ShareSessionID        string           `json:"-"`
+}
+
 func NewService(opts ServiceOptions) (*Service, error) {
 	if opts.Runs == nil {
 		return nil, ErrRunStoreRequired
@@ -128,6 +148,7 @@ func NewService(opts ServiceOptions) (*Service, error) {
 		runs:        opts.Runs,
 		engines:     opts.Engines,
 		llm:         opts.LLM,
+		tools:       opts.Tools,
 		broadcaster: opts.Broadcaster,
 		now:         opts.Now,
 	}, nil
@@ -142,11 +163,15 @@ func (s *Service) CreateChat(request CreateChatRequest) (Chat, error) {
 	if err != nil {
 		return Chat{}, err
 	}
+	projectConfigID := normalizedOptionalString(request.ProjectConfigID)
 
 	now := s.now().UTC()
 	inputs := map[string]any{
 		"runType":   runTypeScriptableChat,
 		"llmConfig": cloneLLMConfigValue(llmCfg),
+	}
+	if projectConfigID != nil {
+		inputs["projectConfigId"] = *projectConfigID
 	}
 	run := agentruns.NewRun(nil, inputs, now)
 	run.Status = agentruns.RunStatusCompleted
@@ -291,6 +316,43 @@ func (s *Service) EmitStreamDelta(ctx context.Context, request EmitStreamDeltaRe
 		ShareSessionID: strings.TrimSpace(request.ShareSessionID),
 	})
 	return err
+}
+
+func (s *Service) RunTools(ctx context.Context, request RunToolsRequest) ([]map[string]any, error) {
+	if s == nil || s.tools == nil {
+		return nil, ErrToolClientRequired
+	}
+
+	chat, err := s.GetChat(GetChatRequest{ChatID: request.ChatID})
+	if err != nil {
+		return nil, err
+	}
+	if chat.ProjectConfigID == nil || strings.TrimSpace(*chat.ProjectConfigID) == "" {
+		return nil, fmt.Errorf("%w: %s", ErrChatProjectRequired, strings.TrimSpace(request.ChatID))
+	}
+
+	frontendAffinityToken, err := normalizeFrontendAffinityToken(request.FrontendAffinityToken)
+	if err != nil {
+		return nil, err
+	}
+
+	allowedServerIDs, err := s.llm.Configs().ResolveMCPServerIDs(chat.LLMConfig)
+	if err != nil {
+		return nil, err
+	}
+	allowedServerIDSet := toStringSet(allowedServerIDs)
+	allowedTools := s.tools.ToolDescriptorsForServers(allowedServerIDSet)
+	allTools := s.tools.ToolDescriptorsForServers(nil)
+
+	results := make([]map[string]any, 0, len(request.ToolCalls))
+	for _, rawToolCall := range request.ToolCalls {
+		toolCall, err := cloneJSONObject(rawToolCall)
+		if err != nil {
+			return nil, fmt.Errorf("decode tool call: %w", err)
+		}
+		results = append(results, s.runSingleToolCall(ctx, toolCall, allowedTools, allTools, *chat.ProjectConfigID, strings.TrimSpace(request.ChatID), strings.TrimSpace(request.SectionID), strings.TrimSpace(request.ShareSessionID), frontendAffinityToken))
+	}
+	return results, nil
 }
 
 func (s *Service) resolveLLMConfig(engineConfigID *string) (llmconfig.Config, error) {
@@ -611,6 +673,204 @@ func cloneLLMConfigValue(config llmconfig.Config) any {
 	return cloneJSONValue(config)
 }
 
+func (s *Service) runSingleToolCall(
+	ctx context.Context,
+	toolCall map[string]any,
+	allowedTools map[string]mcpx.ToolDescriptor,
+	allTools map[string]mcpx.ToolDescriptor,
+	projectConfigID string,
+	chatID string,
+	sectionID string,
+	shareSessionID string,
+	frontendAffinityToken *string,
+) map[string]any {
+	startedAt := s.now().UTC()
+
+	toolCallID := strings.TrimSpace(stringValue(toolCall["id"]))
+	functionPayload, _ := toolCall["function"].(map[string]any)
+	rawToolName := stringValue(functionPayload["name"])
+	toolName := mcpx.NormalizeToolName(rawToolName)
+	arguments, _ := functionPayload["arguments"].(map[string]any)
+	if arguments == nil {
+		arguments = map[string]any{}
+	}
+	arguments = cloneJSONObjectBestEffort(arguments)
+
+	if toolName == "" {
+		return buildToolMessage(toolCallID, "", arguments, startedAt, mcpx.ToolCallResult{}, fmt.Errorf("Tool call missing function name"))
+	}
+
+	descriptor, ok := allowedTools[toolName]
+	if !ok {
+		if _, exists := allTools[toolName]; exists {
+			return buildToolMessage(toolCallID, toolName, arguments, startedAt, mcpx.ToolCallResult{}, fmt.Errorf("MCP tool '%s' is not allowed for this chat", toolName))
+		}
+		return buildToolMessage(toolCallID, toolName, arguments, startedAt, mcpx.ToolCallResult{}, fmt.Errorf("MCP tool '%s' is not registered", toolName))
+	}
+
+	meta, err := buildToolMeta(toolName, projectConfigID, chatID, sectionID, shareSessionID, frontendAffinityToken)
+	if err != nil {
+		return buildToolMessage(toolCallID, toolName, arguments, startedAt, mcpx.ToolCallResult{}, err)
+	}
+
+	callResult, err := s.tools.CallToolWithMeta(ctx, toolName, cloneJSONObjectBestEffort(arguments), meta)
+	if err != nil {
+		return buildToolMessage(toolCallID, toolName, arguments, startedAt, mcpx.ToolCallResult{}, err)
+	}
+	return buildToolMessage(toolCallID, descriptor.NamespacedName, arguments, startedAt, callResult, nil)
+}
+
+func buildToolMeta(
+	toolName string,
+	projectConfigID string,
+	chatID string,
+	sectionID string,
+	shareSessionID string,
+	frontendAffinityToken *string,
+) (map[string]any, error) {
+	meta := map[string]any{}
+	if strings.TrimSpace(shareSessionID) != "" {
+		meta["shareSessionId"] = strings.TrimSpace(shareSessionID)
+	}
+
+	serverID, _, hasServerID := mcpx.SplitNamespacedToolName(toolName)
+	if !hasServerID || serverID != mcpx.DefaultServerID {
+		if len(meta) == 0 {
+			return nil, nil
+		}
+		return meta, nil
+	}
+
+	if strings.TrimSpace(projectConfigID) == "" {
+		return nil, fmt.Errorf("Setta MCP tool '%s' requires agentic projectConfigId meta", toolName)
+	}
+	meta["projectConfigId"] = strings.TrimSpace(projectConfigID)
+	if strings.TrimSpace(chatID) != "" {
+		meta["chatId"] = strings.TrimSpace(chatID)
+	}
+	if strings.TrimSpace(sectionID) != "" {
+		meta["sectionId"] = strings.TrimSpace(sectionID)
+	}
+	if frontendAffinityToken != nil && strings.TrimSpace(*frontendAffinityToken) != "" {
+		meta["frontendAffinityToken"] = strings.TrimSpace(*frontendAffinityToken)
+	}
+	return meta, nil
+}
+
+func buildToolMessage(
+	toolCallID string,
+	toolName string,
+	arguments map[string]any,
+	startedAt time.Time,
+	callResult mcpx.ToolCallResult,
+	callErr error,
+) map[string]any {
+	completedAt := startedAt
+	if !startedAt.IsZero() {
+		completedAt = time.Now().UTC()
+	}
+
+	result := callResult
+	if callErr != nil {
+		displayName := toolName
+		if strings.TrimSpace(displayName) == "" {
+			displayName = "unknown"
+		}
+		message := fmt.Sprintf("Failed to run MCP tool '%s': %v", displayName, callErr)
+		result = mcpx.ToolCallResult{
+			IsError: true,
+			StructuredContent: map[string]any{
+				"error":     message,
+				"tool_name": normalizedNullableToolName(toolName),
+				"exception": fmt.Sprintf("%T", callErr),
+			},
+			Text: message,
+		}
+	}
+
+	messagePayload := map[string]any{
+		"id":           "tool-result-" + strings.TrimSpace(toolCallID),
+		"role":         "tool",
+		"tool_call_id": strings.TrimSpace(toolCallID),
+		"tool_name":    normalizedNullableToolName(toolName),
+		"arguments":    cloneJSONValue(arguments),
+		"is_error":     result.IsError,
+		"content":      []any{},
+		"started_at":   startedAt.Format(time.RFC3339Nano),
+		"completed_at": completedAt.Format(time.RFC3339Nano),
+	}
+	resultPayload := map[string]any{
+		"isError": result.IsError,
+	}
+	if result.StructuredContent != nil {
+		resultPayload["structuredContent"] = cloneJSONValue(result.StructuredContent)
+	}
+	if strings.TrimSpace(result.Text) != "" {
+		resultPayload["text"] = result.Text
+		messagePayload["content"] = []any{
+			map[string]any{
+				"type": "text",
+				"text": result.Text,
+			},
+		}
+	} else if result.StructuredContent != nil {
+		encoded, err := json.Marshal(result.StructuredContent)
+		if err == nil {
+			resultPayload["text"] = string(encoded)
+			messagePayload["content"] = []any{
+				map[string]any{
+					"type": "text",
+					"text": string(encoded),
+				},
+			}
+		}
+	}
+	messagePayload["result"] = resultPayload
+	return messagePayload
+}
+
+func normalizedNullableToolName(toolName string) any {
+	trimmed := strings.TrimSpace(toolName)
+	if trimmed == "" {
+		return nil
+	}
+	return trimmed
+}
+
+func normalizedOptionalString(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*value)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
+}
+
+func normalizeFrontendAffinityToken(value *string) (*string, error) {
+	if value == nil {
+		return nil, nil
+	}
+	trimmed := strings.TrimSpace(*value)
+	if trimmed == "" {
+		return nil, ErrFrontendAffinityTokenInvalid
+	}
+	return &trimmed, nil
+}
+
+func toStringSet(values []string) map[string]struct{} {
+	set := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		set[trimmed] = struct{}{}
+	}
+	return set
+}
+
 func cloneJSONValue(value any) any {
 	if value == nil {
 		return nil
@@ -639,4 +899,12 @@ func cloneJSONObject(value any) (map[string]any, error) {
 		return map[string]any{}, nil
 	}
 	return cloned, nil
+}
+
+func cloneJSONObjectBestEffort(value map[string]any) map[string]any {
+	cloned, err := cloneJSONObject(value)
+	if err != nil {
+		return map[string]any{}
+	}
+	return cloned
 }

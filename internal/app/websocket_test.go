@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -22,6 +23,7 @@ import (
 	"setta/internal/httpapi"
 	"setta/internal/llmconfig"
 	"setta/internal/managedchat"
+	"setta/internal/mcpx"
 	"setta/internal/observability"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
@@ -1731,8 +1733,8 @@ func TestAppListenerWebsocketDispatchesScriptableChatBuiltIns(t *testing.T) {
 	if llmConfigPayload["id"] != "scriptable" {
 		t.Fatalf("expected scriptable llm config id, got %#v", llmConfigPayload["id"])
 	}
-	if projectConfigID, exists := createdChat["projectConfigId"]; exists && projectConfigID != nil {
-		t.Fatalf("expected nil projectConfigId on created scriptable chat, got %#v", projectConfigID)
+	if createdChat["projectConfigId"] != "project-alpha" {
+		t.Fatalf("expected listener create-chat to persist projectConfigId project-alpha, got %#v", createdChat["projectConfigId"])
 	}
 
 	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRouterEndpointCall","content":{"projectConfigId":"project-alpha","callId":"call-append","endpointName":"route_append_chat_messages","payload":{"chatId":"`+chatID+`","messages":[{"id":"assistant-1","role":"assistant","content":[{"type":"text","text":"Reply"}]}]}}}`)); err != nil {
@@ -1789,6 +1791,170 @@ func TestAppListenerWebsocketDispatchesScriptableChatBuiltIns(t *testing.T) {
 	}
 	if metadataEntry["id"] != chatID {
 		t.Fatalf("expected metadata id %q, got %#v", chatID, metadataEntry["id"])
+	}
+}
+
+func TestAppListenerWebsocketRunsScriptableChatMCPTools(t *testing.T) {
+	// The listener chat-toolkit tool runner should execute through the real Go
+	// listener route and the app's internal MCP client.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	cfg.Server.Host = "127.0.0.1"
+	prepareCurrentSession(t, cfg)
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	cfg.Server.Port = listener.Addr().(*net.TCPAddr).Port
+	serverURL := "http://" + listener.Addr().String()
+
+	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"primary": {
+				ID:           "primary",
+				Model:        "gpt-4o-mini",
+				Provider:     "openai",
+				APIKeyEnv:    "OPENAI_API_KEY",
+				MCPServerIDs: []string{mcpx.DefaultServerID},
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{
+			mcpx.DefaultServerID: {
+				Transport: llmconfig.TransportSSE,
+				URL:       serverURL + "/mcp",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("save llm config: %v", err)
+	}
+
+	engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("new engine store: %v", err)
+	}
+	managedConfigID := "primary"
+	if err := engineStore.Write([]agentruns.EngineConfig{
+		{
+			ID:               "engine-managed",
+			Name:             "Managed Engine",
+			EngineType:       agentruns.EngineTypeSettaLLM,
+			SettaLLMConfigID: &managedConfigID,
+		},
+	}); err != nil {
+		t.Fatalf("write engine config: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+
+	server := &http.Server{Handler: app.Handler()}
+	serverErrors := make(chan error, 1)
+	go func() {
+		serverErrors <- server.Serve(listener)
+	}()
+
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			t.Fatalf("shutdown http server: %v", err)
+		}
+		err := <-serverErrors
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			t.Fatalf("serve app: %v", err)
+		}
+	})
+
+	waitForAppMCPClientState(t, app, mcpx.RuntimeStateConnected)
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = appChatSectionTestProject(t)
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed project runtime: %v", err)
+	}
+
+	authCookie := newAppTestAuthCookie(t, app)
+	listenerConn, _, err := websocket.Dial(
+		context.Background(),
+		"ws"+strings.TrimPrefix(serverURL, "http")+strings.Replace(wsapi.RouteListenerByID, "{listenerID}", "listener-tools", 1),
+		&websocket.DialOptions{
+			HTTPHeader: http.Header{
+				"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("dial listener websocket route: %v", err)
+	}
+	defer listenerConn.CloseNow()
+
+	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerInit","content":{"projectName":"Alpha"}}`)); err != nil {
+		t.Fatalf("write listener init message: %v", err)
+	}
+	_ = readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerForceRefresh, 1)
+
+	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	if ack := readAppRouteEnvelope(t, listenerConn); ack.MessageType != realtime.MessageTypeListenerRegisterAck {
+		t.Fatalf("expected listener register ack, got %q", ack.MessageType)
+	}
+
+	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRouterEndpointCall","content":{"projectConfigId":"project-alpha","callId":"call-create","endpointName":"route_create_chat","payload":{"engineConfigId":"engine-managed","firstMessage":{"id":"user-1","role":"user","content":[{"type":"text","text":"Hello tool chat"}]}}}}`)); err != nil {
+		t.Fatalf("write listener create-chat endpoint call: %v", err)
+	}
+	createEnvelope := readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerRouterResult, 1)
+	var createContent realtime.ListenerRouterEndpointResultContent
+	if err := json.Unmarshal(createEnvelope.Content, &createContent); err != nil {
+		t.Fatalf("decode listener create-chat result: %v", err)
+	}
+	if createContent.ProjectConfigID != "project-alpha" || createContent.CallID != "call-create" || !createContent.OK {
+		t.Fatalf("unexpected create-chat listener result %#v", createContent)
+	}
+	createdChat := mustStructuredMapValue(t, createContent.Result)
+	chatID, ok := createdChat["id"].(string)
+	if !ok || strings.TrimSpace(chatID) == "" {
+		t.Fatalf("expected created chat id, got %#v", createdChat)
+	}
+	if createdChat["projectConfigId"] != "project-alpha" {
+		t.Fatalf("expected created chat projectConfigId project-alpha, got %#v", createdChat["projectConfigId"])
+	}
+
+	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRouterEndpointCall","content":{"projectConfigId":"project-alpha","callId":"call-tools","endpointName":"route_run_mcp_tools","payload":{"chatId":"`+chatID+`","sectionId":"chat-section","toolCalls":[{"id":"tool-call-1","type":"function","function":{"name":"mcp__setta__list_mcp_tools","arguments":{}}}]}}}`)); err != nil {
+		t.Fatalf("write listener run-tools endpoint call: %v", err)
+	}
+	toolsEnvelope := readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerRouterResult, 1)
+	var toolsContent realtime.ListenerRouterEndpointResultContent
+	if err := json.Unmarshal(toolsEnvelope.Content, &toolsContent); err != nil {
+		t.Fatalf("decode listener run-tools result: %v", err)
+	}
+	if toolsContent.ProjectConfigID != "project-alpha" || toolsContent.CallID != "call-tools" || !toolsContent.OK {
+		t.Fatalf("unexpected run-tools listener result %#v", toolsContent)
+	}
+	toolResults, ok := toolsContent.Result.([]any)
+	if !ok || len(toolResults) != 1 {
+		t.Fatalf("expected one tool result message, got %#v", toolsContent.Result)
+	}
+	toolMessage := mustStructuredMapValue(t, toolResults[0])
+	if toolMessage["tool_name"] != "setta__list_mcp_tools" || toolMessage["is_error"] != false {
+		t.Fatalf("expected successful setta tool result, got %#v", toolMessage)
+	}
+	resultPayload := mustStructuredMapValue(t, toolMessage["result"])
+	structured := mustStructuredMapValue(t, resultPayload["structuredContent"])
+	rawTools, ok := structured["tools"].([]any)
+	if !ok {
+		t.Fatalf("expected structured tool list, got %#v", structured["tools"])
+	}
+	if !containsStructuredStringValue(rawTools, "list_mcp_tools") {
+		t.Fatalf("expected list_mcp_tools in tool catalog, got %#v", rawTools)
 	}
 }
 
