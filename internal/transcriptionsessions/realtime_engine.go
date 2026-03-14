@@ -91,6 +91,7 @@ type openAIRealtimeEvent struct {
 	ItemID         string                    `json:"item_id,omitempty"`
 	PreviousItemID *string                   `json:"previous_item_id,omitempty"`
 	Delta          string                    `json:"delta,omitempty"`
+	Text           string                    `json:"text,omitempty"`
 	Transcript     string                    `json:"transcript,omitempty"`
 	Error          *openAIRealtimeErrorValue `json:"error,omitempty"`
 }
@@ -428,6 +429,10 @@ func (e *realtimeEngine) handleEvent(payload []byte) (string, error) {
 	case string(openaiconstant.ValueOf[openaiconstant.InputAudioBufferCommitted]()):
 		e.applyCommittedItemOrder(event.ItemID, event.PreviousItemID)
 		return "", nil
+	case string(openaiconstant.ValueOf[openaiconstant.TranscriptTextDelta]()):
+		return e.applyTranscriptTextDelta(event.Delta), nil
+	case string(openaiconstant.ValueOf[openaiconstant.TranscriptTextDone]()):
+		return e.applyTranscriptTextDone(event.Text), nil
 	case string(openaiconstant.ValueOf[openaiconstant.ConversationItemInputAudioTranscriptionDelta]()):
 		if e.deltaMode == openAIRealtimeDeltaModeDisabled {
 			return "", nil
@@ -618,6 +623,22 @@ func (e *realtimeEngine) applyTranscriptUpdate(itemID, rawText string, mode open
 	}
 	e.itemTexts[trimmedItemID] = nextItemText
 	e.fullText = rebuildOpenAIRealtimeFullText(e.itemOrder, e.itemTexts)
+	return appendOpenAIRealtimeTranscriptDelta(previousFullText, e.fullText)
+}
+
+func (e *realtimeEngine) applyTranscriptTextDelta(rawText string) string {
+	appendText, fullText := appendTranscriptSegment(e.fullText, rawText)
+	e.fullText = fullText
+	return appendText
+}
+
+func (e *realtimeEngine) applyTranscriptTextDone(rawText string) string {
+	segment := strings.TrimSpace(rawText)
+	if segment == "" {
+		return ""
+	}
+	previousFullText := e.fullText
+	e.fullText = segment
 	return appendOpenAIRealtimeTranscriptDelta(previousFullText, e.fullText)
 }
 

@@ -239,6 +239,105 @@ func TestServiceStartAppendStopStreamsRealtimeTranscription(t *testing.T) {
 	}
 }
 
+func TestServiceStartAppendStopStreamsRealtimeTranscriptionTranscriptTextEvents(t *testing.T) {
+	t.Parallel()
+
+	emitFinal := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close(websocket.StatusNormalClosure, "")
+
+		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
+			return
+		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"transcription_session.updated","event_id":"evt-ready"}`)); err != nil {
+			return
+		}
+		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
+			return
+		}
+		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
+			return
+		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"transcript.text.delta","event_id":"evt-1","delta":"hello"}`)); err != nil {
+			return
+		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"transcript.text.done","event_id":"evt-2","text":"hello"}`)); err != nil {
+			return
+		}
+		<-emitFinal
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"transcript.text.delta","event_id":"evt-3","delta":"world"}`)); err != nil {
+			return
+		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"transcript.text.done","event_id":"evt-4","text":"hello world"}`)); err != nil {
+			return
+		}
+		_, _, _ = conn.Read(context.Background())
+	}))
+	defer server.Close()
+
+	runtime := newTranscriptionSessionRuntime(t, map[string]llmconfig.Config{
+		"openai-realtime": {
+			ID:        "openai-realtime",
+			Model:     "gpt-4o-mini-transcribe",
+			Provider:  "openai",
+			BaseURL:   server.URL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+	}, map[string]string{
+		"OPENAI_API_KEY": "secret-key",
+	})
+	service, err := NewService(ServiceOptions{
+		LLM:        runtime,
+		HTTPClient: server.Client(),
+		NewID: func() string {
+			return "session-realtime-transcript-text"
+		},
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	resolved := resolvedProfile("profile-rt", transcriptionprofiles.TransportModeRealtime, runtime, "openai-realtime")
+	resolved.Profile.SupportsRealtimeTranscription = true
+	started, err := service.StartSession(context.Background(), StartRequest{
+		ScopeID:         "scope-1",
+		ResolvedProfile: resolved,
+	})
+	if err != nil {
+		t.Fatalf("start realtime transcript-text session: %v", err)
+	}
+
+	appendResult, err := service.AppendAudio(context.Background(), AppendRequest{
+		ScopeID:      "scope-1",
+		SessionID:    started.SessionID,
+		AudioPCM16:   []byte{0x00, 0x00, 0x10, 0x00},
+		SampleRateHz: 24_000,
+		Channels:     1,
+	})
+	if err != nil {
+		t.Fatalf("append realtime transcript-text audio: %v", err)
+	}
+	if appendResult.AppendText != "hello" || appendResult.FullText != "hello" || appendResult.IsFinal {
+		t.Fatalf("unexpected transcript-text append result %#v", appendResult)
+	}
+
+	close(emitFinal)
+	stopped, err := service.StopSession(context.Background(), StopRequest{
+		ScopeID:   "scope-1",
+		SessionID: started.SessionID,
+	})
+	if err != nil {
+		t.Fatalf("stop realtime transcript-text session: %v", err)
+	}
+	if !stopped.IsFinal || stopped.AppendText != " world" || stopped.FullText != "hello world" {
+		t.Fatalf("unexpected transcript-text stop result %#v", stopped)
+	}
+}
+
 func TestResolveRealtimeEndpointUsesTranscriptionIntentQuery(t *testing.T) {
 	t.Parallel()
 
@@ -941,6 +1040,72 @@ func TestRealtimeEngineWhisperDeltaSnapshotsReplaceItemTranscript(t *testing.T) 
 	}
 	if finalAppendText != "" || engine.fullText != "hello there" {
 		t.Fatalf("unexpected whisper completion result append=%q full=%q", finalAppendText, engine.fullText)
+	}
+}
+
+func TestRealtimeEngineTranscriptTextEventsMaintainAuthoritativeFullText(t *testing.T) {
+	t.Parallel()
+
+	engine := &realtimeEngine{
+		processedEventIDs: map[string]struct{}{},
+	}
+
+	firstAppendText, err := engine.handleEvent(
+		[]byte(`{"type":"transcript.text.delta","event_id":"evt-1","delta":"hello"}`),
+	)
+	if err != nil {
+		t.Fatalf("handle first transcript delta: %v", err)
+	}
+	if firstAppendText != "hello" || engine.fullText != "hello" {
+		t.Fatalf("unexpected first transcript delta append=%q full=%q", firstAppendText, engine.fullText)
+	}
+
+	secondAppendText, err := engine.handleEvent(
+		[]byte(`{"type":"transcript.text.delta","event_id":"evt-2","delta":"world"}`),
+	)
+	if err != nil {
+		t.Fatalf("handle second transcript delta: %v", err)
+	}
+	if secondAppendText != " world" || engine.fullText != "hello world" {
+		t.Fatalf("unexpected second transcript delta append=%q full=%q", secondAppendText, engine.fullText)
+	}
+
+	finalAppendText, err := engine.handleEvent(
+		[]byte(`{"type":"transcript.text.done","event_id":"evt-3","text":"hello world"}`),
+	)
+	if err != nil {
+		t.Fatalf("handle transcript done: %v", err)
+	}
+	if finalAppendText != "" || engine.fullText != "hello world" {
+		t.Fatalf("unexpected transcript done append=%q full=%q", finalAppendText, engine.fullText)
+	}
+}
+
+func TestRealtimeEngineTranscriptTextDoneRepairsNonPrefixDelta(t *testing.T) {
+	t.Parallel()
+
+	engine := &realtimeEngine{
+		processedEventIDs: map[string]struct{}{},
+	}
+
+	appendText, err := engine.handleEvent(
+		[]byte(`{"type":"transcript.text.delta","event_id":"evt-1","delta":"hello wurld"}`),
+	)
+	if err != nil {
+		t.Fatalf("handle transcript delta: %v", err)
+	}
+	if appendText != "hello wurld" || engine.fullText != "hello wurld" {
+		t.Fatalf("unexpected transcript delta append=%q full=%q", appendText, engine.fullText)
+	}
+
+	finalAppendText, err := engine.handleEvent(
+		[]byte(`{"type":"transcript.text.done","event_id":"evt-2","text":"hello world"}`),
+	)
+	if err != nil {
+		t.Fatalf("handle repaired transcript done: %v", err)
+	}
+	if finalAppendText != "" || engine.fullText != "hello world" {
+		t.Fatalf("unexpected repaired transcript done append=%q full=%q", finalAppendText, engine.fullText)
 	}
 }
 
