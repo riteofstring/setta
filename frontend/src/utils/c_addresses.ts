@@ -41,7 +41,7 @@ export class C_ADDRESSES {
     return normalizeOrigin(override, "VITE_BACKEND_ORIGIN");
   }
 
-  // Computed properties that mirror the Python class
+  // Resolve backend and launcher origins from Go-owned bindings plus runtime overrides.
   static get BACKEND_ORIGIN() {
     if (this.DEV_MODE) {
       const sessionOverride = this.DEV_BACKEND_ORIGIN_SESSION_OVERRIDE;
