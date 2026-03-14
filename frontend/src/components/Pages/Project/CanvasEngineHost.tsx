@@ -133,6 +133,11 @@ type SectionPointerSession = {
   moved: boolean;
 };
 
+type PreviewSectionPointerSession = {
+  pointerId: number;
+  kind: "preview-section";
+};
+
 type SelectionOverlayPointerSession = {
   pointerId: number;
   kind: "selection-overlay";
@@ -209,6 +214,7 @@ type DataReconnectPointerSession = {
 type PointerSession =
   | PanePointerSession
   | SectionPointerSession
+  | PreviewSectionPointerSession
   | SelectionOverlayPointerSession
   | ResizePointerSession
   | EdgePointerSession
@@ -263,6 +269,7 @@ const DOM_ISLAND_MIN_SCREEN_WIDTH_PX = 112;
 const DOM_ISLAND_MIN_SCREEN_HEIGHT_PX = 63;
 const RESIZE_HANDLE_HIT_RADIUS_PX = 10;
 const EDGE_HIT_TOLERANCE_PX = 8;
+const SECTION_HIT_TOLERANCE_PX = 6;
 const AGENTIC_HANDLE_HIT_TOLERANCE_WORLD = 12;
 const DATA_HANDLE_HIT_TOLERANCE_WORLD = 10;
 const DATA_EDGE_ENDPOINT_HIT_RADIUS_PX = 12;
@@ -517,7 +524,7 @@ export function CanvasEngineHost() {
     [cachedNestedDataHandlePositions, edgeHandlePositions],
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const patchSummary = sceneAdapter.applyProjectState({
       topLevelSections,
       activeSectionIds,
@@ -1198,9 +1205,23 @@ export function CanvasEngineHost() {
       const sectionId = sceneAdapter.hitTestSectionAtWorldPoint(
         worldPoint.x,
         worldPoint.y,
+        resolveSectionHitToleranceWorld(camera.zoom),
       );
       if (sectionId) {
-        const sectionRect = sceneAdapter.getRectById(sectionId);
+        const sectionRect = sceneAdapter.getResolvedSectionRectById(sectionId);
+        const isTopLevelSection = Object.hasOwn(topLevelSections, sectionId);
+        if (!isTopLevelSection) {
+          applyActiveSectionChange({
+            interaction: "section-click",
+            sectionId,
+          });
+          pointerSessionRef.current = {
+            pointerId: event.pointerId,
+            kind: "preview-section",
+          };
+          event.currentTarget.setPointerCapture(event.pointerId);
+          return;
+        }
         const resizeCapabilities = resolveResizeCapabilities(
           sectionId,
           sectionSizingPolicy,
@@ -1439,6 +1460,9 @@ export function CanvasEngineHost() {
             },
           })),
         );
+        return;
+      }
+      if (pointerSession.kind === "preview-section") {
         return;
       }
       if (pointerSession.kind === "selection-overlay") {
@@ -1829,6 +1853,8 @@ export function CanvasEngineHost() {
             sectionId: pointerSession.sectionId,
           });
         }
+      } else if (pointerSession.kind === "preview-section") {
+        // Cached nested previews are selection-only until they remount as DOM islands.
       } else if (pointerSession.kind === "selection-overlay") {
         selectionOverlayRef.current?.focus({
           preventScroll: true,
@@ -2566,6 +2592,10 @@ function isDomIslandReadableAtCurrentZoom(
 
 function resolveEdgeHitToleranceWorld(zoom: number): number {
   return EDGE_HIT_TOLERANCE_PX / clampZoom(zoom);
+}
+
+function resolveSectionHitToleranceWorld(zoom: number): number {
+  return SECTION_HIT_TOLERANCE_PX / clampZoom(zoom);
 }
 
 function resolveDataEdgeEndpointHitToleranceWorld(zoom: number): number {

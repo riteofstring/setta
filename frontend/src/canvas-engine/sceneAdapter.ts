@@ -353,20 +353,24 @@ export class CanvasEngineSceneAdapter {
   public hitTestSectionAtWorldPoint(
     worldX: number,
     worldY: number,
+    toleranceWorld = 0,
   ): string | null {
-    const candidateIds = this.spatialIndex.queryRect({
-      x: worldX,
-      y: worldY,
-      width: 1,
-      height: 1,
+    const normalizedTolerance = Math.max(0, toleranceWorld);
+    const candidateIds = this.querySectionIdsIntersectingWorldRect({
+      x: worldX - normalizedTolerance,
+      y: worldY - normalizedTolerance,
+      width: normalizedTolerance * 2 + 1,
+      height: normalizedTolerance * 2 + 1,
     });
-    let topmostRect: CanvasEngineRect | null = null;
+    let topmostRect: CanvasEngineResolvedSectionRect | null = null;
     for (const sectionId of candidateIds) {
-      const rect = this.rectById.get(sectionId);
+      const rect = this.resolveSectionRect(sectionId);
       if (!rect) {
         continue;
       }
-      if (!isPointInsideRect(worldX, worldY, rect)) {
+      if (
+        !isPointInsideExpandedRect(worldX, worldY, rect, normalizedTolerance)
+      ) {
         continue;
       }
       if (!topmostRect || isRectAbove(rect, topmostRect)) {
@@ -378,6 +382,16 @@ export class CanvasEngineSceneAdapter {
 
   public getRectById(sectionId: string): CanvasEngineRect | null {
     const rect = this.rectById.get(sectionId);
+    if (!rect) {
+      return null;
+    }
+    return { ...rect };
+  }
+
+  public getResolvedSectionRectById(
+    sectionId: string,
+  ): CanvasEngineResolvedSectionRect | null {
+    const rect = this.resolveSectionRect(sectionId);
     if (!rect) {
       return null;
     }
@@ -1145,7 +1159,9 @@ export class CanvasEngineSceneAdapter {
       y: nestedPreviewRect.y,
       width: nestedPreviewRect.width,
       height: nestedPreviewRect.height,
-      zIndex: this.rectById.get(nestedPreviewRect.parentSectionId)?.zIndex ?? 0,
+      zIndex:
+        (this.rectById.get(nestedPreviewRect.parentSectionId)?.zIndex ?? 0) +
+        0.5,
     };
   }
 
@@ -1424,9 +1440,34 @@ function isPointInsideRect(
   );
 }
 
+function isPointInsideExpandedRect(
+  worldX: number,
+  worldY: number,
+  rect: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  },
+  tolerance: number,
+): boolean {
+  return (
+    worldX >= rect.x - tolerance &&
+    worldX <= rect.x + rect.width + tolerance &&
+    worldY >= rect.y - tolerance &&
+    worldY <= rect.y + rect.height + tolerance
+  );
+}
+
 function isRectAbove(
-  candidate: CanvasEngineRect,
-  current: CanvasEngineRect,
+  candidate: {
+    id: string;
+    zIndex: number;
+  },
+  current: {
+    id: string;
+    zIndex: number;
+  },
 ): boolean {
   if (candidate.zIndex !== current.zIndex) {
     return candidate.zIndex > current.zIndex;

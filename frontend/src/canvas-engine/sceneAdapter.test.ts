@@ -421,6 +421,40 @@ describe("CanvasEngineSceneAdapter", () => {
     ).toEqual(["group", "childA"]);
   });
 
+  it("hit-tests cached nested preview sections above their parent rect", () => {
+    const adapter = new CanvasEngineSceneAdapter();
+    adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          group: createLayout({ x: 0, y: 0, w: 720, h: 520, zIndex: 2 }),
+        },
+        activeSectionIds: [],
+        nestedPreviewRects: [
+          createNestedPreviewRect({
+            id: "childA",
+            parentSectionId: "group",
+            x: 120,
+            y: 160,
+            width: 220,
+            height: 140,
+          }),
+        ],
+        edges: [],
+        agenticEdges: [],
+      }),
+    );
+
+    expect(adapter.hitTestSectionAtWorldPoint(200, 220)).toBe("childA");
+    expect(adapter.getResolvedSectionRectById("childA")).toEqual({
+      id: "childA",
+      x: 120,
+      y: 160,
+      width: 220,
+      height: 140,
+      zIndex: 2.5,
+    });
+  });
+
   it("reports only targeted section updates when one section changes", () => {
     const adapter = new CanvasEngineSceneAdapter();
     const initialInput = createSceneInput({
