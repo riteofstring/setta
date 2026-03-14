@@ -1,9 +1,7 @@
 import type { Connection } from "forks/xyflow/core/types";
+import { makeEdgeHandleKey } from "state/actions/edgeHandles";
 import {
-  getRegisteredEdgeHandlePosition,
-  makeEdgeHandleKey,
-} from "state/actions/edgeHandles";
-import {
+  useEdgeHandleRegistry,
   useProjectState,
   useShareSession,
 } from "state/definitions";
@@ -19,20 +17,23 @@ import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
 } from "./sectionInfos";
+import { STATE_MACHINE_EDGE_HANDLE_IDS } from "./stateMachineEdges";
 
-const agenticHandleIds = new Set<string>([
+const nonDataHandleIds = new Set<string>([
   AGENTIC_EDGE_HANDLE_IDS.source,
   AGENTIC_EDGE_HANDLE_IDS.target,
+  STATE_MACHINE_EDGE_HANDLE_IDS.source,
+  STATE_MACHINE_EDGE_HANDLE_IDS.target,
 ]);
 
 export function isValidDataEdgeConnection(connection: Connection): boolean {
   if (!connection.sourceHandle || !connection.targetHandle) {
     return false;
   }
-  if (agenticHandleIds.has(connection.sourceHandle)) {
+  if (nonDataHandleIds.has(connection.sourceHandle)) {
     return false;
   }
-  if (agenticHandleIds.has(connection.targetHandle)) {
+  if (nonDataHandleIds.has(connection.targetHandle)) {
     return false;
   }
   return true;
@@ -127,6 +128,7 @@ export function createEdgeFromConnection(connection: Connection) {
     return;
   }
 
+  const registryPositions = useEdgeHandleRegistry.getState().positions;
   const sourceKey = makeEdgeHandleKey(
     connection.source,
     connection.sourceHandle,
@@ -137,10 +139,7 @@ export function createEdgeFromConnection(connection: Connection) {
     connection.targetHandle,
     "target",
   );
-  if (
-    !getRegisteredEdgeHandlePosition(sourceKey) ||
-    !getRegisteredEdgeHandlePosition(targetKey)
-  ) {
+  if (!registryPositions[sourceKey] || !registryPositions[targetKey]) {
     return;
   }
 
@@ -183,6 +182,7 @@ export function reconnectEdgeFromConnection(
     return;
   }
 
+  const registryPositions = useEdgeHandleRegistry.getState().positions;
   const sourceKey = makeEdgeHandleKey(
     connection.source,
     connection.sourceHandle,
@@ -193,10 +193,7 @@ export function reconnectEdgeFromConnection(
     connection.targetHandle,
     "target",
   );
-  if (
-    !getRegisteredEdgeHandlePosition(sourceKey) ||
-    !getRegisteredEdgeHandlePosition(targetKey)
-  ) {
+  if (!registryPositions[sourceKey] || !registryPositions[targetKey]) {
     return;
   }
 

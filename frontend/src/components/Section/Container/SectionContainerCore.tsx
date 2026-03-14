@@ -1,3 +1,4 @@
+import { useReactFlow } from "forks/xyflow/core/store";
 import React from "react";
 import {
   getAttachedTerminalParentIdForTerminalSection,
@@ -17,10 +18,12 @@ import { SectionTypeEnum } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
+import { ChatSharedEdgeHandles } from "./ChatSharedEdgeHandles";
 import "./dndline.css";
 import { MinimizedDataEdgeHandles } from "./MinimizedDataEdgeHandles";
 import { getSectionContainerShellClassName } from "./sectionChrome";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
+import { StateMachineEdgeHandles } from "./StateMachineEdgeHandles";
 import { getOnSectionClick, useAiSectionHighlight } from "./utils";
 
 type SectionContainerCoreProps = {
@@ -105,6 +108,9 @@ function _SectionContainerCore({
       ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
       : null;
   const hasSectionStyleTheme = Boolean(sectionStyleTheme);
+  const viewportInteractionActive = useReactFlow(
+    (state) => state.viewportInteractionActive,
+  );
   const sectionStyleVars = sectionStyleTheme
     ? ({
         "--setta-section-style-bg": sectionStyleTheme.bg,
@@ -133,8 +139,29 @@ function _SectionContainerCore({
     aiHighlightClassName,
     scopeHighlightClassName,
   });
-  const shouldRenderAgenticEdgeHandles =
+  const sectionShellStyle = viewportInteractionActive
+    ? ({
+        ...sectionStyleVars,
+        willChange: "transform",
+        transform: "translateZ(0)",
+        backfaceVisibility: "hidden",
+        isolation: "isolate",
+      } as React.CSSProperties)
+    : sectionStyleVars;
+  const shouldRenderSharedChatHandles =
     !hideAgenticEdgeHandles && !isAttachedTerminalChild;
+  const isWorkflowOnlyNodeSection =
+    sectionTypeName === SectionTypeEnum.StateMachineStart ||
+    sectionTypeName === SectionTypeEnum.StateMachineGate ||
+    sectionTypeName === SectionTypeEnum.StateMachineEnd;
+  const shouldRenderChatSharedHandles =
+    shouldRenderSharedChatHandles && sectionTypeName === SectionTypeEnum.Chat;
+  const shouldRenderAgenticEdgeHandles =
+    shouldRenderSharedChatHandles &&
+    !shouldRenderChatSharedHandles &&
+    !isWorkflowOnlyNodeSection;
+  const shouldRenderStateMachineEdgeHandles =
+    shouldRenderSharedChatHandles && isWorkflowOnlyNodeSection;
 
   return (
     <section
@@ -144,12 +171,17 @@ function _SectionContainerCore({
       data-section-id={sectionId}
       data-section-type={sectionTypeName}
       data-section-active={isActiveSection ? "true" : "false"}
-      data-viewport-shell-promotable="true"
-      style={sectionStyleVars}
+      style={sectionShellStyle}
     >
-      {shouldRenderAgenticEdgeHandles && (
+      {shouldRenderChatSharedHandles ? (
+        <ChatSharedEdgeHandles isUserView={isUserView} />
+      ) : null}
+      {shouldRenderAgenticEdgeHandles ? (
         <AgenticEdgeHandles isUserView={isUserView} />
-      )}
+      ) : null}
+      {shouldRenderStateMachineEdgeHandles ? (
+        <StateMachineEdgeHandles isUserView={isUserView} />
+      ) : null}
       <MinimizedDataEdgeHandles sectionId={sectionId} />
       <SectionContainerCoreResizable
         sectionId={sectionId}

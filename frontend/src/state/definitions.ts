@@ -1,5 +1,6 @@
 import { ModalInfoType } from "components/Modals/types";
 import { HandlePosition, HandleType, Node } from "forks/xyflow/core/types";
+import type { ChatSharedEdgeMode } from "state/actions/chatSharedHandleIds";
 import type { AIFollowMode } from "state/types/aiFollow";
 import type { AppGenerationMode } from "state/types/appGenerationMode";
 import {
@@ -722,7 +723,6 @@ type EdgeHandlePosition = {
 type ZustandEdgeHandleRegistry = {
   handles: Record<string, EdgeHandleRecord>;
   positions: Record<string, EdgeHandlePosition>;
-  cachedPositions: Record<string, EdgeHandlePosition>;
 };
 
 export const useEdgeHandleRegistry = withProjectState(
@@ -731,7 +731,6 @@ export const useEdgeHandleRegistry = withProjectState(
       withResetFn<ZustandEdgeHandleRegistry>(() => ({
         handles: {},
         positions: {},
-        cachedPositions: {},
       })),
     ),
   ),
@@ -1094,11 +1093,10 @@ type ZustandLocalStorage = {
   snapToGrid: boolean;
   showAgenticEdges: boolean;
   showArgEdges: boolean;
+  chatSharedEdgeMode: ChatSharedEdgeMode;
   darkMode: boolean;
   colorMode: ColorModePreference;
   showMinimap: boolean;
-  useCanvasEngineV1: boolean;
-  useCanvasEngineAlwaysLiveDom: boolean;
   minimapSide: MiniMapSide;
   projectConfigPreviewEnabled: boolean;
   appSpecStreamingEnabled: boolean;
@@ -1172,11 +1170,10 @@ export const useLocalStorage = createWithEqualityFn(
       snapToGrid: true,
       showAgenticEdges: true,
       showArgEdges: true,
+      chatSharedEdgeMode: "agentic",
       darkMode: true,
       colorMode: "dark",
       showMinimap: true,
-      useCanvasEngineV1: false,
-      useCanvasEngineAlwaysLiveDom: false,
       minimapSide: "left",
       projectConfigPreviewEnabled: true,
       appSpecStreamingEnabled: false,
@@ -1243,14 +1240,14 @@ export const useLocalStorage = createWithEqualityFn(
         ) {
           merged.homeProjectGalleryViewMode = "thumbnails";
         }
+        if (
+          merged.chatSharedEdgeMode !== "agentic" &&
+          merged.chatSharedEdgeMode !== "workflow"
+        ) {
+          merged.chatSharedEdgeMode = "agentic";
+        }
         if (!Array.isArray(merged.favoriteProjectConfigIds)) {
           merged.favoriteProjectConfigIds = [];
-        }
-        if (typeof merged.useCanvasEngineV1 !== "boolean") {
-          merged.useCanvasEngineV1 = false;
-        }
-        if (typeof merged.useCanvasEngineAlwaysLiveDom !== "boolean") {
-          merged.useCanvasEngineAlwaysLiveDom = false;
         }
         if (!Array.isArray(merged.overviewProjectConfigOrder)) {
           merged.overviewProjectConfigOrder = [];
@@ -1345,11 +1342,10 @@ export const useLocalStorage = createWithEqualityFn(
         snapToGrid: state.snapToGrid,
         showAgenticEdges: state.showAgenticEdges,
         showArgEdges: state.showArgEdges,
+        chatSharedEdgeMode: state.chatSharedEdgeMode,
         darkMode: state.darkMode,
         colorMode: state.colorMode,
         showMinimap: state.showMinimap,
-        useCanvasEngineV1: state.useCanvasEngineV1,
-        useCanvasEngineAlwaysLiveDom: state.useCanvasEngineAlwaysLiveDom,
         projectConfigPreviewEnabled: state.projectConfigPreviewEnabled,
         appSpecStreamingEnabled: state.appSpecStreamingEnabled,
         homeProjectGalleryViewMode: state.homeProjectGalleryViewMode,

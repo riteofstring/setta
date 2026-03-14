@@ -2502,7 +2502,7 @@ export async function submitMessage(
       searchEnabled: resolvedExecutionSettings.searchEnabled,
     });
     if (res200(res)) {
-      const returnedChatId = res.data ?? chatId ?? null;
+      const returnedChatId = res.data.chatId;
       if (returnedChatId) {
         refreshAgentRunsAfterSubmit();
         if (isExternalEngine) {
@@ -2656,7 +2656,7 @@ export async function submitEditedMessage({
       }
       return null;
     }
-    const returnedChatId = res.data ?? null;
+    const returnedChatId = res.data.chatId;
     if (returnedChatId) {
       refreshAgentRunsAfterSubmit();
       if (isExternalEngine) {

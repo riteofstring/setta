@@ -6,8 +6,10 @@ import {
 } from "utils/constants";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  setChatSharedEdgeMode,
   setColorModePreference,
   setOverviewProjectConfigOrder,
+  toggleChatSharedEdgeMode,
 } from "./localStorage";
 
 describe("setColorModePreference", () => {
@@ -31,6 +33,26 @@ describe("setColorModePreference", () => {
     const state = useLocalStorage.getState();
     expect(state.colorMode).toBe("auto");
     expect(state.darkMode).toBe(false);
+  });
+});
+
+describe("shared chat edge mode", () => {
+  beforeEach(() => {
+    useLocalStorage.setState({ chatSharedEdgeMode: "agentic" });
+  });
+
+  it("sets the shared chat edge mode explicitly", () => {
+    setChatSharedEdgeMode("workflow");
+
+    expect(useLocalStorage.getState().chatSharedEdgeMode).toBe("workflow");
+  });
+
+  it("toggles between agentic and workflow", () => {
+    toggleChatSharedEdgeMode();
+    expect(useLocalStorage.getState().chatSharedEdgeMode).toBe("workflow");
+
+    toggleChatSharedEdgeMode();
+    expect(useLocalStorage.getState().chatSharedEdgeMode).toBe("agentic");
   });
 });
 
@@ -59,28 +81,16 @@ describe("local storage merge", () => {
     expect(merged.colorMode).toBe("auto");
   });
 
-  it("falls back useCanvasEngineV1 to false when persisted value is invalid", () => {
+  it("sanitizes invalid persisted shared chat edge modes", () => {
     const merge = useLocalStorage.persist.getOptions().merge;
     const current = useLocalStorage.getState();
 
     const merged = merge(
-      { useCanvasEngineV1: "enabled" } as Record<string, unknown>,
+      { chatSharedEdgeMode: "unknown" } as Record<string, unknown>,
       current,
     ) as typeof current;
 
-    expect(merged.useCanvasEngineV1).toBe(false);
-  });
-
-  it("falls back useCanvasEngineAlwaysLiveDom to false when persisted value is invalid", () => {
-    const merge = useLocalStorage.persist.getOptions().merge;
-    const current = useLocalStorage.getState();
-
-    const merged = merge(
-      { useCanvasEngineAlwaysLiveDom: "enabled" } as Record<string, unknown>,
-      current,
-    ) as typeof current;
-
-    expect(merged.useCanvasEngineAlwaysLiveDom).toBe(false);
+    expect(merged.chatSharedEdgeMode).toBe("agentic");
   });
 
   it("sanitizes invalid persisted overviewTab values", () => {
