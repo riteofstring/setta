@@ -1,29 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-type TypewriterOptions = {
-  typingSpeed?: number;
-  baseMaxCharsPerFrame?: number;
-  maxCharsPerFrameCap?: number;
-};
-
 export const useTypewriterEffect = (
   fullText: string,
   isStreaming = false,
-  typingSpeedOrOptions: number | TypewriterOptions = 5,
+  typingSpeed = 5,
 ) => {
-  const resolvedOptions: TypewriterOptions =
-    typeof typingSpeedOrOptions === "number"
-      ? { typingSpeed: typingSpeedOrOptions }
-      : typingSpeedOrOptions;
-  const baseMaxCharsPerFrame = Math.max(
-    1,
-    resolvedOptions.baseMaxCharsPerFrame ?? 2,
-  );
-  const maxCharsPerFrameCap = Math.max(
-    baseMaxCharsPerFrame,
-    resolvedOptions.maxCharsPerFrameCap ?? 10,
-  );
-  const typingSpeed = Math.max(1, resolvedOptions.typingSpeed ?? 5);
+  const baseMaxCharsPerFrame = 2;
+  const maxCharsPerFrameCap = 10;
   const [displayedText, setDisplayedText] = useState(fullText || "");
   const targetTextRef = useRef(fullText || "");
   const displayedLengthRef = useRef(fullText ? fullText.length : 0);
