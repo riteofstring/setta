@@ -379,3 +379,12 @@ Append-only log for autonomous frontend cleanup slices.
 - Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
 - Commit hash: `889d2e489`
 - Next highest-value unblocked slice: either finish the Home page by extracting the remaining top-level workspace header/actions and metadata bootstrap/model orchestration, or move to the next planned `pages and shell` domain and refactor the standalone page loader/guard flow under `frontend/src/components/Pages/Project`
+
+## 2026-03-12 15:51 PDT
+
+- What changed: Extracted standalone route-target/path/title/error helpers from `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx` into `frontend/src/components/Pages/Project/standaloneProjectSurfaceRouting.ts`. The new module now owns standalone project chat path building, route target resolution across project chat / section / window-space routes, document-title derivation, supported blocked-error normalization, and standalone surface owner-key generation. Added focused Vitest coverage for the new owner, refreshed the frontend module map, and reduced `StandaloneProjectSurfacePage.tsx` to 474 lines.
+- Key files touched: `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx`, `frontend/src/components/Pages/Project/standaloneProjectSurfaceRouting.ts`, `frontend/src/components/Pages/Project/standaloneProjectSurfaceRouting.test.ts`, `docs/reference/frontend-module-map.md`
+- Tests/verification run: `pnpm -C frontend exec vitest run src/components/Pages/Project/standaloneProjectSurfaceRouting.test.ts src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx`; `pnpm -C frontend exec prettier --check src/components/Pages/Project/StandaloneProjectSurfacePage.tsx src/components/Pages/Project/standaloneProjectSurfaceRouting.ts src/components/Pages/Project/standaloneProjectSurfaceRouting.test.ts ../docs/reference/frontend-module-map.md`; `git diff --check`
+- Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
+- Commit hash: `473ff9c08`
+- Next highest-value unblocked slice: continue splitting `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx` by moving the standalone managed-chat authority/error-state logic and page-level render branching into a feature-local controller or view-model module
