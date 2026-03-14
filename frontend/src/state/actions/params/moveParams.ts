@@ -8,6 +8,10 @@ import {
   resolveFullIndexForVisibleInsertion,
 } from "state/actions/params/paramTree";
 import {
+  toggleParamSelected,
+  unselectAllParams,
+} from "state/actions/projectStateCommands";
+import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImpl,
@@ -16,8 +20,6 @@ import {
   getCurrSectionVariantId,
   getCurrShownParamIds,
   setCurrEffectiveCodeObjImplValue,
-  toggleParamSelected,
-  unselectAllParams,
 } from "state/actions/sectionInfos";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 import type { ZustandProjectState } from "state/definitions";

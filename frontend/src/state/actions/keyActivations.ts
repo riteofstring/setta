@@ -66,13 +66,13 @@ import {
   openFileMenuSaveProjectConfigAsModal,
 } from "./modal";
 import { saveProject } from "./project/saveProject";
-import { runEntryCodeBlock } from "./runOrImportCode";
 import {
   deleteAllActiveSections,
   groupActiveSections,
   ungroupActiveGroups,
   unselectAllParams,
-} from "./sectionInfos";
+} from "./projectStateCommands";
+import { runEntryCodeBlock } from "./runOrImportCode";
 import {
   addCallableSectionInEmptySpace,
   addGroupInEmptySpace,

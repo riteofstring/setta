@@ -15,8 +15,8 @@ import {
   getNodeUpdateInformation,
   updateNodeDimensions,
 } from "./actions/nodeInternals";
+import { debouncedDispatchViewportUpdate } from "./actions/projectStateCommands";
 import {
-  debouncedDispatchViewportUpdate,
   getActiveViewModeTopLevelSections,
   getCurrEffectiveSectionImpl,
   getDisplayedSectionIdToChildren,

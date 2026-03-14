@@ -12,10 +12,10 @@ import {
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import React, { useCallback } from "react";
+import { toggleParamSelected } from "state/actions/projectStateCommands";
 import {
   getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplWithTypeGuard,
-  toggleParamSelected,
 } from "state/actions/sectionInfos";
 import { useMisc, useProjectState } from "state/definitions";
 import { createProjectSearchLookupKey } from "state/hooks/search";

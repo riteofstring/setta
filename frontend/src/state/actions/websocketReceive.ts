@@ -83,11 +83,9 @@ import {
   fetchListenerCoverageSnapshot,
   getListenerCoverageRecord,
 } from "./listenerCoverage";
+import { updateAllProjectMetadata } from "./projectStateCommands";
 import { handleRenameRefactorBroadcast } from "./renameRefactors";
-import {
-  getCurrProjectConfigId,
-  updateAllProjectMetadata,
-} from "./sectionInfos";
+import { getCurrProjectConfigId } from "./sectionInfos";
 import { processProjectStateUpdateFromBackend } from "./sectionProjectStateSync";
 import { updateSettings } from "./settings";
 import {

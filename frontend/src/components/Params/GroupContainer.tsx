@@ -13,11 +13,11 @@ import {
   createEdgeFromConnection,
   isValidDataEdgeConnection,
 } from "state/actions/edges";
+import { toggleParamSelected } from "state/actions/projectStateCommands";
 import {
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrShownParamIds,
   getParamDisplayName,
-  toggleParamSelected,
 } from "state/actions/sectionInfos";
 import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
 import { useProjectState, useResizeEvent } from "state/definitions";
