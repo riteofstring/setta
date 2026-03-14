@@ -2,11 +2,8 @@ import {
   buildProjectChatEphemeralWindowInstanceKey,
   getTrackedGitPaneGraphWindowInstanceIdForProject,
 } from "state/actions/projectChatWindowingEphemeral";
-import {
-  useAllProjectMetadata,
-  useMisc,
-  useProjectState,
-} from "state/definitions";
+import { useAllProjectMetadata, useProjectState } from "state/definitions";
+import { useMisc } from "state/stores/ephemeralUiStores";
 import { resetProjectStores } from "state/utils";
 import {
   ChatWindowModeEnum,

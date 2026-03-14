@@ -3,8 +3,8 @@ import {
   CustomRunItem,
   useLocalStorage,
   useProjectState,
-  useRunControl,
 } from "state/definitions";
+import { useRunControl } from "state/stores/runtimeStores";
 import { createNewId } from "utils/idNameCreation";
 import { triggerListenerForceRefresh } from "./listeners";
 import { runCodeBlock } from "./runOrImportCode";

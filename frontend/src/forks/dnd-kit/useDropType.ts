@@ -31,11 +31,8 @@ import {
 } from "state/actions/sections/sectionSelection";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
-import {
-  useProjectState,
-  useSectionRefs,
-  useShareSession,
-} from "state/definitions";
+import { useProjectState, useShareSession } from "state/definitions";
+import { useSectionRefs } from "state/stores/authoringStores";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import type { DragMoveEvent, DragOverEvent, DragStartEvent } from "./adapter";
 import { computeNewIndex } from "./adapter";

@@ -15,7 +15,7 @@ import {
   startTranscriptionSession,
   stopTranscriptionSession,
   transcribeChatAudioWithProfile,
-} from "./ai";
+} from "./ai/transcription";
 import { addTemporaryNotification } from "./notifications";
 
 vi.mock("utils/generatedEndpoints", async () => {
