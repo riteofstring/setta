@@ -1907,6 +1907,80 @@ func TestFrontendRawOriginAddressUsageLivesInBoundaryUtilities(t *testing.T) {
 	}
 }
 
+func TestFrontendLauncherBootstrapOriginImportStaysInSharedHelper(t *testing.T) {
+	t.Helper()
+
+	repoRoot := testRepoRoot(t)
+	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
+	allowedImports := map[string]map[string]struct{}{
+		"frontend/src/utils/launcherBootstrapUrl.ts": {
+			"appendLauncherOriginToBootstrapUrlFragment": {},
+		},
+	}
+	importPattern := regexp.MustCompile(`(?s)import\s*\{([^}]*)\}\s*from\s*["'](?:\./launcherOrigin|utils/launcherOrigin)["']`)
+
+	err := filepath.WalkDir(frontendSrcRoot, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+
+		base := entry.Name()
+		if !(strings.HasSuffix(base, ".ts") || strings.HasSuffix(base, ".tsx")) {
+			return nil
+		}
+		if strings.Contains(base, ".test.") || strings.Contains(base, ".spec.") {
+			return nil
+		}
+
+		relativePath, err := filepath.Rel(repoRoot, path)
+		if err != nil {
+			return err
+		}
+		relativePath = filepath.ToSlash(relativePath)
+
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		source := string(contents)
+		for _, match := range importPattern.FindAllStringSubmatch(source, -1) {
+			for _, rawSpecifier := range strings.Split(match[1], ",") {
+				specifier := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(rawSpecifier), "type "))
+				if specifier == "" {
+					continue
+				}
+				bindingName := strings.Fields(specifier)[0]
+				if bindingName != "appendLauncherOriginToBootstrapUrlFragment" {
+					continue
+				}
+				allowedBindings, allowedPath := allowedImports[relativePath]
+				if allowedPath {
+					if _, allowedBinding := allowedBindings[bindingName]; allowedBinding {
+						continue
+					}
+					return fmt.Errorf(
+						"%s imports launcher-origin bootstrap helper %q outside the allowed boundary surface for that file",
+						relativePath,
+						bindingName,
+					)
+				}
+				return fmt.Errorf(
+					"%s imports launcher-origin bootstrap helper %q outside the shared launcher bootstrap helper boundary",
+					relativePath,
+					bindingName,
+				)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("scan frontend launcher bootstrap origin imports: %v", err)
+	}
+}
+
 func readBareHTTPRouteIdentifiers(t *testing.T, path string) []string {
 	t.Helper()
 

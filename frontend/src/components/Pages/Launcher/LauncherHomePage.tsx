@@ -67,10 +67,6 @@ function formatRecentTimestamp(lastUsedAt: number): string {
   return date.toLocaleString();
 }
 
-function resolveBootstrapUrl(bootstrapUrlFragment: string): string {
-  return resolveLauncherBootstrapUrl(bootstrapUrlFragment);
-}
-
 type LauncherContext = {
   settaHome: string | null;
 };
@@ -343,7 +339,7 @@ export function LauncherHomePage() {
     }
 
     window.location.assign(
-      resolveBootstrapUrl(response.data.bootstrapUrlFragment),
+      resolveLauncherBootstrapUrl(response.data.bootstrapUrlFragment),
     );
   }
 
