@@ -43,31 +43,32 @@ import { RiChatNewFill } from "react-icons/ri";
 import { RxDragHandleDots2 } from "react-icons/rx";
 import { TbFolder, TbFolderOpen } from "react-icons/tb";
 import { getRunInputString } from "state/actions/agentRunUtils";
-import { loadAgentRuns } from "state/actions/ai";
+import { loadAgentRuns } from "state/actions/aiAgentRuns";
 import {
   buildChatHistoryEntries,
   type ChatRunType,
 } from "state/actions/chatHistory";
 import {
-  canUndoLastProjectChatThreadStorageMutation,
   createProjectChatThreadGroup,
-  deleteProjectChatThread,
   deleteProjectChatThreadGroup,
-  markProjectChatThreadViewed,
   renameProjectChatThreadGroup,
   reorderProjectChatThreadGroups,
-  reorderProjectChatThreads,
   setProjectChatThreadGroupAssignment,
   toggleProjectChatThreadGroupCollapsed,
   toggleProjectChatThreadGroupPinned,
-  toggleProjectChatThreadPinned,
-  undoLastProjectChatThreadStorageMutation,
-} from "state/actions/projectChatThreads";
+} from "state/actions/projectChatThreadGroupMutations";
 import {
-  useAIStore,
-  useLocalStorage,
-  useProjectState,
-} from "state/definitions";
+  deleteProjectChatThread,
+  markProjectChatThreadViewed,
+  reorderProjectChatThreads,
+  toggleProjectChatThreadPinned,
+} from "state/actions/projectChatThreadMutations";
+import {
+  canUndoLastProjectChatThreadStorageMutation,
+  undoLastProjectChatThreadStorageMutation,
+} from "state/actions/projectChatThreadStorageUndo";
+import { useAIStore, useProjectState } from "state/definitions";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import {
   buildSearchableTextForMessages,
   countConversationSearchTextMatches,
