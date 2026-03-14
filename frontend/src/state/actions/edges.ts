@@ -1,9 +1,7 @@
 import type { Connection } from "forks/xyflow/core/types";
+import { makeEdgeHandleKey } from "state/actions/edgeHandles";
 import {
-  getRegisteredEdgeHandlePosition,
-  makeEdgeHandleKey,
-} from "state/actions/edgeHandles";
-import {
+  useEdgeHandleRegistry,
   useProjectState,
   useShareSession,
 } from "state/definitions";
@@ -127,6 +125,7 @@ export function createEdgeFromConnection(connection: Connection) {
     return;
   }
 
+  const registryPositions = useEdgeHandleRegistry.getState().positions;
   const sourceKey = makeEdgeHandleKey(
     connection.source,
     connection.sourceHandle,
@@ -137,10 +136,7 @@ export function createEdgeFromConnection(connection: Connection) {
     connection.targetHandle,
     "target",
   );
-  if (
-    !getRegisteredEdgeHandlePosition(sourceKey) ||
-    !getRegisteredEdgeHandlePosition(targetKey)
-  ) {
+  if (!registryPositions[sourceKey] || !registryPositions[targetKey]) {
     return;
   }
 
@@ -183,6 +179,7 @@ export function reconnectEdgeFromConnection(
     return;
   }
 
+  const registryPositions = useEdgeHandleRegistry.getState().positions;
   const sourceKey = makeEdgeHandleKey(
     connection.source,
     connection.sourceHandle,
@@ -193,10 +190,7 @@ export function reconnectEdgeFromConnection(
     connection.targetHandle,
     "target",
   );
-  if (
-    !getRegisteredEdgeHandlePosition(sourceKey) ||
-    !getRegisteredEdgeHandlePosition(targetKey)
-  ) {
+  if (!registryPositions[sourceKey] || !registryPositions[targetKey]) {
     return;
   }
 
