@@ -7,7 +7,6 @@ import {
 } from "components/Chat/chatComposerControls";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
-import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import {
   type PointerEvent as ReactPointerEvent,
   useCallback,
@@ -26,7 +25,6 @@ import {
   useAIStore,
   useLocalStorage,
 } from "state/definitions";
-import type { AppGenerationMode } from "state/types/appGenerationMode";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_get_app_gen_skill_content,
@@ -108,31 +106,11 @@ type SkillMarkdownDraftStateEntry = {
 type CustomSlashCommandDraft = {
   command: string;
   prompt: string;
-  appGenerationMode?: AppGenerationMode | null;
 };
 const EMPTY_CUSTOM_SLASH_COMMAND_DRAFT: CustomSlashCommandDraft = {
   command: "",
   prompt: "",
-  appGenerationMode: null,
 };
-
-const CUSTOM_SLASH_COMMAND_MODE_ITEMS = [
-  { id: "plain_chat", name: "Plain chat" },
-  { id: "json_render", name: "JSON Render" },
-  { id: "json_render_with_image", name: "Image to JSON Render" },
-  { id: "prompt_builder", name: "Prompt Builder" },
-  { id: "mcp_server", name: "MCP Server" },
-] as const;
-
-function getCustomSlashCommandModeLabel(
-  mode: AppGenerationMode | null,
-): string | null {
-  const resolvedId = mode ?? "plain_chat";
-  return (
-    CUSTOM_SLASH_COMMAND_MODE_ITEMS.find((item) => item.id === resolvedId)
-      ?.name ?? null
-  );
-}
 
 type ResolveSkillMarkdownRawDraftBySkillIdHydrationInput = {
   skillMarkdownDraftStateBySkillId: Record<
@@ -1179,8 +1157,6 @@ export function ProjectChatSkillsMcpViewer({
     EMPTY_CUSTOM_SLASH_COMMAND_DRAFT;
   const newCustomSlashCommand = currentCustomSlashDraft.command;
   const newCustomSlashPrompt = currentCustomSlashDraft.prompt;
-  const newCustomSlashAppGenerationMode =
-    currentCustomSlashDraft.appGenerationMode;
   const setNewCustomSlashCommand = useCallback(
     (nextCommand: string) => {
       setCustomSlashDraftByProjectConfigId((current) => {
@@ -1210,31 +1186,6 @@ export function ProjectChatSkillsMcpViewer({
           nextDraft: {
             ...currentDraft,
             prompt: nextPrompt,
-          },
-        });
-        return next ?? current;
-      });
-    },
-    [projectConfigId],
-  );
-  const setNewCustomSlashAppGenerationMode = useCallback(
-    (nextMode: string | null) => {
-      setCustomSlashDraftByProjectConfigId((current) => {
-        const currentDraft =
-          current[projectConfigId] ?? EMPTY_CUSTOM_SLASH_COMMAND_DRAFT;
-        const resolvedMode =
-          nextMode === "json_render" ||
-          nextMode === "json_render_with_image" ||
-          nextMode === "prompt_builder" ||
-          nextMode === "mcp_server"
-            ? nextMode
-            : null;
-        const next = resolveCustomSlashDraftByProjectConfigIdUpdate({
-          customSlashDraftByProjectConfigId: current,
-          projectConfigId,
-          nextDraft: {
-            ...currentDraft,
-            appGenerationMode: resolvedMode,
           },
         });
         return next ?? current;
@@ -1470,7 +1421,6 @@ export function ProjectChatSkillsMcpViewer({
             {
               command: normalizedCommand,
               prompt: trimmedPrompt,
-              appGenerationMode: newCustomSlashAppGenerationMode,
             },
           ],
         },
@@ -1487,7 +1437,6 @@ export function ProjectChatSkillsMcpViewer({
     addTemporaryNotification(`Added ${normalizedCommand}.`);
   }, [
     customSlashCommandTokens,
-    newCustomSlashAppGenerationMode,
     newCustomSlashCommand,
     newCustomSlashPrompt,
     projectConfigId,
@@ -2252,23 +2201,6 @@ export function ProjectChatSkillsMcpViewer({
                 className="w-full rounded border border-setta-300 bg-transparent px-2 py-1 text-[11px] text-setta-700 outline-none transition-colors focus:border-blue-500 dark:border-setta-700 dark:text-setta-100 dark:focus:border-blue-400"
                 data-testid="project-chat-custom-slash-command-input"
               />
-              <IdNameCombobox
-                allItems={[
-                  {
-                    groupName: "Submission mode",
-                    items: CUSTOM_SLASH_COMMAND_MODE_ITEMS.map((item) => ({
-                      id: item.id,
-                      name: item.name,
-                    })),
-                  },
-                ]}
-                value={newCustomSlashAppGenerationMode ?? "plain_chat"}
-                small={false}
-                onSelectedItemChange={setNewCustomSlashAppGenerationMode}
-                placeholder="Select a submission mode"
-                outerDivClasses="w-full"
-                inputDivId="project-chat-custom-slash-mode-input"
-              />
               <textarea
                 value={newCustomSlashPrompt}
                 onChange={(event) =>
@@ -2314,15 +2246,6 @@ export function ProjectChatSkillsMcpViewer({
                         <div className="min-w-0 break-words text-[10px] text-setta-600 dark:text-setta-300">
                           {command.promptTemplate}
                         </div>
-                        {command.appGenerationMode ? (
-                          <div className="mt-0.5 text-[10px] text-setta-500 dark:text-setta-400">
-                            Submits as{" "}
-                            {getCustomSlashCommandModeLabel(
-                              command.appGenerationMode,
-                            )}
-                            .
-                          </div>
-                        ) : null}
                         {hasCollision ? (
                           <div
                             className="mt-0.5 text-[10px] text-amber-700 dark:text-amber-300"

@@ -111,12 +111,7 @@ describe("chat hydration waitingForResponse", () => {
     route_get_llm_chat.mockResolvedValue({
       status: 200,
       hasResponse: true,
-      data: {
-        messages: [],
-        waitingForResponse: false,
-        llmConfig: null,
-        appGenerationByMessageId: {},
-      },
+      data: { messages: [], waitingForResponse: false, llmConfig: null },
     });
 
     await getLLMChat(chatId);
@@ -141,12 +136,7 @@ describe("chat hydration waitingForResponse", () => {
     route_get_llm_chat.mockResolvedValue({
       status: 200,
       hasResponse: true,
-      data: {
-        messages: [],
-        waitingForResponse: false,
-        llmConfig: null,
-        appGenerationByMessageId: {},
-      },
+      data: { messages: [], waitingForResponse: false, llmConfig: null },
     });
 
     await getLLMChat(chatId);
@@ -198,7 +188,6 @@ describe("chat hydration waitingForResponse", () => {
         ],
         waitingForResponse: false,
         llmConfig: null,
-        appGenerationByMessageId: {},
       },
     });
 
@@ -216,45 +205,6 @@ describe("chat hydration waitingForResponse", () => {
     if (assistant?.content?.[0]?.type === "text") {
       expect(assistant.content[0].text).toBe("Hello there streaming");
     }
-  });
-
-  it("hydrates app-generation provenance with the chat response", async () => {
-    const route_get_llm_chat = (await import("utils/generatedEndpoints"))
-      .route_get_llm_chat as unknown as vi.Mock;
-    route_get_llm_chat.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: {
-        messages: [
-          {
-            id: "user-app-1",
-            role: ChatRoleEnum.user,
-            content: [createMessageTextContent({ text: "Build from MCP." })],
-            attachments: [],
-          },
-        ],
-        waitingForResponse: false,
-        llmConfig: null,
-        appGenerationByMessageId: {
-          "user-app-1": "mcp_server",
-        },
-      },
-    });
-
-    await getLLMChat(chatId);
-
-    expect(
-      useAIStore.getState().chatAppGenerationDetailsByChatId[chatId],
-    ).toEqual({
-      activeAppGeneration: {
-        mode: "mcp_server",
-      },
-      appGenerationByMessageId: {
-        "user-app-1": {
-          mode: "mcp_server",
-        },
-      },
-    });
   });
 
   it("drops local-only messages after hydrate when no stream is active", async () => {
@@ -294,7 +244,6 @@ describe("chat hydration waitingForResponse", () => {
         ],
         waitingForResponse: false,
         llmConfig: null,
-        appGenerationByMessageId: {},
       },
     });
 
@@ -344,7 +293,6 @@ describe("chat hydration waitingForResponse", () => {
         ],
         waitingForResponse: false,
         llmConfig: null,
-        appGenerationByMessageId: {},
       },
     });
 
