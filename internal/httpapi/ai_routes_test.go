@@ -1261,6 +1261,124 @@ func TestRegisterAIRoutesRunsRealtimeTranscriptionSession(t *testing.T) {
 	}
 }
 
+func TestRegisterAIRoutesAcceptsTranscriptionSessionUpdatedAck(t *testing.T) {
+	t.Parallel()
+
+	closed := make(chan error, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close(websocket.StatusNormalClosure, "")
+
+		if _, err := readAIRouteRealtimeProviderMessage(context.Background(), conn); err != nil {
+			return
+		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"transcription_session.updated","event_id":"evt-ready"}`)); err != nil {
+			return
+		}
+		_, _, err = conn.Read(context.Background())
+		closed <- err
+	}))
+	defer server.Close()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	if err := fixture.llm.UpdateConfig(llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"openai-realtime": {
+				ID:        "openai-realtime",
+				Model:     "gpt-4o-mini-transcribe",
+				Provider:  "openai",
+				BaseURL:   server.URL + "/v1",
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	}); err != nil {
+		t.Fatalf("update llm config: %v", err)
+	}
+	fixture.llm.UpdateAPIKeys(map[string]string{
+		"OPENAI_API_KEY": "route-secret",
+	})
+	if err := fixture.transcriptionStore.Write([]transcriptionprofiles.Profile{
+		{
+			ID:                            "profile-realtime",
+			Name:                          "Realtime",
+			TranscriptionLLMConfigID:      "openai-realtime",
+			TransportMode:                 transcriptionprofiles.TransportModeRealtime,
+			ChunkMs:                       1200,
+			SupportsRealtimeTranscription: true,
+		},
+	}); err != nil {
+		t.Fatalf("write transcription profile: %v", err)
+	}
+
+	handler := newAIRouteTestHandlerWithTranscription(
+		t,
+		config.ModeIDE,
+		fixture.managed,
+		fixture.send,
+		fixture.service,
+		fixture.runtime,
+		fixture.transcriptionProfiles,
+		fixture.transcriptionSessions,
+		fixture.sessions,
+		fixture.follow,
+	)
+
+	startRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteStartTranscriptionSession,
+		strings.NewReader(`{"transcriptionProfileId":"profile-realtime"}`),
+	)
+	startRequest.Header.Set("Content-Type", "application/json")
+	startResponse := httptest.NewRecorder()
+
+	handler.ServeHTTP(startResponse, startRequest)
+
+	if startResponse.Code != http.StatusOK {
+		t.Fatalf("expected start 200, got %d with body %q", startResponse.Code, startResponse.Body.String())
+	}
+	var started StartTranscriptionSessionResponse
+	if err := json.Unmarshal(startResponse.Body.Bytes(), &started); err != nil {
+		t.Fatalf("decode start response: %v", err)
+	}
+	if started.ResolvedTransportMode != transcriptionsessions.ResolvedTransportModeRealtime || started.ChunkMs != 1200 {
+		t.Fatalf("unexpected start payload %#v", started)
+	}
+
+	cancelRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteCancelTranscriptionSession,
+		strings.NewReader(`{"sessionId":"`+started.SessionID+`"}`),
+	)
+	cancelRequest.Header.Set("Content-Type", "application/json")
+	cancelResponse := httptest.NewRecorder()
+
+	handler.ServeHTTP(cancelResponse, cancelRequest)
+
+	if cancelResponse.Code != http.StatusOK {
+		t.Fatalf("expected cancel 200, got %d with body %q", cancelResponse.Code, cancelResponse.Body.String())
+	}
+	var payload CancelTranscriptionSessionResponse
+	if err := json.Unmarshal(cancelResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode cancel response: %v", err)
+	}
+	if !payload.OK {
+		t.Fatalf("expected ok cancel response, got %#v", payload)
+	}
+
+	select {
+	case err := <-closed:
+		if websocket.CloseStatus(err) != websocket.StatusNormalClosure {
+			t.Fatalf("expected normal websocket close, got %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for realtime cancel close")
+	}
+}
+
 func TestRegisterAIRoutesUsesCommittedOrderingForOutOfOrderRealtimeTurns(t *testing.T) {
 	t.Parallel()
 
