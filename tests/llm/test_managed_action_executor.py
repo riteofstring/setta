@@ -358,7 +358,6 @@ class TestManagedActionExecutor:
                     project_config_id=project_config_id,
                     chat_id=ID("chat-1"),
                     section_id=ID("section-1"),
-                    run_id=ID("run-1"),
                     frontend_affinity_token="frontend-1",
                 ),
             )
@@ -374,7 +373,6 @@ class TestManagedActionExecutor:
                     "projectConfigId": "project-1",
                     "chatId": "chat-1",
                     "sectionId": "section-1",
-                    "runId": "run-1",
                     "frontendAffinityToken": "frontend-1",
                 }
             ]
@@ -440,7 +438,6 @@ class TestManagedActionExecutor:
                     project_config_id=project_config_id,
                     chat_id=ID("chat-1"),
                     section_id=ID("section-1"),
-                    run_id=ID("run-1"),
                     frontend_affinity_token="frontend-1",
                 ),
             )
@@ -456,7 +453,6 @@ class TestManagedActionExecutor:
                     "projectConfigId": "project-1",
                     "chatId": "chat-1",
                     "sectionId": "section-1",
-                    "runId": "run-1",
                     "frontendAffinityToken": "frontend-1",
                     "shareSessionId": "share-session-1",
                 }

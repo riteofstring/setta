@@ -5,8 +5,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from setta.database.utils import create_new_id
-
 # Section type imports
 from setta.types.artifact import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
 
@@ -45,8 +43,6 @@ from setta.types.section_impls import (
     SectionSize,
     SectionType,
     SpreadsheetGridDensity,
-    StateMachineGateType,
-    StateMachineGateUiState,
     TaskBoardColumn,
     TaskBoardTask,
     TaskBoardViewMode,
@@ -115,37 +111,6 @@ class UserDefaultGroupSectionImpl(UserDefaultBaseParentSectionImpl, extra="forbi
     isHorizontalOrientation: bool = False
     overflowMode: bool = False
     defaultChildSectionType: SectionType = SectionType.Callable
-
-
-class UserDefaultStateMachineStartSectionImpl(
-    UserDefaultBaseSectionImpl, extra="forbid"
-):
-    size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=240.0, height=96.0)
-    )
-    machineGroupId: str = Field(default_factory=create_new_id)
-    label: str = "Start"
-    maxIterations: int | None = None
-
-
-class UserDefaultStateMachineGateSectionImpl(
-    UserDefaultBaseSectionImpl, extra="forbid"
-):
-    size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=240.0, height=120.0)
-    )
-    machineGroupId: str = Field(default_factory=create_new_id)
-    gateType: StateMachineGateType = StateMachineGateType.AND
-    label: str = ""
-    ui: StateMachineGateUiState = Field(default_factory=StateMachineGateUiState)
-
-
-class UserDefaultStateMachineEndSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
-    size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=240.0, height=96.0)
-    )
-    machineGroupId: str = Field(default_factory=create_new_id)
-    label: str = "End"
 
 
 class UserDefaultImageSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
