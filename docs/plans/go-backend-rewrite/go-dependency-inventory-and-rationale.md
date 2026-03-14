@@ -26,9 +26,9 @@ recommendation docs. If this file disagrees with planning notes, `go.mod` wins.
 
 ## Snapshot Context
 
-- captured at: `2026-03-12 06:26 PDT`
-- module totals excluding the main `setta` module: `15` direct, `120`
-  indirect, `135` total
+- captured at: `2026-03-12 08:58 PDT`
+- module totals excluding the main `setta` module: `16` direct, `189`
+  indirect, `205` total
 - source of truth:
   - `go.mod`
   - current import sites under `internal/` and `cmd/`
@@ -49,6 +49,9 @@ recommendation docs. If this file disagrees with planning notes, `go.mod` wins.
 - `github.com/anthropics/anthropic-sdk-go` is now a normal direct dependency
   in `go.mod`; it powers the bounded Anthropic managed-chat provider edge and
   is not just incidental transitive baggage.
+- `google.golang.org/genai` is now a normal direct dependency in `go.mod`; it
+  powers the bounded Gemini managed-chat provider edge and is not just
+  incidental transitive baggage.
 - Some recommendation docs mention future candidates such as
   `santhosh-tekuri/jsonschema/v6`, `fsnotify`, and `gorilla/securecookie`.
   Those are not current dependencies because they are not pinned in `go.mod`.
@@ -60,6 +63,7 @@ recommendation docs. If this file disagrees with planning notes, `go.mod` wins.
 | `github.com/anthropics/anthropic-sdk-go` | `v1.26.0` | Official Anthropic SDK used at the provider edge for Go-owned managed-chat Anthropic execution, kept behind internal adapter helpers. | `internal/managedllm` |
 | `github.com/go-chi/chi/v5` | `v5.2.5` | Small `net/http`-native router and middleware tree for the Go HTTP and websocket surfaces. | `internal/httpapi`, `internal/wsapi`, `internal/app` |
 | `github.com/openai/openai-go/v3` | `v3.26.0` | Official OpenAI SDK used at the provider edge for Go-owned managed-chat execution (chat-completions for standard turns plus Responses streaming for thinking-enabled reasoning output) and file-mode transcription uploads, kept behind internal adapter helpers. | `internal/managedllm`, `internal/transcriptionsessions` |
+| `google.golang.org/genai` | `v1.49.0` | Official Google Gen AI SDK used at the provider edge for Go-owned managed-chat Gemini standard/tool execution, kept behind internal adapter helpers. | `internal/managedllm` |
 | `github.com/aymanbagabas/go-pty` | `v0.2.2` | Windows PTY backend for terminal sessions. | `internal/terminals/pty_backend_windows.go` |
 | `github.com/coder/websocket` | `v1.8.14` | WebSocket transport for realtime frontend/listener connections. | `internal/realtime`, `internal/wsapi` |
 | `github.com/creack/pty` | `v1.1.21` | Unix PTY backend for terminal sessions. | `internal/terminals/pty_backend_unix.go` |
@@ -123,6 +127,20 @@ We still keep that SDK behind bounded helpers in `internal/managedllm` and
 session semantics, websocket event contracts, and provider-neutral runtime
 semantics remain repo-owned.
 
+### Why `google.golang.org/genai` is direct
+
+The managed-chat Gemini provider edge now uses `google.golang.org/genai`
+instead of bespoke HTTP/SSE transport code.
+
+We still keep that SDK behind the bounded helper in
+`internal/managedllm/gemini_sdk.go` so Setta request validation, tool
+execution, stream-to-websocket event mapping, and provider-neutral managed
+runtime semantics stay repo-owned.
+
+The current slice deliberately requires explicit `api_key_env` for Gemini
+managed configs because the pinned SDK still has ambient env fallback behavior
+that we cannot cleanly override from the repo adapter boundary.
+
 ### Why plugin version-range parsing is no longer a module dependency
 
 Plugin `settaVersionRange` validation now uses the bounded internal owner in
@@ -168,14 +186,16 @@ the template parser/runtime stays library-owned.
 ## Indirect Dependencies
 
 These modules are present in `go.mod` but are not part of the deliberate public
-shape of the rewrite. The indirect set is still mostly shaped by `openai-go`,
-with a small additional root from `anthropic-sdk-go`; the table below calls out
-the main roots and the most consequential or non-obvious transitive baggage
-rather than restating all `120` indirect modules individually.
+shape of the rewrite. The indirect set is now heavily shaped by `openai-go`
+plus `google.golang.org/genai`, with smaller additional roots from
+`anthropic-sdk-go`; the table below calls out the main roots and the most
+consequential or non-obvious transitive baggage rather than restating all
+`189` indirect modules individually.
 
-They mostly come from eight roots:
+They mostly come from nine roots:
 
 - `openai-go`
+- `google.golang.org/genai`
 - `anthropic-sdk-go`
 - the MCP SDK
 - `gopsutil`
@@ -193,7 +213,11 @@ They mostly come from eight roots:
 | `github.com/ebitengine/purego` | `github.com/shirou/gopsutil/v4` | Upstream low-level syscall glue used by `gopsutil` on some platforms. |
 | `github.com/go-ole/go-ole` | `github.com/yusufpapurcu/wmi` via `gopsutil` | Windows COM support used by upstream WMI access. |
 | `github.com/golang-jwt/jwt/v5` | `github.com/AzureAD/microsoft-authentication-library-for-go` via `openai-go` | Token handling retained by the SDK's Azure identity support. |
+| `github.com/golang/groupcache` | `google.golang.org/genai` via `cloud.google.com/go/auth` | Upstream Google auth/cache helper retained by the Gen AI SDK auth stack. |
 | `github.com/google/uuid` | `github.com/AzureAD/microsoft-authentication-library-for-go` via `openai-go` | Upstream identifier helper retained by the SDK's Azure identity support. |
+| `github.com/google/s2a-go` | `google.golang.org/genai` via Google client/auth transport packages | Upstream transport/auth helper retained by the Gen AI SDK stack. |
+| `github.com/googleapis/enterprise-certificate-proxy` | `google.golang.org/genai` via Google client/auth transport packages | Upstream enterprise auth helper retained by the Gen AI SDK stack. |
+| `github.com/gorilla/websocket` | `google.golang.org/genai` | Upstream websocket helper retained by the Gen AI SDK. |
 | `github.com/json-iterator/go` | `github.com/nikolalohinski/gonja/v2` | Upstream JSON helper retained by the prompt-rendering library. |
 | `github.com/kr/text` | `gopkg.in/yaml.v3.test` -> `gopkg.in/check.v1` -> `github.com/kr/pretty` | Upstream YAML-package test-support baggage retained by the module graph. |
 | `github.com/kylelemons/godebug` | `github.com/AzureAD/microsoft-authentication-library-for-go` via `openai-go` | Upstream debug/test helper retained by the SDK's Azure identity support. |
@@ -222,12 +246,18 @@ They mostly come from eight roots:
 | `github.com/u-root/u-root` | `github.com/aymanbagabas/go-pty` | PTY/terminal support pulled in by the Windows PTY implementation. |
 | `github.com/yosida95/uritemplate/v3` | `github.com/modelcontextprotocol/go-sdk` | URI-template handling used by the SDK. |
 | `github.com/yusufpapurcu/wmi` | `github.com/shirou/gopsutil/v4` | Windows WMI access used by `gopsutil`. |
+| `cloud.google.com/go` | `google.golang.org/genai` | Base Google client/runtime dependency retained by the Gen AI SDK. |
+| `cloud.google.com/go/auth` | `google.golang.org/genai` | Google auth/runtime helper retained by the Gen AI SDK. |
 | `golang.org/x/crypto` | `github.com/aymanbagabas/go-pty` | Upstream crypto/terminal helpers needed by `go-pty`. |
 | `golang.org/x/exp` | `github.com/nikolalohinski/gonja/v2` | Upstream experimental helpers retained by the prompt-rendering library. |
 | `golang.org/x/oauth2` | `github.com/modelcontextprotocol/go-sdk` | OAuth support included by the SDK. |
 | `golang.org/x/sync` | `github.com/anthropics/anthropic-sdk-go` | Upstream `errgroup` helper retained by the Anthropic SDK streaming/runtime internals. |
 | `golang.org/x/net` | `github.com/openai/openai-go/v3` and Azure identity support | Upstream HTTP/auth helpers retained by the OpenAI SDK stack. |
 | `golang.org/x/text` | `github.com/nikolalohinski/gonja/v2` | Upstream text/casing helpers retained by the prompt-rendering library. |
+| `google.golang.org/genproto/googleapis/rpc` | `google.golang.org/genai` | Upstream protobuf RPC types retained by the Gen AI SDK transport stack. |
+| `google.golang.org/grpc` | `google.golang.org/genai` | Upstream gRPC transport/runtime retained by the Gen AI SDK stack. |
+| `google.golang.org/protobuf` | `google.golang.org/genai` | Upstream protobuf runtime retained by the Gen AI SDK stack. |
+| `go.opencensus.io` | `google.golang.org/genai` | Upstream telemetry/runtime helper retained by the Gen AI SDK transport stack. |
 
 ## What This Means In Practice
 
@@ -243,6 +273,10 @@ They mostly come from eight roots:
 - `openai-go` is now one of those deliberate infrastructure dependencies for a
   real provider edge, so its Azure/auth JSON-helper transitives are accepted
   implementation baggage rather than accidental sprawl.
+- `google.golang.org/genai` is now one of those deliberate infrastructure
+  dependencies for a real provider edge, so its Google client/auth/transport
+  transitives are accepted implementation baggage rather than accidental
+  sprawl.
 - the previous `go-pep440-version` exception is gone, so dependency debates
   should start from the current direct list instead of stale notes about that
   removed module

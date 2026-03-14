@@ -51,6 +51,11 @@ Retrieved on:
 - [gonja.md](./gonja.md)
   - `github.com/nikolalohinski/gonja/v2`
   - pinned locally at `v2.7.0`
+- [google-genai.md](./google-genai.md)
+  - `google.golang.org/genai`
+  - pinned locally at `v1.49.0`
+  - note-only entry for now; use the local module source plus the official
+    docs links captured in the note
 - [openai-go.md](./openai-go.md)
   - `github.com/openai/openai-go/v3`
   - pinned locally at `v3.26.0`
