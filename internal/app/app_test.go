@@ -8765,6 +8765,231 @@ func TestAppServesManagedAgentRunRoutesWithManagedExecutor(t *testing.T) {
 	}
 }
 
+func TestAppServesStateMachineRunRoutesWithManagedChatExecutor(t *testing.T) {
+	// The real IDE app should be able to start a workflow run, dispatch the
+	// child managed chat through the Go executor, and mark the parent workflow
+	// completed when the child finishes.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	t.Setenv("OPENAI_API_KEY", "secret")
+
+	type providerRequest struct {
+		Path          string
+		Authorization string
+		Body          map[string]any
+	}
+	providerRequests := make(chan providerRequest, 1)
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body := map[string]any{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		select {
+		case providerRequests <- providerRequest{
+			Path:          r.URL.Path,
+			Authorization: r.Header.Get("Authorization"),
+			Body:          body,
+		}:
+		default:
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "missing flusher", http.StatusInternalServerError)
+			return
+		}
+		_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Workflow child\"}}]}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\" reply\"},\"finish_reason\":\"stop\"}]}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":13,\"completion_tokens\":2,\"total_tokens\":15}}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "data: [DONE]\n\n")
+	}))
+	defer provider.Close()
+
+	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"primary": {
+				ID:        "primary",
+				Model:     "gpt-4o-mini",
+				Provider:  "openai",
+				BaseURL:   provider.URL + "/v1",
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	}); err != nil {
+		t.Fatalf("save llm config: %v", err)
+	}
+
+	engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("new engine store: %v", err)
+	}
+	managedConfigID := "primary"
+	if err := engineStore.Write([]agentruns.EngineConfig{
+		{
+			ID:               "engine-managed",
+			Name:             "Managed Engine",
+			EngineType:       agentruns.EngineTypeSettaLLM,
+			SettaLLMConfigID: &managedConfigID,
+		},
+	}); err != nil {
+		t.Fatalf("write engine config: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = appManagedWorkflowTestProject(t)
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed workflow project: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	startRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteStartStateMachineRun,
+		strings.NewReader(`{"projectConfigId":"project-alpha","machineGroupId":"workflow-a"}`),
+	)
+	if err != nil {
+		t.Fatalf("new start workflow request: %v", err)
+	}
+	startRequest.Header.Set("Content-Type", "application/json")
+	startRequest.AddCookie(authCookie)
+
+	startResponse, err := http.DefaultClient.Do(startRequest)
+	if err != nil {
+		t.Fatalf("start workflow run: %v", err)
+	}
+	defer startResponse.Body.Close()
+	if startResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(startResponse.Body)
+		t.Fatalf("expected workflow start 200, got %d with body %q", startResponse.StatusCode, string(body))
+	}
+
+	var started agentruns.Run
+	if err := json.NewDecoder(startResponse.Body).Decode(&started); err != nil {
+		t.Fatalf("decode started workflow run: %v", err)
+	}
+	if started.Status != agentruns.RunStatusRunning {
+		t.Fatalf("expected running workflow run, got %#v", started)
+	}
+	childRunIDs := appTestStringList(started.Outputs["childRunIds"])
+	if len(childRunIDs) != 1 || strings.TrimSpace(childRunIDs[0]) == "" {
+		t.Fatalf("expected one child run id, got %#v", started.Outputs["childRunIds"])
+	}
+	childRun, err := app.ManagedAgentRuntime().WaitForRun(context.Background(), childRunIDs[0])
+	if err != nil {
+		t.Fatalf("wait for child run completion: %v", err)
+	}
+	if childRun.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed child run, got %#v", childRun)
+	}
+	if got := appTestMessageTextMapList(childRun.Outputs["messages"]); len(got) != 2 || appTestMessageText(got[1]) != "Workflow child reply" {
+		t.Fatalf("unexpected child run messages %#v", childRun.Outputs["messages"])
+	}
+
+	var parentByID agentruns.Run
+	waitForAppCondition(t, 5*time.Second, func() bool {
+		getRunRequest, err := http.NewRequest(
+			http.MethodPost,
+			server.URL+"/api"+httpapi.RouteGetAgentRun,
+			strings.NewReader(`{"runId":"`+started.ID+`"}`),
+		)
+		if err != nil {
+			t.Fatalf("new get parent run request: %v", err)
+		}
+		getRunRequest.Header.Set("Content-Type", "application/json")
+		getRunRequest.AddCookie(authCookie)
+
+		getRunResponse, err := http.DefaultClient.Do(getRunRequest)
+		if err != nil {
+			t.Fatalf("get parent run by id: %v", err)
+		}
+		defer getRunResponse.Body.Close()
+		if getRunResponse.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(getRunResponse.Body)
+			t.Fatalf("expected get parent run 200, got %d with body %q", getRunResponse.StatusCode, string(body))
+		}
+		if err := json.NewDecoder(getRunResponse.Body).Decode(&parentByID); err != nil {
+			t.Fatalf("decode parent run by id: %v", err)
+		}
+		return parentByID.Status == agentruns.RunStatusCompleted || parentByID.Status == agentruns.RunStatusFailed
+	})
+	if parentByID.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed parent run, got %#v", parentByID)
+	}
+
+	var latest agentruns.Run
+	waitForAppCondition(t, 5*time.Second, func() bool {
+		getRequest, err := http.NewRequest(
+			http.MethodPost,
+			server.URL+"/api"+httpapi.RouteGetStateMachineRun,
+			strings.NewReader(`{"projectConfigId":"project-alpha","machineGroupId":"workflow-a"}`),
+		)
+		if err != nil {
+			t.Fatalf("new get workflow run request: %v", err)
+		}
+		getRequest.Header.Set("Content-Type", "application/json")
+		getRequest.AddCookie(authCookie)
+
+		getResponse, err := http.DefaultClient.Do(getRequest)
+		if err != nil {
+			t.Fatalf("get workflow run: %v", err)
+		}
+		defer getResponse.Body.Close()
+		if getResponse.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(getResponse.Body)
+			t.Fatalf("expected workflow get 200, got %d with body %q", getResponse.StatusCode, string(body))
+		}
+		if err := json.NewDecoder(getResponse.Body).Decode(&latest); err != nil {
+			t.Fatalf("decode latest workflow run: %v", err)
+		}
+		return latest.ID == started.ID && latest.Status == agentruns.RunStatusCompleted
+	})
+	if latest.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed workflow run, got %#v", latest)
+	}
+	if !appTestHasRunEventType(latest, "run_completed") {
+		t.Fatalf("expected workflow run_completed event, got %#v", latest.Events)
+	}
+	if got := appTestStringList(latest.Outputs["reachedEndSectionIds"]); len(got) != 1 || got[0] != "end-section" {
+		t.Fatalf("expected workflow to reach end-section, got %#v", latest.Outputs["reachedEndSectionIds"])
+	}
+
+	select {
+	case request := <-providerRequests:
+		if request.Path != "/v1/chat/completions" {
+			t.Fatalf("expected OpenAI chat-completions request, got %q", request.Path)
+		}
+		if request.Authorization != "Bearer secret" {
+			t.Fatalf("expected provider authorization header, got %q", request.Authorization)
+		}
+		if request.Body["model"] != "gpt-4o-mini" {
+			t.Fatalf("expected provider model gpt-4o-mini, got %#v", request.Body["model"])
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for workflow provider request")
+	}
+}
+
 func TestAppServesRunChainRoutesAndPersistedReadback(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -10414,6 +10639,142 @@ func appTestMessageText(message map[string]any) string {
 		}
 	}
 	return ""
+}
+
+func appTestStringList(value any) []string {
+	items, ok := value.([]any)
+	if !ok {
+		return nil
+	}
+	result := make([]string, 0, len(items))
+	for _, item := range items {
+		text, ok := item.(string)
+		if !ok || strings.TrimSpace(text) == "" {
+			continue
+		}
+		result = append(result, text)
+	}
+	return result
+}
+
+func appTestMessageTextMapList(value any) []map[string]any {
+	items, ok := value.([]any)
+	if !ok {
+		return nil
+	}
+	result := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		message, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		result = append(result, message)
+	}
+	return result
+}
+
+func appTestHasRunEventType(run agentruns.Run, eventType string) bool {
+	for _, event := range run.Events {
+		if strings.TrimSpace(event.Type) == eventType {
+			return true
+		}
+	}
+	return false
+}
+
+func appManagedWorkflowTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	inlinePrompt := "Review the draft."
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		TopLevelSectionIDs: []string{
+			"start-section",
+			"chat-section",
+			"end-section",
+		},
+		SectionVariantMap: map[string]string{
+			"start-section": "start-variant",
+			"chat-section":  "chat-variant",
+			"end-section":   "end-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"start-section": {ID: "start-section", Name: "Start Section", VariantIDs: []string{"start-variant"}, DefaultVariantID: "start-variant"},
+			"chat-section":  {ID: "chat-section", Name: "Review Chat", VariantIDs: []string{"chat-variant"}, DefaultVariantID: "chat-variant"},
+			"end-section":   {ID: "end-section", Name: "End Section", VariantIDs: []string{"end-variant"}, DefaultVariantID: "end-variant"},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"start-variant": {ID: "start-variant", ImplID: "start-impl"},
+			"chat-variant":  {ID: "chat-variant", ImplID: "chat-impl"},
+			"end-variant":   {ID: "end-variant", ImplID: "end-impl"},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"start-impl": {
+				ID:      "start-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustMarshalAppWorkflowObject(t, map[string]any{"id": "start-impl", "type": "StateMachineStart", "machineGroupId": "workflow-a", "label": "Kickoff"}),
+			},
+			"chat-impl": {
+				ID:   "chat-impl",
+				Kind: projectstate.SectionKind("frontend"),
+				Payload: mustMarshalAppWorkflowObject(t, map[string]any{
+					"id":             "chat-impl",
+					"type":           "Chat",
+					"engineConfigId": "engine-managed",
+					"agentProfileId": nil,
+					"permissionMode": "minimal",
+					"searchEnabled":  false,
+					"chatId":         nil,
+				}),
+			},
+			"end-impl": {
+				ID:      "end-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustMarshalAppWorkflowObject(t, map[string]any{"id": "end-impl", "type": "StateMachineEnd", "machineGroupId": "workflow-a", "label": "Done"}),
+			},
+		},
+		StateMachineEdges: []projectstate.StateMachineEdge{
+			{
+				ID:              "edge-start-chat",
+				MachineGroupID:  "workflow-a",
+				SourceSectionID: "start-section",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "chat-section",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				TargetAction: &projectstate.StateMachineTargetAction{
+					Type:           projectstate.StateMachineTargetActionTypeSendPrompt,
+					InlinePrompt:   &inlinePrompt,
+					ThreadStrategy: projectstate.StateMachineThreadStrategyNewThreadBeforeSend,
+				},
+			},
+			{
+				ID:              "edge-chat-end",
+				MachineGroupID:  "workflow-a",
+				SourceSectionID: "chat-section",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "end-section",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				SourceFilter: &projectstate.StateMachineSourceFilter{
+					Type: projectstate.StateMachineSourceFilterTypeRunCompleted,
+				},
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize workflow app test project: %v", err)
+	}
+	return project
+}
+
+func mustMarshalAppWorkflowObject(t *testing.T, payload map[string]any) projectstate.RawJSON {
+	t.Helper()
+
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal workflow app test payload: %v", err)
+	}
+	return projectstate.RawJSON(raw)
 }
 
 func testConfig(t *testing.T) config.Config {

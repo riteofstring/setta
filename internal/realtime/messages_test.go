@@ -1,6 +1,8 @@
 package realtime
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -91,6 +93,27 @@ func TestNewAgentRunUpdatedMessageClonesContent(t *testing.T) {
 	}
 	if _, ok := message.Content.Inputs["mutated"]; ok {
 		t.Fatalf("expected cloned content to ignore later run mutation, got %#v", message.Content.Inputs)
+	}
+}
+
+func TestNewAgentRunUpdatedMessageJSONIncludesEmptySlices(t *testing.T) {
+	t.Parallel()
+
+	run := agentruns.NewRun(nil, map[string]any{
+		"runType": "state_machine",
+	}, time.Date(2026, 3, 14, 12, 0, 0, 0, time.UTC))
+	message := NewAgentRunUpdatedMessage(run)
+
+	payload, err := json.Marshal(message)
+	if err != nil {
+		t.Fatalf("marshal agent run update message: %v", err)
+	}
+	jsonText := string(payload)
+	if !strings.Contains(jsonText, `"toolCalls":[]`) {
+		t.Fatalf("expected toolCalls array in marshaled payload, got %s", jsonText)
+	}
+	if !strings.Contains(jsonText, `"events":[]`) {
+		t.Fatalf("expected events array in marshaled payload, got %s", jsonText)
 	}
 }
 

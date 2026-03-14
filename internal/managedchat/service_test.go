@@ -346,6 +346,9 @@ func TestServiceStartChatBuildsManagedInputsAndCombinedPrompt(t *testing.T) {
 		SearchEnabled:           false,
 		AppGenerationMode:       stringPtr(AppGenerationModeJSONRender),
 		AppSpecStreamingEnabled: true,
+		AdditionalInputs: map[string]any{
+			"stateMachineRunId": "workflow-run-1",
+		},
 	})
 	if err != nil {
 		t.Fatalf("start chat: %v", err)
@@ -386,6 +389,9 @@ func TestServiceStartChatBuildsManagedInputsAndCombinedPrompt(t *testing.T) {
 	}
 	if starter.lastInputs["runType"] != RunTypeManagedChat {
 		t.Fatalf("expected managed run type, got %#v", starter.lastInputs["runType"])
+	}
+	if starter.lastInputs["stateMachineRunId"] != "workflow-run-1" {
+		t.Fatalf("expected additional managed run input, got %#v", starter.lastInputs["stateMachineRunId"])
 	}
 }
 

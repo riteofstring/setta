@@ -211,6 +211,7 @@ type stateMachineRunRouteManagedChatStarter struct {
 	runIDs   []string
 	requests []managedchat.StartChatRequest
 	calls    int
+	runs     *agentruns.RunStore
 }
 
 func (s *stateMachineRunRouteManagedChatStarter) StartChat(request managedchat.StartChatRequest) (managedchat.StartChatResult, error) {
@@ -224,6 +225,17 @@ func (s *stateMachineRunRouteManagedChatStarter) StartChat(request managedchat.S
 		"engineConfigId":  request.EngineConfigID,
 	}, time.Date(2026, 3, 14, 19, 0, 0, 0, time.UTC))
 	run.ID = s.runIDs[index]
+	if run.Inputs == nil {
+		run.Inputs = map[string]any{}
+	}
+	for key, value := range request.AdditionalInputs {
+		run.Inputs[key] = value
+	}
+	if s.runs != nil {
+		if err := s.runs.Save(run); err != nil {
+			return managedchat.StartChatResult{}, err
+		}
+	}
 	return managedchat.StartChatResult{
 		ChatID: s.chatIDs[index],
 		Run:    run,
@@ -321,6 +333,7 @@ func newStateMachineRunRouteFixture(t *testing.T, mode config.Mode) stateMachine
 	managedStarter := &stateMachineRunRouteManagedChatStarter{
 		chatIDs: []string{"chat-managed-1", "chat-managed-2"},
 		runIDs:  []string{"child-run-1", "child-run-2"},
+		runs:    runs,
 	}
 	managedStopper := &stateMachineRunRouteRunStopper{}
 	baseTime := time.Date(2026, 3, 14, 19, 0, 0, 0, time.UTC)

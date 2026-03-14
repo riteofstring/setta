@@ -147,6 +147,7 @@ type StartChatRequest struct {
 	AppGenerationMode                *string
 	AppGenerationReferenceImageURL   *string
 	AppGenerationReferenceImageNotes *string
+	AdditionalInputs                 map[string]any
 }
 
 type StartChatResult struct {
@@ -377,16 +378,18 @@ func (s *Service) StartChat(request StartChatRequest) (StartChatResult, error) {
 	profile.SystemPrompt = combinedSystemPrompt
 	profile.EngineConfigID = stringPtr(resolvedEngine.EngineConfig.ID)
 
-	inputs := map[string]any{
-		"chatId":          chatID,
-		"projectConfigId": projectConfigID,
-		"thinking":        request.Thinking,
-		"engineConfigId":  resolvedEngine.EngineConfig.ID,
-		"runType":         RunTypeManagedChat,
-		"permissionMode":  string(permissionMode),
-		"searchEnabled":   request.SearchEnabled,
-		"messages":        messageSliceToJSONList(priorMessages),
+	inputs := cloneAnyMap(request.AdditionalInputs)
+	if inputs == nil {
+		inputs = map[string]any{}
 	}
+	inputs["chatId"] = chatID
+	inputs["projectConfigId"] = projectConfigID
+	inputs["thinking"] = request.Thinking
+	inputs["engineConfigId"] = resolvedEngine.EngineConfig.ID
+	inputs["runType"] = RunTypeManagedChat
+	inputs["permissionMode"] = string(permissionMode)
+	inputs["searchEnabled"] = request.SearchEnabled
+	inputs["messages"] = messageSliceToJSONList(priorMessages)
 	if isBranchRequest {
 		branchRootChatID := resolveBranchRootChatID(parentRun, *branchParentChatID)
 		inputs["branchParentChatId"] = *branchParentChatID

@@ -1012,6 +1012,89 @@ func TestAppSetSectionNameRouteBroadcastsRenamePromptAndProjectStateUpdate(t *te
 	}
 }
 
+func TestAppSetStateMachineSectionSettingsRouteBroadcastsProjectStateUpdate(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = websocketStateMachineTestProject(t)
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed workflow project: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteSetStateMachineSectionSettings,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"gate-section","machineGroupId":"workflow-a","label":"Decision","gateType":"XOR","frontendOpId":"workflow-section-op"}`),
+	)
+	if err != nil {
+		t.Fatalf("new set state machine section settings request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post set state machine section settings: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateFrontendProjectState, 4)
+	var content realtime.ProjectStateUpdateContent
+	if err := json.Unmarshal(envelope.Content, &content); err != nil {
+		t.Fatalf("decode project state update content: %v", err)
+	}
+	if content.ProjectState.ProjectConfig.ID != "project-alpha" {
+		t.Fatalf("expected project-alpha state update, got %q", content.ProjectState.ProjectConfig.ID)
+	}
+	completedWorkflowOp := false
+	for _, completedOpID := range content.CompletedOpIDs {
+		if completedOpID == "workflow-section-op" {
+			completedWorkflowOp = true
+			break
+		}
+	}
+	if !completedWorkflowOp {
+		t.Fatalf("expected completed workflow op in websocket update, got %#v", content.CompletedOpIDs)
+	}
+	if len(content.PendingOpIDs) != 0 {
+		t.Fatalf("expected no pending op ids after successful workflow update, got %#v", content.PendingOpIDs)
+	}
+}
+
 func TestAppServesTerminalWebsocketRoute(t *testing.T) {
 	skipIfAppTerminalPTYUnsupported(t)
 
@@ -1054,6 +1137,65 @@ func TestAppServesTerminalWebsocketRoute(t *testing.T) {
 	if frame := readAppRawFrame(t, conn); frame != wsapi.TerminalReadyMessage {
 		t.Fatalf("expected terminal ready marker, got %q", frame)
 	}
+}
+
+func websocketStateMachineTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		TopLevelSectionIDs: []string{
+			"gate-section",
+		},
+		SectionVariantMap: map[string]string{
+			"gate-section": "gate-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"gate-section": {
+				ID:               "gate-section",
+				Name:             "Gate Section",
+				VariantIDs:       []string{"gate-variant"},
+				DefaultVariantID: "gate-variant",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"gate-variant": {
+				ID:     "gate-variant",
+				ImplID: "gate-impl",
+			},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"gate-impl": {
+				ID:   "gate-impl",
+				Kind: projectstate.SectionKind("frontend"),
+				Payload: websocketStateMachineTestRawJSON(t, map[string]any{
+					"id":             "gate-impl",
+					"type":           "StateMachineGate",
+					"machineGroupId": "workflow-a",
+					"label":          "Gate",
+					"gateType":       string(projectstate.StateMachineGateTypeAND),
+					"ui": map[string]any{
+						"showDetails": false,
+					},
+				}),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize workflow test project: %v", err)
+	}
+	return project
+}
+
+func websocketStateMachineTestRawJSON(t *testing.T, payload map[string]any) projectstate.RawJSON {
+	t.Helper()
+
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal workflow test payload: %v", err)
+	}
+	return projectstate.RawJSON(raw)
 }
 
 func TestAppServesTerminalWebsocketReconnectAndReplaysBufferedHistory(t *testing.T) {

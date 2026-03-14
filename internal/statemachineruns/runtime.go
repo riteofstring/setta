@@ -1094,20 +1094,18 @@ func (r *Runtime) dispatchChatEdge(
 			return nil, ErrRuntimeUnavailable
 		}
 		result, err := r.managedChats.StartChat(managedchat.StartChatRequest{
-			ChatID:          nextChatID,
-			Message:         message,
-			EngineConfigID:  engineConfig.ID,
-			AgentProfileID:  chooseOptionalString(targetAction.AgentProfileID, targetSection.AgentProfileID),
-			Thinking:        false,
-			ProjectConfigID: projectConfigID,
-			SectionID:       stringPointer(edge.TargetSectionID),
-			PermissionMode:  managedchat.ChatPermissionMode(resolvedPermissionMode),
-			SearchEnabled:   resolvedSearchEnabled,
+			ChatID:           nextChatID,
+			Message:          message,
+			EngineConfigID:   engineConfig.ID,
+			AgentProfileID:   chooseOptionalString(targetAction.AgentProfileID, targetSection.AgentProfileID),
+			Thinking:         false,
+			ProjectConfigID:  projectConfigID,
+			SectionID:        stringPointer(edge.TargetSectionID),
+			PermissionMode:   managedchat.ChatPermissionMode(resolvedPermissionMode),
+			SearchEnabled:    resolvedSearchEnabled,
+			AdditionalInputs: childInputs,
 		})
 		if err != nil {
-			return nil, err
-		}
-		if err := r.attachChildRunMetadata(result.Run.Clone(), childInputs); err != nil {
 			return nil, err
 		}
 		if currentChatID == nil || *currentChatID != result.ChatID {
@@ -1135,20 +1133,18 @@ func (r *Runtime) dispatchChatEdge(
 			return nil, ErrRuntimeUnavailable
 		}
 		result, err := r.externalChats.StartChat(r.baseContext, externalagents.StartChatRequest{
-			ChatID:          nextChatID,
-			Message:         message,
-			EngineConfigID:  engineConfig.ID,
-			AgentProfileID:  chooseOptionalString(targetAction.AgentProfileID, targetSection.AgentProfileID),
-			Thinking:        false,
-			ProjectConfigID: projectConfigID,
-			SectionID:       stringPointer(edge.TargetSectionID),
-			PermissionMode:  externalagents.ChatPermissionMode(resolvedPermissionMode),
-			SearchEnabled:   resolvedSearchEnabled,
+			ChatID:           nextChatID,
+			Message:          message,
+			EngineConfigID:   engineConfig.ID,
+			AgentProfileID:   chooseOptionalString(targetAction.AgentProfileID, targetSection.AgentProfileID),
+			Thinking:         false,
+			ProjectConfigID:  projectConfigID,
+			SectionID:        stringPointer(edge.TargetSectionID),
+			PermissionMode:   externalagents.ChatPermissionMode(resolvedPermissionMode),
+			SearchEnabled:    resolvedSearchEnabled,
+			AdditionalInputs: childInputs,
 		})
 		if err != nil {
-			return nil, err
-		}
-		if err := r.attachChildRunMetadata(result.Run.Clone(), childInputs); err != nil {
 			return nil, err
 		}
 		if currentChatID == nil || *currentChatID != result.ChatID {
@@ -1174,16 +1170,6 @@ func (r *Runtime) dispatchChatEdge(
 	default:
 		return nil, fmt.Errorf("workflow edge %s uses unsupported engine type %s", edge.ID, engineConfig.EngineType)
 	}
-}
-
-func (r *Runtime) attachChildRunMetadata(run agentruns.Run, additionalInputs map[string]any) error {
-	if run.Inputs == nil {
-		run.Inputs = map[string]any{}
-	}
-	for key, value := range additionalInputs {
-		run.Inputs[key] = deepCloneJSONValue(value)
-	}
-	return r.runs.Save(run)
 }
 
 func (r *Runtime) resolvePromptText(

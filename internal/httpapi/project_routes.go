@@ -18,6 +18,7 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/prompttemplates"
+	"setta/internal/realtime"
 	"setta/internal/settingsstate"
 	"setta/internal/statefs"
 )
@@ -163,6 +164,7 @@ type ProjectRouteDependencies struct {
 	ModePolicy                     modes.Policy
 	WorkspaceRoot                  string
 	ProjectState                   *projectstate.Runtime
+	WebsocketHub                   *realtime.WebsocketHub
 	PromptTemplates                *prompttemplates.Store
 	ShareSessions                  modes.ShareSessionStore
 	Deployment                     *deployments.Runtime
@@ -1544,6 +1546,39 @@ func projectStateEnvelopeWithFrontendOps(
 	}, nil
 }
 
+func broadcastProjectRouteStateUpdate(
+	r *http.Request,
+	deps ProjectRouteDependencies,
+	runtime *projectstate.Runtime,
+	snapshot projectstate.Snapshot,
+	projectID string,
+) error {
+	if deps.WebsocketHub == nil || runtime == nil {
+		return nil
+	}
+
+	projectStateView, err := projectview.SingleConfigByProjectID(snapshot.Document, projectID)
+	if err != nil {
+		return err
+	}
+
+	selection := realtime.Selection{Type: realtime.ConnectionTypeFrontend}
+	if requestInfo, ok := modes.RequestInfoFromRequest(r); ok {
+		selection.ShareSessionID = strings.TrimSpace(requestInfo.ShareSessionID)
+	}
+	status := runtime.FrontendOpStatus()
+	_, err = deps.WebsocketHub.BroadcastJSON(
+		r.Context(),
+		realtime.NewProjectStateUpdateMessage(realtime.ProjectStateUpdateContent{
+			ProjectState:   projectStateView,
+			CompletedOpIDs: status.Completed,
+			PendingOpIDs:   status.Pending,
+		}),
+		selection,
+	)
+	return err
+}
+
 func undoHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		payload, err := decodeJSONBody[UndoRequest](r)
@@ -2660,7 +2695,8 @@ func createStateMachineEdgeHandler(deps ProjectRouteDependencies) http.HandlerFu
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
@@ -2670,7 +2706,7 @@ func createStateMachineEdgeHandler(deps ProjectRouteDependencies) http.HandlerFu
 			edgeID = strings.TrimSpace(*payload.ID)
 		}
 
-		if _, err := deps.ProjectState.CreateStateMachineEdge(
+		snapshot, err := runtime.CreateStateMachineEdge(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			projectstate.StateMachineEdge{
@@ -2689,8 +2725,13 @@ func createStateMachineEdgeHandler(deps ProjectRouteDependencies) http.HandlerFu
 				Selected:                       payload.Selected,
 			},
 			deps.PromptTemplates,
-		); err != nil {
+		)
+		if err != nil {
 			writeGraphEdgeMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -2710,18 +2751,24 @@ func updateStateMachineEdgeHandler(deps ProjectRouteDependencies) http.HandlerFu
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.UpdateStateMachineEdge(
+		snapshot, err := runtime.UpdateStateMachineEdge(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			payload.Edge,
 			deps.PromptTemplates,
-		); err != nil {
+		)
+		if err != nil {
 			writeGraphEdgeMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -2741,17 +2788,23 @@ func deleteStateMachineEdgesHandler(deps ProjectRouteDependencies) http.HandlerF
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.DeleteStateMachineEdges(
+		snapshot, err := runtime.DeleteStateMachineEdges(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			payload.EdgeIDs,
-		); err != nil {
+		)
+		if err != nil {
 			writeGraphEdgeMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -2771,18 +2824,24 @@ func setStateMachineEdgesHandler(deps ProjectRouteDependencies) http.HandlerFunc
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetStateMachineEdges(
+		snapshot, err := runtime.SetStateMachineEdges(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			payload.Edges,
 			deps.PromptTemplates,
-		); err != nil {
+		)
+		if err != nil {
 			writeGraphEdgeMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -5258,13 +5317,18 @@ func setPromptTemplateHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		if _, err := runtime.SetPromptTemplate(
+		snapshot, err := runtime.SetPromptTemplate(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			sectionID,
 			payload.Template,
-		); err != nil {
+		)
+		if err != nil {
 			writePromptSectionMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -5299,13 +5363,18 @@ func setPromptInputsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		if _, err := runtime.SetPromptInputs(
+		snapshot, err := runtime.SetPromptInputs(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			sectionID,
 			payload.Inputs,
-		); err != nil {
+		)
+		if err != nil {
 			writePromptSectionMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -5388,15 +5457,20 @@ func setPromptTemplateLinkHandler(deps ProjectRouteDependencies) http.HandlerFun
 			}
 		}
 
-		if _, err := runtime.SetPromptTemplateLink(
+		snapshot, err := runtime.SetPromptTemplateLink(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			sectionID,
 			promptTemplateID,
 			nextTemplate,
 			nextFormat,
-		); err != nil {
+		)
+		if err != nil {
 			writePromptSectionMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -5431,13 +5505,18 @@ func setPromptFormatHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		if _, err := runtime.SetPromptFormat(
+		snapshot, err := runtime.SetPromptFormat(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			sectionID,
 			payload.Format,
-		); err != nil {
+		)
+		if err != nil {
 			writePromptSectionMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -5462,7 +5541,8 @@ func setChatSectionSettingsHandler(deps ProjectRouteDependencies) http.HandlerFu
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
@@ -5477,8 +5557,13 @@ func setChatSectionSettingsHandler(deps ProjectRouteDependencies) http.HandlerFu
 			SearchEnabled:          payload.SearchEnabled,
 			DictationMode:          payload.DictationMode,
 		}
-		if _, err := deps.ProjectState.SetChatSectionSettings(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, settings); err != nil {
+		snapshot, err := runtime.SetChatSectionSettings(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, settings)
+		if err != nil {
 			writeChatSectionMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -5503,7 +5588,8 @@ func setStateMachineSectionSettingsHandler(deps ProjectRouteDependencies) http.H
 			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
@@ -5513,13 +5599,18 @@ func setStateMachineSectionSettingsHandler(deps ProjectRouteDependencies) http.H
 			Label:          payload.Label,
 			GateType:       payload.GateType,
 		}
-		if _, err := deps.ProjectState.SetStateMachineSectionSettings(
+		snapshot, err := runtime.SetStateMachineSectionSettings(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			sectionID,
 			settings,
-		); err != nil {
+		)
+		if err != nil {
 			writeStateMachineSectionMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)

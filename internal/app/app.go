@@ -1539,6 +1539,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				ModePolicy:                     modePolicy,
 				WorkspaceRoot:                  cfg.Paths.WorkspaceRoot,
 				ProjectState:                   projectRuntime,
+				WebsocketHub:                   websocketHub,
 				PromptTemplates:                promptTemplateStore,
 				ShareSessions:                  shareSessions,
 				Deployment:                     deploymentRuntime,

@@ -5,33 +5,36 @@ docs after the completeness audit is finished.
 
 ## Execution result
 
-Current verdict: the Go backend rewrite is not complete.
+Current verdict: the Go backend rewrite is complete for current in-repo
+callers.
 
-Blocking repo-backed gap found during execution:
+Resolved repo-backed workflow verification gap:
 
-- current non-test frontend workflow/state-machine run code still depends on
-  `frontend/src/state/actions/stateMachineRuns.ts`
-- workflow authoring is now Go-owned through `internal/projectstate`,
-  `internal/projectview`, `internal/httpapi`, and `internal/frontendbindings`,
-  including:
-  - top-level section creation for `StateMachineStart`, `StateMachineGate`, and
-    `StateMachineEnd`
-  - `setStateMachineSectionSettings`
-  - `projectConfig.stateMachineEdges`
-  - workflow edge CRUD route helpers in the canonical generated frontend
-    bindings
-- the workflow-run HTTP/frontend transport gap is now closed:
-  - the repo scan now finds Go-owned `startStateMachineRun`,
-    `stopStateMachineRun`, `resetStateMachine`, and `getStateMachineRun`
-    coverage in `internal/httpapi/state_machine_run_routes.go` plus canonical
-    `internal/frontendbindings`
-  - Go owns the workflow-run runtime foundation, `AgentRunUpdated` websocket
-    emission, and the `report_state_machine_signal` MCP tool path in
-    `internal/statemachineruns`, `internal/app`, and `internal/mcpx`
-  - the current unresolved audit noise is verification-specific: the targeted
-    workflow Playwright spec still mixes raw backend mutations with frontend
-    optimistic state, so it is not yet a clean proof of a remaining
-    caller-backed Python dependency
+- current non-test frontend workflow/state-machine run code in
+  `frontend/src/state/actions/stateMachineRuns.ts` now reaches Go-owned
+  transport and runtime only
+- workflow authoring and workflow-run transport/runtime are Go-owned through
+  `internal/projectstate`, `internal/projectview`, `internal/httpapi`,
+  `internal/frontendbindings`, `internal/statemachineruns`, `internal/app`, and
+  `internal/mcpx`
+- the remaining audit noise was resolved in code and tests:
+  - child workflow chats now receive parent workflow metadata in their initial
+    run inputs instead of via a racy post-start patch
+  - reset-state frontend handling now clears local workflow state without
+    re-fetching a run that no longer exists
+  - workflow activity rendering now tolerates missing event payloads
+  - the targeted workflow Playwright spec now provisions a deterministic local
+    managed-provider stub instead of relying on ambient OpenAI config
+
+Final proof points from execution:
+
+- focused Go app coverage now proves the real workflow route/runtime path:
+  `TestAppServesStateMachineRunRoutesWithManagedChatExecutor`
+- focused package coverage passes for the managed-chat, external-agent,
+  workflow runtime, and workflow HTTP layers
+- the targeted Playwright workflow spec now passes end-to-end against the Go
+  backend:
+  `frontend/tests/e2e/sections/state-machine-sections.spec.ts`
 
 Other audit findings remained consistent with the retained-boundary rules:
 

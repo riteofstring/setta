@@ -59,9 +59,9 @@ type Run struct {
 	FinishedAt *time.Time       `json:"finishedAt,omitempty"`
 	Inputs     map[string]any   `json:"inputs,omitempty"`
 	Outputs    map[string]any   `json:"outputs,omitempty"`
-	ToolCalls  []map[string]any `json:"toolCalls,omitempty"`
+	ToolCalls  []map[string]any `json:"toolCalls"`
 	Cost       *float64         `json:"cost,omitempty"`
-	Events     []RunEvent       `json:"events,omitempty"`
+	Events     []RunEvent       `json:"events"`
 }
 
 type RunFilter struct {

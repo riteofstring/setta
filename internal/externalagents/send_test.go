@@ -79,6 +79,9 @@ func TestSendServiceStartsExternalChatAndPersistsRunningRun(t *testing.T) {
 		FrontendAffinityToken: stringPtr("  frontend-external  "),
 		PermissionMode:        ChatPermissionModeMinimal,
 		SearchEnabled:         false,
+		AdditionalInputs: map[string]any{
+			"stateMachineRunId": "workflow-run-1",
+		},
 	})
 	if err != nil {
 		t.Fatalf("start external chat: %v", err)
@@ -113,6 +116,9 @@ func TestSendServiceStartsExternalChatAndPersistsRunningRun(t *testing.T) {
 	}
 	if got := inputs["summary"]; got != "none" {
 		t.Fatalf("unexpected summary %#v", got)
+	}
+	if got := inputs["stateMachineRunId"]; got != "workflow-run-1" {
+		t.Fatalf("unexpected additional external input %#v", got)
 	}
 	systemPrompt, _ := inputs["systemPrompt"].(string)
 	if systemPrompt == "" {

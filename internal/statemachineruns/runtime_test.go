@@ -15,6 +15,7 @@ type recordingManagedChatStarter struct {
 	runIDs   []string
 	requests []managedchat.StartChatRequest
 	calls    int
+	runs     *agentruns.RunStore
 }
 
 func (s *recordingManagedChatStarter) StartChat(request managedchat.StartChatRequest) (managedchat.StartChatResult, error) {
@@ -33,6 +34,14 @@ func (s *recordingManagedChatStarter) StartChat(request managedchat.StartChatReq
 	run.ID = runID
 	if run.Inputs == nil {
 		run.Inputs = map[string]any{}
+	}
+	for key, value := range request.AdditionalInputs {
+		run.Inputs[key] = value
+	}
+	if s.runs != nil {
+		if err := s.runs.Save(run); err != nil {
+			return managedchat.StartChatResult{}, err
+		}
 	}
 	return managedchat.StartChatResult{
 		ChatID: chatID,
@@ -359,6 +368,7 @@ func newRuntimeFixture(t *testing.T) runtimeFixture {
 	managedStarter := &recordingManagedChatStarter{
 		chatIDs: []string{"chat-managed-1"},
 		runIDs:  []string{"child-run-1"},
+		runs:    runs,
 	}
 	managedStopper := &recordingRunStopper{}
 	runtime, err := NewRuntime(RuntimeOptions{
@@ -425,6 +435,7 @@ func newSignalRuntimeFixture(t *testing.T) runtimeFixture {
 	managedStarter := &recordingManagedChatStarter{
 		chatIDs: []string{"chat-managed-1", "chat-managed-2"},
 		runIDs:  []string{"child-run-1", "child-run-2"},
+		runs:    runs,
 	}
 	managedStopper := &recordingRunStopper{}
 	runtime, err := NewRuntime(RuntimeOptions{
