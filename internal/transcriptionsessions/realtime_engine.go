@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -41,8 +42,10 @@ type realtimeEngine struct {
 	conn   *websocket.Conn
 	events chan realtimeReadResult
 
+	closeMu sync.Mutex
+	closed  bool
+
 	mu                sync.Mutex
-	closed            bool
 	fullText          string
 	deltaMode         openAIRealtimeDeltaMode
 	itemOrder         []string
@@ -223,13 +226,17 @@ func (e *realtimeEngine) Close() error {
 	if e == nil {
 		return nil
 	}
-	e.mu.Lock()
-	defer e.mu.Unlock()
+	e.closeMu.Lock()
+	defer e.closeMu.Unlock()
 	if e.closed {
 		return nil
 	}
 	e.closed = true
-	return e.conn.Close(websocket.StatusNormalClosure, "")
+	err := e.conn.Close(websocket.StatusNormalClosure, "")
+	if errors.Is(err, net.ErrClosed) {
+		return nil
+	}
+	return err
 }
 
 func (e *realtimeEngine) writeMessage(ctx context.Context, payload any) error {
@@ -385,10 +392,7 @@ func (e *realtimeEngine) readLoop() {
 		if err != nil {
 			var closeErr websocket.CloseError
 			if errors.As(err, &closeErr) {
-				e.mu.Lock()
-				closed := e.closed
-				e.mu.Unlock()
-				if !closed {
+				if !e.markClosed() {
 					if closeErr.Code == websocket.StatusNormalClosure {
 						e.events <- realtimeReadResult{closed: true}
 					} else {
@@ -399,11 +403,21 @@ func (e *realtimeEngine) readLoop() {
 				}
 				return
 			}
-			e.events <- realtimeReadResult{err: realtimeProviderErrorFromReadWriteError(err)}
+			if !e.markClosed() {
+				e.events <- realtimeReadResult{err: realtimeProviderErrorFromReadWriteError(err)}
+			}
 			return
 		}
 		e.events <- realtimeReadResult{payload: append([]byte(nil), payload...)}
 	}
+}
+
+func (e *realtimeEngine) markClosed() bool {
+	e.closeMu.Lock()
+	defer e.closeMu.Unlock()
+	alreadyClosed := e.closed
+	e.closed = true
+	return alreadyClosed
 }
 
 func (e *realtimeEngine) handleEvent(payload []byte) (string, error) {
