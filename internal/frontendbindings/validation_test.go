@@ -4591,6 +4591,9 @@ func TestProjectStateSectionSupportEnumsUseConverterDeclarations(t *testing.T) {
 				{Name: "Dict", Value: "Dict"},
 				{Name: "ListRoot", Value: "ListRoot"},
 				{Name: "Group", Value: "Group"},
+				{Name: "StateMachineStart", Value: "StateMachineStart"},
+				{Name: "StateMachineGate", Value: "StateMachineGate"},
+				{Name: "StateMachineEnd", Value: "StateMachineEnd"},
 				{Name: "Image", Value: "Image"},
 				{Name: "Chart", Value: "Chart"},
 				{Name: "Draw", Value: "Draw"},
@@ -4609,6 +4612,51 @@ func TestProjectStateSectionSupportEnumsUseConverterDeclarations(t *testing.T) {
 				{Name: "Plugin", Value: "Plugin"},
 				{Name: "TaskBoard", Value: "TaskBoard"},
 				{Name: "Spreadsheet", Value: "Spreadsheet"},
+			},
+		},
+		{
+			name: "StateMachineGateType",
+			root: reflect.TypeOf(StateMachineGateType("")),
+			values: []EnumValue{
+				{Name: "AND", Value: "AND"},
+				{Name: "OR", Value: "OR"},
+				{Name: "XOR", Value: "XOR"},
+			},
+		},
+		{
+			name: "StateMachineTargetActionType",
+			root: reflect.TypeOf(StateMachineTargetActionType("")),
+			values: []EnumValue{
+				{Name: "send_prompt", Value: "send_prompt"},
+				{Name: "reset_thread", Value: "reset_thread"},
+			},
+		},
+		{
+			name: "StateMachineThreadStrategy",
+			root: reflect.TypeOf(StateMachineThreadStrategy("")),
+			values: []EnumValue{
+				{Name: "continue_current_thread", Value: "continue_current_thread"},
+				{Name: "new_thread_before_send", Value: "new_thread_before_send"},
+			},
+		},
+		{
+			name: "StateMachineSourceFilterType",
+			root: reflect.TypeOf(StateMachineSourceFilterType("")),
+			values: []EnumValue{
+				{Name: "run_completed", Value: "run_completed"},
+				{Name: "run_failed", Value: "run_failed"},
+				{Name: "signal", Value: "signal"},
+			},
+		},
+		{
+			name: "StateMachineCountOperator",
+			root: reflect.TypeOf(StateMachineCountOperator("")),
+			values: []EnumValue{
+				{Name: "lt", Value: "lt"},
+				{Name: "lte", Value: "lte"},
+				{Name: "eq", Value: "eq"},
+				{Name: "gte", Value: "gte"},
+				{Name: "gt", Value: "gt"},
 			},
 		},
 		{
@@ -6801,6 +6849,7 @@ func TestProjectConfigSupportContractsUseConverterDeclarations(t *testing.T) {
 		{Name: "activeIds", TypeExpr: "Array<string>", Optional: false},
 		{Name: "edges", TypeExpr: "Array<Edge>", Optional: false},
 		{Name: "agenticEdges", TypeExpr: "Array<AgenticEdge>", Optional: false},
+		{Name: "stateMachineEdges", TypeExpr: "Array<StateMachineEdge>", Optional: false},
 	}
 	if !reflect.DeepEqual(declaration.Properties, expected) {
 		t.Fatalf("ProjectConfig properties = %#v, want %#v", declaration.Properties, expected)
@@ -7495,6 +7544,9 @@ func TestProjectStateSectionSupportContractsUseConverterDeclarations(t *testing.
 			alias: `CallableSectionImpl
   | DictSectionImpl
   | ListRootSectionImpl
+  | StateMachineStartSectionImpl
+  | StateMachineGateSectionImpl
+  | StateMachineEndSectionImpl
   | TextBlockSectionImpl
   | CodeSectionImpl
   | TerminalSectionImpl

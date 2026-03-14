@@ -2606,6 +2606,9 @@ export const SectionTypeEnum = {
   Dict: "Dict",
   ListRoot: "ListRoot",
   Group: "Group",
+  StateMachineStart: "StateMachineStart",
+  StateMachineGate: "StateMachineGate",
+  StateMachineEnd: "StateMachineEnd",
   Image: "Image",
   Chart: "Chart",
   Draw: "Draw",
@@ -2903,6 +2906,43 @@ export type Edge = {
 };
 export function createEdge(options: Partial<Edge> = {}): Edge {
   return options as Edge;
+}
+
+
+export type StateMachineEdge = {
+  id: string;
+  machineGroupId: string;
+  sourceSectionId: string;
+  sourcePortId: string;
+  targetSectionId: string;
+  targetPortId: string;
+  sourceFilter?: StateMachineSourceFilter | null;
+  sourceActivationCountCondition?: StateMachineSourceActivationCountCondition | null;
+  targetAction?: StateMachineTargetAction | null;
+  style?: Record<string, unknown> | null;
+  hidden?: boolean;
+  zIndex?: number;
+  selected?: boolean;
+};
+export function createStateMachineEdge(options: Partial<StateMachineEdge> = {}): StateMachineEdge {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      machineGroupId: "",
+      sourceSectionId: "",
+      sourcePortId: "workflow-source",
+      targetSectionId: "",
+      targetPortId: "workflow-target",
+      sourceFilter: null,
+      sourceActivationCountCondition: null,
+      targetAction: null,
+      style: null,
+      hidden: false,
+      zIndex: 0,
+      selected: false,
+    },
+    options,
+  );
 }
 
 
@@ -3345,6 +3385,7 @@ export type ProjectConfig = {
   activeIds: Array<string>;
   edges: Array<Edge>;
   agenticEdges: Array<AgenticEdge>;
+  stateMachineEdges: Array<StateMachineEdge>;
 };
 export function createProjectConfig(options: Partial<ProjectConfig> = {}): ProjectConfig {
   return mergeGeneratedOptions(
@@ -3372,6 +3413,7 @@ export function createProjectConfig(options: Partial<ProjectConfig> = {}): Proje
       activeIds: [],
       edges: [],
       agenticEdges: [],
+      stateMachineEdges: [],
     },
     options,
   );
@@ -3549,6 +3591,46 @@ export const TaskBoardRecurringMonthEnum = {
 export type TaskBoardRecurringMonth = ObjectValues<typeof TaskBoardRecurringMonthEnum>;
 
 
+export const StateMachineGateTypeEnum = {
+  AND: "AND",
+  OR: "OR",
+  XOR: "XOR",
+} as const;
+export type StateMachineGateType = ObjectValues<typeof StateMachineGateTypeEnum>;
+
+
+export const StateMachineTargetActionTypeEnum = {
+  send_prompt: "send_prompt",
+  reset_thread: "reset_thread",
+} as const;
+export type StateMachineTargetActionType = ObjectValues<typeof StateMachineTargetActionTypeEnum>;
+
+
+export const StateMachineThreadStrategyEnum = {
+  continue_current_thread: "continue_current_thread",
+  new_thread_before_send: "new_thread_before_send",
+} as const;
+export type StateMachineThreadStrategy = ObjectValues<typeof StateMachineThreadStrategyEnum>;
+
+
+export const StateMachineSourceFilterTypeEnum = {
+  run_completed: "run_completed",
+  run_failed: "run_failed",
+  signal: "signal",
+} as const;
+export type StateMachineSourceFilterType = ObjectValues<typeof StateMachineSourceFilterTypeEnum>;
+
+
+export const StateMachineCountOperatorEnum = {
+  lt: "lt",
+  lte: "lte",
+  eq: "eq",
+  gte: "gte",
+  gt: "gt",
+} as const;
+export type StateMachineCountOperator = ObjectValues<typeof StateMachineCountOperatorEnum>;
+
+
 export const ChartTypeEnum = {
   line: "line",
   scatter: "scatter",
@@ -3561,6 +3643,86 @@ export const SpreadsheetGridDensityEnum = {
   comfortable: "comfortable",
 } as const;
 export type SpreadsheetGridDensity = ObjectValues<typeof SpreadsheetGridDensityEnum>;
+
+
+export type StateMachineGateUIState = {
+  showDetails?: boolean;
+};
+export function createStateMachineGateUIState(options: Partial<StateMachineGateUIState> = {}): StateMachineGateUIState {
+  return mergeGeneratedOptions(
+    {
+      showDetails: false,
+    },
+    options,
+  );
+}
+
+
+export type StateMachineSourceFilter = {
+  type?: StateMachineSourceFilterType;
+  signalName?: string | null;
+  payloadField?: string | null;
+  equals?: string | null;
+};
+export function createStateMachineSourceFilter(options: Partial<StateMachineSourceFilter> = {}): StateMachineSourceFilter {
+  return mergeGeneratedOptions(
+    {
+      type: StateMachineSourceFilterTypeEnum.run_completed,
+      signalName: null,
+      payloadField: null,
+      equals: null,
+    },
+    options,
+  );
+}
+
+
+export type StateMachineSourceActivationCountCondition = {
+  operator?: StateMachineCountOperator;
+  value: number;
+};
+export function createStateMachineSourceActivationCountCondition(options: Partial<StateMachineSourceActivationCountCondition> = {}): StateMachineSourceActivationCountCondition {
+  return mergeGeneratedOptions(
+    {
+      operator: StateMachineCountOperatorEnum.eq,
+      value: 0,
+    },
+    options,
+  );
+}
+
+
+export type StateMachineTargetAction = {
+  type?: StateMachineTargetActionType;
+  promptTemplateId?: string | null;
+  promptSectionId?: string | null;
+  inlinePrompt?: string | null;
+  promptInputs?: Record<string, string>;
+  threadStrategy?: StateMachineThreadStrategy;
+  stopIfRunning?: boolean;
+  engineConfigId?: string | null;
+  agentProfileId?: string | null;
+  permissionMode?: string | null;
+  searchEnabled?: boolean | null;
+};
+export function createStateMachineTargetAction(options: Partial<StateMachineTargetAction> = {}): StateMachineTargetAction {
+  return mergeGeneratedOptions(
+    {
+      type: StateMachineTargetActionTypeEnum.send_prompt,
+      promptTemplateId: null,
+      promptSectionId: null,
+      inlinePrompt: null,
+      promptInputs: {},
+      threadStrategy: StateMachineThreadStrategyEnum.continue_current_thread,
+      stopIfRunning: false,
+      engineConfigId: null,
+      agentProfileId: null,
+      permissionMode: null,
+      searchEnabled: null,
+    },
+    options,
+  );
+}
 
 
 export type BaseSectionImpl = {
@@ -4218,6 +4380,216 @@ export function createListRootSectionImpl(
 }
 
 
+export type UserDefaultStateMachineStartSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  machineGroupId: string;
+  label: string;
+  maxIterations: number | null;
+};
+export function createUserDefaultStateMachineStartSectionImpl(options: Partial<UserDefaultStateMachineStartSectionImpl> = {}): UserDefaultStateMachineStartSectionImpl {
+  return mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+      size: {
+        width: 240,
+        height: 96,
+      },
+      machineGroupId: "",
+      label: "Start",
+      maxIterations: null,
+    },
+    options,
+  );
+}
+
+
+export type StateMachineStartSectionImpl = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.StateMachineStart;
+  machineGroupId: string;
+  label: string;
+  maxIterations?: number | null;
+};
+
+
+export function createStateMachineStartSectionImpl(
+  defaultsOrOverrides: Partial<UserDefaultStateMachineStartSectionImpl> | Partial<StateMachineStartSectionImpl> = {},
+  overrides?: Partial<StateMachineStartSectionImpl>,
+): StateMachineStartSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultStateMachineStartSectionImpl,
+    StateMachineStartSectionImpl
+  >(createUserDefaultStateMachineStartSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.StateMachineStart,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      machineGroupId: resolved.defaults.machineGroupId,
+      label: resolved.defaults.label,
+      maxIterations: resolved.defaults.maxIterations,
+    },
+    resolved.overrides,
+  );
+}
+
+
+export type UserDefaultStateMachineGateSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  machineGroupId: string;
+  gateType: StateMachineGateType;
+  label: string;
+  ui: StateMachineGateUIState;
+};
+export function createUserDefaultStateMachineGateSectionImpl(options: Partial<UserDefaultStateMachineGateSectionImpl> = {}): UserDefaultStateMachineGateSectionImpl {
+  return mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+      size: {
+        width: 240,
+        height: 120,
+      },
+      machineGroupId: "",
+      gateType: StateMachineGateTypeEnum.AND,
+      label: "",
+      ui: createStateMachineGateUIState(),
+    },
+    options,
+  );
+}
+
+
+export type StateMachineGateSectionImpl = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.StateMachineGate;
+  machineGroupId: string;
+  gateType: StateMachineGateType;
+  label: string;
+  ui: StateMachineGateUIState;
+};
+
+
+export function createStateMachineGateSectionImpl(
+  defaultsOrOverrides: Partial<UserDefaultStateMachineGateSectionImpl> | Partial<StateMachineGateSectionImpl> = {},
+  overrides?: Partial<StateMachineGateSectionImpl>,
+): StateMachineGateSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultStateMachineGateSectionImpl,
+    StateMachineGateSectionImpl
+  >(createUserDefaultStateMachineGateSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.StateMachineGate,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      machineGroupId: resolved.defaults.machineGroupId,
+      gateType: resolved.defaults.gateType,
+      label: resolved.defaults.label,
+      ui: resolved.defaults.ui,
+    },
+    resolved.overrides,
+  );
+}
+
+
+export type UserDefaultStateMachineEndSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  machineGroupId: string;
+  label: string;
+};
+export function createUserDefaultStateMachineEndSectionImpl(options: Partial<UserDefaultStateMachineEndSectionImpl> = {}): UserDefaultStateMachineEndSectionImpl {
+  return mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+      size: {
+        width: 240,
+        height: 96,
+      },
+      machineGroupId: "",
+      label: "End",
+    },
+    options,
+  );
+}
+
+
+export type StateMachineEndSectionImpl = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.StateMachineEnd;
+  machineGroupId: string;
+  label: string;
+};
+
+
+export function createStateMachineEndSectionImpl(
+  defaultsOrOverrides: Partial<UserDefaultStateMachineEndSectionImpl> | Partial<StateMachineEndSectionImpl> = {},
+  overrides?: Partial<StateMachineEndSectionImpl>,
+): StateMachineEndSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultStateMachineEndSectionImpl,
+    StateMachineEndSectionImpl
+  >(createUserDefaultStateMachineEndSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.StateMachineEnd,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      machineGroupId: resolved.defaults.machineGroupId,
+      label: resolved.defaults.label,
+    },
+    resolved.overrides,
+  );
+}
+
+
 export type UserDefaultTextBlockSectionImpl = {
   isFrozen: boolean;
   tagColor: string | null;
@@ -4444,6 +4816,9 @@ export function createTerminalSectionImpl(
 export type BaseSectionImplUnion = CallableSectionImpl
   | DictSectionImpl
   | ListRootSectionImpl
+  | StateMachineStartSectionImpl
+  | StateMachineGateSectionImpl
+  | StateMachineEndSectionImpl
   | TextBlockSectionImpl
   | CodeSectionImpl
   | TerminalSectionImpl
@@ -5941,6 +6316,58 @@ export type SetEdgesRequestInput = {
 };
 export function createSetEdgesRequestInput(options: Partial<SetEdgesRequestInput> = {}): SetEdgesRequestInput {
   return options as SetEdgesRequestInput;
+}
+
+
+export type CreateStateMachineEdgeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  id?: string | null;
+  machineGroupId: string;
+  sourceSectionId: string;
+  sourcePortId: string;
+  targetSectionId: string;
+  targetPortId: string;
+  sourceFilter?: StateMachineSourceFilter | null;
+  sourceActivationCountCondition?: StateMachineSourceActivationCountCondition | null;
+  targetAction?: StateMachineTargetAction | null;
+  style?: Record<string, unknown> | null;
+  hidden?: boolean;
+  zIndex?: number;
+  selected?: boolean;
+};
+export function createCreateStateMachineEdgeRequestInput(options: Partial<CreateStateMachineEdgeRequestInput> = {}): CreateStateMachineEdgeRequestInput {
+  return options as CreateStateMachineEdgeRequestInput;
+}
+
+
+export type UpdateStateMachineEdgeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edge: StateMachineEdge;
+};
+export function createUpdateStateMachineEdgeRequestInput(options: Partial<UpdateStateMachineEdgeRequestInput> = {}): UpdateStateMachineEdgeRequestInput {
+  return options as UpdateStateMachineEdgeRequestInput;
+}
+
+
+export type DeleteStateMachineEdgesRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edgeIds: Array<string>;
+};
+export function createDeleteStateMachineEdgesRequestInput(options: Partial<DeleteStateMachineEdgesRequestInput> = {}): DeleteStateMachineEdgesRequestInput {
+  return options as DeleteStateMachineEdgesRequestInput;
+}
+
+
+export type SetStateMachineEdgesRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edges: Array<StateMachineEdge>;
+};
+export function createSetStateMachineEdgesRequestInput(options: Partial<SetStateMachineEdgesRequestInput> = {}): SetStateMachineEdgesRequestInput {
+  return options as SetStateMachineEdgesRequestInput;
 }
 
 
@@ -8737,6 +9164,19 @@ export function createSetChatSectionSettingsRequestInput(options: Partial<SetCha
 }
 
 
+export type SetStateMachineSectionSettingsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  machineGroupId: string;
+  label: string;
+  gateType?: StateMachineGateType | null;
+};
+export function createSetStateMachineSectionSettingsRequestInput(options: Partial<SetStateMachineSectionSettingsRequestInput> = {}): SetStateMachineSectionSettingsRequestInput {
+  return options as SetStateMachineSectionSettingsRequestInput;
+}
+
+
 export type SetChatSectionStateRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
@@ -10077,6 +10517,9 @@ export const REQUIRED_UI_EDITOR_TABS = ({
   [SectionTypeEnum.Prompt]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.Social]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.Spreadsheet]: [UIEditorTabNameEnum.SectionConfig],
+  [SectionTypeEnum.StateMachineEnd]: [UIEditorTabNameEnum.SectionConfig],
+  [SectionTypeEnum.StateMachineGate]: [UIEditorTabNameEnum.SectionConfig],
+  [SectionTypeEnum.StateMachineStart]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.TaskBoard]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.Terminal]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.TextBlock]: [UIEditorTabNameEnum.SectionConfig, UIEditorTabNameEnum.InfoConfig, UIEditorTabNameEnum.SectionVariantsConfig],

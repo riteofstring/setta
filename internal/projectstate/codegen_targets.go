@@ -208,6 +208,7 @@ func RemoveSections(project *Project, sectionIDs []string) {
 	project.ActiveIDs = filterStringSlice(project.ActiveIDs, removedSections)
 	project.Edges = filterEdgesBySectionIDs(project.Edges, removedSections)
 	project.AgenticEdges = filterAgenticEdgesBySectionIDs(project.AgenticEdges, removedSections)
+	project.StateMachineEdges = filterStateMachineEdgesBySectionIDs(project.StateMachineEdges, removedSections)
 
 	for sectionID := range removedSections {
 		delete(project.TopLevelSections, sectionID)
@@ -328,6 +329,24 @@ func filterAgenticEdgesBySectionIDs(edges []AgenticEdge, removed map[string]stru
 	}
 
 	filtered := make([]AgenticEdge, 0, len(edges))
+	for _, edge := range edges {
+		if _, ok := removed[edge.SourceSectionID]; ok {
+			continue
+		}
+		if _, ok := removed[edge.TargetSectionID]; ok {
+			continue
+		}
+		filtered = append(filtered, edge)
+	}
+	return filtered
+}
+
+func filterStateMachineEdgesBySectionIDs(edges []StateMachineEdge, removed map[string]struct{}) []StateMachineEdge {
+	if len(edges) == 0 || len(removed) == 0 {
+		return edges
+	}
+
+	filtered := make([]StateMachineEdge, 0, len(edges))
 	for _, edge := range edges {
 		if _, ok := removed[edge.SourceSectionID]; ok {
 			continue

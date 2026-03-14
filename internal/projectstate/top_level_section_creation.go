@@ -190,7 +190,7 @@ func isFiniteViewportBounds(bounds ViewportBounds) bool {
 
 func isSupportedTopLevelSectionImplType(implType string) bool {
 	switch implType {
-	case "Chat", "Code", "Dict", "Group", "MetaControl", "Terminal", "TextBlock":
+	case "Chat", "Code", "Dict", "Group", "MetaControl", "StateMachineEnd", "StateMachineGate", "StateMachineStart", "Terminal", "TextBlock":
 		return true
 	default:
 		return false
@@ -375,6 +375,51 @@ func buildCreatedTopLevelSectionImpl(
 			return SectionImpl{}, nil, nil, nil, err
 		}
 		return SectionImpl{ID: implID, Kind: SectionKind("metacontrol"), Payload: payload}, &paramCore, &paramVariant, &paramImpl, nil
+	case "StateMachineStart":
+		machineGroupID, err := newProjectStateID()
+		if err != nil {
+			return SectionImpl{}, nil, nil, nil, err
+		}
+		payload, err := buildCreatedSectionPayload(
+			implID,
+			"StateMachineStart",
+			createdStateMachineStartSectionDefaults(machineGroupID),
+			input.ImplOverrides,
+		)
+		if err != nil {
+			return SectionImpl{}, nil, nil, nil, err
+		}
+		return SectionImpl{ID: implID, Kind: SectionKind("StateMachineStart"), Payload: payload}, nil, nil, nil, nil
+	case "StateMachineGate":
+		machineGroupID, err := newProjectStateID()
+		if err != nil {
+			return SectionImpl{}, nil, nil, nil, err
+		}
+		payload, err := buildCreatedSectionPayload(
+			implID,
+			"StateMachineGate",
+			createdStateMachineGateSectionDefaults(machineGroupID),
+			input.ImplOverrides,
+		)
+		if err != nil {
+			return SectionImpl{}, nil, nil, nil, err
+		}
+		return SectionImpl{ID: implID, Kind: SectionKind("StateMachineGate"), Payload: payload}, nil, nil, nil, nil
+	case "StateMachineEnd":
+		machineGroupID, err := newProjectStateID()
+		if err != nil {
+			return SectionImpl{}, nil, nil, nil, err
+		}
+		payload, err := buildCreatedSectionPayload(
+			implID,
+			"StateMachineEnd",
+			createdStateMachineEndSectionDefaults(machineGroupID),
+			input.ImplOverrides,
+		)
+		if err != nil {
+			return SectionImpl{}, nil, nil, nil, err
+		}
+		return SectionImpl{ID: implID, Kind: SectionKind("StateMachineEnd"), Payload: payload}, nil, nil, nil, nil
 	case "Terminal":
 		payload, err := buildCreatedSectionPayload(implID, "Terminal", createdTerminalSectionDefaults(), input.ImplOverrides)
 		if err != nil {

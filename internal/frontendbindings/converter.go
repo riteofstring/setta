@@ -993,6 +993,120 @@ func projectStateAliasFactoryDeclarations() map[reflect.Type][]TypeDeclaration {
 				TypeProperty{Name: "overrides", TypeExpr: "Partial<ListRootSectionImpl>", Optional: true},
 			),
 		},
+		reflect.TypeOf(StateMachineStartSectionImpl{}): {
+			exportedFunctionDeclaration(
+				"createStateMachineStartSectionImpl",
+				"StateMachineStartSectionImpl",
+				`  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultStateMachineStartSectionImpl,
+    StateMachineStartSectionImpl
+  >(createUserDefaultStateMachineStartSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.StateMachineStart,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      machineGroupId: resolved.defaults.machineGroupId,
+      label: resolved.defaults.label,
+      maxIterations: resolved.defaults.maxIterations,
+    },
+    resolved.overrides,
+  );`,
+				TypeProperty{
+					Name:         "defaultsOrOverrides",
+					TypeExpr:     "Partial<UserDefaultStateMachineStartSectionImpl> | Partial<StateMachineStartSectionImpl>",
+					DefaultValue: "{}",
+				},
+				TypeProperty{Name: "overrides", TypeExpr: "Partial<StateMachineStartSectionImpl>", Optional: true},
+			),
+		},
+		reflect.TypeOf(StateMachineGateSectionImpl{}): {
+			exportedFunctionDeclaration(
+				"createStateMachineGateSectionImpl",
+				"StateMachineGateSectionImpl",
+				`  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultStateMachineGateSectionImpl,
+    StateMachineGateSectionImpl
+  >(createUserDefaultStateMachineGateSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.StateMachineGate,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      machineGroupId: resolved.defaults.machineGroupId,
+      gateType: resolved.defaults.gateType,
+      label: resolved.defaults.label,
+      ui: resolved.defaults.ui,
+    },
+    resolved.overrides,
+  );`,
+				TypeProperty{
+					Name:         "defaultsOrOverrides",
+					TypeExpr:     "Partial<UserDefaultStateMachineGateSectionImpl> | Partial<StateMachineGateSectionImpl>",
+					DefaultValue: "{}",
+				},
+				TypeProperty{Name: "overrides", TypeExpr: "Partial<StateMachineGateSectionImpl>", Optional: true},
+			),
+		},
+		reflect.TypeOf(StateMachineEndSectionImpl{}): {
+			exportedFunctionDeclaration(
+				"createStateMachineEndSectionImpl",
+				"StateMachineEndSectionImpl",
+				`  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultStateMachineEndSectionImpl,
+    StateMachineEndSectionImpl
+  >(createUserDefaultStateMachineEndSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.StateMachineEnd,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      machineGroupId: resolved.defaults.machineGroupId,
+      label: resolved.defaults.label,
+    },
+    resolved.overrides,
+  );`,
+				TypeProperty{
+					Name:         "defaultsOrOverrides",
+					TypeExpr:     "Partial<UserDefaultStateMachineEndSectionImpl> | Partial<StateMachineEndSectionImpl>",
+					DefaultValue: "{}",
+				},
+				TypeProperty{Name: "overrides", TypeExpr: "Partial<StateMachineEndSectionImpl>", Optional: true},
+			),
+		},
 		reflect.TypeOf(TextBlockSectionImpl{}): {
 			exportedFunctionDeclaration(
 				"createTextBlockSectionImpl",
@@ -1520,6 +1634,9 @@ func newTypeConverter() *typeConverter {
 				{Name: "Dict", Value: "Dict"},
 				{Name: "ListRoot", Value: "ListRoot"},
 				{Name: "Group", Value: "Group"},
+				{Name: "StateMachineStart", Value: "StateMachineStart"},
+				{Name: "StateMachineGate", Value: "StateMachineGate"},
+				{Name: "StateMachineEnd", Value: "StateMachineEnd"},
 				{Name: "Image", Value: "Image"},
 				{Name: "Chart", Value: "Chart"},
 				{Name: "Draw", Value: "Draw"},
@@ -1744,6 +1861,31 @@ func newTypeConverter() *typeConverter {
 				{Name: "october", Value: "october"},
 				{Name: "november", Value: "november"},
 				{Name: "december", Value: "december"},
+			},
+			reflect.TypeOf(StateMachineGateType("")): {
+				{Name: "AND", Value: "AND"},
+				{Name: "OR", Value: "OR"},
+				{Name: "XOR", Value: "XOR"},
+			},
+			reflect.TypeOf(StateMachineTargetActionType("")): {
+				{Name: "send_prompt", Value: "send_prompt"},
+				{Name: "reset_thread", Value: "reset_thread"},
+			},
+			reflect.TypeOf(StateMachineThreadStrategy("")): {
+				{Name: "continue_current_thread", Value: "continue_current_thread"},
+				{Name: "new_thread_before_send", Value: "new_thread_before_send"},
+			},
+			reflect.TypeOf(StateMachineSourceFilterType("")): {
+				{Name: "run_completed", Value: "run_completed"},
+				{Name: "run_failed", Value: "run_failed"},
+				{Name: "signal", Value: "signal"},
+			},
+			reflect.TypeOf(StateMachineCountOperator("")): {
+				{Name: "lt", Value: "lt"},
+				{Name: "lte", Value: "lte"},
+				{Name: "eq", Value: "eq"},
+				{Name: "gte", Value: "gte"},
+				{Name: "gt", Value: "gt"},
 			},
 			reflect.TypeOf(AgenticEdgeKind("")): {
 				{Name: "chat_chat", Value: "chat_chat"},
@@ -2228,6 +2370,15 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "projectConfigId", TypeExpr: "string"},
 				TypeProperty{Name: "sectionId", TypeExpr: "string"},
 				TypeProperty{Name: "state", TypeExpr: "ChatSectionState"},
+			),
+			reflect.TypeOf(SetStateMachineSectionSettingsRequestInput{}): objectDeclaration(
+				"SetStateMachineSectionSettingsRequestInput",
+				TypeProperty{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "projectConfigId", TypeExpr: "string"},
+				TypeProperty{Name: "sectionId", TypeExpr: "string"},
+				TypeProperty{Name: "machineGroupId", TypeExpr: "string"},
+				TypeProperty{Name: "label", TypeExpr: "string"},
+				TypeProperty{Name: "gateType", TypeExpr: "StateMachineGateType | null", Optional: true},
 			),
 			reflect.TypeOf(SectionSizeValue{}): aliasDeclaration(
 				"SectionSizeValue",
@@ -2760,6 +2911,108 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "data", TypeExpr: "Record<string, unknown>", Optional: true},
 				TypeProperty{Name: "selected", TypeExpr: "boolean", Optional: true},
 			),
+			reflect.TypeOf(StateMachineGateUIState{}): objectDeclarationWithCreateExpr(
+				"StateMachineGateUIState",
+				`mergeGeneratedOptions(
+    {
+      showDetails: false,
+    },
+    options,
+  )`,
+				TypeProperty{Name: "showDetails", TypeExpr: "boolean", Optional: true},
+			),
+			reflect.TypeOf(StateMachineSourceFilter{}): objectDeclarationWithCreateExpr(
+				"StateMachineSourceFilter",
+				`mergeGeneratedOptions(
+    {
+      type: StateMachineSourceFilterTypeEnum.run_completed,
+      signalName: null,
+      payloadField: null,
+      equals: null,
+    },
+    options,
+  )`,
+				TypeProperty{Name: "type", TypeExpr: "StateMachineSourceFilterType", Optional: true},
+				TypeProperty{Name: "signalName", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "payloadField", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "equals", TypeExpr: "string | null", Optional: true},
+			),
+			reflect.TypeOf(StateMachineSourceActivationCountCondition{}): objectDeclarationWithCreateExpr(
+				"StateMachineSourceActivationCountCondition",
+				`mergeGeneratedOptions(
+    {
+      operator: StateMachineCountOperatorEnum.eq,
+      value: 0,
+    },
+    options,
+  )`,
+				TypeProperty{Name: "operator", TypeExpr: "StateMachineCountOperator", Optional: true},
+				TypeProperty{Name: "value", TypeExpr: "number"},
+			),
+			reflect.TypeOf(StateMachineTargetAction{}): objectDeclarationWithCreateExpr(
+				"StateMachineTargetAction",
+				`mergeGeneratedOptions(
+    {
+      type: StateMachineTargetActionTypeEnum.send_prompt,
+      promptTemplateId: null,
+      promptSectionId: null,
+      inlinePrompt: null,
+      promptInputs: {},
+      threadStrategy: StateMachineThreadStrategyEnum.continue_current_thread,
+      stopIfRunning: false,
+      engineConfigId: null,
+      agentProfileId: null,
+      permissionMode: null,
+      searchEnabled: null,
+    },
+    options,
+  )`,
+				TypeProperty{Name: "type", TypeExpr: "StateMachineTargetActionType", Optional: true},
+				TypeProperty{Name: "promptTemplateId", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "promptSectionId", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "inlinePrompt", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "promptInputs", TypeExpr: "Record<string, string>", Optional: true},
+				TypeProperty{Name: "threadStrategy", TypeExpr: "StateMachineThreadStrategy", Optional: true},
+				TypeProperty{Name: "stopIfRunning", TypeExpr: "boolean", Optional: true},
+				TypeProperty{Name: "engineConfigId", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "agentProfileId", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "permissionMode", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "searchEnabled", TypeExpr: "boolean | null", Optional: true},
+			),
+			reflect.TypeOf(StateMachineEdge{}): objectDeclarationWithCreateExpr(
+				"StateMachineEdge",
+				`mergeGeneratedOptions(
+    {
+      id: "",
+      machineGroupId: "",
+      sourceSectionId: "",
+      sourcePortId: "workflow-source",
+      targetSectionId: "",
+      targetPortId: "workflow-target",
+      sourceFilter: null,
+      sourceActivationCountCondition: null,
+      targetAction: null,
+      style: null,
+      hidden: false,
+      zIndex: 0,
+      selected: false,
+    },
+    options,
+  )`,
+				TypeProperty{Name: "id", TypeExpr: "string"},
+				TypeProperty{Name: "machineGroupId", TypeExpr: "string"},
+				TypeProperty{Name: "sourceSectionId", TypeExpr: "string"},
+				TypeProperty{Name: "sourcePortId", TypeExpr: "string"},
+				TypeProperty{Name: "targetSectionId", TypeExpr: "string"},
+				TypeProperty{Name: "targetPortId", TypeExpr: "string"},
+				TypeProperty{Name: "sourceFilter", TypeExpr: "StateMachineSourceFilter | null", Optional: true},
+				TypeProperty{Name: "sourceActivationCountCondition", TypeExpr: "StateMachineSourceActivationCountCondition | null", Optional: true},
+				TypeProperty{Name: "targetAction", TypeExpr: "StateMachineTargetAction | null", Optional: true},
+				TypeProperty{Name: "style", TypeExpr: "Record<string, unknown> | null", Optional: true},
+				TypeProperty{Name: "hidden", TypeExpr: "boolean", Optional: true},
+				TypeProperty{Name: "zIndex", TypeExpr: "number", Optional: true},
+				TypeProperty{Name: "selected", TypeExpr: "boolean", Optional: true},
+			),
 			reflect.TypeOf(AgenticEdge{}): objectDeclarationWithCreateExpr(
 				"AgenticEdge",
 				`mergeGeneratedOptions(
@@ -3128,6 +3381,7 @@ func newTypeConverter() *typeConverter {
       activeIds: [],
       edges: [],
       agenticEdges: [],
+      stateMachineEdges: [],
     },
     options,
   )`,
@@ -3154,6 +3408,7 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "activeIds", TypeExpr: "Array<string>"},
 				TypeProperty{Name: "edges", TypeExpr: "Array<Edge>"},
 				TypeProperty{Name: "agenticEdges", TypeExpr: "Array<AgenticEdge>"},
+				TypeProperty{Name: "stateMachineEdges", TypeExpr: "Array<StateMachineEdge>"},
 			),
 			reflect.TypeOf(ProjectStateSingleConfig{}): objectDeclarationWithCreateExpr(
 				"ProjectStateSingleConfig",
@@ -3704,6 +3959,111 @@ func newTypeConverter() *typeConverter {
   viewMode: ListRootViewMode;
 }`,
 			),
+			reflect.TypeOf(UserDefaultStateMachineStartSectionImpl{}): objectDeclarationWithCreateExpr(
+				"UserDefaultStateMachineStartSectionImpl",
+				`mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+      size: {
+        width: 240,
+        height: 96,
+      },
+      machineGroupId: "",
+      label: "Start",
+      maxIterations: null,
+    },
+    options,
+  )`,
+				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
+				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "size", TypeExpr: "SectionSize"},
+				TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
+				TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
+				TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
+				TypeProperty{Name: "machineGroupId", TypeExpr: "string"},
+				TypeProperty{Name: "label", TypeExpr: "string"},
+				TypeProperty{Name: "maxIterations", TypeExpr: "number | null"},
+			),
+			reflect.TypeOf(StateMachineStartSectionImpl{}): aliasDeclaration(
+				"StateMachineStartSectionImpl",
+				`BaseSectionImpl & {
+  type: typeof SectionTypeEnum.StateMachineStart;
+  machineGroupId: string;
+  label: string;
+  maxIterations?: number | null;
+}`,
+			),
+			reflect.TypeOf(UserDefaultStateMachineGateSectionImpl{}): objectDeclarationWithCreateExpr(
+				"UserDefaultStateMachineGateSectionImpl",
+				`mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+      size: {
+        width: 240,
+        height: 120,
+      },
+      machineGroupId: "",
+      gateType: StateMachineGateTypeEnum.AND,
+      label: "",
+      ui: createStateMachineGateUIState(),
+    },
+    options,
+  )`,
+				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
+				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "size", TypeExpr: "SectionSize"},
+				TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
+				TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
+				TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
+				TypeProperty{Name: "machineGroupId", TypeExpr: "string"},
+				TypeProperty{Name: "gateType", TypeExpr: "StateMachineGateType"},
+				TypeProperty{Name: "label", TypeExpr: "string"},
+				TypeProperty{Name: "ui", TypeExpr: "StateMachineGateUIState"},
+			),
+			reflect.TypeOf(StateMachineGateSectionImpl{}): aliasDeclaration(
+				"StateMachineGateSectionImpl",
+				`BaseSectionImpl & {
+  type: typeof SectionTypeEnum.StateMachineGate;
+  machineGroupId: string;
+  gateType: StateMachineGateType;
+  label: string;
+  ui: StateMachineGateUIState;
+}`,
+			),
+			reflect.TypeOf(UserDefaultStateMachineEndSectionImpl{}): objectDeclarationWithCreateExpr(
+				"UserDefaultStateMachineEndSectionImpl",
+				`mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+      size: {
+        width: 240,
+        height: 96,
+      },
+      machineGroupId: "",
+      label: "End",
+    },
+    options,
+  )`,
+				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
+				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "size", TypeExpr: "SectionSize"},
+				TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
+				TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
+				TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
+				TypeProperty{Name: "machineGroupId", TypeExpr: "string"},
+				TypeProperty{Name: "label", TypeExpr: "string"},
+			),
+			reflect.TypeOf(StateMachineEndSectionImpl{}): aliasDeclaration(
+				"StateMachineEndSectionImpl",
+				`BaseSectionImpl & {
+  type: typeof SectionTypeEnum.StateMachineEnd;
+  machineGroupId: string;
+  label: string;
+}`,
+			),
 			reflect.TypeOf(UserDefaultTextBlockSectionImpl{}): objectDeclarationWithCreateExpr(
 				"UserDefaultTextBlockSectionImpl",
 				`mergeGeneratedOptions(
@@ -3818,6 +4178,9 @@ func newTypeConverter() *typeConverter {
 				`CallableSectionImpl
   | DictSectionImpl
   | ListRootSectionImpl
+  | StateMachineStartSectionImpl
+  | StateMachineGateSectionImpl
+  | StateMachineEndSectionImpl
   | TextBlockSectionImpl
   | CodeSectionImpl
   | TerminalSectionImpl
@@ -4441,6 +4804,42 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
 				TypeProperty{Name: "projectConfigId", TypeExpr: "string"},
 				TypeProperty{Name: "edges", TypeExpr: "Array<Edge>"},
+			),
+			reflect.TypeOf(CreateStateMachineEdgeRequestInput{}): objectDeclaration(
+				"CreateStateMachineEdgeRequestInput",
+				TypeProperty{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "projectConfigId", TypeExpr: "string"},
+				TypeProperty{Name: "id", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "machineGroupId", TypeExpr: "string"},
+				TypeProperty{Name: "sourceSectionId", TypeExpr: "string"},
+				TypeProperty{Name: "sourcePortId", TypeExpr: "string"},
+				TypeProperty{Name: "targetSectionId", TypeExpr: "string"},
+				TypeProperty{Name: "targetPortId", TypeExpr: "string"},
+				TypeProperty{Name: "sourceFilter", TypeExpr: "StateMachineSourceFilter | null", Optional: true},
+				TypeProperty{Name: "sourceActivationCountCondition", TypeExpr: "StateMachineSourceActivationCountCondition | null", Optional: true},
+				TypeProperty{Name: "targetAction", TypeExpr: "StateMachineTargetAction | null", Optional: true},
+				TypeProperty{Name: "style", TypeExpr: "Record<string, unknown> | null", Optional: true},
+				TypeProperty{Name: "hidden", TypeExpr: "boolean", Optional: true},
+				TypeProperty{Name: "zIndex", TypeExpr: "number", Optional: true},
+				TypeProperty{Name: "selected", TypeExpr: "boolean", Optional: true},
+			),
+			reflect.TypeOf(UpdateStateMachineEdgeRequestInput{}): objectDeclaration(
+				"UpdateStateMachineEdgeRequestInput",
+				TypeProperty{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "projectConfigId", TypeExpr: "string"},
+				TypeProperty{Name: "edge", TypeExpr: "StateMachineEdge"},
+			),
+			reflect.TypeOf(DeleteStateMachineEdgesRequestInput{}): objectDeclaration(
+				"DeleteStateMachineEdgesRequestInput",
+				TypeProperty{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "projectConfigId", TypeExpr: "string"},
+				TypeProperty{Name: "edgeIds", TypeExpr: "Array<string>"},
+			),
+			reflect.TypeOf(SetStateMachineEdgesRequestInput{}): objectDeclaration(
+				"SetStateMachineEdgesRequestInput",
+				TypeProperty{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "projectConfigId", TypeExpr: "string"},
+				TypeProperty{Name: "edges", TypeExpr: "Array<StateMachineEdge>"},
 			),
 			reflect.TypeOf(CreateAgenticEdgeRequestInput{}): objectDeclaration(
 				"CreateAgenticEdgeRequestInput",

@@ -400,6 +400,42 @@ type SetEdgesRequestInput struct {
 	Edges           []Edge  `json:"edges"`
 }
 
+type CreateStateMachineEdgeRequestInput struct {
+	FrontendOpID                   *string                                     `json:"frontendOpId,omitempty"`
+	ProjectConfigID                string                                      `json:"projectConfigId"`
+	ID                             *string                                     `json:"id,omitempty"`
+	MachineGroupID                 string                                      `json:"machineGroupId"`
+	SourceSectionID                string                                      `json:"sourceSectionId"`
+	SourcePortID                   string                                      `json:"sourcePortId"`
+	TargetSectionID                string                                      `json:"targetSectionId"`
+	TargetPortID                   string                                      `json:"targetPortId"`
+	SourceFilter                   *StateMachineSourceFilter                   `json:"sourceFilter,omitempty"`
+	SourceActivationCountCondition *StateMachineSourceActivationCountCondition `json:"sourceActivationCountCondition,omitempty"`
+	TargetAction                   *StateMachineTargetAction                   `json:"targetAction,omitempty"`
+	Style                          map[string]any                              `json:"style,omitempty"`
+	Hidden                         *bool                                       `json:"hidden,omitempty"`
+	ZIndex                         *int                                        `json:"zIndex,omitempty"`
+	Selected                       *bool                                       `json:"selected,omitempty"`
+}
+
+type UpdateStateMachineEdgeRequestInput struct {
+	FrontendOpID    *string          `json:"frontendOpId,omitempty"`
+	ProjectConfigID string           `json:"projectConfigId"`
+	Edge            StateMachineEdge `json:"edge"`
+}
+
+type DeleteStateMachineEdgesRequestInput struct {
+	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
+	ProjectConfigID string   `json:"projectConfigId"`
+	EdgeIDs         []string `json:"edgeIds"`
+}
+
+type SetStateMachineEdgesRequestInput struct {
+	FrontendOpID    *string            `json:"frontendOpId,omitempty"`
+	ProjectConfigID string             `json:"projectConfigId"`
+	Edges           []StateMachineEdge `json:"edges"`
+}
+
 type CreateAgenticEdgeRequestInput struct {
 	FrontendOpID    *string                 `json:"frontendOpId,omitempty"`
 	ProjectConfigID string                  `json:"projectConfigId"`
@@ -834,6 +870,15 @@ type SetChatSectionSettingsRequestInput struct {
 	DictationMode          ChatDictationMode  `json:"dictationMode"`
 }
 
+type SetStateMachineSectionSettingsRequestInput struct {
+	FrontendOpID    *string               `json:"frontendOpId,omitempty"`
+	ProjectConfigID string                `json:"projectConfigId"`
+	SectionID       string                `json:"sectionId"`
+	MachineGroupID  string                `json:"machineGroupId"`
+	Label           string                `json:"label"`
+	GateType        *StateMachineGateType `json:"gateType,omitempty"`
+}
+
 type SetWatchCodeEnabledRequestInput struct {
 	FrontendOpID    *string `json:"frontendOpId,omitempty"`
 	ProjectConfigID string  `json:"projectConfigId"`
@@ -943,9 +988,27 @@ type TaskBoardRecurringWeekday string
 
 type TaskBoardRecurringMonth string
 
+type StateMachineGateType string
+
+type StateMachineTargetActionType string
+
+type StateMachineThreadStrategy string
+
+type StateMachineSourceFilterType string
+
+type StateMachineCountOperator string
+
 type AgenticEdgeKind string
 
 type AgenticEdgeContextMode string
+
+type StateMachineGateUIState struct{}
+
+type StateMachineSourceFilter struct{}
+
+type StateMachineSourceActivationCountCondition struct{}
+
+type StateMachineTargetAction struct{}
 
 type EdgePort struct {
 	ID       string `json:"id"`
@@ -1006,6 +1069,8 @@ type TaskBoardTask struct {
 }
 
 type Edge struct{}
+
+type StateMachineEdge struct{}
 
 type AgenticEdge struct{}
 
@@ -1083,6 +1148,18 @@ type BaseSectionImpl struct{}
 type UserDefaultListRootSectionImpl struct{}
 
 type ListRootSectionImpl struct{}
+
+type UserDefaultStateMachineStartSectionImpl struct{}
+
+type StateMachineStartSectionImpl struct{}
+
+type UserDefaultStateMachineGateSectionImpl struct{}
+
+type StateMachineGateSectionImpl struct{}
+
+type UserDefaultStateMachineEndSectionImpl struct{}
+
+type StateMachineEndSectionImpl struct{}
 
 type UserDefaultTextBlockSectionImpl struct{}
 

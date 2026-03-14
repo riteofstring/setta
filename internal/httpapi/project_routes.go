@@ -17,6 +17,7 @@ import (
 	"setta/internal/modes"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
+	"setta/internal/prompttemplates"
 	"setta/internal/settingsstate"
 	"setta/internal/statefs"
 )
@@ -46,6 +47,10 @@ const (
 	RouteDeleteEdges                       = "/deleteEdges"
 	RouteReconnectEdge                     = "/reconnectEdge"
 	RouteSetEdges                          = "/setEdges"
+	RouteCreateStateMachineEdge            = "/createStateMachineEdge"
+	RouteUpdateStateMachineEdge            = "/updateStateMachineEdge"
+	RouteDeleteStateMachineEdges           = "/deleteStateMachineEdges"
+	RouteSetStateMachineEdges              = "/setStateMachineEdges"
 	RouteCreateAgenticEdge                 = "/createAgenticEdge"
 	RouteUpdateAgenticEdge                 = "/updateAgenticEdge"
 	RouteDeleteAgenticEdges                = "/deleteAgenticEdges"
@@ -122,6 +127,7 @@ const (
 	RouteToggleParamSelected               = "/toggleParamSelected"
 	RouteUnselectAllParams                 = "/unselectAllParams"
 	RouteSetChatSectionSettings            = "/setChatSectionSettings"
+	RouteSetStateMachineSectionSettings    = "/setStateMachineSectionSettings"
 	RouteSetChatSectionState               = "/setChatSectionState"
 	RouteGetChatSectionChatID              = "/getChatSectionChatId"
 	RouteSetChatSectionChatID              = "/setChatSectionChatId"
@@ -156,6 +162,7 @@ type ProjectRouteDependencies struct {
 	ModePolicy                     modes.Policy
 	WorkspaceRoot                  string
 	ProjectState                   *projectstate.Runtime
+	PromptTemplates                *prompttemplates.Store
 	ShareSessions                  modes.ShareSessionStore
 	Deployment                     *deployments.Runtime
 	SettingsState                  *settingsstate.Runtime
@@ -378,6 +385,42 @@ type SetEdgesRequest struct {
 	FrontendOpID *string             `json:"frontendOpId"`
 	ProjectID    string              `json:"projectConfigId"`
 	Edges        []projectstate.Edge `json:"edges"`
+}
+
+type CreateStateMachineEdgeRequest struct {
+	FrontendOpID                   *string                                                  `json:"frontendOpId"`
+	ProjectID                      string                                                   `json:"projectConfigId"`
+	ID                             *string                                                  `json:"id"`
+	MachineGroupID                 string                                                   `json:"machineGroupId"`
+	SourceSectionID                string                                                   `json:"sourceSectionId"`
+	SourcePortID                   string                                                   `json:"sourcePortId"`
+	TargetSectionID                string                                                   `json:"targetSectionId"`
+	TargetPortID                   string                                                   `json:"targetPortId"`
+	SourceFilter                   *projectstate.StateMachineSourceFilter                   `json:"sourceFilter"`
+	SourceActivationCountCondition *projectstate.StateMachineSourceActivationCountCondition `json:"sourceActivationCountCondition"`
+	TargetAction                   *projectstate.StateMachineTargetAction                   `json:"targetAction"`
+	Style                          json.RawMessage                                          `json:"style"`
+	Hidden                         bool                                                     `json:"hidden"`
+	ZIndex                         int                                                      `json:"zIndex"`
+	Selected                       bool                                                     `json:"selected"`
+}
+
+type UpdateStateMachineEdgeRequest struct {
+	FrontendOpID *string                       `json:"frontendOpId"`
+	ProjectID    string                        `json:"projectConfigId"`
+	Edge         projectstate.StateMachineEdge `json:"edge"`
+}
+
+type DeleteStateMachineEdgesRequest struct {
+	FrontendOpID *string  `json:"frontendOpId"`
+	ProjectID    string   `json:"projectConfigId"`
+	EdgeIDs      []string `json:"edgeIds"`
+}
+
+type SetStateMachineEdgesRequest struct {
+	FrontendOpID *string                         `json:"frontendOpId"`
+	ProjectID    string                          `json:"projectConfigId"`
+	Edges        []projectstate.StateMachineEdge `json:"edges"`
 }
 
 type CreateAgenticEdgeRequest struct {
@@ -1000,6 +1043,15 @@ type SetChatSectionSettingsRequest struct {
 	DictationMode          projectstate.ChatDictationMode  `json:"dictationMode"`
 }
 
+type SetStateMachineSectionSettingsRequest struct {
+	FrontendOpID   *string                            `json:"frontendOpId"`
+	ProjectID      string                             `json:"projectConfigId"`
+	SectionID      string                             `json:"sectionId"`
+	MachineGroupID string                             `json:"machineGroupId"`
+	Label          string                             `json:"label"`
+	GateType       *projectstate.StateMachineGateType `json:"gateType"`
+}
+
 type SetChatSectionStateRequest struct {
 	FrontendOpID *string                       `json:"frontendOpId"`
 	ProjectID    string                        `json:"projectConfigId"`
@@ -1310,6 +1362,10 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteEdges, deleteEdgesHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteReconnectEdge, reconnectEdgeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetEdges, setEdgesHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateStateMachineEdge, createStateMachineEdgeHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUpdateStateMachineEdge, updateStateMachineEdgeHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteStateMachineEdges, deleteStateMachineEdgesHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetStateMachineEdges, setStateMachineEdgesHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateAgenticEdge, createAgenticEdgeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUpdateAgenticEdge, updateAgenticEdgeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteAgenticEdges, deleteAgenticEdgesHandler(deps))
@@ -1384,6 +1440,7 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteToggleParamSelected, toggleParamSelectedHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUnselectAllParams, unselectAllParamsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetChatSectionSettings, setChatSectionSettingsHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetStateMachineSectionSettings, setStateMachineSectionSettingsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetChatSectionState, setChatSectionStateHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetChatSectionChatID, getChatSectionChatIDHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetChatSectionChatID, setChatSectionChatIDHandler(deps))
@@ -2572,6 +2629,148 @@ func setEdgesHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			payload.Edges,
+		); err != nil {
+			writeGraphEdgeMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func createStateMachineEdgeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[CreateStateMachineEdgeRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		edgeID := ""
+		if payload.ID != nil {
+			edgeID = strings.TrimSpace(*payload.ID)
+		}
+
+		if _, err := deps.ProjectState.CreateStateMachineEdge(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			projectstate.StateMachineEdge{
+				ID:                             edgeID,
+				MachineGroupID:                 payload.MachineGroupID,
+				SourceSectionID:                payload.SourceSectionID,
+				SourcePortID:                   payload.SourcePortID,
+				TargetSectionID:                payload.TargetSectionID,
+				TargetPortID:                   payload.TargetPortID,
+				SourceFilter:                   payload.SourceFilter,
+				SourceActivationCountCondition: payload.SourceActivationCountCondition,
+				TargetAction:                   payload.TargetAction,
+				Style:                          projectstate.RawJSON(payload.Style),
+				Hidden:                         payload.Hidden,
+				ZIndex:                         payload.ZIndex,
+				Selected:                       payload.Selected,
+			},
+			deps.PromptTemplates,
+		); err != nil {
+			writeGraphEdgeMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func updateStateMachineEdgeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[UpdateStateMachineEdgeRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.UpdateStateMachineEdge(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			payload.Edge,
+			deps.PromptTemplates,
+		); err != nil {
+			writeGraphEdgeMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func deleteStateMachineEdgesHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[DeleteStateMachineEdgesRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.DeleteStateMachineEdges(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			payload.EdgeIDs,
+		); err != nil {
+			writeGraphEdgeMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setStateMachineEdgesHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetStateMachineEdgesRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetStateMachineEdges(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			payload.Edges,
+			deps.PromptTemplates,
 		); err != nil {
 			writeGraphEdgeMutationError(w, r, err)
 			return
@@ -5185,6 +5384,47 @@ func setChatSectionSettingsHandler(deps ProjectRouteDependencies) http.HandlerFu
 	}
 }
 
+func setStateMachineSectionSettingsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetStateMachineSectionSettingsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		settings := projectstate.StateMachineSectionSettings{
+			MachineGroupID: payload.MachineGroupID,
+			Label:          payload.Label,
+			GateType:       payload.GateType,
+		}
+		if _, err := deps.ProjectState.SetStateMachineSectionSettings(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			settings,
+		); err != nil {
+			writeStateMachineSectionMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
 func setChatSectionStateHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		payload, err := decodeJSONBody[SetChatSectionStateRequest](r)
@@ -6084,18 +6324,26 @@ func writeGraphEdgeMutationError(w http.ResponseWriter, r *http.Request, err err
 		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
 	case errors.Is(err, projectstate.ErrEdgeNotFound):
 		writeError(w, r, http.StatusNotFound, "edge_not_found", "Edge not found.")
+	case errors.Is(err, projectstate.ErrStateMachineEdgeNotFound):
+		writeError(w, r, http.StatusNotFound, "state_machine_edge_not_found", "State machine edge not found.")
 	case errors.Is(err, projectstate.ErrAgenticEdgeNotFound):
 		writeError(w, r, http.StatusNotFound, "agentic_edge_not_found", "Agentic edge not found.")
 	case errors.Is(err, projectstate.ErrProjectCodegenPythonTargetMissing):
 		writeError(w, r, http.StatusUnprocessableEntity, "project_codegen_python_target_missing", err.Error())
 	case errors.Is(err, projectstate.ErrEdgeDuplicateID):
 		writeError(w, r, http.StatusConflict, "edge_id_conflict", err.Error())
+	case errors.Is(err, projectstate.ErrStateMachineEdgeDuplicateID):
+		writeError(w, r, http.StatusConflict, "state_machine_edge_id_conflict", err.Error())
 	case errors.Is(err, projectstate.ErrAgenticEdgeDuplicateID):
 		writeError(w, r, http.StatusConflict, "agentic_edge_id_conflict", err.Error())
 	case errors.Is(err, projectstate.ErrEdgeEndpointSectionUnsupported),
 		errors.Is(err, projectstate.ErrEdgeSourcePortNotFound),
 		errors.Is(err, projectstate.ErrEdgeTargetPortNotFound):
 		writeError(w, r, http.StatusUnprocessableEntity, "edge_endpoint_invalid", err.Error())
+	case errors.Is(err, projectstate.ErrStateMachineEdgeInvalid):
+		writeError(w, r, http.StatusUnprocessableEntity, "state_machine_edge_invalid", err.Error())
+	case errors.Is(err, projectstate.ErrPromptSectionRequired):
+		writeError(w, r, http.StatusUnprocessableEntity, "prompt_section_required", "Section must resolve to a prompt section.")
 	case errors.Is(err, projectstate.ErrAgenticEdgeKindInvalid),
 		errors.Is(err, projectstate.ErrAgenticEdgeSourceSectionType),
 		errors.Is(err, projectstate.ErrAgenticEdgeTargetSectionType):
@@ -6452,6 +6700,19 @@ func writeChatSectionMutationError(w http.ResponseWriter, r *http.Request, err e
 		writeError(w, r, http.StatusBadRequest, "chat_permission_mode_invalid", err.Error())
 	case errors.Is(err, projectstate.ErrChatDictationModeInvalid):
 		writeError(w, r, http.StatusBadRequest, "chat_dictation_mode_invalid", err.Error())
+	default:
+		writeProjectLayoutMutationError(w, r, err)
+	}
+}
+
+func writeStateMachineSectionMutationError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrStateMachineSectionRequired):
+		writeError(w, r, http.StatusUnprocessableEntity, "state_machine_section_required", "Section must resolve to a state machine section.")
+	case errors.Is(err, projectstate.ErrStateMachineGateTypeInvalid):
+		writeError(w, r, http.StatusUnprocessableEntity, "state_machine_gate_type_invalid", err.Error())
+	case errors.Is(err, projectstate.ErrStateMachineEdgeInvalid):
+		writeError(w, r, http.StatusUnprocessableEntity, "state_machine_section_settings_invalid", err.Error())
 	default:
 		writeProjectLayoutMutationError(w, r, err)
 	}

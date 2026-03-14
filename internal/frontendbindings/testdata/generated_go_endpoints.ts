@@ -269,6 +269,30 @@ export async function route_set_edges(x: gt.SetEdgesRequestInput): Promise<Respo
 }
 
 
+export async function route_create_state_machine_edge(x: gt.CreateStateMachineEdgeRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRouteHelpers.createStateMachineEdge(), x);
+}
+
+
+export async function route_update_state_machine_edge(x: gt.UpdateStateMachineEdgeRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRouteHelpers.updateStateMachineEdge(), x);
+}
+
+
+export async function route_delete_state_machine_edges(x: gt.DeleteStateMachineEdgesRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRouteHelpers.deleteStateMachineEdges(), x);
+}
+
+
+export async function route_set_state_machine_edges(x: gt.SetStateMachineEdgesRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRouteHelpers.setStateMachineEdges(), x);
+}
+
+
 export async function route_create_agentic_edge(x: gt.CreateAgenticEdgeRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRouteHelpers.createAgenticEdge(), x);
@@ -1466,6 +1490,12 @@ export async function route_get_chat_section_chat_id(x: gt.GetChatSectionChatIDR
 export async function route_set_chat_section_settings(x: gt.SetChatSectionSettingsRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRouteHelpers.setChatSectionSettings(), x);
+}
+
+
+export async function route_set_state_machine_section_settings(x: gt.SetStateMachineSectionSettingsRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRouteHelpers.setStateMachineSectionSettings(), x);
 }
 
 

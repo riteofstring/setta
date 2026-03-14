@@ -83,6 +83,7 @@ func (p *Project) DeleteSections(input DeleteSectionsInput) (DeleteSectionsResul
 	if err := p.clearEdgeTargetsForDeletedSections(removed); err != nil {
 		return DeleteSectionsResult{}, err
 	}
+	p.StateMachineEdges = filterStateMachineEdgesBySectionIDs(p.StateMachineEdges, removed)
 	if err := p.removeDeletedSectionReferences(removed); err != nil {
 		return DeleteSectionsResult{}, err
 	}

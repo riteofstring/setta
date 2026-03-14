@@ -9,28 +9,24 @@ Current verdict: the Go backend rewrite is not complete.
 
 Blocking repo-backed gap found during execution:
 
-- current non-test frontend workflow/state-machine code still depends on all of
-  these caller paths:
-  - section creation for `StateMachineStart`, `StateMachineGate`, and
-    `StateMachineEnd` in
-    `frontend/src/state/actions/sections/createSectionsHelper.ts`
-  - section settings in
-    `frontend/src/components/Panes/UiEditor/SectionConfig/StateMachineSectionSettings.tsx`
-  - edge CRUD in `frontend/src/state/actions/stateMachineEdges.ts`
-  - run controls in `frontend/src/state/actions/stateMachineRuns.ts`
-- Go `internal/projectstate`, `internal/httpapi`, and
-  `internal/frontendbindings` do not currently expose a Go-owned replacement
-  for that full workflow/state-machine slice:
-  - `internal/projectstate/top_level_section_creation.go` still rejects those
-    top-level state-machine impl types
-  - the current Go project-state/frontend contract does not expose
-    `projectConfig.stateMachineEdges`, state-machine section impls, or the
-    related generated route helpers
-  - the repo scan did not find a Go-owned workflow-run runtime corresponding to
-    the Python `backend/setta/agentic/state_machine_runner.py`
-- a live Playwright startup run failed before app render because
-  `frontend/src/utils/generatedEndpoints.ts` does not export
-  `route_create_state_machine_edge`
+- current non-test frontend workflow/state-machine run code still depends on
+  `frontend/src/state/actions/stateMachineRuns.ts`
+- workflow authoring is now Go-owned through `internal/projectstate`,
+  `internal/projectview`, `internal/httpapi`, and `internal/frontendbindings`,
+  including:
+  - top-level section creation for `StateMachineStart`, `StateMachineGate`, and
+    `StateMachineEnd`
+  - `setStateMachineSectionSettings`
+  - `projectConfig.stateMachineEdges`
+  - workflow edge CRUD route helpers in the canonical generated frontend
+    bindings
+- the remaining missing slice is the workflow-run runtime and transport:
+  - the repo scan still does not find a Go-owned replacement for
+    `startStateMachineRun`, `stopStateMachineRun`, `resetStateMachine`, or
+    `getStateMachineRun`
+  - Python still owns that active caller path through
+    `backend/setta/routers/agentic.py` and
+    `backend/setta/agentic/state_machine_runner.py`
 
 Other audit findings remained consistent with the retained-boundary rules:
 

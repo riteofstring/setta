@@ -190,6 +190,12 @@ func (p Project) Clone() Project {
 			cloned.AgenticEdges[index] = edge.Clone()
 		}
 	}
+	if p.StateMachineEdges != nil {
+		cloned.StateMachineEdges = make([]StateMachineEdge, len(p.StateMachineEdges))
+		for index, edge := range p.StateMachineEdges {
+			cloned.StateMachineEdges[index] = edge.Clone()
+		}
+	}
 	if p.ProjectChatWindowing != nil {
 		clonedWindowing := p.ProjectChatWindowing.Clone()
 		cloned.ProjectChatWindowing = &clonedWindowing
@@ -388,6 +394,13 @@ func (p Project) Normalized() (Project, error) {
 			return Project{}, err
 		}
 		normalized.AgenticEdges[index] = edge.Clone()
+	}
+	for index, edge := range normalized.StateMachineEdges {
+		normalizedEdge, normalizeErr := edge.Normalized()
+		if normalizeErr != nil {
+			return Project{}, normalizeErr
+		}
+		normalized.StateMachineEdges[index] = normalizedEdge
 	}
 
 	for sectionKey, section := range normalized.Sections {

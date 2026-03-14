@@ -1495,6 +1495,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				ModePolicy:                     modePolicy,
 				WorkspaceRoot:                  cfg.Paths.WorkspaceRoot,
 				ProjectState:                   projectRuntime,
+				PromptTemplates:                promptTemplateStore,
 				ShareSessions:                  shareSessions,
 				Deployment:                     deploymentRuntime,
 				SettingsState:                  settingsStateRuntime,

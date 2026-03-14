@@ -56,6 +56,7 @@ type ProjectConfig struct {
 	ActiveIDs               []string                                       `json:"activeIds"`
 	Edges                   []projectstate.Edge                            `json:"edges"`
 	AgenticEdges            []projectstate.AgenticEdge                     `json:"agenticEdges"`
+	StateMachineEdges       []projectstate.StateMachineEdge                `json:"stateMachineEdges"`
 }
 
 type Core struct {
@@ -205,6 +206,10 @@ func projectConfigFromProject(project projectstate.Project) ProjectConfig {
 	for index, edge := range project.AgenticEdges {
 		agenticEdges[index] = edge.Clone()
 	}
+	stateMachineEdges := make([]projectstate.StateMachineEdge, len(project.StateMachineEdges))
+	for index, edge := range project.StateMachineEdges {
+		stateMachineEdges[index] = edge.Clone()
+	}
 
 	return ProjectConfig{
 		ID:                      project.ID,
@@ -230,6 +235,7 @@ func projectConfigFromProject(project projectstate.Project) ProjectConfig {
 		ActiveIDs:               cloneStringSlice(project.ActiveIDs),
 		Edges:                   edges,
 		AgenticEdges:            agenticEdges,
+		StateMachineEdges:       stateMachineEdges,
 	}
 }
 

@@ -53,6 +53,10 @@ export const GoHTTPRoutes = {
   deleteEdges: "/deleteEdges",
   reconnectEdge: "/reconnectEdge",
   setEdges: "/setEdges",
+  createStateMachineEdge: "/createStateMachineEdge",
+  updateStateMachineEdge: "/updateStateMachineEdge",
+  deleteStateMachineEdges: "/deleteStateMachineEdges",
+  setStateMachineEdges: "/setStateMachineEdges",
   createAgenticEdge: "/createAgenticEdge",
   updateAgenticEdge: "/updateAgenticEdge",
   deleteAgenticEdges: "/deleteAgenticEdges",
@@ -251,6 +255,7 @@ export const GoHTTPRoutes = {
   respondExternalAgentQuestion: "/respondExternalAgentQuestion",
   getChatSectionChatId: "/getChatSectionChatId",
   setChatSectionSettings: "/setChatSectionSettings",
+  setStateMachineSectionSettings: "/setStateMachineSectionSettings",
   setChatSectionState: "/setChatSectionState",
   setChatSectionChatId: "/setChatSectionChatId",
   setPromptTemplate: "/setPromptTemplate",
@@ -449,6 +454,18 @@ export const GoHTTPRouteHelpers = {
   },
   setEdges(): string {
     return GoHTTPRoutes.setEdges;
+  },
+  createStateMachineEdge(): string {
+    return GoHTTPRoutes.createStateMachineEdge;
+  },
+  updateStateMachineEdge(): string {
+    return GoHTTPRoutes.updateStateMachineEdge;
+  },
+  deleteStateMachineEdges(): string {
+    return GoHTTPRoutes.deleteStateMachineEdges;
+  },
+  setStateMachineEdges(): string {
+    return GoHTTPRoutes.setStateMachineEdges;
   },
   createAgenticEdge(): string {
     return GoHTTPRoutes.createAgenticEdge;
@@ -1044,6 +1061,9 @@ export const GoHTTPRouteHelpers = {
   setChatSectionSettings(): string {
     return GoHTTPRoutes.setChatSectionSettings;
   },
+  setStateMachineSectionSettings(): string {
+    return GoHTTPRoutes.setStateMachineSectionSettings;
+  },
   setChatSectionState(): string {
     return GoHTTPRoutes.setChatSectionState;
   },
@@ -1230,6 +1250,10 @@ export const RouteEnum = {
   DELETE_EDGES: "/deleteEdges",
   RECONNECT_EDGE: "/reconnectEdge",
   SET_EDGES: "/setEdges",
+  CREATE_STATE_MACHINE_EDGE: "/createStateMachineEdge",
+  UPDATE_STATE_MACHINE_EDGE: "/updateStateMachineEdge",
+  DELETE_STATE_MACHINE_EDGES: "/deleteStateMachineEdges",
+  SET_STATE_MACHINE_EDGES: "/setStateMachineEdges",
   CREATE_AGENTIC_EDGE: "/createAgenticEdge",
   UPDATE_AGENTIC_EDGE: "/updateAgenticEdge",
   DELETE_AGENTIC_EDGES: "/deleteAgenticEdges",
@@ -1428,6 +1452,7 @@ export const RouteEnum = {
   RESPOND_EXTERNAL_AGENT_QUESTION: "/respondExternalAgentQuestion",
   GET_CHAT_SECTION_CHAT_ID: "/getChatSectionChatId",
   SET_CHAT_SECTION_SETTINGS: "/setChatSectionSettings",
+  SET_STATE_MACHINE_SECTION_SETTINGS: "/setStateMachineSectionSettings",
   SET_CHAT_SECTION_STATE: "/setChatSectionState",
   SET_CHAT_SECTION_CHAT_ID: "/setChatSectionChatId",
   SET_PROMPT_TEMPLATE: "/setPromptTemplate",

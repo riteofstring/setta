@@ -54,6 +54,7 @@ type Project struct {
 	ActiveIDs                []string                          `json:"activeIds,omitempty"`
 	Edges                    []Edge                            `json:"edges,omitempty"`
 	AgenticEdges             []AgenticEdge                     `json:"agenticEdges,omitempty"`
+	StateMachineEdges        []StateMachineEdge                `json:"stateMachineEdges,omitempty"`
 	ProjectChatWindowing     *ProjectChatWindowingState        `json:"projectChatWindowing,omitempty"`
 	Sections                 map[string]Section                `json:"sections,omitempty"`
 	SectionVariants          map[string]SectionVariant         `json:"sectionVariants,omitempty"`
