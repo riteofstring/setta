@@ -905,3 +905,38 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/components/Utils/Resizable/CustomResizable.tsx`, now
     the largest remaining shared frontend hotspot, into low-level resize math,
     DOM event wiring, and window/pane-specific resize ownership.
+
+## 2026-03-14 19:12:51 PDT
+
+- Slice completed: split `CustomResizable` ownership into composition,
+  lifecycle, sizing, and handle-chrome modules
+- Key files touched:
+  - `frontend/src/components/Utils/Resizable/CustomResizable.tsx`
+  - `frontend/src/components/Utils/Resizable/useCustomResizableBehavior.ts`
+  - `frontend/src/components/Utils/Resizable/customResizableSizing.ts`
+  - `frontend/src/components/Utils/Resizable/customResizableChrome.ts`
+  - `frontend/src/components/Utils/Resizable/CustomResizable.test.ts`
+  - `frontend/src/components/Utils/Resizable/customResizableChrome.test.ts`
+  - `frontend/src/components/AppHeader/EditMenu.tsx`
+  - `frontend/src/components/Modals/SaveLoadModal/SaveLoadModal.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/components/Utils/Resizable/CustomResizable.test.ts src/components/Utils/Resizable/customResizableChrome.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-sizing.spec.ts`
+  - `pnpm -C frontend exec prettier --check src/components/Utils/Resizable/CustomResizable.tsx src/components/Utils/Resizable/useCustomResizableBehavior.ts src/components/Utils/Resizable/customResizableSizing.ts src/components/Utils/Resizable/customResizableChrome.ts src/components/Utils/Resizable/CustomResizable.test.ts src/components/Utils/Resizable/customResizableChrome.test.ts src/components/AppHeader/EditMenu.tsx src/components/Modals/SaveLoadModal/SaveLoadModal.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - CDP visual check on `http://127.0.0.1:3000/taking_owl`: captured the live
+    section screenshot and verified the rendered `CustomResizable` surface still
+    exposes the expected bottom, right, and bottom-right handles with the
+    expected hit areas (`500x10`, `10x165`, and `20x20`) after the split.
+  - No perf report was added. This slice was an ownership refactor and did not
+    materially change render structure or resize algorithms.
+- Commit hash:
+  - `44fc3d2b2`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/stateMachineEdges.ts`, now the largest
+    remaining shared-state hotspot, into graph reads, optimistic project-state
+    writes, and view/runtime-specific edge command modules.
