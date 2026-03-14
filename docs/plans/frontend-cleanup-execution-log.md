@@ -1271,3 +1271,39 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/aiConfiguration.ts`, now the largest
     authored state hotspot, into narrower config/API-key mutation versus AI
     settings catalog load/mutation modules.
+
+## 2026-03-14 21:22:42 PDT
+
+- Slice completed: split AI configuration and settings catalog actions by ownership
+- Key files touched:
+  - `frontend/src/state/actions/aiLLMConfiguration.ts`
+  - `frontend/src/state/actions/aiConfigurationCatalogs.ts`
+  - `frontend/src/state/actions/aiConfiguration.ts`
+  - `frontend/src/state/actions/websocketIncomingMessages.ts`
+  - `frontend/src/state/actions/aiConfigurationCatalogs.test.ts`
+  - `frontend/src/state/actions/aiSaveLLMConfig.test.ts`
+  - `frontend/src/state/actions/aiSaveLLMApiKeys.test.ts`
+  - `frontend/src/state/actions/aiResourceLoadGuards.test.ts`
+  - `frontend/src/state/actions/aiUpdateEngineConfig.test.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectLLMSettings.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/useHydrateLLMState.ts`
+  - `frontend/src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/aiSaveLLMConfig.test.ts src/state/actions/aiSaveLLMApiKeys.test.ts src/state/actions/aiResourceLoadGuards.test.ts src/state/actions/aiUpdateEngineConfig.test.ts src/state/actions/aiConfigurationCatalogs.test.ts src/state/actions/websocketReceive.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectLLMSettings.test.ts src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.test.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChat.multiSurface.integration.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/actions/aiConfiguration.ts src/state/actions/aiLLMConfiguration.ts src/state/actions/aiConfigurationCatalogs.ts src/state/actions/websocketIncomingMessages.ts src/state/actions/aiConfigurationCatalogs.test.ts src/state/actions/aiSaveLLMConfig.test.ts src/state/actions/aiSaveLLMApiKeys.test.ts src/state/actions/aiResourceLoadGuards.test.ts src/state/actions/aiUpdateEngineConfig.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectLLMSettings.tsx src/components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState.ts src/components/Panes/Overview/ProjectLevelAI/useHydrateLLMState.ts src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `48d60585b`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/windowSpaces.ts`, now tied for the
+    largest authored/shared state hotspot, into clearer restore orchestration,
+    restored-instance remapping, and saved chat-thread rebound modules.
