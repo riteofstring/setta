@@ -114,6 +114,11 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `frontend/src/state/hooks/terminals/terminalSessions.ts` and xterm
   fit/fallback/reflow behavior to
   `frontend/src/state/hooks/terminals/terminalFit.ts`.
+- `frontend/src/state/actions/keyActivations.ts` is down to 705 lines and now
+  delegates shortcut parsing/input-ignore policy to
+  `frontend/src/state/actions/keyShortcutUtils.ts` and `Tab`/`Escape`,
+  section-selection, and React Flow key-mode handlers to
+  `frontend/src/state/actions/keyActivationHandlers.ts`.
 - `frontend/src/state/actions/uiSettingReveal.ts` is down to 360 lines and now
   delegates reveal mutation orchestration, lease ownership, snapshot rollback,
   pane activation, DOM anchor/highlight helpers, and execution-status utilities

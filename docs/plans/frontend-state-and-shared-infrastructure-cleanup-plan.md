@@ -65,6 +65,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   owns pane/accordion activation writes, `uiSettingRevealDom.ts` owns anchor
   lookup and highlighting, and `uiSettingRevealShared.ts` owns
   execution-context/status helpers.
+- `frontend/src/state/actions/keyActivations.ts` is now a 705-line listener
+  orchestration entrypoint; `keyShortcutUtils.ts` owns shortcut parsing,
+  event-code normalization, and input-ignore policy, and
+  `keyActivationHandlers.ts` owns `Tab`/`Escape`, section-selection, and React
+  Flow key-mode handlers.
 - `frontend/src/state/hooks/terminals/terminal.ts` is now a 248-line React hook
   orchestration layer; `terminalSessions.ts` owns cached websocket session
   reuse and transport wiring, and `terminalFit.ts` owns xterm
@@ -76,10 +81,10 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 
 - `frontend/src/state` plus shared infrastructure files in `components/Utils` and `utils` total about 83.6k lines of authored code in the sampled directories.
 - The biggest shared-state hotspots are:
-  - `frontend/src/state/actions/keyActivations.ts` at 960 lines
   - `frontend/src/components/Utils/Resizable/CustomResizable.tsx` at 725 lines
   - `frontend/src/state/actions/stateMachineEdges.ts` at 718 lines
   - `frontend/src/state/actions/websocketReceive.ts` at 706 lines
+  - `frontend/src/state/actions/keyActivations.ts` at 705 lines
   - `frontend/src/state/actions/windowSpaces.ts` at 695 lines
   - `frontend/src/state/actions/sectionInfos.ts` at 678 lines
   - `frontend/src/utils/focusManager.ts` at 657 lines
@@ -132,6 +137,10 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `uiSettingRevealActivation.ts` for pane-opening and accordion/chat-aux activation writes
   - `uiSettingRevealDom.ts` for anchor lookup, scrolling, and highlight timing
   - `uiSettingRevealShared.ts` for execution-context mismatch and status builders
+- `keyActivations.ts`, `keyShortcutUtils.ts`, and `keyActivationHandlers.ts` now split into:
+  - `keyActivations.ts` for global key-listener wiring and pressed-key bookkeeping
+  - `keyShortcutUtils.ts` for shortcut parsing, event-code normalization, and input-ignore policy
+  - `keyActivationHandlers.ts` for `Tab`/`Escape`, section-selection, and React Flow key-mode handlers
 - `windowSpacePersistence.ts` now owns:
   - saved window-space sort/name/delete/create mutations
   - optimistic persistence and layout-mutation rollback

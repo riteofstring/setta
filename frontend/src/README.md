@@ -187,6 +187,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
     building and conversion back into project-chat windowing state.
   - `state/actions/windowSpaces.ts` now owns workspace restore orchestration for
     saved window spaces.
+  - `state/actions/keyActivations.ts` now just owns global key-listener
+    orchestration; `keyShortcutUtils.ts` owns shortcut parsing/input-ignore
+    policy and `keyActivationHandlers.ts` owns `Tab`/`Escape`, section
+    selection, and React Flow key-mode handlers.
   - `state/actions/uiSettingReveal.ts` now just orchestrates reveal requests;
     `uiSettingRevealMutations.ts` owns the mutation lock plus high-level reveal
     orchestration, `uiSettingRevealMutationOwnership.ts` owns lease sequence and
@@ -248,11 +252,11 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/keyActivations.ts` keyboard activation split across section
-  selection, reveal/focus shortcuts, and pane/layout command routing
 - `utils/focusManager.ts` focus-registry split across tab-scope registration,
   keyboard navigation policy, section focus behavior, and canvas-specific pane
   movement
+- `components/Utils/Resizable/CustomResizable.tsx` resize-surface split across
+  low-level drag math, DOM event wiring, and window/pane-specific behavior
 - `state/actions/sectionInfos.ts` section metadata/display-tree split now that
   `state/actions/sectionEffectiveImpls.ts`,
   `state/actions/sectionProjectStateSync.ts`,
