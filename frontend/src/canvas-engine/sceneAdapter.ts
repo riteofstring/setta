@@ -118,6 +118,15 @@ export type CanvasEngineAgenticHandleHitResult = {
   handleWorldY: number;
 };
 
+type CanvasEngineResolvedSectionRect = {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  zIndex: number;
+};
+
 const DEFAULT_CONFIG: CanvasEngineSceneAdapterConfig = {
   defaultSectionWidth: 320,
   defaultSectionHeight: 200,
@@ -135,6 +144,8 @@ export class CanvasEngineSceneAdapter {
   private readonly config: CanvasEngineSceneAdapterConfig;
 
   private readonly spatialIndex: CanvasEngineSpatialIndex;
+
+  private readonly nestedPreviewSpatialIndex: CanvasEngineSpatialIndex;
 
   private readonly rectById: Map<string, CanvasEngineRect>;
 
@@ -201,6 +212,9 @@ export class CanvasEngineSceneAdapter {
       ...config,
     };
     this.spatialIndex = new CanvasEngineSpatialIndex({
+      cellSize: this.config.spatialIndexCellSize,
+    });
+    this.nestedPreviewSpatialIndex = new CanvasEngineSpatialIndex({
       cellSize: this.config.spatialIndexCellSize,
     });
     this.rectById = new Map();
@@ -384,8 +398,8 @@ export class CanvasEngineSceneAdapter {
     if (!edge) {
       return null;
     }
-    const sourceRect = this.rectById.get(edge.sourceSectionId);
-    const targetRect = this.rectById.get(edge.targetSectionId);
+    const sourceRect = this.resolveSectionRect(edge.sourceSectionId);
+    const targetRect = this.resolveSectionRect(edge.targetSectionId);
     if (!sourceRect || !targetRect) {
       return null;
     }
@@ -421,7 +435,14 @@ export class CanvasEngineSceneAdapter {
       selectedIds.add(sectionId);
     }
     if (options?.includeNestedPreviewRects) {
-      for (const nestedPreviewRect of this.nestedPreviewRectById.values()) {
+      const nestedPreviewIds =
+        this.nestedPreviewSpatialIndex.queryRect(selectionRect);
+      for (const nestedPreviewId of nestedPreviewIds) {
+        const nestedPreviewRect =
+          this.nestedPreviewRectById.get(nestedPreviewId);
+        if (!nestedPreviewRect) {
+          continue;
+        }
         if (
           !isRectSelectedBySelectionRect(
             nestedPreviewRect,
@@ -475,8 +496,8 @@ export class CanvasEngineSceneAdapter {
       if (edge.hidden) {
         continue;
       }
-      const sourceRect = this.rectById.get(edge.sourceSectionId);
-      const targetRect = this.rectById.get(edge.targetSectionId);
+      const sourceRect = this.resolveSectionRect(edge.sourceSectionId);
+      const targetRect = this.resolveSectionRect(edge.targetSectionId);
       if (!sourceRect || !targetRect) {
         continue;
       }
@@ -508,8 +529,8 @@ export class CanvasEngineSceneAdapter {
       if (edge.hidden) {
         continue;
       }
-      const sourceRect = this.rectById.get(edge.sourceSectionId);
-      const targetRect = this.rectById.get(edge.targetSectionId);
+      const sourceRect = this.resolveSectionRect(edge.sourceSectionId);
+      const targetRect = this.resolveSectionRect(edge.targetSectionId);
       if (!sourceRect || !targetRect) {
         continue;
       }
@@ -560,7 +581,7 @@ export class CanvasEngineSceneAdapter {
       distance: number;
     } | null = null;
     const queryToleranceWorld = toleranceWorld + AGENTIC_HANDLE_EXTENT_WORLD;
-    const candidateSectionIds = this.spatialIndex.queryRect({
+    const candidateSectionIds = this.querySectionIdsIntersectingWorldRect({
       x: worldX - queryToleranceWorld,
       y: worldY - queryToleranceWorld,
       width: queryToleranceWorld * 2,
@@ -568,7 +589,7 @@ export class CanvasEngineSceneAdapter {
     });
 
     for (const sectionId of candidateSectionIds) {
-      const rect = this.rectById.get(sectionId);
+      const rect = this.resolveSectionRect(sectionId);
       if (!rect) {
         continue;
       }
@@ -648,7 +669,7 @@ export class CanvasEngineSceneAdapter {
       distance: number;
     } | null = null;
     const queryToleranceWorld = toleranceWorld + DATA_HANDLE_EXTENT_WORLD;
-    const candidateSectionIds = this.spatialIndex.queryRect({
+    const candidateSectionIds = this.querySectionIdsIntersectingWorldRect({
       x: worldX - queryToleranceWorld,
       y: worldY - queryToleranceWorld,
       width: queryToleranceWorld * 2,
@@ -656,7 +677,7 @@ export class CanvasEngineSceneAdapter {
     });
 
     for (const sectionId of candidateSectionIds) {
-      const rect = this.rectById.get(sectionId);
+      const rect = this.resolveSectionRect(sectionId);
       if (!rect) {
         continue;
       }
@@ -869,10 +890,12 @@ export class CanvasEngineSceneAdapter {
       width: viewport.width / camera.zoom + worldPadding * 2,
       height: viewport.height / camera.zoom + worldPadding * 2,
     };
+    const visibleNestedPreviewIds =
+      this.nestedPreviewSpatialIndex.queryRect(viewportRect);
     return sortNestedPreviewRects(
-      Array.from(this.nestedPreviewRectById.values()).filter((rect) =>
-        doWorldRectsIntersect(viewportRect, rect),
-      ),
+      visibleNestedPreviewIds
+        .map((sectionId) => this.nestedPreviewRectById.get(sectionId) ?? null)
+        .filter((rect): rect is CanvasEngineNestedPreviewRect => rect !== null),
     );
   }
 
@@ -895,9 +918,15 @@ export class CanvasEngineSceneAdapter {
       return false;
     }
 
+    const previousIds = new Set(this.nestedPreviewRectById.keys());
     this.nestedPreviewRectById.clear();
     for (const [sectionId, rect] of nextById) {
       this.nestedPreviewRectById.set(sectionId, rect);
+      this.nestedPreviewSpatialIndex.upsert(sectionId, rect);
+      previousIds.delete(sectionId);
+    }
+    for (const sectionId of previousIds) {
+      this.nestedPreviewSpatialIndex.remove(sectionId);
     }
     return true;
   }
@@ -1074,8 +1103,8 @@ export class CanvasEngineSceneAdapter {
     >();
 
     for (const edge of this.dataEdgeById.values()) {
-      const sourceRect = this.rectById.get(edge.sourceSectionId);
-      const targetRect = this.rectById.get(edge.targetSectionId);
+      const sourceRect = this.resolveSectionRect(edge.sourceSectionId);
+      const targetRect = this.resolveSectionRect(edge.targetSectionId);
       if (!sourceRect || !targetRect) {
         continue;
       }
@@ -1097,6 +1126,40 @@ export class CanvasEngineSceneAdapter {
     }
 
     this.dataEdgeEndpointByKey = nextEndpointByKey;
+  }
+
+  private resolveSectionRect(
+    sectionId: string,
+  ): CanvasEngineResolvedSectionRect | null {
+    const rect = this.rectById.get(sectionId);
+    if (rect) {
+      return rect;
+    }
+    const nestedPreviewRect = this.nestedPreviewRectById.get(sectionId);
+    if (!nestedPreviewRect) {
+      return null;
+    }
+    return {
+      id: nestedPreviewRect.id,
+      x: nestedPreviewRect.x,
+      y: nestedPreviewRect.y,
+      width: nestedPreviewRect.width,
+      height: nestedPreviewRect.height,
+      zIndex: this.rectById.get(nestedPreviewRect.parentSectionId)?.zIndex ?? 0,
+    };
+  }
+
+  private querySectionIdsIntersectingWorldRect(bounds: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }): string[] {
+    const sectionIds = new Set(this.spatialIndex.queryRect(bounds));
+    for (const sectionId of this.nestedPreviewSpatialIndex.queryRect(bounds)) {
+      sectionIds.add(sectionId);
+    }
+    return Array.from(sectionIds);
   }
 }
 
@@ -1316,7 +1379,12 @@ function resolveEstimatedDataPortAnchor({
   portIds,
   handleType,
 }: {
-  rect: CanvasEngineRect;
+  rect: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
   portId: string;
   portIds: string[];
   handleType: "source" | "target";
@@ -1446,7 +1514,7 @@ function selectDataHandleHitCandidateForPortIds({
   sectionId: string;
   portIds: string[];
   handleType: "source" | "target";
-  rect: CanvasEngineRect;
+  rect: CanvasEngineResolvedSectionRect;
   measuredPositionsByPortId: Map<string, CanvasEngineEdgeHandlePosition> | null;
   worldX: number;
   worldY: number;
@@ -1616,8 +1684,18 @@ function isAgenticHandleHitCandidateAbove(
 }
 
 function resolveEdgeAnchors(
-  sourceRect: CanvasEngineRect,
-  targetRect: CanvasEngineRect,
+  sourceRect: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  },
+  targetRect: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  },
 ): {
   startX: number;
   startY: number;
@@ -1640,8 +1718,18 @@ function resolveEdgeAnchors(
 
 function resolveDataEdgeAnchors(
   edge: CanvasEngineDataEdge,
-  sourceRect: CanvasEngineRect,
-  targetRect: CanvasEngineRect,
+  sourceRect: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  },
+  targetRect: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  },
 ): {
   startX: number;
   startY: number;
@@ -1909,18 +1997,6 @@ function areNestedPreviewRectsEqual(
 
 function getViewportPaddingWorld(viewportPaddingPx: number, zoom: number) {
   return viewportPaddingPx / zoom;
-}
-
-function doWorldRectsIntersect(
-  left: { x: number; y: number; width: number; height: number },
-  right: { x: number; y: number; width: number; height: number },
-): boolean {
-  return (
-    left.x < right.x + right.width &&
-    left.x + left.width > right.x &&
-    left.y < right.y + right.height &&
-    left.y + left.height > right.y
-  );
 }
 
 function hashString(value: string): number {

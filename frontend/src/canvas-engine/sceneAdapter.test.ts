@@ -214,6 +214,163 @@ describe("CanvasEngineSceneAdapter", () => {
     expect(snapshot.snapshot.dataEdges[0]?.targetY).not.toBeNull();
   });
 
+  it("hit-tests cached nested data edges, endpoints, and handles", () => {
+    const adapter = new CanvasEngineSceneAdapter();
+    adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          group: createLayout({ x: 0, y: 0, w: 900, h: 620, zIndex: 4 }),
+        },
+        activeSectionIds: [],
+        nestedPreviewRects: [
+          createNestedPreviewRect({
+            id: "childA",
+            parentSectionId: "group",
+            x: 120,
+            y: 140,
+            width: 220,
+            height: 120,
+          }),
+          createNestedPreviewRect({
+            id: "childB",
+            parentSectionId: "group",
+            x: 500,
+            y: 180,
+            width: 240,
+            height: 160,
+          }),
+        ],
+        edges: [
+          createDataEdge("edge-data-nested-hit", "childA", "childB", {
+            sourcePortId: "out-2",
+            targetPortId: "in-3",
+          }),
+        ],
+        agenticEdges: [],
+        edgeHandlePositions: {
+          [buildDataHandleKey("childA", "out-2", "source")]:
+            createEdgeHandlePosition({
+              sectionId: "childA",
+              portId: "out-2",
+              type: "source",
+              x: 344,
+              y: 218,
+            }),
+          [buildDataHandleKey("childB", "in-3", "target")]:
+            createEdgeHandlePosition({
+              sectionId: "childB",
+              portId: "in-3",
+              type: "target",
+              x: 498,
+              y: 301,
+            }),
+        },
+        sectionEdgePortsBySectionId: {
+          childA: {
+            inputPortIds: [],
+            outputPortIds: ["out-1", "out-2", "out-3"],
+          },
+          childB: {
+            inputPortIds: ["in-1", "in-2", "in-3", "in-4"],
+            outputPortIds: [],
+          },
+        },
+      }),
+    );
+
+    expect(adapter.getDataEdgeAnchorsById("edge-data-nested-hit")).toEqual({
+      startX: 344,
+      startY: 218,
+      endX: 498,
+      endY: 301,
+    });
+    expect(
+      adapter.hitTestDataHandleAtWorldPoint(344, 218, 8, {
+        handleType: "source",
+      }),
+    ).toEqual({
+      sectionId: "childA",
+      portId: "out-2",
+      handleType: "source",
+      handleWorldX: 344,
+      handleWorldY: 218,
+    });
+    expect(
+      adapter.hitTestDataHandleAtWorldPoint(498, 301, 8, {
+        handleType: "target",
+      }),
+    ).toEqual({
+      sectionId: "childB",
+      portId: "in-3",
+      handleType: "target",
+      handleWorldX: 498,
+      handleWorldY: 301,
+    });
+    expect(adapter.hitTestDataEdgeEndpointAtWorldPoint(344, 218, 8)).toEqual({
+      edgeId: "edge-data-nested-hit",
+      endpointType: "source",
+    });
+    expect(adapter.hitTestDataEdgeEndpointAtWorldPoint(498, 301, 8)).toEqual({
+      edgeId: "edge-data-nested-hit",
+      endpointType: "target",
+    });
+    expect(adapter.hitTestEdgeAtWorldPoint(421, 259.5, 16)).toEqual({
+      kind: "data",
+      id: "edge-data-nested-hit",
+    });
+  });
+
+  it("hit-tests cached nested agentic edges and handles", () => {
+    const adapter = new CanvasEngineSceneAdapter();
+    adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          group: createLayout({ x: 0, y: 0, w: 900, h: 620, zIndex: 4 }),
+        },
+        activeSectionIds: [],
+        nestedPreviewRects: [
+          createNestedPreviewRect({
+            id: "childA",
+            parentSectionId: "group",
+            x: 120,
+            y: 140,
+            width: 220,
+            height: 120,
+          }),
+          createNestedPreviewRect({
+            id: "childB",
+            parentSectionId: "group",
+            x: 500,
+            y: 180,
+            width: 240,
+            height: 160,
+          }),
+        ],
+        edges: [],
+        agenticEdges: [
+          createAgenticEdge("edge-agentic-nested-hit", "childA", "childB"),
+        ],
+      }),
+    );
+
+    expect(adapter.hitTestEdgeAtWorldPoint(420, 230, 16)).toEqual({
+      kind: "agentic",
+      id: "edge-agentic-nested-hit",
+    });
+    expect(adapter.hitTestAgenticHandleAtWorldPoint(359, 200, 8)).toEqual({
+      sectionId: "childA",
+      handleType: "source",
+      handleWorldX: 359,
+      handleWorldY: 200,
+    });
+    expect(adapter.hitTestAgenticHandleAtWorldPoint(481, 260, 8)).toEqual({
+      sectionId: "childB",
+      handleType: "target",
+      handleWorldX: 481,
+      handleWorldY: 260,
+    });
+  });
+
   it("can include cached nested preview rects in selection queries", () => {
     const adapter = new CanvasEngineSceneAdapter();
     adapter.applyProjectState(

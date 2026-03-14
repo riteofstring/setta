@@ -673,7 +673,7 @@ function buildSceneVertexData(
 ): Float32Array {
   const clampedZoom = clamp(scene.camera.zoom, MIN_ZOOM, MAX_ZOOM);
   const orderedRects = scene.rects;
-  const rectById = new Map(orderedRects.map((rect) => [rect.id, rect]));
+  const rectById = buildEdgeRectById(scene);
   const dataEdgeById = new Map(
     scene.dataEdges.map((edge) => [edge.id, edge] as const),
   );
@@ -737,12 +737,47 @@ function buildSceneVertexData(
   return new Float32Array(values);
 }
 
+function buildEdgeRectById(scene: CanvasEngineSceneSnapshot): Map<
+  string,
+  {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }
+> {
+  const rectById = new Map<
+    string,
+    {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }
+  >();
+  for (const rect of scene.rects) {
+    rectById.set(rect.id, rect);
+  }
+  for (const rect of scene.nestedPreviewRects) {
+    rectById.set(rect.id, rect);
+  }
+  return rectById;
+}
+
 function appendDataEdgePrimitives(
   destination: number[],
   scene: CanvasEngineSceneSnapshot,
   viewport: CanvasEngineViewport,
   zoom: number,
-  rectById: Map<string, CanvasEngineSceneSnapshot["rects"][number]>,
+  rectById: Map<
+    string,
+    {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }
+  >,
 ): void {
   for (const edge of scene.dataEdges) {
     if (edge.hidden) {
@@ -788,7 +823,15 @@ function appendAgenticEdgePrimitives(
   scene: CanvasEngineSceneSnapshot,
   viewport: CanvasEngineViewport,
   zoom: number,
-  rectById: Map<string, CanvasEngineSceneSnapshot["rects"][number]>,
+  rectById: Map<
+    string,
+    {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }
+  >,
 ): void {
   for (const edge of scene.agenticEdges) {
     if (edge.hidden) {
@@ -836,7 +879,15 @@ function appendHoveredEdgePrimitives(
   scene: CanvasEngineSceneSnapshot,
   viewport: CanvasEngineViewport,
   zoom: number,
-  rectById: Map<string, CanvasEngineSceneSnapshot["rects"][number]>,
+  rectById: Map<
+    string,
+    {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }
+  >,
   dataEdgeById: Map<string, CanvasEngineSceneSnapshot["dataEdges"][number]>,
   agenticEdgeById: Map<
     string,
