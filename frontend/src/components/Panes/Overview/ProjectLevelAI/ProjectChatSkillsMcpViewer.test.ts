@@ -592,12 +592,14 @@ describe("resolveCustomSlashDraftByProjectConfigIdUpdate", () => {
         "project-a": {
           command: "/triage",
           prompt: "Summarize open bugs.",
+          appGenerationMode: null,
         },
       },
       projectConfigId: "project-b",
       nextDraft: {
         command: "/ship",
         prompt: "Prepare release notes.",
+        appGenerationMode: null,
       },
     });
 
@@ -605,10 +607,84 @@ describe("resolveCustomSlashDraftByProjectConfigIdUpdate", () => {
       "project-a": {
         command: "/triage",
         prompt: "Summarize open bugs.",
+        appGenerationMode: null,
       },
       "project-b": {
         command: "/ship",
         prompt: "Prepare release notes.",
+        appGenerationMode: null,
+      },
+    });
+  });
+
+  it("keeps a draft when only the submission mode changes", () => {
+    const next = resolveCustomSlashDraftByProjectConfigIdUpdate({
+      customSlashDraftByProjectConfigId: {
+        "project-a": {
+          command: "/wireframe",
+          prompt: "Create dashboard.",
+          appGenerationMode: null,
+        },
+      },
+      projectConfigId: "project-a",
+      nextDraft: {
+        command: "/wireframe",
+        prompt: "Create dashboard.",
+        appGenerationMode: "json_render",
+      },
+    });
+
+    expect(next).toEqual({
+      "project-a": {
+        command: "/wireframe",
+        prompt: "Create dashboard.",
+        appGenerationMode: "json_render",
+      },
+    });
+  });
+
+  it("keeps a draft while a mode-only selection is still in progress", () => {
+    const next = resolveCustomSlashDraftByProjectConfigIdUpdate({
+      customSlashDraftByProjectConfigId: {},
+      projectConfigId: "project-a",
+      nextDraft: {
+        command: "",
+        prompt: "",
+        appGenerationMode: "json_render",
+      },
+    });
+
+    expect(next).toEqual({
+      "project-a": {
+        command: "",
+        prompt: "",
+        appGenerationMode: "json_render",
+      },
+    });
+  });
+
+  it("keeps an existing command draft when the mode returns to plain chat", () => {
+    const next = resolveCustomSlashDraftByProjectConfigIdUpdate({
+      customSlashDraftByProjectConfigId: {
+        "project-a": {
+          command: "/wireframe",
+          prompt: "Create dashboard.",
+          appGenerationMode: "json_render",
+        },
+      },
+      projectConfigId: "project-a",
+      nextDraft: {
+        command: "/wireframe",
+        prompt: "Create dashboard.",
+        appGenerationMode: null,
+      },
+    });
+
+    expect(next).toEqual({
+      "project-a": {
+        command: "/wireframe",
+        prompt: "Create dashboard.",
+        appGenerationMode: null,
       },
     });
   });
@@ -619,16 +695,19 @@ describe("resolveCustomSlashDraftByProjectConfigIdUpdate", () => {
         "project-a": {
           command: "/triage",
           prompt: "Summarize open bugs.",
+          appGenerationMode: null,
         },
         "project-b": {
           command: "/ship",
           prompt: "Prepare release notes.",
+          appGenerationMode: null,
         },
       },
       projectConfigId: "project-b",
       nextDraft: {
         command: "",
         prompt: "",
+        appGenerationMode: null,
       },
     });
 
@@ -636,6 +715,7 @@ describe("resolveCustomSlashDraftByProjectConfigIdUpdate", () => {
       "project-a": {
         command: "/triage",
         prompt: "Summarize open bugs.",
+        appGenerationMode: null,
       },
     });
   });

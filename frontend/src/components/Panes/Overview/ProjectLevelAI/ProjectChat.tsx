@@ -13,7 +13,6 @@ import {
   buildLLMConfigGroups,
   countLLMConfigs,
   pickDefaultConfigId,
-  resolveSelectableLLMConfigId,
 } from "components/Chat/llmConfigUtils";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
@@ -65,6 +64,7 @@ import {
   useProjectState,
   type ProjectChatAuxView,
 } from "state/definitions";
+import { getDefaultChatAppGenerationDetails } from "state/utils/chatAppGeneration";
 import {
   buildSearchableTextForMessage,
   matchesConversationSearchText,
@@ -563,6 +563,21 @@ function ProjectChatSurface({
     }
     return [];
   });
+  const activeConversationAppGenerationDetails = useAIStore((state) => {
+    if (chatId === null) {
+      return (
+        state.pendingChatAppGenerationDetailsBySurfaceId[resolvedSurfaceId] ??
+        getDefaultChatAppGenerationDetails()
+      );
+    }
+    if (typeof chatId !== "string") {
+      return getDefaultChatAppGenerationDetails();
+    }
+    return (
+      state.chatAppGenerationDetailsByChatId[chatId] ??
+      getDefaultChatAppGenerationDetails()
+    );
+  });
   const selectedChatWaitingForResponse = useAIStore((state) => {
     if (chatId === null) {
       return Boolean(
@@ -840,14 +855,6 @@ function ProjectChatSurface({
   const providerDictationLikelySupported = providerDictationAvailable;
   const hasLLMConfig = Boolean(
     selectedLLMConfigId && availableConfigIds.has(selectedLLMConfigId),
-  );
-  const selectableLLMConfigId = useMemo(
-    () =>
-      resolveSelectableLLMConfigId(
-        availableConfigGroups,
-        selectedLLMConfigId,
-      ),
-    [availableConfigGroups, selectedLLMConfigId],
   );
   const llmSelectionUnavailableReason = useMemo(
     () =>
@@ -1660,7 +1667,11 @@ function ProjectChatSurface({
     if (!engineSwitchContinuation) {
       return;
     }
-    seedPendingChatDetails(activeConversationMessages, resolvedSurfaceId);
+    seedPendingChatDetails(
+      activeConversationMessages,
+      resolvedSurfaceId,
+      activeConversationAppGenerationDetails,
+    );
     setChatId(null);
     setDraftThreadState({ phase: "idle" });
     setDraftThreadTargetGroupId(selectedThreadGroupId);
@@ -1673,6 +1684,7 @@ function ProjectChatSurface({
     }
     setProjectChatAuxView("none");
   }, [
+    activeConversationAppGenerationDetails,
     activeConversationMessages,
     engineSwitchContinuation,
     resolvedSurfaceId,
@@ -1953,7 +1965,7 @@ function ProjectChatSurface({
                         transcriptionProfileGroups={transcriptionProfileGroups}
                         availableConfigGroups={availableConfigGroups}
                         selectedEngineId={effectiveEngineId}
-                        selectedLLMConfigId={selectableLLMConfigId}
+                        selectedLLMConfigId={selectedLLMConfigId}
                         llmSelectionUnavailableReason={
                           llmSelectionUnavailableReason
                         }
@@ -2173,7 +2185,6 @@ function ProjectChatSurface({
                   }
                   thinking={thinking}
                   engineConfigId={effectiveEngineId}
-                  engineConfig={selectedEngineConfig}
                   engineType={engineType}
                   hasLLMConfig={hasLLMConfig}
                   externalEngineAvailable={externalEngineAvailable}
@@ -2244,7 +2255,6 @@ function ProjectChatSurface({
               hydrationMetadataRevision={selectedChatHydrationMetadataRevision}
               thinking={thinking}
               engineConfigId={effectiveEngineId}
-              engineConfig={selectedEngineConfig}
               engineType={engineType}
               hasLLMConfig={hasLLMConfig}
               externalEngineAvailable={externalEngineAvailable}
