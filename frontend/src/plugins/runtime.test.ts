@@ -23,7 +23,7 @@ import React from "react";
 import { renderToString } from "react-dom/server";
 import { setActiveSectionIds } from "state/actions/activeSections";
 import { loadProjectState } from "state/actions/project/loadProject";
-import { processProjectStateUpdateFromBackend } from "state/actions/sectionInfos";
+import { processProjectStateUpdateFromBackend } from "state/actions/sectionProjectStateSync";
 import * as websocketReceive from "state/actions/websocketReceive";
 import { useActiveSectionUI } from "state/activeSectionUI";
 import { useProjectState, useShareSession } from "state/definitions";

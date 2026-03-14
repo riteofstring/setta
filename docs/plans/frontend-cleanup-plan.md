@@ -74,6 +74,10 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/state/actions/aiInterruptedAssistantMessages.ts` now owns interrupted assistant message tracking and snapshot restoration.
 - `frontend/src/state/actions/aiConfiguration.ts` now owns LLM config/API-key handling plus the AI settings/resource catalogs.
 - `frontend/src/state/actions/aiTranscription.ts` now owns provider dictation transport plus transcription-profile loading and CRUD.
+- `frontend/src/state/actions/sectionProjectStateSync.ts` now owns backend
+  project-state reconciliation, active-section sync, viewport updates, and
+  project-chat windowing coordination, reducing
+  `frontend/src/state/actions/sectionInfos.ts` to 1840 lines.
 - `frontend/src/state/stores/aiStores.ts` now owns the AI/chat Zustand stores and related chat-state types.
 - `frontend/src/state/stores/appStores.ts` now owns app definition/config/preview state, and `frontend/src/state/stores/sessionStores.ts` now owns share-session, server-mode, and all-project-metadata state.
 - `frontend/src/state/stores/editorDiagnosticsStores.ts` now owns LSP waiting flags, type errors, LSP diagnostics, and name-validation errors used across authoring and validation flows.

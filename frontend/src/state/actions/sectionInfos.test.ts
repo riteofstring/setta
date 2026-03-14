@@ -11,9 +11,9 @@ import {
   getEmbeddedAttachedTerminalParentIdForTerminalSection,
   getSectionIsHorizontalOrientation,
   getTopLevelSectionIdsForDisplay,
-  processProjectStateUpdateFromBackend,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
+import { processProjectStateUpdateFromBackend } from "state/actions/sectionProjectStateSync";
 import { resetStreamingTracker } from "state/aiStreamingTracker";
 import {
   useNodeInternals,

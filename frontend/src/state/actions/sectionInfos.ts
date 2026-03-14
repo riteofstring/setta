@@ -3,26 +3,15 @@ import { getViewport } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { Node } from "forks/xyflow/core/types";
 import _ from "lodash";
-import { unstable_batchedUpdates } from "react-dom";
 import {
   getMessageCompletenessScore,
   mergeChatMessages,
 } from "state/actions/chatMergeUtils";
-import {
-  markRenameBroadcastsReady,
-  maybeOpenNextRenamePrompt,
-} from "state/actions/renameRefactors";
-import {
-  getActiveSectionUIIds,
-  getReconciledActiveSectionUIStateFromBackend,
-  sanitizeProjectStateActiveIds,
-  useActiveSectionUI,
-} from "state/activeSectionUI";
+import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { isSectionStreamActive } from "state/aiStreamingTracker";
 import {
   NULL_PROJECT_CONFIG_ID,
   PendingOperation,
-  runWithAtomicallyPublishedProjectStores,
   useAllProjectMetadata,
   useNodeInternals,
   usePendingOperations,
@@ -32,7 +21,6 @@ import {
   ZustandProjectState,
 } from "state/definitions";
 import { useToolArgumentPreview } from "state/stores/aiStores";
-import { useMisc } from "state/stores/layoutInteractionStores";
 import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import type { ResponseDataAndStatus } from "utils/endpointUtils";
 import { res200 } from "utils/endpointUtils";
@@ -59,7 +47,6 @@ import {
   isBaseSectionWithParamsImpl,
   ListRootViewModeEnum,
   ProjectStateSingleConfig,
-  ProjectStateSingleConfigWithCompletedOpIds,
   SectionType,
   SectionTypeEnum,
   Variant,
@@ -68,8 +55,6 @@ import {
 import { createNewId } from "utils/idNameCreation";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { applyActiveSectionChange } from "./activeSectionController";
-import { recordAuthoritativeProjectChatWindowingState } from "./projectChatWindowingAuthoritative";
-import { reconcileProjectChatWindowingEphemeralState } from "./projectChatWindowingEphemeral";
 
 const effectiveImplCacheByImpl = new WeakMap<
   object,
@@ -131,7 +116,7 @@ type ChatSectionImpl = Extract<
   { type: SectionTypeEnum.Chat }
 >;
 
-function mergeStreamingChatSections(
+export function mergeStreamingChatSections(
   projectState: ProjectStateSingleConfig,
   currentState: ZustandProjectState,
 ): string[] {
@@ -987,184 +972,7 @@ export function manualDndChildrenReset() {
   );
 }
 
-function getComparableProjectState(
-  state: ProjectStateSingleConfig | ZustandProjectState,
-): ProjectStateSingleConfig {
-  return sanitizeProjectStateActiveIds({
-    sections: state.sections,
-    sectionImpls: state.sectionImpls,
-    sectionVariants: state.sectionVariants,
-    codeObjs: state.codeObjs,
-    codeObjImpls: state.codeObjImpls,
-    codeObjVariants: state.codeObjVariants,
-    artifactGroups: state.artifactGroups,
-    projectConfig: state.projectConfig,
-    singletonSections: state.singletonSections,
-    parentSectionMap: state.parentSectionMap,
-    shownParamIds: state.shownParamIds,
-    requiredDecodedImages: state.requiredDecodedImages,
-    genCodeBinding: state.genCodeBinding ?? null,
-    projectChatWindowing: state.projectChatWindowing,
-  });
-}
-
-export function processProjectStateUpdateFromBackend(
-  x: ProjectStateSingleConfigWithCompletedOpIds,
-) {
-  const projectConfigId = getCurrProjectConfigId();
-  if (x.projectState.projectConfig.id !== projectConfigId) {
-    return;
-  }
-  const currentState = useProjectState.getState();
-  mergeStreamingChatSections(x.projectState, currentState);
-  recordAuthoritativeProjectChatWindowingState(
-    x.projectState.projectConfig.id,
-    x.projectState.projectChatWindowing,
-  );
-  const backendPendingIds = new Set(x.pendingOpIds);
-  const completedIds = new Set(x.completedOpIds);
-  const currentPending = usePendingOperations.getState().pending;
-  const nextPending = currentPending.reduce<PendingOperation[]>(
-    (acc, opInfo) => {
-      if (completedIds.has(opInfo.opId)) {
-        return acc;
-      }
-      const isBackendPending = backendPendingIds.has(opInfo.opId);
-      const acknowledged = opInfo.acknowledged || isBackendPending;
-      acc.push({
-        ...opInfo,
-        acknowledged,
-      });
-      return acc;
-    },
-    [],
-  );
-  reconcilePendingTopLevelLayout(nextPending);
-  for (const opInfo of nextPending) {
-    opInfo.apply(x.projectState);
-  }
-  const nextActiveSectionUIState = getReconciledActiveSectionUIStateFromBackend(
-    x.projectState.projectConfig.activeIds,
-    x.completedOpIds,
-    x.projectState.projectConfig.id,
-    Object.keys(x.projectState.sections),
-  );
-  const sanitizedProjectState = getComparableProjectState(x.projectState);
-  const projectStateChanged = !_.isEqual(
-    getComparableProjectState(currentState),
-    sanitizedProjectState,
-  );
-
-  if (!projectStateChanged) {
-    unstable_batchedUpdates(() => {
-      usePendingOperations.setState({ pending: nextPending });
-      if (nextActiveSectionUIState !== null) {
-        useActiveSectionUI.setState(nextActiveSectionUIState);
-      }
-    });
-    markRenameBroadcastsReady(completedIds);
-    maybeOpenNextRenamePrompt();
-    clearToolArgumentPreviewForProjectState(projectConfigId, currentState);
-    return;
-  }
-
-  const shouldRequestFitView = applyViewportFromProjectState(x.projectState);
-  const nextNodesMap = createNodesMapFromProjectConfigChildren(
-    x.projectState,
-    useNodeInternals.getState().x,
-  );
-  reconcileProjectChatWindowingEphemeralState(
-    sanitizedProjectState.projectChatWindowing,
-    sanitizedProjectState.projectConfig.id,
-  );
-  runWithAtomicallyPublishedProjectStores(
-    {
-      projectState: sanitizedProjectState,
-      nodeInternals: { x: nextNodesMap },
-      activeSectionUI: nextActiveSectionUIState,
-    },
-    () => {
-      unstable_batchedUpdates(() => {
-        usePendingOperations.setState({ pending: nextPending });
-        useNodeInternals.setState({ x: nextNodesMap });
-        useProjectState.setState(() => sanitizedProjectState);
-        if (nextActiveSectionUIState !== null) {
-          useActiveSectionUI.setState(nextActiveSectionUIState);
-        }
-      });
-    },
-  );
-  if (shouldRequestFitView) {
-    useMisc.setState({ requestUpdateNodeDimensions: true });
-  }
-
-  markRenameBroadcastsReady(completedIds);
-  maybeOpenNextRenamePrompt();
-  clearToolArgumentPreviewForProjectState(
-    projectConfigId,
-    useProjectState.getState(),
-  );
-}
-
-function applyViewportFromProjectState(
-  projectState: ProjectStateSingleConfig,
-): boolean {
-  const { viewport, viewportInitialized } = projectState.projectConfig;
-  const currentConfig = useProjectState.getState().projectConfig;
-  const viewModeChanged =
-    currentConfig.activeViewModeId !==
-    projectState.projectConfig.activeViewModeId;
-  const viewportChanged =
-    !_.isEqual(currentConfig.viewport, viewport) ||
-    currentConfig.viewportInitialized !== viewportInitialized;
-  if (!viewportChanged && !viewModeChanged) {
-    return false;
-  }
-  if (!viewport || !viewportInitialized) {
-    useReactFlow.setState({
-      fitViewOnInit: true,
-      fitViewOnInitDone: false,
-      fitViewOnInitOptions: getFitViewOptionsForVisibleSections(projectState),
-    });
-    return true;
-  }
-  useReactFlow.setState({
-    fitViewOnInit: false,
-    fitViewOnInitDone: true,
-    fitViewOnInitOptions: undefined,
-    transform: [viewport.x, viewport.y, viewport.zoom],
-  });
-  return false;
-}
-
-function getFitViewOptionsForVisibleSections(
-  projectState: ProjectStateSingleConfig,
-) {
-  const { activeViewModeId, isEditingViewMode, viewModes } =
-    projectState.projectConfig;
-  if (isEditingViewMode) {
-    return undefined;
-  }
-  if (!activeViewModeId) {
-    return undefined;
-  }
-  const viewMode = viewModes[activeViewModeId];
-  if (!viewMode) {
-    return undefined;
-  }
-  const topLevelSections = getActiveViewModeTopLevelSections(projectState);
-  const visibleNodeIds = Object.keys(topLevelSections).filter(
-    (sectionId) => viewMode.visibilityBySectionId[sectionId],
-  );
-  if (visibleNodeIds.length === 0) {
-    return undefined;
-  }
-  return {
-    nodes: visibleNodeIds.map((id) => ({ id }) as Node),
-  };
-}
-
-function clearToolArgumentPreviewForProjectState(
+export function clearToolArgumentPreviewForProjectState(
   projectConfigId: string,
   projectState: ZustandProjectState,
 ) {
@@ -1638,7 +1446,9 @@ const sendTopLevelLayoutToBackend = _.debounce(() => {
   }
 }, 500);
 
-function reconcilePendingTopLevelLayout(nextPending: PendingOperation[]) {
+export function reconcilePendingTopLevelLayout(
+  nextPending: PendingOperation[],
+) {
   const currentOpId = pendingTopLevelLayoutRef.opId;
   if (!currentOpId) {
     return;

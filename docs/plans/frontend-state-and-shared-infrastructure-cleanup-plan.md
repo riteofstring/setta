@@ -22,6 +22,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - Unlike the later `clean-code` branch, this branch still has a shared `frontend/src/state/definitions.ts` index, but AI/chat store ownership now lives in `frontend/src/state/stores/aiStores.ts`, app runtime state now lives in `frontend/src/state/stores/appStores.ts`, session/share state now lives in `frontend/src/state/stores/sessionStores.ts`, browser state now lives in `frontend/src/state/stores/fileBrowserStores.ts`, search state now lives in `frontend/src/state/stores/searchStores.ts`, feedback state now lives in `frontend/src/state/stores/feedbackStores.ts`, project-status state now lives in `frontend/src/state/stores/projectStatusStores.ts`, layout interaction state now lives in `frontend/src/state/stores/layoutInteractionStores.ts`, UI preference/config state now lives in `frontend/src/state/stores/uiPreferenceStores.ts`, editor diagnostics state now lives in `frontend/src/state/stores/editorDiagnosticsStores.ts`, and shared persist fallback logic lives in `frontend/src/state/storePersistStorage.ts`.
 - `frontend/src/state/actions/aiHydration.ts`, `frontend/src/state/actions/aiAgentRuns.ts`, `frontend/src/state/actions/aiConfiguration.ts`, `frontend/src/state/actions/aiTranscription.ts`, `frontend/src/state/actions/aiChatSubmission.ts`, `frontend/src/state/actions/aiChatControls.ts`, `frontend/src/state/actions/aiChatState.ts`, `frontend/src/state/actions/aiPendingChatState.ts`, `frontend/src/state/actions/aiInterruptedAssistantMessages.ts`, and `frontend/src/state/actions/aiChatStreaming.ts` now carry the hydration, agent-run, config/catalog, transcription, submission, chat-control, chat-detail, pending-draft, interruption-tracking, and streaming behavior that previously lived in `frontend/src/state/actions/ai.ts`; future cleanup should keep extending those seams instead of merging behavior back.
 - `frontend/src/state/actions/projectChatWindowing.ts` already delegates some logic to `projectChatWindowingAuthoritative.ts` and `projectChatWindowingEphemeral.ts`; future cleanup should build on those seams.
+- `frontend/src/state/actions/sectionProjectStateSync.ts` now owns backend
+  project-state reconciliation, active-section sync, viewport updates, and
+  project-chat windowing coordination that previously lived in
+  `frontend/src/state/actions/sectionInfos.ts`; future cleanup should keep
+  importers on the dedicated sync entrypoint instead of routing snapshot
+  handling back through the query/mutation surface.
 - `frontend/src/utils/constants.ts` is still unsplit on this branch, so shared-infrastructure cleanup is still high leverage.
 - Shared infrastructure cleanup will still cross fork boundaries at times, but if a slice becomes primarily about code under `frontend/src/forks/**` it should use the more specific companion plan instead of expanding this one.
 
@@ -29,7 +35,7 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 
 - `frontend/src/state` plus shared infrastructure files in `components/Utils` and `utils` total about 83.6k lines of authored code in the sampled directories.
 - The biggest shared-state hotspots are:
-  - `frontend/src/state/actions/sectionInfos.ts` at 2030 lines
+  - `frontend/src/state/actions/sectionInfos.ts` at 1840 lines
   - `frontend/src/state/actions/uiSettingReveal.ts` at 1597 lines
   - `frontend/src/state/actions/windowSpaces.ts` at 1422 lines
   - `frontend/src/state/actions/websocketReceive.ts` at 1027 lines
@@ -40,9 +46,13 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - effective-impl derivation
   - optimistic project-state mutation helpers
   - streaming chat merge behavior
-  - active-section coordination
-  - project-chat windowing sync hooks
-  - section metadata queries
+  - section metadata and layout queries
+  - top-level layout persistence
+- `sectionProjectStateSync.ts` now owns:
+  - backend snapshot reconciliation
+  - active-section sync from authoritative project state
+  - viewport application during backend updates
+  - project-chat windowing authoritative and ephemeral coordination
 - `windowSpaces.ts` mixes:
   - optimistic layout writes
   - floating bounds normalization
@@ -94,7 +104,7 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - effective impl/read helpers
   - section metadata selectors
   - optimistic section mutation commands
-  - reconciliation helpers for backend/project-state updates
+  - top-level layout persistence helpers
 - Keep naming explicit so agents can tell whether they are calling a read helper or a mutating command.
 
 3. Normalize optimistic mutation infrastructure

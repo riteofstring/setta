@@ -1,7 +1,5 @@
-import {
-  getCurrEffectiveSectionImplOfType,
-  processProjectStateUpdateFromBackend,
-} from "state/actions/sectionInfos";
+import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
+import { processProjectStateUpdateFromBackend } from "state/actions/sectionProjectStateSync";
 import { resetProjectStores } from "state/utils";
 import {
   ChatRoleEnum,

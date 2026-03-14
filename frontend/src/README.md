@@ -155,6 +155,9 @@ feature-local adapters around them when the consuming surface is non-trivial.
     helpers split across `aiHydration.ts`, `aiAgentRuns.ts`,
     `aiChatSubmission.ts`, `aiChatControls.ts`, `aiChatState.ts`,
     `aiChatSectionState.ts`, and `aiPendingChatState.ts`.
+  - `state/actions/sectionProjectStateSync.ts` owns backend project-state
+    reconciliation, active-section sync, viewport updates, and project-chat
+    windowing coordination for authoritative project snapshots.
   - `state/hooks/*` owns reusable hooks layered on top of stores and actions.
   - `state/types/*` and `state/utils/*` own state-local models and helper logic.
 
@@ -205,7 +208,9 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Likely Next Cleanup Slices
 
 - `state/actions/sectionInfos.ts` query/command split across effective-impl
-  derivation, optimistic section mutations, and project-chat windowing sync
+  derivation, section metadata/layout reads, and optimistic section mutations
+  now that `state/actions/sectionProjectStateSync.ts` owns backend
+  reconciliation and project-chat windowing sync
 - `state/actions/uiSettingReveal.ts` and adjacent pane chrome helpers that still
   mix persisted-pane writes, window-space reveal logic, and UI recovery paths
 - shared project chat surfaces under `components/Chat/*`,

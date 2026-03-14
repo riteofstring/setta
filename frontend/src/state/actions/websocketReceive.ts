@@ -18,9 +18,7 @@ import {
   clearAllWebsocketConnections,
   setWebsocketConnections,
 } from "state/actions/websocketConnectionList";
-import {
-  NULL_PROJECT_CONFIG_ID,
-} from "state/definitions";
+import { NULL_PROJECT_CONFIG_ID } from "state/definitions";
 import { useServerMode, useShareSession } from "state/stores/sessionStores";
 import { encodeBinaryFrame } from "utils/binaryWebsocket";
 import { C } from "utils/c";
@@ -88,9 +86,9 @@ import {
 import { handleRenameRefactorBroadcast } from "./renameRefactors";
 import {
   getCurrProjectConfigId,
-  processProjectStateUpdateFromBackend,
   updateAllProjectMetadata,
 } from "./sectionInfos";
+import { processProjectStateUpdateFromBackend } from "./sectionProjectStateSync";
 import { updateSettings } from "./settings";
 import {
   initializeShareSessionFromCurrentDeployment,

@@ -50,15 +50,9 @@ vi.mock("state/actions/websocketConnectionList", () => ({
   setWebsocketConnections: vi.fn(),
 }));
 
-vi.mock("state/actions/sectionInfos", async () => {
-  const actual = await vi.importActual<
-    typeof import("state/actions/sectionInfos")
-  >("state/actions/sectionInfos");
-  return {
-    ...actual,
-    processProjectStateUpdateFromBackend: vi.fn(),
-  };
-});
+vi.mock("state/actions/sectionProjectStateSync", () => ({
+  processProjectStateUpdateFromBackend: vi.fn(),
+}));
 
 class MockWebSocket {
   static instances: MockWebSocket[] = [];
