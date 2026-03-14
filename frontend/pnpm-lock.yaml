@@ -236,6 +236,9 @@ importers:
       tailwindcss:
         specifier: 3.4.1
         version: 3.4.1
+      unicode-animations:
+        specifier: 1.0.3
+        version: 1.0.3
       unique-names-generator:
         specifier: 4.7.1
         version: 4.7.1
@@ -304,7 +307,7 @@ importers:
         specifier: 7.37.4
         version: 7.37.4(eslint@9.21.0(jiti@2.6.1))
       jsdom:
-        specifier: 28.1.0
+        specifier: ^28.1.0
         version: 28.1.0
       knip:
         specifier: 5.73.4
@@ -4855,6 +4858,10 @@ packages:
   undici@7.22.0:
     resolution: {integrity: sha512-RqslV2Us5BrllB+JeiZnK4peryVTndy9Dnqq62S3yYRRTj0tFQCwEniUy2167skdGOy3vqRzEvl1Dm4sV2ReDg==}
     engines: {node: '>=20.18.1'}
+
+  unicode-animations@1.0.3:
+    resolution: {integrity: sha512-+klB2oWwcYZjYWhwP4Pr8UZffWDFVx6jKeIahE6z0QYyM2dwDeDPyn5nevCYbyotxvtT9lh21cVURO1RX0+YMg==}
+    hasBin: true
 
   unified@11.0.5:
     resolution: {integrity: sha512-xKvGhPWw3k84Qjh8bI3ZeJjqnyadK+GEFtazSfZv/rKeTkTjOJho6mFqh2SM96iIcZokxiOpg78GazTSg8+KHA==}
@@ -10327,6 +10334,8 @@ snapshots:
   undici-types@7.16.0: {}
 
   undici@7.22.0: {}
+
+  unicode-animations@1.0.3: {}
 
   unified@11.0.5:
     dependencies:

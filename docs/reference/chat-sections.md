@@ -23,8 +23,7 @@ Chat sections store the following fields on the section impl:
 
 ## Managed mode
 
-Managed mode uses the AI routes backed by `backend/setta/routers/ai.py` and
-`backend/setta/llm/agent_runner.py`:
+Managed mode uses the central LLM chat manager:
 
 - The UI blocks sends until `engineConfigId` is selected and at least one engine config is available.
 - `submitMessage` calls `route_get_llm_response` with `chatId`, `engineConfigId`, `thinking`, plus optional `agentProfileId` and `sectionId` (Chat sections pass their section id; Project Chat passes `null`).
@@ -40,8 +39,7 @@ The chat composer supports local slash commands and execution controls:
 
 - Supported slash actions: `/new`, `/resume`, `/help`, `/permissions`, `/model`, `/search`.
 - Availability by surface: Project Chat includes `/model`, `/permissions`, and `/search`; Managed Chat section includes `/model` and `/permissions`; Scriptable Chat section includes `/permissions` only (plus `/new`, `/resume`, `/help`).
-- Project Chat is the primary app-generation prompt surface. Built-in slash commands `/app-json`, `/app-image`, `/app-prompt`, and `/app-mcp` each inject a fixed baseline prompt, append any typed suffix text once, and set a deterministic `appGenerationMode`. Subsequent plain-text follow-up turns inherit that active mode until a command explicitly submits as plain chat or the user starts a new thread.
-- Project Chat also supports per-project custom prompt slash commands defined in the `Slash Commands` aux view. Each custom command stores prompt text plus a submission mode (`plain_chat` or a specific app-generation mode), so custom commands are the current override/reset path when a project needs a materially different baseline prompt or needs to drop back to plain chat.
+- Project Chat also supports per-project custom prompt slash commands defined in the `Slash Commands` aux view.
 - For external-agent Project Chat, the composer now separates recognized slash commands from executable slash commands. Native commands discovered from current project run metadata can be recognized before authority fully loads, return local feedback, refresh authority, and then retry resolution instead of falling through as plain chat text.
 - Slash commands are handled client-side; unavailable commands return local feedback and are not sent as LLM prompts.
 - Footer controls always show permission mode when execution controls are enabled; search toggle is shown only where `searchEnabled` is mutable in that surface.
