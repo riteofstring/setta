@@ -1,9 +1,9 @@
 # UI Polish, Dev Browser, And Chat Runtime Plan
 
-Execution log:
+Plan status:
 
-- Append-only progress and handoff notes live in `docs/plans/ui-polish-dev-browser-chat-runtime-log.md`.
-- Each implementation chat should append a dated entry with: scope touched, tests added/updated first, code changed, verification run, blockers, and next recommended slice.
+- This plan is closed.
+- The reconciled checklist below is the retained source-of-truth record for the completed work.
 
 Historical baseline captured when this plan was first created
 (kept for context; no longer the current product state):
@@ -30,7 +30,7 @@ This section is the authoritative status view as of `2026-03-13`.
 
 Status values:
 
-- `done`: the original requirement has direct code + test/log evidence.
+- `done`: the original requirement has direct code + test evidence.
 - `open`: still needs work or a dedicated regression to prove closure.
 
 Original checklist reconciliation:
@@ -71,4 +71,4 @@ Original checklist reconciliation:
 
 ## Historical Note
 
-The old phase-by-phase checkbox list was removed from this file on `2026-03-13` because it had drifted out of sync with the append-only execution log and the actual shipped work. The append-only log remains the historical record; this plan now acts as the reconciled source-of-truth checklist.
+The old phase-by-phase checkbox list was removed from this file on `2026-03-13` because it had drifted out of sync with the actual shipped work. This plan now acts as the retained source-of-truth checklist for the finished scope.

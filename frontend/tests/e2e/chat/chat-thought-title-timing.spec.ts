@@ -90,11 +90,11 @@ test.describe.serial("chat thought title timing", () => {
       });
 
       const section = findSectionByName(page, sectionName);
-      const activityLatest = section.locator(
-        '[data-chat-assistant-activity-latest="true"]',
+      const activityPrimaryLabel = section.locator(
+        '[data-chat-assistant-activity-primary-label="true"]',
       );
 
-      await expect(activityLatest).toContainText("Thinking", {
+      await expect(activityPrimaryLabel).toContainText("Thinking", {
         timeout: 10000,
       });
 
@@ -149,7 +149,7 @@ test.describe.serial("chat thought title timing", () => {
         },
       );
 
-      await expect(activityLatest).toContainText("Thinking", {
+      await expect(activityPrimaryLabel).toContainText("Thinking", {
         timeout: 10000,
       });
 

@@ -906,10 +906,13 @@ test.describe.serial("chat tool calls", () => {
         .locator('[data-chat-assistant-activity-open-all-button="true"]')
         .click();
 
-      const activityLatest = section.locator(
-        '[data-chat-assistant-activity-latest="true"]',
+      const activityPrimaryLabel = section.locator(
+        '[data-chat-assistant-activity-primary-label="true"]',
       );
-      await expect(activityLatest).not.toContainText(
+      await expect(activityPrimaryLabel).toContainText(
+        "Action: pnpm exec vitest run src/components/Chat",
+      );
+      await expect(activityPrimaryLabel).not.toContainText(
         "Graph state inspection summary",
       );
       await expect(previewShell).toHaveAttribute(
