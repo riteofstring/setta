@@ -136,6 +136,13 @@ function resolveBackendUrl(address: string): string {
   return `${C_ADDRESSES.BACKEND}${address}`;
 }
 
+export function buildBackendURL(
+  address: string,
+  addressParams?: Record<string, string | number | boolean | null | undefined>,
+): string {
+  return resolveBackendUrl(buildAddressWithParams(address, addressParams));
+}
+
 function buildShareSessionHeaders(): Record<string, string> {
   const shareSession = useShareSession.getState();
   if (!shareSession.isDeploymentMode || !shareSession.shareSessionId) {

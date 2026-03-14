@@ -9,7 +9,7 @@ import {
 } from "state/definitions";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { buildPluginPaneOverviewTabName } from "utils/constants";
-import { res200 } from "utils/endpointUtils";
+import { buildBackendURL, res200 } from "utils/endpointUtils";
 import { route_plugins_runtime } from "utils/generatedEndpoints";
 import { GoHTTPRouteHelpers } from "utils/generatedRoutes";
 import {
@@ -1642,7 +1642,7 @@ function registerPluginModule({
       for (const [key, value] of Object.entries(shareHeaders)) {
         requestHeaders.set(key, value);
       }
-      return fetch(`${C_ADDRESSES.BACKEND}${routePath}`, {
+      return fetch(buildBackendURL(routePath), {
         ...init,
         credentials: "include",
         headers: requestHeaders,

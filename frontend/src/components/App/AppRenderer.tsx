@@ -14,8 +14,7 @@ import {
 } from "state/actions/app";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { useAppConfigs, useShareSession } from "state/definitions";
-import { C_ADDRESSES } from "utils/c_addresses";
-import { res200 } from "utils/endpointUtils";
+import { buildBackendURL, res200 } from "utils/endpointUtils";
 import {
   route_get_attachment_download_url,
   route_run_code,
@@ -400,10 +399,11 @@ export function AppRenderer({
         return;
       }
       const endpoint = GoHTTPRouteHelpers.binaryDownload(contentId);
-      const url = new URL(`${C_ADDRESSES.BACKEND}${endpoint}`);
-      if (shareSessionId) {
-        url.searchParams.set("shareSessionId", shareSessionId);
-      }
+      const url = new URL(
+        buildBackendURL(endpoint, {
+          shareSessionId: shareSessionId ?? undefined,
+        }),
+      );
       triggerDownload(url.toString(), filename ?? undefined);
     },
     [allowFileDownloads, shareSessionId],
