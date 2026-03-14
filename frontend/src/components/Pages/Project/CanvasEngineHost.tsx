@@ -790,7 +790,7 @@ export function CanvasEngineHost() {
     }
 
     const handleWheel = (event: WheelEvent) => {
-      const pinchZoom = event.ctrlKey && isMacOs();
+      const pinchZoom = isCanvasPinchZoomGesture(event);
       if (!pinchZoom && isCanvasWheelBlockedByTarget(event.target)) {
         return;
       }
@@ -822,9 +822,28 @@ export function CanvasEngineHost() {
       });
     };
 
+    const preventBrowserGestureZoom = (event: Event) => {
+      event.preventDefault();
+    };
+
     hostElement.addEventListener("wheel", handleWheel, { passive: false });
+    hostElement.addEventListener("gesturestart", preventBrowserGestureZoom, {
+      passive: false,
+    });
+    hostElement.addEventListener("gesturechange", preventBrowserGestureZoom, {
+      passive: false,
+    });
+    hostElement.addEventListener("gestureend", preventBrowserGestureZoom, {
+      passive: false,
+    });
     return () => {
       hostElement.removeEventListener("wheel", handleWheel);
+      hostElement.removeEventListener("gesturestart", preventBrowserGestureZoom);
+      hostElement.removeEventListener(
+        "gesturechange",
+        preventBrowserGestureZoom,
+      );
+      hostElement.removeEventListener("gestureend", preventBrowserGestureZoom);
     };
   }, []);
 
@@ -1882,6 +1901,10 @@ function areViewportsEqual(
     Math.abs(left.y - right.y) <= VIEWPORT_SYNC_EPSILON &&
     Math.abs(left.zoom - right.zoom) <= VIEWPORT_SYNC_EPSILON
   );
+}
+
+function isCanvasPinchZoomGesture(event: WheelEvent): boolean {
+  return event.ctrlKey;
 }
 
 function getCanvasEngineWheelDelta(event: WheelEvent): number {

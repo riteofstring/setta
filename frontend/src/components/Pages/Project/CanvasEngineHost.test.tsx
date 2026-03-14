@@ -15,6 +15,7 @@ import {
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
+import { NO_WHEEL_CLASS_NAME } from "utils/constants";
 import * as endpoints from "utils/generatedEndpoints";
 import {
   createCallableSectionImpl,
@@ -532,6 +533,71 @@ describe("CanvasEngineHost", () => {
     expect(
       Number(engineHost.dataset.canvasEngineCameraZoom ?? "0"),
     ).toBeGreaterThan(1);
+  });
+
+  it("treats ctrl-wheel from a nowheel dom-island descendant as pinch zoom", async () => {
+    await act(async () => {
+      root.render(<CanvasEngineHost />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const engineHost = host.querySelector(
+      '[data-canvas-engine-host="v1"]',
+    ) as HTMLDivElement | null;
+    if (!engineHost) {
+      throw new Error("Canvas engine host failed to render.");
+    }
+    setEngineHostBounds(engineHost);
+
+    const domIsland = document.createElement("div");
+    domIsland.setAttribute("data-canvas-engine-dom-island", "section-a");
+    const blockedChild = document.createElement("div");
+    blockedChild.className = NO_WHEEL_CLASS_NAME;
+    domIsland.appendChild(blockedChild);
+    engineHost.appendChild(domIsland);
+
+    // Pinch-equivalent wheel input should bypass the usual nowheel guard.
+    const wheelWasPrevented = await dispatchWheelEvent(blockedChild, {
+      clientX: 320,
+      clientY: 180,
+      ctrlKey: true,
+      deltaY: -120,
+    });
+
+    expect(wheelWasPrevented).toBe(true);
+    expect(
+      Number(engineHost.dataset.canvasEngineCameraZoom ?? "0"),
+    ).toBeGreaterThan(1);
+  });
+
+  it("suppresses native gesture events so browser zoom does not win over the host", async () => {
+    await act(async () => {
+      root.render(<CanvasEngineHost />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const engineHost = host.querySelector(
+      '[data-canvas-engine-host="v1"]',
+    ) as HTMLDivElement | null;
+    if (!engineHost) {
+      throw new Error("Canvas engine host failed to render.");
+    }
+
+    // WebKit-style gesture events should also be suppressed on the host.
+    const gestureWasPrevented = await dispatchCancelableEvent(
+      engineHost,
+      "gesturestart",
+    );
+
+    expect(gestureWasPrevented).toBe(true);
   });
 
   it("opens the pane context menu from a blank host contextmenu event", async () => {
@@ -1314,6 +1380,22 @@ async function dispatchWheelEvent(
     clientY: init.clientY,
     ctrlKey: init.ctrlKey,
     deltaY: init.deltaY,
+  });
+
+  await act(async () => {
+    target.dispatchEvent(event);
+  });
+
+  return event.defaultPrevented;
+}
+
+async function dispatchCancelableEvent(
+  target: HTMLElement,
+  eventType: string,
+): Promise<boolean> {
+  const event = new Event(eventType, {
+    bubbles: true,
+    cancelable: true,
   });
 
   await act(async () => {
