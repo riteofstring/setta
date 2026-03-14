@@ -1,6 +1,5 @@
 import { useRef } from "react";
-import { useShareSession } from "state/definitions";
-import { useProjectLoading } from "state/stores/ephemeralUiStores";
+import { useProjectLoading, useShareSession } from "state/definitions";
 import {
   APP_CHROME_Z_INDEX_CLASS_NAME,
   PROJECT_CONFIG_ROUTER_PATH,
