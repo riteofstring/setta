@@ -4759,6 +4759,7 @@ describe("generatedEndpoints binary and artifact helpers", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       `${C_ADDRESSES.BACKEND}/binary/payload-1`,
     );
+    expect(fetchMock.mock.calls[0]?.[1]).not.toHaveProperty("body");
     expect(response.status).toBe(200);
     expect(Array.from(response.data ?? [])).toEqual([1, 2, 3]);
   });
