@@ -27,6 +27,7 @@ import {
 } from "react";
 import { FaBrain } from "react-icons/fa6";
 import {
+  FiCpu,
   FiArchive,
   FiCopy,
   FiEdit3,
@@ -142,7 +143,14 @@ type ActivityTimelineEntry =
 
 type ActivityPreviewData = {
   label: string;
-  kind: "none" | "thought" | "context" | "action" | "tool";
+  kind:
+    | "none"
+    | "thought"
+    | "context"
+    | "action"
+    | "tool"
+    | "terminal"
+    | "subagent";
   thoughtText: string | null;
   hasStreamingThought: boolean;
   shouldScrambleTitle: boolean;
@@ -158,7 +166,14 @@ type AssistantContentPartition = {
   displayItems: AssistantDisplayItem[];
 };
 
-type ToolCallDisplayKind = "tool" | "action" | "compaction";
+type ToolCallDisplayKind =
+  | "tool"
+  | "action"
+  | "compaction"
+  | "terminal"
+  | "subagent";
+type StructuredOutputOwner = "action" | "tool" | "terminal" | "subagent";
+type ActivityToolLikeRowKind = StructuredOutputOwner;
 
 type ToolCallContext = {
   todoPayloadById: Record<string, TodoListPayload>;
@@ -215,6 +230,13 @@ const ACTION_TOOL_NAMES = new Set<string>([
   "collabToolCall",
   "enteredReviewMode",
   "exitedReviewMode",
+]);
+const ACTIVE_RUNTIME_TERMINAL_TOOL_NAMES = new Set<string>([
+  "command_execution",
+]);
+const ACTIVE_RUNTIME_SUBAGENT_TOOL_NAMES = new Set<string>([
+  "setta__run_agent_profile",
+  "run_agent_profile",
 ]);
 const ACTIVITY_ROW_DETAILS_VALUE = "details";
 
@@ -395,6 +417,13 @@ function resolveToolCallDisplayKind(
   entry: ToolCallRenderEntry,
   toolResultsById: Record<string, ToolChatMessage>,
 ): ToolCallDisplayKind {
+  const runtimeDisplayKind = resolveActiveRuntimeDisplayKind(
+    entry,
+    toolResultsById,
+  );
+  if (runtimeDisplayKind) {
+    return runtimeDisplayKind;
+  }
   const normalizedName = resolveToolDisplayName(entry, toolResultsById);
   if (normalizedName === CONTEXT_COMPACTION_TOOL_NAME) {
     return "compaction";
@@ -407,6 +436,41 @@ function resolveToolCallDisplayKind(
     return "action";
   }
   return "tool";
+}
+
+function resolveRuntimeToolCategory(
+  toolName: string | null,
+): "terminal" | "subagent" | null {
+  if (!toolName) {
+    return null;
+  }
+  const normalizedToolName = normalizeToolName(toolName);
+  if (!normalizedToolName) {
+    return null;
+  }
+  const lowerCaseToolName = normalizedToolName.toLowerCase();
+  if (ACTIVE_RUNTIME_TERMINAL_TOOL_NAMES.has(lowerCaseToolName)) {
+    return "terminal";
+  }
+  if (ACTIVE_RUNTIME_SUBAGENT_TOOL_NAMES.has(lowerCaseToolName)) {
+    return "subagent";
+  }
+  return null;
+}
+
+function resolveActiveRuntimeDisplayKind(
+  entry: ToolCallRenderEntry,
+  toolResultsById: Record<string, ToolChatMessage>,
+): "terminal" | "subagent" | null {
+  if (!entry.isStreaming) {
+    return null;
+  }
+  if (toolResultsById[entry.toolCall.id]) {
+    return null;
+  }
+  return resolveRuntimeToolCategory(
+    resolveToolDisplayName(entry, toolResultsById),
+  );
 }
 
 function hashStringToBase36(input: string): string {
@@ -1061,15 +1125,11 @@ function resolveActionEntryLabel(
   const toolResult = toolResultsById[toolCall.id];
   const rawToolName =
     toolResult?.tool_name || toolCall.function?.name || `Action ${toolCall.id}`;
-  const argsFromResult = toolResult?.arguments;
-  const argsFromAssistant = toolCall.function?.arguments;
-  const pendingArgs = toolCallArguments?.[toolCall.id];
-  let argsToDisplay: unknown = pendingArgs;
-  if (argsFromResult && Object.keys(argsFromResult).length > 0) {
-    argsToDisplay = argsFromResult;
-  } else if (argsFromAssistant && Object.keys(argsFromAssistant).length > 0) {
-    argsToDisplay = argsFromAssistant;
-  }
+  const argsToDisplay = resolveDisplayArgsForToolCallEntry({
+    toolCall,
+    toolResult,
+    toolCallArguments,
+  });
   return resolveActionLabel(rawToolName, argsToDisplay);
 }
 
@@ -1083,6 +1143,54 @@ function resolveToolEntryLabel(
     entry.toolCall.function?.name ||
     `Tool call ${entry.toolCall.id}`
   );
+}
+
+function resolveSubagentEntryLabel({
+  entry,
+  toolResultsById,
+  toolCallArguments,
+}: {
+  entry: ToolCallRenderEntry;
+  toolResultsById: Record<string, ToolChatMessage>;
+  toolCallArguments: Record<string, string>;
+}): string {
+  const toolCall = entry.toolCall;
+  const toolResult = toolResultsById[toolCall.id];
+  const rawToolName =
+    toolResult?.tool_name ||
+    toolCall.function?.name ||
+    `Subagent ${toolCall.id}`;
+  const argsToDisplay = resolveDisplayArgsForToolCallEntry({
+    toolCall,
+    toolResult,
+    toolCallArguments,
+  });
+  const profileId = extractNonEmptyStringArg(argsToDisplay, "profileId");
+  if (profileId) {
+    return profileId;
+  }
+  return normalizeToolName(rawToolName) ?? rawToolName;
+}
+
+function resolveDisplayArgsForToolCallEntry({
+  toolCall,
+  toolResult,
+  toolCallArguments,
+}: {
+  toolCall: ToolCall;
+  toolResult: ToolChatMessage | undefined;
+  toolCallArguments: Record<string, string>;
+}): unknown {
+  const argsFromResult = toolResult?.arguments;
+  const argsFromAssistant = toolCall.function?.arguments;
+  const pendingArgs = toolCallArguments?.[toolCall.id];
+  if (argsFromResult && Object.keys(argsFromResult).length > 0) {
+    return argsFromResult;
+  }
+  if (argsFromAssistant && Object.keys(argsFromAssistant).length > 0) {
+    return argsFromAssistant;
+  }
+  return pendingArgs;
 }
 
 function resolveCompactionEntryLabel({
@@ -1251,6 +1359,32 @@ function resolveLatestActivityPreview({
         toolCallArguments,
       )}`,
       kind: "action",
+      thoughtText,
+      hasStreamingThought,
+      shouldScrambleTitle: false,
+    };
+  }
+  if (latestEntry.kind === "terminal") {
+    return {
+      label: `Terminal: ${resolveActionEntryLabel(
+        latestEntry.toolEntry,
+        toolResultsById,
+        toolCallArguments,
+      )}`,
+      kind: "terminal",
+      thoughtText,
+      hasStreamingThought,
+      shouldScrambleTitle: false,
+    };
+  }
+  if (latestEntry.kind === "subagent") {
+    return {
+      label: `Subagent: ${resolveSubagentEntryLabel({
+        entry: latestEntry.toolEntry,
+        toolResultsById,
+        toolCallArguments,
+      })}`,
+      kind: "subagent",
       thoughtText,
       hasStreamingThought,
       shouldScrambleTitle: false,
@@ -3891,7 +4025,7 @@ const StructuredOutputViewport = memo(function StructuredOutputViewport({
   part,
   children,
 }: {
-  owner: "action" | "tool";
+  owner: StructuredOutputOwner;
   part: StructuredOutputPart;
   children: ReactNode;
 }) {
@@ -4066,7 +4200,7 @@ const StructuredOutputBlock = memo(function StructuredOutputBlock({
   isStreaming,
 }: {
   payload: StructuredOutputPayload;
-  owner: "action" | "tool";
+  owner: StructuredOutputOwner;
   part: StructuredOutputPart;
   isStreaming: boolean;
 }) {
@@ -4153,10 +4287,70 @@ const StructuredOutputBlock = memo(function StructuredOutputBlock({
   );
 });
 
-const ActionItem = memo(function ActionItem({
-  name,
-  args,
-  result,
+type ActivityToolLikeMeta = {
+  itemAttr: Record<string, string>;
+  triggerAttr: Record<string, string>;
+  railAttr: Record<string, string>;
+  contentAttr: Record<string, string>;
+  chevronAttr: Record<string, string>;
+  copyKind: string;
+  stateLabel: string;
+};
+
+function resolveActivityToolLikeMeta(
+  rowKind: ActivityToolLikeRowKind,
+): ActivityToolLikeMeta {
+  if (rowKind === "action") {
+    return {
+      itemAttr: { "data-chat-action-item": "true" },
+      triggerAttr: { "data-chat-action-item-trigger": "true" },
+      railAttr: { "data-chat-action-item-rail": "true" },
+      contentAttr: { "data-chat-action-item-content": "true" },
+      chevronAttr: { "data-chat-action-item-chevron": "true" },
+      copyKind: "action",
+      stateLabel: "Action",
+    };
+  }
+  if (rowKind === "tool") {
+    return {
+      itemAttr: { "data-chat-tool-call-item": "true" },
+      triggerAttr: { "data-chat-tool-call-item-trigger": "true" },
+      railAttr: { "data-chat-tool-call-item-rail": "true" },
+      contentAttr: { "data-chat-tool-call-item-content": "true" },
+      chevronAttr: { "data-chat-tool-call-item-chevron": "true" },
+      copyKind: "tool",
+      stateLabel: "Tool",
+    };
+  }
+  if (rowKind === "terminal") {
+    return {
+      itemAttr: { "data-chat-terminal-item": "true" },
+      triggerAttr: { "data-chat-terminal-item-trigger": "true" },
+      railAttr: { "data-chat-terminal-item-rail": "true" },
+      contentAttr: { "data-chat-terminal-item-content": "true" },
+      chevronAttr: { "data-chat-terminal-item-chevron": "true" },
+      copyKind: "terminal",
+      stateLabel: "Terminal",
+    };
+  }
+  return {
+    itemAttr: { "data-chat-subagent-item": "true" },
+    triggerAttr: { "data-chat-subagent-item-trigger": "true" },
+    railAttr: { "data-chat-subagent-item-rail": "true" },
+    contentAttr: { "data-chat-subagent-item-content": "true" },
+    chevronAttr: { "data-chat-subagent-item-chevron": "true" },
+    copyKind: "subagent",
+    stateLabel: "Subagent",
+  };
+}
+
+const ActivityToolLikeItem = memo(function ActivityToolLikeItem({
+  rowKind,
+  label,
+  inputTitle,
+  outputTitle,
+  inputPayload,
+  resultPayload,
   runState,
   startedAtMs,
   completedAtMs,
@@ -4167,38 +4361,23 @@ const ActionItem = memo(function ActionItem({
   expandAllSignal = 0,
   collapseAllSignal = 0,
 }: {
-  name: string;
-  args: unknown;
-  result: ToolResultValue | undefined;
+  rowKind: ActivityToolLikeRowKind;
+  label: string;
+  inputTitle: string;
+  outputTitle: string;
+  inputPayload: StructuredOutputPayload | null;
+  resultPayload: StructuredOutputPayload | null;
   runState: ToolCallRunState;
   startedAtMs: number | null;
   completedAtMs: number | null;
   runKey: string;
-  railIcon?: ReactNode;
+  railIcon: ReactNode;
   onCopy?: () => void;
   defaultOpen?: boolean;
   expandAllSignal?: number;
   collapseAllSignal?: number;
 }) {
-  const actionLabel = resolveActionLabel(name, args);
-  const inputPayload = resolveStructuredOutputPayload({
-    value: args,
-    toolName: name,
-    part: "input",
-  });
-  const resultPayload =
-    resolveStructuredOutputPayload({
-      value: result,
-      toolName: name,
-      part: "output",
-      contextValue: args,
-    }) ??
-    resolveStructuredOutputFallbackPayload({
-      runState,
-      failedLabel: "Action failed",
-      successLabel: "Action completed successfully",
-      stoppedLabel: "Action stopped before completion.",
-    });
+  const activityMeta = resolveActivityToolLikeMeta(rowKind);
   const { elapsedSeconds, elapsedMs, hasKnownDuration } = useRunElapsedDuration(
     {
       active: runState === "running",
@@ -4250,24 +4429,24 @@ const ActionItem = memo(function ActionItem({
       <Accordion.Item
         value={ACTIVITY_ROW_DETAILS_VALUE}
         className="group/chat-activity-row w-full border-b border-setta-200/60 last:border-b-0 dark:border-setta-700/60"
-        data-chat-action-item="true"
+        {...activityMeta.itemAttr}
       >
         <div className="flex w-full items-stretch">
           <Accordion.Trigger
             className={`${TOOL_ROW_TRIGGER_CLASS} min-w-0 flex-1`}
-            data-chat-action-item-trigger="true"
+            {...activityMeta.triggerAttr}
           >
             <div
               className={`flex h-full items-center justify-center text-setta-400 dark:text-setta-300 ${TOOL_CALL_RAIL_BACKGROUND_CLASS}`}
-              data-chat-action-item-rail="true"
-              title={`Action state: ${runState}`}
-              aria-label={`Action state: ${runState}`}
+              title={`${activityMeta.stateLabel} state: ${runState}`}
+              aria-label={`${activityMeta.stateLabel} state: ${runState}`}
+              {...activityMeta.railAttr}
             >
-              {railIcon ?? <ToolCallAccordionStatus runState={runState} />}
+              {railIcon}
             </div>
             <div className="flex min-w-0 items-start gap-2 py-1 pl-2 pr-2">
               <div className="min-w-0 flex-1 truncate break-words font-mono text-[11px] font-semibold text-setta-500 dark:text-setta-200">
-                {actionLabel}
+                {label}
               </div>
               <div className="ml-auto inline-flex shrink-0 items-center gap-1 self-center">
                 {onCopy ? (
@@ -4275,7 +4454,7 @@ const ActionItem = memo(function ActionItem({
                     type="button"
                     aria-label="Copy activity item"
                     data-chat-activity-item-copy-button="true"
-                    data-chat-activity-item-copy-kind="action"
+                    data-chat-activity-item-copy-kind={activityMeta.copyKind}
                     className={ACTIVITY_ITEM_HOVER_COPY_BUTTON_CLASS}
                     onClick={(event) => {
                       event.stopPropagation();
@@ -4296,8 +4475,8 @@ const ActionItem = memo(function ActionItem({
                 ) : null}
                 <ToolCallAccordionStatus runState={runState} />
                 <MdKeyboardArrowDown
-                  data-chat-action-item-chevron="true"
                   className="chat-accordion-chevron mt-[1px] shrink-0 text-[16px] text-setta-400 transition-transform dark:text-setta-300/90"
+                  {...activityMeta.chevronAttr}
                 />
               </div>
             </div>
@@ -4305,16 +4484,16 @@ const ActionItem = memo(function ActionItem({
         </div>
         <Accordion.Content
           className={ACTIVITY_ACCORDION_CONTENT_CLASS}
-          data-chat-action-item-content="true"
+          {...activityMeta.contentAttr}
         >
           {inputPayload ? (
             <div className="border-t border-setta-200/70 bg-setta-200/35 px-2 py-1 text-xs dark:border-setta-700/70 dark:bg-setta-860">
               <h3 className="!mt-0 text-[10px] font-bold uppercase tracking-[0.14em] text-setta-600 dark:text-setta-300">
-                Input
+                {inputTitle}
               </h3>
               <StructuredOutputBlock
                 payload={inputPayload}
-                owner="action"
+                owner={rowKind}
                 part="input"
                 isStreaming={false}
               />
@@ -4323,11 +4502,11 @@ const ActionItem = memo(function ActionItem({
           {resultPayload ? (
             <div className="border-t border-setta-200/70 bg-setta-200 px-2 py-1 dark:border-setta-700/70 dark:bg-setta-900">
               <h3 className="!mt-0 text-[10px] font-bold uppercase tracking-[0.14em] text-setta-600 dark:text-setta-300">
-                Output
+                {outputTitle}
               </h3>
               <StructuredOutputBlock
                 payload={resultPayload}
-                owner="action"
+                owner={rowKind}
                 part="output"
                 isStreaming={runState === "running"}
               />
@@ -4336,6 +4515,73 @@ const ActionItem = memo(function ActionItem({
         </Accordion.Content>
       </Accordion.Item>
     </Accordion.Root>
+  );
+});
+
+const ActionItem = memo(function ActionItem({
+  name,
+  args,
+  result,
+  runState,
+  startedAtMs,
+  completedAtMs,
+  runKey,
+  railIcon,
+  onCopy,
+  defaultOpen = false,
+  expandAllSignal = 0,
+  collapseAllSignal = 0,
+}: {
+  name: string;
+  args: unknown;
+  result: ToolResultValue | undefined;
+  runState: ToolCallRunState;
+  startedAtMs: number | null;
+  completedAtMs: number | null;
+  runKey: string;
+  railIcon?: ReactNode;
+  onCopy?: () => void;
+  defaultOpen?: boolean;
+  expandAllSignal?: number;
+  collapseAllSignal?: number;
+}) {
+  const actionLabel = resolveActionLabel(name, args);
+  const inputPayload = resolveStructuredOutputPayload({
+    value: args,
+    toolName: name,
+    part: "input",
+  });
+  const resultPayload =
+    resolveStructuredOutputPayload({
+      value: result,
+      toolName: name,
+      part: "output",
+      contextValue: args,
+    }) ??
+    resolveStructuredOutputFallbackPayload({
+      runState,
+      failedLabel: "Action failed",
+      successLabel: "Action completed successfully",
+      stoppedLabel: "Action stopped before completion.",
+    });
+  return (
+    <ActivityToolLikeItem
+      rowKind="action"
+      label={actionLabel}
+      inputTitle="Input"
+      outputTitle="Output"
+      inputPayload={inputPayload}
+      resultPayload={resultPayload}
+      runState={runState}
+      startedAtMs={startedAtMs}
+      completedAtMs={completedAtMs}
+      runKey={runKey}
+      railIcon={railIcon ?? <ToolCallAccordionStatus runState={runState} />}
+      onCopy={onCopy}
+      defaultOpen={defaultOpen}
+      expandAllSignal={expandAllSignal}
+      collapseAllSignal={collapseAllSignal}
+    />
   );
 });
 
@@ -4384,144 +4630,158 @@ const ToolCallItem = memo(function ToolCallItem({
       successLabel: "Tool completed successfully",
       stoppedLabel: "Stopped mid-tool call before completion.",
     });
-  const { elapsedSeconds, elapsedMs, hasKnownDuration } = useRunElapsedDuration(
-    {
-      active: runState === "running",
-      startedAtMs,
-      completedAtMs,
-      runKey,
-    },
+  return (
+    <ActivityToolLikeItem
+      rowKind="tool"
+      label={name}
+      inputTitle="Arguments"
+      outputTitle="Result"
+      inputPayload={inputPayload}
+      resultPayload={resultPayload}
+      runState={runState}
+      startedAtMs={startedAtMs}
+      completedAtMs={completedAtMs}
+      runKey={runKey}
+      railIcon={railIcon ?? <ToolCallAccordionStatus runState={runState} />}
+      onCopy={onCopy}
+      defaultOpen={defaultOpen}
+      expandAllSignal={expandAllSignal}
+      collapseAllSignal={collapseAllSignal}
+    />
   );
-  const durationLabel = resolveDurationLabel({
-    elapsedMs,
-    elapsedSeconds,
-    hasKnownDuration,
-    isRunning: runState === "running",
+});
+
+const TerminalItem = memo(function TerminalItem({
+  name,
+  args,
+  result,
+  runState,
+  startedAtMs,
+  completedAtMs,
+  runKey,
+  onCopy,
+  defaultOpen = false,
+  expandAllSignal = 0,
+  collapseAllSignal = 0,
+}: {
+  name: string;
+  args: unknown;
+  result: ToolResultValue | undefined;
+  runState: ToolCallRunState;
+  startedAtMs: number | null;
+  completedAtMs: number | null;
+  runKey: string;
+  onCopy?: () => void;
+  defaultOpen?: boolean;
+  expandAllSignal?: number;
+  collapseAllSignal?: number;
+}) {
+  const inputPayload = resolveStructuredOutputPayload({
+    value: args,
+    toolName: name,
+    part: "input",
   });
-  const durationClassName =
-    runState === "failed" || runState === "stopped"
-      ? "font-mono text-[10px] text-amber-700 dark:text-amber-200"
-      : "font-mono text-[10px] text-setta-400 dark:text-setta-400/90";
-  const [accordionValue, setAccordionValue] = useState<string | undefined>(
-    () => (defaultOpen ? ACTIVITY_ROW_DETAILS_VALUE : undefined),
-  );
-
-  useEffect(() => {
-    if (expandAllSignal > 0) {
-      setAccordionValue(ACTIVITY_ROW_DETAILS_VALUE);
-    }
-  }, [expandAllSignal]);
-
-  useEffect(() => {
-    if (collapseAllSignal > 0) {
-      setAccordionValue(undefined);
-    }
-  }, [collapseAllSignal]);
+  const resultPayload =
+    resolveStructuredOutputPayload({
+      value: result,
+      toolName: name,
+      part: "output",
+      contextValue: args,
+    }) ??
+    resolveStructuredOutputFallbackPayload({
+      runState,
+      failedLabel: "Terminal command failed",
+      successLabel: "Terminal command completed successfully",
+      stoppedLabel: "Terminal command stopped before completion.",
+    });
 
   return (
-    <Accordion.Root
-      type="single"
-      collapsible
-      className="w-full"
-      value={accordionValue}
-      onValueChange={(nextValue) => {
-        setAccordionValue(
-          nextValue === ACTIVITY_ROW_DETAILS_VALUE
-            ? ACTIVITY_ROW_DETAILS_VALUE
-            : undefined,
-        );
-      }}
-    >
-      <Accordion.Item
-        value={ACTIVITY_ROW_DETAILS_VALUE}
-        className="group/chat-activity-row w-full border-b border-setta-200/60 last:border-b-0 dark:border-setta-700/60"
-        data-chat-tool-call-item="true"
-      >
-        <div className="flex w-full items-stretch">
-          <Accordion.Trigger
-            className={`${TOOL_ROW_TRIGGER_CLASS} min-w-0 flex-1`}
-            data-chat-tool-call-item-trigger="true"
-          >
-            <div
-              className={`flex h-full items-center justify-center text-setta-400 dark:text-setta-300 ${TOOL_CALL_RAIL_BACKGROUND_CLASS}`}
-              data-chat-tool-call-item-rail="true"
-              title={`Tool state: ${runState}`}
-              aria-label={`Tool state: ${runState}`}
-            >
-              {railIcon ?? <ToolCallAccordionStatus runState={runState} />}
-            </div>
-            <div className="flex min-w-0 items-start gap-2 py-1 pl-2 pr-2">
-              <div className="min-w-0 flex-1 truncate break-words font-mono text-[11px] font-semibold text-setta-500 dark:text-setta-200">
-                {name}
-              </div>
-              <div className="ml-auto inline-flex shrink-0 items-center gap-1 self-center">
-                {onCopy ? (
-                  <button
-                    type="button"
-                    aria-label="Copy activity item"
-                    data-chat-activity-item-copy-button="true"
-                    data-chat-activity-item-copy-kind="tool"
-                    className={ACTIVITY_ITEM_HOVER_COPY_BUTTON_CLASS}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onCopy();
-                    }}
-                  >
-                    <FiCopy />
-                  </button>
-                ) : null}
-                {durationLabel ? (
-                  <span
-                    data-chat-activity-item-timer="true"
-                    data-chat-activity-item-run-state={runState}
-                    className={durationClassName}
-                  >
-                    {durationLabel}
-                  </span>
-                ) : null}
-                <ToolCallAccordionStatus runState={runState} />
-                <MdKeyboardArrowDown
-                  data-chat-tool-call-item-chevron="true"
-                  className="chat-accordion-chevron mt-[1px] shrink-0 text-[16px] text-setta-400 transition-transform dark:text-setta-300/90"
-                />
-              </div>
-            </div>
-          </Accordion.Trigger>
-        </div>
+    <ActivityToolLikeItem
+      rowKind="terminal"
+      label={resolveActionLabel(name, args)}
+      inputTitle="Terminal preview"
+      outputTitle="Terminal output"
+      inputPayload={inputPayload}
+      resultPayload={resultPayload}
+      runState={runState}
+      startedAtMs={startedAtMs}
+      completedAtMs={completedAtMs}
+      runKey={runKey}
+      railIcon={<FiTerminal size={13} className="min-w-4" />}
+      onCopy={onCopy}
+      defaultOpen={defaultOpen}
+      expandAllSignal={expandAllSignal}
+      collapseAllSignal={collapseAllSignal}
+    />
+  );
+});
 
-        <Accordion.Content
-          className={ACTIVITY_ACCORDION_CONTENT_CLASS}
-          data-chat-tool-call-item-content="true"
-        >
-          {inputPayload ? (
-            <div className="border-t border-setta-200/70 bg-setta-200/35 px-2 py-1 text-xs dark:border-setta-700/70 dark:bg-setta-860">
-              <h3 className="!mt-0 text-[10px] font-bold uppercase tracking-[0.14em] text-setta-600 dark:text-setta-300">
-                Arguments
-              </h3>
-              <StructuredOutputBlock
-                payload={inputPayload}
-                owner="tool"
-                part="input"
-                isStreaming={false}
-              />
-            </div>
-          ) : null}
-          {resultPayload && (
-            <div className="border-t border-setta-200/70 bg-setta-200 px-2 py-1 dark:border-setta-700/70 dark:bg-setta-900">
-              <h3 className="!mt-0 text-[10px] font-bold uppercase tracking-[0.14em] text-setta-600 dark:text-setta-300">
-                Result
-              </h3>
-              <StructuredOutputBlock
-                payload={resultPayload}
-                owner="tool"
-                part="output"
-                isStreaming={runState === "running"}
-              />
-            </div>
-          )}
-        </Accordion.Content>
-      </Accordion.Item>
-    </Accordion.Root>
+const SubagentItem = memo(function SubagentItem({
+  name,
+  toolCallId,
+  args,
+  result,
+  runState,
+  startedAtMs,
+  completedAtMs,
+  runKey,
+  onCopy,
+  defaultOpen = false,
+  expandAllSignal = 0,
+  collapseAllSignal = 0,
+}: {
+  name: string;
+  toolCallId: string;
+  args: unknown;
+  result: ToolResultValue | undefined;
+  runState: ToolCallRunState;
+  startedAtMs: number | null;
+  completedAtMs: number | null;
+  runKey: string;
+  onCopy?: () => void;
+  defaultOpen?: boolean;
+  expandAllSignal?: number;
+  collapseAllSignal?: number;
+}) {
+  const inputPayload = resolveStructuredOutputPayload({
+    value: args,
+    toolName: name,
+    part: "input",
+  });
+  const resultPayload =
+    resolveStructuredOutputPayload({
+      value: result,
+      toolName: name,
+      part: "output",
+      contextValue: args,
+    }) ??
+    resolveStructuredOutputFallbackPayload({
+      runState,
+      failedLabel: "Subagent failed",
+      successLabel: "Subagent completed successfully",
+      stoppedLabel: "Subagent stopped before completion.",
+    });
+  const profileId = extractNonEmptyStringArg(args, "profileId");
+  const label = profileId || normalizeToolName(name) || `Subagent ${toolCallId}`;
+
+  return (
+    <ActivityToolLikeItem
+      rowKind="subagent"
+      label={label}
+      inputTitle="Subagent details"
+      outputTitle="Self-talk"
+      inputPayload={inputPayload}
+      resultPayload={resultPayload}
+      runState={runState}
+      startedAtMs={startedAtMs}
+      completedAtMs={completedAtMs}
+      runKey={runKey}
+      railIcon={<FiCpu size={13} className="min-w-4" />}
+      onCopy={onCopy}
+      defaultOpen={defaultOpen}
+      expandAllSignal={expandAllSignal}
+      collapseAllSignal={collapseAllSignal}
+    />
   );
 });
 
@@ -4589,15 +4849,11 @@ const AssistantActionSection = memo(function AssistantActionSection({
     const { startedAtMs, completedAtMs } =
       resolveToolResultTimingAnchors(toolResult);
     const formattedToolResult = formatToolResult(toolResult);
-    const argsFromResult = toolResult?.arguments;
-    const argsFromAssistant = toolCall.function?.arguments;
-    const pendingArgs = toolCallArguments?.[toolCall.id];
-    let argsToDisplay: unknown = pendingArgs;
-    if (argsFromResult && Object.keys(argsFromResult).length > 0) {
-      argsToDisplay = argsFromResult;
-    } else if (argsFromAssistant && Object.keys(argsFromAssistant).length > 0) {
-      argsToDisplay = argsFromAssistant;
-    }
+    const argsToDisplay = resolveDisplayArgsForToolCallEntry({
+      toolCall,
+      toolResult,
+      toolCallArguments,
+    });
 
     if (entry.kind === "action") {
       return (
@@ -4615,6 +4871,45 @@ const AssistantActionSection = memo(function AssistantActionSection({
             args: argsToDisplay,
             result: formattedToolResult,
           })}
+          onCopy={onCopyRow}
+          defaultOpen={defaultChildrenOpen}
+          expandAllSignal={openAllSignal}
+          collapseAllSignal={closeAllSignal}
+        />
+      );
+    }
+
+    if (entry.kind === "terminal") {
+      return (
+        <TerminalItem
+          key={entry.key}
+          name={rawToolName}
+          args={argsToDisplay}
+          result={formattedToolResult}
+          runState={runState}
+          startedAtMs={startedAtMs}
+          completedAtMs={completedAtMs}
+          runKey={`activity-item-${toolCall.id}`}
+          onCopy={onCopyRow}
+          defaultOpen={defaultChildrenOpen}
+          expandAllSignal={openAllSignal}
+          collapseAllSignal={closeAllSignal}
+        />
+      );
+    }
+
+    if (entry.kind === "subagent") {
+      return (
+        <SubagentItem
+          key={entry.key}
+          name={rawToolName}
+          toolCallId={toolCall.id}
+          args={argsToDisplay}
+          result={formattedToolResult}
+          runState={runState}
+          startedAtMs={startedAtMs}
+          completedAtMs={completedAtMs}
+          runKey={`activity-item-${toolCall.id}`}
           onCopy={onCopyRow}
           defaultOpen={defaultChildrenOpen}
           expandAllSignal={openAllSignal}

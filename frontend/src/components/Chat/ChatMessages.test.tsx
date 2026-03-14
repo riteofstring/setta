@@ -568,6 +568,58 @@ describe("ChatMessages tool call status", () => {
     expect(markup).toContain('data-chat-tool-call-item="true"');
   });
 
+  it("renders active terminal and subagent rows with dedicated runtime treatment", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-runtime-rows",
+        role: ChatRoleEnum.assistant,
+        content: [],
+        attachments: [],
+        tool_calls: [
+          {
+            id: "runtime-terminal-call",
+            type: "function",
+            function: {
+              name: "command_execution",
+              arguments: { command: "pnpm exec vitest run" },
+            },
+          },
+          {
+            id: "runtime-subagent-call",
+            type: "function",
+            function: {
+              name: "mcp__setta__run_agent_profile",
+              arguments: {
+                profileId: "research_profile",
+                inputs: {
+                  prompt: "Trace the current runtime regression.",
+                },
+              },
+            },
+          },
+        ],
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={true} />,
+    );
+
+    // Runtime tool rows should render as dedicated terminal/subagent rows
+    // instead of falling back to the generic action/tool variants.
+    expect(markup).toContain('data-chat-terminal-item="true"');
+    expect(markup).toContain('data-chat-subagent-item="true"');
+    expect(markup).not.toContain('data-chat-action-item="true"');
+    expect(markup).not.toContain('data-chat-tool-call-item="true"');
+    expect(markup).toContain('aria-label="Terminal state: running"');
+    expect(markup).toContain('aria-label="Subagent state: running"');
+    expect(markup).toContain("pnpm exec vitest run");
+    expect(markup).toContain("research_profile");
+    expect(markup).toContain("Subagent: research_profile");
+    expect(markup).toContain('data-chat-terminal-item-content="true"');
+    expect(markup).toContain('data-chat-subagent-item-content="true"');
+  });
+
   it("renders compacted context summaries as sequential activity items", () => {
     const messages: BaseChatMessageUnion[] = [
       {
