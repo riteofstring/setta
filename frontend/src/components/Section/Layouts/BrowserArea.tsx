@@ -86,6 +86,7 @@ import {
   BrowserAreaViewMode,
   BrowserAreaViewModeEnum,
   BrowserSavedSearch,
+  FileBrowserDownloadURLEntry,
   FolderContentItem,
   SectionTypeEnum,
   TextBlockDisplayModeEnum,
@@ -136,10 +137,7 @@ type OpenableBrowserItem = {
   type: string;
 };
 
-type FileUrlEntry = {
-  url: string;
-  expiresAt: number;
-};
+type FileUrlEntry = Pick<FileBrowserDownloadURLEntry, "url" | "expiresAt">;
 
 type FileTextPreview = {
   text: string;
