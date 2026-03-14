@@ -102,6 +102,10 @@ Current state:
   - runtime-present realtime deltas now recompute cached metadata dependents
     too, so the metadata-backed callback state does not serve stale composite
     values after child updates
+  - realtime callbacks declared on metadata-recomputable composite listener
+    dependencies now fire after child realtime deltas in both the
+    runtime-present and metadata-only listener-state paths, instead of only
+    waking callbacks declared on the direct child dependency key
   - Go listener snapshot `dependencyValues` now carry literal password and
     meta-control-password values from the Go password secret store instead of
     Python helper-call expressions, so metadata-backed no-runtime listener

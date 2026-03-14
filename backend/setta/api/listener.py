@@ -2047,7 +2047,8 @@ class SettaListener:
             return
 
         if runtime_state.s_instance is None:
-            updated_cache = dict(self._dependency_cache)
+            previous_cache = dict(self._dependency_cache)
+            updated_cache = dict(previous_cache)
             affected_dependency_names: dict[BaseDependencyKeyUnion, str] = {}
             dirty_dependency_keys: set[BaseDependencyKeyUnion] = set()
             for delta in content.deltas:
@@ -2103,6 +2104,12 @@ class SettaListener:
                 updated_cache,
                 dirty_dependency_keys,
             )
+            changed_metadata_dependents = self._collect_changed_metadata_dependents(
+                runtime_state.dependency_metadata,
+                previous_cache,
+                updated_cache,
+                dirty_dependency_keys,
+            )
             self._dependency_cache = updated_cache
 
             callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
@@ -2123,9 +2130,11 @@ class SettaListener:
                 for dep_key, dependency in zip(
                     spec.structured_dependencies, spec.dependency_names
                 ):
-                    if dep_key not in affected_dependency_names:
+                    if dep_key in affected_dependency_names:
+                        if dependency in updated_cache:
+                            changed[dependency] = updated_cache[dependency]
                         continue
-                    if dependency in updated_cache:
+                    if dep_key in changed_metadata_dependents:
                         changed[dependency] = updated_cache[dependency]
 
                 if changed:
@@ -2195,10 +2204,17 @@ class SettaListener:
             )
             return
 
-        updated_cache = dict(self._dependency_cache)
+        previous_cache = dict(self._dependency_cache)
+        updated_cache = dict(previous_cache)
         updated_cache.update(applied_dependencies)
         self._recompute_metadata_dependents(
             runtime_state.dependency_metadata,
+            updated_cache,
+            set(applied_dependencies_by_key),
+        )
+        changed_metadata_dependents = self._collect_changed_metadata_dependents(
+            runtime_state.dependency_metadata,
+            previous_cache,
             updated_cache,
             set(applied_dependencies_by_key),
         )
@@ -2216,25 +2232,11 @@ class SettaListener:
             for dep_key, dependency in zip(
                 spec.structured_dependencies, spec.dependency_names
             ):
-                if dep_key not in applied_dependencies_by_key:
+                if dep_key in applied_dependencies_by_key:
+                    changed[dependency] = updated_cache[dependency]
                     continue
-                try:
-                    runtime_dependency = self._runtime_dependency_name(
-                        runtime_state,
-                        dep_key,
-                    )
-                    value = self._resolve_dependency_value(
-                        runtime_state.s_instance, runtime_dependency
-                    )
-                except (AttributeError, KeyError, IndexError, ValueError) as error:
-                    logger.error(
-                        "Listener %s failed to resolve dependency %s after realtime update: %s",
-                        self._log_identifier,
-                        dependency,
-                        error,
-                    )
-                    continue
-                changed[dependency] = value
+                if dep_key in changed_metadata_dependents:
+                    changed[dependency] = changed_metadata_dependents[dep_key]
 
             if changed:
                 callbacks_to_run.append((spec, changed))
@@ -2743,6 +2745,44 @@ class SettaListener:
                     continue
                 queue.append(parent_dep_key)
                 queued.add(parent_dep_key)
+
+    def _collect_changed_metadata_dependents(
+        self,
+        dependency_metadata: ListenerDependencyMetadata,
+        previous_cache: dict[str, Any],
+        cache_by_name: dict[str, Any],
+        dirty_dependency_keys: set[BaseDependencyKeyUnion],
+    ) -> dict[BaseDependencyKeyUnion, Any]:
+        if not dirty_dependency_keys:
+            return {}
+
+        changed: dict[BaseDependencyKeyUnion, Any] = {}
+        queue: list[BaseDependencyKeyUnion] = []
+        queued: set[BaseDependencyKeyUnion] = set()
+        for child_dep_key in dirty_dependency_keys:
+            for parent_dep_key in dependency_metadata.dependents(child_dep_key):
+                if parent_dep_key in queued:
+                    continue
+                queue.append(parent_dep_key)
+                queued.add(parent_dep_key)
+
+        while queue:
+            parent_dep_key = queue.pop(0)
+            parent_entry = dependency_metadata.entry_for_key(parent_dep_key)
+            current_value = cache_by_name.get(parent_entry.fullPathName, _MISSING)
+            if current_value is _MISSING:
+                continue
+            previous_value = previous_cache.get(parent_entry.fullPathName, _MISSING)
+            if previous_value == current_value:
+                continue
+            changed[parent_dep_key] = current_value
+            for next_parent_dep_key in dependency_metadata.dependents(parent_dep_key):
+                if next_parent_dep_key in queued:
+                    continue
+                queue.append(next_parent_dep_key)
+                queued.add(next_parent_dep_key)
+
+        return changed
 
     def _register_scheduler_callback(self, spec: ListenerCallbackSpec) -> None:
         async def executor(
