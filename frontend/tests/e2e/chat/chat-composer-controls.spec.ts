@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import * as http from "node:http";
 import {
   allowExpectedApiError,
   cleanupIsolatedProject,
@@ -47,6 +48,18 @@ type ManagedAPIKeysSnapshot = {
   corrupt?: boolean;
   errorCode?: string | null;
   message?: string | null;
+};
+
+type ManagedOpenAIResponsesProviderRequest = {
+  path: string;
+  authorization: string;
+  body: Record<string, unknown>;
+};
+
+type ManagedOpenAIResponsesProviderServer = {
+  origin: string;
+  requests: ManagedOpenAIResponsesProviderRequest[];
+  close: () => Promise<void>;
 };
 
 test.describe.serial("chat composer controls", () => {
@@ -893,12 +906,15 @@ test.describe.serial("chat composer controls", () => {
 
     let createdEngineConfigId: string | null = null;
     let initialLLMConfig: LLMConfigPayload | null = null;
+    let initialAPIKeysSnapshot: ManagedAPIKeysSnapshot | null = null;
+    let latestAPIKeysSnapshot: ManagedAPIKeysSnapshot | null = null;
     let submittedPayload:
       | {
           thinking?: boolean;
           engineConfigId?: string;
         }
       | undefined;
+    const providerServer = await startManagedOpenAIResponsesThinkingServer();
 
     await page.route("**/api/getLLMResponse", async (route) => {
       submittedPayload = route.request().postDataJSON() as
@@ -907,11 +923,9 @@ test.describe.serial("chat composer controls", () => {
             engineConfigId?: string;
           }
         | undefined;
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify("chat-openai-thinking"),
-      });
+      const response = await route.fetch();
+      const body = await response.body();
+      await route.fulfill({ response, body });
     });
 
     try {
@@ -920,6 +934,13 @@ test.describe.serial("chat composer controls", () => {
       );
       expect(llmConfigResponse.ok()).toBe(true);
       initialLLMConfig = (await llmConfigResponse.json()) as LLMConfigPayload;
+      const apiKeysResponse = await page.request.get(
+        `${backendOrigin}/api/llm/apiKeys`,
+      );
+      expect(apiKeysResponse.ok()).toBe(true);
+      initialAPIKeysSnapshot =
+        (await apiKeysResponse.json()) as ManagedAPIKeysSnapshot;
+      latestAPIKeysSnapshot = initialAPIKeysSnapshot;
 
       const openAIConfigId = `e2e-openai-thinking-${Date.now()}`;
       const updatedLLMConfig: LLMConfigPayload = {
@@ -929,6 +950,8 @@ test.describe.serial("chat composer controls", () => {
           [openAIConfigId]: {
             model: "gpt-5-codex",
             provider: "openai",
+            api_key_env: "OPENAI_API_KEY",
+            base_url: `${providerServer.origin}/v1`,
             other_params: {
               reasoning_effort: "high",
             },
@@ -936,6 +959,13 @@ test.describe.serial("chat composer controls", () => {
         },
       };
       await postBackend(page, "/llm/config", updatedLLMConfig);
+      latestAPIKeysSnapshot = await postManagedAPIKeys(page, {
+        apiKeys: {
+          ...initialAPIKeysSnapshot.apiKeys,
+          OPENAI_API_KEY: "e2e-secret",
+        },
+        expectedRevision: initialAPIKeysSnapshot.revision,
+      });
 
       const createdEngine = await postBackend<EngineConfigSummary>(
         page,
@@ -964,10 +994,10 @@ test.describe.serial("chat composer controls", () => {
       expect(createdRuntimeSupport?.thinking).toBe(true);
 
       await page.evaluate(async () => {
-        const { loadEngineConfigs, loadLLMConfig } = await import(
-          "/src/state/actions/ai.ts"
-        );
+        const { loadEngineConfigs, loadLLMApiKeys, loadLLMConfig } =
+          await import("/src/state/actions/ai.ts");
         await loadLLMConfig();
+        await loadLLMApiKeys();
         await loadEngineConfigs(true);
       });
 
@@ -996,6 +1026,26 @@ test.describe.serial("chat composer controls", () => {
 
       await expect.poll(() => submittedPayload?.thinking ?? null).toBe(true);
       expect(submittedPayload?.engineConfigId).toBe(createdEngineConfigId);
+      await expect.poll(() => providerServer.requests.length).toBe(1);
+
+      const providerRequest = providerServer.requests[0];
+      expect(providerRequest?.path).toBe("/v1/responses");
+      expect(providerRequest?.authorization).toBe("Bearer e2e-secret");
+      expect(providerRequest?.body.store).toBe(false);
+      expect(providerRequest?.body.model).toBe("gpt-5-codex");
+      const reasoning = providerRequest?.body.reasoning as
+        | Record<string, unknown>
+        | undefined;
+      expect(reasoning?.effort).toBe("high");
+      expect(reasoning?.summary).toBe("auto");
+      expect(JSON.stringify(providerRequest?.body.input ?? null)).toContain(
+        "Trigger managed OpenAI thinking",
+      );
+
+      await expect(projectChatSurface.getByText("Final answer")).toBeVisible();
+      await expect(
+        projectChatSurface.locator('[data-chat-thinking-section="true"]'),
+      ).toContainText("Plan summary");
     } finally {
       try {
         await setOverviewTab(page, "ProjectAIChat");
@@ -1019,6 +1069,13 @@ test.describe.serial("chat composer controls", () => {
           })
           .catch(() => {});
       }
+      if (initialAPIKeysSnapshot && latestAPIKeysSnapshot) {
+        await postManagedAPIKeys(page, {
+          apiKeys: initialAPIKeysSnapshot.apiKeys,
+          expectedRevision: latestAPIKeysSnapshot.revision,
+        }).catch(() => {});
+      }
+      await providerServer.close();
       await engineCleanup();
       await cleanupIsolatedProject(page, projectContext);
     }
@@ -3513,6 +3570,105 @@ async function selectProjectAiEngine(
   await expect(engineInput).toBeVisible();
   await engineInput.fill(engineQuery);
   await engineInput.press("Enter");
+}
+
+async function postManagedAPIKeys(
+  page: Page,
+  payload: {
+    apiKeys: Record<string, string>;
+    expectedRevision: number;
+  },
+): Promise<ManagedAPIKeysSnapshot> {
+  const backendOrigin =
+    process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+  const response = await page.request.post(
+    `${backendOrigin}/api/llm/apiKeys`,
+    {
+      data: payload,
+    },
+  );
+  const text = await response.text();
+  if (!response.ok()) {
+    const detail = text ? ` ${text}` : "";
+    throw new Error(
+      `Backend request failed (${response.status()}): /llm/apiKeys${detail}`,
+    );
+  }
+  return JSON.parse(text) as ManagedAPIKeysSnapshot;
+}
+
+async function startManagedOpenAIResponsesThinkingServer(): Promise<ManagedOpenAIResponsesProviderServer> {
+  const requests: ManagedOpenAIResponsesProviderRequest[] = [];
+  return await new Promise((resolve, reject) => {
+    const server = http.createServer((request, response) => {
+      const chunks: string[] = [];
+      request.setEncoding("utf8");
+      request.on("data", (chunk: string) => {
+        chunks.push(chunk);
+      });
+      request.on("end", () => {
+        try {
+          const rawBody = chunks.join("");
+          const body = rawBody
+            ? (JSON.parse(rawBody) as Record<string, unknown>)
+            : {};
+          requests.push({
+            path: new URL(request.url ?? "/", "http://127.0.0.1").pathname,
+            authorization: Array.isArray(request.headers.authorization)
+              ? request.headers.authorization.join(", ")
+              : request.headers.authorization ?? "",
+            body,
+          });
+        } catch (error) {
+          response.statusCode = 400;
+          response.end(String(error));
+          return;
+        }
+
+        response.statusCode = 200;
+        response.setHeader("content-type", "text/event-stream");
+        response.write(
+          'data: {"type":"response.output_item.added","sequence_number":1,"output_index":0,"item":{"type":"reasoning","id":"reasoning-1","summary":[],"content":[],"status":"in_progress"}}\n\n',
+        );
+        response.write(
+          'data: {"type":"response.reasoning_summary_text.delta","sequence_number":2,"item_id":"reasoning-1","output_index":0,"summary_index":0,"delta":"Plan summary"}\n\n',
+        );
+        response.write(
+          'data: {"type":"response.reasoning_text.delta","sequence_number":3,"item_id":"reasoning-1","output_index":0,"content_index":0,"delta":"Planning deeply"}\n\n',
+        );
+        response.write(
+          'data: {"type":"response.output_text.delta","sequence_number":4,"item_id":"message-1","output_index":1,"content_index":0,"delta":"Final answer","logprobs":[]}\n\n',
+        );
+        response.end(
+          'data: {"type":"response.completed","sequence_number":99,"response":{"id":"response-1","object":"response","created_at":1741567200,"status":"completed","model":"gpt-5-codex","output":[{"type":"reasoning","id":"reasoning-1","summary":[{"text":"Plan summary"}],"content":[{"type":"reasoning_text","text":"Planning deeply"}],"status":"completed"},{"type":"message","id":"message-1","role":"assistant","status":"completed","content":[{"type":"output_text","text":"Final answer","annotations":[]}]}],"usage":{"input_tokens":8,"input_tokens_details":{"cached_tokens":0},"output_tokens":3,"output_tokens_details":{"reasoning_tokens":2},"total_tokens":11}}}\n\n',
+        );
+      });
+    });
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close(() =>
+          reject(new Error("Unable to allocate OpenAI thinking test port.")),
+        );
+        return;
+      }
+      resolve({
+        origin: `http://127.0.0.1:${address.port}`,
+        requests,
+        close: async () =>
+          await new Promise<void>((closeResolve, closeReject) => {
+            server.close((error) => {
+              if (error) {
+                closeReject(error);
+                return;
+              }
+              closeResolve();
+            });
+          }),
+      });
+    });
+  });
 }
 
 async function getVisibleProjectChatSurface(page: Page): Promise<Locator> {
