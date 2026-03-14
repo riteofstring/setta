@@ -1958,6 +1958,152 @@ func TestAppListenerWebsocketRunsScriptableChatMCPTools(t *testing.T) {
 	}
 }
 
+func TestAppListenerWebsocketSetChatSectionStateTriggersAuthoritativeForceRefresh(t *testing.T) {
+	// Listener chat-section state writes should be followed by an authoritative
+	// force-refresh so Python listeners do not have to rely on local heuristic
+	// patching alone.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = appChatSectionTestProject(t)
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed project runtime: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	listenerConn, _, err := websocket.Dial(
+		context.Background(),
+		"ws"+strings.TrimPrefix(server.URL, "http")+strings.Replace(wsapi.RouteListenerByID, "{listenerID}", "listener-chat-refresh", 1),
+		&websocket.DialOptions{
+			HTTPHeader: http.Header{
+				"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("dial listener websocket route: %v", err)
+	}
+	defer listenerConn.CloseNow()
+
+	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerInit","content":{"projectName":"Alpha"}}`)); err != nil {
+		t.Fatalf("write listener init message: %v", err)
+	}
+	_ = readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerForceRefresh, 1)
+
+	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	if ack := readAppRouteEnvelope(t, listenerConn); ack.MessageType != realtime.MessageTypeListenerRegisterAck {
+		t.Fatalf("expected listener register ack, got %q", ack.MessageType)
+	}
+
+	setChatStatePayload, err := json.Marshal(map[string]any{
+		"messageType": "ListenerRouterEndpointCall",
+		"content": map[string]any{
+			"projectConfigId": "project-alpha",
+			"callId":          "call-set-chat-state",
+			"endpointName":    "route_set_chat_section_state",
+			"payload": map[string]any{
+				"sectionId": "chat-section",
+				"state": map[string]any{
+					"messages": []any{
+						map[string]any{
+							"id":      "message-1",
+							"type":    "user",
+							"content": "hello",
+						},
+					},
+					"inputText":          "Draft input",
+					"waitingForResponse": true,
+					"toolCallArguments": map[string]any{
+						"tool-call-1": "{\"query\":\"hello\"}",
+					},
+					"activeBranchId": "branch-1",
+					"branches": map[string]any{
+						"branch-1": map[string]any{
+							"messages": []any{
+								map[string]any{
+									"id":   "message-1",
+									"type": "user",
+								},
+							},
+							"createdAt":           42,
+							"parentBranchId":      "root-branch",
+							"branchFromMessageId": "message-1",
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("marshal listener set-chat-section-state payload: %v", err)
+	}
+	if err := listenerConn.Write(context.Background(), websocket.MessageText, setChatStatePayload); err != nil {
+		t.Fatalf("write listener set-chat-section-state endpoint call: %v", err)
+	}
+
+	resultEnvelope := readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerRouterResult, 1)
+	var resultContent realtime.ListenerRouterEndpointResultContent
+	if err := json.Unmarshal(resultEnvelope.Content, &resultContent); err != nil {
+		t.Fatalf("decode listener result content: %v", err)
+	}
+	if resultContent.ProjectConfigID != "project-alpha" || resultContent.CallID != "call-set-chat-state" || !resultContent.OK || resultContent.Result != nil {
+		t.Fatalf("unexpected set-chat-section-state listener result %#v", resultContent)
+	}
+
+	forceRefreshEnvelope := readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerForceRefresh, 1)
+	var forceRefreshContent realtime.ListenerForceRefreshContent
+	if err := json.Unmarshal(forceRefreshEnvelope.Content, &forceRefreshContent); err != nil {
+		t.Fatalf("decode listener force-refresh content: %v", err)
+	}
+	if forceRefreshContent.ProjectConfigID != "project-alpha" {
+		t.Fatalf("expected force refresh for project-alpha, got %#v", forceRefreshContent)
+	}
+
+	var refreshed projectview.SingleConfig
+	if err := json.Unmarshal(forceRefreshContent.ProjectState, &refreshed); err != nil {
+		t.Fatalf("decode refreshed project state: %v", err)
+	}
+	chatSection, ok := refreshed.Sections["chat-section"]
+	if !ok {
+		t.Fatalf("expected refreshed project state to include chat-section, got %#v", refreshed.Sections)
+	}
+	sharedModifier := mustStructuredMapValue(t, chatSection.SharedModifier)
+	if sharedModifier["inputText"] != "Draft input" || sharedModifier["waitingForResponse"] != true {
+		t.Fatalf("expected refreshed chat state to round-trip input/waiting fields, got %#v", sharedModifier)
+	}
+	toolCallArguments, ok := sharedModifier["toolCallArguments"].(map[string]any)
+	if !ok || toolCallArguments["tool-call-1"] != "{\"query\":\"hello\"}" {
+		t.Fatalf("expected refreshed toolCallArguments, got %#v", sharedModifier["toolCallArguments"])
+	}
+	branches, ok := sharedModifier["branches"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected refreshed branches map, got %#v", sharedModifier["branches"])
+	}
+	branch, ok := branches["branch-1"].(map[string]any)
+	if !ok || branch["createdAt"] != float64(42) {
+		t.Fatalf("expected refreshed branch-1 createdAt 42, got %#v", branches["branch-1"])
+	}
+}
+
 func TestAppListenerWebsocketEmitsChatStreamDeltaToFrontend(t *testing.T) {
 	// The listener chat stream endpoint should publish frontend streaming updates
 	// over the Go websocket hub instead of relying on the Python listener path.

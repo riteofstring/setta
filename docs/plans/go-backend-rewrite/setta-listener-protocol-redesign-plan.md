@@ -45,6 +45,9 @@ Current state:
   - scriptable listener chat-toolkit tool execution on that route for
     `route_run_mcp_tools`, including Setta MCP per-chat allowlist checks and
     scoped call metadata
+  - authoritative `ListenerForceRefresh` follow-up after Go-owned
+    `route_set_chat_section_state` calls on that route so chat section sync no
+    longer depends only on client-side heuristic patching
   - listener coverage and force-refresh reads/writes
   - listener websocket DTOs in `internal/realtime`
 - Python still owns:

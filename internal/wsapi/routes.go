@@ -918,12 +918,27 @@ func handleListenerRouterEndpointCall(
 		}, deps)
 	}
 
-	return sendListenerRouterEndpointResult(ctx, connectionID, realtime.ListenerRouterEndpointResultContent{
+	if err := sendListenerRouterEndpointResult(ctx, connectionID, realtime.ListenerRouterEndpointResultContent{
 		ProjectConfigID: projectID,
 		CallID:          strings.TrimSpace(content.CallID),
 		OK:              true,
 		Result:          result,
-	}, deps)
+	}, deps); err != nil {
+		return err
+	}
+
+	if listenerEndpointRequiresForceRefresh(endpointName) {
+		if err := sendListenerEndpointForceRefresh(ctx, info.Modes, projectID, endpointName, deps); err != nil {
+			_ = sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
+				Error: "listener_refresh_failed",
+				Details: map[string]any{
+					"endpointName": endpointName,
+					"message":      err.Error(),
+				},
+			}, deps)
+		}
+	}
+	return nil
 }
 
 func invokeListenerEndpoint(
@@ -962,6 +977,49 @@ func sendListenerRouterEndpointResult(
 		realtime.NewListenerRouterEndpointResultMessage(content),
 		connectionID,
 	)
+	return err
+}
+
+func listenerEndpointRequiresForceRefresh(endpointName string) bool {
+	switch strings.TrimSpace(endpointName) {
+	case "route_set_chat_section_state":
+		return true
+	default:
+		return false
+	}
+}
+
+func sendListenerEndpointForceRefresh(
+	ctx context.Context,
+	requestInfo modes.RequestInfo,
+	projectID string,
+	endpointName string,
+	deps RouteDependencies,
+) error {
+	projectID = strings.TrimSpace(projectID)
+	if projectID == "" {
+		return fmt.Errorf("listener endpoint %s requires a project config id for force refresh", strings.TrimSpace(endpointName))
+	}
+
+	snapshot, err := listenerBootstrapSnapshot(requestInfo, deps)
+	if err != nil {
+		return err
+	}
+
+	projectStateView, err := projectview.SingleConfigByProjectID(snapshot.Document, projectID)
+	if err != nil {
+		return err
+	}
+	projectStatePayload, err := json.Marshal(projectStateView)
+	if err != nil {
+		return err
+	}
+
+	_, err = deps.ListenerBroadcaster.SendForceRefresh(ctx, realtime.ForceRefreshParams{
+		ProjectID:      projectID,
+		ShareSessionID: requestInfo.ShareSessionID,
+		ProjectState:   projectStatePayload,
+	})
 	return err
 }
 
