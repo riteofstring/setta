@@ -91,6 +91,7 @@ This is the front door for authored frontend code under `frontend/src/`.
 - Need Home page selection action transitions or delete-payload shaping: open `components/Pages/Home/homeProjectSelectionState.ts`.
 - Need Home page project gallery, card/list rendering, or project open/favorite/default controls: open `components/Pages/Home/HomeProjectGallery.tsx`.
 - Need Home page selected-project summary UI or open-project link behavior: open `components/Pages/Home/HomeSelectedProjectDetails.tsx`.
+- Need Home page workspace-browser pane UI or path-entry behavior: open `components/Pages/Home/HomeWorkspaceBrowserPane.tsx`.
 - Need pane/tab behavior: open `components/Panes/`.
 - Need section chrome or param rendering: open `components/Section/` and `components/Params/`.
 - Need managed section-chat history or polling behavior: open `components/Section/Layouts/ChatAreaHistoryPanel.tsx`.
