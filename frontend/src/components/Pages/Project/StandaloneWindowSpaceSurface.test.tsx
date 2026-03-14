@@ -15,11 +15,11 @@ import {
   createWindowSpaceConfig,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { StandaloneWindowSpaceSurface } from "./StandaloneWindowSpaceSurface";
 import {
+  StandaloneWindowSpaceSurface,
   applyStandaloneWindowSpaceHydration,
   mergeHydratedStandaloneWindows,
-} from "./standaloneWindowSpaceState";
+} from "./StandaloneWindowSpaceSurface";
 
 type MockProjectState = {
   projectConfig: {

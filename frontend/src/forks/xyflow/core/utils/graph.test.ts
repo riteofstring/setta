@@ -1,7 +1,9 @@
 import { setActiveSectionUIIds } from "state/activeSectionUI";
-import { useProjectState } from "state/definitions";
-import { useNodeInternals } from "state/stores/activeSectionStores";
-import { useSectionRefs } from "state/stores/authoringStores";
+import {
+  useNodeInternals,
+  useProjectState,
+  useSectionRefs,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { createCore } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
