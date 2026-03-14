@@ -1,7 +1,7 @@
 import throttle from "lodash/throttle";
 import { useEffect } from "react";
+import { sendRealtimeDependencyEvent } from "state/actions/realtimeDependencySend";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
-import { sendRealtimeDependencyEvent } from "state/actions/websocketReceive";
 import {
   useActiveSectionUI,
   useProjectState,
@@ -9,8 +9,9 @@ import {
 } from "state/definitions";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { buildPluginPaneOverviewTabName } from "utils/constants";
-import { res200 } from "utils/endpointUtils";
+import { buildBackendURL, res200 } from "utils/endpointUtils";
 import { route_plugins_runtime } from "utils/generatedEndpoints";
+import { GoHTTPRouteHelpers } from "utils/generatedRoutes";
 import {
   BaseDependencyKeyUnion,
   BaseDependencyValueUnion,
@@ -27,6 +28,7 @@ import {
 } from "utils/generatedTypes";
 import { createWithEqualityFn } from "zustand/traditional";
 import { createStore, type StateCreator, type StoreApi } from "zustand/vanilla";
+import { callListenerEndpointOverWebsocket } from "./listenerEndpointClient";
 import {
   isPluginPaneIconName,
   PluginPaneIconNameEnum,
@@ -188,6 +190,8 @@ type PluginSectionRealtimeEmitOptions = {
   timestampMs?: number;
 };
 
+type PluginCallListenerEndpointPayload = Record<string, unknown>;
+
 type SettaPluginHost = {
   apiVersion: number;
   pluginId: string;
@@ -221,6 +225,10 @@ type SettaPluginHost = {
     value: unknown,
     options?: PluginSectionRealtimeEmitOptions,
   ) => void;
+  callListenerEndpoint: (
+    endpointName: string,
+    payload?: PluginCallListenerEndpointPayload,
+  ) => Promise<unknown>;
   readSection: (sectionId: string) => Record<string, unknown>;
   updateSection: (
     sectionId: string,
@@ -309,6 +317,7 @@ const contextMenuCapability = "registerContextMenu";
 const readProjectStateCapability = "readProjectState";
 const subscribeProjectStateCapability = "subscribeProjectState";
 const emitListenerEventsCapability = "emitListenerEvents";
+const registerListenerEndpointCapability = "registerListenerEndpoint";
 
 const styleHrefByPluginId = new Map<string, string>();
 const styleElementByPluginId = new Map<string, HTMLLinkElement>();
@@ -1495,6 +1504,42 @@ function registerPluginModule({
         timestampMs,
       });
     },
+    callListenerEndpoint: async (endpointName, payload) => {
+      ensureCapability(
+        plugin.pluginId,
+        effectiveCapabilitySet,
+        registerListenerEndpointCapability,
+        "callListenerEndpoint",
+      );
+      const normalizedEndpointName = requireNonEmptyString(
+        endpointName,
+        `Plugin ${plugin.pluginId} callListenerEndpoint requires endpointName.`,
+      );
+      let normalizedPayload: Record<string, unknown> = {};
+      if (payload !== undefined) {
+        if (!isPlainRecord(payload)) {
+          throw new PluginRuntimeError(
+            PluginFrontendErrorCodeEnum.RegistrationInvalid,
+            `Plugin ${plugin.pluginId} callListenerEndpoint requires an object payload.`,
+          );
+        }
+        normalizedPayload = structuredClone(payload);
+      }
+      const shareSession = useShareSession.getState();
+      return callListenerEndpointOverWebsocket({
+        listenerId: `plugin-${crypto.randomUUID()}`,
+        projectConfigId: requireNonEmptyString(
+          useProjectState.getState().projectConfig.id,
+          `Plugin ${plugin.pluginId} callListenerEndpoint requires an active projectConfigId.`,
+        ),
+        endpointName: normalizedEndpointName,
+        payload: normalizedPayload,
+        shareSessionId:
+          shareSession.isDeploymentMode && shareSession.shareSessionId
+            ? shareSession.shareSessionId
+            : null,
+      });
+    },
     readSection: (sectionId) => {
       ensureCapability(
         plugin.pluginId,
@@ -1584,6 +1629,10 @@ function registerPluginModule({
     },
     apiFetch: async (path, init) => {
       const normalizedPath = normalizePluginPath(path);
+      const routePath = GoHTTPRouteHelpers.pluginsBackendRoute(
+        plugin.pluginId,
+        normalizedPath,
+      );
       const shareSession = useShareSession.getState();
       const shareHeaders: Record<string, string> = {};
       if (shareSession.isDeploymentMode && shareSession.shareSessionId) {
@@ -1593,14 +1642,11 @@ function registerPluginModule({
       for (const [key, value] of Object.entries(shareHeaders)) {
         requestHeaders.set(key, value);
       }
-      return fetch(
-        `${C_ADDRESSES.BACKEND}/plugins/${plugin.pluginId}${normalizedPath}`,
-        {
-          ...init,
-          credentials: "include",
-          headers: requestHeaders,
-        },
-      );
+      return fetch(buildBackendURL(routePath), {
+        ...init,
+        credentials: "include",
+        headers: requestHeaders,
+      });
     },
   };
 

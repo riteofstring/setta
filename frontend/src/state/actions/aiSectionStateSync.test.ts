@@ -154,7 +154,6 @@ describe("chat history sync to section state", () => {
         ],
         waitingForResponse: false,
         toolCallArguments: { "tool-1": "{}" },
-        appGenerationByMessageId: {},
       },
     });
     route_set_chat_section_state.mockResolvedValue({
@@ -220,7 +219,6 @@ describe("chat history sync to section state", () => {
         ],
         waitingForResponse: true,
         llmConfig,
-        appGenerationByMessageId: {},
       },
     });
     route_set_chat_section_state.mockResolvedValue({
@@ -275,7 +273,6 @@ describe("chat history sync to section state", () => {
         ],
         waitingForResponse: false,
         toolCallArguments: { remote: "{}" },
-        appGenerationByMessageId: {},
       },
     });
     route_set_chat_section_state.mockResolvedValue({
@@ -362,7 +359,6 @@ describe("chat history sync to section state", () => {
         ],
         waitingForResponse: false,
         toolCallArguments: {},
-        appGenerationByMessageId: {},
       },
     });
     route_set_chat_section_state.mockResolvedValue({
@@ -420,7 +416,6 @@ describe("chat history sync to section state", () => {
         ],
         waitingForResponse: false,
         toolCallArguments: { remote: "{}" },
-        appGenerationByMessageId: {},
       },
     });
     route_set_chat_section_state.mockResolvedValue({

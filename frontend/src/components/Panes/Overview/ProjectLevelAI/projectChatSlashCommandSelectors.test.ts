@@ -4,13 +4,7 @@ import { selectCustomProjectChatSlashCommands } from "./projectChatSlashCommandS
 describe("selectCustomProjectChatSlashCommands", () => {
   it("returns a stable empty fallback for projects without custom commands", () => {
     const commandsByProject = {
-      "project-a": [
-        {
-          command: "/ship",
-          prompt: "Ship the release.",
-          appGenerationMode: null,
-        },
-      ],
+      "project-a": [{ command: "/ship", prompt: "Ship the release." }],
     };
 
     const first = selectCustomProjectChatSlashCommands(
@@ -27,13 +21,7 @@ describe("selectCustomProjectChatSlashCommands", () => {
   });
 
   it("returns the exact project command list when custom commands exist", () => {
-    const projectCommands = [
-      {
-        command: "/triage",
-        prompt: "Triage bugs.",
-        appGenerationMode: null,
-      },
-    ];
+    const projectCommands = [{ command: "/triage", prompt: "Triage bugs." }];
     const commandsByProject = {
       "project-a": projectCommands,
     };
