@@ -346,6 +346,102 @@ test("canvas engine host drags sections and persists top-level layout", async ({
   }
 });
 
+test("canvas engine host drags selected section groups together", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+
+    const firstSectionId = await createCallableSectionForCanvasEngine(
+      page,
+      projectContext.projectConfigId,
+    );
+    const secondSectionId = await createCallableSectionForCanvasEngine(
+      page,
+      projectContext.projectConfigId,
+    );
+    await expect(
+      host.locator(`[data-canvas-engine-dom-island="${secondSectionId}"]`),
+    ).toHaveCount(1);
+
+    const firstLayoutBefore = await readTopLevelSectionPosition(
+      page,
+      projectContext.projectConfigId,
+      firstSectionId,
+    );
+    const secondLayoutBefore = await readTopLevelSectionPosition(
+      page,
+      projectContext.projectConfigId,
+      secondSectionId,
+    );
+
+    await dispatchMountedSectionRootClick(page, firstSectionId);
+    await expect
+      .poll(async () => await readActiveSectionIds(host))
+      .toEqual([firstSectionId]);
+
+    await page.keyboard.down(MULTI_SELECTION_MODIFIER_KEY);
+    try {
+      await dispatchMountedSectionRootClick(page, secondSectionId);
+    } finally {
+      await page.keyboard.up(MULTI_SELECTION_MODIFIER_KEY);
+    }
+    await expect
+      .poll(async () => [...(await readActiveSectionIds(host))].sort())
+      .toEqual([firstSectionId, secondSectionId].sort());
+
+    const dragDelta = { x: 140, y: 90 };
+    await dragWorldPoint(page, host, {
+      start: {
+        x: firstLayoutBefore.x + 140,
+        y: firstLayoutBefore.y + 110,
+      },
+      end: {
+        x: firstLayoutBefore.x + 140 + dragDelta.x,
+        y: firstLayoutBefore.y + 110 + dragDelta.y,
+      },
+    });
+
+    await expect
+      .poll(async () => {
+        const firstLayoutAfter = await readTopLevelSectionPosition(
+          page,
+          projectContext.projectConfigId,
+          firstSectionId,
+        );
+        const secondLayoutAfter = await readTopLevelSectionPosition(
+          page,
+          projectContext.projectConfigId,
+          secondSectionId,
+        );
+        return {
+          firstDeltaX: firstLayoutAfter.x - firstLayoutBefore.x,
+          firstDeltaY: firstLayoutAfter.y - firstLayoutBefore.y,
+          secondDeltaX: secondLayoutAfter.x - secondLayoutBefore.x,
+          secondDeltaY: secondLayoutAfter.y - secondLayoutBefore.y,
+        };
+      })
+      .toEqual({
+        firstDeltaX: dragDelta.x,
+        firstDeltaY: dragDelta.y,
+        secondDeltaX: dragDelta.x,
+        secondDeltaY: dragDelta.y,
+      });
+    await expect
+      .poll(async () => [...(await readActiveSectionIds(host))].sort())
+      .toEqual([firstSectionId, secondSectionId].sort());
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 async function readCamera(host: Locator): Promise<CanvasEngineCameraSnapshot> {
   const xRaw = await host.getAttribute("data-canvas-engine-camera-x");
   const yRaw = await host.getAttribute("data-canvas-engine-camera-y");
