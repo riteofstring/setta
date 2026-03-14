@@ -1,7 +1,7 @@
 import tempfile
 from pathlib import Path
 
-from setta.startup_runtime import _render_startup_message
+from setta.start import _render_startup_message
 from setta.types.routes import Route
 
 
