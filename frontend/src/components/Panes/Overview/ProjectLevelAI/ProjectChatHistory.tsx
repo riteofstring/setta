@@ -14,7 +14,6 @@ import {
   type SetStateAction,
 } from "react";
 import { createPortal } from "react-dom";
-import { loadAgentRuns } from "state/actions/ai/agentRuns";
 import {
   buildChatHistoryEntries,
   type ChatRunType,
@@ -71,9 +70,9 @@ import {
   buildProjectChatHistoryDisplayEntries,
   buildProjectChatThreadSections,
   buildThreadAgentBadgeLabelByChatId,
-  resolveProjectChatHistoryPollIntervalMs,
   type ProjectChatHistoryEntry,
 } from "./projectChatHistoryViewModel";
+import { useProjectChatHistoryPolling } from "./useProjectChatHistoryPolling";
 
 export function getProjectChatDeleteRecoveryTooltipContent(
   target: "thread" | "group",
@@ -184,11 +183,6 @@ export function ProjectChatHistory({
     }),
     shallow,
   );
-
-  useEffect(() => {
-    void loadAgentRuns();
-  }, []);
-
   useEffect(() => {
     if (!chatId) {
       return;
@@ -215,55 +209,11 @@ export function ProjectChatHistory({
     }
     return !historyEntries.some((entry) => entry.chatId === normalizedChatId);
   }, [chatId, historyEntries]);
-  const historyPollIntervalMs = useMemo(() => {
-    return resolveProjectChatHistoryPollIntervalMs({
-      hasLoadError: Boolean(agentRunsLoadError),
-      hasRunningHistoryEntry,
-      selectedChatMissingFromHistory,
-    });
-  }, [
-    agentRunsLoadError,
+  useProjectChatHistoryPolling({
+    hasLoadError: Boolean(agentRunsLoadError),
     hasRunningHistoryEntry,
     selectedChatMissingFromHistory,
-  ]);
-  useEffect(() => {
-    if (historyPollIntervalMs === null) {
-      return;
-    }
-    let intervalId: number | null = null;
-    const clearPollingInterval = () => {
-      if (intervalId === null) {
-        return;
-      }
-      window.clearInterval(intervalId);
-      intervalId = null;
-    };
-    const startPollingIfVisible = () => {
-      clearPollingInterval();
-      if (document.visibilityState !== "visible") {
-        return;
-      }
-      intervalId = window.setInterval(() => {
-        void loadAgentRuns();
-      }, historyPollIntervalMs);
-    };
-    const handleVisibilityChange = () => {
-      if (document.visibilityState !== "visible") {
-        clearPollingInterval();
-        return;
-      }
-      void loadAgentRuns();
-      startPollingIfVisible();
-    };
-
-    void loadAgentRuns();
-    startPollingIfVisible();
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => {
-      clearPollingInterval();
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [historyPollIntervalMs]);
+  });
   const { displayEntries, syntheticDraftThreadEntry } = useMemo(() => {
     return buildProjectChatHistoryDisplayEntries({
       historyEntries,
