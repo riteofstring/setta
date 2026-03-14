@@ -207,8 +207,8 @@ func TestSystemCheckerSupportsRegisteredPluginAdapterAndMergesEnvWhitelist(t *te
 	if !status.Supported {
 		t.Fatalf("expected registered plugin adapter run mode to stay supported, got %#v", status)
 	}
-	if status.Available {
-		t.Fatalf("expected plugin config to stay unavailable until execution exists, got %#v", status)
+	if !status.Available {
+		t.Fatalf("expected plugin config to be available once execution exists, got %#v", status)
 	}
 	if status.CommandPath == nil || *status.CommandPath != commandPath {
 		t.Fatalf("expected plugin adapter command path fallback, got %#v", status.CommandPath)
@@ -216,8 +216,8 @@ func TestSystemCheckerSupportsRegisteredPluginAdapterAndMergesEnvWhitelist(t *te
 	if got := strings.Join(status.EnvVars.Present, ","); got != "CONFIG_KEY,PLUGIN_KEY" {
 		t.Fatalf("expected config and plugin env whitelist merge, got %#v", status.EnvVars)
 	}
-	if !containsIssue(status.Issues, "Plugin external agent execution is not supported yet") {
-		t.Fatalf("expected plugin execution boundary issue, got %#v", status.Issues)
+	if len(status.Issues) != 0 {
+		t.Fatalf("expected no plugin execution boundary issue, got %#v", status.Issues)
 	}
 }
 

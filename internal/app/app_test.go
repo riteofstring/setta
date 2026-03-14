@@ -28,6 +28,7 @@ import (
 	"setta/internal/auth"
 	binarypayload "setta/internal/binary"
 	"setta/internal/config"
+	"setta/internal/externalagentconfigs"
 	"setta/internal/httpapi"
 	"setta/internal/llmconfig"
 	"setta/internal/mcpx"
@@ -72,6 +73,16 @@ func TestAppServesFoundationRoutes(t *testing.T) {
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
+	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:   "project-alpha",
+			Name: "Alpha",
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed app project: %v", err)
+	}
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
@@ -112,6 +123,16 @@ func TestAppServesStatusMetaRoutes(t *testing.T) {
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
+	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:   "project-alpha",
+			Name: "Alpha",
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed app project: %v", err)
+	}
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
@@ -163,6 +184,16 @@ func TestAppServesDocstringToMarkdownRoute(t *testing.T) {
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
+	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:   "project-alpha",
+			Name: "Alpha",
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed app project: %v", err)
+	}
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
@@ -7071,6 +7102,196 @@ func TestAppServesPluginRuntimeWithBackendRegistrations(t *testing.T) {
 	}
 	if len(statusEntry.Errors) != 0 {
 		t.Fatalf("expected no backend codegen registration errors, got %#v", statusEntry.Errors)
+	}
+}
+
+func TestAppRunsPluginExternalAgentThroughGoRuntime(t *testing.T) {
+	// Plugin-backed external-agent configs should be healthy and execute through
+	// the real app/plugin runtime path once Go owns the executor.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppPluginWorkerRuntime(t)
+	t.Setenv("FIXTURE_EXTERNAL_AGENT_TOKEN", "fixture-secret")
+	installAppPluginFixture(t, cfg, "backend-external-agent", "setta-fixture-backend-external-agent")
+
+	externalConfigStore, err := externalagentconfigs.NewStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("new external agent config store: %v", err)
+	}
+	pluginAdapterID := "setta-fixture-backend-external-agent:fixture-agent"
+	if err := externalConfigStore.Write([]externalagentconfigs.Config{
+		{
+			ID:                 "plugin-config",
+			Name:               "Fixture plugin adapter",
+			ToolType:           externalagentconfigs.ToolTypePlugin,
+			PluginAdapterID:    &pluginAdapterID,
+			RunMode:            externalagentconfigs.RunModeSDK,
+			WorkingDirStrategy: externalagentconfigs.WorkingDirStrategyProjectRoot,
+		},
+	}); err != nil {
+		t.Fatalf("write external agent configs: %v", err)
+	}
+
+	engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("new engine store: %v", err)
+	}
+	externalConfigID := "plugin-config"
+	if err := engineStore.Write([]agentruns.EngineConfig{
+		{
+			ID:                    "engine-plugin",
+			Name:                  "Plugin External Engine",
+			EngineType:            agentruns.EngineTypeExternalAgent,
+			ExternalAgentConfigID: &externalConfigID,
+		},
+	}); err != nil {
+		t.Fatalf("write engine config: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:   "project-alpha",
+			Name: "Alpha",
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed app project: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+
+	healthRequest, err := http.NewRequest(http.MethodGet, server.URL+"/api"+httpapi.RouteGetExternalAgentHealth, nil)
+	if err != nil {
+		t.Fatalf("new external agent health request: %v", err)
+	}
+	healthRequest.AddCookie(authCookie)
+	healthResponse, err := http.DefaultClient.Do(healthRequest)
+	if err != nil {
+		t.Fatalf("get external agent health: %v", err)
+	}
+	defer healthResponse.Body.Close()
+	if healthResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(healthResponse.Body)
+		t.Fatalf("expected external agent health 200, got %d with body %q", healthResponse.StatusCode, string(body))
+	}
+	var healthPayload []struct {
+		ConfigID   string   `json:"configId"`
+		Supported  bool     `json:"supported"`
+		Available  bool     `json:"available"`
+		Issues     []string `json:"issues"`
+		WorkingDir *string  `json:"workingDir"`
+	}
+	if err := json.NewDecoder(healthResponse.Body).Decode(&healthPayload); err != nil {
+		t.Fatalf("decode external agent health: %v", err)
+	}
+	if len(healthPayload) != 1 {
+		t.Fatalf("expected one health entry, got %#v", healthPayload)
+	}
+	if healthPayload[0].ConfigID != "plugin-config" || !healthPayload[0].Supported || !healthPayload[0].Available {
+		t.Fatalf("expected plugin config to be supported and available, got %#v", healthPayload[0])
+	}
+	if len(healthPayload[0].Issues) != 0 {
+		t.Fatalf("expected no plugin health issues, got %#v", healthPayload[0].Issues)
+	}
+	if healthPayload[0].WorkingDir == nil || strings.TrimSpace(*healthPayload[0].WorkingDir) == "" {
+		t.Fatalf("expected resolved plugin working dir, got %#v", healthPayload[0])
+	}
+
+	startRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteGetLLMResponse,
+		strings.NewReader(`{
+			"chatId":null,
+			"message":{"id":"user-1","role":"user","content":[{"type":"text","text":"integration hello"}]},
+			"engineConfigId":"engine-plugin",
+			"agentProfileId":null,
+			"thinking":false,
+			"projectConfigId":"project-alpha",
+			"sectionId":null,
+			"allowUnscoped":true,
+			"permissionMode":"minimal",
+			"searchEnabled":false
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("new llm response request: %v", err)
+	}
+	startRequest.Header.Set("Content-Type", "application/json")
+	startRequest.AddCookie(authCookie)
+	startResponse, err := http.DefaultClient.Do(startRequest)
+	if err != nil {
+		t.Fatalf("start plugin external-agent chat: %v", err)
+	}
+	defer startResponse.Body.Close()
+	if startResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(startResponse.Body)
+		t.Fatalf("expected llm response 200, got %d with body %q", startResponse.StatusCode, string(body))
+	}
+	var chatID string
+	if err := json.NewDecoder(startResponse.Body).Decode(&chatID); err != nil {
+		t.Fatalf("decode chat id: %v", err)
+	}
+	if chatID == "" {
+		t.Fatal("expected chat id")
+	}
+
+	runStore, err := agentruns.NewRunStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("new run store: %v", err)
+	}
+	var completed agentruns.Run
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		filterChatID := chatID
+		runs, err := runStore.ListByMetadata(agentruns.RunFilter{ChatID: &filterChatID})
+		if err != nil {
+			t.Fatalf("list plugin runs: %v", err)
+		}
+		if len(runs) == 0 {
+			time.Sleep(20 * time.Millisecond)
+			continue
+		}
+		completed = runs[0]
+		if completed.Status == agentruns.RunStatusCompleted || completed.Status == agentruns.RunStatusFailed || completed.Status == agentruns.RunStatusCancelled {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if completed.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed plugin run, got %#v", completed)
+	}
+	if got := completed.Outputs["sessionId"]; got != "fixture-session" {
+		t.Fatalf("expected fixture session id, got %#v", completed.Outputs)
+	}
+	messages, ok := completed.Outputs["messages"].([]any)
+	if !ok || len(messages) < 2 {
+		t.Fatalf("expected persisted plugin messages, got %#v", completed.Outputs)
+	}
+	lastMessage, ok := messages[len(messages)-1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected assistant message, got %#v", messages[len(messages)-1])
+	}
+	content, ok := lastMessage["content"].([]any)
+	if !ok || len(content) == 0 {
+		t.Fatalf("expected assistant content, got %#v", lastMessage)
+	}
+	lastContent, ok := content[0].(map[string]any)
+	if !ok || strings.TrimSpace(fmt.Sprint(lastContent["text"])) != "fixture external adapter reply" {
+		t.Fatalf("expected fixture plugin reply, got %#v", lastMessage)
 	}
 }
 
