@@ -13,6 +13,7 @@ import {
   addNotificationFromWebsocketMsg,
   addTemporaryNotification,
 } from "state/actions/notifications";
+import { registerRealtimeDependencySenders } from "state/actions/realtimeDependencySend";
 import {
   addWebsocketConnection,
   clearAllWebsocketConnections,
@@ -33,6 +34,7 @@ import {
   route_get_latest_lsp_diagnostics,
   route_get_latest_project_state,
 } from "utils/generatedEndpoints";
+import { GoWebsocketRoutes } from "utils/generatedRoutes";
 import {
   BaseDependencyKeyUnion,
   BaseDependencyValueUnion,
@@ -48,6 +50,7 @@ import {
   SettaNotificationTypeEnum,
   UISettingRevealContent,
   UISettingRevealContentSchema,
+  UISettingRevealResultStatus,
   WebsocketConnectionTypeEnum,
   WebsocketMsg,
   WebsocketMsgRealtimeDependencyEvent,
@@ -59,18 +62,16 @@ import {
   createWebsocketMsgCurrentAddressUpdate,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
-import { receiveLLMResponseChunk } from "./ai/chatStreaming";
-import {
-  receiveLLMApiKeysSnapshotUpdate,
-  receiveLLMConfigUpdate,
-} from "./ai/llmSettings";
 import {
   receiveAgentProfilesUpdate,
   receiveEngineConfigsUpdate,
   receiveExternalAgentConfigsUpdate,
+  receiveLLMApiKeysSnapshotUpdate,
+  receiveLLMConfigUpdate,
+  receiveLLMResponseChunk,
   receivePromptTemplatesUpdate,
   receiveTranscriptionProfilesUpdate,
-} from "./ai/projectAiResources";
+} from "./ai";
 import {
   receiveAIFollowToolArgumentsUpdate,
   receiveAIFollowToolResultUpdate,
@@ -110,6 +111,7 @@ const AUTH_CLOSE_CODE = 4401;
 const SHARE_SESSION_MISSING_CODE = 4400;
 const SHARE_SESSION_UNKNOWN_CODE = 4404;
 const BOOTSTRAP_URL = `${C_ADDRESSES.BACKEND_ORIGIN}${RouteEnum.BOOTSTRAP_PAGE}`;
+const FRONTEND_WEBSOCKET_ROUTE = GoWebsocketRoutes.frontend;
 const AUTH_RECOVERY_INTERVAL_MS = 2000;
 const DEFAULT_AUTH_REFRESH_WINDOW_SECONDS =
   C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS;
@@ -133,12 +135,6 @@ let shareHeartbeatTimer: number | null = null;
 let shareSessionRecoveryAttempts = 0;
 let shareSessionRecoveryInFlight = false;
 let lastRealtimeBinaryOversizeWarningAt = 0;
-type UISettingRevealResultStatusPayload = {
-  settingId: string;
-  status: "revealed" | "failed";
-  errorCode: string | null;
-  errorMessage: string | null;
-};
 type PendingUISettingRevealMessage = {
   content: unknown;
   socketGeneration: number;
@@ -149,6 +145,18 @@ function beginWebsocketGeneration(): number {
   setActiveFrontendWebsocketAffinityGeneration(activeWebsocketGeneration);
   clearFrontendWebsocketAffinity(activeWebsocketGeneration);
   return activeWebsocketGeneration;
+}
+
+function buildFrontendWebsocketUrl(shareSessionId: string | null): string {
+  const targetUrl = new URL(
+    FRONTEND_WEBSOCKET_ROUTE,
+    C_ADDRESSES.BACKEND_ORIGIN,
+  );
+  targetUrl.protocol = targetUrl.protocol === "https:" ? "wss:" : "ws:";
+  if (shareSessionId) {
+    targetUrl.searchParams.set("shareSessionId", shareSessionId);
+  }
+  return targetUrl.toString();
 }
 
 export const openWebSocket = _.debounce(
@@ -162,14 +170,8 @@ export const openWebSocket = _.debounce(
     if (!isDeploymentMode) {
       stopShareHeartbeat();
     }
-    const route = isDeploymentMode
-      ? RouteEnum.WEBSOCKET_SHARE_FRONTEND
-      : RouteEnum.WEBSOCKET_FRONTEND;
-    const targetUrl = isDeploymentMode
-      ? `${C_ADDRESSES.WEBSOCKET}${route}?shareSessionId=${encodeURIComponent(
-          shareSessionId ?? "",
-        )}`
-      : `${C_ADDRESSES.WEBSOCKET}${route}`;
+    const route = FRONTEND_WEBSOCKET_ROUTE;
+    const targetUrl = buildFrontendWebsocketUrl(shareSessionId);
     if (
       wssReady(wss) &&
       currentRoute === route &&
@@ -656,7 +658,7 @@ function sendUISettingRevealResult({
 }: {
   projectConfigId: string;
   requestId: string;
-  statuses: UISettingRevealResultStatusPayload[];
+  statuses: UISettingRevealResultStatus[];
   socketGeneration: number;
 }): void {
   const revealResultMessage: WebsocketMsgUISettingRevealResult = {
@@ -709,7 +711,7 @@ function resolveRevealRequestId(content: unknown): string {
 function buildMalformedRevealStatuses(
   content: unknown,
   errorMessage: string,
-): UISettingRevealResultStatusPayload[] {
+): UISettingRevealResultStatus[] {
   const settingIds = extractRevealSettingIds(content);
   return settingIds.map((settingId) => ({
     settingId,
@@ -748,7 +750,7 @@ function resolveAckContextMismatchStatuses({
 }: {
   content: UISettingRevealContent;
   executionContext: UISettingRevealExecutionContext;
-}): UISettingRevealResultStatusPayload[] | null {
+}): UISettingRevealResultStatus[] | null {
   if (!executionContext.isSocketGenerationActive()) {
     return buildExecutionContextMismatchStatuses(
       content.reveals,
@@ -771,7 +773,7 @@ function resolveAckContextMismatchStatuses({
 function buildExecutionContextMismatchStatuses(
   reveals: Array<UISettingRevealContent["reveals"][number]>,
   errorMessage: string,
-): UISettingRevealResultStatusPayload[] {
+): UISettingRevealResultStatus[] {
   return reveals.map((target) => ({
     settingId: target.settingId,
     status: "failed",
@@ -967,6 +969,11 @@ function sendBinaryMessage(message: WebsocketMsg, payload: ArrayBuffer) {
     wss.send(frame);
   }
 }
+
+registerRealtimeDependencySenders({
+  sendBinaryMessage,
+  sendMessage,
+});
 
 function maybeWarnRealtimeOversize(message: string) {
   const now = Date.now();

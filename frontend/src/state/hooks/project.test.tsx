@@ -3,8 +3,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
-import { useProjectState } from "state/definitions";
-import { useProjectLoading } from "state/stores/ephemeralUiStores";
+import { useProjectLoading, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import { PAGE_LOAD_TYPES } from "utils/constants";
