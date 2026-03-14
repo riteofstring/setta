@@ -174,6 +174,46 @@ describe("local storage merge", () => {
     expect(merged.projectChatAuxViewByProjectConfigId).toEqual({});
   });
 
+  it("keeps persisted project chat drafts keyed by project config id", () => {
+    const merge = useLocalStorage.persist.getOptions().merge;
+    const current = useLocalStorage.getState();
+
+    const merged = merge(
+      {
+        projectChatDraftMessageByProjectConfigId: {
+          "project-a": "Unsaved draft for project A",
+          "project-b": "Unsaved draft for project B",
+        },
+      } as Record<string, unknown>,
+      current,
+    ) as typeof current;
+
+    expect(merged.projectChatDraftMessageByProjectConfigId).toEqual({
+      "project-a": "Unsaved draft for project A",
+      "project-b": "Unsaved draft for project B",
+    });
+  });
+
+  it("sanitizes malformed persisted project chat draft mappings", () => {
+    const merge = useLocalStorage.persist.getOptions().merge;
+    const current = useLocalStorage.getState();
+
+    const merged = merge(
+      {
+        projectChatDraftMessageByProjectConfigId: {
+          "project-a": "  Keep this draft  ",
+          "project-b": ["invalid"],
+          " ": "ignored",
+        },
+      } as Record<string, unknown>,
+      current,
+    ) as typeof current;
+
+    expect(merged.projectChatDraftMessageByProjectConfigId).toEqual({
+      "project-a": "Keep this draft",
+    });
+  });
+
   it("falls back to canonical home pane defaults when persisted values are invalid", () => {
     const merge = useLocalStorage.persist.getOptions().merge;
     const current = useLocalStorage.getState();

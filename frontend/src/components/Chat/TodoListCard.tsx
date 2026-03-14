@@ -1,3 +1,7 @@
+import {
+  BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME,
+  BrailleSpinner,
+} from "components/Utils/BrailleSpinner";
 import { IoMdCheckmark } from "react-icons/io";
 import { MdOutlineRadioButtonUnchecked } from "react-icons/md";
 import { TodoItem, TodoStatus } from "utils/claudeTools";
@@ -103,7 +107,11 @@ function StatusIcon({ status }: { status: TodoStatus }) {
     return <IoMdCheckmark className="mt-0.5 text-emerald-500" />;
   }
   if (status === "in_progress") {
-    return <i className="gg-spinner mt-0.5 !scale-75 text-amber-500" />;
+    return (
+      <BrailleSpinner
+        className={`mt-0.5 ${BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME} text-amber-500`}
+      />
+    );
   }
   return <MdOutlineRadioButtonUnchecked className="mt-0.5 text-setta-300" />;
 }

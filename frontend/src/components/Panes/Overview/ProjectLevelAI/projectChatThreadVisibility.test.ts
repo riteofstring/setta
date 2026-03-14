@@ -444,16 +444,18 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
     expect(result).toEqual({ status: "unknown" });
   });
 
-  it("returns unknown while selected chat is actively waiting for a response and provenance is still missing", () => {
+  it("keeps missing selected-chat provenance as a warning once authoritative metadata is ready, even while waiting", () => {
     const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
       chatId: "chat-1",
       selectedScopedChatProvenance: { status: "missing" },
       chatProvenanceAuthoritative: true,
       engineConfigById: new Map(),
       engineConfigsAuthoritative: true,
-      selectedChatWaitingForResponse: true,
     });
-    expect(result).toEqual({ status: "unknown" });
+    expect(result).toEqual({
+      status: "warning",
+      errorCode: "chat_provenance_missing",
+    });
   });
 
   it("returns warning when selected chat provenance is ambiguous", () => {
