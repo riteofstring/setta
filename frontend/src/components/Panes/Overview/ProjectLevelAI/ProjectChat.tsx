@@ -13,7 +13,6 @@ import {
   buildLLMConfigGroups,
   countLLMConfigs,
   pickDefaultConfigId,
-  resolveSelectableLLMConfigId,
 } from "components/Chat/llmConfigUtils";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
@@ -67,6 +66,7 @@ import {
 } from "state/definitions";
 import {
   buildSearchableTextForMessage,
+  countConversationSearchTextMatches,
   matchesConversationSearchText,
   tokenizeConversationSearchQuery,
 } from "utils/conversationSearch";
@@ -841,14 +841,6 @@ function ProjectChatSurface({
   const hasLLMConfig = Boolean(
     selectedLLMConfigId && availableConfigIds.has(selectedLLMConfigId),
   );
-  const selectableLLMConfigId = useMemo(
-    () =>
-      resolveSelectableLLMConfigId(
-        availableConfigGroups,
-        selectedLLMConfigId,
-      ),
-    [availableConfigGroups, selectedLLMConfigId],
-  );
   const llmSelectionUnavailableReason = useMemo(
     () =>
       resolveProjectChatSelectedLLMUnavailableReason({
@@ -1499,26 +1491,38 @@ function ProjectChatSurface({
   );
   const hasConversationSearchTerms =
     normalizedConversationSearchTerms.length > 0;
-  const conversationSearchMatchMessageIds = useMemo(() => {
+  const conversationSearchMatches = useMemo(() => {
     if (!hasConversationSearchTerms) {
       return [];
     }
-    return activeConversationMessages
-      .filter(
-        (message) =>
-          message.role !== ChatRoleEnum.tool &&
-          matchesConversationSearchText(
-            buildSearchableTextForMessage(message),
-            normalizedConversationSearchTerms,
-          ),
-      )
-      .map((message) => message.id);
+    return activeConversationMessages.flatMap((message) => {
+      if (message.role === ChatRoleEnum.tool) {
+        return [];
+      }
+      const searchableText = buildSearchableTextForMessage(message);
+      if (
+        !matchesConversationSearchText(
+          searchableText,
+          normalizedConversationSearchTerms,
+        )
+      ) {
+        return [];
+      }
+      const occurrenceCount = countConversationSearchTextMatches(
+        searchableText,
+        normalizedConversationSearchTerms,
+      );
+      return Array.from({ length: occurrenceCount }, (_, occurrenceIndex) => ({
+        messageId: message.id,
+        occurrenceIndex,
+      }));
+    });
   }, [
     activeConversationMessages,
     hasConversationSearchTerms,
     normalizedConversationSearchTerms,
   ]);
-  const conversationSearchMatchCount = conversationSearchMatchMessageIds.length;
+  const conversationSearchMatchCount = conversationSearchMatches.length;
   const conversationSearchQueryKey = useMemo(
     () => normalizedConversationSearchTerms.join("\u0000"),
     [normalizedConversationSearchTerms],
@@ -1553,10 +1557,8 @@ function ProjectChatSurface({
     if (conversationSearchMatchIndex === null) {
       return null;
     }
-    return (
-      conversationSearchMatchMessageIds[conversationSearchMatchIndex] ?? null
-    );
-  }, [conversationSearchMatchIndex, conversationSearchMatchMessageIds]);
+    return conversationSearchMatches[conversationSearchMatchIndex] ?? null;
+  }, [conversationSearchMatchIndex, conversationSearchMatches]);
   const conversationSearchCounterText =
     conversationSearchMatchCount > 0 && conversationSearchMatchIndex !== null
       ? `${conversationSearchMatchIndex + 1}/${conversationSearchMatchCount}`
@@ -1953,7 +1955,7 @@ function ProjectChatSurface({
                         transcriptionProfileGroups={transcriptionProfileGroups}
                         availableConfigGroups={availableConfigGroups}
                         selectedEngineId={effectiveEngineId}
-                        selectedLLMConfigId={selectableLLMConfigId}
+                        selectedLLMConfigId={selectedLLMConfigId}
                         llmSelectionUnavailableReason={
                           llmSelectionUnavailableReason
                         }
@@ -2015,6 +2017,13 @@ function ProjectChatSurface({
                           setConversationFilterText(event.target.value);
                         }}
                         onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            handleStepConversationSearch(
+                              event.shiftKey ? "previous" : "next",
+                            );
+                            return;
+                          }
                           if (event.key !== "Escape") {
                             return;
                           }
@@ -2173,7 +2182,6 @@ function ProjectChatSurface({
                   }
                   thinking={thinking}
                   engineConfigId={effectiveEngineId}
-                  engineConfig={selectedEngineConfig}
                   engineType={engineType}
                   hasLLMConfig={hasLLMConfig}
                   externalEngineAvailable={externalEngineAvailable}
@@ -2192,7 +2200,11 @@ function ProjectChatSurface({
                   onPermissionModeChange={setRuntimePermissionMode}
                   onBlockedErrorCodeChange={onBlockedErrorCodeChange}
                   activeConversationSearchMatchMessageId={
-                    activeConversationSearchMatchMessageId
+                    activeConversationSearchMatchMessageId?.messageId ?? null
+                  }
+                  activeConversationSearchMatchOccurrenceIndex={
+                    activeConversationSearchMatchMessageId?.occurrenceIndex ??
+                    null
                   }
                 />
               )}
@@ -2244,7 +2256,6 @@ function ProjectChatSurface({
               hydrationMetadataRevision={selectedChatHydrationMetadataRevision}
               thinking={thinking}
               engineConfigId={effectiveEngineId}
-              engineConfig={selectedEngineConfig}
               engineType={engineType}
               hasLLMConfig={hasLLMConfig}
               externalEngineAvailable={externalEngineAvailable}
@@ -2263,7 +2274,10 @@ function ProjectChatSurface({
               onPermissionModeChange={setRuntimePermissionMode}
               onBlockedErrorCodeChange={onBlockedErrorCodeChange}
               activeConversationSearchMatchMessageId={
-                activeConversationSearchMatchMessageId
+                activeConversationSearchMatchMessageId?.messageId ?? null
+              }
+              activeConversationSearchMatchOccurrenceIndex={
+                activeConversationSearchMatchMessageId?.occurrenceIndex ?? null
               }
             />
           </>

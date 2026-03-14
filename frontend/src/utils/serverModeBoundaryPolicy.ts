@@ -1,5 +1,4 @@
-import { GoHTTPRoutes, GoRootRouteHelpers } from "./generatedRoutes";
-import type { ServerModeResponse } from "./generatedTypes";
+import { RouteEnum, type ServerModeResponse } from "./generatedTypes";
 
 export type ServerMode = ServerModeResponse["mode"] | null;
 export type EndpointOriginPolicy = "backend" | "launcher" | "backend-origin";
@@ -13,9 +12,6 @@ type ModeBoundaryPolicy = {
   capabilities: ServerModeCapabilities;
   workspaceLaunchRouteKind: WorkspaceLaunchRouteKind;
 };
-
-const BOOTSTRAP_PAGE_ROUTE = GoRootRouteHelpers.bootstrapPage();
-const TOOLS_CALL_ROUTE = GoRootRouteHelpers.toolsCall();
 
 const MODE_BOUNDARY_POLICY: Readonly<
   Record<ServerModeResponse["mode"], ModeBoundaryPolicy>
@@ -41,22 +37,22 @@ const MODE_BOUNDARY_POLICY: Readonly<
 export const ENDPOINT_ORIGIN_POLICY: Readonly<
   Record<string, EndpointOriginPolicy>
 > = Object.freeze({
-  [GoHTTPRoutes.launch]: "launcher",
-  [GoHTTPRoutes.createWorkspaceLaunchIntent]: "launcher",
-  [GoHTTPRoutes.getSettaHomeInfo]: "backend",
-  [TOOLS_CALL_ROUTE]: "backend-origin",
-  [GoHTTPRoutes.getLauncherRecentWorkspaces]: "launcher",
-  [GoHTTPRoutes.addLauncherRecentWorkspace]: "launcher",
-  [GoHTTPRoutes.removeLauncherRecentWorkspace]: "launcher",
-  [GoHTTPRoutes.pinLauncherRecentWorkspace]: "launcher",
-  [GoHTTPRoutes.getLauncherFilesystemRoots]: "launcher",
-  [GoHTTPRoutes.listLauncherDirectory]: "launcher",
-  [GoHTTPRoutes.openLauncherWorkspace]: "launcher",
+  [RouteEnum.LAUNCH]: "launcher",
+  [RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT]: "launcher",
+  [RouteEnum.GET_SETTA_HOME_INFO]: "backend",
+  [RouteEnum.TOOLS_CALL]: "backend-origin",
+  [RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES]: "launcher",
+  [RouteEnum.ADD_LAUNCHER_RECENT_WORKSPACE]: "launcher",
+  [RouteEnum.REMOVE_LAUNCHER_RECENT_WORKSPACE]: "launcher",
+  [RouteEnum.PIN_LAUNCHER_RECENT_WORKSPACE]: "launcher",
+  [RouteEnum.GET_LAUNCHER_FILESYSTEM_ROOTS]: "launcher",
+  [RouteEnum.LIST_LAUNCHER_DIRECTORY]: "launcher",
+  [RouteEnum.OPEN_LAUNCHER_WORKSPACE]: "launcher",
 });
 
 const MODE_SCOPED_LAUNCHER_ROUTES = new Set<string>([
-  GoHTTPRoutes.launch,
-  GoHTTPRoutes.createWorkspaceLaunchIntent,
+  RouteEnum.LAUNCH,
+  RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT,
 ]);
 
 export function resolveServerModeCapabilities(
@@ -95,7 +91,7 @@ export function resolveEndpointOriginForMode(
   serverMode: ServerMode,
 ): EndpointOriginPolicy {
   const normalizedAddress = stripQueryAndHash(address);
-  if (normalizedAddress.startsWith(BOOTSTRAP_PAGE_ROUTE)) {
+  if (normalizedAddress.startsWith(RouteEnum.BOOTSTRAP_PAGE)) {
     return "backend-origin";
   }
   const routePolicy = ENDPOINT_ORIGIN_POLICY[normalizedAddress];
