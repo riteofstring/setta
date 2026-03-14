@@ -28,6 +28,7 @@ import (
 	"setta/internal/codegen"
 	"setta/internal/config"
 	"setta/internal/deployments"
+	"setta/internal/detachedruns"
 	"setta/internal/devworktree"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/externalagents"
@@ -179,6 +180,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		appGenSkillService    *appgenskills.Service
 		pathRevealService     *pathreveal.Service
 		runChainRuntime       *runchains.Runtime
+		detachedRunManager    *detachedruns.Manager
 		externalConfigStore   *externalagentconfigs.Store
 		externalConfigService *externalagentconfigs.Service
 		externalPreflight     externalagentconfigs.Checker
@@ -1136,6 +1138,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 		return nil, err
 	}
+	detachedRunManager, err = detachedruns.NewManager(detachedruns.ManagerOptions{
+		RuntimeRoot: cfg.Paths.RuntimeRoot,
+	})
+	if err != nil {
+		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+		return nil, err
+	}
 	if deploymentRuntime != nil {
 		manager.Go("deployment-session-cleanup", func(ctx context.Context) error {
 			return runDeploymentSessionCleanupLoop(ctx, deploymentRuntime, terminalService, listenerBroadcaster, shareArtifactService, 0)
@@ -1459,6 +1468,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				Deployment:    deploymentRuntime,
 				Terminals:     terminalService,
 				RunCode:       runCodeService,
+			}); err != nil {
+				panic(err)
+			}
+			if err := httpapi.RegisterDetachedRunRoutes(r, httpapi.DetachedRunRouteDependencies{
+				ModePolicy: modePolicy,
+				Planner:    runPlanner,
+				Runs:       detachedRunManager,
 			}); err != nil {
 				panic(err)
 			}

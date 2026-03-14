@@ -1,6 +1,6 @@
 # Caller-Backed Backend Surface Checklist
 
-Snapshot date: 2026-03-12.
+Snapshot date: 2026-03-14.
 
 Primary agent entrypoint: `docs/plans/go-backend-rewrite/CURRENT.md`.
 
@@ -81,6 +81,7 @@ Primary sources used for this checklist:
 | Complete | Terminal websocket attach/history replay/resize behavior                  | The active frontend now opens Go's `/ws/terminals/{projectID}/{sectionID}` websocket path for ready/history replay/input/resize behavior in IDE and deployment/share/app flows. Deployment/share/app terminal viewing uses the same canonical route with `shareSessionId` query binding and read-only terminal input semantics.                                                                                                                            |
 | Complete | Terminal cleanup HTTP routes                                              | Go owns `deleteTerminals` and `interruptTerminalProcesses`, and the current frontend stop-code flow now reaches the canonical generated `interruptTerminalProcesses` binding in IDE plus deployment/share/app flows under the Go-owned `allowRun` gate. The legacy Python-shaped `killSubprocesses` adapter has been removed from the Go HTTP surface; the active frontend contract is only the canonical interrupt route.                                                                                 |
 | Complete | `runCode` execution path                                                  | Go owns the current IDE/share/app `runCode` surface, and the active `runOrImportCode`, `RunButton`, and `AppRenderer` callers now reach that Go HTTP route over the canonical generated `runCode` binding. Terminal viewing for those runs now flows through Go's `/ws/terminals/{projectID}/{sectionID}` websocket route in IDE and deployment/share/app mode; `cliId` output transport remains explicitly unsupported. |
+| Complete | Retained Python runner detached-run/status/cancel transport               | Go now owns `runDetached`, `getRunStatus`, and `cancelRun` for the explicit retained `setta.api.SettaRunner` caller boundary through `internal/httpapi/detached_run_routes.go`, `internal/detachedruns`, and the existing Go run planner. The current `docs/reference/param-sweeps.md` runner flow now reaches that Go transport in IDE mode; share/app deployment mode remains an explicit unsupported boundary rather than a live caller-backed gap. |
 
 ## 4. Project state, project shell, code editing, LSP, and watch-code
 
@@ -212,10 +213,7 @@ callers.
 
 ### Dormant or not-proven-current-caller legacy families
 
-- Detached-run and CLI-output transport:
-  - `runDetached`
-  - `getRunStatus`
-  - `cancelRun`
+- CLI-output transport:
   - `/cli`
   - `/cli/{id}`
   - `/pythonScript/{id}`
@@ -269,10 +267,10 @@ the product-facing surface that current callers use:
 - current agentic, app-gen skills, and transcription surfaces
 
 The remaining gaps are concentrated in older Python-only route tails,
-intentionally bounded AI/plugin behavior, and dormant detached-run/CLI-output
-transport. The old `loadAvailableArtifacts` helper no longer has a reachable
-frontend caller in this worktree and should be treated as dormant route-enum
-residue, not active rewrite surface.
+intentionally bounded AI/plugin behavior, and dormant CLI-output transport.
+The old `loadAvailableArtifacts` helper no longer has a reachable frontend
+caller in this worktree and should be treated as dormant route-enum residue,
+not active rewrite surface.
 
 Treat the active caller-backed gaps as remaining rewrite surface, not as
 historical noise.

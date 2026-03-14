@@ -205,6 +205,9 @@ var bareRouteNames = map[string]struct{}{
 	bareRouteName(RouteDeleteTerminals):                         {},
 	bareRouteName(RouteInterruptTerminalProcesses):              {},
 	bareRouteName(RouteRunCode):                                 {},
+	bareRouteName(RouteRunDetached):                             {},
+	bareRouteName(RouteGetRunStatus):                            {},
+	bareRouteName(RouteCancelRun):                               {},
 	bareRouteName(RouteCreateWorkspaceLaunchIntent):             {},
 	bareRouteName(RouteLaunch):                                  {},
 }
