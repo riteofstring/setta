@@ -69,7 +69,7 @@ Read the diff of <commit hash>. Write a summary of the changes to a new doc call
 
 See the latest github actions tests on the main branch. What are the all errors caused by? Can it be fixed? I also ran the tests locally, see the logs in tests-frontend.log.
 
-For Go backend rewrite work, start with `docs/plans/go-backend-rewrite/CURRENT.md`.
+We are rewriting the backend in Go. Start by reading `docs/plans/go-backend-rewrite/CURRENT.md`.
 
 Treat `CURRENT.md` as the router and read only the docs the task needs:
 - `caller-backed-backend-surface-checklist.md` for active caller reachability
