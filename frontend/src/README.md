@@ -167,9 +167,15 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/websocketIncomingMessages.ts` owns frontend websocket
     payload dispatch, project/app snapshot routing, and `UISettingReveal` ACK
     handling.
-  - `state/actions/websocketReceive.ts` now owns socket transport lifecycle,
-    auth/share-session recovery, listener-coverage bootstrap, and outbound
-    realtime dependency sending.
+  - `state/actions/websocketReceive.ts` is now a thin compatibility facade.
+  - `state/actions/websocketLifecycle.ts` owns socket transport lifecycle,
+    auth/share-session recovery, and listener-coverage or project-state
+    bootstrap on socket open.
+  - `state/actions/websocketRealtime.ts` owns outbound realtime dependency
+    events, section literal or binary sends, and binary upload fallback.
+  - `state/actions/websocketRuntime.ts` owns the shared active-socket runtime
+    state and low-level websocket send helpers used by the lifecycle and
+    realtime owners.
   - `state/actions/sectionEffectiveImpls.ts` owns effective section/code-object
     resolution, typed current-section/code-object selectors, and in-place
     impl-mutation helpers that previously lived in `sectionInfos.ts`.
@@ -258,10 +264,9 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/websocketReceive.ts` websocket transport split across auth or
-  reconnect lifecycle, bootstrap hydration, and outbound realtime dependency or
-  upload helpers now that `state/actions/websocketIncomingMessages.ts` owns the
-  inbound dispatch surface
+- `state/actions/keyActivations.ts` remains the largest shared-state hotspot
+  and should keep shrinking across more explicit shortcut groups instead of
+  continuing as a 700-line listener surface
 - `state/actions/sectionInfos.ts` section metadata/display-tree split now that
   `state/actions/sectionEffectiveImpls.ts`,
   `state/actions/sectionProjectStateSync.ts`,
@@ -271,6 +276,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
   `state/actions/topLevelLayoutPersistence.ts` own effective-impl access,
   backend sync, shared commands, optimistic mutation infrastructure, and
   top-level layout ownership
+- `state/actions/websocketReceive.ts` is now a compatibility facade that
+  delegates lifecycle or reconnect logic to
+  `state/actions/websocketLifecycle.ts`, outbound realtime sends to
+  `state/actions/websocketRealtime.ts`, and shared active-socket state to
+  `state/actions/websocketRuntime.ts`; follow-up websocket work should stay on
+  one of those owners instead of growing the facade again
 - `state/actions/stateMachineEdges.ts` is now a compatibility entrypoint that
   delegates workflow connection rules and machine-group reads to
   `state/actions/stateMachineEdgeConnections.ts` and optimistic create or

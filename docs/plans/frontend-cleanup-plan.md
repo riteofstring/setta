@@ -102,8 +102,10 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/state/actions/websocketIncomingMessages.ts` now owns frontend
   websocket payload dispatch, project/app snapshot routing, and
   `UISettingReveal` ACK handling, reducing
-  `frontend/src/state/actions/websocketReceive.ts` to 706 lines for the
-  remaining transport/auth bootstrap and outbound realtime send surface.
+  the old websocket surface into a thin `websocketReceive.ts` facade plus
+  `frontend/src/state/actions/websocketLifecycle.ts` for transport/auth/bootstrap
+  and `frontend/src/state/actions/websocketRealtime.ts` for outbound realtime
+  send or upload behavior.
 - `frontend/src/state/actions/windowSpacePersistence.ts` and
   `frontend/src/state/actions/windowSpaceSnapshots.ts` now own saved
   window-space mutations plus floating snapshot/restore conversion, reducing
@@ -136,6 +138,11 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   machine-group resolution, connection validation, and edge construction to
   `stateMachineEdgeConnections.ts`, plus optimistic create or select or delete
   or replace commands to `stateMachineEdgeMutations.ts`.
+- `frontend/src/state/actions/websocketReceive.ts` is down to a 7-line
+  compatibility entrypoint and now delegates socket lifecycle, reconnect, auth,
+  share-session, and bootstrap behavior to `websocketLifecycle.ts`, outbound
+  realtime dependency or binary send behavior to `websocketRealtime.ts`, and
+  shared active-socket state to `websocketRuntime.ts`.
 - `frontend/src/state/actions/uiSettingReveal.ts` is down to 360 lines and now
   delegates reveal mutation orchestration, lease ownership, snapshot rollback,
   pane activation, DOM anchor/highlight helpers, and execution-status utilities

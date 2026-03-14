@@ -18,7 +18,7 @@ import {
 import {
   sendRealtimeDependencyEvent,
   sendRealtimeSectionLiteral,
-} from "state/actions/websocketReceive";
+} from "state/actions/websocketRealtime";
 import { useProjectState } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";

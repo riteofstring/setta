@@ -26,11 +26,8 @@ import {
 import {
   sendRealtimeDependencyEvent,
   sendRealtimeSectionParamLiteral,
-} from "state/actions/websocketReceive";
-import {
-  useDecodedImages,
-  useImages,
-} from "state/definitions";
+} from "state/actions/websocketRealtime";
+import { useDecodedImages, useImages } from "state/definitions";
 import { decodeExistingRawImages } from "state/hooks/artifacts";
 import { useLocalPendingValue } from "state/hooks/utils";
 import { useAppConfigs } from "state/stores/appStores";

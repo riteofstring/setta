@@ -4,6 +4,7 @@ import {
   useProjectState,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import { C } from "utils/c";
 import {
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
@@ -383,6 +384,91 @@ describe("openWebSocket", () => {
     );
 
     expect(socket.send).toHaveBeenCalledTimes(sendCallCountBefore);
+  });
+
+  it("uploads oversized realtime section snapshots and emits the uploaded binary reference", async () => {
+    useProjectState.setState((state) => {
+      state.projectConfig.id = "project-binary-upload";
+    });
+    const { openWebSocket } = await import("state/actions/websocketLifecycle");
+    const { sendRealtimeSectionBinary } = await import(
+      "state/actions/websocketRealtime"
+    );
+    const { route_binary_upload, route_get_listener_coverage } = await import(
+      "utils/generatedEndpoints"
+    );
+    vi.mocked(route_get_listener_coverage).mockResolvedValue({
+      status: 200,
+      data: {
+        projectConfigId: "project-binary-upload",
+        hasRealtimeWildcard: true,
+        dependencies: [],
+      },
+      hasResponse: true,
+    });
+    vi.mocked(route_binary_upload).mockResolvedValue({
+      status: 200,
+      data: {
+        contentId: "binary-upload-1",
+        byteLength: C.REALTIME_BINARY_MAX_BYTES + 1,
+        mimeType: "image/png",
+      },
+      hasResponse: true,
+    });
+
+    openWebSocket("/project", "share-session-binary-upload");
+    vi.runAllTimers();
+
+    const socket = MockWebSocket.instances[0];
+    await socket.emit("open");
+
+    sendRealtimeSectionBinary(
+      "section-binary-upload",
+      new ArrayBuffer(C.REALTIME_BINARY_MAX_BYTES + 1),
+      "image/png",
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(route_binary_upload).toHaveBeenCalledTimes(1);
+    const realtimePayload = socket.send.mock.calls
+      .map((call) => call[0])
+      .filter((payload): payload is string => typeof payload === "string")
+      .map((payload) => {
+        try {
+          return JSON.parse(payload) as {
+            messageType?: string;
+            content?: {
+              projectConfigId?: string;
+              dependencyKey?: unknown;
+              value?: unknown;
+            };
+          };
+        } catch {
+          return null;
+        }
+      })
+      .find(
+        (payload) =>
+          payload?.messageType === "RealtimeUIChange" &&
+          payload.content?.projectConfigId === "project-binary-upload",
+      );
+
+    expect(realtimePayload?.content).toEqual({
+      projectConfigId: "project-binary-upload",
+      dependencyKey: {
+        type: DependencyKeyTypeEnum.Section,
+        sectionId: "section-binary-upload",
+      },
+      value: {
+        type: DependencyValueTypeEnum.Binary,
+        payload: {
+          contentId: "binary-upload-1",
+          byteLength: C.REALTIME_BINARY_MAX_BYTES + 1,
+          mimeType: "image/png",
+        },
+      },
+    });
   });
 
   it("applies revisioned llm api-key websocket snapshots", async () => {

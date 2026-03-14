@@ -81,14 +81,26 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 
 - `frontend/src/state` plus shared infrastructure files in `components/Utils` and `utils` total about 83.6k lines of authored code in the sampled directories.
 - The biggest shared-state hotspots are:
-  - `frontend/src/state/actions/websocketReceive.ts` at 706 lines
   - `frontend/src/state/actions/keyActivations.ts` at 705 lines
   - `frontend/src/state/actions/windowSpaces.ts` at 695 lines
   - `frontend/src/state/actions/sectionInfos.ts` at 678 lines
   - `frontend/src/state/actions/sectionEffectiveImpls.ts` at 649 lines
   - `frontend/src/state/actions/stateMachineEdgeConnections.ts` at 520 lines
+  - `frontend/src/state/actions/websocketLifecycle.ts` at 495 lines
   - `frontend/src/state/actions/uiSettingRevealMutationSnapshots.ts` at 426 lines
   - `frontend/src/components/Utils/Resizable/useCustomResizableBehavior.ts` at 325 lines
+- `websocketReceive.ts` now owns:
+  - compatibility re-exports for callers that have not moved yet
+- `websocketLifecycle.ts` now owns:
+  - websocket transport lifecycle and reconnect behavior
+  - auth-refresh polling and auth-loss recovery
+  - share-session recovery plus listener-coverage or project-state bootstrap
+- `websocketRealtime.ts` now owns:
+  - outbound realtime dependency events and section literal updates
+  - binary realtime sends plus oversize upload fallback
+- `websocketRuntime.ts` now owns:
+  - active websocket instance and generation tracking
+  - low-level JSON and binary send helpers shared by lifecycle and realtime owners
 - `stateMachineEdges.ts` now owns:
   - compatibility re-exports for workflow edge callers that have not moved yet
 - `stateMachineEdgeConnections.ts` now owns:
@@ -123,10 +135,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - frontend websocket payload parsing and feature-specific dispatch
   - project/app snapshot routing for inbound websocket updates
   - `UISettingReveal` ACK validation and failure-status construction
-- `websocketReceive.ts` now owns:
-  - websocket transport lifecycle and reconnect/auth recovery
-  - share-session heartbeat and bootstrap fetches on socket open
-  - outbound realtime dependency and binary-send/upload helpers
 - `sectionInfos.ts` currently mixes:
   - streaming chat merge behavior
   - section metadata and layout queries

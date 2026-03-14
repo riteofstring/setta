@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useLocation, useParams } from "react-router-dom";
 import { useLoadSettings } from "state/actions/settings";
-import { openWebSocket } from "state/actions/websocketReceive";
+import { openWebSocket } from "state/actions/websocketLifecycle";
 import { useProjectLoading } from "state/stores/projectStatusStores";
 import { useShareSession } from "state/stores/sessionStores";
 import { useLocalStorage, useSettings } from "state/stores/uiPreferenceStores";

@@ -24,7 +24,7 @@ import { renderToString } from "react-dom/server";
 import { setActiveSectionIds } from "state/actions/activeSections";
 import { loadProjectState } from "state/actions/project/loadProject";
 import { processProjectStateUpdateFromBackend } from "state/actions/sectionProjectStateSync";
-import * as websocketReceive from "state/actions/websocketReceive";
+import * as websocketRealtime from "state/actions/websocketRealtime";
 import { useActiveSectionUI } from "state/activeSectionUI";
 import { useProjectState, useShareSession } from "state/definitions";
 import { C_ADDRESSES } from "utils/c_addresses";
@@ -2434,7 +2434,7 @@ describe("plugin runtime helpers", () => {
 
   it("emits realtime dependency events through websocket action helpers", async () => {
     const realtimeSpy = vi
-      .spyOn(websocketReceive, "sendRealtimeDependencyEvent")
+      .spyOn(websocketRealtime, "sendRealtimeDependencyEvent")
       .mockImplementation(() => undefined);
     const moduleUrl =
       "data:text/javascript," +
@@ -2526,7 +2526,7 @@ describe("plugin runtime helpers", () => {
 
   it("rejects non-object payloads for emitSectionRealtimeValue", async () => {
     const realtimeSpy = vi
-      .spyOn(websocketReceive, "sendRealtimeDependencyEvent")
+      .spyOn(websocketRealtime, "sendRealtimeDependencyEvent")
       .mockImplementation(() => undefined);
     const moduleUrl =
       "data:text/javascript," +
