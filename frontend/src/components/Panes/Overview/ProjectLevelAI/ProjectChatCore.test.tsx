@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildProjectChatHydrationCacheKey,
   clearProjectChatHydrationCacheEntriesForChat,
-} from "./ProjectChatCore";
+} from "./projectChatRuntimeUtils";
 
 type HydrationCacheEntry = {
   attempt: number;
