@@ -1,29 +1,670 @@
+import type { Spec } from "@json-render/core";
 import * as Switch from "@radix-ui/react-switch";
-import { useEffect, useMemo } from "react";
+import { pickDefaultConfigId } from "components/Chat/llmConfigUtils";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  clearPendingChatDetails,
+  loadEngineConfigs,
+  loadExternalAgentHealth,
+  loadLLMApiKeys,
+  loadLLMConfig,
+  resolveEngineConfigIdForChat,
+  submitMessage,
+} from "state/actions/ai";
+import { addTemporaryNotification } from "state/actions/notifications";
+import {
+  useAIStore,
   useAllProjectMetadata,
   useAppDefinition,
   useAppPreview,
   useLocalStorage,
   useProjectState,
+  type ZustandProjectState,
 } from "state/definitions";
+import {
+  applyPatchOp,
+  createEmptySpec,
+  parsePatchLine,
+} from "utils/appSpecPatchStream";
+import { C_ADDRESSES } from "utils/c_addresses";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
+import {
+  route_get_app_catalog,
+  route_get_app_definition,
+  route_set_app_definition,
+  route_validate_app_definition,
+} from "utils/generatedEndpoints";
+import {
+  CodeObjTypeEnum,
+  EngineTypeEnum,
+  isBaseSectionWithParamsImpl,
+  RouteEnum,
+  SectionTypeEnum,
+  type AppDefinition,
+} from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
-import { buildDefaultSpec } from "./appConfigDefinitionUtils";
-import { type AppThemeMode } from "./appDraftPreview";
+import {
+  parseDraftAppAssets,
+  parseDraftAppSpec,
+  parseDraftAppTheme,
+  type AppThemeMode,
+} from "./appDraftPreview";
 import {
   APP_GENERATION_MODE_OPTIONS,
   buildDefaultAppGenerationPrompt,
+  buildHiddenChatAppGenerationPrompt,
   coerceAppGenerationMode,
   isJsonRenderMode,
+  type AppGenerationMode,
 } from "./appGenerationModes";
-import { useAppConfigDefinitionDrafts } from "./useAppConfigDefinitionDrafts";
-import { useAppConfigGenerationController } from "./useAppConfigGenerationController";
-import { useAppConfigPersistence } from "./useAppConfigPersistence";
+
+type AppSpecPayload = Record<string, unknown>;
+
+const DEFAULT_CATALOG_ID = "setta.app.default";
+const DEFAULT_SPEC_VERSION = "v1";
+const DEFAULT_THEME_MODE: AppThemeMode = "auto";
 
 const STREAMING_TOGGLE_ROOT_CLASSES =
   "nodrag relative inline-flex h-2.5 w-7 min-w-7 cursor-pointer items-center rounded-full p-[0.2rem] [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus-visible:shadow-black focus-visible:ring-2 disabled:pointer-events-none bg-setta-400 data-[state='checked']:bg-blue-500 dark:bg-setta-600 dark:data-[state='checked']:bg-blue-700";
 const STREAMING_TOGGLE_THUMB_CLASSES =
   "block h-2.5 w-2.5 rounded-full transition-all will-change-transform data-[state='checked']:translate-x-4 bg-white dark:bg-setta-800";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function resolveThemeMode(theme: unknown): AppThemeMode {
+  if (isRecord(theme)) {
+    const mode = theme.mode;
+    if (mode === "light" || mode === "dark" || mode === "auto") {
+      return mode;
+    }
+  }
+  return DEFAULT_THEME_MODE;
+}
+
+function formatCatalogForPrompt(catalog: unknown): string {
+  if (!catalog || typeof catalog !== "object") {
+    return "Catalog unavailable.";
+  }
+  const record = catalog as Record<string, unknown>;
+  const id = typeof record.id === "string" ? record.id : "unknown";
+  const version =
+    typeof record.version === "string" ? record.version : "unknown";
+  const components = Array.isArray(record.components) ? record.components : [];
+  const actions = Array.isArray(record.actions) ? record.actions : [];
+  const componentLines = components
+    .map((component) => {
+      if (!component || typeof component !== "object") {
+        return null;
+      }
+      const componentRecord = component as Record<string, unknown>;
+      const type = componentRecord.type;
+      if (typeof type !== "string") {
+        return null;
+      }
+      const props = componentRecord.props;
+      const propNames =
+        props && typeof props === "object" ? Object.keys(props).join(", ") : "";
+      return propNames ? `- ${type} (props: ${propNames})` : `- ${type}`;
+    })
+    .filter(Boolean)
+    .join("\n");
+  const actionLines = actions
+    .map((action) => {
+      if (!action || typeof action !== "object") {
+        return null;
+      }
+      const actionRecord = action as Record<string, unknown>;
+      const name = actionRecord.name;
+      if (typeof name !== "string") {
+        return null;
+      }
+      const params = actionRecord.params;
+      const paramNames =
+        params && typeof params === "object"
+          ? Object.keys(params).join(", ")
+          : "";
+      return paramNames ? `- ${name} (params: ${paramNames})` : `- ${name}`;
+    })
+    .filter(Boolean)
+    .join("\n");
+  return [
+    `Catalog: ${id} (version ${version})`,
+    "Components:",
+    componentLines || "- (none)",
+    "Actions:",
+    actionLines || "- (none)",
+  ].join("\n");
+}
+
+function buildDefaultSpec(): AppSpecPayload {
+  const root: AppSpecPayload = {
+    key: "app-root",
+    type: "Stack",
+    props: {
+      direction: "column",
+      gap: 20,
+    },
+    children: [
+      {
+        key: "app-overview",
+        type: "Card",
+        props: {
+          title: "Standalone App Starter",
+          description:
+            "A clean baseline layout with guided input, a primary action, and output rendering.",
+        },
+      },
+      {
+        key: "app-inputs",
+        type: "Card",
+        props: {
+          title: "Inputs",
+          description: "Map Setta params to user-facing controls.",
+        },
+        children: [
+          {
+            key: "app-primary-param",
+            type: "ParamInput",
+            props: {
+              sectionId: "SECTION_ID",
+              paramId: "PARAM_ID",
+              label: "Primary Parameter",
+            },
+          },
+          {
+            key: "app-run",
+            type: "ActionButton",
+            props: {
+              label: "Generate Output",
+              action: "run",
+              sectionId: "SECTION_ID",
+            },
+          },
+        ],
+      },
+      {
+        key: "app-output",
+        type: "Card",
+        props: {
+          title: "Output",
+          description: "Preview section output in-place.",
+        },
+        children: [
+          {
+            key: "app-text-output",
+            type: "TextOutput",
+            props: {
+              sectionId: "SECTION_ID",
+              label: "Result",
+            },
+          },
+        ],
+      },
+    ],
+  };
+  return {
+    root,
+    elements: buildElementIndex(root as AppSpecPayload),
+  };
+}
+
+function buildElementIndex(
+  root: AppSpecPayload,
+): Record<string, AppSpecPayload> {
+  const elements: Record<string, AppSpecPayload> = {};
+  const stack: AppSpecPayload[] = [root];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current) {
+      continue;
+    }
+    const key = current.key;
+    if (typeof key !== "string" || elements[key]) {
+      continue;
+    }
+    elements[key] = current;
+    const children = current.children;
+    if (Array.isArray(children)) {
+      for (const child of children) {
+        if (child && typeof child === "object") {
+          stack.push(child as AppSpecPayload);
+        }
+      }
+    }
+  }
+  return elements;
+}
+
+function resolvePromptDisplayName(core: unknown, fallback: string) {
+  if (!core || typeof core !== "object") {
+    return fallback;
+  }
+  const record = core as Record<string, unknown>;
+  const displayName =
+    typeof record.displayName === "string" ? record.displayName.trim() : "";
+  if (displayName) {
+    return displayName;
+  }
+  const name = typeof record.name === "string" ? record.name.trim() : "";
+  if (name) {
+    return name;
+  }
+  return fallback;
+}
+
+export function formatSectionsForAppPrompt(state: ZustandProjectState) {
+  const entries: Array<{
+    sectionId: string;
+    label: string;
+    sectionType: string | null;
+    params: Array<{ id: string; name: string; type: string | null }>;
+  }> = [];
+
+  for (const [sectionId, core] of Object.entries(state.sections)) {
+    const variantId = state.projectConfig.sectionVariantMap[sectionId];
+    const variant = variantId ? state.sectionVariants[variantId] : null;
+    const impl = variant ? state.sectionImpls[variant.impl] : null;
+    const sectionType = impl ? impl.type : null;
+
+    // These are generated UI mirrors, not meaningful app targets.
+    if (
+      sectionType === SectionTypeEnum.GenPythonCode ||
+      sectionType === SectionTypeEnum.GenPythonMetadata
+    ) {
+      continue;
+    }
+
+    const params: Array<{ id: string; name: string; type: string | null }> = [];
+    if (impl && impl.type === SectionTypeEnum.MetaControl) {
+      const metaControlParamId =
+        typeof impl.metaControlParamId === "string"
+          ? impl.metaControlParamId
+          : null;
+      if (metaControlParamId) {
+        const metaControlVariantId =
+          impl.codeObjVariantMap?.[metaControlParamId] ?? null;
+        const metaControlVariant = metaControlVariantId
+          ? state.codeObjVariants[metaControlVariantId]
+          : null;
+        const metaControlImpl = metaControlVariant
+          ? state.codeObjImpls[metaControlVariant.impl]
+          : null;
+        params.push({
+          id: metaControlParamId,
+          name: resolvePromptDisplayName(
+            state.codeObjs[metaControlParamId],
+            metaControlParamId,
+          ),
+          type: metaControlImpl?.type ?? null,
+        });
+      }
+    } else if (impl && isBaseSectionWithParamsImpl(impl)) {
+      for (const [codeObjId, codeObjVariantId] of Object.entries(
+        impl.codeObjVariantMap,
+      )) {
+        const codeObjVariant = state.codeObjVariants[codeObjVariantId];
+        if (!codeObjVariant) {
+          continue;
+        }
+        const codeObjImpl = state.codeObjImpls[codeObjVariant.impl];
+        if (!codeObjImpl) {
+          continue;
+        }
+        if (codeObjImpl.type === CodeObjTypeEnum.CodeCallable) {
+          continue;
+        }
+        params.push({
+          id: codeObjId,
+          name: resolvePromptDisplayName(state.codeObjs[codeObjId], codeObjId),
+          type: codeObjImpl.type ?? null,
+        });
+      }
+    }
+
+    entries.push({
+      sectionId,
+      label: resolvePromptDisplayName(core, sectionId),
+      sectionType: typeof sectionType === "string" ? sectionType : null,
+      params,
+    });
+  }
+
+  if (entries.length === 0) {
+    return "";
+  }
+
+  const MAX_SECTIONS = 40;
+  const MAX_PARAMS = 20;
+
+  entries.sort((a, b) => a.label.localeCompare(b.label));
+  const slice = entries.slice(0, MAX_SECTIONS);
+
+  return slice
+    .map((entry) => {
+      const typeSuffix = entry.sectionType ? ` type=${entry.sectionType}` : "";
+      const params =
+        entry.params.length > 0
+          ? ` params: ${entry.params
+              .slice(0, MAX_PARAMS)
+              .map((param) => {
+                const typeSuffix = param.type ? `, type=${param.type}` : "";
+                return `${param.name} (${param.id}${typeSuffix})`;
+              })
+              .join(
+                ", ",
+              )}${entry.params.length > MAX_PARAMS ? ` (+${entry.params.length - MAX_PARAMS} more)` : ""}`
+          : "";
+      return `- ${entry.label} (${entry.sectionId})${typeSuffix}${params}`;
+    })
+    .join("\n");
+}
+
+function parseThemePayloadForRequest({
+  draftTheme,
+  themeMode,
+}: {
+  draftTheme: string;
+  themeMode: AppThemeMode;
+}):
+  | {
+      ok: true;
+      value: Record<string, unknown>;
+    }
+  | {
+      ok: false;
+      error: string;
+    } {
+  if (draftTheme.trim().length === 0) {
+    return { ok: true, value: { mode: themeMode } };
+  }
+  let rawTheme: unknown;
+  try {
+    rawTheme = JSON.parse(draftTheme) as unknown;
+  } catch {
+    return { ok: false, error: "Invalid JSON in theme." };
+  }
+  if (!isRecord(rawTheme)) {
+    return { ok: false, error: "Theme JSON must be an object." };
+  }
+  return {
+    ok: true,
+    value: {
+      ...rawTheme,
+      mode: themeMode,
+    },
+  };
+}
+
+function parseAssetsPayloadForRequest(
+  draftAssets: string,
+): { ok: true; value: unknown[] } | { ok: false; error: string } {
+  if (draftAssets.trim().length === 0) {
+    return { ok: true, value: [] };
+  }
+  let rawAssets: unknown;
+  try {
+    rawAssets = JSON.parse(draftAssets) as unknown;
+  } catch {
+    return { ok: false, error: "Invalid JSON in assets." };
+  }
+  if (!Array.isArray(rawAssets)) {
+    return { ok: false, error: "Assets JSON must be a list." };
+  }
+  return { ok: true, value: rawAssets };
+}
+
+function parseSpecPayloadForRequest(
+  draftSpec: string,
+): { ok: true; value: AppSpecPayload } | { ok: false; error: string } {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(draftSpec) as unknown;
+  } catch {
+    return { ok: false, error: "Invalid JSON in app spec." };
+  }
+  if (!isRecord(parsed)) {
+    return { ok: false, error: "App spec JSON must be an object." };
+  }
+  return { ok: true, value: parsed };
+}
+
+function cloneSpecSeed(spec: unknown): Spec {
+  return structuredClone(spec) as Spec;
+}
+
+export function cloneSpecForPreview(spec: Spec): Spec {
+  return cloneSpecSeed(spec);
+}
+
+export function buildSpecSeed({
+  draftSpec,
+  persistedSpec,
+}: {
+  draftSpec: string;
+  persistedSpec: unknown;
+}): Spec {
+  if (draftSpec.trim().length > 0) {
+    try {
+      const parsed = JSON.parse(draftSpec) as unknown;
+      if (isRecord(parsed)) {
+        return cloneSpecSeed(parsed);
+      }
+    } catch {
+      // Keep stream generation resilient even if the draft text is currently invalid.
+    }
+  }
+  if (isRecord(persistedSpec)) {
+    return cloneSpecSeed(persistedSpec);
+  }
+  return createEmptySpec();
+}
+
+type HiddenGenerationResourceLoadState = {
+  allLLMConfigsInitialLoadComplete: boolean;
+  apiKeysInitialLoadComplete: boolean;
+  engineConfigsInitialLoadComplete: boolean;
+  externalAgentHealthInitialLoadComplete: boolean;
+};
+
+function areHiddenGenerationResourcesLoaded(
+  state: HiddenGenerationResourceLoadState,
+): boolean {
+  return (
+    state.allLLMConfigsInitialLoadComplete &&
+    state.apiKeysInitialLoadComplete &&
+    state.engineConfigsInitialLoadComplete &&
+    state.externalAgentHealthInitialLoadComplete
+  );
+}
+
+function waitForHiddenGenerationResourcesLoaded(): Promise<void> {
+  if (areHiddenGenerationResourcesLoaded(useAIStore.getState())) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    const unsubscribe = useAIStore.subscribe((state) => {
+      if (!areHiddenGenerationResourcesLoaded(state)) {
+        return;
+      }
+      unsubscribe();
+      resolve();
+    });
+  });
+}
+
+function pickHiddenGenerationEngine(args: {
+  engineConfigs: HiddenGenerationEngineConfig[];
+  availableLLMConfigIds: Set<string>;
+  externalAgentHealthByConfigId: Map<string, ExternalAgentHealthStatus>;
+  defaultLLMConfigId: string | null;
+}): {
+  engineConfigId: string | null;
+  isExternalEngine: boolean;
+} {
+  for (const config of args.engineConfigs) {
+    if (
+      config.engineType === EngineTypeEnum.setta_llm &&
+      isHiddenGenerationEngineUsable({
+        config,
+        availableLLMConfigIds: args.availableLLMConfigIds,
+        externalAgentHealthByConfigId: args.externalAgentHealthByConfigId,
+        defaultLLMConfigId: args.defaultLLMConfigId,
+      })
+    ) {
+      return { engineConfigId: config.id, isExternalEngine: false };
+    }
+  }
+  for (const config of args.engineConfigs) {
+    if (
+      config.engineType === EngineTypeEnum.external_agent &&
+      isHiddenGenerationEngineUsable({
+        config,
+        availableLLMConfigIds: args.availableLLMConfigIds,
+        externalAgentHealthByConfigId: args.externalAgentHealthByConfigId,
+        defaultLLMConfigId: args.defaultLLMConfigId,
+      })
+    ) {
+      return { engineConfigId: config.id, isExternalEngine: true };
+    }
+  }
+  return { engineConfigId: null, isExternalEngine: false };
+}
+
+type HiddenGenerationEngineConfig = {
+  id: string;
+  engineType: EngineTypeEnum;
+  settaLlmConfigId?: string | null;
+  externalAgentConfigId?: string | null;
+};
+
+type HiddenGenerationEngineSelection = {
+  engineConfigId: string | null;
+  isExternalEngine: boolean;
+  forceNewChat: boolean;
+};
+
+type ExternalAgentHealthStatus = {
+  available: boolean;
+  supported: boolean;
+};
+
+function isHiddenGenerationEngineUsable(args: {
+  config: HiddenGenerationEngineConfig;
+  availableLLMConfigIds: Set<string>;
+  externalAgentHealthByConfigId: Map<string, ExternalAgentHealthStatus>;
+  defaultLLMConfigId: string | null;
+}): boolean {
+  if (args.config.engineType === EngineTypeEnum.setta_llm) {
+    const llmConfigId = args.config.settaLlmConfigId ?? args.defaultLLMConfigId;
+    return Boolean(llmConfigId && args.availableLLMConfigIds.has(llmConfigId));
+  }
+  if (args.config.engineType === EngineTypeEnum.external_agent) {
+    const externalAgentConfigId = args.config.externalAgentConfigId ?? null;
+    if (!externalAgentConfigId) {
+      return false;
+    }
+    const health =
+      args.externalAgentHealthByConfigId.get(externalAgentConfigId) ?? null;
+    if (!health) {
+      return false;
+    }
+    return health.available && health.supported;
+  }
+  return false;
+}
+
+export function resolveHiddenGenerationEngineSelection(args: {
+  activeChatEngineConfigId: string | null;
+  engineConfigs: HiddenGenerationEngineConfig[];
+  availableLLMConfigIds: Set<string>;
+  externalAgentHealthByConfigId: Map<string, ExternalAgentHealthStatus>;
+  defaultLLMConfigId: string | null;
+}): HiddenGenerationEngineSelection {
+  const fallback = pickHiddenGenerationEngine({
+    engineConfigs: args.engineConfigs,
+    availableLLMConfigIds: args.availableLLMConfigIds,
+    externalAgentHealthByConfigId: args.externalAgentHealthByConfigId,
+    defaultLLMConfigId: args.defaultLLMConfigId,
+  });
+
+  if (!args.activeChatEngineConfigId) {
+    return {
+      engineConfigId: fallback.engineConfigId,
+      isExternalEngine: fallback.isExternalEngine,
+      forceNewChat: false,
+    };
+  }
+
+  const activeChatEngine = args.engineConfigs.find(
+    (config) => config.id === args.activeChatEngineConfigId,
+  );
+  if (activeChatEngine) {
+    if (
+      isHiddenGenerationEngineUsable({
+        config: activeChatEngine,
+        availableLLMConfigIds: args.availableLLMConfigIds,
+        externalAgentHealthByConfigId: args.externalAgentHealthByConfigId,
+        defaultLLMConfigId: args.defaultLLMConfigId,
+      })
+    ) {
+      return {
+        engineConfigId: activeChatEngine.id,
+        isExternalEngine:
+          activeChatEngine.engineType === EngineTypeEnum.external_agent,
+        forceNewChat: false,
+      };
+    }
+  }
+
+  const forceNewChat =
+    Boolean(fallback.engineConfigId) &&
+    fallback.engineConfigId !== args.activeChatEngineConfigId;
+
+  return {
+    engineConfigId: fallback.engineConfigId,
+    isExternalEngine: fallback.isExternalEngine,
+    forceNewChat,
+  };
+}
+
+export async function resolveGenerationFailureMessage(
+  response: Response,
+): Promise<string> {
+  const fallback = `Generation request failed (status ${response.status}).`;
+  let payload: unknown = null;
+  try {
+    payload = (await response.json()) as unknown;
+  } catch {
+    return fallback;
+  }
+  if (typeof payload === "string" && payload.trim()) {
+    return payload.trim();
+  }
+  if (isRecord(payload)) {
+    const message = payload.message;
+    if (typeof message === "string" && message.trim()) {
+      return message.trim();
+    }
+    const detail = payload.detail;
+    if (typeof detail === "string" && detail.trim()) {
+      return detail.trim();
+    }
+  }
+  return fallback;
+}
+
+function resolveHiddenGenerationErrorMessage(error: unknown): string {
+  const detail = getErrorDetail(error);
+  if (detail) {
+    return detail;
+  }
+  if (error instanceof Error && error.message.trim()) {
+    return error.message.trim();
+  }
+  return "Failed to send generation request to chat.";
+}
 
 export function AppConfigPane() {
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
@@ -46,65 +687,51 @@ export function AppConfigPane() {
     }),
     shallow,
   );
+  const {
+    engineConfigsInitialLoadComplete,
+    allLLMConfigsInitialLoadComplete,
+    apiKeysInitialLoadComplete,
+    externalAgentHealthInitialLoadComplete,
+  } = useAIStore(
+    (x) => ({
+      engineConfigsInitialLoadComplete: x.engineConfigsInitialLoadComplete,
+      allLLMConfigsInitialLoadComplete: x.allLLMConfigsInitialLoadComplete,
+      apiKeysInitialLoadComplete: x.apiKeysInitialLoadComplete,
+      externalAgentHealthInitialLoadComplete:
+        x.externalAgentHealthInitialLoadComplete,
+    }),
+    shallow,
+  );
   const { projectMetadata } = useAllProjectMetadata((x) => x);
-  const {
-    appSpecPath,
-    catalogId,
-    clearDraftErrors,
-    draftAssets,
-    draftAssetsError,
-    draftSpec,
-    draftSpecError,
-    draftTheme,
-    draftThemeError,
-    hydrateSavedAppDefinition,
-    setAppSpecPath,
-    setCatalogId,
-    setDraftAssets,
-    setDraftSpec,
-    setDraftTheme,
-    setSpecVersion,
-    setThemeMode,
-    specVersion,
-    themeMode,
-  } = useAppConfigDefinitionDrafts();
-  const {
-    errorMessage,
-    handleSave,
-    handleValidate,
-    loading,
-    persistGeneratedSpec,
-    setErrorMessage,
-    validationResult,
-    validating,
-  } = useAppConfigPersistence({
-    projectConfigId,
-    appSpecPath,
-    catalogId,
-    clearDraftErrors,
-    draftAssets,
-    draftSpec,
-    draftTheme,
-    hydrateSavedAppDefinition,
-    specVersion,
-    themeMode,
-  });
+  const [draftSpec, setDraftSpec] = useState("");
+  const [draftTheme, setDraftTheme] = useState("");
+  const [draftAssets, setDraftAssets] = useState("");
+  const [draftSpecError, setDraftSpecError] = useState<string | null>(null);
+  const [draftThemeError, setDraftThemeError] = useState<string | null>(null);
+  const [draftAssetsError, setDraftAssetsError] = useState<string | null>(null);
+  const [catalogId, setCatalogId] = useState(DEFAULT_CATALOG_ID);
+  const [specVersion, setSpecVersion] = useState(DEFAULT_SPEC_VERSION);
+  const [appSpecPath, setAppSpecPath] = useState("");
+  const [themeMode, setThemeMode] = useState<AppThemeMode>(DEFAULT_THEME_MODE);
+  const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [generationPatchCount, setGenerationPatchCount] = useState(0);
+  const [generationHint, setGenerationHint] = useState<string | null>(null);
+  const [validating, setValidating] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [validationResult, setValidationResult] = useState<{
+    errors: Array<{ message: string }>;
+    warnings: Array<{ message: string; elementKey?: string | null }>;
+    capabilities: {
+      catalogId: string;
+      catalogVersion: string;
+      appSpecVersion: string;
+      themeSchemaVersion: string;
+      features: Record<string, boolean>;
+    };
+  } | null>(null);
   const hasDraft = useMemo(() => draftSpec.trim().length > 0, [draftSpec]);
   const activeGenerationMode = coerceAppGenerationMode(appGenerationMode);
-  const { generating, generationHint, generationPatchCount, handleGenerate } =
-    useAppConfigGenerationController({
-      activeGenerationMode,
-      appGenerationPrompt,
-      appGenerationReferenceImageNotes,
-      appGenerationReferenceImageUrl,
-      appSpec,
-      catalogId,
-      draftSpec,
-      persistGeneratedSpec,
-      projectConfigId,
-      setCatalogId,
-      setErrorMessage,
-    });
 
   useEffect(() => {
     if (appGenerationMode === activeGenerationMode) {
@@ -113,11 +740,611 @@ export function AppConfigPane() {
     useLocalStorage.setState({ appGenerationMode: activeGenerationMode });
   }, [activeGenerationMode, appGenerationMode]);
 
+  useEffect(() => {
+    if (isJsonRenderMode(activeGenerationMode)) {
+      return;
+    }
+    if (!allLLMConfigsInitialLoadComplete) {
+      void loadLLMConfig();
+    }
+    if (!apiKeysInitialLoadComplete) {
+      void loadLLMApiKeys();
+    }
+    if (!engineConfigsInitialLoadComplete) {
+      void loadEngineConfigs();
+    }
+    if (!externalAgentHealthInitialLoadComplete) {
+      void loadExternalAgentHealth();
+    }
+  }, [
+    activeGenerationMode,
+    allLLMConfigsInitialLoadComplete,
+    apiKeysInitialLoadComplete,
+    engineConfigsInitialLoadComplete,
+    externalAgentHealthInitialLoadComplete,
+  ]);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function load() {
+      if (!projectConfigId) {
+        return;
+      }
+      useAppPreview.setState({
+        previewSpecOverride: undefined,
+        aiPreviewSpecOverride: undefined,
+        previewThemeOverride: undefined,
+        previewAssetsOverride: undefined,
+      });
+      setDraftSpecError(null);
+      setDraftThemeError(null);
+      setDraftAssetsError(null);
+      setLoading(true);
+      setErrorMessage(null);
+      const res = await route_get_app_definition({});
+      setLoading(false);
+      if (!res200(res)) {
+        if (isMounted) {
+          const detail = getErrorDetail(res.data);
+          setErrorMessage(detail ?? "Failed to load app spec.");
+        }
+        return;
+      }
+      const nextSpec = res.data.appSpec ?? null;
+      useAppDefinition.setState({
+        appSpec: nextSpec,
+        appDefinition: res.data.appDefinition ?? null,
+      });
+      if (isMounted) {
+        setDraftSpec(nextSpec ? JSON.stringify(nextSpec, null, 2) : "");
+        setCatalogId(res.data.appDefinition?.catalogId ?? DEFAULT_CATALOG_ID);
+        setSpecVersion(
+          res.data.appDefinition?.appSpecVersion ?? DEFAULT_SPEC_VERSION,
+        );
+        setAppSpecPath(res.data.appDefinition?.appSpecPath ?? "");
+        const theme = res.data.appDefinition?.theme ?? null;
+        setDraftTheme(theme ? JSON.stringify(theme, null, 2) : "");
+        setDraftAssets(
+          JSON.stringify(res.data.appDefinition?.assets ?? [], null, 2),
+        );
+        setThemeMode(resolveThemeMode(theme));
+      }
+    }
+
+    void load();
+    return () => {
+      isMounted = false;
+    };
+  }, [projectConfigId]);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (draftSpec.trim().length === 0) {
+        setDraftSpecError(null);
+        useAppPreview.setState({ previewSpecOverride: undefined });
+        return;
+      }
+      const parsed = parseDraftAppSpec(draftSpec);
+      if (parsed.ok) {
+        setDraftSpecError(null);
+        useAppPreview.setState({ previewSpecOverride: parsed.value });
+        return;
+      }
+      setDraftSpecError(parsed.error);
+    }, 300);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [draftSpec]);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      const parsed = parseDraftAppTheme(draftTheme, themeMode);
+      if (parsed.ok) {
+        setDraftThemeError(null);
+        useAppPreview.setState({ previewThemeOverride: parsed.value });
+        return;
+      }
+      setDraftThemeError(parsed.error);
+      const previousTheme = useAppPreview.getState().previewThemeOverride;
+      useAppPreview.setState({
+        previewThemeOverride: isRecord(previousTheme)
+          ? { ...previousTheme, mode: themeMode }
+          : { mode: themeMode },
+      });
+    }, 300);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [draftTheme, themeMode]);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      const parsed = parseDraftAppAssets(draftAssets);
+      if (parsed.ok) {
+        setDraftAssetsError(null);
+        useAppPreview.setState({ previewAssetsOverride: parsed.value });
+        return;
+      }
+      setDraftAssetsError(parsed.error);
+    }, 300);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [draftAssets]);
+
+  const preparePromptContext = useCallback(async () => {
+    let catalogSummary = `Catalog: ${catalogId}`;
+    const catalogRes = await route_get_app_catalog();
+    if (res200(catalogRes)) {
+      const catalog = catalogRes.data;
+      catalogSummary = formatCatalogForPrompt(catalog);
+      if (typeof catalog.id === "string") {
+        setCatalogId(catalog.id);
+      }
+    } else {
+      const detail = getErrorDetail(catalogRes.data);
+      addTemporaryNotification(detail ?? "Failed to load app catalog.");
+    }
+    const sectionsSummary = formatSectionsForAppPrompt(
+      useProjectState.getState(),
+    );
+    return { catalogSummary, sectionsSummary };
+  }, [catalogId]);
+
+  const hydrateSavedAppDefinition = useCallback(
+    ({
+      savedSpec,
+      savedDefinition,
+    }: {
+      savedSpec: unknown;
+      savedDefinition: AppDefinition | null;
+    }) => {
+      const savedTheme = savedDefinition?.theme ?? null;
+      const savedAssets = savedDefinition?.assets ?? [];
+      useAppDefinition.setState({
+        appSpec: savedSpec,
+        appDefinition: savedDefinition,
+      });
+      setDraftSpec(savedSpec ? JSON.stringify(savedSpec, null, 2) : "");
+      setCatalogId(savedDefinition?.catalogId ?? DEFAULT_CATALOG_ID);
+      setSpecVersion(savedDefinition?.appSpecVersion ?? DEFAULT_SPEC_VERSION);
+      setAppSpecPath(savedDefinition?.appSpecPath ?? "");
+      setDraftTheme(savedTheme ? JSON.stringify(savedTheme, null, 2) : "");
+      setDraftAssets(JSON.stringify(savedAssets, null, 2));
+      setThemeMode(resolveThemeMode(savedTheme));
+      useAppPreview.setState({
+        previewSpecOverride: isRecord(savedSpec) ? savedSpec : null,
+        previewThemeOverride: savedTheme,
+        previewAssetsOverride: savedAssets,
+      });
+      setDraftSpecError(null);
+      setDraftThemeError(null);
+      setDraftAssetsError(null);
+    },
+    [],
+  );
+
+  const saveAndHydrateAppDefinition = useCallback(
+    async ({
+      appSpec: nextSpec,
+      failureMessage,
+      withLoading,
+    }: {
+      appSpec: AppSpecPayload;
+      failureMessage: string;
+      withLoading: boolean;
+    }): Promise<boolean> => {
+      const themePayload = parseThemePayloadForRequest({
+        draftTheme,
+        themeMode,
+      });
+      if (!themePayload.ok) {
+        setErrorMessage(themePayload.error);
+        return false;
+      }
+      const assetsPayload = parseAssetsPayloadForRequest(draftAssets);
+      if (!assetsPayload.ok) {
+        setErrorMessage(assetsPayload.error);
+        return false;
+      }
+      if (withLoading) {
+        setLoading(true);
+      }
+      const res = await route_set_app_definition({
+        appSpec: nextSpec,
+        appSpecPath: appSpecPath.trim() ? appSpecPath.trim() : undefined,
+        appSpecVersion: specVersion.trim() ? specVersion.trim() : undefined,
+        catalogId: catalogId.trim() ? catalogId.trim() : undefined,
+        theme: themePayload.value,
+        assets: assetsPayload.value,
+      });
+      if (withLoading) {
+        setLoading(false);
+      }
+      if (!res200(res)) {
+        const detail = getErrorDetail(res.data);
+        setErrorMessage(detail ?? failureMessage);
+        return false;
+      }
+      hydrateSavedAppDefinition({
+        savedSpec: res.data.appSpec ?? null,
+        savedDefinition: res.data.appDefinition ?? null,
+      });
+      return true;
+    },
+    [
+      appSpecPath,
+      catalogId,
+      draftAssets,
+      draftTheme,
+      hydrateSavedAppDefinition,
+      specVersion,
+      themeMode,
+    ],
+  );
+
+  const persistGeneratedSpec = useCallback(
+    async (spec: Spec): Promise<boolean> => {
+      return saveAndHydrateAppDefinition({
+        appSpec: spec as unknown as AppSpecPayload,
+        failureMessage: "Failed to save generated app spec.",
+        withLoading: false,
+      });
+    },
+    [saveAndHydrateAppDefinition],
+  );
+
+  const ensureHiddenGenerationResources = useCallback(async () => {
+    const pendingLoads: Array<Promise<void>> = [];
+    const state = useAIStore.getState();
+    const shouldAwaitResourceCompletion =
+      !state.allLLMConfigsInitialLoadComplete ||
+      !state.apiKeysInitialLoadComplete ||
+      !state.engineConfigsInitialLoadComplete ||
+      !state.externalAgentHealthInitialLoadComplete;
+    if (!state.allLLMConfigsInitialLoadComplete) {
+      pendingLoads.push(loadLLMConfig());
+    }
+    if (!state.apiKeysInitialLoadComplete) {
+      pendingLoads.push(loadLLMApiKeys());
+    }
+    if (!state.engineConfigsInitialLoadComplete) {
+      pendingLoads.push(loadEngineConfigs());
+    }
+    if (!state.externalAgentHealthInitialLoadComplete) {
+      pendingLoads.push(loadExternalAgentHealth());
+    }
+    if (pendingLoads.length > 0) {
+      await Promise.all(pendingLoads);
+    }
+    if (shouldAwaitResourceCompletion) {
+      await waitForHiddenGenerationResourcesLoaded();
+    }
+  }, []);
+
+  type HiddenChatGenerationMode = "prompt_builder" | "mcp_server";
+
+  const runJsonRenderGeneration = useCallback(
+    async (mode: AppGenerationMode) => {
+      setGenerating(true);
+      setGenerationPatchCount(0);
+      setGenerationHint(null);
+      setErrorMessage(null);
+      try {
+        const { catalogSummary, sectionsSummary } =
+          await preparePromptContext();
+        const userPrompt = appGenerationPrompt.trim();
+        const effectivePrompt =
+          userPrompt || buildDefaultAppGenerationPrompt(mode);
+        const includeReferenceImage = mode === "json_render_with_image";
+        const referenceImageUrl = includeReferenceImage
+          ? appGenerationReferenceImageUrl.trim() || null
+          : null;
+        const referenceImageNotes = includeReferenceImage
+          ? appGenerationReferenceImageNotes.trim() || null
+          : null;
+        const requestSpecSeed = buildSpecSeed({
+          draftSpec,
+          persistedSpec: appSpec,
+        });
+        const response = await fetch(
+          `${C_ADDRESSES.BACKEND}${RouteEnum.STREAM_APP_SPEC}`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              prompt: effectivePrompt,
+              mode,
+              referenceImageUrl,
+              referenceImageNotes,
+              context: {
+                catalogSummary,
+                sectionsSummary,
+              },
+              currentSpec: requestSpecSeed,
+            }),
+          },
+        );
+        if (!response.ok || !response.body) {
+          setErrorMessage(await resolveGenerationFailureMessage(response));
+          return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let streamRemainder = "";
+        let patchCount = 0;
+        const generated = requestSpecSeed;
+
+        while (true) {
+          const chunk = await reader.read();
+          if (chunk.done) {
+            streamRemainder += decoder.decode();
+            break;
+          }
+          streamRemainder += decoder.decode(chunk.value, { stream: true });
+          while (true) {
+            const newlineIndex = streamRemainder.indexOf("\n");
+            if (newlineIndex === -1) {
+              break;
+            }
+            const line = streamRemainder.slice(0, newlineIndex);
+            streamRemainder = streamRemainder.slice(newlineIndex + 1);
+            const patch = parsePatchLine(line);
+            if (!patch) {
+              continue;
+            }
+            applyPatchOp(generated, patch);
+            patchCount += 1;
+            if (patchCount % 5 === 0) {
+              useAppPreview.setState({
+                previewSpecOverride: cloneSpecForPreview(generated),
+              });
+              setGenerationPatchCount(patchCount);
+            }
+          }
+        }
+        const trailingPatch = parsePatchLine(streamRemainder);
+        if (trailingPatch) {
+          applyPatchOp(generated, trailingPatch);
+          patchCount += 1;
+        }
+        setGenerationPatchCount(patchCount);
+        if (patchCount === 0) {
+          setGenerationHint(
+            "No patches were produced. Refine your prompt and retry.",
+          );
+          return;
+        }
+        useAppPreview.setState({
+          previewSpecOverride: cloneSpecForPreview(generated),
+        });
+        const persisted = await persistGeneratedSpec(generated);
+        if (!persisted) {
+          return;
+        }
+        if (
+          mode === "json_render_with_image" &&
+          !appGenerationReferenceImageUrl.trim()
+        ) {
+          setGenerationHint(
+            "Image-guided mode ran without a reference image URL. Add one for stronger visual fidelity.",
+          );
+        } else {
+          setGenerationHint(
+            "Generation complete. If fidelity is off, add stricter layout/spacing guidance and retry.",
+          );
+        }
+        addTemporaryNotification("App generation completed.");
+      } catch (error) {
+        console.error("Failed to generate app spec", error);
+        setErrorMessage("Failed to generate app spec.");
+      } finally {
+        setGenerating(false);
+      }
+    },
+    [
+      appGenerationPrompt,
+      appGenerationReferenceImageNotes,
+      appGenerationReferenceImageUrl,
+      appSpec,
+      draftSpec,
+      persistGeneratedSpec,
+      preparePromptContext,
+    ],
+  );
+
+  const runHiddenChatGeneration = useCallback(
+    async ({ mode }: { mode: HiddenChatGenerationMode }) => {
+      setGenerating(true);
+      setGenerationPatchCount(0);
+      setErrorMessage(null);
+      setGenerationHint(null);
+      try {
+        await ensureHiddenGenerationResources();
+        const aiState = useAIStore.getState();
+        const { catalogSummary, sectionsSummary } =
+          await preparePromptContext();
+        const availableLLMConfigIds = new Set<string>();
+        if (aiState.allLLMConfigs?.configs) {
+          for (const [configId, config] of Object.entries(
+            aiState.allLLMConfigs.configs,
+          )) {
+            if (config.api_key_env && !aiState.apiKeys[config.api_key_env]) {
+              continue;
+            }
+            availableLLMConfigIds.add(configId);
+          }
+        }
+        const externalAgentHealthByConfigId = new Map<
+          string,
+          ExternalAgentHealthStatus
+        >();
+        for (const health of aiState.externalAgentHealth) {
+          externalAgentHealthByConfigId.set(health.configId, {
+            available: health.available,
+            supported: health.supported,
+          });
+        }
+        const activeChatId = aiState.activeChatId ?? null;
+        const activeChatEngineConfigId = activeChatId
+          ? await resolveEngineConfigIdForChat(activeChatId, null)
+          : null;
+        const engineSelection = resolveHiddenGenerationEngineSelection({
+          activeChatEngineConfigId,
+          engineConfigs: aiState.engineConfigs,
+          availableLLMConfigIds,
+          externalAgentHealthByConfigId,
+          defaultLLMConfigId: pickDefaultConfigId(aiState.allLLMConfigs),
+        });
+        if (!engineSelection.engineConfigId) {
+          setErrorMessage(
+            "No chat engine is available for hidden app generation. Configure Project AI first.",
+          );
+          return;
+        }
+        const prompt = buildHiddenChatAppGenerationPrompt({
+          mode,
+          prompt: appGenerationPrompt,
+          catalogSummary,
+          sectionsSummary,
+          referenceImageUrl: null,
+          referenceImageNotes: null,
+        });
+        const targetChatId = engineSelection.forceNewChat
+          ? null
+          : activeChatId ?? null;
+        const hiddenGenerationSurfaceId = `app-config-hidden-generation:${projectConfigId}`;
+        await submitMessage(
+          targetChatId,
+          prompt,
+          [],
+          true,
+          engineSelection.engineConfigId,
+          engineSelection.isExternalEngine,
+          {
+            pendingSurfaceId: hiddenGenerationSurfaceId,
+            appGeneration: {
+              mode,
+              referenceImageUrl: null,
+              referenceImageNotes: null,
+            },
+          },
+        );
+        if (targetChatId === null) {
+          clearPendingChatDetails(hiddenGenerationSurfaceId);
+        }
+        if (engineSelection.forceNewChat) {
+          setGenerationHint(
+            "Generation request sent to a new chat because the active chat engine is unavailable. Stay on this pane while the app spec updates via tool results.",
+          );
+        } else {
+          setGenerationHint(
+            "Generation request sent to chat. Stay on this pane while the app spec updates via tool results.",
+          );
+        }
+        addTemporaryNotification("App generation request sent to chat.");
+      } catch (error) {
+        console.error("Failed to send hidden app generation prompt", error);
+        setErrorMessage(resolveHiddenGenerationErrorMessage(error));
+      } finally {
+        setGenerating(false);
+      }
+    },
+    [
+      appGenerationPrompt,
+      ensureHiddenGenerationResources,
+      preparePromptContext,
+    ],
+  );
+
+  async function handleGenerate() {
+    const mode = activeGenerationMode;
+    if (isJsonRenderMode(mode)) {
+      await runJsonRenderGeneration(mode);
+      return;
+    }
+    if (mode === "prompt_builder" || mode === "mcp_server") {
+      await runHiddenChatGeneration({ mode });
+    }
+  }
+
   function handleCreateDefault() {
     const spec = buildDefaultSpec();
     setDraftSpec(JSON.stringify(spec, null, 2));
     if (!appSpecPath) {
       setAppSpecPath("app_specs/app.json");
+    }
+  }
+
+  async function handleSave() {
+    setErrorMessage(null);
+    const specPayload = parseSpecPayloadForRequest(draftSpec);
+    if (!specPayload.ok) {
+      setErrorMessage(specPayload.error);
+      return;
+    }
+    const saved = await saveAndHydrateAppDefinition({
+      appSpec: specPayload.value,
+      failureMessage: "Failed to save app spec.",
+      withLoading: true,
+    });
+    if (!saved) {
+      return;
+    }
+    addTemporaryNotification("App spec saved.");
+  }
+
+  async function handleValidate() {
+    setErrorMessage(null);
+    setValidationResult(null);
+    const specPayload = parseSpecPayloadForRequest(draftSpec);
+    if (!specPayload.ok) {
+      setErrorMessage(specPayload.error);
+      return;
+    }
+    const themePayload = parseThemePayloadForRequest({
+      draftTheme,
+      themeMode,
+    });
+    if (!themePayload.ok) {
+      setErrorMessage(themePayload.error);
+      return;
+    }
+    const assetsPayload = parseAssetsPayloadForRequest(draftAssets);
+    if (!assetsPayload.ok) {
+      setErrorMessage(assetsPayload.error);
+      return;
+    }
+
+    setValidating(true);
+    const res = await route_validate_app_definition({
+      appSpec: specPayload.value,
+      appSpecVersion: specVersion.trim() ? specVersion.trim() : undefined,
+      catalogId: catalogId.trim() ? catalogId.trim() : undefined,
+      theme: themePayload.value,
+      assets: assetsPayload.value,
+    });
+    setValidating(false);
+    if (!res200(res)) {
+      const detail = getErrorDetail(res.data);
+      setErrorMessage(detail ?? "Failed to validate app spec.");
+      return;
+    }
+    setValidationResult(res.data);
+    if (res.data.errors.length === 0) {
+      addTemporaryNotification(
+        res.data.warnings.length > 0
+          ? `Validation passed with ${res.data.warnings.length} warning(s).`
+          : "Validation passed.",
+      );
     }
   }
 

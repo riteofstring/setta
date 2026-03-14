@@ -1,5 +1,6 @@
 import { IoMdCheckmark } from "react-icons/io";
 import { MdOutlineRadioButtonUnchecked } from "react-icons/md";
+import { BrailleSpinner } from "components/Utils/BrailleSpinner";
 import { TodoItem, TodoStatus } from "utils/claudeTools";
 
 const STATUS_LABELS: Record<TodoStatus, string> = {
@@ -103,7 +104,7 @@ function StatusIcon({ status }: { status: TodoStatus }) {
     return <IoMdCheckmark className="mt-0.5 text-emerald-500" />;
   }
   if (status === "in_progress") {
-    return <i className="gg-spinner mt-0.5 !scale-75 text-amber-500" />;
+    return <BrailleSpinner className="mt-0.5 text-[11px] text-amber-500" />;
   }
   return <MdOutlineRadioButtonUnchecked className="mt-0.5 text-setta-300" />;
 }
