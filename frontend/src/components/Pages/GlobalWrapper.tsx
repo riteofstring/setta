@@ -11,7 +11,7 @@ import {
   useShareSession,
 } from "state/definitions";
 import { HOME_ROUTER_PATH, SETTINGS_ROUTER_PATH } from "utils/constants";
-import { res200 } from "utils/endpointUtils";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import { route_get_backend_init_status } from "utils/generatedEndpoints";
 import type { BackendInitStatusResponse } from "utils/generatedTypes";
 import { AppShell } from "./AppShell";
@@ -22,6 +22,9 @@ import {
 
 const THEME_COLOR_LIGHT = "#dce1ea";
 const THEME_COLOR_DARK = "#0b0e13";
+
+type BackendInitStatusRouteResponse =
+  ResponseDataAndStatus<BackendInitStatusResponse>;
 
 export function GlobalWrapper({ children }) {
   useOpenCloseWebsocket();
@@ -200,7 +203,8 @@ function useBackendInitStatus() {
     let intervalId: number | undefined;
 
     async function poll() {
-      const res = await route_get_backend_init_status();
+      const res: BackendInitStatusRouteResponse =
+        await route_get_backend_init_status();
       if (!isMounted || !res200(res)) {
         return;
       }
