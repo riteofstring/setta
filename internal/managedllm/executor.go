@@ -696,7 +696,7 @@ func (e *Executor) processOpenAIResponseEvent(
 		streamState.summary = appendOpenAIResponseSummaryPartText(streamState, int(typed.SummaryIndex), typed.Delta)
 		setAssistantThinkingSummaryAtIndex(assistantMessage, 0, streamState.summary)
 		if strings.TrimSpace(previousSummary) != strings.TrimSpace(streamState.summary) {
-			if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, "", optionalStringPointer(streamState.summary)); err != nil {
+			if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, "", optionalStringPointer(streamState.summary), nil); err != nil {
 				return nil, err
 			}
 		}
@@ -714,7 +714,7 @@ func (e *Executor) processOpenAIResponseEvent(
 		streamState.summary = setOpenAIResponseSummaryPartText(streamState, int(typed.SummaryIndex), typed.Text)
 		setAssistantThinkingSummaryAtIndex(assistantMessage, 0, streamState.summary)
 		if strings.TrimSpace(previousSummary) != strings.TrimSpace(streamState.summary) {
-			if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, "", optionalStringPointer(streamState.summary)); err != nil {
+			if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, "", optionalStringPointer(streamState.summary), nil); err != nil {
 				return nil, err
 			}
 		}
@@ -726,7 +726,7 @@ func (e *Executor) processOpenAIResponseEvent(
 		streamState.reasoningSeen = true
 		streamState.reasoningEmitted = true
 		appendAssistantThinkingAtIndex(assistantMessage, 0, typed.Delta)
-		if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, typed.Delta, nil); err != nil {
+		if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, typed.Delta, nil, nil); err != nil {
 			return nil, err
 		}
 		if err := e.flushBufferedOpenAIResponseText(ctx, prepared, assistantMessage, streamState, false); err != nil {
@@ -742,7 +742,7 @@ func (e *Executor) processOpenAIResponseEvent(
 		thinkingDelta := authoritativeResponseReplacementSuffix(currentAssistantThinkingTextAtIndex(assistantMessage, 0), typed.Text)
 		setAssistantThinkingTextAtIndex(assistantMessage, 0, typed.Text)
 		if thinkingDelta != "" {
-			if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, thinkingDelta, nil); err != nil {
+			if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, thinkingDelta, nil, nil); err != nil {
 				return nil, err
 			}
 		}
@@ -864,6 +864,92 @@ func (e *Executor) processOpenAIResponseEvent(
 	return nil, nil
 }
 
+func (e *Executor) applyOpenAIResponseReasoningSignature(
+	ctx context.Context,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	streamState *openAIResponseStreamState,
+	index int,
+	signature string,
+) error {
+	trimmed := strings.TrimSpace(signature)
+	if trimmed == "" {
+		return nil
+	}
+	prepareAssistantForOpenAIResponseReasoning(assistantMessage)
+	if streamState != nil {
+		streamState.reasoningSeen = true
+		streamState.reasoningEmitted = true
+	}
+	previousSignature := currentAssistantThinkingSignatureAtIndex(assistantMessage, index)
+	setAssistantThinkingSignatureAtIndex(assistantMessage, index, trimmed)
+	if previousSignature == trimmed {
+		return nil
+	}
+	return e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, index, "", nil, optionalStringPointer(trimmed))
+}
+
+func (e *Executor) applyOpenAIResponseReasoningItemFallback(
+	ctx context.Context,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	item responses.ResponseReasoningItem,
+	streamState *openAIResponseStreamState,
+) error {
+	prepareAssistantForOpenAIResponseReasoning(assistantMessage)
+	if streamState != nil {
+		streamState.reasoningSeen = true
+	}
+	summary := joinOpenAIResponseReasoningSummary(item.Summary)
+	if strings.TrimSpace(summary) != "" {
+		previousSummary := currentOpenAIResponseSummary(streamState)
+		if streamState != nil {
+			streamState.summary = summary
+			streamState.summaryParts = openAIResponseReasoningSummaryParts(item.Summary)
+			streamState.reasoningEmitted = true
+		}
+		setAssistantThinkingSummaryAtIndex(assistantMessage, 0, summary)
+		if strings.TrimSpace(previousSummary) != strings.TrimSpace(summary) {
+			if err := e.emitOpenAIResponseThinkingDelta(
+				ctx,
+				prepared,
+				assistantMessage,
+				0,
+				"",
+				optionalStringPointer(summary),
+				nil,
+			); err != nil {
+				return err
+			}
+		}
+	}
+	reasoning := joinOpenAIResponseReasoningContent(item.Content)
+	if strings.TrimSpace(reasoning) != "" {
+		previousThinking := currentAssistantThinkingTextAtIndex(assistantMessage, 0)
+		if streamState != nil {
+			streamState.reasoningEmitted = true
+		}
+		setAssistantThinkingTextAtIndex(assistantMessage, 0, reasoning)
+		thinkingDelta := authoritativeResponseReplacementSuffix(previousThinking, reasoning)
+		if thinkingDelta != "" {
+			if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, thinkingDelta, nil, nil); err != nil {
+				return err
+			}
+		}
+	}
+	if err := e.applyOpenAIResponseReasoningSignature(
+		ctx,
+		prepared,
+		assistantMessage,
+		streamState,
+		0,
+		item.EncryptedContent,
+	); err != nil {
+		return err
+	}
+	return e.flushBufferedOpenAIResponseText(ctx, prepared, assistantMessage, streamState, false)
+}
+
 func (e *Executor) applyOpenAIResponseContentPartDone(
 	ctx context.Context,
 	prepared preparedExecution,
@@ -912,7 +998,7 @@ func (e *Executor) applyOpenAIResponseContentPartDone(
 		thinkingDelta := authoritativeResponseReplacementSuffix(currentAssistantThinkingTextAtIndex(assistantMessage, 0), typed.Text)
 		setAssistantThinkingTextAtIndex(assistantMessage, 0, typed.Text)
 		if thinkingDelta != "" {
-			if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, thinkingDelta, nil); err != nil {
+			if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, thinkingDelta, nil, nil); err != nil {
 				return err
 			}
 		}
@@ -970,7 +1056,7 @@ func (e *Executor) applyOpenAIResponseContentPartAdded(
 		thinkingDelta := authoritativeResponseReplacementSuffix(currentAssistantThinkingTextAtIndex(assistantMessage, 0), typed.Text)
 		setAssistantThinkingTextAtIndex(assistantMessage, 0, typed.Text)
 		if thinkingDelta != "" {
-			if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, thinkingDelta, nil); err != nil {
+			if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, thinkingDelta, nil, nil); err != nil {
 				return err
 			}
 		}
@@ -1000,7 +1086,7 @@ func (e *Executor) applyOpenAIResponseSummaryPartUpdate(
 	summary := setOpenAIResponseSummaryPartText(streamState, summaryIndex, text)
 	setAssistantThinkingSummaryAtIndex(assistantMessage, 0, summary)
 	if strings.TrimSpace(previousSummary) != strings.TrimSpace(summary) {
-		if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, "", optionalStringPointer(summary)); err != nil {
+		if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, "", optionalStringPointer(summary), nil); err != nil {
 			return err
 		}
 	}
@@ -1085,11 +1171,14 @@ func (e *Executor) emitOpenAIResponseThinkingDelta(
 	index int,
 	thinking string,
 	summary *string,
+	signature *string,
 ) error {
 	if !prepared.emitStream {
 		return nil
 	}
-	if thinking == "" && (summary == nil || strings.TrimSpace(*summary) == "") {
+	if thinking == "" &&
+		(summary == nil || strings.TrimSpace(*summary) == "") &&
+		(signature == nil || strings.TrimSpace(*signature) == "") {
 		return nil
 	}
 	return e.applyChunk(ctx, prepared, realtime.MessageDeltaEvent{
@@ -1097,10 +1186,11 @@ func (e *Executor) emitOpenAIResponseThinkingDelta(
 		MessageID: stringValue(assistantMessage["id"]),
 		Content: []any{
 			realtime.MessageThinkingDelta{
-				Type:     realtime.MessageContentTypeThinkingDelta,
-				Index:    index,
-				Thinking: thinking,
-				Summary:  summary,
+				Type:      realtime.MessageContentTypeThinkingDelta,
+				Index:     index,
+				Thinking:  thinking,
+				Summary:   summary,
+				Signature: signature,
 			},
 		},
 	})
@@ -1205,47 +1295,13 @@ func (e *Executor) applyOpenAIResponseOutputItemFallback(
 ) error {
 	switch item := itemUnion.AsAny().(type) {
 	case responses.ResponseReasoningItem:
-		prepareAssistantForOpenAIResponseReasoning(assistantMessage)
-		if streamState != nil {
-			streamState.reasoningSeen = true
-		}
-		summary := joinOpenAIResponseReasoningSummary(item.Summary)
-		if strings.TrimSpace(summary) != "" {
-			previousSummary := currentOpenAIResponseSummary(streamState)
-			if streamState != nil {
-				streamState.summary = summary
-				streamState.summaryParts = openAIResponseReasoningSummaryParts(item.Summary)
-				streamState.reasoningEmitted = true
-			}
-			setAssistantThinkingSummaryAtIndex(assistantMessage, 0, summary)
-			if strings.TrimSpace(previousSummary) != strings.TrimSpace(summary) {
-				if err := e.emitOpenAIResponseThinkingDelta(
-					ctx,
-					prepared,
-					assistantMessage,
-					0,
-					"",
-					optionalStringPointer(summary),
-				); err != nil {
-					return err
-				}
-			}
-		}
-		reasoning := joinOpenAIResponseReasoningContent(item.Content)
-		if strings.TrimSpace(reasoning) != "" {
-			previousThinking := currentAssistantThinkingTextAtIndex(assistantMessage, 0)
-			if streamState != nil {
-				streamState.reasoningEmitted = true
-			}
-			setAssistantThinkingTextAtIndex(assistantMessage, 0, reasoning)
-			thinkingDelta := authoritativeResponseReplacementSuffix(previousThinking, reasoning)
-			if thinkingDelta != "" {
-				if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, thinkingDelta, nil); err != nil {
-					return err
-				}
-			}
-		}
-		return e.flushBufferedOpenAIResponseText(ctx, prepared, assistantMessage, streamState, false)
+		return e.applyOpenAIResponseReasoningItemFallback(
+			ctx,
+			prepared,
+			assistantMessage,
+			item,
+			streamState,
+		)
 	case responses.ResponseOutputMessage:
 		text := joinOpenAIResponseOutputMessageText(item.Content)
 		if strings.TrimSpace(text) == "" {
@@ -2039,6 +2095,10 @@ func currentAssistantTextAtIndex(message map[string]any, index int) string {
 
 func currentAssistantThinkingTextAtIndex(message map[string]any, index int) string {
 	return currentAssistantBlockStringAtIndex(message, index, "thinking", "thinking")
+}
+
+func currentAssistantThinkingSignatureAtIndex(message map[string]any, index int) string {
+	return currentAssistantBlockStringAtIndex(message, index, "thinking", "signature")
 }
 
 func currentAssistantBlockStringAtIndex(message map[string]any, index int, blockType string, field string) string {

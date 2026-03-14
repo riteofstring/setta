@@ -118,6 +118,7 @@ func buildOpenAIResponseRequestOverrides(request agentruns.ExecutionRequest) []o
 			"tool_choice",
 			"functions",
 			"function_call",
+			"include",
 			"reasoning",
 			"reasoning_effort",
 			"summary",
@@ -317,6 +318,13 @@ func buildOpenAIResponsesParams(
 		}
 		params.Tools = tools
 	}
+	includes, err := buildOpenAIResponseIncludes(request)
+	if err != nil {
+		return responses.ResponseNewParams{}, err
+	}
+	if len(includes) > 0 {
+		params.Include = includes
+	}
 	if request.Thinking {
 		reasoning, enabled, err := buildOpenAIResponseReasoning(request)
 		if err != nil {
@@ -393,15 +401,25 @@ func buildOpenAIResponseInputItems(transcript []map[string]any) (responses.Respo
 				items = append(items, responses.ResponseInputItemParamOfInputMessage(content, role))
 			}
 		case "assistant":
+			messageID := strings.TrimSpace(stringValue(message["id"]))
+			if messageID == "" {
+				return nil, fmt.Errorf("%w: assistant message id is required", ErrHistoryUnsupported)
+			}
+			reasoningItems, includeReasoning, err := buildOpenAIResponseReasoningItems(
+				messageID,
+				message["content"],
+			)
+			if err != nil {
+				return nil, fmt.Errorf("%w: transcript message %d: %v", ErrHistoryUnsupported, index, err)
+			}
+			if includeReasoning {
+				items = append(items, reasoningItems...)
+			}
 			content, include, err := buildOpenAIResponseOutputMessageContent(message["content"])
 			if err != nil {
 				return nil, fmt.Errorf("%w: transcript message %d: %v", ErrHistoryUnsupported, index, err)
 			}
 			if include {
-				messageID := strings.TrimSpace(stringValue(message["id"]))
-				if messageID == "" {
-					return nil, fmt.Errorf("%w: assistant message id is required", ErrHistoryUnsupported)
-				}
 				items = append(items, responses.ResponseInputItemParamOfOutputMessage(
 					content,
 					messageID,
@@ -446,6 +464,46 @@ func buildOpenAIResponseInputItems(transcript []map[string]any) (responses.Respo
 	return items, nil
 }
 
+func buildOpenAIResponseIncludes(request agentruns.ExecutionRequest) ([]responses.ResponseIncludable, error) {
+	includes := make([]responses.ResponseIncludable, 0, 1)
+	seen := map[responses.ResponseIncludable]struct{}{}
+	appendInclude := func(value string) {
+		trimmed := responses.ResponseIncludable(strings.TrimSpace(value))
+		if trimmed == "" {
+			return
+		}
+		if _, ok := seen[trimmed]; ok {
+			return
+		}
+		seen[trimmed] = struct{}{}
+		includes = append(includes, trimmed)
+	}
+	if rawInclude, ok := request.RequestParams["include"]; ok {
+		switch typed := rawInclude.(type) {
+		case string:
+			appendInclude(typed)
+		case []string:
+			for _, entry := range typed {
+				appendInclude(entry)
+			}
+		case []any:
+			for index, entry := range typed {
+				value, ok := entry.(string)
+				if !ok {
+					return nil, fmt.Errorf("%w: OpenAI Responses include[%d] must be a string", ErrProviderConfigInvalid, index)
+				}
+				appendInclude(value)
+			}
+		default:
+			return nil, fmt.Errorf("%w: OpenAI Responses include must be a string or string list", ErrProviderConfigInvalid)
+		}
+	}
+	if request.Thinking {
+		appendInclude(string(responses.ResponseIncludableReasoningEncryptedContent))
+	}
+	return includes, nil
+}
+
 func buildOpenAIResponseInputMessageContent(raw any) (responses.ResponseInputMessageContentListParam, bool, error) {
 	text, include, err := normalizeProviderMessageContent(raw)
 	if err != nil {
@@ -475,6 +533,71 @@ func buildOpenAIResponseOutputMessageContent(raw any) ([]responses.ResponseOutpu
 			},
 		},
 	}, true, nil
+}
+
+func buildOpenAIResponseReasoningItems(
+	messageID string,
+	raw any,
+) ([]responses.ResponseInputItemUnionParam, bool, error) {
+	if raw == nil {
+		return nil, false, nil
+	}
+	list, ok := raw.([]any)
+	if !ok {
+		return nil, false, fmt.Errorf("%w: message content must be a list", ErrHistoryUnsupported)
+	}
+	items := []responses.ResponseInputItemUnionParam{}
+	reasoningIndex := 0
+	for index, entry := range list {
+		block, ok := entry.(map[string]any)
+		if !ok {
+			return nil, false, fmt.Errorf("%w: content block %d must be an object", ErrHistoryUnsupported, index)
+		}
+		if strings.TrimSpace(stringValue(block["type"])) != "thinking" {
+			continue
+		}
+		thinking := stringValue(block["thinking"])
+		summary := stringValue(block["summary"])
+		signature := strings.TrimSpace(stringValue(block["signature"]))
+		if strings.TrimSpace(thinking) == "" &&
+			strings.TrimSpace(summary) == "" &&
+			signature == "" {
+			continue
+		}
+		reasoning := responses.ResponseReasoningItemParam{
+			ID:      openAIResponseReasoningItemID(messageID, reasoningIndex),
+			Summary: []responses.ResponseReasoningItemSummaryParam{},
+			Status:  responses.ResponseReasoningItemStatusCompleted,
+		}
+		if strings.TrimSpace(summary) != "" {
+			reasoning.Summary = []responses.ResponseReasoningItemSummaryParam{
+				{Text: summary},
+			}
+		}
+		if strings.TrimSpace(thinking) != "" {
+			reasoning.Content = []responses.ResponseReasoningItemContentParam{
+				{Text: thinking},
+			}
+		}
+		if signature != "" {
+			reasoning.EncryptedContent = param.NewOpt(signature)
+		}
+		items = append(items, responses.ResponseInputItemUnionParam{
+			OfReasoning: &reasoning,
+		})
+		reasoningIndex++
+	}
+	if len(items) == 0 {
+		return nil, false, nil
+	}
+	return items, true, nil
+}
+
+func openAIResponseReasoningItemID(messageID string, reasoningIndex int) string {
+	if reasoningIndex <= 0 {
+		return messageID + "_reasoning"
+	}
+	return fmt.Sprintf("%s_reasoning_%d", messageID, reasoningIndex)
 }
 
 func buildOpenAIChatMessages(providerMessages []map[string]any) ([]openai.ChatCompletionMessageParamUnion, error) {

@@ -119,6 +119,27 @@ func findBroadcastThinkingDelta(messages []realtime.LLMStreamingResponseMessage,
 	return nil
 }
 
+func findBroadcastThinkingSignatureDelta(messages []realtime.LLMStreamingResponseMessage, index int, signature string) *realtime.MessageThinkingDelta {
+	for _, message := range messages {
+		deltaEvent, ok := message.Content.Chunk.(realtime.MessageDeltaEvent)
+		if !ok {
+			continue
+		}
+		for _, rawContent := range deltaEvent.Content {
+			content, ok := rawContent.(realtime.MessageThinkingDelta)
+			if !ok {
+				continue
+			}
+			if content.Index != index || content.Signature == nil || *content.Signature != signature {
+				continue
+			}
+			copied := content
+			return &copied
+		}
+	}
+	return nil
+}
+
 func sameOptionalString(left *string, right *string) bool {
 	if left == nil || right == nil {
 		return left == nil && right == nil
@@ -1671,11 +1692,12 @@ func TestExecutorExecuteStreamsOpenAIResponsesThinkingAndReturnsOutputs(t *testi
 		fmt.Fprint(w, openAIResponseCompletedEvent(
 			[]map[string]any{
 				{
-					"type":    "reasoning",
-					"id":      "reasoning-1",
-					"summary": []map[string]any{{"text": "Plan summary"}},
-					"content": []map[string]any{{"type": "reasoning_text", "text": "Planning deeply"}},
-					"status":  "completed",
+					"type":              "reasoning",
+					"id":                "reasoning-1",
+					"summary":           []map[string]any{{"text": "Plan summary"}},
+					"content":           []map[string]any{{"type": "reasoning_text", "text": "Planning deeply"}},
+					"encrypted_content": "enc-thinking",
+					"status":            "completed",
 				},
 				{
 					"type":    "message",
@@ -1753,6 +1775,10 @@ func TestExecutorExecuteStreamsOpenAIResponsesThinkingAndReturnsOutputs(t *testi
 	if seenRequest["store"] != false {
 		t.Fatalf("expected responses store=false, got %#v", seenRequest["store"])
 	}
+	includes, ok := seenRequest["include"].([]any)
+	if !ok || len(includes) != 1 || includes[0] != "reasoning.encrypted_content" {
+		t.Fatalf("expected encrypted reasoning include, got %#v", seenRequest["include"])
+	}
 	usage, ok := result.Outputs["usage"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected usage payload, got %#v", result.Outputs["usage"])
@@ -1780,6 +1806,9 @@ func TestExecutorExecuteStreamsOpenAIResponsesThinkingAndReturnsOutputs(t *testi
 	if thinkingBlock["summary"] != "Plan summary" || thinkingBlock["thinking"] != "Planning deeply" {
 		t.Fatalf("unexpected OpenAI reasoning block %#v", thinkingBlock)
 	}
+	if thinkingBlock["signature"] != "enc-thinking" {
+		t.Fatalf("expected OpenAI reasoning signature, got %#v", thinkingBlock)
+	}
 	textBlock, ok := content[1].(map[string]any)
 	if !ok || textBlock["text"] != "Final answer" {
 		t.Fatalf("unexpected text block %#v", content[1])
@@ -1799,6 +1828,9 @@ func TestExecutorExecuteStreamsOpenAIResponsesThinkingAndReturnsOutputs(t *testi
 	if !ok || stateThinkingBlock["summary"] != "Plan summary" || stateThinkingBlock["thinking"] != "Planning deeply" {
 		t.Fatalf("expected completed response fallback to preserve full live reasoning content, got %#v", state)
 	}
+	if stateThinkingBlock["signature"] != "enc-thinking" {
+		t.Fatalf("expected completed response fallback to preserve encrypted reasoning signature, got %#v", stateThinkingBlock)
+	}
 	stateTextBlock, ok := stateContent[1].(map[string]any)
 	if !ok || stateTextBlock["text"] != "Final answer" {
 		t.Fatalf("expected completed response fallback to preserve full live assistant text, got %#v", state)
@@ -1811,11 +1843,14 @@ func TestExecutorExecuteStreamsOpenAIResponsesThinkingAndReturnsOutputs(t *testi
 	if findBroadcastThinkingDelta(broadcastMessages, 0, " deeply", nil) == nil {
 		t.Fatalf("expected completed fallback thinking delta in %#v", broadcastMessages)
 	}
+	if findBroadcastThinkingSignatureDelta(broadcastMessages, 0, "enc-thinking") == nil {
+		t.Fatalf("expected completed fallback signature delta in %#v", broadcastMessages)
+	}
 	if findBroadcastTextDelta(broadcastMessages, 1, " answer") == nil {
 		t.Fatalf("expected completed fallback text delta in %#v", broadcastMessages)
 	}
-	if broadcaster.Count() != 9 {
-		t.Fatalf("expected start, six delta updates, stop, finalized broadcasts, got %d", broadcaster.Count())
+	if broadcaster.Count() != 10 {
+		t.Fatalf("expected start, seven delta updates, stop, finalized broadcasts, got %d", broadcaster.Count())
 	}
 }
 
@@ -3409,12 +3444,22 @@ func TestExecutorExecuteRunsOpenAIResponsesToolCallsThroughMCPAndContinuesProvid
 		}
 		switch requestCount {
 		case 0:
-			fmt.Fprint(w, openAIResponseFunctionCallItemAddedEvent(0, "function-item-1", "tool-call-1", "setta__create_top_level_section"))
+			fmt.Fprint(w, openAIResponseReasoningItemAddedWithContentEvent(0, "reasoning-1", "Plan summary", "Planning deeply"))
 			flusher.Flush()
-			fmt.Fprint(w, openAIResponseFunctionCallArgumentsDeltaEvent("function-item-1", 0, `{"projectConfigId":"project-alpha","implType":"Dict"}`))
+			fmt.Fprint(w, openAIResponseFunctionCallItemAddedEvent(1, "function-item-1", "tool-call-1", "setta__create_top_level_section"))
+			flusher.Flush()
+			fmt.Fprint(w, openAIResponseFunctionCallArgumentsDeltaEvent("function-item-1", 1, `{"projectConfigId":"project-alpha","implType":"Dict"}`))
 			flusher.Flush()
 			fmt.Fprint(w, openAIResponseCompletedEvent(
 				[]map[string]any{
+					{
+						"type":              "reasoning",
+						"id":                "reasoning-1",
+						"summary":           []map[string]any{{"text": "Plan summary"}},
+						"content":           []map[string]any{{"type": "reasoning_text", "text": "Planning deeply"}},
+						"encrypted_content": "enc-tool-turn",
+						"status":            "completed",
+					},
 					{
 						"type":      "function_call",
 						"id":        "function-item-1",
@@ -3557,12 +3602,16 @@ func TestExecutorExecuteRunsOpenAIResponsesToolCallsThroughMCPAndContinuesProvid
 	if !ok || len(secondInput) < 3 {
 		t.Fatalf("expected follow-up Responses transcript input, got %#v", requestBodies[1]["input"])
 	}
+	foundReasoning := false
 	foundFunctionCall := false
 	foundFunctionResult := false
 	for _, rawItem := range secondInput {
 		item, ok := rawItem.(map[string]any)
 		if !ok {
 			continue
+		}
+		if item["type"] == "reasoning" && item["encrypted_content"] == "enc-tool-turn" {
+			foundReasoning = true
 		}
 		if item["type"] == "function_call" && item["call_id"] == "tool-call-1" {
 			foundFunctionCall = true
@@ -3571,8 +3620,8 @@ func TestExecutorExecuteRunsOpenAIResponsesToolCallsThroughMCPAndContinuesProvid
 			foundFunctionResult = true
 		}
 	}
-	if !foundFunctionCall || !foundFunctionResult {
-		t.Fatalf("expected follow-up Responses input with function call and result, got %#v", secondInput)
+	if !foundReasoning || !foundFunctionCall || !foundFunctionResult {
+		t.Fatalf("expected follow-up Responses input with reasoning, function call, and result, got %#v", secondInput)
 	}
 
 	messages, ok := result.Outputs["messages"].([]any)

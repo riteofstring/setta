@@ -80,6 +80,11 @@
     endpoint/API-version request options for standard turns
   - thinking-enabled turns now use Responses streaming so reasoning
     summary/content stays inside the current Setta websocket/message contract
+  - thinking-enabled Responses requests now explicitly include
+    `reasoning.encrypted_content`, the reducer now preserves that encrypted
+    reasoning payload in Setta's thinking `signature` field, and follow-up
+    Responses turns now round-trip the prior reasoning summary/content plus
+    encrypted reasoning item back through the manual-context input transcript
   - the Responses stream now also treats explicit `response.incomplete`
     events as provider failures instead of silently succeeding with truncated
     reasoning output, and still stops/finalizes any partial assistant message
