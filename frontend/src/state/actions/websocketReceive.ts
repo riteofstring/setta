@@ -24,14 +24,13 @@ import {
   useServerMode,
   useShareSession,
 } from "state/definitions";
-import { encodeBinaryFrame } from "utils/binaryWebsocket";
-import { C } from "utils/c";
 import {
   buildBackendOriginURL,
   buildBackendOriginWebsocketURL,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
+} from "utils/backendOriginTransport";
+import { encodeBinaryFrame } from "utils/binaryWebsocket";
+import { C } from "utils/c";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_binary_upload,
   route_get_auth_refresh_status,

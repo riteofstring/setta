@@ -1,4 +1,4 @@
-import { buildBackendOriginWebsocketURL } from "utils/endpointUtils";
+import { buildBackendOriginWebsocketURL } from "utils/backendOriginTransport";
 import { GoWebsocketRouteHelpers } from "utils/generatedRoutes";
 
 export type BuildTerminalWebsocketUrlOptions = {

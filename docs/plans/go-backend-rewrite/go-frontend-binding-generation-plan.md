@@ -284,6 +284,9 @@ Current status:
 - plugin asset/backend/listener transport now also flows through a shared
   `frontend/src/plugins/transport.ts` helper, so plugin runtime callers no
   longer import low-level `endpointUtils` builders directly
+- backend-origin URL and websocket construction now also flows through
+  `frontend/src/utils/backendOriginTransport.ts`, so plugin/realtime/terminal
+  callers no longer import those low-level `endpointUtils` builders directly
 - the validation suite now also checks that the checked-in
   `generatedRoutes.ts`, `generatedTypes.ts`, and `generatedEndpoints.ts`
   files exactly match the current Go frontend binding generation pipeline

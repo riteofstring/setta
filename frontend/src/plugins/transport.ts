@@ -1,4 +1,8 @@
-import { buildBackendOriginURL, buildBackendURL } from "utils/endpointUtils";
+import {
+  buildBackendOriginURL,
+  buildBackendOriginWebsocketURL,
+} from "utils/backendOriginTransport";
+import { buildBackendURL } from "utils/endpointUtils";
 import {
   GoHTTPRouteHelpers,
   GoWebsocketRouteHelpers,
@@ -37,12 +41,11 @@ export function buildPluginListenerWebsocketUrl({
   projectConfigId,
   shareSessionId,
 }: BuildPluginListenerWebsocketUrlOptions): string {
-  const url = new URL(
-    buildBackendOriginURL(GoWebsocketRouteHelpers.listenerById(listenerId), {
+  return buildBackendOriginWebsocketURL(
+    GoWebsocketRouteHelpers.listenerById(listenerId),
+    {
       projectId: projectConfigId,
       shareSessionId: shareSessionId ?? undefined,
-    }),
+    },
   );
-  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-  return url.toString();
 }
