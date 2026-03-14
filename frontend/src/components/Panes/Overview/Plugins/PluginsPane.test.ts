@@ -84,13 +84,9 @@ function buildPluginListEntry(
     },
     config: {
       hasSchema: false,
-      schemaJson: {},
-      schemaJsonDigestSha256: null,
-      currentConfig: {},
-      currentConfigDigestSha256: null,
+      schemaJson: null,
     },
     effectiveCapabilities: [],
-    enablementSource: null,
     restartRequired: false,
     ...overrides,
   });
@@ -118,7 +114,6 @@ function buildPluginStatusEntry(
     registeredLanguageServers: [],
     registeredExternalAgentAdapters: [],
     registeredCodegenTargets: [],
-    enablementSource: null,
     runtimePayloadDigestSha256: "digest-acme-plugin",
     restartRequired: false,
     errors: [],

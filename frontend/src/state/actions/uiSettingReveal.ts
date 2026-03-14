@@ -12,7 +12,7 @@ import {
   isOverviewTabKey,
   type OverviewTabKey,
   type UIEditorTabName,
-} from "utils/constants";
+} from "utils/constants/panes";
 import type {
   SectionType,
   UISettingRevealContent,

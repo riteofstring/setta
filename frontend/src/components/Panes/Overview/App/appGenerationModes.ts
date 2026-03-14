@@ -83,7 +83,6 @@ export function buildHiddenChatAppGenerationPrompt({
   prompt,
   catalogSummary,
   sectionsSummary,
-  currentSpecJson,
   referenceImageUrl,
   referenceImageNotes,
 }: {
@@ -91,22 +90,12 @@ export function buildHiddenChatAppGenerationPrompt({
   prompt: string;
   catalogSummary: string;
   sectionsSummary: string;
-  currentSpecJson: string | null;
   referenceImageUrl: string | null;
   referenceImageNotes: string | null;
 }): string {
   const normalizedPrompt = prompt.trim();
   const fallbackPrompt = buildDefaultAppGenerationPrompt(mode);
   const effectivePrompt = normalizedPrompt || fallbackPrompt;
-  const currentSpecLines =
-    isJsonRenderMode(mode) && currentSpecJson
-      ? [
-          "Current app spec seed (authoritative for this request):",
-          "- When you call `setta__stream_app_definition`, pass this object as `baseAppSpec`.",
-          "- Emit patches that transform this seed into the requested result.",
-          currentSpecJson,
-        ].join("\n")
-      : "";
 
   const referenceImageLines =
     mode === "json_render_with_image"
@@ -128,7 +117,6 @@ export function buildHiddenChatAppGenerationPrompt({
     effectivePrompt,
     "",
     referenceImageLines,
-    currentSpecLines,
     catalogSummary,
     "",
     "Available sections (use section ids and param ids exactly):",
