@@ -81,7 +81,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 
 - `frontend/src/state` plus shared infrastructure files in `components/Utils` and `utils` total about 83.6k lines of authored code in the sampled directories.
 - The biggest shared-state hotspots are:
-  - `frontend/src/components/Utils/Resizable/CustomResizable.tsx` at 725 lines
   - `frontend/src/state/actions/stateMachineEdges.ts` at 718 lines
   - `frontend/src/state/actions/websocketReceive.ts` at 706 lines
   - `frontend/src/state/actions/keyActivations.ts` at 705 lines
@@ -89,6 +88,20 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - `frontend/src/state/actions/sectionInfos.ts` at 678 lines
   - `frontend/src/state/actions/sectionEffectiveImpls.ts` at 649 lines
   - `frontend/src/state/actions/uiSettingRevealMutationSnapshots.ts` at 426 lines
+  - `frontend/src/components/Utils/Resizable/useCustomResizableBehavior.ts` at 325 lines
+- `CustomResizable.tsx` now owns:
+  - resize-surface composition and `ResizableWithScale` wiring
+  - share-capability gating and active-handle state bridging into handle chrome
+- `useCustomResizableBehavior.ts` now owns:
+  - resize lifecycle and double-click tracking
+  - auto-size promotion, auto-clamp, and optimistic section-size persistence
+  - resize event emission into shared layout-interaction state
+- `customResizableSizing.ts` now owns:
+  - pure clamp and auto-clamp sizing helpers
+  - resize-end emission decisions that can be tested without React
+- `customResizableChrome.ts` now owns:
+  - resize-handle direction lookup from DOM targets
+  - handle enablement, hit-area sizing, and MetaControl or attached-terminal chrome
 - `definitions.ts` now defines 14 local `use*` stores and re-exports the extracted AI/chat, app runtime, session/share, browser, search, feedback, project-status, layout-interaction, UI-preference, and editor-diagnostics stores, which is much closer to a thin index but still leaves project-state publication, artifact data, and realtime helper ownership mixed together.
 - `sectionEffectiveImpls.ts` now owns:
   - effective-impl derivation and caching

@@ -126,6 +126,11 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   traversal to `frontend/src/utils/focusManagerNavigation.ts`, and
   section/canvas focus behavior to
   `frontend/src/utils/focusManagerSections.ts`.
+- `frontend/src/components/Utils/Resizable/CustomResizable.tsx` is down to 246
+  lines and now delegates resize lifecycle and optimistic section-size
+  persistence to `useCustomResizableBehavior.ts`, pure clamp and auto-clamp
+  decisions to `customResizableSizing.ts`, and handle chrome plus direction
+  parsing to `customResizableChrome.ts`.
 - `frontend/src/state/actions/uiSettingReveal.ts` is down to 360 lines and now
   delegates reveal mutation orchestration, lease ownership, snapshot rollback,
   pane activation, DOM anchor/highlight helpers, and execution-status utilities

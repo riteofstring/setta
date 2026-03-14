@@ -258,8 +258,6 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `components/Utils/Resizable/CustomResizable.tsx` resize-surface split across
-  low-level drag math, DOM event wiring, and window/pane-specific behavior
 - `state/actions/stateMachineEdges.ts` edge mutation split across graph reads,
   optimistic project-state writes, and view/runtime-specific edge commands
 - `state/actions/sectionInfos.ts` section metadata/display-tree split now that
@@ -271,5 +269,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
   `state/actions/topLevelLayoutPersistence.ts` own effective-impl access,
   backend sync, shared commands, optimistic mutation infrastructure, and
   top-level layout ownership
+- `components/Utils/Resizable/CustomResizable.tsx` now delegates resize
+  lifecycle and optimistic persistence to
+  `components/Utils/Resizable/useCustomResizableBehavior.ts`, pure clamp/auto-
+  clamp decisions to `components/Utils/Resizable/customResizableSizing.ts`, and
+  handle chrome plus direction parsing to
+  `components/Utils/Resizable/customResizableChrome.ts`; follow-up work here
+  should stay local to one of those owners instead of growing the composition
+  surface again
 - shared project chat surfaces under `components/Chat/*`,
   `components/Panes/Overview/ProjectLevelAI/*`, and `components/ChatWindowing/*`
