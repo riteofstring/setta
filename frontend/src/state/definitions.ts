@@ -1,5 +1,6 @@
 import { ModalInfoType } from "components/Modals/types";
 import { HandlePosition, HandleType, Node } from "forks/xyflow/core/types";
+import type { ChatSharedEdgeMode } from "state/actions/chatSharedHandleIds";
 import type { AIFollowMode } from "state/types/aiFollow";
 import {
   parseAppGenerationMode,
@@ -619,6 +620,26 @@ function normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
   return normalized;
 }
 
+function normalizePersistedProjectChatDraftMessageByProjectConfigId(
+  value: unknown,
+): Record<string, string> {
+  if (!isPersistedRecord(value)) {
+    return {};
+  }
+  const normalized: Record<string, string> = {};
+  for (const [projectConfigId, rawDraftMessage] of Object.entries(value)) {
+    const normalizedProjectConfigId = projectConfigId.trim();
+    if (!normalizedProjectConfigId || typeof rawDraftMessage !== "string") {
+      continue;
+    }
+    if (rawDraftMessage === "") {
+      continue;
+    }
+    normalized[normalizedProjectConfigId] = rawDraftMessage;
+  }
+  return normalized;
+}
+
 type ZustandRunControl = {
   runMode: RunMode;
   continuousRunStarted: boolean;
@@ -662,6 +683,12 @@ export const useBackendLogEvents = withProjectState(
       filter: { ...DEFAULT_BACKEND_LOG_EVENTS_FILTER },
       unreadHighSeverityCount: 0,
     })),
+  ),
+);
+
+const useArtifacts = withProjectState(
+  createWithEqualityFn(
+    subscribeWithSelector(withResetFn(() => ({ x: {}, namePathTypeToId: {} }))),
   ),
 );
 
@@ -1101,6 +1128,7 @@ type ZustandLocalStorage = {
   snapToGrid: boolean;
   showAgenticEdges: boolean;
   showArgEdges: boolean;
+  chatSharedEdgeMode: ChatSharedEdgeMode;
   darkMode: boolean;
   colorMode: ColorModePreference;
   showMinimap: boolean;
@@ -1137,6 +1165,7 @@ type ZustandLocalStorage = {
     string,
     Array<ProjectChatCustomSlashCommand>
   >;
+  projectChatDraftMessageByProjectConfigId: Record<string, string>;
   projectChatAuxViewByProjectConfigId: Record<string, ProjectChatAuxView>;
   runSnapshotModeByProjectConfigId: Record<string, RunSnapshotMode>;
   runInstructionsAccordionOpenValuesByProjectConfigId: Record<
@@ -1172,6 +1201,7 @@ export const useLocalStorage = createWithEqualityFn(
       snapToGrid: true,
       showAgenticEdges: true,
       showArgEdges: true,
+      chatSharedEdgeMode: "agentic",
       darkMode: true,
       colorMode: "dark",
       showMinimap: true,
@@ -1206,6 +1236,7 @@ export const useLocalStorage = createWithEqualityFn(
       tooltipWidth: 256,
       customRunsByProjectConfigId: {},
       customProjectChatSlashCommandsByProjectConfigId: {},
+      projectChatDraftMessageByProjectConfigId: {},
       projectChatAuxViewByProjectConfigId: {},
       runSnapshotModeByProjectConfigId: {},
       runInstructionsAccordionOpenValuesByProjectConfigId: {},
@@ -1235,6 +1266,12 @@ export const useLocalStorage = createWithEqualityFn(
           merged.homeProjectGalleryViewMode !== "list"
         ) {
           merged.homeProjectGalleryViewMode = "thumbnails";
+        }
+        if (
+          merged.chatSharedEdgeMode !== "agentic" &&
+          merged.chatSharedEdgeMode !== "workflow"
+        ) {
+          merged.chatSharedEdgeMode = "agentic";
         }
         if (!Array.isArray(merged.favoriteProjectConfigIds)) {
           merged.favoriteProjectConfigIds = [];
@@ -1278,6 +1315,10 @@ export const useLocalStorage = createWithEqualityFn(
         merged.customProjectChatSlashCommandsByProjectConfigId =
           normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
             merged.customProjectChatSlashCommandsByProjectConfigId,
+          );
+        merged.projectChatDraftMessageByProjectConfigId =
+          normalizePersistedProjectChatDraftMessageByProjectConfigId(
+            merged.projectChatDraftMessageByProjectConfigId,
           );
         merged.projectChatAuxViewByProjectConfigId = {};
         if (
@@ -1332,6 +1373,7 @@ export const useLocalStorage = createWithEqualityFn(
         snapToGrid: state.snapToGrid,
         showAgenticEdges: state.showAgenticEdges,
         showArgEdges: state.showArgEdges,
+        chatSharedEdgeMode: state.chatSharedEdgeMode,
         darkMode: state.darkMode,
         colorMode: state.colorMode,
         showMinimap: state.showMinimap,
@@ -1365,6 +1407,8 @@ export const useLocalStorage = createWithEqualityFn(
         customRunsByProjectConfigId: state.customRunsByProjectConfigId,
         customProjectChatSlashCommandsByProjectConfigId:
           state.customProjectChatSlashCommandsByProjectConfigId,
+        projectChatDraftMessageByProjectConfigId:
+          state.projectChatDraftMessageByProjectConfigId,
         runSnapshotModeByProjectConfigId:
           state.runSnapshotModeByProjectConfigId,
         runInstructionsAccordionOpenValuesByProjectConfigId:

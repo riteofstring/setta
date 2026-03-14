@@ -43,7 +43,6 @@ from setta.types.helpers_lvl2 import (
     set_param_entered_value,
     set_parent_default_child_section_type,
     set_prompt_section_format,
-    set_prompt_section_inputs,
     set_prompt_section_template,
     set_section_param_filter,
     set_spreadsheet_section_settings,
@@ -400,7 +399,7 @@ class TestPromptSection:
             projectConfig=ProjectConfig(name="test-project")
         )
 
-    def test_prompt_section_renders_inputs(self) -> None:
+    def test_prompt_section_preview_reports_missing_variables(self) -> None:
         section_id = create_top_level_section(
             self.settings,
             self.project_state,
@@ -421,20 +420,6 @@ class TestPromptSection:
         assert impl.renderedText == ""
         assert impl.missingVariables == ["name"]
         assert impl.renderError == "Missing variables: name"
-
-        set_prompt_section_inputs(
-            self.project_state,
-            section_id,
-            {"name": "Ada"},
-        )
-        impl = get_curr_effective_section_impl_with_type_guard(
-            self.project_state,
-            section_id,
-            PromptSectionImpl,
-        )
-        assert impl.renderedText == "Hello Ada"
-        assert impl.missingVariables == []
-        assert impl.renderError is None
 
     def test_prompt_section_reports_syntax_errors(self) -> None:
         section_id = create_top_level_section(
@@ -471,11 +456,6 @@ class TestPromptSection:
             section_id,
             "Hello {{ name }}",
         )
-        set_prompt_section_inputs(
-            self.project_state,
-            section_id,
-            {"name": "Ada"},
-        )
         set_prompt_section_format(
             self.project_state,
             section_id,
@@ -486,9 +466,9 @@ class TestPromptSection:
             section_id,
             PromptSectionImpl,
         )
-        assert impl.renderedText == "Hello Ada"
-        assert impl.missingVariables == []
-        assert impl.renderError is None
+        assert impl.renderedText == ""
+        assert impl.missingVariables == ["name"]
+        assert impl.renderError == "Missing variables: name"
 
 
 class TestChangeParamImpl:

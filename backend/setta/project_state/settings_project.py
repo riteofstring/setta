@@ -87,6 +87,9 @@ SETTINGS_VIEW_MODE_GROUPS: list[tuple[str, list[str]]] = [
             "codeSectionDefault",
             "genPythonCodeSectionDefault",
             "genPythonMetadataSectionDefault",
+            "stateMachineStartSectionDefault",
+            "stateMachineGateSectionDefault",
+            "stateMachineEndSectionDefault",
         ],
     ),
     (

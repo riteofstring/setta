@@ -155,6 +155,17 @@ vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
   ),
 }));
 
+vi.mock("components/ChatWindowing/ProjectChatWindowSurface", () => ({
+  ProjectChatWindowSurface: ({ children }: { children: ReactNode }) => (
+    <section
+      data-testid="mock-project-chat-window-frame"
+      data-chat-window-frame="project-chat"
+    >
+      {children}
+    </section>
+  ),
+}));
+
 function MockUnifiedChatSurface({
   dataTestId,
   projectChatId,
@@ -526,6 +537,29 @@ describe("StandaloneProjectSurfacePage", () => {
     expect(hoisted.useAIStoreMock.getState().activeChatId).toBe(
       "workspace-chat",
     );
+  });
+
+  it("wraps standalone project chat routes in the shared project chat frame", async () => {
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={["/demo/chat"]}>
+          <Routes>
+            <Route
+              path="/:projectConfigName/chat"
+              element={<StandaloneProjectSurfacePage />}
+            />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+
+    const standaloneSurface = host.querySelector(
+      '[data-testid="standalone-project-chat-surface"]',
+    );
+    expect(standaloneSurface).not.toBeNull();
+    expect(
+      standaloneSurface?.closest('[data-chat-window-frame="project-chat"]'),
+    ).not.toBeNull();
   });
 
   it("shows standalone thread not found only after hydration reports chat_not_found", async () => {

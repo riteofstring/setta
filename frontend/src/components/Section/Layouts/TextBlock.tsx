@@ -185,6 +185,7 @@ type CodeBlockProps = React.HTMLAttributes<HTMLElement> & {
   inline?: boolean;
   className?: string;
   children?: React.ReactNode;
+  wrapLines?: boolean;
 };
 
 export const CodeBlock = ({
@@ -192,6 +193,7 @@ export const CodeBlock = ({
   inline,
   className,
   children,
+  wrapLines = false,
   ...props
 }: CodeBlockProps) => {
   const [copied, setCopied] = React.useState(false);
@@ -241,7 +243,7 @@ export const CodeBlock = ({
   return (
     <div
       data-setta-code-block="true"
-      className="not-prose group relative my-2 overflow-hidden rounded-md border border-setta-200/70 bg-setta-50/70 dark:border-setta-700 dark:bg-setta-900/60"
+      className="not-prose group relative my-2 max-w-full overflow-hidden rounded-md border border-setta-200/70 bg-setta-50/70 dark:border-setta-700 dark:bg-setta-900/60"
     >
       <button
         type="button"
@@ -267,7 +269,7 @@ export const CodeBlock = ({
         ])}
         language={language}
         useJsx={useJsx}
-        wrapLines={false}
+        wrapLines={wrapLines}
       />
     </div>
   );
