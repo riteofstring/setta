@@ -104,6 +104,11 @@ import { ApprovalCard } from "./ApprovalCard";
 import { ChatMessageEditor } from "./ChatMessageEditor";
 import { QuestionCard } from "./QuestionCard";
 import { TodoListCard } from "./TodoListCard";
+import {
+  reconcileAnimatedStreamingCharacters,
+  splitStreamingMarkdownText,
+  type AnimatedStreamingCharacter,
+} from "./streamingMarkdown";
 import { useTypewriterEffect } from "./useTypewriterEffect";
 
 type AssistantChatMessage = Extract<
@@ -202,6 +207,12 @@ const CHAT_MARKDOWN_BASE_CLASS =
   "prose prose-sm max-w-full prose-headings:font-semibold prose-headings:tracking-tight prose-headings:leading-snug prose-headings:mt-5 prose-headings:mb-2 prose-h1:text-[1.05rem] prose-h2:text-[1rem] prose-h3:text-[0.95rem] prose-h4:text-[0.9rem] prose-p:my-0 prose-p:leading-[1.45] prose-ul:my-1 prose-ol:my-1 prose-ul:pl-5 prose-ol:pl-5 prose-ul:leading-[1.45] prose-ol:leading-[1.45] prose-li:my-0 prose-li:leading-[1.45] prose-code:before:hidden prose-code:after:hidden prose-pre:my-2 prose-pre:py-2 [&>:first-child]:mt-0 [&>:last-child]:mb-0 [&_p+p]:mt-2.5 [&_p+ul]:mt-2 [&_p+ol]:mt-2 [&_ul+p]:mt-2.5 [&_ol+p]:mt-2.5 [&_li+li]:mt-0.5 [&_li_p]:my-0 [&_*]:break-words";
 const ASSISTANT_MARKDOWN_CLASS = `${CHAT_MARKDOWN_BASE_CLASS} dark:prose-invert prose-headings:text-setta-600 dark:prose-headings:text-setta-300 prose-p:text-[13px] prose-ul:text-[13px] prose-ol:text-[13px] prose-li:text-[13px] [&_*]:marker:text-setta-400`;
 const ASSISTANT_ERROR_MARKDOWN_CLASS = `${CHAT_MARKDOWN_BASE_CLASS} dark:prose-invert prose-headings:text-red-900 dark:prose-headings:text-red-200 prose-p:text-[13px] prose-ul:text-[13px] prose-ol:text-[13px] prose-li:text-[13px] [&_*]:marker:text-red-400`;
+const STREAMING_ASSISTANT_TAIL_CLASS =
+  "whitespace-pre-wrap break-words text-[13px] leading-[1.45] text-setta-700 dark:text-setta-100";
+const THOUGHT_PREVIEW_MARKDOWN_CLASS =
+  "prose prose-sm max-w-none text-[9px] leading-[1.35] text-setta-400 dark:prose-invert dark:text-setta-400/90 prose-headings:my-0 prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-[10px] prose-h2:text-[9.5px] prose-h3:text-[9px] prose-h4:text-[9px] prose-p:my-0 prose-p:text-[9px] prose-p:leading-[1.35] prose-ul:my-0.5 prose-ol:my-0.5 prose-ul:pl-3.5 prose-ol:pl-3.5 prose-ul:text-[9px] prose-ol:text-[9px] prose-li:my-0 prose-li:text-[9px] prose-li:leading-[1.35] prose-code:before:hidden prose-code:after:hidden prose-code:text-[8px] prose-pre:my-1 prose-pre:px-2 prose-pre:py-1.5 prose-pre:text-[8px] [&>:first-child]:mt-0 [&>:last-child]:mb-0 [&_li+li]:mt-0.5 [&_*]:break-words";
+const THOUGHT_PREVIEW_TAIL_CLASS =
+  "whitespace-pre-wrap break-words text-[9px] leading-[1.35] text-setta-400 dark:text-setta-400/90";
 const TOOL_CALL_RAIL_GRID_CLASS = "grid-cols-[1.75rem_minmax(0,1fr)]";
 const TOOL_CALL_RAIL_BACKGROUND_CLASS = "bg-setta-100/75 dark:bg-setta-800/75";
 const ACTIVITY_ROW_HOVER_CLASS =
@@ -234,7 +245,7 @@ const ACTIVITY_PARENT_HOVER_META_CLASS =
 const ACTIVITY_ITEM_HOVER_META_CLASS =
   "pointer-events-none absolute right-6 top-1/2 z-[1] inline-flex -translate-y-1/2 items-center justify-end gap-x-1 gap-y-0.5 opacity-0 transition-opacity group-hover/chat-activity-row:pointer-events-auto group-hover/chat-activity-row:opacity-100 group-focus-within/chat-activity-row:pointer-events-auto group-focus-within/chat-activity-row:opacity-100";
 const ACTIVITY_PARENT_LABEL_CLASS =
-  "min-w-0 flex-1 pr-5 transition-[padding-right] group-hover/chat-activity-parent:pr-[8.5rem] group-focus-within/chat-activity-parent:pr-[8.5rem]";
+  "min-w-0 flex-1 pr-5 transition-[padding-right] group-hover/chat-activity-parent:pr-[12rem] group-focus-within/chat-activity-parent:pr-[12rem]";
 const ACTIVITY_ITEM_LABEL_CLASS =
   "min-w-0 flex-1 pr-5 transition-[padding-right] group-hover/chat-activity-row:pr-[8.5rem] group-focus-within/chat-activity-row:pr-[8.5rem]";
 const ACTIVITY_THOUGHT_TOP_ONLY_MASK =
@@ -503,6 +514,365 @@ const CHAT_MARKDOWN_COMPONENTS: Components = {
   ),
 };
 
+function buildInitialAnimatedStreamingCharacters(
+  text: string,
+): Array<AnimatedStreamingCharacter> {
+  let nextId = 0;
+  return Array.from(text || "").map((value) => ({
+    id: nextId++,
+    value,
+    animate: false,
+  }));
+}
+
+function useAnimatedStreamingCharacters(
+  text: string,
+  enabled: boolean,
+): Array<AnimatedStreamingCharacter> {
+  const nextIdRef = useRef(0);
+  const [characters, setCharacters] = useState<Array<AnimatedStreamingCharacter>>(
+    () => {
+      const initialCharacters = buildInitialAnimatedStreamingCharacters(text);
+      nextIdRef.current = initialCharacters.length;
+      return initialCharacters;
+    },
+  );
+
+  useEffect(() => {
+    const normalizedText = text || "";
+    if (!enabled) {
+      const nextCharacters = buildInitialAnimatedStreamingCharacters(
+        normalizedText,
+      );
+      nextIdRef.current = nextCharacters.length;
+      setCharacters((previousCharacters) => {
+        const previousText = previousCharacters
+          .map((character) => character.value)
+          .join("");
+        if (previousText === normalizedText) {
+          return previousCharacters.every((character) => !character.animate)
+            ? previousCharacters
+            : previousCharacters.map((character) => ({
+                ...character,
+                animate: false,
+              }));
+        }
+        return nextCharacters;
+      });
+      return;
+    }
+    setCharacters((previousCharacters) => {
+      const reconciledCharacters = reconcileAnimatedStreamingCharacters(
+        previousCharacters.map(({ id, value }) => ({ id, value })),
+        normalizedText,
+        nextIdRef.current,
+      );
+      nextIdRef.current = reconciledCharacters.nextId;
+      return reconciledCharacters.characters;
+    });
+  }, [enabled, text]);
+
+  useEffect(() => {
+    if (!enabled || !characters.some((character) => character.animate)) {
+      return;
+    }
+    const timeoutId = window.setTimeout(() => {
+      setCharacters((previousCharacters) =>
+        previousCharacters.some((character) => character.animate)
+          ? previousCharacters.map((character) =>
+              character.animate
+                ? {
+                    ...character,
+                    animate: false,
+                  }
+                : character,
+            )
+          : previousCharacters,
+      );
+    }, 180);
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [characters, enabled]);
+
+  return characters;
+}
+
+function useStreamingCommitAnimationClass(
+  committedLineCount: number,
+  enabled: boolean,
+): string {
+  const previousCommittedLineCountRef = useRef(committedLineCount);
+  const [commitAnimationPhase, setCommitAnimationPhase] = useState(0);
+
+  useEffect(() => {
+    if (!enabled) {
+      previousCommittedLineCountRef.current = committedLineCount;
+      return;
+    }
+    if (committedLineCount > previousCommittedLineCountRef.current) {
+      setCommitAnimationPhase((previousPhase) => previousPhase + 1);
+    }
+    previousCommittedLineCountRef.current = committedLineCount;
+  }, [committedLineCount, enabled]);
+
+  if (commitAnimationPhase === 0) {
+    return "";
+  }
+  return commitAnimationPhase % 2 === 0
+    ? "chat-stream-commit-b"
+    : "chat-stream-commit-a";
+}
+
+function useStreamingGrowthAnimation(
+  elementRef: Ref<HTMLDivElement>,
+  animationSignal: number,
+  enabled: boolean,
+) {
+  const previousHeightRef = useRef<number | null>(null);
+
+  useLayoutEffect(() => {
+    if (
+      !enabled ||
+      typeof window === "undefined" ||
+      !(elementRef && "current" in elementRef)
+    ) {
+      return;
+    }
+    const element = elementRef.current;
+    if (!element) {
+      return;
+    }
+    const nextHeightPx = element.getBoundingClientRect().height;
+    const previousHeightPx = previousHeightRef.current;
+    previousHeightRef.current = nextHeightPx;
+    if (previousHeightPx === null) {
+      return;
+    }
+    const growthPx = nextHeightPx - previousHeightPx;
+    if (growthPx <= 1 || typeof element.animate !== "function") {
+      return;
+    }
+    element.animate(
+      [
+        {
+          opacity: 0.96,
+          transform: `translateY(${-Math.min(10, growthPx)}px)`,
+        },
+        { opacity: 1, transform: "translateY(0)" },
+      ],
+      {
+        duration: 170,
+        easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
+      },
+    );
+  }, [animationSignal, elementRef, enabled]);
+}
+
+function StreamingTailText({
+  text,
+  className,
+  highlightTerms = [],
+  animateCharacters,
+  dataAttributeName,
+}: {
+  text: string;
+  className: string;
+  highlightTerms?: Array<string>;
+  animateCharacters: boolean;
+  dataAttributeName: string;
+}) {
+  const characters = useAnimatedStreamingCharacters(
+    text,
+    animateCharacters && highlightTerms.length === 0,
+  );
+  const attribute =
+    dataAttributeName === "data-chat-streaming-markdown-tail"
+      ? { "data-chat-streaming-markdown-tail": "true" }
+      : { "data-chat-assistant-activity-thought-stream-tail": "true" };
+
+  return (
+    <div {...attribute} className={className}>
+      {highlightTerms.length > 0
+        ? renderConversationSearchHighlightedText(text, highlightTerms)
+        : characters.map((character) => (
+            <span
+              key={character.id}
+              className={
+                character.animate ? "chat-stream-char-enter" : undefined
+              }
+              data-chat-streaming-character={
+                character.animate ? "entering" : "settled"
+              }
+            >
+              {character.value === " " ? "\u00A0" : character.value}
+            </span>
+          ))}
+    </div>
+  );
+}
+
+function StreamingMarkdownContent({
+  content,
+  className,
+  highlightTerms = [],
+}: {
+  content: string;
+  className: string;
+  highlightTerms?: Array<string>;
+}) {
+  const displayText = useTypewriterEffect(content, true, {
+    typingSpeed: 8,
+    baseMaxCharsPerFrame: 1,
+    maxCharsPerFrameCap: 4,
+  });
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const { committedMarkdown, activeTailText, committedLineCount } = useMemo(
+    () => splitStreamingMarkdownText(displayText),
+    [displayText],
+  );
+  const rehypePlugins = useMemo(() => {
+    if (highlightTerms.length === 0) {
+      return [rehypeKatex];
+    }
+    return [rehypeKatex, ...getConversationSearchRehypePlugins(highlightTerms)];
+  }, [highlightTerms]);
+  const commitAnimationClass = useStreamingCommitAnimationClass(
+    committedLineCount,
+    true,
+  );
+
+  useStreamingGrowthAnimation(rootRef, committedLineCount, true);
+
+  return (
+    <div
+      ref={rootRef}
+      className="inline-block max-w-full align-top"
+      data-chat-streaming-markdown="true"
+      data-chat-streaming-markdown-mode="line-committed"
+      data-chat-streaming-markdown-has-tail={
+        activeTailText.length > 0 ? "true" : "false"
+      }
+    >
+      {committedMarkdown ? (
+        <div
+          data-chat-streaming-markdown-committed="true"
+          className={commitAnimationClass}
+        >
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm, remarkMath]}
+            rehypePlugins={rehypePlugins}
+            className={className}
+            components={CHAT_MARKDOWN_COMPONENTS}
+          >
+            {committedMarkdown}
+          </ReactMarkdown>
+        </div>
+      ) : null}
+      {activeTailText ? (
+        <StreamingTailText
+          text={activeTailText}
+          className={STREAMING_ASSISTANT_TAIL_CLASS}
+          highlightTerms={highlightTerms}
+          animateCharacters={true}
+          dataAttributeName="data-chat-streaming-markdown-tail"
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function ThoughtPreviewMarkdown({
+  text,
+  animate,
+}: {
+  text: string;
+  animate: boolean;
+}) {
+  const displayText = useTypewriterEffect(text, animate, {
+    typingSpeed: 9,
+    baseMaxCharsPerFrame: 1,
+    maxCharsPerFrameCap: 3,
+  });
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const { committedMarkdown, activeTailText, committedLineCount } = useMemo(
+    () =>
+      animate
+        ? splitStreamingMarkdownText(displayText)
+        : {
+            committedMarkdown: displayText,
+            activeTailText: "",
+            committedLineCount: 0,
+          },
+    [animate, displayText],
+  );
+  const commitAnimationClass = useStreamingCommitAnimationClass(
+    committedLineCount,
+    animate,
+  );
+
+  useStreamingGrowthAnimation(rootRef, committedLineCount, animate);
+
+  return (
+    <div
+      ref={rootRef}
+      data-chat-assistant-activity-thought-markdown-preview="true"
+      data-chat-assistant-activity-thought-markdown-mode={
+        animate ? "line-committed" : "static"
+      }
+    >
+      {committedMarkdown ? (
+        <div className={commitAnimationClass}>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm, remarkMath]}
+            rehypePlugins={[rehypeKatex]}
+            className={THOUGHT_PREVIEW_MARKDOWN_CLASS}
+            components={CHAT_MARKDOWN_COMPONENTS}
+          >
+            {committedMarkdown}
+          </ReactMarkdown>
+        </div>
+      ) : null}
+      {activeTailText ? (
+        <StreamingTailText
+          text={activeTailText}
+          className={THOUGHT_PREVIEW_TAIL_CLASS}
+          animateCharacters={animate}
+          dataAttributeName="data-chat-assistant-activity-thought-stream-tail"
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function StaticMarkdownContent({
+  content,
+  className,
+  highlightTerms = [],
+}: {
+  content: string;
+  className: string;
+  highlightTerms?: Array<string>;
+}) {
+  const rehypePlugins = useMemo(() => {
+    if (highlightTerms.length === 0) {
+      return [rehypeKatex];
+    }
+    return [rehypeKatex, ...getConversationSearchRehypePlugins(highlightTerms)];
+  }, [highlightTerms]);
+
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm, remarkMath]}
+      rehypePlugins={rehypePlugins}
+      className={className}
+      components={CHAT_MARKDOWN_COMPONENTS}
+    >
+      {content}
+    </ReactMarkdown>
+  );
+}
+
 function MarkdownContent({
   content,
   className,
@@ -510,51 +880,27 @@ function MarkdownContent({
   isStreaming,
   highlightTerms = [],
 }: MarkdownContentProps) {
-  const shouldAnimate = role === ChatRoleEnum.assistant && isStreaming;
-  const displayText = useTypewriterEffect(content, shouldAnimate, 5);
-  const rehypePlugins = useMemo(() => {
-    if (highlightTerms.length === 0) {
-      return [rehypeKatex];
-    }
-    return [rehypeKatex, ...getConversationSearchRehypePlugins(highlightTerms)];
-  }, [highlightTerms]);
+  if (role === ChatRoleEnum.assistant && isStreaming) {
+    return (
+      <StreamingMarkdownContent
+        content={content}
+        className={className}
+        highlightTerms={highlightTerms}
+      />
+    );
+  }
+
   const markdownWidthClassName =
     role === ChatRoleEnum.assistant
       ? "inline-block max-w-full align-top"
       : "w-full max-w-full";
-  const markdownClassName = `${markdownWidthClassName} ${className}`;
-  const streamingRevealPhase =
-    displayText.length % 2 === 0
-      ? "chat-stream-reveal-a"
-      : "chat-stream-reveal-b";
-  if (shouldAnimate) {
-    return (
-      <div
-        className={`${markdownWidthClassName} ${streamingRevealPhase}`.trim()}
-        data-chat-streaming-markdown="true"
-        data-chat-streaming-reveal-phase={streamingRevealPhase}
-      >
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm, remarkMath]}
-          rehypePlugins={rehypePlugins}
-          className={className}
-          components={CHAT_MARKDOWN_COMPONENTS}
-        >
-          {displayText}
-        </ReactMarkdown>
-      </div>
-    );
-  }
 
   return (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm, remarkMath]}
-      rehypePlugins={rehypePlugins}
-      className={markdownClassName}
-      components={CHAT_MARKDOWN_COMPONENTS}
-    >
-      {displayText}
-    </ReactMarkdown>
+    <StaticMarkdownContent
+      content={content}
+      className={`${markdownWidthClassName} ${className}`}
+      highlightTerms={highlightTerms}
+    />
   );
 }
 
@@ -4020,7 +4366,7 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
         ...thoughtPreviewMaskStyle,
       }}
     >
-      {text}
+      <ThoughtPreviewMarkdown text={text} animate={animate} />
     </div>
   );
 });

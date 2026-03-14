@@ -357,6 +357,7 @@ describe("ChatMessages markdown code rendering", () => {
               "",
               "- Build apps",
               "- Stream markdown",
+              "Cur",
             ].join("\n"),
           }),
         ],
@@ -370,10 +371,14 @@ describe("ChatMessages markdown code rendering", () => {
     );
 
     expect(markup).toContain('data-chat-streaming-markdown="true"');
+    expect(markup).toContain('data-chat-streaming-markdown-mode="line-committed"');
+    expect(markup).toContain('data-chat-streaming-markdown-committed="true"');
+    expect(markup).toContain('data-chat-streaming-markdown-tail="true"');
     expect(markup).toContain("<h2>Core Purpose</h2>");
     expect(markup).toContain("<li>Build apps</li>");
+    expect(markup).toContain("<li>Stream markdown</li>");
     expect(markup).not.toContain("## Core Purpose");
-    expect(markup).toMatch(/chat-stream-reveal-[ab]/);
+    expect(markup).toContain('data-chat-streaming-character="settled"');
   });
 });
 
@@ -1819,9 +1824,41 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).toContain(
       'data-chat-assistant-activity-thought-scroll="true"',
     );
+    expect(markup).toContain(
+      'data-chat-assistant-activity-thought-markdown-preview="true"',
+    );
     expect(markup).toContain("top-bottom-fade");
     expect(markup).toContain("h-9");
     expect(markup).toContain("pb-1.5");
+  });
+
+  it("renders thought previews through the compact markdown surface", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-thinking-preview-markdown",
+        role: ChatRoleEnum.assistant,
+        content: [
+          createMessageThinkingContent({
+            thinking: ["Preview heading", "", "- compact bullet", "- second"].join(
+              "\n",
+            ),
+            summary: "",
+          }),
+        ],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain(
+      'data-chat-assistant-activity-thought-markdown-preview="true"',
+    );
+    expect(markup).toContain("<li>compact bullet</li>");
+    expect(markup).toContain("<li>second</li>");
   });
 
   it("renders collapsed reasoning summaries as markdown inline", () => {

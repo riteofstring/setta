@@ -61,35 +61,61 @@
   }
 }
 
-@keyframes setta-chat-stream-reveal-a {
+@keyframes setta-chat-stream-commit-a {
   0% {
-    opacity: 0.82;
+    opacity: 0.94;
+    transform: translateY(-0.35rem);
   }
   100% {
     opacity: 1;
+    transform: translateY(0);
   }
 }
 
-@keyframes setta-chat-stream-reveal-b {
+@keyframes setta-chat-stream-commit-b {
   0% {
-    opacity: 0.82;
+    opacity: 0.94;
+    transform: translateY(-0.35rem);
   }
   100% {
     opacity: 1;
+    transform: translateY(0);
   }
 }
 
-.chat-stream-reveal-a {
-  animation: setta-chat-stream-reveal-a 90ms ease-out;
+.chat-stream-commit-a {
+  animation: setta-chat-stream-commit-a 170ms
+    cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.chat-stream-reveal-b {
-  animation: setta-chat-stream-reveal-b 90ms ease-out;
+.chat-stream-commit-b {
+  animation: setta-chat-stream-commit-b 170ms
+    cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes setta-chat-stream-char-enter {
+  0% {
+    opacity: 0;
+    filter: blur(1.5px);
+    transform: translateY(0.12em);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.chat-stream-char-enter {
+  display: inline-block;
+  animation: setta-chat-stream-char-enter 180ms
+    cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .chat-stream-reveal-a,
-  .chat-stream-reveal-b {
+  .chat-stream-commit-a,
+  .chat-stream-commit-b,
+  .chat-stream-char-enter {
     animation: none;
   }
 }

@@ -180,6 +180,7 @@ test("streaming assistant markdown renders as formatted markdown before the stre
                   "",
                   "- Build interactive applications",
                   "- Stream rendered markdown",
+                  "Cur",
                 ].join("\n"),
               },
             ],
@@ -194,11 +195,6 @@ test("streaming assistant markdown renders as formatted markdown before the stre
     });
 
     const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
-    const streamingMarkdown = node.locator(
-      '[data-chat-streaming-markdown="true"]',
-    );
-
-    await expect(streamingMarkdown).toBeVisible({ timeout: 10000 });
     await expect(
       node.getByRole("heading", { name: "Core Purpose" }),
     ).toBeVisible({
@@ -207,6 +203,10 @@ test("streaming assistant markdown renders as formatted markdown before the stre
     await expect(
       node.getByText("Build interactive applications", { exact: false }),
     ).toBeVisible();
+    await expect(
+      node.getByText("Stream rendered markdown", { exact: false }),
+    ).toBeVisible();
+    await expect(node.getByText("Cur", { exact: false })).toBeVisible();
 
     await expect
       .poll(async () => {
