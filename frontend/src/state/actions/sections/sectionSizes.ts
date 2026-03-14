@@ -2,11 +2,9 @@ import _ from "lodash";
 import {
   getCurrEffectiveSectionImpl,
   getEmbeddedAttachedTerminalParentIdForTerminalSection,
-  setCurrEffectiveSectionImplValue,
-} from "state/actions/sectionEffectiveImpls";
-import {
   getHighestAncestor,
   getSectionDescendants,
+  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { ZustandProjectState } from "state/definitions";
 import {

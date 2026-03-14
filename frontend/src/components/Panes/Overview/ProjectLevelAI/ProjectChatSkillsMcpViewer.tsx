@@ -19,13 +19,13 @@ import {
 import { FiChevronDown, FiPlus, FiRefreshCw, FiSave } from "react-icons/fi";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { loadAgentRuns } from "state/actions/aiAgentRuns";
+import { loadAgentRuns } from "state/actions/ai";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   type ProjectChatCustomSlashCommand,
   useAIStore,
+  useLocalStorage,
 } from "state/definitions";
-import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import {
   type AppGenerationMode,
   parseAppGenerationMode,

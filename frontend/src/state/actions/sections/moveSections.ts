@@ -10,8 +10,8 @@ import {
 } from "utils/generatedEndpoints";
 import { Position, SectionTypeEnum } from "utils/generatedTypes";
 import { insertIntoArray } from "utils/utils";
-import { dispatchOptimisticProjectStateUpdate } from "../projectStateOptimisticUpdates";
 import {
+  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
   isBaseCodeSectionType,

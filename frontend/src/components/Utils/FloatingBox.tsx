@@ -7,7 +7,7 @@ import {
   createTopLevelSection,
   getEmptySpacePosition,
 } from "state/actions/sections/createSections";
-import { useLocalStorage, useSettings } from "state/stores/uiPreferenceStores";
+import { useLocalStorage, useSettings } from "state/definitions";
 import { APP_FLOATING_BOX_Z_INDEX_CLASS_NAME } from "utils/constants";
 import { SectionTypeEnum, TextBlockFormatEnum } from "utils/generatedTypes";
 import { positiveMod, shortcutPrettified } from "utils/utils";
