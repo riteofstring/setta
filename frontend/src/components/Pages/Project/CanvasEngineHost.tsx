@@ -519,7 +519,7 @@ export function CanvasEngineHost() {
         liveEdgeHandlePositions: visibleNestedEdgeHandlePositions,
         knownTopLevelSectionIds: Object.keys(topLevelSections),
         nestedPreviewRects,
-        previousCachedPositions: currentCachedPositions,
+        sectionEdgePortsBySectionId,
       });
       if (
         areEdgeHandlePositionMapsEqual(
@@ -531,7 +531,12 @@ export function CanvasEngineHost() {
       }
       return nextCachedPositions;
     });
-  }, [nestedPreviewRects, topLevelSections, visibleNestedEdgeHandlePositions]);
+  }, [
+    nestedPreviewRects,
+    sectionEdgePortsBySectionId,
+    topLevelSections,
+    visibleNestedEdgeHandlePositions,
+  ]);
 
   useEffect(() => {
     const currentCachedPositions = useEdgeHandleRegistry.getState()

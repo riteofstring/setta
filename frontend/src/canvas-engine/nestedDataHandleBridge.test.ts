@@ -29,7 +29,12 @@ describe("collectCanvasEngineNestedDataHandlePositions", () => {
       liveEdgeHandlePositions: initialLivePositions,
       knownTopLevelSectionIds: ["group-a"],
       nestedPreviewRects,
-      previousCachedPositions: {},
+      sectionEdgePortsBySectionId: {
+        "nested-a": {
+          inputPortIds: [],
+          outputPortIds: ["out-1"],
+        },
+      },
     });
 
     expect(cached).toEqual(initialLivePositions);
@@ -38,10 +43,23 @@ describe("collectCanvasEngineNestedDataHandlePositions", () => {
       liveEdgeHandlePositions: {},
       knownTopLevelSectionIds: ["group-a"],
       nestedPreviewRects,
-      previousCachedPositions: cached,
+      sectionEdgePortsBySectionId: {
+        "nested-a": {
+          inputPortIds: [],
+          outputPortIds: ["out-1"],
+        },
+      },
     });
 
-    expect(retained).toEqual(initialLivePositions);
+    expect(retained).toEqual({
+      "nested-a:out-1:source": createEdgeHandlePosition({
+        sectionId: "nested-a",
+        portId: "out-1",
+        type: "source",
+        x: 260,
+        y: 150,
+      }),
+    });
   });
 
   it("drops cached positions when the nested preview section disappears", () => {
@@ -59,7 +77,12 @@ describe("collectCanvasEngineNestedDataHandlePositions", () => {
       liveEdgeHandlePositions: {},
       knownTopLevelSectionIds: ["group-a"],
       nestedPreviewRects: [],
-      previousCachedPositions,
+      sectionEdgePortsBySectionId: {
+        "nested-a": {
+          inputPortIds: [],
+          outputPortIds: ["out-1"],
+        },
+      },
     });
 
     expect(nextCached).toEqual({});
@@ -96,11 +119,96 @@ describe("collectCanvasEngineNestedDataHandlePositions", () => {
           height: 140,
         }),
       ],
-      previousCachedPositions: {},
+      sectionEdgePortsBySectionId: {
+        "nested-a": {
+          inputPortIds: ["in-1"],
+          outputPortIds: [],
+        },
+      },
     });
 
     expect(cached).toEqual({
       "nested-a:in-1:target": liveEdgeHandlePositions["nested-a:in-1:target"],
+    });
+  });
+
+  it("estimates distinct cached positions from nested preview rects and port order", () => {
+    const cached = collectCanvasEngineNestedDataHandlePositions({
+      liveEdgeHandlePositions: {},
+      knownTopLevelSectionIds: ["group-a"],
+      nestedPreviewRects: [
+        createNestedPreviewRect({
+          id: "nested-a",
+          parentSectionId: "group-a",
+          x: 40,
+          y: 80,
+          width: 220,
+          height: 140,
+        }),
+        createNestedPreviewRect({
+          id: "nested-b",
+          parentSectionId: "group-a",
+          x: 40,
+          y: 260,
+          width: 220,
+          height: 140,
+        }),
+      ],
+      sectionEdgePortsBySectionId: {
+        "nested-a": {
+          inputPortIds: ["in-1", "in-2"],
+          outputPortIds: ["out-1"],
+        },
+        "nested-b": {
+          inputPortIds: ["in-1"],
+          outputPortIds: ["out-1", "out-2"],
+        },
+      },
+    });
+
+    expect(cached).toEqual({
+      "nested-a:in-1:target": createEdgeHandlePosition({
+        sectionId: "nested-a",
+        portId: "in-1",
+        type: "target",
+        x: 40,
+        y: 126.66666666666666,
+      }),
+      "nested-a:in-2:target": createEdgeHandlePosition({
+        sectionId: "nested-a",
+        portId: "in-2",
+        type: "target",
+        x: 40,
+        y: 173.33333333333331,
+      }),
+      "nested-a:out-1:source": createEdgeHandlePosition({
+        sectionId: "nested-a",
+        portId: "out-1",
+        type: "source",
+        x: 260,
+        y: 150,
+      }),
+      "nested-b:in-1:target": createEdgeHandlePosition({
+        sectionId: "nested-b",
+        portId: "in-1",
+        type: "target",
+        x: 40,
+        y: 330,
+      }),
+      "nested-b:out-1:source": createEdgeHandlePosition({
+        sectionId: "nested-b",
+        portId: "out-1",
+        type: "source",
+        x: 260,
+        y: 306.6666666666667,
+      }),
+      "nested-b:out-2:source": createEdgeHandlePosition({
+        sectionId: "nested-b",
+        portId: "out-2",
+        type: "source",
+        x: 260,
+        y: 353.3333333333333,
+      }),
     });
   });
 });
