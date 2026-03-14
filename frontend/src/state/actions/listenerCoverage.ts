@@ -1,8 +1,8 @@
+import { NULL_PROJECT_CONFIG_ID } from "state/definitions";
 import {
-  NULL_PROJECT_CONFIG_ID,
   useListenerCoverage,
   type ListenerCoverageRecord,
-} from "state/definitions";
+} from "state/stores/authoringStores";
 import { res200 } from "utils/endpointUtils";
 import { route_get_listener_coverage } from "utils/generatedEndpoints";
 import {

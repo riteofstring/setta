@@ -24,7 +24,7 @@ import {
   getParamsFixedHeightKey,
   getSectionHeaderHeightKey,
   getSectionSearchHeightKey,
-} from "utils/constants";
+} from "utils/constants/measurements";
 import {
   isBaseSectionWithParamsImpl,
   MetaControlSizingPolicyTypeEntry,
