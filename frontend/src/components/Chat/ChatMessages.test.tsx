@@ -1742,6 +1742,7 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(parentHoverMetaTag).not.toBeNull();
     expect(parentHoverMetaTag).toContain("opacity-0");
     expect(parentHoverMetaTag).toContain("pointer-events-none");
+    expect(markup).toContain('data-chat-assistant-activity-header-row="true"');
     expect(
       countOccurrences(markup, 'data-chat-activity-item-copy-button="true"'),
     ).toBe(0);

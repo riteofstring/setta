@@ -221,7 +221,7 @@ const TOOL_SECTION_CARD_CLASS = "w-full overflow-hidden";
 const TOOL_SECTION_TRIGGER_CLASS = `group grid w-full cursor-pointer ${TOOL_CALL_RAIL_GRID_CLASS} ${ACTIVITY_CHILD_TRIGGER_CLASS} text-left transition-colors [&[data-state=open]_.chat-accordion-chevron]:rotate-180`;
 const TOOL_ROW_TRIGGER_CLASS = `group grid w-full cursor-pointer ${TOOL_CALL_RAIL_GRID_CLASS} ${ACTIVITY_CHILD_TRIGGER_CLASS} text-left transition-colors [&[data-state=open]_.chat-accordion-chevron]:rotate-180`;
 const ASSISTANT_ACTIVITY_PARENT_CLASS = "w-full overflow-hidden bg-transparent";
-const ASSISTANT_ACTIVITY_TRIGGER_CLASS = `group group/chat-activity-parent relative flex w-full cursor-pointer items-stretch pl-0.5 text-left transition-colors ${ACTIVITY_ROW_HOVER_CLASS} [&[data-state=open]_.chat-accordion-chevron]:rotate-180`;
+const ASSISTANT_ACTIVITY_TRIGGER_CLASS = `group group/chat-activity-parent flex w-full cursor-pointer items-stretch pl-0.5 text-left transition-colors ${ACTIVITY_ROW_HOVER_CLASS} [&[data-state=open]_.chat-accordion-chevron]:rotate-180`;
 const ACTIVITY_COUNT_BADGE_CLASS =
   "inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full border border-setta-300/80 bg-setta-100 px-1.5 py-[1px] text-[10px] font-semibold leading-none text-setta-700 dark:border-setta-600/80 dark:bg-setta-800 dark:text-setta-200";
 const ACTIVITY_COPY_BUTTON_BASE_CLASS =
@@ -4137,7 +4137,10 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
             onClick={handleActivityTriggerClick}
           >
             <div className="w-full @container">
-              <div className="flex w-full min-w-0 items-center gap-2 @[20rem]:h-8">
+              <div
+                data-chat-assistant-activity-header-row="true"
+                className="relative flex w-full min-w-0 items-center gap-2 @[20rem]:h-8"
+              >
                 <div
                   data-chat-assistant-activity-label="true"
                   className={ACTIVITY_PARENT_LABEL_CLASS}

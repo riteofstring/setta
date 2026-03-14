@@ -183,24 +183,35 @@ test.describe.serial("chat tool calls", () => {
             const trigger = sectionElement.querySelector(
               '[data-chat-assistant-activity-trigger="true"]',
             );
+            const headerRow = sectionElement.querySelector(
+              '[data-chat-assistant-activity-header-row="true"]',
+            );
             const countBadge = sectionElement.querySelector(
               '[data-chat-assistant-activity-count-badge="true"]',
             );
             const title = sectionElement.querySelector(
               '[data-chat-assistant-activity-latest="true"]',
             );
-            if (!trigger || !countBadge || !title) {
+            const hoverMeta = sectionElement.querySelector(
+              '[data-chat-assistant-activity-hover-meta="true"]',
+            );
+            if (!trigger || !headerRow || !countBadge || !title || !hoverMeta) {
               return null;
             }
             const triggerRect = trigger.getBoundingClientRect();
+            const headerRowRect = headerRow.getBoundingClientRect();
             const countRect = countBadge.getBoundingClientRect();
             const titleRect = title.getBoundingClientRect();
+            const hoverMetaRect = hoverMeta.getBoundingClientRect();
             const titleStyles = window.getComputedStyle(title);
             return {
               triggerHeight: triggerRect.height,
               sameLine: Math.abs(countRect.top - titleRect.top) <= 4,
               titleFlexGrow: titleStyles.flexGrow,
               titleFlexBasis: titleStyles.flexBasis,
+              hoverMetaWithinHeader:
+                hoverMetaRect.top >= headerRowRect.top - 1 &&
+                hoverMetaRect.bottom <= headerRowRect.bottom + 1,
             };
           };
 
@@ -233,12 +244,14 @@ test.describe.serial("chat tool calls", () => {
       );
       expect(responsiveHeaderGeometry.wide.titleFlexGrow).toBe("1");
       expect(responsiveHeaderGeometry.wide.titleFlexBasis).toBe("auto");
+      expect(responsiveHeaderGeometry.wide.hoverMetaWithinHeader).toBe(true);
       expect(responsiveHeaderGeometry.narrow.sameLine).toBe(false);
       expect(
         responsiveHeaderGeometry.narrow.triggerHeight,
       ).toBeGreaterThanOrEqual(32);
       expect(responsiveHeaderGeometry.narrow.titleFlexGrow).toBe("0");
       expect(responsiveHeaderGeometry.narrow.titleFlexBasis).toContain("100");
+      expect(responsiveHeaderGeometry.narrow.hoverMetaWithinHeader).toBe(true);
 
       await activityTrigger.click();
       await expect(activityTrigger).toHaveAttribute("aria-expanded", "false");

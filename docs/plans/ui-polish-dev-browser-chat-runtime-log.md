@@ -753,3 +753,15 @@ For each new entry, append:
 - Decisions: Keep search stepping aligned to the existing text-highlighting source of truth instead of inventing a separate “message hit” model. The active search counter now measures actual match occurrences, which matches expected search behavior.
 - Blockers or open questions: None in code or automated coverage. A future session with a healthy DevTools MCP transport can visually reconfirm the active-highlight movement.
 - Next recommended slice: None from the original plan. Continue only with new follow-up polish or bugfix items.
+
+### 2026-03-13 11:56
+
+- Date: 2026-03-13 11:56 EDT
+- Scope: Fixed the parent activity accordion header layout so the hover-only group controls stay inside the title row instead of drifting over the thought-preview/body text when the accordion is open.
+- Tests added or updated first: Updated `frontend/src/components/Chat/ChatMessages.test.tsx` so the rendered activity accordion now requires a dedicated `data-chat-assistant-activity-header-row` marker. Extended `frontend/tests/e2e/chat/chat-tool-calls.spec.ts` so the grouped-activity geometry check verifies the hover-meta controls stay vertically inside the header row at both wider and narrower widths.
+- Production code changed: Updated `frontend/src/components/Chat/ChatMessages.tsx` so the parent activity trigger is no longer the relative positioning anchor for the hover meta. The header row now owns that positioning context via `data-chat-assistant-activity-header-row`, which keeps the `Open all` button and elapsed timer aligned with the accordion title strip instead of the middle of the expanded activity body.
+- Verification run: Final green runs were `pnpm -C frontend exec vitest run src/components/Chat/ChatMessages.test.tsx` and `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/chat-tool-calls.spec.ts`.
+- CDP visual check: Not run. `chrome-devtools-mcp` still fails in this chat with `Transport closed`, so I could not complete the required live visual confirmation.
+- Decisions: Keep the hover controls overlay-based so they still do not affect title truncation until hover, but anchor that overlay to the header row only. This preserves the existing truncation behavior while removing the body-text occlusion.
+- Blockers or open questions: Code and automated coverage are complete. I still need a healthy DevTools MCP session to finish the visual gate for this slice.
+- Next recommended slice: None from the original plan. Continue only with new follow-up polish or bugfix items.
