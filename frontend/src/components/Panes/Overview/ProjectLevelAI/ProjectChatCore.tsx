@@ -44,6 +44,7 @@ import {
   getDefaultChatDetails,
   getExternalAgentChatHydrationOutcome,
   getLLMChatHydrationOutcome,
+  getProjectChatHydrationOutcomeWithFallback,
   initializePendingChatDetails,
   loadAgentRuns,
   stopProjectChatResponse,
@@ -202,11 +203,24 @@ export async function hydrateProjectChatFromRuntime({
   chatId,
   projectConfigId,
   hydrationRunType,
+  shouldProbeMissingProvenance,
 }: {
   chatId: string;
   projectConfigId: string;
   hydrationRunType: ChatRunType | null;
+  shouldProbeMissingProvenance: boolean;
 }): Promise<ChatHydrationOutcome> {
+  const preferredHydrationRunType =
+    hydrationRunType === "llm_chat" || hydrationRunType === "external_agent"
+      ? hydrationRunType
+      : null;
+  if (shouldProbeMissingProvenance) {
+    return getProjectChatHydrationOutcomeWithFallback(
+      chatId,
+      projectConfigId,
+      preferredHydrationRunType,
+    );
+  }
   if (hydrationRunType === "external_agent") {
     return getExternalAgentChatHydrationOutcome(chatId, projectConfigId);
   }
@@ -990,6 +1004,7 @@ function useHasPythonInWorkspaceRoot(
       try {
         const contentsResponse = await route_get_folder_contents({
           folderPath: rootPath,
+          includeHidden: false,
           includeMtime: false,
           includeSize: false,
           maxEntries: 5000,
@@ -1309,7 +1324,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   requiresNewThreadContinuation = false,
   newThreadContinuationRequiredReason = null,
   newThreadSeedChatId = null,
-  activeConversationSearchMatchIndex = null,
+  activeConversationSearchMatchMessageId = null,
   hydrationAuthority,
   hydrationMetadataRevision,
   thinking,
@@ -1323,7 +1338,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   providerDictationAvailable,
   providerDictationLikelySupported,
   setChatId,
-  onConversationSearchMatchCountChange,
   onStartNewChat,
   onDraftThreadStart,
   onDraftThreadSettled,
@@ -1340,7 +1354,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   requiresNewThreadContinuation?: boolean;
   newThreadContinuationRequiredReason?: string | null;
   newThreadSeedChatId?: string | null;
-  activeConversationSearchMatchIndex?: number | null;
+  activeConversationSearchMatchMessageId?: string | null;
   hydrationAuthority: ProjectChatHydrationAuthority;
   hydrationMetadataRevision: string;
   thinking: boolean;
@@ -1354,7 +1368,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   providerDictationAvailable: boolean;
   providerDictationLikelySupported: boolean;
   setChatId: Dispatch<SetStateAction<string | null | undefined>>;
-  onConversationSearchMatchCountChange?: (count: number) => void;
   onStartNewChat?: () => void;
   onDraftThreadStart?: () => void;
   onDraftThreadSettled?: (
@@ -1667,15 +1680,22 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     if (hydrationAuthority.status !== "ready") {
       return;
     }
-    if (hydrationRunType === null) {
+    const shouldProbeMissingProvenance =
+      hydrationAuthority.blockedErrorCode === "chat_provenance_missing";
+    if (hydrationRunType === null && !shouldProbeMissingProvenance) {
       return;
     }
-    const cacheKey = buildProjectChatHydrationCacheKey({
-      projectConfigId,
-      chatId,
-      hydrationRunType,
-      hydrationMetadataRevision,
-    });
+    if (waitingForResponse) {
+      return;
+    }
+    const cacheKey = shouldProbeMissingProvenance
+      ? `${projectConfigId}:${chatId}:chat_provenance_probe:${hydrationMetadataRevision}`
+      : buildProjectChatHydrationCacheKey({
+          projectConfigId,
+          chatId,
+          hydrationRunType,
+          hydrationMetadataRevision,
+        });
     if (!cacheKey) {
       return;
     }
@@ -1724,6 +1744,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         chatId,
         projectConfigId,
         hydrationRunType,
+        shouldProbeMissingProvenance,
       });
       if (cancelled) {
         return;
@@ -2300,17 +2321,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     !hasVisibleConversationMatches &&
     !waitingForResponse;
 
-  useEffect(() => {
-    if (!showEmptyState && !showConversationSearchEmptyState) {
-      return;
-    }
-    onConversationSearchMatchCountChange?.(0);
-  }, [
-    onConversationSearchMatchCountChange,
-    showConversationSearchEmptyState,
-    showEmptyState,
-  ]);
-
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden">
       {blockedReason ? (
@@ -2351,12 +2361,8 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           waitingForResponse={waitingForResponse}
           toolCallArguments={toolCallArguments}
           interruptedAssistantMessageIds={interruptedAssistantMessageIds}
-          activeSearchMatchIndex={activeConversationSearchMatchIndex}
-          conversationSearchTerms={normalizedConversationSearchTerms}
+          activeSearchMessageId={activeConversationSearchMatchMessageId}
           editDisabledReason={editDisabledReason}
-          onConversationSearchMatchCountChange={
-            onConversationSearchMatchCountChange
-          }
           onRedoMessage={handleRedoMessage}
           onEditMessage={handleEditMessage}
           onBranchSwitch={handleBranchSwitch}

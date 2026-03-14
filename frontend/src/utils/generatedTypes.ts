@@ -1297,7 +1297,6 @@ export type ChatFileAttachment = z.infer<typeof ChatFileAttachmentSchema>;
 const SystemChatMessageSchema = z.object({
   id: z.string().default(create_new_id),
   role: z.literal("system").default(ChatRoleEnum.system),
-  createdAt: z.int().default(0),
   content: z
     .array(
       z.union([
@@ -1338,7 +1337,6 @@ export function createToolCall(options: Partial<ToolCall> = {}): ToolCall {
 const AssistantChatMessageSchema = z.object({
   id: z.string().default(create_new_id),
   role: z.literal("assistant").default(ChatRoleEnum.assistant),
-  createdAt: z.int().default(0),
   content: z
     .array(
       z.union([
@@ -1363,7 +1361,6 @@ export function createAssistantChatMessage(
 const UserChatMessageSchema = z.object({
   id: z.string().default(create_new_id),
   role: z.literal("user").default(ChatRoleEnum.user),
-  createdAt: z.int().default(0),
   content: z
     .array(
       z.union([
@@ -1435,7 +1432,6 @@ const ToolReferenceContentSchema = z.object({
 const ToolChatMessageSchema = z.object({
   id: z.string().default(create_new_id),
   role: z.literal("tool").default(ChatRoleEnum.tool),
-  createdAt: z.int().default(0),
   tool_call_id: z.string(),
   tool_name: z.union([z.string(), z.null()]).default(null),
   arguments: z
@@ -8348,32 +8344,13 @@ export function createGitStatusEntry(
   return GitStatusEntrySchema.parse(options);
 }
 
-const GitWorktreeEntrySchema = z.object({
-  path: z.string(),
-  displayName: z.string(),
-  branchName: z.union([z.string(), z.null()]).default(null),
-  headCommit: z.union([z.string(), z.null()]).default(null),
-  isCurrent: z.boolean(),
-  isPrunable: z.boolean().default(false),
-  prunableReason: z.union([z.string(), z.null()]).default(null),
-});
-
-export type GitWorktreeEntry = z.infer<typeof GitWorktreeEntrySchema>;
-
 const GetGitStatusResponseSchema = z.object({
   repo: GitRepoInfoResponseSchema,
   entries: z.array(GitStatusEntrySchema),
   isTruncated: z.boolean().default(false),
-  worktrees: z.array(GitWorktreeEntrySchema).default(() => []),
 });
 
 export type GetGitStatusResponse = z.infer<typeof GetGitStatusResponseSchema>;
-
-export function createGetGitStatusResponse(
-  options: Partial<GetGitStatusResponse> = {},
-): GetGitStatusResponse {
-  return GetGitStatusResponseSchema.parse(options);
-}
 
 const ChatSectionStateSchema = z.object({
   messages: z
@@ -9246,6 +9223,7 @@ const GetFolderContentsRequestSchema = z.object({
   allowOutsideWorkspaceRoot: z.boolean().default(false),
   includeMtime: z.boolean().default(false),
   includeSize: z.boolean().default(false),
+  includeHidden: z.boolean().default(false),
   includeSettaInitialized: z.boolean().default(false),
   ignorePatterns: z.union([z.array(z.string()), z.null()]).default(null),
   maxEntries: z.union([z.int(), z.null()]).default(null),

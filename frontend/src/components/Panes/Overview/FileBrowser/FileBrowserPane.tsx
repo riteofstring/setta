@@ -2,11 +2,6 @@ import SettaSLogo from "assets/icons/s-logo-only-og.svg?react";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import { createFolderPathCompletionSource } from "components/Utils/CodeMirror/folderPathCompletions";
 import { InlineCodeMirrorInput } from "components/Utils/CodeMirror/InlineCodeMirrorInput";
-import {
-  FileBrowserBreadcrumbs,
-  FileBrowserGoUpButton,
-  FileBrowserPathInput,
-} from "components/Utils/FileBrowserPathControls";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { useReactFlow } from "forks/xyflow/core/store";
 import type { CSSProperties } from "react";
@@ -43,10 +38,6 @@ import {
   normalizeFileBrowserPathForFilter,
   parseFileBrowserFilterText,
 } from "utils/fileBrowserFilter";
-import {
-  buildFileBrowserBreadcrumbs,
-  getFileBrowserParentPath,
-} from "utils/fileBrowserNavigation";
 import {
   isSameOrDescendantBrowserPath,
   normalizeFileBrowserPathForComparison,
@@ -521,7 +512,6 @@ type FileBrowserPaneProps = {
   onSelectionChange?: (node: FileNode | null) => void;
   useFileBrowserStateHook?: typeof useFileBrowserState;
   showFilter?: boolean;
-  showPathNavigation?: boolean;
   includeSettaInitializedFolders?: boolean;
   showSettaInitializedBadgePill?: boolean;
   allowOutsideWorkspaceRoot?: boolean;
@@ -539,7 +529,6 @@ export function FileBrowserPane({
   onSelectionChange,
   useFileBrowserStateHook,
   showFilter = true,
-  showPathNavigation = true,
   includeSettaInitializedFolders = false,
   showSettaInitializedBadgePill = true,
   allowOutsideWorkspaceRoot = false,
@@ -579,7 +568,6 @@ export function FileBrowserPane({
   const [loadingPaths, setLoadingPaths] = useState<Record<string, boolean>>({});
   const loadingPathOwnerByPathRef = useRef<Record<string, string>>({});
   const [errorByPath, setErrorByPath] = useState<Record<string, string>>({});
-  const [browserRootPath, setBrowserRootPath] = useState<string | null>(null);
   const [ignorePatterns, setIgnorePatterns] = useState<string[]>([]);
   const [pathSeparator, setPathSeparator] = useState("/");
   const [rootError, setRootError] = useState<string | null>(null);
@@ -600,7 +588,6 @@ export function FileBrowserPane({
   const fileUrlRequests = useRef<Set<string>>(new Set());
   const listRef = useListRef();
   const listWrapperRef = useRef<HTMLDivElement | null>(null);
-  const pathInputId = useId();
   const didLoadRootRef = useRef(false);
   const rootRequestIdRef = useRef(0);
   const folderRequestIdRef = useRef<Record<string, number>>({});
@@ -902,43 +889,6 @@ export function FileBrowserPane({
     (path: string) => sortedChildrenByPath[path] ?? [],
     [sortedChildrenByPath],
   );
-  const navigationRootPath =
-    allowOutsideWorkspaceRoot && showPathNavigation
-      ? rootPath
-      : browserRootPath ?? rootPath;
-  const pathCompletionSource = useMemo(
-    () =>
-      createFolderPathCompletionSource({
-        rootPath: navigationRootPath,
-        pathSeparator,
-        ignorePatterns,
-        allowOutsideWorkspaceRoot,
-      }),
-    [
-      allowOutsideWorkspaceRoot,
-      ignorePatterns,
-      navigationRootPath,
-      pathSeparator,
-    ],
-  );
-  const breadcrumbs = useMemo(() => {
-    if (!rootPath) {
-      return [];
-    }
-    return buildFileBrowserBreadcrumbs({
-      rootPath: navigationRootPath,
-      currentPath: rootPath,
-    });
-  }, [navigationRootPath, rootPath]);
-  const parentPath = useMemo(() => {
-    if (!rootPath) {
-      return null;
-    }
-    return getFileBrowserParentPath({
-      rootPath: navigationRootPath,
-      currentPath: rootPath,
-    });
-  }, [navigationRootPath, rootPath]);
 
   useEffect(() => {
     applyRootPathRef.current = applyRootPath;
@@ -997,7 +947,6 @@ export function FileBrowserPane({
         setRootError(errorMessage);
         return;
       }
-      setBrowserRootPath(res.data.rootPath);
       setIgnorePatterns(res.data.ignorePatterns);
       setPathSeparator(res.data.pathSeparator);
       fileBrowserState.setState({
@@ -1377,29 +1326,6 @@ export function FileBrowserPane({
     },
     [transferEntryToFolder],
   );
-  const handleNavigateToPath = useCallback(
-    (nextPath: string) => {
-      const trimmed = nextPath.trim();
-      if (!trimmed) {
-        setRootError("Root path is required.");
-        return;
-      }
-      if (
-        normalizeFileBrowserPathForComparison(trimmed) ===
-        normalizeFileBrowserPathForComparison(rootPath ?? "")
-      ) {
-        return;
-      }
-      applyRootPath(trimmed);
-    },
-    [applyRootPath, rootPath],
-  );
-  const handleNavigateUp = useCallback(() => {
-    if (!parentPath) {
-      return;
-    }
-    handleNavigateToPath(parentPath);
-  }, [handleNavigateToPath, parentPath]);
 
   const handlePasteClipboard = useCallback(() => {
     const activeClipboardEntry = clipboardEntryRef.current;
@@ -1613,7 +1539,7 @@ export function FileBrowserPane({
   const gridTemplateColumns = `minmax(${FILE_BROWSER_FILE_COLUMN_MIN_WIDTH}px, min(${columnWidth}, calc(100% - ${FILE_BROWSER_DATE_COLUMN_MIN_WIDTH}px))) minmax(${FILE_BROWSER_DATE_COLUMN_MIN_WIDTH}px, 1fr)`;
   const fileSortDirection = sortKey === "name" ? sortDirection : "asc";
   const dateSortDirection = sortKey === "modified" ? sortDirection : "desc";
-  const showMeta = showFilter || showPathNavigation || rootError;
+  const showMeta = showFilter || rootError;
   const showSearchPathTooltips =
     filterText.trim().length > 0 && isTooltipKeyHeld;
 
@@ -1621,28 +1547,6 @@ export function FileBrowserPane({
     <div className="flex h-full min-h-0 w-full flex-col gap-2">
       {showMeta && (
         <div className={`flex flex-col gap-2 ${metaPaddingClassName ?? ""}`}>
-          {showPathNavigation && (
-            <>
-              <div className="flex min-w-0 items-center gap-2">
-                <FileBrowserGoUpButton
-                  disabled={!parentPath}
-                  onClick={handleNavigateUp}
-                />
-                <FileBrowserPathInput
-                  inputId={`CodeMirror-file-browser-path-${pathInputId}`}
-                  dataTestId="file-browser-path-input"
-                  value={rootPath ?? ""}
-                  onCommit={handleNavigateToPath}
-                  completionSource={pathCompletionSource}
-                />
-              </div>
-              <FileBrowserBreadcrumbs
-                breadcrumbs={breadcrumbs}
-                currentPath={rootPath ?? ""}
-                onSelect={handleNavigateToPath}
-              />
-            </>
-          )}
           {showFilter && (
             <div className="flex flex-col gap-1">
               <FileBrowserFilter useFileBrowserStateHook={fileBrowserState} />

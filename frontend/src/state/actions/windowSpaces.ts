@@ -5,7 +5,6 @@ import {
 import { resolveProjectChatFloatingViewport } from "components/ChatWindowing/projectChatViewport";
 import {
   flushPendingProjectChatWindowingWrites,
-  normalizeProjectChatWindowingState,
   replaceProjectChatWindowingState,
   setProjectChatWindowChatId,
   syncProjectChatWindowingState,
@@ -677,13 +676,11 @@ export function createProjectChatWindowingStateFromWindowSpace(
   }
 
   return dedupeRestoredSectionBindings(
-    normalizeProjectChatWindowingState(
-      createProjectChatWindowingState({
-        instancesById,
-        order,
-        nextInstanceNumber: resolveNextProjectChatWindowInstanceNumber(order),
-      }),
-    ),
+    createProjectChatWindowingState({
+      instancesById,
+      order,
+      nextInstanceNumber: resolveNextProjectChatWindowInstanceNumber(order),
+    }),
   );
 }
 
@@ -766,14 +763,12 @@ function remapRestoredWindowSpaceInstanceIdsForWorkspace(
   }
 
   return {
-    windowing: normalizeProjectChatWindowingState(
-      createProjectChatWindowingState({
-        ...restoredFloatingWindowing,
-        instancesById: remappedInstancesById,
-        order: remappedOrder,
-        nextInstanceNumber,
-      }),
-    ),
+    windowing: createProjectChatWindowingState({
+      ...restoredFloatingWindowing,
+      instancesById: remappedInstancesById,
+      order: remappedOrder,
+      nextInstanceNumber,
+    }),
     remappedInstanceIdByOriginalId,
   };
 }
@@ -825,13 +820,11 @@ function dropRestoredSectionWindowsOwnedByNonFloatingWorkspaceHosts(
     }
     nextInstancesById[instanceId] = instance;
   }
-  return normalizeProjectChatWindowingState(
-    createProjectChatWindowingState({
-      ...restoredFloatingWindowing,
-      instancesById: nextInstancesById,
-      order: nextOrder,
-    }),
-  );
+  return createProjectChatWindowingState({
+    ...restoredFloatingWindowing,
+    instancesById: nextInstancesById,
+    order: nextOrder,
+  });
 }
 
 function resolveFloatingWindowRestoreOwnerKey(
@@ -1246,20 +1239,18 @@ export async function restoreWindowSpaceInWorkspace(
     ...preservedInstancesById,
     ...remappedRestoredFloatingWindowing.instancesById,
   };
-  const nextWindowing = normalizeProjectChatWindowingState(
-    createProjectChatWindowingState({
+  const nextWindowing = createProjectChatWindowingState({
+    instancesById,
+    order: mergeProjectChatWindowSpaceOrder(
+      preservedOrder,
+      remappedRestoredFloatingWindowing.order,
       instancesById,
-      order: mergeProjectChatWindowSpaceOrder(
-        preservedOrder,
-        remappedRestoredFloatingWindowing.order,
-        instancesById,
-      ),
-      nextInstanceNumber: Math.max(
-        currentWindowing.nextInstanceNumber,
-        remappedRestoredFloatingWindowing.nextInstanceNumber,
-      ),
-    }),
-  );
+    ),
+    nextInstanceNumber: Math.max(
+      currentWindowing.nextInstanceNumber,
+      remappedRestoredFloatingWindowing.nextInstanceNumber,
+    ),
+  });
   const restoredGitPaneVisibleInstanceIds =
     buildRestoredGitGraphEmbeddedPaneVisibleInstanceIds(
       windowSpace,
