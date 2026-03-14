@@ -6,8 +6,7 @@ import {
   recomputeEdgeHandlePositions,
 } from "state/actions/edgeHandles";
 import { reconnectEdgeFromConnection } from "state/actions/edges";
-import { useProjectState } from "state/definitions";
-import { useEdgeHandleRegistry } from "state/stores/authoringStores";
+import { useEdgeHandleRegistry, useProjectState } from "state/definitions";
 import { ConnectionLine } from "../components/ConnectionLine";
 import BezierEdge from "../components/Edges/BezierEdge";
 import StraightEdge from "../components/Edges/StraightEdge";

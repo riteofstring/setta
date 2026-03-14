@@ -27,10 +27,14 @@ import {
   sendRealtimeDependencyEvent,
   sendRealtimeSectionParamLiteral,
 } from "state/actions/websocketReceive";
-import { useAppConfigs, useServerMode } from "state/definitions";
+import {
+  useAppConfigs,
+  useDecodedImages,
+  useImages,
+  useServerMode,
+} from "state/definitions";
 import { decodeExistingRawImages } from "state/hooks/artifacts";
 import { useLocalPendingValue } from "state/hooks/utils";
-import { useDecodedImages, useImages } from "state/stores/artifactStores";
 import { bumpRemoteRevisions } from "state/utils/revisions";
 import {
   CODEMIRROR_TOOLTIP_PARENT_ID,
