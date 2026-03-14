@@ -91,6 +91,147 @@ test("settings view modes keep visible sections when layout payload is partial",
   await waitForOverviewCount(page, 13);
 });
 
+test("settings shells stay promoted before the first wheel interaction", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+  await expect(allTab).toBeVisible();
+  await allTab.click();
+  await page.waitForFunction(
+    () =>
+      document.querySelectorAll('[data-viewport-shell-promotable="true"]')
+        .length > 0,
+  );
+
+  await page.evaluate(() => {
+    type InteractionObserver = {
+      disconnect: () => void;
+      snapshot: () => {
+        affectedSectionCount: number;
+        firstShellBackfaceVisibility: string;
+        firstShellIsolation: string;
+        firstShellTransform: string;
+        sectionClassMutations: number;
+        sectionStyleMutations: number;
+      };
+    };
+    const win = window as Window & {
+      __settaViewportInteractionObserver?: InteractionObserver;
+    };
+    win.__settaViewportInteractionObserver?.disconnect();
+
+    const root = document.querySelector(".react-flow");
+    const shells = Array.from(
+      document.querySelectorAll('[data-viewport-shell-promotable="true"]'),
+    );
+    if (!(root instanceof HTMLElement) || shells.length === 0) {
+      throw new Error("Missing React Flow root or promotable shells.");
+    }
+
+    let sectionStyleMutations = 0;
+    let sectionClassMutations = 0;
+    const affectedSectionIds = new Set<string>();
+    const shellObserver = new MutationObserver((records) => {
+      for (const record of records) {
+        if (record.type !== "attributes") {
+          continue;
+        }
+        const target = record.target;
+        if (!(target instanceof HTMLElement)) {
+          continue;
+        }
+        if (record.attributeName === "style") {
+          sectionStyleMutations += 1;
+        }
+        if (record.attributeName === "class") {
+          sectionClassMutations += 1;
+        }
+        const sectionId = target.getAttribute("data-section-id");
+        if (sectionId) {
+          affectedSectionIds.add(sectionId);
+        }
+      }
+    });
+
+    const firstShell = shells[0];
+    if (!(firstShell instanceof HTMLElement)) {
+      throw new Error("Missing first promotable shell.");
+    }
+    const firstShellStyle = getComputedStyle(firstShell);
+    for (const shell of shells) {
+      shellObserver.observe(shell, {
+        attributes: true,
+        attributeFilter: ["style", "class"],
+      });
+    }
+
+    win.__settaViewportInteractionObserver = {
+      disconnect() {
+        shellObserver.disconnect();
+      },
+      snapshot() {
+        return {
+          firstShellBackfaceVisibility: firstShellStyle.backfaceVisibility,
+          firstShellIsolation: firstShellStyle.isolation,
+          firstShellTransform: firstShellStyle.transform,
+          sectionStyleMutations,
+          sectionClassMutations,
+          affectedSectionCount: affectedSectionIds.size,
+        };
+      },
+    };
+  });
+
+  const renderer = page.locator(".react-flow__renderer");
+  const box = await renderer.boundingBox();
+  if (!box) {
+    throw new Error("Missing renderer bounds for wheel interaction.");
+  }
+
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.wheel(0, 600);
+  await page.waitForTimeout(50);
+
+  const interactionResult = await page.evaluate(() => {
+    type InteractionObserver = {
+      disconnect: () => void;
+      snapshot: () => {
+        affectedSectionCount: number;
+        firstShellBackfaceVisibility: string;
+        firstShellIsolation: string;
+        firstShellTransform: string;
+        sectionClassMutations: number;
+        sectionStyleMutations: number;
+      };
+    };
+    const win = window as Window & {
+      __settaViewportInteractionObserver?: InteractionObserver;
+    };
+    const observer = win.__settaViewportInteractionObserver;
+    if (!observer) {
+      throw new Error("Missing viewport interaction observer.");
+    }
+    const snapshot = observer.snapshot();
+    observer.disconnect();
+    delete win.__settaViewportInteractionObserver;
+    return snapshot;
+  });
+
+  expect(interactionResult.firstShellBackfaceVisibility).toBe("hidden");
+  expect(interactionResult.firstShellIsolation).toBe("isolate");
+  expect(interactionResult.firstShellTransform).not.toBe("none");
+  expect(interactionResult.sectionStyleMutations).toBe(0);
+  expect(interactionResult.sectionClassMutations).toBe(0);
+  expect(interactionResult.affectedSectionCount).toBe(0);
+});
+
 async function waitForNodeCount(page: Page, expected: number): Promise<void> {
   await page.waitForFunction(
     (count) => document.querySelectorAll(".react-flow__node").length === count,

@@ -19,7 +19,6 @@ const initialState: ReactFlowStore = {
   userSelectionRect: null,
   domNode: null,
   paneDragging: false,
-  viewportInteractionActive: false,
   nodeDragThreshold: 1,
   fitViewOnInit: false,
   fitViewOnInitDone: false,
