@@ -206,7 +206,9 @@ Current landed wedge:
   - current draw-area append helper route constant
   - current chart metadata helper route constants
   - current text-block and docstring helper route constants
-  - current AI helper read route constants
+  - current AI helper read route constants, including single-item
+    agent-profile / prompt-template / external-agent-config /
+    engine-config / agent-run reads
   - current section param-filter, meta-control-title, and group-overflow route
     constants
   - current section param column-width route constants
@@ -608,13 +610,15 @@ Current landed wedge:
         - notification enum/object support
           - `SettaNotificationType`
           - `SettaNotification`
-        - request payloads for agent-profile CRUD, engine-config update,
-          transcription-profile CRUD, prompt-template CRUD,
-          external-agent-config CRUD, and chat-section state persistence
-        - transport payloads for agent/profile/run/config/profile list reads,
-          managed/external chat hydration, managed-chat stop results,
-          transcription session start/delta responses, and string chat-id
-          responses from `getLLMResponse`
+        - request payloads for agent-profile CRUD plus single-item reads,
+          engine-config update plus single-item reads,
+          transcription-profile CRUD, prompt-template CRUD plus single-item
+          reads, external-agent-config CRUD plus single-item reads, agent-run
+          single-item reads, and chat-section state persistence
+        - transport payloads for agent/profile/run/config/profile list and
+          single-item reads, managed/external chat hydration, managed-chat
+          stop results, transcription session start/delta responses, and
+          string chat-id responses from `getLLMResponse`
   - app-config pane contract types
     - `AppCatalogResponse` and the catalog component/action/prop payloads
     - `AppDefinition`, `AppRoute`, and the app-definition read/mutation

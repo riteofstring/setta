@@ -52,11 +52,19 @@ type CreateAgentProfileRequestInput struct {
 	MemoryScope                 *string  `json:"memoryScope,omitempty"`
 }
 
+type GetAgentProfileRequestInput struct {
+	ProfileID string `json:"profileId"`
+}
+
 type DeleteAgentProfileRequestInput struct {
 	ProfileID string `json:"profileId"`
 }
 
 type PromptTemplateListResponse []PromptTemplate
+
+type GetPromptTemplateRequestInput struct {
+	TemplateID string `json:"templateId"`
+}
 
 type CreatePromptTemplateRequestInput struct {
 	Name        *string        `json:"name,omitempty"`
@@ -78,6 +86,10 @@ type DeletePromptTemplateRequestInput struct {
 type ExternalAgentConfigListResponse []ExternalAgentConfig
 
 type ExternalAgentPreflightStatusListResponse []ExternalAgentPreflightStatus
+
+type GetExternalAgentConfigRequestInput struct {
+	ConfigID string `json:"configId"`
+}
 
 type CreateExternalAgentConfigRequestInput struct {
 	Name                    *string                            `json:"name,omitempty"`
@@ -135,9 +147,17 @@ type AgentRunResponse struct{}
 
 type AgentRunListResponse struct{}
 
+type GetAgentRunRequestInput struct {
+	RunID string `json:"runId"`
+}
+
 type EngineConfigResponse struct{}
 
 type EngineConfigListResponse struct{}
+
+type GetEngineConfigRequestInput struct {
+	ConfigID string `json:"configId"`
+}
 
 type TranscriptionProfileResponse struct{}
 

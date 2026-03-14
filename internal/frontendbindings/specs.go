@@ -1003,6 +1003,11 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "GET_AGENT_PROFILES",
 				},
 				{
+					Name:     "getAgentProfile",
+					Path:     httpapi.RouteGetAgentProfile,
+					EnumName: "GET_AGENT_PROFILE",
+				},
+				{
 					Name:     "createAgentProfile",
 					Path:     httpapi.RouteCreateAgentProfile,
 					EnumName: "CREATE_AGENT_PROFILE",
@@ -1023,9 +1028,19 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "GET_AGENT_RUNS",
 				},
 				{
+					Name:     "getAgentRun",
+					Path:     httpapi.RouteGetAgentRun,
+					EnumName: "GET_AGENT_RUN",
+				},
+				{
 					Name:     "getEngineConfigs",
 					Path:     httpapi.RouteGetEngineConfigs,
 					EnumName: "GET_ENGINE_CONFIGS",
+				},
+				{
+					Name:     "getEngineConfig",
+					Path:     httpapi.RouteGetEngineConfig,
+					EnumName: "GET_ENGINE_CONFIG",
 				},
 				{
 					Name:     "updateEngineConfig",
@@ -1036,6 +1051,11 @@ func CurrentRouteGroups() []RouteGroup {
 					Name:     "getPromptTemplates",
 					Path:     httpapi.RouteGetPromptTemplates,
 					EnumName: "GET_PROMPT_TEMPLATES",
+				},
+				{
+					Name:     "getPromptTemplate",
+					Path:     httpapi.RouteGetPromptTemplate,
+					EnumName: "GET_PROMPT_TEMPLATE",
 				},
 				{
 					Name:     "createPromptTemplate",
@@ -1056,6 +1076,11 @@ func CurrentRouteGroups() []RouteGroup {
 					Name:     "getExternalAgentConfigs",
 					Path:     httpapi.RouteGetExternalAgentConfigs,
 					EnumName: "GET_EXTERNAL_AGENT_CONFIGS",
+				},
+				{
+					Name:     "getExternalAgentConfig",
+					Path:     httpapi.RouteGetExternalAgentConfig,
+					EnumName: "GET_EXTERNAL_AGENT_CONFIG",
 				},
 				{
 					Name:     "getExternalAgentHealth",
@@ -2795,6 +2820,14 @@ func CurrentEndpoints() []EndpointSpec {
 			ResponseType:    reflect.TypeOf(AgentProfileListResponse{}),
 		},
 		{
+			FunctionName:    "route_get_agent_profile",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "getAgentProfile",
+			RequestType:     reflect.TypeOf(GetAgentProfileRequestInput{}),
+			ResponseType:    reflect.TypeOf(AgentProfileResponse{}),
+		},
+		{
 			FunctionName:    "route_create_agent_profile",
 			Method:          "POST",
 			RouteCollection: "GoHTTPRoutes",
@@ -2825,11 +2858,27 @@ func CurrentEndpoints() []EndpointSpec {
 			ResponseType:    reflect.TypeOf(AgentRunListResponse{}),
 		},
 		{
+			FunctionName:    "route_get_agent_run",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "getAgentRun",
+			RequestType:     reflect.TypeOf(GetAgentRunRequestInput{}),
+			ResponseType:    reflect.TypeOf(AgentRunResponse{}),
+		},
+		{
 			FunctionName:    "route_get_engine_configs",
 			Method:          "GET",
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "getEngineConfigs",
 			ResponseType:    reflect.TypeOf(EngineConfigListResponse{}),
+		},
+		{
+			FunctionName:    "route_get_engine_config",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "getEngineConfig",
+			RequestType:     reflect.TypeOf(GetEngineConfigRequestInput{}),
+			ResponseType:    reflect.TypeOf(EngineConfigResponse{}),
 		},
 		{
 			FunctionName:    "route_update_engine_config",
@@ -2845,6 +2894,14 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "getPromptTemplates",
 			ResponseType:    reflect.TypeOf(PromptTemplateListResponse{}),
+		},
+		{
+			FunctionName:    "route_get_prompt_template",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "getPromptTemplate",
+			RequestType:     reflect.TypeOf(GetPromptTemplateRequestInput{}),
+			ResponseType:    reflect.TypeOf(PromptTemplate{}),
 		},
 		{
 			FunctionName:    "route_create_prompt_template",
@@ -2875,6 +2932,14 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "getExternalAgentConfigs",
 			ResponseType:    reflect.TypeOf(ExternalAgentConfigListResponse{}),
+		},
+		{
+			FunctionName:    "route_get_external_agent_config",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "getExternalAgentConfig",
+			RequestType:     reflect.TypeOf(GetExternalAgentConfigRequestInput{}),
+			ResponseType:    reflect.TypeOf(ExternalAgentConfig{}),
 		},
 		{
 			FunctionName:    "route_get_external_agent_health",

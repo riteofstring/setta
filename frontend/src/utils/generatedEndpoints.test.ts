@@ -42,9 +42,11 @@ import {
   route_docstring_to_markdown,
   route_force_refresh_listener,
   route_format_code,
+  route_get_agent_profile,
   route_gen_code_prefix_completion,
   route_gen_code_suffix_completion,
   route_get_agent_profiles,
+  route_get_agent_run,
   route_get_agent_runs,
   route_get_agentic_summary_cache_status,
   route_get_ai_follow_snapshot,
@@ -70,12 +72,15 @@ import {
   route_get_launcher_recent_workspaces,
   route_get_launcher_status,
   route_get_listener_coverage,
+  route_get_engine_config,
+  route_get_external_agent_config,
   route_get_llm_chat,
   route_get_llm_config,
   route_get_llm_response,
   route_get_mcp_server_runtime_status,
   route_get_notifications,
   route_get_password_param_value,
+  route_get_prompt_template,
   route_group_sections,
   route_import_files_to_artifacts,
   route_indent_params,
@@ -3819,6 +3824,23 @@ describe("generatedEndpoints ai settings and chat helpers", () => {
     );
   });
 
+  it("posts single agent-profile reads with the profile id payload", async () => {
+    await route_get_agent_profile({
+      profileId: "profile-1",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/getAgentProfile`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        profileId: "profile-1",
+      }),
+    });
+  });
+
   it("loads agent runs from the backend origin", async () => {
     await route_get_agent_runs();
 
@@ -3826,6 +3848,74 @@ describe("generatedEndpoints ai settings and chat helpers", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       `${C_ADDRESSES.BACKEND}/getAgentRuns`,
     );
+  });
+
+  it("posts single agent-run reads with the run id payload", async () => {
+    await route_get_agent_run({
+      runId: "run-1",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/getAgentRun`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        runId: "run-1",
+      }),
+    });
+  });
+
+  it("posts single engine-config reads with the config id payload", async () => {
+    await route_get_engine_config({
+      configId: "engine-1",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/getEngineConfig`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        configId: "engine-1",
+      }),
+    });
+  });
+
+  it("posts single prompt-template reads with the template id payload", async () => {
+    await route_get_prompt_template({
+      templateId: "template-1",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/getPromptTemplate`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        templateId: "template-1",
+      }),
+    });
+  });
+
+  it("posts single external-agent-config reads with the config id payload", async () => {
+    await route_get_external_agent_config({
+      configId: "config-1",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/getExternalAgentConfig`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        configId: "config-1",
+      }),
+    });
   });
 
   it("posts transcription session starts with the active profile and language", async () => {

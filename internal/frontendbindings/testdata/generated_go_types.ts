@@ -8224,6 +8224,17 @@ export function createSetLLMAPIKeysRequestInput(options: Partial<SetLLMAPIKeysRe
 export type AgentProfileListResponse = Array<AgentProfile>;
 
 
+export type GetAgentProfileRequestInput = {
+  profileId: string;
+};
+export function createGetAgentProfileRequestInput(options: Partial<GetAgentProfileRequestInput> = {}): GetAgentProfileRequestInput {
+  return options as GetAgentProfileRequestInput;
+}
+
+
+export type AgentProfileResponse = AgentProfile;
+
+
 export type CreateAgentProfileRequestInput = {
   name?: string | null;
   description?: string | null;
@@ -8237,9 +8248,6 @@ export type CreateAgentProfileRequestInput = {
 export function createCreateAgentProfileRequestInput(options: Partial<CreateAgentProfileRequestInput> = {}): CreateAgentProfileRequestInput {
   return options as CreateAgentProfileRequestInput;
 }
-
-
-export type AgentProfileResponse = AgentProfile;
 
 
 export type UpdateAgentProfileRequestInput = {
@@ -8261,7 +8269,29 @@ export function createDeleteAgentProfileRequestInput(options: Partial<DeleteAgen
 export type AgentRunListResponse = Array<AgentRun>;
 
 
+export type GetAgentRunRequestInput = {
+  runId: string;
+};
+export function createGetAgentRunRequestInput(options: Partial<GetAgentRunRequestInput> = {}): GetAgentRunRequestInput {
+  return options as GetAgentRunRequestInput;
+}
+
+
+export type AgentRunResponse = AgentRun;
+
+
 export type EngineConfigListResponse = Array<EngineConfig>;
+
+
+export type GetEngineConfigRequestInput = {
+  configId: string;
+};
+export function createGetEngineConfigRequestInput(options: Partial<GetEngineConfigRequestInput> = {}): GetEngineConfigRequestInput {
+  return options as GetEngineConfigRequestInput;
+}
+
+
+export type EngineConfigResponse = EngineConfig;
 
 
 export type UpdateEngineConfigRequestInput = {
@@ -8272,10 +8302,15 @@ export function createUpdateEngineConfigRequestInput(options: Partial<UpdateEngi
 }
 
 
-export type EngineConfigResponse = EngineConfig;
-
-
 export type PromptTemplateListResponse = Array<PromptTemplate>;
+
+
+export type GetPromptTemplateRequestInput = {
+  templateId: string;
+};
+export function createGetPromptTemplateRequestInput(options: Partial<GetPromptTemplateRequestInput> = {}): GetPromptTemplateRequestInput {
+  return options as GetPromptTemplateRequestInput;
+}
 
 
 export type CreatePromptTemplateRequestInput = {
@@ -8308,6 +8343,14 @@ export function createDeletePromptTemplateRequestInput(options: Partial<DeletePr
 
 
 export type ExternalAgentConfigListResponse = Array<ExternalAgentConfig>;
+
+
+export type GetExternalAgentConfigRequestInput = {
+  configId: string;
+};
+export function createGetExternalAgentConfigRequestInput(options: Partial<GetExternalAgentConfigRequestInput> = {}): GetExternalAgentConfigRequestInput {
+  return options as GetExternalAgentConfigRequestInput;
+}
 
 
 export type ExternalAgentPreflightStatusListResponse = Array<ExternalAgentPreflightStatus>;
@@ -8556,9 +8599,6 @@ export type StopExternalAgentRunRequest = {
 export function createStopExternalAgentRunRequest(options: Partial<StopExternalAgentRunRequest> = {}): StopExternalAgentRunRequest {
   return options as StopExternalAgentRunRequest;
 }
-
-
-export type AgentRunResponse = AgentRun;
 
 
 export type RespondExternalAgentApprovalRequest = {

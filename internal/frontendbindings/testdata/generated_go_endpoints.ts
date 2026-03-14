@@ -1145,6 +1145,12 @@ export async function route_get_agent_profiles(): Promise<ResponseDataAndStatus<
 }
 
 
+export async function route_get_agent_profile(x: gt.GetAgentProfileRequestInput): Promise<ResponseDataAndStatus<gt.AgentProfileResponse>> {
+
+  return await post(GoHTTPRoutes.getAgentProfile, x);
+}
+
+
 export async function route_create_agent_profile(x: gt.CreateAgentProfileRequestInput): Promise<ResponseDataAndStatus<gt.AgentProfileResponse>> {
 
   return await post(GoHTTPRoutes.createAgentProfile, x);
@@ -1169,9 +1175,21 @@ export async function route_get_agent_runs(): Promise<ResponseDataAndStatus<gt.A
 }
 
 
+export async function route_get_agent_run(x: gt.GetAgentRunRequestInput): Promise<ResponseDataAndStatus<gt.AgentRunResponse>> {
+
+  return await post(GoHTTPRoutes.getAgentRun, x);
+}
+
+
 export async function route_get_engine_configs(): Promise<ResponseDataAndStatus<gt.EngineConfigListResponse>> {
 
   return await get(GoHTTPRoutes.getEngineConfigs);
+}
+
+
+export async function route_get_engine_config(x: gt.GetEngineConfigRequestInput): Promise<ResponseDataAndStatus<gt.EngineConfigResponse>> {
+
+  return await post(GoHTTPRoutes.getEngineConfig, x);
 }
 
 
@@ -1184,6 +1202,12 @@ export async function route_update_engine_config(x: gt.UpdateEngineConfigRequest
 export async function route_get_prompt_templates(): Promise<ResponseDataAndStatus<gt.PromptTemplateListResponse>> {
 
   return await get(GoHTTPRoutes.getPromptTemplates);
+}
+
+
+export async function route_get_prompt_template(x: gt.GetPromptTemplateRequestInput): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
+
+  return await post(GoHTTPRoutes.getPromptTemplate, x);
 }
 
 
@@ -1208,6 +1232,12 @@ export async function route_delete_prompt_template(x: gt.DeletePromptTemplateReq
 export async function route_get_external_agent_configs(): Promise<ResponseDataAndStatus<gt.ExternalAgentConfigListResponse>> {
 
   return await get(GoHTTPRoutes.getExternalAgentConfigs);
+}
+
+
+export async function route_get_external_agent_config(x: gt.GetExternalAgentConfigRequestInput): Promise<ResponseDataAndStatus<gt.ExternalAgentConfig>> {
+
+  return await post(GoHTTPRoutes.getExternalAgentConfig, x);
 }
 
 
