@@ -10,9 +10,8 @@ import {
   sendRealtimeDependencyEvent,
   sendRealtimeSectionParamLiteral,
 } from "state/actions/websocketReceive";
-import { useProjectState } from "state/definitions";
+import { useProjectState, useToolArgumentPreview } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
-import { useToolArgumentPreview } from "state/stores/aiFollowStores";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
 import { res200 } from "utils/endpointUtils";
 import {

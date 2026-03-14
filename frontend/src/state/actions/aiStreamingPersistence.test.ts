@@ -34,7 +34,7 @@ vi.mock("utils/generatedEndpoints", async () => {
   };
 });
 
-let receiveLLMResponseChunk: typeof import("./ai/chatStreaming").receiveLLMResponseChunk;
+let receiveLLMResponseChunk: typeof import("./ai").receiveLLMResponseChunk;
 
 const projectConfigId = "project-1";
 const sectionId = "section-1";
@@ -77,8 +77,7 @@ function seedChatSection() {
 
 describe("chat streaming persistence", () => {
   beforeAll(async () => {
-    receiveLLMResponseChunk = (await import("./ai/chatStreaming"))
-      .receiveLLMResponseChunk;
+    receiveLLMResponseChunk = (await import("./ai")).receiveLLMResponseChunk;
   });
 
   beforeEach(() => {
