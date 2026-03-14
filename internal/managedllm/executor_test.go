@@ -501,6 +501,31 @@ func TestExecutorRejectsThinkingWithoutExplicitProviderConfig(t *testing.T) {
 	}
 }
 
+func TestExecutorValidateRejectsUnsupportedProvider(t *testing.T) {
+	t.Parallel()
+
+	executor := NewExecutor(ExecutorOptions{})
+	err := executor.Validate(agentruns.ExecutionRequest{
+		Run: agentruns.Run{ID: "run-alpha"},
+		LLMConfig: llmconfig.Config{
+			Model:     "claude-sonnet-4-5",
+			Provider:  "anthropic",
+			APIKeyEnv: "ANTHROPIC_API_KEY",
+		},
+		APIKeys: map[string]string{
+			"ANTHROPIC_API_KEY": "secret",
+		},
+		SystemPrompt: "System prompt",
+		ChatID:       "chat-alpha",
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+		},
+	})
+	if !errors.Is(err, ErrProviderUnsupported) {
+		t.Fatalf("expected provider unsupported, got %v", err)
+	}
+}
+
 func TestExecutorValidateAllowsThinkingWithExplicitReasoningConfig(t *testing.T) {
 	t.Parallel()
 

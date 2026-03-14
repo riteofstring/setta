@@ -87,13 +87,15 @@ func (e *Executor) Execute(ctx context.Context, request agentruns.ExecutionReque
 }
 
 func (e *Executor) Validate(request agentruns.ExecutionRequest) error {
+	if err := validateProviderSupport(request); err != nil {
+		return err
+	}
 	return validateReasoningRequest(request)
 }
 
 func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (preparedExecution, error) {
-	provider := strings.ToLower(strings.TrimSpace(request.LLMConfig.Provider))
-	if provider != openAIProvider {
-		return preparedExecution{}, fmt.Errorf("%w: %q", ErrProviderUnsupported, provider)
+	if err := validateProviderSupport(request); err != nil {
+		return preparedExecution{}, err
 	}
 	if strings.TrimSpace(request.LLMConfig.Model) == "" {
 		return preparedExecution{}, ErrModelRequired
@@ -141,6 +143,14 @@ func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (prepare
 		toolAllowlist:        allowlist,
 		temporaryToCanonical: temporaryToCanonical,
 	}, nil
+}
+
+func validateProviderSupport(request agentruns.ExecutionRequest) error {
+	provider := strings.ToLower(strings.TrimSpace(request.LLMConfig.Provider))
+	if provider == openAIProvider {
+		return nil
+	}
+	return fmt.Errorf("%w: %q", ErrProviderUnsupported, provider)
 }
 
 func validateReasoningRequest(request agentruns.ExecutionRequest) error {
