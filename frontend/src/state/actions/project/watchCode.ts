@@ -1,19 +1,25 @@
 import { processProjectStateUpdateFromBackend } from "state/actions/sectionInfos";
-import { res200 } from "utils/endpointUtils";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_get_latest_project_state,
   route_set_watch_code_enabled,
   route_set_watch_code_inputs,
 } from "utils/generatedEndpoints";
 import type {
+  ProjectStateSingleConfigWithCompletedOpIds,
   SetWatchCodeEnabledRequestInput,
   SetWatchCodeInputsRequestInput,
 } from "utils/generatedTypes";
 
+type LatestProjectStateRouteResponse =
+  ResponseDataAndStatus<ProjectStateSingleConfigWithCompletedOpIds>;
+type WatchCodeMutationRouteResponse = ResponseDataAndStatus<null>;
+
 async function refreshProjectState(projectConfigId: string): Promise<boolean> {
-  const latestProjectStateResponse = await route_get_latest_project_state({
-    projectConfigId,
-  });
+  const latestProjectStateResponse: LatestProjectStateRouteResponse =
+    await route_get_latest_project_state({
+      projectConfigId,
+    });
   if (!res200(latestProjectStateResponse)) {
     return false;
   }
@@ -25,7 +31,8 @@ async function refreshProjectState(projectConfigId: string): Promise<boolean> {
 export async function setWatchCodeEnabledAndRefreshProjectState(
   payload: SetWatchCodeEnabledRequestInput,
 ): Promise<boolean> {
-  const response = await route_set_watch_code_enabled(payload);
+  const response: WatchCodeMutationRouteResponse =
+    await route_set_watch_code_enabled(payload);
   if (!res200(response)) {
     return false;
   }
@@ -36,7 +43,8 @@ export async function setWatchCodeEnabledAndRefreshProjectState(
 export async function setWatchCodeInputsAndRefreshProjectState(
   payload: SetWatchCodeInputsRequestInput,
 ): Promise<boolean> {
-  const response = await route_set_watch_code_inputs(payload);
+  const response: WatchCodeMutationRouteResponse =
+    await route_set_watch_code_inputs(payload);
   if (!res200(response)) {
     return false;
   }

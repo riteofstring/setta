@@ -1,14 +1,18 @@
 import _ from "lodash";
 import { useProjectState } from "state/definitions";
 import { getPythonCodegenTarget } from "utils/codegenTargets";
-import { res200 } from "utils/endpointUtils";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_get_latest_project_state,
   route_set_code,
   route_set_gen_code_prefix,
   route_set_gen_code_suffix,
 } from "utils/generatedEndpoints";
-import { CodeLanguageEnum, SectionTypeEnum } from "utils/generatedTypes";
+import {
+  CodeLanguageEnum,
+  type ProjectStateSingleConfigWithCompletedOpIds,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplIfPresent,
@@ -22,13 +26,20 @@ type PendingCodeUpdate = {
   code: string;
 };
 
+type LatestProjectStateRouteResponse =
+  ResponseDataAndStatus<ProjectStateSingleConfigWithCompletedOpIds>;
+type ProjectCodeMutationRouteResponse = ResponseDataAndStatus<null>;
+
 let pendingCodeUpdate: PendingCodeUpdate | null = null;
 let pendingGenCodePrefix: string | null = null;
 let pendingGenCodeSuffix: string | null = null;
-let lastCodeUpdatePromise: Promise<unknown> | null = null;
+let lastCodeUpdatePromise: Promise<ProjectCodeMutationRouteResponse> | null =
+  null;
 let lastCodeUpdateSectionId: string | null = null;
-let lastGenCodePrefixPromise: Promise<unknown> | null = null;
-let lastGenCodeSuffixPromise: Promise<unknown> | null = null;
+let lastGenCodePrefixPromise: Promise<ProjectCodeMutationRouteResponse> | null =
+  null;
+let lastGenCodeSuffixPromise: Promise<ProjectCodeMutationRouteResponse> | null =
+  null;
 
 function applyCodeUpdate(sectionId: string, code: string) {
   pendingCodeUpdate = null;
@@ -48,14 +59,15 @@ function applyCodeUpdate(sectionId: string, code: string) {
         sectionId,
         code,
         frontendOpId,
-      }).then(async (response) => {
+      }).then(async (response: ProjectCodeMutationRouteResponse) => {
         if (!shouldRefreshProjectState || !res200(response)) {
           return response;
         }
 
-        const latestProjectStateResponse = await route_get_latest_project_state({
-          projectConfigId,
-        });
+        const latestProjectStateResponse: LatestProjectStateRouteResponse =
+          await route_get_latest_project_state({
+            projectConfigId,
+          });
         if (res200(latestProjectStateResponse)) {
           processProjectStateUpdateFromBackend(latestProjectStateResponse.data);
         }
@@ -97,7 +109,8 @@ function applyGenCodePrefixUpdate(value: string) {
       pythonTarget.genCodePrefix = value;
     },
     send: (frontendOpId) => {
-      const promise = route_set_gen_code_prefix({
+      const promise: Promise<ProjectCodeMutationRouteResponse> =
+        route_set_gen_code_prefix({
         projectConfigId: getCurrProjectConfigId(),
         genCodePrefix: value,
         frontendOpId,
@@ -119,7 +132,8 @@ function applyGenCodeSuffixUpdate(value: string) {
       pythonTarget.genCodeSuffix = value;
     },
     send: (frontendOpId) => {
-      const promise = route_set_gen_code_suffix({
+      const promise: Promise<ProjectCodeMutationRouteResponse> =
+        route_set_gen_code_suffix({
         projectConfigId: getCurrProjectConfigId(),
         genCodeSuffix: value,
         frontendOpId,
