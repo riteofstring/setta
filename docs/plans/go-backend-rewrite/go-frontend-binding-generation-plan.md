@@ -223,6 +223,9 @@ Current status:
 - the validation suite now also checks that direct generated route-constant
   imports stay confined to `generatedEndpoints.ts` plus the current explicit
   websocket/listener caller set
+- the validation suite now also snapshots the current explicit frontend
+  boundary-exception import inventory in a focused golden manifest, so caller
+  exceptions remain reviewable as the converted surface widens
 - the validation suite now also checks that the checked-in
   `generatedRoutes.ts`, `generatedTypes.ts`, and `generatedEndpoints.ts`
   files exactly match the current Go frontend binding generation pipeline

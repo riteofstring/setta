@@ -1107,6 +1107,16 @@ func TestCurrentAdditionalTypeRootManifest(t *testing.T) {
 	)
 }
 
+func TestFrontendBoundaryExceptionManifest(t *testing.T) {
+	t.Helper()
+
+	assertGoldenFile(
+		t,
+		"frontend_boundary_exception_manifest.txt",
+		renderFrontendBoundaryExceptionManifest(t, testRepoRoot(t)),
+	)
+}
+
 func TestFrontendGeneratedContractFileInventory(t *testing.T) {
 	t.Helper()
 
@@ -6997,6 +7007,42 @@ func renderAdditionalTypeRootManifest(typeRoots []reflect.Type) string {
 	return strings.Join(lines, "\n")
 }
 
+func renderFrontendBoundaryExceptionManifest(t *testing.T, repoRoot string) string {
+	t.Helper()
+
+	trackedEndpointUtilsBindings := map[string]struct{}{
+		"get":                  {},
+		"getBinary":            {},
+		"post":                 {},
+		"replaceAddressParams": {},
+	}
+	trackedGeneratedRouteBindings := map[string]struct{}{
+		"GoHTTPRoutes":      {},
+		"GoRootRoutes":      {},
+		"GoRoutePrefixes":   {},
+		"GoWebsocketRoutes": {},
+	}
+
+	lines := make([]string, 0)
+	for _, record := range readFrontendBoundaryImportRecords(t, repoRoot) {
+		switch record.Module {
+		case "endpointUtils":
+			if _, tracked := trackedEndpointUtilsBindings[record.Binding]; !tracked {
+				continue
+			}
+		case "generatedRoutes":
+			if _, tracked := trackedGeneratedRouteBindings[record.Binding]; !tracked {
+				continue
+			}
+		default:
+			continue
+		}
+		lines = append(lines, strings.Join([]string{record.Module, record.Path, record.Binding}, " "))
+	}
+	slices.Sort(lines)
+	return strings.Join(lines, "\n")
+}
+
 func endpointContractTypeName(t reflect.Type) string {
 	name := frontendTypeName(t)
 	if name == "" {
@@ -7048,6 +7094,91 @@ func copyRepoFile(t *testing.T, sourcePath string, destinationPath string) {
 		t.Fatalf("read %s: %v", sourcePath, err)
 	}
 	writeTestFile(t, destinationPath, string(contents))
+}
+
+type frontendBoundaryImportRecord struct {
+	Module  string
+	Path    string
+	Binding string
+}
+
+func readFrontendBoundaryImportRecords(t *testing.T, repoRoot string) []frontendBoundaryImportRecord {
+	t.Helper()
+
+	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
+	importPatterns := []struct {
+		module  string
+		pattern *regexp.Regexp
+	}{
+		{
+			module:  "endpointUtils",
+			pattern: regexp.MustCompile(`(?s)import\s*\{([^}]*)\}\s*from\s*["'](?:\./endpointUtils|utils/endpointUtils)["']`),
+		},
+		{
+			module:  "generatedRoutes",
+			pattern: regexp.MustCompile(`(?s)import\s*\{([^}]*)\}\s*from\s*["'](?:\./generatedRoutes|utils/generatedRoutes)["']`),
+		},
+	}
+
+	records := make([]frontendBoundaryImportRecord, 0)
+	err := filepath.WalkDir(frontendSrcRoot, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+
+		base := entry.Name()
+		if !(strings.HasSuffix(base, ".ts") || strings.HasSuffix(base, ".tsx")) {
+			return nil
+		}
+		if strings.Contains(base, ".test.") || strings.Contains(base, ".spec.") {
+			return nil
+		}
+
+		relativePath, err := filepath.Rel(repoRoot, path)
+		if err != nil {
+			return err
+		}
+		relativePath = filepath.ToSlash(relativePath)
+
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		source := string(contents)
+
+		for _, importPattern := range importPatterns {
+			for _, match := range importPattern.pattern.FindAllStringSubmatch(source, -1) {
+				for _, binding := range parseFrontendNamedImportBindings(match[1]) {
+					records = append(records, frontendBoundaryImportRecord{
+						Module:  importPattern.module,
+						Path:    relativePath,
+						Binding: binding,
+					})
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("scan frontend boundary import records: %v", err)
+	}
+
+	return records
+}
+
+func parseFrontendNamedImportBindings(specifiers string) []string {
+	bindings := make([]string, 0)
+	for _, rawSpecifier := range strings.Split(specifiers, ",") {
+		specifier := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(rawSpecifier), "type "))
+		if specifier == "" {
+			continue
+		}
+		bindings = append(bindings, strings.Fields(specifier)[0])
+	}
+	return bindings
 }
 
 func testRepoRoot(t *testing.T) string {
