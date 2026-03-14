@@ -5826,7 +5826,7 @@ class PluginManager:
 
         pyproject_content = (
             "[build-system]\n"
-            'requires = ["setuptools==80.9.0", "wheel==0.45.1"]\n'
+            'requires = ["setuptools>=68", "wheel"]\n'
             'build-backend = "setuptools.build_meta"\n\n'
             "[project]\n"
             f'name = "{normalized_id}"\n'

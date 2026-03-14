@@ -388,15 +388,7 @@ test("app tabs scope outputs per config", async ({ page }) => {
     },
   );
 
-  const previewConfigSelect = page.getByLabel("Preview config");
-  const hasVisiblePreviewConfig = await previewConfigSelect
-    .isVisible()
-    .catch(() => false);
-  if (!hasVisiblePreviewConfig) {
-    await page.getByRole("button", { name: "Advanced" }).click();
-  }
-  await expect(previewConfigSelect).toBeVisible();
-  await previewConfigSelect.selectOption(newConfig.id);
+  await page.getByLabel("Preview config").selectOption(newConfig.id);
 
   const previewToggle = page.getByRole("button", {
     name: /Show Preview|Hide Preview/,
