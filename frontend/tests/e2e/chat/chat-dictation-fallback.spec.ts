@@ -60,6 +60,10 @@ async function setProjectChatTranscriptionProfile(
   page: Page,
   profileLabel: string,
 ) {
+  await page.evaluate(async () => {
+    const { loadTranscriptionProfiles } = await import("/src/state/actions/ai.ts");
+    await loadTranscriptionProfiles(true);
+  });
   const projectChatSurface = await getVisibleProjectChatSurface(page);
   const profileInput = page.getByPlaceholder("Select a transcription profile");
   if (!(await profileInput.isVisible())) {
@@ -69,12 +73,27 @@ async function setProjectChatTranscriptionProfile(
   }
   await expect(profileInput).toBeVisible();
   await profileInput.fill(profileLabel);
-  await profileInput.press("Enter");
-  const escapedProfileLabel = profileLabel.replace(
-    /[.*+?^${}()|[\]\\]/g,
-    "\\$&",
-  );
-  await expect(profileInput).toHaveValue(new RegExp(escapedProfileLabel));
+  const profileOption = page.locator("dd", { hasText: profileLabel }).first();
+  await expect(profileOption).toBeVisible();
+  await profileOption.click();
+  await expect
+    .poll(async () => {
+      return await page.evaluate((expectedProfileLabel) => {
+        return import("/src/state/definitions.ts").then(({ useAIStore }) => {
+          const state = useAIStore.getState();
+          const selectedProfileId = state.projectChatTranscriptionProfileId;
+          if (!selectedProfileId) {
+            return false;
+          }
+          return (
+            state.transcriptionProfiles.find(
+              (profile) => profile.id === selectedProfileId,
+            )?.name ?? null
+          ) === expectedProfileLabel;
+        });
+      }, profileLabel);
+    })
+    .toBe(true);
 }
 
 test("project chat falls back to browser dictation when provider capture fails in auto mode", async ({

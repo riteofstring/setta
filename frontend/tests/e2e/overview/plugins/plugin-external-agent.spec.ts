@@ -50,11 +50,12 @@ test("plugin external agent adapters are visible in plugins pane and selectable 
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
     await openProjectAiSettingsPopover(page);
+    const overviewPane = page.locator("#OverviewPane");
 
-    const externalAgentsTrigger = page.getByTestId(
+    const externalAgentsTrigger = overviewPane.getByTestId(
       "project-ai-settings-accordion-external-agents",
     );
-    const externalAgentsSection = page.getByTestId(
+    const externalAgentsSection = overviewPane.getByTestId(
       "project-ai-settings-accordion-external-agents-content",
     );
     await externalAgentsTrigger.scrollIntoViewIfNeeded();
