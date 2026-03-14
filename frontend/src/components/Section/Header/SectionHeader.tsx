@@ -14,15 +14,15 @@ import {
 } from "state/actions/sectionInfos";
 import { useIsSectionUIActive } from "state/activeSectionUI";
 import {
-  useAIFollow,
   useLspDiagnostics,
   useProjectState,
   useShareSession,
   useTemporaryMiscState,
 } from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
+import { useAIFollow } from "state/stores/aiFollowStores";
 import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
-import { getSectionHeaderHeightKey } from "utils/constants";
+import { getSectionHeaderHeightKey } from "utils/constants/measurements";
 import {
   CodeLanguageEnum,
   SectionTypeEnum,
