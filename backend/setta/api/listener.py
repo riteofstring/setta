@@ -316,6 +316,7 @@ class ListenerDependencyValues:
         state: Any = _MISSING,
         *,
         dependency_graph_resolver: Callable[[], DependencyGraph | None] | None = None,
+        value_resolver: Callable[[str], Any] | None = None,
         state_resolver: Callable[[], Any] | None = None,
     ) -> None:
         if dependency_graph_resolver is not None and dependency_graph is not None:
@@ -337,6 +338,7 @@ class ListenerDependencyValues:
         self._dependency_graph = dependency_graph
         self._dependency_graph_resolver = dependency_graph_resolver
         self._state = state
+        self._value_resolver = value_resolver
         self._state_resolver = state_resolver
 
     def _require_dependency_graph(self) -> DependencyGraph:
@@ -365,6 +367,10 @@ class ListenerDependencyValues:
                 f"Unknown dependency id: sectionId={section_id} paramInfoId={param_id}"
             )
         name = graph[dep_key].full_path_name
+        if self._value_resolver is not None:
+            value = self._value_resolver(name)
+            if value is not _MISSING:
+                return value
         return getattr(self._require_state(), name)
 
 
@@ -1997,6 +2003,7 @@ class SettaListener:
         )
         values = ListenerDependencyValues(
             dependency_graph_resolver=self._current_runtime_state_dependency_graph,
+            value_resolver=self._current_dependency_value_by_name,
             state_resolver=self._current_runtime_state_instance,
         )
         return ListenerCallbackContext(
@@ -2024,6 +2031,9 @@ class SettaListener:
         if runtime_state is None:
             return None
         return runtime_state.s_instance
+
+    def _current_dependency_value_by_name(self, dependency_name: str) -> Any:
+        return self._dependency_cache.get(dependency_name, _MISSING)
 
     def _build_changed_by_id(
         self,

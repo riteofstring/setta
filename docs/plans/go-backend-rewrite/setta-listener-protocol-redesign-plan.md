@@ -54,6 +54,9 @@ Current state:
   - the active Python listener/chat-toolkit endpoint client boundary now lives
     in `backend/setta/api/listener_endpoint_client.py` instead of the old
     Python route-introspection generator
+  - authoritative cached dependency values now back
+    `ctx.values.by_id(...)` before the retained Python listener falls back to
+    the generated runtime instance
   - listener coverage and force-refresh reads/writes
   - listener websocket DTOs in `internal/realtime`
 - Python still owns:
@@ -210,7 +213,8 @@ Python/share listeners can bootstrap entirely against the Go listener route.
 - Keep `backend/setta/api/listener.py` on the Go listener websocket route and
   remove the remaining Python runtime-state ownership layered on top of it.
 - Remove local dependency-graph/codegen/runtime-state ownership.
-- Rebuild the Python-side state helpers on top of Go-provided metadata.
+- Rebuild the Python-side state helpers on top of Go-provided metadata and
+  authoritative cached dependency values.
 
 Exit condition:
 listener tests pass without Python owning dependency graph or runtime state.
