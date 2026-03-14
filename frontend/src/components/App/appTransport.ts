@@ -1,4 +1,4 @@
-import { buildBackendURL } from "utils/endpointUtils";
+import { buildBackendURL } from "utils/backendTransport";
 import { GoHTTPRouteHelpers } from "utils/generatedRoutes";
 
 export function buildAppBinaryDownloadUrl(

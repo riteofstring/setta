@@ -2,7 +2,7 @@ import {
   buildBackendOriginURL,
   buildBackendOriginWebsocketURL,
 } from "utils/backendOriginTransport";
-import { buildBackendURL } from "utils/endpointUtils";
+import { buildBackendURL } from "utils/backendTransport";
 import {
   GoHTTPRouteHelpers,
   GoWebsocketRouteHelpers,

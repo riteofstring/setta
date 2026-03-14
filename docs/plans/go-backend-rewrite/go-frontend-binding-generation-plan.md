@@ -290,6 +290,9 @@ Current status:
 - app binary-download transport now also flows through
   `frontend/src/components/App/appTransport.ts`, so `AppRenderer` no longer
   imports the low-level `endpointUtils` backend URL builder directly
+- shared backend URL construction for narrowed app/plugin transport callers
+  now also flows through `frontend/src/utils/backendTransport.ts`, so those
+  wrappers no longer import `endpointUtils` directly
 - the validation suite now also checks that the checked-in
   `generatedRoutes.ts`, `generatedTypes.ts`, and `generatedEndpoints.ts`
   files exactly match the current Go frontend binding generation pipeline
