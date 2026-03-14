@@ -61,8 +61,6 @@ import { ViewingEditingMode } from "./ViewingEditingMode";
 
 const FILE_BROWSER_META_INSET_CLASS = "mx-auto w-[calc(100%_-_1.5rem)] px-1.5";
 const FILE_BROWSER_LIST_INSET_LEFT = 10;
-const JSON_RENDER_OVERVIEW_QUICK_INFO =
-  "Advanced app-definition workbench for previewing, validating, saving, and editing the current app spec.\n\nUse Project Chat slash commands like /app-json, /app-image, /app-prompt, and /app-mcp to initiate generation.";
 
 export function Overview() {
   const overviewRef = useRef<HTMLDivElement>(null);
@@ -234,11 +232,6 @@ export function Overview() {
               <span
                 data-testid="overview-tab-more"
                 aria-label="More"
-                title={
-                  vis && effectiveTabName === OverviewTabNameEnum.App
-                    ? JSON_RENDER_OVERVIEW_QUICK_INFO
-                    : "More"
-                }
                 {...getFloatingBoxHandlers({ content: "More" })}
               >
                 <MdMoreHoriz size={20} />
@@ -265,7 +258,7 @@ export function Overview() {
                 <i className="w-3 opacity-80">
                   <TbLayoutDashboard />
                 </i>
-                <span className="ml-0.5">JSON Render</span>
+                <span className="ml-0.5">App Gen</span>
               </MenuItem>
             ) : null}
             <MenuItem
@@ -371,10 +364,6 @@ function TabsVisible({
     ? selectedPluginPaneTab.title
     : resolveOverviewTitle(selectedTabName);
   const isFullWidth = selectedTabName === OverviewTabNameEnum.FileBrowser;
-  const titleQuickInfo =
-    selectedTabName === OverviewTabNameEnum.App
-      ? JSON_RENDER_OVERVIEW_QUICK_INFO
-      : undefined;
   return (
     <div
       data-testid="overview-tab-content-shell"
@@ -386,18 +375,12 @@ function TabsVisible({
     >
       {isFullWidth ? (
         <div className={FILE_BROWSER_META_INSET_CLASS}>
-          <h2
-            className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500"
-            title={titleQuickInfo}
-          >
+          <h2 className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
             {title}
           </h2>
         </div>
       ) : (
-        <h2
-          className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500"
-          title={titleQuickInfo}
-        >
+        <h2 className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
           {title}
         </h2>
       )}
