@@ -5,7 +5,6 @@ import type {
   ZoomBehavior,
 } from "d3";
 
-import type { CanvasEngineNestedPreviewRect } from "canvas-engine/types";
 import { Position } from "utils/generatedTypes";
 import type {
   ConnectingHandle,
@@ -35,6 +34,7 @@ export type ReactFlowStore = {
   transform: Transform;
   domNode: HTMLDivElement | null;
   paneDragging: boolean;
+  viewportInteractionActive: boolean;
 
   d3Zoom: ZoomBehavior<Element, unknown> | null;
   d3Selection: D3Selection<Element, unknown, null, undefined> | null;
@@ -60,7 +60,6 @@ export type ReactFlowStore = {
   fitViewOnInit: boolean;
   fitViewOnInitDone: boolean;
   fitViewOnInitOptions: FitViewOptions | undefined;
-  canvasEngineNestedPreviewRects: CanvasEngineNestedPreviewRect[];
 
   autoPanOnNodeDrag: boolean;
 
