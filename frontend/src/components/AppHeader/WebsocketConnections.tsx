@@ -2,7 +2,7 @@ import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown"
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
 import { FaPlug } from "react-icons/fa6";
-import { useWebsocketConnectionList } from "state/stores/ephemeralUiStores";
+import { useWebsocketConnectionList } from "state/definitions";
 import {
   WebsocketConnectionInfo,
   WebsocketConnectionTypeEnum,
