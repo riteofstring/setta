@@ -48,6 +48,10 @@
   `wss://api.openai.com/v1/realtime?intent=transcription` and a
   `transcription_session.update` message; that shape matches the pinned SDK's
   `transcription_session.update` / `transcription_session.updated` constants
+- the repo now keeps one docs-backed realtime transcription model matrix for
+  profile admission plus websocket delta handling, and intentionally does not
+  widen that contract to SDK-only aliases such as
+  `gpt-4o-mini-transcribe-2025-12-15` without a caller-backed decision
 - the Realtime transcription guide notes an important event-shape difference:
   `whisper-1` emits full-turn transcript content in `delta`, while
   `gpt-4o-transcribe` and `gpt-4o-mini-transcribe` stream incremental deltas
