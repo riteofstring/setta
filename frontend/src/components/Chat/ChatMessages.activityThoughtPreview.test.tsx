@@ -199,6 +199,89 @@ describe("ChatMessages activity thought preview scroll", () => {
     expect(scroll.getScrollTop()).toBe(scroll.getMaxScrollTop());
   });
 
+  it("keeps the parent preview visible until the referenced thought row is opened", async () => {
+    await act(async () => {
+      root.render(
+        <ChatMessageList
+          waitingForResponse={false}
+          messages={[
+            {
+              id: "activity-preview-parent-message",
+              role: ChatRoleEnum.assistant,
+              content: [
+                createMessageThinkingContent({
+                  thinking:
+                    "Inspecting the graph state before applying a cleanup.",
+                  summary: "Graph state inspection summary",
+                }),
+              ],
+              attachments: [],
+              tool_calls: [
+                {
+                  id: "activity-preview-tool-call",
+                  type: "function",
+                  function: {
+                    name: "command_execution",
+                    arguments: {
+                      command: "pnpm exec vitest run src/components/Chat",
+                    },
+                  },
+                },
+              ],
+            },
+            {
+              id: "activity-preview-tool-result",
+              role: ChatRoleEnum.tool,
+              tool_call_id: "activity-preview-tool-call",
+              tool_name: "command_execution",
+              arguments: {
+                command: "pnpm exec vitest run src/components/Chat",
+              },
+              result: "PASS src/components/Chat/ChatMessages.test.tsx",
+              content: [],
+              is_error: false,
+            },
+          ]}
+        />,
+      );
+    });
+
+    const previewShell = getRequiredElement(
+      '[data-chat-assistant-activity-thought-preview-shell="true"]',
+    );
+    expect(
+      previewShell.getAttribute(
+        "data-chat-assistant-activity-thought-preview-visible",
+      ),
+    ).toBe("true");
+    expect(previewShell.className).toContain("transition-[max-height,opacity]");
+
+    await clickRequiredElement(
+      '[data-chat-assistant-activity-trigger="true"]',
+    );
+    await clickRequiredElement('[data-chat-action-item-trigger="true"]');
+
+    expect(
+      previewShell.getAttribute(
+        "data-chat-assistant-activity-thought-preview-visible",
+      ),
+    ).toBe("true");
+
+    await clickRequiredElement('[data-chat-thinking-trigger="true"]');
+    expect(
+      previewShell.getAttribute(
+        "data-chat-assistant-activity-thought-preview-visible",
+      ),
+    ).toBe("false");
+
+    await clickRequiredElement('[data-chat-thinking-trigger="true"]');
+    expect(
+      previewShell.getAttribute(
+        "data-chat-assistant-activity-thought-preview-visible",
+      ),
+    ).toBe("true");
+  });
+
   it("does not register global resize listeners for chat thought measurement", async () => {
     const addEventListenerSpy = vi.spyOn(window, "addEventListener");
 
@@ -233,6 +316,21 @@ describe("ChatMessages activity thought preview scroll", () => {
       throw new Error("Expected activity thought preview scroll element.");
     }
     return preview;
+  }
+
+  function getRequiredElement(selector: string): HTMLElement {
+    const element = host.querySelector(selector);
+    if (!(element instanceof HTMLElement)) {
+      throw new Error(`Expected element for selector: ${selector}`);
+    }
+    return element;
+  }
+
+  async function clickRequiredElement(selector: string) {
+    const element = getRequiredElement(selector);
+    await act(async () => {
+      element.click();
+    });
   }
 
   function attachScrollMetrics(

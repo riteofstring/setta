@@ -2100,8 +2100,11 @@ describe("ChatMessages assistant reasoning layout", () => {
       );
       expect(activityLatestTag).not.toBeNull();
       expect(activityLatestTag).not.toContain("Graph state inspection summary");
-      expect(markup).not.toContain(
-        'data-chat-assistant-activity-thought-scroll="true"',
+      expect(markup).toContain(
+        'data-chat-assistant-activity-thought-preview-shell="true"',
+      );
+      expect(markup).toContain(
+        'data-chat-assistant-activity-thought-preview-visible="false"',
       );
 
       const thoughtTriggerTag = getButtonTagByMarker(

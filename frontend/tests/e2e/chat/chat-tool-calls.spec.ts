@@ -782,7 +782,7 @@ test.describe.serial("chat tool calls", () => {
     }
   });
 
-  test("hides redundant summaries and keeps child timestamps hover-only when all activity details are open", async ({
+  test("hides the parent thought preview only when the referenced thought row is open and keeps child timestamps hover-only", async ({
     page,
   }) => {
     await ensureAppReady(page);
@@ -854,6 +854,29 @@ test.describe.serial("chat tool calls", () => {
         '[data-chat-assistant-activity-trigger="true"]',
       );
       await activityTrigger.click();
+      const previewShell = section.locator(
+        '[data-chat-assistant-activity-thought-preview-shell="true"]',
+      );
+      await expect(previewShell).toHaveAttribute(
+        "data-chat-assistant-activity-thought-preview-visible",
+        "true",
+      );
+
+      const toolTrigger = section.locator('[data-chat-action-item-trigger="true"]').first();
+      await toolTrigger.click();
+      await expect(previewShell).toHaveAttribute(
+        "data-chat-assistant-activity-thought-preview-visible",
+        "true",
+      );
+
+      const thinkingTrigger = section.locator(
+        '[data-chat-thinking-trigger="true"]',
+      );
+      await thinkingTrigger.click();
+      await expect(previewShell).toHaveAttribute(
+        "data-chat-assistant-activity-thought-preview-visible",
+        "false",
+      );
       await activityTrigger.hover();
       await section
         .locator('[data-chat-assistant-activity-open-all-button="true"]')
@@ -865,13 +888,11 @@ test.describe.serial("chat tool calls", () => {
       await expect(activityLatest).not.toContainText(
         "Graph state inspection summary",
       );
-      await expect(
-        section.locator('[data-chat-assistant-activity-thought-scroll="true"]'),
-      ).toHaveCount(0);
-
-      const thinkingTrigger = section.locator(
-        '[data-chat-thinking-trigger="true"]',
+      await expect(previewShell).toHaveAttribute(
+        "data-chat-assistant-activity-thought-preview-visible",
+        "false",
       );
+
       await expect(thinkingTrigger).toContainText("Reasoning");
       await expect(thinkingTrigger).not.toContainText(
         "Graph state inspection summary",

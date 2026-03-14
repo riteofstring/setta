@@ -162,6 +162,7 @@ type ActivityPreviewData = {
     | "terminal"
     | "subagent";
   thoughtText: string | null;
+  thoughtActivityKey: string | null;
   hasStreamingThought: boolean;
   shouldScrambleTitle: boolean;
 };
@@ -291,6 +292,11 @@ type AssistantActivityChildAccordionControl = {
   expandAllSignal: number;
   collapseAllSignal: number;
   suppressSummaries: boolean;
+  previewThoughtKey: string | null;
+  onThinkingOpenStateChange?: (
+    activityKey: string,
+    isExpanded: boolean,
+  ) => void;
 };
 
 type ChatMessageListProps = {
@@ -1437,9 +1443,9 @@ function resolveCompactionEntryLabel({
   );
 }
 
-function resolveLatestThoughtText(
+function resolveLatestThoughtPreview(
   timelineEntries: ActivityTimelineEntry[],
-): string | null {
+): { activityKey: string | null; thoughtText: string | null } {
   for (let index = timelineEntries.length - 1; index >= 0; index -= 1) {
     const entry = timelineEntries[index];
     if (!entry || entry.kind !== "thinking") {
@@ -1447,10 +1453,16 @@ function resolveLatestThoughtText(
     }
     const thoughtText = entry.thinkingEntry.item.thinking.trim();
     if (thoughtText.length > 0) {
-      return thoughtText;
+      return {
+        activityKey: entry.key,
+        thoughtText,
+      };
     }
   }
-  return null;
+  return {
+    activityKey: null,
+    thoughtText: null,
+  };
 }
 
 function resolveHasStreamingThought(
@@ -1513,7 +1525,8 @@ function resolveLatestActivityPreview({
   toolCallArguments: Record<string, string>;
 }): ActivityPreviewData {
   const hasStreamingThought = resolveHasStreamingThought(timelineEntries);
-  const thoughtText = resolveLatestThoughtText(timelineEntries);
+  const { activityKey: thoughtActivityKey, thoughtText } =
+    resolveLatestThoughtPreview(timelineEntries);
   const thinkingEntryCount = timelineEntries.filter(
     (entry) => entry.kind === "thinking",
   ).length;
@@ -1524,6 +1537,7 @@ function resolveLatestActivityPreview({
       label: "No recent activity",
       kind: "none",
       thoughtText,
+      thoughtActivityKey,
       hasStreamingThought,
       shouldScrambleTitle: false,
     };
@@ -1538,6 +1552,7 @@ function resolveLatestActivityPreview({
             : "Reasoning",
         kind: "thought",
         thoughtText,
+        thoughtActivityKey,
         hasStreamingThought,
         shouldScrambleTitle: false,
       };
@@ -1550,6 +1565,7 @@ function resolveLatestActivityPreview({
         label: latestHeadline.headline,
         kind: "thought",
         thoughtText,
+        thoughtActivityKey,
         hasStreamingThought,
         shouldScrambleTitle: false,
       };
@@ -1563,6 +1579,7 @@ function resolveLatestActivityPreview({
         label: fallbackHeadline,
         kind: "thought",
         thoughtText,
+        thoughtActivityKey,
         hasStreamingThought,
         shouldScrambleTitle: false,
       };
@@ -1572,6 +1589,7 @@ function resolveLatestActivityPreview({
         label: "Thinking",
         kind: "thought",
         thoughtText,
+        thoughtActivityKey,
         hasStreamingThought,
         shouldScrambleTitle: false,
       };
@@ -1580,6 +1598,7 @@ function resolveLatestActivityPreview({
       label: "Reasoning",
       kind: "thought",
       thoughtText,
+      thoughtActivityKey,
       hasStreamingThought,
       shouldScrambleTitle: false,
     };
@@ -1593,6 +1612,7 @@ function resolveLatestActivityPreview({
       })}`,
       kind: "context",
       thoughtText,
+      thoughtActivityKey,
       hasStreamingThought,
       shouldScrambleTitle: false,
     };
@@ -1606,6 +1626,7 @@ function resolveLatestActivityPreview({
       )}`,
       kind: "action",
       thoughtText,
+      thoughtActivityKey,
       hasStreamingThought,
       shouldScrambleTitle: false,
     };
@@ -1619,6 +1640,7 @@ function resolveLatestActivityPreview({
       )}`,
       kind: "terminal",
       thoughtText,
+      thoughtActivityKey,
       hasStreamingThought,
       shouldScrambleTitle: false,
     };
@@ -1632,6 +1654,7 @@ function resolveLatestActivityPreview({
       })}`,
       kind: "subagent",
       thoughtText,
+      thoughtActivityKey,
       hasStreamingThought,
       shouldScrambleTitle: false,
     };
@@ -1643,6 +1666,7 @@ function resolveLatestActivityPreview({
     )}`,
     kind: "tool",
     thoughtText,
+    thoughtActivityKey,
     hasStreamingThought,
     shouldScrambleTitle: false,
   };
@@ -3235,6 +3259,7 @@ function ChatAttachmentList({
 }
 
 const ThinkingBox = memo(function ThinkingBox({
+  activityKey,
   content,
   summary,
   timestampMs,
@@ -3249,7 +3274,9 @@ const ThinkingBox = memo(function ThinkingBox({
   collapseAllSignal = 0,
   suppressCollapsedSummary = false,
   conversationSearchTerms = [],
+  onExpansionChange,
 }: {
+  activityKey: string;
   content: string;
   summary: string | null | undefined;
   timestampMs: number | null;
@@ -3264,6 +3291,7 @@ const ThinkingBox = memo(function ThinkingBox({
   collapseAllSignal?: number;
   suppressCollapsedSummary?: boolean;
   conversationSearchTerms?: Array<string>;
+  onExpansionChange?: (activityKey: string, isExpanded: boolean) => void;
 }) {
   const streaming = isStreaming;
   const summaryPreviewRef = useRef<HTMLDivElement | null>(null);
@@ -3304,6 +3332,8 @@ const ThinkingBox = memo(function ThinkingBox({
         : undefined,
   );
   const expandedContent = hasThinkingText ? content : summaryText;
+  const isExpanded =
+    hasExpandableContent && accordionValue === ACTIVITY_ROW_DETAILS_VALUE;
   const thinkingRunState: ToolCallSectionState = streaming
     ? "running"
     : wasInterrupted
@@ -3373,6 +3403,13 @@ const ThinkingBox = memo(function ThinkingBox({
       observer?.disconnect();
     };
   }, [activityHint, shouldMeasureSummaryOverflow, summaryHeadlineText]);
+
+  useEffect(() => {
+    onExpansionChange?.(activityKey, isExpanded);
+    return () => {
+      onExpansionChange?.(activityKey, false);
+    };
+  }, [activityKey, isExpanded, onExpansionChange]);
 
   const triggerClassName = `grid w-full ${TOOL_CALL_RAIL_GRID_CLASS} ${ACTIVITY_CHILD_TRIGGER_CLASS} max-w-full overflow-hidden text-left transition-colors [&[data-state=open]_.chat-accordion-chevron]:rotate-180 ${
     hasExpandableContent ? "cursor-pointer" : "cursor-default"
@@ -4056,6 +4093,9 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
     useState(defaultChildrenOpen);
   const isExpanded = accordionValue === ASSISTANT_ACTIVITY_DETAILS_VALUE;
   const suppressSummaries = isExpanded && allChildrenExpanded;
+  const [previewThoughtExpanded, setPreviewThoughtExpanded] = useState(
+    () => defaultChildrenOpen && preview.thoughtActivityKey !== null,
+  );
   const openAllButtonLabel = allChildrenExpanded ? "Close all" : "Open all";
   const openAllButtonTitle = allChildrenExpanded
     ? "Close all activity details"
@@ -4102,6 +4142,26 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
   useEffect(() => {
     setAllChildrenExpanded(defaultChildrenOpen);
   }, [defaultChildrenOpen]);
+  useEffect(() => {
+    setPreviewThoughtExpanded(
+      defaultChildrenOpen && preview.thoughtActivityKey !== null,
+    );
+  }, [defaultChildrenOpen, preview.thoughtActivityKey]);
+  const handlePreviewThoughtExpansionChange = useCallback(
+    (activityKey: string, nextExpanded: boolean) => {
+      if (activityKey !== preview.thoughtActivityKey) {
+        return;
+      }
+      setPreviewThoughtExpanded((previous) =>
+        previous === nextExpanded ? previous : nextExpanded,
+      );
+    },
+    [preview.thoughtActivityKey],
+  );
+  const hideThoughtPreview = isExpanded && previewThoughtExpanded;
+  const previewShellClassName = hideThoughtPreview
+    ? "max-h-0 opacity-0"
+    : "max-h-12 opacity-100";
   const activityTitleLabel =
     suppressSummaries && preview.kind === "thought"
       ? preview.hasStreamingThought
@@ -4238,8 +4298,15 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
                   />
                 </div>
               </div>
-              {showThoughtScroll && !suppressSummaries ? (
-                <div>
+              {showThoughtScroll ? (
+                <div
+                  data-chat-assistant-activity-thought-preview-shell="true"
+                  data-chat-assistant-activity-thought-preview-visible={
+                    hideThoughtPreview ? "false" : "true"
+                  }
+                  aria-hidden={hideThoughtPreview}
+                  className={`overflow-hidden transition-[max-height,opacity] duration-200 ease-out motion-reduce:transition-none ${previewShellClassName}`}
+                >
                   <ActivityThoughtPreview
                     text={preview.thoughtText ?? ""}
                     animate={shouldAnimateThoughtScroll}
@@ -4260,6 +4327,8 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
               expandAllSignal: openAllSignal,
               collapseAllSignal: closeAllSignal,
               suppressSummaries,
+              previewThoughtKey: preview.thoughtActivityKey,
+              onThinkingOpenStateChange: handlePreviewThoughtExpansionChange,
             })}
           </div>
         </Accordion.Content>
@@ -5268,6 +5337,8 @@ const AssistantActionSection = memo(function AssistantActionSection({
   closeAllSignal = 0,
   suppressCollapsedSummary = false,
   conversationSearchTerms = [],
+  previewThoughtKey = null,
+  onThinkingOpenStateChange,
 }: {
   timelineEntries: ActivityTimelineEntry[];
   toolResultsById: Record<string, ToolChatMessage>;
@@ -5278,6 +5349,11 @@ const AssistantActionSection = memo(function AssistantActionSection({
   closeAllSignal?: number;
   suppressCollapsedSummary?: boolean;
   conversationSearchTerms?: Array<string>;
+  previewThoughtKey?: string | null;
+  onThinkingOpenStateChange?: (
+    activityKey: string,
+    isExpanded: boolean,
+  ) => void;
 }) {
   const rows = timelineEntries.map((entry) => {
     const copyText = buildCopyTextForActivityTimelineEntry({
@@ -5298,6 +5374,7 @@ const AssistantActionSection = memo(function AssistantActionSection({
       return (
         <ThinkingBox
           key={entry.key}
+          activityKey={entry.key}
           content={entry.thinkingEntry.item.thinking}
           summary={entry.thinkingEntry.item.summary}
           timestampMs={entry.thinkingEntry.timestampMs}
@@ -5311,6 +5388,9 @@ const AssistantActionSection = memo(function AssistantActionSection({
           collapseAllSignal={closeAllSignal}
           suppressCollapsedSummary={suppressCollapsedSummary}
           conversationSearchTerms={conversationSearchTerms}
+          onExpansionChange={
+            entry.key === previewThoughtKey ? onThinkingOpenStateChange : undefined
+          }
         />
       );
     }
@@ -5942,6 +6022,7 @@ function StreamItem({
     case C.LLM_THINKING:
       return (
         <ThinkingBox
+          activityKey={runKey}
           content={item.thinking}
           summary={item.summary}
           timestampMs={null}
@@ -6629,6 +6710,10 @@ const ChatMessage = memo(function ChatMessage({
                       suppressCollapsedSummary={
                         childAccordionControl.suppressSummaries
                       }
+                      previewThoughtKey={childAccordionControl.previewThoughtKey}
+                      onThinkingOpenStateChange={
+                        childAccordionControl.onThinkingOpenStateChange
+                      }
                       conversationSearchTerms={conversationSearchTerms}
                     />
                   </AssistantToolCallCard>
@@ -7101,6 +7186,12 @@ function ChatMessages({
                         closeAllSignal={childAccordionControl.collapseAllSignal}
                         suppressCollapsedSummary={
                           childAccordionControl.suppressSummaries
+                        }
+                        previewThoughtKey={
+                          childAccordionControl.previewThoughtKey
+                        }
+                        onThinkingOpenStateChange={
+                          childAccordionControl.onThinkingOpenStateChange
                         }
                         conversationSearchTerms={conversationSearchTerms}
                       />
