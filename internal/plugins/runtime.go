@@ -283,7 +283,7 @@ func buildRuntimeConfigDescriptor(entry DiscoveredPlugin, pluginsState *PluginsS
 	if redactConfigDetails {
 		return ConfigDescriptor{
 			HasSchema:                 hasSchema,
-			SchemaJSON:                map[string]any{},
+			SchemaJSON:                nil,
 			SchemaJSONDigestSHA256:    nil,
 			CurrentConfig:             map[string]any{},
 			CurrentConfigDigestSHA256: nil,
