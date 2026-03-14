@@ -106,6 +106,7 @@ import {
   ExternalAgentConfig,
   ExternalAgentPreflightStatus,
   LLMStreamingResponse,
+  ManagedAPIKeysSnapshot,
   MessageDeltaEvent,
   MessageFinalizedEvent,
   MessageImageUrlContent,
@@ -159,13 +160,6 @@ const MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE =
 const AGENT_RUNS_RETRY_DELAYS_MS = [300, 1000, 2500] as const;
 
 type APIKeysMutation = (currentApiKeys: APIKeys) => APIKeys;
-type ManagedAPIKeysSnapshotPayload = {
-  apiKeys: APIKeys;
-  revision: number;
-  corrupt?: boolean;
-  errorCode?: string | null;
-  message?: string | null;
-};
 
 type ChatExecutionSettings = {
   permissionMode: ChatPermissionMode;
@@ -761,7 +755,7 @@ export function receiveLLMConfigUpdate(payload: AllLLMConfigs) {
 }
 
 export function receiveLLMApiKeysSnapshotUpdate(
-  payload: ManagedAPIKeysSnapshotPayload,
+  payload: ManagedAPIKeysSnapshot,
 ) {
   const isCorrupt =
     payload.corrupt === true ||
