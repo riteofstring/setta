@@ -96,12 +96,15 @@ Current state:
   - when a no-runtime snapshot/replay arrives without authoritative Go
     `dependencyValues`, the retained Python listener now stays fail-closed
     instead of rebuilding cache state from the local dependency graph
+  - listener callbacks now always receive the metadata-backed state view,
+    using authoritative cached dependency values first and only falling back to
+    the retained generated runtime internally when a value is still unresolved
 - listener coverage and force-refresh reads/writes
   - listener websocket DTOs in `internal/realtime`
 - Python still owns:
   - local dependency-graph rebuilding and generated runtime state for
-    generated-state access and any computed dependency shapes the current Go
-    metadata payload still cannot render directly
+    unresolved generated-value fallback and any computed dependency shapes the
+    current Go metadata payload still cannot render directly
   - share listener runtime coupling through
     `backend/setta/share/listener_runtime.py`
   - dormant broader built-in listener endpoint inventory/docs outside the
@@ -274,6 +277,9 @@ Python/share listeners can bootstrap entirely against the Go listener route.
   no-runtime cache rebuild/replay, and fail closed when those authoritative Go
   snapshot values are absent instead of rebuilding cache state from the local
   graph.
+- Expose the metadata-backed callback state view to listener authors even when
+  a generated runtime instance exists, and keep that generated runtime as an
+  internal fallback only for values the authoritative cache cannot yet supply.
 
 Exit condition:
 listener tests pass without Python owning dependency graph or runtime state.

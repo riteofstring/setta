@@ -2828,6 +2828,48 @@ class SettaListener:
     def _current_dependency_value_by_name(self, dependency_name: str) -> Any:
         return self._dependency_cache.get(dependency_name, _MISSING)
 
+    def _resolve_callback_runtime_value(
+        self,
+        runtime_state: ListenerRuntimeState,
+        dependency_name: str,
+    ) -> Any:
+        if runtime_state.s_instance is None:
+            return _MISSING
+        try:
+            dep_key = runtime_state.dependency_metadata.dependency_key(
+                dependency_name
+            )
+            runtime_dependency = self._runtime_dependency_name(
+                runtime_state,
+                dep_key,
+            )
+            return self._resolve_dependency_value(
+                runtime_state.s_instance,
+                runtime_dependency,
+            )
+        except (AttributeError, KeyError, IndexError, ValueError):
+            return _MISSING
+
+    def _build_callback_value_resolver(
+        self,
+        runtime_state: ListenerRuntimeState,
+        *,
+        value_resolver: Callable[[str], Any] | None = None,
+    ) -> Callable[[str], Any]:
+        if value_resolver is None:
+            value_resolver = self._current_dependency_value_by_name
+
+        def resolve(dependency_name: str) -> Any:
+            value = value_resolver(dependency_name)
+            if value is not _MISSING:
+                return value
+            return self._resolve_callback_runtime_value(
+                runtime_state,
+                dependency_name,
+            )
+
+        return resolve
+
     def _build_dependency_metadata(
         self,
         dependency_catalog: ListenerDependencyCatalog | None,
@@ -2847,17 +2889,15 @@ class SettaListener:
         ]
         | None = None,
     ) -> Any:
-        if runtime_state.s_instance is not None:
-            return runtime_state.s_instance
-        if value_resolver is None:
-            value_resolver = self._current_dependency_value_by_name
         if dependency_metadata_resolver is None:
-            dependency_metadata_resolver = (
-                self._current_runtime_state_dependency_metadata
-            )
+            def dependency_metadata_resolver() -> ListenerDependencyMetadata:
+                return runtime_state.dependency_metadata
         return _ListenerCallbackStateView(
             dependency_metadata_resolver=dependency_metadata_resolver,
-            value_resolver=value_resolver,
+            value_resolver=self._build_callback_value_resolver(
+                runtime_state,
+                value_resolver=value_resolver,
+            ),
             log_identifier=self._log_identifier,
         )
 

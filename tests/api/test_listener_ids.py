@@ -191,6 +191,63 @@ def test_listener_context_exposes_id_helpers() -> None:
     )
 
 
+def test_callback_state_prefers_cached_value_when_runtime_instance_exists() -> None:
+    project_state, section_id, param_id = build_project_state("12")
+    listener = SettaListener(project_name=project_state.projectConfig.name)
+
+    param_dep = dep_id(section_id, param_id)
+
+    @listener.listen(deps=[param_dep])
+    def on_param(_state, _ctx) -> None:
+        return None
+
+    runtime_state = listener._build_runtime_state(project_state)
+    assert runtime_state.s_instance is not None
+    listener._runtime_state = runtime_state
+    listener._project_config_id = project_state.projectConfig.id
+    listener._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
+
+    spec = next(iter(listener._callbacks.values()))
+    dependency_name = spec.dependency_names[0]
+    runtime_value = getattr(runtime_state.s_instance, dependency_name)
+    listener._dependency_cache[dependency_name] = 99
+
+    state = listener._build_callback_state(runtime_state)
+
+    assert state is not runtime_state.s_instance
+    assert getattr(state, dependency_name) == 99
+    assert getattr(runtime_state.s_instance, dependency_name) == runtime_value
+    assert dependency_name in dir(state)
+
+
+def test_callback_state_falls_back_to_runtime_instance_when_cache_misses() -> None:
+    project_state, section_id, param_id = build_project_state("13")
+    listener = SettaListener(project_name=project_state.projectConfig.name)
+
+    param_dep = dep_id(section_id, param_id)
+
+    @listener.listen(deps=[param_dep])
+    def on_param(_state, _ctx) -> None:
+        return None
+
+    runtime_state = listener._build_runtime_state(project_state)
+    assert runtime_state.s_instance is not None
+    listener._runtime_state = runtime_state
+    listener._project_config_id = project_state.projectConfig.id
+    listener._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
+
+    spec = next(iter(listener._callbacks.values()))
+    dependency_name = spec.dependency_names[0]
+
+    state = listener._build_callback_state(runtime_state)
+
+    assert state is not runtime_state.s_instance
+    assert getattr(state, dependency_name) == getattr(
+        runtime_state.s_instance,
+        dependency_name,
+    )
+
+
 def test_listener_context_values_by_id_uses_cached_values_without_runtime_instance() -> None:
     project_state, section_id, param_id = build_project_state("7")
     listener = SettaListener(project_name=project_state.projectConfig.name)
