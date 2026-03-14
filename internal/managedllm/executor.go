@@ -879,9 +879,6 @@ func (e *Executor) applyOpenAIResponseOutputItemFallback(
 			appendAssistantThinkingAtIndex(assistantMessage, 0, reasoning)
 		}
 	case responses.ResponseOutputMessage:
-		if hasMessageText(assistantMessage) {
-			return
-		}
 		text := joinOpenAIResponseOutputMessageText(item.Content)
 		if strings.TrimSpace(text) == "" {
 			return
@@ -889,17 +886,23 @@ func (e *Executor) applyOpenAIResponseOutputItemFallback(
 		if streamState != nil {
 			streamState.bufferedText.Reset()
 		}
-		textIndex := 0
-		if streamState != nil && streamState.reasoningSeen {
-			textIndex = 1
-		}
-		appendAssistantTextAtIndex(assistantMessage, textIndex, text)
+		setAssistantTextAtIndex(assistantMessage, openAIResponseTextIndex(assistantMessage, streamState), text)
 	case responses.ResponseFunctionToolCall:
 		if accumulator == nil {
 			return
 		}
 		accumulator.applyResolved(outputIndex, item.CallID, item.Name, item.Arguments)
 	}
+}
+
+func openAIResponseTextIndex(assistantMessage map[string]any, streamState *openAIResponseStreamState) int {
+	if streamState != nil && streamState.reasoningSeen {
+		return 1
+	}
+	if hasMessageThinking(assistantMessage) {
+		return 1
+	}
+	return 0
 }
 
 func joinOpenAIResponseReasoningSummary(summary []responses.ResponseReasoningItemSummary) string {
@@ -1488,6 +1491,15 @@ func newAssistantMessage() map[string]any {
 
 func appendAssistantText(message map[string]any, delta string) {
 	appendAssistantTextAtIndex(message, 0, delta)
+}
+
+func setAssistantTextAtIndex(message map[string]any, index int, text string) {
+	if strings.TrimSpace(text) == "" {
+		return
+	}
+	content, block := ensureAssistantContentBlock(message, index, "text")
+	block["text"] = text
+	message["content"] = content
 }
 
 func appendAssistantTextAtIndex(message map[string]any, index int, delta string) {

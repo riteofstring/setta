@@ -1615,7 +1615,7 @@ func TestExecutorExecuteStreamsOpenAIResponsesThinkingAndReturnsOutputs(t *testi
 		flusher.Flush()
 		fmt.Fprint(w, openAIResponseReasoningTextDeltaEvent("reasoning-1", 0, 0, "Planning deeply"))
 		flusher.Flush()
-		fmt.Fprint(w, openAIResponseOutputTextDeltaEvent("message-1", 1, 0, "Final answer"))
+		fmt.Fprint(w, openAIResponseOutputTextDeltaEvent("message-1", 1, 0, "Final"))
 		flusher.Flush()
 		fmt.Fprint(w, openAIResponseCompletedEvent(
 			[]map[string]any{
@@ -1733,6 +1733,21 @@ func TestExecutorExecuteStreamsOpenAIResponsesThinkingAndReturnsOutputs(t *testi
 	if !ok || textBlock["text"] != "Final answer" {
 		t.Fatalf("unexpected text block %#v", content[1])
 	}
+	state, stateErr := live.GetLiveChatState(run.ID)
+	if stateErr != nil {
+		t.Fatalf("get live state: %v", stateErr)
+	}
+	if state == nil || state.WaitingForResponse {
+		t.Fatalf("expected finalized live state, got %#v", state)
+	}
+	stateContent, ok := state.Messages[1]["content"].([]any)
+	if len(state.Messages) != 2 || !ok || len(stateContent) != 2 {
+		t.Fatalf("expected completed response fallback to preserve full live assistant content, got %#v", state)
+	}
+	stateTextBlock, ok := stateContent[1].(map[string]any)
+	if !ok || stateTextBlock["text"] != "Final answer" {
+		t.Fatalf("expected completed response fallback to preserve full live assistant text, got %#v", state)
+	}
 	if broadcaster.Count() != 6 {
 		t.Fatalf("expected 6 streaming broadcasts, got %d", broadcaster.Count())
 	}
@@ -1841,6 +1856,8 @@ func TestExecutorExecuteRecoversOpenAIResponsesOutputItemDoneBeforeIncompleteFai
 		if !ok {
 			t.Fatal("expected flusher")
 		}
+		fmt.Fprint(w, openAIResponseOutputTextDeltaEvent("message-1", 0, 0, "Recovered"))
+		flusher.Flush()
 		fmt.Fprint(w, openAIResponseOutputMessageDoneEvent("message-1", 0, "Recovered final item"))
 		flusher.Flush()
 		fmt.Fprint(w, openAIResponseIncompleteEvent("max_output_tokens"))
@@ -1917,8 +1934,8 @@ func TestExecutorExecuteRecoversOpenAIResponsesOutputItemDoneBeforeIncompleteFai
 	if len(state.Messages) != 2 || assistantText(state.Messages[1]) != "Recovered final item" {
 		t.Fatalf("expected finalized live output_item.done assistant message, got %#v", state)
 	}
-	if broadcaster.Count() != 3 {
-		t.Fatalf("expected start, stop, finalized broadcasts, got %d", broadcaster.Count())
+	if broadcaster.Count() != 4 {
+		t.Fatalf("expected start, delta, stop, finalized broadcasts, got %d", broadcaster.Count())
 	}
 }
 
