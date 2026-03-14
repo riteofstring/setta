@@ -1,7 +1,4 @@
-import {
-  type AgenticScopeViolationEdge,
-  useAIFollow,
-} from "state/stores/aiFollowStores";
+import { type AgenticScopeViolationEdge, useAIFollow } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import { route_get_ai_follow_snapshot } from "utils/generatedEndpoints";
 import {
