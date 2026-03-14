@@ -1,4 +1,4 @@
-import { HandlePosition, HandleType, Node } from "forks/xyflow/core/types";
+import { HandlePosition, HandleType } from "forks/xyflow/core/types";
 import type { AIFollowMode } from "state/types/aiFollow";
 import {
   ProjectSearchMode,
@@ -28,12 +28,17 @@ import { subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import { createWithEqualityFn } from "zustand/traditional";
 import type { CustomRunItem } from "./stores/localStorageStore";
-import {
-  useProjectState,
-  type ZustandProjectState,
-} from "./stores/projectStores";
 import { withProjectState, withResetFn } from "./utils";
 
+export {
+  runWithAtomicallyPublishedProjectStores,
+  useActiveSectionUI,
+  useNodeInternals,
+} from "./stores/activeSectionStores";
+export type {
+  ActiveSectionUIState,
+  ZustandNodeInternalsState,
+} from "./stores/activeSectionStores";
 export { useAIStore } from "./stores/aiStore";
 export type { ChatBranchInfo, ChatDetails } from "./stores/aiStore";
 export { useLocalStorage } from "./stores/localStorageStore";
@@ -66,36 +71,6 @@ export {
   useNotifications,
   useResizeEvent,
 } from "./stores/uiStores";
-
-type ActiveSectionUIState = {
-  activeIds: Array<string>;
-  selectionGeneration: number;
-  backendGeneration: number;
-  backendHydrationEnabled: boolean;
-  pendingBackendSyncOpIds: Array<string>;
-  pendingBackendSyncGenerationByOpId: Record<string, number>;
-  scheduledBackendSync: {
-    projectConfigId: string;
-    activeIds: Array<string>;
-    generation: number;
-  } | null;
-};
-
-export const useActiveSectionUI = withProjectState(
-  createWithEqualityFn(
-    subscribeWithSelector(
-      withResetFn<ActiveSectionUIState>(() => ({
-        activeIds: [],
-        selectionGeneration: 0,
-        backendGeneration: 0,
-        backendHydrationEnabled: true,
-        pendingBackendSyncOpIds: [],
-        pendingBackendSyncGenerationByOpId: {},
-        scheduledBackendSync: null,
-      })),
-    ),
-  ),
-);
 
 export type ListenerCoverageRecord = {
   hasRealtimeWildcard: ListenerCoverageSnapshot["hasRealtimeWildcard"];
@@ -150,93 +125,6 @@ export const useWaitingForLSPResult = withProjectState(
     ),
   ),
 );
-
-export type ZustandNodeInternalsState = { x: Map<string, Node> };
-
-export const useNodeInternals = withProjectState(
-  createWithEqualityFn(
-    withResetFn<ZustandNodeInternalsState>(() => ({
-      x: new Map(),
-    })),
-  ),
-);
-
-type AtomicallyPublishedProjectStoreState = {
-  projectState: ZustandProjectState;
-  nodeInternals: ZustandNodeInternalsState;
-  activeSectionUI: ActiveSectionUIState;
-};
-
-let stagedProjectStorePublication: AtomicallyPublishedProjectStoreState | null =
-  null;
-
-function patchPublishedProjectStoreGetState<TState>(
-  store: {
-    getState: () => TState;
-  },
-  readRawState: () => TState,
-  getPublishedState: (
-    publication: AtomicallyPublishedProjectStoreState,
-  ) => TState,
-) {
-  store.getState = (() => {
-    const publication = stagedProjectStorePublication;
-    if (publication !== null) {
-      return getPublishedState(publication);
-    }
-    return readRawState();
-  }) as typeof store.getState;
-}
-
-const readRawProjectState = useProjectState.getState.bind(useProjectState);
-const readRawActiveSectionUIState =
-  useActiveSectionUI.getState.bind(useActiveSectionUI);
-const readRawNodeInternalsState =
-  useNodeInternals.getState.bind(useNodeInternals);
-
-patchPublishedProjectStoreGetState(
-  useProjectState,
-  readRawProjectState,
-  (publication) => publication.projectState,
-);
-patchPublishedProjectStoreGetState(
-  useActiveSectionUI,
-  readRawActiveSectionUIState,
-  (publication) => publication.activeSectionUI,
-);
-patchPublishedProjectStoreGetState(
-  useNodeInternals,
-  readRawNodeInternalsState,
-  (publication) => publication.nodeInternals,
-);
-
-export function runWithAtomicallyPublishedProjectStores(
-  nextState: {
-    projectState: ZustandProjectState;
-    nodeInternals: ZustandNodeInternalsState;
-    activeSectionUI?: Partial<ActiveSectionUIState> | null;
-  },
-  fn: () => void,
-) {
-  const previousPublication = stagedProjectStorePublication;
-  stagedProjectStorePublication = {
-    projectState: nextState.projectState,
-    nodeInternals: nextState.nodeInternals,
-    activeSectionUI:
-      nextState.activeSectionUI === null ||
-      typeof nextState.activeSectionUI === "undefined"
-        ? readRawActiveSectionUIState()
-        : {
-            ...readRawActiveSectionUIState(),
-            ...nextState.activeSectionUI,
-          },
-  };
-  try {
-    fn();
-  } finally {
-    stagedProjectStorePublication = previousPublication;
-  }
-}
 
 type FileBrowserState = {
   rootPath: string | null;

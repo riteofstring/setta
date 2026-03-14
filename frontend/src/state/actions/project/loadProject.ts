@@ -8,11 +8,11 @@ import {
   sanitizeProjectStateActiveIds,
   useActiveSectionUI,
 } from "state/activeSectionUI";
+import { useLocalStorage } from "state/definitions";
 import {
   runWithAtomicallyPublishedProjectStores,
-  useLocalStorage,
   useNodeInternals,
-} from "state/definitions";
+} from "state/stores/activeSectionStores";
 import {
   useAllProjectMetadata,
   useProjectState,
