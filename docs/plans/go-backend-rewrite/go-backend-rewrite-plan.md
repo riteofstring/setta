@@ -9,19 +9,17 @@ Default stance:
 
 - preserve active product behavior for the current caller
 - move runtime ownership to Go
-- keep the port behavior-first and architecture-conservative until the Go
-  runtime is proven by tests and live workflows
+- keep the port behavior-first and architecture-conservative until tests and
+  live workflows prove the Go runtime
 
-There is no deployed-user compatibility contract for the Python backend.
-Do not preserve backward compatibility, legacy route shapes, migrations, or
-Python transition layers unless a current repo workflow explicitly requires a
-bounded exception.
+There is no deployed-user compatibility contract for the Python backend. Do
+not preserve backward compatibility, legacy route shapes, migrations, storage
+compatibility, or Python transition layers unless a current repo workflow
+explicitly requires a bounded exception.
 
-## Read Order
-
-Start with `CURRENT.md`, then read only the task-matching current docs.
-Use `README.md` only for the folder map.
-Use `archive/` only for historical rationale.
+Use `CURRENT.md` for doc routing. Use this file for clean-break defaults,
+port-vs-redesign decisions, and "should this become a new rewrite slice?"
+questions.
 
 ## Decision Order
 
@@ -32,8 +30,8 @@ When the right move is unclear, decide in this order:
    transitional work.
 3. Avoid broad redesign during the port unless correctness, testability, or
    active caller coverage requires it.
-4. Prefer explicit typed boundaries and deterministic source-of-truth pathways
-   over incidental Python behavior or heuristics.
+4. Prefer explicit typed boundaries, deterministic source-of-truth pathways,
+   and established libraries over incidental Python behavior or heuristics.
 
 ## Rewrite Rules
 
@@ -44,7 +42,8 @@ When the right move is unclear, decide in this order:
 - Preserve product behavior first, unless a caller, release path, or
   documented product decision requires a behavior change.
 - Do not combine the language rewrite with broad architecture cleanup by
-  default. Land the Go-owned runtime first; reopen cleanup as a separate slice.
+  default. Land the Go-owned runtime first; reopen cleanup as a separate slice
+  only when needed.
 - The rewrite does not need to keep a partially mixed Go/Python backend
   working at every intermediate step.
 - Prefer explicit ownership, thin transports, typed contracts, and robust

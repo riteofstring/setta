@@ -5,25 +5,21 @@
 The Go test surface must match or exceed the meaningful product behavior
 covered by the current Python tests.
 
-Do not do a one-for-one file port unless that is the clearest shape.
-Coverage can move. Behavioral coverage cannot shrink.
+Do not do a one-for-one file port unless that is the clearest shape. Coverage
+can move. Behavioral coverage cannot shrink.
 
 ## Core Rule
 
 Treat the current Python tests as the minimum behavioral coverage map for the
 rewrite.
 
-That means:
-
-- the Python suite is a capability inventory
-- the Go suite should match or exceed that inventory
-- fewer Go test files is fine
-- less behavioral coverage is not fine
-
-The clean-break rule still applies:
-
-- do not preserve legacy implementation details just because Python does them
-- do preserve or intentionally replace tested product behavior
+- The Python suite is a capability inventory.
+- The Go suite should match or exceed that inventory.
+- Fewer Go test files is fine.
+- Less behavioral coverage is not fine.
+- The clean-break rule still applies: do not preserve legacy implementation
+  details just because Python does them, but do preserve or intentionally
+  replace tested product behavior.
 
 ## Default Port Loop
 
@@ -36,18 +32,6 @@ For any subsystem change:
 4. Implement the code change.
 5. Run the narrowest relevant suites, then widen if the change crosses
    boundaries.
-
-## Port Discipline
-
-- The default question is "does the Go runtime preserve the intended
-  behavior?", not "is this the final architecture?"
-- If a structural cleanup is behavior-preserving and reduces rewrite risk, it
-  is acceptable during the port.
-- If a correctness hazard is discovered, add or update tests that expose it,
-  then fix it in the smallest behavior-preserving way available.
-- If a proposed refactor mostly improves elegance or package layout without
-  reducing current correctness risk, defer it until after the Go runtime is
-  proven.
 
 ## Reference Inputs
 
@@ -158,12 +142,20 @@ Maintain a living coverage matrix that maps:
 - uncovered gaps
 - intentional drops or redesigns
 
-A subsystem is not done just because code exists.
-It is done when the code works, the relevant Go tests exist, and the coverage
-matrix shows the Python reference surface is matched or exceeded.
+A subsystem is not done just because code exists. It is done when the code
+works, the relevant Go tests exist, and the coverage matrix shows the Python
+reference surface is matched or exceeded.
 
 ## Practical Rules
 
+- The default question is "does the Go runtime preserve the intended
+  behavior?", not "is this the final architecture?"
+- If a structural cleanup is behavior-preserving and reduces rewrite risk, take
+  it.
+- If a correctness hazard is discovered, add or update tests that expose it,
+  then fix it in the smallest behavior-preserving way available.
+- If a refactor mainly improves elegance or package layout without reducing
+  current correctness risk, defer it until after the Go runtime is proven.
 - Prefer real behavior over fake stand-ins.
 - Prefer temp directories over checked-in mutable fixtures.
 - Prefer black-box assertions for external behavior.

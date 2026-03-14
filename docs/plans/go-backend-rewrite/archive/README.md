@@ -12,6 +12,12 @@ Start with `../CURRENT.md` before reading anything here.
     notes
 - `spike-*.md`
   - exploratory research notes that informed the rewrite
+- `go-backend-rewrite-stack-recommendations.md`
+  - early stack/library recommendation research that is no longer the current
+    decision record
+- `pyproject-dependency-replacement-snapshot.md`
+  - point-in-time dependency classification snapshots that are no longer
+    top-level source of truth
 
 ## How To Use It
 

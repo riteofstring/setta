@@ -32,7 +32,7 @@ What this rerank adds:
 
 - `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md`
 - `docs/plans/go-backend-rewrite/archive/phase-30-post-phase-29-broader-rewrite-rerank.md`
-- `docs/plans/go-backend-rewrite/pyproject-dependency-replacement-snapshot.md`
+- `docs/plans/go-backend-rewrite/archive/pyproject-dependency-replacement-snapshot.md`
 - `docs/reference/dev-vs-built.md`
 - `docs/reference/remote-built-install.md`
 - `docs/reference/external-agents.md`

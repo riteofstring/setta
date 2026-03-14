@@ -28,7 +28,7 @@ This phase should produce:
 ## Inputs
 
 - `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md`
-- `docs/plans/go-backend-rewrite/go-backend-rewrite-stack-recommendations.md`
+- `docs/plans/go-backend-rewrite/archive/go-backend-rewrite-stack-recommendations.md`
 - `backend/setta/types/routes.py`
 - `backend/setta/routers/*.py`
 - `backend/setta/websockets/*.py`

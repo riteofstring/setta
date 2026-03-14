@@ -1,36 +1,28 @@
 # Dependency Docs Local Reference Strategy
 
-## Purpose
+## Goal
 
-Define how this rewrite should gather and use external dependency documentation
-when normal development runs with:
+Keep rewrite work local-source-first by default.
+Only do a targeted online documentation pass when local code, installed
+packages, and repo notes are not enough for a correctness-sensitive decision.
 
-- `yolo` mode on
-- web search off
+## Default Mode
 
-The goal is to keep day-to-day development local-source-first while still
-allowing targeted, safer documentation acquisition when needed.
+For normal rewrite work:
 
-## Problem
+- keep web search off
+- rely on local sources:
+  - repo usage patterns
+  - `go.mod`, lockfiles, and generated types
+  - installed Go module source, comments, examples, and `go doc`
+  - installed frontend package source, types, README files, and tests
+  - locally stored dependency reference docs
 
-Two constraints are both reasonable:
+## Acquisition Mode
 
-- `yolo` mode is useful for fast local execution and editing
-- live web search during `yolo` work increases prompt-injection risk and makes
-  dependency guidance harder to audit
+Use this only when local source, installed package docs, and existing repo
+notes are not enough.
 
-That means the rewrite should not assume live web access during normal coding.
-
-## Working Approach
-
-Use a two-mode workflow.
-
-### 1. Safe Acquisition Mode
-
-Use this only when local source, installed package docs, and existing repo notes
-are not enough.
-
-- turn `yolo` off
 - turn web search on
 - fetch docs only from official sources when possible:
   - package docs
@@ -41,19 +33,6 @@ are not enough.
   - no random blogs
   - no forum scraping
   - no issue-thread harvesting unless a specific edge case requires it
-
-### 2. Normal Development Mode
-
-Use this for routine rewrite work.
-
-- turn `yolo` on
-- turn web search off
-- rely on local sources:
-  - repo usage patterns
-  - `go.mod`, lockfiles, and generated types
-  - installed Go module source, comments, examples, and `go doc`
-  - installed frontend package source, types, README files, and tests
-  - locally stored dependency reference docs
 
 ## What To Store Locally
 
@@ -94,15 +73,12 @@ Do not spend time documenting trivial or low-risk helpers first.
 
 ## Source-Of-Truth Rule
 
-When local docs disagree with installed source or types:
+When local docs disagree with installed source or types, installed source and
+types win.
 
-- installed source and types win
-
-When both local source and locally stored notes are insufficient:
-
-- do a short Safe Acquisition Mode pass
-- update the local reference set
-- return to Normal Development Mode
+When both local source and locally stored notes are insufficient, do a short
+Acquisition Mode pass, update the local reference set, then return to normal
+development.
 
 Do not silently rely on memory or heuristics when a library-specific source of
 truth is missing and the behavior matters.

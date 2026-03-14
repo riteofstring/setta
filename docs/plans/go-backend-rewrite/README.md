@@ -1,73 +1,50 @@
 # Go Rewrite Docs
 
-This folder is the active working set for the Go backend rewrite.
+This folder is the active doc set for the Go backend rewrite.
 Start with `CURRENT.md`.
-Use this README only as the folder map.
+Use this file only as the folder map.
+
+Rules and workflow live in `CURRENT.md`, not here.
 
 ## Core Docs
 
 - `CURRENT.md`
-  - entrypoint, task loop, and update rules
+  - entrypoint, task loop, update rules
 - `caller-backed-backend-surface-checklist.md`
   - active caller reachability
 - `backend-capability-coverage-checklist.md`
   - runtime/service ownership
 - `go-backend-rewrite-plan.md`
-  - clean-break rules and port-vs-redesign decisions
+  - clean-break defaults and port-vs-redesign decisions
 - `testing-strategy.md`
   - testing contract and coverage expectations
 
-## Boundary Docs
+## Slice Docs
 
 - `setta-listener-protocol-redesign-plan.md`
-  - listener protocol or Python `SettaListener` SDK boundary
+  - listener protocol and Python `SettaListener` boundary
 - `go-frontend-binding-generation-plan.md`
-  - Go-owned frontend route/type generation
+  - Go-owned frontend route/type/endpoint generation
 - `go-dependency-inventory-and-rationale.md`
-  - dependency choices and `go.mod` rationale
+  - current dependency choices and `go.mod` rationale
 - `docs/reference/dependencies/`
-  - upstream dependency behavior and local reference notes
-- `go-backend-rewrite-stack-recommendations.md`
-  - older design guidance; not the primary source of truth
+  - local upstream/library notes
 - `dependency-docs-local-reference.md`
-  - dependency-doc acquisition/storage rules
-- `pyproject-dependency-replacement-snapshot.md`
-  - point-in-time Python dependency classification
+  - how to gather and maintain local dependency-reference notes
 
 ## Maintenance Docs
 
 - `caller-backed-backend-surface-checklist-audit-plan.md`
-  - rules for maintaining the caller-backed checklist
+  - how to maintain the caller-backed checklist
 - `backend-capability-coverage-checklist-audit-plan.md`
-  - rules for maintaining the ownership checklist
+  - how to maintain the ownership checklist
 
 ## History
 
 - `archive/README.md`
-  - historical slice docs and spikes; use only for rationale or archaeology
+  - historical slice docs, earlier recommendations, and snapshots
 
-## Working Rules
-
-- Do not bulk-read every top-level rewrite doc by default.
-- Start with `CURRENT.md`, not `archive/`.
-- Update the relevant checklist in the same change when caller reachability or
-  runtime ownership changes.
-- Read the audit-plan docs only when you are editing those checklists.
-- Update `CURRENT.md` only when the doc map, default workflow, or selected
-  follow-on guidance changes.
-- Use `archive/` only when a current doc points there or when you need
-  historical rationale.
-
-## Clean-Break Reminder
-
-- There is no deployed-user compatibility contract for this rewrite.
-- Do not preserve backward compatibility, legacy route shapes, migrations, or
-  Python-shaped architecture unless a live repo workflow explicitly requires
-  it.
-- Preserve active product behavior and documented workflows, not legacy
-  implementation shape.
-
-## Go Toolchain Shortcut
+## Go Toolchain
 
 - Run Go commands with `./scripts/go.sh <args>`.
 - Resolve the pinned SDK root with `./scripts/go.sh env GOROOT`.
