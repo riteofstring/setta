@@ -6,9 +6,11 @@ import {
   SectionTypeEnum,
   StateMachineGateTypeEnum,
   createAgentRun,
+  createChatSectionImpl,
   createCore,
   createProjectConfig,
   createSectionSize,
+  createUserDefaultChatSectionImpl,
   createVariant,
   type BaseSectionImplUnion,
 } from "utils/generatedTypes";
@@ -74,6 +76,58 @@ function seedWorkflowSection({
     state.sectionImpls = {
       [impl.id]: impl,
     };
+    state.previewSectionVariantMap = {};
+  });
+  syncStoreInitialState(useProjectState);
+}
+
+type WorkflowEdge = ReturnType<
+  typeof useProjectState.getState
+>["projectConfig"]["stateMachineEdges"][number];
+
+function seedWorkflowGraph({
+  edges,
+  sections,
+}: {
+  edges: WorkflowEdge[];
+  sections: Array<{
+    sectionId: string;
+    variantId: string;
+    impl: BaseSectionImplUnion;
+  }>;
+}): void {
+  const sectionVariantMap: Record<string, string> = {};
+  const storeState = useProjectState.getState();
+  const seededSections: typeof storeState.sections = {};
+  const seededVariants: typeof storeState.sectionVariants = {};
+  const seededImpls: typeof storeState.sectionImpls = {};
+
+  for (const section of sections) {
+    sectionVariantMap[section.sectionId] = section.variantId;
+    seededSections[section.sectionId] = createCore({
+      id: section.sectionId,
+      name: section.impl.name,
+      variants: [section.variantId],
+      defaultVariant: section.variantId,
+    });
+    seededVariants[section.variantId] = createVariant({
+      id: section.variantId,
+      name: `${section.sectionId} Variant`,
+      impl: section.impl.id,
+      nonPresetImpls: [],
+    });
+    seededImpls[section.impl.id] = section.impl;
+  }
+
+  useProjectState.setState((state) => {
+    state.projectConfig = createProjectConfig({
+      id: "project-1",
+      sectionVariantMap,
+      stateMachineEdges: edges,
+    });
+    state.sections = seededSections;
+    state.sectionVariants = seededVariants;
+    state.sectionImpls = seededImpls;
     state.previewSectionVariantMap = {};
   });
   syncStoreInitialState(useProjectState);
@@ -231,6 +285,102 @@ describe("StateMachineNodeArea", () => {
       'data-testid="state-machine-draft-warning-section-gate-warning"',
     );
     expect(markup).toContain('aria-label="Workflow draft warning"');
+  });
+
+  it("shows the warning badge on start nodes when the workflow cannot reach End", () => {
+    seedWorkflowGraph({
+      sections: [
+        {
+          sectionId: "section-start-warning",
+          variantId: "variant-start-warning",
+          impl: {
+            id: "impl-start-warning",
+            type: SectionTypeEnum.StateMachineStart,
+            name: "Start Warning Node",
+            size: createSectionSize({ width: 240, height: 96 }),
+            machineGroupId: "workflow-main",
+            label: "Kickoff",
+            maxIterations: null,
+            ...COMMON_MACHINE_IMPL_FIELDS,
+          },
+        },
+        {
+          sectionId: "section-chat-warning",
+          variantId: "variant-chat-warning",
+          impl: createChatSectionImpl(createUserDefaultChatSectionImpl(), {
+            id: "impl-chat-warning",
+            name: "Review Chat",
+          }),
+        },
+        {
+          sectionId: "section-end-warning",
+          variantId: "variant-end-warning",
+          impl: {
+            id: "impl-end-warning",
+            type: SectionTypeEnum.StateMachineEnd,
+            name: "End Warning Node",
+            size: createSectionSize({ width: 240, height: 96 }),
+            machineGroupId: "workflow-main",
+            label: "Done",
+            ...COMMON_MACHINE_IMPL_FIELDS,
+          },
+        },
+      ],
+      edges: [
+        {
+          id: "edge-start-chat-warning",
+          machineGroupId: "workflow-main",
+          sourceSectionId: "section-start-warning",
+          sourcePortId: "workflow-source",
+          targetSectionId: "section-chat-warning",
+          targetPortId: "workflow-target",
+          sourceFilter: null,
+          targetAction: {
+            type: "reset_thread",
+            promptTemplateId: null,
+            inlinePrompt: null,
+            threadStrategy: "continue_current_thread",
+            stopIfRunning: false,
+            engineConfigId: null,
+            agentProfileId: null,
+            permissionMode: null,
+            searchEnabled: null,
+          },
+          style: null,
+          hidden: false,
+          zIndex: 0,
+          selected: false,
+        },
+        {
+          id: "edge-chat-end-warning",
+          machineGroupId: "workflow-main",
+          sourceSectionId: "section-chat-warning",
+          sourcePortId: "workflow-source",
+          targetSectionId: "section-end-warning",
+          targetPortId: "workflow-target",
+          sourceFilter: {
+            type: "run_completed",
+            signalName: null,
+            payloadField: null,
+            equals: null,
+          },
+          targetAction: null,
+          style: null,
+          hidden: false,
+          zIndex: 0,
+          selected: false,
+        },
+      ],
+    });
+
+    const markup = renderToStaticMarkup(
+      <StateMachineNodeArea sectionId="section-start-warning" />,
+    );
+
+    expect(markup).toContain(
+      'data-testid="state-machine-draft-warning-section-start-warning"',
+    );
+    expect(markup).toContain("Kickoff");
   });
 
   it("renders recent workflow activity and iteration details on start nodes", () => {

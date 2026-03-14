@@ -119,8 +119,7 @@ export function StateMachineNodeArea({ sectionId }: StateMachineNodeAreaProps) {
   const showMachineStatus = snapshot.type !== SectionTypeEnum.StateMachineEnd;
   const showControls = snapshot.type === SectionTypeEnum.StateMachineStart;
   const showActivityPanel = showMachineStatus && machineRun.hasRun;
-  const showDraftWarning =
-    snapshot.type === SectionTypeEnum.StateMachineGate && draftWarning !== null;
+  const showDraftWarning = draftWarning !== null;
   const controlsDisabled =
     pendingAction !== null || machineGroupId === "" || isDeploymentMode;
 

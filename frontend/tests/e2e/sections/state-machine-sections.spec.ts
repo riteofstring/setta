@@ -3,8 +3,8 @@ import {
   cleanupIsolatedProject,
   ensureAppReady,
   ensureManagedChatEngine,
-  openOverviewMoreDestination,
   openIsolatedProject,
+  openOverviewMoreDestination,
   postBackend,
   seedLocalStorage,
 } from "../helpers";
@@ -252,7 +252,9 @@ test.describe.serial("state machine sections", () => {
       await expect
         .poll(
           async () =>
-            (await readStateMachineEdges(page, projectContext.projectConfigId)).find(
+            (
+              await readStateMachineEdges(page, projectContext.projectConfigId)
+            ).find(
               (edge) =>
                 edge.sourceSectionId === gateSectionId &&
                 edge.targetSectionId === endSectionId,
@@ -409,7 +411,9 @@ test.describe.serial("state machine sections", () => {
       await expect(
         page.getByTestId(`workflow-source-handle-${startSectionId}`),
       ).toBeVisible();
-      await expect(page.getByTestId(`workflow-target-handle-${gateSectionId}`)).toBeVisible();
+      await expect(
+        page.getByTestId(`workflow-target-handle-${gateSectionId}`),
+      ).toBeVisible();
       await expect(gateSourceHandle).toBeVisible();
       await expect(endTargetHandle).toBeVisible();
 
@@ -429,7 +433,9 @@ test.describe.serial("state machine sections", () => {
       await expect
         .poll(
           async () =>
-            (await readStateMachineEdges(page, projectContext.projectConfigId))[0],
+            (
+              await readStateMachineEdges(page, projectContext.projectConfigId)
+            )[0],
           { timeout: 8000 },
         )
         .toMatchObject({
@@ -474,7 +480,10 @@ test.describe.serial("state machine sections", () => {
         )
         .toHaveLength(3);
 
-      const edges = await readStateMachineEdges(page, projectContext.projectConfigId);
+      const edges = await readStateMachineEdges(
+        page,
+        projectContext.projectConfigId,
+      );
       const gateToChatEdge = edges.find(
         (edge) =>
           edge.sourceSectionId === gateSectionId &&
@@ -515,7 +524,9 @@ test.describe.serial("state machine sections", () => {
         "#workflow-edge-source-filter",
         "Structured Signal",
       );
-      await page.getByTestId("workflow-edge-signal-name").fill("merge_decision");
+      await page
+        .getByTestId("workflow-edge-signal-name")
+        .fill("merge_decision");
       await page
         .getByTestId("workflow-edge-signal-payload-field")
         .fill("decision");
@@ -647,7 +658,9 @@ test.describe.serial("state machine sections", () => {
       await expect(startStatus).toHaveText("Running");
       await expect(gateStatus).toHaveText("Running");
       await expect(gateWorkflowStatus).toHaveText("Satisfied");
-      await expect(startActivityPanel).toContainText("Dispatched 1 start action");
+      await expect(startActivityPanel).toContainText(
+        "Dispatched 1 start action",
+      );
       await expect(gateActivityPanel).toContainText("Gate satisfied");
 
       await overviewStopButton.click();
@@ -672,6 +685,144 @@ test.describe.serial("state machine sections", () => {
       await expect(overviewResetButton).toBeDisabled();
     } finally {
       await engineCleanup();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("warns when a workflow can never reach End and clears after a Send Prompt fix", async ({
+    page,
+  }) => {
+    await seedLocalStorage(page, {
+      overviewTab: "Overview",
+      overviewVis: true,
+      uiEditorVis: true,
+    });
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const startSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "StateMachineStart",
+        { x: 80, y: 120 },
+      );
+      const chatSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "Chat",
+        { x: 440, y: 120 },
+      );
+      const endSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "StateMachineEnd",
+        { x: 800, y: 120 },
+      );
+
+      await setStateMachineSectionSettings(
+        page,
+        projectContext.projectConfigId,
+        startSectionId,
+        {
+          machineGroupId: "workflow-main",
+          label: "Validation Flow",
+          gateType: null,
+          maxIterations: null,
+        },
+      );
+      await setStateMachineSectionSettings(
+        page,
+        projectContext.projectConfigId,
+        endSectionId,
+        {
+          machineGroupId: "workflow-main",
+          label: "Done",
+          gateType: null,
+          maxIterations: null,
+        },
+      );
+
+      await createStateMachineEdge(page, projectContext.projectConfigId, {
+        machineGroupId: "workflow-main",
+        sourceSectionId: startSectionId,
+        sourcePortId: "workflow-source",
+        targetSectionId: chatSectionId,
+        targetPortId: "workflow-target",
+        sourceFilter: null,
+        targetAction: {
+          type: "reset_thread",
+          promptTemplateId: null,
+          inlinePrompt: null,
+          threadStrategy: "continue_current_thread",
+          stopIfRunning: false,
+          engineConfigId: null,
+          agentProfileId: null,
+          permissionMode: null,
+          searchEnabled: null,
+        },
+      });
+      await createStateMachineEdge(page, projectContext.projectConfigId, {
+        machineGroupId: "workflow-main",
+        sourceSectionId: chatSectionId,
+        sourcePortId: "workflow-source",
+        targetSectionId: endSectionId,
+        targetPortId: "workflow-target",
+        sourceFilter: {
+          type: "run_completed",
+          signalName: null,
+          payloadField: null,
+          equals: null,
+        },
+        targetAction: null,
+      });
+
+      const startWarning = page.getByTestId(
+        `state-machine-draft-warning-${startSectionId}`,
+      );
+      await expect(startWarning).toBeVisible();
+
+      const edgesBeforeFix = await readStateMachineEdges(
+        page,
+        projectContext.projectConfigId,
+      );
+      const startToChatEdgeId = edgesBeforeFix.find(
+        (edge) =>
+          edge.sourceSectionId === startSectionId &&
+          edge.targetSectionId === chatSectionId,
+      )?.id;
+      if (!startToChatEdgeId) {
+        throw new Error(
+          "Missing start-to-chat workflow edge for validation test.",
+        );
+      }
+
+      await postBackend(page, "/deleteStateMachineEdges", {
+        projectConfigId: projectContext.projectConfigId,
+        edgeIds: [startToChatEdgeId],
+      });
+      await createStateMachineEdge(page, projectContext.projectConfigId, {
+        machineGroupId: "workflow-main",
+        sourceSectionId: startSectionId,
+        sourcePortId: "workflow-source",
+        targetSectionId: chatSectionId,
+        targetPortId: "workflow-target",
+        sourceFilter: null,
+        targetAction: {
+          type: "send_prompt",
+          promptTemplateId: null,
+          inlinePrompt: "Review this branch.",
+          threadStrategy: "new_thread_before_send",
+          stopIfRunning: false,
+          engineConfigId: null,
+          agentProfileId: null,
+          permissionMode: null,
+          searchEnabled: null,
+        },
+      });
+
+      await expect(startWarning).toHaveCount(0);
+    } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
   });
@@ -706,7 +857,11 @@ async function createSectionViaCommandPalette(
 async function createTopLevelSection(
   page: Page,
   projectConfigId: string,
-  implType: "Chat" | "StateMachineGate" | "StateMachineEnd",
+  implType:
+    | "Chat"
+    | "StateMachineGate"
+    | "StateMachineStart"
+    | "StateMachineEnd",
   position: { x: number; y: number },
 ): Promise<string> {
   const response = await postBackend<CreateSectionResponse>(
@@ -1007,7 +1162,8 @@ async function selectStateMachineEdge(
     "/getLatestProjectState",
     { projectConfigId },
   );
-  const rawEdges = response?.projectState?.projectConfig?.stateMachineEdges ?? [];
+  const rawEdges =
+    response?.projectState?.projectConfig?.stateMachineEdges ?? [];
   await postBackend(page, "/setStateMachineEdges", {
     projectConfigId,
     edges: rawEdges.map((edge) => ({
