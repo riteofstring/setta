@@ -432,7 +432,7 @@ func buildOpenAIResponseInputItems(transcript []map[string]any) (responses.Respo
 					OfOutputMessage: &outputMessage,
 				})
 			}
-			toolCalls, includeToolCalls, err := normalizeProviderToolCalls(message["tool_calls"], role)
+			toolCalls, includeToolCalls, err := normalizeOpenAIResponseFunctionCalls(message["tool_calls"], role)
 			if err != nil {
 				return nil, fmt.Errorf("%w: transcript message %d: %v", ErrToolsUnsupported, index, err)
 			}
@@ -440,12 +440,17 @@ func buildOpenAIResponseInputItems(transcript []map[string]any) (responses.Respo
 				continue
 			}
 			for _, toolCall := range toolCalls {
-				function, _ := toolCall["function"].(map[string]any)
-				items = append(items, responses.ResponseInputItemParamOfFunctionCall(
-					stringValue(function["arguments"]),
-					strings.TrimSpace(stringValue(toolCall["id"])),
-					strings.TrimSpace(stringValue(function["name"])),
-				))
+				functionCall := responses.ResponseFunctionToolCallParam{
+					Arguments: toolCall.arguments,
+					CallID:    toolCall.callID,
+					Name:      toolCall.name,
+				}
+				if toolCall.providerItemID != "" {
+					functionCall.ID = param.NewOpt(toolCall.providerItemID)
+				}
+				items = append(items, responses.ResponseInputItemUnionParam{
+					OfFunctionCall: &functionCall,
+				})
 			}
 		case "tool":
 			content, include, err := normalizeProviderMessageContent(message["content"])
@@ -539,6 +544,55 @@ func buildOpenAIResponseOutputMessageContent(raw any) ([]responses.ResponseOutpu
 			},
 		},
 	}, true, nil
+}
+
+type openAIResponseFunctionCallInput struct {
+	callID         string
+	providerItemID string
+	name           string
+	arguments      string
+}
+
+func normalizeOpenAIResponseFunctionCalls(raw any, role string) ([]openAIResponseFunctionCallInput, bool, error) {
+	if !hasNonEmptyToolCalls(raw) {
+		return nil, false, nil
+	}
+	if role != "assistant" {
+		return nil, false, ErrToolsUnsupported
+	}
+	list, _ := raw.([]any)
+	toolCalls := make([]openAIResponseFunctionCallInput, 0, len(list))
+	for index, entry := range list {
+		toolCall, ok := entry.(map[string]any)
+		if !ok {
+			return nil, false, fmt.Errorf("%w: tool call %d must be an object", ErrToolsUnsupported, index)
+		}
+		callID := strings.TrimSpace(stringValue(toolCall["id"]))
+		if callID == "" {
+			return nil, false, fmt.Errorf("%w: tool call id is required", ErrToolsUnsupported)
+		}
+		providerItemID := strings.TrimSpace(stringValue(toolCall["provider_item_id"]))
+		function, _ := toolCall["function"].(map[string]any)
+		toolName := strings.TrimSpace(stringValue(function["name"]))
+		if toolName == "" {
+			return nil, false, fmt.Errorf("%w: tool call name is required", ErrToolsUnsupported)
+		}
+		arguments, _ := function["arguments"].(map[string]any)
+		if arguments == nil {
+			arguments = map[string]any{}
+		}
+		encodedArguments, err := json.Marshal(arguments)
+		if err != nil {
+			return nil, false, fmt.Errorf("%w: encode tool call arguments: %v", ErrToolsUnsupported, err)
+		}
+		toolCalls = append(toolCalls, openAIResponseFunctionCallInput{
+			callID:         callID,
+			providerItemID: providerItemID,
+			name:           toolName,
+			arguments:      string(encodedArguments),
+		})
+	}
+	return toolCalls, true, nil
 }
 
 func buildOpenAIResponseReasoningItems(

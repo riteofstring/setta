@@ -631,7 +631,7 @@ func (e *Executor) processGeminiFunctionCallPart(
 	if err != nil {
 		return fmt.Errorf("%w: encode gemini tool call arguments: %v", ErrToolsUnsupported, err)
 	}
-	state := accumulator.apply(index, toolCallID, toolName, string(encodedArguments))
+	state := accumulator.apply(index, toolCallID, "", toolName, string(encodedArguments))
 	if !prepared.emitStream || state == nil {
 		return nil
 	}

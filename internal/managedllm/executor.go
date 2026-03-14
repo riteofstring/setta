@@ -540,7 +540,7 @@ func (e *Executor) processOpenAIChunk(
 		}
 		for _, toolCall := range choice.Delta.ToolCalls {
 			argumentsDelta := toolCall.Function.Arguments
-			state := accumulator.apply(int(toolCall.Index), toolCall.ID, toolCall.Function.Name, argumentsDelta)
+			state := accumulator.apply(int(toolCall.Index), toolCall.ID, "", toolCall.Function.Name, argumentsDelta)
 			if !prepared.emitStream || state == nil {
 				continue
 			}
@@ -604,7 +604,7 @@ func (e *Executor) processOpenAIResponseEvent(
 		switch item := typed.Item.AsAny().(type) {
 		case responses.ResponseFunctionToolCall:
 			previousArguments := accumulator.currentArguments(int(typed.OutputIndex))
-			state := accumulator.applyResolved(int(typed.OutputIndex), item.CallID, item.Name, item.Arguments)
+			state := accumulator.applyResolved(int(typed.OutputIndex), item.CallID, item.ID, item.Name, item.Arguments)
 			argumentsDelta := authoritativeResponseReplacementSuffix(previousArguments, item.Arguments)
 			if err := e.emitOpenAIResponseToolArgumentUpdate(
 				ctx,
@@ -633,7 +633,7 @@ func (e *Executor) processOpenAIResponseEvent(
 		switch item := typed.Item.AsAny().(type) {
 		case responses.ResponseFunctionToolCall:
 			previousArguments := accumulator.currentArguments(int(typed.OutputIndex))
-			state := accumulator.applyResolved(int(typed.OutputIndex), item.CallID, item.Name, item.Arguments)
+			state := accumulator.applyResolved(int(typed.OutputIndex), item.CallID, item.ID, item.Name, item.Arguments)
 			argumentsDelta := authoritativeResponseReplacementSuffix(previousArguments, item.Arguments)
 			if err := e.emitOpenAIResponseToolArgumentUpdate(
 				ctx,
@@ -783,7 +783,7 @@ func (e *Executor) processOpenAIResponseEvent(
 		}
 	case responses.ResponseFunctionCallArgumentsDeltaEvent:
 		argumentsDelta := typed.Delta
-		state := accumulator.apply(int(typed.OutputIndex), "", "", argumentsDelta)
+		state := accumulator.apply(int(typed.OutputIndex), "", typed.ItemID, "", argumentsDelta)
 		if err := e.emitOpenAIResponseToolArgumentUpdate(
 			ctx,
 			prepared,
@@ -796,7 +796,7 @@ func (e *Executor) processOpenAIResponseEvent(
 		}
 	case responses.ResponseFunctionCallArgumentsDoneEvent:
 		previousArguments := accumulator.currentArguments(int(typed.OutputIndex))
-		state := accumulator.applyResolved(int(typed.OutputIndex), "", typed.Name, typed.Arguments)
+		state := accumulator.applyResolved(int(typed.OutputIndex), "", typed.ItemID, typed.Name, typed.Arguments)
 		argumentsDelta := authoritativeResponseReplacementSuffix(previousArguments, typed.Arguments)
 		if err := e.emitOpenAIResponseToolArgumentUpdate(
 			ctx,
@@ -1266,7 +1266,7 @@ func (e *Executor) applyOpenAICompletedResponseFallback(
 		switch item := itemUnion.AsAny().(type) {
 		case responses.ResponseFunctionToolCall:
 			previousArguments := accumulator.currentArguments(index)
-			state := accumulator.applyResolved(index, item.CallID, item.Name, item.Arguments)
+			state := accumulator.applyResolved(index, item.CallID, item.ID, item.Name, item.Arguments)
 			argumentsDelta := authoritativeResponseReplacementSuffix(previousArguments, item.Arguments)
 			if err := e.emitOpenAIResponseToolArgumentUpdate(
 				ctx,
@@ -1334,7 +1334,7 @@ func (e *Executor) applyOpenAIResponseOutputItemFallback(
 		if accumulator == nil {
 			return nil
 		}
-		accumulator.applyResolved(outputIndex, item.CallID, item.Name, item.Arguments)
+		accumulator.applyResolved(outputIndex, item.CallID, item.ID, item.Name, item.Arguments)
 	}
 	return nil
 }

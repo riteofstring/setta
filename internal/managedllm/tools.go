@@ -29,10 +29,11 @@ type toolAllowlist struct {
 }
 
 type toolCallState struct {
-	index     int
-	id        string
-	name      string
-	arguments strings.Builder
+	index          int
+	id             string
+	providerItemID string
+	name           string
+	arguments      strings.Builder
 }
 
 type toolCallAccumulator struct {
@@ -45,7 +46,7 @@ func newToolCallAccumulator() *toolCallAccumulator {
 	}
 }
 
-func (a *toolCallAccumulator) apply(index int, toolCallID string, toolName string, argumentsDelta string) *toolCallState {
+func (a *toolCallAccumulator) apply(index int, toolCallID string, providerItemID string, toolName string, argumentsDelta string) *toolCallState {
 	if index < 0 {
 		return nil
 	}
@@ -57,6 +58,9 @@ func (a *toolCallAccumulator) apply(index int, toolCallID string, toolName strin
 	if strings.TrimSpace(toolCallID) != "" {
 		state.id = strings.TrimSpace(toolCallID)
 	}
+	if strings.TrimSpace(providerItemID) != "" {
+		state.providerItemID = strings.TrimSpace(providerItemID)
+	}
 	if strings.TrimSpace(toolName) != "" {
 		state.name = strings.TrimSpace(toolName)
 	}
@@ -66,8 +70,8 @@ func (a *toolCallAccumulator) apply(index int, toolCallID string, toolName strin
 	return state
 }
 
-func (a *toolCallAccumulator) applyResolved(index int, toolCallID string, toolName string, arguments string) *toolCallState {
-	state := a.apply(index, toolCallID, toolName, "")
+func (a *toolCallAccumulator) applyResolved(index int, toolCallID string, providerItemID string, toolName string, arguments string) *toolCallState {
+	state := a.apply(index, toolCallID, providerItemID, toolName, "")
 	if state == nil {
 		return nil
 	}
@@ -119,6 +123,9 @@ func (a *toolCallAccumulator) finalize() ([]map[string]any, error) {
 				"arguments": arguments,
 			},
 		})
+		if strings.TrimSpace(state.providerItemID) != "" {
+			output[len(output)-1]["provider_item_id"] = strings.TrimSpace(state.providerItemID)
+		}
 	}
 	return output, nil
 }

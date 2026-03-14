@@ -3754,7 +3754,7 @@ func TestExecutorExecuteRunsOpenAIResponsesToolCallsThroughMCPAndContinuesProvid
 		if item["type"] == "reasoning" && item["encrypted_content"] == "enc-tool-turn" && item["id"] == "reasoning-1" {
 			foundReasoning = true
 		}
-		if item["type"] == "function_call" && item["call_id"] == "tool-call-1" {
+		if item["type"] == "function_call" && item["call_id"] == "tool-call-1" && item["id"] == "function-item-1" {
 			foundFunctionCall = true
 		}
 		if item["type"] == "function_call_output" && item["call_id"] == "tool-call-1" {
@@ -3771,6 +3771,14 @@ func TestExecutorExecuteRunsOpenAIResponsesToolCallsThroughMCPAndContinuesProvid
 	}
 	if len(result.ToolCalls) != 1 {
 		t.Fatalf("expected one persisted tool call, got %#v", result.ToolCalls)
+	}
+	assistantWithToolCall, ok := messages[1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected assistant tool-call message map, got %#v", messages[1])
+	}
+	persistedToolCalls := assistantToolCalls(assistantWithToolCall)
+	if len(persistedToolCalls) != 1 || persistedToolCalls[0]["provider_item_id"] != "function-item-1" {
+		t.Fatalf("expected persisted provider tool-call item id, got %#v", assistantWithToolCall["tool_calls"])
 	}
 	if assistantText(messages[3].(map[string]any)) != "Tool loop complete" {
 		t.Fatalf("unexpected final assistant text %#v", messages[3])
@@ -3922,7 +3930,7 @@ func TestExecutorExecuteRecoversOpenAIResponsesToolCallsFromCompletedFallback(t 
 		if !ok {
 			continue
 		}
-		if item["type"] == "function_call" && item["call_id"] == "tool-call-1" {
+		if item["type"] == "function_call" && item["call_id"] == "tool-call-1" && item["id"] == "function-item-1" {
 			foundFunctionCall = true
 		}
 		if item["type"] == "function_call_output" && item["call_id"] == "tool-call-1" {
@@ -3939,6 +3947,14 @@ func TestExecutorExecuteRecoversOpenAIResponsesToolCallsFromCompletedFallback(t 
 	}
 	if len(result.ToolCalls) != 1 {
 		t.Fatalf("expected one persisted tool call, got %#v", result.ToolCalls)
+	}
+	assistantWithToolCall, ok := messages[1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected assistant tool-call message map, got %#v", messages[1])
+	}
+	persistedToolCalls := assistantToolCalls(assistantWithToolCall)
+	if len(persistedToolCalls) != 1 || persistedToolCalls[0]["provider_item_id"] != "function-item-1" {
+		t.Fatalf("expected recovered provider tool-call item id, got %#v", assistantWithToolCall["tool_calls"])
 	}
 	if assistantText(messages[3].(map[string]any)) != "Recovered tool call" {
 		t.Fatalf("unexpected final assistant text %#v", messages[3])
@@ -4587,11 +4603,17 @@ func TestExecutorExecutePreservesCompletedOpenAIResponsesToolCallBeforeIncomplet
 	if preservedToolCalls[0]["id"] != "tool-call-1" {
 		t.Fatalf("unexpected preserved tool call %#v", preservedToolCalls[0])
 	}
+	if preservedToolCalls[0]["provider_item_id"] != "function-item-1" {
+		t.Fatalf("expected preserved provider tool-call item id, got %#v", preservedToolCalls[0])
+	}
 	if len(result.ToolCalls) != 1 {
 		t.Fatalf("expected one preserved result tool call, got %#v", result.ToolCalls)
 	}
 	if result.ToolCalls[0]["id"] != "tool-call-1" {
 		t.Fatalf("unexpected preserved result tool call %#v", result.ToolCalls[0])
+	}
+	if result.ToolCalls[0]["provider_item_id"] != "function-item-1" {
+		t.Fatalf("expected preserved result provider tool-call item id, got %#v", result.ToolCalls[0])
 	}
 
 	state, stateErr := live.GetLiveChatState(run.ID)

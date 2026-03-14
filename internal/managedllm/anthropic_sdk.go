@@ -623,7 +623,7 @@ func (e *Executor) processAnthropicContentBlockStart(
 			},
 		})
 	case anthropic.ToolUseBlock:
-		state := accumulator.apply(int(event.Index), block.ID, block.Name, "")
+		state := accumulator.apply(int(event.Index), block.ID, "", block.Name, "")
 		if !prepared.emitStream || state == nil {
 			return nil
 		}
@@ -709,7 +709,7 @@ func (e *Executor) processAnthropicContentBlockDelta(
 			},
 		})
 	case anthropic.InputJSONDelta:
-		state := accumulator.apply(int(event.Index), "", "", delta.PartialJSON)
+		state := accumulator.apply(int(event.Index), "", "", "", delta.PartialJSON)
 		if !prepared.emitStream || state == nil {
 			return nil
 		}
