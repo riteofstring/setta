@@ -1,4 +1,3 @@
-import { getWindowControlQuickInfoHandlers } from "components/Utils/windowControlQuickInfo";
 import { RiExternalLinkLine } from "react-icons/ri";
 import {
   bootProjectChatWindowToCanvasSection,
@@ -60,10 +59,6 @@ export function SectionWindowPlaceholder({
                 focusProjectChatWindow(instanceId);
               }}
               data-testid="section-window-placeholder-focus"
-              {...getWindowControlQuickInfoHandlers({
-                action: "focus_window",
-                title: `${sectionName} window`,
-              })}
             >
               Focus window
             </button>
@@ -75,10 +70,6 @@ export function SectionWindowPlaceholder({
                   void bootProjectChatWindowToCanvasSection(instanceId);
                 }}
                 data-testid="section-window-placeholder-restore"
-                {...getWindowControlQuickInfoHandlers({
-                  action: "show_in_canvas",
-                  title: sectionName,
-                })}
               >
                 Show in canvas
               </button>
