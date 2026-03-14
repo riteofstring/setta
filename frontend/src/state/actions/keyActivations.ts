@@ -82,12 +82,14 @@ import {
   focusOnCommandPalette,
   focusOnSearch,
 } from "./sections/sectionParamFilter";
+import { deleteSelectedStateMachineEdges } from "./stateMachineEdges";
 import { redoProjectState, undoProjectState } from "./undo";
 
 function deleteEdgesOrSections() {
   const deletedEdges = deleteSelectedEdges();
   const deletedAgenticEdges = deleteSelectedAgenticEdges();
-  if (!deletedEdges && !deletedAgenticEdges) {
+  const deletedStateMachineEdges = deleteSelectedStateMachineEdges();
+  if (!deletedEdges && !deletedAgenticEdges && !deletedStateMachineEdges) {
     deleteAllActiveSections();
   }
 }

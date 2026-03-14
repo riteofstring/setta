@@ -1,4 +1,5 @@
 import asyncio
+from collections.abc import Awaitable, Callable
 import json
 import logging
 import os
@@ -239,10 +240,19 @@ class ExternalAgentRunner:
         self._attachment_token_manager = AttachmentTokenManager(
             C.CHAT_ATTACHMENTS_TOKEN_TTL_SECONDS
         )
+        self._terminal_run_listener: Callable[[AgentRun], Awaitable[None]] | None = (
+            None
+        )
 
     @property
     def disabled(self) -> bool:
         return False
+
+    def set_terminal_run_listener(
+        self,
+        listener: Callable[[AgentRun], Awaitable[None]] | None,
+    ) -> None:
+        self._terminal_run_listener = listener
 
     def get_ai_follow_snapshot(
         self, project_config_id: ID
@@ -265,6 +275,17 @@ class ExternalAgentRunner:
                 )
             )
         return snapshot
+
+    async def _notify_terminal_run_listener(self, run: AgentRun) -> None:
+        if self._terminal_run_listener is None:
+            return
+        try:
+            await self._terminal_run_listener(run)
+        except Exception:
+            logger.exception(
+                "External agent terminal run listener failed for run %s",
+                run.id,
+            )
 
     def get_live_chat_state(self, run_id: ID) -> ChatSectionState | None:
         state = self._chat_states.get(run_id)
@@ -375,6 +396,7 @@ class ExternalAgentRunner:
             run.finishedAt = get_now_timestamp()
             save_agent_run(self.dbe, run)
             self._record_event(run, "run_cancelled", {})
+            await self._notify_terminal_run_listener(run)
             task.cancel()
             if state is not None:
                 await self._cancel_external_run(state.adapter, state.handle)
@@ -385,6 +407,7 @@ class ExternalAgentRunner:
         run.finishedAt = get_now_timestamp()
         save_agent_run(self.dbe, run)
         self._record_event(run, "run_cancelled", {})
+        await self._notify_terminal_run_listener(run)
         return run
 
     async def wait_for_run(self, run_id: ID, timeout: float | None = None) -> AgentRun:
@@ -461,6 +484,7 @@ class ExternalAgentRunner:
             run.finishedAt = get_now_timestamp()
             save_agent_run(self.dbe, run)
             self._record_event(run, "run_completed", {})
+            await self._notify_terminal_run_listener(run)
         except asyncio.CancelledError:
             await self._cancel_external_run(current_adapter, handle)
             self._persist_external_session_metadata(run, handle)
@@ -473,6 +497,7 @@ class ExternalAgentRunner:
             save_agent_run(self.dbe, run)
             if not was_cancelled:
                 self._record_event(run, "run_cancelled", {})
+                await self._notify_terminal_run_listener(run)
             raise
         except Exception as exc:
             await self._cancel_external_run(current_adapter, handle)
@@ -503,6 +528,7 @@ class ExternalAgentRunner:
             self._persist_external_mcp_status_snapshot(run.id, run=run, save=False)
             save_agent_run(self.dbe, run)
             self._record_event(run, "run_failed", error_payload)
+            await self._notify_terminal_run_listener(run)
         finally:
             self._cleanup_context(context)
 
@@ -659,6 +685,7 @@ class ExternalAgentRunner:
             project_config_id=project_config_id,
             chat_id=chat_id,
             section_id=section_id,
+            run_id=run.id,
             frontend_affinity_token=frontend_affinity_token,
             allow_unscoped=allow_unscoped,
             linked_chat_invocation_depth=linked_chat_invocation_depth,

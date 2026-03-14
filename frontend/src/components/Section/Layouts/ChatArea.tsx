@@ -18,7 +18,6 @@ import {
   getChatPlaceholderText,
   getExternalEngineIssueMessage,
   getExternalEngineStatus,
-  resolveEffectiveThinking,
 } from "components/Chat/engineUtils";
 import {
   buildLLMConfigGroups,
@@ -74,7 +73,6 @@ import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
 import { hasPendingToolInteraction } from "utils/claudeTools";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
-import type { ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_set_chat_section_chat_id,
   route_set_chat_section_state,
@@ -117,12 +115,28 @@ type ChatStopActionPayload = {
 type ChatActionPayload = ChatSendActionPayload | ChatStopActionPayload;
 
 type ChatSectionChatId = string | null;
-type ChatSectionStateRouteResponse = ResponseDataAndStatus<null>;
 type ChatSectionChatIdUpdate =
   | ChatSectionChatId
   | ((current: ChatSectionChatId) => ChatSectionChatId);
 const MANAGED_CHAT_HISTORY_RUNNING_POLL_INTERVAL_MS = 5000;
 const MANAGED_CHAT_HISTORY_ERROR_POLL_INTERVAL_MS = 10000;
+
+export function shouldExitManagedChatHistory({
+  previousChatId,
+  nextChatId,
+  previousWaitingForResponse,
+  nextWaitingForResponse,
+}: {
+  previousChatId: ChatSectionChatId | undefined;
+  nextChatId: ChatSectionChatId;
+  previousWaitingForResponse: boolean;
+  nextWaitingForResponse: boolean;
+}): boolean {
+  if (previousChatId !== undefined && previousChatId !== nextChatId) {
+    return true;
+  }
+  return !previousWaitingForResponse && nextWaitingForResponse;
+}
 
 function buildManagedZeroScopeBannerSessionKey(
   projectConfigId: string,
@@ -434,7 +448,8 @@ function ScriptableChatArea({
 
   const applyChatStateWithAck = useCallback(
     (nextState: ChatSectionState) => {
-      let sendPromise: Promise<ChatSectionStateRouteResponse> | null = null;
+      let sendPromise: ReturnType<typeof route_set_chat_section_state> | null =
+        null;
       dispatchOptimisticProjectStateUpdate({
         apply: (state) => {
           setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
@@ -1139,18 +1154,6 @@ function ManagedChatArea({
   const chatId =
     controlledChatId !== undefined ? controlledChatId : sectionChatId;
   const [showHistory, setShowHistory] = useState(false);
-  const lastChatIdRef = useRef<string | null>(null);
-  const notifiedExternalEngineIssueRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!canUseManagedChat) {
-      setShowHistory(false);
-    }
-  }, [canUseManagedChat]);
-  useEffect(() => {
-    if (typeof chatId === "string") {
-      lastChatIdRef.current = chatId;
-    }
-  }, [chatId]);
   const { messages, toolCallArguments, waitingForResponse, contextUsage } =
     useAIStore((state) => {
       if (chatId === null) {
@@ -1167,6 +1170,40 @@ function ManagedChatArea({
       }
       return state.chatDetails[chatId] ?? getDefaultChatDetails();
     }, shallow);
+  const lastChatIdRef = useRef<string | null>(null);
+  const previousManagedChatIdRef = useRef<ChatSectionChatId | undefined>(
+    undefined,
+  );
+  const previousWaitingForResponseRef = useRef(waitingForResponse);
+  const notifiedExternalEngineIssueRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!canUseManagedChat) {
+      setShowHistory(false);
+    }
+  }, [canUseManagedChat]);
+  useEffect(() => {
+    if (typeof chatId === "string") {
+      lastChatIdRef.current = chatId;
+    }
+  }, [chatId]);
+  useEffect(() => {
+    // Workflow dispatch can retarget the section chat or resume the current
+    // thread without any local click in this section. Show the live thread when
+    // that external activity starts.
+    if (
+      showHistory &&
+      shouldExitManagedChatHistory({
+        previousChatId: previousManagedChatIdRef.current,
+        nextChatId: chatId,
+        previousWaitingForResponse: previousWaitingForResponseRef.current,
+        nextWaitingForResponse: waitingForResponse,
+      })
+    ) {
+      setShowHistory(false);
+    }
+    previousManagedChatIdRef.current = chatId;
+    previousWaitingForResponseRef.current = waitingForResponse;
+  }, [chatId, showHistory, waitingForResponse]);
   const branchIndex = useChatBranchIndex(typeof chatId === "string");
   const branchInfoByMessage = useMemo(() => {
     if (typeof chatId !== "string") {
@@ -1237,10 +1274,6 @@ function ManagedChatArea({
   }, [effectiveEngineConfigId, engineConfigs]);
   const engineType = selectedEngineConfig?.engineType ?? null;
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
-  const effectiveThinking = resolveEffectiveThinking({
-    engineConfig: selectedEngineConfig,
-    requestedThinking: thinking,
-  });
   const historyCompatibility = useMemo<ChatHistoryCompatibility | null>(() => {
     const runType = resolveManagedChatRunType(engineType);
     if (!runType) {
@@ -1507,7 +1540,7 @@ function ManagedChatArea({
           chatId,
           message,
           attachments,
-          effectiveThinking,
+          thinking,
           effectiveEngineConfigId,
           isExternalEngine,
           {
@@ -1544,8 +1577,8 @@ function ManagedChatArea({
       permissionMode,
       searchEnabled,
       sectionId,
-      effectiveThinking,
       surfaceId,
+      thinking,
       canUseManagedChat,
     ],
   );
@@ -1588,7 +1621,7 @@ function ManagedChatArea({
         messageId,
         message: text,
         attachments,
-        thinking: effectiveThinking,
+        thinking,
         engineConfigId: effectiveEngineConfigId,
         isExternalEngine,
         agentProfileId,
@@ -1611,8 +1644,8 @@ function ManagedChatArea({
       permissionMode,
       searchEnabled,
       sectionId,
-      effectiveThinking,
       surfaceId,
+      thinking,
       canUseManagedChat,
     ],
   );
