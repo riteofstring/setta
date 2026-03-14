@@ -7,19 +7,24 @@ import {
   seedLocalStorage,
 } from "../helpers";
 
+type CreateTopLevelSectionResponse = {
+  sectionId?: string;
+};
+
+type AgenticEdgeKind = "chat_chat" | "section_chat" | "chat_section";
+
+type TopLevelSectionLayoutSnapshot = {
+  x?: number;
+  y?: number;
+  w?: number | null;
+  h?: number | null;
+  zIndex?: number;
+};
+
 type LatestProjectStateResponse = {
   projectState?: {
     projectConfig?: {
-      topLevelSections?: Record<
-        string,
-        {
-          x?: number;
-          y?: number;
-          w?: number | null;
-          h?: number | null;
-          zIndex?: number;
-        }
-      >;
+      topLevelSections?: Record<string, TopLevelSectionLayoutSnapshot>;
       sectionVariantMap?: Record<string, string>;
       viewport?: {
         x?: number;
@@ -27,10 +32,19 @@ type LatestProjectStateResponse = {
         zoom?: number;
       } | null;
       edges?: Array<{
+        id?: string;
+        selected?: boolean;
         sourceSectionId?: string;
         sourcePortId?: string;
         targetSectionId?: string;
         targetPortId?: string;
+      }>;
+      agenticEdges?: Array<{
+        id?: string;
+        selected?: boolean;
+        sourceSectionId?: string;
+        targetSectionId?: string;
+        kind?: AgenticEdgeKind;
       }>;
     };
     sectionVariants?: Record<
@@ -81,6 +95,12 @@ type CanvasEngineConnectionPreviewState = {
   hasTargetHandle: boolean;
 };
 
+type CanvasEngineHoveredEdgeState = {
+  active: boolean;
+  kind: string;
+  id: string;
+};
+
 type CanvasEngineSelectionRectState = {
   active: boolean;
   x: number | null;
@@ -93,6 +113,7 @@ const MULTI_SELECTION_MODIFIER_KEY =
   process.platform === "darwin" ? "Meta" : "Control";
 const DEFAULT_SECTION_WIDTH_FOR_HIT_TEST = 320;
 const DEFAULT_SECTION_HEIGHT_FOR_HIT_TEST = 180;
+const AGENTIC_HANDLE_CENTER_OFFSET_WORLD = 19;
 
 test("canvas engine host mounts visible top-level sections as dom islands", async ({
   page,
@@ -798,6 +819,666 @@ test("canvas engine host creates data edges via handle drag", async ({
   }
 });
 
+test("canvas engine host reconnects data edges via endpoint drag", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+
+    const hostBounds = await host.boundingBox();
+    if (!hostBounds) {
+      throw new Error("Unable to resolve canvas host bounds.");
+    }
+    const sourcePosition = await screenPointToWorld(host, {
+      x: hostBounds.x + hostBounds.width * 0.28,
+      y: hostBounds.y + hostBounds.height * 0.42,
+    });
+    const firstTargetPosition = await screenPointToWorld(host, {
+      x: hostBounds.x + hostBounds.width * 0.54,
+      y: hostBounds.y + hostBounds.height * 0.42,
+    });
+    const secondTargetPosition = await screenPointToWorld(host, {
+      x: hostBounds.x + hostBounds.width * 0.78,
+      y: hostBounds.y + hostBounds.height * 0.42,
+    });
+    const viewportBounds = await getEngineViewportBounds(page);
+
+    const sourceSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds,
+      position: sourcePosition,
+    });
+    const firstTargetSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds,
+      position: firstTargetPosition,
+    });
+    const secondTargetSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds,
+      position: secondTargetPosition,
+    });
+    await expect
+      .poll(
+        async () =>
+          await readNumericHostAttribute(host, "data-canvas-engine-rect-count"),
+      )
+      .toBeGreaterThanOrEqual(3);
+
+    await setSectionCallable(
+      page,
+      projectContext.projectConfigId,
+      sourceSectionId,
+      "sorted",
+    );
+    await setSectionCallable(
+      page,
+      projectContext.projectConfigId,
+      firstTargetSectionId,
+      "sorted",
+    );
+    await setSectionCallable(
+      page,
+      projectContext.projectConfigId,
+      secondTargetSectionId,
+      "sorted",
+    );
+
+    const sourcePortId = "canvas-engine-reconnect-source-port";
+    const [firstTargetPortId] = await readMountedSectionParamIds(
+      host,
+      firstTargetSectionId,
+      1,
+    );
+    const [secondTargetPortId] = await readMountedSectionParamIds(
+      host,
+      secondTargetSectionId,
+      1,
+    );
+    await postBackend(page, "/setSectionEdgeOutputs", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId: sourceSectionId,
+      edgeOutputPorts: [{ id: sourcePortId, accessor: "output" }],
+    });
+    await postBackend(page, "/setSectionEdgeInputs", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId: firstTargetSectionId,
+      edgeInputParams: [firstTargetPortId],
+    });
+    await postBackend(page, "/setSectionEdgeInputs", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId: secondTargetSectionId,
+      edgeInputParams: [secondTargetPortId],
+    });
+
+    const sourceVariantId = await readSectionVariantId(
+      page,
+      projectContext.projectConfigId,
+      sourceSectionId,
+    );
+    const firstTargetVariantId = await readSectionVariantId(
+      page,
+      projectContext.projectConfigId,
+      firstTargetSectionId,
+    );
+    await postBackend(page, "/createEdge", {
+      projectConfigId: projectContext.projectConfigId,
+      sourceSectionId,
+      sourceVariantId,
+      sourcePortId,
+      targetSectionId: firstTargetSectionId,
+      targetVariantId: firstTargetVariantId,
+      targetPortId: firstTargetPortId,
+      type: "default",
+    });
+
+    const sourceHandle = await resolveDataHandleWorldPoint(
+      host,
+      sourceSectionId,
+      "source",
+    );
+    const firstTargetHandle = await resolveDataHandleWorldPoint(
+      host,
+      firstTargetSectionId,
+      "target",
+    );
+    const secondTargetHandle = await resolveDataHandleWorldPoint(
+      host,
+      secondTargetSectionId,
+      "target",
+    );
+    await setCanvasEngineEdgeHandlePositions(page, [
+      {
+        sectionId: sourceSectionId,
+        portId: sourcePortId,
+        type: "source",
+        side: "right",
+        x: sourceHandle.x,
+        y: sourceHandle.y,
+      },
+      {
+        sectionId: firstTargetSectionId,
+        portId: firstTargetPortId,
+        type: "target",
+        side: "left",
+        x: firstTargetHandle.x,
+        y: firstTargetHandle.y,
+      },
+      {
+        sectionId: secondTargetSectionId,
+        portId: secondTargetPortId,
+        type: "target",
+        side: "left",
+        x: secondTargetHandle.x,
+        y: secondTargetHandle.y,
+      },
+    ]);
+    await expect
+      .poll(async () => await readEdgeHandleRegistryPositionCount(page))
+      .toBeGreaterThanOrEqual(3);
+
+    const edgeId = await readDataEdgeIdByLink({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      sourceSectionId,
+      sourcePortId,
+      targetSectionId: firstTargetSectionId,
+      targetPortId: firstTargetPortId,
+    });
+
+    const firstTargetHandleScreen = await worldPointToScreen(
+      host,
+      firstTargetHandle,
+    );
+    const secondTargetHandleScreen = await worldPointToScreen(
+      host,
+      secondTargetHandle,
+    );
+    await page.mouse.move(firstTargetHandleScreen.x, firstTargetHandleScreen.y);
+    await page.mouse.down();
+    await page.mouse.move(
+      secondTargetHandleScreen.x,
+      secondTargetHandleScreen.y,
+      { steps: 10 },
+    );
+
+    await expect
+      .poll(async () => await readConnectionPreviewState(host))
+      .toEqual({
+        active: true,
+        kind: "data-reconnect",
+        valid: true,
+        hasTargetHandle: true,
+      });
+
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => (await readConnectionPreviewState(host)).active)
+      .toBe(false);
+    await expect
+      .poll(
+        async () =>
+          await readDataEdgeById(page, projectContext.projectConfigId, edgeId),
+      )
+      .toMatchObject({
+        id: edgeId,
+        sourceSectionId,
+        sourcePortId,
+        targetSectionId: secondTargetSectionId,
+        targetPortId: secondTargetPortId,
+      });
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("canvas engine host supports data edge hover and click selection", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+
+    const hostBounds = await host.boundingBox();
+    if (!hostBounds) {
+      throw new Error("Unable to resolve canvas host bounds.");
+    }
+    const sourcePosition = await screenPointToWorld(host, {
+      x: hostBounds.x + hostBounds.width * 0.34,
+      y: hostBounds.y + hostBounds.height * 0.42,
+    });
+    const targetPosition = await screenPointToWorld(host, {
+      x: hostBounds.x + hostBounds.width * 0.72,
+      y: hostBounds.y + hostBounds.height * 0.42,
+    });
+    const viewportBounds = await getEngineViewportBounds(page);
+
+    const sourceSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds,
+      position: sourcePosition,
+    });
+    const targetSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds,
+      position: targetPosition,
+    });
+    await expect
+      .poll(
+        async () =>
+          await readNumericHostAttribute(host, "data-canvas-engine-rect-count"),
+      )
+      .toBeGreaterThanOrEqual(2);
+
+    await setSectionCallable(
+      page,
+      projectContext.projectConfigId,
+      sourceSectionId,
+      "sorted",
+    );
+    await setSectionCallable(
+      page,
+      projectContext.projectConfigId,
+      targetSectionId,
+      "sorted",
+    );
+
+    const sourcePortId = "canvas-engine-hover-source-port";
+    const [targetPortId] = await readMountedSectionParamIds(
+      host,
+      targetSectionId,
+      1,
+    );
+    await postBackend(page, "/setSectionEdgeOutputs", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId: sourceSectionId,
+      edgeOutputPorts: [{ id: sourcePortId, accessor: "output" }],
+    });
+    await postBackend(page, "/setSectionEdgeInputs", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId: targetSectionId,
+      edgeInputParams: [targetPortId],
+    });
+
+    const sourceVariantId = await readSectionVariantId(
+      page,
+      projectContext.projectConfigId,
+      sourceSectionId,
+    );
+    const targetVariantId = await readSectionVariantId(
+      page,
+      projectContext.projectConfigId,
+      targetSectionId,
+    );
+    await postBackend(page, "/createEdge", {
+      projectConfigId: projectContext.projectConfigId,
+      sourceSectionId,
+      sourceVariantId,
+      sourcePortId,
+      targetSectionId,
+      targetVariantId,
+      targetPortId,
+      type: "default",
+    });
+    await expect
+      .poll(
+        async () =>
+          await readNumericHostAttribute(
+            host,
+            "data-canvas-engine-data-edge-count",
+          ),
+      )
+      .toBeGreaterThanOrEqual(1);
+
+    const sourceHandle = await resolveDataHandleWorldPoint(
+      host,
+      sourceSectionId,
+      "source",
+    );
+    const targetHandle = await resolveDataHandleWorldPoint(
+      host,
+      targetSectionId,
+      "target",
+    );
+    await setCanvasEngineEdgeHandlePositions(page, [
+      {
+        sectionId: sourceSectionId,
+        portId: sourcePortId,
+        type: "source",
+        side: "right",
+        x: sourceHandle.x,
+        y: sourceHandle.y,
+      },
+      {
+        sectionId: targetSectionId,
+        portId: targetPortId,
+        type: "target",
+        side: "left",
+        x: targetHandle.x,
+        y: targetHandle.y,
+      },
+    ]);
+    await expect
+      .poll(async () => await readEdgeHandleRegistryPositionCount(page))
+      .toBeGreaterThanOrEqual(2);
+
+    const edgeId = await readDataEdgeIdByLink({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      sourceSectionId,
+      sourcePortId,
+      targetSectionId,
+      targetPortId,
+    });
+
+    const sourceHandleScreen = await resolveDataHandleScreenPoint(
+      host,
+      sourceSectionId,
+      "source",
+    );
+    const targetHandleScreen = await resolveDataHandleScreenPoint(
+      host,
+      targetSectionId,
+      "target",
+    );
+    const edgeMidpointScreen = {
+      x: Math.round((sourceHandleScreen.x + targetHandleScreen.x) / 2),
+      y: Math.round((sourceHandleScreen.y + targetHandleScreen.y) / 2),
+    };
+    await dispatchCanvasHostPointerEvent(host, "pointermove", {
+      button: 0,
+      clientX: edgeMidpointScreen.x,
+      clientY: edgeMidpointScreen.y,
+      pointerId: 1,
+    });
+
+    await expect
+      .poll(async () => await readHoveredEdgeState(host))
+      .toEqual({
+        active: true,
+        kind: "data",
+        id: edgeId,
+      });
+
+    await dispatchCanvasHostPointerEvent(host, "pointerdown", {
+      button: 0,
+      clientX: edgeMidpointScreen.x,
+      clientY: edgeMidpointScreen.y,
+      pointerId: 1,
+    });
+    await dispatchCanvasHostPointerEvent(host, "pointerup", {
+      button: 0,
+      clientX: edgeMidpointScreen.x,
+      clientY: edgeMidpointScreen.y,
+      pointerId: 1,
+    });
+
+    await expect
+      .poll(
+        async () =>
+          await readSelectedDataEdgeIds(page, projectContext.projectConfigId),
+      )
+      .toEqual([edgeId]);
+
+    await page.mouse.move(edgeMidpointScreen.x, edgeMidpointScreen.y + 180);
+    await expect
+      .poll(async () => (await readHoveredEdgeState(host)).active)
+      .toBe(false);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("canvas engine host creates agentic edges via handle drag", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+
+    const hostBounds = await host.boundingBox();
+    if (!hostBounds) {
+      throw new Error("Unable to resolve canvas host bounds.");
+    }
+    const sourcePosition = await screenPointToWorld(host, {
+      x: hostBounds.x + hostBounds.width * 0.34,
+      y: hostBounds.y + hostBounds.height * 0.42,
+    });
+    const targetPosition = await screenPointToWorld(host, {
+      x: hostBounds.x + hostBounds.width * 0.72,
+      y: hostBounds.y + hostBounds.height * 0.42,
+    });
+    const viewportBounds = await getEngineViewportBounds(page);
+
+    const sourceSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds,
+      position: sourcePosition,
+    });
+    const targetSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Chat",
+      viewportBounds,
+      position: targetPosition,
+    });
+    await expect
+      .poll(
+        async () =>
+          await readNumericHostAttribute(host, "data-canvas-engine-rect-count"),
+      )
+      .toBeGreaterThanOrEqual(2);
+
+    const sourceHandle = await resolveAgenticHandleWorldPoint(
+      host,
+      sourceSectionId,
+      "source",
+    );
+    const targetHandle = await resolveAgenticHandleWorldPoint(
+      host,
+      targetSectionId,
+      "target",
+    );
+
+    const sourceHandleScreen = await worldPointToScreen(host, sourceHandle);
+    const targetHandleScreen = await worldPointToScreen(host, targetHandle);
+    await page.mouse.move(sourceHandleScreen.x, sourceHandleScreen.y);
+    await page.mouse.down();
+    await page.mouse.move(targetHandleScreen.x, targetHandleScreen.y, {
+      steps: 10,
+    });
+
+    await expect
+      .poll(async () => await readConnectionPreviewState(host))
+      .toEqual({
+        active: true,
+        kind: "agentic-connect",
+        valid: true,
+        hasTargetHandle: true,
+      });
+
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => (await readConnectionPreviewState(host)).active)
+      .toBe(false);
+    await expect
+      .poll(
+        async () =>
+          await readAgenticEdgeLinks(page, projectContext.projectConfigId),
+      )
+      .toContain(`${sourceSectionId}->${targetSectionId}:section_chat`);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("canvas engine host supports agentic edge click selection", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+
+    const hostBounds = await host.boundingBox();
+    if (!hostBounds) {
+      throw new Error("Unable to resolve canvas host bounds.");
+    }
+    const sourcePosition = await screenPointToWorld(host, {
+      x: hostBounds.x + hostBounds.width * 0.34,
+      y: hostBounds.y + hostBounds.height * 0.42,
+    });
+    const targetPosition = await screenPointToWorld(host, {
+      x: hostBounds.x + hostBounds.width * 0.72,
+      y: hostBounds.y + hostBounds.height * 0.42,
+    });
+    const viewportBounds = await getEngineViewportBounds(page);
+
+    const sourceSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds,
+      position: sourcePosition,
+    });
+    const targetSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Chat",
+      viewportBounds,
+      position: targetPosition,
+    });
+    await expect
+      .poll(
+        async () =>
+          await readNumericHostAttribute(host, "data-canvas-engine-rect-count"),
+      )
+      .toBeGreaterThanOrEqual(2);
+
+    const edgeId = "canvas-engine-host-agentic-edge";
+    await createAgenticEdge({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      sourceSectionId,
+      targetSectionId,
+      kind: "section_chat",
+      edgeId,
+    });
+    await expect
+      .poll(
+        async () =>
+          await readNumericHostAttribute(
+            host,
+            "data-canvas-engine-agentic-edge-count",
+          ),
+      )
+      .toBeGreaterThanOrEqual(1);
+
+    const sourceHandle = await resolveAgenticHandleWorldPoint(
+      host,
+      sourceSectionId,
+      "source",
+    );
+    const targetHandle = await resolveAgenticHandleWorldPoint(
+      host,
+      targetSectionId,
+      "target",
+    );
+    const sourceHandleScreen = await resolveAgenticHandleScreenPoint(
+      host,
+      sourceSectionId,
+      "source",
+    );
+    const targetHandleScreen = await resolveAgenticHandleScreenPoint(
+      host,
+      targetSectionId,
+      "target",
+    );
+    const edgeMidpointScreen = {
+      x: Math.round((sourceHandleScreen.x + targetHandleScreen.x) / 2),
+      y: Math.round((sourceHandleScreen.y + targetHandleScreen.y) / 2),
+    };
+
+    await dispatchCanvasHostPointerEvent(host, "pointermove", {
+      button: 0,
+      clientX: edgeMidpointScreen.x,
+      clientY: edgeMidpointScreen.y,
+      pointerId: 1,
+    });
+
+    await expect
+      .poll(async () => await readHoveredEdgeState(host))
+      .toEqual({
+        active: true,
+        kind: "agentic",
+        id: edgeId,
+      });
+
+    await dispatchCanvasHostPointerEvent(host, "pointerdown", {
+      button: 0,
+      clientX: edgeMidpointScreen.x,
+      clientY: edgeMidpointScreen.y,
+      pointerId: 1,
+    });
+    await dispatchCanvasHostPointerEvent(host, "pointerup", {
+      button: 0,
+      clientX: edgeMidpointScreen.x,
+      clientY: edgeMidpointScreen.y,
+      pointerId: 1,
+    });
+
+    await expect
+      .poll(
+        async () =>
+          await readSelectedAgenticEdgeIds(
+            page,
+            projectContext.projectConfigId,
+          ),
+      )
+      .toEqual([edgeId]);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 async function readCamera(host: Locator): Promise<CanvasEngineCameraSnapshot> {
   const xRaw = await host.getAttribute("data-canvas-engine-camera-x");
   const yRaw = await host.getAttribute("data-canvas-engine-camera-y");
@@ -817,25 +1498,61 @@ async function createCallableSectionForCanvasEngine(
   page: Page,
   projectConfigId: string,
 ): Promise<string> {
-  const viewportBounds = await page.evaluate(() => ({
+  const viewportBounds = await getEngineViewportBounds(page);
+  return createTopLevelSection({
+    page,
+    projectConfigId,
+    implType: "Callable",
+    viewportBounds,
+  });
+}
+
+async function createTopLevelSection({
+  page,
+  projectConfigId,
+  implType,
+  viewportBounds,
+  position,
+}: {
+  page: Page;
+  projectConfigId: string;
+  implType: string;
+  viewportBounds: {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  };
+  position?: WorldPoint;
+}): Promise<string> {
+  const response = await postBackend<CreateTopLevelSectionResponse>(
+    page,
+    "/createTopLevelSection",
+    {
+      projectConfigId,
+      implType,
+      viewportBounds,
+      position,
+    },
+  );
+  if (!response?.sectionId) {
+    throw new Error(`Missing sectionId for implType ${implType}.`);
+  }
+  return response.sectionId;
+}
+
+async function getEngineViewportBounds(page: Page): Promise<{
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}> {
+  return await page.evaluate(() => ({
     x: 0,
     y: 0,
     w: window.innerWidth,
     h: window.innerHeight,
   }));
-  const response = await postBackend<{ sectionId?: string }>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType: "Callable",
-      viewportBounds,
-    },
-  );
-  if (!response?.sectionId) {
-    throw new Error("Missing sectionId when creating callable section.");
-  }
-  return response.sectionId;
 }
 
 async function setSectionCallable(
@@ -1095,6 +1812,39 @@ async function dispatchMountedSectionRootClick(
   }, sectionId);
 }
 
+async function dispatchCanvasHostPointerEvent(
+  host: Locator,
+  type: "pointerdown" | "pointermove" | "pointerup",
+  init: {
+    button: number;
+    clientX: number;
+    clientY: number;
+    pointerId: number;
+  },
+): Promise<void> {
+  await host.evaluate(
+    (element, eventInit) => {
+      element.dispatchEvent(
+        new PointerEvent(eventInit.type, {
+          bubbles: true,
+          cancelable: true,
+          button: eventInit.button,
+          clientX: eventInit.clientX,
+          clientY: eventInit.clientY,
+          pointerId: eventInit.pointerId,
+        }),
+      );
+    },
+    {
+      type,
+      button: init.button,
+      clientX: init.clientX,
+      clientY: init.clientY,
+      pointerId: init.pointerId,
+    },
+  );
+}
+
 async function worldPointToScreen(
   host: Locator,
   worldPoint: WorldPoint,
@@ -1184,6 +1934,20 @@ async function readConnectionPreviewState(
       "data-canvas-engine-connection-preview-has-target-handle",
       hasTargetHandleRaw,
     ),
+  };
+}
+
+async function readHoveredEdgeState(
+  host: Locator,
+): Promise<CanvasEngineHoveredEdgeState> {
+  return {
+    active: parseBooleanHostAttribute(
+      "data-canvas-engine-hovered-edge-active",
+      await host.getAttribute("data-canvas-engine-hovered-edge-active"),
+    ),
+    kind:
+      (await host.getAttribute("data-canvas-engine-hovered-edge-kind")) ?? "",
+    id: (await host.getAttribute("data-canvas-engine-hovered-edge-id")) ?? "",
   };
 }
 
@@ -1302,6 +2066,249 @@ async function readDataEdgeLinks(
       (edge) =>
         `${edge.sourceSectionId as string}:${edge.sourcePortId as string}->${edge.targetSectionId as string}:${edge.targetPortId as string}`,
     );
+}
+
+async function readDataEdgeIdByLink({
+  page,
+  projectConfigId,
+  sourceSectionId,
+  sourcePortId,
+  targetSectionId,
+  targetPortId,
+}: {
+  page: Page;
+  projectConfigId: string;
+  sourceSectionId: string;
+  sourcePortId: string;
+  targetSectionId: string;
+  targetPortId: string;
+}): Promise<string> {
+  const response = await postBackend<LatestProjectStateResponse>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
+  );
+  const edges = response?.projectState?.projectConfig?.edges ?? [];
+  for (const edge of edges) {
+    if (
+      edge.sourceSectionId === sourceSectionId &&
+      edge.sourcePortId === sourcePortId &&
+      edge.targetSectionId === targetSectionId &&
+      edge.targetPortId === targetPortId &&
+      typeof edge.id === "string"
+    ) {
+      return edge.id;
+    }
+  }
+  throw new Error(
+    `Unable to find data edge ${sourceSectionId}:${sourcePortId}->${targetSectionId}:${targetPortId}.`,
+  );
+}
+
+async function readDataEdgeById(
+  page: Page,
+  projectConfigId: string,
+  edgeId: string,
+): Promise<{
+  id: string;
+  sourceSectionId: string;
+  sourcePortId: string;
+  targetSectionId: string;
+  targetPortId: string;
+}> {
+  const response = await postBackend<LatestProjectStateResponse>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
+  );
+  const edges = response?.projectState?.projectConfig?.edges ?? [];
+  for (const edge of edges) {
+    if (
+      edge.id === edgeId &&
+      typeof edge.sourceSectionId === "string" &&
+      typeof edge.sourcePortId === "string" &&
+      typeof edge.targetSectionId === "string" &&
+      typeof edge.targetPortId === "string"
+    ) {
+      return {
+        id: edge.id,
+        sourceSectionId: edge.sourceSectionId,
+        sourcePortId: edge.sourcePortId,
+        targetSectionId: edge.targetSectionId,
+        targetPortId: edge.targetPortId,
+      };
+    }
+  }
+  throw new Error(`Unable to find data edge ${edgeId}.`);
+}
+
+async function readSectionVariantId(
+  page: Page,
+  projectConfigId: string,
+  sectionId: string,
+): Promise<string> {
+  const response = await postBackend<LatestProjectStateResponse>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
+  );
+  const variantId =
+    response?.projectState?.projectConfig?.sectionVariantMap?.[sectionId] ??
+    null;
+  if (!variantId) {
+    throw new Error(`Missing variant id for section ${sectionId}.`);
+  }
+  return variantId;
+}
+
+async function resolveDataHandleWorldPoint(
+  host: Locator,
+  sectionId: string,
+  handleType: "source" | "target",
+): Promise<WorldPoint> {
+  const handleScreenPoint = await resolveDataHandleScreenPoint(
+    host,
+    sectionId,
+    handleType,
+  );
+  return await screenPointToWorld(host, handleScreenPoint);
+}
+
+async function resolveDataHandleScreenPoint(
+  host: Locator,
+  sectionId: string,
+  handleType: "source" | "target",
+): Promise<WorldPoint> {
+  const sectionBounds = await host
+    .locator(`[data-canvas-engine-dom-island="${sectionId}"]`)
+    .boundingBox();
+  if (!sectionBounds) {
+    throw new Error(`Missing DOM-island bounds for section ${sectionId}.`);
+  }
+  return {
+    x:
+      handleType === "source"
+        ? sectionBounds.x + sectionBounds.width
+        : sectionBounds.x,
+    y: sectionBounds.y + sectionBounds.height / 2,
+  };
+}
+
+async function resolveAgenticHandleWorldPoint(
+  host: Locator,
+  sectionId: string,
+  side: "source" | "target",
+): Promise<WorldPoint> {
+  const handleScreenPoint = await resolveAgenticHandleScreenPoint(
+    host,
+    sectionId,
+    side,
+  );
+  return await screenPointToWorld(host, handleScreenPoint);
+}
+
+async function resolveAgenticHandleScreenPoint(
+  host: Locator,
+  sectionId: string,
+  side: "source" | "target",
+): Promise<WorldPoint> {
+  const sectionBounds = await host
+    .locator(`[data-canvas-engine-dom-island="${sectionId}"]`)
+    .boundingBox();
+  if (!sectionBounds) {
+    throw new Error(`Missing DOM-island bounds for section ${sectionId}.`);
+  }
+  const zoom = (await readCamera(host)).zoom;
+  return {
+    x:
+      side === "source"
+        ? sectionBounds.x +
+          sectionBounds.width +
+          AGENTIC_HANDLE_CENTER_OFFSET_WORLD * zoom
+        : sectionBounds.x - AGENTIC_HANDLE_CENTER_OFFSET_WORLD * zoom,
+    y: sectionBounds.y + sectionBounds.height / 2,
+  };
+}
+
+async function createAgenticEdge({
+  page,
+  projectConfigId,
+  sourceSectionId,
+  targetSectionId,
+  kind,
+  edgeId,
+}: {
+  page: Page;
+  projectConfigId: string;
+  sourceSectionId: string;
+  targetSectionId: string;
+  kind: AgenticEdgeKind;
+  edgeId?: string;
+}): Promise<void> {
+  await postBackend(page, "/createAgenticEdge", {
+    projectConfigId,
+    id: edgeId ?? null,
+    sourceSectionId,
+    targetSectionId,
+    kind,
+    contextMode: "reference_only",
+    style: null,
+    hidden: false,
+    zIndex: 0,
+  });
+}
+
+async function readAgenticEdgeLinks(
+  page: Page,
+  projectConfigId: string,
+): Promise<string[]> {
+  const response = await postBackend<LatestProjectStateResponse>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
+  );
+  const edges = response?.projectState?.projectConfig?.agenticEdges ?? [];
+  return edges
+    .filter(
+      (edge) =>
+        typeof edge.sourceSectionId === "string" &&
+        typeof edge.targetSectionId === "string" &&
+        typeof edge.kind === "string",
+    )
+    .map(
+      (edge) =>
+        `${edge.sourceSectionId as string}->${edge.targetSectionId as string}:${edge.kind as string}`,
+    );
+}
+
+async function readSelectedDataEdgeIds(
+  page: Page,
+  projectConfigId: string,
+): Promise<string[]> {
+  const response = await postBackend<LatestProjectStateResponse>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
+  );
+  const edges = response?.projectState?.projectConfig?.edges ?? [];
+  return edges
+    .filter((edge) => edge.selected && typeof edge.id === "string")
+    .map((edge) => edge.id as string);
+}
+
+async function readSelectedAgenticEdgeIds(
+  page: Page,
+  projectConfigId: string,
+): Promise<string[]> {
+  const response = await postBackend<LatestProjectStateResponse>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
+  );
+  const edges = response?.projectState?.projectConfig?.agenticEdges ?? [];
+  return edges
+    .filter((edge) => edge.selected && typeof edge.id === "string")
+    .map((edge) => edge.id as string);
 }
 
 function parseBooleanHostAttribute(

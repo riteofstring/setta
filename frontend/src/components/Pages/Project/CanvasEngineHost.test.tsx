@@ -574,6 +574,69 @@ describe("CanvasEngineHost", () => {
     ]);
   });
 
+  it("hovers and selects a data edge when the pointer hits the edge line", async () => {
+    const setEdgesSpy = vi
+      .spyOn(endpoints, "route_set_edges")
+      .mockResolvedValue({
+        status: 200,
+        hasResponse: true,
+        data: undefined,
+      });
+
+    seedSectionsWithDataEdge({
+      includeExistingEdge: true,
+    });
+
+    await act(async () => {
+      root.render(<CanvasEngineHost />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const engineHost = host.querySelector(
+      '[data-canvas-engine-host="v1"]',
+    ) as HTMLDivElement | null;
+    if (!engineHost) {
+      throw new Error("Canvas engine host failed to render.");
+    }
+    setEngineHostBounds(engineHost);
+
+    await dispatchPointerEvent(engineHost, "pointermove", {
+      button: 0,
+      clientX: 382,
+      clientY: 106,
+      pointerId: 1,
+    });
+
+    expect(engineHost.dataset.canvasEngineHoveredEdgeActive).toBe("true");
+    expect(engineHost.dataset.canvasEngineHoveredEdgeKind).toBe("data");
+    expect(engineHost.dataset.canvasEngineHoveredEdgeId).toBe("edge-data-1");
+
+    await dispatchPointerEvent(engineHost, "pointerdown", {
+      button: 0,
+      clientX: 382,
+      clientY: 106,
+      pointerId: 1,
+    });
+    await dispatchPointerEvent(engineHost, "pointerup", {
+      button: 0,
+      clientX: 382,
+      clientY: 106,
+      pointerId: 1,
+    });
+
+    expect(
+      useProjectState
+        .getState()
+        .projectConfig.edges.find((edge) => edge.id === "edge-data-1")
+        ?.selected,
+    ).toBe(true);
+    expect(setEdgesSpy).toHaveBeenCalledOnce();
+  });
+
   it("drags a top-level section and persists the updated layout", async () => {
     const layoutSpy = vi
       .spyOn(endpoints, "route_set_top_level_section_layout")
