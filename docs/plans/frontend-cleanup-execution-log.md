@@ -392,3 +392,48 @@ module map and placement guide while this cleanup progresses.
     `frontend/src/state/definitions.ts`, starting with modal, notification,
     run-control, backend-log, and project-loading ownership so
     `definitions.ts` keeps shrinking toward a thin compatibility index.
+
+## 2026-03-14 16:16:52 PDT
+
+- Slice completed: extracted feedback and project-status stores out of
+  `frontend/src/state/definitions.ts` into
+  `frontend/src/state/stores/feedbackStores.ts` and
+  `frontend/src/state/stores/projectStatusStores.ts`
+- Key files touched:
+  - `frontend/src/state/stores/feedbackStores.ts`
+  - `frontend/src/state/stores/projectStatusStores.ts`
+  - `frontend/src/state/stores/feedbackStores.test.ts`
+  - `frontend/src/state/stores/projectStatusStores.test.ts`
+  - `frontend/src/state/definitions.ts`
+  - `frontend/src/state/actions/modal.ts`
+  - `frontend/src/state/actions/notifications.ts`
+  - `frontend/src/state/actions/backendLogEvents.ts`
+  - `frontend/src/state/actions/customRuns.ts`
+  - `frontend/src/state/actions/app.ts`
+  - `frontend/src/state/actions/share.ts`
+  - `frontend/src/state/hooks/project.ts`
+  - `frontend/src/state/hooks/share.ts`
+  - `frontend/src/components/Modals/ModalContainer.tsx`
+  - `frontend/src/components/AppHeader/RunButton.tsx`
+  - `frontend/src/components/AppHeader/Notification.tsx`
+  - `frontend/src/components/Panes/Overview/NotificationsArea.tsx`
+  - `frontend/src/components/Panes/Overview/Overview.tsx`
+  - `frontend/src/components/Panes/Overview/BackendLogEventsArea.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/stores/feedbackStores.test.ts src/state/stores/projectStatusStores.test.ts src/state/actions/notifications.test.ts src/state/actions/backendLogEvents.test.ts src/state/hooks/project.test.tsx src/components/Panes/Overview/NotificationsArea.test.tsx src/components/Panes/Overview/BackendLogEventsArea.test.ts src/components/Pages/Home/HomePage.test.tsx`
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/Overview.test.tsx`
+  - `(cd frontend && git diff --name-only -- frontend/src docs/plans | grep -E '\\.(ts|tsx|md)$' | sed -e 's#^frontend/##' -e 's#^docs/#../docs/#' | xargs pnpm exec prettier --check)`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/store ownership split and
+    did not change frontend rendering behavior.
+- Commit hash:
+  - `bf974f4c5`
+- Next highest-value unblocked slice:
+  - Extract the remaining layout/local-editor store groups out of
+    `frontend/src/state/definitions.ts`, starting with `useMisc`,
+    `useTemporaryMiscState`, and the adjacent authoring/layout state that still
+    drives section dragging, preview measurements, and embedded pane state.
