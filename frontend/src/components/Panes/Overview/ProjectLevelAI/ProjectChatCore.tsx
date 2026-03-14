@@ -23,6 +23,10 @@ import {
   type ChatContextTelemetry,
 } from "components/Chat/contextTelemetry";
 import {
+  resolveEffectiveThinking,
+  supportsThinkingExecutionControl,
+} from "components/Chat/engineUtils";
+import {
   Dispatch,
   SetStateAction,
   memo,
@@ -1909,7 +1913,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           chatId ?? null,
           message,
           attachments,
-          thinking,
+          effectiveThinking,
           engineConfigId,
           isExternalEngine,
           {
@@ -1933,7 +1937,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     },
     [
       chatId,
-      thinking,
       engineConfigId,
       handleNewChatSettled,
       handleNewChatStart,
@@ -1944,6 +1947,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       requiresNewThreadContinuation,
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
+      effectiveThinking,
     ],
   );
 
@@ -1974,7 +1978,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         messageId,
         message: text,
         attachments,
-        thinking,
+        thinking: effectiveThinking,
         engineConfigId,
         isExternalEngine,
         agentProfileId: null,
@@ -1999,9 +2003,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       requiresNewThreadContinuation,
       setChatId,
       surfaceId,
-      thinking,
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
+      effectiveThinking,
     ],
   );
 
@@ -2049,7 +2053,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         messageId: sourceUserMessage.id,
         message: sourceText,
         attachments: sourceAttachments,
-        thinking,
+        thinking: effectiveThinking,
         engineConfigId,
         isExternalEngine,
         agentProfileId: null,
@@ -2077,8 +2081,8 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       requiresNewThreadContinuation,
       setChatId,
       surfaceId,
-      thinking,
       waitingForResponse,
+      effectiveThinking,
     ],
   );
 
@@ -2129,11 +2133,14 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     [runtimeActivityDetails],
   );
   const showThinkingExecutionControl =
-    engineType === EngineTypeEnum.setta_llm ||
-    engineType === EngineTypeEnum.external_agent;
+    supportsThinkingExecutionControl(engineType);
+  const effectiveThinking = resolveEffectiveThinking({
+    engineType,
+    requestedThinking: thinking,
+  });
   const executionControls = useMemo(
     () => ({
-      thinkingEnabled: thinking,
+      thinkingEnabled: effectiveThinking,
       onThinkingEnabledChange: showThinkingExecutionControl
         ? onThinkingChange
         : undefined,
@@ -2143,7 +2150,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       onSearchEnabledChange: executionControlHandlers.onSearchEnabledChange,
     }),
     [
-      thinking,
+      effectiveThinking,
       onThinkingChange,
       showThinkingExecutionControl,
       executionSettings.permissionMode,
