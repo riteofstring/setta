@@ -325,6 +325,11 @@ Current status:
   `frontend/src/utils/transportRouteConstants.ts`, so
   `frontend/src/utils/serverModeBoundaryPolicy.ts` no longer imports
   `GoHTTPRouteHelpers` or `GoRootRouteHelpers` directly
+- the validation suite now also checks that direct
+  `serverModeBoundaryPolicy` imports stay confined to `transportUrlCore`,
+  `endpointUtils`, `router.tsx`, and `serverModeCapabilities.ts`, so the
+  narrowed server-mode route/origin policy seam cannot silently widen into ad
+  hoc runtime callers
 - the remaining direct generated-route helper bag now lives in the focused
   `frontend/src/utils/transportRouteConstants.ts` boundary, which feeds
   `backendOriginTransport`, `backendTransport`, `c_addresses`, and
@@ -368,9 +373,9 @@ Current status:
   export-all / namespace re-exports plus dynamic-import / `require()` access
   to narrowed boundary modules such as `generatedRoutes`, `requestTransport`,
   `transportRouteConstants`, `backendTransport`, `backendOriginTransport`,
-  `appTransport`, `transportUrlCore`, and `plugins/transport`, so
-  caller-specific boundary checks cannot be bypassed through broad module
-  imports, dynamic loads, or re-export seams
+  `appTransport`, `serverModeBoundaryPolicy`, `transportUrlCore`, and
+  `plugins/transport`, so caller-specific boundary checks cannot be bypassed
+  through broad module imports, dynamic loads, or re-export seams
 - the validation suite now also checks that the checked-in
   `generatedRoutes.ts`, `generatedTypes.ts`, and `generatedEndpoints.ts`
   files exactly match the current Go frontend binding generation pipeline

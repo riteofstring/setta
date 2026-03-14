@@ -2199,28 +2199,113 @@ func TestFrontendTransportURLCoreImportsStayWithinExplicitBoundaries(t *testing.
 	}
 }
 
+func TestFrontendServerModeBoundaryPolicyImportsStayWithinExplicitBoundaries(t *testing.T) {
+	t.Helper()
+
+	repoRoot := testRepoRoot(t)
+	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
+	allowedImports := map[string]map[string]struct{}{
+		"frontend/src/utils/transportUrlCore.ts": {
+			"EndpointOriginPolicy":         {},
+			"resolveEndpointOriginForMode": {},
+		},
+		"frontend/src/utils/endpointUtils.ts": {
+			"ENDPOINT_ORIGIN_POLICY": {},
+		},
+		"frontend/src/utils/serverModeCapabilities.ts": {
+			"resolveServerModeCapabilities": {},
+			"ServerMode":                    {},
+			"ServerModeCapabilities":        {},
+		},
+		"frontend/src/components/Pages/router.tsx": {
+			"resolveWorkspaceLaunchRouteKind": {},
+			"WorkspaceLaunchRouteKind":        {},
+		},
+	}
+	importPattern := regexp.MustCompile(`(?s)(?:import|export)\s*\{([^}]*)\}\s*from\s*["'](?:\./serverModeBoundaryPolicy|utils/serverModeBoundaryPolicy)["']`)
+
+	err := filepath.WalkDir(frontendSrcRoot, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+
+		base := entry.Name()
+		if !(strings.HasSuffix(base, ".ts") || strings.HasSuffix(base, ".tsx")) {
+			return nil
+		}
+		if strings.Contains(base, ".test.") || strings.Contains(base, ".spec.") {
+			return nil
+		}
+
+		relativePath, err := filepath.Rel(repoRoot, path)
+		if err != nil {
+			return err
+		}
+		relativePath = filepath.ToSlash(relativePath)
+
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		for _, match := range importPattern.FindAllStringSubmatch(string(contents), -1) {
+			for _, rawSpecifier := range strings.Split(match[1], ",") {
+				specifier := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(rawSpecifier), "type "))
+				if specifier == "" {
+					continue
+				}
+				bindingName := strings.Fields(specifier)[0]
+				allowedBindings, allowedPath := allowedImports[relativePath]
+				if allowedPath {
+					if _, allowedBinding := allowedBindings[bindingName]; allowedBinding {
+						continue
+					}
+					return fmt.Errorf(
+						"%s imports %q from serverModeBoundaryPolicy outside the allowed boundary surface for that file",
+						relativePath,
+						bindingName,
+					)
+				}
+				return fmt.Errorf(
+					"%s imports %q from serverModeBoundaryPolicy outside the explicit narrowed server-mode boundary callers",
+					relativePath,
+					bindingName,
+				)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("scan frontend serverModeBoundaryPolicy imports: %v", err)
+	}
+}
+
 func TestFrontendBoundaryModulesUseNamedImportExportFormsOnly(t *testing.T) {
 	t.Helper()
 
 	repoRoot := testRepoRoot(t)
 	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
 	boundaryModules := map[string]struct{}{
-		"./generatedRoutes":             {},
-		"utils/generatedRoutes":         {},
-		"./requestTransport":            {},
-		"utils/requestTransport":        {},
-		"./transportRouteConstants":     {},
-		"utils/transportRouteConstants": {},
-		"./backendTransport":            {},
-		"utils/backendTransport":        {},
-		"./backendOriginTransport":      {},
-		"utils/backendOriginTransport":  {},
-		"./appTransport":                {},
-		"utils/appTransport":            {},
-		"./transportUrlCore":            {},
-		"utils/transportUrlCore":        {},
-		"./transport":                   {},
-		"utils/plugins/transport":       {},
+		"./generatedRoutes":              {},
+		"utils/generatedRoutes":          {},
+		"./requestTransport":             {},
+		"utils/requestTransport":         {},
+		"./transportRouteConstants":      {},
+		"utils/transportRouteConstants":  {},
+		"./backendTransport":             {},
+		"utils/backendTransport":         {},
+		"./backendOriginTransport":       {},
+		"utils/backendOriginTransport":   {},
+		"./appTransport":                 {},
+		"utils/appTransport":             {},
+		"./serverModeBoundaryPolicy":     {},
+		"utils/serverModeBoundaryPolicy": {},
+		"./transportUrlCore":             {},
+		"utils/transportUrlCore":         {},
+		"./transport":                    {},
+		"utils/plugins/transport":        {},
 	}
 	importPattern := regexp.MustCompile(`(?m)^\s*import\s+([^;\n]+?)\s+from\s+["']([^"']+)["']`)
 	namespaceReexportPattern := regexp.MustCompile(`(?m)^\s*export\s+\*\s+as\s+([A-Za-z_$][A-Za-z0-9_$]*)\s+from\s+["']([^"']+)["']`)
