@@ -15,18 +15,17 @@ vi.mock("components/Chat/ChatMessages", () => ({
   ChatMessageList: () => <div data-testid="mock-chat-message-list" />,
 }));
 
-vi.mock("state/actions/ai", async () => {
-  const actual =
-    await vi.importActual<typeof import("state/actions/ai")>(
-      "state/actions/ai",
-    );
+vi.mock("state/actions/aiHydration", async () => {
+  const actual = await vi.importActual<
+    typeof import("state/actions/aiHydration")
+  >("state/actions/aiHydration");
   return {
     ...actual,
     getLLMChatHydrationOutcome: vi.fn(),
   };
 });
 
-import { getLLMChatHydrationOutcome } from "state/actions/ai";
+import { getLLMChatHydrationOutcome } from "state/actions/aiHydration";
 import {
   useAIStore,
   useLocalStorage,

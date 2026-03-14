@@ -46,7 +46,7 @@ def normalize_deployment_name(deployment_name: str) -> str:
 
 def create_deployment_root(deployment_name: str) -> tuple[str, Path]:
     normalized_name = normalize_deployment_name(deployment_name)
-    deployment_parent = normalize_path(C.SHARE_DEPLOYMENTS_FOLDER / normalized_name)
+    deployment_parent = normalize_path(C.DEPLOYMENTS_FOLDER / normalized_name)
     deployment_parent.mkdir(parents=True, exist_ok=True)
     version_numbers = [
         number for number, _ in iter_deployment_versions(deployment_parent)
