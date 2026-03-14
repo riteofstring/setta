@@ -649,11 +649,8 @@ function useStreamingGrowthAnimation(
     }
     element.animate(
       [
-        {
-          opacity: 0.96,
-          transform: `translateY(${-Math.min(10, growthPx)}px)`,
-        },
-        { opacity: 1, transform: "translateY(0)" },
+        { opacity: 0.96 },
+        { opacity: 1 },
       ],
       {
         duration: 170,
@@ -721,57 +718,30 @@ function StreamingMarkdownContent({
     maxCharsPerFrameCap: 4,
   });
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const { committedMarkdown, activeTailText, committedLineCount } = useMemo(
-    () => splitStreamingMarkdownText(displayText),
-    [displayText],
-  );
   const rehypePlugins = useMemo(() => {
     if (highlightTerms.length === 0) {
       return [rehypeKatex];
     }
     return [rehypeKatex, ...getConversationSearchRehypePlugins(highlightTerms)];
   }, [highlightTerms]);
-  const commitAnimationClass = useStreamingCommitAnimationClass(
-    committedLineCount,
-    true,
-  );
 
-  useStreamingGrowthAnimation(rootRef, committedLineCount, true);
+  useStreamingGrowthAnimation(rootRef, displayText.length, true);
 
   return (
     <div
       ref={rootRef}
       className="inline-block max-w-full align-top"
       data-chat-streaming-markdown="true"
-      data-chat-streaming-markdown-mode="line-committed"
-      data-chat-streaming-markdown-has-tail={
-        activeTailText.length > 0 ? "true" : "false"
-      }
+      data-chat-streaming-markdown-mode="full-markdown"
     >
-      {committedMarkdown ? (
-        <div
-          data-chat-streaming-markdown-committed="true"
-          className={commitAnimationClass}
-        >
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm, remarkMath]}
-            rehypePlugins={rehypePlugins}
-            className={className}
-            components={CHAT_MARKDOWN_COMPONENTS}
-          >
-            {committedMarkdown}
-          </ReactMarkdown>
-        </div>
-      ) : null}
-      {activeTailText ? (
-        <StreamingTailText
-          text={activeTailText}
-          className={STREAMING_ASSISTANT_TAIL_CLASS}
-          highlightTerms={highlightTerms}
-          animateCharacters={true}
-          dataAttributeName="data-chat-streaming-markdown-tail"
-        />
-      ) : null}
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={rehypePlugins}
+        className={className}
+        components={CHAT_MARKDOWN_COMPONENTS}
+      >
+        {displayText}
+      </ReactMarkdown>
     </div>
   );
 }

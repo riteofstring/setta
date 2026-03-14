@@ -166,31 +166,50 @@ test("streaming assistant markdown renders as formatted markdown before the stre
       projectConfigId: projectContext.projectConfigId,
       sectionId,
       state: {
-        messages: [
-          {
-            id: "msg-stream-markdown",
-            role: "assistant",
-            content: [
-              {
-                type: "text",
-                text: [
-                  "Based on the Setta documentation:",
-                  "",
-                  "## Core Purpose",
-                  "",
-                  "- Build interactive applications",
-                  "- Stream rendered markdown",
-                  "Cur",
-                ].join("\n"),
-              },
-            ],
-            attachments: [],
-            tool_calls: null,
-          },
-        ],
+        messages: [],
         inputText: "",
         waitingForResponse: true,
         toolCallArguments: {},
+      },
+    });
+
+    await postBackend(page, "/emitChatStreamDelta", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId,
+      chatId,
+      chunk: {
+        type: "message_start",
+        message: {
+          id: "msg-stream-markdown",
+          role: "assistant",
+          content: [],
+          attachments: [],
+          tool_calls: null,
+        },
+      },
+    });
+    await postBackend(page, "/emitChatStreamDelta", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId,
+      chatId,
+      chunk: {
+        type: "delta",
+        message_id: "msg-stream-markdown",
+        content: [
+          {
+            type: "text_delta",
+            index: 0,
+            text: [
+              "Based on the Setta documentation:",
+              "",
+              "## Core Purpose",
+              "",
+              "- Build interactive applications",
+              "- Stream rendered markdown gracefully",
+              "Cur",
+            ].join("\n"),
+          },
+        ],
       },
     });
 
@@ -201,10 +220,16 @@ test("streaming assistant markdown renders as formatted markdown before the stre
       timeout: 10000,
     });
     await expect(
+      node.locator('[data-chat-streaming-markdown="true"]'),
+    ).toHaveAttribute("data-chat-streaming-markdown-mode", "full-markdown");
+    await expect(
+      node.locator('[data-chat-streaming-markdown-tail="true"]'),
+    ).toHaveCount(0);
+    await expect(
       node.getByText("Build interactive applications", { exact: false }),
     ).toBeVisible();
     await expect(
-      node.getByText("Stream rendered markdown", { exact: false }),
+      node.getByText("Stream rendered markdown gracefully", { exact: false }),
     ).toBeVisible();
     await expect(node.getByText("Cur", { exact: false })).toBeVisible();
 

@@ -372,15 +372,15 @@ describe("ChatMessages markdown code rendering", () => {
 
     expect(markup).toContain('data-chat-streaming-markdown="true"');
     expect(markup).toContain(
-      'data-chat-streaming-markdown-mode="line-committed"',
+      'data-chat-streaming-markdown-mode="full-markdown"',
     );
-    expect(markup).toContain('data-chat-streaming-markdown-committed="true"');
-    expect(markup).toContain('data-chat-streaming-markdown-tail="true"');
     expect(markup).toContain("<h2>Core Purpose</h2>");
     expect(markup).toContain("<li>Build apps</li>");
-    expect(markup).toContain("<li>Stream markdown</li>");
+    expect(markup).toContain("Stream markdown");
+    expect(markup).toContain("Cur");
     expect(markup).not.toContain("## Core Purpose");
-    expect(markup).toContain('data-chat-streaming-character="settled"');
+    expect(markup).not.toContain('data-chat-streaming-markdown-tail="true"');
+    expect(markup).not.toContain('data-chat-streaming-character="settled"');
   });
 });
 
