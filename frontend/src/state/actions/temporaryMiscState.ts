@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useTemporaryMiscState } from "state/stores/ephemeralUiStores";
+import { useTemporaryMiscState } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 
 function deleteTemporaryMiscState(id) {
