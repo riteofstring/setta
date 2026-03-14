@@ -45,7 +45,6 @@ import {
   getExternalAgentChatHydrationOutcome,
   getLLMChatHydrationOutcome,
   initializePendingChatDetails,
-  loadAgentRuns,
   stopProjectChatResponse,
   submitEditedMessage,
   submitMessage,
@@ -53,6 +52,7 @@ import {
   type ChatHydrationOutcome,
   type ChatHydrationOutcomeType,
 } from "state/actions/ai";
+import { loadAgentRuns } from "state/actions/aiAgentRuns";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import { transcribeChatAudioWithProfile } from "state/actions/aiTranscription";
 import {

@@ -20,7 +20,7 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 ## Status Refresh (2026-03-14)
 
 - Unlike the later `clean-code` branch, this branch still has the original `frontend/src/state/definitions.ts` monolith. Store ownership cleanup remains a first-order task here.
-- `frontend/src/state/actions/aiConfiguration.ts` and `frontend/src/state/actions/aiTranscription.ts` now carry some of the config/catalog and transcription behavior that previously lived in `frontend/src/state/actions/ai.ts`; future cleanup should keep extending those seams instead of merging behavior back.
+- `frontend/src/state/actions/aiAgentRuns.ts`, `frontend/src/state/actions/aiConfiguration.ts`, and `frontend/src/state/actions/aiTranscription.ts` now carry the agent-run, config/catalog, and transcription behavior that previously lived in `frontend/src/state/actions/ai.ts`; future cleanup should keep extending those seams instead of merging behavior back.
 - `frontend/src/state/actions/projectChatWindowing.ts` already delegates some logic to `projectChatWindowingAuthoritative.ts` and `projectChatWindowingEphemeral.ts`; future cleanup should build on those seams.
 - `frontend/src/utils/constants.ts` is still unsplit on this branch, so shared-infrastructure cleanup is still high leverage.
 - Shared infrastructure cleanup will still cross fork boundaries at times, but if a slice becomes primarily about code under `frontend/src/forks/**` it should use the more specific companion plan instead of expanding this one.
