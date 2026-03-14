@@ -319,6 +319,71 @@ test("settings can mount the experimental canvas engine host", async ({
     .toBe(true);
 });
 
+test("settings canvas engine always-live mode keeps all top-level dom islands mounted without shell promotion", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await seedLocalStorage(page, {
+    useCanvasEngineV1: true,
+    useCanvasEngineAlwaysLiveDom: true,
+  });
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+
+  const host = page.locator('[data-canvas-engine-host="v1"]');
+  await expect(host).toBeVisible();
+
+  const allSettingsTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+  await expect(allSettingsTab).toBeVisible();
+  await allSettingsTab.click();
+
+  await expect
+    .poll(async () => {
+      const values = await host.evaluate((element) => ({
+        alwaysLive: element.getAttribute("data-canvas-engine-always-live-dom"),
+        rectCount: Number(
+          element.getAttribute("data-canvas-engine-rect-count") ?? "0",
+        ),
+        mountedCount: Number(
+          element.getAttribute("data-canvas-engine-dom-island-mounted-count") ??
+            "0",
+        ),
+        retainedCount: Number(
+          element.getAttribute("data-canvas-engine-dom-island-retained-count") ??
+            "0",
+        ),
+      }));
+      return values;
+    })
+    .toEqual({
+      alwaysLive: "true",
+      rectCount: 43,
+      mountedCount: 43,
+      retainedCount: 0,
+    });
+
+  const firstShellStyle = await host.evaluate((element) => {
+    const firstShell = element.querySelector<HTMLElement>(
+      '[data-canvas-engine-dom-island] [data-viewport-shell-promotable="true"]',
+    );
+    if (!firstShell) {
+      throw new Error("Missing mounted shell inside the always-live engine.");
+    }
+    const style = window.getComputedStyle(firstShell);
+    return {
+      transform: style.transform,
+      backfaceVisibility: style.backfaceVisibility,
+      isolation: style.isolation,
+    };
+  });
+
+  expect(firstShellStyle.transform).toBe("none");
+  expect(firstShellStyle.backfaceVisibility).toBe("visible");
+  expect(firstShellStyle.isolation).toBe("auto");
+});
+
 async function waitForNodeCount(page: Page, expected: number): Promise<void> {
   await page.waitForFunction(
     (count) => document.querySelectorAll(".react-flow__node").length === count,
