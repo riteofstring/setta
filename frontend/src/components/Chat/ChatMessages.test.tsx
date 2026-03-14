@@ -841,6 +841,28 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(assistantBubbleTag).not.toContain(" w-full ");
   });
 
+  it("keeps long assistant markdown on a wrapping root contract in narrow bubbles", () => {
+    const assistantText =
+      "I'll create a simple app for you! Let me start by checking what UI components are available.";
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-assistant-wrap-width",
+        role: ChatRoleEnum.assistant,
+        content: [createMessageTextContent({ text: assistantText })],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain('data-chat-assistant-bubble="true"');
+    expect(markup).toContain('class="w-fit max-w-full prose prose-sm');
+    expect(markup).not.toContain('class="w-max max-w-full prose prose-sm');
+  });
+
   it("keeps user markdown content on a wrapping width contract in narrow bubbles", () => {
     const messages: BaseChatMessageUnion[] = [
       {

@@ -559,3 +559,27 @@ For each new entry, append:
 - Decisions: Keep assistant markdown on the content-fit contract and change only the non-assistant path. This fixes the real regression without reintroducing the earlier one-character bubble collapse or flattening all bubbles to full width.
 - Blockers or open questions: None for this follow-up slice.
 - Next recommended slice: None required from the original UI-polish plan. Further work should be treated as new follow-up polish/regression slices rather than additional hidden plan phases.
+
+### 2026-03-12 21:02
+
+- Date: 2026-03-12 21:02 EDT
+- Scope: Starting a second narrow-chat follow-up because long assistant messages still fail to wrap in the same cramped chat windows even after the user/system markdown width fix.
+- Tests added or updated first: Planned first coverage is to extend `frontend/tests/e2e/chat/chat-tool-calls.spec.ts` so the existing narrow bubble regression also asserts the visible assistant bubble has no child overflow or horizontal scroll overflow, plus add a narrow render-state regression in `frontend/src/components/Chat/ChatMessages.test.tsx` that ensures long assistant markdown is no longer rendered with the old `w-max` root contract.
+- Production code changed: None yet for this slice.
+- Verification run: Re-audited the current live chat surface and the shared markdown helper. The bug is the remaining assistant-only branch in `MarkdownContent`: after the prior follow-up, assistant markdown still renders with `w-max max-w-full`, which preserves short fit-content bubbles but also allows long prose to keep a max-content line and clip in cramped docked/floating windows.
+- CDP visual check: Baseline captured from the new user screenshot on the live `project-chat-window-2` panel; the assistant response rows still clip on the right edge while the user prompt now wraps correctly.
+- Decisions: Keep the change narrow and local to assistant markdown sizing. Preserve the existing inline-flex assistant bubble shell and short-message fit-content feel, but make long assistant prose wrap inside narrow windows instead of clipping.
+- Blockers or open questions: Need to remove the assistant overflow without turning every assistant reply into a full-width slab.
+- Next recommended slice: Add the failing render/browser regressions, adjust the assistant markdown width contract, rerun focused tests, verify on the live `project-chat-window-2` panel in CDP, and commit the follow-up separately.
+
+### 2026-03-12 22:23
+
+- Date: 2026-03-12 22:23 EDT
+- Scope: Completed the second narrow-chat follow-up so long assistant replies now wrap inside cramped chat windows without losing the compact short-bubble feel.
+- Tests added or updated first: Extended `frontend/tests/e2e/chat/chat-tool-calls.spec.ts` so the existing narrow bubble regression now also requires the assistant bubble to have no child overflow or horizontal scroll overflow, and added a render-state regression in `frontend/src/components/Chat/ChatMessages.test.tsx` that keeps long assistant markdown off the old `w-max` root contract.
+- Production code changed: Updated `frontend/src/components/Chat/ChatMessages.tsx` so assistant markdown now uses `w-fit max-w-full` instead of `w-max max-w-full`. That changes the assistant path from max-content sizing to fit-content sizing, which still keeps short bubbles compact but allows long prose to clamp to the available width and wrap inside narrow docked/floating chat windows.
+- Verification run: Captured red first. `pnpm -C frontend exec vitest run src/components/Chat/ChatMessages.test.tsx` failed on the new assistant markdown contract assertion, and `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/chat-tool-calls.spec.ts --grep "message timestamps do not collapse chat bubbles into narrow columns"` failed with `overflowPx: 78` / `hasScrollOverflow: true` on the assistant bubble. After the fit-content width change landed, `pnpm -C frontend exec vitest run src/components/Chat/ChatMessages.test.tsx` passed (59 tests), and `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/chat-tool-calls.spec.ts --grep "message timestamps do not collapse chat bubbles into narrow columns|shows a message timestamp for activity-only assistant messages"` passed (2 tests).
+- CDP visual check: Done on the live `http://127.0.0.1:3026/branch_showing` worktree surface. In the actual `project-chat-window-2` panel from the user screenshot, a visible assistant reply now reports `bubbleWidth: 454.0`, `bubbleClientWidth: 452`, `bubbleScrollWidth: 452`, and `overflowPx: 0`, confirming the assistant text wraps inside the bubble instead of clipping on the right edge.
+- Decisions: Use `fit-content`, not `max-content`, for assistant markdown. This preserves the intended compact assistant bubble behavior while fixing the narrow-window overflow path.
+- Blockers or open questions: None for this follow-up slice.
+- Next recommended slice: None required from the original UI-polish plan. Any more chat-window polish should be tracked as separate follow-up work.

@@ -734,6 +734,12 @@ test.describe.serial("chat tool calls", () => {
           overflowPx: 0,
           hasScrollOverflow: false,
         });
+      await expect
+        .poll(() => getHorizontalOverflowMetrics(assistantBubble))
+        .toMatchObject({
+          overflowPx: 0,
+          hasScrollOverflow: false,
+        });
       await expect(
         section.locator('[data-chat-message-timestamp="true"]'),
       ).toHaveCount(2);

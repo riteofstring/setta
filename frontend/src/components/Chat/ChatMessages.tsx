@@ -312,7 +312,7 @@ function MarkdownContent({
   const shouldAnimate = role === ChatRoleEnum.assistant && isStreaming;
   const displayText = useTypewriterEffect(content, shouldAnimate, 5);
   const markdownWidthClassName =
-    role === ChatRoleEnum.assistant ? "w-max max-w-full" : "w-full max-w-full";
+    role === ChatRoleEnum.assistant ? "w-fit max-w-full" : "w-full max-w-full";
   const markdownClassName = `${markdownWidthClassName} ${className}`;
   if (shouldAnimate) {
     return (
