@@ -152,6 +152,7 @@ describe("local storage merge", () => {
         {
           command: "/ship",
           prompt: "Ship the current release.",
+          appGenerationMode: null,
         },
       ],
     });
@@ -259,6 +260,24 @@ describe("local storage merge", () => {
     expect(merged.homeSelectedProjectPaneVis).toBe(false);
     expect(merged.homeSelectedProjectPaneWidth).toBe(350);
     expect(merged.homeSelectedProjectPaneTrueWidth).toBe(352);
+  });
+
+  it("does not persist removed app-generation local-storage keys", () => {
+    const partialize = useLocalStorage.persist.getOptions().partialize;
+    if (!partialize) {
+      throw new Error("Expected local-storage store to define partialize.");
+    }
+
+    const persisted = partialize(useLocalStorage.getState()) as Record<
+      string,
+      unknown
+    >;
+
+    expect("appSpecStreamingEnabled" in persisted).toBe(false);
+    expect("appGenerationMode" in persisted).toBe(false);
+    expect("appGenerationPrompt" in persisted).toBe(false);
+    expect("appGenerationReferenceImageUrl" in persisted).toBe(false);
+    expect("appGenerationReferenceImageNotes" in persisted).toBe(false);
   });
 });
 

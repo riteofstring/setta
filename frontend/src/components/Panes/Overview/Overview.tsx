@@ -234,6 +234,11 @@ export function Overview() {
               <span
                 data-testid="overview-tab-more"
                 aria-label="More"
+                title={
+                  vis && effectiveTabName === OverviewTabNameEnum.App
+                    ? JSON_RENDER_OVERVIEW_QUICK_INFO
+                    : "More"
+                }
                 {...getFloatingBoxHandlers({ content: "More" })}
               >
                 <MdMoreHoriz size={20} />
@@ -260,7 +265,7 @@ export function Overview() {
                 <i className="w-3 opacity-80">
                   <TbLayoutDashboard />
                 </i>
-                <span className="ml-0.5">App Gen</span>
+                <span className="ml-0.5">JSON Render</span>
               </MenuItem>
             ) : null}
             <MenuItem
@@ -366,6 +371,10 @@ function TabsVisible({
     ? selectedPluginPaneTab.title
     : resolveOverviewTitle(selectedTabName);
   const isFullWidth = selectedTabName === OverviewTabNameEnum.FileBrowser;
+  const titleQuickInfo =
+    selectedTabName === OverviewTabNameEnum.App
+      ? JSON_RENDER_OVERVIEW_QUICK_INFO
+      : undefined;
   return (
     <div
       data-testid="overview-tab-content-shell"
@@ -377,12 +386,18 @@ function TabsVisible({
     >
       {isFullWidth ? (
         <div className={FILE_BROWSER_META_INSET_CLASS}>
-          <h2 className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
+          <h2
+            className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500"
+            title={titleQuickInfo}
+          >
             {title}
           </h2>
         </div>
       ) : (
-        <h2 className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
+        <h2
+          className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500"
+          title={titleQuickInfo}
+        >
           {title}
         </h2>
       )}

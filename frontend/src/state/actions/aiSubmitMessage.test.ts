@@ -1,4 +1,5 @@
 import { resetProjectStores } from "state/utils";
+import { PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE } from "state/utils/chatAppGeneration";
 import {
   route_get_agent_runs,
   route_get_llm_chat,
@@ -42,7 +43,6 @@ const mockedRouteGetLLMChat = vi.mocked(route_get_llm_chat);
 const mockedRouteGetLLMResponse = vi.mocked(route_get_llm_response);
 
 let useAIStore: typeof import("state/definitions").useAIStore;
-let useLocalStorage: typeof import("state/definitions").useLocalStorage;
 let submitMessage: typeof import("state/actions/ai").submitMessage;
 let getDefaultChatDetails: typeof import("state/actions/ai").getDefaultChatDetails;
 let receiveLLMResponseChunk: typeof import("state/actions/ai").receiveLLMResponseChunk;
@@ -72,7 +72,6 @@ describe("submitMessage", () => {
 
     const definitions = await import("state/definitions");
     useAIStore = definitions.useAIStore;
-    useLocalStorage = definitions.useLocalStorage;
     const ai = await import("state/actions/ai");
     submitMessage = ai.submitMessage;
     getDefaultChatDetails = ai.getDefaultChatDetails;
@@ -111,6 +110,7 @@ describe("submitMessage", () => {
           temporary: false,
         },
         contextUsage: null,
+        appGenerationByMessageId: {},
       },
     });
   });
@@ -210,8 +210,6 @@ describe("submitMessage", () => {
           pendingSurfaceId: DRAFT_SURFACE_ID,
           appGeneration: {
             mode: "mcp_server",
-            referenceImageUrl: "https://example.com/reference.png",
-            referenceImageNotes: "Preserve hierarchy first.",
           },
         },
       ),
@@ -221,27 +219,102 @@ describe("submitMessage", () => {
     const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
       {
         appGenerationMode: string | null;
-        appGenerationReferenceImageUrl: string | null;
-        appGenerationReferenceImageNotes: string | null;
+        appGenerationByMessageId: Record<string, string>;
+        message: { id: string };
       },
     ];
     expect(payload.appGenerationMode).toBe("mcp_server");
-    expect(payload.appGenerationReferenceImageUrl).toBe(
-      "https://example.com/reference.png",
-    );
-    expect(payload.appGenerationReferenceImageNotes).toBe(
-      "Preserve hierarchy first.",
-    );
+    expect(payload.appGenerationByMessageId).toEqual({
+      [payload.message.id]: "mcp_server",
+    });
   });
 
-  it("does not send app-spec streaming guidance for normal chat submits", async () => {
-    useLocalStorage.setState({
-      appSpecStreamingEnabled: true,
+  it("preserves retained image-mode provenance for text-only follow-up submits", async () => {
+    const chatId = "chat-image-follow-up";
+    mockedRouteGetLLMResponse.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: chatId,
     });
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          messages: [
+            createUserChatMessage({
+              id: "msg-image-initial",
+              content: [
+                createMessageTextContent({
+                  text: "Match this reference image.",
+                }),
+              ],
+              attachments: [
+                {
+                  id: "image-1",
+                  name: "reference.png",
+                  mimeType: "image/png",
+                  size: 128,
+                },
+              ],
+            }),
+          ],
+          waitingForResponse: false,
+        },
+      },
+      chatAppGenerationDetailsByChatId: {
+        [chatId]: {
+          activeAppGeneration: {
+            mode: "json_render_with_image",
+          },
+          appGenerationByMessageId: {
+            "msg-image-initial": {
+              mode: "json_render_with_image",
+            },
+          },
+        },
+      },
+    });
+
+    await expect(
+      submitMessage(
+        chatId,
+        "Tighten the spacing.",
+        [],
+        true,
+        "engine-primary",
+        false,
+        {
+          appGeneration: {
+            mode: "json_render_with_image",
+          },
+        },
+      ),
+    ).resolves.toBe(chatId);
+
+    const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
+      {
+        appGenerationMode: string | null;
+        appGenerationByMessageId: Record<string, string>;
+        message: { id: string; attachments: unknown[] };
+      },
+    ];
+    expect(payload.appGenerationMode).toBe("json_render_with_image");
+    expect(payload.message.attachments).toEqual([]);
+    expect(payload.appGenerationByMessageId).toEqual({
+      "msg-image-initial": "json_render_with_image",
+      [payload.message.id]: "json_render_with_image",
+    });
+  });
+
+  it("persists explicit plain-chat provenance for plain chat submits", async () => {
     mockedRouteGetLLMResponse.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
+    });
+    useAIStore.setState({
+      pendingChatDetailsBySurfaceId: {},
+      pendingChatAppGenerationDetailsBySurfaceId: {},
     });
 
     await expect(
@@ -261,18 +334,18 @@ describe("submitMessage", () => {
     expect(mockedRouteGetLLMResponse).toHaveBeenCalledTimes(1);
     const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
       {
-        appSpecStreamingEnabled: boolean;
         appGenerationMode: string | null;
+        appGenerationByMessageId: Record<string, string>;
+        message: { id: string };
       },
     ];
-    expect(payload.appSpecStreamingEnabled).toBe(false);
     expect(payload.appGenerationMode).toBeNull();
+    expect(payload.appGenerationByMessageId).toEqual({
+      [payload.message.id]: PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE,
+    });
   });
 
-  it("uses explicit execution settings and app-generation options together", async () => {
-    useLocalStorage.setState({
-      appSpecStreamingEnabled: true,
-    });
+  it("uses explicit execution settings and keeps app-generation submits deterministic", async () => {
     mockedRouteGetLLMResponse.mockResolvedValue({
       status: 200,
       hasResponse: true,
@@ -295,8 +368,6 @@ describe("submitMessage", () => {
           },
           appGeneration: {
             mode: "mcp_server",
-            referenceImageUrl: null,
-            referenceImageNotes: null,
           },
         },
       ),
@@ -307,12 +378,10 @@ describe("submitMessage", () => {
       {
         permissionMode: string;
         searchEnabled: boolean;
-        appSpecStreamingEnabled: boolean;
       },
     ];
     expect(payload.permissionMode).toBe("yolo");
     expect(payload.searchEnabled).toBe(false);
-    expect(payload.appSpecStreamingEnabled).toBe(true);
   });
 
   it("refreshes agent runs after successful submit hydration", async () => {
@@ -339,6 +408,7 @@ describe("submitMessage", () => {
           temporary: false,
         },
         contextUsage: null,
+        appGenerationByMessageId: {},
       },
     });
     mockedRouteGetAgentRuns.mockResolvedValue({
@@ -391,6 +461,64 @@ describe("submitMessage", () => {
           .agentRuns.some((run) => run.inputs?.chatId === returnedChatId),
       )
       .toBe(true);
+  });
+
+  it("hydrates app-generation provenance from the chat response immediately after submit", async () => {
+    const returnedChatId = "chat-submit-hydrated-app-generation";
+    mockedRouteGetLLMResponse.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: returnedChatId,
+    });
+    mockedRouteGetLLMChat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [
+          createUserChatMessage({
+            id: "msg-app",
+            content: [createMessageTextContent({ text: "Use MCP context." })],
+            attachments: [],
+          }),
+        ],
+        waitingForResponse: false,
+        llmConfig: null,
+        contextUsage: null,
+        appGenerationByMessageId: {
+          "msg-app": "mcp_server",
+        },
+      },
+    });
+
+    await expect(
+      submitMessage(
+        null,
+        "Use MCP context.",
+        [],
+        true,
+        "engine-primary",
+        false,
+        {
+          pendingSurfaceId: DRAFT_SURFACE_ID,
+          appGeneration: {
+            mode: "mcp_server",
+          },
+        },
+      ),
+    ).resolves.toBe(returnedChatId);
+
+    expect(
+      useAIStore.getState().chatAppGenerationDetailsByChatId[returnedChatId],
+    ).toEqual({
+      activeAppGeneration: {
+        mode: "mcp_server",
+      },
+      appGenerationByMessageId: {
+        "msg-app": {
+          mode: "mcp_server",
+        },
+      },
+    });
   });
 
   it("includes frontend websocket affinity id in llm requests", async () => {
