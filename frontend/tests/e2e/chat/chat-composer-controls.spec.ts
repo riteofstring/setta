@@ -3516,6 +3516,191 @@ test.describe.serial("chat composer controls", () => {
     }
   });
 
+  test("project chat submits standard managed Azure OpenAI turns through the Go runtime", async ({
+    page,
+  }) => {
+    await setOverviewTab(page, "ProjectAIChat");
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const engineCleanup = await ensureManagedChatEngine(page);
+    const backendOrigin =
+      process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+
+    let createdEngineConfigId: string | null = null;
+    let initialLLMConfig: LLMConfigPayload | null = null;
+    let initialAPIKeysSnapshot: ManagedAPIKeysSnapshot | null = null;
+    let latestAPIKeysSnapshot: ManagedAPIKeysSnapshot | null = null;
+    let submittedPayload:
+      | {
+          thinking?: boolean;
+          engineConfigId?: string;
+        }
+      | undefined;
+    const providerServer = await startManagedAzureOpenAIChatServer();
+
+    await page.route("**/api/getLLMResponse", async (route) => {
+      submittedPayload = route.request().postDataJSON() as
+        | {
+            thinking?: boolean;
+            engineConfigId?: string;
+          }
+        | undefined;
+      const response = await route.fetch();
+      const body = await response.body();
+      await route.fulfill({ response, body });
+    });
+
+    try {
+      const llmConfigResponse = await page.request.get(
+        `${backendOrigin}/api/llm/config`,
+      );
+      expect(llmConfigResponse.ok()).toBe(true);
+      initialLLMConfig = (await llmConfigResponse.json()) as LLMConfigPayload;
+
+      const apiKeysResponse = await page.request.get(
+        `${backendOrigin}/api/llm/apiKeys`,
+      );
+      expect(apiKeysResponse.ok()).toBe(true);
+      initialAPIKeysSnapshot =
+        (await apiKeysResponse.json()) as ManagedAPIKeysSnapshot;
+      latestAPIKeysSnapshot = initialAPIKeysSnapshot;
+
+      const azureConfigId = `e2e-azure-standard-${Date.now()}`;
+      const updatedLLMConfig: LLMConfigPayload = {
+        ...initialLLMConfig,
+        configs: {
+          ...initialLLMConfig.configs,
+          [azureConfigId]: {
+            model: "gpt-4o-mini",
+            provider: "azure",
+            api_key_env: "AZURE_OPENAI_API_KEY",
+            base_url: providerServer.origin,
+            other_params: {
+              api_version: "2024-06-01",
+              temperature: 0.2,
+            },
+          },
+        },
+      };
+      await postBackend(page, "/llm/config", updatedLLMConfig);
+      latestAPIKeysSnapshot = await postManagedAPIKeys(page, {
+        apiKeys: {
+          ...initialAPIKeysSnapshot.apiKeys,
+          AZURE_OPENAI_API_KEY: "e2e-azure-standard-secret",
+        },
+        expectedRevision: initialAPIKeysSnapshot.revision,
+      });
+
+      const createdEngine = await postBackend<EngineConfigSummary>(
+        page,
+        "/createEngineConfig",
+        {
+          name: "Azure Standard E2E",
+          engineType: "setta_llm",
+          settaLlmConfigId: azureConfigId,
+          defaults: {},
+        },
+      );
+      createdEngineConfigId = createdEngine?.id ?? null;
+      if (!createdEngineConfigId) {
+        throw new Error("Missing Azure standard engine config id.");
+      }
+
+      const engineConfigsResponse = await page.request.get(
+        `${backendOrigin}/api/getEngineConfigs`,
+      );
+      expect(engineConfigsResponse.ok()).toBe(true);
+      const engineConfigs =
+        (await engineConfigsResponse.json()) as EngineConfigSummary[];
+      const createdRuntimeSupport =
+        engineConfigs.find((config) => config.id === createdEngineConfigId)
+          ?.runtimeSupport ?? null;
+      expect(createdRuntimeSupport?.thinking).toBe(false);
+
+      await page.evaluate(async () => {
+        const { loadEngineConfigs, loadLLMApiKeys, loadLLMConfig } =
+          await import("/src/state/actions/ai.ts");
+        await loadLLMConfig();
+        await loadLLMApiKeys();
+        await loadEngineConfigs(true);
+      });
+
+      await setOverviewTab(page, "ProjectAIChat");
+      const overviewPane = page.locator("#OverviewPane");
+      await expect(
+        overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+      ).toBeVisible();
+
+      const projectChatSurface = await getVisibleProjectChatSurface(page);
+      await selectProjectAiEngine(page, "Azure Standard E2E");
+      await expect(
+        projectChatSurface.getByRole("button", { name: "Thinking" }),
+      ).toHaveCount(0);
+
+      const input = projectChatSurface.getByPlaceholder("Type a message...");
+      await expect(input).toBeVisible();
+      await input.fill("Trigger managed Azure OpenAI standard chat");
+      await input.press("Enter");
+
+      await expect
+        .poll(() => submittedPayload?.engineConfigId ?? null)
+        .toBe(createdEngineConfigId);
+      expect(submittedPayload?.thinking).toBe(false);
+      await expect.poll(() => providerServer.requests.length).toBe(1);
+
+      const providerRequest = providerServer.requests[0];
+      expect(providerRequest?.path).toBe(
+        "/openai/deployments/gpt-4o-mini/chat/completions",
+      );
+      expect(providerRequest?.query).toBe("api-version=2024-06-01");
+      expect(providerRequest?.apiKey).toBe("e2e-azure-standard-secret");
+      expect(providerRequest?.authorization).toBe("");
+      expect(providerRequest?.body.model).toBe("gpt-4o-mini");
+      expect(providerRequest?.body.temperature).toBe(0.2);
+      expect(providerRequest?.body.reasoning_effort).toBeUndefined();
+      expect(JSON.stringify(providerRequest?.body.messages ?? null)).toContain(
+        "Trigger managed Azure OpenAI standard chat",
+      );
+
+      await expect(projectChatSurface.getByText("Azure reply")).toBeVisible();
+      await expect(
+        projectChatSurface.locator('[data-chat-thinking-section="true"]'),
+      ).toHaveCount(0);
+    } finally {
+      try {
+        await setOverviewTab(page, "ProjectAIChat");
+        await selectProjectAiEngine(page, "setta");
+      } catch {
+        // Best-effort teardown: if the test already failed, don't block cleanup.
+      }
+      if (createdEngineConfigId) {
+        await page.request
+          .post(`${backendOrigin}/api/deleteEngineConfig`, {
+            data: { configId: createdEngineConfigId },
+            timeout: 5000,
+          })
+          .catch(() => {});
+      }
+      if (initialLLMConfig) {
+        await page.request
+          .post(`${backendOrigin}/api/llm/config`, {
+            data: initialLLMConfig,
+            timeout: 5000,
+          })
+          .catch(() => {});
+      }
+      if (initialAPIKeysSnapshot && latestAPIKeysSnapshot) {
+        await postManagedAPIKeys(page, {
+          apiKeys: initialAPIKeysSnapshot.apiKeys,
+          expectedRevision: latestAPIKeysSnapshot.revision,
+        }).catch(() => {});
+      }
+      await providerServer.close();
+      await engineCleanup();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("project chat stops a managed Azure OpenAI response through the Go runtime", async ({
     page,
   }) => {
