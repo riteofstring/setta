@@ -15,8 +15,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Scope
 
 - In scope:
-  - Authored frontend code under `frontend/src/components`, `frontend/src/state`, `frontend/src/plugins`, and non-generated UI helpers in `frontend/src/utils`
-  - Forked UI/interaction code under `frontend/src/forks/**`, treated with the same readability, ownership, and performance standards as the rest of the authored frontend
+  - Authored frontend code under `frontend/src/**`
   - Refactors that improve readability, feature ownership, and render/update performance
   - Documentation that helps agents quickly find the right file, state owner, and test entry points
 - Out of scope for the first pass:
@@ -55,7 +54,6 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - `frontend/src/components/Section/Layouts/TaskBoardArea.tsx` at 2304 lines
 - `frontend/src/state/actions/ai.ts` at 4600 lines currently mixes transcription, config loading, API key management, agent-run loading, chat hydration, streaming, optimistic updates, and stop/resume behavior.
 - `frontend/src/state/definitions.ts` at 1500 lines exports 45 `use*` stores, which makes store ownership and selector boundaries hard to understand.
-- The maintained fork surface is large enough to need its own cleanup track: `frontend/src/forks/**` currently spans about 111 files / 16.7k lines across `xyflow` and `dnd-kit`.
 - Components and hooks frequently import generated endpoints/types and large action modules directly, which increases context switching and makes it harder for agents to see the true domain boundary.
 - Direct store reach-through is common enough that mutation paths are not obvious from component names alone.
 
@@ -189,14 +187,7 @@ Notes:
 - Separate runtime registry concerns from renderers, bindings, capability checks, and markdown/media helpers.
 - Document the extension points clearly so agents know where to add new runtime component types or plugin hooks.
 
-## Phase 6: Clean Up Forked Interaction Surfaces
-
-- Use [frontend-forks-cleanup-plan.md](./frontend-forks-cleanup-plan.md) for work inside `frontend/src/forks/**`.
-- Clean forked code with the same standards used elsewhere in the frontend: clear ownership, smaller modules, explicit state boundaries, and measured performance.
-- Prefer whichever module boundary makes current ownership clearest, whether that keeps logic in the fork or moves it outward.
-- Keep fork refactors measured and covered by tests because these surfaces are still interaction-heavy.
-
-## Phase 7: Put Documentation Next To Code
+## Phase 6: Put Documentation Next To Code
 
 - Add short `README.md` files for the major feature roots touched during cleanup.
 - Each README should answer:
@@ -230,7 +221,7 @@ Notes:
 2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/ai.ts`, the shared chat UI surfaces, or `state/definitions.ts`.
 3. Continue the `ProjectChatBottomDock.tsx` / `projectChatWindowing.ts` split from the existing helper seams.
 4. Clean up file browser and section layout hotspots.
-5. Work through the remaining page, pane, runtime, and fork hotspots from the companion plans.
+5. Work through the remaining page, pane, and runtime hotspots from the companion plans.
 6. Add feature READMEs as each area stabilizes.
 
 ## Notes

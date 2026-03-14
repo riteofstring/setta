@@ -1,6 +1,6 @@
 # Frontend Forks Cleanup Plan
 
-Companion to [frontend-cleanup-plan.md](./frontend-cleanup-plan.md).
+Companion to [frontend-cleanup-plan.md](./frontend-cleanup-plan.md). Use this only when a cleanup slice directly touches code under `frontend/src/forks/**`.
 
 ## Goal
 

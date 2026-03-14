@@ -22,7 +22,7 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - Unlike the later `clean-code` branch, this branch still has the original `frontend/src/state/definitions.ts` monolith. Store ownership cleanup remains a first-order task here.
 - `frontend/src/state/actions/projectChatWindowing.ts` already delegates some logic to `projectChatWindowingAuthoritative.ts` and `projectChatWindowingEphemeral.ts`; future cleanup should build on those seams.
 - `frontend/src/utils/constants.ts` is still unsplit on this branch, so shared-infrastructure cleanup is still high leverage.
-- Shared infrastructure cleanup will still cross fork boundaries at times, but if a slice becomes primarily about `xyflow` or `dnd-kit` ownership it should move to the fork plan instead of expanding this one.
+- Shared infrastructure cleanup will still cross fork boundaries at times, but if a slice becomes primarily about code under `frontend/src/forks/**` it should use the more specific companion plan instead of expanding this one.
 
 ## Current State (Observed)
 
