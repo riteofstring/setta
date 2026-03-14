@@ -159,13 +159,6 @@ async function dragBrowserRowToTarget(
   await source.dispatchEvent("dragend", { dataTransfer });
 }
 
-async function clickDom(button: Locator): Promise<void> {
-  await expect(button).toBeVisible();
-  await button.evaluate((element: HTMLElement) => {
-    element.click();
-  });
-}
-
 async function dropNativeFileToTarget(
   target: Locator,
   file: {
@@ -446,9 +439,9 @@ test.describe.serial("file browser transfer and drag/drop", () => {
       ).toBeVisible();
 
       await fillCodeMirror(filterEditor, page, viewsCsvName);
-      await clickDom(
-        browserNode.getByRole("button", { name: "Icon view", exact: true }),
-      );
+      await browserNode
+        .getByRole("button", { name: "Icon view", exact: true })
+        .click();
       const thumbnailItem = browserNode
         .locator("[data-browser-thumbnail-path]")
         .filter({ hasText: viewsCsvName })
@@ -465,9 +458,9 @@ test.describe.serial("file browser transfer and drag/drop", () => {
         })
         .not.toBeNull();
 
-      await clickDom(
-        browserNode.getByRole("button", { name: "Carousel view", exact: true }),
-      );
+      await browserNode
+        .getByRole("button", { name: "Carousel view", exact: true })
+        .click();
       const carouselItem = browserNode
         .locator("button[data-media-carousel-item-id]")
         .filter({ hasText: viewsCsvName })

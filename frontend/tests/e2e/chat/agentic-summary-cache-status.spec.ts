@@ -37,9 +37,9 @@ test.describe.serial("agentic summary cache status", () => {
         });
         await postBackend(page, "/createAgenticEdge", {
           projectConfigId: projectContext.projectConfigId,
-          sourceSectionId: chatSectionId,
-          targetSectionId: sourceSectionId,
-          kind: "chat_section",
+          sourceSectionId,
+          targetSectionId: chatSectionId,
+          kind: "section_chat",
           contextMode: "summary",
         });
       }

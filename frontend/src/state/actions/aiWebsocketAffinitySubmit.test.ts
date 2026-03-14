@@ -22,7 +22,6 @@ vi.mock("utils/generatedEndpoints", async () => {
 
 let submitMessage: typeof import("state/actions/ai").submitMessage;
 let memoryStorage: Storage;
-const DRAFT_SURFACE_ID = "draft-surface-affinity";
 
 describe("submitMessage websocket affinity", () => {
   beforeAll(async () => {
@@ -77,16 +76,10 @@ describe("submitMessage websocket affinity", () => {
       setActiveFrontendWebsocketAffinityGeneration,
       setFrontendAffinityToken,
     } = await import("state/actions/frontendWebsocketAffinity");
-    const returnedChatId = "chat-affinity-refresh";
     route_get_llm_response.mockResolvedValue({
       status: 200,
       hasResponse: true,
-      data: {
-        chatId: returnedChatId,
-        runId: "run-affinity-refresh",
-        engineType: "setta_llm",
-        sectionId: null,
-      },
+      data: null,
     });
 
     setActiveFrontendWebsocketAffinityGeneration(1);
@@ -101,7 +94,6 @@ describe("submitMessage websocket affinity", () => {
         true,
         "engine-primary",
         false,
-        { pendingSurfaceId: DRAFT_SURFACE_ID },
       ),
     ).rejects.toThrow("Frontend identity not ready");
     expect(route_get_llm_response).toHaveBeenCalledTimes(0);
@@ -115,9 +107,8 @@ describe("submitMessage websocket affinity", () => {
         true,
         "engine-primary",
         false,
-        { pendingSurfaceId: DRAFT_SURFACE_ID },
       ),
-    ).resolves.toBe(returnedChatId);
+    ).resolves.toBeNull();
     const [secondPayload] = route_get_llm_response.mock.calls[0] as [
       { frontendAffinityToken: string },
     ];

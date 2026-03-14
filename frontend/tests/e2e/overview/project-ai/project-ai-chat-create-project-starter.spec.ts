@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 import {
   cleanupIsolatedProject,
@@ -7,83 +7,6 @@ import {
   openIsolatedProject,
   setOverviewTab,
 } from "../../helpers";
-
-async function disableProjectChatAutoCreate(page: Page) {
-  await page.route("**/api/loadSettings", async (route) => {
-    const response = await route.fetch();
-    const settings = (await response.json()) as {
-      chatWindowing?: Record<string, unknown>;
-    };
-    await route.fulfill({
-      response,
-      contentType: "application/json",
-      body: JSON.stringify({
-        ...settings,
-        chatWindowing: {
-          ...(settings.chatWindowing ?? {}),
-          autoCreateInitialChat: false,
-        },
-      }),
-    });
-  });
-  await page.route("**/api/loadProjectConfig", async (route) => {
-    const response = await route.fetch();
-    const projectState = (await response.json()) as {
-      projectChatWindowing?: Record<string, unknown>;
-    };
-    await route.fulfill({
-      response,
-      contentType: "application/json",
-      body: JSON.stringify({
-        ...projectState,
-        projectChatWindowing: {
-          order: [],
-          instancesById: {},
-        },
-      }),
-    });
-  });
-}
-
-async function ensureCreateProjectStarterButton(
-  overviewPane: Locator,
-): Promise<Locator> {
-  const starterButton = overviewPane.page().getByRole("button", {
-    name: /^Create Project$/,
-  }).first();
-  if (await starterButton.isVisible().catch(() => false)) {
-    return starterButton;
-  }
-  const newChatButton = overviewPane.getByRole("button", {
-    name: /^New Chat$/i,
-  });
-  if (await newChatButton.isVisible().catch(() => false)) {
-    await overviewPane.page().evaluate(async () => {
-      const { useProjectState } = await import("/src/state/definitions.ts");
-      const {
-        ChatWindowPlacementEnum,
-        createProjectChatWindowInstance,
-        createProjectChatWindowingState,
-      } = await import("/src/utils/generatedTypes.ts");
-      useProjectState.setState((state) => {
-        state.projectChatWindowing = createProjectChatWindowingState({
-          order: ["project-chat-window-1"],
-          instancesById: {
-            "project-chat-window-1": createProjectChatWindowInstance({
-              instanceId: "project-chat-window-1",
-              placement: ChatWindowPlacementEnum.bottom_docked,
-              chatId: null,
-              isMinimized: false,
-            }),
-          },
-        });
-      });
-    });
-    await expect(starterButton).toBeVisible();
-    return starterButton;
-  }
-  throw new Error("Expected project chat starter surface to be available.");
-}
 
 test("project ai create-project starter submits a codebase-first clarifying prompt when python signals exist", async ({
   page,
@@ -94,7 +17,6 @@ test("project ai create-project starter submits a codebase-first clarifying prom
   const restoreManagedEngine = await ensureManagedChatEngine(page);
   let workspaceScans = 0;
   let submittedPrompt = "";
-  await disableProjectChatAutoCreate(page);
 
   await page.route("**/api/getFileBrowserRoot", async (route) => {
     await route.fulfill({
@@ -157,7 +79,10 @@ test("project ai create-project starter submits a codebase-first clarifying prom
       overviewPane.getByRole("heading", { name: "Project AI Chat" }),
     ).toBeVisible();
 
-    const starterButton = await ensureCreateProjectStarterButton(overviewPane);
+    const starterButton = overviewPane.getByRole("button", {
+      name: "Create Project",
+    });
+    await expect(starterButton).toBeVisible();
     await expect(starterButton).toBeEnabled();
 
     // Wait for workspace scan completion so the starter chooses codebase-first wording.
@@ -185,7 +110,6 @@ test("project ai create-project starter submits a no-codebase clarifying prompt 
   const projectContext = await openIsolatedProject(page);
   const restoreManagedEngine = await ensureManagedChatEngine(page);
   let submittedPrompt = "";
-  await disableProjectChatAutoCreate(page);
 
   await page.route("**/api/getFileBrowserRoot", async (route) => {
     await route.fulfill({
@@ -236,7 +160,10 @@ test("project ai create-project starter submits a no-codebase clarifying prompt 
     await page.waitForSelector(".react-flow__pane");
 
     const overviewPane = page.locator("#OverviewPane");
-    const starterButton = await ensureCreateProjectStarterButton(overviewPane);
+    const starterButton = overviewPane.getByRole("button", {
+      name: "Create Project",
+    });
+    await expect(starterButton).toBeVisible();
     await starterButton.click();
 
     await expect

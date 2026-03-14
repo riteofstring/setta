@@ -1,6 +1,6 @@
 import { BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY } from "utils/backendOriginOverride";
 import { C } from "utils/c";
-import { RouteEnum } from "utils/generatedTypes";
+import { RouteEnum } from "utils/generatedRoutes";
 import { getOrInitLauncherOrigin } from "utils/launcherOrigin";
 import { normalizeOrigin } from "utils/origin";
 import { safeSessionStorage } from "utils/storage";

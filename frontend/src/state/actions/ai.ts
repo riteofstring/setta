@@ -2481,7 +2481,10 @@ export async function submitMessage(
     const appSpecStreamingEnabledForSubmit =
       appGenerationMode === null
         ? false
-        : useLocalStorage.getState().appSpecStreamingEnabled;
+        : appGenerationMode === "json_render" ||
+            appGenerationMode === "json_render_with_image"
+          ? true
+          : useLocalStorage.getState().appSpecStreamingEnabled;
     const res = await route_get_llm_response({
       message: userMessage,
       thinking,
@@ -2502,7 +2505,7 @@ export async function submitMessage(
       searchEnabled: resolvedExecutionSettings.searchEnabled,
     });
     if (res200(res)) {
-      const returnedChatId = res.data.chatId;
+      const returnedChatId = res.data ?? chatId ?? null;
       if (returnedChatId) {
         refreshAgentRunsAfterSubmit();
         if (isExternalEngine) {
@@ -2656,7 +2659,7 @@ export async function submitEditedMessage({
       }
       return null;
     }
-    const returnedChatId = res.data.chatId;
+    const returnedChatId = res.data ?? null;
     if (returnedChatId) {
       refreshAgentRunsAfterSubmit();
       if (isExternalEngine) {

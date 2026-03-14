@@ -116,43 +116,6 @@ async function callMcpTool<TStructured>(
   throw new Error(`Missing structured or JSON text result for ${tool}.`);
 }
 
-async function disableProjectChatWindows(page: Page): Promise<void> {
-  await page.route("**/api/loadSettings", async (route) => {
-    const response = await route.fetch();
-    const settings = (await response.json()) as {
-      chatWindowing?: Record<string, unknown>;
-    };
-    await route.fulfill({
-      response,
-      contentType: "application/json",
-      body: JSON.stringify({
-        ...settings,
-        chatWindowing: {
-          ...(settings.chatWindowing ?? {}),
-          autoCreateInitialChat: false,
-        },
-      }),
-    });
-  });
-  await page.route("**/api/loadProjectConfig", async (route) => {
-    const response = await route.fetch();
-    const projectState = (await response.json()) as {
-      projectChatWindowing?: Record<string, unknown>;
-    };
-    await route.fulfill({
-      response,
-      contentType: "application/json",
-      body: JSON.stringify({
-        ...projectState,
-        projectChatWindowing: {
-          order: [],
-          instancesById: {},
-        },
-      }),
-    });
-  });
-}
-
 test("core project-name UI setting persists metadata after rename", async ({
   page,
 }) => {
@@ -232,7 +195,6 @@ test("core project-name UI setting persists metadata after rename", async ({
 test("core UI-setting tools support search/get/set/reveal and validation errors", async ({
   page,
 }) => {
-  await disableProjectChatWindows(page);
   await setOverviewTab(page, "Overview");
   const projectContext = await openIsolatedProject(page);
 

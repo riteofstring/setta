@@ -212,10 +212,8 @@ const PILL_GAP_PX = 4;
 const MENU_MODE_TRIGGER_WIDTH_PX = 28;
 const CHAT_WINDOW_LAYER_Z_INDEX = 24;
 const TRACKED_PANE_CHAT_WINDOW_LAYER_Z_INDEX = 31;
-const CHAT_WINDOW_CHROME_LAYER_Z_INDEX = CHAT_WINDOW_LAYER_Z_INDEX + 1;
-const CHAT_WINDOW_SNAP_PREVIEW_Z_INDEX =
-  CHAT_WINDOW_CHROME_LAYER_Z_INDEX + 1;
-const CHAT_WINDOW_TOGGLE_Z_INDEX = CHAT_WINDOW_CHROME_LAYER_Z_INDEX + 2;
+const CHAT_WINDOW_SNAP_PREVIEW_Z_INDEX = CHAT_WINDOW_LAYER_Z_INDEX + 1;
+const CHAT_WINDOW_TOGGLE_Z_INDEX = CHAT_WINDOW_LAYER_Z_INDEX + 2;
 const CHAT_WINDOW_ENTER_ANIMATION_PRIME_DELAY_MS = 16;
 const CHAT_WINDOW_ENTER_DURATION_MS = 110;
 const CHAT_WINDOW_STRIP_LAYOUT_DURATION_MS = 110;
@@ -3709,7 +3707,7 @@ export function ProjectChatBottomDock() {
         <div
           className="pointer-events-none fixed"
           style={{
-            zIndex: CHAT_WINDOW_CHROME_LAYER_Z_INDEX,
+            zIndex: CHAT_WINDOW_LAYER_Z_INDEX,
             left: SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX,
             right: dockSurfaceRightPx,
             bottom: dockBottomOffsetPx,
@@ -4192,7 +4190,7 @@ export function ProjectChatBottomDock() {
       {isCanvasVisibilitySuppressed ? null : (
         <div
           className="pointer-events-none fixed inset-0"
-          style={{ zIndex: CHAT_WINDOW_CHROME_LAYER_Z_INDEX }}
+          style={{ zIndex: CHAT_WINDOW_LAYER_Z_INDEX }}
         >
           {openFloatingPills.map((pill) => {
             const bounds = floatingBoundsById[pill.instanceId] ?? pill.bounds;
@@ -4739,7 +4737,7 @@ export function ProjectChatBottomDock() {
         <div
           className="pointer-events-none fixed"
           style={{
-            zIndex: CHAT_WINDOW_CHROME_LAYER_Z_INDEX,
+            zIndex: CHAT_WINDOW_LAYER_Z_INDEX,
             left: SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX,
             right: dockSurfaceRightPx,
             bottom: dockBottomOffsetPx,
@@ -4775,7 +4773,7 @@ export function ProjectChatBottomDock() {
       <nav
         className="pointer-events-none fixed"
         style={{
-          zIndex: CHAT_WINDOW_CHROME_LAYER_Z_INDEX,
+          zIndex: CHAT_WINDOW_LAYER_Z_INDEX,
           right: dockSurfaceRightPx,
           width: dockSurfaceWidthCss,
           bottom: dockBottomOffsetPx + DOCK_BAR_FLOAT_BOTTOM_OFFSET_PX,

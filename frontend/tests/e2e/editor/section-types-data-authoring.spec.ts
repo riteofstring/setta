@@ -8,7 +8,6 @@ import {
 import fs from "node:fs/promises";
 import * as XLSX from "xlsx";
 import {
-  clearProjectChatWindows,
   cleanupIsolatedProject,
   createTextBlockSection,
   ensureAppReady,
@@ -338,7 +337,6 @@ test.describe.serial("section types data authoring", () => {
     });
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
-    await clearProjectChatWindows(page);
     let setMasterFontSizeCallCount = 0;
     const handleSetMasterFontSizeRequest = (request: Request): void => {
       if (
@@ -473,7 +471,6 @@ test.describe.serial("section types data authoring", () => {
     });
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
-    await clearProjectChatWindows(page);
 
     try {
       const sectionId = await createTopLevelSection(
@@ -539,7 +536,6 @@ test.describe.serial("section types data authoring", () => {
     });
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
-    await clearProjectChatWindows(page);
 
     try {
       const sectionId = await createTopLevelSection(
@@ -671,7 +667,6 @@ test.describe.serial("section types data authoring", () => {
     });
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
-    await clearProjectChatWindows(page);
     let setTopLevelLayoutCalls = 0;
     const handleSetTopLevelLayoutRequest = (request: Request): void => {
       if (
@@ -1137,7 +1132,6 @@ test.describe.serial("section types data authoring", () => {
     });
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
-    await clearProjectChatWindows(page);
 
     try {
       const root = await postBackend<FileBrowserRootResponse>(
@@ -1246,7 +1240,6 @@ test.describe.serial("section types data authoring", () => {
     });
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
-    await clearProjectChatWindows(page);
 
     try {
       const root = await postBackend<FileBrowserRootResponse>(
@@ -1442,7 +1435,6 @@ test.describe.serial("section types data authoring", () => {
     });
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
-    await clearProjectChatWindows(page);
 
     try {
       const root = await postBackend<FileBrowserRootResponse>(
