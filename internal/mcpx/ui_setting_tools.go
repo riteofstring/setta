@@ -62,9 +62,16 @@ type revealUISettingResult struct {
 	Statuses           []revealUISettingStatusResult `json:"statuses"`
 }
 
-func newSearchUISettingsHandler(projectState projectStateProvider, workspaceRoot string) tools.Handler {
+func newSearchUISettingsHandler(projectState projectStateProvider, pluginMutations pluginMutationProvider, workspaceRoot string) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
-		projectConfigID, registry, err := resolveScopedUISettingRegistry(ctx, arguments, projectState, workspaceRoot, "Scoped UI-setting search")
+		projectConfigID, registry, err := resolveScopedUISettingRegistry(
+			ctx,
+			arguments,
+			projectState,
+			pluginMutations,
+			workspaceRoot,
+			"Scoped UI-setting search",
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -104,9 +111,16 @@ func newSearchUISettingsHandler(projectState projectStateProvider, workspaceRoot
 	}
 }
 
-func newGetUISettingValueHandler(projectState projectStateProvider, workspaceRoot string) tools.Handler {
+func newGetUISettingValueHandler(projectState projectStateProvider, pluginMutations pluginMutationProvider, workspaceRoot string) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
-		projectConfigID, registry, err := resolveScopedUISettingRegistry(ctx, arguments, projectState, workspaceRoot, "Scoped UI-setting read")
+		projectConfigID, registry, err := resolveScopedUISettingRegistry(
+			ctx,
+			arguments,
+			projectState,
+			pluginMutations,
+			workspaceRoot,
+			"Scoped UI-setting read",
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -121,12 +135,11 @@ func newGetUISettingValueHandler(projectState projectStateProvider, workspaceRoo
 			return nil, newToolError("invalid_arguments", "%s", err.Error())
 		}
 		if !ok {
+			missingErr := registry.MissingSettingError(settingID)
+			errorResult := normalizeUISettingRuntimeError(missingErr, settingID, "read")
 			return getUISettingValueResult{
 				Value: nil,
-				Error: newUISettingToolErrorResult(
-					uisettings.ErrorCodeSettingNotFound,
-					fmt.Sprintf("UI setting %q was not found.", settingID),
-				),
+				Error: errorResult,
 			}, nil
 		}
 
@@ -146,9 +159,16 @@ func newGetUISettingValueHandler(projectState projectStateProvider, workspaceRoo
 	}
 }
 
-func newSetUISettingValueHandler(projectState projectStateProvider, workspaceRoot string) tools.Handler {
+func newSetUISettingValueHandler(projectState projectStateProvider, pluginMutations pluginMutationProvider, workspaceRoot string) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
-		projectConfigID, registry, err := resolveScopedUISettingRegistry(ctx, arguments, projectState, workspaceRoot, "Scoped UI-setting write")
+		projectConfigID, registry, err := resolveScopedUISettingRegistry(
+			ctx,
+			arguments,
+			projectState,
+			pluginMutations,
+			workspaceRoot,
+			"Scoped UI-setting write",
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -167,15 +187,14 @@ func newSetUISettingValueHandler(projectState projectStateProvider, workspaceRoo
 			return nil, newToolError("invalid_arguments", "%s", err.Error())
 		}
 		if !ok {
+			missingErr := registry.MissingSettingError(settingID)
+			errorResult := normalizeUISettingRuntimeError(missingErr, settingID, "write")
 			return setUISettingValueResult{
 				OldValue:        nil,
 				NewValue:        nil,
 				NormalizedValue: nil,
 				Changed:         false,
-				Error: newUISettingToolErrorResult(
-					uisettings.ErrorCodeSettingNotFound,
-					fmt.Sprintf("UI setting %q was not found.", settingID),
-				),
+				Error:           errorResult,
 			}, nil
 		}
 
@@ -247,7 +266,14 @@ func newRevealUISettingHandler(server *Server, workspaceRoot string) tools.Handl
 			return nil, newToolError("internal_error", "UI setting reveal runtime is unavailable.")
 		}
 
-		projectConfigID, registry, err := resolveScopedUISettingRegistry(ctx, arguments, server.projectState, workspaceRoot, "Scoped UI-setting reveal")
+		projectConfigID, registry, err := resolveScopedUISettingRegistry(
+			ctx,
+			arguments,
+			server.projectState,
+			server.pluginMutations,
+			workspaceRoot,
+			"Scoped UI-setting reveal",
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -314,6 +340,7 @@ func resolveScopedUISettingRegistry(
 	ctx context.Context,
 	arguments map[string]any,
 	projectState projectStateProvider,
+	pluginMutations pluginMutationProvider,
 	workspaceRoot string,
 	operation string,
 ) (string, *uisettings.Registry, error) {
@@ -338,7 +365,7 @@ func resolveScopedUISettingRegistry(
 		)
 	}
 
-	registry, err := uisettings.NewCoreRegistry(projectState, workspaceRoot)
+	registry, err := uisettings.NewScopedRegistry(projectState, workspaceRoot, pluginMutations)
 	if err != nil {
 		return "", nil, newToolError("internal_error", "UI setting registry is unavailable: %s", err.Error())
 	}

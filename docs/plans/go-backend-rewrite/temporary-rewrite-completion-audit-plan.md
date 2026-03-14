@@ -327,6 +327,11 @@ This verdict holds under both of the only reasonable definitions:
   - `frontend/src/state/actions/websocketReceive.ts`
   - `frontend/src/state/hooks/terminals/terminal.ts`
   - `frontend/src/plugins/listenerEndpointClient.ts`
+- Schema-backed plugin UI settings are now Go-owned on the MCP path:
+  - `internal/uisettings/plugins.go`
+  - `internal/mcpx/ui_setting_tools.go`
+  - active plugin setting search/read/write now resolve through Go plugin
+    runtime/config APIs instead of the old Python plugin UI-setting registry
 
 ### Verified retained Python boundaries
 
@@ -361,12 +366,12 @@ No currently reproduced Go-owned parity blocker remains from the targeted audit
 slice. The remaining blocker is repo-wide backend/runtime ownership outside the
 explicit retained boundary list, most notably the still-active Python plugin
 worker implementation/runtime path in `backend/setta/plugins/worker.py`, the
-Python plugin-management path in `backend/setta/plugins/manager.py`, and the
-remaining Python plugin-backed callers that still thread that manager through
-UI-setting flows. The old top-level Python FastAPI app, the old
+Python plugin-management path in `backend/setta/plugins/manager.py`. The old
+top-level Python FastAPI app, the old
 `setta.dev_start` shim, the old source-only Python startup/CLI helper
 surfaces, the legacy Python server-state startup path, and the legacy Python
-project-state plugin-codegen owner are no longer part of that blocker set.
+project-state plugin-codegen owner are no longer part of that blocker set, and
+schema-backed plugin UI settings are no longer part of that blocker set either.
 
 ### Test and smoke evidence executed
 
@@ -536,3 +541,15 @@ full `tests/project_state` suites still pass. This narrows the remaining Python
 plugin blocker away from project-state/codegen and further toward the
 standalone plugin manager/worker modules plus the Python UI-setting/plugin-pane
 surface that still depends on them.
+
+A sixteenth follow-up rewrite step moved schema-backed plugin UI settings onto
+the Go-owned MCP/runtime path. `internal/uisettings/plugins.go` now builds
+plugin UI-setting registry entries directly from Go plugin runtime/config
+schema data, `internal/mcpx/ui_setting_tools.go` now resolves scoped registries
+through that Go plugin runtime, and the old Python plugin UI-setting registry
+is no longer required for active plugin setting search/read/write behavior.
+Focused `internal/uisettings`, `internal/mcpx`, and `internal/app` UI-setting
+tests now pass, including schema-backed plugin search/read/write and
+plugin-unavailable vs setting-not-found behavior. This narrows the remaining
+Python plugin blocker away from UI-setting flows and further toward the
+standalone Python plugin manager/worker runtime itself.

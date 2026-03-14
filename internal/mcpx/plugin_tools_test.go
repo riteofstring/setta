@@ -187,8 +187,9 @@ func TestServerPluginManagementTools(t *testing.T) {
 }
 
 type pluginFixtureSpec struct {
-	FixtureName string
-	Version     string
+	FixtureName  string
+	Version      string
+	StripBackend bool
 }
 
 type testPluginRoots struct {
@@ -266,6 +267,13 @@ func (p *pluginFixtureCandidateProvider) ResolveCandidate(_ context.Context, spe
 			frontend := payload["frontend"].(map[string]any)
 			frontend["entrypoint"] = "frontend/src/index.js"
 			frontend["style"] = "frontend/src/index.css"
+		}); err != nil {
+			return plugins.CandidatePlugin{}, err
+		}
+	}
+	if fixtureSpec.StripBackend {
+		if err := rewritePluginManifest(targetRoot, func(payload map[string]any) {
+			delete(payload, "backend")
 		}); err != nil {
 			return plugins.CandidatePlugin{}, err
 		}

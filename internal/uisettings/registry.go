@@ -4,15 +4,45 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 )
 
 type Registry struct {
-	entriesByID map[string]RuntimeEntry
+	entriesByID            map[string]RuntimeEntry
+	knownPluginIDs         map[string]struct{}
+	knownPluginSettingIDs  map[string]struct{}
+	pluginStatusByPluginID map[string]pluginRegistryStatus
 }
 
 func New(entries []RuntimeEntry) (*Registry, error) {
+	return newRegistry(entries, registryPluginMetadata{})
+}
+
+type registryPluginMetadata struct {
+	knownPluginIDs         map[string]struct{}
+	knownPluginSettingIDs  map[string]struct{}
+	pluginStatusByPluginID map[string]pluginRegistryStatus
+}
+
+type pluginRegistryStatus struct {
+	ObservedStates        []string
+	RuntimeEntryAvailable bool
+	SupportsUISettings    bool
+}
+
+func (s pluginRegistryStatus) Operational() bool {
+	for _, state := range s.ObservedStates {
+		switch strings.TrimSpace(state) {
+		case "active", "pending_restart":
+			return true
+		}
+	}
+	return false
+}
+
+func newRegistry(entries []RuntimeEntry, metadata registryPluginMetadata) (*Registry, error) {
 	entriesByID := make(map[string]RuntimeEntry, len(entries))
 	for _, entry := range entries {
 		settingID, err := normalizeSettingID(entry.Metadata.SettingID)
@@ -25,7 +55,12 @@ func New(entries []RuntimeEntry) (*Registry, error) {
 		entry.Metadata.SettingID = settingID
 		entriesByID[settingID] = entry
 	}
-	return &Registry{entriesByID: entriesByID}, nil
+	return &Registry{
+		entriesByID:            entriesByID,
+		knownPluginIDs:         cloneStringSet(metadata.knownPluginIDs),
+		knownPluginSettingIDs:  cloneStringSet(metadata.knownPluginSettingIDs),
+		pluginStatusByPluginID: clonePluginRegistryStatusMap(metadata.pluginStatusByPluginID),
+	}, nil
 }
 
 func (r *Registry) Get(settingID string) (RuntimeEntry, bool, error) {
@@ -155,6 +190,72 @@ func normalizeSettingID(settingID string) (string, error) {
 	return normalized, nil
 }
 
+func (r *Registry) HasKnownPlugin(pluginID string) bool {
+	if r == nil {
+		return false
+	}
+	_, ok := r.knownPluginIDs[strings.TrimSpace(pluginID)]
+	return ok
+}
+
+func (r *Registry) HasKnownPluginSetting(pluginID string, localSettingID string) bool {
+	if r == nil {
+		return false
+	}
+	_, ok := r.knownPluginSettingIDs[pluginSettingKey(pluginID, localSettingID)]
+	return ok
+}
+
+func (r *Registry) MissingSettingError(settingID string) error {
+	normalizedSettingID, err := normalizeSettingID(settingID)
+	if err != nil {
+		return newSettingError(ErrorCodeSettingNotFound, "Unknown setting id: %s", strings.TrimSpace(settingID))
+	}
+
+	pluginID, localSettingID, ok := parsePluginSettingID(normalizedSettingID)
+	if !ok {
+		return newSettingError(ErrorCodeSettingNotFound, "Unknown setting id: %s", normalizedSettingID)
+	}
+	if !r.HasKnownPlugin(pluginID) {
+		return newSettingError(ErrorCodeSettingNotFound, "Unknown setting id: %s", normalizedSettingID)
+	}
+
+	status, ok := r.pluginStatusByPluginID[pluginID]
+	if ok {
+		if !status.Operational() {
+			observedState := describeObservedPluginStates(status.ObservedStates)
+			if observedState == "" {
+				return newSettingError(ErrorCodePluginUnavailable, "Plugin %s is unavailable.", pluginID)
+			}
+			return newSettingError(ErrorCodePluginUnavailable, "Plugin %s is unavailable (state=%s).", pluginID, observedState)
+		}
+		if !status.RuntimeEntryAvailable {
+			observedState := describeObservedPluginStates(status.ObservedStates)
+			if observedState == "" {
+				observedState = "unknown"
+			}
+			return newSettingError(
+				ErrorCodePluginUnavailable,
+				"Plugin %s is unavailable (state=%s, runtime entry missing).",
+				pluginID,
+				observedState,
+			)
+		}
+		if !status.SupportsUISettings {
+			return newSettingError(
+				ErrorCodePluginUnavailable,
+				"Plugin %s is unavailable for UI setting access (registerPane capability not effective).",
+				pluginID,
+			)
+		}
+	}
+
+	if !r.HasKnownPluginSetting(pluginID, localSettingID) {
+		return newSettingError(ErrorCodeSettingNotFound, "Unknown setting id: %s", normalizedSettingID)
+	}
+	return newSettingError(ErrorCodeSettingNotFound, "Unknown setting id: %s", normalizedSettingID)
+}
+
 func scoreEntry(entry Entry, normalizedQuery string, tokens []string) int {
 	score := 0
 	settingID := strings.ToLower(entry.SettingID)
@@ -213,4 +314,50 @@ func cloneJSONValue(value any) any {
 		return value
 	}
 	return cloned
+}
+
+func cloneStringSet(values map[string]struct{}) map[string]struct{} {
+	if len(values) == 0 {
+		return map[string]struct{}{}
+	}
+	cloned := make(map[string]struct{}, len(values))
+	for key := range values {
+		cloned[key] = struct{}{}
+	}
+	return cloned
+}
+
+func clonePluginRegistryStatusMap(values map[string]pluginRegistryStatus) map[string]pluginRegistryStatus {
+	if len(values) == 0 {
+		return map[string]pluginRegistryStatus{}
+	}
+	cloned := make(map[string]pluginRegistryStatus, len(values))
+	for key, value := range values {
+		cloned[key] = pluginRegistryStatus{
+			ObservedStates:        append([]string(nil), value.ObservedStates...),
+			RuntimeEntryAvailable: value.RuntimeEntryAvailable,
+			SupportsUISettings:    value.SupportsUISettings,
+		}
+	}
+	return cloned
+}
+
+func describeObservedPluginStates(states []string) string {
+	trimmed := make([]string, 0, len(states))
+	for _, state := range states {
+		state = strings.TrimSpace(state)
+		if state == "" {
+			continue
+		}
+		trimmed = append(trimmed, state)
+	}
+	sort.Strings(trimmed)
+	trimmed = slices.Compact(trimmed)
+	if len(trimmed) == 0 {
+		return ""
+	}
+	if len(trimmed) == 1 {
+		return trimmed[0]
+	}
+	return strings.Join(trimmed, ",")
 }

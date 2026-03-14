@@ -7,6 +7,7 @@ import (
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"setta/internal/appspec"
+	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/realtime"
 	"setta/internal/tools"
@@ -515,6 +516,221 @@ func TestServerRevealUISettingTranslatesTemporaryIDs(t *testing.T) {
 	if revealService.input.SectionIDToActivate != "allowed-callable-section" {
 		t.Fatalf("expected canonical section id, got %q", revealService.input.SectionIDToActivate)
 	}
+}
+
+func TestServerUISettingToolsSupportSchemaBackedPluginSettings(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	roots, service := newTestPluginMutationService(t, map[string]pluginFixtureSpec{
+		"pypi:setta-fixture-full==0.1.0": {
+			FixtureName:  "full",
+			Version:      "0.1.0",
+			StripBackend: true,
+		},
+	})
+	if _, err := service.Install(context.Background(), plugins.InstallOptions{
+		SourceSpec: "pypi:setta-fixture-full==0.1.0",
+		Enable:     true,
+	}); err != nil {
+		t.Fatalf("install full fixture plugin: %v", err)
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, roots.workspaceRoot, projectRuntime, ServerOptions{
+		WorkspaceRoot:   roots.workspaceRoot,
+		ProjectState:    projectRuntime,
+		LSPDiagnostics:  openScopedTestLSPDiagnosticsRegistry(),
+		PluginMutations: service,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	searchResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "search_ui_settings",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"query":           "fixture label",
+			"sourceFilter":    "plugin",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call plugin search_ui_settings: %v", err)
+	}
+	if searchResult.IsError {
+		t.Fatalf("expected plugin search_ui_settings success, got %#v", searchResult.StructuredContent)
+	}
+	searchPayload := mustStructuredMap(t, searchResult.StructuredContent)
+	searchResults := mustStructuredList(t, searchPayload["results"])
+	if len(searchResults) == 0 {
+		t.Fatal("expected plugin UI setting search results")
+	}
+	firstResult := mustStructuredMap(t, searchResults[0])
+	if firstResult["settingId"] != "plugin::setta-fixture-full::label" {
+		t.Fatalf("expected plugin label search result, got %#v", firstResult)
+	}
+	if firstResult["source"] != "plugin" {
+		t.Fatalf("expected plugin search result source, got %#v", firstResult["source"])
+	}
+
+	getResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::label",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call get_ui_setting_value for plugin label: %v", err)
+	}
+	if getResult.IsError {
+		t.Fatalf("expected plugin get_ui_setting_value success, got %#v", getResult.StructuredContent)
+	}
+	getPayload := mustStructuredMap(t, getResult.StructuredContent)
+	if getPayload["value"] != "unset" {
+		t.Fatalf("expected default plugin label value, got %#v", getPayload["value"])
+	}
+
+	setResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::enabled",
+			"value":           true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_ui_setting_value for plugin enabled: %v", err)
+	}
+	if setResult.IsError {
+		t.Fatalf("expected plugin set_ui_setting_value success, got %#v", setResult.StructuredContent)
+	}
+	setPayload := mustStructuredMap(t, setResult.StructuredContent)
+	if setPayload["oldValue"] != false || setPayload["newValue"] != true || setPayload["changed"] != true {
+		t.Fatalf("expected plugin write false -> true, got %#v", setPayload)
+	}
+
+	runtimeResponse, err := service.Runtime(plugins.RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("plugin runtime after write: %v", err)
+	}
+	pluginEntry := mustFindPluginListEntry(t, runtimeResponse.List.Plugins, "setta-fixture-full")
+	if pluginEntry.Config.CurrentConfig["enabled"] != true {
+		t.Fatalf("expected plugin config enabled=true, got %#v", pluginEntry.Config.CurrentConfig)
+	}
+}
+
+func TestServerUISettingToolsReturnSettingNotFoundForUnknownActivePluginSetting(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	roots, service := newTestPluginMutationService(t, map[string]pluginFixtureSpec{
+		"pypi:setta-fixture-full==0.1.0": {
+			FixtureName:  "full",
+			Version:      "0.1.0",
+			StripBackend: true,
+		},
+	})
+	if _, err := service.Install(context.Background(), plugins.InstallOptions{
+		SourceSpec: "pypi:setta-fixture-full==0.1.0",
+		Enable:     true,
+	}); err != nil {
+		t.Fatalf("install full fixture plugin: %v", err)
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, roots.workspaceRoot, projectRuntime, ServerOptions{
+		WorkspaceRoot:   roots.workspaceRoot,
+		ProjectState:    projectRuntime,
+		LSPDiagnostics:  openScopedTestLSPDiagnosticsRegistry(),
+		PluginMutations: service,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::missing",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call unknown active plugin get_ui_setting_value: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected structured plugin missing-setting response, got %#v", result.StructuredContent)
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	errorPayload := mustStructuredMap(t, payload["error"])
+	if errorPayload["code"] != string(uisettings.ErrorCodeSettingNotFound) {
+		t.Fatalf("expected setting_not_found for unknown active plugin setting, got %#v", errorPayload["code"])
+	}
+}
+
+func TestServerUISettingToolsReturnPluginUnavailableForDisabledPlugin(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	roots, service := newTestPluginMutationService(t, map[string]pluginFixtureSpec{
+		"pypi:setta-fixture-full==0.1.0": {
+			FixtureName:  "full",
+			Version:      "0.1.0",
+			StripBackend: true,
+		},
+	})
+	if _, err := service.Install(context.Background(), plugins.InstallOptions{
+		SourceSpec: "pypi:setta-fixture-full==0.1.0",
+		Enable:     true,
+	}); err != nil {
+		t.Fatalf("install full fixture plugin: %v", err)
+	}
+	if _, err := service.Disable(context.Background(), plugins.EnableDisableOptions{
+		PluginID: "setta-fixture-full",
+	}); err != nil {
+		t.Fatalf("disable full fixture plugin: %v", err)
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, roots.workspaceRoot, projectRuntime, ServerOptions{
+		WorkspaceRoot:   roots.workspaceRoot,
+		ProjectState:    projectRuntime,
+		LSPDiagnostics:  openScopedTestLSPDiagnosticsRegistry(),
+		PluginMutations: service,
+	})
+	defer clientSession.Close()
+
+	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "plugin::setta-fixture-full::enabled",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call disabled plugin get_ui_setting_value: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected structured disabled plugin response, got %#v", result.StructuredContent)
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	errorPayload := mustStructuredMap(t, payload["error"])
+	if errorPayload["code"] != string(uisettings.ErrorCodePluginUnavailable) {
+		t.Fatalf("expected plugin_unavailable for disabled plugin setting, got %#v", errorPayload["code"])
+	}
+}
+
+func mustFindPluginListEntry(t *testing.T, entries []plugins.ListEntry, pluginID string) plugins.ListEntry {
+	t.Helper()
+
+	for _, entry := range entries {
+		if entry.PluginID == pluginID {
+			return entry
+		}
+	}
+	t.Fatalf("expected plugin list entry for %s, got %#v", pluginID, entries)
+	return plugins.ListEntry{}
 }
 
 func testStringPointer(value string) *string {

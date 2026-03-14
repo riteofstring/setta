@@ -201,11 +201,13 @@ type stateMachineRunProvider interface {
 }
 
 type pluginMutationProvider interface {
+	Runtime(options plugins.RuntimeOptions) (plugins.RuntimeResponse, error)
 	Rescan() (plugins.DiscoverySnapshot, error)
 	Install(ctx context.Context, options plugins.InstallOptions) (plugins.PluginInstallResult, error)
 	Uninstall(ctx context.Context, options plugins.UninstallOptions) (plugins.PluginUninstallResult, error)
 	Update(ctx context.Context, options plugins.UpdateOptions) (plugins.PluginUpdateResult, error)
 	Rollback(ctx context.Context, options plugins.RollbackOptions) (plugins.PluginRollbackResult, error)
+	WriteConfig(ctx context.Context, options plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResult, error)
 }
 
 type pythonPackageProvider interface {
@@ -3639,7 +3641,7 @@ func defaultToolDefinitions(
 		definitions = append(definitions, toolDefinition{
 			Spec: tools.Spec{
 				Name:        "search_ui_settings",
-				Description: "Search canonical core UI settings by natural-language query.",
+				Description: "Search canonical UI settings, including schema-backed plugin settings, by natural-language query.",
 				Metadata: tools.Metadata{
 					Kind:                          tools.KindDiscoverable,
 					AccessType:                    tools.AccessTypeRead,
@@ -3647,7 +3649,7 @@ func defaultToolDefinitions(
 					SearchCategory:                "project",
 					SearchTags:                    []string{"ui", "settings", "discover"},
 				},
-				Handler: newSearchUISettingsHandler(projectState, workspaceRoot),
+				Handler: newSearchUISettingsHandler(projectState, server.pluginMutations, workspaceRoot),
 			},
 			InputSchema: map[string]any{
 				"type": "object",
@@ -3694,7 +3696,7 @@ func defaultToolDefinitions(
 					SearchCategory:                "project",
 					SearchTags:                    []string{"ui", "settings", "read"},
 				},
-				Handler: newGetUISettingValueHandler(projectState, workspaceRoot),
+				Handler: newGetUISettingValueHandler(projectState, server.pluginMutations, workspaceRoot),
 			},
 			InputSchema: map[string]any{
 				"type": "object",
@@ -3786,7 +3788,7 @@ func defaultToolDefinitions(
 		definitions = append(definitions, toolDefinition{
 			Spec: tools.Spec{
 				Name:        "set_ui_setting_value",
-				Description: "Set a canonical core UI setting value using compare-and-set write protection.",
+				Description: "Set a canonical UI setting value using compare-and-set style write protection.",
 				Metadata: tools.Metadata{
 					Kind:                          tools.KindDiscoverable,
 					AccessType:                    tools.AccessTypeWrite,
@@ -3794,7 +3796,7 @@ func defaultToolDefinitions(
 					SearchCategory:                "project",
 					SearchTags:                    []string{"ui", "settings", "write", "mutate"},
 				},
-				Handler: newSetUISettingValueHandler(projectState, workspaceRoot),
+				Handler: newSetUISettingValueHandler(projectState, server.pluginMutations, workspaceRoot),
 			},
 			InputSchema: map[string]any{
 				"type": "object",

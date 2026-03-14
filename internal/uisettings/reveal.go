@@ -114,6 +114,12 @@ func (c *RevealCoordinator) Reveal(ctx context.Context, input RevealInput) (Reve
 		return result, nil
 	}
 	if !ok {
+		missingErr := input.Registry.MissingSettingError(input.SettingID)
+		var settingErr *SettingError
+		if errors.As(missingErr, &settingErr) {
+			result.Statuses = []RevealStatus{failedRevealStatus(strings.TrimSpace(input.SettingID), settingErr)}
+			return result, nil
+		}
 		result.Statuses = []RevealStatus{failedRevealStatus(
 			strings.TrimSpace(input.SettingID),
 			newSettingError(ErrorCodeSettingNotFound, "Unknown setting id: %s", strings.TrimSpace(input.SettingID)),
