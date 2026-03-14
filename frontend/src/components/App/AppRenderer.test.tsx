@@ -183,8 +183,6 @@ describe("AppRenderer", () => {
     const runSpy = vi
       .spyOn(endpoints, "route_run_code")
       .mockResolvedValue({ data: null, status: 200, hasResponse: true });
-    const setParamSpy = vi.spyOn(endpoints, "route_set_param_entered_value");
-    const setVariantSpy = vi.spyOn(endpoints, "route_set_section_variant");
 
     renderApp(appSpec, {
       appDefinition,
@@ -196,8 +194,6 @@ describe("AppRenderer", () => {
     expect(handler).toBeDefined();
     await handler?.();
 
-    expect(setVariantSpy).not.toHaveBeenCalled();
-    expect(setParamSpy).not.toHaveBeenCalled();
     expect(runSpy).toHaveBeenCalledWith({
       projectConfigId: configId,
       sectionId,

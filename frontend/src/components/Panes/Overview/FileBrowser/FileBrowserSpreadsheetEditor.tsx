@@ -22,7 +22,11 @@ import { List, useListRef } from "react-window";
 import { useLocalStorage } from "state/definitions";
 import { uploadBinaryPayload } from "utils/binaryUpload";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
+import {
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
 import {
   route_binary_download,
   route_get_file_browser_file_content,
@@ -35,6 +39,12 @@ import {
   parseSpreadsheetBytes,
   serializeSpreadsheetBytes,
 } from "utils/spreadsheet";
+import {
+  BinaryDownloadResponse,
+  FileBrowserFileContentResponse,
+  FileBrowserFileStatResponse,
+  WriteFileBrowserFileContentResponse,
+} from "utils/generatedTypes";
 
 export const SPREADSHEET_HEADER_HEIGHT = 24;
 export const SPREADSHEET_ROW_HEIGHT = 22;
@@ -49,6 +59,15 @@ const SPREADSHEET_COMFORTABLE_DATA_COLUMN_WIDTH = 108;
 const SPREADSHEET_AUTO_RELOAD_INTERVAL_MS = 2000;
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const SPREADSHEET_GLIDE_MAX_DENSITY_MULTIPLIER = 6;
+
+type FileBrowserFileContentRouteResponse =
+  ResponseDataAndStatus<FileBrowserFileContentResponse>;
+type FileBrowserFileStatRouteResponse =
+  ResponseDataAndStatus<FileBrowserFileStatResponse>;
+type WriteFileBrowserFileContentRouteResponse =
+  ResponseDataAndStatus<WriteFileBrowserFileContentResponse>;
+type BinaryDownloadRouteResponse =
+  ResponseDataAndStatus<BinaryDownloadResponse>;
 
 type SpreadsheetDraft = {
   path: string;
@@ -573,10 +592,11 @@ export function FileBrowserSpreadsheetEditor({
     setErrorText(null);
     setStatusText(null);
     try {
-      const response = await route_get_file_browser_file_content({
-        path,
-        maxBytes: MAX_FILE_BYTES,
-      });
+      const response: FileBrowserFileContentRouteResponse =
+        await route_get_file_browser_file_content({
+          path,
+          maxBytes: MAX_FILE_BYTES,
+        });
       if (isStaleRequest()) {
         return false;
       }
@@ -585,9 +605,10 @@ export function FileBrowserSpreadsheetEditor({
         setErrorText(detail ?? "Failed to load spreadsheet file.");
         return false;
       }
-      const binaryResponse = await route_binary_download(
-        response.data.contentId,
-      );
+      const binaryResponse: BinaryDownloadRouteResponse =
+        await route_binary_download({
+          contentId: response.data.contentId,
+        });
       if (isStaleRequest()) {
         return false;
       }
@@ -660,9 +681,10 @@ export function FileBrowserSpreadsheetEditor({
     const loadedMtimeNs = sheet.mtimeNs;
     let isCancelled = false;
     const pollForExternalChanges = async () => {
-      const response = await route_get_file_browser_file_stat({
-        path: selectedPath,
-      });
+      const response: FileBrowserFileStatRouteResponse =
+        await route_get_file_browser_file_stat({
+          path: selectedPath,
+        });
       if (!res200(response) || isCancelled) {
         return;
       }
@@ -988,11 +1010,12 @@ export function FileBrowserSpreadsheetEditor({
       if (isSaveResultStale()) {
         return;
       }
-      const response = await route_write_file_browser_file_content({
-        path: savingPath,
-        contentId: uploadResult.contentId,
-        expectedMtimeNs,
-      });
+      const response: WriteFileBrowserFileContentRouteResponse =
+        await route_write_file_browser_file_content({
+          path: savingPath,
+          contentId: uploadResult.contentId,
+          expectedMtimeNs,
+        });
       if (isSaveResultStale()) {
         return;
       }
