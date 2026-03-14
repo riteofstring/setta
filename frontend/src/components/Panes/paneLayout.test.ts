@@ -1,6 +1,6 @@
 import { useLocalStorage } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { CLOSED_PANE_WIDTH, PaneNameEnum } from "utils/constants/panes";
+import { CLOSED_PANE_WIDTH, PaneNameEnum } from "utils/constants";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   getPaneMaxWidthForViewport,

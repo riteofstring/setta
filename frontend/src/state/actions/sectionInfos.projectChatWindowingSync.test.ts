@@ -3,9 +3,12 @@ import {
   buildProjectChatEphemeralWindowInstanceKey,
   getTrackedGitPaneGraphWindowInstanceIdForProject,
 } from "state/actions/projectChatWindowingEphemeral";
-import { usePendingOperations, useProjectState } from "state/definitions";
-import { useNodeInternals } from "state/stores/activeSectionStores";
-import { useMisc } from "state/stores/ephemeralUiStores";
+import {
+  useMisc,
+  useNodeInternals,
+  usePendingOperations,
+  useProjectState,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   ChatWindowModeEnum,
