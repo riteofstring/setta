@@ -647,16 +647,10 @@ function useStreamingGrowthAnimation(
     if (growthPx <= 1 || typeof element.animate !== "function") {
       return;
     }
-    element.animate(
-      [
-        { opacity: 0.96 },
-        { opacity: 1 },
-      ],
-      {
-        duration: 170,
-        easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
-      },
-    );
+    element.animate([{ opacity: 0.96 }, { opacity: 1 }], {
+      duration: 170,
+      easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
+    });
   }, [animationSignal, elementRef, enabled]);
 }
 

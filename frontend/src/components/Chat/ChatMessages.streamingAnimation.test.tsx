@@ -2,8 +2,8 @@
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import "testUtils/reactRefreshPreamble";
 import { resetProjectStores } from "state/utils";
+import "testUtils/reactRefreshPreamble";
 import {
   ChatRoleEnum,
   createMessageTextContent,
@@ -58,8 +58,7 @@ describe("ChatMessages streaming animation", () => {
     HTMLElement.prototype.getBoundingClientRect =
       function getBoundingClientRect() {
         if (this.getAttribute("data-chat-streaming-markdown") === "true") {
-          const nextCallCount =
-            (rectCallCountByElement.get(this) ?? 0) + 1;
+          const nextCallCount = (rectCallCountByElement.get(this) ?? 0) + 1;
           rectCallCountByElement.set(this, nextCallCount);
           return createRect(nextCallCount === 1 ? 24 : 48);
         }
@@ -112,7 +111,10 @@ describe("ChatMessages streaming animation", () => {
 
     await act(async () => {
       root.render(
-        <ChatMessageList messages={initialMessages} waitingForResponse={true} />,
+        <ChatMessageList
+          messages={initialMessages}
+          waitingForResponse={true}
+        />,
       );
     });
 
