@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { RouteEnum } from "./generatedRoutes";
+import { RouteEnum } from "./generatedTypes";
 import {
   ENDPOINT_ORIGIN_POLICY,
   resolveEndpointOriginForMode,
