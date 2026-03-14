@@ -1,19 +1,14 @@
 # Project Chat Windowing and Window Spaces
 
 Project chat is no longer tied to a single Overview-pane transcript. The
-Overview `Project AI Chat` tab now renders the shared `ProjectChat` surface,
-while window management lives in the bottom-dock manager menu. The same chat UI
-is reused through `UnifiedChatSurface` across workspace windows, section hosts,
-and standalone routes.
+Overview `Project AI Chat` tab now renders `ProjectChatManager`, while the chat
+UI itself is shared through `UnifiedChatSurface` across workspace windows,
+section hosts, and standalone routes.
 
 ## Hosts and Surfaces
 
-- Overview `Project AI Chat` renders `ProjectChat` directly, including the
-  transcript, composer, thread controls, and auxiliary panels.
 - Workspace project-chat windows use `ProjectChatBottomDock` plus
   `ProjectChatWindowSurface`.
-- The bottom dock keeps a persistent manager trigger beside the create-chat
-  button; that menu renders `ProjectChatManager`.
 - Section chat and project-chat surfaces share `UnifiedChatSurface`, which
   chooses between `ProjectChat`, `ChatArea`, and `SectionWindowPlaceholder`
   based on the current owner.
@@ -62,11 +57,6 @@ Backend normalization keeps this state coherent:
 
 - New project-chat windows open in the docked workspace window manager and
   minimize into the bottom tray.
-- The Overview `Project AI Chat` tab is now the primary integrated
-  project-chat surface; use the dock to create, reopen, focus, hide, float,
-  and move additional chat windows to canvas sections.
-- The bottom-dock manager menu remains available even when only one chat window
-  exists, so window actions do not depend on pill overflow mode.
 - Floating windows can be focused, minimized, reopened, maximized, resized, and
   snapped.
 - Section-backed chat windows can move between floating-window ownership and a
@@ -75,20 +65,6 @@ Backend normalization keeps this state coherent:
   canvas host renders a placeholder instead of duplicating the chat UI.
 - The Git pane's `Graph` button reuses a tracked Git Graph window instance
   rather than opening a separate overlay for commit history.
-
-## Shared Transcript UX
-
-- Project-chat draft text is persisted per project config in local storage, so
-  the Overview pane and standalone `/:projectConfigName/chat` routes restore
-  unsent composer text after reload.
-- Standalone thread routes (`/:projectConfigName/chat/:chatId`) keep the shared
-  project-chat frame and can switch between thread ids in-place without
-  requiring a full page refresh.
-- Route-owned waiting threads still hydrate the full transcript on reload; the
-  UI does not intentionally fall back to showing only the latest optimistic
-  fragment.
-- Conversation search highlights visible transcript text, skips hidden tool
-  payload/code blocks, and uses `Enter` / `Shift+Enter` to move between matches.
 
 ## Window Spaces
 

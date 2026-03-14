@@ -78,7 +78,6 @@ def _resolve_summary_section_ids_needing_project_state_summary(
 
 def _load_cached_agentic_summary_texts_for_section_ids(
     *,
-    dbe: DBE,
     entries: dict[str, Any],
     project_state: ProjectStateSingleConfig,
     project_config_id: ID,
@@ -95,7 +94,6 @@ def _load_cached_agentic_summary_texts_for_section_ids(
         source = build_agentic_section_summary_source(
             project_state,
             section_id,
-            dbe=dbe,
             summary_by_section=summary_by_section,
         )
         cache_key = build_agentic_summary_cache_key(
@@ -259,7 +257,6 @@ def resolve_cached_agentic_summaries_for_chat_section(
         project_state, needed_section_ids
     )
     cached = _load_cached_agentic_summary_texts_for_section_ids(
-        dbe=dbe,
         entries=entries,
         project_state=project_state,
         project_config_id=project_config_id,

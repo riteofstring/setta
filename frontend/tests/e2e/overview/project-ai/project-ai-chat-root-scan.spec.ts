@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import {
   allowExpectedApiError,
   cleanupIsolatedProject,
@@ -7,105 +7,6 @@ import {
   openIsolatedProject,
   setOverviewTab,
 } from "../../helpers";
-
-function buildGetLLMResponseResponse(chatId: string) {
-  return {
-    chatId,
-    runId: `${chatId}-run`,
-    engineType: "setta_llm" as const,
-    sectionId: null,
-  };
-}
-
-type FolderContentsRequest = {
-  folderPath?: string;
-  includeMtime?: boolean;
-  includeSize?: boolean;
-  maxEntries?: number | null;
-};
-
-function isProjectChatWorkspaceRootScan(
-  request: FolderContentsRequest,
-  rootPath: string,
-): boolean {
-  return (
-    request.folderPath === rootPath &&
-    request.includeMtime === false &&
-    request.includeSize === false &&
-    request.maxEntries === 5000
-  );
-}
-
-async function disableProjectChatAutoCreate(page: Page) {
-  await page.route("**/api/loadSettings", async (route) => {
-    const response = await route.fetch();
-    const settings = (await response.json()) as {
-      chatWindowing?: Record<string, unknown>;
-    };
-    await route.fulfill({
-      response,
-      contentType: "application/json",
-      body: JSON.stringify({
-        ...settings,
-        chatWindowing: {
-          ...(settings.chatWindowing ?? {}),
-          autoCreateInitialChat: false,
-        },
-      }),
-    });
-  });
-  await page.route("**/api/loadProjectConfig", async (route) => {
-    const response = await route.fetch();
-    const projectState = (await response.json()) as {
-      projectChatWindowing?: Record<string, unknown>;
-    };
-    await route.fulfill({
-      response,
-      contentType: "application/json",
-      body: JSON.stringify({
-        ...projectState,
-        projectChatWindowing: {
-          order: [],
-          instancesById: {},
-        },
-      }),
-    });
-  });
-}
-
-async function resetProjectChatStarterSurfaceState(page: Page) {
-  await page.evaluate(async () => {
-    const { useAIStore, useLocalStorage, useProjectState } = await import(
-      "/src/state/definitions.ts"
-    );
-    const {
-      ChatWindowPlacementEnum,
-      createProjectChatWindowInstance,
-      createProjectChatWindowingState,
-    } = await import("/src/utils/generatedTypes.ts");
-    const projectConfigId = useProjectState.getState().projectConfig.id;
-    useAIStore.setState({ viewThreads: false });
-    useLocalStorage.setState((state) => {
-      state.projectChatAuxViewByProjectConfigId = {
-        ...state.projectChatAuxViewByProjectConfigId,
-        [projectConfigId]: "none",
-      };
-    });
-    useProjectState.setState((state) => {
-      state.projectChatWindowing = createProjectChatWindowingState({
-        order: ["project-chat-window-1"],
-        instancesById: {
-          "project-chat-window-1": createProjectChatWindowInstance({
-            instanceId: "project-chat-window-1",
-            placement: ChatWindowPlacementEnum.bottom_docked,
-            chatId: null,
-            isMinimized: false,
-          }),
-        },
-      });
-    });
-  });
-}
 
 async function ensureCreateProjectStarterButton(
   overviewPane: Locator,
@@ -144,9 +45,7 @@ async function ensureCreateProjectStarterButton(
     await expect(starterButton).toBeVisible();
     return starterButton;
   }
-  await resetProjectChatStarterSurfaceState(overviewPane.page());
-  await expect(starterButton).toBeVisible();
-  return starterButton;
+  throw new Error("Expected project chat starter surface to be available.");
 }
 
 test("project chat skips workspace root scan when returning to an existing chat", async ({
@@ -174,7 +73,7 @@ test("project chat skips workspace root scan when returning to an existing chat"
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(buildGetLLMResponseResponse(fakeChatId)),
+      body: JSON.stringify(fakeChatId),
     });
   });
   await page.route("**/api/getLLMChat", async (route) => {
@@ -329,7 +228,7 @@ test("project chat keeps create-project starter visible when a new root scan can
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(buildGetLLMResponseResponse(fakeChatId)),
+      body: JSON.stringify(fakeChatId),
     });
   });
   await page.route("**/api/getLLMChat", async (route) => {
@@ -464,8 +363,7 @@ test("project chat avoids overlapping root scans while a folder request is in fl
   const projectContext = await openIsolatedProject(page);
   const engineCleanup = await ensureManagedChatEngine(page);
 
-  const workspaceRootPath = "/tmp/workspace-overlap-guard";
-  let rootScanCalls = 0;
+  let getFolderContentsCalls = 0;
   const pendingResolvers: Array<() => void> = [];
 
   await page.route("**/api/getFileBrowserRoot", async (route) => {
@@ -473,23 +371,14 @@ test("project chat avoids overlapping root scans while a folder request is in fl
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        rootPath: workspaceRootPath,
+        rootPath: "/tmp/workspace-overlap-guard",
         pathSeparator: "/",
         ignorePatterns: [],
       }),
     });
   });
   await page.route("**/api/getFolderContents", async (route) => {
-    const request = route.request().postDataJSON() as FolderContentsRequest;
-    if (!isProjectChatWorkspaceRootScan(request, workspaceRootPath)) {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify([]),
-      });
-      return;
-    }
-    rootScanCalls += 1;
+    getFolderContentsCalls += 1;
     await new Promise<void>((resolve) => {
       pendingResolvers.push(resolve);
     });
@@ -508,11 +397,11 @@ test("project chat avoids overlapping root scans while a folder request is in fl
     await expect(
       overviewPane.getByRole("heading", { name: "Project AI Chat" }),
     ).toBeVisible();
-    await expect.poll(() => rootScanCalls, { timeout: 5000 }).toBe(1);
+    await expect.poll(() => getFolderContentsCalls, { timeout: 5000 }).toBe(1);
 
     // Keep the first request unresolved past the 5s revalidation interval.
     await page.waitForTimeout(6200);
-    expect(rootScanCalls).toBe(1);
+    expect(getFolderContentsCalls).toBe(1);
   } finally {
     while (pendingResolvers.length > 0) {
       const resolve = pendingResolvers.shift();
@@ -624,14 +513,13 @@ test("project chat immediately rescans after in-flight scan when root identity c
   }
 });
 
-test("project chat keeps the visible chat surface stable across repeated stable root scans", async ({
+test("project chat backs off root polling after repeated stable root scans", async ({
   page,
 }) => {
   await setOverviewTab(page, "ProjectAIChat");
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
   const engineCleanup = await ensureManagedChatEngine(page);
-  await disableProjectChatAutoCreate(page);
 
   let getRootCalls = 0;
   await page.route("**/api/getFileBrowserRoot", async (route) => {
@@ -659,19 +547,17 @@ test("project chat keeps the visible chat surface stable across repeated stable 
     await page.waitForSelector(".react-flow__pane");
 
     const overviewPane = page.locator("#OverviewPane");
-    const projectChatHeading = overviewPane.getByRole("heading", {
-      name: "Project AI Chat",
-    });
-    await expect(projectChatHeading).toBeVisible();
+    await expect(
+      overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+    ).toBeVisible();
 
     await expect
       .poll(() => getRootCalls, { timeout: 15000 })
       .toBeGreaterThanOrEqual(3);
-    await expect(projectChatHeading).toBeVisible();
     await page.waitForTimeout(6200);
-    await expect(projectChatHeading).toBeVisible();
+    const postBackoffTransitionCalls = getRootCalls;
     await page.waitForTimeout(6200);
-    await expect(projectChatHeading).toBeVisible();
+    expect(getRootCalls).toBe(postBackoffTransitionCalls);
   } finally {
     await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);

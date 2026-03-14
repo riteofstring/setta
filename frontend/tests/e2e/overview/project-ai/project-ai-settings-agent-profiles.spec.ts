@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page, type Route } from "@playwright/test";
+import { expect, test, type Route } from "@playwright/test";
 import {
   allowExpectedApiError,
   cleanupIsolatedProject,
@@ -7,10 +7,6 @@ import {
   postBackend,
   setOverviewTab,
 } from "../../helpers";
-
-function getVisibleProjectAiSettings(page: Page): Locator {
-  return page.locator('[data-testid="project-ai-settings-scroll-region"]:visible').first();
-}
 
 test.describe.serial("project ai settings accordion layout", () => {
   test("llm api keys supports adding custom key/value entries", async ({
@@ -27,24 +23,23 @@ test.describe.serial("project ai settings accordion layout", () => {
     }
 
     try {
-      const settingsPanel = getVisibleProjectAiSettings(page);
-      const llmKeysTrigger = settingsPanel.getByTestId(
+      const llmKeysTrigger = page.getByTestId(
         "project-ai-settings-accordion-llm-api-keys",
       );
       if ((await llmKeysTrigger.getAttribute("aria-expanded")) !== "true") {
         await llmKeysTrigger.click();
       }
 
-      await settingsPanel
+      await page
         .getByTestId("project-llm-settings-new-api-key-name")
         .fill(customKey);
-      await settingsPanel
+      await page
         .locator("#project-llm-settings-new-api-key-value")
         .fill(customValue);
-      await settingsPanel.getByTestId("project-llm-settings-add-api-key").click();
+      await page.getByTestId("project-llm-settings-add-api-key").click();
 
       await expect(
-        settingsPanel.getByTestId("project-ai-settings-accordion-llm-api-keys-content"),
+        page.getByTestId("project-ai-settings-accordion-llm-api-keys-content"),
       ).toContainText(customKey);
 
       // The backend should persist arbitrary key/value entries.
@@ -65,11 +60,8 @@ test.describe.serial("project ai settings accordion layout", () => {
 
       await page.reload({ waitUntil: "domcontentloaded" });
       await openProjectAiSettingsPopover(page);
-      const reloadedSettingsPanel = getVisibleProjectAiSettings(page);
       await expect(
-        reloadedSettingsPanel.getByTestId(
-          "project-ai-settings-accordion-llm-api-keys-content",
-        ),
+        page.getByTestId("project-ai-settings-accordion-llm-api-keys-content"),
       ).toContainText(customKey);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
@@ -154,28 +146,27 @@ test.describe.serial("project ai settings accordion layout", () => {
     });
 
     try {
-      const settingsPanel = getVisibleProjectAiSettings(page);
-      const llmKeysTrigger = settingsPanel.getByTestId(
+      const llmKeysTrigger = page.getByTestId(
         "project-ai-settings-accordion-llm-api-keys",
       );
       if ((await llmKeysTrigger.getAttribute("aria-expanded")) !== "true") {
         await llmKeysTrigger.click();
       }
 
-      await settingsPanel
+      await page
         .getByTestId("project-llm-settings-new-api-key-name")
         .fill(customKey);
-      await settingsPanel
+      await page
         .locator("#project-llm-settings-new-api-key-value")
         .fill(customValue);
-      await settingsPanel.getByTestId("project-llm-settings-add-api-key").click();
+      await page.getByTestId("project-llm-settings-add-api-key").click();
 
       await expect.poll(() => postPayloads.length).toBeGreaterThanOrEqual(2);
       await expect(
-        settingsPanel.getByTestId("project-ai-settings-accordion-llm-api-keys-content"),
+        page.getByTestId("project-ai-settings-accordion-llm-api-keys-content"),
       ).toContainText(customKey);
       await expect(
-        settingsPanel.getByTestId("project-ai-settings-accordion-llm-api-keys-content"),
+        page.getByTestId("project-ai-settings-accordion-llm-api-keys-content"),
       ).toContainText(concurrentKey);
       const relevantPayloads = postPayloads.filter((payload) => {
         return payload.apiKeys[customKey] === customValue;
@@ -205,20 +196,19 @@ test.describe.serial("project ai settings accordion layout", () => {
     const projectContext = await openIsolatedProject(page);
     await openProjectAiSettingsPopover(page);
     try {
-      const settingsPanel = getVisibleProjectAiSettings(page);
-      const llmKeysTrigger = settingsPanel.getByTestId(
+      const llmKeysTrigger = page.getByTestId(
         "project-ai-settings-accordion-llm-api-keys",
       );
-      const guardrailsTrigger = settingsPanel.getByTestId(
+      const guardrailsTrigger = page.getByTestId(
         "project-ai-settings-accordion-guardrails",
       );
-      const agentProfilesTrigger = settingsPanel.getByTestId(
+      const agentProfilesTrigger = page.getByTestId(
         "project-ai-settings-accordion-agent-profiles",
       );
-      const promptTemplatesTrigger = settingsPanel.getByTestId(
+      const promptTemplatesTrigger = page.getByTestId(
         "project-ai-settings-accordion-prompt-templates",
       );
-      const externalAgentsTrigger = settingsPanel.getByTestId(
+      const externalAgentsTrigger = page.getByTestId(
         "project-ai-settings-accordion-external-agents",
       );
 
@@ -269,11 +259,11 @@ test.describe.serial("project ai settings accordion layout", () => {
         "aria-expanded",
         "true",
       );
-      const llmApiKeyLabel = settingsPanel
+      const llmApiKeyLabel = page
         .getByTestId("project-ai-settings-accordion-llm-api-keys-content")
         .getByText("ANTHROPIC_API_KEY");
       await expect(llmApiKeyLabel).toBeVisible();
-      const clippingMetrics = await settingsPanel.evaluate((panel) => {
+      const clippingMetrics = await page.evaluate(() => {
         const itemIds = [
           "project-ai-settings-accordion-llm-api-keys-item",
           "project-ai-settings-accordion-guardrails-item",
@@ -282,7 +272,7 @@ test.describe.serial("project ai settings accordion layout", () => {
           "project-ai-settings-accordion-external-agents-item",
         ];
         return itemIds.map((id) => {
-          const element = panel.querySelector(`[data-testid='${id}']`);
+          const element = document.querySelector(`[data-testid='${id}']`);
           if (!(element instanceof HTMLElement)) {
             return { id, missing: true, clientHeight: 0, scrollHeight: 0 };
           }
@@ -303,27 +293,22 @@ test.describe.serial("project ai settings accordion layout", () => {
 
       await page.reload({ waitUntil: "domcontentloaded" });
       await openProjectAiSettingsPopover(page);
-      const reloadedSettingsPanel = getVisibleProjectAiSettings(page);
 
       await expect(
-        reloadedSettingsPanel.getByTestId(
-          "project-ai-settings-accordion-prompt-templates",
-        ),
+        page.getByTestId("project-ai-settings-accordion-prompt-templates"),
       ).toHaveAttribute("aria-expanded", "true");
       await expect(
-        reloadedSettingsPanel.getByTestId("project-ai-settings-accordion-guardrails"),
+        page.getByTestId("project-ai-settings-accordion-guardrails"),
       ).toHaveAttribute("aria-expanded", "false");
       await expect(
-        reloadedSettingsPanel.getByTestId(
-          "project-ai-settings-accordion-agent-profiles",
-        ),
+        page.getByTestId("project-ai-settings-accordion-agent-profiles"),
       ).toHaveAttribute("aria-expanded", "false");
       await expect(
-        reloadedSettingsPanel.getByTestId("project-ai-settings-accordion-llm-api-keys"),
+        page.getByTestId("project-ai-settings-accordion-llm-api-keys"),
       ).toHaveAttribute("aria-expanded", "true");
 
       // Form controls in open sections should preserve right inset from card edges.
-      const externalAgentsAccordionTrigger = reloadedSettingsPanel.getByTestId(
+      const externalAgentsAccordionTrigger = page.getByTestId(
         "project-ai-settings-accordion-external-agents",
       );
       if (
@@ -332,16 +317,16 @@ test.describe.serial("project ai settings accordion layout", () => {
       ) {
         await externalAgentsAccordionTrigger.click();
       }
-      const externalAgentsContent = reloadedSettingsPanel.getByTestId(
+      const externalAgentsContent = page.getByTestId(
         "project-ai-settings-accordion-external-agents-content",
       );
       const visibleInput = externalAgentsContent.locator("input").first();
       await expect(visibleInput).toBeVisible();
-      const insetMetrics = await reloadedSettingsPanel.evaluate((panel) => {
-        const input = panel.querySelector<HTMLElement>(
+      const insetMetrics = await page.evaluate(() => {
+        const input = document.querySelector<HTMLElement>(
           '[data-testid="project-ai-settings-accordion-external-agents-content"] input',
         );
-        const item = panel.querySelector<HTMLElement>(
+        const item = document.querySelector<HTMLElement>(
           '[data-testid="project-ai-settings-accordion-external-agents-item"]',
         );
         if (!(input instanceof HTMLElement) || !(item instanceof HTMLElement)) {
@@ -361,8 +346,8 @@ test.describe.serial("project ai settings accordion layout", () => {
       expect(insetMetrics.rightInset).toBeGreaterThanOrEqual(6);
 
       // The internal manager list should keep item content clear of its scrollbar.
-      const listInsetMetrics = await reloadedSettingsPanel.evaluate((panel) => {
-        const content = panel.querySelector<HTMLElement>(
+      const listInsetMetrics = await page.evaluate(() => {
+        const content = document.querySelector<HTMLElement>(
           '[data-testid="project-ai-settings-accordion-external-agents-content"]',
         );
         if (!(content instanceof HTMLElement)) {
@@ -402,8 +387,8 @@ test.describe.serial("project ai settings accordion layout", () => {
       expect(listInsetMetrics.paddingRight).toBeGreaterThanOrEqual(10);
 
       // Inputs and selects should align to the same control width.
-      const controlWidths = await reloadedSettingsPanel.evaluate((panel) => {
-        const content = panel.querySelector<HTMLElement>(
+      const controlWidths = await page.evaluate(() => {
+        const content = document.querySelector<HTMLElement>(
           '[data-testid="project-ai-settings-accordion-external-agents-content"]',
         );
         if (!(content instanceof HTMLElement)) {
@@ -440,8 +425,7 @@ test.describe.serial("project ai settings accordion layout", () => {
     const projectContext = await openIsolatedProject(page);
     await openProjectAiSettingsPopover(page);
     try {
-      const settingsPanel = getVisibleProjectAiSettings(page);
-      const agentProfilesTrigger = settingsPanel.getByTestId(
+      const agentProfilesTrigger = page.getByTestId(
         "project-ai-settings-accordion-agent-profiles",
       );
       if (
@@ -450,16 +434,16 @@ test.describe.serial("project ai settings accordion layout", () => {
         await agentProfilesTrigger.click();
       }
 
-      await settingsPanel.getByRole("button", { name: "New Profile" }).click();
+      await page.getByRole("button", { name: "New Profile" }).click();
 
-      const backgroundFillToggle = settingsPanel.getByRole("checkbox", {
+      const backgroundFillToggle = page.getByRole("checkbox", {
         name: "Enable Background Summary Fill",
       });
       await backgroundFillToggle.scrollIntoViewIfNeeded();
       await expect(backgroundFillToggle).toBeVisible();
       await expect(backgroundFillToggle).not.toBeChecked();
 
-      const llmTitlesToggle = settingsPanel.getByRole("checkbox", {
+      const llmTitlesToggle = page.getByRole("checkbox", {
         name: "Enable LLM Chat Titles",
       });
       await llmTitlesToggle.scrollIntoViewIfNeeded();
@@ -475,15 +459,14 @@ test.describe.serial("project ai settings accordion layout", () => {
     const projectContext = await openIsolatedProject(page);
     await openProjectAiSettingsPopover(page);
     try {
-      const settingsPanel = getVisibleProjectAiSettings(page);
-      const guardrailsTrigger = settingsPanel.getByTestId(
+      const guardrailsTrigger = page.getByTestId(
         "project-ai-settings-accordion-guardrails",
       );
       if ((await guardrailsTrigger.getAttribute("aria-expanded")) !== "true") {
         await guardrailsTrigger.click();
       }
 
-      const completionGuardToggle = settingsPanel.getByTestId(
+      const completionGuardToggle = page.getByTestId(
         "project-ai-settings-completion-guard-toggle",
       );
       await expect(completionGuardToggle).toBeVisible();
@@ -506,8 +489,7 @@ test.describe.serial("project ai settings accordion layout", () => {
 
       await page.reload({ waitUntil: "domcontentloaded" });
       await openProjectAiSettingsPopover(page);
-      const reloadedSettingsPanel = getVisibleProjectAiSettings(page);
-      const reloadedGuardrailsTrigger = reloadedSettingsPanel.getByTestId(
+      const reloadedGuardrailsTrigger = page.getByTestId(
         "project-ai-settings-accordion-guardrails",
       );
       if (
@@ -516,7 +498,7 @@ test.describe.serial("project ai settings accordion layout", () => {
       ) {
         await reloadedGuardrailsTrigger.click();
       }
-      const reloadedToggle = reloadedSettingsPanel.getByTestId(
+      const reloadedToggle = page.getByTestId(
         "project-ai-settings-completion-guard-toggle",
       );
       if (expectedChecked) {
@@ -536,15 +518,14 @@ test.describe.serial("project ai settings accordion layout", () => {
     const projectContext = await openIsolatedProject(page);
     await openProjectAiSettingsPopover(page);
     try {
-      const settingsPanel = getVisibleProjectAiSettings(page);
-      const guardrailsTrigger = settingsPanel.getByTestId(
+      const guardrailsTrigger = page.getByTestId(
         "project-ai-settings-accordion-guardrails",
       );
       if ((await guardrailsTrigger.getAttribute("aria-expanded")) !== "true") {
         await guardrailsTrigger.click();
       }
 
-      const completionGuardToggle = settingsPanel.getByTestId(
+      const completionGuardToggle = page.getByTestId(
         "project-ai-settings-completion-guard-toggle",
       );
       await expect(completionGuardToggle).toBeVisible();
@@ -596,15 +577,14 @@ test.describe.serial("project ai settings accordion layout", () => {
     const projectContext = await openIsolatedProject(page);
     await openProjectAiSettingsPopover(page);
     try {
-      const settingsPanel = getVisibleProjectAiSettings(page);
-      const guardrailsTrigger = settingsPanel.getByTestId(
+      const guardrailsTrigger = page.getByTestId(
         "project-ai-settings-accordion-guardrails",
       );
       if ((await guardrailsTrigger.getAttribute("aria-expanded")) !== "true") {
         await guardrailsTrigger.click();
       }
 
-      const completionGuardToggle = settingsPanel.getByTestId(
+      const completionGuardToggle = page.getByTestId(
         "project-ai-settings-completion-guard-toggle",
       );
       await expect(completionGuardToggle).toBeVisible();

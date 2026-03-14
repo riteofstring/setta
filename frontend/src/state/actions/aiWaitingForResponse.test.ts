@@ -156,7 +156,7 @@ describe("chat hydration waitingForResponse", () => {
     expect(details.waitingForResponse).toBe(true);
   });
 
-  it("preserves backend message order when local assistant arrives before hydration during an active stream", async () => {
+  it("preserves backend message order when local assistant arrives before hydration", async () => {
     useAIStore.setState({
       chatDetails: {
         [chatId]: {
@@ -175,7 +175,6 @@ describe("chat hydration waitingForResponse", () => {
         },
       },
     });
-    markChatStreamActive(chatId, null);
 
     const route_get_llm_chat = (await import("utils/generatedEndpoints"))
       .route_get_llm_chat as unknown as vi.Mock;

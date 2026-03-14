@@ -1,10 +1,6 @@
-import { route_get_folder_contents } from "utils/generatedEndpoints";
-import { dedupeInFlightJson } from "utils/dedupeInFlight";
+import type { FolderContentItem } from "utils/generatedTypes";
 
-type WorkspaceRootEntry = {
-  name: string;
-  type: string;
-};
+type WorkspaceRootEntry = Pick<FolderContentItem, "name" | "type">;
 
 type WorkspacePythonSignalCacheEntry = {
   hasPython: boolean;
@@ -18,10 +14,6 @@ export type WorkspacePythonSignalCache = Map<
 
 const WORKSPACE_PYTHON_SIGNAL_CACHE_TTL_MS = 15000;
 const WORKSPACE_PYTHON_SIGNAL_CACHE_MAX_ENTRIES = 128;
-const inFlightWorkspacePythonSignalLoads = new Map<
-  string,
-  Promise<boolean | null>
->();
 
 const PYTHON_ROOT_MARKER_FILES = new Set<string>([
   "pyproject.toml",
@@ -96,55 +88,4 @@ export function setCachedWorkspacePythonSignal(
     }
     cache.delete(oldestKey);
   }
-}
-
-export function loadWorkspacePythonSignal({
-  cache,
-  rootPath,
-  revalidate = false,
-}: {
-  cache: WorkspacePythonSignalCache;
-  rootPath: string;
-  revalidate?: boolean;
-}): Promise<boolean | null> {
-  const normalizedRootPath = rootPath.trim();
-  if (!normalizedRootPath) {
-    return Promise.resolve(null);
-  }
-  if (!revalidate) {
-    const cached = getCachedWorkspacePythonSignal(cache, normalizedRootPath);
-    if (cached !== null) {
-      return Promise.resolve(cached);
-    }
-  }
-  return dedupeInFlightJson(
-    inFlightWorkspacePythonSignalLoads,
-    { rootPath: normalizedRootPath },
-    async ({ rootPath: nextRootPath }) => {
-      try {
-        const contentsResponse = await route_get_folder_contents({
-          folderPath: nextRootPath,
-          includeMtime: false,
-          includeSize: false,
-          maxEntries: 5000,
-        });
-        if (
-          !contentsResponse ||
-          contentsResponse.status !== 200 ||
-          !Array.isArray(contentsResponse.data)
-        ) {
-          return null;
-        }
-        return hasPythonSignalsInRoot(contentsResponse.data);
-      } catch {
-        return null;
-      }
-    },
-    ({ rootPath: nextRootPath }) => nextRootPath,
-  ).then((hasPythonSignals) => {
-    if (hasPythonSignals !== null) {
-      setCachedWorkspacePythonSignal(cache, normalizedRootPath, hasPythonSignals);
-    }
-    return hasPythonSignals;
-  });
 }

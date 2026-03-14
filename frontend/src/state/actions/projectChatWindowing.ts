@@ -17,7 +17,7 @@ import {
   useShareSession,
   type ZustandProjectState,
 } from "state/definitions";
-import { res200 } from "utils/endpointUtils";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_set_project_chat_window_chat_id,
   route_set_project_chat_windowing_state,
@@ -431,73 +431,6 @@ function normalizeProjectChatWindowingOrder(
     },
     changed: true,
   };
-}
-
-function normalizeProjectChatWindowingLayering(
-  state: ProjectChatWindowingState,
-): NormalizeResult {
-  const seenZIndexes = new Set<number>();
-  let hasDuplicateZIndex = false;
-  for (const instance of Object.values(state.instancesById)) {
-    if (seenZIndexes.has(instance.zIndex)) {
-      hasDuplicateZIndex = true;
-      break;
-    }
-    seenZIndexes.add(instance.zIndex);
-  }
-  if (!hasDuplicateZIndex) {
-    return { state, changed: false };
-  }
-
-  const orderIndexById = new Map(
-    state.order.map((instanceId, index) => [instanceId, index] as const),
-  );
-  const orderedInstances = Object.values(state.instancesById).sort(
-    (left, right) => {
-      if (left.zIndex !== right.zIndex) {
-        return left.zIndex - right.zIndex;
-      }
-      if (left.lastFocusedAt !== right.lastFocusedAt) {
-        return left.lastFocusedAt - right.lastFocusedAt;
-      }
-      const leftOrderIndex = orderIndexById.get(left.instanceId) ?? 0;
-      const rightOrderIndex = orderIndexById.get(right.instanceId) ?? 0;
-      if (leftOrderIndex !== rightOrderIndex) {
-        return leftOrderIndex - rightOrderIndex;
-      }
-      return left.instanceId.localeCompare(right.instanceId);
-    },
-  );
-  let changed = false;
-  const nextInstancesById = { ...state.instancesById };
-  orderedInstances.forEach((instance, index) => {
-    const nextZIndex = index + 1;
-    if (instance.zIndex === nextZIndex) {
-      return;
-    }
-    changed = true;
-    nextInstancesById[instance.instanceId] = {
-      ...instance,
-      zIndex: nextZIndex,
-    };
-  });
-  if (!changed) {
-    return { state, changed: false };
-  }
-  return {
-    state: {
-      ...state,
-      instancesById: nextInstancesById,
-    },
-    changed: true,
-  };
-}
-
-export function normalizeProjectChatWindowingState(
-  state: ProjectChatWindowingState,
-): ProjectChatWindowingState {
-  const ordered = normalizeProjectChatWindowingOrder(state).state;
-  return normalizeProjectChatWindowingLayering(ordered).state;
 }
 
 function normalizeWorkspaceProjectChatWindowInstance(
@@ -1009,24 +942,14 @@ export function focusProjectChatWindowInState(
   instanceId: string,
   nowMs: number = Date.now(),
 ): ProjectChatWindowingState {
-  const normalized = normalizeProjectChatWindowingState(state);
-  const highestZIndex = getHighestWindowZIndex(normalized);
-  const highestZIndexCount = Object.values(normalized.instancesById).filter(
-    (instance) => instance.zIndex === highestZIndex,
-  ).length;
-  return withUpdatedWindow(normalized, instanceId, (current) => {
-    if (current.zIndex === highestZIndex && highestZIndexCount === 1) {
-      if (current.lastFocusedAt === nowMs) {
-        return current;
-      }
-      return {
-        ...current,
-        lastFocusedAt: nowMs,
-      };
+  const nextZIndex = getHighestWindowZIndex(state) + 1;
+  return withUpdatedWindow(state, instanceId, (current) => {
+    if (current.zIndex === nextZIndex && current.lastFocusedAt === nowMs) {
+      return current;
     }
     return {
       ...current,
-      zIndex: highestZIndex + 1,
+      zIndex: nextZIndex,
       lastFocusedAt: nowMs,
     };
   });
@@ -1401,14 +1324,14 @@ type PendingProjectChatWindowingMutation = {
 };
 
 type ProjectChatWindowingWriteResponse =
-  | Awaited<ReturnType<typeof route_set_project_chat_windowing_state>>
-  | Awaited<ReturnType<typeof route_set_project_chat_window_chat_id>>;
+  ResponseDataAndStatus<ProjectChatWindowingState>;
 
-type SyntheticProjectChatWindowingWriteResponse = {
-  data: ProjectChatWindowingState;
-  hasResponse: true;
-  status: 200;
-};
+type SyntheticProjectChatWindowingWriteResponse =
+  ProjectChatWindowingWriteResponse & {
+    data: ProjectChatWindowingState;
+    hasResponse: true;
+    status: 200;
+  };
 
 type ProjectChatWindowingTrackedResponse =
   | ProjectChatWindowingWriteResponse

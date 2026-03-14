@@ -58,7 +58,6 @@ def build_agentic_summary_cache_status_for_chat_section(
         source = build_agentic_section_summary_source(
             project_state,
             section_id,
-            dbe=dbe,
             summary_by_section=summary_by_section,
         )
         is_empty_source = not source.raw_text.strip()

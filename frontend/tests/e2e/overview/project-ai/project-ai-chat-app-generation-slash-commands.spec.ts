@@ -22,15 +22,6 @@ type ChatSubmitRequest = {
   };
 };
 
-function buildGetLLMResponseResponse(chatId: string) {
-  return {
-    chatId,
-    runId: `${chatId}-run`,
-    engineType: "setta_llm" as const,
-    sectionId: null,
-  };
-}
-
 async function mockProjectChatSubmitCapture(
   page: Page,
   capturedRequests: ChatSubmitRequest[],
@@ -80,7 +71,7 @@ async function mockProjectChatSubmitCapture(
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(buildGetLLMResponseResponse(returnedChatId)),
+      body: JSON.stringify(returnedChatId),
     });
   });
   await page.route("**/api/getLLMChat", async (route) => {

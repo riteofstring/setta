@@ -177,9 +177,9 @@ export async function ensureAppReady(page: Page): Promise<void> {
     }
 
     if (SHOULD_RESOLVE_DEFAULT_PROJECT) {
-      const defaultConfig = await getDefaultConfigNameResult(page);
-      if (defaultConfig.name) {
-        const defaultUrl = new URL(defaultConfig.name, BASE_URL).toString();
+      const defaultProjectName = await resolveDefaultProjectName(page, false);
+      if (defaultProjectName) {
+        const defaultUrl = new URL(defaultProjectName, BASE_URL).toString();
         await page.goto(withBackendOriginOverride(defaultUrl), {
           waitUntil: "domcontentloaded",
         });
@@ -336,14 +336,9 @@ export async function openProjectAiSettingsPopover(page: Page): Promise<void> {
   ) {
     return;
   }
-  const projectChatSurface = await getVisibleProjectChatSurface(page);
+  await clickDom(page.getByRole("button", { name: "Project AI Settings" }));
   await clickDom(
-    projectChatSurface.getByRole("button", { name: "Project AI Settings" }),
-  );
-  await clickDom(
-    page
-      .locator('[data-testid="project-chat-settings-open-project-settings"]:visible')
-      .first(),
+    page.getByTestId("project-chat-settings-open-project-settings"),
   );
 }
 
@@ -451,29 +446,59 @@ export async function openIsolatedProject(
 ): Promise<IsolatedProjectContext> {
   installUnexpectedApiErrorGuard(page);
   throwIfUnexpectedApiError(page);
-
-  const metadata = await postBackend<ProjectMetadataResponse>(
-    page,
-    "/loadAllProjectMetadata",
-    {},
-  );
-  if (!metadata) {
-    throw new Error("Missing project metadata response.");
-  }
-  const name = await postBackend<string>(page, "/createProjectConfig", {
-    previewImgColor: "bg-blue-500/60",
-  });
-  if (!name) {
-    throw new Error("Missing project config name.");
-  }
-  const url = new URL(name, BASE_URL).toString();
-  await page.goto(url, { waitUntil: "domcontentloaded" });
-  await page.waitForSelector(READY_SELECTOR);
-  const projectConfigId = await getCurrentProjectConfigId(page);
-  return {
-    projectConfigId,
-    defaultProjectConfigId: metadata.defaultProjectConfigId ?? null,
+  const pageErrors: string[] = [];
+  const consoleErrors: string[] = [];
+  const onPageError = (err: Error) => {
+    const message = err?.stack || err?.message || String(err);
+    if (message && !pageErrors.includes(message)) {
+      pageErrors.push(message);
+    }
   };
+  const onConsole = (msg: ConsoleMessage) => {
+    if (msg.type() !== "error") {
+      return;
+    }
+    const message = msg.text();
+    if (message && !consoleErrors.includes(message)) {
+      consoleErrors.push(message);
+    }
+  };
+  page.on("pageerror", onPageError);
+  page.on("console", onConsole);
+
+  try {
+    const metadata = await postBackend<ProjectMetadataResponse>(
+      page,
+      "/loadAllProjectMetadata",
+      {},
+    );
+    if (!metadata) {
+      throw new Error("Missing project metadata response.");
+    }
+    const name = await postBackend<string>(page, "/createProjectConfig", {
+      previewImgColor: "bg-blue-500/60",
+    });
+    if (!name) {
+      throw new Error("Missing project config name.");
+    }
+    const url = new URL(name, BASE_URL).toString();
+    await page.goto(withBackendOriginOverride(url), {
+      waitUntil: "domcontentloaded",
+    });
+    await waitForReadySurface(page, {
+      context: "Isolated project did not become ready.",
+      pageErrors,
+      consoleErrors,
+    });
+    const projectConfigId = await getCurrentProjectConfigId(page);
+    return {
+      projectConfigId,
+      defaultProjectConfigId: metadata.defaultProjectConfigId ?? null,
+    };
+  } finally {
+    page.off("pageerror", onPageError);
+    page.off("console", onConsole);
+  }
 }
 
 export async function cleanupIsolatedProject(
@@ -1135,30 +1160,104 @@ async function isAppReady(page: Page): Promise<boolean> {
   }
 }
 
+async function waitForReadySurface(
+  page: Page,
+  options: {
+    context: string;
+    pageErrors?: string[];
+    consoleErrors?: string[];
+  },
+): Promise<void> {
+  try {
+    await page.waitForSelector(READY_SELECTOR, { timeout: READY_TIMEOUT_MS });
+  } catch (error) {
+    const debugLines = await buildReadinessDebugLines(
+      page,
+      options.pageErrors ?? [],
+      options.consoleErrors ?? [],
+    );
+    throw new Error(
+      `${options.context}\n${debugLines.join("\n")}\nOriginal error: ${String(
+        error,
+      )}`,
+    );
+  }
+}
+
+async function buildReadinessDebugLines(
+  page: Page,
+  pageErrors: string[],
+  consoleErrors: string[],
+): Promise<string[]> {
+  const debugLines: string[] = [];
+  debugLines.push(`Current URL: ${page.url()}`);
+
+  if (pageErrors.length) {
+    debugLines.push("");
+    debugLines.push("Page errors:");
+    debugLines.push(...pageErrors.slice(0, 5));
+  }
+  if (consoleErrors.length) {
+    debugLines.push("");
+    debugLines.push("Console errors:");
+    debugLines.push(...consoleErrors.slice(0, 10));
+  }
+
+  const unexpectedApiError = unexpectedApiErrorGuards.get(page)?.firstError;
+  if (unexpectedApiError) {
+    debugLines.push("");
+    debugLines.push("Unexpected API error:");
+    debugLines.push(unexpectedApiError);
+  }
+
+  try {
+    const runtimeSnapshot = await page.evaluate(async () => {
+      const collectText = (selector: string) => {
+        const node = document.querySelector(selector);
+        return node instanceof HTMLElement ? node.innerText : null;
+      };
+      const bodyText = document.body.innerText
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .slice(0, 40);
+
+      let storeSnapshot: Record<string, unknown> | null = null;
+      try {
+        const definitions = await import("/src/state/definitions.ts");
+        storeSnapshot = {
+          serverMode: definitions.useServerMode.getState(),
+          projectLoading: definitions.useProjectLoading.getState(),
+          projectConfig: definitions.useProjectState.getState().projectConfig,
+        };
+      } catch (error) {
+        storeSnapshot = { error: String(error) };
+      }
+
+      return {
+        title: document.title,
+        hasReadySelector: Boolean(document.querySelector(".react-flow__pane")),
+        hasViewport: Boolean(document.querySelector(".react-flow__viewport")),
+        hasSpinner: Boolean(document.querySelector(".animate-spin")),
+        appShellText: collectText(".app-shell"),
+        bodyText,
+        storeSnapshot,
+      };
+    });
+    debugLines.push("");
+    debugLines.push("Runtime snapshot:");
+    debugLines.push(JSON.stringify(runtimeSnapshot, null, 2));
+  } catch (error) {
+    debugLines.push("");
+    debugLines.push(`Runtime snapshot failed: ${String(error)}`);
+  }
+
+  return debugLines;
+}
+
 async function navigateToDefaultProject(page: Page): Promise<void> {
   try {
-    const metadata = await postBackend<ProjectMetadataResponse>(
-      page,
-      "/loadAllProjectMetadata",
-      {},
-    );
-    if (!metadata) {
-      return;
-    }
-
-    // Prefer the configured default; otherwise fall back to the first project.
-    let targetName =
-      metadata.projectMetadata.find(
-        (entry) => entry.id === metadata.defaultProjectConfigId,
-      )?.name ?? metadata.projectMetadata[0]?.name;
-
-    // If the workspace has no projects (possible if a prior test deleted them),
-    // create one so IDE-mode tests can proceed.
-    if (!targetName) {
-      targetName = await postBackend<string>(page, "/createProjectConfig", {
-        previewImgColor: "bg-blue-500/60",
-      });
-    }
+    const targetName = await resolveDefaultProjectName(page, true);
 
     if (!targetName) {
       return;
@@ -1192,28 +1291,35 @@ async function hasAuthCookie(page: Page): Promise<boolean> {
   );
 }
 
-async function getDefaultConfigNameResult(page: Page): Promise<{
-  name: string | null;
-  status: number;
-}> {
-  const response = await page.request.post(
-    `${BACKEND_ORIGIN}/api/getDefaultConfigName`,
-    {
-      data: {},
-      headers: BACKEND_HELPER_REQUEST_HEADERS,
-    },
+async function resolveDefaultProjectName(
+  page: Page,
+  allowCreate: boolean,
+): Promise<string | null> {
+  const metadata = await postBackend<ProjectMetadataResponse>(
+    page,
+    "/loadAllProjectMetadata",
+    {},
   );
-  const status = response.status();
-  if (!response.ok()) {
-    return { name: null, status };
+  if (!metadata) {
+    return null;
   }
-  const text = await response.text();
-  if (!text) {
-    return { name: null, status };
+
+  const configuredDefaultProjectName =
+    metadata.projectMetadata.find(
+      (entry) => entry.id === metadata.defaultProjectConfigId,
+    )?.name ?? null;
+  if (configuredDefaultProjectName) {
+    return configuredDefaultProjectName;
   }
-  const payload = JSON.parse(text) as unknown;
-  if (typeof payload !== "string" || !payload.trim()) {
-    return { name: null, status };
+
+  const firstProjectName = metadata.projectMetadata[0]?.name ?? null;
+  if (firstProjectName || !allowCreate) {
+    return firstProjectName;
   }
-  return { name: payload, status };
+
+  // If the workspace has no projects (possible if a prior test deleted them),
+  // create one so IDE-mode tests can proceed.
+  return await postBackend<string>(page, "/createProjectConfig", {
+    previewImgColor: "bg-blue-500/60",
+  });
 }
