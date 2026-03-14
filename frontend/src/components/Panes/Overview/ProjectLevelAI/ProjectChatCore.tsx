@@ -71,6 +71,7 @@ import {
   getDefaultChatAppGenerationDetails,
   type ChatAppGenerationContext,
 } from "state/utils/chatAppGeneration";
+import { isImageAttachment } from "utils/attachmentPreview";
 import {
   hasPendingToolInteraction,
   normalizeToolName,
@@ -1073,6 +1074,18 @@ function getMessageAttachments(
     return message.attachments;
   }
   return [];
+}
+
+function hasRetainedUserImageAttachment(
+  messages: Array<BaseChatMessageUnion>,
+): boolean {
+  return messages.some(
+    (message) =>
+      message.role === ChatRoleEnum.user &&
+      getMessageAttachments(message).some((attachment) =>
+        isImageAttachment(attachment),
+      ),
+  );
 }
 
 function findBranchSourceUserMessage(
@@ -2174,6 +2187,10 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     }),
     [runtimeActivityDetails],
   );
+  const hasRetainedImageAttachmentForImageMode = useMemo(
+    () => hasRetainedUserImageAttachment(messages),
+    [messages],
+  );
   const showThinkingExecutionControl =
     engineType === EngineTypeEnum.setta_llm ||
     engineType === EngineTypeEnum.external_agent;
@@ -2268,6 +2285,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           waitingForResponse={waitingForResponse}
           submitDisabled={submitDisabled}
           disabled={isDisabled}
+          hasRetainedImageAttachmentForImageMode={
+            hasRetainedImageAttachmentForImageMode
+          }
           value={draftMessage}
           onChange={setDraftMessage}
           onSubmit={handleSubmit}

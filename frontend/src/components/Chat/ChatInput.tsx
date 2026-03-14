@@ -257,6 +257,8 @@ type QueuedChatDraft = {
   message: string;
   attachments: ChatFileAttachment[];
   queuedAtMs: number;
+  replayState: "ready" | "retry_later" | "failed";
+  lastAutoReplayVersion: number | null;
 };
 
 export function resolveSlashCommandRequest({
@@ -351,15 +353,20 @@ function getSlashCommandImageAttachmentError({
   command,
   appGenerationMode,
   attachments,
+  hasRetainedImageAttachmentForImageMode,
 }: {
   command: ChatSlashCommand;
   appGenerationMode: AppGenerationMode | null | undefined;
   attachments: ChatFileAttachment[];
+  hasRetainedImageAttachmentForImageMode: boolean;
 }): string | null {
   if (!requiresImageAttachmentForAppGenerationMode(appGenerationMode)) {
     return null;
   }
-  if (hasImageAttachment(attachments)) {
+  if (
+    hasImageAttachment(attachments) ||
+    hasRetainedImageAttachmentForImageMode
+  ) {
     return null;
   }
   return `Attach at least one image before using ${command.command}.`;
@@ -369,6 +376,57 @@ function shouldRemoveQueuedDraft(
   outcome: SlashCommandExecutionOutcome,
 ): boolean {
   return outcome === "submitted" || outcome === "handled_local";
+}
+
+function buildSlashCommandReplaySnapshot(
+  commands: ChatSlashCommandDefinition[],
+): Array<{
+  action: ChatSlashCommandAction;
+  appGenerationMode: AppGenerationMode | null;
+  command: string;
+  promptTemplate: string | null;
+  summary: string;
+  unavailableFeedback: string | null;
+}> {
+  return commands.map((command) => ({
+    action: command.action,
+    appGenerationMode: command.appGenerationMode ?? null,
+    command: command.command,
+    promptTemplate: command.promptTemplate ?? null,
+    summary: command.summary,
+    unavailableFeedback: command.unavailableFeedback ?? null,
+  }));
+}
+
+function buildQueuedDraftReplayInputsSignature({
+  isSubmitDisabled,
+  recognizedSlashCommands,
+  slashCommands,
+  waitingForResponse,
+}: {
+  isSubmitDisabled: boolean;
+  recognizedSlashCommands: ChatSlashCommandDefinition[];
+  slashCommands: ChatSlashCommandDefinition[];
+  waitingForResponse: boolean;
+}): string {
+  return JSON.stringify({
+    isSubmitDisabled,
+    recognizedSlashCommands: buildSlashCommandReplaySnapshot(
+      recognizedSlashCommands,
+    ),
+    slashCommands: buildSlashCommandReplaySnapshot(slashCommands),
+    waitingForResponse,
+  });
+}
+
+function shouldAutoReplayQueuedDraft(
+  draft: QueuedChatDraft,
+  queuedAutoReplayVersion: number,
+): boolean {
+  return (
+    draft.replayState !== "failed" &&
+    draft.lastAutoReplayVersion !== queuedAutoReplayVersion
+  );
 }
 
 type ProviderDictationTranscriptionResult =
@@ -436,6 +494,7 @@ type ChatInputProps = {
   waitingForResponse: boolean;
   disabled?: boolean;
   submitDisabled?: boolean;
+  hasRetainedImageAttachmentForImageMode?: boolean;
   value?: string;
   onChange?: (value: string) => void;
   onSubmit: (
@@ -481,6 +540,7 @@ export const ChatInput = memo(function ChatInput({
   waitingForResponse,
   disabled = false,
   submitDisabled = false,
+  hasRetainedImageAttachmentForImageMode = false,
   value,
   onChange,
   onSubmit,
@@ -523,7 +583,7 @@ export const ChatInput = memo(function ChatInput({
     "percentage" | "tokens"
   >("percentage");
   const [queuedDrafts, setQueuedDrafts] = useState<QueuedChatDraft[]>([]);
-  const [queuedDispatchEpoch, setQueuedDispatchEpoch] = useState(0);
+  const [queuedAutoReplayVersion, setQueuedAutoReplayVersion] = useState(0);
   const [selectedQueuedDraftId, setSelectedQueuedDraftId] = useState<
     string | null
   >(null);
@@ -542,12 +602,12 @@ export const ChatInput = memo(function ChatInput({
   const dictationSourceRef = useRef<"browser" | "provider" | null>(null);
   const queuedDraftIdRef = useRef(0);
   const queuedDispatchInFlightRef = useRef(false);
-  const blockedQueuedDraftIdRef = useRef<string | null>(null);
   const stopRequestedForCurrentResponseRef = useRef(false);
   const escClearedComposerDraftRef = useRef<EscClearedComposerDraft | null>(
     null,
   );
   const componentMountedRef = useRef(true);
+  const queuedReplayInputsSignatureRef = useRef<string | null>(null);
   const isDisabled = disabled;
 
   useEffect(() => {
@@ -644,6 +704,37 @@ export const ChatInput = memo(function ChatInput({
     return `queued-draft-${queuedDraftIdRef.current}`;
   }, []);
 
+  const queuedDraftReplayInputsSignature = useMemo(
+    () =>
+      buildQueuedDraftReplayInputsSignature({
+        isSubmitDisabled,
+        recognizedSlashCommands: slashCommandRecognitionSet,
+        slashCommands,
+        waitingForResponse,
+      }),
+    [
+      isSubmitDisabled,
+      slashCommandRecognitionSet,
+      slashCommands,
+      waitingForResponse,
+    ],
+  );
+
+  useEffect(() => {
+    if (queuedReplayInputsSignatureRef.current === null) {
+      queuedReplayInputsSignatureRef.current = queuedDraftReplayInputsSignature;
+      return;
+    }
+    if (
+      queuedReplayInputsSignatureRef.current ===
+      queuedDraftReplayInputsSignature
+    ) {
+      return;
+    }
+    queuedReplayInputsSignatureRef.current = queuedDraftReplayInputsSignature;
+    setQueuedAutoReplayVersion((current) => current + 1);
+  }, [queuedDraftReplayInputsSignature]);
+
   const enqueueDraft = useCallback(
     ({
       message,
@@ -667,8 +758,9 @@ export const ChatInput = memo(function ChatInput({
         message,
         attachments: draftAttachments.map((attachment) => ({ ...attachment })),
         queuedAtMs: Date.now(),
+        replayState: "ready",
+        lastAutoReplayVersion: null,
       };
-      blockedQueuedDraftIdRef.current = null;
       escClearedComposerDraftRef.current = null;
       setQueuedDrafts((current) =>
         enqueueQueuedDraft(current, nextDraft, prioritize),
@@ -692,7 +784,6 @@ export const ChatInput = memo(function ChatInput({
       if (!draft) {
         return;
       }
-      blockedQueuedDraftIdRef.current = null;
       escClearedComposerDraftRef.current = null;
       setQueuedDrafts((current) =>
         current.filter((item) => item.id !== draftId),
@@ -845,6 +936,7 @@ export const ChatInput = memo(function ChatInput({
           command: parsed,
           appGenerationMode: parsed.appGenerationMode,
           attachments: submission.attachments,
+          hasRetainedImageAttachmentForImageMode,
         });
         if (imageAttachmentError) {
           setSlashFeedback(imageAttachmentError);
@@ -911,6 +1003,7 @@ export const ChatInput = memo(function ChatInput({
           command: parsed,
           appGenerationMode: slashResult.appGenerationMode,
           attachments: submission.attachments,
+          hasRetainedImageAttachmentForImageMode,
         });
         if (imageAttachmentError) {
           setSlashFeedback(imageAttachmentError);
@@ -942,7 +1035,13 @@ export const ChatInput = memo(function ChatInput({
       }
       return slashResult?.retryLater === true ? "retry_later" : "handled_local";
     },
-    [clearAttachments, clearInput, onSlashCommand, onSubmit],
+    [
+      clearAttachments,
+      clearInput,
+      hasRetainedImageAttachmentForImageMode,
+      onSlashCommand,
+      onSubmit,
+    ],
   );
 
   const runSlashCommand = useCallback(
@@ -1080,12 +1179,13 @@ export const ChatInput = memo(function ChatInput({
     if (queuedDispatchInFlightRef.current) {
       return;
     }
-    if (blockedQueuedDraftIdRef.current === nextQueuedDraft.id) {
+    if (
+      !shouldAutoReplayQueuedDraft(nextQueuedDraft, queuedAutoReplayVersion)
+    ) {
       return;
     }
     const draftToSend = nextQueuedDraft;
     queuedDispatchInFlightRef.current = true;
-    blockedQueuedDraftIdRef.current = null;
     setQueuedDrafts((current) =>
       current.filter((item) => item.id !== draftToSend.id),
     );
@@ -1108,23 +1208,28 @@ export const ChatInput = memo(function ChatInput({
       }
       queuedDispatchInFlightRef.current = false;
       if (shouldRemoveQueuedDraft(outcome)) {
-        setQueuedDispatchEpoch((current) => current + 1);
         return;
       }
-      blockedQueuedDraftIdRef.current = draftToSend.id;
       setQueuedDrafts((current) =>
-        enqueueQueuedDraft(current, draftToSend, true),
+        enqueueQueuedDraft(
+          current,
+          {
+            ...draftToSend,
+            replayState: outcome === "retry_later" ? "retry_later" : "failed",
+            lastAutoReplayVersion: queuedAutoReplayVersion,
+          },
+          true,
+        ),
       );
       setSelectedQueuedDraftId(draftToSend.id);
       if (outcome === "failed") {
         setSlashFeedback("Queued message failed. Edit it and retry.");
       }
-      setQueuedDispatchEpoch((current) => current + 1);
     })();
   }, [
     isSubmitDisabled,
     nextQueuedDraft,
-    queuedDispatchEpoch,
+    queuedAutoReplayVersion,
     submitMessage,
     waitingForResponse,
   ]);

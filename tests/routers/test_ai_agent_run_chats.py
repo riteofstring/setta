@@ -1340,6 +1340,98 @@ class TestAgentRunChatRoutes:
             )
             assert start_run_call_count == 0
 
+    async def test_get_llm_response_allows_image_mode_follow_up_with_retained_image_history(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-image-follow-up")
+            project_config_id = ID("project-image-follow-up")
+            chat_id = ID("chat-image-follow-up")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+
+            first_user_message = UserChatMessage(
+                id="msg-image-initial",
+                content=[MessageTextContent(text="Match this reference image.")],
+                attachments=[
+                    {
+                        "id": "image-1",
+                        "name": "reference.png",
+                        "mimeType": "image/png",
+                    }
+                ],
+            )
+            first_assistant_message = AssistantChatMessage(
+                id="msg-image-assistant",
+                content=[MessageTextContent(text="Initial image-guided draft.")],
+            )
+            seed_run = _build_run(
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+                engine_config_id=engine_config_id,
+                started_at=datetime(2024, 1, 5, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[first_user_message],
+                output_messages=[first_user_message, first_assistant_message],
+            )
+            save_agent_run(dbe, seed_run)
+
+            captured_inputs: dict[str, object] = {}
+
+            def _capture_start_run(profile, inputs, **_kwargs):
+                captured_inputs.update(inputs)
+                return create_agent_run(profile_id=profile.id, inputs=inputs)
+
+            monkeypatch.setattr(runner, "start_run", _capture_start_run)
+
+            with runtime_context(state) as ctx:
+                returned_chat_id = await route_get_llm_response(
+                    GetLLMResponseRequest(
+                        chatId=chat_id,
+                        message=UserChatMessage(
+                            id="msg-image-follow-up",
+                            content=[
+                                MessageTextContent(text="Make the header taller.")
+                            ],
+                            attachments=[],
+                        ),
+                        engineConfigId=engine_config_id,
+                        agentProfileId=None,
+                        thinking=False,
+                        projectConfigId=project_config_id,
+                        allowUnscoped=True,
+                        permissionMode=ChatPermissionMode.minimal,
+                        searchEnabled=True,
+                        appGenerationMode="json_render_with_image",
+                        appGenerationByMessageId={
+                            "msg-image-initial": "json_render_with_image",
+                        },
+                    ),
+                    ctx,
+                )
+
+            assert returned_chat_id == chat_id
+            assert captured_inputs.get("appGenerationByMessageId") == {
+                "msg-image-initial": "json_render_with_image",
+                "msg-image-follow-up": "json_render_with_image",
+            }
+            raw_messages = captured_inputs.get("messages")
+            assert isinstance(raw_messages, list)
+            # The follow-up run should preserve the retained image message and
+            # append the new text-only user turn.
+            assert [raw.get("id") for raw in raw_messages] == [
+                "msg-image-initial",
+                "msg-image-assistant",
+                "msg-image-follow-up",
+            ]
+
     async def test_get_llm_response_continue_from_chat_seeds_prior_messages(
         self,
         monkeypatch: pytest.MonkeyPatch,

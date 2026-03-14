@@ -42,7 +42,7 @@ class TestAIAppGenerationModeHelpers:
         with pytest.raises(HTTPException) as exc:
             _require_image_attachment_for_app_generation_mode(
                 "json_render_with_image",
-                UserChatMessage(id="msg-user", attachments=[]),
+                [UserChatMessage(id="msg-user", attachments=[])],
             )
 
         assert exc.value.status_code == 400
@@ -54,16 +54,40 @@ class TestAIAppGenerationModeHelpers:
     def test_image_mode_accepts_messages_with_image_attachments(self) -> None:
         _require_image_attachment_for_app_generation_mode(
             "json_render_with_image",
-            UserChatMessage(
-                id="msg-user",
-                attachments=[
-                    {
-                        "id": "image-1",
-                        "name": "reference.png",
-                        "mimeType": "image/png",
-                    }
-                ],
-            ),
+            [
+                UserChatMessage(
+                    id="msg-user",
+                    attachments=[
+                        {
+                            "id": "image-1",
+                            "name": "reference.png",
+                            "mimeType": "image/png",
+                        }
+                    ],
+                )
+            ],
+        )
+
+    def test_image_mode_accepts_retained_image_history_without_new_attachment(
+        self,
+    ) -> None:
+        # A follow-up turn should stay valid when the thread already contains a
+        # prior user-supplied reference image.
+        _require_image_attachment_for_app_generation_mode(
+            "json_render_with_image",
+            [
+                UserChatMessage(
+                    id="msg-image",
+                    attachments=[
+                        {
+                            "id": "image-1",
+                            "name": "reference.png",
+                            "mimeType": "image/png",
+                        }
+                    ],
+                ),
+                UserChatMessage(id="msg-follow-up", attachments=[]),
+            ],
         )
 
     def test_normalize_app_generation_by_message_id_filters_non_user_entries(

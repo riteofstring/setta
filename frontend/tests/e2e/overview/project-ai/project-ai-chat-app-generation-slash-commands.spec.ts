@@ -229,6 +229,59 @@ test("project ai chat /app-image preserves attachments while appending suffix te
   }
 });
 
+test("project ai chat keeps image mode on text-only follow-up turns", async ({
+  page,
+}) => {
+  const capturedRequests: ChatSubmitRequest[] = [];
+  await mockProjectChatSubmitCapture(page, capturedRequests);
+  const { engineCleanup, projectContext, projectChatSurface } =
+    await openProjectChatWithManagedEngine(page);
+
+  try {
+    await projectChatSurface
+      .locator('input[type="file"]')
+      .first()
+      .setInputFiles({
+        name: "reference.png",
+        mimeType: "image/png",
+        buffer: Buffer.from("png"),
+      });
+    await expect(projectChatSurface.getByText("reference.png")).toBeVisible();
+
+    await submitProjectChatMessage(
+      page,
+      projectChatSurface,
+      "/app-image compact admin dashboard",
+    );
+    await expect.poll(() => capturedRequests.length).toBe(1);
+
+    await submitProjectChatMessage(
+      page,
+      projectChatSurface,
+      "make the header taller",
+    );
+    await expect.poll(() => capturedRequests.length).toBe(2);
+
+    expect(capturedRequests[1]?.appGenerationMode).toBe(
+      "json_render_with_image",
+    );
+    expect(capturedRequests[1]?.message?.attachments).toEqual([]);
+    expect(capturedRequests[1]?.appGenerationByMessageId).toEqual({
+      [capturedRequests[0]?.message?.id ?? ""]: "json_render_with_image",
+      [capturedRequests[1]?.message?.id ?? ""]: "json_render_with_image",
+    });
+    expect(capturedRequests[1]?.message?.content?.[0]?.text).toBe(
+      "make the header taller",
+    );
+    await expect(projectChatSurface).not.toContainText(
+      "Attach at least one image before using /app-image.",
+    );
+  } finally {
+    await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("project ai chat /app-mcp submits the fixed MCP-oriented baseline without extra chooser UI", async ({
   page,
 }) => {

@@ -228,6 +228,83 @@ describe("submitMessage", () => {
     });
   });
 
+  it("preserves retained image-mode provenance for text-only follow-up submits", async () => {
+    const chatId = "chat-image-follow-up";
+    mockedRouteGetLLMResponse.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: chatId,
+    });
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          messages: [
+            createUserChatMessage({
+              id: "msg-image-initial",
+              content: [
+                createMessageTextContent({
+                  text: "Match this reference image.",
+                }),
+              ],
+              attachments: [
+                {
+                  id: "image-1",
+                  name: "reference.png",
+                  mimeType: "image/png",
+                  size: 128,
+                },
+              ],
+            }),
+          ],
+          waitingForResponse: false,
+        },
+      },
+      chatAppGenerationDetailsByChatId: {
+        [chatId]: {
+          activeAppGeneration: {
+            mode: "json_render_with_image",
+          },
+          appGenerationByMessageId: {
+            "msg-image-initial": {
+              mode: "json_render_with_image",
+            },
+          },
+        },
+      },
+    });
+
+    await expect(
+      submitMessage(
+        chatId,
+        "Tighten the spacing.",
+        [],
+        true,
+        "engine-primary",
+        false,
+        {
+          appGeneration: {
+            mode: "json_render_with_image",
+          },
+        },
+      ),
+    ).resolves.toBe(chatId);
+
+    const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
+      {
+        appGenerationMode: string | null;
+        appGenerationByMessageId: Record<string, string>;
+        message: { id: string; attachments: unknown[] };
+      },
+    ];
+    expect(payload.appGenerationMode).toBe("json_render_with_image");
+    expect(payload.message.attachments).toEqual([]);
+    expect(payload.appGenerationByMessageId).toEqual({
+      "msg-image-initial": "json_render_with_image",
+      [payload.message.id]: "json_render_with_image",
+    });
+  });
+
   it("does not send app-generation provenance for plain chat submits", async () => {
     mockedRouteGetLLMResponse.mockResolvedValue({
       status: 200,
