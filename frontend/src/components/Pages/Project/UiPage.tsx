@@ -8,6 +8,7 @@ import { useEffect } from "react";
 import { attachKeyEventListeners } from "state/actions/keyActivations";
 import { useLocalStorage, useMisc } from "state/definitions";
 import { CanvasEngineHost } from "./CanvasEngineHost";
+import { CanvasEngineMiniMap } from "./CanvasEngineMiniMap";
 import "./react-flow-css.css";
 import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
 
@@ -24,7 +25,8 @@ export function UIPage() {
         <PaneContextMenu />
         <SelectionContextMenu />
         <TypeErrorContextMenu />
-        {!useCanvasEngineV1 && showMiniMap && <ResponsiveMiniMap />}
+        {showMiniMap &&
+          (useCanvasEngineV1 ? <CanvasEngineMiniMap /> : <ResponsiveMiniMap />)}
       </div>
     </SectionDndContext>
   );
