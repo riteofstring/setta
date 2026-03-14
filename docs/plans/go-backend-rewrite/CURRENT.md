@@ -28,6 +28,9 @@ These are intentional exceptions, not open-ended compatibility obligations:
   - `setta.api.chat_toolkit`
   - share listener entrypoints that instantiate `SettaListener`
   - `setta.api.SettaRunner`
+- retained Python listener SDK transport now targets the Go listener websocket
+  route at `/ws/listeners/{listenerID}`; legacy `/pythonScript/{id}` is no
+  longer the active caller path
 - Python or other sidecars intentionally executed by Go
 
 Everything else should default to Go ownership.

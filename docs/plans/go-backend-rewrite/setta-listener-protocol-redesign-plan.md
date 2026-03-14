@@ -19,6 +19,8 @@ Current state:
 
 - Go already owns:
   - `/ws/listeners/{listenerID}` for the active plugin listener path
+  - active `SettaListener` and share-listener websocket transport on that
+    route through the retained Python client
   - listener bootstrap resolution on that route for `projectConfigId`,
     `projectName`, default-project fallback, and share-session scope
   - bootstrap success/error replies on that route via
@@ -51,9 +53,6 @@ Current state:
   - listener coverage and force-refresh reads/writes
   - listener websocket DTOs in `internal/realtime`
 - Python still owns:
-  - the `SettaListener` transport on `/pythonScript/{id}`
-  - the active `SettaListener` caller cutover from `/pythonScript/{id}` to the
-    Go listener route
   - local dependency-graph rebuilding and generated runtime state
   - remaining built-in listener endpoint dispatch outside the current
     manifest-backed `GoHTTPRoutes` subset
@@ -203,7 +202,8 @@ Python/share listeners can bootstrap entirely against the Go listener route.
 
 ### Step 3. Thin The Python Listener Runtime
 
-- Switch `backend/setta/api/listener.py` to the Go listener websocket route.
+- Keep `backend/setta/api/listener.py` on the Go listener websocket route and
+  remove the remaining Python runtime-state ownership layered on top of it.
 - Remove local dependency-graph/codegen/runtime-state ownership.
 - Rebuild the Python-side state helpers on top of Go-provided metadata.
 
