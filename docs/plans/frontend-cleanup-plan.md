@@ -36,7 +36,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - project chat windowing already splits behavior across `frontend/src/state/actions/projectChatWindowingSelectors.ts`, `frontend/src/state/actions/projectChatWindowingLayoutState.ts`, `frontend/src/state/actions/projectChatWindowingState.ts`, `frontend/src/state/actions/projectChatWindowingAuthoritative.ts`, `frontend/src/state/actions/projectChatWindowingEphemeral.ts`, and `frontend/src/state/actions/projectChatWindowingWrites.ts`
   - chat hydration fetch/reconciliation and outcome typing now live in `frontend/src/state/actions/aiHydration.ts`
   - agent-run loading, retries, and single-run reconciliation now live in `frontend/src/state/actions/aiAgentRuns.ts`
-  - AI config/API-key handling plus agent-profile, prompt-template, external-agent, and engine-config catalog mutations now live in `frontend/src/state/actions/aiConfiguration.ts`
+  - LLM config/API-key handling now lives in `frontend/src/state/actions/aiLLMConfiguration.ts`, while agent-profile, prompt-template, external-agent, external-agent-health, and engine-config catalog mutations now live in `frontend/src/state/actions/aiConfigurationCatalogs.ts`
   - transcription session transport and transcription-profile mutations now live in `frontend/src/state/actions/aiTranscription.ts`
   - `RunInstructions.tsx` already delegates some state/parsing work to `runInstructionsAccordionState.ts`, `runInstructionsRunnableCodeBlocks.ts`, and `runInstructionsStateMachineControls.ts`
 - Future cleanup should continue from these seams instead of assuming every hotspot is still a single-file monolith.
@@ -49,7 +49,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Current State (Observed)
 
 - The biggest readability problem is mixed responsibilities inside large files, not just file count.
-- There are 1023 authored TS/TSX files under `frontend/src`.
+- There are 1025 authored TS/TSX files under `frontend/src`.
 - There are 40 non-generated TS/TSX files at 1000+ lines; several production hotspots are well above 2000 lines.
 - Chat and project-AI code is the densest cluster:
   - `frontend/src/components/Chat/ChatMessages.tsx` at 7959 lines
@@ -76,7 +76,8 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/state/actions/aiChatState.ts` now owns chat-detail and pending-surface detail writes shared by submission, hydration, and controls.
 - `frontend/src/state/actions/aiPendingChatState.ts` now owns surface-scoped pending drafts, pending app-generation state, and promotion into materialized chats.
 - `frontend/src/state/actions/aiInterruptedAssistantMessages.ts` now owns interrupted assistant message tracking and snapshot restoration.
-- `frontend/src/state/actions/aiConfiguration.ts` now owns LLM config/API-key handling plus the AI settings/resource catalogs.
+- `frontend/src/state/actions/aiLLMConfiguration.ts` now owns LLM config/API-key handling plus managed API-key conflict resolution and snapshot updates.
+- `frontend/src/state/actions/aiConfigurationCatalogs.ts` now owns the AI settings/resource catalogs for agent profiles, prompt templates, external agents, external-agent health, and engine configs, reducing `frontend/src/state/actions/aiConfiguration.ts` to a thin compatibility surface.
 - `frontend/src/state/actions/aiTranscription.ts` now owns provider dictation transport plus transcription-profile loading and CRUD.
 - `frontend/src/state/actions/projectChatThreadGroupMutations.ts` now owns
   persisted project-chat thread group creation, rename, collapse, pin, reorder,

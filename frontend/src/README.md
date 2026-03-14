@@ -10,7 +10,7 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-14`
-- Authored TS/TSX files under `frontend/src`: `1023`
+- Authored TS/TSX files under `frontend/src`: `1025`
 - Non-generated TS/TSX files at `1000+` lines: `40`
 - Biggest current production hotspots:
   - `components/Chat/ChatMessages.tsx` (`7959`)
@@ -91,9 +91,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
     message tracking and snapshot restoration.
   - `state/actions/aiPendingChatState.ts` owns surface-scoped pending drafts,
     pending app-generation state, and promotion into materialized chats.
-  - `state/actions/aiConfiguration.ts` owns LLM config/API keys plus the AI
-    settings catalogs for agent profiles, prompt templates, external agents, and
-    engine configs.
+  - `state/actions/aiLLMConfiguration.ts` owns LLM config loading/saving plus
+    managed API-key snapshot, conflict, and persistence behavior.
+  - `state/actions/aiConfigurationCatalogs.ts` owns agent-profile,
+    prompt-template, external-agent, external-agent-health, and engine-config
+    catalog load/mutation behavior.
+  - `state/actions/aiConfiguration.ts` is now a thin compatibility surface that
+    re-exports the LLM/config and catalog owners.
   - `state/actions/aiTranscription.ts` owns provider dictation, transcription
     session transport, and transcription-profile load/CRUD behavior.
 
@@ -304,13 +308,9 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/aiConfiguration.ts` is now the largest authored state hotspot
-  and should split config/API-key writes from the remaining AI settings
-  catalog load/mutation surface
 - `state/actions/windowSpaces.ts` and `state/actions/projectChatWindowing.ts`
-  are the next authored/shared hotspots after `aiConfiguration.ts` and should
-  keep shrinking around restore/public command orchestration versus their
-  narrower state helpers
+  are now the largest authored/shared hotspots and should keep shrinking around
+  restore/public command orchestration versus their narrower state helpers
 - `state/actions/windowSpaces.ts` is now the largest shared-infrastructure
   hotspot and should keep shrinking around restore orchestration versus saved
   layout mutation ownership

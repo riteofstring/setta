@@ -23,14 +23,16 @@ import {
   receiveAgentProfilesUpdate,
   receiveEngineConfigsUpdate,
   receiveExternalAgentConfigsUpdate,
-  receiveLLMApiKeysSnapshotUpdate,
-  receiveLLMConfigUpdate,
   receivePromptTemplatesUpdate,
-} from "./aiConfiguration";
+} from "./aiConfigurationCatalogs";
 import {
   receiveAIFollowToolArgumentsUpdate,
   receiveAIFollowToolResultUpdate,
 } from "./aiFollow";
+import {
+  receiveLLMApiKeysSnapshotUpdate,
+  receiveLLMConfigUpdate,
+} from "./aiLLMConfiguration";
 import { receiveTranscriptionProfilesUpdate } from "./aiTranscription";
 import { updateArtifacts } from "./artifacts";
 import { applyListenerCoverageSnapshot } from "./listenerCoverage";

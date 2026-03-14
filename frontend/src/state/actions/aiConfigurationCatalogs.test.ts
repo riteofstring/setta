@@ -41,7 +41,7 @@ import {
   updateAgentProfile,
   updateExternalAgentConfig,
   updatePromptTemplate,
-} from "./aiConfiguration";
+} from "./aiConfigurationCatalogs";
 
 vi.mock("utils/generatedEndpoints", async () => {
   const actual = await vi.importActual<

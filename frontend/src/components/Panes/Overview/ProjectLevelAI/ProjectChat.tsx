@@ -46,10 +46,8 @@ import {
   getRunLastUpdatedMs,
 } from "state/actions/agentRunUtils";
 import { seedPendingChatDetails } from "state/actions/aiChatSubmission";
-import {
-  saveLLMConfig,
-  updateEngineConfig,
-} from "state/actions/aiConfiguration";
+import { updateEngineConfig } from "state/actions/aiConfigurationCatalogs";
+import { saveLLMConfig } from "state/actions/aiLLMConfiguration";
 import {
   buildChatHistoryEntries,
   buildChatProvenanceByChatId,
