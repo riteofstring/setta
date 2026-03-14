@@ -68,6 +68,10 @@ Everything else should default to Go ownership.
   the docs.
 - Preserve active product behavior and current callers, not Python
   implementation details.
+- Managed-chat provider scope is currently the landed OpenAI, Azure OpenAI,
+  Anthropic, and Gemini set. Do not widen the rewrite target to additional
+  providers such as Mistral unless a concrete current caller or explicit
+  product decision requires it.
 - Read Go code first. Read Python only as behavior reference or when touching a
   retained Python boundary.
 - Because `main` still evolves the Python backend, retain superseded Python
