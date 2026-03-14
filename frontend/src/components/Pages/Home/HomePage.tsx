@@ -38,6 +38,12 @@ import { LoadingSpinner } from "../LoadingSpinner";
 import { HomeProjectGallery } from "./HomeProjectGallery";
 import { HomeSelectedProjectDetails } from "./HomeSelectedProjectDetails";
 import {
+  buildHomeProjectDeleteSelection,
+  resolveNextSelectedHomeProjectIdsOnSelect,
+  resolveNextSelectedHomeProjectIdsOnToggle,
+  shouldClearHomeProjectSelection,
+} from "./homeProjectSelectionState";
+import {
   partitionProjectsByFavoriteStatus,
   reconcileFavoriteProjectConfigIds,
   reconcileSelectedHomeProjectIds,
@@ -231,15 +237,12 @@ function HomeWorkspaceLayout({
     if (!selectionEnabled) {
       return;
     }
-    setSelectedProjects((previousProjects) => {
-      if (
-        previousProjects.length === 1 &&
-        previousProjects[0] === projectConfigId
-      ) {
-        return previousProjects;
-      }
-      return [projectConfigId];
-    });
+    setSelectedProjects((previousProjects) =>
+      resolveNextSelectedHomeProjectIdsOnSelect({
+        selectedProjectIds: previousProjects,
+        projectConfigId,
+      }),
+    );
   }
 
   function onToggleProjectSelection(projectConfigId: string) {
@@ -247,27 +250,28 @@ function HomeWorkspaceLayout({
       return;
     }
     setActiveProjectId(projectConfigId);
-    setSelectedProjects((previousProjects) => {
-      if (previousProjects.includes(projectConfigId)) {
-        return previousProjects.filter((x) => x !== projectConfigId);
-      }
-      return [...previousProjects, projectConfigId];
-    });
+    setSelectedProjects((previousProjects) =>
+      resolveNextSelectedHomeProjectIdsOnToggle({
+        selectedProjectIds: previousProjects,
+        projectConfigId,
+      }),
+    );
   }
 
   function onClickDelete() {
     openDeleteProjectWarningModal({
-      selectedProjectsIdName: selectedProjects.map((s) => ({
-        id: s,
-        name: projects.find((p) => p.id === s)?.name ?? "",
-      })),
+      selectedProjectsIdName: buildHomeProjectDeleteSelection({
+        selectedProjectIds: selectedProjects,
+        projects,
+      }),
     });
   }
 
   function onEscapeClearSelectedProjects(e: React.KeyboardEvent) {
-    if (e.code === "Escape") {
-      setSelectedProjects([]);
+    if (!shouldClearHomeProjectSelection(e.code)) {
+      return;
     }
+    setSelectedProjects([]);
   }
 
   async function onSetDefaultProject(projectConfigId: string) {
