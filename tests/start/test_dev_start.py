@@ -1,157 +1,60 @@
-import sys
-from pathlib import Path
-from types import SimpleNamespace
-
-import pytest
-
-from setta.dev_start import main
-from setta.utils.paths import clear_setta_paths_cache
+from setta import dev_start
 
 
-def test_dev_start_main_runs_reload_backend_and_prints_startup_message(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    workspace = tmp_path / "workspace"
-    workspace.mkdir()
-    setta_home = tmp_path / ".setta-development"
+def test_dev_start_main_injects_reload_for_source_workflows(monkeypatch) -> None:
     captured: dict[str, object] = {}
 
-    class RecordingConfig:
-        def __init__(self, app: str, **kwargs: object) -> None:
-            captured["app"] = app
-            captured["kwargs"] = kwargs
+    def fake_run_go_dispatch(argv: list[str]) -> int:
+        captured["argv"] = list(argv)
+        return 0
 
-    class RecordingServer:
-        def __init__(self, config: RecordingConfig) -> None:
-            self.config = config
+    monkeypatch.setattr(dev_start, "run_go_dispatch", fake_run_go_dispatch)
 
-        def run(self) -> None:
-            return
-
-    monkeypatch.setitem(
-        sys.modules,
-        "uvicorn",
-        SimpleNamespace(Config=RecordingConfig, Server=RecordingServer),
+    exit_code = dev_start.main(
+        [
+            "--workspace",
+            "/tmp/workspace",
+            "--setta-home",
+            "/tmp/.setta-development",
+            "--no-open",
+        ]
     )
-
-    env_keys = (
-        "SETTA_WORKSPACE_ROOT",
-        "SETTA_HOME",
-        "SETTA_PROFILE_LOOKUP_HOME",
-        "SETTA_FILES_ROOT",
-        "SETTA_FILES_LOCATION",
-        "SETTA_RUNTIME_ROOT",
-        "SETTA_PROFILE",
-        "SETTA_AUTH_COOKIE_NAME",
-        "SETTA_SESSION_ID",
-        "SETTA_SESSIONS_ROOT",
-    )
-    for key in env_keys:
-        monkeypatch.delenv(key, raising=False)
-    clear_setta_paths_cache()
-
-    try:
-        # The dev reload owner should preserve the current startup/session contract.
-        exit_code = main(
-            [
-                "--reload",
-                "--workspace",
-                str(workspace),
-                "--setta-home",
-                str(setta_home),
-                "--port",
-                "61234",
-                "--no-open",
-            ]
-        )
-    finally:
-        clear_setta_paths_cache()
 
     assert exit_code == 0
-    output = capsys.readouterr().out
-    assert "Setta running (session " in output
-    assert "Bind: 127.0.0.1:61234 (remote only)" in output
-    assert captured["app"] == "setta.server:app"
-    kwargs = captured["kwargs"]
-    assert isinstance(kwargs, dict)
-    assert kwargs["reload"] is True
-    assert kwargs["host"] == "127.0.0.1"
-    assert kwargs["port"] == 61234
+    assert captured["argv"] == [
+        "--reload",
+        "--workspace",
+        "/tmp/workspace",
+        "--setta-home",
+        "/tmp/.setta-development",
+        "--no-open",
+    ]
 
 
-def test_dev_start_main_rejects_invalid_workspace_without_traceback(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    missing_workspace = tmp_path / "missing-workspace"
-    monkeypatch.delenv("SETTA_WORKSPACE_ROOT", raising=False)
-    clear_setta_paths_cache()
+def test_dev_start_main_preserves_explicit_reload(monkeypatch) -> None:
+    captured: dict[str, object] = {}
 
-    try:
-        # Validation failures should stay user-facing and skip traceback noise.
-        exit_code = main(
-            [
-                "--workspace",
-                str(missing_workspace),
-                "--setta-home",
-                str(tmp_path / ".setta-development"),
-                "--no-open",
-            ]
-        )
-    finally:
-        clear_setta_paths_cache()
+    def fake_run_go_dispatch(argv: list[str]) -> int:
+        captured["argv"] = list(argv)
+        return 7
 
-    assert exit_code == 1
-    error_output = capsys.readouterr().err
-    assert "Workspace root does not exist" in error_output
-    assert "Traceback" not in error_output
+    monkeypatch.setattr(dev_start, "run_go_dispatch", fake_run_go_dispatch)
 
-
-def test_dev_start_main_keyboard_interrupt_exits_cleanly(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    workspace = tmp_path / "workspace"
-    workspace.mkdir()
-    setta_home = tmp_path / ".setta-development"
-
-    class InterruptingConfig:
-        def __init__(self, app: str, **kwargs: object) -> None:
-            self.app = app
-            self.kwargs = kwargs
-
-    class InterruptingServer:
-        def __init__(self, config: InterruptingConfig) -> None:
-            self.config = config
-
-        def run(self) -> None:
-            raise KeyboardInterrupt()
-
-    monkeypatch.setitem(
-        sys.modules,
-        "uvicorn",
-        SimpleNamespace(Config=InterruptingConfig, Server=InterruptingServer),
+    exit_code = dev_start.main(
+        [
+            "--reload",
+            "--workspace",
+            "/tmp/workspace",
+            "--setta-home",
+            "/tmp/.setta-development",
+        ]
     )
-    clear_setta_paths_cache()
 
-    try:
-        exit_code = main(
-            [
-                "--reload",
-                "--workspace",
-                str(workspace),
-                "--setta-home",
-                str(setta_home),
-                "--port",
-                "61234",
-                "--no-open",
-            ]
-        )
-    finally:
-        clear_setta_paths_cache()
-
-    # Ctrl+C should still be a clean stop for the dev reload owner.
-    assert exit_code == 0
+    assert exit_code == 7
+    assert captured["argv"] == [
+        "--reload",
+        "--workspace",
+        "/tmp/workspace",
+        "--setta-home",
+        "/tmp/.setta-development",
+    ]

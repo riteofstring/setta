@@ -291,8 +291,7 @@ This verdict holds under both of the only reasonable definitions:
 
 ### Verified retained Python boundaries
 
-- Explicit Python FastAPI dev entrypoints still exist as supported surfaces:
-  - `backend/setta/dev_start.py`
+- The legacy Python FastAPI app module still exists as a supported surface:
   - `backend/setta/server.py`
 - Public Python API exports are still active supported surfaces:
   - `backend/setta/api/__init__.py`
@@ -328,7 +327,7 @@ execution paths, so the rewrite is not complete in the repo-wide sense.
   - `source activate.sh && ./scripts/go.sh test ./internal/app -run '^TestAppShareModeServesArtifactOverlayRoutesAndBroadcastsScopedUpdates$' -count=1`
   - `source activate.sh && ./scripts/go.sh test ./internal/projectstate -count=1`
   - `source activate.sh && ./scripts/go.sh test ./internal/settacmd -count=1`
-  - `source activate.sh && pytest tests/start/test_dev_script_wiring_structure.py tests/start/test_dev_script_wiring_backend_start.py tests/start/test_module_entrypoint.py -q`
+  - `source activate.sh && pytest tests/start/test_dev_start.py tests/start/test_dev_script_wiring_structure.py tests/start/test_dev_script_wiring_backend_start.py tests/start/test_module_entrypoint.py -q`
 - Failed:
   - `./scripts/go.sh test ./...` when first run without the activated Python env
 - Inconclusive / not counted as proof:
@@ -381,7 +380,12 @@ start path, and the thin Python entrypoint now prefers the current Go CLI from
 a source checkout instead of stale bundled artifacts. The focused Go and Python
 reload-wiring tests pass.
 
+A sixth follow-up rewrite step converted `python -m setta.dev_start` into a
+compatibility shim that forwards to the Go CLI reload path instead of owning a
+Python `uvicorn` server startup flow. The focused start-path Python tests pass.
+
 Those follow-up fixes cleared the targeted Go-owned parity blockers found by
-this audit and moved the default dev reload path onto the Go-owned start path,
-but the repo still remains `Incomplete` because the retained Python runtime
-surfaces above are still active supported code paths.
+this audit and moved the default dev reload path and the explicit
+`setta.dev_start` surface onto the Go-owned start path, but the repo still
+remains `Incomplete` because the retained Python runtime surfaces above are
+still active supported code paths.
