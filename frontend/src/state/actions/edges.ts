@@ -13,10 +13,8 @@ import {
   route_update_edge,
 } from "utils/generatedEndpoints";
 import { AGENTIC_EDGE_HANDLE_IDS } from "./agenticEdges";
-import {
-  dispatchOptimisticProjectStateUpdate,
-  getCurrProjectConfigId,
-} from "./sectionInfos";
+import { dispatchOptimisticProjectStateUpdate } from "./projectStateOptimisticUpdates";
+import { getCurrProjectConfigId } from "./sectionInfos";
 import { STATE_MACHINE_EDGE_HANDLE_IDS } from "./stateMachineEdges";
 
 const nonDataHandleIds = new Set<string>([

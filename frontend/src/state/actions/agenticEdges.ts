@@ -13,10 +13,8 @@ import {
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { isSharedChatHandleId } from "./chatSharedHandleIds";
-import {
-  dispatchOptimisticProjectStateUpdate,
-  getCurrProjectConfigId,
-} from "./sectionInfos";
+import { dispatchOptimisticProjectStateUpdate } from "./projectStateOptimisticUpdates";
+import { getCurrProjectConfigId } from "./sectionInfos";
 import { isWorkflowHandleId } from "./stateMachineEdges";
 
 export const AGENTIC_EDGE_HANDLE_IDS = {

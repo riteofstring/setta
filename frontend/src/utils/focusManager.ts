@@ -5,7 +5,8 @@ import {
   getCurrEffectiveSectionImpl,
   getTopLevelSectionIdsForDisplay,
 } from "state/actions/sectionInfos";
-import { useProjectState, useSectionRefs } from "state/definitions";
+import { useProjectState } from "state/definitions";
+import { useSectionRefs } from "state/stores/layoutInteractionStores";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
 type TabScopeBehavior = "default" | "canvas";
