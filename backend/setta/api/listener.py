@@ -1500,14 +1500,17 @@ class SettaListener:
             runtime_state.dependency_metadata,
         )
         if runtime_state.s_instance is None:
+            updated_cache = dict(rendered_snapshot_values)
             if dependency_values is None:
-                updated_cache = dict(rendered_snapshot_values)
-                for dependency_name, value in self._build_dependency_cache_from_runtime_state(
-                    runtime_state
-                ).items():
-                    updated_cache.setdefault(dependency_name, value)
+                logger.warning(
+                    (
+                        "Listener %s received no authoritative snapshot values while "
+                        "generated runtime state is unavailable; leaving dependency "
+                        "cache on the fail-closed path"
+                    ),
+                    self._log_identifier,
+                )
             else:
-                updated_cache = dict(rendered_snapshot_values)
                 self._recompute_metadata_dependents(
                     runtime_state.dependency_metadata,
                     updated_cache,
@@ -1522,6 +1525,7 @@ class SettaListener:
         for spec in self._callbacks.values():
             self._scheduler.reset(spec.callback_id)
             changed: dict[str, Any] = {}
+            unresolved_dependencies = False
             for dep_key, dependency in zip(
                 spec.structured_dependencies, spec.dependency_names
             ):
@@ -1541,11 +1545,19 @@ class SettaListener:
                         dep_key=dep_key,
                     )
                 if value is _UNAVAILABLE:
+                    unresolved_dependencies = True
                     continue
                 previous = previous_cache.get(dependency, _MISSING)
                 updated_cache[dependency] = value
                 if previous is _MISSING or value != previous:
                     changed[dependency] = value
+
+            if (
+                runtime_state.s_instance is None
+                and unresolved_dependencies
+                and not changed
+            ):
+                continue
 
             mode = spec.dependency_mode
             if mode is ListenerDependencyMode.REALTIME_ONLY:
@@ -2922,14 +2934,17 @@ class SettaListener:
             runtime_state.dependency_metadata,
         )
         if runtime_state.s_instance is None:
+            updated_cache = dict(rendered_snapshot_values)
             if self._latest_dependency_snapshot_values is None:
-                updated_cache = dict(rendered_snapshot_values)
-                for dependency_name, value in self._build_dependency_cache_from_runtime_state(
-                    runtime_state
-                ).items():
-                    updated_cache.setdefault(dependency_name, value)
+                logger.warning(
+                    (
+                        "Listener %s replaying snapshot without authoritative "
+                        "snapshot values while generated runtime state is "
+                        "unavailable; leaving dependency cache on the fail-closed path"
+                    ),
+                    self._log_identifier,
+                )
             else:
-                updated_cache = dict(rendered_snapshot_values)
                 self._recompute_metadata_dependents(
                     runtime_state.dependency_metadata,
                     updated_cache,
@@ -2951,6 +2966,7 @@ class SettaListener:
                 continue
 
             changed: dict[str, Any] = {}
+            unresolved_dependencies = False
             for dep_key, dependency in zip(spec.structured_dependencies, dependencies):
                 if runtime_state.s_instance is None:
                     value = updated_cache.get(dependency, _UNAVAILABLE)
@@ -2968,10 +2984,17 @@ class SettaListener:
                         dep_key=dep_key,
                     )
                 if value is _UNAVAILABLE:
+                    unresolved_dependencies = True
                     continue
                 updated_cache[dependency] = value
                 changed[dependency] = value
 
+            if (
+                runtime_state.s_instance is None
+                and unresolved_dependencies
+                and not changed
+            ):
+                continue
             if changed or spec.run_on_refresh:
                 callbacks_to_run.append((spec, changed))
 

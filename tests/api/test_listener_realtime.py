@@ -1122,7 +1122,9 @@ class TestSettaListenerBootstrapFailure:
             sectionVariants={section_variant.id: section_variant},
         )
 
-    async def test_bootstrap_registers_when_state_instantiation_fails(self) -> None:
+    async def test_bootstrap_registers_fail_closed_when_snapshot_values_are_missing(
+        self,
+    ) -> None:
         listener = SettaListener(project_name="Demo Project")
         callback_calls: list[tuple[str, dict[str, Any]]] = []
 
@@ -1147,11 +1149,11 @@ class TestSettaListenerBootstrapFailure:
 
         assert listener._runtime_state is not None
         assert listener._runtime_state.s_instance is None
-        assert listener._dependency_cache["Welcome"] == "Hello"
+        assert listener._dependency_cache == {}
         assert listener._registration_pending
         assert len(register_payloads) == 1
         assert register_payloads[0]["messageType"] == "ListenerRegister"
-        assert callback_calls == [("Hello", {"Welcome": "Hello"})]
+        assert callback_calls == []
 
     async def test_bootstrap_uses_go_snapshot_values_when_runtime_state_is_unavailable(
         self,
@@ -1504,7 +1506,9 @@ class TestSettaListenerBootstrapFailure:
         ]
         assert listener._get_last_realtime_sequence() == 1
 
-    async def test_replay_cached_snapshot_uses_metadata_backed_callback_state(self) -> None:
+    async def test_replay_cached_snapshot_fails_closed_without_latest_go_snapshot_values(
+        self,
+    ) -> None:
         listener = SettaListener(project_name="Demo Project")
         project_state = self._build_project_state()
         callback_calls: list[tuple[str, dict[str, Any]]] = []
@@ -1522,8 +1526,8 @@ class TestSettaListenerBootstrapFailure:
 
         assert listener._runtime_state is not None
         assert listener._runtime_state.s_instance is None
-        assert listener._dependency_cache["Welcome"] == "Hello"
-        assert callback_calls == [("Hello", {"Welcome": "Hello"})]
+        assert listener._dependency_cache == {}
+        assert callback_calls == []
 
     async def test_replay_cached_snapshot_uses_latest_go_snapshot_values(self) -> None:
         listener = SettaListener(project_name="Demo Project")
