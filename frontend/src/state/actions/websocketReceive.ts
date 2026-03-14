@@ -59,7 +59,7 @@ import {
   createWebsocketMsgCurrentAddressUpdate,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
-import { receiveLLMResponseChunk } from "./ai";
+import { receiveLLMResponseChunk } from "./ai/chatStreaming";
 import {
   receiveLLMApiKeysSnapshotUpdate,
   receiveLLMConfigUpdate,

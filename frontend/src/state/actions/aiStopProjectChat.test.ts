@@ -65,7 +65,7 @@ let getLLMChatHydrationOutcome: typeof import("state/actions/ai/chatRuntime").ge
 let getExternalAgentChatHydrationOutcome: typeof import("state/actions/ai/chatRuntime").getExternalAgentChatHydrationOutcome;
 let getProjectChatHydrationOutcomeWithFallback: typeof import("state/actions/ai/chatRuntime").getProjectChatHydrationOutcomeWithFallback;
 let getDefaultChatDetails: typeof import("state/actions/ai/chatRuntime").getDefaultChatDetails;
-let receiveLLMResponseChunk: typeof import("state/actions/ai").receiveLLMResponseChunk;
+let receiveLLMResponseChunk: typeof import("state/actions/ai/chatStreaming").receiveLLMResponseChunk;
 let memoryStorage: Storage;
 
 describe("stopProjectChatResponse", () => {
@@ -94,7 +94,7 @@ describe("stopProjectChatResponse", () => {
     useLocalStorage = definitions.useLocalStorage;
     useProjectState = definitions.useProjectState;
     const chatRuntime = await import("state/actions/ai/chatRuntime");
-    const ai = await import("state/actions/ai");
+    const chatStreaming = await import("state/actions/ai/chatStreaming");
     stopProjectChatResponse = chatRuntime.stopProjectChatResponse;
     stopManagedSectionChatResponse = chatRuntime.stopManagedSectionChatResponse;
     getLLMChatHydrationOutcome = chatRuntime.getLLMChatHydrationOutcome;
@@ -103,7 +103,7 @@ describe("stopProjectChatResponse", () => {
     getProjectChatHydrationOutcomeWithFallback =
       chatRuntime.getProjectChatHydrationOutcomeWithFallback;
     getDefaultChatDetails = chatRuntime.getDefaultChatDetails;
-    receiveLLMResponseChunk = ai.receiveLLMResponseChunk;
+    receiveLLMResponseChunk = chatStreaming.receiveLLMResponseChunk;
   });
 
   beforeEach(() => {

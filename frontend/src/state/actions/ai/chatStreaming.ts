@@ -6,6 +6,7 @@ import { addTemporaryNotification } from "state/actions/notifications";
 import {
   getCurrProjectConfigId,
   isManagedChatSection,
+  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import {
   clearChatStreamActive,
@@ -36,6 +37,7 @@ import {
   BaseChatMessageUnion,
   ChatRoleEnum,
   ChatSectionState,
+  createMessageTextContent,
   createMessageThinkingContent,
   LLMStreamingResponse,
   MessageDeltaEvent,
@@ -44,6 +46,7 @@ import {
   MessageStartEvent,
   MessageTextContent,
   MessageThinkingContent,
+  SectionTypeEnum,
   SettaNotificationTypeEnum,
   StreamingEventTypeEnum,
   ToolArgumentPreviewDeltaEvent,
@@ -52,7 +55,7 @@ import {
   ToolChatMessage,
   ToolResultEvent,
 } from "utils/generatedTypes";
-import { extractAgenticScopeViolation } from "./agenticScopeViolation";
+import { extractAgenticScopeViolation } from "../agenticScopeViolation";
 import {
   clearInterruptedAssistantMessages,
   clearStopEligibleAssistantMessageId,
@@ -60,7 +63,7 @@ import {
   persistChatSectionState,
   setStopEligibleAssistantMessageId,
   updateChatDetails,
-} from "./ai/chatRuntime";
+} from "./chatRuntime";
 
 const scopeViolationToastTimeouts = new Map<
   string,

@@ -45,7 +45,7 @@ let useAIStore: typeof import("state/definitions").useAIStore;
 let useLocalStorage: typeof import("state/definitions").useLocalStorage;
 let submitMessage: typeof import("state/actions/ai/chatCommands").submitMessage;
 let getDefaultChatDetails: typeof import("state/actions/ai/chatRuntime").getDefaultChatDetails;
-let receiveLLMResponseChunk: typeof import("state/actions/ai").receiveLLMResponseChunk;
+let receiveLLMResponseChunk: typeof import("state/actions/ai/chatStreaming").receiveLLMResponseChunk;
 let memoryStorage: Storage;
 const DRAFT_SURFACE_ID = "submit-draft-surface";
 
@@ -75,10 +75,10 @@ describe("submitMessage", () => {
     useLocalStorage = definitions.useLocalStorage;
     const chatRuntime = await import("state/actions/ai/chatRuntime");
     const chatCommands = await import("state/actions/ai/chatCommands");
-    const ai = await import("state/actions/ai");
+    const chatStreaming = await import("state/actions/ai/chatStreaming");
     submitMessage = chatCommands.submitMessage;
     getDefaultChatDetails = chatRuntime.getDefaultChatDetails;
-    receiveLLMResponseChunk = ai.receiveLLMResponseChunk;
+    receiveLLMResponseChunk = chatStreaming.receiveLLMResponseChunk;
   });
 
   beforeEach(() => {
