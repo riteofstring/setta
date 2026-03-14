@@ -1,6 +1,0 @@
-endpointUtils frontend/src/components/App/AppRenderer.tsx buildBackendURL
-endpointUtils frontend/src/components/Section/Layouts/MetaControlArea.tsx post
-endpointUtils frontend/src/plugins/runtime.ts buildBackendURL
-endpointUtils frontend/src/utils/generatedEndpoints.ts get
-endpointUtils frontend/src/utils/generatedEndpoints.ts getBinary
-endpointUtils frontend/src/utils/generatedEndpoints.ts post
