@@ -8,6 +8,7 @@ import { route_launch } from "utils/generatedEndpoints";
 import { appendLauncherOriginToBootstrapUrlFragment } from "utils/launcherOrigin";
 import { buildLaunchRequestDedupeKey } from "utils/launchRequestDedupeKey";
 import { chooseWorkspaceHistorySettaFilesLocation } from "utils/settaFilesLocation";
+import type { LaunchErrorPayload } from "utils/generatedTypes";
 import {
   appendWorkspaceHistoryToBootstrapUrlFragment,
   loadWorkspaceHistory,
@@ -73,13 +74,7 @@ export function resolveWorkspaceLaunchReturnUrl(
 }
 
 export function resolveWorkspaceLaunchErrorMessage(
-  rawError:
-    | {
-        code: string | null | undefined;
-        message: string | null | undefined;
-      }
-    | null
-    | undefined,
+  rawError: LaunchErrorPayload | null | undefined,
 ): string {
   if (rawError?.code === OUTDATED_PROJECT_SETTINGS_ERROR_CODE) {
     return OUTDATED_PROJECT_SETTINGS_ERROR_MESSAGE;
