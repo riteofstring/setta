@@ -112,7 +112,11 @@ Current state:
 - Python still owns:
   - local dependency-graph rebuilding and generated runtime state for
     unresolved generated-value fallback and any computed dependency shapes the
-    current Go metadata payload still cannot render directly
+    current Go metadata payload still cannot render directly; in practice this
+    is now the callable/computed listener-value tail, and current repo
+    listener tests/callers do not show a concrete callable-section
+    listener-state dependency that would justify inventing a Go evaluator or
+    heuristic fallback
   - share listener entrypoints as an explicit retained Python authoring/loader
     boundary over the same Go listener protocol
   - dormant broader built-in listener endpoint inventory/docs outside the
@@ -129,6 +133,9 @@ trying to remove.
 - Do not keep `/pythonScript/{id}` as a long-lived compatibility boundary.
 - Do not add FFI, embedded Go, or subprocess RPC just so Python can call Go
   functions directly.
+- Do not add a Go evaluator or heuristic fallback for callable/computed
+  listener values without both a concrete current caller and an authoritative
+  source for those evaluated outputs.
 - Do not port dormant built-in listener endpoint inventory without a concrete
   current caller.
 - Do not keep temporary IDs unless a current caller proves they are still
@@ -297,6 +304,18 @@ Python/share listeners can bootstrap entirely against the Go listener route.
 
 Exit condition:
 listener tests pass without Python owning dependency graph or runtime state.
+
+Current stop point:
+
+- Active caller-backed listener transport, bootstrap, mutation authority, and
+  metadata-backed state/container behavior now run on the Go listener
+  protocol.
+- The remaining Step 3 tail is the retained generated-runtime fallback for
+  unresolved computed/callable listener values plus the retained share
+  authoring boundary.
+- Current repo listener tests/callers do not show a concrete callable-section
+  listener-state dependency, so there is no default follow-on port here until
+  Go has an authoritative evaluator or another source of those outputs.
 
 ### Step 4. Finish Active Endpoint Authority Without Recreating Dormant Surface
 
