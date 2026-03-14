@@ -50,15 +50,13 @@ import {
   openFileInSpreadsheetSection,
   openFileInTextSection,
 } from "state/actions/sections/createSections";
-import {
-  useBrowserSectionFileBrowserState,
-  useProjectState,
-} from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useShareCapabilities } from "state/hooks/share";
 import { useBrowserColumnWidth } from "state/hooks/useBrowserColumnWidth";
 import { useLocalPendingValue } from "state/hooks/utils";
+import { useBrowserSectionFileBrowserState } from "state/stores/fileBrowserStores";
 import { getAttachmentPreviewKind } from "utils/attachmentPreview";
 import { formatBytes } from "utils/attachments";
 import { resolvePathWithinRoot } from "utils/browserPaths";
@@ -86,7 +84,6 @@ import {
   BrowserAreaViewMode,
   BrowserAreaViewModeEnum,
   BrowserSavedSearch,
-  FileBrowserDownloadURLEntry,
   FolderContentItem,
   SectionTypeEnum,
   TextBlockDisplayModeEnum,
@@ -137,7 +134,10 @@ type OpenableBrowserItem = {
   type: string;
 };
 
-type FileUrlEntry = Pick<FileBrowserDownloadURLEntry, "url" | "expiresAt">;
+type FileUrlEntry = {
+  url: string;
+  expiresAt: number;
+};
 
 type FileTextPreview = {
   text: string;

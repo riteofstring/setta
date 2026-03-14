@@ -1,6 +1,7 @@
-import type { FolderContentItem } from "utils/generatedTypes";
-
-type WorkspaceRootEntry = Pick<FolderContentItem, "name" | "type">;
+type WorkspaceRootEntry = {
+  name: string;
+  type: string;
+};
 
 type WorkspacePythonSignalCacheEntry = {
   hasPython: boolean;
