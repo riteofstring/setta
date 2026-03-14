@@ -197,9 +197,9 @@ export function FileBrowserUniversalPreview({
           });
           return;
         }
-        const binaryResponse = await route_binary_download({
-          contentId: response.data.contentId,
-        });
+        const binaryResponse = await route_binary_download(
+          response.data.contentId,
+        );
         if (!isMounted || isStaleRequest()) {
           return;
         }
