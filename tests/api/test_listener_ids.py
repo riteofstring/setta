@@ -213,6 +213,33 @@ def test_listener_context_values_by_id_uses_cached_values_without_runtime_instan
     assert ctx.values.by_id(section_id, param_id) == "cached-value"
 
 
+def test_listener_context_values_by_id_fails_closed_without_cached_value() -> None:
+    project_state, section_id, param_id = build_project_state("8")
+    listener = SettaListener(project_name=project_state.projectConfig.name)
+
+    param_dep = dep_id(section_id, param_id)
+
+    @listener.listen(deps=[param_dep])
+    def on_param(_state, _ctx) -> None:
+        return None
+
+    runtime_state = listener._build_runtime_state(project_state)
+    listener._runtime_state = ListenerRuntimeState(
+        project_state=runtime_state.project_state,
+        dependency_graph=runtime_state.dependency_graph,
+        code_generator=runtime_state.code_generator,
+        s_instance=None,
+    )
+    listener._project_config_id = project_state.projectConfig.id
+
+    listener._refresh_callback_dependency_metadata(runtime_state.dependency_graph)
+    spec = next(iter(listener._callbacks.values()))
+    ctx = listener._build_callback_context(spec, {}, [])
+
+    with pytest.raises(RuntimeError, match="metadata-backed callback state"):
+        ctx.values.by_id(section_id, param_id)
+
+
 def test_metadata_backed_callback_state_fails_closed_for_unresolved_dependency() -> None:
     project_state, section_id, param_id = build_project_state("9")
     listener = SettaListener(project_name=project_state.projectConfig.name)

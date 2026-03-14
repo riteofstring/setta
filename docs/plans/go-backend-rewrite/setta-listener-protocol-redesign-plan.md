@@ -55,8 +55,9 @@ Current state:
     in `backend/setta/api/listener_endpoint_client.py` instead of the old
     Python route-introspection generator
   - authoritative cached dependency values now back
-    `ctx.values.by_id(...)` before the retained Python listener falls back to
-    the generated runtime instance
+    `ctx.values.by_id(...)`, and unresolved reads now fail through the same
+    metadata-backed callback-state path instead of depending on the generated
+    runtime instance
   - authoritative cached dependency values now survive snapshot refresh and
     realtime delta application even when the generated Python listener runtime
     instance is unavailable

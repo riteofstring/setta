@@ -2237,7 +2237,7 @@ class SettaListener:
         values = ListenerDependencyValues(
             dependency_graph_resolver=self._current_runtime_state_dependency_graph,
             value_resolver=self._current_dependency_value_by_name,
-            state_resolver=self._current_runtime_state_instance,
+            state_resolver=self._current_callback_state,
         )
         return ListenerCallbackContext(
             changed=changed,
@@ -2259,11 +2259,11 @@ class SettaListener:
             return None
         return runtime_state.dependency_graph
 
-    def _current_runtime_state_instance(self) -> Any:
+    def _current_callback_state(self) -> Any:
         runtime_state = self._runtime_state
         if runtime_state is None:
             return None
-        return runtime_state.s_instance
+        return self._build_callback_state(runtime_state)
 
     def _current_dependency_value_by_name(self, dependency_name: str) -> Any:
         return self._dependency_cache.get(dependency_name, _MISSING)
