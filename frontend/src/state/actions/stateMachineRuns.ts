@@ -7,6 +7,7 @@ import {
 } from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
+  route_get_state_machine_run,
   route_reset_state_machine,
   route_start_state_machine_run,
   route_stop_state_machine_run,
@@ -33,6 +34,7 @@ const RUNNING_MACHINE_STATUSES = new Set<AgentRunStatusEnum>([
 
 let stateMachineRunPollSubscriberCount = 0;
 let stateMachineRunPollIntervalId: number | null = null;
+let stateMachineRunPollPromise: Promise<void> | null = null;
 let unsubscribeAgentRunPollingStore: (() => void) | null = null;
 let unsubscribeProjectConfigPollingStore: (() => void) | null = null;
 let visibilityChangeHandlerAttached = false;
@@ -109,6 +111,100 @@ function hasRunningStateMachineRunsForProject(
     .some((run) => RUNNING_MACHINE_STATUSES.has(run.status));
 }
 
+function getRunningStateMachineMachineGroupIds(
+  runs: AgentRun[],
+  projectConfigId: string,
+): string[] {
+  const machineGroupIds = new Set<string>();
+  for (const run of filterRunsByProjectConfigId(runs, projectConfigId)) {
+    if (!isStateMachineRun(run) || isStateMachineRunCleared(run)) {
+      continue;
+    }
+    if (!RUNNING_MACHINE_STATUSES.has(run.status)) {
+      continue;
+    }
+    const machineGroupId = getRunInputString(run, "machineGroupId");
+    if (machineGroupId === "") {
+      continue;
+    }
+    machineGroupIds.add(machineGroupId);
+  }
+  return [...machineGroupIds];
+}
+
+function mergeRefreshedStateMachineRun(updatedRun: AgentRun): void {
+  useAIStore.setState((state) => {
+    const existingIndex = state.agentRuns.findIndex(
+      (candidate) => candidate.id === updatedRun.id,
+    );
+    if (existingIndex === -1) {
+      return {
+        agentRuns: [updatedRun, ...state.agentRuns],
+      };
+    }
+    const nextRuns = state.agentRuns.slice();
+    nextRuns[existingIndex] = updatedRun;
+    return {
+      agentRuns: nextRuns,
+    };
+  });
+}
+
+async function refreshRunningStateMachineRunsForProject(
+  projectConfigId: string,
+): Promise<void> {
+  const machineGroupIds = getRunningStateMachineMachineGroupIds(
+    useAIStore.getState().agentRuns,
+    projectConfigId,
+  );
+  if (machineGroupIds.length === 0) {
+    return;
+  }
+  const refreshResponses = await Promise.all(
+    machineGroupIds.map(async (machineGroupId) => {
+      const res = await route_get_state_machine_run({
+        projectConfigId,
+        machineGroupId,
+      });
+      return { machineGroupId, res };
+    }),
+  );
+  for (const { machineGroupId, res } of refreshResponses) {
+    logWorkflowDebug("workflow run refresh response", {
+      projectConfigId,
+      machineGroupId,
+      status: res.status,
+      hasResponse: res.hasResponse,
+      ok: res200(res),
+      errorDetail: res200(res) ? null : getErrorDetail(res.data),
+    });
+    if (!res200(res)) {
+      continue;
+    }
+    mergeRefreshedStateMachineRun(res.data);
+  }
+}
+
+async function pollRunningStateMachineRunsForCurrentProject(): Promise<void> {
+  const projectConfigId = useProjectState.getState().projectConfig.id;
+  if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
+    return;
+  }
+  await loadAgentRuns();
+  await refreshRunningStateMachineRunsForProject(projectConfigId);
+}
+
+function requestStateMachineRunPoll(): void {
+  if (stateMachineRunPollPromise !== null) {
+    return;
+  }
+  stateMachineRunPollPromise = (async () => {
+    await pollRunningStateMachineRunsForCurrentProject();
+  })().finally(() => {
+    stateMachineRunPollPromise = null;
+  });
+}
+
 export function resolveStateMachineRunPollIntervalMs({
   hasLoadError,
   hasRunningRuns,
@@ -146,7 +242,7 @@ function syncStateMachineRunPollingInterval(): void {
     ),
   });
   stateMachineRunPollIntervalId = window.setInterval(() => {
-    void loadAgentRuns();
+    requestStateMachineRunPoll();
   }, intervalMs);
 }
 
@@ -158,7 +254,7 @@ function handleStateMachineRunPollingVisibilityChange(): void {
     clearStateMachineRunPollingInterval();
     return;
   }
-  void loadAgentRuns();
+  requestStateMachineRunPoll();
   syncStateMachineRunPollingInterval();
 }
 
@@ -217,7 +313,7 @@ export function subscribeStateMachineRunPolling(): () => void {
   stateMachineRunPollSubscriberCount += 1;
   if (stateMachineRunPollSubscriberCount === 1) {
     attachStateMachineRunPollingInfrastructure();
-    void loadAgentRuns();
+    requestStateMachineRunPoll();
     syncStateMachineRunPollingInterval();
   }
   return () => {
@@ -294,7 +390,7 @@ async function runStateMachineMutation({
     );
     return false;
   }
-  await loadAgentRuns();
+  await pollRunningStateMachineRunsForCurrentProject();
   return true;
 }
 
