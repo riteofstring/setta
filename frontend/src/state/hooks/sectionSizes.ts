@@ -15,10 +15,10 @@ import {
 import {
   useProjectState,
   useResizeEvent,
+  useSettings,
+  useTemporaryMiscState,
   ZustandProjectState,
 } from "state/definitions";
-import { useTemporaryMiscState } from "state/stores/layoutInteractionStores";
-import { useSettings } from "state/stores/uiPreferenceStores";
 import {
   getKwargsControlsHeightKey,
   getParamsFixedHeightKey,

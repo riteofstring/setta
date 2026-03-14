@@ -1,26 +1,22 @@
-import { useLocalStorage } from "state/stores/uiPreferenceStores";
+import { useLocalStorage } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  canUndoLastProjectChatThreadStorageMutation,
+  clearProjectChatThreadStorageUndoStackForTests,
   createProjectChatThreadGroup,
+  deleteProjectChatThread,
   deleteProjectChatThreadGroup,
+  markProjectChatThreadViewed,
   renameProjectChatThreadGroup,
   reorderProjectChatThreadGroups,
+  reorderProjectChatThreads,
   setProjectChatThreadGroupAssignment,
   toggleProjectChatThreadGroupCollapsed,
   toggleProjectChatThreadGroupPinned,
-} from "./projectChatThreadGroupMutations";
-import {
-  deleteProjectChatThread,
-  markProjectChatThreadViewed,
-  reorderProjectChatThreads,
   toggleProjectChatThreadPinned,
-} from "./projectChatThreadMutations";
-import {
-  canUndoLastProjectChatThreadStorageMutation,
-  clearProjectChatThreadStorageUndoStackForTests,
   undoLastProjectChatThreadStorageMutation,
-} from "./projectChatThreadStorageUndo";
+} from "./projectChatThreads";
 
 describe("project chat thread storage helpers", () => {
   beforeEach(() => {

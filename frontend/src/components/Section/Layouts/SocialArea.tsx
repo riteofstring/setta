@@ -4,13 +4,16 @@ import React, { useState } from "react";
 import { Tweet } from "react-tweet";
 import YouTube from "react-youtube";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
-import { useProjectState, useResizeEvent } from "state/definitions";
+import {
+  useLocalStorage,
+  useProjectState,
+  useResizeEvent,
+} from "state/definitions";
 import {
   useTwitterSectionSize,
   useYouTubeSectionSize,
 } from "state/hooks/sectionSizes";
 import { linkIsTwitter, linkIsYouTube } from "state/hooks/social";
-import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
 function _SocialArea({ sectionId }) {
