@@ -167,6 +167,13 @@ type ManagedAzureChatProviderServer = {
   close: () => Promise<void>;
 };
 
+type ManagedAzureAbortableChatProviderServer = {
+  origin: string;
+  requests: ManagedAzureChatProviderRequest[];
+  abortedRequestCount: number;
+  close: () => Promise<void>;
+};
+
 test.describe.serial("chat composer controls", () => {
   test("chat sections keep a compact composer with no inline settings controls", async ({
     page,
@@ -3509,6 +3516,242 @@ test.describe.serial("chat composer controls", () => {
     }
   });
 
+  test("project chat stops a managed Azure OpenAI response through the Go runtime", async ({
+    page,
+  }) => {
+    await setOverviewTab(page, "ProjectAIChat");
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const engineCleanup = await ensureManagedChatEngine(page);
+    const backendOrigin =
+      process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+
+    let createdEngineConfigId: string | null = null;
+    let initialLLMConfig: LLMConfigPayload | null = null;
+    let initialAPIKeysSnapshot: ManagedAPIKeysSnapshot | null = null;
+    let latestAPIKeysSnapshot: ManagedAPIKeysSnapshot | null = null;
+    let submittedPayload:
+      | {
+          thinking?: boolean;
+          engineConfigId?: string;
+        }
+      | undefined;
+    let submittedChatId: string | null = null;
+    let stopOutcome:
+      | {
+          alreadyStopped?: boolean;
+          stoppedRunId?: string | null;
+          stoppedMessageId?: string | null;
+        }
+      | undefined;
+    const providerServer = await startManagedAzureOpenAIAbortableServer();
+
+    await page.route("**/api/getLLMResponse", async (route) => {
+      submittedPayload = route.request().postDataJSON() as
+        | {
+            thinking?: boolean;
+            engineConfigId?: string;
+          }
+        | undefined;
+      const response = await route.fetch();
+      const body = await response.body();
+      submittedChatId = JSON.parse(body.toString("utf8")) as string;
+      await route.fulfill({ response, body });
+    });
+
+    await page.route("**/api/stopLLMChat", async (route) => {
+      const response = await route.fetch();
+      const body = await response.body();
+      stopOutcome = JSON.parse(body.toString("utf8")) as
+        | {
+            alreadyStopped?: boolean;
+            stoppedRunId?: string | null;
+            stoppedMessageId?: string | null;
+          }
+        | undefined;
+      await route.fulfill({ response, body });
+    });
+
+    try {
+      const llmConfigResponse = await page.request.get(
+        `${backendOrigin}/api/llm/config`,
+      );
+      expect(llmConfigResponse.ok()).toBe(true);
+      initialLLMConfig = (await llmConfigResponse.json()) as LLMConfigPayload;
+
+      const apiKeysResponse = await page.request.get(
+        `${backendOrigin}/api/llm/apiKeys`,
+      );
+      expect(apiKeysResponse.ok()).toBe(true);
+      initialAPIKeysSnapshot =
+        (await apiKeysResponse.json()) as ManagedAPIKeysSnapshot;
+      latestAPIKeysSnapshot = initialAPIKeysSnapshot;
+
+      const azureConfigId = `e2e-azure-stop-${Date.now()}`;
+      const updatedLLMConfig: LLMConfigPayload = {
+        ...initialLLMConfig,
+        configs: {
+          ...initialLLMConfig.configs,
+          [azureConfigId]: {
+            model: "gpt-4o-mini",
+            provider: "azure",
+            api_key_env: "AZURE_OPENAI_API_KEY",
+            base_url: providerServer.origin,
+            other_params: {
+              api_version: "2024-06-01",
+              temperature: 0.2,
+            },
+          },
+        },
+      };
+      await postBackend(page, "/llm/config", updatedLLMConfig);
+      latestAPIKeysSnapshot = await postManagedAPIKeys(page, {
+        apiKeys: {
+          ...initialAPIKeysSnapshot.apiKeys,
+          AZURE_OPENAI_API_KEY: "e2e-azure-stop-secret",
+        },
+        expectedRevision: initialAPIKeysSnapshot.revision,
+      });
+
+      const createdEngine = await postBackend<EngineConfigSummary>(
+        page,
+        "/createEngineConfig",
+        {
+          name: "Azure Stop E2E",
+          engineType: "setta_llm",
+          settaLlmConfigId: azureConfigId,
+          defaults: {},
+        },
+      );
+      createdEngineConfigId = createdEngine?.id ?? null;
+      if (!createdEngineConfigId) {
+        throw new Error("Missing Azure stop engine config id.");
+      }
+
+      await page.evaluate(async () => {
+        const { loadEngineConfigs, loadLLMApiKeys, loadLLMConfig } =
+          await import("/src/state/actions/ai.ts");
+        await loadLLMConfig();
+        await loadLLMApiKeys();
+        await loadEngineConfigs(true);
+      });
+
+      await setOverviewTab(page, "ProjectAIChat");
+      const overviewPane = page.locator("#OverviewPane");
+      await expect(
+        overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+      ).toBeVisible();
+
+      const projectChatSurface = await getVisibleProjectChatSurface(page);
+      await selectProjectAiEngine(page, "Azure Stop E2E");
+      await expect(
+        projectChatSurface.getByRole("button", { name: "Thinking" }),
+      ).toHaveCount(0);
+
+      const input = projectChatSurface.getByPlaceholder("Type a message...");
+      await expect(input).toBeVisible();
+      await input.fill("Stop this managed response.");
+      await input.press("Enter");
+
+      await expect
+        .poll(() => submittedPayload?.engineConfigId ?? null)
+        .toBe(createdEngineConfigId);
+      expect(submittedPayload?.thinking).toBe(false);
+      await expect.poll(() => providerServer.requests.length).toBe(1);
+      await expect(projectChatSurface.getByText("Streaming")).toBeVisible();
+
+      const stopButton = projectChatSurface.getByRole("button", {
+        name: "Stop response",
+      });
+      await expect(stopButton).toBeVisible();
+      await stopButton.click();
+
+      await expect
+        .poll(() => stopOutcome?.alreadyStopped ?? null)
+        .toBe(false);
+      expect(stopOutcome?.stoppedRunId).toBeTruthy();
+      expect(stopOutcome?.stoppedMessageId).toBeTruthy();
+      await expect.poll(() => providerServer.abortedRequestCount).toBe(1);
+
+      await expect
+        .poll(async () => {
+          if (!submittedChatId) {
+            return null;
+          }
+          const response = await page.request.post(
+            `${backendOrigin}/api/getLLMChat`,
+            {
+              data: {
+                chatId: submittedChatId,
+                projectConfigId: projectContext.projectConfigId,
+              },
+            },
+          );
+          expect(response.ok()).toBe(true);
+          const payload = (await response.json()) as {
+            messages: Array<Record<string, unknown>>;
+            waitingForResponse: boolean;
+          };
+          return {
+            waitingForResponse: payload.waitingForResponse,
+            messageCount: payload.messages.length,
+            includesStreamingText: JSON.stringify(payload.messages).includes(
+              "Streaming",
+            ),
+          };
+        })
+        .toEqual({
+          waitingForResponse: false,
+          messageCount: 2,
+          includesStreamingText: true,
+        });
+
+      const providerRequest = providerServer.requests[0];
+      expect(providerRequest?.path).toBe(
+        "/openai/deployments/gpt-4o-mini/chat/completions",
+      );
+      expect(providerRequest?.query).toBe("api-version=2024-06-01");
+      expect(providerRequest?.apiKey).toBe("e2e-azure-stop-secret");
+      expect(providerRequest?.authorization).toBe("");
+      expect(providerRequest?.body.model).toBe("gpt-4o-mini");
+      expect(JSON.stringify(providerRequest?.body.messages ?? null)).toContain(
+        "Stop this managed response.",
+      );
+    } finally {
+      try {
+        await setOverviewTab(page, "ProjectAIChat");
+        await selectProjectAiEngine(page, "setta");
+      } catch {
+        // Best-effort teardown: if the test already failed, don't block cleanup.
+      }
+      if (createdEngineConfigId) {
+        await page.request
+          .post(`${backendOrigin}/api/deleteEngineConfig`, {
+            data: { configId: createdEngineConfigId },
+            timeout: 5000,
+          })
+          .catch(() => {});
+      }
+      if (initialLLMConfig) {
+        await page.request
+          .post(`${backendOrigin}/api/llm/config`, {
+            data: initialLLMConfig,
+            timeout: 5000,
+          })
+          .catch(() => {});
+      }
+      if (initialAPIKeysSnapshot && latestAPIKeysSnapshot) {
+        await postManagedAPIKeys(page, {
+          apiKeys: initialAPIKeysSnapshot.apiKeys,
+          expectedRevision: latestAPIKeysSnapshot.revision,
+        }).catch(() => {});
+      }
+      await providerServer.close();
+      await engineCleanup();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("project chat rolls back optimistic drafts when a managed provider is unsupported", async ({
     page,
   }) => {
@@ -6317,6 +6560,93 @@ async function startManagedAzureOpenAIChatServer(): Promise<ManagedAzureChatProv
       resolve({
         origin: `http://127.0.0.1:${address.port}`,
         requests,
+        close: async () =>
+          await new Promise<void>((closeResolve, closeReject) => {
+            server.close((error) => {
+              if (error) {
+                closeReject(error);
+                return;
+              }
+              closeResolve();
+            });
+          }),
+      });
+    });
+  });
+}
+
+async function startManagedAzureOpenAIAbortableServer(): Promise<ManagedAzureAbortableChatProviderServer> {
+  const requests: ManagedAzureChatProviderRequest[] = [];
+  let abortedRequestCount = 0;
+  return await new Promise((resolve, reject) => {
+    const server = http.createServer((request, response) => {
+      const chunks: string[] = [];
+      request.setEncoding("utf8");
+      request.on("data", (chunk: string) => {
+        chunks.push(chunk);
+      });
+      request.on("end", () => {
+        try {
+          const rawBody = chunks.join("");
+          const body = rawBody
+            ? (JSON.parse(rawBody) as Record<string, unknown>)
+            : {};
+          const parsedURL = new URL(request.url ?? "/", "http://127.0.0.1");
+          requests.push({
+            path: parsedURL.pathname,
+            query: parsedURL.searchParams.toString(),
+            apiKey: Array.isArray(request.headers["api-key"])
+              ? request.headers["api-key"].join(", ")
+              : request.headers["api-key"] ?? "",
+            authorization: Array.isArray(request.headers.authorization)
+              ? request.headers.authorization.join(", ")
+              : request.headers.authorization ?? "",
+            body,
+          });
+        } catch (error) {
+          response.statusCode = 400;
+          response.end(String(error));
+          return;
+        }
+
+        let aborted = false;
+        const markAborted = () => {
+          if (aborted) {
+            return;
+          }
+          aborted = true;
+          abortedRequestCount += 1;
+        };
+
+        request.once("aborted", markAborted);
+        response.once("close", () => {
+          if (!response.writableEnded) {
+            markAborted();
+          }
+        });
+
+        response.statusCode = 200;
+        response.setHeader("content-type", "text/event-stream");
+        response.write(
+          'data: {"choices":[{"index":0,"delta":{"content":"Streaming"}}]}\n\n',
+        );
+      });
+    });
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close(() =>
+          reject(new Error("Unable to allocate Azure abortable test port.")),
+        );
+        return;
+      }
+      resolve({
+        origin: `http://127.0.0.1:${address.port}`,
+        requests,
+        get abortedRequestCount() {
+          return abortedRequestCount;
+        },
         close: async () =>
           await new Promise<void>((closeResolve, closeReject) => {
             server.close((error) => {
