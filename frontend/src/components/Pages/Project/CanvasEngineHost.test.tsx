@@ -1151,6 +1151,270 @@ describe("CanvasEngineHost", () => {
     expect(engineHost.dataset.canvasEngineHoveredEdgeId).toBe("edge-data-1");
   });
 
+  it("publishes cached nested data handles into the shared registry after nested dom nodes disappear", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-12T12:00:00Z"));
+
+    seedNestedSectionsWithDataEdge();
+    useProjectState.setState((state) => {
+      state.projectConfig.sectionVariantMap["child-c"] = "variant-child-c";
+      state.parentSectionMap["child-c"] = "group-a";
+      state.sections["child-c"] = createCore({ id: "child-c" });
+      state.sectionVariants["variant-child-c"] = createVariant({
+        id: "variant-child-c",
+        impl: "impl-child-c",
+        nonPresetImpls: [],
+      });
+      state.sectionImpls["impl-child-c"] = createCallableSectionImpl(
+        createUserDefaultCallableSectionImpl(),
+        {
+          id: "impl-child-c",
+          edgeInputParams: ["in-c"],
+          edgeOutputPorts: [],
+        },
+      );
+    });
+    useEdgeHandleRegistry.setState((state) => {
+      state.positions[makeEdgeHandleKey("child-c", "in-c", "target")] = {
+        sectionId: "child-c",
+        portId: "in-c",
+        type: "target",
+        side: "left",
+        x: 320,
+        y: 220,
+      };
+    });
+
+    await act(async () => {
+      root.render(<CanvasEngineHost />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const engineHost = host.querySelector(
+      '[data-canvas-engine-host="v1"]',
+    ) as HTMLDivElement | null;
+    if (!engineHost) {
+      throw new Error("Canvas engine host failed to render.");
+    }
+    setEngineHostBounds(engineHost);
+
+    const domIsland = host.querySelector(
+      '[data-canvas-engine-dom-island="group-a"]',
+    ) as HTMLDivElement | null;
+    if (!domIsland) {
+      throw new Error("Missing DOM island for group-a.");
+    }
+    setElementBounds(domIsland, { x: 80, y: 60, width: 320, height: 220 });
+
+    const sourceSection = document.createElement("section");
+    sourceSection.setAttribute("data-section-id", "child-a");
+    setElementBounds(sourceSection, { x: 120, y: 96, width: 180, height: 88 });
+    domIsland.appendChild(sourceSection);
+
+    const targetSection = document.createElement("section");
+    targetSection.setAttribute("data-section-id", "child-b");
+    setElementBounds(targetSection, { x: 320, y: 96, width: 180, height: 88 });
+    domIsland.appendChild(targetSection);
+
+    const reconnectTargetSection = document.createElement("section");
+    reconnectTargetSection.setAttribute("data-section-id", "child-c");
+    setElementBounds(reconnectTargetSection, {
+      x: 320,
+      y: 176,
+      width: 180,
+      height: 88,
+    });
+    domIsland.appendChild(reconnectTargetSection);
+
+    await dispatchWheelEvent(engineHost, {
+      clientX: 320,
+      clientY: 180,
+      ctrlKey: true,
+      deltaY: -48,
+    });
+
+    for (let index = 0; index < 32; index += 1) {
+      if (readEngineHostCamera(engineHost).zoom <= 0.11) {
+        break;
+      }
+      await dispatchWheelEvent(engineHost, {
+        clientX: 320,
+        clientY: 180,
+        ctrlKey: true,
+        deltaY: 120,
+      });
+    }
+
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+
+    expect(engineHost.dataset.canvasEngineDomIslandMountedCount).toBe("0");
+    expect(
+      Object.keys(useEdgeHandleRegistry.getState().cachedPositions).sort(),
+    ).toEqual([
+      makeEdgeHandleKey("child-a", "out-a", "source"),
+      makeEdgeHandleKey("child-b", "in-b", "target"),
+      makeEdgeHandleKey("child-c", "in-c", "target"),
+    ]);
+  });
+
+  it("keeps cached nested reconnect targets valid after nested dom nodes disappear", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-12T12:00:00Z"));
+
+    seedNestedSectionsWithDataEdge();
+    useProjectState.setState((state) => {
+      state.projectConfig.sectionVariantMap["child-c"] = "variant-child-c";
+      state.parentSectionMap["child-c"] = "group-a";
+      state.sections["child-c"] = createCore({ id: "child-c" });
+      state.sectionVariants["variant-child-c"] = createVariant({
+        id: "variant-child-c",
+        impl: "impl-child-c",
+        nonPresetImpls: [],
+      });
+      state.sectionImpls["impl-child-c"] = createCallableSectionImpl(
+        createUserDefaultCallableSectionImpl(),
+        {
+          id: "impl-child-c",
+          edgeInputParams: ["in-c"],
+          edgeOutputPorts: [],
+        },
+      );
+    });
+    useEdgeHandleRegistry.setState((state) => {
+      state.positions[makeEdgeHandleKey("child-c", "in-c", "target")] = {
+        sectionId: "child-c",
+        portId: "in-c",
+        type: "target",
+        side: "left",
+        x: 320,
+        y: 220,
+      };
+    });
+
+    await act(async () => {
+      root.render(<CanvasEngineHost />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const engineHost = host.querySelector(
+      '[data-canvas-engine-host="v1"]',
+    ) as HTMLDivElement | null;
+    if (!engineHost) {
+      throw new Error("Canvas engine host failed to render.");
+    }
+    setEngineHostBounds(engineHost);
+
+    const domIsland = host.querySelector(
+      '[data-canvas-engine-dom-island="group-a"]',
+    ) as HTMLDivElement | null;
+    if (!domIsland) {
+      throw new Error("Missing DOM island for group-a.");
+    }
+    setElementBounds(domIsland, { x: 80, y: 60, width: 380, height: 320 });
+
+    const sourceSection = document.createElement("section");
+    sourceSection.setAttribute("data-section-id", "child-a");
+    setElementBounds(sourceSection, { x: 120, y: 96, width: 180, height: 88 });
+    domIsland.appendChild(sourceSection);
+
+    const firstTargetSection = document.createElement("section");
+    firstTargetSection.setAttribute("data-section-id", "child-b");
+    setElementBounds(firstTargetSection, {
+      x: 320,
+      y: 96,
+      width: 180,
+      height: 88,
+    });
+    domIsland.appendChild(firstTargetSection);
+
+    const secondTargetSection = document.createElement("section");
+    secondTargetSection.setAttribute("data-section-id", "child-c");
+    setElementBounds(secondTargetSection, {
+      x: 320,
+      y: 176,
+      width: 180,
+      height: 88,
+    });
+    domIsland.appendChild(secondTargetSection);
+
+    await dispatchWheelEvent(engineHost, {
+      clientX: 320,
+      clientY: 180,
+      ctrlKey: true,
+      deltaY: -48,
+    });
+
+    for (let index = 0; index < 32; index += 1) {
+      if (readEngineHostCamera(engineHost).zoom <= 0.11) {
+        break;
+      }
+      await dispatchWheelEvent(engineHost, {
+        clientX: 320,
+        clientY: 180,
+        ctrlKey: true,
+        deltaY: 120,
+      });
+    }
+
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+
+    expect(engineHost.dataset.canvasEngineDomIslandMountedCount).toBe("0");
+    expect(
+      Object.keys(useEdgeHandleRegistry.getState().cachedPositions).sort(),
+    ).toEqual([
+      makeEdgeHandleKey("child-a", "out-a", "source"),
+      makeEdgeHandleKey("child-b", "in-b", "target"),
+      makeEdgeHandleKey("child-c", "in-c", "target"),
+    ]);
+
+    const camera = readEngineHostCamera(engineHost);
+    const reconnectStartHandle =
+      useEdgeHandleRegistry.getState().cachedPositions[
+        makeEdgeHandleKey("child-b", "in-b", "target")
+      ];
+    const reconnectTargetHandle =
+      useEdgeHandleRegistry.getState().cachedPositions[
+        makeEdgeHandleKey("child-c", "in-c", "target")
+      ];
+    if (!reconnectStartHandle || !reconnectTargetHandle) {
+      throw new Error("Missing cached reconnect handles.");
+    }
+
+    await dispatchPointerEvent(engineHost, "pointerdown", {
+      button: 0,
+      clientX: (reconnectStartHandle.x - camera.x) * camera.zoom,
+      clientY: (reconnectStartHandle.y - camera.y) * camera.zoom,
+      pointerId: 1,
+    });
+    await dispatchPointerEvent(engineHost, "pointermove", {
+      button: 0,
+      clientX: (reconnectTargetHandle.x - camera.x) * camera.zoom,
+      clientY: (reconnectTargetHandle.y - camera.y) * camera.zoom,
+      pointerId: 1,
+    });
+
+    expect(engineHost.dataset.canvasEngineConnectionPreviewActive).toBe("true");
+    expect(engineHost.dataset.canvasEngineConnectionPreviewKind).toBe(
+      "data-reconnect",
+    );
+    expect(engineHost.dataset.canvasEngineConnectionPreviewValid).toBe("true");
+    expect(
+      engineHost.dataset.canvasEngineConnectionPreviewHasTargetHandle,
+    ).toBe("true");
+  });
+
   it("selects a cached nested preview after nested dom nodes disappear", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-03-12T12:00:00Z"));

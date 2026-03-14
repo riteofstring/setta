@@ -5,6 +5,7 @@ import {
 import {
   areEdgeHandlePositionMapsEqual,
   buildConnectedDataEdgeHandleKeys,
+  pickEdgeHandlePositionsBySectionIds,
   pickEdgeHandlePositionsByKeys,
 } from "canvas-engine/edgeHandlePositionSelectors";
 import { collectCanvasEngineNestedDataHandlePositions } from "canvas-engine/nestedDataHandleBridge";
@@ -330,6 +331,15 @@ export function CanvasEngineHost() {
   const snapGrid = useSettings((state) => state.gui.snapGrid);
   const snapToGrid = useLocalStorage((state) => state.snapToGrid);
   const { canEditStructure } = useShareCapabilities();
+  const [nestedPreviewRects, setNestedPreviewRects] = useState<
+    CanvasEngineNestedPreviewRect[]
+  >([]);
+  const [cachedNestedDataHandlePositions, setCachedNestedDataHandlePositions] =
+    useState<Record<string, CanvasEngineEdgeHandlePosition>>({});
+  const visibleNestedPreviewSectionIds = useMemo(
+    () => nestedPreviewRects.map((rect) => rect.id),
+    [nestedPreviewRects],
+  );
   const connectedDataEdgeHandleKeys = useMemo(
     () => buildConnectedDataEdgeHandleKeys(dataEdges),
     [dataEdges],
@@ -342,6 +352,17 @@ export function CanvasEngineHost() {
           connectedDataEdgeHandleKeys,
         ),
       [connectedDataEdgeHandleKeys],
+    ),
+    areEdgeHandlePositionMapsEqual,
+  );
+  const visibleNestedEdgeHandlePositions = useEdgeHandleRegistry(
+    useCallback(
+      (state) =>
+        pickEdgeHandlePositionsBySectionIds(
+          state.positions,
+          visibleNestedPreviewSectionIds,
+        ),
+      [visibleNestedPreviewSectionIds],
     ),
     areEdgeHandlePositionMapsEqual,
   );
@@ -397,11 +418,6 @@ export function CanvasEngineHost() {
     useState<CanvasEngineHoveredEdge | null>(null);
   const [selectionRect, setSelectionRect] =
     useState<CanvasEngineSelectionRect | null>(null);
-  const [nestedPreviewRects, setNestedPreviewRects] = useState<
-    CanvasEngineNestedPreviewRect[]
-  >([]);
-  const [cachedNestedDataHandlePositions, setCachedNestedDataHandlePositions] =
-    useState<Record<string, CanvasEngineEdgeHandlePosition>>({});
 
   const selectedTopLevelSectionIds = useMemo(
     () =>
@@ -499,7 +515,7 @@ export function CanvasEngineHost() {
   useEffect(() => {
     setCachedNestedDataHandlePositions((currentCachedPositions) => {
       const nextCachedPositions = collectCanvasEngineNestedDataHandlePositions({
-        liveEdgeHandlePositions: edgeHandlePositions,
+        liveEdgeHandlePositions: visibleNestedEdgeHandlePositions,
         knownTopLevelSectionIds: Object.keys(topLevelSections),
         nestedPreviewRects,
         previousCachedPositions: currentCachedPositions,
@@ -514,7 +530,23 @@ export function CanvasEngineHost() {
       }
       return nextCachedPositions;
     });
-  }, [edgeHandlePositions, nestedPreviewRects, topLevelSections]);
+  }, [nestedPreviewRects, topLevelSections, visibleNestedEdgeHandlePositions]);
+
+  useEffect(() => {
+    const currentCachedPositions = useEdgeHandleRegistry.getState()
+      .cachedPositions;
+    if (
+      areEdgeHandlePositionMapsEqual(
+        currentCachedPositions,
+        cachedNestedDataHandlePositions,
+      )
+    ) {
+      return;
+    }
+    useEdgeHandleRegistry.setState((state) => {
+      state.cachedPositions = cachedNestedDataHandlePositions;
+    });
+  }, [cachedNestedDataHandlePositions]);
 
   const mergedDataEdgeHandlePositions = useMemo(
     () => ({
@@ -739,6 +771,20 @@ export function CanvasEngineHost() {
       }
       useReactFlow.setState({
         canvasEngineNestedPreviewRects: [],
+      });
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (
+        Object.keys(useEdgeHandleRegistry.getState().cachedPositions).length ===
+        0
+      ) {
+        return;
+      }
+      useEdgeHandleRegistry.setState((state) => {
+        state.cachedPositions = {};
       });
     };
   }, []);

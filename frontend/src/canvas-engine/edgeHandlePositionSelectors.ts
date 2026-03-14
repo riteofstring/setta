@@ -59,6 +59,25 @@ export function pickEdgeHandlePositionsByKeys(
   return picked;
 }
 
+export function pickEdgeHandlePositionsBySectionIds(
+  positions: Record<string, CanvasEngineEdgeHandlePosition>,
+  sectionIds: string[],
+): Record<string, CanvasEngineEdgeHandlePosition> {
+  if (sectionIds.length === 0) {
+    return {};
+  }
+
+  const sectionIdSet = new Set(sectionIds);
+  const picked: Record<string, CanvasEngineEdgeHandlePosition> = {};
+  for (const [key, position] of Object.entries(positions)) {
+    if (!sectionIdSet.has(position.sectionId)) {
+      continue;
+    }
+    picked[key] = position;
+  }
+  return picked;
+}
+
 export function areEdgeHandlePositionMapsEqual(
   left: Record<string, CanvasEngineEdgeHandlePosition>,
   right: Record<string, CanvasEngineEdgeHandlePosition>,
