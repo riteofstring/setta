@@ -283,6 +283,7 @@ describe("generatedEndpoints launcher recent-workspaces", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       `${C_ADDRESSES.LAUNCHER}/launcherRecentWorkspaces?setta_home=%2Ftmp%2Flauncher-home`,
     );
+    expect(fetchMock.mock.calls[0]?.[1]).not.toHaveProperty("body");
   });
 
   it("omits setta_home query parameter when null", async () => {
@@ -294,6 +295,7 @@ describe("generatedEndpoints launcher recent-workspaces", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       `${C_ADDRESSES.LAUNCHER}/launcherRecentWorkspaces`,
     );
+    expect(fetchMock.mock.calls[0]?.[1]).not.toHaveProperty("body");
   });
 });
 
@@ -336,6 +338,7 @@ describe("generatedEndpoints launcher status", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       "http://backend.example/api/launcherStatus?setta_home=%2Ftmp%2Flauncher-home",
     );
+    expect(fetchMock.mock.calls[0]?.[1]).not.toHaveProperty("body");
   });
 
   it("omits setta_home query and still uses backend origin when null", async () => {
@@ -355,6 +358,7 @@ describe("generatedEndpoints launcher status", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       "http://backend.example/api/launcherStatus",
     );
+    expect(fetchMock.mock.calls[0]?.[1]).not.toHaveProperty("body");
   });
 });
 
@@ -4701,6 +4705,7 @@ describe("generatedEndpoints file-browser helpers", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       `${C_ADDRESSES.BACKEND}/fileBrowser/download-token-1`,
     );
+    expect(fetchMock.mock.calls[0]?.[1]).not.toHaveProperty("body");
     expect(response.status).toBe(200);
     expect(Array.from(response.data ?? [])).toEqual([4, 5, 6]);
   });
