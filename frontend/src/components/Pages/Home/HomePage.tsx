@@ -33,13 +33,15 @@ import {
   useCreateAndGoToProjectConfig,
 } from "state/actions/project/loadProject";
 import {
-  useAllProjectMetadata,
   useHomeFileBrowserState,
   useHomePageSearch,
   useLocalStorage,
   useProjectLoading,
-  useShareSession,
 } from "state/definitions";
+import {
+  useAllProjectMetadata,
+  useShareSession,
+} from "state/stores/sessionStores";
 import { useWindowSize } from "state/hooks/utils";
 import {
   APP_CHROME_Z_INDEX_CLASS_NAME,

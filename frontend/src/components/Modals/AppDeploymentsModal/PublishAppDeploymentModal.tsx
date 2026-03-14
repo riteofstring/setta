@@ -9,11 +9,8 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { closeModal } from "state/actions/modal";
 import { addTemporaryNotification } from "state/actions/notifications";
-import {
-  NULL_PROJECT_CONFIG_ID,
-  useAppDefinition,
-  useProjectState,
-} from "state/definitions";
+import { NULL_PROJECT_CONFIG_ID, useProjectState } from "state/definitions";
+import { useAppDefinition } from "state/stores/appStores";
 import { res200 } from "utils/endpointUtils";
 import {
   route_check_if_file_exists,

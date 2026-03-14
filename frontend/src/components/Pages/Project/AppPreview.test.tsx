@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useAppDefinition, useAppPreview } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import { useAppDefinition, useAppPreview } from "state/stores/appStores";
 import { createAppDefinition } from "utils/generatedTypes";
 
 import { AppPreview } from "./AppPreview";

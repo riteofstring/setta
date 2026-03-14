@@ -20,9 +20,8 @@ import {
 } from "state/actions/websocketConnectionList";
 import {
   NULL_PROJECT_CONFIG_ID,
-  useServerMode,
-  useShareSession,
 } from "state/definitions";
+import { useServerMode, useShareSession } from "state/stores/sessionStores";
 import { encodeBinaryFrame } from "utils/binaryWebsocket";
 import { C } from "utils/c";
 import { C_ADDRESSES } from "utils/c_addresses";

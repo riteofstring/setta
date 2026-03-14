@@ -3,11 +3,11 @@ import {
   getTrackedGitPaneGraphWindowInstanceIdForProject,
 } from "state/actions/projectChatWindowingEphemeral";
 import {
-  useAllProjectMetadata,
   useMisc,
   useProjectState,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import { useAllProjectMetadata } from "state/stores/sessionStores";
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,

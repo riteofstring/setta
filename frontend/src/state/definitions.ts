@@ -21,8 +21,6 @@ import {
   type FileBrowserTypeFilter,
 } from "utils/fileBrowserTypes";
 import {
-  AllProjectMetadata,
-  AppDefinition,
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
@@ -39,7 +37,6 @@ import {
   SettaNotification,
   SettaProjectNameValidationErrors,
   SettingsState,
-  SharePolicy,
   WebsocketConnectionInfo,
 } from "utils/generatedTypes";
 import {
@@ -53,6 +50,16 @@ import { persist, subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import { createWithEqualityFn } from "zustand/traditional";
 import { getPersistStorage } from "./storePersistStorage";
+export {
+  useAppConfigs,
+  useAppDefinition,
+  useAppPreview,
+} from "./stores/appStores";
+export {
+  useAllProjectMetadata,
+  useServerMode,
+  useShareSession,
+} from "./stores/sessionStores";
 import type {
   ProjectChatAuxView,
   ProjectChatCustomSlashCommand,
@@ -144,102 +151,6 @@ export const useProjectState = withProjectState(
       ),
     ),
   ),
-);
-
-type AppDefinitionState = {
-  appDefinition: AppDefinition | null;
-  appSpec: unknown | null;
-};
-
-export const useAppDefinition = withProjectState(
-  createWithEqualityFn(
-    withResetFn<AppDefinitionState>(() => ({
-      appDefinition: null,
-      appSpec: null,
-    })),
-  ),
-);
-
-type AppConfigState = ZustandProjectState;
-
-type AppConfigsState = {
-  configs: Record<string, AppConfigState>;
-};
-
-export const useAppConfigs = withProjectState(
-  createWithEqualityFn(
-    withResetFn<AppConfigsState>(() => ({
-      configs: {},
-    })),
-  ),
-);
-
-type ShareSessionState = {
-  isDeploymentMode: boolean;
-  shareSessionId: string | null;
-  sessionRunCount: number;
-  sharePolicy: SharePolicy | null;
-  shareDeploymentName: string | null;
-  shareDeploymentVersion: string | null;
-  deploymentMode: "share" | "app" | null;
-};
-
-export const useShareSession = withProjectState(
-  createWithEqualityFn(
-    withResetFn<ShareSessionState>(() => ({
-      isDeploymentMode: false,
-      shareSessionId: null,
-      sessionRunCount: 0,
-      sharePolicy: null,
-      shareDeploymentName: null,
-      shareDeploymentVersion: null,
-      deploymentMode: null,
-    })),
-  ),
-);
-
-type ServerModeState = {
-  mode: "ide" | "share" | "app" | "launcher" | null;
-  modeResolved: boolean;
-  modeError: string | null;
-};
-
-export const useServerMode = createWithEqualityFn<ServerModeState>(() => ({
-  mode: null,
-  modeResolved: false,
-  modeError: null,
-}));
-
-type AppPreviewState = {
-  isPreviewEnabled: boolean;
-  previewConfigId: string | null;
-  // Draft-only overrides used for live preview while editing App Config.
-  // `undefined` means "no override"; `null` means "explicitly cleared".
-  previewSpecOverride?: unknown | null;
-  // AI-streaming override used while `setta__stream_app_definition` is streaming patches.
-  aiPreviewSpecOverride?: unknown | null;
-  previewThemeOverride?: unknown | null;
-  previewAssetsOverride?: unknown[] | null;
-};
-
-export const useAppPreview = withProjectState(
-  createWithEqualityFn(
-    withResetFn<AppPreviewState>(() => ({
-      isPreviewEnabled: false,
-      previewConfigId: null,
-      previewSpecOverride: undefined,
-      aiPreviewSpecOverride: undefined,
-      previewThemeOverride: undefined,
-      previewAssetsOverride: undefined,
-    })),
-  ),
-);
-
-export const useAllProjectMetadata = createWithEqualityFn(
-  withResetFn<AllProjectMetadata>(() => ({
-    defaultProjectConfigId: null,
-    projectMetadata: [],
-  })),
 );
 
 export type PendingOperation = {

@@ -1,4 +1,4 @@
-import { useServerMode } from "state/definitions";
+import { useServerMode } from "state/stores/sessionStores";
 import { res200 } from "utils/endpointUtils";
 import { route_get_server_mode } from "utils/generatedEndpoints";
 

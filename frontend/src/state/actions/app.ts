@@ -1,11 +1,12 @@
 import {
-  useAllProjectMetadata,
-  useAppConfigs,
-  useAppDefinition,
   useProjectLoading,
+} from "state/definitions";
+import { useAppConfigs, useAppDefinition } from "state/stores/appStores";
+import {
+  useAllProjectMetadata,
   useServerMode,
   useShareSession,
-} from "state/definitions";
+} from "state/stores/sessionStores";
 import { resetProjectStores } from "state/utils";
 import { res200 } from "utils/endpointUtils";
 import {

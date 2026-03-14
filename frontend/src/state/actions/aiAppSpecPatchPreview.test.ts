@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { __resetAppSpecPatchStreamsForTests } from "state/appSpecPatchStreaming";
-import { useAIStore, useAppPreview, useProjectState } from "state/definitions";
+import { useAIStore, useProjectState } from "state/definitions";
+import { useAppPreview } from "state/stores/appStores";
 import { resetProjectStores } from "state/utils";
 import {
   StreamingEventTypeEnum,

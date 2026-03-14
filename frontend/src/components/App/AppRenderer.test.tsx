@@ -1,8 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useAppConfigs, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import { useAppConfigs } from "state/stores/appStores";
+import { useShareSession } from "state/stores/sessionStores";
 import * as endpoints from "utils/generatedEndpoints";
 import type { SharePolicy } from "utils/generatedTypes";
 import {

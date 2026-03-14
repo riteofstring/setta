@@ -3,7 +3,7 @@ import { DesktopLauncherSettingsSection } from "components/Launcher/DesktopLaunc
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { closeModal } from "state/actions/modal";
-import { useServerMode } from "state/definitions";
+import { useServerMode } from "state/stores/sessionStores";
 import { WORKSPACE_LAUNCH_ROUTER_PATH } from "utils/constants";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {

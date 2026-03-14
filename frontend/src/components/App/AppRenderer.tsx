@@ -13,7 +13,8 @@ import {
   resetAppDeployment,
 } from "state/actions/app";
 import { addTemporaryNotification } from "state/actions/notifications";
-import { useAppConfigs, useShareSession } from "state/definitions";
+import { useAppConfigs } from "state/stores/appStores";
+import { useShareSession } from "state/stores/sessionStores";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import {

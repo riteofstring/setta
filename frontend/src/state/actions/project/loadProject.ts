@@ -10,11 +10,11 @@ import {
 } from "state/activeSectionUI";
 import {
   runWithAtomicallyPublishedProjectStores,
-  useAllProjectMetadata,
   useLocalStorage,
   useNodeInternals,
   useProjectState,
 } from "state/definitions";
+import { useAllProjectMetadata } from "state/stores/sessionStores";
 import {
   OverviewTabNameEnum,
   PAGE_LOAD_TYPES,

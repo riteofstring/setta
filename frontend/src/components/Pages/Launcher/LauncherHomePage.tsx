@@ -1,6 +1,6 @@
 import { DesktopLauncherSettingsSection } from "components/Launcher/DesktopLauncherSettingsSection";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useServerMode } from "state/definitions";
+import { useServerMode } from "state/stores/sessionStores";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import {

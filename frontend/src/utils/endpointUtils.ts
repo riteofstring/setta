@@ -1,4 +1,4 @@
-import { useServerMode, useShareSession } from "state/definitions";
+import { useServerMode, useShareSession } from "state/stores/sessionStores";
 import { C_ADDRESSES } from "./c_addresses";
 import {
   ENDPOINT_ORIGIN_POLICY,

@@ -29,15 +29,17 @@ import {
 import {
   CustomRunItem,
   useAIStore,
-  useAllProjectMetadata,
   useLocalStorage,
   useProjectState,
   useRunControl,
   useSettings,
-  useShareSession,
   ZustandProjectState,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import {
+  useAllProjectMetadata,
+  useShareSession,
+} from "state/stores/sessionStores";
 import {
   getPythonCodegenTarget,
   isPluginCodegenTarget,

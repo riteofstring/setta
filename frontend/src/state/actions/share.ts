@@ -1,11 +1,13 @@
 import { requestAIFollowSnapshot } from "state/actions/aiFollow";
 import { loadProjectState } from "state/actions/project/loadProject";
 import {
-  useAllProjectMetadata,
   useProjectLoading,
+} from "state/definitions";
+import {
+  useAllProjectMetadata,
   useServerMode,
   useShareSession,
-} from "state/definitions";
+} from "state/stores/sessionStores";
 import { res200 } from "utils/endpointUtils";
 import {
   route_create_share_session_current,

@@ -103,7 +103,7 @@ vi.mock("state/actions/notifications", () => ({
     addTemporaryNotificationMock(...args),
 }));
 
-vi.mock("state/definitions", () => ({
+vi.mock("state/stores/sessionStores", () => ({
   useShareSession: (
     selector: (state: { isDeploymentMode: boolean }) => unknown,
   ) =>

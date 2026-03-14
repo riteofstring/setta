@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useServerMode } from "state/definitions";
+import { useServerMode } from "state/stores/sessionStores";
 import { C_ADDRESSES } from "./c_addresses";
 import {
   ENDPOINT_ORIGIN_POLICY,

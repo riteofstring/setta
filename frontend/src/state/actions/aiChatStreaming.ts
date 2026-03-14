@@ -21,8 +21,6 @@ import {
   clearAppSpecPatchStream,
 } from "state/appSpecPatchStreaming";
 import {
-  useAppDefinition,
-  useAppPreview,
   useProjectState,
   type ZustandProjectState,
 } from "state/definitions";
@@ -33,6 +31,7 @@ import {
   useAIStore,
   useToolArgumentPreview,
 } from "state/stores/aiStores";
+import { useAppDefinition, useAppPreview } from "state/stores/appStores";
 import {
   AgentRun,
   AgentRunStatusEnum,

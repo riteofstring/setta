@@ -2,12 +2,14 @@ import { AppRenderer } from "components/App/AppRenderer";
 import { useEffect, useMemo } from "react";
 import {
   NULL_PROJECT_CONFIG_ID,
-  useAllProjectMetadata,
+  useProjectState,
+} from "state/definitions";
+import {
   useAppConfigs,
   useAppDefinition,
   useAppPreview,
-  useProjectState,
-} from "state/definitions";
+} from "state/stores/appStores";
+import { useAllProjectMetadata } from "state/stores/sessionStores";
 import { res200 } from "utils/endpointUtils";
 import { route_load_project_config } from "utils/generatedEndpoints";
 import { createAppDefinition } from "utils/generatedTypes";

@@ -12,7 +12,7 @@ import {
 } from "plugins/runtime";
 import { useMemo, useState } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
-import { useShareSession } from "state/definitions";
+import { useShareSession } from "state/stores/sessionStores";
 import { OverviewTabNameEnum } from "utils/constants";
 
 export function PluginRestartBanner() {

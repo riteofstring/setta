@@ -28,13 +28,13 @@ import {
   sendRealtimeSectionParamLiteral,
 } from "state/actions/websocketReceive";
 import {
-  useAppConfigs,
   useDecodedImages,
   useImages,
-  useServerMode,
 } from "state/definitions";
 import { decodeExistingRawImages } from "state/hooks/artifacts";
 import { useLocalPendingValue } from "state/hooks/utils";
+import { useAppConfigs } from "state/stores/appStores";
+import { useServerMode } from "state/stores/sessionStores";
 import { bumpRemoteRevisions } from "state/utils/revisions";
 import {
   CODEMIRROR_TOOLTIP_PARENT_ID,
