@@ -1607,7 +1607,8 @@ describe("ChatMessages assistant reasoning layout", () => {
       'data-chat-assistant-activity-thought-scroll="true"',
     );
     expect(markup).toContain("top-bottom-fade");
-    expect(markup).toContain("pb-2");
+    expect(markup).toContain("h-9");
+    expect(markup).toContain("pb-1.5");
   });
 
   it("renders collapsed reasoning summaries as markdown inline", () => {
@@ -2004,7 +2005,7 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).toContain(
       "pointer-events-none relative z-[1] inline-flex flex-col items-center gap-1 rounded-md",
     );
-    expect(markup).toContain("@[32rem]/chat-message:flex-row");
+    expect(markup).toContain("@[40rem]/chat-message:flex-row");
     expect(markup).toContain("group-hover:opacity-100");
     expect(markup).toContain(
       "rounded-md border border-setta-200/90 bg-setta-100/95",

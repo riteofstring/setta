@@ -63,10 +63,18 @@ test.describe.serial("chat activity thought preview", () => {
         const metrics = await getThoughtPreviewMetrics(preview);
         return (
           metrics.maxScrollTop > 0 &&
-          metrics.scrollTop >= metrics.maxScrollTop - 1
+          metrics.scrollTop >= metrics.maxScrollTop - 1 &&
+          metrics.atBottom &&
+          metrics.inlineMaskImage.includes("black 100%")
         );
       }).toBe(true);
       const initialBottomMetrics = await getThoughtPreviewMetrics(preview);
+      expect(
+        Math.abs(
+          initialBottomMetrics.visibleLineSlots -
+            Math.round(initialBottomMetrics.visibleLineSlots),
+        ),
+      ).toBeLessThan(0.08);
 
       // While the thought text is idle, the minimized preview should stay pinned
       // to the latest visible line instead of bouncing upward again.
@@ -76,6 +84,11 @@ test.describe.serial("chat activity thought preview", () => {
       expect(idleMetrics.scrollTop).toBeGreaterThanOrEqual(
         idleMetrics.maxScrollTop - 1,
       );
+      expect(idleMetrics.atBottom).toBe(true);
+      expect(idleMetrics.inlineMaskImage).toContain("black 100%");
+      expect(
+        Math.abs(idleMetrics.visibleLineSlots - Math.round(idleMetrics.visibleLineSlots)),
+      ).toBeLessThan(0.08);
 
       await setChatSectionState(page, {
         projectConfigId: projectContext.projectConfigId,
@@ -106,7 +119,9 @@ test.describe.serial("chat activity thought preview", () => {
         const metrics = await getThoughtPreviewMetrics(preview);
         return (
           metrics.maxScrollTop > initialBottomMetrics.maxScrollTop &&
-          metrics.scrollTop >= metrics.maxScrollTop - 1
+          metrics.scrollTop >= metrics.maxScrollTop - 1 &&
+          metrics.atBottom &&
+          metrics.inlineMaskImage.includes("black 100%")
         );
       }).toBe(true);
 
@@ -120,6 +135,14 @@ test.describe.serial("chat activity thought preview", () => {
       expect(appendedIdleMetrics.scrollTop).toBeGreaterThanOrEqual(
         appendedIdleMetrics.maxScrollTop - 1,
       );
+      expect(appendedIdleMetrics.atBottom).toBe(true);
+      expect(appendedIdleMetrics.inlineMaskImage).toContain("black 100%");
+      expect(
+        Math.abs(
+          appendedIdleMetrics.visibleLineSlots -
+            Math.round(appendedIdleMetrics.visibleLineSlots),
+        ),
+      ).toBeLessThan(0.08);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
@@ -130,6 +153,19 @@ async function getThoughtPreviewMetrics(preview: Locator) {
   return await preview.evaluate((element) => ({
     scrollTop: element.scrollTop,
     maxScrollTop: Math.max(0, element.scrollHeight - element.clientHeight),
+    atBottom:
+      element.getAttribute("data-chat-assistant-activity-thought-at-bottom") ===
+      "true",
+    inlineMaskImage: (element as HTMLElement).style.maskImage,
+    visibleLineSlots: (() => {
+      const styles = window.getComputedStyle(element);
+      const lineHeight = Number.parseFloat(styles.lineHeight);
+      const paddingTop = Number.parseFloat(styles.paddingTop);
+      const paddingBottom = Number.parseFloat(styles.paddingBottom);
+      return (
+        (element.clientHeight - paddingTop - paddingBottom) / lineHeight
+      );
+    })(),
   }));
 }
 

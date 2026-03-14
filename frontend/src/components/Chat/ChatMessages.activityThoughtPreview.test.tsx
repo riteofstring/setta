@@ -92,11 +92,17 @@ describe("ChatMessages activity thought preview scroll", () => {
     expect(preview.getAttribute("data-chat-assistant-activity-thought-scroll-enabled")).toBe(
       "true",
     );
+    expect(
+      preview.getAttribute("data-chat-assistant-activity-thought-at-bottom"),
+    ).toBe("true");
     expect(scroll.getScrollTop()).toBe(scroll.getMaxScrollTop());
 
     await flushAnimationFrames(80);
 
     // Idle time must not bounce the preview back toward the top again.
+    expect(
+      preview.getAttribute("data-chat-assistant-activity-thought-at-bottom"),
+    ).toBe("true");
     expect(scroll.getScrollTop()).toBe(scroll.getMaxScrollTop());
   });
 
@@ -126,10 +132,16 @@ describe("ChatMessages activity thought preview scroll", () => {
     await flushAnimationFrames(32);
 
     // Appended text should restart the scroll toward the new bottom, not from the top.
+    expect(
+      preview.getAttribute("data-chat-assistant-activity-thought-at-bottom"),
+    ).toBe("true");
     expect(scroll.getScrollTop()).toBeGreaterThan(6);
     expect(scroll.getScrollTop()).toBe(scroll.getMaxScrollTop());
 
     await flushAnimationFrames(60);
+    expect(
+      preview.getAttribute("data-chat-assistant-activity-thought-at-bottom"),
+    ).toBe("true");
     expect(scroll.getScrollTop()).toBe(scroll.getMaxScrollTop());
   });
 

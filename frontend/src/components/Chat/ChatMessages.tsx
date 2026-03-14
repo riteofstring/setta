@@ -219,6 +219,8 @@ const ACTIVITY_COPY_BUTTON_BASE_CLASS =
   "inline-flex h-5 w-5 items-center justify-center rounded text-[11px] text-setta-500 transition-colors hover:bg-setta-200/80 hover:text-setta-700 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-setta-400 dark:text-setta-300 dark:hover:bg-setta-700 dark:hover:text-setta-100";
 const ACTIVITY_SECTION_COPY_BUTTON_CLASS = `${ACTIVITY_COPY_BUTTON_BASE_CLASS} bg-setta-100/90 dark:bg-setta-800/85`;
 const ACTIVITY_ITEM_HOVER_COPY_BUTTON_CLASS = `${ACTIVITY_SECTION_COPY_BUTTON_CLASS} opacity-0 pointer-events-none transition-opacity group-hover/chat-activity-row:opacity-100 group-hover/chat-activity-row:pointer-events-auto group-focus-within/chat-activity-row:opacity-100 group-focus-within/chat-activity-row:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto`;
+const ACTIVITY_THOUGHT_TOP_ONLY_MASK =
+  "linear-gradient(to bottom, transparent 0%, black 18%, black 100%)";
 const CHAT_TIMESTAMP_CLASS =
   "shrink-0 text-[10px] font-medium tabular-nums text-setta-400 dark:text-setta-500";
 const CHAT_TIMESTAMP_FORMATTER = new Intl.DateTimeFormat(undefined, {
@@ -3515,6 +3517,7 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [hasOverflow, setHasOverflow] = useState(false);
+  const [isPinnedToBottom, setIsPinnedToBottom] = useState(false);
   const previousTextRef = useRef(text);
   const pinnedBottomTextRef = useRef<string | null>(null);
   const animatedScrollTopRef = useRef(0);
@@ -3523,6 +3526,7 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
     const element = scrollRef.current;
     if (!element) {
       setHasOverflow(false);
+      setIsPinnedToBottom(false);
       return;
     }
     const measure = () => {
@@ -3567,11 +3571,13 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
       pinnedBottomTextRef.current = null;
       animatedScrollTopRef.current = 0;
       element.scrollTop = 0;
+      setIsPinnedToBottom(false);
     }
     if (!animate || !hasOverflow) {
       animatedScrollTopRef.current = 0;
       element.scrollTop = 0;
       pinnedBottomTextRef.current = null;
+      setIsPinnedToBottom(false);
       return;
     }
     const maxScrollTop = Math.max(0, element.scrollHeight - element.clientHeight);
@@ -3579,13 +3585,16 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
       animatedScrollTopRef.current = 0;
       element.scrollTop = 0;
       pinnedBottomTextRef.current = null;
+      setIsPinnedToBottom(false);
       return;
     }
     if (pinnedBottomTextRef.current === text) {
       animatedScrollTopRef.current = maxScrollTop;
       element.scrollTop = maxScrollTop;
+      setIsPinnedToBottom(true);
       return;
     }
+    setIsPinnedToBottom(false);
     animatedScrollTopRef.current = Math.min(
       maxScrollTop,
       Math.max(animatedScrollTopRef.current, element.scrollTop),
@@ -3606,11 +3615,13 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
         animatedScrollTopRef.current = 0;
         current.scrollTop = 0;
         pinnedBottomTextRef.current = null;
+        setIsPinnedToBottom(false);
         return;
       }
       if (pinnedBottomTextRef.current === text) {
         animatedScrollTopRef.current = maxScrollTop;
         current.scrollTop = maxScrollTop;
+        setIsPinnedToBottom(true);
         return;
       }
       const deltaSeconds = Math.min(
@@ -3624,6 +3635,7 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
         animatedScrollTopRef.current = maxScrollTop;
         current.scrollTop = maxScrollTop;
         pinnedBottomTextRef.current = text;
+        setIsPinnedToBottom(true);
         return;
       }
       animatedScrollTopRef.current = nextScrollTop;
@@ -3636,6 +3648,16 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
     };
   }, [animate, hasOverflow, text]);
 
+  const thoughtPreviewMaskStyle = !hasOverflow
+    ? {
+        WebkitMaskImage: "none",
+        maskImage: "none",
+      }
+    : {
+        WebkitMaskImage: ACTIVITY_THOUGHT_TOP_ONLY_MASK,
+        maskImage: ACTIVITY_THOUGHT_TOP_ONLY_MASK,
+      };
+
   return (
     <div
       ref={scrollRef}
@@ -3643,10 +3665,14 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
       data-chat-assistant-activity-thought-scroll-enabled={
         animate && hasOverflow ? "true" : "false"
       }
-      className="top-bottom-fade h-10 overflow-y-auto break-words pb-2 pr-1 pt-0.5 text-[10px] leading-[1.35] text-setta-400 dark:text-setta-400/90"
+      data-chat-assistant-activity-thought-at-bottom={
+        hasOverflow && isPinnedToBottom ? "true" : "false"
+      }
+      className="top-bottom-fade h-9 overflow-y-auto break-words pb-1.5 pr-1 pt-0.5 text-[10px] leading-[1.4] text-setta-400 dark:text-setta-400/90"
       style={{
         scrollbarWidth: "none",
         msOverflowStyle: "none",
+        ...thoughtPreviewMaskStyle,
       }}
     >
       {text}
@@ -5803,7 +5829,7 @@ function ChatMessageActions({
 
   return (
     <div
-      className="pointer-events-none relative z-[1] inline-flex flex-col items-center gap-1 rounded-md border border-setta-200/90 bg-setta-100/95 px-1 py-0.5 text-setta-500 opacity-0 shadow-sm transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100 @[32rem]/chat-message:flex-row dark:border-setta-700/90 dark:bg-setta-925/95 dark:text-setta-300"
+      className="pointer-events-none relative z-[1] inline-flex flex-col items-center gap-1 rounded-md border border-setta-200/90 bg-setta-100/95 px-1 py-0.5 text-setta-500 opacity-0 shadow-sm transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100 @[40rem]/chat-message:flex-row dark:border-setta-700/90 dark:bg-setta-925/95 dark:text-setta-300"
       data-chat-message-actions="true"
     >
       <button
