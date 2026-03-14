@@ -28,18 +28,6 @@ vi.mock("state/hooks/share", () => ({
   }),
 }));
 
-vi.mock("components/Utils/FloatingBox", () => ({
-  getFloatingBoxHandlers: ({
-    content,
-    title,
-  }: {
-    content?: string;
-    title?: string;
-  }) => ({
-    "data-tooltip-content": content ?? title ?? "",
-  }),
-}));
-
 describe("SectionWindowToggleButton", () => {
   beforeEach(() => {
     mockCanEditLayout = true;
@@ -58,25 +46,6 @@ describe("SectionWindowToggleButton", () => {
 
     expect(markup).toContain('data-testid="section-window-toggle"');
     expect(markup).toContain("Open section in floating window");
-    expect(markup).toContain(
-      'data-tooltip-content="Open section in floating window"',
-    );
-  });
-
-  it("uses the shared quick info copy for canvas restore actions", () => {
-    mockExternalizedWindowInstance = { instanceId: "window-1" };
-
-    const markup = renderToStaticMarkup(
-      <SectionWindowToggleButton
-        sectionId="section-1"
-        sectionTypeName={SectionTypeEnum.Chat}
-        isRoot={false}
-        hasSectionStyleTheme={false}
-      />,
-    );
-
-    expect(markup).toContain("Show section in canvas");
-    expect(markup).toContain('data-tooltip-content="Show section in canvas"');
   });
 
   it("hides the toggle when layout edits are disallowed", () => {

@@ -76,6 +76,40 @@ echo "$*" > "{ai_capture_args}"
     return sandbox_root
 
 
+def build_backend_start_sandbox(tmp_path: Path) -> Path:
+    root = repo_root()
+    sandbox_root = tmp_path / "backend_start_sandbox"
+    frontend_dir = sandbox_root / "frontend"
+    scripts_dir = sandbox_root / "scripts"
+    frontend_dir.mkdir(parents=True, exist_ok=True)
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+
+    backend_start = sandbox_root / "frontend" / "backendStart.sh"
+    backend_start.write_text(
+        (root / "frontend" / "backendStart.sh").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    backend_start.chmod(0o755)
+    copy_script_libs(scripts_dir, "setta_path_flags.sh")
+
+    activate_script = sandbox_root / "activate.sh"
+    activate_script.write_text(". .venv/bin/activate\n", encoding="utf-8")
+    activate_script.chmod(0o755)
+
+    venv_activate = sandbox_root / ".venv" / "bin" / "activate"
+    venv_activate.parent.mkdir(parents=True, exist_ok=True)
+    venv_activate.write_text(
+        (
+            "export VIRTUAL_ENV='sandbox-venv'\n"
+            f'export PATH="{sandbox_root / ".venv" / "bin"}:${{PATH}}"\n'
+        ),
+        encoding="utf-8",
+    )
+    venv_activate.chmod(0o755)
+
+    return sandbox_root
+
+
 def build_run_dev_instance_sandbox(tmp_path: Path) -> Path:
     root = repo_root()
     sandbox_root = tmp_path / "run_dev_instance_sandbox"
