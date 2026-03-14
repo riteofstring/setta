@@ -129,6 +129,7 @@ describe("CanvasEngineHost", () => {
       root.unmount();
     });
     host.remove();
+    vi.useRealTimers();
     resetProjectStores();
     useReactFlow.setState({ ...initialState });
     vi.unstubAllGlobals();
@@ -296,6 +297,83 @@ describe("CanvasEngineHost", () => {
     expect(
       host.querySelector('[data-canvas-engine-dom-island="section-a"]'),
     ).not.toBeNull();
+  });
+
+  it("retains recently offscreen dom islands before unmounting them after expiry", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-12T12:00:00Z"));
+
+    useProjectState.setState((state) => {
+      state.projectConfig.topLevelSections = {
+        "section-a": {
+          x: 24,
+          y: 16,
+          zIndex: 0,
+          w: 320,
+          h: 180,
+        },
+        "section-b": {
+          x: 372,
+          y: 16,
+          zIndex: 1,
+          w: 320,
+          h: 180,
+        },
+      };
+      state.projectConfig.activeIds = [];
+      state.projectConfig.edges = [];
+      state.projectConfig.agenticEdges = [];
+    });
+
+    await act(async () => {
+      root.render(<CanvasEngineHost />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const engineHost = host.querySelector(
+      '[data-canvas-engine-host="v1"]',
+    ) as HTMLElement | null;
+    if (!engineHost) {
+      throw new Error("Canvas engine host failed to render.");
+    }
+    setEngineHostBounds(engineHost);
+
+    expect(engineHost.dataset.canvasEngineDomIslandMountedCount).toBe("2");
+    expect(engineHost.dataset.canvasEngineDomIslandRetainedCount).toBe("0");
+    expect(
+      host.querySelector('[data-canvas-engine-dom-island="section-b"]'),
+    ).not.toBeNull();
+
+    await act(async () => {
+      useProjectState.setState((state) => {
+        state.projectConfig.topLevelSections["section-b"] = {
+          ...state.projectConfig.topLevelSections["section-b"],
+          x: 2400,
+        };
+      });
+    });
+
+    expect(engineHost.dataset.canvasEngineDomIslandMountedCount).toBe("2");
+    expect(engineHost.dataset.canvasEngineDomIslandRetainedCount).toBe("1");
+    expect(
+      host
+        .querySelector('[data-canvas-engine-dom-island="section-b"]')
+        ?.getAttribute("data-canvas-engine-dom-island-retained"),
+    ).toBe("true");
+
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+
+    expect(engineHost.dataset.canvasEngineDomIslandMountedCount).toBe("1");
+    expect(engineHost.dataset.canvasEngineDomIslandRetainedCount).toBe("0");
+    expect(
+      host.querySelector('[data-canvas-engine-dom-island="section-b"]'),
+    ).toBeNull();
   });
 
   it("syncs an initialized persisted viewport into the engine camera and React Flow store", async () => {
