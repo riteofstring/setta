@@ -2,7 +2,9 @@ import {
   AGENTIC_EDGE_HANDLE_IDS,
   createAgenticEdgeFromConnection,
   createAgenticEdgeFromSections,
+  deleteSelectedAgenticEdges,
   isValidAgenticEdgeConnection,
+  toggleAgenticEdgeSelection,
   updateAgenticEdgeContextMode,
 } from "state/actions/agenticEdges";
 import { SHARED_CHAT_EDGE_HANDLE_IDS } from "state/actions/chatSharedHandleIds";
@@ -31,6 +33,8 @@ vi.mock("utils/generatedEndpoints", async () => {
   return {
     ...actual,
     route_create_agentic_edge: vi.fn(),
+    route_delete_agentic_edges: vi.fn(),
+    route_set_agentic_edges: vi.fn(),
     route_update_agentic_edge: vi.fn(),
   };
 });
@@ -278,6 +282,113 @@ describe("agentic edge context mode updates", () => {
           contextMode: AgenticEdgeContextModeEnum.inline_text,
         }),
         frontendOpId: expect.any(String),
+      }),
+    );
+  });
+});
+
+describe("agentic edge selection and deletion", () => {
+  beforeEach(() => {
+    resetProjectStores();
+    seedChatSections();
+    useShareSession.setState({ isDeploymentMode: false });
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    resetProjectStores();
+  });
+
+  it("single-selects an agentic edge through setAgenticEdges", async () => {
+    const route_set_agentic_edges = (await import("utils/generatedEndpoints"))
+      .route_set_agentic_edges as unknown as vi.Mock;
+    route_set_agentic_edges.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    useProjectState.setState((state) => {
+      state.projectConfig.agenticEdges = [
+        createAgenticEdge({
+          id: "edge-a",
+          sourceSectionId: sectionA,
+          targetSectionId: sectionB,
+          kind: AgenticEdgeKindEnum.chat_chat,
+          selected: false,
+        }),
+        createAgenticEdge({
+          id: "edge-b",
+          sourceSectionId: sectionA,
+          targetSectionId: sectionB,
+          kind: AgenticEdgeKindEnum.chat_chat,
+          selected: true,
+        }),
+      ];
+    });
+
+    toggleAgenticEdgeSelection("edge-a", false);
+
+    expect(useProjectState.getState().projectConfig.agenticEdges).toMatchObject(
+      [
+        { id: "edge-a", selected: true },
+        { id: "edge-b", selected: false },
+      ],
+    );
+    expect(route_set_agentic_edges).toHaveBeenCalledTimes(1);
+    expect(route_set_agentic_edges.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        projectConfigId,
+        frontendOpId: expect.any(String),
+        edges: expect.arrayContaining([
+          expect.objectContaining({ id: "edge-a", selected: true }),
+          expect.objectContaining({ id: "edge-b", selected: false }),
+        ]),
+      }),
+    );
+  });
+
+  it("deletes selected agentic edges through deleteAgenticEdges", async () => {
+    const route_delete_agentic_edges = (
+      await import("utils/generatedEndpoints")
+    ).route_delete_agentic_edges as unknown as vi.Mock;
+    route_delete_agentic_edges.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    useProjectState.setState((state) => {
+      state.projectConfig.agenticEdges = [
+        createAgenticEdge({
+          id: "edge-a",
+          sourceSectionId: sectionA,
+          targetSectionId: sectionB,
+          kind: AgenticEdgeKindEnum.chat_chat,
+          selected: true,
+        }),
+        createAgenticEdge({
+          id: "edge-b",
+          sourceSectionId: sectionA,
+          targetSectionId: sectionB,
+          kind: AgenticEdgeKindEnum.chat_chat,
+          selected: false,
+        }),
+      ];
+    });
+
+    const deleted = deleteSelectedAgenticEdges();
+
+    expect(deleted).toBe(true);
+    expect(useProjectState.getState().projectConfig.agenticEdges).toMatchObject(
+      [{ id: "edge-b" }],
+    );
+    expect(route_delete_agentic_edges).toHaveBeenCalledTimes(1);
+    expect(route_delete_agentic_edges.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        projectConfigId,
+        frontendOpId: expect.any(String),
+        edgeIds: ["edge-a"],
       }),
     );
   });

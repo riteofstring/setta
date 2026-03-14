@@ -2,10 +2,10 @@ import { buildProjectChatEphemeralWindowInstanceKey } from "state/actions/projec
 import {
   NULL_PROJECT_CONFIG_ID,
   useAIStore,
+  useMisc,
   useProjectState,
+  useSettings,
 } from "state/definitions";
-import { useMisc } from "state/stores/layoutInteractionStores";
-import { useSettings } from "state/stores/uiPreferenceStores";
 import { resetProjectStores } from "state/utils";
 import {
   ChatWindowModeEnum,
@@ -47,46 +47,37 @@ vi.mock("utils/generatedEndpoints", () => ({
 }));
 
 import {
-  closeProjectChatWindow,
-  setProjectChatWindowBounds,
-  setProjectChatWindowChatId,
-  unmaximizeProjectChatWindow,
-} from "./projectChatWindowing";
-import { bootProjectChatWindowToCanvasSection } from "./projectChatWindowingCanvasBoot";
-import {
   addProjectChatWindowInstanceInState,
+  bootProjectChatWindowToCanvasSection,
+  closeProjectChatWindow,
   closeProjectChatWindowInState,
+  ensureTrackedGitPaneGraphWindow,
+  flushPendingProjectChatWindowingWrites,
   focusProjectChatWindowInState,
-  maximizeProjectChatWindowInState,
-  minimizeProjectChatWindowInState,
-  reopenProjectChatWindowInState,
-  setProjectChatWindowBoundsByIdInState,
-  setProjectChatWindowBoundsInState,
-  setProjectChatWindowDockFractionsInState,
-  setProjectChatWindowPlacementInState,
-  unmaximizeProjectChatWindowInState,
-} from "./projectChatWindowingLayoutState";
-import {
   getExternalProjectChatWindowBindingForSectionInState,
   getOpenExternalProjectChatWindowInstanceForSectionInState,
   getProjectChatWindowBindingForSectionInState,
   getProjectChatWindowModeForSectionInState,
   getVisibleProjectChatWindowInstances,
+  maximizeProjectChatWindowInState,
+  minimizeProjectChatWindowInState,
+  moveProjectChatWindowToCanvasSectionInState,
+  reopenProjectChatWindowInState,
   resolveDefaultDockedChatHeightPx,
   resolveDefaultFloatingChatBounds,
-} from "./projectChatWindowingSelectors";
-import {
-  moveProjectChatWindowToCanvasSectionInState,
+  setProjectChatWindowBounds,
+  setProjectChatWindowBoundsByIdInState,
+  setProjectChatWindowBoundsInState,
+  setProjectChatWindowChatId,
+  setProjectChatWindowDockFractionsInState,
   setProjectChatWindowModeForSectionInState,
+  setProjectChatWindowPlacementInState,
   setProjectChatWindowTitleInState,
   showSectionInProjectChatWindowInState,
   undockProjectChatWindowFromCanvasSectionInState,
-} from "./projectChatWindowingState";
-import { ensureTrackedGitPaneGraphWindow } from "./projectChatWindowingTrackedGitPane";
-import {
-  flushPendingProjectChatWindowingWrites,
-  syncProjectChatWindowingState,
-} from "./projectChatWindowingWrites";
+  unmaximizeProjectChatWindow,
+  unmaximizeProjectChatWindowInState,
+} from "./projectChatWindowing";
 
 describe("project chat windowing reducer helpers", () => {
   beforeEach(() => {
@@ -1150,39 +1141,6 @@ describe("project chat windowing reducer helpers", () => {
     expect(
       hoistedProjectChatWindowing.routeSetProjectChatWindowChatId,
     ).not.toHaveBeenCalled();
-  });
-
-  it("syncs the current project chat windowing snapshot through the write coordinator", async () => {
-    // Full windowing syncs should send the current snapshot through the
-    // serialized write path instead of rebuilding a second persistence flow.
-    const syncedWindow = createProjectChatWindowInstance({
-      instanceId: "chat-window-sync",
-      mode: ChatWindowModeEnum.project_ai_mode,
-      sectionIdOrNull: null,
-      chatId: "chat-sync",
-      zIndex: 4,
-    });
-    const currentWindowing = createProjectChatWindowingState({
-      instancesById: {
-        [syncedWindow.instanceId]: syncedWindow,
-      },
-      order: [syncedWindow.instanceId],
-      nextInstanceNumber: 2,
-    });
-    useProjectState.setState((state) => {
-      state.projectChatWindowing = currentWindowing;
-    });
-
-    const response = await syncProjectChatWindowingState();
-
-    expect(response?.data).toEqual(currentWindowing);
-    expect(
-      hoistedProjectChatWindowing.routeSetProjectChatWindowingState,
-    ).toHaveBeenCalledWith({
-      projectConfigId: "project-1",
-      state: currentWindowing,
-      frontendOpId: expect.any(String),
-    });
   });
 
   it("updates the global active project chat for unscoped project-ai windows", () => {

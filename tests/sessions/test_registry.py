@@ -419,6 +419,40 @@ def test_is_session_process_setta_detects_script_py_name() -> None:
             process.wait()
 
 
+def test_is_session_process_setta_detects_server_binary_name() -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        sessions_root = root / "sessions"
+        workspace = root / "workspace"
+        workspace.mkdir()
+        server_path = root / "setta-server"
+        server_path.write_text(
+            "#!/usr/bin/env bash\nsleep 60\n",
+            encoding="utf-8",
+        )
+        server_path.chmod(0o755)
+
+        process = subprocess.Popen(
+            [str(server_path)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        try:
+            registry = SessionRegistry(sessions_root=sessions_root)
+            session = registry.create_session(
+                workspace_path=workspace,
+                host="127.0.0.1",
+                port=61236,
+                pid=process.pid,
+            )
+
+            assert registry.is_session_process_setta(session)
+        finally:
+            if process.poll() is None:
+                process.terminate()
+            process.wait()
+
+
 def test_load_sessions_tracks_suspicious_when_enabled() -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         sessions_root = Path(temp_dir) / "sessions"
