@@ -271,7 +271,7 @@ def _build_context_block(
 
 
 def _extract_section_text(
-    dbe: DBE,
+    dbe: DBE | None,
     project_state: ProjectStateSingleConfig,
     summary_by_section: dict[ID, object],
     section_id: ID,
@@ -332,6 +332,10 @@ def _extract_section_text(
                 lines.append(f"... ({len(draw_paths) - 8} more)")
         return "\n".join(lines).strip()
     if isinstance(section_impl, PromptSectionImpl):
+        if dbe is None:
+            raise ValueError(
+                "DBE is required to resolve prompt section summary source text."
+            )
         prompt_source = resolve_prompt_section_source(dbe, section_impl)
         return prompt_source.template
     if isinstance(section_impl, SocialSectionImpl):
@@ -377,6 +381,7 @@ def build_agentic_section_summary_source(
     project_state: ProjectStateSingleConfig,
     section_id: ID,
     *,
+    dbe: DBE | None = None,
     summary_by_section: dict[ID, object] | None = None,
 ) -> AgenticSectionSummarySource:
     if section_id not in project_state.sections:
@@ -395,7 +400,10 @@ def build_agentic_section_summary_source(
             {section_id},
         )
     raw_text = _extract_section_text(
-        project_state, resolved_summary_by_section, section_id
+        dbe,
+        project_state,
+        resolved_summary_by_section,
+        section_id,
     )
 
     prompt_body = raw_text

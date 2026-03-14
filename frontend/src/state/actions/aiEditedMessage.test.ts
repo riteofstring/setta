@@ -50,6 +50,15 @@ const chatId = "chat-1";
 const OTHER_SURFACE_ID = "surface-other";
 const TARGET_SURFACE_ID = "surface-target";
 
+function buildGetLLMResponseResponse(chatId: string) {
+  return {
+    chatId,
+    runId: `${chatId}-run`,
+    engineType: "setta_llm" as const,
+    sectionId: null,
+  };
+}
+
 describe("submitEditedMessage", () => {
   beforeAll(async () => {
     const storage = new Map<string, string>();
@@ -170,7 +179,7 @@ describe("submitEditedMessage", () => {
     mockedRouteGetLLMResponse.mockResolvedValue({
       status: 200,
       hasResponse: true,
-      data: "branch-chat-1",
+      data: buildGetLLMResponseResponse("branch-chat-1"),
     });
 
     const result = await submitEditedMessage({
@@ -218,7 +227,7 @@ describe("submitEditedMessage", () => {
     mockedRouteGetLLMResponse.mockResolvedValue({
       status: 200,
       hasResponse: true,
-      data: "branch-chat-plain",
+      data: buildGetLLMResponseResponse("branch-chat-plain"),
     });
     useAIStore.setState({
       chatAppGenerationDetailsByChatId: {

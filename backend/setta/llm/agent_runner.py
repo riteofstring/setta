@@ -1269,6 +1269,7 @@ class AgentRunner:
             source = build_agentic_section_summary_source(
                 project_state,
                 section_id,
+                dbe=self.dbe,
                 summary_by_section=resolved_summary_by_section,
             )
             if not source.raw_text.strip():

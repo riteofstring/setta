@@ -542,6 +542,7 @@ class TestManagedActionExecutor:
                     "projectConfigId": "project-1",
                     "chatId": "chat-1",
                     "sectionId": "section-1",
+                    "runId": None,
                     "frontendAffinityToken": None,
                     "linkedChatInvocationDepth": 1,
                     "linkedChatInvocationChainSectionIds": [
