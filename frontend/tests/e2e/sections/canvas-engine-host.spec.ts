@@ -767,6 +767,100 @@ test("canvas engine host supports shift-drag marquee section selection", async (
   }
 });
 
+test("canvas engine host marquee selection includes mounted nested group children", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+
+    const viewportBounds = await getEngineViewportBounds(page);
+    const groupId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Group",
+      viewportBounds,
+      position: { x: 420, y: 120 },
+    });
+    const childId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Code",
+      viewportBounds,
+      position: { x: 80, y: 120 },
+    });
+
+    await postBackend(page, "/moveSections", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionIds: [childId],
+      newParentId: groupId,
+      newIndex: 0,
+      positionsById: null,
+    });
+
+    const groupIsland = host.locator(
+      `[data-canvas-engine-dom-island="${groupId}"]`,
+    );
+    const childSection = groupIsland.locator(
+      `section[data-section-id="${childId}"]`,
+    );
+
+    await expect(groupIsland).toHaveCount(1);
+    await expect(childSection).toBeVisible();
+    await expect.poll(async () => await readActiveSectionIds(host)).toEqual([]);
+
+    const hostBounds = await host.boundingBox();
+    const groupBounds = await groupIsland.boundingBox();
+    const childBounds = await childSection.boundingBox();
+    if (!hostBounds || !groupBounds || !childBounds) {
+      throw new Error("Unable to resolve bounds for nested marquee test.");
+    }
+
+    const selectionStart = {
+      x: Math.max(hostBounds.x + 16, groupBounds.x - 40),
+      y: Math.max(hostBounds.y + 16, groupBounds.y - 20),
+    };
+    const selectionEnd = {
+      x: Math.min(
+        hostBounds.x + hostBounds.width - 16,
+        childBounds.x + childBounds.width + 12,
+      ),
+      y: Math.min(
+        hostBounds.y + hostBounds.height - 16,
+        childBounds.y + childBounds.height + 12,
+      ),
+    };
+
+    await page.keyboard.down("Shift");
+    try {
+      await page.mouse.move(selectionStart.x, selectionStart.y);
+      await page.mouse.down();
+      await page.mouse.move(selectionEnd.x, selectionEnd.y, {
+        steps: 16,
+      });
+
+      await expect
+        .poll(async () => (await readSelectionRectState(host)).active)
+        .toBe(true);
+      await page.mouse.up();
+    } finally {
+      await page.keyboard.up("Shift");
+    }
+
+    await expect
+      .poll(async () => await readActiveSectionIds(host))
+      .toContain(childId);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("canvas engine host creates data edges via handle drag", async ({
   page,
 }) => {
