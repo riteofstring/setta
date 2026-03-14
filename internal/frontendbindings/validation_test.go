@@ -1049,6 +1049,16 @@ func TestCurrentAdditionalDeclarationManifest(t *testing.T) {
 	)
 }
 
+func TestCurrentAdditionalTypeRootManifest(t *testing.T) {
+	t.Helper()
+
+	assertGoldenFile(
+		t,
+		"additional_type_root_manifest.txt",
+		renderAdditionalTypeRootManifest(CurrentAdditionalTypeRoots()),
+	)
+}
+
 func readBareHTTPRouteIdentifiers(t *testing.T, path string) []string {
 	t.Helper()
 
@@ -6329,6 +6339,15 @@ func renderAdditionalDeclarationManifest(declarations []TypeDeclaration) string 
 			lineParts = append(lineParts, "create=body")
 		}
 		lines = append(lines, strings.Join(lineParts, " "))
+	}
+	slices.Sort(lines)
+	return strings.Join(lines, "\n")
+}
+
+func renderAdditionalTypeRootManifest(typeRoots []reflect.Type) string {
+	lines := make([]string, 0, len(typeRoots))
+	for _, typeRoot := range typeRoots {
+		lines = append(lines, frontendTypeName(typeRoot))
 	}
 	slices.Sort(lines)
 	return strings.Join(lines, "\n")

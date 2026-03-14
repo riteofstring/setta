@@ -184,6 +184,9 @@ Current status:
 - the validation suite now also snapshots the current additional-declaration
   inventory in a focused golden manifest, so support-declaration widening stays
   reviewable without diffing the full generated types output
+- the validation suite now also snapshots the current additional type-root
+  inventory in a focused golden manifest, so manual converter-root widening is
+  explicit before it shows up as broader generated-types churn
 - a current repo scan shows the only generated frontend contract files under
   `frontend/src` are `generatedRoutes.ts`, `generatedTypes.ts`, and
   `generatedEndpoints.ts`, all emitted by the Go-owned generator; remaining
