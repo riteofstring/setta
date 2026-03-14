@@ -308,6 +308,41 @@ describe("ChatMessages markdown code rendering", () => {
     expect(markup).toContain("cm-line");
   });
 
+  it("wraps rich assistant markdown tables in an internal overflow container", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-assistant-table-overflow",
+        role: ChatRoleEnum.assistant,
+        content: [
+          createMessageTextContent({
+            text: [
+              "## Summary: What to Cut/Simplify",
+              "",
+              "| Feature | Action |",
+              "| --- | --- |",
+              "| MetaControl sections | Merge with regular params |",
+              "| Name sanitization ceremony | Use IDs primarily; name mapping only when needed |",
+              "",
+              "```ts",
+              "const sectionKinds = ['chart', 'browser', 'terminal'];",
+              "```",
+            ].join("\n"),
+          }),
+        ],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain('data-chat-markdown-table-wrapper="true"');
+    expect(markup).toContain('class="w-full table-fixed');
+    expect(markup).toContain('data-setta-code-block="true"');
+  });
+
   it("renders assistant markdown as markdown while the response is still streaming", () => {
     const messages: BaseChatMessageUnion[] = [
       {
@@ -903,7 +938,9 @@ describe("ChatMessages assistant reasoning layout", () => {
     );
 
     expect(markup).toContain('data-chat-assistant-bubble="true"');
-    expect(markup).toContain('class="w-fit max-w-full prose prose-sm');
+    expect(markup).toContain(
+      'class="inline-block max-w-full align-top prose prose-sm max-w-full',
+    );
     expect(markup).not.toContain('class="w-max max-w-full prose prose-sm');
   });
 
@@ -1999,7 +2036,9 @@ describe("ChatMessages assistant reasoning layout", () => {
               type: "function",
               function: {
                 name: "command_execution",
-                arguments: { command: "pnpm exec vitest run src/components/Chat" },
+                arguments: {
+                  command: "pnpm exec vitest run src/components/Chat",
+                },
               },
             },
           ],
@@ -2051,7 +2090,9 @@ describe("ChatMessages assistant reasoning layout", () => {
             type: "function",
             function: {
               name: "command_execution",
-              arguments: { command: "pnpm exec vitest run src/components/Chat" },
+              arguments: {
+                command: "pnpm exec vitest run src/components/Chat",
+              },
             },
           },
         ],

@@ -870,11 +870,13 @@ test.describe.serial("chat tool calls", () => {
       await expect(rowHoverMeta).toHaveCount(2);
       await expect
         .poll(async () =>
-          rowHoverMeta.nth(0).evaluate((element) =>
-            Number.parseFloat(
-              window.getComputedStyle(element as HTMLElement).opacity,
+          rowHoverMeta
+            .nth(0)
+            .evaluate((element) =>
+              Number.parseFloat(
+                window.getComputedStyle(element as HTMLElement).opacity,
+              ),
             ),
-          ),
         )
         .toBeLessThan(0.2);
 
@@ -882,11 +884,13 @@ test.describe.serial("chat tool calls", () => {
       await toolRow.hover();
       await expect
         .poll(async () =>
-          rowHoverMeta.nth(1).evaluate((element) =>
-            Number.parseFloat(
-              window.getComputedStyle(element as HTMLElement).opacity,
+          rowHoverMeta
+            .nth(1)
+            .evaluate((element) =>
+              Number.parseFloat(
+                window.getComputedStyle(element as HTMLElement).opacity,
+              ),
             ),
-          ),
         )
         .toBeGreaterThan(0.8);
     } finally {
@@ -1032,6 +1036,78 @@ test.describe.serial("chat tool calls", () => {
       await expect(
         section.locator('[data-chat-message-timestamp="true"]'),
       ).toHaveCount(2);
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("keeps assistant bubbles within bounds when rich markdown includes tables and code blocks", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const { sectionId, sectionName } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "__pw_rich_markdown_bubble_width__",
+      );
+
+      const section = findSectionByName(page, sectionName);
+      await expect(section).toBeVisible();
+
+      const assistantMessageText = [
+        "## Summary: What to Cut/Simplify",
+        "",
+        "| Feature | Action |",
+        "| --- | --- |",
+        "| MetaControl sections | Merge with regular params |",
+        "| Name sanitization ceremony | Use IDs primarily; name mapping only when needed |",
+        "",
+        "```ts",
+        "const sectionKinds = ['chart', 'browser', 'terminal'];",
+        "```",
+      ].join("\n");
+
+      await setChatSectionState(page, {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        state: {
+          messages: [
+            {
+              id: "rich-markdown-assistant-message",
+              role: "assistant",
+              content: [{ type: "text", text: assistantMessageText }],
+              attachments: [],
+              createdAt: Date.parse("2026-01-01T18:30:00Z"),
+            },
+          ],
+          inputText: "",
+          waitingForResponse: false,
+          toolCallArguments: {},
+        },
+      });
+
+      const assistantBubble = section
+        .locator('[data-chat-assistant-bubble="true"]')
+        .first();
+      await section.evaluate((element) => {
+        const sectionElement = element as HTMLElement;
+        sectionElement.style.width = "340px";
+        sectionElement.style.maxWidth = "340px";
+      });
+      await assistantBubble.scrollIntoViewIfNeeded();
+      await expect(assistantBubble).toBeVisible();
+      await expect(
+        assistantBubble.locator('[data-chat-markdown-table-wrapper="true"]'),
+      ).toHaveCount(1);
+      await expect
+        .poll(() => getHorizontalOverflowMetrics(assistantBubble))
+        .toMatchObject({
+          overflowPx: 0,
+          hasScrollOverflow: false,
+        });
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

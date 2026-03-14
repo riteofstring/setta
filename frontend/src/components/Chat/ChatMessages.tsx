@@ -51,7 +51,7 @@ import {
   MdOutlineSmartToy,
 } from "react-icons/md";
 import { PiWrenchFill } from "react-icons/pi";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Components } from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -193,7 +193,7 @@ const ATTACHMENT_URL_REFRESH_BUFFER_MS = 30_000;
 const CHAT_BUBBLE_MAX_WIDTH_CLASS = "max-w-[min(90%,820px)]";
 const ASSISTANT_BUBBLE_MAX_WIDTH_CLASS = CHAT_BUBBLE_MAX_WIDTH_CLASS;
 const CHAT_MARKDOWN_BASE_CLASS =
-  "prose prose-sm max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-headings:leading-snug prose-headings:mt-5 prose-headings:mb-2 prose-h1:text-[1.05rem] prose-h2:text-[1rem] prose-h3:text-[0.95rem] prose-h4:text-[0.9rem] prose-p:my-0 prose-p:leading-[1.45] prose-ul:my-1 prose-ol:my-1 prose-ul:pl-5 prose-ol:pl-5 prose-ul:leading-[1.45] prose-ol:leading-[1.45] prose-li:my-0 prose-li:leading-[1.45] prose-code:before:hidden prose-code:after:hidden prose-pre:my-2 prose-pre:py-2 [&>:first-child]:mt-0 [&>:last-child]:mb-0 [&_p+p]:mt-2.5 [&_p+ul]:mt-2 [&_p+ol]:mt-2 [&_ul+p]:mt-2.5 [&_ol+p]:mt-2.5 [&_li+li]:mt-0.5 [&_li_p]:my-0 [&_*]:break-words";
+  "prose prose-sm max-w-full prose-headings:font-semibold prose-headings:tracking-tight prose-headings:leading-snug prose-headings:mt-5 prose-headings:mb-2 prose-h1:text-[1.05rem] prose-h2:text-[1rem] prose-h3:text-[0.95rem] prose-h4:text-[0.9rem] prose-p:my-0 prose-p:leading-[1.45] prose-ul:my-1 prose-ol:my-1 prose-ul:pl-5 prose-ol:pl-5 prose-ul:leading-[1.45] prose-ol:leading-[1.45] prose-li:my-0 prose-li:leading-[1.45] prose-code:before:hidden prose-code:after:hidden prose-pre:my-2 prose-pre:py-2 [&>:first-child]:mt-0 [&>:last-child]:mb-0 [&_p+p]:mt-2.5 [&_p+ul]:mt-2 [&_p+ol]:mt-2 [&_ul+p]:mt-2.5 [&_ol+p]:mt-2.5 [&_li+li]:mt-0.5 [&_li_p]:my-0 [&_*]:break-words";
 const ASSISTANT_MARKDOWN_CLASS = `${CHAT_MARKDOWN_BASE_CLASS} dark:prose-invert prose-headings:text-setta-600 dark:prose-headings:text-setta-300 prose-p:text-[13px] prose-ul:text-[13px] prose-ol:text-[13px] prose-li:text-[13px] [&_*]:marker:text-setta-400`;
 const ASSISTANT_ERROR_MARKDOWN_CLASS = `${CHAT_MARKDOWN_BASE_CLASS} dark:prose-invert prose-headings:text-red-900 dark:prose-headings:text-red-200 prose-p:text-[13px] prose-ul:text-[13px] prose-ol:text-[13px] prose-li:text-[13px] [&_*]:marker:text-red-400`;
 const TOOL_CALL_RAIL_GRID_CLASS = "grid-cols-[1.75rem_minmax(0,1fr)]";
@@ -316,6 +316,27 @@ type MarkdownContentProps = {
   isStreaming: boolean;
 };
 
+const CHAT_MARKDOWN_COMPONENTS: Components = {
+  code: (props) => <CodeBlock {...props} wrapLines />,
+  pre: MarkdownCodePre,
+  table: ({ children }) => (
+    <div
+      data-chat-markdown-table-wrapper="true"
+      className="my-2 max-w-full overflow-x-auto"
+    >
+      <table className="w-full table-fixed border-collapse">{children}</table>
+    </div>
+  ),
+  th: ({ children }) => (
+    <th className="break-words px-2 py-1 text-left align-top font-semibold">
+      {children}
+    </th>
+  ),
+  td: ({ children }) => (
+    <td className="break-words px-2 py-1 align-top">{children}</td>
+  ),
+};
+
 function MarkdownContent({
   content,
   className,
@@ -325,7 +346,9 @@ function MarkdownContent({
   const shouldAnimate = role === ChatRoleEnum.assistant && isStreaming;
   const displayText = useTypewriterEffect(content, shouldAnimate, 5);
   const markdownWidthClassName =
-    role === ChatRoleEnum.assistant ? "w-fit max-w-full" : "w-full max-w-full";
+    role === ChatRoleEnum.assistant
+      ? "inline-block max-w-full align-top"
+      : "w-full max-w-full";
   const markdownClassName = `${markdownWidthClassName} ${className}`;
   const streamingRevealPhase =
     displayText.length % 2 === 0
@@ -342,7 +365,7 @@ function MarkdownContent({
           remarkPlugins={[remarkGfm, remarkMath]}
           rehypePlugins={[rehypeKatex]}
           className={className}
-          components={{ code: CodeBlock, pre: MarkdownCodePre }}
+          components={CHAT_MARKDOWN_COMPONENTS}
         >
           {displayText}
         </ReactMarkdown>
@@ -355,7 +378,7 @@ function MarkdownContent({
       remarkPlugins={[remarkGfm, remarkMath]}
       rehypePlugins={[rehypeKatex]}
       className={markdownClassName}
-      components={{ code: CodeBlock, pre: MarkdownCodePre }}
+      components={CHAT_MARKDOWN_COMPONENTS}
     >
       {displayText}
     </ReactMarkdown>
@@ -3097,7 +3120,9 @@ const ThinkingBox = memo(function ThinkingBox({
     !suppressCollapsedSummary && activityHint && !hasThinkingText,
   );
   const shouldMeasureSummaryOverflow =
-    !suppressCollapsedSummary && !hasThinkingText && collapsedSummaryText.length > 0;
+    !suppressCollapsedSummary &&
+    !hasThinkingText &&
+    collapsedSummaryText.length > 0;
   const [isSummaryTitleTruncated, setIsSummaryTitleTruncated] = useState(false);
   const hasExpandableContent =
     hasThinkingText ||
