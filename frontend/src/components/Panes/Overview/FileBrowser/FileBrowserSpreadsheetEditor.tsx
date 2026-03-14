@@ -585,9 +585,9 @@ export function FileBrowserSpreadsheetEditor({
         setErrorText(detail ?? "Failed to load spreadsheet file.");
         return false;
       }
-      const binaryResponse = await route_binary_download(
-        response.data.contentId,
-      );
+      const binaryResponse = await route_binary_download({
+        contentId: response.data.contentId,
+      });
       if (isStaleRequest()) {
         return false;
       }
