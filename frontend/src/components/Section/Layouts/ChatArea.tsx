@@ -31,7 +31,10 @@ import {
 } from "components/Chat/sharePolicyChatAccess";
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
-import { BrailleSpinner } from "components/Utils/BrailleSpinner";
+import {
+  BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME,
+  BrailleSpinner,
+} from "components/Utils/BrailleSpinner";
 import _ from "lodash";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -940,7 +943,7 @@ function ChatSectionHistoryList({
             </div>
             {entry.waitingForResponse ? (
               <BrailleSpinner
-                className={`single-cell-child text-[11px] ${
+                className={`single-cell-child ${BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME} ${
                   entry.chatId === activeChatId
                     ? "text-white dark:text-white"
                     : "text-setta-500/70"

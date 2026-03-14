@@ -5,7 +5,10 @@ import {
   CodeBlock,
   MarkdownCodePre,
 } from "components/Section/Layouts/TextBlock";
-import { BrailleSpinner } from "components/Utils/BrailleSpinner";
+import {
+  BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME,
+  BrailleSpinner,
+} from "components/Utils/BrailleSpinner";
 import { DummyCodeMirror } from "components/Utils/CodeMirror/DummyCodeMirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import {
@@ -3267,7 +3270,9 @@ const ThinkingBox = memo(function ThinkingBox({
                     data-chat-thinking-status="true"
                     className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-setta-500 dark:text-setta-300"
                   >
-                    <BrailleSpinner className="text-[11px] text-setta-400 dark:text-setta-300/70" />
+                    <BrailleSpinner
+                      className={`${BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME} text-setta-400 dark:text-setta-300/70`}
+                    />
                     Working
                     {durationLabel ? (
                       <span
@@ -4122,7 +4127,9 @@ function ToolCallAccordionStatus({ runState }: { runState: ToolCallRunState }) {
     );
   }
   return (
-    <BrailleSpinner className="text-[11px] text-setta-400 dark:text-setta-300/70" />
+    <BrailleSpinner
+      className={`${BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME} text-setta-400 dark:text-setta-300/70`}
+    />
   );
 }
 
@@ -5376,7 +5383,9 @@ function ToolCallSectionStatus({
   }
   return (
     <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-setta-500 dark:text-setta-300">
-      <BrailleSpinner className="text-[11px] text-setta-400 dark:text-setta-300/70" />
+      <BrailleSpinner
+        className={`${BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME} text-setta-400 dark:text-setta-300/70`}
+      />
       {runningLabel}
       {durationLabel ? (
         <span
@@ -5699,7 +5708,9 @@ function AssistantTypingIndicator({ visible }: { visible: boolean }) {
       data-chat-assistant-typing-indicator="true"
       aria-hidden="true"
     >
-      <BrailleSpinner className="text-[11px] text-setta-400 dark:text-setta-300/70" />
+      <BrailleSpinner
+        className={`${BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME} text-setta-400 dark:text-setta-300/70`}
+      />
     </div>
   );
 }

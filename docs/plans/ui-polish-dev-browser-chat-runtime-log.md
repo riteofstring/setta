@@ -729,3 +729,15 @@ For each new entry, append:
 - Decisions: Treat the reconciled plan checklist as closeable on direct code + test evidence, but keep the CDP limitation explicit in the log. The remaining tooltip audit was not a React Flow problem anymore; it was the unlabeled section-header chrome.
 - Blockers or open questions: No code or automated-test blockers remain from the original checklist. A future session with healthy DevTools MCP can rerun the visual audit if needed.
 - Next recommended slice: No original checklist items remain open. Future work can proceed as separate follow-up polish or bugfix slices.
+
+### 2026-03-13 10:11
+
+- Date: 2026-03-13 10:11 EDT
+- Scope: Follow-up polish for the shared braille loading spinner sizing. The spinner was technically present in the visible AI/chat loading states, but it remained too small to read clearly in the common runtime surfaces.
+- Tests added or updated first: Extended `frontend/src/components/Utils/BrailleSpinner.test.tsx` to lock the shared runtime and compact size contracts that downstream spinner call sites should use.
+- Production code changed: Added exported shared size constants in `frontend/src/components/Utils/BrailleSpinner.tsx` and updated the visible AI/chat runtime usages to consume them. The common runtime spinner size is now `text-[13px]` in `frontend/src/components/Chat/ChatMessages.tsx`, `frontend/src/components/Chat/ApprovalCard.tsx`, `frontend/src/components/Chat/TodoListCard.tsx`, and `frontend/src/components/Section/Layouts/ChatArea.tsx`. The denser thread-history indicator in `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` now uses a slightly larger compact size of `text-[11px]` instead of the previous tiny `text-[9px]`.
+- Verification run: Final green runs were `pnpm -C frontend exec vitest run src/components/Utils/BrailleSpinner.test.tsx src/components/Chat/ChatMessages.test.tsx` and `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/chat-tool-calls.spec.ts --grep "shows the braille startup indicator before assistant output begins"`.
+- CDP visual check: Not run. `chrome-devtools-mcp` is still failing in this chat with `Transport closed`, so the required live visual confirmation could not be completed.
+- Decisions: Keep spinner sizing centralized in the shared spinner module instead of scattering one-off font-size literals across each chat/runtime surface. Use a slightly smaller compact variant only where density is materially tighter, such as the project thread list.
+- Blockers or open questions: None in code or automated coverage. A future session with a healthy DevTools MCP transport can visually reconfirm the larger spinner size.
+- Next recommended slice: None from the original plan. Continue only with new follow-up polish or bugfix items.

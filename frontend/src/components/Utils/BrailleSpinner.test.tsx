@@ -7,6 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   BRAILLE_SPINNER_FRAMES,
   BRAILLE_SPINNER_INTERVAL_MS,
+  BRAILLE_SPINNER_COMPACT_SIZE_CLASS_NAME,
+  BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME,
   BrailleSpinner,
 } from "./BrailleSpinner";
 
@@ -54,5 +56,10 @@ describe("BrailleSpinner", () => {
       vi.advanceTimersByTime(BRAILLE_SPINNER_INTERVAL_MS);
     });
     expect(host.textContent).toBe(BRAILLE_SPINNER_FRAMES[2]);
+  });
+
+  it("exports the shared runtime and compact size contracts for braille loader call sites", () => {
+    expect(BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME).toBe("text-[13px]");
+    expect(BRAILLE_SPINNER_COMPACT_SIZE_CLASS_NAME).toBe("text-[11px]");
   });
 });
