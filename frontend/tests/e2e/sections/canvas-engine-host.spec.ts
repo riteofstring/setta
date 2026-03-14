@@ -25,6 +25,9 @@ type CanvasEngineCameraSnapshot = {
   zoom: number;
 };
 
+const MULTI_SELECTION_MODIFIER_KEY =
+  process.platform === "darwin" ? "Meta" : "Control";
+
 test("canvas engine host mounts visible top-level sections as dom islands", async ({
   page,
 }) => {
@@ -214,6 +217,55 @@ test("canvas engine host ignores section-control clicks for canvas selection", a
     await expect
       .poll(async () => await readActiveSectionIds(host))
       .toEqual([firstSectionId]);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("canvas engine host preserves modifier-click multi-section selection", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+
+    const firstSectionId = await createCallableSectionForCanvasEngine(
+      page,
+      projectContext.projectConfigId,
+    );
+    const secondSectionId = await createCallableSectionForCanvasEngine(
+      page,
+      projectContext.projectConfigId,
+    );
+    await expect(
+      host.locator(`[data-canvas-engine-dom-island="${secondSectionId}"]`),
+    ).toHaveCount(1);
+
+    await dispatchMountedSectionRootClick(page, firstSectionId);
+    await expect
+      .poll(async () => await readActiveSectionIds(host))
+      .toEqual([firstSectionId]);
+
+    await page.keyboard.down(MULTI_SELECTION_MODIFIER_KEY);
+    try {
+      await dispatchMountedSectionRootClick(page, secondSectionId);
+      await expect
+        .poll(async () => await readActiveSectionIds(host))
+        .toEqual([firstSectionId, secondSectionId]);
+
+      await dispatchMountedSectionRootClick(page, firstSectionId);
+      await expect
+        .poll(async () => await readActiveSectionIds(host))
+        .toEqual([secondSectionId]);
+    } finally {
+      await page.keyboard.up(MULTI_SELECTION_MODIFIER_KEY);
+    }
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
