@@ -403,6 +403,18 @@ func TestSupportsRealtimeTranscriptionAllowsDefaultOpenAIProviderWhenProviderUns
 	}
 }
 
+func TestSupportsRealtimeTranscriptionAllowsOpenAITranscribeLatest(t *testing.T) {
+	t.Parallel()
+
+	if !SupportsRealtimeTranscriptionConfig(llmconfig.Config{
+		ID:       "openai-latest",
+		Model:    "gpt-4o-transcribe-latest",
+		Provider: "openai",
+	}) {
+		t.Fatal("expected gpt-4o-transcribe-latest to be supported for realtime transcription")
+	}
+}
+
 func newTranscriptionProfileTestService(t *testing.T, profiles []Profile, configs map[string]llmconfig.Config) (*Service, *Store) {
 	t.Helper()
 

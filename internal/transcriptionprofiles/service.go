@@ -30,8 +30,9 @@ var (
 )
 
 var openAIRealtimeTranscriptionModelIDs = map[string]struct{}{
-	"gpt-4o-transcribe":      {},
-	"gpt-4o-mini-transcribe": {},
+	"gpt-4o-transcribe":        {},
+	"gpt-4o-transcribe-latest": {},
+	"gpt-4o-mini-transcribe":   {},
 }
 
 var openAIRealtimeTranscriptionModelPrefixes = []string{
