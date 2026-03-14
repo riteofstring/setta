@@ -1,6 +1,6 @@
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { getEmptySpacePosition } from "state/actions/sections/createSections";
-import { RouteEnum } from "utils/generatedRoutes";
+import { GoHTTPRoutes } from "utils/generatedRoutes";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
 type SettaApiPreset = {
@@ -12,7 +12,7 @@ type SettaApiPreset = {
 export const SETTA_API_PRESETS: Array<SettaApiPreset> = [
   {
     label: "Create top-level section",
-    route: RouteEnum.CREATE_TOP_LEVEL_SECTION,
+    route: GoHTTPRoutes.createTopLevelSection,
     buildBody: () => {
       return {
         projectConfigId: getCurrProjectConfigId(),
@@ -25,14 +25,14 @@ export const SETTA_API_PRESETS: Array<SettaApiPreset> = [
   },
   {
     label: "Get latest project state",
-    route: RouteEnum.GET_LATEST_PROJECT_STATE,
+    route: GoHTTPRoutes.getLatestProjectState,
     buildBody: () => ({
       projectConfigId: getCurrProjectConfigId(),
     }),
   },
   {
     label: "Save project",
-    route: RouteEnum.SAVE_PROJECT,
+    route: GoHTTPRoutes.saveProject,
     buildBody: () => ({
       projectConfigId: getCurrProjectConfigId(),
     }),

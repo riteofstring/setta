@@ -1524,12 +1524,15 @@ func TestFrontendRouteConstantImportsStayWithinExplicitBoundaries(t *testing.T) 
 	allowedRouteConstantImports := map[string]map[string]struct{}{
 		"GoHTTPRoutes": {
 			"frontend/src/utils/generatedEndpoints.ts": {},
+			"frontend/src/utils/settaApiPresets.ts":   {},
+		},
+		"GoRoutePrefixes": {
+			"frontend/src/utils/c_addresses.ts": {},
 		},
 		"GoWebsocketRoutes": {},
 	}
 	disallowedWithoutCaller := map[string]struct{}{
-		"GoRootRoutes":    {},
-		"GoRoutePrefixes": {},
+		"GoRootRoutes": {},
 	}
 	generatedRoutesImportPattern := regexp.MustCompile(`(?s)import\s*\{([^}]*)\}\s*from\s*["'](?:\./generatedRoutes|utils/generatedRoutes)["']`)
 
@@ -1583,7 +1586,7 @@ func TestFrontendRouteConstantImportsStayWithinExplicitBoundaries(t *testing.T) 
 					continue
 				}
 				return fmt.Errorf(
-					"%s imports %q from generatedRoutes outside the explicit caller-backed boundary",
+					"%s imports %q from generatedRoutes outside the explicit generated route-constant boundary",
 					relativePath,
 					bindingName,
 				)
