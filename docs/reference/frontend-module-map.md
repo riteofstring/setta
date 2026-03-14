@@ -140,5 +140,9 @@ This is the front door for authored frontend code under `frontend/src/`.
 - Need Project Chat conversation filtering or submitted-history helpers: open `components/Panes/Overview/ProjectLevelAI/projectChatHistoryUtils.ts`.
 - Need LLM config or managed API-key mutations: open `state/actions/ai/llmSettings.ts`.
 - Need Project AI profiles/templates/engine/transcription resource mutations: open `state/actions/ai/projectAiResources.ts`.
+- Need Project AI settings draft builders, list parsing, or external-agent JSON parsing: open `components/Panes/Overview/ProjectLevelAI/projectAISettingsDraftUtils.ts`.
+- Need Project AI settings field chrome or shared manager form primitives: open `components/Panes/Overview/ProjectLevelAI/projectAISettingsFormPrimitives.tsx`.
+- Need Project AI agent profile manager behavior: open `components/Panes/Overview/ProjectLevelAI/ProjectAIAgentProfilesManager.tsx`.
+- Need Project AI transcription profile manager behavior: open `components/Panes/Overview/ProjectLevelAI/ProjectAITranscriptionProfilesManager.tsx`.
 - Need shared derived state or a component-facing hook: search in `state/hooks/`.
 - Need a pure cross-feature helper: check `utils/`.
