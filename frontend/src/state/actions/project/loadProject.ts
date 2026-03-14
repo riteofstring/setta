@@ -30,6 +30,7 @@ import {
 } from "utils/generatedEndpoints";
 import {
   type AllProjectMetadata,
+  type CreateProjectConfigResponse,
   type ProjectStateSingleConfig,
   type ProjectStateSingleConfigInput,
   type SettaLspDiagnosticsPayload,
@@ -51,6 +52,8 @@ type LatestLspDiagnosticsRouteResponse =
   ResponseDataAndStatus<SettaLspDiagnosticsPayload>;
 type LoadAllProjectMetadataRouteResponse =
   ResponseDataAndStatus<AllProjectMetadata>;
+type CreateProjectConfigRouteResponse =
+  ResponseDataAndStatus<CreateProjectConfigResponse>;
 
 export async function loadProjectConfig({ projectConfigName }) {
   const res: LoadProjectConfigRouteResponse = await route_load_project_config({
@@ -156,7 +159,8 @@ export function useCreateAndGoToProjectConfig() {
     if (!previewImgColor) {
       throw new Error();
     }
-    const res = await route_create_project_config({ previewImgColor });
+    const res: CreateProjectConfigRouteResponse =
+      await route_create_project_config({ previewImgColor });
     if (res200(res)) {
       useLocalStorage.setState({
         overviewTab: OverviewTabNameEnum.ProjectAIChat,
