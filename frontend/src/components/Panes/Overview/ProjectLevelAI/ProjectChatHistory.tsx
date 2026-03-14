@@ -19,21 +19,15 @@ import {
 import { shallow } from "zustand/shallow";
 import { ProjectChatHistoryContent } from "./ProjectChatHistoryContent";
 import { ProjectChatHistoryToolbar } from "./ProjectChatHistoryToolbar";
-import { toThreadGroupDndId } from "./projectChatHistoryDragUtils";
 import {
   useProjectChatHistorySearchNavigation,
   useProjectChatHistorySearchQueryState,
 } from "./projectChatHistorySearchState";
-import { isDraftProjectChatHistoryEntry } from "./projectChatHistoryThreadListShared";
-import {
-  buildOrderedVisibleThreadIds,
-  buildProjectChatHistoryDisplayEntries,
-  buildProjectChatThreadSections,
-  buildThreadAgentBadgeLabelByChatId,
-} from "./projectChatHistoryViewModel";
+import { buildProjectChatHistoryDisplayEntries } from "./projectChatHistoryViewModel";
 import { useProjectChatHistoryCommandController } from "./useProjectChatHistoryCommandController";
 import { useProjectChatHistoryDragController } from "./useProjectChatHistoryDragController";
 import { useProjectChatHistoryPolling } from "./useProjectChatHistoryPolling";
+import { useProjectChatHistorySurfaceState } from "./useProjectChatHistorySurfaceState";
 
 export function getProjectChatDeleteRecoveryTooltipContent(
   target: "thread" | "group",
@@ -182,99 +176,43 @@ export function ProjectChatHistory({
     displayEntries,
     syntheticDraftThreadEntry,
   });
-
-  const viewedThreadIdsSet = useMemo(() => {
-    return new Set(viewedThreadIds);
-  }, [viewedThreadIds]);
-  const pinnedThreadIdsSet = useMemo(() => {
-    return new Set(pinnedThreadIds);
-  }, [pinnedThreadIds]);
-  const trashedThreadIdsSet = useMemo(() => {
-    return new Set(trashedThreadIds);
-  }, [trashedThreadIds]);
-  const visibleSortedEntries = useMemo(() => {
-    return sortedEntries.filter(
-      (entry) =>
-        isDraftProjectChatHistoryEntry(entry) ||
-        !trashedThreadIdsSet.has(entry.chatId),
-    );
-  }, [sortedEntries, trashedThreadIdsSet]);
-  const threadAgentBadgeLabelByChatId = useMemo(() => {
-    return buildThreadAgentBadgeLabelByChatId({
-      visibleSortedEntries,
-      engineConfigs,
-      externalAgentConfigs,
-    });
-  }, [engineConfigs, externalAgentConfigs, visibleSortedEntries]);
-
-  const { groupSections, ungroupedEntries } = useMemo(() => {
-    return buildProjectChatThreadSections({
-      visibleSortedEntries,
-      draftThread,
-      threadGroups,
-      threadAssignments,
-      threadOrderIds,
-      pinnedThreadIds,
-    });
-  }, [
+  const {
+    viewedThreadIdsSet,
+    pinnedThreadIdsSet,
+    threadAgentBadgeLabelByChatId,
+    groupSections,
+    searchableGroupSections,
+    pinnedSearchableGroupSections,
+    unpinnedSearchableGroupSections,
+    pinnedSortableGroupIds,
+    unpinnedSortableGroupIds,
+    pinnedSortableGroupDndIds,
+    unpinnedSortableGroupDndIds,
+    groupSortableEnabledById,
+    groupsSortableEnabled,
+    ungroupedEntries,
+    orderedVisibleThreadIds,
+    threadGroupById,
+    threadPinnedById,
+    threadsSortableEnabled,
+    hasAnyContent,
+    emptyStateText,
+    showNoThreadsPlaceholder,
+  } = useProjectChatHistorySurfaceState({
+    sortedEntries,
     draftThread,
-    pinnedThreadIds,
-    visibleSortedEntries,
-    threadAssignments,
     threadGroups,
+    threadAssignments,
     threadOrderIds,
-  ]);
-
-  const searchableGroupSections = useMemo(() => {
-    if (!hasMasterSearch) {
-      return groupSections;
-    }
-    return groupSections.filter((section) => section.entries.length > 0);
-  }, [groupSections, hasMasterSearch]);
-  const pinnedSearchableGroupSections = useMemo(() => {
-    return searchableGroupSections.filter((section) => section.pinned ?? false);
-  }, [searchableGroupSections]);
-  const unpinnedSearchableGroupSections = useMemo(() => {
-    return searchableGroupSections.filter(
-      (section) => !(section.pinned ?? false),
-    );
-  }, [searchableGroupSections]);
-  const pinnedSortableGroupIds = useMemo(() => {
-    return pinnedSearchableGroupSections.map((section) => section.id);
-  }, [pinnedSearchableGroupSections]);
-  const unpinnedSortableGroupIds = useMemo(() => {
-    return unpinnedSearchableGroupSections.map((section) => section.id);
-  }, [unpinnedSearchableGroupSections]);
-  const pinnedSortableGroupDndIds = useMemo(() => {
-    return pinnedSortableGroupIds.map((groupId) => toThreadGroupDndId(groupId));
-  }, [pinnedSortableGroupIds]);
-  const unpinnedSortableGroupDndIds = useMemo(() => {
-    return unpinnedSortableGroupIds.map((groupId) =>
-      toThreadGroupDndId(groupId),
-    );
-  }, [unpinnedSortableGroupIds]);
-  const groupSortableEnabledById = useMemo(() => {
-    const sortableById = new Map<string, boolean>();
-    const pinnedSortableEnabled = pinnedSortableGroupIds.length > 1;
-    const unpinnedSortableEnabled = unpinnedSortableGroupIds.length > 1;
-    for (const groupId of pinnedSortableGroupIds) {
-      sortableById.set(groupId, pinnedSortableEnabled);
-    }
-    for (const groupId of unpinnedSortableGroupIds) {
-      sortableById.set(groupId, unpinnedSortableEnabled);
-    }
-    return sortableById;
-  }, [pinnedSortableGroupIds, unpinnedSortableGroupIds]);
-  const groupsSortableEnabled =
-    !hasMasterSearch &&
-    (pinnedSortableGroupIds.length > 1 || unpinnedSortableGroupIds.length > 1);
-
-  const orderedVisibleThreadIds = useMemo(() => {
-    return buildOrderedVisibleThreadIds({
-      searchableGroupSections,
-      ungroupedEntries,
-    });
-  }, [searchableGroupSections, ungroupedEntries]);
+    viewedThreadIds,
+    pinnedThreadIds,
+    trashedThreadIds,
+    engineConfigs,
+    externalAgentConfigs,
+    hasMasterSearch,
+    initialLoadComplete: agentRunsInitialLoadComplete,
+    loadError: agentRunsLoadError,
+  });
   const {
     activeMasterSearchMatchThreadId,
     masterSearchCounterText,
@@ -286,32 +224,6 @@ export function ProjectChatHistory({
     orderedVisibleThreadIds,
     threadListScrollRef,
   });
-
-  const threadGroupById = useMemo(() => {
-    const next = new Map<string, string | null>();
-    for (const threadId of orderedVisibleThreadIds) {
-      next.set(threadId, threadAssignments[threadId] ?? null);
-    }
-    return next;
-  }, [orderedVisibleThreadIds, threadAssignments]);
-  const threadPinnedById = useMemo(() => {
-    const next = new Map<string, boolean>();
-    for (const threadId of orderedVisibleThreadIds) {
-      next.set(threadId, pinnedThreadIdsSet.has(threadId));
-    }
-    return next;
-  }, [orderedVisibleThreadIds, pinnedThreadIdsSet]);
-
-  const threadsSortableEnabled =
-    !hasMasterSearch && orderedVisibleThreadIds.length > 0;
-
-  const placeholderText = useMemo(() => {
-    return getPlaceholderText(
-      agentRunsInitialLoadComplete,
-      agentRunsLoadError,
-      sortedEntries.length,
-    );
-  }, [agentRunsInitialLoadComplete, agentRunsLoadError, sortedEntries.length]);
 
   const {
     editingGroupId,
@@ -375,14 +287,6 @@ export function ProjectChatHistory({
   const panelClasses = inline
     ? "flex h-full min-h-0 w-full min-w-0 flex-col border-r border-setta-200 bg-setta-50 dark:border-setta-800 dark:bg-setta-900/40"
     : "flex h-full min-h-0 flex-col";
-
-  const hasAnyContent =
-    searchableGroupSections.length > 0 || ungroupedEntries.length > 0;
-  const emptyStateText = hasMasterSearch
-    ? "No conversations match this filter."
-    : placeholderText;
-  const showNoThreadsPlaceholder =
-    !hasAnyContent && emptyStateText === "No threads yet";
   const threadsToolbar = (
     <ProjectChatHistoryToolbar
       masterSearchInput={masterSearchInput}
@@ -471,21 +375,4 @@ export function ProjectChatHistory({
       />
     </section>
   );
-}
-
-function getPlaceholderText(
-  initialLoadComplete: boolean,
-  loadError: string | null,
-  entryCount: number,
-): string {
-  if (loadError) {
-    return loadError;
-  }
-  if (!initialLoadComplete) {
-    return "Loading threads...";
-  }
-  if (entryCount === 0) {
-    return "No threads yet";
-  }
-  return "";
 }
