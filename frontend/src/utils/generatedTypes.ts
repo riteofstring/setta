@@ -17993,6 +17993,18 @@ export const GetExternalAgentChatResponseSchema = z.object({
   waitingForResponse: z.boolean(),
   toolCallArguments: z.record(z.string(), z.string()).default({}),
   contextUsage: z.union([ChatContextUsageSchema, z.null()]).default(null),
+  appGenerationByMessageId: z
+    .record(
+      z.string(),
+      z.literal([
+        "plain_chat",
+        "json_render",
+        "json_render_with_image",
+        "prompt_builder",
+        "mcp_server",
+      ]),
+    )
+    .default({}),
 });
 
 export type GetExternalAgentChatResponse = z.infer<
@@ -18036,6 +18048,18 @@ export const GetLLMChatRequestResponseSchema = z.object({
   waitingForResponse: z.boolean(),
   llmConfig: z.union([LLMConfigSchema, z.null()]),
   contextUsage: z.union([ChatContextUsageSchema, z.null()]).default(null),
+  appGenerationByMessageId: z
+    .record(
+      z.string(),
+      z.literal([
+        "plain_chat",
+        "json_render",
+        "json_render_with_image",
+        "prompt_builder",
+        "mcp_server",
+      ]),
+    )
+    .default({}),
 });
 
 export type GetLLMChatRequestResponse = z.infer<
@@ -18070,7 +18094,6 @@ export const GetLLMResponseRequestSchema = z.object({
   allowUnscoped: z.boolean().default(false),
   branchParentChatId: z.union([IDSchema, z.null()]).default(null),
   branchFromMessageId: z.union([IDSchema, z.null()]).default(null),
-  appSpecStreamingEnabled: z.boolean().default(false),
   permissionMode: z.enum(ChatPermissionModeEnum),
   searchEnabled: z.boolean(),
   appGenerationMode: z
@@ -18084,10 +18107,18 @@ export const GetLLMResponseRequestSchema = z.object({
       z.null(),
     ])
     .default(null),
-  appGenerationReferenceImageUrl: z.union([z.string(), z.null()]).default(null),
-  appGenerationReferenceImageNotes: z
-    .union([z.string(), z.null()])
-    .default(null),
+  appGenerationByMessageId: z
+    .record(
+      z.string(),
+      z.literal([
+        "plain_chat",
+        "json_render",
+        "json_render_with_image",
+        "prompt_builder",
+        "mcp_server",
+      ]),
+    )
+    .default({}),
 });
 
 export type GetLLMResponseRequest = z.infer<typeof GetLLMResponseRequestSchema>;

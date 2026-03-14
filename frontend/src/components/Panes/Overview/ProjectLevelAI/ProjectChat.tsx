@@ -64,6 +64,7 @@ import {
   useProjectState,
   type ProjectChatAuxView,
 } from "state/definitions";
+import { getDefaultChatAppGenerationDetails } from "state/utils/chatAppGeneration";
 import {
   buildSearchableTextForMessage,
   matchesConversationSearchText,
@@ -561,6 +562,21 @@ function ProjectChatSurface({
       return activeMessages as Array<BaseChatMessageUnion>;
     }
     return [];
+  });
+  const activeConversationAppGenerationDetails = useAIStore((state) => {
+    if (chatId === null) {
+      return (
+        state.pendingChatAppGenerationDetailsBySurfaceId[resolvedSurfaceId] ??
+        getDefaultChatAppGenerationDetails()
+      );
+    }
+    if (typeof chatId !== "string") {
+      return getDefaultChatAppGenerationDetails();
+    }
+    return (
+      state.chatAppGenerationDetailsByChatId[chatId] ??
+      getDefaultChatAppGenerationDetails()
+    );
   });
   const selectedChatWaitingForResponse = useAIStore((state) => {
     if (chatId === null) {
@@ -1651,7 +1667,11 @@ function ProjectChatSurface({
     if (!engineSwitchContinuation) {
       return;
     }
-    seedPendingChatDetails(activeConversationMessages, resolvedSurfaceId);
+    seedPendingChatDetails(
+      activeConversationMessages,
+      resolvedSurfaceId,
+      activeConversationAppGenerationDetails,
+    );
     setChatId(null);
     setDraftThreadState({ phase: "idle" });
     setDraftThreadTargetGroupId(selectedThreadGroupId);
@@ -1664,6 +1684,7 @@ function ProjectChatSurface({
     }
     setProjectChatAuxView("none");
   }, [
+    activeConversationAppGenerationDetails,
     activeConversationMessages,
     engineSwitchContinuation,
     resolvedSurfaceId,

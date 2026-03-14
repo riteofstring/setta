@@ -42,8 +42,16 @@ from setta.types.generated.chat_messages import (
 from setta.types.id import ID
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import ChatPermissionMode
+from setta.utils.chat_attachments import is_image_mime, normalize_attachment_mime
 
 AppGenerationMode = Literal[
+    "json_render",
+    "json_render_with_image",
+    "prompt_builder",
+    "mcp_server",
+]
+ChatAppGenerationMessageMode = Literal[
+    "plain_chat",
     "json_render",
     "json_render_with_image",
     "prompt_builder",
@@ -94,6 +102,12 @@ class ManagedChatDispatchRequestBase(BaseModel, extra="forbid"):
     appGenerationMode: AppGenerationMode | None = Field(
         default=None,
         description="Optional app generation mode selected in the UI.",
+    )
+    appGenerationByMessageId: dict[str, ChatAppGenerationMessageMode] = Field(
+        default_factory=dict,
+        description=(
+            "Per-user-message submission mode for the chat history, including plain chat turns."
+        ),
     )
     appGenerationReferenceImageUrl: str | None = Field(
         default=None,
@@ -489,6 +503,67 @@ def _build_app_generation_mode_prompt(
     return "\n".join(lines)
 
 
+def _message_has_image_attachment(message: BaseChatMessageUnion) -> bool:
+    attachments = getattr(message, "attachments", [])
+    return any(
+        is_image_mime(normalize_attachment_mime(attachment))
+        for attachment in attachments
+    )
+
+
+def _require_image_attachment_for_app_generation_mode(
+    mode: AppGenerationMode | None,
+    messages: list[BaseChatMessageUnion],
+    app_generation_by_message_id: dict[str, ChatAppGenerationMessageMode],
+) -> None:
+    if mode != "json_render_with_image":
+        return
+    for message in messages:
+        if getattr(message, "role", None) != "user":
+            continue
+        if app_generation_by_message_id.get(message.id) != "json_render_with_image":
+            continue
+        if _message_has_image_attachment(message):
+            return
+    raise HTTPException(
+        status_code=400,
+        detail="json_render_with_image requires at least one image attachment.",
+    )
+
+
+def _normalize_app_generation_by_message_id(
+    *,
+    messages: list[BaseChatMessageUnion],
+    app_generation_by_message_id: dict[str, ChatAppGenerationMessageMode],
+    submitted_message_id: ID,
+    submitted_mode: AppGenerationMode | None,
+) -> dict[str, ChatAppGenerationMessageMode]:
+    user_message_ids = {
+        message.id for message in messages if getattr(message, "role", None) == "user"
+    }
+    normalized: dict[str, ChatAppGenerationMessageMode] = {}
+    for message_id, mode in app_generation_by_message_id.items():
+        normalized_message_id = message_id.strip()
+        if normalized_message_id not in user_message_ids:
+            continue
+        normalized[normalized_message_id] = mode
+    submitted_message_id_str = str(submitted_message_id)
+    if submitted_message_id_str in user_message_ids:
+        normalized[submitted_message_id_str] = (
+            "plain_chat" if submitted_mode is None else submitted_mode
+        )
+    return normalized
+
+
+def _apply_app_generation_inputs(
+    *,
+    inputs: dict[str, object],
+    app_generation_by_message_id: dict[str, ChatAppGenerationMessageMode],
+) -> None:
+    if app_generation_by_message_id:
+        inputs["appGenerationByMessageId"] = app_generation_by_message_id
+
+
 def _merge_app_generation_system_prompt(
     *,
     existing_system_prompt: str,
@@ -694,6 +769,12 @@ class ManagedChatDispatcher:
                 raise HTTPException(status_code=404, detail=str(exc)) from exc
 
         resolved_mode = x.appGenerationMode
+        app_generation_by_message_id = _normalize_app_generation_by_message_id(
+            messages=combined_messages,
+            app_generation_by_message_id=x.appGenerationByMessageId,
+            submitted_message_id=x.message.id,
+            submitted_mode=resolved_mode,
+        )
         normalized_reference_image_url, normalized_reference_image_notes = (
             _normalize_reference_image_inputs(
                 reference_image_url=x.appGenerationReferenceImageUrl,
@@ -705,6 +786,11 @@ class ManagedChatDispatcher:
             reference_image_notes = normalized_reference_image_notes
         else:
             reference_image_url, reference_image_notes = (None, None)
+        _require_image_attachment_for_app_generation_mode(
+            resolved_mode,
+            combined_messages,
+            app_generation_by_message_id,
+        )
         app_generation_mode_prompt = _build_app_generation_mode_prompt(
             mode=resolved_mode,
             app_spec_streaming_enabled=x.appSpecStreamingEnabled,
@@ -769,6 +855,10 @@ class ManagedChatDispatcher:
                 inputs["sectionId"] = str(x.sectionId)
             if x.allowUnscoped:
                 inputs["allowUnscoped"] = True
+            _apply_app_generation_inputs(
+                inputs=inputs,
+                app_generation_by_message_id=app_generation_by_message_id,
+            )
             if normalized_frontend_affinity_token is not None:
                 inputs["frontendAffinityToken"] = normalized_frontend_affinity_token
             inputs = _merge_extra_run_inputs(inputs, extra_run_inputs)
@@ -869,6 +959,10 @@ class ManagedChatDispatcher:
                 inputs["sectionId"] = str(x.sectionId)
             if x.allowUnscoped:
                 inputs["allowUnscoped"] = True
+            _apply_app_generation_inputs(
+                inputs=inputs,
+                app_generation_by_message_id=app_generation_by_message_id,
+            )
             if normalized_frontend_affinity_token is not None:
                 inputs["frontendAffinityToken"] = normalized_frontend_affinity_token
             inputs = _merge_extra_run_inputs(inputs, extra_run_inputs)

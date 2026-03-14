@@ -47,6 +47,7 @@ from setta.routers.app_generation_limits import (
     MAX_REFERENCE_IMAGE_NOTES_CHARS,
     MAX_REFERENCE_IMAGE_URL_CHARS,
 )
+from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaProjectContextFullRuntimeAPIRouter
 from setta.types.agentic import (
@@ -66,9 +67,33 @@ from setta.types.llm_config import LLMConfig
 from setta.types.routes import Route
 from setta.types.section_impls import ChatPermissionMode
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
+from setta.utils.chat_attachments import is_image_mime, normalize_attachment_mime
 from setta.utils.constants import C
 
 router = SettaProjectContextFullRuntimeAPIRouter()
+ChatAppGenerationMessageMode = Literal[
+    "plain_chat",
+    "json_render",
+    "json_render_with_image",
+    "prompt_builder",
+    "mcp_server",
+]
+_CHAT_APP_GENERATION_MESSAGE_MODES = frozenset(
+    {
+        "plain_chat",
+        "json_render",
+        "json_render_with_image",
+        "prompt_builder",
+        "mcp_server",
+    }
+)
+
+_REQUIRED_ERROR_CHECK_PROMPT = (
+    "## Required completion gate for create/scaffold work\n"
+    "- For project creation, section creation, or scaffolding tasks: do not claim completion until you run error checks.\n"
+    "- Report check outcomes explicitly as pass/fail before any completion claim.\n"
+    "- If checks were not run or checks failed, state that explicitly instead of saying the work is done.\n"
+)
 _TRANSCRIPTION_PCM_MAX_BYTES = (
     C.REALTIME_BINARY_MAX_BYTES if C.REALTIME_BINARY_MAX_BYTES > 0 else 10 * 1024 * 1024
 )
@@ -368,21 +393,13 @@ def _resolve_branch_root_chat_id(
 def _build_app_generation_mode_prompt(
     *,
     mode: AppGenerationMode | None,
-    app_spec_streaming_enabled: bool,
-    reference_image_url: str | None,
-    reference_image_notes: str | None,
 ) -> str | None:
     if mode is None:
         return None
 
     lines = [
         "## App spec generation mode",
-        f"- mode: {mode or 'unspecified'}",
-        (
-            "- streamingPreview: enabled"
-            if app_spec_streaming_enabled
-            else "- streamingPreview: disabled"
-        ),
+        f"- mode: {mode}",
     ]
 
     if mode in ("json_render", "json_render_with_image", "prompt_builder"):
@@ -391,22 +408,10 @@ def _build_app_generation_mode_prompt(
                 "- If you are generating/updating the App spec (json-render):",
                 "  - Use catalog-compatible components only.",
                 "  - Persist via Setta app tools.",
+                "  - Prefer `setta__set_app_definition` with the full UITree appSpec payload.",
+                "  - Optionally call `setta__validate_app_definition` first and fix errors before persisting.",
             ]
         )
-        if app_spec_streaming_enabled:
-            lines.extend(
-                [
-                    "  - Use `setta__stream_app_definition` and stream patches into its `patches` string arg.",
-                    "  - For updates, omit `baseAppSpec` to patch the currently stored app spec (or pass `baseAppSpec` explicitly).",
-                ]
-            )
-        else:
-            lines.extend(
-                [
-                    "  - Prefer `setta__set_app_definition` with the full UITree appSpec payload.",
-                    "  - Optionally call `setta__validate_app_definition` first and fix errors before persisting.",
-                ]
-            )
 
     if mode == "json_render_with_image":
         lines.extend(
@@ -419,7 +424,7 @@ def _build_app_generation_mode_prompt(
     if mode == "prompt_builder":
         lines.extend(
             [
-                "- Prompt-builder flow: keep responses concise and tool-oriented so generation can run from the App pane without manual copy/paste.",
+                "- Prompt-builder flow: keep responses concise and tool-oriented so Project Chat can persist the result directly via Setta app-definition tools.",
             ]
         )
 
@@ -430,28 +435,39 @@ def _build_app_generation_mode_prompt(
                 "- For Figma-oriented requests, support both paths:",
                 "  - Pull an existing Figma design into a JSON-render appSpec.",
                 "  - Generate/update in Figma first, then pull the resulting design back into Setta.",
+                "- After MCP design retrieval, persist into Setta via `setta__set_app_definition`.",
             ]
         )
-        if app_spec_streaming_enabled:
-            lines.append(
-                "- After MCP design retrieval, persist into Setta via `setta__stream_app_definition`."
-            )
-        else:
-            lines.append(
-                "- After MCP design retrieval, persist into Setta via `setta__set_app_definition`."
-            )
-
-    if mode == "json_render_with_image" and reference_image_url:
-        lines.extend(
-            [
-                f"- Reference image URL: {reference_image_url}",
-                "- Use this image as layout/style guidance when composing the app spec.",
-            ]
-        )
-        if reference_image_notes:
-            lines.append(f"- Reference image notes: {reference_image_notes}")
 
     return "\n".join(lines)
+
+
+def _message_has_image_attachment(message: BaseChatMessageUnion) -> bool:
+    attachments = getattr(message, "attachments", [])
+    return any(
+        is_image_mime(normalize_attachment_mime(attachment))
+        for attachment in attachments
+    )
+
+
+def _require_image_attachment_for_app_generation_mode(
+    mode: AppGenerationMode | None,
+    messages: list[BaseChatMessageUnion],
+    app_generation_by_message_id: dict[str, ChatAppGenerationMessageMode],
+) -> None:
+    if mode != "json_render_with_image":
+        return
+    for message in messages:
+        if getattr(message, "role", None) != "user":
+            continue
+        if app_generation_by_message_id.get(message.id) != "json_render_with_image":
+            continue
+        if _message_has_image_attachment(message):
+            return
+    raise HTTPException(
+        status_code=400,
+        detail="json_render_with_image requires at least one image attachment.",
+    )
 
 
 def _merge_app_generation_system_prompt(
@@ -497,31 +513,37 @@ def _build_chat_profile_with_app_generation_mode(
     )
 
 
-def _normalize_reference_image_inputs(
+def _normalize_app_generation_by_message_id(
     *,
-    reference_image_url: str | None,
-    reference_image_notes: str | None,
-) -> tuple[str | None, str | None]:
-    normalized_url = (
-        reference_image_url.strip() if isinstance(reference_image_url, str) else ""
-    )
-    normalized_notes = (
-        reference_image_notes.strip() if isinstance(reference_image_notes, str) else ""
-    )
-    if len(normalized_url) > MAX_REFERENCE_IMAGE_URL_CHARS:
-        raise HTTPException(
-            status_code=400,
-            detail="appGenerationReferenceImageUrl is too large. Reduce it or omit it.",
+    messages: list[BaseChatMessageUnion],
+    app_generation_by_message_id: dict[str, ChatAppGenerationMessageMode],
+    submitted_message_id: ID,
+    submitted_mode: AppGenerationMode | None,
+) -> dict[str, ChatAppGenerationMessageMode]:
+    user_message_ids = {
+        message.id for message in messages if getattr(message, "role", None) == "user"
+    }
+    normalized: dict[str, ChatAppGenerationMessageMode] = {}
+    for message_id, mode in app_generation_by_message_id.items():
+        normalized_message_id = message_id.strip()
+        if normalized_message_id not in user_message_ids:
+            continue
+        normalized[normalized_message_id] = mode
+    submitted_message_id_str = str(submitted_message_id)
+    if submitted_message_id_str in user_message_ids:
+        normalized[submitted_message_id_str] = (
+            "plain_chat" if submitted_mode is None else submitted_mode
         )
-    if len(normalized_notes) > MAX_REFERENCE_IMAGE_NOTES_CHARS:
-        raise HTTPException(
-            status_code=400,
-            detail="appGenerationReferenceImageNotes is too large. Reduce it or omit it.",
-        )
-    return (
-        normalized_url if normalized_url else None,
-        normalized_notes if normalized_notes else None,
-    )
+    return normalized
+
+
+def _apply_app_generation_inputs(
+    *,
+    inputs: dict[str, object],
+    app_generation_by_message_id: dict[str, ChatAppGenerationMessageMode],
+) -> None:
+    if app_generation_by_message_id:
+        inputs["appGenerationByMessageId"] = app_generation_by_message_id
 
 
 class GetLLMResponseRequest(ManagedChatDispatchRequestBase):
@@ -617,6 +639,9 @@ class GetLLMChatRequestResponse(BaseModel):
     waitingForResponse: bool
     llmConfig: LLMConfig | None
     contextUsage: ChatContextUsage | None = None
+    appGenerationByMessageId: dict[str, ChatAppGenerationMessageMode] = Field(
+        default_factory=dict
+    )
 
 
 class GetExternalAgentChatRequest(BaseModel):
@@ -629,6 +654,9 @@ class GetExternalAgentChatResponse(BaseModel):
     waitingForResponse: bool
     toolCallArguments: dict[str, str] = Field(default_factory=dict)
     contextUsage: ChatContextUsage | None = None
+    appGenerationByMessageId: dict[str, ChatAppGenerationMessageMode] = Field(
+        default_factory=dict
+    )
 
 
 class StopLLMChatRequest(BaseModel):
@@ -643,6 +671,26 @@ class StopLLMChatResponse(BaseModel):
 
 class GetAIFollowSnapshotRequest(BaseModel):
     projectConfigId: ID
+
+
+def _get_run_app_generation_by_message_id(
+    run: AgentRun,
+) -> dict[str, ChatAppGenerationMessageMode]:
+    inputs = run.inputs
+    if not inputs:
+        return {}
+    raw_mapping = inputs.get("appGenerationByMessageId")
+    if isinstance(raw_mapping, dict):
+        normalized: dict[str, ChatAppGenerationMessageMode] = {}
+        for message_id, raw_mode in raw_mapping.items():
+            if not isinstance(message_id, str) or not message_id:
+                continue
+            if raw_mode not in _CHAT_APP_GENERATION_MESSAGE_MODES:
+                continue
+            normalized[message_id] = raw_mode
+        if normalized:
+            return normalized
+    return {}
 
 
 def _resolve_latest_assistant_message_id_from_run(run: AgentRun) -> ID | None:
@@ -1064,6 +1112,7 @@ async def route_get_llm_chat(
         waitingForResponse=state.waitingForResponse,
         llmConfig=llm_config,
         contextUsage=_to_chat_context_usage(context_usage),
+        appGenerationByMessageId=_get_run_app_generation_by_message_id(latest_run),
     )
 
 
@@ -1098,6 +1147,7 @@ async def route_get_external_agent_chat(
         waitingForResponse=state.waitingForResponse,
         toolCallArguments=state.toolCallArguments,
         contextUsage=_to_chat_context_usage(context_usage),
+        appGenerationByMessageId=_get_run_app_generation_by_message_id(latest_run),
     )
 
 
