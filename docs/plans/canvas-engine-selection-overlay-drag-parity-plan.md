@@ -20,10 +20,12 @@ selection bounds, not only by grabbing an underlying section body.
 ## Approach
 
 1. Add an engine-native selection-overlay pointer session.
+
    - Start it when pointer-down lands on the selection overlay rect.
    - Snapshot the currently selected top-level section layouts up front.
 
 2. Reuse the existing top-level layout patch flow.
+
    - During pointer move, update the selected top-level sections with the same
      delta math used by section drag.
    - On pointer release, persist through the normal
