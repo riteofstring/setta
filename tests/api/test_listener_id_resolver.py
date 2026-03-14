@@ -32,7 +32,6 @@ def _build_runtime_state(
 ) -> ListenerRuntimeState:
     dependency_graph = DependencyGraph(project_state)
     return ListenerRuntimeState(
-        project_state=project_state,
         dependency_graph=dependency_graph,
         s_instance=None,
     )

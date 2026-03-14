@@ -229,7 +229,6 @@ class ListenerCallbackContext:
 
 @dataclass(slots=True)
 class ListenerRuntimeState:
-    project_state: ProjectStateSingleConfig
     dependency_graph: DependencyGraph
     s_instance: Any | None
 
@@ -1337,6 +1336,7 @@ class SettaListener:
                         runtime_state.s_instance,
                         dependency,
                         snapshot_values,
+                        project_state=project_state,
                         dep_key=dep_key,
                     )
                 if value is _UNAVAILABLE:
@@ -1413,7 +1413,6 @@ class SettaListener:
                 exc_info=logger.isEnabledFor(logging.DEBUG),
             )
             return ListenerRuntimeState(
-                project_state=project_state,
                 dependency_graph=dep_graph,
                 s_instance=None,
             )
@@ -1428,7 +1427,6 @@ class SettaListener:
             )
             s_instance = None
         return ListenerRuntimeState(
-            project_state=project_state,
             dependency_graph=dep_graph,
             s_instance=s_instance,
         )
@@ -1452,6 +1450,7 @@ class SettaListener:
         dependency: str,
         snapshot_values: dict[str, Any],
         *,
+        project_state: ProjectStateSingleConfig,
         dep_key: BaseDependencyKeyUnion | None = None,
     ) -> Any:
         if dependency in snapshot_values:
@@ -1461,6 +1460,7 @@ class SettaListener:
         except AttributeError as error:
             fallback_value = self._hydrate_missing_snapshot_dependency(
                 runtime_state,
+                project_state,
                 dependency,
                 dep_key=dep_key,
             )
@@ -1644,6 +1644,7 @@ class SettaListener:
     def _hydrate_missing_snapshot_dependency(
         self,
         runtime_state: ListenerRuntimeState,
+        project_state: ProjectStateSingleConfig,
         dependency: str,
         *,
         dep_key: BaseDependencyKeyUnion | None,
@@ -1656,7 +1657,7 @@ class SettaListener:
         if not isinstance(node, SectionNode):
             return _UNAVAILABLE
         dependency_value = self._build_snapshot_dependency_value(
-            runtime_state.project_state,
+            project_state,
             dep_key=dep_key,
             node=node,
         )
@@ -2417,6 +2418,7 @@ class SettaListener:
                         runtime_state.s_instance,
                         dependency,
                         snapshot_values,
+                        project_state=snapshot,
                         dep_key=dep_key,
                     )
                 if value is _UNAVAILABLE:

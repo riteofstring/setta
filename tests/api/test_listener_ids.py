@@ -197,7 +197,6 @@ def test_listener_context_values_by_id_uses_cached_values_without_runtime_instan
 
     runtime_state = listener._build_runtime_state(project_state)
     listener._runtime_state = ListenerRuntimeState(
-        project_state=runtime_state.project_state,
         dependency_graph=runtime_state.dependency_graph,
         s_instance=None,
     )
@@ -224,7 +223,6 @@ def test_listener_context_values_by_id_fails_closed_without_cached_value() -> No
 
     runtime_state = listener._build_runtime_state(project_state)
     listener._runtime_state = ListenerRuntimeState(
-        project_state=runtime_state.project_state,
         dependency_graph=runtime_state.dependency_graph,
         s_instance=None,
     )
@@ -250,7 +248,6 @@ def test_metadata_backed_callback_state_fails_closed_for_unresolved_dependency()
 
     runtime_state = listener._build_runtime_state(project_state)
     listener._runtime_state = ListenerRuntimeState(
-        project_state=runtime_state.project_state,
         dependency_graph=runtime_state.dependency_graph,
         s_instance=None,
     )

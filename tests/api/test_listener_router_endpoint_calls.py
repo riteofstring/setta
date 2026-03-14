@@ -64,7 +64,6 @@ def _build_listener(project_state: ProjectStateSingleConfig) -> SettaListener:
     listener = SettaListener(project_name=project_state.projectConfig.name)
     dependency_graph = DependencyGraph(project_state)
     listener._runtime_state = ListenerRuntimeState(
-        project_state=project_state,
         dependency_graph=dependency_graph,
         s_instance=None,
     )

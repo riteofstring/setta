@@ -120,7 +120,6 @@ class TestSettaListenerDependencyTranslation:
         )
         listener._project_config_id = self.project_state.projectConfig.id
         listener._runtime_state = ListenerRuntimeState(
-            project_state=self.project_state,
             dependency_graph=self.dependency_graph,
             s_instance=object(),
         )

@@ -69,6 +69,9 @@ Current state:
     render direct node expressions from shared dependency metadata instead
   - listener ID helpers now resolve meta-control param IDs from dependency
     graph metadata instead of retaining project-state coupling for that path
+  - `ListenerRuntimeState` no longer retains the full project snapshot; the
+    remaining chat snapshot fallback reads the explicit refresh/replay snapshot
+    input instead
   - listener coverage and force-refresh reads/writes
   - listener websocket DTOs in `internal/realtime`
 - Python still owns:

@@ -844,7 +844,6 @@ class TestSettaListenerRealtimeIntegration:
             ),
         )
         listener._runtime_state = ListenerRuntimeState(
-            project_state=MagicMock(),
             dependency_graph=dep_graph,
             s_instance=state,
         )
@@ -1041,7 +1040,6 @@ class TestSettaListenerBootstrapFailure:
 
         runtime_state = listener._build_runtime_state(project_state)
         listener._runtime_state = ListenerRuntimeState(
-            project_state=runtime_state.project_state,
             dependency_graph=runtime_state.dependency_graph,
             s_instance=None,
         )
