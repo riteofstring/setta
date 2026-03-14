@@ -1,35 +1,21 @@
 import {
   route_append_transcription_audio,
   route_cancel_transcription_session,
-  route_create_transcription_profile,
-  route_delete_transcription_profile,
-  route_get_transcription_profiles,
   route_start_transcription_session,
   route_stop_transcription_session,
-  route_update_transcription_profile,
 } from "utils/generatedEndpoints";
-import {
-  SettaNotificationTypeEnum,
-  TranscriptionTransportModeEnum,
-} from "utils/generatedTypes";
+import { SettaNotificationTypeEnum } from "utils/generatedTypes";
 import { ProviderTranscriptionError } from "utils/transcriptionErrors";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { useAIStore } from "../definitions";
-import { resetProjectStores } from "../utils";
 import {
   appendTranscriptionAudio,
   cancelTranscriptionSession,
-  createTranscriptionProfile,
-  deleteTranscriptionProfile,
-  loadTranscriptionProfiles,
-  receiveTranscriptionProfilesUpdate,
   resampleMonoPcm16ToSampleRate,
   resolveProviderTranscriptionChunkSampleCount,
   startTranscriptionSession,
   stopTranscriptionSession,
   transcribeChatAudioWithProfile,
-  updateTranscriptionProfile,
-} from "./aiTranscription";
+} from "./ai";
 import { addTemporaryNotification } from "./notifications";
 
 vi.mock("utils/generatedEndpoints", async () => {
@@ -42,10 +28,6 @@ vi.mock("utils/generatedEndpoints", async () => {
     route_append_transcription_audio: vi.fn(),
     route_stop_transcription_session: vi.fn(),
     route_cancel_transcription_session: vi.fn(),
-    route_get_transcription_profiles: vi.fn(),
-    route_create_transcription_profile: vi.fn(),
-    route_update_transcription_profile: vi.fn(),
-    route_delete_transcription_profile: vi.fn(),
   };
 });
 
@@ -65,24 +47,11 @@ const mockedRouteStopTranscriptionSession = vi.mocked(
 const mockedRouteCancelTranscriptionSession = vi.mocked(
   route_cancel_transcription_session,
 );
-const mockedRouteGetTranscriptionProfiles = vi.mocked(
-  route_get_transcription_profiles,
-);
-const mockedRouteCreateTranscriptionProfile = vi.mocked(
-  route_create_transcription_profile,
-);
-const mockedRouteUpdateTranscriptionProfile = vi.mocked(
-  route_update_transcription_profile,
-);
-const mockedRouteDeleteTranscriptionProfile = vi.mocked(
-  route_delete_transcription_profile,
-);
 const mockedAddTemporaryNotification = vi.mocked(addTemporaryNotification);
 
 describe("transcription session actions", () => {
   afterEach(() => {
     vi.clearAllMocks();
-    resetProjectStores();
   });
 
   it("starts a transcription session", async () => {
@@ -322,6 +291,83 @@ describe("transcription session actions", () => {
     }
   });
 
+  it("prefers authoritative stop fullText over stale appendText segments", async () => {
+    const channels = 1;
+    const sourceSampleRate = 24_000;
+    const sourceSampleCount = 2_400;
+    const channelData = new Float32Array(sourceSampleCount);
+    channelData.fill(0.5);
+    const closeMock = vi.fn().mockResolvedValue(undefined);
+    const decodeAudioDataMock = vi.fn().mockResolvedValue({
+      numberOfChannels: channels,
+      sampleRate: sourceSampleRate,
+      length: sourceSampleCount,
+      getChannelData: () => channelData,
+    });
+    const AudioContextMock = vi.fn(() => ({
+      decodeAudioData: decodeAudioDataMock,
+      close: closeMock,
+    }));
+    const withAudioContext = globalThis as typeof globalThis & {
+      window?: typeof window & { AudioContext?: typeof AudioContext };
+    };
+    const hadWindow = typeof withAudioContext.window !== "undefined";
+    const originalWindow = withAudioContext.window;
+    const testWindow =
+      originalWindow ??
+      ({} as unknown as typeof window & { AudioContext?: typeof AudioContext });
+    withAudioContext.window = testWindow;
+    const originalAudioContext = testWindow.AudioContext;
+    testWindow.AudioContext =
+      AudioContextMock as unknown as typeof AudioContext;
+    mockedRouteStartTranscriptionSession.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        sessionId: "session-rt-order",
+        resolvedTransportMode: "realtime",
+        chunkMs: 100,
+      },
+    });
+    mockedRouteAppendTranscriptionAudio.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        appendText: "world hello",
+        fullText: "hello world",
+        isFinal: false,
+      },
+    });
+    mockedRouteStopTranscriptionSession.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        appendText: "",
+        fullText: "hello world",
+        isFinal: true,
+      },
+    });
+    try {
+      const transcript = await transcribeChatAudioWithProfile(
+        "profile-1",
+        new Blob([new Uint8Array([1, 2, 3])], { type: "audio/webm" }),
+      );
+
+      expect(transcript).toEqual({
+        kind: "ok",
+        transcript: "hello world",
+      });
+      expect(mockedRouteAppendTranscriptionAudio).toHaveBeenCalledTimes(1);
+      expect(mockedRouteStopTranscriptionSession).toHaveBeenCalledTimes(1);
+      expect(closeMock).toHaveBeenCalledTimes(1);
+    } finally {
+      testWindow.AudioContext = originalAudioContext;
+      if (!hadWindow) {
+        delete withAudioContext.window;
+      }
+    }
+  });
+
   it("returns no_speech when provider audio payload is empty", async () => {
     const transcript = await transcribeChatAudioWithProfile(
       "profile-1",
@@ -381,6 +427,266 @@ describe("transcription session actions", () => {
     } finally {
       testWindow.AudioContext = originalAudioContext;
       testWindow.webkitAudioContext = originalWebkitAudioContext;
+      if (!hadWindow) {
+        delete withAudioContext.window;
+      }
+    }
+  });
+
+  it("preserves typed missing_api_key errors from provider start failures", async () => {
+    const channels = 1;
+    const sourceSampleRate = 24_000;
+    const sourceSampleCount = 2_400;
+    const channelData = new Float32Array(sourceSampleCount);
+    channelData.fill(0.5);
+    const closeMock = vi.fn().mockResolvedValue(undefined);
+    const decodeAudioDataMock = vi.fn().mockResolvedValue({
+      numberOfChannels: channels,
+      sampleRate: sourceSampleRate,
+      length: sourceSampleCount,
+      getChannelData: () => channelData,
+    });
+    const AudioContextMock = vi.fn(() => ({
+      decodeAudioData: decodeAudioDataMock,
+      close: closeMock,
+    }));
+    const withAudioContext = globalThis as typeof globalThis & {
+      window?: typeof window & { AudioContext?: typeof AudioContext };
+    };
+    const hadWindow = typeof withAudioContext.window !== "undefined";
+    const originalWindow = withAudioContext.window;
+    const testWindow =
+      originalWindow ??
+      ({} as unknown as typeof window & { AudioContext?: typeof AudioContext });
+    withAudioContext.window = testWindow;
+    const originalAudioContext = testWindow.AudioContext;
+    testWindow.AudioContext =
+      AudioContextMock as unknown as typeof AudioContext;
+    mockedRouteStartTranscriptionSession.mockResolvedValue({
+      status: 400,
+      hasResponse: true,
+      data: {
+        detail: {
+          message:
+            "Missing API key for 'OPENAI_API_KEY'. Configure it in LLM API Keys.",
+          errorCode: "missing_api_key",
+        },
+      },
+    });
+    try {
+      await expect(
+        transcribeChatAudioWithProfile(
+          "profile-1",
+          new Blob([new Uint8Array([1, 2, 3])], { type: "audio/webm" }),
+        ),
+      ).rejects.toMatchObject<ProviderTranscriptionError>({
+        name: "ProviderTranscriptionError",
+        code: "missing_api_key",
+        message:
+          "Missing API key for 'OPENAI_API_KEY'. Configure it in LLM API Keys.",
+      });
+      expect(mockedRouteStartTranscriptionSession).toHaveBeenCalledTimes(1);
+      expect(mockedRouteAppendTranscriptionAudio).not.toHaveBeenCalled();
+      expect(mockedRouteStopTranscriptionSession).not.toHaveBeenCalled();
+      expect(mockedRouteCancelTranscriptionSession).not.toHaveBeenCalled();
+      expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
+      expect(closeMock).toHaveBeenCalledTimes(1);
+    } finally {
+      testWindow.AudioContext = originalAudioContext;
+      if (!hadWindow) {
+        delete withAudioContext.window;
+      }
+    }
+  });
+
+  it("preserves typed provider_failure errors from provider start failures", async () => {
+    const channels = 1;
+    const sourceSampleRate = 24_000;
+    const sourceSampleCount = 2_400;
+    const channelData = new Float32Array(sourceSampleCount);
+    channelData.fill(0.5);
+    const closeMock = vi.fn().mockResolvedValue(undefined);
+    const decodeAudioDataMock = vi.fn().mockResolvedValue({
+      numberOfChannels: channels,
+      sampleRate: sourceSampleRate,
+      length: sourceSampleCount,
+      getChannelData: () => channelData,
+    });
+    const AudioContextMock = vi.fn(() => ({
+      decodeAudioData: decodeAudioDataMock,
+      close: closeMock,
+    }));
+    const withAudioContext = globalThis as typeof globalThis & {
+      window?: typeof window & { AudioContext?: typeof AudioContext };
+    };
+    const hadWindow = typeof withAudioContext.window !== "undefined";
+    const originalWindow = withAudioContext.window;
+    const testWindow =
+      originalWindow ??
+      ({} as unknown as typeof window & { AudioContext?: typeof AudioContext });
+    withAudioContext.window = testWindow;
+    const originalAudioContext = testWindow.AudioContext;
+    testWindow.AudioContext =
+      AudioContextMock as unknown as typeof AudioContext;
+    mockedRouteStartTranscriptionSession.mockResolvedValue({
+      status: 502,
+      hasResponse: true,
+      data: {
+        detail: {
+          message: "Realtime setup forbidden by provider.",
+          errorCode: "provider_failure",
+        },
+      },
+    });
+    try {
+      await expect(
+        transcribeChatAudioWithProfile(
+          "profile-1",
+          new Blob([new Uint8Array([1, 2, 3])], { type: "audio/webm" }),
+        ),
+      ).rejects.toMatchObject<ProviderTranscriptionError>({
+        name: "ProviderTranscriptionError",
+        code: "provider_failure",
+        message: "Realtime setup forbidden by provider.",
+      });
+      expect(mockedRouteStartTranscriptionSession).toHaveBeenCalledTimes(1);
+      expect(mockedRouteAppendTranscriptionAudio).not.toHaveBeenCalled();
+      expect(mockedRouteStopTranscriptionSession).not.toHaveBeenCalled();
+      expect(mockedRouteCancelTranscriptionSession).not.toHaveBeenCalled();
+      expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
+      expect(closeMock).toHaveBeenCalledTimes(1);
+    } finally {
+      testWindow.AudioContext = originalAudioContext;
+      if (!hadWindow) {
+        delete withAudioContext.window;
+      }
+    }
+  });
+
+  it("preserves typed unsupported_model errors from provider start failures", async () => {
+    const channels = 1;
+    const sourceSampleRate = 24_000;
+    const sourceSampleCount = 2_400;
+    const channelData = new Float32Array(sourceSampleCount);
+    channelData.fill(0.5);
+    const closeMock = vi.fn().mockResolvedValue(undefined);
+    const decodeAudioDataMock = vi.fn().mockResolvedValue({
+      numberOfChannels: channels,
+      sampleRate: sourceSampleRate,
+      length: sourceSampleCount,
+      getChannelData: () => channelData,
+    });
+    const AudioContextMock = vi.fn(() => ({
+      decodeAudioData: decodeAudioDataMock,
+      close: closeMock,
+    }));
+    const withAudioContext = globalThis as typeof globalThis & {
+      window?: typeof window & { AudioContext?: typeof AudioContext };
+    };
+    const hadWindow = typeof withAudioContext.window !== "undefined";
+    const originalWindow = withAudioContext.window;
+    const testWindow =
+      originalWindow ??
+      ({} as unknown as typeof window & { AudioContext?: typeof AudioContext });
+    withAudioContext.window = testWindow;
+    const originalAudioContext = testWindow.AudioContext;
+    testWindow.AudioContext =
+      AudioContextMock as unknown as typeof AudioContext;
+    mockedRouteStartTranscriptionSession.mockResolvedValue({
+      status: 400,
+      hasResponse: true,
+      data: {
+        detail: {
+          message:
+            "Realtime transcription is unavailable for this provider/model.",
+          errorCode: "unsupported_model",
+        },
+      },
+    });
+    try {
+      await expect(
+        transcribeChatAudioWithProfile(
+          "profile-1",
+          new Blob([new Uint8Array([1, 2, 3])], { type: "audio/webm" }),
+        ),
+      ).rejects.toMatchObject<ProviderTranscriptionError>({
+        name: "ProviderTranscriptionError",
+        code: "unsupported_model",
+        message:
+          "Realtime transcription is unavailable for this provider/model.",
+      });
+      expect(mockedRouteStartTranscriptionSession).toHaveBeenCalledTimes(1);
+      expect(mockedRouteAppendTranscriptionAudio).not.toHaveBeenCalled();
+      expect(mockedRouteStopTranscriptionSession).not.toHaveBeenCalled();
+      expect(mockedRouteCancelTranscriptionSession).not.toHaveBeenCalled();
+      expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
+      expect(closeMock).toHaveBeenCalledTimes(1);
+    } finally {
+      testWindow.AudioContext = originalAudioContext;
+      if (!hadWindow) {
+        delete withAudioContext.window;
+      }
+    }
+  });
+
+  it("preserves typed profile_not_found errors from provider start failures", async () => {
+    const channels = 1;
+    const sourceSampleRate = 24_000;
+    const sourceSampleCount = 2_400;
+    const channelData = new Float32Array(sourceSampleCount);
+    channelData.fill(0.5);
+    const closeMock = vi.fn().mockResolvedValue(undefined);
+    const decodeAudioDataMock = vi.fn().mockResolvedValue({
+      numberOfChannels: channels,
+      sampleRate: sourceSampleRate,
+      length: sourceSampleCount,
+      getChannelData: () => channelData,
+    });
+    const AudioContextMock = vi.fn(() => ({
+      decodeAudioData: decodeAudioDataMock,
+      close: closeMock,
+    }));
+    const withAudioContext = globalThis as typeof globalThis & {
+      window?: typeof window & { AudioContext?: typeof AudioContext };
+    };
+    const hadWindow = typeof withAudioContext.window !== "undefined";
+    const originalWindow = withAudioContext.window;
+    const testWindow =
+      originalWindow ??
+      ({} as unknown as typeof window & { AudioContext?: typeof AudioContext });
+    withAudioContext.window = testWindow;
+    const originalAudioContext = testWindow.AudioContext;
+    testWindow.AudioContext =
+      AudioContextMock as unknown as typeof AudioContext;
+    mockedRouteStartTranscriptionSession.mockResolvedValue({
+      status: 404,
+      hasResponse: true,
+      data: {
+        detail: {
+          message: "Transcription profile missing-profile not found.",
+          errorCode: "profile_not_found",
+        },
+      },
+    });
+    try {
+      await expect(
+        transcribeChatAudioWithProfile(
+          "missing-profile",
+          new Blob([new Uint8Array([1, 2, 3])], { type: "audio/webm" }),
+        ),
+      ).rejects.toMatchObject<ProviderTranscriptionError>({
+        name: "ProviderTranscriptionError",
+        code: "profile_not_found",
+        message: "Transcription profile missing-profile not found.",
+      });
+      expect(mockedRouteStartTranscriptionSession).toHaveBeenCalledTimes(1);
+      expect(mockedRouteAppendTranscriptionAudio).not.toHaveBeenCalled();
+      expect(mockedRouteStopTranscriptionSession).not.toHaveBeenCalled();
+      expect(mockedRouteCancelTranscriptionSession).not.toHaveBeenCalled();
+      expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
+      expect(closeMock).toHaveBeenCalledTimes(1);
+    } finally {
+      testWindow.AudioContext = originalAudioContext;
       if (!hadWindow) {
         delete withAudioContext.window;
       }
@@ -536,6 +842,325 @@ describe("transcription session actions", () => {
     }
   });
 
+  it("preserves typed invalid_request errors from provider append failures", async () => {
+    const channels = 1;
+    const sourceSampleRate = 24_000;
+    const sourceSampleCount = 2_400;
+    const channelData = new Float32Array(sourceSampleCount);
+    channelData.fill(0.5);
+    const closeMock = vi.fn().mockResolvedValue(undefined);
+    const decodeAudioDataMock = vi.fn().mockResolvedValue({
+      numberOfChannels: channels,
+      sampleRate: sourceSampleRate,
+      length: sourceSampleCount,
+      getChannelData: () => channelData,
+    });
+    const AudioContextMock = vi.fn(() => ({
+      decodeAudioData: decodeAudioDataMock,
+      close: closeMock,
+    }));
+    const withAudioContext = globalThis as typeof globalThis & {
+      window?: typeof window & { AudioContext?: typeof AudioContext };
+    };
+    const hadWindow = typeof withAudioContext.window !== "undefined";
+    const originalWindow = withAudioContext.window;
+    const testWindow =
+      originalWindow ??
+      ({} as unknown as typeof window & { AudioContext?: typeof AudioContext });
+    withAudioContext.window = testWindow;
+    const originalAudioContext = testWindow.AudioContext;
+    testWindow.AudioContext =
+      AudioContextMock as unknown as typeof AudioContext;
+    mockedRouteStartTranscriptionSession.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        sessionId: "session-append-invalid",
+        resolvedTransportMode: "file",
+        chunkMs: 1_200,
+      },
+    });
+    mockedRouteAppendTranscriptionAudio.mockResolvedValue({
+      status: 400,
+      hasResponse: true,
+      data: {
+        detail: {
+          message:
+            "sampleRateHz cannot change within a transcription session.",
+          errorCode: "invalid_request",
+        },
+      },
+    });
+    mockedRouteCancelTranscriptionSession.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: { ok: true },
+    });
+    try {
+      await expect(
+        transcribeChatAudioWithProfile(
+          "profile-1",
+          new Blob([new Uint8Array([1, 2, 3])], { type: "audio/webm" }),
+        ),
+      ).rejects.toMatchObject<ProviderTranscriptionError>({
+        name: "ProviderTranscriptionError",
+        code: "invalid_request",
+        message: "sampleRateHz cannot change within a transcription session.",
+      });
+      expect(mockedRouteStopTranscriptionSession).not.toHaveBeenCalled();
+      expect(mockedRouteCancelTranscriptionSession).toHaveBeenCalledTimes(1);
+      expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
+    } finally {
+      testWindow.AudioContext = originalAudioContext;
+      if (!hadWindow) {
+        delete withAudioContext.window;
+      }
+    }
+  });
+
+  it("preserves typed invalid_request errors from provider stop failures", async () => {
+    const channels = 1;
+    const sourceSampleRate = 24_000;
+    const sourceSampleCount = 2_400;
+    const channelData = new Float32Array(sourceSampleCount);
+    channelData.fill(0.5);
+    const closeMock = vi.fn().mockResolvedValue(undefined);
+    const decodeAudioDataMock = vi.fn().mockResolvedValue({
+      numberOfChannels: channels,
+      sampleRate: sourceSampleRate,
+      length: sourceSampleCount,
+      getChannelData: () => channelData,
+    });
+    const AudioContextMock = vi.fn(() => ({
+      decodeAudioData: decodeAudioDataMock,
+      close: closeMock,
+    }));
+    const withAudioContext = globalThis as typeof globalThis & {
+      window?: typeof window & { AudioContext?: typeof AudioContext };
+    };
+    const hadWindow = typeof withAudioContext.window !== "undefined";
+    const originalWindow = withAudioContext.window;
+    const testWindow =
+      originalWindow ??
+      ({} as unknown as typeof window & { AudioContext?: typeof AudioContext });
+    withAudioContext.window = testWindow;
+    const originalAudioContext = testWindow.AudioContext;
+    testWindow.AudioContext =
+      AudioContextMock as unknown as typeof AudioContext;
+    mockedRouteStartTranscriptionSession.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        sessionId: "session-stop-invalid",
+        resolvedTransportMode: "file",
+        chunkMs: 1_200,
+      },
+    });
+    mockedRouteAppendTranscriptionAudio.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        appendText: "partial",
+        fullText: "partial",
+        isFinal: false,
+      },
+    });
+    mockedRouteStopTranscriptionSession.mockResolvedValue({
+      status: 400,
+      hasResponse: true,
+      data: {
+        detail: {
+          message: "Realtime transcription requires mono PCM16 audio.",
+          errorCode: "invalid_request",
+        },
+      },
+    });
+    mockedRouteCancelTranscriptionSession.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: { ok: true },
+    });
+    try {
+      await expect(
+        transcribeChatAudioWithProfile(
+          "profile-1",
+          new Blob([new Uint8Array([1, 2, 3])], { type: "audio/webm" }),
+        ),
+      ).rejects.toMatchObject<ProviderTranscriptionError>({
+        name: "ProviderTranscriptionError",
+        code: "invalid_request",
+        message: "Realtime transcription requires mono PCM16 audio.",
+      });
+      expect(mockedRouteAppendTranscriptionAudio).toHaveBeenCalledTimes(1);
+      expect(mockedRouteCancelTranscriptionSession).toHaveBeenCalledTimes(1);
+      expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
+    } finally {
+      testWindow.AudioContext = originalAudioContext;
+      if (!hadWindow) {
+        delete withAudioContext.window;
+      }
+    }
+  });
+
+  it("preserves typed session_not_found errors from provider append failures", async () => {
+    const channels = 1;
+    const sourceSampleRate = 24_000;
+    const sourceSampleCount = 2_400;
+    const channelData = new Float32Array(sourceSampleCount);
+    channelData.fill(0.5);
+    const closeMock = vi.fn().mockResolvedValue(undefined);
+    const decodeAudioDataMock = vi.fn().mockResolvedValue({
+      numberOfChannels: channels,
+      sampleRate: sourceSampleRate,
+      length: sourceSampleCount,
+      getChannelData: () => channelData,
+    });
+    const AudioContextMock = vi.fn(() => ({
+      decodeAudioData: decodeAudioDataMock,
+      close: closeMock,
+    }));
+    const withAudioContext = globalThis as typeof globalThis & {
+      window?: typeof window & { AudioContext?: typeof AudioContext };
+    };
+    const hadWindow = typeof withAudioContext.window !== "undefined";
+    const originalWindow = withAudioContext.window;
+    const testWindow =
+      originalWindow ??
+      ({} as unknown as typeof window & { AudioContext?: typeof AudioContext });
+    withAudioContext.window = testWindow;
+    const originalAudioContext = testWindow.AudioContext;
+    testWindow.AudioContext =
+      AudioContextMock as unknown as typeof AudioContext;
+    mockedRouteStartTranscriptionSession.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        sessionId: "session-append-missing",
+        resolvedTransportMode: "file",
+        chunkMs: 1_200,
+      },
+    });
+    mockedRouteAppendTranscriptionAudio.mockResolvedValue({
+      status: 404,
+      hasResponse: true,
+      data: {
+        detail: {
+          message: "Transcription session session-append-missing not found.",
+          errorCode: "session_not_found",
+        },
+      },
+    });
+    mockedRouteCancelTranscriptionSession.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: { ok: true },
+    });
+    try {
+      await expect(
+        transcribeChatAudioWithProfile(
+          "profile-1",
+          new Blob([new Uint8Array([1, 2, 3])], { type: "audio/webm" }),
+        ),
+      ).rejects.toMatchObject<ProviderTranscriptionError>({
+        name: "ProviderTranscriptionError",
+        code: "session_not_found",
+        message: "Transcription session session-append-missing not found.",
+      });
+      expect(mockedRouteStopTranscriptionSession).not.toHaveBeenCalled();
+      expect(mockedRouteCancelTranscriptionSession).toHaveBeenCalledTimes(1);
+      expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
+    } finally {
+      testWindow.AudioContext = originalAudioContext;
+      if (!hadWindow) {
+        delete withAudioContext.window;
+      }
+    }
+  });
+
+  it("preserves typed session_not_found errors from provider stop failures", async () => {
+    const channels = 1;
+    const sourceSampleRate = 24_000;
+    const sourceSampleCount = 2_400;
+    const channelData = new Float32Array(sourceSampleCount);
+    channelData.fill(0.5);
+    const closeMock = vi.fn().mockResolvedValue(undefined);
+    const decodeAudioDataMock = vi.fn().mockResolvedValue({
+      numberOfChannels: channels,
+      sampleRate: sourceSampleRate,
+      length: sourceSampleCount,
+      getChannelData: () => channelData,
+    });
+    const AudioContextMock = vi.fn(() => ({
+      decodeAudioData: decodeAudioDataMock,
+      close: closeMock,
+    }));
+    const withAudioContext = globalThis as typeof globalThis & {
+      window?: typeof window & { AudioContext?: typeof AudioContext };
+    };
+    const hadWindow = typeof withAudioContext.window !== "undefined";
+    const originalWindow = withAudioContext.window;
+    const testWindow =
+      originalWindow ??
+      ({} as unknown as typeof window & { AudioContext?: typeof AudioContext });
+    withAudioContext.window = testWindow;
+    const originalAudioContext = testWindow.AudioContext;
+    testWindow.AudioContext =
+      AudioContextMock as unknown as typeof AudioContext;
+    mockedRouteStartTranscriptionSession.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        sessionId: "session-stop-missing",
+        resolvedTransportMode: "file",
+        chunkMs: 1_200,
+      },
+    });
+    mockedRouteAppendTranscriptionAudio.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        appendText: "partial",
+        fullText: "partial",
+        isFinal: false,
+      },
+    });
+    mockedRouteStopTranscriptionSession.mockResolvedValue({
+      status: 404,
+      hasResponse: true,
+      data: {
+        detail: {
+          message: "Transcription session session-stop-missing not found.",
+          errorCode: "session_not_found",
+        },
+      },
+    });
+    mockedRouteCancelTranscriptionSession.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: { ok: true },
+    });
+    try {
+      await expect(
+        transcribeChatAudioWithProfile(
+          "profile-1",
+          new Blob([new Uint8Array([1, 2, 3])], { type: "audio/webm" }),
+        ),
+      ).rejects.toMatchObject<ProviderTranscriptionError>({
+        name: "ProviderTranscriptionError",
+        code: "session_not_found",
+        message: "Transcription session session-stop-missing not found.",
+      });
+      expect(mockedRouteAppendTranscriptionAudio).toHaveBeenCalledTimes(1);
+      expect(mockedRouteCancelTranscriptionSession).toHaveBeenCalledTimes(1);
+      expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
+    } finally {
+      testWindow.AudioContext = originalAudioContext;
+      if (!hadWindow) {
+        delete withAudioContext.window;
+      }
+    }
+  });
+
   it("resolves realtime chunk sample count from chunkMs and payload cap", () => {
     const chunkSamples = resolveProviderTranscriptionChunkSampleCount({
       session: {
@@ -558,166 +1183,5 @@ describe("transcription session actions", () => {
 
     expect(output.length).toBe(24_000);
     expect(output[0]).toBe(1_000);
-  });
-});
-
-describe("transcription profile actions", () => {
-  afterEach(() => {
-    vi.clearAllMocks();
-    resetProjectStores();
-  });
-
-  it("stores received transcription profiles and clears loading state", () => {
-    receiveTranscriptionProfilesUpdate([
-      {
-        id: "profile-a",
-        name: "Realtime",
-        transcriptionLlmConfigId: "llm-a",
-        transportMode: TranscriptionTransportModeEnum.realtime,
-        chunkMs: 250,
-        supportsRealtimeTranscription: true,
-        language: "en",
-      },
-    ]);
-
-    const state = useAIStore.getState();
-    expect(state.transcriptionProfiles).toEqual([
-      {
-        id: "profile-a",
-        name: "Realtime",
-        transcriptionLlmConfigId: "llm-a",
-        transportMode: TranscriptionTransportModeEnum.realtime,
-        chunkMs: 250,
-        supportsRealtimeTranscription: true,
-        language: "en",
-      },
-    ]);
-    expect(state.transcriptionProfilesInitialLoadComplete).toBe(true);
-    expect(state.transcriptionProfilesLoading).toBe(false);
-    expect(state.transcriptionProfilesLoadError).toBeNull();
-  });
-
-  it("loads transcription profiles into the AI store", async () => {
-    useAIStore.setState({
-      transcriptionProfiles: [],
-      transcriptionProfilesInitialLoadComplete: false,
-      transcriptionProfilesLoading: false,
-      transcriptionProfilesLoadError: null,
-    });
-    mockedRouteGetTranscriptionProfiles.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: [
-        {
-          id: "profile-a",
-          name: "Batch",
-          transcriptionLlmConfigId: "llm-a",
-          transportMode: TranscriptionTransportModeEnum.file,
-          chunkMs: 1200,
-          supportsRealtimeTranscription: false,
-          language: null,
-        },
-      ],
-    });
-
-    await loadTranscriptionProfiles();
-
-    expect(mockedRouteGetTranscriptionProfiles).toHaveBeenCalledTimes(1);
-    expect(useAIStore.getState().transcriptionProfiles).toEqual([
-      {
-        id: "profile-a",
-        name: "Batch",
-        transcriptionLlmConfigId: "llm-a",
-        transportMode: TranscriptionTransportModeEnum.file,
-        chunkMs: 1200,
-        supportsRealtimeTranscription: false,
-        language: null,
-      },
-    ]);
-  });
-
-  it("creates, updates, and deletes transcription profiles in store state", async () => {
-    useAIStore.setState({
-      transcriptionProfiles: [
-        {
-          id: "profile-a",
-          name: "Old",
-          transcriptionLlmConfigId: "llm-a",
-          transportMode: TranscriptionTransportModeEnum.file,
-          chunkMs: 1200,
-          supportsRealtimeTranscription: false,
-          language: null,
-        },
-      ],
-      projectChatTranscriptionProfileId: "profile-b",
-    });
-    mockedRouteCreateTranscriptionProfile.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: {
-        id: "profile-b",
-        name: "Realtime",
-        transcriptionLlmConfigId: "llm-b",
-        transportMode: TranscriptionTransportModeEnum.realtime,
-        chunkMs: 250,
-        supportsRealtimeTranscription: true,
-        language: "en",
-      },
-    });
-    mockedRouteUpdateTranscriptionProfile.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: {
-        id: "profile-b",
-        name: "Realtime Updated",
-        transcriptionLlmConfigId: "llm-c",
-        transportMode: TranscriptionTransportModeEnum.realtime,
-        chunkMs: 300,
-        supportsRealtimeTranscription: true,
-        language: "fr",
-      },
-    });
-    mockedRouteDeleteTranscriptionProfile.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: { ok: true },
-    });
-
-    const created = await createTranscriptionProfile({
-      name: "Realtime",
-      transcriptionLlmConfigId: "llm-b",
-      transportMode: TranscriptionTransportModeEnum.realtime,
-      chunkMs: 250,
-      language: "en",
-    });
-    expect(created?.id).toBe("profile-b");
-    expect(useAIStore.getState().transcriptionProfiles).toHaveLength(2);
-
-    const updated = await updateTranscriptionProfile({
-      profileId: "profile-b",
-      name: "Realtime Updated",
-      transcriptionLlmConfigId: "llm-c",
-      transportMode: TranscriptionTransportModeEnum.realtime,
-      chunkMs: 300,
-      language: "fr",
-    });
-    expect(updated?.name).toBe("Realtime Updated");
-    expect(
-      useAIStore
-        .getState()
-        .transcriptionProfiles.find((profile) => profile.id === "profile-b")
-        ?.transcriptionLlmConfigId,
-    ).toBe("llm-c");
-
-    const deleted = await deleteTranscriptionProfile({
-      profileId: "profile-b",
-    });
-    expect(deleted).toBe(true);
-    expect(
-      useAIStore
-        .getState()
-        .transcriptionProfiles.find((profile) => profile.id === "profile-b"),
-    ).toBeUndefined();
-    expect(useAIStore.getState().projectChatTranscriptionProfileId).toBeNull();
   });
 });

@@ -5,11 +5,10 @@ from pathlib import Path
 import click
 import pytest
 
-from setta.start import (
+from setta.start import _ensure_background_process_started, _resolve_deployment_root
+from setta.startup_runtime import (
     _build_ssh_tunnel_command,
-    _ensure_background_process_started,
     _is_loopback_host,
-    _resolve_deployment_root,
     _warn_if_public_host_no_auth,
 )
 from setta.deployments.deployment_utils import parse_deployment_version
@@ -24,13 +23,13 @@ from setta.utils.network import (
 
 @pytest.fixture
 def share_root(tmp_path):
-    original_deployments_folder = C.DEPLOYMENTS_FOLDER
+    original_deployments_folder = C.SHARE_DEPLOYMENTS_FOLDER
     root = tmp_path / "setta_files" / "deployments"
-    C.DEPLOYMENTS_FOLDER = root
+    C.SHARE_DEPLOYMENTS_FOLDER = root
     try:
         yield root
     finally:
-        C.DEPLOYMENTS_FOLDER = original_deployments_folder
+        C.SHARE_DEPLOYMENTS_FOLDER = original_deployments_folder
 
 
 def test_format_host_for_url_rewrites_wildcards() -> None:
