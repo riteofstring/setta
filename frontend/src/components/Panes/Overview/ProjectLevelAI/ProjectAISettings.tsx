@@ -24,7 +24,7 @@ import {
   updateExternalAgentConfig,
   updatePromptTemplate,
   updateTranscriptionProfile,
-} from "state/actions/ai/projectAiResources";
+} from "state/actions/ai";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   useAIStore,
