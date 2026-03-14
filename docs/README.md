@@ -1,7 +1,6 @@
 # Docs Overview
 
 ## Guides
-
 - `guides/dev-quickstart.md` – boot a full-stack dev environment.
 - `guides/worktree-dev-quickstart.md` – create worktrees and run isolated dev instances with predictable ports.
 - `guides/browser-mcp-quickstart.md` – quickstart for Chrome DevTools MCP.
@@ -14,8 +13,6 @@
 - `guides/remote-ssh-manual.md` – manual SSH tunnel steps for remote Setta without a local install.
 
 ## Reference
-
-- `reference/frontend-module-map.md` – module ownership map, placement rules, and fast navigation guidance for `frontend/src/`.
 - `reference/app-spec-patching.md` – how appSpec/appDefinition updates are applied (merge patch vs streaming patch ops).
 - `reference/code-temp-file-workflow.md` – how Setta stores code files on disk and makes short-lived copies for autocomplete.
 - `reference/ai-follow.md` – how AIFollow tags tool calls and drives viewport + highlights in the UI.
@@ -42,11 +39,9 @@
 - `reference/view-modes.md` – view mode ordering, layout/viewport storage, and settings defaults.
 
 ## Examples
-
 - `examples/listener/app.py` – example deployment listener entrypoint (`listener/app.py`).
 
 ## Other Docs
-
 - `../perf/README.md` – append-only performance report workflow and artifact policy.
 - `../perf/reports/frontend/2026-03-07_settings-all-settings-pan-zoom-benchmark.md` – Settings `All Settings` pan/zoom and activation benchmark log, including the split active-section UI store follow-ups.
 - `reference/agent-cli-integration.md` – CLI integration notes for agent workflows.
@@ -71,12 +66,9 @@
 - `skill-catalog/README.md` – catalog location for Setta-maintained skill docs and runtime-root notes.
 
 ## Notes
-
 - `notes/setta-assessment.md` – product/market assessment and positioning notes.
 
 ## Plans
-
-- `plans/frontend-cleanup-execution-log.md` – append-only execution log for autonomous frontend cleanup slices.
 - `plans/agentic-graph-ui-plan.md` – agentic graph UI planning notes.
 - `plans/app-mode-remaining-work-plan.md` – remaining app-mode work (integrations, extensibility, outputs, export escape hatches).
 - `plans/http-request-sections-plan.md` – planning notes for HTTP request sections.

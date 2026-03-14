@@ -1,5 +1,5 @@
 import { makeEdgeHandleKey } from "state/actions/edgeHandles";
-import { useEdgeHandleRegistry } from "state/stores/authoringStores";
+import { useEdgeHandleRegistry } from "state/definitions";
 import { useReactFlow } from "../store";
 import type { ReactFlowState } from "../types";
 import { HandlePosition } from "../types";

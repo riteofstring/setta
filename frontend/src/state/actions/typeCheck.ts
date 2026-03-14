@@ -1,5 +1,8 @@
-import { useProjectState, useShareSession } from "state/definitions";
-import { useTypeErrors } from "state/stores/diagnosticsStores";
+import {
+  useProjectState,
+  useShareSession,
+  useTypeErrors,
+} from "state/definitions";
 import { route_type_check } from "utils/generatedEndpoints";
 import { SettaProjectConfigDiagnostics } from "utils/generatedTypes";
 import { addTemporaryNotification } from "./notifications";

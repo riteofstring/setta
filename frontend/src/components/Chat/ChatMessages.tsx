@@ -7,6 +7,7 @@ import {
 } from "components/Section/Layouts/TextBlock";
 import { DummyCodeMirror } from "components/Utils/CodeMirror/DummyCodeMirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
+import { BrailleSpinner } from "components/Utils/BrailleSpinner";
 import {
   MediaCarousel,
   type MediaCarouselItem,
@@ -2999,7 +3000,7 @@ const ThinkingBox = memo(function ThinkingBox({
                     data-chat-thinking-status="true"
                     className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-setta-500 dark:text-setta-300"
                   >
-                    <i className="gg-spinner !scale-75" />
+                    <BrailleSpinner className="text-[11px] text-setta-400 dark:text-setta-300/70" />
                     Working
                     {durationLabel ? (
                       <span
@@ -3289,6 +3290,9 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [hasOverflow, setHasOverflow] = useState(false);
+  const previousTextRef = useRef(text);
+  const pinnedBottomTextRef = useRef<string | null>(null);
+  const animatedScrollTopRef = useRef(0);
 
   useEffect(() => {
     const element = scrollRef.current;
@@ -3329,14 +3333,40 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
     if (!element) {
       return;
     }
-    if (!animate || !hasOverflow) {
+    const previousText = previousTextRef.current;
+    const textWasReplaced =
+      previousText.length > 0 &&
+      (text.length < previousText.length || !text.startsWith(previousText));
+    previousTextRef.current = text;
+    if (textWasReplaced) {
+      pinnedBottomTextRef.current = null;
+      animatedScrollTopRef.current = 0;
       element.scrollTop = 0;
+    }
+    if (!animate || !hasOverflow) {
+      animatedScrollTopRef.current = 0;
+      element.scrollTop = 0;
+      pinnedBottomTextRef.current = null;
       return;
     }
+    const maxScrollTop = Math.max(0, element.scrollHeight - element.clientHeight);
+    if (maxScrollTop <= 0) {
+      animatedScrollTopRef.current = 0;
+      element.scrollTop = 0;
+      pinnedBottomTextRef.current = null;
+      return;
+    }
+    if (pinnedBottomTextRef.current === text) {
+      animatedScrollTopRef.current = maxScrollTop;
+      element.scrollTop = maxScrollTop;
+      return;
+    }
+    animatedScrollTopRef.current = Math.min(
+      maxScrollTop,
+      Math.max(animatedScrollTopRef.current, element.scrollTop),
+    );
     let frameId = 0;
     let lastTimestamp = window.performance.now();
-    let pauseUntil = 0;
-    let direction = 1;
     const speedPixelsPerSecond = 14;
     const stepAnimation = (timestamp: number) => {
       const current = scrollRef.current;
@@ -3348,31 +3378,30 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
         current.scrollHeight - current.clientHeight,
       );
       if (maxScrollTop <= 0) {
+        animatedScrollTopRef.current = 0;
         current.scrollTop = 0;
+        pinnedBottomTextRef.current = null;
         return;
       }
-      if (timestamp < pauseUntil) {
-        frameId = window.requestAnimationFrame(stepAnimation);
+      if (pinnedBottomTextRef.current === text) {
+        animatedScrollTopRef.current = maxScrollTop;
+        current.scrollTop = maxScrollTop;
         return;
       }
-      const deltaSeconds = Math.min(0.06, (timestamp - lastTimestamp) / 1000);
+      const deltaSeconds = Math.min(
+        0.06,
+        Math.max(0, (timestamp - lastTimestamp) / 1000),
+      );
       lastTimestamp = timestamp;
       const nextScrollTop =
-        current.scrollTop + direction * speedPixelsPerSecond * deltaSeconds;
+        animatedScrollTopRef.current + speedPixelsPerSecond * deltaSeconds;
       if (nextScrollTop >= maxScrollTop) {
+        animatedScrollTopRef.current = maxScrollTop;
         current.scrollTop = maxScrollTop;
-        direction = -1;
-        pauseUntil = timestamp + 700;
-        frameId = window.requestAnimationFrame(stepAnimation);
+        pinnedBottomTextRef.current = text;
         return;
       }
-      if (nextScrollTop <= 0) {
-        current.scrollTop = 0;
-        direction = 1;
-        pauseUntil = timestamp + 700;
-        frameId = window.requestAnimationFrame(stepAnimation);
-        return;
-      }
+      animatedScrollTopRef.current = nextScrollTop;
       current.scrollTop = nextScrollTop;
       frameId = window.requestAnimationFrame(stepAnimation);
     };
@@ -3380,7 +3409,7 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
     return () => {
       window.cancelAnimationFrame(frameId);
     };
-  }, [animate, hasOverflow]);
+  }, [animate, hasOverflow, text]);
 
   return (
     <div
@@ -3775,7 +3804,7 @@ function ToolCallAccordionStatus({ runState }: { runState: ToolCallRunState }) {
     );
   }
   return (
-    <i className="gg-spinner !scale-75 text-setta-400 dark:text-setta-300/70" />
+    <BrailleSpinner className="text-[11px] text-setta-400 dark:text-setta-300/70" />
   );
 }
 
@@ -4864,7 +4893,7 @@ function ToolCallSectionStatus({
   }
   return (
     <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-setta-500 dark:text-setta-300">
-      <i className="gg-spinner !scale-75" />
+      <BrailleSpinner className="text-[11px] text-setta-400 dark:text-setta-300/70" />
       {runningLabel}
       {durationLabel ? (
         <span
