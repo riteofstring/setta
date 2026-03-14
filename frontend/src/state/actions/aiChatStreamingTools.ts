@@ -12,15 +12,14 @@ import {
 import { useAppDefinition, useAppPreview } from "state/stores/appStores";
 import {
   AppDefinition,
-  AssistantChatMessage,
   BaseChatMessageUnion,
-  ChatRoleEnum,
   ToolArgumentPreviewDeltaEvent,
   ToolCall,
   ToolCallDeltaEvent,
   ToolChatMessage,
 } from "utils/generatedTypes";
 import { updateChatDetails } from "./aiChatState";
+import { ensureAssistantMessage } from "./aiChatStreamingMessages";
 import { addTemporaryNotification } from "./notifications";
 import { getCurrProjectConfigId } from "./sectionEffectiveImpls";
 
@@ -179,7 +178,7 @@ function ensureToolCallPlaceholder(
   });
 }
 
-function applyToolArgumentPreviewDeltaToPreviewStore(
+export function applyToolArgumentPreviewDeltaToPreviewStore(
   chunk: ToolArgumentPreviewDeltaEvent,
   projectConfigId?: string,
 ): void {
@@ -458,35 +457,4 @@ export function applyToolCallDeltaToChatMessages(
     messages: updatedMessages,
     toolCallArguments: nextToolCallArguments,
   };
-}
-
-function ensureAssistantMessage(
-  messages: Array<BaseChatMessageUnion>,
-  messageId: string,
-): {
-  messages: Array<BaseChatMessageUnion>;
-  assistant: AssistantChatMessage;
-} {
-  const existingIndex = messages.findIndex((entry) => entry.id === messageId);
-  if (existingIndex !== -1) {
-    const existing = messages[existingIndex];
-    if (existing.role === ChatRoleEnum.assistant) {
-      const assistant: AssistantChatMessage = {
-        ...existing,
-        content: [...existing.content],
-        tool_calls: existing.tool_calls ? [...existing.tool_calls] : null,
-      };
-      const nextMessages = [...messages];
-      nextMessages[existingIndex] = assistant;
-      return { messages: nextMessages, assistant };
-    }
-  }
-  const assistant: AssistantChatMessage = {
-    id: messageId,
-    role: ChatRoleEnum.assistant,
-    content: [],
-    tool_calls: null,
-    createdAt: Date.now(),
-  };
-  return { messages: [...messages, assistant], assistant };
 }

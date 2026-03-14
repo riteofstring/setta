@@ -55,8 +55,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Panes/Overview/ProjectLevelAI/*` owns project chat orchestration,
     hydration authority, starter prompts, slash command selection, skill viewers,
     and project AI settings.
-  - `state/actions/aiChatStreaming.ts` owns streaming chunk orchestration plus
-    chat and section message reducers.
+  - `state/actions/aiChatStreaming.ts` owns top-level streaming chunk routing,
+    managed-chat detail updates, and persistence or stop side effects.
+  - `state/actions/aiChatStreamingMessages.ts` owns shared message delta,
+    finalized-assistant merge, and message upsert helpers used by chat streaming
+    and tool-preview updates.
+  - `state/actions/aiChatStreamingSectionState.ts` owns chat-section stream
+    reconciliation and active-branch message sync for managed chat sections.
   - `state/actions/aiChatStreamingTools.ts` owns tool-call placeholder
     reconciliation, tool-preview stores, and app-spec/app-definition tool
     application.
@@ -277,12 +282,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/aiChatStreaming.ts` is now the largest authored state hotspot
-  and should keep splitting around streaming chunk routing versus chat/section
-  reducer ownership
-- `state/actions/projectChatThreads.ts` and `state/actions/git.ts` are the next
-  authored hotspots after streaming and should keep splitting around their
-  existing feature-local helpers
+- `state/actions/projectChatThreads.ts` is now the largest authored state
+  hotspot and should keep splitting around thread hydration, active-thread
+  selection, and surface-local thread mutation helpers
+- `state/actions/git.ts` and `state/actions/projectChatWindowingState.ts` are
+  the next authored hotspots after project chat threads and should keep
+  splitting around their existing feature-local helpers
 - `state/actions/windowSpaces.ts` is now the largest shared-infrastructure
   hotspot and should keep shrinking around restore orchestration versus saved
   layout mutation ownership
