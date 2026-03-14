@@ -244,6 +244,7 @@ describe("CanvasEngineHost", () => {
     const snapshotResult = createCanvasEngineHostSnapshotResult({
       topLevelSections: projectConfig.topLevelSections,
       activeSectionIds: projectConfig.activeIds,
+      nestedPreviewRects: [],
       edges: projectConfig.edges,
       agenticEdges: projectConfig.agenticEdges,
       edgeHandlePositions: {},

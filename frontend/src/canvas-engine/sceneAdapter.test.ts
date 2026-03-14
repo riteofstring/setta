@@ -8,10 +8,12 @@ import {
   type CanvasEngineEdgeHandlePosition,
   type CanvasEngineSectionEdgePorts,
 } from "./sceneAdapter";
+import type { CanvasEngineNestedPreviewRect } from "./types";
 
 type SceneInput = {
   topLevelSections: Record<string, TopLevelSectionLayout>;
   activeSectionIds: string[];
+  nestedPreviewRects: CanvasEngineNestedPreviewRect[];
   edges: ProjectConfig["edges"];
   agenticEdges: ProjectConfig["agenticEdges"];
   edgeHandlePositions: Record<string, CanvasEngineEdgeHandlePosition>;
@@ -20,9 +22,10 @@ type SceneInput = {
 
 type SceneInputOverrides = Omit<
   SceneInput,
-  "edgeHandlePositions" | "sectionEdgePortsBySectionId"
+  "edgeHandlePositions" | "nestedPreviewRects" | "sectionEdgePortsBySectionId"
 > & {
   edgeHandlePositions?: Record<string, CanvasEngineEdgeHandlePosition>;
+  nestedPreviewRects?: CanvasEngineNestedPreviewRect[];
   sectionEdgePortsBySectionId?: Record<string, CanvasEngineSectionEdgePorts>;
 };
 
@@ -62,6 +65,153 @@ describe("CanvasEngineSceneAdapter", () => {
       "sectionA",
       "sectionB",
     ]);
+  });
+
+  it("keeps nested preview rects and nested data edges visible in snapshots", () => {
+    const adapter = new CanvasEngineSceneAdapter();
+    adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          group: createLayout({ x: 0, y: 0, w: 720, h: 520 }),
+        },
+        activeSectionIds: [],
+        nestedPreviewRects: [
+          createNestedPreviewRect({
+            id: "childA",
+            parentSectionId: "group",
+            x: 80,
+            y: 120,
+            width: 220,
+            height: 140,
+          }),
+          createNestedPreviewRect({
+            id: "childB",
+            parentSectionId: "group",
+            x: 360,
+            y: 120,
+            width: 220,
+            height: 140,
+          }),
+        ],
+        edges: [
+          createDataEdge("edge-data-nested-visible", "childA", "childB", {
+            sourcePortId: "out-1",
+            targetPortId: "in-1",
+          }),
+        ],
+        agenticEdges: [],
+        edgeHandlePositions: {
+          [buildDataHandleKey("childA", "out-1", "source")]:
+            createEdgeHandlePosition({
+              sectionId: "childA",
+              portId: "out-1",
+              type: "source",
+              x: 300,
+              y: 190,
+            }),
+          [buildDataHandleKey("childB", "in-1", "target")]:
+            createEdgeHandlePosition({
+              sectionId: "childB",
+              portId: "in-1",
+              type: "target",
+              x: 360,
+              y: 190,
+            }),
+        },
+        sectionEdgePortsBySectionId: {
+          childA: {
+            inputPortIds: [],
+            outputPortIds: ["out-1"],
+          },
+          childB: {
+            inputPortIds: ["in-1"],
+            outputPortIds: [],
+          },
+        },
+      }),
+    );
+
+    const snapshot = adapter.createSnapshot(
+      { x: 0, y: 0, zoom: 1 },
+      { width: 900, height: 700, dpr: 1 },
+    );
+
+    expect(snapshot.visibleDataEdgeCount).toBe(1);
+    expect(snapshot.snapshot.nestedPreviewRects.map((rect) => rect.id)).toEqual(
+      ["childA", "childB"],
+    );
+    expect(snapshot.snapshot.dataEdges[0]).toMatchObject({
+      id: "edge-data-nested-visible",
+      sourceSectionId: "childA",
+      targetSectionId: "childB",
+      sourceX: 300,
+      sourceY: 190,
+      targetX: 360,
+      targetY: 190,
+    });
+  });
+
+  it("estimates nested data-edge anchors from cached nested preview rects", () => {
+    const adapter = new CanvasEngineSceneAdapter();
+    adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          group: createLayout({ x: 0, y: 0, w: 720, h: 520 }),
+        },
+        activeSectionIds: [],
+        nestedPreviewRects: [
+          createNestedPreviewRect({
+            id: "childA",
+            parentSectionId: "group",
+            x: 80,
+            y: 120,
+            width: 220,
+            height: 140,
+          }),
+          createNestedPreviewRect({
+            id: "childB",
+            parentSectionId: "group",
+            x: 360,
+            y: 120,
+            width: 220,
+            height: 140,
+          }),
+        ],
+        edges: [
+          createDataEdge("edge-data-nested-estimated", "childA", "childB", {
+            sourcePortId: "out-1",
+            targetPortId: "in-1",
+          }),
+        ],
+        agenticEdges: [],
+        sectionEdgePortsBySectionId: {
+          childA: {
+            inputPortIds: [],
+            outputPortIds: ["out-1"],
+          },
+          childB: {
+            inputPortIds: ["in-1"],
+            outputPortIds: [],
+          },
+        },
+      }),
+    );
+
+    const snapshot = adapter.createSnapshot(
+      { x: 0, y: 0, zoom: 1 },
+      { width: 900, height: 700, dpr: 1 },
+    );
+
+    expect(snapshot.visibleDataEdgeCount).toBe(1);
+    expect(snapshot.snapshot.dataEdges[0]).toMatchObject({
+      id: "edge-data-nested-estimated",
+      sourceSectionId: "childA",
+      targetSectionId: "childB",
+    });
+    expect(snapshot.snapshot.dataEdges[0]?.sourceX).not.toBeNull();
+    expect(snapshot.snapshot.dataEdges[0]?.sourceY).not.toBeNull();
+    expect(snapshot.snapshot.dataEdges[0]?.targetX).not.toBeNull();
+    expect(snapshot.snapshot.dataEdges[0]?.targetY).not.toBeNull();
   });
 
   it("reports only targeted section updates when one section changes", () => {
@@ -1073,6 +1223,7 @@ function createSceneInput(overrides: SceneInputOverrides): SceneInput {
   return {
     topLevelSections: overrides.topLevelSections,
     activeSectionIds: overrides.activeSectionIds,
+    nestedPreviewRects: overrides.nestedPreviewRects ?? [],
     edges: overrides.edges,
     agenticEdges: overrides.agenticEdges,
     edgeHandlePositions: overrides.edgeHandlePositions ?? {},
@@ -1099,6 +1250,33 @@ function createLayout({
     zIndex: zIndex ?? 0,
     w,
     h,
+  };
+}
+
+function createNestedPreviewRect({
+  id,
+  parentSectionId,
+  x,
+  y,
+  width,
+  height,
+}: {
+  id: string;
+  parentSectionId: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}): CanvasEngineNestedPreviewRect {
+  return {
+    id,
+    parentSectionId,
+    x,
+    y,
+    width,
+    height,
+    isActive: false,
+    color: [0.15, 0.18, 0.22],
   };
 }
 

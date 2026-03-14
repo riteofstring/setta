@@ -3,6 +3,7 @@ import type {
   CanvasEngineAgenticEdge,
   CanvasEngineCamera,
   CanvasEngineDataEdge,
+  CanvasEngineNestedPreviewRect,
   CanvasEngineRect,
   CanvasEngineSceneSnapshot,
   CanvasEngineViewport,
@@ -38,6 +39,7 @@ export type CanvasEngineSceneAdapterConfig = {
 export type CanvasEngineProjectSceneInput = {
   topLevelSections: Record<string, TopLevelSectionLayout>;
   activeSectionIds: string[];
+  nestedPreviewRects: CanvasEngineNestedPreviewRect[];
   edges: ProjectConfig["edges"];
   agenticEdges: ProjectConfig["agenticEdges"];
   edgeHandlePositions: Record<string, CanvasEngineEdgeHandlePosition>;
@@ -132,6 +134,11 @@ export class CanvasEngineSceneAdapter {
 
   private readonly rectById: Map<string, CanvasEngineRect>;
 
+  private readonly nestedPreviewRectById: Map<
+    string,
+    CanvasEngineNestedPreviewRect
+  >;
+
   private readonly dataEdgeById: Map<string, CanvasEngineDataEdge>;
 
   private readonly agenticEdgeById: Map<string, CanvasEngineAgenticEdge>;
@@ -193,6 +200,7 @@ export class CanvasEngineSceneAdapter {
       cellSize: this.config.spatialIndexCellSize,
     });
     this.rectById = new Map();
+    this.nestedPreviewRectById = new Map();
     this.dataEdgeById = new Map();
     this.agenticEdgeById = new Map();
     this.dataEdgeIdsBySectionId = new Map();
@@ -212,6 +220,9 @@ export class CanvasEngineSceneAdapter {
     this.applyEdgeHandlePositions(input.edgeHandlePositions);
     this.sectionEdgePortsBySectionId = input.sectionEdgePortsBySectionId;
     const nextActiveSectionIdSet = new Set(input.activeSectionIds);
+    const nestedPreviewRectsChanged = this.applyNestedPreviewRects(
+      input.nestedPreviewRects,
+    );
     const sectionSummary = this.applySections(
       input.topLevelSections,
       nextActiveSectionIdSet,
@@ -226,6 +237,7 @@ export class CanvasEngineSceneAdapter {
     this.rebuildDataEdgeEndpoints();
 
     const hasChanges =
+      nestedPreviewRectsChanged ||
       sectionSummary.sectionsAdded > 0 ||
       sectionSummary.sectionsUpdated > 0 ||
       sectionSummary.sectionsRemoved > 0 ||
@@ -256,9 +268,21 @@ export class CanvasEngineSceneAdapter {
   ): CanvasEngineSceneSnapshotResult {
     const visibleSectionIds = this.queryVisibleSectionIds(camera, viewport);
     const visibleSectionSet = new Set(visibleSectionIds);
+    const visibleNestedPreviewRects = this.queryVisibleNestedPreviewRects(
+      camera,
+      viewport,
+    );
+    const visibleNestedPreviewIdSet = new Set(
+      visibleNestedPreviewRects.map((rect) => rect.id),
+    );
     for (const activeSectionId of this.activeSectionIdSet) {
       visibleSectionSet.add(activeSectionId);
+      visibleNestedPreviewIdSet.add(activeSectionId);
     }
+    const visibleEdgeSectionIdSet = new Set([
+      ...visibleSectionSet,
+      ...visibleNestedPreviewIdSet,
+    ]);
 
     const rects = sortRects(
       Array.from(visibleSectionSet)
@@ -269,7 +293,7 @@ export class CanvasEngineSceneAdapter {
     const dataEdges = sortDataEdges(
       Array.from(
         collectVisibleEdgeIdsForSections(
-          visibleSectionSet,
+          visibleEdgeSectionIdSet,
           this.dataEdgeIdsBySectionId,
         ),
       )
@@ -280,7 +304,7 @@ export class CanvasEngineSceneAdapter {
     const agenticEdges = sortAgenticEdges(
       Array.from(
         collectVisibleEdgeIdsForSections(
-          visibleSectionSet,
+          visibleEdgeSectionIdSet,
           this.agenticEdgeIdsBySectionId,
         ),
       )
@@ -293,7 +317,7 @@ export class CanvasEngineSceneAdapter {
         camera,
         clearColor: [0.07, 0.08, 0.1],
         rects,
-        nestedPreviewRects: [],
+        nestedPreviewRects: visibleNestedPreviewRects,
         dataEdges,
         agenticEdges,
         connectionPreview: null,
@@ -787,13 +811,63 @@ export class CanvasEngineSceneAdapter {
     camera: CanvasEngineCamera,
     viewport: CanvasEngineViewport,
   ): string[] {
-    const worldPadding = this.config.viewportPaddingPx / camera.zoom;
+    const worldPadding = getViewportPaddingWorld(
+      this.config.viewportPaddingPx,
+      camera.zoom,
+    );
     return this.spatialIndex.queryRect({
       x: camera.x - worldPadding,
       y: camera.y - worldPadding,
       width: viewport.width / camera.zoom + worldPadding * 2,
       height: viewport.height / camera.zoom + worldPadding * 2,
     });
+  }
+
+  private queryVisibleNestedPreviewRects(
+    camera: CanvasEngineCamera,
+    viewport: CanvasEngineViewport,
+  ): CanvasEngineNestedPreviewRect[] {
+    const worldPadding = getViewportPaddingWorld(
+      this.config.viewportPaddingPx,
+      camera.zoom,
+    );
+    const viewportRect = {
+      x: camera.x - worldPadding,
+      y: camera.y - worldPadding,
+      width: viewport.width / camera.zoom + worldPadding * 2,
+      height: viewport.height / camera.zoom + worldPadding * 2,
+    };
+    return sortNestedPreviewRects(
+      Array.from(this.nestedPreviewRectById.values()).filter((rect) =>
+        doWorldRectsIntersect(viewportRect, rect),
+      ),
+    );
+  }
+
+  private applyNestedPreviewRects(
+    nestedPreviewRects: CanvasEngineNestedPreviewRect[],
+  ): boolean {
+    const nextById = new Map<string, CanvasEngineNestedPreviewRect>();
+    let hasChanges =
+      nestedPreviewRects.length !== this.nestedPreviewRectById.size;
+
+    for (const rect of nestedPreviewRects) {
+      nextById.set(rect.id, rect);
+      const previousRect = this.nestedPreviewRectById.get(rect.id);
+      if (!previousRect || !areNestedPreviewRectsEqual(previousRect, rect)) {
+        hasChanges = true;
+      }
+    }
+
+    if (!hasChanges) {
+      return false;
+    }
+
+    this.nestedPreviewRectById.clear();
+    for (const [sectionId, rect] of nextById) {
+      this.nestedPreviewRectById.set(sectionId, rect);
+    }
+    return true;
   }
 
   private applyDataEdges(
@@ -837,6 +911,7 @@ export class CanvasEngineSceneAdapter {
         edge,
         this.edgeHandlePositionByKey,
         this.rectById,
+        this.nestedPreviewRectById,
         sectionEdgePortsBySectionId,
       );
       const previousEdgeRecord = this.dataEdgeById.get(edge.id);
@@ -1055,6 +1130,7 @@ function createDataEdgeRecord(
   edge: DataEdgeInput,
   edgeHandlePositionByKey: Map<string, CanvasEngineEdgeHandlePosition>,
   rectById: Map<string, CanvasEngineRect>,
+  nestedPreviewRectById: Map<string, CanvasEngineNestedPreviewRect>,
   sectionEdgePortsBySectionId: Record<string, CanvasEngineSectionEdgePorts>,
 ): CanvasEngineDataEdge {
   const sourceHandle = edgeHandlePositionByKey.get(
@@ -1063,8 +1139,14 @@ function createDataEdgeRecord(
   const targetHandle = edgeHandlePositionByKey.get(
     buildDataHandleKey(edge.targetSectionId, edge.targetPortId, "target"),
   );
-  const sourceRect = rectById.get(edge.sourceSectionId) ?? null;
-  const targetRect = rectById.get(edge.targetSectionId) ?? null;
+  const sourceRect =
+    rectById.get(edge.sourceSectionId) ??
+    nestedPreviewRectById.get(edge.sourceSectionId) ??
+    null;
+  const targetRect =
+    rectById.get(edge.targetSectionId) ??
+    nestedPreviewRectById.get(edge.targetSectionId) ??
+    null;
   const estimatedSourceAnchor = sourceRect
     ? resolveEstimatedDataPortAnchor({
         rect: sourceRect,
@@ -1732,6 +1814,51 @@ function sortAgenticEdges(
   edges: CanvasEngineAgenticEdge[],
 ): CanvasEngineAgenticEdge[] {
   return [...edges].sort(compareAgenticEdgeRecords);
+}
+
+function sortNestedPreviewRects(
+  rects: CanvasEngineNestedPreviewRect[],
+): CanvasEngineNestedPreviewRect[] {
+  return [...rects].sort((left, right) => {
+    if (left.parentSectionId !== right.parentSectionId) {
+      return left.parentSectionId.localeCompare(right.parentSectionId);
+    }
+    return left.id.localeCompare(right.id);
+  });
+}
+
+function areNestedPreviewRectsEqual(
+  left: CanvasEngineNestedPreviewRect,
+  right: CanvasEngineNestedPreviewRect,
+): boolean {
+  return (
+    left.id === right.id &&
+    left.parentSectionId === right.parentSectionId &&
+    left.x === right.x &&
+    left.y === right.y &&
+    left.width === right.width &&
+    left.height === right.height &&
+    left.isActive === right.isActive &&
+    left.color[0] === right.color[0] &&
+    left.color[1] === right.color[1] &&
+    left.color[2] === right.color[2]
+  );
+}
+
+function getViewportPaddingWorld(viewportPaddingPx: number, zoom: number) {
+  return viewportPaddingPx / zoom;
+}
+
+function doWorldRectsIntersect(
+  left: { x: number; y: number; width: number; height: number },
+  right: { x: number; y: number; width: number; height: number },
+): boolean {
+  return (
+    left.x < right.x + right.width &&
+    left.x + left.width > right.x &&
+    left.y < right.y + right.height &&
+    left.y + left.height > right.y
+  );
 }
 
 function hashString(value: string): number {

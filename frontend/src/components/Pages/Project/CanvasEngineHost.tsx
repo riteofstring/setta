@@ -7,6 +7,7 @@ import {
   buildConnectedDataEdgeHandleKeys,
   pickEdgeHandlePositionsByKeys,
 } from "canvas-engine/edgeHandlePositionSelectors";
+import { collectCanvasEngineNestedDataHandlePositions } from "canvas-engine/nestedDataHandleBridge";
 import {
   areNestedPreviewRectArraysEqual,
   collectCanvasEngineNestedPreviewRects,
@@ -18,6 +19,7 @@ import {
 } from "canvas-engine/renderer";
 import {
   CanvasEngineSceneAdapter,
+  type CanvasEngineEdgeHandlePosition,
   type CanvasEngineProjectSceneInput,
   type CanvasEngineSceneSnapshotResult,
 } from "canvas-engine/sceneAdapter";
@@ -369,6 +371,8 @@ export function CanvasEngineHost() {
   const [nestedPreviewRects, setNestedPreviewRects] = useState<
     CanvasEngineNestedPreviewRect[]
   >([]);
+  const [cachedNestedDataHandlePositions, setCachedNestedDataHandlePositions] =
+    useState<Record<string, CanvasEngineEdgeHandlePosition>>({});
 
   const updateConnectionPreview = useCallback(
     (nextPreview: CanvasEngineConnectionPreview | null) => {
@@ -414,7 +418,7 @@ export function CanvasEngineHost() {
         outputPortIds: string[];
       }
     > = {};
-    for (const sectionId of Object.keys(topLevelSections)) {
+    for (const sectionId of Object.keys(sectionVariantMap)) {
       const variantId = sectionVariantMap[sectionId];
       if (!variantId) {
         bySectionId[sectionId] = {
@@ -445,15 +449,44 @@ export function CanvasEngineHost() {
       };
     }
     return bySectionId;
-  }, [sectionImpls, sectionVariantMap, sectionVariants, topLevelSections]);
+  }, [sectionImpls, sectionVariantMap, sectionVariants]);
+
+  useEffect(() => {
+    setCachedNestedDataHandlePositions((currentCachedPositions) => {
+      const nextCachedPositions = collectCanvasEngineNestedDataHandlePositions({
+        liveEdgeHandlePositions: edgeHandlePositions,
+        knownTopLevelSectionIds: Object.keys(topLevelSections),
+        nestedPreviewRects,
+        previousCachedPositions: currentCachedPositions,
+      });
+      if (
+        areEdgeHandlePositionMapsEqual(
+          currentCachedPositions,
+          nextCachedPositions,
+        )
+      ) {
+        return currentCachedPositions;
+      }
+      return nextCachedPositions;
+    });
+  }, [edgeHandlePositions, nestedPreviewRects, topLevelSections]);
+
+  const mergedDataEdgeHandlePositions = useMemo(
+    () => ({
+      ...cachedNestedDataHandlePositions,
+      ...edgeHandlePositions,
+    }),
+    [cachedNestedDataHandlePositions, edgeHandlePositions],
+  );
 
   useEffect(() => {
     const patchSummary = sceneAdapter.applyProjectState({
       topLevelSections,
       activeSectionIds,
+      nestedPreviewRects,
       edges: dataEdges,
       agenticEdges,
-      edgeHandlePositions,
+      edgeHandlePositions: mergedDataEdgeHandlePositions,
       sectionEdgePortsBySectionId,
     });
     if (patchSummary.hasChanges) {
@@ -463,7 +496,8 @@ export function CanvasEngineHost() {
     activeSectionIds,
     agenticEdges,
     dataEdges,
-    edgeHandlePositions,
+    mergedDataEdgeHandlePositions,
+    nestedPreviewRects,
     sceneAdapter,
     sectionEdgePortsBySectionId,
     topLevelSections,
@@ -476,16 +510,21 @@ export function CanvasEngineHost() {
   const renderSceneSnapshot = useMemo(
     () => ({
       ...snapshotResult.snapshot,
-      nestedPreviewRects,
       connectionPreview,
       hoveredEdge,
     }),
-    [
-      connectionPreview,
-      hoveredEdge,
-      nestedPreviewRects,
-      snapshotResult.snapshot,
-    ],
+    [connectionPreview, hoveredEdge, snapshotResult.snapshot],
+  );
+  const visibleResolvedDataEdgeCount = useMemo(
+    () =>
+      snapshotResult.snapshot.dataEdges.filter(
+        (edge) =>
+          edge.sourceX !== null &&
+          edge.sourceY !== null &&
+          edge.targetX !== null &&
+          edge.targetY !== null,
+      ).length,
+    [snapshotResult.snapshot.dataEdges],
   );
 
   const domIslandViewportSectionIds = useMemo(() => {
@@ -1762,6 +1801,9 @@ export function CanvasEngineHost() {
       data-canvas-engine-visible-data-edge-count={
         snapshotResult.visibleDataEdgeCount
       }
+      data-canvas-engine-visible-resolved-data-edge-count={
+        visibleResolvedDataEdgeCount
+      }
       data-canvas-engine-data-edge-count={snapshotResult.totalDataEdgeCount}
       data-canvas-engine-visible-agentic-edge-count={
         snapshotResult.visibleAgenticEdgeCount
@@ -1812,6 +1854,9 @@ export function CanvasEngineHost() {
       data-canvas-engine-active-section-count={activeSectionIds.length}
       data-canvas-engine-active-section-ids={activeSectionIds.join(",")}
       data-canvas-engine-nested-preview-count={nestedPreviewRects.length}
+      data-canvas-engine-cached-nested-data-handle-count={
+        Object.keys(cachedNestedDataHandlePositions).length
+      }
       data-canvas-engine-dom-island-mounted-count={domIslandSectionIds.length}
       data-canvas-engine-dom-island-retained-count={
         domIslandMountState.retainedSectionCount
