@@ -2,17 +2,10 @@ import { canUseManagedChatLLM } from "components/Chat/sharePolicyChatAccess";
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import _ from "lodash";
-import { useCallback, useMemo } from "react";
-import { updateEngineConfig } from "state/actions/ai/projectAiResources";
+import { useMemo } from "react";
 import {
-  getProjectChatWindowModeForSectionInState,
-  setProjectChatWindowModeForSection,
-} from "state/actions/projectChatWindowing";
-import {
-  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
-  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import {
   useAIStore,
@@ -20,32 +13,18 @@ import {
   useShareSession,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import {
-  route_set_chat_section_chat_id,
-  route_set_chat_section_settings,
-} from "utils/generatedEndpoints";
-import {
-  ChatWindowModeEnum,
-  EngineTypeEnum,
-  SectionTypeEnum,
-} from "utils/generatedTypes";
+import { SectionTypeEnum } from "utils/generatedTypes";
 import { ChatAreaAgenticLinksPanel } from "./ChatAreaAgenticLinksPanel";
 import { ChatAreaManagedSettingsPanel } from "./ChatAreaManagedSettingsPanel";
 import { resolveChatAreaManagedSettingsViewModel } from "./chatAreaManagedSettingsState";
+import {
+  createChatAreaSettingsController,
+  getChatAreaWindowModeForSection,
+  type ChatSectionSettingsPayload,
+} from "./chatAreaSettingsController";
 
 type ChatAreaSettingsProps = {
   sectionId: string;
-};
-
-type ChatSectionSettingsPayload = {
-  managed: boolean;
-  engineConfigId: string | null;
-  transcriptionProfileId: string | null;
-  agentProfileId: string | null;
-  thinking: boolean;
-  permissionMode: "minimal" | "yolo" | "config_toml_custom";
-  searchEnabled: boolean;
-  dictationMode: "auto" | "browser" | "provider";
 };
 
 export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
@@ -89,10 +68,10 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       searchEnabled: impl.searchEnabled,
       dictationMode: impl.dictationMode,
       isFrozen: impl.isFrozen,
-      sectionChatWindowMode: getProjectChatWindowModeForSectionInState(
-        state.projectChatWindowing,
+      sectionChatWindowMode: getChatAreaWindowModeForSection({
+        projectChatWindowing: state.projectChatWindowing,
         sectionId,
-      ),
+      }),
     };
   }, _.isEqual);
 
@@ -143,171 +122,17 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     ],
   );
 
-  const updateSettings = useCallback(
-    (nextSettings: ChatSectionSettingsPayload) => {
-      if (managedSettingsViewModel.isDisabled) {
-        return;
-      }
-      dispatchOptimisticProjectStateUpdate({
-        apply: (state) => {
-          setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
-            managed: nextSettings.managed,
-            engineConfigId: nextSettings.engineConfigId,
-            transcriptionProfileId: nextSettings.transcriptionProfileId,
-            agentProfileId: nextSettings.agentProfileId,
-            thinking: nextSettings.thinking,
-            permissionMode: nextSettings.permissionMode,
-            searchEnabled: nextSettings.searchEnabled,
-            dictationMode: nextSettings.dictationMode,
-          });
-        },
-        send: (frontendOpId) =>
-          route_set_chat_section_settings({
-            projectConfigId,
-            sectionId,
-            managed: nextSettings.managed,
-            engineConfigId: nextSettings.engineConfigId,
-            transcriptionProfileId: nextSettings.transcriptionProfileId,
-            agentProfileId: nextSettings.agentProfileId,
-            thinking: nextSettings.thinking,
-            permissionMode: nextSettings.permissionMode,
-            searchEnabled: nextSettings.searchEnabled,
-            dictationMode: nextSettings.dictationMode,
-            frontendOpId,
-          }),
-      });
-    },
-    [managedSettingsViewModel.isDisabled, projectConfigId, sectionId],
-  );
-
-  const handleManagedChange = useCallback(
-    (value: boolean) => {
-      updateSettings({
-        managed: value,
-        engineConfigId,
-        transcriptionProfileId,
-        agentProfileId,
-        thinking,
-        permissionMode,
-        searchEnabled,
-        dictationMode,
-      });
-    },
-    [
-      agentProfileId,
-      dictationMode,
-      engineConfigId,
-      permissionMode,
-      searchEnabled,
-      thinking,
-      transcriptionProfileId,
-      updateSettings,
-    ],
-  );
-
-  const handleChatModeChange = useCallback(
-    (value: string | null) => {
-      if (managedSettingsViewModel.isChatModeControlDisabled || !value) {
-        return;
-      }
-      if (
-        value !== ChatWindowModeEnum.section_mode &&
-        value !== ChatWindowModeEnum.project_ai_mode
-      ) {
-        return;
-      }
-      setProjectChatWindowModeForSection(sectionId, value);
-    },
-    [managedSettingsViewModel.isChatModeControlDisabled, sectionId],
-  );
-
-  const handleThinkingChange = useCallback(
-    (value: boolean) => {
-      updateSettings({
-        managed,
-        engineConfigId,
-        transcriptionProfileId,
-        agentProfileId,
-        thinking: value,
-        permissionMode,
-        searchEnabled,
-        dictationMode,
-      });
-    },
-    [
-      agentProfileId,
-      dictationMode,
-      engineConfigId,
+  const currentSettings = useMemo<ChatSectionSettingsPayload>(
+    () => ({
       managed,
-      permissionMode,
-      searchEnabled,
-      transcriptionProfileId,
-      updateSettings,
-    ],
-  );
-
-  const handleLLMConfigChange = useCallback(
-    (value: string | null) => {
-      if (
-        managedSettingsViewModel.isDisabled ||
-        !managedSettingsViewModel.selectedEngineConfig
-      ) {
-        return;
-      }
-      if (
-        managedSettingsViewModel.selectedEngineConfig.engineType !==
-        EngineTypeEnum.setta_llm
-      ) {
-        return;
-      }
-      void updateEngineConfig({
-        config: {
-          ...managedSettingsViewModel.selectedEngineConfig,
-          settaLlmConfigId: value,
-        },
-      });
-    },
-    [managedSettingsViewModel],
-  );
-
-  const handleAgentProfileChange = useCallback(
-    (value: string | null) => {
-      updateSettings({
-        managed,
-        engineConfigId,
-        transcriptionProfileId,
-        agentProfileId: value,
-        thinking,
-        permissionMode,
-        searchEnabled,
-        dictationMode,
-      });
-    },
-    [
-      dictationMode,
       engineConfigId,
-      managed,
+      transcriptionProfileId,
+      agentProfileId,
+      thinking,
       permissionMode,
       searchEnabled,
-      thinking,
-      transcriptionProfileId,
-      updateSettings,
-    ],
-  );
-
-  const handleTranscriptionProfileChange = useCallback(
-    (value: string | null) => {
-      updateSettings({
-        managed,
-        engineConfigId,
-        transcriptionProfileId: value,
-        agentProfileId,
-        thinking,
-        permissionMode,
-        searchEnabled,
-        dictationMode,
-      });
-    },
+      dictationMode,
+    }),
     [
       agentProfileId,
       dictationMode,
@@ -316,94 +141,31 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       permissionMode,
       searchEnabled,
       thinking,
-      updateSettings,
-    ],
-  );
-
-  const handleDictationModeChange = useCallback(
-    (value: string | null) => {
-      const nextMode =
-        value === "browser" || value === "provider" ? value : "auto";
-      updateSettings({
-        managed,
-        engineConfigId,
-        transcriptionProfileId,
-        agentProfileId,
-        thinking,
-        permissionMode,
-        searchEnabled,
-        dictationMode: nextMode,
-      });
-    },
-    [
-      agentProfileId,
-      engineConfigId,
-      managed,
-      permissionMode,
-      searchEnabled,
-      thinking,
       transcriptionProfileId,
-      updateSettings,
     ],
   );
-
-  const handleNewChat = useCallback(() => {
-    if (
-      managedSettingsViewModel.isDisabled ||
-      !managed ||
-      !canManageManagedChatThreads
-    ) {
-      return;
-    }
-    dispatchOptimisticProjectStateUpdate({
-      apply: (state) => {
-        setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
-          chatId: null,
-        });
-      },
-      send: () =>
-        route_set_chat_section_chat_id({
-          projectConfigId,
-          sectionId,
-          chatId: null,
-        }),
-    });
-  }, [
-    canManageManagedChatThreads,
-    managed,
-    managedSettingsViewModel.isDisabled,
-    projectConfigId,
-    sectionId,
-  ]);
-
-  const handleEngineChange = useCallback(
-    (value: string | null) => {
-      const nextEngineId = value ?? null;
-      updateSettings({
-        managed,
-        engineConfigId: nextEngineId,
-        transcriptionProfileId,
-        agentProfileId,
-        thinking,
-        permissionMode,
-        searchEnabled,
-        dictationMode,
-      });
-      if (nextEngineId !== managedSettingsViewModel.selectedEngineId) {
-        handleNewChat();
-      }
-    },
+  const controller = useMemo(
+    () =>
+      createChatAreaSettingsController({
+        canManageManagedChatThreads,
+        currentSettings,
+        isChatModeControlDisabled:
+          managedSettingsViewModel.isChatModeControlDisabled,
+        isDisabled: managedSettingsViewModel.isDisabled,
+        projectConfigId,
+        sectionId,
+        selectedEngineConfig: managedSettingsViewModel.selectedEngineConfig,
+        selectedEngineId: managedSettingsViewModel.selectedEngineId,
+      }),
     [
-      agentProfileId,
-      dictationMode,
-      handleNewChat,
-      managed,
-      permissionMode,
-      searchEnabled,
+      canManageManagedChatThreads,
+      currentSettings,
+      managedSettingsViewModel.isChatModeControlDisabled,
+      managedSettingsViewModel.isDisabled,
+      managedSettingsViewModel.selectedEngineConfig,
       managedSettingsViewModel.selectedEngineId,
-      thinking,
-      transcriptionProfileId,
-      updateSettings,
+      projectConfigId,
+      sectionId,
     ],
   );
 
@@ -418,15 +180,17 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
         thinking={thinking}
         transcriptionProfileId={transcriptionProfileId}
         viewModel={managedSettingsViewModel}
-        onAgentProfileChange={handleAgentProfileChange}
-        onChatModeChange={handleChatModeChange}
-        onDictationModeChange={handleDictationModeChange}
-        onEngineChange={handleEngineChange}
-        onLLMConfigChange={handleLLMConfigChange}
-        onManagedChange={handleManagedChange}
-        onNewChat={handleNewChat}
-        onThinkingChange={handleThinkingChange}
-        onTranscriptionProfileChange={handleTranscriptionProfileChange}
+        onAgentProfileChange={controller.handleAgentProfileChange}
+        onChatModeChange={controller.handleChatModeChange}
+        onDictationModeChange={controller.handleDictationModeChange}
+        onEngineChange={controller.handleEngineChange}
+        onLLMConfigChange={controller.handleLLMConfigChange}
+        onManagedChange={controller.handleManagedChange}
+        onNewChat={controller.handleNewChat}
+        onThinkingChange={controller.handleThinkingChange}
+        onTranscriptionProfileChange={
+          controller.handleTranscriptionProfileChange
+        }
       />
 
       <ChatAreaAgenticLinksPanel sectionId={sectionId} />
