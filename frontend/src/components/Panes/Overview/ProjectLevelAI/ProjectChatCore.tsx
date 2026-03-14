@@ -16,13 +16,16 @@ import {
   type ChatRuntimeActivityDetails,
   type ChatSlashCommand,
   type ChatSlashCommandResult,
-  type ChatSubmitOptions,
 } from "components/Chat/ChatInput";
 import { ChatMessageList } from "components/Chat/ChatMessages";
 import {
   resolveAuthoritativeContextTelemetry,
   type ChatContextTelemetry,
 } from "components/Chat/contextTelemetry";
+import {
+  resolveEffectiveThinking,
+  supportsThinkingExecutionControl,
+} from "components/Chat/engineUtils";
 import {
   Dispatch,
   SetStateAction,
@@ -67,7 +70,7 @@ import {
   type ProjectChatCustomSlashCommand,
 } from "state/definitions";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
-import { getDefaultChatAppGenerationDetails } from "state/utils/chatAppGeneration";
+import type { AppGenerationMode } from "state/types/appGenerationMode";
 import {
   hasPendingToolInteraction,
   normalizeToolName,
@@ -86,6 +89,7 @@ import {
   BaseChatMessageUnion,
   ChatFileAttachment,
   ChatRoleEnum,
+  EngineConfig,
   EngineTypeEnum,
   type ToolCall,
 } from "utils/generatedTypes";
@@ -117,8 +121,6 @@ const WORKSPACE_ROOT_FAST_POLL_MS = 5000;
 const WORKSPACE_ROOT_BACKOFF_POLL_MS = 30000;
 const WORKSPACE_ROOT_STABLE_POLLS_BEFORE_BACKOFF = 2;
 const WORKSPACE_PYTHON_SIGNAL_REVALIDATE_MS = 5000;
-const DEFAULT_CHAT_APP_GENERATION_DETAILS =
-  getDefaultChatAppGenerationDetails();
 const CUSTOM_SLASH_COMMAND_AUTHORITY_LOADING_FEEDBACK =
   "Custom slash commands are unavailable until native command authority is loaded for this project.";
 const NATIVE_SLASH_COMMANDS_RELOAD_FEEDBACK =
@@ -1227,6 +1229,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   hydrationMetadataRevision,
   thinking,
   engineConfigId,
+  engineConfig,
   engineType,
   hasLLMConfig,
   externalEngineAvailable,
@@ -1257,6 +1260,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   hydrationMetadataRevision: string;
   thinking: boolean;
   engineConfigId: string | null;
+  engineConfig: EngineConfig | null;
   engineType: EngineTypeEnum | null;
   hasLLMConfig: boolean;
   externalEngineAvailable: boolean;
@@ -1280,40 +1284,19 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     errorCode: ProjectChatBlockedErrorCode | null,
   ) => void;
 }) {
-  const {
-    messages,
-    toolCallArguments,
-    waitingForResponse,
-    contextUsage,
-    activeAppGeneration,
-    appGenerationByMessageId,
-  } = useAIStore((state) => {
-    const appGenerationDetails =
-      chatId === null
-        ? state.pendingChatAppGenerationDetailsBySurfaceId[surfaceId] ??
-          DEFAULT_CHAT_APP_GENERATION_DETAILS
-        : typeof chatId === "string"
-          ? state.chatAppGenerationDetailsByChatId[chatId] ??
-            DEFAULT_CHAT_APP_GENERATION_DETAILS
-          : DEFAULT_CHAT_APP_GENERATION_DETAILS;
-    if (chatId === null) {
-      return {
-        ...(state.pendingChatDetailsBySurfaceId[surfaceId] ??
-          getDefaultChatDetails()),
-        ...appGenerationDetails,
-      };
-    }
-    if (typeof chatId !== "string") {
-      return {
-        ...getDefaultChatDetails(),
-        ...appGenerationDetails,
-      };
-    }
-    return {
-      ...(state.chatDetails[chatId] ?? getDefaultChatDetails()),
-      ...appGenerationDetails,
-    };
-  }, shallow);
+  const { messages, toolCallArguments, waitingForResponse, contextUsage } =
+    useAIStore((state) => {
+      if (chatId === null) {
+        return (
+          state.pendingChatDetailsBySurfaceId[surfaceId] ??
+          getDefaultChatDetails()
+        );
+      }
+      if (typeof chatId !== "string") {
+        return getDefaultChatDetails();
+      }
+      return state.chatDetails[chatId] ?? getDefaultChatDetails();
+    }, shallow);
   const branchIndex = useChatBranchIndex(typeof chatId === "string");
   const branchInfoByMessage = useMemo(() => {
     if (typeof chatId !== "string") {
@@ -1344,7 +1327,8 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       searchEnabled: true,
     }));
   const showEmptyState =
-    typeof chatId === "undefined" || (chatId === null && messages.length === 0);
+    typeof chatId === "undefined" ||
+    (chatId === null && messages.length === 0);
   const normalizedConversationSearchTerms = useMemo(
     () => tokenizeConversationSearchQuery(conversationFilterText),
     [conversationFilterText],
@@ -1365,6 +1349,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     [filteredConversationMessages],
   );
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
+  const appGenerationMode = useLocalStorage((state) => state.appGenerationMode);
   const customProjectChatSlashCommands = useLocalStorage(
     (state): ProjectChatCustomSlashCommand[] =>
       selectCustomProjectChatSlashCommands(
@@ -1390,6 +1375,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     workspaceRootIdentity,
   );
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
+  const showThinkingExecutionControl =
+    supportsThinkingExecutionControl(engineConfig);
+  const effectiveThinking = resolveEffectiveThinking({
+    engineConfig,
+    requestedThinking: thinking,
+  });
   const hydrationRunType = hydrationAuthority.hydrationRunType;
   const {
     contextWindowTokens,
@@ -1755,6 +1746,14 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     () => createManagedExecutionControlHandlers(setExecutionSettings),
     [setExecutionSettings],
   );
+  const handleSetAppGenerationMode = useCallback(
+    (nextMode: AppGenerationMode) => {
+      useLocalStorage.setState({
+        appGenerationMode: nextMode,
+      });
+    },
+    [],
+  );
 
   const handleResumeLatestChat = useCallback(async (): Promise<boolean> => {
     await loadAgentRuns();
@@ -1838,12 +1837,16 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         modelFeedback: "Use the model selector in the Project AI Chat toolbar.",
         searchEnabled: executionSettings.searchEnabled,
         onSetSearchEnabled: executionControlHandlers.onSearchEnabledChange,
+        appGenerationMode,
+        onSetAppGenerationMode: handleSetAppGenerationMode,
       });
     },
     [
+      appGenerationMode,
       executionSettings.searchEnabled,
       executionControlHandlers.onPermissionModeChange,
       executionControlHandlers.onSearchEnabledChange,
+      handleSetAppGenerationMode,
       handleNewChatStart,
       handleResumeLatestChat,
       slashCommands,
@@ -1892,11 +1895,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   );
 
   const handleSubmit = useCallback(
-    async (
-      message: string,
-      attachments: ChatFileAttachment[],
-      options?: ChatSubmitOptions,
-    ) => {
+    async (message: string, attachments: ChatFileAttachment[]) => {
       const trimmed = message.trim();
       if (!trimmed && attachments.length === 0) {
         return false;
@@ -1920,20 +1919,17 @@ export const ProjectChatCore = memo(function ProjectChatCore({
 
       let submittedChatId: string | null = null;
       let succeeded = false;
-      const resolvedAppGeneration =
-        options?.appGeneration ?? activeAppGeneration;
       try {
         submittedChatId = await submitMessage(
           chatId ?? null,
           message,
           attachments,
-          thinking,
+          effectiveThinking,
           engineConfigId,
           isExternalEngine,
           {
             continueFromChatId: isFirstDraftSubmit ? newThreadSeedChatId : null,
             pendingSurfaceId: surfaceId,
-            appGeneration: resolvedAppGeneration,
             executionSettings: {
               permissionMode: executionSettings.permissionMode,
               searchEnabled: executionSettings.searchEnabled,
@@ -1952,7 +1948,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     },
     [
       chatId,
-      thinking,
       engineConfigId,
       handleNewChatSettled,
       handleNewChatStart,
@@ -1961,9 +1956,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       hasLLMConfig,
       newThreadSeedChatId,
       requiresNewThreadContinuation,
-      activeAppGeneration,
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
+      effectiveThinking,
     ],
   );
 
@@ -1994,13 +1989,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         messageId,
         message: text,
         attachments,
-        thinking,
+        thinking: effectiveThinking,
         engineConfigId,
         isExternalEngine,
         agentProfileId: null,
         sectionId: null,
         pendingSurfaceId: surfaceId,
-        appGeneration: appGenerationByMessageId[messageId] ?? null,
         executionSettings: {
           permissionMode: executionSettings.permissionMode,
           searchEnabled: executionSettings.searchEnabled,
@@ -2016,14 +2010,13 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       engineConfigId,
       externalEngineAvailable,
       isExternalEngine,
-      appGenerationByMessageId,
       messages,
       requiresNewThreadContinuation,
       setChatId,
       surfaceId,
-      thinking,
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
+      effectiveThinking,
     ],
   );
 
@@ -2071,13 +2064,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         messageId: sourceUserMessage.id,
         message: sourceText,
         attachments: sourceAttachments,
-        thinking,
+        thinking: effectiveThinking,
         engineConfigId,
         isExternalEngine,
         agentProfileId: null,
         sectionId: null,
         pendingSurfaceId: surfaceId,
-        appGeneration: appGenerationByMessageId[sourceUserMessage.id] ?? null,
         executionSettings: {
           permissionMode: executionSettings.permissionMode,
           searchEnabled: executionSettings.searchEnabled,
@@ -2096,13 +2088,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       externalEngineAvailable,
       hasLLMConfig,
       isExternalEngine,
-      appGenerationByMessageId,
       messages,
       requiresNewThreadContinuation,
       setChatId,
       surfaceId,
-      thinking,
       waitingForResponse,
+      effectiveThinking,
     ],
   );
 
@@ -2152,12 +2143,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     }),
     [runtimeActivityDetails],
   );
-  const showThinkingExecutionControl =
-    engineType === EngineTypeEnum.setta_llm ||
-    engineType === EngineTypeEnum.external_agent;
   const executionControls = useMemo(
     () => ({
-      thinkingEnabled: thinking,
+      thinkingEnabled: effectiveThinking,
       onThinkingEnabledChange: showThinkingExecutionControl
         ? onThinkingChange
         : undefined,
@@ -2167,7 +2155,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       onSearchEnabledChange: executionControlHandlers.onSearchEnabledChange,
     }),
     [
-      thinking,
+      effectiveThinking,
       onThinkingChange,
       showThinkingExecutionControl,
       executionSettings.permissionMode,

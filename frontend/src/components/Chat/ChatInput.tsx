@@ -26,8 +26,6 @@ import {
   IoStop,
 } from "react-icons/io5";
 import { addTemporaryNotification } from "state/actions/notifications";
-import type { AppGenerationMode } from "state/types/appGenerationMode";
-import type { ChatAppGenerationContext } from "state/utils/chatAppGeneration";
 import { formatBytes } from "utils/attachments";
 import { ChatFileAttachment } from "utils/generatedTypes";
 import {
@@ -141,30 +139,18 @@ export type ChatSlashCommand = {
   args: string[];
   rawSuffix?: string;
   promptTemplate?: string;
-  appGenerationMode?: AppGenerationMode | null;
   unavailableFeedback?: string;
 };
 
 export type ChatSlashCommandResult =
   | boolean
   | {
-      appGenerationMode?: AppGenerationMode | null;
       handled?: boolean;
       feedback?: string;
       keepInput?: boolean;
       refreshedSlashCommands?: ChatSlashCommandDefinition[];
       refreshedRecognizedSlashCommands?: ChatSlashCommandDefinition[];
-      submitPromptTemplate?: boolean;
     };
-
-export type ChatSubmitOptions = {
-  appGeneration?: ChatAppGenerationContext | null;
-};
-
-type SlashCommandExecutionOutcome = {
-  handled: boolean;
-  submitted: boolean;
-};
 
 function formatCompactTokenCount(value: number): string {
   if (value >= 1_000_000) {
@@ -385,7 +371,6 @@ type ChatInputProps = {
   onSubmit: (
     message: string,
     attachments: ChatFileAttachment[],
-    options?: ChatSubmitOptions,
   ) => Promise<boolean> | boolean;
   onUnknownSlashCommand?: (
     message: string,
@@ -756,253 +741,6 @@ export const ChatInput = memo(function ChatInput({
     return true;
   }, [replaceAttachments, setInputValue]);
 
-  const executeResolvedSlashCommand = useCallback(
-    async ({
-      message,
-      submittedAttachments,
-      parsed,
-      commandAvailable,
-    }: {
-      message: string;
-      submittedAttachments: ChatFileAttachment[];
-      parsed: ChatSlashCommand;
-      commandAvailable: boolean;
-    }): Promise<SlashCommandExecutionOutcome> => {
-      if (!commandAvailable) {
-        setSlashFeedback(buildUnavailableSlashCommandFeedback(parsed));
-        return { handled: true, submitted: true };
-      }
-      if (parsed.action === "custom_prompt") {
-        const submission = resolveCustomPromptSlashCommandSubmission({
-          promptTemplate: parsed.promptTemplate,
-          args: parsed.args,
-          ...(parsed.rawSuffix === undefined
-            ? {}
-            : { rawSuffix: parsed.rawSuffix }),
-          attachments: submittedAttachments,
-        });
-        if (!submission) {
-          setSlashFeedback("Custom slash command has no prompt content.");
-          return { handled: true, submitted: false };
-        }
-        const submitOptions =
-          parsed.appGenerationMode === undefined ||
-          parsed.appGenerationMode === null
-            ? undefined
-            : {
-                appGeneration: {
-                  mode: parsed.appGenerationMode,
-                },
-              };
-        const submitted =
-          (await onSubmit(
-            submission.message,
-            submission.attachments,
-            submitOptions,
-          )) === true;
-        if (!submitted) {
-          setSlashFeedback(`Failed to submit ${parsed.command}.`);
-          return { handled: true, submitted: false };
-        }
-        setSlashFeedback(`Submitted ${parsed.command}`);
-        escClearedComposerDraftRef.current = null;
-        clearInput();
-        clearAttachments();
-        return { handled: true, submitted: true };
-      }
-      if (parsed.action === "native_prompt") {
-        const submitted =
-          (await onSubmit(message, submittedAttachments)) === true;
-        if (!submitted) {
-          setSlashFeedback(`Failed to submit ${parsed.command}.`);
-          return { handled: true, submitted: false };
-        }
-        setSlashFeedback(`Submitted ${parsed.command}`);
-        escClearedComposerDraftRef.current = null;
-        clearInput();
-        clearAttachments();
-        return { handled: true, submitted: true };
-      }
-      if (!onSlashCommand) {
-        setSlashFeedback(UNKNOWN_SLASH_COMMAND_FEEDBACK);
-        return { handled: true, submitted: true };
-      }
-      const result = await onSlashCommand(parsed);
-      if (result === false) {
-        setSlashFeedback(UNKNOWN_SLASH_COMMAND_FEEDBACK);
-        return { handled: true, submitted: false };
-      }
-      const slashResult =
-        result && typeof result === "object" ? result : undefined;
-      if (slashResult?.handled === false) {
-        setSlashFeedback(UNKNOWN_SLASH_COMMAND_FEEDBACK);
-        return { handled: true, submitted: false };
-      }
-      if (slashResult?.submitPromptTemplate) {
-        const submission = resolveCustomPromptSlashCommandSubmission({
-          promptTemplate: parsed.promptTemplate,
-          args: parsed.args,
-          ...(parsed.rawSuffix === undefined
-            ? {}
-            : { rawSuffix: parsed.rawSuffix }),
-          attachments: submittedAttachments,
-        });
-        if (!submission || !slashResult.appGenerationMode) {
-          setSlashFeedback("Built-in slash command has no prompt content.");
-          return { handled: true, submitted: false };
-        }
-        const submitted =
-          (await onSubmit(submission.message, submission.attachments, {
-            appGeneration: {
-              mode: slashResult.appGenerationMode,
-            },
-          })) === true;
-        if (!submitted) {
-          setSlashFeedback(`Failed to submit ${parsed.command}.`);
-          return { handled: true, submitted: false };
-        }
-        setSlashFeedback(
-          slashResult.feedback ?? `Submitted ${parsed.command}.`,
-        );
-        escClearedComposerDraftRef.current = null;
-        clearInput();
-        clearAttachments();
-        return { handled: true, submitted: true };
-      }
-      setSlashFeedback(slashResult?.feedback ?? `Ran ${parsed.command}`);
-      if (!slashResult?.keepInput) {
-        escClearedComposerDraftRef.current = null;
-        clearInput();
-        clearAttachments();
-      }
-      return { handled: true, submitted: true };
-    },
-    [clearAttachments, clearInput, onSlashCommand, onSubmit],
-  );
-
-  const runSlashCommand = useCallback(
-    async (
-      message: string,
-      submittedAttachments: ChatFileAttachment[],
-    ): Promise<SlashCommandExecutionOutcome> => {
-      const resolvedRequest = resolveSlashCommandRequest({
-        message,
-        slashCommands,
-        recognizedSlashCommands: slashCommandRecognitionSet,
-      });
-      if (resolvedRequest.parsed) {
-        return executeResolvedSlashCommand({
-          message,
-          submittedAttachments,
-          parsed: resolvedRequest.parsed,
-          commandAvailable: resolvedRequest.commandAvailable,
-        });
-      }
-      if (!message.trimStart().startsWith("/") || !onUnknownSlashCommand) {
-        return { handled: false, submitted: false };
-      }
-      const result = await onUnknownSlashCommand(message, submittedAttachments);
-      if (result === false) {
-        return { handled: false, submitted: false };
-      }
-      const slashResult =
-        result && typeof result === "object" ? result : undefined;
-      if (slashResult?.handled === false) {
-        return { handled: false, submitted: false };
-      }
-      const refreshedSlashCommands =
-        slashResult?.refreshedSlashCommands ?? null;
-      const refreshedRecognizedSlashCommands =
-        slashResult?.refreshedRecognizedSlashCommands ?? null;
-      if (refreshedSlashCommands && refreshedRecognizedSlashCommands) {
-        const refreshedRequest = resolveSlashCommandRequest({
-          message,
-          slashCommands: refreshedSlashCommands,
-          recognizedSlashCommands: refreshedRecognizedSlashCommands,
-        });
-        if (refreshedRequest.parsed) {
-          return executeResolvedSlashCommand({
-            message,
-            submittedAttachments,
-            parsed: refreshedRequest.parsed,
-            commandAvailable: refreshedRequest.commandAvailable,
-          });
-        }
-      }
-      setSlashFeedback(slashResult?.feedback ?? UNKNOWN_SLASH_COMMAND_FEEDBACK);
-      if (slashResult?.keepInput === false) {
-        escClearedComposerDraftRef.current = null;
-        clearInput();
-        clearAttachments();
-      }
-      return { handled: true, submitted: true };
-    },
-    [
-      clearAttachments,
-      clearInput,
-      executeResolvedSlashCommand,
-      onUnknownSlashCommand,
-      slashCommandRecognitionSet,
-      slashCommands,
-    ],
-  );
-
-  const submitMessage = useCallback(
-    async (
-      submittedValue: string,
-      submittedAttachments: ChatFileAttachment[],
-    ): Promise<boolean> => {
-      if (waitingForResponse) {
-        const queued = enqueueDraft({
-          message: submittedValue,
-          draftAttachments: submittedAttachments,
-          prioritize: true,
-          interruptCurrentRun: true,
-          feedback: "Queued and stopping current response...",
-        });
-        if (queued) {
-          return true;
-        }
-        if (onStop) {
-          await onStop();
-        }
-        return false;
-      }
-      if (isSubmitDisabled) {
-        return false;
-      }
-      const slashOutcome = await runSlashCommand(
-        submittedValue,
-        submittedAttachments,
-      );
-      if (slashOutcome.handled) {
-        return slashOutcome.submitted;
-      }
-      const trimmedInput = submittedValue.trim();
-      if (trimmedInput.length === 0 && submittedAttachments.length === 0) {
-        return false;
-      }
-      const result = await onSubmit(submittedValue, submittedAttachments);
-      if (result === true) {
-        escClearedComposerDraftRef.current = null;
-        clearInput();
-        clearAttachments();
-        return true;
-      }
-      return false;
-    },
-    [
-      clearAttachments,
-      clearInput,
-      enqueueDraft,
-      isSubmitDisabled,
-      onStop,
-      onSubmit,
-      runSlashCommand,
-      waitingForResponse,
-    ],
-  );
-
   const nextQueuedDraft = queuedDrafts[0] ?? null;
 
   useEffect(() => {
@@ -1030,10 +768,9 @@ export const ChatInput = memo(function ChatInput({
     void (async () => {
       let result = false;
       try {
-        result = await submitMessage(
-          draftToSend.message,
-          draftToSend.attachments,
-        );
+        result =
+          (await onSubmit(draftToSend.message, draftToSend.attachments)) ===
+          true;
       } catch {
         result = false;
       }
@@ -1057,10 +794,207 @@ export const ChatInput = memo(function ChatInput({
   }, [
     isSubmitDisabled,
     nextQueuedDraft,
+    onSubmit,
     queuedDispatchEpoch,
-    submitMessage,
     waitingForResponse,
   ]);
+
+  const executeResolvedSlashCommand = useCallback(
+    async ({
+      message,
+      submittedAttachments,
+      parsed,
+      commandAvailable,
+    }: {
+      message: string;
+      submittedAttachments: ChatFileAttachment[];
+      parsed: ChatSlashCommand;
+      commandAvailable: boolean;
+    }): Promise<boolean> => {
+      if (!commandAvailable) {
+        setSlashFeedback(buildUnavailableSlashCommandFeedback(parsed));
+        return true;
+      }
+      if (parsed.action === "custom_prompt") {
+        const submission = resolveCustomPromptSlashCommandSubmission({
+          promptTemplate: parsed.promptTemplate,
+          args: parsed.args,
+          ...(parsed.rawSuffix === undefined
+            ? {}
+            : { rawSuffix: parsed.rawSuffix }),
+          attachments: submittedAttachments,
+        });
+        if (!submission) {
+          setSlashFeedback("Custom slash command has no prompt content.");
+          return true;
+        }
+        const submitted =
+          (await onSubmit(submission.message, submission.attachments)) === true;
+        if (!submitted) {
+          setSlashFeedback(`Failed to submit ${parsed.command}.`);
+          return true;
+        }
+        setSlashFeedback(`Submitted ${parsed.command}`);
+        escClearedComposerDraftRef.current = null;
+        clearInput();
+        clearAttachments();
+        return true;
+      }
+      if (parsed.action === "native_prompt") {
+        const submitted =
+          (await onSubmit(message, submittedAttachments)) === true;
+        if (!submitted) {
+          setSlashFeedback(`Failed to submit ${parsed.command}.`);
+          return true;
+        }
+        setSlashFeedback(`Submitted ${parsed.command}`);
+        escClearedComposerDraftRef.current = null;
+        clearInput();
+        clearAttachments();
+        return true;
+      }
+      if (!onSlashCommand) {
+        setSlashFeedback(UNKNOWN_SLASH_COMMAND_FEEDBACK);
+        return true;
+      }
+      const result = await onSlashCommand(parsed);
+      if (result === false) {
+        setSlashFeedback(UNKNOWN_SLASH_COMMAND_FEEDBACK);
+        return true;
+      }
+      const slashResult =
+        result && typeof result === "object" ? result : undefined;
+      if (slashResult?.handled === false) {
+        setSlashFeedback(UNKNOWN_SLASH_COMMAND_FEEDBACK);
+        return true;
+      }
+      setSlashFeedback(slashResult?.feedback ?? `Ran ${parsed.command}`);
+      if (!slashResult?.keepInput) {
+        escClearedComposerDraftRef.current = null;
+        clearInput();
+        clearAttachments();
+      }
+      return true;
+    },
+    [clearAttachments, clearInput, onSlashCommand, onSubmit],
+  );
+
+  const runSlashCommand = useCallback(
+    async (
+      message: string,
+      submittedAttachments: ChatFileAttachment[],
+    ): Promise<boolean> => {
+      const resolvedRequest = resolveSlashCommandRequest({
+        message,
+        slashCommands,
+        recognizedSlashCommands: slashCommandRecognitionSet,
+      });
+      if (resolvedRequest.parsed) {
+        return executeResolvedSlashCommand({
+          message,
+          submittedAttachments,
+          parsed: resolvedRequest.parsed,
+          commandAvailable: resolvedRequest.commandAvailable,
+        });
+      }
+      if (!message.trimStart().startsWith("/") || !onUnknownSlashCommand) {
+        return false;
+      }
+      const result = await onUnknownSlashCommand(message, submittedAttachments);
+      if (result === false) {
+        return false;
+      }
+      const slashResult =
+        result && typeof result === "object" ? result : undefined;
+      if (slashResult?.handled === false) {
+        return false;
+      }
+      const refreshedSlashCommands =
+        slashResult?.refreshedSlashCommands ?? null;
+      const refreshedRecognizedSlashCommands =
+        slashResult?.refreshedRecognizedSlashCommands ?? null;
+      if (refreshedSlashCommands && refreshedRecognizedSlashCommands) {
+        const refreshedRequest = resolveSlashCommandRequest({
+          message,
+          slashCommands: refreshedSlashCommands,
+          recognizedSlashCommands: refreshedRecognizedSlashCommands,
+        });
+        if (refreshedRequest.parsed) {
+          return executeResolvedSlashCommand({
+            message,
+            submittedAttachments,
+            parsed: refreshedRequest.parsed,
+            commandAvailable: refreshedRequest.commandAvailable,
+          });
+        }
+      }
+      setSlashFeedback(slashResult?.feedback ?? UNKNOWN_SLASH_COMMAND_FEEDBACK);
+      if (slashResult?.keepInput === false) {
+        escClearedComposerDraftRef.current = null;
+        clearInput();
+        clearAttachments();
+      }
+      return true;
+    },
+    [
+      clearAttachments,
+      clearInput,
+      executeResolvedSlashCommand,
+      onUnknownSlashCommand,
+      slashCommandRecognitionSet,
+      slashCommands,
+    ],
+  );
+
+  const submitMessage = useCallback(
+    async (
+      submittedValue: string,
+      submittedAttachments: ChatFileAttachment[],
+    ): Promise<void> => {
+      if (waitingForResponse) {
+        const queued = enqueueDraft({
+          message: submittedValue,
+          draftAttachments: submittedAttachments,
+          prioritize: true,
+          interruptCurrentRun: true,
+          feedback: "Queued and stopping current response...",
+        });
+        if (queued) {
+          return;
+        }
+        if (onStop) {
+          await onStop();
+        }
+        return;
+      }
+      if (isSubmitDisabled) {
+        return;
+      }
+      if (await runSlashCommand(submittedValue, submittedAttachments)) {
+        return;
+      }
+      const trimmedInput = submittedValue.trim();
+      if (trimmedInput.length === 0 && submittedAttachments.length === 0) {
+        return;
+      }
+      const result = await onSubmit(submittedValue, submittedAttachments);
+      if (result === true) {
+        escClearedComposerDraftRef.current = null;
+        clearInput();
+        clearAttachments();
+      }
+    },
+    [
+      clearAttachments,
+      clearInput,
+      enqueueDraft,
+      isSubmitDisabled,
+      onStop,
+      onSubmit,
+      runSlashCommand,
+      waitingForResponse,
+    ],
+  );
 
   const handleSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
