@@ -75,6 +75,57 @@ func (c *captureBroadcaster) ResultFollowMessages() []realtime.AIFollowToolResul
 	return cloned
 }
 
+func findBroadcastTextDelta(messages []realtime.LLMStreamingResponseMessage, index int, text string) *realtime.MessageTextDelta {
+	for _, message := range messages {
+		deltaEvent, ok := message.Content.Chunk.(realtime.MessageDeltaEvent)
+		if !ok {
+			continue
+		}
+		for _, rawContent := range deltaEvent.Content {
+			content, ok := rawContent.(realtime.MessageTextDelta)
+			if !ok {
+				continue
+			}
+			if content.Index == index && content.Text == text {
+				copied := content
+				return &copied
+			}
+		}
+	}
+	return nil
+}
+
+func findBroadcastThinkingDelta(messages []realtime.LLMStreamingResponseMessage, index int, thinking string, summary *string) *realtime.MessageThinkingDelta {
+	for _, message := range messages {
+		deltaEvent, ok := message.Content.Chunk.(realtime.MessageDeltaEvent)
+		if !ok {
+			continue
+		}
+		for _, rawContent := range deltaEvent.Content {
+			content, ok := rawContent.(realtime.MessageThinkingDelta)
+			if !ok {
+				continue
+			}
+			if content.Index != index || content.Thinking != thinking {
+				continue
+			}
+			if !sameOptionalString(content.Summary, summary) {
+				continue
+			}
+			copied := content
+			return &copied
+		}
+	}
+	return nil
+}
+
+func sameOptionalString(left *string, right *string) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
+}
+
 type stubToolClient struct {
 	initTools         map[string]mcpx.ToolDescriptor
 	discoverableTools map[string]mcpx.ToolDescriptor
@@ -1752,8 +1803,19 @@ func TestExecutorExecuteStreamsOpenAIResponsesThinkingAndReturnsOutputs(t *testi
 	if !ok || stateTextBlock["text"] != "Final answer" {
 		t.Fatalf("expected completed response fallback to preserve full live assistant text, got %#v", state)
 	}
-	if broadcaster.Count() != 6 {
-		t.Fatalf("expected 6 streaming broadcasts, got %d", broadcaster.Count())
+	broadcastMessages := broadcaster.Messages()
+	expectedSummary := "Plan summary"
+	if findBroadcastThinkingDelta(broadcastMessages, 0, "", &expectedSummary) == nil {
+		t.Fatalf("expected completed fallback summary delta in %#v", broadcastMessages)
+	}
+	if findBroadcastThinkingDelta(broadcastMessages, 0, " deeply", nil) == nil {
+		t.Fatalf("expected completed fallback thinking delta in %#v", broadcastMessages)
+	}
+	if findBroadcastTextDelta(broadcastMessages, 1, " answer") == nil {
+		t.Fatalf("expected completed fallback text delta in %#v", broadcastMessages)
+	}
+	if broadcaster.Count() != 9 {
+		t.Fatalf("expected start, six delta updates, stop, finalized broadcasts, got %d", broadcaster.Count())
 	}
 }
 
@@ -2799,8 +2861,12 @@ func TestExecutorExecuteRecoversOpenAIResponsesOutputItemDoneBeforeIncompleteFai
 	if len(state.Messages) != 2 || assistantText(state.Messages[1]) != "Recovered final item" {
 		t.Fatalf("expected finalized live output_item.done assistant message, got %#v", state)
 	}
-	if broadcaster.Count() != 4 {
-		t.Fatalf("expected start, delta, stop, finalized broadcasts, got %d", broadcaster.Count())
+	broadcastMessages := broadcaster.Messages()
+	if findBroadcastTextDelta(broadcastMessages, 0, " final item") == nil {
+		t.Fatalf("expected output_item.done text delta in %#v", broadcastMessages)
+	}
+	if broadcaster.Count() != 5 {
+		t.Fatalf("expected start, two text deltas, stop, finalized broadcasts, got %d", broadcaster.Count())
 	}
 }
 
@@ -2913,8 +2979,16 @@ func TestExecutorExecuteRecoversOpenAIResponsesReasoningItemDoneBeforeIncomplete
 	if !ok || stateThinkingBlock["summary"] != "Plan summary" || stateThinkingBlock["thinking"] != "Planning deeply" {
 		t.Fatalf("expected finalized live authoritative reasoning block, got %#v", state)
 	}
-	if broadcaster.Count() != 5 {
-		t.Fatalf("expected start, summary delta, thinking delta, stop, finalized broadcasts, got %d", broadcaster.Count())
+	broadcastMessages := broadcaster.Messages()
+	expectedSummary := "Plan summary"
+	if findBroadcastThinkingDelta(broadcastMessages, 0, "", &expectedSummary) == nil {
+		t.Fatalf("expected reasoning item done summary delta in %#v", broadcastMessages)
+	}
+	if findBroadcastThinkingDelta(broadcastMessages, 0, " deeply", nil) == nil {
+		t.Fatalf("expected reasoning item done thinking delta in %#v", broadcastMessages)
+	}
+	if broadcaster.Count() != 7 {
+		t.Fatalf("expected start, four thinking deltas, stop, finalized broadcasts, got %d", broadcaster.Count())
 	}
 }
 

@@ -90,6 +90,10 @@
     items, and `response.completed` fallback function calls now also drive the
     live tool-call delta / preview path when the authoritative final arguments
     extend the known streamed prefix and earlier argument deltas were omitted
+  - authoritative `response.output_item.done` and `response.completed`
+    reasoning/message items now also emit live thinking/text suffix deltas
+    when the final content extends the streamed prefix instead of waiting only
+    for finalization to repair the live state
   - the Responses reducer now also honors `response.content_part.added` plus
     `response.reasoning_summary_part.added` / `.done` with explicit
     `summary_index` ordering, preserves early answer text when the first
