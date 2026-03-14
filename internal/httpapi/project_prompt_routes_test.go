@@ -11,6 +11,7 @@ import (
 	"setta/internal/config"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
+	"setta/internal/prompttemplates"
 )
 
 func TestRegisterProjectRoutesPromptSectionMutationsPersistAndTrackFrontendOps(t *testing.T) {
@@ -159,6 +160,92 @@ func TestRegisterProjectRoutesPromptSectionMutationsRejectInvalidPayloads(t *tes
 	if formatError.Error.Code != "prompt_format_invalid" {
 		t.Fatalf("expected prompt_format_invalid, got %#v", formatError)
 	}
+}
+
+func TestRegisterProjectRoutesPromptTemplateLinkPersistsResolvedTemplateAndRejectsMissingTemplate(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(promptSectionRouteTestDocument(t))
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	workspaceRoot := t.TempDir()
+	templateStore, err := prompttemplates.NewStore(workspaceRoot)
+	if err != nil {
+		t.Fatalf("new prompt template store: %v", err)
+	}
+	if err := templateStore.Save(prompttemplates.Template{
+		ID:       "template-alpha",
+		Name:     "Greeting",
+		Template: "Hello {{ name }}",
+		Format:   prompttemplates.FormatJinja,
+	}); err != nil {
+		t.Fatalf("save prompt template: %v", err)
+	}
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, workspaceRoot, nil, nil, nil)
+
+	linkRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetPromptTemplateLink,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"prompt-section","promptTemplateId":"template-alpha","frontendOpId":"prompt-template-link-op"}`),
+	)
+	linkRequest.Header.Set("Content-Type", "application/json")
+	linkResponse := httptest.NewRecorder()
+	handler.ServeHTTP(linkResponse, linkRequest)
+	if linkResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 link response, got %d with body %q", linkResponse.Code, linkResponse.Body.String())
+	}
+
+	latestRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLatestProjectState,
+		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
+	)
+	latestRequest.Header.Set("Content-Type", "application/json")
+	latestResponse := httptest.NewRecorder()
+	handler.ServeHTTP(latestResponse, latestRequest)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var latestPayload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &latestPayload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+	if !reflect.DeepEqual(latestPayload.CompletedOpIDs, []string{"prompt-template-link-op"}) {
+		t.Fatalf("unexpected completed op ids %#v", latestPayload.CompletedOpIDs)
+	}
+
+	promptPayload := promptSectionRoutePayload(t, latestPayload.ProjectState.Sections["prompt-section"].SharedModifier)
+	if got := promptPayload["promptTemplateId"]; got != "template-alpha" {
+		t.Fatalf("expected promptTemplateId template-alpha, got %#v", got)
+	}
+	if got := promptPayload["template"]; got != "Hello {{ name }}" {
+		t.Fatalf("expected linked template contents, got %#v", got)
+	}
+	if got := promptPayload["format"]; got != string(projectstate.PromptFormatJinja) {
+		t.Fatalf("expected prompt format Jinja, got %#v", got)
+	}
+
+	missingRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetPromptTemplateLink,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"prompt-section","promptTemplateId":"missing-template"}`),
+	)
+	missingRequest.Header.Set("Content-Type", "application/json")
+	missingResponse := httptest.NewRecorder()
+	handler.ServeHTTP(missingResponse, missingRequest)
+	if missingResponse.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 missing-template response, got %d with body %q", missingResponse.Code, missingResponse.Body.String())
+	}
+	stateMachineRouteErrorCode(t, missingResponse, "prompt_template_not_found")
 }
 
 func TestRegisterProjectRoutesPromptSectionMutationsRespectDeploymentParamPolicy(t *testing.T) {

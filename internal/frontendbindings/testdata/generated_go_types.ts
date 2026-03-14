@@ -594,6 +594,28 @@ export function createAgentRun(options: Partial<AgentRun> = {}): AgentRun {
 export type AgentRunList = Array<AgentRun>;
 
 
+export type DetachedRunStatus = string;
+
+
+export type DetachedRun = {
+  runId: string;
+  status: DetachedRunStatus;
+  createdAtMs: number;
+  startedAtMs?: number | null;
+  exitedAtMs?: number | null;
+  exitCode?: number | null;
+  pid?: number | null;
+  command: string;
+  snapshotPath: string;
+  projectConfigId: string;
+  entrySectionId?: string | null;
+  tags: Record<string, string>;
+};
+export function createDetachedRun(options: Partial<DetachedRun> = {}): DetachedRun {
+  return options as DetachedRun;
+}
+
+
 export const StreamingEventTypeEnum = {
   MESSAGE_START: "message_start",
   DELTA: "delta",
@@ -7635,6 +7657,44 @@ export function createRunCodeRequestInput(options: Partial<RunCodeRequestInput> 
 }
 
 
+export type RunDetachedRequestInput = {
+  projectConfigId: string;
+  entrySectionId: string;
+  runSnapshotMode: RunSnapshotMode;
+  sectionVariantOverrides: Record<string, string>;
+  paramOverrides: Record<string, string>;
+  tags: Record<string, string>;
+};
+export function createRunDetachedRequestInput(options: Partial<RunDetachedRequestInput> = {}): RunDetachedRequestInput {
+  return options as RunDetachedRequestInput;
+}
+
+
+export type RunDetachedResponse = {
+  runId: string;
+  status: DetachedRunStatus;
+};
+export function createRunDetachedResponse(options: Partial<RunDetachedResponse> = {}): RunDetachedResponse {
+  return options as RunDetachedResponse;
+}
+
+
+export type GetRunStatusRequestInput = {
+  runId: string;
+};
+export function createGetRunStatusRequestInput(options: Partial<GetRunStatusRequestInput> = {}): GetRunStatusRequestInput {
+  return options as GetRunStatusRequestInput;
+}
+
+
+export type CancelRunRequestInput = {
+  runId: string;
+};
+export function createCancelRunRequestInput(options: Partial<CancelRunRequestInput> = {}): CancelRunRequestInput {
+  return options as CancelRunRequestInput;
+}
+
+
 export type GetAttachmentDownloadURLRequestInput = {
   artifactId: string;
   projectConfigId: string | null;
@@ -8733,6 +8793,52 @@ export function createStopAgentRunRequestInput(options: Partial<StopAgentRunRequ
 }
 
 
+export type StartStateMachineRunRequestInput = {
+  projectConfigId: string;
+  machineGroupId: string;
+  startSectionId?: string | null;
+};
+export function createStartStateMachineRunRequestInput(options: Partial<StartStateMachineRunRequestInput> = {}): StartStateMachineRunRequestInput {
+  return options as StartStateMachineRunRequestInput;
+}
+
+
+export type StopStateMachineRunRequestInput = {
+  projectConfigId: string;
+  machineGroupId: string;
+};
+export function createStopStateMachineRunRequestInput(options: Partial<StopStateMachineRunRequestInput> = {}): StopStateMachineRunRequestInput {
+  return options as StopStateMachineRunRequestInput;
+}
+
+
+export type StateMachineRunControlResponse = {
+  alreadyStopped: boolean;
+  stoppedRunId?: string | null;
+};
+export function createStateMachineRunControlResponse(options: Partial<StateMachineRunControlResponse> = {}): StateMachineRunControlResponse {
+  return options as StateMachineRunControlResponse;
+}
+
+
+export type ResetStateMachineRequestInput = {
+  projectConfigId: string;
+  machineGroupId: string;
+};
+export function createResetStateMachineRequestInput(options: Partial<ResetStateMachineRequestInput> = {}): ResetStateMachineRequestInput {
+  return options as ResetStateMachineRequestInput;
+}
+
+
+export type GetStateMachineRunRequestInput = {
+  projectConfigId: string;
+  machineGroupId: string;
+};
+export function createGetStateMachineRunRequestInput(options: Partial<GetStateMachineRunRequestInput> = {}): GetStateMachineRunRequestInput {
+  return options as GetStateMachineRunRequestInput;
+}
+
+
 export type RunChainStepInput = {
   id: string;
   name: string;
@@ -9208,6 +9314,17 @@ export type SetPromptTemplateRequest = {
 };
 export function createSetPromptTemplateRequest(options: Partial<SetPromptTemplateRequest> = {}): SetPromptTemplateRequest {
   return options as SetPromptTemplateRequest;
+}
+
+
+export type SetPromptTemplateLinkRequest = {
+  frontendOpId: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  promptTemplateId?: string | null;
+};
+export function createSetPromptTemplateLinkRequest(options: Partial<SetPromptTemplateLinkRequest> = {}): SetPromptTemplateLinkRequest {
+  return options as SetPromptTemplateLinkRequest;
 }
 
 

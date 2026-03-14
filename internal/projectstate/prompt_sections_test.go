@@ -78,6 +78,65 @@ func TestRuntimePromptSectionMutationsUpdateEffectivePayload(t *testing.T) {
 	}
 }
 
+func TestRuntimePromptSectionMutationsLinkPromptTemplatesAndClearLinksOnLocalEdits(t *testing.T) {
+	t.Parallel()
+
+	runtime, err := OpenOverlayRuntime(Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": promptSectionMutationTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	if _, err := runtime.SetPromptTemplateLink(
+		context.Background(),
+		"project-alpha",
+		"prompt-section",
+		stringPointer("template-alpha"),
+		"Linked {{ name }}",
+		PromptFormatJinja,
+	); err != nil {
+		t.Fatalf("SetPromptTemplateLink returned error: %v", err)
+	}
+
+	project := runtime.Snapshot().Document.Projects["project-alpha"]
+	payload, err := effectiveSectionPayload(project, "prompt-section", "prompt-variant")
+	if err != nil {
+		t.Fatalf("effectiveSectionPayload prompt-section after link: %v", err)
+	}
+	if got := payloadRawStringField(payload, "promptTemplateId"); got != "template-alpha" {
+		t.Fatalf("expected promptTemplateId template-alpha, got %q", got)
+	}
+	if got := payloadRawStringField(payload, "template"); got != "Linked {{ name }}" {
+		t.Fatalf("expected linked template text, got %q", got)
+	}
+
+	if _, err := runtime.SetPromptTemplate(context.Background(), "project-alpha", "prompt-section", "Local copy"); err != nil {
+		t.Fatalf("SetPromptTemplate returned error: %v", err)
+	}
+
+	project = runtime.Snapshot().Document.Projects["project-alpha"]
+	payload, err = effectiveSectionPayload(project, "prompt-section", "prompt-variant")
+	if err != nil {
+		t.Fatalf("effectiveSectionPayload prompt-section after unlinking local edit: %v", err)
+	}
+	if value, ok := payload["promptTemplateId"]; !ok || value != nil {
+		t.Fatalf("expected promptTemplateId to clear on local edit, got %#v", payload["promptTemplateId"])
+	}
+	if got := payloadRawStringField(payload, "template"); got != "Local copy" {
+		t.Fatalf("expected local template text, got %q", got)
+	}
+}
+
 func TestRuntimePromptSectionMutationsReportSyntaxErrors(t *testing.T) {
 	t.Parallel()
 

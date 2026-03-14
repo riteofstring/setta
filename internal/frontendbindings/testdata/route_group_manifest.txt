@@ -12,6 +12,7 @@ GoHTTPRoutes.appendTranscriptionAudio path=/appendTranscriptionAudio enum=APPEND
 GoHTTPRoutes.autoLayoutTopLevelSections path=/autoLayoutTopLevelSections enum=AUTO_LAYOUT_TOP_LEVEL_SECTIONS
 GoHTTPRoutes.binaryDownload path=/binary/{contentId} enum=BINARY_DOWNLOAD
 GoHTTPRoutes.binaryUpload path=/binary/upload enum=BINARY_UPLOAD
+GoHTTPRoutes.cancelRun path=/cancelRun enum=CANCEL_RUN
 GoHTTPRoutes.cancelTranscriptionSession path=/cancelTranscriptionSession enum=CANCEL_TRANSCRIPTION_SESSION
 GoHTTPRoutes.changeParamImpl path=/changeParamImpl enum=CHANGE_PARAM_IMPL
 GoHTTPRoutes.checkIfFileExists path=/checkIfFileExists enum=CHECK_IF_FILE_EXISTS
@@ -108,8 +109,10 @@ GoHTTPRoutes.getNotifications path=/getNotifications enum=GET_NOTIFICATIONS
 GoHTTPRoutes.getPasswordParamValue path=/getPasswordParamValue enum=GET_PASSWORD_PARAM_VALUE
 GoHTTPRoutes.getPromptTemplate path=/getPromptTemplate enum=GET_PROMPT_TEMPLATE
 GoHTTPRoutes.getPromptTemplates path=/getPromptTemplates enum=GET_PROMPT_TEMPLATES
+GoHTTPRoutes.getRunStatus path=/getRunStatus enum=GET_RUN_STATUS
 GoHTTPRoutes.getServerMode path=/serverMode enum=GET_SERVER_MODE
 GoHTTPRoutes.getSettaHomeInfo path=/settaHomeInfo enum=GET_SETTA_HOME_INFO
+GoHTTPRoutes.getStateMachineRun path=/getStateMachineRun enum=GET_STATE_MACHINE_RUN
 GoHTTPRoutes.getTranscriptionProfiles path=/getTranscriptionProfiles enum=GET_TRANSCRIPTION_PROFILES
 GoHTTPRoutes.groupSections path=/groupSections enum=GROUP_SECTIONS
 GoHTTPRoutes.importFilesToArtifacts path=/importFilesToArtifacts enum=IMPORT_FILES_TO_ARTIFACTS
@@ -151,11 +154,13 @@ GoHTTPRoutes.redo path=/redo enum=REDO
 GoHTTPRoutes.removeLauncher path=/removeLauncher enum=REMOVE_LAUNCHER
 GoHTTPRoutes.removeLauncherRecentWorkspace path=/removeLauncherRecentWorkspace enum=REMOVE_LAUNCHER_RECENT_WORKSPACE
 GoHTTPRoutes.repairLauncher path=/repairLauncher enum=REPAIR_LAUNCHER
+GoHTTPRoutes.resetStateMachine path=/resetStateMachine enum=RESET_STATE_MACHINE
 GoHTTPRoutes.respondExternalAgentApproval path=/respondExternalAgentApproval enum=RESPOND_EXTERNAL_AGENT_APPROVAL
 GoHTTPRoutes.respondExternalAgentQuestion path=/respondExternalAgentQuestion enum=RESPOND_EXTERNAL_AGENT_QUESTION
 GoHTTPRoutes.restartLanguageServer path=/restartLanguageServer enum=RESTART_LANGUAGE_SERVER
 GoHTTPRoutes.revealPathInOsFileExplorer path=/revealPathInOsFileExplorer enum=REVEAL_PATH_IN_OS_FILE_EXPLORER
 GoHTTPRoutes.runCode path=/runCode enum=RUN_CODE
+GoHTTPRoutes.runDetached path=/runDetached enum=RUN_DETACHED
 GoHTTPRoutes.saveAsNewProjectConfig path=/saveAsNewProjectConfig enum=SAVE_AS_NEW_PROJECT_CONFIG
 GoHTTPRoutes.saveProject path=/saveProject enum=SAVE_PROJECT
 GoHTTPRoutes.saveSettings path=/saveSettings enum=SAVE_SETTINGS
@@ -202,6 +207,7 @@ GoHTTPRoutes.setProjectConfigName path=/setProjectConfigName enum=SET_PROJECT_CO
 GoHTTPRoutes.setPromptFormat path=/setPromptFormat enum=SET_PROMPT_FORMAT
 GoHTTPRoutes.setPromptInputs path=/setPromptInputs enum=SET_PROMPT_INPUTS
 GoHTTPRoutes.setPromptTemplate path=/setPromptTemplate enum=SET_PROMPT_TEMPLATE
+GoHTTPRoutes.setPromptTemplateLink path=/setPromptTemplateLink enum=SET_PROMPT_TEMPLATE_LINK
 GoHTTPRoutes.setSectionColumnWidth path=/setSectionColumnWidth enum=SET_SECTION_COLUMN_WIDTH
 GoHTTPRoutes.setSectionEdgeInputs path=/setSectionEdgeInputs enum=SET_SECTION_EDGE_INPUTS
 GoHTTPRoutes.setSectionEdgeOutputs path=/setSectionEdgeOutputs enum=SET_SECTION_EDGE_OUTPUTS
@@ -247,11 +253,13 @@ GoHTTPRoutes.shareDeploymentVersions path=/share/deployments/{deploymentName}/ve
 GoHTTPRoutes.shareDeployments path=/share/deployments enum=SHARE_DEPLOYMENTS
 GoHTTPRoutes.startAgentRun path=/startAgentRun enum=START_AGENT_RUN
 GoHTTPRoutes.startRunChain path=/startRunChain enum=START_RUN_CHAIN
+GoHTTPRoutes.startStateMachineRun path=/startStateMachineRun enum=START_STATE_MACHINE_RUN
 GoHTTPRoutes.startTranscriptionSession path=/startTranscriptionSession enum=START_TRANSCRIPTION_SESSION
 GoHTTPRoutes.stopAgentRun path=/stopAgentRun enum=STOP_AGENT_RUN
 GoHTTPRoutes.stopExternalAgentRun path=/stopExternalAgentRun enum=STOP_EXTERNAL_AGENT_RUN
 GoHTTPRoutes.stopLLMChat path=/stopLLMChat enum=STOP_LLM_CHAT
 GoHTTPRoutes.stopRunChain path=/stopRunChain enum=STOP_RUN_CHAIN
+GoHTTPRoutes.stopStateMachineRun path=/stopStateMachineRun enum=STOP_STATE_MACHINE_RUN
 GoHTTPRoutes.stopTranscriptionSession path=/stopTranscriptionSession enum=STOP_TRANSCRIPTION_SESSION
 GoHTTPRoutes.textFieldCompletion path=/textFieldCompletion enum=TEXT_FIELD_COMPLETION
 GoHTTPRoutes.toggleGroupOrientation path=/toggleGroupOrientation enum=TOGGLE_GROUP_ORIENTATION

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"setta/internal/projectstate"
+	"setta/internal/projectview"
 )
 
 func TestSeedProjectStateWritesLoadableRegistryDocuments(t *testing.T) {
@@ -45,6 +46,23 @@ func TestSeedProjectStateWritesLoadableRegistryDocuments(t *testing.T) {
 	}
 	if got := project.ProjectChatWindowing.NextInstanceNumber; got != 1 {
 		t.Fatalf("expected next instance number 1, got %d", got)
+	}
+	if project.ActiveViewModeID == "" {
+		t.Fatal("expected seeded project to have an active view mode")
+	}
+	if len(project.ViewModes) != 1 {
+		t.Fatalf("expected seeded project to have exactly one view mode, got %d", len(project.ViewModes))
+	}
+	if _, ok := project.ViewModes[project.ActiveViewModeID]; !ok {
+		t.Fatalf("expected active view mode %q to exist", project.ActiveViewModeID)
+	}
+
+	projectView, err := projectview.SingleConfigByProjectID(mainSnapshot.Document, DefaultSampleProjectID)
+	if err != nil {
+		t.Fatalf("SingleConfigByProjectID returned error: %v", err)
+	}
+	if projectView.ProjectConfig.ActiveViewModeID == nil || *projectView.ProjectConfig.ActiveViewModeID == "" {
+		t.Fatalf("expected project view to expose an active view mode id, got %#v", projectView.ProjectConfig.ActiveViewModeID)
 	}
 
 	settingsSnapshot := registry.Settings().Snapshot()

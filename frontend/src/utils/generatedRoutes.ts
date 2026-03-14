@@ -138,6 +138,9 @@ export const GoHTTPRoutes = {
   deleteTerminals: "/deleteTerminals",
   interruptTerminalProcesses: "/interruptTerminalProcesses",
   runCode: "/runCode",
+  runDetached: "/runDetached",
+  getRunStatus: "/getRunStatus",
+  cancelRun: "/cancelRun",
   getAttachmentDownloadUrl: "/getAttachmentDownloadUrl",
   getAttachmentDownloadUrls: "/getAttachmentDownloadUrls",
   createFile: "/createFile",
@@ -221,6 +224,10 @@ export const GoHTTPRoutes = {
   getAgentRun: "/getAgentRun",
   startAgentRun: "/startAgentRun",
   stopAgentRun: "/stopAgentRun",
+  startStateMachineRun: "/startStateMachineRun",
+  stopStateMachineRun: "/stopStateMachineRun",
+  resetStateMachine: "/resetStateMachine",
+  getStateMachineRun: "/getStateMachineRun",
   startRunChain: "/startRunChain",
   stopRunChain: "/stopRunChain",
   getEngineConfigs: "/getEngineConfigs",
@@ -261,6 +268,7 @@ export const GoHTTPRoutes = {
   setChatSectionState: "/setChatSectionState",
   setChatSectionChatId: "/setChatSectionChatId",
   setPromptTemplate: "/setPromptTemplate",
+  setPromptTemplateLink: "/setPromptTemplateLink",
   setPromptInputs: "/setPromptInputs",
   setPromptFormat: "/setPromptFormat",
   createWindowSpace: "/createWindowSpace",
@@ -731,6 +739,15 @@ export const GoHTTPRouteHelpers = {
   runCode(): string {
     return GoHTTPRoutes.runCode;
   },
+  runDetached(): string {
+    return GoHTTPRoutes.runDetached;
+  },
+  getRunStatus(): string {
+    return GoHTTPRoutes.getRunStatus;
+  },
+  cancelRun(): string {
+    return GoHTTPRoutes.cancelRun;
+  },
   getAttachmentDownloadUrl(): string {
     return GoHTTPRoutes.getAttachmentDownloadUrl;
   },
@@ -984,6 +1001,18 @@ export const GoHTTPRouteHelpers = {
   stopAgentRun(): string {
     return GoHTTPRoutes.stopAgentRun;
   },
+  startStateMachineRun(): string {
+    return GoHTTPRoutes.startStateMachineRun;
+  },
+  stopStateMachineRun(): string {
+    return GoHTTPRoutes.stopStateMachineRun;
+  },
+  resetStateMachine(): string {
+    return GoHTTPRoutes.resetStateMachine;
+  },
+  getStateMachineRun(): string {
+    return GoHTTPRoutes.getStateMachineRun;
+  },
   startRunChain(): string {
     return GoHTTPRoutes.startRunChain;
   },
@@ -1103,6 +1132,9 @@ export const GoHTTPRouteHelpers = {
   },
   setPromptTemplate(): string {
     return GoHTTPRoutes.setPromptTemplate;
+  },
+  setPromptTemplateLink(): string {
+    return GoHTTPRoutes.setPromptTemplateLink;
   },
   setPromptInputs(): string {
     return GoHTTPRoutes.setPromptInputs;
@@ -1374,6 +1406,9 @@ export const RouteEnum = {
   DELETE_TERMINALS: "/deleteTerminals",
   INTERRUPT_TERMINAL_PROCESSES: "/interruptTerminalProcesses",
   RUN_CODE: "/runCode",
+  RUN_DETACHED: "/runDetached",
+  GET_RUN_STATUS: "/getRunStatus",
+  CANCEL_RUN: "/cancelRun",
   GET_ATTACHMENT_DOWNLOAD_URL: "/getAttachmentDownloadUrl",
   GET_ATTACHMENT_DOWNLOAD_URLS: "/getAttachmentDownloadUrls",
   CREATE_FILE: "/createFile",
@@ -1457,6 +1492,10 @@ export const RouteEnum = {
   GET_AGENT_RUN: "/getAgentRun",
   START_AGENT_RUN: "/startAgentRun",
   STOP_AGENT_RUN: "/stopAgentRun",
+  START_STATE_MACHINE_RUN: "/startStateMachineRun",
+  STOP_STATE_MACHINE_RUN: "/stopStateMachineRun",
+  RESET_STATE_MACHINE: "/resetStateMachine",
+  GET_STATE_MACHINE_RUN: "/getStateMachineRun",
   START_RUN_CHAIN: "/startRunChain",
   STOP_RUN_CHAIN: "/stopRunChain",
   GET_ENGINE_CONFIGS: "/getEngineConfigs",
@@ -1497,6 +1536,7 @@ export const RouteEnum = {
   SET_CHAT_SECTION_STATE: "/setChatSectionState",
   SET_CHAT_SECTION_CHAT_ID: "/setChatSectionChatId",
   SET_PROMPT_TEMPLATE: "/setPromptTemplate",
+  SET_PROMPT_TEMPLATE_LINK: "/setPromptTemplateLink",
   SET_PROMPT_INPUTS: "/setPromptInputs",
   SET_PROMPT_FORMAT: "/setPromptFormat",
   CREATE_WINDOW_SPACE: "/createWindowSpace",

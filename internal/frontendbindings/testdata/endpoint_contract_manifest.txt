@@ -6,6 +6,7 @@ route_append_transcription_audio POST GoHTTPRoutes.appendTranscriptionAudio path
 route_auto_layout_top_level_sections POST GoHTTPRoutes.autoLayoutTopLevelSections pathParams=- request=AutoLayoutTopLevelSectionsRequestInput response=- binary=false
 route_binary_download GET GoHTTPRoutes.binaryDownload pathParams=- request=BinaryDownloadRequestInput response=BinaryDownloadResponse binary=true
 route_binary_upload POST GoHTTPRoutes.binaryUpload pathParams=- request=BinaryUploadRequestInput response=BinaryContentRef binary=false
+route_cancel_run POST GoHTTPRoutes.cancelRun pathParams=- request=CancelRunRequestInput response=DetachedRun binary=false
 route_cancel_transcription_session POST GoHTTPRoutes.cancelTranscriptionSession pathParams=- request=CancelTranscriptionSessionRequest response=CancelTranscriptionSessionResponse binary=false
 route_change_param_impl POST GoHTTPRoutes.changeParamImpl pathParams=- request=ChangeParamImplRequest response=- binary=false
 route_check_if_file_exists POST GoHTTPRoutes.checkIfFileExists pathParams=- request=CheckIfFileExistsRequestInput response=CheckIfFileExistsResponse binary=false
@@ -106,10 +107,12 @@ route_get_notifications POST GoHTTPRoutes.getNotifications pathParams=- request=
 route_get_password_param_value POST GoHTTPRoutes.getPasswordParamValue pathParams=- request=GetPasswordParamValueRequestInput response=GetPasswordParamValueResponse binary=false
 route_get_prompt_template POST GoHTTPRoutes.getPromptTemplate pathParams=- request=GetPromptTemplateRequestInput response=PromptTemplate binary=false
 route_get_prompt_templates GET GoHTTPRoutes.getPromptTemplates pathParams=- request=- response=PromptTemplateListResponse binary=false
+route_get_run_status POST GoHTTPRoutes.getRunStatus pathParams=- request=GetRunStatusRequestInput response=DetachedRun binary=false
 route_get_server_mode GET GoHTTPRoutes.getServerMode pathParams=- request=- response=ServerModeResponse binary=false
 route_get_setta_home_info GET GoHTTPRoutes.getSettaHomeInfo pathParams=- request=- response=SettaHomeInfoResponse binary=false
 route_get_share_deployment_latest GET GoHTTPRoutes.shareDeploymentLatest pathParams=DeploymentNameRouteParams request=- response=ShareDeploymentMetadata binary=false
 route_get_share_deployment_state GET GoHTTPRoutes.shareDeploymentState pathParams=DeploymentVersionRouteParams request=- response=ProjectStateSingleConfigWithCompletedOpIds binary=false
+route_get_state_machine_run POST GoHTTPRoutes.getStateMachineRun pathParams=- request=GetStateMachineRunRequestInput response=AgentRunResponse binary=false
 route_get_transcription_profiles GET GoHTTPRoutes.getTranscriptionProfiles pathParams=- request=- response=TranscriptionProfileListResponse binary=false
 route_group_sections POST GoHTTPRoutes.groupSections pathParams=- request=GroupSectionsRequestInput response=- binary=false
 route_import_files_to_artifacts POST GoHTTPRoutes.importFilesToArtifacts pathParams=- request=ImportFilesToArtifactsRequestInput response=ImportFilesToArtifactsResponse binary=false
@@ -158,11 +161,13 @@ route_redo POST GoHTTPRoutes.redo pathParams=- request=RedoRequestInput response
 route_remove_launcher POST GoHTTPRoutes.removeLauncher pathParams=- request=LauncherRequestBaseInput response=LauncherStatusResponse binary=false
 route_remove_launcher_recent_workspace POST GoHTTPRoutes.removeLauncherRecentWorkspace pathParams=- request=LauncherRecentWorkspaceRequestInput response=LauncherRecentWorkspacesResponse binary=false
 route_repair_launcher POST GoHTTPRoutes.repairLauncher pathParams=- request=LauncherRequestBaseInput response=LauncherStatusResponse binary=false
+route_reset_state_machine POST GoHTTPRoutes.resetStateMachine pathParams=- request=ResetStateMachineRequestInput response=StateMachineRunControlResponse binary=false
 route_respond_external_agent_approval POST GoHTTPRoutes.respondExternalAgentApproval pathParams=- request=RespondExternalAgentApprovalRequest response=- binary=false
 route_respond_external_agent_question POST GoHTTPRoutes.respondExternalAgentQuestion pathParams=- request=RespondExternalAgentQuestionRequest response=- binary=false
 route_restart_language_server POST GoHTTPRoutes.restartLanguageServer pathParams=- request=- response=- binary=false
 route_reveal_path_in_os_file_explorer POST GoHTTPRoutes.revealPathInOsFileExplorer pathParams=- request=RevealPathInOSFileExplorerRequest response=- binary=false
 route_run_code POST GoHTTPRoutes.runCode pathParams=- request=RunCodeRequestInput response=- binary=false
+route_run_detached POST GoHTTPRoutes.runDetached pathParams=- request=RunDetachedRequestInput response=RunDetachedResponse binary=false
 route_save_as_new_project_config POST GoHTTPRoutes.saveAsNewProjectConfig pathParams=- request=SaveAsNewProjectConfigRequestInput response=- binary=false
 route_save_project POST GoHTTPRoutes.saveProject pathParams=- request=SaveProjectRequestInput response=- binary=false
 route_save_settings POST GoHTTPRoutes.saveSettings pathParams=- request=SaveSettingsRequestInput response=- binary=false
@@ -209,6 +214,7 @@ route_set_project_config_name POST GoHTTPRoutes.setProjectConfigName pathParams=
 route_set_prompt_format POST GoHTTPRoutes.setPromptFormat pathParams=- request=SetPromptFormatRequest response=- binary=false
 route_set_prompt_inputs POST GoHTTPRoutes.setPromptInputs pathParams=- request=SetPromptInputsRequest response=- binary=false
 route_set_prompt_template POST GoHTTPRoutes.setPromptTemplate pathParams=- request=SetPromptTemplateRequest response=- binary=false
+route_set_prompt_template_link POST GoHTTPRoutes.setPromptTemplateLink pathParams=- request=SetPromptTemplateLinkRequest response=- binary=false
 route_set_section_column_width POST GoHTTPRoutes.setSectionColumnWidth pathParams=- request=SetSectionColumnWidthRequestInput response=- binary=false
 route_set_section_edge_inputs POST GoHTTPRoutes.setSectionEdgeInputs pathParams=- request=SetSectionEdgeInputsRequestInput response=- binary=false
 route_set_section_edge_outputs POST GoHTTPRoutes.setSectionEdgeOutputs pathParams=- request=SetSectionEdgeOutputsRequestInput response=- binary=false
@@ -248,11 +254,13 @@ route_set_window_space_sort_order POST GoHTTPRoutes.setWindowSpaceSortOrder path
 route_setup_launcher POST GoHTTPRoutes.setupLauncher pathParams=- request=SetupLauncherRequestInput response=LauncherStatusResponse binary=false
 route_start_agent_run POST GoHTTPRoutes.startAgentRun pathParams=- request=StartAgentRunRequestInput response=AgentRunResponse binary=false
 route_start_run_chain POST GoHTTPRoutes.startRunChain pathParams=- request=StartRunChainRequestInput response=AgentRunResponse binary=false
+route_start_state_machine_run POST GoHTTPRoutes.startStateMachineRun pathParams=- request=StartStateMachineRunRequestInput response=AgentRunResponse binary=false
 route_start_transcription_session POST GoHTTPRoutes.startTranscriptionSession pathParams=- request=StartTranscriptionSessionRequest response=StartTranscriptionSessionResponse binary=false
 route_stop_agent_run POST GoHTTPRoutes.stopAgentRun pathParams=- request=StopAgentRunRequestInput response=AgentRunResponse binary=false
 route_stop_external_agent_run POST GoHTTPRoutes.stopExternalAgentRun pathParams=- request=StopExternalAgentRunRequest response=AgentRunResponse binary=false
 route_stop_llm_chat POST GoHTTPRoutes.stopLLMChat pathParams=- request=StopLLMChatRequest response=StopLLMChatResponse binary=false
 route_stop_run_chain POST GoHTTPRoutes.stopRunChain pathParams=- request=StopRunChainRequestInput response=AgentRunResponse binary=false
+route_stop_state_machine_run POST GoHTTPRoutes.stopStateMachineRun pathParams=- request=StopStateMachineRunRequestInput response=StateMachineRunControlResponse binary=false
 route_stop_transcription_session POST GoHTTPRoutes.stopTranscriptionSession pathParams=- request=StopTranscriptionSessionRequest response=TranscriptionSessionDeltaResponse binary=false
 route_text_field_completion POST GoHTTPRoutes.textFieldCompletion pathParams=- request=TextFieldCompletionRequest response=CodeMirrorCompletionResponse binary=false
 route_toggle_group_orientation POST GoHTTPRoutes.toggleGroupOrientation pathParams=- request=ToggleGroupOrientationRequestInput response=- binary=false

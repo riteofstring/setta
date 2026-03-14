@@ -91,6 +91,8 @@ DateSelectionMode
 DependencyEvent
 DependencyKeyType
 DependencyValueType
+DetachedRun
+DetachedRunStatus
 DictSectionImpl
 DrawAreaBrushShape
 DrawAreaLayer

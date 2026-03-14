@@ -14,6 +14,12 @@ const (
 	PromptFormatJinja PromptFormat = "Jinja"
 )
 
+type PromptSectionSource struct {
+	PromptTemplateID *string
+	Template         string
+	Format           PromptFormat
+}
+
 func (p *Project) SetPromptTemplate(sectionID string, template string) error {
 	section, _, payload, err := p.resolvePromptSectionMutationState(sectionID)
 	if err != nil {
@@ -26,6 +32,7 @@ func (p *Project) SetPromptTemplate(sectionID string, template string) error {
 	}
 	result := renderPromptSection(template, payloadRawStringMapField(payload, "inputs"), format)
 	return p.applyPromptSectionUpdates(section.ID, map[string]any{
+		"promptTemplateId": nil,
 		"template":         template,
 		"renderedText":     result.RenderedText,
 		"missingVariables": clonePromptMissingVariables(result.MissingVariables),
@@ -48,6 +55,80 @@ func (d *Document) SetPromptTemplate(projectID string, sectionID string, templat
 func (r *Runtime) SetPromptTemplate(ctx context.Context, projectID string, sectionID string, template string) (Snapshot, error) {
 	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
 		if err := document.SetPromptTemplate(projectID, sectionID, template); err != nil {
+			return Document{}, err
+		}
+		return document, nil
+	})
+}
+
+func (p *Project) PromptSectionSource(sectionID string) (PromptSectionSource, error) {
+	_, _, payload, err := p.resolvePromptSectionMutationState(sectionID)
+	if err != nil {
+		return PromptSectionSource{}, err
+	}
+
+	format, err := normalizePromptFormat(PromptFormat(payloadStringField(payload, "format")))
+	if err != nil {
+		return PromptSectionSource{}, err
+	}
+
+	var promptTemplateID *string
+	if rawPromptTemplateID := strings.TrimSpace(payloadRawStringField(payload, "promptTemplateId")); rawPromptTemplateID != "" {
+		promptTemplateID = &rawPromptTemplateID
+	}
+
+	return PromptSectionSource{
+		PromptTemplateID: promptTemplateID,
+		Template:         payloadRawStringField(payload, "template"),
+		Format:           format,
+	}, nil
+}
+
+func (d *Document) PromptSectionSource(projectID string, sectionID string) (PromptSectionSource, error) {
+	project, err := d.ProjectByID(projectID)
+	if err != nil {
+		return PromptSectionSource{}, err
+	}
+	return project.PromptSectionSource(sectionID)
+}
+
+func (p *Project) SetPromptTemplateLink(sectionID string, promptTemplateID *string, template string, format PromptFormat) error {
+	section, _, payload, err := p.resolvePromptSectionMutationState(sectionID)
+	if err != nil {
+		return err
+	}
+
+	normalizedPromptTemplateID := normalizeOptionalTrimmedStringPointer(promptTemplateID)
+	normalizedFormat, err := normalizePromptFormat(format)
+	if err != nil {
+		return err
+	}
+	result := renderPromptSection(template, payloadRawStringMapField(payload, "inputs"), normalizedFormat)
+	return p.applyPromptSectionUpdates(section.ID, map[string]any{
+		"promptTemplateId": optionalStringValue(normalizedPromptTemplateID),
+		"template":         template,
+		"format":           string(normalizedFormat),
+		"renderedText":     result.RenderedText,
+		"missingVariables": clonePromptMissingVariables(result.MissingVariables),
+		"renderError":      optionalStringValue(result.RenderError),
+	})
+}
+
+func (d *Document) SetPromptTemplateLink(projectID string, sectionID string, promptTemplateID *string, template string, format PromptFormat) error {
+	project, err := d.ProjectByID(projectID)
+	if err != nil {
+		return err
+	}
+	if err := project.SetPromptTemplateLink(sectionID, promptTemplateID, template, format); err != nil {
+		return err
+	}
+	d.Projects[project.ID] = project
+	return nil
+}
+
+func (r *Runtime) SetPromptTemplateLink(ctx context.Context, projectID string, sectionID string, promptTemplateID *string, template string, format PromptFormat) (Snapshot, error) {
+	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
+		if err := document.SetPromptTemplateLink(projectID, sectionID, promptTemplateID, template, format); err != nil {
 			return Document{}, err
 		}
 		return document, nil

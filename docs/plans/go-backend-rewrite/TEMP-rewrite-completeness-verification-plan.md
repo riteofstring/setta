@@ -20,17 +20,18 @@ Blocking repo-backed gap found during execution:
   - `projectConfig.stateMachineEdges`
   - workflow edge CRUD route helpers in the canonical generated frontend
     bindings
-- the remaining missing slice is the workflow-run HTTP/frontend transport
-  handoff:
-  - the repo scan still does not find a Go-owned replacement for
-    `startStateMachineRun`, `stopStateMachineRun`, `resetStateMachine`, or
-    `getStateMachineRun`
-  - Go now owns the workflow-run runtime foundation, `AgentRunUpdated`
-    websocket emission, and the `report_state_machine_signal` MCP tool path in
+- the workflow-run HTTP/frontend transport gap is now closed:
+  - the repo scan now finds Go-owned `startStateMachineRun`,
+    `stopStateMachineRun`, `resetStateMachine`, and `getStateMachineRun`
+    coverage in `internal/httpapi/state_machine_run_routes.go` plus canonical
+    `internal/frontendbindings`
+  - Go owns the workflow-run runtime foundation, `AgentRunUpdated` websocket
+    emission, and the `report_state_machine_signal` MCP tool path in
     `internal/statemachineruns`, `internal/app`, and `internal/mcpx`
-  - Python still owns the active frontend route path through
-    `backend/setta/routers/agentic.py` and the current route-backed workflow
-    runner in `backend/setta/agentic/state_machine_runner.py`
+  - the current unresolved audit noise is verification-specific: the targeted
+    workflow Playwright spec still mixes raw backend mutations with frontend
+    optimistic state, so it is not yet a clean proof of a remaining
+    caller-backed Python dependency
 
 Other audit findings remained consistent with the retained-boundary rules:
 

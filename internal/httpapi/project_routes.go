@@ -122,6 +122,7 @@ const (
 	RouteSetTextBlockMetaControlStyle      = "/setTextBlockMetaControlStyle"
 	RouteSetTextBlockMasterFontSize        = "/setTextBlockMasterFontSize"
 	RouteSetPromptTemplate                 = "/setPromptTemplate"
+	RouteSetPromptTemplateLink             = "/setPromptTemplateLink"
 	RouteSetPromptInputs                   = "/setPromptInputs"
 	RouteSetPromptFormat                   = "/setPromptFormat"
 	RouteToggleParamSelected               = "/toggleParamSelected"
@@ -1015,6 +1016,13 @@ type SetPromptTemplateRequest struct {
 	Template     string  `json:"template"`
 }
 
+type SetPromptTemplateLinkRequest struct {
+	FrontendOpID     *string `json:"frontendOpId"`
+	ProjectID        string  `json:"projectConfigId"`
+	SectionID        string  `json:"sectionId"`
+	PromptTemplateID *string `json:"promptTemplateId,omitempty"`
+}
+
 type SetPromptInputsRequest struct {
 	FrontendOpID *string           `json:"frontendOpId"`
 	ProjectID    string            `json:"projectConfigId"`
@@ -1463,6 +1471,7 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 		router.With(shareGuard).Post(RouteUndo, undoHandler(deps))
 		router.With(shareGuard).Post(RouteRedo, redoHandler(deps))
 		router.With(shareGuard).Post(RouteSetPromptTemplate, setPromptTemplateHandler(deps))
+		router.With(shareGuard).Post(RouteSetPromptTemplateLink, setPromptTemplateLinkHandler(deps))
 		router.With(shareGuard).Post(RouteSetPromptInputs, setPromptInputsHandler(deps))
 		router.With(shareGuard).Post(RouteSetPromptFormat, setPromptFormatHandler(deps))
 		router.With(shareGuard).Post(RouteCreateWindowSpace, createWindowSpaceHandler(deps))
@@ -1474,6 +1483,7 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 		return nil
 	}
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetPromptTemplate, setPromptTemplateHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetPromptTemplateLink, setPromptTemplateLinkHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetPromptInputs, setPromptInputsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetPromptFormat, setPromptFormatHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateWindowSpace, createWindowSpaceHandler(deps))
@@ -5294,6 +5304,97 @@ func setPromptInputsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			projectID,
 			sectionID,
 			payload.Inputs,
+		); err != nil {
+			writePromptSectionMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setPromptTemplateLinkHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetPromptTemplateLinkRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if !ensureProjectParamMutationsAllowed(w, r, deps) {
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		promptTemplateID := normalizeOptionalBodyString(payload.PromptTemplateID)
+		var nextTemplate string
+		var nextFormat projectstate.PromptFormat
+		if promptTemplateID != nil {
+			if deps.PromptTemplates == nil {
+				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+				return
+			}
+			template, err := deps.PromptTemplates.Get(*promptTemplateID)
+			if err != nil {
+				if errors.Is(err, prompttemplates.ErrTemplateNotFound) {
+					writeError(w, r, http.StatusNotFound, "prompt_template_not_found", "Prompt template not found.")
+					return
+				}
+				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+				return
+			}
+			nextTemplate = template.Template
+			nextFormat = projectstate.PromptFormat(template.Format)
+		} else {
+			snapshot := runtime.Snapshot()
+			source, err := snapshot.Document.PromptSectionSource(projectID, sectionID)
+			if err != nil {
+				writePromptSectionMutationError(w, r, err)
+				return
+			}
+			if source.PromptTemplateID != nil {
+				if deps.PromptTemplates == nil {
+					writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+					return
+				}
+				template, err := deps.PromptTemplates.Get(*source.PromptTemplateID)
+				if err != nil {
+					if errors.Is(err, prompttemplates.ErrTemplateNotFound) {
+						writeError(w, r, http.StatusNotFound, "prompt_template_not_found", "Prompt template not found.")
+						return
+					}
+					writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+					return
+				}
+				nextTemplate = template.Template
+				nextFormat = projectstate.PromptFormat(template.Format)
+			} else {
+				nextTemplate = source.Template
+				nextFormat = source.Format
+			}
+		}
+
+		if _, err := runtime.SetPromptTemplateLink(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			promptTemplateID,
+			nextTemplate,
+			nextFormat,
 		); err != nil {
 			writePromptSectionMutationError(w, r, err)
 			return

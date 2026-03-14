@@ -87,6 +87,32 @@ type AgentRun struct {
 
 type AgentRunList []AgentRun
 
+type DetachedRunStatus string
+
+const (
+	DetachedRunStatusQueued   DetachedRunStatus = "queued"
+	DetachedRunStatusRunning  DetachedRunStatus = "running"
+	DetachedRunStatusExited   DetachedRunStatus = "exited"
+	DetachedRunStatusFailed   DetachedRunStatus = "failed"
+	DetachedRunStatusCanceled DetachedRunStatus = "canceled"
+	DetachedRunStatusLost     DetachedRunStatus = "lost"
+)
+
+type DetachedRun struct {
+	RunID           string            `json:"runId"`
+	Status          DetachedRunStatus `json:"status"`
+	CreatedAtMS     int64             `json:"createdAtMs"`
+	StartedAtMS     *int64            `json:"startedAtMs,omitempty"`
+	ExitedAtMS      *int64            `json:"exitedAtMs,omitempty"`
+	ExitCode        *int              `json:"exitCode,omitempty"`
+	PID             *int              `json:"pid,omitempty"`
+	Command         string            `json:"command"`
+	SnapshotPath    string            `json:"snapshotPath"`
+	ProjectConfigID string            `json:"projectConfigId"`
+	EntrySectionID  *string           `json:"entrySectionId,omitempty"`
+	Tags            map[string]string `json:"tags"`
+}
+
 type StreamingEventType string
 
 const (

@@ -1633,6 +1633,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			}); err != nil {
 				panic(err)
 			}
+			if err := httpapi.RegisterStateMachineRunRoutes(r, httpapi.StateMachineRunRouteDependencies{
+				ModePolicy:    modePolicy,
+				ShareSessions: deploymentRuntime,
+				Runtime:       stateMachineRuntime,
+			}); err != nil {
+				panic(err)
+			}
 			if err := httpapi.RegisterMCPRoutes(r, httpapi.MCPRouteDependencies{
 				ModePolicy:               modePolicy,
 				LLMConfigPath:            mcpx.LLMConfigPath(cfg.Paths.SettaFilesRoot),

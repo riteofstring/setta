@@ -779,6 +779,24 @@ export async function route_run_code(x: gt.RunCodeRequestInput): Promise<Respons
 }
 
 
+export async function route_run_detached(x: gt.RunDetachedRequestInput): Promise<ResponseDataAndStatus<gt.RunDetachedResponse>> {
+
+  return await post(GoHTTPRouteHelpers.runDetached(), x);
+}
+
+
+export async function route_get_run_status(x: gt.GetRunStatusRequestInput): Promise<ResponseDataAndStatus<gt.DetachedRun>> {
+
+  return await post(GoHTTPRouteHelpers.getRunStatus(), x);
+}
+
+
+export async function route_cancel_run(x: gt.CancelRunRequestInput): Promise<ResponseDataAndStatus<gt.DetachedRun>> {
+
+  return await post(GoHTTPRouteHelpers.cancelRun(), x);
+}
+
+
 export async function route_get_attachment_download_url(x: gt.GetAttachmentDownloadURLRequestInput): Promise<ResponseDataAndStatus<gt.GetAttachmentDownloadURLResponse>> {
 
   return await post(GoHTTPRouteHelpers.getAttachmentDownloadUrl(), x);
@@ -1277,6 +1295,30 @@ export async function route_stop_agent_run(x: gt.StopAgentRunRequestInput): Prom
 }
 
 
+export async function route_start_state_machine_run(x: gt.StartStateMachineRunRequestInput): Promise<ResponseDataAndStatus<gt.AgentRunResponse>> {
+
+  return await post(GoHTTPRouteHelpers.startStateMachineRun(), x);
+}
+
+
+export async function route_stop_state_machine_run(x: gt.StopStateMachineRunRequestInput): Promise<ResponseDataAndStatus<gt.StateMachineRunControlResponse>> {
+
+  return await post(GoHTTPRouteHelpers.stopStateMachineRun(), x);
+}
+
+
+export async function route_reset_state_machine(x: gt.ResetStateMachineRequestInput): Promise<ResponseDataAndStatus<gt.StateMachineRunControlResponse>> {
+
+  return await post(GoHTTPRouteHelpers.resetStateMachine(), x);
+}
+
+
+export async function route_get_state_machine_run(x: gt.GetStateMachineRunRequestInput): Promise<ResponseDataAndStatus<gt.AgentRunResponse>> {
+
+  return await post(GoHTTPRouteHelpers.getStateMachineRun(), x);
+}
+
+
 export async function route_start_run_chain(x: gt.StartRunChainRequestInput): Promise<ResponseDataAndStatus<gt.AgentRunResponse>> {
 
   return await post(GoHTTPRouteHelpers.startRunChain(), x);
@@ -1514,6 +1556,12 @@ export async function route_set_chat_section_chat_id(x: gt.SetChatSectionChatIDR
 export async function route_set_prompt_template(x: gt.SetPromptTemplateRequest): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRouteHelpers.setPromptTemplate(), x);
+}
+
+
+export async function route_set_prompt_template_link(x: gt.SetPromptTemplateLinkRequest): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRouteHelpers.setPromptTemplateLink(), x);
 }
 
 

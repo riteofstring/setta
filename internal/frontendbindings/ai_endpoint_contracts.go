@@ -160,6 +160,54 @@ type StopAgentRunRequestInput struct {
 	RunID string `json:"runId"`
 }
 
+type StartStateMachineRunRequestInput struct {
+	ProjectConfigID string  `json:"projectConfigId"`
+	MachineGroupID  string  `json:"machineGroupId"`
+	StartSectionID  *string `json:"startSectionId,omitempty"`
+}
+
+type StopStateMachineRunRequestInput struct {
+	ProjectConfigID string `json:"projectConfigId"`
+	MachineGroupID  string `json:"machineGroupId"`
+}
+
+type ResetStateMachineRequestInput struct {
+	ProjectConfigID string `json:"projectConfigId"`
+	MachineGroupID  string `json:"machineGroupId"`
+}
+
+type GetStateMachineRunRequestInput struct {
+	ProjectConfigID string `json:"projectConfigId"`
+	MachineGroupID  string `json:"machineGroupId"`
+}
+
+type StateMachineRunControlResponse struct {
+	AlreadyStopped bool    `json:"alreadyStopped"`
+	StoppedRunID   *string `json:"stoppedRunId,omitempty"`
+}
+
+type RunDetachedRequestInput struct {
+	ProjectID               string            `json:"projectConfigId"`
+	EntrySectionID          string            `json:"entrySectionId"`
+	RunSnapshotMode         RunSnapshotMode   `json:"runSnapshotMode"`
+	SectionVariantOverrides map[string]string `json:"sectionVariantOverrides"`
+	ParamOverrides          map[string]string `json:"paramOverrides"`
+	Tags                    map[string]string `json:"tags"`
+}
+
+type RunDetachedResponse struct {
+	RunID  string            `json:"runId"`
+	Status DetachedRunStatus `json:"status"`
+}
+
+type GetRunStatusRequestInput struct {
+	RunID string `json:"runId"`
+}
+
+type CancelRunRequestInput struct {
+	RunID string `json:"runId"`
+}
+
 type RunChainStepInput struct {
 	ID                     string           `json:"id"`
 	Name                   string           `json:"name"`

@@ -43,14 +43,19 @@ func SeedProjectState(ctx context.Context, options ProjectStateSeedOptions) erro
 	}
 
 	windowing := projectstate.DefaultProjectChatWindowingState()
-	mainDocument := projectstate.NewDocument()
-	mainDocument.DefaultProjectID = projectID
-	mainDocument.Projects[projectID] = projectstate.Project{
+	project := projectstate.Project{
 		ID:                      projectID,
 		Name:                    projectName,
 		AllowJSONSourceKeyEdits: true,
 		ProjectChatWindowing:    &windowing,
 	}
+	if _, err := project.CreateViewMode(); err != nil {
+		return fmt.Errorf("seed project view mode: %w", err)
+	}
+
+	mainDocument := projectstate.NewDocument()
+	mainDocument.DefaultProjectID = projectID
+	mainDocument.Projects[projectID] = project
 
 	if err := saveDocument(ctx, filepath.Join(root, projectstate.MainFileName), mainDocument); err != nil {
 		return fmt.Errorf("seed main project state: %w", err)

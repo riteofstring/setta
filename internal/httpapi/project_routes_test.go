@@ -23,6 +23,7 @@ import (
 	"setta/internal/modes"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
+	"setta/internal/prompttemplates"
 	"setta/internal/settingsstate"
 )
 
@@ -6383,6 +6384,15 @@ func newProjectRouteTestHandlerWithRenameService(
 		}
 	})
 
+	promptTemplatesRoot := workspaceRoot
+	if strings.TrimSpace(promptTemplatesRoot) == "" {
+		promptTemplatesRoot = t.TempDir()
+	}
+	promptTemplateStore, err := prompttemplates.NewStore(promptTemplatesRoot)
+	if err != nil {
+		t.Fatalf("new prompt template store: %v", err)
+	}
+
 	var shareSessions modes.ShareSessionStore
 	var deploymentRuntime *deployments.Runtime
 	if mode == config.ModeShare || mode == config.ModeApp {
@@ -6401,6 +6411,7 @@ func newProjectRouteTestHandlerWithRenameService(
 				ModePolicy:                     modes.NewPolicy(mode),
 				WorkspaceRoot:                  workspaceRoot,
 				ProjectState:                   projectRuntime,
+				PromptTemplates:                promptTemplateStore,
 				ShareSessions:                  shareSessions,
 				Deployment:                     deploymentRuntime,
 				SettingsState:                  settingsRuntime,
