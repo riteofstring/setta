@@ -162,3 +162,37 @@ module map and placement guide while this cleanup progresses.
   - Keep shrinking `frontend/src/state/actions/ai.ts` by moving stop/resume and
     interruption-reconciliation behavior into a dedicated chat-control module,
     leaving `ai.ts` focused on submission, optimistic updates, and streaming.
+
+## 2026-03-14 15:07:30 PDT
+
+- Slice completed: extracted chat stop/resume, interruption tracking, and
+  external approval/question responses out of `frontend/src/state/actions/ai.ts`
+- Key files touched:
+  - `frontend/src/state/actions/aiChatControls.ts`
+  - `frontend/src/state/actions/aiChatState.ts`
+  - `frontend/src/state/actions/aiInterruptedAssistantMessages.ts`
+  - `frontend/src/state/actions/aiInterruptedAssistantMessages.test.ts`
+  - `frontend/src/state/actions/ai.ts`
+  - `frontend/src/state/actions/aiStopProjectChat.test.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
+  - `frontend/src/components/Section/Layouts/ChatArea.tsx`
+  - `frontend/src/components/Chat/ApprovalCard.tsx`
+  - `frontend/src/components/Chat/QuestionCard.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/aiInterruptedAssistantMessages.test.ts src/state/actions/aiStopProjectChat.test.ts src/state/actions/aiSubmitMessage.test.ts src/state/actions/aiEditedMessage.test.ts src/state/actions/aiWaitingForResponse.test.ts src/state/actions/aiAppSpecPatchPreview.test.ts src/state/actions/aiAppSpecApply.test.ts src/state/actions/aiChatPromotion.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.test.tsx src/components/Section/Layouts/ChatArea.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/actions/ai.ts src/state/actions/aiChatControls.ts src/state/actions/aiChatState.ts src/state/actions/aiInterruptedAssistantMessages.ts src/state/actions/aiInterruptedAssistantMessages.test.ts src/state/actions/aiStopProjectChat.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx src/components/Section/Layouts/ChatArea.tsx src/components/Chat/ApprovalCard.tsx src/components/Chat/QuestionCard.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+  - `pnpm -C frontend exec eslint src/state/actions/ai.ts src/state/actions/aiChatControls.ts src/state/actions/aiChatState.ts src/state/actions/aiInterruptedAssistantMessages.ts src/state/actions/aiInterruptedAssistantMessages.test.ts src/state/actions/aiStopProjectChat.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx src/components/Section/Layouts/ChatArea.tsx src/components/Chat/ApprovalCard.tsx src/components/Chat/QuestionCard.tsx` failed because the current frontend install is missing `@eslint/js`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split and
+    did not change frontend rendering behavior.
+- Commit hash:
+  - `5783dfd24`
+- Next highest-value unblocked slice:
+  - Keep shrinking `frontend/src/state/actions/ai.ts` by moving chat
+    submission/edit orchestration and pending-surface setup into a dedicated
+    submission module, leaving `ai.ts` focused on streaming reducers and
+    optimistic message reconciliation.
