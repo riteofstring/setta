@@ -1556,7 +1556,7 @@ export function CanvasEngineHost() {
   return (
     <div
       ref={hostRef}
-      className="relative h-full min-h-0 w-full min-w-0 overflow-hidden bg-slate-950"
+      className="react-flow__pane relative h-full min-h-0 w-full min-w-0 overflow-hidden bg-slate-950"
       style={{ touchAction: "none" }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -1564,6 +1564,7 @@ export function CanvasEngineHost() {
       onPointerUp={releasePointerCapture}
       onPointerCancel={releasePointerCapture}
       data-canvas-engine-host="v1"
+      data-canvas-engine-pane="v1"
       data-canvas-engine-active-backend={backendSelection.activeBackend}
       data-canvas-engine-preferred-backend={backendSelection.preferredBackend}
       data-canvas-engine-webgpu-available={String(
@@ -1636,6 +1637,16 @@ export function CanvasEngineHost() {
         DOM_ISLAND_MAX_RETAINED_SECTIONS
       }
     >
+      <div
+        aria-hidden="true"
+        className="react-flow__viewport absolute left-0 top-0"
+        data-canvas-engine-viewport-proxy="v1"
+        style={{
+          ...domIslandLayerTransform,
+          width: 1,
+          height: 1,
+        }}
+      />
       <canvas ref={canvasRef} className="h-full w-full" />
       {domIslandRenderEntries.length > 0 ? (
         <div

@@ -294,6 +294,10 @@ describe("CanvasEngineHost", () => {
     ) as HTMLElement | null;
     expect(engineHost?.dataset.canvasEngineRectCount).toBe("1");
     expect(engineHost?.dataset.canvasEngineDomIslandMountedCount).toBe("1");
+    expect(engineHost?.classList.contains("react-flow__pane")).toBe(true);
+    expect(
+      engineHost?.querySelector('[data-canvas-engine-viewport-proxy="v1"]'),
+    ).not.toBeNull();
     expect(
       host.querySelector('[data-canvas-engine-dom-island="section-a"]'),
     ).not.toBeNull();
@@ -457,6 +461,13 @@ describe("CanvasEngineHost", () => {
     expect(engineHost?.dataset.canvasEngineCameraX).toBe("-27.43");
     expect(engineHost?.dataset.canvasEngineCameraY).toBe("18.29");
     expect(engineHost?.dataset.canvasEngineCameraZoom).toBe("1.750");
+    expect(
+      (
+        engineHost?.querySelector(
+          '[data-canvas-engine-viewport-proxy="v1"]',
+        ) as HTMLElement | null
+      )?.style.transform,
+    ).toBe("translate(48px, -32px) scale(1.75)");
     expect(useReactFlow.getState().transform).toEqual([48, -32, 1.75]);
   });
 
