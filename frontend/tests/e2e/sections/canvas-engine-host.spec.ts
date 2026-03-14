@@ -2254,7 +2254,7 @@ test("canvas engine host keeps cached nested reconnect targets after dom islands
   }
 });
 
-test("canvas engine host starts cached nested data-edge reconnect sessions after dom islands unmount", async ({
+test("canvas engine host reconnects cached nested data edges after dom islands unmount", async ({
   page,
 }) => {
   await ensureAppReady(page);
@@ -2406,6 +2406,14 @@ test("canvas engine host starts cached nested data-edge reconnect sessions after
       targetPortId: firstTargetPortId,
       type: "default",
     });
+    const edgeId = await readDataEdgeIdByLink({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      sourceSectionId: sourceChildId,
+      sourcePortId,
+      targetSectionId: firstTargetChildId,
+      targetPortId: firstTargetPortId,
+    });
 
     await expect
       .poll(
@@ -2446,6 +2454,13 @@ test("canvas engine host starts cached nested data-edge reconnect sessions after
       firstTargetPortId,
       "target",
     );
+    const secondTargetHandle = await readRegisteredEdgeHandleWorldPoint(
+      page,
+      secondTargetChildId,
+      secondTargetPortId,
+      "target",
+    );
+    expect(firstTargetHandle.y).not.toBe(secondTargetHandle.y);
     await dispatchCanvasHostPointerEventAtWorldPoint(host, "pointerdown", {
       button: 0,
       worldX: firstTargetHandle.x,
@@ -2464,14 +2479,26 @@ test("canvas engine host starts cached nested data-edge reconnect sessions after
 
     await dispatchCanvasHostPointerEventAtWorldPoint(host, "pointerup", {
       button: 0,
-      worldX: firstTargetHandle.x,
-      worldY: firstTargetHandle.y,
+      worldX: secondTargetHandle.x,
+      worldY: secondTargetHandle.y,
       pointerId: 1,
     });
 
     await expect
       .poll(async () => (await readConnectionPreviewState(host)).active)
       .toBe(false);
+    await expect
+      .poll(
+        async () =>
+          await readDataEdgeById(page, projectContext.projectConfigId, edgeId),
+      )
+      .toMatchObject({
+        id: edgeId,
+        sourceSectionId: sourceChildId,
+        sourcePortId,
+        targetSectionId: secondTargetChildId,
+        targetPortId: secondTargetPortId,
+      });
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
