@@ -75,6 +75,18 @@ type ManagedGeminiThinkingProviderServer = {
   close: () => Promise<void>;
 };
 
+type ManagedAnthropicThinkingProviderRequest = {
+  path: string;
+  apiKey: string;
+  body: Record<string, unknown>;
+};
+
+type ManagedAnthropicThinkingProviderServer = {
+  origin: string;
+  requests: ManagedAnthropicThinkingProviderRequest[];
+  close: () => Promise<void>;
+};
+
 test.describe.serial("chat composer controls", () => {
   test("chat sections keep a compact composer with no inline settings controls", async ({
     page,
@@ -772,12 +784,15 @@ test.describe.serial("chat composer controls", () => {
 
     let createdEngineConfigId: string | null = null;
     let initialLLMConfig: LLMConfigPayload | null = null;
+    let initialAPIKeysSnapshot: ManagedAPIKeysSnapshot | null = null;
+    let latestAPIKeysSnapshot: ManagedAPIKeysSnapshot | null = null;
     let submittedPayload:
       | {
           thinking?: boolean;
           engineConfigId?: string;
         }
       | undefined;
+    const providerServer = await startManagedAnthropicThinkingServer();
 
     await page.route("**/api/getLLMResponse", async (route) => {
       submittedPayload = route.request().postDataJSON() as
@@ -786,11 +801,9 @@ test.describe.serial("chat composer controls", () => {
             engineConfigId?: string;
           }
         | undefined;
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify("chat-anthropic-thinking"),
-      });
+      const response = await route.fetch();
+      const body = await response.body();
+      await route.fulfill({ response, body });
     });
 
     try {
@@ -799,6 +812,13 @@ test.describe.serial("chat composer controls", () => {
       );
       expect(llmConfigResponse.ok()).toBe(true);
       initialLLMConfig = (await llmConfigResponse.json()) as LLMConfigPayload;
+      const apiKeysResponse = await page.request.get(
+        `${backendOrigin}/api/llm/apiKeys`,
+      );
+      expect(apiKeysResponse.ok()).toBe(true);
+      initialAPIKeysSnapshot =
+        (await apiKeysResponse.json()) as ManagedAPIKeysSnapshot;
+      latestAPIKeysSnapshot = initialAPIKeysSnapshot;
 
       const anthropicConfigId = `e2e-anthropic-thinking-${Date.now()}`;
       const updatedLLMConfig: LLMConfigPayload = {
@@ -808,6 +828,8 @@ test.describe.serial("chat composer controls", () => {
           [anthropicConfigId]: {
             model: "claude-sonnet-4-5-20250929",
             provider: "anthropic",
+            api_key_env: "ANTHROPIC_API_KEY",
+            base_url: providerServer.origin,
             other_params: {
               max_tokens: 4096,
               thinking: {
@@ -819,6 +841,13 @@ test.describe.serial("chat composer controls", () => {
         },
       };
       await postBackend(page, "/llm/config", updatedLLMConfig);
+      latestAPIKeysSnapshot = await postManagedAPIKeys(page, {
+        apiKeys: {
+          ...initialAPIKeysSnapshot.apiKeys,
+          ANTHROPIC_API_KEY: "e2e-anthropic-secret",
+        },
+        expectedRevision: initialAPIKeysSnapshot.revision,
+      });
 
       const createdEngine = await postBackend<EngineConfigSummary>(
         page,
@@ -847,10 +876,10 @@ test.describe.serial("chat composer controls", () => {
       expect(createdRuntimeSupport?.thinking).toBe(true);
 
       await page.evaluate(async () => {
-        const { loadEngineConfigs, loadLLMConfig } = await import(
-          "/src/state/actions/ai.ts"
-        );
+        const { loadEngineConfigs, loadLLMApiKeys, loadLLMConfig } =
+          await import("/src/state/actions/ai.ts");
         await loadLLMConfig();
+        await loadLLMApiKeys();
         await loadEngineConfigs(true);
       });
 
@@ -879,6 +908,28 @@ test.describe.serial("chat composer controls", () => {
 
       await expect.poll(() => submittedPayload?.thinking ?? null).toBe(true);
       expect(submittedPayload?.engineConfigId).toBe(createdEngineConfigId);
+      await expect.poll(() => providerServer.requests.length).toBe(1);
+
+      const providerRequest = providerServer.requests[0];
+      expect(providerRequest?.path).toBe("/v1/messages");
+      expect(providerRequest?.apiKey).toBe("e2e-anthropic-secret");
+      expect(providerRequest?.body.model).toBe("claude-sonnet-4-5-20250929");
+      expect(providerRequest?.body.max_tokens).toBe(4096);
+      const thinking = providerRequest?.body.thinking as
+        | Record<string, unknown>
+        | undefined;
+      expect(thinking?.type).toBe("enabled");
+      expect(thinking?.budget_tokens).toBe(1024);
+      expect(JSON.stringify(providerRequest?.body.messages ?? null)).toContain(
+        "Trigger managed Anthropic thinking",
+      );
+
+      await expect(
+        projectChatSurface.getByText("Anthropic answer"),
+      ).toBeVisible();
+      await expect(
+        projectChatSurface.locator('[data-chat-thinking-section="true"]'),
+      ).toContainText("Planning deeply");
     } finally {
       try {
         await setOverviewTab(page, "ProjectAIChat");
@@ -902,6 +953,13 @@ test.describe.serial("chat composer controls", () => {
           })
           .catch(() => {});
       }
+      if (initialAPIKeysSnapshot && latestAPIKeysSnapshot) {
+        await postManagedAPIKeys(page, {
+          apiKeys: initialAPIKeysSnapshot.apiKeys,
+          expectedRevision: latestAPIKeysSnapshot.revision,
+        }).catch(() => {});
+      }
+      await providerServer.close();
       await engineCleanup();
       await cleanupIsolatedProject(page, projectContext);
     }
@@ -3707,6 +3765,93 @@ async function startManagedOpenAIResponsesThinkingServer(): Promise<ManagedOpenA
       if (!address || typeof address === "string") {
         server.close(() =>
           reject(new Error("Unable to allocate OpenAI thinking test port.")),
+        );
+        return;
+      }
+      resolve({
+        origin: `http://127.0.0.1:${address.port}`,
+        requests,
+        close: async () =>
+          await new Promise<void>((closeResolve, closeReject) => {
+            server.close((error) => {
+              if (error) {
+                closeReject(error);
+                return;
+              }
+              closeResolve();
+            });
+          }),
+      });
+    });
+  });
+}
+
+async function startManagedAnthropicThinkingServer(): Promise<ManagedAnthropicThinkingProviderServer> {
+  const requests: ManagedAnthropicThinkingProviderRequest[] = [];
+  return await new Promise((resolve, reject) => {
+    const server = http.createServer((request, response) => {
+      const chunks: string[] = [];
+      request.setEncoding("utf8");
+      request.on("data", (chunk: string) => {
+        chunks.push(chunk);
+      });
+      request.on("end", () => {
+        try {
+          const rawBody = chunks.join("");
+          const body = rawBody
+            ? (JSON.parse(rawBody) as Record<string, unknown>)
+            : {};
+          requests.push({
+            path: new URL(request.url ?? "/", "http://127.0.0.1").pathname,
+            apiKey: Array.isArray(request.headers["x-api-key"])
+              ? request.headers["x-api-key"].join(", ")
+              : request.headers["x-api-key"] ?? "",
+            body,
+          });
+        } catch (error) {
+          response.statusCode = 400;
+          response.end(String(error));
+          return;
+        }
+
+        response.statusCode = 200;
+        response.setHeader("content-type", "text/event-stream");
+        response.write(
+          'event: message_start\ndata: {"type":"message_start","message":{"id":"msg-thinking","type":"message","role":"assistant","content":[],"model":"claude-sonnet-4-5-20250929","stop_reason":null,"stop_sequence":null,"container":{"id":"container-1","expires_at":"2026-03-12T00:00:00Z"},"usage":{"input_tokens":12,"output_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"inference_geo":"us","server_tool_use":{"web_fetch_requests":0,"web_search_requests":0},"service_tier":"standard","cache_creation":{"ephemeral_1h_input_tokens":0,"ephemeral_5m_input_tokens":0}}}}\n\n',
+        );
+        response.write(
+          'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":"Planning"}}\n\n',
+        );
+        response.write(
+          'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" deeply"}}\n\n',
+        );
+        response.write(
+          'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"signature_delta","signature":"sig-thinking"}}\n\n',
+        );
+        response.write(
+          'event: content_block_stop\ndata: {"type":"content_block_stop","index":0}\n\n',
+        );
+        response.write(
+          'event: content_block_start\ndata: {"type":"content_block_start","index":1,"content_block":{"type":"text","text":""}}\n\n',
+        );
+        response.write(
+          'event: content_block_delta\ndata: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"Anthropic answer"}}\n\n',
+        );
+        response.write(
+          'event: content_block_stop\ndata: {"type":"content_block_stop","index":1}\n\n',
+        );
+        response.write(
+          'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"input_tokens":12,"output_tokens":3,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"server_tool_use":{"web_fetch_requests":0,"web_search_requests":0}}}\n\n',
+        );
+        response.end('event: message_stop\ndata: {"type":"message_stop"}\n\n');
+      });
+    });
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close(() =>
+          reject(new Error("Unable to allocate Anthropic thinking test port.")),
         );
         return;
       }
