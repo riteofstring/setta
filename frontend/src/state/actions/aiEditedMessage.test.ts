@@ -1,5 +1,14 @@
 import { resetProjectStores } from "state/utils";
-import { ChatRoleEnum, createMessageTextContent } from "utils/generatedTypes";
+import {
+  route_get_agent_runs,
+  route_get_llm_chat,
+  route_get_llm_response,
+} from "utils/generatedEndpoints";
+import {
+  ChatRoleEnum,
+  createMessageTextContent,
+  createUserChatMessage,
+} from "utils/generatedTypes";
 import {
   afterAll,
   afterEach,
@@ -8,7 +17,28 @@ import {
   describe,
   expect,
   it,
+  vi,
 } from "vitest";
+
+vi.mock("utils/generatedEndpoints", async () => {
+  const actual = await vi.importActual<
+    typeof import("utils/generatedEndpoints")
+  >("utils/generatedEndpoints");
+  return {
+    ...actual,
+    route_get_agent_runs: vi.fn(),
+    route_get_llm_chat: vi.fn(),
+    route_get_llm_response: vi.fn(),
+  };
+});
+
+vi.mock("state/actions/frontendWebsocketAffinity", () => ({
+  waitForFrontendAffinityToken: vi.fn(async () => "frontend-test-id"),
+}));
+
+const mockedRouteGetAgentRuns = vi.mocked(route_get_agent_runs);
+const mockedRouteGetLLMChat = vi.mocked(route_get_llm_chat);
+const mockedRouteGetLLMResponse = vi.mocked(route_get_llm_response);
 
 let useAIStore: typeof import("state/definitions").useAIStore;
 let submitEditedMessage: typeof import("state/actions/ai").submitEditedMessage;
@@ -54,6 +84,22 @@ describe("submitEditedMessage", () => {
         getItem: memoryStorage.getItem.bind(memoryStorage),
         setItem: memoryStorage.setItem.bind(memoryStorage),
         removeItem: memoryStorage.removeItem.bind(memoryStorage),
+      },
+    });
+    vi.clearAllMocks();
+    mockedRouteGetAgentRuns.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: [],
+    });
+    mockedRouteGetLLMChat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [],
+        waitingForResponse: false,
+        llmConfig: null,
+        contextUsage: null,
       },
     });
   });
@@ -116,5 +162,53 @@ describe("submitEditedMessage", () => {
         messages: [],
       },
     );
+  });
+
+  it("preserves app-generation context when editing a branch from an app-generation message", async () => {
+    mockedRouteGetLLMResponse.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: "branch-chat-1",
+    });
+
+    const result = await submitEditedMessage({
+      parentChatId: chatId,
+      messages: [
+        createUserChatMessage({
+          id: "msg-1",
+          content: [createMessageTextContent({ text: "Original app prompt" })],
+          attachments: [],
+        }),
+      ],
+      messageId: "msg-1",
+      message: "Edited app prompt",
+      attachments: [],
+      thinking: false,
+      engineConfigId: "engine-1",
+      isExternalEngine: false,
+      agentProfileId: null,
+      sectionId: null,
+      pendingSurfaceId: TARGET_SURFACE_ID,
+      appGeneration: {
+        mode: "prompt_builder",
+        referenceImageUrl: null,
+        referenceImageNotes: null,
+      },
+    });
+
+    expect(result).toBe("branch-chat-1");
+    expect(mockedRouteGetLLMResponse).toHaveBeenCalledTimes(1);
+    const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
+      {
+        appSpecStreamingEnabled: boolean;
+        appGenerationMode: string | null;
+        branchParentChatId: string | null;
+        branchFromMessageId: string | null;
+      },
+    ];
+    expect(payload.appSpecStreamingEnabled).toBe(false);
+    expect(payload.appGenerationMode).toBe("prompt_builder");
+    expect(payload.branchParentChatId).toBe(chatId);
+    expect(payload.branchFromMessageId).toBe("msg-1");
   });
 });

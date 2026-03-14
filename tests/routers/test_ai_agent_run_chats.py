@@ -1570,6 +1570,7 @@ class TestAgentRunChatRoutes:
             assert captured_inputs.get("permissionMode") == "yolo"
             assert captured_inputs.get("searchEnabled") is False
             assert captured_inputs.get("frontendAffinityToken") == "frontend-managed"
+            assert captured_inputs.get("appGenerationMode") == "json_render"
             assert "skillsEnabled" not in captured_inputs
 
     async def test_get_llm_response_share_scope_preserves_frontend_affinity_token_for_managed_runner(

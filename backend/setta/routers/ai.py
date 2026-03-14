@@ -437,7 +437,7 @@ def _build_app_generation_mode_prompt(
     if mode == "prompt_builder":
         lines.extend(
             [
-                "- Prompt-builder flow: keep responses concise and tool-oriented so generation can run from the App pane without manual copy/paste.",
+                "- Prompt-builder flow: keep responses concise and tool-oriented so Project Chat can persist the result directly via Setta app-definition tools.",
             ]
         )
 
@@ -540,6 +540,22 @@ def _normalize_reference_image_inputs(
         normalized_url if normalized_url else None,
         normalized_notes if normalized_notes else None,
     )
+
+
+def _apply_app_generation_inputs(
+    *,
+    inputs: dict[str, object],
+    mode: AppGenerationMode | None,
+    reference_image_url: str | None,
+    reference_image_notes: str | None,
+) -> None:
+    if mode is None:
+        return
+    inputs["appGenerationMode"] = mode
+    if reference_image_url is not None:
+        inputs["appGenerationReferenceImageUrl"] = reference_image_url
+    if reference_image_notes is not None:
+        inputs["appGenerationReferenceImageNotes"] = reference_image_notes
 
 
 class GetLLMResponseRequest(BaseModel):
@@ -995,6 +1011,12 @@ async def route_get_llm_response(
             inputs["sectionId"] = str(x.sectionId)
         if x.allowUnscoped:
             inputs["allowUnscoped"] = True
+        _apply_app_generation_inputs(
+            inputs=inputs,
+            mode=resolved_mode,
+            reference_image_url=reference_image_url,
+            reference_image_notes=reference_image_notes,
+        )
         if normalized_frontend_affinity_token is not None:
             inputs["frontendAffinityToken"] = normalized_frontend_affinity_token
         ctx.state.agent_runner.start_run(profile, inputs)
@@ -1083,6 +1105,12 @@ async def route_get_llm_response(
             inputs["sectionId"] = str(x.sectionId)
         if x.allowUnscoped:
             inputs["allowUnscoped"] = True
+        _apply_app_generation_inputs(
+            inputs=inputs,
+            mode=resolved_mode,
+            reference_image_url=reference_image_url,
+            reference_image_notes=reference_image_notes,
+        )
         if normalized_frontend_affinity_token is not None:
             inputs["frontendAffinityToken"] = normalized_frontend_affinity_token
         try:

@@ -30,12 +30,21 @@ import {
   useAIStore,
   useAppDefinition,
   useAppPreview,
-  useLocalStorage,
   useProjectState,
   useToolArgumentPreview,
   type ZustandProjectState,
 } from "state/definitions";
-import type { AppGenerationMode } from "state/types/appGenerationMode";
+import {
+  collectChatAppGenerationDetailsByChatId,
+  getDefaultChatAppGenerationDetails,
+  mergeChatAppGenerationDetails,
+  mergeChatAppGenerationDetailsByChatId,
+  normalizeChatAppGenerationContext,
+  recordChatAppGenerationForMessage,
+  removeChatAppGenerationForMessage,
+  type ChatAppGenerationContext,
+  type ChatAppGenerationDetails,
+} from "state/utils/chatAppGeneration";
 import { C } from "utils/c";
 import { getErrorCode, getErrorDetail, res200 } from "utils/endpointUtils";
 import {
@@ -103,12 +112,9 @@ import {
   DeletePromptTemplateRequestInput,
   DeleteTranscriptionProfileRequestInput,
   EngineConfig,
-  ExternalAgentChatResponse,
   ExternalAgentConfig,
   ExternalAgentPreflightStatus,
-  GetLLMChatResponse,
   LLMStreamingResponse,
-  ManagedAPIKeysSnapshot,
   MessageDeltaEvent,
   MessageFinalizedEvent,
   MessageImageUrlContent,
@@ -119,7 +125,6 @@ import {
   SectionTypeEnum,
   SettaNotificationTypeEnum,
   StartTranscriptionSessionResponse,
-  StopLLMChatResponse,
   StreamingEventTypeEnum,
   ToolArgumentPreviewDeltaEvent,
   ToolCall,
@@ -163,16 +168,17 @@ const MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE =
 const AGENT_RUNS_RETRY_DELAYS_MS = [300, 1000, 2500] as const;
 
 type APIKeysMutation = (currentApiKeys: APIKeys) => APIKeys;
+type ManagedAPIKeysSnapshotPayload = {
+  apiKeys: APIKeys;
+  revision: number;
+  corrupt?: boolean;
+  errorCode?: string | null;
+  message?: string | null;
+};
 
 type ChatExecutionSettings = {
   permissionMode: ChatPermissionMode;
   searchEnabled: boolean;
-};
-
-type ChatAppGenerationContext = {
-  mode: AppGenerationMode | null;
-  referenceImageUrl?: string | null;
-  referenceImageNotes?: string | null;
 };
 
 const DEFAULT_CHAT_EXECUTION_SETTINGS: ChatExecutionSettings = {
@@ -758,7 +764,7 @@ export function receiveLLMConfigUpdate(payload: AllLLMConfigs) {
 }
 
 export function receiveLLMApiKeysSnapshotUpdate(
-  payload: ManagedAPIKeysSnapshot,
+  payload: ManagedAPIKeysSnapshotPayload,
 ) {
   const isCorrupt =
     payload.corrupt === true ||
@@ -995,12 +1001,16 @@ export async function loadAgentRuns() {
 function receiveAgentRunsUpdate(payload: Array<AgentRun>) {
   clearScheduledAgentRunsRetry();
   agentRunsTransientFailureCount = 0;
-  useAIStore.setState({
+  useAIStore.setState((state) => ({
     agentRuns: payload,
+    chatAppGenerationDetailsByChatId: mergeChatAppGenerationDetailsByChatId(
+      state.chatAppGenerationDetailsByChatId,
+      collectChatAppGenerationDetailsByChatId(payload),
+    ),
     agentRunsAuthorityState: "ready",
     agentRunsInitialLoadComplete: true,
     agentRunsLoadError: null,
-  });
+  }));
 }
 
 export async function loadPromptTemplates(force: boolean = false) {
@@ -1439,6 +1449,41 @@ export function getDefaultChatDetails(): ChatDetails {
   };
 }
 
+function getPendingChatAppGenerationDetailsForSurface(
+  state: ReturnType<typeof useAIStore.getState>,
+  surfaceId: string | null | undefined,
+): ChatAppGenerationDetails | null {
+  return (
+    state.pendingChatAppGenerationDetailsBySurfaceId[
+      requirePendingChatSurfaceId(surfaceId)
+    ] ?? null
+  );
+}
+
+function setPendingChatAppGenerationDetailsForSurface(
+  state: ReturnType<typeof useAIStore.getState>,
+  surfaceId: string | null | undefined,
+  nextDetails: ChatAppGenerationDetails | null,
+): Partial<ReturnType<typeof useAIStore.getState>> {
+  const normalizedSurfaceId = requirePendingChatSurfaceId(surfaceId);
+  const currentDetails =
+    state.pendingChatAppGenerationDetailsBySurfaceId[normalizedSurfaceId];
+  if (currentDetails === nextDetails) {
+    return state;
+  }
+  const nextBySurfaceId = {
+    ...state.pendingChatAppGenerationDetailsBySurfaceId,
+  };
+  if (nextDetails === null) {
+    delete nextBySurfaceId[normalizedSurfaceId];
+  } else {
+    nextBySurfaceId[normalizedSurfaceId] = nextDetails;
+  }
+  return {
+    pendingChatAppGenerationDetailsBySurfaceId: nextBySurfaceId,
+  };
+}
+
 function normalizePendingChatSurfaceId(
   surfaceId: string | null | undefined,
 ): string | null {
@@ -1817,7 +1862,13 @@ function reconcileStoppedLLMChatOutcome({
 }: {
   chatId: string;
   localSnapshot: StopChatResponseSnapshot;
-  stopOutcome: StopLLMChatResponse | null | undefined;
+  stopOutcome:
+    | {
+        alreadyStopped: boolean;
+        stoppedMessageId: string | null;
+      }
+    | null
+    | undefined;
 }): void {
   if (!stopOutcome) {
     return;
@@ -2007,9 +2058,14 @@ function applyChatDetailsToSectionState({
 }
 
 export function initializePendingChatDetails(surfaceId: string) {
-  useAIStore.setState((state) =>
-    setPendingChatDetailsForSurface(state, surfaceId, getDefaultChatDetails()),
-  );
+  useAIStore.setState((state) => ({
+    ...setPendingChatDetailsForSurface(
+      state,
+      surfaceId,
+      getDefaultChatDetails(),
+    ),
+    ...setPendingChatAppGenerationDetailsForSurface(state, surfaceId, null),
+  }));
 }
 
 function initializePendingChatDetailsWithMessages(
@@ -2017,13 +2073,14 @@ function initializePendingChatDetailsWithMessages(
   waitingForResponse: boolean = true,
   surfaceId: string | null | undefined,
 ) {
-  useAIStore.setState((state) =>
-    setPendingChatDetailsForSurface(state, surfaceId, {
+  useAIStore.setState((state) => ({
+    ...setPendingChatDetailsForSurface(state, surfaceId, {
       ...getDefaultChatDetails(),
       messages,
       waitingForResponse,
     }),
-  );
+    ...setPendingChatAppGenerationDetailsForSurface(state, surfaceId, null),
+  }));
 }
 
 export function seedPendingChatDetails(
@@ -2034,9 +2091,10 @@ export function seedPendingChatDetails(
 }
 
 export function clearPendingChatDetails(surfaceId: string) {
-  useAIStore.setState((state) =>
-    setPendingChatDetailsForSurface(state, surfaceId, null),
-  );
+  useAIStore.setState((state) => ({
+    ...setPendingChatDetailsForSurface(state, surfaceId, null),
+    ...setPendingChatAppGenerationDetailsForSurface(state, surfaceId, null),
+  }));
 }
 
 export type ChatHydrationOutcomeType =
@@ -2120,7 +2178,11 @@ type ChatHydrationProbeResult<TPayload> =
 async function probeLLMChatHydration(
   chatId: string,
   projectConfigId: string,
-): Promise<ChatHydrationProbeResult<GetLLMChatResponse>> {
+): Promise<
+  ChatHydrationProbeResult<
+    NonNullable<Awaited<ReturnType<typeof route_get_llm_chat>>["data"]>
+  >
+> {
   const response = await route_get_llm_chat({ chatId, projectConfigId });
   if (!res200(response)) {
     return {
@@ -2139,7 +2201,13 @@ async function probeLLMChatHydration(
 async function probeExternalAgentChatHydration(
   chatId: string,
   projectConfigId: string | null,
-): Promise<ChatHydrationProbeResult<ExternalAgentChatResponse>> {
+): Promise<
+  ChatHydrationProbeResult<
+    NonNullable<
+      Awaited<ReturnType<typeof route_get_external_agent_chat>>["data"]
+    >
+  >
+> {
   const response = await route_get_external_agent_chat({
     chatId,
     projectConfigId,
@@ -2167,7 +2235,7 @@ function applyLLMChatHydrationSuccess({
   chatId: string;
   sectionId?: string;
   projectConfigId: string;
-  payload: GetLLMChatResponse;
+  payload: NonNullable<Awaited<ReturnType<typeof route_get_llm_chat>>["data"]>;
 }): void {
   const { messages, waitingForResponse, llmConfig, contextUsage } = payload;
   useAIStore.setState((state) => {
@@ -2223,7 +2291,9 @@ function applyExternalChatHydrationSuccess({
   chatId: string;
   projectConfigId: string | null;
   sectionId?: string;
-  payload: ExternalAgentChatResponse;
+  payload: NonNullable<
+    Awaited<ReturnType<typeof route_get_external_agent_chat>>["data"]
+  >;
 }): void {
   const { messages, waitingForResponse, toolCallArguments, contextUsage } =
     payload;
@@ -2436,7 +2506,9 @@ export async function submitMessage(
       : options.pendingSurfaceId ?? null;
   const resolvedExecutionSettings =
     options.executionSettings ?? DEFAULT_CHAT_EXECUTION_SETTINGS;
-  const appGeneration = options.appGeneration ?? null;
+  const appGeneration = normalizeChatAppGenerationContext(
+    options.appGeneration ?? null,
+  );
 
   // Add user message immediately for responsive UI
   const content = [];
@@ -2451,19 +2523,17 @@ export async function submitMessage(
   };
   const userMessageId = userMessage.id;
 
-  applyOptimisticUserMessage(chatId, userMessage, resolvedPendingSurfaceId);
+  applyOptimisticUserMessage(
+    chatId,
+    userMessage,
+    resolvedPendingSurfaceId,
+    appGeneration,
+  );
 
   try {
     const projectConfigId = getCurrProjectConfigId();
     const frontendAffinityToken = await waitForFrontendAffinityToken();
     const appGenerationMode = appGeneration?.mode ?? null;
-    const appSpecStreamingEnabledForSubmit =
-      appGenerationMode === null
-        ? false
-        : appGenerationMode === "json_render" ||
-            appGenerationMode === "json_render_with_image"
-          ? true
-          : useLocalStorage.getState().appSpecStreamingEnabled;
     const res = await route_get_llm_response({
       message: userMessage,
       thinking,
@@ -2471,7 +2541,7 @@ export async function submitMessage(
       continueFromChatId: options.continueFromChatId ?? null,
       engineConfigId,
       agentProfileId: options.agentProfileId ?? null,
-      appSpecStreamingEnabled: appSpecStreamingEnabledForSubmit,
+      appSpecStreamingEnabled: false,
       appGenerationMode: appGenerationMode,
       appGenerationReferenceImageUrl: appGeneration?.referenceImageUrl ?? null,
       appGenerationReferenceImageNotes:
@@ -2515,6 +2585,7 @@ export async function submitMessage(
       chatId,
       userMessageId,
       resolvedPendingSurfaceId,
+      appGeneration,
     );
     throw err;
   }
@@ -2533,6 +2604,7 @@ export async function submitEditedMessage({
   sectionId,
   pendingSurfaceId,
   executionSettings,
+  appGeneration,
 }: {
   parentChatId: string;
   messages: Array<BaseChatMessageUnion>;
@@ -2546,6 +2618,7 @@ export async function submitEditedMessage({
   sectionId?: string | null;
   pendingSurfaceId?: string | null;
   executionSettings?: ChatExecutionSettings | null;
+  appGeneration?: ChatAppGenerationContext | null;
 }): Promise<string | null> {
   const trimmed = message.trim();
   if (!trimmed && attachments.length === 0) {
@@ -2553,6 +2626,9 @@ export async function submitEditedMessage({
   }
   const resolvedExecutionSettings =
     executionSettings ?? DEFAULT_CHAT_EXECUTION_SETTINGS;
+  const resolvedAppGeneration = normalizeChatAppGenerationContext(
+    appGeneration ?? null,
+  );
 
   const content = [];
   if (trimmed) {
@@ -2583,6 +2659,22 @@ export async function submitEditedMessage({
     true,
     resolvedPendingSurfaceId,
   );
+  if (resolvedAppGeneration) {
+    useAIStore.setState((state) =>
+      setPendingChatAppGenerationDetailsForSurface(
+        state,
+        resolvedPendingSurfaceId,
+        recordChatAppGenerationForMessage(
+          getPendingChatAppGenerationDetailsForSurface(
+            state,
+            resolvedPendingSurfaceId,
+          ) ?? getDefaultChatAppGenerationDetails(),
+          messageId,
+          resolvedAppGeneration,
+        ),
+      ),
+    );
+  }
   const projectConfigId = getCurrProjectConfigId();
 
   const setSectionChatId = async (nextChatId: string | null) => {
@@ -2622,6 +2714,12 @@ export async function submitEditedMessage({
       allowUnscoped: sectionId == null,
       branchParentChatId: parentChatId,
       branchFromMessageId: messageId,
+      appSpecStreamingEnabled: false,
+      appGenerationMode: resolvedAppGeneration?.mode ?? null,
+      appGenerationReferenceImageUrl:
+        resolvedAppGeneration?.referenceImageUrl ?? null,
+      appGenerationReferenceImageNotes:
+        resolvedAppGeneration?.referenceImageNotes ?? null,
       permissionMode: resolvedExecutionSettings.permissionMode,
       searchEnabled: resolvedExecutionSettings.searchEnabled,
     });
@@ -2936,7 +3034,7 @@ function extractRunMessages(
   return raw as Array<BaseChatMessageUnion>;
 }
 
-export async function resolveEngineConfigIdForChat(
+async function resolveEngineConfigIdForChat(
   chatId: string,
   engineConfigId: string | null,
 ): Promise<string | null> {
@@ -3680,6 +3778,12 @@ export function finalizePendingChatDetails(chatId: string, surfaceId: string) {
     }
     const existingDetails =
       state.chatDetails[chatId] ?? getDefaultChatDetails();
+    const pendingAppGeneration =
+      getPendingChatAppGenerationDetailsForSurface(state, surfaceId) ??
+      getDefaultChatAppGenerationDetails();
+    const existingAppGeneration =
+      state.chatAppGenerationDetailsByChatId[chatId] ??
+      getDefaultChatAppGenerationDetails();
     return {
       chatDetails: {
         ...state.chatDetails,
@@ -3689,7 +3793,15 @@ export function finalizePendingChatDetails(chatId: string, surfaceId: string) {
           isChatStreamActive(chatId),
         ),
       },
+      chatAppGenerationDetailsByChatId: {
+        ...state.chatAppGenerationDetailsByChatId,
+        [chatId]: mergeChatAppGenerationDetails(
+          existingAppGeneration,
+          pendingAppGeneration,
+        ),
+      },
       ...setPendingChatDetailsForSurface(state, surfaceId, null),
+      ...setPendingChatAppGenerationDetailsForSurface(state, surfaceId, null),
     };
   });
 }
@@ -3705,6 +3817,12 @@ function commitPendingChatDetails(
     }
     const existingDetails =
       state.chatDetails[chatId] ?? getDefaultChatDetails();
+    const pendingAppGeneration =
+      getPendingChatAppGenerationDetailsForSurface(state, surfaceId) ??
+      getDefaultChatAppGenerationDetails();
+    const existingAppGeneration =
+      state.chatAppGenerationDetailsByChatId[chatId] ??
+      getDefaultChatAppGenerationDetails();
     return {
       chatDetails: {
         ...state.chatDetails,
@@ -3714,7 +3832,15 @@ function commitPendingChatDetails(
           isChatStreamActive(chatId),
         ),
       },
+      chatAppGenerationDetailsByChatId: {
+        ...state.chatAppGenerationDetailsByChatId,
+        [chatId]: mergeChatAppGenerationDetails(
+          existingAppGeneration,
+          pendingAppGeneration,
+        ),
+      },
       ...setPendingChatDetailsForSurface(state, surfaceId, null),
+      ...setPendingChatAppGenerationDetailsForSurface(state, surfaceId, null),
     };
   });
 }
@@ -3723,39 +3849,134 @@ function applyOptimisticUserMessage(
   chatId: string | null,
   userMessage: BaseChatMessageUnion,
   surfaceId: string | null | undefined = null,
+  appGeneration: ChatAppGenerationContext | null = null,
 ) {
-  if (typeof chatId === "string") {
-    clearStopEligibleAssistantMessageId(chatId);
-  }
-  const updater = (details: ChatDetails) => ({
-    ...details,
-    messages: [...details.messages, userMessage],
-    waitingForResponse: true,
+  const resolvedAppGeneration =
+    normalizeChatAppGenerationContext(appGeneration);
+  useAIStore.setState((state) => {
+    if (typeof chatId === "string") {
+      clearStopEligibleAssistantMessageId(chatId);
+      return {
+        chatDetails: {
+          ...state.chatDetails,
+          [chatId]: {
+            ...getDefaultChatDetails(),
+            ...(state.chatDetails[chatId] ?? {}),
+            messages: [
+              ...(state.chatDetails[chatId]?.messages ?? []),
+              userMessage,
+            ],
+            waitingForResponse: true,
+          },
+        },
+        ...(resolvedAppGeneration
+          ? {
+              chatAppGenerationDetailsByChatId: {
+                ...state.chatAppGenerationDetailsByChatId,
+                [chatId]: recordChatAppGenerationForMessage(
+                  state.chatAppGenerationDetailsByChatId[chatId] ??
+                    getDefaultChatAppGenerationDetails(),
+                  userMessage.id,
+                  resolvedAppGeneration,
+                ),
+              },
+            }
+          : {}),
+      };
+    }
+    const nextDetails = {
+      ...(getPendingChatDetailsForSurface(state, surfaceId) ??
+        getDefaultChatDetails()),
+      messages: [
+        ...(getPendingChatDetailsForSurface(state, surfaceId)?.messages ?? []),
+        userMessage,
+      ],
+      waitingForResponse: true,
+    };
+    return {
+      ...setPendingChatDetailsForSurface(state, surfaceId, nextDetails),
+      ...(resolvedAppGeneration
+        ? setPendingChatAppGenerationDetailsForSurface(
+            state,
+            surfaceId,
+            recordChatAppGenerationForMessage(
+              getPendingChatAppGenerationDetailsForSurface(state, surfaceId) ??
+                getDefaultChatAppGenerationDetails(),
+              userMessage.id,
+              resolvedAppGeneration,
+            ),
+          )
+        : {}),
+    };
   });
-  if (chatId === null) {
-    updatePendingChatDetails(updater, surfaceId);
-    return;
-  }
-  updateChatDetails(chatId, updater);
 }
 
 function rollbackOptimisticUserMessage(
   chatId: string | null,
   userMessageId: string,
   surfaceId: string | null | undefined = null,
+  appGeneration: ChatAppGenerationContext | null = null,
 ) {
-  const updater = (details: ChatDetails) => ({
-    ...details,
-    messages: details.messages.filter(
+  const resolvedAppGeneration =
+    normalizeChatAppGenerationContext(appGeneration);
+  useAIStore.setState((state) => {
+    if (chatId === null) {
+      const pendingDetails =
+        getPendingChatDetailsForSurface(state, surfaceId) ??
+        getDefaultChatDetails();
+      const nextMessages = pendingDetails.messages.filter(
+        (message) => message.id !== userMessageId,
+      );
+      return {
+        ...setPendingChatDetailsForSurface(state, surfaceId, {
+          ...pendingDetails,
+          messages: nextMessages,
+          waitingForResponse: false,
+        }),
+        ...(resolvedAppGeneration
+          ? setPendingChatAppGenerationDetailsForSurface(
+              state,
+              surfaceId,
+              removeChatAppGenerationForMessage(
+                getPendingChatAppGenerationDetailsForSurface(
+                  state,
+                  surfaceId,
+                ) ?? getDefaultChatAppGenerationDetails(),
+                nextMessages,
+                userMessageId,
+              ),
+            )
+          : {}),
+      };
+    }
+    const currentDetails = state.chatDetails[chatId] ?? getDefaultChatDetails();
+    const nextMessages = currentDetails.messages.filter(
       (message) => message.id !== userMessageId,
-    ),
-    waitingForResponse: false,
+    );
+    return {
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: {
+          ...currentDetails,
+          messages: nextMessages,
+          waitingForResponse: false,
+        },
+      },
+      ...(resolvedAppGeneration
+        ? {
+            chatAppGenerationDetailsByChatId: {
+              ...state.chatAppGenerationDetailsByChatId,
+              [chatId]: removeChatAppGenerationForMessage(
+                state.chatAppGenerationDetailsByChatId[chatId] ??
+                  getDefaultChatAppGenerationDetails(),
+                nextMessages,
+                userMessageId,
+              ),
+            },
+          }
+        : {}),
+    };
   });
-  if (chatId === null) {
-    updatePendingChatDetails(updater, surfaceId);
-    return;
-  }
-  updateChatDetails(chatId, updater);
 }
 
 function updateMessageById(

@@ -42,7 +42,6 @@ const mockedRouteGetLLMChat = vi.mocked(route_get_llm_chat);
 const mockedRouteGetLLMResponse = vi.mocked(route_get_llm_response);
 
 let useAIStore: typeof import("state/definitions").useAIStore;
-let useLocalStorage: typeof import("state/definitions").useLocalStorage;
 let submitMessage: typeof import("state/actions/ai").submitMessage;
 let getDefaultChatDetails: typeof import("state/actions/ai").getDefaultChatDetails;
 let receiveLLMResponseChunk: typeof import("state/actions/ai").receiveLLMResponseChunk;
@@ -72,7 +71,6 @@ describe("submitMessage", () => {
 
     const definitions = await import("state/definitions");
     useAIStore = definitions.useAIStore;
-    useLocalStorage = definitions.useLocalStorage;
     const ai = await import("state/actions/ai");
     submitMessage = ai.submitMessage;
     getDefaultChatDetails = ai.getDefaultChatDetails;
@@ -220,11 +218,13 @@ describe("submitMessage", () => {
     expect(mockedRouteGetLLMResponse).toHaveBeenCalledTimes(1);
     const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
       {
+        appSpecStreamingEnabled: boolean;
         appGenerationMode: string | null;
         appGenerationReferenceImageUrl: string | null;
         appGenerationReferenceImageNotes: string | null;
       },
     ];
+    expect(payload.appSpecStreamingEnabled).toBe(false);
     expect(payload.appGenerationMode).toBe("mcp_server");
     expect(payload.appGenerationReferenceImageUrl).toBe(
       "https://example.com/reference.png",
@@ -235,9 +235,6 @@ describe("submitMessage", () => {
   });
 
   it("does not send app-spec streaming guidance for normal chat submits", async () => {
-    useLocalStorage.setState({
-      appSpecStreamingEnabled: true,
-    });
     mockedRouteGetLLMResponse.mockResolvedValue({
       status: 200,
       hasResponse: true,
@@ -269,10 +266,7 @@ describe("submitMessage", () => {
     expect(payload.appGenerationMode).toBeNull();
   });
 
-  it("uses explicit execution settings and app-generation options together", async () => {
-    useLocalStorage.setState({
-      appSpecStreamingEnabled: true,
-    });
+  it("uses explicit execution settings and keeps app-generation submits deterministic", async () => {
     mockedRouteGetLLMResponse.mockResolvedValue({
       status: 200,
       hasResponse: true,
@@ -312,46 +306,7 @@ describe("submitMessage", () => {
     ];
     expect(payload.permissionMode).toBe("yolo");
     expect(payload.searchEnabled).toBe(false);
-    expect(payload.appSpecStreamingEnabled).toBe(true);
-  });
-
-  it("forces streaming preview on json-render app generation submits", async () => {
-    useLocalStorage.setState({
-      appSpecStreamingEnabled: false,
-    });
-    mockedRouteGetLLMResponse.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: null,
-    });
-
-    await expect(
-      submitMessage(
-        null,
-        "Generate directly in the app pane.",
-        [],
-        true,
-        "engine-primary",
-        false,
-        {
-          appGeneration: {
-            mode: "json_render",
-            referenceImageUrl: null,
-            referenceImageNotes: null,
-          },
-        },
-      ),
-    ).resolves.toBeNull();
-
-    expect(mockedRouteGetLLMResponse).toHaveBeenCalledTimes(1);
-    const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
-      {
-        appSpecStreamingEnabled: boolean;
-        appGenerationMode: string | null;
-      },
-    ];
-    expect(payload.appSpecStreamingEnabled).toBe(true);
-    expect(payload.appGenerationMode).toBe("json_render");
+    expect(payload.appSpecStreamingEnabled).toBe(false);
   });
 
   it("refreshes agent runs after successful submit hydration", async () => {

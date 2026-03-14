@@ -26,6 +26,8 @@ import {
   IoStop,
 } from "react-icons/io5";
 import { addTemporaryNotification } from "state/actions/notifications";
+import type { AppGenerationMode } from "state/types/appGenerationMode";
+import type { ChatAppGenerationContext } from "state/utils/chatAppGeneration";
 import { formatBytes } from "utils/attachments";
 import { ChatFileAttachment } from "utils/generatedTypes";
 import {
@@ -145,12 +147,18 @@ export type ChatSlashCommand = {
 export type ChatSlashCommandResult =
   | boolean
   | {
+      appGenerationMode?: AppGenerationMode | null;
       handled?: boolean;
       feedback?: string;
       keepInput?: boolean;
       refreshedSlashCommands?: ChatSlashCommandDefinition[];
       refreshedRecognizedSlashCommands?: ChatSlashCommandDefinition[];
+      submitPromptTemplate?: boolean;
     };
+
+export type ChatSubmitOptions = {
+  appGeneration?: ChatAppGenerationContext | null;
+};
 
 function formatCompactTokenCount(value: number): string {
   if (value >= 1_000_000) {
@@ -371,6 +379,7 @@ type ChatInputProps = {
   onSubmit: (
     message: string,
     attachments: ChatFileAttachment[],
+    options?: ChatSubmitOptions,
   ) => Promise<boolean> | boolean;
   onUnknownSlashCommand?: (
     message: string,
@@ -741,64 +750,6 @@ export const ChatInput = memo(function ChatInput({
     return true;
   }, [replaceAttachments, setInputValue]);
 
-  const nextQueuedDraft = queuedDrafts[0] ?? null;
-
-  useEffect(() => {
-    if (!nextQueuedDraft) {
-      return;
-    }
-    if (waitingForResponse || isSubmitDisabled) {
-      return;
-    }
-    if (queuedDispatchInFlightRef.current) {
-      return;
-    }
-    if (blockedQueuedDraftIdRef.current === nextQueuedDraft.id) {
-      return;
-    }
-    const draftToSend = nextQueuedDraft;
-    queuedDispatchInFlightRef.current = true;
-    blockedQueuedDraftIdRef.current = null;
-    setQueuedDrafts((current) =>
-      current.filter((item) => item.id !== draftToSend.id),
-    );
-    setSelectedQueuedDraftId((current) =>
-      current === draftToSend.id ? null : current,
-    );
-    void (async () => {
-      let result = false;
-      try {
-        result =
-          (await onSubmit(draftToSend.message, draftToSend.attachments)) ===
-          true;
-      } catch {
-        result = false;
-      }
-      if (!componentMountedRef.current) {
-        queuedDispatchInFlightRef.current = false;
-        return;
-      }
-      queuedDispatchInFlightRef.current = false;
-      if (result) {
-        setQueuedDispatchEpoch((current) => current + 1);
-        return;
-      }
-      blockedQueuedDraftIdRef.current = draftToSend.id;
-      setQueuedDrafts((current) =>
-        enqueueQueuedDraft(current, draftToSend, true),
-      );
-      setSelectedQueuedDraftId(draftToSend.id);
-      setSlashFeedback("Queued message failed. Edit it and retry.");
-      setQueuedDispatchEpoch((current) => current + 1);
-    })();
-  }, [
-    isSubmitDisabled,
-    nextQueuedDraft,
-    onSubmit,
-    queuedDispatchEpoch,
-    waitingForResponse,
-  ]);
-
   const executeResolvedSlashCommand = useCallback(
     async ({
       message,
@@ -866,6 +817,39 @@ export const ChatInput = memo(function ChatInput({
         result && typeof result === "object" ? result : undefined;
       if (slashResult?.handled === false) {
         setSlashFeedback(UNKNOWN_SLASH_COMMAND_FEEDBACK);
+        return true;
+      }
+      if (slashResult?.submitPromptTemplate) {
+        const submission = resolveCustomPromptSlashCommandSubmission({
+          promptTemplate: parsed.promptTemplate,
+          args: parsed.args,
+          ...(parsed.rawSuffix === undefined
+            ? {}
+            : { rawSuffix: parsed.rawSuffix }),
+          attachments: submittedAttachments,
+        });
+        if (!submission || !slashResult.appGenerationMode) {
+          setSlashFeedback("Built-in slash command has no prompt content.");
+          return true;
+        }
+        const submitted =
+          (await onSubmit(submission.message, submission.attachments, {
+            appGeneration: {
+              mode: slashResult.appGenerationMode,
+              referenceImageUrl: null,
+              referenceImageNotes: null,
+            },
+          })) === true;
+        if (!submitted) {
+          setSlashFeedback(`Failed to submit ${parsed.command}.`);
+          return true;
+        }
+        setSlashFeedback(
+          slashResult.feedback ?? `Submitted ${parsed.command}.`,
+        );
+        escClearedComposerDraftRef.current = null;
+        clearInput();
+        clearAttachments();
         return true;
       }
       setSlashFeedback(slashResult?.feedback ?? `Ran ${parsed.command}`);
@@ -950,7 +934,7 @@ export const ChatInput = memo(function ChatInput({
     async (
       submittedValue: string,
       submittedAttachments: ChatFileAttachment[],
-    ): Promise<void> => {
+    ): Promise<boolean> => {
       if (waitingForResponse) {
         const queued = enqueueDraft({
           message: submittedValue,
@@ -960,29 +944,31 @@ export const ChatInput = memo(function ChatInput({
           feedback: "Queued and stopping current response...",
         });
         if (queued) {
-          return;
+          return true;
         }
         if (onStop) {
           await onStop();
         }
-        return;
+        return false;
       }
       if (isSubmitDisabled) {
-        return;
+        return false;
       }
       if (await runSlashCommand(submittedValue, submittedAttachments)) {
-        return;
+        return true;
       }
       const trimmedInput = submittedValue.trim();
       if (trimmedInput.length === 0 && submittedAttachments.length === 0) {
-        return;
+        return false;
       }
       const result = await onSubmit(submittedValue, submittedAttachments);
       if (result === true) {
         escClearedComposerDraftRef.current = null;
         clearInput();
         clearAttachments();
+        return true;
       }
+      return false;
     },
     [
       clearAttachments,
@@ -995,6 +981,65 @@ export const ChatInput = memo(function ChatInput({
       waitingForResponse,
     ],
   );
+
+  const nextQueuedDraft = queuedDrafts[0] ?? null;
+
+  useEffect(() => {
+    if (!nextQueuedDraft) {
+      return;
+    }
+    if (waitingForResponse || isSubmitDisabled) {
+      return;
+    }
+    if (queuedDispatchInFlightRef.current) {
+      return;
+    }
+    if (blockedQueuedDraftIdRef.current === nextQueuedDraft.id) {
+      return;
+    }
+    const draftToSend = nextQueuedDraft;
+    queuedDispatchInFlightRef.current = true;
+    blockedQueuedDraftIdRef.current = null;
+    setQueuedDrafts((current) =>
+      current.filter((item) => item.id !== draftToSend.id),
+    );
+    setSelectedQueuedDraftId((current) =>
+      current === draftToSend.id ? null : current,
+    );
+    void (async () => {
+      let result = false;
+      try {
+        result = await submitMessage(
+          draftToSend.message,
+          draftToSend.attachments,
+        );
+      } catch {
+        result = false;
+      }
+      if (!componentMountedRef.current) {
+        queuedDispatchInFlightRef.current = false;
+        return;
+      }
+      queuedDispatchInFlightRef.current = false;
+      if (result) {
+        setQueuedDispatchEpoch((current) => current + 1);
+        return;
+      }
+      blockedQueuedDraftIdRef.current = draftToSend.id;
+      setQueuedDrafts((current) =>
+        enqueueQueuedDraft(current, draftToSend, true),
+      );
+      setSelectedQueuedDraftId(draftToSend.id);
+      setSlashFeedback("Queued message failed. Edit it and retry.");
+      setQueuedDispatchEpoch((current) => current + 1);
+    })();
+  }, [
+    isSubmitDisabled,
+    nextQueuedDraft,
+    queuedDispatchEpoch,
+    submitMessage,
+    waitingForResponse,
+  ]);
 
   const handleSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {

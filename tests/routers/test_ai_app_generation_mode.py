@@ -56,6 +56,9 @@ class TestAIAppGenerationModeHelpers:
         assert "mode: prompt_builder" in prompt
         assert "Reference image URL" not in prompt
         assert "Ignore this outside image mode." not in prompt
+        assert "App pane" not in prompt
+        assert "manual copy/paste" not in prompt
+        assert "Project Chat can persist the result directly" in prompt
 
     def test_build_prompt_mcp_mode_uses_stream_tool_when_streaming_enabled(
         self,
