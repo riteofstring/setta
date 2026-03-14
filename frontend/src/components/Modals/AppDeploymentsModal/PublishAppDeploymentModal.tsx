@@ -14,7 +14,7 @@ import {
   useAppDefinition,
   useProjectState,
 } from "state/definitions";
-import { res200 } from "utils/endpointUtils";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_check_if_file_exists,
   route_list_app_deployments,
@@ -22,6 +22,7 @@ import {
 } from "utils/generatedEndpoints";
 import type {
   AppDeploymentMetadata,
+  CheckIfFileExistsResponse,
   PublishAppDeploymentRequestInput,
   SharePolicy,
 } from "utils/generatedTypes";
@@ -31,6 +32,8 @@ type AppPolicyOverridesInput = NonNullable<
   PublishAppDeploymentRequestInput["appPolicyOverrides"]
 >;
 type RunSnapshotMode = SharePolicy["runSnapshotMode"];
+type CheckIfFileExistsRouteResponse =
+  ResponseDataAndStatus<CheckIfFileExistsResponse>;
 
 const DEFAULT_RUN_SNAPSHOT_MODE: RunSnapshotMode = "ephemeral";
 
@@ -132,9 +135,10 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
     if (loadStoredListenerEntrypoint().trim().length > 0) {
       return;
     }
-    const res = await route_check_if_file_exists({
-      filepath: DEFAULT_LISTENER_ENTRYPOINT,
-    });
+    const res: CheckIfFileExistsRouteResponse =
+      await route_check_if_file_exists({
+        filepath: DEFAULT_LISTENER_ENTRYPOINT,
+      });
     if (res200(res) && res.data) {
       setListenerEntrypoint((current) => {
         if (current.trim().length > 0) {
