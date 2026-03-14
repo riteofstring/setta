@@ -350,7 +350,7 @@ describe("ChatMessages tool call status", () => {
     );
 
     expect(markup).toContain("Tool state: stopped");
-    expect(markup).not.toContain('data-unicode-spinner="braille"');
+    expect(markup).not.toContain("gg-spinner");
   });
 
   it("renders tool calls inside a single activity container", () => {
@@ -400,7 +400,7 @@ describe("ChatMessages tool call status", () => {
     expect(markup).not.toContain("px-0.5 pb-0.5");
   });
 
-  it("shows braille activity indicators while rows are in flight", () => {
+  it("shows running spinners while activity rows are in flight", () => {
     const messages: BaseChatMessageUnion[] = [
       {
         id: "m-running-sections",
@@ -432,8 +432,7 @@ describe("ChatMessages tool call status", () => {
       <ChatMessageList messages={messages} waitingForResponse={true} />,
     );
 
-    expect(markup).toContain('data-unicode-spinner="braille"');
-    expect(markup).toContain("⠋");
+    expect(markup).toContain("gg-spinner");
   });
 
   it("shows completed activity rows without running spinners", () => {
@@ -472,7 +471,7 @@ describe("ChatMessages tool call status", () => {
       <ChatMessageList messages={messages} waitingForResponse={false} />,
     );
 
-    expect(markup).not.toContain('data-unicode-spinner="braille"');
+    expect(markup).not.toContain("gg-spinner");
     expect(markup).toContain('data-chat-tool-call-item="true"');
   });
 
@@ -566,58 +565,6 @@ describe("ChatMessages tool call status", () => {
     expect(markup).toContain("rg --files");
     expect(markup).toContain('data-chat-action-item="true"');
     expect(markup).toContain('data-chat-tool-call-item="true"');
-  });
-
-  it("renders active terminal and subagent rows with dedicated runtime treatment", () => {
-    const messages: BaseChatMessageUnion[] = [
-      {
-        id: "m-runtime-rows",
-        role: ChatRoleEnum.assistant,
-        content: [],
-        attachments: [],
-        tool_calls: [
-          {
-            id: "runtime-terminal-call",
-            type: "function",
-            function: {
-              name: "command_execution",
-              arguments: { command: "pnpm exec vitest run" },
-            },
-          },
-          {
-            id: "runtime-subagent-call",
-            type: "function",
-            function: {
-              name: "mcp__setta__run_agent_profile",
-              arguments: {
-                profileId: "research_profile",
-                inputs: {
-                  prompt: "Trace the current runtime regression.",
-                },
-              },
-            },
-          },
-        ],
-      },
-    ];
-
-    const markup = renderToStaticMarkup(
-      <ChatMessageList messages={messages} waitingForResponse={true} />,
-    );
-
-    // Runtime tool rows should render as dedicated terminal/subagent rows
-    // instead of falling back to the generic action/tool variants.
-    expect(markup).toContain('data-chat-terminal-item="true"');
-    expect(markup).toContain('data-chat-subagent-item="true"');
-    expect(markup).not.toContain('data-chat-action-item="true"');
-    expect(markup).not.toContain('data-chat-tool-call-item="true"');
-    expect(markup).toContain('aria-label="Terminal state: running"');
-    expect(markup).toContain('aria-label="Subagent state: running"');
-    expect(markup).toContain("pnpm exec vitest run");
-    expect(markup).toContain("research_profile");
-    expect(markup).toContain("Subagent: research_profile");
-    expect(markup).toContain('data-chat-terminal-item-content="true"');
-    expect(markup).toContain('data-chat-subagent-item-content="true"');
   });
 
   it("renders compacted context summaries as sequential activity items", () => {
@@ -1955,9 +1902,8 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).toContain('data-chat-actions-anchor="right"');
     expect(markup).toContain("absolute right-full top-1/2");
     expect(markup).toContain("absolute left-full top-1/2");
-    expect(markup).toContain(
-      "pointer-events-none relative z-[1] inline-flex items-center gap-1",
-    );
+    expect(markup).toContain("pointer-events-none");
+    expect(markup).toContain("inline-flex items-center gap-1");
     expect(markup).toContain("group-hover:opacity-100");
     expect(markup).toContain(
       "rounded-md border border-setta-200/90 bg-setta-100/95",
