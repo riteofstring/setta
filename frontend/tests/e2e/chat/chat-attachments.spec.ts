@@ -73,6 +73,18 @@ type ManagedChatProviderServer = {
   close: () => Promise<void>;
 };
 
+type ManagedAnthropicProviderRequest = {
+  path: string;
+  apiKey: string;
+  body: Record<string, unknown>;
+};
+
+type ManagedAnthropicProviderServer = {
+  origin: string;
+  requests: ManagedAnthropicProviderRequest[];
+  close: () => Promise<void>;
+};
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ATTACHMENT_FIXTURES_DIR = path.join(
@@ -331,6 +343,138 @@ test.describe.serial("chat attachments", () => {
 
       await expect(
         projectChatSurface.getByText("Go owned attachment reply"),
+      ).toBeVisible();
+    } finally {
+      if (createdEngineConfigId) {
+        await postBackend(page.request, "/deleteEngineConfig", {
+          configId: createdEngineConfigId,
+        });
+      }
+      await postBackend(
+        page.request,
+        "/llm/config",
+        initialLLMConfig as Record<string, unknown>,
+      );
+      await postManagedAPIKeys(page.request, {
+        apiKeys: initialAPIKeysSnapshot.apiKeys,
+        expectedRevision: latestAPIKeysSnapshot.revision,
+      });
+      await providerServer.close();
+      await cleanupIsolatedProject(page.request, projectContext);
+    }
+  });
+
+  test("project chat attachments reach Anthropic with explicit attachment text", async ({
+    page,
+  }) => {
+    await setOverviewTab(page, "ProjectAIChat");
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page, page.request);
+    const initialLLMConfig = await getBackend<LLMConfigPayload>(
+      page.request,
+      "/llm/config",
+    );
+    if (!initialLLMConfig) {
+      throw new Error("Missing LLM config payload.");
+    }
+    const initialAPIKeysSnapshot = await getBackend<ManagedAPIKeysSnapshot>(
+      page.request,
+      "/llm/apiKeys",
+    );
+    if (!initialAPIKeysSnapshot) {
+      throw new Error("Missing managed API keys snapshot.");
+    }
+    const providerServer = await startManagedAnthropicAttachmentProviderServer();
+    let latestAPIKeysSnapshot = initialAPIKeysSnapshot;
+    let createdEngineConfigId: string | null = null;
+    const llmConfigId = `e2e-project-chat-anthropic-attachments-${Date.now()}`;
+    const engineName = `Project Anthropic Attachment Engine ${Date.now()}`;
+
+    try {
+      await postBackend(page.request, "/llm/config", {
+        ...initialLLMConfig,
+        configs: {
+          ...initialLLMConfig.configs,
+          [llmConfigId]: {
+            model: "claude-sonnet-4-5-20250929",
+            provider: "anthropic",
+            api_key_env: "ANTHROPIC_API_KEY",
+            base_url: providerServer.origin,
+            other_params: null,
+            temporary: false,
+          },
+        },
+      } as Record<string, unknown>);
+      latestAPIKeysSnapshot = await postManagedAPIKeys(page.request, {
+        apiKeys: {
+          ...initialAPIKeysSnapshot.apiKeys,
+          ANTHROPIC_API_KEY: "e2e-anthropic-secret",
+        },
+        expectedRevision: initialAPIKeysSnapshot.revision,
+      });
+      const createdEngine = await postBackend<EngineConfig>(
+        page.request,
+        "/createEngineConfig",
+        {
+          name: engineName,
+          engineType: "setta_llm",
+          settaLlmConfigId: llmConfigId,
+          defaults: {},
+        },
+      );
+      createdEngineConfigId = createdEngine?.id ?? null;
+      if (!createdEngineConfigId) {
+        throw new Error("Missing managed engine config id.");
+      }
+
+      await page.reload();
+      await page.waitForSelector(".react-flow__pane");
+
+      const projectChatSurface = await getVisibleProjectChatSurface(page);
+      await selectProjectAiEngine(page, engineName);
+      const input = projectChatSurface.getByPlaceholder("Type a message...");
+      await expect(input).toBeVisible();
+      await expect(input).toBeEnabled();
+
+      const fileInput = projectChatSurface
+        .locator('input[type="file"]')
+        .first();
+      await fileInput.setInputFiles([
+        {
+          name: "notes.txt",
+          mimeType: "text/plain",
+          buffer: Buffer.from("Hello from project chat."),
+        },
+        {
+          name: "image.png",
+          mimeType: "image/png",
+          buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+        },
+      ]);
+
+      await expect(projectChatSurface.getByText("notes.txt")).toBeVisible();
+      await expect(projectChatSurface.getByText("image.png")).toBeVisible();
+
+      await input.fill("Here are Anthropic attachments.");
+      await input.press("Enter");
+
+      await expect.poll(() => providerServer.requests.length).toBe(1);
+      const providerRequest = providerServer.requests[0];
+      expect(providerRequest?.path).toBe("/v1/messages");
+      expect(providerRequest?.apiKey).toBe("e2e-anthropic-secret");
+      const providerMessagesJSON = JSON.stringify(
+        providerRequest?.body.messages ?? null,
+      );
+      expect(providerMessagesJSON).not.toContain('"attachments"');
+      expect(providerMessagesJSON).toContain("Here are Anthropic attachments.");
+      expect(providerMessagesJSON).toContain("[Attachment: notes.txt]");
+      expect(providerMessagesJSON).toContain("Hello from project chat.");
+      expect(providerMessagesJSON).toContain("[Attachment: image.png]");
+      expect(providerMessagesJSON).toContain("Type: image/png");
+      expect(providerMessagesJSON).toContain("Content not inlined.");
+
+      await expect(
+        projectChatSurface.getByText("Anthropic attachment reply"),
       ).toBeVisible();
     } finally {
       if (createdEngineConfigId) {
@@ -714,6 +858,86 @@ async function startManagedChatProviderServer(): Promise<ManagedChatProviderServ
       if (!address || typeof address === "string") {
         server.close(() =>
           reject(new Error("Unable to allocate managed provider test port.")),
+        );
+        return;
+      }
+      resolve({
+        origin: `http://127.0.0.1:${address.port}`,
+        requests,
+        close: async () =>
+          await new Promise<void>((closeResolve, closeReject) => {
+            server.close((error) => {
+              if (error) {
+                closeReject(error);
+                return;
+              }
+              closeResolve();
+            });
+          }),
+      });
+    });
+  });
+}
+
+async function startManagedAnthropicAttachmentProviderServer(): Promise<ManagedAnthropicProviderServer> {
+  const requests: ManagedAnthropicProviderRequest[] = [];
+  return await new Promise((resolve, reject) => {
+    const server = http.createServer((request, response) => {
+      const chunks: string[] = [];
+      request.setEncoding("utf8");
+      request.on("data", (chunk: string) => {
+        chunks.push(chunk);
+      });
+      request.on("end", () => {
+        try {
+          const rawBody = chunks.join("");
+          const body = rawBody
+            ? (JSON.parse(rawBody) as Record<string, unknown>)
+            : {};
+          requests.push({
+            path: new URL(request.url ?? "/", "http://127.0.0.1").pathname,
+            apiKey: Array.isArray(request.headers["x-api-key"])
+              ? request.headers["x-api-key"].join(", ")
+              : request.headers["x-api-key"] ?? "",
+            body,
+          });
+        } catch (error) {
+          response.statusCode = 400;
+          response.end(String(error));
+          return;
+        }
+
+        response.statusCode = 200;
+        response.setHeader("content-type", "text/event-stream");
+        response.write(
+          'event: message_start\ndata: {"type":"message_start","message":{"id":"msg-attachment-anthropic","type":"message","role":"assistant","content":[],"model":"claude-sonnet-4-5-20250929","stop_reason":null,"stop_sequence":null,"container":{"id":"container-1","expires_at":"2026-03-12T00:00:00Z"},"usage":{"input_tokens":19,"output_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"inference_geo":"us","server_tool_use":{"web_fetch_requests":0,"web_search_requests":0},"service_tier":"standard","cache_creation":{"ephemeral_1h_input_tokens":0,"ephemeral_5m_input_tokens":0}}}}\n\n',
+        );
+        response.write(
+          'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n\n',
+        );
+        response.write(
+          'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Anthropic"}}\n\n',
+        );
+        response.write(
+          'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":" attachment reply"}}\n\n',
+        );
+        response.write(
+          'event: content_block_stop\ndata: {"type":"content_block_stop","index":0}\n\n',
+        );
+        response.write(
+          'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"input_tokens":19,"output_tokens":3,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"server_tool_use":{"web_fetch_requests":0,"web_search_requests":0}}}\n\n',
+        );
+        response.end('event: message_stop\ndata: {"type":"message_stop"}\n\n');
+      });
+    });
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close(() =>
+          reject(
+            new Error("Unable to allocate Anthropic attachment test port."),
+          ),
         );
         return;
       }
