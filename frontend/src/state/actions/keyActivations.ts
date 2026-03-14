@@ -42,8 +42,7 @@ import {
 } from "state/actions/params/moveParams";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
-import { useProjectState } from "state/definitions";
-import { useSettings } from "state/stores/uiPreferenceStores";
+import { useProjectState, useSettings } from "state/definitions";
 import {
   focusAdjacentTopLevelSection,
   focusScope,
@@ -66,13 +65,13 @@ import {
   openFileMenuSaveProjectConfigAsModal,
 } from "./modal";
 import { saveProject } from "./project/saveProject";
+import { runEntryCodeBlock } from "./runOrImportCode";
 import {
   deleteAllActiveSections,
   groupActiveSections,
   ungroupActiveGroups,
   unselectAllParams,
-} from "./projectStateCommands";
-import { runEntryCodeBlock } from "./runOrImportCode";
+} from "./sectionInfos";
 import {
   addCallableSectionInEmptySpace,
   addGroupInEmptySpace,

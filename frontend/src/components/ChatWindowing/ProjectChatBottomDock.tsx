@@ -82,13 +82,14 @@ import { getTrackedGitPaneGraphWindowInstanceIdForProject } from "state/actions/
 import {
   NULL_PROJECT_CONFIG_ID,
   useActiveSectionUI,
+  useLocalStorage,
+  useMisc,
   useProjectState,
+  useSettings,
   useShareSession,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
-import { useMisc } from "state/stores/layoutInteractionStores";
-import { useLocalStorage, useSettings } from "state/stores/uiPreferenceStores";
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,

@@ -13,8 +13,7 @@ import {
   getAllowedChatIdsForProject,
   getSectionIdsForProject,
 } from "state/aiFollowUtils";
-import { useAIFollow, useProjectState } from "state/definitions";
-import { useMisc } from "state/stores/layoutInteractionStores";
+import { useAIFollow, useMisc, useProjectState } from "state/definitions";
 import { shallow } from "zustand/shallow";
 
 const TOOL_RESULT_FOLLOW_GROUP_WINDOW_MS = 300;

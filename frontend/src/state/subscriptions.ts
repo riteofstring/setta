@@ -4,25 +4,25 @@ import _ from "lodash";
 import {
   useDecodedImages,
   useImages,
+  useMisc,
   useNodeInternals,
   useProjectState,
   ZustandImages,
   ZustandProjectState,
 } from "state/definitions";
-import { useMisc } from "state/stores/layoutInteractionStores";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import {
   getNodeUpdateInformation,
   updateNodeDimensions,
 } from "./actions/nodeInternals";
-import { debouncedDispatchViewportUpdate } from "./actions/projectStateCommands";
 import {
+  debouncedDispatchViewportUpdate,
+  getActiveViewModeTopLevelSections,
   getCurrEffectiveSectionImpl,
   getDisplayedSectionIdToChildren,
   getSectionShouldRender,
   getSectionViewModeVisibility,
 } from "./actions/sectionInfos";
-import { getActiveViewModeTopLevelSections } from "./actions/topLevelSectionLayouts";
 import { decodeExistingRawImages } from "./hooks/artifacts";
 
 export function subscribe() {
