@@ -91,6 +91,7 @@ This is the front door for authored frontend code under `frontend/src/`.
 - Need section chrome or param rendering: open `components/Section/` and `components/Params/`.
 - Need a mutation path: search in `state/actions/`.
 - Need chat or project-AI commands: start in `state/actions/ai.ts` and extracted domain modules under `state/actions/ai/`.
+- Need chat submit/edit or external-agent approval/question commands: open `state/actions/ai/chatCommands.ts`.
 - Need agent-run authority loading or engine resolution from chat history: open `state/actions/ai/agentRuns.ts`.
 - Need pending chat state, chat hydration, or stop-response runtime behavior: open `state/actions/ai/chatRuntime.ts`.
 - Need LLM config or managed API-key mutations: open `state/actions/ai/llmSettings.ts`.

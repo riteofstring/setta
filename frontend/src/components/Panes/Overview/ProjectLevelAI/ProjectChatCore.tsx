@@ -36,8 +36,11 @@ import {
   getRunInputString,
   getRunLastUpdatedMs,
 } from "state/actions/agentRunUtils";
-import { submitEditedMessage, submitMessage } from "state/actions/ai";
 import { loadAgentRuns } from "state/actions/ai/agentRuns";
+import {
+  submitEditedMessage,
+  submitMessage,
+} from "state/actions/ai/chatCommands";
 import {
   clearPendingChatDetails,
   finalizePendingChatDetails,

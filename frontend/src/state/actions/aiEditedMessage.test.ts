@@ -11,7 +11,7 @@ import {
 } from "vitest";
 
 let useAIStore: typeof import("state/definitions").useAIStore;
-let submitEditedMessage: typeof import("state/actions/ai").submitEditedMessage;
+let submitEditedMessage: typeof import("state/actions/ai/chatCommands").submitEditedMessage;
 let getDefaultChatDetails: typeof import("state/actions/ai/chatRuntime").getDefaultChatDetails;
 let memoryStorage: Storage;
 
@@ -43,8 +43,8 @@ describe("submitEditedMessage", () => {
     const definitions = await import("state/definitions");
     useAIStore = definitions.useAIStore;
     const chatRuntime = await import("state/actions/ai/chatRuntime");
-    const ai = await import("state/actions/ai");
-    submitEditedMessage = ai.submitEditedMessage;
+    const chatCommands = await import("state/actions/ai/chatCommands");
+    submitEditedMessage = chatCommands.submitEditedMessage;
     getDefaultChatDetails = chatRuntime.getDefaultChatDetails;
   });
 

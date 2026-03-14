@@ -43,7 +43,7 @@ const mockedRouteGetLLMResponse = vi.mocked(route_get_llm_response);
 
 let useAIStore: typeof import("state/definitions").useAIStore;
 let useLocalStorage: typeof import("state/definitions").useLocalStorage;
-let submitMessage: typeof import("state/actions/ai").submitMessage;
+let submitMessage: typeof import("state/actions/ai/chatCommands").submitMessage;
 let getDefaultChatDetails: typeof import("state/actions/ai/chatRuntime").getDefaultChatDetails;
 let receiveLLMResponseChunk: typeof import("state/actions/ai").receiveLLMResponseChunk;
 let memoryStorage: Storage;
@@ -74,8 +74,9 @@ describe("submitMessage", () => {
     useAIStore = definitions.useAIStore;
     useLocalStorage = definitions.useLocalStorage;
     const chatRuntime = await import("state/actions/ai/chatRuntime");
+    const chatCommands = await import("state/actions/ai/chatCommands");
     const ai = await import("state/actions/ai");
-    submitMessage = ai.submitMessage;
+    submitMessage = chatCommands.submitMessage;
     getDefaultChatDetails = chatRuntime.getDefaultChatDetails;
     receiveLLMResponseChunk = ai.receiveLLMResponseChunk;
   });

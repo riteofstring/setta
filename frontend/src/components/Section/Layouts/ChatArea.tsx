@@ -33,8 +33,11 @@ import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import _ from "lodash";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { submitEditedMessage, submitMessage } from "state/actions/ai";
 import { loadAgentRuns } from "state/actions/ai/agentRuns";
+import {
+  submitEditedMessage,
+  submitMessage,
+} from "state/actions/ai/chatCommands";
 import {
   clearPendingChatDetails,
   getDefaultChatDetails,
