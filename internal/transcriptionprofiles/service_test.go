@@ -383,12 +383,23 @@ func TestServiceResolveReturnsNilLLMConfigForMissingConfig(t *testing.T) {
 func TestSupportsRealtimeTranscriptionRejectsCustomBaseURLWithoutProvider(t *testing.T) {
 	t.Parallel()
 
-	if supportsRealtimeTranscription(llmconfig.Config{
+	if SupportsRealtimeTranscriptionConfig(llmconfig.Config{
 		ID:      "custom-openai",
 		Model:   "gpt-4o-transcribe",
 		BaseURL: "http://localhost:4000/v1",
 	}) {
 		t.Fatal("expected custom base url without provider to be unsupported")
+	}
+}
+
+func TestSupportsRealtimeTranscriptionAllowsDefaultOpenAIProviderWhenProviderUnset(t *testing.T) {
+	t.Parallel()
+
+	if !SupportsRealtimeTranscriptionConfig(llmconfig.Config{
+		ID:    "default-openai",
+		Model: "gpt-4o-mini-transcribe",
+	}) {
+		t.Fatal("expected empty provider with default OpenAI base URL to be supported")
 	}
 }
 

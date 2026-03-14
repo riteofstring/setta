@@ -17,6 +17,7 @@ import (
 	openaiconstant "github.com/openai/openai-go/v3/shared/constant"
 
 	"setta/internal/llmconfig"
+	"setta/internal/transcriptionprofiles"
 )
 
 const (
@@ -98,18 +99,20 @@ type openAIRealtimeErrorValue struct {
 }
 
 func newRealtimeEngine(ctx context.Context, opts realtimeEngineOptions) (*realtimeEngine, error) {
-	provider := strings.ToLower(strings.TrimSpace(opts.LLMConfig.Provider))
-	if provider != "openai" {
-		return nil, newServiceError(
-			ErrRuntimeUnavailable,
-			"Transcription provider is not supported by the Go runtime yet.",
-		)
-	}
 	model := strings.TrimSpace(opts.LLMConfig.Model)
 	if model == "" {
 		return nil, newServiceError(
 			ErrInvalidRequest,
 			"Transcription config is missing or invalid for this transcription profile.",
+		)
+	}
+	// Keep runtime admission aligned with the profile capability helper so
+	// empty-provider default OpenAI configs do not get advertised as supported
+	// and then rejected by the session runtime.
+	if !transcriptionprofiles.SupportsRealtimeTranscriptionConfig(opts.LLMConfig) {
+		return nil, newServiceError(
+			ErrRuntimeUnavailable,
+			"Transcription provider is not supported by the Go runtime yet.",
 		)
 	}
 	apiKey, err := resolveAPIKey(opts.APIKeys, opts.LLMConfig.APIKeyEnv)

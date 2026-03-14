@@ -188,13 +188,13 @@ func (s *Service) prepareForSave(profile Profile) (Profile, error) {
 		return Profile{}, newServiceError(ErrInvalidProfile, err.Error())
 	}
 	normalized.TranscriptionLLMConfigID = configID
-	if normalized.TransportMode == TransportModeRealtime && !supportsRealtimeTranscription(config) {
+	if normalized.TransportMode == TransportModeRealtime && !SupportsRealtimeTranscriptionConfig(config) {
 		return Profile{}, newServiceError(
 			ErrRealtimeTranscriptionUnavailable,
 			"Realtime transcription is unavailable for this provider/model.",
 		)
 	}
-	normalized.SupportsRealtimeTranscription = supportsRealtimeTranscription(config)
+	normalized.SupportsRealtimeTranscription = SupportsRealtimeTranscriptionConfig(config)
 	return normalized, nil
 }
 
@@ -234,10 +234,10 @@ func resolveRealtimeSupport(configs llmconfig.AllConfigs, profile Profile) bool 
 	if err != nil {
 		return false
 	}
-	return supportsRealtimeTranscription(config)
+	return SupportsRealtimeTranscriptionConfig(config)
 }
 
-func supportsRealtimeTranscription(config llmconfig.Config) bool {
+func SupportsRealtimeTranscriptionConfig(config llmconfig.Config) bool {
 	provider := strings.ToLower(strings.TrimSpace(config.Provider))
 	switch {
 	case provider == "openai":
