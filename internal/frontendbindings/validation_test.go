@@ -1621,19 +1621,17 @@ func TestFrontendGeneratedRouteHelperImportsStayWithinExplicitBoundaries(t *test
 	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
 	allowedRouteHelperImports := map[string]map[string]struct{}{
 		"GoRoutePrefixHelpers": {
-			"frontend/src/utils/c_addresses.ts": {},
+			"frontend/src/utils/transportRouteConstants.ts": {},
 		},
 		"GoRootRouteHelpers": {
-			"frontend/src/utils/backendOriginTransport.ts":   {},
-			"frontend/src/utils/serverModeBoundaryPolicy.ts": {},
+			"frontend/src/utils/transportRouteConstants.ts": {},
 		},
 		"GoHTTPRouteHelpers": {
-			"frontend/src/utils/backendTransport.ts":         {},
-			"frontend/src/utils/generatedEndpoints.ts":       {},
-			"frontend/src/utils/serverModeBoundaryPolicy.ts": {},
+			"frontend/src/utils/generatedEndpoints.ts":      {},
+			"frontend/src/utils/transportRouteConstants.ts": {},
 		},
 		"GoWebsocketRouteHelpers": {
-			"frontend/src/utils/backendOriginTransport.ts": {},
+			"frontend/src/utils/transportRouteConstants.ts": {},
 		},
 	}
 	generatedRoutesImportPattern := regexp.MustCompile(`(?s)import\s*\{([^}]*)\}\s*from\s*["'](?:\./generatedRoutes|utils/generatedRoutes)["']`)
@@ -2529,6 +2527,7 @@ func TestBuildGeneratedBindingsTypeScriptCompile(t *testing.T) {
 		"frontend/src/utils/endpointUtils.ts",
 		"frontend/src/utils/requestTransport.ts",
 		"frontend/src/utils/transportUrlCore.ts",
+		"frontend/src/utils/transportRouteConstants.ts",
 		"frontend/src/utils/c_addresses.ts",
 		"frontend/src/utils/serverModeBoundaryPolicy.ts",
 		"frontend/src/utils/c.ts",

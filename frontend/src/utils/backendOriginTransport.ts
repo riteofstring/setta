@@ -1,4 +1,9 @@
-import { GoRootRouteHelpers, GoWebsocketRouteHelpers } from "./generatedRoutes";
+import {
+  buildListenerWebsocketRoute,
+  buildTerminalWebsocketRoute,
+  ROOT_TRANSPORT_ROUTES,
+  WEBSOCKET_TRANSPORT_ROUTES,
+} from "./transportRouteConstants";
 import {
   buildBackendOriginURL as buildBackendOriginURLInternal,
   buildBackendOriginWebsocketURL as buildBackendOriginWebsocketURLInternal,
@@ -16,7 +21,9 @@ export type BuildTerminalWebsocketUrlOptions = {
   shareSessionId: string | null;
 };
 
-const FRONTEND_WEBSOCKET_ROUTE = GoWebsocketRouteHelpers.frontend();
+export { ROOT_TRANSPORT_ROUTES } from "./transportRouteConstants";
+
+const FRONTEND_WEBSOCKET_ROUTE = WEBSOCKET_TRANSPORT_ROUTES.frontend;
 
 export function buildBackendOriginURL(
   address: string,
@@ -33,7 +40,7 @@ export function buildBackendOriginWebsocketURL(
 }
 
 export function buildBootstrapPageUrl(): string {
-  return buildBackendOriginURL(GoRootRouteHelpers.bootstrapPage());
+  return buildBackendOriginURL(ROOT_TRANSPORT_ROUTES.bootstrapPage);
 }
 
 export function getFrontendWebsocketRoute(): string {
@@ -54,7 +61,7 @@ export function buildListenerWebsocketUrl({
   shareSessionId,
 }: BuildListenerWebsocketUrlOptions): string {
   return buildBackendOriginWebsocketURL(
-    GoWebsocketRouteHelpers.listenerById(listenerId),
+    buildListenerWebsocketRoute(listenerId),
     {
       projectId: projectConfigId,
       shareSessionId: shareSessionId ?? undefined,
@@ -68,7 +75,7 @@ export function buildTerminalWebsocketUrl({
   shareSessionId,
 }: BuildTerminalWebsocketUrlOptions): string {
   return buildBackendOriginWebsocketURL(
-    GoWebsocketRouteHelpers.terminalBySection(projectConfigId, sectionId),
+    buildTerminalWebsocketRoute(projectConfigId, sectionId),
     {
       shareSessionId: shareSessionId ?? undefined,
     },

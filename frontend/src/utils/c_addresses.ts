@@ -1,9 +1,9 @@
 import { BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY } from "utils/backendOriginOverride";
 import { C } from "utils/c";
-import { GoRoutePrefixHelpers } from "utils/generatedRoutes";
 import { getOrInitLauncherOrigin } from "utils/launcherOrigin";
 import { normalizeOrigin } from "utils/origin";
 import { safeSessionStorage } from "utils/storage";
+import { API_ROUTE_PREFIX } from "utils/transportRouteConstants";
 
 export class C_ADDRESSES {
   static get DEV_MODE() {
@@ -83,11 +83,11 @@ export class C_ADDRESSES {
   }
 
   static get LAUNCHER() {
-    return `${this.LAUNCHER_ORIGIN}${GoRoutePrefixHelpers.api()}`;
+    return `${this.LAUNCHER_ORIGIN}${API_ROUTE_PREFIX}`;
   }
 
   static get BACKEND() {
-    return `${this.BACKEND_ORIGIN}${GoRoutePrefixHelpers.api()}`;
+    return `${this.BACKEND_ORIGIN}${API_ROUTE_PREFIX}`;
   }
 
   static get WEBSOCKET() {
@@ -96,6 +96,6 @@ export class C_ADDRESSES {
       originUrl.protocol === "https:" || originUrl.protocol === "wss:"
         ? "wss:"
         : "ws:";
-    return `${protocol}//${originUrl.host}${GoRoutePrefixHelpers.api()}`;
+    return `${protocol}//${originUrl.host}${API_ROUTE_PREFIX}`;
   }
 }

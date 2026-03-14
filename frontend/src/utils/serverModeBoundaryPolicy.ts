@@ -1,5 +1,8 @@
-import { GoHTTPRouteHelpers, GoRootRouteHelpers } from "./generatedRoutes";
 import type { ServerModeResponse } from "./generatedTypes";
+import {
+  ROOT_TRANSPORT_ROUTES,
+  SERVER_MODE_BOUNDARY_ROUTES,
+} from "./transportRouteConstants";
 
 export type ServerMode = ServerModeResponse["mode"] | null;
 export type EndpointOriginPolicy = "backend" | "launcher" | "backend-origin";
@@ -14,26 +17,26 @@ type ModeBoundaryPolicy = {
   workspaceLaunchRouteKind: WorkspaceLaunchRouteKind;
 };
 
-const BOOTSTRAP_PAGE_ROUTE = GoRootRouteHelpers.bootstrapPage();
-const TOOLS_CALL_ROUTE = GoRootRouteHelpers.toolsCall();
-const LAUNCH_ROUTE = GoHTTPRouteHelpers.launch();
+const BOOTSTRAP_PAGE_ROUTE = ROOT_TRANSPORT_ROUTES.bootstrapPage;
+const TOOLS_CALL_ROUTE = ROOT_TRANSPORT_ROUTES.toolsCall;
+const LAUNCH_ROUTE = SERVER_MODE_BOUNDARY_ROUTES.launch;
 const CREATE_WORKSPACE_LAUNCH_INTENT_ROUTE =
-  GoHTTPRouteHelpers.createWorkspaceLaunchIntent();
-const GET_SETTA_HOME_INFO_ROUTE = GoHTTPRouteHelpers.getSettaHomeInfo();
+  SERVER_MODE_BOUNDARY_ROUTES.createWorkspaceLaunchIntent;
+const GET_SETTA_HOME_INFO_ROUTE = SERVER_MODE_BOUNDARY_ROUTES.getSettaHomeInfo;
 const GET_LAUNCHER_RECENT_WORKSPACES_ROUTE =
-  GoHTTPRouteHelpers.getLauncherRecentWorkspaces();
+  SERVER_MODE_BOUNDARY_ROUTES.getLauncherRecentWorkspaces;
 const ADD_LAUNCHER_RECENT_WORKSPACE_ROUTE =
-  GoHTTPRouteHelpers.addLauncherRecentWorkspace();
+  SERVER_MODE_BOUNDARY_ROUTES.addLauncherRecentWorkspace;
 const REMOVE_LAUNCHER_RECENT_WORKSPACE_ROUTE =
-  GoHTTPRouteHelpers.removeLauncherRecentWorkspace();
+  SERVER_MODE_BOUNDARY_ROUTES.removeLauncherRecentWorkspace;
 const PIN_LAUNCHER_RECENT_WORKSPACE_ROUTE =
-  GoHTTPRouteHelpers.pinLauncherRecentWorkspace();
+  SERVER_MODE_BOUNDARY_ROUTES.pinLauncherRecentWorkspace;
 const GET_LAUNCHER_FILESYSTEM_ROOTS_ROUTE =
-  GoHTTPRouteHelpers.getLauncherFilesystemRoots();
+  SERVER_MODE_BOUNDARY_ROUTES.getLauncherFilesystemRoots;
 const LIST_LAUNCHER_DIRECTORY_ROUTE =
-  GoHTTPRouteHelpers.listLauncherDirectory();
+  SERVER_MODE_BOUNDARY_ROUTES.listLauncherDirectory;
 const OPEN_LAUNCHER_WORKSPACE_ROUTE =
-  GoHTTPRouteHelpers.openLauncherWorkspace();
+  SERVER_MODE_BOUNDARY_ROUTES.openLauncherWorkspace;
 
 const MODE_BOUNDARY_POLICY: Readonly<
   Record<ServerModeResponse["mode"], ModeBoundaryPolicy>

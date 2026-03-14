@@ -1,5 +1,13 @@
-import { GoHTTPRouteHelpers } from "./generatedRoutes";
+import {
+  buildBinaryDownloadRoute,
+  buildPluginBackendRoute,
+} from "./transportRouteConstants";
 import { buildBackendURL as buildBackendURLInternal } from "./transportUrlCore";
+
+export {
+  SERVER_MODE_BOUNDARY_ROUTES,
+  SETTA_API_PRESET_ROUTES,
+} from "./transportRouteConstants";
 
 export function buildBackendURL(
   address: string,
@@ -12,7 +20,7 @@ export function buildBinaryDownloadUrl(
   contentId: string,
   shareSessionId: string | null,
 ): string {
-  return buildBackendURL(GoHTTPRouteHelpers.binaryDownload(contentId), {
+  return buildBackendURL(buildBinaryDownloadRoute(contentId), {
     shareSessionId: shareSessionId ?? undefined,
   });
 }
@@ -21,13 +29,5 @@ export function buildPluginBackendFetchUrl(
   pluginId: string,
   routePath: string,
 ): string {
-  return buildBackendURL(
-    GoHTTPRouteHelpers.pluginsBackendRoute(pluginId, routePath),
-  );
+  return buildBackendURL(buildPluginBackendRoute(pluginId, routePath));
 }
-
-export const SETTA_API_PRESET_ROUTES = Object.freeze({
-  createTopLevelSection: GoHTTPRouteHelpers.createTopLevelSection(),
-  getLatestProjectState: GoHTTPRouteHelpers.getLatestProjectState(),
-  saveProject: GoHTTPRouteHelpers.saveProject(),
-});

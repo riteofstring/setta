@@ -5,6 +5,7 @@ import {
   buildBackendURL,
   buildBinaryDownloadUrl,
   buildPluginBackendFetchUrl,
+  SERVER_MODE_BOUNDARY_ROUTES,
   SETTA_API_PRESET_ROUTES,
 } from "./backendTransport";
 
@@ -43,6 +44,27 @@ describe("backendTransport", () => {
     const url = new URL(buildPluginBackendFetchUrl("acme.plugin", "/health"));
 
     expect(url.pathname).toBe(expectedPath);
+  });
+
+  it("exposes server-mode boundary routes from canonical HTTP route helpers", () => {
+    expect(SERVER_MODE_BOUNDARY_ROUTES).toEqual({
+      launch: GoHTTPRouteHelpers.launch(),
+      createWorkspaceLaunchIntent:
+        GoHTTPRouteHelpers.createWorkspaceLaunchIntent(),
+      getSettaHomeInfo: GoHTTPRouteHelpers.getSettaHomeInfo(),
+      getLauncherRecentWorkspaces:
+        GoHTTPRouteHelpers.getLauncherRecentWorkspaces(),
+      addLauncherRecentWorkspace:
+        GoHTTPRouteHelpers.addLauncherRecentWorkspace(),
+      removeLauncherRecentWorkspace:
+        GoHTTPRouteHelpers.removeLauncherRecentWorkspace(),
+      pinLauncherRecentWorkspace:
+        GoHTTPRouteHelpers.pinLauncherRecentWorkspace(),
+      getLauncherFilesystemRoots:
+        GoHTTPRouteHelpers.getLauncherFilesystemRoots(),
+      listLauncherDirectory: GoHTTPRouteHelpers.listLauncherDirectory(),
+      openLauncherWorkspace: GoHTTPRouteHelpers.openLauncherWorkspace(),
+    });
   });
 
   it("exposes Setta API preset routes from canonical HTTP route helpers", () => {

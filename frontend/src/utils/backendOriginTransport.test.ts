@@ -12,6 +12,7 @@ import {
   buildListenerWebsocketUrl,
   buildTerminalWebsocketUrl,
   getFrontendWebsocketRoute,
+  ROOT_TRANSPORT_ROUTES,
 } from "./backendOriginTransport";
 
 describe("backendOriginTransport", () => {
@@ -37,6 +38,13 @@ describe("backendOriginTransport", () => {
     expect(buildBootstrapPageUrl()).toBe(
       `${C_ADDRESSES.BACKEND_ORIGIN}${GoRootRouteHelpers.bootstrapPage()}`,
     );
+  });
+
+  it("exposes root transport routes from canonical root route helpers", () => {
+    expect(ROOT_TRANSPORT_ROUTES).toEqual({
+      bootstrapPage: GoRootRouteHelpers.bootstrapPage(),
+      toolsCall: GoRootRouteHelpers.toolsCall(),
+    });
   });
 
   it("exposes the canonical frontend websocket route and URL helper", () => {

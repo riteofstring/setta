@@ -1,7 +1,5 @@
-generatedRoutes frontend/src/utils/backendOriginTransport.ts GoRootRouteHelpers
-generatedRoutes frontend/src/utils/backendOriginTransport.ts GoWebsocketRouteHelpers
-generatedRoutes frontend/src/utils/backendTransport.ts GoHTTPRouteHelpers
-generatedRoutes frontend/src/utils/c_addresses.ts GoRoutePrefixHelpers
-generatedRoutes frontend/src/utils/serverModeBoundaryPolicy.ts GoHTTPRouteHelpers
-generatedRoutes frontend/src/utils/serverModeBoundaryPolicy.ts GoRootRouteHelpers
+generatedRoutes frontend/src/utils/transportRouteConstants.ts GoHTTPRouteHelpers
+generatedRoutes frontend/src/utils/transportRouteConstants.ts GoRootRouteHelpers
+generatedRoutes frontend/src/utils/transportRouteConstants.ts GoRoutePrefixHelpers
+generatedRoutes frontend/src/utils/transportRouteConstants.ts GoWebsocketRouteHelpers
 requestTransport frontend/src/components/Section/Layouts/settaApiAction.ts post
