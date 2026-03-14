@@ -701,6 +701,229 @@ func TestAppServesManagedChatSendThroughManagedExecutor(t *testing.T) {
 	}
 }
 
+func TestAppServesManagedChatSendThroughOpenAIThinkingExecutor(t *testing.T) {
+	// The real IDE app should run managed OpenAI thinking chat sends through
+	// the Go-owned Responses executor and persist the streamed thinking block.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	t.Setenv("OPENAI_API_KEY", "secret")
+	t.Cleanup(func() {
+		deadline := time.Now().Add(2 * time.Second)
+		for time.Now().Before(deadline) {
+			_ = os.RemoveAll(cfg.Paths.WorkspaceRoot)
+			if _, err := os.Stat(cfg.Paths.WorkspaceRoot); errors.Is(err, os.ErrNotExist) {
+				return
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+	})
+
+	type providerRequest struct {
+		Path          string
+		Authorization string
+		Body          map[string]any
+	}
+	providerRequests := make(chan providerRequest, 1)
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body := map[string]any{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		providerRequests <- providerRequest{
+			Path:          r.URL.Path,
+			Authorization: r.Header.Get("Authorization"),
+			Body:          body,
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "missing flusher", http.StatusInternalServerError)
+			return
+		}
+		_, _ = io.WriteString(w, "data: {\"type\":\"response.output_item.added\",\"sequence_number\":1,\"output_index\":0,\"item\":{\"type\":\"reasoning\",\"id\":\"reasoning-1\",\"summary\":[],\"content\":[],\"status\":\"in_progress\"}}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "data: {\"type\":\"response.reasoning_summary_text.delta\",\"sequence_number\":2,\"item_id\":\"reasoning-1\",\"output_index\":0,\"summary_index\":0,\"delta\":\"Plan summary\"}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "data: {\"type\":\"response.reasoning_text.delta\",\"sequence_number\":3,\"item_id\":\"reasoning-1\",\"output_index\":0,\"content_index\":0,\"delta\":\"Planning deeply\"}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "data: {\"type\":\"response.output_text.delta\",\"sequence_number\":4,\"item_id\":\"message-1\",\"output_index\":1,\"content_index\":0,\"delta\":\"Final answer\",\"logprobs\":[]}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "data: {\"type\":\"response.completed\",\"sequence_number\":99,\"response\":{\"id\":\"response-1\",\"object\":\"response\",\"created_at\":1741567200,\"status\":\"completed\",\"model\":\"gpt-5-codex\",\"output\":[{\"type\":\"reasoning\",\"id\":\"reasoning-1\",\"summary\":[{\"text\":\"Plan summary\"}],\"content\":[{\"type\":\"reasoning_text\",\"text\":\"Planning deeply\"}],\"status\":\"completed\"},{\"type\":\"message\",\"id\":\"message-1\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"Final answer\",\"annotations\":[]}]}],\"usage\":{\"input_tokens\":8,\"input_tokens_details\":{\"cached_tokens\":0},\"output_tokens\":3,\"output_tokens_details\":{\"reasoning_tokens\":2},\"total_tokens\":11}}}\n\n")
+		flusher.Flush()
+	}))
+	defer provider.Close()
+
+	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"primary": {
+				ID:       "primary",
+				Model:    "gpt-5-codex",
+				Provider: "openai",
+				BaseURL:  provider.URL + "/v1",
+				OtherParams: map[string]any{
+					"reasoning_effort": "high",
+				},
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	}); err != nil {
+		t.Fatalf("save llm config: %v", err)
+	}
+
+	engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("new engine store: %v", err)
+	}
+	managedConfigID := "primary"
+	if err := engineStore.Write([]agentruns.EngineConfig{
+		{
+			ID:               "engine-managed",
+			Name:             "Managed OpenAI Thinking Engine",
+			EngineType:       agentruns.EngineTypeSettaLLM,
+			SettaLLMConfigID: &managedConfigID,
+		},
+	}); err != nil {
+		t.Fatalf("write engine config: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:   "project-alpha",
+			Name: "Alpha",
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed app project: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteGetLLMResponse,
+		strings.NewReader(`{
+			"chatId":null,
+			"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Create a managed OpenAI thinking project."}]},
+			"engineConfigId":"engine-managed",
+			"agentProfileId":null,
+			"thinking":true,
+			"projectConfigId":"project-alpha",
+			"sectionId":null,
+			"allowUnscoped":true,
+			"permissionMode":"minimal",
+			"searchEnabled":false
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("new OpenAI thinking send request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("send OpenAI thinking managed chat: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var chatID string
+	if err := json.NewDecoder(response.Body).Decode(&chatID); err != nil {
+		t.Fatalf("decode OpenAI thinking chat id: %v", err)
+	}
+	if strings.TrimSpace(chatID) == "" {
+		t.Fatal("expected managed OpenAI thinking chat id")
+	}
+
+	type hydratePayload struct {
+		Messages           []map[string]any `json:"messages"`
+		WaitingForResponse bool             `json:"waitingForResponse"`
+	}
+	var hydrated hydratePayload
+	waitForAppCondition(t, 5*time.Second, func() bool {
+		hydrateRequest, err := http.NewRequest(
+			http.MethodPost,
+			server.URL+"/api"+httpapi.RouteGetLLMChat,
+			strings.NewReader(`{"chatId":"`+chatID+`","projectConfigId":"project-alpha"}`),
+		)
+		if err != nil {
+			t.Fatalf("new hydrate request: %v", err)
+		}
+		hydrateRequest.Header.Set("Content-Type", "application/json")
+		hydrateRequest.AddCookie(authCookie)
+
+		hydrateResponse, err := http.DefaultClient.Do(hydrateRequest)
+		if err != nil {
+			t.Fatalf("hydrate managed OpenAI thinking chat: %v", err)
+		}
+		defer hydrateResponse.Body.Close()
+		if hydrateResponse.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(hydrateResponse.Body)
+			t.Fatalf("expected hydrate 200, got %d with body %q", hydrateResponse.StatusCode, string(body))
+		}
+		if err := json.NewDecoder(hydrateResponse.Body).Decode(&hydrated); err != nil {
+			t.Fatalf("decode hydrate payload: %v", err)
+		}
+		return !hydrated.WaitingForResponse && len(hydrated.Messages) == 2
+	})
+
+	assistantContent, ok := hydrated.Messages[1]["content"].([]any)
+	if !ok || len(assistantContent) != 2 {
+		t.Fatalf("expected thinking plus text content, got %#v", hydrated.Messages[1])
+	}
+	thinkingBlock, ok := assistantContent[0].(map[string]any)
+	if !ok || thinkingBlock["type"] != "thinking" {
+		t.Fatalf("expected thinking block, got %#v", assistantContent[0])
+	}
+	if thinkingBlock["summary"] != "Plan summary" || thinkingBlock["thinking"] != "Planning deeply" {
+		t.Fatalf("unexpected OpenAI thinking block %#v", thinkingBlock)
+	}
+	if appTestMessageText(hydrated.Messages[1]) != "Final answer" {
+		t.Fatalf("unexpected assistant reply %#v", hydrated.Messages[1])
+	}
+
+	select {
+	case captured := <-providerRequests:
+		if captured.Path != "/v1/responses" {
+			t.Fatalf("unexpected provider path %q", captured.Path)
+		}
+		if captured.Authorization != "Bearer secret" {
+			t.Fatalf("unexpected provider authorization %q", captured.Authorization)
+		}
+		if captured.Body["model"] != "gpt-5-codex" {
+			t.Fatalf("unexpected provider model %#v", captured.Body["model"])
+		}
+		if captured.Body["store"] != false {
+			t.Fatalf("unexpected provider store %#v", captured.Body["store"])
+		}
+		reasoning, ok := captured.Body["reasoning"].(map[string]any)
+		if !ok || reasoning["effort"] != "high" || reasoning["summary"] != "auto" {
+			t.Fatalf("unexpected provider reasoning payload %#v", captured.Body["reasoning"])
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for OpenAI thinking provider request")
+	}
+}
+
 func TestAppServesManagedChatSendWithAttachmentsThroughManagedExecutor(t *testing.T) {
 	// Attachment-bearing managed chat sends should flow through the real IDE
 	// app, preserve user attachment metadata in hydrated history, and inline
