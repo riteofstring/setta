@@ -84,17 +84,18 @@
   - file-mode transcription uploads now use `openai-go`
   - bounded adapter keeps Setta-owned auth/base-URL/config semantics intact
 - `internal/transcriptionsessions/realtime_engine.go`
-  - current realtime transcription path still owns the WebSocket/session
-    protocol because the pinned SDK exposes typed session request models but
-    not a websocket runtime/event client for this surface
+  - current realtime transcription path now uses the SDK's realtime
+    transcription session/audio config models and the current `session.update`
+    request shape
+  - the websocket transport and event loop remain repo-owned because the
+    pinned SDK still does not expose a realtime websocket runtime/event client
+    for this surface
 
 ## Gotchas
 
-- remaining repo behavior is still shaped around older hand-rolled transport
-  and event parsing in the realtime transcription surface, so migration is not
-  a drop-in import swap
-- the pinned SDK currently helps with realtime request typing, but it does not
-  replace the transport/event loop for websocket transcription sessions
+- the remaining bespoke part of realtime transcription is the websocket
+  transport/event loop and event parsing; the SDK now covers the session/audio
+  request typing but still does not replace the runtime client surface
 - the rewrite must preserve current Setta event contracts even if the SDK
   prefers different request/response shapes upstream
 - managed chat now splits the OpenAI path on purpose: standard turns stay on

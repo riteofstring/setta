@@ -64,14 +64,21 @@ func TestServiceStartAppendStopStreamsRealtimeTranscription(t *testing.T) {
 		}
 		commits <- commitPayload
 
-		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.completed","item_id":"item-1","transcript":"hello"}`)); err != nil {
+		// Realtime transcribe models stream additive delta events before the final item completion.
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.delta","event_id":"evt-1","item_id":"item-1","delta":"hel"}`)); err != nil {
 			return
 		}
-		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.completed","item_id":"item-1","transcript":"hello"}`)); err != nil {
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.delta","event_id":"evt-2","item_id":"item-1","delta":"lo"}`)); err != nil {
+			return
+		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.delta","event_id":"evt-2","item_id":"item-1","delta":"lo"}`)); err != nil {
+			return
+		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.completed","event_id":"evt-3","item_id":"item-1","transcript":"hello"}`)); err != nil {
 			return
 		}
 		<-emitFinal
-		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.completed","item_id":"item-2","transcript":"world"}`)); err != nil {
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.completed","event_id":"evt-4","item_id":"item-2","transcript":"world"}`)); err != nil {
 			return
 		}
 		_, _, err = conn.Read(context.Background())
@@ -135,22 +142,34 @@ func TestServiceStartAppendStopStreamsRealtimeTranscription(t *testing.T) {
 
 	select {
 	case payload := <-updates:
-		if payload["type"] != "transcription_session.update" {
+		if payload["type"] != "session.update" {
 			t.Fatalf("unexpected session update payload %#v", payload)
 		}
 		sessionPayload, ok := payload["session"].(map[string]any)
 		if !ok {
 			t.Fatalf("expected session payload, got %#v", payload)
 		}
-		if sessionPayload["input_audio_format"] != "pcm16" {
-			t.Fatalf("unexpected input_audio_format %#v", sessionPayload)
-		}
-		transcriptionPayload, ok := sessionPayload["input_audio_transcription"].(map[string]any)
+		audioPayload, ok := sessionPayload["audio"].(map[string]any)
 		if !ok {
-			t.Fatalf("expected input_audio_transcription payload, got %#v", sessionPayload)
+			t.Fatalf("expected audio payload, got %#v", sessionPayload)
+		}
+		inputPayload, ok := audioPayload["input"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected audio input payload, got %#v", audioPayload)
+		}
+		formatPayload, ok := inputPayload["format"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected audio input format payload, got %#v", inputPayload)
+		}
+		if formatPayload["type"] != "audio/pcm" || formatPayload["rate"] != float64(24000) {
+			t.Fatalf("unexpected audio input format %#v", formatPayload)
+		}
+		transcriptionPayload, ok := inputPayload["transcription"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected transcription payload, got %#v", inputPayload)
 		}
 		if transcriptionPayload["model"] != "gpt-4o-mini-transcribe" || transcriptionPayload["language"] != "en" {
-			t.Fatalf("unexpected input_audio_transcription %#v", transcriptionPayload)
+			t.Fatalf("unexpected transcription payload %#v", transcriptionPayload)
 		}
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for session update")
@@ -215,6 +234,47 @@ func TestServiceStartAppendStopStreamsRealtimeTranscription(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for realtime close")
+	}
+}
+
+func TestRealtimeEngineWhisperDeltaSnapshotsReplaceItemTranscript(t *testing.T) {
+	t.Parallel()
+
+	engine := &realtimeEngine{
+		deltaMode:         openAIRealtimeDeltaModeSnapshot,
+		itemTexts:         map[string]string{},
+		processedEventIDs: map[string]struct{}{},
+	}
+
+	// Whisper-style realtime deltas are full-item snapshots, so each delta replaces the prior item text.
+	firstAppendText, err := engine.handleEvent(
+		[]byte(`{"type":"conversation.item.input_audio_transcription.delta","event_id":"evt-1","item_id":"item-1","delta":"hello"}`),
+	)
+	if err != nil {
+		t.Fatalf("handle first whisper delta: %v", err)
+	}
+	if firstAppendText != "hello" || engine.fullText != "hello" {
+		t.Fatalf("unexpected first whisper delta result append=%q full=%q", firstAppendText, engine.fullText)
+	}
+
+	secondAppendText, err := engine.handleEvent(
+		[]byte(`{"type":"conversation.item.input_audio_transcription.delta","event_id":"evt-2","item_id":"item-1","delta":"hello there"}`),
+	)
+	if err != nil {
+		t.Fatalf("handle second whisper delta: %v", err)
+	}
+	if secondAppendText != " there" || engine.fullText != "hello there" {
+		t.Fatalf("unexpected second whisper delta result append=%q full=%q", secondAppendText, engine.fullText)
+	}
+
+	finalAppendText, err := engine.handleEvent(
+		[]byte(`{"type":"conversation.item.input_audio_transcription.completed","event_id":"evt-3","item_id":"item-1","transcript":"hello there"}`),
+	)
+	if err != nil {
+		t.Fatalf("handle whisper completed event: %v", err)
+	}
+	if finalAppendText != "" || engine.fullText != "hello there" {
+		t.Fatalf("unexpected whisper completion result append=%q full=%q", finalAppendText, engine.fullText)
 	}
 }
 

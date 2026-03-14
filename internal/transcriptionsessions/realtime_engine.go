@@ -12,6 +12,9 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	openai "github.com/openai/openai-go/v3"
+	openairealtime "github.com/openai/openai-go/v3/realtime"
+	openaiconstant "github.com/openai/openai-go/v3/shared/constant"
 
 	"setta/internal/llmconfig"
 )
@@ -22,6 +25,7 @@ const (
 	openAIRealtimeAppendDrainTimeout    = 450 * time.Millisecond
 	openAIRealtimeStopDrainTimeout      = 1200 * time.Millisecond
 	defaultRealtimeProviderErrorMessage = "Realtime transcription failed."
+	openAIRealtimeTranscribeLatestModel = "gpt-4o-transcribe-latest"
 )
 
 type realtimeEngineOptions struct {
@@ -35,10 +39,13 @@ type realtimeEngine struct {
 	conn   *websocket.Conn
 	events chan realtimeReadResult
 
-	mu               sync.Mutex
-	closed           bool
-	fullText         string
-	completedItemIDs map[string]struct{}
+	mu                sync.Mutex
+	closed            bool
+	fullText          string
+	deltaMode         openAIRealtimeDeltaMode
+	itemOrder         []string
+	itemTexts         map[string]string
+	processedEventIDs map[string]struct{}
 }
 
 type realtimeReadResult struct {
@@ -46,19 +53,21 @@ type realtimeReadResult struct {
 	err     error
 }
 
+type openAIRealtimeDeltaMode int
+
+const (
+	openAIRealtimeDeltaModeDisabled openAIRealtimeDeltaMode = iota
+	openAIRealtimeDeltaModeIncremental
+	openAIRealtimeDeltaModeSnapshot
+)
+
 type openAIRealtimeSessionUpdate struct {
 	Type    string                              `json:"type"`
 	Session openAIRealtimeSessionUpdateSettings `json:"session"`
 }
 
 type openAIRealtimeSessionUpdateSettings struct {
-	InputAudioFormat        string                                     `json:"input_audio_format"`
-	InputAudioTranscription openAIRealtimeInputAudioTranscriptionState `json:"input_audio_transcription"`
-}
-
-type openAIRealtimeInputAudioTranscriptionState struct {
-	Model    string `json:"model"`
-	Language string `json:"language,omitempty"`
+	Audio openairealtime.RealtimeTranscriptionSessionAudioParam `json:"audio,omitzero"`
 }
 
 type openAIRealtimeAppendMessage struct {
@@ -72,7 +81,9 @@ type openAIRealtimeCommitMessage struct {
 
 type openAIRealtimeEvent struct {
 	Type       string                    `json:"type"`
+	EventID    string                    `json:"event_id,omitempty"`
 	ItemID     string                    `json:"item_id,omitempty"`
+	Delta      string                    `json:"delta,omitempty"`
 	Transcript string                    `json:"transcript,omitempty"`
 	Error      *openAIRealtimeErrorValue `json:"error,omitempty"`
 }
@@ -127,21 +138,14 @@ func newRealtimeEngine(ctx context.Context, opts realtimeEngineOptions) (*realti
 	}
 
 	engine := &realtimeEngine{
-		conn:             conn,
-		events:           make(chan realtimeReadResult, 32),
-		completedItemIDs: map[string]struct{}{},
+		conn:              conn,
+		events:            make(chan realtimeReadResult, 32),
+		deltaMode:         resolveOpenAIRealtimeDeltaMode(model),
+		itemTexts:         map[string]string{},
+		processedEventIDs: map[string]struct{}{},
 	}
 	go engine.readLoop()
-	if err := engine.writeMessage(ctx, openAIRealtimeSessionUpdate{
-		Type: "transcription_session.update",
-		Session: openAIRealtimeSessionUpdateSettings{
-			InputAudioFormat: "pcm16",
-			InputAudioTranscription: openAIRealtimeInputAudioTranscriptionState{
-				Model:    model,
-				Language: derefTrimmedString(opts.Language),
-			},
-		},
-	}); err != nil {
+	if err := engine.writeMessage(ctx, buildOpenAIRealtimeSessionUpdate(model, opts.Language)); err != nil {
 		_ = engine.Close()
 		return nil, err
 	}
@@ -166,13 +170,13 @@ func (e *realtimeEngine) AppendAudio(ctx context.Context, audioPCM16 []byte, sam
 	defer e.mu.Unlock()
 
 	if err := e.writeMessage(ctx, openAIRealtimeAppendMessage{
-		Type:  "input_audio_buffer.append",
+		Type:  string(openaiconstant.ValueOf[openaiconstant.InputAudioBufferAppend]()),
 		Audio: base64.StdEncoding.EncodeToString(audioPCM16),
 	}); err != nil {
 		return Delta{}, err
 	}
 	if err := e.writeMessage(ctx, openAIRealtimeCommitMessage{
-		Type: "input_audio_buffer.commit",
+		Type: string(openaiconstant.ValueOf[openaiconstant.InputAudioBufferCommit]()),
 	}); err != nil {
 		return Delta{}, err
 	}
@@ -290,19 +294,18 @@ func (e *realtimeEngine) handleEvent(payload []byte) (string, error) {
 	if err := json.Unmarshal(payload, &event); err != nil {
 		return "", newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
 	}
+	if e.isDuplicateEvent(event.EventID) {
+		return "", nil
+	}
 	switch event.Type {
-	case "conversation.item.input_audio_transcription.completed":
-		itemID := strings.TrimSpace(event.ItemID)
-		if itemID != "" {
-			if _, ok := e.completedItemIDs[itemID]; ok {
-				return "", nil
-			}
-			e.completedItemIDs[itemID] = struct{}{}
+	case string(openaiconstant.ValueOf[openaiconstant.ConversationItemInputAudioTranscriptionDelta]()):
+		if e.deltaMode == openAIRealtimeDeltaModeDisabled {
+			return "", nil
 		}
-		appendText, fullText := appendTranscriptSegment(e.fullText, event.Transcript)
-		e.fullText = fullText
-		return appendText, nil
-	case "conversation.item.input_audio_transcription.failed", "error":
+		return e.applyTranscriptUpdate(event.ItemID, event.Delta, e.deltaMode), nil
+	case string(openaiconstant.ValueOf[openaiconstant.ConversationItemInputAudioTranscriptionCompleted]()):
+		return e.applyTranscriptUpdate(event.ItemID, event.Transcript, openAIRealtimeDeltaModeSnapshot), nil
+	case string(openaiconstant.ValueOf[openaiconstant.ConversationItemInputAudioTranscriptionFailed]()), string(openaiconstant.ValueOf[openaiconstant.Error]()):
 		message := defaultRealtimeProviderErrorMessage
 		if event.Error != nil && strings.TrimSpace(event.Error.Message) != "" {
 			message = strings.TrimSpace(event.Error.Message)
@@ -371,4 +374,127 @@ func derefTrimmedString(value *string) string {
 		return ""
 	}
 	return strings.TrimSpace(*value)
+}
+
+func buildOpenAIRealtimeSessionUpdate(model string, language *string) openAIRealtimeSessionUpdate {
+	session := openAIRealtimeSessionUpdate{
+		Type: string(openaiconstant.ValueOf[openaiconstant.SessionUpdate]()),
+		Session: openAIRealtimeSessionUpdateSettings{
+			Audio: openairealtime.RealtimeTranscriptionSessionAudioParam{
+				Input: openairealtime.RealtimeTranscriptionSessionAudioInputParam{
+					Format: openairealtime.RealtimeAudioFormatsUnionParam{
+						OfAudioPCM: &openairealtime.RealtimeAudioFormatsAudioPCMParam{
+							Type: "audio/pcm",
+							Rate: openAIRealtimeSampleRateHz,
+						},
+					},
+					Transcription: openairealtime.AudioTranscriptionParam{
+						Model: openairealtime.AudioTranscriptionModel(strings.TrimSpace(model)),
+					},
+				},
+			},
+		},
+	}
+	trimmedLanguage := derefTrimmedString(language)
+	if trimmedLanguage != "" {
+		session.Session.Audio.Input.Transcription.Language = openai.String(trimmedLanguage)
+	}
+	return session
+}
+
+func resolveOpenAIRealtimeDeltaMode(model string) openAIRealtimeDeltaMode {
+	switch strings.TrimSpace(model) {
+	case string(openairealtime.AudioTranscriptionModelWhisper1):
+		return openAIRealtimeDeltaModeSnapshot
+	case string(openairealtime.AudioTranscriptionModelGPT4oTranscribe),
+		string(openairealtime.AudioTranscriptionModelGPT4oMiniTranscribe),
+		string(openairealtime.AudioTranscriptionModelGPT4oMiniTranscribe2025_12_15),
+		openAIRealtimeTranscribeLatestModel:
+		return openAIRealtimeDeltaModeIncremental
+	default:
+		return openAIRealtimeDeltaModeDisabled
+	}
+}
+
+func (e *realtimeEngine) isDuplicateEvent(eventID string) bool {
+	trimmedEventID := strings.TrimSpace(eventID)
+	if trimmedEventID == "" {
+		return false
+	}
+	if e.processedEventIDs == nil {
+		e.processedEventIDs = map[string]struct{}{}
+	}
+	if _, ok := e.processedEventIDs[trimmedEventID]; ok {
+		return true
+	}
+	e.processedEventIDs[trimmedEventID] = struct{}{}
+	return false
+}
+
+func (e *realtimeEngine) applyTranscriptUpdate(itemID, rawText string, mode openAIRealtimeDeltaMode) string {
+	if mode == openAIRealtimeDeltaModeDisabled {
+		return ""
+	}
+	trimmedItemID := strings.TrimSpace(itemID)
+	if trimmedItemID == "" {
+		appendText, fullText := appendTranscriptSegment(e.fullText, rawText)
+		e.fullText = fullText
+		return appendText
+	}
+	if e.itemTexts == nil {
+		e.itemTexts = map[string]string{}
+	}
+
+	previousFullText := e.fullText
+	existingItemText, hasExistingItem := e.itemTexts[trimmedItemID]
+	nextItemText := mergeOpenAIRealtimeItemText(existingItemText, rawText, mode)
+	if nextItemText == existingItemText {
+		return ""
+	}
+	if !hasExistingItem {
+		e.itemOrder = append(e.itemOrder, trimmedItemID)
+	}
+	e.itemTexts[trimmedItemID] = nextItemText
+	e.fullText = rebuildOpenAIRealtimeFullText(e.itemOrder, e.itemTexts)
+	return appendOpenAIRealtimeTranscriptDelta(previousFullText, e.fullText)
+}
+
+func mergeOpenAIRealtimeItemText(existingText, rawText string, mode openAIRealtimeDeltaMode) string {
+	if rawText == "" {
+		return existingText
+	}
+	switch mode {
+	case openAIRealtimeDeltaModeSnapshot:
+		segment := strings.TrimSpace(rawText)
+		if segment == "" {
+			return existingText
+		}
+		return segment
+	case openAIRealtimeDeltaModeIncremental:
+		if existingText == "" {
+			return strings.TrimSpace(rawText)
+		}
+		return existingText + rawText
+	default:
+		return existingText
+	}
+}
+
+func rebuildOpenAIRealtimeFullText(itemOrder []string, itemTexts map[string]string) string {
+	fullText := ""
+	for _, itemID := range itemOrder {
+		itemText, ok := itemTexts[itemID]
+		if !ok {
+			continue
+		}
+		_, fullText = appendTranscriptSegment(fullText, itemText)
+	}
+	return fullText
+}
+
+func appendOpenAIRealtimeTranscriptDelta(previousFullText, nextFullText string) string {
+	if strings.HasPrefix(nextFullText, previousFullText) {
+		return nextFullText[len(previousFullText):]
+	}
+	return ""
 }
