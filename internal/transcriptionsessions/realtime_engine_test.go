@@ -1350,6 +1350,52 @@ func TestServiceAutoProfilesDoNotFallbackToFileWhenRealtimeSetupFails(t *testing
 	}
 }
 
+func TestServiceAutoProfilesSurfacePlainTextRealtimeSetupFailure(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte("Realtime setup forbidden by provider."))
+	}))
+	defer server.Close()
+
+	runtime := newTranscriptionSessionRuntime(t, map[string]llmconfig.Config{
+		"openai-realtime": {
+			ID:        "openai-realtime",
+			Model:     "gpt-4o-mini-transcribe",
+			Provider:  "openai",
+			BaseURL:   server.URL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+	}, map[string]string{
+		"OPENAI_API_KEY": "secret-key",
+	})
+	service, err := NewService(ServiceOptions{
+		LLM:        runtime,
+		HTTPClient: server.Client(),
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	resolved := resolvedProfile("profile-auto", transcriptionprofiles.TransportModeAuto, runtime, "openai-realtime")
+	resolved.Profile.SupportsRealtimeTranscription = true
+	_, err = service.StartSession(context.Background(), StartRequest{
+		ScopeID:         "scope-1",
+		ResolvedProfile: resolved,
+	})
+	if !errors.Is(err, ErrProviderFailure) {
+		t.Fatalf("expected provider failure, got %v", err)
+	}
+	if err.Error() != "Realtime setup forbidden by provider." {
+		t.Fatalf("unexpected provider failure message %q", err.Error())
+	}
+	if len(service.sessions) != 0 {
+		t.Fatalf("expected no fallback session after realtime setup failure, got %d sessions", len(service.sessions))
+	}
+}
+
 func TestServiceStartSessionFailsWhenRealtimeProviderRejectsSessionUpdate(t *testing.T) {
 	t.Parallel()
 

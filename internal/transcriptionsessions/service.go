@@ -688,18 +688,21 @@ func readProviderErrorMessage(body io.Reader) string {
 		return defaultProviderErrorMessage
 	}
 	payload := map[string]any{}
-	if err := json.Unmarshal(content, &payload); err != nil {
-		return defaultProviderErrorMessage
-	}
-	if errorPayload, ok := payload["error"].(map[string]any); ok {
-		message, _ := errorPayload["message"].(string)
+	if err := json.Unmarshal(content, &payload); err == nil {
+		if errorPayload, ok := payload["error"].(map[string]any); ok {
+			message, _ := errorPayload["message"].(string)
+			if strings.TrimSpace(message) != "" {
+				return strings.TrimSpace(message)
+			}
+		}
+		message, _ := payload["message"].(string)
 		if strings.TrimSpace(message) != "" {
 			return strings.TrimSpace(message)
 		}
 	}
-	message, _ := payload["message"].(string)
-	if strings.TrimSpace(message) != "" {
-		return strings.TrimSpace(message)
+	trimmedContent := strings.TrimSpace(string(content))
+	if trimmedContent != "" {
+		return trimmedContent
 	}
 	return defaultProviderErrorMessage
 }
