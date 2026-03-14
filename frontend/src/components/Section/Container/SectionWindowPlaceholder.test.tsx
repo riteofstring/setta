@@ -31,6 +31,18 @@ vi.mock("state/hooks/share", () => ({
   }),
 }));
 
+vi.mock("components/Utils/FloatingBox", () => ({
+  getFloatingBoxHandlers: ({
+    content,
+    title,
+  }: {
+    content?: string;
+    title?: string;
+  }) => ({
+    "data-tooltip-content": content ?? title ?? "",
+  }),
+}));
+
 describe("SectionWindowPlaceholder", () => {
   beforeEach(() => {
     mockCanEditLayout = true;
@@ -48,6 +60,12 @@ describe("SectionWindowPlaceholder", () => {
     expect(markup).toContain(
       "Focus the external window or return this section to the canvas.",
     );
+    expect(markup).toContain(
+      'data-tooltip-content="Focus Research Notes window"',
+    );
+    expect(markup).toContain(
+      'data-tooltip-content="Show Research Notes in canvas"',
+    );
   });
 
   it("keeps only the focus action when layout edits are disallowed", () => {
@@ -62,5 +80,8 @@ describe("SectionWindowPlaceholder", () => {
       'data-testid="section-window-placeholder-restore"',
     );
     expect(markup).toContain("Focus the external window from here.");
+    expect(markup).toContain(
+      'data-tooltip-content="Focus Research Notes window"',
+    );
   });
 });

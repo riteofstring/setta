@@ -916,4 +916,68 @@ describe("ProjectChat multi-surface state ownership", () => {
 
     expect(reboundEngineSelect.value).toBe("engine-a");
   });
+
+  it("steps to the next conversation match when the filter input receives Enter", async () => {
+    useAIStore.setState((state) => ({
+      chatDetails: {
+        ...state.chatDetails,
+        "chat-a": {
+          messages: [
+            createUserMessage("queue alpha"),
+            createChatMessage("reply with no match"),
+            createAssistantChatMessage({
+              content: [createMessageTextContent({ text: "queue beta" })],
+              attachments: [],
+            }),
+          ],
+          toolCallArguments: {},
+          waitingForResponse: false,
+          llmConfig: null,
+          contextUsage: null,
+        },
+      },
+    }));
+
+    await act(async () => {
+      root.render(<Harness />);
+    });
+
+    const surfaceA = host.querySelector('[data-testid="surface-a"]');
+    if (!surfaceA) {
+      throw new Error("Expected the first project chat surface.");
+    }
+
+    const filterInput = surfaceA.querySelector(
+      '[data-testid="project-chat-conversation-filter-input"]',
+    ) as HTMLInputElement | null;
+    if (!filterInput) {
+      throw new Error("Expected the conversation filter input.");
+    }
+
+    const inputValueSetter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    if (!inputValueSetter) {
+      throw new Error("Expected the input value setter.");
+    }
+
+    await act(async () => {
+      inputValueSetter.call(filterInput, "queue");
+      filterInput.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    const filterContainer = surfaceA.querySelector(
+      '[data-testid="project-chat-conversation-filter"]',
+    );
+    expect(filterContainer?.textContent ?? "").toContain("1/2");
+
+    await act(async () => {
+      filterInput.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+      );
+    });
+
+    expect(filterContainer?.textContent ?? "").toContain("2/2");
+  });
 });

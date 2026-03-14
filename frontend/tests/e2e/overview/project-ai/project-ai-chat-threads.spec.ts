@@ -41,12 +41,48 @@ async function seedAIStorePersistence(
   }, patch);
 }
 
+async function seedProjectAIChatOverviewState(
+  page: Page,
+  {
+    width,
+    viewThreads,
+    aiPatch,
+  }: {
+    width: number;
+    viewThreads?: boolean;
+    aiPatch?: Record<string, unknown>;
+  },
+): Promise<void> {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: width,
+    overviewTrueWidth: width,
+  });
+  if (viewThreads === undefined && aiPatch === undefined) {
+    return;
+  }
+  await seedAIStorePersistence(page, {
+    ...(viewThreads === undefined
+      ? {}
+      : {
+          viewThreads,
+          projectChatThreadsExplicitlyClosedAtLargeWidth: false,
+        }),
+    ...(aiPatch ?? {}),
+  });
+}
+
 async function maximizeProjectChatWindow(page: Page): Promise<void> {
-  const maximizedWindow = page.getByTestId("project-chat-maximized-window").first();
+  const maximizedWindow = page
+    .getByTestId("project-chat-maximized-window")
+    .first();
   if (await maximizedWindow.isVisible()) {
     return;
   }
-  const maximizeButton = page.getByTestId("project-chat-window-maximize").first();
+  const maximizeButton = page
+    .getByTestId("project-chat-window-maximize")
+    .first();
   await expect(maximizeButton).toBeVisible();
   await clickDom(maximizeButton);
   await expect(maximizedWindow).toBeVisible();
@@ -58,16 +94,13 @@ async function clickDom(locator: Locator): Promise<void> {
     element.click();
   });
 }
-
 test("project ai thread spinner clears when latest run in a chat is completed", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1360, height: 920 });
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-    overviewWidth: 1040,
-    overviewTrueWidth: 1040,
+  await seedProjectAIChatOverviewState(page, {
+    width: 1040,
+    viewThreads: true,
   });
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
@@ -152,11 +185,9 @@ test("project ai shows styled empty state when no threads exist", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1360, height: 920 });
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-    overviewWidth: 1040,
-    overviewTrueWidth: 1040,
+  await seedProjectAIChatOverviewState(page, {
+    width: 1040,
+    viewThreads: true,
   });
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
@@ -185,7 +216,11 @@ test("project ai shows styled empty state when no threads exist", async ({
     );
     await expect(startNewThreadButton).toBeVisible();
     await startNewThreadButton.click();
-    await expect((await getVisibleProjectChatSurface(page)).getByPlaceholder("Type a message...")).toBeVisible();
+    await expect(
+      (await getVisibleProjectChatSurface(page)).getByPlaceholder(
+        "Type a message...",
+      ),
+    ).toBeVisible();
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -195,11 +230,9 @@ test("project ai thread spinner clears after polling observes run completion", a
   page,
 }) => {
   await page.setViewportSize({ width: 1360, height: 920 });
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-    overviewWidth: 1040,
-    overviewTrueWidth: 1040,
+  await seedProjectAIChatOverviewState(page, {
+    width: 1040,
+    viewThreads: true,
   });
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
@@ -299,27 +332,25 @@ test("project ai selected thread spinner follows live chat state before agent-ru
   page,
 }) => {
   await page.setViewportSize({ width: 1360, height: 920 });
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-    overviewWidth: 1040,
-    overviewTrueWidth: 1040,
-  });
-  await seedAIStorePersistence(page, {
-    activeChatId: "pw-thread-live-state-chat",
-    chatDetails: {
-      "pw-thread-live-state-chat": {
-        messages: [
-          {
-            id: "assistant-live-state",
-            role: "assistant",
-            content: [{ type: "text", text: "Done responding." }],
-          },
-        ],
-        waitingForResponse: false,
-        llmConfig: null,
-        toolCallArguments: {},
-        contextUsage: null,
+  await seedProjectAIChatOverviewState(page, {
+    width: 1040,
+    viewThreads: true,
+    aiPatch: {
+      activeChatId: "pw-thread-live-state-chat",
+      chatDetails: {
+        "pw-thread-live-state-chat": {
+          messages: [
+            {
+              id: "assistant-live-state",
+              role: "assistant",
+              content: [{ type: "text", text: "Done responding." }],
+            },
+          ],
+          waitingForResponse: false,
+          llmConfig: null,
+          toolCallArguments: {},
+          contextUsage: null,
+        },
       },
     },
   });
@@ -419,11 +450,9 @@ test("project ai threads render folder groups and keep pinned scopes separate", 
   const backendGroupName =
     "Backend group with a long name for hover truncation checks";
   await page.setViewportSize({ width: 1480, height: 920 });
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-    overviewWidth: 1100,
-    overviewTrueWidth: 1100,
+  await seedProjectAIChatOverviewState(page, {
+    width: 1100,
+    viewThreads: true,
   });
 
   await ensureAppReady(page);
@@ -850,11 +879,9 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
 }) => {
   test.setTimeout(180000);
   await page.setViewportSize({ width: 1480, height: 920 });
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-    overviewWidth: 1100,
-    overviewTrueWidth: 1100,
+  await seedProjectAIChatOverviewState(page, {
+    width: 1100,
+    viewThreads: true,
   });
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
@@ -971,9 +998,19 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
       body: JSON.stringify({
         messages: [
           {
+            id: "user-existing",
+            role: "user",
+            content: [{ type: "text", text: "Queue kickoff request" }],
+          },
+          {
             id: "assistant-existing",
             role: "assistant",
             content: [{ type: "text", text: "Existing queue thread reply" }],
+          },
+          {
+            id: "assistant-existing-follow-up",
+            role: "assistant",
+            content: [{ type: "text", text: "Queue follow up summary" }],
           },
         ],
         waitingForResponse: false,
@@ -989,9 +1026,19 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
       body: JSON.stringify({
         messages: [
           {
+            id: "user-existing",
+            role: "user",
+            content: [{ type: "text", text: "Queue kickoff request" }],
+          },
+          {
             id: "assistant-existing",
             role: "assistant",
             content: [{ type: "text", text: "Existing queue thread reply" }],
+          },
+          {
+            id: "assistant-existing-follow-up",
+            role: "assistant",
+            content: [{ type: "text", text: "Queue follow up summary" }],
           },
         ],
         waitingForResponse: false,
@@ -1017,7 +1064,7 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
       .toBeGreaterThanOrEqual(3);
     await expect(
       threadsPanel.getByTestId("project-chat-thread-working-indicator").first(),
-    ).toHaveClass(/gg-spinner/);
+    ).toHaveAttribute("data-unicode-spinner", "braille");
     await expect(
       threadsPanel.getByTestId("project-chat-thread-entry"),
     ).toHaveCount(3);
@@ -1095,7 +1142,7 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
       threadsPanel.getByTestId("project-chat-thread-unpinned-section-label"),
     ).toBeVisible();
 
-  await clickDom(overviewPane.getByRole("button", { name: "New Group" }));
+    await clickDom(overviewPane.getByRole("button", { name: "New Group" }));
     let groupNameInput = threadsPanel.getByTestId(
       "project-chat-thread-group-name-input",
     );
@@ -1107,7 +1154,7 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
       .filter({ hasText: "Backend" });
     await expect(backendGroupRow).toBeVisible();
 
-  await clickDom(overviewPane.getByRole("button", { name: "New Group" }));
+    await clickDom(overviewPane.getByRole("button", { name: "New Group" }));
     groupNameInput = threadsPanel.getByTestId(
       "project-chat-thread-group-name-input",
     );
@@ -1173,6 +1220,26 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
     await expect(
       overviewPane.getByText("Existing queue thread reply"),
     ).toBeVisible();
+    await expect(
+      overviewPane.getByTestId("project-chat-conversation-filter"),
+    ).toContainText("1/3");
+    const activeSearchMatch = overviewPane.locator(
+      '[data-chat-search-active-match="true"]',
+    );
+    await expect(activeSearchMatch).toContainText("Queue kickoff request");
+    await expect(
+      activeSearchMatch.locator('mark[data-chat-search-highlight="true"]'),
+    ).toContainText(/queue/i);
+    await conversationFilterInput.press("Enter");
+    await expect(
+      overviewPane.getByTestId("project-chat-conversation-filter"),
+    ).toContainText("2/3");
+    await expect(activeSearchMatch).toContainText("Existing queue thread reply");
+    await expect(
+      activeSearchMatch.locator(
+        'mark[data-chat-search-highlight="true"][data-chat-search-highlight-target="true"]',
+      ),
+    ).toContainText(/queue/i);
     await conversationFilterInput.fill("");
     await clickDom(overviewPane.locator('button[aria-label="New Chat"]'));
     const draftEntry = threadsPanel.getByTestId(

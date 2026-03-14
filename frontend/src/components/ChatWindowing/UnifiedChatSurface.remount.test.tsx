@@ -14,12 +14,13 @@ import { UnifiedChatSurface } from "./UnifiedChatSurface";
 vi.mock("components/Panes/Overview/ProjectLevelAI/ProjectChat", async () => {
   const { useState } = await import("react");
   return {
-    ProjectChat: () => {
+    ProjectChat: ({ chatId }: { chatId?: string | null }) => {
       const [isDirty, setIsDirty] = useState(false);
       return (
         <button
           type="button"
           data-testid="mock-project-chat-remount"
+          data-chat-id={chatId ?? ""}
           data-is-dirty={isDirty ? "true" : "false"}
           onClick={() => setIsDirty(true)}
         />
@@ -114,6 +115,52 @@ describe("UnifiedChatSurface remount boundaries", () => {
         .querySelector('[data-testid="mock-project-chat-remount"]')
         ?.getAttribute("data-is-dirty"),
     ).toBe("false");
+  });
+
+  it("resets standalone project-chat local state when the route-owned chat id changes on the same host", async () => {
+    await act(async () => {
+      root.render(
+        <UnifiedChatSurface
+          mode={ChatWindowModeEnum.project_ai_mode}
+          host="standalone_page"
+          projectChatId="chat-alpha"
+        />,
+      );
+    });
+
+    const projectChatButton = host.querySelector(
+      '[data-testid="mock-project-chat-remount"]',
+    ) as HTMLButtonElement | null;
+    if (!projectChatButton) {
+      throw new Error("Expected mocked project chat.");
+    }
+
+    expect(projectChatButton.getAttribute("data-chat-id")).toBe("chat-alpha");
+
+    await act(async () => {
+      projectChatButton.click();
+    });
+    expect(projectChatButton.getAttribute("data-is-dirty")).toBe("true");
+
+    await act(async () => {
+      root.render(
+        <UnifiedChatSurface
+          mode={ChatWindowModeEnum.project_ai_mode}
+          host="standalone_page"
+          projectChatId="chat-beta"
+        />,
+      );
+    });
+
+    const reboundProjectChatButton = host.querySelector(
+      '[data-testid="mock-project-chat-remount"]',
+    );
+    expect(reboundProjectChatButton?.getAttribute("data-chat-id")).toBe(
+      "chat-beta",
+    );
+    expect(reboundProjectChatButton?.getAttribute("data-is-dirty")).toBe(
+      "false",
+    );
   });
 
   it("resets section-chat local state when the bound section owner changes on the same host", async () => {
