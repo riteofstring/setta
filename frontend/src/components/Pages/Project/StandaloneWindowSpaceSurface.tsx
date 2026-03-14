@@ -1,20 +1,10 @@
 import { type ManagedChatSurfaceAuthorityState } from "components/Chat/sharePolicyChatAccess";
 import { type FloatingSnapResizeHandle } from "components/ChatWindowing/projectChatSnapLayout";
-import { buildStandaloneWindowSpaceProjectChatSurfaceId } from "components/ChatWindowing/projectChatSurfaceIds";
-import { ProjectChatWindowSurface } from "components/ChatWindowing/ProjectChatWindowSurface";
-import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
-import { GitGraphWindowContent } from "components/Git/GitGraphWindowContent";
-import { SectionWindowSurface } from "components/Section/Container/SectionWindowSurface";
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { useProjectState } from "state/definitions";
-import {
-  ChatWindowModeEnum,
-  ChatWindowPlacementEnum,
-  WindowSpaceSurfaceKindEnum,
-  type WindowSpaceConfig,
-} from "utils/generatedTypes";
+import { type WindowSpaceConfig } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
-import { NotFound } from "../NotFound/NotFound";
+import { StandaloneWindowSpaceCanvas } from "./StandaloneWindowSpaceCanvas";
 import {
   applyStandaloneBlockedManagedWindowErrorCode,
   applyStandaloneWindowSpaceHydration,
@@ -22,7 +12,6 @@ import {
   buildStandaloneSnapResizeNextBounds,
   buildStandaloneWindowSpaceResizeHandles,
   buildVisibleStandaloneWindows,
-  canControlStandaloneWindowChatId,
   clearStandaloneBlockedManagedWindowIds,
   focusStandaloneWindow,
   hasStandaloneManagedWindows,
@@ -33,11 +22,6 @@ import {
   updateStandaloneWindowBounds,
   type ActiveStandaloneSnapResize,
 } from "./standaloneWindowSpaceState";
-
-const STANDALONE_WINDOW_SPACE_WINDOW_FRAME_CLASS = "rounded-none shadow-none";
-const STANDALONE_WINDOW_SPACE_RESIZE_HANDLE_HIT_SIZE_PX = 8;
-const STANDALONE_WINDOW_SPACE_RESIZE_HANDLE_LINE_THICKNESS_PX = 2;
-const STANDALONE_WINDOW_SPACE_RESIZE_HANDLE_LAYER_Z_INDEX = 24;
 
 export function StandaloneWindowSpaceSurface({
   windowSpace,
@@ -260,237 +244,38 @@ export function StandaloneWindowSpaceSurface({
       className="relative flex min-h-0 flex-1 overflow-hidden bg-setta-100/80 dark:bg-setta-950"
       data-testid="standalone-window-space-surface"
     >
-      {shouldShowManagedChatBlockedSurface ? (
-        <div
-          className="relative min-h-0 flex-1"
-          data-testid="standalone-managed-chat-blocked"
-        >
-          <NotFound
-            title="Managed Chat Unavailable"
-            description="This deployment does not allow LLM access for standalone managed chat surfaces."
-          />
-        </div>
-      ) : null}
-      {visibleWindows.length === 0 && !shouldShowManagedChatBlockedSurface ? (
-        <div className="m-auto rounded-lg border border-dashed border-setta-300 bg-white/80 px-4 py-3 text-sm text-setta-600 dark:border-setta-800 dark:bg-setta-900/80 dark:text-setta-300">
-          This window space does not have any saved floating windows.
-        </div>
-      ) : null}
-      {visibleWindows.map((window) => (
-        <article
-          key={window.instanceId}
-          className={`absolute flex min-h-0 min-w-0 flex-col overflow-hidden ${STANDALONE_WINDOW_SPACE_WINDOW_FRAME_CLASS}`}
-          style={{
-            left: window.bounds.x,
-            top: window.bounds.y,
-            width: window.bounds.width,
-            height: window.bounds.height,
-            zIndex: window.zIndex,
-          }}
-          data-testid="standalone-window-space-window"
-          data-chat-window-instance-id={window.instanceId}
-          data-window-space-surface-kind={window.surfaceKind}
-          onPointerDown={() => {
-            setLocalWindowsById((current) =>
-              focusStandaloneWindow(current, window.instanceId),
-            );
-          }}
-        >
-          {window.surfaceKind === WindowSpaceSurfaceKindEnum.section &&
-          window.sectionIdOrNull ? (
-            <SectionWindowSurface
-              sectionId={window.sectionIdOrNull}
-              headerActions={null}
-              roundedClassName="rounded-none"
-              chatHost={ChatWindowPlacementEnum.floating}
-              chatModeOverride={window.mode}
-              projectChatSurfaceId={buildStandaloneWindowSpaceProjectChatSurfaceId(
-                projectConfigId,
-                windowSpace.id,
-                window.instanceId,
-              )}
-              projectChatId={
-                canControlStandaloneWindowChatId(window)
-                  ? window.chatId
-                  : undefined
-              }
-              setProjectChatId={
-                canControlStandaloneWindowChatId(window)
-                  ? (next) => {
-                      const resolvedChatId =
-                        typeof next === "function"
-                          ? next(window.chatId ?? undefined)
-                          : next;
-                      setLocalWindowsById((current) =>
-                        setStandaloneProjectChatWindowChatId(
-                          current,
-                          window.instanceId,
-                          resolvedChatId,
-                        ),
-                      );
-                    }
-                  : undefined
-              }
-              headerProps={{
-                onPointerDown: () => {
-                  setLocalWindowsById((current) =>
-                    focusStandaloneWindow(current, window.instanceId),
-                  );
-                },
-              }}
-              onProjectChatBlockedErrorCodeChange={(errorCode) => {
-                setWindowBlockedErrorCode(window.instanceId, errorCode);
-              }}
-            />
-          ) : (
-            <ProjectChatWindowSurface
-              title={window.title}
-              mode={window.mode}
-              instanceId={window.instanceId}
-              roundedClassName="rounded-none"
-              actions={[]}
-              onTitleClick={() => {
-                setLocalWindowsById((current) =>
-                  focusStandaloneWindow(current, window.instanceId),
-                );
-              }}
-            >
-              {window.mode === ChatWindowModeEnum.git_graph_mode ? (
-                <GitGraphWindowContent
-                  instanceId={window.instanceId}
-                  showEmbeddedGitPaneToggle
-                  embeddedGitPaneVisible={window.embeddedGitPaneVisible}
-                  onEmbeddedGitPaneVisibleChange={(visible) => {
-                    setLocalWindowsById((current) =>
-                      setStandaloneEmbeddedGitPaneVisibility(
-                        current,
-                        window.instanceId,
-                        visible,
-                      ),
-                    );
-                  }}
-                />
-              ) : (
-                <UnifiedChatSurface
-                  key={`${buildStandaloneWindowSpaceProjectChatSurfaceId(
-                    projectConfigId,
-                    windowSpace.id,
-                    window.instanceId,
-                  )}:${window.chatId ?? "global"}`}
-                  mode={window.mode}
-                  host={ChatWindowPlacementEnum.floating}
-                  surfaceId={buildStandaloneWindowSpaceProjectChatSurfaceId(
-                    projectConfigId,
-                    windowSpace.id,
-                    window.instanceId,
-                  )}
-                  projectChatId={window.chatId}
-                  setProjectChatId={(next) => {
-                    const resolvedChatId =
-                      typeof next === "function"
-                        ? next(window.chatId ?? undefined)
-                        : next;
-                    setLocalWindowsById((current) =>
-                      setStandaloneProjectChatWindowChatId(
-                        current,
-                        window.instanceId,
-                        resolvedChatId,
-                      ),
-                    );
-                  }}
-                  onProjectChatBlockedErrorCodeChange={(errorCode) => {
-                    setWindowBlockedErrorCode(window.instanceId, errorCode);
-                  }}
-                />
-              )}
-            </ProjectChatWindowSurface>
-          )}
-        </article>
-      ))}
-      {snapResizeHandles.length > 0 ? (
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{
-            zIndex: STANDALONE_WINDOW_SPACE_RESIZE_HANDLE_LAYER_Z_INDEX,
-          }}
-        >
-          {snapResizeHandles.map((handle) => {
-            const handleLengthPx = Math.max(
-              0,
-              handle.end -
-                handle.start -
-                STANDALONE_WINDOW_SPACE_RESIZE_HANDLE_HIT_SIZE_PX,
-            );
-            return (
-              <div
-                key={`${handle.axis}-${handle.leadingInstanceIds.join("|")}-${handle.trailingInstanceIds.join("|")}`}
-                role="separator"
-                aria-orientation={
-                  handle.axis === "vertical" ? "vertical" : "horizontal"
-                }
-                className={`pointer-events-auto absolute flex items-center justify-center ${
-                  handle.axis === "vertical"
-                    ? "cursor-col-resize"
-                    : "cursor-row-resize"
-                }`}
-                style={
-                  handle.axis === "vertical"
-                    ? {
-                        left:
-                          handle.coordinate -
-                          STANDALONE_WINDOW_SPACE_RESIZE_HANDLE_HIT_SIZE_PX / 2,
-                        top: handle.start,
-                        width:
-                          STANDALONE_WINDOW_SPACE_RESIZE_HANDLE_HIT_SIZE_PX,
-                        height: Math.max(
-                          STANDALONE_WINDOW_SPACE_RESIZE_HANDLE_HIT_SIZE_PX,
-                          handleLengthPx +
-                            STANDALONE_WINDOW_SPACE_RESIZE_HANDLE_HIT_SIZE_PX,
-                        ),
-                      }
-                    : {
-                        left: handle.start,
-                        top:
-                          handle.coordinate -
-                          STANDALONE_WINDOW_SPACE_RESIZE_HANDLE_HIT_SIZE_PX / 2,
-                        width: Math.max(
-                          STANDALONE_WINDOW_SPACE_RESIZE_HANDLE_HIT_SIZE_PX,
-                          handleLengthPx +
-                            STANDALONE_WINDOW_SPACE_RESIZE_HANDLE_HIT_SIZE_PX,
-                        ),
-                        height:
-                          STANDALONE_WINDOW_SPACE_RESIZE_HANDLE_HIT_SIZE_PX,
-                      }
-                }
-                onPointerDown={(event) => {
-                  handleSnapResizePointerDown(event, handle);
-                }}
-                onPointerMove={handleSnapResizePointerMove}
-                onPointerUp={handleSnapResizePointerUp}
-                data-testid="standalone-window-space-resize-handle"
-                data-resize-axis={handle.axis}
-              >
-                <div
-                  className="rounded-full bg-setta-300/80 transition-colors hover:bg-blue-500 dark:bg-setta-600/80 dark:hover:bg-blue-400"
-                  style={
-                    handle.axis === "vertical"
-                      ? {
-                          width:
-                            STANDALONE_WINDOW_SPACE_RESIZE_HANDLE_LINE_THICKNESS_PX,
-                          height: Math.max(24, handle.end - handle.start - 8),
-                        }
-                      : {
-                          width: Math.max(24, handle.end - handle.start - 8),
-                          height:
-                            STANDALONE_WINDOW_SPACE_RESIZE_HANDLE_LINE_THICKNESS_PX,
-                        }
-                  }
-                />
-              </div>
-            );
-          })}
-        </div>
-      ) : null}
+      <StandaloneWindowSpaceCanvas
+        visibleWindows={visibleWindows}
+        shouldShowManagedChatBlockedSurface={
+          shouldShowManagedChatBlockedSurface
+        }
+        projectConfigId={projectConfigId}
+        windowSpaceId={windowSpace.id}
+        snapResizeHandles={snapResizeHandles}
+        onFocusWindow={(instanceId) => {
+          setLocalWindowsById((current) =>
+            focusStandaloneWindow(current, instanceId),
+          );
+        }}
+        onProjectChatIdChange={(instanceId, chatId) => {
+          setLocalWindowsById((current) =>
+            setStandaloneProjectChatWindowChatId(current, instanceId, chatId),
+          );
+        }}
+        onEmbeddedGitPaneVisibleChange={(instanceId, visible) => {
+          setLocalWindowsById((current) =>
+            setStandaloneEmbeddedGitPaneVisibility(
+              current,
+              instanceId,
+              visible,
+            ),
+          );
+        }}
+        onBlockedErrorCodeChange={setWindowBlockedErrorCode}
+        onSnapResizePointerDown={handleSnapResizePointerDown}
+        onSnapResizePointerMove={handleSnapResizePointerMove}
+        onSnapResizePointerUp={handleSnapResizePointerUp}
+      />
     </section>
   );
 }
