@@ -2282,30 +2282,332 @@ func TestFrontendServerModeBoundaryPolicyImportsStayWithinExplicitBoundaries(t *
 	}
 }
 
+func TestFrontendCAddressesImportsStayWithinExplicitBoundaries(t *testing.T) {
+	t.Helper()
+
+	repoRoot := testRepoRoot(t)
+	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
+	allowedImports := map[string]map[string]struct{}{
+		"frontend/src/utils/transportUrlCore.ts": {
+			"C_ADDRESSES": {},
+		},
+		"frontend/src/utils/launcherBootstrapUrl.ts": {
+			"C_ADDRESSES": {},
+		},
+		"frontend/src/utils/workspaceLaunchNavigation.ts": {
+			"C_ADDRESSES": {},
+		},
+	}
+	importPattern := regexp.MustCompile(`(?s)(?:import|export)\s*\{([^}]*)\}\s*from\s*["'](?:\./c_addresses|utils/c_addresses)["']`)
+
+	err := filepath.WalkDir(frontendSrcRoot, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+
+		base := entry.Name()
+		if !(strings.HasSuffix(base, ".ts") || strings.HasSuffix(base, ".tsx")) {
+			return nil
+		}
+		if strings.Contains(base, ".test.") || strings.Contains(base, ".spec.") {
+			return nil
+		}
+
+		relativePath, err := filepath.Rel(repoRoot, path)
+		if err != nil {
+			return err
+		}
+		relativePath = filepath.ToSlash(relativePath)
+
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		for _, match := range importPattern.FindAllStringSubmatch(string(contents), -1) {
+			for _, rawSpecifier := range strings.Split(match[1], ",") {
+				specifier := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(rawSpecifier), "type "))
+				if specifier == "" {
+					continue
+				}
+				bindingName := strings.Fields(specifier)[0]
+				allowedBindings, allowedPath := allowedImports[relativePath]
+				if allowedPath {
+					if _, allowedBinding := allowedBindings[bindingName]; allowedBinding {
+						continue
+					}
+					return fmt.Errorf(
+						"%s imports %q from c_addresses outside the allowed boundary surface for that file",
+						relativePath,
+						bindingName,
+					)
+				}
+				return fmt.Errorf(
+					"%s imports %q from c_addresses outside the explicit narrowed address callers",
+					relativePath,
+					bindingName,
+				)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("scan frontend c_addresses imports: %v", err)
+	}
+}
+
+func TestFrontendLauncherBootstrapURLImportsStayWithinExplicitBoundaries(t *testing.T) {
+	t.Helper()
+
+	repoRoot := testRepoRoot(t)
+	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
+	allowedImports := map[string]map[string]struct{}{
+		"frontend/src/components/Pages/Launch/WorkspaceLaunchPage.tsx": {
+			"resolveLauncherBootstrapUrl": {},
+		},
+		"frontend/src/components/Pages/Launcher/LauncherHomePage.tsx": {
+			"resolveLauncherBootstrapUrl": {},
+		},
+	}
+	importPattern := regexp.MustCompile(`(?s)(?:import|export)\s*\{([^}]*)\}\s*from\s*["'](?:\./launcherBootstrapUrl|utils/launcherBootstrapUrl)["']`)
+
+	err := filepath.WalkDir(frontendSrcRoot, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+
+		base := entry.Name()
+		if !(strings.HasSuffix(base, ".ts") || strings.HasSuffix(base, ".tsx")) {
+			return nil
+		}
+		if strings.Contains(base, ".test.") || strings.Contains(base, ".spec.") {
+			return nil
+		}
+
+		relativePath, err := filepath.Rel(repoRoot, path)
+		if err != nil {
+			return err
+		}
+		relativePath = filepath.ToSlash(relativePath)
+
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		for _, match := range importPattern.FindAllStringSubmatch(string(contents), -1) {
+			for _, rawSpecifier := range strings.Split(match[1], ",") {
+				specifier := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(rawSpecifier), "type "))
+				if specifier == "" {
+					continue
+				}
+				bindingName := strings.Fields(specifier)[0]
+				allowedBindings, allowedPath := allowedImports[relativePath]
+				if allowedPath {
+					if _, allowedBinding := allowedBindings[bindingName]; allowedBinding {
+						continue
+					}
+					return fmt.Errorf(
+						"%s imports %q from launcherBootstrapUrl outside the allowed boundary surface for that file",
+						relativePath,
+						bindingName,
+					)
+				}
+				return fmt.Errorf(
+					"%s imports %q from launcherBootstrapUrl outside the explicit narrowed launcher bootstrap callers",
+					relativePath,
+					bindingName,
+				)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("scan frontend launcherBootstrapUrl imports: %v", err)
+	}
+}
+
+func TestFrontendWorkspaceLaunchNavigationImportsStayWithinExplicitBoundaries(t *testing.T) {
+	t.Helper()
+
+	repoRoot := testRepoRoot(t)
+	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
+	allowedImports := map[string]map[string]struct{}{
+		"frontend/src/components/Pages/Launch/WorkspaceLaunchPage.tsx": {
+			"resolveWorkspaceLaunchBackNavigation": {},
+			"resolveWorkspaceLaunchReturnUrl":      {},
+			"WorkspaceLaunchBackNavigation":        {},
+		},
+	}
+	importPattern := regexp.MustCompile(`(?s)(?:import|export)\s*\{([^}]*)\}\s*from\s*["'](?:\./workspaceLaunchNavigation|utils/workspaceLaunchNavigation)["']`)
+
+	err := filepath.WalkDir(frontendSrcRoot, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+
+		base := entry.Name()
+		if !(strings.HasSuffix(base, ".ts") || strings.HasSuffix(base, ".tsx")) {
+			return nil
+		}
+		if strings.Contains(base, ".test.") || strings.Contains(base, ".spec.") {
+			return nil
+		}
+
+		relativePath, err := filepath.Rel(repoRoot, path)
+		if err != nil {
+			return err
+		}
+		relativePath = filepath.ToSlash(relativePath)
+
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		for _, match := range importPattern.FindAllStringSubmatch(string(contents), -1) {
+			for _, rawSpecifier := range strings.Split(match[1], ",") {
+				specifier := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(rawSpecifier), "type "))
+				if specifier == "" {
+					continue
+				}
+				bindingName := strings.Fields(specifier)[0]
+				allowedBindings, allowedPath := allowedImports[relativePath]
+				if allowedPath {
+					if _, allowedBinding := allowedBindings[bindingName]; allowedBinding {
+						continue
+					}
+					return fmt.Errorf(
+						"%s imports %q from workspaceLaunchNavigation outside the allowed boundary surface for that file",
+						relativePath,
+						bindingName,
+					)
+				}
+				return fmt.Errorf(
+					"%s imports %q from workspaceLaunchNavigation outside the explicit narrowed workspace-launch navigation callers",
+					relativePath,
+					bindingName,
+				)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("scan frontend workspaceLaunchNavigation imports: %v", err)
+	}
+}
+
+func TestFrontendServerModeCapabilitiesImportsStayWithinExplicitBoundaries(t *testing.T) {
+	t.Helper()
+
+	repoRoot := testRepoRoot(t)
+	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
+	allowedImports := map[string]map[string]struct{}{
+		"frontend/src/components/Pages/Launcher/LauncherHomePage.tsx": {
+			"resolveServerModeCapabilities": {},
+		},
+		"frontend/src/components/Modals/WorkspaceSwitcherModal/WorkspaceSwitcherModal.tsx": {
+			"resolveServerModeCapabilities": {},
+		},
+	}
+	importPattern := regexp.MustCompile(`(?s)(?:import|export)\s*\{([^}]*)\}\s*from\s*["'](?:\./serverModeCapabilities|utils/serverModeCapabilities)["']`)
+
+	err := filepath.WalkDir(frontendSrcRoot, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+
+		base := entry.Name()
+		if !(strings.HasSuffix(base, ".ts") || strings.HasSuffix(base, ".tsx")) {
+			return nil
+		}
+		if strings.Contains(base, ".test.") || strings.Contains(base, ".spec.") {
+			return nil
+		}
+
+		relativePath, err := filepath.Rel(repoRoot, path)
+		if err != nil {
+			return err
+		}
+		relativePath = filepath.ToSlash(relativePath)
+
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		for _, match := range importPattern.FindAllStringSubmatch(string(contents), -1) {
+			for _, rawSpecifier := range strings.Split(match[1], ",") {
+				specifier := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(rawSpecifier), "type "))
+				if specifier == "" {
+					continue
+				}
+				bindingName := strings.Fields(specifier)[0]
+				allowedBindings, allowedPath := allowedImports[relativePath]
+				if allowedPath {
+					if _, allowedBinding := allowedBindings[bindingName]; allowedBinding {
+						continue
+					}
+					return fmt.Errorf(
+						"%s imports %q from serverModeCapabilities outside the allowed boundary surface for that file",
+						relativePath,
+						bindingName,
+					)
+				}
+				return fmt.Errorf(
+					"%s imports %q from serverModeCapabilities outside the explicit narrowed server-mode capability callers",
+					relativePath,
+					bindingName,
+				)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("scan frontend serverModeCapabilities imports: %v", err)
+	}
+}
+
 func TestFrontendBoundaryModulesUseNamedImportExportFormsOnly(t *testing.T) {
 	t.Helper()
 
 	repoRoot := testRepoRoot(t)
 	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
 	boundaryModules := map[string]struct{}{
-		"./generatedRoutes":              {},
-		"utils/generatedRoutes":          {},
-		"./requestTransport":             {},
-		"utils/requestTransport":         {},
-		"./transportRouteConstants":      {},
-		"utils/transportRouteConstants":  {},
-		"./backendTransport":             {},
-		"utils/backendTransport":         {},
-		"./backendOriginTransport":       {},
-		"utils/backendOriginTransport":   {},
-		"./appTransport":                 {},
-		"utils/appTransport":             {},
-		"./serverModeBoundaryPolicy":     {},
-		"utils/serverModeBoundaryPolicy": {},
-		"./transportUrlCore":             {},
-		"utils/transportUrlCore":         {},
-		"./transport":                    {},
-		"utils/plugins/transport":        {},
+		"./generatedRoutes":               {},
+		"utils/generatedRoutes":           {},
+		"./requestTransport":              {},
+		"utils/requestTransport":          {},
+		"./transportRouteConstants":       {},
+		"utils/transportRouteConstants":   {},
+		"./backendTransport":              {},
+		"utils/backendTransport":          {},
+		"./backendOriginTransport":        {},
+		"utils/backendOriginTransport":    {},
+		"./appTransport":                  {},
+		"utils/appTransport":              {},
+		"./c_addresses":                   {},
+		"utils/c_addresses":               {},
+		"./launcherBootstrapUrl":          {},
+		"utils/launcherBootstrapUrl":      {},
+		"./workspaceLaunchNavigation":     {},
+		"utils/workspaceLaunchNavigation": {},
+		"./serverModeCapabilities":        {},
+		"utils/serverModeCapabilities":    {},
+		"./serverModeBoundaryPolicy":      {},
+		"utils/serverModeBoundaryPolicy":  {},
+		"./transportUrlCore":              {},
+		"utils/transportUrlCore":          {},
+		"./transport":                     {},
+		"utils/plugins/transport":         {},
 	}
 	importPattern := regexp.MustCompile(`(?m)^\s*import\s+([^;\n]+?)\s+from\s+["']([^"']+)["']`)
 	namespaceReexportPattern := regexp.MustCompile(`(?m)^\s*export\s+\*\s+as\s+([A-Za-z_$][A-Za-z0-9_$]*)\s+from\s+["']([^"']+)["']`)

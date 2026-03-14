@@ -330,6 +330,17 @@ Current status:
   `endpointUtils`, `router.tsx`, and `serverModeCapabilities.ts`, so the
   narrowed server-mode route/origin policy seam cannot silently widen into ad
   hoc runtime callers
+- the validation suite now also checks that direct `c_addresses` imports stay
+  confined to `transportUrlCore`, `launcherBootstrapUrl`, and
+  `workspaceLaunchNavigation`, so backend/launcher base-address reads remain
+  inside explicit transport/navigation boundaries instead of widening through
+  runtime callers
+- the validation suite now also checks that direct `launcherBootstrapUrl`
+  imports stay confined to the current launcher/workspace-launch pages, that
+  direct `workspaceLaunchNavigation` imports stay confined to the workspace
+  launch page, and that direct `serverModeCapabilities` imports stay confined
+  to the current launcher home and workspace-switcher callers, so those
+  support-layer server-mode/launcher seams cannot quietly widen
 - the remaining direct generated-route helper bag now lives in the focused
   `frontend/src/utils/transportRouteConstants.ts` boundary, which feeds
   `backendOriginTransport`, `backendTransport`, `c_addresses`, and
@@ -373,9 +384,11 @@ Current status:
   export-all / namespace re-exports plus dynamic-import / `require()` access
   to narrowed boundary modules such as `generatedRoutes`, `requestTransport`,
   `transportRouteConstants`, `backendTransport`, `backendOriginTransport`,
-  `appTransport`, `serverModeBoundaryPolicy`, `transportUrlCore`, and
-  `plugins/transport`, so caller-specific boundary checks cannot be bypassed
-  through broad module imports, dynamic loads, or re-export seams
+  `appTransport`, `c_addresses`, `launcherBootstrapUrl`,
+  `workspaceLaunchNavigation`, `serverModeCapabilities`,
+  `serverModeBoundaryPolicy`, `transportUrlCore`, and `plugins/transport`, so
+  caller-specific boundary checks cannot be bypassed through broad module
+  imports, dynamic loads, or re-export seams
 - the validation suite now also checks that the checked-in
   `generatedRoutes.ts`, `generatedTypes.ts`, and `generatedEndpoints.ts`
   files exactly match the current Go frontend binding generation pipeline
