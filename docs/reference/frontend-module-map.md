@@ -101,6 +101,9 @@ This is the front door for authored frontend code under `frontend/src/`.
 - Need standalone window-space viewport sizing, hydration effects, or local window callback wiring: open `components/Pages/Project/useStandaloneWindowSpaceController.ts`.
 - Need standalone window-space blocked/empty UI, resize-handle overlay, or per-window canvas rendering: open `components/Pages/Project/StandaloneWindowSpaceCanvas.tsx`.
 - Need standalone window-space branching between section, git-graph, and floating project-chat windows: open `components/Pages/Project/StandaloneWindowSpaceWindowSurface.tsx`.
+- Need App Config prompt/context formatting for generation prompts: open `components/Panes/Overview/App/appConfigPromptUtils.ts`.
+- Need App Config default-spec, request-payload parsing, or preview seed helpers: open `components/Panes/Overview/App/appConfigDefinitionUtils.ts`.
+- Need App Config hidden-generation engine selection or generation error helpers: open `components/Panes/Overview/App/appConfigHiddenGenerationUtils.ts`.
 - Need pane/tab behavior: open `components/Panes/`.
 - Need section chrome or param rendering: open `components/Section/` and `components/Params/`.
 - Need managed section-chat history or polling behavior: open `components/Section/Layouts/ChatAreaHistoryPanel.tsx`.
