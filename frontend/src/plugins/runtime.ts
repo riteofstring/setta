@@ -11,6 +11,7 @@ import { C_ADDRESSES } from "utils/c_addresses";
 import { buildPluginPaneOverviewTabName } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import { route_plugins_runtime } from "utils/generatedEndpoints";
+import { GoHTTPRouteHelpers } from "utils/generatedRoutes";
 import {
   BaseDependencyKeyUnion,
   BaseDependencyValueUnion,
@@ -27,12 +28,12 @@ import {
 } from "utils/generatedTypes";
 import { createWithEqualityFn } from "zustand/traditional";
 import { createStore, type StateCreator, type StoreApi } from "zustand/vanilla";
+import { callListenerEndpointOverWebsocket } from "./listenerEndpointClient";
 import {
   isPluginPaneIconName,
   PluginPaneIconNameEnum,
   type PluginPaneIconName,
 } from "./paneIcons";
-import { callListenerEndpointOverWebsocket } from "./listenerEndpointClient";
 
 export { type PluginPaneIconName } from "./paneIcons";
 
@@ -1628,6 +1629,10 @@ function registerPluginModule({
     },
     apiFetch: async (path, init) => {
       const normalizedPath = normalizePluginPath(path);
+      const routePath = GoHTTPRouteHelpers.pluginsBackendRoute(
+        plugin.pluginId,
+        normalizedPath,
+      );
       const shareSession = useShareSession.getState();
       const shareHeaders: Record<string, string> = {};
       if (shareSession.isDeploymentMode && shareSession.shareSessionId) {
@@ -1637,14 +1642,11 @@ function registerPluginModule({
       for (const [key, value] of Object.entries(shareHeaders)) {
         requestHeaders.set(key, value);
       }
-      return fetch(
-        `${C_ADDRESSES.BACKEND}/plugins/${plugin.pluginId}${normalizedPath}`,
-        {
-          ...init,
-          credentials: "include",
-          headers: requestHeaders,
-        },
-      );
+      return fetch(`${C_ADDRESSES.BACKEND}${routePath}`, {
+        ...init,
+        credentials: "include",
+        headers: requestHeaders,
+      });
     },
   };
 

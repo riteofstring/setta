@@ -228,8 +228,9 @@ Current status:
   imports in non-test frontend code
 - `generatedRoutes.ts` now also emits canonical HTTP route helpers for the
   current Go-owned path-param routes such as deployment reads and binary/file
-  downloads, so active callers no longer need raw `RouteEnum...replace(...)`
-  interpolation in non-test frontend code
+  downloads plus plugin backend dispatch, so active callers no longer need
+  raw `RouteEnum...replace(...)` interpolation or handwritten
+  `/api/plugins/{pluginId}...` path concatenation in non-test frontend code
 - the validation suite now also checks that direct websocket route-builder
   imports do not reappear in non-test frontend sources
 - the validation suite now also checks that direct generated route-constant
@@ -240,6 +241,9 @@ Current status:
   manually interpolate generated `RouteEnum` paths with `.replace(...)`;
   callers should use generated route helpers or a documented explicit
   boundary instead
+- the validation suite now also checks that non-test frontend sources do not
+  manually concatenate `/api/plugins/{pluginId}...` backend dispatch paths;
+  callers should use the generated plugin backend route helper instead
 - the validation suite now also snapshots the current explicit frontend
   boundary-exception import inventory in a focused golden manifest, so caller
   exceptions remain reviewable as the converted surface widens
