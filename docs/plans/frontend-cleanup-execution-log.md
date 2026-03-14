@@ -1642,3 +1642,38 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/sections/createSections.ts`, now the
     largest authored/shared state hotspot, by separating section creation
     orchestration from per-impl defaults and placement helpers.
+
+## 2026-03-14 23:32:47 PDT
+
+- Slice completed: split section creation placement/default helpers and
+  file-open/drop flows away from the top-level section creation command surface
+- Key files touched:
+  - `frontend/src/state/actions/sections/createSections.ts`
+  - `frontend/src/state/actions/sections/createSectionPlacement.ts`
+  - `frontend/src/state/actions/sections/createSectionFileOpeners.ts`
+  - `frontend/src/state/actions/sections/createSectionImplDefaults.ts`
+  - `frontend/src/state/actions/sections/createSectionPlacement.test.ts`
+  - `frontend/src/state/actions/sections/createSectionFileOpeners.test.ts`
+  - `frontend/src/state/actions/sections/createSectionImplDefaults.test.ts`
+  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
+  - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
+  - `frontend/src/components/Utils/FloatingBox.tsx`
+  - `frontend/src/forks/xyflow/core/container/Pane.tsx`
+  - `frontend/src/utils/settaApiPresets.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-sections-and-params-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/sections/createSectionFileOpeners.test.ts src/state/actions/sections/createSectionImplDefaults.test.ts src/state/actions/sections/createSectionPlacement.test.ts src/state/actions/sections/createSectionsHelper.test.ts src/state/actions/sections/createSectionsHelper.test.tsx src/components/Panes/Overview/FileBrowser/FileBrowserPane.test.ts src/components/Section/Layouts/BrowserArea.test.tsx src/forks/xyflow/core/container/Pane.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/actions/sections/createSections.ts src/state/actions/sections/createSectionPlacement.ts src/state/actions/sections/createSectionPlacement.test.ts src/state/actions/sections/createSectionFileOpeners.ts src/state/actions/sections/createSectionFileOpeners.test.ts src/state/actions/sections/createSectionImplDefaults.ts src/state/actions/sections/createSectionImplDefaults.test.ts src/state/actions/sections/createSectionsHelper.test.ts src/state/actions/sections/createSectionsHelper.test.tsx src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx src/components/Section/Layouts/BrowserArea.tsx src/components/Utils/FloatingBox.tsx src/forks/xyflow/core/container/Pane.tsx src/utils/settaApiPresets.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-sections-and-params-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `89d04ef67`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/stateMachineEdgeConnections.ts`, now the
+    largest authored/shared state hotspot, by separating workflow graph reads
+    and canonicalization from the remaining edge-construction helpers.
