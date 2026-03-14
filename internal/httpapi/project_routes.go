@@ -23,6 +23,8 @@ import (
 
 const (
 	RouteGetLatestProjectState             = "/getLatestProjectState"
+	RouteUndo                              = "/undo"
+	RouteRedo                              = "/redo"
 	RouteCreateNewSectionVariant           = "/createNewSectionVariant"
 	RouteSetSectionVariant                 = "/setSectionVariant"
 	RouteSetDefaultSectionVariant          = "/setDefaultSectionVariant"
@@ -213,6 +215,16 @@ type CodeFileBindingUpdate struct {
 type GetLatestProjectStateRequest struct {
 	FrontendOpID *string `json:"frontendOpId"`
 	ProjectID    string  `json:"projectConfigId"`
+}
+
+type UndoRequest struct {
+	ProjectID string `json:"projectConfigId"`
+	Steps     int    `json:"steps"`
+}
+
+type RedoRequest struct {
+	ProjectID string `json:"projectConfigId"`
+	Steps     int    `json:"steps"`
 }
 
 type GetPasswordParamValueRequest struct {
@@ -1270,6 +1282,8 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	}
 
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetLatestProjectState, getLatestProjectStateHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUndo, undoHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteRedo, redoHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetPasswordParamValue, getPasswordParamValueHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateNewSectionVariant, createNewSectionVariantHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionVariant, setSectionVariantHandler(deps))
@@ -1386,6 +1400,8 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 			Policy: deps.ModePolicy,
 			Store:  deps.ShareSessions,
 		})
+		router.With(shareGuard).Post(RouteUndo, undoHandler(deps))
+		router.With(shareGuard).Post(RouteRedo, redoHandler(deps))
 		router.With(shareGuard).Post(RouteSetPromptTemplate, setPromptTemplateHandler(deps))
 		router.With(shareGuard).Post(RouteSetPromptInputs, setPromptInputsHandler(deps))
 		router.With(shareGuard).Post(RouteSetPromptFormat, setPromptFormatHandler(deps))
@@ -1433,16 +1449,86 @@ func getLatestProjectStateHandler(deps ProjectRouteDependencies) http.HandlerFun
 			return
 		}
 
-		projectStateView, err := projectview.SingleConfigByProjectID(snapshot.Document, projectID)
+		responsePayload, err := projectStateEnvelopeWithFrontendOps(snapshot, frontendOps, projectID)
 		if err != nil {
 			writeProjectRouteStateError(w, r, err)
 			return
 		}
-		writeJSON(w, http.StatusOK, ProjectStateSingleConfigWithCompletedOpIDs{
-			ProjectState:   projectStateView,
-			CompletedOpIDs: frontendOps.Completed,
-			PendingOpIDs:   frontendOps.Pending,
-		})
+		writeJSON(w, http.StatusOK, responsePayload)
+	}
+}
+
+func projectStateEnvelopeWithFrontendOps(
+	snapshot projectstate.Snapshot,
+	frontendOps projectstate.FrontendOpStatus,
+	projectID string,
+) (ProjectStateSingleConfigWithCompletedOpIDs, error) {
+	projectStateView, err := projectview.SingleConfigByProjectID(snapshot.Document, projectID)
+	if err != nil {
+		return ProjectStateSingleConfigWithCompletedOpIDs{}, err
+	}
+	return ProjectStateSingleConfigWithCompletedOpIDs{
+		ProjectState:   projectStateView,
+		CompletedOpIDs: frontendOps.Completed,
+		PendingOpIDs:   frontendOps.Pending,
+	}, nil
+}
+
+func undoHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[UndoRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		snapshot, err := runtime.UndoAndSave(r.Context(), payload.ProjectID, payload.Steps)
+		if err != nil {
+			writeProjectRouteStateError(w, r, err)
+			return
+		}
+
+		response, err := projectStateEnvelopeWithFrontendOps(snapshot, runtime.FrontendOpStatus(), payload.ProjectID)
+		if err != nil {
+			writeProjectRouteStateError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, response)
+	}
+}
+
+func redoHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[RedoRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		snapshot, err := runtime.RedoAndSave(r.Context(), payload.ProjectID, payload.Steps)
+		if err != nil {
+			writeProjectRouteStateError(w, r, err)
+			return
+		}
+
+		response, err := projectStateEnvelopeWithFrontendOps(snapshot, runtime.FrontendOpStatus(), payload.ProjectID)
+		if err != nil {
+			writeProjectRouteStateError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, response)
 	}
 }
 

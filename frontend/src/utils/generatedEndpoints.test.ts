@@ -102,6 +102,7 @@ import {
   route_publish_app_deployment,
   route_publish_share_deployment,
   route_reconnect_edge,
+  route_redo,
   route_restart_language_server,
   route_run_code,
   route_save_as_new_project_config,
@@ -192,6 +193,7 @@ import {
   route_toggle_view_mode_user_facing,
   route_transfer_file_browser_entry,
   route_type_check,
+  route_undo,
   route_ungroup_groups,
   route_unindent_params,
   route_unselect_all_params,
@@ -205,6 +207,7 @@ import {
 } from "./generatedEndpoints";
 import {
   createProjectCodegenPythonTarget,
+  createProjectStateSingleConfigWithCompletedOpIds,
   createSettingsState,
 } from "./generatedTypes";
 
@@ -4787,6 +4790,68 @@ describe("generatedEndpoints helper routes", () => {
         selectedId: "SliderParam",
       }),
     });
+  });
+
+  it("posts undo and redo helper routes with the canonical request and response shapes", async () => {
+    const responsePayload = createProjectStateSingleConfigWithCompletedOpIds({
+      projectState: {
+        projectConfig: {
+          id: "project-alpha",
+          name: "Alpha",
+        },
+      },
+    });
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(responsePayload), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(responsePayload), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+
+    const undoResponse = await route_undo({
+      projectConfigId: "project-alpha",
+      steps: 1,
+    });
+    const redoResponse = await route_redo({
+      projectConfigId: "project-alpha",
+      steps: 1,
+    });
+
+    expect(undoResponse.data?.projectState.projectConfig.id).toBe(
+      "project-alpha",
+    );
+    expect(redoResponse.data?.projectState.projectConfig.id).toBe(
+      "project-alpha",
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      `${C_ADDRESSES.BACKEND}/undo`,
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          projectConfigId: "project-alpha",
+          steps: 1,
+        }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      `${C_ADDRESSES.BACKEND}/redo`,
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          projectConfigId: "project-alpha",
+          steps: 1,
+        }),
+      }),
+    );
   });
 
   it("posts the section-variant delete prompt helper and preserves string responses", async () => {

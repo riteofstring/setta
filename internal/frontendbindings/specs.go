@@ -148,6 +148,16 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "GET_LATEST_PROJECT_STATE",
 				},
 				{
+					Name:     "undo",
+					Path:     httpapi.RouteUndo,
+					EnumName: "UNDO",
+				},
+				{
+					Name:     "redo",
+					Path:     httpapi.RouteRedo,
+					EnumName: "REDO",
+				},
+				{
 					Name:     "createNewSectionVariant",
 					Path:     httpapi.RouteCreateNewSectionVariant,
 					EnumName: "CREATE_NEW_SECTION_VARIANT",
@@ -1433,6 +1443,22 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "getLatestProjectState",
 			RequestType:     reflect.TypeOf(GetLatestProjectStateRequestInput{}),
+			ResponseType:    reflect.TypeOf(ProjectStateSingleConfigWithCompletedOpIds{}),
+		},
+		{
+			FunctionName:    "route_undo",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "undo",
+			RequestType:     reflect.TypeOf(UndoRequestInput{}),
+			ResponseType:    reflect.TypeOf(ProjectStateSingleConfigWithCompletedOpIds{}),
+		},
+		{
+			FunctionName:    "route_redo",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "redo",
+			RequestType:     reflect.TypeOf(RedoRequestInput{}),
 			ResponseType:    reflect.TypeOf(ProjectStateSingleConfigWithCompletedOpIds{}),
 		},
 		{

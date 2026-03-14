@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"sync"
 )
 
-const defaultRuntimeQueueSize = 64
+const (
+	defaultRuntimeQueueSize   = 64
+	defaultRuntimeHistorySize = 1000
+)
 
 var (
 	ErrRuntimeClosed   = errors.New("project runtime is closed")
@@ -67,8 +69,10 @@ type operationResult struct {
 }
 
 type runtimeState struct {
-	current  Document
-	revision uint64
+	current      Document
+	revision     uint64
+	history      []Document
+	historyIndex int
 }
 
 func OpenRuntime(ctx context.Context, store *Store) (*Runtime, error) {
@@ -170,10 +174,7 @@ func (r *Runtime) Mutate(mutate Mutation) (Snapshot, error) {
 				return snapshotFromState(*state), err
 			}
 
-			if !reflect.DeepEqual(state.current, normalized) {
-				state.current = normalized.Clone()
-				state.revision++
-			}
+			applyRuntimeMutationState(state, normalized)
 
 			return snapshotFromState(*state), nil
 		},
@@ -191,6 +192,7 @@ func (r *Runtime) Flush() (Snapshot, error) {
 func (r *Runtime) Save(ctx context.Context) (Snapshot, error) {
 	return r.submit(operation{
 		run: func(state *runtimeState) (Snapshot, error) {
+			recordRuntimeHistoryState(state, state.current)
 			snapshot := snapshotFromState(*state)
 			return snapshot, r.persistSnapshot(ctx, snapshot)
 		},
@@ -216,11 +218,9 @@ func (r *Runtime) MutateAndSave(ctx context.Context, mutate Mutation) (Snapshot,
 				return snapshotFromState(*state), err
 			}
 
-			if !reflect.DeepEqual(state.current, normalized) {
-				state.current = normalized.Clone()
-				state.revision++
-			}
+			applyRuntimeMutationState(state, normalized)
 
+			recordRuntimeHistoryState(state, state.current)
 			snapshot := snapshotFromState(*state)
 			return snapshot, r.persistSnapshot(ctx, snapshot)
 		},
@@ -375,8 +375,10 @@ func openRuntime(document Document, controller saveController) (*Runtime, error)
 		done:                 make(chan struct{}),
 	}
 	go runtime.runLoop(runtimeState{
-		current:  normalized.Clone(),
-		revision: 1,
+		current:      normalized.Clone(),
+		revision:     1,
+		history:      []Document{normalized.Clone()},
+		historyIndex: 0,
 	})
 	return runtime, nil
 }

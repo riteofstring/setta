@@ -5549,6 +5549,24 @@ export function createGetLatestProjectStateRequestInput(options: Partial<GetLate
 }
 
 
+export type UndoRequestInput = {
+  projectConfigId: string;
+  steps: number;
+};
+export function createUndoRequestInput(options: Partial<UndoRequestInput> = {}): UndoRequestInput {
+  return options as UndoRequestInput;
+}
+
+
+export type RedoRequestInput = {
+  projectConfigId: string;
+  steps: number;
+};
+export function createRedoRequestInput(options: Partial<RedoRequestInput> = {}): RedoRequestInput {
+  return options as RedoRequestInput;
+}
+
+
 export type SaveProjectRequestInput = {
   projectConfigId: string;
 };

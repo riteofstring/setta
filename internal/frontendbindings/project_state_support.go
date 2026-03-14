@@ -732,6 +732,16 @@ type GetLatestProjectStateRequestInput struct {
 	ProjectConfigID string  `json:"projectConfigId"`
 }
 
+type UndoRequestInput struct {
+	ProjectConfigID string `json:"projectConfigId"`
+	Steps           int    `json:"steps"`
+}
+
+type RedoRequestInput struct {
+	ProjectConfigID string `json:"projectConfigId"`
+	Steps           int    `json:"steps"`
+}
+
 type SetCallableChildCodeObj struct {
 	CodeObjID string `json:"codeObjId"`
 	Name      string `json:"name"`

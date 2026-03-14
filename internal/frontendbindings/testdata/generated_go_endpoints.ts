@@ -59,6 +59,18 @@ export async function route_get_latest_project_state(x: gt.GetLatestProjectState
 }
 
 
+export async function route_undo(x: gt.UndoRequestInput): Promise<ResponseDataAndStatus<gt.ProjectStateSingleConfigWithCompletedOpIds>> {
+
+  return await post(GoHTTPRoutes.undo, x);
+}
+
+
+export async function route_redo(x: gt.RedoRequestInput): Promise<ResponseDataAndStatus<gt.ProjectStateSingleConfigWithCompletedOpIds>> {
+
+  return await post(GoHTTPRoutes.redo, x);
+}
+
+
 export async function route_save_project(x: gt.SaveProjectRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.saveProject, x);
