@@ -4,11 +4,6 @@ import {
   ChatRoleEnum,
 } from "utils/generatedTypes";
 
-export type ConversationSearchTextRange = {
-  start: number;
-  end: number;
-};
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -142,69 +137,6 @@ function countTermOccurrences(normalizedText: string, term: string): number {
     cursor = nextIndex + term.length;
   }
   return count;
-}
-
-function findTermRanges(
-  normalizedText: string,
-  term: string,
-): Array<ConversationSearchTextRange> {
-  if (term.length === 0) {
-    return [];
-  }
-  const ranges: Array<ConversationSearchTextRange> = [];
-  let cursor = 0;
-  while (cursor <= normalizedText.length - term.length) {
-    const nextIndex = normalizedText.indexOf(term, cursor);
-    if (nextIndex === -1) {
-      break;
-    }
-    ranges.push({
-      start: nextIndex,
-      end: nextIndex + term.length,
-    });
-    cursor = nextIndex + term.length;
-  }
-  return ranges;
-}
-
-export function findConversationSearchTextRanges(
-  text: string,
-  normalizedSearchTerms: Array<string>,
-): Array<ConversationSearchTextRange> {
-  if (normalizedSearchTerms.length === 0 || text.length === 0) {
-    return [];
-  }
-  const normalizedText = text.toLowerCase();
-  const ranges = normalizedSearchTerms.flatMap((term) =>
-    findTermRanges(normalizedText, term),
-  );
-  if (ranges.length === 0) {
-    return [];
-  }
-  ranges.sort((left, right) => {
-    if (left.start !== right.start) {
-      return left.start - right.start;
-    }
-    return left.end - right.end;
-  });
-  const firstRange = ranges[0];
-  if (!firstRange) {
-    return [];
-  }
-  const merged: Array<ConversationSearchTextRange> = [{ ...firstRange }];
-  for (let index = 1; index < ranges.length; index += 1) {
-    const current = ranges[index];
-    const previous = merged[merged.length - 1];
-    if (!current || !previous) {
-      continue;
-    }
-    if (current.start <= previous.end) {
-      previous.end = Math.max(previous.end, current.end);
-      continue;
-    }
-    merged.push({ ...current });
-  }
-  return merged;
 }
 
 export function countConversationSearchTextMatches(

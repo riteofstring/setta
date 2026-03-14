@@ -14,7 +14,6 @@ import {
   buildSearchableTextForMessages,
   countConversationSearchTextMatches,
   extractRunMessagesForConversationSearch,
-  findConversationSearchTextRanges,
   matchesConversationSearchText,
   tokenizeConversationSearchQuery,
 } from "./conversationSearch";
@@ -41,22 +40,6 @@ describe("conversationSearch", () => {
     ).toBe(4);
     expect(countConversationSearchTextMatches("alpha only", terms)).toBe(0);
     expect(countConversationSearchTextMatches("alpha alpha", [])).toBe(0);
-  });
-
-  it("returns merged text ranges for all matched search terms", () => {
-    const terms = tokenizeConversationSearchQuery("alpha beta");
-    expect(
-      findConversationSearchTextRanges(
-        "Alpha beta alphabet soup beta",
-        terms,
-      ),
-    ).toEqual([
-      { start: 0, end: 5 },
-      { start: 6, end: 10 },
-      { start: 11, end: 16 },
-      { start: 25, end: 29 },
-    ]);
-    expect(findConversationSearchTextRanges("gamma", terms)).toEqual([]);
   });
 
   it("builds searchable text from message content, thinking, and tools", () => {

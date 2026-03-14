@@ -61,39 +61,6 @@
   }
 }
 
-@keyframes setta-chat-stream-reveal-a {
-  0% {
-    opacity: 0.82;
-  }
-  100% {
-    opacity: 1;
-  }
-}
-
-@keyframes setta-chat-stream-reveal-b {
-  0% {
-    opacity: 0.82;
-  }
-  100% {
-    opacity: 1;
-  }
-}
-
-.chat-stream-reveal-a {
-  animation: setta-chat-stream-reveal-a 90ms ease-out;
-}
-
-.chat-stream-reveal-b {
-  animation: setta-chat-stream-reveal-b 90ms ease-out;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .chat-stream-reveal-a,
-  .chat-stream-reveal-b {
-    animation: none;
-  }
-}
-
 .top-bottom-fade {
   position: relative;
   overflow-y: auto;
