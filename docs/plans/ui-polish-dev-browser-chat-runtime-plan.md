@@ -71,19 +71,19 @@ Primary implementation surfaces:
 - [ ] Move the project chat manager affordance out of the overview pane and into the bottom dock as a popout menu/list next to the create-chat button.
 - [ ] Make that bottom-dock popout the canonical place to list existing chat windows and expose focus/reopen/manage actions.
 - [ ] Remove or repurpose the overview "Project AI Chat" pane once the bottom-dock menu fully covers the management workflow.
-- [ ] Replace AI/chat loading spinners with braille-style Unicode animations based on the frames from `unicode-animations`.
-- [ ] Make minimized thinking previews auto-scroll through the real text until they reach the bottom, then pause, and resume only when more text arrives.
-- [ ] Fix thought-title timing so titles appear as soon as structured summary/title metadata exists; if the metadata arrives too late, fix the upstream/state path rather than inventing a heuristic client summary.
-- [ ] Render active background terminals as tool-call-like rows with a terminal icon and an expandable read-only terminal preview.
-- [ ] Render active subagents as tool-call-like rows with a subagent icon and expandable self-talk/details.
-- [ ] Clear Follow AI highlights immediately when a stream is stopped, interrupted, or drops unexpectedly.
+- [x] Replace AI/chat loading spinners with braille-style Unicode animations based on the frames from `unicode-animations`.
+- [x] Make minimized thinking previews auto-scroll through the real text until they reach the bottom, then pause, and resume only when more text arrives.
+- [x] Fix thought-title timing so titles appear as soon as structured summary/title metadata exists; if the metadata arrives too late, fix the upstream/state path rather than inventing a heuristic client summary.
+- [x] Render active background terminals as tool-call-like rows with a terminal icon and an expandable read-only terminal preview.
+- [x] Render active subagents as tool-call-like rows with a subagent icon and expandable self-talk/details.
+- [x] Clear Follow AI highlights immediately when a stream is stopped, interrupted, or drops unexpectedly.
 
 ## Phase 6: Git Worktrees
 
-- [ ] Add a typed worktree list contract on the backend if git status does not already expose one.
-- [ ] Render git worktrees in the git pane as a scrollable accordion that defaults open when worktrees exist.
-- [ ] Hide that accordion entirely when no worktrees exist.
-- [ ] Keep the existing active-worktree hint behavior consistent with the new pane data so there is one canonical notion of "current worktree".
+- [x] Add a typed worktree list contract on the backend if git status does not already expose one.
+- [x] Render git worktrees in the git pane as a scrollable accordion that defaults open when worktrees exist.
+- [x] Hide that accordion entirely when no worktrees exist.
+- [x] Keep the existing active-worktree hint behavior consistent with the new pane data so there is one canonical notion of "current worktree".
 
 ## Phase 7: Verification And Cleanup
 
