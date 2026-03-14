@@ -221,6 +221,44 @@ func TestBuildBindingsRendersPathParamAwareEndpoints(t *testing.T) {
 	}
 }
 
+func TestBuildBindingsRendersRouteHelperCollections(t *testing.T) {
+	t.Helper()
+
+	bindings, err := buildBindings([]RouteGroup{
+		{
+			ConstName:       "GoWebsocketRoutes",
+			HelperConstName: "GoWebsocketRouteHelpers",
+			Routes: []NamedRoute{
+				{
+					Name:     "frontend",
+					Path:     "/ws/frontend",
+					EnumName: "WEBSOCKET_FRONTEND",
+				},
+				{
+					Name:     "listenerById",
+					Path:     "/ws/listeners/{listenerID}",
+					EnumName: "WEBSOCKET_LISTENER_BY_ID",
+				},
+			},
+		},
+	}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("buildBindings(...) error = %v", err)
+	}
+
+	for _, snippet := range []string{
+		"export const GoWebsocketRouteHelpers = {",
+		"frontend(): string {",
+		"return GoWebsocketRoutes.frontend;",
+		"listenerById(listenerID: string): string {",
+		"return replaceGeneratedRoutePathParams(GoWebsocketRoutes.listenerById, { listenerID });",
+	} {
+		if !strings.Contains(bindings.RoutesTS, snippet) {
+			t.Fatalf("generated routes output missing %q:\n%s", snippet, bindings.RoutesTS)
+		}
+	}
+}
+
 func TestBuildBindingsEscapesRoutePathsInGeneratedRoutes(t *testing.T) {
 	t.Helper()
 

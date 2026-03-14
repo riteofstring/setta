@@ -14,8 +14,9 @@ type NamedRoute struct {
 }
 
 type RouteGroup struct {
-	ConstName string
-	Routes    []NamedRoute
+	ConstName       string
+	HelperConstName string
+	Routes          []NamedRoute
 }
 
 type EndpointSpec struct {
@@ -1465,7 +1466,8 @@ func CurrentRouteGroups() []RouteGroup {
 			},
 		},
 		{
-			ConstName: "GoWebsocketRoutes",
+			ConstName:       "GoWebsocketRoutes",
+			HelperConstName: "GoWebsocketRouteHelpers",
 			Routes: []NamedRoute{
 				{
 					Name:     "frontend",

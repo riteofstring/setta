@@ -294,6 +294,28 @@ export const GoWebsocketRoutes = {
   listenerById: "/ws/listeners/{listenerID}",
   terminalBySection: "/ws/terminals/{projectID}/{sectionID}",
 } as const;
+function replaceGeneratedRoutePathParams(
+  path: string,
+  params: Record<string, string | number | boolean>,
+): string {
+  let output = path;
+  for (const [key, value] of Object.entries(params)) {
+    const regex = new RegExp(`\\{${key}\\}`, "g");
+    output = output.replace(regex, String(value));
+  }
+  return output;
+}
+export const GoWebsocketRouteHelpers = {
+  frontend(): string {
+    return GoWebsocketRoutes.frontend;
+  },
+  listenerById(listenerID: string): string {
+    return replaceGeneratedRoutePathParams(GoWebsocketRoutes.listenerById, { listenerID });
+  },
+  terminalBySection(projectID: string, sectionID: string): string {
+    return replaceGeneratedRoutePathParams(GoWebsocketRoutes.terminalBySection, { projectID, sectionID });
+  },
+} as const;
 export const RouteEnum = {
   PREFIX: "/api",
   BOOTSTRAP_PAGE: "/__setta__/bootstrap",

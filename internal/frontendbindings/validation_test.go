@@ -808,6 +808,17 @@ func TestBuildBindingsRejectsInvalidRouteGroups(t *testing.T) {
 			want: `route group "default" const name cannot use reserved TypeScript keyword "default"`,
 		},
 		{
+			name: "route helper const name conflicts with generated helper",
+			routeGroup: RouteGroup{
+				ConstName:       "GoWebsocketRoutes",
+				HelperConstName: "replaceGeneratedRoutePathParams",
+				Routes: []NamedRoute{
+					{Name: "frontend", Path: "/ws/frontend", EnumName: "WEBSOCKET_FRONTEND"},
+				},
+			},
+			want: `route group "GoWebsocketRoutes" helper const name conflicts with generated routes helper function "replaceGeneratedRoutePathParams"`,
+		},
+		{
 			name: "invalid route name",
 			routeGroup: RouteGroup{
 				ConstName: "GoHTTPRoutes",
