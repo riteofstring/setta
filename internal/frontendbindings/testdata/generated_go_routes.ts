@@ -318,6 +318,210 @@ export const GoRootRouteHelpers = {
   },
 } as const;
 export const GoHTTPRouteHelpers = {
+  getBackendInitStatus(): string {
+    return GoHTTPRoutes.getBackendInitStatus;
+  },
+  getAuthRefreshStatus(): string {
+    return GoHTTPRoutes.getAuthRefreshStatus;
+  },
+  getServerMode(): string {
+    return GoHTTPRoutes.getServerMode;
+  },
+  getSettaHomeInfo(): string {
+    return GoHTTPRoutes.getSettaHomeInfo;
+  },
+  loadSettings(): string {
+    return GoHTTPRoutes.loadSettings;
+  },
+  saveSettings(): string {
+    return GoHTTPRoutes.saveSettings;
+  },
+  loadAllProjectMetadata(): string {
+    return GoHTTPRoutes.loadAllProjectMetadata;
+  },
+  loadProjectConfig(): string {
+    return GoHTTPRoutes.loadProjectConfig;
+  },
+  saveProject(): string {
+    return GoHTTPRoutes.saveProject;
+  },
+  saveAsNewProjectConfig(): string {
+    return GoHTTPRoutes.saveAsNewProjectConfig;
+  },
+  createProjectConfig(): string {
+    return GoHTTPRoutes.createProjectConfig;
+  },
+  deleteProjectConfigs(): string {
+    return GoHTTPRoutes.deleteProjectConfigs;
+  },
+  setAsDefaultProject(): string {
+    return GoHTTPRoutes.setAsDefaultProject;
+  },
+  setProjectConfigName(): string {
+    return GoHTTPRoutes.setProjectConfigName;
+  },
+  getNotifications(): string {
+    return GoHTTPRoutes.getNotifications;
+  },
+  deleteNotification(): string {
+    return GoHTTPRoutes.deleteNotification;
+  },
+  getLatestProjectState(): string {
+    return GoHTTPRoutes.getLatestProjectState;
+  },
+  undo(): string {
+    return GoHTTPRoutes.undo;
+  },
+  redo(): string {
+    return GoHTTPRoutes.redo;
+  },
+  createNewSectionVariant(): string {
+    return GoHTTPRoutes.createNewSectionVariant;
+  },
+  setSectionVariant(): string {
+    return GoHTTPRoutes.setSectionVariant;
+  },
+  setDefaultSectionVariant(): string {
+    return GoHTTPRoutes.setDefaultSectionVariant;
+  },
+  setSectionVariantSortOrder(): string {
+    return GoHTTPRoutes.setSectionVariantSortOrder;
+  },
+  toggleVariantFrozen(): string {
+    return GoHTTPRoutes.toggleVariantFrozen;
+  },
+  toggleVariantJsonSource(): string {
+    return GoHTTPRoutes.toggleVariantJsonSource;
+  },
+  setVariantJsonSourceKeys(): string {
+    return GoHTTPRoutes.setVariantJsonSourceKeys;
+  },
+  setSectionVariantName(): string {
+    return GoHTTPRoutes.setSectionVariantName;
+  },
+  deleteSectionVariantOrAsk(): string {
+    return GoHTTPRoutes.deleteSectionVariantOrAsk;
+  },
+  deleteJsonSourceFileAndVariant(): string {
+    return GoHTTPRoutes.deleteJsonSourceFileAndVariant;
+  },
+  createChildSections(): string {
+    return GoHTTPRoutes.createChildSections;
+  },
+  createChildSectionsViaIncrementer(): string {
+    return GoHTTPRoutes.createChildSectionsViaIncrementer;
+  },
+  deleteChildSectionsViaDecrementer(): string {
+    return GoHTTPRoutes.deleteChildSectionsViaDecrementer;
+  },
+  deleteSections(): string {
+    return GoHTTPRoutes.deleteSections;
+  },
+  deleteSelectedParams(): string {
+    return GoHTTPRoutes.deleteSelectedParams;
+  },
+  prepareSectionsForCopy(): string {
+    return GoHTTPRoutes.prepareSectionsForCopy;
+  },
+  pasteSections(): string {
+    return GoHTTPRoutes.pasteSections;
+  },
+  createEdge(): string {
+    return GoHTTPRoutes.createEdge;
+  },
+  updateEdge(): string {
+    return GoHTTPRoutes.updateEdge;
+  },
+  deleteEdges(): string {
+    return GoHTTPRoutes.deleteEdges;
+  },
+  reconnectEdge(): string {
+    return GoHTTPRoutes.reconnectEdge;
+  },
+  setEdges(): string {
+    return GoHTTPRoutes.setEdges;
+  },
+  createAgenticEdge(): string {
+    return GoHTTPRoutes.createAgenticEdge;
+  },
+  updateAgenticEdge(): string {
+    return GoHTTPRoutes.updateAgenticEdge;
+  },
+  deleteAgenticEdges(): string {
+    return GoHTTPRoutes.deleteAgenticEdges;
+  },
+  setAgenticEdges(): string {
+    return GoHTTPRoutes.setAgenticEdges;
+  },
+  moveSections(): string {
+    return GoHTTPRoutes.moveSections;
+  },
+  moveParams(): string {
+    return GoHTTPRoutes.moveParams;
+  },
+  moveParamGroups(): string {
+    return GoHTTPRoutes.moveParamGroups;
+  },
+  indentParams(): string {
+    return GoHTTPRoutes.indentParams;
+  },
+  unindentParams(): string {
+    return GoHTTPRoutes.unindentParams;
+  },
+  addKwarg(): string {
+    return GoHTTPRoutes.addKwarg;
+  },
+  deleteKwarg(): string {
+    return GoHTTPRoutes.deleteKwarg;
+  },
+  createTopLevelSection(): string {
+    return GoHTTPRoutes.createTopLevelSection;
+  },
+  createViewMode(): string {
+    return GoHTTPRoutes.createViewMode;
+  },
+  setActiveViewMode(): string {
+    return GoHTTPRoutes.setActiveViewMode;
+  },
+  toggleIsEditingViewMode(): string {
+    return GoHTTPRoutes.toggleIsEditingViewMode;
+  },
+  toggleViewModeUserFacing(): string {
+    return GoHTTPRoutes.toggleViewModeUserFacing;
+  },
+  toggleViewModeTab(): string {
+    return GoHTTPRoutes.toggleViewModeTab;
+  },
+  setViewModeName(): string {
+    return GoHTTPRoutes.setViewModeName;
+  },
+  setViewModeSortOrder(): string {
+    return GoHTTPRoutes.setViewModeSortOrder;
+  },
+  deleteViewMode(): string {
+    return GoHTTPRoutes.deleteViewMode;
+  },
+  setSectionName(): string {
+    return GoHTTPRoutes.setSectionName;
+  },
+  acceptRenameRefactor(): string {
+    return GoHTTPRoutes.acceptRenameRefactor;
+  },
+  declineRenameRefactor(): string {
+    return GoHTTPRoutes.declineRenameRefactor;
+  },
+  createWorkspaceLaunchIntent(): string {
+    return GoHTTPRoutes.createWorkspaceLaunchIntent;
+  },
+  launch(): string {
+    return GoHTTPRoutes.launch;
+  },
+  shareDeploymentCurrentSession(): string {
+    return GoHTTPRoutes.shareDeploymentCurrentSession;
+  },
+  appDeploymentCurrentSession(): string {
+    return GoHTTPRoutes.appDeploymentCurrentSession;
+  },
   shareDeploymentState(deploymentName: string, version: string): string {
     return replaceGeneratedRoutePathParams(GoHTTPRoutes.shareDeploymentState, { deploymentName, version });
   },
@@ -330,11 +534,17 @@ export const GoHTTPRouteHelpers = {
   appDeploymentProjectConfig(deploymentName: string, version: string): string {
     return replaceGeneratedRoutePathParams(GoHTTPRoutes.appDeploymentProjectConfig, { deploymentName, version });
   },
+  shareDeployments(): string {
+    return GoHTTPRoutes.shareDeployments;
+  },
   shareDeploymentVersions(deploymentName: string): string {
     return replaceGeneratedRoutePathParams(GoHTTPRoutes.shareDeploymentVersions, { deploymentName });
   },
   shareDeploymentLatest(deploymentName: string): string {
     return replaceGeneratedRoutePathParams(GoHTTPRoutes.shareDeploymentLatest, { deploymentName });
+  },
+  appDeployments(): string {
+    return GoHTTPRoutes.appDeployments;
   },
   appDeploymentVersions(deploymentName: string): string {
     return replaceGeneratedRoutePathParams(GoHTTPRoutes.appDeploymentVersions, { deploymentName });
@@ -342,11 +552,611 @@ export const GoHTTPRouteHelpers = {
   appDeploymentLatest(deploymentName: string): string {
     return replaceGeneratedRoutePathParams(GoHTTPRoutes.appDeploymentLatest, { deploymentName });
   },
+  getLauncherRecentWorkspaces(): string {
+    return GoHTTPRoutes.getLauncherRecentWorkspaces;
+  },
+  addLauncherRecentWorkspace(): string {
+    return GoHTTPRoutes.addLauncherRecentWorkspace;
+  },
+  removeLauncherRecentWorkspace(): string {
+    return GoHTTPRoutes.removeLauncherRecentWorkspace;
+  },
+  pinLauncherRecentWorkspace(): string {
+    return GoHTTPRoutes.pinLauncherRecentWorkspace;
+  },
+  getLauncherFilesystemRoots(): string {
+    return GoHTTPRoutes.getLauncherFilesystemRoots;
+  },
+  listLauncherDirectory(): string {
+    return GoHTTPRoutes.listLauncherDirectory;
+  },
+  openLauncherWorkspace(): string {
+    return GoHTTPRoutes.openLauncherWorkspace;
+  },
+  getLauncherStatus(): string {
+    return GoHTTPRoutes.getLauncherStatus;
+  },
+  setupLauncher(): string {
+    return GoHTTPRoutes.setupLauncher;
+  },
+  repairLauncher(): string {
+    return GoHTTPRoutes.repairLauncher;
+  },
+  removeLauncher(): string {
+    return GoHTTPRoutes.removeLauncher;
+  },
+  updateLauncher(): string {
+    return GoHTTPRoutes.updateLauncher;
+  },
+  revealPathInOsFileExplorer(): string {
+    return GoHTTPRoutes.revealPathInOsFileExplorer;
+  },
+  getAppGenSkills(): string {
+    return GoHTTPRoutes.getAppGenSkills;
+  },
+  getAppGenSkillContent(): string {
+    return GoHTTPRoutes.getAppGenSkillContent;
+  },
+  upsertAppGenCustomSkill(): string {
+    return GoHTTPRoutes.upsertAppGenCustomSkill;
+  },
+  getMCPServerRuntimeStatus(): string {
+    return GoHTTPRoutes.getMCPServerRuntimeStatus;
+  },
+  getPasswordParamValue(): string {
+    return GoHTTPRoutes.getPasswordParamValue;
+  },
+  changeParamImpl(): string {
+    return GoHTTPRoutes.changeParamImpl;
+  },
+  setParamEnteredValue(): string {
+    return GoHTTPRoutes.setParamEnteredValue;
+  },
+  updateParamImplConfig(): string {
+    return GoHTTPRoutes.updateParamImplConfig;
+  },
+  setCodeObjName(): string {
+    return GoHTTPRoutes.setCodeObjName;
+  },
+  setCodeObjDisplayName(): string {
+    return GoHTTPRoutes.setCodeObjDisplayName;
+  },
+  setCodeSectionAttachedTerminal(): string {
+    return GoHTTPRoutes.setCodeSectionAttachedTerminal;
+  },
+  setCode(): string {
+    return GoHTTPRoutes.setCode;
+  },
+  formatCode(): string {
+    return GoHTTPRoutes.formatCode;
+  },
+  setCallable(): string {
+    return GoHTTPRoutes.setCallable;
+  },
+  setProjectConfigCodegenTargets(): string {
+    return GoHTTPRoutes.setProjectConfigCodegenTargets;
+  },
+  setGenCodePrefix(): string {
+    return GoHTTPRoutes.setGenCodePrefix;
+  },
+  setGenCodeSuffix(): string {
+    return GoHTTPRoutes.setGenCodeSuffix;
+  },
+  setWatchCodeEnabled(): string {
+    return GoHTTPRoutes.setWatchCodeEnabled;
+  },
+  setWatchCodeInputs(): string {
+    return GoHTTPRoutes.setWatchCodeInputs;
+  },
+  setTextBlockText(): string {
+    return GoHTTPRoutes.setTextBlockText;
+  },
+  setTextBlockDisplayMode(): string {
+    return GoHTTPRoutes.setTextBlockDisplayMode;
+  },
+  setTextBlockFormat(): string {
+    return GoHTTPRoutes.setTextBlockFormat;
+  },
+  setTextBlockHeadingAsSectionName(): string {
+    return GoHTTPRoutes.setTextBlockHeadingAsSectionName;
+  },
+  setTextBlockMetaControlStyle(): string {
+    return GoHTTPRoutes.setTextBlockMetaControlStyle;
+  },
+  setTextBlockMasterFontSize(): string {
+    return GoHTTPRoutes.setTextBlockMasterFontSize;
+  },
+  docstringToMarkdown(): string {
+    return GoHTTPRoutes.docstringToMarkdown;
+  },
+  deleteTerminals(): string {
+    return GoHTTPRoutes.deleteTerminals;
+  },
+  interruptTerminalProcesses(): string {
+    return GoHTTPRoutes.interruptTerminalProcesses;
+  },
+  runCode(): string {
+    return GoHTTPRoutes.runCode;
+  },
+  getAttachmentDownloadUrl(): string {
+    return GoHTTPRoutes.getAttachmentDownloadUrl;
+  },
+  getAttachmentDownloadUrls(): string {
+    return GoHTTPRoutes.getAttachmentDownloadUrls;
+  },
+  createFile(): string {
+    return GoHTTPRoutes.createFile;
+  },
+  checkIfFileExists(): string {
+    return GoHTTPRoutes.checkIfFileExists;
+  },
+  checkWorkspaceInitialized(): string {
+    return GoHTTPRoutes.checkWorkspaceInitialized;
+  },
+  getFileBrowserRoot(): string {
+    return GoHTTPRoutes.getFileBrowserRoot;
+  },
+  getFolderContents(): string {
+    return GoHTTPRoutes.getFolderContents;
+  },
+  getFileBrowserDownloadUrls(): string {
+    return GoHTTPRoutes.getFileBrowserDownloadUrls;
+  },
   fileBrowserDownload(token: string): string {
     return replaceGeneratedRoutePathParams(GoHTTPRoutes.fileBrowserDownload, { token });
   },
+  getFileBrowserFileContent(): string {
+    return GoHTTPRoutes.getFileBrowserFileContent;
+  },
+  getFileBrowserFileStat(): string {
+    return GoHTTPRoutes.getFileBrowserFileStat;
+  },
+  writeFileBrowserFileContent(): string {
+    return GoHTTPRoutes.writeFileBrowserFileContent;
+  },
+  transferFileBrowserEntry(): string {
+    return GoHTTPRoutes.transferFileBrowserEntry;
+  },
+  binaryUpload(): string {
+    return GoHTTPRoutes.binaryUpload;
+  },
   binaryDownload(contentId: string): string {
     return replaceGeneratedRoutePathParams(GoHTTPRoutes.binaryDownload, { contentId });
+  },
+  getGitStatus(): string {
+    return GoHTTPRoutes.getGitStatus;
+  },
+  getGitDiff(): string {
+    return GoHTTPRoutes.getGitDiff;
+  },
+  getGitLog(): string {
+    return GoHTTPRoutes.getGitLog;
+  },
+  getGitCommitDetails(): string {
+    return GoHTTPRoutes.getGitCommitDetails;
+  },
+  getGitCommitFileDiff(): string {
+    return GoHTTPRoutes.getGitCommitFileDiff;
+  },
+  importFilesToArtifacts(): string {
+    return GoHTTPRoutes.importFilesToArtifacts;
+  },
+  loadCachedImageArtifacts(): string {
+    return GoHTTPRoutes.loadCachedImageArtifacts;
+  },
+  loadCachedChartData(): string {
+    return GoHTTPRoutes.loadCachedChartData;
+  },
+  loadCachedBrushStrokes(): string {
+    return GoHTTPRoutes.loadCachedBrushStrokes;
+  },
+  loadCachedDrawAreaLayerItemTransform(): string {
+    return GoHTTPRoutes.loadCachedDrawAreaLayerItemTransform;
+  },
+  updateArtifacts(): string {
+    return GoHTTPRoutes.updateArtifacts;
+  },
+  deleteArtifacts(): string {
+    return GoHTTPRoutes.deleteArtifacts;
+  },
+  appendDrawAreaLayerItem(): string {
+    return GoHTTPRoutes.appendDrawAreaLayerItem;
+  },
+  forceRefreshListener(): string {
+    return GoHTTPRoutes.forceRefreshListener;
+  },
+  setTopLevelSectionLayout(): string {
+    return GoHTTPRoutes.setTopLevelSectionLayout;
+  },
+  toggleSectionVisibility(): string {
+    return GoHTTPRoutes.toggleSectionVisibility;
+  },
+  autoLayoutTopLevelSections(): string {
+    return GoHTTPRoutes.autoLayoutTopLevelSections;
+  },
+  setShowParamDisplayNames(): string {
+    return GoHTTPRoutes.setShowParamDisplayNames;
+  },
+  groupSections(): string {
+    return GoHTTPRoutes.groupSections;
+  },
+  ungroupGroups(): string {
+    return GoHTTPRoutes.ungroupGroups;
+  },
+  setSectionSizes(): string {
+    return GoHTTPRoutes.setSectionSizes;
+  },
+  setActiveIds(): string {
+    return GoHTTPRoutes.setActiveIds;
+  },
+  setSectionParamFilter(): string {
+    return GoHTTPRoutes.setSectionParamFilter;
+  },
+  setMetaControlShowSectionTitle(): string {
+    return GoHTTPRoutes.setMetaControlShowSectionTitle;
+  },
+  setSectionColumnWidth(): string {
+    return GoHTTPRoutes.setSectionColumnWidth;
+  },
+  togglePositionLocks(): string {
+    return GoHTTPRoutes.togglePositionLocks;
+  },
+  toggleMinimized(): string {
+    return GoHTTPRoutes.toggleMinimized;
+  },
+  setSectionEdgeInputs(): string {
+    return GoHTTPRoutes.setSectionEdgeInputs;
+  },
+  setSectionEdgeOutputs(): string {
+    return GoHTTPRoutes.setSectionEdgeOutputs;
+  },
+  setParentDefaultChildSectionType(): string {
+    return GoHTTPRoutes.setParentDefaultChildSectionType;
+  },
+  setListRootViewMode(): string {
+    return GoHTTPRoutes.setListRootViewMode;
+  },
+  toggleGroupOrientation(): string {
+    return GoHTTPRoutes.toggleGroupOrientation;
+  },
+  setGroupOverflowMode(): string {
+    return GoHTTPRoutes.setGroupOverflowMode;
+  },
+  setSectionTagColor(): string {
+    return GoHTTPRoutes.setSectionTagColor;
+  },
+  setSectionStyleColor(): string {
+    return GoHTTPRoutes.setSectionStyleColor;
+  },
+  setCallableHideParams(): string {
+    return GoHTTPRoutes.setCallableHideParams;
+  },
+  setSectionHideUnpinnedParams(): string {
+    return GoHTTPRoutes.setSectionHideUnpinnedParams;
+  },
+  setSectionPinnedParams(): string {
+    return GoHTTPRoutes.setSectionPinnedParams;
+  },
+  setBrowserColumnWidths(): string {
+    return GoHTTPRoutes.setBrowserColumnWidths;
+  },
+  setBrowserAreaViewMode(): string {
+    return GoHTTPRoutes.setBrowserAreaViewMode;
+  },
+  setBrowserHideColumn(): string {
+    return GoHTTPRoutes.setBrowserHideColumn;
+  },
+  setBrowserSavedSearches(): string {
+    return GoHTTPRoutes.setBrowserSavedSearches;
+  },
+  setSpreadsheetFilePath(): string {
+    return GoHTTPRoutes.setSpreadsheetFilePath;
+  },
+  setSpreadsheetSectionSettings(): string {
+    return GoHTTPRoutes.setSpreadsheetSectionSettings;
+  },
+  setTaskBoardSectionState(): string {
+    return GoHTTPRoutes.setTaskBoardSectionState;
+  },
+  setImageAreaImagePath(): string {
+    return GoHTTPRoutes.setImageAreaImagePath;
+  },
+  setSocialURL(): string {
+    return GoHTTPRoutes.setSocialURL;
+  },
+  setChartAreaDataPath(): string {
+    return GoHTTPRoutes.setChartAreaDataPath;
+  },
+  setChartType(): string {
+    return GoHTTPRoutes.setChartType;
+  },
+  setChartSettings(): string {
+    return GoHTTPRoutes.setChartSettings;
+  },
+  setCodeFileBinding(): string {
+    return GoHTTPRoutes.setCodeFileBinding;
+  },
+  toggleParamSelected(): string {
+    return GoHTTPRoutes.toggleParamSelected;
+  },
+  unselectAllParams(): string {
+    return GoHTTPRoutes.unselectAllParams;
+  },
+  setViewport(): string {
+    return GoHTTPRoutes.setViewport;
+  },
+  getListenerCoverage(): string {
+    return GoHTTPRoutes.getListenerCoverage;
+  },
+  getLLMConfig(): string {
+    return GoHTTPRoutes.getLLMConfig;
+  },
+  setLLMConfig(): string {
+    return GoHTTPRoutes.setLLMConfig;
+  },
+  getLLMAPIKeys(): string {
+    return GoHTTPRoutes.getLLMAPIKeys;
+  },
+  setLLMAPIKeys(): string {
+    return GoHTTPRoutes.setLLMAPIKeys;
+  },
+  getAgentProfiles(): string {
+    return GoHTTPRoutes.getAgentProfiles;
+  },
+  getAgentProfile(): string {
+    return GoHTTPRoutes.getAgentProfile;
+  },
+  createAgentProfile(): string {
+    return GoHTTPRoutes.createAgentProfile;
+  },
+  updateAgentProfile(): string {
+    return GoHTTPRoutes.updateAgentProfile;
+  },
+  deleteAgentProfile(): string {
+    return GoHTTPRoutes.deleteAgentProfile;
+  },
+  getAgentRuns(): string {
+    return GoHTTPRoutes.getAgentRuns;
+  },
+  getAgentRun(): string {
+    return GoHTTPRoutes.getAgentRun;
+  },
+  startAgentRun(): string {
+    return GoHTTPRoutes.startAgentRun;
+  },
+  stopAgentRun(): string {
+    return GoHTTPRoutes.stopAgentRun;
+  },
+  startRunChain(): string {
+    return GoHTTPRoutes.startRunChain;
+  },
+  stopRunChain(): string {
+    return GoHTTPRoutes.stopRunChain;
+  },
+  getEngineConfigs(): string {
+    return GoHTTPRoutes.getEngineConfigs;
+  },
+  getEngineConfig(): string {
+    return GoHTTPRoutes.getEngineConfig;
+  },
+  createEngineConfig(): string {
+    return GoHTTPRoutes.createEngineConfig;
+  },
+  updateEngineConfig(): string {
+    return GoHTTPRoutes.updateEngineConfig;
+  },
+  deleteEngineConfig(): string {
+    return GoHTTPRoutes.deleteEngineConfig;
+  },
+  getPromptTemplates(): string {
+    return GoHTTPRoutes.getPromptTemplates;
+  },
+  getPromptTemplate(): string {
+    return GoHTTPRoutes.getPromptTemplate;
+  },
+  createPromptTemplate(): string {
+    return GoHTTPRoutes.createPromptTemplate;
+  },
+  updatePromptTemplate(): string {
+    return GoHTTPRoutes.updatePromptTemplate;
+  },
+  deletePromptTemplate(): string {
+    return GoHTTPRoutes.deletePromptTemplate;
+  },
+  getExternalAgentConfigs(): string {
+    return GoHTTPRoutes.getExternalAgentConfigs;
+  },
+  getExternalAgentConfig(): string {
+    return GoHTTPRoutes.getExternalAgentConfig;
+  },
+  getExternalAgentHealth(): string {
+    return GoHTTPRoutes.getExternalAgentHealth;
+  },
+  createExternalAgentConfig(): string {
+    return GoHTTPRoutes.createExternalAgentConfig;
+  },
+  updateExternalAgentConfig(): string {
+    return GoHTTPRoutes.updateExternalAgentConfig;
+  },
+  deleteExternalAgentConfig(): string {
+    return GoHTTPRoutes.deleteExternalAgentConfig;
+  },
+  getTranscriptionProfiles(): string {
+    return GoHTTPRoutes.getTranscriptionProfiles;
+  },
+  createTranscriptionProfile(): string {
+    return GoHTTPRoutes.createTranscriptionProfile;
+  },
+  updateTranscriptionProfile(): string {
+    return GoHTTPRoutes.updateTranscriptionProfile;
+  },
+  deleteTranscriptionProfile(): string {
+    return GoHTTPRoutes.deleteTranscriptionProfile;
+  },
+  startTranscriptionSession(): string {
+    return GoHTTPRoutes.startTranscriptionSession;
+  },
+  appendTranscriptionAudio(): string {
+    return GoHTTPRoutes.appendTranscriptionAudio;
+  },
+  stopTranscriptionSession(): string {
+    return GoHTTPRoutes.stopTranscriptionSession;
+  },
+  cancelTranscriptionSession(): string {
+    return GoHTTPRoutes.cancelTranscriptionSession;
+  },
+  getLLMResponse(): string {
+    return GoHTTPRoutes.getLLMResponse;
+  },
+  getLLMChat(): string {
+    return GoHTTPRoutes.getLLMChat;
+  },
+  stopLLMChat(): string {
+    return GoHTTPRoutes.stopLLMChat;
+  },
+  getExternalAgentChat(): string {
+    return GoHTTPRoutes.getExternalAgentChat;
+  },
+  stopExternalAgentRun(): string {
+    return GoHTTPRoutes.stopExternalAgentRun;
+  },
+  getAIFollowSnapshot(): string {
+    return GoHTTPRoutes.getAIFollowSnapshot;
+  },
+  respondExternalAgentApproval(): string {
+    return GoHTTPRoutes.respondExternalAgentApproval;
+  },
+  respondExternalAgentQuestion(): string {
+    return GoHTTPRoutes.respondExternalAgentQuestion;
+  },
+  getChatSectionChatId(): string {
+    return GoHTTPRoutes.getChatSectionChatId;
+  },
+  setChatSectionSettings(): string {
+    return GoHTTPRoutes.setChatSectionSettings;
+  },
+  setChatSectionState(): string {
+    return GoHTTPRoutes.setChatSectionState;
+  },
+  setChatSectionChatId(): string {
+    return GoHTTPRoutes.setChatSectionChatId;
+  },
+  setPromptTemplate(): string {
+    return GoHTTPRoutes.setPromptTemplate;
+  },
+  setPromptInputs(): string {
+    return GoHTTPRoutes.setPromptInputs;
+  },
+  setPromptFormat(): string {
+    return GoHTTPRoutes.setPromptFormat;
+  },
+  createWindowSpace(): string {
+    return GoHTTPRoutes.createWindowSpace;
+  },
+  setWindowSpaceName(): string {
+    return GoHTTPRoutes.setWindowSpaceName;
+  },
+  setWindowSpaceSortOrder(): string {
+    return GoHTTPRoutes.setWindowSpaceSortOrder;
+  },
+  deleteWindowSpace(): string {
+    return GoHTTPRoutes.deleteWindowSpace;
+  },
+  setProjectChatWindowingState(): string {
+    return GoHTTPRoutes.setProjectChatWindowingState;
+  },
+  setProjectChatWindowChatId(): string {
+    return GoHTTPRoutes.setProjectChatWindowChatId;
+  },
+  getAgenticSummaryCacheStatus(): string {
+    return GoHTTPRoutes.getAgenticSummaryCacheStatus;
+  },
+  getAppDefinition(): string {
+    return GoHTTPRoutes.getAppDefinition;
+  },
+  setAppDefinition(): string {
+    return GoHTTPRoutes.setAppDefinition;
+  },
+  validateAppDefinition(): string {
+    return GoHTTPRoutes.validateAppDefinition;
+  },
+  getAppCatalog(): string {
+    return GoHTTPRoutes.getAppCatalog;
+  },
+  restartLanguageServer(): string {
+    return GoHTTPRoutes.restartLanguageServer;
+  },
+  typeCheck(): string {
+    return GoHTTPRoutes.typeCheck;
+  },
+  clearTextFieldCompletion(): string {
+    return GoHTTPRoutes.clearTextFieldCompletion;
+  },
+  textFieldCompletion(): string {
+    return GoHTTPRoutes.textFieldCompletion;
+  },
+  outputAccessorCompletion(): string {
+    return GoHTTPRoutes.outputAccessorCompletion;
+  },
+  codeAreaCompletion(): string {
+    return GoHTTPRoutes.codeAreaCompletion;
+  },
+  genCodePrefixCompletion(): string {
+    return GoHTTPRoutes.genCodePrefixCompletion;
+  },
+  genCodeSuffixCompletion(): string {
+    return GoHTTPRoutes.genCodeSuffixCompletion;
+  },
+  getLatestLspDiagnostics(): string {
+    return GoHTTPRoutes.getLatestLspDiagnostics;
+  },
+  setTypeErrorIgnore(): string {
+    return GoHTTPRoutes.setTypeErrorIgnore;
+  },
+  setCodeSectionDiagnosticsMute(): string {
+    return GoHTTPRoutes.setCodeSectionDiagnosticsMute;
+  },
+  setCodeSectionDiagnosticCodeSuppression(): string {
+    return GoHTTPRoutes.setCodeSectionDiagnosticCodeSuppression;
+  },
+  pluginsRuntime(): string {
+    return GoHTTPRoutes.pluginsRuntime;
+  },
+  pluginsRescan(): string {
+    return GoHTTPRoutes.pluginsRescan;
+  },
+  pluginsInstall(): string {
+    return GoHTTPRoutes.pluginsInstall;
+  },
+  pluginsLink(): string {
+    return GoHTTPRoutes.pluginsLink;
+  },
+  pluginsUninstall(): string {
+    return GoHTTPRoutes.pluginsUninstall;
+  },
+  pluginsUpdate(): string {
+    return GoHTTPRoutes.pluginsUpdate;
+  },
+  pluginsRollback(): string {
+    return GoHTTPRoutes.pluginsRollback;
+  },
+  pluginsEnable(): string {
+    return GoHTTPRoutes.pluginsEnable;
+  },
+  pluginsDisable(): string {
+    return GoHTTPRoutes.pluginsDisable;
+  },
+  pluginsConfig(): string {
+    return GoHTTPRoutes.pluginsConfig;
+  },
+  pluginsLockWrite(): string {
+    return GoHTTPRoutes.pluginsLockWrite;
+  },
+  pluginsLockApply(): string {
+    return GoHTTPRoutes.pluginsLockApply;
+  },
+  pluginsRestart(): string {
+    return GoHTTPRoutes.pluginsRestart;
   },
   pluginsBackendRoute(pluginId: string, routePath: string): string {
     return replaceGeneratedRoutePathParams(GoHTTPRoutes.pluginsBackendRoute, { pluginId, routePath });

@@ -230,20 +230,21 @@ Current status:
   Go-owned bootstrap/tool root paths, so active callers no longer need raw
   `RouteEnum.BOOTSTRAP_PAGE` access in non-test frontend code
 - `generatedRoutes.ts` now also emits canonical HTTP route helpers for the
-  current Go-owned path-param routes such as deployment reads and binary/file
-  downloads plus plugin backend dispatch, so active callers no longer need
-  raw `RouteEnum...replace(...)` interpolation or handwritten
+  current Go-owned route surface, including zero-path-param support helpers
+  plus path-param routes such as deployment reads and binary/file downloads
+  plus plugin backend dispatch, so active callers no longer need raw
+  `RouteEnum...replace(...)` interpolation or handwritten
   `/api/plugins/{pluginId}...` path concatenation in non-test frontend code
 - support-layer frontend routing now uses explicit Go route groups for the API
-  prefix, launcher-origin policy map, and fixed Setta API presets, so non-test
-  runtime code no longer imports the broad legacy `RouteEnum` surface
+  prefix and generated Go route helpers for the launcher-origin policy map and
+  fixed Setta API presets, so non-test runtime code no longer imports the
+  broad legacy `RouteEnum` surface
 - the validation suite now also checks that direct websocket route-builder
   imports do not reappear in non-test frontend sources
 - the validation suite now also checks that direct generated route-constant
-  imports stay confined to `generatedEndpoints.ts` plus the explicit
-  support/dynamic boundaries in `c_addresses`, `serverModeBoundaryPolicy`, and
-  `settaApiPresets`; active callers should use generated helpers instead of
-  importing broad route-constant bags
+  imports stay confined to `generatedEndpoints.ts` plus the explicit API
+  prefix boundary in `c_addresses`; active callers should use generated
+  helpers instead of importing broad route-constant bags
 - the validation suite now also checks that non-test frontend runtime source
   does not import the legacy `RouteEnum`; callers should use narrower Go route
   groups/helpers or a documented explicit boundary instead
@@ -279,47 +280,47 @@ before widening it across more caller-backed Go routes.
 
 Current landed wedge:
 
-  - `frontend/src/utils/generatedRoutes.ts`
-  - current websocket route constants
-  - current status/meta route constants
-  - current settings route constants
-  - current project-shell route constants
-  - current project-state layout/presence/structure-selection route constants
-  - current latest-project-state hydration, code editing/formatting,
-    callable/section-presentation toggle, codegen-target, chat-settings, and
-    watch-code route constants
-  - current child-section helper route constants
-  - current section-variant delete helper route constants
-  - current param-impl/value/config, code-object naming/display,
-    python-codegen prefix/suffix, and attached-terminal helper route constants
-  - current clipboard copy/paste route constants
-  - current group-orientation and section-data helper route constants
-  - current draw-area append helper route constant
-  - current chart metadata helper route constants
-  - current text-block and docstring helper route constants
-  - current AI helper read route constants, including single-item
-    agent-profile / prompt-template / external-agent-config /
-    engine-config / agent-run reads
-  - current engine-config and managed agent-execution mutation route constants,
-    including engine-config create/delete plus managed agent-run and run-chain
-    start/stop
-  - current section param-filter, meta-control-title, and group-overflow route
-    constants
-  - current section param column-width route constants
-  - current top-level section creation, view-mode lifecycle, and section-rename
-    route constants
-  - current code file binding route constants
-  - current browser section metadata route constants
-  - current file-browser create/read/write/download/transfer route constants
-  - current binary payload and bounded artifact route constants
-  - current git read route constants
-  - current LSP completion and diagnostics-mute route constants
-  - current workspace-launch route constants
-  - current deployment/share current-session, state/project-config, and
-    publish/list/latest/version route constants
-  - current launcher-home route constants
-  - current launcher-management route constants
-  - current plugin-management route constants
+- `frontend/src/utils/generatedRoutes.ts`
+- current websocket route constants
+- current status/meta route constants
+- current settings route constants
+- current project-shell route constants
+- current project-state layout/presence/structure-selection route constants
+- current latest-project-state hydration, code editing/formatting,
+  callable/section-presentation toggle, codegen-target, chat-settings, and
+  watch-code route constants
+- current child-section helper route constants
+- current section-variant delete helper route constants
+- current param-impl/value/config, code-object naming/display,
+  python-codegen prefix/suffix, and attached-terminal helper route constants
+- current clipboard copy/paste route constants
+- current group-orientation and section-data helper route constants
+- current draw-area append helper route constant
+- current chart metadata helper route constants
+- current text-block and docstring helper route constants
+- current AI helper read route constants, including single-item
+  agent-profile / prompt-template / external-agent-config /
+  engine-config / agent-run reads
+- current engine-config and managed agent-execution mutation route constants,
+  including engine-config create/delete plus managed agent-run and run-chain
+  start/stop
+- current section param-filter, meta-control-title, and group-overflow route
+  constants
+- current section param column-width route constants
+- current top-level section creation, view-mode lifecycle, and section-rename
+  route constants
+- current code file binding route constants
+- current browser section metadata route constants
+- current file-browser create/read/write/download/transfer route constants
+- current binary payload and bounded artifact route constants
+- current git read route constants
+- current LSP completion and diagnostics-mute route constants
+- current workspace-launch route constants
+- current deployment/share current-session, state/project-config, and
+  publish/list/latest/version route constants
+- current launcher-home route constants
+- current launcher-management route constants
+- current plugin-management route constants
 - `frontend/src/utils/generatedTypes.ts`
   - current status/meta request/response contract types
   - explicit workspace-launch boundary contract types

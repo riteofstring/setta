@@ -1,4 +1,4 @@
-import { GoHTTPRoutes, GoRootRouteHelpers } from "./generatedRoutes";
+import { GoHTTPRouteHelpers, GoRootRouteHelpers } from "./generatedRoutes";
 import type { ServerModeResponse } from "./generatedTypes";
 
 export type ServerMode = ServerModeResponse["mode"] | null;
@@ -16,6 +16,24 @@ type ModeBoundaryPolicy = {
 
 const BOOTSTRAP_PAGE_ROUTE = GoRootRouteHelpers.bootstrapPage();
 const TOOLS_CALL_ROUTE = GoRootRouteHelpers.toolsCall();
+const LAUNCH_ROUTE = GoHTTPRouteHelpers.launch();
+const CREATE_WORKSPACE_LAUNCH_INTENT_ROUTE =
+  GoHTTPRouteHelpers.createWorkspaceLaunchIntent();
+const GET_SETTA_HOME_INFO_ROUTE = GoHTTPRouteHelpers.getSettaHomeInfo();
+const GET_LAUNCHER_RECENT_WORKSPACES_ROUTE =
+  GoHTTPRouteHelpers.getLauncherRecentWorkspaces();
+const ADD_LAUNCHER_RECENT_WORKSPACE_ROUTE =
+  GoHTTPRouteHelpers.addLauncherRecentWorkspace();
+const REMOVE_LAUNCHER_RECENT_WORKSPACE_ROUTE =
+  GoHTTPRouteHelpers.removeLauncherRecentWorkspace();
+const PIN_LAUNCHER_RECENT_WORKSPACE_ROUTE =
+  GoHTTPRouteHelpers.pinLauncherRecentWorkspace();
+const GET_LAUNCHER_FILESYSTEM_ROOTS_ROUTE =
+  GoHTTPRouteHelpers.getLauncherFilesystemRoots();
+const LIST_LAUNCHER_DIRECTORY_ROUTE =
+  GoHTTPRouteHelpers.listLauncherDirectory();
+const OPEN_LAUNCHER_WORKSPACE_ROUTE =
+  GoHTTPRouteHelpers.openLauncherWorkspace();
 
 const MODE_BOUNDARY_POLICY: Readonly<
   Record<ServerModeResponse["mode"], ModeBoundaryPolicy>
@@ -41,22 +59,22 @@ const MODE_BOUNDARY_POLICY: Readonly<
 export const ENDPOINT_ORIGIN_POLICY: Readonly<
   Record<string, EndpointOriginPolicy>
 > = Object.freeze({
-  [GoHTTPRoutes.launch]: "launcher",
-  [GoHTTPRoutes.createWorkspaceLaunchIntent]: "launcher",
-  [GoHTTPRoutes.getSettaHomeInfo]: "backend",
+  [LAUNCH_ROUTE]: "launcher",
+  [CREATE_WORKSPACE_LAUNCH_INTENT_ROUTE]: "launcher",
+  [GET_SETTA_HOME_INFO_ROUTE]: "backend",
   [TOOLS_CALL_ROUTE]: "backend-origin",
-  [GoHTTPRoutes.getLauncherRecentWorkspaces]: "launcher",
-  [GoHTTPRoutes.addLauncherRecentWorkspace]: "launcher",
-  [GoHTTPRoutes.removeLauncherRecentWorkspace]: "launcher",
-  [GoHTTPRoutes.pinLauncherRecentWorkspace]: "launcher",
-  [GoHTTPRoutes.getLauncherFilesystemRoots]: "launcher",
-  [GoHTTPRoutes.listLauncherDirectory]: "launcher",
-  [GoHTTPRoutes.openLauncherWorkspace]: "launcher",
+  [GET_LAUNCHER_RECENT_WORKSPACES_ROUTE]: "launcher",
+  [ADD_LAUNCHER_RECENT_WORKSPACE_ROUTE]: "launcher",
+  [REMOVE_LAUNCHER_RECENT_WORKSPACE_ROUTE]: "launcher",
+  [PIN_LAUNCHER_RECENT_WORKSPACE_ROUTE]: "launcher",
+  [GET_LAUNCHER_FILESYSTEM_ROOTS_ROUTE]: "launcher",
+  [LIST_LAUNCHER_DIRECTORY_ROUTE]: "launcher",
+  [OPEN_LAUNCHER_WORKSPACE_ROUTE]: "launcher",
 });
 
 const MODE_SCOPED_LAUNCHER_ROUTES = new Set<string>([
-  GoHTTPRoutes.launch,
-  GoHTTPRoutes.createWorkspaceLaunchIntent,
+  LAUNCH_ROUTE,
+  CREATE_WORKSPACE_LAUNCH_INTENT_ROUTE,
 ]);
 
 export function resolveServerModeCapabilities(

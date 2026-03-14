@@ -63,9 +63,8 @@ func CurrentRouteGroups() []RouteGroup {
 			},
 		},
 		{
-			ConstName:            "GoHTTPRoutes",
-			HelperConstName:      "GoHTTPRouteHelpers",
-			HelperOnlyPathParams: true,
+			ConstName:       "GoHTTPRoutes",
+			HelperConstName: "GoHTTPRouteHelpers",
 			Routes: []NamedRoute{
 				{
 					Name:     "getBackendInitStatus",

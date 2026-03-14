@@ -11,7 +11,7 @@ vi.mock("state/actions/sections/createSections", () => ({
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { getEmptySpacePosition } from "state/actions/sections/createSections";
 
-import { GoHTTPRoutes } from "./generatedRoutes";
+import { GoHTTPRouteHelpers } from "./generatedRoutes";
 import { SectionTypeEnum } from "./generatedTypes";
 import {
   buildSettaApiPayload,
@@ -27,14 +27,14 @@ describe("settaApiPresets", () => {
 
   it("keeps preset routes aligned with canonical generated route constants", () => {
     expect(SETTA_API_PRESETS.map((preset) => preset.route)).toEqual([
-      GoHTTPRoutes.createTopLevelSection,
-      GoHTTPRoutes.getLatestProjectState,
-      GoHTTPRoutes.saveProject,
+      GoHTTPRouteHelpers.createTopLevelSection(),
+      GoHTTPRouteHelpers.getLatestProjectState(),
+      GoHTTPRouteHelpers.saveProject(),
     ]);
   });
 
   it("formats preset request bodies from live project state helpers", () => {
-    expect(formatSettaApiBody(GoHTTPRoutes.createTopLevelSection)).toBe(
+    expect(formatSettaApiBody(GoHTTPRouteHelpers.createTopLevelSection())).toBe(
       JSON.stringify(
         {
           projectConfigId: "project-alpha",
@@ -55,7 +55,7 @@ describe("settaApiPresets", () => {
   it("merges preset defaults with user-provided overrides", () => {
     expect(
       buildSettaApiPayload(
-        GoHTTPRoutes.saveProject,
+        GoHTTPRouteHelpers.saveProject(),
         JSON.stringify({
           projectConfigId: "project-override",
           extra: "value",

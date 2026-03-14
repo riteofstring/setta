@@ -1523,9 +1523,7 @@ func TestFrontendRouteConstantImportsStayWithinExplicitBoundaries(t *testing.T) 
 	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
 	allowedRouteConstantImports := map[string]map[string]struct{}{
 		"GoHTTPRoutes": {
-			"frontend/src/utils/generatedEndpoints.ts":       {},
-			"frontend/src/utils/serverModeBoundaryPolicy.ts": {},
-			"frontend/src/utils/settaApiPresets.ts":          {},
+			"frontend/src/utils/generatedEndpoints.ts": {},
 		},
 		"GoRoutePrefixes": {
 			"frontend/src/utils/c_addresses.ts": {},
