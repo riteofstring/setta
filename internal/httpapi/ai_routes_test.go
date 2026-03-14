@@ -3106,6 +3106,294 @@ func TestRegisterAIRoutesReturnsTypedMissingAPIKeyForRealtimeTranscriptionStart(
 	}
 }
 
+func TestRegisterAIRoutesAutoTranscriptionResolvesToRealtime(t *testing.T) {
+	t.Parallel()
+
+	type providerHandshake struct {
+		Path          string
+		Query         string
+		Authorization string
+		OpenAIBeta    string
+	}
+
+	handshakes := make(chan providerHandshake, 1)
+	closed := make(chan error, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handshakes <- providerHandshake{
+			Path:          r.URL.Path,
+			Query:         r.URL.RawQuery,
+			Authorization: r.Header.Get("Authorization"),
+			OpenAIBeta:    r.Header.Get("OpenAI-Beta"),
+		}
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close(websocket.StatusNormalClosure, "")
+
+		if _, err := readAIRouteRealtimeProviderMessage(context.Background(), conn); err != nil {
+			return
+		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"session.updated","event_id":"evt-ready"}`)); err != nil {
+			return
+		}
+		_, _, err = conn.Read(context.Background())
+		closed <- err
+	}))
+	defer server.Close()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	if err := fixture.llm.UpdateConfig(llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"openai-realtime": {
+				ID:        "openai-realtime",
+				Model:     "gpt-4o-mini-transcribe",
+				Provider:  "openai",
+				BaseURL:   server.URL + "/v1",
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	}); err != nil {
+		t.Fatalf("update llm config: %v", err)
+	}
+	fixture.llm.UpdateAPIKeys(map[string]string{
+		"OPENAI_API_KEY": "route-secret",
+	})
+	if err := fixture.transcriptionStore.Write([]transcriptionprofiles.Profile{
+		{
+			ID:                            "profile-auto",
+			Name:                          "Auto",
+			TranscriptionLLMConfigID:      "openai-realtime",
+			TransportMode:                 transcriptionprofiles.TransportModeAuto,
+			ChunkMs:                       1200,
+			SupportsRealtimeTranscription: true,
+		},
+	}); err != nil {
+		t.Fatalf("write transcription profile: %v", err)
+	}
+
+	handler := newAIRouteTestHandlerWithTranscription(
+		t,
+		config.ModeIDE,
+		fixture.managed,
+		fixture.send,
+		fixture.service,
+		fixture.runtime,
+		fixture.transcriptionProfiles,
+		fixture.transcriptionSessions,
+		fixture.sessions,
+		fixture.follow,
+	)
+	startRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteStartTranscriptionSession,
+		strings.NewReader(`{"transcriptionProfileId":"profile-auto"}`),
+	)
+	startRequest.Header.Set("Content-Type", "application/json")
+	startResponse := httptest.NewRecorder()
+
+	handler.ServeHTTP(startResponse, startRequest)
+
+	if startResponse.Code != http.StatusOK {
+		t.Fatalf("expected start 200, got %d with body %q", startResponse.Code, startResponse.Body.String())
+	}
+	var started StartTranscriptionSessionResponse
+	if err := json.Unmarshal(startResponse.Body.Bytes(), &started); err != nil {
+		t.Fatalf("decode start response: %v", err)
+	}
+	if started.ResolvedTransportMode != transcriptionsessions.ResolvedTransportModeRealtime || started.ChunkMs != 1200 {
+		t.Fatalf("unexpected auto start payload %#v", started)
+	}
+
+	select {
+	case captured := <-handshakes:
+		if captured.Path != "/v1/realtime" {
+			t.Fatalf("unexpected provider path %q", captured.Path)
+		}
+		if captured.Query != "model=gpt-4o-mini-transcribe" {
+			t.Fatalf("unexpected provider query %q", captured.Query)
+		}
+		if captured.Authorization != "Bearer route-secret" {
+			t.Fatalf("unexpected authorization %q", captured.Authorization)
+		}
+		if captured.OpenAIBeta != "realtime=v1" {
+			t.Fatalf("unexpected OpenAI-Beta header %q", captured.OpenAIBeta)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for auto realtime handshake")
+	}
+
+	cancelRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteCancelTranscriptionSession,
+		strings.NewReader(`{"sessionId":"`+started.SessionID+`"}`),
+	)
+	cancelRequest.Header.Set("Content-Type", "application/json")
+	cancelResponse := httptest.NewRecorder()
+
+	handler.ServeHTTP(cancelResponse, cancelRequest)
+
+	if cancelResponse.Code != http.StatusOK {
+		t.Fatalf("expected cancel 200, got %d with body %q", cancelResponse.Code, cancelResponse.Body.String())
+	}
+
+	select {
+	case err := <-closed:
+		if websocket.CloseStatus(err) != websocket.StatusNormalClosure {
+			t.Fatalf("expected normal websocket close, got %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for auto realtime cancel close")
+	}
+}
+
+func TestRegisterAIRoutesAutoTranscriptionReturnsTypedMissingAPIKeyWithoutFallback(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	if err := fixture.llm.UpdateConfig(llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"openai-realtime": {
+				ID:        "openai-realtime",
+				Model:     "gpt-4o-mini-transcribe",
+				Provider:  "openai",
+				BaseURL:   "https://example.com/v1",
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	}); err != nil {
+		t.Fatalf("update llm config: %v", err)
+	}
+	if err := fixture.transcriptionStore.Write([]transcriptionprofiles.Profile{
+		{
+			ID:                            "profile-auto",
+			Name:                          "Auto",
+			TranscriptionLLMConfigID:      "openai-realtime",
+			TransportMode:                 transcriptionprofiles.TransportModeAuto,
+			ChunkMs:                       1200,
+			SupportsRealtimeTranscription: true,
+		},
+	}); err != nil {
+		t.Fatalf("write transcription profile: %v", err)
+	}
+
+	handler := newAIRouteTestHandlerWithTranscription(
+		t,
+		config.ModeIDE,
+		fixture.managed,
+		fixture.send,
+		fixture.service,
+		fixture.runtime,
+		fixture.transcriptionProfiles,
+		fixture.transcriptionSessions,
+		fixture.sessions,
+		fixture.follow,
+	)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteStartTranscriptionSession,
+		strings.NewReader(`{"transcriptionProfileId":"profile-auto"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "missing_api_key" {
+		t.Fatalf("expected missing_api_key, got %#v", payload)
+	}
+	if payload.Error.Message != "Missing API key for 'OPENAI_API_KEY'. Configure it in LLM API Keys." {
+		t.Fatalf("unexpected error payload %#v", payload)
+	}
+}
+
+func TestRegisterAIRoutesAutoTranscriptionReturnsTypedProviderFailureWithoutFallback(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte("Realtime setup forbidden by provider."))
+	}))
+	defer server.Close()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	if err := fixture.llm.UpdateConfig(llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"openai-realtime": {
+				ID:        "openai-realtime",
+				Model:     "gpt-4o-mini-transcribe",
+				Provider:  "openai",
+				BaseURL:   server.URL + "/v1",
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	}); err != nil {
+		t.Fatalf("update llm config: %v", err)
+	}
+	fixture.llm.UpdateAPIKeys(map[string]string{
+		"OPENAI_API_KEY": "route-secret",
+	})
+	if err := fixture.transcriptionStore.Write([]transcriptionprofiles.Profile{
+		{
+			ID:                            "profile-auto",
+			Name:                          "Auto",
+			TranscriptionLLMConfigID:      "openai-realtime",
+			TransportMode:                 transcriptionprofiles.TransportModeAuto,
+			ChunkMs:                       1200,
+			SupportsRealtimeTranscription: true,
+		},
+	}); err != nil {
+		t.Fatalf("write transcription profile: %v", err)
+	}
+
+	handler := newAIRouteTestHandlerWithTranscription(
+		t,
+		config.ModeIDE,
+		fixture.managed,
+		fixture.send,
+		fixture.service,
+		fixture.runtime,
+		fixture.transcriptionProfiles,
+		fixture.transcriptionSessions,
+		fixture.sessions,
+		fixture.follow,
+	)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteStartTranscriptionSession,
+		strings.NewReader(`{"transcriptionProfileId":"profile-auto"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadGateway {
+		t.Fatalf("expected 502, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "provider_failure" {
+		t.Fatalf("expected provider_failure, got %#v", payload)
+	}
+	if payload.Error.Message != "Realtime setup forbidden by provider." {
+		t.Fatalf("unexpected error payload %#v", payload)
+	}
+}
+
 func TestRegisterAIRoutesReturnsTypedRealtimeProviderFailureFromStart(t *testing.T) {
 	t.Parallel()
 
