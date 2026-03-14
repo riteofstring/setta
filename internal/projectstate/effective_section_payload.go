@@ -169,6 +169,26 @@ func payloadStringArrayField(object map[string]any, key string) []string {
 	return output
 }
 
+func payloadRawStringMapField(object map[string]any, key string) map[string]string {
+	value, ok := object[key]
+	if !ok {
+		return map[string]string{}
+	}
+	entries, ok := value.(map[string]any)
+	if !ok {
+		return map[string]string{}
+	}
+	output := make(map[string]string, len(entries))
+	for entryKey, entryValue := range entries {
+		stringValue, ok := entryValue.(string)
+		if !ok {
+			continue
+		}
+		output[entryKey] = stringValue
+	}
+	return output
+}
+
 func fallbackSectionType(impl SectionImpl) string {
 	switch {
 	case impl.IsCode():

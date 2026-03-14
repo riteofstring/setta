@@ -47,6 +47,8 @@ var (
 	ErrCallableSectionRequired         = errors.New("section must resolve to a callable section")
 	ErrGroupSectionRequired            = errors.New("section must resolve to a group section")
 	ErrChatSectionRequired             = errors.New("section must resolve to a chat section")
+	ErrPromptSectionRequired           = errors.New("section must resolve to a prompt section")
+	ErrPromptFormatInvalid             = errors.New("prompt format is invalid")
 	ErrChatPermissionModeInvalid       = errors.New("chat permission mode is invalid")
 	ErrChatDictationModeInvalid        = errors.New("chat dictation mode is invalid")
 )
