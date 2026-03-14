@@ -56,11 +56,21 @@ test("app config keeps chat-owned generation controls out of the default workben
   await expect(page.getByRole("button", { name: "Validate" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Save" })).toBeVisible();
   await expect(page.getByLabel("App Spec JSON")).toBeVisible();
+  await expect(page.getByText("Advanced app-definition workbench")).toHaveCount(
+    0,
+  );
   await expect(
-    page.getByText(
-      "Use Project Chat slash commands like /app-json, /app-image, /app-prompt, and /app-mcp to initiate generation.",
-    ),
-  ).toBeVisible();
+    page.getByText("Use Project Chat slash commands like /app-json"),
+  ).toHaveCount(0);
+  const quickInfo = page.getByRole("heading", { name: "JSON Render" });
+  await expect(quickInfo).toHaveAttribute(
+    "title",
+    /Advanced app-definition workbench for previewing, validating, saving, and editing the current app spec\./,
+  );
+  await expect(page.getByTestId("overview-tab-more")).toHaveAttribute(
+    "title",
+    /Use Project Chat slash commands like \/app-json, \/app-image, \/app-prompt, and \/app-mcp to initiate generation\./,
+  );
 
   await expect(page.getByLabel("Generation Prompt")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "JSON Render" })).toHaveCount(

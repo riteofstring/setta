@@ -523,18 +523,7 @@ export function AppConfigPane() {
 
   return (
     <section className="setta-pane-scroll flex min-h-0 flex-1 flex-col gap-4 pb-4 text-sm text-setta-600 dark:text-setta-300">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex max-w-2xl flex-col gap-1">
-          <p className="text-xs text-setta-500 dark:text-setta-400">
-            Advanced app-definition workbench for previewing, validating,
-            saving, and editing the current app spec.
-          </p>
-          <p className="text-xs text-setta-500 dark:text-setta-400">
-            Use Project Chat slash commands like <code>/app-json</code>,{" "}
-            <code>/app-image</code>, <code>/app-prompt</code>, and{" "}
-            <code>/app-mcp</code> to initiate generation.
-          </p>
-        </div>
+      <header className="flex justify-end">
         <button
           className="rounded-full border border-setta-200 px-3 py-1 text-xs font-semibold text-setta-600 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
           onClick={() =>
