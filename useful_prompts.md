@@ -110,8 +110,6 @@ Read these first:
 - docs/plans/frontend-panes-and-authoring-cleanup-plan.md
 - docs/plans/frontend-sections-and-params-cleanup-plan.md
 - docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md
-- if present, docs/reference/frontend-module-map.md
-- if present, docs/plans/frontend-cleanup-execution-log.md
 
 Treat the plans as a living baseline, not a frozen snapshot. Before picking a slice, verify the current tree and preserve any helper/module seams that already exist. If a file-size claim, hotspot list, or boundary in the docs is stale, update the docs as part of the cleanup instead of following the older snapshot blindly.
 
