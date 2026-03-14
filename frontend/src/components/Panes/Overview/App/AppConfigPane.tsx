@@ -21,15 +21,14 @@ import {
 } from "state/definitions";
 import { applyPatchOp, parsePatchLine } from "utils/appSpecPatchStream";
 import { C_ADDRESSES } from "utils/c_addresses";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
-import {
-  route_get_app_catalog,
-  route_get_app_definition,
-  route_set_app_definition,
-  route_validate_app_definition,
-} from "utils/generatedEndpoints";
 import { RouteEnum } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
+import {
+  loadAppCatalogPromptSummary,
+  loadAppConfigDefinition,
+  saveAppConfigDefinition,
+  validateAppConfigDefinition,
+} from "./appConfigApi";
 import {
   buildDefaultSpec,
   buildSpecSeed,
@@ -46,10 +45,7 @@ import {
   waitForHiddenGenerationResourcesLoaded,
   type ExternalAgentHealthStatus,
 } from "./appConfigHiddenGenerationUtils";
-import {
-  formatCatalogForPrompt,
-  formatSectionsForAppPrompt,
-} from "./appConfigPromptUtils";
+import { formatSectionsForAppPrompt } from "./appConfigPromptUtils";
 import { type AppThemeMode } from "./appDraftPreview";
 import {
   APP_GENERATION_MODE_OPTIONS,
@@ -188,19 +184,18 @@ export function AppConfigPane() {
       clearDraftErrors();
       setLoading(true);
       setErrorMessage(null);
-      const res = await route_get_app_definition({});
+      const res = await loadAppConfigDefinition();
       setLoading(false);
-      if (!res200(res)) {
+      if (!res.ok) {
         if (isMounted) {
-          const detail = getErrorDetail(res.data);
-          setErrorMessage(detail ?? "Failed to load app spec.");
+          setErrorMessage(res.error);
         }
         return;
       }
       if (isMounted) {
         hydrateSavedAppDefinition({
-          savedSpec: res.data.appSpec ?? null,
-          savedDefinition: res.data.appDefinition ?? null,
+          savedSpec: res.value.appSpec,
+          savedDefinition: res.value.appDefinition,
         });
       }
     }
@@ -213,16 +208,14 @@ export function AppConfigPane() {
 
   const preparePromptContext = useCallback(async () => {
     let catalogSummary = `Catalog: ${catalogId}`;
-    const catalogRes = await route_get_app_catalog();
-    if (res200(catalogRes)) {
-      const catalog = catalogRes.data;
-      catalogSummary = formatCatalogForPrompt(catalog);
-      if (typeof catalog.id === "string") {
-        setCatalogId(catalog.id);
+    const catalogRes = await loadAppCatalogPromptSummary();
+    if (catalogRes.ok) {
+      catalogSummary = catalogRes.value.catalogSummary;
+      if (catalogRes.value.catalogId) {
+        setCatalogId(catalogRes.value.catalogId);
       }
     } else {
-      const detail = getErrorDetail(catalogRes.data);
-      addTemporaryNotification(detail ?? "Failed to load app catalog.");
+      addTemporaryNotification(catalogRes.error);
     }
     const sectionsSummary = formatSectionsForAppPrompt(
       useProjectState.getState(),
@@ -256,25 +249,27 @@ export function AppConfigPane() {
       if (withLoading) {
         setLoading(true);
       }
-      const res = await route_set_app_definition({
-        appSpec: nextSpec,
-        appSpecPath: appSpecPath.trim() ? appSpecPath.trim() : undefined,
-        appSpecVersion: specVersion.trim() ? specVersion.trim() : undefined,
-        catalogId: catalogId.trim() ? catalogId.trim() : undefined,
-        theme: themePayload.value,
-        assets: assetsPayload.value,
-      });
+      const res = await saveAppConfigDefinition(
+        {
+          appSpec: nextSpec,
+          appSpecPath: appSpecPath.trim() ? appSpecPath.trim() : undefined,
+          appSpecVersion: specVersion.trim() ? specVersion.trim() : undefined,
+          catalogId: catalogId.trim() ? catalogId.trim() : undefined,
+          theme: themePayload.value,
+          assets: assetsPayload.value,
+        },
+        failureMessage,
+      );
       if (withLoading) {
         setLoading(false);
       }
-      if (!res200(res)) {
-        const detail = getErrorDetail(res.data);
-        setErrorMessage(detail ?? failureMessage);
+      if (!res.ok) {
+        setErrorMessage(res.error);
         return false;
       }
       hydrateSavedAppDefinition({
-        savedSpec: res.data.appSpec ?? null,
-        savedDefinition: res.data.appDefinition ?? null,
+        savedSpec: res.value.appSpec,
+        savedDefinition: res.value.appDefinition,
       });
       return true;
     },
@@ -627,7 +622,7 @@ export function AppConfigPane() {
     }
 
     setValidating(true);
-    const res = await route_validate_app_definition({
+    const res = await validateAppConfigDefinition({
       appSpec: specPayload.value,
       appSpecVersion: specVersion.trim() ? specVersion.trim() : undefined,
       catalogId: catalogId.trim() ? catalogId.trim() : undefined,
@@ -635,16 +630,15 @@ export function AppConfigPane() {
       assets: assetsPayload.value,
     });
     setValidating(false);
-    if (!res200(res)) {
-      const detail = getErrorDetail(res.data);
-      setErrorMessage(detail ?? "Failed to validate app spec.");
+    if (!res.ok) {
+      setErrorMessage(res.error);
       return;
     }
-    setValidationResult(res.data);
-    if (res.data.errors.length === 0) {
+    setValidationResult(res.value);
+    if (res.value.errors.length === 0) {
       addTemporaryNotification(
-        res.data.warnings.length > 0
-          ? `Validation passed with ${res.data.warnings.length} warning(s).`
+        res.value.warnings.length > 0
+          ? `Validation passed with ${res.value.warnings.length} warning(s).`
           : "Validation passed.",
       );
     }

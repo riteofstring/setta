@@ -105,6 +105,7 @@ This is the front door for authored frontend code under `frontend/src/`.
 - Need App Config default-spec, request-payload parsing, or preview seed helpers: open `components/Panes/Overview/App/appConfigDefinitionUtils.ts`.
 - Need App Config hidden-generation engine selection or generation error helpers: open `components/Panes/Overview/App/appConfigHiddenGenerationUtils.ts`.
 - Need App Config draft fields, saved-definition hydration, or preview-override syncing: open `components/Panes/Overview/App/useAppConfigDefinitionDrafts.ts`.
+- Need App Config backend transport for load/save/validate/catalog requests: open `components/Panes/Overview/App/appConfigApi.ts`.
 - Need pane/tab behavior: open `components/Panes/`.
 - Need section chrome or param rendering: open `components/Section/` and `components/Params/`.
 - Need managed section-chat history or polling behavior: open `components/Section/Layouts/ChatAreaHistoryPanel.tsx`.
