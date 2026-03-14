@@ -18,18 +18,23 @@ type startCommandDependencies struct {
 	resolveCurrentExecutable func() (string, error)
 	resolveServerExecutable  func(string, func(string) (string, bool)) (string, error)
 	runServer                func(string, []string, io.Reader, io.Writer, io.Writer) error
+	runWithReload            func(string, []string, io.Reader, io.Writer, io.Writer) error
 }
 
 func runDefaultStart(global globalFlags, stdin io.Reader, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool)) error {
-	return runDefaultStartWithDeps(global, stdin, stdout, stderr, envLookup, defaultStartCommandDependencies())
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("resolve cwd: %w", err)
+	}
+	return runDefaultStartWithDeps(global, stdin, stdout, stderr, envLookup, cwd, defaultStartCommandDependencies())
 }
 
-func runDefaultStartWithDeps(global globalFlags, stdin io.Reader, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), deps startCommandDependencies) error {
+func runDefaultStartWithDeps(global globalFlags, stdin io.Reader, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string, deps startCommandDependencies) error {
 	if global.reload {
-		return &ExitError{
-			Code: 2,
-			Err:  fmt.Errorf("--reload is not supported in the Go CLI; use the dev scripts for reload workflows"),
+		if deps.runWithReload == nil {
+			return fmt.Errorf("reload supervisor is not configured")
 		}
+		return deps.runWithReload(cwd, buildDefaultStartArgs(global), stdin, stdout, stderr)
 	}
 
 	currentExecutable, err := deps.resolveCurrentExecutable()
@@ -49,6 +54,7 @@ func defaultStartCommandDependencies() startCommandDependencies {
 		resolveCurrentExecutable: os.Executable,
 		resolveServerExecutable:  resolveLauncherServerExecutable,
 		runServer:                runServerForeground,
+		runWithReload:            runDefaultStartReloadLoop,
 	}
 }
 

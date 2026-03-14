@@ -31,7 +31,6 @@ CLI_SETTA_HOME=0
 CLI_SETTA_FILES_ROOT=0
 CLI_SETTA_FILES_LOCATION=0
 CLI_RUNTIME_ROOT=0
-CLI_RELOAD=0
 
 setta_path_flags_init "${SETTA_HOME:-}" "${SETTA_FILES_ROOT:-}"
 setta_path_flags_seed_from_env
@@ -67,9 +66,6 @@ while [[ "${#remaining[@]}" -gt 0 ]]; do
   if [[ "$arg" == "--port" || "$arg" == "--port="* ]]; then
     PORT_ARGS=()
   fi
-  if [[ "$arg" == "--reload" ]]; then
-    CLI_RELOAD=1
-  fi
   remaining=("${remaining[@]:1}")
 done
 
@@ -99,11 +95,8 @@ fi
 
 if [[ -n "${SETTA_BIN:-}" ]]; then
   SETTA_CMD=("${SETTA_BIN}")
-elif [[ "${CLI_RELOAD}" -eq 1 ]]; then
-  # Reload remains a deliberate dev-only Python path until the Go CLI owns it.
-  SETTA_CMD=("${SETTA_PYTHON_BIN}" "-m" "setta.dev_start")
 else
-  # Avoid the stale venv `setta` shim and route through the current entrypoint.
+  # Avoid the stale venv `setta` shim and route through the current Go-dispatch entrypoint.
   SETTA_CMD=("${SETTA_PYTHON_BIN}" "-m" "setta")
 fi
 

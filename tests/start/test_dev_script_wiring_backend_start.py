@@ -86,7 +86,7 @@ exit 23
     assert not legacy_shim_args.exists()
 
 
-def test_backend_start_reload_uses_explicit_dev_start_entrypoint(
+def test_backend_start_reload_uses_python_module_entrypoint(
     tmp_path: Path,
 ) -> None:
     sandbox_root = build_backend_start_sandbox(tmp_path)
@@ -127,7 +127,7 @@ exit 23
 
     assert result.returncode == 0, result.stderr
     args = capture_args.read_text(encoding="utf-8")
-    assert args.startswith("-m setta.dev_start ")
+    assert args.startswith("-m setta ")
     assert "--reload" in args
     assert "--no-open" in args
     assert "--log-level debug" in args

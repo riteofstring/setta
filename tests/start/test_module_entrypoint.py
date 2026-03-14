@@ -3,6 +3,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from setta import entrypoint
+
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
@@ -20,6 +22,23 @@ printf 'setta version from go\\n'
     )
     path.chmod(0o755)
     return path
+
+
+def test_python_module_entrypoint_resolves_source_checkout_root() -> None:
+    assert (
+        entrypoint.resolve_source_checkout_root(_repo_root() / "backend" / "setta")
+        == _repo_root()
+    )
+
+
+def test_python_module_entrypoint_prefers_source_checkout_command() -> None:
+    command, command_cwd = entrypoint.resolve_go_cli_command()
+
+    assert command[0] == str(_repo_root() / "scripts" / "go.sh")
+    assert command[1:] == ["run", "./cmd/setta"]
+    assert command_cwd == _repo_root()
+
+
 def test_python_module_entrypoint_dispatches_go_owned_version_command(
     tmp_path: Path,
 ) -> None:

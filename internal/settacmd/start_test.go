@@ -29,6 +29,10 @@ func TestRunDefaultStartDelegatesToServerWithExpectedArgs(t *testing.T) {
 			capturedArgs = append([]string(nil), args...)
 			return nil
 		},
+		runWithReload: func(string, []string, io.Reader, io.Writer, io.Writer) error {
+			t.Fatal("did not expect reload supervisor for non-reload start")
+			return nil
+		},
 	}
 
 	err := runDefaultStartWithDeps(globalFlags{
@@ -44,7 +48,7 @@ func TestRunDefaultStartDelegatesToServerWithExpectedArgs(t *testing.T) {
 		noOpen:             true,
 	}, nil, io.Discard, io.Discard, func(string) (string, bool) {
 		return "", false
-	}, deps)
+	}, tempDir, deps)
 	if err != nil {
 		t.Fatalf("run default start: %v", err)
 	}
@@ -75,20 +79,49 @@ func TestRunDefaultStartDelegatesToServerWithExpectedArgs(t *testing.T) {
 	}
 }
 
-func TestRunDefaultStartRejectsReload(t *testing.T) {
+func TestRunDefaultStartReloadDelegatesToReloadSupervisor(t *testing.T) {
 	t.Parallel()
 
-	err := runDefaultStartWithDeps(globalFlags{reload: true}, nil, io.Discard, io.Discard, func(string) (string, bool) {
+	tempDir := t.TempDir()
+	var capturedRoot string
+	var capturedArgs []string
+	err := runDefaultStartWithDeps(globalFlags{
+		reload:         true,
+		host:           "0.0.0.0",
+		port:           "61234",
+		workspaceRoot:  "/tmp/workspace",
+		settaFilesRoot: "/tmp/setta-files",
+		logLevel:       "debug",
+	}, nil, io.Discard, io.Discard, func(string) (string, bool) {
 		return "", false
-	}, startCommandDependencies{})
-	if err == nil {
-		t.Fatal("expected reload rejection")
+	}, tempDir, startCommandDependencies{
+		runWithReload: func(root string, args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer) error {
+			capturedRoot = root
+			capturedArgs = append([]string(nil), args...)
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("run default start with reload: %v", err)
 	}
-	if code := ExitCode(err); code != 2 {
-		t.Fatalf("expected exit code 2, got %d", code)
+	if capturedRoot != tempDir {
+		t.Fatalf("expected reload root %q, got %q", tempDir, capturedRoot)
 	}
-	if got := DisplayError(err); got != "--reload is not supported in the Go CLI; use the dev scripts for reload workflows" {
-		t.Fatalf("unexpected reload error %q", got)
+	expectedArgs := []string{
+		"--mode", "ide",
+		"--host", "0.0.0.0",
+		"--port", "61234",
+		"--workspace", "/tmp/workspace",
+		"--setta-files-root", "/tmp/setta-files",
+		"--log-level", "debug",
+	}
+	if len(capturedArgs) != len(expectedArgs) {
+		t.Fatalf("expected %d reload args, got %d: %#v", len(expectedArgs), len(capturedArgs), capturedArgs)
+	}
+	for index, expected := range expectedArgs {
+		if capturedArgs[index] != expected {
+			t.Fatalf("expected reload arg %d to be %q, got %q", index, expected, capturedArgs[index])
+		}
 	}
 }
 
@@ -98,7 +131,7 @@ func TestRunDefaultStartPropagatesServerExitCode(t *testing.T) {
 	tempDir := t.TempDir()
 	err := runDefaultStartWithDeps(globalFlags{}, nil, io.Discard, io.Discard, func(string) (string, bool) {
 		return "", false
-	}, startCommandDependencies{
+	}, tempDir, startCommandDependencies{
 		resolveCurrentExecutable: func() (string, error) {
 			return filepath.Join(tempDir, "setta"), nil
 		},
@@ -107,6 +140,10 @@ func TestRunDefaultStartPropagatesServerExitCode(t *testing.T) {
 		},
 		runServer: func(serverExecutable string, args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer) error {
 			return &ExitError{Code: 7, Silent: true}
+		},
+		runWithReload: func(string, []string, io.Reader, io.Writer, io.Writer) error {
+			t.Fatal("did not expect reload supervisor")
+			return nil
 		},
 	})
 	if err == nil {

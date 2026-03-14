@@ -7,7 +7,7 @@ import (
 )
 
 func configureGlobalFlags(flags *flag.FlagSet, parsed *globalFlags) {
-	flags.BoolVar(&parsed.reload, "reload", false, "Reload is not supported in the Go CLI.")
+	flags.BoolVar(&parsed.reload, "reload", false, "Watch Go backend sources and restart the server on change (source checkouts only).")
 	flags.StringVar(&parsed.host, "host", "", "Listen host.")
 	flags.StringVar(&parsed.port, "port", "", "Listen port.")
 	flags.StringVar(&parsed.workspaceRoot, "workspace", "", "Workspace root.")

@@ -23,7 +23,7 @@ def test_backend_start_uses_explicit_python_module_boundaries() -> None:
     root = repo_root()
     backend_start = (root / "frontend" / "backendStart.sh").read_text(encoding="utf-8")
     assert 'SETTA_CMD=("${SETTA_PYTHON_BIN}" "-m" "setta")' in backend_start
-    assert 'SETTA_CMD=("${SETTA_PYTHON_BIN}" "-m" "setta.dev_start")' in backend_start
+    assert '"setta.dev_start"' not in backend_start
     assert 'SETTA_BIN="${SETTA_BIN:-setta}"' not in backend_start
 
 

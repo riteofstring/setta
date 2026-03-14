@@ -119,7 +119,7 @@ func Run(args []string, options RunOptions) error {
 		return nil
 	}
 	if len(remaining) == 0 {
-		return runDefaultStart(global, stdin, stdout, stderr, envLookup)
+		return runDefaultStartWithDeps(global, stdin, stdout, stderr, envLookup, cwd, defaultStartCommandDependencies())
 	}
 
 	switch remaining[0] {

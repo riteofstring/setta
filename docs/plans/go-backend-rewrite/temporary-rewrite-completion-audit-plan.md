@@ -275,7 +275,8 @@ This verdict holds under both of the only reasonable definitions:
 - The current Go binaries are real repo entrypoints:
   - `cmd/setta/main.go`
   - `cmd/setta-server/main.go`
-- Source/dev startup defaults to the Go path unless `--reload` is requested:
+- Source/dev startup now routes through the Go-dispatch path for both normal
+  start and reload:
   - `frontend/backendStart.sh`
 - Go owns the currently registered websocket transport:
   - `internal/wsapi/routes.go`
@@ -290,7 +291,7 @@ This verdict holds under both of the only reasonable definitions:
 
 ### Verified retained Python boundaries
 
-- Dev-only startup/reload still runs the Python FastAPI server:
+- Explicit Python FastAPI dev entrypoints still exist as supported surfaces:
   - `backend/setta/dev_start.py`
   - `backend/setta/server.py`
 - Public Python API exports are still active supported surfaces:
@@ -326,6 +327,8 @@ execution paths, so the rewrite is not complete in the repo-wide sense.
   - `source activate.sh && ./scripts/go.sh test ./internal/httpapi -run '^(TestRegisterStateMachineRunRoutesUsesActiveShareSessionForGet|TestRegisterStateMachineRunRoutesBlocksMutationsInShareMode|TestRegisterStateMachineRunRoutesAllowsDeploymentRegistrationWithoutRuntime|TestRegisterAttachmentRoutesIncludesShareSessionForDeployment)$' -count=1`
   - `source activate.sh && ./scripts/go.sh test ./internal/app -run '^TestAppShareModeServesArtifactOverlayRoutesAndBroadcastsScopedUpdates$' -count=1`
   - `source activate.sh && ./scripts/go.sh test ./internal/projectstate -count=1`
+  - `source activate.sh && ./scripts/go.sh test ./internal/settacmd -count=1`
+  - `source activate.sh && pytest tests/start/test_dev_script_wiring_structure.py tests/start/test_dev_script_wiring_backend_start.py tests/start/test_module_entrypoint.py -q`
 - Failed:
   - `./scripts/go.sh test ./...` when first run without the activated Python env
 - Inconclusive / not counted as proof:
@@ -371,6 +374,14 @@ stable right-of-existing placement rule instead of reusing the general
 create-layout aspect-ratio tie-break. The targeted failing test and the full
 `internal/projectstate` package now pass.
 
+A fifth follow-up rewrite step moved the default source-worktree reload path off
+the Python dev server entrypoint. `frontend/backendStart.sh --reload` now goes
+through `python -m setta --reload`, the Go CLI owns `--reload` for the default
+start path, and the thin Python entrypoint now prefers the current Go CLI from
+a source checkout instead of stale bundled artifacts. The focused Go and Python
+reload-wiring tests pass.
+
 Those follow-up fixes cleared the targeted Go-owned parity blockers found by
-this audit, but the repo still remains `Incomplete` because the retained Python
-runtime surfaces above are still active supported code paths.
+this audit and moved the default dev reload path onto the Go-owned start path,
+but the repo still remains `Incomplete` because the retained Python runtime
+surfaces above are still active supported code paths.
