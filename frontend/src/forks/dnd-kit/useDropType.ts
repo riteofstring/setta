@@ -15,13 +15,13 @@ import {
 import { BehaviorDropTypeEnum } from "forks/dnd-kit/dropTypes";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { addTemporaryNotification } from "state/actions/notifications";
+import { manualDndChildrenReset } from "state/actions/sectionDisplayQueries";
 import {
   getCurrSectionVariant,
   getSectionChildren,
   getSectionIsHorizontalOrientation,
   getSectionType,
   isBaseCodeSectionType,
-  manualDndChildrenReset,
 } from "state/actions/sectionInfos";
 import {
   getRootSelectedSectionIds,

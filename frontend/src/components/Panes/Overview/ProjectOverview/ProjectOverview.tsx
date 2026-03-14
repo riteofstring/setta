@@ -5,10 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 import { loadAgentRuns } from "state/actions/aiAgentRuns";
 import {
   getActiveViewModeConfig,
-  getCurrEffectiveSectionImplIfPresent,
   getSectionShouldRender,
   getTopLevelSectionIdsForDisplay,
-} from "state/actions/sectionInfos";
+} from "state/actions/sectionDisplayQueries";
+import { getCurrEffectiveSectionImplIfPresent } from "state/actions/sectionInfos";
 import {
   useAIStore,
   useProjectState,

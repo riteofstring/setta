@@ -55,6 +55,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   `frontend/src/state/actions/sectionInfos.ts`; future cleanup should keep new
   effective-impl reads and local impl writes on that dedicated surface instead
   of adding them back to the remaining metadata/query file.
+- `frontend/src/state/actions/sectionDisplayQueries.ts` now owns top-level
+  display selection, displayed-child tree derivation, node-map creation, DnD
+  child reset, and view-mode visibility queries that previously lived in
+  `frontend/src/state/actions/sectionInfos.ts`; future cleanup should keep new
+  section-render/display queries on that dedicated surface instead of adding
+  them back to the remaining streaming/tool-preview helper file.
 - `frontend/src/state/actions/websocketIncomingMessages.ts` now owns frontend
   websocket payload dispatch, project/app snapshot routing, and
   `UISettingReveal` ACK handling that previously lived in
@@ -135,13 +141,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 89.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/sectionInfos.ts` at 678 lines
   - `frontend/src/state/actions/sectionEffectiveImpls.ts` at 649 lines
   - `frontend/src/state/actions/gitGraph.ts` at 595 lines
   - `frontend/src/state/actions/params/moveParams.ts` at 576 lines
   - `frontend/src/state/actions/aiTranscription.ts` at 572 lines
+  - `frontend/src/state/actions/projectChatWindowingWrites.ts` at 571 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
-  - `frontend/src/state/actions/sectionInfos.ts` at 678 lines
   - `frontend/src/state/actions/sectionEffectiveImpls.ts` at 649 lines
   - `frontend/src/state/actions/gitGraph.ts` at 595 lines
   - `frontend/src/state/actions/projectChatWindowingWrites.ts` at 571 lines
@@ -194,14 +199,18 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - in-place impl mutation helpers for section/code-object writes
   - terminal attachment and section-orientation helpers that depend on
     effective impl resolution
+- `sectionDisplayQueries.ts` now owns:
+  - top-level display selection and displayed-child tree derivation
+  - node-map creation from current layouts and effective section styling
+  - DnD child reset plus view-mode visibility/render queries
 - `websocketIncomingMessages.ts` now owns:
   - frontend websocket payload parsing and feature-specific dispatch
   - project/app snapshot routing for inbound websocket updates
   - `UISettingReveal` ACK validation and failure-status construction
 - `sectionInfos.ts` currently mixes:
   - streaming chat merge behavior
-  - section metadata and layout queries
-  - displayed-child tree derivation and tool-preview cleanup
+  - shown-param and pinned-param update helpers
+  - ancestry helpers and tool-preview cleanup
 - `sectionProjectStateSync.ts` now owns:
   - backend snapshot reconciliation
   - active-section sync from authoritative project state

@@ -2,10 +2,10 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import * as chatMergeUtils from "state/actions/chatMergeUtils";
 import {
   createNodesMapFromProjectConfigChildren,
-  getCurrShownParamIds,
   getDisplayedSectionIdToChildren,
   getTopLevelSectionIdsForDisplay,
-} from "state/actions/sectionInfos";
+} from "state/actions/sectionDisplayQueries";
+import { getCurrShownParamIds } from "state/actions/sectionInfos";
 import { processProjectStateUpdateFromBackend } from "state/actions/sectionProjectStateSync";
 import { resetStreamingTracker } from "state/aiStreamingTracker";
 import {

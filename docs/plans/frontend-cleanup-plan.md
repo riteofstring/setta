@@ -49,7 +49,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Current State (Observed)
 
 - The biggest readability problem is mixed responsibilities inside large files, not just file count.
-- There are 1031 authored TS/TSX files under `frontend/src`.
+- There are 1032 authored TS/TSX files under `frontend/src`.
 - There are 41 non-generated TS/TSX files at 1000+ lines; several production hotspots are well above 2000 lines.
 - Chat and project-AI code is the densest cluster:
   - `frontend/src/components/Chat/ChatMessages.tsx` at 7959 lines
@@ -108,11 +108,18 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   active-view layout selection, top-level layout snapshot building, pending-op
   reconciliation, and debounced layout persistence, reducing
   `frontend/src/state/actions/sectionInfos.ts` further to 1308 lines.
+- `frontend/src/state/actions/sectionDisplayQueries.ts` now owns top-level
+  display selection, displayed-child tree derivation, node-map creation, DnD
+  child reset, and view-mode visibility queries that previously lived in
+  `frontend/src/state/actions/sectionInfos.ts`, reducing
+  `frontend/src/state/actions/sectionInfos.ts` further to 455 lines for the
+  remaining streaming merge, shown-param, ancestry, and tool-preview cleanup
+  surface.
 - `frontend/src/state/actions/sectionEffectiveImpls.ts` now owns effective
   section/code-object resolution, typed current-section/code-object selectors,
   and in-place impl mutation helpers, reducing
-  `frontend/src/state/actions/sectionInfos.ts` further to 678 lines for the
-  remaining streaming merge and section metadata/layout query surface.
+  the shared section/effective-impl hotspot to 649 lines for the remaining
+  effective-impl read plus local impl-mutation surface.
 - `frontend/src/state/actions/websocketIncomingMessages.ts` now owns frontend
   websocket payload dispatch, project/app snapshot routing, and
   `UISettingReveal` ACK handling, reducing

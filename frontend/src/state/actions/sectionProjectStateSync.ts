@@ -26,10 +26,10 @@ import {
   markRenameBroadcastsReady,
   maybeOpenNextRenamePrompt,
 } from "./renameRefactors";
+import { createNodesMapFromProjectConfigChildren } from "./sectionDisplayQueries";
 import { getCurrProjectConfigId } from "./sectionEffectiveImpls";
 import {
   clearToolArgumentPreviewForProjectState,
-  createNodesMapFromProjectConfigChildren,
   mergeStreamingChatSections,
 } from "./sectionInfos";
 import { reconcilePendingTopLevelLayout } from "./topLevelLayoutPersistence";

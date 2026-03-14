@@ -40,7 +40,7 @@ import {
   clearProjectChatGitGraphEmbeddedPaneVisibilityForOtherProjects,
   reconcileProjectChatWindowingEphemeralState,
 } from "../projectChatWindowingEphemeral";
-import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
+import { createNodesMapFromProjectConfigChildren } from "../sectionDisplayQueries";
 import { initializeServerMode } from "../serverMode";
 
 export async function loadProjectConfig({ projectConfigName }) {

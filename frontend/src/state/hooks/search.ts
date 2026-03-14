@@ -7,9 +7,9 @@ import { matchSorter } from "match-sorter";
 import { useState } from "react";
 import {
   getDisplayedSectionIdToChildren,
-  getParamDisplayName,
   getTopLevelSectionIdsForDisplay,
-} from "state/actions/sectionInfos";
+} from "state/actions/sectionDisplayQueries";
+import { getParamDisplayName } from "state/actions/sectionInfos";
 import { getAllVisibleParamsInSection } from "state/actions/sections/sectionContents";
 import { useProjectState, ZustandProjectState } from "state/definitions";
 import {

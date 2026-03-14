@@ -17,11 +17,11 @@ import {
 } from "./actions/nodeInternals";
 import { debouncedDispatchViewportUpdate } from "./actions/projectStateCommands";
 import {
-  getCurrEffectiveSectionImpl,
   getDisplayedSectionIdToChildren,
   getSectionShouldRender,
   getSectionViewModeVisibility,
-} from "./actions/sectionInfos";
+} from "./actions/sectionDisplayQueries";
+import { getCurrEffectiveSectionImpl } from "./actions/sectionEffectiveImpls";
 import { getActiveViewModeTopLevelSections } from "./actions/topLevelSectionLayouts";
 import { decodeExistingRawImages } from "./hooks/artifacts";
 

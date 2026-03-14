@@ -10,7 +10,7 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-14`
-- Authored TS/TSX files under `frontend/src`: `1031`
+- Authored TS/TSX files under `frontend/src`: `1032`
 - Non-generated TS/TSX files at `1000+` lines: `41`
 - Biggest current production hotspots:
   - `components/Chat/ChatMessages.tsx` (`7959`)
@@ -205,6 +205,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/sectionProjectStateSync.ts` owns backend project-state
     reconciliation, active-section sync, viewport updates, and project-chat
     windowing coordination for authoritative project snapshots.
+  - `state/actions/sectionDisplayQueries.ts` owns top-level display selection,
+    displayed-child tree derivation, node-map creation, DnD child reset, and
+    view-mode visibility queries used by section rendering and project-state
+    bootstrap flows.
   - `state/actions/projectStateCommands.ts` owns the shared project-state
     command entrypoints for section delete/group flows, param selection,
     viewport persistence, and all-project-metadata updates.
@@ -227,9 +231,8 @@ feature-local adapters around them when the consuming surface is non-trivial.
     resolution, typed current-section/code-object selectors, and in-place
     impl-mutation helpers that previously lived in `sectionInfos.ts`.
   - `state/actions/sectionInfos.ts` now owns streaming chat merge behavior,
-    section metadata/layout queries, displayed-child tree derivation, and tool
-    preview cleanup that still sits beside the remaining shared section query
-    surface.
+    shown-param/pinned-param updates, ancestry helpers, and tool-preview
+    cleanup that still sit beside the remaining shared section helper surface.
   - `state/actions/topLevelSectionLayouts.ts` owns active-view top-level layout
     selection plus layout snapshot building from current node internals.
   - `state/actions/topLevelLayoutPersistence.ts` owns pending-op reconciliation
@@ -319,20 +322,18 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/sectionInfos.ts` section metadata/display-tree split now that
-  `state/actions/sectionEffectiveImpls.ts`,
-  `state/actions/sectionProjectStateSync.ts`,
-  `state/actions/projectStateCommands.ts`,
-  `state/actions/projectStateOptimisticUpdates.ts`,
-  `state/actions/topLevelSectionLayouts.ts`, and
-  `state/actions/topLevelLayoutPersistence.ts` own effective-impl access,
-  backend sync, shared commands, optimistic mutation infrastructure, and
-  top-level layout ownership
+- `state/actions/sectionEffectiveImpls.ts` is now the largest authored/shared
+  state hotspot and should keep shrinking around effective-impl reads versus
+  local impl mutation helpers
 - `state/actions/projectChatWindowingWrites.ts` is now the largest remaining
   windowing mutation surface, so follow-up windowing cleanup should stay local
   to `projectChatWindowingWrites.ts`, `projectChatWindowingCanvasBoot.ts`, or
   `projectChatWindowingTrackedGitPane.ts` instead of regrowing the main entry
   point
+- `state/actions/sectionInfos.ts` now owns the remaining streaming merge,
+  shown-param, ancestry, and tool-preview cleanup surface, so any follow-up
+  cleanup there should stay local to those helpers instead of regrowing
+  `state/actions/sectionDisplayQueries.ts`
 - `state/actions/windowSpaceWorkspaceRestorePlan.ts` now owns the remaining
   restore planning and remapping policy for saved window spaces, so any
   follow-up cleanup there should stay local to restore planning instead of

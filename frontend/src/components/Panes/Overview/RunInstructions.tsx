@@ -15,10 +15,12 @@ import {
 } from "state/actions/customRuns";
 import {
   getActiveViewModeConfig,
+  getSectionShouldRender,
+} from "state/actions/sectionDisplayQueries";
+import {
   getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImpl,
   getSectionCore,
-  getSectionShouldRender,
 } from "state/actions/sectionInfos";
 import {
   resetStateMachineRun,
