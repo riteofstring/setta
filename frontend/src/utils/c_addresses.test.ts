@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY } from "./backendOriginOverride";
 import { C_ADDRESSES } from "./c_addresses";
-import { RouteEnum } from "./generatedTypes";
+import { RouteEnum } from "./generatedRoutes";
 
 function createMemoryStorage() {
   const storage = new Map<string, string>();

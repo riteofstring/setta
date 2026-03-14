@@ -5,12 +5,15 @@ import {
 import { waitForFrontendAffinityToken } from "state/actions/frontendWebsocketAffinity";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
+  dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
   isManagedChatSection,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import {
   clearChatStreamActive,
+  isChatStreamActive,
+  isSectionStreamActive,
   markChatStreamActive,
   recordFinalizedMessage,
   shouldPersistOnMessageStop,
@@ -22,27 +25,64 @@ import {
 } from "state/appSpecPatchStreaming";
 import {
   ChatDetails,
+  ToolArgumentPreviewEntry,
+  ToolArgumentPreviewProjectState,
   useAIStore,
   useAppDefinition,
   useAppPreview,
   useLocalStorage,
   useProjectState,
+  useToolArgumentPreview,
   type ZustandProjectState,
 } from "state/definitions";
-import {
-  type ToolArgumentPreviewEntry,
-  type ToolArgumentPreviewProjectState,
-  useToolArgumentPreview,
-} from "state/stores/aiFollowStores";
 import type { AppGenerationMode } from "state/types/appGenerationMode";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
+import { C } from "utils/c";
+import { getErrorCode, getErrorDetail, res200 } from "utils/endpointUtils";
 import {
+  route_append_transcription_audio,
+  route_cancel_transcription_session,
+  route_create_agent_profile,
+  route_create_external_agent_config,
+  route_create_prompt_template,
+  route_create_transcription_profile,
+  route_delete_agent_profile,
+  route_delete_external_agent_config,
+  route_delete_prompt_template,
+  route_delete_transcription_profile,
+  route_get_agent_profiles,
+  route_get_agent_runs,
+  route_get_engine_configs,
+  route_get_external_agent_chat,
+  route_get_external_agent_configs,
+  route_get_external_agent_health,
+  route_get_llm_api_keys,
+  route_get_llm_chat,
+  route_get_llm_config,
   route_get_llm_response,
+  route_get_prompt_templates,
+  route_get_transcription_profiles,
   route_respond_external_agent_approval,
   route_respond_external_agent_question,
   route_set_chat_section_chat_id,
+  route_set_chat_section_state,
+  route_set_llm_api_keys,
+  route_set_llm_config,
+  route_start_transcription_session,
+  route_stop_external_agent_run,
+  route_stop_llm_chat,
+  route_stop_transcription_session,
+  route_update_agent_profile,
+  route_update_engine_config,
+  route_update_external_agent_config,
+  route_update_prompt_template,
+  route_update_transcription_profile,
 } from "utils/generatedEndpoints";
 import {
+  AgentProfile,
+  AgentRun,
+  AgentRunStatusEnum,
+  AllLLMConfigs,
+  APIKeys,
   AppDefinition,
   AssistantChatMessage,
   BaseChatMessageUnion,
@@ -50,9 +90,21 @@ import {
   ChatPermissionMode,
   ChatPermissionModeEnum,
   ChatRoleEnum,
+  ChatSectionBranch,
   ChatSectionState,
+  CreateAgentProfileRequestInput,
+  CreateExternalAgentConfigRequestInput,
   createMessageTextContent,
   createMessageThinkingContent,
+  CreatePromptTemplateRequestInput,
+  CreateTranscriptionProfileRequestInput,
+  DeleteAgentProfileRequestInput,
+  DeleteExternalAgentConfigRequestInput,
+  DeletePromptTemplateRequestInput,
+  DeleteTranscriptionProfileRequestInput,
+  EngineConfig,
+  ExternalAgentConfig,
+  ExternalAgentPreflightStatus,
   LLMStreamingResponse,
   MessageDeltaEvent,
   MessageFinalizedEvent,
@@ -60,38 +112,60 @@ import {
   MessageStartEvent,
   MessageTextContent,
   MessageThinkingContent,
+  PromptTemplate,
+  SectionTypeEnum,
   SettaNotificationTypeEnum,
+  StartTranscriptionSessionResponse,
   StreamingEventTypeEnum,
   ToolArgumentPreviewDeltaEvent,
   ToolCall,
   ToolCallDeltaEvent,
   ToolChatMessage,
   ToolResultEvent,
+  TranscriptionProfile,
+  TranscriptionSessionDeltaResponse,
+  UpdateAgentProfileRequestInput,
+  UpdateEngineConfigRequestInput,
+  UpdateExternalAgentConfigRequestInput,
+  UpdatePromptTemplateRequestInput,
+  UpdateTranscriptionProfileRequestInput,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
+import { ProviderTranscriptionError } from "utils/transcriptionErrors";
+import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
 import { extractAgenticScopeViolation } from "./agenticScopeViolation";
-import { loadAgentRuns, resolveEngineConfigIdForChat } from "./ai/agentRuns";
-import {
-  clearInterruptedAssistantMessages,
-  clearPendingChatDetails,
-  clearStopEligibleAssistantMessageId,
-  commitPendingChatDetails,
-  getChatSectionStateFromStore,
-  getExternalAgentChat,
-  getLLMChat,
-  initializePendingChatDetailsWithMessages,
-  persistChatSectionState,
-  requirePendingChatSurfaceId,
-  setStopEligibleAssistantMessageId,
-  updateChatDetails,
-  updatePendingChatDetails,
-} from "./ai/chatRuntime";
 import { buildEditedMessageHistory } from "./chatBranches";
+import {
+  mergeChatMessages,
+  reconcileHydratedChatMessages,
+} from "./chatMergeUtils";
 
 const scopeViolationToastTimeouts = new Map<
   string,
   ReturnType<typeof setTimeout>
 >();
+let llmConfigLoadPromise: Promise<void> | null = null;
+let llmApiKeysLoadPromise: Promise<void> | null = null;
+let llmApiKeysSaveQueue: Promise<void> = Promise.resolve();
+let agentRunsLoadPromise: Promise<void> | null = null;
+let agentRunsRetryTimer: ReturnType<typeof setTimeout> | null = null;
+let agentRunsTransientFailureCount = 0;
+const stopEligibleAssistantMessageIdByChatId = new Map<string, string>();
+const MANAGED_API_KEYS_REVISION_CONFLICT_ERROR_CODE =
+  "managed_api_keys_revision_conflict";
+const MANAGED_API_KEYS_CORRUPT_ERROR_CODE = "managed_api_keys_store_corrupt";
+const MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE =
+  "managed_api_keys_store_unavailable";
+const AGENT_RUNS_RETRY_DELAYS_MS = [300, 1000, 2500] as const;
+
+type APIKeysMutation = (currentApiKeys: APIKeys) => APIKeys;
+type ManagedAPIKeysSnapshotPayload = {
+  apiKeys: APIKeys;
+  revision: number;
+  corrupt?: boolean;
+  errorCode?: string | null;
+  message?: string | null;
+};
 
 type ChatExecutionSettings = {
   permissionMode: ChatPermissionMode;
@@ -111,6 +185,2249 @@ const DEFAULT_CHAT_EXECUTION_SETTINGS: ChatExecutionSettings = {
 
 function refreshAgentRunsAfterSubmit(): void {
   void loadAgentRuns();
+}
+
+function encodeArrayBufferBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  if (bytes.length === 0) {
+    return "";
+  }
+  const CHUNK_SIZE = 0x8000;
+  const binaryChunks: string[] = [];
+  for (let index = 0; index < bytes.length; index += CHUNK_SIZE) {
+    const chunk = bytes.subarray(index, index + CHUNK_SIZE);
+    binaryChunks.push(String.fromCharCode(...chunk));
+  }
+  return btoa(binaryChunks.join(""));
+}
+
+export async function startTranscriptionSession(
+  transcriptionProfileId: string,
+  language: string | null = null,
+  options: TranscriptionRequestOptions = {},
+): Promise<StartTranscriptionSessionResponse | null> {
+  if (!transcriptionProfileId) {
+    return null;
+  }
+  const res = await route_start_transcription_session({
+    transcriptionProfileId,
+    language,
+  });
+  if (!res200(res)) {
+    return handleTranscriptionEndpointError(res.data, res.status, options);
+  }
+  return res.data;
+}
+
+export async function appendTranscriptionAudio(
+  sessionId: string,
+  audioPcm16: ArrayBuffer,
+  sampleRateHz: number,
+  channels: number,
+  options: TranscriptionRequestOptions = {},
+): Promise<TranscriptionSessionDeltaResponse | null> {
+  if (!sessionId || audioPcm16.byteLength === 0) {
+    return null;
+  }
+  const res = await route_append_transcription_audio({
+    sessionId,
+    audioPcm16Base64: encodeArrayBufferBase64(audioPcm16),
+    sampleRateHz,
+    channels,
+  });
+  if (!res200(res)) {
+    return handleTranscriptionEndpointError(res.data, res.status, options);
+  }
+  return res.data;
+}
+
+export async function stopTranscriptionSession(
+  sessionId: string,
+  options: TranscriptionRequestOptions = {},
+): Promise<TranscriptionSessionDeltaResponse | null> {
+  if (!sessionId) {
+    return null;
+  }
+  const res = await route_stop_transcription_session({ sessionId });
+  if (!res200(res)) {
+    return handleTranscriptionEndpointError(res.data, res.status, options);
+  }
+  return res.data;
+}
+
+export async function cancelTranscriptionSession(
+  sessionId: string,
+): Promise<boolean> {
+  if (!sessionId) {
+    return true;
+  }
+  const res = await route_cancel_transcription_session({ sessionId });
+  return res200(res);
+}
+
+type DictationPcmPayload = {
+  audioPcm16: Int16Array;
+  sampleRateHz: number;
+  channels: number;
+};
+
+type ProviderDictationTranscriptionResult =
+  | {
+      kind: "ok";
+      transcript: string;
+    }
+  | {
+      kind: "no_speech";
+    };
+
+const PCM16_BYTES_PER_SAMPLE = 2;
+const REALTIME_TRANSCRIPTION_SAMPLE_RATE_HZ = 24_000;
+const TRANSCRIPTION_APPEND_MAX_BYTES =
+  C.REALTIME_BINARY_MAX_BYTES > 0
+    ? C.REALTIME_BINARY_MAX_BYTES
+    : 10 * 1024 * 1024;
+
+type TranscriptionRequestOptions = {
+  suppressNotification?: boolean;
+  throwOnError?: boolean;
+};
+
+function handleTranscriptionEndpointError(
+  responseData: unknown,
+  responseStatus: number | undefined,
+  options: TranscriptionRequestOptions,
+): null {
+  const detail =
+    getErrorDetail(responseData) ?? "Provider transcription failed.";
+  const errorCode = getErrorCode(responseData);
+  const error = new ProviderTranscriptionError({
+    message: detail,
+    code: errorCode,
+    status: responseStatus,
+  });
+  if (!options.suppressNotification) {
+    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
+  }
+  if (options.throwOnError) {
+    throw error;
+  }
+  return null;
+}
+
+function float32ToInt16(input: Float32Array): Int16Array {
+  const output = new Int16Array(input.length);
+  for (let index = 0; index < input.length; index += 1) {
+    const sample = Math.max(-1, Math.min(1, input[index] ?? 0));
+    output[index] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+  }
+  return output;
+}
+
+export function resampleMonoPcm16ToSampleRate(
+  input: Int16Array,
+  sourceSampleRateHz: number,
+  targetSampleRateHz: number,
+): Int16Array {
+  if (sourceSampleRateHz <= 0 || targetSampleRateHz <= 0) {
+    throw new Error("Provider transcription requires a positive sample rate.");
+  }
+  if (
+    !Number.isFinite(sourceSampleRateHz) ||
+    !Number.isFinite(targetSampleRateHz)
+  ) {
+    throw new Error("Provider transcription requires a finite sample rate.");
+  }
+  if (input.length === 0 || sourceSampleRateHz === targetSampleRateHz) {
+    return input;
+  }
+  const outputLength = Math.max(
+    1,
+    Math.round((input.length * targetSampleRateHz) / sourceSampleRateHz),
+  );
+  const output = new Int16Array(outputLength);
+  for (let outputIndex = 0; outputIndex < outputLength; outputIndex += 1) {
+    const sourcePosition =
+      (outputIndex * sourceSampleRateHz) / targetSampleRateHz;
+    const sourceIndex = Math.floor(sourcePosition);
+    const nextSourceIndex = Math.min(sourceIndex + 1, input.length - 1);
+    const lerpWeight = sourcePosition - sourceIndex;
+    const leftSample = input[sourceIndex] ?? 0;
+    const rightSample = input[nextSourceIndex] ?? leftSample;
+    const interpolatedSample =
+      leftSample * (1 - lerpWeight) + rightSample * lerpWeight;
+    const clamped = Math.max(
+      -0x8000,
+      Math.min(0x7fff, Math.round(interpolatedSample)),
+    );
+    output[outputIndex] = clamped;
+  }
+  return output;
+}
+
+function resolveProviderTranscriptionPcmPayloadForSession(
+  pcmPayload: DictationPcmPayload,
+  session: StartTranscriptionSessionResponse,
+): DictationPcmPayload {
+  if (session.resolvedTransportMode !== "realtime") {
+    return pcmPayload;
+  }
+  if (pcmPayload.channels !== 1) {
+    throw new Error("Realtime transcription requires mono PCM16 audio.");
+  }
+  if (
+    pcmPayload.sampleRateHz <= 0 ||
+    !Number.isFinite(pcmPayload.sampleRateHz)
+  ) {
+    throw new Error("Realtime transcription requires a valid sample rate.");
+  }
+  if (pcmPayload.sampleRateHz === REALTIME_TRANSCRIPTION_SAMPLE_RATE_HZ) {
+    return pcmPayload;
+  }
+  return {
+    audioPcm16: resampleMonoPcm16ToSampleRate(
+      pcmPayload.audioPcm16,
+      pcmPayload.sampleRateHz,
+      REALTIME_TRANSCRIPTION_SAMPLE_RATE_HZ,
+    ),
+    sampleRateHz: REALTIME_TRANSCRIPTION_SAMPLE_RATE_HZ,
+    channels: 1,
+  };
+}
+
+export function resolveProviderTranscriptionChunkSampleCount({
+  session,
+  sampleRateHz,
+  channels,
+}: {
+  session: StartTranscriptionSessionResponse;
+  sampleRateHz: number;
+  channels: number;
+}): number {
+  if (sampleRateHz <= 0 || channels <= 0) {
+    return 0;
+  }
+  const maxSamplesByPayload = Math.floor(
+    TRANSCRIPTION_APPEND_MAX_BYTES / (PCM16_BYTES_PER_SAMPLE * channels),
+  );
+  if (maxSamplesByPayload <= 0) {
+    return 0;
+  }
+  if (session.resolvedTransportMode !== "realtime") {
+    return maxSamplesByPayload;
+  }
+  const chunkMs = session.chunkMs > 0 ? session.chunkMs : 200;
+  const chunkSamplesByDuration = Math.floor((sampleRateHz * chunkMs) / 1000);
+  if (chunkSamplesByDuration <= 0) {
+    return 1;
+  }
+  return Math.min(chunkSamplesByDuration, maxSamplesByPayload);
+}
+
+async function decodeDictationBlobToPcm16(
+  audioBlob: Blob,
+): Promise<DictationPcmPayload | null> {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const withWebkitAudioContext = window as typeof window & {
+    webkitAudioContext?: typeof AudioContext;
+  };
+  const AudioContextCtor =
+    window.AudioContext ?? withWebkitAudioContext.webkitAudioContext;
+  if (!AudioContextCtor) {
+    return null;
+  }
+  const audioContext = new AudioContextCtor();
+  try {
+    const audioBuffer = await audioBlob.arrayBuffer();
+    const decodedBuffer = await audioContext.decodeAudioData(
+      audioBuffer.slice(0),
+    );
+    const channelCount = Math.max(decodedBuffer.numberOfChannels, 1);
+    const sampleCount = decodedBuffer.length;
+    const mono = new Float32Array(sampleCount);
+    for (let channelIndex = 0; channelIndex < channelCount; channelIndex += 1) {
+      const channelData = decodedBuffer.getChannelData(channelIndex);
+      for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
+        mono[sampleIndex] += (channelData[sampleIndex] ?? 0) / channelCount;
+      }
+    }
+    const pcm16 = float32ToInt16(mono);
+    return {
+      audioPcm16: pcm16,
+      sampleRateHz: decodedBuffer.sampleRate,
+      channels: 1,
+    };
+  } catch {
+    return null;
+  } finally {
+    void audioContext.close();
+  }
+}
+
+function asProviderDictationTranscriptionError(
+  error: unknown,
+  fallbackMessage: string,
+): ProviderTranscriptionError {
+  if (error instanceof ProviderTranscriptionError) {
+    return error;
+  }
+  const message =
+    error instanceof Error && error.message.trim()
+      ? error.message
+      : fallbackMessage;
+  return new ProviderTranscriptionError({
+    message,
+    code: "provider_failure",
+    status: undefined,
+  });
+}
+
+export async function transcribeChatAudioWithProfile(
+  transcriptionProfileId: string,
+  audioBlob: Blob,
+): Promise<ProviderDictationTranscriptionResult> {
+  if (!transcriptionProfileId) {
+    throw new ProviderTranscriptionError({
+      message: "Provider dictation profile is not configured.",
+      code: "profile_not_found",
+      status: undefined,
+    });
+  }
+  if (audioBlob.size === 0) {
+    return { kind: "no_speech" };
+  }
+  const pcmPayload = await decodeDictationBlobToPcm16(audioBlob);
+  if (!pcmPayload) {
+    throw new ProviderTranscriptionError({
+      message: "Provider dictation is not available in this browser.",
+      code: "provider_failure",
+      status: undefined,
+    });
+  }
+  const session = await startTranscriptionSession(
+    transcriptionProfileId,
+    null,
+    {
+      suppressNotification: true,
+      throwOnError: true,
+    },
+  );
+  if (!session) {
+    throw new ProviderTranscriptionError({
+      message: "Provider transcription session could not be started.",
+      code: "provider_failure",
+      status: undefined,
+    });
+  }
+  const sessionId = session.sessionId;
+  const sessionPcmPayload = resolveProviderTranscriptionPcmPayloadForSession(
+    pcmPayload,
+    session,
+  );
+  const chunkSampleCount = resolveProviderTranscriptionChunkSampleCount({
+    session,
+    sampleRateHz: sessionPcmPayload.sampleRateHz,
+    channels: sessionPcmPayload.channels,
+  });
+  if (chunkSampleCount <= 0) {
+    await cancelTranscriptionSession(sessionId);
+    throw new ProviderTranscriptionError({
+      message: "Provider transcription chunk size is invalid.",
+      code: "provider_failure",
+      status: undefined,
+    });
+  }
+  if (sessionPcmPayload.audioPcm16.length === 0) {
+    await cancelTranscriptionSession(sessionId);
+    return { kind: "no_speech" };
+  }
+  const appendTextSegments: string[] = [];
+  try {
+    for (
+      let offset = 0;
+      offset < sessionPcmPayload.audioPcm16.length;
+      offset += chunkSampleCount
+    ) {
+      const nextOffset = Math.min(
+        offset + chunkSampleCount,
+        sessionPcmPayload.audioPcm16.length,
+      );
+      const chunk = sessionPcmPayload.audioPcm16.slice(offset, nextOffset);
+      const appendDelta = await appendTranscriptionAudio(
+        sessionId,
+        chunk.buffer,
+        sessionPcmPayload.sampleRateHz,
+        sessionPcmPayload.channels,
+        {
+          suppressNotification: true,
+          throwOnError: true,
+        },
+      );
+      if (!appendDelta) {
+        await cancelTranscriptionSession(sessionId);
+        throw new ProviderTranscriptionError({
+          message: "Provider transcription append returned no result.",
+          code: "provider_failure",
+          status: undefined,
+        });
+      }
+      appendTextSegments.push(appendDelta.appendText);
+    }
+  } catch (error) {
+    await cancelTranscriptionSession(sessionId);
+    throw asProviderDictationTranscriptionError(
+      error,
+      "Provider transcription append failed.",
+    );
+  }
+  let stopDelta: TranscriptionSessionDeltaResponse | null = null;
+  try {
+    stopDelta = await stopTranscriptionSession(sessionId, {
+      suppressNotification: true,
+      throwOnError: true,
+    });
+  } catch (error) {
+    await cancelTranscriptionSession(sessionId);
+    throw asProviderDictationTranscriptionError(
+      error,
+      "Provider transcription stop failed.",
+    );
+  }
+  if (!stopDelta) {
+    await cancelTranscriptionSession(sessionId);
+    throw new ProviderTranscriptionError({
+      message: "Provider transcription stop returned no result.",
+      code: "provider_failure",
+      status: undefined,
+    });
+  }
+  const fullText = stopDelta.fullText.trim();
+  if (fullText) {
+    return { kind: "ok", transcript: fullText };
+  }
+  const appendText =
+    `${appendTextSegments.join("")}${stopDelta.appendText}`.trim();
+  if (appendText) {
+    return { kind: "ok", transcript: appendText };
+  }
+  return { kind: "no_speech" };
+}
+
+export async function loadLLMConfig() {
+  if (llmConfigLoadPromise) {
+    await llmConfigLoadPromise;
+    return;
+  }
+  llmConfigLoadPromise = (async () => {
+    const res = await route_get_llm_config();
+    if (res200(res)) {
+      receiveLLMConfigUpdate(res.data);
+      return;
+    }
+    useAIStore.setState({
+      allLLMConfigsInitialLoadComplete: true,
+      allLLMConfigsLoadError: "Failed to load LLM config",
+    });
+  })();
+  try {
+    await llmConfigLoadPromise;
+  } finally {
+    llmConfigLoadPromise = null;
+  }
+}
+
+export async function saveLLMConfig(
+  config: AllLLMConfigs,
+): Promise<AllLLMConfigs | null> {
+  const res = await route_set_llm_config(config);
+  if (!res200(res)) {
+    useAIStore.setState({
+      allLLMConfigsInitialLoadComplete: true,
+      allLLMConfigsLoadError: "Failed to save LLM config",
+    });
+    return null;
+  }
+  receiveLLMConfigUpdate(res.data);
+  return res.data;
+}
+
+type ManagedAPIKeysErrorDetails = {
+  detail: string | null;
+  revision: number | null;
+  errorCode: string | null;
+  isCorrupt: boolean;
+  isUnavailable: boolean;
+};
+
+function resolveManagedApiKeysErrorDetails(
+  payload: unknown,
+): ManagedAPIKeysErrorDetails {
+  const detail = getErrorDetail(payload);
+  const revision = extractApiKeysRevisionFromErrorPayload(payload);
+  const errorCode = getErrorCode(payload);
+  const isCorrupt = errorCode === MANAGED_API_KEYS_CORRUPT_ERROR_CODE;
+  const isUnavailable = errorCode === MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE;
+  return {
+    detail,
+    revision,
+    errorCode,
+    isCorrupt,
+    isUnavailable,
+  };
+}
+
+function applyManagedApiKeysReadFailure(payload: unknown): void {
+  const errorDetails = resolveManagedApiKeysErrorDetails(payload);
+  useAIStore.setState((state) => ({
+    apiKeys:
+      errorDetails.isCorrupt || errorDetails.isUnavailable ? {} : state.apiKeys,
+    apiKeysRevision: errorDetails.revision ?? state.apiKeysRevision,
+    apiKeysAuthoritative: errorDetails.isCorrupt,
+    apiKeysInitialLoadComplete: true,
+    apiKeysLoadError: errorDetails.detail ?? "Failed to load LLM API keys",
+  }));
+}
+
+function applyManagedApiKeysWriteFailure({
+  payload,
+  fallbackMessage,
+  fallbackAuthoritative,
+}: {
+  payload: unknown;
+  fallbackMessage: string;
+  fallbackAuthoritative: boolean;
+}): {
+  shouldRetryCorruptWrite: boolean;
+} {
+  const errorDetails = resolveManagedApiKeysErrorDetails(payload);
+  if (errorDetails.isCorrupt) {
+    useAIStore.setState((state) => ({
+      apiKeys: {},
+      apiKeysRevision: errorDetails.revision ?? state.apiKeysRevision,
+      apiKeysAuthoritative: errorDetails.revision !== null,
+      apiKeysInitialLoadComplete: true,
+      apiKeysLoadError:
+        errorDetails.detail ?? "Managed API key store is corrupt.",
+    }));
+    return {
+      shouldRetryCorruptWrite: errorDetails.revision !== null,
+    };
+  }
+  if (errorDetails.isUnavailable) {
+    useAIStore.setState({
+      apiKeys: {},
+      apiKeysAuthoritative: false,
+      apiKeysInitialLoadComplete: true,
+      apiKeysLoadError:
+        errorDetails.detail ?? "Managed API key store is unavailable.",
+    });
+    return { shouldRetryCorruptWrite: false };
+  }
+  useAIStore.setState({
+    apiKeysAuthoritative: fallbackAuthoritative,
+    apiKeysInitialLoadComplete: true,
+    apiKeysLoadError: errorDetails.detail ?? fallbackMessage,
+  });
+  return { shouldRetryCorruptWrite: false };
+}
+
+export async function loadLLMApiKeys() {
+  if (llmApiKeysLoadPromise) {
+    await llmApiKeysLoadPromise;
+    return;
+  }
+  llmApiKeysLoadPromise = (async () => {
+    const res = await route_get_llm_api_keys();
+    if (res200(res)) {
+      receiveLLMApiKeysSnapshotUpdate(res.data);
+      return;
+    }
+    applyManagedApiKeysReadFailure(res.data);
+  })();
+  try {
+    await llmApiKeysLoadPromise;
+  } finally {
+    llmApiKeysLoadPromise = null;
+  }
+}
+
+export function receiveLLMConfigUpdate(payload: AllLLMConfigs) {
+  useAIStore.setState({
+    allLLMConfigs: payload,
+    allLLMConfigsInitialLoadComplete: true,
+    allLLMConfigsLoadError: null,
+  });
+}
+
+export function receiveLLMApiKeysSnapshotUpdate(
+  payload: ManagedAPIKeysSnapshotPayload,
+) {
+  const isCorrupt =
+    payload.corrupt === true ||
+    payload.errorCode === MANAGED_API_KEYS_CORRUPT_ERROR_CODE;
+  const isUnavailable =
+    payload.errorCode === MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE;
+  let apiKeysLoadError: string | null = null;
+  if (isCorrupt) {
+    apiKeysLoadError = payload.message ?? "Managed API key store is corrupt.";
+  } else if (isUnavailable) {
+    apiKeysLoadError =
+      payload.message ?? "Managed API key store is unavailable.";
+  }
+  useAIStore.setState({
+    apiKeys: payload.apiKeys,
+    apiKeysRevision: payload.revision,
+    apiKeysAuthoritative: !isUnavailable,
+    apiKeysInitialLoadComplete: true,
+    apiKeysLoadError,
+  });
+}
+
+function extractApiKeysRevisionFromErrorPayload(value: unknown): number | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const revision = value.revision;
+  if (
+    typeof revision === "number" &&
+    Number.isInteger(revision) &&
+    revision >= 0
+  ) {
+    return revision;
+  }
+  return extractApiKeysRevisionFromErrorPayload(value.detail);
+}
+
+async function refreshLLMApiKeysSnapshotFromServer(): Promise<boolean> {
+  const res = await route_get_llm_api_keys();
+  if (res200(res)) {
+    receiveLLMApiKeysSnapshotUpdate(res.data);
+    return true;
+  }
+  applyManagedApiKeysReadFailure(res.data);
+  return false;
+}
+
+async function persistLLMApiKeysMutation(
+  mutation: APIKeysMutation,
+): Promise<boolean> {
+  const MAX_RETRIES = 3;
+  for (let retryCount = 0; retryCount < MAX_RETRIES; retryCount += 1) {
+    const state = useAIStore.getState();
+    const nextApiKeys = mutation(state.apiKeys);
+    const res = await route_set_llm_api_keys({
+      apiKeys: nextApiKeys,
+      expectedRevision: state.apiKeysRevision,
+    });
+    if (res200(res)) {
+      receiveLLMApiKeysSnapshotUpdate(res.data);
+      return true;
+    }
+    const errorCode = getErrorCode(res.data);
+    if (
+      res.status === 409 &&
+      errorCode === MANAGED_API_KEYS_REVISION_CONFLICT_ERROR_CODE
+    ) {
+      const refreshed = await refreshLLMApiKeysSnapshotFromServer();
+      if (!refreshed) {
+        return false;
+      }
+      continue;
+    }
+    if (
+      res.status === 409 &&
+      errorCode === MANAGED_API_KEYS_CORRUPT_ERROR_CODE
+    ) {
+      const writeFailureResult = applyManagedApiKeysWriteFailure({
+        payload: res.data,
+        fallbackMessage: "Managed API key store is corrupt.",
+        fallbackAuthoritative: false,
+      });
+      if (!writeFailureResult.shouldRetryCorruptWrite) {
+        return false;
+      }
+      continue;
+    }
+    if (
+      res.status === 503 &&
+      errorCode === MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE
+    ) {
+      applyManagedApiKeysWriteFailure({
+        payload: res.data,
+        fallbackMessage: "Managed API key store is unavailable.",
+        fallbackAuthoritative: false,
+      });
+      return false;
+    }
+    applyManagedApiKeysWriteFailure({
+      payload: res.data,
+      fallbackMessage: "Failed to save LLM API keys",
+      fallbackAuthoritative: false,
+    });
+    return false;
+  }
+  useAIStore.setState({
+    apiKeysAuthoritative: false,
+    apiKeysInitialLoadComplete: true,
+    apiKeysLoadError: "Failed to save LLM API keys after retrying conflicts.",
+  });
+  return false;
+}
+
+export async function mutateAndSaveLLMApiKeys(
+  mutation: APIKeysMutation,
+): Promise<boolean> {
+  let didPersist = false;
+  const runMutation = async () => {
+    didPersist = await persistLLMApiKeysMutation(mutation);
+  };
+  llmApiKeysSaveQueue = llmApiKeysSaveQueue.then(runMutation, runMutation);
+  await llmApiKeysSaveQueue;
+  return didPersist;
+}
+
+export async function loadAgentProfiles(force: boolean = false) {
+  const state = useAIStore.getState();
+  if (state.agentProfilesLoading) {
+    return;
+  }
+  if (!force && state.agentProfilesInitialLoadComplete) {
+    return;
+  }
+  useAIStore.setState({ agentProfilesLoading: true });
+  const res = await route_get_agent_profiles();
+  if (res200(res)) {
+    receiveAgentProfilesUpdate(res.data);
+  } else {
+    useAIStore.setState({
+      agentProfilesInitialLoadComplete: true,
+      agentProfilesLoadError: "Failed to load agent profiles",
+      agentProfilesLoading: false,
+    });
+  }
+}
+
+export function receiveAgentProfilesUpdate(payload: Array<AgentProfile>) {
+  useAIStore.setState({
+    agentProfiles: payload,
+    agentProfilesInitialLoadComplete: true,
+    agentProfilesLoadError: null,
+    agentProfilesLoading: false,
+  });
+}
+
+function clearScheduledAgentRunsRetry(): void {
+  if (!agentRunsRetryTimer) {
+    return;
+  }
+  clearTimeout(agentRunsRetryTimer);
+  agentRunsRetryTimer = null;
+}
+
+function scheduleAgentRunsRetry(transientFailureCount: number): void {
+  if (agentRunsRetryTimer) {
+    return;
+  }
+  const delayIndex = Math.max(
+    0,
+    Math.min(transientFailureCount - 1, AGENT_RUNS_RETRY_DELAYS_MS.length - 1),
+  );
+  const delayMs = AGENT_RUNS_RETRY_DELAYS_MS[delayIndex] ?? 2500;
+  agentRunsRetryTimer = setTimeout(() => {
+    agentRunsRetryTimer = null;
+    void loadAgentRuns();
+  }, delayMs);
+}
+
+export async function loadAgentRuns() {
+  if (agentRunsLoadPromise) {
+    await agentRunsLoadPromise;
+    return;
+  }
+  const currentState = useAIStore.getState();
+  if (
+    currentState.agentRunsAuthorityState === "loading" &&
+    !currentState.agentRunsInitialLoadComplete &&
+    currentState.agentRunsLoadError === null
+  ) {
+    agentRunsTransientFailureCount = 0;
+    clearScheduledAgentRunsRetry();
+  }
+  const currentAuthorityState = currentState.agentRunsAuthorityState;
+  if (currentAuthorityState === "terminal_error") {
+    agentRunsTransientFailureCount = 0;
+    clearScheduledAgentRunsRetry();
+  }
+  if (currentAuthorityState !== "ready") {
+    useAIStore.setState({
+      agentRunsAuthorityState: "loading",
+      agentRunsInitialLoadComplete: false,
+    });
+  }
+  agentRunsLoadPromise = (async () => {
+    const res = await route_get_agent_runs();
+    if (res200(res)) {
+      receiveAgentRunsUpdate(res.data);
+    } else {
+      agentRunsTransientFailureCount += 1;
+      if (agentRunsTransientFailureCount <= AGENT_RUNS_RETRY_DELAYS_MS.length) {
+        useAIStore.setState({
+          agentRunsAuthorityState: "transient_error",
+          agentRunsInitialLoadComplete: false,
+          agentRunsLoadError: "Failed to load agent runs",
+        });
+        scheduleAgentRunsRetry(agentRunsTransientFailureCount);
+        return;
+      }
+      clearScheduledAgentRunsRetry();
+      useAIStore.setState({
+        agentRunsAuthorityState: "terminal_error",
+        agentRunsInitialLoadComplete: true,
+        agentRunsLoadError: "Failed to load agent runs",
+      });
+    }
+  })();
+  try {
+    await agentRunsLoadPromise;
+  } finally {
+    agentRunsLoadPromise = null;
+  }
+}
+
+function receiveAgentRunsUpdate(payload: Array<AgentRun>) {
+  clearScheduledAgentRunsRetry();
+  agentRunsTransientFailureCount = 0;
+  useAIStore.setState({
+    agentRuns: payload,
+    agentRunsAuthorityState: "ready",
+    agentRunsInitialLoadComplete: true,
+    agentRunsLoadError: null,
+  });
+}
+
+export async function loadPromptTemplates(force: boolean = false) {
+  const state = useAIStore.getState();
+  if (state.promptTemplatesLoading) {
+    return;
+  }
+  if (!force && state.promptTemplatesInitialLoadComplete) {
+    return;
+  }
+  useAIStore.setState({ promptTemplatesLoading: true });
+  const res = await route_get_prompt_templates();
+  if (res200(res)) {
+    receivePromptTemplatesUpdate(res.data);
+  } else {
+    useAIStore.setState({
+      promptTemplatesInitialLoadComplete: true,
+      promptTemplatesLoadError: "Failed to load prompt templates",
+      promptTemplatesLoading: false,
+    });
+  }
+}
+
+export function receivePromptTemplatesUpdate(payload: Array<PromptTemplate>) {
+  useAIStore.setState({
+    promptTemplates: payload,
+    promptTemplatesInitialLoadComplete: true,
+    promptTemplatesLoadError: null,
+    promptTemplatesLoading: false,
+  });
+}
+
+export async function loadExternalAgentConfigs(force: boolean = false) {
+  const state = useAIStore.getState();
+  if (state.externalAgentConfigsLoading) {
+    return;
+  }
+  if (!force && state.externalAgentConfigsInitialLoadComplete) {
+    return;
+  }
+  useAIStore.setState({ externalAgentConfigsLoading: true });
+  const res = await route_get_external_agent_configs();
+  if (res200(res)) {
+    receiveExternalAgentConfigsUpdate(res.data);
+  } else {
+    useAIStore.setState({
+      externalAgentConfigsInitialLoadComplete: true,
+      externalAgentConfigsLoadError: "Failed to load external agent configs",
+      externalAgentConfigsLoading: false,
+    });
+  }
+}
+
+export async function loadExternalAgentHealth(force: boolean = false) {
+  const state = useAIStore.getState();
+  if (state.externalAgentHealthLoading) {
+    return;
+  }
+  if (!force && state.externalAgentHealthInitialLoadComplete) {
+    return;
+  }
+  useAIStore.setState({ externalAgentHealthLoading: true });
+  const res = await route_get_external_agent_health();
+  if (res200(res)) {
+    receiveExternalAgentHealthUpdate(res.data);
+  } else {
+    useAIStore.setState({
+      externalAgentHealthInitialLoadComplete: true,
+      externalAgentHealthLoadError: "Failed to load external agent health",
+      externalAgentHealthLoading: false,
+    });
+  }
+}
+
+export function receiveExternalAgentConfigsUpdate(
+  payload: Array<ExternalAgentConfig>,
+) {
+  useAIStore.setState({
+    externalAgentConfigs: payload,
+    externalAgentConfigsInitialLoadComplete: true,
+    externalAgentConfigsLoadError: null,
+    externalAgentConfigsLoading: false,
+  });
+  void loadExternalAgentHealth(true);
+}
+
+function receiveExternalAgentHealthUpdate(
+  payload: Array<ExternalAgentPreflightStatus>,
+) {
+  useAIStore.setState({
+    externalAgentHealth: payload,
+    externalAgentHealthInitialLoadComplete: true,
+    externalAgentHealthLoadError: null,
+    externalAgentHealthLoading: false,
+  });
+}
+
+export async function loadEngineConfigs(force: boolean = false) {
+  const state = useAIStore.getState();
+  if (state.engineConfigsLoading) {
+    return;
+  }
+  if (!force && state.engineConfigsInitialLoadComplete) {
+    return;
+  }
+  useAIStore.setState({ engineConfigsLoading: true });
+  const res = await route_get_engine_configs();
+  if (res200(res)) {
+    receiveEngineConfigsUpdate(res.data);
+  } else {
+    useAIStore.setState({
+      engineConfigsInitialLoadComplete: true,
+      engineConfigsLoadError: "Failed to load engine configs",
+      engineConfigsLoading: false,
+    });
+  }
+}
+
+export function receiveEngineConfigsUpdate(payload: Array<EngineConfig>) {
+  useAIStore.setState({
+    engineConfigs: payload,
+    engineConfigsInitialLoadComplete: true,
+    engineConfigsLoadError: null,
+    engineConfigsLoading: false,
+  });
+}
+
+export async function loadTranscriptionProfiles(force: boolean = false) {
+  const state = useAIStore.getState();
+  if (state.transcriptionProfilesLoading) {
+    return;
+  }
+  if (!force && state.transcriptionProfilesInitialLoadComplete) {
+    return;
+  }
+  useAIStore.setState({ transcriptionProfilesLoading: true });
+  const res = await route_get_transcription_profiles();
+  if (res200(res)) {
+    receiveTranscriptionProfilesUpdate(res.data);
+  } else {
+    useAIStore.setState({
+      transcriptionProfilesInitialLoadComplete: true,
+      transcriptionProfilesLoadError: "Failed to load transcription profiles",
+      transcriptionProfilesLoading: false,
+    });
+  }
+}
+
+export function receiveTranscriptionProfilesUpdate(
+  payload: Array<TranscriptionProfile>,
+) {
+  useAIStore.setState({
+    transcriptionProfiles: payload,
+    transcriptionProfilesInitialLoadComplete: true,
+    transcriptionProfilesLoadError: null,
+    transcriptionProfilesLoading: false,
+  });
+}
+
+type HasId = { id: string };
+
+function upsertById<T extends HasId>(items: Array<T>, entry: T): Array<T> {
+  const index = items.findIndex((item) => item.id === entry.id);
+  if (index === -1) {
+    return [...items, entry];
+  }
+  const next = [...items];
+  next[index] = entry;
+  return next;
+}
+
+function removeById<T extends HasId>(items: Array<T>, id: string): Array<T> {
+  return items.filter((item) => item.id !== id);
+}
+
+export async function createAgentProfile(
+  payload: CreateAgentProfileRequestInput,
+): Promise<AgentProfile | null> {
+  const res = await route_create_agent_profile(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      agentProfilesLoadError: "Failed to create agent profile",
+    });
+    return null;
+  }
+  const profile = res.data;
+  useAIStore.setState((state) => ({
+    agentProfiles: upsertById(state.agentProfiles, profile),
+    agentProfilesInitialLoadComplete: true,
+    agentProfilesLoadError: null,
+  }));
+  return profile;
+}
+
+export async function updateAgentProfile(
+  payload: UpdateAgentProfileRequestInput,
+): Promise<AgentProfile | null> {
+  const res = await route_update_agent_profile(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      agentProfilesLoadError: "Failed to update agent profile",
+    });
+    return null;
+  }
+  const profile = res.data;
+  useAIStore.setState((state) => ({
+    agentProfiles: upsertById(state.agentProfiles, profile),
+    agentProfilesInitialLoadComplete: true,
+    agentProfilesLoadError: null,
+  }));
+  return profile;
+}
+
+export async function deleteAgentProfile(
+  payload: DeleteAgentProfileRequestInput,
+): Promise<boolean> {
+  const res = await route_delete_agent_profile(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      agentProfilesLoadError: "Failed to delete agent profile",
+    });
+    return false;
+  }
+  useAIStore.setState((state) => ({
+    agentProfiles: removeById(state.agentProfiles, payload.profileId),
+    agentProfilesInitialLoadComplete: true,
+    agentProfilesLoadError: null,
+  }));
+  return true;
+}
+
+export async function updateEngineConfig(
+  payload: UpdateEngineConfigRequestInput,
+): Promise<EngineConfig | null> {
+  const res = await route_update_engine_config(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      engineConfigsLoadError: "Failed to update engine config",
+    });
+    return null;
+  }
+  const config = res.data;
+  useAIStore.setState((state) => ({
+    engineConfigs: upsertById(state.engineConfigs, config),
+    engineConfigsInitialLoadComplete: true,
+    engineConfigsLoadError: null,
+  }));
+  return config;
+}
+
+export async function createTranscriptionProfile(
+  payload: CreateTranscriptionProfileRequestInput,
+): Promise<TranscriptionProfile | null> {
+  const res = await route_create_transcription_profile(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      transcriptionProfilesLoadError: "Failed to create transcription profile",
+    });
+    return null;
+  }
+  const profile = res.data;
+  useAIStore.setState((state) => ({
+    transcriptionProfiles: upsertById(state.transcriptionProfiles, profile),
+    transcriptionProfilesInitialLoadComplete: true,
+    transcriptionProfilesLoadError: null,
+  }));
+  return profile;
+}
+
+export async function updateTranscriptionProfile(
+  payload: UpdateTranscriptionProfileRequestInput,
+): Promise<TranscriptionProfile | null> {
+  const res = await route_update_transcription_profile(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      transcriptionProfilesLoadError: "Failed to update transcription profile",
+    });
+    return null;
+  }
+  const profile = res.data;
+  useAIStore.setState((state) => ({
+    transcriptionProfiles: upsertById(state.transcriptionProfiles, profile),
+    transcriptionProfilesInitialLoadComplete: true,
+    transcriptionProfilesLoadError: null,
+  }));
+  return profile;
+}
+
+export async function deleteTranscriptionProfile(
+  payload: DeleteTranscriptionProfileRequestInput,
+): Promise<boolean> {
+  const res = await route_delete_transcription_profile(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      transcriptionProfilesLoadError: "Failed to delete transcription profile",
+    });
+    return false;
+  }
+  useAIStore.setState((state) => ({
+    transcriptionProfiles: removeById(
+      state.transcriptionProfiles,
+      payload.profileId,
+    ),
+    transcriptionProfilesInitialLoadComplete: true,
+    transcriptionProfilesLoadError: null,
+    projectChatTranscriptionProfileId:
+      state.projectChatTranscriptionProfileId === payload.profileId
+        ? null
+        : state.projectChatTranscriptionProfileId,
+  }));
+  return true;
+}
+
+export async function createPromptTemplate(
+  payload: CreatePromptTemplateRequestInput,
+): Promise<PromptTemplate | null> {
+  const res = await route_create_prompt_template(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      promptTemplatesLoadError: "Failed to create prompt template",
+    });
+    return null;
+  }
+  const template = res.data;
+  useAIStore.setState((state) => ({
+    promptTemplates: upsertById(state.promptTemplates, template),
+    promptTemplatesInitialLoadComplete: true,
+    promptTemplatesLoadError: null,
+  }));
+  return template;
+}
+
+export async function updatePromptTemplate(
+  payload: UpdatePromptTemplateRequestInput,
+): Promise<PromptTemplate | null> {
+  const res = await route_update_prompt_template(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      promptTemplatesLoadError: "Failed to update prompt template",
+    });
+    return null;
+  }
+  const template = res.data;
+  useAIStore.setState((state) => ({
+    promptTemplates: upsertById(state.promptTemplates, template),
+    promptTemplatesInitialLoadComplete: true,
+    promptTemplatesLoadError: null,
+  }));
+  return template;
+}
+
+export async function deletePromptTemplate(
+  payload: DeletePromptTemplateRequestInput,
+): Promise<boolean> {
+  const res = await route_delete_prompt_template(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      promptTemplatesLoadError: "Failed to delete prompt template",
+    });
+    return false;
+  }
+  useAIStore.setState((state) => ({
+    promptTemplates: removeById(state.promptTemplates, payload.templateId),
+    promptTemplatesInitialLoadComplete: true,
+    promptTemplatesLoadError: null,
+  }));
+  return true;
+}
+
+export async function createExternalAgentConfig(
+  payload: CreateExternalAgentConfigRequestInput,
+): Promise<ExternalAgentConfig | null> {
+  const res = await route_create_external_agent_config(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      externalAgentConfigsLoadError: "Failed to create external agent config",
+    });
+    return null;
+  }
+  const config = res.data;
+  useAIStore.setState((state) => ({
+    externalAgentConfigs: upsertById(state.externalAgentConfigs, config),
+    externalAgentConfigsInitialLoadComplete: true,
+    externalAgentConfigsLoadError: null,
+  }));
+  return config;
+}
+
+export async function updateExternalAgentConfig(
+  payload: UpdateExternalAgentConfigRequestInput,
+): Promise<ExternalAgentConfig | null> {
+  const res = await route_update_external_agent_config(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      externalAgentConfigsLoadError: "Failed to update external agent config",
+    });
+    return null;
+  }
+  const config = res.data;
+  useAIStore.setState((state) => ({
+    externalAgentConfigs: upsertById(state.externalAgentConfigs, config),
+    externalAgentConfigsInitialLoadComplete: true,
+    externalAgentConfigsLoadError: null,
+  }));
+  return config;
+}
+
+export async function deleteExternalAgentConfig(
+  payload: DeleteExternalAgentConfigRequestInput,
+): Promise<boolean> {
+  const res = await route_delete_external_agent_config(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      externalAgentConfigsLoadError: "Failed to delete external agent config",
+    });
+    return false;
+  }
+  useAIStore.setState((state) => ({
+    externalAgentConfigs: removeById(
+      state.externalAgentConfigs,
+      payload.configId,
+    ),
+    externalAgentConfigsInitialLoadComplete: true,
+    externalAgentConfigsLoadError: null,
+  }));
+  return true;
+}
+
+export function getDefaultChatDetails(): ChatDetails {
+  return {
+    messages: [],
+    toolCallArguments: {},
+    waitingForResponse: false,
+    llmConfig: null,
+    contextUsage: null,
+  };
+}
+
+function normalizePendingChatSurfaceId(
+  surfaceId: string | null | undefined,
+): string | null {
+  if (typeof surfaceId !== "string") {
+    return null;
+  }
+  const normalizedSurfaceId = surfaceId.trim();
+  if (!normalizedSurfaceId) {
+    return null;
+  }
+  return normalizedSurfaceId;
+}
+
+function requirePendingChatSurfaceId(
+  surfaceId: string | null | undefined,
+): string {
+  const normalizedSurfaceId = normalizePendingChatSurfaceId(surfaceId);
+  if (!normalizedSurfaceId) {
+    throw new Error("Pending chat surface id is required.");
+  }
+  return normalizedSurfaceId;
+}
+
+function getPendingChatDetailsForSurface(
+  state: ReturnType<typeof useAIStore.getState>,
+  surfaceId: string | null | undefined,
+): ChatDetails | null {
+  return (
+    state.pendingChatDetailsBySurfaceId[
+      requirePendingChatSurfaceId(surfaceId)
+    ] ?? null
+  );
+}
+
+function setPendingChatDetailsForSurface(
+  state: ReturnType<typeof useAIStore.getState>,
+  surfaceId: string | null | undefined,
+  nextDetails: ChatDetails | null,
+): Partial<ReturnType<typeof useAIStore.getState>> {
+  const normalizedSurfaceId = requirePendingChatSurfaceId(surfaceId);
+  const currentDetails =
+    state.pendingChatDetailsBySurfaceId[normalizedSurfaceId];
+  if (currentDetails === nextDetails) {
+    return state;
+  }
+  const nextBySurfaceId = {
+    ...state.pendingChatDetailsBySurfaceId,
+  };
+  if (nextDetails === null) {
+    delete nextBySurfaceId[normalizedSurfaceId];
+  } else {
+    nextBySurfaceId[normalizedSurfaceId] = nextDetails;
+  }
+  return {
+    pendingChatDetailsBySurfaceId: nextBySurfaceId,
+  };
+}
+
+type StopChatResponseSnapshot = {
+  waitingForResponse: boolean;
+  toolCallArguments: Record<string, string>;
+  interruptedAssistantMessageIdsByChat: Record<string, true>;
+  stopEligibleAssistantMessageId: string | null;
+};
+
+function setStopEligibleAssistantMessageId(chatId: string, messageId: string) {
+  const normalizedChatId = chatId.trim();
+  const normalizedMessageId = messageId.trim();
+  if (!normalizedChatId || !normalizedMessageId) {
+    return;
+  }
+  stopEligibleAssistantMessageIdByChatId.set(
+    normalizedChatId,
+    normalizedMessageId,
+  );
+}
+
+function clearStopEligibleAssistantMessageId(chatId: string) {
+  const normalizedChatId = chatId.trim();
+  if (!normalizedChatId) {
+    return;
+  }
+  stopEligibleAssistantMessageIdByChatId.delete(normalizedChatId);
+}
+
+function markInterruptedAssistantMessage(chatId: string, messageId: string) {
+  useAIStore.setState((state) => {
+    const existingByChat =
+      state.interruptedAssistantMessageIdsByChatId[chatId] ?? {};
+    if (existingByChat[messageId]) {
+      return state;
+    }
+    return {
+      interruptedAssistantMessageIdsByChatId: {
+        ...state.interruptedAssistantMessageIdsByChatId,
+        [chatId]: {
+          ...existingByChat,
+          [messageId]: true,
+        },
+      },
+    };
+  });
+}
+
+function clearInterruptedAssistantMessages(
+  chatId: string,
+  messageIds: Array<string | null | undefined>,
+) {
+  const normalizedIds = messageIds.filter(
+    (messageId): messageId is string => typeof messageId === "string",
+  );
+  if (normalizedIds.length === 0) {
+    return;
+  }
+  useAIStore.setState((state) => {
+    const existingByChat =
+      state.interruptedAssistantMessageIdsByChatId[chatId] ?? {};
+    let changed = false;
+    const nextByChat = { ...existingByChat };
+    for (const messageId of normalizedIds) {
+      if (nextByChat[messageId]) {
+        changed = true;
+        delete nextByChat[messageId];
+      }
+    }
+    if (!changed) {
+      return state;
+    }
+    if (Object.keys(nextByChat).length === 0) {
+      const nextByChatId = {
+        ...state.interruptedAssistantMessageIdsByChatId,
+      };
+      delete nextByChatId[chatId];
+      return {
+        interruptedAssistantMessageIdsByChatId: nextByChatId,
+      };
+    }
+    return {
+      interruptedAssistantMessageIdsByChatId: {
+        ...state.interruptedAssistantMessageIdsByChatId,
+        [chatId]: nextByChat,
+      },
+    };
+  });
+}
+
+function interruptedMessageMapEquals(
+  left: Record<string, true>,
+  right: Record<string, true>,
+): boolean {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+  for (const key of leftKeys) {
+    if (!right[key]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function restoreInterruptedAssistantMessageSnapshot(
+  chatId: string | null | undefined,
+  snapshot: StopChatResponseSnapshot,
+) {
+  if (typeof chatId !== "string") {
+    return;
+  }
+  useAIStore.setState((state) => {
+    const currentByChat =
+      state.interruptedAssistantMessageIdsByChatId[chatId] ?? {};
+    const snapshotByChat = snapshot.interruptedAssistantMessageIdsByChat;
+    if (interruptedMessageMapEquals(currentByChat, snapshotByChat)) {
+      return state;
+    }
+    const nextByChatId = {
+      ...state.interruptedAssistantMessageIdsByChatId,
+    };
+    if (Object.keys(snapshotByChat).length === 0) {
+      delete nextByChatId[chatId];
+    } else {
+      nextByChatId[chatId] = { ...snapshotByChat };
+    }
+    return {
+      interruptedAssistantMessageIdsByChatId: nextByChatId,
+    };
+  });
+}
+
+function getStopChatResponseSnapshot(
+  chatId: string | null | undefined,
+  pendingSurfaceId: string | null | undefined = null,
+): StopChatResponseSnapshot {
+  const state = useAIStore.getState();
+  const currentDetails =
+    typeof chatId === "string"
+      ? state.chatDetails[chatId] ?? getDefaultChatDetails()
+      : getPendingChatDetailsForSurface(state, pendingSurfaceId) ??
+        getDefaultChatDetails();
+  const interruptedAssistantMessageIdsByChat =
+    typeof chatId === "string"
+      ? {
+          ...(state.interruptedAssistantMessageIdsByChatId[chatId] ?? {}),
+        }
+      : {};
+  return {
+    waitingForResponse: currentDetails.waitingForResponse,
+    toolCallArguments: { ...currentDetails.toolCallArguments },
+    interruptedAssistantMessageIdsByChat,
+    stopEligibleAssistantMessageId:
+      typeof chatId === "string"
+        ? stopEligibleAssistantMessageIdByChatId.get(chatId) ?? null
+        : null,
+  };
+}
+
+function restoreStoppedChatResponseLocally(
+  chatId: string | null | undefined,
+  snapshot: StopChatResponseSnapshot,
+  pendingSurfaceId: string | null | undefined = null,
+) {
+  const restoreDetails = (details: ChatDetails): ChatDetails => ({
+    ...details,
+    waitingForResponse: snapshot.waitingForResponse,
+    toolCallArguments: { ...snapshot.toolCallArguments },
+  });
+  if (typeof chatId === "string") {
+    updateChatDetails(chatId, restoreDetails);
+    return;
+  }
+  updatePendingChatDetails(restoreDetails, pendingSurfaceId);
+}
+
+function stopChatResponseLocally(
+  chatId: string | null | undefined,
+  options: {
+    markInterruptedOptimistically?: boolean;
+    pendingSurfaceId?: string | null;
+  } = {},
+): StopChatResponseSnapshot {
+  const markInterruptedOptimistically =
+    options.markInterruptedOptimistically ?? true;
+  const pendingSurfaceId = options.pendingSurfaceId ?? null;
+  const snapshot = getStopChatResponseSnapshot(chatId, pendingSurfaceId);
+  const stopDetails = (details: ChatDetails): ChatDetails => ({
+    ...details,
+    waitingForResponse: false,
+  });
+  if (typeof chatId === "string") {
+    updateChatDetails(chatId, stopDetails);
+    if (
+      markInterruptedOptimistically &&
+      snapshot.waitingForResponse &&
+      snapshot.stopEligibleAssistantMessageId
+    ) {
+      markInterruptedAssistantMessage(
+        chatId,
+        snapshot.stopEligibleAssistantMessageId,
+      );
+    }
+  } else {
+    updatePendingChatDetails(stopDetails, pendingSurfaceId);
+  }
+  clearAllAppSpecPatchStreams();
+  return snapshot;
+}
+
+function applyConfirmedExternalStopInterruption(
+  chatId: string,
+  snapshot: StopChatResponseSnapshot,
+): void {
+  restoreInterruptedAssistantMessageSnapshot(chatId, snapshot);
+  const stoppedMessageId =
+    snapshot.stopEligibleAssistantMessageId?.trim() ?? "";
+  if (!stoppedMessageId) {
+    return;
+  }
+  markInterruptedAssistantMessage(chatId, stoppedMessageId);
+}
+
+async function resolveLatestRunningExternalRunIdWithRefresh(
+  chatId: string,
+  projectConfigId: string | null,
+): Promise<string | null> {
+  let runId = await findLatestRunningExternalRunId(chatId, projectConfigId);
+  if (runId) {
+    return runId;
+  }
+  await loadAgentRuns();
+  runId = await findLatestRunningExternalRunId(chatId, projectConfigId);
+  return runId;
+}
+
+async function stopExternalChatResponse({
+  chatId,
+  projectConfigId,
+  sectionId,
+  failureMessage,
+  localSnapshot,
+}: {
+  chatId: string;
+  projectConfigId: string | null;
+  sectionId?: string;
+  failureMessage: string;
+  localSnapshot: StopChatResponseSnapshot;
+}): Promise<boolean> {
+  const refreshChatAndResolveWaiting = async (): Promise<{
+    hydrated: boolean;
+    waitingForResponse: boolean;
+  }> => {
+    const hydrated = await getExternalAgentChat(
+      chatId,
+      projectConfigId,
+      sectionId,
+    );
+    const waitingForResponse = Boolean(
+      useAIStore.getState().chatDetails[chatId]?.waitingForResponse,
+    );
+    return { hydrated, waitingForResponse };
+  };
+
+  const runId = await resolveLatestRunningExternalRunIdWithRefresh(
+    chatId,
+    projectConfigId,
+  );
+  if (!runId) {
+    const refreshState = await refreshChatAndResolveWaiting();
+    if (refreshState.hydrated && !refreshState.waitingForResponse) {
+      restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
+      return true;
+    }
+    restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
+    if (!refreshState.hydrated) {
+      restoreStoppedChatResponseLocally(chatId, localSnapshot);
+    }
+    addTemporaryNotification(failureMessage, SettaNotificationTypeEnum.warning);
+    return false;
+  }
+  const response = await route_stop_external_agent_run({ runId });
+  if (res200(response)) {
+    void loadAgentRuns();
+    if (response.data?.status === AgentRunStatusEnum.cancelled) {
+      applyConfirmedExternalStopInterruption(chatId, localSnapshot);
+      return true;
+    }
+    const refreshState = await refreshChatAndResolveWaiting();
+    restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
+    if (refreshState.hydrated && !refreshState.waitingForResponse) {
+      return true;
+    }
+    if (!refreshState.hydrated) {
+      restoreStoppedChatResponseLocally(chatId, localSnapshot);
+    }
+    addTemporaryNotification(failureMessage, SettaNotificationTypeEnum.warning);
+    return false;
+  }
+  const refreshState = await refreshChatAndResolveWaiting();
+  if (refreshState.hydrated && !refreshState.waitingForResponse) {
+    restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
+    return true;
+  }
+  restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
+  if (!refreshState.hydrated) {
+    restoreStoppedChatResponseLocally(chatId, localSnapshot);
+  }
+  addTemporaryNotification(failureMessage, SettaNotificationTypeEnum.warning);
+  return false;
+}
+
+function reconcileStoppedLLMChatOutcome({
+  chatId,
+  localSnapshot,
+  stopOutcome,
+}: {
+  chatId: string;
+  localSnapshot: StopChatResponseSnapshot;
+  stopOutcome:
+    | {
+        alreadyStopped: boolean;
+        stoppedMessageId: string | null;
+      }
+    | null
+    | undefined;
+}): void {
+  if (!stopOutcome) {
+    return;
+  }
+  if (stopOutcome.alreadyStopped) {
+    restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
+    return;
+  }
+  const stoppedMessageId = stopOutcome.stoppedMessageId?.trim() ?? "";
+  if (!stoppedMessageId) {
+    restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
+    return;
+  }
+  const localStoppedMessageId =
+    localSnapshot.stopEligibleAssistantMessageId?.trim() ?? "";
+  if (!localStoppedMessageId) {
+    restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
+    return;
+  }
+  if (localStoppedMessageId === stoppedMessageId) {
+    return;
+  }
+  restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
+  markInterruptedAssistantMessage(chatId, stoppedMessageId);
+}
+
+export async function stopProjectChatResponse(
+  chatId: string | null | undefined,
+  isExternalEngine: boolean,
+  pendingSurfaceId: string | null | undefined = null,
+): Promise<boolean> {
+  const localSnapshot = stopChatResponseLocally(chatId, {
+    markInterruptedOptimistically: !isExternalEngine,
+    pendingSurfaceId,
+  });
+  if (typeof chatId !== "string") {
+    return true;
+  }
+
+  if (isExternalEngine) {
+    const projectConfigId = getCurrProjectConfigId();
+    return stopExternalChatResponse({
+      chatId,
+      projectConfigId,
+      failureMessage: "Failed to stop project chat.",
+      localSnapshot,
+    });
+  }
+
+  const response = await route_stop_llm_chat({ chatId });
+  if (res200(response)) {
+    reconcileStoppedLLMChatOutcome({
+      chatId,
+      localSnapshot,
+      stopOutcome: response.data,
+    });
+    return true;
+  }
+  const hydrated = await getLLMChat(chatId);
+  restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
+  if (!hydrated) {
+    restoreStoppedChatResponseLocally(chatId, localSnapshot, pendingSurfaceId);
+  }
+  addTemporaryNotification(
+    "Failed to stop project chat.",
+    SettaNotificationTypeEnum.warning,
+  );
+  return false;
+}
+
+export async function stopManagedSectionChatResponse(
+  chatId: string | null | undefined,
+  isExternalEngine: boolean,
+  projectConfigId: string,
+  sectionId: string,
+  pendingSurfaceId: string | null | undefined = null,
+): Promise<boolean> {
+  const localSnapshot = stopChatResponseLocally(chatId, {
+    markInterruptedOptimistically: !isExternalEngine,
+    pendingSurfaceId,
+  });
+  if (typeof chatId !== "string") {
+    return true;
+  }
+  if (isExternalEngine) {
+    return stopExternalChatResponse({
+      chatId,
+      projectConfigId,
+      sectionId,
+      failureMessage: "Failed to stop section chat.",
+      localSnapshot,
+    });
+  }
+  const response = await route_stop_llm_chat({ chatId });
+  if (res200(response)) {
+    reconcileStoppedLLMChatOutcome({
+      chatId,
+      localSnapshot,
+      stopOutcome: response.data,
+    });
+    return true;
+  }
+  const hydrated = await getLLMChat(chatId, sectionId);
+  restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
+  if (!hydrated) {
+    restoreStoppedChatResponseLocally(chatId, localSnapshot, pendingSurfaceId);
+  }
+  addTemporaryNotification(
+    "Failed to stop section chat.",
+    SettaNotificationTypeEnum.warning,
+  );
+  return false;
+}
+
+function mergeChatSectionState(
+  currentState: ChatSectionState,
+  incoming: {
+    messages: Array<BaseChatMessageUnion>;
+    waitingForResponse: boolean;
+    toolCallArguments: Record<string, string>;
+  },
+  preserveWaitingForResponse: boolean,
+): ChatSectionState {
+  const mergedMessages = reconcileHydratedChatMessages({
+    backendMessages: incoming.messages ?? [],
+    localMessages: currentState.messages ?? [],
+    // Preserve local-only activity rows so thought/tool sequencing is not
+    // flattened by a hydration refresh while the local stream is still active.
+    preserveLocalOnlyMessages: preserveWaitingForResponse,
+  });
+  const nextWaitingForResponse = preserveWaitingForResponse
+    ? Boolean(incoming.waitingForResponse || currentState.waitingForResponse)
+    : Boolean(incoming.waitingForResponse);
+  const nextToolCallArguments = preserveWaitingForResponse
+    ? {
+        ...(currentState.toolCallArguments ?? {}),
+        ...(incoming.toolCallArguments ?? {}),
+      }
+    : { ...(incoming.toolCallArguments ?? {}) };
+  return {
+    messages: mergedMessages,
+    inputText: currentState.inputText ?? "",
+    waitingForResponse: nextWaitingForResponse,
+    toolCallArguments: nextToolCallArguments,
+    activeBranchId: currentState.activeBranchId ?? null,
+    branches: { ...(currentState.branches ?? {}) },
+  };
+}
+
+function applyChatDetailsToSectionState({
+  sectionId,
+  messages,
+  waitingForResponse,
+  toolCallArguments,
+}: {
+  sectionId: string;
+  messages: Array<BaseChatMessageUnion>;
+  waitingForResponse: boolean;
+  toolCallArguments: Record<string, string>;
+}): ChatSectionState | null {
+  let nextState: ChatSectionState | null = null;
+  useProjectState.setState((state) => {
+    const currentState = getChatSectionStateFromStore(state, sectionId);
+    if (!currentState) {
+      return;
+    }
+    const preserveWaitingForResponse = isSectionStreamActive(sectionId);
+    nextState = mergeChatSectionState(
+      currentState,
+      {
+        messages,
+        waitingForResponse,
+        toolCallArguments,
+      },
+      preserveWaitingForResponse,
+    );
+    setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
+      messages: nextState.messages,
+      waitingForResponse: nextState.waitingForResponse,
+      toolCallArguments: nextState.toolCallArguments,
+      inputText: nextState.inputText,
+      activeBranchId: nextState.activeBranchId,
+      branches: nextState.branches,
+    });
+  });
+  return nextState;
+}
+
+export function initializePendingChatDetails(surfaceId: string) {
+  useAIStore.setState((state) =>
+    setPendingChatDetailsForSurface(state, surfaceId, getDefaultChatDetails()),
+  );
+}
+
+function initializePendingChatDetailsWithMessages(
+  messages: Array<BaseChatMessageUnion>,
+  waitingForResponse: boolean = true,
+  surfaceId: string | null | undefined,
+) {
+  useAIStore.setState((state) =>
+    setPendingChatDetailsForSurface(state, surfaceId, {
+      ...getDefaultChatDetails(),
+      messages,
+      waitingForResponse,
+    }),
+  );
+}
+
+export function seedPendingChatDetails(
+  messages: Array<BaseChatMessageUnion>,
+  surfaceId: string,
+) {
+  initializePendingChatDetailsWithMessages(messages, false, surfaceId);
+}
+
+export function clearPendingChatDetails(surfaceId: string) {
+  useAIStore.setState((state) =>
+    setPendingChatDetailsForSurface(state, surfaceId, null),
+  );
+}
+
+export type ChatHydrationOutcomeType =
+  | "success"
+  | "transient_failure"
+  | "terminal_failure";
+
+export type ChatHydrationErrorCode =
+  | "llm_disallowed"
+  | "chat_not_found"
+  | "chat_runtime_ambiguous"
+  | "terminal_hydration_failure";
+
+export type ChatHydrationOutcome = {
+  outcome: ChatHydrationOutcomeType;
+  status: number | undefined;
+  errorCode: ChatHydrationErrorCode | null;
+};
+
+type ProjectChatHydrationRunType = "llm_chat" | "external_agent";
+
+function parseChatHydrationErrorCode(
+  value: string | null,
+): ChatHydrationErrorCode | null {
+  if (value === "llm_disallowed") {
+    return "llm_disallowed";
+  }
+  if (value === "chat_not_found") {
+    return "chat_not_found";
+  }
+  if (value === "chat_runtime_ambiguous") {
+    return "chat_runtime_ambiguous";
+  }
+  return null;
+}
+
+function classifyChatHydrationOutcomeType(
+  status: number | undefined,
+): ChatHydrationOutcomeType {
+  if (status === 403 || status === 404 || status === 409) {
+    return "terminal_failure";
+  }
+  return "transient_failure";
+}
+
+function buildChatHydrationFailureOutcome(response: {
+  status: number | undefined;
+  data: unknown;
+}): ChatHydrationOutcome {
+  const outcome = classifyChatHydrationOutcomeType(response.status);
+  const parsedErrorCode = parseChatHydrationErrorCode(
+    getErrorCode(response.data),
+  );
+  return {
+    outcome,
+    status: response.status,
+    errorCode:
+      outcome === "terminal_failure"
+        ? parsedErrorCode ??
+          (response.status === 403
+            ? "llm_disallowed"
+            : "terminal_hydration_failure")
+        : parsedErrorCode,
+  };
+}
+
+type ChatHydrationProbeResult<TPayload> =
+  | {
+      outcome: "success";
+      status: number | undefined;
+      errorCode: null;
+      payload: TPayload;
+    }
+  | {
+      outcome: ChatHydrationOutcomeType;
+      status: number | undefined;
+      errorCode: ChatHydrationErrorCode | null;
+      payload: null;
+    };
+
+async function probeLLMChatHydration(
+  chatId: string,
+  projectConfigId: string,
+): Promise<
+  ChatHydrationProbeResult<
+    NonNullable<Awaited<ReturnType<typeof route_get_llm_chat>>["data"]>
+  >
+> {
+  const response = await route_get_llm_chat({ chatId, projectConfigId });
+  if (!res200(response)) {
+    return {
+      ...buildChatHydrationFailureOutcome(response),
+      payload: null,
+    };
+  }
+  return {
+    outcome: "success",
+    status: response.status,
+    errorCode: null,
+    payload: response.data,
+  };
+}
+
+async function probeExternalAgentChatHydration(
+  chatId: string,
+  projectConfigId: string | null,
+): Promise<
+  ChatHydrationProbeResult<
+    NonNullable<
+      Awaited<ReturnType<typeof route_get_external_agent_chat>>["data"]
+    >
+  >
+> {
+  const response = await route_get_external_agent_chat({
+    chatId,
+    projectConfigId,
+  });
+  if (!res200(response)) {
+    return {
+      ...buildChatHydrationFailureOutcome(response),
+      payload: null,
+    };
+  }
+  return {
+    outcome: "success",
+    status: response.status,
+    errorCode: null,
+    payload: response.data,
+  };
+}
+
+function applyLLMChatHydrationSuccess({
+  chatId,
+  sectionId,
+  projectConfigId,
+  payload,
+}: {
+  chatId: string;
+  sectionId?: string;
+  projectConfigId: string;
+  payload: NonNullable<Awaited<ReturnType<typeof route_get_llm_chat>>["data"]>;
+}): void {
+  const { messages, waitingForResponse, llmConfig, contextUsage } = payload;
+  useAIStore.setState((state) => {
+    const existingDetails = state.chatDetails[chatId];
+    const preserveWaitingForResponse = isChatStreamActive(chatId);
+    const nextWaitingForResponse = preserveWaitingForResponse
+      ? Boolean(waitingForResponse || existingDetails?.waitingForResponse)
+      : Boolean(waitingForResponse);
+    const nextMessages = reconcileHydratedChatMessages({
+      backendMessages: messages,
+      localMessages: existingDetails?.messages ?? [],
+      preserveLocalOnlyMessages: preserveWaitingForResponse,
+    });
+    return {
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          ...(existingDetails ?? {}),
+          messages: nextMessages,
+          waitingForResponse: nextWaitingForResponse,
+          llmConfig: llmConfig,
+          contextUsage: contextUsage ?? null,
+        },
+      },
+    };
+  });
+  if (sectionId) {
+    const nextState = applyChatDetailsToSectionState({
+      sectionId,
+      messages,
+      waitingForResponse,
+      toolCallArguments: {},
+    });
+    persistChatSectionState({
+      projectConfigId,
+      sectionId,
+      nextState,
+      reason: "hydrate-llm-chat",
+    });
+  }
+  if (!waitingForResponse) {
+    clearStopEligibleAssistantMessageId(chatId);
+  }
+}
+
+function applyExternalChatHydrationSuccess({
+  chatId,
+  projectConfigId,
+  sectionId,
+  payload,
+}: {
+  chatId: string;
+  projectConfigId: string | null;
+  sectionId?: string;
+  payload: NonNullable<
+    Awaited<ReturnType<typeof route_get_external_agent_chat>>["data"]
+  >;
+}): void {
+  const { messages, waitingForResponse, toolCallArguments, contextUsage } =
+    payload;
+  useAIStore.setState((state) => {
+    const existingDetails = state.chatDetails[chatId];
+    const preserveWaitingForResponse = isChatStreamActive(chatId);
+    const nextWaitingForResponse = preserveWaitingForResponse
+      ? Boolean(waitingForResponse || existingDetails?.waitingForResponse)
+      : Boolean(waitingForResponse);
+    const nextMessages = reconcileHydratedChatMessages({
+      backendMessages: messages,
+      localMessages: existingDetails?.messages ?? [],
+      preserveLocalOnlyMessages: preserveWaitingForResponse,
+    });
+    return {
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          ...(existingDetails ?? {}),
+          messages: nextMessages,
+          waitingForResponse: nextWaitingForResponse,
+          toolCallArguments,
+          llmConfig: null,
+          contextUsage: contextUsage ?? null,
+        },
+      },
+    };
+  });
+  if (sectionId) {
+    const nextState = applyChatDetailsToSectionState({
+      sectionId,
+      messages,
+      waitingForResponse,
+      toolCallArguments,
+    });
+    const resolvedProjectConfigId = projectConfigId ?? getCurrProjectConfigId();
+    persistChatSectionState({
+      projectConfigId: resolvedProjectConfigId,
+      sectionId,
+      nextState,
+      reason: "hydrate-external-chat",
+    });
+  }
+  if (!waitingForResponse) {
+    clearStopEligibleAssistantMessageId(chatId);
+  }
+}
+
+export async function getLLMChatHydrationOutcome(
+  chatId: string,
+  sectionId?: string,
+): Promise<ChatHydrationOutcome> {
+  const projectConfigId = getCurrProjectConfigId();
+  const outcome = await probeLLMChatHydration(chatId, projectConfigId);
+  if (outcome.outcome === "success") {
+    applyLLMChatHydrationSuccess({
+      chatId,
+      sectionId,
+      projectConfigId,
+      payload: outcome.payload,
+    });
+    return {
+      outcome: "success",
+      status: outcome.status,
+      errorCode: null,
+    };
+  }
+  return {
+    outcome: outcome.outcome,
+    status: outcome.status,
+    errorCode: outcome.errorCode,
+  };
+}
+
+export async function getLLMChat(
+  chatId: string,
+  sectionId?: string,
+): Promise<boolean> {
+  const outcome = await getLLMChatHydrationOutcome(chatId, sectionId);
+  return outcome.outcome === "success";
+}
+
+export async function getExternalAgentChatHydrationOutcome(
+  chatId: string,
+  projectConfigId: string | null,
+  sectionId?: string,
+): Promise<ChatHydrationOutcome> {
+  const outcome = await probeExternalAgentChatHydration(
+    chatId,
+    projectConfigId,
+  );
+  if (outcome.outcome === "success") {
+    applyExternalChatHydrationSuccess({
+      chatId,
+      projectConfigId,
+      sectionId,
+      payload: outcome.payload,
+    });
+    return {
+      outcome: "success",
+      status: outcome.status,
+      errorCode: null,
+    };
+  }
+  return {
+    outcome: outcome.outcome,
+    status: outcome.status,
+    errorCode: outcome.errorCode,
+  };
+}
+
+export async function getExternalAgentChat(
+  chatId: string,
+  projectConfigId: string | null,
+  sectionId?: string,
+): Promise<boolean> {
+  const outcome = await getExternalAgentChatHydrationOutcome(
+    chatId,
+    projectConfigId,
+    sectionId,
+  );
+  return outcome.outcome === "success";
+}
+
+export async function getProjectChatHydrationOutcomeWithFallback(
+  chatId: string,
+  projectConfigId: string,
+  preferredRunType: ProjectChatHydrationRunType | null,
+  sectionId?: string,
+): Promise<ChatHydrationOutcome> {
+  const [llmProbe, externalProbe] = await Promise.all([
+    probeLLMChatHydration(chatId, projectConfigId),
+    probeExternalAgentChatHydration(chatId, projectConfigId),
+  ]);
+
+  if (llmProbe.outcome === "success" && externalProbe.outcome === "success") {
+    return {
+      outcome: "terminal_failure",
+      status: 409,
+      errorCode: "chat_runtime_ambiguous",
+    };
+  }
+  if (llmProbe.outcome === "success") {
+    applyLLMChatHydrationSuccess({
+      chatId,
+      sectionId,
+      projectConfigId,
+      payload: llmProbe.payload,
+    });
+    return {
+      outcome: "success",
+      status: llmProbe.status,
+      errorCode: null,
+    };
+  }
+  if (externalProbe.outcome === "success") {
+    applyExternalChatHydrationSuccess({
+      chatId,
+      projectConfigId,
+      sectionId,
+      payload: externalProbe.payload,
+    });
+    return {
+      outcome: "success",
+      status: externalProbe.status,
+      errorCode: null,
+    };
+  }
+
+  const orderedOutcomes =
+    preferredRunType === "external_agent"
+      ? [externalProbe, llmProbe]
+      : [llmProbe, externalProbe];
+  const prioritizedOutcome = orderedOutcomes.find(
+    (outcome) => outcome.errorCode !== "chat_not_found",
+  );
+  const resolvedOutcome = prioritizedOutcome ?? orderedOutcomes[0];
+  return {
+    outcome: resolvedOutcome.outcome,
+    status: resolvedOutcome.status,
+    errorCode: resolvedOutcome.errorCode,
+  };
 }
 
 export async function submitMessage(
@@ -164,7 +2481,10 @@ export async function submitMessage(
     const appSpecStreamingEnabledForSubmit =
       appGenerationMode === null
         ? false
-        : useLocalStorage.getState().appSpecStreamingEnabled;
+        : appGenerationMode === "json_render" ||
+            appGenerationMode === "json_render_with_image"
+          ? true
+          : useLocalStorage.getState().appSpecStreamingEnabled;
     const res = await route_get_llm_response({
       message: userMessage,
       thinking,
@@ -397,6 +2717,47 @@ export async function respondExternalAgentQuestion(
   return res200(res);
 }
 
+async function findLatestRunningExternalRunId(
+  chatId: string,
+  projectConfigId: string | null,
+): Promise<string | null> {
+  let { agentRuns, agentRunsInitialLoadComplete } = useAIStore.getState();
+  if (!agentRunsInitialLoadComplete) {
+    await loadAgentRuns();
+    ({ agentRuns, agentRunsInitialLoadComplete } = useAIStore.getState());
+  }
+  if (!agentRunsInitialLoadComplete) {
+    return null;
+  }
+  const runs = agentRuns.filter((run) => {
+    if (run.status !== AgentRunStatusEnum.running) {
+      return false;
+    }
+    const inputs = run.inputs ?? {};
+    const runType = typeof inputs.runType === "string" ? inputs.runType : null;
+    if (runType !== "external_agent") {
+      return false;
+    }
+    const runChatId = typeof inputs.chatId === "string" ? inputs.chatId : null;
+    if (runChatId !== chatId) {
+      return false;
+    }
+    const runProjectConfigId =
+      typeof inputs.projectConfigId === "string"
+        ? inputs.projectConfigId
+        : null;
+    if (projectConfigId && runProjectConfigId !== projectConfigId) {
+      return false;
+    }
+    return true;
+  });
+  if (runs.length === 0) {
+    return null;
+  }
+  runs.sort((a, b) => getRunLastUpdatedMs(b) - getRunLastUpdatedMs(a));
+  return runs[0]?.id ?? null;
+}
+
 function applyStreamingChunkToSection(
   sectionId: string,
   chunk: LLMStreamingResponse["chunk"],
@@ -553,6 +2914,100 @@ function shouldIgnoreResponsePlaceholderChunk(
 
 type ChatSectionStreamChunk = LLMStreamingResponse["chunk"];
 
+type RunPayload = Record<string, unknown>;
+
+function buildChatStateFromAgentRun(run: AgentRun): ChatSectionState {
+  const outputMessages = extractRunMessages(run.outputs);
+  if (outputMessages) {
+    return buildChatSectionState(
+      outputMessages,
+      run.status === AgentRunStatusEnum.running,
+    );
+  }
+
+  const inputMessages = extractRunMessages(run.inputs) ?? [];
+  return buildChatSectionState(
+    inputMessages,
+    run.status === AgentRunStatusEnum.running,
+  );
+}
+
+function buildChatSectionState(
+  messages: Array<BaseChatMessageUnion>,
+  waitingForResponse: boolean,
+): ChatSectionState {
+  return {
+    messages: [...messages],
+    inputText: "",
+    waitingForResponse,
+    toolCallArguments: {},
+  };
+}
+
+function extractRunMessages(
+  payload: RunPayload | null,
+): Array<BaseChatMessageUnion> | null {
+  if (!payload) {
+    return null;
+  }
+  const raw = payload.messages;
+  if (!Array.isArray(raw)) {
+    return null;
+  }
+  return raw as Array<BaseChatMessageUnion>;
+}
+
+export async function resolveEngineConfigIdForChat(
+  chatId: string,
+  engineConfigId: string | null,
+): Promise<string | null> {
+  if (engineConfigId) {
+    return engineConfigId;
+  }
+  const resolveFromRuns = (runs: AgentRun[]): string | null => {
+    const matchingRuns = runs.filter(
+      (run) => getRunInputString(run, "chatId") === chatId,
+    );
+    const runsWithEngine = matchingRuns.filter((run) =>
+      getRunInputString(run, "engineConfigId"),
+    );
+    if (runsWithEngine.length === 0) {
+      return null;
+    }
+    const [latestRun] = [...runsWithEngine].sort(
+      (a, b) => getRunLastUpdatedMs(b) - getRunLastUpdatedMs(a),
+    );
+    return latestRun ? getRunInputString(latestRun, "engineConfigId") : null;
+  };
+
+  let { agentRuns, agentRunsInitialLoadComplete } = useAIStore.getState();
+  if (!agentRunsInitialLoadComplete) {
+    await loadAgentRuns();
+    ({ agentRuns, agentRunsInitialLoadComplete } = useAIStore.getState());
+  }
+  if (!agentRunsInitialLoadComplete) {
+    return null;
+  }
+  let resolved = resolveFromRuns(agentRuns);
+  if (!resolved) {
+    await loadAgentRuns();
+    ({ agentRuns } = useAIStore.getState());
+    resolved = resolveFromRuns(agentRuns);
+  }
+  if (resolved) {
+    return resolved;
+  }
+  const { chatDetails, engineConfigs } = useAIStore.getState();
+  const llmConfigId = chatDetails[chatId]?.llmConfig?.id ?? null;
+  if (!llmConfigId) {
+    return null;
+  }
+  const matchingEngine = engineConfigs.find(
+    (config) => config.settaLlmConfigId === llmConfigId,
+  );
+  return matchingEngine?.id ?? null;
+}
+
 function applyChatSectionStreamDelta(
   sectionId: string,
   chunk: ChatSectionStreamChunk,
@@ -574,6 +3029,41 @@ function applyChatSectionStreamDelta(
     });
   });
   return nextState;
+}
+
+export function persistChatSectionState({
+  projectConfigId,
+  sectionId,
+  nextState,
+  reason,
+}: {
+  projectConfigId: string;
+  sectionId: string;
+  nextState: ChatSectionState | null;
+  reason: string;
+}): void {
+  if (!nextState) {
+    return;
+  }
+  dispatchOptimisticProjectStateUpdate({
+    apply: (state) => {
+      setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
+        messages: nextState.messages,
+        inputText: nextState.inputText,
+        waitingForResponse: nextState.waitingForResponse,
+        toolCallArguments: nextState.toolCallArguments,
+        activeBranchId: nextState.activeBranchId,
+        branches: nextState.branches,
+      });
+    },
+    send: (frontendOpId) =>
+      route_set_chat_section_state({
+        projectConfigId,
+        sectionId,
+        state: nextState,
+        frontendOpId,
+      }),
+  });
 }
 
 function handleMessageStart(chatId: string, chunk: MessageStartEvent) {
@@ -1142,6 +3632,114 @@ function createToolCallPlaceholder(chunk: {
   };
 }
 
+function updateChatDetails(
+  chatId: string,
+  updater: (details: ChatDetails) => ChatDetails | null,
+) {
+  useAIStore.setState((state) => {
+    const baseDetails: ChatDetails = {
+      ...getDefaultChatDetails(),
+      ...(state.chatDetails[chatId] ?? {}),
+    };
+    const nextDetails = updater(baseDetails);
+    if (!nextDetails) {
+      return state;
+    }
+    return {
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: nextDetails,
+      },
+    };
+  });
+}
+
+function updatePendingChatDetails(
+  updater: (details: ChatDetails) => ChatDetails | null,
+  surfaceId: string | null | undefined,
+) {
+  useAIStore.setState((state) => {
+    const baseDetails: ChatDetails =
+      getPendingChatDetailsForSurface(state, surfaceId) ??
+      getDefaultChatDetails();
+    const nextDetails = updater(baseDetails);
+    if (!nextDetails) {
+      return state;
+    }
+    return setPendingChatDetailsForSurface(state, surfaceId, nextDetails);
+  });
+}
+
+function mergeChatDetails(
+  existingDetails: ChatDetails,
+  pendingDetails: ChatDetails,
+  preserveWaitingForResponse: boolean,
+): ChatDetails {
+  const nextWaitingForResponse = preserveWaitingForResponse
+    ? pendingDetails.waitingForResponse || existingDetails.waitingForResponse
+    : pendingDetails.waitingForResponse;
+  return {
+    ...existingDetails,
+    ...pendingDetails,
+    messages: mergeChatMessages(
+      existingDetails.messages,
+      pendingDetails.messages,
+    ),
+    toolCallArguments: {
+      ...existingDetails.toolCallArguments,
+      ...pendingDetails.toolCallArguments,
+    },
+    waitingForResponse: nextWaitingForResponse,
+  };
+}
+
+export function finalizePendingChatDetails(chatId: string, surfaceId: string) {
+  useAIStore.setState((state) => {
+    const pendingDetails = getPendingChatDetailsForSurface(state, surfaceId);
+    if (!pendingDetails) {
+      return state;
+    }
+    const existingDetails =
+      state.chatDetails[chatId] ?? getDefaultChatDetails();
+    return {
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: mergeChatDetails(
+          existingDetails,
+          pendingDetails,
+          isChatStreamActive(chatId),
+        ),
+      },
+      ...setPendingChatDetailsForSurface(state, surfaceId, null),
+    };
+  });
+}
+
+function commitPendingChatDetails(
+  chatId: string,
+  surfaceId: string | null | undefined,
+) {
+  useAIStore.setState((state) => {
+    const pendingDetails = getPendingChatDetailsForSurface(state, surfaceId);
+    if (!pendingDetails) {
+      return state;
+    }
+    const existingDetails =
+      state.chatDetails[chatId] ?? getDefaultChatDetails();
+    return {
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: mergeChatDetails(
+          existingDetails,
+          pendingDetails,
+          isChatStreamActive(chatId),
+        ),
+      },
+      ...setPendingChatDetailsForSurface(state, surfaceId, null),
+    };
+  });
+}
+
 function applyOptimisticUserMessage(
   chatId: string | null,
   userMessage: BaseChatMessageUnion,
@@ -1215,6 +3813,53 @@ function upsertMessage(
   const nextMessages = [...messages];
   nextMessages[existingIndex] = message;
   return nextMessages;
+}
+
+function getChatSectionStateFromStore(
+  state: ZustandProjectState,
+  sectionId: string,
+): ChatSectionState | null {
+  const variantId = state.projectConfig.sectionVariantMap[sectionId];
+  if (!variantId) {
+    return null;
+  }
+  const variant = state.sectionVariants[variantId];
+  if (!variant) {
+    return null;
+  }
+  const impl = state.sectionImpls[variant.impl];
+  if (!impl) {
+    return null;
+  }
+  const core = state.sections[sectionId];
+  if (!core) {
+    return null;
+  }
+  const effective = {
+    ...impl,
+    ...core.sharedModifier,
+    ...variant.modifier,
+  };
+  if (effective.type !== SectionTypeEnum.Chat) {
+    return null;
+  }
+  const chatImpl = effective as {
+    type: SectionTypeEnum.Chat;
+    messages: BaseChatMessageUnion[];
+    inputText: string;
+    waitingForResponse: boolean;
+    toolCallArguments: Record<string, string>;
+    activeBranchId?: string | null;
+    branches?: Record<string, ChatSectionBranch>;
+  };
+  return {
+    messages: [...(chatImpl.messages ?? [])],
+    inputText: chatImpl.inputText ?? "",
+    waitingForResponse: Boolean(chatImpl.waitingForResponse),
+    toolCallArguments: { ...(chatImpl.toolCallArguments ?? {}) },
+    activeBranchId: chatImpl.activeBranchId ?? null,
+    branches: { ...(chatImpl.branches ?? {}) },
+  };
 }
 
 type ChatIdLookupCache = {

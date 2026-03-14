@@ -5,7 +5,7 @@ import {
   useBrushStrokes,
   useDecodedImages,
   useDrawAreaLayerItemTransform,
-} from "state/stores/artifactStores";
+} from "state/definitions";
 import { bumpLocalRevisions } from "state/utils/revisions";
 import {
   ArtifactTypeEnum,
