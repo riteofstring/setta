@@ -20,8 +20,8 @@ import {
   route_get_attachment_download_url,
   route_run_code,
 } from "utils/generatedEndpoints";
-import { GoHTTPRouteHelpers } from "utils/generatedRoutes";
 import type { AppDefinition, SharePolicy } from "utils/generatedTypes";
+import { RouteEnum } from "utils/generatedTypes";
 import { normalizeActionDefinitions, resolveActionType } from "./appBindings";
 import { AppActionContext, AppRuntimeContext } from "./appContext";
 import "./appMotion.css";
@@ -399,7 +399,10 @@ export function AppRenderer({
         addTemporaryNotification("Missing file content id for download.");
         return;
       }
-      const endpoint = GoHTTPRouteHelpers.binaryDownload(contentId);
+      const endpoint = RouteEnum.BINARY_DOWNLOAD.replace(
+        "{contentId}",
+        encodeURIComponent(contentId),
+      );
       const url = new URL(`${C_ADDRESSES.BACKEND}${endpoint}`);
       if (shareSessionId) {
         url.searchParams.set("shareSessionId", shareSessionId);

@@ -29,6 +29,18 @@ vi.mock("components/Section/Header/SectionHeader", () => ({
   }),
 }));
 
+vi.mock("components/Utils/FloatingBox", () => ({
+  getFloatingBoxHandlers: ({
+    content,
+    title,
+  }: {
+    content?: string;
+    title?: string;
+  }) => ({
+    "data-tooltip-content": content ?? title ?? "",
+  }),
+}));
+
 vi.mock("state/definitions", () => ({
   useProjectState: (
     _selector: (state: { sections: Record<string, unknown> }) => unknown,
@@ -134,6 +146,70 @@ describe("ProjectChatWindowSurface", () => {
 
     expect(
       host.querySelector('[data-testid="project-chat-window-title-input"]'),
+    ).not.toBeNull();
+  });
+
+  it("uses shared floating-box quick info for header action buttons", async () => {
+    await act(async () => {
+      root.render(
+        <ProjectChatWindowSurface
+          title="Tooltip Chat"
+          mode={ChatWindowModeEnum.project_ai_mode}
+          instanceId="window-3"
+          allowLayoutMutations
+          actions={[
+            {
+              key: "undock",
+              label: "Undock Tooltip Chat",
+              testId: "project-chat-window-undock",
+              instanceId: "window-3",
+              icon: <span>+</span>,
+              onClick: vi.fn(),
+            },
+          ]}
+          onTitleClick={() => {}}
+          roundedClassName="rounded-none"
+        >
+          <div>body</div>
+        </ProjectChatWindowSurface>,
+      );
+    });
+
+    expect(
+      host
+        .querySelector('[data-testid="project-chat-window-undock"]')
+        ?.getAttribute("data-tooltip-content"),
+    ).toBe("Undock Tooltip Chat");
+  });
+
+  it("can reuse the shared chat frame without rendering the floating header", async () => {
+    await act(async () => {
+      root.render(
+        <ProjectChatWindowSurface
+          title="Headerless Chat"
+          mode={ChatWindowModeEnum.project_ai_mode}
+          instanceId="window-4"
+          allowLayoutMutations={false}
+          actions={[]}
+          onTitleClick={() => {}}
+          roundedClassName="rounded-none"
+          showHeader={false}
+        >
+          <div data-testid="headerless-chat-body">body</div>
+        </ProjectChatWindowSurface>,
+      );
+    });
+
+    const frame = host.querySelector(
+      '[data-testid="project-chat-window-surface"]',
+    ) as HTMLElement | null;
+    expect(frame).not.toBeNull();
+    expect(frame?.getAttribute("data-chat-window-frame")).toBe("project-chat");
+    expect(
+      host.querySelector('[data-testid="project-chat-window-title"]'),
+    ).toBeNull();
+    expect(
+      host.querySelector('[data-testid="headerless-chat-body"]'),
     ).not.toBeNull();
   });
 });
