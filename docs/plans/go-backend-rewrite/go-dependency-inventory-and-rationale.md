@@ -46,6 +46,9 @@ recommendation docs. If this file disagrees with planning notes, `go.mod` wins.
 - Some older docs still describe `github.com/openai/openai-go/v3` as only a
   selected follow-on candidate. That is stale. It is a direct dependency now
   for the managed-chat OpenAI provider edge.
+- `github.com/anthropics/anthropic-sdk-go` is now a normal direct dependency
+  in `go.mod`; it powers the bounded Anthropic managed-chat provider edge and
+  is not just incidental transitive baggage.
 - Some recommendation docs mention future candidates such as
   `santhosh-tekuri/jsonschema/v6`, `fsnotify`, and `gorilla/securecookie`.
   Those are not current dependencies because they are not pinned in `go.mod`.
@@ -54,6 +57,7 @@ recommendation docs. If this file disagrees with planning notes, `go.mod` wins.
 
 | module | version | why we use it | main owners |
 | --- | --- | --- | --- |
+| `github.com/anthropics/anthropic-sdk-go` | `v1.26.0` | Official Anthropic SDK used at the provider edge for Go-owned managed-chat Anthropic execution, kept behind internal adapter helpers. | `internal/managedllm` |
 | `github.com/go-chi/chi/v5` | `v5.2.5` | Small `net/http`-native router and middleware tree for the Go HTTP and websocket surfaces. | `internal/httpapi`, `internal/wsapi`, `internal/app` |
 | `github.com/openai/openai-go/v3` | `v3.26.0` | Official OpenAI SDK used at the provider edge for Go-owned managed-chat execution and file-mode transcription uploads, kept behind internal adapter helpers. | `internal/managedllm`, `internal/transcriptionsessions` |
 | `github.com/aymanbagabas/go-pty` | `v0.2.2` | Windows PTY backend for terminal sessions. | `internal/terminals/pty_backend_windows.go` |
@@ -95,16 +99,26 @@ We still want the official MCP SDK for transport and typed protocol support.
 The wrapper boundary lives in `internal/mcpx`, but the SDK itself is still a
 conscious dependency choice.
 
+### Why `anthropic-sdk-go` is direct
+
+The Anthropic managed-chat provider edge now uses
+`github.com/anthropics/anthropic-sdk-go` instead of bespoke HTTP/SSE code.
+
+We still keep that SDK behind the bounded helper in
+`internal/managedllm/anthropic_sdk.go` so Setta request validation, tool
+execution, stream-to-websocket event mapping, and provider-neutral managed
+runtime semantics stay repo-owned.
+
 ### Why `openai-go` is direct
 
 The managed-chat OpenAI provider edge and the file-mode transcription upload
 path now use `github.com/openai/openai-go/v3` instead of the older bespoke
 HTTP/SSE and multipart transport code.
 
-We still keep that SDK behind bounded helpers in `internal/managedllm` so
-`internal/managedllm` and `internal/transcriptionsessions` so Setta request
-validation, tool execution, session semantics, websocket event contracts, and
-provider-neutral runtime semantics remain repo-owned.
+We still keep that SDK behind bounded helpers in `internal/managedllm` and
+`internal/transcriptionsessions` so Setta request validation, tool execution,
+session semantics, websocket event contracts, and provider-neutral runtime
+semantics remain repo-owned.
 
 ### Why plugin version-range parsing is no longer a module dependency
 
@@ -151,14 +165,15 @@ the template parser/runtime stays library-owned.
 ## Indirect Dependencies
 
 These modules are present in `go.mod` but are not part of the deliberate public
-shape of the rewrite. The indirect set is much larger after landing
-`openai-go`; the table below calls out the main roots and the most
-consequential or non-obvious transitive baggage rather than restating all `120`
-indirect modules individually.
+shape of the rewrite. The indirect set is still mostly shaped by `openai-go`,
+with a small additional root from `anthropic-sdk-go`; the table below calls out
+the main roots and the most consequential or non-obvious transitive baggage
+rather than restating all `120` indirect modules individually.
 
-They mostly come from seven roots:
+They mostly come from eight roots:
 
 - `openai-go`
+- `anthropic-sdk-go`
 - the MCP SDK
 - `gopsutil`
 - `go-pty`
@@ -207,6 +222,7 @@ They mostly come from seven roots:
 | `golang.org/x/crypto` | `github.com/aymanbagabas/go-pty` | Upstream crypto/terminal helpers needed by `go-pty`. |
 | `golang.org/x/exp` | `github.com/nikolalohinski/gonja/v2` | Upstream experimental helpers retained by the prompt-rendering library. |
 | `golang.org/x/oauth2` | `github.com/modelcontextprotocol/go-sdk` | OAuth support included by the SDK. |
+| `golang.org/x/sync` | `github.com/anthropics/anthropic-sdk-go` | Upstream `errgroup` helper retained by the Anthropic SDK streaming/runtime internals. |
 | `golang.org/x/net` | `github.com/openai/openai-go/v3` and Azure identity support | Upstream HTTP/auth helpers retained by the OpenAI SDK stack. |
 | `golang.org/x/text` | `github.com/nikolalohinski/gonja/v2` | Upstream text/casing helpers retained by the prompt-rendering library. |
 
@@ -218,6 +234,9 @@ They mostly come from seven roots:
   desirable, not suspect.
 - The right question is whether a dependency is well established and earning
   its keep, not whether we can remove it at all costs.
+- `anthropic-sdk-go` is now one of those deliberate infrastructure
+  dependencies for a real provider edge, and its small transitive footprint is
+  accepted implementation baggage rather than accidental sprawl.
 - `openai-go` is now one of those deliberate infrastructure dependencies for a
   real provider edge, so its Azure/auth JSON-helper transitives are accepted
   implementation baggage rather than accidental sprawl.

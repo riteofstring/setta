@@ -20,6 +20,11 @@ Retrieved on:
 
 ## Pinned In `go.mod`
 
+- [anthropic-sdk-go.md](./anthropic-sdk-go.md)
+  - `github.com/anthropics/anthropic-sdk-go`
+  - pinned locally at `v1.26.0`
+  - note-only entry for now; use the local module source plus the official
+    repo/docs links captured in the note
 - [chi.md](./chi.md)
   - `github.com/go-chi/chi/v5`
   - pinned locally at `v5.2.5`
@@ -46,6 +51,10 @@ Retrieved on:
 - [gonja.md](./gonja.md)
   - `github.com/nikolalohinski/gonja/v2`
   - pinned locally at `v2.7.0`
+- [openai-go.md](./openai-go.md)
+  - `github.com/openai/openai-go/v3`
+  - pinned locally at `v3.26.0`
+  - actual downloaded upstream pages live under `./openai-go-src/`
 - raw docs only:
   - `github.com/gofrs/flock`
   - pinned locally at `v0.12.1`
@@ -86,11 +95,6 @@ Retrieved on:
 - [gorilla-securecookie.md](./gorilla-securecookie.md)
   - `github.com/gorilla/securecookie`
   - not yet pinned in `go.mod`
-- [openai-go.md](./openai-go.md)
-  - `github.com/openai/openai-go/v3`
-  - selected follow-on for Go-owned OpenAI provider edges; not yet pinned in
-    `go.mod`
-  - actual downloaded upstream pages live under `./openai-go-src/`
 
 ## Downloaded Upstream Files
 
