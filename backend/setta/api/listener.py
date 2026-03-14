@@ -60,7 +60,6 @@ from setta.types.generated.unions import (
 from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
 )
-from setta.types.helpers_lvl2 import get_meta_control_param_id
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
 from setta.types.listener import (
     DependencyEvent,
@@ -251,10 +250,8 @@ class ListenerDependencyIds:
     def __init__(
         self,
         dependency_graph: DependencyGraph,
-        project_state: ProjectStateSingleConfig,
     ) -> None:
         self._dependency_graph = dependency_graph
-        self._project_state = project_state
 
     def dependency_key(self, name: str) -> BaseDependencyKeyUnion:
         if not name:
@@ -287,11 +284,19 @@ class ListenerDependencyIds:
         )
 
     def meta_control_param_ids(self, dependency_name: str) -> ListenerParamIds:
-        section_id = self.section_id(dependency_name)
-        param_id = get_meta_control_param_id(self._project_state, section_id)
+        dep_key = self.dependency_key(dependency_name)
+        node = self._dependency_graph.graph[dep_key]
+        if not isinstance(node, SectionNode) or node.type is not SectionType.MetaControl:
+            raise ValueError(
+                f"Dependency {dependency_name!r} does not refer to a meta control section"
+            )
+        if node.control_code_obj_id is None:
+            raise KeyError(
+                f"Meta control dependency {dependency_name!r} is missing control param metadata"
+            )
         return ListenerParamIds(
-            sectionId=section_id,
-            paramInfoId=param_id,
+            sectionId=node.id,
+            paramInfoId=node.control_code_obj_id,
         )
 
     def dependency_id(self, dependency_name: str) -> ListenerDependencyId:
@@ -2268,9 +2273,7 @@ class SettaListener:
             raise RuntimeError(
                 "Listener project state is unavailable; wait for bootstrap before calling router endpoints"
             )
-        ids = ListenerDependencyIds(
-            runtime_state.dependency_graph, runtime_state.project_state
-        )
+        ids = ListenerDependencyIds(runtime_state.dependency_graph)
         values = ListenerDependencyValues(
             dependency_graph_resolver=self._current_runtime_state_dependency_graph,
             value_resolver=self._current_dependency_value_by_name,

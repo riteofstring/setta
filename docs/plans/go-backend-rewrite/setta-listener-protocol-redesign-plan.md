@@ -67,6 +67,8 @@ Current state:
   - listener cache rebuilds and direct dependency hydration no longer keep a
     long-lived `PythonCodeGenerator` inside `ListenerRuntimeState`; they now
     render direct node expressions from shared dependency metadata instead
+  - listener ID helpers now resolve meta-control param IDs from dependency
+    graph metadata instead of retaining project-state coupling for that path
   - listener coverage and force-refresh reads/writes
   - listener websocket DTOs in `internal/realtime`
 - Python still owns:
