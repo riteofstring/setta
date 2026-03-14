@@ -55,3 +55,12 @@ Append-only log for autonomous frontend cleanup slices.
 - Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
 - Commit hash: `e8b23dfe8`
 - Next highest-value unblocked slice: extract the remaining file-browser, search/run-control, backend-log, edge-handle/section-ref, and artifact/runtime store clusters out of `frontend/src/state/definitions.ts`, or move on to the next domain cleanup once that shared-state surface is sufficiently thin
+
+## 2026-03-12 11:19:47 PDT
+
+- What changed: Extracted the shared file-browser store cluster from `frontend/src/state/definitions.ts` into `frontend/src/state/stores/fileBrowserStores.ts`, keeping compatibility re-exports while moving the owning Home page, overview file browser pane, browser-area section layout, and dropzone picker onto the dedicated module. Updated the module map to point future file-browser work at the new store owner. `frontend/src/state/definitions.ts` is now down to 413 lines.
+- Key files touched: `frontend/src/state/definitions.ts`, `frontend/src/state/stores/fileBrowserStores.ts`, `frontend/src/components/Pages/Home/HomePage.tsx`, `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`, `frontend/src/components/Section/Layouts/BrowserArea.tsx`, `frontend/src/components/Modals/DropzoneFilePickerModal/DropzoneFilePickerModal.tsx`, `docs/reference/frontend-module-map.md`
+- Tests/verification run: `pnpm -C frontend exec vitest run src/components/Pages/Home/HomePage.test.tsx src/components/Section/Layouts/BrowserArea.test.tsx`; `pnpm -C frontend exec prettier --check src/state/stores/fileBrowserStores.ts src/state/definitions.ts src/components/Pages/Home/HomePage.tsx src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx src/components/Section/Layouts/BrowserArea.tsx src/components/Modals/DropzoneFilePickerModal/DropzoneFilePickerModal.tsx src/components/Section/Layouts/BrowserArea.test.tsx ../docs/reference/frontend-module-map.md`; `git diff --check`
+- Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
+- Commit hash: `33cf1f581`
+- Next highest-value unblocked slice: extract the remaining run-control, backend-log, project-search, section-ref/edge-handle, AI-follow/tool-preview, settings, and artifact/runtime store clusters out of `frontend/src/state/definitions.ts`
