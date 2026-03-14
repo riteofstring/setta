@@ -203,7 +203,15 @@ describe("chatComposerControls", () => {
   });
 
   it("parses built-in app generation slash commands with fixed prompt templates", () => {
-    const parsed = parseSlashCommand("/app-json support ops dashboard");
+    const parsed = parseSlashCommand(
+      "/app-json support ops dashboard",
+      buildChatSlashCommands({
+        model: false,
+        permissions: false,
+        search: false,
+        appGenerationModes: true,
+      }),
+    );
 
     expect(parsed).not.toBeNull();
     expect(parsed?.command).toBe("/app-json");
@@ -334,7 +342,6 @@ describe("chatComposerControls", () => {
       modelFeedback: "Model picker",
       searchEnabled: true,
       onSetSearchEnabled,
-      appGenerationMode: "json_render",
       onSetAppGenerationMode,
     });
     expect(newResult).toEqual({ feedback: "Started a new chat thread." });
@@ -353,7 +360,6 @@ describe("chatComposerControls", () => {
       modelFeedback: "Model picker",
       searchEnabled: true,
       onSetSearchEnabled,
-      appGenerationMode: "json_render",
       onSetAppGenerationMode,
     });
     expect(resumeResult).toEqual({ feedback: "Resumed." });
@@ -371,7 +377,6 @@ describe("chatComposerControls", () => {
       modelFeedback: "Model picker",
       searchEnabled: true,
       onSetSearchEnabled,
-      appGenerationMode: "json_render",
       onSetAppGenerationMode,
     });
     expect(permissionsResult).toEqual({ feedback: "Permissions set to yolo." });
@@ -390,7 +395,6 @@ describe("chatComposerControls", () => {
       modelFeedback: "Model picker",
       searchEnabled: true,
       onSetSearchEnabled,
-      appGenerationMode: "json_render",
       onSetAppGenerationMode,
     });
     expect(searchResult).toEqual({ feedback: "Search disabled." });
@@ -409,7 +413,6 @@ describe("chatComposerControls", () => {
       modelFeedback: "Model picker",
       searchEnabled: true,
       onSetSearchEnabled,
-      appGenerationMode: "json_render",
       onSetAppGenerationMode,
     });
     expect(modelResult).toEqual({
@@ -446,7 +449,6 @@ describe("chatComposerControls", () => {
       modelFeedback: null,
       searchEnabled: true,
       onSetSearchEnabled,
-      appGenerationMode: "json_render",
       onSetAppGenerationMode,
     });
 
