@@ -6,11 +6,8 @@ import {
   getViewportForBounds,
 } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
-import {
-  useNodeInternals,
-  useSettings,
-  useShareSession,
-} from "state/definitions";
+import { useNodeInternals, useShareSession } from "state/definitions";
+import { useSettings } from "state/stores/uiPreferenceStores";
 import { route_auto_layout_top_level_sections } from "utils/generatedEndpoints";
 import { applyActiveSectionChange } from "../activeSectionController";
 import {
