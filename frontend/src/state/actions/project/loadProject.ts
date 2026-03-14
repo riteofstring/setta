@@ -10,11 +10,13 @@ import {
 } from "state/activeSectionUI";
 import {
   runWithAtomicallyPublishedProjectStores,
-  useAllProjectMetadata,
   useLocalStorage,
   useNodeInternals,
-  useProjectState,
 } from "state/definitions";
+import {
+  useAllProjectMetadata,
+  useProjectState,
+} from "state/stores/projectStores";
 import { OverviewTabNameEnum } from "utils/constants/panes";
 import { PROJECT_CONFIG_PREVIEW_IMG_COLORS } from "utils/constants/projectConfigPreview";
 import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants/routes";

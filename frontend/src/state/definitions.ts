@@ -1,4 +1,3 @@
-import { ModalInfoType } from "components/Modals/types";
 import { HandlePosition, HandleType, Node } from "forks/xyflow/core/types";
 import type { AIFollowMode } from "state/types/aiFollow";
 import type { AppGenerationMode } from "state/types/appGenerationMode";
@@ -29,16 +28,11 @@ import {
   AgentProfile,
   AgentRun,
   AllLLMConfigs,
-  AllProjectMetadata,
   APIKeys,
-  AppDefinition,
   BaseChatMessageUnion,
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
-  createProjectChatWindowingState,
-  createProjectConfig,
-  createSingletonSections,
   DrawAreaLayerItemTransformMapping,
   EngineConfig,
   ExternalAgentConfig,
@@ -46,15 +40,12 @@ import {
   ImageMapping,
   ListenerCoverageSnapshot,
   LLMConfig,
-  ProjectStateSingleConfig,
   PromptTemplate,
   RenameRefactorBroadcastContent,
   SettaBackendLogEvent,
   SettaLspDiagnostic,
-  SettaNotification,
   SettaProjectNameValidationErrors,
   SettingsState,
-  SharePolicy,
   TranscriptionProfile,
   WebsocketConnectionInfo,
 } from "utils/generatedTypes";
@@ -65,225 +56,37 @@ import {
   DEFAULT_GIT_GRAPH_HASH_WIDTH_PX,
   DEFAULT_GIT_GRAPH_SPLIT_PCT,
 } from "utils/gitGraphLayoutDefaults";
-import {
-  createJSONStorage,
-  persist,
-  subscribeWithSelector,
-} from "zustand/middleware";
+import { persist, subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import { createWithEqualityFn } from "zustand/traditional";
+import { getPersistStorage } from "./stores/persistStorage";
+import {
+  useProjectState,
+  type ZustandProjectState,
+} from "./stores/projectStores";
 import { withProjectState, withResetFn } from "./utils";
 
-const createInMemoryStorage = () => {
-  const storage = new Map<string, string>();
-  return {
-    getItem: (name: string) => storage.get(name) ?? null,
-    setItem: (name: string, value: string) => {
-      storage.set(name, value);
-    },
-    removeItem: (name: string) => {
-      storage.delete(name);
-    },
-  };
-};
-
-const getPersistStorage = <S>() =>
-  createJSONStorage<S>(() => {
-    if (typeof localStorage === "undefined") {
-      return createInMemoryStorage();
-    }
-    if (
-      typeof localStorage.getItem !== "function" ||
-      typeof localStorage.setItem !== "function" ||
-      typeof localStorage.removeItem !== "function"
-    ) {
-      return createInMemoryStorage();
-    }
-    return localStorage;
-  });
-
-export const useResizeEvent = withProjectState(
-  createWithEqualityFn(
-    immer(
-      withResetFn(() => ({
-        resizeEvent: {},
-      })),
-    ),
-  ),
-);
-
-type ZustandContextMenu = {
-  pane: { isOpen: boolean; x: number; y: number };
-  selection: { isOpen: boolean; x: number; y: number; nodeIds: Array<string> };
-  typeError: {
-    isOpen: boolean;
-    x: number;
-    y: number;
-    sectionId: string | null;
-    paramInfoId: string | null;
-  };
-};
-
-export const useContextMenus = withProjectState(
-  createWithEqualityFn(
-    withResetFn<ZustandContextMenu>(() => ({
-      pane: { isOpen: false, x: 0, y: 0 },
-      selection: { isOpen: false, x: 0, y: 0, nodeIds: [] },
-      typeError: {
-        isOpen: false,
-        x: 0,
-        y: 0,
-        sectionId: null,
-        paramInfoId: null,
-      },
-    })),
-  ),
-);
-
-// useContextMenus.getState().
-
-export type ZustandProjectState = ProjectStateSingleConfig & {
-  previewSectionVariantMap: Record<string, string>;
-};
-
-export const NULL_PROJECT_CONFIG_ID = "null";
-
-export const useProjectState = withProjectState(
-  createWithEqualityFn(
-    subscribeWithSelector(
-      immer(
-        withResetFn<ZustandProjectState>(() => ({
-          projectConfig: createProjectConfig({ id: NULL_PROJECT_CONFIG_ID }),
-          sections: {},
-          sectionImpls: {},
-          sectionVariants: {},
-          codeObjs: {},
-          codeObjImpls: {},
-          codeObjVariants: {},
-          artifactGroups: {},
-          singletonSections: createSingletonSections(),
-          parentSectionMap: {},
-          shownParamIds: {},
-          projectChatWindowing: createProjectChatWindowingState(),
-          previewSectionVariantMap: {},
-          requiredDecodedImages: [],
-        })),
-      ),
-    ),
-  ),
-);
-
-type AppDefinitionState = {
-  appDefinition: AppDefinition | null;
-  appSpec: unknown | null;
-};
-
-export const useAppDefinition = withProjectState(
-  createWithEqualityFn(
-    withResetFn<AppDefinitionState>(() => ({
-      appDefinition: null,
-      appSpec: null,
-    })),
-  ),
-);
-
-type AppConfigState = ZustandProjectState;
-
-type AppConfigsState = {
-  configs: Record<string, AppConfigState>;
-};
-
-export const useAppConfigs = withProjectState(
-  createWithEqualityFn(
-    withResetFn<AppConfigsState>(() => ({
-      configs: {},
-    })),
-  ),
-);
-
-type ShareSessionState = {
-  isDeploymentMode: boolean;
-  shareSessionId: string | null;
-  sessionRunCount: number;
-  sharePolicy: SharePolicy | null;
-  shareDeploymentName: string | null;
-  shareDeploymentVersion: string | null;
-  deploymentMode: "share" | "app" | null;
-};
-
-export const useShareSession = withProjectState(
-  createWithEqualityFn(
-    withResetFn<ShareSessionState>(() => ({
-      isDeploymentMode: false,
-      shareSessionId: null,
-      sessionRunCount: 0,
-      sharePolicy: null,
-      shareDeploymentName: null,
-      shareDeploymentVersion: null,
-      deploymentMode: null,
-    })),
-  ),
-);
-
-type ServerModeState = {
-  mode: "ide" | "share" | "app" | "launcher" | null;
-  modeResolved: boolean;
-  modeError: string | null;
-};
-
-export const useServerMode = createWithEqualityFn<ServerModeState>(() => ({
-  mode: null,
-  modeResolved: false,
-  modeError: null,
-}));
-
-type AppPreviewState = {
-  isPreviewEnabled: boolean;
-  previewConfigId: string | null;
-  // Draft-only overrides used for live preview while editing App Config.
-  // `undefined` means "no override"; `null` means "explicitly cleared".
-  previewSpecOverride?: unknown | null;
-  // AI-streaming override used while `setta__stream_app_definition` is streaming patches.
-  aiPreviewSpecOverride?: unknown | null;
-  previewThemeOverride?: unknown | null;
-  previewAssetsOverride?: unknown[] | null;
-};
-
-export const useAppPreview = withProjectState(
-  createWithEqualityFn(
-    withResetFn<AppPreviewState>(() => ({
-      isPreviewEnabled: false,
-      previewConfigId: null,
-      previewSpecOverride: undefined,
-      aiPreviewSpecOverride: undefined,
-      previewThemeOverride: undefined,
-      previewAssetsOverride: undefined,
-    })),
-  ),
-);
-
-export const useAllProjectMetadata = createWithEqualityFn(
-  withResetFn<AllProjectMetadata>(() => ({
-    defaultProjectConfigId: null,
-    projectMetadata: [],
-  })),
-);
-
-export type PendingOperation = {
-  opId: string;
-  apply: (x: ZustandProjectState) => void;
-  acknowledged: boolean;
-};
-
-type ZustandPendingOperations = {
-  pending: Array<PendingOperation>;
-};
-
-export const usePendingOperations = withProjectState(
-  createWithEqualityFn(
-    withResetFn<ZustandPendingOperations>(() => ({ pending: [] })),
-  ),
-);
+export {
+  NULL_PROJECT_CONFIG_ID,
+  useAllProjectMetadata,
+  useAppConfigs,
+  useAppDefinition,
+  useAppPreview,
+  usePendingOperations,
+  useProjectState,
+} from "./stores/projectStores";
+export type {
+  PendingOperation,
+  ZustandProjectState,
+} from "./stores/projectStores";
+export { useServerMode, useShareSession } from "./stores/sessionStores";
+export {
+  useContextMenus,
+  useHomePageSearch,
+  useModal,
+  useNotifications,
+  useResizeEvent,
+} from "./stores/uiStores";
 
 type ActiveSectionUIState = {
   activeIds: Array<string>;
@@ -350,12 +153,6 @@ export const useRenameRefactors = withProjectState(
   ),
 );
 
-export const useHomePageSearch = createWithEqualityFn(
-  withResetFn(() => ({
-    value: "",
-  })),
-);
-
 type ZustandWaitingForLSPResult = {
   textFields: Record<string, boolean>;
   parametersRequest: Record<string, boolean>;
@@ -372,17 +169,6 @@ export const useWaitingForLSPResult = withProjectState(
         parametersRequest: {},
       })),
     ),
-  ),
-);
-
-type ZustandModalState = { open: boolean; modalInfo: ModalInfoType | null };
-
-export const useModal = withProjectState(
-  createWithEqualityFn(
-    withResetFn<ZustandModalState>(() => ({
-      open: false,
-      modalInfo: null,
-    })),
   ),
 );
 
@@ -472,14 +258,6 @@ export function runWithAtomicallyPublishedProjectStores(
     stagedProjectStorePublication = previousPublication;
   }
 }
-
-type ZustandNotificationState = { notifications: Array<SettaNotification> };
-
-export const useNotifications = createWithEqualityFn(
-  withResetFn<ZustandNotificationState>(() => ({
-    notifications: [],
-  })),
-);
 
 type FileBrowserState = {
   rootPath: string | null;

@@ -6,8 +6,8 @@ import {
   useLocalStorage,
   useProjectLoading,
   useSettings,
-  useShareSession,
 } from "state/definitions";
+import { useShareSession } from "state/stores/sessionStores";
 import { HOME_ROUTER_PATH, SETTINGS_ROUTER_PATH } from "utils/constants/routes";
 import { res200 } from "utils/endpointUtils";
 import {
