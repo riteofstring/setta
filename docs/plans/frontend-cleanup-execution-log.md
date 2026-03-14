@@ -19,3 +19,12 @@ Append-only log for autonomous frontend cleanup slices.
 - Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
 - Commit hash: `fe0cb302e`
 - Next highest-value unblocked slice: split `frontend/src/state/definitions.ts` into domain store modules while keeping a thin compatibility index for existing imports
+
+## 2026-03-12 10:50:10 PDT
+
+- What changed: Extracted the first store ownership slice from `frontend/src/state/definitions.ts` into `frontend/src/state/stores/` by moving persistence helpers, core project stores, session stores, and UI chrome stores into dedicated modules. Kept `state/definitions.ts` as a compatibility index, moved a few direct callers onto the new store modules, updated the frontend module map to point contributors at `state/stores/`, and removed the now-stale root `frontend/src/utils/constants.test.ts` file that was superseded by the focused constants tests.
+- Key files touched: `frontend/src/state/definitions.ts`, `frontend/src/state/stores/projectStores.ts`, `frontend/src/state/stores/sessionStores.ts`, `frontend/src/state/stores/uiStores.ts`, `frontend/src/state/stores/persistStorage.ts`, `frontend/src/components/Pages/router.tsx`, `frontend/src/components/Pages/GlobalWrapper.tsx`, `frontend/src/state/actions/project/loadProject.ts`, `frontend/src/state/actions/contextMenus.ts`, `docs/reference/frontend-module-map.md`
+- Tests/verification run: `pnpm exec vitest run src/components/Pages/router.test.tsx src/state/hooks/project.test.tsx src/state/actions/localStorage.test.ts src/state/definitionsProjectChatDictationMode.test.ts`; `git diff --check`
+- Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
+- Commit hash: `54fe6ed1e`
+- Next highest-value unblocked slice: continue shrinking `frontend/src/state/definitions.ts` by moving the persisted local-storage and AI store clusters into domain-owned store modules
