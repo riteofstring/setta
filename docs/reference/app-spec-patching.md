@@ -4,6 +4,13 @@ Setta currently has two patch/update paths for app definitions, plus an
 app-generation mode contract that decides whether generation is in-pane streaming
 or chat-driven tool execution.
 
+Project Chat is the primary prompt surface for app generation. Built-in slash
+commands `/app-json`, `/app-image`, `/app-prompt`, and `/app-mcp` carry fixed
+baseline prompts, optionally append user suffix text, and submit chat requests
+with an explicit `appGenerationMode`. App Config remains the advanced workbench
+for previewing, validating, saving, and manually editing the resulting app
+definition.
+
 ## 1) Persistent Updates: JSON Merge Patch
 
 Used by:
@@ -62,6 +69,10 @@ effective system prompt when `appGenerationMode` is provided:
 - `appGenerationReferenceImageUrl`
 - `appGenerationReferenceImageNotes`
 
+Project Chat built-in app-generation slash commands use this route directly.
+Each command provides its own fixed baseline prompt text and can append a single
+user-authored suffix after that baseline.
+
 Mode behavior:
 
 - If `appGenerationMode` is omitted, no app-generation system prompt is injected
@@ -82,3 +93,5 @@ Mode behavior:
 - Use **chat-driven mode** (`prompt_builder`, `mcp_server`) when the app pane
   should send generation requests into Project Chat and let tools perform final
   persistence.
+- Use **App Config** after generation when you need to inspect the saved spec,
+  preview it, validate it, or edit raw JSON/theme/assets manually.

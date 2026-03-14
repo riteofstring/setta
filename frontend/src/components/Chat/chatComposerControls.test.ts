@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { APP_GENERATION_SLASH_COMMANDS } from "./appGenerationSlashCommands";
 import {
   buildChatSlashCommands,
   buildCustomPromptSlashCommandDefinitions,
@@ -141,12 +142,19 @@ describe("chatComposerControls", () => {
     expect(commands.map((entry) => entry.command)).toEqual([
       "/new",
       "/resume",
-      "/app-json",
-      "/app-image",
-      "/app-prompt",
-      "/app-mcp",
+      ...APP_GENERATION_SLASH_COMMANDS.map((entry) => entry.command),
       "/help",
     ]);
+    expect(commands.slice(2, 6)).toEqual(
+      APP_GENERATION_SLASH_COMMANDS.map(
+        ({ command, action, summary, promptTemplate }) => ({
+          command,
+          action,
+          summary,
+          promptTemplate,
+        }),
+      ),
+    );
   });
 
   it("normalizes and validates slash command tokens", () => {
@@ -192,6 +200,26 @@ describe("chatComposerControls", () => {
     expect(parsed).not.toBeNull();
     expect(parsed?.args).toEqual(["first", "line", "second", "line"]);
     expect(parsed?.rawSuffix).toBe("first line\n\n  second line");
+  });
+
+  it("parses built-in app generation slash commands with fixed prompt templates", () => {
+    const parsed = parseSlashCommand(
+      "/app-json support ops dashboard",
+      buildChatSlashCommands({
+        model: false,
+        permissions: false,
+        search: false,
+        appGenerationModes: true,
+      }),
+    );
+
+    expect(parsed).not.toBeNull();
+    expect(parsed?.command).toBe("/app-json");
+    expect(parsed?.action).toBe("app_json_render");
+    expect(parsed?.rawSuffix).toBe("support ops dashboard");
+    expect(parsed?.promptTemplate).toBe(
+      APP_GENERATION_SLASH_COMMANDS[0]?.promptTemplate,
+    );
   });
 
   it("ignores malformed runtime custom slash command entries", () => {
@@ -314,7 +342,6 @@ describe("chatComposerControls", () => {
       modelFeedback: "Model picker",
       searchEnabled: true,
       onSetSearchEnabled,
-      appGenerationMode: "json_render",
       onSetAppGenerationMode,
     });
     expect(newResult).toEqual({ feedback: "Started a new chat thread." });
@@ -333,7 +360,6 @@ describe("chatComposerControls", () => {
       modelFeedback: "Model picker",
       searchEnabled: true,
       onSetSearchEnabled,
-      appGenerationMode: "json_render",
       onSetAppGenerationMode,
     });
     expect(resumeResult).toEqual({ feedback: "Resumed." });
@@ -351,7 +377,6 @@ describe("chatComposerControls", () => {
       modelFeedback: "Model picker",
       searchEnabled: true,
       onSetSearchEnabled,
-      appGenerationMode: "json_render",
       onSetAppGenerationMode,
     });
     expect(permissionsResult).toEqual({ feedback: "Permissions set to yolo." });
@@ -370,7 +395,6 @@ describe("chatComposerControls", () => {
       modelFeedback: "Model picker",
       searchEnabled: true,
       onSetSearchEnabled,
-      appGenerationMode: "json_render",
       onSetAppGenerationMode,
     });
     expect(searchResult).toEqual({ feedback: "Search disabled." });
@@ -389,7 +413,6 @@ describe("chatComposerControls", () => {
       modelFeedback: "Model picker",
       searchEnabled: true,
       onSetSearchEnabled,
-      appGenerationMode: "json_render",
       onSetAppGenerationMode,
     });
     expect(modelResult).toEqual({
@@ -410,7 +433,11 @@ describe("chatComposerControls", () => {
     });
 
     const appModeResult = await executeManagedChatSlashCommand({
-      command: { action: "app_mcp_server", args: [] },
+      command: {
+        action: "app_mcp_server",
+        args: [],
+        promptTemplate: APP_GENERATION_SLASH_COMMANDS[3]?.promptTemplate,
+      },
       slashCommands,
       onSetPermissionMode,
       onStartNewChat: vi.fn(),
@@ -422,13 +449,14 @@ describe("chatComposerControls", () => {
       modelFeedback: null,
       searchEnabled: true,
       onSetSearchEnabled,
-      appGenerationMode: "json_render",
       onSetAppGenerationMode,
     });
 
     expect(onSetAppGenerationMode).toHaveBeenCalledWith("mcp_server");
     expect(appModeResult).toEqual({
-      feedback: "App mode set to MCP Server.",
+      appGenerationMode: "mcp_server",
+      feedback: "Submitted /app-mcp.",
+      submitPromptTemplate: true,
     });
   });
 
