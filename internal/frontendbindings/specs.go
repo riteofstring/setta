@@ -1371,10 +1371,15 @@ func CurrentAdditionalDeclarations() []TypeDeclaration {
 	declarations := make(
 		[]TypeDeclaration,
 		0,
-		len(projectStateSupportDeclarations())+len(websocketSupportDeclarations()),
+		len(projectStateSupportDeclarations())+
+			len(websocketSupportDeclarations())+
+			len(frontendConstantsSupportDeclarations())+
+			len(uiEditorTabSupportDeclarations()),
 	)
 	declarations = append(declarations, projectStateSupportDeclarations()...)
 	declarations = append(declarations, websocketSupportDeclarations()...)
+	declarations = append(declarations, frontendConstantsSupportDeclarations()...)
+	declarations = append(declarations, uiEditorTabSupportDeclarations()...)
 	return declarations
 }
 

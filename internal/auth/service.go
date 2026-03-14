@@ -18,6 +18,7 @@ const (
 	DefaultAuthCookieName    = defaultAuthCookieName
 	DefaultBootstrapTokenTTL = defaultBootstrapTokenTTL
 	DefaultAuthCookieTTL     = defaultAuthCookieTTL
+	DefaultAuthRefreshWindow = defaultAuthRefreshWindow
 )
 
 var (

@@ -1551,3 +1551,5 @@ export async function route_plugins_restart(): Promise<ResponseDataAndStatus<gt.
 
   return await post(GoHTTPRoutes.pluginsRestart, null);
 }
+
+

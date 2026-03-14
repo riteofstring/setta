@@ -141,6 +141,11 @@ Current status:
 - the production generator now emits the canonical frontend contract files
   without raw declarations, raw marker types, or `FactoryTS` helper bodies in
   `internal/frontendbindings`
+- the production generator now also owns the frontend `C` constant surface and
+  UI editor tab compatibility payloads through structured declarations in
+  `internal/frontendbindings`, so `frontend/src/utils/c.ts` is only a thin
+  re-export and `frontend/src/utils/constants.ts` no longer imports backend
+  JSON directly
 - widening the converted surface should use structured declarations,
   converter-rule additions, or explicit Go boundary DTOs rather than
   reintroducing inline TypeScript escape hatches

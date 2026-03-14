@@ -29,6 +29,11 @@ const (
 	logLevelEnv          = "SETTA_LOG_LEVEL"
 )
 
+const (
+	DefaultServerHost = "127.0.0.1"
+	DefaultServerPort = 8000
+)
+
 var (
 	allowedSettaHomeNames        = map[string]struct{}{".setta": {}, ".setta-development": {}}
 	allowedSettaFilesRootSegment = map[string]struct{}{"setta_files": {}, "setta_files_dev": {}}
@@ -309,7 +314,7 @@ func loadServer(cli CLIOptions, envLookup func(string) (string, bool)) (Server, 
 		return Server{}, err
 	}
 
-	port, err := parsePort(firstNonEmpty(trimmed(cli.Port), lookupEnvTrimmed(envLookup, portEnv), "8000"))
+	port, err := parsePort(firstNonEmpty(trimmed(cli.Port), lookupEnvTrimmed(envLookup, portEnv), strconv.Itoa(DefaultServerPort)))
 	if err != nil {
 		return Server{}, err
 	}
@@ -320,7 +325,7 @@ func loadServer(cli CLIOptions, envLookup func(string) (string, bool)) (Server, 
 	}
 
 	return Server{
-		Host:     firstNonEmpty(trimmed(cli.Host), lookupEnvTrimmed(envLookup, hostEnv), "127.0.0.1"),
+		Host:     firstNonEmpty(trimmed(cli.Host), lookupEnvTrimmed(envLookup, hostEnv), DefaultServerHost),
 		Port:     port,
 		Mode:     mode,
 		LogLevel: logLevel,

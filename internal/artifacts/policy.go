@@ -8,6 +8,9 @@ import (
 const (
 	defaultMaxChatFileBytes    = 25 * 1024 * 1024
 	defaultMaxGenericFileBytes = 25 * 1024 * 1024
+
+	DefaultMaxChatFileBytes    = defaultMaxChatFileBytes
+	DefaultMaxGenericFileBytes = defaultMaxGenericFileBytes
 )
 
 type uploadPolicy struct {

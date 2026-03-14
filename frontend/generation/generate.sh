@@ -17,7 +17,6 @@ python -m generation.generate_effective_impls && \
 python -m generation.generate_unions websocket_unions && \
 python -m generation.generate_unions clipboard_data && \
 python -m generation.generate_listener_endpoints && \
-python -m generation.convert_constants_to_js && \
 cd .. && \
 ./scripts/go.sh run ./cmd/setta-gen-frontend-bindings \
   -routes-out frontend/src/utils/generatedRoutes.ts \
