@@ -1,5 +1,7 @@
-import { buildBackendOriginWebsocketURL } from "utils/endpointUtils";
-import { GoWebsocketRouteHelpers } from "utils/generatedRoutes";
+import {
+  buildPluginListenerWebsocketUrl,
+  type BuildPluginListenerWebsocketUrlOptions,
+} from "./transport";
 
 const LISTENER_REGISTER_MESSAGE_TYPE = "ListenerRegister";
 const LISTENER_REGISTER_ACK_MESSAGE_TYPE = "ListenerRegisterAck";
@@ -23,11 +25,8 @@ type ListenerRouterResultEnvelope = {
   };
 };
 
-export type BuildListenerEndpointWebsocketUrlOptions = {
-  listenerId: string;
-  projectConfigId: string;
-  shareSessionId: string | null;
-};
+export type BuildListenerEndpointWebsocketUrlOptions =
+  BuildPluginListenerWebsocketUrlOptions;
 
 export type CallListenerEndpointOverWebsocketOptions = {
   listenerId: string;
@@ -42,13 +41,11 @@ export function buildListenerEndpointWebsocketUrl({
   projectConfigId,
   shareSessionId,
 }: BuildListenerEndpointWebsocketUrlOptions): string {
-  return buildBackendOriginWebsocketURL(
-    GoWebsocketRouteHelpers.listenerById(listenerId),
-    {
-      projectId: projectConfigId,
-      shareSessionId: shareSessionId ?? undefined,
-    },
-  );
+  return buildPluginListenerWebsocketUrl({
+    listenerId,
+    projectConfigId,
+    shareSessionId,
+  });
 }
 
 export function callListenerEndpointOverWebsocket({

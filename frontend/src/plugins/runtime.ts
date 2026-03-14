@@ -8,13 +8,8 @@ import {
   useShareSession,
 } from "state/definitions";
 import { buildPluginPaneOverviewTabName } from "utils/constants";
-import {
-  buildBackendOriginURL,
-  buildBackendURL,
-  res200,
-} from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
 import { route_plugins_runtime } from "utils/generatedEndpoints";
-import { GoHTTPRouteHelpers } from "utils/generatedRoutes";
 import {
   BaseDependencyKeyUnion,
   BaseDependencyValueUnion,
@@ -37,6 +32,7 @@ import {
   PluginPaneIconNameEnum,
   type PluginPaneIconName,
 } from "./paneIcons";
+import { buildPluginAssetUrl, buildPluginBackendFetchUrl } from "./transport";
 
 export { type PluginPaneIconName } from "./paneIcons";
 
@@ -714,8 +710,8 @@ async function loadPluginFrontendModule(
   plugin: PluginListEntry,
   serverMode: PluginServerMode,
 ): Promise<LoadPluginFrontendResult | null> {
-  const styleUrl = resolvePluginAssetUrl(plugin.frontend.styleUrl);
-  const entrypointUrl = resolvePluginAssetUrl(plugin.frontend.entrypointUrl);
+  const styleUrl = buildPluginAssetUrl(plugin.frontend.styleUrl);
+  const entrypointUrl = buildPluginAssetUrl(plugin.frontend.entrypointUrl);
   if (!entrypointUrl) {
     ensurePluginStyleLoaded(plugin.pluginId, styleUrl);
     return {
@@ -1632,10 +1628,6 @@ function registerPluginModule({
     },
     apiFetch: async (path, init) => {
       const normalizedPath = normalizePluginPath(path);
-      const routePath = GoHTTPRouteHelpers.pluginsBackendRoute(
-        plugin.pluginId,
-        normalizedPath,
-      );
       const shareSession = useShareSession.getState();
       const shareHeaders: Record<string, string> = {};
       if (shareSession.isDeploymentMode && shareSession.shareSessionId) {
@@ -1645,11 +1637,14 @@ function registerPluginModule({
       for (const [key, value] of Object.entries(shareHeaders)) {
         requestHeaders.set(key, value);
       }
-      return fetch(buildBackendURL(routePath), {
-        ...init,
-        credentials: "include",
-        headers: requestHeaders,
-      });
+      return fetch(
+        buildPluginBackendFetchUrl(plugin.pluginId, normalizedPath),
+        {
+          ...init,
+          credentials: "include",
+          headers: requestHeaders,
+        },
+      );
     },
   };
 
@@ -2049,19 +2044,6 @@ function ensurePluginStyleLoaded(
 
   styleElementByPluginId.set(pluginId, link);
   styleHrefByPluginId.set(pluginId, styleUrl);
-}
-
-function resolvePluginAssetUrl(url: string | null): string | null {
-  if (!url) {
-    return null;
-  }
-  if (url.startsWith("http://") || url.startsWith("https://")) {
-    return url;
-  }
-  if (url.startsWith("/")) {
-    return buildBackendOriginURL(url);
-  }
-  return url;
 }
 
 function removeInactivePluginStyles(activePluginIds: Set<string>): void {

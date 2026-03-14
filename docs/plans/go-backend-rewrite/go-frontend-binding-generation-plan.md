@@ -281,6 +281,9 @@ Current status:
   `C_ADDRESSES.LAUNCHER_ORIGIN` usage to those boundary utilities plus
   `endpointUtils`, so component code does not reintroduce ad hoc
   backend/launcher origin handling
+- plugin asset/backend/listener transport now also flows through a shared
+  `frontend/src/plugins/transport.ts` helper, so plugin runtime callers no
+  longer import low-level `endpointUtils` builders directly
 - the validation suite now also checks that the checked-in
   `generatedRoutes.ts`, `generatedTypes.ts`, and `generatedEndpoints.ts`
   files exactly match the current Go frontend binding generation pipeline
