@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { IoMdCheckmark } from "react-icons/io";
 import { MdErrorOutline } from "react-icons/md";
 import { PiWrenchFill } from "react-icons/pi";
-import { respondExternalAgentApproval } from "state/actions/ai";
+import { respondExternalAgentApproval } from "state/actions/ai/chatCommands";
 import { ToolChatMessage } from "utils/generatedTypes";
 
 const TOOL_LABEL_FALLBACK = "Approval request";
