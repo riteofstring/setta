@@ -43,10 +43,15 @@ type RouteDependencies struct {
 	WebsocketHub            *realtime.WebsocketHub
 	UISettingRevealResults  *realtime.UISettingRevealResultHub
 	ListenerBroadcaster     *realtime.ListenerBroadcaster
+	BuiltInListenerInvoker  BuiltInListenerEndpointInvoker
 	ListenerEndpointInvoker ListenerEndpointInvoker
 	ListenerProducer        *realtime.ListenerProducer
 	Terminals               *terminals.Service
 	FrontendIDSource        func() (string, error)
+}
+
+type BuiltInListenerEndpointInvoker interface {
+	InvokeBuiltInListenerEndpoint(context.Context, ConnectionInfo, string, map[string]any) (any, bool, error)
 }
 
 type ListenerEndpointInvoker interface {
@@ -473,7 +478,7 @@ func serveListenerConnection(
 			if message.RouterCall == nil {
 				return &CloseError{Code: CloseCodeBadRequest, Reason: "Invalid websocket message."}
 			}
-			if err := handleListenerRouterEndpointCall(ctx, connection.ID, *message.RouterCall, deps); err != nil {
+			if err := handleListenerRouterEndpointCall(ctx, info, connection.ID, *message.RouterCall, deps); err != nil {
 				return err
 			}
 		default:
@@ -835,6 +840,7 @@ func listenerBootstrapSnapshot(
 
 func handleListenerRouterEndpointCall(
 	ctx context.Context,
+	info ConnectionInfo,
 	connectionID string,
 	content realtime.ListenerRouterEndpointCallContent,
 	deps RouteDependencies,
@@ -899,7 +905,7 @@ func handleListenerRouterEndpointCall(
 		}, deps)
 	}
 
-	result, err := invokeListenerEndpoint(ctx, endpointName, payload, deps)
+	result, err := invokeListenerEndpoint(ctx, info, endpointName, payload, deps)
 	if err != nil {
 		return sendListenerRouterEndpointResult(ctx, connectionID, realtime.ListenerRouterEndpointResultContent{
 			ProjectConfigID: projectID,
@@ -922,10 +928,20 @@ func handleListenerRouterEndpointCall(
 
 func invokeListenerEndpoint(
 	ctx context.Context,
+	info ConnectionInfo,
 	endpointName string,
 	payload map[string]any,
 	deps RouteDependencies,
 ) (any, error) {
+	if deps.BuiltInListenerInvoker != nil {
+		result, handled, err := deps.BuiltInListenerInvoker.InvokeBuiltInListenerEndpoint(ctx, info, endpointName, payload)
+		if err != nil {
+			return nil, err
+		}
+		if handled {
+			return result, nil
+		}
+	}
 	if deps.ListenerEndpointInvoker == nil {
 		return nil, fmt.Errorf("unknown listener endpoint: %s", endpointName)
 	}

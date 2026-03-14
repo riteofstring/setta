@@ -1243,6 +1243,15 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	authRefreshWindowSeconds := int(authService.AuthCookieRefreshWindow() / time.Second)
 	worktreeName := devworktree.ActiveName()
 	statusReadyAt := time.Now().UTC()
+	listenerBuiltInInvoker, err := newListenerBuiltInEndpointInvoker(authService)
+	if err != nil {
+		_ = errors.Join(
+			closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()),
+			closePluginBackendRoutes(pluginBackendRoutes),
+			terminalService.Close(context.Background()),
+		)
+		return nil, err
+	}
 	handler, err := httpapi.NewHandler(httpapi.Dependencies{
 		Logger: logger,
 		Info: infoService{
@@ -1283,6 +1292,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				WebsocketHub:            websocketHub,
 				UISettingRevealResults:  uiSettingRevealResults,
 				ListenerBroadcaster:     listenerBroadcaster,
+				BuiltInListenerInvoker:  listenerBuiltInInvoker,
 				ListenerEndpointInvoker: pluginBackendRoutes,
 				ListenerProducer:        listenerProducer,
 				Terminals:               terminalService,
@@ -1563,6 +1573,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		)
 		return nil, err
 	}
+	listenerBuiltInInvoker.SetHandler(handler)
 	if mcpClient != nil {
 		mcpClient.Start(context.Background())
 	}

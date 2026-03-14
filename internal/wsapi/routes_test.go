@@ -1449,6 +1449,144 @@ func TestRegisterRoutesListenerEndpointCallRequiresRegistration(t *testing.T) {
 	})
 }
 
+func TestRegisterRoutesListenerEndpointCallDispatchesBuiltInEndpointBeforePluginFallback(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	builtInInvoker := &routeBuiltInListenerEndpointInvoker{
+		invoke: func(info ConnectionInfo, endpointName string, payload map[string]any) (any, bool, error) {
+			return map[string]any{
+				"handledBy":       "built-in",
+				"endpointName":    endpointName,
+				"projectConfigId": payload["projectConfigId"],
+				"sessionId":       info.Auth.SessionID,
+			}, true, nil
+		},
+	}
+	pluginInvoker := &routeListenerEndpointInvoker{
+		invoke: func(string, map[string]any) (any, error) {
+			return map[string]any{"handledBy": "plugin"}, nil
+		},
+	}
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		WebsocketHub:            hub,
+		ListenerBroadcaster:     broadcaster,
+		BuiltInListenerInvoker:  builtInInvoker,
+		ListenerEndpointInvoker: pluginInvoker,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer conn.CloseNow()
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"always"}}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, conn), "project-a", "")
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRouterEndpointCall","content":{"projectConfigId":"project-a","callId":"call-built-in","endpointName":"route_get_chat_section_chat_id","payload":{"sectionId":"fixture-section"}}}`)); err != nil {
+		t.Fatalf("write listener router endpoint call: %v", err)
+	}
+
+	result := readNextMessage(t, conn)
+	assertListenerRouterEndpointResult(t, result, realtime.ListenerRouterEndpointResultContent{
+		ProjectConfigID: "project-a",
+		CallID:          "call-built-in",
+		OK:              true,
+		Result: map[string]any{
+			"handledBy":       "built-in",
+			"endpointName":    "route_get_chat_section_chat_id",
+			"projectConfigId": "project-a",
+			"sessionId":       "abc123",
+		},
+	}, nil)
+
+	if len(builtInInvoker.calls) != 1 {
+		t.Fatalf("expected one built-in listener endpoint call, got %#v", builtInInvoker.calls)
+	}
+	if builtInInvoker.calls[0].sessionID != "abc123" || !builtInInvoker.calls[0].hasAuth {
+		t.Fatalf("expected auth session to reach built-in invoker, got %#v", builtInInvoker.calls[0])
+	}
+	if builtInInvoker.calls[0].payload["projectConfigId"] != "project-a" || builtInInvoker.calls[0].payload["sectionId"] != "fixture-section" {
+		t.Fatalf("unexpected built-in payload %#v", builtInInvoker.calls[0].payload)
+	}
+	if len(pluginInvoker.calls) != 0 {
+		t.Fatalf("expected plugin invoker to be skipped when built-in handled the endpoint, got %#v", pluginInvoker.calls)
+	}
+}
+
+func TestRegisterRoutesListenerEndpointCallFallsBackToPluginWhenBuiltInIsUnhandled(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	builtInInvoker := &routeBuiltInListenerEndpointInvoker{
+		invoke: func(ConnectionInfo, string, map[string]any) (any, bool, error) {
+			return nil, false, nil
+		},
+	}
+	pluginInvoker := &routeListenerEndpointInvoker{
+		invoke: func(endpointName string, payload map[string]any) (any, error) {
+			return map[string]any{
+				"handledByPlugin": endpointName,
+				"projectConfigId": payload["projectConfigId"],
+			}, nil
+		},
+	}
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		WebsocketHub:            hub,
+		ListenerBroadcaster:     broadcaster,
+		BuiltInListenerInvoker:  builtInInvoker,
+		ListenerEndpointInvoker: pluginInvoker,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer conn.CloseNow()
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"always"}}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, conn), "project-a", "")
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRouterEndpointCall","content":{"projectConfigId":"project-a","callId":"call-plugin","endpointName":"fixture_listener_endpoint","payload":{"sectionId":"fixture-section"}}}`)); err != nil {
+		t.Fatalf("write listener router endpoint call: %v", err)
+	}
+
+	result := readNextMessage(t, conn)
+	assertListenerRouterEndpointResult(t, result, realtime.ListenerRouterEndpointResultContent{
+		ProjectConfigID: "project-a",
+		CallID:          "call-plugin",
+		OK:              true,
+		Result: map[string]any{
+			"handledByPlugin": "fixture_listener_endpoint",
+			"projectConfigId": "project-a",
+		},
+	}, nil)
+
+	if len(builtInInvoker.calls) != 1 {
+		t.Fatalf("expected one built-in probe before plugin fallback, got %#v", builtInInvoker.calls)
+	}
+	if len(pluginInvoker.calls) != 1 {
+		t.Fatalf("expected one plugin listener endpoint call, got %#v", pluginInvoker.calls)
+	}
+}
+
 func TestRegisterRoutesListenerEndpointCallDispatchesPluginEndpointAndInjectsProjectID(t *testing.T) {
 	t.Parallel()
 
@@ -2042,6 +2180,41 @@ func withPathParam(listenerID string) dialOption {
 type routeListenerEndpointCall struct {
 	endpointName string
 	payload      map[string]any
+}
+
+type routeBuiltInListenerEndpointCall struct {
+	endpointName   string
+	payload        map[string]any
+	hasAuth        bool
+	sessionID      string
+	shareSessionID string
+}
+
+type routeBuiltInListenerEndpointInvoker struct {
+	calls  []routeBuiltInListenerEndpointCall
+	invoke func(ConnectionInfo, string, map[string]any) (any, bool, error)
+}
+
+func (s *routeBuiltInListenerEndpointInvoker) InvokeBuiltInListenerEndpoint(
+	_ context.Context,
+	info ConnectionInfo,
+	endpointName string,
+	payload map[string]any,
+) (any, bool, error) {
+	if s == nil {
+		return nil, false, nil
+	}
+	s.calls = append(s.calls, routeBuiltInListenerEndpointCall{
+		endpointName:   endpointName,
+		payload:        cloneRouteListenerPayload(payload),
+		hasAuth:        info.HasAuth,
+		sessionID:      info.Auth.SessionID,
+		shareSessionID: info.Modes.ShareSessionID,
+	})
+	if s.invoke == nil {
+		return nil, false, nil
+	}
+	return s.invoke(info, endpointName, payload)
 }
 
 type routeListenerEndpointInvoker struct {

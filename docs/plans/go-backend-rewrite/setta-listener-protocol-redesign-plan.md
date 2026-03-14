@@ -33,6 +33,9 @@ Current state:
   - `ListenerFrontendEmit` artifact updates on that route, including
     validation, IDE/share artifact-service dispatch, and `UpdateArtifacts`
     frontend broadcasts
+  - built-in listener endpoint dispatch on that route for manifest-backed
+    `GoHTTPRoutes` endpoint names that already map to Go `POST /api` handlers
+    without path params
   - listener coverage and force-refresh reads/writes
   - listener websocket DTOs in `internal/realtime`
 - Python still owns:
@@ -40,7 +43,8 @@ Current state:
   - the active `SettaListener` caller cutover from `/pythonScript/{id}` to the
     Go listener route
   - local dependency-graph rebuilding and generated runtime state
-  - built-in listener endpoint dispatch
+  - remaining built-in listener endpoint dispatch outside the current
+    manifest-backed `GoHTTPRoutes` subset
   - remaining local mutation patching and authoritative patch/refresh behavior
     in
     `backend/setta/listeners/router_endpoint_local_updates.py`
@@ -196,7 +200,9 @@ listener tests pass without Python owning dependency graph or runtime state.
 
 ### Step 4. Move Built-In Endpoint Dispatch And Mutation Effects To Go
 
-- Implement Go-owned built-in listener endpoint dispatch.
+- Extend the current Go-owned built-in listener endpoint dispatch from the
+  manifest-backed `GoHTTPRoutes` subset to the remaining required listener
+  endpoint surface.
 - Unify built-in and plugin listener endpoint invocation.
 - Replace local heuristic mutation patching with authoritative Go patch/refresh
   results.
