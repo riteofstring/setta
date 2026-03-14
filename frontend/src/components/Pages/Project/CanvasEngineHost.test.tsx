@@ -4,9 +4,10 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import initialState from "forks/xyflow/core/store/initialState";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { useProjectState } from "state/definitions";
+import { useActiveSectionUI, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
+import * as endpoints from "utils/generatedEndpoints";
 import { createProjectConfig } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -30,6 +31,9 @@ describe("CanvasEngineHost", () => {
   let originalClientWidth: PropertyDescriptor | undefined;
   let originalClientHeight: PropertyDescriptor | undefined;
   let originalCanvasGetContext: typeof HTMLCanvasElement.prototype.getContext;
+  let originalSetPointerCapture: PropertyDescriptor | undefined;
+  let originalReleasePointerCapture: PropertyDescriptor | undefined;
+  let originalHasPointerCapture: PropertyDescriptor | undefined;
 
   beforeEach(() => {
     resetProjectStores();
@@ -47,6 +51,18 @@ describe("CanvasEngineHost", () => {
       HTMLElement.prototype,
       "clientHeight",
     );
+    originalSetPointerCapture = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "setPointerCapture",
+    );
+    originalReleasePointerCapture = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "releasePointerCapture",
+    );
+    originalHasPointerCapture = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "hasPointerCapture",
+    );
 
     Object.defineProperty(HTMLElement.prototype, "clientWidth", {
       configurable: true,
@@ -59,6 +75,18 @@ describe("CanvasEngineHost", () => {
       get() {
         return 360;
       },
+    });
+    Object.defineProperty(HTMLElement.prototype, "setPointerCapture", {
+      configurable: true,
+      value: () => undefined,
+    });
+    Object.defineProperty(HTMLElement.prototype, "releasePointerCapture", {
+      configurable: true,
+      value: () => undefined,
+    });
+    Object.defineProperty(HTMLElement.prototype, "hasPointerCapture", {
+      configurable: true,
+      value: () => true,
     });
 
     class ResizeObserverStub {
@@ -97,6 +125,35 @@ describe("CanvasEngineHost", () => {
         "clientHeight",
         originalClientHeight,
       );
+    }
+    if (originalSetPointerCapture) {
+      Object.defineProperty(
+        HTMLElement.prototype,
+        "setPointerCapture",
+        originalSetPointerCapture,
+      );
+    } else {
+      delete (HTMLElement.prototype as Partial<HTMLElement>).setPointerCapture;
+    }
+    if (originalReleasePointerCapture) {
+      Object.defineProperty(
+        HTMLElement.prototype,
+        "releasePointerCapture",
+        originalReleasePointerCapture,
+      );
+    } else {
+      delete (
+        HTMLElement.prototype as Partial<HTMLElement>
+      ).releasePointerCapture;
+    }
+    if (originalHasPointerCapture) {
+      Object.defineProperty(
+        HTMLElement.prototype,
+        "hasPointerCapture",
+        originalHasPointerCapture,
+      );
+    } else {
+      delete (HTMLElement.prototype as Partial<HTMLElement>).hasPointerCapture;
     }
     HTMLCanvasElement.prototype.getContext = originalCanvasGetContext;
   });
@@ -241,4 +298,124 @@ describe("CanvasEngineHost", () => {
     expect(engineHost?.dataset.canvasEngineCameraZoom).toBe("1.750");
     expect(useReactFlow.getState().transform).toEqual([48, -32, 1.75]);
   });
+
+  it("clears active sections from a stationary blank-pane click", async () => {
+    const endpointSpy = vi
+      .spyOn(endpoints, "route_set_active_ids")
+      .mockResolvedValue({
+        status: 200,
+        hasResponse: true,
+        data: undefined,
+      });
+
+    let scheduledFrame: FrameRequestCallback | null = null;
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      scheduledFrame = callback;
+      return 1;
+    });
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+
+    useProjectState.setState((state) => {
+      state.projectConfig.id = "project-a";
+      state.projectConfig.topLevelSections = {
+        "section-a": {
+          x: 24,
+          y: 16,
+          zIndex: 0,
+          w: 320,
+          h: 180,
+        },
+      };
+      state.projectConfig.activeIds = ["section-a"];
+      state.projectConfig.edges = [];
+      state.projectConfig.agenticEdges = [];
+    });
+    useActiveSectionUI.setState({
+      activeIds: ["section-a"],
+      selectionGeneration: 1,
+      backendGeneration: 1,
+      backendHydrationEnabled: true,
+      pendingBackendSyncOpIds: [],
+      pendingBackendSyncGenerationByOpId: {},
+      scheduledBackendSync: null,
+    });
+
+    await act(async () => {
+      root.render(<CanvasEngineHost />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const engineHost = host.querySelector(
+      '[data-canvas-engine-host="v1"]',
+    ) as HTMLDivElement | null;
+    if (!engineHost) {
+      throw new Error("Canvas engine host failed to render.");
+    }
+
+    expect(engineHost.getAttribute("data-canvas-engine-active-section-ids")).toBe(
+      "section-a",
+    );
+
+    await dispatchPointerEvent(engineHost, "pointerdown", {
+      button: 0,
+      clientX: 320,
+      clientY: 180,
+      pointerId: 1,
+    });
+    await dispatchPointerEvent(engineHost, "pointerup", {
+      button: 0,
+      clientX: 320,
+      clientY: 180,
+      pointerId: 1,
+    });
+
+    // A no-move pane click should clear the UI selection immediately and then
+    // schedule a single durable backend publish of the cleared state.
+    expect(useActiveSectionUI.getState().activeIds).toEqual([]);
+    expect(engineHost.getAttribute("data-canvas-engine-active-section-ids")).toBe(
+      "",
+    );
+    expect(scheduledFrame).not.toBeNull();
+    expect(endpointSpy).not.toHaveBeenCalled();
+
+    scheduledFrame?.(16);
+
+    expect(endpointSpy).toHaveBeenCalledOnce();
+    expect(endpointSpy).toHaveBeenCalledWith({
+      activeIds: [],
+      frontendOpId: expect.any(String),
+      projectConfigId: "project-a",
+    });
+  });
 });
+
+async function dispatchPointerEvent(
+  target: HTMLElement,
+  type: "pointerdown" | "pointerup",
+  init: {
+    button: number;
+    clientX: number;
+    clientY: number;
+    pointerId: number;
+  },
+) {
+  const event = new MouseEvent(type, {
+    bubbles: true,
+    cancelable: true,
+    button: init.button,
+    clientX: init.clientX,
+    clientY: init.clientY,
+  });
+  Object.defineProperty(event, "pointerId", {
+    configurable: true,
+    value: init.pointerId,
+  });
+
+  await act(async () => {
+    target.dispatchEvent(event);
+  });
+}

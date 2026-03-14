@@ -25,16 +25,15 @@ import {
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
 } from "react";
-import { useProjectState } from "state/definitions";
-import {
-  NO_WHEEL_CLASS_NAME,
-  SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
-} from "utils/constants";
+import { applyActiveSectionChange } from "state/actions/activeSectionController";
+import { useActiveSectionUI, useProjectState } from "state/definitions";
+import { NO_WHEEL_CLASS_NAME } from "utils/constants";
 
 type PanePointerSession = {
   pointerId: number;
   lastClientX: number;
   lastClientY: number;
+  moved: boolean;
 };
 
 type DomIslandRenderEntry = {
@@ -87,9 +86,7 @@ export function CanvasEngineHost() {
   const viewportInitialized = useProjectState(
     (state) => state.projectConfig.viewportInitialized,
   );
-  const activeSectionIds = useProjectState(
-    (state) => state.projectConfig.activeIds,
-  );
+  const activeSectionIds = useActiveSectionUI((state) => state.activeIds);
   const dataEdges = useProjectState((state) => state.projectConfig.edges);
   const agenticEdges = useProjectState(
     (state) => state.projectConfig.agenticEdges,
@@ -399,6 +396,7 @@ export function CanvasEngineHost() {
         pointerId: event.pointerId,
         lastClientX: event.clientX,
         lastClientY: event.clientY,
+        moved: false,
       };
       event.currentTarget.setPointerCapture(event.pointerId);
     },
@@ -421,6 +419,7 @@ export function CanvasEngineHost() {
         return;
       }
 
+      pointerSession.moved = true;
       setCamera((currentCamera) => ({
         x: currentCamera.x - deltaX / currentCamera.zoom,
         y: currentCamera.y - deltaY / currentCamera.zoom,
@@ -435,6 +434,9 @@ export function CanvasEngineHost() {
       const pointerSession = pointerSessionRef.current;
       if (!pointerSession || pointerSession.pointerId !== event.pointerId) {
         return;
+      }
+      if (!pointerSession.moved) {
+        applyActiveSectionChange({ interaction: "pane-click" });
       }
       pointerSessionRef.current = null;
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
@@ -505,6 +507,7 @@ export function CanvasEngineHost() {
       data-canvas-engine-camera-y={camera.y.toFixed(2)}
       data-canvas-engine-camera-zoom={camera.zoom.toFixed(3)}
       data-canvas-engine-active-section-count={activeSectionIds.length}
+      data-canvas-engine-active-section-ids={activeSectionIds.join(",")}
       data-canvas-engine-dom-island-mounted-count={domIslandSectionIds.length}
       data-canvas-engine-dom-island-retained-count={
         domIslandMountState.retainedSectionCount
@@ -620,7 +623,7 @@ const CanvasEngineDomIsland = memo(function CanvasEngineDomIsland({
 }: DomIslandRenderEntry) {
   return (
     <div
-      className={`${retained ? "pointer-events-none" : "pointer-events-auto"} absolute overflow-hidden ${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER}`}
+      className={`${retained ? "pointer-events-none" : "pointer-events-auto"} absolute overflow-hidden`}
       data-canvas-engine-dom-island={rect.id}
       data-canvas-engine-dom-island-retained={String(retained)}
       style={

@@ -135,6 +135,59 @@ test("canvas engine host persists camera viewport after pan and zoom", async ({
   }
 });
 
+test("canvas engine host clears active sections on blank pane click", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+
+    const sectionId = await createCallableSectionForCanvasEngine(
+      page,
+      projectContext.projectConfigId,
+    );
+    const sectionIsland = host.locator(
+      `[data-canvas-engine-dom-island="${sectionId}"]`,
+    );
+    await expect(sectionIsland).toHaveCount(1);
+
+    // Dispatch against the mounted section root so this covers the real
+    // section-click handler while avoiding brittle pixel targeting inside the
+    // section chrome.
+    await page.evaluate((nextSectionId) => {
+      const sectionRoot = document.querySelector(
+        `[data-canvas-engine-dom-island="${nextSectionId}"] [data-section-id="${nextSectionId}"]`,
+      );
+      if (!(sectionRoot instanceof HTMLElement)) {
+        throw new Error(`Missing mounted section root for ${nextSectionId}.`);
+      }
+      sectionRoot.dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    }, sectionId);
+
+    await expect
+      .poll(async () => await readActiveSectionIds(host))
+      .toEqual([sectionId]);
+
+    const panePoint = await resolvePaneScreenPoint(page, host);
+    await page.mouse.click(panePoint.x, panePoint.y);
+
+    await expect.poll(async () => await readActiveSectionIds(host)).toEqual([]);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 async function readCamera(host: Locator): Promise<CanvasEngineCameraSnapshot> {
   const xRaw = await host.getAttribute("data-canvas-engine-camera-x");
   const yRaw = await host.getAttribute("data-canvas-engine-camera-y");
@@ -215,6 +268,19 @@ async function readPersistedViewport(
   };
 }
 
+async function readActiveSectionIds(host: Locator): Promise<string[]> {
+  const value = await host.getAttribute(
+    "data-canvas-engine-active-section-ids",
+  );
+  if (!value) {
+    return [];
+  }
+  return value
+    .split(",")
+    .map((sectionId) => sectionId.trim())
+    .filter((sectionId) => sectionId.length > 0);
+}
+
 async function readNumericHostAttribute(
   host: Locator,
   attributeName: string,
@@ -262,6 +328,9 @@ async function resolvePaneScreenPoint(
           return false;
         }
         if (!target.closest('[data-canvas-engine-host="v1"]')) {
+          return false;
+        }
+        if (target.closest("[data-canvas-engine-dom-island]")) {
           return false;
         }
         if (
