@@ -270,6 +270,10 @@ func (e *Executor) executeConversation(ctx context.Context, prepared preparedExe
 			if shouldPersistMessage(assistantMessage) {
 				transcript = append(transcript, cloneMessage(assistantMessage))
 				executionTranscript = append(executionTranscript, cloneMessage(assistantMessage))
+				assistantTurnToolCalls := assistantToolCalls(assistantMessage)
+				if len(assistantTurnToolCalls) > 0 {
+					toolCalls = append(toolCalls, cloneToolCallMaps(assistantTurnToolCalls)...)
+				}
 			}
 			result := e.buildResult(transcript, toolCalls, usage)
 			if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
@@ -414,6 +418,7 @@ func (e *Executor) consumeOpenAIStream(
 	stream := prepared.openAIClient.Chat.Completions.NewStreaming(ctx, requestBody, prepared.openAIChatRequestOpts...)
 	for stream.Next() {
 		if ctx.Err() != nil {
+			finalizeAssistantToolCallsBestEffort(assistantMessage, accumulator)
 			return usage, context.Canceled
 		}
 		nextUsage, err := e.processOpenAIChunk(
@@ -425,6 +430,7 @@ func (e *Executor) consumeOpenAIStream(
 			previewAccumulator,
 		)
 		if err != nil {
+			finalizeAssistantToolCallsBestEffort(assistantMessage, accumulator)
 			return usage, err
 		}
 		if nextUsage != nil {
@@ -432,6 +438,7 @@ func (e *Executor) consumeOpenAIStream(
 		}
 	}
 	if err := stream.Err(); err != nil {
+		finalizeAssistantToolCallsBestEffort(assistantMessage, accumulator)
 		return usage, wrapOpenAIProviderError(err)
 	}
 	if finalizeErr := finalizeAssistantToolCalls(assistantMessage, accumulator); finalizeErr != nil {
@@ -454,6 +461,7 @@ func (e *Executor) consumeOpenAIResponsesStream(
 	stream := prepared.openAIClient.Responses.NewStreaming(ctx, requestBody, prepared.openAIResponseRequestOpts...)
 	for stream.Next() {
 		if ctx.Err() != nil {
+			finalizeAssistantToolCallsBestEffort(assistantMessage, accumulator)
 			return usage, context.Canceled
 		}
 		nextUsage, err := e.processOpenAIResponseEvent(
@@ -466,6 +474,7 @@ func (e *Executor) consumeOpenAIResponsesStream(
 			streamState,
 		)
 		if err != nil {
+			finalizeAssistantToolCallsBestEffort(assistantMessage, accumulator)
 			return usage, err
 		}
 		if nextUsage != nil {
@@ -473,6 +482,7 @@ func (e *Executor) consumeOpenAIResponsesStream(
 		}
 	}
 	if err := stream.Err(); err != nil {
+		finalizeAssistantToolCallsBestEffort(assistantMessage, accumulator)
 		return usage, wrapOpenAIProviderError(err)
 	}
 	if err := e.flushBufferedOpenAIResponseText(ctx, prepared, assistantMessage, streamState, !streamState.reasoningEmitted); err != nil {
@@ -1252,6 +1262,10 @@ func finalizeAssistantToolCalls(message map[string]any, accumulator *toolCallAcc
 	}
 	message["tool_calls"] = messagesToAnyList(toolCalls)
 	return nil
+}
+
+func finalizeAssistantToolCallsBestEffort(message map[string]any, accumulator *toolCallAccumulator) {
+	_ = finalizeAssistantToolCalls(message, accumulator)
 }
 
 func (e *Executor) executeToolCalls(ctx context.Context, prepared preparedExecution, request agentruns.ExecutionRequest, toolCalls []map[string]any) ([]map[string]any, []map[string]any, error) {

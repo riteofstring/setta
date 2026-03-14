@@ -3072,6 +3072,142 @@ func TestExecutorExecuteRecoversOpenAIResponsesToolCallsFromCompletedFallback(t 
 	}
 }
 
+func TestExecutorExecutePreservesCompletedOpenAIResponsesToolCallBeforeIncompleteFailure(t *testing.T) {
+	t.Parallel()
+
+	requestBodies := make([]map[string]any, 0, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/responses" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+		body := map[string]any{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode provider request: %v", err)
+		}
+		requestBodies = append(requestBodies, body)
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected flusher")
+		}
+		fmt.Fprint(w, openAIResponseFunctionCallItemDoneEvent(0, "function-item-1", "tool-call-1", "setta__create_top_level_section", `{"projectConfigId":"project-alpha","implType":"Dict"}`))
+		flusher.Flush()
+		fmt.Fprint(w, openAIResponseIncompleteEvent("max_output_tokens"))
+		flusher.Flush()
+	}))
+	defer server.Close()
+
+	broadcaster := &captureBroadcaster{}
+	live := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{Broadcaster: broadcaster})
+	run := newManagedChatTestRun()
+	live.ActivateRun(run)
+
+	toolClient := &stubToolClient{
+		discoverableTools: map[string]mcpx.ToolDescriptor{
+			"setta__create_top_level_section": {
+				ServerID:       mcpx.DefaultServerID,
+				NamespacedName: "setta__create_top_level_section",
+				RemoteName:     "create_top_level_section",
+				Description:    "Create a top-level section.",
+				InputSchema: map[string]any{
+					"type": "object",
+				},
+			},
+		},
+		call: func(context.Context, string, map[string]any, map[string]any) (mcpx.ToolCallResult, error) {
+			t.Fatal("tool execution should not run after provider failure")
+			return mcpx.ToolCallResult{}, nil
+		},
+	}
+
+	executor := NewExecutor(ExecutorOptions{
+		Live:       live,
+		Tools:      toolClient,
+		HTTPClient: server.Client(),
+	})
+	result, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
+		Run: run,
+		LLMConfig: llmconfig.Config{
+			ID:        "primary",
+			Model:     "gpt-5-codex",
+			Provider:  "openai",
+			BaseURL:   server.URL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+		MCPServerIDs: []string{mcpx.DefaultServerID},
+		APIKeys: map[string]string{
+			"OPENAI_API_KEY": "secret",
+		},
+		SystemPrompt:    "System prompt",
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+		Thinking:        true,
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+			"messages": []any{
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Use the tool"},
+					},
+					"attachments": []any{},
+				},
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected provider failure from incomplete response")
+	}
+	if err.Error() != "managed llm provider request failed: response incomplete (max_output_tokens)" {
+		t.Fatalf("unexpected provider error %q", err.Error())
+	}
+
+	if len(requestBodies) != 1 {
+		t.Fatalf("expected only the failing Responses request, got %d", len(requestBodies))
+	}
+	messages, ok := result.Outputs["messages"].([]any)
+	if !ok || len(messages) != 2 {
+		t.Fatalf("expected user and assistant messages, got %#v", result.Outputs["messages"])
+	}
+	assistant, ok := messages[1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected assistant message map, got %#v", messages[1])
+	}
+	preservedToolCalls := assistantToolCalls(assistant)
+	if len(preservedToolCalls) != 1 {
+		t.Fatalf("expected one preserved assistant tool call, got %#v", assistant["tool_calls"])
+	}
+	if preservedToolCalls[0]["id"] != "tool-call-1" {
+		t.Fatalf("unexpected preserved tool call %#v", preservedToolCalls[0])
+	}
+	if len(result.ToolCalls) != 1 {
+		t.Fatalf("expected one preserved result tool call, got %#v", result.ToolCalls)
+	}
+	if result.ToolCalls[0]["id"] != "tool-call-1" {
+		t.Fatalf("unexpected preserved result tool call %#v", result.ToolCalls[0])
+	}
+
+	state, stateErr := live.GetLiveChatState(run.ID)
+	if stateErr != nil {
+		t.Fatalf("get live state after provider failure: %v", stateErr)
+	}
+	if state == nil || state.WaitingForResponse {
+		t.Fatalf("expected provider failure to clear waiting state, got %#v", state)
+	}
+	if len(state.Messages) != 2 {
+		t.Fatalf("expected finalized live assistant message, got %#v", state)
+	}
+	stateAssistantToolCalls := assistantToolCalls(state.Messages[1])
+	if len(stateAssistantToolCalls) != 1 || stateAssistantToolCalls[0]["id"] != "tool-call-1" {
+		t.Fatalf("expected finalized live preserved tool call, got %#v", state.Messages[1])
+	}
+	if broadcaster.Count() != 3 {
+		t.Fatalf("expected start, stop, finalized broadcasts, got %d", broadcaster.Count())
+	}
+}
+
 func TestExecutorExecuteStreamsAnthropicThinkingBlocksAndReturnsOutputs(t *testing.T) {
 	t.Parallel()
 
@@ -3867,6 +4003,22 @@ func openAIResponseFunctionCallItemAddedEvent(outputIndex int, itemID string, ca
 			"name":      name,
 			"arguments": "",
 			"status":    "in_progress",
+		},
+	})
+}
+
+func openAIResponseFunctionCallItemDoneEvent(outputIndex int, itemID string, callID string, name string, arguments string) string {
+	return openAIResponseEvent(map[string]any{
+		"type":            "response.output_item.done",
+		"sequence_number": 2,
+		"output_index":    outputIndex,
+		"item": map[string]any{
+			"type":      "function_call",
+			"id":        itemID,
+			"call_id":   callID,
+			"name":      name,
+			"arguments": arguments,
+			"status":    "completed",
 		},
 	})
 }

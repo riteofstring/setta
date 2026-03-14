@@ -84,6 +84,8 @@
     events as provider failures instead of silently succeeding with truncated
     reasoning output, and still stops/finalizes any partial assistant message
     so the live waiting state clears on provider failure
+  - already-complete streamed tool calls now also survive Responses failure
+    turns instead of being dropped before result persistence
   - the Responses reducer now also honors `response.content_part.added` plus
     `response.reasoning_summary_part.added` / `.done` with explicit
     `summary_index` ordering, and authoritative finalized reasoning/text
