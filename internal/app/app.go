@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -62,6 +63,7 @@ import (
 	"setta/internal/settingsstate"
 	"setta/internal/shareartifacts"
 	"setta/internal/sshx"
+	"setta/internal/statemachineruns"
 	"setta/internal/terminals"
 	"setta/internal/transcriptionprofiles"
 	"setta/internal/transcriptionsessions"
@@ -168,6 +170,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		agentRunRuntime       *agentruns.Runtime
 		managedLiveRuntime    *managedchat.LiveRuntime
 		managedChatService    *managedchat.Service
+		stateMachineRuntime   *statemachineruns.Runtime
 		scriptableChatService *scriptablechat.Service
 		chatSectionChatIDs    *chatsections.Service
 		gitReadService        *gitread.Service
@@ -1068,6 +1071,39 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
+		stateMachineRuntime, err = statemachineruns.NewRuntime(statemachineruns.RuntimeOptions{
+			Runs:      agentRunStore,
+			Engines:   engineStore,
+			Templates: promptTemplateStore,
+			ResolveProjectRuntime: func(shareSessionID *string) (*projectstate.Runtime, error) {
+				if shareSessionID != nil && strings.TrimSpace(*shareSessionID) != "" {
+					if deploymentRuntime == nil {
+						return nil, fmt.Errorf("deployment runtime is required for workflow share session %s", strings.TrimSpace(*shareSessionID))
+					}
+					return deploymentRuntime.Overlay(strings.TrimSpace(*shareSessionID))
+				}
+				if projectRuntime == nil {
+					return nil, fmt.Errorf("project runtime is required")
+				}
+				return projectRuntime, nil
+			},
+			ManagedChats:  managedChatService,
+			ManagedRuns:   agentRunRuntime,
+			ExternalChats: externalAgentSend,
+			ExternalRuns:  externalAgentRuntime,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+		agentRunStore.AddAfterSaveListener(func(run agentruns.Run) {
+			if stateMachineRuntime == nil {
+				return
+			}
+			if _, err := stateMachineRuntime.HandleTerminalChildRunUpdate(run); err != nil {
+				logger.Error("state machine runtime failed to process child run update", "runId", run.ID, "error", err)
+			}
+		})
 		externalAgentRunService, err := externalagents.NewRunService(externalagents.RunServiceOptions{
 			ProjectState: projectRuntime,
 			Engines:      engineStore,
