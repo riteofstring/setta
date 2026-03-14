@@ -99,6 +99,9 @@ Current state:
   - listener callbacks now always receive the metadata-backed state view,
     using authoritative cached dependency values first and only falling back to
     the retained generated runtime internally when a value is still unresolved
+  - runtime-present realtime deltas now recompute cached metadata dependents
+    too, so the metadata-backed callback state does not serve stale composite
+    values after child updates
 - listener coverage and force-refresh reads/writes
   - listener websocket DTOs in `internal/realtime`
 - Python still owns:
@@ -280,6 +283,9 @@ Python/share listeners can bootstrap entirely against the Go listener route.
 - Expose the metadata-backed callback state view to listener authors even when
   a generated runtime instance exists, and keep that generated runtime as an
   internal fallback only for values the authoritative cache cannot yet supply.
+- Keep the runtime-present realtime cache coherent with that metadata-backed
+  callback state so cached composite reads do not mask fresher child deltas
+  that already reached the generated runtime.
 
 Exit condition:
 listener tests pass without Python owning dependency graph or runtime state.

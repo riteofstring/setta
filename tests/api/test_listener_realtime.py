@@ -1506,6 +1506,63 @@ class TestSettaListenerBootstrapFailure:
         ]
         assert listener._get_last_realtime_sequence() == 1
 
+    async def test_realtime_recomputes_cached_composites_when_runtime_state_exists(
+        self,
+    ) -> None:
+        project_state, section_id, param_id = _build_nested_controls_project_state(
+            ID("project-runtime-composite")
+        )
+        listener = SettaListener(project_name=project_state.projectConfig.name)
+        runtime_state = listener._build_runtime_state(project_state)
+        initial_cache = listener._build_dependency_cache_from_runtime_state(
+            runtime_state
+        )
+        section_key = create_dep_key(sectionId=section_id)
+        count_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
+        section_name = runtime_state.dependency_metadata.dependency_name(section_key)
+        count_name = runtime_state.dependency_metadata.dependency_name(count_key)
+        callback_calls: list[tuple[dict[str, Any], dict[str, Any], Any]] = []
+
+        @listener.listen(deps=(count_name,))
+        def on_count(state, ctx) -> None:
+            callback_calls.append(
+                (
+                    getattr(state, section_name),
+                    ctx.values.by_id(section_id),
+                    ctx.changed[count_name],
+                )
+            )
+
+        listener._runtime_state = runtime_state
+        listener._project_config_id = project_state.projectConfig.id
+        listener._dependency_cache = dict(initial_cache)
+        listener._refresh_callback_dependency_metadata(
+            listener._runtime_state.dependency_metadata
+        )
+
+        await listener._handle_realtime_event(
+            ListenerRealtimeEventContent(
+                projectConfigId=project_state.projectConfig.id,
+                deltas=[
+                    ListenerRealtimeDelta(
+                        dependency=count_key,
+                        value=LiteralDependencyValue("5"),
+                    )
+                ],
+                sequence=1,
+            )
+        )
+
+        callback_spec = next(iter(listener._callbacks.values()))
+        await listener._scheduler.flush(callback_spec.callback_id)
+
+        assert listener._dependency_cache[count_name] == 5
+        assert listener._dependency_cache[section_name] == {"count": 5}
+        assert callback_calls == [
+            ({"count": 5}, {"count": 5}, 5)
+        ]
+        assert listener._get_last_realtime_sequence() == 1
+
     async def test_replay_cached_snapshot_fails_closed_without_latest_go_snapshot_values(
         self,
     ) -> None:

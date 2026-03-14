@@ -2195,7 +2195,14 @@ class SettaListener:
             )
             return
 
-        self._dependency_cache.update(applied_dependencies)
+        updated_cache = dict(self._dependency_cache)
+        updated_cache.update(applied_dependencies)
+        self._recompute_metadata_dependents(
+            runtime_state.dependency_metadata,
+            updated_cache,
+            set(applied_dependencies_by_key),
+        )
+        self._dependency_cache = updated_cache
 
         callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
         for spec in self._callbacks.values():
