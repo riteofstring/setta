@@ -1,5 +1,10 @@
 import { useLocalStorage } from "state/definitions";
-import { CLOSED_PANE_WIDTH, PaneName, PaneNameEnum } from "utils/constants";
+import {
+  CLOSED_PANE_WIDTH,
+  HOME_COMPACT_LAYOUT_BREAKPOINT_PX,
+  PaneName,
+  PaneNameEnum,
+} from "utils/constants";
 import { clamp } from "utils/utils";
 
 type PaneLayoutState = {
@@ -31,6 +36,10 @@ const PANE_MIN_WIDTH_BY_NAME: Record<PaneName, number> = {
   [PaneNameEnum.homeWorkspace]: 260,
   [PaneNameEnum.homeSelectedProject]: 260,
 };
+
+const HOME_NARROW_DESKTOP_FULLSCREEN_BREAKPOINT_PX =
+  HOME_COMPACT_LAYOUT_BREAKPOINT_PX +
+  PANE_MIN_WIDTH_BY_NAME[PaneNameEnum.homeWorkspace];
 
 const OPPOSITE_PANE_BY_NAME: Record<PaneName, PaneName> = {
   [PaneNameEnum.overview]: PaneNameEnum.uiEditor,
@@ -242,6 +251,23 @@ function canFitBothOpen(paneName: PaneName, viewportWidth: number): boolean {
   );
 }
 
+function isHomePaneName(paneName: PaneName): boolean {
+  return (
+    paneName === PaneNameEnum.homeWorkspace ||
+    paneName === PaneNameEnum.homeSelectedProject
+  );
+}
+
+function shouldOpenHomePaneAtFullWidth(
+  paneName: PaneName,
+  viewportWidth: number,
+): boolean {
+  if (!isHomePaneName(paneName)) {
+    return false;
+  }
+  return viewportWidth < HOME_NARROW_DESKTOP_FULLSCREEN_BREAKPOINT_PX;
+}
+
 function closePane(state: PaneLayoutState, paneName: PaneName) {
   setPaneVisibility(state, paneName, false);
   setPaneTrueWidth(state, paneName, CLOSED_PANE_WIDTH);
@@ -268,6 +294,16 @@ function openPaneWithLayout(
   viewportWidth: number,
 ) {
   const oppositePaneName = getOppositePaneName(paneName);
+  if (shouldOpenHomePaneAtFullWidth(paneName, viewportWidth)) {
+    closePane(state, oppositePaneName);
+    openPaneAtWidth(
+      state,
+      paneName,
+      getPaneMaxWidthForViewport(viewportWidth),
+      viewportWidth,
+    );
+    return;
+  }
   const targetWidth = clampPaneWidth(
     paneName,
     getPaneWidth(state, paneName),
