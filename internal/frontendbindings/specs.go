@@ -64,6 +64,21 @@ func CurrentRouteGroups() []RouteGroup {
 			},
 		},
 		{
+			ConstName: "GoPluginRootRoutes",
+			Routes: []NamedRoute{
+				{
+					Name:     "pluginAssetWildcard",
+					Path:     httpapi.RoutePluginsAssetWildcard,
+					EnumName: "PLUGIN_ASSET_WILDCARD",
+				},
+				{
+					Name:     "pluginStaticAssetWildcard",
+					Path:     httpapi.RoutePluginStaticAssetWildcard,
+					EnumName: "PLUGIN_STATIC_ASSET_WILDCARD",
+				},
+			},
+		},
+		{
 			ConstName:       "GoHTTPRoutes",
 			HelperConstName: "GoHTTPRouteHelpers",
 			Routes: []NamedRoute{

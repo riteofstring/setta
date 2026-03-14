@@ -16,6 +16,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"setta/internal/httpapi"
 )
 
 type BuildTestRequest struct {
@@ -985,6 +987,10 @@ func TestCurrentRouteGroupsClassifyEveryConvertedRoute(t *testing.T) {
 			"bootstrapConsume": {},
 			"toolsCall":        {},
 		},
+		"GoPluginRootRoutes": {
+			"pluginAssetWildcard":       {},
+			"pluginStaticAssetWildcard": {},
+		},
 		"GoHTTPRoutes": {
 			"pluginsBackendRoute": {},
 		},
@@ -1102,6 +1108,36 @@ func TestCurrentRouteGroupsCoverEveryRootRouteName(t *testing.T) {
 
 	t.Fatalf(
 		"CurrentRouteGroups route inventory drifted from internal/httpapi root routes: missing root routes %s",
+		strings.Join(missing, ", "),
+	)
+}
+
+func TestCurrentRouteGroupsCoverPluginAssetRootRoutes(t *testing.T) {
+	expectedPaths := []string{
+		httpapi.RoutePluginsAssetWildcard,
+		httpapi.RoutePluginStaticAssetWildcard,
+	}
+
+	seen := map[string]struct{}{}
+	for _, group := range CurrentRouteGroups() {
+		for _, route := range group.Routes {
+			seen[route.Path] = struct{}{}
+		}
+	}
+
+	missing := make([]string, 0)
+	for _, expectedPath := range expectedPaths {
+		if _, ok := seen[expectedPath]; ok {
+			continue
+		}
+		missing = append(missing, expectedPath)
+	}
+	if len(missing) == 0 {
+		return
+	}
+
+	t.Fatalf(
+		"CurrentRouteGroups route inventory drifted from plugin asset root routes: missing paths %s",
 		strings.Join(missing, ", "),
 	)
 }

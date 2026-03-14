@@ -26,6 +26,8 @@ const RoutePluginsConfig = "/plugins/config"
 const RoutePluginsLockWrite = "/plugins/lock/write"
 const RoutePluginsLockApply = "/plugins/lock/apply"
 const RoutePluginsRestart = "/plugins/restart"
+const RoutePluginsAssetWildcard = "/plugins/{pluginId}/*"
+const RoutePluginStaticAssetWildcard = "/plugin-static/{pluginId}/*"
 
 type PluginRouteDependencies struct {
 	ModePolicy modes.Policy
@@ -94,9 +96,9 @@ func RegisterPluginRootRoutes(router chi.Router, deps PluginRootRouteDependencie
 		return fmt.Errorf("plugin root routes: plugin service is required")
 	}
 
-	router.Get("/plugins/{pluginId}/*", pluginAssetHandler(deps))
+	router.Get(RoutePluginsAssetWildcard, pluginAssetHandler(deps))
 	if deps.BackendRuntime != nil {
-		router.Get("/plugin-static/{pluginId}/*", pluginStaticAssetHandler(deps))
+		router.Get(RoutePluginStaticAssetWildcard, pluginStaticAssetHandler(deps))
 	}
 	return nil
 }
@@ -430,24 +432,42 @@ func pluginStaticAssetHandler(deps PluginRootRouteDependencies) http.HandlerFunc
 }
 
 func buildPluginAssetURL(pluginID string, relativePath string, sourceDigestSHA256 *string) string {
+	baseURL := buildPluginAssetBaseURL(RoutePluginsAssetWildcard, pluginID, relativePath)
+	if baseURL == "" {
+		return ""
+	}
+	if sourceDigestSHA256 == nil || strings.TrimSpace(*sourceDigestSHA256) == "" {
+		return baseURL
+	}
+	return baseURL + "?v=" + url.QueryEscape(strings.TrimSpace(*sourceDigestSHA256))
+}
+
+func buildPluginAssetBaseURL(routePattern string, pluginID string, relativePath string) string {
 	trimmedPluginID := strings.TrimSpace(pluginID)
 	trimmedRelativePath := strings.TrimSpace(relativePath)
 	if trimmedPluginID == "" || trimmedRelativePath == "" {
 		return ""
 	}
 
-	encodedSegments := []string{url.PathEscape(trimmedPluginID)}
+	basePattern := strings.TrimSuffix(routePattern, "*")
+	if !strings.Contains(basePattern, "{pluginId}") {
+		return ""
+	}
+
+	baseURL := strings.Replace(basePattern, "{pluginId}", url.PathEscape(trimmedPluginID), 1)
+	baseURL = strings.TrimRight(baseURL, "/")
+
+	encodedSegments := make([]string, 0)
 	for _, segment := range strings.Split(trimmedRelativePath, "/") {
 		if segment == "" {
 			continue
 		}
 		encodedSegments = append(encodedSegments, url.PathEscape(segment))
 	}
-	baseURL := "/plugins/" + strings.Join(encodedSegments, "/")
-	if sourceDigestSHA256 == nil || strings.TrimSpace(*sourceDigestSHA256) == "" {
-		return baseURL
+	if len(encodedSegments) == 0 {
+		return ""
 	}
-	return baseURL + "?v=" + url.QueryEscape(strings.TrimSpace(*sourceDigestSHA256))
+	return baseURL + "/" + strings.Join(encodedSegments, "/")
 }
 
 func isImmutablePluginAssetVersion(value string) bool {

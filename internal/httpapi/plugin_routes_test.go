@@ -62,6 +62,18 @@ func TestRegisterPluginRoutesReturnsRuntimePayload(t *testing.T) {
 	}
 }
 
+func TestBuildPluginAssetURLUsesPluginRootRouteConstantAndEscapesSegments(t *testing.T) {
+	t.Parallel()
+
+	digest := "abc123"
+	got := buildPluginAssetURL("acme.plugin", "frontend/dist/# entry.js", &digest)
+
+	expected := "/plugins/acme.plugin/frontend/dist/%23%20entry.js?v=abc123"
+	if got != expected {
+		t.Fatalf("expected plugin asset url %q, got %q", expected, got)
+	}
+}
+
 func TestRegisterPluginRoutesRuntimePayloadUsesEmptyCollectionsInsteadOfNull(t *testing.T) {
 	t.Parallel()
 

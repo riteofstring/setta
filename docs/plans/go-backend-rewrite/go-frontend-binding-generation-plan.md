@@ -230,6 +230,10 @@ Current status:
 - `generatedRoutes.ts` now also emits canonical root route helpers for the
   Go-owned bootstrap/tool root paths, so active callers no longer need raw
   `RouteEnum.BOOTSTRAP_PAGE` access in non-test frontend code
+- the generated route inventory now also carries explicit route-only plugin
+  asset and `plugin-static` root patterns from `internal/httpapi`, so the
+  Go-owned plugin frontend asset-serving paths no longer remain only as
+  hardcoded root-route strings outside the binding source of truth
 - `generatedRoutes.ts` now also emits canonical API-prefix helpers, so support
   code no longer needs raw route-prefix constant imports for backend/launcher
   base-address construction
