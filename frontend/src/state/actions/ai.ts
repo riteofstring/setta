@@ -35,13 +35,16 @@ import {
   type ZustandProjectState,
 } from "state/definitions";
 import {
+  buildChatAppGenerationDetails,
   collectChatAppGenerationDetailsByChatId,
+  deserializeChatAppGenerationByMessageId,
   getDefaultChatAppGenerationDetails,
   mergeChatAppGenerationDetails,
   mergeChatAppGenerationDetailsByChatId,
   normalizeChatAppGenerationContext,
-  recordChatAppGenerationForMessage,
-  removeChatAppGenerationForMessage,
+  retainChatAppGenerationDetailsForMessages,
+  serializeChatAppGenerationByMessageId,
+  setChatAppGenerationForMessage,
   type ChatAppGenerationContext,
   type ChatAppGenerationDetails,
 } from "state/utils/chatAppGeneration";
@@ -1484,6 +1487,23 @@ function setPendingChatAppGenerationDetailsForSurface(
   };
 }
 
+function getChatAppGenerationDetailsForTarget(
+  state: ReturnType<typeof useAIStore.getState>,
+  chatId: string | null,
+  surfaceId: string | null | undefined,
+): ChatAppGenerationDetails {
+  if (chatId === null) {
+    return (
+      getPendingChatAppGenerationDetailsForSurface(state, surfaceId) ??
+      getDefaultChatAppGenerationDetails()
+    );
+  }
+  return (
+    state.chatAppGenerationDetailsByChatId[chatId] ??
+    getDefaultChatAppGenerationDetails()
+  );
+}
+
 function normalizePendingChatSurfaceId(
   surfaceId: string | null | undefined,
 ): string | null {
@@ -2072,6 +2092,7 @@ function initializePendingChatDetailsWithMessages(
   messages: Array<BaseChatMessageUnion>,
   waitingForResponse: boolean = true,
   surfaceId: string | null | undefined,
+  appGenerationDetails: ChatAppGenerationDetails | null = null,
 ) {
   useAIStore.setState((state) => ({
     ...setPendingChatDetailsForSurface(state, surfaceId, {
@@ -2079,15 +2100,25 @@ function initializePendingChatDetailsWithMessages(
       messages,
       waitingForResponse,
     }),
-    ...setPendingChatAppGenerationDetailsForSurface(state, surfaceId, null),
+    ...setPendingChatAppGenerationDetailsForSurface(
+      state,
+      surfaceId,
+      appGenerationDetails,
+    ),
   }));
 }
 
 export function seedPendingChatDetails(
   messages: Array<BaseChatMessageUnion>,
   surfaceId: string,
+  appGenerationDetails: ChatAppGenerationDetails | null = null,
 ) {
-  initializePendingChatDetailsWithMessages(messages, false, surfaceId);
+  initializePendingChatDetailsWithMessages(
+    messages,
+    false,
+    surfaceId,
+    appGenerationDetails,
+  );
 }
 
 export function clearPendingChatDetails(surfaceId: string) {
@@ -2237,7 +2268,17 @@ function applyLLMChatHydrationSuccess({
   projectConfigId: string;
   payload: NonNullable<Awaited<ReturnType<typeof route_get_llm_chat>>["data"]>;
 }): void {
-  const { messages, waitingForResponse, llmConfig, contextUsage } = payload;
+  const {
+    messages,
+    waitingForResponse,
+    llmConfig,
+    contextUsage,
+    appGenerationByMessageId,
+  } = payload;
+  const nextAppGenerationDetails = buildChatAppGenerationDetails(
+    messages,
+    deserializeChatAppGenerationByMessageId(appGenerationByMessageId),
+  );
   useAIStore.setState((state) => {
     const existingDetails = state.chatDetails[chatId];
     const preserveWaitingForResponse = isChatStreamActive(chatId);
@@ -2260,6 +2301,10 @@ function applyLLMChatHydrationSuccess({
           llmConfig: llmConfig,
           contextUsage: contextUsage ?? null,
         },
+      },
+      chatAppGenerationDetailsByChatId: {
+        ...state.chatAppGenerationDetailsByChatId,
+        [chatId]: nextAppGenerationDetails,
       },
     };
   });
@@ -2295,8 +2340,17 @@ function applyExternalChatHydrationSuccess({
     Awaited<ReturnType<typeof route_get_external_agent_chat>>["data"]
   >;
 }): void {
-  const { messages, waitingForResponse, toolCallArguments, contextUsage } =
-    payload;
+  const {
+    messages,
+    waitingForResponse,
+    toolCallArguments,
+    contextUsage,
+    appGenerationByMessageId,
+  } = payload;
+  const nextAppGenerationDetails = buildChatAppGenerationDetails(
+    messages,
+    deserializeChatAppGenerationByMessageId(appGenerationByMessageId),
+  );
   useAIStore.setState((state) => {
     const existingDetails = state.chatDetails[chatId];
     const preserveWaitingForResponse = isChatStreamActive(chatId);
@@ -2320,6 +2374,10 @@ function applyExternalChatHydrationSuccess({
           llmConfig: null,
           contextUsage: contextUsage ?? null,
         },
+      },
+      chatAppGenerationDetailsByChatId: {
+        ...state.chatAppGenerationDetailsByChatId,
+        [chatId]: nextAppGenerationDetails,
       },
     };
   });
@@ -2509,6 +2567,11 @@ export async function submitMessage(
   const appGeneration = normalizeChatAppGenerationContext(
     options.appGeneration ?? null,
   );
+  const existingAppGenerationDetails = getChatAppGenerationDetailsForTarget(
+    useAIStore.getState(),
+    chatId,
+    resolvedPendingSurfaceId,
+  );
 
   // Add user message immediately for responsive UI
   const content = [];
@@ -2522,6 +2585,24 @@ export async function submitMessage(
     attachments,
   };
   const userMessageId = userMessage.id;
+  const nextMessages =
+    chatId === null
+      ? [
+          ...(useAIStore.getState().pendingChatDetailsBySurfaceId[
+            resolvedPendingSurfaceId
+          ]?.messages ?? []),
+          userMessage,
+        ]
+      : [
+          ...(useAIStore.getState().chatDetails[chatId]?.messages ?? []),
+          userMessage,
+        ];
+  const nextAppGenerationDetails = setChatAppGenerationForMessage(
+    existingAppGenerationDetails,
+    nextMessages,
+    userMessage.id,
+    appGeneration,
+  );
 
   applyOptimisticUserMessage(
     chatId,
@@ -2541,11 +2622,10 @@ export async function submitMessage(
       continueFromChatId: options.continueFromChatId ?? null,
       engineConfigId,
       agentProfileId: options.agentProfileId ?? null,
-      appSpecStreamingEnabled: false,
-      appGenerationMode: appGenerationMode,
-      appGenerationReferenceImageUrl: appGeneration?.referenceImageUrl ?? null,
-      appGenerationReferenceImageNotes:
-        appGeneration?.referenceImageNotes ?? null,
+      appGenerationMode,
+      appGenerationByMessageId: serializeChatAppGenerationByMessageId(
+        nextAppGenerationDetails,
+      ),
       projectConfigId,
       sectionId: options.sectionId ?? null,
       frontendAffinityToken,
@@ -2647,6 +2727,20 @@ export async function submitEditedMessage({
   const resolvedPendingSurfaceId = requirePendingChatSurfaceId(
     pendingSurfaceId ?? null,
   );
+  const parentAppGenerationDetails = getChatAppGenerationDetailsForTarget(
+    useAIStore.getState(),
+    parentChatId,
+    null,
+  );
+  const nextAppGenerationDetails = setChatAppGenerationForMessage(
+    retainChatAppGenerationDetailsForMessages(
+      parentAppGenerationDetails,
+      nextMessages,
+    ),
+    nextMessages,
+    messageId,
+    resolvedAppGeneration,
+  );
   const resolvedEngineConfigId = await resolveEngineConfigIdForChat(
     parentChatId,
     engineConfigId,
@@ -2658,23 +2752,8 @@ export async function submitEditedMessage({
     nextMessages,
     true,
     resolvedPendingSurfaceId,
+    nextAppGenerationDetails,
   );
-  if (resolvedAppGeneration) {
-    useAIStore.setState((state) =>
-      setPendingChatAppGenerationDetailsForSurface(
-        state,
-        resolvedPendingSurfaceId,
-        recordChatAppGenerationForMessage(
-          getPendingChatAppGenerationDetailsForSurface(
-            state,
-            resolvedPendingSurfaceId,
-          ) ?? getDefaultChatAppGenerationDetails(),
-          messageId,
-          resolvedAppGeneration,
-        ),
-      ),
-    );
-  }
   const projectConfigId = getCurrProjectConfigId();
 
   const setSectionChatId = async (nextChatId: string | null) => {
@@ -2714,12 +2793,10 @@ export async function submitEditedMessage({
       allowUnscoped: sectionId == null,
       branchParentChatId: parentChatId,
       branchFromMessageId: messageId,
-      appSpecStreamingEnabled: false,
       appGenerationMode: resolvedAppGeneration?.mode ?? null,
-      appGenerationReferenceImageUrl:
-        resolvedAppGeneration?.referenceImageUrl ?? null,
-      appGenerationReferenceImageNotes:
-        resolvedAppGeneration?.referenceImageNotes ?? null,
+      appGenerationByMessageId: serializeChatAppGenerationByMessageId(
+        nextAppGenerationDetails,
+      ),
       permissionMode: resolvedExecutionSettings.permissionMode,
       searchEnabled: resolvedExecutionSettings.searchEnabled,
     });
@@ -3873,9 +3950,10 @@ function applyOptimisticUserMessage(
           ? {
               chatAppGenerationDetailsByChatId: {
                 ...state.chatAppGenerationDetailsByChatId,
-                [chatId]: recordChatAppGenerationForMessage(
+                [chatId]: setChatAppGenerationForMessage(
                   state.chatAppGenerationDetailsByChatId[chatId] ??
                     getDefaultChatAppGenerationDetails(),
+                  [...(state.chatDetails[chatId]?.messages ?? []), userMessage],
                   userMessage.id,
                   resolvedAppGeneration,
                 ),
@@ -3899,9 +3977,10 @@ function applyOptimisticUserMessage(
         ? setPendingChatAppGenerationDetailsForSurface(
             state,
             surfaceId,
-            recordChatAppGenerationForMessage(
+            setChatAppGenerationForMessage(
               getPendingChatAppGenerationDetailsForSurface(state, surfaceId) ??
                 getDefaultChatAppGenerationDetails(),
+              nextDetails.messages,
               userMessage.id,
               resolvedAppGeneration,
             ),
@@ -3937,13 +4016,14 @@ function rollbackOptimisticUserMessage(
           ? setPendingChatAppGenerationDetailsForSurface(
               state,
               surfaceId,
-              removeChatAppGenerationForMessage(
+              setChatAppGenerationForMessage(
                 getPendingChatAppGenerationDetailsForSurface(
                   state,
                   surfaceId,
                 ) ?? getDefaultChatAppGenerationDetails(),
                 nextMessages,
                 userMessageId,
+                null,
               ),
             )
           : {}),
@@ -3966,11 +4046,12 @@ function rollbackOptimisticUserMessage(
         ? {
             chatAppGenerationDetailsByChatId: {
               ...state.chatAppGenerationDetailsByChatId,
-              [chatId]: removeChatAppGenerationForMessage(
+              [chatId]: setChatAppGenerationForMessage(
                 state.chatAppGenerationDetailsByChatId[chatId] ??
                   getDefaultChatAppGenerationDetails(),
                 nextMessages,
                 userMessageId,
+                null,
               ),
             },
           }

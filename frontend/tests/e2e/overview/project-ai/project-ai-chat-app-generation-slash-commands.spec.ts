@@ -11,11 +11,12 @@ import {
 } from "../../helpers";
 
 type ChatSubmitRequest = {
-  appSpecStreamingEnabled?: boolean;
+  chatId?: string | null;
   appGenerationMode?: string | null;
-  appGenerationReferenceImageUrl?: string | null;
-  appGenerationReferenceImageNotes?: string | null;
+  appGenerationByMessageId?: Record<string, string>;
   message?: {
+    id?: string;
+    role?: string;
     content?: Array<{ type?: string; text?: string }>;
     attachments?: Array<{ name?: string }>;
   };
@@ -25,22 +26,71 @@ async function mockProjectChatSubmitCapture(
   page: Page,
   capturedRequests: ChatSubmitRequest[],
 ): Promise<void> {
+  const chatStateById = new Map<
+    string,
+    {
+      messages: Array<NonNullable<ChatSubmitRequest["message"]>>;
+      appGenerationByMessageId: Record<string, string>;
+    }
+  >();
+  let createdChatCount = 0;
+  let assistantMessageCount = 0;
+
   await page.route("**/api/getLLMResponse", async (route) => {
-    capturedRequests.push(route.request().postDataJSON() as ChatSubmitRequest);
+    const payload = route.request().postDataJSON() as ChatSubmitRequest;
+    capturedRequests.push(payload);
+    const returnedChatId =
+      payload.chatId ?? `pw-appgen-chat-${createdChatCount + 1}`;
+    const previousState = chatStateById.get(returnedChatId) ?? {
+      messages: [],
+      appGenerationByMessageId: {},
+    };
+    const nextMessages = [...previousState.messages];
+    if (payload.message) {
+      nextMessages.push(payload.message);
+      assistantMessageCount += 1;
+      nextMessages.push({
+        id: `assistant-${assistantMessageCount}`,
+        role: "assistant",
+        content: [
+          {
+            type: "text",
+            text: `Mock response ${assistantMessageCount}`,
+          },
+        ],
+        attachments: [],
+      });
+    }
+    chatStateById.set(returnedChatId, {
+      messages: nextMessages,
+      appGenerationByMessageId: payload.appGenerationByMessageId ?? {},
+    });
+    if (payload.chatId == null) {
+      createdChatCount += 1;
+    }
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(`pw-appgen-chat-${Date.now()}`),
+      body: JSON.stringify(returnedChatId),
     });
   });
   await page.route("**/api/getLLMChat", async (route) => {
+    const payload = route.request().postDataJSON() as {
+      chatId?: string;
+    };
+    const chatState =
+      typeof payload.chatId === "string"
+        ? chatStateById.get(payload.chatId) ?? null
+        : null;
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        messages: [],
+        messages: chatState?.messages ?? [],
         waitingForResponse: false,
         llmConfig: null,
+        contextUsage: null,
+        appGenerationByMessageId: chatState?.appGenerationByMessageId ?? {},
       }),
     });
   });
@@ -97,10 +147,10 @@ test("project ai chat /app-json submits the fixed baseline prompt with suffix te
     await projectChatSurface.getByLabel("Send message").click();
 
     await expect.poll(() => capturedRequests.length).toBe(1);
-    expect(capturedRequests[0]?.appSpecStreamingEnabled).toBe(false);
     expect(capturedRequests[0]?.appGenerationMode).toBe("json_render");
-    expect(capturedRequests[0]?.appGenerationReferenceImageUrl).toBeNull();
-    expect(capturedRequests[0]?.appGenerationReferenceImageNotes).toBeNull();
+    expect(capturedRequests[0]?.appGenerationByMessageId).toEqual({
+      [capturedRequests[0]?.message?.id ?? ""]: "json_render",
+    });
     expect(capturedRequests[0]?.message?.content?.[0]?.text).toBe(
       `${getCommandPrompt("/app-json")}\n\ndashboard for support ops`,
     );
@@ -135,10 +185,12 @@ test("project ai chat /app-image preserves attachments while appending suffix te
     await projectChatSurface.getByLabel("Send message").click();
 
     await expect.poll(() => capturedRequests.length).toBe(1);
-    expect(capturedRequests[0]?.appSpecStreamingEnabled).toBe(false);
     expect(capturedRequests[0]?.appGenerationMode).toBe(
       "json_render_with_image",
     );
+    expect(capturedRequests[0]?.appGenerationByMessageId).toEqual({
+      [capturedRequests[0]?.message?.id ?? ""]: "json_render_with_image",
+    });
     expect(capturedRequests[0]?.message?.content?.[0]?.text).toBe(
       `${getCommandPrompt("/app-image")}\n\ncompact admin dashboard`,
     );
@@ -167,8 +219,10 @@ test("project ai chat /app-mcp submits the fixed MCP-oriented baseline without e
     await projectChatSurface.getByLabel("Send message").click();
 
     await expect.poll(() => capturedRequests.length).toBe(1);
-    expect(capturedRequests[0]?.appSpecStreamingEnabled).toBe(false);
     expect(capturedRequests[0]?.appGenerationMode).toBe("mcp_server");
+    expect(capturedRequests[0]?.appGenerationByMessageId).toEqual({
+      [capturedRequests[0]?.message?.id ?? ""]: "mcp_server",
+    });
     expect(capturedRequests[0]?.message?.content?.[0]?.text).toBe(
       getCommandPrompt("/app-mcp"),
     );
@@ -201,8 +255,11 @@ test("project ai chat follow-up messages keep the active app-generation mode", a
     );
     await expect.poll(() => capturedRequests.length).toBe(2);
 
-    expect(capturedRequests[1]?.appSpecStreamingEnabled).toBe(false);
     expect(capturedRequests[1]?.appGenerationMode).toBe("prompt_builder");
+    expect(capturedRequests[1]?.appGenerationByMessageId).toEqual({
+      [capturedRequests[0]?.message?.id ?? ""]: "prompt_builder",
+      [capturedRequests[1]?.message?.id ?? ""]: "prompt_builder",
+    });
     expect(capturedRequests[1]?.message?.content?.[0]?.text).toBe(
       "make the hero denser",
     );
@@ -267,8 +324,10 @@ test("project ai chat replays queued /app-json through the same app-generation p
     releaseFirstRequest();
 
     await expect.poll(() => capturedRequests.length).toBe(2);
-    expect(capturedRequests[1]?.appSpecStreamingEnabled).toBe(false);
     expect(capturedRequests[1]?.appGenerationMode).toBe("json_render");
+    expect(capturedRequests[1]?.appGenerationByMessageId).toEqual({
+      [capturedRequests[1]?.message?.id ?? ""]: "json_render",
+    });
     expect(capturedRequests[1]?.message?.content?.[0]?.text).toBe(
       `${getCommandPrompt("/app-json")}\n\ndashboard for support ops`,
     );

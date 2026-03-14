@@ -2000,8 +2000,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         agentProfileId: null,
         sectionId: null,
         pendingSurfaceId: surfaceId,
-        appGeneration:
-          appGenerationByMessageId[messageId] ?? activeAppGeneration ?? null,
+        appGeneration: appGenerationByMessageId[messageId] ?? null,
         executionSettings: {
           permissionMode: executionSettings.permissionMode,
           searchEnabled: executionSettings.searchEnabled,
@@ -2017,7 +2016,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       engineConfigId,
       externalEngineAvailable,
       isExternalEngine,
-      activeAppGeneration,
       appGenerationByMessageId,
       messages,
       requiresNewThreadContinuation,
@@ -2079,10 +2077,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         agentProfileId: null,
         sectionId: null,
         pendingSurfaceId: surfaceId,
-        appGeneration:
-          appGenerationByMessageId[sourceUserMessage.id] ??
-          activeAppGeneration ??
-          null,
+        appGeneration: appGenerationByMessageId[sourceUserMessage.id] ?? null,
         executionSettings: {
           permissionMode: executionSettings.permissionMode,
           searchEnabled: executionSettings.searchEnabled,
@@ -2101,7 +2096,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       externalEngineAvailable,
       hasLLMConfig,
       isExternalEngine,
-      activeAppGeneration,
       appGenerationByMessageId,
       messages,
       requiresNewThreadContinuation,

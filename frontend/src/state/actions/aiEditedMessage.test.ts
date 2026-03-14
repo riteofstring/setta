@@ -100,6 +100,7 @@ describe("submitEditedMessage", () => {
         waitingForResponse: false,
         llmConfig: null,
         contextUsage: null,
+        appGenerationByMessageId: {},
       },
     });
   });
@@ -191,8 +192,6 @@ describe("submitEditedMessage", () => {
       pendingSurfaceId: TARGET_SURFACE_ID,
       appGeneration: {
         mode: "prompt_builder",
-        referenceImageUrl: null,
-        referenceImageNotes: null,
       },
     });
 
@@ -200,15 +199,73 @@ describe("submitEditedMessage", () => {
     expect(mockedRouteGetLLMResponse).toHaveBeenCalledTimes(1);
     const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
       {
-        appSpecStreamingEnabled: boolean;
         appGenerationMode: string | null;
+        appGenerationByMessageId: Record<string, string>;
         branchParentChatId: string | null;
         branchFromMessageId: string | null;
       },
     ];
-    expect(payload.appSpecStreamingEnabled).toBe(false);
     expect(payload.appGenerationMode).toBe("prompt_builder");
+    expect(payload.appGenerationByMessageId).toEqual({
+      "msg-1": "prompt_builder",
+    });
     expect(payload.branchParentChatId).toBe(chatId);
     expect(payload.branchFromMessageId).toBe("msg-1");
+  });
+
+  it("keeps historical plain-chat edits plain while preserving inherited app-generation provenance", async () => {
+    mockedRouteGetLLMResponse.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: "branch-chat-plain",
+    });
+    useAIStore.setState({
+      chatAppGenerationDetailsByChatId: {
+        [chatId]: {
+          activeAppGeneration: { mode: "mcp_server" },
+          appGenerationByMessageId: {
+            "msg-app": { mode: "json_render" },
+          },
+        },
+      },
+    });
+
+    const result = await submitEditedMessage({
+      parentChatId: chatId,
+      messages: [
+        createUserChatMessage({
+          id: "msg-plain",
+          content: [
+            createMessageTextContent({ text: "Original plain prompt" }),
+          ],
+          attachments: [],
+        }),
+        createUserChatMessage({
+          id: "msg-app",
+          content: [createMessageTextContent({ text: "Original app prompt" })],
+          attachments: [],
+        }),
+      ],
+      messageId: "msg-plain",
+      message: "Edited plain prompt",
+      attachments: [],
+      thinking: false,
+      engineConfigId: "engine-1",
+      isExternalEngine: false,
+      agentProfileId: null,
+      sectionId: null,
+      pendingSurfaceId: TARGET_SURFACE_ID,
+      appGeneration: null,
+    });
+
+    expect(result).toBe("branch-chat-plain");
+    const [payload] = mockedRouteGetLLMResponse.mock.calls.at(-1) as [
+      {
+        appGenerationMode: string | null;
+        appGenerationByMessageId: Record<string, string>;
+      },
+    ];
+    expect(payload.appGenerationMode).toBeNull();
+    expect(payload.appGenerationByMessageId).toEqual({});
   });
 });

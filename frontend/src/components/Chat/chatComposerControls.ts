@@ -1,3 +1,4 @@
+import type { AppGenerationMode } from "state/types/appGenerationMode";
 import {
   type AppGenerationSlashCommandAction,
   buildAppGenerationSlashCommandDefinitions,
@@ -102,6 +103,7 @@ export type ChatSlashCommandDefinition = {
   action: ChatSlashCommandAction;
   summary: string;
   promptTemplate?: string;
+  appGenerationMode?: AppGenerationMode | null;
   unavailableFeedback?: string;
 };
 
@@ -124,9 +126,11 @@ type ChatSlashCommandInput = {
 type ChatSlashCommandExecutionResult =
   | boolean
   | {
+      appGenerationMode?: AppGenerationMode | null;
       handled?: boolean;
       feedback?: string;
       keepInput?: boolean;
+      submitPromptTemplate?: boolean;
     };
 
 type ParsedSlashCommand = {
@@ -135,6 +139,7 @@ type ParsedSlashCommand = {
   args: string[];
   rawSuffix: string;
   promptTemplate?: string;
+  appGenerationMode?: AppGenerationMode | null;
   unavailableFeedback?: string;
 };
 
@@ -336,9 +341,11 @@ export function normalizeSlashCommandToken(
   return withPrefix;
 }
 
-function isCustomSlashCommandRecord(
-  value: unknown,
-): value is { command: unknown; prompt: unknown } {
+function isCustomSlashCommandRecord(value: unknown): value is {
+  command: unknown;
+  prompt: unknown;
+  appGenerationMode?: unknown;
+} {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
@@ -371,6 +378,13 @@ export function buildCustomPromptSlashCommandDefinitions(
       action: "custom_prompt",
       summary: "Run a saved custom prompt.",
       promptTemplate,
+      appGenerationMode:
+        customCommand.appGenerationMode === "json_render" ||
+        customCommand.appGenerationMode === "json_render_with_image" ||
+        customCommand.appGenerationMode === "prompt_builder" ||
+        customCommand.appGenerationMode === "mcp_server"
+          ? customCommand.appGenerationMode
+          : null,
     });
   }
   return normalized;
@@ -462,6 +476,9 @@ export function parseSlashCommand(
   };
   if (definition.promptTemplate) {
     parsedCommand.promptTemplate = definition.promptTemplate;
+  }
+  if (definition.appGenerationMode) {
+    parsedCommand.appGenerationMode = definition.appGenerationMode;
   }
   if (definition.unavailableFeedback) {
     parsedCommand.unavailableFeedback = definition.unavailableFeedback;

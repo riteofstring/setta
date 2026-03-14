@@ -141,6 +141,7 @@ export type ChatSlashCommand = {
   args: string[];
   rawSuffix?: string;
   promptTemplate?: string;
+  appGenerationMode?: AppGenerationMode | null;
   unavailableFeedback?: string;
 };
 
@@ -158,6 +159,11 @@ export type ChatSlashCommandResult =
 
 export type ChatSubmitOptions = {
   appGeneration?: ChatAppGenerationContext | null;
+};
+
+type SlashCommandExecutionOutcome = {
+  handled: boolean;
+  submitted: boolean;
 };
 
 function formatCompactTokenCount(value: number): string {
@@ -761,10 +767,10 @@ export const ChatInput = memo(function ChatInput({
       submittedAttachments: ChatFileAttachment[];
       parsed: ChatSlashCommand;
       commandAvailable: boolean;
-    }): Promise<boolean> => {
+    }): Promise<SlashCommandExecutionOutcome> => {
       if (!commandAvailable) {
         setSlashFeedback(buildUnavailableSlashCommandFeedback(parsed));
-        return true;
+        return { handled: true, submitted: true };
       }
       if (parsed.action === "custom_prompt") {
         const submission = resolveCustomPromptSlashCommandSubmission({
@@ -777,47 +783,60 @@ export const ChatInput = memo(function ChatInput({
         });
         if (!submission) {
           setSlashFeedback("Custom slash command has no prompt content.");
-          return true;
+          return { handled: true, submitted: false };
         }
+        const submitOptions =
+          parsed.appGenerationMode === undefined ||
+          parsed.appGenerationMode === null
+            ? undefined
+            : {
+                appGeneration: {
+                  mode: parsed.appGenerationMode,
+                },
+              };
         const submitted =
-          (await onSubmit(submission.message, submission.attachments)) === true;
+          (await onSubmit(
+            submission.message,
+            submission.attachments,
+            submitOptions,
+          )) === true;
         if (!submitted) {
           setSlashFeedback(`Failed to submit ${parsed.command}.`);
-          return true;
+          return { handled: true, submitted: false };
         }
         setSlashFeedback(`Submitted ${parsed.command}`);
         escClearedComposerDraftRef.current = null;
         clearInput();
         clearAttachments();
-        return true;
+        return { handled: true, submitted: true };
       }
       if (parsed.action === "native_prompt") {
         const submitted =
           (await onSubmit(message, submittedAttachments)) === true;
         if (!submitted) {
           setSlashFeedback(`Failed to submit ${parsed.command}.`);
-          return true;
+          return { handled: true, submitted: false };
         }
         setSlashFeedback(`Submitted ${parsed.command}`);
         escClearedComposerDraftRef.current = null;
         clearInput();
         clearAttachments();
-        return true;
+        return { handled: true, submitted: true };
       }
       if (!onSlashCommand) {
         setSlashFeedback(UNKNOWN_SLASH_COMMAND_FEEDBACK);
-        return true;
+        return { handled: true, submitted: true };
       }
       const result = await onSlashCommand(parsed);
       if (result === false) {
         setSlashFeedback(UNKNOWN_SLASH_COMMAND_FEEDBACK);
-        return true;
+        return { handled: true, submitted: false };
       }
       const slashResult =
         result && typeof result === "object" ? result : undefined;
       if (slashResult?.handled === false) {
         setSlashFeedback(UNKNOWN_SLASH_COMMAND_FEEDBACK);
-        return true;
+        return { handled: true, submitted: false };
       }
       if (slashResult?.submitPromptTemplate) {
         const submission = resolveCustomPromptSlashCommandSubmission({
@@ -830,19 +849,17 @@ export const ChatInput = memo(function ChatInput({
         });
         if (!submission || !slashResult.appGenerationMode) {
           setSlashFeedback("Built-in slash command has no prompt content.");
-          return true;
+          return { handled: true, submitted: false };
         }
         const submitted =
           (await onSubmit(submission.message, submission.attachments, {
             appGeneration: {
               mode: slashResult.appGenerationMode,
-              referenceImageUrl: null,
-              referenceImageNotes: null,
             },
           })) === true;
         if (!submitted) {
           setSlashFeedback(`Failed to submit ${parsed.command}.`);
-          return true;
+          return { handled: true, submitted: false };
         }
         setSlashFeedback(
           slashResult.feedback ?? `Submitted ${parsed.command}.`,
@@ -850,7 +867,7 @@ export const ChatInput = memo(function ChatInput({
         escClearedComposerDraftRef.current = null;
         clearInput();
         clearAttachments();
-        return true;
+        return { handled: true, submitted: true };
       }
       setSlashFeedback(slashResult?.feedback ?? `Ran ${parsed.command}`);
       if (!slashResult?.keepInput) {
@@ -858,7 +875,7 @@ export const ChatInput = memo(function ChatInput({
         clearInput();
         clearAttachments();
       }
-      return true;
+      return { handled: true, submitted: true };
     },
     [clearAttachments, clearInput, onSlashCommand, onSubmit],
   );
@@ -867,7 +884,7 @@ export const ChatInput = memo(function ChatInput({
     async (
       message: string,
       submittedAttachments: ChatFileAttachment[],
-    ): Promise<boolean> => {
+    ): Promise<SlashCommandExecutionOutcome> => {
       const resolvedRequest = resolveSlashCommandRequest({
         message,
         slashCommands,
@@ -882,16 +899,16 @@ export const ChatInput = memo(function ChatInput({
         });
       }
       if (!message.trimStart().startsWith("/") || !onUnknownSlashCommand) {
-        return false;
+        return { handled: false, submitted: false };
       }
       const result = await onUnknownSlashCommand(message, submittedAttachments);
       if (result === false) {
-        return false;
+        return { handled: false, submitted: false };
       }
       const slashResult =
         result && typeof result === "object" ? result : undefined;
       if (slashResult?.handled === false) {
-        return false;
+        return { handled: false, submitted: false };
       }
       const refreshedSlashCommands =
         slashResult?.refreshedSlashCommands ?? null;
@@ -918,7 +935,7 @@ export const ChatInput = memo(function ChatInput({
         clearInput();
         clearAttachments();
       }
-      return true;
+      return { handled: true, submitted: true };
     },
     [
       clearAttachments,
@@ -954,8 +971,12 @@ export const ChatInput = memo(function ChatInput({
       if (isSubmitDisabled) {
         return false;
       }
-      if (await runSlashCommand(submittedValue, submittedAttachments)) {
-        return true;
+      const slashOutcome = await runSlashCommand(
+        submittedValue,
+        submittedAttachments,
+      );
+      if (slashOutcome.handled) {
+        return slashOutcome.submitted;
       }
       const trimmedInput = submittedValue.trim();
       if (trimmedInput.length === 0 && submittedAttachments.length === 0) {

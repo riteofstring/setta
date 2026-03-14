@@ -109,6 +109,7 @@ describe("submitMessage", () => {
           temporary: false,
         },
         contextUsage: null,
+        appGenerationByMessageId: {},
       },
     });
   });
@@ -208,8 +209,6 @@ describe("submitMessage", () => {
           pendingSurfaceId: DRAFT_SURFACE_ID,
           appGeneration: {
             mode: "mcp_server",
-            referenceImageUrl: "https://example.com/reference.png",
-            referenceImageNotes: "Preserve hierarchy first.",
           },
         },
       ),
@@ -218,27 +217,26 @@ describe("submitMessage", () => {
     expect(mockedRouteGetLLMResponse).toHaveBeenCalledTimes(1);
     const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
       {
-        appSpecStreamingEnabled: boolean;
         appGenerationMode: string | null;
-        appGenerationReferenceImageUrl: string | null;
-        appGenerationReferenceImageNotes: string | null;
+        appGenerationByMessageId: Record<string, string>;
+        message: { id: string };
       },
     ];
-    expect(payload.appSpecStreamingEnabled).toBe(false);
     expect(payload.appGenerationMode).toBe("mcp_server");
-    expect(payload.appGenerationReferenceImageUrl).toBe(
-      "https://example.com/reference.png",
-    );
-    expect(payload.appGenerationReferenceImageNotes).toBe(
-      "Preserve hierarchy first.",
-    );
+    expect(payload.appGenerationByMessageId).toEqual({
+      [payload.message.id]: "mcp_server",
+    });
   });
 
-  it("does not send app-spec streaming guidance for normal chat submits", async () => {
+  it("does not send app-generation provenance for plain chat submits", async () => {
     mockedRouteGetLLMResponse.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
+    });
+    useAIStore.setState({
+      pendingChatDetailsBySurfaceId: {},
+      pendingChatAppGenerationDetailsBySurfaceId: {},
     });
 
     await expect(
@@ -258,12 +256,12 @@ describe("submitMessage", () => {
     expect(mockedRouteGetLLMResponse).toHaveBeenCalledTimes(1);
     const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
       {
-        appSpecStreamingEnabled: boolean;
         appGenerationMode: string | null;
+        appGenerationByMessageId: Record<string, string>;
       },
     ];
-    expect(payload.appSpecStreamingEnabled).toBe(false);
     expect(payload.appGenerationMode).toBeNull();
+    expect(payload.appGenerationByMessageId).toEqual({});
   });
 
   it("uses explicit execution settings and keeps app-generation submits deterministic", async () => {
@@ -289,8 +287,6 @@ describe("submitMessage", () => {
           },
           appGeneration: {
             mode: "mcp_server",
-            referenceImageUrl: null,
-            referenceImageNotes: null,
           },
         },
       ),
@@ -301,12 +297,10 @@ describe("submitMessage", () => {
       {
         permissionMode: string;
         searchEnabled: boolean;
-        appSpecStreamingEnabled: boolean;
       },
     ];
     expect(payload.permissionMode).toBe("yolo");
     expect(payload.searchEnabled).toBe(false);
-    expect(payload.appSpecStreamingEnabled).toBe(false);
   });
 
   it("refreshes agent runs after successful submit hydration", async () => {
@@ -333,6 +327,7 @@ describe("submitMessage", () => {
           temporary: false,
         },
         contextUsage: null,
+        appGenerationByMessageId: {},
       },
     });
     mockedRouteGetAgentRuns.mockResolvedValue({
@@ -385,6 +380,64 @@ describe("submitMessage", () => {
           .agentRuns.some((run) => run.inputs?.chatId === returnedChatId),
       )
       .toBe(true);
+  });
+
+  it("hydrates app-generation provenance from the chat response immediately after submit", async () => {
+    const returnedChatId = "chat-submit-hydrated-app-generation";
+    mockedRouteGetLLMResponse.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: returnedChatId,
+    });
+    mockedRouteGetLLMChat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [
+          createUserChatMessage({
+            id: "msg-app",
+            content: [createMessageTextContent({ text: "Use MCP context." })],
+            attachments: [],
+          }),
+        ],
+        waitingForResponse: false,
+        llmConfig: null,
+        contextUsage: null,
+        appGenerationByMessageId: {
+          "msg-app": "mcp_server",
+        },
+      },
+    });
+
+    await expect(
+      submitMessage(
+        null,
+        "Use MCP context.",
+        [],
+        true,
+        "engine-primary",
+        false,
+        {
+          pendingSurfaceId: DRAFT_SURFACE_ID,
+          appGeneration: {
+            mode: "mcp_server",
+          },
+        },
+      ),
+    ).resolves.toBe(returnedChatId);
+
+    expect(
+      useAIStore.getState().chatAppGenerationDetailsByChatId[returnedChatId],
+    ).toEqual({
+      activeAppGeneration: {
+        mode: "mcp_server",
+      },
+      appGenerationByMessageId: {
+        "msg-app": {
+          mode: "mcp_server",
+        },
+      },
+    });
   });
 
   it("includes frontend websocket affinity id in llm requests", async () => {

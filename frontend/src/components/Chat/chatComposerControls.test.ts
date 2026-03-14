@@ -178,6 +178,7 @@ describe("chatComposerControls", () => {
         action: "custom_prompt",
         summary: "Run a saved custom prompt.",
         promptTemplate: "Summarize regressions.",
+        appGenerationMode: null,
       },
     ]);
 
@@ -200,6 +201,29 @@ describe("chatComposerControls", () => {
     expect(parsed).not.toBeNull();
     expect(parsed?.args).toEqual(["first", "line", "second", "line"]);
     expect(parsed?.rawSuffix).toBe("first line\n\n  second line");
+  });
+
+  it("preserves explicit app-generation metadata on custom prompt commands", () => {
+    const commands = buildCustomPromptSlashCommandDefinitions([
+      {
+        command: "/app-override",
+        prompt: "Build from the project design system.",
+        appGenerationMode: "json_render",
+      },
+    ]);
+
+    expect(commands).toEqual([
+      {
+        command: "/app-override",
+        action: "custom_prompt",
+        summary: "Run a saved custom prompt.",
+        promptTemplate: "Build from the project design system.",
+        appGenerationMode: "json_render",
+      },
+    ]);
+
+    const parsed = parseSlashCommand("/app-override dashboard", commands);
+    expect(parsed?.appGenerationMode).toBe("json_render");
   });
 
   it("parses built-in app generation slash commands with fixed prompt templates", () => {
@@ -239,6 +263,7 @@ describe("chatComposerControls", () => {
         action: "custom_prompt",
         summary: "Run a saved custom prompt.",
         promptTemplate: "Keep this prompt.",
+        appGenerationMode: null,
       },
     ]);
   });

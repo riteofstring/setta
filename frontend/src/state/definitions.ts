@@ -1,6 +1,7 @@
 import { ModalInfoType } from "components/Modals/types";
 import { HandlePosition, HandleType, Node } from "forks/xyflow/core/types";
 import type { AIFollowMode } from "state/types/aiFollow";
+import type { AppGenerationMode } from "state/types/appGenerationMode";
 import type { ChatAppGenerationDetails } from "state/utils/chatAppGeneration";
 import {
   CLOSED_PANE_WIDTH,
@@ -558,6 +559,7 @@ export type CustomRunItem = {
 export type ProjectChatCustomSlashCommand = {
   command: string;
   prompt: string;
+  appGenerationMode?: AppGenerationMode | null;
 };
 
 export type ProjectChatAuxView =
@@ -590,6 +592,7 @@ function normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
       }
       const commandValue = rawCommand.command;
       const promptValue = rawCommand.prompt;
+      const appGenerationModeValue = rawCommand.appGenerationMode;
       if (typeof commandValue !== "string" || typeof promptValue !== "string") {
         continue;
       }
@@ -598,9 +601,17 @@ function normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
       if (!command || !prompt) {
         continue;
       }
+      const appGenerationMode =
+        appGenerationModeValue === "json_render" ||
+        appGenerationModeValue === "json_render_with_image" ||
+        appGenerationModeValue === "prompt_builder" ||
+        appGenerationModeValue === "mcp_server"
+          ? appGenerationModeValue
+          : null;
       normalizedCommands.push({
         command,
         prompt,
+        appGenerationMode,
       });
     }
     if (normalizedCommands.length === 0) {

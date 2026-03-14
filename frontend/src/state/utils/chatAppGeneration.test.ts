@@ -3,25 +3,21 @@ import { describe, expect, it } from "vitest";
 
 import {
   collectChatAppGenerationDetailsByChatId,
+  deserializeChatAppGenerationByMessageId,
   getDefaultChatAppGenerationDetails,
   normalizeChatAppGenerationContext,
   recordChatAppGenerationForMessage,
   removeChatAppGenerationForMessage,
+  retainChatAppGenerationDetailsForMessages,
+  serializeChatAppGenerationByMessageId,
+  setChatAppGenerationForMessage,
 } from "./chatAppGeneration";
 
 describe("chatAppGeneration", () => {
-  it("normalizes missing or empty app-generation values to nulls", () => {
+  it("normalizes invalid app-generation values to null", () => {
     expect(normalizeChatAppGenerationContext(null)).toBeNull();
-    expect(
-      normalizeChatAppGenerationContext({
-        mode: "json_render",
-        referenceImageUrl: "  ",
-        referenceImageNotes: "  layout first  ",
-      }),
-    ).toEqual({
+    expect(normalizeChatAppGenerationContext({ mode: "json_render" })).toEqual({
       mode: "json_render",
-      referenceImageUrl: null,
-      referenceImageNotes: "layout first",
     });
   });
 
@@ -39,13 +35,9 @@ describe("chatAppGeneration", () => {
     });
     const recorded = recordChatAppGenerationForMessage(baseDetails, "msg-a", {
       mode: "prompt_builder",
-      referenceImageUrl: null,
-      referenceImageNotes: null,
     });
     const extended = recordChatAppGenerationForMessage(recorded, "msg-b", {
       mode: "json_render",
-      referenceImageUrl: null,
-      referenceImageNotes: null,
     });
 
     expect(extended.activeAppGeneration?.mode).toBe("json_render");
@@ -63,7 +55,98 @@ describe("chatAppGeneration", () => {
     expect(removed.appGenerationByMessageId["msg-b"]).toBeUndefined();
   });
 
-  it("rebuilds app-generation context from authoritative runs by chat id", () => {
+  it("retains only the preserved message provenance when branch history is truncated", () => {
+    const messageA = createUserChatMessage({
+      id: "msg-a",
+      content: [],
+      attachments: [],
+    });
+    const messageB = createUserChatMessage({
+      id: "msg-b",
+      content: [],
+      attachments: [],
+    });
+    const messageC = createUserChatMessage({
+      id: "msg-c",
+      content: [],
+      attachments: [],
+    });
+
+    const details = recordChatAppGenerationForMessage(
+      recordChatAppGenerationForMessage(
+        getDefaultChatAppGenerationDetails(),
+        "msg-a",
+        { mode: "json_render" },
+      ),
+      "msg-c",
+      { mode: "mcp_server" },
+    );
+
+    const retained = retainChatAppGenerationDetailsForMessages(details, [
+      messageA,
+      messageB,
+    ]);
+
+    expect(retained.activeAppGeneration?.mode).toBe("json_render");
+    expect(retained.appGenerationByMessageId).toEqual({
+      "msg-a": { mode: "json_render" },
+    });
+  });
+
+  it("updates a retained branch message without inheriting the latest chat mode", () => {
+    const messageA = createUserChatMessage({
+      id: "msg-a",
+      content: [],
+      attachments: [],
+    });
+    const messageB = createUserChatMessage({
+      id: "msg-b",
+      content: [],
+      attachments: [],
+    });
+    const baseDetails = recordChatAppGenerationForMessage(
+      getDefaultChatAppGenerationDetails(),
+      "msg-b",
+      { mode: "mcp_server" },
+    );
+
+    const nextDetails = setChatAppGenerationForMessage(
+      retainChatAppGenerationDetailsForMessages(baseDetails, [messageA]),
+      [messageA],
+      "msg-a",
+      null,
+    );
+
+    expect(nextDetails.activeAppGeneration).toBeNull();
+    expect(nextDetails.appGenerationByMessageId).toEqual({});
+  });
+
+  it("serializes and deserializes app-generation provenance by message id", () => {
+    const serialized = serializeChatAppGenerationByMessageId({
+      activeAppGeneration: { mode: "prompt_builder" },
+      appGenerationByMessageId: {
+        "msg-a": { mode: "prompt_builder" },
+        "msg-b": { mode: "json_render" },
+      },
+    });
+
+    expect(serialized).toEqual({
+      "msg-a": "prompt_builder",
+      "msg-b": "json_render",
+    });
+    expect(
+      deserializeChatAppGenerationByMessageId({
+        "msg-a": "prompt_builder",
+        "msg-b": "json_render",
+        "msg-c": "not-a-mode",
+      }),
+    ).toEqual({
+      "msg-a": { mode: "prompt_builder" },
+      "msg-b": { mode: "json_render" },
+    });
+  });
+
+  it("rebuilds app-generation context from authoritative per-message runs by chat id", () => {
     const detailsByChatId = collectChatAppGenerationDetailsByChatId([
       createAgentRun({
         id: "run-early",
@@ -71,8 +154,14 @@ describe("chatAppGeneration", () => {
         finishedAt: "2026-03-10T00:00:01Z",
         inputs: {
           chatId: "chat-1",
-          appGenerationMode: "prompt_builder",
-          messages: [{ id: "msg-1" }],
+          appGenerationByMessageId: {
+            "msg-1": "prompt_builder",
+            "msg-2": "json_render",
+          },
+          messages: [
+            { id: "msg-1", role: "user", content: [], attachments: [] },
+            { id: "msg-2", role: "user", content: [], attachments: [] },
+          ],
         },
       }),
       createAgentRun({
@@ -81,10 +170,17 @@ describe("chatAppGeneration", () => {
         finishedAt: "2026-03-10T00:00:03Z",
         inputs: {
           chatId: "chat-1",
-          appGenerationMode: "json_render_with_image",
-          appGenerationReferenceImageUrl: "https://example.com/reference.png",
-          appGenerationReferenceImageNotes: "Preserve the layout rhythm.",
-          messages: [{ id: "msg-2" }],
+          appGenerationByMessageId: {
+            "msg-1": "prompt_builder",
+            "msg-2": "json_render",
+            "msg-3": "mcp_server",
+          },
+          appGenerationMode: "mcp_server",
+          messages: [
+            { id: "msg-1", role: "user", content: [], attachments: [] },
+            { id: "msg-2", role: "user", content: [], attachments: [] },
+            { id: "msg-3", role: "user", content: [], attachments: [] },
+          ],
         },
       }),
       createAgentRun({
@@ -100,20 +196,17 @@ describe("chatAppGeneration", () => {
 
     expect(detailsByChatId["chat-1"]).toEqual({
       activeAppGeneration: {
-        mode: "json_render_with_image",
-        referenceImageUrl: "https://example.com/reference.png",
-        referenceImageNotes: "Preserve the layout rhythm.",
+        mode: "mcp_server",
       },
       appGenerationByMessageId: {
         "msg-1": {
           mode: "prompt_builder",
-          referenceImageUrl: null,
-          referenceImageNotes: null,
         },
         "msg-2": {
-          mode: "json_render_with_image",
-          referenceImageUrl: "https://example.com/reference.png",
-          referenceImageNotes: "Preserve the layout rhythm.",
+          mode: "json_render",
+        },
+        "msg-3": {
+          mode: "mcp_server",
         },
       },
     });

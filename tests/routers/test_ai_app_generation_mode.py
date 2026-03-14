@@ -1,132 +1,147 @@
-from fastapi import HTTPException
+from setta.types.generated.chat_messages import UserChatMessage
 
 from setta.routers.ai import (
     _build_app_generation_mode_prompt,
-    _normalize_reference_image_inputs,
+    _get_run_app_generation_by_message_id,
+    _normalize_app_generation_by_message_id,
 )
+from setta.types.agentic import AgentRun
 
 
 class TestAIAppGenerationModeHelpers:
-    """Unit tests for app-generation mode routing helpers in AI routes."""
+    """Unit tests for app-generation routing helpers in AI routes."""
 
-    def test_build_prompt_includes_streaming_and_reference_image_context(self) -> None:
-        prompt = _build_app_generation_mode_prompt(
-            mode="json_render_with_image",
-            app_spec_streaming_enabled=True,
-            reference_image_url="https://example.com/reference.png",
-            reference_image_notes="Match spacing and heading scale first.",
-        )
+    def test_build_prompt_uses_single_non_streaming_contract(self) -> None:
+        prompt = _build_app_generation_mode_prompt(mode="json_render_with_image")
         if prompt is None:
             raise AssertionError("Expected an app-generation mode prompt")
         assert "mode: json_render_with_image" in prompt
-        assert "streamingPreview: enabled" in prompt
-        assert "setta__stream_app_definition" in prompt
-        assert "Reference image URL: https://example.com/reference.png" in prompt
-        assert "Match spacing and heading scale first." in prompt
+        assert "setta__set_app_definition" in prompt
+        assert "setta__stream_app_definition" not in prompt
+        assert "streamingPreview" not in prompt
+        assert "Reference image URL" not in prompt
 
-    def test_build_prompt_returns_none_without_mode_or_streaming(self) -> None:
-        prompt = _build_app_generation_mode_prompt(
-            mode=None,
-            app_spec_streaming_enabled=False,
-            reference_image_url=None,
-            reference_image_notes=None,
-        )
-        assert prompt is None
+    def test_build_prompt_returns_none_without_mode(self) -> None:
+        assert _build_app_generation_mode_prompt(mode=None) is None
 
-    def test_build_prompt_returns_none_when_mode_is_missing_even_if_streaming_enabled(
+    def test_build_prompt_ignores_reference_image_fields_and_keeps_prompt_builder_guidance(
         self,
     ) -> None:
-        prompt = _build_app_generation_mode_prompt(
-            mode=None,
-            app_spec_streaming_enabled=True,
-            reference_image_url=None,
-            reference_image_notes=None,
-        )
-        assert prompt is None
-
-    def test_build_prompt_ignores_reference_image_for_non_image_modes(self) -> None:
-        prompt = _build_app_generation_mode_prompt(
-            mode="prompt_builder",
-            app_spec_streaming_enabled=True,
-            reference_image_url="https://example.com/reference.png",
-            reference_image_notes="Ignore this outside image mode.",
-        )
+        prompt = _build_app_generation_mode_prompt(mode="prompt_builder")
         if prompt is None:
             raise AssertionError("Expected an app-generation mode prompt")
         assert "mode: prompt_builder" in prompt
-        assert "Reference image URL" not in prompt
-        assert "Ignore this outside image mode." not in prompt
-        assert "App pane" not in prompt
-        assert "manual copy/paste" not in prompt
         assert "Project Chat can persist the result directly" in prompt
+        assert "Reference image URL" not in prompt
 
-    def test_build_prompt_mcp_mode_uses_stream_tool_when_streaming_enabled(
+    def test_normalize_app_generation_by_message_id_filters_non_user_entries(
         self,
     ) -> None:
-        # MCP mode should follow the same stream-vs-full-spec contract as json_render.
-        prompt = _build_app_generation_mode_prompt(
-            mode="mcp_server",
-            app_spec_streaming_enabled=True,
-            reference_image_url=None,
-            reference_image_notes=None,
+        normalized = _normalize_app_generation_by_message_id(
+            messages=[
+                UserChatMessage(id="msg-user"),
+            ],
+            app_generation_by_message_id={
+                "msg-user": "json_render",
+                "missing": "mcp_server",
+            },
+            submitted_message_id="msg-user",
+            submitted_mode=None,
         )
-        if prompt is None:
-            raise AssertionError("Expected an app-generation mode prompt")
-        assert "setta__stream_app_definition" in prompt
-        assert "setta__set_app_definition" not in prompt
 
-    def test_build_prompt_mcp_mode_uses_full_spec_tool_when_streaming_disabled(
+        assert normalized == {}
+
+    def test_normalize_app_generation_by_message_id_overrides_submitted_message_mode(
         self,
     ) -> None:
-        # Disabled streaming should never advertise stream persistence in MCP mode.
-        prompt = _build_app_generation_mode_prompt(
-            mode="mcp_server",
-            app_spec_streaming_enabled=False,
-            reference_image_url=None,
-            reference_image_notes=None,
+        normalized = _normalize_app_generation_by_message_id(
+            messages=[
+                UserChatMessage(id="msg-a"),
+                UserChatMessage(id="msg-b"),
+            ],
+            app_generation_by_message_id={
+                "msg-a": "prompt_builder",
+                "msg-b": "json_render",
+            },
+            submitted_message_id="msg-b",
+            submitted_mode="mcp_server",
         )
-        if prompt is None:
-            raise AssertionError("Expected an app-generation mode prompt")
-        assert "setta__set_app_definition" in prompt
-        assert "setta__stream_app_definition" not in prompt
 
-    def test_reference_image_inputs_are_trimmed_and_empty_values_are_normalized(
+        assert normalized == {
+            "msg-a": "prompt_builder",
+            "msg-b": "mcp_server",
+        }
+
+    def test_get_run_app_generation_by_message_id_reads_authoritative_mapping(
         self,
     ) -> None:
-        reference_image_url, reference_image_notes = _normalize_reference_image_inputs(
-            reference_image_url="  https://example.com/reference.png  ",
-            reference_image_notes="  Match spacing first.  ",
+        run = AgentRun.model_validate(
+            {
+                "id": "run-1",
+                "profileId": None,
+                "status": "completed",
+                "startedAt": "2026-03-10T00:00:00Z",
+                "finishedAt": "2026-03-10T00:00:01Z",
+                "events": [],
+                "inputs": {
+                    "messages": [
+                        {
+                            "id": "msg-a",
+                            "role": "user",
+                            "content": [],
+                            "attachments": [],
+                        },
+                        {
+                            "id": "msg-b",
+                            "role": "user",
+                            "content": [],
+                            "attachments": [],
+                        },
+                    ],
+                    "appGenerationByMessageId": {
+                        "msg-a": "prompt_builder",
+                        "msg-b": "json_render",
+                    },
+                },
+                "outputs": {},
+                "toolCalls": [],
+                "cost": None,
+            }
         )
-        assert reference_image_url == "https://example.com/reference.png"
-        assert reference_image_notes == "Match spacing first."
 
-        empty_url, empty_notes = _normalize_reference_image_inputs(
-            reference_image_url="   ",
-            reference_image_notes=None,
+        assert _get_run_app_generation_by_message_id(run) == {
+            "msg-a": "prompt_builder",
+            "msg-b": "json_render",
+        }
+
+    def test_get_run_app_generation_by_message_id_falls_back_to_legacy_latest_message(
+        self,
+    ) -> None:
+        run = AgentRun.model_validate(
+            {
+                "id": "run-legacy",
+                "profileId": None,
+                "status": "completed",
+                "startedAt": "2026-03-10T00:00:00Z",
+                "finishedAt": "2026-03-10T00:00:01Z",
+                "events": [],
+                "inputs": {
+                    "messages": [
+                        {
+                            "id": "msg-legacy",
+                            "role": "user",
+                            "content": [],
+                            "attachments": [],
+                        }
+                    ],
+                    "appGenerationMode": "mcp_server",
+                },
+                "outputs": {},
+                "toolCalls": [],
+                "cost": None,
+            }
         )
-        assert empty_url is None
-        assert empty_notes is None
 
-    def test_reference_image_url_has_max_length_guard(self) -> None:
-        try:
-            _normalize_reference_image_inputs(
-                reference_image_url="x" * 4097,
-                reference_image_notes=None,
-            )
-        except HTTPException as exc:
-            assert exc.status_code == 400
-            assert "appGenerationReferenceImageUrl is too large" in str(exc.detail)
-        else:
-            raise AssertionError("Expected HTTPException for oversized reference URL")
-
-    def test_reference_image_notes_has_max_length_guard(self) -> None:
-        try:
-            _normalize_reference_image_inputs(
-                reference_image_url=None,
-                reference_image_notes="x" * 100001,
-            )
-        except HTTPException as exc:
-            assert exc.status_code == 400
-            assert "appGenerationReferenceImageNotes is too large" in str(exc.detail)
-        else:
-            raise AssertionError("Expected HTTPException for oversized reference notes")
+        assert _get_run_app_generation_by_message_id(run) == {
+            "msg-legacy": "mcp_server"
+        }

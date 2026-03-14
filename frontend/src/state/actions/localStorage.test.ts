@@ -152,6 +152,7 @@ describe("local storage merge", () => {
         {
           command: "/ship",
           prompt: "Ship the current release.",
+          appGenerationMode: null,
         },
       ],
     });
