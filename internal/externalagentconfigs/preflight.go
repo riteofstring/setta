@@ -86,6 +86,8 @@ func (c *SystemChecker) Check(config Config) (Status, error) {
 		supported = pluginRunModeSupported
 		if !supported {
 			addIssue(fmt.Sprintf("Run mode %s not supported for %s", normalized.RunMode, normalized.ToolType), true)
+		} else {
+			addIssue("Plugin external agent execution is not supported yet", true)
 		}
 	} else if !supported {
 		addIssue(fmt.Sprintf("Run mode %s not supported for %s", normalized.RunMode, normalized.ToolType), true)

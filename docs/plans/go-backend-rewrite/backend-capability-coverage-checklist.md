@@ -128,7 +128,7 @@ Primary sources used for this checklist:
 | Go-owned | Plugin discovery/install/status/config/lock/runtime refresh                            | `internal/plugins` is the active owner for plugin package/runtime management.                                    |
 | Go-owned | Plugin backend routes, MCP tools, static assets, registrations, and listener endpoints | Plugin backend transport/runtime integration lives in `internal/plugins` plus Go `httpapi`/`wsapi` registration. |
 | Go-owned | Plugin-defined codegen and language-server integration                                 | Plugin codegen target visibility and plugin-defined language-server runtime/refresh are Go-owned.                |
-| Deferred | Plugin-defined external-agent execution                                                | Health/preflight visibility for plugin-backed configs is Go-owned through `internal/externalagentconfigs` plus active plugin runtime registrations, but the actual plugin-backed execution runtime remains intentionally out of scope. |
+| Deferred | Plugin-defined external-agent execution                                                | Health/preflight visibility for plugin-backed configs is Go-owned through `internal/externalagentconfigs` plus active plugin runtime registrations, but Go still fails those configs closed because the actual plugin-backed execution runtime remains intentionally out of scope. |
 
 ## 10. Explicit retained Python and external boundaries
 
