@@ -20,9 +20,10 @@ import {
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  ChatAreaSettings,
+  ChatAreaAgenticLinksPanel,
   filterExecutableLinkedChatTargets,
-} from "./ChatAreaSettings";
+} from "./ChatAreaAgenticLinksPanel";
+import { ChatAreaSettings } from "./ChatAreaSettings";
 
 let mockCanEditLayout = true;
 
@@ -280,7 +281,7 @@ describe("ChatAreaSettings", () => {
     const { sourceSectionId } = seedChatSections();
 
     const markup = renderToStaticMarkup(
-      <ChatAreaSettings sectionId={sourceSectionId} />,
+      <ChatAreaAgenticLinksPanel sectionId={sourceSectionId} />,
     );
 
     expect(markup).toContain("No readable sections.");
