@@ -343,21 +343,48 @@ function getSectionDisplayName(
   state: ProjectStateSingleConfig,
   sectionId: string,
 ): string {
+  const section = state.sections[sectionId];
   const impl = getCurrEffectiveSectionImplIfPresent(state, sectionId);
+  const shortSectionId = sectionId.slice(0, 8);
   if (impl === null) {
-    return sectionId;
+    return `section ${shortSectionId}`;
+  }
+  const sectionTypeLabel = getSectionTypeLabel(impl.type);
+  const displayName = section?.displayName?.trim();
+  if (displayName) {
+    return `${sectionTypeLabel} "${displayName}" (${shortSectionId})`;
+  }
+  const sectionName = section?.name?.trim();
+  if (sectionName) {
+    return `${sectionTypeLabel} "${sectionName}" (${shortSectionId})`;
   }
   if ("label" in impl && typeof impl.label === "string") {
     const label = impl.label.trim();
     if (label !== "") {
-      return label;
+      return `${sectionTypeLabel} "${label}" (${shortSectionId})`;
     }
   }
   if (typeof impl.name === "string") {
     const name = impl.name.trim();
     if (name !== "") {
-      return name;
+      return `${sectionTypeLabel} "${name}" (${shortSectionId})`;
     }
   }
-  return sectionId;
+  return `${sectionTypeLabel} ${shortSectionId}`;
+}
+
+function getSectionTypeLabel(type: string): string {
+  if (type === SectionTypeEnum.Chat) {
+    return "Chat section";
+  }
+  if (type === SectionTypeEnum.StateMachineStart) {
+    return "Start section";
+  }
+  if (type === SectionTypeEnum.StateMachineGate) {
+    return "Gate section";
+  }
+  if (type === SectionTypeEnum.StateMachineEnd) {
+    return "End section";
+  }
+  return "Section";
 }

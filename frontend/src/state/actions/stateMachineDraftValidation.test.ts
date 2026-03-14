@@ -15,7 +15,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getStateMachineDraftWarning } from "./stateMachineDraftValidation";
 
 type WorkflowSectionSeed = {
+  displayName?: string;
   impl: BaseSectionImplUnion;
+  sectionName?: string;
   sectionId: string;
   variantId: string;
 };
@@ -111,9 +113,11 @@ function seedWorkflowGraph({
     seededSections[section.sectionId] = createCore({
       id: section.sectionId,
       name:
-        typeof section.impl.name === "string"
+        section.sectionName ??
+        (typeof section.impl.name === "string"
           ? section.impl.name
-          : section.sectionId,
+          : section.sectionId),
+      displayName: section.displayName ?? "",
       variants: [section.variantId],
       defaultVariant: section.variantId,
     });
@@ -283,9 +287,10 @@ describe("state machine draft validation", () => {
         {
           sectionId: "chat-a",
           variantId: "variant-chat-a",
+          sectionName: "plant_green",
           impl: createChatWorkflowImpl({
             implId: "impl-chat-a",
-            name: "Review Chat",
+            name: "deep_late",
           }),
         },
         {
@@ -335,14 +340,14 @@ describe("state machine draft validation", () => {
       ],
     });
 
-    expect(
-      getStateMachineDraftWarning(useProjectState.getState(), "workflow-main"),
-    ).toEqual(
-      expect.objectContaining({
-        detail: expect.stringContaining(
-          "no reachable Send Prompt action starts a workflow child run",
-        ),
-      }),
+    const warning = getStateMachineDraftWarning(
+      useProjectState.getState(),
+      "workflow-main",
+    );
+    expect(warning).not.toBeNull();
+    expect(warning?.detail).toContain('Chat section "plant_green"');
+    expect(warning?.detail).toContain(
+      "no reachable Send Prompt action starts a workflow child run",
     );
   });
 
