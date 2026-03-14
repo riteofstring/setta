@@ -173,6 +173,10 @@ func TestServiceStartAppendStopStreamsRealtimeTranscription(t *testing.T) {
 		if transcriptionPayload["model"] != "gpt-4o-mini-transcribe" || transcriptionPayload["language"] != "en" {
 			t.Fatalf("unexpected transcription payload %#v", transcriptionPayload)
 		}
+		noiseReductionPayload, ok := payload["input_audio_noise_reduction"].(map[string]any)
+		if !ok || noiseReductionPayload["type"] != "near_field" {
+			t.Fatalf("expected explicit near-field noise reduction, got %#v", payload)
+		}
 		turnDetection, ok := payload["turn_detection"]
 		if !ok || turnDetection != nil {
 			t.Fatalf("expected explicit null turn_detection for manual commits, got %#v", payload)
@@ -395,6 +399,10 @@ func TestBuildOpenAIRealtimeSessionUpdateUsesTranscriptionSessionShape(t *testin
 	}
 	if transcriptionPayload["model"] != "gpt-4o-mini-transcribe" || transcriptionPayload["language"] != "en" {
 		t.Fatalf("unexpected transcription payload %#v", transcriptionPayload)
+	}
+	noiseReductionPayload, ok := decoded["input_audio_noise_reduction"].(map[string]any)
+	if !ok || noiseReductionPayload["type"] != "near_field" {
+		t.Fatalf("expected explicit near-field noise reduction, got %#v", decoded)
 	}
 	turnDetection, ok := decoded["turn_detection"]
 	if !ok || turnDetection != nil {

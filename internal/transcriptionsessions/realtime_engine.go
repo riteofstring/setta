@@ -71,10 +71,11 @@ const (
 )
 
 type openAIRealtimeTranscriptionSessionUpdate struct {
-	Type                    string                                 `json:"type"`
-	InputAudioFormat        string                                 `json:"input_audio_format"`
-	InputAudioTranscription openairealtime.AudioTranscriptionParam `json:"input_audio_transcription,omitzero"`
-	TurnDetection           json.RawMessage                        `json:"turn_detection"`
+	Type                     string                                                                   `json:"type"`
+	InputAudioFormat         string                                                                   `json:"input_audio_format"`
+	InputAudioTranscription  openairealtime.AudioTranscriptionParam                                   `json:"input_audio_transcription,omitzero"`
+	InputAudioNoiseReduction openairealtime.RealtimeTranscriptionSessionAudioInputNoiseReductionParam `json:"input_audio_noise_reduction,omitzero"`
+	TurnDetection            json.RawMessage                                                          `json:"turn_detection"`
 }
 
 type openAIRealtimeAppendMessage struct {
@@ -531,6 +532,9 @@ func buildOpenAIRealtimeSessionUpdate(model string, language *string) openAIReal
 		InputAudioFormat: openAIRealtimePCM16Format,
 		InputAudioTranscription: openairealtime.AudioTranscriptionParam{
 			Model: openairealtime.AudioTranscriptionModel(strings.TrimSpace(model)),
+		},
+		InputAudioNoiseReduction: openairealtime.RealtimeTranscriptionSessionAudioInputNoiseReductionParam{
+			Type: openairealtime.NoiseReductionTypeNearField,
 		},
 		// Setta owns speech-turn boundaries for this rewrite slice by sending an
 		// explicit commit on each append, so provider-side VAD must stay off.
