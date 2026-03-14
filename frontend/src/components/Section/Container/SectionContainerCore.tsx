@@ -1,4 +1,3 @@
-import { useReactFlow } from "forks/xyflow/core/store";
 import React from "react";
 import {
   getAttachedTerminalParentIdForTerminalSection,
@@ -106,9 +105,6 @@ function _SectionContainerCore({
       ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
       : null;
   const hasSectionStyleTheme = Boolean(sectionStyleTheme);
-  const viewportInteractionActive = useReactFlow(
-    (state) => state.viewportInteractionActive,
-  );
   const sectionStyleVars = sectionStyleTheme
     ? ({
         "--setta-section-style-bg": sectionStyleTheme.bg,
@@ -137,15 +133,6 @@ function _SectionContainerCore({
     aiHighlightClassName,
     scopeHighlightClassName,
   });
-  const sectionShellStyle = viewportInteractionActive
-    ? ({
-        ...sectionStyleVars,
-        willChange: "transform",
-        transform: "translateZ(0)",
-        backfaceVisibility: "hidden",
-        isolation: "isolate",
-      } as React.CSSProperties)
-    : sectionStyleVars;
   const shouldRenderAgenticEdgeHandles =
     !hideAgenticEdgeHandles && !isAttachedTerminalChild;
 
@@ -157,7 +144,8 @@ function _SectionContainerCore({
       data-section-id={sectionId}
       data-section-type={sectionTypeName}
       data-section-active={isActiveSection ? "true" : "false"}
-      style={sectionShellStyle}
+      data-viewport-shell-promotable="true"
+      style={sectionStyleVars}
     >
       {shouldRenderAgenticEdgeHandles && (
         <AgenticEdgeHandles isUserView={isUserView} />

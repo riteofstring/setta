@@ -7,6 +7,7 @@ import "forks/xyflow/core/styles/style.css";
 import { useEffect } from "react";
 import { attachKeyEventListeners } from "state/actions/keyActivations";
 import { useLocalStorage, useMisc } from "state/definitions";
+import { CanvasEngineHost } from "./CanvasEngineHost";
 import "./react-flow-css.css";
 import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
 
@@ -14,15 +15,16 @@ export function UIPage() {
   useInitGlobalKeyEventListeners();
   useLastMouseDownMouseUpLocation();
   const showMiniMap = useLocalStorage((x) => x.showMinimap);
+  const useCanvasEngineV1 = useLocalStorage((x) => x.useCanvasEngineV1);
 
   return (
     <SectionDndContext>
       <div className="relative h-full min-h-0 w-full min-w-0">
-        <ReactFlow />
+        {useCanvasEngineV1 ? <CanvasEngineHost /> : <ReactFlow />}
         <PaneContextMenu />
         <SelectionContextMenu />
         <TypeErrorContextMenu />
-        {showMiniMap && <ResponsiveMiniMap />}
+        {!useCanvasEngineV1 && showMiniMap && <ResponsiveMiniMap />}
       </div>
     </SectionDndContext>
   );
