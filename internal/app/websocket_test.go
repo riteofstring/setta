@@ -1647,6 +1647,256 @@ func TestAppListenerWebsocketDispatchesBuiltInListenerEndpoint(t *testing.T) {
 	}
 }
 
+func TestAppListenerWebsocketDispatchesScriptableChatBuiltIns(t *testing.T) {
+	// The Go listener websocket should own the scriptable chat history surface
+	// needed by the retained Python chat_toolkit client.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = appChatSectionTestProject(t)
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed project runtime: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	listenerConn, _, err := websocket.Dial(
+		context.Background(),
+		"ws"+strings.TrimPrefix(server.URL, "http")+strings.Replace(wsapi.RouteListenerByID, "{listenerID}", "listener-history", 1),
+		&websocket.DialOptions{
+			HTTPHeader: http.Header{
+				"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("dial listener websocket route: %v", err)
+	}
+	defer listenerConn.CloseNow()
+
+	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerInit","content":{"projectName":"Alpha"}}`)); err != nil {
+		t.Fatalf("write listener init message: %v", err)
+	}
+	_ = readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerForceRefresh, 1)
+
+	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	if ack := readAppRouteEnvelope(t, listenerConn); ack.MessageType != realtime.MessageTypeListenerRegisterAck {
+		t.Fatalf("expected listener register ack, got %q", ack.MessageType)
+	}
+
+	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRouterEndpointCall","content":{"projectConfigId":"project-alpha","callId":"call-create","endpointName":"route_create_chat","payload":{"firstMessage":{"id":"user-1","role":"user","content":[{"type":"text","text":"Hello listener history"}]}}}}`)); err != nil {
+		t.Fatalf("write listener create-chat endpoint call: %v", err)
+	}
+	createEnvelope := readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerRouterResult, 1)
+	var createContent realtime.ListenerRouterEndpointResultContent
+	if err := json.Unmarshal(createEnvelope.Content, &createContent); err != nil {
+		t.Fatalf("decode listener create-chat result: %v", err)
+	}
+	if createContent.ProjectConfigID != "project-alpha" || createContent.CallID != "call-create" || !createContent.OK {
+		t.Fatalf("unexpected create-chat listener result %#v", createContent)
+	}
+	createdChat, ok := createContent.Result.(map[string]any)
+	if !ok {
+		t.Fatalf("expected created chat payload map, got %#v", createContent.Result)
+	}
+	chatID, ok := createdChat["id"].(string)
+	if !ok || strings.TrimSpace(chatID) == "" {
+		t.Fatalf("expected created chat id, got %#v", createdChat)
+	}
+	if createdChat["name"] != "Hello listener history" {
+		t.Fatalf("expected created chat name to derive from first message, got %#v", createdChat["name"])
+	}
+	llmConfigPayload, ok := createdChat["llmConfig"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected llmConfig payload map, got %#v", createdChat["llmConfig"])
+	}
+	if llmConfigPayload["id"] != "scriptable" {
+		t.Fatalf("expected scriptable llm config id, got %#v", llmConfigPayload["id"])
+	}
+	if projectConfigID, exists := createdChat["projectConfigId"]; exists && projectConfigID != nil {
+		t.Fatalf("expected nil projectConfigId on created scriptable chat, got %#v", projectConfigID)
+	}
+
+	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRouterEndpointCall","content":{"projectConfigId":"project-alpha","callId":"call-append","endpointName":"route_append_chat_messages","payload":{"chatId":"`+chatID+`","messages":[{"id":"assistant-1","role":"assistant","content":[{"type":"text","text":"Reply"}]}]}}}`)); err != nil {
+		t.Fatalf("write listener append-chat endpoint call: %v", err)
+	}
+	appendEnvelope := readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerRouterResult, 1)
+	var appendContent realtime.ListenerRouterEndpointResultContent
+	if err := json.Unmarshal(appendEnvelope.Content, &appendContent); err != nil {
+		t.Fatalf("decode listener append-chat result: %v", err)
+	}
+	if appendContent.ProjectConfigID != "project-alpha" || appendContent.CallID != "call-append" || !appendContent.OK {
+		t.Fatalf("unexpected append-chat listener result %#v", appendContent)
+	}
+	appendedChat, ok := appendContent.Result.(map[string]any)
+	if !ok {
+		t.Fatalf("expected appended chat payload map, got %#v", appendContent.Result)
+	}
+	messages, ok := appendedChat["messages"].([]any)
+	if !ok || len(messages) != 2 {
+		t.Fatalf("expected two chat messages after append, got %#v", appendedChat["messages"])
+	}
+
+	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRouterEndpointCall","content":{"projectConfigId":"project-alpha","callId":"call-system","endpointName":"route_set_chat_system_prompt","payload":{"chatId":"`+chatID+`","systemPrompt":"System prompt"}}}`)); err != nil {
+		t.Fatalf("write listener set-system-prompt endpoint call: %v", err)
+	}
+	systemEnvelope := readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerRouterResult, 1)
+	var systemContent realtime.ListenerRouterEndpointResultContent
+	if err := json.Unmarshal(systemEnvelope.Content, &systemContent); err != nil {
+		t.Fatalf("decode listener set-system-prompt result: %v", err)
+	}
+	systemChat, ok := systemContent.Result.(map[string]any)
+	if !ok {
+		t.Fatalf("expected system prompt chat payload map, got %#v", systemContent.Result)
+	}
+	if systemChat["systemPrompt"] != "System prompt" {
+		t.Fatalf("expected system prompt round-trip, got %#v", systemChat["systemPrompt"])
+	}
+
+	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRouterEndpointCall","content":{"projectConfigId":"project-alpha","callId":"call-metadata","endpointName":"route_get_all_chat_metadata","payload":{}}}`)); err != nil {
+		t.Fatalf("write listener get-all-chat-metadata endpoint call: %v", err)
+	}
+	metadataEnvelope := readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerRouterResult, 1)
+	var metadataContent realtime.ListenerRouterEndpointResultContent
+	if err := json.Unmarshal(metadataEnvelope.Content, &metadataContent); err != nil {
+		t.Fatalf("decode listener metadata result: %v", err)
+	}
+	metadataEntries, ok := metadataContent.Result.([]any)
+	if !ok || len(metadataEntries) != 1 {
+		t.Fatalf("expected one metadata entry, got %#v", metadataContent.Result)
+	}
+	metadataEntry, ok := metadataEntries[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected metadata entry payload map, got %#v", metadataEntries[0])
+	}
+	if metadataEntry["id"] != chatID {
+		t.Fatalf("expected metadata id %q, got %#v", chatID, metadataEntry["id"])
+	}
+}
+
+func TestAppListenerWebsocketEmitsChatStreamDeltaToFrontend(t *testing.T) {
+	// The listener chat stream endpoint should publish frontend streaming updates
+	// over the Go websocket hub instead of relying on the Python listener path.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = appChatSectionTestProject(t)
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed project runtime: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	frontendConn, _, err := websocket.Dial(
+		context.Background(),
+		"ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend,
+		&websocket.DialOptions{
+			HTTPHeader: http.Header{
+				"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer frontendConn.CloseNow()
+	_ = readAppRouteEnvelopeUntilType(t, frontendConn, realtime.MessageTypeFrontendIdentity, 2)
+
+	listenerConn, _, err := websocket.Dial(
+		context.Background(),
+		"ws"+strings.TrimPrefix(server.URL, "http")+strings.Replace(wsapi.RouteListenerByID, "{listenerID}", "listener-stream", 1),
+		&websocket.DialOptions{
+			HTTPHeader: http.Header{
+				"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("dial listener websocket route: %v", err)
+	}
+	defer listenerConn.CloseNow()
+
+	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerInit","content":{"projectName":"Alpha"}}`)); err != nil {
+		t.Fatalf("write listener init message: %v", err)
+	}
+	_ = readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerForceRefresh, 1)
+
+	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	if ack := readAppRouteEnvelope(t, listenerConn); ack.MessageType != realtime.MessageTypeListenerRegisterAck {
+		t.Fatalf("expected listener register ack, got %q", ack.MessageType)
+	}
+
+	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRouterEndpointCall","content":{"projectConfigId":"project-alpha","callId":"call-stream","endpointName":"route_emit_chat_stream_delta","payload":{"chatId":"chat-1","sectionId":"chat-section","chunk":{"type":"message_stop","message_id":"assistant-1"}}}}`)); err != nil {
+		t.Fatalf("write listener emit-chat-stream-delta endpoint call: %v", err)
+	}
+	streamEnvelope := readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerRouterResult, 1)
+	var streamContent realtime.ListenerRouterEndpointResultContent
+	if err := json.Unmarshal(streamEnvelope.Content, &streamContent); err != nil {
+		t.Fatalf("decode listener stream result: %v", err)
+	}
+	if streamContent.ProjectConfigID != "project-alpha" || streamContent.CallID != "call-stream" || !streamContent.OK || streamContent.Result != nil {
+		t.Fatalf("unexpected stream listener result %#v", streamContent)
+	}
+
+	frontendEnvelope := readAppRouteEnvelopeUntilType(t, frontendConn, realtime.MessageTypeLLMStreamingResponse, 2)
+	var frontendContent realtime.LLMStreamingResponseContent
+	if err := json.Unmarshal(frontendEnvelope.Content, &frontendContent); err != nil {
+		t.Fatalf("decode frontend streaming response: %v", err)
+	}
+	if frontendContent.ChatID != "chat-1" {
+		t.Fatalf("expected streamed chat id chat-1, got %#v", frontendContent)
+	}
+	if frontendContent.SectionID == nil || *frontendContent.SectionID != "chat-section" {
+		t.Fatalf("expected streamed section id chat-section, got %#v", frontendContent.SectionID)
+	}
+	if frontendContent.ProjectConfigID == nil || *frontendContent.ProjectConfigID != "project-alpha" {
+		t.Fatalf("expected streamed project config id project-alpha, got %#v", frontendContent.ProjectConfigID)
+	}
+	chunk, ok := frontendContent.Chunk.(map[string]any)
+	if !ok {
+		t.Fatalf("expected streamed chunk payload map, got %#v", frontendContent.Chunk)
+	}
+	if chunk["type"] != "message_stop" || chunk["message_id"] != "assistant-1" {
+		t.Fatalf("unexpected streamed chunk %#v", chunk)
+	}
+}
+
 func TestAppRunCodeDrawSnapshotsBroadcastBinaryListenerRealtimeEvent(t *testing.T) {
 	skipIfAppTerminalPTYUnsupported(t)
 

@@ -36,6 +36,12 @@ Current state:
   - built-in listener endpoint dispatch on that route for manifest-backed
     `GoHTTPRoutes` endpoint names that already map to Go `POST /api` handlers
     without path params
+  - scriptable listener chat history/metadata CRUD on that route for
+    `route_create_chat`, `route_get_chat`, `route_append_chat_messages`,
+    `route_set_chat_system_prompt`, `route_get_all_chat_metadata`, and
+    `route_delete_chat`
+  - frontend `LLMStreamingResponse` broadcasts on that route for
+    `route_emit_chat_stream_delta`
   - listener coverage and force-refresh reads/writes
   - listener websocket DTOs in `internal/realtime`
 - Python still owns:
@@ -44,7 +50,8 @@ Current state:
     Go listener route
   - local dependency-graph rebuilding and generated runtime state
   - remaining built-in listener endpoint dispatch outside the current
-    manifest-backed `GoHTTPRoutes` subset
+    manifest-backed `GoHTTPRoutes` subset plus the remaining
+    `route_run_mcp_tools` chat-toolkit tool-runner surface
   - remaining local mutation patching and authoritative patch/refresh behavior
     in
     `backend/setta/listeners/router_endpoint_local_updates.py`

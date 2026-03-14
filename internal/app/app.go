@@ -57,6 +57,7 @@ import (
 	"setta/internal/runchains"
 	"setta/internal/runs"
 	"setta/internal/runtime"
+	"setta/internal/scriptablechat"
 	"setta/internal/settingsstate"
 	"setta/internal/shareartifacts"
 	"setta/internal/sshx"
@@ -166,6 +167,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		agentRunRuntime       *agentruns.Runtime
 		managedLiveRuntime    *managedchat.LiveRuntime
 		managedChatService    *managedchat.Service
+		scriptableChatService *scriptablechat.Service
 		chatSectionChatIDs    *chatsections.Service
 		gitReadService        *gitread.Service
 		fileBrowserService    *filebrowser.Service
@@ -860,6 +862,16 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
+		scriptableChatService, err = scriptablechat.NewService(scriptablechat.ServiceOptions{
+			Runs:        agentRunStore,
+			Engines:     engineStore,
+			LLM:         llmRuntime,
+			Broadcaster: websocketHub,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
 		gitReadService, err = gitread.NewService(gitread.ServiceOptions{
 			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
 		})
@@ -1243,7 +1255,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	authRefreshWindowSeconds := int(authService.AuthCookieRefreshWindow() / time.Second)
 	worktreeName := devworktree.ActiveName()
 	statusReadyAt := time.Now().UTC()
-	listenerBuiltInInvoker, err := newListenerBuiltInEndpointInvoker(authService)
+	listenerBuiltInInvoker, err := newListenerBuiltInEndpointInvoker(authService, scriptableChatService)
 	if err != nil {
 		_ = errors.Join(
 			closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()),

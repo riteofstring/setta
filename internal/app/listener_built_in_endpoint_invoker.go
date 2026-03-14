@@ -16,12 +16,14 @@ import (
 	"setta/internal/frontendbindings"
 	"setta/internal/httpapi"
 	"setta/internal/modes"
+	"setta/internal/scriptablechat"
 	"setta/internal/wsapi"
 )
 
 type listenerBuiltInEndpointInvoker struct {
-	authService *auth.Service
-	routes      map[string]listenerBuiltInRoute
+	authService    *auth.Service
+	scriptableChat *scriptablechat.Service
+	routes         map[string]listenerBuiltInRoute
 
 	mu      sync.RWMutex
 	handler http.Handler
@@ -41,14 +43,15 @@ type listenerEndpointErrorDetail struct {
 	Message string `json:"message"`
 }
 
-func newListenerBuiltInEndpointInvoker(authService *auth.Service) (*listenerBuiltInEndpointInvoker, error) {
+func newListenerBuiltInEndpointInvoker(authService *auth.Service, scriptableChat *scriptablechat.Service) (*listenerBuiltInEndpointInvoker, error) {
 	routes, err := buildListenerBuiltInRoutes()
 	if err != nil {
 		return nil, err
 	}
 	return &listenerBuiltInEndpointInvoker{
-		authService: authService,
-		routes:      routes,
+		authService:    authService,
+		scriptableChat: scriptableChat,
+		routes:         routes,
 	}, nil
 }
 
@@ -100,6 +103,9 @@ func (i *listenerBuiltInEndpointInvoker) InvokeBuiltInListenerEndpoint(
 	if i == nil {
 		return nil, false, nil
 	}
+	if result, handled, err := i.invokeExplicitBuiltInEndpoint(ctx, info, endpointName, payload); handled || err != nil {
+		return result, handled, err
+	}
 
 	route, ok := i.routes[endpointName]
 	if !ok {
@@ -113,6 +119,70 @@ func (i *listenerBuiltInEndpointInvoker) InvokeBuiltInListenerEndpoint(
 
 	result, err := i.dispatch(ctx, handler, info, route, payload)
 	return result, true, err
+}
+
+func (i *listenerBuiltInEndpointInvoker) invokeExplicitBuiltInEndpoint(
+	ctx context.Context,
+	info wsapi.ConnectionInfo,
+	endpointName string,
+	payload map[string]any,
+) (any, bool, error) {
+	if i == nil || i.scriptableChat == nil {
+		return nil, false, nil
+	}
+
+	switch strings.TrimSpace(endpointName) {
+	case "route_create_chat":
+		request, err := decodeListenerBuiltInPayload[scriptablechat.CreateChatRequest](payload)
+		if err != nil {
+			return nil, true, err
+		}
+		result, err := i.scriptableChat.CreateChat(request)
+		return result, true, err
+	case "route_get_chat":
+		request, err := decodeListenerBuiltInPayload[scriptablechat.GetChatRequest](payload)
+		if err != nil {
+			return nil, true, err
+		}
+		result, err := i.scriptableChat.GetChat(request)
+		return result, true, err
+	case "route_append_chat_messages":
+		request, err := decodeListenerBuiltInPayload[scriptablechat.AppendMessagesRequest](payload)
+		if err != nil {
+			return nil, true, err
+		}
+		result, err := i.scriptableChat.AppendMessages(request)
+		return result, true, err
+	case "route_set_chat_system_prompt":
+		request, err := decodeListenerBuiltInPayload[scriptablechat.SetSystemPromptRequest](payload)
+		if err != nil {
+			return nil, true, err
+		}
+		result, err := i.scriptableChat.SetSystemPrompt(request)
+		return result, true, err
+	case "route_get_all_chat_metadata":
+		request, err := decodeListenerBuiltInPayload[scriptablechat.GetAllMetadataRequest](payload)
+		if err != nil {
+			return nil, true, err
+		}
+		result, err := i.scriptableChat.GetAllMetadata(request)
+		return result, true, err
+	case "route_delete_chat":
+		request, err := decodeListenerBuiltInPayload[scriptablechat.DeleteChatRequest](payload)
+		if err != nil {
+			return nil, true, err
+		}
+		return nil, true, i.scriptableChat.DeleteChat(request)
+	case "route_emit_chat_stream_delta":
+		request, err := decodeListenerBuiltInPayload[scriptablechat.EmitStreamDeltaRequest](payload)
+		if err != nil {
+			return nil, true, err
+		}
+		request.ShareSessionID = info.Modes.ShareSessionID
+		return nil, true, i.scriptableChat.EmitStreamDelta(ctx, request)
+	default:
+		return nil, false, nil
+	}
 }
 
 func (i *listenerBuiltInEndpointInvoker) currentHandler() http.Handler {
@@ -238,4 +308,16 @@ func parseListenerEndpointHTTPError(statusCode int, responseBody []byte) error {
 	}
 
 	return fmt.Errorf("listener endpoint request failed with status %d: %s", statusCode, string(trimmedBody))
+}
+
+func decodeListenerBuiltInPayload[T any](payload map[string]any) (T, error) {
+	var decoded T
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return decoded, fmt.Errorf("marshal built-in listener payload: %w", err)
+	}
+	if err := json.Unmarshal(body, &decoded); err != nil {
+		return decoded, fmt.Errorf("decode built-in listener payload: %w", err)
+	}
+	return decoded, nil
 }
