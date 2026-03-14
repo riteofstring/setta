@@ -170,6 +170,10 @@ Current status:
   listed in `internal/httpapi/route_names.go` is represented somewhere in
   `CurrentRouteGroups()`, so route-inventory widening cannot silently drift
   past the binding source of truth
+- the validation suite now also checks that every Go websocket route constant
+  declared in `internal/wsapi/routes.go` is represented somewhere in
+  `CurrentRouteGroups()`, so websocket route widening cannot silently drift
+  past the binding source of truth
 - a current repo scan shows the only generated frontend contract files under
   `frontend/src` are `generatedRoutes.ts`, `generatedTypes.ts`, and
   `generatedEndpoints.ts`, all emitted by the Go-owned generator; remaining

@@ -981,6 +981,29 @@ func TestCurrentRouteGroupsCoverEveryBareHTTPRouteName(t *testing.T) {
 	)
 }
 
+func TestCurrentRouteGroupsCoverEveryWebsocketRouteName(t *testing.T) {
+	repoRoot := testRepoRoot(t)
+
+	websocketRouteNames := readWebsocketRouteIdentifiers(
+		t,
+		filepath.Join(repoRoot, "internal", "wsapi", "routes.go"),
+	)
+	currentRouteGroupNames := readCurrentRouteGroupIdentifiers(
+		t,
+		filepath.Join(repoRoot, "internal", "frontendbindings", "specs.go"),
+	)
+
+	missing := differenceSortedStrings(websocketRouteNames, currentRouteGroupNames)
+	if len(missing) == 0 {
+		return
+	}
+
+	t.Fatalf(
+		"CurrentRouteGroups route inventory drifted from internal/wsapi/routes.go: missing websocket routes %s",
+		strings.Join(missing, ", "),
+	)
+}
+
 func TestCurrentEndpointContractManifest(t *testing.T) {
 	t.Helper()
 
@@ -1034,6 +1057,37 @@ func readBareHTTPRouteIdentifiers(t *testing.T, path string) []string {
 
 	t.Fatalf("did not find bareRouteNames declaration in %s", path)
 	return nil
+}
+
+func readWebsocketRouteIdentifiers(t *testing.T, path string) []string {
+	t.Helper()
+
+	file := parseGoTestFile(t, path)
+	seen := map[string]struct{}{}
+
+	for _, declaration := range file.Decls {
+		genDecl, ok := declaration.(*ast.GenDecl)
+		if !ok || genDecl.Tok != token.CONST {
+			continue
+		}
+		for _, spec := range genDecl.Specs {
+			valueSpec, ok := spec.(*ast.ValueSpec)
+			if !ok {
+				continue
+			}
+			for _, name := range valueSpec.Names {
+				if !strings.HasPrefix(name.Name, "Route") {
+					continue
+				}
+				seen[name.Name] = struct{}{}
+			}
+		}
+	}
+
+	if len(seen) == 0 {
+		t.Fatalf("did not find websocket route constants in %s", path)
+	}
+	return sortedStringKeys(seen)
 }
 
 func readCurrentRouteGroupIdentifiers(t *testing.T, path string) []string {
@@ -1127,7 +1181,12 @@ func routePathIdentifier(route *ast.CompositeLit) (string, bool) {
 			return "", false
 		}
 		xIdent, ok := selector.X.(*ast.Ident)
-		if !ok || xIdent.Name != "httpapi" {
+		if !ok {
+			return "", false
+		}
+		switch xIdent.Name {
+		case "httpapi", "wsapi":
+		default:
 			return "", false
 		}
 		return selector.Sel.Name, true
