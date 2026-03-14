@@ -51,6 +51,9 @@ Current state:
     `route_set_chat_section_state` calls on that route so chat section sync no
     longer depends on client-side heuristic patching; the retained Python SDK
     now waits on the correlated force-refresh `callId` instead
+  - the active Python listener/chat-toolkit endpoint client boundary now lives
+    in `backend/setta/api/listener_endpoint_client.py` instead of the old
+    Python route-introspection generator
   - listener coverage and force-refresh reads/writes
   - listener websocket DTOs in `internal/realtime`
 - Python still owns:
@@ -171,11 +174,11 @@ goal through correlated authoritative force-refresh handling.
 
 ### 5. Python Binding Ownership
 
-If `generated_listener_endpoints.py` remains part of the public SDK, its source
-of truth should move to Go-owned endpoint specs and DTOs.
-
-Do not keep a second handwritten Python contract registry once listener
-endpoint ownership moves to Go.
+The broad Python-generated `generated_listener_endpoints.py` surface is no
+longer the active client boundary for listener/chat-toolkit callers. Keep the
+retained Python listener endpoint client narrow and tied only to the active
+Go-owned listener endpoint set until a fuller Go-to-Python contract pipeline
+exists.
 
 ## Execution Plan
 
@@ -224,13 +227,16 @@ local heuristic updates.
 
 ### Step 5. Move Listener Endpoint Binding Ownership To Go
 
-- Decide whether `generated_listener_endpoints.py` remains or is replaced by a
-  smaller Go-owned Python client layer.
-- Update `setta.api.chat_toolkit` to use the Go-owned listener endpoint client
-  boundary.
+- Keep active listener/chat-toolkit callers on the narrow retained
+  `listener_endpoint_client.py` boundary instead of the broad generated Python
+  route inventory.
+- Replace the remaining Python-owned contract-generation path only when a
+  fuller Go-to-Python endpoint DTO/spec pipeline exists.
 
 Exit condition:
-listener endpoint contracts have one Go-owned source of truth.
+active listener endpoint callers do not depend on Python route-introspection
+generation, and any remaining broader contract generation path is explicit
+cleanup tail.
 
 ### Step 6. Cut Over Share Listener Runtime And Remove Python Transport
 

@@ -24,7 +24,7 @@ import websockets
 from pydantic import BaseModel, ValidationError
 from websockets.exceptions import ConnectionClosedError
 
-from setta.api.generated_listener_endpoints import RouterEndpointAPI
+from setta.api.listener_endpoint_client import RouterEndpointAPI
 from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
