@@ -388,3 +388,12 @@ Append-only log for autonomous frontend cleanup slices.
 - Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
 - Commit hash: `473ff9c08`
 - Next highest-value unblocked slice: continue splitting `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx` by moving the standalone managed-chat authority/error-state logic and page-level render branching into a feature-local controller or view-model module
+
+## 2026-03-12 15:54 PDT
+
+- What changed: Extracted standalone managed-chat authority assembly, thread-title derivation, and blocked/not-found guard decisions from `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx` into `frontend/src/components/Pages/Project/standaloneProjectSurfaceViewModel.ts`. The new module now owns `ManagedChatSurfaceAuthorityState` shaping, standalone thread-title fallback behavior, and the derived guard state for route-invalid threads, hydrated thread-not-found, and managed-chat denial. Added focused Vitest coverage for the new owner, refreshed the frontend module map, and reduced `StandaloneProjectSurfacePage.tsx` to 455 lines.
+- Key files touched: `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx`, `frontend/src/components/Pages/Project/standaloneProjectSurfaceViewModel.ts`, `frontend/src/components/Pages/Project/standaloneProjectSurfaceViewModel.test.ts`, `docs/reference/frontend-module-map.md`
+- Tests/verification run: `pnpm -C frontend exec vitest run src/components/Pages/Project/standaloneProjectSurfaceViewModel.test.ts src/components/Pages/Project/standaloneProjectSurfaceRouting.test.ts src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx`; `pnpm -C frontend exec prettier --check src/components/Pages/Project/StandaloneProjectSurfacePage.tsx src/components/Pages/Project/standaloneProjectSurfaceRouting.ts src/components/Pages/Project/standaloneProjectSurfaceRouting.test.ts src/components/Pages/Project/standaloneProjectSurfaceViewModel.ts src/components/Pages/Project/standaloneProjectSurfaceViewModel.test.ts ../docs/reference/frontend-module-map.md`; `git diff --check`
+- Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
+- Commit hash: `54e6ef0ea`
+- Next highest-value unblocked slice: continue splitting `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx` by moving the remaining error-state lifecycle and page-level render branching into a feature-local controller or surface renderer module
