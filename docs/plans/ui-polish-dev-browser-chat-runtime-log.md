@@ -655,3 +655,17 @@ For each new entry, append:
 - Decisions: Keep the fix narrowly targeted to standalone route navigation. Floating/bottom-dock chat windows should not remount on every thread selection, but the standalone `/chat` surface must remount on route-owned `chatId` changes and must not treat same-project thread navigations as a project reload boundary.
 - Blockers or open questions: None for this slice.
 - Next recommended slice: None from the original plan; further follow-up work can continue as separate polish/report items if new issues appear.
+
+### 2026-03-13 09:05
+
+- Date: 2026-03-13 09:05 EDT
+- Scope: Reconciled the plan document against the original user checklist after discovering that the old phase checkboxes and the later completion claims had drifted apart.
+- Tests added or updated first: None. This was a documentation reconciliation pass only.
+- Production code changed: None.
+- Documentation changed: Replaced the stale phase-by-phase checkbox block in `docs/plans/ui-polish-dev-browser-chat-runtime-plan.md` with an ID-based source-of-truth checklist (`UI-001` through `UI-014`) that maps directly to the user's original list items and records only `done` versus `open`.
+- Verification run: Manual audit of the current code, tests, and prior log entries. Confirmed that most original checklist items do have direct code/test evidence, but the earlier blanket claim that "the remaining unchecked items ... are stale checklist bookkeeping" was too broad.
+- CDP visual check: Not rerun. This pass did not change production behavior.
+- Decisions: Treat the new reconciled checklist in the plan file as authoritative going forward. Do not infer plan completion from phase summaries or follow-up commits without a line-by-line checklist reconciliation.
+- Corrections recorded: The prior statement at `2026-03-12 18:10 EDT` that the remaining unchecked markdown items were stale bookkeeping is no longer authoritative as a global claim. After reconciliation, `UI-001` (duplicate top-right window-control bug) and `UI-006` (exhaustive Q quick info audit across window/chrome/React Flow controls) remain explicitly open because the current evidence is not strong enough to mark them done.
+- Blockers or open questions: None for the documentation cleanup itself. The remaining work is now explicit in the plan instead of being hidden by stale phase boxes.
+- Next recommended slice: Close `UI-001` and `UI-006` with dedicated regressions and explicit CDP verification, then append a new log entry that moves those IDs from `open` to `done`.
