@@ -825,3 +825,15 @@ For each new entry, append:
 - Decisions: Use one overlay slot rather than separate columns so the title alignment stays unchanged and the hover-state swap does not consume extra horizontal space. Keep hidden-handle pointer events disabled so the rest-state status marker remains interactable.
 - Blockers or open questions: No code blockers. A healthy DevTools MCP session is still needed to visually confirm the leading-slot status/drag swap in a live browser.
 - Next recommended slice: None from the original plan. Continue only with new follow-up polish or bugfix items.
+
+### 2026-03-13 13:15
+
+- Date: 2026-03-13 13:15 EDT
+- Scope: Fixed the parent activity accordion’s `Open all` control so a real click opens the child accordions instead of being swallowed by the parent trigger hit area.
+- Tests added or updated first: Updated `frontend/tests/e2e/chat/chat-tool-calls.spec.ts` so the parent `Open all` control is exercised with real Playwright clicks against both the simple tool-only activity group and a mixed thought/action/tool group. The mixed group regression now explicitly requires the thinking, action, and tool child accordions to report `aria-expanded="true"` after the parent control is clicked. Re-ran `frontend/src/components/Chat/ChatMessages.test.tsx` as the touched unit suite for the shared chat renderer.
+- Production code changed: Updated `frontend/src/components/Chat/ChatMessages.tsx` so the parent activity header no longer uses a nested Radix `Accordion.Trigger` wrapper for the whole surface. The existing manual trigger semantics now own `aria-expanded`/`data-state`, which keeps the `Open all` button out of the Radix trigger event path while preserving the same layout, hover metadata, and chevron behavior.
+- Verification run: Final green runs were `pnpm -C frontend exec vitest run src/components/Chat/ChatMessages.test.tsx` and `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/chat-tool-calls.spec.ts --grep "groups tool calls in one activity container with dense full-width rows|groups consecutive thoughts, actions, and tool calls under one parent activity accordion"`.
+- CDP visual check: Not run. `chrome-devtools-mcp` still fails in this chat with `Transport closed`, so the required live visual confirmation remains blocked.
+- Decisions: Keep the fix localized to the parent activity header rather than layering more event suppression on the nested button. The browser regression now uses actual pointer clicks with the focus-within state that the UI already exposes, so it covers the real interaction path much better than the earlier `element.click()` shortcut.
+- Blockers or open questions: No code blockers. A healthy DevTools MCP session is still needed to visually confirm the live `Open all` interaction in a browser.
+- Next recommended slice: None from the original plan. Continue only with new follow-up polish or bugfix items.

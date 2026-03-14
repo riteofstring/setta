@@ -128,10 +128,8 @@ test.describe.serial("chat tool calls", () => {
         '[data-chat-activity-item-copy-button="true"]',
       );
       await expect(itemCopyButtons).toHaveCount(0);
-      await activityTrigger.hover();
-      await openAllButton.evaluate((element: HTMLButtonElement) =>
-        element.click(),
-      );
+      await activityTrigger.focus();
+      await openAllButton.click();
       await expect(activityTrigger).toHaveAttribute("aria-expanded", "true");
       await expect(openAllButton).toHaveText(/Close all/i);
       await expect(openAllButton).toHaveAttribute(
@@ -145,10 +143,8 @@ test.describe.serial("chat tool calls", () => {
       ).toHaveCount(2);
       await expect(itemCopyButtons).toHaveCount(2);
 
-      await activityTrigger.hover();
-      await openAllButton.evaluate((element: HTMLButtonElement) =>
-        element.click(),
-      );
+      await activityTrigger.focus();
+      await openAllButton.click();
       await expect(openAllButton).toHaveText(/Open all/i);
       await expect(openAllButton).toHaveAttribute(
         "title",
@@ -161,10 +157,8 @@ test.describe.serial("chat tool calls", () => {
       ).toHaveCount(2);
       await expect(itemCopyButtons).toHaveCount(2);
 
-      await activityTrigger.hover();
-      await openAllButton.evaluate((element: HTMLButtonElement) =>
-        element.click(),
-      );
+      await activityTrigger.focus();
+      await openAllButton.click();
       await expect(openAllButton).toHaveText(/Close all/i);
       await expect(
         toolSection.locator(
@@ -1554,6 +1548,32 @@ test.describe.serial("chat tool calls", () => {
       ).toHaveCount(1);
 
       await expect(section).toContainText("Reviewing structure");
+
+      const activityTrigger = section.locator(
+        '[data-chat-assistant-activity-trigger="true"]',
+      );
+      const openAllButton = section.locator(
+        '[data-chat-assistant-activity-open-all-button="true"]',
+      );
+      await activityTrigger.focus();
+      await expect(openAllButton).toBeVisible();
+      await openAllButton.click();
+      await expect(activityTrigger).toHaveAttribute("aria-expanded", "true");
+      await expect(
+        section.locator(
+          '[data-chat-thinking-trigger="true"][aria-expanded="true"]',
+        ),
+      ).toHaveCount(1);
+      await expect(
+        section.locator(
+          '[data-chat-action-item-trigger="true"][aria-expanded="true"]',
+        ),
+      ).toHaveCount(1);
+      await expect(
+        section.locator(
+          '[data-chat-tool-call-item-trigger="true"][aria-expanded="true"]',
+        ),
+      ).toHaveCount(1);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
