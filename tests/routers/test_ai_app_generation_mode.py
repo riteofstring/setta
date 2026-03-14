@@ -43,6 +43,7 @@ class TestAIAppGenerationModeHelpers:
             _require_image_attachment_for_app_generation_mode(
                 "json_render_with_image",
                 [UserChatMessage(id="msg-user", attachments=[])],
+                {"msg-user": "json_render_with_image"},
             )
 
         assert exc.value.status_code == 400
@@ -66,13 +67,40 @@ class TestAIAppGenerationModeHelpers:
                     ],
                 )
             ],
+            {"msg-user": "json_render_with_image"},
         )
 
-    def test_image_mode_accepts_retained_image_history_without_new_attachment(
+    def test_image_mode_rejects_plain_chat_image_history_without_provenance(
         self,
     ) -> None:
+        with pytest.raises(HTTPException) as exc:
+            _require_image_attachment_for_app_generation_mode(
+                "json_render_with_image",
+                [
+                    UserChatMessage(
+                        id="msg-image",
+                        attachments=[
+                            {
+                                "id": "image-1",
+                                "name": "reference.png",
+                                "mimeType": "image/png",
+                            }
+                        ],
+                    ),
+                    UserChatMessage(id="msg-follow-up", attachments=[]),
+                ],
+                {},
+            )
+
+        assert exc.value.status_code == 400
+        assert (
+            exc.value.detail
+            == "json_render_with_image requires at least one image attachment."
+        )
+
+    def test_image_mode_accepts_retained_image_history_with_provenance(self) -> None:
         # A follow-up turn should stay valid when the thread already contains a
-        # prior user-supplied reference image.
+        # prior image-guided user turn with the retained reference image.
         _require_image_attachment_for_app_generation_mode(
             "json_render_with_image",
             [
@@ -88,6 +116,7 @@ class TestAIAppGenerationModeHelpers:
                 ),
                 UserChatMessage(id="msg-follow-up", attachments=[]),
             ],
+            {"msg-image": "json_render_with_image"},
         )
 
     def test_normalize_app_generation_by_message_id_filters_non_user_entries(

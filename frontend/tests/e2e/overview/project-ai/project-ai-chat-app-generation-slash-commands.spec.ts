@@ -185,6 +185,51 @@ test("project ai chat /app-image requires an image attachment before submitting"
   }
 });
 
+test("project ai chat does not reuse a plain-chat image for /app-image", async ({
+  page,
+}) => {
+  const capturedRequests: ChatSubmitRequest[] = [];
+  await mockProjectChatSubmitCapture(page, capturedRequests);
+  const { engineCleanup, projectContext, projectChatSurface } =
+    await openProjectChatWithManagedEngine(page);
+
+  try {
+    await projectChatSurface
+      .locator('input[type="file"]')
+      .first()
+      .setInputFiles({
+        name: "reference.png",
+        mimeType: "image/png",
+        buffer: Buffer.from("png"),
+      });
+    await expect(projectChatSurface.getByText("reference.png")).toBeVisible();
+
+    await submitProjectChatMessage(
+      page,
+      projectChatSurface,
+      "Use this image as context for a normal chat reply.",
+    );
+    await expect.poll(() => capturedRequests.length).toBe(1);
+    expect(capturedRequests[0]?.appGenerationMode ?? null).toBeNull();
+    expect(capturedRequests[0]?.appGenerationByMessageId ?? {}).toEqual({});
+
+    await submitProjectChatMessage(
+      page,
+      projectChatSurface,
+      "/app-image compact admin dashboard",
+    );
+
+    await expect(projectChatSurface).toContainText(
+      "Attach at least one image before using /app-image.",
+    );
+    await page.waitForTimeout(200);
+    expect(capturedRequests).toHaveLength(1);
+  } finally {
+    await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("project ai chat /app-image preserves attachments while appending suffix text", async ({
   page,
 }) => {

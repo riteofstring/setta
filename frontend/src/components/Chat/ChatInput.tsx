@@ -256,10 +256,21 @@ type QueuedChatDraft = {
   id: string;
   message: string;
   attachments: ChatFileAttachment[];
+  replaySnapshot: QueuedDraftReplaySnapshot;
   queuedAtMs: number;
   replayState: "ready" | "retry_later" | "failed";
   lastAutoReplayVersion: number | null;
 };
+
+type QueuedDraftReplaySnapshot =
+  | {
+      kind: "plain_message";
+    }
+  | {
+      kind: "slash_command";
+      availabilityPolicy: "fixed" | "current_registry";
+      command: ChatSlashCommand;
+    };
 
 export function resolveSlashCommandRequest({
   message,
@@ -378,7 +389,7 @@ function shouldRemoveQueuedDraft(
   return outcome === "submitted" || outcome === "handled_local";
 }
 
-function buildSlashCommandReplaySnapshot(
+function serializeSlashCommandsForReplaySignature(
   commands: ChatSlashCommandDefinition[],
 ): Array<{
   action: ChatSlashCommandAction;
@@ -411,12 +422,59 @@ function buildQueuedDraftReplayInputsSignature({
 }): string {
   return JSON.stringify({
     isSubmitDisabled,
-    recognizedSlashCommands: buildSlashCommandReplaySnapshot(
+    recognizedSlashCommands: serializeSlashCommandsForReplaySignature(
       recognizedSlashCommands,
     ),
-    slashCommands: buildSlashCommandReplaySnapshot(slashCommands),
+    slashCommands: serializeSlashCommandsForReplaySignature(slashCommands),
     waitingForResponse,
   });
+}
+
+function cloneAttachments(
+  attachments: ChatFileAttachment[],
+): ChatFileAttachment[] {
+  return attachments.map((attachment) => ({ ...attachment }));
+}
+
+function cloneSlashCommand(command: ChatSlashCommand): ChatSlashCommand {
+  return {
+    ...command,
+    args: [...command.args],
+  };
+}
+
+function shouldUseCurrentRegistryForQueuedSlashCommand(
+  action: ChatSlashCommandAction,
+): boolean {
+  return action === "custom_prompt" || action === "native_prompt";
+}
+
+function buildQueuedDraftReplaySnapshot({
+  message,
+  recognizedSlashCommands,
+  slashCommands,
+}: {
+  message: string;
+  recognizedSlashCommands: ChatSlashCommandDefinition[];
+  slashCommands: ChatSlashCommandDefinition[];
+}): QueuedDraftReplaySnapshot {
+  const resolvedRequest = resolveSlashCommandRequest({
+    message,
+    slashCommands,
+    recognizedSlashCommands,
+  });
+  if (!resolvedRequest.parsed) {
+    return { kind: "plain_message" };
+  }
+  return {
+    kind: "slash_command",
+    availabilityPolicy: shouldUseCurrentRegistryForQueuedSlashCommand(
+      resolvedRequest.parsed.action,
+    )
+      ? "current_registry"
+      : "fixed",
+    command: cloneSlashCommand(resolvedRequest.parsed),
+  };
 }
 
 function shouldAutoReplayQueuedDraft(
@@ -756,7 +814,12 @@ export const ChatInput = memo(function ChatInput({
       const nextDraft: QueuedChatDraft = {
         id: getNextQueuedDraftId(),
         message,
-        attachments: draftAttachments.map((attachment) => ({ ...attachment })),
+        attachments: cloneAttachments(draftAttachments),
+        replaySnapshot: buildQueuedDraftReplaySnapshot({
+          message,
+          recognizedSlashCommands: slashCommandRecognitionSet,
+          slashCommands,
+        }),
         queuedAtMs: Date.now(),
         replayState: "ready",
         lastAutoReplayVersion: null,
@@ -775,7 +838,14 @@ export const ChatInput = memo(function ChatInput({
       }
       return true;
     },
-    [clearAttachments, clearInput, getNextQueuedDraftId, onStop],
+    [
+      clearAttachments,
+      clearInput,
+      getNextQueuedDraftId,
+      onStop,
+      slashCommandRecognitionSet,
+      slashCommands,
+    ],
   );
 
   const restoreQueuedDraftToComposer = useCallback(
@@ -790,9 +860,7 @@ export const ChatInput = memo(function ChatInput({
       );
       setSelectedQueuedDraftId(null);
       setInputValue(draft.message);
-      replaceAttachments(
-        draft.attachments.map((attachment) => ({ ...attachment })),
-      );
+      replaceAttachments(cloneAttachments(draft.attachments));
       setSlashFeedback("Editing queued message.");
       requestAnimationFrame(() => {
         const node = textareaRef.current;
@@ -860,9 +928,7 @@ export const ChatInput = memo(function ChatInput({
 
   const clearComposerByEscape = useCallback((): boolean => {
     const currentMessage = inputValueRef.current;
-    const nextAttachments = attachments.map((attachment) => ({
-      ...attachment,
-    }));
+    const nextAttachments = cloneAttachments(attachments);
     const hasComposerDraft =
       currentMessage.trim().length > 0 || nextAttachments.length > 0;
     if (!hasComposerDraft) {
@@ -887,9 +953,7 @@ export const ChatInput = memo(function ChatInput({
     setSelectedSubmittedMessageIndex(null);
     submittedHistoryDraftBeforeSelectionRef.current = null;
     setInputValue(draft.message);
-    replaceAttachments(
-      draft.attachments.map((attachment) => ({ ...attachment })),
-    );
+    replaceAttachments(cloneAttachments(draft.attachments));
     setSlashFeedback("Restored cleared draft.");
     requestAnimationFrame(() => {
       const node = textareaRef.current;
@@ -940,7 +1004,7 @@ export const ChatInput = memo(function ChatInput({
         });
         if (imageAttachmentError) {
           setSlashFeedback(imageAttachmentError);
-          return "retry_later";
+          return "failed";
         }
         const submitted =
           (await onSubmit(
@@ -1007,7 +1071,7 @@ export const ChatInput = memo(function ChatInput({
         });
         if (imageAttachmentError) {
           setSlashFeedback(imageAttachmentError);
-          return "retry_later";
+          return "failed";
         }
         const submitted =
           (await onSubmit(submission.message, submission.attachments, {
@@ -1167,6 +1231,27 @@ export const ChatInput = memo(function ChatInput({
     ],
   );
 
+  const replayQueuedDraft = useCallback(
+    async (draft: QueuedChatDraft): Promise<SlashCommandExecutionOutcome> => {
+      if (draft.replaySnapshot.kind === "plain_message") {
+        return submitMessage(draft.message, draft.attachments);
+      }
+      const commandAvailable =
+        draft.replaySnapshot.availabilityPolicy === "fixed"
+          ? true
+          : slashCommands.some(
+              (entry) => entry.command === draft.replaySnapshot.command.command,
+            );
+      return executeResolvedSlashCommand({
+        message: draft.message,
+        submittedAttachments: draft.attachments,
+        parsed: draft.replaySnapshot.command,
+        commandAvailable,
+      });
+    },
+    [executeResolvedSlashCommand, slashCommands, submitMessage],
+  );
+
   const nextQueuedDraft = queuedDrafts[0] ?? null;
 
   useEffect(() => {
@@ -1195,10 +1280,7 @@ export const ChatInput = memo(function ChatInput({
     void (async () => {
       let outcome: SlashCommandExecutionOutcome = "failed";
       try {
-        outcome = await submitMessage(
-          draftToSend.message,
-          draftToSend.attachments,
-        );
+        outcome = await replayQueuedDraft(draftToSend);
       } catch {
         outcome = "failed";
       }
@@ -1230,7 +1312,7 @@ export const ChatInput = memo(function ChatInput({
     isSubmitDisabled,
     nextQueuedDraft,
     queuedAutoReplayVersion,
-    submitMessage,
+    replayQueuedDraft,
     waitingForResponse,
   ]);
 

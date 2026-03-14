@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildProjectChatHydrationCacheKey,
   clearProjectChatHydrationCacheEntriesForChat,
+  hasRetainedImageAttachmentFromImageModeThread,
   resolveProjectChatSubmitAppGeneration,
 } from "./ProjectChatCore";
 
@@ -87,5 +88,49 @@ describe("ProjectChatCore submit app-generation resolution", () => {
         },
       }),
     ).toBeNull();
+  });
+
+  it("only treats retained images from prior image-mode turns as reusable", () => {
+    expect(
+      hasRetainedImageAttachmentFromImageModeThread(
+        [
+          {
+            id: "msg-plain-image",
+            role: "user",
+            content: [],
+            attachments: [
+              {
+                id: "attachment-1",
+                name: "plain.png",
+                mimeType: "image/png",
+              },
+            ],
+          },
+        ],
+        {},
+      ),
+    ).toBe(false);
+
+    expect(
+      hasRetainedImageAttachmentFromImageModeThread(
+        [
+          {
+            id: "msg-image-mode",
+            role: "user",
+            content: [],
+            attachments: [
+              {
+                id: "attachment-2",
+                name: "reference.png",
+                mimeType: "image/png",
+              },
+            ],
+          },
+        ],
+        {
+          "msg-image-mode": { mode: "json_render_with_image" },
+        },
+      ),
+    ).toBe(true);
   });
 });

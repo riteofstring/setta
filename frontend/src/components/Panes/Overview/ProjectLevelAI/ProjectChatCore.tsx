@@ -1076,16 +1076,23 @@ function getMessageAttachments(
   return [];
 }
 
-function hasRetainedUserImageAttachment(
+export function hasRetainedImageAttachmentFromImageModeThread(
   messages: Array<BaseChatMessageUnion>,
+  appGenerationByMessageId: Record<string, ChatAppGenerationContext>,
 ): boolean {
-  return messages.some(
-    (message) =>
-      message.role === ChatRoleEnum.user &&
-      getMessageAttachments(message).some((attachment) =>
-        isImageAttachment(attachment),
-      ),
-  );
+  return messages.some((message) => {
+    if (message.role !== ChatRoleEnum.user) {
+      return false;
+    }
+    if (
+      appGenerationByMessageId[message.id]?.mode !== "json_render_with_image"
+    ) {
+      return false;
+    }
+    return getMessageAttachments(message).some((attachment) =>
+      isImageAttachment(attachment),
+    );
+  });
 }
 
 function findBranchSourceUserMessage(
@@ -2188,8 +2195,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     [runtimeActivityDetails],
   );
   const hasRetainedImageAttachmentForImageMode = useMemo(
-    () => hasRetainedUserImageAttachment(messages),
-    [messages],
+    () =>
+      hasRetainedImageAttachmentFromImageModeThread(
+        messages,
+        appGenerationByMessageId,
+      ),
+    [appGenerationByMessageId, messages],
   );
   const showThinkingExecutionControl =
     engineType === EngineTypeEnum.setta_llm ||

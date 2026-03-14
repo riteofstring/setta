@@ -443,11 +443,14 @@ def _message_has_image_attachment(message: BaseChatMessageUnion) -> bool:
 def _require_image_attachment_for_app_generation_mode(
     mode: AppGenerationMode | None,
     messages: list[BaseChatMessageUnion],
+    app_generation_by_message_id: dict[str, AppGenerationMode],
 ) -> None:
     if mode != "json_render_with_image":
         return
     for message in messages:
         if getattr(message, "role", None) != "user":
+            continue
+        if app_generation_by_message_id.get(message.id) != "json_render_with_image":
             continue
         if _message_has_image_attachment(message):
             return
@@ -930,12 +933,16 @@ async def route_get_llm_response(
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     resolved_mode = x.appGenerationMode
-    _require_image_attachment_for_app_generation_mode(resolved_mode, combined_messages)
     app_generation_by_message_id = _normalize_app_generation_by_message_id(
         messages=combined_messages,
         app_generation_by_message_id=x.appGenerationByMessageId,
         submitted_message_id=x.message.id,
         submitted_mode=resolved_mode,
+    )
+    _require_image_attachment_for_app_generation_mode(
+        resolved_mode,
+        combined_messages,
+        app_generation_by_message_id,
     )
     app_generation_mode_prompt = _build_app_generation_mode_prompt(
         mode=resolved_mode,
