@@ -758,6 +758,17 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if got := mustStringList(t, setCallableResultPaths[string(tools.IDTypeCodeObject)]); len(got) != 2 || got[0] != "callableId" || got[1] != "childCodeObjs.codeObjId" {
 		t.Fatalf("expected set_callable code-object result paths, got %#v", got)
 	}
+	setCallablePreviewMeta := mustStructuredMap(t, setCallableMeta["toolArgumentPreview"])
+	setCallablePreviewPaths := mustStructuredMap(t, setCallablePreviewMeta["targetIdPathsByType"])
+	if got := mustStringList(t, setCallablePreviewPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
+		t.Fatalf("expected set_callable preview section target path, got %#v", got)
+	}
+	if setCallablePreviewMeta["previewValuePath"] != "callableName" {
+		t.Fatalf("expected set_callable preview value path callableName, got %#v", setCallablePreviewMeta["previewValuePath"])
+	}
+	if setCallablePreviewMeta["previewKind"] != string(tools.PreviewKindCallableName) {
+		t.Fatalf("expected set_callable preview kind callableName, got %#v", setCallablePreviewMeta["previewKind"])
+	}
 	setCodeSectionAttachedTerminalMeta := mustStructuredMap(t, setCodeSectionAttachedTerminalTool.Meta[toolMetaNamespace])
 	if setCodeSectionAttachedTerminalMeta["accessType"] != string(tools.AccessTypeStructural) {
 		t.Fatalf("expected structural access type for set_code_section_attached_terminal, got %#v", setCodeSectionAttachedTerminalMeta["accessType"])
@@ -773,6 +784,17 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	setCodePaths := mustStructuredMap(t, setCodeMeta["idPathsByType"])
 	if got := mustStringList(t, setCodePaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
 		t.Fatalf("expected set_code sectionId target path, got %#v", got)
+	}
+	setCodePreviewMeta := mustStructuredMap(t, setCodeMeta["toolArgumentPreview"])
+	setCodePreviewPaths := mustStructuredMap(t, setCodePreviewMeta["targetIdPathsByType"])
+	if got := mustStringList(t, setCodePreviewPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
+		t.Fatalf("expected set_code preview section target path, got %#v", got)
+	}
+	if setCodePreviewMeta["previewValuePath"] != "code" {
+		t.Fatalf("expected set_code preview value path code, got %#v", setCodePreviewMeta["previewValuePath"])
+	}
+	if setCodePreviewMeta["previewKind"] != string(tools.PreviewKindCode) {
+		t.Fatalf("expected set_code preview kind code, got %#v", setCodePreviewMeta["previewKind"])
 	}
 	formatCodeMeta := mustStructuredMap(t, formatCodeTool.Meta[toolMetaNamespace])
 	if formatCodeMeta["accessType"] != string(tools.AccessTypeWrite) {
@@ -1140,6 +1162,20 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if got := mustStringList(t, setParamPaths[string(tools.IDTypeCodeObject)]); len(got) != 1 || got[0] != "paramInfoId" {
 		t.Fatalf("expected set_param_entered_value paramInfoId target path, got %#v", got)
 	}
+	setParamPreviewMeta := mustStructuredMap(t, setParamMeta["toolArgumentPreview"])
+	setParamPreviewPaths := mustStructuredMap(t, setParamPreviewMeta["targetIdPathsByType"])
+	if got := mustStringList(t, setParamPreviewPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
+		t.Fatalf("expected set_param_entered_value preview section target path, got %#v", got)
+	}
+	if got := mustStringList(t, setParamPreviewPaths[string(tools.IDTypeCodeObject)]); len(got) != 1 || got[0] != "paramInfoId" {
+		t.Fatalf("expected set_param_entered_value preview codeObj target path, got %#v", got)
+	}
+	if setParamPreviewMeta["previewValuePath"] != "value" {
+		t.Fatalf("expected set_param_entered_value preview value path value, got %#v", setParamPreviewMeta["previewValuePath"])
+	}
+	if setParamPreviewMeta["previewKind"] != string(tools.PreviewKindParamValue) {
+		t.Fatalf("expected set_param_entered_value preview kind paramValue, got %#v", setParamPreviewMeta["previewKind"])
+	}
 	setParamNameAndValueMeta := mustStructuredMap(t, setParamNameAndValueTool.Meta[toolMetaNamespace])
 	setParamNameAndValuePaths := mustStructuredMap(t, setParamNameAndValueMeta["idPathsByType"])
 	if got := mustStringList(t, setParamNameAndValuePaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
@@ -1147,6 +1183,20 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if got := mustStringList(t, setParamNameAndValuePaths[string(tools.IDTypeCodeObject)]); len(got) != 1 || got[0] != "codeObjId" {
 		t.Fatalf("expected set_param_name_and_value codeObjId target path, got %#v", got)
+	}
+	setParamNameAndValuePreviewMeta := mustStructuredMap(t, setParamNameAndValueMeta["toolArgumentPreview"])
+	setParamNameAndValuePreviewPaths := mustStructuredMap(t, setParamNameAndValuePreviewMeta["targetIdPathsByType"])
+	if got := mustStringList(t, setParamNameAndValuePreviewPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
+		t.Fatalf("expected set_param_name_and_value preview section target path, got %#v", got)
+	}
+	if got := mustStringList(t, setParamNameAndValuePreviewPaths[string(tools.IDTypeCodeObject)]); len(got) != 1 || got[0] != "codeObjId" {
+		t.Fatalf("expected set_param_name_and_value preview codeObj target path, got %#v", got)
+	}
+	if setParamNameAndValuePreviewMeta["previewValuePath"] != "value" {
+		t.Fatalf("expected set_param_name_and_value preview value path value, got %#v", setParamNameAndValuePreviewMeta["previewValuePath"])
+	}
+	if setParamNameAndValuePreviewMeta["previewKind"] != string(tools.PreviewKindParamValue) {
+		t.Fatalf("expected set_param_name_and_value preview kind paramValue, got %#v", setParamNameAndValuePreviewMeta["previewKind"])
 	}
 	setCodeObjNameMeta := mustStructuredMap(t, setCodeObjNameTool.Meta[toolMetaNamespace])
 	setCodeObjNamePaths := mustStructuredMap(t, setCodeObjNameMeta["idPathsByType"])

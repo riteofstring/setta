@@ -918,13 +918,17 @@ func resolveTemporaryToCanonical(request agentruns.ExecutionRequest) (map[string
 	if err != nil {
 		return nil, fmt.Errorf("snapshot temporary ids: %w", err)
 	}
-	temporaryToCanonical := make(map[string]string, len(canonicalToTemporary))
+	temporaryToCanonical := make(map[string]string, len(canonicalToTemporary)*2)
 	for canonicalID, temporaryID := range canonicalToTemporary {
+		trimmedCanonicalID := strings.TrimSpace(canonicalID)
+		if trimmedCanonicalID != "" {
+			temporaryToCanonical[trimmedCanonicalID] = trimmedCanonicalID
+		}
 		trimmedTemporaryID := strings.TrimSpace(temporaryID)
 		if trimmedTemporaryID == "" {
 			continue
 		}
-		temporaryToCanonical[trimmedTemporaryID] = canonicalID
+		temporaryToCanonical[trimmedTemporaryID] = trimmedCanonicalID
 	}
 	return temporaryToCanonical, nil
 }

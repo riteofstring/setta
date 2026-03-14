@@ -5340,6 +5340,13 @@ func defaultToolDefinitions(
 					IDPathsByType: map[tools.IDType][]string{
 						tools.IDTypeSection: {"sectionId"},
 					},
+					ToolArgumentPreview: &tools.ToolArgumentPreviewMetadata{
+						TargetIDPathsByType: map[tools.IDType][]string{
+							tools.IDTypeSection: {"sectionId"},
+						},
+						PreviewValuePath: "callableName",
+						PreviewKind:      tools.PreviewKindCallableName,
+					},
 					ResultIDPathsByType: map[tools.IDType][]string{
 						tools.IDTypeCodeObject: {"callableId", "childCodeObjs.codeObjId"},
 					},
@@ -5409,6 +5416,13 @@ func defaultToolDefinitions(
 						AccessType: tools.AccessTypeWrite,
 						IDPathsByType: map[tools.IDType][]string{
 							tools.IDTypeSection: {"sectionId"},
+						},
+						ToolArgumentPreview: &tools.ToolArgumentPreviewMetadata{
+							TargetIDPathsByType: map[tools.IDType][]string{
+								tools.IDTypeSection: {"sectionId"},
+							},
+							PreviewValuePath: "code",
+							PreviewKind:      tools.PreviewKindCode,
 						},
 						SearchCategory: "code",
 						SearchTags:     []string{"code", "edit", "write", "section", "python"},
@@ -5987,6 +6001,14 @@ func defaultToolDefinitions(
 						tools.IDTypeSection:    {"sectionId"},
 						tools.IDTypeCodeObject: {"paramInfoId"},
 					},
+					ToolArgumentPreview: &tools.ToolArgumentPreviewMetadata{
+						TargetIDPathsByType: map[tools.IDType][]string{
+							tools.IDTypeSection:    {"sectionId"},
+							tools.IDTypeCodeObject: {"paramInfoId"},
+						},
+						PreviewValuePath: "value",
+						PreviewKind:      tools.PreviewKindParamValue,
+					},
 					SearchCategory: "params",
 					SearchTags:     []string{"param", "parameter", "value", "input", "write"},
 				},
@@ -6035,6 +6057,14 @@ func defaultToolDefinitions(
 					IDPathsByType: map[tools.IDType][]string{
 						tools.IDTypeSection:    {"sectionId"},
 						tools.IDTypeCodeObject: {"codeObjId"},
+					},
+					ToolArgumentPreview: &tools.ToolArgumentPreviewMetadata{
+						TargetIDPathsByType: map[tools.IDType][]string{
+							tools.IDTypeSection:    {"sectionId"},
+							tools.IDTypeCodeObject: {"codeObjId"},
+						},
+						PreviewValuePath: "value",
+						PreviewKind:      tools.PreviewKindParamValue,
 					},
 					SearchCategory: "params",
 					SearchTags:     []string{"param", "parameter", "name", "rename", "value", "write"},
