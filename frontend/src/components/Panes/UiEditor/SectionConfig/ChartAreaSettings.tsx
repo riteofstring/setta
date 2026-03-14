@@ -4,9 +4,8 @@ import {
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
-import { useProjectState } from "state/definitions";
+import { useChartData, useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
-import { useChartData } from "state/stores/artifactStores";
 import {
   route_set_chart_area_data_path,
   route_set_chart_settings,
