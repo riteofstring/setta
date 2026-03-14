@@ -226,3 +226,12 @@ Append-only log for autonomous frontend cleanup slices.
 - Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
 - Commit hash: `57421fb48`
 - Next highest-value unblocked slice: continue reducing `frontend/src/components/Section/Layouts/ChatArea.tsx` by extracting the remaining managed-chat callback wiring and chat-input surface orchestration into feature-local modules, or switch back to the matching Project Chat pane surface to keep both chat surfaces aligned
+
+## 2026-03-12 14:07:06 PDT
+
+- What changed: Extracted the Project Chat composer runtime behavior from `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` into `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatComposerRuntime.ts`. Moved Project Chat submit, stop, edit, redo, and provider-dictation command handling onto that feature-local runtime module, added focused Vitest coverage for the new owner, refreshed the frontend module map, and reduced `ProjectChatCore.tsx` to 1361 lines.
+- Key files touched: `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`, `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatComposerRuntime.ts`, `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatComposerRuntime.test.ts`, `docs/reference/frontend-module-map.md`
+- Tests/verification run: `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/projectChatComposerRuntime.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.test.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChat.multiSurface.integration.test.tsx`; `pnpm -C frontend exec prettier --check src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatComposerRuntime.ts src/components/Panes/Overview/ProjectLevelAI/projectChatComposerRuntime.test.ts ../docs/reference/frontend-module-map.md`; `git diff --check`
+- Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
+- Commit hash: `8987caced`
+- Next highest-value unblocked slice: continue reducing `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` by extracting the remaining Project Chat composer state-derivation and input-surface orchestration helpers into feature-local modules so the pane surface mirrors the cleaned-up `ChatArea` ownership boundaries
