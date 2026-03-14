@@ -223,6 +223,36 @@ func TestRegisterRoutesFrontendConnectSendsIdentityAndRebroadcastsCurrentAddress
 	}
 }
 
+func TestRegisterRoutesFrontendConnectAllowsConfiguredDevFrontendOrigin(t *testing.T) {
+	t.Setenv("SETTA_DEV_FRONTEND_PORT", "3000")
+	t.Setenv("SETTA_DEV_FRONTEND_SCHEME", "http")
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	headers := authHeaderForCookie(t, authService)
+	headers.Set("Origin", "http://127.0.0.1:3000")
+	conn := dialRouteConnection(t, server.URL, RouteFrontend, headers)
+	defer conn.CloseNow()
+
+	message := readUntilMessageType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+	if message.MessageType != realtime.MessageTypeFrontendIdentity {
+		t.Fatalf("expected frontend identity for configured dev frontend origin, got %q", message.MessageType)
+	}
+}
+
 func TestRegisterRoutesShareFrontendTouchesSessionOnConnectAndMessage(t *testing.T) {
 	t.Parallel()
 

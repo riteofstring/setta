@@ -1261,9 +1261,10 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			}
 			if err := wsapi.RegisterRoutes(r, wsapi.RouteDependencies{
 				Transport: wsapi.Dependencies{
-					Auth:          authService,
-					ModePolicy:    modePolicy,
-					ShareSessions: shareSessions,
+					Auth:           authService,
+					ModePolicy:     modePolicy,
+					ShareSessions:  shareSessions,
+					TrustedOrigins: trustedOrigins,
 				},
 				Deployment:              deploymentRuntime,
 				WebsocketHub:            websocketHub,

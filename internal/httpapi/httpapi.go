@@ -86,6 +86,7 @@ func NewHandler(deps Dependencies) (http.Handler, error) {
 	}
 
 	router := chi.NewRouter()
+	router.Use(corsMiddleware(deps.Auth, deps.TrustedOrigins))
 	router.Use(requestIDMiddleware)
 	router.Use(modeContextMiddleware(deps.ModePolicy))
 	router.Use(recoveryMiddleware(deps.Logger))

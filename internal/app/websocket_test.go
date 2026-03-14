@@ -92,6 +92,49 @@ func TestAppServesFrontendWebsocketRoute(t *testing.T) {
 	}
 }
 
+func TestAppServesFrontendWebsocketRouteForConfiguredDevFrontendOrigin(t *testing.T) {
+	t.Setenv("SETTA_DEV_FRONTEND_PORT", "3000")
+	t.Setenv("SETTA_DEV_FRONTEND_SCHEME", "http")
+
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+			"Origin": []string{"http://127.0.0.1:3000"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route with dev frontend origin: %v", err)
+	}
+	defer conn.CloseNow()
+
+	identity := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+	var payload realtime.FrontendIdentityContent
+	if err := json.Unmarshal(identity.Content, &payload); err != nil {
+		t.Fatalf("decode frontend identity content: %v", err)
+	}
+	if strings.TrimSpace(payload.FrontendAffinityToken) == "" {
+		t.Fatal("expected non-empty frontend affinity token")
+	}
+}
+
 func TestAppSaveSettingsBroadcastsUpdateSettings(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE

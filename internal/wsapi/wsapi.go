@@ -8,6 +8,7 @@ import (
 
 	"github.com/coder/websocket"
 	"setta/internal/auth"
+	"setta/internal/frontendorigins"
 	"setta/internal/modes"
 )
 
@@ -19,10 +20,11 @@ const (
 )
 
 type Dependencies struct {
-	Auth          *auth.Service
-	ModePolicy    modes.Policy
-	ShareSessions modes.ShareSessionStore
-	AcceptOptions *websocket.AcceptOptions
+	Auth           *auth.Service
+	ModePolicy     modes.Policy
+	ShareSessions  modes.ShareSessionStore
+	TrustedOrigins *frontendorigins.Service
+	AcceptOptions  *websocket.AcceptOptions
 }
 
 type ConnectionInfo struct {
@@ -51,7 +53,7 @@ func AuthenticatedHandler(deps Dependencies, handler Handler) http.HandlerFunc {
 
 func AuthenticatedRequestHandler(deps Dependencies, handler RequestHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		conn, err := websocket.Accept(w, r, deps.AcceptOptions)
+		conn, err := websocket.Accept(w, r, acceptOptionsForRequest(r, deps))
 		if err != nil {
 			return
 		}
@@ -81,6 +83,41 @@ func AuthenticatedRequestHandler(deps Dependencies, handler RequestHandler) http
 			_ = conn.Close(websocket.StatusInternalError, "Internal Server Error")
 		}
 	}
+}
+
+func acceptOptionsForRequest(r *http.Request, deps Dependencies) *websocket.AcceptOptions {
+	options := cloneAcceptOptions(deps.AcceptOptions)
+	originPatterns := frontendorigins.AllowedWebsocketOriginPatternsForRequest(
+		r,
+		deps.TrustedOrigins,
+		currentSessionID(deps.Auth),
+	)
+	if len(originPatterns) == 0 {
+		return options
+	}
+	options.OriginPatterns = append(options.OriginPatterns, originPatterns...)
+	return options
+}
+
+func cloneAcceptOptions(options *websocket.AcceptOptions) *websocket.AcceptOptions {
+	if options == nil {
+		return &websocket.AcceptOptions{}
+	}
+	cloned := *options
+	cloned.Subprotocols = append([]string(nil), options.Subprotocols...)
+	cloned.OriginPatterns = append([]string(nil), options.OriginPatterns...)
+	return &cloned
+}
+
+func currentSessionID(authService *auth.Service) string {
+	if authService == nil {
+		return ""
+	}
+	currentSession, ok := authService.CurrentSession()
+	if !ok {
+		return ""
+	}
+	return currentSession.Metadata.ID
 }
 
 func ResolveConnection(r *http.Request, deps Dependencies, now time.Time) (ConnectionInfo, error) {
