@@ -31,6 +31,17 @@ export type CanvasEngineRect = {
   color: [number, number, number];
 };
 
+export type CanvasEngineNestedPreviewRect = {
+  id: string;
+  parentSectionId: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  isActive: boolean;
+  color: [number, number, number];
+};
+
 export type CanvasEngineDataEdge = {
   id: string;
   sourceSectionId: string;
@@ -78,6 +89,7 @@ export type CanvasEngineSceneSnapshot = {
   camera: CanvasEngineCamera;
   clearColor: [number, number, number];
   rects: CanvasEngineRect[];
+  nestedPreviewRects: CanvasEngineNestedPreviewRect[];
   dataEdges: CanvasEngineDataEdge[];
   agenticEdges: CanvasEngineAgenticEdge[];
   connectionPreview: CanvasEngineConnectionPreview | null;

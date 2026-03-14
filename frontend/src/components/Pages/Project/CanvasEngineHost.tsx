@@ -8,6 +8,10 @@ import {
   pickEdgeHandlePositionsByKeys,
 } from "canvas-engine/edgeHandlePositionSelectors";
 import {
+  areNestedPreviewRectArraysEqual,
+  collectCanvasEngineNestedPreviewRects,
+} from "canvas-engine/nestedPreviewBridge";
+import {
   createCanvasEngineRenderer,
   type CanvasEngineBackendSelection,
   type CanvasEngineRenderer,
@@ -21,6 +25,7 @@ import type {
   CanvasEngineCamera,
   CanvasEngineConnectionPreview,
   CanvasEngineHoveredEdge,
+  CanvasEngineNestedPreviewRect,
   CanvasEngineRect,
 } from "canvas-engine/types";
 import { SectionContainer } from "components/Section/Container/SectionContainer";
@@ -33,6 +38,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -329,6 +335,9 @@ export function CanvasEngineHost() {
   const pendingReactFlowViewportRef = useRef<ReactFlowViewportTransform | null>(
     null,
   );
+  const nestedPreviewRectsByParentSectionIdRef = useRef(
+    new Map<string, CanvasEngineNestedPreviewRect[]>(),
+  );
   const domIslandMountedSectionIdsRef = useRef<string[]>([]);
   const domIslandRetentionExpiryByIdRef = useRef<Map<string, number>>(
     new Map(),
@@ -357,6 +366,9 @@ export function CanvasEngineHost() {
     useState<CanvasEngineHoveredEdge | null>(null);
   const [selectionRect, setSelectionRect] =
     useState<CanvasEngineSelectionRect | null>(null);
+  const [nestedPreviewRects, setNestedPreviewRects] = useState<
+    CanvasEngineNestedPreviewRect[]
+  >([]);
 
   const updateConnectionPreview = useCallback(
     (nextPreview: CanvasEngineConnectionPreview | null) => {
@@ -464,10 +476,16 @@ export function CanvasEngineHost() {
   const renderSceneSnapshot = useMemo(
     () => ({
       ...snapshotResult.snapshot,
+      nestedPreviewRects,
       connectionPreview,
       hoveredEdge,
     }),
-    [connectionPreview, hoveredEdge, snapshotResult.snapshot],
+    [
+      connectionPreview,
+      hoveredEdge,
+      nestedPreviewRects,
+      snapshotResult.snapshot,
+    ],
   );
 
   const domIslandViewportSectionIds = useMemo(() => {
@@ -550,6 +568,34 @@ export function CanvasEngineHost() {
       transformOrigin: "top left",
     };
   }, [camera]);
+
+  useLayoutEffect(() => {
+    const nextNestedPreviewResult = collectCanvasEngineNestedPreviewRects({
+      hostElement: hostRef.current,
+      camera,
+      knownTopLevelSectionIds: snapshotResult.snapshot.rects.map(
+        (rect) => rect.id,
+      ),
+      previousRectsByParentSectionId:
+        nestedPreviewRectsByParentSectionIdRef.current,
+      activeSectionIds,
+    });
+    nestedPreviewRectsByParentSectionIdRef.current =
+      nextNestedPreviewResult.rectsByParentSectionId;
+    setNestedPreviewRects((currentNestedPreviewRects) =>
+      areNestedPreviewRectArraysEqual(
+        currentNestedPreviewRects,
+        nextNestedPreviewResult.nestedPreviewRects,
+      )
+        ? currentNestedPreviewRects
+        : nextNestedPreviewResult.nestedPreviewRects,
+    );
+  }, [
+    activeSectionIds,
+    camera,
+    domIslandSectionIds,
+    snapshotResult.snapshot.rects,
+  ]);
 
   useEffect(() => {
     const nextCamera = getInitialCamera({
@@ -838,7 +884,10 @@ export function CanvasEngineHost() {
     });
     return () => {
       hostElement.removeEventListener("wheel", handleWheel);
-      hostElement.removeEventListener("gesturestart", preventBrowserGestureZoom);
+      hostElement.removeEventListener(
+        "gesturestart",
+        preventBrowserGestureZoom,
+      );
       hostElement.removeEventListener(
         "gesturechange",
         preventBrowserGestureZoom,
@@ -1476,7 +1525,9 @@ export function CanvasEngineHost() {
       }
       const target = event.target;
       if (target instanceof Element) {
-        const topLevelDomIsland = target.closest("[data-canvas-engine-dom-island]");
+        const topLevelDomIsland = target.closest(
+          "[data-canvas-engine-dom-island]",
+        );
         if (topLevelDomIsland instanceof HTMLElement) {
           const topLevelSectionId =
             topLevelDomIsland.dataset.canvasEngineDomIsland ?? null;
@@ -1733,6 +1784,7 @@ export function CanvasEngineHost() {
       data-canvas-engine-camera-zoom={camera.zoom.toFixed(3)}
       data-canvas-engine-active-section-count={activeSectionIds.length}
       data-canvas-engine-active-section-ids={activeSectionIds.join(",")}
+      data-canvas-engine-nested-preview-count={nestedPreviewRects.length}
       data-canvas-engine-dom-island-mounted-count={domIslandSectionIds.length}
       data-canvas-engine-dom-island-retained-count={
         domIslandMountState.retainedSectionCount
@@ -2045,7 +2097,9 @@ function isCanvasGestureBlockedByTarget(target: EventTarget | null): boolean {
   );
 }
 
-function isCanvasContextMenuBlockedByTarget(target: EventTarget | null): boolean {
+function isCanvasContextMenuBlockedByTarget(
+  target: EventTarget | null,
+): boolean {
   if (!(target instanceof Element)) {
     return false;
   }
@@ -2119,7 +2173,7 @@ const CanvasEngineDomIsland = memo(function CanvasEngineDomIsland({
               top: rect.y,
               width: rect.width,
               height: rect.height,
-          }
+            }
       }
     >
       {shouldRenderSectionContainer ? (

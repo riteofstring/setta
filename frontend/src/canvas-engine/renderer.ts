@@ -109,6 +109,9 @@ const AGENTIC_EDGE_SELECTED_HOVER_COLOR: [number, number, number] = [
   1.0, 0.9, 0.66,
 ];
 const ACTIVE_RECT_OUTLINE_COLOR: [number, number, number] = [0.92, 0.96, 1.0];
+const NESTED_ACTIVE_RECT_OUTLINE_COLOR: [number, number, number] = [
+  0.81, 0.88, 0.97,
+];
 const ACTIVE_HANDLE_COLOR: [number, number, number] = [0.73, 0.84, 0.99];
 const CONNECTION_PREVIEW_COLOR: [number, number, number] = [0.81, 0.91, 1.0];
 const CONNECTION_PREVIEW_INVALID_COLOR: [number, number, number] = [
@@ -139,6 +142,7 @@ const SELECTED_EDGE_THICKNESS_PX = 3.8;
 const HOVER_EDGE_THICKNESS_PX = 3.4;
 const HOVER_SELECTED_EDGE_THICKNESS_PX = 4.4;
 const OUTLINE_THICKNESS_PX = 2.0;
+const NESTED_OUTLINE_THICKNESS_PX = 1.4;
 const HANDLE_HALF_SIZE_PX = 4.0;
 const CONNECTION_PREVIEW_THICKNESS_PX = 2.8;
 const CONNECTION_PREVIEW_TARGET_HALF_SIZE_PX = 5.5;
@@ -705,6 +709,29 @@ function buildSceneVertexData(
       appendActiveRectOverlays(values, viewport, x0, y0, x1, y1);
     }
   }
+  for (const rect of scene.nestedPreviewRects) {
+    if (rect.width <= 0 || rect.height <= 0) {
+      continue;
+    }
+    const x0 = (rect.x - scene.camera.x) * clampedZoom;
+    const y0 = (rect.y - scene.camera.y) * clampedZoom;
+    const x1 = x0 + rect.width * clampedZoom;
+    const y1 = y0 + rect.height * clampedZoom;
+
+    appendRectTriangles(values, viewport, x0, y0, x1, y1, rect.color);
+    if (rect.isActive) {
+      appendRectOutline(
+        values,
+        viewport,
+        x0,
+        y0,
+        x1,
+        y1,
+        NESTED_ACTIVE_RECT_OUTLINE_COLOR,
+        NESTED_OUTLINE_THICKNESS_PX,
+      );
+    }
+  }
   appendConnectionPreviewPrimitives(values, scene, viewport, clampedZoom);
 
   return new Float32Array(values);
@@ -1009,8 +1036,34 @@ function appendActiveRectOverlays(
   x1: number,
   y1: number,
 ): void {
-  const thickness = OUTLINE_THICKNESS_PX;
+  appendRectOutline(
+    destination,
+    viewport,
+    x0,
+    y0,
+    x1,
+    y1,
+    ACTIVE_RECT_OUTLINE_COLOR,
+    OUTLINE_THICKNESS_PX,
+  );
 
+  const centerX = (x0 + x1) / 2;
+  const centerY = (y0 + y1) / 2;
+  appendHandleSquare(destination, viewport, x1, centerY);
+  appendHandleSquare(destination, viewport, centerX, y1);
+  appendHandleSquare(destination, viewport, x1, y1);
+}
+
+function appendRectOutline(
+  destination: number[],
+  viewport: CanvasEngineViewport,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  color: [number, number, number],
+  thickness: number,
+): void {
   appendRectTriangles(
     destination,
     viewport,
@@ -1018,7 +1071,7 @@ function appendActiveRectOverlays(
     y0 - thickness,
     x1 + thickness,
     y0,
-    ACTIVE_RECT_OUTLINE_COLOR,
+    color,
   );
   appendRectTriangles(
     destination,
@@ -1027,32 +1080,10 @@ function appendActiveRectOverlays(
     y1,
     x1 + thickness,
     y1 + thickness,
-    ACTIVE_RECT_OUTLINE_COLOR,
+    color,
   );
-  appendRectTriangles(
-    destination,
-    viewport,
-    x0 - thickness,
-    y0,
-    x0,
-    y1,
-    ACTIVE_RECT_OUTLINE_COLOR,
-  );
-  appendRectTriangles(
-    destination,
-    viewport,
-    x1,
-    y0,
-    x1 + thickness,
-    y1,
-    ACTIVE_RECT_OUTLINE_COLOR,
-  );
-
-  const centerX = (x0 + x1) / 2;
-  const centerY = (y0 + y1) / 2;
-  appendHandleSquare(destination, viewport, x1, centerY);
-  appendHandleSquare(destination, viewport, centerX, y1);
-  appendHandleSquare(destination, viewport, x1, y1);
+  appendRectTriangles(destination, viewport, x0 - thickness, y0, x0, y1, color);
+  appendRectTriangles(destination, viewport, x1, y0, x1 + thickness, y1, color);
 }
 
 function appendHandleSquare(

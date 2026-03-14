@@ -293,6 +293,7 @@ export class CanvasEngineSceneAdapter {
         camera,
         clearColor: [0.07, 0.08, 0.1],
         rects,
+        nestedPreviewRects: [],
         dataEdges,
         agenticEdges,
         connectionPreview: null,
@@ -1723,9 +1724,7 @@ function sortRects(rects: CanvasEngineRect[]): CanvasEngineRect[] {
   return [...rects].sort(compareRectRecords);
 }
 
-function sortDataEdges(
-  edges: CanvasEngineDataEdge[],
-): CanvasEngineDataEdge[] {
+function sortDataEdges(edges: CanvasEngineDataEdge[]): CanvasEngineDataEdge[] {
   return [...edges].sort(compareDataEdgeRecords);
 }
 
