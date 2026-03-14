@@ -861,6 +861,13 @@ type PluginInstallRequestInput struct {
 	Force      *bool                   `json:"force"`
 }
 
+type PluginLinkRequestInput struct {
+	LocalPluginRoot string       `json:"localPluginRoot"`
+	Scope           *PluginScope `json:"scope"`
+	Enable          *bool        `json:"enable"`
+	Force           *bool        `json:"force"`
+}
+
 type PluginInstallResponse struct {
 	PluginID              string                  `json:"pluginId"`
 	Version               string                  `json:"version"`
@@ -933,6 +940,21 @@ type PluginConfigWriteResponse struct {
 	PluginID   string                       `json:"pluginId"`
 	Config     map[string]any               `json:"config"`
 	Validation PluginConfigValidationResult `json:"validation"`
+}
+
+type PluginLockWriteResponse struct {
+	LockfilePath string `json:"lockfilePath"`
+	PluginCount  int    `json:"pluginCount"`
+}
+
+type PluginLockApplyRequestInput struct {
+	Check bool `json:"check"`
+}
+
+type PluginLockApplyResponse struct {
+	LockfilePath   string   `json:"lockfilePath"`
+	PlannedChanges []string `json:"plannedChanges"`
+	Applied        bool     `json:"applied"`
 }
 
 type PluginRestartResponse struct {

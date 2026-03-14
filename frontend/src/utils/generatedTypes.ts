@@ -9746,6 +9746,18 @@ export function createPluginInstallResponse(
   return options as PluginInstallResponse;
 }
 
+export type PluginLinkRequestInput = {
+  localPluginRoot: string;
+  scope: PluginScope | null;
+  enable: boolean | null;
+  force: boolean | null;
+};
+export function createPluginLinkRequestInput(
+  options: Partial<PluginLinkRequestInput> = {},
+): PluginLinkRequestInput {
+  return options as PluginLinkRequestInput;
+}
+
 export type PluginUninstallRequestInput = {
   pluginId: string;
   scope: PluginScope | null;
@@ -9861,6 +9873,36 @@ export function createPluginConfigWriteResponse(
   options: Partial<PluginConfigWriteResponse> = {},
 ): PluginConfigWriteResponse {
   return options as PluginConfigWriteResponse;
+}
+
+export type PluginLockWriteResponse = {
+  lockfilePath: string;
+  pluginCount: number;
+};
+export function createPluginLockWriteResponse(
+  options: Partial<PluginLockWriteResponse> = {},
+): PluginLockWriteResponse {
+  return options as PluginLockWriteResponse;
+}
+
+export type PluginLockApplyRequestInput = {
+  check: boolean;
+};
+export function createPluginLockApplyRequestInput(
+  options: Partial<PluginLockApplyRequestInput> = {},
+): PluginLockApplyRequestInput {
+  return options as PluginLockApplyRequestInput;
+}
+
+export type PluginLockApplyResponse = {
+  lockfilePath: string;
+  plannedChanges: Array<string>;
+  applied: boolean;
+};
+export function createPluginLockApplyResponse(
+  options: Partial<PluginLockApplyResponse> = {},
+): PluginLockApplyResponse {
+  return options as PluginLockApplyResponse;
 }
 
 export type PluginRestartResponse = {

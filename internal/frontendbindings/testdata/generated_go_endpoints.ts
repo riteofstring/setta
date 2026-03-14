@@ -1619,6 +1619,12 @@ export async function route_plugins_install(x: gt.PluginInstallRequestInput): Pr
 }
 
 
+export async function route_plugins_link(x: gt.PluginLinkRequestInput): Promise<ResponseDataAndStatus<gt.PluginInstallResponse>> {
+
+  return await post(GoHTTPRoutes.pluginsLink, x);
+}
+
+
 export async function route_plugins_uninstall(x: gt.PluginUninstallRequestInput): Promise<ResponseDataAndStatus<gt.PluginUninstallResponse>> {
 
   return await post(GoHTTPRoutes.pluginsUninstall, x);
@@ -1652,6 +1658,18 @@ export async function route_plugins_disable(x: gt.PluginEnableDisableRequestInpu
 export async function route_plugins_config(x: gt.PluginConfigWriteRequestInput): Promise<ResponseDataAndStatus<gt.PluginConfigWriteResponse>> {
 
   return await post(GoHTTPRoutes.pluginsConfig, x);
+}
+
+
+export async function route_plugins_lock_write(): Promise<ResponseDataAndStatus<gt.PluginLockWriteResponse>> {
+
+  return await post(GoHTTPRoutes.pluginsLockWrite, null);
+}
+
+
+export async function route_plugins_lock_apply(x: gt.PluginLockApplyRequestInput): Promise<ResponseDataAndStatus<gt.PluginLockApplyResponse>> {
+
+  return await post(GoHTTPRoutes.pluginsLockApply, x);
 }
 
 

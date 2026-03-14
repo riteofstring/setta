@@ -946,12 +946,15 @@ Current landed wedge:
     - `route_plugins_runtime`
     - `route_plugins_rescan`
     - `route_plugins_install`
+    - `route_plugins_link`
     - `route_plugins_uninstall`
     - `route_plugins_update`
     - `route_plugins_rollback`
     - `route_plugins_enable`
     - `route_plugins_disable`
     - `route_plugins_config`
+    - `route_plugins_lock_write`
+    - `route_plugins_lock_apply`
     - `route_plugins_restart`
   - project-level AI endpoint wrappers used by the current action layer
     - config/settings transport

@@ -1398,6 +1398,11 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "PLUGINS_INSTALL",
 				},
 				{
+					Name:     "pluginsLink",
+					Path:     httpapi.RoutePluginsLink,
+					EnumName: "PLUGINS_LINK",
+				},
+				{
 					Name:     "pluginsUninstall",
 					Path:     httpapi.RoutePluginsUninstall,
 					EnumName: "PLUGINS_UNINSTALL",
@@ -1426,6 +1431,16 @@ func CurrentRouteGroups() []RouteGroup {
 					Name:     "pluginsConfig",
 					Path:     httpapi.RoutePluginsConfig,
 					EnumName: "PLUGINS_CONFIG",
+				},
+				{
+					Name:     "pluginsLockWrite",
+					Path:     httpapi.RoutePluginsLockWrite,
+					EnumName: "PLUGINS_LOCK_WRITE",
+				},
+				{
+					Name:     "pluginsLockApply",
+					Path:     httpapi.RoutePluginsLockApply,
+					EnumName: "PLUGINS_LOCK_APPLY",
 				},
 				{
 					Name:     "pluginsRestart",
@@ -3475,6 +3490,14 @@ func CurrentEndpoints() []EndpointSpec {
 			ResponseType:    reflect.TypeOf(PluginInstallResponse{}),
 		},
 		{
+			FunctionName:    "route_plugins_link",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "pluginsLink",
+			RequestType:     reflect.TypeOf(PluginLinkRequestInput{}),
+			ResponseType:    reflect.TypeOf(PluginInstallResponse{}),
+		},
+		{
 			FunctionName:    "route_plugins_uninstall",
 			Method:          "POST",
 			RouteCollection: "GoHTTPRoutes",
@@ -3521,6 +3544,21 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteName:       "pluginsConfig",
 			RequestType:     reflect.TypeOf(PluginConfigWriteRequestInput{}),
 			ResponseType:    reflect.TypeOf(PluginConfigWriteResponse{}),
+		},
+		{
+			FunctionName:    "route_plugins_lock_write",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "pluginsLockWrite",
+			ResponseType:    reflect.TypeOf(PluginLockWriteResponse{}),
+		},
+		{
+			FunctionName:    "route_plugins_lock_apply",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "pluginsLockApply",
+			RequestType:     reflect.TypeOf(PluginLockApplyRequestInput{}),
+			ResponseType:    reflect.TypeOf(PluginLockApplyResponse{}),
 		},
 		{
 			FunctionName:    "route_plugins_restart",

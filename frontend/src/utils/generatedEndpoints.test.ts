@@ -110,6 +110,9 @@ import {
   route_paste_sections,
   route_plugins_config,
   route_plugins_install,
+  route_plugins_link,
+  route_plugins_lock_apply,
+  route_plugins_lock_write,
   route_plugins_restart,
   route_plugins_runtime,
   route_prepare_sections_for_copy,
@@ -5089,6 +5092,59 @@ describe("generatedEndpoints plugin helpers", () => {
             maxWorkers: 4,
           },
         },
+      }),
+    });
+  });
+
+  it("posts plugin link payloads with the current local-source shape", async () => {
+    await route_plugins_link({
+      localPluginRoot: "/tmp/setta-plugin",
+      scope: "workspace",
+      enable: true,
+      force: false,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/plugins/link`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        localPluginRoot: "/tmp/setta-plugin",
+        scope: "workspace",
+        enable: true,
+        force: false,
+      }),
+    });
+  });
+
+  it("posts plugin lock-write requests without a payload", async () => {
+    await route_plugins_lock_write();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/plugins/lock/write`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: null,
+    });
+  });
+
+  it("posts plugin lock-apply requests with the explicit check flag", async () => {
+    await route_plugins_lock_apply({
+      check: true,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/plugins/lock/apply`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        check: true,
       }),
     });
   });
