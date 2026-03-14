@@ -210,8 +210,8 @@ describe("PluginRestartBanner", () => {
     expect(PluginRestartBanner()).toBeNull();
   });
 
-  it("sends restart request and does not force refresh when restart is accepted", async () => {
-    // Programmatic restart acceptance should avoid immediate runtime refresh races.
+  it("sends restart request and refreshes runtime when restart is accepted", async () => {
+    // Accepted in-process restarts should rehydrate plugin runtime so pending banners clear.
     routePluginsRestartMock.mockResolvedValue({
       status: 200,
       hasResponse: true,
@@ -231,7 +231,7 @@ describe("PluginRestartBanner", () => {
       "Restart request accepted.",
       "info",
     );
-    expect(refreshPluginRuntimeMock).toHaveBeenCalledTimes(0);
+    expect(refreshPluginRuntimeMock).toHaveBeenCalledTimes(1);
   });
 
   it("shows manual restart warning when restart endpoint rejects request", async () => {
