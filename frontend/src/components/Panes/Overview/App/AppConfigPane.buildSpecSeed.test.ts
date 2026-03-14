@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildSpecSeed } from "./appConfigDefinitionUtils";
+import { buildSpecSeed } from "./AppConfigPane";
 
 describe("buildSpecSeed", () => {
   it("uses valid draft JSON as the generation seed", () => {

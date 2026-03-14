@@ -8,19 +8,20 @@ import {
   sanitizeProjectStateActiveIds,
   useActiveSectionUI,
 } from "state/activeSectionUI";
-import { useLocalStorage } from "state/definitions";
 import {
   runWithAtomicallyPublishedProjectStores,
-  useNodeInternals,
-} from "state/stores/activeSectionStores";
-import {
   useAllProjectMetadata,
+  useLocalStorage,
+  useNodeInternals,
   useProjectState,
-} from "state/stores/projectStores";
-import { OverviewTabNameEnum } from "utils/constants/panes";
-import { PROJECT_CONFIG_PREVIEW_IMG_COLORS } from "utils/constants/projectConfigPreview";
-import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants/routes";
-import { res200 } from "utils/endpointUtils";
+} from "state/definitions";
+import {
+  OverviewTabNameEnum,
+  PAGE_LOAD_TYPES,
+  pathRelativeToProject,
+  PROJECT_CONFIG_PREVIEW_IMG_COLORS,
+} from "utils/constants";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_create_project_config,
   route_get_latest_lsp_diagnostics,
@@ -28,8 +29,11 @@ import {
   route_load_project_config,
 } from "utils/generatedEndpoints";
 import {
+  type AllProjectMetadata,
+  type CreateProjectConfigResponse,
   type ProjectStateSingleConfig,
   type ProjectStateSingleConfigInput,
+  type SettaLspDiagnosticsPayload,
 } from "utils/generatedTypes";
 import { requestAIFollowSnapshot } from "../aiFollow";
 import { fetchListenerCoverageSnapshot } from "../listenerCoverage";
@@ -42,15 +46,27 @@ import {
 import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
 import { initializeServerMode } from "../serverMode";
 
+type LoadProjectConfigRouteResponse =
+  ResponseDataAndStatus<ProjectStateSingleConfig>;
+type LatestLspDiagnosticsRouteResponse =
+  ResponseDataAndStatus<SettaLspDiagnosticsPayload>;
+type LoadAllProjectMetadataRouteResponse =
+  ResponseDataAndStatus<AllProjectMetadata>;
+type CreateProjectConfigRouteResponse =
+  ResponseDataAndStatus<CreateProjectConfigResponse>;
+
 export async function loadProjectConfig({ projectConfigName }) {
-  const res = await route_load_project_config({ projectConfigName });
+  const res: LoadProjectConfigRouteResponse = await route_load_project_config({
+    projectConfigName,
+  });
   if (res200(res)) {
     const loadedProjectState = validateLoadedProjectState(res.data);
     const loaded = await loadProjectState(loadedProjectState);
     if (loaded) {
-      const diagnosticsRes = await route_get_latest_lsp_diagnostics({
-        projectConfigId: loadedProjectState.projectConfig.id,
-      });
+      const diagnosticsRes: LatestLspDiagnosticsRouteResponse =
+        await route_get_latest_lsp_diagnostics({
+          projectConfigId: loadedProjectState.projectConfig.id,
+        });
       if (res200(diagnosticsRes)) {
         processLspDiagnostics(diagnosticsRes.data);
       }
@@ -143,7 +159,8 @@ export function useCreateAndGoToProjectConfig() {
     if (!previewImgColor) {
       throw new Error();
     }
-    const res = await route_create_project_config({ previewImgColor });
+    const res: CreateProjectConfigRouteResponse =
+      await route_create_project_config({ previewImgColor });
     if (res200(res)) {
       useLocalStorage.setState({
         overviewTab: OverviewTabNameEnum.ProjectAIChat,
@@ -174,7 +191,8 @@ export async function loadAllProjectMetadata(): Promise<boolean> {
   if (mode !== "ide") {
     return false;
   }
-  const res = await route_load_all_project_metadata();
+  const res: LoadAllProjectMetadataRouteResponse =
+    await route_load_all_project_metadata();
   if (res200(res)) {
     useAllProjectMetadata.setState(res.data);
     return true;
