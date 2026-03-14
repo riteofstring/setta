@@ -34,7 +34,6 @@ import {
 } from "state/actions/sectionInfos";
 import {
   useLspDiagnostics,
-  useMisc,
   useProjectState,
   useResizeEvent,
   useShareSession,
@@ -42,6 +41,7 @@ import {
 } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionMinMaxDims } from "state/hooks/sectionSizes";
+import { useMisc } from "state/stores/layoutInteractionStores";
 import { C } from "utils/c";
 import {
   getPythonCodegenTarget,

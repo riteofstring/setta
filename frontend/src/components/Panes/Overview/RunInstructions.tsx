@@ -13,7 +13,6 @@ import {
   setCustomRunMode,
   toggleCustomRunInDropdown,
 } from "state/actions/customRuns";
-import { applyProjectCodegenTargetsResponse } from "state/actions/project/codegenTargets";
 import {
   getActiveViewModeConfig,
   getCurrEffectiveCodeObjImpl,
@@ -28,23 +27,26 @@ import {
   subscribeStateMachineRunPolling,
 } from "state/actions/stateMachineRuns";
 import {
-  CustomRunItem,
   useAIStore,
-  useAllProjectMetadata,
   useLocalStorage,
   useProjectState,
-  useRunControl,
   useSettings,
-  useShareSession,
   ZustandProjectState,
 } from "state/definitions";
+import {
+  type CustomRunItem,
+  useRunControl,
+} from "state/stores/projectStatusStores";
 import { useShareCapabilities } from "state/hooks/share";
+import {
+  useAllProjectMetadata,
+  useShareSession,
+} from "state/stores/sessionStores";
 import {
   getPythonCodegenTarget,
   isPluginCodegenTarget,
   projectConfigHasPythonCodegen,
 } from "utils/codegenTargets";
-import { res200 } from "utils/endpointUtils";
 import { route_set_project_config_codegen_targets } from "utils/generatedEndpoints";
 import {
   CodeObjTypeEnum,
@@ -340,11 +342,17 @@ export function RunInstructions() {
     void route_set_project_config_codegen_targets({
       projectConfigId,
       codegenTargets: nextTargets,
-    }).then((response) => {
-      if (!res200(response) || !response.data) {
-        return;
-      }
-      applyProjectCodegenTargetsResponse(response.data);
+    });
+    useAllProjectMetadata.setState((state) => ({
+      ...state,
+      projectMetadata: state.projectMetadata.map((entry) =>
+        entry.id === projectConfigId
+          ? { ...entry, codegenTargets: nextTargets }
+          : entry,
+      ),
+    }));
+    useProjectState.setState((state) => {
+      state.projectConfig.codegenTargets = nextTargets;
     });
   };
 
@@ -574,10 +582,7 @@ export function RunInstructions() {
   }
 
   const codegenPolicyContent = !pythonCodegenEnabled ? (
-    <div
-      className="mx-[2px] rounded border border-dashed border-setta-200 bg-white/40 p-2 text-[11px] text-setta-600 dark:border-setta-800 dark:bg-setta-900/40 dark:text-setta-300"
-      data-testid="run-instructions-codegen-policy-disabled-message"
-    >
+    <div className="mx-[2px] rounded border border-dashed border-setta-200 bg-white/40 p-2 text-[11px] text-setta-600 dark:border-setta-800 dark:bg-setta-900/40 dark:text-setta-300">
       Enable Python codegen to edit section policy settings.
     </div>
   ) : (
@@ -598,7 +603,6 @@ export function RunInstructions() {
           <Switch.Root
             className={TOGGLE_ROOT_CLASSES}
             checked={pythonTarget.generateMetadata}
-            data-testid="run-instructions-python-metadata-toggle"
             disabled={isDeploymentMode}
             onCheckedChange={(checked) =>
               updatePythonTarget((target) => ({
@@ -842,7 +846,6 @@ export function RunInstructions() {
         <div className="mt-2 flex min-w-0 flex-col gap-1.5">
           <select
             className={`${PANEL_SELECT_CLASSES} w-full`}
-            data-testid="run-instructions-section-override-select"
             disabled={
               isDeploymentMode || availableOverrideSections.length === 0
             }
@@ -861,7 +864,6 @@ export function RunInstructions() {
           <div className="flex justify-end">
             <button
               className={PANEL_ICON_BUTTON_CLASSES}
-              data-testid="run-instructions-section-override-add"
               disabled={isDeploymentMode || !pendingOverrideId}
               onClick={() => {
                 const selected =
@@ -911,14 +913,12 @@ export function RunInstructions() {
                 <div
                   key={entry.sectionId}
                   className="flex flex-wrap items-center gap-2 rounded-md bg-white/45 px-2 py-1 dark:bg-setta-950/35"
-                  data-testid={`run-instructions-section-override-${entry.sectionId}`}
                 >
                   <div className="min-w-0 basis-full truncate text-[11px] text-setta-700 dark:text-setta-200">
                     {entry.name}
                   </div>
                   <select
                     className={`${PANEL_COMPACT_SELECT_CLASSES} flex-1 basis-20`}
-                    data-testid={`run-instructions-section-override-mode-${entry.sectionId}`}
                     disabled={isDeploymentMode}
                     value={entry.override.mode}
                     onChange={(event) => {
@@ -948,7 +948,6 @@ export function RunInstructions() {
                   ) : (
                     <select
                       className={`${PANEL_COMPACT_SELECT_CLASSES} flex-1 basis-24`}
-                      data-testid={`run-instructions-section-override-representation-${entry.sectionId}`}
                       disabled={isDeploymentMode || representationDisabled}
                       value={entry.override.representation}
                       onChange={(event) => {
@@ -975,7 +974,6 @@ export function RunInstructions() {
                   )}
                   <button
                     className={PANEL_ICON_BUTTON_DESTRUCTIVE_CLASSES}
-                    data-testid={`run-instructions-section-override-remove-${entry.sectionId}`}
                     disabled={isDeploymentMode}
                     onClick={() => {
                       const nextOverrides = {
@@ -1073,7 +1071,6 @@ export function RunInstructions() {
         <div className="mt-2 flex min-w-0 flex-col gap-1.5">
           <select
             className={`${PANEL_SELECT_CLASSES} w-full`}
-            data-testid="run-instructions-codeobj-override-select"
             disabled={
               isDeploymentMode || availableCodeObjOverrides.length === 0
             }
@@ -1092,7 +1089,6 @@ export function RunInstructions() {
           <div className="flex justify-end">
             <button
               className={PANEL_ICON_BUTTON_CLASSES}
-              data-testid="run-instructions-codeobj-override-add"
               disabled={isDeploymentMode || !pendingCodeObjOverrideId}
               onClick={() => {
                 const selected =
@@ -1144,14 +1140,12 @@ export function RunInstructions() {
                 <div
                   key={entry.codeObjId}
                   className="flex flex-wrap items-center gap-2 rounded-md bg-white/45 px-2 py-1 dark:bg-setta-950/35"
-                  data-testid={`run-instructions-codeobj-override-${entry.codeObjId}`}
                 >
                   <div className="min-w-0 basis-full truncate text-[11px] text-setta-700 dark:text-setta-200">
                     {entry.label}
                   </div>
                   <select
                     className={`${PANEL_COMPACT_SELECT_CLASSES} flex-1 basis-24`}
-                    data-testid={`run-instructions-codeobj-override-representation-${entry.codeObjId}`}
                     disabled={isDeploymentMode || representationDisabled}
                     value={entry.override.representation}
                     onChange={(event) => {
@@ -1177,7 +1171,6 @@ export function RunInstructions() {
                   </select>
                   <button
                     className={PANEL_ICON_BUTTON_DESTRUCTIVE_CLASSES}
-                    data-testid={`run-instructions-codeobj-override-remove-${entry.codeObjId}`}
                     disabled={isDeploymentMode}
                     onClick={() => {
                       const nextOverrides = {
@@ -1266,7 +1259,6 @@ export function RunInstructions() {
                 <Switch.Root
                   className={TOGGLE_ROOT_CLASSES}
                   checked={pythonCodegenEnabled}
-                  data-testid="run-instructions-python-codegen-toggle"
                   disabled={isDeploymentMode}
                   onCheckedChange={handleCodegenTargetToggle}
                 >

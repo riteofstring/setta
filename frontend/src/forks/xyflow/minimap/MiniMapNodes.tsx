@@ -5,10 +5,10 @@ import {
   useLocalStorage,
   useNodeInternals,
   useProjectState,
-  useTemporaryMiscState,
   type ZustandNodeInternalsState,
   type ZustandProjectState,
 } from "state/definitions";
+import { useTemporaryMiscState } from "state/stores/layoutInteractionStores";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { useReactFlow } from "../core/store";
 import { computeReadyToBeVisible } from "../core/store/utils";

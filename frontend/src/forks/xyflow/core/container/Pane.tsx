@@ -17,7 +17,8 @@ import { openPaneContextMenu } from "state/actions/contextMenus";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { openFileAsSectionForDrop } from "state/actions/sections/createSections";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
-import { useMisc, useSettings } from "state/definitions";
+import { useSettings } from "state/definitions";
+import { useMisc } from "state/stores/layoutInteractionStores";
 import { getFileBrowserDragPayload } from "utils/fileBrowserDragPayload";
 import {
   SelectionModeEnum,

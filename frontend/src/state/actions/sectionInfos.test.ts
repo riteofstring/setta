@@ -17,12 +17,12 @@ import {
 import { resetStreamingTracker } from "state/aiStreamingTracker";
 import {
   useLocalStorage,
-  useMisc,
   useNodeInternals,
   usePendingOperations,
   useProjectState,
   type ZustandProjectState,
 } from "state/definitions";
+import { useMisc } from "state/stores/layoutInteractionStores";
 import {
   ChatRoleEnum,
   createChatSectionImpl,
