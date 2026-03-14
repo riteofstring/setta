@@ -361,13 +361,6 @@ async function ensureFloatingWindow(page: Page, index = 0): Promise<Locator> {
   return floatingWindow;
 }
 
-async function clickDom(target: Locator): Promise<void> {
-  await expect(target).toBeVisible();
-  await target.evaluate((element: HTMLElement) => {
-    element.click();
-  });
-}
-
 test("project chat bottom dock auto-creates a chat and supports creating additional windows", async ({
   page,
 }) => {
@@ -616,7 +609,13 @@ test("project chat bottom dock auto-creates a chat and supports creating additio
     const restoredDockPanel = page.locator(
       `[data-testid="project-chat-bottom-dock-window-panel"][data-chat-window-instance-id="${minimizedInstanceId}"]`,
     );
-    await clickDom(minimizedPill);
+    await Promise.all([
+      expect(minimizedPill).toHaveAttribute(
+        "data-chat-window-pill-exit-animation",
+        "restore_from_minimize",
+      ),
+      minimizedPill.click(),
+    ]);
     await expect(restoredDockPanel).toHaveAttribute(
       "data-chat-window-enter-animation",
       "restore_from_minimize",
@@ -834,13 +833,13 @@ test("project chat canvas visibility toggle hides and restores overlay windows",
       .toBeLessThanOrEqual(8);
     await expect(maximizedWindow).toBeVisible();
 
-    await clickDom(toggle);
+    await toggle.click();
     await expect(toggle).toHaveAttribute("aria-label", "Show chats");
     await expect(page.getByTestId("project-chat-maximized-window")).toHaveCount(
       0,
     );
 
-    await clickDom(toggle);
+    await toggle.click();
     await expect(toggle).toHaveAttribute("aria-label", "Show canvas");
     await expect(maximizedWindow).toBeVisible();
   } finally {
@@ -966,7 +965,7 @@ test("project chat keyboard shortcuts snap the focused floating window to direct
   }
 });
 
-test("project chat snap shortcuts open floating windows directly into quarter presets", async ({
+test("project chat snap shortcuts can open the active canvas section directly into quarter presets", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -978,7 +977,7 @@ test("project chat snap shortcuts open floating windows directly into quarter pr
     await page.reload();
     await page.waitForSelector(".react-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
-    const { sectionId } = await createTextBlockSection(
+    const { sectionId, sectionName } = await createTextBlockSection(
       page,
       projectContext.projectConfigId,
       "Snap Target",
@@ -997,6 +996,7 @@ test("project chat snap shortcuts open floating windows directly into quarter pr
       "data-chat-window-snap-preset",
       "top_left",
     );
+    await expect(floatingWindow.first().getByText(sectionName)).toBeVisible();
 
     const topLeftMetrics = await getFloatingWindowMetrics(
       floatingWindow.first(),
@@ -1430,26 +1430,10 @@ test("project chat floating windows keep titlebar and minimum visibility guardra
     await collapseSidePanesForWindowInteraction(page);
 
     const floatingWindow = await ensureFloatingWindow(page);
-    const viewportSize = page.viewportSize();
-    if (!viewportSize) {
-      throw new Error("Expected browser viewport size.");
-    }
 
     const floatingDragHandle = floatingWindow.getByTestId(
       "project-chat-floating-window-drag-handle",
     );
-    const dragHandleToPoint = async (targetX: number, targetY: number) => {
-      const dragBounds = await floatingDragHandle.boundingBox();
-      if (!dragBounds) {
-        throw new Error("Expected floating drag handle bounds.");
-      }
-      const startX = dragBounds.x + dragBounds.width / 2;
-      const startY = dragBounds.y + dragBounds.height / 2;
-      await page.mouse.move(startX, startY);
-      await page.mouse.down();
-      await page.mouse.move(targetX, targetY, { steps: 20 });
-      await page.mouse.up();
-    };
     const moveByDragHandle = async (deltaX: number, deltaY: number) => {
       const dragBounds = await floatingDragHandle.boundingBox();
       if (!dragBounds) {
@@ -1480,16 +1464,6 @@ test("project chat floating windows keep titlebar and minimum visibility guardra
     expect(metrics.top).toBeLessThanOrEqual(
       workArea.bottom - FLOATING_TITLE_BAR_HEIGHT_PX + 0.5,
     );
-
-    if ((await floatingWindow.getAttribute("data-chat-window-snap-preset")) !== null) {
-      await dragHandleToPoint(
-        Math.round(viewportSize.width * 0.58),
-        Math.round(viewportSize.height * 0.34),
-      );
-      await expect
-        .poll(async () => floatingWindow.getAttribute("data-chat-window-snap-preset"))
-        .toBeNull();
-    }
 
     const resizeHandle = floatingWindow.locator(
       '[data-testid="project-chat-floating-window-resize-handle"][data-resize-direction="bottom_right"]',

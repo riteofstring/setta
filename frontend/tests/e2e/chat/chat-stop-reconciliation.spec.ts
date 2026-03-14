@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   ensureAppReady,
@@ -45,16 +45,14 @@ test.describe.serial("chat stop reconciliation", () => {
       await page.reload();
       await page.waitForSelector(".react-flow__pane");
 
-      const projectChatSurface = await getVisibleProjectChatSurface(page);
+      const overviewPane = page.locator("#OverviewPane");
+      await expect(
+        overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+      ).toBeVisible();
+
       const chatId = "pw-stop-null-message-id";
-      const windowInstanceId = await getVisibleProjectChatWindowInstanceId(
-        projectChatSurface,
-      );
       await page.evaluate(
-        async ({ instanceId, nextChatId }) => {
-          const { setProjectChatWindowChatId } = await import(
-            "/src/state/actions/projectChatWindowing.ts"
-          );
+        async ({ nextChatId }) => {
           const { useAIStore } = await import("/src/state/definitions.ts");
           const { getDefaultChatDetails, receiveLLMResponseChunk } =
             await import("/src/state/actions/ai.ts");
@@ -65,6 +63,7 @@ test.describe.serial("chat stop reconciliation", () => {
           } = await import("/src/utils/generatedTypes.ts");
 
           useAIStore.setState({
+            activeChatId: nextChatId,
             chatDetails: {
               [nextChatId]: {
                 ...getDefaultChatDetails(),
@@ -85,7 +84,6 @@ test.describe.serial("chat stop reconciliation", () => {
               },
             },
           });
-          setProjectChatWindowChatId(instanceId, nextChatId);
 
           receiveLLMResponseChunk({
             chatId: nextChatId,
@@ -99,10 +97,10 @@ test.describe.serial("chat stop reconciliation", () => {
             },
           });
         },
-        { instanceId: windowInstanceId, nextChatId: chatId },
+        { nextChatId: chatId },
       );
 
-      const stopButton = projectChatSurface.getByRole("button", {
+      const stopButton = overviewPane.getByRole("button", {
         name: "Stop response",
       });
       await expect(stopButton).toBeVisible();
@@ -131,40 +129,3 @@ test.describe.serial("chat stop reconciliation", () => {
     }
   });
 });
-
-async function getVisibleProjectChatSurface(page: Page): Promise<Locator> {
-  const surfaceCandidates = [
-    page.getByTestId("project-chat-maximized-window").first(),
-    page.getByTestId("project-chat-floating-window").first(),
-    page.getByTestId("project-chat-bottom-dock-window-panel").first(),
-    page
-      .locator('#OverviewPane [data-chat-surface-mode="project_ai_mode"]')
-      .first(),
-  ];
-  await expect
-    .poll(async () => {
-      for (const candidate of surfaceCandidates) {
-        if ((await candidate.count()) > 0 && (await candidate.isVisible())) {
-          return true;
-        }
-      }
-      return false;
-    })
-    .toBe(true);
-  for (const candidate of surfaceCandidates) {
-    if ((await candidate.count()) > 0 && (await candidate.isVisible())) {
-      return candidate;
-    }
-  }
-  throw new Error("No visible project chat surface found.");
-}
-
-async function getVisibleProjectChatWindowInstanceId(
-  surface: Locator,
-): Promise<string> {
-  const instanceId = await surface.getAttribute("data-chat-window-instance-id");
-  if (!instanceId) {
-    throw new Error("Visible project chat surface is missing an instance id.");
-  }
-  return instanceId;
-}
