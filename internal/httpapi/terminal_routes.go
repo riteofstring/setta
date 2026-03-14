@@ -16,7 +16,6 @@ import (
 )
 
 const RouteDeleteTerminals = "/deleteTerminals"
-const RouteKillSubprocesses = "/killSubprocesses"
 const RouteInterruptTerminalProcesses = "/interruptTerminalProcesses"
 const RouteRunCode = "/runCode"
 
@@ -30,10 +29,6 @@ type TerminalRouteDependencies struct {
 
 type DeleteTerminalsRequest struct {
 	SectionIDs []string `json:"sectionIds"`
-}
-
-type KillSubprocessesRequest struct {
-	ProjectID string `json:"projectConfigId"`
 }
 
 type InterruptTerminalProcessesRequest struct {
@@ -78,14 +73,12 @@ func RegisterTerminalRoutes(router chi.Router, deps TerminalRouteDependencies) e
 			Store:  deps.ShareSessions,
 		})
 		router.With(shareGuard).Post(RouteDeleteTerminals, deleteTerminalsHandler(deps.Terminals, deps.Deployment))
-		router.With(RequireFullIDERuntime(deps.ModePolicy)).Post(RouteKillSubprocesses, killSubprocessesHandler(deps.Terminals))
 		router.With(shareGuard).Post(RouteInterruptTerminalProcesses, interruptTerminalProcessesHandler(deps.Terminals, deps.Deployment))
 		router.With(shareGuard).Post(RouteRunCode, runCodeHandler(deps.RunCode))
 		return nil
 	}
 	ideGuard := RequireFullIDERuntime(deps.ModePolicy)
 	router.With(ideGuard).Post(RouteDeleteTerminals, deleteTerminalsHandler(deps.Terminals, nil))
-	router.With(ideGuard).Post(RouteKillSubprocesses, killSubprocessesHandler(deps.Terminals))
 	router.With(ideGuard).Post(RouteInterruptTerminalProcesses, interruptTerminalProcessesHandler(deps.Terminals, nil))
 	router.With(ideGuard).Post(RouteRunCode, runCodeHandler(deps.RunCode))
 	return nil
@@ -148,42 +141,6 @@ func deleteTerminalsHandler(terminalService *terminals.Service, deployment *depl
 				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 				return
 			}
-		}
-
-		writeJSON(w, http.StatusOK, nil)
-	}
-}
-
-func killSubprocessesHandler(terminalService *terminals.Service) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[KillSubprocessesRequest](r)
-		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
-			return
-		}
-
-		requestInfo, ok := modes.RequestInfoFromRequest(r)
-		if !ok {
-			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
-			return
-		}
-
-		projectID := strings.TrimSpace(payload.ProjectID)
-		if projectID == "" {
-			writeError(w, r, http.StatusBadRequest, "invalid_project_id", "Project id is required.")
-			return
-		}
-
-		// The active frontend still uses the Python-era killSubprocesses route
-		// name, but the historical behavior was an interrupt of foreground child
-		// processes rather than a hard kill.
-		if _, err := terminalService.InterruptProject(projectID, requestInfo.ShareSessionID); err != nil {
-			if errors.Is(err, terminals.ErrInterruptUnsupported) {
-				writeError(w, r, http.StatusNotImplemented, "terminal_interrupt_unsupported", "Terminal interrupt is not supported on this platform.")
-				return
-			}
-			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
-			return
 		}
 
 		writeJSON(w, http.StatusOK, nil)

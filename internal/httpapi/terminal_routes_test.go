@@ -361,74 +361,6 @@ func TestRegisterTerminalRoutesInterruptsOnlyMatchingProjectSessions(t *testing.
 	ensureNoHTTPTestOutputContains(t, attachmentB, "CHILD_INTERRUPTED", 300*time.Millisecond)
 }
 
-func TestRegisterTerminalRoutesKillSubprocessesInterruptsOnlyMatchingProjectSessions(t *testing.T) {
-	t.Parallel()
-	skipIfTerminalPTYUnsupported(t)
-
-	// The Python-era killSubprocesses caller should now resolve through the Go
-	// terminal service without changing the caller contract.
-	authService := newTestAuthService(t)
-	terminalService := newHTTPTestTerminalService(t)
-	scriptPath := writeHTTPInterruptibleScript(t)
-
-	sessionA := terminals.BuildTerminalID("section-a", "")
-	sessionB := terminals.BuildTerminalID("section-b", "")
-
-	openHTTPTestTerminal(t, terminalService, terminals.OpenOptions{
-		ID:         sessionA,
-		ProjectID:  "project-a",
-		AllowInput: true,
-		Command:    interactiveHTTPTestBashCommand(t),
-	})
-	openHTTPTestTerminal(t, terminalService, terminals.OpenOptions{
-		ID:         sessionB,
-		ProjectID:  "project-b",
-		AllowInput: true,
-		Command:    interactiveHTTPTestBashCommand(t),
-	})
-
-	attachmentA := attachHTTPTestTerminal(t, terminalService, sessionA)
-	attachmentB := attachHTTPTestTerminal(t, terminalService, sessionB)
-	prepareHTTPInterruptShell(t, terminalService, sessionA, attachmentA)
-	prepareHTTPInterruptShell(t, terminalService, sessionB, attachmentB)
-
-	startHTTPInterruptibleForegroundJob(t, terminalService, sessionA, attachmentA, scriptPath)
-	startHTTPInterruptibleForegroundJob(t, terminalService, sessionB, attachmentB, scriptPath)
-
-	handler, err := NewHandler(Dependencies{
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
-		Auth:       authService,
-		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		Register: func(r chi.Router) {
-			registerHTTPTestTerminalRoutes(t, r, modes.NewPolicy(config.ModeIDE), terminalService, newHTTPTestRunCodeService(t, terminalService))
-		},
-	})
-	if err != nil {
-		t.Fatalf("new handler: %v", err)
-	}
-
-	request := httptest.NewRequest(http.MethodPost, "/api"+RouteKillSubprocesses, strings.NewReader(`{"projectConfigId":"project-a"}`))
-	request.Header.Set("Content-Type", "application/json")
-	addHTTPTestAuthCookie(t, request, authService)
-
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-	if strings.TrimSpace(response.Body.String()) != "null" {
-		t.Fatalf("expected null response payload, got %q", response.Body.String())
-	}
-
-	outputA := waitForHTTPTestOutputContains(t, attachmentA, "CHILD_EXIT:130")
-	if !strings.Contains(outputA, "CHILD_INTERRUPTED") {
-		t.Fatalf("expected project-a terminal to report interrupt, got %q", outputA)
-	}
-
-	ensureNoHTTPTestOutputContains(t, attachmentB, "CHILD_INTERRUPTED", 300*time.Millisecond)
-}
-
 func TestRegisterTerminalRoutesRejectsBlankInterruptProjectID(t *testing.T) {
 	t.Parallel()
 
@@ -462,11 +394,9 @@ func TestRegisterTerminalRoutesRejectsBlankInterruptProjectID(t *testing.T) {
 	}
 }
 
-func TestRegisterTerminalRoutesRejectsBlankKillSubprocessesProjectID(t *testing.T) {
+func TestRegisterTerminalRoutesDoesNotRegisterLegacyKillSubprocessesRoute(t *testing.T) {
 	t.Parallel()
 
-	// Blank project ids should fail before the route reaches terminal service
-	// state so the legacy caller keeps a deterministic request error.
 	authService := newTestAuthService(t)
 	terminalService := newHTTPTestTerminalService(t)
 
@@ -483,17 +413,14 @@ func TestRegisterTerminalRoutesRejectsBlankKillSubprocessesProjectID(t *testing.
 		t.Fatalf("new handler: %v", err)
 	}
 
-	request := httptest.NewRequest(http.MethodPost, "/api"+RouteKillSubprocesses, strings.NewReader(`{"projectConfigId":""}`))
+	request := httptest.NewRequest(http.MethodPost, "/api/killSubprocesses", strings.NewReader(`{"projectConfigId":"project-a"}`))
 	request.Header.Set("Content-Type", "application/json")
 	addHTTPTestAuthCookie(t, request, authService)
 
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
-	}
-	if !strings.Contains(response.Body.String(), `"code":"invalid_project_id"`) {
-		t.Fatalf("expected invalid_project_id error, got %q", response.Body.String())
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
 	}
 }
 
@@ -530,40 +457,6 @@ func TestRegisterTerminalRoutesRejectsDeploymentInterruptWhenPolicyDisallows(t *
 	}
 	if !strings.Contains(response.Body.String(), `"code":"deployment_policy_denied"`) {
 		t.Fatalf("expected deployment_policy_denied error, got %q", response.Body.String())
-	}
-}
-
-func TestRegisterTerminalRoutesBlocksKillSubprocessesInDeploymentMode(t *testing.T) {
-	t.Parallel()
-
-	// The legacy killSubprocesses adapter stays IDE-only while the canonical
-	// deployment/share/app stop path moves to interruptTerminalProcesses.
-	terminalService := newHTTPTestTerminalService(t)
-	policy := deployments.DefaultPolicy()
-	policy.AllowRun = true
-	runFixture := newHTTPTestDeploymentRunCodeFixture(t, terminalService, policy)
-	handler, err := NewHandler(Dependencies{
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
-		ModePolicy: modes.NewPolicy(config.ModeShare),
-		Register: func(r chi.Router) {
-			registerHTTPTestDeploymentTerminalRoutes(t, r, modes.NewPolicy(config.ModeShare), terminalService, runFixture.service, runFixture.deployment)
-		},
-	})
-	if err != nil {
-		t.Fatalf("new handler: %v", err)
-	}
-
-	request := httptest.NewRequest(http.MethodPost, "/api"+RouteKillSubprocesses, strings.NewReader(`{"projectConfigId":"project-a"}`))
-	request.Header.Set("Content-Type", "application/json")
-
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusForbidden {
-		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
-	}
-	if !strings.Contains(response.Body.String(), `"code":"mode_forbidden"`) {
-		t.Fatalf("expected mode_forbidden error, got %q", response.Body.String())
 	}
 }
 
