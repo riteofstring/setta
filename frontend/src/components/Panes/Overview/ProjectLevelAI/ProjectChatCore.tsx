@@ -36,6 +36,8 @@ import {
   getRunInputString,
   getRunLastUpdatedMs,
 } from "state/actions/agentRunUtils";
+import { submitEditedMessage, submitMessage } from "state/actions/ai";
+import { loadAgentRuns } from "state/actions/ai/agentRuns";
 import {
   clearPendingChatDetails,
   finalizePendingChatDetails,
@@ -45,13 +47,10 @@ import {
   getProjectChatHydrationOutcomeWithFallback,
   initializePendingChatDetails,
   stopProjectChatResponse,
-  submitEditedMessage,
-  submitMessage,
   type ChatHydrationErrorCode,
   type ChatHydrationOutcome,
   type ChatHydrationOutcomeType,
-} from "state/actions/ai";
-import { loadAgentRuns } from "state/actions/ai/agentRuns";
+} from "state/actions/ai/chatRuntime";
 import { transcribeChatAudioWithProfile } from "state/actions/ai/transcription";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import {

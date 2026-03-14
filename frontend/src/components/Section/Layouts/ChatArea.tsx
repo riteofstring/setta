@@ -33,6 +33,8 @@ import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import _ from "lodash";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { submitEditedMessage, submitMessage } from "state/actions/ai";
+import { loadAgentRuns } from "state/actions/ai/agentRuns";
 import {
   clearPendingChatDetails,
   getDefaultChatDetails,
@@ -40,10 +42,7 @@ import {
   getLLMChat,
   initializePendingChatDetails,
   stopManagedSectionChatResponse,
-  submitEditedMessage,
-  submitMessage,
-} from "state/actions/ai";
-import { loadAgentRuns } from "state/actions/ai/agentRuns";
+} from "state/actions/ai/chatRuntime";
 import { transcribeChatAudioWithProfile } from "state/actions/ai/transcription";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import {
