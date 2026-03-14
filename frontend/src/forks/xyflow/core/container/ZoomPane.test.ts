@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { useReactFlow } from "forks/xyflow/core/store";
-import { act, createElement } from "react";
+import { act, createElement, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useMisc, useSettings } from "state/definitions";
 import { resetProjectStores } from "state/utils";
@@ -9,10 +9,7 @@ import "testUtils/reactRefreshPreamble";
 import { createSettingsState } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import initialState from "../store/initialState";
-import ZoomPane, {
-  getViewportInteractionActiveValue,
-  resetViewportInteractionState,
-} from "./ZoomPane";
+import ZoomPane, { resetViewportInteractionState } from "./ZoomPane";
 
 type RenderedZoomPane = {
   host: HTMLDivElement;
@@ -20,7 +17,9 @@ type RenderedZoomPane = {
   root: Root;
 };
 
-async function renderZoomPane(): Promise<RenderedZoomPane> {
+async function renderZoomPane(
+  props: Partial<ComponentProps<typeof ZoomPane>> = {},
+): Promise<RenderedZoomPane> {
   const host = document.createElement("div");
   document.body.appendChild(host);
 
@@ -32,7 +31,10 @@ async function renderZoomPane(): Promise<RenderedZoomPane> {
         { className: "react-flow" },
         createElement(
           ZoomPane,
-          { wrapperDimensions: { width: 800, height: 600 } },
+          {
+            wrapperDimensions: { width: 800, height: 600 },
+            ...props,
+          },
           createElement("div"),
         ),
       ),
@@ -47,7 +49,7 @@ async function renderZoomPane(): Promise<RenderedZoomPane> {
   return { host, renderer, root };
 }
 
-describe("getViewportInteractionActiveValue", () => {
+describe("ZoomPane", () => {
   beforeEach(() => {
     resetProjectStores();
     useSettings.setState(createSettingsState());
@@ -57,7 +59,6 @@ describe("getViewportInteractionActiveValue", () => {
       width: 800,
       height: 600,
       paneDragging: false,
-      viewportInteractionActive: false,
     });
     vi.useFakeTimers();
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
@@ -73,60 +74,23 @@ describe("getViewportInteractionActiveValue", () => {
     document.body.innerHTML = "";
   });
 
-  it("stays active while drag-pan is still running after pan-scroll settles", () => {
-    expect(
-      getViewportInteractionActiveValue({
-        isPanScrolling: false,
-        isWheelZooming: false,
-        isZoomingOrPanning: true,
-      }),
-    ).toBe(true);
-  });
-
-  it("stays active while drag-pan is still running after a wheel-zoom burst settles", () => {
-    expect(
-      getViewportInteractionActiveValue({
-        isPanScrolling: false,
-        isWheelZooming: false,
-        isZoomingOrPanning: true,
-      }),
-    ).toBe(true);
-  });
-
-  it("turns inactive only after every gesture source is idle", () => {
-    expect(
-      getViewportInteractionActiveValue({
-        isPanScrolling: false,
-        isWheelZooming: false,
-        isZoomingOrPanning: false,
-      }),
-    ).toBe(false);
-  });
-
-  it("clears global gesture flags during teardown", () => {
+  it("clears pan-scroll and drag flags during teardown", () => {
     const panScrollTimeout = { current: setTimeout(() => undefined, 1000) };
-    const wheelZoomTimeout = { current: setTimeout(() => undefined, 1000) };
     useMisc.setState({ isPanScrolling: true });
-    useReactFlow.setState({
-      paneDragging: true,
-      viewportInteractionActive: true,
-    });
+    useReactFlow.setState({ paneDragging: true });
 
     resetViewportInteractionState({
       isPanScrolling: { current: true },
-      isWheelZooming: { current: true },
       isZoomingOrPanning: { current: true },
       panScrollTimeout,
-      wheelZoomTimeout,
     });
 
     expect(useMisc.getState().isPanScrolling).toBe(false);
-    expect(useReactFlow.getState().viewportInteractionActive).toBe(false);
     expect(useReactFlow.getState().paneDragging).toBe(false);
   });
 
-  it("keeps wheel-burst interaction active until the burst timeout settles after drag end", async () => {
-    const { host, renderer, root } = await renderZoomPane();
+  it("toggles paneDragging for drag-pan lifecycle", async () => {
+    const { host, root } = await renderZoomPane();
 
     try {
       const d3Zoom = useReactFlow.getState().d3Zoom;
@@ -155,19 +119,6 @@ describe("getViewportInteractionActiveValue", () => {
       });
 
       expect(useReactFlow.getState().paneDragging).toBe(true);
-      expect(useReactFlow.getState().viewportInteractionActive).toBe(true);
-
-      await act(async () => {
-        renderer.dispatchEvent(
-          new WheelEvent("wheel", {
-            bubbles: true,
-            cancelable: true,
-            deltaY: -120,
-            clientX: 240,
-            clientY: 180,
-          }),
-        );
-      });
 
       await act(async () => {
         endHandler({
@@ -178,21 +129,47 @@ describe("getViewportInteractionActiveValue", () => {
         });
       });
 
-      // Drag teardown should not clear the active wheel burst prematurely.
       expect(useReactFlow.getState().paneDragging).toBe(false);
-      expect(useReactFlow.getState().viewportInteractionActive).toBe(true);
-
+    } finally {
       await act(async () => {
-        vi.advanceTimersByTime(179);
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("clears pan-on-scroll state after the settle timeout", async () => {
+    const { host, renderer, root } = await renderZoomPane({
+      panOnScroll: true,
+    });
+
+    try {
+      await act(async () => {
+        renderer.dispatchEvent(
+          new WheelEvent("wheel", {
+            bubbles: true,
+            cancelable: true,
+            deltaX: 0,
+            deltaY: 120,
+            clientX: 240,
+            clientY: 180,
+          }),
+        );
       });
 
-      expect(useReactFlow.getState().viewportInteractionActive).toBe(true);
+      expect(useMisc.getState().isPanScrolling).toBe(true);
+
+      await act(async () => {
+        vi.advanceTimersByTime(149);
+      });
+
+      expect(useMisc.getState().isPanScrolling).toBe(true);
 
       await act(async () => {
         vi.advanceTimersByTime(1);
       });
 
-      expect(useReactFlow.getState().viewportInteractionActive).toBe(false);
+      expect(useMisc.getState().isPanScrolling).toBe(false);
     } finally {
       await act(async () => {
         root.unmount();
