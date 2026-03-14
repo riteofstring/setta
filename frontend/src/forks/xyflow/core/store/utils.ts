@@ -1,12 +1,10 @@
+import { getCanvasEngineOverviewNodes } from "canvas-engine/overviewNodes";
 import { getNodes } from "state/actions/nodeInternals";
 import { useProjectState, useSettings } from "state/definitions";
 import { useReactFlow } from ".";
 import { applyViewportTransform } from "../hooks/useViewportHelper";
 import type { FitViewOptions, Node, ReactFlowState } from "../types";
-import {
-  getNodesBounds,
-  getViewportForBounds,
-} from "../utils/graph";
+import { getNodesBounds, getViewportForBounds } from "../utils/graph";
 
 type InternalFitViewOptions = {
   initial?: boolean;
@@ -108,25 +106,10 @@ function getFitViewNodes({
 
   const topLevelSections =
     useProjectState.getState().projectConfig.topLevelSections;
-  return Object.entries(topLevelSections).flatMap(([sectionId, layout]) => {
-    if (nodeIds && !nodeIds.includes(sectionId)) {
-      return [];
-    }
-    const x = typeof layout.x === "number" ? layout.x : 0;
-    const y = typeof layout.y === "number" ? layout.y : 0;
-    const width = typeof layout.w === "number" ? layout.w : 320;
-    const height = typeof layout.h === "number" ? layout.h : 200;
-    const zIndex = typeof layout.zIndex === "number" ? layout.zIndex : 0;
-    return [
-      {
-        id: sectionId,
-        position: { x, y },
-        width,
-        height,
-        zIndex,
-        tempZIndex: zIndex,
-        type: "default",
-      },
-    ];
-  });
+  const nestedPreviewRects =
+    useReactFlow.getState().canvasEngineNestedPreviewRects;
+  return getCanvasEngineOverviewNodes({
+    topLevelSections,
+    nestedPreviewRects,
+  }).filter((node) => (nodeIds ? nodeIds.includes(node.id) : true));
 }

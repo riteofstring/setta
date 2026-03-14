@@ -598,6 +598,33 @@ export function CanvasEngineHost() {
   ]);
 
   useEffect(() => {
+    const currentNestedPreviewRects =
+      useReactFlow.getState().canvasEngineNestedPreviewRects;
+    if (
+      areNestedPreviewRectArraysEqual(
+        currentNestedPreviewRects,
+        nestedPreviewRects,
+      )
+    ) {
+      return;
+    }
+    useReactFlow.setState({
+      canvasEngineNestedPreviewRects: nestedPreviewRects,
+    });
+  }, [nestedPreviewRects]);
+
+  useEffect(() => {
+    return () => {
+      if (useReactFlow.getState().canvasEngineNestedPreviewRects.length === 0) {
+        return;
+      }
+      useReactFlow.setState({
+        canvasEngineNestedPreviewRects: [],
+      });
+    };
+  }, []);
+
+  useEffect(() => {
     const nextCamera = getInitialCamera({
       viewport: persistedViewport,
       viewportInitialized,

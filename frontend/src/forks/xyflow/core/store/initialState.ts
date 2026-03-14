@@ -23,6 +23,7 @@ const initialState: ReactFlowStore = {
   fitViewOnInit: false,
   fitViewOnInitDone: false,
   fitViewOnInitOptions: undefined,
+  canvasEngineNestedPreviewRects: [],
   multiSelectionActive: false,
   selectionKeyPressed: false,
   zoomActivationKeyPressed: false,

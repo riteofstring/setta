@@ -1,16 +1,16 @@
-import { CanvasEngineSceneAdapter } from "canvas-engine/sceneAdapter";
+import { getCanvasEngineOverviewNodes } from "canvas-engine/overviewNodes";
 import Panel from "forks/xyflow/core/components/Panel";
 import { useReactFlow } from "forks/xyflow/core/store";
-import { getPaneRect, getNodesBounds } from "forks/xyflow/core/utils/graph";
+import type { Node, ReactFlowState, Rect } from "forks/xyflow/core/types";
 import { getBoundsOfRects } from "forks/xyflow/core/utils";
-import type { Node, Rect, ReactFlowState } from "forks/xyflow/core/types";
+import { getNodesBounds, getPaneRect } from "forks/xyflow/core/utils/graph";
 import {
   getXYWidthHeight,
   syncSelectedMiniMapNodes,
 } from "forks/xyflow/minimap/MiniMap";
 import { MiniMapNodes } from "forks/xyflow/minimap/MiniMapNodes";
-import type { MiniMapNodesType } from "forks/xyflow/minimap/types";
 import "forks/xyflow/minimap/style.css";
+import type { MiniMapNodesType } from "forks/xyflow/minimap/types";
 import { memo, useEffect, useMemo, useRef } from "react";
 import {
   useActiveSectionUI,
@@ -54,17 +54,16 @@ type CanvasEngineMiniMapNodeColorParams = {
 };
 
 type MiniMapSelector = {
+  nestedPreviewRects: ReactFlowState["canvasEngineNestedPreviewRects"];
   transform: [number, number, number];
   width: number;
   height: number;
   viewBB: Rect;
 };
 
-const minimapSelector = (
-  overviewWidth: number,
-  uiEditorWidth: number,
-) => {
+const minimapSelector = (overviewWidth: number, uiEditorWidth: number) => {
   return (state: ReactFlowState): MiniMapSelector => ({
+    nestedPreviewRects: state.canvasEngineNestedPreviewRects,
     transform: state.transform,
     width: state.width,
     height: state.height,
@@ -123,7 +122,7 @@ export function CanvasEngineMiniMap() {
   });
   const svgRef = useRef<SVGSVGElement | null>(null);
   const activePointerIdRef = useRef<number | null>(null);
-  const { transform, width, height, viewBB } = useReactFlow(
+  const { nestedPreviewRects, transform, width, height, viewBB } = useReactFlow(
     useMemo(
       () => minimapSelector(overviewWidth, uiEditorWidth),
       [overviewWidth, uiEditorWidth],
@@ -132,43 +131,11 @@ export function CanvasEngineMiniMap() {
   );
 
   const nodes = useMemo(() => {
-    const sceneAdapter = new CanvasEngineSceneAdapter();
-    sceneAdapter.applyProjectState({
+    return getCanvasEngineOverviewNodes({
       topLevelSections,
-      activeSectionIds: [],
-      edges: [],
-      agenticEdges: [],
-      edgeHandlePositions: {},
-      sectionEdgePortsBySectionId: {},
+      nestedPreviewRects,
     });
-    const entries = Object.keys(topLevelSections).flatMap((sectionId) => {
-      const rect = sceneAdapter.getRectById(sectionId);
-      if (!rect) {
-        return [];
-      }
-      return [
-        {
-          id: rect.id,
-          position: {
-            x: rect.x,
-            y: rect.y,
-          },
-          width: rect.width,
-          height: rect.height,
-          zIndex: rect.zIndex,
-          tempZIndex: rect.zIndex,
-          type: "default",
-        } satisfies Node,
-      ];
-    });
-    entries.sort((left, right) => {
-      if (left.zIndex !== right.zIndex) {
-        return left.zIndex - right.zIndex;
-      }
-      return left.id.localeCompare(right.id);
-    });
-    return entries;
-  }, [topLevelSections]);
+  }, [nestedPreviewRects, topLevelSections]);
 
   const boundingRect = useMemo(() => {
     if (nodes.length === 0) {
@@ -177,7 +144,13 @@ export function CanvasEngineMiniMap() {
     return getBoundsOfRects(getNodesBounds(nodes), viewBB);
   }, [nodes, viewBB]);
 
-  const { x, y, width: viewWidth, height: viewHeight, offset } = useMemo(
+  const {
+    x,
+    y,
+    width: viewWidth,
+    height: viewHeight,
+    offset,
+  } = useMemo(
     () =>
       getXYWidthHeight({
         boundingRect,
@@ -281,9 +254,7 @@ export function CanvasEngineMiniMap() {
           className="react-flow__minimap-mask"
           d={`M${x - offset},${y - offset}h${viewWidth + offset * 2}v${viewHeight + offset * 2}h${-viewWidth - offset * 2}z
 M${viewBB.x},${viewBB.y}h${viewBB.width}v${viewBB.height}h${-viewBB.width}z`}
-          fill={
-            darkMode ? "rgb(20, 22, 31, 0.5)" : "rgb(51, 65, 85, 0.3)"
-          }
+          fill={darkMode ? "rgb(20, 22, 31, 0.5)" : "rgb(51, 65, 85, 0.3)"}
           fillRule="evenodd"
           stroke={
             darkMode ? "rgba(226, 232, 240, 0.9)" : "rgba(30, 41, 59, 0.6)"
