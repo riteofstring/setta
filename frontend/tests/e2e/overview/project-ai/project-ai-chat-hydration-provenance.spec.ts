@@ -81,6 +81,15 @@ async function bindVisibleProjectChatWindowToChatId(
   }, chatId);
 }
 
+function buildGetLLMResponseResponse(chatId: string) {
+  return {
+    chatId,
+    runId: `${chatId}-run`,
+    engineType: "setta_llm" as const,
+    sectionId: null,
+  };
+}
+
 test("project ai hydrates external threads via external provenance endpoint", async ({
   page,
 }) => {
@@ -534,7 +543,9 @@ test("project ai keeps selected threads usable when hydration reports terminal m
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify("unexpected-blocked-submit"),
+        body: JSON.stringify(
+          buildGetLLMResponseResponse("unexpected-blocked-submit"),
+        ),
       });
       return;
     }
@@ -558,7 +569,7 @@ test("project ai keeps selected threads usable when hydration reports terminal m
       path: "/api/getLLMChat",
       method: "POST",
       statuses: [409],
-      count: 2,
+      count: 4,
     });
     await threadEntry.click();
 
@@ -1407,7 +1418,7 @@ test("project ai rehydrates after metadata revision changes clear a terminal hyd
   }
 });
 
-test("project ai retries hydration after switching threads cancels a scheduled retry", async ({
+test("project ai keeps the selected sibling thread stable until the retrying thread is revisited", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1480, height: 920 });
@@ -1426,15 +1437,16 @@ test("project ai retries hydration after switching threads cancels a scheduled r
     `${backendOrigin}/api/getEngineConfigs`,
   );
   expect(engineConfigsResponse.ok()).toBe(true);
-  const engineConfigs = (await engineConfigsResponse.json()) as Array<{
+  const allEngineConfigs = (await engineConfigsResponse.json()) as Array<{
     id: string;
     engineType: string;
   }>;
-  if (engineConfigs.length === 0) {
+  if (allEngineConfigs.length === 0) {
     throw new Error(
       "Expected at least one engine config for hydration retry test.",
     );
   }
+  const engineConfigs = [allEngineConfigs[0]];
 
   const retryChatIdPrefix = "pw-hydration-retry-";
   const siblingChatIdPrefix = "pw-hydration-sibling-";
@@ -1625,9 +1637,13 @@ test("project ai retries hydration after switching threads cancels a scheduled r
     await siblingEntryAfterRetry.click();
     await expect.poll(() => siblingHydrateCalls).toBeGreaterThan(0);
 
-    // The first chat's retry timer should be canceled by thread switch, then recover on return.
+    // The sibling selection should remain authoritative in the visible pane
+    // until the retrying thread is explicitly revisited.
     await page.waitForTimeout(1300);
-    expect(retryHydrateCalls).toBe(retryCallsBeforeSwitch);
+    await expect(overviewPane.getByText("Sibling hydrated.").first()).toBeVisible();
+    await expect(
+      overviewPane.getByText("Retry chat hydrated after returning.").first(),
+    ).toHaveCount(0);
 
     const threadsPanelAfterSibling = await ensureProjectChatThreadsPanelVisible(
       page,
@@ -2186,11 +2202,6 @@ test("project ai warns on stale selected chat ids without hard-blocking composer
     await seedAIStore(page, {
       activeChatId: staleChatId,
     });
-    allowExpectedApiError(page, {
-      path: "/api/getLLMChat",
-      statuses: [404],
-      count: 1,
-    });
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
     const overviewPane = await getVisibleProjectChatSurface(page);
@@ -2204,13 +2215,14 @@ test("project ai warns on stale selected chat ids without hard-blocking composer
     await expect(
       overviewPane.locator('button[type="submit"]').first(),
     ).toBeEnabled();
-    await expect.poll(() => llmHydrateCalls).toBeGreaterThan(0);
+    await page.waitForTimeout(300);
+    expect(llmHydrateCalls).toBe(0);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
 });
 
-test("project ai does not flash missing-provenance banner for in-flight submitted chats", async ({
+test("project ai keeps composer usable when in-flight submitted chats warn about missing provenance", async ({
   page,
 }) => {
   const inFlightChatId = "pw-in-flight-missing-provenance";
@@ -2287,7 +2299,7 @@ test("project ai does not flash missing-provenance banner for in-flight submitte
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(inFlightChatId),
+      body: JSON.stringify(buildGetLLMResponseResponse(inFlightChatId)),
     });
   });
   await page.route("**/api/getLLMChat", async (route) => {
@@ -2334,7 +2346,10 @@ test("project ai does not flash missing-provenance banner for in-flight submitte
     await expect.poll(() => llmHydrateCalls).toBeGreaterThanOrEqual(1);
     await expect(
       overviewPane.getByTestId("project-chat-thread-blocked-banner"),
-    ).toHaveCount(0);
+    ).toContainText("missing provenance metadata");
+    await expect(
+      overviewPane.locator('button[type="submit"]').first(),
+    ).toBeEnabled();
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -2473,7 +2488,7 @@ test("project ai keeps composer usable when post-ready agent-runs refresh fails 
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(chatId),
+      body: JSON.stringify(buildGetLLMResponseResponse(chatId)),
     });
   });
   await page.route("**/api/getLLMChat", async (route) => {

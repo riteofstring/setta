@@ -89,6 +89,7 @@ describe("ProjectChatCore hydration while waiting", () => {
   });
 
   afterEach(async () => {
+    vi.useRealTimers();
     await act(async () => {
       root.unmount();
     });
@@ -171,6 +172,126 @@ describe("ProjectChatCore hydration while waiting", () => {
 
     await act(async () => {});
     expect(getLLMChatHydrationOutcome).not.toHaveBeenCalled();
+  });
+
+  it("cancels transient hydration retries when the selected chat changes", async () => {
+    vi.useFakeTimers();
+    useAIStore.setState({
+      chatDetails: {
+        "chat-a": {
+          messages: [],
+          toolCallArguments: {},
+          waitingForResponse: false,
+          llmConfig: null,
+          contextUsage: null,
+        },
+        "chat-b": {
+          messages: [],
+          toolCallArguments: {},
+          waitingForResponse: false,
+          llmConfig: null,
+          contextUsage: null,
+        },
+      },
+    });
+    vi.mocked(getLLMChatHydrationOutcome).mockImplementation(async (chatId) => {
+      if (chatId === "chat-a") {
+        return {
+          outcome: "transient_failure",
+          status: 500,
+          errorCode: null,
+        };
+      }
+      return {
+        outcome: "success",
+        status: 200,
+        errorCode: null,
+      };
+    });
+
+    await act(async () => {
+      root.render(
+        <ProjectChatCore
+          surfaceId="surface-a"
+          chatId="chat-a"
+          draftMessage=""
+          setDraftMessage={vi.fn()}
+          placeholderText="Type a message..."
+          conversationFilterText=""
+          hydrationAuthority={{
+            status: "ready",
+            hydrationRunType: "llm_chat",
+            blockedErrorCode: null,
+          }}
+          hydrationMetadataRevision="revision-retry-a"
+          thinking={false}
+          engineConfigId="engine-a"
+          engineType={EngineTypeEnum.setta_llm}
+          hasLLMConfig={true}
+          externalEngineAvailable={false}
+          noLLMConfigsAvailable={false}
+          transcriptionProfileId={null}
+          dictationMode="auto"
+          providerDictationAvailable={false}
+          providerDictationLikelySupported={false}
+          setChatId={vi.fn()}
+        />,
+      );
+    });
+
+    await vi.waitFor(() => {
+      expect(getLLMChatHydrationOutcome).toHaveBeenCalledWith("chat-a");
+    });
+    expect(
+      vi
+        .mocked(getLLMChatHydrationOutcome)
+        .mock.calls.filter(([chatId]) => chatId === "chat-a"),
+    ).toHaveLength(1);
+
+    await act(async () => {
+      root.render(
+        <ProjectChatCore
+          surfaceId="surface-a"
+          chatId="chat-b"
+          draftMessage=""
+          setDraftMessage={vi.fn()}
+          placeholderText="Type a message..."
+          conversationFilterText=""
+          hydrationAuthority={{
+            status: "ready",
+            hydrationRunType: "llm_chat",
+            blockedErrorCode: null,
+          }}
+          hydrationMetadataRevision="revision-retry-b"
+          thinking={false}
+          engineConfigId="engine-a"
+          engineType={EngineTypeEnum.setta_llm}
+          hasLLMConfig={true}
+          externalEngineAvailable={false}
+          noLLMConfigsAvailable={false}
+          transcriptionProfileId={null}
+          dictationMode="auto"
+          providerDictationAvailable={false}
+          providerDictationLikelySupported={false}
+          setChatId={vi.fn()}
+        />,
+      );
+    });
+
+    await vi.waitFor(() => {
+      expect(getLLMChatHydrationOutcome).toHaveBeenCalledWith("chat-b");
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(1500);
+    });
+
+    expect(
+      vi
+        .mocked(getLLMChatHydrationOutcome)
+        .mock.calls.filter(([chatId]) => chatId === "chat-a"),
+    ).toHaveLength(1);
+    vi.useRealTimers();
   });
 
   it("reports zero conversation matches when the filter empty state replaces the message list", async () => {

@@ -85,7 +85,6 @@ import {
 } from "utils/conversationSearch";
 import {
   route_get_file_browser_root,
-  route_get_folder_contents,
 } from "utils/generatedEndpoints";
 import {
   AgentRun,
@@ -112,9 +111,7 @@ import {
 import { selectCustomProjectChatSlashCommands } from "./projectChatSlashCommandSelectors";
 import { buildCreateProjectStarterPrompt } from "./projectChatStarterPrompts";
 import {
-  getCachedWorkspacePythonSignal,
-  hasPythonSignalsInRoot,
-  setCachedWorkspacePythonSignal,
+  loadWorkspacePythonSignal,
   type WorkspacePythonSignalCache,
 } from "./workspacePythonSignals";
 
@@ -973,52 +970,21 @@ function useHasPythonInWorkspaceRoot(
     const load = async () => {
       const rootPath = scannedRootIdentity;
       pendingRootIdentityRef.current = null;
-      const shouldUseCache = revalidationTick === 0;
-      if (shouldUseCache) {
-        const cached = getCachedWorkspacePythonSignal(
-          hasPythonInWorkspaceRootCache,
-          rootPath,
-        );
-        if (cached !== null) {
-          if (cancelled) {
-            return;
-          }
-          setHasPython(cached);
-          return;
-        }
+      const hasPythonSignals = await loadWorkspacePythonSignal({
+        cache: hasPythonInWorkspaceRootCache,
+        rootPath,
+        revalidate: revalidationTick !== 0,
+      });
+      if (cancelled) {
+        return;
       }
-      try {
-        const contentsResponse = await route_get_folder_contents({
-          folderPath: rootPath,
-          includeMtime: false,
-          includeSize: false,
-          maxEntries: 5000,
-        });
-        if (
-          !contentsResponse ||
-          contentsResponse.status !== 200 ||
-          !Array.isArray(contentsResponse.data)
-        ) {
-          if (!cancelled) {
-            setHasPython(false);
-          }
-          return;
-        }
-        if (cancelled) {
-          return;
-        }
-        const hasPythonSignals = hasPythonSignalsInRoot(contentsResponse.data);
-        setCachedWorkspacePythonSignal(
-          hasPythonInWorkspaceRootCache,
-          rootPath,
-          hasPythonSignals,
-        );
-        setHasPython(hasPythonSignals);
-      } catch {
+      if (hasPythonSignals === null) {
         if (!cancelled) {
           setHasPython(false);
         }
+        return;
       }
+      setHasPython(hasPythonSignals);
     };
 
     const loadPromise = load().finally(() => {
