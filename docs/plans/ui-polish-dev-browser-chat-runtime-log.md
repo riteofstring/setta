@@ -789,3 +789,15 @@ For each new entry, append:
 - Decisions: Persist drafts per `projectConfigId` in `useLocalStorage` rather than per-surface ephemeral state so overview, floating, and standalone hosts all recover the same unsent draft for the active project. Keep the selected-chat hydration gate metadata-driven: once authoritative metadata says provenance is missing, treat that as a ready fallback-probe state even if the chat is still waiting for more streamed output.
 - Blockers or open questions: Automated coverage is green, but the CDP visual gate is still blocked by the DevTools transport failure and needs a working browser-mcp session before I can honestly mark live visual verification complete.
 - Next recommended slice: None from the original plan. Continue only with new follow-up polish or bugfix items.
+
+### 2026-03-13 12:50
+
+- Date: 2026-03-13 12:50 EDT
+- Scope: Tightened the thread-list row layout in Project AI chat by moving the drag-handle gutter further left, pulling the thread title closer to the left edge, and hiding the handle until the row receives hover or keyboard focus.
+- Tests added or updated first: Updated `frontend/tests/e2e/overview/project-ai/project-ai-chat-threads.spec.ts` so the grouped-thread layout regression now requires the draft-row handle to stay hidden at rest, become visible on row focus, and keep the left/label spacing tighter than before. Reused the existing `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryCopy.test.ts` module-level test as a quick Vitest sanity check for the touched history module.
+- Production code changed: Updated `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` so thread rows no longer carry the extra left margin/padding they previously used, and so the drag-handle wrapper uses a narrower width plus a small negative inset to sit closer to the left edge. The handle now starts at `opacity: 0` and transitions to visible only on `group-hover/thread-entry` or `group-focus-within/thread-entry`.
+- Verification run: Final green runs were `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryCopy.test.ts` and `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-chat-threads.spec.ts --grep "project ai threads render folder groups and keep pinned scopes separate"`.
+- CDP visual check: Not run. `chrome-devtools-mcp` still fails in this chat with `Transport closed`, so the required live browser confirmation is still blocked.
+- Decisions: Keep the handle in the DOM at all times and reveal it via opacity rather than display toggles so the row stays stable and the hover/focus transition is cheap. Use the keyboard-focus reveal path in the browser regression because it is automation-stable and matches the accessible interaction path covered by the same CSS contract.
+- Blockers or open questions: No code blockers. A healthy DevTools MCP session is still needed to visually confirm the thread-row spacing and hover state in a live browser.
+- Next recommended slice: None from the original plan. Continue only with new follow-up polish or bugfix items.

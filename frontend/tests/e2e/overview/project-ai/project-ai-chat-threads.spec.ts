@@ -617,6 +617,12 @@ test("project ai threads render folder groups and keep pinned scopes separate", 
   await expect(
     draftThreadEntry.getByTestId("project-chat-thread-agent-badge"),
   ).toHaveCount(1);
+  const draftDragHandle = draftThreadEntry.getByTestId(
+    "project-chat-thread-drag-handle",
+  );
+  await expect(draftDragHandle).toHaveCSS("opacity", "0");
+  await draftThreadEntry.getByRole("button").focus();
+  await expect(draftDragHandle).toHaveCSS("opacity", "1");
   const draftEntrySpacing = await backendGroupRow
     .getByTestId("project-chat-thread-draft-entry")
     .evaluate((entryElement) => {
@@ -640,8 +646,8 @@ test("project ai threads render folder groups and keep pinned scopes separate", 
         handleToLabel: labelRect.left - handleRect.right,
       };
     });
-  expect(draftEntrySpacing.leftToHandle).toBeLessThanOrEqual(2.5);
-  expect(draftEntrySpacing.handleToLabel).toBeLessThanOrEqual(2.5);
+  expect(draftEntrySpacing.leftToHandle).toBeLessThanOrEqual(0.75);
+  expect(draftEntrySpacing.handleToLabel).toBeLessThanOrEqual(1.5);
   await clickDom(backendGroupSelect);
   await expect(
     backendGroupRow.getByTestId("project-chat-thread-draft-entry"),

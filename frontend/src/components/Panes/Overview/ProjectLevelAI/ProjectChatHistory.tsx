@@ -2405,17 +2405,17 @@ function ThreadEntryLine({
       onClick={handleThreadRowClick}
     >
       <div
-        className={`ml-0.5 flex min-w-0 flex-1 items-center rounded px-0.5 py-1 text-left ${rowRightPaddingClass}`}
+        className={`flex min-w-0 flex-1 items-center rounded px-0 py-1 text-left ${rowRightPaddingClass}`}
         role="button"
         tabIndex={0}
         onKeyDown={(event) => onThreadEntryKeyDown(event, entry, onSelect)}
       >
         <span
           ref={showThreadDragCursor ? sortable.setActivatorNodeRef : undefined}
-          className={`mr-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded ${
+          className={`-ml-[2px] mr-px inline-flex h-4 w-3 shrink-0 items-center justify-center rounded transition-[color,opacity] ${
             showThreadDragCursor
-              ? "cursor-grab touch-none text-setta-400 hover:text-setta-600 active:cursor-grabbing dark:text-setta-500 dark:hover:text-setta-300"
-              : "text-transparent"
+              ? "cursor-grab touch-none text-setta-400 opacity-0 hover:text-setta-600 active:cursor-grabbing group-focus-within/thread-entry:opacity-100 group-hover/thread-entry:opacity-100 dark:text-setta-500 dark:hover:text-setta-300"
+              : "text-setta-300 opacity-0 group-focus-within/thread-entry:opacity-100 group-hover/thread-entry:opacity-100 dark:text-setta-700"
           }`}
           data-testid="project-chat-thread-drag-handle"
           aria-label={showThreadDragCursor ? "Drag thread" : undefined}
