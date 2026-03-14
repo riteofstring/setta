@@ -663,3 +663,39 @@ module map and placement guide while this cleanup progresses.
   - Continue splitting `frontend/src/state/actions/sectionInfos.ts`, now the
     largest remaining shared-state hotspot, into clearer read/effective-impl
     helpers and top-level layout persistence ownership.
+
+## 2026-03-14 17:36:14 PDT
+
+- Slice completed: extracted top-level layout queries and persistence out of
+  `frontend/src/state/actions/sectionInfos.ts` into dedicated layout modules
+- Key files touched:
+  - `frontend/src/state/actions/topLevelSectionLayouts.ts`
+  - `frontend/src/state/actions/topLevelSectionLayouts.test.ts`
+  - `frontend/src/state/actions/topLevelLayoutPersistence.ts`
+  - `frontend/src/state/actions/sectionInfos.ts`
+  - `frontend/src/state/actions/sectionInfos.test.ts`
+  - `frontend/src/state/actions/sectionProjectStateSync.ts`
+  - `frontend/src/state/actions/nodeInternals.ts`
+  - `frontend/src/state/actions/sections/createSections.ts`
+  - `frontend/src/state/actions/sections/sectionPositions.ts`
+  - `frontend/src/state/actions/sections/topLevelLayoutPersistence.test.ts`
+  - `frontend/src/state/actions/sections/topLevelLayoutSnapshot.test.ts`
+  - `frontend/src/state/subscriptions.ts`
+  - `frontend/src/utils/settaApiPresets.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/sectionInfos.test.ts src/state/actions/sectionInfos.projectChatWindowingSync.test.ts src/state/actions/topLevelSectionLayouts.test.ts src/state/actions/sections/topLevelLayoutPersistence.test.ts src/state/actions/sections/topLevelLayoutSnapshot.test.ts`
+  - `pnpm -C frontend exec vitest run src/state/actions/sections/createSections.test.ts src/state/actions/sections/createSectionsHelper.test.ts src/state/actions/sections/createSectionsHelper.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/actions/sectionInfos.ts src/state/actions/topLevelSectionLayouts.ts src/state/actions/topLevelLayoutPersistence.ts src/state/actions/topLevelSectionLayouts.test.ts src/state/actions/sectionInfos.test.ts src/state/actions/sectionProjectStateSync.ts src/state/actions/sections/sectionPositions.ts src/state/actions/nodeInternals.ts src/state/actions/sections/createSections.ts src/state/actions/sections/topLevelLayoutPersistence.test.ts src/state/actions/sections/topLevelLayoutSnapshot.test.ts src/state/subscriptions.ts src/utils/settaApiPresets.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split and
+    did not change frontend rendering behavior.
+- Commit hash:
+  - `1793d834d`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/windowSpaces.ts`, now the largest
+    remaining shared-state hotspot, into clearer optimistic layout writes,
+    bounds normalization, and persisted window-space mutation modules.
