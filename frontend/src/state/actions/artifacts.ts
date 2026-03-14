@@ -7,7 +7,7 @@ import {
   useDecodedImages,
   useDrawAreaLayerItemTransform,
   useImages,
-} from "state/stores/artifactStores";
+} from "state/definitions";
 import {
   bumpRemoteRevisions,
   removeRevisionEntries,

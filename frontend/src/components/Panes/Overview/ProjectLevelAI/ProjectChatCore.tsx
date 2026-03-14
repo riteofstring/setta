@@ -1,13 +1,31 @@
 import {
   CHAT_STARTER_PROMPTS,
+  buildChatSlashCommands,
+  buildCustomPromptSlashCommandDefinitions,
   createManagedExecutionControlHandlers,
+  executeManagedChatSlashCommand,
   type ChatPermissionModeValue,
+  type ChatSlashCommandDefinition,
+  type ChatStarterPrompt,
   type ManagedChatExecutionSettings,
 } from "components/Chat/chatComposerControls";
+import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
 import {
+  ChatInput,
+  resolveSlashCommandRequest,
+  type ChatRuntimeActivityDetails,
   type ChatSlashCommand,
   type ChatSlashCommandResult,
 } from "components/Chat/ChatInput";
+import { ChatMessageList } from "components/Chat/ChatMessages";
+import {
+  resolveAuthoritativeContextTelemetry,
+  type ChatContextTelemetry,
+} from "components/Chat/contextTelemetry";
+import {
+  resolveEffectiveThinking,
+  supportsThinkingExecutionControl,
+} from "components/Chat/engineUtils";
 import {
   Dispatch,
   SetStateAction,
@@ -18,10 +36,33 @@ import {
   useRef,
   useState,
 } from "react";
-import { loadAgentRuns } from "state/actions/ai/agentRuns";
-import { getDefaultChatDetails } from "state/actions/ai/chatRuntime";
+import {
+  getRunInputString,
+  getRunLastUpdatedMs,
+} from "state/actions/agentRunUtils";
+import {
+  clearPendingChatDetails,
+  finalizePendingChatDetails,
+  getDefaultChatDetails,
+  getExternalAgentChatHydrationOutcome,
+  getLLMChatHydrationOutcome,
+  getProjectChatHydrationOutcomeWithFallback,
+  initializePendingChatDetails,
+  loadAgentRuns,
+  stopProjectChatResponse,
+  submitEditedMessage,
+  submitMessage,
+  transcribeChatAudioWithProfile,
+  type ChatHydrationErrorCode,
+  type ChatHydrationOutcome,
+  type ChatHydrationOutcomeType,
+} from "state/actions/ai";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
-import { type ChatHistoryCompatibility } from "state/actions/chatHistory";
+import {
+  buildChatHistoryEntries,
+  type ChatHistoryCompatibility,
+  type ChatRunType,
+} from "state/actions/chatHistory";
 import {
   useAIStore,
   useLocalStorage,
@@ -30,64 +71,44 @@ import {
 } from "state/definitions";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
 import type { AppGenerationMode } from "state/types/appGenerationMode";
-import { tokenizeConversationSearchQuery } from "utils/conversationSearch";
+import {
+  hasPendingToolInteraction,
+  normalizeToolName,
+} from "utils/claudeTools";
+import {
+  buildSearchableTextForMessage,
+  matchesConversationSearchText,
+  tokenizeConversationSearchQuery,
+} from "utils/conversationSearch";
 import {
   route_get_file_browser_root,
   route_get_folder_contents,
 } from "utils/generatedEndpoints";
 import {
   AgentRun,
+  BaseChatMessageUnion,
   ChatFileAttachment,
   ChatRoleEnum,
+  EngineConfig,
   EngineTypeEnum,
+  type ToolCall,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import {
-  editProjectChatComposerMessage,
-  redoProjectChatComposerMessage,
-  stopProjectChatComposerResponse,
-  submitProjectChatComposerMessage,
-  transcribeProjectChatComposerAudio,
-} from "./projectChatComposerRuntime";
-import { resolveProjectChatComposerDerivedState } from "./projectChatComposerState";
-import { ProjectChatConversationSurface } from "./ProjectChatConversationSurface";
-import {
-  buildProjectChatSubmittedMessageHistory,
-  filterProjectConversationMessagesBySearch,
-} from "./projectChatHistoryUtils";
-import {
   resolveProjectChatRunTypeForEngine,
   type ProjectChatHydrationAuthority,
+  type ProjectChatThreadBlockedErrorCode,
 } from "./projectChatHydrationAuthority";
 import {
-  buildProjectChatHydrationCacheKey,
-  clearProjectChatHydrationCacheEntriesForChat,
-  getDefaultProjectChatPermissionMode,
-  getProjectChatBlockedReasonMessage,
-  hydrateProjectChatFromRuntime,
-  resolveProjectChatContextTelemetry,
-  resolveProjectChatHydrationRetryDecision,
-  resolveWorkspaceRootPollDelayMs,
-  shouldSkipProjectChatHydration,
-  touchProjectChatHydrationRetryEntry,
-  trimProjectChatHydrationCache,
-  type ProjectChatBlockedErrorCode,
-  type ProjectChatHydrationRetryEntry,
-} from "./projectChatRuntimeUtils";
-import { type AgentRunsAuthorityState } from "./projectChatSkillsMcpViewerUtils";
-import {
-  executeProjectChatSlashCommand,
-  handleUnknownProjectChatSlashCommand,
-  resolveProjectChatSlashCommandState,
-} from "./projectChatSlashCommands";
+  buildReservedSlashCommandTokens,
+  collectAgentNativeSlashCommandTokensFromEntries,
+  isAgentRunsAuthorityReady,
+  reconcileCustomSlashCommands,
+  resolveAgentNativeSlashCommandsByEngineId,
+  type AgentRunsAuthorityState,
+} from "./projectChatSkillsMcpViewerUtils";
 import { selectCustomProjectChatSlashCommands } from "./projectChatSlashCommandSelectors";
 import { buildCreateProjectStarterPrompt } from "./projectChatStarterPrompts";
-import {
-  resumeLatestProjectChat,
-  selectProjectChatThread,
-  settleProjectChatThreadStart,
-  startProjectChatThread,
-} from "./projectChatThreadController";
 import {
   getCachedWorkspacePythonSignal,
   hasPythonSignalsInRoot,
@@ -96,8 +117,615 @@ import {
 } from "./workspacePythonSignals";
 
 const hasPythonInWorkspaceRootCache: WorkspacePythonSignalCache = new Map();
+const WORKSPACE_ROOT_FAST_POLL_MS = 5000;
+const WORKSPACE_ROOT_BACKOFF_POLL_MS = 30000;
+const WORKSPACE_ROOT_STABLE_POLLS_BEFORE_BACKOFF = 2;
 const WORKSPACE_PYTHON_SIGNAL_REVALIDATE_MS = 5000;
+const CUSTOM_SLASH_COMMAND_AUTHORITY_LOADING_FEEDBACK =
+  "Custom slash commands are unavailable until native command authority is loaded for this project.";
+const NATIVE_SLASH_COMMANDS_RELOAD_FEEDBACK =
+  "Native slash commands are unavailable until agent metadata reloads.";
+
 type ChatExecutionSettings = ManagedChatExecutionSettings;
+export type ProjectChatBlockedErrorCode =
+  | ChatHydrationErrorCode
+  | ProjectChatThreadBlockedErrorCode;
+
+type ProjectChatHistoryEntry = ReturnType<
+  typeof buildChatHistoryEntries
+>[number];
+
+export function getDefaultProjectChatPermissionMode(
+  engineType: EngineTypeEnum | null,
+): ChatPermissionModeValue {
+  if (engineType === EngineTypeEnum.external_agent) {
+    return "config_toml_custom";
+  }
+  return "minimal";
+}
+
+export function getProjectChatBlockedReasonMessage(
+  errorCode: ProjectChatBlockedErrorCode,
+): string {
+  if (errorCode === "llm_disallowed") {
+    return "This deployment no longer allows LLM access for managed chat, so this thread cannot hydrate here.";
+  }
+  if (errorCode === "chat_not_found") {
+    return "This thread was not found during hydration. You can still continue chatting from here.";
+  }
+  if (errorCode === "chat_provenance_missing") {
+    return "This thread is missing provenance metadata. You can continue chatting, but prior hydration may be incomplete.";
+  }
+  if (errorCode === "chat_runtime_ambiguous") {
+    return "This thread matches multiple chat runtimes, so hydration stopped before mixing state. Start a new thread or resolve the duplicate runtime data.";
+  }
+  if (errorCode === "engine_config_missing") {
+    return "This thread's saved engine config is no longer available. You can continue chatting with the currently selected engine.";
+  }
+  if (errorCode === "engine_type_mismatch") {
+    return "This thread's saved engine type no longer matches its provenance. You can continue chatting with the currently selected engine.";
+  }
+  if (errorCode === "llm_config_missing") {
+    return "This thread's saved LLM config is unavailable. You can continue chatting after choosing any valid model.";
+  }
+  return "This thread hit a terminal hydration error. You can still continue chatting from the current state.";
+}
+
+export function buildProjectChatHydrationCacheKey({
+  projectConfigId,
+  chatId,
+  hydrationRunType,
+  hydrationMetadataRevision,
+}: {
+  projectConfigId: string;
+  chatId: string | null | undefined;
+  hydrationRunType: ChatRunType | null;
+  hydrationMetadataRevision: string;
+}): string | null {
+  const normalizedProjectConfigId = projectConfigId.trim();
+  const normalizedChatId = chatId?.trim() ?? "";
+  if (!normalizedProjectConfigId || !normalizedChatId || !hydrationRunType) {
+    return null;
+  }
+  const normalizedRevision = hydrationMetadataRevision.trim();
+  if (!normalizedRevision) {
+    return null;
+  }
+  return `${normalizedProjectConfigId}:${normalizedChatId}:${hydrationRunType}:${normalizedRevision}`;
+}
+
+export async function hydrateProjectChatFromRuntime({
+  chatId,
+  projectConfigId,
+  hydrationRunType,
+  shouldProbeMissingProvenance,
+}: {
+  chatId: string;
+  projectConfigId: string;
+  hydrationRunType: ChatRunType | null;
+  shouldProbeMissingProvenance: boolean;
+}): Promise<ChatHydrationOutcome> {
+  const preferredHydrationRunType =
+    hydrationRunType === "llm_chat" || hydrationRunType === "external_agent"
+      ? hydrationRunType
+      : null;
+  if (shouldProbeMissingProvenance) {
+    return getProjectChatHydrationOutcomeWithFallback(
+      chatId,
+      projectConfigId,
+      preferredHydrationRunType,
+    );
+  }
+  if (hydrationRunType === "external_agent") {
+    return getExternalAgentChatHydrationOutcome(chatId, projectConfigId);
+  }
+  return getLLMChatHydrationOutcome(chatId);
+}
+
+export function resolveProjectChatComposerNativeSlashCommandTokens({
+  runtimeNativeSlashCommandTokens,
+  agentRunsAuthorityState,
+}: {
+  runtimeNativeSlashCommandTokens: string[];
+  agentRunsAuthorityState: AgentRunsAuthorityState;
+}): string[] {
+  if (isAgentRunsAuthorityReady(agentRunsAuthorityState)) {
+    return runtimeNativeSlashCommandTokens;
+  }
+  return [];
+}
+
+export function resolveProjectChatComposerExecutableNativeSlashCommandTokens({
+  runtimeNativeSlashCommandTokens,
+  agentRunsAuthorityState,
+}: {
+  runtimeNativeSlashCommandTokens: string[];
+  agentRunsAuthorityState: AgentRunsAuthorityState;
+}): string[] {
+  if (!isAgentRunsAuthorityReady(agentRunsAuthorityState)) {
+    return [];
+  }
+  return runtimeNativeSlashCommandTokens;
+}
+
+export function resolveProjectChatRuntimeNativeSlashCommandTokens({
+  runs,
+  projectConfigId,
+  engineConfigId,
+  engineType,
+}: {
+  runs: AgentRun[];
+  projectConfigId: string;
+  engineConfigId: string | null;
+  engineType: EngineTypeEnum | null;
+}): string[] {
+  if (
+    engineType !== EngineTypeEnum.external_agent ||
+    typeof engineConfigId !== "string" ||
+    engineConfigId.trim() === ""
+  ) {
+    return [];
+  }
+  return collectAgentNativeSlashCommandTokensFromEntries(
+    resolveAgentNativeSlashCommandsByEngineId({
+      runs,
+      projectConfigId,
+      engineConfigIds: [engineConfigId],
+    }),
+  );
+}
+
+export function resolveProjectChatComposerSlashCommandSets({
+  customProjectChatSlashCommands,
+  discoveredAgentNativeSlashCommands,
+  executableAgentNativeSlashCommands = discoveredAgentNativeSlashCommands,
+  customCommandsExecutable = true,
+  customCommandUnavailableFeedback = null,
+  showPermissionExecutionControl,
+  showSearchExecutionControl,
+}: {
+  customProjectChatSlashCommands: ProjectChatCustomSlashCommand[];
+  discoveredAgentNativeSlashCommands: string[];
+  executableAgentNativeSlashCommands?: string[];
+  customCommandsExecutable?: boolean;
+  customCommandUnavailableFeedback?: string | null;
+  showPermissionExecutionControl: boolean;
+  showSearchExecutionControl: boolean;
+}): {
+  slashCommands: ChatSlashCommandDefinition[];
+  recognizedSlashCommands: ChatSlashCommandDefinition[];
+} {
+  const managedCommands = buildChatSlashCommands({
+    model: true,
+    permissions: showPermissionExecutionControl,
+    search: showSearchExecutionControl,
+    appGenerationModes: true,
+  });
+  const globallyReservedManagedCommands = buildChatSlashCommands({
+    model: true,
+    permissions: true,
+    search: true,
+    appGenerationModes: true,
+  });
+  const customCommandDefinitions = buildCustomPromptSlashCommandDefinitions(
+    customProjectChatSlashCommands,
+  );
+  const reservedCommandSet = buildReservedSlashCommandTokens({
+    managedCommands: globallyReservedManagedCommands,
+    engineCommandGroups: [],
+    discoveredNativeSlashCommands: discoveredAgentNativeSlashCommands,
+  });
+  const { executableCommands: customCommands } = reconcileCustomSlashCommands({
+    customCommands: customCommandDefinitions,
+    reservedTokens: reservedCommandSet,
+  });
+  const nativeCommands: ChatSlashCommandDefinition[] = [];
+  const recognizedCommands: ChatSlashCommandDefinition[] = [
+    ...globallyReservedManagedCommands,
+  ];
+  const recognizedCustomCommands = customCommandsExecutable
+    ? customCommandDefinitions
+    : customCommandDefinitions.map((command) => ({
+        ...command,
+        unavailableFeedback:
+          customCommandUnavailableFeedback ??
+          `${command.command} is unavailable in the current context. Use /help.`,
+      }));
+  const globallyReservedManagedCommandTokens = new Set(
+    globallyReservedManagedCommands.map((entry) => entry.command),
+  );
+  const nativeCommandTokens = new Set<string>();
+  const recognizedCommandTokens = new Set(
+    recognizedCommands.map((entry) => entry.command),
+  );
+  for (const token of discoveredAgentNativeSlashCommands) {
+    if (recognizedCommandTokens.has(token)) {
+      continue;
+    }
+    recognizedCommandTokens.add(token);
+    recognizedCommands.push({
+      command: token,
+      action: "native_prompt",
+      summary: "Submit this native external-agent command verbatim.",
+    });
+  }
+  for (const token of executableAgentNativeSlashCommands) {
+    if (
+      nativeCommandTokens.has(token) ||
+      globallyReservedManagedCommandTokens.has(token)
+    ) {
+      continue;
+    }
+    nativeCommandTokens.add(token);
+    nativeCommands.push({
+      command: token,
+      action: "native_prompt",
+      summary: "Submit this native external-agent command verbatim.",
+    });
+  }
+  for (const customCommand of recognizedCustomCommands) {
+    if (recognizedCommandTokens.has(customCommand.command)) {
+      continue;
+    }
+    recognizedCommandTokens.add(customCommand.command);
+    recognizedCommands.push(customCommand);
+  }
+  return {
+    slashCommands: [
+      ...managedCommands,
+      ...nativeCommands,
+      ...(customCommandsExecutable ? customCommands : []),
+    ],
+    recognizedSlashCommands: recognizedCommands,
+  };
+}
+
+type ProjectChatHydrationRetryStatus =
+  | "in_flight"
+  | "succeeded"
+  | "failed"
+  | "retry_scheduled"
+  | "terminal_failure";
+
+type ProjectChatHydrationRetryEntry = {
+  status: ProjectChatHydrationRetryStatus;
+  timerId: ReturnType<typeof setTimeout> | null;
+  attempt: number;
+  lastTouchedAt: number;
+};
+
+const PROJECT_CHAT_HYDRATION_RETRY_BASE_DELAY_MS = 1000;
+const PROJECT_CHAT_HYDRATION_RETRY_MAX_DELAY_MS = 30000;
+export const PROJECT_CHAT_HYDRATION_MAX_ATTEMPTS = 6;
+const PROJECT_CHAT_HYDRATION_MAX_CACHE_ENTRIES = 300;
+
+type ProjectChatHydrationRetryDecision =
+  | { type: "success" }
+  | { type: "terminal_failure" }
+  | {
+      type: "transient_retry";
+      nextAttempt: number;
+      delayMs: number;
+    }
+  | {
+      type: "transient_exhausted";
+      nextAttempt: number;
+    };
+
+export function resolveProjectChatHydrationRetryDelayMs(
+  attempt: number,
+): number {
+  const normalizedAttempt = Math.max(1, attempt);
+  const exponentialDelayMs =
+    PROJECT_CHAT_HYDRATION_RETRY_BASE_DELAY_MS * 2 ** (normalizedAttempt - 1);
+  return Math.min(
+    PROJECT_CHAT_HYDRATION_RETRY_MAX_DELAY_MS,
+    exponentialDelayMs,
+  );
+}
+
+export function resolveProjectChatHydrationRetryDecision({
+  outcomeType,
+  attempt,
+}: {
+  outcomeType: ChatHydrationOutcomeType;
+  attempt: number;
+}): ProjectChatHydrationRetryDecision {
+  if (outcomeType === "success") {
+    return { type: "success" };
+  }
+  if (outcomeType === "terminal_failure") {
+    return { type: "terminal_failure" };
+  }
+  const nextAttempt = attempt + 1;
+  if (nextAttempt > PROJECT_CHAT_HYDRATION_MAX_ATTEMPTS) {
+    return {
+      type: "transient_exhausted",
+      nextAttempt,
+    };
+  }
+  return {
+    type: "transient_retry",
+    nextAttempt,
+    delayMs: resolveProjectChatHydrationRetryDelayMs(nextAttempt),
+  };
+}
+
+export function shouldSkipProjectChatHydration(
+  state: {
+    status: ProjectChatHydrationRetryStatus;
+    hasLiveRetryTimer: boolean;
+  } | null,
+): boolean {
+  if (!state) {
+    return false;
+  }
+  if (state.status === "in_flight" || state.status === "succeeded") {
+    return true;
+  }
+  if (state.status === "terminal_failure") {
+    return true;
+  }
+  return state.status === "retry_scheduled" && state.hasLiveRetryTimer;
+}
+
+function buildProjectChatHydrationRouteKeyPrefix({
+  projectConfigId,
+  chatId,
+}: {
+  projectConfigId: string;
+  chatId: string;
+}): string | null {
+  const normalizedProjectConfigId = projectConfigId.trim();
+  const normalizedChatId = chatId.trim();
+  if (!normalizedProjectConfigId || !normalizedChatId) {
+    return null;
+  }
+  return `${normalizedProjectConfigId}:${normalizedChatId}:`;
+}
+
+export function clearProjectChatHydrationCacheEntriesForChat({
+  cache,
+  projectConfigId,
+  chatId,
+  keepCacheKey,
+}: {
+  cache: Record<string, ProjectChatHydrationRetryEntry>;
+  projectConfigId: string;
+  chatId: string;
+  keepCacheKey: string | null;
+}): string[] {
+  const keyPrefix = buildProjectChatHydrationRouteKeyPrefix({
+    projectConfigId,
+    chatId,
+  });
+  if (!keyPrefix) {
+    return [];
+  }
+  const removedCacheKeys: string[] = [];
+  for (const cacheKey of Object.keys(cache)) {
+    if (!cacheKey.startsWith(keyPrefix)) {
+      continue;
+    }
+    if (keepCacheKey !== null && cacheKey === keepCacheKey) {
+      continue;
+    }
+    removedCacheKeys.push(cacheKey);
+  }
+  return removedCacheKeys;
+}
+
+function touchProjectChatHydrationRetryEntry(
+  entry: ProjectChatHydrationRetryEntry,
+): void {
+  entry.lastTouchedAt = Date.now();
+}
+
+export function trimProjectChatHydrationCache({
+  cache,
+  maxEntries = PROJECT_CHAT_HYDRATION_MAX_CACHE_ENTRIES,
+}: {
+  cache: Record<string, ProjectChatHydrationRetryEntry>;
+  maxEntries?: number;
+}): string[] {
+  const cacheKeys = Object.keys(cache);
+  if (cacheKeys.length <= maxEntries) {
+    return [];
+  }
+  const removableEntries = cacheKeys
+    .filter((cacheKey) => cache[cacheKey]?.timerId === null)
+    .sort((leftKey, rightKey) => {
+      const leftEntry = cache[leftKey];
+      const rightEntry = cache[rightKey];
+      const leftLastTouchedAt = leftEntry?.lastTouchedAt ?? 0;
+      const rightLastTouchedAt = rightEntry?.lastTouchedAt ?? 0;
+      return leftLastTouchedAt - rightLastTouchedAt;
+    });
+  const overflowCount = cacheKeys.length - maxEntries;
+  const removedCacheKeys: string[] = [];
+  for (let index = 0; index < removableEntries.length; index += 1) {
+    if (removedCacheKeys.length >= overflowCount) {
+      break;
+    }
+    const cacheKey = removableEntries[index];
+    if (cache[cacheKey] === undefined) {
+      continue;
+    }
+    delete cache[cacheKey];
+    removedCacheKeys.push(cacheKey);
+  }
+  return removedCacheKeys;
+}
+
+type ProjectChatContextUsage = ReturnType<
+  typeof getDefaultChatDetails
+>["contextUsage"];
+
+type ProjectChatContextTelemetry = ChatContextTelemetry;
+
+export function resolveProjectChatContextTelemetry(
+  contextUsage: ProjectChatContextUsage,
+): ProjectChatContextTelemetry {
+  return resolveAuthoritativeContextTelemetry(contextUsage);
+}
+
+export function resolveWorkspaceRootPollDelayMs(
+  stablePollCount: number,
+): number {
+  if (stablePollCount >= WORKSPACE_ROOT_STABLE_POLLS_BEFORE_BACKOFF) {
+    return WORKSPACE_ROOT_BACKOFF_POLL_MS;
+  }
+  return WORKSPACE_ROOT_FAST_POLL_MS;
+}
+
+type ProjectChatRuntimeActivityEntry =
+  ChatRuntimeActivityDetails["activeBackgroundTerminals"][number];
+
+type ProjectChatRuntimeActivityDetails = ChatRuntimeActivityDetails;
+
+const EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_DETAILS: ProjectChatRuntimeActivityDetails =
+  {
+    activeBackgroundTerminals: [],
+    activeSubagents: [],
+  };
+const ACTIVE_BACKGROUND_TERMINAL_TOOL_IDS = new Set<string>([
+  "command_execution",
+]);
+const ACTIVE_SUBAGENT_TOOL_IDS = new Set<string>([
+  "setta__run_agent_profile",
+  "run_agent_profile",
+]);
+
+function resolveToolRuntimeCategory(
+  toolName: string,
+): "background_terminal" | "subagent" | null {
+  const normalizedToolName = normalizeToolName(toolName);
+  if (!normalizedToolName) {
+    return null;
+  }
+  const lowerCaseToolName = normalizedToolName.toLowerCase();
+  if (ACTIVE_BACKGROUND_TERMINAL_TOOL_IDS.has(lowerCaseToolName)) {
+    return "background_terminal";
+  }
+  if (ACTIVE_SUBAGENT_TOOL_IDS.has(lowerCaseToolName)) {
+    return "subagent";
+  }
+  return null;
+}
+
+function resolveStreamingAssistantMessage(
+  messages: Array<BaseChatMessageUnion>,
+): Extract<BaseChatMessageUnion, { role: ChatRoleEnum.assistant }> | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.role === ChatRoleEnum.assistant) {
+      return message;
+    }
+  }
+  return null;
+}
+
+function resolveRuntimeActivityEntryLabel(
+  toolCall: ToolCall,
+  normalizedToolName: string,
+): string {
+  const normalizedName = normalizedToolName.toLowerCase();
+  const argumentsByName = toolCall.function.arguments;
+  if (normalizedName === "command_execution") {
+    const commandValue = argumentsByName?.command;
+    if (typeof commandValue === "string" && commandValue.trim().length > 0) {
+      return commandValue.trim();
+    }
+  }
+  if (ACTIVE_SUBAGENT_TOOL_IDS.has(normalizedName)) {
+    const profileIdValue = argumentsByName?.profileId;
+    if (
+      typeof profileIdValue === "string" &&
+      profileIdValue.trim().length > 0
+    ) {
+      return profileIdValue.trim();
+    }
+  }
+  return `${normalizedToolName} (${toolCall.id})`;
+}
+
+function resolveProjectChatRuntimeActivityEntry(toolCall: ToolCall): {
+  category: "background_terminal" | "subagent";
+  entry: ProjectChatRuntimeActivityEntry;
+} | null {
+  const normalizedToolName = normalizeToolName(toolCall.function?.name ?? "");
+  const category = resolveToolRuntimeCategory(normalizedToolName);
+  if (!category || !normalizedToolName) {
+    return null;
+  }
+  return {
+    category,
+    entry: {
+      id: toolCall.id,
+      label: resolveRuntimeActivityEntryLabel(toolCall, normalizedToolName),
+      toolName: normalizedToolName,
+    },
+  };
+}
+
+export function resolveProjectChatRuntimeActivityDetails({
+  messages,
+  waitingForResponse,
+}: {
+  messages: Array<BaseChatMessageUnion>;
+  waitingForResponse: boolean;
+}): ProjectChatRuntimeActivityDetails {
+  if (!waitingForResponse) {
+    return EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_DETAILS;
+  }
+  const streamingAssistantMessage = resolveStreamingAssistantMessage(messages);
+  if (!streamingAssistantMessage) {
+    return EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_DETAILS;
+  }
+  const completedToolCallIds = new Set<string>();
+  for (const message of messages) {
+    if (message.role !== ChatRoleEnum.tool) {
+      continue;
+    }
+    const toolCallId = message.tool_call_id;
+    if (!toolCallId) {
+      continue;
+    }
+    completedToolCallIds.add(toolCallId);
+  }
+  const activeBackgroundTerminals: Array<ProjectChatRuntimeActivityEntry> = [];
+  const activeSubagents: Array<ProjectChatRuntimeActivityEntry> = [];
+  const toolCalls = streamingAssistantMessage.tool_calls ?? [];
+  for (const toolCall of toolCalls) {
+    if (completedToolCallIds.has(toolCall.id)) {
+      continue;
+    }
+    const runtimeActivityEntry =
+      resolveProjectChatRuntimeActivityEntry(toolCall);
+    if (!runtimeActivityEntry) {
+      continue;
+    }
+    if (runtimeActivityEntry.category === "background_terminal") {
+      activeBackgroundTerminals.push(runtimeActivityEntry.entry);
+      continue;
+    }
+    if (runtimeActivityEntry.category === "subagent") {
+      activeSubagents.push(runtimeActivityEntry.entry);
+    }
+  }
+  return {
+    activeBackgroundTerminals,
+    activeSubagents,
+  };
+}
+
+export function resolveProjectChatProviderDictationTranscribeEnabled({
+  providerDictationAvailable,
+}: {
+  providerDictationAvailable: boolean;
+}): boolean {
+  return providerDictationAvailable;
+}
 
 function useWorkspaceRootIdentity(
   enabled: boolean,
@@ -347,6 +975,245 @@ function useHasPythonInWorkspaceRoot(
   return hasPython;
 }
 
+function toSortedProjectHistoryEntries(
+  runs: Array<AgentRun>,
+  projectConfigId: string,
+  compatibility: ChatHistoryCompatibility | null,
+): Array<ProjectChatHistoryEntry> {
+  return buildChatHistoryEntries(runs, {
+    projectConfigId,
+    unscopedOnly: true,
+    compatibility,
+  }).sort((left, right) => right.lastUpdatedMs - left.lastUpdatedMs);
+}
+
+type LatestRunByChat = {
+  run: AgentRun;
+  lastUpdatedMs: number;
+};
+
+function isProjectChatRunType(runType: string | null): boolean {
+  return (
+    runType === "llm_chat" ||
+    runType === "external_agent" ||
+    runType === "scriptable_chat"
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getRunMessages(run: AgentRun): Array<BaseChatMessageUnion> {
+  const outputs = isRecord(run.outputs) ? run.outputs : null;
+  const outputMessages = outputs ? outputs.messages : null;
+  if (Array.isArray(outputMessages)) {
+    return outputMessages as Array<BaseChatMessageUnion>;
+  }
+  const inputs = isRecord(run.inputs) ? run.inputs : null;
+  const inputMessages = inputs ? inputs.messages : null;
+  if (Array.isArray(inputMessages)) {
+    return inputMessages as Array<BaseChatMessageUnion>;
+  }
+  return [];
+}
+
+function extractUserPromptText(message: BaseChatMessageUnion): string | null {
+  if (message.role !== ChatRoleEnum.user) {
+    return null;
+  }
+  if (!Array.isArray(message.content)) {
+    return null;
+  }
+  const textParts: string[] = [];
+  for (const block of message.content) {
+    if (!isRecord(block)) {
+      continue;
+    }
+    if (block.type !== "text") {
+      continue;
+    }
+    const text = block.text;
+    if (typeof text !== "string") {
+      continue;
+    }
+    const trimmed = text.trim();
+    if (!trimmed) {
+      continue;
+    }
+    textParts.push(trimmed);
+  }
+  if (textParts.length === 0) {
+    return null;
+  }
+  return textParts.join("\n");
+}
+
+function getMessageAttachments(
+  message: BaseChatMessageUnion,
+): Array<ChatFileAttachment> {
+  if ("attachments" in message && Array.isArray(message.attachments)) {
+    return message.attachments;
+  }
+  return [];
+}
+
+function findBranchSourceUserMessage(
+  messages: Array<BaseChatMessageUnion>,
+  assistantMessageId: string,
+): BaseChatMessageUnion | null {
+  const assistantIndex = messages.findIndex(
+    (message) =>
+      message.id === assistantMessageId &&
+      message.role === ChatRoleEnum.assistant,
+  );
+  if (assistantIndex < 0) {
+    return null;
+  }
+  for (let index = assistantIndex - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (!message || message.role !== ChatRoleEnum.user) {
+      continue;
+    }
+    return message;
+  }
+  return null;
+}
+
+function collectUserPrompts(
+  messages: Array<BaseChatMessageUnion>,
+): Array<string> {
+  const prompts: string[] = [];
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (!message) {
+      continue;
+    }
+    const prompt = extractUserPromptText(message);
+    if (!prompt) {
+      continue;
+    }
+    prompts.push(prompt);
+  }
+  return prompts;
+}
+
+function filterProjectConversationMessagesBySearch({
+  messages,
+  normalizedSearchTerms,
+}: {
+  messages: Array<BaseChatMessageUnion>;
+  normalizedSearchTerms: Array<string>;
+}): Array<BaseChatMessageUnion> {
+  if (normalizedSearchTerms.length === 0) {
+    return messages;
+  }
+  return messages.filter((message) =>
+    matchesConversationSearchText(
+      buildSearchableTextForMessage(message),
+      normalizedSearchTerms,
+    ),
+  );
+}
+
+function appendUniquePrompts(
+  prompts: Array<string>,
+  seen: Set<string>,
+  incoming: Array<string>,
+): void {
+  for (const prompt of incoming) {
+    const trimmed = prompt.trim();
+    if (!trimmed) {
+      continue;
+    }
+    if (seen.has(trimmed)) {
+      continue;
+    }
+    seen.add(trimmed);
+    prompts.push(trimmed);
+  }
+}
+
+export function buildProjectChatSubmittedMessageHistory({
+  runs,
+  projectConfigId,
+  activeMessages,
+}: {
+  runs: Array<AgentRun>;
+  projectConfigId: string;
+  activeMessages: Array<BaseChatMessageUnion>;
+}): Array<string> {
+  const candidateRuns = runs.filter(
+    (run) => getRunInputString(run, "projectConfigId") === projectConfigId,
+  );
+  const latestRunByChatId = new Map<string, LatestRunByChat>();
+
+  for (const run of candidateRuns) {
+    const runType = getRunInputString(run, "runType");
+    if (!isProjectChatRunType(runType)) {
+      continue;
+    }
+    if (getRunInputString(run, "sectionId") !== null) {
+      continue;
+    }
+    const runChatId = getRunInputString(run, "chatId");
+    if (!runChatId) {
+      continue;
+    }
+    const lastUpdatedMs = getRunLastUpdatedMs(run);
+    const existing = latestRunByChatId.get(runChatId);
+    if (!existing || lastUpdatedMs > existing.lastUpdatedMs) {
+      latestRunByChatId.set(runChatId, { run, lastUpdatedMs });
+    }
+  }
+
+  const sortedRuns = [...latestRunByChatId.values()]
+    .sort((left, right) => right.lastUpdatedMs - left.lastUpdatedMs)
+    .map((entry) => entry.run);
+  const prompts: string[] = [];
+  const seenPrompts = new Set<string>();
+
+  appendUniquePrompts(prompts, seenPrompts, collectUserPrompts(activeMessages));
+  for (const run of sortedRuns) {
+    appendUniquePrompts(
+      prompts,
+      seenPrompts,
+      collectUserPrompts(getRunMessages(run)),
+    );
+  }
+
+  return prompts;
+}
+
+function EmptyChatState({
+  starterPrompts,
+  disabled,
+  onStarterPrompt,
+}: {
+  starterPrompts: ChatStarterPrompt[];
+  disabled: boolean;
+  onStarterPrompt: (prompt: string) => void;
+}) {
+  const starterButtonClassName =
+    "cursor-pointer rounded-md border border-setta-200 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100";
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-y-auto p-3">
+      {starterPrompts.map((starterPrompt) => (
+        <button
+          key={starterPrompt.id}
+          type="button"
+          className={starterButtonClassName}
+          onClick={() => onStarterPrompt(starterPrompt.prompt)}
+          disabled={disabled}
+        >
+          {starterPrompt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export const ProjectChatCore = memo(function ProjectChatCore({
   surfaceId,
   chatId,
@@ -362,6 +1229,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   hydrationMetadataRevision,
   thinking,
   engineConfigId,
+  engineConfig,
   engineType,
   hasLLMConfig,
   externalEngineAvailable,
@@ -392,6 +1260,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   hydrationMetadataRevision: string;
   thinking: boolean;
   engineConfigId: string | null;
+  engineConfig: EngineConfig | null;
   engineType: EngineTypeEnum | null;
   hasLLMConfig: boolean;
   externalEngineAvailable: boolean;
@@ -458,7 +1327,8 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       searchEnabled: true,
     }));
   const showEmptyState =
-    typeof chatId === "undefined" || (chatId === null && messages.length === 0);
+    typeof chatId === "undefined" ||
+    (chatId === null && messages.length === 0);
   const normalizedConversationSearchTerms = useMemo(
     () => tokenizeConversationSearchQuery(conversationFilterText),
     [conversationFilterText],
@@ -505,6 +1375,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     workspaceRootIdentity,
   );
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
+  const showThinkingExecutionControl =
+    supportsThinkingExecutionControl(engineConfig);
+  const effectiveThinking = resolveEffectiveThinking({
+    engineConfig,
+    requestedThinking: thinking,
+  });
   const hydrationRunType = hydrationAuthority.hydrationRunType;
   const {
     contextWindowTokens,
@@ -569,41 +1445,49 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     (isExternalEngine ? externalEngineAvailable : hasLLMConfig);
   const showPermissionExecutionControl = canConfigureExecutionSettings;
   const showSearchExecutionControl = false;
+  const runtimeAgentNativeSlashCommandTokens = useMemo(() => {
+    return resolveProjectChatRuntimeNativeSlashCommandTokens({
+      runs: agentRuns,
+      projectConfigId,
+      engineConfigId,
+      engineType,
+    });
+  }, [agentRuns, engineConfigId, engineType, projectConfigId]);
   const agentRunsAuthorityState = useAIStore(
     (state) => state.agentRunsAuthorityState,
   );
-  const resolveSlashCommandState = useCallback(
-    (state: {
-      agentRuns: AgentRun[];
-      agentRunsAuthorityState: AgentRunsAuthorityState;
-    }) =>
-      resolveProjectChatSlashCommandState({
-        agentRuns: state.agentRuns,
-        agentRunsAuthorityState: state.agentRunsAuthorityState,
-        projectConfigId,
-        engineConfigId,
-        engineType,
-        customProjectChatSlashCommands,
-        isExternalEngine,
-        showPermissionExecutionControl,
-        showSearchExecutionControl,
-      }),
-    [
+  const customCommandsExecutable =
+    !isExternalEngine || isAgentRunsAuthorityReady(agentRunsAuthorityState);
+  const { slashCommands, recognizedSlashCommands } = useMemo(() => {
+    const discoveredAgentNativeSlashCommands =
+      resolveProjectChatComposerNativeSlashCommandTokens({
+        runtimeNativeSlashCommandTokens: runtimeAgentNativeSlashCommandTokens,
+        agentRunsAuthorityState,
+      });
+    const executableAgentNativeSlashCommands =
+      resolveProjectChatComposerExecutableNativeSlashCommandTokens({
+        runtimeNativeSlashCommandTokens: runtimeAgentNativeSlashCommandTokens,
+        agentRunsAuthorityState,
+      });
+    return resolveProjectChatComposerSlashCommandSets({
       customProjectChatSlashCommands,
-      engineConfigId,
-      engineType,
-      isExternalEngine,
-      projectConfigId,
+      discoveredAgentNativeSlashCommands,
+      executableAgentNativeSlashCommands,
+      customCommandsExecutable,
+      customCommandUnavailableFeedback: customCommandsExecutable
+        ? null
+        : CUSTOM_SLASH_COMMAND_AUTHORITY_LOADING_FEEDBACK,
       showPermissionExecutionControl,
       showSearchExecutionControl,
-    ],
-  );
-  const { slashCommands, recognizedSlashCommands } = useMemo(() => {
-    return resolveSlashCommandState({
-      agentRuns,
-      agentRunsAuthorityState,
     });
-  }, [agentRuns, agentRunsAuthorityState, resolveSlashCommandState]);
+  }, [
+    agentRunsAuthorityState,
+    customCommandsExecutable,
+    customProjectChatSlashCommands,
+    runtimeAgentNativeSlashCommandTokens,
+    showPermissionExecutionControl,
+    showSearchExecutionControl,
+  ]);
   const lastChatIdRef = useRef<string | null>(null);
   const hydrationStatusByKeyRef = useRef<
     Record<string, ProjectChatHydrationRetryEntry>
@@ -827,24 +1711,33 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   ]);
 
   const handleNewChatStart = useCallback(() => {
-    startProjectChatThread({
-      chatId,
-      surfaceId,
-      onStartNewChat,
-      onDraftThreadStart,
-      setChatId,
-    });
+    if (onStartNewChat) {
+      onStartNewChat();
+      return;
+    }
+    onDraftThreadStart?.();
+    if (chatId === null) {
+      return;
+    }
+    initializePendingChatDetails(surfaceId);
+    setChatId(null);
   }, [chatId, onDraftThreadStart, onStartNewChat, setChatId, surfaceId]);
 
   const handleNewChatSettled = useCallback(
     (newChatId: string | null, succeeded: boolean) => {
-      settleProjectChatThreadStart({
-        newChatId,
-        succeeded,
-        surfaceId,
-        onDraftThreadSettled,
-        setChatId,
-      });
+      onDraftThreadSettled?.(newChatId, succeeded);
+      if (!succeeded || !newChatId) {
+        clearPendingChatDetails(surfaceId);
+        setChatId((currentChatId) => {
+          if (currentChatId !== null) {
+            return currentChatId;
+          }
+          return undefined;
+        });
+        return;
+      }
+      setChatId(newChatId);
+      finalizePendingChatDetails(newChatId, surfaceId);
     },
     [onDraftThreadSettled, setChatId, surfaceId],
   );
@@ -863,23 +1756,85 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   );
 
   const handleResumeLatestChat = useCallback(async (): Promise<boolean> => {
-    return resumeLatestProjectChat({
-      chatId: typeof chatId === "string" ? chatId : null,
+    await loadAgentRuns();
+    const currentChatId = typeof chatId === "string" ? chatId : null;
+    const latestEntry = toSortedProjectHistoryEntries(
+      useAIStore.getState().agentRuns,
       projectConfigId,
       historyCompatibility,
-      agentRuns: useAIStore.getState().agentRuns,
-      setChatId,
-    });
+    ).find((entry) => entry.chatId !== currentChatId);
+    if (!latestEntry) {
+      return false;
+    }
+    setChatId(latestEntry.chatId);
+    return true;
   }, [chatId, historyCompatibility, projectConfigId, setChatId]);
+
+  const resolveRefreshedSlashCommandSets = useCallback(
+    (refreshedState: {
+      agentRuns: AgentRun[];
+      agentRunsAuthorityState: AgentRunsAuthorityState;
+    }) => {
+      const refreshedRuntimeNativeSlashCommandTokens =
+        resolveProjectChatRuntimeNativeSlashCommandTokens({
+          runs: refreshedState.agentRuns,
+          projectConfigId,
+          engineConfigId,
+          engineType,
+        });
+      const refreshedDiscoveredAgentNativeSlashCommands =
+        resolveProjectChatComposerNativeSlashCommandTokens({
+          runtimeNativeSlashCommandTokens:
+            refreshedRuntimeNativeSlashCommandTokens,
+          agentRunsAuthorityState: refreshedState.agentRunsAuthorityState,
+        });
+      const refreshedExecutableAgentNativeSlashCommands =
+        resolveProjectChatComposerExecutableNativeSlashCommandTokens({
+          runtimeNativeSlashCommandTokens:
+            refreshedRuntimeNativeSlashCommandTokens,
+          agentRunsAuthorityState: refreshedState.agentRunsAuthorityState,
+        });
+      const refreshedCustomCommandsExecutable =
+        !isExternalEngine ||
+        isAgentRunsAuthorityReady(refreshedState.agentRunsAuthorityState);
+      return resolveProjectChatComposerSlashCommandSets({
+        customProjectChatSlashCommands,
+        discoveredAgentNativeSlashCommands:
+          refreshedDiscoveredAgentNativeSlashCommands,
+        executableAgentNativeSlashCommands:
+          refreshedExecutableAgentNativeSlashCommands,
+        customCommandsExecutable: refreshedCustomCommandsExecutable,
+        customCommandUnavailableFeedback: refreshedCustomCommandsExecutable
+          ? null
+          : CUSTOM_SLASH_COMMAND_AUTHORITY_LOADING_FEEDBACK,
+        showPermissionExecutionControl,
+        showSearchExecutionControl,
+      });
+    },
+    [
+      customProjectChatSlashCommands,
+      engineConfigId,
+      engineType,
+      isExternalEngine,
+      projectConfigId,
+      showPermissionExecutionControl,
+      showSearchExecutionControl,
+    ],
+  );
 
   const handleSlashCommand = useCallback(
     async (command: ChatSlashCommand): Promise<ChatSlashCommandResult> => {
-      return executeProjectChatSlashCommand({
+      return executeManagedChatSlashCommand({
         command,
         slashCommands,
         onStartNewChat: handleNewChatStart,
         onResumeLatestChat: handleResumeLatestChat,
+        resumeFeedback: {
+          success: "Resumed the latest project chat.",
+          notFound: "No previous project chat found to resume.",
+        },
         onSetPermissionMode: executionControlHandlers.onPermissionModeChange,
+        modelFeedback: "Use the model selector in the Project AI Chat toolbar.",
         searchEnabled: executionSettings.searchEnabled,
         onSetSearchEnabled: executionControlHandlers.onSearchEnabledChange,
         appGenerationMode,
@@ -900,44 +1855,99 @@ export const ProjectChatCore = memo(function ProjectChatCore({
 
   const handleUnknownSlashCommand = useCallback(
     async (message: string): Promise<ChatSlashCommandResult> => {
-      return handleUnknownProjectChatSlashCommand({
+      if (
+        !isExternalEngine ||
+        isAgentRunsAuthorityReady(agentRunsAuthorityState)
+      ) {
+        return false;
+      }
+      await loadAgentRuns();
+      const refreshedState = useAIStore.getState();
+      const refreshedSlashCommandSets =
+        resolveRefreshedSlashCommandSets(refreshedState);
+      const refreshedRequest = resolveSlashCommandRequest({
         message,
-        isExternalEngine,
-        agentRunsAuthorityState,
-        getRefreshedState: () => {
-          const refreshedState = useAIStore.getState();
-          return {
-            agentRuns: refreshedState.agentRuns,
-            agentRunsAuthorityState: refreshedState.agentRunsAuthorityState,
-          };
-        },
-        resolveSlashCommandState,
+        slashCommands: refreshedSlashCommandSets.slashCommands,
+        recognizedSlashCommands:
+          refreshedSlashCommandSets.recognizedSlashCommands,
       });
+      if (!isAgentRunsAuthorityReady(refreshedState.agentRunsAuthorityState)) {
+        return {
+          handled: true,
+          feedback: NATIVE_SLASH_COMMANDS_RELOAD_FEEDBACK,
+          keepInput: true,
+        };
+      }
+      if (refreshedRequest.parsed) {
+        return {
+          refreshedSlashCommands: refreshedSlashCommandSets.slashCommands,
+          refreshedRecognizedSlashCommands:
+            refreshedSlashCommandSets.recognizedSlashCommands,
+        };
+      }
+      return false;
     },
-    [agentRunsAuthorityState, isExternalEngine, resolveSlashCommandState],
+    [
+      agentRunsAuthorityState,
+      isExternalEngine,
+      resolveRefreshedSlashCommandSets,
+    ],
   );
 
   const handleSubmit = useCallback(
-    (message: string, attachments: ChatFileAttachment[]) =>
-      submitProjectChatComposerMessage({
-        message,
-        attachments,
-        chatId,
-        thinking,
-        engineConfigId,
-        isExternalEngine,
-        externalEngineAvailable,
-        hasLLMConfig,
-        requiresNewThreadContinuation,
-        newThreadSeedChatId,
-        surfaceId,
-        executionSettings,
-        onStartNewChat: handleNewChatStart,
-        onSettleNewChat: handleNewChatSettled,
-      }),
+    async (message: string, attachments: ChatFileAttachment[]) => {
+      const trimmed = message.trim();
+      if (!trimmed && attachments.length === 0) {
+        return false;
+      }
+      if (requiresNewThreadContinuation) {
+        return false;
+      }
+      if (!engineConfigId) {
+        return false;
+      }
+      if (!isExternalEngine && !hasLLMConfig) {
+        return false;
+      }
+      if (isExternalEngine && !externalEngineAvailable) {
+        return false;
+      }
+      const isFirstDraftSubmit = chatId === undefined || chatId === null;
+      if (isFirstDraftSubmit) {
+        handleNewChatStart();
+      }
+
+      let submittedChatId: string | null = null;
+      let succeeded = false;
+      try {
+        submittedChatId = await submitMessage(
+          chatId ?? null,
+          message,
+          attachments,
+          effectiveThinking,
+          engineConfigId,
+          isExternalEngine,
+          {
+            continueFromChatId: isFirstDraftSubmit ? newThreadSeedChatId : null,
+            pendingSurfaceId: surfaceId,
+            executionSettings: {
+              permissionMode: executionSettings.permissionMode,
+              searchEnabled: executionSettings.searchEnabled,
+            },
+          },
+        );
+        succeeded = Boolean(submittedChatId);
+      } catch (err) {
+        console.error("Failed to submit LLM chat message", err);
+      } finally {
+        if (isFirstDraftSubmit) {
+          handleNewChatSettled(submittedChatId, succeeded);
+        }
+      }
+      return succeeded;
+    },
     [
       chatId,
-      thinking,
       engineConfigId,
       handleNewChatSettled,
       handleNewChatStart,
@@ -948,37 +1958,53 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       requiresNewThreadContinuation,
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
+      effectiveThinking,
     ],
   );
 
-  const handleStop = useCallback(
-    () =>
-      stopProjectChatComposerResponse({
-        chatId,
-        isExternalEngine,
-        surfaceId,
-      }),
-    [chatId, isExternalEngine, surfaceId],
-  );
+  const handleStop = useCallback(async () => {
+    await stopProjectChatResponse(chatId, isExternalEngine, surfaceId);
+  }, [chatId, isExternalEngine, surfaceId]);
 
   const handleEditMessage = useCallback(
-    (messageId: string, text: string, attachments: ChatFileAttachment[]) =>
-      editProjectChatComposerMessage({
-        resolvedChatId:
-          typeof chatId === "string" ? chatId : lastChatIdRef.current,
-        messageId,
-        text,
-        attachments,
-        requiresNewThreadContinuation,
-        isExternalEngine,
-        externalEngineAvailable,
+    async (
+      messageId: string,
+      text: string,
+      attachments: ChatFileAttachment[],
+    ) => {
+      const resolvedChatId =
+        typeof chatId === "string" ? chatId : lastChatIdRef.current;
+      if (!resolvedChatId) {
+        return false;
+      }
+      if (requiresNewThreadContinuation) {
+        return false;
+      }
+      if (isExternalEngine && !externalEngineAvailable) {
+        return false;
+      }
+      const nextChatId = await submitEditedMessage({
+        parentChatId: resolvedChatId,
         messages,
-        thinking,
+        messageId,
+        message: text,
+        attachments,
+        thinking: effectiveThinking,
         engineConfigId,
-        surfaceId,
-        executionSettings,
-        onSelectChatId: setChatId,
-      }),
+        isExternalEngine,
+        agentProfileId: null,
+        sectionId: null,
+        pendingSurfaceId: surfaceId,
+        executionSettings: {
+          permissionMode: executionSettings.permissionMode,
+          searchEnabled: executionSettings.searchEnabled,
+        },
+      });
+      if (nextChatId) {
+        setChatId(nextChatId);
+      }
+      return Boolean(nextChatId);
+    },
     [
       chatId,
       engineConfigId,
@@ -988,41 +2014,72 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       requiresNewThreadContinuation,
       setChatId,
       surfaceId,
-      thinking,
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
+      effectiveThinking,
     ],
   );
 
   const handleBranchSwitch = useCallback(
     (nextChatId: string) => {
-      selectProjectChatThread({
-        nextChatId,
-        chatId,
-        setChatId,
-      });
+      if (!nextChatId || nextChatId === chatId) {
+        return;
+      }
+      setChatId(nextChatId);
     },
     [chatId, setChatId],
   );
 
   const handleRedoMessage = useCallback(
-    (assistantMessageId: string) =>
-      redoProjectChatComposerMessage({
+    async (assistantMessageId: string) => {
+      const resolvedChatId =
+        typeof chatId === "string" ? chatId : lastChatIdRef.current;
+      if (!resolvedChatId || waitingForResponse) {
+        return false;
+      }
+      if (requiresNewThreadContinuation) {
+        return false;
+      }
+      if (!engineConfigId) {
+        return false;
+      }
+      if (!isExternalEngine && !hasLLMConfig) {
+        return false;
+      }
+      if (isExternalEngine && !externalEngineAvailable) {
+        return false;
+      }
+      const sourceUserMessage = findBranchSourceUserMessage(
+        messages,
         assistantMessageId,
-        resolvedChatId:
-          typeof chatId === "string" ? chatId : lastChatIdRef.current,
-        waitingForResponse,
-        requiresNewThreadContinuation,
+      );
+      if (!sourceUserMessage) {
+        return false;
+      }
+      const sourceText = extractUserPromptText(sourceUserMessage) ?? "";
+      const sourceAttachments = getMessageAttachments(sourceUserMessage);
+      const nextChatId = await submitEditedMessage({
+        parentChatId: resolvedChatId,
+        messages,
+        messageId: sourceUserMessage.id,
+        message: sourceText,
+        attachments: sourceAttachments,
+        thinking: effectiveThinking,
         engineConfigId,
         isExternalEngine,
-        externalEngineAvailable,
-        hasLLMConfig,
-        messages,
-        thinking,
-        surfaceId,
-        executionSettings,
-        onSelectChatId: setChatId,
-      }),
+        agentProfileId: null,
+        sectionId: null,
+        pendingSurfaceId: surfaceId,
+        executionSettings: {
+          permissionMode: executionSettings.permissionMode,
+          searchEnabled: executionSettings.searchEnabled,
+        },
+      });
+      if (nextChatId) {
+        setChatId(nextChatId);
+      }
+      return Boolean(nextChatId);
+    },
     [
       chatId,
       engineConfigId,
@@ -1035,184 +2092,182 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       requiresNewThreadContinuation,
       setChatId,
       surfaceId,
-      thinking,
       waitingForResponse,
+      effectiveThinking,
     ],
   );
 
-  const {
-    isDisabled,
-    editDisabledReason,
-    submitDisabled,
-    runtimeActivityDetails,
-    runtimeActivityCounts,
-    executionControls,
-    providerDictationTranscribeEnabled,
-    showConversationSearchEmptyState,
-    chatInputContextUsageUnavailable,
-  } = useMemo(
+  const isDisabled =
+    requiresNewThreadContinuation ||
+    !engineConfigId ||
+    (!isExternalEngine && !hasLLMConfig) ||
+    (isExternalEngine && !externalEngineAvailable);
+  const editDisabledReason = useMemo(() => {
+    if (newThreadContinuationRequiredReason) {
+      return newThreadContinuationRequiredReason;
+    }
+    return getChatEditDisabledReason({
+      hasEngineConfig: Boolean(engineConfigId),
+      hasLLMConfig,
+      isExternalEngine,
+      externalEngineAvailable,
+      noLLMConfigsAvailable,
+    });
+  }, [
+    engineConfigId,
+    externalEngineAvailable,
+    hasLLMConfig,
+    isExternalEngine,
+    newThreadContinuationRequiredReason,
+    noLLMConfigsAvailable,
+  ]);
+  const submitDisabled = useMemo(
     () =>
-      resolveProjectChatComposerDerivedState({
-        requiresNewThreadContinuation,
-        engineConfigId,
-        hasLLMConfig,
-        isExternalEngine,
-        externalEngineAvailable,
-        noLLMConfigsAvailable,
-        newThreadContinuationRequiredReason,
+      requiresNewThreadContinuation ||
+      (!waitingForResponse && hasPendingToolInteraction(messages)),
+    [messages, requiresNewThreadContinuation, waitingForResponse],
+  );
+  const runtimeActivityDetails = useMemo(
+    () =>
+      resolveProjectChatRuntimeActivityDetails({
         messages,
         waitingForResponse,
-        engineType,
-        thinking,
-        onThinkingChange,
-        executionSettings,
-        executionControlHandlers,
-        normalizedConversationSearchTerms,
-        hasVisibleConversationMatches,
-        providerDictationAvailable,
-        showEmptyState,
-        contextUsageUnavailable,
       }),
+    [messages, waitingForResponse],
+  );
+  const runtimeActivityCounts = useMemo(
+    () => ({
+      activeBackgroundTerminals:
+        runtimeActivityDetails.activeBackgroundTerminals.length,
+      activeSubagents: runtimeActivityDetails.activeSubagents.length,
+    }),
+    [runtimeActivityDetails],
+  );
+  const executionControls = useMemo(
+    () => ({
+      thinkingEnabled: effectiveThinking,
+      onThinkingEnabledChange: showThinkingExecutionControl
+        ? onThinkingChange
+        : undefined,
+      permissionMode: executionSettings.permissionMode,
+      searchEnabled: executionSettings.searchEnabled,
+      onPermissionModeChange: executionControlHandlers.onPermissionModeChange,
+      onSearchEnabledChange: executionControlHandlers.onSearchEnabledChange,
+    }),
     [
-      contextUsageUnavailable,
-      engineConfigId,
-      engineType,
-      executionControlHandlers.onPermissionModeChange,
-      executionControlHandlers.onSearchEnabledChange,
+      effectiveThinking,
+      onThinkingChange,
+      showThinkingExecutionControl,
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
-      externalEngineAvailable,
-      hasLLMConfig,
-      hasVisibleConversationMatches,
-      isExternalEngine,
-      messages,
-      newThreadContinuationRequiredReason,
-      noLLMConfigsAvailable,
-      normalizedConversationSearchTerms,
-      onThinkingChange,
-      providerDictationAvailable,
-      requiresNewThreadContinuation,
-      showEmptyState,
-      thinking,
-      waitingForResponse,
+      executionControlHandlers.onPermissionModeChange,
+      executionControlHandlers.onSearchEnabledChange,
     ],
   );
   const handleProviderDictationTranscribe = useCallback(
-    (audioBlob: Blob) =>
-      transcribeProjectChatComposerAudio({
-        transcriptionProfileId,
-        audioBlob,
-      }),
+    async (audioBlob: Blob) => {
+      if (!transcriptionProfileId) {
+        throw new Error("Provider dictation is not configured.");
+      }
+      return transcribeChatAudioWithProfile(transcriptionProfileId, audioBlob);
+    },
     [transcriptionProfileId],
   );
-  const handleStarterPrompt = useCallback(
-    (prompt: string) => {
-      void handleSubmit(prompt, []);
-    },
-    [handleSubmit],
-  );
-  const messageListProps = useMemo(
-    () => ({
-      messages: filteredConversationMessages,
-      allMessagesForToolResults: messages,
-      waitingForResponse,
-      toolCallArguments,
-      interruptedAssistantMessageIds,
-      activeSearchMessageId: activeConversationSearchMatchMessageId,
-      editDisabledReason,
-      onRedoMessage: handleRedoMessage,
-      onEditMessage: handleEditMessage,
-      onBranchSwitch: handleBranchSwitch,
-      branchInfoByMessage,
-    }),
-    [
-      activeConversationSearchMatchMessageId,
-      branchInfoByMessage,
-      editDisabledReason,
-      filteredConversationMessages,
-      handleBranchSwitch,
-      handleEditMessage,
-      handleRedoMessage,
-      interruptedAssistantMessageIds,
-      messages,
-      toolCallArguments,
-      waitingForResponse,
-    ],
-  );
-  const chatInputProps = useMemo(
-    () => ({
-      placeholderText,
-      waitingForResponse,
-      submitDisabled,
-      disabled: isDisabled,
-      value: draftMessage,
-      onChange: setDraftMessage,
-      onSubmit: handleSubmit,
-      onStop: handleStop,
-      slashCommands,
-      recognizedSlashCommands,
-      onSlashCommand: handleSlashCommand,
-      onUnknownSlashCommand: handleUnknownSlashCommand,
-      executionControls,
-      executionControlVisibility: {
-        permissionMode: showPermissionExecutionControl,
-        search: showSearchExecutionControl,
-      },
-      dictationMode,
-      dictationEnabledByProvider: providerDictationAvailable,
-      providerDictationLikelySupported,
-      contextWindowTokens,
-      contextUsedTokens,
-      contextUsageIsEstimated,
-      contextUsageUnavailable: chatInputContextUsageUnavailable,
-      submittedMessageHistory,
-      runtimeActivityCounts,
-      runtimeActivityDetails,
-      onProviderDictationTranscribe: !providerDictationTranscribeEnabled
-        ? undefined
-        : handleProviderDictationTranscribe,
-    }),
-    [
-      chatInputContextUsageUnavailable,
-      contextUsageIsEstimated,
-      contextUsedTokens,
-      contextWindowTokens,
-      dictationMode,
-      draftMessage,
-      executionControls,
-      handleProviderDictationTranscribe,
-      handleSlashCommand,
-      handleStop,
-      handleSubmit,
-      handleUnknownSlashCommand,
-      isDisabled,
-      placeholderText,
-      providerDictationAvailable,
-      providerDictationLikelySupported,
-      providerDictationTranscribeEnabled,
-      recognizedSlashCommands,
-      runtimeActivityCounts,
-      runtimeActivityDetails,
-      setDraftMessage,
-      showPermissionExecutionControl,
-      showSearchExecutionControl,
-      slashCommands,
-      submitDisabled,
-      submittedMessageHistory,
-      waitingForResponse,
-    ],
-  );
+  const chatWidthShellClassName = "mx-auto w-full min-w-0 max-w-[72rem] px-2";
+  const showConversationSearchEmptyState =
+    normalizedConversationSearchTerms.length > 0 &&
+    !hasVisibleConversationMatches &&
+    !waitingForResponse;
 
   return (
-    <ProjectChatConversationSurface
-      blockedReason={blockedReason}
-      showEmptyState={showEmptyState}
-      showConversationSearchEmptyState={showConversationSearchEmptyState}
-      visibleStarterPrompts={visibleStarterPrompts}
-      isDisabled={isDisabled}
-      onStarterPrompt={handleStarterPrompt}
-      messageListProps={messageListProps}
-      chatInputProps={chatInputProps}
-    />
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden">
+      {blockedReason ? (
+        <div
+          role="alert"
+          data-testid="project-chat-thread-blocked-banner"
+          className="mx-auto mt-2 w-full max-w-[72rem] rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-600/70 dark:bg-amber-950/40 dark:text-amber-200"
+        >
+          {blockedReason}
+        </div>
+      ) : null}
+      {showEmptyState ? (
+        <div
+          className={`${chatWidthShellClassName} flex min-h-0 flex-1 flex-col`}
+          data-chat-width-shell="true"
+        >
+          <EmptyChatState
+            starterPrompts={visibleStarterPrompts}
+            disabled={isDisabled}
+            onStarterPrompt={(prompt) => {
+              void handleSubmit(prompt, []);
+            }}
+          />
+        </div>
+      ) : showConversationSearchEmptyState ? (
+        <div
+          className={`${chatWidthShellClassName} flex min-h-0 flex-1 items-center justify-center`}
+          data-chat-width-shell="true"
+        >
+          <p className="text-xs text-setta-500 dark:text-setta-400">
+            No messages match this filter.
+          </p>
+        </div>
+      ) : (
+        <ChatMessageList
+          messages={filteredConversationMessages}
+          allMessagesForToolResults={messages}
+          waitingForResponse={waitingForResponse}
+          toolCallArguments={toolCallArguments}
+          interruptedAssistantMessageIds={interruptedAssistantMessageIds}
+          activeSearchMessageId={activeConversationSearchMatchMessageId}
+          editDisabledReason={editDisabledReason}
+          onRedoMessage={handleRedoMessage}
+          onEditMessage={handleEditMessage}
+          onBranchSwitch={handleBranchSwitch}
+          branchInfoByMessage={branchInfoByMessage}
+          contentClassName={chatWidthShellClassName}
+        />
+      )}
+      <div className={chatWidthShellClassName} data-chat-width-shell="true">
+        <ChatInput
+          placeholderText={placeholderText}
+          waitingForResponse={waitingForResponse}
+          submitDisabled={submitDisabled}
+          disabled={isDisabled}
+          value={draftMessage}
+          onChange={setDraftMessage}
+          onSubmit={handleSubmit}
+          onStop={handleStop}
+          slashCommands={slashCommands}
+          recognizedSlashCommands={recognizedSlashCommands}
+          onSlashCommand={handleSlashCommand}
+          onUnknownSlashCommand={handleUnknownSlashCommand}
+          executionControls={executionControls}
+          executionControlVisibility={{
+            permissionMode: showPermissionExecutionControl,
+            search: showSearchExecutionControl,
+          }}
+          dictationMode={dictationMode}
+          dictationEnabledByProvider={providerDictationAvailable}
+          providerDictationLikelySupported={providerDictationLikelySupported}
+          contextWindowTokens={contextWindowTokens}
+          contextUsedTokens={contextUsedTokens}
+          contextUsageIsEstimated={contextUsageIsEstimated}
+          contextUsageUnavailable={
+            showEmptyState ? false : contextUsageUnavailable
+          }
+          submittedMessageHistory={submittedMessageHistory}
+          runtimeActivityCounts={runtimeActivityCounts}
+          runtimeActivityDetails={runtimeActivityDetails}
+          onProviderDictationTranscribe={
+            !resolveProjectChatProviderDictationTranscribeEnabled({
+              providerDictationAvailable,
+            })
+              ? undefined
+              : handleProviderDictationTranscribe
+          }
+        />
+      </div>
+    </div>
   );
 });
