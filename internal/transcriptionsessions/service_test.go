@@ -433,6 +433,122 @@ func TestServiceAppendRejectsCumulativeAudioLimit(t *testing.T) {
 	}
 }
 
+func TestServiceFileAppendRejectsSampleRateChangeWithinSession(t *testing.T) {
+	t.Parallel()
+
+	runtime := newTranscriptionSessionRuntime(t, map[string]llmconfig.Config{
+		"openai-file": {
+			ID:        "openai-file",
+			Model:     "whisper-1",
+			Provider:  "openai",
+			BaseURL:   "https://example.com/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+	}, map[string]string{
+		"OPENAI_API_KEY": "secret-key",
+	})
+	service, err := NewService(ServiceOptions{
+		LLM: runtime,
+		NewID: func() string {
+			return "session-sample-rate"
+		},
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	started, err := service.StartSession(context.Background(), StartRequest{
+		ScopeID:         "scope-1",
+		ResolvedProfile: resolvedProfile("profile-1", transcriptionprofiles.TransportModeFile, runtime, "openai-file"),
+	})
+	if err != nil {
+		t.Fatalf("start session: %v", err)
+	}
+
+	// File sessions must lock sample rate on the first append so the buffered WAV upload stays coherent.
+	if _, err := service.AppendAudio(context.Background(), AppendRequest{
+		ScopeID:      "scope-1",
+		SessionID:    started.SessionID,
+		AudioPCM16:   []byte{0x00, 0x00},
+		SampleRateHz: 24_000,
+		Channels:     1,
+	}); err != nil {
+		t.Fatalf("first append: %v", err)
+	}
+
+	_, err = service.AppendAudio(context.Background(), AppendRequest{
+		ScopeID:      "scope-1",
+		SessionID:    started.SessionID,
+		AudioPCM16:   []byte{0x01, 0x00},
+		SampleRateHz: 16_000,
+		Channels:     1,
+	})
+	if !errors.Is(err, ErrInvalidRequest) {
+		t.Fatalf("expected invalid request, got %v", err)
+	}
+	if err.Error() != "sampleRateHz cannot change within a transcription session." {
+		t.Fatalf("unexpected error message %q", err.Error())
+	}
+}
+
+func TestServiceFileAppendRejectsChannelChangeWithinSession(t *testing.T) {
+	t.Parallel()
+
+	runtime := newTranscriptionSessionRuntime(t, map[string]llmconfig.Config{
+		"openai-file": {
+			ID:        "openai-file",
+			Model:     "whisper-1",
+			Provider:  "openai",
+			BaseURL:   "https://example.com/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+	}, map[string]string{
+		"OPENAI_API_KEY": "secret-key",
+	})
+	service, err := NewService(ServiceOptions{
+		LLM: runtime,
+		NewID: func() string {
+			return "session-channels"
+		},
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	started, err := service.StartSession(context.Background(), StartRequest{
+		ScopeID:         "scope-1",
+		ResolvedProfile: resolvedProfile("profile-1", transcriptionprofiles.TransportModeFile, runtime, "openai-file"),
+	})
+	if err != nil {
+		t.Fatalf("start session: %v", err)
+	}
+
+	// File sessions also lock channel count on first append for the same buffered-audio reason.
+	if _, err := service.AppendAudio(context.Background(), AppendRequest{
+		ScopeID:      "scope-1",
+		SessionID:    started.SessionID,
+		AudioPCM16:   []byte{0x00, 0x00},
+		SampleRateHz: 24_000,
+		Channels:     1,
+	}); err != nil {
+		t.Fatalf("first append: %v", err)
+	}
+
+	_, err = service.AppendAudio(context.Background(), AppendRequest{
+		ScopeID:      "scope-1",
+		SessionID:    started.SessionID,
+		AudioPCM16:   []byte{0x01, 0x00, 0x02, 0x00},
+		SampleRateHz: 24_000,
+		Channels:     2,
+	})
+	if !errors.Is(err, ErrInvalidRequest) {
+		t.Fatalf("expected invalid request, got %v", err)
+	}
+	if err.Error() != "channels cannot change within a transcription session." {
+		t.Fatalf("unexpected error message %q", err.Error())
+	}
+}
+
 func TestServiceScopeMismatchDoesNotRemoveOwnerSession(t *testing.T) {
 	t.Parallel()
 

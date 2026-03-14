@@ -255,6 +255,178 @@ func TestServiceStartAppendStopStreamsRealtimeTranscription(t *testing.T) {
 	}
 }
 
+func TestServiceAppendAudioRejectsRealtimeStereoInput(t *testing.T) {
+	t.Parallel()
+
+	closed := make(chan error, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close(websocket.StatusNormalClosure, "")
+
+		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
+			return
+		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"session.updated","event_id":"evt-ready"}`)); err != nil {
+			return
+		}
+		_, _, err = conn.Read(context.Background())
+		closed <- err
+	}))
+	defer server.Close()
+
+	runtime := newTranscriptionSessionRuntime(t, map[string]llmconfig.Config{
+		"openai-realtime": {
+			ID:        "openai-realtime",
+			Model:     "gpt-4o-mini-transcribe",
+			Provider:  "openai",
+			BaseURL:   server.URL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+	}, map[string]string{
+		"OPENAI_API_KEY": "secret-key",
+	})
+	service, err := NewService(ServiceOptions{
+		LLM:        runtime,
+		HTTPClient: server.Client(),
+		NewID: func() string {
+			return "session-realtime-stereo"
+		},
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	resolved := resolvedProfile("profile-rt", transcriptionprofiles.TransportModeRealtime, runtime, "openai-realtime")
+	resolved.Profile.SupportsRealtimeTranscription = true
+	started, err := service.StartSession(context.Background(), StartRequest{
+		ScopeID:         "scope-1",
+		ResolvedProfile: resolved,
+	})
+	if err != nil {
+		t.Fatalf("start realtime session: %v", err)
+	}
+
+	// Realtime sessions are provider-constrained to mono PCM16, so stereo input must fail locally.
+	_, err = service.AppendAudio(context.Background(), AppendRequest{
+		ScopeID:      "scope-1",
+		SessionID:    started.SessionID,
+		AudioPCM16:   []byte{0x00, 0x00, 0x01, 0x00},
+		SampleRateHz: 24_000,
+		Channels:     2,
+	})
+	if !errors.Is(err, ErrInvalidRequest) {
+		t.Fatalf("expected invalid request, got %v", err)
+	}
+	if err.Error() != "Realtime transcription requires mono PCM16 audio." {
+		t.Fatalf("unexpected error message %q", err.Error())
+	}
+
+	if err := service.CancelSession(context.Background(), StopRequest{
+		ScopeID:   "scope-1",
+		SessionID: started.SessionID,
+	}); err != nil {
+		t.Fatalf("cancel realtime session: %v", err)
+	}
+
+	select {
+	case err := <-closed:
+		if websocket.CloseStatus(err) != websocket.StatusNormalClosure {
+			t.Fatalf("expected normal websocket close, got %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for realtime close")
+	}
+}
+
+func TestServiceAppendAudioRejectsRealtimeNon24kInput(t *testing.T) {
+	t.Parallel()
+
+	closed := make(chan error, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close(websocket.StatusNormalClosure, "")
+
+		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
+			return
+		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"session.updated","event_id":"evt-ready"}`)); err != nil {
+			return
+		}
+		_, _, err = conn.Read(context.Background())
+		closed <- err
+	}))
+	defer server.Close()
+
+	runtime := newTranscriptionSessionRuntime(t, map[string]llmconfig.Config{
+		"openai-realtime": {
+			ID:        "openai-realtime",
+			Model:     "gpt-4o-mini-transcribe",
+			Provider:  "openai",
+			BaseURL:   server.URL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+	}, map[string]string{
+		"OPENAI_API_KEY": "secret-key",
+	})
+	service, err := NewService(ServiceOptions{
+		LLM:        runtime,
+		HTTPClient: server.Client(),
+		NewID: func() string {
+			return "session-realtime-rate"
+		},
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	resolved := resolvedProfile("profile-rt", transcriptionprofiles.TransportModeRealtime, runtime, "openai-realtime")
+	resolved.Profile.SupportsRealtimeTranscription = true
+	started, err := service.StartSession(context.Background(), StartRequest{
+		ScopeID:         "scope-1",
+		ResolvedProfile: resolved,
+	})
+	if err != nil {
+		t.Fatalf("start realtime session: %v", err)
+	}
+
+	// Realtime provider input is fixed at 24kHz PCM16, so mismatched sample rates must fail before write.
+	_, err = service.AppendAudio(context.Background(), AppendRequest{
+		ScopeID:      "scope-1",
+		SessionID:    started.SessionID,
+		AudioPCM16:   []byte{0x00, 0x00, 0x01, 0x00},
+		SampleRateHz: 16_000,
+		Channels:     1,
+	})
+	if !errors.Is(err, ErrInvalidRequest) {
+		t.Fatalf("expected invalid request, got %v", err)
+	}
+	if err.Error() != "Realtime transcription requires 24kHz PCM16 audio." {
+		t.Fatalf("unexpected error message %q", err.Error())
+	}
+
+	if err := service.CancelSession(context.Background(), StopRequest{
+		ScopeID:   "scope-1",
+		SessionID: started.SessionID,
+	}); err != nil {
+		t.Fatalf("cancel realtime session: %v", err)
+	}
+
+	select {
+	case err := <-closed:
+		if websocket.CloseStatus(err) != websocket.StatusNormalClosure {
+			t.Fatalf("expected normal websocket close, got %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for realtime close")
+	}
+}
+
 func TestServiceRealtimeAllowsDefaultOpenAIProviderWhenProviderUnset(t *testing.T) {
 	t.Parallel()
 
