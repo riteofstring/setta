@@ -340,6 +340,32 @@ test("canvas engine host renders the shared background grid and updates it on zo
   }
 });
 
+test("canvas engine host treats ctrl-wheel as canvas zoom instead of page zoom", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+
+    const cameraBefore = await readCamera(host);
+    // Playwright cannot synthesize a real trackpad pinch, so dispatch the ctrl-wheel equivalent.
+    const wheelWasPrevented = await dispatchCtrlWheelOnCanvasEngineHost(page);
+
+    expect(wheelWasPrevented).toBe(true);
+    await expect
+      .poll(async () => (await readCamera(host)).zoom)
+      .toBeGreaterThan(cameraBefore.zoom + 0.05);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("canvas engine host viewport controls drive shared zoom and fit-view helpers", async ({
   page,
 }) => {
@@ -2601,6 +2627,27 @@ async function readBackgroundPatternMetrics(page: Page): Promise<{
       throw new Error("Invalid ReactFlow background pattern metrics.");
     }
     return { x, y, width, height };
+  });
+}
+
+async function dispatchCtrlWheelOnCanvasEngineHost(page: Page): Promise<boolean> {
+  return await page.evaluate(() => {
+    const host = document.querySelector('[data-canvas-engine-host="v1"]');
+    if (!(host instanceof HTMLElement)) {
+      throw new Error("Canvas engine host is missing.");
+    }
+
+    const rect = host.getBoundingClientRect();
+    const event = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: rect.left + rect.width / 2,
+      clientY: rect.top + rect.height / 2,
+      ctrlKey: true,
+      deltaY: -120,
+    });
+    host.dispatchEvent(event);
+    return event.defaultPrevented;
   });
 }
 
