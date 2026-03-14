@@ -16,6 +16,7 @@ from setta.project_state.project_manager_types import (
 from setta.types.agentic import (
     AgentProfile,
     AgentProfileList,
+    AgentRun,
     EngineConfig,
     EngineConfigList,
     TranscriptionProfile,
@@ -55,6 +56,7 @@ from setta.types.websocket import (
     WebsocketMsgAIFollowToolArgumentsUpdate,
     WebsocketMsgAIFollowToolResultUpdate,
     WebsocketMsgAllProjectMetadata,
+    WebsocketMsgAgentRunUpdated,
     WebsocketMsgBackendLogEvent,
     WebsocketMsgEngineConfigsUpdated,
     WebsocketMsgExternalAgentConfigsUpdated,
@@ -516,6 +518,17 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
             WebsocketMsgTranscriptionProfilesUpdated(
                 content=TranscriptionProfileList(profiles=profiles)
             ),
+            share_session_id,
+        )
+
+    async def broadcast_agent_run_update(
+        self,
+        run: AgentRun,
+        *,
+        share_session_id: str | None = None,
+    ) -> None:
+        await self._broadcast_frontend(
+            WebsocketMsgAgentRunUpdated(content=run),
             share_session_id,
         )
 
