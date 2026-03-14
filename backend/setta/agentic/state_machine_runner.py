@@ -46,6 +46,7 @@ from setta.types.helpers_lvl1 import (
 from setta.types.helpers_lvl3 import convert_backend_to_single_config
 from setta.types.id import ID
 from setta.types.project_state import ProjectStateSingleConfig
+from setta.types.prompt_section_resolution import resolve_prompt_section_source
 from setta.types.section_impls import (
     ChatPermissionMode,
     ChatSectionImpl,
@@ -2232,9 +2233,8 @@ class StateMachineRunner:
                 target_action.promptSectionId,
                 PromptSectionImpl,
             )
-            section_inputs = dict(prompt_impl.inputs)
-            section_inputs.update(render_inputs)
-            render_result = render_prompt(prompt_impl.template, section_inputs)
+            prompt_source = resolve_prompt_section_source(self.dbe, prompt_impl)
+            render_result = render_prompt(prompt_source.template, render_inputs)
             if render_result.render_error is not None:
                 raise ValueError(
                     f"State machine edge {edge_id} prompt section {prompt_impl.id} failed to render: {render_result.render_error}"

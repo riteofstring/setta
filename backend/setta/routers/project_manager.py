@@ -96,6 +96,7 @@ from setta.project_state.project_manager_types import (
     SetProjectConfigCodegenTargetsRequest,
     SetPromptFormatRequest,
     SetPromptInputsRequest,
+    SetPromptTemplateLinkRequest,
     SetPromptTemplateRequest,
     SetSectionColumnWidthRequest,
     SetSectionEdgeInputsRequest,
@@ -808,6 +809,15 @@ async def route_set_prompt_template(
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
     await manager.set_prompt_template(x)
+
+
+@router.post(Route.SET_PROMPT_TEMPLATE_LINK)
+async def route_set_prompt_template_link(
+    x: SetPromptTemplateLinkRequest, ctx: RuntimeContextFromRequest
+):
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.param)
+    await manager.set_prompt_template_link(x)
 
 
 @router.post(Route.SET_PROMPT_INPUTS)

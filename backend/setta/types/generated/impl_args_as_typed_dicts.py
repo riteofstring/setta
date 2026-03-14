@@ -176,6 +176,7 @@ class CoreArgs(TypedDict):
                 "placeholder",
                 "pluginId",
                 "positionAndSizeLocked",
+                "promptTemplateId",
                 "readOnly",
                 "renderError",
                 "renderedImagePath",
@@ -603,6 +604,7 @@ class TextBlockSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
 
 class PromptSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.Prompt]]
+    promptTemplateId: NotRequired[ID | None]
     template: NotRequired[str]
     format: NotRequired[PromptFormat]
     inputs: NotRequired[dict[str, str]]
@@ -616,6 +618,7 @@ class PromptSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
         Literal[SectionType.Prompt]
         | Callable[[Literal[SectionType.Prompt]], Literal[SectionType.Prompt]]
     ]
+    promptTemplateId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     template: NotRequired[str | Callable[[str], str]]
     format: NotRequired[PromptFormat | Callable[[PromptFormat], PromptFormat]]
     inputs: NotRequired[dict[str, str] | Callable[[dict[str, str]], dict[str, str]]]

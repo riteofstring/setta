@@ -1,10 +1,10 @@
 import asyncio
-from collections.abc import Awaitable, Callable
 import json
 import logging
 import os
 import shutil
 import tempfile
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -240,9 +240,7 @@ class ExternalAgentRunner:
         self._attachment_token_manager = AttachmentTokenManager(
             C.CHAT_ATTACHMENTS_TOKEN_TTL_SECONDS
         )
-        self._terminal_run_listener: Callable[[AgentRun], Awaitable[None]] | None = (
-            None
-        )
+        self._terminal_run_listener: Callable[[AgentRun], Awaitable[None]] | None = None
 
     @property
     def disabled(self) -> bool:

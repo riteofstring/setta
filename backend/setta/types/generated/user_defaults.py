@@ -190,6 +190,7 @@ class UserDefaultPromptSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     size: SectionSize = Field(
         default_factory=lambda: SectionSize(width=300, height=150)
     )
+    promptTemplateId: ID | None = None
     template: str = ""
     format: PromptFormat = PromptFormat.Jinja
     inputs: dict[str, str] = Field(default_factory=dict)

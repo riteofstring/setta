@@ -165,6 +165,7 @@ class SharedModifier(TypedDict):
     placeholder: NotRequired[str]
     pluginId: NotRequired[str]
     positionAndSizeLocked: NotRequired[bool]
+    promptTemplateId: NotRequired[ID | None]
     readOnly: NotRequired[bool]
     renderError: NotRequired[str | None]
     renderedImagePath: NotRequired[str | None]

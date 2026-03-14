@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, assert_never
 import rpack
 
 from setta.database.utils import create_new_id
-from setta.llm.prompt_renderer import PromptRenderResult, render_prompt
+from setta.llm.prompt_renderer import render_prompt
 from setta.secrets.password_store import get_password_secret, set_password_secret
 from setta.types.agentic_edges import AgenticEdge, AgenticEdgeKind
 from setta.types.artifact import (
@@ -115,6 +115,7 @@ from setta.types.project_chat_windowing import (
     validate_project_chat_thread_bindings_unchanged,
 )
 from setta.types.project_config import Position, TopLevelSectionLayout, ViewportBounds
+from setta.types.prompt_section_resolution import build_prompt_section_preview
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
     BaseDictSectionImpl,
@@ -2970,9 +2971,7 @@ def _ensure_state_machine_send_prompt_action_valid(
         target_action.promptSectionId,
         PromptSectionImpl,
     )
-    render_inputs = dict(prompt_impl.inputs)
-    render_inputs.update(target_action.promptInputs)
-    render_result = render_prompt(prompt_impl.template, render_inputs)
+    render_result = render_prompt(prompt_impl.template, target_action.promptInputs)
     if render_result.render_error is not None:
         raise ValueError(
             f"State machine edge {edge_id} prompt section {prompt_impl.id} failed to render: {render_result.render_error}"
@@ -3716,28 +3715,41 @@ def set_text_block_format(
     )
 
 
-def _render_prompt_section(
-    template: str,
-    inputs: dict[str, str],
-    format: PromptFormat,
-) -> PromptRenderResult:
-    if format is not PromptFormat.Jinja:
-        raise ValueError(f"Unsupported prompt format {format}")
-    return render_prompt(template, inputs)
-
-
 def set_prompt_section_template(
     p: "ProjectStateSingleConfig", sectionId: ID, template: str
 ):
     impl = get_curr_effective_section_impl_with_type_guard(
         p, sectionId, PromptSectionImpl
     )
-    result = _render_prompt_section(template, impl.inputs, impl.format)
+    result = build_prompt_section_preview(template, impl.format)
     set_curr_effective_section_impl_value(
         p,
         sectionId,
         PromptSectionImplArgsWithCallable(
+            promptTemplateId=None,
             template=template,
+            renderedText=result.rendered_text,
+            missingVariables=result.missing_variables,
+            renderError=result.render_error,
+        ),
+    )
+
+
+def set_prompt_section_template_link(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    promptTemplateId: ID | None,
+    template: str,
+    format: PromptFormat,
+):
+    result = build_prompt_section_preview(template, format)
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        PromptSectionImplArgsWithCallable(
+            promptTemplateId=promptTemplateId,
+            template=template,
+            format=format,
             renderedText=result.rendered_text,
             missingVariables=result.missing_variables,
             renderError=result.render_error,
@@ -3748,18 +3760,11 @@ def set_prompt_section_template(
 def set_prompt_section_inputs(
     p: "ProjectStateSingleConfig", sectionId: ID, inputs: dict[str, str]
 ):
-    impl = get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, PromptSectionImpl
-    )
-    result = _render_prompt_section(impl.template, inputs, impl.format)
     set_curr_effective_section_impl_value(
         p,
         sectionId,
         PromptSectionImplArgsWithCallable(
             inputs=inputs,
-            renderedText=result.rendered_text,
-            missingVariables=result.missing_variables,
-            renderError=result.render_error,
         ),
     )
 
@@ -3770,7 +3775,7 @@ def set_prompt_section_format(
     impl = get_curr_effective_section_impl_with_type_guard(
         p, sectionId, PromptSectionImpl
     )
-    result = _render_prompt_section(impl.template, impl.inputs, format)
+    result = build_prompt_section_preview(impl.template, format)
     set_curr_effective_section_impl_value(
         p,
         sectionId,

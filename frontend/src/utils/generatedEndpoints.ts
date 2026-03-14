@@ -1079,6 +1079,12 @@ export async function route_set_prompt_template(
   return await post("/setPromptTemplate", x);
 }
 
+export async function route_set_prompt_template_link(
+  x: gt.SetPromptTemplateLinkRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setPromptTemplateLink", x);
+}
+
 export async function route_set_prompt_inputs(
   x: gt.SetPromptInputsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

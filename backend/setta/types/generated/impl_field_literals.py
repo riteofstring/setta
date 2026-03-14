@@ -96,6 +96,7 @@ AllImplFields = Literal[
     "placeholder",
     "pluginId",
     "positionAndSizeLocked",
+    "promptTemplateId",
     "readOnly",
     "renderError",
     "renderedImagePath",

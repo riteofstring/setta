@@ -838,8 +838,8 @@ export function StateMachineEdgeInspector({
                       className="min-h-[110px] resize-y rounded border border-setta-300 bg-white px-2 py-2 font-mono text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
                     />
                     <p className="text-[11px] text-setta-500 dark:text-setta-400">
-                      Prompt section defaults apply first. Edge bindings
-                      override matching keys.
+                      Edge bindings provide values for Jinja placeholders when
+                      this workflow step runs.
                     </p>
                   </label>
                 ) : null}

@@ -734,6 +734,10 @@ class SetPromptTemplateRequest(ProjectManagerRequestWithSection):
     template: str
 
 
+class SetPromptTemplateLinkRequest(ProjectManagerRequestWithSection):
+    promptTemplateId: ID | None
+
+
 class SetPromptInputsRequest(ProjectManagerRequestWithSection):
     inputs: dict[str, str]
 

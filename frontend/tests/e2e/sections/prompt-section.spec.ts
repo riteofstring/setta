@@ -11,6 +11,10 @@ type CreateSectionResponse = {
   sectionId?: string;
 };
 
+type PromptTemplateResponse = {
+  id: string;
+};
+
 type ProjectMetadataEntry = { id: string; name: string };
 type ProjectMetadataResponse = {
   defaultProjectConfigId: string | null;
@@ -137,6 +141,44 @@ test.describe.serial("prompt section", () => {
       await expect(
         page.getByTestId(`prompt-render-preview-${created.sectionId}`),
       ).toContainText("Hello there.");
+
+      const linkedTemplate = await postBackend<PromptTemplateResponse>(
+        page,
+        "/createPromptTemplate",
+        {
+          name: "__pw_prompt_template__",
+          description: "",
+          template: "My name is {{ name }}. What's your name?",
+          format: "Jinja",
+          inputSchema: {},
+          metadata: {},
+        },
+      );
+      if (!linkedTemplate?.id) {
+        throw new Error("Missing prompt template id.");
+      }
+
+      await postBackend(page, "/setPromptTemplateLink", {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId: created.sectionId,
+        promptTemplateId: linkedTemplate.id,
+      });
+
+      await page
+        .getByTestId(`prompt-template-tab-${created.sectionId}`)
+        .click();
+      await expect(
+        page.getByTestId(`prompt-linked-template-note-${created.sectionId}`),
+      ).toContainText("Linked to prompt template");
+
+      await page.getByTestId(`prompt-preview-tab-${created.sectionId}`).click();
+      const preview = page.getByTestId(
+        `prompt-render-preview-${created.sectionId}`,
+      );
+      await expect(preview).toContainText(
+        "My name is {{ name }}. What's your name?",
+      );
+      await expect(preview).not.toContainText("Missing variables:");
 
       const minHeightErrors = pageErrors.filter(
         (message) =>

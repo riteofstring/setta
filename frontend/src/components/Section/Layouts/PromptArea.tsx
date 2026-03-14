@@ -1,4 +1,5 @@
 import CodeMirror from "@uiw/react-codemirror";
+import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import {
   codeAreaTabOnEnterKeyHandlers,
   useCodeAreaHeight,
@@ -12,7 +13,11 @@ import {
   getCurrEffectiveSectionImplOfType,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import { useProjectState, useShareSession } from "state/definitions";
+import {
+  useAIStore,
+  useProjectState,
+  useShareSession,
+} from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { useLocalPendingValue } from "state/hooks/utils";
 import {
@@ -21,18 +26,19 @@ import {
 } from "utils/constants";
 import { route_set_prompt_template } from "utils/generatedEndpoints";
 import { PromptFormatEnum, SectionTypeEnum } from "utils/generatedTypes";
+import { resolvePromptSectionSource } from "utils/promptSectionSource";
 
 type PromptViewMode = "template" | "preview";
 
 export function PromptArea({ sectionId }: { sectionId: string }) {
+  useHydrateAgenticState();
   const {
     projectConfigId,
+    promptTemplateId,
     template,
     format,
     isFrozen,
-    renderedText,
     renderError,
-    missingVariables,
   } = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplOfType(
       state,
@@ -41,17 +47,23 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
     );
     return {
       projectConfigId: state.projectConfig.id,
+      promptTemplateId: impl.promptTemplateId ?? null,
       template: impl.template,
       format: impl.format,
       isFrozen: impl.isFrozen,
-      renderedText: impl.renderedText,
       renderError: impl.renderError,
-      missingVariables: impl.missingVariables,
     };
   }, _.isEqual);
+  const { promptTemplates, promptTemplatesInitialLoadComplete } = useAIStore(
+    (state) => ({
+      promptTemplates: state.promptTemplates,
+      promptTemplatesInitialLoadComplete:
+        state.promptTemplatesInitialLoadComplete,
+    }),
+    _.isEqual,
+  );
   const { canEditParams } = useShareCapabilities();
   const isDeploymentMode = useShareSession((state) => state.isDeploymentMode);
-  const isReadOnly = isFrozen || (isDeploymentMode && !canEditParams);
   const [viewMode, setViewMode] = useState<PromptViewMode>("template");
   const [value, setPendingValue] = useLocalPendingValue(
     template,
@@ -63,16 +75,62 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
       });
     },
   );
+  const resolvedSource = useMemo(
+    () =>
+      resolvePromptSectionSource(
+        {
+          format,
+          promptTemplateId,
+          template,
+        },
+        promptTemplates,
+      ),
+    [format, promptTemplateId, promptTemplates, template],
+  );
+  const isReadOnly =
+    resolvedSource.isLinked || isFrozen || (isDeploymentMode && !canEditParams);
+  const editorValue = resolvedSource.isLinked
+    ? resolvedSource.templateText
+    : value;
+  const linkedTemplateName =
+    resolvedSource.linkedTemplate?.name || promptTemplateId || "";
 
   const errorText = useMemo(() => {
-    if (renderError) {
+    if (
+      resolvedSource.linkedTemplateMissing &&
+      promptTemplatesInitialLoadComplete
+    ) {
+      return "Linked prompt template could not be found.";
+    }
+    if (renderError && !renderError.startsWith("Missing variables:")) {
       return renderError;
     }
-    if (missingVariables.length > 0) {
-      return `Missing variables: ${missingVariables.join(", ")}`;
-    }
     return "";
-  }, [missingVariables, renderError]);
+  }, [
+    promptTemplatesInitialLoadComplete,
+    renderError,
+    resolvedSource.linkedTemplateMissing,
+  ]);
+  const linkedTemplateInfo = useMemo(() => {
+    if (!resolvedSource.isLinked) {
+      return "";
+    }
+    if (
+      resolvedSource.linkedTemplateMissing &&
+      !promptTemplatesInitialLoadComplete
+    ) {
+      return "Loading linked prompt template...";
+    }
+    if (resolvedSource.linkedTemplateMissing) {
+      return "This section is linked to a prompt template that could not be loaded. Re-link it or make a local copy in section settings.";
+    }
+    return `Linked to prompt template "${linkedTemplateName}". Edit it in Project AI Settings or make a local copy in section settings.`;
+  }, [
+    linkedTemplateName,
+    promptTemplatesInitialLoadComplete,
+    resolvedSource.isLinked,
+    resolvedSource.linkedTemplateMissing,
+  ]);
 
   useEffect(() => {
     setViewMode("template");
@@ -84,7 +142,8 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
     codeAreaTabOnEnterKeyHandlers(wrapperRef);
   const theme = useCodeMirrorStyle();
   const extensions = getExtensions({
-    language: format === PromptFormatEnum.Jinja ? "markdown" : null,
+    language:
+      resolvedSource.format === PromptFormatEnum.Jinja ? "markdown" : null,
     tabToAutocomplete: true,
     indentWithTab: true,
     isDisabled: isReadOnly,
@@ -156,9 +215,17 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
           onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
           tabIndex={0}
         >
+          {linkedTemplateInfo ? (
+            <div
+              data-testid={`prompt-linked-template-note-${sectionId}`}
+              className="mx-2 mt-2 rounded-md border border-blue-200/80 bg-blue-50/80 px-2 py-1 text-[11px] text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/40 dark:text-blue-200"
+            >
+              {linkedTemplateInfo}
+            </div>
+          ) : null}
           <CodeMirror
             maxHeight={editorMaxHeight}
-            value={value}
+            value={editorValue}
             theme={theme}
             extensions={extensions}
             onChange={onChange}
@@ -170,7 +237,7 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
       ) : (
         <PromptPreview
           sectionId={sectionId}
-          renderedText={renderedText}
+          previewText={resolvedSource.templateText}
           errorText={errorText}
         />
       )}
@@ -210,11 +277,11 @@ function PromptModeButton({
 
 function PromptPreview({
   sectionId,
-  renderedText,
+  previewText,
   errorText,
 }: {
   sectionId: string;
-  renderedText: string;
+  previewText: string;
   errorText: string;
 }) {
   return (
@@ -228,7 +295,7 @@ function PromptPreview({
         </div>
       ) : null}
       <pre className="whitespace-pre-wrap break-words px-2 py-2">
-        {renderedText || "No prompt rendered yet."}
+        {previewText || "No prompt rendered yet."}
       </pre>
     </div>
   );

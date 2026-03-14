@@ -36,7 +36,7 @@ from setta.agentic.linked_chat_targets import (
     LinkedChatTargetResolutionError,
     resolve_executable_linked_chat_target,
 )
-from setta.agentic.store import list_agent_run_ids_by_metadata
+from setta.agentic.store import list_agent_run_ids_by_metadata, load_prompt_template
 from setta.app.definition_diagnostics import (
     build_app_capabilities,
     validate_app_definition_payload,
@@ -208,6 +208,7 @@ from setta.project_state.project_manager_types import (
     SetProjectConfigCodegenTargetsRequest,
     SetPromptFormatRequest,
     SetPromptInputsRequest,
+    SetPromptTemplateLinkRequest,
     SetPromptTemplateRequest,
     SetSectionColumnWidthRequest,
     SetSectionEdgeInputsRequest,
@@ -364,6 +365,7 @@ from setta.types.helpers_lvl2 import (
     set_prompt_section_format,
     set_prompt_section_inputs,
     set_prompt_section_template,
+    set_prompt_section_template_link,
     set_section_column_width,
     set_section_edge_inputs,
     set_section_edge_outputs,
@@ -440,6 +442,7 @@ from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
 )
+from setta.types.prompt_section_resolution import resolve_prompt_section_source
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
     BaseSectionWithParamsImpl,
@@ -452,6 +455,7 @@ from setta.types.section_impls import (
     CodeSectionImpl,
     GenPythonCodeSectionImpl,
     GenPythonMetadataSectionImpl,
+    PromptSectionImpl,
     SectionType,
     TerminalSectionImpl,
 )
@@ -1088,7 +1092,7 @@ class BaseProjectManager(ABC):
                         section_inputs=section_inputs,
                     )
 
-                dep_graph = DependencyGraph(run_state)
+                dep_graph = DependencyGraph(run_state, dbe=self.dbe)
                 code_generator = build_python_code_generator(run_state, dep_graph)
                 code_generator.generate_code()
                 gen_binding = run_state.genCodeBinding
@@ -1259,7 +1263,7 @@ class BaseProjectManager(ABC):
             )
             return command, snapshot_path, entry_section_id
 
-        dep_graph = DependencyGraph(project_state)
+        dep_graph = DependencyGraph(project_state, dbe=self.dbe)
         code_generator = build_python_code_generator(project_state, dep_graph)
         code_generator.generate_code()
         gen_binding = project_state.genCodeBinding
@@ -1927,7 +1931,7 @@ class BaseProjectManager(ABC):
         )
 
         if python_codegen_enabled:
-            dep_graph = DependencyGraph(projectState)
+            dep_graph = DependencyGraph(projectState, dbe=self.dbe)
             prev_undefined_callable_sections: set[ID] = set()
             prev_callable_mismatch_sections: set[ID] = set()
             if projectConfigId in self.gen_code:
@@ -4415,6 +4419,41 @@ class BaseProjectManager(ABC):
     async def set_prompt_template(self, x: SetPromptTemplateRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_prompt_section_template(project_state, x.sectionId, x.template)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_prompt_template_link(self, x: SetPromptTemplateLinkRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        if x.promptTemplateId is None:
+            prompt_impl = get_curr_effective_section_impl_with_type_guard(
+                project_state,
+                x.sectionId,
+                PromptSectionImpl,
+            )
+            resolved_source = resolve_prompt_section_source(
+                self.dbe,
+                prompt_impl,
+                allow_snapshot_fallback=True,
+            )
+            set_prompt_section_template_link(
+                project_state,
+                x.sectionId,
+                None,
+                resolved_source.template,
+                resolved_source.format,
+            )
+            await self.update_and_broadcast_project_state(project_state)
+            return
+        prompt_template = load_prompt_template(self.dbe, x.promptTemplateId)
+        if prompt_template is None:
+            raise KeyError(f"Prompt template {x.promptTemplateId} not found.")
+        set_prompt_section_template_link(
+            project_state,
+            x.sectionId,
+            x.promptTemplateId,
+            prompt_template.template,
+            prompt_template.format,
+        )
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

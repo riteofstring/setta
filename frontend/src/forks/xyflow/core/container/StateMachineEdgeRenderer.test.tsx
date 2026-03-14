@@ -5,8 +5,10 @@ import {
   createChatSectionImpl,
   createCore,
   createProjectConfig,
+  createPromptSectionImpl,
   createTopLevelSectionLayout,
   createUserDefaultChatSectionImpl,
+  createUserDefaultPromptSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -31,12 +33,15 @@ describe("StateMachineEdgeRenderer", () => {
   const sourceSectionId = "section-source";
   const targetSectionId = "section-target";
   const hiddenTargetSectionId = "section-hidden";
+  const promptSectionId = "section-prompt";
   const sourceVariantId = "variant-source";
   const targetVariantId = "variant-target";
   const hiddenVariantId = "variant-hidden";
+  const promptVariantId = "variant-prompt";
   const sourceImplId = "impl-source";
   const targetImplId = "impl-target";
   const hiddenImplId = "impl-hidden";
+  const promptImplId = "impl-prompt";
 
   beforeEach(() => {
     resetProjectStores();
@@ -73,6 +78,15 @@ describe("StateMachineEdgeRenderer", () => {
         thinking: false,
       },
     );
+    const promptImpl = createPromptSectionImpl(
+      createUserDefaultPromptSectionImpl({
+        template: "Hi {{ name }}",
+      }),
+      {
+        id: promptImplId,
+        template: "Hi {{ name }}",
+      },
+    );
 
     const sourceVariant = createVariant({
       id: sourceVariantId,
@@ -92,6 +106,12 @@ describe("StateMachineEdgeRenderer", () => {
       impl: hiddenImplId,
       nonPresetImpls: [],
     });
+    const promptVariant = createVariant({
+      id: promptVariantId,
+      name: "Prompt Variant",
+      impl: promptImplId,
+      nonPresetImpls: [],
+    });
 
     useProjectState.setState((state) => {
       state.projectConfig = createProjectConfig({
@@ -100,6 +120,7 @@ describe("StateMachineEdgeRenderer", () => {
           [sourceSectionId]: sourceVariantId,
           [targetSectionId]: targetVariantId,
           [hiddenTargetSectionId]: hiddenVariantId,
+          [promptSectionId]: promptVariantId,
         },
         topLevelSections: {
           [sourceSectionId]: createTopLevelSectionLayout({
@@ -116,6 +137,12 @@ describe("StateMachineEdgeRenderer", () => {
           }),
           [hiddenTargetSectionId]: createTopLevelSectionLayout({
             x: 460,
+            y: 300,
+            w: 220,
+            h: 140,
+          }),
+          [promptSectionId]: createTopLevelSectionLayout({
+            x: 200,
             y: 300,
             w: 220,
             h: 140,
@@ -138,7 +165,9 @@ describe("StateMachineEdgeRenderer", () => {
             targetAction: {
               type: "send_prompt",
               promptTemplateId: null,
-              inlinePrompt: "Retry the review loop.",
+              promptSectionId,
+              inlinePrompt: null,
+              promptInputs: {},
               threadStrategy: "continue_current_thread",
               stopIfRunning: false,
               engineConfigId: null,
@@ -191,16 +220,24 @@ describe("StateMachineEdgeRenderer", () => {
           variants: [hiddenVariantId],
           defaultVariant: hiddenVariantId,
         }),
+        [promptSectionId]: createCore({
+          id: promptSectionId,
+          name: "Prompt",
+          variants: [promptVariantId],
+          defaultVariant: promptVariantId,
+        }),
       };
       state.sectionVariants = {
         [sourceVariantId]: sourceVariant,
         [targetVariantId]: targetVariant,
         [hiddenVariantId]: hiddenVariant,
+        [promptVariantId]: promptVariant,
       };
       state.sectionImpls = {
         [sourceImplId]: sourceImpl,
         [targetImplId]: targetImpl,
         [hiddenImplId]: hiddenImpl,
+        [promptImplId]: promptImpl,
       };
       state.previewSectionVariantMap = {};
     });
@@ -230,6 +267,14 @@ describe("StateMachineEdgeRenderer", () => {
       zIndex: 0,
       tempZIndex: 0,
     });
+    nodes.set(promptSectionId, {
+      id: promptSectionId,
+      position: { x: 200, y: 300 },
+      width: 220,
+      height: 140,
+      zIndex: 0,
+      tempZIndex: 0,
+    });
     useNodeInternals.setState({ x: nodes });
 
     syncStoreInitialState(useProjectState);
@@ -245,6 +290,7 @@ describe("StateMachineEdgeRenderer", () => {
     const markup = renderToStaticMarkup(<StateMachineEdgeRenderer />);
 
     expect(markup).toContain("workflow-edge--selected");
+    expect(markup).toContain('data-testid="workflow-prompt-link-edge-visible"');
     expect(markup).not.toContain("workflow-edge--signal");
     expect(markup).not.toContain("workflow-edge--reset-thread");
     expect(markup).not.toContain("workflow-edge--send-prompt");

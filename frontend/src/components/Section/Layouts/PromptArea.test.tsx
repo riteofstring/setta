@@ -1,5 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { useProjectState, useShareSession } from "state/definitions";
+import {
+  useAIStore,
+  useProjectState,
+  useShareSession,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   PromptFormatEnum,
@@ -58,6 +62,13 @@ vi.mock("components/Utils/CodeMirror/useCodeMirrorStyle", () => ({
   useCodeMirrorStyle: () => "theme",
 }));
 
+vi.mock(
+  "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState",
+  () => ({
+    useHydrateAgenticState: () => undefined,
+  }),
+);
+
 vi.mock("state/hooks/share", () => ({
   useShareCapabilities: () => ({
     canEditParams: true,
@@ -69,11 +80,15 @@ vi.mock("state/hooks/share", () => ({
 }));
 
 function seedPromptSection({
+  promptTemplateId = null,
   template,
   renderedText,
+  renderError = null,
 }: {
+  promptTemplateId?: string | null;
   template: string;
   renderedText: string;
+  renderError?: string | null;
 }) {
   const sectionId = "section-1";
   const variantId = "variant-1";
@@ -112,12 +127,13 @@ function seedPromptSection({
     isMinimized: false,
     positionAndSizeLocked: false,
     isPreset: false,
+    promptTemplateId,
     template,
     format: PromptFormatEnum.Jinja,
     inputs: { name: "Ada" },
     renderedText,
-    missingVariables: [],
-    renderError: null,
+    missingVariables: promptTemplateId ? ["name"] : [],
+    renderError,
   };
 
   useProjectState.setState((state) => {
@@ -136,6 +152,11 @@ describe("PromptArea", () => {
   beforeEach(() => {
     resetProjectStores();
     lastCodeMirrorProps = null;
+    useAIStore.setState({
+      promptTemplates: [],
+      promptTemplatesInitialLoadComplete: true,
+    });
+    syncStoreInitialState(useAIStore);
     useShareSession.setState({ isDeploymentMode: false });
     syncStoreInitialState(useShareSession);
   });
@@ -162,5 +183,34 @@ describe("PromptArea", () => {
     expect(props).not.toBeNull();
     expect(props?.value).toBe("Hi {{ name }}");
     expect(Array.isArray(props?.extensions)).toBe(true);
+  });
+
+  it("shows linked prompt templates as read-only source text", () => {
+    useAIStore.setState({
+      promptTemplates: [
+        {
+          id: "template-1",
+          name: "Greeting",
+          description: "",
+          template: "Hello {{ name }}",
+          format: PromptFormatEnum.Jinja,
+          inputSchema: {},
+          metadata: {},
+        },
+      ],
+      promptTemplatesInitialLoadComplete: true,
+    });
+    syncStoreInitialState(useAIStore);
+    const sectionId = seedPromptSection({
+      promptTemplateId: "template-1",
+      template: "stale snapshot",
+      renderedText: "",
+    });
+
+    const markup = renderToStaticMarkup(<PromptArea sectionId={sectionId} />);
+
+    expect(markup).toContain(`prompt-linked-template-note-${sectionId}`);
+    const props = lastCodeMirrorProps;
+    expect(props?.value).toBe("Hello {{ name }}");
   });
 });

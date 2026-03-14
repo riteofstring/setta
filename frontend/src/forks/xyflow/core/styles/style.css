@@ -439,6 +439,17 @@ html.dark .react-flow__agentic-edge-path.agentic-edge--missing {
   stroke-dasharray: none;
 }
 
+.react-flow__state-machine-prompt-link-path {
+  stroke: #38bdf8;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  opacity: 0.9;
+  pointer-events: none;
+  stroke-dasharray: 7 5;
+}
+
 .react-flow__state-machine-edge-interaction {
   pointer-events: stroke;
   cursor: pointer;
@@ -452,6 +463,10 @@ html.dark .react-flow__agentic-edge-path.agentic-edge--missing {
 
 html.dark .react-flow__state-machine-edge-path {
   stroke: #fbbf24;
+}
+
+html.dark .react-flow__state-machine-prompt-link-path {
+  stroke: #7dd3fc;
 }
 
 html.dark .react-flow__state-machine-edge-path.workflow-edge--selected {

@@ -15,10 +15,11 @@ from setta.agentic.state_machine_runner import (
 )
 from setta.agentic.store import (
     create_agent_run,
+    load_agent_run,
     save_agent_profiles,
     save_agent_run,
     save_engine_configs,
-    load_agent_run,
+    save_prompt_template,
 )
 from setta.llm.agent_runner import AgentRunner
 from setta.mcp.client import MultiMCPClient
@@ -28,7 +29,7 @@ from setta.project_state.project_manager_types import (
     CreateTopLevelSectionRequest,
     SetChatSectionChatIdRequest,
     SetChatSectionSettingsRequest,
-    SetPromptInputsRequest,
+    SetPromptTemplateLinkRequest,
     SetPromptTemplateRequest,
     SetStateMachineEdgesRequest,
     SetStateMachineSectionSettingsRequest,
@@ -60,6 +61,7 @@ from setta.types.helpers_lvl3 import convert_backend_to_single_config
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.types.project_config import Position
+from setta.types.prompt import PromptTemplate
 from setta.types.section_impls import (
     ChatDictationMode,
     ChatPermissionMode,
@@ -1200,11 +1202,86 @@ async def test_state_machine_runner_dispatches_prompt_section_with_edge_bindings
                 template="Hi my name is {{ name }}. What's your name?",
             )
         )
-        await project_fixture.manager.set_prompt_inputs(
-            SetPromptInputsRequest(
+        project_state = convert_backend_to_single_config(
+            project_fixture.manager.project_state_backend,
+            project_config_id,
+        )
+        project_state.projectConfig.stateMachineEdges[
+            0
+        ].targetAction = StateMachineTargetAction(
+            type=StateMachineTargetActionType.send_prompt,
+            promptSectionId=prompt_response.sectionId,
+            promptInputs={"name": "Kevin"},
+            threadStrategy=StateMachineThreadStrategy.new_thread_before_send,
+        )
+        await project_fixture.manager.set_state_machine_edges(
+            SetStateMachineEdgesRequest(
+                projectConfigId=project_config_id,
+                edges=project_state.projectConfig.stateMachineEdges,
+            )
+        )
+
+        state, _, agent_runner, _ = _build_runtime_state(
+            project_fixture,
+            settings_fixture,
+        )
+        captured: dict[str, object] = {}
+
+        def _capture_start_run(profile, inputs, **_kwargs):
+            captured["inputs"] = inputs
+            return create_agent_run(profile_id=profile.id, inputs=inputs)
+
+        monkeypatch.setattr(agent_runner, "start_run", _capture_start_run)
+
+        with runtime_context(state) as ctx:
+            await route_start_state_machine_run(
+                StartStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                    startSectionId=start_section_id,
+                ),
+                ctx,
+            )
+
+        captured_inputs = captured.get("inputs")
+        assert isinstance(captured_inputs, dict)
+        raw_messages = captured_inputs.get("messages")
+        assert isinstance(raw_messages, list)
+        assert raw_messages[-1]["content"][0]["text"] == (
+            "Hi my name is Kevin. What's your name?"
+        )
+
+    async def test_state_machine_runner_dispatches_linked_prompt_section_with_edge_bindings(
+        project_fixture,
+        settings_fixture,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        project_config_id = project_fixture.project_config_id
+        project_state = convert_backend_to_single_config(
+            project_fixture.manager.project_state_backend,
+            project_config_id,
+        )
+        start_section_id = project_state.projectConfig.stateMachineEdges[
+            0
+        ].sourceSectionId
+        prompt_response = await project_fixture.manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Prompt,
+                position=Position(x=420, y=220),
+            )
+        )
+        prompt_template = PromptTemplate(
+            id=ID("prompt-template-1"),
+            name="Greeting",
+            template="Hi my name is {{ name }}. What's your name?",
+        )
+        save_prompt_template(project_fixture.dbe, prompt_template)
+        await project_fixture.manager.set_prompt_template_link(
+            SetPromptTemplateLinkRequest(
                 projectConfigId=project_config_id,
                 sectionId=prompt_response.sectionId,
-                inputs={"name": "Default Name"},
+                promptTemplateId=prompt_template.id,
             )
         )
 

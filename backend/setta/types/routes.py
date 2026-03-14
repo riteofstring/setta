@@ -205,6 +205,7 @@ class Route(str, Enum):
     GET_APP_GEN_SKILL_CONTENT = "/getAppGenSkillContent"
     UPSERT_APP_GEN_CUSTOM_SKILL = "/upsertAppGenCustomSkill"
     SET_PROMPT_TEMPLATE = "/setPromptTemplate"
+    SET_PROMPT_TEMPLATE_LINK = "/setPromptTemplateLink"
     SET_PROMPT_INPUTS = "/setPromptInputs"
     SET_PROMPT_FORMAT = "/setPromptFormat"
     SET_GEN_CODE_PREFIX = "/setGenCodePrefix"

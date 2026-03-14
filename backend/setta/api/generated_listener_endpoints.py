@@ -818,6 +818,13 @@ class ListenerSetPromptInputsRequestPayload(TypedDict):
     inputs: dict[str, str]
 
 
+class ListenerSetPromptTemplateLinkRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    promptTemplateId: ID | None
+
+
 class ListenerSetPromptTemplateRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -1656,6 +1663,11 @@ class RouterEndpointAPI:
         self, payload: ListenerSetPromptTemplateRequestPayload
     ) -> None:
         return await self._caller("route_set_prompt_template", payload)
+
+    async def set_prompt_template_link(
+        self, payload: ListenerSetPromptTemplateLinkRequestPayload
+    ) -> None:
+        return await self._caller("route_set_prompt_template_link", payload)
 
     async def set_section_column_width(
         self, payload: ListenerSetSectionColumnWidthRequestPayload

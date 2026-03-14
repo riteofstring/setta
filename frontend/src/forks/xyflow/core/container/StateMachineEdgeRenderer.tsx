@@ -40,6 +40,20 @@ function getWorkflowAnchorFactor(sectionType: SectionTypeEnum | null): number {
   return 0.5;
 }
 
+function getNodeCenterX(
+  node: Node | undefined,
+  fallbackLayout: TopLevelSectionLayout | undefined,
+): number | null {
+  if (!node) {
+    return null;
+  }
+  const width = node.width ?? fallbackLayout?.w ?? null;
+  if (!width) {
+    return null;
+  }
+  return node.position.x + width / 2;
+}
+
 function resolveNodeAnchor(
   node: Node | undefined,
   fallbackLayout: TopLevelSectionLayout | undefined,
@@ -66,6 +80,32 @@ function getEdgeClassNames(edge: WorkflowEdge): string {
     classNames.push("workflow-edge--selected");
   }
   return classNames.join(" ");
+}
+
+function resolveRelativeAnchorSides(
+  sourceNode: Node | undefined,
+  sourceLayout: TopLevelSectionLayout | undefined,
+  targetNode: Node | undefined,
+  targetLayout: TopLevelSectionLayout | undefined,
+): { sourceSide: NodeAnchorSide; targetSide: NodeAnchorSide } {
+  const sourceCenterX = getNodeCenterX(sourceNode, sourceLayout);
+  const targetCenterX = getNodeCenterX(targetNode, targetLayout);
+  if (sourceCenterX === null || targetCenterX === null) {
+    return {
+      sourceSide: "right",
+      targetSide: "left",
+    };
+  }
+  if (sourceCenterX <= targetCenterX) {
+    return {
+      sourceSide: "right",
+      targetSide: "left",
+    };
+  }
+  return {
+    sourceSide: "left",
+    targetSide: "right",
+  };
 }
 
 const StateMachineEdgeRenderer = () => {
@@ -125,6 +165,7 @@ const StateMachineEdgeRenderer = () => {
           }
           const sourceType = sectionTypesById.get(edge.sourceSectionId) ?? null;
           const targetType = sectionTypesById.get(edge.targetSectionId) ?? null;
+          const targetNode = nodes.get(edge.targetSectionId);
           const sourceCenter = resolveNodeAnchor(
             nodes.get(edge.sourceSectionId),
             topLevelSections[edge.sourceSectionId],
@@ -132,7 +173,7 @@ const StateMachineEdgeRenderer = () => {
             sourceType,
           );
           const targetCenter = resolveNodeAnchor(
-            nodes.get(edge.targetSectionId),
+            targetNode,
             topLevelSections[edge.targetSectionId],
             "left",
             targetType,
@@ -155,6 +196,53 @@ const StateMachineEdgeRenderer = () => {
             event.stopPropagation();
             toggleStateMachineEdgeSelection(edge.id, multiSelectionActive);
           };
+          const promptSectionId =
+            edge.targetAction?.type === "send_prompt"
+              ? edge.targetAction.promptSectionId ?? null
+              : null;
+          const promptSectionType = promptSectionId
+            ? sectionTypesById.get(promptSectionId) ?? null
+            : null;
+          let promptLinkPath: string | null = null;
+          if (promptSectionId) {
+            const promptNode = nodes.get(promptSectionId);
+            const promptLayout = topLevelSections[promptSectionId];
+            const targetLayout = topLevelSections[edge.targetSectionId];
+            const { sourceSide, targetSide } = resolveRelativeAnchorSides(
+              promptNode,
+              promptLayout,
+              targetNode,
+              targetLayout,
+            );
+            const promptSourceCenter = resolveNodeAnchor(
+              promptNode,
+              promptLayout,
+              sourceSide,
+              promptSectionType,
+            );
+            const promptTargetCenter = resolveNodeAnchor(
+              targetNode,
+              targetLayout,
+              targetSide,
+              targetType,
+            );
+            if (promptSourceCenter && promptTargetCenter) {
+              [promptLinkPath] = getBezierPath({
+                sourceX: promptSourceCenter.x,
+                sourceY: promptSourceCenter.y,
+                sourcePosition:
+                  sourceSide === "right"
+                    ? HandlePosition.Right
+                    : HandlePosition.Left,
+                targetX: promptTargetCenter.x,
+                targetY: promptTargetCenter.y,
+                targetPosition:
+                  targetSide === "left"
+                    ? HandlePosition.Left
+                    : HandlePosition.Right,
+              });
+            }
+          }
           return (
             <g
               key={edge.id}
@@ -165,6 +253,14 @@ const StateMachineEdgeRenderer = () => {
               data-edgeid={edge.id}
               data-testid={`workflow-edge-${edge.id}`}
             >
+              {promptLinkPath ? (
+                <path
+                  d={promptLinkPath}
+                  className="react-flow__state-machine-prompt-link-path"
+                  data-testid={`workflow-prompt-link-${edge.id}`}
+                  fill="none"
+                />
+              ) : null}
               <path
                 d={path}
                 className={getEdgeClassNames(edge)}

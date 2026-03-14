@@ -259,9 +259,7 @@ class AgentRunner:
             logger=logger,
         )
         self.system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
-        self._terminal_run_listener: Callable[[AgentRun], Awaitable[None]] | None = (
-            None
-        )
+        self._terminal_run_listener: Callable[[AgentRun], Awaitable[None]] | None = None
 
     @property
     def disabled(self) -> bool:
