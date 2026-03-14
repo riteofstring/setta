@@ -14,8 +14,6 @@ preview/editor surface.
 - The same `FileBrowserPane` component is also used in the Home page "Workspace
   Browser" column (`frontend/src/components/Pages/Home/HomePage.tsx`), backed by
   `useHomeFileBrowserState`.
-- Browser sections reuse the same list/tree surface and compose the shared
-  path-control components from `BrowserArea`.
 - In the Overview sidebar, Explorer is hidden in share/deployment mode.
 - Backend file-browser routes are blocked with 403s in share/deployment mode.
 
@@ -32,17 +30,13 @@ preview/editor surface.
 - `FileBrowserPane` supports an `allowOutsideWorkspaceRoot` flag:
   - default `false`: root + folder browsing is restricted to workspace-root-relative paths.
   - `true`: absolute path browsing is allowed (subject to backend existence/permission checks).
-- `FileBrowserPane` also supports `showPathNavigation`:
-  - default `true`: shows a shared path field, an up-one-level button, and
-    ancestor breadcrumbs.
-  - `false`: hides that chrome and lets the host provide its own root picker.
-- Overview Explorer and Browser sections keep `allowOutsideWorkspaceRoot=false`
-  and use the shared path-navigation controls to move within the workspace tree.
-- Home workspace browser enables `allowOutsideWorkspaceRoot=true`, disables the
-  shared path-navigation chrome, and keeps its dedicated root-path input
-  (`home-file-browser-path-input`) backed by `useHomeFileBrowserState`.
-- The shared path field commits navigation on Enter/blur, supports folder
-  autocomplete, and breadcrumbs jump directly to ancestor paths.
+- Overview Explorer keeps `allowOutsideWorkspaceRoot=false`; Home workspace browser
+  enables `allowOutsideWorkspaceRoot=true` so the path bar can jump to folders
+  outside the workspace root.
+- The pane currently does not expose a root-path input; consumers change the root by
+  updating file browser state.
+- The Home page wrapper adds a root path input (`home-file-browser-path-input`) and
+  writes the selected root into `useHomeFileBrowserState`.
 - Folder contents are fetched lazily when a folder expands.
 - Each folder request limits results to 5000 entries and returns folders before files,
   sorted by case-insensitive name.
@@ -92,10 +86,7 @@ preview/editor surface.
   the current root path + ignore patterns and can be forced with `Ctrl+Space`.
 - Filtering only includes nodes that have already been loaded. Expand folders first if
   you want their children to participate in filtering.
-- Dev-facing dotfiles are shown by default (`.env`, `.gitignore`, etc.).
-- Internal roots and ignore-pattern matches are still hidden by the backend
-  (`.git`, `.venv`, `node_modules`, `setta_files`, and similar configured
-  ignores).
+- Hidden items (dotfiles) and default ignore patterns are filtered out by the backend.
 - Rows show a spinner while loading and a small error marker when a folder fails to
   load.
 
@@ -174,15 +165,12 @@ Keyboard navigation works when the list has focus.
 ## Implementation References
 
 - UI: `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
-- Browser section host: `frontend/src/components/Section/Layouts/BrowserArea.tsx`
 - Home wrapper: `frontend/src/components/Pages/Home/HomePage.tsx`
 - Overview split workspace: `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserWorkspace.tsx`
 - Universal preview: `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserUniversalPreview.tsx`
 - Spreadsheet preview/editor: `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor.tsx`
-- Shared path chrome: `frontend/src/components/Utils/FileBrowserPathControls.tsx`
 - Autocomplete: `frontend/src/components/Utils/CodeMirror/folderPathCompletions.ts`
 - Path helpers: `frontend/src/utils/browserPaths.ts`
-- Path-navigation helpers: `frontend/src/utils/fileBrowserNavigation.ts`
 - State: `frontend/src/state/definitions.ts`
 - Open file flow: `frontend/src/state/actions/sections/createSections.ts`
 - Backend routes: `backend/setta/routers/artifact.py`

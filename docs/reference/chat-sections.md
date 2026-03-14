@@ -15,9 +15,6 @@ Chat sections store the following fields on the section impl:
 - `permissionMode`: runtime permission mode (`minimal`, `yolo`, or `config_toml_custom`).
 - `searchEnabled`: runtime search toggle for managed runs.
 - `messages`: list of chat messages (scriptable mode state; managed mode uses chat store). Messages may include `attachments`.
-- Chat messages also support an optional UI timestamp field `createdAt`
-  (milliseconds since epoch). The shared transcript renders message timestamps
-  only when this value is positive.
 - `inputText`: current input text for scriptable mode.
 - `waitingForResponse`: whether the UI shows an inflight response.
 - `toolCallArguments`: map of tool call ids to argument JSON text (streaming UI support).
@@ -26,7 +23,8 @@ Chat sections store the following fields on the section impl:
 
 ## Managed mode
 
-Managed mode uses the central LLM chat manager:
+Managed mode uses the AI routes backed by `backend/setta/routers/ai.py` and
+`backend/setta/llm/agent_runner.py`:
 
 - The UI blocks sends until `engineConfigId` is selected and at least one engine config is available.
 - `submitMessage` calls `route_get_llm_response` with `chatId`, `engineConfigId`, `thinking`, plus optional `agentProfileId` and `sectionId` (Chat sections pass their section id; Project Chat passes `null`).
@@ -77,9 +75,6 @@ Scriptable mode keeps chat state inside the section:
 - Use listener code plus the chat toolkit to stream assistant content, append tool results, and sync the section state.
 - `ChatSectionSyncClient.update_from_chat` can rebuild the section state from chat history when you want a full refresh.
 - Listener chat history accepts an `engineConfigId` for internal engines, or `None` for scriptable-only chats.
-- If scriptable chats want stable visible timestamps, set `createdAt` when
-  constructing messages; tool messages can carry it too, but provider payload
-  conversion strips it before forwarding upstream.
 
 ## Editing and branching
 
