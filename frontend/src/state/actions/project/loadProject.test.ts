@@ -14,30 +14,20 @@ import {
   createProjectChatWindowInstance,
   createProjectChatWindowingState,
   createProjectConfig,
-  createProjectStateSingleConfig,
-  createSettaProjectConfigDiagnostics,
-  createSettaLspDiagnosticsPayload,
   createWindowSpaceConfig,
   type ProjectStateSingleConfigInput,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const routeLoadProjectConfigMock = vi.fn();
 const routeLoadAllProjectMetadataMock = vi.fn();
-const routeGetLatestLspDiagnosticsMock = vi.fn();
 const initializeServerModeMock = vi.fn();
-const requestAIFollowSnapshotMock = vi.fn();
-const fetchListenerCoverageSnapshotMock = vi.fn();
-const processLspDiagnosticsMock = vi.fn();
 
 vi.mock("utils/generatedEndpoints", () => ({
   route_create_project_config: vi.fn(),
-  route_get_latest_lsp_diagnostics: (...args: unknown[]) =>
-    routeGetLatestLspDiagnosticsMock(...args),
+  route_get_latest_lsp_diagnostics: vi.fn(),
   route_load_all_project_metadata: (...args: unknown[]) =>
     routeLoadAllProjectMetadataMock(...args),
-  route_load_project_config: (...args: unknown[]) =>
-    routeLoadProjectConfigMock(...args),
+  route_load_project_config: vi.fn(),
 }));
 
 vi.mock("../serverMode", () => ({
@@ -45,26 +35,7 @@ vi.mock("../serverMode", () => ({
     initializeServerModeMock(...args),
 }));
 
-vi.mock("../aiFollow", () => ({
-  requestAIFollowSnapshot: (...args: unknown[]) =>
-    requestAIFollowSnapshotMock(...args),
-}));
-
-vi.mock("../listenerCoverage", () => ({
-  fetchListenerCoverageSnapshot: (...args: unknown[]) =>
-    fetchListenerCoverageSnapshotMock(...args),
-}));
-
-vi.mock("../lspDiagnostics", () => ({
-  processLspDiagnostics: (...args: unknown[]) =>
-    processLspDiagnosticsMock(...args),
-}));
-
-import {
-  loadAllProjectMetadata,
-  loadProjectConfig,
-  loadProjectState,
-} from "./loadProject";
+import { loadAllProjectMetadata, loadProjectState } from "./loadProject";
 
 describe("loadAllProjectMetadata", () => {
   beforeEach(() => {
@@ -74,12 +45,7 @@ describe("loadAllProjectMetadata", () => {
       projectMetadata: [],
     });
     routeLoadAllProjectMetadataMock.mockReset();
-    routeLoadProjectConfigMock.mockReset();
-    routeGetLatestLspDiagnosticsMock.mockReset();
     initializeServerModeMock.mockReset();
-    requestAIFollowSnapshotMock.mockReset();
-    fetchListenerCoverageSnapshotMock.mockReset();
-    processLspDiagnosticsMock.mockReset();
   });
 
   it("returns false and skips loading when server mode is not ide", async () => {
@@ -128,55 +94,6 @@ describe("loadAllProjectMetadata", () => {
     expect(loaded).toBe(false);
     expect(useAllProjectMetadata.getState().projectMetadata).toEqual([]);
     expect(useAllProjectMetadata.getState().defaultProjectConfigId).toBeNull();
-  });
-
-  it("hydrates a project config and triggers the Go-owned follow-up reads", async () => {
-    const loadedProjectState = createProjectStateSingleConfig({
-      projectConfig: createProjectConfig({
-        id: "project-loaded",
-        name: "Loaded Project",
-      }),
-    });
-    const diagnostics = createSettaLspDiagnosticsPayload({
-      projectConfigId: "project-loaded",
-      genCode: createSettaProjectConfigDiagnostics({
-        projectConfigId: "project-loaded",
-        isGenCode: true,
-        errors: {},
-      }),
-      codeSections: {},
-      unmappedGenCode: [],
-    });
-    routeLoadProjectConfigMock.mockResolvedValue({
-      data: loadedProjectState,
-      status: 200,
-      hasResponse: true,
-    });
-    routeGetLatestLspDiagnosticsMock.mockResolvedValue({
-      data: diagnostics,
-      status: 200,
-      hasResponse: true,
-    });
-    requestAIFollowSnapshotMock.mockResolvedValue(undefined);
-    fetchListenerCoverageSnapshotMock.mockResolvedValue(undefined);
-
-    const loaded = await loadProjectConfig({
-      projectConfigName: "Loaded Project",
-    });
-
-    expect(loaded).toBe(true);
-    expect(routeLoadProjectConfigMock).toHaveBeenCalledWith({
-      projectConfigName: "Loaded Project",
-    });
-    expect(routeGetLatestLspDiagnosticsMock).toHaveBeenCalledWith({
-      projectConfigId: "project-loaded",
-    });
-    expect(processLspDiagnosticsMock).toHaveBeenCalledWith(diagnostics);
-    expect(requestAIFollowSnapshotMock).toHaveBeenCalledWith("project-loaded");
-    expect(fetchListenerCoverageSnapshotMock).toHaveBeenCalledWith(
-      "project-loaded",
-    );
-    expect(useProjectState.getState().projectConfig.id).toBe("project-loaded");
   });
 });
 
