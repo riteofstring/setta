@@ -162,10 +162,14 @@ vi.mock("./ProjectChatCore", async () => {
       surfaceId,
       chatId,
       engineConfigId,
+      draftMessage,
+      setDraftMessage,
     }: {
       surfaceId: string;
       chatId: string | null | undefined;
       engineConfigId: string | null;
+      draftMessage: string;
+      setDraftMessage: (next: string) => void;
     }) => {
       const details = useAIStore((state) => {
         if (chatId === null) {
@@ -193,6 +197,13 @@ vi.mock("./ProjectChatCore", async () => {
           data-chat-id={chatId ?? ""}
           data-engine-id={engineConfigId ?? ""}
         >
+          <input
+            data-testid={`mock-project-chat-draft-${surfaceId}`}
+            value={draftMessage}
+            onChange={(event) => {
+              setDraftMessage(event.currentTarget.value);
+            }}
+          />
           {renderedText}
         </div>
       );
@@ -378,6 +389,7 @@ describe("ProjectChat multi-surface state ownership", () => {
     useLocalStorage.setState({
       overviewWidth: 1200,
       projectChatAuxViewByProjectConfigId: {},
+      projectChatDraftMessageByProjectConfigId: {},
       projectChatThreadAssignmentsByProjectConfigId: {},
       projectChatThreadGroupsByProjectConfigId: {},
     });
@@ -674,6 +686,58 @@ describe("ProjectChat multi-surface state ownership", () => {
     ).not.toBeNull();
   });
 
+  it("writes composer drafts to persisted local storage and restores them after remount", async () => {
+    await act(async () => {
+      root.render(<ProjectScopedDraftHarness />);
+    });
+
+    const surfaceId = buildWorkspaceProjectChatWindowSurfaceId(
+      "project-1",
+      "project-chat-window-1",
+    );
+    const draftInput = host.querySelector(
+      `[data-testid="mock-project-chat-draft-${surfaceId}"]`,
+    ) as HTMLInputElement | null;
+    if (!draftInput) {
+      throw new Error("Expected the mocked project chat draft input.");
+    }
+
+    const inputValueSetter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    if (!inputValueSetter) {
+      throw new Error("Expected the input value setter.");
+    }
+
+    await act(async () => {
+      inputValueSetter.call(draftInput, "Persist this unsent draft");
+      draftInput.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    expect(
+      useLocalStorage.getState().projectChatDraftMessageByProjectConfigId,
+    ).toEqual({
+      "project-1": "Persist this unsent draft",
+    });
+
+    await act(async () => {
+      root.render(<div />);
+    });
+    await act(async () => {
+      root.render(<ProjectScopedDraftHarness />);
+    });
+
+    const restoredDraftInput = host.querySelector(
+      `[data-testid="mock-project-chat-draft-${surfaceId}"]`,
+    ) as HTMLInputElement | null;
+    if (!restoredDraftInput) {
+      throw new Error("Expected the remounted project chat draft input.");
+    }
+
+    expect(restoredDraftInput.value).toBe("Persist this unsent draft");
+  });
+
   it("writes thread visibility preferences to the AI store and keeps a wide-layout close after remount", async () => {
     const surfaceA = host.querySelector('[data-testid="surface-a"]');
     if (!surfaceA) {
@@ -915,5 +979,72 @@ describe("ProjectChat multi-surface state ownership", () => {
     }
 
     expect(reboundEngineSelect.value).toBe("engine-a");
+  });
+
+  it("steps to the next conversation match when the filter input receives Enter", async () => {
+    useAIStore.setState((state) => ({
+      chatDetails: {
+        ...state.chatDetails,
+        "chat-a": {
+          messages: [
+            createUserMessage("nonmatching prompt"),
+            createAssistantChatMessage({
+              content: [
+                createMessageTextContent({
+                  text: "queue beta queue gamma",
+                }),
+              ],
+              attachments: [],
+            }),
+          ],
+          toolCallArguments: {},
+          waitingForResponse: false,
+          llmConfig: null,
+          contextUsage: null,
+        },
+      },
+    }));
+
+    await act(async () => {
+      root.render(<Harness />);
+    });
+
+    const surfaceA = host.querySelector('[data-testid="surface-a"]');
+    if (!surfaceA) {
+      throw new Error("Expected the first project chat surface.");
+    }
+
+    const filterInput = surfaceA.querySelector(
+      '[data-testid="project-chat-conversation-filter-input"]',
+    ) as HTMLInputElement | null;
+    if (!filterInput) {
+      throw new Error("Expected the conversation filter input.");
+    }
+
+    const inputValueSetter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    if (!inputValueSetter) {
+      throw new Error("Expected the input value setter.");
+    }
+
+    await act(async () => {
+      inputValueSetter.call(filterInput, "queue");
+      filterInput.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    const filterContainer = surfaceA.querySelector(
+      '[data-testid="project-chat-conversation-filter"]',
+    );
+    expect(filterContainer?.textContent ?? "").toContain("1/2");
+
+    await act(async () => {
+      filterInput.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+      );
+    });
+
+    expect(filterContainer?.textContent ?? "").toContain("2/2");
   });
 });
