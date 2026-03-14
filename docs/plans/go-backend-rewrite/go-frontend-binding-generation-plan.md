@@ -245,10 +245,11 @@ Current status:
   callers
 - the remaining intentional dynamic Setta API button path now flows through
   `frontend/src/components/Section/Layouts/settaApiAction.ts`, with focused
-  `MetaControlArea` coverage still proving both custom route passthrough and
-  preset-body merge behavior over that low-level `post()` boundary, so the
-  explicit exception stays documented and behavior-backed rather than becoming
-  an untested fallback seam
+  `settaApiAction` helper coverage plus `MetaControlArea` coverage proving
+  route trimming, custom route passthrough, and preset-body merge behavior
+  over that low-level `post()` boundary, so the explicit exception stays
+  documented and behavior-backed rather than becoming an untested fallback
+  seam
 - support-layer frontend routing now uses generated Go route helpers for the
   API prefix, launcher-origin policy map, and fixed Setta API presets, so
   non-test runtime code no longer imports the broad legacy `RouteEnum` surface
