@@ -12,7 +12,6 @@ import { res200 } from "utils/endpointUtils";
 import { resolveFileDropSectionKind } from "utils/fileDropSectionKind";
 import {
   route_create_top_level_section,
-  route_get_latest_project_state,
   route_set_section_name,
 } from "utils/generatedEndpoints";
 import {
@@ -36,7 +35,6 @@ import {
   createTopLevelSectionLayoutDict,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
-  processProjectStateUpdateFromBackend,
 } from "../sectionInfos";
 import { goToSection } from "./sectionPositions";
 
@@ -69,12 +67,6 @@ export async function createTopLevelSectionWithResult({
     return null;
   }
   const placement = getSmartPlacementContext();
-  const fallbackPosition =
-    position ??
-    (placement.viewportBounds === null &&
-    Object.keys(placement.topLevelSections).length === 0
-      ? getEmptySpacePosition()
-      : null);
   const resolvedImplOverrides = resolveTextBlockImplOverrides(
     implType,
     implOverrides,
@@ -84,7 +76,7 @@ export async function createTopLevelSectionWithResult({
     implType,
     controlCodeObjType,
     implOverrides: resolvedImplOverrides,
-    position: fallbackPosition,
+    position,
     name,
     topLevelSections: placement.topLevelSections,
     viewportBounds: placement.viewportBounds,
@@ -93,13 +85,6 @@ export async function createTopLevelSectionWithResult({
   if (!res200(res)) {
     return null;
   }
-  const latestProjectStateResponse = await route_get_latest_project_state({
-    projectConfigId: getCurrProjectConfigId(),
-  });
-  if (!res200(latestProjectStateResponse)) {
-    return null;
-  }
-  processProjectStateUpdateFromBackend(latestProjectStateResponse.data);
   const { sectionId, panTo, metaControlParamId } = res.data;
   if (panTo) {
     const currentZoom = useReactFlow.getState().transform[2];
