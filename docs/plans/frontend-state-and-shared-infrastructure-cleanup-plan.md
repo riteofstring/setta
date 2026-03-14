@@ -20,7 +20,7 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 ## Status Refresh (2026-03-14)
 
 - Unlike the later `clean-code` branch, this branch still has a shared `frontend/src/state/definitions.ts` index, but AI/chat store ownership now lives in `frontend/src/state/stores/aiStores.ts`, app runtime state now lives in `frontend/src/state/stores/appStores.ts`, session/share state now lives in `frontend/src/state/stores/sessionStores.ts`, browser state now lives in `frontend/src/state/stores/fileBrowserStores.ts`, search state now lives in `frontend/src/state/stores/searchStores.ts`, feedback state now lives in `frontend/src/state/stores/feedbackStores.ts`, project-status state now lives in `frontend/src/state/stores/projectStatusStores.ts`, layout interaction state now lives in `frontend/src/state/stores/layoutInteractionStores.ts`, UI preference/config state now lives in `frontend/src/state/stores/uiPreferenceStores.ts`, editor diagnostics state now lives in `frontend/src/state/stores/editorDiagnosticsStores.ts`, and shared persist fallback logic lives in `frontend/src/state/storePersistStorage.ts`.
-- `frontend/src/state/actions/aiHydration.ts`, `frontend/src/state/actions/aiAgentRuns.ts`, `frontend/src/state/actions/aiConfiguration.ts`, `frontend/src/state/actions/aiTranscription.ts`, `frontend/src/state/actions/aiChatSubmission.ts`, `frontend/src/state/actions/aiChatControls.ts`, `frontend/src/state/actions/aiChatState.ts`, `frontend/src/state/actions/aiPendingChatState.ts`, `frontend/src/state/actions/aiInterruptedAssistantMessages.ts`, and `frontend/src/state/actions/aiChatStreaming.ts` now carry the hydration, agent-run, config/catalog, transcription, submission, chat-control, chat-detail, pending-draft, interruption-tracking, and streaming behavior that previously lived in `frontend/src/state/actions/ai.ts`; future cleanup should keep extending those seams instead of merging behavior back.
+- `frontend/src/state/actions/aiHydration.ts`, `frontend/src/state/actions/aiAgentRuns.ts`, `frontend/src/state/actions/aiConfiguration.ts`, `frontend/src/state/actions/aiTranscription.ts`, `frontend/src/state/actions/aiChatSubmission.ts`, `frontend/src/state/actions/aiChatControls.ts`, `frontend/src/state/actions/aiChatState.ts`, `frontend/src/state/actions/aiPendingChatState.ts`, `frontend/src/state/actions/aiInterruptedAssistantMessages.ts`, `frontend/src/state/actions/aiChatStreaming.ts`, and `frontend/src/state/actions/aiChatStreamingTools.ts` now carry the hydration, agent-run, config/catalog, transcription, submission, chat-control, chat-detail, pending-draft, interruption-tracking, and streaming behavior that previously lived in `frontend/src/state/actions/ai.ts`; future cleanup should keep extending those seams instead of merging behavior back.
 - `frontend/src/state/actions/projectChatWindowing.ts` now delegates pure
   windowing normalization and selection to `projectChatWindowingSelectors.ts`,
   in-state reducers to `projectChatWindowingState.ts`, and still delegates
@@ -73,6 +73,10 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   write permissions, optimistic windowing mutation dispatch, authoritative
   publish flow, and sync helpers that previously lived in
   `frontend/src/state/actions/projectChatWindowing.ts`.
+- `frontend/src/state/actions/aiChatStreamingTools.ts` now owns tool-call
+  placeholder reconciliation, tool-preview store updates, preview cleanup, and
+  app-spec/app-definition tool handling that previously lived in
+  `frontend/src/state/actions/aiChatStreaming.ts`.
 - `frontend/src/state/actions/uiSettingReveal.ts` is now a 360-line orchestration
   entrypoint; `uiSettingRevealMutations.ts` now owns the mutation lock plus
   high-level reveal orchestration, `uiSettingRevealMutationOwnership.ts` owns
@@ -99,7 +103,7 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 89.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/aiChatStreaming.ts` at 1349 lines
+  - `frontend/src/state/actions/aiChatStreaming.ts` at 905 lines
   - `frontend/src/state/actions/projectChatThreads.ts` at 895 lines
   - `frontend/src/state/actions/git.ts` at 805 lines
   - `frontend/src/state/actions/projectChatWindowingState.ts` at 718 lines

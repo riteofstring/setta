@@ -68,7 +68,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - App and plugin runtime remain cleanup hotspots:
   - `frontend/src/plugins/runtime.ts` at 2730 lines
   - `frontend/src/components/App/appRegistry.tsx` at 1756 lines
-- `frontend/src/state/actions/aiChatStreaming.ts` is now 1349 lines and owns streaming reducers, tool preview/app-spec reconciliation, and optimistic stream update behavior after retiring `frontend/src/state/actions/ai.ts`.
+- `frontend/src/state/actions/aiChatStreaming.ts` is now 905 lines and owns streaming chunk orchestration plus chat/section message reducers, while `frontend/src/state/actions/aiChatStreamingTools.ts` owns tool-preview stores, tool-call placeholder reconciliation, and app-spec/app-definition tool handling after retiring `frontend/src/state/actions/ai.ts`.
 - `frontend/src/state/actions/aiHydration.ts` now owns chat fetch/reconciliation and hydration outcome classification.
 - `frontend/src/state/actions/aiAgentRuns.ts` now owns agent-run loading, retries, and authoritative update paths.
 - `frontend/src/state/actions/aiChatSubmission.ts` now owns chat submission/edit orchestration and backend request payload assembly.

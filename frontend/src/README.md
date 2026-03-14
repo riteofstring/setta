@@ -55,9 +55,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `components/Panes/Overview/ProjectLevelAI/*` owns project chat orchestration,
     hydration authority, starter prompts, slash command selection, skill viewers,
     and project AI settings.
-  - `state/actions/aiChatStreaming.ts`, `state/actions/chat*.ts`, and
-    `state/actions/projectChatThreads.ts` currently own chat streaming, tool
-    preview/app-spec reconciliation, and optimistic stream update behavior.
+  - `state/actions/aiChatStreaming.ts` owns streaming chunk orchestration plus
+    chat and section message reducers.
+  - `state/actions/aiChatStreamingTools.ts` owns tool-call placeholder
+    reconciliation, tool-preview stores, and app-spec/app-definition tool
+    application.
+  - `state/actions/chat*.ts` and `state/actions/projectChatThreads.ts` own the
+    remaining chat merge utilities and thread navigation behavior.
   - `state/actions/aiHydration.ts` owns chat history fetch/reconciliation and
     hydration outcome classification for managed and external threads.
   - `state/actions/aiAgentRuns.ts` owns agent-run loading, retries, and
@@ -274,8 +278,8 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Likely Next Cleanup Slices
 
 - `state/actions/aiChatStreaming.ts` is now the largest authored state hotspot
-  and should keep splitting around streaming reducers versus app-spec or
-  tool-preview ownership
+  and should keep splitting around streaming chunk routing versus chat/section
+  reducer ownership
 - `state/actions/projectChatThreads.ts` and `state/actions/git.ts` are the next
   authored hotspots after streaming and should keep splitting around their
   existing feature-local helpers
