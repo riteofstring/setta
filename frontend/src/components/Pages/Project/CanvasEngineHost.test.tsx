@@ -708,6 +708,119 @@ describe("CanvasEngineHost", () => {
     ]);
   });
 
+  it("includes mounted nested sections in marquee selection even when they are outside the top-level scene", async () => {
+    vi.spyOn(endpoints, "route_set_active_ids").mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: undefined,
+    });
+    useProjectState.setState((state) => {
+      state.projectConfig.id = "project-a";
+      state.projectConfig.topLevelSections = {
+        "group-a": {
+          x: 80,
+          y: 60,
+          zIndex: 0,
+          w: 320,
+          h: 220,
+        },
+      };
+      state.projectConfig.sectionVariantMap = {
+        "group-a": "variant-group-a",
+        "child-a": "variant-child-a",
+      };
+      state.projectConfig.edges = [];
+      state.projectConfig.agenticEdges = [];
+      state.parentSectionMap = {
+        "group-a": null,
+        "child-a": "group-a",
+      };
+      state.sections["group-a"] = createCore({ id: "group-a" });
+      state.sections["child-a"] = createCore({ id: "child-a" });
+      state.sectionVariants["variant-group-a"] = createVariant({
+        id: "variant-group-a",
+        impl: "impl-group-a",
+        nonPresetImpls: [],
+      });
+      state.sectionVariants["variant-child-a"] = createVariant({
+        id: "variant-child-a",
+        impl: "impl-child-a",
+        nonPresetImpls: [],
+      });
+      state.sectionImpls["impl-group-a"] = createCallableSectionImpl(
+        createUserDefaultCallableSectionImpl(),
+        {
+          id: "impl-group-a",
+        },
+      );
+      state.sectionImpls["impl-child-a"] = createCallableSectionImpl(
+        createUserDefaultCallableSectionImpl(),
+        {
+          id: "impl-child-a",
+        },
+      );
+    });
+    useReactFlow.setState({
+      selectionKeyPressed: true,
+    });
+
+    await act(async () => {
+      root.render(<CanvasEngineHost />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const engineHost = host.querySelector(
+      '[data-canvas-engine-host="v1"]',
+    ) as HTMLDivElement | null;
+    if (!engineHost) {
+      throw new Error("Canvas engine host failed to render.");
+    }
+    setEngineHostBounds(engineHost);
+
+    const domIsland = host.querySelector(
+      '[data-canvas-engine-dom-island="group-a"]',
+    ) as HTMLDivElement | null;
+    if (!domIsland) {
+      throw new Error("Missing DOM island for group-a.");
+    }
+    setElementBounds(domIsland, { x: 80, y: 60, width: 320, height: 220 });
+
+    const nestedSection = document.createElement("section");
+    nestedSection.setAttribute("data-section-id", "child-a");
+    setElementBounds(nestedSection, { x: 120, y: 96, width: 180, height: 88 });
+    domIsland.appendChild(nestedSection);
+
+    await dispatchPointerEvent(engineHost, "pointerdown", {
+      button: 0,
+      clientX: 40,
+      clientY: 40,
+      pointerId: 1,
+    });
+    await dispatchPointerEvent(engineHost, "pointermove", {
+      button: 0,
+      clientX: 320,
+      clientY: 220,
+      pointerId: 1,
+    });
+
+    expect(engineHost.dataset.canvasEngineSelectionRectActive).toBe("true");
+    expect(useActiveSectionUI.getState().activeIds).toContain("child-a");
+
+    await dispatchPointerEvent(engineHost, "pointerup", {
+      button: 0,
+      clientX: 320,
+      clientY: 220,
+      pointerId: 1,
+    });
+
+    expect(engineHost.dataset.canvasEngineSelectionRectActive).toBe("false");
+    expect(useActiveSectionUI.getState().activeIds).toContain("child-a");
+  });
+
   it("hovers and selects a data edge when the pointer hits the edge line", async () => {
     const setEdgesSpy = vi
       .spyOn(endpoints, "route_set_edges")
@@ -1106,9 +1219,16 @@ async function dispatchWheelEvent(
 }
 
 function setEngineHostBounds(target: HTMLElement) {
+  setElementBounds(target, { x: 0, y: 0, width: 640, height: 360 });
+}
+
+function setElementBounds(
+  target: HTMLElement,
+  rect: { x: number; y: number; width: number; height: number },
+) {
   Object.defineProperty(target, "getBoundingClientRect", {
     configurable: true,
-    value: () => DOMRect.fromRect({ x: 0, y: 0, width: 640, height: 360 }),
+    value: () => DOMRect.fromRect(rect),
   });
 }
 

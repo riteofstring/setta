@@ -1193,12 +1193,25 @@ export function CanvasEngineHost() {
           worldPoint.x,
           worldPoint.y,
         );
+        const selectionRectCanvas = resolveSelectionRectBounds(
+          pointerSession.startCanvasX,
+          pointerSession.startCanvasY,
+          canvasPoint.x,
+          canvasPoint.y,
+        );
         const selectionMode =
           useSettings.getState().gui?.selectionMode ??
           SelectionModeEnum.partial;
-        const selectedIds = sceneAdapter.querySectionIdsInWorldRect(
-          selectionRectWorld,
-          selectionMode === SelectionModeEnum.partial,
+        const selectedIds = mergeSelectedSectionIds(
+          sceneAdapter.querySectionIdsInWorldRect(
+            selectionRectWorld,
+            selectionMode === SelectionModeEnum.partial,
+          ),
+          resolveMountedDomSectionIdsInCanvasRect({
+            hostElement: hostRef.current,
+            selectionRect: selectionRectCanvas,
+            selectionMode,
+          }),
         );
         if (!areStringArraysEqual(pointerSession.selectedIds, selectedIds)) {
           pointerSession.selectedIds = selectedIds;
@@ -1207,14 +1220,7 @@ export function CanvasEngineHost() {
             selectedIds,
           });
         }
-        updateSelectionRect(
-          resolveSelectionRectBounds(
-            pointerSession.startCanvasX,
-            pointerSession.startCanvasY,
-            canvasPoint.x,
-            canvasPoint.y,
-          ),
-        );
+        updateSelectionRect(selectionRectCanvas);
         return;
       }
       if (pointerSession.kind === "agentic-connect") {
@@ -1805,6 +1811,95 @@ function sortSectionIdsByZIndexThenId(
     }
     return leftId.localeCompare(rightId);
   });
+}
+
+function mergeSelectedSectionIds(
+  primarySectionIds: string[],
+  additionalSectionIds: string[],
+): string[] {
+  if (additionalSectionIds.length === 0) {
+    return primarySectionIds;
+  }
+  const mergedSectionIds = [...primarySectionIds];
+  const seenIds = new Set(primarySectionIds);
+  for (const sectionId of additionalSectionIds) {
+    if (seenIds.has(sectionId)) {
+      continue;
+    }
+    seenIds.add(sectionId);
+    mergedSectionIds.push(sectionId);
+  }
+  return mergedSectionIds;
+}
+
+function resolveMountedDomSectionIdsInCanvasRect({
+  hostElement,
+  selectionRect,
+  selectionMode,
+}: {
+  hostElement: HTMLDivElement | null;
+  selectionRect: CanvasEngineSelectionRect;
+  selectionMode: SelectionModeEnum;
+}): string[] {
+  if (!hostElement) {
+    return [];
+  }
+  const hostBounds = hostElement.getBoundingClientRect();
+  const sectionElements = hostElement.querySelectorAll(
+    "[data-canvas-engine-dom-island] section[data-section-id]",
+  );
+  const selectedSectionIds: string[] = [];
+  const selectedSectionIdSet = new Set<string>();
+  for (const sectionElement of sectionElements) {
+    const sectionId = sectionElement.getAttribute("data-section-id");
+    if (!sectionId || selectedSectionIdSet.has(sectionId)) {
+      continue;
+    }
+    const sectionBounds = sectionElement.getBoundingClientRect();
+    if (sectionBounds.width <= 0 || sectionBounds.height <= 0) {
+      continue;
+    }
+    const sectionRect = {
+      x: sectionBounds.left - hostBounds.left,
+      y: sectionBounds.top - hostBounds.top,
+      width: sectionBounds.width,
+      height: sectionBounds.height,
+    };
+    const matchesSelection =
+      selectionMode === SelectionModeEnum.partial
+        ? doCanvasRectsOverlap(selectionRect, sectionRect)
+        : isCanvasRectFullyContained(selectionRect, sectionRect);
+    if (!matchesSelection) {
+      continue;
+    }
+    selectedSectionIdSet.add(sectionId);
+    selectedSectionIds.push(sectionId);
+  }
+  return selectedSectionIds;
+}
+
+function doCanvasRectsOverlap(
+  left: CanvasEngineSelectionRect,
+  right: CanvasEngineSelectionRect,
+): boolean {
+  return (
+    left.x < right.x + right.width &&
+    left.x + left.width > right.x &&
+    left.y < right.y + right.height &&
+    left.y + left.height > right.y
+  );
+}
+
+function isCanvasRectFullyContained(
+  container: CanvasEngineSelectionRect,
+  candidate: CanvasEngineSelectionRect,
+): boolean {
+  return (
+    candidate.x >= container.x &&
+    candidate.y >= container.y &&
+    candidate.x + candidate.width <= container.x + container.width &&
+    candidate.y + candidate.height <= container.y + container.height
+  );
 }
 
 function isCanvasGestureBlockedByTarget(target: EventTarget | null): boolean {
