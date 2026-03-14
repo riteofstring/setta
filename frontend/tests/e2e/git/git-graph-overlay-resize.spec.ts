@@ -1,75 +1,10 @@
-import { expect, test, type Locator } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import {
   cleanupGitOverlayFixture,
   getWorkspaceRootOrThrow,
-  openGitGraph,
+  openGitOverview,
   seedGitOverlayFixture,
 } from "./helpers/gitOverlayFixture";
-
-async function dispatchHorizontalPointerDrag(
-  locator: Locator,
-  deltaX: number,
-): Promise<void> {
-  await locator.evaluate(
-    async (element, dragDeltaX) => {
-      const rect = element.getBoundingClientRect();
-      const startX = rect.left + rect.width / 2;
-      const clientY = rect.top + rect.height / 2;
-      const pointerId = 91;
-
-      element.dispatchEvent(
-        new PointerEvent("pointerdown", {
-          bubbles: true,
-          cancelable: true,
-          composed: true,
-          detail: 1,
-          pointerId,
-          pointerType: "mouse",
-          isPrimary: true,
-          button: 0,
-          buttons: 1,
-          clientX: startX,
-          clientY,
-        }),
-      );
-      window.dispatchEvent(
-        new PointerEvent("pointermove", {
-          bubbles: true,
-          cancelable: true,
-          composed: true,
-          pointerId,
-          pointerType: "mouse",
-          isPrimary: true,
-          button: 0,
-          buttons: 1,
-          clientX: startX + dragDeltaX,
-          clientY,
-        }),
-      );
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => resolve());
-      });
-      window.dispatchEvent(
-        new PointerEvent("pointerup", {
-          bubbles: true,
-          cancelable: true,
-          composed: true,
-          pointerId,
-          pointerType: "mouse",
-          isPrimary: true,
-          button: 0,
-          buttons: 0,
-          clientX: startX + dragDeltaX,
-          clientY,
-        }),
-      );
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => resolve());
-      });
-    },
-    deltaX,
-  );
-}
 
 test("git graph panes and columns resize without overlap or geometry drift", async ({
   page,
@@ -80,7 +15,12 @@ test("git graph panes and columns resize without overlap or geometry drift", asy
   });
 
   try {
-    const { graphFilter, graphOverlay } = await openGitGraph(page);
+    await openGitOverview(page);
+
+    await page.getByRole("button", { name: "Graph" }).click();
+    const graphFilter = page.getByPlaceholder(/Filter commits/);
+    await expect(graphFilter).toBeVisible();
+    const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
 
     if (!fixture.latestHistoryLabel) {
       throw new Error("Expected latest history label for graph resize test.");
@@ -100,7 +40,23 @@ test("git graph panes and columns resize without overlap or geometry drift", asy
     const diffBefore = await diffPane.evaluate(
       (el) => el.getBoundingClientRect().width,
     );
-    await dispatchHorizontalPointerDrag(paneSplitter, 120);
+    const paneSplitterBox = await paneSplitter.boundingBox();
+    if (!paneSplitterBox) {
+      throw new Error(
+        "Expected git graph pane splitter to have a bounding box.",
+      );
+    }
+    await page.mouse.move(
+      paneSplitterBox.x + paneSplitterBox.width / 2,
+      paneSplitterBox.y + paneSplitterBox.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      paneSplitterBox.x + paneSplitterBox.width / 2 + 120,
+      paneSplitterBox.y + paneSplitterBox.height / 2,
+      { steps: 8 },
+    );
+    await page.mouse.up();
 
     const historyAfter = await historyPane.evaluate(
       (el) => el.getBoundingClientRect().width,
@@ -130,7 +86,28 @@ test("git graph panes and columns resize without overlap or geometry drift", asy
     await expect(authorDateResizeHandle).toBeVisible();
     await expect(dateHashResizeHandle).toBeVisible();
 
-    await dispatchHorizontalPointerDrag(paneSplitter, -1200);
+    const paneSplitterBoxBeforeNarrowDrag = await paneSplitter.boundingBox();
+    if (!paneSplitterBoxBeforeNarrowDrag) {
+      throw new Error(
+        "Expected git graph pane splitter to have a bounding box before narrow drag.",
+      );
+    }
+    await page.mouse.move(
+      paneSplitterBoxBeforeNarrowDrag.x +
+        paneSplitterBoxBeforeNarrowDrag.width / 2,
+      paneSplitterBoxBeforeNarrowDrag.y +
+        paneSplitterBoxBeforeNarrowDrag.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      paneSplitterBoxBeforeNarrowDrag.x +
+        paneSplitterBoxBeforeNarrowDrag.width / 2 -
+        1200,
+      paneSplitterBoxBeforeNarrowDrag.y +
+        paneSplitterBoxBeforeNarrowDrag.height / 2,
+      { steps: 24 },
+    );
+    await page.mouse.up();
 
     const messageHeaderAfterNarrowPane = await messageHeader.boundingBox();
     const authorHeaderAfterNarrowPane = await authorHeader.boundingBox();
@@ -143,7 +120,28 @@ test("git graph panes and columns resize without overlap or geometry drift", asy
       messageHeaderAfterNarrowPane.x + messageHeaderAfterNarrowPane.width,
     ).toBeLessThanOrEqual(authorHeaderAfterNarrowPane.x + 1);
 
-    await dispatchHorizontalPointerDrag(paneSplitter, 320);
+    const paneSplitterBoxAfterNarrowDrag = await paneSplitter.boundingBox();
+    if (!paneSplitterBoxAfterNarrowDrag) {
+      throw new Error(
+        "Expected git graph pane splitter to have a bounding box after narrow drag.",
+      );
+    }
+    await page.mouse.move(
+      paneSplitterBoxAfterNarrowDrag.x +
+        paneSplitterBoxAfterNarrowDrag.width / 2,
+      paneSplitterBoxAfterNarrowDrag.y +
+        paneSplitterBoxAfterNarrowDrag.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      paneSplitterBoxAfterNarrowDrag.x +
+        paneSplitterBoxAfterNarrowDrag.width / 2 +
+        320,
+      paneSplitterBoxAfterNarrowDrag.y +
+        paneSplitterBoxAfterNarrowDrag.height / 2,
+      { steps: 12 },
+    );
+    await page.mouse.up();
 
     const historyCommitSvg = graphOverlay
       .getByRole("button", {
@@ -496,7 +494,7 @@ test("git graph panes and columns resize without overlap or geometry drift", asy
     expect(listOverflowX).toBe("hidden");
 
     await page.keyboard.press("Escape");
-    await expect(graphFilter).toBeVisible();
+    await expect(graphFilter).toHaveCount(0);
   } finally {
     await cleanupGitOverlayFixture(fixture);
   }

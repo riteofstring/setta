@@ -1,6 +1,5 @@
 import { expect, test, type Locator, type Request } from "@playwright/test";
 import {
-  clearProjectChatWindows,
   cleanupIsolatedProject,
   createCallableSection,
   createTextBlockSection,
@@ -33,9 +32,7 @@ async function ensureAppearanceAccordionExpanded(
   if (
     (await appearanceAccordionTrigger.getAttribute("aria-expanded")) !== "true"
   ) {
-    await appearanceAccordionTrigger.evaluate(
-      (element: HTMLButtonElement) => element.click(),
-    );
+    await appearanceAccordionTrigger.click();
   }
   await expect(appearanceAccordionTrigger).toHaveAttribute(
     "aria-expanded",
@@ -70,7 +67,6 @@ test.describe.serial("section style colors", () => {
     const projectContext = await openIsolatedProject(page);
 
     try {
-      await clearProjectChatWindows(page);
       const { sectionId } = await createTextBlockSection(
         page,
         projectContext.projectConfigId,
@@ -179,9 +175,7 @@ test.describe.serial("section style colors", () => {
           borderColor: "rgb(255, 166, 166)",
         });
 
-      await styleBlockAfter
-        .getByRole("button", { name: "Reset" })
-        .evaluate((element: HTMLButtonElement) => element.click());
+      await styleBlockAfter.getByRole("button", { name: "Reset" }).click();
 
       await expect(styleBlockAfter.getByText("None").first()).toBeVisible();
       await expect
@@ -234,7 +228,6 @@ test.describe.serial("section style colors", () => {
     const projectContext = await openIsolatedProject(page);
 
     try {
-      await clearProjectChatWindows(page);
       const { sectionId } = await createTextBlockSection(
         page,
         projectContext.projectConfigId,
@@ -312,7 +305,6 @@ test.describe.serial("section style colors", () => {
     const projectContext = await openIsolatedProject(page);
 
     try {
-      await clearProjectChatWindows(page);
       const sectionId = await createCallableSection(
         page,
         projectContext.projectConfigId,
@@ -406,15 +398,32 @@ test.describe.serial("section style colors", () => {
             : null;
           return {
             outlineColor: sectionStyle.outlineColor,
+            sectionBackgroundColor: sectionStyle.backgroundColor,
             argsBorderColor: argsStyle?.borderBottomColor ?? null,
             argsBackgroundColor: argsStyle?.backgroundColor ?? null,
+            argsOverflowX: argsStyle?.overflowX ?? null,
+            argsOverflowY: argsStyle?.overflowY ?? null,
             argsIconColor: argsIconStyle?.color ?? null,
             argsIconGlyphColor: argsIconGlyphStyle?.color ?? null,
           };
         });
       };
 
-      expect(await getArgsBackgroundColor()).toBe("rgba(0, 0, 0, 0)");
+      await expect
+        .poll(async () => await getSectionChromeAndArgsStyles())
+        .toMatchObject({
+          argsBackgroundColor: "rgb(239, 241, 246)",
+          argsOverflowX: "hidden",
+          argsOverflowY: "hidden",
+        });
+      const baselineSectionChromeAndArgsStyles =
+        await getSectionChromeAndArgsStyles();
+      expect(baselineSectionChromeAndArgsStyles.argsBackgroundColor).not.toBe(
+        "rgba(0, 0, 0, 0)",
+      );
+      expect(
+        baselineSectionChromeAndArgsStyles.argsBackgroundColor,
+      ).not.toBe(baselineSectionChromeAndArgsStyles.sectionBackgroundColor);
       expect(await getCallableInputBorderColor()).not.toBeNull();
 
       const colorInput = styleBlock.locator('input[type="color"]').first();
@@ -434,8 +443,11 @@ test.describe.serial("section style colors", () => {
         .poll(async () => await getSectionChromeAndArgsStyles())
         .toMatchObject({
           outlineColor: "rgb(89, 255, 89)",
+          sectionBackgroundColor: "rgb(224, 255, 224)",
           argsBorderColor: "rgb(166, 255, 166)",
           argsBackgroundColor: "rgb(224, 255, 224)",
+          argsOverflowX: "hidden",
+          argsOverflowY: "hidden",
           argsIconColor: "rgb(123, 140, 123)",
           argsIconGlyphColor: "rgb(123, 140, 123)",
         });
@@ -449,6 +461,7 @@ test.describe.serial("section style colors", () => {
           });
         })
         .toBe("rgb(166, 255, 166)");
+      await expect.poll(getArgsBackgroundColor).toBe("rgb(224, 255, 224)");
 
       const modKey = getModKey();
       await page.keyboard.down(modKey);
@@ -612,7 +625,6 @@ test.describe.serial("section style colors", () => {
     const projectContext = await openIsolatedProject(page);
 
     try {
-      await clearProjectChatWindows(page);
       const { sectionId } = await createTextBlockSection(
         page,
         projectContext.projectConfigId,

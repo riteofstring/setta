@@ -321,7 +321,10 @@ async def test_tools_call_enforces_scope_with_agentic_context_headers(tmp_path) 
     assert isinstance(summary_text, str) and summary_text.strip()
     summary = json.loads(summary_text)
 
-    allowed_ids = {str(canonical_to_temporary[allowed_section_id])}
+    allowed_ids = {
+        str(canonical_to_temporary[allowed_section_id]),
+        str(canonical_to_temporary[peer_chat_section_id]),
+    }
     assert {entry["sectionId"] for entry in summary["sections"]} == allowed_ids
     assert set(summary["projectConfig"]["sectionVariantMap"].keys()) == allowed_ids
     assert (
@@ -418,7 +421,10 @@ async def test_tools_call_enforces_scope_with_agentic_context_body(tmp_path) -> 
     assert isinstance(summary_text, str) and summary_text.strip()
     summary = json.loads(summary_text)
 
-    allowed_ids = {str(canonical_to_temporary[allowed_section_id])}
+    allowed_ids = {
+        str(canonical_to_temporary[allowed_section_id]),
+        str(canonical_to_temporary[peer_chat_section_id]),
+    }
     assert {entry["sectionId"] for entry in summary["sections"]} == allowed_ids
     assert set(summary["projectConfig"]["sectionVariantMap"].keys()) == allowed_ids
     assert (

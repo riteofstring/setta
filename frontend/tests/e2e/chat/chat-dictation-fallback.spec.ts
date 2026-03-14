@@ -13,10 +13,10 @@ async function setProjectChatMicrophoneSource(
   page: Page,
   sourceLabel: string,
 ): Promise<void> {
-  const projectChatSurface = await getVisibleProjectChatSurface(page);
+  const overviewPane = page.locator("#OverviewPane");
   const micSourceInput = page.getByPlaceholder("Microphone source");
   if (!(await micSourceInput.isVisible())) {
-    await projectChatSurface
+    await overviewPane
       .getByRole("button", { name: "Project AI Settings" })
       .click();
   }
@@ -42,10 +42,10 @@ async function setProjectChatMicrophoneSource(
 }
 
 async function setProjectChatEngine(page: Page, engineLabel: string) {
-  const projectChatSurface = await getVisibleProjectChatSurface(page);
+  const overviewPane = page.locator("#OverviewPane");
   const engineInput = page.getByPlaceholder("Select an engine");
   if (!(await engineInput.isVisible())) {
-    await projectChatSurface
+    await overviewPane
       .getByRole("button", { name: "Project AI Settings" })
       .click();
   }
@@ -60,10 +60,10 @@ async function setProjectChatTranscriptionProfile(
   page: Page,
   profileLabel: string,
 ) {
-  const projectChatSurface = await getVisibleProjectChatSurface(page);
+  const overviewPane = page.locator("#OverviewPane");
   const profileInput = page.getByPlaceholder("Select a transcription profile");
   if (!(await profileInput.isVisible())) {
-    await projectChatSurface
+    await overviewPane
       .getByRole("button", { name: "Project AI Settings" })
       .click();
   }
@@ -147,18 +147,22 @@ test("project chat falls back to browser dictation when provider capture fails i
     await page.reload();
     await page.waitForSelector(".react-flow__pane");
 
-    const projectChatSurface = await getVisibleProjectChatSurface(page);
-    const micButton = projectChatSurface.getByRole("button", { name: "Mic" });
+    const overviewPane = page.locator("#OverviewPane");
+    await expect(
+      overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+    ).toBeVisible();
+
+    const micButton = overviewPane.getByRole("button", { name: "Mic" });
     await expect(micButton).toBeVisible();
     await micButton.click();
 
     // Auto mode should switch to browser dictation instead of surfacing provider denial.
     await expect(
-      projectChatSurface.getByRole("button", { name: "Stop Mic" }),
+      overviewPane.getByRole("button", { name: "Stop Mic" }),
     ).toBeVisible();
-    await expect(projectChatSurface.getByText("Listening...")).toBeVisible();
+    await expect(overviewPane.getByText("Listening...")).toBeVisible();
     await expect(
-      projectChatSurface.getByText("Microphone access was denied."),
+      overviewPane.getByText("Microphone access was denied."),
     ).toHaveCount(0);
   } finally {
     await engineCleanup();
@@ -400,19 +404,22 @@ test("project chat external engine still uses provider transcription in provider
   try {
     await page.reload();
     await page.waitForSelector(".react-flow__pane");
-    const projectChatSurface = await getVisibleProjectChatSurface(page);
+    const overviewPane = page.locator("#OverviewPane");
+    await expect(
+      overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+    ).toBeVisible();
 
     await setProjectChatEngine(page, "Codex");
     await setProjectChatTranscriptionProfile(page, "OpenAI Whisper 1");
     await setProjectChatMicrophoneSource(page, "Always provider");
 
-    const micButton = projectChatSurface.getByRole("button", { name: "Mic" });
+    const micButton = overviewPane.getByRole("button", { name: "Mic" });
     await expect(micButton).toBeVisible();
     await micButton.click();
     await expect(
-      projectChatSurface.getByRole("button", { name: "Stop Mic" }),
+      overviewPane.getByRole("button", { name: "Stop Mic" }),
     ).toBeVisible();
-    await projectChatSurface.getByRole("button", { name: "Stop Mic" }).click();
+    await overviewPane.getByRole("button", { name: "Stop Mic" }).click();
 
     await expect.poll(() => startSessionPayloads.length).toBe(1);
     await expect.poll(() => appendCount).toBeGreaterThan(0);
@@ -420,11 +427,11 @@ test("project chat external engine still uses provider transcription in provider
     expect(startSessionPayloads[0]?.transcriptionProfileId).toBe(
       "transcription-openai-whisper-1",
     );
-    await expect(projectChatSurface.locator("textarea").first()).toHaveValue(
+    await expect(overviewPane.locator("textarea").first()).toHaveValue(
       /external provider transcript/,
     );
     await expect(
-      projectChatSurface.getByText("Provider dictation is not available."),
+      overviewPane.getByText("Provider dictation is not available."),
     ).toHaveCount(0);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
@@ -770,8 +777,12 @@ test("project chat keeps browser fallback dictation active until the user stops"
     await page.reload();
     await page.waitForSelector(".react-flow__pane");
 
-    const projectChatSurface = await getVisibleProjectChatSurface(page);
-    const micButton = projectChatSurface.getByRole("button", { name: "Mic" });
+    const overviewPane = page.locator("#OverviewPane");
+    await expect(
+      overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+    ).toBeVisible();
+
+    const micButton = overviewPane.getByRole("button", { name: "Mic" });
     await expect(micButton).toBeVisible();
     await micButton.click();
 
@@ -789,9 +800,9 @@ test("project chat keeps browser fallback dictation active until the user stops"
       })
       .toBeGreaterThanOrEqual(2);
     await expect(
-      projectChatSurface.getByRole("button", { name: "Stop Mic" }),
+      overviewPane.getByRole("button", { name: "Stop Mic" }),
     ).toBeVisible();
-    await expect(projectChatSurface.getByText("Listening...")).toBeVisible();
+    await expect(overviewPane.getByText("Listening...")).toBeVisible();
   } finally {
     await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
@@ -878,17 +889,21 @@ test("project chat browser-only dictation mode skips provider capture", async ({
     await page.reload();
     await page.waitForSelector(".react-flow__pane");
 
+    const overviewPane = page.locator("#OverviewPane");
+    await expect(
+      overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+    ).toBeVisible();
+
     await setProjectChatMicrophoneSource(page, "Always browser / OS");
 
-    const projectChatSurface = await getVisibleProjectChatSurface(page);
-    const micButton = projectChatSurface.getByRole("button", { name: "Mic" });
+    const micButton = overviewPane.getByRole("button", { name: "Mic" });
     await expect(micButton).toBeVisible();
     await micButton.click();
 
     await expect(
-      projectChatSurface.getByRole("button", { name: "Stop Mic" }),
+      overviewPane.getByRole("button", { name: "Stop Mic" }),
     ).toBeVisible();
-    await expect(projectChatSurface.getByText("Listening...")).toBeVisible();
+    await expect(overviewPane.getByText("Listening...")).toBeVisible();
     await expect
       .poll(async () => {
         return await page.evaluate(() => {
@@ -974,6 +989,11 @@ test("project chat releases provider mic stream when recorder start fails", asyn
     await page.reload();
     await page.waitForSelector(".react-flow__pane");
 
+    const overviewPane = page.locator("#OverviewPane");
+    await expect(
+      overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+    ).toBeVisible();
+
     const backendOrigin =
       process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
     const llmConfigResponse = await page.request.get(
@@ -1040,13 +1060,12 @@ test("project chat releases provider mic stream when recorder start fails", asyn
     await setProjectChatTranscriptionProfile(page, transcriptionProfileName);
     await setProjectChatMicrophoneSource(page, "Always provider");
 
-    const projectChatSurface = await getVisibleProjectChatSurface(page);
-    const micButton = projectChatSurface.getByRole("button", { name: "Mic" });
+    const micButton = overviewPane.getByRole("button", { name: "Mic" });
     await expect(micButton).toBeVisible();
     await micButton.click();
 
     await expect(
-      projectChatSurface.getByText("Microphone access was denied."),
+      overviewPane.getByText("Microphone access was denied."),
     ).toBeVisible();
     await expect
       .poll(async () => {
@@ -1114,14 +1133,18 @@ test("project chat shows controlled feedback when browser dictation start throws
     await page.reload();
     await page.waitForSelector(".react-flow__pane");
 
-    const projectChatSurface = await getVisibleProjectChatSurface(page);
-    const micButton = projectChatSurface.getByRole("button", { name: "Mic" });
+    const overviewPane = page.locator("#OverviewPane");
+    await expect(
+      overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+    ).toBeVisible();
+
+    const micButton = overviewPane.getByRole("button", { name: "Mic" });
     await expect(micButton).toBeVisible();
     await micButton.click();
 
-    await expect(projectChatSurface.getByText("Dictation failed.")).toBeVisible();
+    await expect(overviewPane.getByText("Dictation failed.")).toBeVisible();
     await expect(
-      projectChatSurface.getByRole("button", { name: "Stop Mic" }),
+      overviewPane.getByRole("button", { name: "Stop Mic" }),
     ).toHaveCount(0);
   } finally {
     await engineCleanup();
@@ -1272,31 +1295,4 @@ function findSectionByName(page: Page, name: string): Locator {
     .locator('section[class*="card-section"]')
     .filter({ has: page.locator("header.section-title p", { hasText: name }) })
     .first();
-}
-
-async function getVisibleProjectChatSurface(page: Page): Promise<Locator> {
-  const surfaceCandidates = [
-    page.getByTestId("project-chat-maximized-window").first(),
-    page.getByTestId("project-chat-floating-window").first(),
-    page.getByTestId("project-chat-bottom-dock-window-panel").first(),
-    page
-      .locator('#OverviewPane [data-chat-surface-mode="project_ai_mode"]')
-      .first(),
-  ];
-  await expect
-    .poll(async () => {
-      for (const candidate of surfaceCandidates) {
-        if ((await candidate.count()) > 0 && (await candidate.isVisible())) {
-          return true;
-        }
-      }
-      return false;
-    })
-    .toBe(true);
-  for (const candidate of surfaceCandidates) {
-    if ((await candidate.count()) > 0 && (await candidate.isVisible())) {
-      return candidate;
-    }
-  }
-  throw new Error("No visible project chat surface found.");
 }

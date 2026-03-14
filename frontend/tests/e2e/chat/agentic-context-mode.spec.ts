@@ -45,9 +45,9 @@ test.describe.serial("agentic context mode", () => {
 
       await postBackend(page, "/createAgenticEdge", {
         projectConfigId: projectContext.projectConfigId,
-        sourceSectionId: chatSectionId,
-        targetSectionId: textSectionId,
-        kind: "chat_section",
+        sourceSectionId: textSectionId,
+        targetSectionId: chatSectionId,
+        kind: "section_chat",
         contextMode: "reference_only",
       });
 
@@ -85,9 +85,9 @@ test.describe.serial("agentic context mode", () => {
             const edges = response?.projectState?.projectConfig?.agenticEdges ?? [];
             const match = edges.find(
               (edge) =>
-                edge.sourceSectionId === chatSectionId &&
-                edge.targetSectionId === textSectionId &&
-                edge.kind === "chat_section",
+                edge.sourceSectionId === textSectionId &&
+                edge.targetSectionId === chatSectionId &&
+                edge.kind === "section_chat",
             );
             return match?.contextMode ?? null;
           },

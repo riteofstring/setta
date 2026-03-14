@@ -44,6 +44,23 @@ async function readFavoriteProjectConfigIds(page: Page): Promise<string[]> {
   });
 }
 
+async function getNearestLayerZIndex(locator: ReturnType<Page["locator"]>) {
+  return locator.evaluate((node) => {
+    let current: HTMLElement | null = node as HTMLElement;
+    while (current) {
+      const parsed = Number.parseInt(
+        getComputedStyle(current).zIndex || "",
+        10,
+      );
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+      current = current.parentElement;
+    }
+    return 0;
+  });
+}
+
 test("home page renders pane rails and toggles side panes", async ({
   page,
 }) => {
@@ -68,6 +85,24 @@ test("home page renders pane rails and toggles side panes", async ({
   await expect(
     page.getByTestId("home-selected-project-details").first(),
   ).toBeVisible();
+
+  const leftRail = page.getByTestId("home-left-icon-rail");
+  const rightRail = page.getByTestId("home-right-icon-rail");
+  const workspacePane = page
+    .locator("aside.single-cell-container")
+    .filter({ has: page.getByTestId("home-file-browser-column") })
+    .first();
+  const selectedProjectPane = page
+    .locator("aside.single-cell-container")
+    .filter({ has: page.getByTestId("home-selected-project-details") })
+    .first();
+
+  expect(await getNearestLayerZIndex(leftRail)).toBeGreaterThan(
+    await getNearestLayerZIndex(workspacePane),
+  );
+  expect(await getNearestLayerZIndex(rightRail)).toBeGreaterThan(
+    await getNearestLayerZIndex(selectedProjectPane),
+  );
 
   const galleryPane = page.getByTestId("home-project-gallery").first();
   const detailsPane = page.getByTestId("home-selected-project-details").first();
