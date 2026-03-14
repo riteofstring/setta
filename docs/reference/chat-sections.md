@@ -134,6 +134,27 @@ Linked chat edges also back the `invoke_linked_chat` MCP tool:
 - Runtime policy still applies: linked-chat invocation requires LLM access and
   run-start authorization.
 
+## Workflow integration
+
+Chat sections can also participate in workflow/state-machine graphs via
+`ProjectConfig.stateMachineEdges`:
+
+- As workflow sources, Chat sections can trigger outgoing edges on
+  `run_completed`, `run_failed`, or a structured `signal`.
+- As workflow targets, Chat sections can receive `reset_thread` or
+  `send_prompt` actions.
+- `send_prompt` supports exactly one prompt source per edge: inline prompt
+  text, a saved prompt template id, or a Prompt section id.
+- Target actions can also override thread strategy, engine config, agent
+  profile, permission mode, search mode, and whether to stop an already
+  running chat before dispatch.
+- Signal-filtered outgoing edges require the active agent profile to allow the
+  `report_state_machine_signal` MCP tool; the workflow runner fails closed if
+  that tool is unavailable.
+
+See `docs/reference/state-machine-workflows.md` for the control-node model,
+edge validation rules, and run lifecycle details.
+
 ## Realtime action events
 
 Both modes emit `RealtimeDependencyEvent` for the chat section when the user sends or stops:
@@ -229,3 +250,4 @@ async def on_chat(state, ctx) -> None:
 - `docs/reference/chat-toolkit.md`
 - `docs/reference/mcp-system-overview.md`
 - `docs/reference/project-chat-windowing.md`
+- `docs/reference/state-machine-workflows.md`

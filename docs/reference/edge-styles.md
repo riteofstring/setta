@@ -89,4 +89,4 @@ stroke pattern.
 
 - `docs/reference/agentic-edges.md`
 - `docs/reference/chat-sections.md`
-- `docs/plans/chat-state-machines-plan.md`
+- `docs/reference/state-machine-workflows.md`
