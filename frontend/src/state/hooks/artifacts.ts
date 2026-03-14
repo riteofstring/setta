@@ -3,16 +3,18 @@ import _ from "lodash";
 import { useEffect, useMemo } from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import {
+  useProjectState,
+  useShareSession,
+  ZustandProjectState,
+} from "state/definitions";
+import {
   useBrushStrokes,
   useChartData,
   useDecodedImages,
   useDrawAreaLayerItemTransform,
   useImages,
-  useProjectState,
-  useShareSession,
-  ZustandDecodedImages,
-  ZustandProjectState,
-} from "state/definitions";
+  type ZustandDecodedImages,
+} from "state/stores/artifactStores";
 import { bumpRemoteRevisions } from "state/utils/revisions";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
