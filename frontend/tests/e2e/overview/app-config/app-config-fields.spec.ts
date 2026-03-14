@@ -19,6 +19,10 @@ test("app config pane persists catalog, version, and spec path", async ({
     /Standalone App Starter/,
   );
 
+  const advancedToggle = page.getByRole("button", { name: "Advanced" });
+  await expect(advancedToggle).toBeVisible();
+  await advancedToggle.click();
+
   const catalogInput = page.getByLabel("Catalog ID");
   const versionInput = page.getByLabel("Spec version");
   const pathInput = page.getByLabel("Spec path");
@@ -47,6 +51,7 @@ test("app config pane persists catalog, version, and spec path", async ({
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(page.getByText("App Config")).toBeVisible();
+  await page.getByRole("button", { name: "Advanced" }).click();
 
   await expect(page.getByLabel("Catalog ID")).toHaveValue(defaultCatalogId);
   await expect(page.getByLabel("Spec version")).toHaveValue("v2");

@@ -26,6 +26,7 @@ import {
   IoStop,
 } from "react-icons/io5";
 import { addTemporaryNotification } from "state/actions/notifications";
+import type { AppGenerationMode } from "state/types/appGenerationMode";
 import { formatBytes } from "utils/attachments";
 import { ChatFileAttachment } from "utils/generatedTypes";
 import {
@@ -145,12 +146,22 @@ export type ChatSlashCommand = {
 export type ChatSlashCommandResult =
   | boolean
   | {
+      appGenerationMode?: AppGenerationMode | null;
       handled?: boolean;
       feedback?: string;
       keepInput?: boolean;
       refreshedSlashCommands?: ChatSlashCommandDefinition[];
       refreshedRecognizedSlashCommands?: ChatSlashCommandDefinition[];
+      submitPromptTemplate?: boolean;
     };
+
+export type ChatSubmitOptions = {
+  appGeneration?: {
+    mode: AppGenerationMode;
+    referenceImageUrl: string | null;
+    referenceImageNotes: string | null;
+  } | null;
+};
 
 function formatCompactTokenCount(value: number): string {
   if (value >= 1_000_000) {
@@ -371,6 +382,7 @@ type ChatInputProps = {
   onSubmit: (
     message: string,
     attachments: ChatFileAttachment[],
+    options?: ChatSubmitOptions,
   ) => Promise<boolean> | boolean;
   onUnknownSlashCommand?: (
     message: string,
@@ -866,6 +878,37 @@ export const ChatInput = memo(function ChatInput({
         result && typeof result === "object" ? result : undefined;
       if (slashResult?.handled === false) {
         setSlashFeedback(UNKNOWN_SLASH_COMMAND_FEEDBACK);
+        return true;
+      }
+      if (slashResult?.submitPromptTemplate) {
+        const submission = resolveCustomPromptSlashCommandSubmission({
+          promptTemplate: parsed.promptTemplate,
+          args: parsed.args,
+          ...(parsed.rawSuffix === undefined
+            ? {}
+            : { rawSuffix: parsed.rawSuffix }),
+          attachments: submittedAttachments,
+        });
+        if (!submission || !slashResult.appGenerationMode) {
+          setSlashFeedback("Built-in slash command has no prompt content.");
+          return true;
+        }
+        const submitted =
+          (await onSubmit(submission.message, submission.attachments, {
+            appGeneration: {
+              mode: slashResult.appGenerationMode,
+              referenceImageUrl: null,
+              referenceImageNotes: null,
+            },
+          })) === true;
+        if (!submitted) {
+          setSlashFeedback(`Failed to submit ${parsed.command}.`);
+          return true;
+        }
+        setSlashFeedback(slashResult.feedback ?? `Submitted ${parsed.command}.`);
+        escClearedComposerDraftRef.current = null;
+        clearInput();
+        clearAttachments();
         return true;
       }
       setSlashFeedback(slashResult?.feedback ?? `Ran ${parsed.command}`);

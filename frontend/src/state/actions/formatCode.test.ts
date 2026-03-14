@@ -1,5 +1,4 @@
 import {
-  useActiveSectionUI,
   useLspDiagnostics,
   useProjectState,
   useShareSession,
