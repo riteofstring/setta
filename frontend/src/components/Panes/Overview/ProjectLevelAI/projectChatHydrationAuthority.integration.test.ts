@@ -117,13 +117,14 @@ describe("project chat hydration authority integration", () => {
     expect(cacheKey).toBe("project-1:chat-1:llm_chat:rev-1");
   });
 
-  it("keeps waiting selected chats ready for fallback hydration once authoritative metadata confirms provenance is missing", () => {
+  it("keeps hydration unresolved while selected chat is still waiting and provenance has not appeared yet", () => {
     const authority = resolveProjectChatHydrationAuthority({
       chatId: "chat-in-flight",
       selectedScopedChatProvenance: { status: "missing" },
       chatProvenanceAuthoritative: true,
       engineConfigById: new Map(),
       engineConfigsAuthoritative: true,
+      selectedChatWaitingForResponse: true,
       engineType: EngineTypeEnum.setta_llm,
     });
     const cacheKey = buildProjectChatHydrationCacheKey({
@@ -134,14 +135,14 @@ describe("project chat hydration authority integration", () => {
     });
 
     expect(authority).toEqual({
-      status: "ready",
+      status: "unknown",
       hydrationRunType: null,
-      blockedErrorCode: "chat_provenance_missing",
+      blockedErrorCode: null,
     });
     expect(cacheKey).toBeNull();
   });
 
-  it("blocks hydration when authoritative metadata is missing provenance", () => {
+  it("falls back to current engine run type when authoritative metadata is missing provenance", () => {
     const authority = resolveProjectChatHydrationAuthority({
       chatId: "chat-missing-provenance",
       selectedScopedChatProvenance: { status: "missing" },
@@ -159,10 +160,12 @@ describe("project chat hydration authority integration", () => {
 
     expect(authority).toEqual({
       status: "ready",
-      hydrationRunType: null,
+      hydrationRunType: "llm_chat",
       blockedErrorCode: "chat_provenance_missing",
     });
-    expect(cacheKey).toBeNull();
+    expect(cacheKey).toBe(
+      "project-1:chat-missing-provenance:llm_chat:rev-missing-provenance",
+    );
   });
 
   it("uses provenance run type for compatible entries even when current engine type differs", () => {
@@ -200,7 +203,7 @@ describe("project chat hydration authority integration", () => {
 
     expect(authority).toEqual({
       status: "ready",
-      hydrationRunType: null,
+      hydrationRunType: "external_agent",
       blockedErrorCode: "chat_provenance_missing",
     });
   });

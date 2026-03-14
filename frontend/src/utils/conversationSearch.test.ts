@@ -14,7 +14,6 @@ import {
   buildSearchableTextForMessages,
   countConversationSearchTextMatches,
   extractRunMessagesForConversationSearch,
-  findConversationSearchTextRanges,
   matchesConversationSearchText,
   tokenizeConversationSearchQuery,
 } from "./conversationSearch";
@@ -25,10 +24,6 @@ describe("conversationSearch", () => {
       "alpha",
       "beta",
     ]);
-    expect(tokenizeConversationSearchQuery("queue queue alpha")).toEqual([
-      "queue",
-      "alpha",
-    ]);
     expect(tokenizeConversationSearchQuery("")).toEqual([]);
   });
 
@@ -38,7 +33,7 @@ describe("conversationSearch", () => {
     expect(matchesConversationSearchText("alpha only", terms)).toBe(false);
   });
 
-  it("counts canonical rendered matches only when every term exists", () => {
+  it("counts all term matches only when every term exists", () => {
     const terms = tokenizeConversationSearchQuery("alpha beta");
     expect(
       countConversationSearchTextMatches("alpha beta alpha gamma beta", terms),
@@ -47,35 +42,7 @@ describe("conversationSearch", () => {
     expect(countConversationSearchTextMatches("alpha alpha", [])).toBe(0);
   });
 
-  it("deduplicates duplicate and overlapping query terms into canonical matches", () => {
-    expect(
-      countConversationSearchTextMatches(
-        "queue queue",
-        tokenizeConversationSearchQuery("queue queue"),
-      ),
-    ).toBe(2);
-    expect(
-      countConversationSearchTextMatches(
-        "alphabet",
-        tokenizeConversationSearchQuery("alpha alphabet"),
-      ),
-    ).toBe(1);
-  });
-
-  it("returns merged text ranges for all matched search terms", () => {
-    const terms = tokenizeConversationSearchQuery("alpha beta");
-    expect(
-      findConversationSearchTextRanges("Alpha beta alphabet soup beta", terms),
-    ).toEqual([
-      { start: 0, end: 5 },
-      { start: 6, end: 10 },
-      { start: 11, end: 16 },
-      { start: 25, end: 29 },
-    ]);
-    expect(findConversationSearchTextRanges("gamma", terms)).toEqual([]);
-  });
-
-  it("builds searchable text from visible message content and activity labels", () => {
+  it("builds searchable text from message content, thinking, and tools", () => {
     const message = createAssistantChatMessage({
       content: [
         createMessageTextContent({ text: "Visible response text" }),
@@ -89,7 +56,7 @@ describe("conversationSearch", () => {
           id: "tool-1",
           function: createToolCallFunction({
             name: "command_execution",
-            arguments: { command: "ls" },
+            arguments: { cmd: "ls" },
           }),
         }),
       ],
@@ -97,32 +64,10 @@ describe("conversationSearch", () => {
 
     const text = buildSearchableTextForMessage(message);
     expect(text).toContain("Visible response text");
-    expect(text).toContain("ls");
-    expect(text).not.toContain("planning thought");
-    expect(text).not.toContain("summary line");
-  });
-
-  it("excludes inline and fenced code from searchable markdown text", () => {
-    const message = createAssistantChatMessage({
-      content: [
-        createMessageTextContent({
-          text: "Visible alpha\n\n```ts\nalpha in code\n```\n`alpha inline`\nalpha outside",
-        }),
-      ],
-    });
-
-    const text = buildSearchableTextForMessage(message);
-
-    expect(text).toContain("Visible alpha");
-    expect(text).toContain("alpha outside");
-    expect(text).not.toContain("alpha in code");
-    expect(text).not.toContain("alpha inline");
-    expect(
-      countConversationSearchTextMatches(
-        text,
-        tokenizeConversationSearchQuery("alpha"),
-      ),
-    ).toBe(2);
+    expect(text).toContain("planning thought");
+    expect(text).toContain("summary line");
+    expect(text).toContain("command_execution");
+    expect(text).toContain('"cmd":"ls"');
   });
 
   it("builds searchable text across multiple messages", () => {
@@ -138,58 +83,7 @@ describe("conversationSearch", () => {
 
     const text = buildSearchableTextForMessages(messages);
     expect(text).toContain("First prompt");
-    expect(text).not.toContain("tool output");
-  });
-
-  it("keeps attachment labels searchable", () => {
-    const message = createUserChatMessage({
-      content: [createMessageTextContent({ text: "First prompt" })],
-      attachments: [
-        {
-          id: "attachment-1",
-          name: "release-plan.md",
-        },
-      ],
-    });
-
-    const text = buildSearchableTextForMessage(message);
-
-    expect(text).toContain("release-plan.md");
-  });
-
-  it("excludes markdown link destinations from searchable text", () => {
-    const message = createAssistantChatMessage({
-      content: [
-        createMessageTextContent({
-          text: "[Docs](https://internal.example.com/spec)",
-        }),
-      ],
-    });
-
-    const text = buildSearchableTextForMessage(message);
-
-    expect(text).toContain("Docs");
-    expect(text).not.toContain("internal.example.com");
-  });
-
-  it("excludes tool-call payload details that are not highlighted in the transcript", () => {
-    const message = createAssistantChatMessage({
-      content: [],
-      tool_calls: [
-        createToolCall({
-          id: "tool-1",
-          function: createToolCallFunction({
-            name: "file_change",
-            arguments: { path: "notes.txt", diff: "secret payload" },
-          }),
-        }),
-      ],
-    });
-
-    const text = buildSearchableTextForMessage(message);
-
-    expect(text).toContain("Edit notes.txt");
-    expect(text).not.toContain("secret payload");
+    expect(text).toContain("tool output");
   });
 
   it("extracts run messages from outputs and falls back to inputs", () => {

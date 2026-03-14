@@ -48,6 +48,7 @@ from setta.types.agentic import (
     EngineConfig,
     EngineConfigDefaults,
     EngineType,
+    RunChainSpec,
     TranscriptionProfile,
     TranscriptionTransportMode,
 )
@@ -104,34 +105,17 @@ class StopAgentRunRequest(BaseModel):
     runId: ID
 
 
-class GetAgentRunRequest(BaseModel):
+class StartRunChainRequest(BaseModel):
+    spec: RunChainSpec
+    inputs: dict[str, Any] | None = None
+
+
+class StopRunChainRequest(BaseModel):
     runId: ID
 
 
-class StartStateMachineRunRequest(BaseModel):
-    projectConfigId: ID
-    machineGroupId: str
-    startSectionId: ID | None = None
-
-
-class StopStateMachineRunRequest(BaseModel):
-    projectConfigId: ID
-    machineGroupId: str
-
-
-class ResetStateMachineRequest(BaseModel):
-    projectConfigId: ID
-    machineGroupId: str
-
-
-class GetStateMachineRunRequest(BaseModel):
-    projectConfigId: ID
-    machineGroupId: str
-
-
-class StateMachineRunControlResponse(BaseModel):
-    alreadyStopped: bool
-    stoppedRunId: ID | None = None
+class GetAgentRunRequest(BaseModel):
+    runId: ID
 
 
 class GetAgenticSummaryCacheStatusRequest(BaseModel):
@@ -515,86 +499,31 @@ async def route_stop_agent_run(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-@router.post(Route.START_STATE_MACHINE_RUN)
-async def route_start_state_machine_run(
-    x: StartStateMachineRunRequest,
+@router.post(Route.START_RUN_CHAIN)
+async def route_start_run_chain(
+    x: StartRunChainRequest,
     ctx: RuntimeContextFromRequest,
 ) -> AgentRun:
     await ctx.enforce_llm_allowed()
-    try:
-        return await ctx.state.state_machine_runner.start_run(
-            project_config_id=x.projectConfigId,
-            machine_group_id=x.machineGroupId,
-            start_section_id=x.startSectionId,
-            share_session_id=ctx.share_session_id,
-        )
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    runner = ctx.state.run_chain_runner
+    if runner.disabled:
+        raise HTTPException(status_code=503, detail="Run chain runner is not available")
+    return runner.start_run(x.spec, x.inputs)
 
 
-@router.post(Route.STOP_STATE_MACHINE_RUN)
-async def route_stop_state_machine_run(
-    x: StopStateMachineRunRequest,
-    ctx: RuntimeContextFromRequest,
-) -> StateMachineRunControlResponse:
-    await ctx.enforce_llm_allowed()
-    try:
-        stopped_run = await ctx.state.state_machine_runner.stop_run(
-            project_config_id=x.projectConfigId,
-            machine_group_id=x.machineGroupId,
-            share_session_id=ctx.share_session_id,
-        )
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    if stopped_run is None:
-        return StateMachineRunControlResponse(alreadyStopped=True)
-    return StateMachineRunControlResponse(
-        alreadyStopped=False,
-        stoppedRunId=stopped_run.id,
-    )
-
-
-@router.post(Route.RESET_STATE_MACHINE)
-async def route_reset_state_machine(
-    x: ResetStateMachineRequest,
-    ctx: RuntimeContextFromRequest,
-) -> StateMachineRunControlResponse:
-    await ctx.enforce_llm_allowed()
-    try:
-        stopped_run = await ctx.state.state_machine_runner.reset_machine(
-            project_config_id=x.projectConfigId,
-            machine_group_id=x.machineGroupId,
-            share_session_id=ctx.share_session_id,
-        )
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    if stopped_run is None:
-        return StateMachineRunControlResponse(alreadyStopped=True)
-    return StateMachineRunControlResponse(
-        alreadyStopped=False,
-        stoppedRunId=stopped_run.id,
-    )
-
-
-@router.post(Route.GET_STATE_MACHINE_RUN)
-async def route_get_state_machine_run(
-    x: GetStateMachineRunRequest,
+@router.post(Route.STOP_RUN_CHAIN)
+async def route_stop_run_chain(
+    x: StopRunChainRequest,
     ctx: RuntimeContextFromRequest,
 ) -> AgentRun:
     await ctx.enforce_llm_allowed()
+    runner = ctx.state.run_chain_runner
+    if runner.disabled:
+        raise HTTPException(status_code=503, detail="Run chain runner is not available")
     try:
-        run = await ctx.state.state_machine_runner.get_latest_run(
-            project_config_id=x.projectConfigId,
-            machine_group_id=x.machineGroupId,
-            share_session_id=ctx.share_session_id,
-        )
+        return await runner.stop_run(x.runId)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    if run is None:
-        raise HTTPException(status_code=404, detail="State machine run not found")
-    return run
 
 
 @router.post(Route.STOP_EXTERNAL_AGENT_RUN)
@@ -746,14 +675,6 @@ async def route_update_prompt_template(
     if existing is None:
         raise HTTPException(status_code=404, detail="Prompt template not found")
     save_prompt_template(ctx.state.dbe, x.template)
-    project_manager_switcher = getattr(ctx.state, "project_manager_switcher", None)
-    if (
-        project_manager_switcher is not None
-        and project_manager_switcher.main is not None
-    ):
-        await project_manager_switcher.main.refresh_linked_prompt_sections_for_template(
-            x.template.id
-        )
     if ctx.state.prompt_template_watcher:
         ctx.state.prompt_template_watcher.refresh()
     await ctx.state.wmh_frontend_sender.broadcast_prompt_templates_update(

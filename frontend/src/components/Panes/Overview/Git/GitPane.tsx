@@ -11,7 +11,7 @@ import {
 } from "state/actions/git";
 import { useGitStore } from "state/git";
 import { useShareCapabilities } from "state/hooks/share";
-import type { GitStatusEntry, GitWorktreeEntry } from "utils/generatedTypes";
+import type { GitStatusEntry } from "utils/generatedTypes";
 
 export function GitPane({
   showGraphButton = true,
@@ -61,10 +61,6 @@ export function GitPane({
   const headBranch = repo?.headBranch ?? null;
   const headCommit = repo?.headCommit ?? null;
   const repoRoot = repo?.repoRoot ?? null;
-  const worktrees = response?.worktrees ?? [];
-  const hasAdditionalWorktrees = worktrees.some(
-    (worktree) => !worktree.isCurrent,
-  );
 
   return (
     <section className="flex h-full min-h-0 flex-col">
@@ -134,9 +130,6 @@ export function GitPane({
 
         {isGitRepo && (
           <div className="space-y-4">
-            {hasAdditionalWorktrees ? (
-              <GitWorktreeAccordion worktrees={worktrees} />
-            ) : null}
             <GitGroup
               title="Conflicts"
               entries={grouped.conflicts}
@@ -188,69 +181,6 @@ export function GitPane({
   );
 }
 
-function GitWorktreeAccordion({
-  worktrees,
-}: {
-  worktrees: GitWorktreeEntry[];
-}) {
-  return (
-    <details
-      open
-      className="overflow-hidden rounded-md border border-setta-200 bg-white dark:border-setta-800 dark:bg-setta-950"
-      data-testid="git-worktrees-accordion"
-    >
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2 py-2 text-left marker:content-none">
-        <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-setta-400 dark:text-setta-500">
-          Worktrees
-        </span>
-        <span className="text-[11px] text-setta-400 dark:text-setta-500">
-          {worktrees.length}
-        </span>
-      </summary>
-      <div className="max-h-48 overflow-y-auto border-t border-setta-200 dark:border-setta-800">
-        <ul className="divide-y divide-setta-200 dark:divide-setta-800">
-          {worktrees.map((worktree) => (
-            <li
-              key={worktree.path}
-              className="space-y-1 px-2 py-2 text-xs text-setta-700 dark:text-setta-200"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="truncate font-semibold text-setta-800 dark:text-setta-50">
-                    {worktree.displayName}
-                  </div>
-                  <div className="truncate text-[11px] text-setta-500 dark:text-setta-400">
-                    {worktree.branchName ?? "Detached HEAD"}
-                    {worktree.headCommit
-                      ? ` · ${worktree.headCommit.slice(0, 8)}`
-                      : ""}
-                  </div>
-                </div>
-                <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
-                  {worktree.isCurrent ? (
-                    <GitWorktreeBadge>Current</GitWorktreeBadge>
-                  ) : null}
-                  {worktree.isPrunable ? (
-                    <GitWorktreeBadge tone="warning">Prunable</GitWorktreeBadge>
-                  ) : null}
-                </div>
-              </div>
-              <div className="truncate text-[11px] text-setta-500 dark:text-setta-400">
-                {worktree.path}
-              </div>
-              {worktree.prunableReason ? (
-                <div className="text-[11px] text-amber-700 dark:text-amber-300">
-                  {worktree.prunableReason}
-                </div>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      </div>
-    </details>
-  );
-}
-
 function GitGroup({
   title,
   entries,
@@ -299,26 +229,6 @@ function GitGroup({
         </ul>
       )}
     </section>
-  );
-}
-
-function GitWorktreeBadge({
-  children,
-  tone = "default",
-}: {
-  children: string;
-  tone?: "default" | "warning";
-}) {
-  const className =
-    tone === "warning"
-      ? "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200"
-      : "border-setta-200 bg-setta-50 text-setta-700 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100";
-  return (
-    <span
-      className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${className}`}
-    >
-      {children}
-    </span>
   );
 }
 

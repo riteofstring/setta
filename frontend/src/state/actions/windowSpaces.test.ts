@@ -600,61 +600,6 @@ describe("snapshotFloatingWindowsForWindowSpace", () => {
       ]),
     );
   });
-
-  it("normalizes restored floating window z-index ties into a stable layering order", () => {
-    const restored = createProjectChatWindowingStateFromWindowSpace(
-      {
-        id: "space-1",
-        name: "Tied Layout",
-        sortIndex: 0,
-        windowsById: {
-          "floating-a": {
-            surfaceKind: "chat",
-            sectionIdOrNull: null,
-            mode: ChatWindowModeEnum.project_ai_mode,
-            title: "A",
-            zIndex: 9,
-            normalizedBounds: {
-              x: 0.1,
-              y: 0.1,
-              width: 0.3,
-              height: 0.3,
-            },
-          },
-          "floating-b": {
-            surfaceKind: "chat",
-            sectionIdOrNull: null,
-            mode: ChatWindowModeEnum.project_ai_mode,
-            title: "B",
-            zIndex: 9,
-            normalizedBounds: {
-              x: 0.5,
-              y: 0.1,
-              width: 0.3,
-              height: 0.3,
-            },
-          },
-        },
-        order: ["floating-a", "floating-b"],
-      },
-      {
-        sections: {},
-      },
-      {
-        viewportWidthPx: 1000,
-        viewportHeightPx: 800,
-        insets: {
-          left: 0,
-          right: 0,
-          top: 0,
-          bottom: 0,
-        },
-      },
-    );
-
-    expect(restored.instancesById["floating-a"]?.zIndex).toBe(1);
-    expect(restored.instancesById["floating-b"]?.zIndex).toBe(2);
-  });
 });
 
 describe("applyWindowSpaceSortOrder", () => {

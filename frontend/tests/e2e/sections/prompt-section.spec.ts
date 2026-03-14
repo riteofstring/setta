@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { ensureAppReady } from "../helpers";
 
 const BACKEND_ORIGIN =
@@ -9,10 +9,6 @@ const PROMPT_SECTION_BASE_NAME = "__pw_prompt__";
 
 type CreateSectionResponse = {
   sectionId?: string;
-};
-
-type PromptTemplateResponse = {
-  id: string;
 };
 
 type ProjectMetadataEntry = { id: string; name: string };
@@ -26,41 +22,8 @@ type IsolatedProjectContext = {
   defaultProjectConfigId: string | null;
 };
 
-type LatestProjectStateResponse = {
-  projectState?: {
-    projectConfig?: {
-      sectionVariantMap?: Record<string, string>;
-    };
-    sections?: Record<
-      string,
-      {
-        sharedModifier?: Record<string, unknown>;
-      }
-    >;
-    sectionVariants?: Record<
-      string,
-      {
-        impl?: string;
-        modifier?: Record<string, unknown>;
-      }
-    >;
-    sectionImpls?: Record<
-      string,
-      {
-        template?: string | null;
-        renderedText?: string | null;
-      }
-    >;
-  };
-};
-
-const SELECT_ALL_SHORTCUT =
-  process.platform === "darwin" ? "Meta+A" : "Control+A";
-
 test.describe.serial("prompt section", () => {
-  test("creates a prompt section with direct in-canvas editing", async ({
-    page,
-  }) => {
+  test("creates a prompt section", async ({ page }) => {
     const pageErrors: string[] = [];
     page.on("pageerror", (err) => {
       pageErrors.push(err.message ?? String(err));
@@ -92,106 +55,12 @@ test.describe.serial("prompt section", () => {
         name: sectionName,
       });
 
-      const node = page.locator(
-        `[data-testid="rf__node-${created.sectionId}"]`,
-      );
+      const node = page.locator(`[data-testid="rf__node-${created.sectionId}"]`);
       await expect(node).toBeVisible();
       await expect(
         node.locator("header.section-title").getByText(sectionName),
       ).toBeVisible();
-      await expect(
-        page.getByTestId(`prompt-template-editor-${created.sectionId}`),
-      ).toBeVisible();
-      await expect(
-        page.getByTestId(`prompt-template-tab-${created.sectionId}`),
-      ).toHaveAttribute("aria-pressed", "true");
-      await expect(
-        page.getByTestId(`prompt-preview-tab-${created.sectionId}`),
-      ).toBeVisible();
-
-      await page.getByTestId(`prompt-preview-tab-${created.sectionId}`).click();
-      await expect(
-        page.getByTestId(`prompt-render-preview-${created.sectionId}`),
-      ).toContainText("No prompt rendered yet.");
-
-      await page
-        .getByTestId(`prompt-template-tab-${created.sectionId}`)
-        .click();
-      const editorRoot = page.getByTestId(
-        `prompt-template-editor-${created.sectionId}`,
-      );
-      await fillCodeMirror(editorRoot, page, "Hello there.");
-
-      await expect
-        .poll(
-          async () =>
-            await readPromptSectionState(
-              page,
-              projectContext.projectConfigId,
-              created.sectionId,
-            ),
-          { timeout: 8000 },
-        )
-        .toMatchObject({
-          template: "Hello there.",
-          renderedText: "Hello there.",
-        });
-
-      await page.getByTestId(`prompt-preview-tab-${created.sectionId}`).click();
-      await expect(
-        page.getByTestId(`prompt-render-preview-${created.sectionId}`),
-      ).toContainText("Hello there.");
-
-      const linkedTemplate = await postBackend<PromptTemplateResponse>(
-        page,
-        "/createPromptTemplate",
-        {
-          name: "__pw_prompt_template__",
-          description: "",
-          template: "My name is {{ name }}. What's your name?",
-          format: "Jinja",
-          inputSchema: {},
-          metadata: {},
-        },
-      );
-      if (!linkedTemplate?.id) {
-        throw new Error("Missing prompt template id.");
-      }
-
-      await postBackend(page, "/setPromptTemplateLink", {
-        projectConfigId: projectContext.projectConfigId,
-        sectionId: created.sectionId,
-        promptTemplateId: linkedTemplate.id,
-      });
-
-      await page
-        .getByTestId(`prompt-template-tab-${created.sectionId}`)
-        .click();
-      await expect(
-        page.getByTestId(`prompt-linked-template-note-${created.sectionId}`),
-      ).toContainText("Linked to prompt template");
-
-      await page.getByTestId(`prompt-preview-tab-${created.sectionId}`).click();
-      const preview = page.getByTestId(
-        `prompt-render-preview-${created.sectionId}`,
-      );
-      await expect(preview).toContainText("Missing variables: name");
-      await expect(preview).toContainText("No prompt rendered yet.");
-
-      await postBackend(page, "/updatePromptTemplate", {
-        template: {
-          id: linkedTemplate.id,
-          name: "__pw_prompt_template__",
-          description: "",
-          template: "Hello there.",
-          format: "Jinja",
-          inputSchema: {},
-          metadata: {},
-        },
-      });
-
-      await expect(preview).toContainText("Hello there.");
-      await expect(preview).not.toContainText("Missing variables:");
+      await expect(node.getByText("No prompt rendered yet.")).toBeVisible();
 
       const minHeightErrors = pageErrors.filter(
         (message) =>
@@ -226,83 +95,6 @@ async function postBackend<T>(
   return JSON.parse(text) as T;
 }
 
-async function readPromptSectionState(
-  page: Page,
-  projectConfigId: string,
-  sectionId: string,
-): Promise<{ template: string | null; renderedText: string | null }> {
-  const response = await postBackend<LatestProjectStateResponse>(
-    page,
-    "/getLatestProjectState",
-    { projectConfigId },
-  );
-  const projectState = response?.projectState;
-  const sectionVariantId =
-    projectState?.projectConfig?.sectionVariantMap?.[sectionId];
-  if (!sectionVariantId) {
-    return {
-      template: null,
-      renderedText: null,
-    };
-  }
-  const sectionImplId = projectState.sectionVariants?.[sectionVariantId]?.impl;
-  if (!sectionImplId) {
-    return {
-      template: null,
-      renderedText: null,
-    };
-  }
-  const baseImpl = projectState.sectionImpls?.[sectionImplId] ?? null;
-  const sharedModifier =
-    projectState.sections?.[sectionId]?.sharedModifier ?? {};
-  const variantModifier =
-    projectState.sectionVariants?.[sectionVariantId]?.modifier ?? {};
-  const effectiveImpl = {
-    ...(baseImpl ?? {}),
-    ...sharedModifier,
-    ...variantModifier,
-  };
-  return {
-    template:
-      typeof effectiveImpl.template === "string"
-        ? effectiveImpl.template
-        : null,
-    renderedText:
-      typeof effectiveImpl.renderedText === "string"
-        ? effectiveImpl.renderedText
-        : null,
-  };
-}
-
-async function readCodeMirrorValue(page: Page, id: string): Promise<string> {
-  return await page.evaluate((editorId) => {
-    const root = document.getElementById(editorId);
-    if (!root) {
-      return "";
-    }
-    const content =
-      root.querySelector(".cm-content") ?? root.querySelector(".cm-line");
-    return content?.textContent ?? "";
-  }, id);
-}
-
-async function fillCodeMirror(editorRoot: Locator, page: Page, value: string) {
-  await expect(editorRoot).toBeVisible();
-  const editorId = await editorRoot.getAttribute("id");
-  if (!editorId) {
-    throw new Error("CodeMirror root is missing id.");
-  }
-  const contentEditable = editorRoot
-    .locator("[contenteditable='true']")
-    .first();
-  await expect(contentEditable).toBeVisible();
-  await contentEditable.click();
-  await page.keyboard.press(SELECT_ALL_SHORTCUT);
-  await page.keyboard.press("Backspace");
-  await page.keyboard.insertText(value);
-  await expect.poll(() => readCodeMirrorValue(page, editorId)).toContain(value);
-}
-
 async function getCurrentProjectConfigId(page: Page): Promise<string> {
   const metadata = await postBackend<ProjectMetadataResponse>(
     page,
@@ -329,9 +121,7 @@ async function getCurrentProjectConfigId(page: Page): Promise<string> {
   throw new Error("Unable to resolve projectConfigId for test.");
 }
 
-async function openIsolatedProject(
-  page: Page,
-): Promise<IsolatedProjectContext> {
+async function openIsolatedProject(page: Page): Promise<IsolatedProjectContext> {
   const metadata = await postBackend<ProjectMetadataResponse>(
     page,
     "/loadAllProjectMetadata",
@@ -381,9 +171,7 @@ async function resolveUniqueSectionName(
   baseName: string,
 ): Promise<string> {
   const titles = await page
-    .locator(
-      'section[class*="card-section"] header.section-title p, section[class*="card-section"] header.section-title h2',
-    )
+    .locator('section[class*="card-section"] header.section-title p, section[class*="card-section"] header.section-title h2')
     .allTextContents();
   const existingTitles = new Set(
     titles.map((title) => title.trim()).filter(Boolean),

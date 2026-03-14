@@ -11,7 +11,6 @@ from setta.types.helpers_lvl3 import build_project_state_summary_section_index
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.prompt_section_resolution import resolve_prompt_section_source
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
     BrowserSectionImpl,
@@ -123,7 +122,6 @@ def build_agentic_context_payload(
         if section_id not in project_state.sections:
             continue
         block = _build_context_block(
-            dbe,
             project_state,
             resolved_summary_by_section,
             section_id,
@@ -214,7 +212,6 @@ def _build_linked_chat_block(
 
 
 def _build_context_block(
-    dbe: DBE,
     project_state: ProjectStateSingleConfig,
     summary_by_section: dict[ID, object],
     section_id: ID,
@@ -246,8 +243,8 @@ def _build_context_block(
                 f"### {label} ({section_type}) [id: {rendered_id} | summary | cached]\n"
                 f"{cached.strip()}".strip()
             )
+
     raw_text = _extract_section_text(
-        dbe,
         project_state,
         summary_by_section,
         section_id,
@@ -271,7 +268,6 @@ def _build_context_block(
 
 
 def _extract_section_text(
-    dbe: DBE,
     project_state: ProjectStateSingleConfig,
     summary_by_section: dict[ID, object],
     section_id: ID,
@@ -332,12 +328,7 @@ def _extract_section_text(
                 lines.append(f"... ({len(draw_paths) - 8} more)")
         return "\n".join(lines).strip()
     if isinstance(section_impl, PromptSectionImpl):
-        prompt_source = resolve_prompt_section_source(
-            dbe,
-            section_impl,
-            allow_snapshot_fallback=True,
-        )
-        return prompt_source.template
+        return section_impl.renderedText or section_impl.template or ""
     if isinstance(section_impl, SocialSectionImpl):
         return section_impl.url or ""
     if isinstance(section_impl, BrowserSectionImpl):

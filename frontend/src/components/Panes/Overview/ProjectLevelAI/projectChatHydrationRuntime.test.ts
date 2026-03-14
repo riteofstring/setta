@@ -7,6 +7,7 @@ vi.mock("state/actions/ai", async () => {
     );
   return {
     ...actual,
+    getProjectChatHydrationOutcomeWithFallback: vi.fn(),
     getExternalAgentChatHydrationOutcome: vi.fn(),
     getLLMChatHydrationOutcome: vi.fn(),
   };
@@ -15,12 +16,34 @@ vi.mock("state/actions/ai", async () => {
 import {
   getExternalAgentChatHydrationOutcome,
   getLLMChatHydrationOutcome,
+  getProjectChatHydrationOutcomeWithFallback,
 } from "state/actions/ai";
 import { hydrateProjectChatFromRuntime } from "./ProjectChatCore";
 
 describe("hydrateProjectChatFromRuntime", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("keeps the current project scope when probing missing provenance", async () => {
+    vi.mocked(getProjectChatHydrationOutcomeWithFallback).mockResolvedValue({
+      outcome: "success",
+      status: 200,
+      errorCode: null,
+    });
+
+    await hydrateProjectChatFromRuntime({
+      chatId: "shared-chat",
+      projectConfigId: "project-a",
+      hydrationRunType: "external_agent",
+      shouldProbeMissingProvenance: true,
+    });
+
+    expect(getProjectChatHydrationOutcomeWithFallback).toHaveBeenCalledWith(
+      "shared-chat",
+      "project-a",
+      "external_agent",
+    );
   });
 
   it("keeps the current project scope for direct external-agent hydration", async () => {
@@ -34,6 +57,7 @@ describe("hydrateProjectChatFromRuntime", () => {
       chatId: "shared-chat",
       projectConfigId: "project-a",
       hydrationRunType: "external_agent",
+      shouldProbeMissingProvenance: false,
     });
 
     expect(getExternalAgentChatHydrationOutcome).toHaveBeenCalledWith(
@@ -53,9 +77,11 @@ describe("hydrateProjectChatFromRuntime", () => {
       chatId: "llm-chat",
       projectConfigId: "project-a",
       hydrationRunType: "llm_chat",
+      shouldProbeMissingProvenance: false,
     });
 
     expect(getLLMChatHydrationOutcome).toHaveBeenCalledWith("llm-chat");
     expect(getExternalAgentChatHydrationOutcome).not.toHaveBeenCalled();
+    expect(getProjectChatHydrationOutcomeWithFallback).not.toHaveBeenCalled();
   });
 });

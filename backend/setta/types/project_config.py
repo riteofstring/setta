@@ -12,7 +12,6 @@ from setta.types.edges import Edge
 from setta.types.id import ID
 from setta.types.project_chat_windowing import validate_window_space_window_owner
 from setta.types.section_impls import SectionType
-from setta.types.state_machine_edges import StateMachineEdge
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -524,7 +523,6 @@ class ProjectConfig(BaseModel, extra="forbid"):
     activeIds: list[ID] = Field(default_factory=list)
     edges: list[Edge] = Field(default_factory=list)
     agenticEdges: list[AgenticEdge] = Field(default_factory=list)
-    stateMachineEdges: list[StateMachineEdge] = Field(default_factory=list)
     watchCodeEnabled: bool = False
     watchCodeFolders: list[WatchCodeFolder] = Field(default_factory=list)
     watchCodeFiles: list[str] = Field(default_factory=list)

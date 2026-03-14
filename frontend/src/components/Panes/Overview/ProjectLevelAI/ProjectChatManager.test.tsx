@@ -35,18 +35,6 @@ vi.mock("state/hooks/share", () => ({
   }),
 }));
 
-vi.mock("components/Utils/FloatingBox", () => ({
-  getFloatingBoxHandlers: ({
-    content,
-    title,
-  }: {
-    content?: string;
-    title?: string;
-  }) => ({
-    "data-tooltip-content": content ?? title ?? "",
-  }),
-}));
-
 describe("ProjectChatManager", () => {
   beforeEach(() => {
     mockCanEditLayout = true;
@@ -90,13 +78,14 @@ describe("ProjectChatManager", () => {
 
     const markup = renderToStaticMarkup(<ProjectChatManager />);
 
+    expect(markup).not.toContain("New chat");
     expect(markup).not.toContain(">Canvas<");
     expect(markup).not.toContain(">Float<");
     expect(markup).not.toContain(">Hide<");
     expect(markup).toContain(">Focus<");
   });
 
-  it("shows only Reopen for minimized windows", () => {
+  it("shows Reopen instead of Hide for minimized windows", () => {
     const minimizedWindow = createProjectChatWindowInstance({
       instanceId: "project-chat-window-minimized",
       placement: ChatWindowPlacementEnum.bottom_docked,
@@ -120,11 +109,10 @@ describe("ProjectChatManager", () => {
 
     expect(markup).toContain(">Reopen<");
     expect(markup).not.toContain(">Hide<");
-    expect(markup).not.toContain(">Focus<");
     expect(markup).toContain('data-testid="project-chat-manager-reopen"');
   });
 
-  it("keeps Reopen visible for hidden read-only rows", () => {
+  it("keeps Reopen and Focus visible for existing read-only rows", () => {
     mockCanEditLayout = false;
     const minimizedWindow = createProjectChatWindowInstance({
       instanceId: "project-chat-window-minimized",
@@ -148,35 +136,9 @@ describe("ProjectChatManager", () => {
     const markup = renderToStaticMarkup(<ProjectChatManager />);
 
     expect(markup).toContain(">Reopen<");
-    expect(markup).not.toContain(">Focus<");
+    expect(markup).toContain(">Focus<");
     expect(markup).not.toContain(">Hide<");
     expect(markup).not.toContain(">Canvas<");
     expect(markup).not.toContain(">Float<");
-  });
-
-  it("adds shared quick info copy to window management actions", () => {
-    const markup = renderToStaticMarkup(<ProjectChatManager />);
-
-    expect(markup).toContain(
-      'data-tooltip-content="Show Renamed Research Chat in canvas"',
-    );
-    expect(markup).toContain(
-      'data-tooltip-content="Hide Renamed Research Chat"',
-    );
-    expect(markup).toContain(
-      'data-tooltip-content="Focus Renamed Research Chat"',
-    );
-  });
-
-  it("renders the dock-menu presentation", () => {
-    const markup = renderToStaticMarkup(<ProjectChatManager />);
-
-    expect(markup).toContain(
-      "Focus, reopen, and move chat windows from the dock.",
-    );
-    expect(markup).toContain(
-      'data-testid="project-chat-bottom-dock-menu-item"',
-    );
-    expect(markup).toContain('data-testid="project-chat-manager-focus"');
   });
 });
