@@ -1011,3 +1011,28 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/keyActivations.ts`, now the largest
     remaining shared-state hotspot, into more explicit shortcut command groups
     or listener wiring helpers.
+
+## 2026-03-14 19:42:23 PDT
+
+- Slice completed: split key shortcut registrations from key listener wiring
+- Key files touched:
+  - `frontend/src/state/actions/keyActivations.ts`
+  - `frontend/src/state/actions/keyShortcutRegistrations.ts`
+  - `frontend/src/state/actions/keyShortcutRegistrations.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/keyShortcutRegistrations.test.ts src/state/actions/keyActivations.test.ts src/state/actions/keyActivationHandlers.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/keyActivations.ts src/state/actions/keyShortcutRegistrations.ts src/state/actions/keyShortcutRegistrations.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `8b728bfc1`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/projectChatWindowing.ts`, now the
+    largest remaining authored state hotspot, continuing from
+    `projectChatWindowingAuthoritative.ts` and
+    `projectChatWindowingEphemeral.ts`.
