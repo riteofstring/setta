@@ -2,11 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Navigate, useLocation, useParams } from "react-router-dom";
 import { useLoadSettings } from "state/actions/settings";
 import { openWebSocket } from "state/actions/websocketReceive";
-import {
-  useLocalStorage,
-  useProjectLoading,
-  useSettings,
-} from "state/definitions";
+import { useProjectLoading, useSettings } from "state/definitions";
+import { useLocalStorage } from "state/stores/localStorageStore";
 import { useShareSession } from "state/stores/sessionStores";
 import { HOME_ROUTER_PATH, SETTINGS_ROUTER_PATH } from "utils/constants/routes";
 import { res200 } from "utils/endpointUtils";

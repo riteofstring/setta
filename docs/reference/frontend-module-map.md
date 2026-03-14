@@ -32,6 +32,7 @@ This is the front door for authored frontend code under `frontend/src/`.
 ## State Ownership Rules
 
 - `state/definitions.ts` is the current shared store entry point. New store work should move toward domain-owned store modules instead of extending one large mixed file.
+- Persisted UI preferences now live in `state/stores/localStorageStore.ts`, and persisted AI/session chat state now lives in `state/stores/aiStore.ts`.
 - Reads and writes should be easy to distinguish:
   - selectors/query helpers answer questions
   - command modules perform mutations
