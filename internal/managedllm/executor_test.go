@@ -2009,6 +2009,174 @@ func TestExecutorExecuteRunsOpenAIResponsesToolCallsThroughMCPAndContinuesProvid
 	}
 }
 
+func TestExecutorExecuteRecoversOpenAIResponsesToolCallsFromCompletedFallback(t *testing.T) {
+	t.Parallel()
+
+	requestBodies := make([]map[string]any, 0, 2)
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/responses" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+		body := map[string]any{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode provider request: %v", err)
+		}
+		requestBodies = append(requestBodies, body)
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected flusher")
+		}
+		switch requestCount {
+		case 0:
+			// Some Responses turns may only surface the final function_call item in response.completed.
+			fmt.Fprint(w, openAIResponseCompletedEvent(
+				[]map[string]any{
+					{
+						"type":      "function_call",
+						"id":        "function-item-1",
+						"call_id":   "tool-call-1",
+						"name":      "setta__create_top_level_section",
+						"arguments": `{"projectConfigId":"project-alpha","implType":"Dict"}`,
+						"status":    "completed",
+					},
+				},
+				12,
+				2,
+				14,
+				1,
+			))
+			flusher.Flush()
+		case 1:
+			fmt.Fprint(w, openAIResponseOutputTextDeltaEvent("message-2", 0, 0, "Recovered tool call"))
+			flusher.Flush()
+			fmt.Fprint(w, openAIResponseCompletedEvent(
+				[]map[string]any{
+					{
+						"type":    "message",
+						"id":      "message-2",
+						"role":    "assistant",
+						"status":  "completed",
+						"content": []map[string]any{{"type": "output_text", "text": "Recovered tool call", "annotations": []any{}}},
+					},
+				},
+				15,
+				3,
+				18,
+				1,
+			))
+			flusher.Flush()
+		default:
+			t.Fatalf("unexpected provider request count %d", requestCount)
+		}
+		requestCount++
+	}))
+	defer server.Close()
+
+	toolClient := &stubToolClient{
+		discoverableTools: map[string]mcpx.ToolDescriptor{
+			"setta__create_top_level_section": {
+				ServerID:       mcpx.DefaultServerID,
+				NamespacedName: "setta__create_top_level_section",
+				RemoteName:     "create_top_level_section",
+				Description:    "Create a top-level section.",
+				InputSchema: map[string]any{
+					"type": "object",
+				},
+			},
+		},
+		call: func(_ context.Context, namespacedToolName string, arguments map[string]any, _ map[string]any) (mcpx.ToolCallResult, error) {
+			if namespacedToolName != "setta__create_top_level_section" {
+				t.Fatalf("unexpected tool name %q", namespacedToolName)
+			}
+			if arguments["projectConfigId"] != "project-alpha" || arguments["implType"] != "Dict" {
+				t.Fatalf("unexpected tool arguments %#v", arguments)
+			}
+			return mcpx.ToolCallResult{
+				StructuredContent: map[string]any{"sectionId": "section-created"},
+				Text:              "{\"sectionId\":\"section-created\"}",
+			}, nil
+		},
+	}
+
+	executor := NewExecutor(ExecutorOptions{
+		Tools:      toolClient,
+		HTTPClient: server.Client(),
+	})
+	result, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
+		Run: agentruns.Run{ID: "run-alpha"},
+		LLMConfig: llmconfig.Config{
+			ID:        "primary",
+			Model:     "gpt-5-codex",
+			Provider:  "openai",
+			BaseURL:   server.URL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+		MCPServerIDs: []string{mcpx.DefaultServerID},
+		APIKeys: map[string]string{
+			"OPENAI_API_KEY": "secret",
+		},
+		SystemPrompt:    "System prompt",
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+		Thinking:        true,
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+			"messages": []any{
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Use the tool"},
+					},
+					"attachments": []any{},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("execute managed OpenAI Responses completed-fallback tool stream: %v", err)
+	}
+
+	if len(requestBodies) != 2 {
+		t.Fatalf("expected two OpenAI responses requests, got %d", len(requestBodies))
+	}
+	secondInput, ok := requestBodies[1]["input"].([]any)
+	if !ok || len(secondInput) < 3 {
+		t.Fatalf("expected follow-up Responses transcript input, got %#v", requestBodies[1]["input"])
+	}
+	foundFunctionCall := false
+	foundFunctionResult := false
+	for _, rawItem := range secondInput {
+		item, ok := rawItem.(map[string]any)
+		if !ok {
+			continue
+		}
+		if item["type"] == "function_call" && item["call_id"] == "tool-call-1" {
+			foundFunctionCall = true
+		}
+		if item["type"] == "function_call_output" && item["call_id"] == "tool-call-1" {
+			foundFunctionResult = true
+		}
+	}
+	if !foundFunctionCall || !foundFunctionResult {
+		t.Fatalf("expected recovered function call and result in follow-up input, got %#v", secondInput)
+	}
+
+	messages, ok := result.Outputs["messages"].([]any)
+	if !ok || len(messages) != 4 {
+		t.Fatalf("expected user, tool-call assistant, tool, final assistant messages, got %#v", result.Outputs["messages"])
+	}
+	if len(result.ToolCalls) != 1 {
+		t.Fatalf("expected one persisted tool call, got %#v", result.ToolCalls)
+	}
+	if assistantText(messages[3].(map[string]any)) != "Recovered tool call" {
+		t.Fatalf("unexpected final assistant text %#v", messages[3])
+	}
+}
+
 func TestExecutorExecuteStreamsAnthropicThinkingBlocksAndReturnsOutputs(t *testing.T) {
 	t.Parallel()
 

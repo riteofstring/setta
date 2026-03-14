@@ -66,6 +66,18 @@ func (a *toolCallAccumulator) apply(index int, toolCallID string, toolName strin
 	return state
 }
 
+func (a *toolCallAccumulator) applyResolved(index int, toolCallID string, toolName string, arguments string) *toolCallState {
+	state := a.apply(index, toolCallID, toolName, "")
+	if state == nil {
+		return nil
+	}
+	if arguments != "" {
+		state.arguments.Reset()
+		state.arguments.WriteString(arguments)
+	}
+	return state
+}
+
 func (a *toolCallAccumulator) finalize() ([]map[string]any, error) {
 	if a == nil || len(a.byIndex) == 0 {
 		return nil, nil

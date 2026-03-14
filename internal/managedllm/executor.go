@@ -589,7 +589,7 @@ func (e *Executor) processOpenAIResponseEvent(
 				appendAssistantThinkingAtIndex(assistantMessage, 0, reasoning)
 			}
 		case responses.ResponseFunctionToolCall:
-			accumulator.apply(int(typed.OutputIndex), item.CallID, item.Name, "")
+			accumulator.applyResolved(int(typed.OutputIndex), item.CallID, item.Name, item.Arguments)
 		}
 	case responses.ResponseReasoningSummaryTextDeltaEvent:
 		streamState.reasoningSeen = true
@@ -700,9 +700,9 @@ func (e *Executor) processOpenAIResponseEvent(
 			}
 		}
 	case responses.ResponseFunctionCallArgumentsDoneEvent:
-		accumulator.apply(int(typed.OutputIndex), "", typed.Name, typed.Arguments)
+		accumulator.applyResolved(int(typed.OutputIndex), "", typed.Name, typed.Arguments)
 	case responses.ResponseCompletedEvent:
-		e.applyOpenAICompletedResponseFallback(assistantMessage, typed.Response, streamState)
+		e.applyOpenAICompletedResponseFallback(assistantMessage, typed.Response, streamState, accumulator)
 		return buildResponseUsagePayload(typed.Response.Usage), nil
 	case responses.ResponseErrorEvent:
 		detail := strings.TrimSpace(typed.Message)
@@ -825,8 +825,9 @@ func (e *Executor) applyOpenAICompletedResponseFallback(
 	assistantMessage map[string]any,
 	response responses.Response,
 	streamState *openAIResponseStreamState,
+	accumulator *toolCallAccumulator,
 ) {
-	for _, itemUnion := range response.Output {
+	for index, itemUnion := range response.Output {
 		switch item := itemUnion.AsAny().(type) {
 		case responses.ResponseReasoningItem:
 			streamState.reasoningSeen = true
@@ -851,8 +852,10 @@ func (e *Executor) applyOpenAICompletedResponseFallback(
 			}
 			appendAssistantText(assistantMessage, text)
 		case responses.ResponseFunctionToolCall:
-			// The streaming accumulator already preserves the active tool-call state.
-			continue
+			if accumulator == nil {
+				continue
+			}
+			accumulator.applyResolved(index, item.CallID, item.Name, item.Arguments)
 		}
 	}
 }

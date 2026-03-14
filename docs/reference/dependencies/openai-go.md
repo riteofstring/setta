@@ -83,6 +83,8 @@
   - the Responses stream now also treats explicit `response.incomplete`
     events as provider failures instead of silently succeeding with truncated
     reasoning output
+  - the completed-response fallback now also recovers final function-call
+    items when the stream omits earlier tool-call delta events
 - `internal/transcriptionsessions/service.go`
   - file-mode transcription uploads now use `openai-go`
   - bounded adapter keeps Setta-owned auth/base-URL/config semantics intact
