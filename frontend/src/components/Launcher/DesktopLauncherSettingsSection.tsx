@@ -263,9 +263,7 @@ export function DesktopLauncherSettingsSection({
       if (missingRequiredSettaHome) {
         return null;
       }
-      const response = await route_get_launcher_status({
-        setta_home: normalizedSettaHome,
-      });
+      const response = await route_get_launcher_status(normalizedSettaHome);
       if (!res200(response) || !response.data) {
         return null;
       }
