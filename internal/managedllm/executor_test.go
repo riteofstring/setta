@@ -3095,6 +3095,13 @@ func TestExecutorExecuteRecoversOpenAIResponsesIncompletePayloadContentBeforeFai
 	if !ok || textBlock["text"] != "Recovered final answer" {
 		t.Fatalf("expected recovered authoritative text block, got %#v", assistant)
 	}
+	usage, ok := result.Outputs["usage"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected usage payload on incomplete response, got %#v", result.Outputs["usage"])
+	}
+	if int(usage["reasoning_output_tokens"].(float64)) != 2 {
+		t.Fatalf("unexpected incomplete response usage payload %#v", usage)
+	}
 
 	state, stateErr := live.GetLiveChatState(run.ID)
 	if stateErr != nil {
@@ -3234,6 +3241,13 @@ func TestExecutorExecuteRecoversOpenAIResponsesFailedPayloadContentBeforeFailure
 	textBlock, ok := assistantContent[1].(map[string]any)
 	if !ok || textBlock["text"] != "Recovered failed answer" {
 		t.Fatalf("expected recovered authoritative text block, got %#v", assistant)
+	}
+	usage, ok := result.Outputs["usage"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected usage payload on failed response, got %#v", result.Outputs["usage"])
+	}
+	if int(usage["reasoning_output_tokens"].(float64)) != 2 {
+		t.Fatalf("unexpected failed response usage payload %#v", usage)
 	}
 
 	state, stateErr := live.GetLiveChatState(run.ID)

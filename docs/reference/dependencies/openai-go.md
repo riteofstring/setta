@@ -96,10 +96,11 @@
     for finalization to repair the live state
   - terminal `response.incomplete` events still fail the turn, but the reducer
     now first recovers authoritative message/reasoning/tool items from the
-    incomplete payload so partial provider output is not dropped before the
-    live state is finalized
+    incomplete payload and preserves its usage payload so partial provider
+    output is not dropped before the live state is finalized
   - terminal `response.failed` events now do the same recovery from the
-    authoritative response payload before the turn returns the provider error
+    authoritative response payload before the turn returns the provider error,
+    including terminal usage
   - the Responses reducer now also honors `response.content_part.added` plus
     `response.reasoning_summary_part.added` / `.done` with explicit
     `summary_index` ordering, preserves early answer text when the first

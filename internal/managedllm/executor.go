@@ -477,6 +477,9 @@ func (e *Executor) consumeOpenAIResponsesStream(
 			previewAccumulator,
 			streamState,
 		)
+		if nextUsage != nil {
+			usage = nextUsage
+		}
 		if err != nil {
 			if flushErr := e.flushBufferedOpenAIResponseText(ctx, prepared, assistantMessage, streamState, !streamState.reasoningEmitted); flushErr != nil {
 				finalizeAssistantToolCallsBestEffort(assistantMessage, accumulator)
@@ -484,9 +487,6 @@ func (e *Executor) consumeOpenAIResponsesStream(
 			}
 			finalizeAssistantToolCallsBestEffort(assistantMessage, accumulator)
 			return usage, err
-		}
-		if nextUsage != nil {
-			usage = nextUsage
 		}
 	}
 	if err := stream.Err(); err != nil {
@@ -840,10 +840,11 @@ func (e *Executor) processOpenAIResponseEvent(
 		); err != nil {
 			return nil, err
 		}
+		usage := buildResponseUsagePayload(typed.Response.Usage)
 		if strings.TrimSpace(typed.Response.Error.Message) == "" {
-			return nil, fmt.Errorf("managed llm provider request failed: response failed")
+			return usage, fmt.Errorf("managed llm provider request failed: response failed")
 		}
-		return nil, fmt.Errorf("managed llm provider request failed: %s", strings.TrimSpace(typed.Response.Error.Message))
+		return usage, fmt.Errorf("managed llm provider request failed: %s", strings.TrimSpace(typed.Response.Error.Message))
 	case responses.ResponseIncompleteEvent:
 		if err := e.applyOpenAICompletedResponseFallback(
 			ctx,
@@ -856,11 +857,12 @@ func (e *Executor) processOpenAIResponseEvent(
 		); err != nil {
 			return nil, err
 		}
+		usage := buildResponseUsagePayload(typed.Response.Usage)
 		reason := strings.TrimSpace(typed.Response.IncompleteDetails.Reason)
 		if reason == "" {
-			return nil, fmt.Errorf("managed llm provider request failed: response incomplete")
+			return usage, fmt.Errorf("managed llm provider request failed: response incomplete")
 		}
-		return nil, fmt.Errorf("managed llm provider request failed: response incomplete (%s)", reason)
+		return usage, fmt.Errorf("managed llm provider request failed: response incomplete (%s)", reason)
 	}
 	return nil, nil
 }
