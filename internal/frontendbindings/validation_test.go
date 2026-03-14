@@ -2138,6 +2138,8 @@ func TestFrontendBoundaryModulesUseNamedImportExportFormsOnly(t *testing.T) {
 	importPattern := regexp.MustCompile(`(?m)^\s*import\s+([^;\n]+?)\s+from\s+["']([^"']+)["']`)
 	namespaceReexportPattern := regexp.MustCompile(`(?m)^\s*export\s+\*\s+as\s+([A-Za-z_$][A-Za-z0-9_$]*)\s+from\s+["']([^"']+)["']`)
 	exportAllPattern := regexp.MustCompile(`(?m)^\s*export\s+\*\s+from\s+["']([^"']+)["']`)
+	dynamicImportPattern := regexp.MustCompile(`import\s*\(\s*["']([^"']+)["']\s*\)`)
+	requirePattern := regexp.MustCompile(`require\s*\(\s*["']([^"']+)["']\s*\)`)
 
 	err := filepath.WalkDir(frontendSrcRoot, func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -2223,6 +2225,30 @@ func TestFrontendBoundaryModulesUseNamedImportExportFormsOnly(t *testing.T) {
 			}
 			return fmt.Errorf(
 				"%s re-exports boundary module %q via export-all; use named exports so caller-specific boundary checks remain authoritative",
+				relativePath,
+				modulePath,
+			)
+		}
+
+		for _, match := range dynamicImportPattern.FindAllStringSubmatch(source, -1) {
+			modulePath := match[1]
+			if _, tracked := boundaryModules[modulePath]; !tracked {
+				continue
+			}
+			return fmt.Errorf(
+				"%s dynamically imports boundary module %q; use named static imports so caller-specific boundary checks remain authoritative",
+				relativePath,
+				modulePath,
+			)
+		}
+
+		for _, match := range requirePattern.FindAllStringSubmatch(source, -1) {
+			modulePath := match[1]
+			if _, tracked := boundaryModules[modulePath]; !tracked {
+				continue
+			}
+			return fmt.Errorf(
+				"%s requires boundary module %q; use named static imports so caller-specific boundary checks remain authoritative",
 				relativePath,
 				modulePath,
 			)
