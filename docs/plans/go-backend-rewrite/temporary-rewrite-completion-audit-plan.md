@@ -415,3 +415,16 @@ this audit and moved the default dev reload path and the explicit
 source-checkout `python -m setta` companion handoff, but the repo still
 remains `Incomplete` because the retained Python runtime surfaces above are
 still active supported code paths.
+
+A ninth follow-up rewrite step moved the Python `backend_launcher` surface off
+the in-process `uvicorn` server and onto a Go `setta-server` subprocess,
+updated the source-checkout server wrapper to build and exec a real
+`setta-server` binary, taught Python session pruning to recognize
+`setta-server`, and moved `backend/setta/start.py tools` onto Go CLI dispatch.
+The focused Python verification now passes for source-checkout module entry,
+launcher-backed auth/API flows, the tools shim, and the `setta-server` session
+registry regression. This step also exposed a separate remaining rewrite gap:
+legacy Python-style `project.json` payloads are still not readable by the Go
+project-state runtime, so the launcher auth/API integration fixture was updated
+to seed Go-schema registry files in order to verify the launcher/session
+handoff itself against the Go-owned persisted contract.

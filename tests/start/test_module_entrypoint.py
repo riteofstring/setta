@@ -1,6 +1,8 @@
 import os
+import socket
 import subprocess
 import sys
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -9,6 +11,30 @@ from setta import entrypoint
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
+
+
+def _select_free_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
+def _wait_for_port(host: str, port: int, process: subprocess.Popen[str]) -> None:
+    deadline = time.monotonic() + 45.0
+    while time.monotonic() < deadline:
+        if process.poll() is not None:
+            output = ""
+            if process.stdout is not None:
+                output = process.stdout.read()
+            raise AssertionError(
+                f"setta process exited before port became ready:\n{output}"
+            )
+        try:
+            with socket.create_connection((host, port), timeout=0.2):
+                return
+        except OSError:
+            time.sleep(0.1)
+    raise AssertionError(f"timed out waiting for {host}:{port} to accept connections")
 
 
 def _write_go_stub(*, path: Path, args_capture_path: Path) -> Path:
@@ -65,12 +91,19 @@ def test_python_module_entrypoint_sets_source_checkout_server_wrapper(
     exit_code = entrypoint.run_go_dispatch(["--no-open"])
 
     assert exit_code == 0
-    assert captured["args"] == [str(_repo_root() / "scripts" / "go.sh"), "run", "./cmd/setta", "--no-open"]
+    assert captured["args"] == [
+        str(_repo_root() / "scripts" / "go.sh"),
+        "run",
+        "./cmd/setta",
+        "--no-open",
+    ]
     assert captured["check"] is False
     assert captured["cwd"] == _repo_root()
     env = captured["env"]
     assert isinstance(env, dict)
-    assert env["SETTA_SERVER_BIN"] == str(_repo_root() / "scripts" / "run_setta_server.sh")
+    assert env["SETTA_SERVER_BIN"] == str(
+        _repo_root() / "scripts" / "run_setta_server.sh"
+    )
 
 
 def test_python_module_entrypoint_preserves_explicit_server_override(
@@ -98,7 +131,13 @@ def test_python_module_entrypoint_preserves_explicit_server_override(
     exit_code = entrypoint.run_go_dispatch(["launch", "--json"])
 
     assert exit_code == 0
-    assert captured["args"] == [str(_repo_root() / "scripts" / "go.sh"), "run", "./cmd/setta", "launch", "--json"]
+    assert captured["args"] == [
+        str(_repo_root() / "scripts" / "go.sh"),
+        "run",
+        "./cmd/setta",
+        "launch",
+        "--json",
+    ]
     assert captured["cwd"] == _repo_root()
     env = captured["env"]
     assert isinstance(env, dict)
@@ -237,7 +276,9 @@ def test_python_module_entrypoint_dispatches_go_owned_backups_command(
 
     assert result.returncode == 0, (result.stderr or result.stdout).strip()
     assert "setta version from go" in result.stdout
-    assert args_capture_path.read_text(encoding="utf-8").strip() == "backups list --json"
+    assert (
+        args_capture_path.read_text(encoding="utf-8").strip() == "backups list --json"
+    )
 
 
 def test_python_module_entrypoint_dispatches_go_owned_export_db_command(
@@ -263,7 +304,9 @@ def test_python_module_entrypoint_dispatches_go_owned_export_db_command(
 
     assert result.returncode == 0, (result.stderr or result.stdout).strip()
     assert "setta version from go" in result.stdout
-    assert args_capture_path.read_text(encoding="utf-8").strip() == "export-db --readable"
+    assert (
+        args_capture_path.read_text(encoding="utf-8").strip() == "export-db --readable"
+    )
 
 
 def test_python_module_entrypoint_dispatches_go_owned_plugins_status_command(
@@ -611,3 +654,82 @@ def test_python_module_entrypoint_dispatches_go_owned_default_start_command(
         args_capture_path.read_text(encoding="utf-8").strip()
         == "--no-open --host 0.0.0.0"
     )
+
+
+def test_python_module_entrypoint_source_checkout_start_registers_visible_session(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    port = _select_free_port()
+
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "setta",
+            "--workspace",
+            str(workspace),
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
+            "--no-open",
+        ],
+        cwd=_repo_root(),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    try:
+        _wait_for_port("127.0.0.1", port, process)
+
+        auth_result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "setta",
+                "--workspace",
+                str(workspace),
+                "auth",
+                "--latest",
+            ],
+            cwd=_repo_root(),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert auth_result.returncode == 0, (
+            f"{auth_result.stdout}\n{auth_result.stderr}"
+        ).strip()
+        assert f"Base URL: http://127.0.0.1:{port}" in auth_result.stdout
+
+        status_result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "setta",
+                "--workspace",
+                str(workspace),
+                "status",
+                "--connect-info",
+                "--latest",
+            ],
+            cwd=_repo_root(),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert status_result.returncode == 0, (
+            f"{status_result.stdout}\n{status_result.stderr}"
+        ).strip()
+        assert f"http://127.0.0.1:{port}/__setta__/bootstrap" in status_result.stdout
+    finally:
+        process.terminate()
+        try:
+            process.wait(timeout=15)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=15)

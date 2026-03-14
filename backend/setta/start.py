@@ -2584,9 +2584,9 @@ def auth(
 
 
 @click.command()
-def tools() -> None:
-    payload = build_setta_tool_payloads()
-    _emit_json_output(payload)
+@click.pass_context
+def tools(ctx: click.Context) -> None:
+    ctx.exit(run_go_dispatch(["tools"]))
 
 
 @click.command()
