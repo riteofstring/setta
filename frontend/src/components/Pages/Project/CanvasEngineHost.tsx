@@ -45,6 +45,10 @@ import {
   toggleAgenticEdgeSelection,
 } from "state/actions/agenticEdges";
 import {
+  openPaneContextMenu,
+  openSelectionContextMenu,
+} from "state/actions/contextMenus";
+import {
   createEdgeFromConnection,
   isValidDataEdgeConnection,
   reconnectEdgeFromConnection,
@@ -1404,6 +1408,49 @@ export function CanvasEngineHost() {
     updateHoveredEdge(null);
   }, [updateHoveredEdge]);
 
+  const handleContextMenu = useCallback(
+    (event: MouseEvent) => {
+      if (event.defaultPrevented) {
+        return;
+      }
+      if (isCanvasContextMenuBlockedByTarget(event.target)) {
+        return;
+      }
+      const target = event.target;
+      if (target instanceof Element) {
+        const topLevelDomIsland = target.closest("[data-canvas-engine-dom-island]");
+        if (topLevelDomIsland instanceof HTMLElement) {
+          const topLevelSectionId =
+            topLevelDomIsland.dataset.canvasEngineDomIsland ?? null;
+          const selectedTopLevelSectionIds = activeSectionIds.filter(
+            (sectionId) => topLevelSections[sectionId] !== undefined,
+          );
+          if (
+            topLevelSectionId &&
+            selectedTopLevelSectionIds.includes(topLevelSectionId)
+          ) {
+            openSelectionContextMenu(event, selectedTopLevelSectionIds);
+          }
+          return;
+        }
+      }
+      openPaneContextMenu(event);
+    },
+    [activeSectionIds, topLevelSections],
+  );
+
+  useEffect(() => {
+    const hostElement = hostRef.current;
+    if (!hostElement) {
+      return;
+    }
+
+    hostElement.addEventListener("contextmenu", handleContextMenu);
+    return () => {
+      hostElement.removeEventListener("contextmenu", handleContextMenu);
+    };
+  }, [handleContextMenu]);
+
   const releasePointerCapture = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       const pointerSession = pointerSessionRef.current;
@@ -1936,6 +1983,25 @@ function isCanvasGestureBlockedByTarget(target: EventTarget | null): boolean {
   );
 }
 
+function isCanvasContextMenuBlockedByTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+  return Boolean(
+    target.closest(
+      [
+        "input",
+        "textarea",
+        "select",
+        "button",
+        "a[href]",
+        "[contenteditable='true']",
+        "[role='menuitem']",
+      ].join(","),
+    ),
+  );
+}
+
 function isCanvasWheelBlockedByTarget(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) {
     return false;
@@ -1960,6 +2026,24 @@ const CanvasEngineDomIsland = memo(function CanvasEngineDomIsland({
   rect,
   retained,
 }: DomIslandRenderEntry) {
+  const shouldRenderSectionContainer = useProjectState((state) => {
+    if (!(rect.id in state.projectConfig.topLevelSections)) {
+      return false;
+    }
+    if (getCurrEffectiveSectionImplIfPresent(state, rect.id) === null) {
+      return false;
+    }
+    const activeViewModeId = state.projectConfig.activeViewModeId;
+    if (!activeViewModeId) {
+      return false;
+    }
+    const activeViewMode = state.projectConfig.viewModes[activeViewModeId];
+    if (!activeViewMode) {
+      return false;
+    }
+    return activeViewMode.visibilityBySectionId[rect.id] !== undefined;
+  });
+
   return (
     <div
       className={`${retained ? "pointer-events-none" : "pointer-events-auto"} absolute overflow-hidden [&_.section-resize-handle]:pointer-events-none`}
@@ -1973,10 +2057,12 @@ const CanvasEngineDomIsland = memo(function CanvasEngineDomIsland({
               top: rect.y,
               width: rect.width,
               height: rect.height,
-            }
+          }
       }
     >
-      <SectionContainer sectionId={rect.id} isTopLevel={true} />
+      {shouldRenderSectionContainer ? (
+        <SectionContainer sectionId={rect.id} isTopLevel={true} />
+      ) : null}
     </div>
   );
 }, areDomIslandEntriesEqual);

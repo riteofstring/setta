@@ -21,14 +21,10 @@ export function UIPage() {
     <SectionDndContext>
       <div className="relative h-full min-h-0 w-full min-w-0">
         {useCanvasEngineV1 ? <CanvasEngineHost /> : <ReactFlow />}
-        {!useCanvasEngineV1 && (
-          <>
-            <PaneContextMenu />
-            <SelectionContextMenu />
-            <TypeErrorContextMenu />
-            {showMiniMap && <ResponsiveMiniMap />}
-          </>
-        )}
+        <PaneContextMenu />
+        <SelectionContextMenu />
+        <TypeErrorContextMenu />
+        {!useCanvasEngineV1 && showMiniMap && <ResponsiveMiniMap />}
       </div>
     </SectionDndContext>
   );

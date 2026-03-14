@@ -8,6 +8,7 @@ import { makeEdgeHandleKey } from "state/actions/edgeHandles";
 import { getCurrEffectiveSectionImplIfPresent } from "state/actions/sectionInfos";
 import {
   useActiveSectionUI,
+  useContextMenus,
   useEdgeHandleRegistry,
   useProjectState,
   useSettings,
@@ -531,6 +532,99 @@ describe("CanvasEngineHost", () => {
     expect(
       Number(engineHost.dataset.canvasEngineCameraZoom ?? "0"),
     ).toBeGreaterThan(1);
+  });
+
+  it("opens the pane context menu from a blank host contextmenu event", async () => {
+    await act(async () => {
+      root.render(<CanvasEngineHost />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const engineHost = host.querySelector(
+      '[data-canvas-engine-host="v1"]',
+    ) as HTMLDivElement | null;
+    if (!engineHost) {
+      throw new Error("Canvas engine host failed to render.");
+    }
+    setEngineHostBounds(engineHost);
+
+    await dispatchContextMenuEvent(engineHost, {
+      clientX: 520,
+      clientY: 280,
+    });
+
+    expect(useContextMenus.getState().pane).toMatchObject({
+      isOpen: true,
+      x: 520,
+      y: 280,
+    });
+  });
+
+  it("opens the selection context menu from a selected top-level dom island", async () => {
+    useProjectState.setState((state) => {
+      state.projectConfig.topLevelSections = {
+        "section-a": {
+          x: 24,
+          y: 16,
+          zIndex: 0,
+          w: 320,
+          h: 180,
+        },
+      };
+      state.projectConfig.activeIds = ["section-a"];
+      state.projectConfig.edges = [];
+      state.projectConfig.agenticEdges = [];
+    });
+    useActiveSectionUI.setState({
+      activeIds: ["section-a"],
+      selectionGeneration: 1,
+      backendGeneration: 1,
+      backendHydrationEnabled: true,
+      pendingBackendSyncOpIds: [],
+      pendingBackendSyncGenerationByOpId: {},
+      scheduledBackendSync: null,
+    });
+
+    await act(async () => {
+      root.render(<CanvasEngineHost />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const engineHost = host.querySelector(
+      '[data-canvas-engine-host="v1"]',
+    ) as HTMLDivElement | null;
+    if (!engineHost) {
+      throw new Error("Canvas engine host failed to render.");
+    }
+    setEngineHostBounds(engineHost);
+
+    const domIsland = host.querySelector(
+      '[data-canvas-engine-dom-island="section-a"]',
+    ) as HTMLDivElement | null;
+    if (!domIsland) {
+      throw new Error("Missing DOM island for section-a.");
+    }
+    setElementBounds(domIsland, { x: 24, y: 16, width: 320, height: 180 });
+
+    await dispatchContextMenuEvent(domIsland, {
+      clientX: 80,
+      clientY: 72,
+    });
+
+    expect(useContextMenus.getState().selection).toMatchObject({
+      isOpen: true,
+      x: 80,
+      y: 72,
+      nodeIds: ["section-a"],
+    });
   });
 
   it("tracks hovered data-edge state when the pointer moves over an edge", async () => {
@@ -1220,6 +1314,28 @@ async function dispatchWheelEvent(
     clientY: init.clientY,
     ctrlKey: init.ctrlKey,
     deltaY: init.deltaY,
+  });
+
+  await act(async () => {
+    target.dispatchEvent(event);
+  });
+
+  return event.defaultPrevented;
+}
+
+async function dispatchContextMenuEvent(
+  target: HTMLElement,
+  init: {
+    clientX: number;
+    clientY: number;
+  },
+): Promise<boolean> {
+  const event = new MouseEvent("contextmenu", {
+    bubbles: true,
+    cancelable: true,
+    clientX: init.clientX,
+    clientY: init.clientY,
+    button: 2,
   });
 
   await act(async () => {
