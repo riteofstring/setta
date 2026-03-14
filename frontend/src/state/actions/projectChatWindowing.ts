@@ -48,10 +48,8 @@ import {
   resolveTrackedGitPaneGraphWindowInstanceId,
   setTrackedGitPaneGraphWindowInstanceId,
 } from "./projectChatWindowingEphemeral";
-import {
-  dispatchOptimisticProjectStateUpdate,
-  getCurrProjectConfigId,
-} from "./sectionInfos";
+import { dispatchOptimisticProjectStateUpdate } from "./projectStateOptimisticUpdates";
+import { getCurrProjectConfigId } from "./sectionInfos";
 import { createTopLevelSectionWithResult } from "./sections/createSections";
 
 export { clearTrackedGitPaneGraphWindowIfMatches };

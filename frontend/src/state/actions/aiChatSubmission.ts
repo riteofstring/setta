@@ -1,7 +1,7 @@
 import { waitForFrontendAffinityToken } from "state/actions/frontendWebsocketAffinity";
 import { addTemporaryNotification } from "state/actions/notifications";
+import { dispatchOptimisticProjectStateUpdate } from "state/actions/projectStateOptimisticUpdates";
 import {
-  dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";

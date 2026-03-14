@@ -18,7 +18,6 @@ import {
 } from "state/definitions";
 import { useToolArgumentPreview } from "state/stores/aiStores";
 import { useLocalStorage } from "state/stores/uiPreferenceStores";
-import type { ResponseDataAndStatus } from "utils/endpointUtils";
 import { res200 } from "utils/endpointUtils";
 import { route_set_top_level_section_layout } from "utils/generatedEndpoints";
 import {
@@ -40,11 +39,19 @@ import {
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
+import {
+  acknowledgePendingProjectStateOperation,
+  addPendingProjectStateOperation,
+  isResponseDataAndStatus,
+  removePendingProjectStateOperation,
+} from "./projectStateOptimisticUpdates";
 
 const effectiveImplCacheByImpl = new WeakMap<
   object,
   WeakMap<object, WeakMap<object, unknown>>
 >();
+
+export { dispatchOptimisticProjectStateUpdate } from "./projectStateOptimisticUpdates";
 
 function getEffectiveImpl<T extends object>(
   impl: T,
@@ -1394,7 +1401,7 @@ const sendTopLevelLayoutToBackend = _.debounce(() => {
   pendingTopLevelLayoutRef.hasQueuedSend = false;
   const projectConfigId = getCurrProjectConfigId();
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
-    removePendingOp(opId);
+    removePendingProjectStateOperation(opId);
     if (pendingTopLevelLayoutRef.opId === opId) {
       pendingTopLevelLayoutRef.opId = null;
     }
@@ -1409,9 +1416,9 @@ const sendTopLevelLayoutToBackend = _.debounce(() => {
   if (result instanceof Promise) {
     void result.then((res) => {
       if (isResponseDataAndStatus(res) && res200(res)) {
-        acknowledgePendingOp(opId);
+        acknowledgePendingProjectStateOperation(opId);
       } else if (isResponseDataAndStatus(res) && res.hasResponse) {
-        removePendingOp(opId);
+        removePendingProjectStateOperation(opId);
         if (pendingTopLevelLayoutRef.opId === opId) {
           pendingTopLevelLayoutRef.opId = null;
         }
@@ -1500,7 +1507,9 @@ export function debounced_route_set_top_level_section_layout() {
     }
   });
   if (!pendingTopLevelLayoutRef.opId) {
-    pendingTopLevelLayoutRef.opId = addPendingOp(applyPendingTopLevelLayout);
+    pendingTopLevelLayoutRef.opId = addPendingProjectStateOperation(
+      applyPendingTopLevelLayout,
+    );
   }
   sendTopLevelLayoutToBackend();
 }
@@ -1518,155 +1527,4 @@ export function getSectionChildren(
     parentId,
     isBaseParentSectionImpl,
   ).children;
-}
-
-function addPendingOp(apply: (x: ZustandProjectState) => void) {
-  const opId = createNewId();
-  usePendingOperations.setState((state) => ({
-    pending: [...state.pending, { apply, opId, acknowledged: false }],
-  }));
-  return opId;
-}
-
-function acknowledgePendingOp(opId: string) {
-  // Mark as acknowledged so stale optimistic ops don't override later backend syncs.
-  usePendingOperations.setState((state) => {
-    const index = state.pending.findIndex((opInfo) => opInfo.opId === opId);
-    if (index < 0 || state.pending[index].acknowledged) {
-      return state;
-    }
-    const nextPending = [...state.pending];
-    nextPending[index] = {
-      ...nextPending[index],
-      acknowledged: true,
-    };
-    return { pending: nextPending };
-  });
-}
-
-function removePendingOp(opId: string) {
-  usePendingOperations.setState((state) => ({
-    pending: state.pending.filter((opInfo) => opInfo.opId !== opId),
-  }));
-}
-
-function removePendingOpAndGetReplayOps(opId: string): Array<PendingOperation> {
-  const pendingBeforeRemoval = usePendingOperations.getState().pending;
-  const failedOpIndex = pendingBeforeRemoval.findIndex(
-    (opInfo) => opInfo.opId === opId,
-  );
-  removePendingOp(opId);
-  if (failedOpIndex < 0) {
-    return [];
-  }
-  const remainingOpIds = new Set(
-    usePendingOperations.getState().pending.map((opInfo) => opInfo.opId),
-  );
-  return pendingBeforeRemoval
-    .slice(failedOpIndex + 1)
-    .filter((opInfo) => remainingOpIds.has(opInfo.opId));
-}
-
-function rollbackOptimisticProjectStateUpdate(
-  opId: string,
-  rollback?: (state: ZustandProjectState) => void,
-) {
-  const replayOps = removePendingOpAndGetReplayOps(opId);
-  if (!rollback) {
-    return;
-  }
-  useProjectState.setState((state) => {
-    rollback(state);
-    for (const opInfo of replayOps) {
-      opInfo.apply(state);
-    }
-  });
-}
-
-function applyOptimisticProjectStateUpdateIfProjectMatches(
-  state: ZustandProjectState,
-  projectConfigId: string | undefined,
-  update: (state: ZustandProjectState) => void,
-) {
-  if (
-    projectConfigId !== undefined &&
-    state.projectConfig.id !== projectConfigId
-  ) {
-    return;
-  }
-  update(state);
-}
-
-function isResponseDataAndStatus(
-  value: unknown,
-): value is ResponseDataAndStatus<unknown> {
-  // Narrow unknown send results without relying on try/catch for control flow.
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "status" in value &&
-    "hasResponse" in value
-  );
-}
-
-export function dispatchOptimisticProjectStateUpdate({
-  apply,
-  send,
-  rollback,
-  reapply,
-  projectConfigId,
-}: {
-  apply: (state: ZustandProjectState) => void;
-  send: (frontendOpId: string) => void | Promise<unknown>;
-  rollback?: (state: ZustandProjectState) => void;
-  reapply?: (state: ZustandProjectState) => void;
-  projectConfigId?: string;
-}) {
-  const applyWithProjectGuard = (state: ZustandProjectState) =>
-    applyOptimisticProjectStateUpdateIfProjectMatches(
-      state,
-      projectConfigId,
-      apply,
-    );
-  const reapplyWithProjectGuard = (state: ZustandProjectState) =>
-    applyOptimisticProjectStateUpdateIfProjectMatches(
-      state,
-      projectConfigId,
-      reapply ?? apply,
-    );
-  const rollbackWithProjectGuard =
-    rollback === undefined
-      ? undefined
-      : (state: ZustandProjectState) =>
-          applyOptimisticProjectStateUpdateIfProjectMatches(
-            state,
-            projectConfigId,
-            rollback,
-          );
-
-  useProjectState.setState(applyWithProjectGuard);
-  const opId = addPendingOp(reapplyWithProjectGuard);
-  const result = send(opId);
-  if (result instanceof Promise) {
-    void result
-      .then((res) => {
-        // A 200 response means the backend accepted the op; don't keep reapplying it.
-        if (isResponseDataAndStatus(res) && res200(res)) {
-          if (
-            projectConfigId !== undefined &&
-            useProjectState.getState().projectConfig.id !== projectConfigId
-          ) {
-            removePendingOp(opId);
-            return;
-          }
-          acknowledgePendingOp(opId);
-        } else if (isResponseDataAndStatus(res)) {
-          rollbackOptimisticProjectStateUpdate(opId, rollbackWithProjectGuard);
-        }
-      })
-      .catch(() => {
-        rollbackOptimisticProjectStateUpdate(opId, rollbackWithProjectGuard);
-      });
-  }
-  return opId;
 }

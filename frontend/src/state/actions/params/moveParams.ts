@@ -11,8 +11,8 @@ import {
   toggleParamSelected,
   unselectAllParams,
 } from "state/actions/projectStateCommands";
+import { dispatchOptimisticProjectStateUpdate } from "state/actions/projectStateOptimisticUpdates";
 import {
-  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImpl,
   getCurrEffectiveSectionImplWithTypeGuard,

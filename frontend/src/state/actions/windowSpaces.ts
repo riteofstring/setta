@@ -11,10 +11,8 @@ import {
   syncProjectChatWindowingState,
 } from "state/actions/projectChatWindowing";
 import { getAuthoritativeProjectChatWindowingState } from "state/actions/projectChatWindowingAuthoritative";
-import {
-  dispatchOptimisticProjectStateUpdate,
-  getCurrProjectConfigId,
-} from "state/actions/sectionInfos";
+import { dispatchOptimisticProjectStateUpdate } from "state/actions/projectStateOptimisticUpdates";
+import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import {
   useProjectState,
   useShareSession,

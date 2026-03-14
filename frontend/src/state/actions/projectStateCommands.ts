@@ -21,8 +21,8 @@ import {
   Viewport,
 } from "utils/generatedTypes";
 import { applyActiveSectionChange } from "./activeSectionController";
+import { dispatchOptimisticProjectStateUpdate } from "./projectStateOptimisticUpdates";
 import {
-  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,

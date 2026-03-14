@@ -32,6 +32,9 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   project-state command entrypoints for section delete/group flows, param
   selection, viewport persistence, and all-project-metadata updates that
   previously lived in `frontend/src/state/actions/sectionInfos.ts`.
+- `frontend/src/state/actions/projectStateOptimisticUpdates.ts` now owns the
+  pending-operation queue plus optimistic project-state mutation scaffolding
+  that previously lived in `frontend/src/state/actions/sectionInfos.ts`.
 - `frontend/src/utils/constants.ts` is still unsplit on this branch, so shared-infrastructure cleanup is still high leverage.
 - Shared infrastructure cleanup will still cross fork boundaries at times, but if a slice becomes primarily about code under `frontend/src/forks/**` it should use the more specific companion plan instead of expanding this one.
 
@@ -39,16 +42,15 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 
 - `frontend/src/state` plus shared infrastructure files in `components/Utils` and `utils` total about 83.6k lines of authored code in the sampled directories.
 - The biggest shared-state hotspots are:
-  - `frontend/src/state/actions/sectionInfos.ts` at 1674 lines
   - `frontend/src/state/actions/uiSettingReveal.ts` at 1598 lines
-  - `frontend/src/state/actions/windowSpaces.ts` at 1422 lines
-  - `frontend/src/state/actions/websocketReceive.ts` at 1025 lines
+  - `frontend/src/state/actions/sectionInfos.ts` at 1530 lines
+  - `frontend/src/state/actions/windowSpaces.ts` at 1420 lines
+  - `frontend/src/state/actions/websocketReceive.ts` at 1023 lines
   - `frontend/src/state/hooks/terminals/terminal.ts` at 752 lines
   - `frontend/src/utils/focusManager.ts` at 657 lines
 - `definitions.ts` now defines 14 local `use*` stores and re-exports the extracted AI/chat, app runtime, session/share, browser, search, feedback, project-status, layout-interaction, UI-preference, and editor-diagnostics stores, which is much closer to a thin index but still leaves project-state publication, artifact data, and realtime helper ownership mixed together.
 - `sectionInfos.ts` currently mixes:
   - effective-impl derivation
-  - optimistic project-state mutation scaffolding
   - streaming chat merge behavior
   - section metadata and layout queries
   - top-level layout persistence
@@ -62,6 +64,10 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - param selection and unselect-all command entrypoints
   - viewport persistence dispatch
   - all-project-metadata updates from realtime snapshot handlers
+- `projectStateOptimisticUpdates.ts` now owns:
+  - pending-operation queue registration, acknowledgement, and removal
+  - optimistic project-state dispatch with project guards
+  - rollback and replay of later pending operations after failed requests
 - `windowSpaces.ts` mixes:
   - optimistic layout writes
   - floating bounds normalization
@@ -112,7 +118,6 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - Extract:
   - effective impl/read helpers
   - section metadata selectors
-  - optimistic mutation scaffolding
   - top-level layout persistence helpers
 - Keep naming explicit so agents can tell whether they are calling a read helper or a mutating command.
 
@@ -122,6 +127,9 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - section mutations
   - window spaces
   - related layout/state features
+- Continue routing new optimistic write paths through
+  `projectStateOptimisticUpdates.ts` instead of rebuilding queue or rollback
+  helpers inside feature query modules.
 - Reuse seams that already exist in `projectChatWindowingAuthoritative.ts` and `projectChatWindowingEphemeral.ts` where they fit instead of introducing parallel patterns.
 - Avoid each domain hand-rolling slightly different optimistic update scaffolding.
 

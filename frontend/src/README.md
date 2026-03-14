@@ -161,6 +161,9 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/projectStateCommands.ts` owns the shared project-state
     command entrypoints for section delete/group flows, param selection,
     viewport persistence, and all-project-metadata updates.
+  - `state/actions/projectStateOptimisticUpdates.ts` owns the pending-operation
+    queue and optimistic project-state mutation scaffolding used by shared state
+    action modules.
   - `state/hooks/*` owns reusable hooks layered on top of stores and actions.
   - `state/types/*` and `state/utils/*` own state-local models and helper logic.
 
@@ -211,11 +214,11 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Likely Next Cleanup Slices
 
 - `state/actions/sectionInfos.ts` query/command split across effective-impl
-  derivation, section metadata/layout reads, optimistic mutation scaffolding,
-  and top-level layout persistence now that
-  `state/actions/sectionProjectStateSync.ts` and
-  `state/actions/projectStateCommands.ts` own the main backend sync and shared
-  command entrypoints
+  derivation, section metadata/layout reads, and top-level layout persistence
+  now that `state/actions/sectionProjectStateSync.ts`,
+  `state/actions/projectStateCommands.ts`, and
+  `state/actions/projectStateOptimisticUpdates.ts` own the main backend sync,
+  shared command entrypoints, and optimistic mutation infrastructure
 - `state/actions/uiSettingReveal.ts` and adjacent pane chrome helpers that still
   mix persisted-pane writes, window-space reveal logic, and UI recovery paths
 - shared project chat surfaces under `components/Chat/*`,

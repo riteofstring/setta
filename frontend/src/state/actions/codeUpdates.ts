@@ -5,8 +5,8 @@ import {
   route_set_gen_code_prefix,
   route_set_gen_code_suffix,
 } from "utils/generatedEndpoints";
+import { dispatchOptimisticProjectStateUpdate } from "./projectStateOptimisticUpdates";
 import {
-  dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "./sectionInfos";
