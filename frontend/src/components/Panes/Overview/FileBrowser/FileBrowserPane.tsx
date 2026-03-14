@@ -19,9 +19,9 @@ import { TbFile, TbFolder, TbFolders } from "react-icons/tb";
 import { List, useListRef } from "react-window";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { openFileInCodeSection } from "state/actions/sections/createSections";
+import { useFileBrowserState } from "state/definitions";
 import { getDefaultColumnWidth } from "state/hooks/columnWidthUtils";
 import { useColumnWidthDrag } from "state/hooks/useColumnWidthDrag";
-import { useFileBrowserState } from "state/stores/fileBrowserStores";
 import { getAttachmentPreviewKind } from "utils/attachmentPreview";
 import { normalizeBrowserPath } from "utils/browserPaths";
 import { resolveCodeLanguageFromPath } from "utils/codeLanguage";
@@ -53,7 +53,10 @@ import {
   route_get_folder_contents,
   route_transfer_file_browser_entry,
 } from "utils/generatedEndpoints";
-import { SettaNotificationTypeEnum } from "utils/generatedTypes";
+import {
+  FileBrowserDownloadURLEntry,
+  SettaNotificationTypeEnum,
+} from "utils/generatedTypes";
 import { clamp } from "utils/utils";
 
 const ROW_HEIGHT = 24;
@@ -83,10 +86,7 @@ type FileBrowserClipboardEntry = {
 type SortKey = "name" | "modified";
 type SortDirection = "asc" | "desc";
 
-type FileUrlEntry = {
-  url: string;
-  expiresAt: number;
-};
+type FileUrlEntry = Pick<FileBrowserDownloadURLEntry, "url" | "expiresAt">;
 
 export type FileNode = {
   name: string;
