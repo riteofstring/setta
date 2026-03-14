@@ -319,17 +319,19 @@ This verdict holds under both of the only reasonable definitions:
   - `backend/setta/share/listener_runtime.py`
 
 These are real code-backed supported surfaces, not just stale files. The
-listener runtime is now narrower than before, and the old top-level Python
-FastAPI app is gone, but the repo is still not "all Go" today even though the
-default packaged/runtime path is predominantly Go-owned.
+listener runtime is now narrower than before, the old top-level Python
+FastAPI app is gone, and the old `setta.dev_start` reload shim is gone, but
+the repo is still not "all Go" today even though the default
+packaged/runtime path is predominantly Go-owned.
 
 ### Remaining blocker
 
 No currently reproduced Go-owned parity blocker remains from the targeted audit
 slice. The remaining blocker is repo-wide backend/runtime ownership outside the
-explicit retained boundary list, most notably the thin Python dev/start
-wrappers and the still-active Python plugin worker path. The old top-level
-Python FastAPI app is no longer part of that blocker set.
+explicit retained boundary list, most notably the legacy `backend/setta/start.py`
+compatibility surface and the still-active Python plugin worker path. The old
+top-level Python FastAPI app and the old `setta.dev_start` shim are no longer
+part of that blocker set.
 
 ### Test and smoke evidence executed
 
