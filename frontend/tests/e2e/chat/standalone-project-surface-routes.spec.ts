@@ -91,6 +91,39 @@ function buildStandaloneUrl(currentUrl: string, pathname: string): string {
   return nextUrl.toString();
 }
 
+async function seedAIStorePersistence(
+  page: Page,
+  patch: Record<string, unknown>,
+): Promise<void> {
+  await page.addInitScript((nextState) => {
+    const key = "setta_ai_data";
+    let payload: { state: Record<string, unknown>; version: number } = {
+      state: {},
+      version: 0,
+    };
+    const raw = window.localStorage.getItem(key);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as {
+          state?: unknown;
+          version?: unknown;
+        };
+        payload = {
+          state:
+            parsed && typeof parsed.state === "object" && parsed.state !== null
+              ? (parsed.state as Record<string, unknown>)
+              : {},
+          version: typeof parsed?.version === "number" ? parsed.version : 0,
+        };
+      } catch {
+        payload = { state: {}, version: 0 };
+      }
+    }
+    payload.state = { ...payload.state, ...nextState };
+    window.localStorage.setItem(key, JSON.stringify(payload));
+  }, patch);
+}
+
 async function resolveSectionSlug(
   page: Page,
   sectionName: string,
@@ -469,6 +502,70 @@ async function seedProjectChatDetails(
   );
 }
 
+async function seedProjectChatHistoryRuns(
+  page: Page,
+  projectConfigId: string,
+  fixtures: Array<{
+    chatId: string;
+    prompt: string;
+  }>,
+): Promise<void> {
+  await page.evaluate(
+    async ({
+      nextProjectConfigId,
+      nextFixtures,
+    }: {
+      nextProjectConfigId: string;
+      nextFixtures: Array<{
+        chatId: string;
+        prompt: string;
+      }>;
+    }) => {
+      const { useAIStore } = await import("/src/state/definitions.ts");
+      useAIStore.setState({
+        agentRunsAuthorityState: "ready",
+        agentRunsInitialLoadComplete: true,
+        agentRunsLoadError: null,
+        agentRuns: nextFixtures.map((fixture, index) => ({
+          id: `standalone-history-run-${fixture.chatId}`,
+          profileId: null,
+          status: "completed",
+          startedAt: `2026-03-13T00:00:0${index}Z`,
+          finishedAt: `2026-03-13T00:00:1${index}Z`,
+          events: [],
+          inputs: {
+            runType: "llm_chat",
+            projectConfigId: nextProjectConfigId,
+            chatId: fixture.chatId,
+            sectionId: null,
+            messages: [
+              {
+                id: `user-${fixture.chatId}`,
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: fixture.prompt,
+                  },
+                ],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {},
+        })),
+      });
+    },
+    {
+      nextProjectConfigId: projectConfigId,
+      nextFixtures: fixtures.map((fixture) => ({
+        chatId: fixture.chatId,
+        prompt: fixture.prompt,
+      })),
+    },
+  );
+}
+
 async function clearProjectChatWindowingState(
   page: Page,
   projectConfigId: string,
@@ -737,6 +834,207 @@ test.describe.serial("standalone project surface routes", () => {
     } finally {
       await cleanupIsolatedProject(page, secondProjectContext);
       await cleanupIsolatedProject(page, firstProjectContext);
+    }
+  });
+
+  test("standalone project chat preserves unsent composer drafts across reloads", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    let projectContext: Awaited<ReturnType<typeof openIsolatedProject>> | null =
+      null;
+    const cleanupManagedEngine = await ensureManagedChatEngine(page);
+
+    try {
+      projectContext = await openIsolatedProject(page);
+      const projectConfigName = getProjectConfigNameFromUrl(page.url());
+      await page.goto(
+        buildStandaloneUrl(
+          page.url(),
+          `/${encodeURIComponent(projectConfigName)}/chat`,
+        ),
+        { waitUntil: "domcontentloaded" },
+      );
+      const standaloneSurface = page.getByTestId(
+        "standalone-project-chat-surface",
+      );
+      await expect(standaloneSurface).toBeVisible();
+      const composerInput =
+        standaloneSurface.getByPlaceholder("Type a message...");
+      const draftText = "keep this standalone draft after reload";
+      await composerInput.fill(draftText);
+      await expect(composerInput).toHaveValue(draftText);
+
+      await page.reload({ waitUntil: "domcontentloaded" });
+      const reloadedStandaloneSurface = page.getByTestId(
+        "standalone-project-chat-surface",
+      );
+      await expect(reloadedStandaloneSurface).toBeVisible();
+      await expect(
+        reloadedStandaloneSurface.getByPlaceholder("Type a message..."),
+      ).toHaveValue(draftText);
+    } finally {
+      await cleanupManagedEngine();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("standalone project chat reload restores the full waiting transcript instead of only the latest fragment", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    let projectContext: Awaited<ReturnType<typeof openIsolatedProject>> | null =
+      null;
+    const cleanupManagedEngine = await ensureManagedChatEngine(page);
+    const waitingChatId = "standalone-waiting-reload-thread";
+    let llmHydrateCalls = 0;
+
+    try {
+      projectContext = await openIsolatedProject(page);
+      const projectConfigName = getProjectConfigNameFromUrl(page.url());
+      await seedAIStorePersistence(page, {
+        chatDetails: {
+          [waitingChatId]: {
+            messages: [
+              {
+                id: "assistant-live-fragment",
+                role: "assistant",
+                content: [{ type: "text", text: "Latest fragment only..." }],
+                attachments: [],
+              },
+            ],
+            toolCallArguments: {},
+            waitingForResponse: true,
+            llmConfig: null,
+            contextUsage: null,
+          },
+        },
+      });
+
+      await page.context().route("**/api/getAgentRuns", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify([]),
+        });
+      });
+      await page.context().route("**/api/getLLMChat", async (route) => {
+        const payload = route.request().postDataJSON() as
+          | { chatId?: string }
+          | undefined;
+        if (payload?.chatId === waitingChatId) {
+          llmHydrateCalls += 1;
+        }
+        if (payload?.chatId !== waitingChatId) {
+          await route.continue();
+          return;
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            messages: [
+              {
+                id: "user-before-reload",
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: "Earlier question before reload.",
+                  },
+                ],
+                attachments: [],
+              },
+              {
+                id: "assistant-before-reload",
+                role: "assistant",
+                content: [
+                  {
+                    type: "text",
+                    text: "Earlier answer before reload.",
+                  },
+                ],
+                attachments: [],
+              },
+              {
+                id: "assistant-still-streaming",
+                role: "assistant",
+                content: [
+                  {
+                    type: "text",
+                    text: "Streaming continuation after reload.",
+                  },
+                ],
+                attachments: [],
+              },
+            ],
+            waitingForResponse: true,
+            llmConfig: {
+              id: "standalone-thread-config",
+              model: "gpt-4o-mini",
+              provider: "openai",
+              base_url: null,
+              api_key_env: null,
+              other_params: null,
+              mcpServerIds: [],
+              temporary: false,
+            },
+            contextUsage: null,
+          }),
+        });
+      });
+
+      await page.goto(
+        buildStandaloneUrl(
+          page.url(),
+          `/${encodeURIComponent(projectConfigName)}/chat/${encodeURIComponent(waitingChatId)}`,
+        ),
+        { waitUntil: "domcontentloaded" },
+      );
+      const standaloneThreadSurface = page.getByTestId(
+        "standalone-project-chat-thread-surface",
+      );
+      await expect(standaloneThreadSurface).toBeVisible();
+
+      // The route-owned chat id should immediately rehydrate the full thread
+      // even though the optimistic local state starts with only the latest
+      // streaming fragment.
+      await expect.poll(() => llmHydrateCalls).toBeGreaterThan(0);
+      await expect(
+        standaloneThreadSurface.getByText("Earlier question before reload."),
+      ).toBeVisible();
+      await expect(
+        standaloneThreadSurface.getByText("Earlier answer before reload."),
+      ).toBeVisible();
+      await expect(
+        standaloneThreadSurface.getByText(
+          "Streaming continuation after reload.",
+        ),
+      ).toBeVisible();
+
+      await page.reload({ waitUntil: "domcontentloaded" });
+      const reloadedStandaloneThreadSurface = page.getByTestId(
+        "standalone-project-chat-thread-surface",
+      );
+      await expect(reloadedStandaloneThreadSurface).toBeVisible();
+      await expect(
+        reloadedStandaloneThreadSurface.getByText(
+          "Earlier question before reload.",
+        ),
+      ).toBeVisible();
+      await expect(
+        reloadedStandaloneThreadSurface.getByText(
+          "Earlier answer before reload.",
+        ),
+      ).toBeVisible();
+      await expect(
+        reloadedStandaloneThreadSurface.getByText(
+          "Streaming continuation after reload.",
+        ),
+      ).toBeVisible();
+    } finally {
+      await cleanupManagedEngine();
+      await cleanupIsolatedProject(page, projectContext);
     }
   });
 
@@ -1635,7 +1933,9 @@ test.describe.serial("standalone project surface routes", () => {
           if (!instanceId) {
             return "";
           }
-          return state.instancesById[instanceId]?.chatId === null ? instanceId : "";
+          return state.instancesById[instanceId]?.chatId === null
+            ? instanceId
+            : "";
         })
         .not.toBe("");
       const savedWindowId =
@@ -1653,8 +1953,8 @@ test.describe.serial("standalone project surface routes", () => {
         width: 360,
         height: 240,
       });
-      const savedWindowState =
-        (await readProjectChatWindowingState(page)).instancesById[savedWindowId];
+      const savedWindowState = (await readProjectChatWindowingState(page))
+        .instancesById[savedWindowId];
       if (!savedWindowState) {
         throw new Error("Expected saved section window state before restore.");
       }
@@ -2112,6 +2412,174 @@ test.describe.serial("standalone project surface routes", () => {
       ).toHaveCount(0);
     } finally {
       await standalonePage.close();
+      await page.context().unroute("**/api/getAgentRuns");
+      await page.context().unroute("**/api/getLLMChat");
+      await cleanupManagedEngine();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("standalone thread routes switch to another in-page thread without requiring a refresh", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const cleanupManagedEngine = await ensureManagedChatEngine(page);
+    const alphaChatId = "standalone-thread-alpha";
+    const betaChatId = "standalone-thread-beta";
+    const fixtures = [
+      {
+        instanceId: "standalone-history-alpha",
+        chatId: alphaChatId,
+        prompt: "Alpha standalone prompt",
+        assistantText: "Alpha standalone thread marker.",
+      },
+      {
+        instanceId: "standalone-history-beta",
+        chatId: betaChatId,
+        prompt: "Beta standalone prompt",
+        assistantText: "Beta standalone thread marker.",
+      },
+    ];
+
+    try {
+      const projectConfigName = getProjectConfigNameFromUrl(page.url());
+      await page.context().route("**/api/getAgentRuns", async (route) => {
+        const response = await route.fetch();
+        const runs = (await response.json()) as AgentRunRecord[];
+        const fixtureRuns = fixtures.map((fixture, index) => ({
+          id: `standalone-switch-run-${fixture.chatId}`,
+          profileId: null,
+          status: "completed",
+          startedAt: `2026-03-13T00:00:0${index}Z`,
+          finishedAt: `2026-03-13T00:00:1${index}Z`,
+          events: [],
+          inputs: {
+            runType: "llm_chat",
+            projectConfigId: projectContext.projectConfigId,
+            chatId: fixture.chatId,
+            sectionId: null,
+            messages: [
+              {
+                id: `user-${fixture.chatId}`,
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: fixture.prompt,
+                  },
+                ],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {},
+        }));
+        await route.fulfill({
+          status: response.status(),
+          headers: {
+            ...response.headers(),
+            "content-type": "application/json",
+          },
+          body: JSON.stringify([
+            ...runs.filter(
+              (run) =>
+                !fixtures.some(
+                  (fixture) => fixture.chatId === run.inputs.chatId,
+                ),
+            ),
+            ...fixtureRuns,
+          ]),
+        });
+      });
+      await page.context().route("**/api/getLLMChat", async (route) => {
+        const payload = route.request().postDataJSON() as
+          | { chatId?: string }
+          | undefined;
+        const fixture = fixtures.find(
+          (candidate) => candidate.chatId === payload?.chatId,
+        );
+        if (!fixture) {
+          await route.continue();
+          return;
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            messages: [
+              {
+                id: `assistant-${fixture.chatId}`,
+                role: "assistant",
+                content: [
+                  {
+                    type: "text",
+                    text: fixture.assistantText,
+                  },
+                ],
+                attachments: [],
+                tool_calls: null,
+              },
+            ],
+            waitingForResponse: false,
+            llmConfig: {
+              id: "standalone-thread-config",
+              model: "gpt-4o-mini",
+              provider: "openai",
+              base_url: null,
+              api_key_env: null,
+              other_params: null,
+              mcpServerIds: [],
+              temporary: false,
+            },
+            contextUsage: null,
+          }),
+        });
+      });
+      await seedAIStorePersistence(page, {
+        viewThreads: true,
+        projectChatThreadsExplicitlyClosedAtLargeWidth: false,
+      });
+
+      await page.goto(
+        buildStandaloneUrl(
+          page.url(),
+          `/${encodeURIComponent(projectConfigName)}/chat/${encodeURIComponent(alphaChatId)}`,
+        ),
+        { waitUntil: "domcontentloaded" },
+      );
+      await seedProjectChatHistoryRuns(
+        page,
+        projectContext.projectConfigId,
+        fixtures,
+      );
+      await seedProjectChatDetails(page, fixtures, alphaChatId);
+
+      const standaloneSurface = page.getByTestId(
+        "standalone-project-chat-thread-surface",
+      );
+      await expect(standaloneSurface).toBeVisible();
+      await expect(
+        page.getByText("Alpha standalone thread marker."),
+      ).toBeVisible();
+
+      const betaThreadEntry = page.locator(
+        `[data-testid="project-chat-thread-entry"][data-thread-id="${betaChatId}"]`,
+      );
+      await expect(betaThreadEntry).toBeVisible();
+      await betaThreadEntry.click();
+
+      await expect
+        .poll(() => new URL(page.url()).pathname)
+        .toBe(`/${projectConfigName}/chat/${betaChatId}`);
+      await expect(standaloneSurface).toBeVisible();
+      await expect(
+        page.getByText("Beta standalone thread marker."),
+      ).toBeVisible();
+      await expect(
+        page.getByText("Alpha standalone thread marker."),
+      ).toHaveCount(0);
+    } finally {
       await page.context().unroute("**/api/getAgentRuns");
       await page.context().unroute("**/api/getLLMChat");
       await cleanupManagedEngine();
@@ -5300,6 +5768,38 @@ test.describe.serial("standalone project surface routes", () => {
         page.getByTestId("standalone-project-chat-surface"),
       ).toBeVisible();
       await expect(page).toHaveURL(standaloneChatUrl);
+    } finally {
+      await cleanupManagedEngine();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("wraps standalone project chat routes in the shared project-chat frame", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const cleanupManagedEngine = await ensureManagedChatEngine(page);
+
+    try {
+      const projectConfigName = getProjectConfigNameFromUrl(page.url());
+      const standaloneChatUrl = buildStandaloneUrl(
+        page.url(),
+        `/${encodeURIComponent(projectConfigName)}/chat`,
+      );
+
+      await page.goto(standaloneChatUrl, {
+        waitUntil: "domcontentloaded",
+      });
+      const standaloneSurface = page.getByTestId(
+        "standalone-project-chat-surface",
+      );
+      await expect(standaloneSurface).toBeVisible();
+      await expect(
+        page
+          .locator('[data-chat-window-frame="project-chat"]')
+          .filter({ has: standaloneSurface }),
+      ).toBeVisible();
     } finally {
       await cleanupManagedEngine();
       await cleanupIsolatedProject(page, projectContext);
