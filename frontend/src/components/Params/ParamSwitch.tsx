@@ -17,13 +17,9 @@ import {
   getCurrEffectiveSectionImplWithTypeGuard,
   toggleParamSelected,
 } from "state/actions/sectionInfos";
-import {
-  useMisc,
-  useProjectSearch,
-  useProjectState,
-  useTypeErrors,
-} from "state/definitions";
+import { useMisc, useProjectState, useTypeErrors } from "state/definitions";
 import { createProjectSearchLookupKey } from "state/hooks/search";
+import { useProjectSearch } from "state/stores/authoringStores";
 import {
   isBaseParamCodeObjImpl,
   isBaseParentCodeObjImpl,
