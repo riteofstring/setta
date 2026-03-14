@@ -3,8 +3,7 @@ import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
 import { useMemo } from "react";
 import { RiCheckLine, RiFocus2Line } from "react-icons/ri";
-import { useAIStore, useProjectState } from "state/definitions";
-import { useAIFollow } from "state/stores/aiFollowStores";
+import { useAIFollow, useAIStore, useProjectState } from "state/definitions";
 import { APP_MENU_Z_INDEX_CLASS_NAME } from "utils/constants";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
