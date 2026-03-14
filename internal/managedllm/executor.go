@@ -659,11 +659,11 @@ func (e *Executor) processOpenAIResponseEvent(
 			}
 		}
 	case responses.ResponseContentPartAddedEvent:
-		if err := e.applyOpenAIResponseContentPartAdded(ctx, prepared, assistantMessage, streamState, typed.Part); err != nil {
+		if err := e.applyOpenAIResponseContentPartAdded(ctx, prepared, assistantMessage, streamState, typed.ItemID, typed.Part); err != nil {
 			return nil, err
 		}
 	case responses.ResponseContentPartDoneEvent:
-		if err := e.applyOpenAIResponseContentPartDone(ctx, prepared, assistantMessage, streamState, typed.Part); err != nil {
+		if err := e.applyOpenAIResponseContentPartDone(ctx, prepared, assistantMessage, streamState, typed.ItemID, typed.Part); err != nil {
 			return nil, err
 		}
 	case responses.ResponseReasoningSummaryPartAddedEvent:
@@ -750,10 +750,11 @@ func (e *Executor) processOpenAIResponseEvent(
 			return nil, err
 		}
 	case responses.ResponseTextDeltaEvent:
-		if err := e.applyOpenAIResponseTextDelta(ctx, prepared, assistantMessage, streamState, typed.Delta); err != nil {
+		if err := e.applyOpenAIResponseTextDelta(ctx, prepared, assistantMessage, streamState, typed.ItemID, typed.Delta); err != nil {
 			return nil, err
 		}
 	case responses.ResponseTextDoneEvent:
+		setAssistantProviderMessageID(assistantMessage, typed.ItemID)
 		if strings.TrimSpace(typed.Text) != "" {
 			textIndex := openAIResponseTextIndex(assistantMessage, streamState)
 			textDelta := authoritativeResponseReplacementSuffix(currentAssistantTextAtIndex(assistantMessage, textIndex), typed.Text)
@@ -765,10 +766,11 @@ func (e *Executor) processOpenAIResponseEvent(
 			}
 		}
 	case responses.ResponseRefusalDeltaEvent:
-		if err := e.applyOpenAIResponseTextDelta(ctx, prepared, assistantMessage, streamState, typed.Delta); err != nil {
+		if err := e.applyOpenAIResponseTextDelta(ctx, prepared, assistantMessage, streamState, typed.ItemID, typed.Delta); err != nil {
 			return nil, err
 		}
 	case responses.ResponseRefusalDoneEvent:
+		setAssistantProviderMessageID(assistantMessage, typed.ItemID)
 		if strings.TrimSpace(typed.Refusal) != "" {
 			textIndex := openAIResponseTextIndex(assistantMessage, streamState)
 			textDelta := authoritativeResponseReplacementSuffix(currentAssistantTextAtIndex(assistantMessage, textIndex), typed.Refusal)
@@ -956,6 +958,7 @@ func (e *Executor) applyOpenAIResponseContentPartDone(
 	prepared preparedExecution,
 	assistantMessage map[string]any,
 	streamState *openAIResponseStreamState,
+	itemID string,
 	part responses.ResponseContentPartDoneEventPartUnion,
 ) error {
 	switch typed := part.AsAny().(type) {
@@ -963,6 +966,7 @@ func (e *Executor) applyOpenAIResponseContentPartDone(
 		if strings.TrimSpace(typed.Text) == "" {
 			return nil
 		}
+		setAssistantProviderMessageID(assistantMessage, itemID)
 		if streamState != nil {
 			streamState.bufferedText.Reset()
 		}
@@ -977,6 +981,7 @@ func (e *Executor) applyOpenAIResponseContentPartDone(
 		if strings.TrimSpace(typed.Refusal) == "" {
 			return nil
 		}
+		setAssistantProviderMessageID(assistantMessage, itemID)
 		if streamState != nil {
 			streamState.bufferedText.Reset()
 		}
@@ -1014,6 +1019,7 @@ func (e *Executor) applyOpenAIResponseContentPartAdded(
 	prepared preparedExecution,
 	assistantMessage map[string]any,
 	streamState *openAIResponseStreamState,
+	itemID string,
 	part responses.ResponseContentPartAddedEventPartUnion,
 ) error {
 	switch typed := part.AsAny().(type) {
@@ -1021,6 +1027,7 @@ func (e *Executor) applyOpenAIResponseContentPartAdded(
 		if strings.TrimSpace(typed.Text) == "" {
 			return nil
 		}
+		setAssistantProviderMessageID(assistantMessage, itemID)
 		if streamState != nil {
 			streamState.bufferedText.Reset()
 		}
@@ -1035,6 +1042,7 @@ func (e *Executor) applyOpenAIResponseContentPartAdded(
 		if strings.TrimSpace(typed.Refusal) == "" {
 			return nil
 		}
+		setAssistantProviderMessageID(assistantMessage, itemID)
 		if streamState != nil {
 			streamState.bufferedText.Reset()
 		}
@@ -1099,11 +1107,13 @@ func (e *Executor) applyOpenAIResponseTextDelta(
 	prepared preparedExecution,
 	assistantMessage map[string]any,
 	streamState *openAIResponseStreamState,
+	itemID string,
 	delta string,
 ) error {
 	if strings.TrimSpace(delta) == "" && delta == "" {
 		return nil
 	}
+	setAssistantProviderMessageID(assistantMessage, itemID)
 	if streamState.reasoningSeen && !streamState.reasoningEmitted {
 		streamState.bufferedText.WriteString(delta)
 		return nil
@@ -1304,6 +1314,8 @@ func (e *Executor) applyOpenAIResponseOutputItemFallback(
 			streamState,
 		)
 	case responses.ResponseOutputMessage:
+		setAssistantProviderMessageID(assistantMessage, item.ID)
+		setAssistantProviderMessagePhase(assistantMessage, string(item.Phase))
 		text := joinOpenAIResponseOutputMessageText(item.Content)
 		if strings.TrimSpace(text) == "" {
 			return nil
@@ -2074,6 +2086,28 @@ func setAssistantThinkingProviderItemIDAtIndex(message map[string]any, index int
 	message["content"] = content
 }
 
+func setAssistantProviderMessageID(message map[string]any, providerMessageID string) {
+	if message == nil {
+		return
+	}
+	trimmed := strings.TrimSpace(providerMessageID)
+	if trimmed == "" {
+		return
+	}
+	message["provider_message_id"] = trimmed
+}
+
+func setAssistantProviderMessagePhase(message map[string]any, phase string) {
+	if message == nil {
+		return
+	}
+	trimmed := strings.TrimSpace(phase)
+	if trimmed == "" {
+		return
+	}
+	message["provider_message_phase"] = trimmed
+}
+
 func ensureAssistantContentBlock(message map[string]any, index int, blockType string) ([]any, map[string]any) {
 	content, _ := message["content"].([]any)
 	if index < 0 {
@@ -2113,6 +2147,14 @@ func currentAssistantThinkingSignatureAtIndex(message map[string]any, index int)
 
 func currentAssistantThinkingProviderItemIDAtIndex(message map[string]any, index int) string {
 	return currentAssistantBlockStringAtIndex(message, index, "thinking", "provider_item_id")
+}
+
+func currentAssistantProviderMessageID(message map[string]any) string {
+	return strings.TrimSpace(stringValue(message["provider_message_id"]))
+}
+
+func currentAssistantProviderMessagePhase(message map[string]any) string {
+	return strings.TrimSpace(stringValue(message["provider_message_phase"]))
 }
 
 func currentAssistantBlockStringAtIndex(message map[string]any, index int, blockType string, field string) string {

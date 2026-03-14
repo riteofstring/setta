@@ -1704,6 +1704,7 @@ func TestExecutorExecuteStreamsOpenAIResponsesThinkingAndReturnsOutputs(t *testi
 					"id":      "message-1",
 					"role":    "assistant",
 					"status":  "completed",
+					"phase":   "final_answer",
 					"content": []map[string]any{{"type": "output_text", "text": "Final answer", "annotations": []any{}}},
 				},
 			},
@@ -1812,6 +1813,12 @@ func TestExecutorExecuteStreamsOpenAIResponsesThinkingAndReturnsOutputs(t *testi
 	if thinkingBlock["provider_item_id"] != "reasoning-1" {
 		t.Fatalf("expected OpenAI reasoning item id, got %#v", thinkingBlock)
 	}
+	if assistant["provider_message_id"] != "message-1" {
+		t.Fatalf("expected OpenAI provider message id, got %#v", assistant)
+	}
+	if assistant["provider_message_phase"] != "final_answer" {
+		t.Fatalf("expected OpenAI provider message phase, got %#v", assistant)
+	}
 	textBlock, ok := content[1].(map[string]any)
 	if !ok || textBlock["text"] != "Final answer" {
 		t.Fatalf("unexpected text block %#v", content[1])
@@ -1837,6 +1844,12 @@ func TestExecutorExecuteStreamsOpenAIResponsesThinkingAndReturnsOutputs(t *testi
 	if stateThinkingBlock["provider_item_id"] != "reasoning-1" {
 		t.Fatalf("expected completed response fallback to preserve reasoning item id, got %#v", stateThinkingBlock)
 	}
+	if state.Messages[1]["provider_message_id"] != "message-1" {
+		t.Fatalf("expected completed response fallback to preserve provider message id, got %#v", state.Messages[1])
+	}
+	if state.Messages[1]["provider_message_phase"] != "final_answer" {
+		t.Fatalf("expected completed response fallback to preserve provider message phase, got %#v", state.Messages[1])
+	}
 	stateTextBlock, ok := stateContent[1].(map[string]any)
 	if !ok || stateTextBlock["text"] != "Final answer" {
 		t.Fatalf("expected completed response fallback to preserve full live assistant text, got %#v", state)
@@ -1857,6 +1870,128 @@ func TestExecutorExecuteStreamsOpenAIResponsesThinkingAndReturnsOutputs(t *testi
 	}
 	if broadcaster.Count() != 10 {
 		t.Fatalf("expected start, seven delta updates, stop, finalized broadcasts, got %d", broadcaster.Count())
+	}
+}
+
+func TestExecutorExecuteResendsOpenAIResponsesProviderMessageMetadataInFollowUpTranscript(t *testing.T) {
+	t.Parallel()
+
+	var seenRequest map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/responses" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&seenRequest); err != nil {
+			t.Fatalf("decode provider request: %v", err)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected flusher")
+		}
+		// Follow-up Responses turns should resend provider-owned assistant IDs and phase metadata.
+		fmt.Fprint(w, openAIResponseCompletedEvent(
+			[]map[string]any{
+				{
+					"type":    "message",
+					"id":      "message-2",
+					"role":    "assistant",
+					"status":  "completed",
+					"phase":   "final_answer",
+					"content": []map[string]any{{"type": "output_text", "text": "Next answer", "annotations": []any{}}},
+				},
+			},
+			9,
+			2,
+			11,
+			1,
+		))
+		flusher.Flush()
+	}))
+	defer server.Close()
+
+	executor := NewExecutor(ExecutorOptions{
+		HTTPClient: server.Client(),
+	})
+	_, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
+		Run: agentruns.Run{ID: "run-alpha"},
+		LLMConfig: llmconfig.Config{
+			ID:        "primary",
+			Model:     "gpt-5-codex",
+			Provider:  "openai",
+			BaseURL:   server.URL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+		APIKeys: map[string]string{
+			"OPENAI_API_KEY": "secret",
+		},
+		SystemPrompt: "System prompt",
+		ChatID:       "chat-alpha",
+		Thinking:     true,
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+			"messages": []any{
+				map[string]any{
+					"id":                     "assistant-local-1",
+					"role":                   "assistant",
+					"provider_message_id":    "provider-message-1",
+					"provider_message_phase": "commentary",
+					"content": []any{
+						map[string]any{
+							"type":             "thinking",
+							"summary":          "Plan summary",
+							"thinking":         "Planning deeply",
+							"signature":        "enc-prior",
+							"provider_item_id": "reasoning-provider-1",
+						},
+						map[string]any{
+							"type": "text",
+							"text": "Earlier answer",
+						},
+					},
+					"attachments": []any{},
+				},
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Continue"},
+					},
+					"attachments": []any{},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("execute managed OpenAI Responses follow-up request: %v", err)
+	}
+
+	input, ok := seenRequest["input"].([]any)
+	if !ok || len(input) < 3 {
+		t.Fatalf("expected OpenAI Responses transcript input, got %#v", seenRequest["input"])
+	}
+	foundReasoning := false
+	foundOutputMessage := false
+	for _, rawItem := range input {
+		item, ok := rawItem.(map[string]any)
+		if !ok {
+			continue
+		}
+		if item["type"] == "reasoning" && item["id"] == "reasoning-provider-1" && item["encrypted_content"] == "enc-prior" {
+			foundReasoning = true
+		}
+		if item["type"] == "message" && item["id"] == "provider-message-1" && item["phase"] == "commentary" {
+			content, ok := item["content"].([]any)
+			if ok && len(content) == 1 {
+				contentItem, ok := content[0].(map[string]any)
+				if ok && contentItem["type"] == "output_text" && contentItem["text"] == "Earlier answer" {
+					foundOutputMessage = true
+				}
+			}
+		}
+	}
+	if !foundReasoning || !foundOutputMessage {
+		t.Fatalf("expected follow-up Responses input to preserve provider reasoning/message metadata, got %#v", input)
 	}
 }
 

@@ -420,11 +420,17 @@ func buildOpenAIResponseInputItems(transcript []map[string]any) (responses.Respo
 				return nil, fmt.Errorf("%w: transcript message %d: %v", ErrHistoryUnsupported, index, err)
 			}
 			if include {
-				items = append(items, responses.ResponseInputItemParamOfOutputMessage(
-					content,
-					messageID,
-					responses.ResponseOutputMessageStatusCompleted,
-				))
+				outputMessage := responses.ResponseOutputMessageParam{
+					Content: content,
+					ID:      openAIResponseOutputMessageID(message, messageID),
+					Status:  responses.ResponseOutputMessageStatusCompleted,
+				}
+				if phase := openAIResponseOutputMessagePhase(message); phase != "" {
+					outputMessage.Phase = responses.ResponseOutputMessagePhase(phase)
+				}
+				items = append(items, responses.ResponseInputItemUnionParam{
+					OfOutputMessage: &outputMessage,
+				})
 			}
 			toolCalls, includeToolCalls, err := normalizeProviderToolCalls(message["tool_calls"], role)
 			if err != nil {
@@ -602,6 +608,17 @@ func openAIResponseReasoningItemID(messageID string, reasoningIndex int, provide
 		return messageID + "_reasoning"
 	}
 	return fmt.Sprintf("%s_reasoning_%d", messageID, reasoningIndex)
+}
+
+func openAIResponseOutputMessageID(message map[string]any, fallbackMessageID string) string {
+	if providerMessageID := strings.TrimSpace(stringValue(message["provider_message_id"])); providerMessageID != "" {
+		return providerMessageID
+	}
+	return strings.TrimSpace(fallbackMessageID)
+}
+
+func openAIResponseOutputMessagePhase(message map[string]any) string {
+	return strings.TrimSpace(stringValue(message["provider_message_phase"]))
 }
 
 func buildOpenAIChatMessages(providerMessages []map[string]any) ([]openai.ChatCompletionMessageParamUnion, error) {
