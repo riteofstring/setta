@@ -35,6 +35,11 @@ type BuildTestRouteParams struct {
 	Version        string `json:"version"`
 }
 
+type BuildTestDownloadRequest struct {
+	ContentID string  `json:"contentId"`
+	Query     *string `json:"query,omitempty"`
+}
+
 type BuildTestExtraPathParams struct {
 	ThingID string `json:"thingId"`
 	Extra   string `json:"extra"`
@@ -326,6 +331,19 @@ func TestBuildBindingsRejectsInvalidEndpointPathParams(t *testing.T) {
 				ResponseType:    reflect.TypeOf(BuildTestResponse{}),
 			},
 			want: "GET endpoints cannot combine request and path params yet",
+		},
+		{
+			name: "GET request-backed path params must include every route field",
+			spec: EndpointSpec{
+				FunctionName:    "route_binary_download",
+				Method:          "GET",
+				RouteCollection: "GoHTTPRoutes",
+				RouteName:       "getThingByID",
+				RequestType:     reflect.TypeOf(BuildTestRequest{}),
+				ResponseType:    reflect.TypeOf(BuildTestResponse{}),
+				BinaryResponse:  true,
+			},
+			want: `request type BuildTestRequest is missing route param "thingId"`,
 		},
 	}
 
@@ -1522,9 +1540,8 @@ func TestFrontendRouteConstantImportsStayWithinExplicitBoundaries(t *testing.T) 
 	repoRoot := testRepoRoot(t)
 	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
 	allowedRouteConstantImports := map[string]map[string]struct{}{
-		"GoHTTPRoutes": {
-			"frontend/src/utils/generatedEndpoints.ts": {},
-		},
+		"GoHTTPRoutes":      {},
+		"GoRoutePrefixes":   {},
 		"GoWebsocketRoutes": {},
 	}
 	disallowedWithoutCaller := map[string]struct{}{
@@ -7193,6 +7210,7 @@ func renderFrontendBoundaryExceptionManifest(t *testing.T, repoRoot string) stri
 	trackedGeneratedRouteBindings := map[string]struct{}{
 		"GoHTTPRoutes":      {},
 		"GoRootRoutes":      {},
+		"GoRoutePrefixes":   {},
 		"GoWebsocketRoutes": {},
 	}
 

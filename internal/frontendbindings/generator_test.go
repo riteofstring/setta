@@ -172,7 +172,8 @@ func TestBuildBindingsRendersPathParamAwareEndpoints(t *testing.T) {
 
 	bindings, err := buildBindings([]RouteGroup{
 		{
-			ConstName: "GoHTTPRoutes",
+			ConstName:       "GoHTTPRoutes",
+			HelperConstName: "GoHTTPRouteHelpers",
 			Routes: []NamedRoute{
 				{
 					Name:     "getDeploymentThing",
@@ -211,9 +212,50 @@ func TestBuildBindingsRendersPathParamAwareEndpoints(t *testing.T) {
 
 	for _, snippet := range []string{
 		"export async function route_get_deployment_thing(deploymentName: string, version: string): Promise<ResponseDataAndStatus<gt.BuildTestResponse>> {",
-		"return await get(GoHTTPRoutes.getDeploymentThing, { deploymentName, version });",
+		"return await get(GoHTTPRouteHelpers.getDeploymentThing(deploymentName, version));",
 		"export async function route_save_deployment_thing(deploymentName: string, version: string, x: gt.BuildTestRequest): Promise<ResponseDataAndStatus<gt.BuildTestResponse>> {",
-		"return await post(GoHTTPRoutes.saveDeploymentThing, x, { deploymentName, version });",
+		"return await post(GoHTTPRouteHelpers.saveDeploymentThing(deploymentName, version), x);",
+	} {
+		if !strings.Contains(bindings.EndpointsTS, snippet) {
+			t.Fatalf("generated endpoints output missing %q:\n%s", snippet, bindings.EndpointsTS)
+		}
+	}
+}
+
+func TestBuildBindingsRendersRequestBackedGETPathParams(t *testing.T) {
+	t.Helper()
+
+	bindings, err := buildBindings([]RouteGroup{
+		{
+			ConstName:       "GoHTTPRoutes",
+			HelperConstName: "GoHTTPRouteHelpers",
+			Routes: []NamedRoute{
+				{
+					Name:     "binaryDownload",
+					Path:     "/binary/{contentId}",
+					EnumName: "BINARY_DOWNLOAD",
+				},
+			},
+		},
+	}, []EndpointSpec{
+		{
+			FunctionName:    "route_binary_download",
+			Method:          "GET",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "binaryDownload",
+			RequestType:     reflect.TypeOf(BuildTestDownloadRequest{}),
+			ResponseType:    reflect.TypeOf(BuildTestResponse{}),
+			BinaryResponse:  true,
+		},
+	}, nil, nil)
+	if err != nil {
+		t.Fatalf("buildBindings(...) error = %v", err)
+	}
+
+	for _, snippet := range []string{
+		"function omitGeneratedRouteParams<T extends object>(",
+		"export async function route_binary_download(x: gt.BuildTestDownloadRequest): Promise<ResponseDataAndStatus<gt.BuildTestResponse>> {",
+		`return await getBinary(GoHTTPRouteHelpers.binaryDownload(x.contentId), omitGeneratedRouteParams(x, ["contentId"]));`,
 	} {
 		if !strings.Contains(bindings.EndpointsTS, snippet) {
 			t.Fatalf("generated endpoints output missing %q:\n%s", snippet, bindings.EndpointsTS)

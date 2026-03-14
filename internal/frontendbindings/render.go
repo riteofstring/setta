@@ -83,11 +83,11 @@ var generatedEndpointsImportContract = endpointImportContract{
 		"GoHTTPRoutes": {},
 	},
 	ReservedValueSymbols: map[string]string{
-		"get":          "generated endpoints import",
-		"getBinary":    "generated endpoints import",
-		"post":         "generated endpoints import",
-		"GoHTTPRoutes": "generated endpoints import",
-		"gt":           "generated endpoints import",
+		"get":                "generated endpoints import",
+		"getBinary":          "generated endpoints import",
+		"post":               "generated endpoints import",
+		"GoHTTPRouteHelpers": "generated endpoints import",
+		"gt":                 "generated endpoints import",
 	},
 }
 
@@ -112,6 +112,10 @@ func buildBindings(
 	extraDeclarations []TypeDeclaration,
 ) (GeneratedBindings, error) {
 	if err := validateEndpointSpecs(routeGroups, endpointSpecs); err != nil {
+		return GeneratedBindings{}, err
+	}
+	routeCollections, err := buildRouteCollectionLookup(routeGroups)
+	if err != nil {
 		return GeneratedBindings{}, err
 	}
 
@@ -143,7 +147,11 @@ func buildBindings(
 			FunctionName:    spec.FunctionName,
 			FunctionParams:  functionParams,
 			ResponseTypeRef: tsTypeReference(spec.ResponseType),
-			CallExpression:  renderEndpointCallExpression(spec, addressParamNames),
+			CallExpression: renderEndpointCallExpression(
+				spec,
+				routeCollections[spec.RouteCollection][spec.RouteName],
+				addressParamNames,
+			),
 		})
 	}
 
@@ -230,22 +238,39 @@ func renderEndpointParamTypeExpr(converter *typeConverter, t reflect.Type) (stri
 	return converter.renderTypeExpr(t)
 }
 
-func renderEndpointCallExpression(spec EndpointSpec, addressParamNames []string) string {
-	routeRef := spec.RouteCollection + "." + spec.RouteName
-	addressParamsExpr := renderAddressParamsExpr(addressParamNames)
+func renderEndpointCallExpression(
+	spec EndpointSpec,
+	routePath string,
+	addressParamNames []string,
+) string {
+	routeParamNames := routePathParamNames(routePath)
+	routeArgExprs := slices.Clone(addressParamNames)
+	queryParamsExpr := ""
+	if len(routeArgExprs) == 0 && len(routeParamNames) > 0 && spec.RequestType != nil {
+		routeArgExprs = make([]string, 0, len(routeParamNames))
+		for _, routeParamName := range routeParamNames {
+			routeArgExprs = append(routeArgExprs, "x."+routeParamName)
+		}
+		queryParamsExpr = fmt.Sprintf(
+			"omitGeneratedRouteParams(x, %s)",
+			renderStringLiteralArray(routeParamNames),
+		)
+	}
+
+	routeRef := renderEndpointRouteCall(spec, routeArgExprs)
 
 	switch {
 	case spec.BinaryResponse:
-		if addressParamsExpr != "" {
-			return fmt.Sprintf("getBinary(%s, %s)", routeRef, addressParamsExpr)
+		if queryParamsExpr != "" {
+			return fmt.Sprintf("getBinary(%s, %s)", routeRef, queryParamsExpr)
 		}
 		if spec.RequestType != nil {
 			return fmt.Sprintf("getBinary(%s, x)", routeRef)
 		}
 		return fmt.Sprintf("getBinary(%s)", routeRef)
 	case spec.Method == "GET":
-		if addressParamsExpr != "" {
-			return fmt.Sprintf("get(%s, %s)", routeRef, addressParamsExpr)
+		if queryParamsExpr != "" {
+			return fmt.Sprintf("get(%s, %s)", routeRef, queryParamsExpr)
 		}
 		if spec.RequestType != nil {
 			return fmt.Sprintf("get(%s, x)", routeRef)
@@ -256,10 +281,29 @@ func renderEndpointCallExpression(spec EndpointSpec, addressParamNames []string)
 		if spec.RequestType != nil {
 			bodyExpr = "x"
 		}
-		if addressParamsExpr != "" {
-			return fmt.Sprintf("post(%s, %s, %s)", routeRef, bodyExpr, addressParamsExpr)
-		}
 		return fmt.Sprintf("post(%s, %s)", routeRef, bodyExpr)
+	}
+}
+
+func renderEndpointRouteCall(spec EndpointSpec, routeArgExprs []string) string {
+	helperCollection := endpointRouteHelperCollection(spec.RouteCollection)
+	if len(routeArgExprs) == 0 {
+		return fmt.Sprintf("%s.%s()", helperCollection, spec.RouteName)
+	}
+	return fmt.Sprintf(
+		"%s.%s(%s)",
+		helperCollection,
+		spec.RouteName,
+		strings.Join(routeArgExprs, ", "),
+	)
+}
+
+func endpointRouteHelperCollection(routeCollection string) string {
+	switch routeCollection {
+	case "GoHTTPRoutes":
+		return "GoHTTPRouteHelpers"
+	default:
+		return routeCollection
 	}
 }
 
@@ -268,6 +312,14 @@ func renderAddressParamsExpr(names []string) string {
 		return ""
 	}
 	return "{ " + strings.Join(names, ", ") + " }"
+}
+
+func renderStringLiteralArray(values []string) string {
+	quoted := make([]string, 0, len(values))
+	for _, value := range values {
+		quoted = append(quoted, fmt.Sprintf("%q", value))
+	}
+	return "[" + strings.Join(quoted, ", ") + "]"
 }
 
 func renderRouteHelperGroups(routeGroups []RouteGroup) ([]routeHelperGroupRenderData, error) {
@@ -437,6 +489,20 @@ func validateEndpointPathParams(spec EndpointSpec, routePath string) error {
 			"endpoint %s: GET endpoints cannot combine request and path params yet",
 			spec.FunctionName,
 		)
+	}
+	if spec.Method == "GET" && len(routeParamNames) > 0 && spec.PathParamsType == nil {
+		if spec.RequestType == nil {
+			return fmt.Errorf(
+				"endpoint %s: GET route %s.%s has path params but neither path params type nor request type",
+				spec.FunctionName,
+				spec.RouteCollection,
+				spec.RouteName,
+			)
+		}
+		if err := validateRequestTypeRouteParams(spec.RequestType, routeParamNames); err != nil {
+			return fmt.Errorf("endpoint %s: %w", spec.FunctionName, err)
+		}
+		return nil
 	}
 	if spec.PathParamsType == nil {
 		return nil
@@ -726,6 +792,12 @@ type endpointPathParamField struct {
 	Type reflect.Type
 }
 
+type endpointRequestField struct {
+	Name     string
+	Optional bool
+	Type     reflect.Type
+}
+
 func buildRouteCollectionLookup(routeGroups []RouteGroup) (map[string]map[string]string, error) {
 	collections := make(map[string]map[string]string, len(routeGroups))
 	exportedValueSymbols := make(map[string]string, len(generatedRoutesReservedValueSymbols)+len(routeGroups)*2)
@@ -860,6 +932,66 @@ func endpointPathParamFields(t reflect.Type) ([]endpointPathParamField, error) {
 		return nil, fmt.Errorf("path params type %s has no exported JSON fields", t.Name())
 	}
 	return fields, nil
+}
+
+func endpointRequestFields(t reflect.Type) ([]endpointRequestField, error) {
+	if t == nil {
+		return nil, nil
+	}
+	for t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	if t == nil || t.Kind() != reflect.Struct {
+		if t == nil {
+			return nil, fmt.Errorf("request type must be a named struct, got <nil>")
+		}
+		return nil, fmt.Errorf("request type must be a named struct, got %s", t.String())
+	}
+
+	fields := make([]endpointRequestField, 0, t.NumField())
+	for i := range t.NumField() {
+		field := t.Field(i)
+		if !field.IsExported() {
+			continue
+		}
+		name, optional, skip := jsonFieldName(field)
+		if skip {
+			continue
+		}
+		fields = append(fields, endpointRequestField{
+			Name:     name,
+			Optional: optional || field.Type.Kind() == reflect.Pointer,
+			Type:     field.Type,
+		})
+	}
+	if len(fields) == 0 {
+		return nil, fmt.Errorf("request type %s has no exported JSON fields", t.Name())
+	}
+	return fields, nil
+}
+
+func validateRequestTypeRouteParams(t reflect.Type, routeParamNames []string) error {
+	fields, err := endpointRequestFields(t)
+	if err != nil {
+		return err
+	}
+
+	fieldsByName := make(map[string]endpointRequestField, len(fields))
+	for _, field := range fields {
+		fieldsByName[field.Name] = field
+	}
+
+	typeName := frontendTypeName(t)
+	for _, routeParamName := range routeParamNames {
+		field, ok := fieldsByName[routeParamName]
+		if !ok {
+			return fmt.Errorf("request type %s is missing route param %q", typeName, routeParamName)
+		}
+		if field.Optional {
+			return fmt.Errorf("request type %s route param %q cannot be optional", typeName, routeParamName)
+		}
+	}
+	return nil
 }
 
 func routePathParamNames(routePath string) []string {

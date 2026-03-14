@@ -238,14 +238,18 @@ Current status:
   plus plugin backend dispatch, so active callers no longer need raw
   `RouteEnum...replace(...)` interpolation or handwritten
   `/api/plugins/{pluginId}...` path concatenation in non-test frontend code
+- `generatedEndpoints.ts` now also calls those canonical HTTP route helpers
+  instead of importing the broad `GoHTTPRoutes` constant bag directly, so the
+  endpoint wrapper layer shares the same helper-owned boundary as runtime
+  callers
 - support-layer frontend routing now uses generated Go route helpers for the
   API prefix, launcher-origin policy map, and fixed Setta API presets, so
   non-test runtime code no longer imports the broad legacy `RouteEnum` surface
 - the validation suite now also checks that direct websocket route-builder
   imports do not reappear in non-test frontend sources
 - the validation suite now also checks that direct generated route-constant
-  imports stay confined to `generatedEndpoints.ts`; active callers should use
-  generated helpers instead of importing broad route-constant bags
+  imports do not appear in non-test frontend sources; active callers should
+  use generated helpers instead of importing broad route-constant bags
 - the validation suite now also checks that non-test frontend runtime source
   does not import the legacy `RouteEnum`; callers should use narrower Go route
   groups/helpers or a documented explicit boundary instead
