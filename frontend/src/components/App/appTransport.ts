@@ -1,11 +1,1 @@
-import { buildBackendURL } from "utils/backendTransport";
-import { GoHTTPRouteHelpers } from "utils/generatedRoutes";
-
-export function buildAppBinaryDownloadUrl(
-  contentId: string,
-  shareSessionId: string | null,
-): string {
-  return buildBackendURL(GoHTTPRouteHelpers.binaryDownload(contentId), {
-    shareSessionId: shareSessionId ?? undefined,
-  });
-}
+export { buildBinaryDownloadUrl as buildAppBinaryDownloadUrl } from "utils/backendTransport";

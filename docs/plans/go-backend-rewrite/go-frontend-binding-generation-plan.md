@@ -292,11 +292,13 @@ Current status:
   flows through that same `backendOriginTransport` boundary, so realtime and
   terminal runtime callers no longer import `GoRootRouteHelpers` or
   `GoWebsocketRouteHelpers` directly
-- app binary-download transport now also flows through
-  `frontend/src/components/App/appTransport.ts`, so `AppRenderer` no longer
-  imports the low-level `endpointUtils` backend URL builder directly
-- shared backend URL construction for narrowed app/plugin transport callers
-  now also flows through `frontend/src/utils/backendTransport.ts`, so those
+- app binary-download and plugin backend-fetch route shaping now also flows
+  through `frontend/src/utils/backendTransport.ts`, with
+  `frontend/src/components/App/appTransport.ts` and
+  `frontend/src/plugins/transport.ts` reduced to boundary re-export/adjacent
+  helpers instead of importing `GoHTTPRouteHelpers` directly
+- shared backend URL construction for narrowed app/plugin transport callers now
+  also flows through `frontend/src/utils/backendTransport.ts`, so those
   wrappers no longer import `endpointUtils` directly
 - shared backend/backend-origin URL assembly now also flows through
   `frontend/src/utils/transportUrlCore.ts`, so `endpointUtils` is reduced to
@@ -314,10 +316,9 @@ Current status:
   `requestTransport`
 - direct `generatedRoutes` helper-bag imports now stay confined to
   `generatedEndpoints.ts` plus the shared route/origin/policy utilities that
-  actually own those transport seams (`appTransport`, `plugins/transport`,
-  `websocketReceive`, terminal websocket URL construction, `c_addresses`,
-  `serverModeBoundaryPolicy`, and `settaApiPresets`) instead of widening ad hoc
-  through runtime callers
+  actually own those transport seams (`backendOriginTransport`,
+  `backendTransport`, `c_addresses`, `serverModeBoundaryPolicy`, and
+  `settaApiPresets`) instead of widening ad hoc through runtime callers
 - the validation suite now also checks that those direct generated-route helper
   imports stay inside that explicit boundary and snapshots the remaining
   nongenerated helper-bag import inventory in the focused frontend boundary

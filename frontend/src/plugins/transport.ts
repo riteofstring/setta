@@ -2,8 +2,7 @@ import {
   buildBackendOriginURL,
   buildListenerWebsocketUrl,
 } from "utils/backendOriginTransport";
-import { buildBackendURL } from "utils/backendTransport";
-import { GoHTTPRouteHelpers } from "utils/generatedRoutes";
+export { buildPluginBackendFetchUrl } from "utils/backendTransport";
 
 export type BuildPluginListenerWebsocketUrlOptions = {
   listenerId: string;
@@ -22,15 +21,6 @@ export function buildPluginAssetUrl(url: string | null): string | null {
     return buildBackendOriginURL(url);
   }
   return url;
-}
-
-export function buildPluginBackendFetchUrl(
-  pluginId: string,
-  routePath: string,
-): string {
-  return buildBackendURL(
-    GoHTTPRouteHelpers.pluginsBackendRoute(pluginId, routePath),
-  );
 }
 
 export function buildPluginListenerWebsocketUrl({
