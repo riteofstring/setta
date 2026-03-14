@@ -1,5 +1,5 @@
 import type { Connection } from "forks/xyflow/core/types";
-import { useLocalStorage } from "state/stores/uiPreferenceStores";
+import { useLocalStorage } from "state/definitions";
 import {
   createAgenticEdgeFromConnection,
   isValidAgenticEdgeConnection,

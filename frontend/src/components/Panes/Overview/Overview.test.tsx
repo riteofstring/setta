@@ -8,10 +8,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import {
   useAIStore,
+  useLocalStorage,
   useProjectState,
+  useSettings,
   useShareSession,
 } from "state/definitions";
-import { useLocalStorage, useSettings } from "state/stores/uiPreferenceStores";
 import { resetProjectStores } from "state/utils";
 import {
   APP_MENU_Z_INDEX_CLASS_NAME,
