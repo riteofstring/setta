@@ -45,6 +45,8 @@ const (
 	outputKeyGateInputEdgeIDs          = "gateInputEdgeIdsBySectionId"
 	outputKeyGateStatuses              = "gateStatusBySectionId"
 	outputKeyReachedEndSectionIDs      = "reachedEndSectionIds"
+	outputKeySignalEvents              = "signalEvents"
+	outputKeyProcessedSignalEventIDs   = "processedSignalEventIds"
 	outputKeyFailureSummary            = "failureSummary"
 	outputKeyMachineStateCleared       = "machineStateCleared"
 	outputKeyMachineStateClearedAt     = "machineStateClearedAt"
@@ -99,6 +101,8 @@ type Runtime struct {
 	timeNow               func() time.Time
 
 	mu sync.Mutex
+
+	nextSignalEventOrdinal int
 }
 
 type graph struct {
@@ -127,6 +131,14 @@ type graphSection struct {
 	AgentProfileID *string                            `json:"agentProfileId,omitempty"`
 	PermissionMode *string                            `json:"permissionMode,omitempty"`
 	SearchEnabled  *bool                              `json:"searchEnabled,omitempty"`
+}
+
+type resolvedSignalReportContext struct {
+	parentRun             agentruns.Run
+	childRun              agentruns.Run
+	graph                 graph
+	sourceSectionID       string
+	sourceActivationCount int
 }
 
 func NewRuntime(options RuntimeOptions) (*Runtime, error) {
@@ -367,6 +379,121 @@ func (r *Runtime) ResetMachine(
 	return &cloned, nil
 }
 
+func (r *Runtime) ReportSignal(
+	projectConfigID string,
+	childRunID *string,
+	machineRunID *string,
+	sectionID *string,
+	signalName string,
+	payload map[string]any,
+	shareSessionID *string,
+) (map[string]any, error) {
+	if r == nil {
+		return nil, ErrRuntimeUnavailable
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	normalizedProjectID := strings.TrimSpace(projectConfigID)
+	normalizedSignalName := strings.TrimSpace(signalName)
+	if normalizedProjectID == "" {
+		return nil, fmt.Errorf("%w: projectConfigId is required", ErrInvalidStateMachineInput)
+	}
+	if normalizedSignalName == "" {
+		return nil, fmt.Errorf("%w: signalName is required", ErrInvalidStateMachineInput)
+	}
+
+	resolved, err := r.resolveSignalReportContext(
+		normalizedProjectID,
+		normalizeOptionalString(childRunID),
+		normalizeOptionalString(machineRunID),
+		normalizeOptionalString(sectionID),
+		normalizeOptionalString(shareSessionID),
+	)
+	if err != nil {
+		return nil, err
+	}
+	if resolved.parentRun.Status != agentruns.RunStatusRunning {
+		return nil, fmt.Errorf("state machine run %s is not running and cannot accept signals", resolved.parentRun.ID)
+	}
+
+	r.ensureRunOutputsInitialized(&resolved.parentRun, resolved.graph)
+	signalEvent := map[string]any{
+		"signalEventId":         r.nextSignalEventID(),
+		"signalName":            normalizedSignalName,
+		"payload":               cloneAnyMap(payload),
+		"machineRunId":          resolved.parentRun.ID,
+		"childRunId":            resolved.childRun.ID,
+		"sourceSectionId":       resolved.sourceSectionID,
+		"sourceActivationCount": resolved.sourceActivationCount,
+		"reportedAt":            r.timeNow().UTC().UnixMilli(),
+	}
+	appendSignalEvent(&resolved.parentRun, signalEvent)
+	r.appendEvent(&resolved.parentRun, "signal_reported", map[string]any{
+		"signalEventId":         signalEvent["signalEventId"],
+		"signalName":            normalizedSignalName,
+		"machineRunId":          resolved.parentRun.ID,
+		"childRunId":            resolved.childRun.ID,
+		"sourceSectionId":       resolved.sourceSectionID,
+		"sourceActivationCount": resolved.sourceActivationCount,
+	})
+
+	projectRuntime, err := r.projectRuntime(normalizeOptionalString(shareSessionID))
+	if err != nil {
+		return nil, err
+	}
+	matchingEdges := make([]projectstate.StateMachineEdge, 0)
+	for _, edge := range r.outgoingEdges(resolved.graph, resolved.sourceSectionID) {
+		if !edgeMatchesSignalEvent(edge, signalEvent) {
+			continue
+		}
+		if !matchesSourceActivationCountCondition(edge, resolved.sourceActivationCount) {
+			continue
+		}
+		matchingEdges = append(matchingEdges, edge)
+	}
+	if len(matchingEdges) > 0 {
+		r.appendEvent(&resolved.parentRun, "signal_edges_activated", map[string]any{
+			"signalEventId":   signalEvent["signalEventId"],
+			"signalName":      normalizedSignalName,
+			"edgeIds":         edgeIDs(matchingEdges),
+			"sourceSectionId": resolved.sourceSectionID,
+		})
+		actionResults, err := r.activateEdges(
+			projectRuntime,
+			&resolved.parentRun,
+			resolved.graph,
+			matchingEdges,
+			normalizedProjectID,
+			normalizeOptionalString(shareSessionID),
+		)
+		if err != nil {
+			return nil, err
+		}
+		if len(actionResults) > 0 {
+			existing := outputListOfMaps(resolved.parentRun, outputKeyDispatchedEdgeActions)
+			resolved.parentRun.Outputs[outputKeyDispatchedEdgeActions] = append(existing, actionResults...)
+		}
+	}
+	markSignalEventProcessed(&resolved.parentRun, signalEvent)
+	r.incrementSourceActivationCount(&resolved.parentRun, resolved.sourceSectionID)
+	r.refreshOutputs(&resolved.parentRun, resolved.graph)
+	if err := r.runs.Save(resolved.parentRun); err != nil {
+		return nil, err
+	}
+
+	return map[string]any{
+		"status":                "ok",
+		"signalEventId":         signalEvent["signalEventId"],
+		"machineRunId":          resolved.parentRun.ID,
+		"childRunId":            resolved.childRun.ID,
+		"sourceSectionId":       resolved.sourceSectionID,
+		"signalName":            normalizedSignalName,
+		"sourceActivationCount": resolved.sourceActivationCount,
+	}, nil
+}
+
 func (r *Runtime) HandleTerminalChildRunUpdate(childRun agentruns.Run) (*agentruns.Run, error) {
 	if childRun.Status != agentruns.RunStatusCompleted &&
 		childRun.Status != agentruns.RunStatusFailed &&
@@ -510,6 +637,95 @@ func (r *Runtime) loadLatestRunIncludingCleared(projectConfigID string, machineG
 	})
 	latest := matchingRuns[0].Clone()
 	return &latest, nil
+}
+
+func (r *Runtime) resolveSignalReportContext(
+	projectConfigID string,
+	childRunID *string,
+	machineRunID *string,
+	sectionID *string,
+	shareSessionID *string,
+) (resolvedSignalReportContext, error) {
+	normalizedChildRunID := derefOptionalString(childRunID)
+	if normalizedChildRunID == "" {
+		return resolvedSignalReportContext{}, fmt.Errorf("report_state_machine_signal requires an active child run")
+	}
+	childRun, err := r.runs.Load(normalizedChildRunID)
+	if err != nil {
+		return resolvedSignalReportContext{}, err
+	}
+
+	parentRunID := runInputString(childRun, inputKeyStateMachineRunID)
+	if parentRunID == "" {
+		return resolvedSignalReportContext{}, fmt.Errorf("report_state_machine_signal requires an active child run")
+	}
+	if expectedParentRunID := derefOptionalString(machineRunID); expectedParentRunID != "" && expectedParentRunID != parentRunID {
+		return resolvedSignalReportContext{}, fmt.Errorf(
+			"machineRunId %s does not match child run %s parent %s",
+			expectedParentRunID,
+			childRun.ID,
+			parentRunID,
+		)
+	}
+
+	parentRun, err := r.runs.Load(parentRunID)
+	if err != nil {
+		return resolvedSignalReportContext{}, err
+	}
+	if !runInputsStringEquals(parentRun, "runType", RunTypeStateMachine) {
+		return resolvedSignalReportContext{}, fmt.Errorf("run %s is not a state machine run", parentRun.ID)
+	}
+	if !runMatchesShareSessionID(parentRun, shareSessionID) {
+		return resolvedSignalReportContext{}, fmt.Errorf("state machine run %s does not belong to the active share session", parentRun.ID)
+	}
+	if runInputString(parentRun, inputKeyProjectConfigID) != projectConfigID {
+		return resolvedSignalReportContext{}, fmt.Errorf(
+			"state machine run %s does not belong to project config %s",
+			parentRun.ID,
+			projectConfigID,
+		)
+	}
+
+	graph, err := decodeGraph(parentRun.Inputs[graphSnapshotInputKey])
+	if err != nil {
+		return resolvedSignalReportContext{}, err
+	}
+	resolvedSectionID := runInputString(childRun, inputKeyStateMachineTargetSection)
+	if normalizedSectionID := derefOptionalString(sectionID); normalizedSectionID != "" {
+		if resolvedSectionID != "" && normalizedSectionID != resolvedSectionID {
+			return resolvedSignalReportContext{}, fmt.Errorf(
+				"sectionId %s does not match child run %s section %s",
+				normalizedSectionID,
+				childRun.ID,
+				resolvedSectionID,
+			)
+		}
+		resolvedSectionID = normalizedSectionID
+	}
+	if resolvedSectionID == "" {
+		return resolvedSignalReportContext{}, fmt.Errorf(
+			"report_state_machine_signal requires sectionId when no active chat section is available",
+		)
+	}
+
+	sourceSection, ok := graph.Sections[resolvedSectionID]
+	if !ok {
+		return resolvedSignalReportContext{}, fmt.Errorf(
+			"sectionId %s was not found in the workflow graph snapshot",
+			resolvedSectionID,
+		)
+	}
+	if sourceSection.Kind != graphSectionKindChat {
+		return resolvedSignalReportContext{}, fmt.Errorf("sectionId %s is not a workflow chat section", resolvedSectionID)
+	}
+
+	return resolvedSignalReportContext{
+		parentRun:             parentRun,
+		childRun:              childRun,
+		graph:                 graph,
+		sourceSectionID:       resolvedSectionID,
+		sourceActivationCount: r.sourceActivationCount(parentRun, resolvedSectionID),
+	}, nil
 }
 
 func (r *Runtime) resolveGraph(
@@ -1186,6 +1402,8 @@ func (r *Runtime) ensureRunOutputsInitialized(run *agentruns.Run, graph graph) {
 		outputKeyGateInputEdgeIDs:          map[string]any{},
 		outputKeyGateStatuses:              map[string]any{},
 		outputKeyReachedEndSectionIDs:      []any{},
+		outputKeySignalEvents:              []any{},
+		outputKeyProcessedSignalEventIDs:   []any{},
 		outputKeyFailureSummary:            nil,
 		outputKeyMachineStateCleared:       false,
 		outputKeyMachineStateClearedAt:     nil,
@@ -1260,6 +1478,8 @@ func (r *Runtime) clearMachineRunState(run *agentruns.Run) {
 	run.Outputs[outputKeyGateInputEdgeIDs] = map[string]any{}
 	run.Outputs[outputKeyGateStatuses] = map[string]any{}
 	run.Outputs[outputKeyReachedEndSectionIDs] = []any{}
+	run.Outputs[outputKeySignalEvents] = []any{}
+	run.Outputs[outputKeyProcessedSignalEventIDs] = []any{}
 	run.Outputs[outputKeyFailureSummary] = nil
 	run.Outputs[outputKeyMachineStateCleared] = true
 	run.Outputs[outputKeyMachineStateClearedAt] = r.timeNow().UTC().Format(time.RFC3339Nano)
@@ -1404,6 +1624,21 @@ func clearOwnedChatBinding(run *agentruns.Run, sectionID string) {
 	run.Outputs[outputKeyOwnedChatBindings] = stringMapToAny(bindings)
 }
 
+func appendSignalEvent(run *agentruns.Run, signalEvent map[string]any) {
+	signalEvents := outputListOfMaps(*run, outputKeySignalEvents)
+	signalEvents = append(signalEvents, cloneAnyMap(signalEvent))
+	run.Outputs[outputKeySignalEvents] = listOfMapsToAny(signalEvents)
+}
+
+func markSignalEventProcessed(run *agentruns.Run, signalEvent map[string]any) {
+	processed := outputStringList(*run, outputKeyProcessedSignalEventIDs)
+	signalEventID := signalEventString(signalEvent, "signalEventId")
+	if signalEventID == "" || containsString(processed, signalEventID) {
+		return
+	}
+	run.Outputs[outputKeyProcessedSignalEventIDs] = append(stringSliceToAny(processed), signalEventID)
+}
+
 func setGateStatus(run *agentruns.Run, sectionID string, status string) {
 	statuses := rawOutputMap(*run, outputKeyGateStatuses)
 	statuses[sectionID] = status
@@ -1422,6 +1657,28 @@ func edgeMatchesChildTerminalRun(edge projectstate.StateMachineEdge, childRun ag
 	default:
 		return false
 	}
+}
+
+func edgeMatchesSignalEvent(edge projectstate.StateMachineEdge, signalEvent map[string]any) bool {
+	if edge.SourceFilter == nil || edge.SourceFilter.Type != projectstate.StateMachineSourceFilterTypeSignal {
+		return false
+	}
+	if derefOptionalString(edge.SourceFilter.SignalName) != signalEventString(signalEvent, "signalName") {
+		return false
+	}
+	if edge.SourceFilter.PayloadField == nil || strings.TrimSpace(*edge.SourceFilter.PayloadField) == "" {
+		return true
+	}
+	payload := signalEventPayload(signalEvent)
+	rawValue, ok := payload[strings.TrimSpace(*edge.SourceFilter.PayloadField)]
+	if !ok {
+		return false
+	}
+	value, ok := rawValue.(string)
+	if !ok {
+		return false
+	}
+	return value == derefOptionalString(edge.SourceFilter.Equals)
 }
 
 func matchesSourceActivationCountCondition(edge projectstate.StateMachineEdge, sourceActivationCount int) bool {
@@ -1607,6 +1864,14 @@ func outputListOfMaps(run agentruns.Run, key string) []map[string]any {
 	return result
 }
 
+func listOfMapsToAny(input []map[string]any) []any {
+	result := make([]any, 0, len(input))
+	for _, value := range input {
+		result = append(result, cloneAnyMap(value))
+	}
+	return result
+}
+
 func intMapToAny(input map[string]int) map[string]any {
 	result := make(map[string]any, len(input))
 	for key, value := range input {
@@ -1779,4 +2044,39 @@ func containsString(values []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func signalEventString(signalEvent map[string]any, key string) string {
+	if signalEvent == nil {
+		return ""
+	}
+	rawValue, ok := signalEvent[key]
+	if !ok {
+		return ""
+	}
+	value, ok := rawValue.(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(value)
+}
+
+func signalEventPayload(signalEvent map[string]any) map[string]any {
+	if signalEvent == nil {
+		return map[string]any{}
+	}
+	rawValue, ok := signalEvent["payload"]
+	if !ok {
+		return map[string]any{}
+	}
+	payload, ok := rawValue.(map[string]any)
+	if !ok {
+		return map[string]any{}
+	}
+	return cloneAnyMap(payload)
+}
+
+func (r *Runtime) nextSignalEventID() string {
+	r.nextSignalEventOrdinal++
+	return fmt.Sprintf("signal-event-%d", r.nextSignalEventOrdinal)
 }

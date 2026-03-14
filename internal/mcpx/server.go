@@ -51,6 +51,7 @@ type Server struct {
 	agentProfiles        agentProfileProvider
 	agentRuns            agentRunProvider
 	uiSettingReveals     uisettings.RevealService
+	stateMachineRuns     stateMachineRunProvider
 	server               *sdkmcp.Server
 	handler              http.Handler
 	agenticContextMu     sync.RWMutex
@@ -78,6 +79,7 @@ type ServerOptions struct {
 	AgentProfiles                  agentProfileProvider
 	AgentRuns                      agentRunProvider
 	UISettingReveals               uisettings.RevealService
+	StateMachineRuns               stateMachineRunProvider
 }
 
 type toolDefinition struct {
@@ -185,6 +187,19 @@ type agentRunProvider interface {
 	RunSubAgent(ctx context.Context, profile agentprofiles.Profile, inputs map[string]any) (agentruns.Run, error)
 }
 
+type stateMachineRunProvider interface {
+	Disabled() bool
+	ReportSignal(
+		projectConfigID string,
+		childRunID *string,
+		machineRunID *string,
+		sectionID *string,
+		signalName string,
+		payload map[string]any,
+		shareSessionID *string,
+	) (map[string]any, error)
+}
+
 type pluginMutationProvider interface {
 	Rescan() (plugins.DiscoverySnapshot, error)
 	Install(ctx context.Context, options plugins.InstallOptions) (plugins.PluginInstallResult, error)
@@ -280,6 +295,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		agentProfiles:        opts.AgentProfiles,
 		agentRuns:            opts.AgentRuns,
 		uiSettingReveals:     opts.UISettingReveals,
+		stateMachineRuns:     opts.StateMachineRuns,
 		server:               server,
 		agenticContextBySess: map[string]AgenticContext{},
 	}
@@ -311,6 +327,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		opts.SectionNames,
 		opts.CallableSignatures,
 		opts.LSPDiagnostics,
+		opts.StateMachineRuns,
 	) {
 		registered, err := registry.Register(definition.Spec)
 		if err != nil {
@@ -2904,6 +2921,7 @@ func defaultToolDefinitions(
 	sectionNames sectionNameProvider,
 	callableSignatures projectstate.CallableSignatureResolver,
 	lspDiagnostics lspDiagnosticsProvider,
+	stateMachineRuns stateMachineRunProvider,
 ) []toolDefinition {
 	definitions := []toolDefinition{
 		{
@@ -3341,6 +3359,68 @@ func defaultToolDefinitions(
 					},
 				},
 				"required": []string{"completionIntent", "requiresVerification", "checkResults", "verificationStatus"},
+			},
+		},
+		{
+			Spec: tools.Spec{
+				Name:        "report_state_machine_signal",
+				Description: "Report a structured signal from the active child workflow chat into its parent state machine.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "agentic",
+					SearchTags:     []string{"workflow", "state", "machine", "signal", "chat"},
+				},
+				Handler: newReportStateMachineSignalHandler(stateMachineRuns),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"signalName": map[string]any{
+						"type":        "string",
+						"description": "Structured signal name reported from the active workflow child chat.",
+					},
+					"payload": map[string]any{
+						"type":        "object",
+						"description": "Optional structured signal payload used by workflow edge filters.",
+					},
+					"machineRunId": map[string]any{
+						"type":        "string",
+						"description": "Optional workflow parent run id to assert while reporting the signal.",
+					},
+					"sectionId": map[string]any{
+						"type":        "string",
+						"description": "Optional workflow chat section id when no active chat section is available in the agentic context.",
+					},
+				},
+				"required": []string{"signalName"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+					"signalEventId": map[string]any{
+						"type": "string",
+					},
+					"machineRunId": map[string]any{
+						"type": "string",
+					},
+					"childRunId": map[string]any{
+						"type": "string",
+					},
+					"sourceSectionId": map[string]any{
+						"type": "string",
+					},
+					"signalName": map[string]any{
+						"type": "string",
+					},
+					"sourceActivationCount": map[string]any{
+						"type": "integer",
+					},
+				},
+				"required": []string{"status", "signalEventId", "machineRunId", "childRunId", "sourceSectionId", "signalName", "sourceActivationCount"},
 			},
 		},
 		{

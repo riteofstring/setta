@@ -1295,6 +1295,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			AgentProfiles:                  agentProfileStore,
 			AgentRuns:                      agentRunService,
 			UISettingReveals:               uiSettingRevealService,
+			StateMachineRuns:               stateMachineRuntime,
 		})
 		if err != nil {
 			_ = errors.Join(

@@ -318,19 +318,21 @@ func isToolAllowed(toolName string, allowlist *toolAllowlist, completionGuardEna
 }
 
 func buildToolRequestMeta(request agentruns.ExecutionRequest, toolName string) map[string]any {
-	if !strings.HasPrefix(mcpx.NormalizeToolName(toolName), mcpx.DefaultServerID+mcpx.ToolNameSeparator) {
+	normalizedToolName := mcpx.NormalizeToolName(toolName)
+	if !strings.HasPrefix(normalizedToolName, mcpx.DefaultServerID+mcpx.ToolNameSeparator) {
 		return nil
 	}
 	meta := map[string]any{
 		"projectConfigId": request.ProjectConfigID,
 	}
+	isWorkflowSignalTool := normalizedToolName == mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "report_state_machine_signal")
 	if trimmed := strings.TrimSpace(request.ChatID); trimmed != "" {
 		meta["chatId"] = trimmed
 	}
 	if trimmed := strings.TrimSpace(request.Run.ID); trimmed != "" {
 		meta["runId"] = trimmed
 	}
-	if request.SectionID != nil && strings.TrimSpace(*request.SectionID) != "" {
+	if !isWorkflowSignalTool && request.SectionID != nil && strings.TrimSpace(*request.SectionID) != "" {
 		meta["sectionId"] = strings.TrimSpace(*request.SectionID)
 	}
 	if affinity, ok := request.Inputs["frontendAffinityToken"].(string); ok {
@@ -339,6 +341,9 @@ func buildToolRequestMeta(request agentruns.ExecutionRequest, toolName string) m
 		}
 	}
 	if allowUnscoped, ok := request.Inputs["allowUnscoped"].(bool); ok && allowUnscoped {
+		meta["allowUnscoped"] = true
+	}
+	if isWorkflowSignalTool {
 		meta["allowUnscoped"] = true
 	}
 	return meta

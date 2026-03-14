@@ -144,8 +144,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 78 {
-		t.Fatalf("expected 78 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 79 {
+		t.Fatalf("expected 79 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -170,6 +170,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var listAgentProfilesTool *sdkmcp.Tool
 	var getAgentProfileTool *sdkmcp.Tool
 	var runAgentProfileTool *sdkmcp.Tool
+	var reportStateMachineSignalTool *sdkmcp.Tool
 	var installPluginTool *sdkmcp.Tool
 	var uninstallPluginTool *sdkmcp.Tool
 	var rescanPluginsTool *sdkmcp.Tool
@@ -276,6 +277,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "run_agent_profile" {
 			runAgentProfileTool = tool
+		}
+		if tool.Name == "report_state_machine_signal" {
+			reportStateMachineSignalTool = tool
 		}
 		if tool.Name == "install_plugin" {
 			installPluginTool = tool
@@ -439,6 +443,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"list_mcp_tools",
 		"read_file_range",
 		"report_completion_status",
+		"report_state_machine_signal",
 		"rescan_plugins",
 		"reveal_ui_setting",
 		"rollback_plugin",
@@ -553,6 +558,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if runAgentProfileTool == nil {
 		t.Fatal("expected run_agent_profile tool")
+	}
+	if reportStateMachineSignalTool == nil {
+		t.Fatal("expected report_state_machine_signal tool")
 	}
 	if installPluginTool == nil {
 		t.Fatal("expected install_plugin tool")
@@ -896,6 +904,13 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if paths, ok := runAgentProfileMeta["idPathsByType"]; ok && len(mustStructuredMap(t, paths)) != 0 {
 		t.Fatalf("expected run_agent_profile to have no id target paths, got %#v", paths)
 	}
+	reportStateMachineSignalMeta := mustStructuredMap(t, reportStateMachineSignalTool.Meta[toolMetaNamespace])
+	if reportStateMachineSignalMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for report_state_machine_signal, got %#v", reportStateMachineSignalMeta["accessType"])
+	}
+	if paths, ok := reportStateMachineSignalMeta["idPathsByType"]; ok && len(mustStructuredMap(t, paths)) != 0 {
+		t.Fatalf("expected report_state_machine_signal to have no id target paths, got %#v", paths)
+	}
 	installPluginMeta := mustStructuredMap(t, installPluginTool.Meta[toolMetaNamespace])
 	if installPluginMeta["accessType"] != string(tools.AccessTypeStructural) {
 		t.Fatalf("expected structural access type for install_plugin, got %#v", installPluginMeta["accessType"])
@@ -1215,8 +1230,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 78 {
-		t.Fatalf("expected 78 registered tool names, got %#v", listNames)
+	if len(listNames) != 79 {
+		t.Fatalf("expected 79 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{

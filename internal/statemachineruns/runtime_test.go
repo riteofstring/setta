@@ -11,29 +11,47 @@ import (
 )
 
 type recordingManagedChatStarter struct {
-	t        *testing.T
-	nextChat string
-	nextRun  string
+	chatIDs  []string
+	runIDs   []string
 	requests []managedchat.StartChatRequest
+	calls    int
 }
 
 func (s *recordingManagedChatStarter) StartChat(request managedchat.StartChatRequest) (managedchat.StartChatResult, error) {
 	s.requests = append(s.requests, request)
+	index := s.calls
+	s.calls++
+	chatID := s.nextChatID(index)
+	runID := s.nextRunID(index)
 	run := agentruns.NewRun(nil, map[string]any{
 		"runType":         managedchat.RunTypeManagedChat,
 		"projectConfigId": request.ProjectConfigID,
-		"chatId":          s.nextChat,
+		"chatId":          chatID,
 		"sectionId":       derefOptionalString(request.SectionID),
 		"engineConfigId":  request.EngineConfigID,
 	}, testNow())
-	run.ID = s.nextRun
+	run.ID = runID
 	if run.Inputs == nil {
 		run.Inputs = map[string]any{}
 	}
 	return managedchat.StartChatResult{
-		ChatID: s.nextChat,
+		ChatID: chatID,
 		Run:    run,
 	}, nil
+}
+
+func (s *recordingManagedChatStarter) nextChatID(index int) string {
+	if index >= 0 && index < len(s.chatIDs) && s.chatIDs[index] != "" {
+		return s.chatIDs[index]
+	}
+	return "chat-managed"
+}
+
+func (s *recordingManagedChatStarter) nextRunID(index int) string {
+	if index >= 0 && index < len(s.runIDs) && s.runIDs[index] != "" {
+		return s.runIDs[index]
+	}
+	return "child-run"
 }
 
 type recordingRunStopper struct {
@@ -206,6 +224,95 @@ func TestRuntimeResetMachineClearsOwnedChatBinding(t *testing.T) {
 	}
 }
 
+func TestRuntimeReportSignalActivatesMatchingSignalEdgesAndPersistsSignalState(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSignalRuntimeFixture(t)
+
+	started, err := fixture.runtime.StartRun("project-alpha", "workflow-signal", nil, nil)
+	if err != nil {
+		t.Fatalf("StartRun returned error: %v", err)
+	}
+
+	report, err := fixture.runtime.ReportSignal(
+		"project-alpha",
+		stringPointer("child-run-1"),
+		nil,
+		nil,
+		"merge_decision",
+		map[string]any{"decision": "retry"},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("ReportSignal returned error: %v", err)
+	}
+	if report["status"] != "ok" {
+		t.Fatalf("expected ok report status, got %#v", report)
+	}
+	if report["childRunId"] != "child-run-1" {
+		t.Fatalf("expected child-run-1 in signal report, got %#v", report)
+	}
+	if report["sourceSectionId"] != "chat-source" {
+		t.Fatalf("expected chat-source in signal report, got %#v", report)
+	}
+
+	latest, err := fixture.runtime.GetLatestRun("project-alpha", "workflow-signal", nil)
+	if err != nil {
+		t.Fatalf("GetLatestRun returned error: %v", err)
+	}
+	if latest == nil {
+		t.Fatal("expected latest workflow run after signal")
+	}
+	if got := outputStringList(*latest, outputKeyChildRunIDs); len(got) != 2 || got[0] != "child-run-1" || got[1] != "child-run-2" {
+		t.Fatalf("expected both child runs to be tracked, got %#v", got)
+	}
+	if got := outputStringList(*latest, outputKeyProcessedSignalEventIDs); len(got) != 1 || got[0] != report["signalEventId"] {
+		t.Fatalf("expected processed signal event id to persist, got %#v", got)
+	}
+	if got := outputIntMap(*latest, outputKeySourceActivationCounts); got["start-section"] != 1 || got["chat-source"] != 1 {
+		t.Fatalf("expected start/chat source activation counts to increment, got %#v", got)
+	}
+	if got := outputListOfMaps(*latest, outputKeySignalEvents); len(got) != 1 {
+		t.Fatalf("expected one persisted signal event, got %#v", got)
+	} else {
+		if got[0]["signalName"] != "merge_decision" {
+			t.Fatalf("expected merge_decision signal event, got %#v", got[0])
+		}
+		if payload, ok := got[0]["payload"].(map[string]any); !ok || payload["decision"] != "retry" {
+			t.Fatalf("expected retry payload, got %#v", got[0]["payload"])
+		}
+	}
+	if got := outputListOfMaps(*latest, outputKeyDispatchedEdgeActions); len(got) != 1 || got[0]["runId"] != "child-run-2" {
+		t.Fatalf("expected signal-dispatched child run child-run-2, got %#v", got)
+	}
+	if !hasEventType(*latest, "signal_reported") || !hasEventType(*latest, "signal_edges_activated") {
+		t.Fatalf("expected signal lifecycle events, got %#v", latest.Events)
+	}
+
+	dispatchedChildRun, err := fixture.runs.Load("child-run-2")
+	if err != nil {
+		t.Fatalf("load signal-dispatched child run: %v", err)
+	}
+	if runInputString(dispatchedChildRun, inputKeyStateMachineTargetSection) != "chat-target" {
+		t.Fatalf("expected signal-dispatched target section chat-target, got %#v", dispatchedChildRun.Inputs)
+	}
+	switch value := dispatchedChildRun.Inputs[inputKeyStateMachineSourceCount].(type) {
+	case int:
+		if value != 0 {
+			t.Fatalf("expected signal-dispatched child run source activation count 0, got %#v", dispatchedChildRun.Inputs)
+		}
+	case float64:
+		if value != 0 {
+			t.Fatalf("expected signal-dispatched child run source activation count 0, got %#v", dispatchedChildRun.Inputs)
+		}
+	default:
+		t.Fatalf("expected numeric signal-dispatched child run source activation count, got %#v", dispatchedChildRun.Inputs[inputKeyStateMachineSourceCount])
+	}
+	if latest.ID != started.ID {
+		t.Fatalf("expected signal report to update parent run %q, got %q", started.ID, latest.ID)
+	}
+}
+
 type runtimeFixture struct {
 	runtime        *Runtime
 	projectRuntime *projectstate.Runtime
@@ -250,9 +357,8 @@ func newRuntimeFixture(t *testing.T) runtimeFixture {
 	}
 
 	managedStarter := &recordingManagedChatStarter{
-		t:        t,
-		nextChat: "chat-managed-1",
-		nextRun:  "child-run-1",
+		chatIDs: []string{"chat-managed-1"},
+		runIDs:  []string{"child-run-1"},
 	}
 	managedStopper := &recordingRunStopper{}
 	runtime, err := NewRuntime(RuntimeOptions{
@@ -261,6 +367,72 @@ func newRuntimeFixture(t *testing.T) runtimeFixture {
 		ResolveProjectRuntime: func(shareSessionID *string) (*projectstate.Runtime, error) {
 			if shareSessionID != nil {
 				t.Fatalf("unexpected share session lookup in foundation test: %#v", shareSessionID)
+			}
+			return projectRuntime, nil
+		},
+		ManagedChats: managedStarter,
+		ManagedRuns:  managedStopper,
+		TimeNow:      testNow,
+	})
+	if err != nil {
+		t.Fatalf("NewRuntime returned error: %v", err)
+	}
+
+	return runtimeFixture{
+		runtime:        runtime,
+		projectRuntime: projectRuntime,
+		runs:           runs,
+		managedStarter: managedStarter,
+		managedStopper: managedStopper,
+	}
+}
+
+func newSignalRuntimeFixture(t *testing.T) runtimeFixture {
+	t.Helper()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": signalStateMachineRuntimeTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	runs, err := agentruns.NewRunStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new run store: %v", err)
+	}
+	engines, err := agentruns.NewEngineStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new engine store: %v", err)
+	}
+	if err := engines.Write([]agentruns.EngineConfig{{
+		ID:         "engine-managed",
+		Name:       "Managed Engine",
+		EngineType: agentruns.EngineTypeSettaLLM,
+	}}); err != nil {
+		t.Fatalf("write engine config: %v", err)
+	}
+
+	managedStarter := &recordingManagedChatStarter{
+		chatIDs: []string{"chat-managed-1", "chat-managed-2"},
+		runIDs:  []string{"child-run-1", "child-run-2"},
+	}
+	managedStopper := &recordingRunStopper{}
+	runtime, err := NewRuntime(RuntimeOptions{
+		Runs:    runs,
+		Engines: engines,
+		ResolveProjectRuntime: func(shareSessionID *string) (*projectstate.Runtime, error) {
+			if shareSessionID != nil {
+				t.Fatalf("unexpected share session lookup in signal foundation test: %#v", shareSessionID)
 			}
 			return projectRuntime, nil
 		},
@@ -374,6 +546,115 @@ func stateMachineRuntimeTestProject(t *testing.T) projectstate.Project {
 	}.Normalized()
 	if err != nil {
 		t.Fatalf("normalize workflow project: %v", err)
+	}
+	return project
+}
+
+func signalStateMachineRuntimeTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"start-section": "start-variant",
+			"chat-source":   "chat-source-variant",
+			"chat-target":   "chat-target-variant",
+			"end-section":   "end-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"start-section": {ID: "start-section", Name: "Start Section", VariantIDs: []string{"start-variant"}, DefaultVariantID: "start-variant"},
+			"chat-source":   {ID: "chat-source", Name: "Review Chat", VariantIDs: []string{"chat-source-variant"}, DefaultVariantID: "chat-source-variant"},
+			"chat-target":   {ID: "chat-target", Name: "Follow Up Chat", VariantIDs: []string{"chat-target-variant"}, DefaultVariantID: "chat-target-variant"},
+			"end-section":   {ID: "end-section", Name: "Done", VariantIDs: []string{"end-variant"}, DefaultVariantID: "end-variant"},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"start-variant":       {ID: "start-variant", ImplID: "start-impl"},
+			"chat-source-variant": {ID: "chat-source-variant", ImplID: "chat-source-impl"},
+			"chat-target-variant": {ID: "chat-target-variant", ImplID: "chat-target-impl"},
+			"end-variant":         {ID: "end-variant", ImplID: "end-impl"},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"start-impl": {ID: "start-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             "start-impl",
+				"type":           "StateMachineStart",
+				"machineGroupId": "workflow-signal",
+				"label":          "Kickoff",
+			})},
+			"chat-source-impl": {ID: "chat-source-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             "chat-source-impl",
+				"type":           "Chat",
+				"engineConfigId": "engine-managed",
+				"permissionMode": "minimal",
+				"searchEnabled":  true,
+				"chatId":         nil,
+			})},
+			"chat-target-impl": {ID: "chat-target-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             "chat-target-impl",
+				"type":           "Chat",
+				"engineConfigId": "engine-managed",
+				"permissionMode": "minimal",
+				"searchEnabled":  true,
+				"chatId":         nil,
+			})},
+			"end-impl": {ID: "end-impl", Kind: projectstate.SectionKind("frontend"), Payload: mustMarshalStateMachineRuntimeObject(t, map[string]any{
+				"id":             "end-impl",
+				"type":           "StateMachineEnd",
+				"machineGroupId": "workflow-signal",
+				"label":          "Done",
+			})},
+		},
+		StateMachineEdges: []projectstate.StateMachineEdge{
+			{
+				ID:              "edge-start-source-chat",
+				MachineGroupID:  "workflow-signal",
+				SourceSectionID: "start-section",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "chat-source",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				TargetAction: &projectstate.StateMachineTargetAction{
+					Type:           projectstate.StateMachineTargetActionTypeSendPrompt,
+					InlinePrompt:   stringPointer("Review the draft."),
+					ThreadStrategy: projectstate.StateMachineThreadStrategyNewThreadBeforeSend,
+				},
+			},
+			{
+				ID:              "edge-source-chat-retry",
+				MachineGroupID:  "workflow-signal",
+				SourceSectionID: "chat-source",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "chat-target",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				SourceFilter: &projectstate.StateMachineSourceFilter{
+					Type:         projectstate.StateMachineSourceFilterTypeSignal,
+					SignalName:   stringPointer("merge_decision"),
+					PayloadField: stringPointer("decision"),
+					Equals:       stringPointer("retry"),
+				},
+				TargetAction: &projectstate.StateMachineTargetAction{
+					Type:           projectstate.StateMachineTargetActionTypeSendPrompt,
+					InlinePrompt:   stringPointer("Try another approach."),
+					ThreadStrategy: projectstate.StateMachineThreadStrategyNewThreadBeforeSend,
+				},
+			},
+			{
+				ID:              "edge-source-chat-end",
+				MachineGroupID:  "workflow-signal",
+				SourceSectionID: "chat-source",
+				SourcePortID:    projectstate.StateMachineEdgeSourcePortID,
+				TargetSectionID: "end-section",
+				TargetPortID:    projectstate.StateMachineEdgeTargetPortID,
+				SourceFilter: &projectstate.StateMachineSourceFilter{
+					Type:         projectstate.StateMachineSourceFilterTypeSignal,
+					SignalName:   stringPointer("merge_decision"),
+					PayloadField: stringPointer("decision"),
+					Equals:       stringPointer("done"),
+				},
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize signal workflow project: %v", err)
 	}
 	return project
 }

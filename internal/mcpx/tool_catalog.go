@@ -54,6 +54,7 @@ func BuildToolPayloads() ([]sdkmcp.Tool, error) {
 		catalogSectionNameProvider{},
 		nil,
 		catalogLSPDiagnosticsProvider{},
+		nil,
 	)
 
 	payloads := make([]sdkmcp.Tool, 0, len(definitions))
