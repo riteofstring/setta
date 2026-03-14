@@ -634,3 +634,32 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/uiSettingReveal.ts`, now the largest
     remaining state-action hotspot, into narrower UI-setting reveal/search
     modules without changing the authored frontend behavior.
+
+## 2026-03-14 17:27:57 PDT
+
+- Slice completed: split `frontend/src/state/actions/uiSettingReveal.ts` into
+  focused reveal modules for execution/status helpers, mutation leases,
+  pane-activation state writes, and DOM anchor/highlight behavior
+- Key files touched:
+  - `frontend/src/state/actions/uiSettingReveal.ts`
+  - `frontend/src/state/actions/uiSettingRevealShared.ts`
+  - `frontend/src/state/actions/uiSettingRevealMutations.ts`
+  - `frontend/src/state/actions/uiSettingRevealActivation.ts`
+  - `frontend/src/state/actions/uiSettingRevealDom.ts`
+  - `frontend/src/state/actions/uiSettingRevealDom.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/uiSettingReveal.test.ts src/state/actions/uiSettingRevealDom.test.ts src/state/actions/websocketReceive.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/uiSettingReveal.ts src/state/actions/uiSettingRevealShared.ts src/state/actions/uiSettingRevealMutations.ts src/state/actions/uiSettingRevealActivation.ts src/state/actions/uiSettingRevealDom.ts src/state/actions/uiSettingRevealDom.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split and
+    did not change frontend rendering behavior.
+- Commit hash:
+  - `542e41cc9`
+- Next highest-value unblocked slice:
+  - Continue splitting `frontend/src/state/actions/sectionInfos.ts`, now the
+    largest remaining shared-state hotspot, into clearer read/effective-impl
+    helpers and top-level layout persistence ownership.
