@@ -396,8 +396,6 @@ class SessionRegistry:
         for idx, item in enumerate(lowered):
             if item == "-m" and idx + 1 < len(lowered) and lowered[idx + 1] == "setta":
                 return True
-            if item.startswith("setta.") or item.startswith("setta:"):
-                return True
         return False
 
     def _is_port_listening(self, process: psutil.Process, host: str, port: int) -> bool:

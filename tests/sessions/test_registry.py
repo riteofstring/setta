@@ -465,7 +465,7 @@ def test_load_sessions_tracks_suspicious_when_enabled() -> None:
                 sys.executable,
                 "-c",
                 "import time; time.sleep(60)",
-                "setta.server:app",
+                "setta-server",
             ],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,

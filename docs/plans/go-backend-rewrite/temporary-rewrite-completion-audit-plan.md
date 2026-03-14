@@ -304,6 +304,9 @@ This verdict holds under both of the only reasonable definitions:
   - `backend/setta/server.py`
   - retained Python listener endpoint discovery no longer imports this module
     just to enumerate listener-callable routes
+  - local session/process detection no longer treats `setta.server:app` as a
+    live Setta backend process shape; the active recognized server shapes are
+    the Go binary / wrapper paths instead
 - Public Python API exports are still active supported surfaces:
   - `backend/setta/api/__init__.py`
 - The retained listener client still owns websocket registration/bootstrap

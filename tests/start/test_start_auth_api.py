@@ -117,7 +117,7 @@ def auth_env(tmp_path):
             sys.executable,
             "-c",
             "import time; time.sleep(300)",
-            "setta.server:app",
+            "setta-server",
         ],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
