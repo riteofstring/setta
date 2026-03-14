@@ -141,6 +141,168 @@ func TestServiceStartAppendStopUploadsBufferedFileTranscription(t *testing.T) {
 	}
 }
 
+func TestServiceFileTranscriptionIgnoresAmbientOpenAIEnvWithoutConfiguredAPIKey(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "ambient-secret")
+
+	type providerRequest struct {
+		Authorization string
+	}
+	providerRequests := make(chan providerRequest, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		providerRequests <- providerRequest{
+			Authorization: r.Header.Get("Authorization"),
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{"text": "hello"})
+	}))
+	defer server.Close()
+
+	runtime := newTranscriptionSessionRuntime(t, map[string]llmconfig.Config{
+		"openai-file": {
+			ID:       "openai-file",
+			Model:    "whisper-1",
+			Provider: "openai",
+			BaseURL:  server.URL + "/v1",
+		},
+	}, map[string]string{})
+	service, err := NewService(ServiceOptions{
+		LLM:        runtime,
+		HTTPClient: server.Client(),
+		NewID: func() string {
+			return "session-no-auth"
+		},
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	started, err := service.StartSession(context.Background(), StartRequest{
+		ScopeID:         "scope-1",
+		ResolvedProfile: resolvedProfile("profile-1", transcriptionprofiles.TransportModeFile, runtime, "openai-file"),
+	})
+	if err != nil {
+		t.Fatalf("start session: %v", err)
+	}
+	if _, err := service.AppendAudio(context.Background(), AppendRequest{
+		ScopeID:      "scope-1",
+		SessionID:    started.SessionID,
+		AudioPCM16:   []byte{0x00, 0x00, 0x10, 0x00},
+		SampleRateHz: 24_000,
+		Channels:     1,
+	}); err != nil {
+		t.Fatalf("append audio: %v", err)
+	}
+	if _, err := service.StopSession(context.Background(), StopRequest{
+		ScopeID:   "scope-1",
+		SessionID: started.SessionID,
+	}); err != nil {
+		t.Fatalf("stop session: %v", err)
+	}
+
+	select {
+	case captured := <-providerRequests:
+		if captured.Authorization != "" {
+			t.Fatalf("expected no authorization header, got %q", captured.Authorization)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for provider request")
+	}
+}
+
+func TestServiceMapsOpenAIProviderMessageToTypedFailure(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{
+				"message": "Transcription request rejected by provider.",
+				"type":    "invalid_request_error",
+			},
+		})
+	}))
+	defer server.Close()
+
+	runtime := newTranscriptionSessionRuntime(t, map[string]llmconfig.Config{
+		"openai-file": {
+			ID:        "openai-file",
+			Model:     "whisper-1",
+			Provider:  "openai",
+			BaseURL:   server.URL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+	}, map[string]string{
+		"OPENAI_API_KEY": "secret-key",
+	})
+	service, err := NewService(ServiceOptions{
+		LLM:        runtime,
+		HTTPClient: server.Client(),
+		NewID: func() string {
+			return "session-provider-error"
+		},
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	started, err := service.StartSession(context.Background(), StartRequest{
+		ScopeID:         "scope-1",
+		ResolvedProfile: resolvedProfile("profile-1", transcriptionprofiles.TransportModeFile, runtime, "openai-file"),
+	})
+	if err != nil {
+		t.Fatalf("start session: %v", err)
+	}
+	if _, err := service.AppendAudio(context.Background(), AppendRequest{
+		ScopeID:      "scope-1",
+		SessionID:    started.SessionID,
+		AudioPCM16:   []byte{0x00, 0x00, 0x10, 0x00},
+		SampleRateHz: 24_000,
+		Channels:     1,
+	}); err != nil {
+		t.Fatalf("append audio: %v", err)
+	}
+
+	_, err = service.StopSession(context.Background(), StopRequest{
+		ScopeID:   "scope-1",
+		SessionID: started.SessionID,
+	})
+	if !errors.Is(err, ErrProviderFailure) {
+		t.Fatalf("expected provider failure, got %v", err)
+	}
+	if err.Error() != "Transcription request rejected by provider." {
+		t.Fatalf("unexpected provider error %q", err.Error())
+	}
+}
+
+func TestServiceStartRejectsInvalidTranscriptionBaseURL(t *testing.T) {
+	t.Parallel()
+
+	runtime := newTranscriptionSessionRuntime(t, map[string]llmconfig.Config{
+		"openai-file": {
+			ID:       "openai-file",
+			Model:    "whisper-1",
+			Provider: "openai",
+			BaseURL:  "://bad-url",
+		},
+	}, map[string]string{})
+	service, err := NewService(ServiceOptions{LLM: runtime})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	_, err = service.StartSession(context.Background(), StartRequest{
+		ScopeID:         "scope-1",
+		ResolvedProfile: resolvedProfile("profile-1", transcriptionprofiles.TransportModeFile, runtime, "openai-file"),
+	})
+	if !errors.Is(err, ErrInvalidRequest) {
+		t.Fatalf("expected invalid request, got %v", err)
+	}
+	if err.Error() != "Transcription config is missing or invalid for this transcription profile." {
+		t.Fatalf("unexpected error message %q", err.Error())
+	}
+}
+
 func TestServiceAutoProfilesResolveToFileMode(t *testing.T) {
 	t.Parallel()
 

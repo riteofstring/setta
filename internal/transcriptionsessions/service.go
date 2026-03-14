@@ -10,25 +10,23 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
-	"net/url"
 	"strings"
 	"sync"
 	"time"
 
+	openai "github.com/openai/openai-go/v3"
 	"setta/internal/llmconfig"
 	"setta/internal/transcriptionprofiles"
 )
 
 const (
-	DefaultSessionTTL            = 10 * time.Minute
-	DefaultMaxPendingPCMBytes    = 25 * 1024 * 1024
-	DefaultAppendPCMMaxBytes     = 10 * 1024 * 1024
-	defaultOpenAIBaseURL         = "https://api.openai.com/v1"
-	defaultProviderErrorMessage  = "Provider transcription failed."
-	maxProviderResponseBodyBytes = 1 << 20
-	maxProviderErrorBodyBytes    = 4096
+	DefaultSessionTTL           = 10 * time.Minute
+	DefaultMaxPendingPCMBytes   = 25 * 1024 * 1024
+	DefaultAppendPCMMaxBytes    = 10 * 1024 * 1024
+	defaultOpenAIBaseURL        = "https://api.openai.com/v1"
+	defaultProviderErrorMessage = "Provider transcription failed."
+	maxProviderErrorBodyBytes   = 4096
 )
 
 const (
@@ -125,12 +123,10 @@ type fileEngine struct {
 }
 
 type fileUploader struct {
-	httpClient *http.Client
-	endpoint   string
-	apiKey     string
-	model      string
-	language   *string
-	fields     map[string]string
+	client   openai.Client
+	model    string
+	language *string
+	fields   map[string]string
 }
 
 type serviceError struct {
@@ -592,25 +588,19 @@ func buildFileUploader(httpClient *http.Client, config llmconfig.Config, apiKeys
 			"Transcription config is missing or invalid for this transcription profile.",
 		)
 	}
-	apiKey, err := resolveAPIKey(apiKeys, config.APIKeyEnv)
-	if err != nil {
-		return fileUploader{}, err
-	}
-	endpoint, err := resolveTranscriptionEndpoint(config)
-	if err != nil {
-		return fileUploader{}, err
-	}
 	fields, err := encodeAdditionalFields(config.OtherParams)
 	if err != nil {
 		return fileUploader{}, err
 	}
+	client, err := buildOpenAITranscriptionClient(httpClient, config, apiKeys)
+	if err != nil {
+		return fileUploader{}, err
+	}
 	return fileUploader{
-		httpClient: httpClient,
-		endpoint:   endpoint,
-		apiKey:     apiKey,
-		model:      model,
-		language:   cloneStringPointer(language),
-		fields:     fields,
+		client:   client,
+		model:    model,
+		language: cloneStringPointer(language),
+		fields:   fields,
 	}, nil
 }
 
@@ -618,60 +608,28 @@ func (u fileUploader) Upload(ctx context.Context, wavBytes []byte) (string, erro
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-	if err := writer.WriteField("model", u.model); err != nil {
-		return "", newServiceError(ErrProviderFailure, defaultProviderErrorMessage)
-	}
-	for key, value := range u.fields {
-		if err := writer.WriteField(key, value); err != nil {
-			return "", newServiceError(ErrProviderFailure, defaultProviderErrorMessage)
-		}
+	params := openai.AudioTranscriptionNewParams{
+		File:  openai.File(bytes.NewReader(wavBytes), "dictation-window.wav", "audio/wav"),
+		Model: openai.AudioModel(u.model),
 	}
 	if u.language != nil && strings.TrimSpace(*u.language) != "" {
-		if err := writer.WriteField("language", strings.TrimSpace(*u.language)); err != nil {
-			return "", newServiceError(ErrProviderFailure, defaultProviderErrorMessage)
+		params.Language = openai.String(strings.TrimSpace(*u.language))
+	}
+	if len(u.fields) > 0 {
+		extras := make(map[string]any, len(u.fields))
+		for key, value := range u.fields {
+			extras[key] = value
 		}
-	}
-	fileWriter, err := writer.CreateFormFile("file", "dictation-window.wav")
-	if err != nil {
-		return "", newServiceError(ErrProviderFailure, defaultProviderErrorMessage)
-	}
-	if _, err := fileWriter.Write(wavBytes); err != nil {
-		return "", newServiceError(ErrProviderFailure, defaultProviderErrorMessage)
-	}
-	if err := writer.Close(); err != nil {
-		return "", newServiceError(ErrProviderFailure, defaultProviderErrorMessage)
+		params.SetExtraFields(extras)
 	}
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, u.endpoint, body)
+	response, err := u.client.Audio.Transcriptions.New(ctx, params)
 	if err != nil {
+		return "", wrapOpenAITranscriptionProviderError(err)
+	}
+	text := strings.TrimSpace(response.Text)
+	if text == "" {
 		return "", newServiceError(ErrProviderFailure, defaultProviderErrorMessage)
-	}
-	request.Header.Set("Content-Type", writer.FormDataContentType())
-	request.Header.Set("Accept", "application/json")
-	if strings.TrimSpace(u.apiKey) != "" {
-		request.Header.Set("Authorization", "Bearer "+strings.TrimSpace(u.apiKey))
-	}
-
-	response, err := u.httpClient.Do(request)
-	if err != nil {
-		return "", newServiceError(ErrProviderFailure, defaultProviderErrorMessage)
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		message := readProviderErrorMessage(response.Body)
-		return "", newServiceError(ErrProviderFailure, message)
-	}
-
-	content, err := io.ReadAll(io.LimitReader(response.Body, maxProviderResponseBodyBytes))
-	if err != nil {
-		return "", newServiceError(ErrProviderFailure, defaultProviderErrorMessage)
-	}
-	text, err := extractTranscribedText(content)
-	if err != nil {
-		return "", err
 	}
 	return text, nil
 }
@@ -689,21 +647,6 @@ func resolveAPIKey(apiKeys map[string]string, apiKeyEnv string) (string, error) 
 		)
 	}
 	return apiKey, nil
-}
-
-func resolveTranscriptionEndpoint(config llmconfig.Config) (string, error) {
-	baseURL := strings.TrimSpace(config.BaseURL)
-	if baseURL == "" {
-		baseURL = defaultOpenAIBaseURL
-	}
-	endpoint, err := url.JoinPath(baseURL, "audio/transcriptions")
-	if err != nil {
-		return "", newServiceError(
-			ErrInvalidRequest,
-			"Transcription config is missing or invalid for this transcription profile.",
-		)
-	}
-	return endpoint, nil
 }
 
 func encodeAdditionalFields(params map[string]any) (map[string]string, error) {
@@ -737,19 +680,6 @@ func encodeAdditionalFields(params map[string]any) (map[string]string, error) {
 		}
 	}
 	return fields, nil
-}
-
-func extractTranscribedText(content []byte) (string, error) {
-	payload := map[string]any{}
-	if err := json.Unmarshal(content, &payload); err != nil {
-		return "", newServiceError(ErrProviderFailure, defaultProviderErrorMessage)
-	}
-	text, _ := payload["text"].(string)
-	trimmed := strings.TrimSpace(text)
-	if trimmed == "" {
-		return "", newServiceError(ErrProviderFailure, defaultProviderErrorMessage)
-	}
-	return trimmed, nil
 }
 
 func readProviderErrorMessage(body io.Reader) string {
