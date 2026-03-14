@@ -7,11 +7,7 @@ import {
   getPythonCodegenTarget,
   projectConfigHasPythonCodegen,
 } from "utils/codegenTargets";
-import {
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { route_update_param_impl_config } from "utils/generatedEndpoints";
 import {
   BaseSectionImplUnion,
@@ -36,8 +32,6 @@ type ControlParamConfig = {
   dateSelectionMode?: DateSelectionMode;
   dateCalendarWeekStart?: DateCalendarWeekStart;
 };
-
-type UpdateParamImplConfigRouteResponse = ResponseDataAndStatus<null>;
 
 export type CreateSectionsContextMenuInfo = {
   name: string;
@@ -171,6 +165,21 @@ export function useCreateSectionsList() {
     },
   ];
 
+  const workflowGroupItems: Array<CreateSectionsContextMenuInfo> = [
+    {
+      name: "State Machine Start",
+      implSpecs: { type: SectionTypeEnum.StateMachineStart },
+    },
+    {
+      name: "State Machine Gate",
+      implSpecs: { type: SectionTypeEnum.StateMachineGate },
+    },
+    {
+      name: "State Machine End",
+      implSpecs: { type: SectionTypeEnum.StateMachineEnd },
+    },
+  ];
+
   const otherGroupItems: Array<CreateSectionsContextMenuInfo> = [
     { name: "Task Board", implSpecs: { type: SectionTypeEnum.TaskBoard } },
   ];
@@ -290,6 +299,10 @@ export function useCreateSectionsList() {
       items: artifactGroupItems,
     },
     {
+      group: "Workflow",
+      items: workflowGroupItems,
+    },
+    {
       group: "Other",
       items: otherGroupItems,
     },
@@ -346,13 +359,12 @@ async function applyMetaControlParamConfigAfterCreate(
   if (!controlParamId) {
     return;
   }
-  const response: UpdateParamImplConfigRouteResponse =
-    await route_update_param_impl_config({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-      paramInfoId: controlParamId,
-      newConfig: config,
-    });
+  const response = await route_update_param_impl_config({
+    projectConfigId: getCurrProjectConfigId(),
+    sectionId,
+    paramInfoId: controlParamId,
+    newConfig: config,
+  });
   if (!res200(response)) {
     addTemporaryNotification(
       getErrorDetail(response.data) ??

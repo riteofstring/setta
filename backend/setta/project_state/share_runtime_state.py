@@ -638,7 +638,7 @@ class ShareRuntimeState:
     def _generate_gen_code(
         self, project_state: "ProjectStateSingleConfig"
     ) -> tuple[str, str | None]:
-        dep_graph = DependencyGraph(project_state)
+        dep_graph = DependencyGraph(project_state, dbe=self.dbe)
         code_generator = build_python_code_generator(project_state, dep_graph)
         code_generator.generate_code()
         return code_generator.code, code_generator.meta_code

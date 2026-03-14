@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { act, useState, type ReactNode } from "react";
+import { act, useEffect, useState, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -16,6 +16,12 @@ import {
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
+  buildSearchableTextForMessage,
+  countConversationSearchTextMatches,
+  matchesConversationSearchText,
+  tokenizeConversationSearchQuery,
+} from "utils/conversationSearch";
+import {
   AgentRunStatusEnum,
   EngineTypeEnum,
   createAgentRun,
@@ -24,23 +30,11 @@ import {
   createEngineConfig,
   createMessageTextContent,
   createProjectConfig,
+  createToolCall,
+  createToolCallFunction,
   createUserChatMessage,
 } from "utils/generatedTypes";
 import { ProjectChat } from "./ProjectChat";
-
-const aiActionMocks = vi.hoisted(() => ({
-  saveLLMConfig: vi.fn(),
-}));
-
-vi.mock("state/actions/ai", async () => {
-  const actual = await vi.importActual<typeof import("state/actions/ai")>(
-    "state/actions/ai",
-  );
-  return {
-    ...actual,
-    saveLLMConfig: aiActionMocks.saveLLMConfig,
-  };
-});
 
 vi.mock("components/AppHeader/FollowAIToggleButton", () => ({
   FollowAIToggleButton: () => <button type="button">Follow AI</button>,
@@ -176,10 +170,18 @@ vi.mock("./ProjectChatCore", async () => {
       surfaceId,
       chatId,
       engineConfigId,
+      draftMessage,
+      setDraftMessage,
+      conversationFilterText,
+      onConversationSearchMatchCountChange,
     }: {
       surfaceId: string;
       chatId: string | null | undefined;
       engineConfigId: string | null;
+      draftMessage: string;
+      setDraftMessage: (next: string) => void;
+      conversationFilterText: string;
+      onConversationSearchMatchCountChange?: (count: number) => void;
     }) => {
       const details = useAIStore((state) => {
         if (chatId === null) {
@@ -194,7 +196,28 @@ vi.mock("./ProjectChatCore", async () => {
         }
         return state.chatDetails[chatId] ?? { messages: [] };
       });
-      const renderedText = details.messages
+      const normalizedSearchTerms = tokenizeConversationSearchQuery(
+        conversationFilterText,
+      );
+      const filteredMessages = details.messages.filter((message) =>
+        matchesConversationSearchText(
+          buildSearchableTextForMessage(message),
+          normalizedSearchTerms,
+        ),
+      );
+      const matchCount = filteredMessages.reduce((total, message) => {
+        return (
+          total +
+          countConversationSearchTextMatches(
+            buildSearchableTextForMessage(message),
+            normalizedSearchTerms,
+          )
+        );
+      }, 0);
+      useEffect(() => {
+        onConversationSearchMatchCountChange?.(matchCount);
+      }, [matchCount, onConversationSearchMatchCountChange]);
+      const renderedText = filteredMessages
         .flatMap((message) =>
           message.content
             .filter((part) => part.type === "text")
@@ -207,7 +230,16 @@ vi.mock("./ProjectChatCore", async () => {
           data-chat-id={chatId ?? ""}
           data-engine-id={engineConfigId ?? ""}
         >
-          {renderedText}
+          <input
+            data-testid={`mock-project-chat-draft-${surfaceId}`}
+            value={draftMessage}
+            onChange={(event) => {
+              setDraftMessage(event.currentTarget.value);
+            }}
+          />
+          {normalizedSearchTerms.length > 0 && filteredMessages.length === 0
+            ? "No messages match this filter."
+            : renderedText}
         </div>
       );
     },
@@ -383,8 +415,6 @@ describe("ProjectChat multi-surface state ownership", () => {
 
   beforeEach(async () => {
     resetProjectStores();
-    aiActionMocks.saveLLMConfig.mockReset();
-    aiActionMocks.saveLLMConfig.mockResolvedValue(null);
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
@@ -394,6 +424,7 @@ describe("ProjectChat multi-surface state ownership", () => {
     useLocalStorage.setState({
       overviewWidth: 1200,
       projectChatAuxViewByProjectConfigId: {},
+      projectChatDraftMessageByProjectConfigId: {},
       projectChatThreadAssignmentsByProjectConfigId: {},
       projectChatThreadGroupsByProjectConfigId: {},
     });
@@ -690,6 +721,58 @@ describe("ProjectChat multi-surface state ownership", () => {
     ).not.toBeNull();
   });
 
+  it("writes composer drafts to persisted local storage and restores them after remount", async () => {
+    await act(async () => {
+      root.render(<ProjectScopedDraftHarness />);
+    });
+
+    const surfaceId = buildWorkspaceProjectChatWindowSurfaceId(
+      "project-1",
+      "project-chat-window-1",
+    );
+    const draftInput = host.querySelector(
+      `[data-testid="mock-project-chat-draft-${surfaceId}"]`,
+    ) as HTMLInputElement | null;
+    if (!draftInput) {
+      throw new Error("Expected the mocked project chat draft input.");
+    }
+
+    const inputValueSetter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    if (!inputValueSetter) {
+      throw new Error("Expected the input value setter.");
+    }
+
+    await act(async () => {
+      inputValueSetter.call(draftInput, "Persist this unsent draft");
+      draftInput.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    expect(
+      useLocalStorage.getState().projectChatDraftMessageByProjectConfigId,
+    ).toEqual({
+      "project-1": "Persist this unsent draft",
+    });
+
+    await act(async () => {
+      root.render(<div />);
+    });
+    await act(async () => {
+      root.render(<ProjectScopedDraftHarness />);
+    });
+
+    const restoredDraftInput = host.querySelector(
+      `[data-testid="mock-project-chat-draft-${surfaceId}"]`,
+    ) as HTMLInputElement | null;
+    if (!restoredDraftInput) {
+      throw new Error("Expected the remounted project chat draft input.");
+    }
+
+    expect(restoredDraftInput.value).toBe("Persist this unsent draft");
+  });
+
   it("writes thread visibility preferences to the AI store and keeps a wide-layout close after remount", async () => {
     const surfaceA = host.querySelector('[data-testid="surface-a"]');
     if (!surfaceA) {
@@ -933,40 +1016,139 @@ describe("ProjectChat multi-surface state ownership", () => {
     expect(reboundEngineSelect.value).toBe("engine-a");
   });
 
-  it("pins the selected model by updating only default_config_id through the live config route helper", async () => {
+  it("steps to the next conversation match when the filter input receives Enter", async () => {
+    useAIStore.setState((state) => ({
+      chatDetails: {
+        ...state.chatDetails,
+        "chat-a": {
+          messages: [
+            createUserMessage("nonmatching prompt"),
+            createAssistantChatMessage({
+              content: [
+                createMessageTextContent({
+                  text: "queue beta queue gamma",
+                }),
+              ],
+              attachments: [],
+            }),
+          ],
+          toolCallArguments: {},
+          waitingForResponse: false,
+          llmConfig: null,
+          contextUsage: null,
+        },
+      },
+    }));
+
+    await act(async () => {
+      root.render(<Harness />);
+    });
+
     const surfaceA = host.querySelector('[data-testid="surface-a"]');
     if (!surfaceA) {
       throw new Error("Expected the first project chat surface.");
     }
 
-    const engineSelect = surfaceA.querySelector(
-      '[data-testid="project-ai-engine-combobox"]',
-    ) as HTMLSelectElement | null;
-    if (!engineSelect) {
-      throw new Error("Expected engine selector.");
+    const filterInput = surfaceA.querySelector(
+      '[data-testid="project-chat-conversation-filter-input"]',
+    ) as HTMLInputElement | null;
+    if (!filterInput) {
+      throw new Error("Expected the conversation filter input.");
+    }
+
+    const inputValueSetter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    if (!inputValueSetter) {
+      throw new Error("Expected the input value setter.");
     }
 
     await act(async () => {
-      engineSelect.value = "engine-b";
-      engineSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      inputValueSetter.call(filterInput, "queue");
+      filterInput.dispatchEvent(new Event("input", { bubbles: true }));
     });
 
-    const pinButton = Array.from(surfaceA.querySelectorAll("button")).find(
-      (element) =>
-        element.textContent?.includes("Pin selected model as default"),
-    ) as HTMLButtonElement | undefined;
-    if (!pinButton) {
-      throw new Error("Expected pin-default-model button.");
+    const filterContainer = surfaceA.querySelector(
+      '[data-testid="project-chat-conversation-filter"]',
+    );
+    expect(filterContainer?.textContent ?? "").toContain("1/2");
+
+    await act(async () => {
+      filterInput.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+      );
+    });
+
+    expect(filterContainer?.textContent ?? "").toContain("2/2");
+  });
+
+  it("keeps hidden tool payload text out of the conversation search counter", async () => {
+    useAIStore.setState((state) => ({
+      chatDetails: {
+        ...state.chatDetails,
+        "chat-a": {
+          messages: [
+            createAssistantChatMessage({
+              content: [],
+              attachments: [],
+              tool_calls: [
+                createToolCall({
+                  id: "tool-1",
+                  function: createToolCallFunction({
+                    name: "file_change",
+                    arguments: {
+                      path: "notes.txt",
+                      diff: "secret payload",
+                    },
+                  }),
+                }),
+              ],
+            }),
+          ],
+          toolCallArguments: {},
+          waitingForResponse: false,
+          llmConfig: null,
+          contextUsage: null,
+        },
+      },
+    }));
+
+    await act(async () => {
+      root.render(<Harness />);
+    });
+
+    const surfaceA = host.querySelector('[data-testid="surface-a"]');
+    if (!surfaceA) {
+      throw new Error("Expected the first project chat surface.");
+    }
+
+    const filterInput = surfaceA.querySelector(
+      '[data-testid="project-chat-conversation-filter-input"]',
+    ) as HTMLInputElement | null;
+    if (!filterInput) {
+      throw new Error("Expected the conversation filter input.");
+    }
+
+    const inputValueSetter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    if (!inputValueSetter) {
+      throw new Error("Expected the input value setter.");
     }
 
     await act(async () => {
-      pinButton.click();
+      inputValueSetter.call(filterInput, "secret");
+      filterInput.dispatchEvent(new Event("input", { bubbles: true }));
     });
 
-    expect(aiActionMocks.saveLLMConfig).toHaveBeenCalledTimes(1);
-    expect(aiActionMocks.saveLLMConfig).toHaveBeenCalledWith({
-      ...useAIStore.getState().allLLMConfigs,
-      default_config_id: "llm-b",
-    });
+    const filterContainer = surfaceA.querySelector(
+      '[data-testid="project-chat-conversation-filter"]',
+    );
+    expect(filterContainer?.textContent ?? "").toContain("0/0");
+    expect(surfaceA.textContent ?? "").toContain(
+      "No messages match this filter.",
+    );
   });
 });

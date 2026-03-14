@@ -25,10 +25,6 @@ import {
   type ChatContextTelemetry,
 } from "components/Chat/contextTelemetry";
 import {
-  resolveEffectiveThinking,
-  supportsThinkingExecutionControl,
-} from "components/Chat/engineUtils";
-import {
   Dispatch,
   SetStateAction,
   memo,
@@ -48,7 +44,6 @@ import {
   getDefaultChatDetails,
   getExternalAgentChatHydrationOutcome,
   getLLMChatHydrationOutcome,
-  getProjectChatHydrationOutcomeWithFallback,
   initializePendingChatDetails,
   loadAgentRuns,
   stopProjectChatResponse,
@@ -97,7 +92,6 @@ import {
   BaseChatMessageUnion,
   ChatFileAttachment,
   ChatRoleEnum,
-  EngineConfig,
   EngineTypeEnum,
   type ToolCall,
 } from "utils/generatedTypes";
@@ -208,24 +202,11 @@ export async function hydrateProjectChatFromRuntime({
   chatId,
   projectConfigId,
   hydrationRunType,
-  shouldProbeMissingProvenance,
 }: {
   chatId: string;
   projectConfigId: string;
   hydrationRunType: ChatRunType | null;
-  shouldProbeMissingProvenance: boolean;
 }): Promise<ChatHydrationOutcome> {
-  const preferredHydrationRunType =
-    hydrationRunType === "llm_chat" || hydrationRunType === "external_agent"
-      ? hydrationRunType
-      : null;
-  if (shouldProbeMissingProvenance) {
-    return getProjectChatHydrationOutcomeWithFallback(
-      chatId,
-      projectConfigId,
-      preferredHydrationRunType,
-    );
-  }
   if (hydrationRunType === "external_agent") {
     return getExternalAgentChatHydrationOutcome(chatId, projectConfigId);
   }
@@ -1009,7 +990,6 @@ function useHasPythonInWorkspaceRoot(
       try {
         const contentsResponse = await route_get_folder_contents({
           folderPath: rootPath,
-          includeHidden: false,
           includeMtime: false,
           includeSize: false,
           maxEntries: 5000,
@@ -1329,12 +1309,11 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   requiresNewThreadContinuation = false,
   newThreadContinuationRequiredReason = null,
   newThreadSeedChatId = null,
-  activeConversationSearchMatchMessageId = null,
+  activeConversationSearchMatchIndex = null,
   hydrationAuthority,
   hydrationMetadataRevision,
   thinking,
   engineConfigId,
-  engineConfig,
   engineType,
   hasLLMConfig,
   externalEngineAvailable,
@@ -1344,6 +1323,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   providerDictationAvailable,
   providerDictationLikelySupported,
   setChatId,
+  onConversationSearchMatchCountChange,
   onStartNewChat,
   onDraftThreadStart,
   onDraftThreadSettled,
@@ -1360,12 +1340,11 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   requiresNewThreadContinuation?: boolean;
   newThreadContinuationRequiredReason?: string | null;
   newThreadSeedChatId?: string | null;
-  activeConversationSearchMatchMessageId?: string | null;
+  activeConversationSearchMatchIndex?: number | null;
   hydrationAuthority: ProjectChatHydrationAuthority;
   hydrationMetadataRevision: string;
   thinking: boolean;
   engineConfigId: string | null;
-  engineConfig: EngineConfig | null;
   engineType: EngineTypeEnum | null;
   hasLLMConfig: boolean;
   externalEngineAvailable: boolean;
@@ -1375,6 +1354,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   providerDictationAvailable: boolean;
   providerDictationLikelySupported: boolean;
   setChatId: Dispatch<SetStateAction<string | null | undefined>>;
+  onConversationSearchMatchCountChange?: (count: number) => void;
   onStartNewChat?: () => void;
   onDraftThreadStart?: () => void;
   onDraftThreadSettled?: (
@@ -1499,12 +1479,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     workspaceRootIdentity,
   );
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
-  const showThinkingExecutionControl =
-    supportsThinkingExecutionControl(engineConfig);
-  const effectiveThinking = resolveEffectiveThinking({
-    engineConfig,
-    requestedThinking: thinking,
-  });
   const hydrationRunType = hydrationAuthority.hydrationRunType;
   const {
     contextWindowTokens,
@@ -1693,22 +1667,15 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     if (hydrationAuthority.status !== "ready") {
       return;
     }
-    const shouldProbeMissingProvenance =
-      hydrationAuthority.blockedErrorCode === "chat_provenance_missing";
-    if (hydrationRunType === null && !shouldProbeMissingProvenance) {
+    if (hydrationRunType === null) {
       return;
     }
-    if (waitingForResponse) {
-      return;
-    }
-    const cacheKey = shouldProbeMissingProvenance
-      ? `${projectConfigId}:${chatId}:chat_provenance_probe:${hydrationMetadataRevision}`
-      : buildProjectChatHydrationCacheKey({
-          projectConfigId,
-          chatId,
-          hydrationRunType,
-          hydrationMetadataRevision,
-        });
+    const cacheKey = buildProjectChatHydrationCacheKey({
+      projectConfigId,
+      chatId,
+      hydrationRunType,
+      hydrationMetadataRevision,
+    });
     if (!cacheKey) {
       return;
     }
@@ -1757,7 +1724,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         chatId,
         projectConfigId,
         hydrationRunType,
-        shouldProbeMissingProvenance,
       });
       if (cancelled) {
         return;
@@ -2041,7 +2007,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           chatId ?? null,
           message,
           attachments,
-          effectiveThinking,
+          thinking,
           engineConfigId,
           isExternalEngine,
           {
@@ -2066,6 +2032,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     },
     [
       chatId,
+      thinking,
       engineConfigId,
       handleNewChatSettled,
       handleNewChatStart,
@@ -2077,7 +2044,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       activeAppGeneration,
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
-      effectiveThinking,
     ],
   );
 
@@ -2108,7 +2074,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         messageId,
         message: text,
         attachments,
-        thinking: effectiveThinking,
+        thinking,
         engineConfigId,
         isExternalEngine,
         agentProfileId: null,
@@ -2137,9 +2103,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       requiresNewThreadContinuation,
       setChatId,
       surfaceId,
+      thinking,
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
-      effectiveThinking,
     ],
   );
 
@@ -2187,7 +2153,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         messageId: sourceUserMessage.id,
         message: sourceText,
         attachments: sourceAttachments,
-        thinking: effectiveThinking,
+        thinking,
         engineConfigId,
         isExternalEngine,
         agentProfileId: null,
@@ -2219,8 +2185,8 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       requiresNewThreadContinuation,
       setChatId,
       surfaceId,
+      thinking,
       waitingForResponse,
-      effectiveThinking,
     ],
   );
 
@@ -2295,9 +2261,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       ),
     [appGenerationByMessageId, messages],
   );
+  const showThinkingExecutionControl =
+    engineType === EngineTypeEnum.setta_llm ||
+    engineType === EngineTypeEnum.external_agent;
   const executionControls = useMemo(
     () => ({
-      thinkingEnabled: effectiveThinking,
+      thinkingEnabled: thinking,
       onThinkingEnabledChange: showThinkingExecutionControl
         ? onThinkingChange
         : undefined,
@@ -2307,7 +2276,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       onSearchEnabledChange: executionControlHandlers.onSearchEnabledChange,
     }),
     [
-      effectiveThinking,
+      thinking,
       onThinkingChange,
       showThinkingExecutionControl,
       executionSettings.permissionMode,
@@ -2330,6 +2299,17 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     normalizedConversationSearchTerms.length > 0 &&
     !hasVisibleConversationMatches &&
     !waitingForResponse;
+
+  useEffect(() => {
+    if (!showEmptyState && !showConversationSearchEmptyState) {
+      return;
+    }
+    onConversationSearchMatchCountChange?.(0);
+  }, [
+    onConversationSearchMatchCountChange,
+    showConversationSearchEmptyState,
+    showEmptyState,
+  ]);
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden">
@@ -2371,8 +2351,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           waitingForResponse={waitingForResponse}
           toolCallArguments={toolCallArguments}
           interruptedAssistantMessageIds={interruptedAssistantMessageIds}
-          activeSearchMessageId={activeConversationSearchMatchMessageId}
+          activeSearchMatchIndex={activeConversationSearchMatchIndex}
+          conversationSearchTerms={normalizedConversationSearchTerms}
           editDisabledReason={editDisabledReason}
+          onConversationSearchMatchCountChange={
+            onConversationSearchMatchCountChange
+          }
           onRedoMessage={handleRedoMessage}
           onEditMessage={handleEditMessage}
           onBranchSwitch={handleBranchSwitch}
