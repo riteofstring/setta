@@ -32,13 +32,13 @@ import {
 } from "state/actions/project/loadProject";
 import {
   useAllProjectMetadata,
-  useHomeFileBrowserState,
   useHomePageSearch,
   useLocalStorage,
-  useProjectLoading,
   useShareSession,
 } from "state/definitions";
 import { useWindowSize } from "state/hooks/utils";
+import { useProjectLoading } from "state/stores/ephemeralUiStores";
+import { useHomeFileBrowserState } from "state/stores/fileBrowserStores";
 import {
   buildSharePath,
   CLOSED_PANE_WIDTH,
@@ -49,7 +49,7 @@ import {
   SETTA_POPOVER_PORTAL_PARENT_ID,
   SETTINGS_ROUTER_PATH,
 } from "utils/constants";
-import { route_set_as_default_project } from "utils/generatedEndpoints";
+import { router_set_as_default_project } from "utils/generatedEndpoints";
 import { ProjectConfig } from "utils/generatedTypes";
 import { LoadingSpinner } from "../LoadingSpinner";
 
@@ -370,7 +370,7 @@ function HomeWorkspaceLayout({
   }
 
   async function onSetDefaultProject(projectConfigId: string) {
-    await route_set_as_default_project({ projectConfigId });
+    await router_set_as_default_project({ projectConfigId });
   }
 
   const commonGalleryProps = {

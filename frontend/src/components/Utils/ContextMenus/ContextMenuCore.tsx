@@ -1,6 +1,6 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useEffect, useRef, useState } from "react";
-import { NAVBAR_HEIGHT } from "utils/constants";
+import { NAVBAR_HEIGHT } from "utils/constants/dom";
 
 export function ContextMenuCore({
   children,

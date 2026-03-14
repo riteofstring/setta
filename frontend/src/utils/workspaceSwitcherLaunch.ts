@@ -1,4 +1,4 @@
-import { HOME_ROUTER_PATH } from "utils/constants";
+import { HOME_ROUTER_PATH } from "utils/constants/routes";
 import type { LaunchRequestInput } from "utils/generatedTypes";
 import { safeSessionStorage } from "utils/storage";
 
