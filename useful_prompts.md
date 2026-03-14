@@ -132,3 +132,8 @@ Compare the current branch with `main` and write a detailed branch-intent summar
   - Overwrite `branch_intent.md` with this branch's current summary.
   - Group by: `Features`, `Bug Fixes`, `Intentional Behavior Changes To Preserve`.
   - Be concrete and detailed enough that a reviewer on a follow-up branch can quickly avoid undoing intentional work.
+
+
+
+Merge main into this branch. The main branch is still using a python backend, while this branch is rewriting the entire backend in Go. Therefore, the main goal of merging main into this branch is to make sure we keep our Go rewrite "up to date" in terms of features etc.
+ 
