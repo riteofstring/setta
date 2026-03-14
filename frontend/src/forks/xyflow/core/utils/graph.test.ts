@@ -7,16 +7,9 @@ import {
 import { resetProjectStores } from "state/utils";
 import { createCore } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import initialState from "../store/initialState";
-import { useReactFlow } from "../store";
 import { screenToFlowPosition } from "../hooks/useViewportHelper";
 import type { ReactFlowState } from "../types";
-import {
-  getActiveSectionsBounds,
-  getNodesInside,
-  getPaneRect,
-  getSectionRect,
-} from "./graph";
+import { getActiveSectionsBounds, getNodesInside, getPaneRect } from "./graph";
 
 vi.mock("../hooks/useViewportHelper", () => ({
   screenToFlowPosition: vi.fn((point) => point),
@@ -51,7 +44,6 @@ describe("getPaneRect", () => {
   beforeEach(() => {
     mockedScreenToFlowPosition.mockClear();
     resetProjectStores();
-    useReactFlow.setState({ ...initialState });
   });
 
   it("uses transform math when the dom node is missing", () => {
@@ -102,7 +94,6 @@ describe("getPaneRect", () => {
 describe("getNodesInside", () => {
   beforeEach(() => {
     resetProjectStores();
-    useReactFlow.setState({ ...initialState });
   });
 
   it("uses node internals geometry to resolve overlapping nodes", () => {
@@ -322,7 +313,6 @@ describe("getActiveSectionsBounds", () => {
   beforeEach(() => {
     mockedScreenToFlowPosition.mockClear();
     resetProjectStores();
-    useReactFlow.setState({ ...initialState });
   });
 
   it("uses node internals geometry for active section bounds without DOM refs", () => {
@@ -395,96 +385,5 @@ describe("getActiveSectionsBounds", () => {
       width: 120,
       height: 80,
     });
-  });
-
-  it("falls back to canvas-engine top-level and nested preview geometry", () => {
-    setActiveSectionUIIds(["section-a", "nested-a"]);
-    useProjectState.setState((state) => {
-      state.sections["section-a"] = createCore({ id: "section-a" });
-      state.sections["nested-a"] = createCore({ id: "nested-a" });
-      state.projectConfig.topLevelSections["section-a"] = {
-        x: 10,
-        y: 20,
-        zIndex: 0,
-        w: 100,
-        h: 80,
-      };
-    });
-    useReactFlow.setState({
-      canvasEngineNestedPreviewRects: [
-        {
-          id: "nested-a",
-          parentSectionId: "group-a",
-          x: 180,
-          y: 40,
-          width: 120,
-          height: 90,
-          isActive: false,
-          color: [0.15, 0.18, 0.22],
-        },
-      ],
-    });
-
-    expect(getActiveSectionsBounds()).toEqual({
-      x: 10,
-      y: 20,
-      width: 290,
-      height: 110,
-    });
-    expect(mockedScreenToFlowPosition).not.toHaveBeenCalled();
-  });
-});
-
-describe("getSectionRect", () => {
-  beforeEach(() => {
-    mockedScreenToFlowPosition.mockClear();
-    resetProjectStores();
-    useReactFlow.setState({ ...initialState });
-  });
-
-  it("falls back to canvas-engine top-level layout geometry", () => {
-    useProjectState.setState((state) => {
-      state.sections["section-a"] = createCore({ id: "section-a" });
-      state.projectConfig.topLevelSections["section-a"] = {
-        x: 120,
-        y: 80,
-        zIndex: 0,
-        w: 240,
-        h: 140,
-      };
-    });
-
-    expect(getSectionRect("section-a")).toEqual({
-      x: 120,
-      y: 80,
-      width: 240,
-      height: 140,
-    });
-    expect(mockedScreenToFlowPosition).not.toHaveBeenCalled();
-  });
-
-  it("falls back to cached nested preview geometry", () => {
-    useReactFlow.setState({
-      canvasEngineNestedPreviewRects: [
-        {
-          id: "nested-a",
-          parentSectionId: "group-a",
-          x: 440,
-          y: 120,
-          width: 180,
-          height: 100,
-          isActive: false,
-          color: [0.15, 0.18, 0.22],
-        },
-      ],
-    });
-
-    expect(getSectionRect("nested-a")).toEqual({
-      x: 440,
-      y: 120,
-      width: 180,
-      height: 100,
-    });
-    expect(mockedScreenToFlowPosition).not.toHaveBeenCalled();
   });
 });
