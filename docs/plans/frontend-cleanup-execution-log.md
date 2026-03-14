@@ -1098,3 +1098,36 @@ module map and placement guide while this cleanup progresses.
   - Continue splitting `frontend/src/state/actions/projectChatWindowingState.ts`
     by separating pure section-binding selectors and normalization helpers from
     the remaining in-state mutation reducers.
+
+## 2026-03-14 20:21:13 PDT
+
+- Slice completed: extracted pure project chat windowing selectors and normalization
+- Key files touched:
+  - `frontend/src/state/actions/projectChatWindowing.ts`
+  - `frontend/src/state/actions/projectChatWindowingState.ts`
+  - `frontend/src/state/actions/projectChatWindowingSelectors.ts`
+  - `frontend/src/state/actions/projectChatWindowing.test.ts`
+  - `frontend/src/state/actions/windowSpaces.ts`
+  - `frontend/src/state/actions/windowSpaceSnapshots.ts`
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`
+  - `frontend/src/components/ChatWindowing/UnifiedChatSurface.tsx`
+  - `frontend/src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.tsx`
+  - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+  - `frontend/src/components/Section/Header/SectionWindowToggleButton.tsx`
+  - `frontend/src/components/Section/Header/SectionWindowToggleButton.test.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/projectChatWindowing.test.ts src/state/actions/projectChatWindowing.permissions.test.ts src/state/actions/projectChatWindowing.rollback.test.ts src/state/actions/windowSpaces.test.ts src/components/ChatWindowing/UnifiedChatSurface.test.tsx src/components/ChatWindowing/UnifiedChatSurface.remount.test.tsx src/components/Section/Header/SectionWindowToggleButton.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.test.tsx src/components/ChatWindowing/ProjectChatBottomDock.test.ts src/state/actions/git.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/projectChatWindowing.ts src/state/actions/projectChatWindowingState.ts src/state/actions/projectChatWindowingSelectors.ts src/state/actions/projectChatWindowing.test.ts src/state/actions/windowSpaces.ts src/state/actions/windowSpaceSnapshots.ts src/components/ChatWindowing/UnifiedChatSurface.tsx src/components/ChatWindowing/ProjectChatBottomDock.tsx src/components/Section/Header/SectionWindowToggleButton.tsx src/components/Section/Header/SectionWindowToggleButton.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.tsx src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `75b6f81a7`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/aiChatStreaming.ts`, now the largest
+    authored state hotspot, into clearer streaming reducers, tool-preview
+    reconciliation, and app-spec patch handling modules.
