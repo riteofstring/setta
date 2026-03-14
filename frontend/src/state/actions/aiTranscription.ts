@@ -1,5 +1,5 @@
 import { addTemporaryNotification } from "state/actions/notifications";
-import { useAIStore } from "state/definitions";
+import { useAIStore } from "state/stores/aiStores";
 import { C } from "utils/c";
 import { getErrorCode, getErrorDetail, res200 } from "utils/endpointUtils";
 import {

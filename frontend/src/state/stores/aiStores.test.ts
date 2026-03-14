@@ -1,6 +1,6 @@
 import { resetProjectStores } from "state/utils";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { useAIStore } from "./definitions";
+import { useAIStore } from "./aiStores";
 
 describe("AI store dictation mode persistence", () => {
   beforeEach(() => {

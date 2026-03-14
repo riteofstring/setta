@@ -1,4 +1,4 @@
-import { type ChatDetails, useAIStore } from "state/definitions";
+import { type ChatDetails, useAIStore } from "state/stores/aiStores";
 import { getDefaultChatDetails } from "./aiChatDetails";
 
 function normalizePendingChatSurfaceId(

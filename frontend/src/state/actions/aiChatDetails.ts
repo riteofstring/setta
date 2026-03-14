@@ -1,4 +1,4 @@
-import { type ChatDetails } from "state/definitions";
+import { type ChatDetails } from "state/stores/aiStores";
 
 export function getDefaultChatDetails(): ChatDetails {
   return {

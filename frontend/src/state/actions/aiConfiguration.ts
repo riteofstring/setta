@@ -1,4 +1,4 @@
-import { useAIStore } from "state/definitions";
+import { useAIStore } from "state/stores/aiStores";
 import { getErrorCode, getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_create_agent_profile,

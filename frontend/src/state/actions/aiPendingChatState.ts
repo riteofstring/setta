@@ -1,5 +1,5 @@
 import { isChatStreamActive } from "state/aiStreamingTracker";
-import { useAIStore } from "state/definitions";
+import { useAIStore } from "state/stores/aiStores";
 import {
   getDefaultChatAppGenerationDetails,
   mergeChatAppGenerationDetails,

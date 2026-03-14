@@ -7,7 +7,7 @@ import {
 import { addTemporaryNotification } from "state/actions/notifications";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { clearAllAppSpecPatchStreams } from "state/appSpecPatchStreaming";
-import { useAIStore, type ChatDetails } from "state/definitions";
+import { useAIStore, type ChatDetails } from "state/stores/aiStores";
 import { res200 } from "utils/endpointUtils";
 import {
   route_respond_external_agent_approval,

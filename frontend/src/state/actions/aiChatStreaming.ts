@@ -21,16 +21,18 @@ import {
   clearAppSpecPatchStream,
 } from "state/appSpecPatchStreaming";
 import {
+  useAppDefinition,
+  useAppPreview,
+  useProjectState,
+  type ZustandProjectState,
+} from "state/definitions";
+import {
   ChatDetails,
   ToolArgumentPreviewEntry,
   ToolArgumentPreviewProjectState,
   useAIStore,
-  useAppDefinition,
-  useAppPreview,
-  useProjectState,
   useToolArgumentPreview,
-  type ZustandProjectState,
-} from "state/definitions";
+} from "state/stores/aiStores";
 import {
   AgentRun,
   AgentRunStatusEnum,

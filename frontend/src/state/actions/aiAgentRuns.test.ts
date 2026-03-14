@@ -1,4 +1,4 @@
-import { useAIStore } from "state/definitions";
+import { useAIStore } from "state/stores/aiStores";
 import { resetProjectStores } from "state/utils";
 import {
   AgentRunStatusEnum,

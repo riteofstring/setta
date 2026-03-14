@@ -11,12 +11,12 @@ import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper"
 import { useReactFlow } from "forks/xyflow/core/store";
 import {
   NULL_PROJECT_CONFIG_ID,
-  useAIStore,
   useProjectState,
   useSettings,
   useShareSession,
   type ZustandProjectState,
 } from "state/definitions";
+import { useAIStore } from "state/stores/aiStores";
 import { res200 } from "utils/endpointUtils";
 import {
   route_set_project_chat_window_chat_id,

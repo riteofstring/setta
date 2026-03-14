@@ -1,4 +1,4 @@
-import { useAIStore } from "state/definitions";
+import { useAIStore } from "state/stores/aiStores";
 import {
   collectChatAppGenerationDetailsByChatId,
   mergeChatAppGenerationDetailsByChatId,

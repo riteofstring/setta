@@ -118,8 +118,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 - Shared state
 
-  - `state/definitions.ts` still owns the Zustand store definitions on this
-    branch.
+  - `state/definitions.ts` is now the shared index for the remaining
+    cross-feature Zustand stores plus the atomic project-store publication
+    helpers on this branch.
+  - `state/stores/aiStores.ts` owns the AI/chat Zustand stores and chat-specific
+    store types such as `ChatDetails`, `ChatBranchInfo`, and
+    `ProjectChatCustomSlashCommand`.
+  - `state/storePersistStorage.ts` owns the shared persisted-storage fallback
+    used by the persisted store modules.
   - `state/actions/*` owns named mutation and query helpers, with shared chat
     helpers split across `aiHydration.ts`, `aiAgentRuns.ts`,
     `aiChatSubmission.ts`, `aiChatControls.ts`, `aiChatState.ts`,
@@ -144,9 +150,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
 - Keep helpers, selectors, adapters, and tests with the owning feature first. If
   a behavior only exists for `ProjectLevelAI`, it should start there rather than
   in `utils/`.
-- Only extend `state/definitions.ts` when the state is truly cross-feature or
-  session-global. Feature-local derived reads should stay beside the owning
-  feature as selectors or pure helpers.
+- Prefer `state/stores/*` for domain-owned Zustand modules. Only extend
+  `state/definitions.ts` when the state is truly cross-feature or when a thin
+  shared re-export improves discovery. Feature-local derived reads should stay
+  beside the owning feature as selectors or pure helpers.
 - Add named command functions for mutations. Avoid new ad hoc
   `useStore.getState()` or `setState()` reach-through from render-heavy
   components when an owning command module can hold the write path instead.
@@ -172,6 +179,6 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/definitions.ts`
+- `state/definitions.ts` remaining app/share/session and UI-chrome store groups
 - shared project chat surfaces under `components/Chat/*`,
   `components/Panes/Overview/ProjectLevelAI/*`, and `components/ChatWindowing/*`

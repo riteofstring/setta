@@ -30,10 +30,10 @@ import {
   usePendingOperations,
   useProjectState,
   useShareSession,
-  useToolArgumentPreview,
   ZustandNodeInternalsState,
   ZustandProjectState,
 } from "state/definitions";
+import { useToolArgumentPreview } from "state/stores/aiStores";
 import type { ResponseDataAndStatus } from "utils/endpointUtils";
 import { res200 } from "utils/endpointUtils";
 import {

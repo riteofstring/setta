@@ -1,4 +1,4 @@
-import { useAIStore } from "state/definitions";
+import { useAIStore } from "state/stores/aiStores";
 
 export function getInterruptedAssistantMessageIdsByChat(
   chatId: string,

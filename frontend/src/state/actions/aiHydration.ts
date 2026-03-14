@@ -7,7 +7,8 @@ import {
   isChatStreamActive,
   isSectionStreamActive,
 } from "state/aiStreamingTracker";
-import { useAIStore, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
+import { useAIStore } from "state/stores/aiStores";
 import {
   buildChatAppGenerationDetails,
   deserializeChatAppGenerationByMessageId,

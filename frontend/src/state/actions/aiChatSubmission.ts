@@ -5,7 +5,7 @@ import {
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import { useAIStore } from "state/definitions";
+import { useAIStore } from "state/stores/aiStores";
 import {
   normalizeChatAppGenerationContext,
   retainChatAppGenerationDetailsForMessages,

@@ -4,7 +4,7 @@ import {
   buildChatBranchIndex,
   ChatBranchIndex,
 } from "state/actions/aiBranches";
-import { useAIStore } from "state/definitions";
+import { useAIStore } from "state/stores/aiStores";
 import { shallow } from "zustand/shallow";
 
 export function useChatBranchIndex(enabled: boolean): ChatBranchIndex {
