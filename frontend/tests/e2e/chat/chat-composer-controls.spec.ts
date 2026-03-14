@@ -2392,6 +2392,233 @@ test.describe.serial("chat composer controls", () => {
     }
   });
 
+  test("project chat runs managed Gemini MCP tool calls through the Go runtime", async ({
+    page,
+  }) => {
+    await setOverviewTab(page, "ProjectAIChat");
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const engineCleanup = await ensureManagedChatEngine(page);
+    const backendOrigin =
+      process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+
+    let createdEngineConfigId: string | null = null;
+    let initialLLMConfig: LLMConfigPayload | null = null;
+    let initialAPIKeysSnapshot: ManagedAPIKeysSnapshot | null = null;
+    let latestAPIKeysSnapshot: ManagedAPIKeysSnapshot | null = null;
+    let submittedPayload:
+      | {
+          thinking?: boolean;
+          engineConfigId?: string;
+        }
+      | undefined;
+    const providerServer = await startManagedGeminiToolCallServer();
+
+    await page.route("**/api/getLLMResponse", async (route) => {
+      submittedPayload = route.request().postDataJSON() as
+        | {
+            thinking?: boolean;
+            engineConfigId?: string;
+          }
+        | undefined;
+      const response = await route.fetch();
+      const body = await response.body();
+      await route.fulfill({ response, body });
+    });
+
+    try {
+      const llmConfigResponse = await page.request.get(
+        `${backendOrigin}/api/llm/config`,
+      );
+      expect(llmConfigResponse.ok()).toBe(true);
+      initialLLMConfig = (await llmConfigResponse.json()) as LLMConfigPayload;
+      const apiKeysResponse = await page.request.get(
+        `${backendOrigin}/api/llm/apiKeys`,
+      );
+      expect(apiKeysResponse.ok()).toBe(true);
+      initialAPIKeysSnapshot =
+        (await apiKeysResponse.json()) as ManagedAPIKeysSnapshot;
+      latestAPIKeysSnapshot = initialAPIKeysSnapshot;
+
+      const geminiConfigId = `e2e-gemini-tool-call-${Date.now()}`;
+      const updatedLLMConfig: LLMConfigPayload = {
+        ...initialLLMConfig,
+        configs: {
+          ...initialLLMConfig.configs,
+          [geminiConfigId]: {
+            model: "gemini-2.5-pro",
+            provider: "gemini",
+            api_key_env: "GEMINI_API_KEY",
+            base_url: providerServer.origin,
+            mcpServerIds: ["setta"],
+            other_params: null,
+          },
+        },
+        mcpServers: {
+          ...initialLLMConfig.mcpServers,
+          setta: {
+            transport: "sse",
+            url: `${backendOrigin}/mcp`,
+          },
+        },
+      };
+      await postBackend(page, "/llm/config", updatedLLMConfig);
+      latestAPIKeysSnapshot = await postManagedAPIKeys(page, {
+        apiKeys: {
+          ...initialAPIKeysSnapshot.apiKeys,
+          GEMINI_API_KEY: "e2e-gemini-secret",
+        },
+        expectedRevision: initialAPIKeysSnapshot.revision,
+      });
+
+      const createdEngine = await postBackend<EngineConfigSummary>(
+        page,
+        "/createEngineConfig",
+        {
+          name: "Gemini Tool Call E2E",
+          engineType: "setta_llm",
+          settaLlmConfigId: geminiConfigId,
+          defaults: {},
+        },
+      );
+      createdEngineConfigId = createdEngine?.id ?? null;
+      if (!createdEngineConfigId) {
+        throw new Error("Missing Gemini tool-call engine config id.");
+      }
+
+      await expect
+        .poll(async () => {
+          const response = await page.request.post(
+            `${backendOrigin}/api/mcpServerRuntimeStatus`,
+            { data: {} },
+          );
+          expect(response.ok()).toBe(true);
+          const payload =
+            (await response.json()) as MCPRuntimeStatusResponse;
+          return (
+            payload.servers.find((server) => server.serverId === "setta")
+              ?.state ?? null
+          );
+        })
+        .toBe("connected");
+
+      await page.evaluate(async () => {
+        const { loadEngineConfigs, loadLLMConfig } = await import(
+          "/src/state/actions/ai.ts"
+        );
+        await loadLLMConfig();
+        await loadEngineConfigs(true);
+      });
+
+      await setOverviewTab(page, "ProjectAIChat");
+      const overviewPane = page.locator("#OverviewPane");
+      await expect(
+        overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+      ).toBeVisible();
+
+      const projectChatSurface = await getVisibleProjectChatSurface(page);
+      await selectProjectAiEngine(page, "Gemini Tool Call E2E");
+      await expect(
+        projectChatSurface.getByRole("button", { name: "Thinking" }),
+      ).toHaveCount(0);
+
+      const input = projectChatSurface.getByPlaceholder("Type a message...");
+      await expect(input).toBeVisible();
+      await input.fill("Report status and then respond.");
+      await input.press("Enter");
+
+      await expect
+        .poll(() => submittedPayload?.engineConfigId ?? null)
+        .toBe(createdEngineConfigId);
+      expect(submittedPayload?.thinking).toBe(false);
+      await expect.poll(() => providerServer.requests.length).toBe(2);
+
+      const firstProviderRequest = providerServer.requests[0];
+      expect(firstProviderRequest?.path).toBe(
+        "/v1beta/models/gemini-2.5-pro:streamGenerateContent",
+      );
+      expect(firstProviderRequest?.query).toBe("alt=sse");
+      expect(firstProviderRequest?.apiKey).toBe("e2e-gemini-secret");
+      const firstTools = Array.isArray(firstProviderRequest?.body.tools)
+        ? firstProviderRequest.body.tools
+        : [];
+      expect(JSON.stringify(firstTools)).toContain(
+        "setta__report_completion_status",
+      );
+
+      const secondProviderRequest = providerServer.requests[1];
+      const secondContents = Array.isArray(secondProviderRequest?.body.contents)
+        ? secondProviderRequest.body.contents
+        : [];
+      const secondContentsJSON = JSON.stringify(secondContents);
+      expect(secondContentsJSON).toContain('"functionCall"');
+      expect(secondContentsJSON).toContain('"functionResponse"');
+
+      const activitySection = projectChatSurface
+        .locator('[data-chat-assistant-activity-section="true"]')
+        .first();
+      await expect(activitySection).toBeVisible();
+      await expect(activitySection).toContainText(
+        "setta__report_completion_status",
+      );
+
+      const activityTrigger = activitySection.locator(
+        '[data-chat-assistant-activity-trigger="true"]',
+      );
+      const openAllButton = activitySection.locator(
+        '[data-chat-assistant-activity-open-all-button="true"]',
+      );
+      await activityTrigger.hover();
+      await openAllButton.evaluate((element: HTMLButtonElement) => {
+        element.click();
+      });
+      await expect(activityTrigger).toHaveAttribute("aria-expanded", "true");
+      const toolItemTrigger = activitySection.locator(
+        '[data-chat-tool-call-item-trigger="true"]',
+      );
+      await expect(toolItemTrigger).toBeVisible();
+      await expect(
+        activitySection.locator('[data-chat-tool-call-item="true"]'),
+      ).toHaveCount(1);
+      await expect(toolItemTrigger).toContainText(
+        "setta__report_completion_status",
+      );
+      await expect(projectChatSurface).toContainText("Tool-backed gemini reply");
+    } finally {
+      try {
+        await setOverviewTab(page, "ProjectAIChat");
+        await selectProjectAiEngine(page, "setta");
+      } catch {
+        // Best-effort teardown: if the test already failed, don't block cleanup.
+      }
+      if (createdEngineConfigId) {
+        await page.request
+          .post(`${backendOrigin}/api/deleteEngineConfig`, {
+            data: { configId: createdEngineConfigId },
+            timeout: 5000,
+          })
+          .catch(() => {});
+      }
+      if (initialLLMConfig) {
+        await page.request
+          .post(`${backendOrigin}/api/llm/config`, {
+            data: initialLLMConfig,
+            timeout: 5000,
+          })
+          .catch(() => {});
+      }
+      if (initialAPIKeysSnapshot && latestAPIKeysSnapshot) {
+        await postManagedAPIKeys(page, {
+          apiKeys: initialAPIKeysSnapshot.apiKeys,
+          expectedRevision: latestAPIKeysSnapshot.revision,
+        }).catch(() => {});
+      }
+      await providerServer.close();
+      await engineCleanup();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("project chat keeps thinking disabled for managed Azure OpenAI engines without backend runtime support", async ({
     page,
   }) => {
@@ -5371,6 +5598,84 @@ async function startManagedGeminiStandardServer(): Promise<ManagedGeminiStandard
       if (!address || typeof address === "string") {
         server.close(() =>
           reject(new Error("Unable to allocate Gemini standard test port.")),
+        );
+        return;
+      }
+      resolve({
+        origin: `http://127.0.0.1:${address.port}`,
+        requests,
+        close: async () =>
+          await new Promise<void>((closeResolve, closeReject) => {
+            server.close((error) => {
+              if (error) {
+                closeReject(error);
+                return;
+              }
+              closeResolve();
+            });
+          }),
+      });
+    });
+  });
+}
+
+async function startManagedGeminiToolCallServer(): Promise<ManagedGeminiStandardProviderServer> {
+  const requests: ManagedGeminiStandardProviderRequest[] = [];
+  let requestCount = 0;
+  return await new Promise((resolve, reject) => {
+    const server = http.createServer((request, response) => {
+      const chunks: string[] = [];
+      request.setEncoding("utf8");
+      request.on("data", (chunk: string) => {
+        chunks.push(chunk);
+      });
+      request.on("end", () => {
+        try {
+          const rawBody = chunks.join("");
+          const body = rawBody
+            ? (JSON.parse(rawBody) as Record<string, unknown>)
+            : {};
+          const parsedURL = new URL(request.url ?? "/", "http://127.0.0.1");
+          requests.push({
+            path: parsedURL.pathname,
+            query: parsedURL.searchParams.toString(),
+            apiKey: Array.isArray(request.headers["x-goog-api-key"])
+              ? request.headers["x-goog-api-key"].join(", ")
+              : request.headers["x-goog-api-key"] ?? "",
+            body,
+          });
+        } catch (error) {
+          response.statusCode = 400;
+          response.end(String(error));
+          return;
+        }
+
+        response.statusCode = 200;
+        response.setHeader("content-type", "text/event-stream");
+        if (requestCount === 0) {
+          response.end(
+            'data: {"candidates":[{"content":{"role":"model","parts":[{"functionCall":{"id":"tool-call-1","name":"setta__report_completion_status","args":{"completionIntent":false,"requiresVerification":false}}}]}}],"usageMetadata":{"promptTokenCount":18,"candidatesTokenCount":4,"totalTokenCount":22}}\n\n',
+          );
+          requestCount += 1;
+          return;
+        }
+        if (requestCount === 1) {
+          response.end(
+            'data: {"candidates":[{"content":{"role":"model","parts":[{"text":"Tool-backed gemini reply"}]}}],"usageMetadata":{"promptTokenCount":23,"candidatesTokenCount":3,"totalTokenCount":26}}\n\n',
+          );
+          requestCount += 1;
+          return;
+        }
+        response.statusCode = 500;
+        response.end("unexpected provider request");
+      });
+    });
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close(() =>
+          reject(new Error("Unable to allocate Gemini tool-call test port.")),
         );
         return;
       }
