@@ -14,6 +14,7 @@ import (
 	anthropicoption "github.com/anthropics/anthropic-sdk-go/option"
 	openai "github.com/openai/openai-go/v3"
 	openaioption "github.com/openai/openai-go/v3/option"
+	"github.com/openai/openai-go/v3/responses"
 	"setta/internal/agentruns"
 	"setta/internal/managedchat"
 	"setta/internal/mcpx"
@@ -53,24 +54,25 @@ type Executor struct {
 }
 
 type preparedExecution struct {
-	provider             string
-	openAIClient         openai.Client
-	anthropicClient      anthropic.Client
-	projectConfigID      *string
-	sectionID            *string
-	chatID               string
-	runID                string
-	emitStream           bool
-	systemPrompt         string
-	openAIRequestOpts    []openaioption.RequestOption
-	anthropicRequestOpts []anthropicoption.RequestOption
-	model                string
-	transcript           []map[string]any
-	providerMessages     []map[string]any
-	toolDefinitions      []map[string]any
-	availableTools       map[string]mcpx.ToolDescriptor
-	toolAllowlist        *toolAllowlist
-	temporaryToCanonical map[string]string
+	provider                  string
+	openAIClient              openai.Client
+	anthropicClient           anthropic.Client
+	projectConfigID           *string
+	sectionID                 *string
+	chatID                    string
+	runID                     string
+	emitStream                bool
+	systemPrompt              string
+	openAIChatRequestOpts     []openaioption.RequestOption
+	openAIResponseRequestOpts []openaioption.RequestOption
+	anthropicRequestOpts      []anthropicoption.RequestOption
+	model                     string
+	transcript                []map[string]any
+	providerMessages          []map[string]any
+	toolDefinitions           []map[string]any
+	availableTools            map[string]mcpx.ToolDescriptor
+	toolAllowlist             *toolAllowlist
+	temporaryToCanonical      map[string]string
 }
 
 func NewExecutor(options ExecutorOptions) *Executor {
@@ -148,12 +150,13 @@ func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (prepare
 		if clientErr != nil {
 			return preparedExecution{}, clientErr
 		}
-		requestOpts, optsErr := buildOpenAIRequestOverrides(request)
+		chatRequestOpts, optsErr := buildOpenAIChatRequestOverrides(request)
 		if optsErr != nil {
 			return preparedExecution{}, optsErr
 		}
 		prepared.openAIClient = client
-		prepared.openAIRequestOpts = requestOpts
+		prepared.openAIChatRequestOpts = chatRequestOpts
+		prepared.openAIResponseRequestOpts = buildOpenAIResponseRequestOverrides(request)
 	case anthropicProvider:
 		client, clientErr := buildAnthropicClient(request, e.httpClient)
 		if clientErr != nil {
@@ -209,7 +212,7 @@ func (e *Executor) executeConversation(ctx context.Context, prepared preparedExe
 
 	for round := 0; round < maxToolCallRounds; round++ {
 		assistantMessage := newAssistantMessage()
-		turnUsage, err := e.executeTurn(ctx, prepared, assistantMessage, providerMessages, request)
+		turnUsage, err := e.executeTurn(ctx, prepared, assistantMessage, transcript, providerMessages, request)
 		if turnUsage != nil {
 			usage = turnUsage
 		}
@@ -258,6 +261,7 @@ func (e *Executor) executeTurn(
 	ctx context.Context,
 	prepared preparedExecution,
 	assistantMessage map[string]any,
+	transcript []map[string]any,
 	providerMessages []map[string]any,
 	request agentruns.ExecutionRequest,
 ) (map[string]any, error) {
@@ -270,7 +274,8 @@ func (e *Executor) executeTurn(
 		}
 	}
 
-	usage, err := e.consumeProviderStream(ctx, prepared, assistantMessage, providerMessages, request)
+	usage, err := e.consumeProviderStream(ctx, prepared, assistantMessage, transcript, providerMessages, request)
+	compactAssistantContent(assistantMessage)
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
 			if finishErr := e.finishStream(ctx, prepared, assistantMessage, true); finishErr != nil {
@@ -296,11 +301,25 @@ func (e *Executor) consumeProviderStream(
 	ctx context.Context,
 	prepared preparedExecution,
 	assistantMessage map[string]any,
+	transcript []map[string]any,
 	providerMessages []map[string]any,
 	request agentruns.ExecutionRequest,
 ) (map[string]any, error) {
 	switch prepared.provider {
 	case openAIProvider:
+		if request.Thinking {
+			requestBody, err := buildOpenAIResponsesParams(
+				request,
+				prepared.model,
+				prepared.systemPrompt,
+				transcript,
+				prepared.toolDefinitions,
+			)
+			if err != nil {
+				return nil, err
+			}
+			return e.consumeOpenAIResponsesStream(ctx, prepared, assistantMessage, requestBody)
+		}
 		requestBody, err := buildOpenAIChatCompletionParams(prepared.model, providerMessages, prepared.toolDefinitions)
 		if err != nil {
 			return nil, err
@@ -327,7 +346,7 @@ func (e *Executor) consumeOpenAIStream(
 	accumulator := newToolCallAccumulator()
 	previewAccumulator := newToolPreviewAccumulator()
 
-	stream := prepared.openAIClient.Chat.Completions.NewStreaming(ctx, requestBody, prepared.openAIRequestOpts...)
+	stream := prepared.openAIClient.Chat.Completions.NewStreaming(ctx, requestBody, prepared.openAIChatRequestOpts...)
 	for stream.Next() {
 		if ctx.Err() != nil {
 			return usage, context.Canceled
@@ -349,6 +368,50 @@ func (e *Executor) consumeOpenAIStream(
 	}
 	if err := stream.Err(); err != nil {
 		return usage, wrapOpenAIProviderError(err)
+	}
+	if finalizeErr := finalizeAssistantToolCalls(assistantMessage, accumulator); finalizeErr != nil {
+		return usage, finalizeErr
+	}
+	return usage, nil
+}
+
+func (e *Executor) consumeOpenAIResponsesStream(
+	ctx context.Context,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	requestBody responses.ResponseNewParams,
+) (map[string]any, error) {
+	var usage map[string]any
+	accumulator := newToolCallAccumulator()
+	previewAccumulator := newToolPreviewAccumulator()
+	streamState := &openAIResponseStreamState{}
+
+	stream := prepared.openAIClient.Responses.NewStreaming(ctx, requestBody, prepared.openAIResponseRequestOpts...)
+	for stream.Next() {
+		if ctx.Err() != nil {
+			return usage, context.Canceled
+		}
+		nextUsage, err := e.processOpenAIResponseEvent(
+			ctx,
+			stream.Current(),
+			prepared,
+			assistantMessage,
+			accumulator,
+			previewAccumulator,
+			streamState,
+		)
+		if err != nil {
+			return usage, err
+		}
+		if nextUsage != nil {
+			usage = nextUsage
+		}
+	}
+	if err := stream.Err(); err != nil {
+		return usage, wrapOpenAIProviderError(err)
+	}
+	if err := e.flushBufferedOpenAIResponseText(ctx, prepared, assistantMessage, streamState, !streamState.reasoningEmitted); err != nil {
+		return usage, err
 	}
 	if finalizeErr := finalizeAssistantToolCalls(assistantMessage, accumulator); finalizeErr != nil {
 		return usage, finalizeErr
@@ -430,6 +493,342 @@ func (e *Executor) processOpenAIChunk(
 		}
 	}
 	return usage, nil
+}
+
+type openAIResponseStreamState struct {
+	reasoningSeen    bool
+	reasoningEmitted bool
+	summary          string
+	bufferedText     strings.Builder
+}
+
+func (e *Executor) processOpenAIResponseEvent(
+	ctx context.Context,
+	event responses.ResponseStreamEventUnion,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	accumulator *toolCallAccumulator,
+	previewAccumulator *toolPreviewAccumulator,
+	streamState *openAIResponseStreamState,
+) (map[string]any, error) {
+	switch typed := event.AsAny().(type) {
+	case responses.ResponseOutputItemAddedEvent:
+		switch item := typed.Item.AsAny().(type) {
+		case responses.ResponseReasoningItem:
+			streamState.reasoningSeen = true
+			summary := joinOpenAIResponseReasoningSummary(item.Summary)
+			if strings.TrimSpace(summary) != "" && strings.TrimSpace(streamState.summary) == "" {
+				streamState.summary = summary
+				streamState.reasoningEmitted = true
+				setAssistantThinkingSummaryAtIndex(assistantMessage, 0, summary)
+			}
+			reasoning := joinOpenAIResponseReasoningContent(item.Content)
+			if strings.TrimSpace(reasoning) != "" {
+				streamState.reasoningEmitted = true
+				appendAssistantThinkingAtIndex(assistantMessage, 0, reasoning)
+			}
+		case responses.ResponseFunctionToolCall:
+			accumulator.apply(int(typed.OutputIndex), item.CallID, item.Name, "")
+		}
+	case responses.ResponseReasoningSummaryTextDeltaEvent:
+		streamState.reasoningSeen = true
+		streamState.reasoningEmitted = true
+		streamState.summary += typed.Delta
+		setAssistantThinkingSummaryAtIndex(assistantMessage, 0, streamState.summary)
+		if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, "", optionalStringPointer(streamState.summary)); err != nil {
+			return nil, err
+		}
+		if err := e.flushBufferedOpenAIResponseText(ctx, prepared, assistantMessage, streamState, false); err != nil {
+			return nil, err
+		}
+	case responses.ResponseReasoningSummaryTextDoneEvent:
+		if strings.TrimSpace(streamState.summary) != "" || strings.TrimSpace(typed.Text) == "" {
+			return nil, nil
+		}
+		streamState.reasoningSeen = true
+		streamState.reasoningEmitted = true
+		streamState.summary = typed.Text
+		setAssistantThinkingSummaryAtIndex(assistantMessage, 0, typed.Text)
+		if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, "", optionalStringPointer(typed.Text)); err != nil {
+			return nil, err
+		}
+		if err := e.flushBufferedOpenAIResponseText(ctx, prepared, assistantMessage, streamState, false); err != nil {
+			return nil, err
+		}
+	case responses.ResponseReasoningTextDeltaEvent:
+		streamState.reasoningSeen = true
+		streamState.reasoningEmitted = true
+		appendAssistantThinkingAtIndex(assistantMessage, 0, typed.Delta)
+		if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, typed.Delta, nil); err != nil {
+			return nil, err
+		}
+		if err := e.flushBufferedOpenAIResponseText(ctx, prepared, assistantMessage, streamState, false); err != nil {
+			return nil, err
+		}
+	case responses.ResponseReasoningTextDoneEvent:
+		if strings.TrimSpace(typed.Text) == "" {
+			return nil, nil
+		}
+		if !hasMessageThinking(assistantMessage) {
+			streamState.reasoningSeen = true
+			streamState.reasoningEmitted = true
+			appendAssistantThinkingAtIndex(assistantMessage, 0, typed.Text)
+			if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, typed.Text, nil); err != nil {
+				return nil, err
+			}
+			if err := e.flushBufferedOpenAIResponseText(ctx, prepared, assistantMessage, streamState, false); err != nil {
+				return nil, err
+			}
+		}
+	case responses.ResponseTextDeltaEvent:
+		if err := e.applyOpenAIResponseTextDelta(ctx, prepared, assistantMessage, streamState, typed.Delta); err != nil {
+			return nil, err
+		}
+	case responses.ResponseTextDoneEvent:
+		if !hasMessageText(assistantMessage) && typed.Text != "" {
+			if err := e.applyOpenAIResponseTextDelta(ctx, prepared, assistantMessage, streamState, typed.Text); err != nil {
+				return nil, err
+			}
+		}
+	case responses.ResponseRefusalDeltaEvent:
+		if err := e.applyOpenAIResponseTextDelta(ctx, prepared, assistantMessage, streamState, typed.Delta); err != nil {
+			return nil, err
+		}
+	case responses.ResponseRefusalDoneEvent:
+		if !hasMessageText(assistantMessage) && typed.Refusal != "" {
+			if err := e.applyOpenAIResponseTextDelta(ctx, prepared, assistantMessage, streamState, typed.Refusal); err != nil {
+				return nil, err
+			}
+		}
+	case responses.ResponseFunctionCallArgumentsDeltaEvent:
+		argumentsDelta := typed.Delta
+		state := accumulator.apply(int(typed.OutputIndex), "", "", argumentsDelta)
+		if state == nil || strings.TrimSpace(state.id) == "" {
+			return nil, nil
+		}
+		var toolName *string
+		if strings.TrimSpace(state.name) != "" {
+			toolName = optionalStringPointer(state.name)
+		}
+		if err := e.applyChunk(ctx, prepared, realtime.ToolCallDeltaEvent{
+			Type:           realtime.StreamingEventTypeToolCallDelta,
+			MessageID:      stringValue(assistantMessage["id"]),
+			ToolCallID:     strings.TrimSpace(state.id),
+			ArgumentsDelta: argumentsDelta,
+			ToolName:       toolName,
+		}); err != nil {
+			return nil, err
+		}
+		descriptor, ok := prepared.availableTools[mcpx.NormalizeToolName(state.name)]
+		if !ok || descriptor.Metadata == nil || descriptor.Metadata.ToolArgumentPreview == nil {
+			return nil, nil
+		}
+		previewEvent, err := previewAccumulator.buildEvent(
+			stringValue(assistantMessage["id"]),
+			state,
+			descriptor.Metadata.ToolArgumentPreview,
+			argumentsDelta,
+			prepared.temporaryToCanonical,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if previewEvent != nil {
+			if err := e.applyChunk(ctx, prepared, *previewEvent); err != nil {
+				return nil, err
+			}
+		}
+	case responses.ResponseFunctionCallArgumentsDoneEvent:
+		accumulator.apply(int(typed.OutputIndex), "", typed.Name, typed.Arguments)
+	case responses.ResponseCompletedEvent:
+		e.applyOpenAICompletedResponseFallback(assistantMessage, typed.Response, streamState)
+		return buildResponseUsagePayload(typed.Response.Usage), nil
+	case responses.ResponseErrorEvent:
+		detail := strings.TrimSpace(typed.Message)
+		if detail == "" {
+			detail = "OpenAI request failed."
+		}
+		return nil, fmt.Errorf("managed llm provider request failed: %s", detail)
+	case responses.ResponseFailedEvent:
+		if strings.TrimSpace(typed.Response.Error.Message) == "" {
+			return nil, fmt.Errorf("managed llm provider request failed: response failed")
+		}
+		return nil, fmt.Errorf("managed llm provider request failed: %s", strings.TrimSpace(typed.Response.Error.Message))
+	}
+	return nil, nil
+}
+
+func (e *Executor) applyOpenAIResponseTextDelta(
+	ctx context.Context,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	streamState *openAIResponseStreamState,
+	delta string,
+) error {
+	if strings.TrimSpace(delta) == "" && delta == "" {
+		return nil
+	}
+	if streamState.reasoningSeen && !streamState.reasoningEmitted {
+		streamState.bufferedText.WriteString(delta)
+		return nil
+	}
+	textIndex := 0
+	if streamState.reasoningSeen {
+		textIndex = 1
+	}
+	appendAssistantTextAtIndex(assistantMessage, textIndex, delta)
+	return e.emitOpenAIResponseTextDelta(ctx, prepared, assistantMessage, textIndex, delta)
+}
+
+func (e *Executor) flushBufferedOpenAIResponseText(
+	ctx context.Context,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	streamState *openAIResponseStreamState,
+	preferIndexZero bool,
+) error {
+	if streamState == nil {
+		return nil
+	}
+	buffered := streamState.bufferedText.String()
+	if buffered == "" {
+		return nil
+	}
+	streamState.bufferedText.Reset()
+	textIndex := 1
+	if preferIndexZero || !streamState.reasoningSeen || !streamState.reasoningEmitted {
+		textIndex = 0
+	}
+	appendAssistantTextAtIndex(assistantMessage, textIndex, buffered)
+	return e.emitOpenAIResponseTextDelta(ctx, prepared, assistantMessage, textIndex, buffered)
+}
+
+func (e *Executor) emitOpenAIResponseTextDelta(
+	ctx context.Context,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	index int,
+	text string,
+) error {
+	if !prepared.emitStream || text == "" {
+		return nil
+	}
+	return e.applyChunk(ctx, prepared, realtime.MessageDeltaEvent{
+		Type:      realtime.StreamingEventTypeDelta,
+		MessageID: stringValue(assistantMessage["id"]),
+		Content: []any{
+			realtime.MessageTextDelta{
+				Type:  realtime.MessageContentTypeTextDelta,
+				Index: index,
+				Text:  text,
+			},
+		},
+	})
+}
+
+func (e *Executor) emitOpenAIResponseThinkingDelta(
+	ctx context.Context,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	index int,
+	thinking string,
+	summary *string,
+) error {
+	if !prepared.emitStream {
+		return nil
+	}
+	if thinking == "" && (summary == nil || strings.TrimSpace(*summary) == "") {
+		return nil
+	}
+	return e.applyChunk(ctx, prepared, realtime.MessageDeltaEvent{
+		Type:      realtime.StreamingEventTypeDelta,
+		MessageID: stringValue(assistantMessage["id"]),
+		Content: []any{
+			realtime.MessageThinkingDelta{
+				Type:     realtime.MessageContentTypeThinkingDelta,
+				Index:    index,
+				Thinking: thinking,
+				Summary:  summary,
+			},
+		},
+	})
+}
+
+func (e *Executor) applyOpenAICompletedResponseFallback(
+	assistantMessage map[string]any,
+	response responses.Response,
+	streamState *openAIResponseStreamState,
+) {
+	for _, itemUnion := range response.Output {
+		switch item := itemUnion.AsAny().(type) {
+		case responses.ResponseReasoningItem:
+			streamState.reasoningSeen = true
+			summary := joinOpenAIResponseReasoningSummary(item.Summary)
+			if strings.TrimSpace(summary) != "" && strings.TrimSpace(streamState.summary) == "" {
+				streamState.summary = summary
+				streamState.reasoningEmitted = true
+				setAssistantThinkingSummaryAtIndex(assistantMessage, 0, summary)
+			}
+			reasoning := joinOpenAIResponseReasoningContent(item.Content)
+			if strings.TrimSpace(reasoning) != "" && !hasMessageThinkingText(assistantMessage) {
+				streamState.reasoningEmitted = true
+				appendAssistantThinkingAtIndex(assistantMessage, 0, reasoning)
+			}
+		case responses.ResponseOutputMessage:
+			if hasMessageText(assistantMessage) {
+				continue
+			}
+			text := joinOpenAIResponseOutputMessageText(item.Content)
+			if strings.TrimSpace(text) == "" {
+				continue
+			}
+			appendAssistantText(assistantMessage, text)
+		case responses.ResponseFunctionToolCall:
+			// The streaming accumulator already preserves the active tool-call state.
+			continue
+		}
+	}
+}
+
+func joinOpenAIResponseReasoningSummary(summary []responses.ResponseReasoningItemSummary) string {
+	parts := make([]string, 0, len(summary))
+	for _, entry := range summary {
+		text := strings.TrimSpace(entry.Text)
+		if text != "" {
+			parts = append(parts, text)
+		}
+	}
+	return strings.Join(parts, "\n")
+}
+
+func joinOpenAIResponseReasoningContent(content []responses.ResponseReasoningItemContent) string {
+	parts := make([]string, 0, len(content))
+	for _, entry := range content {
+		text := strings.TrimSpace(entry.Text)
+		if text != "" {
+			parts = append(parts, text)
+		}
+	}
+	return strings.Join(parts, "")
+}
+
+func joinOpenAIResponseOutputMessageText(content []responses.ResponseOutputMessageContentUnion) string {
+	parts := make([]string, 0, len(content))
+	for _, entry := range content {
+		switch variant := entry.AsAny().(type) {
+		case responses.ResponseOutputText:
+			text := strings.TrimSpace(variant.Text)
+			if text != "" {
+				parts = append(parts, text)
+			}
+		case responses.ResponseOutputRefusal:
+			text := strings.TrimSpace(variant.Refusal)
+			if text != "" {
+				parts = append(parts, text)
+			}
+		}
+	}
+	return strings.Join(parts, "\n\n")
 }
 
 func (e *Executor) applyChunk(ctx context.Context, prepared preparedExecution, chunk any) error {
@@ -579,6 +978,9 @@ func shouldPersistMessage(message map[string]any) bool {
 		return false
 	}
 	if hasMessageText(message) {
+		return true
+	}
+	if hasMessageThinking(message) {
 		return true
 	}
 	if hasNonEmptyToolCalls(message["tool_calls"]) {
@@ -912,6 +1314,15 @@ func appendAssistantThinkingAtIndex(message map[string]any, index int, delta str
 	message["content"] = content
 }
 
+func setAssistantThinkingSummaryAtIndex(message map[string]any, index int, summary string) {
+	if strings.TrimSpace(summary) == "" {
+		return
+	}
+	content, block := ensureAssistantContentBlock(message, index, "thinking")
+	block["summary"] = summary
+	message["content"] = content
+}
+
 func setAssistantThinkingSignatureAtIndex(message map[string]any, index int, signature string) {
 	if strings.TrimSpace(signature) == "" {
 		return
@@ -946,6 +1357,39 @@ func ensureAssistantContentBlock(message map[string]any, index int, blockType st
 	return content, block
 }
 
+func compactAssistantContent(message map[string]any) {
+	if message == nil {
+		return
+	}
+	content, _ := message["content"].([]any)
+	if len(content) == 0 {
+		return
+	}
+	compacted := make([]any, 0, len(content))
+	for _, entry := range content {
+		block, ok := entry.(map[string]any)
+		if !ok {
+			continue
+		}
+		switch strings.TrimSpace(stringValue(block["type"])) {
+		case "text":
+			if strings.TrimSpace(stringValue(block["text"])) == "" {
+				continue
+			}
+		case "thinking":
+			if strings.TrimSpace(stringValue(block["thinking"])) == "" &&
+				strings.TrimSpace(stringValue(block["summary"])) == "" &&
+				strings.TrimSpace(stringValue(block["signature"])) == "" {
+				continue
+			}
+		default:
+			continue
+		}
+		compacted = append(compacted, cloneAnyMap(block))
+	}
+	message["content"] = compacted
+}
+
 func hasMessageText(message map[string]any) bool {
 	content, ok := message["content"].([]any)
 	if !ok {
@@ -960,6 +1404,48 @@ func hasMessageText(message map[string]any) bool {
 			continue
 		}
 		if strings.TrimSpace(stringValue(block["text"])) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func hasMessageThinking(message map[string]any) bool {
+	content, ok := message["content"].([]any)
+	if !ok {
+		return false
+	}
+	for _, entry := range content {
+		block, ok := entry.(map[string]any)
+		if !ok {
+			continue
+		}
+		if strings.TrimSpace(stringValue(block["type"])) != "thinking" {
+			continue
+		}
+		if strings.TrimSpace(stringValue(block["thinking"])) != "" ||
+			strings.TrimSpace(stringValue(block["summary"])) != "" ||
+			strings.TrimSpace(stringValue(block["signature"])) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func hasMessageThinkingText(message map[string]any) bool {
+	content, ok := message["content"].([]any)
+	if !ok {
+		return false
+	}
+	for _, entry := range content {
+		block, ok := entry.(map[string]any)
+		if !ok {
+			continue
+		}
+		if strings.TrimSpace(stringValue(block["type"])) != "thinking" {
+			continue
+		}
+		if strings.TrimSpace(stringValue(block["thinking"])) != "" {
 			return true
 		}
 	}

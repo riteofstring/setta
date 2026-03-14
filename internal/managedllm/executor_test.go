@@ -959,11 +959,14 @@ func TestExecutorValidateAllowsThinkingForAnthropicWithExplicitConfig(t *testing
 	}
 }
 
-func TestExecutorExecuteAddsDefaultReasoningEffortForSupportedThinkingModel(t *testing.T) {
+func TestExecutorExecuteStreamsOpenAIResponsesThinkingAndReturnsOutputs(t *testing.T) {
 	t.Parallel()
 
 	var seenRequest map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/responses" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
 		if err := json.NewDecoder(r.Body).Decode(&seenRequest); err != nil {
 			t.Fatalf("decode provider request: %v", err)
 		}
@@ -972,20 +975,53 @@ func TestExecutorExecuteAddsDefaultReasoningEffortForSupportedThinkingModel(t *t
 		if !ok {
 			t.Fatal("expected flusher")
 		}
-		fmt.Fprint(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Reasoned reply\"},\"finish_reason\":\"stop\"}]}\n\n")
+		fmt.Fprint(w, openAIResponseReasoningItemAddedEvent(0, "reasoning-1"))
 		flusher.Flush()
-		fmt.Fprint(w, "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":8,\"completion_tokens\":3,\"total_tokens\":11,\"completion_tokens_details\":{\"reasoning_tokens\":2}}}\n\n")
+		fmt.Fprint(w, openAIResponseReasoningSummaryTextDeltaEvent("reasoning-1", 0, 0, "Plan summary"))
 		flusher.Flush()
-		fmt.Fprint(w, "data: [DONE]\n\n")
+		fmt.Fprint(w, openAIResponseReasoningTextDeltaEvent("reasoning-1", 0, 0, "Planning deeply"))
+		flusher.Flush()
+		fmt.Fprint(w, openAIResponseOutputTextDeltaEvent("message-1", 1, 0, "Final answer"))
+		flusher.Flush()
+		fmt.Fprint(w, openAIResponseCompletedEvent(
+			[]map[string]any{
+				{
+					"type":    "reasoning",
+					"id":      "reasoning-1",
+					"summary": []map[string]any{{"text": "Plan summary"}},
+					"content": []map[string]any{{"type": "reasoning_text", "text": "Planning deeply"}},
+					"status":  "completed",
+				},
+				{
+					"type":    "message",
+					"id":      "message-1",
+					"role":    "assistant",
+					"status":  "completed",
+					"content": []map[string]any{{"type": "output_text", "text": "Final answer", "annotations": []any{}}},
+				},
+			},
+			8,
+			3,
+			11,
+			2,
+		))
+		flusher.Flush()
 	}))
 	defer server.Close()
 
+	broadcaster := &captureBroadcaster{}
+	live := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{Broadcaster: broadcaster})
+	run := newManagedChatTestRun()
+	live.ActivateRun(run)
+
 	executor := NewExecutor(ExecutorOptions{
+		Live:       live,
 		HTTPClient: server.Client(),
 	})
 	result, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
-		Run: agentruns.Run{ID: "run-alpha"},
+		Run: run,
 		LLMConfig: llmconfig.Config{
+			ID:        "primary",
 			Model:     "gpt-5-codex",
 			Provider:  "openai",
 			BaseURL:   server.URL + "/v1",
@@ -1016,8 +1052,21 @@ func TestExecutorExecuteAddsDefaultReasoningEffortForSupportedThinkingModel(t *t
 		t.Fatalf("execute managed llm reasoning request: %v", err)
 	}
 
-	if seenRequest["reasoning_effort"] != "high" {
-		t.Fatalf("expected reasoning_effort=high, got %#v", seenRequest["reasoning_effort"])
+	reasoning, ok := seenRequest["reasoning"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected reasoning payload, got %#v", seenRequest["reasoning"])
+	}
+	if reasoning["effort"] != "high" {
+		t.Fatalf("expected reasoning.effort=high, got %#v", reasoning)
+	}
+	if reasoning["summary"] != "auto" {
+		t.Fatalf("expected reasoning.summary=auto, got %#v", reasoning)
+	}
+	if seenRequest["instructions"] != "System prompt" {
+		t.Fatalf("expected responses instructions, got %#v", seenRequest["instructions"])
+	}
+	if seenRequest["store"] != false {
+		t.Fatalf("expected responses store=false, got %#v", seenRequest["store"])
 	}
 	usage, ok := result.Outputs["usage"].(map[string]any)
 	if !ok {
@@ -1025,6 +1074,233 @@ func TestExecutorExecuteAddsDefaultReasoningEffortForSupportedThinkingModel(t *t
 	}
 	if int(usage["reasoning_output_tokens"].(float64)) != 2 {
 		t.Fatalf("expected reasoning output tokens in usage, got %#v", usage)
+	}
+
+	messages, ok := result.Outputs["messages"].([]any)
+	if !ok || len(messages) != 2 {
+		t.Fatalf("expected user and assistant output messages, got %#v", result.Outputs["messages"])
+	}
+	assistant, ok := messages[1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected assistant message map, got %#v", messages[1])
+	}
+	content, ok := assistant["content"].([]any)
+	if !ok || len(content) != 2 {
+		t.Fatalf("expected thinking plus text content, got %#v", assistant["content"])
+	}
+	thinkingBlock, ok := content[0].(map[string]any)
+	if !ok || thinkingBlock["type"] != "thinking" {
+		t.Fatalf("expected thinking block, got %#v", content[0])
+	}
+	if thinkingBlock["summary"] != "Plan summary" || thinkingBlock["thinking"] != "Planning deeply" {
+		t.Fatalf("unexpected OpenAI reasoning block %#v", thinkingBlock)
+	}
+	textBlock, ok := content[1].(map[string]any)
+	if !ok || textBlock["text"] != "Final answer" {
+		t.Fatalf("unexpected text block %#v", content[1])
+	}
+	if broadcaster.Count() != 6 {
+		t.Fatalf("expected 6 streaming broadcasts, got %d", broadcaster.Count())
+	}
+}
+
+func TestExecutorExecuteRunsOpenAIResponsesToolCallsThroughMCPAndContinuesProviderTurns(t *testing.T) {
+	t.Parallel()
+
+	requestBodies := make([]map[string]any, 0, 2)
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/responses" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+		body := map[string]any{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode provider request: %v", err)
+		}
+		requestBodies = append(requestBodies, body)
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected flusher")
+		}
+		switch requestCount {
+		case 0:
+			fmt.Fprint(w, openAIResponseFunctionCallItemAddedEvent(0, "function-item-1", "tool-call-1", "setta__create_top_level_section"))
+			flusher.Flush()
+			fmt.Fprint(w, openAIResponseFunctionCallArgumentsDeltaEvent("function-item-1", 0, `{"projectConfigId":"project-alpha","implType":"Dict"}`))
+			flusher.Flush()
+			fmt.Fprint(w, openAIResponseCompletedEvent(
+				[]map[string]any{
+					{
+						"type":      "function_call",
+						"id":        "function-item-1",
+						"call_id":   "tool-call-1",
+						"name":      "setta__create_top_level_section",
+						"arguments": `{"projectConfigId":"project-alpha","implType":"Dict"}`,
+						"status":    "completed",
+					},
+				},
+				12,
+				2,
+				14,
+				1,
+			))
+			flusher.Flush()
+		case 1:
+			fmt.Fprint(w, openAIResponseOutputTextDeltaEvent("message-2", 0, 0, "Tool loop complete"))
+			flusher.Flush()
+			fmt.Fprint(w, openAIResponseCompletedEvent(
+				[]map[string]any{
+					{
+						"type":    "message",
+						"id":      "message-2",
+						"role":    "assistant",
+						"status":  "completed",
+						"content": []map[string]any{{"type": "output_text", "text": "Tool loop complete", "annotations": []any{}}},
+					},
+				},
+				15,
+				3,
+				18,
+				1,
+			))
+			flusher.Flush()
+		default:
+			t.Fatalf("unexpected provider request count %d", requestCount)
+		}
+		requestCount++
+	}))
+	defer server.Close()
+
+	broadcaster := &captureBroadcaster{}
+	live := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{Broadcaster: broadcaster})
+	run := newManagedChatTestRun()
+	live.ActivateRun(run)
+
+	capturedCalls := make([]struct {
+		ToolName  string
+		Arguments map[string]any
+		Meta      map[string]any
+	}, 0, 1)
+	toolClient := &stubToolClient{
+		discoverableTools: map[string]mcpx.ToolDescriptor{
+			"setta__create_top_level_section": {
+				ServerID:       mcpx.DefaultServerID,
+				NamespacedName: "setta__create_top_level_section",
+				RemoteName:     "create_top_level_section",
+				Description:    "Create a top-level section.",
+				InputSchema: map[string]any{
+					"type": "object",
+				},
+			},
+		},
+		call: func(_ context.Context, namespacedToolName string, arguments map[string]any, meta map[string]any) (mcpx.ToolCallResult, error) {
+			capturedCalls = append(capturedCalls, struct {
+				ToolName  string
+				Arguments map[string]any
+				Meta      map[string]any
+			}{
+				ToolName:  namespacedToolName,
+				Arguments: arguments,
+				Meta:      meta,
+			})
+			return mcpx.ToolCallResult{
+				StructuredContent: map[string]any{"sectionId": "section-created"},
+				Text:              "{\"sectionId\":\"section-created\"}",
+			}, nil
+		},
+	}
+
+	executor := NewExecutor(ExecutorOptions{
+		Live:       live,
+		Tools:      toolClient,
+		HTTPClient: server.Client(),
+	})
+	result, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
+		Run: run,
+		LLMConfig: llmconfig.Config{
+			ID:        "primary",
+			Model:     "gpt-5-codex",
+			Provider:  "openai",
+			BaseURL:   server.URL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+		MCPServerIDs:           []string{mcpx.DefaultServerID},
+		CompletionGuardEnabled: true,
+		APIKeys: map[string]string{
+			"OPENAI_API_KEY": "secret",
+		},
+		SystemPrompt:    "System prompt",
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+		Thinking:        true,
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+			"messages": []any{
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Use the tool"},
+					},
+					"attachments": []any{},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("execute managed OpenAI Responses tool stream: %v", err)
+	}
+
+	if len(capturedCalls) != 1 {
+		t.Fatalf("expected one tool call, got %#v", capturedCalls)
+	}
+	if capturedCalls[0].ToolName != "setta__create_top_level_section" {
+		t.Fatalf("unexpected tool name %#v", capturedCalls[0])
+	}
+	if capturedCalls[0].Arguments["projectConfigId"] != "project-alpha" {
+		t.Fatalf("unexpected tool arguments %#v", capturedCalls[0].Arguments)
+	}
+
+	if len(requestBodies) != 2 {
+		t.Fatalf("expected two OpenAI responses requests, got %d", len(requestBodies))
+	}
+	firstTools, ok := requestBodies[0]["tools"].([]any)
+	if !ok || len(firstTools) != 1 {
+		t.Fatalf("expected one OpenAI function tool, got %#v", requestBodies[0]["tools"])
+	}
+	secondInput, ok := requestBodies[1]["input"].([]any)
+	if !ok || len(secondInput) < 3 {
+		t.Fatalf("expected follow-up Responses transcript input, got %#v", requestBodies[1]["input"])
+	}
+	foundFunctionCall := false
+	foundFunctionResult := false
+	for _, rawItem := range secondInput {
+		item, ok := rawItem.(map[string]any)
+		if !ok {
+			continue
+		}
+		if item["type"] == "function_call" && item["call_id"] == "tool-call-1" {
+			foundFunctionCall = true
+		}
+		if item["type"] == "function_call_output" && item["call_id"] == "tool-call-1" {
+			foundFunctionResult = true
+		}
+	}
+	if !foundFunctionCall || !foundFunctionResult {
+		t.Fatalf("expected follow-up Responses input with function call and result, got %#v", secondInput)
+	}
+
+	messages, ok := result.Outputs["messages"].([]any)
+	if !ok || len(messages) != 4 {
+		t.Fatalf("expected user, tool-call assistant, tool, final assistant messages, got %#v", result.Outputs["messages"])
+	}
+	if len(result.ToolCalls) != 1 {
+		t.Fatalf("expected one persisted tool call, got %#v", result.ToolCalls)
+	}
+	if assistantText(messages[3].(map[string]any)) != "Tool loop complete" {
+		t.Fatalf("unexpected final assistant text %#v", messages[3])
 	}
 }
 
@@ -1433,6 +1709,115 @@ func filterToolDescriptorsForServers(source map[string]mcpx.ToolDescriptor, serv
 		filtered[name] = descriptor
 	}
 	return filtered
+}
+
+func openAIResponseReasoningItemAddedEvent(outputIndex int, itemID string) string {
+	return openAIResponseEvent(map[string]any{
+		"type":            "response.output_item.added",
+		"sequence_number": 1,
+		"output_index":    outputIndex,
+		"item": map[string]any{
+			"type":    "reasoning",
+			"id":      itemID,
+			"summary": []any{},
+			"content": []any{},
+			"status":  "in_progress",
+		},
+	})
+}
+
+func openAIResponseReasoningSummaryTextDeltaEvent(itemID string, outputIndex int, summaryIndex int, delta string) string {
+	return openAIResponseEvent(map[string]any{
+		"type":            "response.reasoning_summary_text.delta",
+		"sequence_number": 2,
+		"item_id":         itemID,
+		"output_index":    outputIndex,
+		"summary_index":   summaryIndex,
+		"delta":           delta,
+	})
+}
+
+func openAIResponseReasoningTextDeltaEvent(itemID string, outputIndex int, contentIndex int, delta string) string {
+	return openAIResponseEvent(map[string]any{
+		"type":            "response.reasoning_text.delta",
+		"sequence_number": 3,
+		"item_id":         itemID,
+		"output_index":    outputIndex,
+		"content_index":   contentIndex,
+		"delta":           delta,
+	})
+}
+
+func openAIResponseOutputTextDeltaEvent(itemID string, outputIndex int, contentIndex int, delta string) string {
+	return openAIResponseEvent(map[string]any{
+		"type":            "response.output_text.delta",
+		"sequence_number": 4,
+		"item_id":         itemID,
+		"output_index":    outputIndex,
+		"content_index":   contentIndex,
+		"delta":           delta,
+		"logprobs":        []any{},
+	})
+}
+
+func openAIResponseFunctionCallItemAddedEvent(outputIndex int, itemID string, callID string, name string) string {
+	return openAIResponseEvent(map[string]any{
+		"type":            "response.output_item.added",
+		"sequence_number": 1,
+		"output_index":    outputIndex,
+		"item": map[string]any{
+			"type":      "function_call",
+			"id":        itemID,
+			"call_id":   callID,
+			"name":      name,
+			"arguments": "",
+			"status":    "in_progress",
+		},
+	})
+}
+
+func openAIResponseFunctionCallArgumentsDeltaEvent(itemID string, outputIndex int, delta string) string {
+	return openAIResponseEvent(map[string]any{
+		"type":            "response.function_call_arguments.delta",
+		"sequence_number": 2,
+		"item_id":         itemID,
+		"output_index":    outputIndex,
+		"delta":           delta,
+	})
+}
+
+func openAIResponseCompletedEvent(output []map[string]any, inputTokens int, outputTokens int, totalTokens int, reasoningTokens int) string {
+	return openAIResponseEvent(map[string]any{
+		"type":            "response.completed",
+		"sequence_number": 99,
+		"response": map[string]any{
+			"id":         "response-1",
+			"object":     "response",
+			"created_at": 1741567200,
+			"status":     "completed",
+			"model":      "gpt-5-codex",
+			"output":     output,
+			"usage": map[string]any{
+				"input_tokens": inputTokens,
+				"input_tokens_details": map[string]any{
+					"cached_tokens": 0,
+				},
+				"output_tokens": outputTokens,
+				"output_tokens_details": map[string]any{
+					"reasoning_tokens": reasoningTokens,
+				},
+				"total_tokens": totalTokens,
+			},
+		},
+	})
+}
+
+func openAIResponseEvent(payload map[string]any) string {
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		panic(err)
+	}
+	return "data: " + string(encoded) + "\n\n"
 }
 
 func anthropicMessageStartEvent(messageID string, model string, inputTokens int, outputTokens int) string {

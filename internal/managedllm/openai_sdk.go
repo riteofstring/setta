@@ -10,6 +10,8 @@ import (
 
 	openai "github.com/openai/openai-go/v3"
 	openaioption "github.com/openai/openai-go/v3/option"
+	"github.com/openai/openai-go/v3/packages/param"
+	"github.com/openai/openai-go/v3/responses"
 	"github.com/openai/openai-go/v3/shared"
 	"setta/internal/agentruns"
 )
@@ -30,7 +32,7 @@ func buildOpenAIClient(request agentruns.ExecutionRequest, httpClient *http.Clie
 	return openai.NewClient(options...), nil
 }
 
-func buildOpenAIRequestOverrides(request agentruns.ExecutionRequest) ([]openaioption.RequestOption, error) {
+func buildOpenAIChatRequestOverrides(request agentruns.ExecutionRequest) ([]openaioption.RequestOption, error) {
 	overrides := []openaioption.RequestOption{}
 	for key, value := range request.RequestParams {
 		trimmedKey := strings.TrimSpace(key)
@@ -52,6 +54,35 @@ func buildOpenAIRequestOverrides(request agentruns.ExecutionRequest) ([]openaiop
 		overrides = append(overrides, openaioption.WithJSONSet("reasoning_effort", cloneJSONValue(rawReasoningEffort)))
 	}
 	return overrides, nil
+}
+
+func buildOpenAIResponseRequestOverrides(request agentruns.ExecutionRequest) []openaioption.RequestOption {
+	overrides := []openaioption.RequestOption{}
+	for key, value := range request.RequestParams {
+		trimmedKey := strings.TrimSpace(key)
+		switch trimmedKey {
+		case "",
+			"model",
+			"messages",
+			"stream",
+			"stream_options",
+			"api_key",
+			"custom_llm_provider",
+			"api_base",
+			"tools",
+			"tool_choice",
+			"functions",
+			"function_call",
+			"reasoning",
+			"reasoning_effort",
+			"summary",
+			"generate_summary":
+			continue
+		default:
+			overrides = append(overrides, openaioption.WithJSONSet(trimmedKey, cloneJSONValue(value)))
+		}
+	}
+	return overrides
 }
 
 func resolveOpenAIBaseURL(request agentruns.ExecutionRequest) string {
@@ -179,6 +210,47 @@ func buildOpenAIChatCompletionParams(
 	return params, nil
 }
 
+func buildOpenAIResponsesParams(
+	request agentruns.ExecutionRequest,
+	model string,
+	systemPrompt string,
+	transcript []map[string]any,
+	toolDefinitions []map[string]any,
+) (responses.ResponseNewParams, error) {
+	inputItems, err := buildOpenAIResponseInputItems(transcript)
+	if err != nil {
+		return responses.ResponseNewParams{}, err
+	}
+
+	params := responses.ResponseNewParams{
+		Model: shared.ResponsesModel(model),
+		Store: openai.Bool(false),
+	}
+	if trimmedSystemPrompt := strings.TrimSpace(systemPrompt); trimmedSystemPrompt != "" {
+		params.Instructions = openai.String(trimmedSystemPrompt)
+	}
+	if len(inputItems) > 0 {
+		params.Input.OfInputItemList = inputItems
+	}
+	if len(toolDefinitions) > 0 {
+		tools, err := buildOpenAIResponseTools(toolDefinitions)
+		if err != nil {
+			return responses.ResponseNewParams{}, err
+		}
+		params.Tools = tools
+	}
+	if request.Thinking {
+		reasoning, enabled, err := buildOpenAIResponseReasoning(request)
+		if err != nil {
+			return responses.ResponseNewParams{}, err
+		}
+		if enabled {
+			params.Reasoning = reasoning
+		}
+	}
+	return params, nil
+}
+
 func buildOpenAIProviderMessage(message map[string]any) (map[string]any, bool, error) {
 	role := strings.TrimSpace(stringValue(message["role"]))
 	payload := map[string]any{"role": role}
@@ -229,6 +301,104 @@ func buildOpenAIProviderMessage(message map[string]any) (map[string]any, bool, e
 	}
 }
 
+func buildOpenAIResponseInputItems(transcript []map[string]any) (responses.ResponseInputParam, error) {
+	items := make(responses.ResponseInputParam, 0, len(transcript))
+	for index, message := range transcript {
+		role := strings.TrimSpace(stringValue(message["role"]))
+		switch role {
+		case "system", "user":
+			content, include, err := buildOpenAIResponseInputMessageContent(message["content"])
+			if err != nil {
+				return nil, fmt.Errorf("%w: transcript message %d: %v", ErrHistoryUnsupported, index, err)
+			}
+			if include {
+				items = append(items, responses.ResponseInputItemParamOfInputMessage(content, role))
+			}
+		case "assistant":
+			content, include, err := buildOpenAIResponseOutputMessageContent(message["content"])
+			if err != nil {
+				return nil, fmt.Errorf("%w: transcript message %d: %v", ErrHistoryUnsupported, index, err)
+			}
+			if include {
+				messageID := strings.TrimSpace(stringValue(message["id"]))
+				if messageID == "" {
+					return nil, fmt.Errorf("%w: assistant message id is required", ErrHistoryUnsupported)
+				}
+				items = append(items, responses.ResponseInputItemParamOfOutputMessage(
+					content,
+					messageID,
+					responses.ResponseOutputMessageStatusCompleted,
+				))
+			}
+			toolCalls, includeToolCalls, err := normalizeProviderToolCalls(message["tool_calls"], role)
+			if err != nil {
+				return nil, fmt.Errorf("%w: transcript message %d: %v", ErrToolsUnsupported, index, err)
+			}
+			if !includeToolCalls {
+				continue
+			}
+			for _, toolCall := range toolCalls {
+				function, _ := toolCall["function"].(map[string]any)
+				items = append(items, responses.ResponseInputItemParamOfFunctionCall(
+					stringValue(function["arguments"]),
+					strings.TrimSpace(stringValue(toolCall["id"])),
+					strings.TrimSpace(stringValue(function["name"])),
+				))
+			}
+		case "tool":
+			content, include, err := normalizeProviderMessageContent(message["content"])
+			if err != nil {
+				return nil, fmt.Errorf("%w: transcript message %d: %v", ErrHistoryUnsupported, index, err)
+			}
+			if !include {
+				content, err = normalizeProviderToolResultContent(message["result"])
+				if err != nil {
+					return nil, fmt.Errorf("%w: transcript message %d: %v", ErrHistoryUnsupported, index, err)
+				}
+			}
+			toolCallID := strings.TrimSpace(stringValue(message["tool_call_id"]))
+			if toolCallID == "" {
+				return nil, fmt.Errorf("%w: tool messages require tool_call_id", ErrToolsUnsupported)
+			}
+			items = append(items, responses.ResponseInputItemParamOfFunctionCallOutput(toolCallID, content))
+		default:
+			return nil, fmt.Errorf("%w: role %q", ErrHistoryUnsupported, role)
+		}
+	}
+	return items, nil
+}
+
+func buildOpenAIResponseInputMessageContent(raw any) (responses.ResponseInputMessageContentListParam, bool, error) {
+	text, include, err := normalizeProviderMessageContent(raw)
+	if err != nil {
+		return nil, false, err
+	}
+	if !include {
+		return nil, false, nil
+	}
+	return responses.ResponseInputMessageContentListParam{
+		responses.ResponseInputContentParamOfInputText(text),
+	}, true, nil
+}
+
+func buildOpenAIResponseOutputMessageContent(raw any) ([]responses.ResponseOutputMessageContentUnionParam, bool, error) {
+	text, include, err := normalizeProviderMessageContent(raw)
+	if err != nil {
+		return nil, false, err
+	}
+	if !include {
+		return nil, false, nil
+	}
+	return []responses.ResponseOutputMessageContentUnionParam{
+		{
+			OfOutputText: &responses.ResponseOutputTextParam{
+				Text:        text,
+				Annotations: []responses.ResponseOutputTextAnnotationUnionParam{},
+			},
+		},
+	}, true, nil
+}
+
 func buildOpenAIChatMessages(providerMessages []map[string]any) ([]openai.ChatCompletionMessageParamUnion, error) {
 	messages := make([]openai.ChatCompletionMessageParamUnion, 0, len(providerMessages))
 	for index, providerMessage := range providerMessages {
@@ -255,6 +425,31 @@ func buildOpenAIChatMessages(providerMessages []map[string]any) ([]openai.ChatCo
 		}
 	}
 	return messages, nil
+}
+
+func buildOpenAIResponseTools(toolDefinitions []map[string]any) ([]responses.ToolUnionParam, error) {
+	tools := make([]responses.ToolUnionParam, 0, len(toolDefinitions))
+	for index, definition := range toolDefinitions {
+		function, _ := definition["function"].(map[string]any)
+		name := strings.TrimSpace(stringValue(function["name"]))
+		if name == "" {
+			return nil, fmt.Errorf("%w: tool definition %d missing function name", ErrToolsUnsupported, index)
+		}
+		parameters, err := normalizeOpenAIFunctionParameters(function["parameters"])
+		if err != nil {
+			return nil, fmt.Errorf("%w: tool definition %d parameters: %v", ErrToolsUnsupported, index, err)
+		}
+		tool := responses.FunctionToolParam{
+			Name:       name,
+			Parameters: parameters,
+			Strict:     param.NewOpt(true),
+		}
+		if description := strings.TrimSpace(stringValue(function["description"])); description != "" {
+			tool.Description = openai.String(description)
+		}
+		tools = append(tools, responses.ToolUnionParam{OfFunction: &tool})
+	}
+	return tools, nil
 }
 
 func buildOpenAIAssistantMessage(providerMessage map[string]any) (openai.ChatCompletionMessageParamUnion, error) {
@@ -352,6 +547,20 @@ func normalizeOpenAIFunctionParameters(raw any) (openai.FunctionParameters, erro
 	return openai.FunctionParameters(cloned), nil
 }
 
+func buildOpenAIResponseReasoning(request agentruns.ExecutionRequest) (shared.ReasoningParam, bool, error) {
+	effort, enabled, err := resolveThinkingReasoningEffort(request)
+	if err != nil {
+		return shared.ReasoningParam{}, false, err
+	}
+	if !enabled {
+		return shared.ReasoningParam{}, false, nil
+	}
+	return shared.ReasoningParam{
+		Effort:  effort,
+		Summary: shared.ReasoningSummaryAuto,
+	}, true, nil
+}
+
 func buildCompletionUsagePayload(usage openai.CompletionUsage) map[string]any {
 	payload := map[string]any{
 		"prompt_tokens":     usage.PromptTokens,
@@ -365,6 +574,23 @@ func buildCompletionUsagePayload(usage openai.CompletionUsage) map[string]any {
 	}
 	if usage.CompletionTokensDetails.ReasoningTokens > 0 {
 		payload["reasoning_output_tokens"] = usage.CompletionTokensDetails.ReasoningTokens
+	}
+	return payload
+}
+
+func buildResponseUsagePayload(usage responses.ResponseUsage) map[string]any {
+	payload := map[string]any{
+		"prompt_tokens":     usage.InputTokens,
+		"completion_tokens": usage.OutputTokens,
+		"total_tokens":      usage.TotalTokens,
+		"input_tokens":      usage.InputTokens,
+		"output_tokens":     usage.OutputTokens,
+	}
+	if usage.InputTokensDetails.CachedTokens > 0 {
+		payload["cached_input_tokens"] = usage.InputTokensDetails.CachedTokens
+	}
+	if usage.OutputTokensDetails.ReasoningTokens > 0 {
+		payload["reasoning_output_tokens"] = usage.OutputTokensDetails.ReasoningTokens
 	}
 	return payload
 }
