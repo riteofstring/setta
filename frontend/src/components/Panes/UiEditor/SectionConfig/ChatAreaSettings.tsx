@@ -50,22 +50,24 @@ import {
   ChatWindowModeEnum,
   EngineTypeEnum,
   SectionTypeEnum,
+  type SetChatSectionSettingsRequestInput,
 } from "utils/generatedTypes";
 
 type ChatAreaSettingsProps = {
   sectionId: string;
 };
 
-type ChatSectionSettingsPayload = {
-  managed: boolean;
-  engineConfigId: string | null;
-  transcriptionProfileId: string | null;
-  agentProfileId: string | null;
-  thinking: boolean;
-  permissionMode: "minimal" | "yolo" | "config_toml_custom";
-  searchEnabled: boolean;
-  dictationMode: "auto" | "browser" | "provider";
-};
+type ChatSectionSettingsPayload = Pick<
+  SetChatSectionSettingsRequestInput,
+  | "managed"
+  | "engineConfigId"
+  | "transcriptionProfileId"
+  | "agentProfileId"
+  | "thinking"
+  | "permissionMode"
+  | "searchEnabled"
+  | "dictationMode"
+>;
 
 type SectionOption = {
   id: string;

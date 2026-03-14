@@ -50,6 +50,7 @@ import {
   SettaNotificationTypeEnum,
   UISettingRevealContent,
   UISettingRevealContentSchema,
+  UISettingRevealResultStatus,
   WebsocketConnectionTypeEnum,
   WebsocketMsg,
   WebsocketMsgRealtimeDependencyEvent,
@@ -134,12 +135,6 @@ let shareHeartbeatTimer: number | null = null;
 let shareSessionRecoveryAttempts = 0;
 let shareSessionRecoveryInFlight = false;
 let lastRealtimeBinaryOversizeWarningAt = 0;
-type UISettingRevealResultStatusPayload = {
-  settingId: string;
-  status: "revealed" | "failed";
-  errorCode: string | null;
-  errorMessage: string | null;
-};
 type PendingUISettingRevealMessage = {
   content: unknown;
   socketGeneration: number;
@@ -663,7 +658,7 @@ function sendUISettingRevealResult({
 }: {
   projectConfigId: string;
   requestId: string;
-  statuses: UISettingRevealResultStatusPayload[];
+  statuses: UISettingRevealResultStatus[];
   socketGeneration: number;
 }): void {
   const revealResultMessage: WebsocketMsgUISettingRevealResult = {
@@ -716,7 +711,7 @@ function resolveRevealRequestId(content: unknown): string {
 function buildMalformedRevealStatuses(
   content: unknown,
   errorMessage: string,
-): UISettingRevealResultStatusPayload[] {
+): UISettingRevealResultStatus[] {
   const settingIds = extractRevealSettingIds(content);
   return settingIds.map((settingId) => ({
     settingId,
@@ -755,7 +750,7 @@ function resolveAckContextMismatchStatuses({
 }: {
   content: UISettingRevealContent;
   executionContext: UISettingRevealExecutionContext;
-}): UISettingRevealResultStatusPayload[] | null {
+}): UISettingRevealResultStatus[] | null {
   if (!executionContext.isSocketGenerationActive()) {
     return buildExecutionContextMismatchStatuses(
       content.reveals,
@@ -778,7 +773,7 @@ function resolveAckContextMismatchStatuses({
 function buildExecutionContextMismatchStatuses(
   reveals: Array<UISettingRevealContent["reveals"][number]>,
   errorMessage: string,
-): UISettingRevealResultStatusPayload[] {
+): UISettingRevealResultStatus[] {
   return reveals.map((target) => ({
     settingId: target.settingId,
     status: "failed",
