@@ -186,12 +186,6 @@ test.describe.serial("chat tool calls", () => {
             const primaryLabel = sectionElement.querySelector(
               '[data-chat-assistant-activity-primary-label="true"]',
             );
-            const previewRow = sectionElement.querySelector(
-              '[data-chat-assistant-activity-preview-row="true"]',
-            );
-            const latest = sectionElement.querySelector(
-              '[data-chat-assistant-activity-latest="true"]',
-            );
             const hoverMeta = sectionElement.querySelector(
               '[data-chat-assistant-activity-hover-meta="true"]',
             );
@@ -200,8 +194,6 @@ test.describe.serial("chat tool calls", () => {
               !headerRow ||
               !topRow ||
               !primaryLabel ||
-              !previewRow ||
-              !latest ||
               !hoverMeta
             ) {
               return null;
@@ -210,23 +202,24 @@ test.describe.serial("chat tool calls", () => {
             const headerRowRect = headerRow.getBoundingClientRect();
             const topRowRect = topRow.getBoundingClientRect();
             const primaryLabelRect = primaryLabel.getBoundingClientRect();
-            const previewRowRect = previewRow.getBoundingClientRect();
-            const latestRect = latest.getBoundingClientRect();
             const hoverMetaRect = hoverMeta.getBoundingClientRect();
             return {
               triggerHeight: triggerRect.height,
-              previewStartsBelowTopRow:
-                previewRowRect.top >= topRowRect.bottom - 1,
-              latestStartsInsidePreviewRow:
-                latestRect.top >= previewRowRect.top - 1 &&
-                latestRect.bottom <= previewRowRect.bottom + 1,
-              previewRowHeight: Math.round(previewRowRect.height),
+              primaryLabelText: primaryLabel.textContent?.trim() ?? "",
+              hasSeparateActionPreviewRow:
+                sectionElement.querySelector(
+                  '[data-chat-assistant-activity-preview-row="true"]',
+                ) !== null,
+              hasThoughtPreviewShell:
+                sectionElement.querySelector(
+                  '[data-chat-assistant-activity-thought-preview-shell="true"]',
+                ) !== null,
               primaryLabelWithinTopRow:
                 primaryLabelRect.top >= topRowRect.top - 1 &&
                 primaryLabelRect.bottom <= topRowRect.bottom + 1,
-              hoverMetaAbovePreviewRow:
+              hoverMetaWithinTopRow:
                 hoverMetaRect.top >= headerRowRect.top - 1 &&
-                hoverMetaRect.bottom <= previewRowRect.top + 1,
+                hoverMetaRect.bottom <= topRowRect.bottom + 1,
             };
           };
 
@@ -253,32 +246,35 @@ test.describe.serial("chat tool calls", () => {
       if (!responsiveHeaderGeometry.wide || !responsiveHeaderGeometry.narrow) {
         throw new Error("Missing responsive activity header geometry.");
       }
-      expect(
-        responsiveHeaderGeometry.wide.previewStartsBelowTopRow,
-      ).toBe(true);
-      expect(
-        responsiveHeaderGeometry.wide.latestStartsInsidePreviewRow,
-      ).toBe(true);
-      expect(responsiveHeaderGeometry.wide.previewRowHeight).toBeGreaterThanOrEqual(34);
-      expect(responsiveHeaderGeometry.wide.previewRowHeight).toBeLessThanOrEqual(38);
-      expect(
-        responsiveHeaderGeometry.wide.primaryLabelWithinTopRow,
-      ).toBe(true);
-      expect(responsiveHeaderGeometry.wide.hoverMetaAbovePreviewRow).toBe(true);
-      expect(
-        responsiveHeaderGeometry.narrow.previewStartsBelowTopRow,
-      ).toBe(true);
-      expect(
-        responsiveHeaderGeometry.narrow.latestStartsInsidePreviewRow,
-      ).toBe(true);
-      expect(responsiveHeaderGeometry.narrow.previewRowHeight).toBeGreaterThanOrEqual(34);
-      expect(responsiveHeaderGeometry.narrow.previewRowHeight).toBeLessThanOrEqual(38);
-      expect(
-        responsiveHeaderGeometry.narrow.primaryLabelWithinTopRow,
-      ).toBe(true);
-      expect(
-        responsiveHeaderGeometry.narrow.hoverMetaAbovePreviewRow,
-      ).toBe(true);
+      expect(responsiveHeaderGeometry.wide.primaryLabelText).toContain(
+        "setta__run_tests",
+      );
+      expect(responsiveHeaderGeometry.wide.hasSeparateActionPreviewRow).toBe(
+        false,
+      );
+      expect(responsiveHeaderGeometry.wide.hasThoughtPreviewShell).toBe(false);
+      expect(responsiveHeaderGeometry.wide.primaryLabelWithinTopRow).toBe(true);
+      expect(responsiveHeaderGeometry.wide.hoverMetaWithinTopRow).toBe(true);
+      expect(responsiveHeaderGeometry.narrow.primaryLabelText).toContain(
+        "setta__run_tests",
+      );
+      expect(responsiveHeaderGeometry.narrow.hasSeparateActionPreviewRow).toBe(
+        false,
+      );
+      expect(responsiveHeaderGeometry.narrow.hasThoughtPreviewShell).toBe(
+        false,
+      );
+      expect(responsiveHeaderGeometry.narrow.primaryLabelWithinTopRow).toBe(
+        true,
+      );
+      expect(responsiveHeaderGeometry.narrow.hoverMetaWithinTopRow).toBe(true);
+
+      const firstChildTrigger = toolSection
+        .locator('[data-chat-tool-call-item-trigger="true"]')
+        .first();
+      await firstChildTrigger.click();
+      await expect(firstChildTrigger).toHaveAttribute("aria-expanded", "false");
+      await expect(openAllButton).toHaveText(/Open all/i);
 
       await activityTrigger.click();
       await expect(activityTrigger).toHaveAttribute("aria-expanded", "false");
@@ -336,7 +332,6 @@ test.describe.serial("chat tool calls", () => {
       const firstToolItemTrigger = toolSection
         .locator('[data-chat-tool-call-item-trigger="true"]')
         .first();
-      await firstToolItemTrigger.click();
       await expect(firstToolItemTrigger).toHaveAttribute(
         "aria-expanded",
         "false",
@@ -889,7 +884,9 @@ test.describe.serial("chat tool calls", () => {
         "true",
       );
 
-      const toolTrigger = section.locator('[data-chat-action-item-trigger="true"]').first();
+      const toolTrigger = section
+        .locator('[data-chat-action-item-trigger="true"]')
+        .first();
       await toolTrigger.click();
       await expect(previewShell).toHaveAttribute(
         "data-chat-assistant-activity-thought-preview-visible",

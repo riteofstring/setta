@@ -371,7 +371,9 @@ describe("ChatMessages markdown code rendering", () => {
     );
 
     expect(markup).toContain('data-chat-streaming-markdown="true"');
-    expect(markup).toContain('data-chat-streaming-markdown-mode="line-committed"');
+    expect(markup).toContain(
+      'data-chat-streaming-markdown-mode="line-committed"',
+    );
     expect(markup).toContain('data-chat-streaming-markdown-committed="true"');
     expect(markup).toContain('data-chat-streaming-markdown-tail="true"');
     expect(markup).toContain("<h2>Core Purpose</h2>");
@@ -983,7 +985,9 @@ describe("ChatMessages assistant reasoning layout", () => {
       />,
     );
 
-    expect(countOccurrences(markup, 'data-chat-search-highlight="true"')).toBe(3);
+    expect(countOccurrences(markup, 'data-chat-search-highlight="true"')).toBe(
+      3,
+    );
     expect(markup).toContain(">Queue</mark>");
     expect(markup).toContain(">queue</mark>");
     const activeMatchContainer = getTagByMarker(
@@ -1701,7 +1705,8 @@ describe("ChatMessages assistant reasoning layout", () => {
     );
     expect(activityContentTag).not.toBeNull();
     expect(activityContentTag).toContain("overflow-hidden");
-    expect(activityContentTag).toContain("pl-0.5 pt-1");
+    expect(activityContentTag).toContain("pt-1");
+    expect(activityContentTag).not.toContain("pl-0.5");
     expect(activityContentTag).not.toContain("pr-");
     expect(activityContentTag).toContain("data-[state=closed]:hidden");
     expect(activityContentTag).toContain("data-[state=open]:block");
@@ -1712,7 +1717,8 @@ describe("ChatMessages assistant reasoning layout", () => {
       "flex w-full flex-col border border-setta-200/70 dark:border-setta-700/70",
     );
     expect(activityContentTag).not.toContain("border-t");
-    expect(markup).toContain("items-stretch pl-0.5 text-left");
+    expect(markup).toContain("items-stretch text-left");
+    expect(markup).not.toContain("items-stretch pl-0.5 text-left");
     expect(markup).not.toContain("px-2 pb-1");
     expect(markup).toContain(
       'data-chat-assistant-activity-open-all-button="true"',
@@ -1730,13 +1736,17 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).toContain(
       'data-chat-assistant-activity-header-top-row="true"',
     );
-    expect(markup).toContain('data-chat-assistant-activity-preview-row="true"');
-    expect(markup).toContain('data-chat-assistant-activity-preview-row="true"');
+    expect(markup).not.toContain(
+      'data-chat-assistant-activity-preview-row="true"',
+    );
     expect(markup).toContain("h-9");
     expect(markup).toContain("overflow-hidden");
-    expect(markup).toContain(
+    const activityTitleTag = getDivHtmlByMarker(
+      markup,
       'data-chat-assistant-activity-primary-label="true"',
     );
+    expect(activityTitleTag).not.toBeNull();
+    expect(activityTitleTag).toContain("Action: setta__list_files");
     expect(
       countOccurrences(markup, 'data-chat-activity-item-copy-button="true"'),
     ).toBe(0);
@@ -1778,6 +1788,27 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).toContain(
       'data-chat-assistant-activity-thought-scroll="true"',
     );
+    const activityTitleTag = getDivHtmlByMarker(
+      markup,
+      'data-chat-assistant-activity-primary-label="true"',
+    );
+    expect(activityTitleTag).not.toBeNull();
+    expect(activityTitleTag).toContain("Action: /bin/zsh -lc ls");
+    expect(markup).not.toContain(
+      'data-chat-assistant-activity-preview-row="true"',
+    );
+    const activityTriggerTag = getTagByMarker(
+      markup,
+      'data-chat-assistant-activity-trigger="true"',
+    );
+    expect(activityTriggerTag).not.toBeNull();
+    expect(activityTriggerTag).toContain("flex-col");
+    const previewShellTag = getTagByMarker(
+      markup,
+      'data-chat-assistant-activity-thought-preview-shell="true"',
+    );
+    expect(previewShellTag).not.toBeNull();
+    expect(previewShellTag).toContain("w-full");
   });
 
   it("derives a collapsed thought title from thinking text when summary is unavailable", () => {
@@ -1828,9 +1859,12 @@ describe("ChatMessages assistant reasoning layout", () => {
         role: ChatRoleEnum.assistant,
         content: [
           createMessageThinkingContent({
-            thinking: ["Preview heading", "", "- compact bullet", "- second"].join(
-              "\n",
-            ),
+            thinking: [
+              "Preview heading",
+              "",
+              "- compact bullet",
+              "- second",
+            ].join("\n"),
             summary: "",
           }),
         ],
@@ -2120,12 +2154,15 @@ describe("ChatMessages assistant reasoning layout", () => {
         <ChatMessageList messages={messages} waitingForResponse={false} />,
       );
 
-      const activityLatestTag = getDivHtmlByMarker(
+      const activityTitleTag = getDivHtmlByMarker(
         markup,
-        'data-chat-assistant-activity-latest="true"',
+        'data-chat-assistant-activity-primary-label="true"',
       );
-      expect(activityLatestTag).not.toBeNull();
-      expect(activityLatestTag).not.toContain("Graph state inspection summary");
+      expect(activityTitleTag).not.toBeNull();
+      expect(activityTitleTag).toContain(
+        "Action: pnpm exec vitest run src/components/Chat",
+      );
+      expect(activityTitleTag).not.toContain("Graph state inspection summary");
       expect(markup).toContain(
         'data-chat-assistant-activity-thought-preview-shell="true"',
       );

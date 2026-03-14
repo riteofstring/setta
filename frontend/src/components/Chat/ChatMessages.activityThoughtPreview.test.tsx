@@ -54,21 +54,17 @@ describe("ChatMessages activity thought preview scroll", () => {
       .mockImplementation(() => currentAnimationMs);
 
     resizeObserverController = installResizeObserverMock();
-    vi.stubGlobal(
-      "requestAnimationFrame",
-      ((callback: FrameRequestCallback) => {
-        nextAnimationFrameId += 1;
-        const frameId = nextAnimationFrameId;
-        pendingAnimationFrames.set(frameId, callback);
-        return frameId;
-      }) as typeof window.requestAnimationFrame,
-    );
-    vi.stubGlobal(
-      "cancelAnimationFrame",
-      ((frameId: number) => {
-        pendingAnimationFrames.delete(frameId);
-      }) as typeof window.cancelAnimationFrame,
-    );
+    vi.stubGlobal("requestAnimationFrame", ((
+      callback: FrameRequestCallback,
+    ) => {
+      nextAnimationFrameId += 1;
+      const frameId = nextAnimationFrameId;
+      pendingAnimationFrames.set(frameId, callback);
+      return frameId;
+    }) as typeof window.requestAnimationFrame);
+    vi.stubGlobal("cancelAnimationFrame", ((frameId: number) => {
+      pendingAnimationFrames.delete(frameId);
+    }) as typeof window.cancelAnimationFrame);
   });
 
   afterEach(async () => {
@@ -93,9 +89,11 @@ describe("ChatMessages activity thought preview scroll", () => {
     await flushAnimationFrames(32);
 
     // The preview should advance until the most recent text is visible.
-    expect(preview.getAttribute("data-chat-assistant-activity-thought-scroll-enabled")).toBe(
-      "true",
-    );
+    expect(
+      preview.getAttribute(
+        "data-chat-assistant-activity-thought-scroll-enabled",
+      ),
+    ).toBe("true");
     expect(
       preview.getAttribute("data-chat-assistant-activity-thought-at-bottom"),
     ).toBe("true");
@@ -256,9 +254,7 @@ describe("ChatMessages activity thought preview scroll", () => {
     ).toBe("true");
     expect(previewShell.className).toContain("transition-[max-height,opacity]");
 
-    await clickRequiredElement(
-      '[data-chat-assistant-activity-trigger="true"]',
-    );
+    await clickRequiredElement('[data-chat-assistant-activity-trigger="true"]');
     await clickRequiredElement('[data-chat-action-item-trigger="true"]');
 
     expect(
@@ -282,6 +278,72 @@ describe("ChatMessages activity thought preview scroll", () => {
     ).toBe("true");
   });
 
+  it("closes an open child accordion on the first click after open all", async () => {
+    await act(async () => {
+      root.render(
+        <ChatMessageList
+          waitingForResponse={false}
+          messages={[
+            {
+              id: "activity-open-all-close-message",
+              role: ChatRoleEnum.assistant,
+              content: [
+                createMessageThinkingContent({
+                  thinking:
+                    "Inspecting the graph state before applying a cleanup.",
+                  summary: "Graph state inspection summary",
+                }),
+              ],
+              attachments: [],
+              tool_calls: [
+                {
+                  id: "activity-open-all-close-tool-call",
+                  type: "function",
+                  function: {
+                    name: "command_execution",
+                    arguments: {
+                      command: "pnpm exec vitest run src/components/Chat",
+                    },
+                  },
+                },
+              ],
+            },
+            {
+              id: "activity-open-all-close-tool-result",
+              role: ChatRoleEnum.tool,
+              tool_call_id: "activity-open-all-close-tool-call",
+              tool_name: "command_execution",
+              arguments: {
+                command: "pnpm exec vitest run src/components/Chat",
+              },
+              result: "PASS src/components/Chat/ChatMessages.test.tsx",
+              content: [],
+              is_error: false,
+            },
+          ]}
+        />,
+      );
+    });
+
+    await clickRequiredElement('[data-chat-assistant-activity-trigger="true"]');
+    await clickRequiredElement(
+      '[data-chat-assistant-activity-open-all-button="true"]',
+    );
+
+    const actionTrigger = getRequiredElement(
+      '[data-chat-action-item-trigger="true"]',
+    );
+    expect(actionTrigger.getAttribute("aria-expanded")).toBe("true");
+
+    await clickRequiredElement('[data-chat-action-item-trigger="true"]');
+    expect(actionTrigger.getAttribute("aria-expanded")).toBe("false");
+
+    const openAllButton = getRequiredElement(
+      '[data-chat-assistant-activity-open-all-button="true"]',
+    );
+    expect(openAllButton.textContent).toContain("Open all");
+  });
+
   it("does not register global resize listeners for chat thought measurement", async () => {
     const addEventListenerSpy = vi.spyOn(window, "addEventListener");
 
@@ -295,7 +357,9 @@ describe("ChatMessages activity thought preview scroll", () => {
 
   async function renderStreamingThoughtPreview(thinking: string) {
     await act(async () => {
-      root.render(<StreamingThoughtPreviewHarness initialThinking={thinking} />);
+      root.render(
+        <StreamingThoughtPreviewHarness initialThinking={thinking} />,
+      );
     });
   }
 
@@ -373,8 +437,10 @@ describe("ChatMessages activity thought preview scroll", () => {
   }
 
   function buildStreamingThoughtText(label: string): string {
-    return Array.from({ length: 10 }, (_, index) =>
-      `Reviewing ${label} activity rows before final output line ${index + 1}.`,
+    return Array.from(
+      { length: 10 },
+      (_, index) =>
+        `Reviewing ${label} activity rows before final output line ${index + 1}.`,
     ).join("\n");
   }
 
@@ -443,9 +509,7 @@ function installResizeObserverMock(): ResizeObserverController {
   return {
     trigger: async () => {
       await act(async () => {
-        callbacks.forEach((callback) =>
-          callback([], {} as ResizeObserver),
-        );
+        callbacks.forEach((callback) => callback([], {} as ResizeObserver));
       });
     },
   };

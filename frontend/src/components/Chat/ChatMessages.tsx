@@ -86,6 +86,10 @@ import {
   type CodeLanguage,
   resolveCodeLanguageFromPath,
 } from "utils/codeLanguage";
+import {
+  type ConversationSearchTextRange,
+  findConversationSearchTextRanges,
+} from "utils/conversationSearch";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { route_get_attachment_download_urls } from "utils/generatedEndpoints";
 import {
@@ -96,18 +100,14 @@ import {
   ToolCall,
   ToolChatMessage,
 } from "utils/generatedTypes";
-import {
-  findConversationSearchTextRanges,
-  type ConversationSearchTextRange,
-} from "utils/conversationSearch";
 import { ApprovalCard } from "./ApprovalCard";
 import { ChatMessageEditor } from "./ChatMessageEditor";
 import { QuestionCard } from "./QuestionCard";
 import { TodoListCard } from "./TodoListCard";
 import {
+  type AnimatedStreamingCharacter,
   reconcileAnimatedStreamingCharacters,
   splitStreamingMarkdownText,
-  type AnimatedStreamingCharacter,
 } from "./streamingMarkdown";
 import { useTypewriterEffect } from "./useTypewriterEffect";
 
@@ -228,12 +228,12 @@ const STRUCTURED_OUTPUT_RESIZE_HANDLE_BAR_CLASS =
   "absolute inset-x-0 top-1/2 h-[2px] -translate-y-1/2 bg-setta-200/90 transition-colors group-hover/resize:bg-blue-400 group-focus-visible/resize:bg-blue-400 dark:bg-setta-700/90 dark:group-hover/resize:bg-blue-400 dark:group-focus-visible/resize:bg-blue-400";
 const ACTIVITY_ACCORDION_CONTENT_CLASS =
   "overflow-hidden data-[state=closed]:hidden data-[state=open]:block";
-const ASSISTANT_ACTIVITY_CONTENT_CLASS = `${ACTIVITY_ACCORDION_CONTENT_CLASS} pl-0.5 pt-1`;
+const ASSISTANT_ACTIVITY_CONTENT_CLASS = `${ACTIVITY_ACCORDION_CONTENT_CLASS} pt-1`;
 const TOOL_SECTION_CARD_CLASS = "w-full overflow-hidden";
 const TOOL_SECTION_TRIGGER_CLASS = `group grid w-full cursor-pointer ${TOOL_CALL_RAIL_GRID_CLASS} ${ACTIVITY_CHILD_TRIGGER_CLASS} text-left transition-colors [&[data-state=open]_.chat-accordion-chevron]:rotate-180`;
 const TOOL_ROW_TRIGGER_CLASS = `group grid w-full cursor-pointer ${TOOL_CALL_RAIL_GRID_CLASS} ${ACTIVITY_CHILD_TRIGGER_CLASS} text-left transition-colors [&[data-state=open]_.chat-accordion-chevron]:rotate-180`;
 const ASSISTANT_ACTIVITY_PARENT_CLASS = "w-full overflow-hidden bg-transparent";
-const ASSISTANT_ACTIVITY_TRIGGER_CLASS = `group group/chat-activity-parent flex w-full cursor-pointer items-stretch pl-0.5 text-left transition-colors ${ACTIVITY_ROW_HOVER_CLASS} [&[data-state=open]_.chat-accordion-chevron]:rotate-180`;
+const ASSISTANT_ACTIVITY_TRIGGER_CLASS = `group group/chat-activity-parent flex w-full flex-col cursor-pointer items-stretch text-left transition-colors ${ACTIVITY_ROW_HOVER_CLASS} [&[data-state=open]_.chat-accordion-chevron]:rotate-180`;
 const ACTIVITY_COUNT_BADGE_CLASS =
   "inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full border border-setta-300/80 bg-setta-100 px-1.5 py-[1px] text-[10px] font-semibold leading-none text-setta-700 dark:border-setta-600/80 dark:bg-setta-800 dark:text-setta-200";
 const ACTIVITY_COPY_BUTTON_BASE_CLASS =
@@ -241,9 +241,9 @@ const ACTIVITY_COPY_BUTTON_BASE_CLASS =
 const ACTIVITY_SECTION_COPY_BUTTON_CLASS = `${ACTIVITY_COPY_BUTTON_BASE_CLASS} bg-setta-100/90 dark:bg-setta-800/85`;
 const ACTIVITY_ITEM_HOVER_COPY_BUTTON_CLASS = `${ACTIVITY_SECTION_COPY_BUTTON_CLASS} opacity-0 pointer-events-none transition-opacity group-hover/chat-activity-row:opacity-100 group-hover/chat-activity-row:pointer-events-auto group-focus-within/chat-activity-row:opacity-100 group-focus-within/chat-activity-row:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto`;
 const ACTIVITY_PARENT_HOVER_META_CLASS =
-  "pointer-events-none absolute right-6 top-1/2 z-[1] inline-flex -translate-y-1/2 items-center justify-end gap-x-1 gap-y-0.5 opacity-0 transition-opacity group-hover/chat-activity-parent:pointer-events-auto group-hover/chat-activity-parent:opacity-100 group-focus-within/chat-activity-parent:pointer-events-auto group-focus-within/chat-activity-parent:opacity-100";
+  "pointer-events-none absolute right-6 top-1/2 z-[1] inline-flex -translate-y-1/2 items-center justify-end gap-x-1 gap-y-0.5 opacity-0 transition-opacity group-hover/chat-activity-parent:opacity-100 group-focus-within/chat-activity-parent:opacity-100";
 const ACTIVITY_ITEM_HOVER_META_CLASS =
-  "pointer-events-none absolute right-6 top-1/2 z-[1] inline-flex -translate-y-1/2 items-center justify-end gap-x-1 gap-y-0.5 opacity-0 transition-opacity group-hover/chat-activity-row:pointer-events-auto group-hover/chat-activity-row:opacity-100 group-focus-within/chat-activity-row:pointer-events-auto group-focus-within/chat-activity-row:opacity-100";
+  "pointer-events-none absolute right-6 top-1/2 z-[1] inline-flex -translate-y-1/2 items-center justify-end gap-x-1 gap-y-0.5 opacity-0 transition-opacity group-hover/chat-activity-row:opacity-100 group-focus-within/chat-activity-row:opacity-100";
 const ACTIVITY_PARENT_LABEL_CLASS =
   "min-w-0 flex-1 pr-5 transition-[padding-right] group-hover/chat-activity-parent:pr-[12rem] group-focus-within/chat-activity-parent:pr-[12rem]";
 const ACTIVITY_ITEM_LABEL_CLASS =
@@ -303,7 +303,6 @@ type AssistantActivityChildAccordionControl = {
   expandAllSignal: number;
   collapseAllSignal: number;
   suppressSummaries: boolean;
-  previewThoughtKey: string | null;
   onThinkingOpenStateChange?: (
     activityKey: string,
     isExpanded: boolean,
@@ -424,11 +423,7 @@ function highlightConversationSearchTextNodes(
         child.value,
         ranges,
       );
-      children.splice(
-        index,
-        1,
-        ...replacementNodes,
-      );
+      children.splice(index, 1, ...replacementNodes);
       index += replacementNodes.length - 1;
       continue;
     }
@@ -530,20 +525,19 @@ function useAnimatedStreamingCharacters(
   enabled: boolean,
 ): Array<AnimatedStreamingCharacter> {
   const nextIdRef = useRef(0);
-  const [characters, setCharacters] = useState<Array<AnimatedStreamingCharacter>>(
-    () => {
-      const initialCharacters = buildInitialAnimatedStreamingCharacters(text);
-      nextIdRef.current = initialCharacters.length;
-      return initialCharacters;
-    },
-  );
+  const [characters, setCharacters] = useState<
+    Array<AnimatedStreamingCharacter>
+  >(() => {
+    const initialCharacters = buildInitialAnimatedStreamingCharacters(text);
+    nextIdRef.current = initialCharacters.length;
+    return initialCharacters;
+  });
 
   useEffect(() => {
     const normalizedText = text || "";
     if (!enabled) {
-      const nextCharacters = buildInitialAnimatedStreamingCharacters(
-        normalizedText,
-      );
+      const nextCharacters =
+        buildInitialAnimatedStreamingCharacters(normalizedText);
       nextIdRef.current = nextCharacters.length;
       setCharacters((previousCharacters) => {
         const previousText = previousCharacters
@@ -3677,6 +3671,8 @@ const ThinkingBox = memo(function ThinkingBox({
         ? ACTIVITY_ROW_DETAILS_VALUE
         : undefined,
   );
+  const lastExpandAllSignalRef = useRef(expandAllSignal);
+  const lastCollapseAllSignalRef = useRef(collapseAllSignal);
   const expandedContent = hasThinkingText ? content : summaryText;
   const isExpanded =
     hasExpandableContent && accordionValue === ACTIVITY_ROW_DETAILS_VALUE;
@@ -3706,14 +3702,21 @@ const ThinkingBox = memo(function ThinkingBox({
   useEffect(() => {
     if (!hasExpandableContent) {
       setAccordionValue(undefined);
+      lastExpandAllSignalRef.current = expandAllSignal;
+      lastCollapseAllSignalRef.current = collapseAllSignal;
       return;
     }
-    if (collapseAllSignal > 0) {
-      setAccordionValue(undefined);
-      return;
+    if (collapseAllSignal !== lastCollapseAllSignalRef.current) {
+      lastCollapseAllSignalRef.current = collapseAllSignal;
+      if (collapseAllSignal > 0) {
+        setAccordionValue(undefined);
+      }
     }
-    if (expandAllSignal > 0) {
-      setAccordionValue(ACTIVITY_ROW_DETAILS_VALUE);
+    if (expandAllSignal !== lastExpandAllSignalRef.current) {
+      lastExpandAllSignalRef.current = expandAllSignal;
+      if (expandAllSignal > 0) {
+        setAccordionValue(ACTIVITY_ROW_DETAILS_VALUE);
+      }
     }
   }, [collapseAllSignal, expandAllSignal, hasExpandableContent]);
 
@@ -3752,9 +3755,6 @@ const ThinkingBox = memo(function ThinkingBox({
 
   useEffect(() => {
     onExpansionChange?.(activityKey, isExpanded);
-    return () => {
-      onExpansionChange?.(activityKey, false);
-    };
   }, [activityKey, isExpanded, onExpansionChange]);
 
   const triggerClassName = `grid w-full ${TOOL_CALL_RAIL_GRID_CLASS} ${ACTIVITY_CHILD_TRIGGER_CLASS} max-w-full overflow-hidden text-left transition-colors [&[data-state=open]_.chat-accordion-chevron]:rotate-180 ${
@@ -3780,7 +3780,7 @@ const ThinkingBox = memo(function ThinkingBox({
         className="group/chat-activity-row w-full overflow-hidden border-b border-setta-200/60 last:border-b-0 dark:border-setta-700/60"
         data-chat-thinking-section="true"
       >
-        <div className="flex w-full items-stretch">
+        <div className="relative flex w-full items-stretch">
           <Accordion.Trigger
             disabled={!hasExpandableContent}
             data-chat-thinking-trigger="true"
@@ -3797,7 +3797,7 @@ const ThinkingBox = memo(function ThinkingBox({
             >
               {railIcon ?? <FaBrain size={13} className="min-w-4" />}
             </div>
-            <div className="relative flex min-w-0 items-start gap-2 py-1 pl-2 pr-2">
+            <div className="flex min-w-0 items-start gap-2 py-1 pl-2 pr-2">
               <div
                 data-chat-activity-item-label="true"
                 className={ACTIVITY_ITEM_LABEL_CLASS}
@@ -3829,76 +3829,6 @@ const ThinkingBox = memo(function ThinkingBox({
                   )}
                 </div>
               </div>
-              <div
-                data-chat-activity-item-hover-meta="true"
-                className={ACTIVITY_ITEM_HOVER_META_CLASS}
-              >
-                {onCopy ? (
-                  <button
-                    type="button"
-                    aria-label="Copy activity item"
-                    data-chat-activity-item-copy-button="true"
-                    data-chat-activity-item-copy-kind="thought"
-                    className={ACTIVITY_ITEM_HOVER_COPY_BUTTON_CLASS}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onCopy();
-                    }}
-                  >
-                    <FiCopy />
-                  </button>
-                ) : null}
-                <ChatTimestamp timestampMs={timestampMs} kind="activity-item" />
-                {thinkingRunState === "complete" ? (
-                  durationLabel ? (
-                    <span
-                      data-chat-thinking-status="true"
-                      className="inline-flex items-center gap-1 text-setta-500 dark:text-setta-300"
-                    >
-                      <span
-                        data-chat-thinking-timer="true"
-                        className="font-mono text-[10px] text-setta-400 dark:text-setta-400/90"
-                      >
-                        {durationLabel}
-                      </span>
-                    </span>
-                  ) : null
-                ) : thinkingRunState === "stopped" ? (
-                  <span
-                    data-chat-thinking-status="true"
-                    className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-600 dark:text-amber-300"
-                  >
-                    <MdErrorOutline className="text-[11px]" />
-                    Stopped
-                    {durationLabel ? (
-                      <span
-                        data-chat-thinking-timer="true"
-                        className="font-mono text-[10px] normal-case tracking-normal text-amber-700 dark:text-amber-200"
-                      >
-                        {durationLabel}
-                      </span>
-                    ) : null}
-                  </span>
-                ) : (
-                  <span
-                    data-chat-thinking-status="true"
-                    className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-setta-500 dark:text-setta-300"
-                  >
-                    <BrailleSpinner
-                      className={`${BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME} text-setta-400 dark:text-setta-300/70`}
-                    />
-                    Working
-                    {durationLabel ? (
-                      <span
-                        data-chat-thinking-timer="true"
-                        className="font-mono text-[10px] normal-case tracking-normal text-setta-400 dark:text-setta-400/90"
-                      >
-                        {durationLabel}
-                      </span>
-                    ) : null}
-                  </span>
-                )}
-              </div>
               <div className="ml-auto inline-flex shrink-0 items-center gap-1 self-center">
                 {hasExpandableContent ? (
                   <MdKeyboardArrowDown
@@ -3909,6 +3839,76 @@ const ThinkingBox = memo(function ThinkingBox({
               </div>
             </div>
           </Accordion.Trigger>
+          <div
+            data-chat-activity-item-hover-meta="true"
+            className={ACTIVITY_ITEM_HOVER_META_CLASS}
+          >
+            {onCopy ? (
+              <button
+                type="button"
+                aria-label="Copy activity item"
+                data-chat-activity-item-copy-button="true"
+                data-chat-activity-item-copy-kind="thought"
+                className={ACTIVITY_ITEM_HOVER_COPY_BUTTON_CLASS}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onCopy();
+                }}
+              >
+                <FiCopy />
+              </button>
+            ) : null}
+            <ChatTimestamp timestampMs={timestampMs} kind="activity-item" />
+            {thinkingRunState === "complete" ? (
+              durationLabel ? (
+                <span
+                  data-chat-thinking-status="true"
+                  className="inline-flex items-center gap-1 text-setta-500 dark:text-setta-300"
+                >
+                  <span
+                    data-chat-thinking-timer="true"
+                    className="font-mono text-[10px] text-setta-400 dark:text-setta-400/90"
+                  >
+                    {durationLabel}
+                  </span>
+                </span>
+              ) : null
+            ) : thinkingRunState === "stopped" ? (
+              <span
+                data-chat-thinking-status="true"
+                className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-600 dark:text-amber-300"
+              >
+                <MdErrorOutline className="text-[11px]" />
+                Stopped
+                {durationLabel ? (
+                  <span
+                    data-chat-thinking-timer="true"
+                    className="font-mono text-[10px] normal-case tracking-normal text-amber-700 dark:text-amber-200"
+                  >
+                    {durationLabel}
+                  </span>
+                ) : null}
+              </span>
+            ) : (
+              <span
+                data-chat-thinking-status="true"
+                className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-setta-500 dark:text-setta-300"
+              >
+                <BrailleSpinner
+                  className={`${BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME} text-setta-400 dark:text-setta-300/70`}
+                />
+                Working
+                {durationLabel ? (
+                  <span
+                    data-chat-thinking-timer="true"
+                    className="font-mono text-[10px] normal-case tracking-normal text-setta-400 dark:text-setta-400/90"
+                  >
+                    {durationLabel}
+                  </span>
+                ) : null}
+              </span>
+            )}
+          </div>
         </div>
         {hasExpandableContent ? (
           <Accordion.Content
@@ -4472,6 +4472,12 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
     },
     [],
   );
+  const handleActivityTriggerPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      event.stopPropagation();
+    },
+    [],
+  );
   const handleActivityTriggerKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
       if (event.target !== event.currentTarget) {
@@ -4495,6 +4501,9 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
   }, [defaultChildrenOpen, preview.thoughtActivityKey]);
   const handlePreviewThoughtExpansionChange = useCallback(
     (activityKey: string, nextExpanded: boolean) => {
+      if (!nextExpanded) {
+        setAllChildrenExpanded(false);
+      }
       if (activityKey !== preview.thoughtActivityKey) {
         return;
       }
@@ -4508,6 +4517,12 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
   const previewShellClassName = hideThoughtPreview
     ? "max-h-0 opacity-0"
     : "max-h-12 opacity-100";
+  const activityTitleLabel =
+    suppressSummaries && preview.kind === "thought"
+      ? preview.hasStreamingThought
+        ? "Thinking"
+        : "Reasoning"
+      : displayLabel;
   const activityPrimaryLabel =
     preview.kind === "thought"
       ? preview.hasStreamingThought
@@ -4515,22 +4530,9 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
         : itemCount > 1
           ? "Thoughts"
           : "Reasoning"
-      : preview.kind === "context"
-        ? "Context"
-        : preview.kind === "terminal"
-          ? "Terminal"
-          : preview.kind === "subagent"
-            ? "Subagent"
-            : preview.kind === "action" || preview.kind === "tool"
-              ? "Activity"
-              : "Activity";
-  const activityTitleLabel =
-    suppressSummaries && preview.kind === "thought"
-      ? preview.hasStreamingThought
-        ? "Thinking"
-        : "Reasoning"
-      : displayLabel;
+      : activityTitleLabel;
   const showActivityPreviewLabel =
+    preview.kind === "thought" &&
     activityTitleLabel.trim().length > 0 &&
     activityTitleLabel !== activityPrimaryLabel;
   return (
@@ -4559,6 +4561,7 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
           aria-expanded={isExpanded}
           role="button"
           tabIndex={0}
+          onPointerDown={handleActivityTriggerPointerDown}
           onKeyDown={handleActivityTriggerKeyDown}
           onClick={handleActivityTriggerClick}
         >
@@ -4690,7 +4693,7 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
                 hideThoughtPreview ? "false" : "true"
               }
               aria-hidden={hideThoughtPreview}
-              className={`overflow-hidden transition-[max-height,opacity] duration-200 ease-out motion-reduce:transition-none ${previewShellClassName}`}
+              className={`w-full overflow-hidden transition-[max-height,opacity] duration-200 ease-out motion-reduce:transition-none ${previewShellClassName}`}
             >
               <ActivityThoughtPreview
                 text={preview.thoughtText ?? ""}
@@ -4710,7 +4713,6 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
               expandAllSignal: openAllSignal,
               collapseAllSignal: closeAllSignal,
               suppressSummaries,
-              previewThoughtKey: preview.thoughtActivityKey,
               onThinkingOpenStateChange: handlePreviewThoughtExpansionChange,
             })}
           </div>
@@ -5274,6 +5276,7 @@ const ActivityToolLikeItem = memo(function ActivityToolLikeItem({
   defaultOpen = false,
   expandAllSignal = 0,
   collapseAllSignal = 0,
+  onExpansionChange,
 }: {
   rowKind: ActivityToolLikeRowKind;
   label: string;
@@ -5290,6 +5293,7 @@ const ActivityToolLikeItem = memo(function ActivityToolLikeItem({
   defaultOpen?: boolean;
   expandAllSignal?: number;
   collapseAllSignal?: number;
+  onExpansionChange?: (activityKey: string, isExpanded: boolean) => void;
 }) {
   const activityMeta = resolveActivityToolLikeMeta(rowKind);
   const { elapsedSeconds, elapsedMs, hasKnownDuration } = useRunElapsedDuration(
@@ -5314,18 +5318,33 @@ const ActivityToolLikeItem = memo(function ActivityToolLikeItem({
   const [accordionValue, setAccordionValue] = useState<string | undefined>(
     () => (defaultOpen ? ACTIVITY_ROW_DETAILS_VALUE : undefined),
   );
+  const lastExpandAllSignalRef = useRef(expandAllSignal);
+  const lastCollapseAllSignalRef = useRef(collapseAllSignal);
+  const isExpanded = accordionValue === ACTIVITY_ROW_DETAILS_VALUE;
 
   useEffect(() => {
+    if (expandAllSignal === lastExpandAllSignalRef.current) {
+      return;
+    }
+    lastExpandAllSignalRef.current = expandAllSignal;
     if (expandAllSignal > 0) {
       setAccordionValue(ACTIVITY_ROW_DETAILS_VALUE);
     }
   }, [expandAllSignal]);
 
   useEffect(() => {
+    if (collapseAllSignal === lastCollapseAllSignalRef.current) {
+      return;
+    }
+    lastCollapseAllSignalRef.current = collapseAllSignal;
     if (collapseAllSignal > 0) {
       setAccordionValue(undefined);
     }
   }, [collapseAllSignal]);
+
+  useEffect(() => {
+    onExpansionChange?.(runKey, isExpanded);
+  }, [isExpanded, onExpansionChange, runKey]);
 
   return (
     <Accordion.Root
@@ -5346,7 +5365,7 @@ const ActivityToolLikeItem = memo(function ActivityToolLikeItem({
         className="group/chat-activity-row w-full border-b border-setta-200/60 last:border-b-0 dark:border-setta-700/60"
         {...activityMeta.itemAttr}
       >
-        <div className="flex w-full items-stretch">
+        <div className="relative flex w-full items-stretch">
           <Accordion.Trigger
             className={`${TOOL_ROW_TRIGGER_CLASS} min-w-0 flex-1`}
             {...activityMeta.triggerAttr}
@@ -5359,43 +5378,12 @@ const ActivityToolLikeItem = memo(function ActivityToolLikeItem({
             >
               {railIcon}
             </div>
-            <div className="relative flex min-w-0 items-start gap-2 py-1 pl-2 pr-2">
+            <div className="flex min-w-0 items-start gap-2 py-1 pl-2 pr-2">
               <div
                 data-chat-activity-item-label="true"
                 className={`${ACTIVITY_ITEM_LABEL_CLASS} truncate break-words font-mono text-[11px] font-semibold text-setta-500 dark:text-setta-200`}
               >
                 {label}
-              </div>
-              <div
-                data-chat-activity-item-hover-meta="true"
-                className={ACTIVITY_ITEM_HOVER_META_CLASS}
-              >
-                {onCopy ? (
-                  <button
-                    type="button"
-                    aria-label="Copy activity item"
-                    data-chat-activity-item-copy-button="true"
-                    data-chat-activity-item-copy-kind={activityMeta.copyKind}
-                    className={ACTIVITY_ITEM_HOVER_COPY_BUTTON_CLASS}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onCopy();
-                    }}
-                  >
-                    <FiCopy />
-                  </button>
-                ) : null}
-                <ChatTimestamp timestampMs={timestampMs} kind="activity-item" />
-                {durationLabel ? (
-                  <span
-                    data-chat-activity-item-timer="true"
-                    data-chat-activity-item-run-state={runState}
-                    className={durationClassName}
-                  >
-                    {durationLabel}
-                  </span>
-                ) : null}
-                <ToolCallAccordionStatus runState={runState} />
               </div>
               <div className="ml-auto inline-flex shrink-0 items-center self-center">
                 <MdKeyboardArrowDown
@@ -5405,6 +5393,37 @@ const ActivityToolLikeItem = memo(function ActivityToolLikeItem({
               </div>
             </div>
           </Accordion.Trigger>
+          <div
+            data-chat-activity-item-hover-meta="true"
+            className={ACTIVITY_ITEM_HOVER_META_CLASS}
+          >
+            {onCopy ? (
+              <button
+                type="button"
+                aria-label="Copy activity item"
+                data-chat-activity-item-copy-button="true"
+                data-chat-activity-item-copy-kind={activityMeta.copyKind}
+                className={ACTIVITY_ITEM_HOVER_COPY_BUTTON_CLASS}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onCopy();
+                }}
+              >
+                <FiCopy />
+              </button>
+            ) : null}
+            <ChatTimestamp timestampMs={timestampMs} kind="activity-item" />
+            {durationLabel ? (
+              <span
+                data-chat-activity-item-timer="true"
+                data-chat-activity-item-run-state={runState}
+                className={durationClassName}
+              >
+                {durationLabel}
+              </span>
+            ) : null}
+            <ToolCallAccordionStatus runState={runState} />
+          </div>
         </div>
         <Accordion.Content
           className={ACTIVITY_ACCORDION_CONTENT_CLASS}
@@ -5455,6 +5474,7 @@ const ActionItem = memo(function ActionItem({
   defaultOpen = false,
   expandAllSignal = 0,
   collapseAllSignal = 0,
+  onExpansionChange,
 }: {
   name: string;
   args: unknown;
@@ -5468,6 +5488,7 @@ const ActionItem = memo(function ActionItem({
   defaultOpen?: boolean;
   expandAllSignal?: number;
   collapseAllSignal?: number;
+  onExpansionChange?: (activityKey: string, isExpanded: boolean) => void;
 }) {
   const actionLabel = resolveActionLabel(name, args);
   const inputPayload = resolveStructuredOutputPayload({
@@ -5505,6 +5526,7 @@ const ActionItem = memo(function ActionItem({
       defaultOpen={defaultOpen}
       expandAllSignal={expandAllSignal}
       collapseAllSignal={collapseAllSignal}
+      onExpansionChange={onExpansionChange}
     />
   );
 });
@@ -5522,6 +5544,7 @@ const ToolCallItem = memo(function ToolCallItem({
   defaultOpen = false,
   expandAllSignal = 0,
   collapseAllSignal = 0,
+  onExpansionChange,
 }: {
   name: string;
   args: unknown;
@@ -5535,6 +5558,7 @@ const ToolCallItem = memo(function ToolCallItem({
   defaultOpen?: boolean;
   expandAllSignal?: number;
   collapseAllSignal?: number;
+  onExpansionChange?: (activityKey: string, isExpanded: boolean) => void;
 }) {
   const inputPayload = resolveStructuredOutputPayload({
     value: args,
@@ -5571,6 +5595,7 @@ const ToolCallItem = memo(function ToolCallItem({
       defaultOpen={defaultOpen}
       expandAllSignal={expandAllSignal}
       collapseAllSignal={collapseAllSignal}
+      onExpansionChange={onExpansionChange}
     />
   );
 });
@@ -5587,6 +5612,7 @@ const TerminalItem = memo(function TerminalItem({
   defaultOpen = false,
   expandAllSignal = 0,
   collapseAllSignal = 0,
+  onExpansionChange,
 }: {
   name: string;
   args: unknown;
@@ -5599,6 +5625,7 @@ const TerminalItem = memo(function TerminalItem({
   defaultOpen?: boolean;
   expandAllSignal?: number;
   collapseAllSignal?: number;
+  onExpansionChange?: (activityKey: string, isExpanded: boolean) => void;
 }) {
   const inputPayload = resolveStructuredOutputPayload({
     value: args,
@@ -5636,6 +5663,7 @@ const TerminalItem = memo(function TerminalItem({
       defaultOpen={defaultOpen}
       expandAllSignal={expandAllSignal}
       collapseAllSignal={collapseAllSignal}
+      onExpansionChange={onExpansionChange}
     />
   );
 });
@@ -5653,6 +5681,7 @@ const SubagentItem = memo(function SubagentItem({
   defaultOpen = false,
   expandAllSignal = 0,
   collapseAllSignal = 0,
+  onExpansionChange,
 }: {
   name: string;
   toolCallId: string;
@@ -5666,6 +5695,7 @@ const SubagentItem = memo(function SubagentItem({
   defaultOpen?: boolean;
   expandAllSignal?: number;
   collapseAllSignal?: number;
+  onExpansionChange?: (activityKey: string, isExpanded: boolean) => void;
 }) {
   const inputPayload = resolveStructuredOutputPayload({
     value: args,
@@ -5706,6 +5736,7 @@ const SubagentItem = memo(function SubagentItem({
       defaultOpen={defaultOpen}
       expandAllSignal={expandAllSignal}
       collapseAllSignal={collapseAllSignal}
+      onExpansionChange={onExpansionChange}
     />
   );
 });
@@ -5720,7 +5751,6 @@ const AssistantActionSection = memo(function AssistantActionSection({
   closeAllSignal = 0,
   suppressCollapsedSummary = false,
   conversationSearchTerms = [],
-  previewThoughtKey = null,
   onThinkingOpenStateChange,
 }: {
   timelineEntries: ActivityTimelineEntry[];
@@ -5732,7 +5762,6 @@ const AssistantActionSection = memo(function AssistantActionSection({
   closeAllSignal?: number;
   suppressCollapsedSummary?: boolean;
   conversationSearchTerms?: Array<string>;
-  previewThoughtKey?: string | null;
   onThinkingOpenStateChange?: (
     activityKey: string,
     isExpanded: boolean,
@@ -5771,9 +5800,7 @@ const AssistantActionSection = memo(function AssistantActionSection({
           collapseAllSignal={closeAllSignal}
           suppressCollapsedSummary={suppressCollapsedSummary}
           conversationSearchTerms={conversationSearchTerms}
-          onExpansionChange={
-            entry.key === previewThoughtKey ? onThinkingOpenStateChange : undefined
-          }
+          onExpansionChange={onThinkingOpenStateChange}
         />
       );
     }
@@ -5818,6 +5845,7 @@ const AssistantActionSection = memo(function AssistantActionSection({
           defaultOpen={defaultChildrenOpen}
           expandAllSignal={openAllSignal}
           collapseAllSignal={closeAllSignal}
+          onExpansionChange={onThinkingOpenStateChange}
         />
       );
     }
@@ -5837,6 +5865,7 @@ const AssistantActionSection = memo(function AssistantActionSection({
           defaultOpen={defaultChildrenOpen}
           expandAllSignal={openAllSignal}
           collapseAllSignal={closeAllSignal}
+          onExpansionChange={onThinkingOpenStateChange}
         />
       );
     }
@@ -5857,6 +5886,7 @@ const AssistantActionSection = memo(function AssistantActionSection({
           defaultOpen={defaultChildrenOpen}
           expandAllSignal={openAllSignal}
           collapseAllSignal={closeAllSignal}
+          onExpansionChange={onThinkingOpenStateChange}
         />
       );
     }
@@ -5881,6 +5911,7 @@ const AssistantActionSection = memo(function AssistantActionSection({
           defaultOpen={defaultChildrenOpen}
           expandAllSignal={openAllSignal}
           collapseAllSignal={closeAllSignal}
+          onExpansionChange={onThinkingOpenStateChange}
         />
       );
     }
@@ -5900,6 +5931,7 @@ const AssistantActionSection = memo(function AssistantActionSection({
         defaultOpen={defaultChildrenOpen}
         expandAllSignal={openAllSignal}
         collapseAllSignal={closeAllSignal}
+        onExpansionChange={onThinkingOpenStateChange}
       />
     );
   });
@@ -7093,7 +7125,6 @@ const ChatMessage = memo(function ChatMessage({
                       suppressCollapsedSummary={
                         childAccordionControl.suppressSummaries
                       }
-                      previewThoughtKey={childAccordionControl.previewThoughtKey}
                       onThinkingOpenStateChange={
                         childAccordionControl.onThinkingOpenStateChange
                       }
@@ -7570,9 +7601,6 @@ function ChatMessages({
                         suppressCollapsedSummary={
                           childAccordionControl.suppressSummaries
                         }
-                        previewThoughtKey={
-                          childAccordionControl.previewThoughtKey
-                        }
                         onThinkingOpenStateChange={
                           childAccordionControl.onThinkingOpenStateChange
                         }
@@ -7772,8 +7800,7 @@ export const ChatMessageList = memo(function ChatMessageList({
     const activeHighlight =
       activeMessageHighlights[
         Math.min(resolvedOccurrenceIndex, activeMessageHighlights.length - 1)
-      ] ??
-      null;
+      ] ?? null;
     activeHighlight?.setAttribute("data-chat-search-highlight-target", "true");
   }, [
     activeSearchMatchOccurrenceIndex,
