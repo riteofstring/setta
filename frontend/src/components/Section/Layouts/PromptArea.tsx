@@ -38,6 +38,7 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
     template,
     format,
     isFrozen,
+    renderedText,
     renderError,
   } = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplOfType(
@@ -51,6 +52,7 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
       template: impl.template,
       format: impl.format,
       isFrozen: impl.isFrozen,
+      renderedText: impl.renderedText,
       renderError: impl.renderError,
     };
   }, _.isEqual);
@@ -102,10 +104,7 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
     ) {
       return "Linked prompt template could not be found.";
     }
-    if (renderError && !renderError.startsWith("Missing variables:")) {
-      return renderError;
-    }
-    return "";
+    return renderError ?? "";
   }, [
     promptTemplatesInitialLoadComplete,
     renderError,
@@ -237,7 +236,7 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
       ) : (
         <PromptPreview
           sectionId={sectionId}
-          previewText={resolvedSource.templateText}
+          previewText={renderedText}
           errorText={errorText}
         />
       )}

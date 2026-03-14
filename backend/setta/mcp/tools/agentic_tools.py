@@ -165,6 +165,7 @@ async def report_state_machine_signal(
             section_id=sectionId or agentic_context.section_id,
             signal_name=normalized_signal_name,
             payload=dict(payload or {}),
+            share_session_id=ctx.fastmcp._resolve_share_session_id(ctx),
         )
     except (KeyError, ValueError) as exc:
         raise InvalidToolArgumentsError(str(exc)) from exc

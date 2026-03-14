@@ -1,3 +1,7 @@
+/* @vitest-environment jsdom */
+
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   useAIStore,
@@ -5,6 +9,7 @@ import {
   useShareSession,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import "testUtils/reactRefreshPreamble";
 import {
   PromptFormatEnum,
   SectionTypeEnum,
@@ -29,6 +34,8 @@ function syncStoreInitialState(store: {
 }
 
 let lastCodeMirrorProps: Record<string, unknown> | null = null;
+let host: HTMLDivElement;
+let root: Root;
 
 vi.mock("@uiw/react-codemirror", async () => {
   const React = await import("react");
@@ -152,6 +159,9 @@ describe("PromptArea", () => {
   beforeEach(() => {
     resetProjectStores();
     lastCodeMirrorProps = null;
+    host = document.createElement("div");
+    document.body.append(host);
+    root = createRoot(host);
     useAIStore.setState({
       promptTemplates: [],
       promptTemplatesInitialLoadComplete: true,
@@ -161,7 +171,11 @@ describe("PromptArea", () => {
     syncStoreInitialState(useShareSession);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await act(async () => {
+      root.unmount();
+    });
+    host.remove();
     resetProjectStores();
     lastCodeMirrorProps = null;
   });
@@ -212,5 +226,31 @@ describe("PromptArea", () => {
     expect(markup).toContain(`prompt-linked-template-note-${sectionId}`);
     const props = lastCodeMirrorProps;
     expect(props?.value).toBe("Hello {{ name }}");
+  });
+
+  it("shows rendered preview state, including missing-variable errors", async () => {
+    const sectionId = seedPromptSection({
+      template: "Hello {{ name }}",
+      renderedText: "",
+      renderError: "Missing variables: name",
+    });
+
+    await act(async () => {
+      root.render(<PromptArea sectionId={sectionId} />);
+    });
+
+    const previewTab = host.querySelector(
+      `[data-testid="prompt-preview-tab-${sectionId}"]`,
+    );
+    expect(previewTab).not.toBeNull();
+
+    await act(async () => {
+      previewTab?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, cancelable: true }),
+      );
+    });
+
+    expect(host.textContent).toContain("Missing variables: name");
+    expect(host.textContent).toContain("No prompt rendered yet.");
   });
 });

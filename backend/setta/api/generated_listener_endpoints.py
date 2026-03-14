@@ -815,13 +815,6 @@ class ListenerSetPromptFormatRequestPayload(TypedDict):
     format: PromptFormat
 
 
-class ListenerSetPromptInputsRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    inputs: dict[str, str]
-
-
 class ListenerSetPromptTemplateLinkRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -1656,11 +1649,6 @@ class RouterEndpointAPI:
         self, payload: ListenerSetPromptFormatRequestPayload
     ) -> None:
         return await self._caller("route_set_prompt_format", payload)
-
-    async def set_prompt_inputs(
-        self, payload: ListenerSetPromptInputsRequestPayload
-    ) -> None:
-        return await self._caller("route_set_prompt_inputs", payload)
 
     async def set_prompt_template(
         self, payload: ListenerSetPromptTemplateRequestPayload

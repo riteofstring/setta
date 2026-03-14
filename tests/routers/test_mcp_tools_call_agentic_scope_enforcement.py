@@ -1231,7 +1231,103 @@ async def test_tools_call_report_state_machine_signal_uses_agentic_run_context(
         "section_id": chat_section_id,
         "signal_name": "merge_decision",
         "payload": {"decision": "retry"},
+        "share_session_id": None,
     }
+
+
+@pytest.mark.asyncio
+async def test_tools_call_report_state_machine_signal_threads_share_session_id(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dbe = DBE(tmp_path)
+    (
+        project_state,
+        project_config_id,
+        chat_section_id,
+        peer_chat_section_id,
+        allowed_section_id,
+        blocked_section_id,
+    ) = _build_project_state()
+
+    temporary_to_canonical, canonical_to_temporary = dbe.read_temporary_id_map()
+    _ = convert_canonical_ids_to_temporary(
+        [
+            project_config_id,
+            chat_section_id,
+            peer_chat_section_id,
+            allowed_section_id,
+            blocked_section_id,
+        ],
+        canonical_to_temporary,
+        temporary_to_canonical,
+    )
+    dbe.write_temporary_id_map(canonical_to_temporary)
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_chat_section_id = canonical_to_temporary[chat_section_id]
+
+    manager = _DummyProjectManager(project_state)
+    switcher = _StrictProjectManagerSwitcher(project_config_id, manager)
+    websocket_manager = WebsocketManager()
+    frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+    captured: dict[str, object] = {}
+
+    class _SignalRunner:
+        async def report_signal(self, **kwargs):
+            captured.update(kwargs)
+            return {"status": "ok", "machineRunId": "machine-run-1"}
+
+    state = type(
+        "_State",
+        (),
+        {
+            "project_manager_switcher": switcher,
+            "dbe": dbe,
+            "share_mode": False,
+            "deployment_mode": False,
+            "wmh_frontend_sender": frontend_sender,
+            "wait_until_ready": _noop_wait_until_ready,
+            "state_machine_runner": _SignalRunner(),
+        },
+    )()
+    app = FastAPI()
+    mcp_server = SettaFastMCP(
+        app,
+        state,
+        "/mcp-test",
+        "Test MCP Server",
+        frontend_sender,
+        dbe,
+    )
+    monkeypatch.setattr(
+        mcp_server,
+        "_resolve_share_session_id",
+        lambda _ctx: "share-session-a",
+    )
+    state.mcp_server = mcp_server
+    app.state.setta = state
+    app.include_router(mcp_tools_router)
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/__setta__/tools/call",
+            json={
+                "tool": "report_state_machine_signal",
+                "arguments": {
+                    "signalName": "merge_decision",
+                    "payload": {"decision": "retry"},
+                },
+                "agenticContext": {
+                    "projectConfigId": str(tmp_project_id),
+                    "sectionId": str(tmp_chat_section_id),
+                    "runId": "child-run-1",
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    assert captured["share_session_id"] == "share-session-a"
 
 
 @pytest.mark.asyncio

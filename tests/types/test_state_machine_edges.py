@@ -1,5 +1,9 @@
+from tempfile import TemporaryDirectory
+
 import pytest
 
+from setta.agentic.store import save_prompt_template
+from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl2 import (
@@ -7,12 +11,15 @@ from setta.types.helpers_lvl2 import (
     create_top_level_section,
     delete_state_machine_edges,
     set_prompt_section_template,
+    set_prompt_section_template_link,
     set_state_machine_section_settings,
     set_state_machine_edges,
     update_state_machine_edge,
 )
+from setta.types.id import ID
 from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import ProjectStateSingleConfig
+from setta.types.prompt import PromptFormat, PromptTemplate
 from setta.types.section_impls import SectionType, StateMachineGateType
 from setta.types.state_machine_edges import (
     STATE_MACHINE_EDGE_SOURCE_PORT_ID,
@@ -335,6 +342,62 @@ class TestStateMachineEdges:
                     promptSectionId=prompt_section_id,
                 ),
             )
+
+    def test_chat_target_uses_live_linked_prompt_template_for_validation(self) -> None:
+        chat_section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Chat,
+            Position(x=720, y=0),
+        )
+        prompt_section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Prompt,
+            Position(x=360, y=160),
+        )
+        prompt_template_id = ID("prompt-template-1")
+
+        with TemporaryDirectory() as tmpdir:
+            dbe = DBE(tmpdir)
+            save_prompt_template(
+                dbe,
+                PromptTemplate(
+                    id=prompt_template_id,
+                    name="Greeting",
+                    template="Hello {{ name }}",
+                ),
+            )
+            set_prompt_section_template_link(
+                self.project_state,
+                prompt_section_id,
+                prompt_template_id,
+                "Hello {{ name }}",
+                PromptFormat.Jinja,
+            )
+
+            save_prompt_template(
+                dbe,
+                PromptTemplate(
+                    id=prompt_template_id,
+                    name="Greeting",
+                    template="Hello there.",
+                ),
+            )
+
+            edge = StateMachineEdge(
+                id=create_new_id(),
+                machineGroupId=self.machine_group_id,
+                sourceSectionId=self.start_section_id,
+                sourcePortId=STATE_MACHINE_EDGE_SOURCE_PORT_ID,
+                targetSectionId=chat_section_id,
+                targetPortId=STATE_MACHINE_EDGE_TARGET_PORT_ID,
+                targetAction=StateMachineTargetAction(
+                    type=StateMachineTargetActionType.send_prompt,
+                    promptSectionId=prompt_section_id,
+                ),
+            )
+            create_state_machine_edge(self.project_state, edge, dbe=dbe)
 
     def test_chat_source_filters_are_restricted_to_chat_and_signal_fields(self) -> None:
         chat_section_id = create_top_level_section(

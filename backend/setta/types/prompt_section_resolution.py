@@ -30,15 +30,7 @@ def build_prompt_section_preview(
             render_error=None,
         )
 
-    render_result = render_prompt(template, {})
-    if render_result.render_error is not None and not render_result.missing_variables:
-        return render_result
-
-    return PromptRenderResult(
-        rendered_text=template,
-        missing_variables=[],
-        render_error=None,
-    )
+    return render_prompt(template, {})
 
 
 def resolve_prompt_section_source(

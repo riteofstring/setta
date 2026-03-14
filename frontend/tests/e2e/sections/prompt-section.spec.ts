@@ -175,9 +175,22 @@ test.describe.serial("prompt section", () => {
       const preview = page.getByTestId(
         `prompt-render-preview-${created.sectionId}`,
       );
-      await expect(preview).toContainText(
-        "My name is {{ name }}. What's your name?",
-      );
+      await expect(preview).toContainText("Missing variables: name");
+      await expect(preview).toContainText("No prompt rendered yet.");
+
+      await postBackend(page, "/updatePromptTemplate", {
+        template: {
+          id: linkedTemplate.id,
+          name: "__pw_prompt_template__",
+          description: "",
+          template: "Hello there.",
+          format: "Jinja",
+          inputSchema: {},
+          metadata: {},
+        },
+      });
+
+      await expect(preview).toContainText("Hello there.");
       await expect(preview).not.toContainText("Missing variables:");
 
       const minHeightErrors = pageErrors.filter(

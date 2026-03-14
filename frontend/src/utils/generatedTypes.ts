@@ -771,7 +771,6 @@ export const RouteEnum = {
   UPSERT_APP_GEN_CUSTOM_SKILL: "/upsertAppGenCustomSkill",
   SET_PROMPT_TEMPLATE: "/setPromptTemplate",
   SET_PROMPT_TEMPLATE_LINK: "/setPromptTemplateLink",
-  SET_PROMPT_INPUTS: "/setPromptInputs",
   SET_PROMPT_FORMAT: "/setPromptFormat",
   SET_GEN_CODE_PREFIX: "/setGenCodePrefix",
   SET_GEN_CODE_SUFFIX: "/setGenCodeSuffix",
@@ -10108,6 +10107,7 @@ const _MCPToolRequestContextMetaSchema = z.object({
   projectConfigId: z.union([IDSchema, z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
   sectionId: z.union([IDSchema, z.null()]).default(null),
+  runId: z.union([z.string(), z.null()]).default(null),
   frontendAffinityToken: z.union([z.string(), z.null()]).default(null),
   allowUnscoped: z.boolean().default(false),
   linkedChatInvocationDepth: z.int().default(0),
@@ -11638,17 +11638,6 @@ const SetPromptFormatRequestSchema = z.object({
 
 export type SetPromptFormatRequestInput = z.input<
   typeof SetPromptFormatRequestSchema
->;
-
-const SetPromptInputsRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  inputs: z.record(z.string(), z.string()),
-});
-
-export type SetPromptInputsRequestInput = z.input<
-  typeof SetPromptInputsRequestSchema
 >;
 
 const SetPromptTemplateLinkRequestSchema = z.object({

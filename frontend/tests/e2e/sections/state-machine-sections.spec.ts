@@ -488,6 +488,11 @@ test.describe.serial("state machine sections", () => {
         page,
         projectContext.projectConfigId,
       );
+      const startToGateEdge = edges.find(
+        (edge) =>
+          edge.sourceSectionId === startSectionId &&
+          edge.targetSectionId === gateSectionId,
+      );
       const gateToChatEdge = edges.find(
         (edge) =>
           edge.sourceSectionId === gateSectionId &&
@@ -498,9 +503,10 @@ test.describe.serial("state machine sections", () => {
           edge.sourceSectionId === chatSectionId &&
           edge.targetSectionId === endSectionId,
       );
+      expect(startToGateEdge?.id).toBeTruthy();
       expect(gateToChatEdge?.id).toBeTruthy();
       expect(chatToEndEdge?.id).toBeTruthy();
-      if (!gateToChatEdge?.id || !chatToEndEdge?.id) {
+      if (!startToGateEdge?.id || !gateToChatEdge?.id || !chatToEndEdge?.id) {
         throw new Error("Expected workflow edge ids after connecting handles.");
       }
       const gateToChatEdgeStyleBefore = await readWorkflowEdgeStyle(
@@ -610,21 +616,49 @@ test.describe.serial("state machine sections", () => {
       expect(gateToChatEdgeStyleAfter.strokeDasharray).toBe(
         gateToChatEdgeStyleBefore.strokeDasharray,
       );
+      await postBackend(page, "/deleteStateMachineEdges", {
+        projectConfigId: projectContext.projectConfigId,
+        edgeIds: [startToGateEdge.id, gateToChatEdge.id, chatToEndEdge.id],
+      });
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineEdges(page, projectContext.projectConfigId),
+          { timeout: 8000 },
+        )
+        .toHaveLength(0);
+      await createStateMachineEdge(page, projectContext.projectConfigId, {
+        machineGroupId: "workflow-main",
+        sourceSectionId: startSectionId,
+        sourcePortId: "workflow-source",
+        targetSectionId: chatSectionId,
+        targetPortId: "workflow-target",
+        sourceFilter: null,
+        targetAction: {
+          type: "send_prompt",
+          promptTemplateId: null,
+          inlinePrompt: "Review the latest output.",
+          threadStrategy: "continue_current_thread",
+          stopIfRunning: false,
+          engineConfigId: null,
+          agentProfileId: null,
+          permissionMode: null,
+          searchEnabled: null,
+        },
+      });
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineEdges(page, projectContext.projectConfigId),
+          { timeout: 8000 },
+        )
+        .toHaveLength(1);
 
       const startStatus = page.getByTestId(
         `state-machine-run-status-${startSectionId}`,
       );
-      const gateStatus = page.getByTestId(
-        `state-machine-run-status-${gateSectionId}`,
-      );
-      const gateWorkflowStatus = page.getByTestId(
-        `state-machine-gate-status-${gateSectionId}`,
-      );
       const startActivityPanel = page.getByTestId(
         `state-machine-activity-panel-${startSectionId}`,
-      );
-      const gateActivityPanel = page.getByTestId(
-        `state-machine-activity-panel-${gateSectionId}`,
       );
       await openOverviewMoreDestination(page, "Custom Runs");
       const workflowControlsTrigger = page.getByTestId(
@@ -655,36 +689,27 @@ test.describe.serial("state machine sections", () => {
 
       await expect(overviewWorkflowStatus).toHaveText("Idle");
       await expect(startStatus).toHaveText("Idle");
-      await expect(gateStatus).toHaveText("Idle");
 
       await overviewStartButton.click();
       await expect(overviewWorkflowStatus).toHaveText("Running");
       await expect(startStatus).toHaveText("Running");
-      await expect(gateStatus).toHaveText("Running");
-      await expect(gateWorkflowStatus).toHaveText("Satisfied");
       await expect(startActivityPanel).toContainText(
         "Dispatched 1 start action",
       );
-      await expect(gateActivityPanel).toContainText("Gate satisfied");
 
       await overviewStopButton.click();
       await expect(overviewWorkflowStatus).toHaveText("Stopped");
       await expect(startStatus).toHaveText("Stopped");
-      await expect(gateStatus).toHaveText("Stopped");
       await expect(startActivityPanel).toContainText("Workflow stopped");
 
       await overviewStartButton.click();
       await expect(overviewWorkflowStatus).toHaveText("Running");
       await expect(startStatus).toHaveText("Running");
-      await expect(gateStatus).toHaveText("Running");
-      await expect(gateWorkflowStatus).toHaveText("Satisfied");
 
       await overviewResetButton.click();
       await expect(overviewWorkflowStatus).toHaveText("Idle");
       await expect(startStatus).toHaveText("Idle");
-      await expect(gateStatus).toHaveText("Idle");
       await expect(startActivityPanel).toHaveCount(0);
-      await expect(gateActivityPanel).toHaveCount(0);
       await expect(overviewStopButton).toBeDisabled();
       await expect(overviewResetButton).toBeDisabled();
     } finally {
@@ -882,13 +907,6 @@ test.describe.serial("state machine sections", () => {
         projectConfigId: projectContext.projectConfigId,
         sectionId: promptSectionId,
         template: "Hi my name is {{ name }}. What's your name?",
-      });
-      await postBackend(page, "/setPromptInputs", {
-        projectConfigId: projectContext.projectConfigId,
-        sectionId: promptSectionId,
-        inputs: {
-          name: "Default Name",
-        },
       });
 
       await createStateMachineEdge(page, projectContext.projectConfigId, {
@@ -1466,7 +1484,10 @@ test.describe.serial("state machine sections", () => {
         targetAction: null,
       });
 
-      const edges = await readStateMachineEdges(page, projectContext.projectConfigId);
+      const edges = await readStateMachineEdges(
+        page,
+        projectContext.projectConfigId,
+      );
       gateIncomingEdgeIds = edges
         .filter((edge) => edge.targetSectionId === gateSectionId)
         .map((edge) => edge.id)

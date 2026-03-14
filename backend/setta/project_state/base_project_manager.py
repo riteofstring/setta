@@ -207,7 +207,6 @@ from setta.project_state.project_manager_types import (
     SetProjectChatWindowingStateRequest,
     SetProjectConfigCodegenTargetsRequest,
     SetPromptFormatRequest,
-    SetPromptInputsRequest,
     SetPromptTemplateLinkRequest,
     SetPromptTemplateRequest,
     SetSectionColumnWidthRequest,
@@ -363,7 +362,6 @@ from setta.types.helpers_lvl2 import (
     set_project_chat_windowing_state,
     set_project_config_name,
     set_prompt_section_format,
-    set_prompt_section_inputs,
     set_prompt_section_template,
     set_prompt_section_template_link,
     set_section_column_width,
@@ -3701,14 +3699,14 @@ class BaseProjectManager(ABC):
         if x.id is not None:
             edge_kwargs["id"] = x.id
         edge = StateMachineEdge(**edge_kwargs)
-        create_state_machine_edge(project_state, edge)
+        create_state_machine_edge(project_state, edge, dbe=self.dbe)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def update_state_machine_edge(self, x: UpdateStateMachineEdgeRequest):
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
-        update_state_machine_edge(project_state, x.edge)
+        update_state_machine_edge(project_state, x.edge, dbe=self.dbe)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
@@ -3722,7 +3720,7 @@ class BaseProjectManager(ABC):
     async def set_state_machine_edges(self, x: SetStateMachineEdgesRequest):
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
-        set_state_machine_edges(project_state, x.edges)
+        set_state_machine_edges(project_state, x.edges, dbe=self.dbe)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
@@ -4458,16 +4456,47 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    async def set_prompt_inputs(self, x: SetPromptInputsRequest):
-        project_state = self.get_single_config_state(x.projectConfigId)
-        set_prompt_section_inputs(project_state, x.sectionId, x.inputs)
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
     async def set_prompt_format(self, x: SetPromptFormatRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_prompt_section_format(project_state, x.sectionId, x.format)
         await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def refresh_linked_prompt_sections_for_template(
+        self,
+        prompt_template_id: ID,
+    ) -> None:
+        prompt_template = load_prompt_template(self.dbe, prompt_template_id)
+        if prompt_template is None:
+            return
+        for project_config_id in self.project_state_backend.projectConfigs:
+            project_state = self.get_single_config_state(project_config_id)
+            updated = False
+            for section_id in project_state.sections:
+                section_impl = get_curr_effective_section_impl(
+                    project_state, section_id
+                )
+                if not isinstance(section_impl, PromptSectionImpl):
+                    continue
+                if section_impl.promptTemplateId != prompt_template_id:
+                    continue
+                if (
+                    section_impl.template == prompt_template.template
+                    and section_impl.format == prompt_template.format
+                ):
+                    continue
+                set_prompt_section_template_link(
+                    project_state,
+                    section_id,
+                    prompt_template_id,
+                    prompt_template.template,
+                    prompt_template.format,
+                )
+                updated = True
+            if updated:
+                await self._update_and_broadcast_project_state_no_name_validation(
+                    project_state
+                )
 
     @enqueue_method
     async def set_section_variant_name(self, x: SetSectionVariantNameRequest):

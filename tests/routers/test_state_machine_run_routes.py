@@ -893,6 +893,136 @@ async def _seed_state_machine_signal_branch_graph(
     )
 
 
+async def _seed_state_machine_signal_gate_graph(
+    *,
+    project_fixture,
+    project_config_id: ID,
+    engine_config_id: ID,
+) -> tuple[ID, ID, ID, ID]:
+    start_response = await project_fixture.manager.create_top_level_section(
+        CreateTopLevelSectionRequest(
+            projectConfigId=project_config_id,
+            implType=SectionType.StateMachineStart,
+            position=Position(x=0, y=0),
+        ),
+    )
+    gate_response = await project_fixture.manager.create_top_level_section(
+        CreateTopLevelSectionRequest(
+            projectConfigId=project_config_id,
+            implType=SectionType.StateMachineGate,
+            position=Position(x=560, y=0),
+        ),
+    )
+    end_response = await project_fixture.manager.create_top_level_section(
+        CreateTopLevelSectionRequest(
+            projectConfigId=project_config_id,
+            implType=SectionType.StateMachineEnd,
+            position=Position(x=840, y=0),
+        ),
+    )
+    await project_fixture.manager.set_state_machine_section_settings(
+        SetStateMachineSectionSettingsRequest(
+            projectConfigId=project_config_id,
+            sectionId=start_response.sectionId,
+            machineGroupId="workflow-main",
+            label="Review Flow",
+        )
+    )
+    await project_fixture.manager.set_state_machine_section_settings(
+        SetStateMachineSectionSettingsRequest(
+            projectConfigId=project_config_id,
+            sectionId=gate_response.sectionId,
+            machineGroupId="workflow-main",
+            label="Join",
+            gateType=StateMachineGateType.AND,
+        )
+    )
+    await project_fixture.manager.set_state_machine_section_settings(
+        SetStateMachineSectionSettingsRequest(
+            projectConfigId=project_config_id,
+            sectionId=end_response.sectionId,
+            machineGroupId="workflow-main",
+            label="Done",
+        )
+    )
+    first_chat_id = await _create_managed_chat_section(
+        project_fixture=project_fixture,
+        project_config_id=project_config_id,
+        engine_config_id=engine_config_id,
+        position=Position(x=280, y=-120),
+    )
+    second_chat_id = await _create_managed_chat_section(
+        project_fixture=project_fixture,
+        project_config_id=project_config_id,
+        engine_config_id=engine_config_id,
+        position=Position(x=280, y=120),
+    )
+    for chat_section_id, prompt_text in (
+        (first_chat_id, "Review branch A."),
+        (second_chat_id, "Review branch B."),
+    ):
+        await project_fixture.manager.create_state_machine_edge(
+            CreateStateMachineEdgeRequest(
+                projectConfigId=project_config_id,
+                machineGroupId="workflow-main",
+                sourceSectionId=start_response.sectionId,
+                sourcePortId=STATE_MACHINE_EDGE_SOURCE_PORT_ID,
+                targetSectionId=chat_section_id,
+                targetPortId=STATE_MACHINE_EDGE_TARGET_PORT_ID,
+                targetAction=StateMachineTargetAction(
+                    type=StateMachineTargetActionType.send_prompt,
+                    inlinePrompt=prompt_text,
+                    threadStrategy=StateMachineThreadStrategy.new_thread_before_send,
+                ),
+            )
+        )
+    await project_fixture.manager.create_state_machine_edge(
+        CreateStateMachineEdgeRequest(
+            projectConfigId=project_config_id,
+            machineGroupId="workflow-main",
+            sourceSectionId=first_chat_id,
+            sourcePortId=STATE_MACHINE_EDGE_SOURCE_PORT_ID,
+            targetSectionId=gate_response.sectionId,
+            targetPortId=STATE_MACHINE_EDGE_TARGET_PORT_ID,
+            sourceFilter=StateMachineSourceFilter(
+                type=StateMachineSourceFilterType.run_completed,
+            ),
+        )
+    )
+    await project_fixture.manager.create_state_machine_edge(
+        CreateStateMachineEdgeRequest(
+            projectConfigId=project_config_id,
+            machineGroupId="workflow-main",
+            sourceSectionId=second_chat_id,
+            sourcePortId=STATE_MACHINE_EDGE_SOURCE_PORT_ID,
+            targetSectionId=gate_response.sectionId,
+            targetPortId=STATE_MACHINE_EDGE_TARGET_PORT_ID,
+            sourceFilter=StateMachineSourceFilter(
+                type=StateMachineSourceFilterType.signal,
+                signalName="merge_decision",
+                payloadField="decision",
+                equals="retry",
+            ),
+        )
+    )
+    await project_fixture.manager.create_state_machine_edge(
+        CreateStateMachineEdgeRequest(
+            projectConfigId=project_config_id,
+            machineGroupId="workflow-main",
+            sourceSectionId=gate_response.sectionId,
+            sourcePortId=STATE_MACHINE_EDGE_SOURCE_PORT_ID,
+            targetSectionId=end_response.sectionId,
+            targetPortId=STATE_MACHINE_EDGE_TARGET_PORT_ID,
+        )
+    )
+    return (
+        start_response.sectionId,
+        first_chat_id,
+        second_chat_id,
+        gate_response.sectionId,
+    )
+
+
 async def _seed_state_machine_signal_loop_graph(
     *,
     project_fixture,
@@ -1323,19 +1453,33 @@ async def test_state_machine_runner_dispatches_prompt_section_with_edge_bindings
             "Hi my name is Kevin. What's your name?"
         )
 
-    async def test_state_machine_runner_dispatches_linked_prompt_section_with_edge_bindings(
-        project_fixture,
-        settings_fixture,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        project_config_id = project_fixture.project_config_id
-        project_state = convert_backend_to_single_config(
-            project_fixture.manager.project_state_backend,
-            project_config_id,
+
+@pytest.mark.asyncio
+async def test_state_machine_runner_dispatches_live_linked_prompt_section_content(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        project_config_id = (
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
         )
-        start_section_id = project_state.projectConfig.stateMachineEdges[
-            0
-        ].sourceSectionId
+        assert project_config_id is not None
+        await project_fixture.manager.finish_pending_operations()
+
+        engine_config_id = ID("engine-primary")
+        _seed_engine_config(project_fixture.dbe, engine_config_id)
+        start_section_id, chat_section_id, _ = await _seed_state_machine_chat_graph(
+            project_fixture=project_fixture,
+            project_config_id=project_config_id,
+            engine_config_id=engine_config_id,
+            target_action=StateMachineTargetAction(
+                type=StateMachineTargetActionType.send_prompt,
+                inlinePrompt="placeholder",
+                threadStrategy=StateMachineThreadStrategy.new_thread_before_send,
+            ),
+        )
         prompt_response = await project_fixture.manager.create_top_level_section(
             CreateTopLevelSectionRequest(
                 projectConfigId=project_config_id,
@@ -1357,6 +1501,11 @@ async def test_state_machine_runner_dispatches_prompt_section_with_edge_bindings
             )
         )
 
+        save_prompt_template(
+            project_fixture.dbe,
+            prompt_template.model_copy(update={"template": "Hello there."}),
+        )
+
         project_state = convert_backend_to_single_config(
             project_fixture.manager.project_state_backend,
             project_config_id,
@@ -1366,7 +1515,6 @@ async def test_state_machine_runner_dispatches_prompt_section_with_edge_bindings
         ].targetAction = StateMachineTargetAction(
             type=StateMachineTargetActionType.send_prompt,
             promptSectionId=prompt_response.sectionId,
-            promptInputs={"name": "Kevin"},
             threadStrategy=StateMachineThreadStrategy.new_thread_before_send,
         )
         await project_fixture.manager.set_state_machine_edges(
@@ -1402,9 +1550,8 @@ async def test_state_machine_runner_dispatches_prompt_section_with_edge_bindings
         assert isinstance(captured_inputs, dict)
         raw_messages = captured_inputs.get("messages")
         assert isinstance(raw_messages, list)
-        assert raw_messages[-1]["content"][0]["text"] == (
-            "Hi my name is Kevin. What's your name?"
-        )
+        assert raw_messages[-1]["content"][0]["text"] == "Hello there."
+        assert captured_inputs["stateMachineTargetSectionId"] == str(chat_section_id)
 
 
 @pytest.mark.asyncio
@@ -1949,6 +2096,115 @@ async def test_state_machine_runner_routes_signal_filtered_edges(
 
 
 @pytest.mark.asyncio
+async def test_state_machine_runner_keeps_signal_gate_waiting_while_source_chat_runs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        project_config_id = (
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        assert project_config_id is not None
+        await project_fixture.manager.finish_pending_operations()
+
+        engine_config_id = ID("engine-primary")
+        _seed_engine_config(project_fixture.dbe, engine_config_id)
+        (
+            start_section_id,
+            completed_chat_id,
+            signal_chat_id,
+            gate_section_id,
+        ) = await _seed_state_machine_signal_gate_graph(
+            project_fixture=project_fixture,
+            project_config_id=project_config_id,
+            engine_config_id=engine_config_id,
+        )
+
+        state, state_machine_runner, agent_runner, _ = _build_runtime_state(
+            project_fixture,
+            settings_fixture,
+        )
+        child_runs: list[AgentRun] = []
+
+        def _capture_start_run(profile, inputs, **_kwargs):
+            run = create_agent_run(profile_id=profile.id, inputs=inputs)
+            save_agent_run(project_fixture.dbe, run)
+            child_runs.append(run)
+            return run
+
+        monkeypatch.setattr(agent_runner, "start_run", _capture_start_run)
+
+        with runtime_context(state) as ctx:
+            started = await route_start_state_machine_run(
+                StartStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                    startSectionId=start_section_id,
+                ),
+                ctx,
+            )
+
+            completed_child_run = next(
+                run
+                for run in child_runs
+                if run.inputs["stateMachineTargetSectionId"] == str(completed_chat_id)
+            )
+            signal_child_run = next(
+                run
+                for run in child_runs
+                if run.inputs["stateMachineTargetSectionId"] == str(signal_chat_id)
+            )
+            completed_child_run.status = AgentRunStatus.completed
+            save_agent_run(project_fixture.dbe, completed_child_run)
+
+            waiting_run = await route_get_state_machine_run(
+                GetStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                ),
+                ctx,
+            )
+
+            signal_report = await state_machine_runner.report_signal(
+                project_config_id=project_config_id,
+                child_run_id=signal_child_run.id,
+                machine_run_id=None,
+                section_id=None,
+                signal_name="merge_decision",
+                payload={"decision": "retry"},
+            )
+            completed_run = await route_get_state_machine_run(
+                GetStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                ),
+                ctx,
+            )
+
+        assert started.status == AgentRunStatus.running
+        assert waiting_run.status == AgentRunStatus.running
+        assert waiting_run.outputs is not None
+        assert waiting_run.outputs["gateStatusBySectionId"] == {
+            str(gate_section_id): "waiting"
+        }
+        assert waiting_run.outputs["blockedGateSectionIds"] == []
+        assert waiting_run.outputs["activeChildRunIds"] == [str(signal_child_run.id)]
+        event_types = [event.type for event in waiting_run.events]
+        assert "child_run_completed" in event_types
+        assert "child_run_edges_activated" in event_types
+        assert "run_blocked" not in event_types
+        assert "run_failed" not in event_types
+
+        assert signal_report["status"] == "ok"
+        assert completed_run.status == AgentRunStatus.completed
+        assert completed_run.outputs is not None
+        assert completed_run.outputs["firedGateSectionIds"] == [str(gate_section_id)]
+        assert completed_run.outputs["reachedEndSectionIds"] != []
+
+
+@pytest.mark.asyncio
 async def test_state_machine_runner_counts_source_activations_for_signal_retry_loop(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -2065,10 +2321,12 @@ async def test_state_machine_runner_counts_source_activations_for_signal_retry_l
 
         assert latest_after_first_completion.status == AgentRunStatus.running
         assert latest_after_first_completion.outputs is not None
-        assert latest_after_first_completion.outputs["processedChildTerminalRunIds"] == [
-            str(child_runs[0].id)
-        ]
-        assert latest_after_first_completion.outputs["sourceActivationCountsBySectionId"] == {
+        assert latest_after_first_completion.outputs[
+            "processedChildTerminalRunIds"
+        ] == [str(child_runs[0].id)]
+        assert latest_after_first_completion.outputs[
+            "sourceActivationCountsBySectionId"
+        ] == {
             str(start_section_id): 1,
             str(loop_chat_id): 2,
         }
@@ -2228,7 +2486,8 @@ async def test_state_machine_runner_branches_gate_edges_by_source_activation_cou
         assert latest_completed.outputs["reachedEndSectionIds"] == [str(end_section_id)]
         assert len(dispatched_inputs) == 9
         assert all(
-            item["stateMachineTargetSectionId"] in {str(section_id) for section_id in chat_section_ids}
+            item["stateMachineTargetSectionId"]
+            in {str(section_id) for section_id in chat_section_ids}
             for item in dispatched_inputs
         )
         assert [event.type for event in latest_completed.events[-2:]] == [
@@ -2257,7 +2516,7 @@ async def test_state_machine_runner_flushes_project_state_before_managed_child_d
 
         engine_config_id = ID("engine-primary")
         _seed_engine_config(project_fixture.dbe, engine_config_id)
-        start_section_id, _, _ = await _seed_state_machine_chat_graph(
+        start_section_id, chat_section_id, _ = await _seed_state_machine_chat_graph(
             project_fixture=project_fixture,
             project_config_id=project_config_id,
             engine_config_id=engine_config_id,
@@ -2572,19 +2831,25 @@ async def test_state_machine_runner_tracks_all_and_gate_inputs_for_three_chat_co
         # before the AND gate is satisfied, so the frontend can render 1/3, 2/3,
         # and 3/3 accurately for this specific run.
         assert after_first_completion.outputs is not None
-        assert set(
-            after_first_completion.outputs["gateIncomingEdgeIdsBySectionId"][
-                gate_section_key
-            ]
-        ) == expected_gate_input_edge_ids
+        assert (
+            set(
+                after_first_completion.outputs["gateIncomingEdgeIdsBySectionId"][
+                    gate_section_key
+                ]
+            )
+            == expected_gate_input_edge_ids
+        )
         assert after_first_completion.outputs["gateStatusBySectionId"] == {
             gate_section_key: "waiting"
         }
-        assert len(
-            after_first_completion.outputs["gateInputEdgeIdsBySectionId"][
-                gate_section_key
-            ]
-        ) == 1
+        assert (
+            len(
+                after_first_completion.outputs["gateInputEdgeIdsBySectionId"][
+                    gate_section_key
+                ]
+            )
+            == 1
+        )
         assert set(
             after_first_completion.outputs["gateInputEdgeIdsBySectionId"][
                 gate_section_key
@@ -2595,34 +2860,46 @@ async def test_state_machine_runner_tracks_all_and_gate_inputs_for_three_chat_co
 
         assert after_second_completion.status == AgentRunStatus.running
         assert after_second_completion.outputs is not None
-        assert set(
-            after_second_completion.outputs["gateIncomingEdgeIdsBySectionId"][
-                gate_section_key
-            ]
-        ) == expected_gate_input_edge_ids
+        assert (
+            set(
+                after_second_completion.outputs["gateIncomingEdgeIdsBySectionId"][
+                    gate_section_key
+                ]
+            )
+            == expected_gate_input_edge_ids
+        )
         assert after_second_completion.outputs["gateStatusBySectionId"] == {
             gate_section_key: "waiting"
         }
-        assert len(
-            after_second_completion.outputs["gateInputEdgeIdsBySectionId"][
-                gate_section_key
-            ]
-        ) == 2
+        assert (
+            len(
+                after_second_completion.outputs["gateInputEdgeIdsBySectionId"][
+                    gate_section_key
+                ]
+            )
+            == 2
+        )
         assert after_second_completion.outputs["firedGateSectionIds"] == []
         assert after_second_completion.outputs["reachedEndSectionIds"] == []
 
         assert after_third_completion.status == AgentRunStatus.completed
         assert after_third_completion.outputs is not None
-        assert set(
-            after_third_completion.outputs["gateIncomingEdgeIdsBySectionId"][
-                gate_section_key
-            ]
-        ) == expected_gate_input_edge_ids
-        assert set(
-            after_third_completion.outputs["gateInputEdgeIdsBySectionId"][
-                gate_section_key
-            ]
-        ) == expected_gate_input_edge_ids
+        assert (
+            set(
+                after_third_completion.outputs["gateIncomingEdgeIdsBySectionId"][
+                    gate_section_key
+                ]
+            )
+            == expected_gate_input_edge_ids
+        )
+        assert (
+            set(
+                after_third_completion.outputs["gateInputEdgeIdsBySectionId"][
+                    gate_section_key
+                ]
+            )
+            == expected_gate_input_edge_ids
+        )
         assert after_third_completion.outputs["firedGateSectionIds"] == [
             gate_section_key
         ]
@@ -3037,7 +3314,7 @@ async def test_state_machine_runner_stop_cancels_running_child_runs(
 
         engine_config_id = ID("engine-primary")
         _seed_engine_config(project_fixture.dbe, engine_config_id)
-        start_section_id, _, _ = await _seed_state_machine_chat_graph(
+        start_section_id, chat_section_id, _ = await _seed_state_machine_chat_graph(
             project_fixture=project_fixture,
             project_config_id=project_config_id,
             engine_config_id=engine_config_id,
@@ -3121,7 +3398,7 @@ async def test_state_machine_runner_reset_clears_latest_running_machine_state(
 
         engine_config_id = ID("engine-primary")
         _seed_engine_config(project_fixture.dbe, engine_config_id)
-        start_section_id, _, _ = await _seed_state_machine_chat_graph(
+        start_section_id, chat_section_id, _ = await _seed_state_machine_chat_graph(
             project_fixture=project_fixture,
             project_config_id=project_config_id,
             engine_config_id=engine_config_id,
@@ -3180,6 +3457,12 @@ async def test_state_machine_runner_reset_clears_latest_running_machine_state(
                     ctx,
                 )
 
+        chat_impl = _get_chat_section_impl(
+            project_fixture,
+            project_config_id,
+            chat_section_id,
+        )
+        assert chat_impl.chatId is None
         assert exc_info.value.status_code == 404
         assert child_runs
         assert reset.alreadyStopped is False
@@ -3197,6 +3480,156 @@ async def test_state_machine_runner_reset_clears_latest_running_machine_state(
         assert reset_run.events[-3].type == "child_runs_cancelled"
         assert reset_run.events[-2].type == "run_cancelled"
         assert reset_run.events[-1].type == "run_reset"
+
+
+@pytest.mark.asyncio
+async def test_state_machine_run_routes_isolate_runs_by_share_session_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        project_config_id = (
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        assert project_config_id is not None
+        await project_fixture.manager.finish_pending_operations()
+
+        engine_config_id = ID("engine-primary")
+        _seed_engine_config(project_fixture.dbe, engine_config_id)
+        start_section_id, _, _ = await _seed_state_machine_chat_graph(
+            project_fixture=project_fixture,
+            project_config_id=project_config_id,
+            engine_config_id=engine_config_id,
+            target_action=StateMachineTargetAction(
+                type=StateMachineTargetActionType.send_prompt,
+                inlinePrompt="Review this branch carefully.",
+                threadStrategy=StateMachineThreadStrategy.new_thread_before_send,
+            ),
+        )
+
+        state, _, agent_runner, _ = _build_runtime_state(
+            project_fixture,
+            settings_fixture,
+        )
+        child_runs_by_id: dict[ID, AgentRun] = {}
+
+        def _capture_start_run(profile, inputs, **_kwargs):
+            run = create_agent_run(profile_id=profile.id, inputs=inputs)
+            save_agent_run(project_fixture.dbe, run)
+            child_runs_by_id[run.id] = run
+            return run
+
+        async def _capture_stop_run(run_id: ID):
+            run = child_runs_by_id[run_id]
+            run.status = AgentRunStatus.cancelled
+            save_agent_run(project_fixture.dbe, run)
+            return run
+
+        monkeypatch.setattr(agent_runner, "start_run", _capture_start_run)
+        monkeypatch.setattr(agent_runner, "stop_run", _capture_stop_run)
+
+        with runtime_context(state, share_session_id="session-a") as session_a_ctx:
+            run_a = await route_start_state_machine_run(
+                StartStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                    startSectionId=start_section_id,
+                ),
+                session_a_ctx,
+            )
+
+        with runtime_context(state, share_session_id="session-b") as session_b_ctx:
+            with pytest.raises(HTTPException) as exc_info:
+                await route_get_state_machine_run(
+                    GetStateMachineRunRequest(
+                        projectConfigId=project_config_id,
+                        machineGroupId="workflow-main",
+                    ),
+                    session_b_ctx,
+                )
+            assert exc_info.value.status_code == 404
+
+            run_b = await route_start_state_machine_run(
+                StartStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                    startSectionId=start_section_id,
+                ),
+                session_b_ctx,
+            )
+            latest_b = await route_get_state_machine_run(
+                GetStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                ),
+                session_b_ctx,
+            )
+
+        with runtime_context(state, share_session_id="session-a") as session_a_ctx:
+            latest_a = await route_get_state_machine_run(
+                GetStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                ),
+                session_a_ctx,
+            )
+            stopped_a = await route_stop_state_machine_run(
+                StopStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                ),
+                session_a_ctx,
+            )
+            latest_a_after_stop = await route_get_state_machine_run(
+                GetStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                ),
+                session_a_ctx,
+            )
+
+        with runtime_context(state, share_session_id="session-b") as session_b_ctx:
+            latest_b_after_a_stop = await route_get_state_machine_run(
+                GetStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                ),
+                session_b_ctx,
+            )
+            reset_b = await route_reset_state_machine(
+                ResetStateMachineRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                ),
+                session_b_ctx,
+            )
+            with pytest.raises(HTTPException) as exc_info:
+                await route_get_state_machine_run(
+                    GetStateMachineRunRequest(
+                        projectConfigId=project_config_id,
+                        machineGroupId="workflow-main",
+                    ),
+                    session_b_ctx,
+                )
+            assert exc_info.value.status_code == 404
+
+        assert run_a.id != run_b.id
+        assert run_a.inputs is not None
+        assert run_b.inputs is not None
+        assert run_a.inputs["shareSessionId"] == "session-a"
+        assert run_b.inputs["shareSessionId"] == "session-b"
+        assert latest_a.id == run_a.id
+        assert latest_b.id == run_b.id
+        assert stopped_a.alreadyStopped is False
+        assert stopped_a.stoppedRunId == run_a.id
+        assert latest_a_after_stop.id == run_a.id
+        assert latest_a_after_stop.status == AgentRunStatus.cancelled
+        assert latest_b_after_a_stop.id == run_b.id
+        assert latest_b_after_a_stop.status == AgentRunStatus.running
+        assert reset_b.alreadyStopped is False
+        assert reset_b.stoppedRunId == run_b.id
 
 
 @pytest.mark.asyncio

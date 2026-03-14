@@ -566,6 +566,7 @@ async def route_reset_state_machine(
         stopped_run = await ctx.state.state_machine_runner.reset_machine(
             project_config_id=x.projectConfigId,
             machine_group_id=x.machineGroupId,
+            share_session_id=ctx.share_session_id,
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -745,6 +746,14 @@ async def route_update_prompt_template(
     if existing is None:
         raise HTTPException(status_code=404, detail="Prompt template not found")
     save_prompt_template(ctx.state.dbe, x.template)
+    project_manager_switcher = getattr(ctx.state, "project_manager_switcher", None)
+    if (
+        project_manager_switcher is not None
+        and project_manager_switcher.main is not None
+    ):
+        await project_manager_switcher.main.refresh_linked_prompt_sections_for_template(
+            x.template.id
+        )
     if ctx.state.prompt_template_watcher:
         ctx.state.prompt_template_watcher.refresh()
     await ctx.state.wmh_frontend_sender.broadcast_prompt_templates_update(

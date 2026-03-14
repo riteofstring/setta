@@ -115,7 +115,10 @@ from setta.types.project_chat_windowing import (
     validate_project_chat_thread_bindings_unchanged,
 )
 from setta.types.project_config import Position, TopLevelSectionLayout, ViewportBounds
-from setta.types.prompt_section_resolution import build_prompt_section_preview
+from setta.types.prompt_section_resolution import (
+    build_prompt_section_preview,
+    resolve_prompt_section_source,
+)
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
     BaseDictSectionImpl,
@@ -182,6 +185,7 @@ from setta.utils.utils import insert_into_array, move_item_in_array
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from setta.database.db_objs import DBE
     from setta.types.project_state import (
         ProjectChatWindowingState,
         ProjectStateBackend,
@@ -2734,6 +2738,8 @@ def _ensure_state_machine_edge_endpoints_valid(
     p: "ProjectStateSingleConfig",
     edge: StateMachineEdge,
     machine_group_overrides: dict[ID, str] | None = None,
+    *,
+    dbe: "DBE | None" = None,
 ):
     _ensure_state_machine_machine_group_id_valid(
         edge.machineGroupId, f"State machine edge {edge.id}"
@@ -2787,7 +2793,12 @@ def _ensure_state_machine_edge_endpoints_valid(
         edge.sourceActivationCountCondition,
     )
     _ensure_state_machine_source_filter_valid(edge, source_impl)
-    _ensure_state_machine_target_action_valid(p, edge, target_impl)
+    _ensure_state_machine_target_action_valid(
+        p,
+        edge,
+        target_impl,
+        dbe=dbe,
+    )
     source_machine_group_id = _resolve_state_machine_section_machine_group_id(
         edge.sourceSectionId,
         source_impl,
@@ -2937,6 +2948,8 @@ def _ensure_state_machine_target_action_valid(
     p: "ProjectStateSingleConfig",
     edge: StateMachineEdge,
     target_impl: BaseSectionImpl,
+    *,
+    dbe: "DBE | None" = None,
 ):
     target_action = edge.targetAction
     if target_impl.type != SectionType.Chat:
@@ -2958,7 +2971,12 @@ def _ensure_state_machine_target_action_valid(
             f"State machine edge {edge.id} has unsupported permission mode {target_action.permissionMode}."
         )
     if target_action.type == StateMachineTargetActionType.send_prompt:
-        _ensure_state_machine_send_prompt_action_valid(p, edge.id, target_action)
+        _ensure_state_machine_send_prompt_action_valid(
+            p,
+            edge.id,
+            target_action,
+            dbe=dbe,
+        )
         return
     _ensure_state_machine_reset_thread_action_valid(edge.id, target_action)
 
@@ -2967,6 +2985,8 @@ def _ensure_state_machine_send_prompt_action_valid(
     p: "ProjectStateSingleConfig",
     edge_id: ID,
     target_action: StateMachineTargetAction,
+    *,
+    dbe: "DBE | None" = None,
 ):
     has_prompt_template = target_action.promptTemplateId is not None
     has_prompt_section = target_action.promptSectionId is not None
@@ -2988,7 +3008,10 @@ def _ensure_state_machine_send_prompt_action_valid(
         target_action.promptSectionId,
         PromptSectionImpl,
     )
-    render_result = render_prompt(prompt_impl.template, target_action.promptInputs)
+    prompt_template = prompt_impl.template
+    if prompt_impl.promptTemplateId is not None and dbe is not None:
+        prompt_template = resolve_prompt_section_source(dbe, prompt_impl).template
+    render_result = render_prompt(prompt_template, target_action.promptInputs)
     if render_result.render_error is not None:
         raise ValueError(
             f"State machine edge {edge_id} prompt section {prompt_impl.id} failed to render: {render_result.render_error}"
@@ -3021,9 +3044,16 @@ def _ensure_state_machine_edges_valid(
     p: "ProjectStateSingleConfig",
     edges: list[StateMachineEdge],
     machine_group_overrides: dict[ID, str] | None = None,
+    *,
+    dbe: "DBE | None" = None,
 ):
     for edge in edges:
-        _ensure_state_machine_edge_endpoints_valid(p, edge, machine_group_overrides)
+        _ensure_state_machine_edge_endpoints_valid(
+            p,
+            edge,
+            machine_group_overrides,
+            dbe=dbe,
+        )
 
 
 def _maybe_clear_edge_target_value(p: "ProjectStateSingleConfig", edge: Edge):
@@ -3389,7 +3419,12 @@ def _apply_state_machine_group_merge(
     ]
 
 
-def create_state_machine_edge(p: "ProjectStateSingleConfig", edge: StateMachineEdge):
+def create_state_machine_edge(
+    p: "ProjectStateSingleConfig",
+    edge: StateMachineEdge,
+    *,
+    dbe: "DBE | None" = None,
+):
     if any(existing.id == edge.id for existing in p.projectConfig.stateMachineEdges):
         raise KeyError(f"State machine edge {edge.id} already exists.")
     merge_replacements = _get_state_machine_group_merge_replacements(p, edge)
@@ -3406,18 +3441,24 @@ def create_state_machine_edge(p: "ProjectStateSingleConfig", edge: StateMachineE
         p,
         next_edges,
         _build_state_machine_group_merge_overrides(p, merge_replacements),
+        dbe=dbe,
     )
     _apply_state_machine_group_merge(p, merge_replacements)
     p.projectConfig.stateMachineEdges.append(edge)
 
 
-def update_state_machine_edge(p: "ProjectStateSingleConfig", edge: StateMachineEdge):
+def update_state_machine_edge(
+    p: "ProjectStateSingleConfig",
+    edge: StateMachineEdge,
+    *,
+    dbe: "DBE | None" = None,
+):
     for idx, existing in enumerate(p.projectConfig.stateMachineEdges):
         if existing.id != edge.id:
             continue
         next_edges = list(p.projectConfig.stateMachineEdges)
         next_edges[idx] = edge
-        _ensure_state_machine_edges_valid(p, next_edges)
+        _ensure_state_machine_edges_valid(p, next_edges, dbe=dbe)
         p.projectConfig.stateMachineEdges[idx] = edge
         return
     raise KeyError(f"State machine edge {edge.id} not found.")
@@ -3439,14 +3480,17 @@ def delete_state_machine_edges(p: "ProjectStateSingleConfig", edgeIds: list[ID])
 
 
 def set_state_machine_edges(
-    p: "ProjectStateSingleConfig", edges: list[StateMachineEdge]
+    p: "ProjectStateSingleConfig",
+    edges: list[StateMachineEdge],
+    *,
+    dbe: "DBE | None" = None,
 ):
     edge_ids: set[ID] = set()
     for edge in edges:
         if edge.id in edge_ids:
             raise KeyError(f"Duplicate state machine edge id {edge.id} in update.")
         edge_ids.add(edge.id)
-    _ensure_state_machine_edges_valid(p, edges)
+    _ensure_state_machine_edges_valid(p, edges, dbe=dbe)
     p.projectConfig.stateMachineEdges = edges
 
 
@@ -3755,6 +3799,7 @@ def set_prompt_section_template_link(
     template: str,
     format: PromptFormat,
 ):
+    get_curr_effective_section_impl_with_type_guard(p, sectionId, PromptSectionImpl)
     result = build_prompt_section_preview(template, format)
     set_curr_effective_section_impl_value(
         p,
@@ -3766,18 +3811,6 @@ def set_prompt_section_template_link(
             renderedText=result.rendered_text,
             missingVariables=result.missing_variables,
             renderError=result.render_error,
-        ),
-    )
-
-
-def set_prompt_section_inputs(
-    p: "ProjectStateSingleConfig", sectionId: ID, inputs: dict[str, str]
-):
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        PromptSectionImplArgsWithCallable(
-            inputs=inputs,
         ),
     )
 
