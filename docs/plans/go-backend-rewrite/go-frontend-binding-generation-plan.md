@@ -9,12 +9,17 @@ sever frontend ties to Python-generated backend bindings.
 
 ## Why This Slice Is Open Now
 
-- The broad-coverage checklist still marks frontend backend-contract binding
-  generation as Python-owned even for Go-owned transports.
+- The broad-coverage checklist now records frontend backend-contract binding
+  generation as a shared Go-to-TypeScript boundary with canonical Go-generated
+  outputs, but the selected follow-on remains open because widened boundary
+  coverage and parity verification still need the same Go-owned source of
+  truth.
 - The rewrite started from a Python pattern for this problem, but the active
-  repo workflow now uses the Go-owned generator directly.
-- The rewrite needs the Go equivalent of that pattern, not a growing pile of
-  route-by-route TS string assembly.
+  repo workflow now uses the Go-owned generator directly for the canonical
+  frontend route/type/endpoint outputs.
+- The remaining work is widening that explicit Go boundary and keeping the
+  converter/manifests/compile checks authoritative, not reopening handwritten
+  TypeScript emission or mixed-source Python drift.
 
 ## Working Decision
 
