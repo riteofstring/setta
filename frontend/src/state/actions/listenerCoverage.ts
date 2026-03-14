@@ -1,8 +1,8 @@
-import { NULL_PROJECT_CONFIG_ID } from "state/definitions";
 import {
+  NULL_PROJECT_CONFIG_ID,
   useListenerCoverage,
   type ListenerCoverageRecord,
-} from "state/stores/authoringStores";
+} from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import { route_get_listener_coverage } from "utils/generatedEndpoints";
 import {
@@ -64,10 +64,6 @@ export function dependencyKeyCovered(
   }
   const lookupKey = serializeListenerDependencyKey(dependency);
   return record.dependenciesByKey[lookupKey] !== undefined;
-}
-
-function serializeCoverageKey(dependency: BaseDependencyKeyUnion): string {
-  return serializeListenerDependencyKey(dependency);
 }
 
 export async function fetchListenerCoverageSnapshot(

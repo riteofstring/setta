@@ -59,13 +59,13 @@ const mockedAddTemporaryNotification = vi.mocked(addTemporaryNotification);
 let useAIStore: typeof import("state/definitions").useAIStore;
 let useLocalStorage: typeof import("state/definitions").useLocalStorage;
 let useProjectState: typeof import("state/definitions").useProjectState;
-let stopProjectChatResponse: typeof import("state/actions/ai/chatRuntime").stopProjectChatResponse;
-let stopManagedSectionChatResponse: typeof import("state/actions/ai/chatRuntime").stopManagedSectionChatResponse;
-let getLLMChatHydrationOutcome: typeof import("state/actions/ai/chatRuntime").getLLMChatHydrationOutcome;
-let getExternalAgentChatHydrationOutcome: typeof import("state/actions/ai/chatRuntime").getExternalAgentChatHydrationOutcome;
-let getProjectChatHydrationOutcomeWithFallback: typeof import("state/actions/ai/chatRuntime").getProjectChatHydrationOutcomeWithFallback;
-let getDefaultChatDetails: typeof import("state/actions/ai/chatRuntime").getDefaultChatDetails;
-let receiveLLMResponseChunk: typeof import("state/actions/ai/chatStreaming").receiveLLMResponseChunk;
+let stopProjectChatResponse: typeof import("state/actions/ai").stopProjectChatResponse;
+let stopManagedSectionChatResponse: typeof import("state/actions/ai").stopManagedSectionChatResponse;
+let getLLMChatHydrationOutcome: typeof import("state/actions/ai").getLLMChatHydrationOutcome;
+let getExternalAgentChatHydrationOutcome: typeof import("state/actions/ai").getExternalAgentChatHydrationOutcome;
+let getProjectChatHydrationOutcomeWithFallback: typeof import("state/actions/ai").getProjectChatHydrationOutcomeWithFallback;
+let getDefaultChatDetails: typeof import("state/actions/ai").getDefaultChatDetails;
+let receiveLLMResponseChunk: typeof import("state/actions/ai").receiveLLMResponseChunk;
 let memoryStorage: Storage;
 
 describe("stopProjectChatResponse", () => {
@@ -93,17 +93,16 @@ describe("stopProjectChatResponse", () => {
     useAIStore = definitions.useAIStore;
     useLocalStorage = definitions.useLocalStorage;
     useProjectState = definitions.useProjectState;
-    const chatRuntime = await import("state/actions/ai/chatRuntime");
-    const chatStreaming = await import("state/actions/ai/chatStreaming");
-    stopProjectChatResponse = chatRuntime.stopProjectChatResponse;
-    stopManagedSectionChatResponse = chatRuntime.stopManagedSectionChatResponse;
-    getLLMChatHydrationOutcome = chatRuntime.getLLMChatHydrationOutcome;
+    const ai = await import("state/actions/ai");
+    stopProjectChatResponse = ai.stopProjectChatResponse;
+    stopManagedSectionChatResponse = ai.stopManagedSectionChatResponse;
+    getLLMChatHydrationOutcome = ai.getLLMChatHydrationOutcome;
     getExternalAgentChatHydrationOutcome =
-      chatRuntime.getExternalAgentChatHydrationOutcome;
+      ai.getExternalAgentChatHydrationOutcome;
     getProjectChatHydrationOutcomeWithFallback =
-      chatRuntime.getProjectChatHydrationOutcomeWithFallback;
-    getDefaultChatDetails = chatRuntime.getDefaultChatDetails;
-    receiveLLMResponseChunk = chatStreaming.receiveLLMResponseChunk;
+      ai.getProjectChatHydrationOutcomeWithFallback;
+    getDefaultChatDetails = ai.getDefaultChatDetails;
+    receiveLLMResponseChunk = ai.receiveLLMResponseChunk;
   });
 
   beforeEach(() => {

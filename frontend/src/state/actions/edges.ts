@@ -1,7 +1,10 @@
 import type { Connection } from "forks/xyflow/core/types";
 import { makeEdgeHandleKey } from "state/actions/edgeHandles";
-import { useProjectState, useShareSession } from "state/definitions";
-import { useEdgeHandleRegistry } from "state/stores/authoringStores";
+import {
+  useEdgeHandleRegistry,
+  useProjectState,
+  useShareSession,
+} from "state/definitions";
 import {
   route_create_edge,
   route_delete_edges,
