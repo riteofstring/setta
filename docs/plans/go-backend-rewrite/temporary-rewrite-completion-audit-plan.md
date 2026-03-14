@@ -277,10 +277,9 @@ This verdict holds under both of the only reasonable definitions:
   through a Go-owned wrapper instead of failing on a missing sibling binary:
   - `backend/setta/entrypoint.py`
   - `scripts/run_setta_server.sh`
-- The legacy `backend/setta/start.py` compatibility surface no longer owns
-  Python `uvicorn` startup for the default IDE path or the explicit `share` and
-  `app` server modes:
-  - `backend/setta/start.py`
+- The old source-only Python `backend/setta/start.py` CLI surface has been
+  removed; the active dev and packaged startup paths route through the Go CLI
+  instead.
 - The current Go binaries are real repo entrypoints:
   - `cmd/setta/main.go`
   - `cmd/setta-server/main.go`
@@ -328,10 +327,10 @@ packaged/runtime path is predominantly Go-owned.
 
 No currently reproduced Go-owned parity blocker remains from the targeted audit
 slice. The remaining blocker is repo-wide backend/runtime ownership outside the
-explicit retained boundary list, most notably the legacy `backend/setta/start.py`
-compatibility surface and the still-active Python plugin worker path. The old
-top-level Python FastAPI app and the old `setta.dev_start` shim are no longer
-part of that blocker set.
+explicit retained boundary list, most notably the still-active Python plugin
+worker path. The old top-level Python FastAPI app, the old `setta.dev_start`
+shim, and the old source-only `backend/setta/start.py` CLI surface are no
+longer part of that blocker set.
 
 ### Test and smoke evidence executed
 

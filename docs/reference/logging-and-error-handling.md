@@ -29,9 +29,8 @@ There are two parallel outputs:
 
 ### Entry Points
 
-- Backend CLI: `backend/setta/start.py` calls `configure_logging()` before starting
-  uvicorn, and passes `log_config=None` so uvicorn does not install its own logging
-  config.
+- Shipped backend runtime: the packaged Go CLI/server owns the main backend
+  logging path.
 - Packaged background runner: `backend/setta/backend_launcher.py` does the same.
 - Listener scripts: `backend/setta/api/listener.py` uses
   `configure_listener_logging()` (same format, no uvicorn access logger).
