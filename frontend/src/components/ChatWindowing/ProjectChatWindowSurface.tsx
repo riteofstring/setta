@@ -1,4 +1,5 @@
 import { ProjectChatWindowIcon } from "components/ChatWindowing/ProjectChatWindowIcon";
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import {
   getSectionContainerShellClassName,
   getSectionSurfaceClassName,
@@ -236,6 +237,7 @@ function ProjectChatWindowHeader({
             aria-label={action.label}
             data-testid={action.testId}
             data-chat-window-instance-id={action.instanceId}
+            {...getFloatingBoxHandlers({ content: action.label })}
           >
             {action.icon}
           </button>
@@ -250,6 +252,7 @@ type ProjectChatWindowSurfaceProps = {
   mode: ChatWindowMode;
   instanceId: string;
   actions: ChatWindowHeaderAction[];
+  showHeader?: boolean;
   allowLayoutMutations?: boolean;
   onTitleClick: () => void;
   onTitleCommit?: (nextTitle: string) => void;
@@ -267,6 +270,7 @@ export function ProjectChatWindowSurface({
   mode = ChatWindowModeEnum.project_ai_mode,
   instanceId,
   actions,
+  showHeader = true,
   allowLayoutMutations = true,
   onTitleClick,
   onTitleCommit,
@@ -318,21 +322,24 @@ export function ProjectChatWindowSurface({
     <section
       className={outerShellClassName}
       data-testid="project-chat-window-surface"
+      data-chat-window-frame="project-chat"
     >
       <div className={innerShellClassName}>
-        <ProjectChatWindowHeader
-          title={title}
-          mode={mode}
-          instanceId={instanceId}
-          actions={visibleActions}
-          onTitleClick={onTitleClick}
-          onTitleCommit={editableTitleCommit}
-          headerClassName={draggableHeaderClassName}
-          dragHandleTestId={effectiveDragHandleTestId}
-          onTitlePointerDown={onTitleDragPointerDown}
-          onTitlePointerMove={onTitleDragPointerMove}
-          onTitlePointerUp={onTitleDragPointerUp}
-        />
+        {showHeader ? (
+          <ProjectChatWindowHeader
+            title={title}
+            mode={mode}
+            instanceId={instanceId}
+            actions={visibleActions}
+            onTitleClick={onTitleClick}
+            onTitleCommit={editableTitleCommit}
+            headerClassName={draggableHeaderClassName}
+            dragHandleTestId={effectiveDragHandleTestId}
+            onTitlePointerDown={onTitleDragPointerDown}
+            onTitlePointerMove={onTitleDragPointerMove}
+            onTitlePointerUp={onTitleDragPointerUp}
+          />
+        ) : null}
         <div
           className={`section-main-full-w flex min-h-0 flex-1 flex-col overflow-hidden ${bgColor}`}
         >
