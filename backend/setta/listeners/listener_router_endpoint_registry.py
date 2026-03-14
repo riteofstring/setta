@@ -7,7 +7,12 @@ from fastapi import BackgroundTasks
 from fastapi.routing import APIRoute
 from pydantic import BaseModel
 from setta.runtime.context import RuntimeContext
-from setta.server import app
+from setta.routers import (
+    listener_router,
+    lsp_router,
+    project_manager_router,
+    terminals_http_router,
+)
 from setta.server_state import SettaFastAPIState
 
 _ALLOWED_ENDPOINT_MODULE_PREFIXES = (
@@ -15,6 +20,12 @@ _ALLOWED_ENDPOINT_MODULE_PREFIXES = (
     "setta.routers.terminals",
     "setta.routers.listener",
     "setta.routers.lsp",
+)
+_LISTENER_ENDPOINT_ROUTERS = (
+    project_manager_router,
+    terminals_http_router,
+    listener_router,
+    lsp_router,
 )
 
 
@@ -87,11 +98,12 @@ def _build_spec(route: APIRoute) -> ListenerRouterEndpointSpec | None:
 @lru_cache(maxsize=1)
 def get_listener_router_endpoint_specs() -> dict[str, ListenerRouterEndpointSpec]:
     specs: dict[str, ListenerRouterEndpointSpec] = {}
-    for route in app.routes:
-        if not isinstance(route, APIRoute):
-            continue
-        spec = _build_spec(route)
-        if spec is None:
-            continue
-        specs[spec.endpoint_name] = spec
+    for router in _LISTENER_ENDPOINT_ROUTERS:
+        for route in router.routes:
+            if not isinstance(route, APIRoute):
+                continue
+            spec = _build_spec(route)
+            if spec is None:
+                continue
+            specs[spec.endpoint_name] = spec
     return specs

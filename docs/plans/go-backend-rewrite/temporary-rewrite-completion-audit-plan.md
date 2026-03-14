@@ -302,6 +302,8 @@ This verdict holds under both of the only reasonable definitions:
 
 - The legacy Python FastAPI app module still exists as a supported surface:
   - `backend/setta/server.py`
+  - retained Python listener endpoint discovery no longer imports this module
+    just to enumerate listener-callable routes
 - Public Python API exports are still active supported surfaces:
   - `backend/setta/api/__init__.py`
 - The retained listener client still owns websocket registration/bootstrap
