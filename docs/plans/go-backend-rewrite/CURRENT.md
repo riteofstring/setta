@@ -14,6 +14,10 @@ Last verified: `2026-03-13`
   - maintenance rules for keeping the caller-backed checklist current-caller-accurate
 - `go-backend-rewrite-plan.md`
   - stable rewrite rules, clean-break guardrails, and reopening criteria
+- `setta-listener-protocol-redesign-plan.md`
+  - subsystem-specific doc for keeping the Python `SettaListener` SDK while
+    moving listener runtime/protocol ownership to Go; read it when a task
+    touches listener protocol or Python listener SDK boundaries
 - `go-frontend-binding-generation-plan.md`
   - subsystem-specific doc for Go-owned frontend binding generation; read it
     when a task touches frontend binding generation

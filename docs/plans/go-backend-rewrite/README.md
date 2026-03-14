@@ -17,22 +17,26 @@ historical archive.
    - maintenance rules for keeping the caller-backed checklist current-caller-accurate
 6. `go-backend-rewrite-plan.md`
    - stable rewrite charter, clean-break guardrails, and reopening rules
-7. `go-frontend-binding-generation-plan.md`
+7. `setta-listener-protocol-redesign-plan.md`
+   - subsystem-specific doc for keeping the Python `SettaListener` SDK while
+     moving listener runtime/protocol ownership to Go; read it when a task
+     touches that boundary
+8. `go-frontend-binding-generation-plan.md`
    - subsystem-specific doc for Go-owned frontend binding generation; read it
      when a task touches that boundary
-8. `testing-strategy.md`
+9. `testing-strategy.md`
    - test bar for rewrite work
-9. `go-dependency-inventory-and-rationale.md`
+10. `go-dependency-inventory-and-rationale.md`
    - current `go.mod` explanation
-10. `docs/reference/dependencies/`
+11. `docs/reference/dependencies/`
    - local dependency reference notes and upstream doc snapshots
-11. `go-backend-rewrite-stack-recommendations.md`
+12. `go-backend-rewrite-stack-recommendations.md`
    - earlier design input, not the primary working source of truth
-12. `dependency-docs-local-reference.md`
+13. `dependency-docs-local-reference.md`
    - dependency-doc acquisition rules
-13. `pyproject-dependency-replacement-snapshot.md`
+14. `pyproject-dependency-replacement-snapshot.md`
    - point-in-time Python dependency classification
-14. `archive/README.md`
+15. `archive/README.md`
    - historical `phase-*` and `spike-*` docs
 
 ## Agent Rules
