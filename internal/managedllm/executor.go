@@ -461,6 +461,10 @@ func (e *Executor) consumeOpenAIResponsesStream(
 	stream := prepared.openAIClient.Responses.NewStreaming(ctx, requestBody, prepared.openAIResponseRequestOpts...)
 	for stream.Next() {
 		if ctx.Err() != nil {
+			if err := e.flushBufferedOpenAIResponseText(ctx, prepared, assistantMessage, streamState, !streamState.reasoningEmitted); err != nil {
+				finalizeAssistantToolCallsBestEffort(assistantMessage, accumulator)
+				return usage, err
+			}
 			finalizeAssistantToolCallsBestEffort(assistantMessage, accumulator)
 			return usage, context.Canceled
 		}
@@ -474,6 +478,10 @@ func (e *Executor) consumeOpenAIResponsesStream(
 			streamState,
 		)
 		if err != nil {
+			if flushErr := e.flushBufferedOpenAIResponseText(ctx, prepared, assistantMessage, streamState, !streamState.reasoningEmitted); flushErr != nil {
+				finalizeAssistantToolCallsBestEffort(assistantMessage, accumulator)
+				return usage, flushErr
+			}
 			finalizeAssistantToolCallsBestEffort(assistantMessage, accumulator)
 			return usage, err
 		}
@@ -482,6 +490,10 @@ func (e *Executor) consumeOpenAIResponsesStream(
 		}
 	}
 	if err := stream.Err(); err != nil {
+		if flushErr := e.flushBufferedOpenAIResponseText(ctx, prepared, assistantMessage, streamState, !streamState.reasoningEmitted); flushErr != nil {
+			finalizeAssistantToolCallsBestEffort(assistantMessage, accumulator)
+			return usage, flushErr
+		}
 		finalizeAssistantToolCallsBestEffort(assistantMessage, accumulator)
 		return usage, wrapOpenAIProviderError(err)
 	}
@@ -969,7 +981,10 @@ func (e *Executor) flushBufferedOpenAIResponseText(
 	}
 	streamState.bufferedText.Reset()
 	textIndex := 1
-	if preferIndexZero || !streamState.reasoningSeen || !streamState.reasoningEmitted {
+	if !streamState.reasoningSeen || !streamState.reasoningEmitted {
+		textIndex = openAIResponseTextIndex(assistantMessage, streamState)
+	}
+	if preferIndexZero && !hasThinkingBlock(assistantMessage) {
 		textIndex = 0
 	}
 	appendAssistantTextAtIndex(assistantMessage, textIndex, buffered)
@@ -1147,7 +1162,7 @@ func openAIResponseTextIndex(assistantMessage map[string]any, streamState *openA
 }
 
 func prepareAssistantForOpenAIResponseReasoning(assistantMessage map[string]any) {
-	if assistantMessage == nil || hasMessageThinking(assistantMessage) {
+	if assistantMessage == nil || hasThinkingBlock(assistantMessage) {
 		return
 	}
 	content, _ := assistantMessage["content"].([]any)
@@ -2001,6 +2016,23 @@ func hasMessageThinking(message map[string]any) bool {
 		if strings.TrimSpace(stringValue(block["thinking"])) != "" ||
 			strings.TrimSpace(stringValue(block["summary"])) != "" ||
 			strings.TrimSpace(stringValue(block["signature"])) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func hasThinkingBlock(message map[string]any) bool {
+	content, ok := message["content"].([]any)
+	if !ok {
+		return false
+	}
+	for _, entry := range content {
+		block, ok := entry.(map[string]any)
+		if !ok {
+			continue
+		}
+		if strings.TrimSpace(stringValue(block["type"])) == "thinking" {
 			return true
 		}
 	}

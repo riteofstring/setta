@@ -92,7 +92,9 @@
   - the Responses reducer now also honors `response.content_part.added` plus
     `response.reasoning_summary_part.added` / `.done` with explicit
     `summary_index` ordering, preserves early answer text when the first
-    reasoning item arrives later in the same turn, and authoritative finalized
+    reasoning item arrives later in the same turn, also flushes buffered
+    answer text when a reasoning item started but never emitted actual
+    reasoning content before a terminal failure, and authoritative finalized
     reasoning/text content from `response.content_part.done`, the specific
     `*_done` events, `response.output_item.done`, and `response.completed` now
     replaces partial or missing earlier reasoning/text deltas
