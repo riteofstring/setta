@@ -523,3 +523,12 @@ Append-only log for autonomous frontend cleanup slices.
 - Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended. The same React 19 warning about `element.ref` surfaced during the `ProjectAISettings.test.tsx` smoke test and still appears pre-existing in shared pane infrastructure.
 - Commit hash: `5be8afd32`
 - Next highest-value unblocked slice: extract the remaining `GuardrailsSettings` block from `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`, or move to the next panes/authoring hotspot now that Project AI settings manager ownership is explicit
+
+## 2026-03-12 17:52 PDT
+
+- What changed: Extracted the agentic links, summary-cache status, linked-agent filtering, and agentic-scope render block out of `frontend/src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.tsx` into `frontend/src/components/Panes/UiEditor/SectionConfig/ChatAreaAgenticLinksPanel.tsx`. `ChatAreaSettings.tsx` now stays focused on managed-chat mode, engine/profile, transcription, dictation, and new-chat orchestration, dropping from 1305 lines to 622 lines. Updated the module map and repointed the existing `ChatAreaSettings` test coverage so the extracted panel owner is exercised directly.
+- Key files touched: `frontend/src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.tsx`, `frontend/src/components/Panes/UiEditor/SectionConfig/ChatAreaAgenticLinksPanel.tsx`, `frontend/src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.test.tsx`, `docs/reference/frontend-module-map.md`
+- Tests/verification run: `pnpm -C frontend exec vitest run src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.test.tsx`; `pnpm -C frontend exec prettier --check src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.tsx src/components/Panes/UiEditor/SectionConfig/ChatAreaAgenticLinksPanel.tsx src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.test.tsx ../docs/reference/frontend-module-map.md`; `git diff --check`
+- Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
+- Commit hash: `69a24c3f3`
+- Next highest-value unblocked slice: keep shrinking `frontend/src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.tsx` by extracting the remaining managed-chat configuration controls and settings command wiring into feature-local controller/surface modules
