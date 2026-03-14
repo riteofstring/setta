@@ -25,3 +25,32 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/ai.ts` around existing project-chat helper
     seams so chat submission, hydration, streaming, engine/config loading, and
     transcription stop sharing one action surface.
+
+## 2026-03-14 14:16:40 PDT
+
+- Slice completed: extracted transcription actions out of `frontend/src/state/actions/ai.ts`
+- Key files touched:
+  - `frontend/src/state/actions/aiTranscription.ts`
+  - `frontend/src/state/actions/ai.ts`
+  - `frontend/src/state/actions/aiTranscribeChatAudio.test.ts`
+  - `frontend/src/state/actions/websocketReceive.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
+  - `frontend/src/components/Section/Layouts/ChatArea.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm exec vitest run src/state/actions/aiTranscribeChatAudio.test.ts src/state/actions/websocketReceive.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.test.tsx src/components/Section/Layouts/ChatArea.test.tsx src/components/Panes/Overview/ProjectLevelAI/projectAISettingsTranscriptionProfileValidation.test.ts`
+  - `pnpm exec prettier --check src/state/actions/aiTranscription.ts src/state/actions/ai.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx src/components/Section/Layouts/ChatArea.tsx src/components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState.ts src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx src/state/actions/websocketReceive.ts src/state/actions/aiTranscribeChatAudio.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split and
+    did not change frontend rendering behavior.
+- Commit hash:
+  - `2002d34e67d1`
+- Next highest-value unblocked slice:
+  - Keep splitting `frontend/src/state/actions/ai.ts` by moving engine/config
+    loading plus agent-profile/prompt-template/external-agent catalog mutations
+    into a dedicated settings/resource module, leaving `ai.ts` focused on chat
+    submission, hydration, streaming, and stop/resume behavior.
