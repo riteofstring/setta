@@ -1134,6 +1134,88 @@ test("canvas engine host marquee selection includes mounted nested group childre
   }
 });
 
+test("canvas engine host keeps cached nested previews after dom islands unmount", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+
+    const viewportBounds = await getEngineViewportBounds(page);
+    const groupId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Group",
+      viewportBounds,
+      position: { x: 420, y: 120 },
+    });
+    const childId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Code",
+      viewportBounds,
+      position: { x: 80, y: 120 },
+    });
+
+    await postBackend(page, "/moveSections", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionIds: [childId],
+      newParentId: groupId,
+      newIndex: 0,
+      positionsById: null,
+    });
+
+    const groupIsland = host.locator(
+      `[data-canvas-engine-dom-island="${groupId}"]`,
+    );
+    const childSection = groupIsland.locator(
+      `section[data-section-id="${childId}"]`,
+    );
+    await expect(groupIsland).toHaveCount(1);
+    await expect(childSection).toBeVisible();
+    await expect
+      .poll(
+        async () =>
+          await readNumericHostAttribute(
+            host,
+            "data-canvas-engine-nested-preview-count",
+          ),
+      )
+      .toBeGreaterThanOrEqual(1);
+
+    for (let index = 0; index < 16; index += 1) {
+      await page.getByRole("button", { name: "zoom out" }).click();
+    }
+
+    await expect
+      .poll(
+        async () =>
+          await readNumericHostAttribute(
+            host,
+            "data-canvas-engine-dom-island-mounted-count",
+          ),
+      )
+      .toBe(0);
+    await expect
+      .poll(
+        async () =>
+          await readNumericHostAttribute(
+            host,
+            "data-canvas-engine-nested-preview-count",
+          ),
+      )
+      .toBeGreaterThanOrEqual(1);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("canvas engine host supports nested group child UI drag-and-drop", async ({
   page,
 }) => {
@@ -2532,9 +2614,12 @@ async function setTopLevelSectionLayout(
     "/getLatestProjectState",
     { projectConfigId },
   );
-  const topLevelSections = response?.projectState?.projectConfig?.topLevelSections;
+  const topLevelSections =
+    response?.projectState?.projectConfig?.topLevelSections;
   if (!topLevelSections) {
-    throw new Error(`Missing top-level layouts for project ${projectConfigId}.`);
+    throw new Error(
+      `Missing top-level layouts for project ${projectConfigId}.`,
+    );
   }
   const currentLayout = topLevelSections[args.sectionId];
   if (!currentLayout) {
@@ -2630,7 +2715,9 @@ async function readBackgroundPatternMetrics(page: Page): Promise<{
   });
 }
 
-async function dispatchCtrlWheelOnCanvasEngineHost(page: Page): Promise<boolean> {
+async function dispatchCtrlWheelOnCanvasEngineHost(
+  page: Page,
+): Promise<boolean> {
   return await page.evaluate(() => {
     const host = document.querySelector('[data-canvas-engine-host="v1"]');
     if (!(host instanceof HTMLElement)) {
