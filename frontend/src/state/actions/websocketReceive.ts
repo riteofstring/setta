@@ -27,7 +27,7 @@ import {
 import { encodeBinaryFrame } from "utils/binaryWebsocket";
 import { C } from "utils/c";
 import { C_ADDRESSES } from "utils/c_addresses";
-import { res200 } from "utils/endpointUtils";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_binary_upload,
   route_get_auth_refresh_status,
@@ -38,16 +38,19 @@ import { GoWebsocketRoutes } from "utils/generatedRoutes";
 import {
   BaseDependencyKeyUnion,
   BaseDependencyValueUnion,
+  type AuthRefreshStatusResponse,
   BinaryDependencyValue,
   DependencyEvent,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   FrontendWebsocketMsgUnion,
+  type ProjectStateSingleConfigWithCompletedOpIds,
   LiteralDependencyValue,
   RouteEnum,
   SectionDependencyKey,
   SectionParamDependencyKey,
   SettaNotificationTypeEnum,
+  type SettaLspDiagnosticsPayload,
   UISettingRevealContent,
   UISettingRevealContentSchema,
   UISettingRevealResultStatus,
@@ -140,6 +143,13 @@ type PendingUISettingRevealMessage = {
   socketGeneration: number;
 };
 
+type AuthRefreshStatusRouteResponse =
+  ResponseDataAndStatus<AuthRefreshStatusResponse>;
+type LatestProjectStateRouteResponse =
+  ResponseDataAndStatus<ProjectStateSingleConfigWithCompletedOpIds>;
+type LatestLSPDiagnosticsRouteResponse =
+  ResponseDataAndStatus<SettaLspDiagnosticsPayload>;
+
 function beginWebsocketGeneration(): number {
   activeWebsocketGeneration += 1;
   setActiveFrontendWebsocketAffinityGeneration(activeWebsocketGeneration);
@@ -218,15 +228,17 @@ export const openWebSocket = _.debounce(
           const projectConfigId = getCurrProjectConfigId();
           let runImmediateAuthRefresh = true;
           if (projectConfigId !== NULL_PROJECT_CONFIG_ID) {
-            const res = await route_get_latest_project_state({
-              projectConfigId: getCurrProjectConfigId(),
-            });
+            const res: LatestProjectStateRouteResponse =
+              await route_get_latest_project_state({
+                projectConfigId: getCurrProjectConfigId(),
+              });
             if (res200(res)) {
               processProjectStateUpdateFromBackend(res.data);
               await requestAIFollowSnapshot(projectConfigId);
-              const diagnosticsRes = await route_get_latest_lsp_diagnostics({
-                projectConfigId,
-              });
+              const diagnosticsRes: LatestLSPDiagnosticsRouteResponse =
+                await route_get_latest_lsp_diagnostics({
+                  projectConfigId,
+                });
               if (res200(diagnosticsRes)) {
                 processLspDiagnostics(diagnosticsRes.data);
               }
@@ -331,7 +343,8 @@ async function attemptAuthRecovery(pathname: string) {
     return;
   }
   authRecoveryInFlight = true;
-  const res = await route_get_auth_refresh_status();
+  const res: AuthRefreshStatusRouteResponse =
+    await route_get_auth_refresh_status();
   authRecoveryInFlight = false;
   if (res200(res)) {
     updateAuthRefreshWindowSeconds(res.data.authCookieRefreshWindowSeconds);
@@ -425,7 +438,8 @@ async function runAuthRefresh() {
     return;
   }
   authRefreshInFlight = true;
-  const res = await route_get_auth_refresh_status();
+  const res: AuthRefreshStatusRouteResponse =
+    await route_get_auth_refresh_status();
   authRefreshInFlight = false;
   if (res200(res)) {
     updateAuthRefreshWindowSeconds(res.data.authCookieRefreshWindowSeconds);
