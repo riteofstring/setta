@@ -87,6 +87,9 @@
   - current realtime transcription path now uses the SDK's realtime
     transcription session/audio config models and the current `session.update`
     request shape
+  - the repo-owned startup path now drains immediate setup events after
+    `session.update` so explicit provider rejection events fail
+    `StartSession` instead of surfacing only on the first audio append
   - the repo-owned event loop now also uses
     `input_audio_buffer.committed.previous_item_id` ordering metadata so
     late completion events still rebuild full transcripts in speech-turn order

@@ -22,6 +22,7 @@ import (
 const (
 	openAIRealtimeSampleRateHz          = 24_000
 	openAIRealtimeRequiredChannels      = 1
+	openAIRealtimeStartupDrainTimeout   = 250 * time.Millisecond
 	openAIRealtimeAppendDrainTimeout    = 450 * time.Millisecond
 	openAIRealtimeStopDrainTimeout      = 1200 * time.Millisecond
 	defaultRealtimeProviderErrorMessage = "Realtime transcription failed."
@@ -154,6 +155,10 @@ func newRealtimeEngine(ctx context.Context, opts realtimeEngineOptions) (*realti
 		_ = engine.Close()
 		return nil, err
 	}
+	if err := engine.drainStartupEvents(ctx, openAIRealtimeStartupDrainTimeout); err != nil {
+		_ = engine.Close()
+		return nil, err
+	}
 	return engine, nil
 }
 
@@ -235,6 +240,46 @@ func (e *realtimeEngine) writeMessage(ctx context.Context, payload any) error {
 	return nil
 }
 
+func (e *realtimeEngine) drainStartupEvents(ctx context.Context, timeout time.Duration) error {
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	for {
+		select {
+		case <-timer.C:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		case result, ok := <-e.events:
+			if !ok {
+				return newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
+			}
+			if result.closed {
+				return newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
+			}
+			if result.err != nil {
+				if errors.Is(result.err, context.Canceled) && ctx.Err() != nil {
+					return ctx.Err()
+				}
+				return result.err
+			}
+			ready, err := e.handleStartupEvent(result.payload)
+			if err != nil {
+				return err
+			}
+			if ready {
+				return nil
+			}
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			timer.Reset(timeout)
+		}
+	}
+}
+
 func (e *realtimeEngine) drainEvents(ctx context.Context, timeout time.Duration, allowCleanClose bool) (string, error) {
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
@@ -274,6 +319,30 @@ func (e *realtimeEngine) drainEvents(ctx context.Context, timeout time.Duration,
 			}
 			timer.Reset(timeout)
 		}
+	}
+}
+
+func (e *realtimeEngine) handleStartupEvent(payload []byte) (bool, error) {
+	event := openAIRealtimeEvent{}
+	if err := json.Unmarshal(payload, &event); err != nil {
+		return false, newServiceError(ErrProviderFailure, defaultRealtimeProviderErrorMessage)
+	}
+	if e.isDuplicateEvent(event.EventID) {
+		return false, nil
+	}
+	switch event.Type {
+	case string(openaiconstant.ValueOf[openaiconstant.SessionUpdated]()),
+		string(openaiconstant.ValueOf[openaiconstant.TranscriptionSessionUpdated]()):
+		return true, nil
+	case string(openaiconstant.ValueOf[openaiconstant.ConversationItemInputAudioTranscriptionFailed]()),
+		string(openaiconstant.ValueOf[openaiconstant.Error]()):
+		message := defaultRealtimeProviderErrorMessage
+		if event.Error != nil && strings.TrimSpace(event.Error.Message) != "" {
+			message = strings.TrimSpace(event.Error.Message)
+		}
+		return false, newServiceError(ErrProviderFailure, message)
+	default:
+		return false, nil
 	}
 }
 

@@ -51,6 +51,9 @@ func TestServiceStartAppendStopStreamsRealtimeTranscription(t *testing.T) {
 			return
 		}
 		updates <- update
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"session.updated","event_id":"evt-ready"}`)); err != nil {
+			return
+		}
 
 		appendPayload, err := readRealtimeProviderMessage(context.Background(), conn)
 		if err != nil {
@@ -298,6 +301,9 @@ func TestServiceStopSessionAcceptsCleanProviderCloseAfterFinalRealtimeEvent(t *t
 		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
 			return
 		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"session.updated","event_id":"evt-ready"}`)); err != nil {
+			return
+		}
 
 		// The stop path should accept a normal provider close after the final transcript event.
 		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.completed","event_id":"evt-1","item_id":"item-1","transcript":"hello"}`)); err != nil {
@@ -390,6 +396,9 @@ func TestServiceRealtimeStopUsesCommittedOrderingForOutOfOrderTurnCompletion(t *
 		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
 			return
 		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"session.updated","event_id":"evt-ready"}`)); err != nil {
+			return
+		}
 
 		// The provider can complete later turns before earlier ones; committed ordering metadata is the source of truth.
 		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"input_audio_buffer.committed","event_id":"evt-1","item_id":"item-1"}`)); err != nil {
@@ -479,6 +488,9 @@ func TestServiceAutoProfilesResolveToRealtimeWhenConfigSupportsIt(t *testing.T) 
 		}
 		defer conn.Close(websocket.StatusNormalClosure, "")
 		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
+			return
+		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"session.updated","event_id":"evt-ready"}`)); err != nil {
 			return
 		}
 		_, _, err = conn.Read(context.Background())
@@ -580,6 +592,68 @@ func TestServiceAutoProfilesDoNotFallbackToFileWhenRealtimeSetupFails(t *testing
 	}
 	if len(service.sessions) != 0 {
 		t.Fatalf("expected no fallback session after realtime setup failure, got %d sessions", len(service.sessions))
+	}
+}
+
+func TestServiceStartSessionFailsWhenRealtimeProviderRejectsSessionUpdate(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close(websocket.StatusNormalClosure, "")
+
+		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
+			return
+		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"session.created","event_id":"evt-created"}`)); err != nil {
+			return
+		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"error","event_id":"evt-error","error":{"message":"Realtime session update rejected."}}`)); err != nil {
+			return
+		}
+		_ = conn.Close(websocket.StatusNormalClosure, "")
+	}))
+	defer server.Close()
+
+	runtime := newTranscriptionSessionRuntime(t, map[string]llmconfig.Config{
+		"openai-realtime": {
+			ID:        "openai-realtime",
+			Model:     "gpt-4o-mini-transcribe",
+			Provider:  "openai",
+			BaseURL:   server.URL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+	}, map[string]string{
+		"OPENAI_API_KEY": "secret-key",
+	})
+	service, err := NewService(ServiceOptions{
+		LLM:        runtime,
+		HTTPClient: server.Client(),
+		NewID: func() string {
+			return "session-realtime-start-error"
+		},
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	resolved := resolvedProfile("profile-rt", transcriptionprofiles.TransportModeRealtime, runtime, "openai-realtime")
+	resolved.Profile.SupportsRealtimeTranscription = true
+	_, err = service.StartSession(context.Background(), StartRequest{
+		ScopeID:         "scope-1",
+		ResolvedProfile: resolved,
+	})
+	if !errors.Is(err, ErrProviderFailure) {
+		t.Fatalf("expected provider failure, got %v", err)
+	}
+	if err.Error() != "Realtime session update rejected." {
+		t.Fatalf("unexpected provider failure message %q", err.Error())
+	}
+	if len(service.sessions) != 0 {
+		t.Fatalf("expected no stored session after realtime setup rejection, got %d sessions", len(service.sessions))
 	}
 }
 
