@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { ensureAppReady, postBackend } from "../helpers";
+import { ensureAppReady, postBackend, seedLocalStorage } from "../helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
@@ -230,6 +230,31 @@ test("settings shells stay promoted before the first wheel interaction", async (
   expect(interactionResult.sectionStyleMutations).toBe(0);
   expect(interactionResult.sectionClassMutations).toBe(0);
   expect(interactionResult.affectedSectionCount).toBe(0);
+});
+
+test("settings can mount the experimental canvas engine host", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await seedLocalStorage(page, { useCanvasEngineV1: true });
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+
+  const host = page.locator('[data-canvas-engine-host="v1"]');
+  await expect(host).toBeVisible();
+  await expect(page.locator(".react-flow")).toHaveCount(0);
+  await expect
+    .poll(async () => {
+      const value = await host.getAttribute("data-canvas-engine-rect-count");
+      return Number(value);
+    })
+    .toBeGreaterThan(0);
+  await expect
+    .poll(async () => {
+      return (
+        (await host.getAttribute("data-canvas-engine-active-backend")) ?? ""
+      );
+    })
+    .toMatch(/webgl2|webgpu/);
 });
 
 async function waitForNodeCount(page: Page, expected: number): Promise<void> {
