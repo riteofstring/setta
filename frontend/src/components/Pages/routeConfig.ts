@@ -8,7 +8,7 @@ import {
   VIEW_MODE_ROUTER_PATH,
   WINDOW_SPACE_STANDALONE_ROUTER_PATH,
   WORKSPACE_LAUNCH_ROUTER_PATH,
-} from "utils/constants/routes";
+} from "utils/constants";
 
 export const APP_ROUTE_IDS = {
   index: "index",
