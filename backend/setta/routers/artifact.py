@@ -87,7 +87,6 @@ class GetFolderContentsRequest(BaseModel):
     allowOutsideWorkspaceRoot: bool = False
     includeMtime: bool = False
     includeSize: bool = False
-    includeHidden: bool = False
     includeSettaInitialized: bool = False
     ignorePatterns: list[str] | None = None
     maxEntries: int | None = Field(default=None, gt=0)
@@ -563,7 +562,6 @@ def route_get_folder_contents(
     internal_ignore_roots = _resolve_setta_internal_ignore_roots()
 
     contents: list[FolderContentItem] = []
-    include_hidden = x.includeHidden
     include_mtime = x.includeMtime
     include_size = x.includeSize
     include_setta_initialized = x.includeSettaInitialized
@@ -573,8 +571,6 @@ def route_get_folder_contents(
 
     for item in path.iterdir():
         if _is_under_ignored_root(item, internal_ignore_roots):
-            continue
-        if not include_hidden and item.name.startswith("."):
             continue
         if _should_ignore(item.name, ignore_patterns):
             continue
