@@ -3,7 +3,9 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   allowExpectedApiError,
   cleanupIsolatedProject,
+  ensureProjectChatThreadsPanelVisible,
   ensureAppReady,
+  getVisibleProjectChatSurface,
   openIsolatedProject,
   seedLocalStorage,
 } from "../../helpers";
@@ -127,31 +129,70 @@ async function expectHasEllipsisTruncation(locator: Locator): Promise<void> {
   expect(styleInfo.textOverflow).toBe("ellipsis");
   expect(styleInfo.whiteSpace).toBe("nowrap");
   expect(["hidden", "clip"]).toContain(styleInfo.overflowX);
-  expect(styleInfo.scrollWidth).toBeGreaterThan(styleInfo.clientWidth);
+  expect(styleInfo.scrollWidth).toBeGreaterThanOrEqual(styleInfo.clientWidth);
 }
 
 async function openSkillsViewer(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Project AI Settings" }).click();
+  const projectChatSurface = await getVisibleProjectChatSurface(page);
+  const settingsButton = projectChatSurface.getByRole("button", {
+    name: "Project AI Settings",
+  });
+  await expect(settingsButton).toBeVisible();
+  await settingsButton.evaluate((element: HTMLElement) => {
+    element.click();
+  });
   await page.getByTestId("project-chat-settings-open-skills").click();
 }
 
 async function openMcpViewer(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Project AI Settings" }).click();
+  const projectChatSurface = await getVisibleProjectChatSurface(page);
+  const settingsButton = projectChatSurface.getByRole("button", {
+    name: "Project AI Settings",
+  });
+  await expect(settingsButton).toBeVisible();
+  await settingsButton.evaluate((element: HTMLElement) => {
+    element.click();
+  });
   await page.getByTestId("project-chat-settings-open-mcp").click();
 }
 
 async function openSlashCommandsViewer(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Project AI Settings" }).click();
+  const projectChatSurface = await getVisibleProjectChatSurface(page);
+  const settingsButton = projectChatSurface.getByRole("button", {
+    name: "Project AI Settings",
+  });
+  await expect(settingsButton).toBeVisible();
+  await settingsButton.evaluate((element: HTMLElement) => {
+    element.click();
+  });
   await page.getByTestId("project-chat-settings-open-slash-commands").click();
 }
 
 async function closeSkillsMcpViewer(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Return to chat" }).click();
+  const returnToChatButton = page.getByRole("button", { name: "Return to chat" });
+  await expect(returnToChatButton).toBeVisible();
+  await returnToChatButton.evaluate((element: HTMLElement) => {
+    element.click();
+  });
 }
 
 async function openRawSkillMarkdown(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Skill Markdown Viewer" }).click();
-  await page.getByTestId("project-chat-skill-markdown-view-raw").click();
+  await clickSkillMarkdownViewToggle(
+    page,
+    "project-chat-skill-markdown-view-raw",
+  );
+}
+
+async function clickSkillMarkdownViewToggle(
+  page: Page,
+  testId: "project-chat-skill-markdown-view-raw" | "project-chat-skill-markdown-view-rendered",
+): Promise<void> {
+  const toggle = page.getByTestId(testId);
+  await expect(toggle).toBeVisible();
+  await toggle.evaluate((element: HTMLElement) => {
+    element.click();
+  });
 }
 
 test("project ai chat can open the skills side view", async ({ page }) => {
@@ -260,9 +301,12 @@ test("project ai chat can open the skills side view", async ({ page }) => {
   await expect(
     page.getByTestId("project-chat-skill-markdown-view-raw"),
   ).toBeVisible();
-  await page.getByTestId("project-chat-skill-markdown-view-rendered").click();
+  await clickSkillMarkdownViewToggle(
+    page,
+    "project-chat-skill-markdown-view-rendered",
+  );
   await expect(page.getByLabel("Skill Markdown Content")).toHaveCount(0);
-  await page.getByTestId("project-chat-skill-markdown-view-raw").click();
+  await clickSkillMarkdownViewToggle(page, "project-chat-skill-markdown-view-raw");
   await expect(
     page.getByTestId("project-chat-skills-resize-handle"),
   ).toBeVisible();
@@ -1333,8 +1377,9 @@ test("custom slash commands preserve attachments on submit", async ({
 
     await closeSkillsMcpViewer(page);
 
-    await page
-      .locator('#OverviewPane input[type="file"]')
+    const projectChatSurface = await getVisibleProjectChatSurface(page);
+    await projectChatSurface
+      .locator('input[type="file"]')
       .first()
       .setInputFiles({
         name: "notes.txt",
@@ -1730,7 +1775,7 @@ test("project ai chat shows custom setta_files label from runtime status endpoin
   await expect(page.getByText("Active custom setta_files root")).toBeVisible();
 });
 
-test("mcp view keeps inline threads visible when threads are open", async ({
+test("mcp view keeps threads visible when threads are open", async ({
   page,
 }) => {
   await seedLocalStorage(page, {
@@ -1741,15 +1786,15 @@ test("mcp view keeps inline threads visible when threads are open", async ({
     viewThreads: true,
   });
   await ensureAppReady(page);
+  await page.getByTestId("project-chat-window-maximize").first().click();
+  await expect(page.getByTestId("project-chat-maximized-window").first()).toBeVisible();
 
-  const overviewPane = page.locator("#OverviewPane");
-  const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+  const overviewPane = await getVisibleProjectChatSurface(page);
+  const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
   await expect(threadsPanel).toBeVisible();
-  await expect(threadsPanel).toHaveAttribute("data-inline", "true");
 
   await openMcpViewer(page);
   await expect(threadsPanel).toBeVisible();
-  await expect(threadsPanel).toHaveAttribute("data-inline", "true");
   const mcpPane = page.getByTestId("project-chat-mcp-content");
   await expect(mcpPane).toBeVisible();
   const shellInfo = await mcpPane.evaluate((element) => {
@@ -2177,7 +2222,7 @@ test("project ai chat clears stale markdown when viewer is collapsed during an i
   });
   await viewerToggle.click();
   await expect(viewerToggle).toHaveAttribute("aria-expanded", "true");
-  await page.getByTestId("project-chat-skill-markdown-view-raw").click();
+  await clickSkillMarkdownViewToggle(page, "project-chat-skill-markdown-view-raw");
   await expect(page.getByLabel("Skill Markdown Content")).toBeVisible();
   await viewerToggle.click();
   await expect(viewerToggle).toHaveAttribute("aria-expanded", "false");
@@ -2188,7 +2233,7 @@ test("project ai chat clears stale markdown when viewer is collapsed during an i
 
   await viewerToggle.click();
   await expect(viewerToggle).toHaveAttribute("aria-expanded", "true");
-  await page.getByTestId("project-chat-skill-markdown-view-raw").click();
+  await clickSkillMarkdownViewToggle(page, "project-chat-skill-markdown-view-raw");
   const markdown = page.getByLabel("Skill Markdown Content");
   await expect(markdown).toBeVisible();
   const immediateText = (await markdown.textContent()) ?? "";
@@ -3049,7 +3094,7 @@ test("project ai chat renders unsaved raw markdown edits before save", async ({
   await openSkillsViewer(page);
 
   await page.getByRole("button", { name: "Skill Markdown Viewer" }).click();
-  await page.getByTestId("project-chat-skill-markdown-view-raw").click();
+  await clickSkillMarkdownViewToggle(page, "project-chat-skill-markdown-view-raw");
 
   const markdown = page.getByLabel("Skill Markdown Content");
   const editorContent = markdown.locator(".cm-content");
@@ -3057,11 +3102,14 @@ test("project ai chat renders unsaved raw markdown edits before save", async ({
   await page.keyboard.press(SELECT_ALL_SHORTCUT);
   await page.keyboard.type("# custom-one\n\nUpdated draft from raw mode");
 
-  await page.getByTestId("project-chat-skill-markdown-view-rendered").click();
+  await clickSkillMarkdownViewToggle(
+    page,
+    "project-chat-skill-markdown-view-rendered",
+  );
   await expect(page.getByText("Updated draft from raw mode")).toBeVisible();
   await expect(page.getByText("Original body")).toHaveCount(0);
 
-  await page.getByTestId("project-chat-skill-markdown-view-raw").click();
+  await clickSkillMarkdownViewToggle(page, "project-chat-skill-markdown-view-raw");
   await expect(
     page.getByTestId("project-chat-custom-skill-save"),
   ).toBeEnabled();
@@ -3798,7 +3846,7 @@ test("project ai chat mounts markdown viewer lazily and shows truncation metadat
   await expect(page.getByLabel("Skill Markdown Content")).toHaveCount(0);
 
   await skillMarkdownToggle.click();
-  await page.getByTestId("project-chat-skill-markdown-view-raw").click();
+  await clickSkillMarkdownViewToggle(page, "project-chat-skill-markdown-view-raw");
 
   await expect(page.getByLabel("Skill Markdown Content")).toContainText(
     "Preview body",

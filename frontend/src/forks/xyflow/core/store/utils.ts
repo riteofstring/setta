@@ -1,10 +1,14 @@
-import { getCanvasEngineOverviewNodes } from "canvas-engine/overviewNodes";
+import { zoomIdentity } from "d3-zoom";
+
 import { getNodes } from "state/actions/nodeInternals";
-import { useProjectState, useSettings } from "state/definitions";
+import { useSettings } from "state/definitions";
 import { useReactFlow } from ".";
-import { applyViewportTransform } from "../hooks/useViewportHelper";
-import type { FitViewOptions, Node, ReactFlowState } from "../types";
-import { getNodesBounds, getViewportForBounds } from "../utils/graph";
+import type { FitViewOptions, ReactFlowState } from "../types";
+import {
+  getD3Transition,
+  getNodesBounds,
+  getViewportForBounds,
+} from "../utils/graph";
 
 type InternalFitViewOptions = {
   initial?: boolean;
@@ -32,17 +36,17 @@ export function fitView(options: InternalFitViewOptions = {}) {
 
   const isInitialFitView =
     options.initial && !fitViewOnInitDone && fitViewOnInit;
-  const d3Initialized = Boolean(d3Zoom && d3Selection);
+  const d3initialized = d3Zoom && d3Selection;
 
-  if (width <= 0 || height <= 0) {
-    return false;
-  }
+  if (d3initialized && (isInitialFitView || !options.initial)) {
+    const nodes = getNodes().filter((n) => {
+      if (options.nodes?.length) {
+        return options.nodes.some((optionNode) => optionNode.id === n.id);
+      }
 
-  if (isInitialFitView || !options.initial) {
-    const nodes = getFitViewNodes({
-      nodeIds: options.nodes?.map((node) => node.id) ?? null,
-      allowTopLevelFallback: !d3Initialized,
+      return true;
     });
+
     const nodesInitialized = nodes.every((n) => n.width && n.height);
 
     if (nodes.length > 0 && nodesInitialized) {
@@ -57,7 +61,16 @@ export function fitView(options: InternalFitViewOptions = {}) {
         options.padding ?? 0.1,
       );
 
-      applyViewportTransform({ x, y, zoom }, { duration: options.duration });
+      const nextTransform = zoomIdentity.translate(x, y).scale(zoom);
+
+      if (typeof options.duration === "number" && options.duration > 0) {
+        d3Zoom.transform(
+          getD3Transition(d3Selection, options.duration),
+          nextTransform,
+        );
+      } else {
+        d3Zoom.transform(d3Selection, nextTransform);
+      }
 
       return true;
     }
@@ -67,8 +80,7 @@ export function fitView(options: InternalFitViewOptions = {}) {
 }
 
 export function onFitViewHandler() {
-  const { fitViewOnInit, fitViewOnInitDone } = useReactFlow.getState();
-  if (fitViewOnInit && !fitViewOnInitDone) {
+  if (useReactFlow.getState().fitViewOnInit) {
     return;
   }
   const duration = useSettings.getState().gui.transitionDuration;
@@ -85,31 +97,4 @@ export function onFitViewHandler() {
 
 export function computeReadyToBeVisible(reactFlowState: ReactFlowState) {
   return !reactFlowState.fitViewOnInit || reactFlowState.fitViewOnInitDone;
-}
-
-function getFitViewNodes({
-  nodeIds,
-  allowTopLevelFallback,
-}: {
-  nodeIds: string[] | null;
-  allowTopLevelFallback: boolean;
-}): Node[] {
-  const filteredNodes = getNodes().filter((node) =>
-    nodeIds ? nodeIds.includes(node.id) : true,
-  );
-  const filteredNodesInitialized =
-    filteredNodes.length > 0 &&
-    filteredNodes.every((node) => node.width && node.height);
-  if (filteredNodesInitialized || !allowTopLevelFallback) {
-    return filteredNodes;
-  }
-
-  const topLevelSections =
-    useProjectState.getState().projectConfig.topLevelSections;
-  const nestedPreviewRects =
-    useReactFlow.getState().canvasEngineNestedPreviewRects;
-  return getCanvasEngineOverviewNodes({
-    topLevelSections,
-    nestedPreviewRects,
-  }).filter((node) => (nodeIds ? nodeIds.includes(node.id) : true));
 }

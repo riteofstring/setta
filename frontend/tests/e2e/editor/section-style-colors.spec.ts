@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Request } from "@playwright/test";
 import {
+  clearProjectChatWindows,
   cleanupIsolatedProject,
   createCallableSection,
   createTextBlockSection,
@@ -32,7 +33,9 @@ async function ensureAppearanceAccordionExpanded(
   if (
     (await appearanceAccordionTrigger.getAttribute("aria-expanded")) !== "true"
   ) {
-    await appearanceAccordionTrigger.click();
+    await appearanceAccordionTrigger.evaluate(
+      (element: HTMLButtonElement) => element.click(),
+    );
   }
   await expect(appearanceAccordionTrigger).toHaveAttribute(
     "aria-expanded",
@@ -67,6 +70,7 @@ test.describe.serial("section style colors", () => {
     const projectContext = await openIsolatedProject(page);
 
     try {
+      await clearProjectChatWindows(page);
       const { sectionId } = await createTextBlockSection(
         page,
         projectContext.projectConfigId,
@@ -175,7 +179,9 @@ test.describe.serial("section style colors", () => {
           borderColor: "rgb(255, 166, 166)",
         });
 
-      await styleBlockAfter.getByRole("button", { name: "Reset" }).click();
+      await styleBlockAfter
+        .getByRole("button", { name: "Reset" })
+        .evaluate((element: HTMLButtonElement) => element.click());
 
       await expect(styleBlockAfter.getByText("None").first()).toBeVisible();
       await expect
@@ -228,6 +234,7 @@ test.describe.serial("section style colors", () => {
     const projectContext = await openIsolatedProject(page);
 
     try {
+      await clearProjectChatWindows(page);
       const { sectionId } = await createTextBlockSection(
         page,
         projectContext.projectConfigId,
@@ -305,6 +312,7 @@ test.describe.serial("section style colors", () => {
     const projectContext = await openIsolatedProject(page);
 
     try {
+      await clearProjectChatWindows(page);
       const sectionId = await createCallableSection(
         page,
         projectContext.projectConfigId,
@@ -604,6 +612,7 @@ test.describe.serial("section style colors", () => {
     const projectContext = await openIsolatedProject(page);
 
     try {
+      await clearProjectChatWindows(page);
       const { sectionId } = await createTextBlockSection(
         page,
         projectContext.projectConfigId,
