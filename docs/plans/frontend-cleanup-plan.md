@@ -90,6 +90,11 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   active-view layout selection, top-level layout snapshot building, pending-op
   reconciliation, and debounced layout persistence, reducing
   `frontend/src/state/actions/sectionInfos.ts` further to 1308 lines.
+- `frontend/src/state/actions/sectionEffectiveImpls.ts` now owns effective
+  section/code-object resolution, typed current-section/code-object selectors,
+  and in-place impl mutation helpers, reducing
+  `frontend/src/state/actions/sectionInfos.ts` further to 678 lines for the
+  remaining streaming merge and section metadata/layout query surface.
 - `frontend/src/state/actions/windowSpacePersistence.ts` and
   `frontend/src/state/actions/windowSpaceSnapshots.ts` now own saved
   window-space mutations plus floating snapshot/restore conversion, reducing

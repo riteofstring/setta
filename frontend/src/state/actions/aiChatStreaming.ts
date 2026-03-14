@@ -8,7 +8,7 @@ import {
   getCurrProjectConfigId,
   isManagedChatSection,
   setCurrEffectiveSectionImplValue,
-} from "state/actions/sectionInfos";
+} from "state/actions/sectionEffectiveImpls";
 import {
   clearChatStreamActive,
   markChatStreamActive,
@@ -20,10 +20,7 @@ import {
   clearAllAppSpecPatchStreams,
   clearAppSpecPatchStream,
 } from "state/appSpecPatchStreaming";
-import {
-  useProjectState,
-  type ZustandProjectState,
-} from "state/definitions";
+import { useProjectState, type ZustandProjectState } from "state/definitions";
 import {
   ChatDetails,
   ToolArgumentPreviewEntry,

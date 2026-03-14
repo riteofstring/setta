@@ -10,8 +10,8 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-14`
-- Authored TS/TSX files under `frontend/src`: `934`
-- Non-generated TS/TSX files at `1000+` lines: `47`
+- Authored TS/TSX files under `frontend/src`: `979`
+- Non-generated TS/TSX files at `1000+` lines: `43`
 - Biggest current production hotspots:
   - `components/Chat/ChatMessages.tsx` (`7959`)
   - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`4989`)
@@ -164,6 +164,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/projectStateOptimisticUpdates.ts` owns the pending-operation
     queue and optimistic project-state mutation scaffolding used by shared state
     action modules.
+  - `state/actions/sectionEffectiveImpls.ts` owns effective section/code-object
+    resolution, typed current-section/code-object selectors, and in-place
+    impl-mutation helpers that previously lived in `sectionInfos.ts`.
+  - `state/actions/sectionInfos.ts` now owns streaming chat merge behavior,
+    section metadata/layout queries, displayed-child tree derivation, and tool
+    preview cleanup that still sits beside the remaining shared section query
+    surface.
   - `state/actions/topLevelSectionLayouts.ts` owns active-view top-level layout
     selection plus layout snapshot building from current node internals.
   - `state/actions/topLevelLayoutPersistence.ts` owns pending-op reconciliation
@@ -228,15 +235,16 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/sectionInfos.ts` query/command split across effective-impl
-  derivation, streaming chat merge behavior, and section metadata/layout reads
-  now that `state/actions/sectionProjectStateSync.ts`,
+- `state/actions/websocketReceive.ts` protocol/event split across websocket
+  transport handling, snapshot reconciliation, and feature-specific dispatchers
+- `state/actions/sectionInfos.ts` section metadata/display-tree split now that
+  `state/actions/sectionEffectiveImpls.ts`,
+  `state/actions/sectionProjectStateSync.ts`,
   `state/actions/projectStateCommands.ts`,
   `state/actions/projectStateOptimisticUpdates.ts`,
   `state/actions/topLevelSectionLayouts.ts`, and
-  `state/actions/topLevelLayoutPersistence.ts` own backend sync, shared
-  commands, optimistic mutation infrastructure, and top-level layout ownership
-- `state/actions/websocketReceive.ts` protocol/event split across websocket
-  transport handling, snapshot reconciliation, and feature-specific dispatchers
+  `state/actions/topLevelLayoutPersistence.ts` own effective-impl access,
+  backend sync, shared commands, optimistic mutation infrastructure, and
+  top-level layout ownership
 - shared project chat surfaces under `components/Chat/*`,
   `components/Panes/Overview/ProjectLevelAI/*`, and `components/ChatWindowing/*`

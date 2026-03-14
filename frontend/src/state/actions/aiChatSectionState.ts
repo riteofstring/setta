@@ -1,5 +1,5 @@
 import { dispatchOptimisticProjectStateUpdate } from "state/actions/projectStateOptimisticUpdates";
-import { setCurrEffectiveSectionImplValue } from "state/actions/sectionInfos";
+import { setCurrEffectiveSectionImplValue } from "state/actions/sectionEffectiveImpls";
 import { type ZustandProjectState } from "state/definitions";
 import { route_set_chat_section_state } from "utils/generatedEndpoints";
 import {

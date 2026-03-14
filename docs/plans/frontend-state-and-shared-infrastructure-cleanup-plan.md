@@ -40,6 +40,12 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   `frontend/src/state/actions/topLevelLayoutPersistence.ts` now owns pending-op
   reconciliation plus debounced backend persistence for top-level section
   layout writes that previously lived in `frontend/src/state/actions/sectionInfos.ts`.
+- `frontend/src/state/actions/sectionEffectiveImpls.ts` now owns effective
+  section/code-object resolution, typed current-section/code-object selectors,
+  and in-place impl mutation helpers that previously lived in
+  `frontend/src/state/actions/sectionInfos.ts`; future cleanup should keep new
+  effective-impl reads and local impl writes on that dedicated surface instead
+  of adding them back to the remaining metadata/query file.
 - `frontend/src/state/actions/windowSpacePersistence.ts` now owns saved
   window-space sort/name/delete/create mutations plus optimistic persistence,
   and `frontend/src/state/actions/windowSpaceSnapshots.ts` now owns floating
@@ -57,17 +63,24 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 
 - `frontend/src/state` plus shared infrastructure files in `components/Utils` and `utils` total about 83.6k lines of authored code in the sampled directories.
 - The biggest shared-state hotspots are:
-  - `frontend/src/state/actions/sectionInfos.ts` at 1308 lines
   - `frontend/src/state/actions/websocketReceive.ts` at 1023 lines
   - `frontend/src/state/actions/uiSettingRevealMutations.ts` at 771 lines
   - `frontend/src/state/hooks/terminals/terminal.ts` at 752 lines
   - `frontend/src/state/actions/windowSpaces.ts` at 695 lines
+  - `frontend/src/state/actions/sectionInfos.ts` at 678 lines
   - `frontend/src/utils/focusManager.ts` at 657 lines
+  - `frontend/src/state/actions/sectionEffectiveImpls.ts` at 649 lines
 - `definitions.ts` now defines 14 local `use*` stores and re-exports the extracted AI/chat, app runtime, session/share, browser, search, feedback, project-status, layout-interaction, UI-preference, and editor-diagnostics stores, which is much closer to a thin index but still leaves project-state publication, artifact data, and realtime helper ownership mixed together.
+- `sectionEffectiveImpls.ts` now owns:
+  - effective-impl derivation and caching
+  - typed current-section and current-code-object selectors
+  - in-place impl mutation helpers for section/code-object writes
+  - terminal attachment and section-orientation helpers that depend on
+    effective impl resolution
 - `sectionInfos.ts` currently mixes:
-  - effective-impl derivation
   - streaming chat merge behavior
   - section metadata and layout queries
+  - displayed-child tree derivation and tool-preview cleanup
 - `sectionProjectStateSync.ts` now owns:
   - backend snapshot reconciliation
   - active-section sync from authoritative project state
