@@ -487,3 +487,27 @@ For each new entry, append:
 - Decisions: Keep the behavior source-of-truth driven from `message.createdAt` only. The fix stays narrow and does not introduce inferred timestamps for tool result rows.
 - Blockers or open questions: None for this slice.
 - Next recommended slice: No further timestamp work remains in this plan. Any follow-up can move to the separate activity-row readability/layout requests or other new chat-runtime polish items.
+
+### 2026-03-12 18:33
+
+- Date: 2026-03-12 18:33 EDT
+- Scope: Starting the follow-up regression fix for chat bubbles collapsing to a one-character column after the timestamp-footer work, then continue into the next runtime polish slice from the plan/user follow-ups.
+- Tests added or updated first: Planned first coverage is a narrow `frontend/src/components/Chat/ChatMessages.test.tsx` structure regression around where message timestamps render relative to `data-chat-user-bubble` / `data-chat-assistant-bubble`, plus a focused Playwright geometry regression for a floating chat window that verifies visible message bubbles keep a sane width after timestamps are rendered.
+- Production code changed: None yet for this slice.
+- Verification run: Re-read the plan/log and audited the live `3026` page with `chrome-devtools-mcp`. Confirmed the regression is real on the current code: several rendered chat bubbles in the floating window have `~24px` width and extremely tall heights after the timestamp-footer change, matching the user screenshot. The DOM inspection showed the affected bubbles still use the `w-fit` bubble shell while also containing the new timestamp footer.
+- CDP visual check: Baseline captured on `http://127.0.0.1:3026/branch_showing`; the floating chat window shows the collapsed one-character message column before the fix.
+- Decisions: Treat this as a timestamp-layout regression, not a generic window sizing issue. Keep the fix narrow to bubble/footer composition rather than adding new width heuristics to the floating window container.
+- Blockers or open questions: Need to preserve the new “all messages have timestamps” behavior while moving the footer to a layout position that does not destabilize fit-content message bubbles.
+- Next recommended slice: Add the failing structure/browser regressions, move bubble timestamps out of the fit-content bubble shell, rerun the focused tests, verify in CDP, then continue with the remaining chat activity readability/layout follow-ups.
+
+### 2026-03-12 18:52
+
+- Date: 2026-03-12 18:52 EDT
+- Scope: Completed the follow-up regression fix for collapsed one-character chat bubbles after the timestamp-footer work.
+- Tests added or updated first: Added the narrow structure regression in `frontend/src/components/Chat/ChatMessages.test.tsx` to keep message timestamps outside fit-content user/assistant bubbles, and the focused Playwright geometry regression in `frontend/tests/e2e/chat/chat-tool-calls.spec.ts` that seeds timestamped user/assistant messages and requires both visible bubbles to stay wider than `120px`.
+- Production code changed: Updated `frontend/src/components/Chat/ChatMessages.tsx` so message timestamps render as siblings below the fit-content user/system bubble shell rather than inside it, and moved the named `@container/chat-message` boundary from the auto-sized inner message group to the full-width outer row wrapper for assistant/user/system messages. That preserves the narrow-chat action-button container query without letting inline-size containment collapse the content-sized user bubble group to `0px`.
+- Verification run: Captured the red first. `pnpm -C frontend exec vitest run src/components/Chat/ChatMessages.test.tsx` failed until the timestamp structure matched the intended footer placement, and `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/chat-tool-calls.spec.ts --grep "message timestamps do not collapse chat bubbles into narrow columns|shows a message timestamp for activity-only assistant messages"` failed with a live user bubble width of `24px` until the container-boundary fix landed. After the fix, the same Vitest run passed (57 tests) and the focused Playwright run passed (2 tests).
+- CDP visual check: Done on the live `http://127.0.0.1:3026/branch_showing` surface. I remeasured the first visible user bubble and confirmed the user bubble/group widths recovered to `244.6px` with the outer row now carrying `container-type: inline-size` while the inner `data-message-id` wrapper returned to `container-type: normal`. The live floating chat window no longer shows one-character message columns.
+- Decisions: The real root cause was the named container query living on an auto-sized user message group, not just the timestamp footer placement. Keep container queries on full-width row wrappers where inline-size containment has a definite width.
+- Blockers or open questions: None for this regression slice.
+- Next recommended slice: Tackle the remaining user-requested chat activity polish items as a separate follow-up: ensure animated activity previews fully reveal the last line, replace repeated “Activity” labels with the shared AI robot icon, keep timestamps visible on activity rows/messages, and keep copy/refresh controls stacked on narrow chats.

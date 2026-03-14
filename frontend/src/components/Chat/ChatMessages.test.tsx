@@ -92,6 +92,36 @@ function countOccurrences(haystack: string, needle: string): number {
   return haystack.split(needle).length - 1;
 }
 
+function getDivHtmlByMarker(markup: string, marker: string): string | null {
+  const markerIndex = markup.indexOf(marker);
+  if (markerIndex < 0) {
+    return null;
+  }
+  const tagStart = markup.lastIndexOf("<div", markerIndex);
+  if (tagStart < 0) {
+    return null;
+  }
+  const divTagPattern = /<\/?div\b[^>]*>/g;
+  divTagPattern.lastIndex = tagStart;
+  let depth = 0;
+  for (const match of markup.matchAll(divTagPattern)) {
+    const matchStart = match.index;
+    if (matchStart === undefined || matchStart < tagStart) {
+      continue;
+    }
+    const tag = match[0];
+    if (tag.startsWith("</div")) {
+      depth -= 1;
+      if (depth === 0) {
+        return markup.slice(tagStart, matchStart + tag.length);
+      }
+      continue;
+    }
+    depth += 1;
+  }
+  return null;
+}
+
 function formatExpectedChatTimestamp(timestampMs: number): string {
   return new Intl.DateTimeFormat(undefined, {
     hour: "numeric",
@@ -807,7 +837,7 @@ describe("ChatMessages assistant reasoning layout", () => {
       'data-chat-assistant-bubble="true"',
     );
     expect(assistantBubbleTag).not.toBeNull();
-    expect(assistantBubbleTag).toContain("w-fit");
+    expect(assistantBubbleTag).toContain("inline-flex");
     expect(assistantBubbleTag).not.toContain(" w-full ");
   });
 
@@ -2126,6 +2156,73 @@ describe("ChatMessages assistant reasoning layout", () => {
       countOccurrences(markup, 'data-chat-message-timestamp="true"'),
     ).toBe(1);
     expect(markup).toContain(formatExpectedChatTimestamp(assistantCreatedAtMs));
+  });
+
+  it("renders message timestamps outside fit-content user and assistant bubbles", () => {
+    const userCreatedAtMs = Date.parse("2026-01-01T09:16:00Z");
+    const assistantCreatedAtMs = Date.parse("2026-01-01T09:17:00Z");
+    const userMessageId = "m-user-bubble-timestamp";
+    const assistantMessageId = "m-assistant-bubble-timestamp";
+    const markup = renderToStaticMarkup(
+      <ChatMessageList
+        messages={[
+          {
+            id: userMessageId,
+            role: ChatRoleEnum.user,
+            content: [
+              createMessageTextContent({
+                text: "Please create a simple app. Feel free to choose what to build.",
+              }),
+            ],
+            attachments: [],
+            createdAt: userCreatedAtMs,
+          },
+          {
+            id: assistantMessageId,
+            role: ChatRoleEnum.assistant,
+            content: [
+              createMessageTextContent({
+                text: "I can help with that. Here is a plan for the first pass.",
+              }),
+            ],
+            attachments: [],
+            createdAt: assistantCreatedAtMs,
+          },
+        ]}
+        waitingForResponse={false}
+      />,
+    );
+
+    const userBubble = getDivHtmlByMarker(markup, 'data-chat-user-bubble="true"');
+    expect(userBubble).not.toBeNull();
+    expect(userBubble).not.toContain('data-chat-message-timestamp="true"');
+
+    const assistantBubble = getDivHtmlByMarker(
+      markup,
+      'data-chat-assistant-bubble="true"',
+    );
+    expect(assistantBubble).not.toBeNull();
+    expect(assistantBubble).not.toContain('data-chat-message-timestamp="true"');
+
+    const userGroup = getDivHtmlByMarker(
+      markup,
+      `data-message-id="${userMessageId}"`,
+    );
+    expect(
+      countOccurrences(userGroup ?? "", 'data-chat-message-timestamp="true"'),
+    ).toBe(1);
+    expect(userGroup).toContain(formatExpectedChatTimestamp(userCreatedAtMs));
+
+    const assistantGroup = getDivHtmlByMarker(
+      markup,
+      `data-message-id="${assistantMessageId}"`,
+    );
+    expect(
+      countOccurrences(assistantGroup ?? "", 'data-chat-message-timestamp="true"'),
+    ).toBe(1);
+    expect(assistantGroup).toContain(
+      formatExpectedChatTimestamp(assistantCreatedAtMs),
+    );
   });
 });
 

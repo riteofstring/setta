@@ -309,9 +309,10 @@ function MarkdownContent({
 }: MarkdownContentProps) {
   const shouldAnimate = role === ChatRoleEnum.assistant && isStreaming;
   const displayText = useTypewriterEffect(content, shouldAnimate, 5);
+  const markdownClassName = `w-max max-w-full ${className}`;
   if (shouldAnimate) {
     return (
-      <div className={className} data-chat-streaming-markdown="true">
+      <div className={markdownClassName} data-chat-streaming-markdown="true">
         <pre
           className="m-0 whitespace-pre-wrap break-words"
           style={{ fontFamily: "inherit" }}
@@ -323,16 +324,14 @@ function MarkdownContent({
   }
 
   return (
-    <div>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeKatex]}
-        className={className}
-        components={{ code: CodeBlock, pre: MarkdownCodePre }}
-      >
-        {displayText}
-      </ReactMarkdown>
-    </div>
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm, remarkMath]}
+      rehypePlugins={[rehypeKatex]}
+      className={markdownClassName}
+      components={{ code: CodeBlock, pre: MarkdownCodePre }}
+    >
+      {displayText}
+    </ReactMarkdown>
   );
 }
 
@@ -5633,15 +5632,15 @@ function AssistantMessageGroup({
 }) {
   const widthClass = `group flex w-full ${ASSISTANT_BUBBLE_MAX_WIDTH_CLASS} flex-col items-start gap-2`;
   const containerClassName = isSearchMatchActive
-    ? "mb-2 mt-1.5 flex justify-start rounded-md ring-1 ring-blue-400/70 dark:ring-blue-500/70"
-    : "mb-2 mt-1.5 flex justify-start";
+    ? "mb-2 mt-1.5 flex justify-start rounded-md ring-1 ring-blue-400/70 dark:ring-blue-500/70 @container/chat-message"
+    : "mb-2 mt-1.5 flex justify-start @container/chat-message";
   return (
     <div
       className={containerClassName}
       data-chat-search-active-match={isSearchMatchActive ? "true" : "false"}
     >
       <div
-        className={`${widthClass} @container/chat-message relative`}
+        className={`${widthClass} relative`}
         data-message-id={messageId}
       >
         {children}
@@ -5660,9 +5659,9 @@ function AssistantMessageGroup({
 
 function LLMChatBubble({ children }: { children: ReactNode }) {
   return (
-    <div className="w-fit max-w-full">
+    <div className="inline-flex max-w-full">
       <div
-        className="relative flex min-h-[24px] w-fit min-w-[24px] max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-b-lg rounded-tr-lg border border-transparent bg-white pb-2 pl-3 pr-2.5 pt-1 text-setta-800 dark:border-setta-700/45 dark:bg-setta-850 dark:text-setta-50"
+        className="relative inline-flex min-h-[24px] min-w-[24px] max-w-full cursor-text flex-col gap-1.5 rounded-b-lg rounded-tr-lg border border-transparent bg-white pb-2 pl-3 pr-2.5 pt-1 text-setta-800 dark:border-setta-700/45 dark:bg-setta-850 dark:text-setta-50"
         data-chat-assistant-bubble="true"
       >
         {children}
@@ -5674,30 +5673,32 @@ function LLMChatBubble({ children }: { children: ReactNode }) {
 function UserChatBubble({
   children,
   actions,
+  footer,
   messageId,
   bubbleWidthPx,
   isSearchMatchActive = false,
 }: {
   children: ReactNode;
   actions?: ReactNode;
+  footer?: ReactNode;
   messageId?: string;
   bubbleWidthPx?: number | null;
   isSearchMatchActive?: boolean;
 }) {
   const containerClassName = isSearchMatchActive
-    ? "my-2 flex justify-end rounded-md ring-1 ring-blue-400/70 dark:ring-blue-500/70"
-    : "my-2 flex justify-end";
+    ? "my-2 flex justify-end rounded-md ring-1 ring-blue-400/70 dark:ring-blue-500/70 @container/chat-message"
+    : "my-2 flex justify-end @container/chat-message";
   return (
     <div
       className={containerClassName}
       data-chat-search-active-match={isSearchMatchActive ? "true" : "false"}
     >
       <div
-        className={`group @container/chat-message flex ${CHAT_BUBBLE_MAX_WIDTH_CLASS} flex-col items-end`}
+        className={`group flex w-fit ${CHAT_BUBBLE_MAX_WIDTH_CLASS} flex-col items-end`}
         data-message-id={messageId}
       >
         <div
-          className="relative flex w-fit max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-t-lg rounded-bl-lg border border-blue-300 bg-blue-200 pb-2 pl-3 pr-2.5 pt-1 text-setta-950 dark:border-blue-800/80 dark:bg-blue-950 dark:text-white"
+          className="relative inline-flex max-w-full cursor-text flex-col gap-1.5 rounded-t-lg rounded-bl-lg border border-blue-300 bg-blue-200 pb-2 pl-3 pr-2.5 pt-1 text-setta-950 dark:border-blue-800/80 dark:bg-blue-950 dark:text-white"
           data-chat-user-bubble="true"
           style={
             typeof bubbleWidthPx === "number"
@@ -5715,6 +5716,7 @@ function UserChatBubble({
             </div>
           ) : null}
         </div>
+        {footer}
       </div>
     </div>
   );
@@ -5723,24 +5725,26 @@ function UserChatBubble({
 function SystemChatBubble({
   children,
   actions,
+  footer,
   messageId,
   isSearchMatchActive = false,
 }: {
   children: ReactNode;
   actions?: ReactNode;
+  footer?: ReactNode;
   messageId?: string;
   isSearchMatchActive?: boolean;
 }) {
   const containerClassName = isSearchMatchActive
-    ? "my-2 flex justify-center rounded-md ring-1 ring-blue-400/70 dark:ring-blue-500/70"
-    : "my-2 flex justify-center";
+    ? "my-2 flex justify-center rounded-md ring-1 ring-blue-400/70 dark:ring-blue-500/70 @container/chat-message"
+    : "my-2 flex justify-center @container/chat-message";
   return (
     <div
       className={containerClassName}
       data-chat-search-active-match={isSearchMatchActive ? "true" : "false"}
     >
       <div
-        className="group @container/chat-message flex max-w-[min(90%,800px)] flex-col items-start"
+        className="group flex max-w-[min(90%,800px)] flex-col items-start"
         data-message-id={messageId}
       >
         <div
@@ -5757,6 +5761,7 @@ function SystemChatBubble({
             </div>
           ) : null}
         </div>
+        {footer}
       </div>
     </div>
   );
@@ -6249,8 +6254,10 @@ const ChatMessage = memo(function ChatMessage({
                 />
               );
             })}
-            <ChatMessageTimestampFooter timestampMs={messageTimestampMs} />
           </LLMChatBubble>
+        ) : null}
+        {shouldRenderBubble ? (
+          <ChatMessageTimestampFooter timestampMs={messageTimestampMs} />
         ) : null}
         <AssistantTypingIndicator
           visible={
@@ -6298,6 +6305,7 @@ const ChatMessage = memo(function ChatMessage({
     <Wrapper
       messageId={message.id}
       actions={actionBar}
+      footer={<ChatMessageTimestampFooter timestampMs={messageTimestampMs} />}
       isSearchMatchActive={isSearchMatchActive}
     >
       <ChatAttachmentList
@@ -6341,7 +6349,6 @@ const ChatMessage = memo(function ChatMessage({
         }
         return null;
       })}
-      <ChatMessageTimestampFooter timestampMs={messageTimestampMs} />
     </Wrapper>
   );
 });

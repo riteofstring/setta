@@ -661,6 +661,76 @@ test.describe.serial("chat tool calls", () => {
     }
   });
 
+  test("message timestamps do not collapse chat bubbles into narrow columns", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const { sectionId, sectionName } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "__pw_message_timestamp_bubble_width__",
+      );
+
+      const section = findSectionByName(page, sectionName);
+      await expect(section).toBeVisible();
+
+      const userMessageText =
+        "Please create a simple app. Feel free to spawn subagents to do this. You can choose what to create.";
+      const assistantMessageText =
+        "Hello. I can help with that and outline the first implementation pass.";
+
+      await setChatSectionState(page, {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        state: {
+          messages: [
+            {
+              id: "timestamp-user-message",
+              role: "user",
+              content: [{ type: "text", text: userMessageText }],
+              attachments: [],
+              createdAt: Date.parse("2026-01-01T18:29:00Z"),
+            },
+            {
+              id: "timestamp-assistant-message",
+              role: "assistant",
+              content: [{ type: "text", text: assistantMessageText }],
+              attachments: [],
+              createdAt: Date.parse("2026-01-01T18:30:00Z"),
+            },
+          ],
+          inputText: "",
+          waitingForResponse: false,
+          toolCallArguments: {},
+        },
+      });
+
+      const userGroup = getMessageGroup(section, userMessageText);
+      const assistantGroup = getMessageGroup(section, assistantMessageText);
+      const userBubble = userGroup.locator('[data-chat-user-bubble="true"]').first();
+      const assistantBubble = assistantGroup
+        .locator('[data-chat-assistant-bubble="true"]')
+        .first();
+      await userBubble.scrollIntoViewIfNeeded();
+      await assistantBubble.scrollIntoViewIfNeeded();
+      await expect(userBubble).toBeVisible();
+      await expect(assistantBubble).toBeVisible();
+
+      await expect.poll(() => getBubbleWidth(userBubble)).toBeGreaterThan(120);
+      await expect
+        .poll(() => getBubbleWidth(assistantBubble))
+        .toBeGreaterThan(120);
+      await expect(
+        section.locator('[data-chat-message-timestamp="true"]'),
+      ).toHaveCount(2);
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("renders tool outputs with structured syntax highlighting for diff and yaml", async ({
     page,
   }) => {
@@ -1200,4 +1270,12 @@ function findSectionByName(page: Page, name: string): Locator {
     .locator('section[class*="card-section"]')
     .filter({ has: page.locator("header.section-title p", { hasText: name }) })
     .first();
+}
+
+function getMessageGroup(section: Locator, text: string): Locator {
+  return section.locator("[data-message-id]").filter({ hasText: text }).first();
+}
+
+async function getBubbleWidth(bubble: Locator): Promise<number> {
+  return bubble.evaluate((element) => element.getBoundingClientRect().width);
 }
