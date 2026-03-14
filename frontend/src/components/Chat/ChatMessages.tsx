@@ -1300,6 +1300,10 @@ function resolveLatestActivityPreview({
 }): ActivityPreviewData {
   const hasStreamingThought = resolveHasStreamingThought(timelineEntries);
   const thoughtText = resolveLatestThoughtText(timelineEntries);
+  const thinkingEntryCount = timelineEntries.filter(
+    (entry) => entry.kind === "thinking",
+  ).length;
+  const hasThoughtPreviewText = (thoughtText?.trim().length ?? 0) > 0;
   const latestEntry = timelineEntries[timelineEntries.length - 1];
   if (!latestEntry) {
     return {
@@ -1311,12 +1315,25 @@ function resolveLatestActivityPreview({
     };
   }
   if (latestEntry.kind === "thinking") {
+    if (hasThoughtPreviewText) {
+      return {
+        label: hasStreamingThought
+          ? "Thinking"
+          : thinkingEntryCount > 1
+            ? "Thoughts"
+            : "Reasoning",
+        kind: "thought",
+        thoughtText,
+        hasStreamingThought,
+        shouldScrambleTitle: false,
+      };
+    }
     const latestHeadline = resolveThinkingPreviewHeadline(
       latestEntry.thinkingEntry,
     );
     if (latestHeadline.headline) {
       return {
-        label: `Thought: ${latestHeadline.headline}`,
+        label: latestHeadline.headline,
         kind: "thought",
         thoughtText,
         hasStreamingThought,
@@ -1329,7 +1346,7 @@ function resolveLatestActivityPreview({
     );
     if (fallbackHeadline) {
       return {
-        label: `Thought: ${fallbackHeadline}`,
+        label: fallbackHeadline,
         kind: "thought",
         thoughtText,
         hasStreamingThought,
@@ -1338,15 +1355,15 @@ function resolveLatestActivityPreview({
     }
     if (latestHeadline.shouldScramble) {
       return {
-        label: "Thought: Thinking...",
+        label: "Thinking",
         kind: "thought",
         thoughtText,
         hasStreamingThought,
-        shouldScrambleTitle: true,
+        shouldScrambleTitle: false,
       };
     }
     return {
-      label: "Thought: Reasoning complete.",
+      label: "Reasoning",
       kind: "thought",
       thoughtText,
       hasStreamingThought,
@@ -1779,6 +1796,11 @@ function resolveThinkingSummaryHeadline({
   summary: string | null | undefined;
   isStreaming: boolean;
 }): string {
+  if (isStreaming) {
+    return (
+      resolveStreamingThinkingHeadline({ content, summary }) ?? "Thinking..."
+    );
+  }
   return resolveThinkingSummaryMeta({ content, summary, isStreaming }).headline;
 }
 
@@ -1786,9 +1808,6 @@ function resolveLatestThinkingSummary(
   thinkingItems: ThinkingContentItem[],
   isStreaming: boolean,
 ): string {
-  if (isStreaming) {
-    return "Thinking...";
-  }
   const latestItem = thinkingItems[thinkingItems.length - 1];
   if (!latestItem) {
     return "No thoughts yet.";
@@ -3110,10 +3129,8 @@ const ThinkingBox = memo(function ThinkingBox({
       observer = new ResizeObserver(measure);
       observer.observe(summaryPreviewRef.current);
     }
-    window.addEventListener("resize", measure);
     return () => {
       window.cancelAnimationFrame(frame);
-      window.removeEventListener("resize", measure);
       observer?.disconnect();
     };
   }, [activityHint, shouldMeasureSummaryOverflow, summaryHeadlineText]);
@@ -3367,10 +3384,8 @@ const ThinkingSection = memo(function ThinkingSection({
       observer = new ResizeObserver(measure);
       observer.observe(summaryPreviewRef.current);
     }
-    window.addEventListener("resize", measure);
     return () => {
       window.cancelAnimationFrame(frame);
-      window.removeEventListener("resize", measure);
       observer?.disconnect();
     };
   }, [latestSummary, shouldMeasureSummaryOverflow]);
@@ -3538,9 +3553,22 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
         setHasOverflow(false);
         return;
       }
+      const maxScrollTop = Math.max(
+        0,
+        current.scrollHeight - current.clientHeight,
+      );
       const nextHasOverflow =
-        current.scrollHeight > current.clientHeight + 1 &&
-        text.trim().length > 0;
+        maxScrollTop > 1 && text.trim().length > 0;
+      if (nextHasOverflow && pinnedBottomTextRef.current === text) {
+        animatedScrollTopRef.current = maxScrollTop;
+        current.scrollTop = maxScrollTop;
+        setIsPinnedToBottom(true);
+      } else if (!nextHasOverflow) {
+        animatedScrollTopRef.current = 0;
+        current.scrollTop = 0;
+        pinnedBottomTextRef.current = null;
+        setIsPinnedToBottom(false);
+      }
       setHasOverflow((prev) =>
         prev === nextHasOverflow ? prev : nextHasOverflow,
       );
@@ -3552,10 +3580,8 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
       observer = new ResizeObserver(measure);
       observer.observe(element);
     }
-    window.addEventListener("resize", measure);
     return () => {
       window.cancelAnimationFrame(frameId);
-      window.removeEventListener("resize", measure);
       observer?.disconnect();
     };
   }, [text]);
@@ -3576,7 +3602,7 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
       element.scrollTop = 0;
       setIsPinnedToBottom(false);
     }
-    if (!animate || !hasOverflow) {
+    if (!hasOverflow) {
       animatedScrollTopRef.current = 0;
       element.scrollTop = 0;
       pinnedBottomTextRef.current = null;
@@ -3592,6 +3618,13 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
       element.scrollTop = 0;
       pinnedBottomTextRef.current = null;
       setIsPinnedToBottom(false);
+      return;
+    }
+    if (!animate) {
+      animatedScrollTopRef.current = maxScrollTop;
+      element.scrollTop = maxScrollTop;
+      pinnedBottomTextRef.current = text;
+      setIsPinnedToBottom(true);
       return;
     }
     if (pinnedBottomTextRef.current === text) {

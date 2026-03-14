@@ -145,6 +145,42 @@ test.describe.serial("chat activity thought preview", () => {
             Math.round(appendedIdleMetrics.visibleLineSlots),
         ),
       ).toBeLessThan(0.08);
+
+      await setChatSectionState(page, {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        state: {
+          messages: [
+            {
+              id: "activity-thought-preview-message",
+              role: "assistant",
+              content: [
+                {
+                  type: "thinking",
+                  thinking: `${initialThought}\n${buildOverflowingThoughtText("appended")}`,
+                  summary: "",
+                },
+              ],
+              attachments: [],
+              tool_calls: null,
+            },
+          ],
+          inputText: "",
+          waitingForResponse: false,
+          toolCallArguments: {},
+        },
+      });
+
+      // Finishing the stream should keep the collapsed preview pinned at the
+      // latest line instead of snapping back to the first line.
+      await expect.poll(async () => {
+        const metrics = await getThoughtPreviewMetrics(preview);
+        return (
+          metrics.maxScrollTop > 0 &&
+          metrics.scrollTop >= metrics.maxScrollTop - 1 &&
+          metrics.atBottom
+        );
+      }).toBe(true);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

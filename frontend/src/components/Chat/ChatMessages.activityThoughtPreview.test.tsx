@@ -25,6 +25,10 @@ type ScrollMetricsController = {
   setScrollHeight: (nextScrollHeight: number) => void;
 };
 
+type ResizeObserverController = {
+  trigger: () => Promise<void>;
+};
+
 describe("ChatMessages activity thought preview scroll", () => {
   let host: HTMLDivElement;
   let root: Root;
@@ -33,6 +37,8 @@ describe("ChatMessages activity thought preview scroll", () => {
   let pendingAnimationFrames: Map<number, FrameRequestCallback>;
   let performanceNowSpy: MockInstance<() => number>;
   let setStreamingThoughtText: ((nextThinking: string) => void) | null;
+  let setWaitingForResponse: ((nextWaiting: boolean) => void) | null;
+  let resizeObserverController: ResizeObserverController;
 
   beforeEach(() => {
     host = document.createElement("div");
@@ -42,14 +48,12 @@ describe("ChatMessages activity thought preview scroll", () => {
     nextAnimationFrameId = 0;
     pendingAnimationFrames = new Map<number, FrameRequestCallback>();
     setStreamingThoughtText = null;
+    setWaitingForResponse = null;
     performanceNowSpy = vi
       .spyOn(window.performance, "now")
       .mockImplementation(() => currentAnimationMs);
 
-    vi.stubGlobal("ResizeObserver", class ResizeObserverMock {
-      observe() {}
-      disconnect() {}
-    });
+    resizeObserverController = installResizeObserverMock();
     vi.stubGlobal(
       "requestAnimationFrame",
       ((callback: FrameRequestCallback) => {
@@ -163,6 +167,49 @@ describe("ChatMessages activity thought preview scroll", () => {
     expect(scroll.getScrollTop()).toBe(scroll.getMaxScrollTop());
   });
 
+  it("stays pinned to the latest line after streaming stops", async () => {
+    await renderStreamingThoughtPreview(buildStreamingThoughtText("complete"));
+
+    const preview = getThoughtPreviewElement(host);
+    const scroll = attachScrollMetrics(preview, {
+      clientHeight: 40,
+      scrollHeight: 140,
+    });
+
+    await enablePreviewScrollMeasurement();
+    await flushAnimationFrames(48);
+
+    expect(
+      preview.getAttribute("data-chat-assistant-activity-thought-at-bottom"),
+    ).toBe("true");
+    expect(scroll.getScrollTop()).toBe(scroll.getMaxScrollTop());
+
+    if (!setWaitingForResponse) {
+      throw new Error("Expected waiting state setter.");
+    }
+    await act(async () => {
+      setWaitingForResponse(false);
+    });
+    await enablePreviewScrollMeasurement();
+    await flushAnimationFrames(16);
+
+    expect(
+      preview.getAttribute("data-chat-assistant-activity-thought-at-bottom"),
+    ).toBe("true");
+    expect(scroll.getScrollTop()).toBe(scroll.getMaxScrollTop());
+  });
+
+  it("does not register global resize listeners for chat thought measurement", async () => {
+    const addEventListenerSpy = vi.spyOn(window, "addEventListener");
+
+    await renderStreamingThoughtPreview(buildStreamingThoughtText("listeners"));
+
+    expect(addEventListenerSpy).not.toHaveBeenCalledWith(
+      "resize",
+      expect.any(Function),
+    );
+  });
+
   async function renderStreamingThoughtPreview(thinking: string) {
     await act(async () => {
       root.render(<StreamingThoughtPreviewHarness initialThinking={thinking} />);
@@ -223,9 +270,7 @@ describe("ChatMessages activity thought preview scroll", () => {
   }
 
   async function enablePreviewScrollMeasurement() {
-    await act(async () => {
-      window.dispatchEvent(new Event("resize"));
-    });
+    await resizeObserverController.trigger();
     await flushAnimationFrames(2);
   }
 
@@ -252,7 +297,9 @@ describe("ChatMessages activity thought preview scroll", () => {
     initialThinking: string;
   }) {
     const [thinking, setThinking] = useState(initialThinking);
+    const [waitingForResponse, setWaiting] = useState(true);
     setStreamingThoughtText = setThinking;
+    setWaitingForResponse = setWaiting;
     const messages: BaseChatMessageUnion[] = [
       {
         id: "activity-thought-preview-message",
@@ -267,6 +314,41 @@ describe("ChatMessages activity thought preview scroll", () => {
         tool_calls: null,
       },
     ];
-    return <ChatMessageList messages={messages} waitingForResponse={true} />;
+    return (
+      <ChatMessageList
+        messages={messages}
+        waitingForResponse={waitingForResponse}
+      />
+    );
   }
 });
+
+function installResizeObserverMock(): ResizeObserverController {
+  const callbacks = new Set<ResizeObserverCallback>();
+  vi.stubGlobal(
+    "ResizeObserver",
+    class ResizeObserverMock {
+      private callback: ResizeObserverCallback;
+
+      constructor(callback: ResizeObserverCallback) {
+        this.callback = callback;
+        callbacks.add(callback);
+      }
+
+      observe() {}
+
+      disconnect() {
+        callbacks.delete(this.callback);
+      }
+    },
+  );
+  return {
+    trigger: async () => {
+      await act(async () => {
+        callbacks.forEach((callback) =>
+          callback([], {} as ResizeObserver),
+        );
+      });
+    },
+  };
+}

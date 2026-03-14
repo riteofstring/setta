@@ -1021,7 +1021,7 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).toContain("00:00");
   });
 
-  it("promotes streaming thought titles early when summary text is available", () => {
+  it("keeps streaming activity titles stable while summary metadata updates in the thought row", () => {
     const messages: BaseChatMessageUnion[] = [
       {
         id: "m-reasoning-streaming-stable-summary",
@@ -1041,9 +1041,15 @@ describe("ChatMessages assistant reasoning layout", () => {
       <ChatMessageList messages={messages} waitingForResponse={true} />,
     );
 
-    expect(markup).toContain(
-      "Thought: Interim summary text available while streaming.",
+    const activityTitleTag = getDivHtmlByMarker(
+      markup,
+      'data-chat-assistant-activity-latest="true"',
     );
+    expect(activityTitleTag).toContain("Thinking");
+    expect(activityTitleTag).not.toContain(
+      "Interim summary text available while streaming.",
+    );
+    expect(markup).toContain("Interim summary text available while streaming.");
     expect(markup).toContain(
       'data-chat-assistant-activity-latest-scrambling="false"',
     );
@@ -1055,7 +1061,7 @@ describe("ChatMessages assistant reasoning layout", () => {
     );
   });
 
-  it("derives streaming thought titles from the first meaningful line", () => {
+  it("keeps streaming activity titles generic instead of mirroring the full thought sentence", () => {
     const messages: BaseChatMessageUnion[] = [
       {
         id: "m-reasoning-streaming-meaningful-line",
@@ -1076,8 +1082,16 @@ describe("ChatMessages assistant reasoning layout", () => {
       <ChatMessageList messages={messages} waitingForResponse={true} />,
     );
 
+    const activityTitleTag = getDivHtmlByMarker(
+      markup,
+      'data-chat-assistant-activity-latest="true"',
+    );
+    expect(activityTitleTag).toContain("Thinking");
+    expect(activityTitleTag).not.toContain(
+      "Reviewing grouped activity rows before final answer output.",
+    );
     expect(markup).toContain(
-      "Thought: Reviewing grouped activity rows before final answer output.",
+      "Reviewing grouped activity rows before final answer output.",
     );
     expect(markup).toContain(
       'data-chat-assistant-activity-latest-scrambling="false"',
@@ -1107,7 +1121,11 @@ describe("ChatMessages assistant reasoning layout", () => {
       <ChatMessageList messages={messages} waitingForResponse={true} />,
     );
 
-    expect(markup).not.toContain("Thought: Thinking...");
+    const activityTitleTag = getDivHtmlByMarker(
+      markup,
+      'data-chat-assistant-activity-latest="true"',
+    );
+    expect(activityTitleTag).toContain("Reasoning");
     expect(markup).not.toContain(
       'data-chat-assistant-activity-latest-scrambling="true"',
     );
@@ -1144,9 +1162,11 @@ describe("ChatMessages assistant reasoning layout", () => {
     );
 
     expect(markup).toContain('data-chat-thinking-item-rail-state="running"');
-    expect(markup).toContain(
-      "Thought: Refining activity title timing before answer output.",
+    const activityTitleTag = getDivHtmlByMarker(
+      markup,
+      'data-chat-assistant-activity-latest="true"',
     );
+    expect(activityTitleTag).toContain("Thinking");
     expect(markup).not.toContain('data-chat-assistant-bubble="true"');
   });
 
@@ -1257,7 +1277,12 @@ describe("ChatMessages assistant reasoning layout", () => {
     );
     expect(markup).toContain('data-chat-thinking-expandable="true"');
     expect(markup).toContain('data-chat-thinking-chevron="true"');
-    expect(markup).toContain("Thought: Reviewing approach");
+    const activityTitleTag = getDivHtmlByMarker(
+      markup,
+      'data-chat-assistant-activity-latest="true"',
+    );
+    expect(activityTitleTag).toContain("Reasoning");
+    expect(markup).toContain("Reviewing approach");
     expect(markup).toContain(
       'data-chat-assistant-activity-latest-scrambling="false"',
     );
@@ -1290,8 +1315,13 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(countOccurrences(markup, 'data-chat-thinking-section="true"')).toBe(
       2,
     );
-    expect(markup).toContain("Thought: Second summary");
+    const activityTitleTag = getDivHtmlByMarker(
+      markup,
+      'data-chat-assistant-activity-latest="true"',
+    );
+    expect(activityTitleTag).toContain("Thoughts");
     expect(markup).toContain("First summary");
+    expect(markup).toContain("Second summary");
   });
 
   it("groups consecutive thinking-only assistant messages into one sequential activity section", () => {
@@ -1335,7 +1365,11 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(countOccurrences(markup, 'data-chat-thinking-section="true"')).toBe(
       2,
     );
-    expect(markup).toContain("Thought: Second summary");
+    const activityTitleTag = getDivHtmlByMarker(
+      markup,
+      'data-chat-assistant-activity-latest="true"',
+    );
+    expect(activityTitleTag).toContain("Thoughts");
     expect(markup).not.toContain('data-chat-assistant-bubble="true"');
   });
 

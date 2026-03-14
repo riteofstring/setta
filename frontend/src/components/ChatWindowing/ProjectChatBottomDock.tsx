@@ -1438,9 +1438,15 @@ export function ProjectChatBottomDock() {
   }, []);
 
   useEffect(() => {
-    const handleViewportResize = () => {
-      setViewportWidthPx(window.innerWidth);
-      setViewportHeightPx(window.innerHeight);
+    let frameRequestId: number | null = null;
+    const applyViewportResize = () => {
+      frameRequestId = null;
+      setViewportWidthPx((current) =>
+        current === window.innerWidth ? current : window.innerWidth,
+      );
+      setViewportHeightPx((current) =>
+        current === window.innerHeight ? current : window.innerHeight,
+      );
       const pane = document.querySelector(".react-flow__pane");
       if (!(pane instanceof HTMLElement)) {
         return;
@@ -1455,14 +1461,21 @@ export function ProjectChatBottomDock() {
         });
       }
     };
-    handleViewportResize();
-    const rafRequestId = window.requestAnimationFrame(handleViewportResize);
-    const delayedRefreshTimer = window.setTimeout(handleViewportResize, 180);
-    window.addEventListener("resize", handleViewportResize);
+    const scheduleViewportResize = () => {
+      if (frameRequestId !== null) {
+        return;
+      }
+      frameRequestId = window.requestAnimationFrame(applyViewportResize);
+    };
+    applyViewportResize();
+    const delayedRefreshTimer = window.setTimeout(scheduleViewportResize, 180);
+    window.addEventListener("resize", scheduleViewportResize);
     return () => {
-      window.cancelAnimationFrame(rafRequestId);
+      if (frameRequestId !== null) {
+        window.cancelAnimationFrame(frameRequestId);
+      }
       window.clearTimeout(delayedRefreshTimer);
-      window.removeEventListener("resize", handleViewportResize);
+      window.removeEventListener("resize", scheduleViewportResize);
     };
   }, []);
 

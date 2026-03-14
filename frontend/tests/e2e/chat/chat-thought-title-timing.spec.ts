@@ -94,7 +94,7 @@ test.describe.serial("chat thought title timing", () => {
         '[data-chat-assistant-activity-latest="true"]',
       );
 
-      await expect(activityLatest).toContainText(`Thought: ${localThinking}`, {
+      await expect(activityLatest).toContainText("Thinking", {
         timeout: 10000,
       });
 
@@ -149,12 +149,9 @@ test.describe.serial("chat thought title timing", () => {
         },
       );
 
-      await expect(activityLatest).toContainText(
-        `Thought: ${backendSummary}`,
-        {
-          timeout: 10000,
-        },
-      );
+      await expect(activityLatest).toContainText("Thinking", {
+        timeout: 10000,
+      });
 
       const activityTrigger = section.locator(
         '[data-chat-assistant-activity-trigger="true"]',
@@ -166,6 +163,9 @@ test.describe.serial("chat thought title timing", () => {
       if (!(await thinkingTrigger.isVisible())) {
         await activityTrigger.click();
       }
+      await expect(thinkingTrigger).toContainText(backendSummary, {
+        timeout: 10000,
+      });
       await expect(thinkingTrigger).toHaveAttribute(
         "data-chat-thinking-expandable",
         "true",
