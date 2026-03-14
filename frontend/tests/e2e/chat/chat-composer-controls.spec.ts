@@ -1203,6 +1203,229 @@ test.describe.serial("chat composer controls", () => {
     }
   });
 
+  test("project chat runs managed Anthropic MCP tool calls through the Go runtime", async ({
+    page,
+  }) => {
+    await setOverviewTab(page, "ProjectAIChat");
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const engineCleanup = await ensureManagedChatEngine(page);
+    const backendOrigin =
+      process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+
+    let createdEngineConfigId: string | null = null;
+    let initialLLMConfig: LLMConfigPayload | null = null;
+    let initialAPIKeysSnapshot: ManagedAPIKeysSnapshot | null = null;
+    let latestAPIKeysSnapshot: ManagedAPIKeysSnapshot | null = null;
+    let submittedPayload:
+      | {
+          thinking?: boolean;
+          engineConfigId?: string;
+        }
+      | undefined;
+    const providerServer = await startManagedAnthropicToolCallServer();
+
+    await page.route("**/api/getLLMResponse", async (route) => {
+      submittedPayload = route.request().postDataJSON() as
+        | {
+            thinking?: boolean;
+            engineConfigId?: string;
+          }
+        | undefined;
+      const response = await route.fetch();
+      const body = await response.body();
+      await route.fulfill({ response, body });
+    });
+
+    try {
+      const llmConfigResponse = await page.request.get(
+        `${backendOrigin}/api/llm/config`,
+      );
+      expect(llmConfigResponse.ok()).toBe(true);
+      initialLLMConfig = (await llmConfigResponse.json()) as LLMConfigPayload;
+      const apiKeysResponse = await page.request.get(
+        `${backendOrigin}/api/llm/apiKeys`,
+      );
+      expect(apiKeysResponse.ok()).toBe(true);
+      initialAPIKeysSnapshot =
+        (await apiKeysResponse.json()) as ManagedAPIKeysSnapshot;
+      latestAPIKeysSnapshot = initialAPIKeysSnapshot;
+
+      const anthropicConfigId = `e2e-anthropic-tool-call-${Date.now()}`;
+      const updatedLLMConfig: LLMConfigPayload = {
+        ...initialLLMConfig,
+        configs: {
+          ...initialLLMConfig.configs,
+          [anthropicConfigId]: {
+            model: "claude-sonnet-4-5-20250929",
+            provider: "anthropic",
+            api_key_env: "ANTHROPIC_API_KEY",
+            base_url: providerServer.origin,
+            mcpServerIds: ["setta"],
+            other_params: null,
+          },
+        },
+        mcpServers: {
+          ...initialLLMConfig.mcpServers,
+          setta: {
+            transport: "sse",
+            url: `${backendOrigin}/mcp`,
+          },
+        },
+      };
+      await postBackend(page, "/llm/config", updatedLLMConfig);
+      latestAPIKeysSnapshot = await postManagedAPIKeys(page, {
+        apiKeys: {
+          ...initialAPIKeysSnapshot.apiKeys,
+          ANTHROPIC_API_KEY: "e2e-anthropic-secret",
+        },
+        expectedRevision: initialAPIKeysSnapshot.revision,
+      });
+
+      const createdEngine = await postBackend<EngineConfigSummary>(
+        page,
+        "/createEngineConfig",
+        {
+          name: "Anthropic Tool Call E2E",
+          engineType: "setta_llm",
+          settaLlmConfigId: anthropicConfigId,
+          defaults: {},
+        },
+      );
+      createdEngineConfigId = createdEngine?.id ?? null;
+      if (!createdEngineConfigId) {
+        throw new Error("Missing Anthropic tool-call engine config id.");
+      }
+
+      await expect
+        .poll(async () => {
+          const response = await page.request.post(
+            `${backendOrigin}/api/mcpServerRuntimeStatus`,
+            { data: {} },
+          );
+          expect(response.ok()).toBe(true);
+          const payload =
+            (await response.json()) as MCPRuntimeStatusResponse;
+          return (
+            payload.servers.find((server) => server.serverId === "setta")
+              ?.state ?? null
+          );
+        })
+        .toBe("connected");
+
+      await page.evaluate(async () => {
+        const { loadEngineConfigs, loadLLMConfig } = await import(
+          "/src/state/actions/ai.ts"
+        );
+        await loadLLMConfig();
+        await loadEngineConfigs(true);
+      });
+
+      await setOverviewTab(page, "ProjectAIChat");
+      const overviewPane = page.locator("#OverviewPane");
+      await expect(
+        overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+      ).toBeVisible();
+
+      const projectChatSurface = await getVisibleProjectChatSurface(page);
+      await selectProjectAiEngine(page, "Anthropic Tool Call E2E");
+      await expect(
+        projectChatSurface.getByRole("button", { name: "Thinking" }),
+      ).toHaveCount(0);
+
+      const input = projectChatSurface.getByPlaceholder("Type a message...");
+      await expect(input).toBeVisible();
+      await input.fill("Report status and then respond.");
+      await input.press("Enter");
+
+      await expect
+        .poll(() => submittedPayload?.engineConfigId ?? null)
+        .toBe(createdEngineConfigId);
+      expect(submittedPayload?.thinking).toBe(false);
+      await expect.poll(() => providerServer.requests.length).toBe(2);
+
+      const firstProviderRequest = providerServer.requests[0];
+      expect(firstProviderRequest?.path).toBe("/v1/messages");
+      expect(firstProviderRequest?.apiKey).toBe("e2e-anthropic-secret");
+      expect(firstProviderRequest?.body.model).toBe("claude-sonnet-4-5-20250929");
+      const firstTools = Array.isArray(firstProviderRequest?.body.tools)
+        ? firstProviderRequest.body.tools
+        : [];
+      expect(JSON.stringify(firstTools)).toContain(
+        "setta__report_completion_status",
+      );
+
+      const secondProviderRequest = providerServer.requests[1];
+      const secondMessages = Array.isArray(secondProviderRequest?.body.messages)
+        ? secondProviderRequest.body.messages
+        : [];
+      const secondMessagesJSON = JSON.stringify(secondMessages);
+      expect(secondMessagesJSON).toContain('"type":"tool_use"');
+      expect(secondMessagesJSON).toContain('"tool_use_id":"tool-call-1"');
+
+      const activitySection = projectChatSurface
+        .locator('[data-chat-assistant-activity-section="true"]')
+        .first();
+      await expect(activitySection).toBeVisible();
+      await expect(activitySection).toContainText("setta__report_completion_status");
+
+      const activityTrigger = activitySection.locator(
+        '[data-chat-assistant-activity-trigger="true"]',
+      );
+      const openAllButton = activitySection.locator(
+        '[data-chat-assistant-activity-open-all-button="true"]',
+      );
+      await activityTrigger.hover();
+      await openAllButton.evaluate((element: HTMLButtonElement) => {
+        element.click();
+      });
+      await expect(activityTrigger).toHaveAttribute("aria-expanded", "true");
+      const toolItemTrigger = activitySection.locator(
+        '[data-chat-tool-call-item-trigger="true"]',
+      );
+      await expect(toolItemTrigger).toBeVisible();
+      await expect(
+        activitySection.locator('[data-chat-tool-call-item="true"]'),
+      ).toHaveCount(1);
+      await expect(toolItemTrigger).toContainText(
+        "setta__report_completion_status",
+      );
+      await expect(projectChatSurface).toContainText("Tool-backed anthropic reply");
+    } finally {
+      try {
+        await setOverviewTab(page, "ProjectAIChat");
+        await selectProjectAiEngine(page, "setta");
+      } catch {
+        // Best-effort teardown: if the test already failed, don't block cleanup.
+      }
+      if (createdEngineConfigId) {
+        await page.request
+          .post(`${backendOrigin}/api/deleteEngineConfig`, {
+            data: { configId: createdEngineConfigId },
+            timeout: 5000,
+          })
+          .catch(() => {});
+      }
+      if (initialLLMConfig) {
+        await page.request
+          .post(`${backendOrigin}/api/llm/config`, {
+            data: initialLLMConfig,
+            timeout: 5000,
+          })
+          .catch(() => {});
+      }
+      if (initialAPIKeysSnapshot && latestAPIKeysSnapshot) {
+        await postManagedAPIKeys(page, {
+          apiKeys: initialAPIKeysSnapshot.apiKeys,
+          expectedRevision: latestAPIKeysSnapshot.revision,
+        }).catch(() => {});
+      }
+      await providerServer.close();
+      await engineCleanup();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("project chat submits standard managed OpenAI turns through the Go runtime", async ({
     page,
   }) => {
@@ -1386,7 +1609,7 @@ test.describe.serial("chat composer controls", () => {
     }
   });
 
-  test("project chat runs managed MCP tool calls through the Go runtime", async ({
+  test("project chat runs managed OpenAI MCP tool calls through the Go runtime", async ({
     page,
   }) => {
     await setOverviewTab(page, "ProjectAIChat");
@@ -4979,6 +5202,108 @@ async function startManagedAzureOpenAIChatServer(): Promise<ManagedAzureChatProv
       if (!address || typeof address === "string") {
         server.close(() =>
           reject(new Error("Unable to allocate Azure thinking test port.")),
+        );
+        return;
+      }
+      resolve({
+        origin: `http://127.0.0.1:${address.port}`,
+        requests,
+        close: async () =>
+          await new Promise<void>((closeResolve, closeReject) => {
+            server.close((error) => {
+              if (error) {
+                closeReject(error);
+                return;
+              }
+              closeResolve();
+            });
+          }),
+      });
+    });
+  });
+}
+
+async function startManagedAnthropicToolCallServer(): Promise<ManagedAnthropicStandardProviderServer> {
+  const requests: ManagedAnthropicStandardProviderRequest[] = [];
+  let requestCount = 0;
+  return await new Promise((resolve, reject) => {
+    const server = http.createServer((request, response) => {
+      const chunks: string[] = [];
+      request.setEncoding("utf8");
+      request.on("data", (chunk: string) => {
+        chunks.push(chunk);
+      });
+      request.on("end", () => {
+        try {
+          const rawBody = chunks.join("");
+          const body = rawBody
+            ? (JSON.parse(rawBody) as Record<string, unknown>)
+            : {};
+          requests.push({
+            path: new URL(request.url ?? "/", "http://127.0.0.1").pathname,
+            apiKey: Array.isArray(request.headers["x-api-key"])
+              ? request.headers["x-api-key"].join(", ")
+              : request.headers["x-api-key"] ?? "",
+            body,
+          });
+        } catch (error) {
+          response.statusCode = 400;
+          response.end(String(error));
+          return;
+        }
+
+        response.statusCode = 200;
+        response.setHeader("content-type", "text/event-stream");
+        if (requestCount === 0) {
+          response.write(
+            'event: message_start\ndata: {"type":"message_start","message":{"id":"msg-tool-1","type":"message","role":"assistant","content":[],"model":"claude-sonnet-4-5-20250929","stop_reason":null,"stop_sequence":null,"container":{"id":"container-1","expires_at":"2026-03-12T00:00:00Z"},"usage":{"input_tokens":18,"output_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"inference_geo":"us","server_tool_use":{"web_fetch_requests":0,"web_search_requests":0},"service_tier":"standard","cache_creation":{"ephemeral_1h_input_tokens":0,"ephemeral_5m_input_tokens":0}}}}\n\n',
+          );
+          response.write(
+            'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"tool-call-1","name":"setta__report_completion_status","input":{}}}\n\n',
+          );
+          response.write(
+            'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\\"completionIntent\\":false,\\"requiresVerification\\":false}"}}\n\n',
+          );
+          response.write(
+            'event: content_block_stop\ndata: {"type":"content_block_stop","index":0}\n\n',
+          );
+          response.write(
+            'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"tool_use","stop_sequence":null},"usage":{"input_tokens":18,"output_tokens":4,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"server_tool_use":{"web_fetch_requests":0,"web_search_requests":0}}}\n\n',
+          );
+          response.end('event: message_stop\ndata: {"type":"message_stop"}\n\n');
+          requestCount += 1;
+          return;
+        }
+        if (requestCount === 1) {
+          response.write(
+            'event: message_start\ndata: {"type":"message_start","message":{"id":"msg-tool-2","type":"message","role":"assistant","content":[],"model":"claude-sonnet-4-5-20250929","stop_reason":null,"stop_sequence":null,"container":{"id":"container-2","expires_at":"2026-03-12T00:00:00Z"},"usage":{"input_tokens":23,"output_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"inference_geo":"us","server_tool_use":{"web_fetch_requests":0,"web_search_requests":0},"service_tier":"standard","cache_creation":{"ephemeral_1h_input_tokens":0,"ephemeral_5m_input_tokens":0}}}}\n\n',
+          );
+          response.write(
+            'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n\n',
+          );
+          response.write(
+            'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Tool-backed anthropic reply"}}\n\n',
+          );
+          response.write(
+            'event: content_block_stop\ndata: {"type":"content_block_stop","index":0}\n\n',
+          );
+          response.write(
+            'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"input_tokens":23,"output_tokens":3,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"server_tool_use":{"web_fetch_requests":0,"web_search_requests":0}}}\n\n',
+          );
+          response.end('event: message_stop\ndata: {"type":"message_stop"}\n\n');
+          requestCount += 1;
+          return;
+        }
+        response.statusCode = 500;
+        response.end("unexpected provider request");
+      });
+    });
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close(() =>
+          reject(new Error("Unable to allocate Anthropic tool-call test port.")),
         );
         return;
       }
