@@ -1746,6 +1746,120 @@ test("canvas engine host clicks cached nested previews after dom islands unmount
   }
 });
 
+test("canvas engine host opens the selection menu from a cached nested preview after dom islands unmount", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+
+    const viewportBounds = await getEngineViewportBounds(page);
+    const groupId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Group",
+      viewportBounds,
+      position: { x: 420, y: 120 },
+    });
+    const childId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Code",
+      viewportBounds,
+      position: { x: 80, y: 120 },
+    });
+
+    await postBackend(page, "/moveSections", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionIds: [childId],
+      newParentId: groupId,
+      newIndex: 0,
+      positionsById: null,
+    });
+
+    const groupIsland = host.locator(
+      `[data-canvas-engine-dom-island="${groupId}"]`,
+    );
+    const childSection = groupIsland.locator(
+      `section[data-section-id="${childId}"]`,
+    );
+
+    await expect(groupIsland).toHaveCount(1);
+    await expect(childSection).toBeVisible();
+    const childBounds = await childSection.boundingBox();
+    if (!childBounds) {
+      throw new Error(
+        "Unable to resolve nested child bounds for cached context-menu test.",
+      );
+    }
+    const childCenterWorld = await screenPointToWorld(host, {
+      x: childBounds.x + childBounds.width / 2,
+      y: childBounds.y + childBounds.height / 2,
+    });
+
+    for (let index = 0; index < 16; index += 1) {
+      await page.getByRole("button", { name: "zoom out" }).click();
+    }
+
+    await expect
+      .poll(
+        async () =>
+          await readNumericHostAttribute(
+            host,
+            "data-canvas-engine-dom-island-mounted-count",
+          ),
+      )
+      .toBe(0);
+    await expect
+      .poll(
+        async () =>
+          await readNumericHostAttribute(
+            host,
+            "data-canvas-engine-nested-preview-count",
+          ),
+      )
+      .toBeGreaterThanOrEqual(1);
+
+    await page.waitForTimeout(50);
+
+    const childCenterScreen = await worldPointToScreen(host, childCenterWorld);
+    await dispatchCanvasHostPointerEvent(host, "pointerdown", {
+      button: 0,
+      clientX: childCenterScreen.x,
+      clientY: childCenterScreen.y,
+      pointerId: 1,
+    });
+    await dispatchCanvasHostPointerEvent(host, "pointerup", {
+      button: 0,
+      clientX: childCenterScreen.x,
+      clientY: childCenterScreen.y,
+      pointerId: 1,
+    });
+    await expect
+      .poll(async () => await readActiveSectionIds(host))
+      .toContain(childId);
+
+    await dispatchCanvasHostContextMenuEvent(host, {
+      clientX: childCenterScreen.x,
+      clientY: childCenterScreen.y,
+    });
+    await expect
+      .poll(async () => await readSelectionContextMenuState(page))
+      .toMatchObject({
+        isOpen: true,
+        nodeIds: [childId],
+      });
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("canvas engine host keeps nested data edges resolved after dom islands unmount", async ({
   page,
 }) => {
@@ -3245,6 +3359,20 @@ async function readTopLevelSectionPosition(
   };
 }
 
+async function readSelectionContextMenuState(page: Page): Promise<{
+  isOpen: boolean;
+  nodeIds: string[];
+}> {
+  return await page.evaluate(async () => {
+    const { useContextMenus } = await import("/src/state/definitions.ts");
+    const selection = useContextMenus.getState().selection;
+    return {
+      isOpen: selection.isOpen,
+      nodeIds: [...selection.nodeIds],
+    };
+  });
+}
+
 async function readTopLevelSectionLayout(
   page: Page,
   projectConfigId: string,
@@ -3494,6 +3622,32 @@ async function dispatchCanvasHostPointerEvent(
       clientX: init.clientX,
       clientY: init.clientY,
       pointerId: init.pointerId,
+    },
+  );
+}
+
+async function dispatchCanvasHostContextMenuEvent(
+  host: Locator,
+  init: {
+    clientX: number;
+    clientY: number;
+  },
+): Promise<void> {
+  await host.evaluate(
+    (element, eventInit) => {
+      element.dispatchEvent(
+        new MouseEvent("contextmenu", {
+          bubbles: true,
+          cancelable: true,
+          button: 2,
+          clientX: eventInit.clientX,
+          clientY: eventInit.clientY,
+        }),
+      );
+    },
+    {
+      clientX: init.clientX,
+      clientY: init.clientY,
     },
   );
 }
