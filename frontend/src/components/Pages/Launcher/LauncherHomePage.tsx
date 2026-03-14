@@ -109,13 +109,23 @@ type DirectoryListingState = {
   error: string | null;
 };
 
+type LauncherDirectoryPayload = LauncherListDirectoryResponse & {
+  truncated?: boolean;
+};
+
+function isDirectoryListingTruncated(
+  payload: LauncherDirectoryPayload,
+): boolean {
+  return payload.truncated === true;
+}
+
 export function applyDirectoryListingPage({
   previousEntries,
   payload,
   append,
 }: {
   previousEntries: Array<LauncherDirectoryEntryPayload>;
-  payload: LauncherListDirectoryResponse;
+  payload: LauncherDirectoryPayload;
   append: boolean;
 }): DirectoryListingState {
   const nextEntries = append
@@ -126,7 +136,7 @@ export function applyDirectoryListingPage({
       entries: nextEntries,
       hasMore: payload.hasMore,
       nextCursor: payload.nextCursor,
-      truncated: payload.truncated,
+      truncated: isDirectoryListingTruncated(payload),
       error:
         "Directory listing reported more results without a continuation cursor.",
     };
@@ -135,7 +145,7 @@ export function applyDirectoryListingPage({
     entries: nextEntries,
     hasMore: payload.hasMore,
     nextCursor: payload.nextCursor,
-    truncated: payload.truncated,
+    truncated: isDirectoryListingTruncated(payload),
     error: null,
   };
 }
@@ -179,9 +189,9 @@ export function LauncherHomePage() {
   const [openInFlight, setOpenInFlight] = useState(false);
 
   async function loadRecentWorkspaces() {
-    const response = await route_get_launcher_recent_workspaces({
-      setta_home: launcherContext.settaHome,
-    });
+    const response = await route_get_launcher_recent_workspaces(
+      launcherContext.settaHome,
+    );
     if (!res200(response) || !response.data) {
       setRecentWorkspacesError("Failed to load recent workspaces.");
       return;
