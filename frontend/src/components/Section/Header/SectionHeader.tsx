@@ -19,9 +19,9 @@ import {
   useLspDiagnostics,
   useProjectState,
   useShareSession,
-  useTemporaryMiscState,
 } from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
+import { useTemporaryMiscState } from "state/stores/layoutInteractionStores";
 import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import { getSectionHeaderHeightKey } from "utils/constants";
 import {

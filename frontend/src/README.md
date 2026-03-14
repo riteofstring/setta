@@ -120,9 +120,9 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
   - `state/definitions.ts` is now the shared index for the remaining
     cross-feature Zustand stores plus the atomic project-store publication
-    helpers on this branch. It is down to `956` lines after moving the AI/chat,
-    app runtime, session/share, browser, search, and feedback/status clusters
-    into domain-owned modules.
+    helpers on this branch. It is down to `883` lines after moving the AI/chat,
+    app runtime, session/share, browser, search, feedback/status, and
+    layout-interaction clusters into domain-owned modules.
   - `state/stores/aiStores.ts` owns the AI/chat Zustand stores and chat-specific
     store types such as `ChatDetails`, `ChatBranchInfo`, and
     `ProjectChatCustomSlashCommand`.
@@ -132,6 +132,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
     store state used across shell and overview surfaces.
   - `state/stores/fileBrowserStores.ts` owns the standalone, home-page,
     browser-section, and dropzone file-browser state surfaces.
+  - `state/stores/layoutInteractionStores.ts` owns section refs, edge-handle
+    registry state, temporary section measurement/preview state, and the
+    ephemeral layout interaction flags shared across section dragging, sizing,
+    minimap previews, and embedded project-chat git panes.
   - `state/stores/projectStatusStores.ts` owns run-control and project-loading
     status shared across run actions and route/deployment loading flows.
   - `state/stores/searchStores.ts` owns home-page search plus project search
@@ -193,7 +197,8 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/definitions.ts` remaining layout/local-editor store groups such as
-  `useMisc`, `useTemporaryMiscState`, and adjacent authoring/layout helpers
+- `state/definitions.ts` remaining persisted UI chrome and editor/runtime state
+  such as `useLocalStorage`, `useSettings`, `useWaitingForLSPResult`,
+  `useTypeErrors`, and `useLspDiagnostics`
 - shared project chat surfaces under `components/Chat/*`,
   `components/Panes/Overview/ProjectLevelAI/*`, and `components/ChatWindowing/*`

@@ -4,8 +4,8 @@ import {
   useLocalStorage,
   useNodeInternals,
   useProjectState,
-  useSectionRefs,
 } from "state/definitions";
+import { useSectionRefs } from "state/stores/layoutInteractionStores";
 import { Position } from "utils/generatedTypes";
 import { clamp } from "utils/utils";
 import { screenToFlowPosition } from "../hooks/useViewportHelper";

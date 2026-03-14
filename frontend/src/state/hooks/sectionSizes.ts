@@ -16,9 +16,9 @@ import {
   useProjectState,
   useResizeEvent,
   useSettings,
-  useTemporaryMiscState,
   ZustandProjectState,
 } from "state/definitions";
+import { useTemporaryMiscState } from "state/stores/layoutInteractionStores";
 import {
   getKwargsControlsHeightKey,
   getParamsFixedHeightKey,

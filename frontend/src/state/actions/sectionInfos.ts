@@ -25,7 +25,6 @@ import {
   runWithAtomicallyPublishedProjectStores,
   useAllProjectMetadata,
   useLocalStorage,
-  useMisc,
   useNodeInternals,
   usePendingOperations,
   useProjectState,
@@ -34,6 +33,7 @@ import {
   ZustandProjectState,
 } from "state/definitions";
 import { useToolArgumentPreview } from "state/stores/aiStores";
+import { useMisc } from "state/stores/layoutInteractionStores";
 import type { ResponseDataAndStatus } from "utils/endpointUtils";
 import { res200 } from "utils/endpointUtils";
 import {

@@ -1,5 +1,6 @@
 import { getParamDisplayName } from "state/actions/sectionInfos";
-import { useMisc, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
+import { useMisc } from "state/stores/layoutInteractionStores";
 
 export function ParamTextLabel({ sectionId, paramInfoId, onMouseDown, bg }) {
   const name = useProjectState((x) =>

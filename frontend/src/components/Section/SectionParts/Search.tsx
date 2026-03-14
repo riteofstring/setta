@@ -23,12 +23,12 @@ import {
   useLocalStorage,
   useProjectState,
   useShareSession,
-  useTemporaryMiscState,
   useToolArgumentPreview,
   useTypeErrors,
 } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useSectionImplIsFrozen } from "state/hooks/sectionVariants";
+import { useTemporaryMiscState } from "state/stores/layoutInteractionStores";
 import {
   CODEMIRROR_TOOLTIP_PARENT_ID,
   NO_PAN_CLASS_NAME,

@@ -7,8 +7,8 @@ import {
   useLocalStorage,
   useNodeInternals,
   useProjectState,
-  useTemporaryMiscState,
 } from "state/definitions";
+import { useTemporaryMiscState } from "state/stores/layoutInteractionStores";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import {

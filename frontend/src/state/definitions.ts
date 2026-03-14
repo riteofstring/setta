@@ -1,4 +1,4 @@
-import { HandlePosition, HandleType, Node } from "forks/xyflow/core/types";
+import { Node } from "forks/xyflow/core/types";
 import type { ChatSharedEdgeMode } from "state/actions/chatSharedHandleIds";
 import { parseAppGenerationMode } from "state/types/appGenerationMode";
 import {
@@ -40,16 +40,17 @@ import { persist, subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import { createWithEqualityFn } from "zustand/traditional";
 import { getPersistStorage } from "./storePersistStorage";
+import type {
+  ProjectChatAuxView,
+  ProjectChatCustomSlashCommand,
+} from "./stores/aiStores";
+import type { CustomRunItem } from "./stores/projectStatusStores";
+import { withProjectState, withResetFn } from "./utils";
 export {
   useAppConfigs,
   useAppDefinition,
   useAppPreview,
 } from "./stores/appStores";
-export {
-  useAllProjectMetadata,
-  useServerMode,
-  useShareSession,
-} from "./stores/sessionStores";
 export {
   useBackendLogEvents,
   useModal,
@@ -62,16 +63,18 @@ export {
   useHomeFileBrowserState,
 } from "./stores/fileBrowserStores";
 export {
-  useProjectLoading,
-  useRunControl,
-} from "./stores/projectStatusStores";
+  useEdgeHandleRegistry,
+  useMisc,
+  useSectionRefs,
+  useTemporaryMiscState,
+} from "./stores/layoutInteractionStores";
+export { useProjectLoading, useRunControl } from "./stores/projectStatusStores";
 export { useHomePageSearch, useProjectSearch } from "./stores/searchStores";
-import type {
-  ProjectChatAuxView,
-  ProjectChatCustomSlashCommand,
-} from "./stores/aiStores";
-import type { CustomRunItem } from "./stores/projectStatusStores";
-import { withProjectState, withResetFn } from "./utils";
+export {
+  useAllProjectMetadata,
+  useServerMode,
+  useShareSession,
+} from "./stores/sessionStores";
 
 export {
   useAgenticScopeHighlights,
@@ -90,6 +93,7 @@ export type {
 } from "./stores/aiStores";
 export type { BackendLogEventsFilter } from "./stores/feedbackStores";
 export type { FileBrowserState } from "./stores/fileBrowserStores";
+export type { EdgeHandleRecord } from "./stores/layoutInteractionStores";
 export type {
   CustomRunAction,
   CustomRunItem,
@@ -429,52 +433,6 @@ const useArtifacts = withProjectState(
   ),
 );
 
-export const useSectionRefs = withProjectState(
-  createWithEqualityFn(
-    subscribeWithSelector(
-      immer(
-        withResetFn(() => ({
-          withNested: {},
-          selfOnly: {},
-        })),
-      ),
-    ),
-  ),
-);
-
-export type EdgeHandleRecord = {
-  sectionId: string;
-  portId: string;
-  type: HandleType;
-  side: HandlePosition;
-  element: HTMLElement | null;
-};
-
-type EdgeHandlePosition = {
-  sectionId: string;
-  portId: string;
-  type: HandleType;
-  side: HandlePosition;
-  x: number;
-  y: number;
-};
-
-type ZustandEdgeHandleRegistry = {
-  handles: Record<string, EdgeHandleRecord>;
-  positions: Record<string, EdgeHandlePosition>;
-};
-
-export const useEdgeHandleRegistry = withProjectState(
-  createWithEqualityFn(
-    immer(
-      withResetFn<ZustandEdgeHandleRegistry>(() => ({
-        handles: {},
-        positions: {},
-      })),
-    ),
-  ),
-);
-
 export const useSettings = createWithEqualityFn<SettingsState>(() => ({}));
 
 type ZustandTypeErrors = {
@@ -543,37 +501,6 @@ export const useWebsocketConnectionList = createWithEqualityFn(
   withResetFn<ZustandWebsocketConnectionList>(() => ({
     connections: [],
   })),
-);
-
-export const useTemporaryMiscState = withProjectState(
-  createWithEqualityFn(subscribeWithSelector(withResetFn(() => ({})))),
-);
-
-export const useMisc = withProjectState(
-  createWithEqualityFn(
-    subscribeWithSelector(
-      withResetFn(() => ({
-        isPanScrolling: false,
-        lastMouseDownLocation: null,
-        lastMouseUpLocation: null,
-        mouseDownDrawArea: false,
-        mouseDownDraggingSection: false,
-        lastPaneClickLocation: { x: 0, y: 0 },
-        undoOrRedoWasTriggered: false,
-        isSelectingParams: false,
-        numDisplayedCodeAreas: 0,
-        numInitializedCodeAreas: 0,
-        requestUpdateNodeDimensions: false,
-        updateAllDrawAreas: 0,
-        updateDrawArea: {}, // sectionId to number that increments every time we want to update
-        projectChatTrackedGitPaneGraphWindowInstanceId: null as string | null,
-        projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {} as Record<
-          string,
-          true
-        >,
-      })),
-    ),
-  ),
 );
 
 export type ColorModePreference = "dark" | "light" | "auto";
