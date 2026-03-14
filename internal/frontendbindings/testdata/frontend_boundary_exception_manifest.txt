@@ -1,3 +1,5 @@
+backendFetch frontend/src/plugins/runtime.ts C_ADDRESSES.BACKEND
+backendURL frontend/src/components/App/AppRenderer.tsx C_ADDRESSES.BACKEND
 endpointUtils frontend/src/components/Section/Layouts/MetaControlArea.tsx post
 endpointUtils frontend/src/utils/generatedEndpoints.ts get
 endpointUtils frontend/src/utils/generatedEndpoints.ts getBinary

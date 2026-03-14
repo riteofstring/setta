@@ -7218,6 +7218,9 @@ func renderFrontendBoundaryExceptionManifest(t *testing.T, repoRoot string) stri
 		}
 		lines = append(lines, strings.Join([]string{record.Module, record.Path, record.Binding}, " "))
 	}
+	for _, record := range readFrontendDirectBackendTransportRecords(t, repoRoot) {
+		lines = append(lines, strings.Join([]string{record.Module, record.Path, record.Binding}, " "))
+	}
 	slices.Sort(lines)
 	return strings.Join(lines, "\n")
 }
@@ -7343,6 +7346,75 @@ func readFrontendBoundaryImportRecords(t *testing.T, repoRoot string) []frontend
 	})
 	if err != nil {
 		t.Fatalf("scan frontend boundary import records: %v", err)
+	}
+
+	return records
+}
+
+func readFrontendDirectBackendTransportRecords(t *testing.T, repoRoot string) []frontendBoundaryImportRecord {
+	t.Helper()
+
+	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
+	patterns := []struct {
+		module  string
+		binding string
+		pattern *regexp.Regexp
+	}{
+		{
+			module:  "backendFetch",
+			binding: "C_ADDRESSES.BACKEND",
+			pattern: regexp.MustCompile("fetch\\s*\\(\\s*`\\$\\{C_ADDRESSES\\.BACKEND\\}"),
+		},
+		{
+			module:  "backendURL",
+			binding: "C_ADDRESSES.BACKEND",
+			pattern: regexp.MustCompile("new URL\\s*\\(\\s*`\\$\\{C_ADDRESSES\\.BACKEND\\}"),
+		},
+	}
+
+	records := make([]frontendBoundaryImportRecord, 0)
+	err := filepath.WalkDir(frontendSrcRoot, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+
+		base := entry.Name()
+		if !(strings.HasSuffix(base, ".ts") || strings.HasSuffix(base, ".tsx")) {
+			return nil
+		}
+		if strings.Contains(base, ".test.") || strings.Contains(base, ".spec.") {
+			return nil
+		}
+
+		relativePath, err := filepath.Rel(repoRoot, path)
+		if err != nil {
+			return err
+		}
+		relativePath = filepath.ToSlash(relativePath)
+
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		source := string(contents)
+
+		for _, pattern := range patterns {
+			if !pattern.pattern.MatchString(source) {
+				continue
+			}
+			records = append(records, frontendBoundaryImportRecord{
+				Module:  pattern.module,
+				Path:    relativePath,
+				Binding: pattern.binding,
+			})
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("scan frontend direct backend transport records: %v", err)
 	}
 
 	return records

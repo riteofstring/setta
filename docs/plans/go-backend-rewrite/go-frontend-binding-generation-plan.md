@@ -267,8 +267,8 @@ Current status:
   callers should use the generated plugin backend route helper instead
 - the validation suite now also snapshots the current explicit frontend
   direct-transport exception inventory in a focused golden manifest, so the
-  remaining low-level `endpointUtils` seams stay reviewable as the converted
-  surface widens
+  remaining low-level `endpointUtils` seams plus the current direct backend
+  fetch/download-URL seams stay reviewable as the converted surface widens
 - the validation suite now also checks that the checked-in
   `generatedRoutes.ts`, `generatedTypes.ts`, and `generatedEndpoints.ts`
   files exactly match the current Go frontend binding generation pipeline
