@@ -20,8 +20,8 @@ import {
   setGitGraphFilterText,
   toggleGitGraphAllRefs,
 } from "state/actions/git";
-import { useLocalStorage } from "state/definitions";
 import { useGitStore } from "state/git";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import type {
   GetGitCommitDetailsResponse,
   GitCommit,
