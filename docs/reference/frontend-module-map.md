@@ -92,5 +92,6 @@ This is the front door for authored frontend code under `frontend/src/`.
 - Need a mutation path: search in `state/actions/`.
 - Need chat or project-AI commands: start in `state/actions/ai.ts` and extracted domain modules under `state/actions/ai/`.
 - Need LLM config or managed API-key mutations: open `state/actions/ai/llmSettings.ts`.
+- Need Project AI profiles/templates/engine/transcription resource mutations: open `state/actions/ai/projectAiResources.ts`.
 - Need shared derived state or a component-facing hook: search in `state/hooks/`.
 - Need a pure cross-feature helper: check `utils/`.
