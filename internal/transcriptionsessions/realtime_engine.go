@@ -292,7 +292,7 @@ func (e *realtimeEngine) drainStartupEvents(ctx context.Context, timeout time.Du
 			if err != nil {
 				return err
 			}
-			if ready {
+			if ready && !readySeen {
 				// Keep draining a fixed post-ack startup window so immediate
 				// provider rejections do not escape into the first append while
 				// unrelated provider noise cannot extend startup indefinitely.

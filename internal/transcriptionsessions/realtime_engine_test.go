@@ -756,6 +756,44 @@ func TestRealtimeEngineDrainStartupEventsUsesFixedPostAckWindowDespiteIgnoredEve
 	}
 }
 
+func TestRealtimeEngineDrainStartupEventsUsesFixedPostAckWindowDespiteRepeatedReadyEvents(t *testing.T) {
+	t.Parallel()
+
+	engine := &realtimeEngine{
+		events:            make(chan realtimeReadResult, 32),
+		processedEventIDs: map[string]struct{}{},
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
+	defer cancel()
+
+	done := make(chan error, 1)
+	go func() {
+		done <- engine.drainStartupEvents(ctx, 10*time.Millisecond)
+	}()
+
+	engine.events <- realtimeReadResult{
+		payload: []byte(`{"type":"session.updated","event_id":"evt-ready"}`),
+	}
+
+	ticker := time.NewTicker(2 * time.Millisecond)
+	defer ticker.Stop()
+	eventID := 0
+	for {
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Fatalf("expected nil error after bounded post-ack drain, got %v", err)
+			}
+			return
+		case <-ticker.C:
+			eventID++
+			engine.events <- realtimeReadResult{
+				payload: []byte(fmt.Sprintf(`{"type":"session.updated","event_id":"evt-ready-%d"}`, eventID)),
+			}
+		}
+	}
+}
+
 func TestServiceStopSessionAcceptsCleanProviderCloseAfterFinalRealtimeEvent(t *testing.T) {
 	t.Parallel()
 
