@@ -1,12 +1,13 @@
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { buildProjectChatEphemeralWindowInstanceKey } from "state/actions/projectChatWindowingEphemeral";
-import { useMisc, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
+import { useMisc } from "state/stores/layoutInteractionStores";
 import { createProjectConfig } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GitGraphWindowContent } from "./GitGraphWindowContent";
 
-vi.mock("state/actions/git", () => ({
+vi.mock("state/actions/gitGraph", () => ({
   ensureGitGraphStateLoaded: vi.fn(),
 }));
 
