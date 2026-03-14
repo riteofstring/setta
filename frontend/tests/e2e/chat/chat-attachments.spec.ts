@@ -85,6 +85,19 @@ type ManagedAnthropicProviderServer = {
   close: () => Promise<void>;
 };
 
+type ManagedGeminiProviderRequest = {
+  path: string;
+  query: string;
+  apiKey: string;
+  body: Record<string, unknown>;
+};
+
+type ManagedGeminiProviderServer = {
+  origin: string;
+  requests: ManagedGeminiProviderRequest[];
+  close: () => Promise<void>;
+};
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ATTACHMENT_FIXTURES_DIR = path.join(
@@ -475,6 +488,153 @@ test.describe.serial("chat attachments", () => {
 
       await expect(
         projectChatSurface.getByText("Anthropic attachment reply"),
+      ).toBeVisible();
+    } finally {
+      if (createdEngineConfigId) {
+        await postBackend(page.request, "/deleteEngineConfig", {
+          configId: createdEngineConfigId,
+        });
+      }
+      await postBackend(
+        page.request,
+        "/llm/config",
+        initialLLMConfig as Record<string, unknown>,
+      );
+      await postManagedAPIKeys(page.request, {
+        apiKeys: initialAPIKeysSnapshot.apiKeys,
+        expectedRevision: latestAPIKeysSnapshot.revision,
+      });
+      await providerServer.close();
+      await cleanupIsolatedProject(page.request, projectContext);
+    }
+  });
+
+  test("project chat attachments reach Gemini with explicit attachment text", async ({
+    page,
+  }) => {
+    await setOverviewTab(page, "ProjectAIChat");
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page, page.request);
+    const initialLLMConfig = await getBackend<LLMConfigPayload>(
+      page.request,
+      "/llm/config",
+    );
+    if (!initialLLMConfig) {
+      throw new Error("Missing LLM config payload.");
+    }
+    const initialAPIKeysSnapshot = await getBackend<ManagedAPIKeysSnapshot>(
+      page.request,
+      "/llm/apiKeys",
+    );
+    if (!initialAPIKeysSnapshot) {
+      throw new Error("Missing managed API keys snapshot.");
+    }
+    const providerServer = await startManagedGeminiAttachmentProviderServer();
+    let latestAPIKeysSnapshot = initialAPIKeysSnapshot;
+    let createdEngineConfigId: string | null = null;
+    const llmConfigId = `e2e-project-chat-gemini-attachments-${Date.now()}`;
+    const engineName = `Project Gemini Attachment Engine ${Date.now()}`;
+
+    try {
+      await postBackend(page.request, "/llm/config", {
+        ...initialLLMConfig,
+        configs: {
+          ...initialLLMConfig.configs,
+          [llmConfigId]: {
+            model: "gemini-2.5-pro",
+            provider: "gemini",
+            api_key_env: "GEMINI_API_KEY",
+            base_url: providerServer.origin,
+            other_params: null,
+            temporary: false,
+          },
+        },
+      } as Record<string, unknown>);
+      latestAPIKeysSnapshot = await postManagedAPIKeys(page.request, {
+        apiKeys: {
+          ...initialAPIKeysSnapshot.apiKeys,
+          GEMINI_API_KEY: "e2e-gemini-secret",
+        },
+        expectedRevision: initialAPIKeysSnapshot.revision,
+      });
+      const createdEngine = await postBackend<EngineConfig>(
+        page.request,
+        "/createEngineConfig",
+        {
+          name: engineName,
+          engineType: "setta_llm",
+          settaLlmConfigId: llmConfigId,
+          defaults: {},
+        },
+      );
+      createdEngineConfigId = createdEngine?.id ?? null;
+      if (!createdEngineConfigId) {
+        throw new Error("Missing managed engine config id.");
+      }
+
+      await page.reload();
+      await page.waitForSelector(".react-flow__pane");
+
+      const projectChatSurface = await getVisibleProjectChatSurface(page);
+      await selectProjectAiEngine(page, engineName);
+      const input = projectChatSurface.getByPlaceholder("Type a message...");
+      await expect(input).toBeVisible();
+      await expect(input).toBeEnabled();
+
+      const fileInput = projectChatSurface
+        .locator('input[type="file"]')
+        .first();
+      await fileInput.setInputFiles([
+        {
+          name: "notes.txt",
+          mimeType: "text/plain",
+          buffer: Buffer.from("Hello from project chat."),
+        },
+        {
+          name: "image.png",
+          mimeType: "image/png",
+          buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+        },
+      ]);
+
+      await expect(projectChatSurface.getByText("notes.txt")).toBeVisible();
+      await expect(projectChatSurface.getByText("image.png")).toBeVisible();
+
+      await input.fill("Here are Gemini attachments.");
+      await input.press("Enter");
+
+      await expect.poll(() => providerServer.requests.length).toBe(1);
+      const providerRequest = providerServer.requests[0];
+      expect(providerRequest?.path).toBe(
+        "/v1beta/models/gemini-2.5-pro:streamGenerateContent",
+      );
+      expect(providerRequest?.query).toBe("alt=sse");
+      expect(providerRequest?.apiKey).toBe("e2e-gemini-secret");
+
+      const contents = providerRequest?.body.contents;
+      expect(Array.isArray(contents)).toBe(true);
+      const userContent =
+        Array.isArray(contents) && contents.length > 0
+          ? (contents[0] as Record<string, unknown>)
+          : null;
+      expect(userContent).not.toBeNull();
+      const parts =
+        Array.isArray(userContent?.parts) && userContent.parts.length > 0
+          ? (userContent.parts as Array<Record<string, unknown>>)
+          : [];
+      expect(parts.length).toBeGreaterThan(0);
+      const providerText = parts
+        .map((part) => String(part.text ?? "").trim())
+        .join("\n");
+      expect(providerText).toContain("Here are Gemini attachments.");
+      expect(providerText).toContain("[Attachment: notes.txt]");
+      expect(providerText).toContain("Hello from project chat.");
+      expect(providerText).toContain("[Attachment: image.png]");
+      expect(providerText).toContain("Type: image/png");
+      expect(providerText).toContain("Content not inlined.");
+
+      await expect(
+        projectChatSurface.getByText("Gemini attachment reply"),
       ).toBeVisible();
     } finally {
       if (createdEngineConfigId) {
@@ -938,6 +1098,73 @@ async function startManagedAnthropicAttachmentProviderServer(): Promise<ManagedA
           reject(
             new Error("Unable to allocate Anthropic attachment test port."),
           ),
+        );
+        return;
+      }
+      resolve({
+        origin: `http://127.0.0.1:${address.port}`,
+        requests,
+        close: async () =>
+          await new Promise<void>((closeResolve, closeReject) => {
+            server.close((error) => {
+              if (error) {
+                closeReject(error);
+                return;
+              }
+              closeResolve();
+            });
+          }),
+      });
+    });
+  });
+}
+
+async function startManagedGeminiAttachmentProviderServer(): Promise<ManagedGeminiProviderServer> {
+  const requests: ManagedGeminiProviderRequest[] = [];
+  return await new Promise((resolve, reject) => {
+    const server = http.createServer((request, response) => {
+      const chunks: string[] = [];
+      request.setEncoding("utf8");
+      request.on("data", (chunk: string) => {
+        chunks.push(chunk);
+      });
+      request.on("end", () => {
+        try {
+          const rawBody = chunks.join("");
+          const body = rawBody
+            ? (JSON.parse(rawBody) as Record<string, unknown>)
+            : {};
+          const parsedURL = new URL(request.url ?? "/", "http://127.0.0.1");
+          requests.push({
+            path: parsedURL.pathname,
+            query: parsedURL.searchParams.toString(),
+            apiKey: Array.isArray(request.headers["x-goog-api-key"])
+              ? request.headers["x-goog-api-key"].join(", ")
+              : request.headers["x-goog-api-key"] ?? "",
+            body,
+          });
+        } catch (error) {
+          response.statusCode = 400;
+          response.end(String(error));
+          return;
+        }
+
+        response.statusCode = 200;
+        response.setHeader("content-type", "text/event-stream");
+        response.write(
+          'data: {"candidates":[{"content":{"role":"model","parts":[{"text":"Gemini"}]}}]}\n\n',
+        );
+        response.end(
+          'data: {"candidates":[{"content":{"role":"model","parts":[{"text":" attachment reply"}]}}],"usageMetadata":{"promptTokenCount":18,"candidatesTokenCount":2,"totalTokenCount":20}}\n\n',
+        );
+      });
+    });
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close(() =>
+          reject(new Error("Unable to allocate Gemini attachment test port.")),
         );
         return;
       }
