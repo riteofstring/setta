@@ -849,3 +849,15 @@ For each new entry, append:
 - Decisions: Do not fake token-level markdown parsing. Completed lines now render through the normal markdown pipeline immediately, while the unfinished tail stays plain text until it becomes syntactically stable enough to commit. Keep the thought preview on a smaller markdown type scale so streaming reasoning feels distinct from the main assistant bubble without reverting to a raw text block.
 - Blockers or open questions: No code blockers. A healthy DevTools MCP session is still needed to visually confirm the live streaming polish and the parent activity header spacing in a real browser.
 - Next recommended slice: Continue only with new follow-up streaming/accordion polish if needed.
+
+### 2026-03-13 13:40
+
+- Date: 2026-03-13 13:40 EDT
+- Scope: Tightened the Project AI thread-list gutter and removed the standalone `Ungrouped` chrome when no named groups exist.
+- Tests added or updated first: Updated `frontend/tests/e2e/overview/project-ai/project-ai-chat-threads.spec.ts` so the grouped-thread flow now requires the lone ungrouped section to render without the `Ungrouped` label or divider, requires the bare ungrouped entries wrapper to have no left rail or padding in that state, and then verifies that grouped thread entries sit on a tighter `4px` padded rail once named groups exist. Re-ran `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryCopy.test.ts` as the touched local sanity suite for the history module.
+- Production code changed: Updated `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` so grouped thread entries now use a tighter `ml-1 pl-1` left gutter instead of `ml-2 pl-2`, and the ungrouped wrapper only renders the `Ungrouped` label plus left rail when there are named groups above it. When the ungrouped list is the only section, it now renders as a bare thread list with no extra chrome. Added stable test ids for the grouped and ungrouped entry wrappers so the browser regression can verify the actual gutter contract.
+- Verification run: Final green runs were `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryCopy.test.ts` and `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-chat-threads.spec.ts --grep "project ai threads render folder groups and keep pinned scopes separate"`.
+- CDP visual check: Not run. `chrome-devtools-mcp` still fails in this chat with `Transport closed`, so the required live visual confirmation remains blocked.
+- Decisions: Hide the ungrouped chrome only when it is the sole section rather than trying to rename it or keep a faint divider; once named groups exist, restore the existing label and rail so the hierarchy remains clear. Keep the tighter grouped gutter small and mechanical rather than reworking the thread-row internals again.
+- Blockers or open questions: No code blockers. A healthy DevTools MCP session is still needed to visually confirm the new left-edge alignment in a live browser.
+- Next recommended slice: Continue only with new follow-up thread-list polish if needed.

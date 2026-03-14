@@ -1945,7 +1945,10 @@ function ThreadGroupFolder({
           </div>
         </div>
         {!section.collapsed ? (
-          <div className="ml-2 flex flex-col gap-1 border-l border-setta-200/70 pl-2 dark:border-setta-700/70">
+          <div
+            className="ml-1 flex flex-col gap-1 border-l border-setta-200/70 pl-1 dark:border-setta-700/70"
+            data-testid="project-chat-thread-group-entries"
+          >
             {pinnedEntries.length > 0 ? (
               <section className="flex flex-col gap-1">
                 <div
@@ -2149,13 +2152,22 @@ function ThreadUngroupedFolder({
           className="mx-0.5 mb-2 mt-2 border-setta-200/70 dark:border-setta-700/70"
         />
       ) : null}
+      {hasGroupsAbove ? (
+        <div
+          className="flex w-full items-center gap-1 rounded px-0.5 py-1 text-left text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-300"
+          data-testid="project-chat-ungrouped-label"
+        >
+          <span className="truncate">Ungrouped</span>
+        </div>
+      ) : null}
       <div
-        className="flex w-full items-center gap-1 rounded px-0.5 py-1 text-left text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-300"
-        data-testid="project-chat-ungrouped-label"
+        className={
+          hasGroupsAbove
+            ? "ml-1 mt-1 flex flex-col gap-1 border-l border-setta-200/70 pl-1 dark:border-setta-700/70"
+            : "mt-1 flex flex-col gap-1"
+        }
+        data-testid="project-chat-ungrouped-entries"
       >
-        <span className="truncate">Ungrouped</span>
-      </div>
-      <div className="ml-2 mt-1 flex flex-col gap-1 border-l border-setta-200/70 pl-2 dark:border-setta-700/70">
         {pinnedEntries.length > 0 ? (
           <section className="flex flex-col gap-1">
             <div

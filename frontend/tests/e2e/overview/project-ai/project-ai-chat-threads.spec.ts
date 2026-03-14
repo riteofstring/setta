@@ -1183,6 +1183,32 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
     await expect(
       threadsPanel.getByTestId("project-chat-thread-unpinned-section-label"),
     ).toBeVisible();
+    await expect(
+      threadsPanel.getByTestId("project-chat-ungrouped-divider"),
+    ).toHaveCount(0);
+    await expect(
+      threadsPanel.getByTestId("project-chat-ungrouped-label"),
+    ).toHaveCount(0);
+    await expect
+      .poll(async () => {
+        return await threadsPanel.evaluate((panel) => {
+          const entries = panel.querySelector<HTMLElement>(
+            '[data-testid="project-chat-ungrouped-entries"]',
+          );
+          if (!entries) {
+            return null;
+          }
+          const styles = getComputedStyle(entries);
+          return {
+            borderLeftWidth: styles.borderLeftWidth,
+            paddingLeft: styles.paddingLeft,
+          };
+        });
+      })
+      .toEqual({
+        borderLeftWidth: "0px",
+        paddingLeft: "0px",
+      });
 
     await clickDom(overviewPane.getByRole("button", { name: "New Group" }));
     let groupNameInput = threadsPanel.getByTestId(
@@ -1239,6 +1265,32 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
         dividerBeforeLabel: true,
         marginTop: "8px",
         marginBottom: "8px",
+      });
+    await expect
+      .poll(async () => {
+        return await backendGroupRow.evaluate((groupRow) => {
+          const entries = groupRow.querySelector<HTMLElement>(
+            '[data-testid="project-chat-thread-group-entries"]',
+          );
+          const firstThread = groupRow.querySelector<HTMLElement>(
+            '[data-testid="project-chat-thread-entry"] [role="button"]',
+          );
+          if (!entries || !firstThread) {
+            return null;
+          }
+          const entriesRect = entries.getBoundingClientRect();
+          const firstThreadRect = firstThread.getBoundingClientRect();
+          const entriesStyles = getComputedStyle(entries);
+          return {
+            threadIndentWithinTarget:
+              firstThreadRect.left - entriesRect.left <= 6.5,
+            paddingLeft: entriesStyles.paddingLeft,
+          };
+        });
+      })
+      .toEqual({
+        threadIndentWithinTarget: true,
+        paddingLeft: "4px",
       });
 
     const existingThreadNewEntry = threadsPanel
