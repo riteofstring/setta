@@ -1,6 +1,5 @@
 import { expect, test } from "@playwright/test";
 import {
-  clearProjectChatWindows,
   cleanupIsolatedProject,
   createTextBlockSection,
   ensureAppReady,
@@ -23,7 +22,6 @@ test.describe.serial("section variants single-item handle", () => {
     const projectContext = await openIsolatedProject(page);
 
     try {
-      await clearProjectChatWindows(page);
       const { sectionId } = await createTextBlockSection(
         page,
         projectContext.projectConfigId,

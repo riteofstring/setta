@@ -108,9 +108,9 @@ def _build_project_state() -> tuple[ProjectStateSingleConfig, ID, ID, ID, ID, ID
         single,
         AgenticEdge(
             id=ID("edge-context"),
-            sourceSectionId=chat_section_id,
-            targetSectionId=allowed_section_id,
-            kind=AgenticEdgeKind.chat_section,
+            sourceSectionId=allowed_section_id,
+            targetSectionId=chat_section_id,
+            kind=AgenticEdgeKind.section_chat,
         ),
     )
     create_agentic_edge(
@@ -229,7 +229,10 @@ async def test_mcp_agentic_scope_cache_invalidates_on_history_coalesce(tmp_path)
     result1 = await tool.run({"projectConfigId": str(tmp_project_id)}, context=ctx)
     temporary_to_canonical, _ = dbe.read_temporary_id_map()
     canonical1 = convert_temporary_ids_to_canonical(result1, temporary_to_canonical)
-    assert {entry.sectionId for entry in canonical1.sections} == {allowed_section_id}
+    assert {entry.sectionId for entry in canonical1.sections} == {
+        allowed_section_id,
+        peer_chat_section_id,
+    }
 
     # Coalesce a new history entry (no new object), then mutate edges in place to
     # grant access to the previously blocked section.
@@ -250,6 +253,7 @@ async def test_mcp_agentic_scope_cache_invalidates_on_history_coalesce(tmp_path)
     canonical2 = convert_temporary_ids_to_canonical(result2, temporary_to_canonical)
     assert {entry.sectionId for entry in canonical2.sections} == {
         allowed_section_id,
+        peer_chat_section_id,
         blocked_section_id,
     }
 
@@ -283,9 +287,9 @@ async def test_mcp_agentic_scope_cache_does_not_clear_all_entries_when_full(
             project_state,
             AgenticEdge(
                 id=ID(f"edge-context-{idx}"),
-                sourceSectionId=chat_section_id,
-                targetSectionId=context_section_id,
-                kind=AgenticEdgeKind.chat_section,
+                sourceSectionId=context_section_id,
+                targetSectionId=chat_section_id,
+                kind=AgenticEdgeKind.section_chat,
             ),
         )
 

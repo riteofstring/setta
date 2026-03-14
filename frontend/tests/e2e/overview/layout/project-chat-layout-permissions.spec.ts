@@ -205,10 +205,6 @@ test("read-only deployments keep visible project chat windows focusable without 
 
   try {
     await seedReadOnlyVisibleProjectChatWindows(page);
-    let chatIdResponseState = await page.evaluate(async () => {
-      const { useProjectState } = await import("/src/state/definitions.ts");
-      return useProjectState.getState().projectChatWindowing;
-    });
     await page.route("**/setProjectChatWindowingState", async (route) => {
       layoutWriteCalls += 1;
       await route.fulfill({
@@ -225,24 +221,33 @@ test("read-only deployments keep visible project chat windows focusable without 
         instanceId: string;
         chatId: string | null;
       };
-      const current = chatIdResponseState.instancesById[request.instanceId];
-      if (!current) {
-        throw new Error("Expected project chat window instance.");
-      }
-      chatIdResponseState = {
-        ...chatIdResponseState,
-        instancesById: {
-          ...chatIdResponseState.instancesById,
-          [request.instanceId]: {
-            ...current,
-            chatId: request.chatId,
-          },
+      const responseState = await page.evaluate(
+        async ({ instanceId, chatId }) => {
+          const { useProjectState } = await import("/src/state/definitions.ts");
+          const current =
+            useProjectState.getState().projectChatWindowing.instancesById[
+              instanceId
+            ];
+          if (!current) {
+            throw new Error("Expected project chat window instance.");
+          }
+          return {
+            ...useProjectState.getState().projectChatWindowing,
+            instancesById: {
+              ...useProjectState.getState().projectChatWindowing.instancesById,
+              [instanceId]: {
+                ...current,
+                chatId,
+              },
+            },
+          };
         },
-      };
+        request,
+      );
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify(chatIdResponseState),
+        body: JSON.stringify(responseState),
       });
     });
 

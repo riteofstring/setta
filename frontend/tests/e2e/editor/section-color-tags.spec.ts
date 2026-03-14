@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   createTextBlockSection,
@@ -31,7 +31,6 @@ test.describe.serial("section color tags", () => {
     const projectContext = await openIsolatedProject(page);
 
     try {
-      await clearProjectChatWindows(page);
       const { sectionId } = await createTextBlockSection(
         page,
         projectContext.projectConfigId,
@@ -49,9 +48,7 @@ test.describe.serial("section color tags", () => {
         "section-config-accordion-appearance",
       );
       await expect(appearanceAccordionTrigger).toBeVisible();
-      await appearanceAccordionTrigger.evaluate(
-        (element: HTMLButtonElement) => element.click(),
-      );
+      await appearanceAccordionTrigger.click();
       await expect(appearanceAccordionTrigger).toHaveAttribute(
         "aria-expanded",
         "true",
@@ -72,7 +69,7 @@ test.describe.serial("section color tags", () => {
         .getByRole("menuitem")
         .filter({ hasText: "Blue" })
         .first()
-        .evaluate((element: HTMLElement) => element.click());
+        .click();
 
       await expect(colorTagBlock.getByText("#3b82f6").first()).toBeVisible();
 
@@ -86,19 +83,13 @@ test.describe.serial("section color tags", () => {
       await expect(overviewTagFilter).toBeVisible();
 
       await overviewTagFilter.click();
-      await page
-        .getByRole("menuitem", { name: "Untagged" })
-        .evaluate((element: HTMLElement) => element.click());
+      await page.getByRole("menuitem", { name: "Untagged" }).click();
       await expect(
         overviewPane.locator(`[id="${sectionId}-OverviewListItem"]`),
       ).toHaveCount(0);
 
       await overviewTagFilter.click();
-      await page
-        .getByRole("menuitem")
-        .filter({ hasText: "Blue" })
-        .first()
-        .evaluate((element: HTMLElement) => element.click());
+      await page.getByRole("menuitem").filter({ hasText: "Blue" }).first().click();
       const overviewItem = overviewPane.locator(
         `[id="${sectionId}-OverviewListItem"]`,
       );
@@ -108,9 +99,7 @@ test.describe.serial("section color tags", () => {
       ).toBeVisible();
 
       await overviewTagFilter.click();
-      await page
-        .getByRole("menuitem", { name: "All" })
-        .evaluate((element: HTMLElement) => element.click());
+      await page.getByRole("menuitem", { name: "All" }).click();
       await expect(overviewItem).toBeVisible();
 
       await expect
@@ -150,9 +139,7 @@ test.describe.serial("section color tags", () => {
           "aria-expanded",
         )) !== "true"
       ) {
-        await appearanceAccordionTriggerAfterReload.evaluate(
-          (element: HTMLButtonElement) => element.click(),
-        );
+        await appearanceAccordionTriggerAfterReload.click();
       }
 
       const colorTagHeadingAfterReload = uiEditorPane.getByText("Color Tag", {
@@ -164,7 +151,7 @@ test.describe.serial("section color tags", () => {
       await colorTagBlockAfterReload
         .getByRole("button", { name: "Reset" })
         .first()
-        .evaluate((element: HTMLButtonElement) => element.click());
+        .click();
 
       await expect(
         nodeAfter.locator('header.section-title span[title^="Color tag:"]'),
@@ -182,16 +169,3 @@ test.describe.serial("section color tags", () => {
     }
   });
 });
-
-async function clearProjectChatWindows(page: Page): Promise<void> {
-  await page.evaluate(async () => {
-    const { replaceProjectChatWindowingState } = await import(
-      "/src/state/actions/projectChatWindowing.ts"
-    );
-    const { createProjectChatWindowingState } = await import(
-      "/src/utils/generatedTypes.ts"
-    );
-    replaceProjectChatWindowingState(createProjectChatWindowingState());
-  });
-  await expect(page.getByTestId("project-chat-floating-window")).toHaveCount(0);
-}

@@ -1,7 +1,5 @@
 import {
-  expect,
   type ConsoleMessage,
-  type Locator,
   type Page,
   type Response,
 } from "@playwright/test";
@@ -304,26 +302,6 @@ export async function seedLocalStorage(
   }, patch);
 }
 
-export async function clearProjectChatWindows(page: Page): Promise<void> {
-  await page.evaluate(async () => {
-    const { replaceProjectChatWindowingState } = await import(
-      "/src/state/actions/projectChatWindowing.ts"
-    );
-    const { createProjectChatWindowingState } = await import(
-      "/src/utils/generatedTypes.ts"
-    );
-    replaceProjectChatWindowingState(createProjectChatWindowingState());
-  });
-  await page.waitForFunction(() => {
-    return [
-      '[data-testid="project-chat-floating-window"]',
-      '[data-testid="project-chat-bottom-dock-window-panel"]',
-      '[data-testid="project-chat-maximized-window"]',
-      '[data-testid="project-chat-window-title"]',
-    ].every((selector) => document.querySelector(selector) === null);
-  });
-}
-
 export async function openProjectAiSettingsPopover(page: Page): Promise<void> {
   const accordionTrigger = page.getByTestId(
     "project-ai-settings-accordion-llm-api-keys",
@@ -336,10 +314,8 @@ export async function openProjectAiSettingsPopover(page: Page): Promise<void> {
   ) {
     return;
   }
-  await clickDom(page.getByRole("button", { name: "Project AI Settings" }));
-  await clickDom(
-    page.getByTestId("project-chat-settings-open-project-settings"),
-  );
+  await page.getByRole("button", { name: "Project AI Settings" }).click();
+  await page.getByTestId("project-chat-settings-open-project-settings").click();
 }
 
 export async function setOverviewTab(
@@ -364,81 +340,7 @@ export async function openOverviewMoreDestination(
   destination: "Plugins" | "Custom Runs" | "App Gen",
 ): Promise<void> {
   await page.getByTestId("overview-tab-more").click();
-  await clickDom(
-    page.getByRole("menuitem", { name: destination, exact: true }),
-  );
-}
-
-export async function getVisibleProjectChatSurface(
-  page: Page,
-): Promise<Locator> {
-  const surfaceCandidates = [
-    page.getByTestId("project-chat-maximized-window").first(),
-    page.getByTestId("project-chat-floating-window").first(),
-    page.getByTestId("project-chat-bottom-dock-window-panel").first(),
-    page
-      .locator('#OverviewPane [data-chat-surface-mode="project_ai_mode"]')
-      .first(),
-  ];
-  await expect
-    .poll(async () => {
-      for (const candidate of surfaceCandidates) {
-        if ((await candidate.count()) > 0 && (await candidate.isVisible())) {
-          return true;
-        }
-      }
-      return false;
-    })
-    .toBe(true);
-  for (const candidate of surfaceCandidates) {
-    if ((await candidate.count()) > 0 && (await candidate.isVisible())) {
-      return candidate;
-    }
-  }
-  throw new Error("No visible project chat surface found.");
-}
-
-export async function ensureProjectChatThreadsPanelVisible(
-  page: Page,
-): Promise<Locator> {
-  const projectChatSurface = await getVisibleProjectChatSurface(page);
-  const threadsPanel = projectChatSurface.getByTestId(
-    "project-chat-threads-panel",
-  );
-  const viewThreadsButton = projectChatSurface.getByRole("button", {
-    name: /^View Threads$/i,
-  });
-  let visibleTarget: "panel" | "button" | null = null;
-  await expect
-    .poll(async () => {
-      if (await threadsPanel.isVisible().catch(() => false)) {
-        visibleTarget = "panel";
-        return true;
-      }
-      if (await viewThreadsButton.isVisible().catch(() => false)) {
-        visibleTarget = "button";
-        return true;
-      }
-      visibleTarget = null;
-      return false;
-    })
-    .toBe(true);
-  if (visibleTarget === "panel") {
-    return threadsPanel;
-  }
-  if (visibleTarget === "button") {
-    await clickDom(viewThreadsButton);
-    await expect(threadsPanel).toBeVisible();
-    return threadsPanel;
-  }
-  throw new Error("Expected project chat threads panel to be available.");
-}
-
-async function clickDom(target: Locator): Promise<void> {
-  await expect(target).toBeVisible();
-  await target.evaluate((element: HTMLElement) => {
-    element.click();
-  });
+  await page.getByRole("menuitem", { name: destination, exact: true }).click();
 }
 
 export async function openIsolatedProject(

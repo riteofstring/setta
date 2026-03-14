@@ -1,9 +1,7 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   ensureAppReady,
-  ensureProjectChatThreadsPanelVisible,
-  getVisibleProjectChatSurface,
   openIsolatedProject,
   seedLocalStorage,
 } from "../../helpers";
@@ -39,24 +37,6 @@ async function seedAIStorePersistence(
     payload.state = { ...payload.state, ...nextState };
     window.localStorage.setItem(key, JSON.stringify(payload));
   }, patch);
-}
-
-async function maximizeProjectChatWindow(page: Page): Promise<void> {
-  const maximizedWindow = page.getByTestId("project-chat-maximized-window").first();
-  if (await maximizedWindow.isVisible()) {
-    return;
-  }
-  const maximizeButton = page.getByTestId("project-chat-window-maximize").first();
-  await expect(maximizeButton).toBeVisible();
-  await clickDom(maximizeButton);
-  await expect(maximizedWindow).toBeVisible();
-}
-
-async function clickDom(locator: Locator): Promise<void> {
-  await expect(locator).toBeVisible();
-  await locator.evaluate((element: HTMLElement) => {
-    element.click();
-  });
 }
 
 test("project ai thread spinner clears when latest run in a chat is completed", async ({
@@ -134,7 +114,12 @@ test("project ai thread spinner clears when latest run in a chat is completed", 
     await page.reload();
     await page.waitForSelector(".react-flow__pane");
 
-    const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
+    const overviewPane = page.locator("#OverviewPane");
+    await expect(
+      overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+    ).toBeVisible();
+    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+    await expect(threadsPanel).toBeVisible();
 
     const completedThreadEntry = threadsPanel
       .getByTestId("project-chat-thread-entry")
@@ -173,7 +158,9 @@ test("project ai shows styled empty state when no threads exist", async ({
     await page.reload();
     await page.waitForSelector(".react-flow__pane");
 
-    const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
+    const overviewPane = page.locator("#OverviewPane");
+    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+    await expect(threadsPanel).toBeVisible();
     await expect(
       threadsPanel.getByTestId("project-chat-threads-empty-state"),
     ).toBeVisible();
@@ -185,7 +172,12 @@ test("project ai shows styled empty state when no threads exist", async ({
     );
     await expect(startNewThreadButton).toBeVisible();
     await startNewThreadButton.click();
-    await expect((await getVisibleProjectChatSurface(page)).getByPlaceholder("Type a message...")).toBeVisible();
+    await expect(
+      threadsPanel.getByTestId("project-chat-thread-draft-entry"),
+    ).toBeVisible();
+    await expect(
+      threadsPanel.getByTestId("project-chat-threads-empty-state"),
+    ).toHaveCount(0);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -280,12 +272,20 @@ test("project ai thread spinner clears after polling observes run completion", a
     await page.reload();
     await page.waitForSelector(".react-flow__pane");
 
-    const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
+    const overviewPane = page.locator("#OverviewPane");
+    await expect(
+      overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+    ).toBeVisible();
+    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+    await expect(threadsPanel).toBeVisible();
 
     const polledThreadEntry = threadsPanel
       .getByTestId("project-chat-thread-entry")
       .filter({ hasText: "Polled spinner thread" });
     await expect(polledThreadEntry).toHaveCount(1);
+    await expect(
+      polledThreadEntry.getByTestId("project-chat-thread-working-indicator"),
+    ).toHaveCount(1);
     await expect.poll(() => getAgentRunsCalls).toBeGreaterThanOrEqual(2);
     await expect(
       polledThreadEntry.getByTestId("project-chat-thread-working-indicator"),
@@ -399,7 +399,12 @@ test("project ai selected thread spinner follows live chat state before agent-ru
     await page.reload();
     await page.waitForSelector(".react-flow__pane");
 
-    const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
+    const overviewPane = page.locator("#OverviewPane");
+    await expect(
+      overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+    ).toBeVisible();
+    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+    await expect(threadsPanel).toBeVisible();
 
     const selectedThreadEntry = threadsPanel
       .getByTestId("project-chat-thread-entry")
@@ -407,13 +412,13 @@ test("project ai selected thread spinner follows live chat state before agent-ru
     await expect(selectedThreadEntry).toHaveCount(1);
     await expect(
       selectedThreadEntry.getByTestId("project-chat-thread-working-indicator"),
-    ).toHaveCount(1);
+    ).toHaveCount(0);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
 });
 
-test("project ai threads render folder groups and keep pinned scopes separate", async ({
+test("project ai threads render folder groups and support group drag reorder", async ({
   page,
 }) => {
   const backendGroupName =
@@ -427,10 +432,14 @@ test("project ai threads render folder groups and keep pinned scopes separate", 
   });
 
   await ensureAppReady(page);
-  await maximizeProjectChatWindow(page);
 
-  const overviewPane = await getVisibleProjectChatSurface(page);
-  const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
+  const overviewPane = page.locator("#OverviewPane");
+  await expect(
+    overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+  ).toBeVisible();
+
+  const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+  await expect(threadsPanel).toBeVisible();
   await expect(threadsPanel).toHaveAttribute("data-inline", "true");
   const threadAgentBadgeToggleButton = overviewPane.getByTestId(
     "project-chat-thread-agent-badge-toggle-button",
@@ -540,6 +549,13 @@ test("project ai threads render folder groups and keep pinned scopes separate", 
   );
   await expect(resizeHandle).toBeVisible();
 
+  const beforeThreadsWidth = await threadsPanel.evaluate(
+    (element) => element.getBoundingClientRect().width,
+  );
+  const input = overviewPane.getByPlaceholder("Type a message...");
+  const beforeInputLeft = await input.evaluate(
+    (element) => element.getBoundingClientRect().left,
+  );
   const resizeHandleBox = await resizeHandle.boundingBox();
   if (!resizeHandleBox) {
     throw new Error("Threads resize handle box was not available.");
@@ -551,9 +567,23 @@ test("project ai threads render folder groups and keep pinned scopes separate", 
   await page.mouse.move(handleCenterX + 80, handleCenterY);
   await page.mouse.up();
 
+  await expect
+    .poll(async () => {
+      return await threadsPanel.evaluate(
+        (element) => element.getBoundingClientRect().width,
+      );
+    })
+    .toBeGreaterThan(beforeThreadsWidth + 40);
+  await expect
+    .poll(async () => {
+      return await input.evaluate(
+        (element) => element.getBoundingClientRect().left,
+      );
+    })
+    .toBeGreaterThan(beforeInputLeft + 20);
   await assertInlineThreadHeaderHasNoOverflow();
 
-  await clickDom(overviewPane.getByRole("button", { name: "New Group" }));
+  await overviewPane.getByRole("button", { name: "New Group" }).click();
   const groupNameInput = threadsPanel.getByTestId(
     "project-chat-thread-group-name-input",
   );
@@ -567,12 +597,34 @@ test("project ai threads render folder groups and keep pinned scopes separate", 
   const backendGroupSelect = backendGroupRow.getByTestId(
     "project-chat-thread-group-select",
   );
+  const backendLabelWidthBeforeHover = await backendGroupSelect.evaluate(
+    (element) => {
+      const label = element.querySelector("span.truncate");
+      if (!(label instanceof HTMLElement)) {
+        throw new Error("Expected a group title element.");
+      }
+      return label.getBoundingClientRect().width;
+    },
+  );
+  await backendGroupSelect.hover();
+  const backendLabelWidthOnHover = await backendGroupSelect.evaluate(
+    (element) => {
+      const label = element.querySelector("span.truncate");
+      if (!(label instanceof HTMLElement)) {
+        throw new Error("Expected a group title element.");
+      }
+      return label.getBoundingClientRect().width;
+    },
+  );
+  expect(backendLabelWidthBeforeHover).toBeGreaterThan(
+    backendLabelWidthOnHover + 20,
+  );
   await expect(
     backendGroupRow.getByTestId("project-chat-thread-group-new-chat-button"),
   ).toBeVisible();
-  await clickDom(
-    backendGroupRow.getByTestId("project-chat-thread-group-new-chat-button"),
-  );
+  await backendGroupRow
+    .getByTestId("project-chat-thread-group-new-chat-button")
+    .click();
   const draftThreadEntry = backendGroupRow.getByTestId(
     "project-chat-thread-draft-entry",
   );
@@ -580,11 +632,11 @@ test("project ai threads render folder groups and keep pinned scopes separate", 
   await expect(
     draftThreadEntry.getByTestId("project-chat-thread-agent-badge"),
   ).toHaveCount(1);
-  await clickDom(threadAgentBadgeToggleButton);
+  await threadAgentBadgeToggleButton.click();
   await expect(
     draftThreadEntry.getByTestId("project-chat-thread-agent-badge"),
   ).toHaveCount(0);
-  await clickDom(threadAgentBadgeToggleButton);
+  await threadAgentBadgeToggleButton.click();
   await expect(
     draftThreadEntry.getByTestId("project-chat-thread-agent-badge"),
   ).toHaveCount(1);
@@ -613,16 +665,16 @@ test("project ai threads render folder groups and keep pinned scopes separate", 
     });
   expect(draftEntrySpacing.leftToHandle).toBeLessThanOrEqual(2.5);
   expect(draftEntrySpacing.handleToLabel).toBeLessThanOrEqual(2.5);
-  await clickDom(backendGroupSelect);
+  await backendGroupSelect.click();
   await expect(
     backendGroupRow.getByTestId("project-chat-thread-draft-entry"),
   ).toHaveCount(0);
-  await clickDom(backendGroupSelect);
+  await backendGroupSelect.click();
   await expect(
     backendGroupRow.getByTestId("project-chat-thread-draft-entry"),
   ).toHaveCount(1);
 
-  await clickDom(overviewPane.getByRole("button", { name: "New Group" }));
+  await overviewPane.getByRole("button", { name: "New Group" }).click();
   await expect(groupNameInput).toBeVisible();
   await groupNameInput.fill("Frontend");
   await groupNameInput.press("Enter");
@@ -632,7 +684,7 @@ test("project ai threads render folder groups and keep pinned scopes separate", 
       .filter({ hasText: "Frontend" }),
   ).toBeVisible();
 
-  await clickDom(overviewPane.getByRole("button", { name: "New Group" }));
+  await overviewPane.getByRole("button", { name: "New Group" }).click();
   await expect(groupNameInput).toBeVisible();
   await groupNameInput.fill("Ops");
   await groupNameInput.press("Enter");
@@ -642,20 +694,41 @@ test("project ai threads render folder groups and keep pinned scopes separate", 
       .filter({ hasText: "Ops" }),
   ).toBeVisible();
 
+  const backendHandle = threadsPanel
+    .getByTestId("project-chat-thread-group-row")
+    .filter({ hasText: backendGroupName })
+    .getByTestId("project-chat-thread-group-drag-handle");
   const frontendHandle = threadsPanel
     .getByTestId("project-chat-thread-group-row")
     .filter({ hasText: "Frontend" })
     .getByTestId("project-chat-thread-group-drag-handle");
 
+  await frontendHandle.dragTo(backendHandle);
+
+  await expect
+    .poll(async () => {
+      return await threadsPanel
+        .getByTestId("project-chat-thread-group-row")
+        .evaluateAll((elements) => {
+          return elements
+            .map((element) => {
+              const titleEl = element.querySelector("span.truncate");
+              return titleEl?.textContent?.trim() ?? "";
+            })
+            .filter((value) => value.length > 0);
+        });
+    })
+    .toEqual(["Frontend", backendGroupName, "Ops"]);
+
   const backendGroupRowForPin = threadsPanel
     .getByTestId("project-chat-thread-group-row")
     .filter({ hasText: backendGroupName });
-  const backendGroupPinButton = backendGroupRowForPin.getByTestId(
-    "project-chat-thread-group-pin-button",
-  );
-  await backendGroupPinButton.evaluate((element: HTMLElement) => {
-    element.click();
-  });
+  await backendGroupRowForPin
+    .getByTestId("project-chat-thread-group-select")
+    .hover();
+  await backendGroupRowForPin
+    .getByTestId("project-chat-thread-group-pin-button")
+    .click();
   await expect(
     threadsPanel.getByTestId("project-chat-pinned-groups-label"),
   ).toBeVisible();
@@ -680,17 +753,17 @@ test("project ai threads render folder groups and keep pinned scopes separate", 
 
   // Pinned and unpinned groups should be reorderable only within their own
   // peer sections.
-  const frontendPinnedDragHandleBox = await frontendHandle.boundingBox();
+  const frontendHandleBox = await frontendHandle.boundingBox();
   const pinnedGroupsLabel = threadsPanel.getByTestId(
     "project-chat-pinned-groups-label",
   );
   const pinnedGroupsLabelBox = await pinnedGroupsLabel.boundingBox();
-  if (!frontendPinnedDragHandleBox || !pinnedGroupsLabelBox) {
+  if (!frontendHandleBox || !pinnedGroupsLabelBox) {
     throw new Error("Expected drag bounding boxes to be available.");
   }
   await page.mouse.move(
-    frontendPinnedDragHandleBox.x + frontendPinnedDragHandleBox.width / 2,
-    frontendPinnedDragHandleBox.y + frontendPinnedDragHandleBox.height / 2,
+    frontendHandleBox.x + frontendHandleBox.width / 2,
+    frontendHandleBox.y + frontendHandleBox.height / 2,
   );
   await page.mouse.down();
   await page.mouse.move(
@@ -715,7 +788,7 @@ test("project ai threads render folder groups and keep pinned scopes separate", 
     .toEqual([backendGroupName, "Frontend", "Ops"]);
 });
 
-test("project ai threads remember explicit large-width close after narrow resize", async ({
+test("project ai threads default to chat on narrow resize and remember explicit large-width close", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 920 });
@@ -732,24 +805,26 @@ test("project ai threads remember explicit large-width close after narrow resize
 
   await ensureAppReady(page);
 
-  let overviewPane = await getVisibleProjectChatSurface(page);
+  const overviewPane = page.locator("#OverviewPane");
+  await expect(
+    overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+  ).toBeVisible();
   await expect(
     overviewPane.getByPlaceholder("Type a message..."),
   ).toBeVisible();
   await expect(
     overviewPane.getByTestId("project-chat-threads-panel"),
-  ).toHaveCount(1);
+  ).toHaveCount(0);
 
   const fullscreenButton = page.getByTestId("overview-pane-fullscreen-button");
   await fullscreenButton.click();
-  overviewPane = await getVisibleProjectChatSurface(page);
   const inlineThreadsPanel = overviewPane.getByTestId(
     "project-chat-threads-panel",
   );
   await expect(inlineThreadsPanel).toBeVisible();
   await expect(inlineThreadsPanel).toHaveAttribute("data-inline", "true");
 
-  await clickDom(overviewPane.getByRole("button", { name: "View Threads" }));
+  await overviewPane.getByRole("button", { name: "View Threads" }).click();
   await expect(
     overviewPane.getByTestId("project-chat-threads-panel"),
   ).toHaveCount(0);
@@ -765,12 +840,10 @@ test("project ai threads remember explicit large-width close after narrow resize
   expect(explicitClosePersisted).toBe(true);
 
   await fullscreenButton.click();
-  overviewPane = await getVisibleProjectChatSurface(page);
   await expect(
     overviewPane.getByTestId("project-chat-threads-panel"),
   ).toHaveCount(0);
   await fullscreenButton.click();
-  overviewPane = await getVisibleProjectChatSurface(page);
   await expect(
     overviewPane.getByTestId("project-chat-threads-panel"),
   ).toHaveCount(0);
@@ -793,21 +866,19 @@ test("project ai preserves draft text when resize reveals inline threads", async
 
   await ensureAppReady(page);
 
-  let overviewPane = await getVisibleProjectChatSurface(page);
-  let composerInput = overviewPane.getByPlaceholder("Type a message...");
+  const overviewPane = page.locator("#OverviewPane");
+  const composerInput = overviewPane.getByPlaceholder("Type a message...");
   await expect(composerInput).toBeVisible();
   const draftText = "keep this draft while resizing";
   await composerInput.fill(draftText);
   await expect(composerInput).toHaveValue(draftText);
 
   await page.getByTestId("overview-pane-fullscreen-button").click();
-  overviewPane = await getVisibleProjectChatSurface(page);
   const inlineThreadsPanel = overviewPane.getByTestId(
     "project-chat-threads-panel",
   );
   await expect(inlineThreadsPanel).toBeVisible();
   await expect(inlineThreadsPanel).toHaveAttribute("data-inline", "true");
-  composerInput = overviewPane.getByPlaceholder("Type a message...");
   await expect(composerInput).toHaveValue(draftText);
 });
 
@@ -828,8 +899,26 @@ test("project ai ignores legacy viewHistory in persisted ai store", async ({
 
   await ensureAppReady(page);
 
-  const overviewPane = await getVisibleProjectChatSurface(page);
+  const overviewPane = page.locator("#OverviewPane");
+  await expect(
+    overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+  ).toBeVisible();
+  await expect(
+    overviewPane.getByTestId("project-chat-threads-panel"),
+  ).toHaveCount(0);
 
+  await expect
+    .poll(async () => {
+      return await page.evaluate(() => {
+        const raw = window.localStorage.getItem("setta_ai_data");
+        if (!raw) {
+          return null;
+        }
+        const parsed = JSON.parse(raw) as { state?: Record<string, unknown> };
+        return parsed.state?.viewThreads ?? null;
+      });
+    })
+    .toBe(false);
   await expect
     .poll(async () => {
       return await page.evaluate(() => {
@@ -1004,9 +1093,13 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
     await page.reload();
     await page.waitForSelector(".react-flow__pane");
 
-    await maximizeProjectChatWindow(page);
-    const overviewPane = await getVisibleProjectChatSurface(page);
-    const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
+    const overviewPane = page.locator("#OverviewPane");
+    await expect(
+      overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+    ).toBeVisible();
+
+    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+    await expect(threadsPanel).toBeVisible();
     await expect(threadsPanel).toHaveAttribute("data-inline", "true");
     await expect
       .poll(
@@ -1064,12 +1157,10 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
     const existingThreadOldEntry = threadsPanel
       .getByTestId("project-chat-thread-entry")
       .filter({ hasText: "Existing thread old" });
-    const existingThreadOldPinButton = existingThreadOldEntry.getByTestId(
-      "project-chat-thread-pin-button",
-    );
-    await existingThreadOldPinButton.evaluate((element: HTMLElement) => {
-      element.click();
-    });
+    await existingThreadOldEntry.hover();
+    await existingThreadOldEntry
+      .getByTestId("project-chat-thread-pin-button")
+      .click();
     await expect
       .poll(async () => {
         return await threadsPanel
@@ -1095,7 +1186,35 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
       threadsPanel.getByTestId("project-chat-thread-unpinned-section-label"),
     ).toBeVisible();
 
-  await clickDom(overviewPane.getByRole("button", { name: "New Group" }));
+    const oldPinnedThreadHandle = threadsPanel
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "Existing thread old" })
+      .getByTestId("project-chat-thread-drag-handle");
+    const middleThreadHandle = threadsPanel
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "Existing thread middle" })
+      .getByTestId("project-chat-thread-drag-handle");
+    await middleThreadHandle.dragTo(oldPinnedThreadHandle);
+    await expect
+      .poll(async () => {
+        return await threadsPanel
+          .getByTestId("project-chat-thread-entry")
+          .evaluateAll((elements) => {
+            return elements
+              .map((element) => {
+                const label = element.querySelector("span.truncate");
+                return label?.textContent?.trim() ?? "";
+              })
+              .filter((label) => label.length > 0);
+          });
+      })
+      .toEqual([
+        "Existing thread old",
+        "Existing thread new",
+        "Existing thread middle",
+      ]);
+
+    await overviewPane.getByRole("button", { name: "New Group" }).click();
     let groupNameInput = threadsPanel.getByTestId(
       "project-chat-thread-group-name-input",
     );
@@ -1107,7 +1226,7 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
       .filter({ hasText: "Backend" });
     await expect(backendGroupRow).toBeVisible();
 
-  await clickDom(overviewPane.getByRole("button", { name: "New Group" }));
+    await overviewPane.getByRole("button", { name: "New Group" }).click();
     groupNameInput = threadsPanel.getByTestId(
       "project-chat-thread-group-name-input",
     );
@@ -1152,12 +1271,73 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
         marginBottom: "8px",
       });
 
-    const existingThreadNewEntry = threadsPanel
+    const oldThreadEntry = threadsPanel
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "Existing thread old" });
+    const oldThreadHandle = oldThreadEntry.getByTestId(
+      "project-chat-thread-drag-handle",
+    );
+    const frontendGroupDropSurface = frontendGroupRow.getByTestId(
+      "project-chat-thread-group-drop-surface",
+    );
+    await expect(frontendGroupDropSurface).toBeVisible();
+    await oldThreadHandle.dragTo(frontendGroupDropSurface);
+    await expect(
+      frontendGroupRow
+        .getByTestId("project-chat-thread-entry")
+        .filter({ hasText: "Existing thread old" }),
+    ).toBeVisible();
+    await expect(
+      frontendGroupRow.getByTestId("project-chat-thread-pinned-section-label"),
+    ).toBeVisible();
+    await expect(
+      frontendGroupRow.getByTestId(
+        "project-chat-thread-unpinned-section-label",
+      ),
+    ).toBeVisible();
+    await expect(
+      frontendGroupRow.getByTestId("project-chat-thread-unpinned-empty-state"),
+    ).toContainText("No unpinned threads.");
+
+    const newThreadEntry = threadsPanel
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "Existing thread new" });
+    const newThreadHandle = newThreadEntry.getByTestId(
+      "project-chat-thread-drag-handle",
+    );
+    const newThreadHandleBox = await newThreadHandle.boundingBox();
+    if (!newThreadHandleBox) {
+      throw new Error("Expected thread drag handle bounding box to exist.");
+    }
+    await page.mouse.move(
+      newThreadHandleBox.x + newThreadHandleBox.width / 2,
+      newThreadHandleBox.y + newThreadHandleBox.height / 2,
+    );
+    await page.mouse.down();
+    const backendGroupRowBox = await backendGroupRow.boundingBox();
+    if (!backendGroupRowBox) {
+      throw new Error("Expected target group bounding box to exist.");
+    }
+    await page.mouse.move(
+      backendGroupRowBox.x + backendGroupRowBox.width / 2,
+      backendGroupRowBox.y + backendGroupRowBox.height / 2,
+      { steps: 12 },
+    );
+    await expect(
+      backendGroupRow.getByTestId("project-chat-thread-group-drop-surface"),
+    ).toHaveAttribute("data-drop-highlight", "true");
+    await page.mouse.up();
+    await expect(
+      backendGroupRow
+        .getByTestId("project-chat-thread-entry")
+        .filter({ hasText: "Existing thread new" }),
+    ).toBeVisible();
+
+    await backendGroupRow
       .getByTestId("project-chat-thread-entry")
       .filter({ hasText: "Existing thread new" })
-      .first();
-    await expect(existingThreadNewEntry).toBeVisible();
-    await clickDom(existingThreadNewEntry);
+      .first()
+      .click();
     const conversationFilterInput = overviewPane.getByTestId(
       "project-chat-conversation-filter-input",
     );
@@ -1174,23 +1354,43 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
       overviewPane.getByText("Existing queue thread reply"),
     ).toBeVisible();
     await conversationFilterInput.fill("");
-    await clickDom(overviewPane.locator('button[aria-label="New Chat"]'));
+    await overviewPane.locator('button[aria-label="New Chat"]').click();
     const draftEntry = threadsPanel.getByTestId(
       "project-chat-thread-draft-entry",
     );
-    await expect(draftEntry.first()).toBeVisible();
+    await expect(
+      backendGroupRow.getByTestId("project-chat-thread-draft-entry"),
+    ).toBeVisible();
     await expect(draftEntry).toContainText("New thread...");
-    await clickDom(existingThreadNewEntry);
+    await threadsPanel
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "Existing thread new" })
+      .first()
+      .click();
     await expect(
       threadsPanel.getByTestId("project-chat-thread-draft-entry"),
     ).toHaveCount(0);
 
-    const backendGroupDeleteButton = backendGroupRow.getByTestId(
-      "project-chat-thread-group-delete-button",
-    );
-    await backendGroupDeleteButton.evaluate((element: HTMLElement) => {
-      element.click();
-    });
+    const existingThreadNewEntry = backendGroupRow
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "Existing thread new" })
+      .first();
+    await existingThreadNewEntry.hover();
+    await existingThreadNewEntry
+      .getByTestId("project-chat-thread-delete-button")
+      .click();
+    await expect(
+      backendGroupRow
+        .getByTestId("project-chat-thread-entry")
+        .filter({ hasText: "Existing thread new" }),
+    ).toHaveCount(0);
+
+    await backendGroupRow
+      .getByTestId("project-chat-thread-group-select")
+      .hover();
+    await backendGroupRow
+      .getByTestId("project-chat-thread-group-delete-button")
+      .click();
     await expect(
       threadsPanel
         .getByTestId("project-chat-thread-group-row")
@@ -1214,7 +1414,10 @@ test("project ai chat keeps conversation search on the top row at medium width",
 
   await ensureAppReady(page);
 
-  const overviewPane = await getVisibleProjectChatSurface(page);
+  const overviewPane = page.locator("#OverviewPane");
+  await expect(
+    overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+  ).toBeVisible();
   await expect(
     overviewPane.getByRole("button", { name: "New Chat" }),
   ).toBeVisible();
@@ -1260,7 +1463,7 @@ test("project ai chat keeps conversation search on the top row at medium width",
   ).toBeLessThanOrEqual(6);
 });
 
-test("project ai chat keeps settings and conversation search visible when very narrow", async ({
+test("project ai chat keeps settings on the top row and wraps conversation search below when very narrow", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 980, height: 900 });
@@ -1273,7 +1476,10 @@ test("project ai chat keeps settings and conversation search visible when very n
 
   await ensureAppReady(page);
 
-  const overviewPane = await getVisibleProjectChatSurface(page);
+  const overviewPane = page.locator("#OverviewPane");
+  await expect(
+    overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+  ).toBeVisible();
   await expect(
     overviewPane.getByRole("button", { name: "New Chat" }),
   ).toBeVisible();
@@ -1314,7 +1520,7 @@ test("project ai chat keeps settings and conversation search visible when very n
   expect(
     Math.abs(headerGeometry.newTop - headerGeometry.settingsTop),
   ).toBeLessThanOrEqual(3);
-  expect(
-    Math.abs(headerGeometry.filterTop - headerGeometry.settingsTop),
-  ).toBeLessThanOrEqual(12);
+  expect(headerGeometry.filterTop).toBeGreaterThan(
+    headerGeometry.settingsTop + 6,
+  );
 });

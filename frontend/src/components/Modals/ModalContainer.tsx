@@ -1,6 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { useEffect } from "react";
-import { useLocation } from "react-router-dom";
 import { openWorkspaceSwitcherModal } from "state/actions/modal";
 import { useModal } from "state/definitions";
 import { MODAL_OVERLAY_Z_INDEX_CLASS_NAME } from "utils/constants";
@@ -18,7 +17,6 @@ import "./styles.css";
 import { ModalTypeEnum } from "./types";
 
 export function ModalContainer({ children }) {
-  const location = useLocation();
   const open = useModal((x) => x.open);
   const modalType = useModal((x) => x.modalInfo?.type);
 
@@ -26,7 +24,7 @@ export function ModalContainer({ children }) {
     if (consumeOpenWorkspaceSwitcherRequest()) {
       openWorkspaceSwitcherModal();
     }
-  }, [location.key, location.pathname, location.search]);
+  }, []);
 
   const contentClassName =
     modalType === ModalTypeEnum.WORKSPACE_SWITCHER

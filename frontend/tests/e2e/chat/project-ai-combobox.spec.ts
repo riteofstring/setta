@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import {
   allowExpectedApiError,
   cleanupIsolatedProject,
@@ -232,15 +232,21 @@ test("project chat keeps threads open when switching engines", async ({
   });
   await ensureAppReady(page);
 
-  const projectChatSurface = await getVisibleProjectChatSurface(page);
-  await setProjectChatSurfaceWidth(projectChatSurface, 920);
-  await openProjectChatThreads(page);
-  const threadsPanel = page.getByTestId("project-chat-threads-panel").first();
-  await expect(threadsPanel).toBeVisible();
+  const overviewPane = page.locator("#OverviewPane");
+  await expect(
+    overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+  ).toBeVisible();
 
-  await projectChatSurface
-    .getByRole("button", { name: "Project AI Settings" })
-    .evaluate((element: HTMLButtonElement) => element.click());
+  const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+  if (
+    (await threadsPanel.count()) === 0 ||
+    !(await threadsPanel.first().isVisible())
+  ) {
+    await overviewPane.getByRole("button", { name: "View Threads" }).click();
+  }
+  await expect(threadsPanel.first()).toBeVisible();
+
+  await page.getByRole("button", { name: "Project AI Settings" }).click();
   const engineInput = page.getByPlaceholder("Select an engine");
   await expect(engineInput).toBeVisible();
   await engineInput.fill("Codex");
@@ -433,10 +439,8 @@ test("project chat shows continue-in-new-thread banner after engine switch on se
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
 
-    const projectChatSurface = await getVisibleProjectChatSurface(page);
-    await setProjectChatSurfaceWidth(projectChatSurface, 920);
-    await openProjectChatThreads(page);
-    const threadsPanel = page.getByTestId("project-chat-threads-panel").first();
+    const overviewPane = page.locator("#OverviewPane");
+    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
     await expect(threadsPanel).toBeVisible();
 
     const threadEntry = threadsPanel
@@ -444,14 +448,14 @@ test("project chat shows continue-in-new-thread banner after engine switch on se
       .filter({ hasText: "Legacy Setta Thread" })
       .first();
     await expect(threadEntry).toBeVisible();
-    await threadEntry.evaluate((element: HTMLElement) => element.click());
+    await threadEntry.click();
     await expect(
-      projectChatSurface.getByText("Hydrated legacy alpha chat.").first(),
+      overviewPane.getByText("Hydrated legacy alpha chat.").first(),
     ).toBeVisible();
 
-    await projectChatSurface
+    await overviewPane
       .getByRole("button", { name: "Project AI Settings" })
-      .evaluate((element: HTMLButtonElement) => element.click());
+      .click();
     const engineInput = page.getByPlaceholder("Select an engine");
     await expect(engineInput).toBeVisible();
     await engineInput.fill("Setta LLM Beta");
@@ -459,26 +463,23 @@ test("project chat shows continue-in-new-thread banner after engine switch on se
     await expect(engineInput).toHaveValue("Setta LLM Beta");
 
     await expect(
-      projectChatSurface.getByTestId("project-chat-engine-switch-banner"),
+      overviewPane.getByTestId("project-chat-engine-switch-banner"),
     ).toContainText("Continue in a new thread");
-    await expect(projectChatSurface.locator("textarea").first()).toBeDisabled();
+    await expect(overviewPane.locator("textarea").first()).toBeDisabled();
 
-    await projectChatSurface
+    await overviewPane
       .getByTestId("project-chat-engine-switch-continue-button")
-      .evaluate((element: HTMLButtonElement) => element.click());
+      .click();
     await expect(
-      projectChatSurface.getByTestId("project-chat-engine-switch-banner"),
+      overviewPane.getByTestId("project-chat-engine-switch-banner"),
     ).toHaveCount(0);
-    await expect(projectChatSurface.locator("textarea").first()).toBeEnabled();
+    await expect(overviewPane.locator("textarea").first()).toBeEnabled();
     await expect(
-      projectChatSurface.getByText("Hydrated legacy alpha chat.").first(),
+      overviewPane.getByText("Hydrated legacy alpha chat.").first(),
     ).toBeVisible();
 
-    await projectChatSurface
-      .locator("textarea")
-      .first()
-      .fill("Continue on beta.");
-    await projectChatSurface.locator("textarea").first().press("Enter");
+    await overviewPane.locator("textarea").first().fill("Continue on beta.");
+    await overviewPane.locator("textarea").first().press("Enter");
     await expect.poll(() => submittedPayload).not.toBeNull();
     expect(submittedPayload).toEqual({
       chatId: null,
@@ -683,10 +684,8 @@ test("project chat continuation preserves source chat id across failed first sub
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
 
-    const projectChatSurface = await getVisibleProjectChatSurface(page);
-    await setProjectChatSurfaceWidth(projectChatSurface, 920);
-    await openProjectChatThreads(page);
-    const threadsPanel = page.getByTestId("project-chat-threads-panel").first();
+    const overviewPane = page.locator("#OverviewPane");
+    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
     await expect(threadsPanel).toBeVisible();
 
     const threadEntry = threadsPanel
@@ -694,25 +693,25 @@ test("project chat continuation preserves source chat id across failed first sub
       .filter({ hasText: "Legacy Setta Thread" })
       .first();
     await expect(threadEntry).toBeVisible();
-    await threadEntry.evaluate((element: HTMLElement) => element.click());
+    await threadEntry.click();
     await expect(
-      projectChatSurface.getByText("Hydrated legacy alpha chat.").first(),
+      overviewPane.getByText("Hydrated legacy alpha chat.").first(),
     ).toBeVisible();
 
-    await projectChatSurface
+    await overviewPane
       .getByRole("button", { name: "Project AI Settings" })
-      .evaluate((element: HTMLButtonElement) => element.click());
+      .click();
     const engineInput = page.getByPlaceholder("Select an engine");
     await expect(engineInput).toBeVisible();
     await engineInput.fill("Setta LLM Beta");
     await engineInput.press("Enter");
     await expect(engineInput).toHaveValue("Setta LLM Beta");
 
-    await projectChatSurface
+    await overviewPane
       .getByTestId("project-chat-engine-switch-continue-button")
-      .evaluate((element: HTMLButtonElement) => element.click());
+      .click();
     await expect(
-      projectChatSurface.getByTestId("project-chat-engine-switch-banner"),
+      overviewPane.getByTestId("project-chat-engine-switch-banner"),
     ).toHaveCount(0);
 
     allowExpectedApiError(page, {
@@ -721,18 +720,18 @@ test("project chat continuation preserves source chat id across failed first sub
       method: "POST",
       count: 1,
     });
-    await projectChatSurface
+    await overviewPane
       .locator("textarea")
       .first()
       .fill("Attempt one should fail.");
-    await projectChatSurface.locator("textarea").first().press("Enter");
+    await overviewPane.locator("textarea").first().press("Enter");
     await expect.poll(() => submittedPayloads.length).toBe(1);
 
-    await projectChatSurface
+    await overviewPane
       .locator("textarea")
       .first()
       .fill("Attempt two should work.");
-    await projectChatSurface.locator("textarea").first().press("Enter");
+    await overviewPane.locator("textarea").first().press("Enter");
     await expect.poll(() => submittedPayloads.length).toBe(2);
 
     expect(submittedPayloads).toEqual([
@@ -751,66 +750,3 @@ test("project chat continuation preserves source chat id across failed first sub
     await cleanupIsolatedProject(page, projectContext);
   }
 });
-
-async function getVisibleProjectChatSurface(page: Page): Promise<Locator> {
-  const surfaceCandidates = [
-    page.getByTestId("project-chat-maximized-window").first(),
-    page.getByTestId("project-chat-floating-window").first(),
-    page.getByTestId("project-chat-bottom-dock-window-panel").first(),
-    page
-      .locator('#OverviewPane [data-chat-surface-mode="project_ai_mode"]')
-      .first(),
-  ];
-  await expect
-    .poll(async () => {
-      for (const candidate of surfaceCandidates) {
-        if ((await candidate.count()) > 0 && (await candidate.isVisible())) {
-          return true;
-        }
-      }
-      return false;
-    })
-    .toBe(true);
-  for (const candidate of surfaceCandidates) {
-    if ((await candidate.count()) > 0 && (await candidate.isVisible())) {
-      return candidate;
-    }
-  }
-  throw new Error("No visible project chat surface found.");
-}
-
-async function setProjectChatSurfaceWidth(
-  projectChatSurface: Locator,
-  widthPx: number,
-): Promise<void> {
-  const didSet = await projectChatSurface.evaluate((surface, width) => {
-    const panel =
-      surface.closest(
-        '[data-testid="project-chat-bottom-dock-window-panel"], [data-testid="project-chat-floating-window"], [data-testid="project-chat-maximized-window"]',
-      ) ?? surface;
-    if (!(panel instanceof HTMLElement)) {
-      return false;
-    }
-    const widthValue = `${width}px`;
-    panel.style.width = widthValue;
-    panel.style.minWidth = widthValue;
-    panel.style.maxWidth = widthValue;
-    panel.style.flexBasis = widthValue;
-    return true;
-  }, widthPx);
-  expect(didSet).toBe(true);
-  await expect
-    .poll(async () => {
-      return projectChatSurface.evaluate((surface) =>
-        Math.round(surface.getBoundingClientRect().width),
-      );
-    })
-    .toBeGreaterThanOrEqual(widthPx - 4);
-}
-
-async function openProjectChatThreads(page: Page): Promise<void> {
-  await page.evaluate(async () => {
-    const { useAIStore } = await import("/src/state/definitions.ts");
-    useAIStore.setState({ viewThreads: true });
-  });
-}
