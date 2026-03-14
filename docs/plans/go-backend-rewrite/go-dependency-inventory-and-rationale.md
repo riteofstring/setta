@@ -26,8 +26,9 @@ recommendation docs. If this file disagrees with planning notes, `go.mod` wins.
 
 ## Snapshot Context
 
-- captured at: `2026-03-12 01:18 PDT`
-- module totals: `13` direct, `24` indirect, `37` total
+- captured at: `2026-03-12 06:26 PDT`
+- module totals excluding the main `setta` module: `15` direct, `120`
+  indirect, `135` total
 - source of truth:
   - `go.mod`
   - current import sites under `internal/` and `cmd/`
@@ -42,6 +43,9 @@ recommendation docs. If this file disagrees with planning notes, `go.mod` wins.
   `go.mod`; the older indirect/import mismatch note is stale.
 - Some older docs still describe `github.com/creack/pty` as only a planned
   candidate. That is stale. It is a direct dependency now.
+- Some older docs still describe `github.com/openai/openai-go/v3` as only a
+  selected follow-on candidate. That is stale. It is a direct dependency now
+  for the managed-chat OpenAI provider edge.
 - Some recommendation docs mention future candidates such as
   `santhosh-tekuri/jsonschema/v6`, `fsnotify`, and `gorilla/securecookie`.
   Those are not current dependencies because they are not pinned in `go.mod`.
@@ -51,6 +55,7 @@ recommendation docs. If this file disagrees with planning notes, `go.mod` wins.
 | module | version | why we use it | main owners |
 | --- | --- | --- | --- |
 | `github.com/go-chi/chi/v5` | `v5.2.5` | Small `net/http`-native router and middleware tree for the Go HTTP and websocket surfaces. | `internal/httpapi`, `internal/wsapi`, `internal/app` |
+| `github.com/openai/openai-go/v3` | `v3.26.0` | Official OpenAI SDK used at the provider edge for Go-owned managed-chat execution, kept behind internal adapter helpers. | `internal/managedllm` |
 | `github.com/aymanbagabas/go-pty` | `v0.2.2` | Windows PTY backend for terminal sessions. | `internal/terminals/pty_backend_windows.go` |
 | `github.com/coder/websocket` | `v1.8.14` | WebSocket transport for realtime frontend/listener connections. | `internal/realtime`, `internal/wsapi` |
 | `github.com/creack/pty` | `v1.1.21` | Unix PTY backend for terminal sessions. | `internal/terminals/pty_backend_unix.go` |
@@ -89,6 +94,16 @@ not just a passive transitive.
 We still want the official MCP SDK for transport and typed protocol support.
 The wrapper boundary lives in `internal/mcpx`, but the SDK itself is still a
 conscious dependency choice.
+
+### Why `openai-go` is direct
+
+The managed-chat OpenAI provider edge now uses
+`github.com/openai/openai-go/v3` instead of the older bespoke HTTP/SSE
+transport.
+
+We still keep that SDK behind bounded helpers in `internal/managedllm` so
+Setta request validation, tool execution, websocket event contracts, and
+provider-neutral runtime semantics remain repo-owned.
 
 ### Why plugin version-range parsing is no longer a module dependency
 
@@ -135,39 +150,63 @@ the template parser/runtime stays library-owned.
 ## Indirect Dependencies
 
 These modules are present in `go.mod` but are not part of the deliberate public
-shape of the rewrite. They mostly come from five roots:
+shape of the rewrite. The indirect set is much larger after landing
+`openai-go`; the table below calls out the main roots and the most
+consequential or non-obvious transitive baggage rather than restating all `120`
+indirect modules individually.
 
+They mostly come from seven roots:
+
+- `openai-go`
 - the MCP SDK
 - `gopsutil`
 - `go-pty`
 - `gonja`
+- the tree-sitter module family
 - a small amount of upstream test-support baggage from `gopkg.in/yaml.v3`
 
 | module | comes from | why it is here |
 | --- | --- | --- |
+| `github.com/Azure/azure-sdk-for-go/sdk/azcore` | `github.com/openai/openai-go/v3` | Shared request/auth pipeline retained by the OpenAI SDK. |
+| `github.com/Azure/azure-sdk-for-go/sdk/azidentity` | `github.com/openai/openai-go/v3` | Azure/OpenAI-compatible identity support bundled by the SDK. |
+| `github.com/AzureAD/microsoft-authentication-library-for-go` | `github.com/Azure/azure-sdk-for-go/sdk/azidentity` via `openai-go` | Upstream auth dependency retained by the SDK's Azure identity support. |
 | `github.com/dustin/go-humanize` | `github.com/nikolalohinski/gonja/v2` | Upstream helper retained by the prompt-rendering library. |
 | `github.com/ebitengine/purego` | `github.com/shirou/gopsutil/v4` | Upstream low-level syscall glue used by `gopsutil` on some platforms. |
 | `github.com/go-ole/go-ole` | `github.com/yusufpapurcu/wmi` via `gopsutil` | Windows COM support used by upstream WMI access. |
+| `github.com/golang-jwt/jwt/v5` | `github.com/AzureAD/microsoft-authentication-library-for-go` via `openai-go` | Token handling retained by the SDK's Azure identity support. |
+| `github.com/google/uuid` | `github.com/AzureAD/microsoft-authentication-library-for-go` via `openai-go` | Upstream identifier helper retained by the SDK's Azure identity support. |
 | `github.com/json-iterator/go` | `github.com/nikolalohinski/gonja/v2` | Upstream JSON helper retained by the prompt-rendering library. |
 | `github.com/kr/text` | `gopkg.in/yaml.v3.test` -> `gopkg.in/check.v1` -> `github.com/kr/pretty` | Upstream YAML-package test-support baggage retained by the module graph. |
+| `github.com/kylelemons/godebug` | `github.com/AzureAD/microsoft-authentication-library-for-go` via `openai-go` | Upstream debug/test helper retained by the SDK's Azure identity support. |
 | `github.com/lufia/plan9stats` | `github.com/shirou/gopsutil/v4` | Upstream cross-platform process/stat support. |
 | `github.com/mattn/go-pointer` | tree-sitter bindings | Cgo pointer bridge required by tree-sitter Go bindings. |
 | `github.com/modern-go/concurrent` | `github.com/json-iterator/go` via `github.com/nikolalohinski/gonja/v2` | Upstream support package retained by the prompt-rendering library's JSON dependency. |
 | `github.com/modern-go/reflect2` | `github.com/json-iterator/go` via `github.com/nikolalohinski/gonja/v2` | Upstream reflection helper retained by the prompt-rendering library's JSON dependency. |
+| `github.com/pkg/browser` | `github.com/AzureAD/microsoft-authentication-library-for-go` via `openai-go` | Browser-launch helper retained by the SDK's Azure device-flow support. |
 | `github.com/pkg/errors` | `github.com/nikolalohinski/gonja/v2` | Upstream error-wrapper dependency retained by the prompt-rendering library. |
 | `github.com/power-devops/perfstat` | `github.com/shirou/gopsutil/v4` | Upstream AIX perf-stat support. |
 | `github.com/rogpeppe/go-internal` | `gopkg.in/yaml.v3.test` -> `gopkg.in/check.v1` -> `github.com/kr/pretty` | Upstream YAML-package test-support helper retained by the module graph. |
 | `github.com/segmentio/asm` | `github.com/segmentio/encoding` via MCP SDK | Low-level optimization dependency used by `segmentio/encoding`. |
 | `github.com/segmentio/encoding` | `github.com/modelcontextprotocol/go-sdk` | Encoding helpers used by the SDK. |
 | `github.com/sirupsen/logrus` | `github.com/nikolalohinski/gonja/v2` | Upstream logging dependency retained by the prompt-rendering library. |
+| `github.com/tidwall/gjson` | `github.com/openai/openai-go/v3` | JSON read helper used by the SDK's internal API JSON layer. |
+| `github.com/tidwall/match` | `github.com/tidwall/gjson` via `openai-go` | Pattern helper retained by the SDK's JSON helper stack. |
+| `github.com/tidwall/pretty` | `github.com/tidwall/sjson` via `openai-go` | Formatting helper retained by the SDK's JSON helper stack. |
+| `github.com/tidwall/sjson` | `github.com/openai/openai-go/v3` | JSON mutation helper used by the SDK's internal API JSON layer. |
 | `github.com/tklauser/go-sysconf` | `github.com/shirou/gopsutil/v4` | Sysconf helpers used by `gopsutil`. |
 | `github.com/tklauser/numcpus` | `github.com/tklauser/go-sysconf` via `gopsutil` | CPU-count helper used by upstream sysconf code. |
+| `github.com/tree-sitter/tree-sitter-c` | tree-sitter module family | Upstream language grammar module retained by tree-sitter module dependencies. |
+| `github.com/tree-sitter/tree-sitter-cpp` | tree-sitter module family | Upstream language grammar module retained by tree-sitter module dependencies. |
+| `github.com/tree-sitter/tree-sitter-go` | tree-sitter module family | Upstream language grammar module retained by tree-sitter module dependencies. |
+| `github.com/tree-sitter/tree-sitter-javascript` | tree-sitter module family | Upstream language grammar module retained by tree-sitter module dependencies. |
+| `github.com/tree-sitter/tree-sitter-json` | tree-sitter module family | Upstream language grammar module retained by tree-sitter module dependencies. |
 | `github.com/u-root/u-root` | `github.com/aymanbagabas/go-pty` | PTY/terminal support pulled in by the Windows PTY implementation. |
 | `github.com/yosida95/uritemplate/v3` | `github.com/modelcontextprotocol/go-sdk` | URI-template handling used by the SDK. |
 | `github.com/yusufpapurcu/wmi` | `github.com/shirou/gopsutil/v4` | Windows WMI access used by `gopsutil`. |
 | `golang.org/x/crypto` | `github.com/aymanbagabas/go-pty` | Upstream crypto/terminal helpers needed by `go-pty`. |
 | `golang.org/x/exp` | `github.com/nikolalohinski/gonja/v2` | Upstream experimental helpers retained by the prompt-rendering library. |
 | `golang.org/x/oauth2` | `github.com/modelcontextprotocol/go-sdk` | OAuth support included by the SDK. |
+| `golang.org/x/net` | `github.com/openai/openai-go/v3` and Azure identity support | Upstream HTTP/auth helpers retained by the OpenAI SDK stack. |
 | `golang.org/x/text` | `github.com/nikolalohinski/gonja/v2` | Upstream text/casing helpers retained by the prompt-rendering library. |
 
 ## What This Means In Practice
@@ -178,6 +217,9 @@ shape of the rewrite. They mostly come from five roots:
   desirable, not suspect.
 - The right question is whether a dependency is well established and earning
   its keep, not whether we can remove it at all costs.
+- `openai-go` is now one of those deliberate infrastructure dependencies for a
+  real provider edge, so its Azure/auth JSON-helper transitives are accepted
+  implementation baggage rather than accidental sprawl.
 - the previous `go-pep440-version` exception is gone, so dependency debates
   should start from the current direct list instead of stale notes about that
   removed module

@@ -1,7 +1,7 @@
 # openai-go
 
 - Module: `github.com/openai/openai-go/v3`
-- Local status: selected follow-on candidate; not pinned in `go.mod`
+- Local status: pinned in `go.mod`; active for the managed-chat OpenAI chat-completions transport
 - Retrieved: 2026-03-10
 - Actual downloaded upstream files: `docs/reference/dependencies/openai-go-src/`
 - Official OpenAI Libraries doc: https://developers.openai.com/api/docs/libraries/
@@ -16,7 +16,8 @@
 ## Why It Exists In This Rewrite
 
 - selected provider-edge boundary for any Go-owned OpenAI API interaction
-- needed to replace current hand-rolled OpenAI transport in managed chat and
+- now used by the managed-chat OpenAI chat-completions transport
+- still needed to replace the remaining bespoke OpenAI transport in
   transcription code
 - aligned with the rewrite rule that OpenAI API interactions should go through
   `openai-go` rather than bespoke HTTP or WebSocket clients
@@ -50,7 +51,8 @@
 ## API Surface To Evaluate First
 
 - client construction and option wiring from the Libraries page example
-- Responses API support for the managed-chat migration path
+- Responses API support for future managed reasoning-output and richer provider
+  parity work
 - audio transcription and translation surfaces needed for
   `internal/transcriptionsessions`
 - realtime session/transcription support for the current
@@ -71,7 +73,9 @@
 ## Repo-Local Migration Targets
 
 - `internal/managedllm/executor.go`
-  - current managed-chat OpenAI transport is hand-rolled
+  - active managed-chat chat-completions transport now uses `openai-go`
+  - future follow-on, if needed, is explicit Responses/reasoning-output
+    convergence rather than more bespoke transport growth
 - `internal/transcriptionsessions/service.go`
   - current file transcription path posts multipart audio directly
 - `internal/transcriptionsessions/realtime_engine.go`
@@ -79,9 +83,12 @@
 
 ## Gotchas
 
-- current repo behavior is still shaped around older hand-rolled transport and
-  event parsing, so migration is not a drop-in import swap
+- remaining repo behavior is still shaped around older hand-rolled transport
+  and event parsing in the transcription/realtime surfaces, so migration is not
+  a drop-in import swap
 - the rewrite must preserve current Setta event contracts even if the SDK
   prefers different request/response shapes upstream
-- exact Go method names beyond the Libraries-page example should be verified
-  from pinned local module source once the dependency is added
+- managed chat currently stays on chat-completions streaming because that is
+  the bounded fit for the current Setta tool/event contract; any shift to the
+  Responses API should be an explicit parity decision rather than an
+  opportunistic rewrite
