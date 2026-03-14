@@ -1757,11 +1757,17 @@ func TestExecutorExecuteTreatsOpenAIResponsesIncompleteEventAsProviderFailure(t 
 	}))
 	defer server.Close()
 
+	broadcaster := &captureBroadcaster{}
+	live := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{Broadcaster: broadcaster})
+	run := newManagedChatTestRun()
+	live.ActivateRun(run)
+
 	executor := NewExecutor(ExecutorOptions{
+		Live:       live,
 		HTTPClient: server.Client(),
 	})
 	result, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
-		Run: agentruns.Run{ID: "run-alpha"},
+		Run: run,
 		LLMConfig: llmconfig.Config{
 			ID:        "primary",
 			Model:     "gpt-5-codex",
@@ -1806,6 +1812,113 @@ func TestExecutorExecuteTreatsOpenAIResponsesIncompleteEventAsProviderFailure(t 
 	}
 	if assistantText(assistant) != "Partial answer" {
 		t.Fatalf("expected partial assistant text to be preserved, got %#v", assistant)
+	}
+
+	state, stateErr := live.GetLiveChatState(run.ID)
+	if stateErr != nil {
+		t.Fatalf("get live state after provider failure: %v", stateErr)
+	}
+	if state == nil || state.WaitingForResponse {
+		t.Fatalf("expected provider failure to clear waiting state, got %#v", state)
+	}
+	if len(state.Messages) != 2 || assistantText(state.Messages[1]) != "Partial answer" {
+		t.Fatalf("expected finalized live partial assistant message, got %#v", state)
+	}
+	if broadcaster.Count() != 4 {
+		t.Fatalf("expected start, delta, stop, finalized broadcasts, got %d", broadcaster.Count())
+	}
+}
+
+func TestExecutorExecuteRecoversOpenAIResponsesOutputItemDoneBeforeIncompleteFailure(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/responses" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected flusher")
+		}
+		fmt.Fprint(w, openAIResponseOutputMessageDoneEvent("message-1", 0, "Recovered final item"))
+		flusher.Flush()
+		fmt.Fprint(w, openAIResponseIncompleteEvent("max_output_tokens"))
+		flusher.Flush()
+	}))
+	defer server.Close()
+
+	broadcaster := &captureBroadcaster{}
+	live := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{Broadcaster: broadcaster})
+	run := newManagedChatTestRun()
+	live.ActivateRun(run)
+
+	executor := NewExecutor(ExecutorOptions{
+		Live:       live,
+		HTTPClient: server.Client(),
+	})
+	result, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
+		Run: run,
+		LLMConfig: llmconfig.Config{
+			ID:        "primary",
+			Model:     "gpt-5-codex",
+			Provider:  "openai",
+			BaseURL:   server.URL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+		APIKeys: map[string]string{
+			"OPENAI_API_KEY": "secret",
+		},
+		SystemPrompt:    "System prompt",
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+		SectionID:       testStringPtr("section-chat"),
+		Thinking:        true,
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+			"messages": []any{
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Keep going"},
+					},
+					"attachments": []any{},
+				},
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected provider failure from incomplete response")
+	}
+	if err.Error() != "managed llm provider request failed: response incomplete (max_output_tokens)" {
+		t.Fatalf("unexpected provider error %q", err.Error())
+	}
+
+	messages, ok := result.Outputs["messages"].([]any)
+	if !ok || len(messages) != 2 {
+		t.Fatalf("expected user and partial assistant messages, got %#v", result.Outputs["messages"])
+	}
+	assistant, ok := messages[1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected assistant message map, got %#v", messages[1])
+	}
+	if assistantText(assistant) != "Recovered final item" {
+		t.Fatalf("expected output_item.done text to be preserved, got %#v", assistant)
+	}
+
+	state, stateErr := live.GetLiveChatState(run.ID)
+	if stateErr != nil {
+		t.Fatalf("get live state after provider failure: %v", stateErr)
+	}
+	if state == nil || state.WaitingForResponse {
+		t.Fatalf("expected provider failure to clear waiting state, got %#v", state)
+	}
+	if len(state.Messages) != 2 || assistantText(state.Messages[1]) != "Recovered final item" {
+		t.Fatalf("expected finalized live output_item.done assistant message, got %#v", state)
+	}
+	if broadcaster.Count() != 3 {
+		t.Fatalf("expected start, stop, finalized broadcasts, got %d", broadcaster.Count())
 	}
 }
 
@@ -2759,6 +2872,27 @@ func openAIResponseOutputTextDeltaEvent(itemID string, outputIndex int, contentI
 		"content_index":   contentIndex,
 		"delta":           delta,
 		"logprobs":        []any{},
+	})
+}
+
+func openAIResponseOutputMessageDoneEvent(itemID string, outputIndex int, text string) string {
+	return openAIResponseEvent(map[string]any{
+		"type":            "response.output_item.done",
+		"sequence_number": 5,
+		"output_index":    outputIndex,
+		"item": map[string]any{
+			"type":   "message",
+			"id":     itemID,
+			"role":   "assistant",
+			"status": "incomplete",
+			"content": []any{
+				map[string]any{
+					"type":        "output_text",
+					"text":        text,
+					"annotations": []any{},
+				},
+			},
+		},
 	})
 }
 

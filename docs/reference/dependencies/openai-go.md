@@ -82,7 +82,10 @@
     summary/content stays inside the current Setta websocket/message contract
   - the Responses stream now also treats explicit `response.incomplete`
     events as provider failures instead of silently succeeding with truncated
-    reasoning output
+    reasoning output, and still stops/finalizes any partial assistant message
+    so the live waiting state clears on provider failure
+  - the `response.output_item.done` fallback now preserves final message items
+    when the stream terminates before earlier text deltas arrive
   - the completed-response fallback now also recovers final function-call
     items when the stream omits earlier tool-call delta events
 - `internal/transcriptionsessions/service.go`

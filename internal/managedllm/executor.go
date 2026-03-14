@@ -335,6 +335,9 @@ func (e *Executor) executeTurn(
 			}
 			return usage, context.Canceled
 		}
+		if finishErr := e.finishStream(ctx, prepared, assistantMessage, true); finishErr != nil {
+			return usage, finishErr
+		}
 		return usage, err
 	}
 	if errors.Is(ctx.Err(), context.Canceled) {
@@ -591,6 +594,14 @@ func (e *Executor) processOpenAIResponseEvent(
 		case responses.ResponseFunctionToolCall:
 			accumulator.applyResolved(int(typed.OutputIndex), item.CallID, item.Name, item.Arguments)
 		}
+	case responses.ResponseOutputItemDoneEvent:
+		e.applyOpenAIResponseOutputItemFallback(
+			assistantMessage,
+			typed.Item,
+			int(typed.OutputIndex),
+			streamState,
+			accumulator,
+		)
 	case responses.ResponseReasoningSummaryTextDeltaEvent:
 		streamState.reasoningSeen = true
 		streamState.reasoningEmitted = true
@@ -828,35 +839,66 @@ func (e *Executor) applyOpenAICompletedResponseFallback(
 	accumulator *toolCallAccumulator,
 ) {
 	for index, itemUnion := range response.Output {
-		switch item := itemUnion.AsAny().(type) {
-		case responses.ResponseReasoningItem:
+		e.applyOpenAIResponseOutputItemFallback(
+			assistantMessage,
+			itemUnion,
+			index,
+			streamState,
+			accumulator,
+		)
+	}
+}
+
+func (e *Executor) applyOpenAIResponseOutputItemFallback(
+	assistantMessage map[string]any,
+	itemUnion responses.ResponseOutputItemUnion,
+	outputIndex int,
+	streamState *openAIResponseStreamState,
+	accumulator *toolCallAccumulator,
+) {
+	switch item := itemUnion.AsAny().(type) {
+	case responses.ResponseReasoningItem:
+		if streamState != nil {
 			streamState.reasoningSeen = true
-			summary := joinOpenAIResponseReasoningSummary(item.Summary)
-			if strings.TrimSpace(summary) != "" && strings.TrimSpace(streamState.summary) == "" {
+		}
+		summary := joinOpenAIResponseReasoningSummary(item.Summary)
+		if strings.TrimSpace(summary) != "" {
+			if streamState != nil && strings.TrimSpace(streamState.summary) == "" {
 				streamState.summary = summary
 				streamState.reasoningEmitted = true
+			}
+			if streamState == nil || strings.TrimSpace(streamState.summary) == summary {
 				setAssistantThinkingSummaryAtIndex(assistantMessage, 0, summary)
 			}
-			reasoning := joinOpenAIResponseReasoningContent(item.Content)
-			if strings.TrimSpace(reasoning) != "" && !hasMessageThinkingText(assistantMessage) {
-				streamState.reasoningEmitted = true
-				appendAssistantThinkingAtIndex(assistantMessage, 0, reasoning)
-			}
-		case responses.ResponseOutputMessage:
-			if hasMessageText(assistantMessage) {
-				continue
-			}
-			text := joinOpenAIResponseOutputMessageText(item.Content)
-			if strings.TrimSpace(text) == "" {
-				continue
-			}
-			appendAssistantText(assistantMessage, text)
-		case responses.ResponseFunctionToolCall:
-			if accumulator == nil {
-				continue
-			}
-			accumulator.applyResolved(index, item.CallID, item.Name, item.Arguments)
 		}
+		reasoning := joinOpenAIResponseReasoningContent(item.Content)
+		if strings.TrimSpace(reasoning) != "" && !hasMessageThinkingText(assistantMessage) {
+			if streamState != nil {
+				streamState.reasoningEmitted = true
+			}
+			appendAssistantThinkingAtIndex(assistantMessage, 0, reasoning)
+		}
+	case responses.ResponseOutputMessage:
+		if hasMessageText(assistantMessage) {
+			return
+		}
+		text := joinOpenAIResponseOutputMessageText(item.Content)
+		if strings.TrimSpace(text) == "" {
+			return
+		}
+		if streamState != nil {
+			streamState.bufferedText.Reset()
+		}
+		textIndex := 0
+		if streamState != nil && streamState.reasoningSeen {
+			textIndex = 1
+		}
+		appendAssistantTextAtIndex(assistantMessage, textIndex, text)
+	case responses.ResponseFunctionToolCall:
+		if accumulator == nil {
+			return
+		}
+		accumulator.applyResolved(outputIndex, item.CallID, item.Name, item.Arguments)
 	}
 }
 
