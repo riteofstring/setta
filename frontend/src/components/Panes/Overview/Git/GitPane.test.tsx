@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useGitStore } from "state/git";
+import { createGetGitStatusResponse } from "utils/generatedTypes";
 import { GitPane } from "./GitPane";
 
 let mockCanEditLayout = true;
@@ -43,7 +44,7 @@ describe("GitPane", () => {
     useGitStore.setState((state) => ({
       ...state,
       status: {
-        response: {
+        response: createGetGitStatusResponse({
           repo: {
             isGitRepo: true,
             repoRoot: "/repo",
@@ -52,7 +53,7 @@ describe("GitPane", () => {
           },
           entries: [],
           isTruncated: true,
-        },
+        }),
         diffAvailabilityByPath: new Map(),
         isLoading: false,
         error: null,
@@ -70,7 +71,7 @@ describe("GitPane", () => {
     useGitStore.setState((state) => ({
       ...state,
       status: {
-        response: {
+        response: createGetGitStatusResponse({
           repo: {
             isGitRepo: true,
             repoRoot: "/repo",
@@ -79,7 +80,7 @@ describe("GitPane", () => {
           },
           entries: [],
           isTruncated: false,
-        },
+        }),
         diffAvailabilityByPath: new Map(),
         isLoading: false,
         error: null,
@@ -97,7 +98,7 @@ describe("GitPane", () => {
     useGitStore.setState((state) => ({
       ...state,
       status: {
-        response: {
+        response: createGetGitStatusResponse({
           repo: {
             isGitRepo: true,
             repoRoot: "/repo",
@@ -106,7 +107,7 @@ describe("GitPane", () => {
           },
           entries: [],
           isTruncated: false,
-        },
+        }),
         diffAvailabilityByPath: new Map(),
         isLoading: false,
         error: null,
@@ -117,5 +118,90 @@ describe("GitPane", () => {
 
     expect(markup).toContain(">Graph<");
     expect(markup).toContain('disabled=""');
+  });
+
+  it("renders an open worktree accordion when additional worktrees exist", () => {
+    useGitStore.setState((state) => ({
+      ...state,
+      status: {
+        response: createGetGitStatusResponse({
+          repo: {
+            isGitRepo: true,
+            repoRoot: "/repo",
+            headBranch: "main",
+            headCommit: "abc1234",
+          },
+          entries: [],
+          isTruncated: false,
+          worktrees: [
+            {
+              path: "/repo",
+              displayName: "main",
+              branchName: "main",
+              headCommit: "abc1234",
+              isCurrent: true,
+              isPrunable: false,
+              prunableReason: null,
+            },
+            {
+              path: "/repo.feature-extra",
+              displayName: "feature-extra",
+              branchName: "feature-extra",
+              headCommit: "def5678",
+              isCurrent: false,
+              isPrunable: true,
+              prunableReason: "gitdir file points to non-existent location",
+            },
+          ],
+        }),
+        diffAvailabilityByPath: new Map(),
+        isLoading: false,
+        error: null,
+      },
+    }));
+
+    const markup = renderPane();
+
+    expect(markup).toContain('data-testid="git-worktrees-accordion"');
+    expect(markup).toContain("open");
+    expect(markup).toContain(">Current<");
+    expect(markup).toContain(">Prunable<");
+    expect(markup).toContain("feature-extra");
+  });
+
+  it("hides the worktree accordion when there are no additional worktrees", () => {
+    useGitStore.setState((state) => ({
+      ...state,
+      status: {
+        response: createGetGitStatusResponse({
+          repo: {
+            isGitRepo: true,
+            repoRoot: "/repo",
+            headBranch: "main",
+            headCommit: "abc1234",
+          },
+          entries: [],
+          isTruncated: false,
+          worktrees: [
+            {
+              path: "/repo",
+              displayName: "main",
+              branchName: "main",
+              headCommit: "abc1234",
+              isCurrent: true,
+              isPrunable: false,
+              prunableReason: null,
+            },
+          ],
+        }),
+        diffAvailabilityByPath: new Map(),
+        isLoading: false,
+        error: null,
+      },
+    }));
+
+    const markup = renderPane();
+
+    expect(markup).not.toContain('data-testid="git-worktrees-accordion"');
   });
 });

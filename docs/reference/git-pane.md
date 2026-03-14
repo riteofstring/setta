@@ -20,6 +20,7 @@ git route contracts it depends on.
 - It shows:
   - Current branch / detached head + short commit.
   - Repo root path.
+  - An open-by-default `Worktrees` accordion when the repo has additional worktrees.
   - File groups: `Conflicts`, `Staged Changes`, `Changes`, `Untracked`.
 - `Refresh` reloads status.
 - `Graph` opens or focuses the tracked Git Graph window (disabled when not in a
@@ -27,6 +28,18 @@ git route contracts it depends on.
 - Clicking a file row opens the diff overlay in the matching mode:
   - `staged` entries -> staged diff.
   - `unstaged`, `conflict`, `untracked` entries -> unstaged diff.
+
+### Worktree summary
+
+- The accordion is hidden when the current repo has no sibling worktrees.
+- Each row shows:
+  - derived display name
+  - branch name or `Detached HEAD`
+  - short head commit
+  - `Current` badge for the active worktree
+  - `Prunable` badge plus the git-reported reason when applicable
+- Worktree metadata is informational only; this pane does not create, switch,
+  or remove worktrees.
 
 ## Diff Overlay
 
@@ -106,6 +119,9 @@ Routes:
   - No request body.
   - Returns repo info + porcelain-v2 parsed entries.
   - Includes `isTruncated`.
+  - Also includes `worktrees`, a list of parsed `git worktree list --porcelain -z`
+    entries (`path`, `displayName`, `branchName`, `headCommit`, `isCurrent`,
+    `isPrunable`, `prunableReason`).
 - `POST /api/git/diff` (`Route.GET_GIT_DIFF`)
   - Request: `{ path, mode, oldPath? }`.
   - Returns file diff for staged/unstaged modes.

@@ -8,6 +8,7 @@ from setta.mcp.client import MultiMCPClient
 from setta.types.chat_messages import (
     ChatFileAttachment,
     MessageTextContent,
+    ToolChatMessage,
     UserChatMessage,
 )
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
@@ -120,3 +121,38 @@ def test_build_llm_request_payload_blocks_external_attachments() -> None:
             assert content[0]["text"] == "Hello"
             assert "Attachment missing" in content[1]["text"]
             assert external_text not in content[1]["text"]
+
+
+def test_build_llm_request_payload_strips_created_at_from_tool_messages() -> None:
+    with TemporaryDirectory() as tmpdir:
+        workspace_root = Path(tmpdir)
+        dbe = DBE(workspace_root / "setta_files")
+        config = AllLLMConfigs(
+            configs={"primary": LLMConfig(id="primary", model="gpt-test")},
+            mcpServers={},
+        )
+        with temporary_setta_paths(
+            workspace_root=workspace_root,
+            setta_files_location="local",
+        ):
+            runner = _build_runner(dbe, config)
+            payload = runner._build_llm_request_payload(
+                llm_config=config.configs["primary"],
+                messages=[
+                    ToolChatMessage(
+                        tool_call_id="tool-call-1",
+                        createdAt=123,
+                    )
+                ],
+                thinking=False,
+                system_prompt="System prompt",
+                allowlist=None,
+                agentic_scope=AgenticScope(),
+            )
+
+            tool_payload = payload["messages"][1]
+            assert tool_payload == {
+                "role": "tool",
+                "tool_call_id": "tool-call-1",
+                "content": [],
+            }

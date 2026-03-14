@@ -507,7 +507,7 @@ describe("resolveProjectChatHydrationAuthority", () => {
       }),
     ).toEqual({
       status: "ready",
-      hydrationRunType: "llm_chat",
+      hydrationRunType: null,
       blockedErrorCode: "chat_provenance_missing",
     });
   });

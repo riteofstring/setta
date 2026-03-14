@@ -31,6 +31,10 @@ import {
 } from "components/Chat/sharePolicyChatAccess";
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
+import {
+  BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME,
+  BrailleSpinner,
+} from "components/Utils/BrailleSpinner";
 import _ from "lodash";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -536,6 +540,7 @@ function ScriptableChatArea({
         role: ChatRoleEnum.user,
         content,
         attachments,
+        createdAt: timestampMs,
       };
       const currentBranch = effectiveBranches[effectiveBranchId];
       const baseMessages = currentBranch?.messages ?? effectiveMessages;
@@ -762,6 +767,7 @@ function ScriptableChatArea({
         role: ChatRoleEnum.user,
         content,
         attachments,
+        createdAt: Date.now(),
       };
       const result = buildBranchFromEdit({
         state: effectiveState,
@@ -936,8 +942,8 @@ function ChatSectionHistoryList({
               </p>
             </div>
             {entry.waitingForResponse ? (
-              <i
-                className={`gg-spinner single-cell-child !scale-75 ${
+              <BrailleSpinner
+                className={`single-cell-child ${BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME} ${
                   entry.chatId === activeChatId
                     ? "text-white dark:text-white"
                     : "text-setta-500/70"

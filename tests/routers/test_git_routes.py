@@ -10,6 +10,7 @@ import pytest_asyncio
 
 import setta.routers.git as git_router
 from setta.routers.git import (
+    _parse_worktree_list_porcelain,
     _parse_porcelain_head_commit,
     _parse_porcelain_head_branch,
     _parse_porcelain_status,
@@ -180,6 +181,45 @@ class TestGitRoutes:
             == "abc123"
         )
         assert _parse_porcelain_head_commit("# branch.oid (initial)\0") is None
+
+    async def test_parse_worktree_list_porcelain_marks_current_and_prunable(
+        self,
+    ) -> None:
+        output = (
+            "worktree /tmp/setta\0"
+            "HEAD abc1234567890\0"
+            "branch refs/heads/main\0"
+            "\0"
+            "worktree /tmp/setta.feature-x\0"
+            "HEAD def0987654321\0"
+            "detached\0"
+            "prunable gitdir file points to non-existent location\0"
+            "\0"
+        )
+
+        worktrees = _parse_worktree_list_porcelain(
+            output,
+            current_repo_root=Path("/tmp/setta.feature-x"),
+        )
+
+        assert len(worktrees) == 2
+        assert worktrees[0].path == "/tmp/setta"
+        assert worktrees[0].displayName == "main"
+        assert worktrees[0].branchName == "main"
+        assert worktrees[0].headCommit == "abc1234567890"
+        assert worktrees[0].isCurrent is False
+        assert worktrees[0].isPrunable is False
+        assert worktrees[0].prunableReason is None
+
+        assert worktrees[1].path == "/tmp/setta.feature-x"
+        assert worktrees[1].displayName == "feature-x"
+        assert worktrees[1].branchName is None
+        assert worktrees[1].headCommit == "def0987654321"
+        assert worktrees[1].isCurrent is True
+        assert worktrees[1].isPrunable is True
+        assert (
+            worktrees[1].prunableReason == "gitdir file points to non-existent location"
+        )
 
     async def test_status_staged_unstaged_untracked(self) -> None:
         # Stage a change, then modify again to get staged + unstaged on the same file.
@@ -454,6 +494,20 @@ class TestGitRoutes:
                     stderr_truncated=False,
                     timed_out=False,
                 )
+            if args[:4] == ["worktree", "list", "--porcelain", "-z"]:
+                return GitCommandOutput(
+                    returncode=0,
+                    stdout=(
+                        f"worktree {self._workspace_root.as_posix()}\0"
+                        "HEAD abc123\0"
+                        "branch refs/heads/main\0"
+                        "\0"
+                    ),
+                    stderr="",
+                    stdout_truncated=False,
+                    stderr_truncated=False,
+                    timed_out=False,
+                )
             raise AssertionError(f"unexpected git command: {args}")
 
         monkeypatch.setattr(git_router, "run_git", fake_run_git)
@@ -508,7 +562,131 @@ class TestGitRoutes:
             and "--branch" in args
             for args in captured_args
         )
+        assert any(
+            args and args[:3] == ["worktree", "list", "--porcelain"] and "-z" in args
+            for args in captured_args
+        )
         assert not any(args and args[0] == "rev-parse" for args in captured_args)
+
+    async def test_status_route_returns_typed_worktree_entries(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fake_run_git(
+            args: list[str],
+            *,
+            cwd: Path,
+            timeout_s: float,
+            max_stdout_bytes: int,
+            max_stderr_bytes: int = 64_000,
+        ) -> GitCommandOutput:
+            assert cwd.resolve(strict=False) == self._workspace_root.resolve(
+                strict=False
+            )
+            assert timeout_s > 0
+            assert max_stdout_bytes > 0
+            assert max_stderr_bytes > 0
+            if args and args[0] == "status":
+                return GitCommandOutput(
+                    returncode=0,
+                    stdout=(
+                        "# branch.oid abc123\0"
+                        "# branch.head main\0"
+                        "1 .M N... 100644 100644 100644 a b tracked.txt\0"
+                    ),
+                    stderr="",
+                    stdout_truncated=False,
+                    stderr_truncated=False,
+                    timed_out=False,
+                )
+            if args[:4] == ["worktree", "list", "--porcelain", "-z"]:
+                return GitCommandOutput(
+                    returncode=0,
+                    stdout=(
+                        f"worktree {self._workspace_root.as_posix()}\0"
+                        "HEAD abc123\0"
+                        "branch refs/heads/main\0"
+                        "\0"
+                        "worktree /tmp/setta.feature-extra\0"
+                        "HEAD def456\0"
+                        "branch refs/heads/feature-extra\0"
+                        "prunable gitdir file points to non-existent location\0"
+                        "\0"
+                    ),
+                    stderr="",
+                    stdout_truncated=False,
+                    stderr_truncated=False,
+                    timed_out=False,
+                )
+            raise AssertionError(f"unexpected git command: {args}")
+
+        monkeypatch.setattr(git_router, "run_git", fake_run_git)
+        state = await self._build_state()
+
+        with runtime_context(state) as ctx:
+            status_res = route_get_git_status(ctx)
+
+        assert [worktree.displayName for worktree in status_res.worktrees] == [
+            self._workspace_root.name,
+            "feature-extra",
+        ]
+        assert status_res.worktrees[0].isCurrent is True
+        assert status_res.worktrees[0].branchName == "main"
+        assert status_res.worktrees[0].headCommit == "abc123"
+        assert status_res.worktrees[0].isPrunable is False
+        assert status_res.worktrees[1].isCurrent is False
+        assert status_res.worktrees[1].branchName == "feature-extra"
+        assert status_res.worktrees[1].headCommit == "def456"
+        assert status_res.worktrees[1].isPrunable is True
+
+    async def test_status_route_keeps_primary_status_when_worktree_listing_fails(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fake_run_git(
+            args: list[str],
+            *,
+            cwd: Path,
+            timeout_s: float,
+            max_stdout_bytes: int,
+            max_stderr_bytes: int = 64_000,
+        ) -> GitCommandOutput:
+            assert cwd.resolve(strict=False) == self._workspace_root.resolve(
+                strict=False
+            )
+            if args and args[0] == "status":
+                return GitCommandOutput(
+                    returncode=0,
+                    stdout=(
+                        "# branch.oid abc123\0"
+                        "# branch.head main\0"
+                        "1 .M N... 100644 100644 100644 a b tracked.txt\0"
+                    ),
+                    stderr="",
+                    stdout_truncated=False,
+                    stderr_truncated=False,
+                    timed_out=False,
+                )
+            if args[:4] == ["worktree", "list", "--porcelain", "-z"]:
+                return GitCommandOutput(
+                    returncode=1,
+                    stdout="",
+                    stderr="worktree failed",
+                    stdout_truncated=False,
+                    stderr_truncated=False,
+                    timed_out=False,
+                )
+            raise AssertionError(f"unexpected git command: {args}")
+
+        monkeypatch.setattr(git_router, "run_git", fake_run_git)
+        state = await self._build_state()
+
+        with runtime_context(state) as ctx:
+            status_res = route_get_git_status(ctx)
+
+        assert status_res.repo.headBranch == "main"
+        assert status_res.repo.headCommit == "abc123"
+        assert [entry.path for entry in status_res.entries] == ["tracked.txt"]
+        assert status_res.worktrees == []
+        assert status_res.isTruncated is False
 
     async def test_log_rejects_option_like_revision(self) -> None:
         state = await self._build_state()

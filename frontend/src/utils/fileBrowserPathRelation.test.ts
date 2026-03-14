@@ -21,8 +21,11 @@ describe("fileBrowserPathRelation", () => {
     expect(isSameOrDescendantBrowserPath("/tmp/folder", "/tmp/folder")).toBe(
       true,
     );
+    expect(isSameOrDescendantBrowserPath("/tmp/folder", "/")).toBe(true);
     expect(isSameOrDescendantBrowserPath("/tmp/other", "/tmp/folder")).toBe(
       false,
     );
+    expect(isSameOrDescendantBrowserPath("C:/tmp/folder", "C:/")).toBe(true);
+    expect(isSameOrDescendantBrowserPath("D:/tmp/folder", "C:/")).toBe(false);
   });
 });
