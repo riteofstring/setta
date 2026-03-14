@@ -332,11 +332,7 @@ def _extract_section_text(
                 lines.append(f"... ({len(draw_paths) - 8} more)")
         return "\n".join(lines).strip()
     if isinstance(section_impl, PromptSectionImpl):
-        prompt_source = resolve_prompt_section_source(
-            dbe,
-            section_impl,
-            allow_snapshot_fallback=True,
-        )
+        prompt_source = resolve_prompt_section_source(dbe, section_impl)
         return prompt_source.template
     if isinstance(section_impl, SocialSectionImpl):
         return section_impl.url or ""

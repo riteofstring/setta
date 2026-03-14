@@ -10,6 +10,7 @@ import {
   createUserDefaultChatSectionImpl,
   createVariant,
   SectionTypeEnum,
+  StateMachineGateTypeEnum,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getStateMachineDraftWarning } from "./stateMachineDraftValidation";
@@ -55,6 +56,28 @@ function createEndSectionImpl({
     size: createSectionSize({ width: 240, height: 96 }),
     machineGroupId,
     label: "End",
+    ...COMMON_MACHINE_IMPL_FIELDS,
+  };
+}
+
+function createGateSectionImpl({
+  implId,
+  machineGroupId,
+  name,
+}: {
+  implId: string;
+  machineGroupId: string;
+  name: string;
+}) {
+  return {
+    id: implId,
+    type: SectionTypeEnum.StateMachineGate,
+    name,
+    size: createSectionSize({ width: 240, height: 96 }),
+    machineGroupId,
+    label: "Gate",
+    gateType: StateMachineGateTypeEnum.AND,
+    ui: { showDetails: false },
     ...COMMON_MACHINE_IMPL_FIELDS,
   };
 }
@@ -266,6 +289,60 @@ describe("state machine draft validation", () => {
         ),
       }),
     );
+  });
+
+  it("warns when a workflow reaches a Gate but still has no End", () => {
+    seedWorkflowGraph({
+      sections: [
+        {
+          sectionId: "start-a",
+          variantId: "variant-start-a",
+          impl: createStateMachineStartSectionImpl(
+            {},
+            {
+              id: "impl-start-a",
+              name: "Start A",
+              machineGroupId: "workflow-main",
+              label: "Start A",
+            },
+          ),
+        },
+        {
+          sectionId: "gate-a",
+          variantId: "variant-gate-a",
+          impl: createGateSectionImpl({
+            implId: "impl-gate-a",
+            machineGroupId: "workflow-main",
+            name: "Gate A",
+          }),
+        },
+      ],
+      edges: [
+        createWorkflowEdge({
+          id: "edge-start-gate",
+          machineGroupId: "workflow-main",
+          sourceSectionId: "start-a",
+          sourcePortId: "workflow-source",
+          targetSectionId: "gate-a",
+          targetPortId: "workflow-target",
+        }),
+      ],
+    });
+
+    const warning = getStateMachineDraftWarning(
+      useProjectState.getState(),
+      "workflow-main",
+    );
+
+    expect(warning).not.toBeNull();
+    expect(warning).toEqual(
+      expect.objectContaining({
+        startCount: 1,
+        endCount: 0,
+        issueCount: 1,
+      }),
+    );
+    expect(warning?.detail).toContain("at least 1 End");
   });
 
   it("warns when a reachable chat can never emit run-based outputs", () => {

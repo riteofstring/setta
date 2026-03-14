@@ -44,6 +44,26 @@ function isStateMachineRun(run: AgentRun): boolean {
   return getRunInputString(run, "runType") === STATE_MACHINE_RUN_TYPE;
 }
 
+function getCurrentWorkflowShareSessionId(): string | null {
+  const shareSession = useShareSession.getState();
+  if (!shareSession.isDeploymentMode) {
+    return null;
+  }
+  return shareSession.shareSessionId;
+}
+
+function runMatchesCurrentWorkflowShareSession(run: AgentRun): boolean {
+  const currentShareSessionId = getCurrentWorkflowShareSessionId();
+  const runShareSessionId = getRunInputString(run, "shareSessionId");
+  if (
+    useShareSession.getState().isDeploymentMode &&
+    currentShareSessionId === null
+  ) {
+    return false;
+  }
+  return runShareSessionId === currentShareSessionId;
+}
+
 function filterStateMachineRunsByMachineGroup(
   runs: AgentRun[],
   projectConfigId: string,
@@ -54,6 +74,7 @@ function filterStateMachineRunsByMachineGroup(
   }
   return filterRunsByProjectConfigId(runs, projectConfigId)
     .filter(isStateMachineRun)
+    .filter(runMatchesCurrentWorkflowShareSession)
     .filter(
       (run) => getRunInputString(run, "machineGroupId") === machineGroupId,
     )
@@ -97,7 +118,11 @@ function getRunningStateMachineMachineGroupIds(
 ): string[] {
   const machineGroupIds = new Set<string>();
   for (const run of filterRunsByProjectConfigId(runs, projectConfigId)) {
-    if (!isStateMachineRun(run) || isStateMachineRunCleared(run)) {
+    if (
+      !isStateMachineRun(run) ||
+      isStateMachineRunCleared(run) ||
+      !runMatchesCurrentWorkflowShareSession(run)
+    ) {
       continue;
     }
     if (!RUNNING_MACHINE_STATUSES.has(run.status)) {

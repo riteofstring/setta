@@ -121,7 +121,7 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
       return "Loading linked prompt template...";
     }
     if (resolvedSource.linkedTemplateMissing) {
-      return "This section is linked to a prompt template that could not be loaded. Re-link it or make a local copy in section settings.";
+      return "This section is linked to a prompt template that could not be loaded. Choose a different prompt template in section settings.";
     }
     return `Linked to prompt template "${linkedTemplateName}". Edit it in Project AI Settings or make a local copy in section settings.`;
   }, [

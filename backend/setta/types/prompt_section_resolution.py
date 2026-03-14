@@ -16,7 +16,6 @@ class ResolvedPromptSectionSource:
     format: PromptFormat
     prompt_template_id: ID | None
     prompt_template_name: str | None
-    missing_link: bool = False
 
 
 def build_prompt_section_preview(
@@ -36,8 +35,6 @@ def build_prompt_section_preview(
 def resolve_prompt_section_source(
     dbe: "DBE",
     prompt_impl: PromptSectionImpl,
-    *,
-    allow_snapshot_fallback: bool = False,
 ) -> ResolvedPromptSectionSource:
     from setta.agentic.store import load_prompt_template
 
@@ -52,16 +49,8 @@ def resolve_prompt_section_source(
 
     prompt_template = load_prompt_template(dbe, prompt_template_id)
     if prompt_template is None:
-        if not allow_snapshot_fallback:
-            raise KeyError(
-                f"Prompt template {prompt_template_id} not found for prompt section {prompt_impl.id}."
-            )
-        return ResolvedPromptSectionSource(
-            template=prompt_impl.template,
-            format=prompt_impl.format,
-            prompt_template_id=prompt_template_id,
-            prompt_template_name=None,
-            missing_link=True,
+        raise KeyError(
+            f"Prompt template {prompt_template_id} not found for prompt section {prompt_impl.id}."
         )
 
     return ResolvedPromptSectionSource(

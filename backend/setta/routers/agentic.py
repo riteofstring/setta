@@ -174,6 +174,27 @@ class DeletePromptTemplateRequest(BaseModel):
     templateId: ID
 
 
+def _list_workflow_prompt_template_references(
+    ctx: RuntimeContextFromRequest,
+    template_id: ID,
+) -> list[str]:
+    project_manager_switcher = getattr(ctx.state, "project_manager_switcher", None)
+    if project_manager_switcher is None or project_manager_switcher.main is None:
+        return []
+    backend = project_manager_switcher.main.project_state_backend
+    references: list[str] = []
+    for project_config_id in backend.projectConfigs:
+        project_state = convert_backend_to_single_config(backend, project_config_id)
+        for edge in project_state.projectConfig.stateMachineEdges:
+            target_action = edge.targetAction
+            if target_action is None:
+                continue
+            if target_action.promptTemplateId != template_id:
+                continue
+            references.append(f"project {project_config_id}, edge {edge.id}")
+    return references
+
+
 class CreateExternalAgentConfigRequest(BaseModel):
     name: str
     description: str = ""
@@ -772,6 +793,18 @@ async def route_delete_prompt_template(
     existing = load_prompt_template(ctx.state.dbe, x.templateId)
     if existing is None:
         raise HTTPException(status_code=404, detail="Prompt template not found")
+    workflow_references = _list_workflow_prompt_template_references(
+        ctx,
+        x.templateId,
+    )
+    if workflow_references:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Prompt template {x.templateId} is still referenced by workflow edges: "
+                + "; ".join(workflow_references)
+            ),
+        )
     delete_prompt_template(ctx.state.dbe, x.templateId)
     if ctx.state.prompt_template_watcher:
         ctx.state.prompt_template_watcher.refresh()

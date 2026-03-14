@@ -201,6 +201,54 @@ describe("stateMachineRuns", () => {
     expect(latestRun).toBeNull();
   });
 
+  it("selects the latest workflow run only from the current deployment share session", () => {
+    useShareSession.setState({
+      isDeploymentMode: true,
+      shareSessionId: "share-session-1",
+    });
+
+    const latestRun = getLatestStateMachineRun(
+      [
+        createAgentRun({
+          id: "share-session-2-run",
+          status: AgentRunStatusEnum.running,
+          startedAt: "2024-01-01T00:00:40Z",
+          inputs: {
+            runType: "state_machine",
+            projectConfigId: "project-1",
+            machineGroupId: "workflow-main",
+            shareSessionId: "share-session-2",
+          },
+        }),
+        createAgentRun({
+          id: "shareless-run",
+          status: AgentRunStatusEnum.running,
+          startedAt: "2024-01-01T00:00:35Z",
+          inputs: {
+            runType: "state_machine",
+            projectConfigId: "project-1",
+            machineGroupId: "workflow-main",
+          },
+        }),
+        createAgentRun({
+          id: "share-session-1-run",
+          status: AgentRunStatusEnum.running,
+          startedAt: "2024-01-01T00:00:30Z",
+          inputs: {
+            runType: "state_machine",
+            projectConfigId: "project-1",
+            machineGroupId: "workflow-main",
+            shareSessionId: "share-session-1",
+          },
+        }),
+      ],
+      "project-1",
+      "workflow-main",
+    );
+
+    expect(latestRun?.id).toBe("share-session-1-run");
+  });
+
   it("refreshes running workflow runs through the dedicated workflow endpoint", async () => {
     vi.useFakeTimers();
     useAIStore.setState({
@@ -256,6 +304,82 @@ describe("stateMachineRuns", () => {
           .getState()
           .agentRuns.find((run) => run.id === "machine-run-1")?.status,
       ).toBe(AgentRunStatusEnum.completed);
+    });
+
+    unsubscribe();
+  });
+
+  it("polls only workflow runs from the current deployment share session", async () => {
+    vi.useFakeTimers();
+    useShareSession.setState({
+      isDeploymentMode: true,
+      shareSessionId: "share-session-1",
+    });
+    useAIStore.setState({
+      agentRuns: [
+        createAgentRun({
+          id: "share-1-machine-run",
+          status: AgentRunStatusEnum.running,
+          startedAt: "2024-01-01T00:00:00Z",
+          inputs: {
+            runType: "state_machine",
+            projectConfigId: "project-1",
+            machineGroupId: "workflow-main",
+            shareSessionId: "share-session-1",
+          },
+          outputs: {
+            machineStateCleared: false,
+          },
+        }),
+        createAgentRun({
+          id: "share-2-machine-run",
+          status: AgentRunStatusEnum.running,
+          startedAt: "2024-01-01T00:00:10Z",
+          inputs: {
+            runType: "state_machine",
+            projectConfigId: "project-1",
+            machineGroupId: "workflow-other",
+            shareSessionId: "share-session-2",
+          },
+          outputs: {
+            machineStateCleared: false,
+          },
+        }),
+      ],
+    });
+    mockedRouteGetStateMachineRun.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: createAgentRun({
+        id: "share-1-machine-run",
+        status: AgentRunStatusEnum.completed,
+        startedAt: "2024-01-01T00:00:00Z",
+        finishedAt: "2024-01-01T00:00:05Z",
+        inputs: {
+          runType: "state_machine",
+          projectConfigId: "project-1",
+          machineGroupId: "workflow-main",
+          shareSessionId: "share-session-1",
+        },
+        events: [
+          {
+            timestamp: "2024-01-01T00:00:05Z",
+            type: "run_completed",
+            payload: {},
+          },
+        ],
+      }),
+    });
+
+    const unsubscribe = subscribeStateMachineRunPolling();
+
+    await vi.waitFor(() => {
+      expect(mockedLoadAgentRuns).toHaveBeenCalledTimes(1);
+      expect(mockedRouteGetStateMachineRun).toHaveBeenCalledTimes(1);
+      expect(mockedRouteGetStateMachineRun).toHaveBeenCalledWith({
+        projectConfigId: "project-1",
+        machineGroupId: "workflow-main",
+      });
     });
 
     unsubscribe();

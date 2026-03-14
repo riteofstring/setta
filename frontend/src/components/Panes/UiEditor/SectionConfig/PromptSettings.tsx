@@ -232,7 +232,7 @@ export function PromptSettings({ sectionId }: PromptSettingsProps) {
       return "Loading linked prompt template...";
     }
     if (resolvedSource.linkedTemplateMissing) {
-      return "This section is linked by id to a prompt template that could not be loaded. Clear the link or choose a new template.";
+      return "This section is linked by id to a prompt template that could not be loaded. Choose a new template to repair the link.";
     }
     const linkedTemplateName =
       resolvedSource.linkedTemplate?.name || promptTemplateId || "";

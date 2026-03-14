@@ -10,6 +10,11 @@ from pydantic import ValidationError
 import pytest
 
 import setta.routers.ai as ai_module
+from setta.agentic.managed_chat_dispatch import (
+    _build_branch_messages,
+    _ensure_external_chat_id_compatible,
+    _get_prior_messages_for_engine,
+)
 from setta.agentic.context_usage import ResolvedChatContextUsage
 from setta.agentic.chat_view import (
     EXTERNAL_AGENT_RUN_TYPE,
@@ -47,9 +52,6 @@ from setta.routers.ai import (
     StartTranscriptionSessionRequest,
     StopLLMChatRequest,
     StopTranscriptionSessionRequest,
-    _build_branch_messages,
-    _ensure_external_chat_id_compatible,
-    _get_prior_messages_for_engine,
     route_append_transcription_audio,
     route_cancel_transcription_session,
     route_get_external_agent_chat,

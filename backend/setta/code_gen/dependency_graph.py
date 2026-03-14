@@ -374,11 +374,7 @@ class DependencyGraph:
             return
         prompt_text = section_impl.renderedText
         if self.dbe is not None:
-            prompt_source = resolve_prompt_section_source(
-                self.dbe,
-                section_impl,
-                allow_snapshot_fallback=True,
-            )
+            prompt_source = resolve_prompt_section_source(self.dbe, section_impl)
             prompt_text = prompt_source.template
         node = SectionNode(
             id=ctx.section_id,

@@ -6,10 +6,6 @@ from typing import Literal
 from fastapi import HTTPException, status
 from pydantic import BaseModel, Field
 
-from setta.agentic.chat_continuity import (
-    get_prior_messages_for_chat_engine,
-    list_compatible_chat_runs,
-)
 from setta.agentic.chat_view import (
     EXTERNAL_AGENT_RUN_TYPE,
     LLM_CHAT_RUN_TYPE,
@@ -23,7 +19,6 @@ from setta.agentic.context_usage import (
     resolve_internal_run_context_usage,
 )
 from setta.agentic.managed_chat_dispatch import (
-    AppGenerationMode,
     ManagedChatDispatcher,
     ManagedChatDispatchRequestBase,
     ManagedChatDispatchResponse,
@@ -45,13 +40,7 @@ from setta.llm.user_facing_errors import get_user_facing_llm_error_message
 from setta.logging.project_id_route import require_project_context
 from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaProjectContextFullRuntimeAPIRouter
-from setta.types.agentic import (
-    AgentProfile,
-    AgentRun,
-    AgentRunStatus,
-    EngineType,
-)
-from setta.types.external_agents import ExternalAgentToolType
+from setta.types.agentic import AgentRun, AgentRunStatus, EngineType
 from setta.types.generated.chat_messages import (
     BaseChatMessageTypeAdapter,
     BaseChatMessageUnion,
@@ -60,9 +49,7 @@ from setta.types.generated.chat_messages import (
 from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
 from setta.types.routes import Route
-from setta.types.section_impls import ChatPermissionMode
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
-from setta.utils.chat_attachments import is_image_mime, normalize_attachment_mime
 from setta.utils.constants import C
 
 router = SettaProjectContextFullRuntimeAPIRouter()
@@ -102,88 +89,6 @@ def _format_payload_size_label(max_bytes: int) -> str:
 
 def _build_audio_payload_too_large_detail(max_bytes: int) -> str:
     return f"Audio payload is too large. Maximum size is {_format_payload_size_label(max_bytes)}."
-
-
-def _combine_prompt_sections(*sections: str | None) -> str:
-    parts: list[str] = []
-    for section in sections:
-        if section is None:
-            continue
-        stripped = section.strip()
-        if not stripped:
-            continue
-        parts.append(stripped)
-    return "\n\n".join(parts).strip()
-
-
-def _build_execution_policy_prompt(
-    permission_mode: ChatPermissionMode,
-    search_enabled: bool,
-) -> str:
-    lines = [
-        "## Runtime execution settings",
-        f"- permissionMode: {permission_mode.value}",
-        f"- searchEnabled: {'true' if search_enabled else 'false'}",
-    ]
-    if not search_enabled:
-        lines.append(
-            "- Search is disabled for this run. Do not rely on search tools; use existing context and local tools only."
-        )
-    return "\n".join(lines)
-
-
-def _resolve_external_approval_policy_override(
-    permission_mode: ChatPermissionMode,
-    tool_type: ExternalAgentToolType,
-) -> str | None:
-    if permission_mode == ChatPermissionMode.config_toml_custom:
-        return None
-    if tool_type == ExternalAgentToolType.claude_code:
-        if permission_mode == ChatPermissionMode.minimal:
-            return "default"
-        if permission_mode == ChatPermissionMode.yolo:
-            return "bypassPermissions"
-        return None
-    if tool_type == ExternalAgentToolType.opencode:
-        if permission_mode == ChatPermissionMode.minimal:
-            return "ask"
-        if permission_mode == ChatPermissionMode.yolo:
-            return "allow"
-        return None
-    if permission_mode == ChatPermissionMode.minimal:
-        return "on-request"
-    if permission_mode == ChatPermissionMode.yolo:
-        return "never"
-    return None
-
-
-def _resolve_external_sandbox_policy_override(
-    permission_mode: ChatPermissionMode,
-    tool_type: ExternalAgentToolType,
-) -> str | None:
-    if permission_mode == ChatPermissionMode.config_toml_custom:
-        return None
-    if tool_type != ExternalAgentToolType.codex:
-        return None
-    if permission_mode == ChatPermissionMode.minimal:
-        return "workspace-write"
-    if permission_mode == ChatPermissionMode.yolo:
-        return "danger-full-access"
-    return None
-
-
-def _apply_external_reasoning_defaults(
-    *,
-    inputs: dict[str, object],
-    tool_type: ExternalAgentToolType,
-    thinking: bool,
-) -> None:
-    if tool_type != ExternalAgentToolType.codex:
-        return
-    if "effort" not in inputs:
-        inputs["effort"] = "high" if thinking else "low"
-    if "summary" not in inputs:
-        inputs["summary"] = "auto" if thinking else "none"
 
 
 def _get_llm_chat_runs(
@@ -232,120 +137,6 @@ def _to_chat_context_usage(
     )
 
 
-def _ensure_external_chat_id_compatible(
-    *,
-    dbe,
-    chat_id: ID | None,
-    engine_config_id: ID,
-    project_config_id: ID,
-) -> list[AgentRun]:
-    if chat_id is None:
-        return []
-    try:
-        return list_compatible_chat_runs(
-            dbe=dbe,
-            engine_type=EngineType.external_agent,
-            chat_id=chat_id,
-            project_config_id=project_config_id,
-            engine_config_id=engine_config_id,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-
-
-def _get_prior_messages_for_engine(
-    *,
-    dbe,
-    engine_type: EngineType,
-    chat_id: ID,
-    project_config_id: ID | None,
-    engine_config_id: ID,
-) -> list[BaseChatMessageUnion]:
-    try:
-        return get_prior_messages_for_chat_engine(
-            dbe=dbe,
-            engine_type=engine_type,
-            chat_id=chat_id,
-            project_config_id=project_config_id,
-            engine_config_id=engine_config_id,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-
-
-def _get_prior_messages_for_seed_chat(
-    *,
-    dbe,
-    chat_id: ID,
-    project_config_id: ID | None,
-) -> list[BaseChatMessageUnion]:
-    runs = list_agent_runs_by_metadata(
-        dbe,
-        chat_id=chat_id,
-        project_config_id=project_config_id,
-    )
-    latest_run = _select_latest_run(runs)
-    if latest_run is None:
-        raise KeyError(f"Continuation source chat {chat_id} not found.")
-    return build_chat_state_from_run(latest_run).messages
-
-
-def _get_latest_run_for_engine(
-    *,
-    dbe,
-    engine_type: EngineType,
-    chat_id: ID,
-    project_config_id: ID | None,
-) -> AgentRun | None:
-    if engine_type == EngineType.external_agent:
-        external_runs = _get_external_agent_chat_runs(
-            dbe=dbe,
-            chat_id=chat_id,
-            project_config_id=project_config_id,
-        )
-        return _select_latest_run(external_runs)
-    llm_runs = _get_llm_chat_runs(
-        dbe=dbe,
-        chat_id=chat_id,
-        project_config_id=project_config_id,
-    )
-    return _select_latest_run(llm_runs)
-
-
-def _build_inputs_messages(
-    *,
-    prior_messages: list[BaseChatMessageUnion],
-    message: BaseChatMessageUnionWithDiscriminator,
-) -> list[BaseChatMessageUnion]:
-    existing_ids = {entry.id for entry in prior_messages}
-    if message.id in existing_ids:
-        return list(prior_messages)
-    return list(prior_messages) + [message]
-
-
-def _build_branch_messages(
-    *,
-    prior_messages: list[BaseChatMessageUnion],
-    edited_message: BaseChatMessageUnionWithDiscriminator,
-    branch_from_message_id: ID,
-) -> list[BaseChatMessageUnion]:
-    for index, message in enumerate(prior_messages):
-        if message.id != branch_from_message_id:
-            continue
-        updated_message = edited_message.model_copy(
-            update={"id": branch_from_message_id}
-        )
-        return [*prior_messages[:index], updated_message]
-    raise KeyError(f"Message {branch_from_message_id} not found in chat history")
-
-
-def _has_message_id(
-    messages: list[BaseChatMessageUnion],
-    message_id: ID,
-) -> bool:
-    return any(message.id == message_id for message in messages)
-
-
 def _get_run_input_messages(run: AgentRun | None) -> list[BaseChatMessageUnion]:
     if run is None:
         return []
@@ -368,177 +159,6 @@ def _get_run_output_messages(run: AgentRun | None) -> list[BaseChatMessageUnion]
     if not isinstance(raw_messages, list):
         return []
     return [BaseChatMessageTypeAdapter.validate_python(raw) for raw in raw_messages]
-
-
-def _resolve_branch_root_chat_id(
-    *,
-    parent_run: AgentRun | None,
-    parent_chat_id: ID,
-) -> ID:
-    if parent_run and parent_run.inputs:
-        raw_root = parent_run.inputs.get("branchRootChatId")
-        if isinstance(raw_root, str) and raw_root:
-            return ID(raw_root)
-        raw_parent = parent_run.inputs.get("branchParentChatId")
-        if isinstance(raw_parent, str) and raw_parent:
-            return ID(raw_parent)
-    return parent_chat_id
-
-
-def _build_app_generation_mode_prompt(
-    *,
-    mode: AppGenerationMode | None,
-) -> str | None:
-    if mode is None:
-        return None
-
-    lines = [
-        "## App spec generation mode",
-        f"- mode: {mode}",
-    ]
-
-    if mode in ("json_render", "json_render_with_image", "prompt_builder"):
-        lines.extend(
-            [
-                "- If you are generating/updating the App spec (json-render):",
-                "  - Use catalog-compatible components only.",
-                "  - Persist via Setta app tools.",
-                "  - Prefer `setta__set_app_definition` with the full UITree appSpec payload.",
-                "  - Optionally call `setta__validate_app_definition` first and fix errors before persisting.",
-            ]
-        )
-
-    if mode == "json_render_with_image":
-        lines.extend(
-            [
-                "- Prioritize reference-image fidelity in this order: layout structure, spacing rhythm, typography scale, then color intent.",
-                "- If exact parity is impossible with catalog constraints, preserve hierarchy and explain the closest approximation.",
-            ]
-        )
-
-    if mode == "prompt_builder":
-        lines.extend(
-            [
-                "- Prompt-builder flow: keep responses concise and tool-oriented so Project Chat can persist the result directly via Setta app-definition tools.",
-            ]
-        )
-
-    if mode == "mcp_server":
-        lines.extend(
-            [
-                "- MCP-server flow: use MCP tools as the source of truth for design artifacts when available.",
-                "- For Figma-oriented requests, support both paths:",
-                "  - Pull an existing Figma design into a JSON-render appSpec.",
-                "  - Generate/update in Figma first, then pull the resulting design back into Setta.",
-                "- After MCP design retrieval, persist into Setta via `setta__set_app_definition`.",
-            ]
-        )
-
-    return "\n".join(lines)
-
-
-def _message_has_image_attachment(message: BaseChatMessageUnion) -> bool:
-    attachments = getattr(message, "attachments", [])
-    return any(
-        is_image_mime(normalize_attachment_mime(attachment))
-        for attachment in attachments
-    )
-
-
-def _require_image_attachment_for_app_generation_mode(
-    mode: AppGenerationMode | None,
-    messages: list[BaseChatMessageUnion],
-    app_generation_by_message_id: dict[str, ChatAppGenerationMessageMode],
-) -> None:
-    if mode != "json_render_with_image":
-        return
-    for message in messages:
-        if getattr(message, "role", None) != "user":
-            continue
-        if app_generation_by_message_id.get(message.id) != "json_render_with_image":
-            continue
-        if _message_has_image_attachment(message):
-            return
-    raise HTTPException(
-        status_code=400,
-        detail="json_render_with_image requires at least one image attachment.",
-    )
-
-
-def _merge_app_generation_system_prompt(
-    *,
-    existing_system_prompt: str,
-    app_generation_mode_prompt: str | None,
-) -> str:
-    if app_generation_mode_prompt is None:
-        return existing_system_prompt
-    normalized_existing_prompt = existing_system_prompt.strip()
-    normalized_mode_prompt = app_generation_mode_prompt.strip()
-    if normalized_existing_prompt:
-        return f"{normalized_existing_prompt}\n\n{normalized_mode_prompt}"
-    return normalized_mode_prompt
-
-
-def _build_chat_profile_with_app_generation_mode(
-    *,
-    profile: AgentProfile | None,
-    engine_config_id: ID,
-    app_generation_mode_prompt: str | None,
-    default_name: str,
-    require_profile: bool,
-) -> AgentProfile | None:
-    if profile is None and (require_profile or app_generation_mode_prompt is not None):
-        profile = AgentProfile(
-            name=default_name,
-            description="",
-            systemPrompt="",
-            engineConfigId=engine_config_id,
-        )
-    if profile is None:
-        return None
-    combined_system_prompt = _merge_app_generation_system_prompt(
-        existing_system_prompt=profile.systemPrompt or "",
-        app_generation_mode_prompt=app_generation_mode_prompt,
-    )
-    return profile.model_copy(
-        update={
-            "engineConfigId": engine_config_id,
-            "systemPrompt": combined_system_prompt,
-        }
-    )
-
-
-def _normalize_app_generation_by_message_id(
-    *,
-    messages: list[BaseChatMessageUnion],
-    app_generation_by_message_id: dict[str, ChatAppGenerationMessageMode],
-    submitted_message_id: ID,
-    submitted_mode: AppGenerationMode | None,
-) -> dict[str, ChatAppGenerationMessageMode]:
-    user_message_ids = {
-        message.id for message in messages if getattr(message, "role", None) == "user"
-    }
-    normalized: dict[str, ChatAppGenerationMessageMode] = {}
-    for message_id, mode in app_generation_by_message_id.items():
-        normalized_message_id = message_id.strip()
-        if normalized_message_id not in user_message_ids:
-            continue
-        normalized[normalized_message_id] = mode
-    submitted_message_id_str = str(submitted_message_id)
-    if submitted_message_id_str in user_message_ids:
-        normalized[submitted_message_id_str] = (
-            "plain_chat" if submitted_mode is None else submitted_mode
-        )
-    return normalized
-
-
-def _apply_app_generation_inputs(
-    *,
-    inputs: dict[str, object],
-    app_generation_by_message_id: dict[str, ChatAppGenerationMessageMode],
-) -> None:
-    if app_generation_by_message_id:
-        inputs["appGenerationByMessageId"] = app_generation_by_message_id
 
 
 class GetLLMResponseRequest(ManagedChatDispatchRequestBase):

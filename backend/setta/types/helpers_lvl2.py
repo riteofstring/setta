@@ -3001,6 +3001,30 @@ def _ensure_state_machine_send_prompt_action_valid(
         raise ValueError(
             f"State machine edge {edge_id} send_prompt actions require exactly one of promptTemplateId, promptSectionId, or inlinePrompt."
         )
+    if has_prompt_template:
+        if dbe is None:
+            raise ValueError(
+                f"State machine edge {edge_id} promptTemplateId validation requires a database."
+            )
+        from setta.agentic.store import load_prompt_template
+
+        prompt_template = load_prompt_template(dbe, target_action.promptTemplateId)
+        if prompt_template is None:
+            raise KeyError(
+                f"Prompt template {target_action.promptTemplateId} not found for state machine edge {edge_id}."
+            )
+        render_result = render_prompt(
+            prompt_template.template, target_action.promptInputs
+        )
+        if render_result.render_error is not None:
+            raise ValueError(
+                f"State machine edge {edge_id} prompt template {prompt_template.id} failed to render: {render_result.render_error}"
+            )
+        if render_result.rendered_text.strip() == "":
+            raise ValueError(
+                f"State machine edge {edge_id} prompt template {prompt_template.id} rendered an empty prompt."
+            )
+        return
     if not has_prompt_section:
         return
     prompt_impl = get_curr_effective_section_impl_with_type_guard(

@@ -1331,7 +1331,7 @@ async def test_tools_call_report_state_machine_signal_threads_share_session_id(
 
 
 @pytest.mark.asyncio
-async def test_tools_call_report_state_machine_signal_requires_run_or_machine_id(
+async def test_tools_call_report_state_machine_signal_requires_active_child_run(
     tmp_path,
 ) -> None:
     dbe = DBE(tmp_path)
@@ -1404,6 +1404,7 @@ async def test_tools_call_report_state_machine_signal_requires_run_or_machine_id
                 "arguments": {
                     "signalName": "merge_decision",
                     "payload": {"decision": "retry"},
+                    "machineRunId": "machine-run-1",
                 },
                 "agenticContext": {
                     "projectConfigId": str(tmp_project_id),
@@ -1419,7 +1420,7 @@ async def test_tools_call_report_state_machine_signal_requires_run_or_machine_id
     assert detail["error"] == "InvalidToolArguments"
     assert (
         detail["message"]
-        == "report_state_machine_signal requires an active child run or machineRunId."
+        == "report_state_machine_signal requires an active child run."
     )
 
 

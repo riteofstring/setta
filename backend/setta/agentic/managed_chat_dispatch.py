@@ -690,9 +690,8 @@ class ManagedChatDispatcher:
         resolved = resolve_engine_config(
             self.dbe, self.agent_runner.config, x.engineConfigId
         )
-        external_runs_for_chat_id: list[AgentRun] | None = None
         if resolved.engine_config.engineType == EngineType.external_agent:
-            external_runs_for_chat_id = _ensure_external_chat_id_compatible(
+            _ensure_external_chat_id_compatible(
                 dbe=self.dbe,
                 chat_id=x.branchParentChatId if is_branch_request else x.chatId,
                 engine_config_id=x.engineConfigId,
@@ -726,13 +725,6 @@ class ManagedChatDispatcher:
                 ) from exc
         else:
             if x.chatId is not None:
-                if (
-                    resolved.engine_config.engineType == EngineType.external_agent
-                    and external_runs_for_chat_id is None
-                ):
-                    raise RuntimeError(
-                        "Expected prefetched external runs before loading external-agent chat history."
-                    )
                 prior_messages = _get_prior_messages_for_engine(
                     dbe=self.dbe,
                     engine_type=resolved.engine_config.engineType,

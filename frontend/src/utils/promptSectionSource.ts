@@ -39,7 +39,7 @@ export function resolvePromptSectionSource(
       isLinked: true,
       linkedTemplate: null,
       linkedTemplateMissing: true,
-      templateText: promptSection.template,
+      templateText: "",
     };
   }
 

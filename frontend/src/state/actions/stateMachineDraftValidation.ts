@@ -112,7 +112,9 @@ function collectMachineSections(
       startSectionIds.push(sectionId);
       continue;
     }
-    endSectionIds.push(sectionId);
+    if (impl.type === SectionTypeEnum.StateMachineEnd) {
+      endSectionIds.push(sectionId);
+    }
   }
 
   return {

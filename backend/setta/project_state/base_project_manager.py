@@ -4429,11 +4429,7 @@ class BaseProjectManager(ABC):
                 x.sectionId,
                 PromptSectionImpl,
             )
-            resolved_source = resolve_prompt_section_source(
-                self.dbe,
-                prompt_impl,
-                allow_snapshot_fallback=True,
-            )
+            resolved_source = resolve_prompt_section_source(self.dbe, prompt_impl)
             set_prompt_section_template_link(
                 project_state,
                 x.sectionId,

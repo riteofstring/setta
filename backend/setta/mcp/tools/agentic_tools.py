@@ -153,9 +153,9 @@ async def report_state_machine_signal(
             "report_state_machine_signal requires active agentic context."
         )
     normalized_machine_run_id = _normalize_agentic_context_id(machineRunId)
-    if agentic_context.run_id is None and normalized_machine_run_id is None:
+    if agentic_context.run_id is None:
         raise InvalidToolArgumentsError(
-            "report_state_machine_signal requires an active child run or machineRunId."
+            "report_state_machine_signal requires an active child run."
         )
     try:
         signal_report = await ctx.fastmcp.state.state_machine_runner.report_signal(

@@ -319,6 +319,7 @@ function getValidationError(
   targetType: SectionTypeEnum | null,
   promptSourceType: WorkflowPromptSourceType,
   promptInputsError: string | null,
+  promptTemplateIds: Set<string>,
 ): string | null {
   if (promptInputsError) {
     return promptInputsError;
@@ -361,6 +362,9 @@ function getValidationError(
       if (promptSourceType === "prompt_template") {
         if (!targetAction.promptTemplateId) {
           return "Select a prompt template.";
+        }
+        if (!promptTemplateIds.has(targetAction.promptTemplateId)) {
+          return `Prompt template ${targetAction.promptTemplateId} could not be found.`;
         }
         return null;
       }
@@ -478,6 +482,10 @@ export function StateMachineEdgeInspector({
     ],
     [promptTemplates],
   );
+  const promptTemplateIds = useMemo(
+    () => new Set(promptTemplates.map((template) => template.id)),
+    [promptTemplates],
+  );
 
   const engineConfigOptions = useMemo(
     () => [
@@ -514,6 +522,7 @@ export function StateMachineEdgeInspector({
     edgeDetails.targetType,
     promptSourceType,
     promptInputsError,
+    promptTemplateIds,
   );
   const isDirty = !_.isEqual(sanitizedDraftEdge, edgeDetails.edge);
   const isDisabled = !canEditStructure;

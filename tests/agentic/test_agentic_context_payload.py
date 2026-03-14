@@ -1,10 +1,16 @@
 from pathlib import Path
 
+import pytest
+
 from setta.agentic.agentic_context import build_agentic_context_payload
 from setta.agentic.agentic_context_payload_builder import (
     build_agentic_context_payload_with_temporary_ids,
 )
-from setta.agentic.store import save_engine_configs, save_prompt_template
+from setta.agentic.store import (
+    delete_prompt_template,
+    save_engine_configs,
+    save_prompt_template,
+)
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
 from setta.llm.config import load_llm_config, save_llm_config
@@ -284,6 +290,60 @@ def test_build_agentic_context_payload_uses_live_linked_prompt_template_text(
     assert payload.section_ids == [ID(prompt_section_id)]
     assert "Hello from the updated saved template." in payload.text
     assert "stale prompt snapshot" not in payload.text
+
+
+def test_build_agentic_context_payload_raises_when_linked_template_is_missing(
+    tmp_path: Path,
+) -> None:
+    dbe, llm_configs = _build_context_inputs(tmp_path)
+    settings = SettingsState()
+    project_state = ProjectStateSingleConfig(
+        projectConfig=ProjectConfig(name="agentic-context-missing-linked-prompt-test")
+    )
+    chat_section_id = create_top_level_section(
+        settings,
+        project_state,
+        SectionType.Chat,
+        Position(),
+    )
+    prompt_section_id = create_top_level_section(
+        settings,
+        project_state,
+        SectionType.Prompt,
+        Position(),
+    )
+    prompt_template = PromptTemplate(
+        id=ID("prompt-template-missing-context"),
+        name="Greeting",
+        template="Hello from the saved template.",
+    )
+    save_prompt_template(dbe, prompt_template)
+    set_prompt_section_template_link(
+        project_state,
+        prompt_section_id,
+        prompt_template.id,
+        "stale prompt snapshot",
+        prompt_template.format,
+    )
+    create_agentic_edge(
+        project_state,
+        AgenticEdge(
+            id=create_new_id(),
+            sourceSectionId=chat_section_id,
+            targetSectionId=prompt_section_id,
+            kind=AgenticEdgeKind.chat_section,
+            contextMode=AgenticEdgeContextMode.inline_text,
+        ),
+    )
+    delete_prompt_template(dbe, prompt_template.id)
+
+    with pytest.raises(KeyError, match=str(prompt_template.id)):
+        build_agentic_context_payload(
+            dbe,
+            project_state,
+            chat_section_id,
+            llm_configs=llm_configs,
+        )
 
 
 def test_build_agentic_context_payload_reference_only_omits_section_body(

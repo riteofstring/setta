@@ -336,6 +336,11 @@ test.describe.serial("state machine sections", () => {
           maxIterations: null,
         },
       );
+      // Start + Gate without any End in the machine group must still show the
+      // draft warning. Gates are not valid End nodes.
+      await expect(
+        page.getByTestId(`state-machine-draft-warning-${gateSectionId}`),
+      ).toBeVisible();
       await setStateMachineSectionSettings(
         page,
         projectContext.projectConfigId,

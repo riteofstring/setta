@@ -228,6 +228,22 @@ describe("PromptArea", () => {
     expect(props?.value).toBe("Hello {{ name }}");
   });
 
+  it("clears stale prompt text when a linked prompt template is missing", () => {
+    const sectionId = seedPromptSection({
+      promptTemplateId: "missing-template",
+      template: "stale snapshot",
+      renderedText: "",
+    });
+
+    const markup = renderToStaticMarkup(<PromptArea sectionId={sectionId} />);
+
+    expect(markup).toContain(
+      "This section is linked to a prompt template that could not be loaded.",
+    );
+    const props = lastCodeMirrorProps;
+    expect(props?.value).toBe("");
+  });
+
   it("shows rendered preview state, including missing-variable errors", async () => {
     const sectionId = seedPromptSection({
       template: "Hello {{ name }}",
