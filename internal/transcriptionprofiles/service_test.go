@@ -490,6 +490,57 @@ func TestSupportsRealtimeTranscriptionRejectsOpenAIRealtimeModels(t *testing.T) 
 	}
 }
 
+func TestResolveOpenAIRealtimeTranscriptionStreamModeMatchesDocumentedModelBehavior(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		model string
+		want  OpenAIRealtimeTranscriptionStreamMode
+	}{
+		{
+			name:  "whisper snapshots",
+			model: "whisper-1",
+			want:  OpenAIRealtimeTranscriptionStreamModeSnapshot,
+		},
+		{
+			name:  "gpt 4o transcribe incremental",
+			model: "gpt-4o-transcribe",
+			want:  OpenAIRealtimeTranscriptionStreamModeIncremental,
+		},
+		{
+			name:  "gpt 4o mini transcribe incremental",
+			model: "gpt-4o-mini-transcribe",
+			want:  OpenAIRealtimeTranscriptionStreamModeIncremental,
+		},
+		{
+			name:  "gpt 4o latest incremental",
+			model: "gpt-4o-transcribe-latest",
+			want:  OpenAIRealtimeTranscriptionStreamModeIncremental,
+		},
+		{
+			name:  "sdk dated alias stays unsupported",
+			model: "gpt-4o-mini-transcribe-2025-12-15",
+			want:  OpenAIRealtimeTranscriptionStreamModeUnsupported,
+		},
+		{
+			name:  "gpt realtime unsupported",
+			model: "gpt-realtime",
+			want:  OpenAIRealtimeTranscriptionStreamModeUnsupported,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := ResolveOpenAIRealtimeTranscriptionStreamMode(tt.model); got != tt.want {
+				t.Fatalf("ResolveOpenAIRealtimeTranscriptionStreamMode(%q) = %v, want %v", tt.model, got, tt.want)
+			}
+		})
+	}
+}
+
 func newTranscriptionProfileTestService(t *testing.T, profiles []Profile, configs map[string]llmconfig.Config) (*Service, *Store) {
 	t.Helper()
 

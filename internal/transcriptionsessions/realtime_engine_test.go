@@ -1140,6 +1140,7 @@ func TestResolveOpenAIRealtimeDeltaModeMatchesDocumentedModelBehavior(t *testing
 		{name: "gpt-4o transcribe incremental", model: "gpt-4o-transcribe", want: openAIRealtimeDeltaModeIncremental},
 		{name: "gpt-4o mini transcribe incremental", model: "gpt-4o-mini-transcribe", want: openAIRealtimeDeltaModeIncremental},
 		{name: "gpt-4o transcribe latest incremental", model: "gpt-4o-transcribe-latest", want: openAIRealtimeDeltaModeIncremental},
+		{name: "sdk dated alias stays disabled", model: "gpt-4o-mini-transcribe-2025-12-15", want: openAIRealtimeDeltaModeDisabled},
 		{name: "unsupported model disabled", model: "gpt-realtime", want: openAIRealtimeDeltaModeDisabled},
 	}
 

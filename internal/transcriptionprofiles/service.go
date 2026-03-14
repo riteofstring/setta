@@ -29,13 +29,6 @@ var (
 	ErrRealtimeTranscriptionUnavailable = errors.New("realtime transcription unavailable")
 )
 
-var openAIRealtimeTranscriptionModelIDs = map[string]struct{}{
-	"whisper-1":                {},
-	"gpt-4o-transcribe":        {},
-	"gpt-4o-transcribe-latest": {},
-	"gpt-4o-mini-transcribe":   {},
-}
-
 func NewService(opts ServiceOptions) (*Service, error) {
 	if opts.Profiles == nil {
 		return nil, fmt.Errorf("transcription profile store is required")
@@ -247,10 +240,7 @@ func SupportsRealtimeTranscriptionConfig(config llmconfig.Config) bool {
 	if model == "" {
 		return false
 	}
-	if _, ok := openAIRealtimeTranscriptionModelIDs[model]; ok {
-		return true
-	}
-	return false
+	return ResolveOpenAIRealtimeTranscriptionStreamMode(model) != OpenAIRealtimeTranscriptionStreamModeUnsupported
 }
 
 type serviceError struct {

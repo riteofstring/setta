@@ -28,7 +28,6 @@ const (
 	openAIRealtimeAppendDrainTimeout    = 450 * time.Millisecond
 	openAIRealtimeStopDrainTimeout      = 1200 * time.Millisecond
 	defaultRealtimeProviderErrorMessage = "Realtime transcription failed."
-	openAIRealtimeTranscribeLatestModel = "gpt-4o-transcribe-latest"
 	openAIRealtimePCM16Format           = "pcm16"
 )
 
@@ -548,13 +547,10 @@ func buildOpenAIRealtimeSessionUpdate(model string, language *string) openAIReal
 }
 
 func resolveOpenAIRealtimeDeltaMode(model string) openAIRealtimeDeltaMode {
-	switch strings.TrimSpace(model) {
-	case string(openairealtime.AudioTranscriptionModelWhisper1):
+	switch transcriptionprofiles.ResolveOpenAIRealtimeTranscriptionStreamMode(model) {
+	case transcriptionprofiles.OpenAIRealtimeTranscriptionStreamModeSnapshot:
 		return openAIRealtimeDeltaModeSnapshot
-	case string(openairealtime.AudioTranscriptionModelGPT4oTranscribe),
-		string(openairealtime.AudioTranscriptionModelGPT4oMiniTranscribe),
-		string(openairealtime.AudioTranscriptionModelGPT4oMiniTranscribe2025_12_15),
-		openAIRealtimeTranscribeLatestModel:
+	case transcriptionprofiles.OpenAIRealtimeTranscriptionStreamModeIncremental:
 		return openAIRealtimeDeltaModeIncremental
 	default:
 		return openAIRealtimeDeltaModeDisabled
