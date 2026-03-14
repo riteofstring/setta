@@ -352,3 +352,12 @@ Append-only log for autonomous frontend cleanup slices.
 - Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
 - Commit hash: `8b775dba8`
 - Next highest-value unblocked slice: continue splitting `frontend/src/components/Pages/Home/HomePage.tsx` by moving the remaining selection action handlers and delete-payload shaping into a feature-local Home page state module, or begin the standalone page loader/guard cleanup in `components/Pages/Project/`
+
+## 2026-03-12 15:36 PDT
+
+- What changed: Extracted the Home page selection action transitions and delete-payload shaping from `frontend/src/components/Pages/Home/HomePage.tsx` into `frontend/src/components/Pages/Home/homeProjectSelectionState.ts`. The new module now owns single-select replacement, toggle-select mutation rules, delete modal payload shaping, and Escape-to-clear gating, while `HomePage.tsx` keeps the page-level wiring. Added focused Vitest coverage for the new owner and refreshed the frontend module map.
+- Key files touched: `frontend/src/components/Pages/Home/HomePage.tsx`, `frontend/src/components/Pages/Home/homeProjectSelectionState.ts`, `frontend/src/components/Pages/Home/homeProjectSelectionState.test.ts`, `docs/reference/frontend-module-map.md`
+- Tests/verification run: `pnpm -C frontend exec vitest run src/components/Pages/Home/homeProjectSelectionState.test.ts src/components/Pages/Home/HomeSelectedProjectDetails.test.tsx src/components/Pages/Home/HomeProjectGallery.test.tsx src/components/Pages/Home/homeWorkspaceState.test.ts`; `pnpm -C frontend exec prettier --check src/components/Pages/Home/HomePage.tsx src/components/Pages/Home/HomeProjectGallery.tsx src/components/Pages/Home/HomeProjectGallery.test.tsx src/components/Pages/Home/HomeSelectedProjectDetails.tsx src/components/Pages/Home/HomeSelectedProjectDetails.test.tsx src/components/Pages/Home/homeProjectSelectionState.ts src/components/Pages/Home/homeProjectSelectionState.test.ts src/components/Pages/Home/homeWorkspaceState.ts src/components/Pages/Home/homeWorkspaceState.test.ts ../docs/reference/frontend-module-map.md`; `git diff --check`
+- Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
+- Commit hash: `ef07ac318`
+- Next highest-value unblocked slice: continue splitting `frontend/src/components/Pages/Home/HomePage.tsx` by moving the remaining workspace-browser side-pane surface into a feature-local Home page module, or shift to the standalone page loader/guard cleanup in `components/Pages/Project/`
