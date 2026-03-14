@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from setta.agentic.agentic_scope import resolve_context_edges
 from setta.agentic.linked_chat_targets import is_executable_linked_chat_target
 from setta.database.db_objs import DBE
+from setta.types.prompt_section_resolution import resolve_prompt_section_source
 from setta.types.agentic_edges import AgenticEdgeContextMode, AgenticEdgeKind
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl
 from setta.types.helpers_lvl3 import build_project_state_summary_section_index
@@ -122,6 +123,7 @@ def build_agentic_context_payload(
         if section_id not in project_state.sections:
             continue
         block = _build_context_block(
+            dbe,
             project_state,
             resolved_summary_by_section,
             section_id,
@@ -212,6 +214,7 @@ def _build_linked_chat_block(
 
 
 def _build_context_block(
+    dbe: DBE,
     project_state: ProjectStateSingleConfig,
     summary_by_section: dict[ID, object],
     section_id: ID,
@@ -243,8 +246,8 @@ def _build_context_block(
                 f"### {label} ({section_type}) [id: {rendered_id} | summary | cached]\n"
                 f"{cached.strip()}".strip()
             )
-
     raw_text = _extract_section_text(
+        dbe,
         project_state,
         summary_by_section,
         section_id,
@@ -268,6 +271,7 @@ def _build_context_block(
 
 
 def _extract_section_text(
+    dbe: DBE,
     project_state: ProjectStateSingleConfig,
     summary_by_section: dict[ID, object],
     section_id: ID,
@@ -328,7 +332,12 @@ def _extract_section_text(
                 lines.append(f"... ({len(draw_paths) - 8} more)")
         return "\n".join(lines).strip()
     if isinstance(section_impl, PromptSectionImpl):
-        return section_impl.renderedText or section_impl.template or ""
+        prompt_source = resolve_prompt_section_source(
+            dbe,
+            section_impl,
+            allow_snapshot_fallback=True,
+        )
+        return prompt_source.template
     if isinstance(section_impl, SocialSectionImpl):
         return section_impl.url or ""
     if isinstance(section_impl, BrowserSectionImpl):
