@@ -109,23 +109,13 @@ type DirectoryListingState = {
   error: string | null;
 };
 
-type LauncherDirectoryPayload = LauncherListDirectoryResponse & {
-  truncated?: boolean;
-};
-
-function isDirectoryListingTruncated(
-  payload: LauncherDirectoryPayload,
-): boolean {
-  return payload.truncated === true;
-}
-
 export function applyDirectoryListingPage({
   previousEntries,
   payload,
   append,
 }: {
   previousEntries: Array<LauncherDirectoryEntryPayload>;
-  payload: LauncherDirectoryPayload;
+  payload: LauncherListDirectoryResponse;
   append: boolean;
 }): DirectoryListingState {
   const nextEntries = append
@@ -136,7 +126,7 @@ export function applyDirectoryListingPage({
       entries: nextEntries,
       hasMore: payload.hasMore,
       nextCursor: payload.nextCursor,
-      truncated: isDirectoryListingTruncated(payload),
+      truncated: payload.truncated,
       error:
         "Directory listing reported more results without a continuation cursor.",
     };
@@ -145,7 +135,7 @@ export function applyDirectoryListingPage({
     entries: nextEntries,
     hasMore: payload.hasMore,
     nextCursor: payload.nextCursor,
-    truncated: isDirectoryListingTruncated(payload),
+    truncated: payload.truncated,
     error: null,
   };
 }
