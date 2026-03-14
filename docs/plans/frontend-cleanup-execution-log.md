@@ -230,3 +230,40 @@ module map and placement guide while this cleanup progresses.
     reducers plus tool-preview/app-spec patch handling into a dedicated
     streaming module, leaving `ai.ts` as a thin compatibility surface or
     retiring it entirely.
+
+## 2026-03-14 15:29:26 PDT
+
+- Slice completed: extracted streaming reducers plus tool-preview/app-spec
+  reconciliation into `frontend/src/state/actions/aiChatStreaming.ts` and
+  retired `frontend/src/state/actions/ai.ts`
+- Key files touched:
+  - `frontend/src/state/actions/aiChatStreaming.ts`
+  - `frontend/src/state/actions/ai.ts`
+  - `frontend/src/state/actions/websocketReceive.ts`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
+  - `frontend/src/components/Section/Layouts/ChatArea.tsx`
+  - `frontend/src/state/actions/aiAppSpecApply.test.ts`
+  - `frontend/src/state/actions/aiAppSpecPatchPreview.test.ts`
+  - `frontend/src/state/actions/aiChatPromotion.test.ts`
+  - `frontend/src/state/actions/aiEditedMessage.test.ts`
+  - `frontend/src/state/actions/aiSectionStreaming.test.ts`
+  - `frontend/src/state/actions/aiStopProjectChat.test.ts`
+  - `frontend/src/state/actions/aiStreamingPersistence.test.ts`
+  - `frontend/src/state/actions/aiSubmitMessage.test.ts`
+  - `frontend/src/state/actions/aiWaitingForResponse.test.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/aiAppSpecPatchPreview.test.ts src/state/actions/aiAppSpecApply.test.ts src/state/actions/aiStreamingPersistence.test.ts src/state/actions/aiSectionStreaming.test.ts src/state/actions/aiStopProjectChat.test.ts src/state/actions/aiWaitingForResponse.test.ts src/state/actions/aiSubmitMessage.test.ts src/state/actions/aiEditedMessage.test.ts src/state/actions/aiChatPromotion.test.ts src/state/actions/websocketReceive.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.test.tsx src/components/Section/Layouts/ChatArea.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/state/actions/aiChatStreaming.ts src/state/actions/websocketReceive.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx src/components/Section/Layouts/ChatArea.tsx src/state/actions/aiAppSpecApply.test.ts src/state/actions/aiAppSpecPatchPreview.test.ts src/state/actions/aiChatPromotion.test.ts src/state/actions/aiEditedMessage.test.ts src/state/actions/aiSectionStreaming.test.ts src/state/actions/aiStopProjectChat.test.ts src/state/actions/aiStreamingPersistence.test.ts src/state/actions/aiSubmitMessage.test.ts src/state/actions/aiWaitingForResponse.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split and
+    did not change frontend rendering behavior.
+- Commit hash:
+  - `f893d3813f96`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/definitions.ts` into domain-owned store modules so
+    new shared state stops defaulting into the single 1500-line definitions
+    surface.
