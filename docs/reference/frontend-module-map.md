@@ -89,6 +89,7 @@ This is the front door for authored frontend code under `frontend/src/`.
 - Need a page or route change: open `components/Pages/`.
 - Need pane/tab behavior: open `components/Panes/`.
 - Need section chrome or param rendering: open `components/Section/` and `components/Params/`.
+- Need managed section-chat history or polling behavior: open `components/Section/Layouts/ChatAreaHistoryPanel.tsx`.
 - Need a mutation path: search in `state/actions/`.
 - Need chat or project-AI commands: start in the extracted domain modules under `state/actions/ai/`.
 - Need chat submit/edit or external-agent approval/question commands: open `state/actions/ai/chatCommands.ts`.
