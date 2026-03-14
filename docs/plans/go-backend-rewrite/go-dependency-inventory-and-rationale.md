@@ -55,7 +55,7 @@ recommendation docs. If this file disagrees with planning notes, `go.mod` wins.
 | module | version | why we use it | main owners |
 | --- | --- | --- | --- |
 | `github.com/go-chi/chi/v5` | `v5.2.5` | Small `net/http`-native router and middleware tree for the Go HTTP and websocket surfaces. | `internal/httpapi`, `internal/wsapi`, `internal/app` |
-| `github.com/openai/openai-go/v3` | `v3.26.0` | Official OpenAI SDK used at the provider edge for Go-owned managed-chat execution, kept behind internal adapter helpers. | `internal/managedllm` |
+| `github.com/openai/openai-go/v3` | `v3.26.0` | Official OpenAI SDK used at the provider edge for Go-owned managed-chat execution and file-mode transcription uploads, kept behind internal adapter helpers. | `internal/managedllm`, `internal/transcriptionsessions` |
 | `github.com/aymanbagabas/go-pty` | `v0.2.2` | Windows PTY backend for terminal sessions. | `internal/terminals/pty_backend_windows.go` |
 | `github.com/coder/websocket` | `v1.8.14` | WebSocket transport for realtime frontend/listener connections. | `internal/realtime`, `internal/wsapi` |
 | `github.com/creack/pty` | `v1.1.21` | Unix PTY backend for terminal sessions. | `internal/terminals/pty_backend_unix.go` |
@@ -97,12 +97,13 @@ conscious dependency choice.
 
 ### Why `openai-go` is direct
 
-The managed-chat OpenAI provider edge now uses
-`github.com/openai/openai-go/v3` instead of the older bespoke HTTP/SSE
-transport.
+The managed-chat OpenAI provider edge and the file-mode transcription upload
+path now use `github.com/openai/openai-go/v3` instead of the older bespoke
+HTTP/SSE and multipart transport code.
 
 We still keep that SDK behind bounded helpers in `internal/managedllm` so
-Setta request validation, tool execution, websocket event contracts, and
+`internal/managedllm` and `internal/transcriptionsessions` so Setta request
+validation, tool execution, session semantics, websocket event contracts, and
 provider-neutral runtime semantics remain repo-owned.
 
 ### Why plugin version-range parsing is no longer a module dependency

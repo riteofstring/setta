@@ -1,7 +1,7 @@
 # openai-go
 
 - Module: `github.com/openai/openai-go/v3`
-- Local status: pinned in `go.mod`; active for the managed-chat OpenAI chat-completions transport
+- Local status: pinned in `go.mod`; active for the managed-chat OpenAI chat-completions transport and file-mode transcription uploads
 - Retrieved: 2026-03-10
 - Actual downloaded upstream files: `docs/reference/dependencies/openai-go-src/`
 - Official OpenAI Libraries doc: https://developers.openai.com/api/docs/libraries/
@@ -17,8 +17,9 @@
 
 - selected provider-edge boundary for any Go-owned OpenAI API interaction
 - now used by the managed-chat OpenAI chat-completions transport
-- still needed to replace the remaining bespoke OpenAI transport in
-  transcription code
+- now used by the file-mode transcription upload path
+- still needed to replace the remaining bespoke OpenAI transport in realtime
+  transcription
 - aligned with the rewrite rule that OpenAI API interactions should go through
   `openai-go` rather than bespoke HTTP or WebSocket clients
 
@@ -77,14 +78,15 @@
   - future follow-on, if needed, is explicit Responses/reasoning-output
     convergence rather than more bespoke transport growth
 - `internal/transcriptionsessions/service.go`
-  - current file transcription path posts multipart audio directly
+  - file-mode transcription uploads now use `openai-go`
+  - bounded adapter keeps Setta-owned auth/base-URL/config semantics intact
 - `internal/transcriptionsessions/realtime_engine.go`
   - current realtime transcription path owns the WebSocket/session protocol
 
 ## Gotchas
 
 - remaining repo behavior is still shaped around older hand-rolled transport
-  and event parsing in the transcription/realtime surfaces, so migration is not
+  and event parsing in the realtime transcription surface, so migration is not
   a drop-in import swap
 - the rewrite must preserve current Setta event contracts even if the SDK
   prefers different request/response shapes upstream
