@@ -4,8 +4,9 @@ import {
 } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
-import { useMisc, useShareSession } from "state/definitions";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import { useShareSession } from "state/definitions";
+import { useMisc } from "state/stores/ephemeralUiStores";
+import { res200 } from "utils/endpointUtils";
 import {
   route_paste_sections,
   route_prepare_sections_for_copy,
@@ -13,25 +14,19 @@ import {
 import {
   BaseClipboardDataUnionWithDiscriminator,
   ClipboardDataTypeEnum,
-  SectionsClipboardDataResponse,
   SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
 import { addTemporaryNotification } from "./notifications";
 import { getCurrProjectConfigId } from "./sectionInfos";
 
-type PrepareSectionsForCopyRouteResponse =
-  ResponseDataAndStatus<SectionsClipboardDataResponse>;
-type PasteSectionsRouteResponse = ResponseDataAndStatus<null>;
-
 export async function copy() {
   const activeSectionIds = getActiveSectionUIIds();
   if (activeSectionIds.length > 0 && window.getSelection()?.toString() === "") {
     addTemporaryNotification("Copying...");
-    const res: PrepareSectionsForCopyRouteResponse =
-      await route_prepare_sections_for_copy({
-        projectConfigId: getCurrProjectConfigId(),
-        sectionIds: activeSectionIds,
-      });
+    const res = await route_prepare_sections_for_copy({
+      projectConfigId: getCurrProjectConfigId(),
+      sectionIds: activeSectionIds,
+    });
     if (res200(res)) {
       await navigator.clipboard.writeText(JSON.stringify(res.data));
       addTemporaryNotification("Copied to clipboard");
@@ -55,15 +50,13 @@ export async function paste({ asRef = false }) {
     return;
   }
   switch (x.type) {
-    case ClipboardDataTypeEnum.Sections: {
-      const response: PasteSectionsRouteResponse = await route_paste_sections({
+    case ClipboardDataTypeEnum.Sections:
+      return route_paste_sections({
         projectConfigId: getCurrProjectConfigId(),
         data: x.data,
         position: getPasteLocation(),
         asRef,
       });
-      return response;
-    }
     default:
       return x.type satisfies never;
   }

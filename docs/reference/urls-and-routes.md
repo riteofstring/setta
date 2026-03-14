@@ -221,10 +221,7 @@ The app-generation/skills viewer flow adds these backend routes:
     - refreshed `skill` metadata
     - refreshed `skillContent`
 - `/api/streamAppSpec`
-  - Legacy Python app-spec patch stream route.
-  - The current app-config pane generation flow no longer depends on this
-    route; it now uses `/api/getLLMResponse` plus `/ws/frontend` tool-preview
-    updates and Go-owned `stream_app_definition` persistence.
+  - Streams JSONL patch ops for in-pane app-spec generation.
 - `/api/getLLMResponse` (extended payload)
   - Accepts `appGenerationMode`, `appSpecStreamingEnabled`,
     `appGenerationReferenceImageUrl`, and `appGenerationReferenceImageNotes`

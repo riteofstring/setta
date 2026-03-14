@@ -5,7 +5,7 @@ import type {
 import type { StoreApi } from "zustand";
 
 import { recomputeEdgeHandlePositions } from "state/actions/edgeHandles";
-import { useEdgeHandleRegistry } from "state/definitions";
+import { useEdgeHandleRegistry } from "state/stores/authoringStores";
 import type { Connection, HandleType, ReactFlowState } from "../../types";
 import { calcAutoPan, getEventPosition, getHostForElement } from "../../utils";
 import { pointToRendererPoint, rendererPointToPoint } from "../../utils/graph";

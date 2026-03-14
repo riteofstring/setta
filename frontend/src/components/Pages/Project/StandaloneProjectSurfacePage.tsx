@@ -25,12 +25,9 @@ import {
 } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { buildChatHistoryEntries } from "state/actions/chatHistory";
-import {
-  useAIStore,
-  useProjectState,
-  useShareSession,
-} from "state/definitions";
+import { useProjectState, useShareSession } from "state/definitions";
 import { useLoadProjectConfig } from "state/hooks/project";
+import { useAIStore } from "state/stores/aiStore";
 import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
 import { resolveStandaloneSectionSlug } from "utils/sectionSlugPaths";
 import { resolveStandaloneWindowSpaceSlug } from "utils/windowSpacePaths";
