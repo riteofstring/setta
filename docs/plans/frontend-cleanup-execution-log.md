@@ -1412,3 +1412,41 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/sectionEffectiveImpls.ts`, now the
     largest authored/shared state hotspot, into narrower effective-impl read
     selectors versus local impl mutation helpers.
+
+## 2026-03-14 22:10:47 PDT
+
+- Slice completed: split effective-impl mutation helpers out of
+  `frontend/src/state/actions/sectionEffectiveImpls.ts`
+- Key files touched:
+  - `frontend/src/state/actions/sectionEffectiveImpls.ts`
+  - `frontend/src/state/actions/sectionEffectiveImplMutations.ts`
+  - `frontend/src/state/actions/sectionEffectiveImpls.test.ts`
+  - `frontend/src/state/actions/sectionEffectiveImplMutations.test.ts`
+  - `frontend/src/state/actions/sectionInfos.ts`
+  - `frontend/src/state/actions/projectStateCommands.ts`
+  - `frontend/src/state/actions/aiHydration.ts`
+  - `frontend/src/state/actions/aiChatSubmission.ts`
+  - `frontend/src/state/actions/aiChatSectionState.ts`
+  - `frontend/src/state/actions/aiChatStreamingSectionState.ts`
+  - `frontend/src/state/actions/stateMachineEdgeConnections.ts`
+  - `frontend/src/state/actions/sections/sectionSizes.ts`
+  - `frontend/src/state/actions/sections/moveSections.ts`
+  - `frontend/src/state/actions/params/moveParams.ts`
+  - `frontend/src/state/hooks/useParamColumnWidth.ts`
+  - `frontend/src/state/hooks/useBrowserColumnWidth.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/sectionEffectiveImpls.test.ts src/state/actions/sectionEffectiveImplMutations.test.ts src/state/actions/projectStateCommands.test.ts src/state/actions/sections/sectionSizes.test.tsx src/state/hooks/sectionSizes.test.tsx src/state/actions/sections/moveSections.test.ts src/state/actions/aiSectionStateSync.test.ts src/state/actions/aiSectionResizePersistence.test.ts src/state/actions/aiSectionStreaming.test.ts src/state/actions/aiSubmitMessage.test.ts src/state/actions/aiWebsocketAffinitySubmit.test.ts src/state/actions/aiWaitingForResponse.test.ts src/state/actions/aiStopProjectChat.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/sectionEffectiveImpls.ts src/state/actions/sectionEffectiveImplMutations.ts src/state/actions/sectionInfos.ts src/state/actions/projectStateCommands.ts src/state/actions/aiHydration.ts src/state/actions/aiChatStreamingSectionState.ts src/state/actions/aiChatSectionState.ts src/state/actions/stateMachineEdgeConnections.ts src/state/actions/sections/sectionSizes.ts src/state/actions/codeUpdates.ts src/state/actions/aiChatSubmission.ts src/state/actions/params/moveParams.ts src/state/actions/sections/moveSections.ts src/state/hooks/useParamColumnWidth.ts src/state/hooks/useBrowserColumnWidth.ts src/state/actions/sectionEffectiveImpls.test.ts src/state/actions/sectionEffectiveImplMutations.test.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `7f54f16c9`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/gitGraph.ts`, now the largest
+    authored/shared state hotspot, into clearer repo-read helpers, graph
+    filter state, and commit/detail selection modules.
