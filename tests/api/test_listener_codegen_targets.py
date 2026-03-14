@@ -2,6 +2,7 @@ import pytest
 
 from setta.api.listener import SettaListener
 from setta.types.id import ID
+from setta.types.listener import ListenerDependencyCatalog
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateSingleConfig
 
@@ -22,7 +23,10 @@ async def test_listener_bootstraps_without_python_codegen() -> None:
 
     listener._send_websocket_payload = capture
 
-    await listener._refresh_from_snapshot(project_state)
+    await listener._refresh_from_snapshot(
+        project_state,
+        dependency_catalog=ListenerDependencyCatalog(entries=[]),
+    )
 
     assert listener._runtime_state is not None
     assert listener._project_config_id == project_config.id

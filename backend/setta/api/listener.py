@@ -108,18 +108,6 @@ logger = logging.getLogger(__name__)
 _MISSING = object()
 _UNAVAILABLE = object()
 
-_RECOVERABLE_SNAPSHOT_ERRORS: tuple[type[Exception], ...] = (
-    ValidationError,
-    SyntaxError,
-    TypeError,
-    ValueError,
-    AttributeError,
-    KeyError,
-    IndexError,
-    NameError,
-    RuntimeError,
-)
-
 _COOKIE_TOKEN_SANITIZE_RE = re.compile(r"[^A-Za-z0-9_]")
 
 
@@ -227,7 +215,7 @@ class ListenerCallbackContext:
 @dataclass(slots=True)
 class ListenerRuntimeState:
     dependency_metadata: "ListenerDependencyMetadata"
-    dependency_graph: DependencyGraph
+    dependency_graph: DependencyGraph | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1456,22 +1444,23 @@ class SettaListener:
             )
             self._project_config_id = incoming_project_id
 
-        try:
-            runtime_state = self._build_runtime_state(project_state)
-        except _RECOVERABLE_SNAPSHOT_ERRORS as error:
+        dependency_metadata = self._resolve_snapshot_dependency_metadata(
+            dependency_catalog
+        )
+        if dependency_metadata is None:
             logger.warning(
-                "Listener %s skipped snapshot refresh due to build failure: %s",
+                (
+                    "Listener %s skipped %s snapshot because authoritative "
+                    "dependency metadata is unavailable"
+                ),
                 self._log_identifier,
-                error,
-                exc_info=logger.isEnabledFor(logging.DEBUG),
+                refresh_kind,
             )
             return
-        runtime_state.dependency_metadata = self._build_dependency_metadata(
-            dependency_catalog,
-            runtime_state.dependency_graph,
+        runtime_state = ListenerRuntimeState(
+            dependency_metadata=dependency_metadata,
         )
         self._latest_dependency_snapshot_values = dependency_values
-        snapshot_values: dict[str, Any] = {}
         previous_cache = dict(self._dependency_cache)
         (
             rendered_snapshot_values,
@@ -1607,6 +1596,19 @@ class SettaListener:
                 )
                 continue
         return values_by_name, resolved_dependency_keys
+
+    def _resolve_snapshot_dependency_metadata(
+        self,
+        dependency_catalog: ListenerDependencyCatalog | None,
+    ) -> ListenerDependencyMetadata | None:
+        if dependency_catalog is not None:
+            return ListenerDependencyMetadata.from_catalog(dependency_catalog)
+        if self._latest_dependency_metadata is not None:
+            return self._latest_dependency_metadata
+        runtime_state = self._runtime_state
+        if runtime_state is None:
+            return None
+        return runtime_state.dependency_metadata
 
     def _build_dependency_cache_from_runtime_state(
         self,
@@ -2533,15 +2535,6 @@ class SettaListener:
     def _current_dependency_value_by_name(self, dependency_name: str) -> Any:
         return self._dependency_cache.get(dependency_name, _MISSING)
 
-    def _build_dependency_metadata(
-        self,
-        dependency_catalog: ListenerDependencyCatalog | None,
-        dependency_graph: DependencyGraph,
-    ) -> ListenerDependencyMetadata:
-        if dependency_catalog is None:
-            return ListenerDependencyMetadata.from_dependency_graph(dependency_graph)
-        return ListenerDependencyMetadata.from_catalog(dependency_catalog)
-
     def _build_callback_state(
         self,
         runtime_state: ListenerRuntimeState,
@@ -2605,26 +2598,19 @@ class SettaListener:
     async def _replay_cached_snapshot(self) -> None:
         """Replay the most recent cached snapshot for newly registered callbacks."""
         runtime_state = self._runtime_state
-        snapshot = self._latest_persisted_snapshot
         if runtime_state is None:
-            if snapshot is None:
+            if self._latest_dependency_metadata is None:
                 logger.debug(
-                    "Listener %s cannot replay snapshot without cached state",
+                    (
+                        "Listener %s cannot replay snapshot without cached "
+                        "dependency metadata"
+                    ),
                     self._log_identifier,
                 )
                 return
-            try:
-                runtime_state = self._build_runtime_state(snapshot)
-            except _RECOVERABLE_SNAPSHOT_ERRORS as error:
-                logger.warning(
-                    "Listener %s skipped snapshot replay due to build failure: %s",
-                    self._log_identifier,
-                    error,
-                    exc_info=logger.isEnabledFor(logging.DEBUG),
-                )
-                return
-            if self._latest_dependency_metadata is not None:
-                runtime_state.dependency_metadata = self._latest_dependency_metadata
+            runtime_state = ListenerRuntimeState(
+                dependency_metadata=self._latest_dependency_metadata,
+            )
             self._runtime_state = runtime_state
 
         (

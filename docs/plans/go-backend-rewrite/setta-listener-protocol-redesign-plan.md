@@ -116,11 +116,13 @@ Current state:
 - Python still owns:
   - share listener entrypoints as an explicit retained Python authoring/loader
     boundary over the same Go listener protocol
-  - local dependency-graph rebuilding still exists in code today for listener
-    metadata/cache construction, but generated-runtime fallback has been
-    removed; that remaining duplicate ownership is not retained end state, and
-    Go must become authoritative for any listener-visible value needed by
-    current callers
+  - the active listener bootstrap/force-refresh/replay path now depends on
+    Go-supplied `dependencyCatalog` metadata instead of rebuilding that
+    metadata from `projectState`, but graph-backed helper code still exists in
+    the module/tests for fixture construction and non-active code paths; that
+    remaining duplicate ownership is not retained end state, and Go must
+    become authoritative for any listener-visible value needed by current
+    callers
   - dormant broader built-in listener endpoint inventory/docs outside the
     active retained chat/chat-section client surface, pending a concrete
     caller before any further port
@@ -315,8 +317,9 @@ Current stop point:
   protocol.
 - Share listener entrypoints remain the retained Python authoring boundary.
 - Current code no longer falls back to a local generated runtime for listener
-  values, but it still rebuilds dependency metadata/cache state locally in the
-  retained Python client; that duplicate ownership is still rewrite debt.
+  values, and the active runtime path no longer rebuilds dependency metadata
+  from `projectState`; remaining graph-backed helper code is cleanup debt
+  rather than an active runtime requirement.
 - Current repo listener tests/callers do not show a concrete callable-section
   listener-state dependency that justifies preserving any broader Python
   listener-state runtime.

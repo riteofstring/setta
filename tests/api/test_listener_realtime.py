@@ -1235,9 +1235,34 @@ class TestSettaListenerBootstrapFailure:
         async def capture_payload(payload: str) -> None:
             register_payloads.append(json.loads(payload))
 
+        runtime_state = listener._build_runtime_state(project_state)
+        dependency_catalog = ListenerDependencyCatalog(
+            entries=[
+                ListenerDependencyCatalogEntry(
+                    dependencyKey=entry.dependencyKey,
+                    name=entry.name,
+                    fullPathName=entry.fullPathName,
+                    dependencies=list(entry.dependencies),
+                    sectionType=entry.sectionType,
+                    codeObjType=entry.codeObjType,
+                    controlCodeObjId=entry.controlCodeObjId,
+                    controlCodeObjType=entry.controlCodeObjType,
+                    sectionRepresentation=entry.sectionRepresentation,
+                    controlValueRepresentation=entry.controlValueRepresentation,
+                    valueRepresentation=entry.valueRepresentation,
+                )
+                for entry in [
+                    runtime_state.dependency_metadata.entry_for_name(name)
+                    for name in runtime_state.dependency_metadata.names()
+                ]
+            ]
+        )
         listener._send_websocket_payload = AsyncMock(side_effect=capture_payload)
 
-        await listener._refresh_from_snapshot(project_state)
+        await listener._refresh_from_snapshot(
+            project_state,
+            dependency_catalog=dependency_catalog,
+        )
         await asyncio.sleep(0)
 
         assert listener._runtime_state is not None
@@ -1767,7 +1792,8 @@ class TestSettaListenerBootstrapFailure:
         def on_change(state, ctx) -> None:
             callback_calls.append((state.Welcome, dict(ctx.changed)))
 
-        listener._latest_persisted_snapshot = project_state
+        runtime_state = listener._build_runtime_state(project_state)
+        listener._latest_dependency_metadata = runtime_state.dependency_metadata
 
         await listener._replay_cached_snapshot()
 
