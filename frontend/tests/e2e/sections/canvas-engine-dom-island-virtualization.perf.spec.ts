@@ -65,7 +65,7 @@ test("canvas engine dom-island virtualization guardrail with 300 sections", asyn
 
     const host = page.locator('[data-canvas-engine-host="v1"]');
     await expect(host).toBeVisible();
-    await expect(page.locator(".react-flow__pane")).toHaveCount(0);
+    await expect(page.locator(".react-flow__pane")).toHaveCount(1);
 
     const hostBounds = await host.boundingBox();
     if (!hostBounds) {
