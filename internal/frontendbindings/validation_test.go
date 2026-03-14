@@ -1,6 +1,7 @@
 package frontendbindings
 
 import (
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -1153,6 +1154,54 @@ func TestFrontendGeneratedContractFileInventory(t *testing.T) {
 		actual,
 		expected,
 	)
+}
+
+func TestFrontendSourceDoesNotImportPythonBindingArtifacts(t *testing.T) {
+	t.Helper()
+
+	repoRoot := testRepoRoot(t)
+	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
+	forbiddenNeedles := []string{
+		"backend/setta/",
+		"section_ui_editor_tab_compatibility.json",
+	}
+
+	err := filepath.WalkDir(frontendSrcRoot, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+
+		base := entry.Name()
+		if !(strings.HasSuffix(base, ".ts") || strings.HasSuffix(base, ".tsx")) {
+			return nil
+		}
+		if strings.Contains(base, ".test.") || strings.Contains(base, ".spec.") {
+			return nil
+		}
+
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		source := string(contents)
+		for _, needle := range forbiddenNeedles {
+			if !strings.Contains(source, needle) {
+				continue
+			}
+			relativePath, err := filepath.Rel(repoRoot, path)
+			if err != nil {
+				return err
+			}
+			return fmt.Errorf("%s contains forbidden Python binding artifact reference %q", filepath.ToSlash(relativePath), needle)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("scan frontend sources for Python binding artifacts: %v", err)
+	}
 }
 
 func readBareHTTPRouteIdentifiers(t *testing.T, path string) []string {

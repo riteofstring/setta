@@ -207,6 +207,11 @@ Current status:
   `generatedGo*` cannot quietly return; remaining follow-on work is about
   widening coverage and verification, not preserving a parallel
   Python-generated frontend contract surface
+- the validation suite now also checks that non-test frontend source files do
+  not re-import Python-owned contract artifacts such as
+  `backend/setta/...` paths or
+  `ui_settings/section_ui_editor_tab_compatibility.json`, so the canonical
+  Go-owned frontend contract boundary stays cut over
 - widening the converted surface should use structured declarations,
   converter-rule additions, or explicit Go boundary DTOs rather than
   reintroducing inline TypeScript escape hatches
