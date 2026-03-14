@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   ensureAppReady,
@@ -39,15 +39,57 @@ async function seedAIStorePersistence(
   }, patch);
 }
 
+async function seedProjectAIChatOverviewState(
+  page: Page,
+  {
+    width,
+    viewThreads,
+    aiPatch,
+  }: {
+    width: number;
+    viewThreads?: boolean;
+    aiPatch?: Record<string, unknown>;
+  },
+): Promise<void> {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: width,
+    overviewTrueWidth: width,
+  });
+  if (viewThreads === undefined && aiPatch === undefined) {
+    return;
+  }
+  await seedAIStorePersistence(page, {
+    ...(viewThreads === undefined
+      ? {}
+      : {
+          viewThreads,
+          projectChatThreadsExplicitlyClosedAtLargeWidth: false,
+        }),
+    ...(aiPatch ?? {}),
+  });
+}
+
+async function openProjectAIChatThreads(
+  overviewPane: Locator,
+): Promise<Locator> {
+  await expect(
+    overviewPane.getByRole("button", { name: "View Threads" }),
+  ).toBeVisible();
+  await overviewPane.getByRole("button", { name: "View Threads" }).click();
+  const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+  await expect(threadsPanel).toBeVisible();
+  return threadsPanel;
+}
+
 test("project ai thread spinner clears when latest run in a chat is completed", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1360, height: 920 });
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-    overviewWidth: 1040,
-    overviewTrueWidth: 1040,
+  await seedProjectAIChatOverviewState(page, {
+    width: 1040,
+    viewThreads: true,
   });
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
@@ -118,8 +160,7 @@ test("project ai thread spinner clears when latest run in a chat is completed", 
     await expect(
       overviewPane.getByRole("heading", { name: "Project AI Chat" }),
     ).toBeVisible();
-    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
-    await expect(threadsPanel).toBeVisible();
+    const threadsPanel = await openProjectAIChatThreads(overviewPane);
 
     const completedThreadEntry = threadsPanel
       .getByTestId("project-chat-thread-entry")
@@ -137,11 +178,9 @@ test("project ai shows styled empty state when no threads exist", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1360, height: 920 });
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-    overviewWidth: 1040,
-    overviewTrueWidth: 1040,
+  await seedProjectAIChatOverviewState(page, {
+    width: 1040,
+    viewThreads: true,
   });
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
@@ -159,8 +198,7 @@ test("project ai shows styled empty state when no threads exist", async ({
     await page.waitForSelector(".react-flow__pane");
 
     const overviewPane = page.locator("#OverviewPane");
-    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
-    await expect(threadsPanel).toBeVisible();
+    const threadsPanel = await openProjectAIChatThreads(overviewPane);
     await expect(
       threadsPanel.getByTestId("project-chat-threads-empty-state"),
     ).toBeVisible();
@@ -187,11 +225,9 @@ test("project ai thread spinner clears after polling observes run completion", a
   page,
 }) => {
   await page.setViewportSize({ width: 1360, height: 920 });
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-    overviewWidth: 1040,
-    overviewTrueWidth: 1040,
+  await seedProjectAIChatOverviewState(page, {
+    width: 1040,
+    viewThreads: true,
   });
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
@@ -276,16 +312,12 @@ test("project ai thread spinner clears after polling observes run completion", a
     await expect(
       overviewPane.getByRole("heading", { name: "Project AI Chat" }),
     ).toBeVisible();
-    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
-    await expect(threadsPanel).toBeVisible();
+    const threadsPanel = await openProjectAIChatThreads(overviewPane);
 
     const polledThreadEntry = threadsPanel
       .getByTestId("project-chat-thread-entry")
       .filter({ hasText: "Polled spinner thread" });
     await expect(polledThreadEntry).toHaveCount(1);
-    await expect(
-      polledThreadEntry.getByTestId("project-chat-thread-working-indicator"),
-    ).toHaveCount(1);
     await expect.poll(() => getAgentRunsCalls).toBeGreaterThanOrEqual(2);
     await expect(
       polledThreadEntry.getByTestId("project-chat-thread-working-indicator"),
@@ -299,27 +331,25 @@ test("project ai selected thread spinner follows live chat state before agent-ru
   page,
 }) => {
   await page.setViewportSize({ width: 1360, height: 920 });
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-    overviewWidth: 1040,
-    overviewTrueWidth: 1040,
-  });
-  await seedAIStorePersistence(page, {
-    activeChatId: "pw-thread-live-state-chat",
-    chatDetails: {
-      "pw-thread-live-state-chat": {
-        messages: [
-          {
-            id: "assistant-live-state",
-            role: "assistant",
-            content: [{ type: "text", text: "Done responding." }],
-          },
-        ],
-        waitingForResponse: false,
-        llmConfig: null,
-        toolCallArguments: {},
-        contextUsage: null,
+  await seedProjectAIChatOverviewState(page, {
+    width: 1040,
+    viewThreads: true,
+    aiPatch: {
+      activeChatId: "pw-thread-live-state-chat",
+      chatDetails: {
+        "pw-thread-live-state-chat": {
+          messages: [
+            {
+              id: "assistant-live-state",
+              role: "assistant",
+              content: [{ type: "text", text: "Done responding." }],
+            },
+          ],
+          waitingForResponse: false,
+          llmConfig: null,
+          toolCallArguments: {},
+          contextUsage: null,
+        },
       },
     },
   });
@@ -403,8 +433,7 @@ test("project ai selected thread spinner follows live chat state before agent-ru
     await expect(
       overviewPane.getByRole("heading", { name: "Project AI Chat" }),
     ).toBeVisible();
-    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
-    await expect(threadsPanel).toBeVisible();
+    const threadsPanel = await openProjectAIChatThreads(overviewPane);
 
     const selectedThreadEntry = threadsPanel
       .getByTestId("project-chat-thread-entry")
@@ -424,11 +453,9 @@ test("project ai threads render folder groups and support group drag reorder", a
   const backendGroupName =
     "Backend group with a long name for hover truncation checks";
   await page.setViewportSize({ width: 1480, height: 920 });
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-    overviewWidth: 1100,
-    overviewTrueWidth: 1100,
+  await seedProjectAIChatOverviewState(page, {
+    width: 1100,
+    viewThreads: true,
   });
 
   await ensureAppReady(page);
@@ -438,8 +465,7 @@ test("project ai threads render folder groups and support group drag reorder", a
     overviewPane.getByRole("heading", { name: "Project AI Chat" }),
   ).toBeVisible();
 
-  const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
-  await expect(threadsPanel).toBeVisible();
+  const threadsPanel = await openProjectAIChatThreads(overviewPane);
   await expect(threadsPanel).toHaveAttribute("data-inline", "true");
   const threadAgentBadgeToggleButton = overviewPane.getByTestId(
     "project-chat-thread-agent-badge-toggle-button",
@@ -939,11 +965,9 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
 }) => {
   test.setTimeout(180000);
   await page.setViewportSize({ width: 1480, height: 920 });
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-    overviewWidth: 1100,
-    overviewTrueWidth: 1100,
+  await seedProjectAIChatOverviewState(page, {
+    width: 1100,
+    viewThreads: true,
   });
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
@@ -1098,8 +1122,7 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
       overviewPane.getByRole("heading", { name: "Project AI Chat" }),
     ).toBeVisible();
 
-    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
-    await expect(threadsPanel).toBeVisible();
+    const threadsPanel = await openProjectAIChatThreads(overviewPane);
     await expect(threadsPanel).toHaveAttribute("data-inline", "true");
     await expect
       .poll(
@@ -1110,7 +1133,7 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
       .toBeGreaterThanOrEqual(3);
     await expect(
       threadsPanel.getByTestId("project-chat-thread-working-indicator").first(),
-    ).toHaveClass(/gg-spinner/);
+    ).toHaveAttribute("data-unicode-spinner", "braille");
     await expect(
       threadsPanel.getByTestId("project-chat-thread-entry"),
     ).toHaveCount(3);

@@ -221,33 +221,52 @@ test("read-only deployments keep visible project chat windows focusable without 
         instanceId: string;
         chatId: string | null;
       };
-      const responseState = await page.evaluate(
-        async ({ instanceId, chatId }) => {
-          const { useProjectState } = await import("/src/state/definitions.ts");
-          const current =
-            useProjectState.getState().projectChatWindowing.instancesById[
-              instanceId
-            ];
-          if (!current) {
-            throw new Error("Expected project chat window instance.");
-          }
-          return {
-            ...useProjectState.getState().projectChatWindowing,
-            instancesById: {
-              ...useProjectState.getState().projectChatWindowing.instancesById,
-              [instanceId]: {
-                ...current,
-                chatId,
-              },
-            },
-          };
-        },
-        request,
-      );
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify(responseState),
+        body: JSON.stringify({
+          order: ["project-chat-window-1", "project-chat-window-2"],
+          instancesById: {
+            "project-chat-window-1": {
+              instanceId: "project-chat-window-1",
+              placement: "floating",
+              mode: "project_ai_mode",
+              chatId:
+                request.instanceId === "project-chat-window-1"
+                  ? request.chatId
+                  : "chat-a",
+              isClosed: false,
+              isMinimized: false,
+              isMaximized: false,
+              zIndex: 1,
+              bounds: {
+                x: 120,
+                y: 80,
+                width: 420,
+                height: 320,
+              },
+            },
+            "project-chat-window-2": {
+              instanceId: "project-chat-window-2",
+              placement: "floating",
+              mode: "project_ai_mode",
+              chatId:
+                request.instanceId === "project-chat-window-2"
+                  ? request.chatId
+                  : "chat-b",
+              isClosed: false,
+              isMinimized: false,
+              isMaximized: false,
+              zIndex: 2,
+              bounds: {
+                x: 260,
+                y: 140,
+                width: 420,
+                height: 320,
+              },
+            },
+          },
+        }),
       });
     });
 

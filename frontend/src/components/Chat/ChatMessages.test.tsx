@@ -350,7 +350,7 @@ describe("ChatMessages tool call status", () => {
     );
 
     expect(markup).toContain("Tool state: stopped");
-    expect(markup).not.toContain("gg-spinner");
+    expect(markup).not.toContain('data-unicode-spinner="braille"');
   });
 
   it("renders tool calls inside a single activity container", () => {
@@ -400,7 +400,7 @@ describe("ChatMessages tool call status", () => {
     expect(markup).not.toContain("px-0.5 pb-0.5");
   });
 
-  it("shows running spinners while activity rows are in flight", () => {
+  it("shows braille activity indicators while rows are in flight", () => {
     const messages: BaseChatMessageUnion[] = [
       {
         id: "m-running-sections",
@@ -432,7 +432,8 @@ describe("ChatMessages tool call status", () => {
       <ChatMessageList messages={messages} waitingForResponse={true} />,
     );
 
-    expect(markup).toContain("gg-spinner");
+    expect(markup).toContain('data-unicode-spinner="braille"');
+    expect(markup).toContain("⠋");
   });
 
   it("shows completed activity rows without running spinners", () => {
@@ -471,7 +472,7 @@ describe("ChatMessages tool call status", () => {
       <ChatMessageList messages={messages} waitingForResponse={false} />,
     );
 
-    expect(markup).not.toContain("gg-spinner");
+    expect(markup).not.toContain('data-unicode-spinner="braille"');
     expect(markup).toContain('data-chat-tool-call-item="true"');
   });
 
@@ -1903,7 +1904,7 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).toContain("absolute right-full top-1/2");
     expect(markup).toContain("absolute left-full top-1/2");
     expect(markup).toContain(
-      "pointer-events-none inline-flex items-center gap-1",
+      "pointer-events-none relative z-[1] inline-flex items-center gap-1",
     );
     expect(markup).toContain("group-hover:opacity-100");
     expect(markup).toContain(

@@ -35,6 +35,18 @@ vi.mock("state/hooks/share", () => ({
   }),
 }));
 
+vi.mock("components/Utils/FloatingBox", () => ({
+  getFloatingBoxHandlers: ({
+    content,
+    title,
+  }: {
+    content?: string;
+    title?: string;
+  }) => ({
+    "data-tooltip-content": content ?? title ?? "",
+  }),
+}));
+
 describe("ProjectChatManager", () => {
   beforeEach(() => {
     mockCanEditLayout = true;
@@ -140,5 +152,41 @@ describe("ProjectChatManager", () => {
     expect(markup).not.toContain(">Hide<");
     expect(markup).not.toContain(">Canvas<");
     expect(markup).not.toContain(">Float<");
+  });
+
+  it("adds shared quick info copy to window management actions", () => {
+    const markup = renderToStaticMarkup(<ProjectChatManager />);
+
+    expect(markup).toContain(
+      'data-tooltip-content="Show Renamed Research Chat in canvas"',
+    );
+    expect(markup).toContain(
+      'data-tooltip-content="Hide Renamed Research Chat"',
+    );
+    expect(markup).toContain(
+      'data-tooltip-content="Focus Renamed Research Chat"',
+    );
+  });
+
+  it("supports a dock-menu presentation without a duplicate create button", () => {
+    const markup = renderToStaticMarkup(
+      <ProjectChatManager variant="menu" />,
+    );
+
+    expect(markup).not.toContain("Project chat windows open docked on the right");
+    expect(markup).not.toContain("New chat");
+    expect(markup).toContain('data-testid="project-chat-bottom-dock-menu-item"');
+    expect(markup).toContain('data-testid="project-chat-manager-focus"');
+  });
+
+  it("supports an overview-pane presentation that points users to the dock-first workflow", () => {
+    const markup = renderToStaticMarkup(
+      <ProjectChatManager variant="overview" />,
+    );
+
+    expect(markup).toContain("Use the bottom dock to create, reopen, and arrange chat windows.");
+    expect(markup).toContain("The list below mirrors the dock menu for quick scanning and recovery.");
+    expect(markup).not.toContain("New chat");
+    expect(markup).toContain('data-testid="project-chat-manager-focus"');
   });
 });
