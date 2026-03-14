@@ -6,8 +6,10 @@ import {
 } from "utils/constants";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  setChatSharedEdgeMode,
   setColorModePreference,
   setOverviewProjectConfigOrder,
+  toggleChatSharedEdgeMode,
 } from "./localStorage";
 
 describe("setColorModePreference", () => {
@@ -34,6 +36,26 @@ describe("setColorModePreference", () => {
   });
 });
 
+describe("shared chat edge mode", () => {
+  beforeEach(() => {
+    useLocalStorage.setState({ chatSharedEdgeMode: "agentic" });
+  });
+
+  it("sets the shared chat edge mode explicitly", () => {
+    setChatSharedEdgeMode("workflow");
+
+    expect(useLocalStorage.getState().chatSharedEdgeMode).toBe("workflow");
+  });
+
+  it("toggles between agentic and workflow", () => {
+    toggleChatSharedEdgeMode();
+    expect(useLocalStorage.getState().chatSharedEdgeMode).toBe("workflow");
+
+    toggleChatSharedEdgeMode();
+    expect(useLocalStorage.getState().chatSharedEdgeMode).toBe("agentic");
+  });
+});
+
 describe("local storage merge", () => {
   it("derives colorMode from darkMode when missing", () => {
     const merge = useLocalStorage.persist.getOptions().merge;
@@ -57,6 +79,18 @@ describe("local storage merge", () => {
     ) as typeof current;
 
     expect(merged.colorMode).toBe("auto");
+  });
+
+  it("sanitizes invalid persisted shared chat edge modes", () => {
+    const merge = useLocalStorage.persist.getOptions().merge;
+    const current = useLocalStorage.getState();
+
+    const merged = merge(
+      { chatSharedEdgeMode: "unknown" } as Record<string, unknown>,
+      current,
+    ) as typeof current;
+
+    expect(merged.chatSharedEdgeMode).toBe("agentic");
   });
 
   it("sanitizes invalid persisted overviewTab values", () => {
@@ -152,7 +186,6 @@ describe("local storage merge", () => {
         {
           command: "/ship",
           prompt: "Ship the current release.",
-          appGenerationMode: null,
         },
       ],
     });
@@ -220,24 +253,6 @@ describe("local storage merge", () => {
     expect(merged.homeSelectedProjectPaneVis).toBe(false);
     expect(merged.homeSelectedProjectPaneWidth).toBe(350);
     expect(merged.homeSelectedProjectPaneTrueWidth).toBe(352);
-  });
-
-  it("does not persist removed app-generation local-storage keys", () => {
-    const partialize = useLocalStorage.persist.getOptions().partialize;
-    if (!partialize) {
-      throw new Error("Expected local-storage store to define partialize.");
-    }
-
-    const persisted = partialize(useLocalStorage.getState()) as Record<
-      string,
-      unknown
-    >;
-
-    expect("appSpecStreamingEnabled" in persisted).toBe(false);
-    expect("appGenerationMode" in persisted).toBe(false);
-    expect("appGenerationPrompt" in persisted).toBe(false);
-    expect("appGenerationReferenceImageUrl" in persisted).toBe(false);
-    expect("appGenerationReferenceImageNotes" in persisted).toBe(false);
   });
 });
 

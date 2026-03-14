@@ -36,7 +36,7 @@ from setta.agentic.linked_chat_targets import (
     LinkedChatTargetResolutionError,
     resolve_executable_linked_chat_target,
 )
-from setta.agentic.store import list_agent_run_ids_by_metadata
+from setta.agentic.store import list_agent_run_ids_by_metadata, load_prompt_template
 from setta.app.definition_diagnostics import (
     build_app_capabilities,
     validate_app_definition_payload,
@@ -129,6 +129,7 @@ from setta.project_state.project_manager_types import (
     CreateChildSectionsViaIncrementerRequest,
     CreateEdgeRequest,
     CreateNewSectionVariantRequest,
+    CreateStateMachineEdgeRequest,
     CreateTopLevelSectionRequest,
     CreateTopLevelSectionResponse,
     CreateViewModeRequest,
@@ -142,6 +143,7 @@ from setta.project_state.project_manager_types import (
     DeleteSectionsRequest,
     DeleteSectionVariantOrAskRequest,
     DeleteSelectedParamsRequest,
+    DeleteStateMachineEdgesRequest,
     DeleteViewModeRequest,
     DeleteWindowSpaceRequest,
     FormatCodeRequest,
@@ -206,6 +208,7 @@ from setta.project_state.project_manager_types import (
     SetProjectConfigCodegenTargetsRequest,
     SetPromptFormatRequest,
     SetPromptInputsRequest,
+    SetPromptTemplateLinkRequest,
     SetPromptTemplateRequest,
     SetSectionColumnWidthRequest,
     SetSectionEdgeInputsRequest,
@@ -224,6 +227,8 @@ from setta.project_state.project_manager_types import (
     SetSocialUrlRequest,
     SetSpreadsheetFilePathRequest,
     SetSpreadsheetSectionSettingsRequest,
+    SetStateMachineEdgesRequest,
+    SetStateMachineSectionSettingsRequest,
     SetTaskBoardSectionStateRequest,
     SetTextBlockDisplayModeRequest,
     SetTextBlockFormatRequest,
@@ -260,6 +265,7 @@ from setta.project_state.project_manager_types import (
     UpdateAppDefinitionRequest,
     UpdateEdgeRequest,
     UpdateParamImplConfigRequest,
+    UpdateStateMachineEdgeRequest,
     ValidateAppDefinitionRequest,
     ValidateAppDefinitionResponse,
 )
@@ -303,6 +309,7 @@ from setta.types.helpers_lvl2 import (
     create_child_sections_via_incrementer,
     create_edge,
     create_new_section_variant,
+    create_state_machine_edge,
     create_top_level_section,
     delete_agentic_edges,
     delete_child_sections_via_decrementer,
@@ -312,6 +319,7 @@ from setta.types.helpers_lvl2 import (
     delete_section_variant_or_ask,
     delete_sections,
     delete_selected_params,
+    delete_state_machine_edges,
     detach_code_section_attached_terminal,
     ensure_code_section_attached_terminal,
     ensure_code_section_embedded_terminal_size,
@@ -357,6 +365,7 @@ from setta.types.helpers_lvl2 import (
     set_prompt_section_format,
     set_prompt_section_inputs,
     set_prompt_section_template,
+    set_prompt_section_template_link,
     set_section_column_width,
     set_section_edge_inputs,
     set_section_edge_outputs,
@@ -372,6 +381,8 @@ from setta.types.helpers_lvl2 import (
     set_social_url,
     set_spreadsheet_file_path,
     set_spreadsheet_section_settings,
+    set_state_machine_edges,
+    set_state_machine_section_settings,
     set_task_board_section_state,
     set_text_block_display_mode,
     set_text_block_format,
@@ -393,6 +404,7 @@ from setta.types.helpers_lvl2 import (
     update_agentic_edge,
     update_edge,
     update_param_impl_config,
+    update_state_machine_edge,
 )
 from setta.types.helpers_lvl3 import (
     build_project_state_summary,
@@ -430,6 +442,7 @@ from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
 )
+from setta.types.prompt_section_resolution import resolve_prompt_section_source
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
     BaseSectionWithParamsImpl,
@@ -442,10 +455,12 @@ from setta.types.section_impls import (
     CodeSectionImpl,
     GenPythonCodeSectionImpl,
     GenPythonMetadataSectionImpl,
+    PromptSectionImpl,
     SectionType,
     TerminalSectionImpl,
 )
 from setta.types.settings_state import RenameRefactorMode, RunSnapshotMode
+from setta.types.state_machine_edges import StateMachineEdge
 from setta.ui_settings.errors import UISettingExpectedOldValueMismatchError
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.async_rw_lock import AsyncReadWriteLock
@@ -1077,7 +1092,7 @@ class BaseProjectManager(ABC):
                         section_inputs=section_inputs,
                     )
 
-                dep_graph = DependencyGraph(run_state)
+                dep_graph = DependencyGraph(run_state, dbe=self.dbe)
                 code_generator = build_python_code_generator(run_state, dep_graph)
                 code_generator.generate_code()
                 gen_binding = run_state.genCodeBinding
@@ -1248,7 +1263,7 @@ class BaseProjectManager(ABC):
             )
             return command, snapshot_path, entry_section_id
 
-        dep_graph = DependencyGraph(project_state)
+        dep_graph = DependencyGraph(project_state, dbe=self.dbe)
         code_generator = build_python_code_generator(project_state, dep_graph)
         code_generator.generate_code()
         gen_binding = project_state.genCodeBinding
@@ -1916,7 +1931,7 @@ class BaseProjectManager(ABC):
         )
 
         if python_codegen_enabled:
-            dep_graph = DependencyGraph(projectState)
+            dep_graph = DependencyGraph(projectState, dbe=self.dbe)
             prev_undefined_callable_sections: set[ID] = set()
             prev_callable_mismatch_sections: set[ID] = set()
             if projectConfigId in self.gen_code:
@@ -3667,6 +3682,51 @@ class BaseProjectManager(ABC):
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
+    async def create_state_machine_edge(self, x: CreateStateMachineEdgeRequest):
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        edge_kwargs = {
+            "machineGroupId": x.machineGroupId,
+            "sourceSectionId": x.sourceSectionId,
+            "sourcePortId": x.sourcePortId,
+            "targetSectionId": x.targetSectionId,
+            "targetPortId": x.targetPortId,
+            "sourceFilter": x.sourceFilter,
+            "sourceActivationCountCondition": x.sourceActivationCountCondition,
+            "iterationCondition": x.iterationCondition,
+            "targetAction": x.targetAction,
+            "style": x.style,
+            "hidden": x.hidden,
+            "zIndex": x.zIndex,
+        }
+        if x.id is not None:
+            edge_kwargs["id"] = x.id
+        edge = StateMachineEdge(**edge_kwargs)
+        create_state_machine_edge(project_state, edge)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def update_state_machine_edge(self, x: UpdateStateMachineEdgeRequest):
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        update_state_machine_edge(project_state, x.edge)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def delete_state_machine_edges(self, x: DeleteStateMachineEdgesRequest):
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        delete_state_machine_edges(project_state, x.edgeIds)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def set_state_machine_edges(self, x: SetStateMachineEdgesRequest):
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_state_machine_edges(project_state, x.edges)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"]}
@@ -4364,6 +4424,41 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    async def set_prompt_template_link(self, x: SetPromptTemplateLinkRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        if x.promptTemplateId is None:
+            prompt_impl = get_curr_effective_section_impl_with_type_guard(
+                project_state,
+                x.sectionId,
+                PromptSectionImpl,
+            )
+            resolved_source = resolve_prompt_section_source(
+                self.dbe,
+                prompt_impl,
+                allow_snapshot_fallback=True,
+            )
+            set_prompt_section_template_link(
+                project_state,
+                x.sectionId,
+                None,
+                resolved_source.template,
+                resolved_source.format,
+            )
+            await self.update_and_broadcast_project_state(project_state)
+            return
+        prompt_template = load_prompt_template(self.dbe, x.promptTemplateId)
+        if prompt_template is None:
+            raise KeyError(f"Prompt template {x.promptTemplateId} not found.")
+        set_prompt_section_template_link(
+            project_state,
+            x.sectionId,
+            x.promptTemplateId,
+            prompt_template.template,
+            prompt_template.format,
+        )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
     async def set_prompt_inputs(self, x: SetPromptInputsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_prompt_section_inputs(project_state, x.sectionId, x.inputs)
@@ -4956,6 +5051,20 @@ class BaseProjectManager(ABC):
             x.permissionMode,
             x.searchEnabled,
             x.dictationMode,
+        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def set_state_machine_section_settings(
+        self, x: SetStateMachineSectionSettingsRequest
+    ):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_state_machine_section_settings(
+            project_state,
+            x.sectionId,
+            x.machineGroupId,
+            x.label,
+            x.gateType,
         )
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 

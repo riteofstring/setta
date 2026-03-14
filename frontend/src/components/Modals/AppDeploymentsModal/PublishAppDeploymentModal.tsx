@@ -14,7 +14,7 @@ import {
   useAppDefinition,
   useProjectState,
 } from "state/definitions";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
 import {
   route_check_if_file_exists,
   route_list_app_deployments,
@@ -22,7 +22,6 @@ import {
 } from "utils/generatedEndpoints";
 import type {
   AppDeploymentMetadata,
-  CheckIfFileExistsResponse,
   PublishAppDeploymentRequestInput,
   SharePolicy,
 } from "utils/generatedTypes";
@@ -32,8 +31,6 @@ type AppPolicyOverridesInput = NonNullable<
   PublishAppDeploymentRequestInput["appPolicyOverrides"]
 >;
 type RunSnapshotMode = SharePolicy["runSnapshotMode"];
-type CheckIfFileExistsRouteResponse =
-  ResponseDataAndStatus<CheckIfFileExistsResponse>;
 
 const DEFAULT_RUN_SNAPSHOT_MODE: RunSnapshotMode = "ephemeral";
 
@@ -135,10 +132,9 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
     if (loadStoredListenerEntrypoint().trim().length > 0) {
       return;
     }
-    const res: CheckIfFileExistsRouteResponse =
-      await route_check_if_file_exists({
-        filepath: DEFAULT_LISTENER_ENTRYPOINT,
-      });
+    const res = await route_check_if_file_exists({
+      filepath: DEFAULT_LISTENER_ENTRYPOINT,
+    });
     if (res200(res) && res.data) {
       setListenerEntrypoint((current) => {
         if (current.trim().length > 0) {
@@ -193,12 +189,14 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
     setIsPublishing(true);
     setErrorMessage(null);
     const trimmedEntrypoint = listenerEntrypoint.trim();
+    const entrypointValue =
+      trimmedEntrypoint.length > 0 ? trimmedEntrypoint : null;
     const payload: PublishAppDeploymentRequestInput = {
       deploymentName: resolvedDeploymentName,
       projectConfigId: projectConfig.id,
       appPolicyOverrides: policyOverrides,
-      listenerEntrypoint: trimmedEntrypoint,
-      listenerEnabled: trimmedEntrypoint.length > 0 ? listenerEnabled : false,
+      listenerEntrypoint: entrypointValue,
+      listenerEnabled: entrypointValue ? listenerEnabled : false,
     };
 
     const res = await route_publish_app_deployment(payload);

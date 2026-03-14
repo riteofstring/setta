@@ -8,9 +8,7 @@ test("app config draft edits update the app preview without saving", async ({
   await seedLocalStorage(page, { overviewTab: "App", overviewVis: true });
   await ensureAppReady(page);
 
-  await expect(
-    page.getByRole("heading", { name: "JSON Render" }),
-  ).toBeVisible();
+  await expect(page.getByText("App Config")).toBeVisible();
 
   const showPreviewButton = page.getByRole("button", { name: "Show Preview" });
   if (await showPreviewButton.isVisible()) {
