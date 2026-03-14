@@ -1,4 +1,4 @@
-import { useMisc } from "state/stores/ephemeralUiStores";
+import { useMisc } from "state/definitions";
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,

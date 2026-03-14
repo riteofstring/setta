@@ -1,9 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { useNodeInternals, useProjectState } from "state/definitions";
 import {
   useAgenticScopeHighlights,
   useAIFollow,
-} from "state/stores/aiFollowStores";
+  useNodeInternals,
+  useProjectState,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   AgenticEdgeKindEnum,

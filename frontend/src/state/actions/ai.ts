@@ -25,18 +25,16 @@ import {
 } from "state/appSpecPatchStreaming";
 import {
   ChatDetails,
+  ToolArgumentPreviewEntry,
+  ToolArgumentPreviewProjectState,
   useAIStore,
   useAppDefinition,
   useAppPreview,
   useLocalStorage,
   useProjectState,
+  useToolArgumentPreview,
   type ZustandProjectState,
 } from "state/definitions";
-import {
-  type ToolArgumentPreviewEntry,
-  type ToolArgumentPreviewProjectState,
-  useToolArgumentPreview,
-} from "state/stores/aiFollowStores";
 import type { AppGenerationMode } from "state/types/appGenerationMode";
 import { C } from "utils/c";
 import { getErrorCode, getErrorDetail, res200 } from "utils/endpointUtils";
@@ -2483,7 +2481,10 @@ export async function submitMessage(
     const appSpecStreamingEnabledForSubmit =
       appGenerationMode === null
         ? false
-        : useLocalStorage.getState().appSpecStreamingEnabled;
+        : appGenerationMode === "json_render" ||
+            appGenerationMode === "json_render_with_image"
+          ? true
+          : useLocalStorage.getState().appSpecStreamingEnabled;
     const res = await route_get_llm_response({
       message: userMessage,
       thinking,
