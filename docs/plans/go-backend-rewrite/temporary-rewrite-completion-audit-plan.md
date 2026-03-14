@@ -263,9 +263,9 @@ This verdict holds under both of the only reasonable definitions:
 - If "complete" means repo-wide backend/runtime ownership is fully in Go, the
   answer is `Incomplete` because active supported Python runtime surfaces still
   exist.
-- If "complete" means the rewrite is complete within the explicit retained
-  Python boundary model, the answer is still `Incomplete` because targeted
-  Go-side parity tests still fail under the correct activated environment.
+- The targeted Go-side parity failures found during this audit have since been
+  repaired, so the remaining proof against completeness is the still-active
+  Python runtime surface area above.
 
 ### Proven Go-owned today
 
@@ -306,11 +306,12 @@ These are real code-backed retained surfaces, not just stale files. That means
 the repo is not "all Go" today even though the default packaged/runtime path is
 predominantly Go-owned.
 
-### Blockers
+### Remaining blocker
 
-| Blocker | Evidence | Why it blocks a `Complete` verdict |
-| --- | --- | --- |
-| Go projectstate parity failure | `source activate.sh && ./scripts/go.sh test ./internal/projectstate -run '^TestRuntimeSetCodeSectionAttachedTerminalRoundTripsAttachAndDetach$' -count=1` fails because the detached terminal layout is not the expected deterministic value | The Go-owned projectstate/runtime behavior is still mismatched on a covered write path. |
+No currently reproduced Go-owned parity blocker remains from the targeted audit
+slice. The remaining blocker is repo-wide backend/runtime ownership: the active
+retained Python surfaces listed above still participate in supported backend
+execution paths, so the rewrite is not complete in the repo-wide sense.
 
 ### Test and smoke evidence executed
 
@@ -324,10 +325,9 @@ predominantly Go-owned.
   - `source activate.sh && ./scripts/go.sh test ./internal/app -run '^(TestAppIDEMCPServerSupportsAuthenticatedSSECalls|TestAppIDEMCPServerRegistersPluginBackendMCPTools)$' -count=1`
   - `source activate.sh && ./scripts/go.sh test ./internal/httpapi -run '^(TestRegisterStateMachineRunRoutesUsesActiveShareSessionForGet|TestRegisterStateMachineRunRoutesBlocksMutationsInShareMode|TestRegisterStateMachineRunRoutesAllowsDeploymentRegistrationWithoutRuntime|TestRegisterAttachmentRoutesIncludesShareSessionForDeployment)$' -count=1`
   - `source activate.sh && ./scripts/go.sh test ./internal/app -run '^TestAppShareModeServesArtifactOverlayRoutesAndBroadcastsScopedUpdates$' -count=1`
+  - `source activate.sh && ./scripts/go.sh test ./internal/projectstate -count=1`
 - Failed:
   - `./scripts/go.sh test ./...` when first run without the activated Python env
-  - the targeted `internal/projectstate` rerun when repeated under the correct
-    activated environment
 - Inconclusive / not counted as proof:
   - `source activate.sh && ./scripts/run-playwright-e2e.sh ...` exited after the
     Vite frontend logged repeated `EPIPE` pre-transform errors, so it was not
@@ -343,8 +343,9 @@ Go-owned. But the rewrite is not complete with certainty:
 
 - the repo still has active retained Python runtime surfaces, so "all Go" is
   false
-- more importantly, the active Go-owned path still has reproducible parity
-  failures in covered tests even when run with the correct environment
+- the targeted Go-owned parity blockers found during this audit have been
+  repaired, but that does not change the repo-wide incompleteness caused by the
+  retained Python runtime ownership
 
 ### Follow-up after audit
 
@@ -364,5 +365,12 @@ app now constructs `chatattachments.Service` whenever a project runtime exists
 requires a state-machine runtime just to boot the app. The targeted
 `internal/httpapi` and `internal/app` share-mode reruns now pass.
 
-Those follow-up fixes cleared the app/share blocker, but the repo still remains
-`Incomplete` because the projectstate parity failure above still reproduces.
+A fourth follow-up rewrite step repaired the detached-terminal round-trip
+behavior in `internal/projectstate` by giving the deterministic detach path a
+stable right-of-existing placement rule instead of reusing the general
+create-layout aspect-ratio tie-break. The targeted failing test and the full
+`internal/projectstate` package now pass.
+
+Those follow-up fixes cleared the targeted Go-owned parity blockers found by
+this audit, but the repo still remains `Incomplete` because the retained Python
+runtime surfaces above are still active supported code paths.

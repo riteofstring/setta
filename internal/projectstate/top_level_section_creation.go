@@ -720,11 +720,31 @@ func (p Project) resolveDeterministicCreateTopLevelSectionPosition(
 	implType string,
 	rawPayload RawJSON,
 ) (Position, error) {
-	position, _, err := p.resolveCreateTopLevelSectionPosition(policy, implType, rawPayload, nil)
+	payload, err := rawObjectFromProjectPayload(rawPayload)
 	if err != nil {
 		return Position{}, err
 	}
-	return position, nil
+	newWidth, err := resolveAutoLayoutDimension(policy, "new-section", implType, "width", nil, payload)
+	if err != nil {
+		return Position{}, err
+	}
+	newHeight, err := resolveAutoLayoutDimension(policy, "new-section", implType, "height", nil, payload)
+	if err != nil {
+		return Position{}, err
+	}
+	if newWidth <= 0 || newHeight <= 0 {
+		return Position{}, &InvalidAutoLayoutError{
+			Message: fmt.Sprintf("Section type %q has non-positive dimensions (%v, %v).", implType, newWidth, newHeight),
+		}
+	}
+
+	rects, err := p.buildCreateTopLevelSectionLayoutRects(policy)
+	if err != nil {
+		return Position{}, err
+	}
+	padding := 24.0
+	step := gridStepForCreateTopLevelSection(newWidth, newHeight)
+	return findDeterministicPositionAfterExisting(rects, newWidth, newHeight, padding, step), nil
 }
 
 type createTopLevelSectionLayoutRect struct {
@@ -896,6 +916,64 @@ func findPositionAfterExisting(
 		return rightPosition
 	}
 	return bottomPosition
+}
+
+func findDeterministicPositionAfterExisting(
+	rects []createTopLevelSectionLayoutRect,
+	newWidth float64,
+	newHeight float64,
+	padding float64,
+	step float64,
+) Position {
+	if len(rects) == 0 {
+		return Position{X: padding, Y: padding}
+	}
+	bounds, ok := layoutBounds(rects)
+	if !ok {
+		return Position{X: padding, Y: padding}
+	}
+
+	interiorBounds := createTopLevelSectionLayoutRect{
+		X: bounds.X - padding,
+		Y: bounds.Y - padding,
+		W: bounds.W + padding*2,
+		H: bounds.H + padding*2,
+	}
+	if position, ok := findPositionInBounds(interiorBounds, newWidth, newHeight, rects, padding, step); ok {
+		return position
+	}
+
+	rightBounds := createTopLevelSectionLayoutRect{
+		X: bounds.X + bounds.W,
+		Y: bounds.Y - padding,
+		W: newWidth + padding*2,
+		H: bounds.H + padding*2,
+	}
+	if position, ok := findPositionInBounds(rightBounds, newWidth, newHeight, rects, padding, step); ok {
+		return position
+	}
+
+	bottomBounds := createTopLevelSectionLayoutRect{
+		X: bounds.X - padding,
+		Y: bounds.Y + bounds.H,
+		W: bounds.W + padding*2,
+		H: newHeight + padding*2,
+	}
+	if position, ok := findPositionInBounds(bottomBounds, newWidth, newHeight, rects, padding, step); ok {
+		return position
+	}
+
+	maxX := rects[0].X + rects[0].W
+	minY := rects[0].Y
+	for _, rect := range rects[1:] {
+		if rect.X+rect.W > maxX {
+			maxX = rect.X + rect.W
+		}
+		if rect.Y < minY {
+			minY = rect.Y
+		}
+	}
+	return Position{X: maxX + padding, Y: minY}
 }
 
 func candidateAspectScore(
