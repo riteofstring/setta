@@ -1193,6 +1193,96 @@ class TestAgentRunChatRoutes:
             assert exc.value.status_code == 404
             assert exc.value.detail == "Message missing not found in chat history"
 
+    async def test_branch_edit_persists_per_message_app_generation_provenance(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-branch-app-generation")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            project_config_id = ID("project-branch-app-generation")
+            parent_chat_id = ID("chat-parent-app-generation")
+            json_user_message = UserChatMessage(
+                id="msg-json",
+                content=[MessageTextContent(text="Build the JSON app.")],
+            )
+            json_assistant_message = AssistantChatMessage(
+                id="assistant-json",
+                content=[MessageTextContent(text="JSON app draft")],
+            )
+            mcp_user_message = UserChatMessage(
+                id="msg-mcp",
+                content=[MessageTextContent(text="Bring this into MCP tools.")],
+            )
+            seed_run = _build_run(
+                chat_id=parent_chat_id,
+                project_config_id=project_config_id,
+                engine_config_id=engine_config_id,
+                started_at=datetime(2024, 1, 4, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[
+                    json_user_message,
+                    json_assistant_message,
+                    mcp_user_message,
+                ],
+                output_messages=[
+                    json_user_message,
+                    json_assistant_message,
+                    mcp_user_message,
+                ],
+            )
+            save_agent_run(dbe, seed_run)
+            captured_inputs: dict[str, object] = {}
+
+            def _capture_start_run(profile, inputs, **_kwargs):
+                captured_inputs.update(inputs)
+                return create_agent_run(profile_id=profile.id, inputs=inputs)
+
+            monkeypatch.setattr(runner, "start_run", _capture_start_run)
+
+            with runtime_context(state) as ctx:
+                created_chat_id = await route_get_llm_response(
+                    GetLLMResponseRequest(
+                        chatId=None,
+                        message=UserChatMessage(
+                            id="msg-mcp",
+                            content=[
+                                MessageTextContent(text="Edited MCP branch prompt")
+                            ],
+                        ),
+                        engineConfigId=engine_config_id,
+                        agentProfileId=None,
+                        thinking=False,
+                        projectConfigId=project_config_id,
+                        allowUnscoped=True,
+                        branchParentChatId=parent_chat_id,
+                        branchFromMessageId=ID("msg-mcp"),
+                        permissionMode=ChatPermissionMode.minimal,
+                        searchEnabled=True,
+                        appGenerationMode="mcp_server",
+                        appGenerationByMessageId={
+                            "msg-json": "json_render",
+                            "msg-mcp": "mcp_server",
+                            "missing": "prompt_builder",
+                        },
+                    ),
+                    ctx,
+                )
+
+            assert created_chat_id is not None
+            assert captured_inputs.get("appGenerationMode") == "mcp_server"
+            assert captured_inputs.get("appGenerationByMessageId") == {
+                "msg-json": "json_render",
+                "msg-mcp": "mcp_server",
+            }
+
     async def test_get_llm_response_continue_from_chat_seeds_prior_messages(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -1548,7 +1638,6 @@ class TestAgentRunChatRoutes:
                         permissionMode=ChatPermissionMode.yolo,
                         searchEnabled=False,
                         appGenerationMode="json_render",
-                        appSpecStreamingEnabled=True,
                     ),
                     ctx,
                 )
@@ -1563,13 +1652,15 @@ class TestAgentRunChatRoutes:
             assert (
                 "## Required completion gate for create/scaffold work" in system_prompt
             )
-            assert "streamingPreview: enabled" in system_prompt
+            assert "setta__set_app_definition" in system_prompt
+            assert "setta__stream_app_definition" not in system_prompt
 
             captured_inputs = captured.get("inputs")
             assert isinstance(captured_inputs, dict)
             assert captured_inputs.get("permissionMode") == "yolo"
             assert captured_inputs.get("searchEnabled") is False
             assert captured_inputs.get("frontendAffinityToken") == "frontend-managed"
+            assert captured_inputs.get("appGenerationMode") == "json_render"
             assert "skillsEnabled" not in captured_inputs
 
     async def test_get_llm_response_share_scope_preserves_frontend_affinity_token_for_managed_runner(
@@ -2199,7 +2290,6 @@ class TestAgentRunChatRoutes:
                         allowUnscoped=True,
                         permissionMode=ChatPermissionMode.minimal,
                         searchEnabled=True,
-                        appSpecStreamingEnabled=True,
                         appGenerationMode=None,
                     ),
                     ctx,
@@ -2209,7 +2299,6 @@ class TestAgentRunChatRoutes:
             assert captured_profile is not None
             system_prompt = captured_profile.systemPrompt
             assert "App generation mode" not in system_prompt
-            assert "streamingPreview: enabled" not in system_prompt
 
     async def test_transcription_session_file_flow_uses_litellm_transcription(
         self,
