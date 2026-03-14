@@ -13,9 +13,7 @@ test("ai tool results can update the app spec without copy/paste", async ({
   await seedLocalStorage(page, { overviewTab: "App", overviewVis: true });
   await ensureAppReady(page);
 
-  await expect(
-    page.getByRole("heading", { name: "JSON Render" }),
-  ).toBeVisible();
+  await expect(page.getByText("App Config")).toBeVisible();
 
   const projectConfigId = await getCurrentProjectConfigId(page);
 
@@ -88,3 +86,4 @@ test("ai tool results can update the app spec without copy/paste", async ({
     timeout: 10000,
   });
 });
+
