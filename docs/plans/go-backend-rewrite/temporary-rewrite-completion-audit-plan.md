@@ -53,16 +53,17 @@ code rather than accepting the doc at face value:
 
 - packaged/install entrypoints and wheel-facing wrappers, including
   `python -m setta`
-- dev-only startup/reload
 - public Python APIs:
   - `setta.api.SettaListener`
   - `setta.api.ListenerHotReloader`
   - `setta.api.chat_toolkit`
   - share listener entrypoints that instantiate `SettaListener`
   - `setta.api.SettaRunner`
-- retained Python listener generated-runtime fallback, if still required by
-  current code paths
-- Python or other sidecars intentionally executed by Go
+- retained Python listener boundary means the authoring/client surface only;
+  local dependency-graph rebuilding, Python codegen, or generated-runtime
+  fallback inside that client are not acceptable completion exceptions
+- external tool/provider runtimes and generic stdio MCP servers intentionally
+  executed by Go
 
 Anything outside these verified exceptions is presumptively rewrite scope.
 
@@ -303,23 +304,26 @@ This verdict holds under both of the only reasonable definitions:
   - `backend/setta/server.py`
 - Public Python API exports are still active supported surfaces:
   - `backend/setta/api/__init__.py`
-- The retained listener client still owns websocket registration/bootstrap logic
-  and still contains the metadata-backed generated-runtime fallback:
+- The retained listener client still owns websocket registration/bootstrap
+  logic, and it still contains non-retained generated-runtime fallback code:
   - `backend/setta/api/listener.py`
   - `backend/setta/api/listener_endpoint_client.py`
 - Share listener runtime still instantiates and runs `SettaListener`:
   - `backend/setta/share/listener_runtime.py`
 
-These are real code-backed retained surfaces, not just stale files. That means
-the repo is not "all Go" today even though the default packaged/runtime path is
-predominantly Go-owned.
+These are real code-backed supported surfaces, not just stale files. The
+generated-runtime fallback inside `backend/setta/api/listener.py` is separately
+a non-retained blocker. That means the repo is not "all Go" today even though
+the default packaged/runtime path is predominantly Go-owned.
 
 ### Remaining blocker
 
 No currently reproduced Go-owned parity blocker remains from the targeted audit
-slice. The remaining blocker is repo-wide backend/runtime ownership: the active
-retained Python surfaces listed above still participate in supported backend
-execution paths, so the rewrite is not complete in the repo-wide sense.
+slice. The remaining blockers are repo-wide backend/runtime ownership and the
+non-retained listener generated-runtime fallback: the active retained Python
+surfaces listed above still participate in supported backend execution paths,
+and `backend/setta/api/listener.py` still carries duplicate runtime ownership
+that should not survive the rewrite.
 
 ### Test and smoke evidence executed
 

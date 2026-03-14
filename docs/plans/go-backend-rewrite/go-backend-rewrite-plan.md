@@ -19,14 +19,18 @@ These are the intended exceptions:
 
 - packaging/install entrypoints and wheel-facing wrappers, including
   `python -m setta`
-- dev-only backend startup/reload
 - public Python APIs:
   - `setta.api.SettaListener`
   - `setta.api.ListenerHotReloader`
   - `setta.api.chat_toolkit`
   - share listener entrypoints that instantiate `SettaListener`
   - `setta.api.SettaRunner`
-- Python or other sidecars intentionally executed by Go
+- external tool/provider runtimes and generic stdio MCP servers intentionally
+  executed by Go
+
+The retained Python listener boundary is the authoring/client surface only.
+Local dependency-graph rebuilding, Python codegen, and generated-runtime
+fallback inside the listener client are not retained end state.
 
 If a backend behavior is not in that list, the default target is Go ownership.
 That does not require immediate source deletion while `main` is still evolving
@@ -55,6 +59,8 @@ When the right move is unclear, decide in this order:
   `main` easier.
 - Retained Python source after a Go cutover is a merge buffer/reference
   surface, not an active fallback or source of truth.
+- Do not preserve Python dev startup/reload wrappers or Python plugin backend
+  workers as steady state without an explicit product decision.
 - Do not add migrations, backward-compatibility shims, legacy route-shape
   preservation, or mixed Go/Python transition layers unless a current repo
   workflow explicitly needs a bounded exception.
@@ -101,6 +107,12 @@ Not acceptable to defer:
   - keep the public Python authoring surface
   - move listener websocket, bootstrap, endpoint dispatch, and mutation
     authority to Go
+  - do not retain local dependency-graph rebuilding, Python codegen, or
+    generated-runtime fallback inside the Python listener client
+- Backend/plugin extension boundaries:
+  - backend/plugin logic that touches Setta runtime should land in Go
+  - generic stdio MCP servers and external tool/provider runtimes remain
+    acceptable subprocess boundaries
 - Provider edges:
   - use official SDKs behind internal adapters where possible
   - do not silently grow bespoke transport clients when an explicit planning

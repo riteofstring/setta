@@ -1,6 +1,6 @@
 # Rewrite Working Set
 
-Last verified: `2026-03-13`
+Last verified: `2026-03-14`
 
 Read this file first for active Go backend rewrite work.
 
@@ -21,7 +21,6 @@ These are intentional exceptions, not open-ended compatibility obligations:
 
 - packaging/install entrypoints and wheel-facing wrappers, including
   `python -m setta`
-- dev-only backend startup/reload
 - public Python APIs:
   - `setta.api.SettaListener`
   - `setta.api.ListenerHotReloader`
@@ -31,13 +30,16 @@ These are intentional exceptions, not open-ended compatibility obligations:
 - retained Python listener SDK transport now targets the Go listener websocket
   route at `/ws/listeners/{listenerID}`; legacy `/pythonScript/{id}` is no
   longer the active caller path
-- retained Python listener generated-runtime fallback now remains only for
-  unresolved computed/callable listener values until Go has an authoritative
-  evaluator or other source of those outputs; do not widen that slice without
-  a concrete current caller
-- Python or other sidecars intentionally executed by Go
+- the retained Python listener boundary is the authoring/client surface only;
+  local dependency-graph rebuilding, Python codegen, and generated-runtime
+  fallback inside `setta.api.listener` are not retained end state
+- external tool/provider runtimes and generic stdio MCP servers intentionally
+  executed by Go; legacy Python subprocesses that only exist because backend
+  or plugin ownership has not yet moved to Go are transitional, not retained
+  boundaries
 
-Everything else should default to Go ownership.
+Everything else should default to Go ownership. That includes dev startup or
+reload wrappers and any remaining Python listener generated-runtime fallback.
 
 ## Read Order
 

@@ -114,15 +114,12 @@ Current state:
 - listener coverage and force-refresh reads/writes
   - listener websocket DTOs in `internal/realtime`
 - Python still owns:
-  - local dependency-graph rebuilding and generated runtime state for
-    unresolved generated-value fallback and any computed dependency shapes the
-    current Go metadata payload still cannot render directly; in practice this
-    is now the callable/computed listener-value tail, and current repo
-    listener tests/callers do not show a concrete callable-section
-    listener-state dependency that would justify inventing a Go evaluator or
-    heuristic fallback
   - share listener entrypoints as an explicit retained Python authoring/loader
     boundary over the same Go listener protocol
+  - local dependency-graph rebuilding and generated runtime fallback still
+    exist in code today for some listener values, but that duplicate ownership
+    is not retained end state; Go must become authoritative for any
+    listener-visible value needed by current callers
   - dormant broader built-in listener endpoint inventory/docs outside the
     active retained chat/chat-section client surface, pending a concrete
     caller before any further port
@@ -134,12 +131,16 @@ trying to remove.
 
 - Keep the public Python listener SDK surface.
 - Move listener websocket/bootstrap/endpoint/mutation authority to Go.
+- Do not retain local dependency-graph rebuilding, Python codegen, or
+  generated runtime fallback inside the Python listener SDK.
 - Do not keep `/pythonScript/{id}` as a long-lived compatibility boundary.
 - Do not add FFI, embedded Go, or subprocess RPC just so Python can call Go
   functions directly.
-- Do not add a Go evaluator or heuristic fallback for callable/computed
-  listener values without both a concrete current caller and an authoritative
-  source for those evaluated outputs.
+- If a current listener workflow needs a value that Go cannot yet provide
+  authoritatively, treat that as incomplete rewrite work and fix Go rather
+  than preserving a Python fallback.
+- Do not add heuristic fallback for listener values when Go lacks an
+  authoritative source of truth.
 - Do not port dormant built-in listener endpoint inventory without a concrete
   current caller.
 - Do not keep temporary IDs unless a current caller proves they are still
@@ -155,6 +156,7 @@ Target end state:
   - callback scheduling
   - hot reload
   - metadata-backed state/container helpers
+  - no local dependency-graph/codegen/runtime reconstruction
 
 ## Retained Python Surface
 
@@ -164,6 +166,9 @@ This slice keeps the authoring API, not the backend transport/runtime:
 - `setta.api.ListenerHotReloader`
 - `setta.api.chat_toolkit`
 - share listener entrypoints that instantiate `SettaListener`
+
+Retained surface excludes local dependency-graph rebuilding, Python codegen,
+and generated-runtime fallback.
 
 `setta.api.SettaRunner` does not currently need the same redesign. It remains
 a thin Python HTTP client over backend routes.
@@ -280,28 +285,21 @@ Python/share listeners can bootstrap entirely against the Go listener route.
   authoritative cached dependency values.
 - Keep metadata-backed fallback state access fail-closed for unresolved known
   dependencies instead of synthesizing heuristic values.
-- Keep local dependency-graph/runtime generation only where current value
-  hydration still requires it, and treat Go-provided dependency metadata as
-  authoritative for listener bookkeeping.
-- Prefer Go-provided snapshot dependency values for metadata-backed cache
-  rebuild and replay, and keep any remaining local snapshot-value fallback
-  explicit until the payload fully covers active listener-visible value kinds.
+- Require Go-provided snapshot dependency values for metadata-backed cache
+  rebuild and replay instead of keeping local snapshot-value fallback.
 - Prefer Go-provided dependency metadata for no-runtime direct realtime delta
-  hydration, and keep any remaining local graph fallback explicit for
-  unsupported composite or computed dependency shapes.
+  hydration instead of retaining a local graph fallback.
 - Prefer Go-provided dependency edges for no-runtime composite cache
   recomputation after child deltas, and fail closed for unsupported computed
-  deltas instead of mutating the retained Python graph in the live path.
+  deltas instead of mutating a retained Python graph in the live path.
 - Prefer Go-provided snapshot dependency values plus dependency edges for
   no-runtime cache rebuild/replay, and fail closed when those authoritative Go
-  snapshot values are absent instead of rebuilding cache state from the local
+  snapshot values are absent instead of rebuilding cache state from a local
   graph.
-- Expose the metadata-backed callback state view to listener authors even when
-  a generated runtime instance exists, and keep that generated runtime as an
-  internal fallback only for values the authoritative cache cannot yet supply.
-- Keep the runtime-present realtime cache coherent with that metadata-backed
-  callback state so cached composite reads do not mask fresher child deltas
-  that already reached the generated runtime.
+- If a current listener-visible value is missing from the Go payload, treat
+  that as a Go rewrite blocker rather than preserving a Python fallback.
+- Keep the realtime cache coherent with the metadata-backed callback state so
+  cached composite reads do not mask fresher child deltas.
 - Prefer Go-owned password-secret reads when building listener snapshot values
   so password-backed dependencies do not fall back to Python helper-call
   expressions in the metadata-backed no-runtime path.
@@ -314,12 +312,13 @@ Current stop point:
 - Active caller-backed listener transport, bootstrap, mutation authority, and
   metadata-backed state/container behavior now run on the Go listener
   protocol.
-- The remaining Step 3 tail is the retained generated-runtime fallback for
-  unresolved computed/callable listener values plus the retained share
-  authoring boundary.
+- Share listener entrypoints remain the retained Python authoring boundary.
+- Current code still contains local generated-runtime fallback for unresolved
+  computed/callable listener values, but that path is rewrite debt rather than
+  a retained boundary.
 - Current repo listener tests/callers do not show a concrete callable-section
-  listener-state dependency, so there is no default follow-on port here until
-  Go has an authoritative evaluator or another source of those outputs.
+  listener-state dependency, so the default follow-on is to remove that Python
+  fallback rather than preserving or widening it.
 
 ### Step 4. Finish Active Endpoint Authority Without Recreating Dormant Surface
 
