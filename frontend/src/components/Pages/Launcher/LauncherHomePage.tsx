@@ -1,8 +1,7 @@
 import { DesktopLauncherSettingsSection } from "components/Launcher/DesktopLauncherSettingsSection";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useServerMode } from "state/stores/sessionStores";
-import { C_ADDRESSES } from "utils/c_addresses";
-import { res200 } from "utils/endpointUtils";
+import { useServerMode } from "state/definitions";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_get_launcher_filesystem_roots,
   route_get_launcher_recent_workspaces,
@@ -12,12 +11,15 @@ import {
   route_remove_launcher_recent_workspace,
 } from "utils/generatedEndpoints";
 import type {
+  LauncherFilesystemRootsResponse,
   LauncherDirectoryEntryPayload,
   LauncherListDirectoryRequestInput,
   LauncherListDirectoryResponse,
+  LauncherOpenWorkspaceResponse,
   LauncherRecentWorkspacePayload,
+  LauncherRecentWorkspacesResponse,
 } from "utils/generatedTypes";
-import { appendLauncherOriginToBootstrapUrlFragment } from "utils/launcherOrigin";
+import { resolveLauncherBootstrapUrl } from "utils/launcherBootstrapUrl";
 import { resolveServerModeCapabilities } from "utils/serverModeCapabilities";
 
 export function normalizeNewProjectName(rawValue: string): string {
@@ -65,16 +67,6 @@ function formatRecentTimestamp(lastUsedAt: number): string {
   return date.toLocaleString();
 }
 
-function resolveBootstrapUrl(bootstrapUrlFragment: string): string {
-  if (import.meta.env?.DEV) {
-    return bootstrapUrlFragment;
-  }
-  return appendLauncherOriginToBootstrapUrlFragment(
-    bootstrapUrlFragment,
-    C_ADDRESSES.LAUNCHER_ORIGIN,
-  );
-}
-
 type LauncherContext = {
   settaHome: string | null;
 };
@@ -109,15 +101,14 @@ type DirectoryListingState = {
   error: string | null;
 };
 
-type LauncherDirectoryPayload = LauncherListDirectoryResponse & {
-  truncated?: boolean;
-};
-
-function isDirectoryListingTruncated(
-  payload: LauncherDirectoryPayload,
-): boolean {
-  return payload.truncated === true;
-}
+type LauncherRecentWorkspacesRouteResponse =
+  ResponseDataAndStatus<LauncherRecentWorkspacesResponse>;
+type LauncherFilesystemRootsRouteResponse =
+  ResponseDataAndStatus<LauncherFilesystemRootsResponse>;
+type LauncherListDirectoryRouteResponse =
+  ResponseDataAndStatus<LauncherListDirectoryResponse>;
+type LauncherOpenWorkspaceRouteResponse =
+  ResponseDataAndStatus<LauncherOpenWorkspaceResponse>;
 
 export function applyDirectoryListingPage({
   previousEntries,
@@ -125,7 +116,7 @@ export function applyDirectoryListingPage({
   append,
 }: {
   previousEntries: Array<LauncherDirectoryEntryPayload>;
-  payload: LauncherDirectoryPayload;
+  payload: LauncherListDirectoryResponse;
   append: boolean;
 }): DirectoryListingState {
   const nextEntries = append
@@ -136,7 +127,7 @@ export function applyDirectoryListingPage({
       entries: nextEntries,
       hasMore: payload.hasMore,
       nextCursor: payload.nextCursor,
-      truncated: isDirectoryListingTruncated(payload),
+      truncated: payload.truncated,
       error:
         "Directory listing reported more results without a continuation cursor.",
     };
@@ -145,7 +136,7 @@ export function applyDirectoryListingPage({
     entries: nextEntries,
     hasMore: payload.hasMore,
     nextCursor: payload.nextCursor,
-    truncated: isDirectoryListingTruncated(payload),
+    truncated: payload.truncated,
     error: null,
   };
 }
@@ -189,9 +180,10 @@ export function LauncherHomePage() {
   const [openInFlight, setOpenInFlight] = useState(false);
 
   async function loadRecentWorkspaces() {
-    const response = await route_get_launcher_recent_workspaces(
-      launcherContext.settaHome,
-    );
+    const response: LauncherRecentWorkspacesRouteResponse =
+      await route_get_launcher_recent_workspaces({
+      setta_home: launcherContext.settaHome,
+      });
     if (!res200(response) || !response.data) {
       setRecentWorkspacesError("Failed to load recent workspaces.");
       return;
@@ -207,7 +199,8 @@ export function LauncherHomePage() {
   }
 
   async function loadFilesystemRoots() {
-    const response = await route_get_launcher_filesystem_roots();
+    const response: LauncherFilesystemRootsRouteResponse =
+      await route_get_launcher_filesystem_roots();
     if (!res200(response) || !response.data || !response.data.ok) {
       return;
     }
@@ -229,7 +222,8 @@ export function LauncherHomePage() {
     setDirectoryActionInFlight(append ? "load-more" : "navigate");
 
     try {
-      const response = await route_list_launcher_directory(request);
+      const response: LauncherListDirectoryRouteResponse =
+        await route_list_launcher_directory(request);
       if (requestId !== latestDirectoryRequestIdRef.current) {
         return;
       }
@@ -315,12 +309,13 @@ export function LauncherHomePage() {
     setOpenError(null);
     setRecentActionInFlight("open");
 
-    const response = await route_open_launcher_workspace({
+    const response: LauncherOpenWorkspaceRouteResponse =
+      await route_open_launcher_workspace({
       workspaceRoot,
       createIfMissing,
       settaFilesLocation: "auto",
       settaHome: launcherContext.settaHome,
-    });
+      });
 
     if (!res200(response) || !response.data) {
       setOpenInFlight(false);
@@ -344,17 +339,18 @@ export function LauncherHomePage() {
     }
 
     window.location.assign(
-      resolveBootstrapUrl(response.data.bootstrapUrlFragment),
+      resolveLauncherBootstrapUrl(response.data.bootstrapUrlFragment),
     );
   }
 
   async function togglePinWorkspace(entry: LauncherRecentWorkspacePayload) {
     setRecentActionInFlight("pin");
-    const response = await route_pin_launcher_recent_workspace({
+    const response: LauncherRecentWorkspacesRouteResponse =
+      await route_pin_launcher_recent_workspace({
       workspaceRoot: entry.workspaceRoot,
       pinned: !entry.pinned,
       settaHome: launcherContext.settaHome,
-    });
+      });
     setRecentActionInFlight(null);
 
     if (!res200(response) || !response.data || !response.data.ok) {
@@ -370,10 +366,11 @@ export function LauncherHomePage() {
 
   async function removeRecentWorkspace(entry: LauncherRecentWorkspacePayload) {
     setRecentActionInFlight("remove");
-    const response = await route_remove_launcher_recent_workspace({
+    const response: LauncherRecentWorkspacesRouteResponse =
+      await route_remove_launcher_recent_workspace({
       workspaceRoot: entry.workspaceRoot,
       settaHome: launcherContext.settaHome,
-    });
+      });
     setRecentActionInFlight(null);
 
     if (!res200(response) || !response.data || !response.data.ok) {

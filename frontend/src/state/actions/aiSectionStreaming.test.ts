@@ -1,6 +1,7 @@
-import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
-import { processProjectStateUpdateFromBackend } from "state/actions/sectionProjectStateSync";
-import { useToolArgumentPreview } from "state/stores/aiStores";
+import {
+  getCurrEffectiveSectionImplOfType,
+  processProjectStateUpdateFromBackend,
+} from "state/actions/sectionInfos";
 import { resetProjectStores } from "state/utils";
 import {
   ChatRoleEnum,
@@ -35,7 +36,7 @@ vi.mock("utils/generatedEndpoints", async () => {
   };
 });
 
-let receiveLLMResponseChunk: typeof import("./aiChatStreaming").receiveLLMResponseChunk;
+let receiveLLMResponseChunk: typeof import("./ai").receiveLLMResponseChunk;
 let useProjectState: typeof import("state/definitions").useProjectState;
 
 const projectConfigId = "project-1";
@@ -81,8 +82,7 @@ describe("section chat streaming updates", () => {
   beforeAll(async () => {
     const definitions = await import("state/definitions");
     useProjectState = definitions.useProjectState;
-    receiveLLMResponseChunk = (await import("./aiChatStreaming"))
-      .receiveLLMResponseChunk;
+    receiveLLMResponseChunk = (await import("./ai")).receiveLLMResponseChunk;
   });
 
   beforeEach(async () => {
@@ -138,34 +138,6 @@ describe("section chat streaming updates", () => {
       }),
     ).toBe(true);
     expect(impl.waitingForResponse).toBe(false);
-  });
-
-  it("updates the preview store for section-scoped tool argument previews", () => {
-    receiveLLMResponseChunk({
-      chatId,
-      sectionId,
-      chunk: {
-        type: StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA,
-        message_id: "assistant-preview-1",
-        tool_call_id: "tool-preview-1",
-        tool_name: "setta__edit_code",
-        arguments_delta: '{"path":"main.py"}',
-        preview_kind: "code",
-        target_ids_by_type: {
-          section: [sectionId],
-          codeObj: [],
-        },
-        preview_value_delta: "print('hi')",
-      },
-    });
-
-    expect(
-      useToolArgumentPreview.getState().byProjectConfigId[projectConfigId]
-        ?.previewCodeBySectionId[sectionId],
-    ).toEqual({
-      value: "print('hi')",
-      toolCallId: "tool-preview-1",
-    });
   });
 
   it("routes streaming to section by chatId when sectionId is missing", () => {

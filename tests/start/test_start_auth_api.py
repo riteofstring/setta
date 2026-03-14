@@ -26,6 +26,7 @@ from setta.mcp.agentic_context_headers import (
 )
 from tests.utils.manager_fixture import (
     DEFAULT_SAMPLE_PROJECT_CONFIG_ID,
+    DEFAULT_SAMPLE_PROJECT_NAME,
     _seed_minimal_setta_files,
 )
 from tests.utils.setta_paths import temporary_setta_paths
@@ -58,6 +59,44 @@ def _write_auth_json(root: Path) -> Path:
     return auth_path
 
 
+def _write_go_project_registry_files(setta_root: Path) -> None:
+    view_mode_id = "view-mode-default"
+    project_id = str(DEFAULT_SAMPLE_PROJECT_CONFIG_ID)
+    main_payload = {
+        "schemaVersion": 1,
+        "defaultProjectId": project_id,
+        "projects": {
+            project_id: {
+                "id": project_id,
+                "name": DEFAULT_SAMPLE_PROJECT_NAME,
+                "allowJsonSourceKeyEdits": True,
+                "viewModes": {
+                    view_mode_id: {
+                        "id": view_mode_id,
+                        "name": "View Mode",
+                    }
+                },
+                "activeViewModeId": view_mode_id,
+                "isEditingViewMode": True,
+                "projectChatWindowing": {
+                    "instancesById": {},
+                    "order": [],
+                    "nextInstanceNumber": 1,
+                },
+            }
+        },
+    }
+    settings_payload = {"schemaVersion": 1}
+    (setta_root / "project.json").write_text(
+        json.dumps(main_payload, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    (setta_root / "setta-settings-project.json").write_text(
+        json.dumps(settings_payload, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
 @pytest.fixture
 def auth_env(tmp_path):
     workspace = tmp_path / "workspace"
@@ -78,7 +117,7 @@ def auth_env(tmp_path):
             sys.executable,
             "-c",
             "import time; time.sleep(300)",
-            "setta.server:app",
+            "setta-server",
         ],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -113,6 +152,7 @@ def api_integration_env(
     root = Path(temp_dir.name)
     setta_root = root / "setta_files"
     _seed_minimal_setta_files(setta_root)
+    _write_go_project_registry_files(setta_root)
 
     stack = ExitStack()
     stack.enter_context(
@@ -124,29 +164,21 @@ def api_integration_env(
 
     handle = None
     constants_module = None
-    server_module = None
     backend_launcher_module = None
     original_is_dev_mode = None
-    original_server_is_dev_mode = None
     original_backend_launcher_is_dev_mode = None
 
     try:
-        import importlib
         import setta.backend_launcher as backend_launcher
-        import setta.server as server
         import setta.utils.constants as constants
 
         constants_module = constants
-        server_module = server
         backend_launcher_module = backend_launcher
 
         original_is_dev_mode = constants.IS_DEV_MODE
-        original_server_is_dev_mode = server.IS_DEV_MODE
         original_backend_launcher_is_dev_mode = backend_launcher.IS_DEV_MODE
         constants.IS_DEV_MODE = "1"
-        server.IS_DEV_MODE = "1"
         backend_launcher.IS_DEV_MODE = "1"
-        importlib.reload(server)
 
         port = _select_free_port()
         handle = backend_launcher.start_backend(
@@ -163,7 +195,6 @@ def api_integration_env(
             handle=handle,
             stack=stack,
             original_is_dev_mode=original_is_dev_mode,
-            original_server_is_dev_mode=original_server_is_dev_mode,
             original_backend_launcher_is_dev_mode=original_backend_launcher_is_dev_mode,
         )
         yield env
@@ -173,8 +204,6 @@ def api_integration_env(
         stack.close()
         if constants_module is not None and original_is_dev_mode is not None:
             constants_module.IS_DEV_MODE = original_is_dev_mode
-        if server_module is not None and original_server_is_dev_mode is not None:
-            server_module.IS_DEV_MODE = original_server_is_dev_mode
         if (
             backend_launcher_module is not None
             and original_backend_launcher_is_dev_mode is not None
@@ -230,10 +259,7 @@ def test_auth_json_emits_payload(auth_env) -> None:
     assert payload["cookie"].startswith(f"{cookie_name}=")
     assert payload["cookieHeader"].startswith("Cookie: ")
     assert payload["session"]["id"] == session.id
-    assert (
-        payload["bootstrapUrlPlain"]
-        == "http://127.0.0.1:61234/__setta__/bootstrap"
-    )
+    assert payload["bootstrapUrlPlain"] == "http://127.0.0.1:61234/__setta__/bootstrap"
     assert payload["bootstrapUrlFragment"].startswith(
         "http://127.0.0.1:61234/__setta__/bootstrap#token="
     )
@@ -341,7 +367,7 @@ def test_setta_api_tool_call(api_integration_env) -> None:
 
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
-    assert data.get("isError") is False
+    assert data.get("isError", False) is False
     assert isinstance(data.get("content"), list)
 
 
@@ -803,11 +829,13 @@ def test_setta_api_tool_call_rejects_http_error(api_integration_env) -> None:
         ],
     )
 
-    assert result.exit_code != 0
+    assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
-    assert payload["error"] == "HTTPError"
-    assert payload["status"] == 422
-    assert payload["tool"] == "get_latest_project_state_summary"
+    assert payload["isError"] is True
+    structured = payload["structuredContent"]
+    assert structured["code"] == "scope_violation"
+    assert structured["reason"] == "missing_section_id"
+    assert "requires a sectionId" in structured["message"]
 
 
 def test_setta_tools_matches_mcp_list(api_integration_env) -> None:
@@ -827,9 +855,14 @@ def test_setta_tools_matches_mcp_list(api_integration_env) -> None:
             return sorted(tool.name for tool in response.tools)
 
     mcp_names = asyncio.run(_fetch_mcp_tool_names())
-    runner = CliRunner()
-    result = runner.invoke(tools, [])
-    assert result.exit_code == 0, result.output
+    result = subprocess.run(
+        [sys.executable, "-m", "setta", "tools"],
+        cwd=Path(__file__).resolve().parents[2],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
     payload = json.loads(result.stdout)
     cli_names = sorted(tool["name"] for tool in payload)
     assert cli_names == mcp_names
@@ -849,7 +882,9 @@ def test_tools_call_endpoint_contract(api_integration_env) -> None:
         timeout=TOOLS_CALL_TIMEOUT_SECONDS,
     )
     assert response.status_code == 404
-    assert "Unknown tool" in response.json().get("detail", "")
+    payload = response.json()["error"]
+    assert payload["code"] == "tool_not_found"
+    assert "unknown tool" in payload["message"].lower()
 
     response = requests.post(
         url,
@@ -858,7 +893,9 @@ def test_tools_call_endpoint_contract(api_integration_env) -> None:
         timeout=TOOLS_CALL_TIMEOUT_SECONDS,
     )
     assert response.status_code == 400
-    assert "arguments" in response.json().get("detail", "")
+    payload = response.json()["error"]
+    assert payload["code"] == "invalid_json"
+    assert payload["message"] == "Invalid JSON payload."
 
     response = requests.post(
         url,
@@ -867,7 +904,9 @@ def test_tools_call_endpoint_contract(api_integration_env) -> None:
         timeout=TOOLS_CALL_TIMEOUT_SECONDS,
     )
     assert response.status_code == 400
-    assert "arguments" in response.json().get("detail", "")
+    payload = response.json()["error"]
+    assert payload["code"] == "invalid_json"
+    assert payload["message"] == "Invalid JSON payload."
 
 
 def test_tools_call_endpoint_tool_error_contract(api_integration_env) -> None:
@@ -887,10 +926,12 @@ def test_tools_call_endpoint_tool_error_contract(api_integration_env) -> None:
         json={"tool": "read_file_range", "arguments": {"path": "missing-file.txt"}},
         timeout=TOOLS_CALL_TIMEOUT_SECONDS,
     )
-    assert response.status_code == 500
-    detail = response.json().get("detail")
-    assert isinstance(detail, dict)
-    assert detail.get("error") == "ToolError"
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["isError"] is True
+    structured = payload["structuredContent"]
+    assert structured["code"] == "scope_violation"
+    assert structured["reason"] == "empty_scope"
 
 
 def test_setta_api_payload_stdin(api_integration_env) -> None:
@@ -913,7 +954,7 @@ def test_setta_api_payload_stdin(api_integration_env) -> None:
 
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
-    assert data.get("isError") is False
+    assert data.get("isError", False) is False
     assert isinstance(data.get("content"), list)
 
 
@@ -939,7 +980,7 @@ def test_setta_api_payload_file(api_integration_env) -> None:
 
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
-    assert data.get("isError") is False
+    assert data.get("isError", False) is False
     assert isinstance(data.get("content"), list)
 
 
@@ -965,7 +1006,7 @@ def test_setta_api_auth_stdin(api_integration_env) -> None:
 
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
-    assert data.get("isError") is False
+    assert data.get("isError", False) is False
     assert isinstance(data.get("content"), list)
 
 
@@ -988,7 +1029,7 @@ def test_setta_api_cookie_header(api_integration_env) -> None:
 
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
-    assert data.get("isError") is False
+    assert data.get("isError", False) is False
     assert isinstance(data.get("content"), list)
 
 
@@ -1011,7 +1052,7 @@ def test_setta_api_cookie_value(api_integration_env) -> None:
 
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
-    assert data.get("isError") is False
+    assert data.get("isError", False) is False
     assert isinstance(data.get("content"), list)
 
 
