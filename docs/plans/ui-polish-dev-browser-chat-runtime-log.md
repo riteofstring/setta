@@ -439,3 +439,27 @@ For each new entry, append:
 - Decisions: Keep the narrow-fullscreen behavior scoped to the home panes only. The trigger is the narrow desktop band immediately above compact mode, where opening a side pane should clearly focus that pane instead of preserving a cramped split layout.
 - Blockers or open questions: The broader Phase 7 profiling/report work is still open. I have not yet recorded the DevTools traces or appended the perf report under `perf/`.
 - Next recommended slice: Record the file-browser and chat-activity DevTools traces, append the perf report, then do the final Phase 7 readability/cleanup pass.
+
+### 2026-03-12 18:08
+
+- Date: 2026-03-12 18:08 EDT
+- Scope: Completed the Phase 7 DevTools profiling/report pass for the home file browser and project chat activity surfaces.
+- Tests added or updated first: No new automated test files were needed in this profiling-only slice. I reused the existing narrow-home browser/unit regressions plus the existing chat activity regression coverage as the guardrails while collecting traces.
+- Production code changed: None in this slice. This pass only added the perf report in `perf/reports/frontend/2026-03-12_ui-polish-phase7-file-browser-and-chat-activity.md` and recorded the measurement results.
+- Verification run: Collected two headed Chrome DevTools traces through `chrome-devtools-mcp`. On `/home` at `1120x900`, I measured 20 workspace file-browser folder toggle actions (`frontend` + `docs` expand/collapse loops) at `1949.9ms` total with `CLS 0.02`. On `/branch_showing`, I measured 10 Project AI activity accordion toggles plus 6 chat scroll jumps at `907.7ms` total (`707.8ms` toggles + `199.9ms` scrolls) with `CLS 0.00`. DevTools flagged one bounded forced-reflow insight in the chat trace: `44ms` inside Radix accordion measurement, plus `0.2ms` from `checkScrollable` in `sectionSizes.ts`.
+- CDP visual check: Done as part of the profiling run. I verified the home workspace browser stayed in the focused full-width narrow-home state during the file-browser trace, and I verified the project chat activity rows expanded/collapsed and the chat list scrolled in the live `branch_showing` project page while the trace was running.
+- Decisions: Treat the current chat forced reflow as an observed hotspot to watch, not an automatic follow-up refactor. The measured cost is bounded to explicit accordion toggles, and the trace did not show a broad scroll regression or destabilizing CLS.
+- Blockers or open questions: The final Phase 7 readability/cleanup pass is still open if we want to do one more code-only tidy-up commit. There is no additional functional regression blocking the current UI-polish work.
+- Next recommended slice: Do a last readability pass over the remaining shared helpers if desired, otherwise stop here and treat the plan work as functionally complete with profiling/reporting recorded.
+
+### 2026-03-12 18:10
+
+- Date: 2026-03-12 18:10 EDT
+- Scope: Completed the final Phase 7 readability/cleanup pass for the remaining shared pane/chat verification helpers.
+- Tests added or updated first: None in this pass. I did not change production behavior or add new code paths after the profiling run, so the earlier narrow-home/unit/browser regressions remain the relevant guardrails.
+- Production code changed: None. I reviewed the touched shared files (`frontend/src/components/Panes/paneLayout.ts`, `frontend/src/components/Pages/Home/HomePage.tsx`, `frontend/src/components/Utils/PaneContainer.tsx`, and the related chat verification/report surfaces) and kept the current helper extraction/wiring as-is because there was no additional duplication or naming cleanup worth a behavior-preserving edit.
+- Verification run: Readability-only audit. No additional automated test run was necessary because the code did not change after the earlier green Phase 7 verification slice.
+- CDP visual check: Not rerun in this documentation-only pass; the preceding 18:02 and 18:08 Phase 7 entries remain the live visual/profiling checkpoints.
+- Decisions: Stop here rather than force a no-value cleanup commit into already-green code. The current shared constant extraction, home rail wiring through `togglePaneVisibility(...)`, and recorded perf/report docs are a good final state for this plan.
+- Blockers or open questions: None for this plan slice. The remaining unchecked items earlier in the markdown plan are stale checklist bookkeeping rather than open code work; the actual UI-polish behavior, verification, and perf-report items covered in this continuation are complete.
+- Next recommended slice: None required for this plan unless we want to do separate checklist cleanup in the markdown file.
