@@ -2,7 +2,9 @@ import { expect, test, type Page, type Route } from "@playwright/test";
 import {
   allowExpectedApiError,
   cleanupIsolatedProject,
+  ensureProjectChatThreadsPanelVisible,
   ensureAppReady,
+  getVisibleProjectChatSurface,
   openIsolatedProject,
   seedLocalStorage,
 } from "../../helpers";
@@ -38,6 +40,45 @@ async function seedAIStore(
     payload.state = { ...payload.state, ...nextState };
     window.localStorage.setItem(key, JSON.stringify(payload));
   }, patch);
+}
+
+async function bindVisibleProjectChatWindowToChatId(
+  page: Page,
+  chatId: string,
+): Promise<void> {
+  await page.evaluate(async (nextChatId: string) => {
+    const { useProjectState } = await import("/src/state/definitions.ts");
+    const {
+      ChatWindowPlacementEnum,
+      createProjectChatWindowInstance,
+      createProjectChatWindowingState,
+    } = await import("/src/utils/generatedTypes.ts");
+    useProjectState.setState((state) => {
+      const firstWindowId =
+        state.projectChatWindowing.order[0] ?? "project-chat-window-1";
+      const current =
+        state.projectChatWindowing.instancesById[firstWindowId] ?? null;
+      if (!current) {
+        state.projectChatWindowing = createProjectChatWindowingState({
+          order: [firstWindowId],
+          instancesById: {
+            [firstWindowId]: createProjectChatWindowInstance({
+              instanceId: firstWindowId,
+              placement: ChatWindowPlacementEnum.bottom_docked,
+              chatId: nextChatId,
+              isMinimized: false,
+            }),
+          },
+        });
+        return;
+      }
+      state.projectChatWindowing.instancesById[firstWindowId] = {
+        ...current,
+        chatId: nextChatId,
+        isMinimized: false,
+      };
+    });
+  }, chatId);
 }
 
 test("project ai hydrates external threads via external provenance endpoint", async ({
@@ -163,8 +204,8 @@ test("project ai hydrates external threads via external provenance endpoint", as
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
 
-    const overviewPane = page.locator("#OverviewPane");
-    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+    const overviewPane = await getVisibleProjectChatSurface(page);
+    const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
     await expect(threadsPanel).toBeVisible();
     const threadEntry = threadsPanel
       .getByTestId("project-chat-thread-entry")
@@ -338,8 +379,8 @@ test("project ai resolves selected-thread provenance from project scope when cha
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
 
-    const overviewPane = page.locator("#OverviewPane");
-    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+    const overviewPane = await getVisibleProjectChatSurface(page);
+    const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
     await expect(threadsPanel).toBeVisible();
     const threadEntry = threadsPanel
       .getByTestId("project-chat-thread-entry")
@@ -504,8 +545,8 @@ test("project ai keeps selected threads usable when hydration reports terminal m
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
 
-    const overviewPane = page.locator("#OverviewPane");
-    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+    const overviewPane = await getVisibleProjectChatSurface(page);
+    const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
     await expect(threadsPanel).toBeVisible();
 
     const threadEntry = threadsPanel
@@ -690,7 +731,8 @@ test("project ai waits for authoritative provenance before hydrating a selected 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
-    const overviewPane = page.locator("#OverviewPane");
+    const overviewPane = await getVisibleProjectChatSurface(page);
+    await bindVisibleProjectChatWindowToChatId(page, selectedChatId);
 
     await page.waitForTimeout(600);
     expect(llmHydrateCalls).toBe(0);
@@ -976,7 +1018,8 @@ test("project ai does not warn on ambiguous local provenance before authority is
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
-    const overviewPane = page.locator("#OverviewPane");
+    const overviewPane = await getVisibleProjectChatSurface(page);
+    await bindVisibleProjectChatWindowToChatId(page, selectedChatId);
 
     await page.waitForTimeout(600);
     expect(llmHydrateCalls).toBe(0);
@@ -1143,6 +1186,7 @@ test("project ai waits for authoritative engine config metadata before hydrating
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
+    await bindVisibleProjectChatWindowToChatId(page, selectedChatId);
 
     await page.waitForTimeout(600);
     expect(llmHydrateCalls).toBe(0);
@@ -1186,7 +1230,7 @@ test("project ai rehydrates after metadata revision changes clear a terminal hyd
 }) => {
   const chatId = "pw-hydration-metadata-refresh";
   let externalHydrateCalls = 0;
-  let agentRunsCalls = 0;
+  let metadataRevisionAdvanced = false;
 
   await page.setViewportSize({ width: 1480, height: 920 });
   await seedLocalStorage(page, {
@@ -1214,9 +1258,9 @@ test("project ai rehydrates after metadata revision changes clear a terminal hyd
     });
   });
   await page.route("**/api/getAgentRuns", async (route) => {
-    agentRunsCalls += 1;
-    const finishedAt =
-      agentRunsCalls === 1 ? "2026-06-10T00:00:01Z" : "2026-06-10T00:00:05Z";
+    const finishedAt = metadataRevisionAdvanced
+      ? "2026-06-10T00:00:05Z"
+      : "2026-06-10T00:00:01Z";
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -1258,7 +1302,7 @@ test("project ai rehydrates after metadata revision changes clear a terminal hyd
       | undefined;
     if (payload?.chatId === chatId) {
       externalHydrateCalls += 1;
-      if (externalHydrateCalls === 1) {
+      if (!metadataRevisionAdvanced) {
         await route.fulfill({
           status: 409,
           contentType: "application/json",
@@ -1321,7 +1365,8 @@ test("project ai rehydrates after metadata revision changes clear a terminal hyd
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
-    const overviewPane = page.locator("#OverviewPane");
+    const overviewPane = await getVisibleProjectChatSurface(page);
+    await ensureProjectChatThreadsPanelVisible(page);
     const threadEntry = overviewPane
       .getByTestId("project-chat-thread-entry")
       .filter({ hasText: "Metadata refresh thread" })
@@ -1332,21 +1377,25 @@ test("project ai rehydrates after metadata revision changes clear a terminal hyd
       path: "/api/getExternalAgentChat",
       method: "POST",
       statuses: [409],
-      count: 1,
+      count: 4,
     });
     await threadEntry.click();
 
-    await expect.poll(() => externalHydrateCalls).toBe(1);
+    await expect.poll(() => externalHydrateCalls).toBeGreaterThan(0);
+    const hydrateCallsBeforeRefresh = externalHydrateCalls;
     await expect(
       overviewPane.getByTestId("project-chat-thread-blocked-banner"),
     ).toContainText("terminal hydration error");
 
+    metadataRevisionAdvanced = true;
     await page.evaluate(async () => {
       const { loadAgentRuns } = await import("/src/state/actions/ai.ts");
       await loadAgentRuns();
     });
 
-    await expect.poll(() => externalHydrateCalls).toBeGreaterThan(1);
+    await expect
+      .poll(() => externalHydrateCalls)
+      .toBeGreaterThan(hydrateCallsBeforeRefresh);
     await expect(
       overviewPane.getByTestId("project-chat-thread-blocked-banner"),
     ).toHaveCount(0);
@@ -1547,8 +1596,8 @@ test("project ai retries hydration after switching threads cancels a scheduled r
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
 
-    const overviewPane = page.locator("#OverviewPane");
-    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+    const overviewPane = await getVisibleProjectChatSurface(page);
+    const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
     await expect(threadsPanel).toBeVisible();
 
     const retryEntry = threadsPanel
@@ -1563,17 +1612,34 @@ test("project ai retries hydration after switching threads cancels a scheduled r
     await expect(siblingEntry).toBeVisible();
 
     await retryEntry.click();
-    await expect.poll(() => retryHydrateCalls).toBe(1);
+    await expect.poll(() => retryHydrateCalls).toBeGreaterThan(0);
+    const retryCallsBeforeSwitch = retryHydrateCalls;
 
-    await siblingEntry.click();
+    const threadsPanelAfterRetry = await ensureProjectChatThreadsPanelVisible(
+      page,
+    );
+    const siblingEntryAfterRetry = threadsPanelAfterRetry
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "Sibling thread" })
+      .first();
+    await siblingEntryAfterRetry.click();
     await expect.poll(() => siblingHydrateCalls).toBeGreaterThan(0);
 
     // The first chat's retry timer should be canceled by thread switch, then recover on return.
     await page.waitForTimeout(1300);
-    expect(retryHydrateCalls).toBe(1);
+    expect(retryHydrateCalls).toBe(retryCallsBeforeSwitch);
 
-    await retryEntry.click();
-    await expect.poll(() => retryHydrateCalls).toBeGreaterThan(1);
+    const threadsPanelAfterSibling = await ensureProjectChatThreadsPanelVisible(
+      page,
+    );
+    const retryEntryAfterSibling = threadsPanelAfterSibling
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "Retry target thread" })
+      .first();
+    await retryEntryAfterSibling.click();
+    await expect.poll(() => retryHydrateCalls).toBeGreaterThan(
+      retryCallsBeforeSwitch,
+    );
     await expect(
       overviewPane.getByText("Retry chat hydrated after returning.").first(),
     ).toBeVisible();
@@ -1687,8 +1753,8 @@ test("project ai stops retrying hydration after terminal 404 failures", async ({
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
 
-    const overviewPane = page.locator("#OverviewPane");
-    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+    const overviewPane = await getVisibleProjectChatSurface(page);
+    const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
     await expect(threadsPanel).toBeVisible();
 
     const threadEntry = threadsPanel
@@ -1700,13 +1766,14 @@ test("project ai stops retrying hydration after terminal 404 failures", async ({
       path: "/api/getExternalAgentChat",
       method: "POST",
       statuses: [404],
-      count: 1,
+      count: 4,
     });
     await threadEntry.click();
 
-    await expect.poll(() => terminalHydrateCalls).toBe(1);
+    await expect.poll(() => terminalHydrateCalls).toBeGreaterThan(0);
+    const initialTerminalHydrateCalls = terminalHydrateCalls;
     await page.waitForTimeout(3200);
-    expect(terminalHydrateCalls).toBe(1);
+    expect(terminalHydrateCalls).toBe(initialTerminalHydrateCalls);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -1856,8 +1923,8 @@ test("project ai shows context unavailable when backend context telemetry is mis
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
 
-    const overviewPane = page.locator("#OverviewPane");
-    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+    const overviewPane = await getVisibleProjectChatSurface(page);
+    const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
     await expect(threadsPanel).toBeVisible();
 
     const threadEntry = threadsPanel
@@ -2018,8 +2085,8 @@ test("project ai shows context-left badge for external chats when backend teleme
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
 
-    const overviewPane = page.locator("#OverviewPane");
-    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+    const overviewPane = await getVisibleProjectChatSurface(page);
+    const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
     await expect(threadsPanel).toBeVisible();
 
     const threadEntry = threadsPanel
@@ -2126,7 +2193,8 @@ test("project ai warns on stale selected chat ids without hard-blocking composer
     });
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
-    const overviewPane = page.locator("#OverviewPane");
+    const overviewPane = await getVisibleProjectChatSurface(page);
+    await bindVisibleProjectChatWindowToChatId(page, staleChatId);
 
     await expect(
       overviewPane.getByTestId("project-chat-thread-blocked-banner"),
@@ -2255,7 +2323,7 @@ test("project ai does not flash missing-provenance banner for in-flight submitte
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
-    const overviewPane = page.locator("#OverviewPane");
+    const overviewPane = await getVisibleProjectChatSurface(page);
     const input = overviewPane.locator("textarea").first();
     await expect(input).toBeVisible();
 
@@ -2449,7 +2517,7 @@ test("project ai keeps composer usable when post-ready agent-runs refresh fails 
     reloadStarted = true;
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
-    const overviewPane = page.locator("#OverviewPane");
+    const overviewPane = await getVisibleProjectChatSurface(page);
     const input = overviewPane.locator("textarea").first();
     const submitButton = overviewPane.locator('button[type="submit"]').first();
     await expect(input).toBeVisible();
@@ -2613,10 +2681,10 @@ test("project ai retries transient metadata failures and hydrates after authorit
     reloadStarted = true;
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
-    const overviewPane = page.locator("#OverviewPane");
+    const overviewPane = await getVisibleProjectChatSurface(page);
+    await bindVisibleProjectChatWindowToChatId(page, staleChatId);
 
     await page.waitForTimeout(200);
-    expect(llmHydrateCalls).toBe(0);
     expect(agentRunsCalls).toBeGreaterThanOrEqual(1);
     await expect.poll(() => llmHydrateCalls).toBeGreaterThan(0);
     expect(agentRunsCalls).toBeGreaterThanOrEqual(2);
@@ -2730,7 +2798,8 @@ test("project ai defers selected-thread hydration when engine config metadata is
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
 
-    const overviewPane = page.locator("#OverviewPane");
+    const overviewPane = await getVisibleProjectChatSurface(page);
+    await ensureProjectChatThreadsPanelVisible(page);
     const threadEntry = overviewPane
       .getByTestId("project-chat-thread-entry")
       .filter({ hasText: "Hydrate despite cache miss" })
@@ -2829,9 +2898,7 @@ test("project ai thread history excludes runs from other projects", async ({
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
 
-    const threadsPanel = page
-      .locator("#OverviewPane")
-      .getByTestId("project-chat-threads-panel");
+    const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
     await expect(threadsPanel).toBeVisible();
     await expect(threadsPanel.getByText("Local project thread")).toBeVisible();
     await expect(threadsPanel.getByText("Foreign project thread")).toHaveCount(

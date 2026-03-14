@@ -1326,7 +1326,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       permissionMode: getDefaultProjectChatPermissionMode(engineType),
       searchEnabled: true,
     }));
-  const showEmptyState = typeof chatId === "undefined";
+  const showEmptyState =
+    typeof chatId === "undefined" ||
+    (chatId === null && messages.length === 0);
   const normalizedConversationSearchTerms = useMemo(
     () => tokenizeConversationSearchQuery(conversationFilterText),
     [conversationFilterText],

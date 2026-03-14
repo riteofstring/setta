@@ -307,11 +307,13 @@ export function WorkspaceLaunchPage() {
           url.origin === C_ADDRESSES.LAUNCHER_ORIGIN);
       if (isBackendOrLauncherHomeReturn) {
         requestOpenWorkspaceSwitcherOnNextMount();
+        url.searchParams.set("__setta_open_workspace_switcher", "1");
         navigate(`${url.pathname}${url.search}${url.hash}`, { replace: true });
         return;
       }
       if (url.origin === window.location.origin) {
         requestOpenWorkspaceSwitcherOnNextMount();
+        url.searchParams.set("__setta_open_workspace_switcher", "1");
         navigate(`${url.pathname}${url.search}${url.hash}`, { replace: true });
         return;
       }
@@ -319,7 +321,9 @@ export function WorkspaceLaunchPage() {
       window.location.assign(url.toString());
     } catch {
       requestOpenWorkspaceSwitcherOnNextMount();
-      navigate(HOME_ROUTER_PATH, { replace: true });
+      navigate(`${HOME_ROUTER_PATH}?__setta_open_workspace_switcher=1`, {
+        replace: true,
+      });
     }
   }
 

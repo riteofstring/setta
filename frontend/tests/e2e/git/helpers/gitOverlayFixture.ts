@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -205,4 +205,46 @@ export async function openGitOverview(page: Page): Promise<void> {
   });
   await ensureAppReady(page);
   await expect(page.getByRole("heading", { name: "Git" })).toBeVisible();
+}
+
+async function closeVisibleFloatingChatWindows(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const { closeProjectChatWindow } = await import(
+      "/src/state/actions/projectChatWindowing.ts"
+    );
+    const { useProjectState } = await import("/src/state/definitions.ts");
+    const instancesById = useProjectState.getState().projectChatWindowing
+      .instancesById;
+    for (const instance of Object.values(instancesById)) {
+      if (
+        instance.placement === "floating" &&
+        !instance.isClosed &&
+        !instance.isMinimized
+      ) {
+        closeProjectChatWindow(instance.instanceId);
+      }
+    }
+  });
+  await expect(page.getByTestId("project-chat-floating-window")).toHaveCount(0);
+}
+
+export async function openGitGraph(page: Page): Promise<{
+  graphFilter: Locator;
+  graphOverlay: Locator;
+}> {
+  await openGitOverview(page);
+  await page.evaluate(async () => {
+    const { openGitGraphOverlay } = await import("/src/state/actions/git.ts");
+    await openGitGraphOverlay();
+  });
+  await closeVisibleFloatingChatWindows(page);
+  const graphWindow = page
+    .getByTestId("project-chat-maximized-window")
+    .filter({ has: page.getByTestId("git-graph-overlay") });
+  const graphFilter = graphWindow.getByPlaceholder(/Filter commits/);
+  await expect(graphFilter).toBeVisible();
+  return {
+    graphFilter,
+    graphOverlay: graphWindow.getByTestId("git-graph-overlay"),
+  };
 }

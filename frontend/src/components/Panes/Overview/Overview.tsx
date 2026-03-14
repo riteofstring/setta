@@ -100,7 +100,10 @@ export function Overview() {
     effectiveTabName = OverviewTabNameEnum.Plugins;
   }
   if (!showLLMTabs) {
-    if (selectedTabName === OverviewTabNameEnum.ProjectAIChat) {
+    if (
+      selectedTabName === OverviewTabNameEnum.ProjectAIChat ||
+      selectedTabName === OverviewTabNameEnum.ProjectAISettings
+    ) {
       effectiveTabName = OverviewTabNameEnum.Overview;
     }
   }

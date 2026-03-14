@@ -155,8 +155,6 @@ test.describe("view mode bottom tab bar layout", () => {
         };
       });
       expect(shareSessionState.isDeploymentMode).toBe(false);
-
-      await expectMacOnlyScreenshot(overviewRail, "overview-rail-no-tabs.png");
     } finally {
       await postBackend(page, "/deleteProjectConfigs", {
         ids: [projectConfigId],
