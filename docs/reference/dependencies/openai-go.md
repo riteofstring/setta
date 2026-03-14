@@ -1,7 +1,7 @@
 # openai-go
 
 - Module: `github.com/openai/openai-go/v3`
-- Local status: pinned in `go.mod`; active for the managed-chat OpenAI chat-completions transport and file-mode transcription uploads
+- Local status: pinned in `go.mod`; active for the managed-chat OpenAI transport boundary (chat-completions for standard turns plus Responses streaming for thinking-enabled reasoning output) and file-mode transcription uploads
 - Retrieved: 2026-03-10
 - Actual downloaded upstream files: `docs/reference/dependencies/openai-go-src/`
 - Official OpenAI Libraries doc: https://developers.openai.com/api/docs/libraries/
@@ -16,7 +16,7 @@
 ## Why It Exists In This Rewrite
 
 - selected provider-edge boundary for any Go-owned OpenAI API interaction
-- now used by the managed-chat OpenAI chat-completions transport
+- now used by the managed-chat OpenAI transport boundary
 - now used by the file-mode transcription upload path
 - still needed to replace the remaining bespoke OpenAI transport in realtime
   transcription
@@ -52,8 +52,8 @@
 ## API Surface To Evaluate First
 
 - client construction and option wiring from the Libraries page example
-- Responses API support for future managed reasoning-output and richer provider
-  parity work
+- Responses API support for the landed managed OpenAI reasoning-output path and
+  future richer provider parity work
 - audio transcription and translation surfaces needed for
   `internal/transcriptionsessions`
 - realtime session/transcription support for the current
@@ -74,9 +74,10 @@
 ## Repo-Local Migration Targets
 
 - `internal/managedllm/executor.go`
-  - active managed-chat chat-completions transport now uses `openai-go`
-  - future follow-on, if needed, is explicit Responses/reasoning-output
-    convergence rather than more bespoke transport growth
+  - active managed-chat OpenAI transport now uses `openai-go`
+  - standard turns stay on chat-completions streaming
+  - thinking-enabled turns now use Responses streaming so reasoning
+    summary/content stays inside the current Setta websocket/message contract
 - `internal/transcriptionsessions/service.go`
   - file-mode transcription uploads now use `openai-go`
   - bounded adapter keeps Setta-owned auth/base-URL/config semantics intact
@@ -94,7 +95,6 @@
   replace the transport/event loop for websocket transcription sessions
 - the rewrite must preserve current Setta event contracts even if the SDK
   prefers different request/response shapes upstream
-- managed chat currently stays on chat-completions streaming because that is
-  the bounded fit for the current Setta tool/event contract; any shift to the
-  Responses API should be an explicit parity decision rather than an
-  opportunistic rewrite
+- managed chat now splits the OpenAI path on purpose: standard turns stay on
+  chat-completions, while thinking-enabled turns use Responses to surface
+  reasoning output without changing the Setta caller contract

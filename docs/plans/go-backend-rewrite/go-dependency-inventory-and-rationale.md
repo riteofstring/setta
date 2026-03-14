@@ -59,7 +59,7 @@ recommendation docs. If this file disagrees with planning notes, `go.mod` wins.
 | --- | --- | --- | --- |
 | `github.com/anthropics/anthropic-sdk-go` | `v1.26.0` | Official Anthropic SDK used at the provider edge for Go-owned managed-chat Anthropic execution, kept behind internal adapter helpers. | `internal/managedllm` |
 | `github.com/go-chi/chi/v5` | `v5.2.5` | Small `net/http`-native router and middleware tree for the Go HTTP and websocket surfaces. | `internal/httpapi`, `internal/wsapi`, `internal/app` |
-| `github.com/openai/openai-go/v3` | `v3.26.0` | Official OpenAI SDK used at the provider edge for Go-owned managed-chat execution and file-mode transcription uploads, kept behind internal adapter helpers. | `internal/managedllm`, `internal/transcriptionsessions` |
+| `github.com/openai/openai-go/v3` | `v3.26.0` | Official OpenAI SDK used at the provider edge for Go-owned managed-chat execution (chat-completions for standard turns plus Responses streaming for thinking-enabled reasoning output) and file-mode transcription uploads, kept behind internal adapter helpers. | `internal/managedllm`, `internal/transcriptionsessions` |
 | `github.com/aymanbagabas/go-pty` | `v0.2.2` | Windows PTY backend for terminal sessions. | `internal/terminals/pty_backend_windows.go` |
 | `github.com/coder/websocket` | `v1.8.14` | WebSocket transport for realtime frontend/listener connections. | `internal/realtime`, `internal/wsapi` |
 | `github.com/creack/pty` | `v1.1.21` | Unix PTY backend for terminal sessions. | `internal/terminals/pty_backend_unix.go` |
@@ -113,7 +113,10 @@ runtime semantics stay repo-owned.
 
 The managed-chat OpenAI provider edge and the file-mode transcription upload
 path now use `github.com/openai/openai-go/v3` instead of the older bespoke
-HTTP/SSE and multipart transport code.
+HTTP/SSE and multipart transport code. The managed-chat adapter intentionally
+splits standard turns onto chat-completions and thinking-enabled turns onto
+Responses so OpenAI reasoning output can stay inside the existing Setta
+streaming/message contract.
 
 We still keep that SDK behind bounded helpers in `internal/managedllm` and
 `internal/transcriptionsessions` so Setta request validation, tool execution,
