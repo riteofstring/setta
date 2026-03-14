@@ -1,0 +1,35 @@
+const DOCK_WINDOW_GAP_PX = 12;
+const COMPACT_PILL_WIDTH_PX = 28;
+const CYCLE_CONTROL_BUTTON_WIDTH_PX = 24;
+const MENU_MODE_TRIGGER_WIDTH_PX = 28;
+const PILL_GAP_PX = 4;
+const MINIMIZED_PILL_STRIP_HORIZONTAL_PADDING_PX = 16;
+const PERSISTENT_MANAGER_TRIGGER_RESERVED_WIDTH_PX =
+  MENU_MODE_TRIGGER_WIDTH_PX + PILL_GAP_PX;
+const DOCKED_MINIMIZED_STRIP_RESERVED_WIDTH_PX =
+  MINIMIZED_PILL_STRIP_HORIZONTAL_PADDING_PX +
+  CYCLE_CONTROL_BUTTON_WIDTH_PX * 2 +
+  COMPACT_PILL_WIDTH_PX * 2 +
+  PILL_GAP_PX * 3 +
+  DOCK_WINDOW_GAP_PX;
+
+export function resolveDockStripReservedWidthPx({
+  nonClosedChatCount,
+  showManagerMenu,
+}: {
+  nonClosedChatCount: number;
+  showManagerMenu: boolean;
+}): number {
+  if (nonClosedChatCount > 1) {
+    return (
+      DOCKED_MINIMIZED_STRIP_RESERVED_WIDTH_PX +
+      (showManagerMenu ? PERSISTENT_MANAGER_TRIGGER_RESERVED_WIDTH_PX : 0)
+    );
+  }
+  return (
+    MINIMIZED_PILL_STRIP_HORIZONTAL_PADDING_PX +
+    COMPACT_PILL_WIDTH_PX +
+    DOCK_WINDOW_GAP_PX +
+    (showManagerMenu ? MENU_MODE_TRIGGER_WIDTH_PX + PILL_GAP_PX : 0)
+  );
+}

@@ -62,6 +62,13 @@ export function reconcileHydratedChatMessages({
     if (!localMessage) {
       return backendMessage;
     }
+    if (
+      preserveLocalOnlyMessages &&
+      backendMessage.role === ChatRoleEnum.assistant &&
+      localMessage.role === ChatRoleEnum.assistant
+    ) {
+      return mergeStreamingAssistantMessage(backendMessage, localMessage);
+    }
     return pickMoreCompleteMessage(backendMessage, localMessage);
   });
   if (!preserveLocalOnlyMessages) {
@@ -77,6 +84,169 @@ export function reconcileHydratedChatMessages({
     nextMessages.push(localMessage);
   }
   return nextMessages;
+}
+
+type ChatContentItem =
+  | MessageTextContent
+  | MessageImageUrlContent
+  | MessageThinkingContent;
+
+function mergeStreamingAssistantMessage(
+  backendMessage: AssistantChatMessage,
+  localMessage: AssistantChatMessage,
+): AssistantChatMessage {
+  return withPreservedCreatedAt(
+    {
+      ...backendMessage,
+      content: mergeStreamingAssistantContent(
+        backendMessage.content,
+        localMessage.content,
+      ),
+      tool_calls:
+        backendMessage.tool_calls && backendMessage.tool_calls.length > 0
+          ? backendMessage.tool_calls
+          : localMessage.tool_calls,
+      attachments:
+        backendMessage.attachments && backendMessage.attachments.length > 0
+          ? backendMessage.attachments
+          : localMessage.attachments,
+    },
+    localMessage,
+  ) as AssistantChatMessage;
+}
+
+function resolveMessageCreatedAtMs(message: BaseChatMessageUnion): number {
+  const createdAt = (message as { createdAt?: unknown }).createdAt;
+  if (
+    typeof createdAt !== "number" ||
+    !Number.isFinite(createdAt) ||
+    createdAt <= 0
+  ) {
+    return 0;
+  }
+  return createdAt;
+}
+
+function withPreservedCreatedAt(
+  message: BaseChatMessageUnion,
+  fallbackMessage: BaseChatMessageUnion,
+): BaseChatMessageUnion {
+  if (resolveMessageCreatedAtMs(message) > 0) {
+    return message;
+  }
+  const fallbackCreatedAt = resolveMessageCreatedAtMs(fallbackMessage);
+  if (fallbackCreatedAt <= 0) {
+    return message;
+  }
+  return {
+    ...message,
+    createdAt: fallbackCreatedAt,
+  };
+}
+
+function mergeStreamingAssistantContent(
+  backendContent: Array<ChatContentItem>,
+  localContent: Array<ChatContentItem>,
+): Array<ChatContentItem> {
+  if (
+    !areStreamingAssistantContentItemsShapeCompatible(
+      backendContent,
+      localContent,
+    )
+  ) {
+    return backendContent;
+  }
+
+  const merged = backendContent.map((backendItem, index) =>
+    mergeStreamingAssistantContentItem(backendItem, localContent[index]),
+  );
+  if (localContent.length <= backendContent.length) {
+    return merged;
+  }
+  return [...merged, ...localContent.slice(backendContent.length)];
+}
+
+function areStreamingAssistantContentItemsShapeCompatible(
+  backendContent: Array<ChatContentItem>,
+  localContent: Array<ChatContentItem>,
+): boolean {
+  const sharedLength = Math.min(backendContent.length, localContent.length);
+  for (let index = 0; index < sharedLength; index += 1) {
+    const backendItem = backendContent[index];
+    const localItem = localContent[index];
+    if (!backendItem || !localItem || backendItem.type !== localItem.type) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function mergeStreamingAssistantContentItem(
+  backendItem: ChatContentItem,
+  localItem: ChatContentItem | undefined,
+): ChatContentItem {
+  if (!localItem) {
+    return backendItem;
+  }
+  if (backendItem.type === "text" && localItem.type === "text") {
+    return {
+      ...backendItem,
+      text: pickMoreCompleteAssistantText(backendItem.text, localItem.text),
+    };
+  }
+  if (backendItem.type === "thinking" && localItem.type === "thinking") {
+    return {
+      ...backendItem,
+      thinking: pickMoreCompleteAssistantText(
+        backendItem.thinking,
+        localItem.thinking,
+      ),
+      summary: preferHydratedThinkingMetadata(
+        backendItem.summary,
+        localItem.summary,
+      ),
+      signature: preferHydratedThinkingMetadata(
+        backendItem.signature,
+        localItem.signature,
+      ),
+    };
+  }
+  return backendItem;
+}
+
+function pickMoreCompleteAssistantText(
+  backendText: string,
+  localText: string,
+): string {
+  if (!backendText) {
+    return localText;
+  }
+  if (!localText) {
+    return backendText;
+  }
+  if (localText.length > backendText.length) {
+    return localText;
+  }
+  return backendText;
+}
+
+function preferHydratedThinkingMetadata(
+  backendValue: string | null | undefined,
+  localValue: string | null | undefined,
+): string | null {
+  if (typeof backendValue === "string" && backendValue.length > 0) {
+    return backendValue;
+  }
+  if (typeof localValue === "string" && localValue.length > 0) {
+    return localValue;
+  }
+  if (backendValue !== undefined) {
+    return backendValue;
+  }
+  if (localValue !== undefined) {
+    return localValue;
+  }
+  return null;
 }
 
 export function getMessageCompletenessScore(
@@ -98,17 +268,17 @@ function pickMoreCompleteMessage(
   incoming: BaseChatMessageUnion,
 ): BaseChatMessageUnion {
   if (existing.role !== incoming.role) {
-    return incoming;
+    return withPreservedCreatedAt(incoming, existing);
   }
   const existingScore = getMessageCompletenessScore(existing);
   const incomingScore = getMessageCompletenessScore(incoming);
   if (incomingScore > existingScore) {
-    return incoming;
+    return withPreservedCreatedAt(incoming, existing);
   }
   if (existingScore > incomingScore) {
-    return existing;
+    return withPreservedCreatedAt(existing, incoming);
   }
-  return incoming;
+  return withPreservedCreatedAt(incoming, existing);
 }
 
 function getAssistantMessageScore(message: AssistantChatMessage): number {

@@ -18,10 +18,12 @@ from setta.types.git import (
     GitCommitChangedFile,
     GitRepoInfoResponse,
     GitStatusEntry,
+    GitWorktreeEntry,
 )
 from setta.types.routes import Route
 from setta.utils.git import get_workspace_repo_root, run_git
 from setta.utils.paths import get_setta_paths
+from setta.utils.worktree import derive_dev_worktree_name
 
 router = SettaNonLauncherAPIRouter()
 
@@ -241,6 +243,77 @@ def _build_repo_info(repo_root: Path | None) -> GitRepoInfoResponse:
         headBranch=head_branch,
         headCommit=head_commit,
     )
+
+
+def _parse_worktree_branch_name(raw_branch: str) -> str | None:
+    branch = raw_branch.strip()
+    if not branch:
+        return None
+    prefix = "refs/heads/"
+    if branch.startswith(prefix):
+        return branch[len(prefix) :]
+    return branch
+
+
+def _parse_worktree_list_porcelain(
+    output: str, *, current_repo_root: Path
+) -> list[GitWorktreeEntry]:
+    current_repo_root_resolved = current_repo_root.resolve(strict=False)
+    worktrees: list[GitWorktreeEntry] = []
+    current_record: list[str] = []
+
+    def flush_record() -> None:
+        if not current_record:
+            return
+        first_field = current_record[0]
+        prefix = "worktree "
+        if not first_field.startswith(prefix):
+            return
+        raw_path = first_field[len(prefix) :].strip()
+        if not raw_path:
+            return
+
+        branch_name: str | None = None
+        head_commit: str | None = None
+        prunable_reason: str | None = None
+
+        for field in current_record[1:]:
+            if field.startswith("HEAD "):
+                head_commit = field[len("HEAD ") :].strip() or None
+                continue
+            if field.startswith("branch "):
+                branch_name = _parse_worktree_branch_name(
+                    field[len("branch ") :].strip()
+                )
+                continue
+            if field == "detached":
+                branch_name = None
+                continue
+            if field.startswith("prunable"):
+                prunable_reason = field[len("prunable") :].strip() or None
+
+        worktree_path = Path(raw_path)
+        worktrees.append(
+            GitWorktreeEntry(
+                path=raw_path,
+                displayName=derive_dev_worktree_name(worktree_path),
+                branchName=branch_name,
+                headCommit=head_commit,
+                isCurrent=worktree_path.resolve(strict=False)
+                == current_repo_root_resolved,
+                isPrunable=prunable_reason is not None,
+                prunableReason=prunable_reason,
+            )
+        )
+
+    for field in output.split("\0"):
+        if field == "":
+            flush_record()
+            current_record = []
+            continue
+        current_record.append(field)
+
+    return worktrees
 
 
 def _resolve_commit_hash(repo_root: Path, raw_commit_hash: str) -> str:
@@ -744,34 +817,58 @@ def route_get_git_status(
     repo_root = _get_repo_root_or_none(ctx=ctx)
     if repo_root is None:
         return GetGitStatusResponse(
-            repo=_build_repo_info(None), entries=[], isTruncated=False
+            repo=_build_repo_info(None),
+            entries=[],
+            isTruncated=False,
+            worktrees=[],
         )
 
-    result = run_git(
+    status_result = run_git(
         ["status", "--porcelain=v2", "--branch", "-z", "--untracked-files=all"],
         cwd=repo_root,
         timeout_s=_STATUS_TIMEOUT_S,
         max_stdout_bytes=_MAX_STATUS_BYTES,
         max_stderr_bytes=200_000,
     )
-    if result.timed_out:
+    if status_result.timed_out:
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
             detail="Timed out running git status.",
         )
-    if result.returncode != 0 and not result.stdout_truncated:
+    if status_result.returncode != 0 and not status_result.stdout_truncated:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"git status failed: {result.stderr.strip() or 'unknown error'}",
+            detail=f"git status failed: {status_result.stderr.strip() or 'unknown error'}",
         )
 
-    status_output = result.stdout
-    if result.stdout_truncated or (status_output and not status_output.endswith("\0")):
+    worktree_result = run_git(
+        ["worktree", "list", "--porcelain", "-z"],
+        cwd=repo_root,
+        timeout_s=_STATUS_TIMEOUT_S,
+        max_stdout_bytes=128_000,
+        max_stderr_bytes=200_000,
+    )
+    worktree_list_available = not worktree_result.timed_out and (
+        worktree_result.returncode == 0 or worktree_result.stdout_truncated
+    )
+
+    status_output = status_result.stdout
+    if status_result.stdout_truncated or (
+        status_output and not status_output.endswith("\0")
+    ):
         status_output = _trim_to_last_complete_nul_record(status_output)
 
     entries = _parse_porcelain_status(status_output)
     head_branch = _parse_porcelain_head_branch(status_output)
     head_commit = _parse_porcelain_head_commit(status_output)
+    worktrees = (
+        _parse_worktree_list_porcelain(
+            worktree_result.stdout,
+            current_repo_root=repo_root,
+        )
+        if worktree_list_available
+        else []
+    )
     return GetGitStatusResponse(
         repo=GitRepoInfoResponse(
             isGitRepo=True,
@@ -780,7 +877,9 @@ def route_get_git_status(
             headCommit=head_commit,
         ),
         entries=entries,
-        isTruncated=result.stdout_truncated,
+        isTruncated=status_result.stdout_truncated
+        or (worktree_list_available and worktree_result.stdout_truncated),
+        worktrees=worktrees,
     )
 
 
