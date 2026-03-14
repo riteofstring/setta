@@ -654,6 +654,20 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return nil, err
 		}
 	}
+	if projectRuntime != nil {
+		attachmentService, err = chatattachments.NewService(chatattachments.ServiceOptions{
+			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+			Host:           cfg.Server.Host,
+			Port:           cfg.Server.Port,
+			ProjectState:   projectRuntime,
+			Deployment:     deploymentRuntime,
+			Sessions:       authService,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+	}
 	agentProfileStore, err := agentprofiles.NewStore(cfg.Paths.SettaFilesRoot)
 	if err != nil {
 		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
@@ -806,18 +820,6 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return nil, err
 		}
 		temporaryIDs, err := mcpx.NewTemporaryIDStore(mcpx.TemporaryIDMapPath(cfg.Paths.RuntimeRoot))
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		attachmentService, err = chatattachments.NewService(chatattachments.ServiceOptions{
-			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
-			Host:           cfg.Server.Host,
-			Port:           cfg.Server.Port,
-			ProjectState:   projectRuntime,
-			Deployment:     deploymentRuntime,
-			Sessions:       authService,
-		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err

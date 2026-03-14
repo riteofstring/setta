@@ -198,6 +198,40 @@ func TestRegisterStateMachineRunRoutesBlocksMutationsInShareMode(t *testing.T) {
 	}
 }
 
+func TestRegisterStateMachineRunRoutesAllowsDeploymentRegistrationWithoutRuntime(t *testing.T) {
+	t.Parallel()
+
+	shareSessions := newTestHTTPShareSessionStore("share-a")
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: string(config.ModeShare), info: RuntimeInfo{Mode: string(config.ModeShare)}},
+		ModePolicy: modes.NewPolicy(config.ModeShare),
+		Register: func(r chi.Router) {
+			if err := RegisterStateMachineRunRoutes(r, StateMachineRunRouteDependencies{
+				ModePolicy:    modes.NewPolicy(config.ModeShare),
+				ShareSessions: shareSessions,
+			}); err != nil {
+				t.Fatalf("register workflow routes: %v", err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := stateMachineRunRouteRequest(
+		t,
+		handler,
+		RouteGetStateMachineRun+"?shareSessionId=share-a",
+		GetStateMachineRunRequest{
+			ProjectConfigID: "project-alpha",
+			MachineGroupID:  "workflow-a",
+		},
+		http.StatusNotFound,
+	)
+	stateMachineRouteErrorCode(t, response, "not_found")
+}
+
 type stateMachineRunRouteFixture struct {
 	handler        http.Handler
 	projectRuntime *projectstate.Runtime

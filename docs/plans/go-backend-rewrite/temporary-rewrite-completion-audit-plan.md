@@ -310,7 +310,6 @@ predominantly Go-owned.
 
 | Blocker | Evidence | Why it blocks a `Complete` verdict |
 | --- | --- | --- |
-| Go share artifact route construction failure | `source activate.sh && ./scripts/go.sh test ./internal/app -run '^(TestAppShareModeServesArtifactOverlayRoutesAndBroadcastsScopedUpdates)$' -count=1` panics with `attachment service is required` | A covered share-mode route path is not stable enough to claim rewrite completion. |
 | Go projectstate parity failure | `source activate.sh && ./scripts/go.sh test ./internal/projectstate -run '^TestRuntimeSetCodeSectionAttachedTerminalRoundTripsAttachAndDetach$' -count=1` fails because the detached terminal layout is not the expected deterministic value | The Go-owned projectstate/runtime behavior is still mismatched on a covered write path. |
 
 ### Test and smoke evidence executed
@@ -323,10 +322,11 @@ predominantly Go-owned.
   - `source activate.sh && ./scripts/go.sh test ./internal/app -run '^(TestAppPluginLanguageServerRoutesDiagnosticsAndCompletion|TestAppLinkRefreshesPluginLanguageServerRouter)$' -count=1`
   - `source activate.sh && ./scripts/go.sh test ./internal/mcpx -run '^TestServerListsToolsAndScopesToolCalls$' -count=1`
   - `source activate.sh && ./scripts/go.sh test ./internal/app -run '^(TestAppIDEMCPServerSupportsAuthenticatedSSECalls|TestAppIDEMCPServerRegistersPluginBackendMCPTools)$' -count=1`
+  - `source activate.sh && ./scripts/go.sh test ./internal/httpapi -run '^(TestRegisterStateMachineRunRoutesUsesActiveShareSessionForGet|TestRegisterStateMachineRunRoutesBlocksMutationsInShareMode|TestRegisterStateMachineRunRoutesAllowsDeploymentRegistrationWithoutRuntime|TestRegisterAttachmentRoutesIncludesShareSessionForDeployment)$' -count=1`
+  - `source activate.sh && ./scripts/go.sh test ./internal/app -run '^TestAppShareModeServesArtifactOverlayRoutesAndBroadcastsScopedUpdates$' -count=1`
 - Failed:
   - `./scripts/go.sh test ./...` when first run without the activated Python env
-  - targeted `internal/app` reruns for MCP/share-artifact parity and the
-    targeted `internal/projectstate` rerun when repeated under the correct
+  - the targeted `internal/projectstate` rerun when repeated under the correct
     activated environment
 - Inconclusive / not counted as proof:
   - `source activate.sh && ./scripts/run-playwright-e2e.sh ...` exited after the
@@ -358,6 +358,11 @@ to match the canonical `internal/mcpx` server baseline (`79` base tools and
 `81` when the fixture plugin contributes two backend MCP tools). The targeted
 app and `internal/mcpx` reruns passed.
 
-Those two fixes cleared two false blockers, but the repo still remains
-`Incomplete` because the share-artifact and projectstate parity failures above
-still reproduce.
+A third follow-up rewrite step fixed the share-mode artifact startup path. The
+app now constructs `chatattachments.Service` whenever a project runtime exists
+(including deployment/share mode), and deployment/share registration no longer
+requires a state-machine runtime just to boot the app. The targeted
+`internal/httpapi` and `internal/app` share-mode reruns now pass.
+
+Those follow-up fixes cleared the app/share blocker, but the repo still remains
+`Incomplete` because the projectstate parity failure above still reproduces.

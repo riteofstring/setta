@@ -57,11 +57,11 @@ func RegisterStateMachineRunRoutes(router chi.Router, deps StateMachineRunRouteD
 	if deps.ModePolicy.IsLauncher() {
 		return nil
 	}
-	if deps.Runtime == nil {
-		return fmt.Errorf("state machine runtime is required")
-	}
 	if deps.ModePolicy.IsDeployment() && deps.ShareSessions == nil {
 		return fmt.Errorf("share session store is required in deployment mode")
+	}
+	if deps.ModePolicy.IsIDE() && deps.Runtime == nil {
+		return fmt.Errorf("state machine runtime is required in ide mode")
 	}
 
 	ideGuard := RequireIDEMode(deps.ModePolicy)
@@ -70,6 +70,9 @@ func RegisterStateMachineRunRoutes(router chi.Router, deps StateMachineRunRouteD
 	router.With(ideGuard).Post(RouteResetStateMachine, resetStateMachineHandler(deps.Runtime))
 
 	if deps.ModePolicy.IsDeployment() {
+		if deps.Runtime == nil {
+			return nil
+		}
 		router.With(RequireShareSession(modes.Resolver{
 			Policy: deps.ModePolicy,
 			Store:  deps.ShareSessions,
