@@ -3,19 +3,22 @@ import _ from "lodash";
 import { useEffect, useMemo } from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import {
+  useProjectState,
+  useShareSession,
+  ZustandProjectState,
+} from "state/definitions";
+import {
   useBrushStrokes,
   useChartData,
   useDecodedImages,
   useDrawAreaLayerItemTransform,
   useImages,
-  useProjectState,
-  ZustandDecodedImages,
-  ZustandProjectState,
-} from "state/definitions";
+  type ZustandDecodedImages,
+} from "state/stores/artifactStores";
 import { bumpRemoteRevisions } from "state/utils/revisions";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import { C_ADDRESSES } from "utils/c_addresses";
+import { res200 } from "utils/endpointUtils";
 import {
-  route_binary_download,
   route_load_cached_brush_strokes,
   route_load_cached_chart_data,
   route_load_cached_draw_area_layer_item_transform,
@@ -23,29 +26,15 @@ import {
 } from "utils/generatedEndpoints";
 import {
   ArtifactTypeEnum,
-  type LoadCachedBrushStrokesResponse,
-  type LoadCachedChartDataResponse,
-  type LoadCachedDrawAreaLayerItemTransformResponse,
-  type LoadCachedImageArtifactsResponse,
+  RouteEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
-
-type BinaryDownloadRouteResponse = ResponseDataAndStatus<Uint8Array>;
-type LoadCachedImageArtifactsRouteResponse =
-  ResponseDataAndStatus<LoadCachedImageArtifactsResponse>;
-type LoadCachedChartDataRouteResponse =
-  ResponseDataAndStatus<LoadCachedChartDataResponse>;
-type LoadCachedBrushStrokesRouteResponse =
-  ResponseDataAndStatus<LoadCachedBrushStrokesResponse>;
-type LoadCachedDrawAreaLayerItemTransformRouteResponse =
-  ResponseDataAndStatus<LoadCachedDrawAreaLayerItemTransformResponse>;
 
 async function loadCachedImages(paths: Array<string>) {
   if (paths.length === 0) {
     return;
   }
-  const res: LoadCachedImageArtifactsRouteResponse =
-    await route_load_cached_image_artifacts({ paths });
+  const res = await route_load_cached_image_artifacts({ paths });
   if (res200(res)) {
     useImages.setState((state) => {
       const next = { ...state.x };
@@ -77,19 +66,24 @@ async function loadCachedImages(paths: Array<string>) {
   }
 }
 
-async function fetchBinaryBlob(
-  contentId: string,
-  mimeType: string | null,
-): Promise<Blob | null> {
-  const res: BinaryDownloadRouteResponse = await route_binary_download({
-    contentId,
+async function fetchBinaryBlob(contentId: string): Promise<Blob | null> {
+  const endpoint = RouteEnum.BINARY_DOWNLOAD.replace(
+    "{contentId}",
+    encodeURIComponent(contentId),
+  );
+  const shareSession = useShareSession.getState();
+  const headers: HeadersInit = {};
+  if (shareSession.isDeploymentMode && shareSession.shareSessionId) {
+    headers["X-Share-Session-Id"] = shareSession.shareSessionId;
+  }
+  const res = await fetch(`${C_ADDRESSES.BACKEND}${endpoint}`, {
+    credentials: "include",
+    headers,
   });
-  if (!res200(res) || !res.data) {
+  if (!res.ok) {
     return null;
   }
-  return new Blob([res.data], {
-    type: mimeType ?? "application/octet-stream",
-  });
+  return await res.blob();
 }
 
 export function useImageArtifact(sectionId: string) {
@@ -117,10 +111,7 @@ async function loadCachedChartData(paths: Array<string>) {
   if (paths.length === 0) {
     return;
   }
-  const res: LoadCachedChartDataRouteResponse =
-    await route_load_cached_chart_data({
-      paths,
-    });
+  const res = await route_load_cached_chart_data({ paths });
   if (res200(res)) {
     useChartData.setState((state) => {
       const next = { ...state.x };
@@ -177,8 +168,7 @@ async function loadCachedBrushStrokes(paths: Array<string>) {
   if (paths.length === 0) {
     return;
   }
-  const res: LoadCachedBrushStrokesRouteResponse =
-    await route_load_cached_brush_strokes({ paths });
+  const res = await route_load_cached_brush_strokes({ paths });
   if (res200(res)) {
     useBrushStrokes.setState((state) => {
       const next = { ...state.x };
@@ -214,8 +204,7 @@ async function loadCachedDrawAreaLayerItemTransforms(paths: Array<string>) {
   if (paths.length === 0) {
     return;
   }
-  const res: LoadCachedDrawAreaLayerItemTransformRouteResponse =
-    await route_load_cached_draw_area_layer_item_transform({ paths });
+  const res = await route_load_cached_draw_area_layer_item_transform({ paths });
   if (res200(res)) {
     useDrawAreaLayerItemTransform.setState((state) => {
       const next = { ...state.x };
@@ -259,10 +248,7 @@ export async function decodeExistingRawImages(needToDecode: Array<string>) {
       if (!rawImage) {
         return null;
       }
-      const blob = await fetchBinaryBlob(
-        rawImage.value.contentId,
-        rawImage.value.mimeType ?? null,
-      );
+      const blob = await fetchBinaryBlob(rawImage.value.contentId);
       if (!blob) {
         return null;
       }

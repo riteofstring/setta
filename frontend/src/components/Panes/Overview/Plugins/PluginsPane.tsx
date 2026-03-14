@@ -378,7 +378,6 @@ export function PluginsPane() {
     try {
       const restartResult = await requestPluginRestart();
       if (restartResult.kind === "accepted") {
-        await refreshPluginRuntime();
         setActionStatus({
           type: "success",
           message: "Restart request accepted.",
