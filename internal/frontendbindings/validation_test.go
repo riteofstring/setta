@@ -1105,6 +1105,56 @@ func TestCurrentAdditionalTypeRootManifest(t *testing.T) {
 	)
 }
 
+func TestFrontendGeneratedContractFileInventory(t *testing.T) {
+	t.Helper()
+
+	repoRoot := testRepoRoot(t)
+	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
+	actual := make([]string, 0)
+	err := filepath.WalkDir(frontendSrcRoot, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+
+		base := entry.Name()
+		if !strings.HasPrefix(base, "generated") || !strings.HasSuffix(base, ".ts") {
+			return nil
+		}
+		if strings.Contains(base, ".test.") || strings.Contains(base, ".spec.") {
+			return nil
+		}
+
+		relativePath, err := filepath.Rel(repoRoot, path)
+		if err != nil {
+			return err
+		}
+		actual = append(actual, filepath.ToSlash(relativePath))
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk %s: %v", frontendSrcRoot, err)
+	}
+
+	expected := []string{
+		"frontend/src/utils/generatedEndpoints.ts",
+		"frontend/src/utils/generatedRoutes.ts",
+		"frontend/src/utils/generatedTypes.ts",
+	}
+	slices.Sort(actual)
+	if slices.Equal(actual, expected) {
+		return
+	}
+
+	t.Fatalf(
+		"frontend generated contract file inventory drifted: actual %v, want %v",
+		actual,
+		expected,
+	)
+}
+
 func readBareHTTPRouteIdentifiers(t *testing.T, path string) []string {
 	t.Helper()
 
