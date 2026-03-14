@@ -3,6 +3,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
+from setta.types.code_obj_impls import CodeObjType
 from setta.types.generated.dependency_keys import (
     BaseDependencyKeyUnionWithDiscriminator,
 )
@@ -11,7 +12,12 @@ from setta.types.generated.dependency_values import (
 )
 from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
 from setta.types.id import ID
+from setta.types.project_config import (
+    CodeObjValueRepresentationMode,
+    SectionRepresentationMode,
+)
 from setta.types.project_state import ProjectStateSingleConfig
+from setta.types.section_impls import SectionType
 
 
 class ListenerDependencyMode(str, Enum):
@@ -72,9 +78,13 @@ class ListenerDependencyEventContent(BaseModel):
 class ListenerDependencyCatalogEntry(BaseModel):
     dependencyKey: BaseDependencyKeyUnionWithDiscriminator
     fullPathName: str
-    sectionType: str | None = None
-    codeObjType: str | None = None
+    sectionType: SectionType | None = None
+    codeObjType: CodeObjType | None = None
     controlCodeObjId: ID | None = None
+    controlCodeObjType: CodeObjType | None = None
+    sectionRepresentation: SectionRepresentationMode | None = None
+    controlValueRepresentation: CodeObjValueRepresentationMode | None = None
+    valueRepresentation: CodeObjValueRepresentationMode | None = None
 
 
 class ListenerDependencyCatalog(BaseModel):

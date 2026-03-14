@@ -28,7 +28,7 @@ from setta.api.listener_endpoint_client import RouterEndpointAPI
 from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
-from setta.types.code_obj_impls import CodeObjType
+from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
     Node,
@@ -77,6 +77,7 @@ from setta.types.listener import (
     ListenerRouterEndpointCallContent,
 )
 from setta.types.project_config import (
+    CodeObjValueRepresentationMode,
     ProjectCodegenLanguage,
     SectionRepresentationMode,
     project_config_has_codegen_language,
@@ -252,9 +253,18 @@ class ListenerDependencyId:
 class ListenerDependencyMetadataEntry:
     dependencyKey: BaseDependencyKeyUnion
     fullPathName: str
-    sectionType: str | None = None
-    codeObjType: str | None = None
+    sectionType: SectionType | None = None
+    codeObjType: CodeObjType | None = None
     controlCodeObjId: "ID | None" = None
+    controlCodeObjType: CodeObjType | None = None
+    sectionRepresentation: SectionRepresentationMode | None = None
+    controlValueRepresentation: CodeObjValueRepresentationMode | None = None
+    valueRepresentation: CodeObjValueRepresentationMode | None = None
+
+
+@dataclass(slots=True)
+class _MetadataOnlyDependencyGraph:
+    graph: dict[BaseDependencyKeyUnion, Node]
 
 
 class ListenerDependencyMetadata:
@@ -277,14 +287,22 @@ class ListenerDependencyMetadata:
     ) -> "ListenerDependencyMetadata":
         entries: list[ListenerDependencyMetadataEntry] = []
         for dep_key, node in dependency_graph.graph.items():
-            section_type: str | None = None
-            code_obj_type: str | None = None
+            section_type: SectionType | None = None
+            code_obj_type: CodeObjType | None = None
             control_code_obj_id = None
+            control_code_obj_type = None
+            section_representation = None
+            control_value_representation = None
+            value_representation = None
             if isinstance(node, SectionNode):
                 section_type = node.type
                 control_code_obj_id = node.control_code_obj_id
+                control_code_obj_type = node.control_code_obj_type
+                section_representation = node.representation
+                control_value_representation = node.control_value_representation
             elif isinstance(node, ParamNode):
                 code_obj_type = node.type
+                value_representation = node.value_representation
             entries.append(
                 ListenerDependencyMetadataEntry(
                     dependencyKey=dep_key,
@@ -292,6 +310,10 @@ class ListenerDependencyMetadata:
                     sectionType=section_type,
                     codeObjType=code_obj_type,
                     controlCodeObjId=control_code_obj_id,
+                    controlCodeObjType=control_code_obj_type,
+                    sectionRepresentation=section_representation,
+                    controlValueRepresentation=control_value_representation,
+                    valueRepresentation=value_representation,
                 )
             )
         entries.sort(key=lambda entry: entry.fullPathName)
@@ -310,6 +332,10 @@ class ListenerDependencyMetadata:
                     sectionType=entry.sectionType,
                     codeObjType=entry.codeObjType,
                     controlCodeObjId=entry.controlCodeObjId,
+                    controlCodeObjType=entry.controlCodeObjType,
+                    sectionRepresentation=entry.sectionRepresentation,
+                    controlValueRepresentation=entry.controlValueRepresentation,
+                    valueRepresentation=entry.valueRepresentation,
                 )
                 for entry in catalog.entries
             ]
@@ -1970,19 +1996,15 @@ class SettaListener:
 
         if runtime_state.s_instance is None:
             affected_dependency_names: dict[BaseDependencyKeyUnion, str] = {}
+            metadata_applied_dependencies: dict[str, Any] = {}
+            fallback_required = False
             for delta in content.deltas:
                 dep_key = delta.dependency
-                node = runtime_state.dependency_graph.graph.get(dep_key)
-                if node is None:
-                    logger.error(
-                        "Listener %s received realtime delta for unknown dependency key %s",
-                        self._log_identifier,
-                        dep_key,
-                    )
-                    continue
-                runtime_state.dependency_graph.change_value(dep_key, delta.value)
                 try:
                     dependency_name = runtime_state.dependency_metadata.dependency_name(
+                        dep_key
+                    )
+                    dependency_entry = runtime_state.dependency_metadata.entry_for_key(
                         dep_key
                     )
                 except KeyError:
@@ -1992,8 +2014,54 @@ class SettaListener:
                         dep_key,
                     )
                     continue
+                binary_payload = (
+                    delta.binaryPayload
+                    if delta.value.type is DependencyValueType.Binary
+                    else None
+                )
+                try:
+                    hydrated_value = self._hydrate_realtime_delta_from_metadata(
+                        dependency_name,
+                        dependency_entry,
+                        delta.value,
+                        binary_payload=binary_payload,
+                    )
+                except (AttributeError, KeyError, IndexError, ValueError) as error:
+                    logger.debug(
+                        (
+                            "Listener %s falling back to local graph for realtime "
+                            "delta %s (%s): %s"
+                        ),
+                        self._log_identifier,
+                        dependency_name,
+                        dep_key,
+                        error,
+                        exc_info=logger.isEnabledFor(logging.DEBUG),
+                    )
+                    hydrated_value = _UNAVAILABLE
+                if hydrated_value is not _UNAVAILABLE:
+                    affected_dependency_names[dep_key] = dependency_name
+                    metadata_applied_dependencies[dependency_name] = hydrated_value
+                    continue
+                node = runtime_state.dependency_graph.graph.get(dep_key)
+                if node is None:
+                    logger.error(
+                        "Listener %s received realtime delta for unsupported dependency key %s without a graph fallback",
+                        self._log_identifier,
+                        dep_key,
+                    )
+                    continue
+                runtime_state.dependency_graph.change_value(dep_key, delta.value)
                 affected_dependency_names[dep_key] = dependency_name
-            updated_cache = self._build_dependency_cache_from_runtime_state(runtime_state)
+                fallback_required = True
+            if fallback_required:
+                updated_cache = self._build_dependency_cache_from_runtime_state(
+                    runtime_state
+                )
+                updated_cache.update(metadata_applied_dependencies)
+            else:
+                updated_cache = dict(self._dependency_cache)
+                updated_cache.update(metadata_applied_dependencies)
             self._dependency_cache = updated_cache
 
             callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
@@ -2406,6 +2474,21 @@ class SettaListener:
             mode=PythonValueMode.LIVE_RUNTIME,
         )
 
+    def _new_metadata_value_codec(self) -> PythonValueCodec:
+        return PythonValueCodec(
+            _MetadataOnlyDependencyGraph(graph={}),
+            self._unexpected_metadata_dependency_lookup,
+            mode=PythonValueMode.LIVE_RUNTIME,
+        )
+
+    def _unexpected_metadata_dependency_lookup(
+        self, dep_key: BaseDependencyKeyUnion
+    ) -> str:
+        raise ValueError(
+            "Metadata-backed listener delta hydration does not support dependency "
+            f"lookups for {dep_key!r}"
+        )
+
     def _render_direct_node_expression(
         self,
         node: Node,
@@ -2439,6 +2522,86 @@ class SettaListener:
                 error,
             )
             raise
+
+    def _build_metadata_direct_node(
+        self,
+        entry: ListenerDependencyMetadataEntry,
+        value: BaseDependencyValueUnion,
+    ) -> Node | None:
+        if entry.codeObjType is not None:
+            if entry.codeObjType in (
+                CodeObjType.NestedParam,
+                CodeObjType.PasswordParam,
+            ):
+                return None
+            return ParamNode(
+                id="metadata",
+                name=entry.fullPathName,
+                full_path_name=entry.fullPathName,
+                type=entry.codeObjType,
+                isTopLevel=True,
+                value=value,
+                deps={},
+                passing_style=ParameterPassingStyle.DEFAULT,
+                value_representation=(
+                    entry.valueRepresentation
+                    or CodeObjValueRepresentationMode.expression
+                ),
+            )
+        if entry.sectionType is not None:
+            if entry.sectionType in (
+                SectionType.Callable,
+                SectionType.ListRoot,
+                SectionType.Group,
+                SectionType.Dict,
+            ):
+                return None
+            if entry.sectionType is SectionType.MetaControl and (
+                entry.controlCodeObjType is None
+                or entry.controlCodeObjType is CodeObjType.PasswordParam
+            ):
+                return None
+            return SectionNode(
+                id="metadata",
+                name=entry.fullPathName,
+                full_path_name=entry.fullPathName,
+                type=entry.sectionType,
+                isTopLevel=True,
+                value=value,
+                deps={},
+                control_code_obj_type=entry.controlCodeObjType,
+                control_code_obj_id=entry.controlCodeObjId,
+                control_value_representation=entry.controlValueRepresentation,
+                representation=(
+                    entry.sectionRepresentation
+                    or SectionRepresentationMode.expression
+                ),
+            )
+        return None
+
+    def _hydrate_realtime_delta_from_metadata(
+        self,
+        dependency: str,
+        entry: ListenerDependencyMetadataEntry,
+        value: BaseDependencyValueUnion,
+        *,
+        binary_payload: bytes | None = None,
+    ) -> Any:
+        if value.type is DependencyValueType.Binary:
+            if binary_payload is None:
+                return _UNAVAILABLE
+            return binary_payload
+        node = self._build_metadata_direct_node(entry, value)
+        if node is None:
+            return _UNAVAILABLE
+        expression = self._render_direct_node_expression(
+            node,
+            value_codec=self._new_metadata_value_codec(),
+        )
+        return self._evaluate_expression(
+            dependency=dependency,
+            expression=expression,
+        )
 
     def _register_scheduler_callback(self, spec: ListenerCallbackSpec) -> None:
         async def executor(

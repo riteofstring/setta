@@ -81,12 +81,17 @@ Current state:
     dependency values, and retained Python uses those values first for
     metadata-backed cache rebuild and cached snapshot replay when the generated
     runtime instance is unavailable
+  - Go listener dependency catalogs now also carry the direct value-codec
+    metadata the retained Python client needs for active realtime delta
+    hydration, so no-runtime listener callbacks can apply metadata-expressible
+    direct deltas without rebuilding the local Python dependency graph
   - listener coverage and force-refresh reads/writes
   - listener websocket DTOs in `internal/realtime`
 - Python still owns:
-  - local dependency-graph rebuilding and generated runtime state for value
-    hydration for live delta application, generated-state access, and any
-    snapshot values the current Go payload still cannot render directly
+  - local dependency-graph rebuilding and generated runtime state for
+    unsupported live delta hydration fallback, generated-state access, and any
+    snapshot values or dependency shapes the current Go metadata payload still
+    cannot render directly
   - share listener runtime coupling through
     `backend/setta/share/listener_runtime.py`
   - dormant broader built-in listener endpoint inventory/docs outside the
@@ -249,6 +254,9 @@ Python/share listeners can bootstrap entirely against the Go listener route.
 - Prefer Go-provided snapshot dependency values for metadata-backed cache
   rebuild and replay, and keep any remaining local snapshot-value fallback
   explicit until the payload fully covers active listener-visible value kinds.
+- Prefer Go-provided dependency metadata for no-runtime direct realtime delta
+  hydration, and keep any remaining local graph fallback explicit for
+  unsupported composite or computed dependency shapes.
 
 Exit condition:
 listener tests pass without Python owning dependency graph or runtime state.

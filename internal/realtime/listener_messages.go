@@ -150,11 +150,15 @@ type ListenerDependencyCatalog struct {
 }
 
 type ListenerDependencyCatalogEntry struct {
-	DependencyKey    string `json:"dependencyKey"`
-	FullPathName     string `json:"fullPathName"`
-	SectionType      string `json:"sectionType,omitempty"`
-	CodeObjType      string `json:"codeObjType,omitempty"`
-	ControlCodeObjID string `json:"controlCodeObjId,omitempty"`
+	DependencyKey              string `json:"dependencyKey"`
+	FullPathName               string `json:"fullPathName"`
+	SectionType                string `json:"sectionType,omitempty"`
+	CodeObjType                string `json:"codeObjType,omitempty"`
+	ControlCodeObjID           string `json:"controlCodeObjId,omitempty"`
+	ControlCodeObjType         string `json:"controlCodeObjType,omitempty"`
+	SectionRepresentation      string `json:"sectionRepresentation,omitempty"`
+	ControlValueRepresentation string `json:"controlValueRepresentation,omitempty"`
+	ValueRepresentation        string `json:"valueRepresentation,omitempty"`
 }
 
 type ListenerRenderedDependencyValues struct {
@@ -282,27 +286,39 @@ func (e ListenerDependencyCatalogEntry) MarshalJSON() ([]byte, error) {
 	}
 
 	var payload struct {
-		DependencyKey    json.RawMessage `json:"dependencyKey"`
-		FullPathName     string          `json:"fullPathName"`
-		SectionType      string          `json:"sectionType,omitempty"`
-		CodeObjType      string          `json:"codeObjType,omitempty"`
-		ControlCodeObjID string          `json:"controlCodeObjId,omitempty"`
+		DependencyKey              json.RawMessage `json:"dependencyKey"`
+		FullPathName               string          `json:"fullPathName"`
+		SectionType                string          `json:"sectionType,omitempty"`
+		CodeObjType                string          `json:"codeObjType,omitempty"`
+		ControlCodeObjID           string          `json:"controlCodeObjId,omitempty"`
+		ControlCodeObjType         string          `json:"controlCodeObjType,omitempty"`
+		SectionRepresentation      string          `json:"sectionRepresentation,omitempty"`
+		ControlValueRepresentation string          `json:"controlValueRepresentation,omitempty"`
+		ValueRepresentation        string          `json:"valueRepresentation,omitempty"`
 	}
 	payload.DependencyKey = dependencyKey
 	payload.FullPathName = e.FullPathName
 	payload.SectionType = e.SectionType
 	payload.CodeObjType = e.CodeObjType
 	payload.ControlCodeObjID = e.ControlCodeObjID
+	payload.ControlCodeObjType = e.ControlCodeObjType
+	payload.SectionRepresentation = e.SectionRepresentation
+	payload.ControlValueRepresentation = e.ControlValueRepresentation
+	payload.ValueRepresentation = e.ValueRepresentation
 	return json.Marshal(payload)
 }
 
 func (e *ListenerDependencyCatalogEntry) UnmarshalJSON(data []byte) error {
 	var payload struct {
-		DependencyKey    json.RawMessage `json:"dependencyKey"`
-		FullPathName     string          `json:"fullPathName"`
-		SectionType      string          `json:"sectionType,omitempty"`
-		CodeObjType      string          `json:"codeObjType,omitempty"`
-		ControlCodeObjID string          `json:"controlCodeObjId,omitempty"`
+		DependencyKey              json.RawMessage `json:"dependencyKey"`
+		FullPathName               string          `json:"fullPathName"`
+		SectionType                string          `json:"sectionType,omitempty"`
+		CodeObjType                string          `json:"codeObjType,omitempty"`
+		ControlCodeObjID           string          `json:"controlCodeObjId,omitempty"`
+		ControlCodeObjType         string          `json:"controlCodeObjType,omitempty"`
+		SectionRepresentation      string          `json:"sectionRepresentation,omitempty"`
+		ControlValueRepresentation string          `json:"controlValueRepresentation,omitempty"`
+		ValueRepresentation        string          `json:"valueRepresentation,omitempty"`
 	}
 	if err := json.Unmarshal(data, &payload); err != nil {
 		return err
@@ -318,6 +334,10 @@ func (e *ListenerDependencyCatalogEntry) UnmarshalJSON(data []byte) error {
 	e.SectionType = payload.SectionType
 	e.CodeObjType = payload.CodeObjType
 	e.ControlCodeObjID = payload.ControlCodeObjID
+	e.ControlCodeObjType = payload.ControlCodeObjType
+	e.SectionRepresentation = payload.SectionRepresentation
+	e.ControlValueRepresentation = payload.ControlValueRepresentation
+	e.ValueRepresentation = payload.ValueRepresentation
 	return nil
 }
 

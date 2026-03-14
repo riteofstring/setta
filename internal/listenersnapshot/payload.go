@@ -85,8 +85,12 @@ func buildListenerDependencyCatalogFromGraph(graph *codegen.PythonDependencyGrap
 		case *codegen.PythonSectionNode:
 			entry.SectionType = strings.TrimSpace(typed.SectionType)
 			entry.ControlCodeObjID = strings.TrimSpace(typed.ControlCodeObjID)
+			entry.ControlCodeObjType = strings.TrimSpace(typed.ControlCodeObjType)
+			entry.SectionRepresentation = strings.TrimSpace(string(typed.Representation))
+			entry.ControlValueRepresentation = strings.TrimSpace(string(typed.ControlValueRepresentation))
 		case *codegen.PythonParamNode:
 			entry.CodeObjType = strings.TrimSpace(typed.CodeObjectType)
+			entry.ValueRepresentation = strings.TrimSpace(string(typed.ValueRepresentation))
 		}
 		entries = append(entries, entry)
 	}

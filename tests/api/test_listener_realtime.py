@@ -37,7 +37,11 @@ from setta.types.listener import (
     ListenerRealtimeDelta,
     ListenerRealtimeEventContent,
 )
-from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
+from setta.types.project_config import (
+    CodeObjValueRepresentationMode,
+    ProjectConfig,
+    TopLevelSectionLayout,
+)
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import TextBlockSectionImpl
 from setta.types.websocket import (
@@ -57,6 +61,20 @@ class _StubWebsocket:
 
     async def send(self, payload: str) -> None:
         self.sent.append(payload)
+
+
+class _GraphlessDependencyGraph:
+    def __init__(self) -> None:
+        self.graph: dict[BaseDependencyKeyUnion, object] = {}
+
+    def change_value(
+        self,
+        dep_key: BaseDependencyKeyUnion,
+        value: object,
+    ) -> None:
+        raise AssertionError(
+            f"unexpected fallback graph mutation for {dep_key!r}: {value!r}"
+        )
 
 
 def _attach_stub_websocket(listener: SettaListener, websocket: _StubWebsocket) -> None:
@@ -1138,6 +1156,101 @@ class TestSettaListenerBootstrapFailure:
         assert callback_calls == [
             ("Updated while unavailable", {"Welcome": "Updated while unavailable"})
         ]
+
+    async def test_realtime_uses_catalog_metadata_when_runtime_state_is_unavailable(
+        self,
+    ) -> None:
+        listener = SettaListener(project_name="Project project-typed")
+        slider_events: list[tuple[Any, Any]] = []
+        switch_events: list[tuple[Any, Any]] = []
+
+        @listener.listen(deps=("section__slider",))
+        def on_slider(state, ctx) -> None:
+            slider_events.append(
+                (state.section__slider, ctx.changed["section__slider"])
+            )
+
+        @listener.listen(deps=("section__switch",))
+        def on_switch(state, ctx) -> None:
+            switch_events.append(
+                (state.section__switch, ctx.changed["section__switch"])
+            )
+
+        slider_key = create_dep_key(
+            sectionId=SECTION_ONE_ID,
+            codeObjId=PARAM_SLIDER_ID,
+        )
+        switch_key = create_dep_key(
+            sectionId=SECTION_ONE_ID,
+            codeObjId=PARAM_SWITCH_ID,
+        )
+        catalog = ListenerDependencyCatalog(
+            entries=[
+                ListenerDependencyCatalogEntry(
+                    dependencyKey=slider_key,
+                    fullPathName="section__slider",
+                    codeObjType=CodeObjType.SliderParam,
+                    valueRepresentation=CodeObjValueRepresentationMode.expression,
+                ),
+                ListenerDependencyCatalogEntry(
+                    dependencyKey=switch_key,
+                    fullPathName="section__switch",
+                    codeObjType=CodeObjType.SwitchParam,
+                    valueRepresentation=CodeObjValueRepresentationMode.expression,
+                ),
+            ]
+        )
+        listener._runtime_state = ListenerRuntimeState(
+            dependency_metadata=ListenerDependencyMetadata.from_catalog(catalog),
+            dependency_graph=_GraphlessDependencyGraph(),
+            s_instance=None,
+        )
+        listener._project_config_id = PROJECT_TYPED_ID
+        listener._dependency_cache = {
+            "section__slider": 1,
+            "section__switch": False,
+        }
+        listener._refresh_callback_dependency_metadata(
+            listener._runtime_state.dependency_metadata
+        )
+
+        await listener._handle_realtime_event(
+            ListenerRealtimeEventContent(
+                projectConfigId=PROJECT_TYPED_ID,
+                deltas=[
+                    ListenerRealtimeDelta(
+                        dependency=slider_key,
+                        value=LiteralDependencyValue("5"),
+                    ),
+                    ListenerRealtimeDelta(
+                        dependency=switch_key,
+                        value=LiteralDependencyValue("true"),
+                    ),
+                ],
+                sequence=1,
+            )
+        )
+
+        slider_spec = next(
+            spec
+            for spec in listener._callbacks.values()
+            if spec.declared_dependencies == ("section__slider",)
+        )
+        switch_spec = next(
+            spec
+            for spec in listener._callbacks.values()
+            if spec.declared_dependencies == ("section__switch",)
+        )
+        await listener._scheduler.flush(slider_spec.callback_id)
+        await listener._scheduler.flush(switch_spec.callback_id)
+
+        assert listener._dependency_cache["section__slider"] == 5
+        assert isinstance(listener._dependency_cache["section__slider"], int)
+        assert slider_events == [(5, 5)]
+
+        assert listener._dependency_cache["section__switch"] is True
+        assert switch_events == [(True, True)]
+        assert listener._get_last_realtime_sequence() == 1
 
     async def test_replay_cached_snapshot_uses_metadata_backed_callback_state(self) -> None:
         listener = SettaListener(project_name="Demo Project")

@@ -392,9 +392,13 @@ func TestListenerBroadcasterForceRefreshIncludesDependencyCatalog(t *testing.T) 
 		DependencyCatalog: &ListenerDependencyCatalog{
 			Entries: []ListenerDependencyCatalogEntry{
 				{
-					DependencyKey: "section-a.param-a",
-					FullPathName:  "Section__param",
-					CodeObjType:   "TextParam",
+					DependencyKey:              "section-a.param-a",
+					FullPathName:               "Section__param",
+					CodeObjType:                "TextParam",
+					ValueRepresentation:        "string",
+					SectionRepresentation:      "expression",
+					ControlCodeObjType:         "SwitchParam",
+					ControlValueRepresentation: "expression",
 				},
 			},
 		},
@@ -430,6 +434,18 @@ func TestListenerBroadcasterForceRefreshIncludesDependencyCatalog(t *testing.T) 
 	}
 	if entry.CodeObjType != "TextParam" {
 		t.Fatalf("expected dependency code obj type TextParam, got %q", entry.CodeObjType)
+	}
+	if entry.ValueRepresentation != "string" {
+		t.Fatalf("expected dependency value representation string, got %q", entry.ValueRepresentation)
+	}
+	if entry.SectionRepresentation != "expression" {
+		t.Fatalf("expected dependency section representation expression, got %q", entry.SectionRepresentation)
+	}
+	if entry.ControlCodeObjType != "SwitchParam" {
+		t.Fatalf("expected dependency control code obj type SwitchParam, got %q", entry.ControlCodeObjType)
+	}
+	if entry.ControlValueRepresentation != "expression" {
+		t.Fatalf("expected dependency control value representation expression, got %q", entry.ControlValueRepresentation)
 	}
 	if content.DependencyValues == nil {
 		t.Fatal("expected dependency values in listener force refresh")
