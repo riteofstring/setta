@@ -325,3 +325,12 @@ Append-only log for autonomous frontend cleanup slices.
 - Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
 - Commit hash: `d5b109422`
 - Next highest-value unblocked slice: either extract the remaining Project Chat store-selection/session-state reads into a feature-local hook or move to the next planned frontend domain now that `ProjectChatCore.tsx` has been reduced to orchestration scale
+
+## 2026-03-12 15:18:30 PDT
+
+- What changed: Started the `pages and shell` plan by extracting the Home page workspace selection/favorites/layout helpers from `frontend/src/components/Pages/Home/HomePage.tsx` into `frontend/src/components/Pages/Home/homeWorkspaceState.ts`. The new module now owns favorite/selection reconciliation, active-project and selected-project resolution, compact-layout logic, and side-pane inset math. Added focused Vitest coverage for the new owner, refreshed the frontend module map, and reduced `HomePage.tsx` to 1547 lines.
+- Key files touched: `frontend/src/components/Pages/Home/HomePage.tsx`, `frontend/src/components/Pages/Home/HomePage.test.tsx`, `frontend/src/components/Pages/Home/homeWorkspaceState.ts`, `frontend/src/components/Pages/Home/homeWorkspaceState.test.ts`, `docs/reference/frontend-module-map.md`
+- Tests/verification run: `pnpm -C frontend exec vitest run src/components/Pages/Home/HomePage.test.tsx src/components/Pages/Home/homeWorkspaceState.test.ts`; `pnpm -C frontend exec prettier --check src/components/Pages/Home/HomePage.tsx src/components/Pages/Home/HomePage.test.tsx src/components/Pages/Home/homeWorkspaceState.ts src/components/Pages/Home/homeWorkspaceState.test.ts ../docs/reference/frontend-module-map.md`; `git diff --check`
+- Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
+- Commit hash: `c5422f0d6`
+- Next highest-value unblocked slice: continue splitting `frontend/src/components/Pages/Home/HomePage.tsx` by moving the remaining selection action handlers and gallery/list view model into feature-local Home page modules, or begin the standalone page loader/guard cleanup in `components/Pages/Project/`
