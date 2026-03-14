@@ -119,6 +119,7 @@ type ThinkingRenderEntry = {
   messageId: string;
   itemIndex: number;
   timerRunKey: string;
+  timestampMs: number | null;
   isStreaming: boolean;
   wasInterrupted: boolean;
 };
@@ -535,6 +536,7 @@ function buildActivityTimelineEntries(
     );
     const thinkingIsStreaming =
       isStreaming && !hasMeaningfulAssistantDisplayItems(displayItems);
+    const thinkingTimestampMs = resolveMessageCreatedAtMs(message);
     for (let itemIndex = 0; itemIndex < thinkingItems.length; itemIndex += 1) {
       const item = thinkingItems[itemIndex];
       if (!item) {
@@ -552,6 +554,7 @@ function buildActivityTimelineEntries(
             itemIndex,
             item,
           }),
+          timestampMs: thinkingTimestampMs,
           isStreaming: thinkingIsStreaming,
           wasInterrupted,
         },
@@ -1632,17 +1635,19 @@ function resolveActivityTimestampMs(
 }
 
 function formatChatTimestamp(timestampMs: number | null): string | null {
-  if (timestampMs === null) {
+  const resolvedTimestampMs = resolveTimestampMs(timestampMs);
+  if (resolvedTimestampMs === null) {
     return null;
   }
-  return CHAT_TIMESTAMP_FORMATTER.format(timestampMs);
+  return CHAT_TIMESTAMP_FORMATTER.format(resolvedTimestampMs);
 }
 
 function formatChatTimestampTitle(timestampMs: number | null): string | null {
-  if (timestampMs === null) {
+  const resolvedTimestampMs = resolveTimestampMs(timestampMs);
+  if (resolvedTimestampMs === null) {
     return null;
   }
-  return CHAT_TIMESTAMP_TOOLTIP_FORMATTER.format(timestampMs);
+  return CHAT_TIMESTAMP_TOOLTIP_FORMATTER.format(resolvedTimestampMs);
 }
 
 function ChatTimestamp({
@@ -3023,6 +3028,7 @@ function ChatAttachmentList({
 const ThinkingBox = memo(function ThinkingBox({
   content,
   summary,
+  timestampMs,
   isStreaming,
   wasInterrupted,
   runKey,
@@ -3035,6 +3041,7 @@ const ThinkingBox = memo(function ThinkingBox({
 }: {
   content: string;
   summary: string | null | undefined;
+  timestampMs: number | null;
   isStreaming: boolean;
   wasInterrupted: boolean;
   runKey: string;
@@ -3224,6 +3231,7 @@ const ThinkingBox = memo(function ThinkingBox({
                     <FiCopy />
                   </button>
                 ) : null}
+                <ChatTimestamp timestampMs={timestampMs} kind="activity-item" />
                 {thinkingRunState === "complete" ? (
                   durationLabel ? (
                     <span
@@ -3529,6 +3537,7 @@ const AssistantThinkingSection = memo(function AssistantThinkingSection({
           key={`${entry.messageId}-thinking-${entry.itemIndex}`}
           content={entry.item.thinking}
           summary={entry.item.summary}
+          timestampMs={entry.timestampMs}
           isStreaming={entry.isStreaming}
           wasInterrupted={entry.wasInterrupted}
           runKey={`${entry.messageId}-thinking-${entry.itemIndex}`}
@@ -5001,6 +5010,7 @@ const AssistantActionSection = memo(function AssistantActionSection({
           key={entry.key}
           content={entry.thinkingEntry.item.thinking}
           summary={entry.thinkingEntry.item.summary}
+          timestampMs={entry.thinkingEntry.timestampMs}
           isStreaming={entry.thinkingEntry.isStreaming}
           wasInterrupted={entry.thinkingEntry.wasInterrupted}
           runKey={`activity-${entry.thinkingEntry.timerRunKey}`}
@@ -5625,6 +5635,7 @@ function StreamItem({
         <ThinkingBox
           content={item.thinking}
           summary={item.summary}
+          timestampMs={null}
           isStreaming={isStreaming}
           wasInterrupted={false}
           runKey={runKey}
@@ -6337,7 +6348,7 @@ const ChatMessage = memo(function ChatMessage({
             !hasThinkingActivity
           }
         />
-        {!shouldRenderBubble ? (
+        {!shouldRenderBubble && !hasActivityContent ? (
           <ChatMessageTimestampFooter timestampMs={messageTimestampMs} />
         ) : null}
       </AssistantMessageGroup>
@@ -6709,9 +6720,6 @@ function ChatMessages({
           failureMessage: "Failed to copy message.",
         });
       };
-      const groupedMessageTimestampMs = groupedMessages[0]
-        ? resolveMessageCreatedAtMs(groupedMessages[0])
-        : null;
       const actionBar = (
         <ChatMessageActions
           onCopy={handleGroupedCopy}
@@ -6773,7 +6781,6 @@ function ChatMessages({
               </AssistantReasoningCard>
             </AssistantActivityActionsAnchor>
           ) : null}
-          <ChatMessageTimestampFooter timestampMs={groupedMessageTimestampMs} />
         </AssistantMessageGroup>,
       );
       index = groupEnd;

@@ -105,8 +105,8 @@ test.describe.serial("chat tool calls", () => {
       );
       await expect
         .poll(async () =>
-          openAllButton.evaluate(
-            (element) => Number(window.getComputedStyle(element).opacity),
+          openAllButton.evaluate((element) =>
+            Number(window.getComputedStyle(element).opacity),
           ),
         )
         .toBeLessThan(0.05);
@@ -114,8 +114,8 @@ test.describe.serial("chat tool calls", () => {
       await expect(openAllButton).toBeVisible();
       await expect
         .poll(async () =>
-          openAllButton.evaluate(
-            (element) => Number(window.getComputedStyle(element).opacity),
+          openAllButton.evaluate((element) =>
+            Number(window.getComputedStyle(element).opacity),
           ),
         )
         .toBeGreaterThan(0.9);
@@ -129,8 +129,8 @@ test.describe.serial("chat tool calls", () => {
       );
       await expect(itemCopyButtons).toHaveCount(0);
       await activityTrigger.hover();
-      await openAllButton.evaluate(
-        (element: HTMLButtonElement) => element.click(),
+      await openAllButton.evaluate((element: HTMLButtonElement) =>
+        element.click(),
       );
       await expect(activityTrigger).toHaveAttribute("aria-expanded", "true");
       await expect(openAllButton).toHaveText(/Close all/i);
@@ -146,8 +146,8 @@ test.describe.serial("chat tool calls", () => {
       await expect(itemCopyButtons).toHaveCount(2);
 
       await activityTrigger.hover();
-      await openAllButton.evaluate(
-        (element: HTMLButtonElement) => element.click(),
+      await openAllButton.evaluate((element: HTMLButtonElement) =>
+        element.click(),
       );
       await expect(openAllButton).toHaveText(/Open all/i);
       await expect(openAllButton).toHaveAttribute(
@@ -162,8 +162,8 @@ test.describe.serial("chat tool calls", () => {
       await expect(itemCopyButtons).toHaveCount(2);
 
       await activityTrigger.hover();
-      await openAllButton.evaluate(
-        (element: HTMLButtonElement) => element.click(),
+      await openAllButton.evaluate((element: HTMLButtonElement) =>
+        element.click(),
       );
       await expect(openAllButton).toHaveText(/Close all/i);
       await expect(
@@ -172,10 +172,7 @@ test.describe.serial("chat tool calls", () => {
         ),
       ).toHaveCount(2);
       await expect(itemCopyButtons).toHaveCount(2);
-      await expect(activityTrigger).toHaveAttribute(
-        "aria-expanded",
-        "true",
-      );
+      await expect(activityTrigger).toHaveAttribute("aria-expanded", "true");
 
       // Activity header should stay compact with inline title in wider widths,
       // and wrap the title below when the pane is narrow.
@@ -290,9 +287,9 @@ test.describe.serial("chat tool calls", () => {
       expect(itemCopyLayout.copyLeft).toBeGreaterThanOrEqual(
         itemCopyLayout.rowLeft,
       );
-      expect(itemCopyLayout.copyLeft + itemCopyLayout.copyWidth).toBeLessThanOrEqual(
-        itemCopyLayout.rowRight + 1,
-      );
+      expect(
+        itemCopyLayout.copyLeft + itemCopyLayout.copyWidth,
+      ).toBeLessThanOrEqual(itemCopyLayout.rowRight + 1);
       expect(itemCopyLayout.copyWidth).toBeGreaterThanOrEqual(20);
 
       // Keep tool call rows close to full width with compact vertical height.
@@ -496,7 +493,9 @@ test.describe.serial("chat tool calls", () => {
             {
               id: "timestamp-user-message",
               role: "user",
-              content: [{ type: "text", text: "Please summarize the latest run." }],
+              content: [
+                { type: "text", text: "Please summarize the latest run." },
+              ],
               attachments: [],
               createdAt: userCreatedAtMs,
             },
@@ -516,7 +515,9 @@ test.describe.serial("chat tool calls", () => {
                   type: "function",
                   function: {
                     name: "command_execution",
-                    arguments: { command: "pnpm exec vitest run src/components/Chat" },
+                    arguments: {
+                      command: "pnpm exec vitest run src/components/Chat",
+                    },
                   },
                 },
               ],
@@ -527,7 +528,9 @@ test.describe.serial("chat tool calls", () => {
               role: "tool",
               tool_call_id: "timestamp-assistant-tool-call",
               tool_name: "command_execution",
-              arguments: { command: "pnpm exec vitest run src/components/Chat" },
+              arguments: {
+                command: "pnpm exec vitest run src/components/Chat",
+              },
               result: "PASS src/components/Chat/ChatMessages.test.tsx",
               content: [],
               is_error: false,
@@ -590,7 +593,9 @@ test.describe.serial("chat tool calls", () => {
         .first();
       await assistantBubble.hover();
 
-      const actions = section.locator('[data-chat-message-actions="true"]').last();
+      const actions = section
+        .locator('[data-chat-message-actions="true"]')
+        .last();
       await expect(actions).toBeVisible();
       await expect
         .poll(async () =>
@@ -604,7 +609,7 @@ test.describe.serial("chat tool calls", () => {
     }
   });
 
-  test("shows a message timestamp for activity-only assistant messages", async ({
+  test("uses activity-row timestamps instead of a separate message footer for activity-only assistant messages", async ({
     page,
   }) => {
     await ensureAppReady(page);
@@ -673,10 +678,92 @@ test.describe.serial("chat tool calls", () => {
       ).toHaveCount(1);
       await expect(
         section.locator('[data-chat-message-timestamp="true"]'),
+      ).toHaveCount(0);
+      await expect(
+        section.locator('[data-chat-activity-item-timestamp="true"]'),
       ).toHaveCount(1);
       await expect(
-        section.locator('[data-chat-message-timestamp="true"]').first(),
+        section.locator('[data-chat-activity-item-timestamp="true"]').first(),
       ).toHaveText(/\d{1,2}:\d{2}/);
+      await expect(
+        section.locator('[data-chat-activity-item-timestamp="true"]').first(),
+      ).toHaveAttribute(
+        "title",
+        formatExpectedChatTimestampTitle(Date.parse("2026-01-01T09:16:05Z")),
+      );
+      await expect(
+        section
+          .locator('[data-chat-assistant-activity-trigger="true"]')
+          .first()
+          .evaluate(
+            (element) =>
+              element.querySelector('[data-chat-message-timestamp="true"]') ===
+              null,
+          ),
+      ).resolves.toBe(true);
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("shows timestamps on thinking activity rows", async ({ page }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const { sectionId, sectionName } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "__pw_thinking_row_timestamp__",
+      );
+
+      const section = findSectionByName(page, sectionName);
+      await expect(section).toBeVisible();
+
+      const thinkingCreatedAtMs = Date.parse("2026-01-01T09:16:00Z");
+
+      await setChatSectionState(page, {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        state: {
+          messages: [
+            {
+              id: "thinking-timestamp-assistant-message",
+              role: "assistant",
+              content: [
+                {
+                  type: "thinking",
+                  thinking:
+                    "Reviewing the implementation plan before producing the final answer.",
+                  summary: "Reviewing the implementation plan.",
+                  signature: null,
+                },
+              ],
+              attachments: [],
+              tool_calls: null,
+              createdAt: thinkingCreatedAtMs,
+            },
+          ],
+          inputText: "",
+          waitingForResponse: true,
+          toolCallArguments: {},
+        },
+      });
+
+      const activityTrigger = section.locator(
+        '[data-chat-assistant-activity-trigger="true"]',
+      );
+      await activityTrigger.click();
+
+      const activityTimestamps = section.locator(
+        '[data-chat-activity-item-timestamp="true"]',
+      );
+      await expect(activityTimestamps).toHaveCount(1);
+      await expect(activityTimestamps.first()).toHaveText(/\d{1,2}:\d{2}/);
+      await expect(activityTimestamps.first()).toHaveAttribute(
+        "title",
+        formatExpectedChatTimestampTitle(thinkingCreatedAtMs),
+      );
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
@@ -731,7 +818,9 @@ test.describe.serial("chat tool calls", () => {
 
       const userGroup = getMessageGroup(section, userMessageText);
       const assistantGroup = getMessageGroup(section, assistantMessageText);
-      const userBubble = userGroup.locator('[data-chat-user-bubble="true"]').first();
+      const userBubble = userGroup
+        .locator('[data-chat-user-bubble="true"]')
+        .first();
       const assistantBubble = assistantGroup
         .locator('[data-chat-assistant-bubble="true"]')
         .first();
@@ -947,7 +1036,9 @@ test.describe.serial("chat tool calls", () => {
       await expect(handleLocator).toHaveCount(paneCount);
       const handleEdges = await handleLocator.evaluateAll((elements) =>
         elements.map((element) =>
-          element.getAttribute("data-chat-structured-output-resize-handle-edge"),
+          element.getAttribute(
+            "data-chat-structured-output-resize-handle-edge",
+          ),
         ),
       );
       expect(handleEdges.every((edge) => edge === "bottom")).toBe(true);
@@ -1015,10 +1106,7 @@ test.describe.serial("chat tool calls", () => {
       expect(Math.abs(handleCenterY - paneBottomY)).toBeLessThan(6);
 
       const handleCenterX = bottomHandleBox.x + bottomHandleBox.width / 2;
-      await page.mouse.move(
-        handleCenterX,
-        handleCenterY,
-      );
+      await page.mouse.move(handleCenterX, handleCenterY);
       await page.mouse.down();
       await page.mouse.move(handleCenterX, handleCenterY + 1, { steps: 1 });
       await page.evaluate(() => {
@@ -1036,11 +1124,7 @@ test.describe.serial("chat tool calls", () => {
       expect(
         Math.abs(afterInitialDragGeometry.height - beforeResizeGeometry.height),
       ).toBeLessThan(12);
-      await page.mouse.move(
-        handleCenterX,
-        handleCenterY + 120,
-        { steps: 12 },
-      );
+      await page.mouse.move(handleCenterX, handleCenterY + 120, { steps: 12 });
       await page.mouse.up();
       const afterResizeGeometry = await plainOutputPane.evaluate((element) => {
         const rect = element.getBoundingClientRect();
@@ -1252,9 +1336,7 @@ test.describe.serial("chat tool calls", () => {
       await expect(
         section.locator('[data-chat-assistant-activity-count-badge="true"]'),
       ).toHaveText("2");
-      await expect(section).toContainText(
-        "Subagent: research_profile",
-      );
+      await expect(section).toContainText("Subagent: research_profile");
 
       await activityTrigger.click();
       await expect(activityTrigger).toHaveAttribute("aria-expanded", "true");
@@ -1366,7 +1448,9 @@ test.describe.serial("chat tool calls", () => {
         },
       });
 
-      await section.locator('[data-chat-assistant-activity-trigger="true"]').click();
+      await section
+        .locator('[data-chat-assistant-activity-trigger="true"]')
+        .click();
       const toolCallTrigger = section
         .locator('[data-chat-tool-call-item-trigger="true"]')
         .first();
@@ -1394,9 +1478,7 @@ async function getBubbleWidth(bubble: Locator): Promise<number> {
   return bubble.evaluate((element) => element.getBoundingClientRect().width);
 }
 
-async function getHorizontalOverflowMetrics(
-  bubble: Locator,
-): Promise<{
+async function getHorizontalOverflowMetrics(bubble: Locator): Promise<{
   overflowPx: number;
   hasScrollOverflow: boolean;
 }> {
@@ -1413,7 +1495,8 @@ async function getHorizontalOverflowMetrics(
     }
     return {
       overflowPx: Math.max(overflowPx, 0),
-      hasScrollOverflow: bubbleElement.scrollWidth > bubbleElement.clientWidth + 1,
+      hasScrollOverflow:
+        bubbleElement.scrollWidth > bubbleElement.clientWidth + 1,
     };
   });
 }

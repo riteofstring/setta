@@ -2252,8 +2252,8 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).toContain('data-chat-assistant-activity-icon="robot"');
   });
 
-  it("renders message timestamps for assistant messages that only show activity rows", () => {
-    const assistantCreatedAtMs = Date.parse("2026-01-01T09:16:00Z");
+  it("uses activity-row timestamps instead of a separate message footer for activity-only assistant messages", () => {
+    const activityStartedAtMs = Date.parse("2026-01-01T09:16:05Z");
     const messages: BaseChatMessageUnion[] = [
       {
         id: "m-assistant-activity-only",
@@ -2272,7 +2272,7 @@ describe("ChatMessages assistant reasoning layout", () => {
             },
           },
         ],
-        createdAt: assistantCreatedAtMs,
+        createdAt: Date.parse("2026-01-01T09:16:00Z"),
       },
       {
         id: "m-assistant-activity-only-result",
@@ -2294,11 +2294,105 @@ describe("ChatMessages assistant reasoning layout", () => {
 
     expect(markup).not.toContain('data-chat-assistant-bubble="true"');
     expect(countOccurrences(markup, 'data-chat-message-timestamp="true"')).toBe(
-      1,
+      0,
     );
-    expect(markup).toContain(formatExpectedChatTimestamp(assistantCreatedAtMs));
+    expect(
+      countOccurrences(markup, 'data-chat-activity-item-timestamp="true"'),
+    ).toBe(1);
+    expect(markup).toContain(formatExpectedChatTimestamp(activityStartedAtMs));
     expect(markup).toContain(
-      `title="${formatExpectedChatTimestampTitle(assistantCreatedAtMs)}"`,
+      `title="${formatExpectedChatTimestampTitle(activityStartedAtMs)}"`,
+    );
+  });
+
+  it("does not render a separate footer timestamp below activity-only assistant sections", () => {
+    const markup = renderToStaticMarkup(
+      <ChatMessageList
+        messages={[
+          {
+            id: "m-assistant-activity-only-header-timestamp",
+            role: ChatRoleEnum.assistant,
+            content: [],
+            attachments: [],
+            tool_calls: [
+              {
+                id: "activity-only-header-tool-call",
+                type: "function",
+                function: {
+                  name: "command_execution",
+                  arguments: {
+                    command: "pnpm exec vitest run src/components/Chat",
+                  },
+                },
+              },
+            ],
+            createdAt: Date.parse("2026-01-01T09:16:00Z"),
+          },
+          {
+            id: "m-assistant-activity-only-header-result",
+            role: ChatRoleEnum.tool,
+            tool_call_id: "activity-only-header-tool-call",
+            tool_name: "command_execution",
+            arguments: { command: "pnpm exec vitest run src/components/Chat" },
+            result: "PASS src/components/Chat/ChatMessages.test.tsx",
+            content: [],
+            is_error: false,
+            started_at: "2026-01-01T09:16:05Z",
+            completed_at: "2026-01-01T09:16:08Z",
+          },
+        ]}
+        waitingForResponse={false}
+      />,
+    );
+
+    const activityHeader = getDivHtmlByMarker(
+      markup,
+      'data-chat-assistant-activity-trigger="true"',
+    );
+    expect(activityHeader).not.toBeNull();
+
+    const assistantGroup = getDivHtmlByMarker(
+      markup,
+      'data-message-id="m-assistant-activity-only-header-timestamp"',
+    );
+    expect(assistantGroup).not.toBeNull();
+    expect(assistantGroup).not.toContain('data-chat-message-timestamp="true"');
+    expect(assistantGroup).not.toContain(
+      '<div class="mt-0.5 flex justify-end">',
+    );
+  });
+
+  it("renders thinking-row timestamps alongside their timers", () => {
+    const thinkingCreatedAtMs = Date.parse("2026-01-01T09:16:00Z");
+    const markup = renderToStaticMarkup(
+      <ChatMessageList
+        messages={[
+          {
+            id: "m-assistant-thinking-timestamp",
+            role: ChatRoleEnum.assistant,
+            content: [
+              createMessageThinkingContent({
+                thinking:
+                  "Reviewing the implementation plan before producing the final answer.",
+                summary: "Reviewing the implementation plan.",
+                signature: null,
+              }),
+            ],
+            attachments: [],
+            tool_calls: null,
+            createdAt: thinkingCreatedAtMs,
+          },
+        ]}
+        waitingForResponse={true}
+      />,
+    );
+
+    expect(
+      countOccurrences(markup, 'data-chat-activity-item-timestamp="true"'),
+    ).toBe(1);
+    expect(markup).toContain(formatExpectedChatTimestamp(thinkingCreatedAtMs));
+    expect(markup).toContain(
+      `title="${formatExpectedChatTimestampTitle(thinkingCreatedAtMs)}"`,
     );
   });
 
