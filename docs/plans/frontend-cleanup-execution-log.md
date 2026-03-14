@@ -353,3 +353,42 @@ module map and placement guide while this cleanup progresses.
   - Extract the remaining UI-chrome/layout, browser, and local-editor stores
     out of `frontend/src/state/definitions.ts` so it can shrink toward a thin
     compatibility index instead of a shared default landing zone.
+
+## 2026-03-14 16:06:50 PDT
+
+- Slice completed: extracted browser and search stores out of
+  `frontend/src/state/definitions.ts` into
+  `frontend/src/state/stores/fileBrowserStores.ts` and
+  `frontend/src/state/stores/searchStores.ts`
+- Key files touched:
+  - `frontend/src/state/stores/fileBrowserStores.ts`
+  - `frontend/src/state/stores/searchStores.ts`
+  - `frontend/src/state/stores/fileBrowserStores.test.ts`
+  - `frontend/src/state/stores/searchStores.test.ts`
+  - `frontend/src/state/definitions.ts`
+  - `frontend/src/state/hooks/search.ts`
+  - `frontend/src/state/actions/sections/sectionParamFilter.ts`
+  - `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
+  - `frontend/src/components/Section/Layouts/BrowserArea.tsx`
+  - `frontend/src/components/Pages/Home/HomePage.tsx`
+  - `frontend/src/components/AppHeader/SearchBar/ProjectPageSearch.tsx`
+  - `frontend/src/components/AppHeader/SearchBar/HomePageSearch.tsx`
+  - `frontend/src/components/Params/ParamSwitch.tsx`
+  - `frontend/src/components/Modals/DropzoneFilePickerModal/DropzoneFilePickerModal.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/stores/fileBrowserStores.test.ts src/state/stores/searchStores.test.ts src/components/Panes/Overview/FileBrowser/FileBrowserPane.test.ts src/components/Section/Layouts/BrowserArea.test.tsx src/components/AppHeader/SearchBar/ProjectPageSearch.test.ts src/components/Pages/Home/HomePage.test.tsx`
+  - `(cd frontend && git diff --name-only -- frontend/src docs/plans | grep -E '\\.(ts|tsx|md)$' | sed -e 's#^frontend/##' -e 's#^docs/#../docs/#' | xargs pnpm exec prettier --check)`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/store ownership split and
+    did not change frontend rendering behavior.
+- Commit hash:
+  - `58e2f52a6`
+- Next highest-value unblocked slice:
+  - Extract the remaining UI-chrome/layout and local-editor store groups out of
+    `frontend/src/state/definitions.ts`, starting with modal, notification,
+    run-control, backend-log, and project-loading ownership so
+    `definitions.ts` keeps shrinking toward a thin compatibility index.
