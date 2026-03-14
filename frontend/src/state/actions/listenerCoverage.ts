@@ -3,13 +3,16 @@ import {
   useListenerCoverage,
   type ListenerCoverageRecord,
 } from "state/definitions";
-import { res200 } from "utils/endpointUtils";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import { route_get_listener_coverage } from "utils/generatedEndpoints";
 import {
   BaseDependencyKeyUnion,
   DependencyKeyTypeEnum,
   ListenerCoverageSnapshot,
 } from "utils/generatedTypes";
+
+type ListenerCoverageRouteResponse =
+  ResponseDataAndStatus<ListenerCoverageSnapshot>;
 
 function serializeListenerDependencyKey(key: BaseDependencyKeyUnion): string {
   switch (key.type) {
@@ -72,7 +75,8 @@ export async function fetchListenerCoverageSnapshot(
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
     return;
   }
-  const res = await route_get_listener_coverage({ projectConfigId });
+  const res: ListenerCoverageRouteResponse =
+    await route_get_listener_coverage({ projectConfigId });
   if (!res200(res)) {
     return;
   }
