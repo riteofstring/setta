@@ -148,6 +148,12 @@
     so the runtime now follows the speech-to-text guide plus SDK constants on
     the outbound request while still accepting either documented readiness-ack
     event name
+  - the repo-owned event loop now also accepts both documented transcription
+    stream families: the older
+    `conversation.item.input_audio_transcription.delta` /
+    `.completed` events from the saved Realtime transcription guide and the
+    current transcription-session `transcript.text.delta` /
+    `transcript.text.done` stream from the speech-to-text guide
   - the repo-owned startup path now requires an explicit realtime
     `transcription_session.updated` / `session.updated` readiness ack before
     `StartSession` succeeds, and still drains the startup window after that
@@ -174,6 +180,11 @@
   outbound source of truth because it matches the speech-to-text guide and SDK
   constants, but readiness handling still accepts either documented ack event
   name
+- the saved local OpenAI docs are also split on the streaming event family;
+  the repo-owned runtime now accepts both the older
+  `conversation.item.input_audio_transcription.*` events and the current
+  transcription-session `transcript.text.delta` / `transcript.text.done`
+  stream instead of guessing which reference the provider will follow
 - the Realtime transcription docs explicitly call out
   `input_audio_buffer.committed.previous_item_id` as the ordering source of
   truth across speech turns; the repo-owned event loop should continue to
