@@ -212,6 +212,9 @@ Current status:
   `backend/setta/...` paths or
   `ui_settings/section_ui_editor_tab_compatibility.json`, so the canonical
   Go-owned frontend contract boundary stays cut over
+- the validation suite now also checks that `frontend/src/utils/c.ts`
+  remains only a thin `generatedTypes` re-export, so active `C` callers
+  cannot silently reintroduce a handwritten contract side surface
 - the validation suite now also checks that the checked-in
   `generatedRoutes.ts`, `generatedTypes.ts`, and `generatedEndpoints.ts`
   files exactly match the current Go frontend binding generation pipeline

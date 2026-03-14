@@ -1298,6 +1298,22 @@ func TestFrontendSourceDoesNotImportPythonBindingArtifacts(t *testing.T) {
 	}
 }
 
+func TestFrontendCShimRemainsThinGeneratedTypesReExport(t *testing.T) {
+	t.Helper()
+
+	repoRoot := testRepoRoot(t)
+	path := filepath.Join(repoRoot, "frontend", "src", "utils", "c.ts")
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+
+	const expected = `export { C } from "./generatedTypes";`
+	if strings.TrimSpace(string(contents)) != expected {
+		t.Fatalf("frontend/src/utils/c.ts must remain a thin generatedTypes re-export")
+	}
+}
+
 func readBareHTTPRouteIdentifiers(t *testing.T, path string) []string {
 	t.Helper()
 
