@@ -301,6 +301,10 @@ This verdict holds under both of the only reasonable definitions:
   Python router package:
   - `backend/setta/routers/plugins.py` has been removed
   - `backend/setta/routers/__init__.py` no longer imports that route surface
+- The dead Python plugin MCP tool module is no longer part of the imported
+  Python MCP tool package:
+  - `backend/setta/mcp/tools/plugins.py` has been removed
+  - `backend/setta/mcp/tools/__init__.py` no longer imports that tool surface
 - The frontend transport helpers and active websocket callers point at the Go
   route helpers rather than legacy Python routes:
   - `frontend/src/utils/transportRouteConstants.ts`
@@ -469,3 +473,10 @@ registry still passes after `backend/setta/routers/__init__.py` stopped pulling
 that plugin route surface into the router package import graph, which narrows
 the remaining Python plugin blocker to the manager/worker runtime rather than
 the old Python HTTP plugin route layer.
+
+A twelfth follow-up rewrite step removed the dead Python plugin MCP tool module
+and its direct MCP tool tests. The remaining Python MCP registration/import
+checks still pass after `backend/setta/mcp/tools/__init__.py` stopped importing
+that plugin tool surface, which further narrows the remaining Python plugin
+blocker to the manager/worker runtime rather than the old Python MCP mutation
+tool layer.
