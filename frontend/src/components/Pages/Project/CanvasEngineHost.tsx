@@ -1491,6 +1491,9 @@ export function CanvasEngineHost() {
           sceneAdapter.querySectionIdsInWorldRect(
             selectionRectWorld,
             selectionMode === SelectionModeEnum.partial,
+            {
+              includeNestedPreviewRects: true,
+            },
           ),
           resolveMountedDomSectionIdsInCanvasRect({
             hostElement: hostRef.current,

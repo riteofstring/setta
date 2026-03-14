@@ -94,6 +94,10 @@ export type CanvasEngineEdgeHitResult =
       id: string;
     };
 
+type QuerySectionIdsInWorldRectOptions = {
+  includeNestedPreviewRects?: boolean;
+};
+
 export type CanvasEngineDataHandleHitResult = {
   sectionId: string;
   portId: string;
@@ -396,13 +400,14 @@ export class CanvasEngineSceneAdapter {
       height: number;
     },
     partially: boolean,
+    options?: QuerySectionIdsInWorldRectOptions,
   ): string[] {
     if (selectionRect.width <= 0 || selectionRect.height <= 0) {
       return [];
     }
 
     const candidateIds = this.spatialIndex.queryRect(selectionRect);
-    const selectedIds: string[] = [];
+    const selectedIds = new Set<string>();
     for (const sectionId of candidateIds) {
       const sectionRect = this.rectById.get(sectionId);
       if (!sectionRect) {
@@ -413,17 +418,44 @@ export class CanvasEngineSceneAdapter {
       ) {
         continue;
       }
-      selectedIds.push(sectionId);
+      selectedIds.add(sectionId);
     }
-    selectedIds.sort((leftId, rightId) => {
-      const leftRect = this.rectById.get(leftId);
-      const rightRect = this.rectById.get(rightId);
-      if (!leftRect || !rightRect) {
+    if (options?.includeNestedPreviewRects) {
+      for (const nestedPreviewRect of this.nestedPreviewRectById.values()) {
+        if (
+          !isRectSelectedBySelectionRect(
+            nestedPreviewRect,
+            selectionRect,
+            partially,
+          )
+        ) {
+          continue;
+        }
+        selectedIds.add(nestedPreviewRect.id);
+      }
+    }
+    return Array.from(selectedIds).sort((leftId, rightId) => {
+      const leftRecord = resolveSectionSelectionSortRecord(
+        leftId,
+        this.rectById,
+        this.nestedPreviewRectById,
+      );
+      const rightRecord = resolveSectionSelectionSortRecord(
+        rightId,
+        this.rectById,
+        this.nestedPreviewRectById,
+      );
+      if (!leftRecord || !rightRecord) {
         return leftId.localeCompare(rightId);
       }
-      return compareRectRecords(leftRect, rightRect);
+      if (leftRecord.zIndex !== rightRecord.zIndex) {
+        return leftRecord.zIndex - rightRecord.zIndex;
+      }
+      if (leftRecord.kind !== rightRecord.kind) {
+        return leftRecord.kind === "top-level" ? -1 : 1;
+      }
+      return leftId.localeCompare(rightId);
     });
-    return selectedIds;
   }
 
   public hitTestEdgeAtWorldPoint(
@@ -1658,7 +1690,12 @@ function distancePointToSegment(
 }
 
 function isRectSelectedBySelectionRect(
-  sectionRect: CanvasEngineRect,
+  sectionRect: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  },
   selectionRect: {
     x: number;
     y: number;
@@ -1780,6 +1817,31 @@ function compareRectRecords(
     return left.zIndex - right.zIndex;
   }
   return left.id.localeCompare(right.id);
+}
+
+function resolveSectionSelectionSortRecord(
+  sectionId: string,
+  rectById: Map<string, CanvasEngineRect>,
+  nestedPreviewRectById: Map<string, CanvasEngineNestedPreviewRect>,
+): {
+  kind: "top-level" | "nested-preview";
+  zIndex: number;
+} | null {
+  const topLevelRect = rectById.get(sectionId);
+  if (topLevelRect) {
+    return {
+      kind: "top-level",
+      zIndex: topLevelRect.zIndex,
+    };
+  }
+  const nestedPreviewRect = nestedPreviewRectById.get(sectionId);
+  if (!nestedPreviewRect) {
+    return null;
+  }
+  return {
+    kind: "nested-preview",
+    zIndex: rectById.get(nestedPreviewRect.parentSectionId)?.zIndex ?? 0,
+  };
 }
 
 function compareDataEdgeRecords(
