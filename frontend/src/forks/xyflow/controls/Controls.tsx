@@ -30,8 +30,12 @@ import {
   toggleMiniMapSide,
   toggleSnapToGrid,
 } from "state/actions/localStorage";
-import { useProjectState, useShareSession } from "state/definitions";
-import { useLocalStorage, useSettings } from "state/stores/uiPreferenceStores";
+import {
+  useLocalStorage,
+  useProjectState,
+  useSettings,
+  useShareSession,
+} from "state/definitions";
 import { shallow } from "zustand/shallow";
 import { onFitViewHandler } from "../core/store/utils";
 

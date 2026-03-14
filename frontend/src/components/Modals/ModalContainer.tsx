@@ -2,7 +2,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { openWorkspaceSwitcherModal } from "state/actions/modal";
-import { useModal } from "state/stores/feedbackStores";
+import { useModal } from "state/definitions";
 import { MODAL_OVERLAY_Z_INDEX_CLASS_NAME } from "utils/constants";
 import { consumeOpenWorkspaceSwitcherRequest } from "utils/workspaceSwitcherLaunch";
 import { PublishAppDeploymentModal } from "./AppDeploymentsModal/PublishAppDeploymentModal";

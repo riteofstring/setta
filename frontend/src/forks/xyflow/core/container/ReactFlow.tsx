@@ -8,7 +8,7 @@ import {
   type RefObject,
   type UIEvent,
 } from "react";
-import { useLocalStorage, useSettings } from "state/stores/uiPreferenceStores";
+import { useLocalStorage, useSettings } from "state/definitions";
 import { useTabScope } from "utils/focusManager";
 import { useReactFlow } from "../store";
 import AgenticEdgeRenderer from "./AgenticEdgeRenderer";

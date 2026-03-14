@@ -3,11 +3,11 @@ import { resolveAppTheme } from "components/App/appTheme";
 import type { CSSProperties } from "react";
 import { useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
-import { useAppDefinition } from "state/stores/appStores";
 import {
   useAllProjectMetadata,
+  useAppDefinition,
   useShareSession,
-} from "state/stores/sessionStores";
+} from "state/definitions";
 import type { AppRoute } from "utils/generatedTypes";
 import { AppAssets } from "./AppAssets";
 
