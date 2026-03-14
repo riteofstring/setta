@@ -1,14 +1,3 @@
-import {
-  BrushStrokeMapping,
-  ChartDataMapping,
-  DrawAreaLayerItemTransformMapping,
-  ImageMapping,
-} from "utils/generatedTypes";
-import { subscribeWithSelector } from "zustand/middleware";
-import { immer } from "zustand/middleware/immer";
-import { createWithEqualityFn } from "zustand/traditional";
-import { withProjectState, withResetFn } from "./utils";
-
 export {
   runWithAtomicallyPublishedProjectStores,
   useActiveSectionUI,
@@ -19,8 +8,8 @@ export type {
   ZustandNodeInternalsState,
 } from "./stores/activeSectionStores";
 export {
-  useAgenticScopeHighlights,
   useAIFollow,
+  useAgenticScopeHighlights,
   useToolArgumentPreview,
 } from "./stores/aiFollowStores";
 export type {
@@ -30,6 +19,19 @@ export type {
 } from "./stores/aiFollowStores";
 export { useAIStore } from "./stores/aiStore";
 export type { ChatBranchInfo, ChatDetails } from "./stores/aiStore";
+export {
+  useArtifacts,
+  useBrushStrokes,
+  useChartData,
+  useDecodedImages,
+  useDrawAreaLayerItemTransform,
+  useImages,
+} from "./stores/artifactStores";
+export type {
+  RevisionedArtifacts,
+  ZustandDecodedImages,
+  ZustandImages,
+} from "./stores/artifactStores";
 export {
   useEdgeHandleRegistry,
   useListenerCoverage,
@@ -97,75 +99,3 @@ export {
   useNotifications,
   useResizeEvent,
 } from "./stores/uiStores";
-
-const useArtifacts = withProjectState(
-  createWithEqualityFn(
-    subscribeWithSelector(withResetFn(() => ({ x: {}, namePathTypeToId: {} }))),
-  ),
-);
-
-export type RevisionedArtifacts<T> = {
-  x: T;
-  revisionById: Record<string, number>;
-  localRevisionById: Record<string, Record<string, number>>;
-};
-
-export type ZustandImages = RevisionedArtifacts<ImageMapping>;
-
-export const useImages = createWithEqualityFn(
-  subscribeWithSelector(
-    withResetFn<ZustandImages>(() => ({
-      x: {},
-      revisionById: {},
-      localRevisionById: {},
-    })),
-  ),
-);
-
-type ZustandChartData = RevisionedArtifacts<ChartDataMapping>;
-
-export const useChartData = createWithEqualityFn(
-  withResetFn<ZustandChartData>(() => ({
-    x: {},
-    revisionById: {},
-    localRevisionById: {},
-  })),
-);
-
-export type ZustandDecodedImages = RevisionedArtifacts<
-  Record<string, HTMLImageElement>
->;
-
-export const useDecodedImages = createWithEqualityFn(
-  withResetFn<ZustandDecodedImages>(() => ({
-    x: {},
-    revisionById: {},
-    localRevisionById: {},
-  })),
-);
-
-type ZustandBrushStrokes = RevisionedArtifacts<BrushStrokeMapping>;
-
-export const useBrushStrokes = createWithEqualityFn(
-  withResetFn<ZustandBrushStrokes>(() => ({
-    x: {},
-    revisionById: {},
-    localRevisionById: {},
-  })),
-);
-
-type ZustandDrawAreaLayerItemTransform = {
-  x: DrawAreaLayerItemTransformMapping;
-  revisionById: Record<string, number>;
-  localRevisionById: Record<string, Record<string, number>>;
-};
-
-export const useDrawAreaLayerItemTransform = createWithEqualityFn(
-  immer(
-    withResetFn<ZustandDrawAreaLayerItemTransform>(() => ({
-      x: {},
-      revisionById: {},
-      localRevisionById: {},
-    })),
-  ),
-);
