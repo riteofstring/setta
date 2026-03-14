@@ -1776,6 +1776,162 @@ func TestFrontendTransportRouteConstantsImportsStayWithinExplicitBoundaries(t *t
 	}
 }
 
+func TestFrontendBackendTransportImportsStayWithinExplicitBoundaries(t *testing.T) {
+	t.Helper()
+
+	repoRoot := testRepoRoot(t)
+	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
+	allowedImports := map[string]map[string]struct{}{
+		"frontend/src/components/App/appTransport.ts": {
+			"buildBinaryDownloadUrl": {},
+		},
+		"frontend/src/plugins/transport.ts": {
+			"buildPluginBackendFetchUrl": {},
+		},
+		"frontend/src/utils/settaApiPresets.ts": {
+			"SETTA_API_PRESET_ROUTES": {},
+		},
+	}
+	importPattern := regexp.MustCompile(`(?s)(?:import|export)\s*\{([^}]*)\}\s*from\s*["'](?:\./backendTransport|utils/backendTransport)["']`)
+
+	err := filepath.WalkDir(frontendSrcRoot, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+
+		base := entry.Name()
+		if !(strings.HasSuffix(base, ".ts") || strings.HasSuffix(base, ".tsx")) {
+			return nil
+		}
+		if strings.Contains(base, ".test.") || strings.Contains(base, ".spec.") {
+			return nil
+		}
+
+		relativePath, err := filepath.Rel(repoRoot, path)
+		if err != nil {
+			return err
+		}
+		relativePath = filepath.ToSlash(relativePath)
+
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		for _, match := range importPattern.FindAllStringSubmatch(string(contents), -1) {
+			for _, rawSpecifier := range strings.Split(match[1], ",") {
+				specifier := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(rawSpecifier), "type "))
+				if specifier == "" {
+					continue
+				}
+				bindingName := strings.Fields(specifier)[0]
+				allowedBindings, allowedPath := allowedImports[relativePath]
+				if allowedPath {
+					if _, allowedBinding := allowedBindings[bindingName]; allowedBinding {
+						continue
+					}
+					return fmt.Errorf(
+						"%s imports %q from backendTransport outside the allowed boundary surface for that file",
+						relativePath,
+						bindingName,
+					)
+				}
+				return fmt.Errorf(
+					"%s imports %q from backendTransport outside the explicit narrowed transport callers",
+					relativePath,
+					bindingName,
+				)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("scan frontend backendTransport imports: %v", err)
+	}
+}
+
+func TestFrontendBackendOriginTransportImportsStayWithinExplicitBoundaries(t *testing.T) {
+	t.Helper()
+
+	repoRoot := testRepoRoot(t)
+	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
+	allowedImports := map[string]map[string]struct{}{
+		"frontend/src/plugins/transport.ts": {
+			"buildBackendOriginURL":     {},
+			"buildListenerWebsocketUrl": {},
+		},
+		"frontend/src/state/actions/websocketReceive.ts": {
+			"buildBootstrapPageUrl":     {},
+			"buildFrontendWebsocketUrl": {},
+			"getFrontendWebsocketRoute": {},
+		},
+		"frontend/src/state/hooks/terminals/websocketUrl.ts": {
+			"buildTerminalWebsocketUrl":        {},
+			"BuildTerminalWebsocketUrlOptions": {},
+		},
+	}
+	importPattern := regexp.MustCompile(`(?s)(?:import|export)\s*\{([^}]*)\}\s*from\s*["'](?:\./backendOriginTransport|utils/backendOriginTransport)["']`)
+
+	err := filepath.WalkDir(frontendSrcRoot, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+
+		base := entry.Name()
+		if !(strings.HasSuffix(base, ".ts") || strings.HasSuffix(base, ".tsx")) {
+			return nil
+		}
+		if strings.Contains(base, ".test.") || strings.Contains(base, ".spec.") {
+			return nil
+		}
+
+		relativePath, err := filepath.Rel(repoRoot, path)
+		if err != nil {
+			return err
+		}
+		relativePath = filepath.ToSlash(relativePath)
+
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		for _, match := range importPattern.FindAllStringSubmatch(string(contents), -1) {
+			for _, rawSpecifier := range strings.Split(match[1], ",") {
+				specifier := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(rawSpecifier), "type "))
+				if specifier == "" {
+					continue
+				}
+				bindingName := strings.Fields(specifier)[0]
+				allowedBindings, allowedPath := allowedImports[relativePath]
+				if allowedPath {
+					if _, allowedBinding := allowedBindings[bindingName]; allowedBinding {
+						continue
+					}
+					return fmt.Errorf(
+						"%s imports %q from backendOriginTransport outside the allowed boundary surface for that file",
+						relativePath,
+						bindingName,
+					)
+				}
+				return fmt.Errorf(
+					"%s imports %q from backendOriginTransport outside the explicit narrowed transport callers",
+					relativePath,
+					bindingName,
+				)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("scan frontend backendOriginTransport imports: %v", err)
+	}
+}
+
 func TestFrontendRuntimeSourceDoesNotImportRouteEnum(t *testing.T) {
 	t.Helper()
 

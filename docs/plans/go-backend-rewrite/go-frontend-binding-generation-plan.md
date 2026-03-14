@@ -293,6 +293,10 @@ Current status:
   flows through that same `backendOriginTransport` boundary, so realtime and
   terminal runtime callers no longer import `GoRootRouteHelpers` or
   `GoWebsocketRouteHelpers` directly
+- the validation suite now also checks that direct
+  `backendOriginTransport` imports stay confined to the current plugin,
+  realtime, and terminal boundary callers, so those narrowed websocket/origin
+  seams cannot silently widen back into ad hoc runtime utility usage
 - app binary-download and plugin backend-fetch route shaping now also flows
   through `frontend/src/utils/backendTransport.ts`, with
   `frontend/src/components/App/appTransport.ts` and
@@ -301,6 +305,10 @@ Current status:
 - Setta API preset route selection now also flows through that same
   `backendTransport` boundary, so `frontend/src/utils/settaApiPresets.ts`
   no longer imports `GoHTTPRouteHelpers` directly
+- the validation suite now also checks that direct `backendTransport` imports
+  stay confined to the current app, plugin, and Setta API preset boundary
+  callers, so narrowed fetch/download/preset seams cannot silently widen into
+  broader runtime helper usage
 - server-mode origin-policy route selection now also flows through
   `frontend/src/utils/transportRouteConstants.ts`, so
   `frontend/src/utils/serverModeBoundaryPolicy.ts` no longer imports
