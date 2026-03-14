@@ -145,5 +145,6 @@ This is the front door for authored frontend code under `frontend/src/`.
 - Need Project AI agent profile manager behavior: open `components/Panes/Overview/ProjectLevelAI/ProjectAIAgentProfilesManager.tsx`.
 - Need Project AI transcription profile manager behavior: open `components/Panes/Overview/ProjectLevelAI/ProjectAITranscriptionProfilesManager.tsx`.
 - Need Project AI prompt template manager behavior: open `components/Panes/Overview/ProjectLevelAI/ProjectAIPromptTemplatesManager.tsx`.
+- Need Project AI external-agent config manager behavior: open `components/Panes/Overview/ProjectLevelAI/ProjectAIExternalAgentConfigsManager.tsx`.
 - Need shared derived state or a component-facing hook: search in `state/hooks/`.
 - Need a pure cross-feature helper: check `utils/`.
