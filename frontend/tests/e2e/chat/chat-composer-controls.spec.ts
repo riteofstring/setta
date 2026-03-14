@@ -1506,6 +1506,228 @@ test.describe.serial("chat composer controls", () => {
     }
   });
 
+  test("project chat rolls back optimistic drafts when managed Azure config is invalid", async ({
+    page,
+  }) => {
+    await setOverviewTab(page, "ProjectAIChat");
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const engineCleanup = await ensureManagedChatEngine(page);
+    const backendOrigin =
+      process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+
+    let createdEngineConfigId: string | null = null;
+    let initialLLMConfig: LLMConfigPayload | null = null;
+    let initialAPIKeysSnapshot: ManagedAPIKeysSnapshot | null = null;
+    let observedError: {
+      status: number;
+      code: string | null;
+      message: string | null;
+    } | null = null;
+
+    await page.route("**/api/getLLMResponse", async (route) => {
+      const response = await route.fetch();
+      const body = await response.body();
+      let payload: unknown = null;
+      try {
+        payload = JSON.parse(body.toString("utf-8")) as unknown;
+      } catch {
+        payload = null;
+      }
+      if (response.status() >= 400) {
+        const record =
+          payload && typeof payload === "object"
+            ? (payload as {
+                error?: { code?: unknown; message?: unknown };
+              })
+            : null;
+        observedError = {
+          status: response.status(),
+          code:
+            typeof record?.error?.code === "string" ? record.error.code : null,
+          message:
+            typeof record?.error?.message === "string"
+              ? record.error.message
+              : null,
+        };
+      }
+      await route.fulfill({ response, body });
+    });
+
+    try {
+      const llmConfigResponse = await page.request.get(
+        `${backendOrigin}/api/llm/config`,
+      );
+      expect(llmConfigResponse.ok()).toBe(true);
+      initialLLMConfig = (await llmConfigResponse.json()) as LLMConfigPayload;
+
+      const apiKeysResponse = await page.request.get(
+        `${backendOrigin}/api/llm/apiKeys`,
+      );
+      expect(apiKeysResponse.ok()).toBe(true);
+      initialAPIKeysSnapshot =
+        (await apiKeysResponse.json()) as ManagedAPIKeysSnapshot;
+
+      const invalidAzureConfigId = `e2e-invalid-azure-provider-${Date.now()}`;
+      const updatedLLMConfig: LLMConfigPayload = {
+        ...initialLLMConfig,
+        configs: {
+          ...initialLLMConfig.configs,
+          [invalidAzureConfigId]: {
+            model: "gpt-4o-mini",
+            provider: "azure",
+            api_key_env: "AZURE_OPENAI_API_KEY",
+            base_url: "https://example-resource.openai.azure.com",
+            other_params: {},
+          },
+        },
+      };
+      await postBackend(page, "/llm/config", updatedLLMConfig);
+      await page.request.post(`${backendOrigin}/api/llm/apiKeys`, {
+        data: {
+          apiKeys: {
+            ...initialAPIKeysSnapshot.apiKeys,
+            AZURE_OPENAI_API_KEY: "e2e-azure-secret",
+          },
+          expectedRevision: initialAPIKeysSnapshot.revision,
+        },
+      });
+
+      const createdEngine = await postBackend<EngineConfigSummary>(
+        page,
+        "/createEngineConfig",
+        {
+          name: "Invalid Azure Provider E2E",
+          engineType: "setta_llm",
+          settaLlmConfigId: invalidAzureConfigId,
+          defaults: {},
+        },
+      );
+      createdEngineConfigId = createdEngine?.id ?? null;
+      if (!createdEngineConfigId) {
+        throw new Error("Missing invalid Azure engine config id.");
+      }
+
+      await page.evaluate(async () => {
+        const { loadEngineConfigs, loadLLMApiKeys, loadLLMConfig } =
+          await import("/src/state/actions/ai.ts");
+        await loadLLMConfig();
+        await loadLLMApiKeys();
+        await loadEngineConfigs(true);
+      });
+
+      await setOverviewTab(page, "ProjectAIChat");
+      const overviewPane = page.locator("#OverviewPane");
+      await expect(
+        overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+      ).toBeVisible();
+
+      const projectChatSurface = await getVisibleProjectChatSurface(page);
+      await selectProjectAiEngine(page, "Invalid Azure Provider E2E");
+
+      allowExpectedApiError(page, {
+        path: "/api/getLLMResponse",
+        statuses: [400],
+        method: "POST",
+        count: 1,
+      });
+
+      const submittedText = "Trigger invalid Azure provider config";
+      const input = projectChatSurface.getByPlaceholder("Type a message...");
+      await expect(input).toBeVisible();
+      await input.fill(submittedText);
+      await input.press("Enter");
+
+      await expect
+        .poll(() => observedError)
+        .toEqual({
+          status: 400,
+          code: "provider_config_invalid",
+          message:
+            "managed llm provider config is invalid: azure provider requires explicit api_version",
+        });
+      await expect
+        .poll(async () => {
+          return page.evaluate(async (expectedText) => {
+            const { useAIStore } = await import("/src/state/definitions.ts");
+
+            const pendingMessages = Object.values(
+              useAIStore.getState().pendingChatDetailsBySurfaceId,
+            ).flatMap((details) =>
+              details.messages.map((message) =>
+                JSON.stringify(message.content),
+              ),
+            );
+            const hydratedMessages = Object.values(
+              useAIStore.getState().chatDetails,
+            ).flatMap((details) =>
+              details.messages.map((message) =>
+                JSON.stringify(message.content),
+              ),
+            );
+
+            return {
+              pendingContainsText: pendingMessages.some((content) =>
+                content.includes(expectedText),
+              ),
+              hydratedContainsText: hydratedMessages.some((content) =>
+                content.includes(expectedText),
+              ),
+            };
+          }, submittedText);
+        })
+        .toEqual({
+          pendingContainsText: false,
+          hydratedContainsText: false,
+        });
+    } finally {
+      try {
+        await setOverviewTab(page, "ProjectAIChat");
+        await selectProjectAiEngine(page, "setta");
+      } catch {
+        // Best-effort teardown: if the test already failed, don't block cleanup.
+      }
+      if (createdEngineConfigId) {
+        await page.request
+          .post(`${backendOrigin}/api/deleteEngineConfig`, {
+            data: { configId: createdEngineConfigId },
+            timeout: 5000,
+          })
+          .catch(() => {});
+      }
+      if (initialLLMConfig) {
+        await page.request
+          .post(`${backendOrigin}/api/llm/config`, {
+            data: initialLLMConfig,
+            timeout: 5000,
+          })
+          .catch(() => {});
+      }
+      if (initialAPIKeysSnapshot) {
+        const currentApiKeysResponse = await page.request
+          .get(`${backendOrigin}/api/llm/apiKeys`, {
+            timeout: 5000,
+          })
+          .catch(() => null);
+        if (currentApiKeysResponse?.ok()) {
+          const currentApiKeysSnapshot =
+            (await currentApiKeysResponse.json()) as ManagedAPIKeysSnapshot;
+          await page.request
+            .post(`${backendOrigin}/api/llm/apiKeys`, {
+              data: {
+                apiKeys: initialAPIKeysSnapshot.apiKeys,
+                expectedRevision: currentApiKeysSnapshot.revision,
+              },
+              timeout: 5000,
+            })
+            .catch(() => {});
+        }
+      }
+      await engineCleanup();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("project chat /new first submit keeps the selected thread group assignment", async ({
     page,
   }) => {
