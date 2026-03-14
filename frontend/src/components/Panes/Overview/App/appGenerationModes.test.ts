@@ -42,7 +42,6 @@ describe("appGenerationModes", () => {
       catalogSummary: "Catalog: setta.app.default (version v1)",
       sectionsSummary:
         "- Sales (section-sales) params: Revenue (revenue, type=CodeParam)",
-      currentSpecJson: `{"root":"draft-root","elements":{"draft-root":{"key":"draft-root","type":"Stack"}}}`,
       referenceImageUrl: "https://example.com/reference.png",
       referenceImageNotes: "Prefer compact cards and wider gutters.",
     });
@@ -53,7 +52,6 @@ describe("appGenerationModes", () => {
     expect(prompt).not.toContain("Reference-image context:");
     expect(prompt).not.toContain("URL: https://example.com/reference.png");
     expect(prompt).not.toContain("Prefer compact cards and wider gutters.");
-    expect(prompt).not.toContain("Current app spec seed");
     expect(prompt).toContain("Catalog: setta.app.default (version v1)");
   });
 
@@ -64,7 +62,6 @@ describe("appGenerationModes", () => {
       catalogSummary: "Catalog: setta.app.default (version v1)",
       sectionsSummary:
         "- Hero (section-hero) params: Title (title, type=TextParam)",
-      currentSpecJson: `{"root":"draft-root","elements":{"draft-root":{"key":"draft-root","type":"Stack"}}}`,
       referenceImageUrl: "https://example.com/reference.png",
       referenceImageNotes: "Prioritize spacing and typography scale.",
     });
@@ -73,9 +70,6 @@ describe("appGenerationModes", () => {
     expect(prompt).toContain("Reference-image context:");
     expect(prompt).toContain("URL: https://example.com/reference.png");
     expect(prompt).toContain("Prioritize spacing and typography scale.");
-    expect(prompt).toContain("Current app spec seed (authoritative for this request):");
-    expect(prompt).toContain("pass this object as `baseAppSpec`");
-    expect(prompt).toContain(`{"root":"draft-root"`);
   });
 
   it("recognizes json-render modes", () => {
