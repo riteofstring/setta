@@ -1,5 +1,10 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { ensureAppReady } from "../helpers";
+import {
+  allowExpectedApiError,
+  ensureAppReady,
+  ensureManagedChatEngine,
+  getViewportBoundsForPlacement,
+} from "../helpers";
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
@@ -31,19 +36,20 @@ type LatestProjectStateResponse = {
 };
 
 test.describe.serial("agentic edges", () => {
-  test("connects between chat sections", async ({ page }) => {
+  test("rejects chat-to-chat links when the target chat is not executable", async ({
+    page,
+  }) => {
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
 
     try {
-      const createAgenticEdgeRequests: string[] = [];
-      page.on("request", (request) => {
-        const url = request.url();
-        if (url.includes("/api/createAgenticEdge")) {
-          createAgenticEdgeRequests.push(url);
-        }
+      allowExpectedApiError(page, {
+        path: "/api/createAgenticEdge",
+        statuses: [422],
+        method: "POST",
+        count: 1,
+        ttlMs: 60_000,
       });
-
       const firstChat = await createChatSection(
         page,
         projectContext.projectConfigId,
@@ -85,17 +91,11 @@ test.describe.serial("agentic edges", () => {
       await dragHandleToHandle(page, sourceHandle, targetHandle);
 
       await expect
-        .poll(async () => createAgenticEdgeRequests.length, { timeout: 8000 })
-        .toBeGreaterThan(0);
-
-      await expect
         .poll(
           async () => getAgenticEdgeCount(page, projectContext.projectConfigId),
           { timeout: 8000 },
         )
-        .toBeGreaterThan(initialCount);
-
-      await assertConnectedHandlesStayVisible(page, sourceHandle, targetHandle);
+        .toBe(initialCount);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
@@ -106,14 +106,6 @@ test.describe.serial("agentic edges", () => {
     const projectContext = await openIsolatedProject(page);
 
     try {
-      const createAgenticEdgeRequests: string[] = [];
-      page.on("request", (request) => {
-        const url = request.url();
-        if (url.includes("/api/createAgenticEdge")) {
-          createAgenticEdgeRequests.push(url);
-        }
-      });
-
       const chatSection = await createChatSection(
         page,
         projectContext.projectConfigId,
@@ -154,10 +146,6 @@ test.describe.serial("agentic edges", () => {
       await dragHandleToHandle(page, sourceHandle, targetHandle);
 
       await expect
-        .poll(async () => createAgenticEdgeRequests.length, { timeout: 8000 })
-        .toBeGreaterThan(0);
-
-      await expect
         .poll(
           async () => getAgenticEdgeCount(page, projectContext.projectConfigId),
           { timeout: 8000 },
@@ -175,18 +163,13 @@ test.describe.serial("agentic edges", () => {
   }) => {
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
+    let cleanupManagedEngine: (() => Promise<void>) | null = null;
 
     try {
+      cleanupManagedEngine = await ensureManagedChatEngine(page);
       await page.evaluate(() => {
         window.localStorage.setItem("setta_agentic_debug", "1");
         window.__settaAgenticDebug = [];
-      });
-      const createAgenticEdgeRequests: string[] = [];
-      page.on("request", (request) => {
-        const url = request.url();
-        if (url.includes("/api/createAgenticEdge")) {
-          createAgenticEdgeRequests.push(url);
-        }
       });
 
       const initialChatIds = await getChatSectionIds(
@@ -217,6 +200,16 @@ test.describe.serial("agentic edges", () => {
         );
       }
       const [firstSectionId, secondSectionId] = newChatIds;
+      await configureManagedChatSection(
+        page,
+        projectContext.projectConfigId,
+        firstSectionId,
+      );
+      await configureManagedChatSection(
+        page,
+        projectContext.projectConfigId,
+        secondSectionId,
+      );
 
       const sourceHandle = page.locator(
         `.react-flow__handle[data-nodeid="${firstSectionId}"][data-handleid="agentic-edge-source"]`,
@@ -244,10 +237,6 @@ test.describe.serial("agentic edges", () => {
       await dragHandleToHandle(page, sourceHandle, targetHandle);
 
       await expect
-        .poll(async () => createAgenticEdgeRequests.length, { timeout: 8000 })
-        .toBeGreaterThan(0);
-
-      await expect
         .poll(
           async () => getAgenticEdgeCount(page, projectContext.projectConfigId),
           { timeout: 8000 },
@@ -256,6 +245,9 @@ test.describe.serial("agentic edges", () => {
 
       await assertConnectedHandlesStayVisible(page, sourceHandle, targetHandle);
     } finally {
+      if (cleanupManagedEngine) {
+        await cleanupManagedEngine();
+      }
       await cleanupIsolatedProject(page, projectContext);
     }
   });
@@ -381,12 +373,17 @@ async function createChatSection(
   baseName: string,
 ): Promise<{ sectionId: string }> {
   const sectionName = await resolveUniqueSectionName(page, baseName);
+  const viewportBounds = await getViewportBoundsForPlacement(page);
+  if (!viewportBounds) {
+    throw new Error("Unable to resolve viewport bounds for chat placement.");
+  }
   const created = await postBackend<CreateSectionResponse>(
     page,
     "/createTopLevelSection",
     {
       projectConfigId,
       implType: "Chat",
+      viewportBounds,
     },
   );
   if (!created?.sectionId) {
@@ -406,12 +403,17 @@ async function createTextBlockSection(
   baseName: string,
 ): Promise<{ sectionId: string }> {
   const sectionName = await resolveUniqueSectionName(page, baseName);
+  const viewportBounds = await getViewportBoundsForPlacement(page);
+  if (!viewportBounds) {
+    throw new Error("Unable to resolve viewport bounds for text placement.");
+  }
   const created = await postBackend<CreateSectionResponse>(
     page,
     "/createTopLevelSection",
     {
       projectConfigId,
       implType: "TextBlock",
+      viewportBounds,
     },
   );
   if (!created?.sectionId) {
@@ -423,6 +425,36 @@ async function createTextBlockSection(
     name: sectionName,
   });
   return { sectionId: created.sectionId };
+}
+
+async function configureManagedChatSection(
+  page: Page,
+  projectConfigId: string,
+  sectionId: string,
+): Promise<void> {
+  const managedEngineId = await page.evaluate(async () => {
+    const { useAIStore } = await import("/src/state/definitions.ts");
+    const engine =
+      useAIStore
+        .getState()
+        .engineConfigs.find((config) => config.engineType === "setta_llm") ?? null;
+    return engine?.id ?? null;
+  });
+  if (!managedEngineId) {
+    throw new Error("Missing managed setta_llm engine config.");
+  }
+  await postBackend(page, "/setChatSectionSettings", {
+    projectConfigId,
+    sectionId,
+    managed: true,
+    engineConfigId: managedEngineId,
+    transcriptionProfileId: null,
+    agentProfileId: null,
+    thinking: false,
+    permissionMode: "minimal",
+    searchEnabled: true,
+    dictationMode: "auto",
+  });
 }
 
 async function createChatSectionViaCommandPalette(

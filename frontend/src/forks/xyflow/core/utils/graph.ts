@@ -173,7 +173,7 @@ export function getSectionRect(sectionId: string, ignoreGrid = false) {
     useSectionRefs.getState().selfOnly[sectionId] ??
     useSectionRefs.getState().withNested[sectionId];
   if (!ref) {
-    return getCanvasEngineSectionRect(sectionId);
+    return null;
   }
 
   const { clientWidth: width, clientHeight: height } = ref;
@@ -314,40 +314,6 @@ function isNodeOverlappingWithRect(
 
 function hasMeasuredNodeBounds(node: Node) {
   return hasPositiveRectBounds(node.width, node.height);
-}
-
-function getCanvasEngineSectionRect(sectionId: string): Rect | null {
-  const topLevelLayout =
-    useProjectState.getState().projectConfig.topLevelSections[sectionId];
-  if (
-    topLevelLayout &&
-    hasPositiveRectBounds(topLevelLayout.w, topLevelLayout.h)
-  ) {
-    return {
-      x: topLevelLayout.x,
-      y: topLevelLayout.y,
-      width: topLevelLayout.w,
-      height: topLevelLayout.h,
-    };
-  }
-
-  const nestedPreviewRect = useReactFlow
-    .getState()
-    .canvasEngineNestedPreviewRects.find((rect) => rect.id === sectionId);
-  if (!nestedPreviewRect) {
-    return null;
-  }
-  if (
-    !hasPositiveRectBounds(nestedPreviewRect.width, nestedPreviewRect.height)
-  ) {
-    return null;
-  }
-  return {
-    x: nestedPreviewRect.x,
-    y: nestedPreviewRect.y,
-    width: nestedPreviewRect.width,
-    height: nestedPreviewRect.height,
-  };
 }
 
 function hasPositiveRectBounds(

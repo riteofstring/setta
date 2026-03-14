@@ -582,6 +582,11 @@ test("right-pane reveal_ui_setting cancels a queued durable active-id sync befor
       targetSectionName,
     );
 
+    await setFrontendActiveIds(page, []);
+    await expect
+      .poll(async () => readFrontendActiveIds(page))
+      .toEqual([]);
+
     // Frontend active ids stay in the live UI store using the real section ids.
     expect(temporaryInitialSectionId).toBeTruthy();
     await scheduleFrontendActiveIdsWithBlockedRaf(page, [initialSectionId]);
@@ -744,6 +749,7 @@ test("frontend selection keeps the newer ui-only target after a stale durable ac
             createCodeSectionImpl,
             createCore,
             createProjectConfig,
+            createProjectChatWindowingState,
             createSingletonSections,
             createUserDefaultCodeSectionImpl,
             createVariant,
@@ -796,6 +802,7 @@ test("frontend selection keeps the newer ui-only target after a stale durable ac
             shownParamIds: {},
             requiredDecodedImages: [],
             genCodeBinding: null,
+            projectChatWindowing: createProjectChatWindowingState(),
           };
         };
 
@@ -926,6 +933,7 @@ test("right-pane reveal rollback returns backend authority to later backend snap
             createCodeSectionImpl,
             createCore,
             createProjectConfig,
+            createProjectChatWindowingState,
             createSingletonSections,
             createUserDefaultCodeSectionImpl,
             createVariant,
@@ -985,6 +993,7 @@ test("right-pane reveal rollback returns backend authority to later backend snap
             shownParamIds: {},
             requiredDecodedImages: [],
             genCodeBinding: null,
+            projectChatWindowing: createProjectChatWindowingState(),
           };
         };
 

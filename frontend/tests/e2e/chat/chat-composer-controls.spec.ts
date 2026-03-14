@@ -13,8 +13,31 @@ import {
 
 type EngineConfigSummary = {
   id: string;
+  name?: string;
   engineType: string;
+  settaLlmConfigId?: string | null;
   externalAgentConfigId?: string | null;
+  runtimeSupport?: {
+    thinking?: boolean;
+  } | null;
+};
+
+type LLMConfigEntry = {
+  model: string;
+  provider?: string | null;
+  api_key_env?: string | null;
+  base_url?: string | null;
+  other_params?: Record<string, unknown> | null;
+  mcpServerIds?: string[] | null;
+  temporary?: boolean;
+};
+
+type LLMConfigPayload = {
+  configs: Record<string, LLMConfigEntry>;
+  mcpServers: Record<string, unknown>;
+  defaultMcpServerIds: string[];
+  default_config_id?: string | null;
+  codexMcpImportedAt?: string | null;
 };
 
 test.describe.serial("chat composer controls", () => {
@@ -105,12 +128,14 @@ test.describe.serial("chat composer controls", () => {
       await input.fill("/search off");
       await input.press("Enter");
       await expect(
-        section.getByText("Unknown or unavailable command. Use /help."),
+        section.getByText("/search is unavailable in the current context. Use /help."),
       ).toBeVisible();
       await input.fill("/permissions yolo");
       await input.press("Enter");
       await expect(
-        section.getByText("Unknown or unavailable command. Use /help."),
+        section.getByText(
+          "/permissions is unavailable in the current context. Use /help.",
+        ),
       ).toBeVisible();
       expect(llmSubmitCount).toBe(0);
 
@@ -584,6 +609,7 @@ test.describe.serial("chat composer controls", () => {
     try {
       await page.reload();
       await page.waitForSelector(".react-flow__pane");
+      await setOverviewTab(page, "ProjectAIChat");
 
       const overviewPane = page.locator("#OverviewPane");
       await expect(
@@ -692,6 +718,442 @@ test.describe.serial("chat composer controls", () => {
       });
       await expect(searchButton).toHaveCount(0);
     } finally {
+      await engineCleanup();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("project chat enables thinking for managed Anthropic engines with backend runtime support", async ({
+    page,
+  }) => {
+    await setOverviewTab(page, "ProjectAIChat");
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const engineCleanup = await ensureManagedChatEngine(page);
+    const backendOrigin =
+      process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+
+    let createdEngineConfigId: string | null = null;
+    let initialLLMConfig: LLMConfigPayload | null = null;
+    let submittedPayload:
+      | {
+          thinking?: boolean;
+          engineConfigId?: string;
+        }
+      | undefined;
+
+    await page.route("**/api/getLLMResponse", async (route) => {
+      submittedPayload = route.request().postDataJSON() as
+        | {
+            thinking?: boolean;
+            engineConfigId?: string;
+          }
+        | undefined;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify("chat-anthropic-thinking"),
+      });
+    });
+
+    try {
+      const llmConfigResponse = await page.request.get(
+        `${backendOrigin}/api/llm/config`,
+      );
+      expect(llmConfigResponse.ok()).toBe(true);
+      initialLLMConfig = (await llmConfigResponse.json()) as LLMConfigPayload;
+
+      const anthropicConfigId = `e2e-anthropic-thinking-${Date.now()}`;
+      const updatedLLMConfig: LLMConfigPayload = {
+        ...initialLLMConfig,
+        configs: {
+          ...initialLLMConfig.configs,
+          [anthropicConfigId]: {
+            model: "claude-sonnet-4-5-20250929",
+            provider: "anthropic",
+            other_params: {
+              max_tokens: 4096,
+              thinking: {
+                type: "enabled",
+                budget_tokens: 1024,
+              },
+            },
+          },
+        },
+      };
+      await postBackend(page, "/llm/config", updatedLLMConfig);
+
+      const createdEngine = await postBackend<EngineConfigSummary>(
+        page,
+        "/createEngineConfig",
+        {
+          name: "Anthropic Thinking E2E",
+          engineType: "setta_llm",
+          settaLlmConfigId: anthropicConfigId,
+          defaults: {},
+        },
+      );
+      createdEngineConfigId = createdEngine?.id ?? null;
+      if (!createdEngineConfigId) {
+        throw new Error("Missing Anthropic thinking engine config id.");
+      }
+
+      const engineConfigsResponse = await page.request.get(
+        `${backendOrigin}/api/getEngineConfigs`,
+      );
+      expect(engineConfigsResponse.ok()).toBe(true);
+      const engineConfigs =
+        (await engineConfigsResponse.json()) as EngineConfigSummary[];
+      const createdRuntimeSupport =
+        engineConfigs.find((config) => config.id === createdEngineConfigId)
+          ?.runtimeSupport ?? null;
+      expect(createdRuntimeSupport?.thinking).toBe(true);
+
+      await page.evaluate(async () => {
+        const { loadEngineConfigs, loadLLMConfig } = await import(
+          "/src/state/actions/ai.ts"
+        );
+        await loadLLMConfig();
+        await loadEngineConfigs(true);
+      });
+
+      await setOverviewTab(page, "ProjectAIChat");
+      const overviewPane = page.locator("#OverviewPane");
+      await expect(
+        overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+      ).toBeVisible();
+
+      const projectChatSurface = await getVisibleProjectChatSurface(page);
+      await selectProjectAiEngine(page, "Anthropic Thinking E2E");
+
+      const thinkingButton = projectChatSurface.getByRole("button", {
+        name: "Thinking",
+      });
+      await expect(thinkingButton).toBeVisible();
+      if ((await thinkingButton.getAttribute("aria-pressed")) !== "true") {
+        await thinkingButton.click();
+        await expect(thinkingButton).toHaveAttribute("aria-pressed", "true");
+      }
+
+      const input = projectChatSurface.getByPlaceholder("Type a message...");
+      await expect(input).toBeVisible();
+      await input.fill("Trigger managed Anthropic thinking");
+      await input.press("Enter");
+
+      await expect.poll(() => submittedPayload?.thinking ?? null).toBe(true);
+      expect(submittedPayload?.engineConfigId).toBe(createdEngineConfigId);
+    } finally {
+      try {
+        await setOverviewTab(page, "ProjectAIChat");
+        await selectProjectAiEngine(page, "setta");
+      } catch {
+        // Best-effort teardown: if the test already failed, don't block cleanup.
+      }
+      if (createdEngineConfigId) {
+        await page.request
+          .post(`${backendOrigin}/api/deleteEngineConfig`, {
+            data: { configId: createdEngineConfigId },
+            timeout: 5000,
+          })
+          .catch(() => {});
+      }
+      if (initialLLMConfig) {
+        await page.request
+          .post(`${backendOrigin}/api/llm/config`, {
+            data: initialLLMConfig,
+            timeout: 5000,
+          })
+          .catch(() => {});
+      }
+      await engineCleanup();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("project chat enables thinking for managed OpenAI engines with backend runtime support", async ({
+    page,
+  }) => {
+    await setOverviewTab(page, "ProjectAIChat");
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const engineCleanup = await ensureManagedChatEngine(page);
+    const backendOrigin =
+      process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+
+    let createdEngineConfigId: string | null = null;
+    let initialLLMConfig: LLMConfigPayload | null = null;
+    let submittedPayload:
+      | {
+          thinking?: boolean;
+          engineConfigId?: string;
+        }
+      | undefined;
+
+    await page.route("**/api/getLLMResponse", async (route) => {
+      submittedPayload = route.request().postDataJSON() as
+        | {
+            thinking?: boolean;
+            engineConfigId?: string;
+          }
+        | undefined;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify("chat-openai-thinking"),
+      });
+    });
+
+    try {
+      const llmConfigResponse = await page.request.get(
+        `${backendOrigin}/api/llm/config`,
+      );
+      expect(llmConfigResponse.ok()).toBe(true);
+      initialLLMConfig = (await llmConfigResponse.json()) as LLMConfigPayload;
+
+      const openAIConfigId = `e2e-openai-thinking-${Date.now()}`;
+      const updatedLLMConfig: LLMConfigPayload = {
+        ...initialLLMConfig,
+        configs: {
+          ...initialLLMConfig.configs,
+          [openAIConfigId]: {
+            model: "gpt-5-codex",
+            provider: "openai",
+            other_params: {
+              reasoning_effort: "high",
+            },
+          },
+        },
+      };
+      await postBackend(page, "/llm/config", updatedLLMConfig);
+
+      const createdEngine = await postBackend<EngineConfigSummary>(
+        page,
+        "/createEngineConfig",
+        {
+          name: "OpenAI Thinking E2E",
+          engineType: "setta_llm",
+          settaLlmConfigId: openAIConfigId,
+          defaults: {},
+        },
+      );
+      createdEngineConfigId = createdEngine?.id ?? null;
+      if (!createdEngineConfigId) {
+        throw new Error("Missing OpenAI thinking engine config id.");
+      }
+
+      const engineConfigsResponse = await page.request.get(
+        `${backendOrigin}/api/getEngineConfigs`,
+      );
+      expect(engineConfigsResponse.ok()).toBe(true);
+      const engineConfigs =
+        (await engineConfigsResponse.json()) as EngineConfigSummary[];
+      const createdRuntimeSupport =
+        engineConfigs.find((config) => config.id === createdEngineConfigId)
+          ?.runtimeSupport ?? null;
+      expect(createdRuntimeSupport?.thinking).toBe(true);
+
+      await page.evaluate(async () => {
+        const { loadEngineConfigs, loadLLMConfig } = await import(
+          "/src/state/actions/ai.ts"
+        );
+        await loadLLMConfig();
+        await loadEngineConfigs(true);
+      });
+
+      await setOverviewTab(page, "ProjectAIChat");
+      const overviewPane = page.locator("#OverviewPane");
+      await expect(
+        overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+      ).toBeVisible();
+
+      const projectChatSurface = await getVisibleProjectChatSurface(page);
+      await selectProjectAiEngine(page, "OpenAI Thinking E2E");
+
+      const thinkingButton = projectChatSurface.getByRole("button", {
+        name: "Thinking",
+      });
+      await expect(thinkingButton).toBeVisible();
+      if ((await thinkingButton.getAttribute("aria-pressed")) !== "true") {
+        await thinkingButton.click();
+        await expect(thinkingButton).toHaveAttribute("aria-pressed", "true");
+      }
+
+      const input = projectChatSurface.getByPlaceholder("Type a message...");
+      await expect(input).toBeVisible();
+      await input.fill("Trigger managed OpenAI thinking");
+      await input.press("Enter");
+
+      await expect.poll(() => submittedPayload?.thinking ?? null).toBe(true);
+      expect(submittedPayload?.engineConfigId).toBe(createdEngineConfigId);
+    } finally {
+      try {
+        await setOverviewTab(page, "ProjectAIChat");
+        await selectProjectAiEngine(page, "setta");
+      } catch {
+        // Best-effort teardown: if the test already failed, don't block cleanup.
+      }
+      if (createdEngineConfigId) {
+        await page.request
+          .post(`${backendOrigin}/api/deleteEngineConfig`, {
+            data: { configId: createdEngineConfigId },
+            timeout: 5000,
+          })
+          .catch(() => {});
+      }
+      if (initialLLMConfig) {
+        await page.request
+          .post(`${backendOrigin}/api/llm/config`, {
+            data: initialLLMConfig,
+            timeout: 5000,
+          })
+          .catch(() => {});
+      }
+      await engineCleanup();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("project chat enables thinking for managed Gemini engines with backend runtime support", async ({
+    page,
+  }) => {
+    await setOverviewTab(page, "ProjectAIChat");
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const engineCleanup = await ensureManagedChatEngine(page);
+    const backendOrigin =
+      process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+
+    let createdEngineConfigId: string | null = null;
+    let initialLLMConfig: LLMConfigPayload | null = null;
+    let submittedPayload:
+      | {
+          thinking?: boolean;
+          engineConfigId?: string;
+        }
+      | undefined;
+
+    await page.route("**/api/getLLMResponse", async (route) => {
+      submittedPayload = route.request().postDataJSON() as
+        | {
+            thinking?: boolean;
+            engineConfigId?: string;
+          }
+        | undefined;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify("chat-gemini-thinking"),
+      });
+    });
+
+    try {
+      const llmConfigResponse = await page.request.get(
+        `${backendOrigin}/api/llm/config`,
+      );
+      expect(llmConfigResponse.ok()).toBe(true);
+      initialLLMConfig = (await llmConfigResponse.json()) as LLMConfigPayload;
+
+      const geminiConfigId = `e2e-gemini-thinking-${Date.now()}`;
+      const updatedLLMConfig: LLMConfigPayload = {
+        ...initialLLMConfig,
+        configs: {
+          ...initialLLMConfig.configs,
+          [geminiConfigId]: {
+            model: "gemini-2.5-pro",
+            provider: "gemini",
+            other_params: {
+              thinking_config: {
+                thinking_budget: 128,
+                thinking_level: "medium",
+              },
+            },
+          },
+        },
+      };
+      await postBackend(page, "/llm/config", updatedLLMConfig);
+
+      const createdEngine = await postBackend<EngineConfigSummary>(
+        page,
+        "/createEngineConfig",
+        {
+          name: "Gemini Thinking E2E",
+          engineType: "setta_llm",
+          settaLlmConfigId: geminiConfigId,
+          defaults: {},
+        },
+      );
+      createdEngineConfigId = createdEngine?.id ?? null;
+      if (!createdEngineConfigId) {
+        throw new Error("Missing Gemini thinking engine config id.");
+      }
+
+      const engineConfigsResponse = await page.request.get(
+        `${backendOrigin}/api/getEngineConfigs`,
+      );
+      expect(engineConfigsResponse.ok()).toBe(true);
+      const engineConfigs =
+        (await engineConfigsResponse.json()) as EngineConfigSummary[];
+      const createdRuntimeSupport =
+        engineConfigs.find((config) => config.id === createdEngineConfigId)
+          ?.runtimeSupport ?? null;
+      expect(createdRuntimeSupport?.thinking).toBe(true);
+
+      await page.evaluate(async () => {
+        const { loadEngineConfigs, loadLLMConfig } = await import(
+          "/src/state/actions/ai.ts"
+        );
+        await loadLLMConfig();
+        await loadEngineConfigs(true);
+      });
+
+      await setOverviewTab(page, "ProjectAIChat");
+      const overviewPane = page.locator("#OverviewPane");
+      await expect(
+        overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+      ).toBeVisible();
+
+      const projectChatSurface = await getVisibleProjectChatSurface(page);
+      await selectProjectAiEngine(page, "Gemini Thinking E2E");
+
+      const thinkingButton = projectChatSurface.getByRole("button", {
+        name: "Thinking",
+      });
+      await expect(thinkingButton).toBeVisible();
+      if ((await thinkingButton.getAttribute("aria-pressed")) !== "true") {
+        await thinkingButton.click();
+        await expect(thinkingButton).toHaveAttribute("aria-pressed", "true");
+      }
+
+      const input = projectChatSurface.getByPlaceholder("Type a message...");
+      await expect(input).toBeVisible();
+      await input.fill("Trigger managed Gemini thinking");
+      await input.press("Enter");
+
+      await expect.poll(() => submittedPayload?.thinking ?? null).toBe(true);
+      expect(submittedPayload?.engineConfigId).toBe(createdEngineConfigId);
+    } finally {
+      try {
+        await setOverviewTab(page, "ProjectAIChat");
+        await selectProjectAiEngine(page, "setta");
+      } catch {
+        // Best-effort teardown: if the test already failed, don't block cleanup.
+      }
+      if (createdEngineConfigId) {
+        await page.request
+          .post(`${backendOrigin}/api/deleteEngineConfig`, {
+            data: { configId: createdEngineConfigId },
+            timeout: 5000,
+          })
+          .catch(() => {});
+      }
+      if (initialLLMConfig) {
+        await page.request
+          .post(`${backendOrigin}/api/llm/config`, {
+            data: initialLLMConfig,
+            timeout: 5000,
+          })
+          .catch(() => {});
+      }
       await engineCleanup();
       await cleanupIsolatedProject(page, projectContext);
     }
@@ -1299,7 +1761,7 @@ test.describe.serial("chat composer controls", () => {
     }
   });
 
-  test("project chat collapses nav labels below the toolbar label breakpoint", async ({
+  test("project chat collapses the threads label below the toolbar label breakpoint while keeping settings accessible", async ({
     page,
   }) => {
     await setOverviewTab(page, "ProjectAIChat");
@@ -1327,18 +1789,17 @@ test.describe.serial("chat composer controls", () => {
         .getByRole("button", { name: "View Threads" })
         .locator("span", { hasText: /^Threads$/ })
         .first();
-      const settingsVisibleLabel = projectChatSurface
-        .getByRole("button", { name: "Project AI Settings" })
-        .locator("span", { hasText: /^Settings$/ })
-        .first();
+      const settingsButton = projectChatSurface.getByRole("button", {
+        name: "Project AI Settings",
+      });
 
       await setProjectChatSurfaceWidth(page, 820);
       await expect(historyVisibleLabel).toBeVisible();
-      await expect(settingsVisibleLabel).toBeVisible();
+      await expect(settingsButton).toBeVisible();
 
       await setProjectChatSurfaceWidth(page, 700);
       await expect(historyVisibleLabel).toBeHidden();
-      await expect(settingsVisibleLabel).toBeHidden();
+      await expect(settingsButton).toBeVisible();
     } finally {
       await engineCleanup();
       await cleanupIsolatedProject(page, projectContext);

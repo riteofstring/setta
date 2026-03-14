@@ -3387,6 +3387,7 @@ class TestAgentRunChatRoutes:
             dbe = _build_dbe(tmpdir)
             chat_id = ID("external-chat-2")
             project_config_id = ID("project-ext-2")
+            external_engine_config_id = ID("engine-external-2")
             user_message = UserChatMessage(
                 content=[MessageTextContent(text="Hello external")],
             )
@@ -3394,36 +3395,23 @@ class TestAgentRunChatRoutes:
                 id="assistant-external",
                 content=[MessageTextContent(text="External reply")],
             )
-            llm_reply = AssistantChatMessage(
-                id="assistant-llm",
-                content=[MessageTextContent(text="LLM reply")],
-            )
             external_run = _build_external_run(
                 chat_id=chat_id,
                 project_config_id=project_config_id,
+                engine_config_id=external_engine_config_id,
                 started_at=datetime(2024, 1, 6, tzinfo=timezone.utc),
                 status=AgentRunStatus.completed,
                 input_messages=[user_message],
                 output_messages=[user_message, external_reply],
             )
-            llm_run = _build_run(
-                chat_id=chat_id,
-                project_config_id=project_config_id,
-                engine_config_id=ID("engine-primary"),
-                started_at=datetime(2024, 1, 7, tzinfo=timezone.utc),
-                status=AgentRunStatus.completed,
-                input_messages=[user_message],
-                output_messages=[user_message, llm_reply],
-            )
             save_agent_run(dbe, external_run)
-            save_agent_run(dbe, llm_run)
 
             prior_messages = _get_prior_messages_for_engine(
                 dbe=dbe,
                 engine_type=EngineType.external_agent,
                 chat_id=chat_id,
                 project_config_id=project_config_id,
-                external_runs=[external_run],
+                engine_config_id=external_engine_config_id,
             )
 
             assert len(prior_messages) == 2
@@ -3436,6 +3424,7 @@ class TestAgentRunChatRoutes:
             dbe = _build_dbe(tmpdir)
             chat_id = ID("external-chat-no-fallback")
             project_config_id = ID("project-ext-no-fallback")
+            external_engine_config_id = ID("engine-external-no-fallback")
             user_message = UserChatMessage(
                 content=[MessageTextContent(text="Hello external")],
             )
@@ -3454,54 +3443,56 @@ class TestAgentRunChatRoutes:
             )
             save_agent_run(dbe, llm_run)
 
-            prior_messages = _get_prior_messages_for_engine(
-                dbe=dbe,
-                engine_type=EngineType.external_agent,
+            with pytest.raises(HTTPException) as exc:
+                _get_prior_messages_for_engine(
+                    dbe=dbe,
+                    engine_type=EngineType.external_agent,
+                    chat_id=chat_id,
+                    project_config_id=project_config_id,
+                    engine_config_id=external_engine_config_id,
+                )
+
+            assert exc.value.status_code == 409
+            assert exc.value.detail == "Chat engine mismatch; start a new chat."
+
+    async def test_external_agent_prior_messages_require_matching_engine_config(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            chat_id = ID("chat-prefetched")
+            project_config_id = ID("project-prefetched")
+            external_engine_config_id = ID("engine-prefetched")
+            other_engine_config_id = ID("engine-other")
+            user_message = UserChatMessage(
+                content=[MessageTextContent(text="Hello external")],
+            )
+            external_reply = AssistantChatMessage(
+                id="assistant-prefetched",
+                content=[MessageTextContent(text="External prefetched reply")],
+            )
+            external_run = _build_external_run(
                 chat_id=chat_id,
                 project_config_id=project_config_id,
+                engine_config_id=external_engine_config_id,
+                started_at=datetime(2024, 1, 8, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[user_message],
+                output_messages=[user_message, external_reply],
             )
+            save_agent_run(dbe, external_run)
 
-            assert prior_messages == []
+            with pytest.raises(HTTPException) as exc:
+                _get_prior_messages_for_engine(
+                    dbe=dbe,
+                    engine_type=EngineType.external_agent,
+                    chat_id=chat_id,
+                    project_config_id=project_config_id,
+                    engine_config_id=other_engine_config_id,
+                )
 
-    async def test_external_agent_prior_messages_can_use_prefetched_runs(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        user_message = UserChatMessage(
-            content=[MessageTextContent(text="Hello external")],
-        )
-        external_reply = AssistantChatMessage(
-            id="assistant-prefetched",
-            content=[MessageTextContent(text="External prefetched reply")],
-        )
-        external_run = _build_external_run(
-            chat_id=ID("chat-prefetched"),
-            project_config_id=ID("project-prefetched"),
-            started_at=datetime(2024, 1, 8, tzinfo=timezone.utc),
-            status=AgentRunStatus.completed,
-            input_messages=[user_message],
-            output_messages=[user_message, external_reply],
-        )
-
-        def _fail_external_lookup(**_kwargs):
-            raise AssertionError("Expected prefetched external runs to avoid lookup.")
-
-        monkeypatch.setattr(
-            ai_module,
-            "_get_external_agent_chat_runs",
-            _fail_external_lookup,
-        )
-
-        prior_messages = _get_prior_messages_for_engine(
-            dbe=None,
-            engine_type=EngineType.external_agent,
-            chat_id=ID("chat-prefetched"),
-            project_config_id=ID("project-prefetched"),
-            external_runs=[external_run],
-        )
-
-        assert len(prior_messages) == 2
-        assert prior_messages[1].content[0].text == "External prefetched reply"
+            assert exc.value.status_code == 409
+            assert exc.value.detail == "Chat engine mismatch; start a new chat."
 
     async def test_stop_llm_chat(self) -> None:
         with TemporaryDirectory() as tmpdir:

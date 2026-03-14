@@ -657,12 +657,6 @@ export const useBackendLogEvents = withProjectState(
   ),
 );
 
-const useArtifacts = withProjectState(
-  createWithEqualityFn(
-    subscribeWithSelector(withResetFn(() => ({ x: {}, namePathTypeToId: {} }))),
-  ),
-);
-
 export type ZustandProjectSearch = {
   codeInfo: Array<{
     sectionId: string;
@@ -722,7 +716,6 @@ type EdgeHandlePosition = {
 type ZustandEdgeHandleRegistry = {
   handles: Record<string, EdgeHandleRecord>;
   positions: Record<string, EdgeHandlePosition>;
-  cachedPositions: Record<string, EdgeHandlePosition>;
 };
 
 export const useEdgeHandleRegistry = withProjectState(
@@ -731,7 +724,6 @@ export const useEdgeHandleRegistry = withProjectState(
       withResetFn<ZustandEdgeHandleRegistry>(() => ({
         handles: {},
         positions: {},
-        cachedPositions: {},
       })),
     ),
   ),
@@ -1097,8 +1089,6 @@ type ZustandLocalStorage = {
   darkMode: boolean;
   colorMode: ColorModePreference;
   showMinimap: boolean;
-  useCanvasEngineV1: boolean;
-  useCanvasEngineAlwaysLiveDom: boolean;
   minimapSide: MiniMapSide;
   projectConfigPreviewEnabled: boolean;
   appSpecStreamingEnabled: boolean;
@@ -1175,8 +1165,6 @@ export const useLocalStorage = createWithEqualityFn(
       darkMode: true,
       colorMode: "dark",
       showMinimap: true,
-      useCanvasEngineV1: false,
-      useCanvasEngineAlwaysLiveDom: false,
       minimapSide: "left",
       projectConfigPreviewEnabled: true,
       appSpecStreamingEnabled: false,
@@ -1245,12 +1233,6 @@ export const useLocalStorage = createWithEqualityFn(
         }
         if (!Array.isArray(merged.favoriteProjectConfigIds)) {
           merged.favoriteProjectConfigIds = [];
-        }
-        if (typeof merged.useCanvasEngineV1 !== "boolean") {
-          merged.useCanvasEngineV1 = false;
-        }
-        if (typeof merged.useCanvasEngineAlwaysLiveDom !== "boolean") {
-          merged.useCanvasEngineAlwaysLiveDom = false;
         }
         if (!Array.isArray(merged.overviewProjectConfigOrder)) {
           merged.overviewProjectConfigOrder = [];
@@ -1348,8 +1330,6 @@ export const useLocalStorage = createWithEqualityFn(
         darkMode: state.darkMode,
         colorMode: state.colorMode,
         showMinimap: state.showMinimap,
-        useCanvasEngineV1: state.useCanvasEngineV1,
-        useCanvasEngineAlwaysLiveDom: state.useCanvasEngineAlwaysLiveDom,
         projectConfigPreviewEnabled: state.projectConfigPreviewEnabled,
         appSpecStreamingEnabled: state.appSpecStreamingEnabled,
         homeProjectGalleryViewMode: state.homeProjectGalleryViewMode,
