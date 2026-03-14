@@ -2006,6 +2006,13 @@ function ProjectChatSurface({
                           setConversationFilterText(event.target.value);
                         }}
                         onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            handleStepConversationSearch(
+                              event.shiftKey ? "previous" : "next",
+                            );
+                            return;
+                          }
                           if (event.key !== "Escape") {
                             return;
                           }

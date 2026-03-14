@@ -998,9 +998,19 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
       body: JSON.stringify({
         messages: [
           {
+            id: "user-existing",
+            role: "user",
+            content: [{ type: "text", text: "Queue kickoff request" }],
+          },
+          {
             id: "assistant-existing",
             role: "assistant",
             content: [{ type: "text", text: "Existing queue thread reply" }],
+          },
+          {
+            id: "assistant-existing-follow-up",
+            role: "assistant",
+            content: [{ type: "text", text: "Queue follow up summary" }],
           },
         ],
         waitingForResponse: false,
@@ -1016,9 +1026,19 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
       body: JSON.stringify({
         messages: [
           {
+            id: "user-existing",
+            role: "user",
+            content: [{ type: "text", text: "Queue kickoff request" }],
+          },
+          {
             id: "assistant-existing",
             role: "assistant",
             content: [{ type: "text", text: "Existing queue thread reply" }],
+          },
+          {
+            id: "assistant-existing-follow-up",
+            role: "assistant",
+            content: [{ type: "text", text: "Queue follow up summary" }],
           },
         ],
         waitingForResponse: false,
@@ -1200,6 +1220,13 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
     await expect(
       overviewPane.getByText("Existing queue thread reply"),
     ).toBeVisible();
+    await expect(
+      overviewPane.getByTestId("project-chat-conversation-filter"),
+    ).toContainText("1/3");
+    await conversationFilterInput.press("Enter");
+    await expect(
+      overviewPane.getByTestId("project-chat-conversation-filter"),
+    ).toContainText("2/3");
     await conversationFilterInput.fill("");
     await clickDom(overviewPane.locator('button[aria-label="New Chat"]'));
     const draftEntry = threadsPanel.getByTestId(
