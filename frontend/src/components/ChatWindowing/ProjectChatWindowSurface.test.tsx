@@ -181,4 +181,35 @@ describe("ProjectChatWindowSurface", () => {
         ?.getAttribute("data-tooltip-content"),
     ).toBe("Undock Tooltip Chat");
   });
+
+  it("can reuse the shared chat frame without rendering the floating header", async () => {
+    await act(async () => {
+      root.render(
+        <ProjectChatWindowSurface
+          title="Headerless Chat"
+          mode={ChatWindowModeEnum.project_ai_mode}
+          instanceId="window-4"
+          allowLayoutMutations={false}
+          actions={[]}
+          onTitleClick={() => {}}
+          roundedClassName="rounded-none"
+          showHeader={false}
+        >
+          <div data-testid="headerless-chat-body">body</div>
+        </ProjectChatWindowSurface>,
+      );
+    });
+
+    const frame = host.querySelector(
+      '[data-testid="project-chat-window-surface"]',
+    ) as HTMLElement | null;
+    expect(frame).not.toBeNull();
+    expect(frame?.getAttribute("data-chat-window-frame")).toBe("project-chat");
+    expect(
+      host.querySelector('[data-testid="project-chat-window-title"]'),
+    ).toBeNull();
+    expect(
+      host.querySelector('[data-testid="headerless-chat-body"]'),
+    ).not.toBeNull();
+  });
 });

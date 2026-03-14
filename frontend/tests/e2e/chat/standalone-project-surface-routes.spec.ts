@@ -5306,6 +5306,36 @@ test.describe.serial("standalone project surface routes", () => {
     }
   });
 
+  test("wraps standalone project chat routes in the shared project-chat frame", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const cleanupManagedEngine = await ensureManagedChatEngine(page);
+
+    try {
+      const projectConfigName = getProjectConfigNameFromUrl(page.url());
+      const standaloneChatUrl = buildStandaloneUrl(
+        page.url(),
+        `/${encodeURIComponent(projectConfigName)}/chat`,
+      );
+
+      await page.goto(standaloneChatUrl, {
+        waitUntil: "domcontentloaded",
+      });
+      const standaloneSurface = page.getByTestId("standalone-project-chat-surface");
+      await expect(standaloneSurface).toBeVisible();
+      await expect(
+        page
+          .locator('[data-chat-window-frame="project-chat"]')
+          .filter({ has: standaloneSurface }),
+      ).toBeVisible();
+    } finally {
+      await cleanupManagedEngine();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("shows an error notification when saving a window space fails", async ({
     page,
   }) => {
