@@ -1,12 +1,18 @@
 # Setta CLI Commands
 
-This doc covers the commands exposed by the `setta` CLI (implemented in
-`backend/setta/start.py`). Local commands operate on a workspace root (code
-operations) and a `setta_files` root (state/runtime). By default both roots
-follow the current working directory and the default Setta home, but you can
-override runtime identity and roots with:
-`--workspace`, `--profile`, `--setta-home`, `--setta-files-root`,
-`--setta-files-location`, and `--runtime-root` (or matching env vars).
+This doc covers the commands exposed by the shipped `setta` CLI. The published
+entrypoint now uses `backend/setta/entrypoint.py` as a thin dispatcher to the
+packaged Go binary for the current shipped command surface. The old
+source-only Python `backend/setta/start.py` CLI has been removed. Root help,
+bare `setta plugins` / `setta plugins lock` navigation, and invalid root argv
+all resolve through the packaged Go CLI boundary.
+Local commands operate on a workspace root (code operations) and a
+`setta_files` root (state/runtime). By default both roots follow the current
+working directory and the default Setta home, but you can override runtime
+identity and roots with:
+`--workspace`, `--profile`, `--profile-lookup-home`, `--setta-home`,
+`--setta-files-root`, `--setta-files-location`, and `--runtime-root`
+(or matching env vars).
 `setta_files` resolution still follows local/global rules from
 `docs/reference/setta-files.md`.
 
@@ -30,9 +36,9 @@ another host.
 | `setta share` | yes | no | Start the server in share deployment mode. |
 | `setta app` | yes | no | Start the server in app deployment mode. |
 | `setta version` | yes | no | Prints the local install version. |
-| `setta export-db` | yes | no | Placeholder export command. |
+| `setta export-db` | yes | no | Write a readable YAML export of the current project state. |
 | `setta backups` | yes | no | List and restore local project backups. |
-| `setta plugins` | yes | no | Plugin scaffold, install/update/link, runtime state, and lockfile commands. |
+| `setta plugins` | yes | no | Fully Go-owned packaged plugin command cluster. |
 | `setta status` | yes | no | Reads local session registry; SSH in to run remotely. |
 | `setta auth` | yes | no | Emit machine-readable auth info for API calls. |
 | `setta tools` | yes | no | Emit the MCP tool list (JSON only). |
@@ -49,6 +55,7 @@ These options can be passed before subcommands (for example,
 
 - `--workspace PATH` selects the workspace root.
 - `--profile NAME` selects `<setta_home>/profiles/<NAME>.json`.
+- `--profile-lookup-home PATH` overrides where runtime profiles are resolved.
 - `--setta-home PATH` overrides runtime Setta home.
 - `--setta-files-root PATH` forces a specific state root.
 - `--setta-files-location {auto,local,global}` requests local/global resolution mode.
@@ -63,6 +70,7 @@ Env equivalents:
 
 - `SETTA_WORKSPACE_ROOT`
 - `SETTA_PROFILE`
+- `SETTA_PROFILE_LOOKUP_HOME`
 - `SETTA_HOME`
 - `SETTA_FILES_ROOT`
 - `SETTA_FILES_LOCATION`
@@ -74,21 +82,23 @@ Starts the backend server in the current workspace, creates a session entry,
 prints a bootstrap URL + token, and (when possible) auto-opens the browser.
 
 Options:
-- `--reload` enables live-reload (Uvicorn).
 - `--host` sets the bind host (default: `127.0.0.1`).
 - `--port` sets the bind port (random if omitted).
 - `--log-level` overrides logging (`critical`, `error`, `warning`, `info`, `debug`).
 - `--no-open` skips auto-opening the browser.
 - `--workspace PATH` sets the workspace root.
 - `--profile NAME` selects a runtime profile.
+- `--profile-lookup-home PATH` overrides profile lookup home.
 - `--setta-home PATH` overrides Setta home.
 - `--setta-files-root PATH` forces an explicit `setta_files` root.
 - `--setta-files-location {auto,local,global}` controls local/global resolution
   mode when no explicit root is set.
 - `--runtime-root PATH` overrides runtime root.
+- `--reload` is not supported by the shipped Go CLI.
 Env equivalents:
-`SETTA_WORKSPACE_ROOT`, `SETTA_PROFILE`, `SETTA_HOME`, `SETTA_FILES_ROOT`,
-`SETTA_FILES_LOCATION`, and `SETTA_RUNTIME_ROOT`.
+`SETTA_WORKSPACE_ROOT`, `SETTA_PROFILE`, `SETTA_PROFILE_LOOKUP_HOME`,
+`SETTA_HOME`, `SETTA_FILES_ROOT`, `SETTA_FILES_LOCATION`, and
+`SETTA_RUNTIME_ROOT`.
 
 Examples:
 ```sh
@@ -108,11 +118,15 @@ Options:
 - `--deployment-name NAME` selects a deployment under `setta_files/deployments/`.
   Pair this with:
   - `--version vN` or `--latest`.
+- omitted `--host` / `--port` values default to `127.0.0.1` and an OS-assigned
+  port.
+- binding to a non-loopback host prints a warning because share mode disables
+  auth.
 - `--reload` is rejected in deployment mode.
 - Global options are shared with `setta`: `--host`, `--port`, `--log-level`,
   `--no-open`, plus runtime path flags (`--workspace`, `--profile`,
-  `--setta-home`, `--setta-files-root`, `--setta-files-location`,
-  `--runtime-root`).
+  `--profile-lookup-home`, `--setta-home`, `--setta-files-root`,
+  `--setta-files-location`, `--runtime-root`).
 
 Examples:
 ```sh
@@ -132,11 +146,15 @@ Options:
 - `--deployment-name NAME` selects a deployment under `setta_files/deployments/`.
   Pair this with:
   - `--version vN` or `--latest`.
+- omitted `--host` / `--port` values default to `127.0.0.1` and an OS-assigned
+  port.
+- binding to a non-loopback host prints a warning because app mode disables
+  auth.
 - `--reload` is rejected in deployment mode.
 - Global options are shared with `setta`: `--host`, `--port`, `--log-level`,
   `--no-open`, plus runtime path flags (`--workspace`, `--profile`,
-  `--setta-home`, `--setta-files-root`, `--setta-files-location`,
-  `--runtime-root`).
+  `--profile-lookup-home`, `--setta-home`, `--setta-files-root`,
+  `--setta-files-location`, `--runtime-root`).
 
 Examples:
 ```sh
@@ -156,13 +174,28 @@ setta version
 
 ## `setta export-db`
 
-Reserved for exporting the database. The handler is currently a placeholder
-(`TODO` in the code), so this command does not produce output yet.
+Exports the current project state in readable YAML form.
+
+If neither `--readable` nor `--readable-with-variants` is provided, the command
+defaults to `--readable-with-variants`.
 
 Options:
-- `--readable` exports in a human-readable format.
-- `--readable-with-variants` includes variants in the readable export.
-- `--output PATH` writes the readable export to a custom path (default: `setta_files/project.readable.yaml`).
+- `--readable` exports a readable YAML payload without section variant names.
+- `--readable-with-variants` includes section variant names in the readable
+  export.
+- `--output PATH` writes the readable export to a custom path (default:
+  `setta_files/project.readable.yaml`).
+
+Output:
+- writes YAML to the selected path
+- prints `Wrote readable export to <path>` on success
+
+Examples:
+```sh
+setta export-db
+setta export-db --readable
+setta export-db --output /tmp/project.readable.yaml
+```
 
 ## `setta backups`
 
@@ -243,35 +276,50 @@ Subcommands:
 
 - `setta plugins init <plugin_id> [--template backend|frontend|full|content] [--out PATH]`
   - Scaffold a plugin package with `setta.plugin.json`, `pyproject.toml`, and template files.
+  - Ownership: Go.
 - `setta plugins validate <plugin_folder>`
   - Validate a plugin manifest/folder contract.
+  - Ownership: Go.
 - `setta plugins list [--json]`
   - List discovered plugin runtime status entries.
+  - Ownership: Go.
 - `setta plugins install <source_spec> [--scope ...] [--installer auto|pip|uv] [--no-enable] [--force] [--json]`
   - Install plugin source into a selected scope.
+  - Ownership: Go.
 - `setta plugins link <local_plugin_root> [--scope ...] [--no-enable] [--force] [--json]`
   - Link a local folder as an installed plugin (development workflow).
+  - Ownership: Go.
 - `setta plugins uninstall <plugin_id> [--scope ...] [--json]`
   - Remove a plugin from a scope.
+  - Ownership: Go.
 - `setta plugins enable <plugin_id> [--json]`
 - `setta plugins disable <plugin_id> [--json]`
   - Toggle enablement for the highest-precedence discovered plugin id.
+  - Ownership: Go.
 - `setta plugins rescan [--json]`
   - Rebuild plugin discovery/runtime status without restarting Setta.
+  - Ownership: Go.
 - `setta plugins update <plugin_id> [--scope ...] [--to <source_spec_or_version>] [--json]`
   - Update an installed plugin to latest or to a pinned target.
+  - Ownership: Go.
 - `setta plugins pin <plugin_id> <source_spec_or_version> [--scope ...] [--json]`
   - Shortcut for targeted update/pin.
+  - Ownership: Go.
 - `setta plugins rollback <plugin_id> [--scope ...] [--json]`
   - Restore previous installed version from plugin history snapshots.
+  - Ownership: Go.
 - `setta plugins lock write [--json]`
   - Write lockfile at `<workspace>/.setta_plugins/plugins.lock.json`.
+  - Ownership: Go.
 - `setta plugins lock apply [--check] [--json]`
   - Compare/apply lockfile desired state against current installs.
+  - Ownership: Go.
 - `setta plugins restart [--json]`
   - Request programmatic backend restart when available.
+  - Ownership: Go.
 - `setta plugins restart-required [--json]`
   - List plugins pending backend restart and restart capability details.
+  - Ownership: Go.
 
 Examples:
 ```sh
@@ -364,6 +412,7 @@ frontend can consume. This command requires `--json`.
 Options:
 - `--workspace PATH` sets the workspace root (required for detached workspaces).
 - `--profile NAME` selects a runtime profile.
+- `--profile-lookup-home PATH` overrides where named profiles are resolved.
 - `--setta-home PATH` overrides Setta home.
 - `--setta-files-root PATH` forces an explicit `setta_files` root.
 - `--setta-files-location {auto,local,global}` requests local/global resolution
@@ -604,9 +653,9 @@ Remote stop:
 - Use `--ssh-args` to pass extra SSH options.
 - Use `--remote-cmd` to override how `setta` is invoked remotely.
 - To control remote runtime roots/identity, pass global path flags before
-  `stop` (for example: `--profile`, `--setta-home`, `--setta-files-root`,
-  `--setta-files-location`, `--runtime-root`). These are forwarded to remote
-  `setta` calls.
+  `stop` (for example: `--profile`, `--profile-lookup-home`, `--setta-home`,
+  `--setta-files-root`, `--setta-files-location`, `--runtime-root`). These are
+  forwarded to remote `setta` calls.
 
 Examples:
 ```sh
@@ -634,8 +683,9 @@ Options:
 - `--ssh-args` passes extra SSH options.
 - `--remote-cmd` overrides the remote Setta command.
 - Remote root/identity options are passed globally before the subcommand:
-  `--profile`, `--setta-home`, `--setta-files-root`, `--setta-files-location`,
-  `--runtime-root` (all forwarded to remote `setta` calls).
+  `--profile`, `--profile-lookup-home`, `--setta-home`, `--setta-files-root`,
+  `--setta-files-location`, `--runtime-root` (all forwarded to remote `setta`
+  calls).
 - `--local-port` pins the local tunnel port.
 - `--detach` backgrounds the tunnel process.
 - `--print-only` prints the tunnel command and URLs without running them.
