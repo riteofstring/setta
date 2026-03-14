@@ -62,6 +62,13 @@ export function reconcileHydratedChatMessages({
     if (!localMessage) {
       return backendMessage;
     }
+    if (
+      preserveLocalOnlyMessages &&
+      backendMessage.role === ChatRoleEnum.assistant &&
+      localMessage.role === ChatRoleEnum.assistant
+    ) {
+      return mergeStreamingAssistantMessage(backendMessage, localMessage);
+    }
     return pickMoreCompleteMessage(backendMessage, localMessage);
   });
   if (!preserveLocalOnlyMessages) {
@@ -77,6 +84,105 @@ export function reconcileHydratedChatMessages({
     nextMessages.push(localMessage);
   }
   return nextMessages;
+}
+
+type ChatContentItem =
+  | MessageTextContent
+  | MessageImageUrlContent
+  | MessageThinkingContent;
+
+function mergeStreamingAssistantMessage(
+  backendMessage: AssistantChatMessage,
+  localMessage: AssistantChatMessage,
+): AssistantChatMessage {
+  return {
+    ...backendMessage,
+    content: mergeStreamingAssistantContent(
+      backendMessage.content,
+      localMessage.content,
+    ),
+    tool_calls:
+      backendMessage.tool_calls && backendMessage.tool_calls.length > 0
+        ? backendMessage.tool_calls
+        : localMessage.tool_calls,
+    attachments:
+      backendMessage.attachments && backendMessage.attachments.length > 0
+        ? backendMessage.attachments
+        : localMessage.attachments,
+  };
+}
+
+function mergeStreamingAssistantContent(
+  backendContent: Array<ChatContentItem>,
+  localContent: Array<ChatContentItem>,
+): Array<ChatContentItem> {
+  const merged: Array<ChatContentItem> = [];
+  const maxLength = Math.max(backendContent.length, localContent.length);
+  for (let index = 0; index < maxLength; index += 1) {
+    const mergedItem = mergeStreamingAssistantContentItem(
+      backendContent[index],
+      localContent[index],
+    );
+    if (mergedItem) {
+      merged.push(mergedItem);
+    }
+  }
+  return merged;
+}
+
+function mergeStreamingAssistantContentItem(
+  backendItem: ChatContentItem | undefined,
+  localItem: ChatContentItem | undefined,
+): ChatContentItem | null {
+  if (!backendItem) {
+    return localItem ?? null;
+  }
+  if (!localItem) {
+    return backendItem;
+  }
+  if (backendItem.type !== localItem.type) {
+    return localItem;
+  }
+  if (backendItem.type === "text" && localItem.type === "text") {
+    return {
+      ...backendItem,
+      text: localItem.text || backendItem.text,
+    };
+  }
+  if (backendItem.type === "thinking" && localItem.type === "thinking") {
+    return {
+      ...backendItem,
+      thinking: localItem.thinking || backendItem.thinking,
+      summary: preferHydratedThinkingMetadata(
+        backendItem.summary,
+        localItem.summary,
+      ),
+      signature: preferHydratedThinkingMetadata(
+        backendItem.signature,
+        localItem.signature,
+      ),
+    };
+  }
+  return localItem;
+}
+
+function preferHydratedThinkingMetadata(
+  backendValue: string | null | undefined,
+  localValue: string | null | undefined,
+): string | null {
+  if (typeof backendValue === "string" && backendValue.length > 0) {
+    return backendValue;
+  }
+  if (typeof localValue === "string" && localValue.length > 0) {
+    return localValue;
+  }
+  if (backendValue !== undefined) {
+    return backendValue;
+  }
+  if (localValue !== undefined) {
+    return localValue;
+  }
+  return null;
 }
 
 export function getMessageCompletenessScore(
