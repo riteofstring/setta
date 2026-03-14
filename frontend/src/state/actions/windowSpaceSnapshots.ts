@@ -3,8 +3,8 @@ import {
   normalizeFloatingBounds,
 } from "components/ChatWindowing/projectChatSnapLayout";
 import { resolveProjectChatFloatingViewport } from "components/ChatWindowing/projectChatViewport";
-import { normalizeProjectChatWindowingState } from "state/actions/projectChatWindowing";
 import { isProjectChatGitGraphEmbeddedPaneVisible } from "state/actions/projectChatWindowingEphemeral";
+import { normalizeProjectChatWindowingState } from "state/actions/projectChatWindowingState";
 import type { ZustandProjectState } from "state/definitions";
 import {
   ChatWindowModeEnum,

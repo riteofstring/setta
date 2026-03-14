@@ -47,11 +47,16 @@ vi.mock("utils/generatedEndpoints", () => ({
 }));
 
 import {
-  addProjectChatWindowInstanceInState,
   bootProjectChatWindowToCanvasSection,
   closeProjectChatWindow,
-  closeProjectChatWindowInState,
   ensureTrackedGitPaneGraphWindow,
+  setProjectChatWindowBounds,
+  setProjectChatWindowChatId,
+  unmaximizeProjectChatWindow,
+} from "./projectChatWindowing";
+import {
+  addProjectChatWindowInstanceInState,
+  closeProjectChatWindowInState,
   focusProjectChatWindowInState,
   getExternalProjectChatWindowBindingForSectionInState,
   getOpenExternalProjectChatWindowInstanceForSectionInState,
@@ -64,19 +69,16 @@ import {
   reopenProjectChatWindowInState,
   resolveDefaultDockedChatHeightPx,
   resolveDefaultFloatingChatBounds,
-  setProjectChatWindowBounds,
   setProjectChatWindowBoundsByIdInState,
   setProjectChatWindowBoundsInState,
-  setProjectChatWindowChatId,
   setProjectChatWindowDockFractionsInState,
   setProjectChatWindowModeForSectionInState,
   setProjectChatWindowPlacementInState,
   setProjectChatWindowTitleInState,
   showSectionInProjectChatWindowInState,
   undockProjectChatWindowFromCanvasSectionInState,
-  unmaximizeProjectChatWindow,
   unmaximizeProjectChatWindowInState,
-} from "./projectChatWindowing";
+} from "./projectChatWindowingState";
 import {
   flushPendingProjectChatWindowingWrites,
   syncProjectChatWindowingState,

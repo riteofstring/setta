@@ -8,9 +8,12 @@ let mockExternalizedWindowInstance: { instanceId: string } | null = null;
 
 vi.mock("state/actions/projectChatWindowing", () => ({
   bootProjectChatWindowToCanvasSection: vi.fn(),
+  showSectionInProjectChatWindow: vi.fn(),
+}));
+
+vi.mock("state/actions/projectChatWindowingState", () => ({
   getOpenExternalProjectChatWindowInstanceForSectionInState: () =>
     mockExternalizedWindowInstance,
-  showSectionInProjectChatWindow: vi.fn(),
 }));
 
 vi.mock("state/definitions", () => ({

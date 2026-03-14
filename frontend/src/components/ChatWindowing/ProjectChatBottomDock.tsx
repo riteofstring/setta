@@ -63,12 +63,9 @@ import {
   closeProjectChatWindow,
   createProjectChatWindowInstance,
   focusProjectChatWindow,
-  getOpenExternalProjectChatWindowInstanceForSectionInState,
   maximizeProjectChatWindow,
   minimizeProjectChatWindow,
   reopenProjectChatWindow,
-  resolveDefaultDockedChatHeightPx,
-  resolveDefaultFloatingChatBounds,
   setProjectChatWindowBounds,
   setProjectChatWindowBoundsById,
   setProjectChatWindowChatId,
@@ -79,6 +76,11 @@ import {
   unmaximizeProjectChatWindow,
 } from "state/actions/projectChatWindowing";
 import { getTrackedGitPaneGraphWindowInstanceIdForProject } from "state/actions/projectChatWindowingEphemeral";
+import {
+  getOpenExternalProjectChatWindowInstanceForSectionInState,
+  resolveDefaultDockedChatHeightPx,
+  resolveDefaultFloatingChatBounds,
+} from "state/actions/projectChatWindowingState";
 import {
   NULL_PROJECT_CONFIG_ID,
   useActiveSectionUI,

@@ -84,8 +84,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
   - `components/ChatWindowing/*` owns dock/window rendering, surface ids, snap
     layout helpers, and viewport math.
-  - `state/actions/projectChatWindowing.ts` now owns the remaining in-state
-    reducers plus public window commands.
+  - `state/actions/projectChatWindowingState.ts` owns pure windowing
+    normalization, selectors, and in-state reducers.
+  - `state/actions/projectChatWindowing.ts` now owns public window commands and
+    canvas boot flow.
   - `state/actions/projectChatWindowingWrites.ts` owns layout-write
     permissions, optimistic mutation dispatch, authoritative publish flow, and
     sync helpers.
@@ -270,8 +272,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/projectChatWindowing.ts` remains the largest authored state
-  hotspot and should continue from
+- `state/actions/aiChatStreaming.ts` is now the largest authored state hotspot
+  and should keep splitting around streaming reducers versus app-spec or
+  tool-preview ownership
+- `state/actions/projectChatWindowingState.ts` is now the largest remaining
+  pure windowing hotspot and should continue from
+  `state/actions/projectChatWindowing.ts`,
   `state/actions/projectChatWindowingWrites.ts`,
   `state/actions/projectChatWindowingAuthoritative.ts`, and
   `state/actions/projectChatWindowingEphemeral.ts` instead of regrowing around

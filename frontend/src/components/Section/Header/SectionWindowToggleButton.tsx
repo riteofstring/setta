@@ -5,9 +5,9 @@ import {
 import { MdFlipToFront, MdOpenInNew } from "react-icons/md";
 import {
   bootProjectChatWindowToCanvasSection,
-  getOpenExternalProjectChatWindowInstanceForSectionInState,
   showSectionInProjectChatWindow,
 } from "state/actions/projectChatWindowing";
+import { getOpenExternalProjectChatWindowInstanceForSectionInState } from "state/actions/projectChatWindowingState";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
