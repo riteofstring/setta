@@ -143,6 +143,25 @@ export function buildBackendURL(
   return resolveBackendUrl(buildAddressWithParams(address, addressParams));
 }
 
+export function buildBackendOriginURL(
+  address: string,
+  addressParams?: Record<string, string | number | boolean | null | undefined>,
+): string {
+  return `${C_ADDRESSES.BACKEND_ORIGIN}${buildAddressWithParams(
+    address,
+    addressParams,
+  )}`;
+}
+
+export function buildBackendOriginWebsocketURL(
+  address: string,
+  addressParams?: Record<string, string | number | boolean | null | undefined>,
+): string {
+  const url = new URL(buildBackendOriginURL(address, addressParams));
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  return url.toString();
+}
+
 function buildShareSessionHeaders(): Record<string, string> {
   const shareSession = useShareSession.getState();
   if (!shareSession.isDeploymentMode || !shareSession.shareSessionId) {

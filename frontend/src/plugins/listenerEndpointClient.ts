@@ -1,4 +1,4 @@
-import { C_ADDRESSES } from "utils/c_addresses";
+import { buildBackendOriginWebsocketURL } from "utils/endpointUtils";
 import { GoWebsocketRouteHelpers } from "utils/generatedRoutes";
 
 const LISTENER_REGISTER_MESSAGE_TYPE = "ListenerRegister";
@@ -42,14 +42,13 @@ export function buildListenerEndpointWebsocketUrl({
   projectConfigId,
   shareSessionId,
 }: BuildListenerEndpointWebsocketUrlOptions): string {
-  const routePath = GoWebsocketRouteHelpers.listenerById(listenerId);
-  const url = new URL(routePath, C_ADDRESSES.BACKEND_ORIGIN);
-  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-  url.searchParams.set("projectId", projectConfigId);
-  if (shareSessionId) {
-    url.searchParams.set("shareSessionId", shareSessionId);
-  }
-  return url.toString();
+  return buildBackendOriginWebsocketURL(
+    GoWebsocketRouteHelpers.listenerById(listenerId),
+    {
+      projectId: projectConfigId,
+      shareSessionId: shareSessionId ?? undefined,
+    },
+  );
 }
 
 export function callListenerEndpointOverWebsocket({

@@ -26,8 +26,12 @@ import {
 } from "state/definitions";
 import { encodeBinaryFrame } from "utils/binaryWebsocket";
 import { C } from "utils/c";
-import { C_ADDRESSES } from "utils/c_addresses";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import {
+  buildBackendOriginURL,
+  buildBackendOriginWebsocketURL,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
 import {
   route_binary_upload,
   route_get_auth_refresh_status,
@@ -116,7 +120,7 @@ let authLost = false;
 const AUTH_CLOSE_CODE = 4401;
 const SHARE_SESSION_MISSING_CODE = 4400;
 const SHARE_SESSION_UNKNOWN_CODE = 4404;
-const BOOTSTRAP_URL = `${C_ADDRESSES.BACKEND_ORIGIN}${GoRootRouteHelpers.bootstrapPage()}`;
+const BOOTSTRAP_URL = buildBackendOriginURL(GoRootRouteHelpers.bootstrapPage());
 const FRONTEND_WEBSOCKET_ROUTE = GoWebsocketRouteHelpers.frontend();
 const AUTH_RECOVERY_INTERVAL_MS = 2000;
 const DEFAULT_AUTH_REFRESH_WINDOW_SECONDS =
@@ -162,15 +166,9 @@ function beginWebsocketGeneration(): number {
 }
 
 function buildFrontendWebsocketUrl(shareSessionId: string | null): string {
-  const targetUrl = new URL(
-    FRONTEND_WEBSOCKET_ROUTE,
-    C_ADDRESSES.BACKEND_ORIGIN,
-  );
-  targetUrl.protocol = targetUrl.protocol === "https:" ? "wss:" : "ws:";
-  if (shareSessionId) {
-    targetUrl.searchParams.set("shareSessionId", shareSessionId);
-  }
-  return targetUrl.toString();
+  return buildBackendOriginWebsocketURL(FRONTEND_WEBSOCKET_ROUTE, {
+    shareSessionId: shareSessionId ?? undefined,
+  });
 }
 
 export const openWebSocket = _.debounce(

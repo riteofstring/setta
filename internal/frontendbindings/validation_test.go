@@ -7202,11 +7202,13 @@ func renderFrontendBoundaryExceptionManifest(t *testing.T, repoRoot string) stri
 	t.Helper()
 
 	trackedEndpointUtilsBindings := map[string]struct{}{
-		"buildBackendURL":      {},
-		"get":                  {},
-		"getBinary":            {},
-		"post":                 {},
-		"replaceAddressParams": {},
+		"buildBackendOriginURL":          {},
+		"buildBackendOriginWebsocketURL": {},
+		"buildBackendURL":                {},
+		"get":                            {},
+		"getBinary":                      {},
+		"post":                           {},
+		"replaceAddressParams":           {},
 	}
 
 	lines := make([]string, 0)

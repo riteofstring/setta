@@ -7,9 +7,12 @@ import {
   useProjectState,
   useShareSession,
 } from "state/definitions";
-import { C_ADDRESSES } from "utils/c_addresses";
 import { buildPluginPaneOverviewTabName } from "utils/constants";
-import { buildBackendURL, res200 } from "utils/endpointUtils";
+import {
+  buildBackendOriginURL,
+  buildBackendURL,
+  res200,
+} from "utils/endpointUtils";
 import { route_plugins_runtime } from "utils/generatedEndpoints";
 import { GoHTTPRouteHelpers } from "utils/generatedRoutes";
 import {
@@ -2056,7 +2059,7 @@ function resolvePluginAssetUrl(url: string | null): string | null {
     return url;
   }
   if (url.startsWith("/")) {
-    return `${C_ADDRESSES.BACKEND_ORIGIN}${url}`;
+    return buildBackendOriginURL(url);
   }
   return url;
 }
