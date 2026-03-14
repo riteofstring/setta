@@ -444,6 +444,33 @@ export function setProjectChatAuxViewForActiveProject(
   });
 }
 
+function setProjectChatDraftMessageForProjectConfig(
+  projectConfigId: string,
+  nextDraftMessage: SetStateAction<string>,
+): void {
+  useLocalStorage.setState((state) => {
+    const currentDraftMessage =
+      state.projectChatDraftMessageByProjectConfigId[projectConfigId] ?? "";
+    const resolvedNextDraftMessage =
+      typeof nextDraftMessage === "function"
+        ? nextDraftMessage(currentDraftMessage)
+        : nextDraftMessage;
+    const nextByProjectConfigId =
+      resolveProjectChatDraftMessageByProjectConfigIdUpdate({
+        draftMessageByProjectConfigId:
+          state.projectChatDraftMessageByProjectConfigId,
+        projectConfigId,
+        nextDraftMessage: resolvedNextDraftMessage,
+      });
+    if (!nextByProjectConfigId) {
+      return state;
+    }
+    return {
+      projectChatDraftMessageByProjectConfigId: nextByProjectConfigId,
+    };
+  });
+}
+
 function setProjectChatThreadVisibility(
   nextVisibility: SetStateAction<boolean>,
 ): void {
@@ -533,8 +560,6 @@ function ProjectChatSurface({
     string | null
   >(null);
   const [thinking, setThinking] = useState(true);
-  const [draftMessageByProjectConfigId, setDraftMessageByProjectConfigId] =
-    useState<Record<string, string>>({});
   const [conversationFilterText, setConversationFilterText] = useState("");
   const [conversationSearchMatchIndex, setConversationSearchMatchIndex] =
     useState<number | null>(null);
@@ -640,6 +665,10 @@ function ProjectChatSurface({
   const projectChatAuxView = useLocalStorage((state): ProjectChatAuxView => {
     return state.projectChatAuxViewByProjectConfigId[projectConfigId] ?? "none";
   });
+  const draftMessageByProjectConfigId = useLocalStorage(
+    (state) => state.projectChatDraftMessageByProjectConfigId,
+    _.isEqual,
+  );
   const viewThreads = useAIStore((state) => state.viewThreads);
   const projectChatThreadsExplicitlyClosedAtLargeWidth = useAIStore(
     (state) => state.projectChatThreadsExplicitlyClosedAtLargeWidth,
@@ -671,18 +700,7 @@ function ProjectChatSurface({
   const draftMessage = draftMessageByProjectConfigId[projectConfigId] ?? "";
   const setDraftMessage = useCallback(
     (next: SetStateAction<string>) => {
-      setDraftMessageByProjectConfigId((current) => {
-        const currentDraftMessage = current[projectConfigId] ?? "";
-        const nextDraftMessage =
-          typeof next === "function" ? next(currentDraftMessage) : next;
-        const nextByProjectConfigId =
-          resolveProjectChatDraftMessageByProjectConfigIdUpdate({
-            draftMessageByProjectConfigId: current,
-            projectConfigId,
-            nextDraftMessage,
-          });
-        return nextByProjectConfigId ?? current;
-      });
+      setProjectChatDraftMessageForProjectConfig(projectConfigId, next);
     },
     [projectConfigId],
   );
@@ -978,7 +996,6 @@ function ProjectChatSurface({
         engineConfigById,
         engineConfigsAuthoritative:
           engineConfigsInitialLoadComplete && engineConfigsLoadError === null,
-        selectedChatWaitingForResponse,
         engineType,
       }),
     [
@@ -988,7 +1005,6 @@ function ProjectChatSurface({
       engineConfigById,
       engineConfigsInitialLoadComplete,
       engineConfigsLoadError,
-      selectedChatWaitingForResponse,
       engineType,
     ],
   );

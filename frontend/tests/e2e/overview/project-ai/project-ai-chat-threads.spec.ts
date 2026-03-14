@@ -840,6 +840,33 @@ test("project ai preserves draft text when resize reveals inline threads", async
   await expect(composerInput).toHaveValue(draftText);
 });
 
+test("project ai preserves unsent draft text across reloads", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 920 });
+  await seedProjectAIChatOverviewState(page, {
+    width: 1040,
+  });
+
+  await ensureAppReady(page);
+
+  const overviewPane = await getVisibleProjectChatSurface(page);
+  const composerInput = overviewPane.getByPlaceholder("Type a message...");
+  const draftText = "keep this unsent draft after reload";
+  await composerInput.fill(draftText);
+  await expect(composerInput).toHaveValue(draftText);
+
+  // Reload should keep the in-progress composer text instead of resetting the
+  // controlled input back to an empty project chat draft.
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".react-flow__pane");
+
+  const reloadedOverviewPane = await getVisibleProjectChatSurface(page);
+  await expect(
+    reloadedOverviewPane.getByPlaceholder("Type a message..."),
+  ).toHaveValue(draftText);
+});
+
 test("project ai ignores legacy viewHistory in persisted ai store", async ({
   page,
 }) => {

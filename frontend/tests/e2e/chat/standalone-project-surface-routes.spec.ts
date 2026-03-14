@@ -837,6 +837,207 @@ test.describe.serial("standalone project surface routes", () => {
     }
   });
 
+  test("standalone project chat preserves unsent composer drafts across reloads", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    let projectContext: Awaited<ReturnType<typeof openIsolatedProject>> | null =
+      null;
+    const cleanupManagedEngine = await ensureManagedChatEngine(page);
+
+    try {
+      projectContext = await openIsolatedProject(page);
+      const projectConfigName = getProjectConfigNameFromUrl(page.url());
+      await page.goto(
+        buildStandaloneUrl(
+          page.url(),
+          `/${encodeURIComponent(projectConfigName)}/chat`,
+        ),
+        { waitUntil: "domcontentloaded" },
+      );
+      const standaloneSurface = page.getByTestId(
+        "standalone-project-chat-surface",
+      );
+      await expect(standaloneSurface).toBeVisible();
+      const composerInput =
+        standaloneSurface.getByPlaceholder("Type a message...");
+      const draftText = "keep this standalone draft after reload";
+      await composerInput.fill(draftText);
+      await expect(composerInput).toHaveValue(draftText);
+
+      await page.reload({ waitUntil: "domcontentloaded" });
+      const reloadedStandaloneSurface = page.getByTestId(
+        "standalone-project-chat-surface",
+      );
+      await expect(reloadedStandaloneSurface).toBeVisible();
+      await expect(
+        reloadedStandaloneSurface.getByPlaceholder("Type a message..."),
+      ).toHaveValue(draftText);
+    } finally {
+      await cleanupManagedEngine();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("standalone project chat reload restores the full waiting transcript instead of only the latest fragment", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    let projectContext: Awaited<ReturnType<typeof openIsolatedProject>> | null =
+      null;
+    const cleanupManagedEngine = await ensureManagedChatEngine(page);
+    const waitingChatId = "standalone-waiting-reload-thread";
+    let llmHydrateCalls = 0;
+
+    try {
+      projectContext = await openIsolatedProject(page);
+      const projectConfigName = getProjectConfigNameFromUrl(page.url());
+      await seedAIStorePersistence(page, {
+        chatDetails: {
+          [waitingChatId]: {
+            messages: [
+              {
+                id: "assistant-live-fragment",
+                role: "assistant",
+                content: [{ type: "text", text: "Latest fragment only..." }],
+                attachments: [],
+              },
+            ],
+            toolCallArguments: {},
+            waitingForResponse: true,
+            llmConfig: null,
+            contextUsage: null,
+          },
+        },
+      });
+
+      await page.context().route("**/api/getAgentRuns", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify([]),
+        });
+      });
+      await page.context().route("**/api/getLLMChat", async (route) => {
+        const payload = route.request().postDataJSON() as
+          | { chatId?: string }
+          | undefined;
+        if (payload?.chatId === waitingChatId) {
+          llmHydrateCalls += 1;
+        }
+        if (payload?.chatId !== waitingChatId) {
+          await route.continue();
+          return;
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            messages: [
+              {
+                id: "user-before-reload",
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: "Earlier question before reload.",
+                  },
+                ],
+                attachments: [],
+              },
+              {
+                id: "assistant-before-reload",
+                role: "assistant",
+                content: [
+                  {
+                    type: "text",
+                    text: "Earlier answer before reload.",
+                  },
+                ],
+                attachments: [],
+              },
+              {
+                id: "assistant-still-streaming",
+                role: "assistant",
+                content: [
+                  {
+                    type: "text",
+                    text: "Streaming continuation after reload.",
+                  },
+                ],
+                attachments: [],
+              },
+            ],
+            waitingForResponse: true,
+            llmConfig: {
+              id: "standalone-thread-config",
+              model: "gpt-4o-mini",
+              provider: "openai",
+              base_url: null,
+              api_key_env: null,
+              other_params: null,
+              mcpServerIds: [],
+              temporary: false,
+            },
+            contextUsage: null,
+          }),
+        });
+      });
+
+      await page.goto(
+        buildStandaloneUrl(
+          page.url(),
+          `/${encodeURIComponent(projectConfigName)}/chat/${encodeURIComponent(waitingChatId)}`,
+        ),
+        { waitUntil: "domcontentloaded" },
+      );
+      const standaloneThreadSurface = page.getByTestId(
+        "standalone-project-chat-thread-surface",
+      );
+      await expect(standaloneThreadSurface).toBeVisible();
+
+      // The route-owned chat id should immediately rehydrate the full thread
+      // even though the optimistic local state starts with only the latest
+      // streaming fragment.
+      await expect.poll(() => llmHydrateCalls).toBeGreaterThan(0);
+      await expect(
+        standaloneThreadSurface.getByText("Earlier question before reload."),
+      ).toBeVisible();
+      await expect(
+        standaloneThreadSurface.getByText("Earlier answer before reload."),
+      ).toBeVisible();
+      await expect(
+        standaloneThreadSurface.getByText(
+          "Streaming continuation after reload.",
+        ),
+      ).toBeVisible();
+
+      await page.reload({ waitUntil: "domcontentloaded" });
+      const reloadedStandaloneThreadSurface = page.getByTestId(
+        "standalone-project-chat-thread-surface",
+      );
+      await expect(reloadedStandaloneThreadSurface).toBeVisible();
+      await expect(
+        reloadedStandaloneThreadSurface.getByText(
+          "Earlier question before reload.",
+        ),
+      ).toBeVisible();
+      await expect(
+        reloadedStandaloneThreadSurface.getByText(
+          "Earlier answer before reload.",
+        ),
+      ).toBeVisible();
+      await expect(
+        reloadedStandaloneThreadSurface.getByText(
+          "Streaming continuation after reload.",
+        ),
+      ).toBeVisible();
+    } finally {
+      await cleanupManagedEngine();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("re-hydrates the same standalone thread id when navigating across project configs", async ({
     page,
   }) => {
@@ -1732,7 +1933,9 @@ test.describe.serial("standalone project surface routes", () => {
           if (!instanceId) {
             return "";
           }
-          return state.instancesById[instanceId]?.chatId === null ? instanceId : "";
+          return state.instancesById[instanceId]?.chatId === null
+            ? instanceId
+            : "";
         })
         .not.toBe("");
       const savedWindowId =
@@ -1750,8 +1953,8 @@ test.describe.serial("standalone project surface routes", () => {
         width: 360,
         height: 240,
       });
-      const savedWindowState =
-        (await readProjectChatWindowingState(page)).instancesById[savedWindowId];
+      const savedWindowState = (await readProjectChatWindowingState(page))
+        .instancesById[savedWindowId];
       if (!savedWindowState) {
         throw new Error("Expected saved section window state before restore.");
       }
@@ -2281,7 +2484,9 @@ test.describe.serial("standalone project surface routes", () => {
           body: JSON.stringify([
             ...runs.filter(
               (run) =>
-                !fixtures.some((fixture) => fixture.chatId === run.inputs.chatId),
+                !fixtures.some(
+                  (fixture) => fixture.chatId === run.inputs.chatId,
+                ),
             ),
             ...fixtureRuns,
           ]),
@@ -2354,7 +2559,9 @@ test.describe.serial("standalone project surface routes", () => {
         "standalone-project-chat-thread-surface",
       );
       await expect(standaloneSurface).toBeVisible();
-      await expect(page.getByText("Alpha standalone thread marker.")).toBeVisible();
+      await expect(
+        page.getByText("Alpha standalone thread marker."),
+      ).toBeVisible();
 
       const betaThreadEntry = page.locator(
         `[data-testid="project-chat-thread-entry"][data-thread-id="${betaChatId}"]`,
@@ -2366,10 +2573,12 @@ test.describe.serial("standalone project surface routes", () => {
         .poll(() => new URL(page.url()).pathname)
         .toBe(`/${projectConfigName}/chat/${betaChatId}`);
       await expect(standaloneSurface).toBeVisible();
-      await expect(page.getByText("Beta standalone thread marker.")).toBeVisible();
-      await expect(page.getByText("Alpha standalone thread marker.")).toHaveCount(
-        0,
-      );
+      await expect(
+        page.getByText("Beta standalone thread marker."),
+      ).toBeVisible();
+      await expect(
+        page.getByText("Alpha standalone thread marker."),
+      ).toHaveCount(0);
     } finally {
       await page.context().unroute("**/api/getAgentRuns");
       await page.context().unroute("**/api/getLLMChat");
@@ -5582,7 +5791,9 @@ test.describe.serial("standalone project surface routes", () => {
       await page.goto(standaloneChatUrl, {
         waitUntil: "domcontentloaded",
       });
-      const standaloneSurface = page.getByTestId("standalone-project-chat-surface");
+      const standaloneSurface = page.getByTestId(
+        "standalone-project-chat-surface",
+      );
       await expect(standaloneSurface).toBeVisible();
       await expect(
         page

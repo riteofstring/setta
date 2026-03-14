@@ -162,10 +162,14 @@ vi.mock("./ProjectChatCore", async () => {
       surfaceId,
       chatId,
       engineConfigId,
+      draftMessage,
+      setDraftMessage,
     }: {
       surfaceId: string;
       chatId: string | null | undefined;
       engineConfigId: string | null;
+      draftMessage: string;
+      setDraftMessage: (next: string) => void;
     }) => {
       const details = useAIStore((state) => {
         if (chatId === null) {
@@ -193,6 +197,13 @@ vi.mock("./ProjectChatCore", async () => {
           data-chat-id={chatId ?? ""}
           data-engine-id={engineConfigId ?? ""}
         >
+          <input
+            data-testid={`mock-project-chat-draft-${surfaceId}`}
+            value={draftMessage}
+            onChange={(event) => {
+              setDraftMessage(event.currentTarget.value);
+            }}
+          />
           {renderedText}
         </div>
       );
@@ -378,6 +389,7 @@ describe("ProjectChat multi-surface state ownership", () => {
     useLocalStorage.setState({
       overviewWidth: 1200,
       projectChatAuxViewByProjectConfigId: {},
+      projectChatDraftMessageByProjectConfigId: {},
       projectChatThreadAssignmentsByProjectConfigId: {},
       projectChatThreadGroupsByProjectConfigId: {},
     });
@@ -672,6 +684,58 @@ describe("ProjectChat multi-surface state ownership", () => {
     expect(
       host.querySelector('[data-testid="mock-project-chat-aux-mcp"]'),
     ).not.toBeNull();
+  });
+
+  it("writes composer drafts to persisted local storage and restores them after remount", async () => {
+    await act(async () => {
+      root.render(<ProjectScopedDraftHarness />);
+    });
+
+    const surfaceId = buildWorkspaceProjectChatWindowSurfaceId(
+      "project-1",
+      "project-chat-window-1",
+    );
+    const draftInput = host.querySelector(
+      `[data-testid="mock-project-chat-draft-${surfaceId}"]`,
+    ) as HTMLInputElement | null;
+    if (!draftInput) {
+      throw new Error("Expected the mocked project chat draft input.");
+    }
+
+    const inputValueSetter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    if (!inputValueSetter) {
+      throw new Error("Expected the input value setter.");
+    }
+
+    await act(async () => {
+      inputValueSetter.call(draftInput, "Persist this unsent draft");
+      draftInput.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    expect(
+      useLocalStorage.getState().projectChatDraftMessageByProjectConfigId,
+    ).toEqual({
+      "project-1": "Persist this unsent draft",
+    });
+
+    await act(async () => {
+      root.render(<div />);
+    });
+    await act(async () => {
+      root.render(<ProjectScopedDraftHarness />);
+    });
+
+    const restoredDraftInput = host.querySelector(
+      `[data-testid="mock-project-chat-draft-${surfaceId}"]`,
+    ) as HTMLInputElement | null;
+    if (!restoredDraftInput) {
+      throw new Error("Expected the remounted project chat draft input.");
+    }
+
+    expect(restoredDraftInput.value).toBe("Persist this unsent draft");
   });
 
   it("writes thread visibility preferences to the AI store and keeps a wide-layout close after remount", async () => {

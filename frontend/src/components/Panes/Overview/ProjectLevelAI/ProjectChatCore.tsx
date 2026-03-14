@@ -1322,8 +1322,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       searchEnabled: true,
     }));
   const showEmptyState =
-    typeof chatId === "undefined" ||
-    (chatId === null && messages.length === 0);
+    typeof chatId === "undefined" || (chatId === null && messages.length === 0);
   const normalizedConversationSearchTerms = useMemo(
     () => tokenizeConversationSearchQuery(conversationFilterText),
     [conversationFilterText],
@@ -1561,9 +1560,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     const shouldProbeMissingProvenance =
       hydrationAuthority.blockedErrorCode === "chat_provenance_missing";
     if (hydrationRunType === null && !shouldProbeMissingProvenance) {
-      return;
-    }
-    if (waitingForResponse) {
       return;
     }
     const cacheKey = shouldProbeMissingProvenance
