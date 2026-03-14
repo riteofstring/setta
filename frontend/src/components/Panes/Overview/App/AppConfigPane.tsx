@@ -5,11 +5,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { resolveEngineConfigIdForChat } from "state/actions/ai/agentRuns";
 import { submitMessage } from "state/actions/ai/chatCommands";
 import { clearPendingChatDetails } from "state/actions/ai/chatRuntime";
-import { loadLLMApiKeys, loadLLMConfig } from "state/actions/ai/llmSettings";
-import {
-  loadEngineConfigs,
-  loadExternalAgentHealth,
-} from "state/actions/ai/projectAiResources";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   useAIStore,
@@ -24,7 +19,6 @@ import { C_ADDRESSES } from "utils/c_addresses";
 import { RouteEnum } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import {
-  loadAppCatalogPromptSummary,
   loadAppConfigDefinition,
   saveAppConfigDefinition,
   validateAppConfigDefinition,
@@ -39,13 +33,16 @@ import {
   type AppSpecPayload,
 } from "./appConfigDefinitionUtils";
 import {
+  buildAvailableHiddenGenerationLLMConfigIds,
+  buildExternalAgentHealthByConfigId,
+  ensureAppConfigHiddenGenerationResources,
+  prepareAppConfigPromptContext,
+} from "./appConfigGenerationSupport";
+import {
   resolveGenerationFailureMessage,
   resolveHiddenGenerationEngineSelection,
   resolveHiddenGenerationErrorMessage,
-  waitForHiddenGenerationResourcesLoaded,
-  type ExternalAgentHealthStatus,
 } from "./appConfigHiddenGenerationUtils";
-import { formatSectionsForAppPrompt } from "./appConfigPromptUtils";
 import { type AppThemeMode } from "./appDraftPreview";
 import {
   APP_GENERATION_MODE_OPTIONS,
@@ -154,18 +151,12 @@ export function AppConfigPane() {
     if (isJsonRenderMode(activeGenerationMode)) {
       return;
     }
-    if (!allLLMConfigsInitialLoadComplete) {
-      void loadLLMConfig();
-    }
-    if (!apiKeysInitialLoadComplete) {
-      void loadLLMApiKeys();
-    }
-    if (!engineConfigsInitialLoadComplete) {
-      void loadEngineConfigs();
-    }
-    if (!externalAgentHealthInitialLoadComplete) {
-      void loadExternalAgentHealth();
-    }
+    void ensureAppConfigHiddenGenerationResources({
+      allLLMConfigsInitialLoadComplete,
+      apiKeysInitialLoadComplete,
+      engineConfigsInitialLoadComplete,
+      externalAgentHealthInitialLoadComplete,
+    });
   }, [
     activeGenerationMode,
     allLLMConfigsInitialLoadComplete,
@@ -205,23 +196,6 @@ export function AppConfigPane() {
       isMounted = false;
     };
   }, [projectConfigId]);
-
-  const preparePromptContext = useCallback(async () => {
-    let catalogSummary = `Catalog: ${catalogId}`;
-    const catalogRes = await loadAppCatalogPromptSummary();
-    if (catalogRes.ok) {
-      catalogSummary = catalogRes.value.catalogSummary;
-      if (catalogRes.value.catalogId) {
-        setCatalogId(catalogRes.value.catalogId);
-      }
-    } else {
-      addTemporaryNotification(catalogRes.error);
-    }
-    const sectionsSummary = formatSectionsForAppPrompt(
-      useProjectState.getState(),
-    );
-    return { catalogSummary, sectionsSummary };
-  }, [catalogId]);
 
   const saveAndHydrateAppDefinition = useCallback(
     async ({
@@ -295,34 +269,6 @@ export function AppConfigPane() {
     [saveAndHydrateAppDefinition],
   );
 
-  const ensureHiddenGenerationResources = useCallback(async () => {
-    const pendingLoads: Array<Promise<void>> = [];
-    const state = useAIStore.getState();
-    const shouldAwaitResourceCompletion =
-      !state.allLLMConfigsInitialLoadComplete ||
-      !state.apiKeysInitialLoadComplete ||
-      !state.engineConfigsInitialLoadComplete ||
-      !state.externalAgentHealthInitialLoadComplete;
-    if (!state.allLLMConfigsInitialLoadComplete) {
-      pendingLoads.push(loadLLMConfig());
-    }
-    if (!state.apiKeysInitialLoadComplete) {
-      pendingLoads.push(loadLLMApiKeys());
-    }
-    if (!state.engineConfigsInitialLoadComplete) {
-      pendingLoads.push(loadEngineConfigs());
-    }
-    if (!state.externalAgentHealthInitialLoadComplete) {
-      pendingLoads.push(loadExternalAgentHealth());
-    }
-    if (pendingLoads.length > 0) {
-      await Promise.all(pendingLoads);
-    }
-    if (shouldAwaitResourceCompletion) {
-      await waitForHiddenGenerationResourcesLoaded();
-    }
-  }, []);
-
   type HiddenChatGenerationMode = "prompt_builder" | "mcp_server";
 
   const runJsonRenderGeneration = useCallback(
@@ -333,7 +279,10 @@ export function AppConfigPane() {
       setErrorMessage(null);
       try {
         const { catalogSummary, sectionsSummary } =
-          await preparePromptContext();
+          await prepareAppConfigPromptContext({
+            catalogId,
+            setCatalogId,
+          });
         const userPrompt = appGenerationPrompt.trim();
         const effectivePrompt =
           userPrompt || buildDefaultAppGenerationPrompt(mode);
@@ -452,9 +401,10 @@ export function AppConfigPane() {
       appGenerationReferenceImageNotes,
       appGenerationReferenceImageUrl,
       appSpec,
+      catalogId,
       draftSpec,
       persistGeneratedSpec,
-      preparePromptContext,
+      setCatalogId,
     ],
   );
 
@@ -465,31 +415,13 @@ export function AppConfigPane() {
       setErrorMessage(null);
       setGenerationHint(null);
       try {
-        await ensureHiddenGenerationResources();
+        await ensureAppConfigHiddenGenerationResources();
         const aiState = useAIStore.getState();
         const { catalogSummary, sectionsSummary } =
-          await preparePromptContext();
-        const availableLLMConfigIds = new Set<string>();
-        if (aiState.allLLMConfigs?.configs) {
-          for (const [configId, config] of Object.entries(
-            aiState.allLLMConfigs.configs,
-          )) {
-            if (config.api_key_env && !aiState.apiKeys[config.api_key_env]) {
-              continue;
-            }
-            availableLLMConfigIds.add(configId);
-          }
-        }
-        const externalAgentHealthByConfigId = new Map<
-          string,
-          ExternalAgentHealthStatus
-        >();
-        for (const health of aiState.externalAgentHealth) {
-          externalAgentHealthByConfigId.set(health.configId, {
-            available: health.available,
-            supported: health.supported,
+          await prepareAppConfigPromptContext({
+            catalogId,
+            setCatalogId,
           });
-        }
         const activeChatId = aiState.activeChatId ?? null;
         const activeChatEngineConfigId = activeChatId
           ? await resolveEngineConfigIdForChat(activeChatId, null)
@@ -497,8 +429,10 @@ export function AppConfigPane() {
         const engineSelection = resolveHiddenGenerationEngineSelection({
           activeChatEngineConfigId,
           engineConfigs: aiState.engineConfigs,
-          availableLLMConfigIds,
-          externalAgentHealthByConfigId,
+          availableLLMConfigIds:
+            buildAvailableHiddenGenerationLLMConfigIds(aiState),
+          externalAgentHealthByConfigId:
+            buildExternalAgentHealthByConfigId(aiState),
           defaultLLMConfigId: pickDefaultConfigId(aiState.allLLMConfigs),
         });
         if (!engineSelection.engineConfigId) {
@@ -555,11 +489,7 @@ export function AppConfigPane() {
         setGenerating(false);
       }
     },
-    [
-      appGenerationPrompt,
-      ensureHiddenGenerationResources,
-      preparePromptContext,
-    ],
+    [appGenerationPrompt, catalogId, setCatalogId],
   );
 
   async function handleGenerate() {
