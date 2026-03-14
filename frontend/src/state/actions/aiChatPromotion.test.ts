@@ -13,8 +13,8 @@ import {
 import {
   finalizePendingChatDetails,
   getDefaultChatDetails,
-  receiveLLMResponseChunk,
-} from "./ai";
+} from "./ai/chatRuntime";
+import { receiveLLMResponseChunk } from "./ai/chatStreaming";
 
 const SURFACE_A = "surface-a";
 const SURFACE_B = "surface-b";
