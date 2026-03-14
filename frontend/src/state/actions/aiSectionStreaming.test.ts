@@ -36,7 +36,7 @@ vi.mock("utils/generatedEndpoints", async () => {
   };
 });
 
-let receiveLLMResponseChunk: typeof import("./ai").receiveLLMResponseChunk;
+let receiveLLMResponseChunk: typeof import("./ai/chatStreaming").receiveLLMResponseChunk;
 let useProjectState: typeof import("state/definitions").useProjectState;
 
 const projectConfigId = "project-1";
@@ -82,7 +82,8 @@ describe("section chat streaming updates", () => {
   beforeAll(async () => {
     const definitions = await import("state/definitions");
     useProjectState = definitions.useProjectState;
-    receiveLLMResponseChunk = (await import("./ai")).receiveLLMResponseChunk;
+    receiveLLMResponseChunk = (await import("./ai/chatStreaming"))
+      .receiveLLMResponseChunk;
   });
 
   beforeEach(async () => {
