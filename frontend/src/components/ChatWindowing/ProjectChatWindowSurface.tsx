@@ -1,5 +1,4 @@
 import { ProjectChatWindowIcon } from "components/ChatWindowing/ProjectChatWindowIcon";
-import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import {
   getSectionContainerShellClassName,
   getSectionSurfaceClassName,
@@ -237,7 +236,6 @@ function ProjectChatWindowHeader({
             aria-label={action.label}
             data-testid={action.testId}
             data-chat-window-instance-id={action.instanceId}
-            {...getFloatingBoxHandlers({ content: action.label })}
           >
             {action.icon}
           </button>

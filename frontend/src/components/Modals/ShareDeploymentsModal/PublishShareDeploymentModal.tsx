@@ -160,14 +160,12 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
     setIsPublishing(true);
     setErrorMessage(null);
     const trimmedEntrypoint = listenerEntrypoint.trim();
-    const entrypointValue =
-      trimmedEntrypoint.length > 0 ? trimmedEntrypoint : null;
     const payload: PublishShareDeploymentRequestInput = {
       deploymentName: resolvedDeploymentName,
       projectConfigId: projectConfig.id,
       sharePolicyOverrides: policyOverrides,
-      listenerEntrypoint: entrypointValue,
-      listenerEnabled: entrypointValue ? listenerEnabled : false,
+      listenerEntrypoint: trimmedEntrypoint,
+      listenerEnabled: trimmedEntrypoint.length > 0 ? listenerEnabled : false,
     };
 
     const res = await route_publish_share_deployment(payload);
