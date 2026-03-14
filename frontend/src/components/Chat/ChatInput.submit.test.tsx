@@ -211,6 +211,133 @@ describe("ChatInput queued slash-command replay", () => {
     expect(host.textContent).toContain("Failed to submit /app-json.");
   });
 
+  it("blocks /app-image until an image attachment is present", async () => {
+    const onSubmit = vi.fn(async () => true);
+    const onStartNewChat = vi.fn();
+    const onResumeLatestChat = vi.fn(async () => false);
+    const onSetPermissionMode = vi.fn();
+    const onSetSearchEnabled = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <ChatInput
+          placeholderText="Type a message..."
+          waitingForResponse={false}
+          slashCommands={APP_GENERATION_COMMANDS}
+          recognizedSlashCommands={APP_GENERATION_COMMANDS}
+          onSubmit={onSubmit}
+          onSlashCommand={(command) =>
+            executeManagedChatSlashCommand({
+              command,
+              slashCommands: APP_GENERATION_COMMANDS,
+              onStartNewChat,
+              onResumeLatestChat,
+              resumeFeedback: {
+                success: "resumed",
+                notFound: "not found",
+              },
+              onSetPermissionMode,
+              searchEnabled: true,
+              onSetSearchEnabled,
+              modelFeedback: "Use the model selector.",
+            })
+          }
+        />,
+      );
+    });
+
+    const textarea = host.querySelector(
+      '[data-testid="chat-input-textarea"]',
+    ) as HTMLTextAreaElement | null;
+    const submitButton = host.querySelector(
+      'button[type="submit"]',
+    ) as HTMLButtonElement | null;
+    if (!textarea || !submitButton) {
+      throw new Error("Expected chat input controls.");
+    }
+    const setTextareaValue = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      "value",
+    )?.set;
+    if (!setTextareaValue) {
+      throw new Error("Expected textarea value setter.");
+    }
+
+    await act(async () => {
+      setTextareaValue.call(textarea, "/app-image landing page");
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      submitButton.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(host.textContent).toContain(
+      "Attach at least one image before using /app-image.",
+    );
+  });
+
+  it("blocks custom image-mode slash commands until an image attachment is present", async () => {
+    const onSubmit = vi.fn(async () => true);
+
+    await act(async () => {
+      root.render(
+        <ChatInput
+          placeholderText="Type a message..."
+          waitingForResponse={false}
+          slashCommands={[
+            {
+              command: "/wireframe",
+              action: "custom_prompt",
+              summary: "Generate from an attached reference image.",
+              promptTemplate: "Match the attached design.",
+              appGenerationMode: "json_render_with_image",
+            },
+          ]}
+          recognizedSlashCommands={[
+            {
+              command: "/wireframe",
+              action: "custom_prompt",
+              summary: "Generate from an attached reference image.",
+              promptTemplate: "Match the attached design.",
+              appGenerationMode: "json_render_with_image",
+            },
+          ]}
+          onSubmit={onSubmit}
+        />,
+      );
+    });
+
+    const textarea = host.querySelector(
+      '[data-testid="chat-input-textarea"]',
+    ) as HTMLTextAreaElement | null;
+    const submitButton = host.querySelector(
+      'button[type="submit"]',
+    ) as HTMLButtonElement | null;
+    if (!textarea || !submitButton) {
+      throw new Error("Expected chat input controls.");
+    }
+    const setTextareaValue = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      "value",
+    )?.set;
+    if (!setTextareaValue) {
+      throw new Error("Expected textarea value setter.");
+    }
+
+    await act(async () => {
+      setTextareaValue.call(textarea, "/wireframe support ops");
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      submitButton.click();
+      await Promise.resolve();
+    });
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(host.textContent).toContain(
+      "Attach at least one image before using /wireframe.",
+    );
+  });
+
   it("passes an explicit plain-chat override for custom slash commands", async () => {
     const onSubmit = vi.fn(async () => true);
 

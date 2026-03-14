@@ -1,9 +1,13 @@
+from fastapi import HTTPException
+import pytest
+
 from setta.types.generated.chat_messages import UserChatMessage
 
 from setta.routers.ai import (
     _build_app_generation_mode_prompt,
     _get_run_app_generation_by_message_id,
     _normalize_app_generation_by_message_id,
+    _require_image_attachment_for_app_generation_mode,
 )
 from setta.types.agentic import AgentRun
 
@@ -33,6 +37,34 @@ class TestAIAppGenerationModeHelpers:
         assert "mode: prompt_builder" in prompt
         assert "Project Chat can persist the result directly" in prompt
         assert "Reference image URL" not in prompt
+
+    def test_image_mode_requires_an_attached_image(self) -> None:
+        with pytest.raises(HTTPException) as exc:
+            _require_image_attachment_for_app_generation_mode(
+                "json_render_with_image",
+                UserChatMessage(id="msg-user", attachments=[]),
+            )
+
+        assert exc.value.status_code == 400
+        assert (
+            exc.value.detail
+            == "json_render_with_image requires at least one image attachment."
+        )
+
+    def test_image_mode_accepts_messages_with_image_attachments(self) -> None:
+        _require_image_attachment_for_app_generation_mode(
+            "json_render_with_image",
+            UserChatMessage(
+                id="msg-user",
+                attachments=[
+                    {
+                        "id": "image-1",
+                        "name": "reference.png",
+                        "mimeType": "image/png",
+                    }
+                ],
+            ),
+        )
 
     def test_normalize_app_generation_by_message_id_filters_non_user_entries(
         self,

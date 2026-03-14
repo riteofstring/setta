@@ -53,25 +53,6 @@ export function buildChatAppGenerationDetails(
   };
 }
 
-export function recordChatAppGenerationForMessage(
-  details: ChatAppGenerationDetails,
-  messageId: string,
-  context: ChatAppGenerationContext | null,
-): ChatAppGenerationDetails {
-  const normalizedMessageId = messageId.trim();
-  const normalizedContext = normalizeChatAppGenerationContext(context);
-  if (!normalizedMessageId || !normalizedContext) {
-    return details;
-  }
-  return {
-    activeAppGeneration: normalizedContext,
-    appGenerationByMessageId: {
-      ...details.appGenerationByMessageId,
-      [normalizedMessageId]: normalizedContext,
-    },
-  };
-}
-
 export function setChatAppGenerationForMessage(
   details: ChatAppGenerationDetails,
   messages: BaseChatMessageUnion[],
@@ -109,14 +90,6 @@ export function retainChatAppGenerationDetailsForMessages(
     ),
   );
   return buildChatAppGenerationDetails(messages, nextByMessageId);
-}
-
-export function removeChatAppGenerationForMessage(
-  details: ChatAppGenerationDetails,
-  messages: BaseChatMessageUnion[],
-  messageId: string,
-): ChatAppGenerationDetails {
-  return setChatAppGenerationForMessage(details, messages, messageId, null);
 }
 
 export function mergeChatAppGenerationDetails(

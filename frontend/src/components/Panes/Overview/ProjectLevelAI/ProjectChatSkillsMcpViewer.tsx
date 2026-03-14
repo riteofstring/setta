@@ -137,6 +137,26 @@ function getCustomSlashCommandModeLabel(
   );
 }
 
+function areCustomSlashCommandDraftsEqual(
+  left: CustomSlashCommandDraft,
+  right: CustomSlashCommandDraft,
+): boolean {
+  return (
+    left.command === right.command &&
+    left.prompt === right.prompt &&
+    left.appGenerationMode === right.appGenerationMode
+  );
+}
+
+function isEmptyCustomSlashCommandDraft(
+  draft: CustomSlashCommandDraft,
+): boolean {
+  return areCustomSlashCommandDraftsEqual(
+    draft,
+    EMPTY_CUSTOM_SLASH_COMMAND_DRAFT,
+  );
+}
+
 type ResolveSkillMarkdownRawDraftBySkillIdHydrationInput = {
   skillMarkdownDraftStateBySkillId: Record<
     string,
@@ -327,16 +347,13 @@ export function resolveCustomSlashDraftByProjectConfigIdUpdate({
   const currentDraft =
     customSlashDraftByProjectConfigId[projectConfigId] ??
     EMPTY_CUSTOM_SLASH_COMMAND_DRAFT;
-  if (
-    currentDraft.command === nextDraft.command &&
-    currentDraft.prompt === nextDraft.prompt
-  ) {
+  if (areCustomSlashCommandDraftsEqual(currentDraft, nextDraft)) {
     return null;
   }
   const nextByProjectConfigId = {
     ...customSlashDraftByProjectConfigId,
   };
-  if (nextDraft.command === "" && nextDraft.prompt === "") {
+  if (isEmptyCustomSlashCommandDraft(nextDraft)) {
     delete nextByProjectConfigId[projectConfigId];
   } else {
     nextByProjectConfigId[projectConfigId] = nextDraft;

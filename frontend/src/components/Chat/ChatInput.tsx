@@ -28,6 +28,7 @@ import {
 import { addTemporaryNotification } from "state/actions/notifications";
 import type { AppGenerationMode } from "state/types/appGenerationMode";
 import type { ChatAppGenerationContext } from "state/utils/chatAppGeneration";
+import { isImageAttachment } from "utils/attachmentPreview";
 import { formatBytes } from "utils/attachments";
 import { ChatFileAttachment } from "utils/generatedTypes";
 import {
@@ -334,6 +335,34 @@ function resolveSlashCommandSubmitOptions(
       mode: command.appGenerationMode,
     },
   };
+}
+
+function requiresImageAttachmentForAppGenerationMode(
+  appGenerationMode: AppGenerationMode | null | undefined,
+): boolean {
+  return appGenerationMode === "json_render_with_image";
+}
+
+function hasImageAttachment(attachments: ChatFileAttachment[]): boolean {
+  return attachments.some((attachment) => isImageAttachment(attachment));
+}
+
+function getSlashCommandImageAttachmentError({
+  command,
+  appGenerationMode,
+  attachments,
+}: {
+  command: ChatSlashCommand;
+  appGenerationMode: AppGenerationMode | null | undefined;
+  attachments: ChatFileAttachment[];
+}): string | null {
+  if (!requiresImageAttachmentForAppGenerationMode(appGenerationMode)) {
+    return null;
+  }
+  if (hasImageAttachment(attachments)) {
+    return null;
+  }
+  return `Attach at least one image before using ${command.command}.`;
 }
 
 function shouldRemoveQueuedDraft(
@@ -812,6 +841,15 @@ export const ChatInput = memo(function ChatInput({
           setSlashFeedback("Custom slash command has no prompt content.");
           return "retry_later";
         }
+        const imageAttachmentError = getSlashCommandImageAttachmentError({
+          command: parsed,
+          appGenerationMode: parsed.appGenerationMode,
+          attachments: submission.attachments,
+        });
+        if (imageAttachmentError) {
+          setSlashFeedback(imageAttachmentError);
+          return "retry_later";
+        }
         const submitted =
           (await onSubmit(
             submission.message,
@@ -867,6 +905,15 @@ export const ChatInput = memo(function ChatInput({
         });
         if (!submission || !slashResult.appGenerationMode) {
           setSlashFeedback("Built-in slash command has no prompt content.");
+          return "retry_later";
+        }
+        const imageAttachmentError = getSlashCommandImageAttachmentError({
+          command: parsed,
+          appGenerationMode: slashResult.appGenerationMode,
+          attachments: submission.attachments,
+        });
+        if (imageAttachmentError) {
+          setSlashFeedback(imageAttachmentError);
           return "retry_later";
         }
         const submitted =

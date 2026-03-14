@@ -617,6 +617,78 @@ describe("resolveCustomSlashDraftByProjectConfigIdUpdate", () => {
     });
   });
 
+  it("keeps a draft when only the submission mode changes", () => {
+    const next = resolveCustomSlashDraftByProjectConfigIdUpdate({
+      customSlashDraftByProjectConfigId: {
+        "project-a": {
+          command: "/wireframe",
+          prompt: "Create dashboard.",
+          appGenerationMode: null,
+        },
+      },
+      projectConfigId: "project-a",
+      nextDraft: {
+        command: "/wireframe",
+        prompt: "Create dashboard.",
+        appGenerationMode: "json_render",
+      },
+    });
+
+    expect(next).toEqual({
+      "project-a": {
+        command: "/wireframe",
+        prompt: "Create dashboard.",
+        appGenerationMode: "json_render",
+      },
+    });
+  });
+
+  it("keeps a draft while a mode-only selection is still in progress", () => {
+    const next = resolveCustomSlashDraftByProjectConfigIdUpdate({
+      customSlashDraftByProjectConfigId: {},
+      projectConfigId: "project-a",
+      nextDraft: {
+        command: "",
+        prompt: "",
+        appGenerationMode: "json_render",
+      },
+    });
+
+    expect(next).toEqual({
+      "project-a": {
+        command: "",
+        prompt: "",
+        appGenerationMode: "json_render",
+      },
+    });
+  });
+
+  it("keeps an existing command draft when the mode returns to plain chat", () => {
+    const next = resolveCustomSlashDraftByProjectConfigIdUpdate({
+      customSlashDraftByProjectConfigId: {
+        "project-a": {
+          command: "/wireframe",
+          prompt: "Create dashboard.",
+          appGenerationMode: "json_render",
+        },
+      },
+      projectConfigId: "project-a",
+      nextDraft: {
+        command: "/wireframe",
+        prompt: "Create dashboard.",
+        appGenerationMode: null,
+      },
+    });
+
+    expect(next).toEqual({
+      "project-a": {
+        command: "/wireframe",
+        prompt: "Create dashboard.",
+        appGenerationMode: null,
+      },
+    });
+  });
+
   it("clears only the active project draft when both fields are emptied", () => {
     const next = resolveCustomSlashDraftByProjectConfigIdUpdate({
       customSlashDraftByProjectConfigId: {

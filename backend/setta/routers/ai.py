@@ -66,6 +66,7 @@ from setta.types.llm_config import LLMConfig
 from setta.types.routes import Route
 from setta.types.section_impls import ChatPermissionMode
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
+from setta.utils.chat_attachments import is_image_mime, normalize_attachment_mime
 from setta.utils.constants import C
 
 router = SettaProjectContextFullRuntimeAPIRouter()
@@ -429,6 +430,28 @@ def _build_app_generation_mode_prompt(
         )
 
     return "\n".join(lines)
+
+
+def _message_has_image_attachment(message: BaseChatMessageUnion) -> bool:
+    attachments = getattr(message, "attachments", [])
+    return any(
+        is_image_mime(normalize_attachment_mime(attachment))
+        for attachment in attachments
+    )
+
+
+def _require_image_attachment_for_app_generation_mode(
+    mode: AppGenerationMode | None,
+    message: BaseChatMessageUnion,
+) -> None:
+    if mode != "json_render_with_image":
+        return
+    if _message_has_image_attachment(message):
+        return
+    raise HTTPException(
+        status_code=400,
+        detail="json_render_with_image requires at least one image attachment.",
+    )
 
 
 def _merge_app_generation_system_prompt(
@@ -904,6 +927,7 @@ async def route_get_llm_response(
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     resolved_mode = x.appGenerationMode
+    _require_image_attachment_for_app_generation_mode(resolved_mode, x.message)
     app_generation_by_message_id = _normalize_app_generation_by_message_id(
         messages=combined_messages,
         app_generation_by_message_id=x.appGenerationByMessageId,

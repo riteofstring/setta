@@ -160,6 +160,31 @@ test("project ai chat /app-json submits the fixed baseline prompt with suffix te
   }
 });
 
+test("project ai chat /app-image requires an image attachment before submitting", async ({
+  page,
+}) => {
+  const capturedRequests: ChatSubmitRequest[] = [];
+  await mockProjectChatSubmitCapture(page, capturedRequests);
+  const { engineCleanup, projectContext, projectChatSurface } =
+    await openProjectChatWithManagedEngine(page);
+
+  try {
+    await projectChatSurface
+      .getByTestId("chat-input-textarea")
+      .fill("/app-image compact admin dashboard");
+    await projectChatSurface.getByLabel("Send message").click();
+
+    await expect(projectChatSurface).toContainText(
+      "Attach at least one image before using /app-image.",
+    );
+    await page.waitForTimeout(200);
+    expect(capturedRequests).toHaveLength(0);
+  } finally {
+    await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("project ai chat /app-image preserves attachments while appending suffix text", async ({
   page,
 }) => {

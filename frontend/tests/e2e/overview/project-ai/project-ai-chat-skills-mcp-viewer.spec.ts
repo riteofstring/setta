@@ -1499,24 +1499,30 @@ test("custom app-generation slash commands submit with the selected mode", async
   try {
     projectContext = await openIsolatedProject(page);
     engineCleanup = await ensureManagedChatEngine(page);
-    await seedLocalStorage(page, {
-      customProjectChatSlashCommandsByProjectConfigId: {
-        [projectContext.projectConfigId]: [
-          {
-            command: "/wireframe",
-            prompt: "Create a wireframe dashboard.",
-            appGenerationMode: "json_render",
-          },
-        ],
-      },
-    });
-    await page.reload();
-    await page.waitForSelector(".react-flow__pane");
     await openSlashCommandsViewer(page);
 
-    await expect(
-      page.locator("#project-chat-custom-slash-mode-input"),
-    ).toBeVisible();
+    const customCommandInput = page.getByTestId(
+      "project-chat-custom-slash-command-input",
+    );
+    const customPromptInput = page.getByTestId(
+      "project-chat-custom-slash-prompt-input",
+    );
+    const customModeInput = page.locator(
+      "#project-chat-custom-slash-mode-input",
+    );
+    const customAddButton = page.getByTestId("project-chat-custom-slash-add");
+
+    await customCommandInput.fill("/wireframe");
+    await customPromptInput.fill("Create a wireframe dashboard.");
+    await customModeInput.click();
+    await page
+      .locator("dd")
+      .filter({ hasText: /^JSON Render$/ })
+      .click();
+    await expect
+      .poll(async () => await customAddButton.isEnabled(), { timeout: 10_000 })
+      .toBe(true);
+    await customAddButton.click();
 
     const customCommandRow = page
       .getByTestId("project-chat-custom-slash-command")
@@ -1524,6 +1530,40 @@ test("custom app-generation slash commands submit with the selected mode", async
       .locator("..");
     await expect(customCommandRow).toBeVisible();
     await expect(customCommandRow).toContainText("Submits as JSON Render.");
+    const projectConfigId = projectContext.projectConfigId;
+    await expect
+      .poll(() =>
+        page.evaluate((currentProjectConfigId) => {
+          const raw = window.localStorage.getItem("setta_data");
+          if (!raw) {
+            return null;
+          }
+          const parsed = JSON.parse(raw) as {
+            state?: {
+              customProjectChatSlashCommandsByProjectConfigId?: Record<
+                string,
+                Array<{
+                  command?: string;
+                  prompt?: string;
+                  appGenerationMode?: string | null;
+                }>
+              >;
+            };
+          };
+          return (
+            parsed.state?.customProjectChatSlashCommandsByProjectConfigId?.[
+              currentProjectConfigId
+            ] ?? null
+          );
+        }, projectConfigId),
+      )
+      .toEqual([
+        {
+          command: "/wireframe",
+          prompt: "Create a wireframe dashboard.",
+          appGenerationMode: "json_render",
+        },
+      ]);
 
     await closeSkillsMcpViewer(page);
 

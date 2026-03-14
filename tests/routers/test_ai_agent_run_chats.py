@@ -1283,6 +1283,63 @@ class TestAgentRunChatRoutes:
                 "msg-mcp": "mcp_server",
             }
 
+    async def test_get_llm_response_rejects_image_mode_without_image_attachment(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-image-mode")
+            project_config_id = ID("project-image-mode")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            start_run_call_count = 0
+
+            def _capture_start_run(*_args, **_kwargs):
+                nonlocal start_run_call_count
+                start_run_call_count += 1
+                return create_agent_run(profile_id=ID("profile-unexpected"), inputs={})
+
+            monkeypatch.setattr(runner, "start_run", _capture_start_run)
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_get_llm_response(
+                        GetLLMResponseRequest(
+                            chatId=None,
+                            message=UserChatMessage(
+                                id="msg-image",
+                                content=[
+                                    MessageTextContent(
+                                        text="Match the missing reference image."
+                                    )
+                                ],
+                                attachments=[],
+                            ),
+                            engineConfigId=engine_config_id,
+                            agentProfileId=None,
+                            thinking=False,
+                            projectConfigId=project_config_id,
+                            allowUnscoped=True,
+                            permissionMode=ChatPermissionMode.minimal,
+                            searchEnabled=True,
+                            appGenerationMode="json_render_with_image",
+                        ),
+                        ctx,
+                    )
+
+            assert exc.value.status_code == 400
+            assert (
+                exc.value.detail
+                == "json_render_with_image requires at least one image attachment."
+            )
+            assert start_run_call_count == 0
+
     async def test_get_llm_response_continue_from_chat_seeds_prior_messages(
         self,
         monkeypatch: pytest.MonkeyPatch,

@@ -6,8 +6,6 @@ import {
   deserializeChatAppGenerationByMessageId,
   getDefaultChatAppGenerationDetails,
   normalizeChatAppGenerationContext,
-  recordChatAppGenerationForMessage,
-  removeChatAppGenerationForMessage,
   retainChatAppGenerationDetailsForMessages,
   serializeChatAppGenerationByMessageId,
   setChatAppGenerationForMessage,
@@ -33,22 +31,33 @@ describe("chatAppGeneration", () => {
       content: [],
       attachments: [],
     });
-    const recorded = recordChatAppGenerationForMessage(baseDetails, "msg-a", {
-      mode: "prompt_builder",
-    });
-    const extended = recordChatAppGenerationForMessage(recorded, "msg-b", {
-      mode: "json_render",
-    });
+    const recorded = setChatAppGenerationForMessage(
+      baseDetails,
+      [messageA],
+      "msg-a",
+      {
+        mode: "prompt_builder",
+      },
+    );
+    const extended = setChatAppGenerationForMessage(
+      recorded,
+      [messageA, messageB],
+      "msg-b",
+      {
+        mode: "json_render",
+      },
+    );
 
     expect(extended.activeAppGeneration?.mode).toBe("json_render");
     expect(extended.appGenerationByMessageId["msg-a"]?.mode).toBe(
       "prompt_builder",
     );
 
-    const removed = removeChatAppGenerationForMessage(
+    const removed = setChatAppGenerationForMessage(
       extended,
       [messageA, messageB],
       "msg-b",
+      null,
     );
 
     expect(removed.activeAppGeneration?.mode).toBe("prompt_builder");
@@ -72,12 +81,14 @@ describe("chatAppGeneration", () => {
       attachments: [],
     });
 
-    const details = recordChatAppGenerationForMessage(
-      recordChatAppGenerationForMessage(
+    const details = setChatAppGenerationForMessage(
+      setChatAppGenerationForMessage(
         getDefaultChatAppGenerationDetails(),
+        [messageA],
         "msg-a",
         { mode: "json_render" },
       ),
+      [messageA, messageB, messageC],
       "msg-c",
       { mode: "mcp_server" },
     );
@@ -104,8 +115,9 @@ describe("chatAppGeneration", () => {
       content: [],
       attachments: [],
     });
-    const baseDetails = recordChatAppGenerationForMessage(
+    const baseDetails = setChatAppGenerationForMessage(
       getDefaultChatAppGenerationDetails(),
+      [messageA, messageB],
       "msg-b",
       { mode: "mcp_server" },
     );
