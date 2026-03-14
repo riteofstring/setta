@@ -115,9 +115,11 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   fit/fallback/reflow behavior to
   `frontend/src/state/hooks/terminals/terminalFit.ts`.
 - `frontend/src/state/actions/uiSettingReveal.ts` is down to 360 lines and now
-  delegates reveal mutation leases, pane activation, DOM anchor/highlight
-  helpers, and execution-status utilities to
-  `uiSettingRevealMutations.ts`, `uiSettingRevealActivation.ts`,
+  delegates reveal mutation orchestration, lease ownership, snapshot rollback,
+  pane activation, DOM anchor/highlight helpers, and execution-status utilities
+  to `uiSettingRevealMutations.ts`,
+  `uiSettingRevealMutationOwnership.ts`,
+  `uiSettingRevealMutationSnapshots.ts`, `uiSettingRevealActivation.ts`,
   `uiSettingRevealDom.ts`, and `uiSettingRevealShared.ts`.
 - `frontend/src/state/stores/aiStores.ts` now owns the AI/chat Zustand stores and related chat-state types.
 - `frontend/src/state/stores/appStores.ts` now owns app definition/config/preview state, and `frontend/src/state/stores/sessionStores.ts` now owns share-session, server-mode, and all-project-metadata state.

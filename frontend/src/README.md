@@ -188,10 +188,13 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/windowSpaces.ts` now owns workspace restore orchestration for
     saved window spaces.
   - `state/actions/uiSettingReveal.ts` now just orchestrates reveal requests;
-    `uiSettingRevealMutations.ts`, `uiSettingRevealActivation.ts`,
-    `uiSettingRevealDom.ts`, and `uiSettingRevealShared.ts` own mutation leases,
-    pane activation, DOM anchor/highlight behavior, and execution-status
-    helpers.
+    `uiSettingRevealMutations.ts` owns the mutation lock plus high-level reveal
+    orchestration, `uiSettingRevealMutationOwnership.ts` owns lease sequence and
+    touched-field ownership, `uiSettingRevealMutationSnapshots.ts` owns
+    snapshot capture and rollback application, `uiSettingRevealActivation.ts`
+    owns pane activation writes, `uiSettingRevealDom.ts` owns DOM
+    anchor/highlight behavior, and `uiSettingRevealShared.ts` owns
+    execution-status helpers.
   - `state/hooks/terminals/terminal.ts` now just orchestrates terminal mount,
     ready/focus wiring, and resize observation; `terminalSessions.ts` owns
     cached terminal websocket sessions, and `terminalFit.ts` owns xterm
@@ -245,8 +248,8 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/uiSettingRevealMutations.ts` mutation-lease split across
-  snapshot capture, rollback/finalization, and per-surface mutation helpers
+- `state/actions/keyActivations.ts` keyboard activation split across section
+  selection, reveal/focus shortcuts, and pane/layout command routing
 - `utils/focusManager.ts` focus-registry split across tab-scope registration,
   keyboard navigation policy, section focus behavior, and canvas-specific pane
   movement

@@ -58,10 +58,13 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   snapshot building plus conversion back into project-chat windowing state that
   previously lived in `frontend/src/state/actions/windowSpaces.ts`.
 - `frontend/src/state/actions/uiSettingReveal.ts` is now a 360-line orchestration
-  entrypoint; `uiSettingRevealMutations.ts` owns reveal mutation leases and
-  rollback, `uiSettingRevealActivation.ts` owns pane/accordion activation
-  writes, `uiSettingRevealDom.ts` owns anchor lookup and highlighting, and
-  `uiSettingRevealShared.ts` owns execution-context/status helpers.
+  entrypoint; `uiSettingRevealMutations.ts` now owns the mutation lock plus
+  high-level reveal orchestration, `uiSettingRevealMutationOwnership.ts` owns
+  lease sequence and touched-field ownership, `uiSettingRevealMutationSnapshots.ts`
+  owns snapshot capture and rollback application, `uiSettingRevealActivation.ts`
+  owns pane/accordion activation writes, `uiSettingRevealDom.ts` owns anchor
+  lookup and highlighting, and `uiSettingRevealShared.ts` owns
+  execution-context/status helpers.
 - `frontend/src/state/hooks/terminals/terminal.ts` is now a 248-line React hook
   orchestration layer; `terminalSessions.ts` owns cached websocket session
   reuse and transport wiring, and `terminalFit.ts` owns xterm
@@ -74,14 +77,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 - `frontend/src/state` plus shared infrastructure files in `components/Utils` and `utils` total about 83.6k lines of authored code in the sampled directories.
 - The biggest shared-state hotspots are:
   - `frontend/src/state/actions/keyActivations.ts` at 960 lines
-  - `frontend/src/state/actions/uiSettingRevealMutations.ts` at 771 lines
-  - `frontend/src/components/Utils/Resizable/CustomResizable.tsx` at 726 lines
-  - `frontend/src/state/actions/stateMachineEdges.ts` at 719 lines
+  - `frontend/src/components/Utils/Resizable/CustomResizable.tsx` at 725 lines
+  - `frontend/src/state/actions/stateMachineEdges.ts` at 718 lines
   - `frontend/src/state/actions/websocketReceive.ts` at 706 lines
   - `frontend/src/state/actions/windowSpaces.ts` at 695 lines
   - `frontend/src/state/actions/sectionInfos.ts` at 678 lines
   - `frontend/src/utils/focusManager.ts` at 657 lines
   - `frontend/src/state/actions/sectionEffectiveImpls.ts` at 649 lines
+  - `frontend/src/state/actions/uiSettingRevealMutationSnapshots.ts` at 426 lines
 - `definitions.ts` now defines 14 local `use*` stores and re-exports the extracted AI/chat, app runtime, session/share, browser, search, feedback, project-status, layout-interaction, UI-preference, and editor-diagnostics stores, which is much closer to a thin index but still leaves project-state publication, artifact data, and realtime helper ownership mixed together.
 - `sectionEffectiveImpls.ts` now owns:
   - effective-impl derivation and caching
@@ -123,7 +126,9 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - debounced backend layout persistence and optimistic layout snapshot writes
 - `uiSettingReveal.ts` and adjacent helpers now split into:
   - `uiSettingReveal.ts` for reveal orchestration and plugin fallback flow
-  - `uiSettingRevealMutations.ts` for reveal mutation leases, snapshots, and rollback
+  - `uiSettingRevealMutations.ts` for reveal mutation lock and high-level orchestration
+  - `uiSettingRevealMutationOwnership.ts` for lease sequence and touched-field ownership
+  - `uiSettingRevealMutationSnapshots.ts` for snapshot capture and rollback application
   - `uiSettingRevealActivation.ts` for pane-opening and accordion/chat-aux activation writes
   - `uiSettingRevealDom.ts` for anchor lookup, scrolling, and highlight timing
   - `uiSettingRevealShared.ts` for execution-context mismatch and status builders
