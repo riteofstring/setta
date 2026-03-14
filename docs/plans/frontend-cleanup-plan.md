@@ -49,12 +49,12 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Current State (Observed)
 
 - The biggest readability problem is mixed responsibilities inside large files, not just file count.
-- There are 1025 authored TS/TSX files under `frontend/src`.
-- There are 40 non-generated TS/TSX files at 1000+ lines; several production hotspots are well above 2000 lines.
+- There are 1029 authored TS/TSX files under `frontend/src`.
+- There are 41 non-generated TS/TSX files at 1000+ lines; several production hotspots are well above 2000 lines.
 - Chat and project-AI code is the densest cluster:
   - `frontend/src/components/Chat/ChatMessages.tsx` at 7959 lines
   - `frontend/src/components/Chat/ChatInput.tsx` at 3121 lines
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at 2723 lines
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` at 2721 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` at 2379 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` at 3328 lines
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` at 2478 lines
@@ -120,11 +120,15 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   `frontend/src/state/actions/websocketLifecycle.ts` for transport/auth/bootstrap
   and `frontend/src/state/actions/websocketRealtime.ts` for outbound realtime
   send or upload behavior.
-- `frontend/src/state/actions/windowSpacePersistence.ts` and
-  `frontend/src/state/actions/windowSpaceSnapshots.ts` now own saved
-  window-space mutations plus floating snapshot/restore conversion, reducing
-  `frontend/src/state/actions/windowSpaces.ts` to 697 lines for the remaining
-  workspace-restore orchestration.
+- `frontend/src/state/actions/windowSpacePersistence.ts` now owns saved
+  window-space sort/name/delete/create mutations plus optimistic persistence,
+  `frontend/src/state/actions/windowSpaceSnapshots.ts` owns floating
+  snapshot/restore conversion, `frontend/src/state/actions/windowSpaceWorkspaceRestorePlan.ts`
+  now owns workspace-restore planning plus restored-instance remapping, and
+  `frontend/src/state/actions/windowSpaceProjectChatThreadRestore.ts` now owns
+  deployment-policy restore gating plus saved project-chat thread rebound,
+  reducing `frontend/src/state/actions/windowSpaces.ts` to 65 lines as a thin
+  workspace-restore orchestrator.
 - `frontend/src/state/actions/projectChatWindowingSelectors.ts` now owns pure
   windowing normalization, selection, and default-bounds helpers,
   `frontend/src/state/actions/projectChatWindowingLayoutState.ts` now owns

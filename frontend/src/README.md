@@ -10,15 +10,15 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-14`
-- Authored TS/TSX files under `frontend/src`: `1025`
-- Non-generated TS/TSX files at `1000+` lines: `40`
+- Authored TS/TSX files under `frontend/src`: `1029`
+- Non-generated TS/TSX files at `1000+` lines: `41`
 - Biggest current production hotspots:
   - `components/Chat/ChatMessages.tsx` (`7959`)
   - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`4990`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` (`3328`)
   - `components/Chat/ChatInput.tsx` (`3121`)
   - `plugins/runtime.ts` (`2730`)
-  - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`2723`)
+  - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`2721`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` (`2478`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` (`2444`)
   - `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` (`2403`)
@@ -233,8 +233,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
     delete/create mutations plus optimistic persistence flow.
   - `state/actions/windowSpaceSnapshots.ts` owns floating window-space snapshot
     building and conversion back into project-chat windowing state.
-  - `state/actions/windowSpaces.ts` now owns workspace restore orchestration for
-    saved window spaces.
+  - `state/actions/windowSpaceWorkspaceRestorePlan.ts` owns workspace-restore
+    planning, restored-instance remapping, merge policy, and restored git-pane
+    visibility planning for saved window spaces.
+  - `state/actions/windowSpaceProjectChatThreadRestore.ts` owns deployment-
+    policy restore gating plus saved project-chat thread rebound after layout
+    restore.
+  - `state/actions/windowSpaces.ts` now owns thin workspace-restore
+    orchestration for saved window spaces.
   - `state/actions/keyActivations.ts` now just owns global key-listener
     orchestration and pressed-key bookkeeping;
     `state/actions/keyShortcutRegistrations.ts` owns the grouped shortcut
@@ -308,12 +314,9 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/windowSpaces.ts` and `state/actions/projectChatWindowing.ts`
-  are now the largest authored/shared hotspots and should keep shrinking around
-  restore/public command orchestration versus their narrower state helpers
-- `state/actions/windowSpaces.ts` is now the largest shared-infrastructure
-  hotspot and should keep shrinking around restore orchestration versus saved
-  layout mutation ownership
+- `state/actions/projectChatWindowing.ts` is now the largest authored/shared
+  hotspot and should keep shrinking around public command orchestration versus
+  its selector, layout-state, reducer, and write-coordination helpers
 - `state/actions/sectionInfos.ts` section metadata/display-tree split now that
   `state/actions/sectionEffectiveImpls.ts`,
   `state/actions/sectionProjectStateSync.ts`,
@@ -323,6 +326,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
   `state/actions/topLevelLayoutPersistence.ts` own effective-impl access,
   backend sync, shared commands, optimistic mutation infrastructure, and
   top-level layout ownership
+- `state/actions/windowSpaceWorkspaceRestorePlan.ts` now owns the remaining
+  restore planning and remapping policy for saved window spaces, so any
+  follow-up cleanup there should stay local to restore planning instead of
+  regrowing `state/actions/windowSpaces.ts`
 - `state/actions/websocketLifecycle.ts` still owns a broad transport/auth or
   reconnect/bootstrap surface even after `websocketReceive.ts` became a thin
   facade, so future websocket cleanup should stay on the dedicated lifecycle or
