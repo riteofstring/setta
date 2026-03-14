@@ -466,6 +466,9 @@ function sendButtonSettaRequest(config: ButtonRequestConfig) {
   if (route === "") {
     return;
   }
+  // Button-triggered Setta API calls intentionally allow custom user-entered
+  // routes in addition to known presets, so this stays on the low-level post()
+  // boundary instead of a fail-closed generated endpoint wrapper.
   const payload = buildSettaApiPayload(route, config.requestBody);
   void post(route, payload);
 }

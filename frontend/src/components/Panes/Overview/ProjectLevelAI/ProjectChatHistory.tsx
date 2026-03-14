@@ -1,10 +1,6 @@
 import { PointerSensor } from "@dnd-kit/dom";
 import { arrayMove } from "@dnd-kit/helpers";
 import { useSortableListItem as useDisplacementSortableListItem } from "components/Pages/Project/ViewModeDnd";
-import {
-  BRAILLE_SPINNER_COMPACT_SIZE_CLASS_NAME,
-  BrailleSpinner,
-} from "components/Utils/BrailleSpinner";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import {
   DragDropProvider,
@@ -2378,9 +2374,6 @@ function ThreadEntryLine({
   const threadDragInteractions =
     !isDraft && sortableEnabled ? { ...sortable.listeners } : {};
   const showThreadDragCursor = !isDraft && sortableEnabled;
-  const leadingStatusVisibilityClass = showThreadDragCursor
-    ? "opacity-100 pointer-events-auto group-focus-within/thread-entry:pointer-events-none group-focus-within/thread-entry:opacity-0 group-hover/thread-entry:pointer-events-none group-hover/thread-entry:opacity-0"
-    : "opacity-100 pointer-events-auto";
   const handleThreadRowClick = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) {
       return;
@@ -2408,48 +2401,48 @@ function ThreadEntryLine({
       onClick={handleThreadRowClick}
     >
       <div
-        className={`flex min-w-0 flex-1 items-center rounded px-0 py-1 text-left ${rowRightPaddingClass}`}
+        className={`ml-0.5 flex min-w-0 flex-1 items-center rounded px-0.5 py-1 text-left ${rowRightPaddingClass}`}
         role="button"
         tabIndex={0}
         onKeyDown={(event) => onThreadEntryKeyDown(event, entry, onSelect)}
       >
         <span
-          className="-ml-px mr-px relative inline-flex h-4 w-3 shrink-0 items-center justify-center"
+          ref={showThreadDragCursor ? sortable.setActivatorNodeRef : undefined}
+          className={`mr-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded ${
+            showThreadDragCursor
+              ? "cursor-grab touch-none text-setta-400 hover:text-setta-600 active:cursor-grabbing dark:text-setta-500 dark:hover:text-setta-300"
+              : "text-transparent"
+          }`}
+          data-testid="project-chat-thread-drag-handle"
+          aria-label={showThreadDragCursor ? "Drag thread" : undefined}
+          onPointerDown={(event) => {
+            event.stopPropagation();
+          }}
+          onClick={(event) => {
+            event.stopPropagation();
+          }}
+          {...threadDragInteractions}
         >
-          <span
-            ref={showThreadDragCursor ? sortable.setActivatorNodeRef : undefined}
-            className={`absolute inset-0 inline-flex h-4 w-3 items-center justify-center rounded transition-[color,opacity] ${
-              showThreadDragCursor
-                ? "pointer-events-none cursor-grab touch-none text-setta-400 opacity-0 hover:text-setta-600 active:cursor-grabbing group-focus-within/thread-entry:pointer-events-auto group-focus-within/thread-entry:opacity-100 group-hover/thread-entry:pointer-events-auto group-hover/thread-entry:opacity-100 dark:text-setta-500 dark:hover:text-setta-300"
-                : "pointer-events-none text-setta-300 opacity-0 group-focus-within/thread-entry:opacity-100 group-hover/thread-entry:opacity-100 dark:text-setta-700"
-            }`}
-            data-testid="project-chat-thread-drag-handle"
-            aria-label={showThreadDragCursor ? "Drag thread" : undefined}
-            onPointerDown={(event) => {
-              event.stopPropagation();
-            }}
-            onClick={(event) => {
-              event.stopPropagation();
-            }}
-            {...threadDragInteractions}
-          >
-            <RxDragHandleDots2 size={12} />
-          </span>
-          {showWorkingIndicator ? (
-            <BrailleSpinner
-              className={`absolute inset-0 m-auto ${BRAILLE_SPINNER_COMPACT_SIZE_CLASS_NAME} text-blue-500 transition-opacity dark:text-blue-300 ${leadingStatusVisibilityClass}`}
-              data-testid={"project-chat-thread-working-indicator"}
-              aria-hidden="true"
-              {...(workingIndicatorTooltipHandlers ?? {})}
-            />
-          ) : showUnreadIndicator ? (
-            <span
-              className={`absolute inset-0 m-auto h-2 w-2 rounded-full bg-blue-500 transition-opacity ${leadingStatusVisibilityClass}`}
-              data-testid="project-chat-thread-unread-dot"
-              {...(unreadIndicatorTooltipHandlers ?? {})}
-            />
-          ) : null}
+          <RxDragHandleDots2 size={12} />
         </span>
+        {showWorkingIndicator || showUnreadIndicator ? (
+          <span className="mr-0.5 inline-flex h-2.5 w-2.5 shrink-0 items-center justify-center">
+            {showWorkingIndicator ? (
+              <i
+                className="gg-spinner !scale-[0.6] text-blue-500 dark:text-blue-300"
+                data-testid={"project-chat-thread-working-indicator"}
+                aria-hidden="true"
+                {...(workingIndicatorTooltipHandlers ?? {})}
+              />
+            ) : (
+              <span
+                className="h-2 w-2 rounded-full bg-blue-500"
+                data-testid="project-chat-thread-unread-dot"
+                {...(unreadIndicatorTooltipHandlers ?? {})}
+              />
+            )}
+          </span>
+        ) : null}
         <span className="min-w-0 flex-1 truncate text-[11px] font-semibold">
           {entry.label}
         </span>

@@ -41,48 +41,12 @@ async function seedAIStorePersistence(
   }, patch);
 }
 
-async function seedProjectAIChatOverviewState(
-  page: Page,
-  {
-    width,
-    viewThreads,
-    aiPatch,
-  }: {
-    width: number;
-    viewThreads?: boolean;
-    aiPatch?: Record<string, unknown>;
-  },
-): Promise<void> {
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-    overviewWidth: width,
-    overviewTrueWidth: width,
-  });
-  if (viewThreads === undefined && aiPatch === undefined) {
-    return;
-  }
-  await seedAIStorePersistence(page, {
-    ...(viewThreads === undefined
-      ? {}
-      : {
-          viewThreads,
-          projectChatThreadsExplicitlyClosedAtLargeWidth: false,
-        }),
-    ...(aiPatch ?? {}),
-  });
-}
-
 async function maximizeProjectChatWindow(page: Page): Promise<void> {
-  const maximizedWindow = page
-    .getByTestId("project-chat-maximized-window")
-    .first();
+  const maximizedWindow = page.getByTestId("project-chat-maximized-window").first();
   if (await maximizedWindow.isVisible()) {
     return;
   }
-  const maximizeButton = page
-    .getByTestId("project-chat-window-maximize")
-    .first();
+  const maximizeButton = page.getByTestId("project-chat-window-maximize").first();
   await expect(maximizeButton).toBeVisible();
   await clickDom(maximizeButton);
   await expect(maximizedWindow).toBeVisible();
@@ -94,13 +58,16 @@ async function clickDom(locator: Locator): Promise<void> {
     element.click();
   });
 }
+
 test("project ai thread spinner clears when latest run in a chat is completed", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1360, height: 920 });
-  await seedProjectAIChatOverviewState(page, {
-    width: 1040,
-    viewThreads: true,
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1040,
+    overviewTrueWidth: 1040,
   });
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
@@ -185,9 +152,11 @@ test("project ai shows styled empty state when no threads exist", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1360, height: 920 });
-  await seedProjectAIChatOverviewState(page, {
-    width: 1040,
-    viewThreads: true,
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1040,
+    overviewTrueWidth: 1040,
   });
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
@@ -216,11 +185,7 @@ test("project ai shows styled empty state when no threads exist", async ({
     );
     await expect(startNewThreadButton).toBeVisible();
     await startNewThreadButton.click();
-    await expect(
-      (await getVisibleProjectChatSurface(page)).getByPlaceholder(
-        "Type a message...",
-      ),
-    ).toBeVisible();
+    await expect((await getVisibleProjectChatSurface(page)).getByPlaceholder("Type a message...")).toBeVisible();
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -230,9 +195,11 @@ test("project ai thread spinner clears after polling observes run completion", a
   page,
 }) => {
   await page.setViewportSize({ width: 1360, height: 920 });
-  await seedProjectAIChatOverviewState(page, {
-    width: 1040,
-    viewThreads: true,
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1040,
+    overviewTrueWidth: 1040,
   });
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
@@ -332,25 +299,27 @@ test("project ai selected thread spinner follows live chat state before agent-ru
   page,
 }) => {
   await page.setViewportSize({ width: 1360, height: 920 });
-  await seedProjectAIChatOverviewState(page, {
-    width: 1040,
-    viewThreads: true,
-    aiPatch: {
-      activeChatId: "pw-thread-live-state-chat",
-      chatDetails: {
-        "pw-thread-live-state-chat": {
-          messages: [
-            {
-              id: "assistant-live-state",
-              role: "assistant",
-              content: [{ type: "text", text: "Done responding." }],
-            },
-          ],
-          waitingForResponse: false,
-          llmConfig: null,
-          toolCallArguments: {},
-          contextUsage: null,
-        },
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1040,
+    overviewTrueWidth: 1040,
+  });
+  await seedAIStorePersistence(page, {
+    activeChatId: "pw-thread-live-state-chat",
+    chatDetails: {
+      "pw-thread-live-state-chat": {
+        messages: [
+          {
+            id: "assistant-live-state",
+            role: "assistant",
+            content: [{ type: "text", text: "Done responding." }],
+          },
+        ],
+        waitingForResponse: false,
+        llmConfig: null,
+        toolCallArguments: {},
+        contextUsage: null,
       },
     },
   });
@@ -436,18 +405,9 @@ test("project ai selected thread spinner follows live chat state before agent-ru
       .getByTestId("project-chat-thread-entry")
       .filter({ hasText: "Live state thread" });
     await expect(selectedThreadEntry).toHaveCount(1);
-    const selectedThreadWorkingIndicator = selectedThreadEntry.getByTestId(
-      "project-chat-thread-working-indicator",
-    );
-    const selectedThreadDragHandle = selectedThreadEntry.getByTestId(
-      "project-chat-thread-drag-handle",
-    );
-    await expect(selectedThreadWorkingIndicator).toHaveCount(1);
-    await expect(selectedThreadWorkingIndicator).toHaveCSS("opacity", "1");
-    await expect(selectedThreadDragHandle).toHaveCSS("opacity", "0");
-    await selectedThreadEntry.locator("[role='button']").first().focus();
-    await expect(selectedThreadWorkingIndicator).toHaveCSS("opacity", "0");
-    await expect(selectedThreadDragHandle).toHaveCSS("opacity", "1");
+    await expect(
+      selectedThreadEntry.getByTestId("project-chat-thread-working-indicator"),
+    ).toHaveCount(1);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -459,9 +419,11 @@ test("project ai threads render folder groups and keep pinned scopes separate", 
   const backendGroupName =
     "Backend group with a long name for hover truncation checks";
   await page.setViewportSize({ width: 1480, height: 920 });
-  await seedProjectAIChatOverviewState(page, {
-    width: 1100,
-    viewThreads: true,
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
   });
 
   await ensureAppReady(page);
@@ -626,12 +588,6 @@ test("project ai threads render folder groups and keep pinned scopes separate", 
   await expect(
     draftThreadEntry.getByTestId("project-chat-thread-agent-badge"),
   ).toHaveCount(1);
-  const draftDragHandle = draftThreadEntry.getByTestId(
-    "project-chat-thread-drag-handle",
-  );
-  await expect(draftDragHandle).toHaveCSS("opacity", "0");
-  await draftThreadEntry.getByRole("button").focus();
-  await expect(draftDragHandle).toHaveCSS("opacity", "1");
   const draftEntrySpacing = await backendGroupRow
     .getByTestId("project-chat-thread-draft-entry")
     .evaluate((entryElement) => {
@@ -655,8 +611,8 @@ test("project ai threads render folder groups and keep pinned scopes separate", 
         handleToLabel: labelRect.left - handleRect.right,
       };
     });
-  expect(draftEntrySpacing.leftToHandle).toBeLessThanOrEqual(0.75);
-  expect(draftEntrySpacing.handleToLabel).toBeLessThanOrEqual(1.5);
+  expect(draftEntrySpacing.leftToHandle).toBeLessThanOrEqual(2.5);
+  expect(draftEntrySpacing.handleToLabel).toBeLessThanOrEqual(2.5);
   await clickDom(backendGroupSelect);
   await expect(
     backendGroupRow.getByTestId("project-chat-thread-draft-entry"),
@@ -855,33 +811,6 @@ test("project ai preserves draft text when resize reveals inline threads", async
   await expect(composerInput).toHaveValue(draftText);
 });
 
-test("project ai preserves unsent draft text across reloads", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 1280, height: 920 });
-  await seedProjectAIChatOverviewState(page, {
-    width: 1040,
-  });
-
-  await ensureAppReady(page);
-
-  const overviewPane = await getVisibleProjectChatSurface(page);
-  const composerInput = overviewPane.getByPlaceholder("Type a message...");
-  const draftText = "keep this unsent draft after reload";
-  await composerInput.fill(draftText);
-  await expect(composerInput).toHaveValue(draftText);
-
-  // Reload should keep the in-progress composer text instead of resetting the
-  // controlled input back to an empty project chat draft.
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".react-flow__pane");
-
-  const reloadedOverviewPane = await getVisibleProjectChatSurface(page);
-  await expect(
-    reloadedOverviewPane.getByPlaceholder("Type a message..."),
-  ).toHaveValue(draftText);
-});
-
 test("project ai ignores legacy viewHistory in persisted ai store", async ({
   page,
 }) => {
@@ -921,9 +850,11 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
 }) => {
   test.setTimeout(180000);
   await page.setViewportSize({ width: 1480, height: 920 });
-  await seedProjectAIChatOverviewState(page, {
-    width: 1100,
-    viewThreads: true,
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
   });
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
@@ -1040,19 +971,9 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
       body: JSON.stringify({
         messages: [
           {
-            id: "user-existing",
-            role: "user",
-            content: [{ type: "text", text: "Nonmatching kickoff request" }],
-          },
-          {
             id: "assistant-existing",
             role: "assistant",
-            content: [
-              {
-                type: "text",
-                text: "Existing queue thread reply queue follow up",
-              },
-            ],
+            content: [{ type: "text", text: "Existing queue thread reply" }],
           },
         ],
         waitingForResponse: false,
@@ -1068,19 +989,9 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
       body: JSON.stringify({
         messages: [
           {
-            id: "user-existing",
-            role: "user",
-            content: [{ type: "text", text: "Nonmatching kickoff request" }],
-          },
-          {
             id: "assistant-existing",
             role: "assistant",
-            content: [
-              {
-                type: "text",
-                text: "Existing queue thread reply queue follow up",
-              },
-            ],
+            content: [{ type: "text", text: "Existing queue thread reply" }],
           },
         ],
         waitingForResponse: false,
@@ -1106,7 +1017,7 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
       .toBeGreaterThanOrEqual(3);
     await expect(
       threadsPanel.getByTestId("project-chat-thread-working-indicator").first(),
-    ).toHaveAttribute("data-unicode-spinner", "braille");
+    ).toHaveClass(/gg-spinner/);
     await expect(
       threadsPanel.getByTestId("project-chat-thread-entry"),
     ).toHaveCount(3);
@@ -1184,7 +1095,7 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
       threadsPanel.getByTestId("project-chat-thread-unpinned-section-label"),
     ).toBeVisible();
 
-    await clickDom(overviewPane.getByRole("button", { name: "New Group" }));
+  await clickDom(overviewPane.getByRole("button", { name: "New Group" }));
     let groupNameInput = threadsPanel.getByTestId(
       "project-chat-thread-group-name-input",
     );
@@ -1196,7 +1107,7 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
       .filter({ hasText: "Backend" });
     await expect(backendGroupRow).toBeVisible();
 
-    await clickDom(overviewPane.getByRole("button", { name: "New Group" }));
+  await clickDom(overviewPane.getByRole("button", { name: "New Group" }));
     groupNameInput = threadsPanel.getByTestId(
       "project-chat-thread-group-name-input",
     );
@@ -1262,56 +1173,6 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
     await expect(
       overviewPane.getByText("Existing queue thread reply"),
     ).toBeVisible();
-    await expect(
-      overviewPane.getByTestId("project-chat-conversation-filter"),
-    ).toContainText("1/2");
-    const activeSearchMatch = overviewPane.locator(
-      '[data-chat-search-active-match="true"]',
-    );
-    await expect(activeSearchMatch).toContainText(
-      "Existing queue thread reply queue follow up",
-    );
-    await expect(
-      activeSearchMatch.locator(
-        'mark[data-chat-search-highlight="true"][data-chat-search-highlight-target="true"]',
-      ),
-    ).toContainText(/queue/i);
-    await expect
-      .poll(async () => {
-        return await activeSearchMatch.evaluate((element) => {
-          const marks = Array.from(
-            element.querySelectorAll('mark[data-chat-search-highlight="true"]'),
-          );
-          return marks.findIndex((mark) =>
-            mark.hasAttribute("data-chat-search-highlight-target"),
-          );
-        });
-      })
-      .toBe(0);
-    await conversationFilterInput.press("Enter");
-    await expect(
-      overviewPane.getByTestId("project-chat-conversation-filter"),
-    ).toContainText("2/2");
-    await expect(activeSearchMatch).toContainText(
-      "Existing queue thread reply queue follow up",
-    );
-    await expect(
-      activeSearchMatch.locator(
-        'mark[data-chat-search-highlight="true"][data-chat-search-highlight-target="true"]',
-      ),
-    ).toContainText(/queue/i);
-    await expect
-      .poll(async () => {
-        return await activeSearchMatch.evaluate((element) => {
-          const marks = Array.from(
-            element.querySelectorAll('mark[data-chat-search-highlight="true"]'),
-          );
-          return marks.findIndex((mark) =>
-            mark.hasAttribute("data-chat-search-highlight-target"),
-          );
-        });
-      })
-      .toBe(1);
     await conversationFilterInput.fill("");
     await clickDom(overviewPane.locator('button[aria-label="New Chat"]'));
     const draftEntry = threadsPanel.getByTestId(

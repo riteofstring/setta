@@ -14,14 +14,13 @@ import {
 } from "state/actions/app";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { useAppConfigs, useShareSession } from "state/definitions";
-import { C_ADDRESSES } from "utils/c_addresses";
-import { res200 } from "utils/endpointUtils";
+import { buildBackendURL, res200 } from "utils/endpointUtils";
 import {
   route_get_attachment_download_url,
   route_run_code,
 } from "utils/generatedEndpoints";
+import { GoHTTPRouteHelpers } from "utils/generatedRoutes";
 import type { AppDefinition, SharePolicy } from "utils/generatedTypes";
-import { RouteEnum } from "utils/generatedTypes";
 import { normalizeActionDefinitions, resolveActionType } from "./appBindings";
 import { AppActionContext, AppRuntimeContext } from "./appContext";
 import "./appMotion.css";
@@ -399,14 +398,12 @@ export function AppRenderer({
         addTemporaryNotification("Missing file content id for download.");
         return;
       }
-      const endpoint = RouteEnum.BINARY_DOWNLOAD.replace(
-        "{contentId}",
-        encodeURIComponent(contentId),
+      const endpoint = GoHTTPRouteHelpers.binaryDownload(contentId);
+      const url = new URL(
+        buildBackendURL(endpoint, {
+          shareSessionId: shareSessionId ?? undefined,
+        }),
       );
-      const url = new URL(`${C_ADDRESSES.BACKEND}${endpoint}`);
-      if (shareSessionId) {
-        url.searchParams.set("shareSessionId", shareSessionId);
-      }
       triggerDownload(url.toString(), filename ?? undefined);
     },
     [allowFileDownloads, shareSessionId],
