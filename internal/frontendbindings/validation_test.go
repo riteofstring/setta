@@ -1763,6 +1763,79 @@ func TestFrontendPluginBackendDispatchUsesGeneratedHelper(t *testing.T) {
 	}
 }
 
+func TestFrontendRawBackendTransportConstructionUsesEndpointUtils(t *testing.T) {
+	t.Helper()
+
+	repoRoot := testRepoRoot(t)
+	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
+	patterns := []struct {
+		name    string
+		pattern *regexp.Regexp
+	}{
+		{
+			name:    "raw backend fetch base",
+			pattern: regexp.MustCompile("fetch\\s*\\(\\s*`\\$\\{C_ADDRESSES\\.BACKEND\\}"),
+		},
+		{
+			name:    "raw backend URL base",
+			pattern: regexp.MustCompile("new URL\\s*\\(\\s*`\\$\\{C_ADDRESSES\\.BACKEND\\}"),
+		},
+		{
+			name:    "raw backend-origin URL base",
+			pattern: regexp.MustCompile(`new URL\s*\(\s*[^)]*,\s*C_ADDRESSES\.BACKEND_ORIGIN\s*\)`),
+		},
+		{
+			name:    "raw websocket base",
+			pattern: regexp.MustCompile("new URL\\s*\\(\\s*`\\$\\{C_ADDRESSES\\.WEBSOCKET\\}"),
+		},
+	}
+
+	err := filepath.WalkDir(frontendSrcRoot, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+
+		base := entry.Name()
+		if !(strings.HasSuffix(base, ".ts") || strings.HasSuffix(base, ".tsx")) {
+			return nil
+		}
+		if strings.Contains(base, ".test.") || strings.Contains(base, ".spec.") {
+			return nil
+		}
+
+		relativePath, err := filepath.Rel(repoRoot, path)
+		if err != nil {
+			return err
+		}
+		relativePath = filepath.ToSlash(relativePath)
+
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		source := string(contents)
+		for _, pattern := range patterns {
+			match := pattern.pattern.FindString(source)
+			if match == "" {
+				continue
+			}
+			return fmt.Errorf(
+				"%s uses %s via %q; route/origin transport construction should go through shared endpointUtils helpers instead",
+				relativePath,
+				pattern.name,
+				match,
+			)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("scan frontend raw backend transport construction: %v", err)
+	}
+}
+
 func readBareHTTPRouteIdentifiers(t *testing.T, path string) []string {
 	t.Helper()
 

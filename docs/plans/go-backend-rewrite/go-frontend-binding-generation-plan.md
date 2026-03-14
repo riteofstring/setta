@@ -271,6 +271,10 @@ Current status:
   backend-origin URL, and backend-origin websocket construction used by the
   narrowed plugin/app/realtime/terminal transport exceptions, stay reviewable
   as the converted surface widens
+- the validation suite now also rejects raw backend/base URL construction in
+  non-test frontend runtime source, so callers must go through the shared
+  `endpointUtils` helper boundary instead of reintroducing direct
+  `C_ADDRESSES` transport assembly
 - the validation suite now also checks that the checked-in
   `generatedRoutes.ts`, `generatedTypes.ts`, and `generatedEndpoints.ts`
   files exactly match the current Go frontend binding generation pipeline
