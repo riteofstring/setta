@@ -208,8 +208,218 @@ describe("ChatInput queued slash-command replay", () => {
     expect(queuedDraft?.textContent).toContain(
       "/app-json dashboard for support ops",
     );
-    expect(host.textContent).toContain(
-      "Queued message failed. Edit it and retry.",
+    expect(host.textContent).toContain("Failed to submit /app-json.");
+  });
+
+  it("passes an explicit plain-chat override for custom slash commands", async () => {
+    const onSubmit = vi.fn(async () => true);
+
+    await act(async () => {
+      root.render(
+        <ChatInput
+          placeholderText="Type a message..."
+          waitingForResponse={false}
+          slashCommands={[
+            {
+              command: "/plain-review",
+              action: "custom_prompt",
+              summary: "Review without app generation.",
+              promptTemplate: "Review the current diff.",
+              appGenerationMode: null,
+            },
+          ]}
+          recognizedSlashCommands={[
+            {
+              command: "/plain-review",
+              action: "custom_prompt",
+              summary: "Review without app generation.",
+              promptTemplate: "Review the current diff.",
+              appGenerationMode: null,
+            },
+          ]}
+          onSubmit={onSubmit}
+        />,
+      );
+    });
+
+    const textarea = host.querySelector(
+      '[data-testid="chat-input-textarea"]',
+    ) as HTMLTextAreaElement | null;
+    const submitButton = host.querySelector(
+      'button[type="submit"]',
+    ) as HTMLButtonElement | null;
+    if (!textarea || !submitButton) {
+      throw new Error("Expected chat input controls.");
+    }
+    const setTextareaValue = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      "value",
+    )?.set;
+    if (!setTextareaValue) {
+      throw new Error("Expected textarea value setter.");
+    }
+
+    await act(async () => {
+      setTextareaValue.call(textarea, "/plain-review changes in auth flow");
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      submitButton.click();
+      await Promise.resolve();
+    });
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      "Review the current diff.\n\nchanges in auth flow",
+      [],
+      {
+        appGeneration: null,
+      },
     );
+  });
+
+  it("keeps queued unavailable slash commands queued until they are executable", async () => {
+    const onSubmit = vi.fn(async () => true);
+    let setWaitingForResponse:
+      | ((next: boolean | ((current: boolean) => boolean)) => void)
+      | null = null;
+
+    const App = () => {
+      const [waitingForResponse, setLocalWaitingForResponse] = useState(true);
+      setWaitingForResponse = setLocalWaitingForResponse;
+
+      return (
+        <ChatInput
+          placeholderText="Type a message..."
+          waitingForResponse={waitingForResponse}
+          slashCommands={[]}
+          recognizedSlashCommands={[
+            {
+              command: "/deploy",
+              action: "native_prompt",
+              summary: "Deploy the current build.",
+            },
+          ]}
+          onSubmit={onSubmit}
+          onStop={() => {
+            setWaitingForResponse(false);
+          }}
+        />
+      );
+    };
+
+    await act(async () => {
+      root.render(<App />);
+    });
+
+    const textarea = host.querySelector(
+      '[data-testid="chat-input-textarea"]',
+    ) as HTMLTextAreaElement | null;
+    const submitButton = host.querySelector(
+      'button[type="submit"]',
+    ) as HTMLButtonElement | null;
+    if (!textarea || !submitButton) {
+      throw new Error("Expected chat input controls.");
+    }
+    const setTextareaValue = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      "value",
+    )?.set;
+    if (!setTextareaValue) {
+      throw new Error("Expected textarea value setter.");
+    }
+
+    await act(async () => {
+      setTextareaValue.call(textarea, "/deploy now");
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      submitButton.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    if (!setWaitingForResponse) {
+      throw new Error("Expected waiting state setter.");
+    }
+    await act(async () => {
+      setWaitingForResponse(false);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(host.textContent).toContain(
+      "/deploy is unavailable in the current context. Use /help.",
+    );
+    const queuedDraft = host.querySelector('[data-chat-queued-draft="true"]');
+    expect(queuedDraft?.textContent).toContain("/deploy now");
+  });
+
+  it("keeps queued slash commands when authority reload asks to retry later", async () => {
+    const onSubmit = vi.fn(async () => true);
+    let setWaitingForResponse:
+      | ((next: boolean | ((current: boolean) => boolean)) => void)
+      | null = null;
+
+    const App = () => {
+      const [waitingForResponse, setLocalWaitingForResponse] = useState(true);
+      setWaitingForResponse = setLocalWaitingForResponse;
+
+      return (
+        <ChatInput
+          placeholderText="Type a message..."
+          waitingForResponse={waitingForResponse}
+          onSubmit={onSubmit}
+          onStop={() => {
+            setWaitingForResponse(false);
+          }}
+          onUnknownSlashCommand={() => ({
+            handled: true,
+            feedback: "Reloading slash-command authority.",
+            keepInput: true,
+            retryLater: true,
+          })}
+        />
+      );
+    };
+
+    await act(async () => {
+      root.render(<App />);
+    });
+
+    const textarea = host.querySelector(
+      '[data-testid="chat-input-textarea"]',
+    ) as HTMLTextAreaElement | null;
+    const submitButton = host.querySelector(
+      'button[type="submit"]',
+    ) as HTMLButtonElement | null;
+    if (!textarea || !submitButton) {
+      throw new Error("Expected chat input controls.");
+    }
+    const setTextareaValue = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      "value",
+    )?.set;
+    if (!setTextareaValue) {
+      throw new Error("Expected textarea value setter.");
+    }
+
+    await act(async () => {
+      setTextareaValue.call(textarea, "/reload-authority");
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      submitButton.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    if (!setWaitingForResponse) {
+      throw new Error("Expected waiting state setter.");
+    }
+    await act(async () => {
+      setWaitingForResponse(false);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(host.textContent).toContain("Reloading slash-command authority.");
+    const queuedDraft = host.querySelector('[data-chat-queued-draft="true"]');
+    expect(queuedDraft?.textContent).toContain("/reload-authority");
   });
 });

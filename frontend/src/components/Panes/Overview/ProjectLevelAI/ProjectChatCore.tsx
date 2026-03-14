@@ -67,7 +67,10 @@ import {
   type ProjectChatCustomSlashCommand,
 } from "state/definitions";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
-import { getDefaultChatAppGenerationDetails } from "state/utils/chatAppGeneration";
+import {
+  getDefaultChatAppGenerationDetails,
+  type ChatAppGenerationContext,
+} from "state/utils/chatAppGeneration";
 import {
   hasPendingToolInteraction,
   normalizeToolName,
@@ -511,6 +514,22 @@ export function clearProjectChatHydrationCacheEntriesForChat({
     removedCacheKeys.push(cacheKey);
   }
   return removedCacheKeys;
+}
+
+export function resolveProjectChatSubmitAppGeneration({
+  activeAppGeneration,
+  options,
+}: {
+  activeAppGeneration: ChatAppGenerationContext | null;
+  options?: ChatSubmitOptions;
+}): ChatAppGenerationContext | null {
+  if (
+    !options ||
+    !Object.prototype.hasOwnProperty.call(options, "appGeneration")
+  ) {
+    return activeAppGeneration;
+  }
+  return options.appGeneration ?? null;
 }
 
 function touchProjectChatHydrationRetryEntry(
@@ -1873,6 +1892,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           handled: true,
           feedback: NATIVE_SLASH_COMMANDS_RELOAD_FEEDBACK,
           keepInput: true,
+          retryLater: true,
         };
       }
       if (refreshedRequest.parsed) {
@@ -1920,8 +1940,10 @@ export const ProjectChatCore = memo(function ProjectChatCore({
 
       let submittedChatId: string | null = null;
       let succeeded = false;
-      const resolvedAppGeneration =
-        options?.appGeneration ?? activeAppGeneration;
+      const resolvedAppGeneration = resolveProjectChatSubmitAppGeneration({
+        activeAppGeneration,
+        options,
+      });
       try {
         submittedChatId = await submitMessage(
           chatId ?? null,

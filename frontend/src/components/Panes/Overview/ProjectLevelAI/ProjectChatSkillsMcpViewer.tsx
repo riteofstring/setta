@@ -26,7 +26,10 @@ import {
   useAIStore,
   useLocalStorage,
 } from "state/definitions";
-import type { AppGenerationMode } from "state/types/appGenerationMode";
+import {
+  type AppGenerationMode,
+  parseAppGenerationMode,
+} from "state/types/appGenerationMode";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_get_app_gen_skill_content,
@@ -108,7 +111,7 @@ type SkillMarkdownDraftStateEntry = {
 type CustomSlashCommandDraft = {
   command: string;
   prompt: string;
-  appGenerationMode?: AppGenerationMode | null;
+  appGenerationMode: AppGenerationMode | null;
 };
 const EMPTY_CUSTOM_SLASH_COMMAND_DRAFT: CustomSlashCommandDraft = {
   command: "",
@@ -1222,19 +1225,12 @@ export function ProjectChatSkillsMcpViewer({
       setCustomSlashDraftByProjectConfigId((current) => {
         const currentDraft =
           current[projectConfigId] ?? EMPTY_CUSTOM_SLASH_COMMAND_DRAFT;
-        const resolvedMode =
-          nextMode === "json_render" ||
-          nextMode === "json_render_with_image" ||
-          nextMode === "prompt_builder" ||
-          nextMode === "mcp_server"
-            ? nextMode
-            : null;
         const next = resolveCustomSlashDraftByProjectConfigIdUpdate({
           customSlashDraftByProjectConfigId: current,
           projectConfigId,
           nextDraft: {
             ...currentDraft,
-            appGenerationMode: resolvedMode,
+            appGenerationMode: parseAppGenerationMode(nextMode),
           },
         });
         return next ?? current;
@@ -2299,6 +2295,9 @@ export function ProjectChatSkillsMcpViewer({
                   const hasCollision = conflictingCustomSlashCommandTokens.has(
                     command.command,
                   );
+                  const modeLabel = getCustomSlashCommandModeLabel(
+                    command.appGenerationMode ?? null,
+                  );
                   return (
                     <div
                       key={command.command}
@@ -2314,13 +2313,9 @@ export function ProjectChatSkillsMcpViewer({
                         <div className="min-w-0 break-words text-[10px] text-setta-600 dark:text-setta-300">
                           {command.promptTemplate}
                         </div>
-                        {command.appGenerationMode ? (
+                        {modeLabel ? (
                           <div className="mt-0.5 text-[10px] text-setta-500 dark:text-setta-400">
-                            Submits as{" "}
-                            {getCustomSlashCommandModeLabel(
-                              command.appGenerationMode,
-                            )}
-                            .
+                            Submits as {modeLabel}.
                           </div>
                         ) : null}
                         {hasCollision ? (

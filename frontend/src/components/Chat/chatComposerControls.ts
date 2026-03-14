@@ -1,9 +1,12 @@
-import type { AppGenerationMode } from "state/types/appGenerationMode";
 import {
-  type AppGenerationSlashCommandAction,
+  parseAppGenerationMode,
+  type AppGenerationMode,
+} from "state/types/appGenerationMode";
+import {
   buildAppGenerationSlashCommandDefinitions,
   getAppGenerationSlashCommandByAction,
   resolveAppGenerationModeForSlashAction,
+  type AppGenerationSlashCommandAction,
 } from "./appGenerationSlashCommands";
 
 const CHAT_PERMISSION_MODES = [
@@ -378,13 +381,9 @@ export function buildCustomPromptSlashCommandDefinitions(
       action: "custom_prompt",
       summary: "Run a saved custom prompt.",
       promptTemplate,
-      appGenerationMode:
-        customCommand.appGenerationMode === "json_render" ||
-        customCommand.appGenerationMode === "json_render_with_image" ||
-        customCommand.appGenerationMode === "prompt_builder" ||
-        customCommand.appGenerationMode === "mcp_server"
-          ? customCommand.appGenerationMode
-          : null,
+      appGenerationMode: parseAppGenerationMode(
+        customCommand.appGenerationMode,
+      ),
     });
   }
   return normalized;
@@ -477,8 +476,8 @@ export function parseSlashCommand(
   if (definition.promptTemplate) {
     parsedCommand.promptTemplate = definition.promptTemplate;
   }
-  if (definition.appGenerationMode) {
-    parsedCommand.appGenerationMode = definition.appGenerationMode;
+  if (Object.prototype.hasOwnProperty.call(definition, "appGenerationMode")) {
+    parsedCommand.appGenerationMode = definition.appGenerationMode ?? null;
   }
   if (definition.unavailableFeedback) {
     parsedCommand.unavailableFeedback = definition.unavailableFeedback;

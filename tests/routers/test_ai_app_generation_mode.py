@@ -114,7 +114,7 @@ class TestAIAppGenerationModeHelpers:
             "msg-b": "json_render",
         }
 
-    def test_get_run_app_generation_by_message_id_falls_back_to_legacy_latest_message(
+    def test_get_run_app_generation_by_message_id_ignores_legacy_mode_without_mapping(
         self,
     ) -> None:
         run = AgentRun.model_validate(
@@ -142,6 +142,4 @@ class TestAIAppGenerationModeHelpers:
             }
         )
 
-        assert _get_run_app_generation_by_message_id(run) == {
-            "msg-legacy": "mcp_server"
-        }
+        assert _get_run_app_generation_by_message_id(run) == {}

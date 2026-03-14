@@ -4,6 +4,7 @@ import {
   allowExpectedApiError,
   cleanupIsolatedProject,
   ensureAppReady,
+  ensureManagedChatEngine,
   ensureProjectChatThreadsPanelVisible,
   getVisibleProjectChatSurface,
   openIsolatedProject,
@@ -1476,13 +1477,28 @@ test("custom app-generation slash commands submit with the selected mode", async
       }),
     });
   });
+  await page.route("**/api/getExternalAgentChat", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [],
+        waitingForResponse: false,
+        toolCallArguments: {},
+        contextUsage: null,
+        appGenerationByMessageId: {},
+      }),
+    });
+  });
 
   await ensureAppReady(page);
   let projectContext: Awaited<ReturnType<typeof openIsolatedProject>> | null =
     null;
+  let engineCleanup = async () => {};
 
   try {
     projectContext = await openIsolatedProject(page);
+    engineCleanup = await ensureManagedChatEngine(page);
     await seedLocalStorage(page, {
       customProjectChatSlashCommandsByProjectConfigId: {
         [projectContext.projectConfigId]: [
@@ -1525,6 +1541,210 @@ test("custom app-generation slash commands submit with the selected mode", async
       "Create a wireframe dashboard.\n\nsupport ops",
     );
   } finally {
+    await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("custom plain-chat slash commands clear app-generation mode inside active app threads", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(buildAppGenSkillsResponse([])),
+    });
+  });
+
+  const capturedRequests: Array<{
+    chatId?: string | null;
+    appGenerationMode?: string | null;
+    appGenerationByMessageId?: Record<string, string>;
+    message?: {
+      id?: string;
+      content?: Array<{
+        text?: string;
+      }>;
+      attachments?: Array<{
+        name?: string;
+      }>;
+    };
+  }> = [];
+  const chatStateById = new Map<
+    string,
+    {
+      messages: Array<
+        NonNullable<(typeof capturedRequests)[number]["message"]>
+      >;
+      appGenerationByMessageId: Record<string, string>;
+    }
+  >();
+  let createdChatCount = 0;
+  let assistantMessageCount = 0;
+
+  await page.route("**/api/getLLMResponse", async (route) => {
+    const payload = route
+      .request()
+      .postDataJSON() as (typeof capturedRequests)[number];
+    capturedRequests.push(payload);
+    const returnedChatId =
+      payload.chatId ?? `custom-plain-chat-${createdChatCount + 1}`;
+    const previousState = chatStateById.get(returnedChatId) ?? {
+      messages: [],
+      appGenerationByMessageId: {},
+    };
+    const nextMessages = [...previousState.messages];
+    if (payload.message) {
+      nextMessages.push(payload.message);
+      assistantMessageCount += 1;
+      nextMessages.push({
+        id: `assistant-${assistantMessageCount}`,
+        role: "assistant",
+        content: [
+          {
+            type: "text",
+            text: `Mock response ${assistantMessageCount}`,
+          },
+        ],
+        attachments: [],
+      });
+    }
+    chatStateById.set(returnedChatId, {
+      messages: nextMessages,
+      appGenerationByMessageId: payload.appGenerationByMessageId ?? {},
+    });
+    if (payload.chatId == null) {
+      createdChatCount += 1;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(returnedChatId),
+    });
+  });
+  await page.route("**/api/getLLMChat", async (route) => {
+    const payload = route.request().postDataJSON() as {
+      chatId?: string;
+    };
+    const chatState =
+      typeof payload.chatId === "string"
+        ? chatStateById.get(payload.chatId) ?? null
+        : null;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: chatState?.messages ?? [],
+        waitingForResponse: false,
+        llmConfig: null,
+        contextUsage: null,
+        appGenerationByMessageId: chatState?.appGenerationByMessageId ?? {},
+      }),
+    });
+  });
+  await page.route("**/api/getExternalAgentChat", async (route) => {
+    const payload = route.request().postDataJSON() as {
+      chatId?: string;
+    };
+    const chatState =
+      typeof payload.chatId === "string"
+        ? chatStateById.get(payload.chatId) ?? null
+        : null;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: chatState?.messages ?? [],
+        waitingForResponse: false,
+        toolCallArguments: {},
+        contextUsage: null,
+        appGenerationByMessageId: chatState?.appGenerationByMessageId ?? {},
+      }),
+    });
+  });
+  await page.route("**/api/stopLLMChat", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        alreadyStopped: false,
+        stoppedRunId: "mock-run",
+        stoppedMessageId: null,
+      }),
+    });
+  });
+  await page.route("**/api/stopExternalAgentRun", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(null),
+    });
+  });
+
+  await ensureAppReady(page);
+  let projectContext: Awaited<ReturnType<typeof openIsolatedProject>> | null =
+    null;
+  let engineCleanup = async () => {};
+
+  try {
+    projectContext = await openIsolatedProject(page);
+    engineCleanup = await ensureManagedChatEngine(page);
+    await seedLocalStorage(page, {
+      customProjectChatSlashCommandsByProjectConfigId: {
+        [projectContext.projectConfigId]: [
+          {
+            command: "/plain-review",
+            prompt: "Review the current plan.",
+            appGenerationMode: null,
+          },
+        ],
+      },
+    });
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+    await openSlashCommandsViewer(page);
+
+    const customCommandRow = page
+      .getByTestId("project-chat-custom-slash-command")
+      .filter({ hasText: "/plain-review" })
+      .locator("..");
+    await expect(customCommandRow).toBeVisible();
+    await expect(customCommandRow).toContainText("Submits as Plain chat.");
+
+    await closeSkillsMcpViewer(page);
+
+    const projectChatSurface = await getVisibleProjectChatSurface(page);
+    await projectChatSurface
+      .getByTestId("chat-input-textarea")
+      .fill("/app-json support ops dashboard");
+    await projectChatSurface.getByLabel("Send message").click();
+    await expect.poll(() => capturedRequests.length).toBe(1);
+    await expect(projectChatSurface.getByLabel("Stop response")).toBeVisible();
+    await projectChatSurface.getByLabel("Stop response").click();
+    await expect(projectChatSurface.getByLabel("Send message")).toBeVisible();
+
+    await projectChatSurface
+      .getByTestId("chat-input-textarea")
+      .fill("/plain-review keep the language concise");
+    await projectChatSurface.getByLabel("Send message").click();
+    await expect.poll(() => capturedRequests.length).toBe(2);
+
+    expect(capturedRequests[0]?.appGenerationMode).toBe("json_render");
+    expect(capturedRequests[1]?.appGenerationMode).toBeNull();
+    expect(capturedRequests[1]?.appGenerationByMessageId).toEqual({
+      [capturedRequests[0]?.message?.id ?? ""]: "json_render",
+    });
+    expect(capturedRequests[1]?.message?.content?.[0]?.text).toBe(
+      "Review the current plan.\n\nkeep the language concise",
+    );
+  } finally {
+    await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
   }
 });

@@ -186,6 +186,7 @@ describe("chatComposerControls", () => {
     expect(parsed).not.toBeNull();
     expect(parsed?.action).toBe("custom_prompt");
     expect(parsed?.promptTemplate).toBe("Summarize regressions.");
+    expect(parsed?.appGenerationMode).toBeNull();
   });
 
   it("preserves the raw custom prompt suffix exactly after the first separator", () => {
@@ -224,6 +225,21 @@ describe("chatComposerControls", () => {
 
     const parsed = parseSlashCommand("/app-override dashboard", commands);
     expect(parsed?.appGenerationMode).toBe("json_render");
+  });
+
+  it("preserves explicit plain-chat metadata on custom prompt commands", () => {
+    const commands = buildCustomPromptSlashCommandDefinitions([
+      {
+        command: "/plain-review",
+        prompt: "Review the current diff.",
+        appGenerationMode: null,
+      },
+    ]);
+
+    const parsed = parseSlashCommand("/plain-review", commands);
+
+    expect(parsed).not.toBeNull();
+    expect(parsed?.appGenerationMode).toBeNull();
   });
 
   it("parses built-in app generation slash commands with fixed prompt templates", () => {

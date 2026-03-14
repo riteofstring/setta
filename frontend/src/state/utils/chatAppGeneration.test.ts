@@ -212,4 +212,23 @@ describe("chatAppGeneration", () => {
     });
     expect(detailsByChatId["chat-2"]).toBeUndefined();
   });
+
+  it("ignores legacy run-level app-generation mode when per-message provenance is missing", () => {
+    const detailsByChatId = collectChatAppGenerationDetailsByChatId([
+      createAgentRun({
+        id: "run-legacy-only",
+        startedAt: "2026-03-10T00:00:00Z",
+        finishedAt: "2026-03-10T00:00:01Z",
+        inputs: {
+          chatId: "chat-legacy",
+          appGenerationMode: "mcp_server",
+          messages: [
+            { id: "msg-legacy", role: "user", content: [], attachments: [] },
+          ],
+        },
+      }),
+    ]);
+
+    expect(detailsByChatId["chat-legacy"]).toBeUndefined();
+  });
 });

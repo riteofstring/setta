@@ -1277,7 +1277,7 @@ class TestAgentRunChatRoutes:
                 )
 
             assert created_chat_id is not None
-            assert captured_inputs.get("appGenerationMode") == "mcp_server"
+            assert "appGenerationMode" not in captured_inputs
             assert captured_inputs.get("appGenerationByMessageId") == {
                 "msg-json": "json_render",
                 "msg-mcp": "mcp_server",
@@ -1660,7 +1660,7 @@ class TestAgentRunChatRoutes:
             assert captured_inputs.get("permissionMode") == "yolo"
             assert captured_inputs.get("searchEnabled") is False
             assert captured_inputs.get("frontendAffinityToken") == "frontend-managed"
-            assert captured_inputs.get("appGenerationMode") == "json_render"
+            assert "appGenerationMode" not in captured_inputs
             assert "skillsEnabled" not in captured_inputs
 
     async def test_get_llm_response_share_scope_preserves_frontend_affinity_token_for_managed_runner(

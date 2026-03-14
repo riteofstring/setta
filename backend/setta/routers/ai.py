@@ -501,11 +501,8 @@ def _normalize_app_generation_by_message_id(
 def _apply_app_generation_inputs(
     *,
     inputs: dict[str, object],
-    mode: AppGenerationMode | None,
     app_generation_by_message_id: dict[str, AppGenerationMode],
 ) -> None:
-    if mode is not None:
-        inputs["appGenerationMode"] = mode
     if app_generation_by_message_id:
         inputs["appGenerationByMessageId"] = app_generation_by_message_id
 
@@ -672,21 +669,7 @@ def _get_run_app_generation_by_message_id(
             normalized[message_id] = raw_mode
         if normalized:
             return normalized
-    raw_mode = inputs.get("appGenerationMode")
-    if raw_mode not in {
-        "json_render",
-        "json_render_with_image",
-        "prompt_builder",
-        "mcp_server",
-    }:
-        return {}
-    input_messages = _get_run_input_messages(run)
-    if not input_messages:
-        return {}
-    submitted_message = input_messages[-1]
-    if getattr(submitted_message, "role", None) != "user":
-        return {}
-    return {submitted_message.id: raw_mode}
+    return {}
 
 
 def _resolve_latest_assistant_message_id_from_run(run: AgentRun) -> ID | None:
@@ -988,7 +971,6 @@ async def route_get_llm_response(
             inputs["allowUnscoped"] = True
         _apply_app_generation_inputs(
             inputs=inputs,
-            mode=resolved_mode,
             app_generation_by_message_id=app_generation_by_message_id,
         )
         if normalized_frontend_affinity_token is not None:
@@ -1081,7 +1063,6 @@ async def route_get_llm_response(
             inputs["allowUnscoped"] = True
         _apply_app_generation_inputs(
             inputs=inputs,
-            mode=resolved_mode,
             app_generation_by_message_id=app_generation_by_message_id,
         )
         if normalized_frontend_affinity_token is not None:

@@ -1,5 +1,8 @@
 import { getRunLastUpdatedMs } from "state/actions/agentRunUtils";
-import type { AppGenerationMode } from "state/types/appGenerationMode";
+import {
+  parseAppGenerationMode,
+  type AppGenerationMode,
+} from "state/types/appGenerationMode";
 import {
   ChatRoleEnum,
   type AgentRun,
@@ -30,13 +33,8 @@ export function normalizeChatAppGenerationContext(
     | null
     | undefined,
 ): ChatAppGenerationContext | null {
-  const mode = context?.mode;
-  if (
-    mode !== "json_render" &&
-    mode !== "json_render_with_image" &&
-    mode !== "prompt_builder" &&
-    mode !== "mcp_server"
-  ) {
+  const mode = parseAppGenerationMode(context?.mode);
+  if (mode === null) {
     return null;
   }
   return { mode };
@@ -241,37 +239,10 @@ function getRunAppGenerationDetails(
   const hydratedByMessageId = deserializeChatAppGenerationByMessageId(
     serializedByMessageId,
   );
-  if (Object.keys(hydratedByMessageId).length > 0) {
-    return buildChatAppGenerationDetails(inputMessages, hydratedByMessageId);
-  }
-  const messageId = getSubmittedMessageId(run);
-  const appGeneration = getLegacyRunAppGenerationContext(run);
-  if (!messageId || !appGeneration) {
+  if (Object.keys(hydratedByMessageId).length === 0) {
     return null;
   }
-  return buildChatAppGenerationDetails(
-    inputMessages,
-    recordChatAppGenerationForMessage(
-      getDefaultChatAppGenerationDetails(),
-      messageId,
-      appGeneration,
-    ).appGenerationByMessageId,
-  );
-}
-
-function getLegacyRunAppGenerationContext(
-  run: AgentRun,
-): ChatAppGenerationContext | null {
-  const mode = getRunInputString(run, "appGenerationMode");
-  if (
-    mode !== "json_render" &&
-    mode !== "json_render_with_image" &&
-    mode !== "prompt_builder" &&
-    mode !== "mcp_server"
-  ) {
-    return null;
-  }
-  return { mode };
+  return buildChatAppGenerationDetails(inputMessages, hydratedByMessageId);
 }
 
 function getRunInputMessages(run: AgentRun): BaseChatMessageUnion[] {
@@ -279,17 +250,6 @@ function getRunInputMessages(run: AgentRun): BaseChatMessageUnion[] {
   return Array.isArray(rawMessages)
     ? rawMessages.filter(isBaseChatMessageUnion)
     : [];
-}
-
-function getSubmittedMessageId(run: AgentRun): string | null {
-  const inputMessages = getRunInputMessages(run);
-  if (inputMessages.length === 0) {
-    return null;
-  }
-  const lastMessage = inputMessages[inputMessages.length - 1];
-  return typeof lastMessage?.id === "string" && lastMessage.id.trim()
-    ? lastMessage.id.trim()
-    : null;
 }
 
 function getRunInputString(run: AgentRun, key: string): string | null {
