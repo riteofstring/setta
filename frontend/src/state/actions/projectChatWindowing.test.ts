@@ -55,6 +55,19 @@ import {
   unmaximizeProjectChatWindow,
 } from "./projectChatWindowing";
 import {
+  addProjectChatWindowInstanceInState,
+  closeProjectChatWindowInState,
+  focusProjectChatWindowInState,
+  maximizeProjectChatWindowInState,
+  minimizeProjectChatWindowInState,
+  reopenProjectChatWindowInState,
+  setProjectChatWindowBoundsByIdInState,
+  setProjectChatWindowBoundsInState,
+  setProjectChatWindowDockFractionsInState,
+  setProjectChatWindowPlacementInState,
+  unmaximizeProjectChatWindowInState,
+} from "./projectChatWindowingLayoutState";
+import {
   getExternalProjectChatWindowBindingForSectionInState,
   getOpenExternalProjectChatWindowInstanceForSectionInState,
   getProjectChatWindowBindingForSectionInState,
@@ -64,22 +77,11 @@ import {
   resolveDefaultFloatingChatBounds,
 } from "./projectChatWindowingSelectors";
 import {
-  addProjectChatWindowInstanceInState,
-  closeProjectChatWindowInState,
-  focusProjectChatWindowInState,
-  maximizeProjectChatWindowInState,
-  minimizeProjectChatWindowInState,
   moveProjectChatWindowToCanvasSectionInState,
-  reopenProjectChatWindowInState,
-  setProjectChatWindowBoundsByIdInState,
-  setProjectChatWindowBoundsInState,
-  setProjectChatWindowDockFractionsInState,
   setProjectChatWindowModeForSectionInState,
-  setProjectChatWindowPlacementInState,
   setProjectChatWindowTitleInState,
   showSectionInProjectChatWindowInState,
   undockProjectChatWindowFromCanvasSectionInState,
-  unmaximizeProjectChatWindowInState,
 } from "./projectChatWindowingState";
 import {
   flushPendingProjectChatWindowingWrites,

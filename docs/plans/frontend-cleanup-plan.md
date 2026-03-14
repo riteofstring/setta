@@ -33,7 +33,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - page routing already uses `frontend/src/components/Pages/routeConfig.ts` and `frontend/src/components/Pages/modeRouteResolver.ts`
   - app generation preview helpers already live in `frontend/src/components/Panes/Overview/App/appDraftPreview.ts`
   - project chat already has feature-local helpers such as `projectChatHydrationAuthority.ts`, `projectChatStarterPrompts.ts`, `projectChatSlashCommandSelectors.ts`, and `projectChatFocusUtils.ts`
-  - project chat windowing already splits behavior across `frontend/src/state/actions/projectChatWindowingSelectors.ts`, `frontend/src/state/actions/projectChatWindowingState.ts`, `frontend/src/state/actions/projectChatWindowingAuthoritative.ts`, `frontend/src/state/actions/projectChatWindowingEphemeral.ts`, and `frontend/src/state/actions/projectChatWindowingWrites.ts`
+  - project chat windowing already splits behavior across `frontend/src/state/actions/projectChatWindowingSelectors.ts`, `frontend/src/state/actions/projectChatWindowingLayoutState.ts`, `frontend/src/state/actions/projectChatWindowingState.ts`, `frontend/src/state/actions/projectChatWindowingAuthoritative.ts`, `frontend/src/state/actions/projectChatWindowingEphemeral.ts`, and `frontend/src/state/actions/projectChatWindowingWrites.ts`
   - chat hydration fetch/reconciliation and outcome typing now live in `frontend/src/state/actions/aiHydration.ts`
   - agent-run loading, retries, and single-run reconciliation now live in `frontend/src/state/actions/aiAgentRuns.ts`
   - AI config/API-key handling plus agent-profile, prompt-template, external-agent, and engine-config catalog mutations now live in `frontend/src/state/actions/aiConfiguration.ts`
@@ -49,7 +49,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Current State (Observed)
 
 - The biggest readability problem is mixed responsibilities inside large files, not just file count.
-- There are 1022 authored TS/TSX files under `frontend/src`.
+- There are 1023 authored TS/TSX files under `frontend/src`.
 - There are 40 non-generated TS/TSX files at 1000+ lines; several production hotspots are well above 2000 lines.
 - Chat and project-AI code is the densest cluster:
   - `frontend/src/components/Chat/ChatMessages.tsx` at 7959 lines
@@ -126,12 +126,14 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   workspace-restore orchestration.
 - `frontend/src/state/actions/projectChatWindowingSelectors.ts` now owns pure
   windowing normalization, selection, and default-bounds helpers,
-  `frontend/src/state/actions/projectChatWindowingState.ts` now owns the
-  remaining in-state reducers, and
+  `frontend/src/state/actions/projectChatWindowingLayoutState.ts` now owns
+  window-instance creation plus placement, focus, dock-fraction, and bounds
+  reducers, `frontend/src/state/actions/projectChatWindowingState.ts` now owns
+  section-binding, title/chat-id, and section/canvas transition reducers, and
   `frontend/src/state/actions/projectChatWindowingWrites.ts` now owns layout
   write permissions, optimistic windowing mutation dispatch, authoritative
   publish flow, and sync helpers, reducing
-  `frontend/src/state/actions/projectChatWindowing.ts` to 693 lines for public
+  `frontend/src/state/actions/projectChatWindowing.ts` to 695 lines for public
   window commands plus canvas boot flow.
 - `frontend/src/state/hooks/terminals/terminal.ts` is down to 248 lines and now
   delegates terminal websocket-session caching/transport to
@@ -286,7 +288,7 @@ Notes:
 ## Phase 3: Simplify Project Chat Windowing
 
 - Refactor `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` and `frontend/src/state/actions/projectChatWindowing.ts`.
-- Continue from the existing selector/state/writes/authoritative/ephemeral helper seams in `projectChatWindowingSelectors.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, and `projectChatWindowingEphemeral.ts` instead of re-splitting from scratch.
+- Continue from the existing selector/layout-state/state/writes/authoritative/ephemeral helper seams in `projectChatWindowingSelectors.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, and `projectChatWindowingEphemeral.ts` instead of re-splitting from scratch.
 - Separate:
   - layout math
   - pointer/keyboard interaction state
@@ -348,7 +350,7 @@ Notes:
 
 1. Refresh or add the module map, placement rules, and execution log if they are missing or stale on the branch.
 2. Tackle whichever shared hotspot is currently the biggest blocker for agent legibility, usually `state/actions/aiChatStreaming.ts`, the shared chat UI surfaces, or `state/definitions.ts`.
-3. Continue the project chat windowing split from the existing `projectChatWindowingSelectors.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, and `projectChatWindowingEphemeral.ts` seams.
+3. Continue the project chat windowing split from the existing `projectChatWindowingSelectors.ts`, `projectChatWindowingLayoutState.ts`, `projectChatWindowingState.ts`, `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, and `projectChatWindowingEphemeral.ts` seams.
 4. Clean up file browser and section layout hotspots.
 5. Work through the remaining page, pane, and runtime hotspots from the companion plans.
 6. Add feature READMEs as each area stabilizes.
