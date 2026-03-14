@@ -503,6 +503,22 @@ test.describe.serial("chat attachments", () => {
       await expect(
         projectChatSurface.getByText("Anthropic attachment reply"),
       ).toBeVisible();
+
+      const attachmentButton = projectChatSurface
+        .getByRole("button", { name: "notes.txt" })
+        .first();
+      await expect(attachmentButton).toBeVisible();
+      await attachmentButton.click();
+
+      const modal = page.getByRole("dialog", {
+        name: "Attachment preview",
+      });
+      await expect(modal).toBeVisible();
+      await expect(modal.locator("pre")).toContainText(
+        "Hello from project chat.",
+      );
+      await page.keyboard.press("Escape");
+      await expect(modal).toHaveCount(0);
     } finally {
       if (createdEngineConfigId) {
         await postBackend(page.request, "/deleteEngineConfig", {
@@ -650,6 +666,22 @@ test.describe.serial("chat attachments", () => {
       await expect(
         projectChatSurface.getByText("Gemini attachment reply"),
       ).toBeVisible();
+
+      const attachmentButton = projectChatSurface
+        .getByRole("button", { name: "notes.txt" })
+        .first();
+      await expect(attachmentButton).toBeVisible();
+      await attachmentButton.click();
+
+      const modal = page.getByRole("dialog", {
+        name: "Attachment preview",
+      });
+      await expect(modal).toBeVisible();
+      await expect(modal.locator("pre")).toContainText(
+        "Hello from project chat.",
+      );
+      await page.keyboard.press("Escape");
+      await expect(modal).toHaveCount(0);
     } finally {
       if (createdEngineConfigId) {
         await postBackend(page.request, "/deleteEngineConfig", {
@@ -795,6 +827,22 @@ test.describe.serial("chat attachments", () => {
       await expect(
         projectChatSurface.getByText("Azure attachment reply"),
       ).toBeVisible();
+
+      const attachmentButton = projectChatSurface
+        .getByRole("button", { name: "notes.txt" })
+        .first();
+      await expect(attachmentButton).toBeVisible();
+      await attachmentButton.click();
+
+      const modal = page.getByRole("dialog", {
+        name: "Attachment preview",
+      });
+      await expect(modal).toBeVisible();
+      await expect(modal.locator("pre")).toContainText(
+        "Hello from project chat.",
+      );
+      await page.keyboard.press("Escape");
+      await expect(modal).toHaveCount(0);
     } finally {
       if (createdEngineConfigId) {
         await postBackend(page.request, "/deleteEngineConfig", {
