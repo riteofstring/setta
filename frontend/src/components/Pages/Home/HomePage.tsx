@@ -1,11 +1,9 @@
 import { GridWrapper } from "components/Utils/GridWrapper";
-import { PaneContainer } from "components/Utils/PaneContainer";
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import { useEffect, useMemo, useState } from "react";
 import { BiPlus } from "react-icons/bi";
 import { IoClose, IoSettingsOutline } from "react-icons/io5";
-import { TbFolder, TbListDetails } from "react-icons/tb";
 import { Link } from "react-router-dom";
 import { toggleFavoriteProjectConfig } from "state/actions/localStorage";
 import { openDeleteProjectWarningModal } from "state/actions/modal";
@@ -24,7 +22,6 @@ import { useProjectLoading } from "state/stores/ephemeralUiStores";
 import {
   CODEMIRROR_TOOLTIP_PARENT_ID,
   PAGE_LOAD_TYPES,
-  PaneNameEnum,
   SETTA_POPOVER_PORTAL_PARENT_ID,
   SETTINGS_ROUTER_PATH,
 } from "utils/constants";
@@ -32,8 +29,7 @@ import { router_set_as_default_project } from "utils/generatedEndpoints";
 import { ProjectConfig } from "utils/generatedTypes";
 import { LoadingSpinner } from "../LoadingSpinner";
 import { HomeProjectGallery } from "./HomeProjectGallery";
-import { HomeSelectedProjectDetails } from "./HomeSelectedProjectDetails";
-import { HomeWorkspaceBrowserPane } from "./HomeWorkspaceBrowserPane";
+import { HomeSidePanes } from "./HomeSidePanes";
 import {
   buildHomeProjectDeleteSelection,
   resolveNextSelectedHomeProjectIdsOnSelect,
@@ -49,15 +45,6 @@ import {
   resolveSelectedHomeProject,
   shouldUseCompactHomeLayout,
 } from "./homeWorkspaceState";
-
-const HOME_WORKSPACE_PANE_NAME = PaneNameEnum.homeWorkspace;
-const HOME_SELECTED_PROJECT_PANE_NAME = PaneNameEnum.homeSelectedProject;
-const HOME_MIN_PANE_WIDTH = 260;
-const HOME_ICON_RAIL_Z_INDEX_CLASS = "z-[31]";
-const HOME_PANE_TITLE_CLASS =
-  "mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500";
-const HOME_INSET_PANE_CONTENT_CLASS =
-  "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden px-2";
 
 export function HomePage() {
   const { projectMetadata, defaultProjectConfigId } = useAllProjectMetadata(
@@ -310,50 +297,16 @@ function HomeWorkspaceLayout({
 
   return (
     <>
-      {showSidePanes && (
-        <HomeLeftIconRail
-          workspacePaneVisible={homeWorkspacePaneVis}
-          isDeploymentMode={isDeploymentMode}
-        />
-      )}
-      {showSidePanes && (
-        <HomeRightIconRail
-          selectedProjectPaneVisible={homeSelectedProjectPaneVis}
-        />
-      )}
-      {showSidePanes && (
-        <PaneContainer
-          paneName={HOME_WORKSPACE_PANE_NAME}
-          right={false}
-          minimumWidth={HOME_MIN_PANE_WIDTH}
-          vis={homeWorkspacePaneVis}
-          width={homeWorkspacePaneWidth}
-          paddingClassName="pt-2.5 pb-0"
-        >
-          {homeWorkspacePaneVis && <HomeWorkspaceBrowserPane />}
-        </PaneContainer>
-      )}
-      {showSidePanes && (
-        <PaneContainer
-          paneName={HOME_SELECTED_PROJECT_PANE_NAME}
-          right={true}
-          minimumWidth={HOME_MIN_PANE_WIDTH}
-          vis={homeSelectedProjectPaneVis}
-          width={homeSelectedProjectPaneWidth}
-        >
-          {homeSelectedProjectPaneVis && (
-            <section className={HOME_INSET_PANE_CONTENT_CLASS}>
-              <h2 className={HOME_PANE_TITLE_CLASS}>Selected Project</h2>
-              <HomeSelectedProjectDetails
-                project={selectedDetailProject}
-                isDefault={selectedDetailProject?.id === defaultProjectConfigId}
-                isDeploymentMode={isDeploymentMode}
-                hideTitle
-              />
-            </section>
-          )}
-        </PaneContainer>
-      )}
+      <HomeSidePanes
+        showSidePanes={showSidePanes}
+        homeWorkspacePaneVis={homeWorkspacePaneVis}
+        homeWorkspacePaneWidth={homeWorkspacePaneWidth}
+        homeSelectedProjectPaneVis={homeSelectedProjectPaneVis}
+        homeSelectedProjectPaneWidth={homeSelectedProjectPaneWidth}
+        isDeploymentMode={isDeploymentMode}
+        selectedDetailProject={selectedDetailProject}
+        defaultProjectConfigId={defaultProjectConfigId}
+      />
       <GridWrapper gridStyles="bg-setta-100 dark:bg-setta-dark">
         <main
           className="relative z-0 flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-x border-setta-200 bg-white dark:border-setta-800 dark:bg-setta-950"
@@ -422,101 +375,5 @@ function HomeWorkspaceLayout({
         id={SETTA_POPOVER_PORTAL_PARENT_ID}
       />
     </>
-  );
-}
-
-function getHomeRailButtonColor(isActive: boolean): string {
-  if (isActive) {
-    return "text-blue-500";
-  }
-  return "text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500";
-}
-
-function toggleHomeWorkspacePaneVisibility() {
-  const { homeWorkspacePaneVis } = useLocalStorage.getState();
-  const nextVis = !homeWorkspacePaneVis;
-  useLocalStorage.setState({
-    homeWorkspacePaneVis: nextVis,
-  });
-}
-
-function toggleHomeSelectedProjectPaneVisibility() {
-  const { homeSelectedProjectPaneVis } = useLocalStorage.getState();
-  const nextVis = !homeSelectedProjectPaneVis;
-  useLocalStorage.setState({
-    homeSelectedProjectPaneVis: nextVis,
-  });
-}
-
-function HomeLeftIconRail({
-  workspacePaneVisible,
-  isDeploymentMode,
-}: {
-  workspacePaneVisible: boolean;
-  isDeploymentMode: boolean;
-}) {
-  return (
-    <div
-      data-testid="home-left-icon-rail"
-      className={`fixed left-0 ${HOME_ICON_RAIL_Z_INDEX_CLASS} flex w-10 flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900`}
-      style={{
-        top: "calc(var(--setta-titlebar-height) + 36px)",
-        bottom: "0px",
-      }}
-    >
-      <button
-        type="button"
-        data-testid="home-left-rail-workspace-toggle"
-        className={`focus-visible:ring-light-blue-500 flex h-8 w-8 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 ${getHomeRailButtonColor(
-          workspacePaneVisible,
-        )}`}
-        onClick={toggleHomeWorkspacePaneVisibility}
-        aria-label="Toggle workspace browser pane"
-      >
-        <TbFolder size={18} />
-      </button>
-      {!isDeploymentMode && (
-        <Link
-          to={SETTINGS_ROUTER_PATH}
-          state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
-          data-testid="home-left-rail-settings-link"
-          className={`focus-visible:ring-light-blue-500 mb-1 mt-auto inline-flex h-8 w-8 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 ${getHomeRailButtonColor(
-            false,
-          )}`}
-          aria-label="Open settings"
-        >
-          <IoSettingsOutline size={18} />
-        </Link>
-      )}
-    </div>
-  );
-}
-
-function HomeRightIconRail({
-  selectedProjectPaneVisible,
-}: {
-  selectedProjectPaneVisible: boolean;
-}) {
-  return (
-    <div
-      data-testid="home-right-icon-rail"
-      className={`fixed right-0 ${HOME_ICON_RAIL_Z_INDEX_CLASS} flex w-10 flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900`}
-      style={{
-        top: "calc(var(--setta-titlebar-height) + 36px)",
-        bottom: "0px",
-      }}
-    >
-      <button
-        type="button"
-        data-testid="home-right-rail-selected-project-toggle"
-        className={`focus-visible:ring-light-blue-500 flex h-8 w-8 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 ${getHomeRailButtonColor(
-          selectedProjectPaneVisible,
-        )}`}
-        onClick={toggleHomeSelectedProjectPaneVisibility}
-        aria-label="Toggle selected project pane"
-      >
-        <TbListDetails size={18} />
-      </button>
-    </div>
   );
 }
