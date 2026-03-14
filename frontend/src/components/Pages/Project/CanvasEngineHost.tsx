@@ -116,18 +116,29 @@ type PanePointerSession = {
   moved: boolean;
 };
 
+type DraggedTopLevelSection = {
+  sectionId: string;
+  sectionStartX: number;
+  sectionStartY: number;
+};
+
 type SectionPointerSession = {
   pointerId: number;
   kind: "section";
   sectionId: string;
   anchorWorldX: number;
   anchorWorldY: number;
-  draggedSections: Array<{
-    sectionId: string;
-    sectionStartX: number;
-    sectionStartY: number;
-  }>;
+  draggedSections: DraggedTopLevelSection[];
   selectionAppliedOnPointerDown: boolean;
+  moved: boolean;
+};
+
+type SelectionOverlayPointerSession = {
+  pointerId: number;
+  kind: "selection-overlay";
+  anchorWorldX: number;
+  anchorWorldY: number;
+  draggedSections: DraggedTopLevelSection[];
   moved: boolean;
 };
 
@@ -198,6 +209,7 @@ type DataReconnectPointerSession = {
 type PointerSession =
   | PanePointerSession
   | SectionPointerSession
+  | SelectionOverlayPointerSession
   | ResizePointerSession
   | EdgePointerSession
   | SelectionRectPointerSession
@@ -1047,6 +1059,30 @@ export function CanvasEngineHost() {
       updateConnectionPreview(null);
       updateHoveredEdge(null);
       updateSelectionRect(null);
+      if (
+        resolveCanvasEngineSelectionOverlayTarget(event.target) &&
+        selectedTopLevelSectionIds.length > 0
+      ) {
+        const draggedSections = resolveDraggedTopLevelSections(
+          selectedTopLevelSectionIds,
+          topLevelSections,
+        );
+        if (draggedSections.length > 0) {
+          selectionOverlayRef.current?.focus({
+            preventScroll: true,
+          });
+          pointerSessionRef.current = {
+            pointerId: event.pointerId,
+            kind: "selection-overlay",
+            anchorWorldX: worldPoint.x,
+            anchorWorldY: worldPoint.y,
+            draggedSections,
+            moved: false,
+          };
+          event.currentTarget.setPointerCapture(event.pointerId);
+          return;
+        }
+      }
       const agenticHandleHit = sceneAdapter.hitTestAgenticHandleAtWorldPoint(
         worldPoint.x,
         worldPoint.y,
@@ -1229,22 +1265,9 @@ export function CanvasEngineHost() {
         const candidateDraggedSectionIds = sectionWasActiveAtPointerDown
           ? activeSectionIds
           : [sectionId];
-        const draggedSections = candidateDraggedSectionIds.flatMap(
-          (candidateSectionId) => {
-            const sectionLayout = topLevelSections[candidateSectionId];
-            if (!sectionLayout) {
-              return [];
-            }
-            return [
-              {
-                sectionId: candidateSectionId,
-                sectionStartX:
-                  typeof sectionLayout.x === "number" ? sectionLayout.x : 0,
-                sectionStartY:
-                  typeof sectionLayout.y === "number" ? sectionLayout.y : 0,
-              },
-            ];
-          },
+        const draggedSections = resolveDraggedTopLevelSections(
+          candidateDraggedSectionIds,
+          topLevelSections,
         );
         if (draggedSections.length === 0) {
           draggedSections.push({
@@ -1395,6 +1418,30 @@ export function CanvasEngineHost() {
         return;
       }
       if (pointerSession.kind === "section") {
+        const worldPoint = resolveWorldPointFromPointerEvent(event, camera);
+        if (!worldPoint) {
+          return;
+        }
+        const deltaX = worldPoint.x - pointerSession.anchorWorldX;
+        const deltaY = worldPoint.y - pointerSession.anchorWorldY;
+        const hasPositionChangeFromStart = deltaX !== 0 || deltaY !== 0;
+        if (!hasPositionChangeFromStart && !pointerSession.moved) {
+          return;
+        }
+        pointerSession.moved =
+          pointerSession.moved || hasPositionChangeFromStart;
+        setTopLevelSectionLayoutRects(
+          pointerSession.draggedSections.map((section) => ({
+            sectionId: section.sectionId,
+            nextLayoutPatch: {
+              x: section.sectionStartX + deltaX,
+              y: section.sectionStartY + deltaY,
+            },
+          })),
+        );
+        return;
+      }
+      if (pointerSession.kind === "selection-overlay") {
         const worldPoint = resolveWorldPointFromPointerEvent(event, camera);
         if (!worldPoint) {
           return;
@@ -1777,6 +1824,18 @@ export function CanvasEngineHost() {
           applyActiveSectionChange({
             interaction: "section-click",
             sectionId: pointerSession.sectionId,
+          });
+        }
+      } else if (pointerSession.kind === "selection-overlay") {
+        selectionOverlayRef.current?.focus({
+          preventScroll: true,
+        });
+        if (pointerSession.moved) {
+          const latestLayouts =
+            useProjectState.getState().projectConfig.topLevelSections;
+          void route_set_top_level_section_layout({
+            projectConfigId,
+            topLevelSections: latestLayouts,
           });
         }
       } else if (pointerSession.kind === "agentic-connect") {
@@ -2591,6 +2650,38 @@ function areStringArraysEqual(left: string[], right: string[]): boolean {
     }
   }
   return true;
+}
+
+function resolveDraggedTopLevelSections(
+  sectionIds: string[],
+  topLevelSections: CanvasEngineProjectSceneInput["topLevelSections"],
+): DraggedTopLevelSection[] {
+  return sectionIds.flatMap((sectionId) => {
+    const sectionLayout = topLevelSections[sectionId];
+    if (!sectionLayout) {
+      return [];
+    }
+    return [
+      {
+        sectionId,
+        sectionStartX:
+          typeof sectionLayout.x === "number" ? sectionLayout.x : 0,
+        sectionStartY:
+          typeof sectionLayout.y === "number" ? sectionLayout.y : 0,
+      },
+    ];
+  });
+}
+
+function resolveCanvasEngineSelectionOverlayTarget(
+  target: EventTarget | null,
+): HTMLElement | null {
+  if (!(target instanceof HTMLElement)) {
+    return null;
+  }
+  return target.closest(
+    '[data-canvas-engine-selection-overlay-rect="v1"]',
+  ) as HTMLElement | null;
 }
 
 function applySectionSizeInProjectState(
