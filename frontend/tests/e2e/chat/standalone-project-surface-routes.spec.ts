@@ -584,49 +584,6 @@ function findProjectChatWindowIdForSection(
   return null;
 }
 
-function findFloatingWindowIdByBounds(
-  state: ProjectChatWindowingSnapshot,
-  bounds: { x: number; y: number; width: number; height: number },
-  excludedInstanceIds: Set<string> = new Set(),
-): string | null {
-  for (const [instanceId, instance] of Object.entries(state.instancesById)) {
-    if (excludedInstanceIds.has(instanceId)) {
-      continue;
-    }
-    if (
-      instance.placement === "floating" &&
-      instance.bounds.x === bounds.x &&
-      instance.bounds.y === bounds.y &&
-      instance.bounds.width === bounds.width &&
-      instance.bounds.height === bounds.height
-    ) {
-      return instanceId;
-    }
-  }
-  return null;
-}
-
-async function clickWindowSpaceSaveCurrentLayout(page: Page): Promise<void> {
-  await page
-    .getByTestId("window-space-save-current-layout")
-    .evaluate((element: HTMLButtonElement) => element.click());
-}
-
-async function clickWindowSpaceOpen(page: Page): Promise<void> {
-  await page
-    .getByTestId("window-space-open")
-    .evaluate((element: HTMLButtonElement) => element.click());
-}
-
-async function flushProjectChatWindowingWrites(page: Page): Promise<void> {
-  await page.evaluate(async () => {
-    const { flushPendingProjectChatWindowingWrites } = await import(
-      "/src/state/actions/projectChatWindowing.ts"
-    );
-    await flushPendingProjectChatWindowingWrites();
-  });
-}
-
 test.describe.serial("standalone project surface routes", () => {
   test("keeps standalone project chat draft state isolated across project configs", async ({
     page,
@@ -1452,7 +1409,7 @@ test.describe.serial("standalone project surface routes", () => {
         height: 280,
       });
 
-      await clickWindowSpaceSaveCurrentLayout(page);
+      await page.getByTestId("window-space-save-current-layout").click();
       await expect(page.getByTestId("window-space-open")).toHaveCount(1);
 
       const liveWindowId = await createFloatingProjectChatWindow(
@@ -1472,47 +1429,26 @@ test.describe.serial("standalone project surface routes", () => {
         height: 240,
       });
 
-      await clickWindowSpaceOpen(page);
+      await page.getByTestId("window-space-open").click();
 
       await expect
         .poll(async () => {
           const state = await readProjectChatWindowingState(page);
+          const savedWindow = state.instancesById[savedWindowId];
           const liveWindow = state.instancesById[liveWindowId];
-          const restoredWindowId = findFloatingWindowIdByBounds(
-            state,
-            {
-              x: 40,
-              y: 40,
-              width: 420,
-              height: 280,
-            },
-            new Set([liveWindowId]),
-          );
           return (
-            restoredWindowId !== null &&
+            savedWindow?.bounds.x === 40 &&
+            savedWindow?.bounds.y === 40 &&
+            state.order.includes(savedWindowId) &&
             state.order.includes(liveWindowId) &&
             liveWindow?.placement === "floating"
           );
         })
         .toBe(true);
 
-      const restoredWindowId = findFloatingWindowIdByBounds(
-        await readProjectChatWindowingState(page),
-        {
-          x: 40,
-          y: 40,
-          width: 420,
-          height: 280,
-        },
-        new Set([liveWindowId]),
-      );
-      if (!restoredWindowId) {
-        throw new Error("Expected the saved floating window to be restored.");
-      }
-
       await expect(
         page.locator(
-          `[data-testid="project-chat-floating-window"][data-chat-window-instance-id="${restoredWindowId}"]`,
+          `[data-testid="project-chat-floating-window"][data-chat-window-instance-id="${savedWindowId}"]`,
         ),
       ).toBeVisible();
       await expect(
@@ -1547,7 +1483,7 @@ test.describe.serial("standalone project surface routes", () => {
         },
       ]);
 
-      await clickWindowSpaceSaveCurrentLayout(page);
+      await page.getByTestId("window-space-save-current-layout").click();
       await expect(page.getByTestId("window-space-open")).toHaveCount(1);
 
       await clearProjectChatWindowingState(
@@ -1567,7 +1503,7 @@ test.describe.serial("standalone project surface routes", () => {
         },
       ]);
 
-      await clickWindowSpaceOpen(page);
+      await page.getByTestId("window-space-open").click();
 
       await expect
         .poll(async () => {
@@ -1658,7 +1594,7 @@ test.describe.serial("standalone project surface routes", () => {
       if (!savedWindowState) {
         throw new Error("Expected saved section window state before restore.");
       }
-      await clickWindowSpaceSaveCurrentLayout(page);
+      await page.getByTestId("window-space-save-current-layout").click();
       await expect(page.getByTestId("window-space-open")).toHaveCount(1);
 
       await page.evaluate(async (sectionId) => {
@@ -1697,7 +1633,7 @@ test.describe.serial("standalone project surface routes", () => {
         );
       }, chatSectionId);
 
-      await clickWindowSpaceOpen(page);
+      await page.getByTestId("window-space-open").click();
 
       await expect
         .poll(async () => {
@@ -1796,7 +1732,7 @@ test.describe.serial("standalone project surface routes", () => {
 
       await setOverviewTabInStore(page, "ViewModes");
       await expect(page.getByTestId("window-spaces-pane")).toBeVisible();
-      await clickWindowSpaceSaveCurrentLayout(page);
+      await page.getByTestId("window-space-save-current-layout").click();
       await expect(page.getByTestId("window-space-open")).toHaveCount(1);
 
       await setProjectChatWindowBounds(page, graphWindowId, {
@@ -1813,8 +1749,6 @@ test.describe.serial("standalone project surface routes", () => {
       allowExpectedApiError(page, {
         path: "/api/setProjectChatWindowingState",
         statuses: [500],
-        count: 4,
-        ttlMs: 60000,
       });
       await page.route("**/api/setProjectChatWindowingState", async (route) => {
         await route.fulfill({
@@ -1824,7 +1758,7 @@ test.describe.serial("standalone project surface routes", () => {
         });
       });
 
-      await clickWindowSpaceOpen(page);
+      await page.getByTestId("window-space-open").click();
 
       await expect
         .poll(async () => readProjectChatWindowingState(page))
@@ -1907,7 +1841,7 @@ test.describe.serial("standalone project surface routes", () => {
       await expect(
         page.getByTestId("window-space-save-current-layout"),
       ).toBeVisible();
-      await clickWindowSpaceSaveCurrentLayout(page);
+      await page.getByTestId("window-space-save-current-layout").click();
       await expect(page.getByTestId("window-space-open")).toHaveCount(1);
 
       await expect
@@ -1934,6 +1868,7 @@ test.describe.serial("standalone project surface routes", () => {
         return sanitizeNameForSlug(name);
       }, windowSpace.name);
 
+      const baselineWorkspaceState = await readProjectChatWindowingState(page);
       const originalWorkspaceUrl = page.url();
 
       await setProjectChatWindowBounds(page, projectChatWindowId, {
@@ -1949,43 +1884,16 @@ test.describe.serial("standalone project surface routes", () => {
         height: 260,
       });
 
-      await clickWindowSpaceOpen(page);
+      await page.getByTestId("window-space-open").click();
       await expect.poll(() => page.url()).toBe(originalWorkspaceUrl);
       await expect
-        .poll(async () => {
-          const state = await readProjectChatWindowingState(page);
-          const restoredProjectChatWindowId = findFloatingWindowIdByBounds(
-            state,
-            {
-              x: 40,
-              y: 40,
-              width: 520,
-              height: 320,
-            },
-          );
-          const restoredSectionWindow = Object.values(state.instancesById).find(
-            (instance) =>
-              instance.sectionIdOrNull === textSectionId &&
-              instance.placement === "floating" &&
-              instance.bounds.x === 560 &&
-              instance.bounds.y === 40 &&
-              instance.bounds.width === 520 &&
-              instance.bounds.height === 420,
-          );
-          return (
-            restoredProjectChatWindowId !== null &&
-            restoredSectionWindow !== undefined
-          );
-        })
-        .toBe(true);
-
-      await flushProjectChatWindowingWrites(page);
-      const restoredWorkspaceState = await readProjectChatWindowingState(page);
+        .poll(async () => readProjectChatWindowingState(page))
+        .toEqual(baselineWorkspaceState);
 
       await page.reload({ waitUntil: "domcontentloaded" });
       await expect
         .poll(async () => readProjectChatWindowingState(page))
-        .toEqual(restoredWorkspaceState);
+        .toEqual(baselineWorkspaceState);
 
       await standalonePage.goto(
         buildStandaloneUrl(
@@ -2017,7 +1925,7 @@ test.describe.serial("standalone project surface routes", () => {
 
       await expect
         .poll(async () => readProjectChatWindowingState(page))
-        .toEqual(restoredWorkspaceState);
+        .toEqual(baselineWorkspaceState);
     } finally {
       await standalonePage.close();
       await cleanupManagedEngine();
@@ -2171,7 +2079,7 @@ test.describe.serial("standalone project surface routes", () => {
         });
       });
 
-      await clickWindowSpaceSaveCurrentLayout(page);
+      await page.getByTestId("window-space-save-current-layout").click();
       await createWindowSpaceRequestStarted;
 
       await navigateSameTabSpa(page, `/${copiedProject.name}`);
@@ -2644,7 +2552,7 @@ test.describe.serial("standalone project surface routes", () => {
         "Workspace alpha thread marker",
       );
 
-      await clickWindowSpaceSaveCurrentLayout(page);
+      await page.getByTestId("window-space-save-current-layout").click();
       await expect(page.getByTestId("window-space-open")).toHaveCount(1);
 
       const resolvedWindowSpace = await loadProjectConfigState(
@@ -2671,7 +2579,7 @@ test.describe.serial("standalone project surface routes", () => {
       await expect(alphaWorkspaceWindow).toHaveCount(0);
       await expect(betaWorkspaceWindow).toHaveCount(0);
 
-      await clickWindowSpaceOpen(page);
+      await page.getByTestId("window-space-open").click();
 
       await expect(alphaWorkspaceWindow).toContainText(
         "Workspace alpha thread marker",
@@ -2848,7 +2756,7 @@ test.describe.serial("standalone project surface routes", () => {
       });
       await seedProjectChatWindowThreads(page, [fixture]);
 
-      await clickWindowSpaceSaveCurrentLayout(page);
+      await page.getByTestId("window-space-save-current-layout").click();
       await expect(page.getByTestId("window-space-open")).toHaveCount(1);
 
       await clearProjectChatWindowingState(
@@ -2871,7 +2779,7 @@ test.describe.serial("standalone project surface routes", () => {
         `[data-testid="project-chat-floating-window"][data-chat-window-instance-id="${alphaWindowId}"]`,
       );
 
-      await clickWindowSpaceOpen(page);
+      await page.getByTestId("window-space-open").click();
       await expect(alphaWorkspaceWindow).toBeVisible();
       await page.evaluate(async (instanceId) => {
         const { focusProjectChatWindow } = await import(
@@ -3041,7 +2949,7 @@ test.describe.serial("standalone project surface routes", () => {
         });
       });
 
-      await clickWindowSpaceSaveCurrentLayout(page);
+      await page.getByTestId("window-space-save-current-layout").click();
       await expect(page.getByTestId("window-space-open")).toHaveCount(1);
 
       const resolvedWindowSpace = await loadProjectConfigState(
@@ -3354,7 +3262,7 @@ test.describe.serial("standalone project surface routes", () => {
       ];
 
       await seedProjectChatWindowThreads(page, [fixtures[0]]);
-      await clickWindowSpaceSaveCurrentLayout(page);
+      await page.getByTestId("window-space-save-current-layout").click();
       await expect(page.getByTestId("window-space-open")).toHaveCount(1);
 
       const resolvedWindowSpace = await loadProjectConfigState(
@@ -3712,7 +3620,7 @@ test.describe.serial("standalone project surface routes", () => {
           assistantText: "Saved section thread marker",
         },
       ]);
-      await clickWindowSpaceSaveCurrentLayout(page);
+      await page.getByTestId("window-space-save-current-layout").click();
       await expect(page.getByTestId("window-space-open")).toHaveCount(1);
 
       const resolvedWindowSpace = await loadProjectConfigState(
@@ -3871,7 +3779,7 @@ test.describe.serial("standalone project surface routes", () => {
           assistantText: "Saved section A marker",
         },
       ]);
-      await clickWindowSpaceSaveCurrentLayout(page);
+      await page.getByTestId("window-space-save-current-layout").click();
       await expect(page.getByTestId("window-space-open")).toHaveCount(1);
 
       const resolvedWindowSpace = await loadProjectConfigState(
@@ -4118,7 +4026,7 @@ test.describe.serial("standalone project surface routes", () => {
 
       await setOverviewTabInStore(page, "ViewModes");
       await expect(page.getByTestId("window-spaces-pane")).toBeVisible();
-      await clickWindowSpaceSaveCurrentLayout(page);
+      await page.getByTestId("window-space-save-current-layout").click();
       await expect(page.getByTestId("window-space-open")).toHaveCount(1);
 
       const resolvedWindowSpace = await loadProjectConfigState(
@@ -4299,7 +4207,7 @@ test.describe.serial("standalone project surface routes", () => {
 
       await setOverviewTabInStore(page, "ViewModes");
       await expect(page.getByTestId("window-spaces-pane")).toBeVisible();
-      await clickWindowSpaceSaveCurrentLayout(page);
+      await page.getByTestId("window-space-save-current-layout").click();
       await expect(page.getByTestId("window-space-open")).toHaveCount(1);
 
       const resolvedWindowSpace = await loadProjectConfigState(
@@ -4449,7 +4357,7 @@ test.describe.serial("standalone project surface routes", () => {
       await setProjectChatWindowBounds(page, projectChatWindowId, leftBounds);
       await setProjectChatWindowBounds(page, sectionWindowId, rightBounds);
 
-      await clickWindowSpaceSaveCurrentLayout(page);
+      await page.getByTestId("window-space-save-current-layout").click();
       await expect(page.getByTestId("window-space-open")).toHaveCount(1);
 
       const resolvedWindowSpace = await loadProjectConfigState(
@@ -4587,7 +4495,7 @@ test.describe.serial("standalone project surface routes", () => {
       );
       await expect(verticalHandle).toHaveCount(1);
 
-      await clickWindowSpaceSaveCurrentLayout(page);
+      await page.getByTestId("window-space-save-current-layout").click();
       await expect(page.getByTestId("window-space-open")).toHaveCount(1);
 
       await setProjectChatWindowBounds(page, projectChatWindowId, {
@@ -4612,31 +4520,20 @@ test.describe.serial("standalone project surface routes", () => {
         "right",
       );
 
-      await clickWindowSpaceOpen(page);
+      await page.getByTestId("window-space-open").click();
 
-      const restoredLeftWindow = page
-        .locator(
-          '[data-testid="project-chat-floating-window"][data-chat-window-snap-preset="left"]',
-        )
-        .first();
-      const restoredRightWindow = page
-        .locator(
-          '[data-testid="project-chat-floating-window"][data-chat-window-snap-preset="right"]',
-        )
-        .first();
-
-      await expect(restoredLeftWindow).toHaveAttribute(
+      await expect(leftWindow).toHaveAttribute(
         "data-chat-window-snap-preset",
         "left",
       );
-      await expect(restoredRightWindow).toHaveAttribute(
+      await expect(rightWindow).toHaveAttribute(
         "data-chat-window-snap-preset",
         "right",
       );
       await expect(verticalHandle).toHaveCount(1);
 
-      const leftBeforeResize = await restoredLeftWindow.boundingBox();
-      const rightBeforeResize = await restoredRightWindow.boundingBox();
+      const leftBeforeResize = await leftWindow.boundingBox();
+      const rightBeforeResize = await rightWindow.boundingBox();
       const resizeHandleBounds = await verticalHandle.boundingBox();
       if (!leftBeforeResize || !rightBeforeResize || !resizeHandleBounds) {
         throw new Error(
@@ -4659,10 +4556,10 @@ test.describe.serial("standalone project surface routes", () => {
       await page.mouse.up();
 
       await expect
-        .poll(async () => (await restoredLeftWindow.boundingBox())?.width ?? 0)
+        .poll(async () => (await leftWindow.boundingBox())?.width ?? 0)
         .toBeGreaterThan(leftBeforeResize.width + 60);
       await expect
-        .poll(async () => (await restoredRightWindow.boundingBox())?.width ?? 0)
+        .poll(async () => (await rightWindow.boundingBox())?.width ?? 0)
         .toBeLessThan(rightBeforeResize.width - 60);
     } finally {
       await cleanupManagedEngine();
@@ -4740,7 +4637,7 @@ test.describe.serial("standalone project surface routes", () => {
       });
 
       await expect(page.getByTestId("window-space-open")).toHaveCount(1);
-      await clickWindowSpaceOpen(page);
+      await page.getByTestId("window-space-open").click();
 
       await expect
         .poll(async () => {
@@ -4782,7 +4679,7 @@ test.describe.serial("standalone project surface routes", () => {
         page.getByTestId("window-space-save-current-layout"),
       ).toBeEnabled();
 
-      await clickWindowSpaceSaveCurrentLayout(page);
+      await page.getByTestId("window-space-save-current-layout").click();
       await expect(page.getByTestId("window-space-open")).toHaveCount(1);
       await expect(page.getByTestId("window-space-rename")).toBeVisible();
       await expect(page.getByTestId("window-space-delete")).toBeVisible();
@@ -5339,7 +5236,7 @@ test.describe.serial("standalone project surface routes", () => {
         page.getByTestId("window-space-save-current-layout"),
       ).toBeEnabled();
 
-      await clickWindowSpaceSaveCurrentLayout(page);
+      await page.getByTestId("window-space-save-current-layout").click();
 
       await expect(
         page.getByText("Failed to save window space (404): Not Found"),

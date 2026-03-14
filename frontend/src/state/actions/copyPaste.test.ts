@@ -1,185 +1,120 @@
-import {
-  useActiveSectionUI,
-  useMisc,
-  useProjectState,
-  useShareSession,
-} from "state/definitions";
+/* @vitest-environment jsdom */
+
+import initialState from "forks/xyflow/core/store/initialState";
+import { useReactFlow } from "forks/xyflow/core/store";
+import { setActiveSectionUIIds } from "state/activeSectionUI";
+import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import {
-  route_paste_sections,
-  route_prepare_sections_for_copy,
-} from "utils/generatedEndpoints";
-import {
-  BaseClipboardDataUnionWithDiscriminator,
-  ClipboardDataTypeEnum,
-} from "utils/generatedTypes";
+import { createCore } from "utils/generatedTypes";
+import * as endpoints from "utils/generatedEndpoints";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { copy, paste } from "./copyPaste";
-import { addTemporaryNotification } from "./notifications";
+import { paste } from "./copyPaste";
 
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
-  return {
-    ...actual,
-    route_prepare_sections_for_copy: vi.fn(),
-    route_paste_sections: vi.fn(),
-  };
-});
+describe("paste", () => {
+  const originalClipboard = navigator.clipboard;
 
-vi.mock("./notifications", () => ({
-  addTemporaryNotification: vi.fn(),
-}));
-
-const mockedRoutePrepareSectionsForCopy = vi.mocked(
-  route_prepare_sections_for_copy,
-);
-const mockedRoutePasteSections = vi.mocked(route_paste_sections);
-const mockedAddTemporaryNotification = vi.mocked(addTemporaryNotification);
-
-let clipboardWriteTextMock = vi.fn();
-let clipboardReadTextMock = vi.fn();
-let originalNavigatorDescriptor: PropertyDescriptor | undefined;
-let originalWindowDescriptor: PropertyDescriptor | undefined;
-
-const sectionsClipboardPayload: BaseClipboardDataUnionWithDiscriminator = {
-  type: ClipboardDataTypeEnum.Sections,
-  data: {
-    core: {
-      sections: {},
-      sectionImpls: {},
-      sectionVariants: {},
-      codeObjs: {},
-      codeObjImpls: {},
-      codeObjVariants: {},
-    },
-    sectionVariantMap: {},
-  },
-};
-
-describe("copyPaste actions", () => {
   beforeEach(() => {
     resetProjectStores();
-    mockedRoutePrepareSectionsForCopy.mockReset();
-    mockedRoutePasteSections.mockReset();
-    mockedAddTemporaryNotification.mockReset();
-
-    useProjectState.setState((state) => {
-      state.projectConfig.id = "project-alpha";
-    });
-    useMisc.setState({
-      lastPaneClickLocation: { x: 240, y: 180 },
-    });
-    useShareSession.setState({ isDeploymentMode: false });
-    useActiveSectionUI.setState({ activeIds: [] });
-
-    clipboardWriteTextMock = vi.fn(async () => undefined);
-    clipboardReadTextMock = vi.fn(async () =>
-      JSON.stringify(sectionsClipboardPayload),
-    );
-    originalNavigatorDescriptor = Object.getOwnPropertyDescriptor(
-      globalThis,
-      "navigator",
-    );
-    originalWindowDescriptor = Object.getOwnPropertyDescriptor(
-      globalThis,
-      "window",
-    );
-    Object.defineProperty(globalThis, "navigator", {
+    useReactFlow.setState({ ...initialState });
+    Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: {
-        clipboard: {
-          writeText: (...args: Array<unknown>) =>
-            clipboardWriteTextMock(...args),
-          readText: (...args: Array<unknown>) => clipboardReadTextMock(...args),
-        },
-      },
-    });
-    Object.defineProperty(globalThis, "window", {
-      configurable: true,
-      value: {
-        getSelection: () =>
-          ({
-            toString: () => "",
-          }) as Selection,
+        readText: vi.fn().mockResolvedValue(
+          JSON.stringify({
+            type: "Sections",
+            data: {
+              core: {
+                id: "clipboard-core",
+              },
+              sectionVariantMap: {},
+            },
+          }),
+        ),
       },
     });
   });
 
   afterEach(() => {
-    resetProjectStores();
-    if (originalNavigatorDescriptor) {
-      Object.defineProperty(
-        globalThis,
-        "navigator",
-        originalNavigatorDescriptor,
-      );
-    } else {
-      delete (globalThis as { navigator?: unknown }).navigator;
-    }
-    if (originalWindowDescriptor) {
-      Object.defineProperty(globalThis, "window", originalWindowDescriptor);
-    } else {
-      delete (globalThis as { window?: unknown }).window;
-    }
     vi.restoreAllMocks();
-  });
-
-  it("copies active sections through the canonical Go clipboard route", async () => {
-    // Copy should request the canonical clipboard payload and write it to the browser clipboard.
-    useActiveSectionUI.setState({ activeIds: ["section-a", "section-b"] });
-    mockedRoutePrepareSectionsForCopy.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: sectionsClipboardPayload,
-    });
-
-    await copy();
-
-    expect(mockedRoutePrepareSectionsForCopy).toHaveBeenCalledWith({
-      projectConfigId: "project-alpha",
-      sectionIds: ["section-a", "section-b"],
-    });
-    expect(clipboardWriteTextMock).toHaveBeenCalledWith(
-      JSON.stringify(sectionsClipboardPayload),
-    );
-    expect(mockedAddTemporaryNotification).toHaveBeenNthCalledWith(
-      1,
-      "Copying...",
-    );
-    expect(mockedAddTemporaryNotification).toHaveBeenNthCalledWith(
-      2,
-      "Copied to clipboard",
-    );
-  });
-
-  it("pastes section clipboard payloads through the canonical Go route", async () => {
-    // Paste should preserve the current pane click location when no sections are active.
-    mockedRoutePasteSections.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: null,
-    });
-
-    await paste({ asRef: true });
-
-    expect(clipboardReadTextMock).toHaveBeenCalledTimes(1);
-    expect(mockedRoutePasteSections).toHaveBeenCalledWith({
-      projectConfigId: "project-alpha",
-      data: sectionsClipboardPayload.data,
-      position: { x: 240, y: 180 },
-      asRef: true,
+    setActiveSectionUIIds([]);
+    useReactFlow.setState({ ...initialState });
+    resetProjectStores();
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: originalClipboard,
     });
   });
 
-  it("blocks paste in deployment mode before touching clipboard state", async () => {
-    // Deployment mode should no-op instead of attempting clipboard or backend writes.
-    useShareSession.setState({ isDeploymentMode: true });
+  it("uses top-level canvas-engine layout when paste computes the active selection offset", async () => {
+    useProjectState.setState((state) => {
+      state.sections["section-a"] = createCore({ id: "section-a" });
+      state.projectConfig.topLevelSections["section-a"] = {
+        x: 120,
+        y: 80,
+        zIndex: 0,
+        w: 240,
+        h: 140,
+      };
+    });
+    setActiveSectionUIIds(["section-a"]);
+    const routePasteSectionsSpy = vi
+      .spyOn(endpoints, "route_paste_sections")
+      .mockResolvedValue({
+        data: null,
+        status: 200,
+        hasResponse: true,
+      });
 
-    await paste({ asRef: false });
+    await paste({});
 
-    expect(clipboardReadTextMock).not.toHaveBeenCalled();
-    expect(mockedRoutePasteSections).not.toHaveBeenCalled();
+    expect(routePasteSectionsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        position: { x: 360, y: 80 },
+      }),
+    );
+  });
+
+  it("uses cached nested preview geometry when paste computes the active selection offset", async () => {
+    useProjectState.setState((state) => {
+      state.sections["group-a"] = createCore({ id: "group-a" });
+      state.sections["nested-a"] = createCore({ id: "nested-a" });
+      state.projectConfig.topLevelSections["group-a"] = {
+        x: 400,
+        y: 80,
+        zIndex: 0,
+        w: 360,
+        h: 260,
+      };
+    });
+    useReactFlow.setState({
+      canvasEngineNestedPreviewRects: [
+        {
+          id: "nested-a",
+          parentSectionId: "group-a",
+          x: 440,
+          y: 120,
+          width: 180,
+          height: 100,
+          isActive: false,
+          color: [0.15, 0.18, 0.22],
+        },
+      ],
+    });
+    setActiveSectionUIIds(["nested-a"]);
+    const routePasteSectionsSpy = vi
+      .spyOn(endpoints, "route_paste_sections")
+      .mockResolvedValue({
+        data: null,
+        status: 200,
+        hasResponse: true,
+      });
+
+    await paste({});
+
+    expect(routePasteSectionsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        position: { x: 620, y: 120 },
+      }),
+    );
   });
 });

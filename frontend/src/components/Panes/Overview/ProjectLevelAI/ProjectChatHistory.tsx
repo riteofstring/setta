@@ -1112,10 +1112,7 @@ export function ProjectChatHistory({
       }
       const overId = event.over ? String(event.over.id) : null;
       if (overId) {
-        const overGroupId =
-          getThreadGroupIdFromDndId(overId, groupIdSet) ??
-          getGroupIdFromThreadSectionDropTargetId(overId, groupIdSet) ??
-          (groupIdSet.has(overId) ? overId : null);
+        const overGroupId = getThreadGroupIdFromDndId(overId, groupIdSet);
         if (overGroupId && !scopedGroupIdSet.has(overGroupId)) {
           latestThreadDropTargetRef.current = null;
           return;
@@ -2979,10 +2976,7 @@ function resolveGroupDropOverId({
     candidateIds.push(collisionId);
   }
   for (const candidateId of candidateIds) {
-    const candidateGroupId =
-      getThreadGroupIdFromDndId(candidateId, groupIdSet) ??
-      getGroupIdFromThreadSectionDropTargetId(candidateId, groupIdSet) ??
-      (groupIdSet.has(candidateId) ? candidateId : null);
+    const candidateGroupId = getThreadGroupIdFromDndId(candidateId, groupIdSet);
     if (!candidateGroupId || candidateGroupId === sourceGroupId) {
       continue;
     }

@@ -117,6 +117,11 @@ export function updateEdgeHandlePosition(key: string) {
   setHandlePosition(key, record);
 }
 
+export function getRegisteredEdgeHandlePosition(key: string) {
+  const { positions, cachedPositions } = useEdgeHandleRegistry.getState();
+  return positions[key] ?? cachedPositions[key] ?? null;
+}
+
 export function recomputeEdgeHandlePositions() {
   const { handles } = useEdgeHandleRegistry.getState();
   for (const [key, record] of Object.entries(handles)) {

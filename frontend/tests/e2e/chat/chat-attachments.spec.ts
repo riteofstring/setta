@@ -143,24 +143,28 @@ test.describe.serial("chat attachments", () => {
     await page.waitForSelector(".react-flow__pane");
 
     try {
-      const projectChatSurface = await getVisibleProjectChatSurface(page);
-      const input = projectChatSurface.getByPlaceholder("Type a message...");
+      const overviewPane = page.locator("#OverviewPane");
+      await expect(
+        overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+      ).toBeVisible();
+
+      const input = overviewPane.getByPlaceholder("Type a message...");
       await expect(input).toBeVisible();
       await expect(input).toBeEnabled();
 
-      const fileInput = projectChatSurface.locator('input[type="file"]').first();
+      const fileInput = overviewPane.locator('input[type="file"]').first();
       await fileInput.setInputFiles({
         name: "notes.txt",
         mimeType: "text/plain",
         buffer: Buffer.from("Hello from project chat."),
       });
 
-      await expect(projectChatSurface.getByText("notes.txt")).toBeVisible();
+      await expect(overviewPane.getByText("notes.txt")).toBeVisible();
 
       await input.fill("Here is a file.");
       await input.press("Enter");
 
-      const attachmentButton = projectChatSurface
+      const attachmentButton = overviewPane
         .getByRole("button", { name: "notes.txt" })
         .first();
       await expect(attachmentButton).toBeVisible();
@@ -401,33 +405,6 @@ async function setOverviewTab(page: Page, tabName: string): Promise<void> {
     payload.state = { ...payload.state, overviewTab: tab, overviewVis: true };
     localStorage.setItem(key, JSON.stringify(payload));
   }, tabName);
-}
-
-async function getVisibleProjectChatSurface(page: Page): Promise<Locator> {
-  const surfaceCandidates = [
-    page.getByTestId("project-chat-maximized-window").first(),
-    page.getByTestId("project-chat-floating-window").first(),
-    page.getByTestId("project-chat-bottom-dock-window-panel").first(),
-    page
-      .locator('#OverviewPane [data-chat-surface-mode="project_ai_mode"]')
-      .first(),
-  ];
-  await expect
-    .poll(async () => {
-      for (const candidate of surfaceCandidates) {
-        if ((await candidate.count()) > 0 && (await candidate.isVisible())) {
-          return true;
-        }
-      }
-      return false;
-    })
-    .toBe(true);
-  for (const candidate of surfaceCandidates) {
-    if ((await candidate.count()) > 0 && (await candidate.isVisible())) {
-      return candidate;
-    }
-  }
-  throw new Error("No visible project chat surface found.");
 }
 
 async function postBackend<T>(
