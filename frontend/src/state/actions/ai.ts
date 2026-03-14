@@ -2481,10 +2481,7 @@ export async function submitMessage(
     const appSpecStreamingEnabledForSubmit =
       appGenerationMode === null
         ? false
-        : appGenerationMode === "json_render" ||
-            appGenerationMode === "json_render_with_image"
-          ? true
-          : useLocalStorage.getState().appSpecStreamingEnabled;
+        : useLocalStorage.getState().appSpecStreamingEnabled;
     const res = await route_get_llm_response({
       message: userMessage,
       thinking,
