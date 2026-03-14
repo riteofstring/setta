@@ -1,29 +1,14 @@
 import { uploadBinaryPayload } from "utils/binaryUpload";
-import {
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_get_file_browser_root,
   route_get_folder_contents,
   route_write_file_browser_file_content,
 } from "utils/generatedEndpoints";
-import type {
-  FileBrowserRootResponse,
-  GetFolderContentsResponse,
-  WriteFileBrowserFileContentResponse,
-} from "utils/generatedTypes";
 
 type NativeFileImportResult =
   | { status: "ok"; filePath: string; fileName: string }
   | { status: "failed"; error: string };
-type GetFileBrowserRootRouteResponse =
-  ResponseDataAndStatus<FileBrowserRootResponse>;
-type GetFolderContentsRouteResponse =
-  ResponseDataAndStatus<GetFolderContentsResponse>;
-type WriteFileBrowserFileContentRouteResponse =
-  ResponseDataAndStatus<WriteFileBrowserFileContentResponse>;
 const MAX_UNIQUE_NAME_PROBES = 10_000;
 const MAX_WRITE_FILE_CONFLICT_RETRIES = 1_000;
 
@@ -85,8 +70,7 @@ function resolveUniqueWorkspacePath(
 export async function importNativeFileToWorkspace(
   file: File,
 ): Promise<NativeFileImportResult> {
-  const rootRes: GetFileBrowserRootRouteResponse =
-    await route_get_file_browser_root();
+  const rootRes = await route_get_file_browser_root();
   if (!res200(rootRes)) {
     return {
       status: "failed",
@@ -98,16 +82,15 @@ export async function importNativeFileToWorkspace(
   const pathSeparator = rootRes.data.pathSeparator;
   const safeName = sanitizeDroppedFileName(file.name);
   const existingNames = new Set<string>();
-  const folderRes: GetFolderContentsRouteResponse =
-    await route_get_folder_contents({
-      folderPath: rootPath,
-      ignorePatterns: rootRes.data.ignorePatterns,
-      includeHidden: true,
-      includeMtime: false,
-      includeSize: false,
-      maxEntries: 5000,
-      missingFolderBehavior: "error",
-    });
+  const folderRes = await route_get_folder_contents({
+    folderPath: rootPath,
+    ignorePatterns: rootRes.data.ignorePatterns,
+    includeHidden: true,
+    includeMtime: false,
+    includeSize: false,
+    maxEntries: 5000,
+    missingFolderBehavior: "error",
+  });
   if (res200(folderRes)) {
     for (const item of folderRes.data) {
       existingNames.add(item.name);
@@ -147,12 +130,11 @@ export async function importNativeFileToWorkspace(
     attempt < MAX_WRITE_FILE_CONFLICT_RETRIES;
     attempt += 1
   ) {
-    const writeRes: WriteFileBrowserFileContentRouteResponse =
-      await route_write_file_browser_file_content({
-        path: target.filePath,
-        contentId: uploadResult.contentId,
-        expectedMtimeNs: null,
-      });
+    const writeRes = await route_write_file_browser_file_content({
+      path: target.filePath,
+      contentId: uploadResult.contentId,
+      expectedMtimeNs: null,
+    });
     if (res200(writeRes)) {
       return {
         status: "ok",

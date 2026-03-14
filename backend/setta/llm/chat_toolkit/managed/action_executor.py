@@ -201,6 +201,11 @@ class ManagedActionExecutor:
                                     if action.agentic_context.section_id is not None
                                     else None
                                 ),
+                                "runId": (
+                                    str(action.agentic_context.run_id)
+                                    if action.agentic_context.run_id is not None
+                                    else None
+                                ),
                             }
                             meta_payload["frontendAffinityToken"] = (
                                 action.agentic_context.frontend_affinity_token
