@@ -1033,6 +1033,12 @@ func TestCurrentEndpointContractManifest(t *testing.T) {
 	assertGoldenFile(t, "endpoint_contract_manifest.txt", renderEndpointContractManifest(CurrentEndpoints()))
 }
 
+func TestCurrentRouteGroupManifest(t *testing.T) {
+	t.Helper()
+
+	assertGoldenFile(t, "route_group_manifest.txt", renderRouteGroupManifest(CurrentRouteGroups()))
+}
+
 func readBareHTTPRouteIdentifiers(t *testing.T, path string) []string {
 	t.Helper()
 
@@ -6242,6 +6248,26 @@ func renderEndpointContractManifest(specs []EndpointSpec) string {
 			"response=" + endpointContractTypeName(spec.ResponseType),
 			"binary=" + strconv.FormatBool(spec.BinaryResponse),
 		}, " "))
+	}
+	slices.Sort(lines)
+	return strings.Join(lines, "\n")
+}
+
+func renderRouteGroupManifest(routeGroups []RouteGroup) string {
+	totalRoutes := 0
+	for _, group := range routeGroups {
+		totalRoutes += len(group.Routes)
+	}
+
+	lines := make([]string, 0, totalRoutes)
+	for _, group := range routeGroups {
+		for _, route := range group.Routes {
+			lines = append(lines, strings.Join([]string{
+				group.ConstName + "." + route.Name,
+				"path=" + route.Path,
+				"enum=" + route.EnumName,
+			}, " "))
+		}
 	}
 	slices.Sort(lines)
 	return strings.Join(lines, "\n")
