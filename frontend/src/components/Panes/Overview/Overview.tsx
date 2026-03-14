@@ -258,7 +258,7 @@ export function Overview() {
                 <i className="w-3 opacity-80">
                   <TbLayoutDashboard />
                 </i>
-                <span className="ml-0.5">JSON Render</span>
+                <span className="ml-0.5">App Gen</span>
               </MenuItem>
             ) : null}
             <MenuItem
