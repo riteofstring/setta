@@ -4,10 +4,10 @@ import { useNodeId } from "forks/xyflow/core/contexts/NodeIdContext";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { HandlePosition } from "forks/xyflow/core/types";
 import {
-  createStateMachineEdgeFromConnection,
   isValidStateMachineEdgeConnection,
   STATE_MACHINE_EDGE_HANDLE_IDS,
-} from "state/actions/stateMachineEdges";
+} from "state/actions/stateMachineEdgeConnections";
+import { createStateMachineEdgeFromConnection } from "state/actions/stateMachineEdgeMutations";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {

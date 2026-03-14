@@ -50,12 +50,12 @@ def _write_text(path: Path, content: str = "{}") -> None:
 
 @contextmanager
 def _override_deployments_root(root: Path):
-    original_share_root = C.SHARE_DEPLOYMENTS_FOLDER
-    C.SHARE_DEPLOYMENTS_FOLDER = root
+    original_share_root = C.DEPLOYMENTS_FOLDER
+    C.DEPLOYMENTS_FOLDER = root
     try:
         yield
     finally:
-        C.SHARE_DEPLOYMENTS_FOLDER = original_share_root
+        C.DEPLOYMENTS_FOLDER = original_share_root
 
 
 
