@@ -29,13 +29,15 @@ type Checker interface {
 }
 
 type SystemCheckerOptions struct {
-	WorkspaceRoot string
-	ProcessEnv    map[string]string
+	WorkspaceRoot         string
+	ProcessEnv            map[string]string
+	PluginAdapterProvider PluginExternalAgentAdapterProvider
 }
 
 type SystemChecker struct {
-	workspaceRoot string
-	processEnv    map[string]string
+	workspaceRoot         string
+	processEnv            map[string]string
+	pluginAdapterProvider PluginExternalAgentAdapterProvider
 }
 
 func NewSystemChecker(options SystemCheckerOptions) (*SystemChecker, error) {
@@ -48,8 +50,9 @@ func NewSystemChecker(options SystemCheckerOptions) (*SystemChecker, error) {
 		processEnv = llmconfig.CurrentProcessEnv()
 	}
 	return &SystemChecker{
-		workspaceRoot: workspaceRoot,
-		processEnv:    processEnv,
+		workspaceRoot:         workspaceRoot,
+		processEnv:            processEnv,
+		pluginAdapterProvider: options.PluginAdapterProvider,
 	}, nil
 }
 
@@ -70,10 +73,24 @@ func (c *SystemChecker) Check(config Config) (Status, error) {
 		}
 	}
 	supported := isSupported(normalized.ToolType, normalized.RunMode)
-	if !supported {
+	pluginAdapter, pluginResolutionIssue, pluginRunModeSupported, err := c.resolvePluginAdapter(normalized)
+	if err != nil {
+		return Status{}, err
+	}
+	effectiveEnvVarWhitelist := append([]string(nil), normalized.EnvVarWhitelist...)
+	if pluginResolutionIssue != "" {
+		supported = false
+		addIssue(pluginResolutionIssue, true)
+	} else if normalized.ToolType == ToolTypePlugin {
+		effectiveEnvVarWhitelist = append(effectiveEnvVarWhitelist, pluginAdapter.EnvVarWhitelist...)
+		supported = pluginRunModeSupported
+		if !supported {
+			addIssue(fmt.Sprintf("Run mode %s not supported for %s", normalized.RunMode, normalized.ToolType), true)
+		}
+	} else if !supported {
 		addIssue(fmt.Sprintf("Run mode %s not supported for %s", normalized.RunMode, normalized.ToolType), true)
 	}
-	envVars := ResolveWhitelistedEnvVars(c.workspaceRoot, c.processEnv, normalized.EnvVarWhitelist)
+	envVars := ResolveWhitelistedEnvVars(c.workspaceRoot, c.processEnv, effectiveEnvVarWhitelist)
 	managedStoreIssueBlocks := len(envVars.Status.Missing) > 0
 	if envVars.CorruptionIssue != "" {
 		addIssue(envVars.CorruptionIssue, managedStoreIssueBlocks)
@@ -92,7 +109,7 @@ func (c *SystemChecker) Check(config Config) (Status, error) {
 	if baseURLIssue != "" {
 		addIssue(baseURLIssue, true)
 	}
-	commandPath, commandIssue := c.resolveCommandPath(normalized)
+	commandPath, commandIssue := c.resolveCommandPath(normalized, pluginAdapter)
 	if commandIssue != "" {
 		addIssue(commandIssue, true)
 	}
@@ -142,6 +159,38 @@ func isSupported(toolType ToolType, runMode RunMode) bool {
 	}
 }
 
+func (c *SystemChecker) resolvePluginAdapter(config Config) (*PluginExternalAgentAdapter, string, bool, error) {
+	if config.ToolType != ToolTypePlugin {
+		return nil, "", false, nil
+	}
+	pluginAdapterID := strings.TrimSpace(derefOptionalString(config.PluginAdapterID))
+	if pluginAdapterID == "" {
+		return nil, "pluginAdapterId is required for plugin external agents", false, nil
+	}
+	if c.pluginAdapterProvider == nil {
+		return nil, fmt.Sprintf("Plugin external agent adapter is not registered: %s", pluginAdapterID), false, nil
+	}
+	adapters, err := c.pluginAdapterProvider.RegisteredExternalAgentAdapters()
+	if err != nil {
+		return nil, "", false, err
+	}
+	for _, adapter := range adapters {
+		if strings.TrimSpace(adapter.AdapterID) != pluginAdapterID {
+			continue
+		}
+		runModeSupported := false
+		for _, runMode := range adapter.RunModes {
+			if strings.TrimSpace(runMode) == string(config.RunMode) {
+				runModeSupported = true
+				break
+			}
+		}
+		resolved := adapter
+		return &resolved, "", runModeSupported, nil
+	}
+	return nil, fmt.Sprintf("Plugin external agent adapter is not registered: %s", pluginAdapterID), false, nil
+}
+
 func (c *SystemChecker) resolveWorkingDir(config Config) (*string, string) {
 	switch config.WorkingDirStrategy {
 	case WorkingDirStrategyProjectRoot:
@@ -176,8 +225,8 @@ func validateBaseURL(config Config) (*string, string) {
 	return &resolved, ""
 }
 
-func (c *SystemChecker) resolveCommandPath(config Config) (*string, string) {
-	commandName := defaultCommand(config)
+func (c *SystemChecker) resolveCommandPath(config Config, pluginAdapter *PluginExternalAgentAdapter) (*string, string) {
+	commandName := defaultCommand(config, pluginAdapter)
 	if config.CommandPath != nil && strings.TrimSpace(*config.CommandPath) != "" {
 		commandName = strings.TrimSpace(*config.CommandPath)
 	}
@@ -189,13 +238,16 @@ func (c *SystemChecker) resolveCommandPath(config Config) (*string, string) {
 		if config.ToolType == ToolTypeCodex {
 			return nil, fmt.Sprintf("codex CLI not found (%s)", commandName)
 		}
+		if config.ToolType == ToolTypePlugin {
+			return nil, fmt.Sprintf("Plugin external agent command not found (%s)", commandName)
+		}
 		return nil, fmt.Sprintf("Command not found (%s)", commandName)
 	}
 	normalized := resolved
 	return &normalized, ""
 }
 
-func defaultCommand(config Config) string {
+func defaultCommand(config Config, pluginAdapter *PluginExternalAgentAdapter) string {
 	switch {
 	case config.ToolType == ToolTypeCodex && config.RunMode == RunModeAppServer:
 		return "codex"
@@ -203,6 +255,8 @@ func defaultCommand(config Config) string {
 		return "claude"
 	case config.ToolType == ToolTypeOpenCode && (config.RunMode == RunModeSDK || config.RunMode == RunModeServer):
 		return "node"
+	case config.ToolType == ToolTypePlugin && pluginAdapter != nil:
+		return strings.TrimSpace(pluginAdapter.Command)
 	default:
 		return ""
 	}

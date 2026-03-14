@@ -735,8 +735,9 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return nil, err
 		}
 		externalPreflightChecker, err := externalagentconfigs.NewSystemChecker(externalagentconfigs.SystemCheckerOptions{
-			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
-			ProcessEnv:    llmconfig.CurrentProcessEnv(),
+			WorkspaceRoot:         cfg.Paths.WorkspaceRoot,
+			ProcessEnv:            llmconfig.CurrentProcessEnv(),
+			PluginAdapterProvider: externalAgentPluginAdapterProvider{plugins: pluginMutationService},
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
