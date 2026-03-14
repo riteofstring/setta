@@ -1003,8 +1003,8 @@ Current landed wedge:
     Go-generated attachment download helper bindings
   - `runOrImportCode`, `RunButton`, and `AppRenderer` now consume canonical
     Go-generated terminal HTTP bindings for `runCode` and
-    `killSubprocesses`; the deferred deployment/share/app terminal websocket
-    viewing gap remains unchanged
+    `interruptTerminalProcesses`, while terminal websocket viewing now uses
+    the canonical Go route in IDE plus deployment/share/app flows
   - `triggerListenerForceRefresh`, `fetchListenerCoverageSnapshot`, and the
     current listener-coverage dependency-key helpers now consume canonical
     Go-generated listener bindings and dependency contracts

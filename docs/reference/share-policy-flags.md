@@ -72,7 +72,7 @@ App deployments default to:
 
 **allowRun** (runs + terminals)
 - Code execution: run code (`Route.RUN_CODE`).
-- Terminal access: terminal websocket (`Route.TERMINAL`), delete terminals (`Route.DELETE_TERMINALS`), kill subprocesses (`Route.KILL_SUBPROCESSES`).
+- Terminal access: terminal websocket (`Route.TERMINAL`), delete terminals (`Route.DELETE_TERMINALS`), interrupt terminal processes (`Route.INTERRUPT_TERMINAL_PROCESSES`).
 - Example: viewer clicks Run -> allowed only if `allowRun` is true.
 - Note: deployment mode disables terminal input; runs always execute from snapshot files.
 
