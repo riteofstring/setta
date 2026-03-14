@@ -1,8 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import {
-  useBrowserSectionFileBrowserState,
-  useProjectState,
-} from "state/definitions";
+import { useProjectState } from "state/definitions";
+import { useBrowserSectionFileBrowserState } from "state/stores/fileBrowserStores";
 import { resetProjectStores } from "state/utils";
 import {
   BrowserAreaViewModeEnum,

@@ -24,12 +24,12 @@ import {
   useAllProjectMetadata,
   useLocalStorage,
   useProjectState,
-  useRunControl,
   useSettings,
   useShareSession,
   ZustandProjectState,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import { useRunControl } from "state/stores/runtimeStores";
 import {
   getPythonCodegenTarget,
   isPluginCodegenTarget,
