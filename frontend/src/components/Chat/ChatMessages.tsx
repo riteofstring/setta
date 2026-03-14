@@ -4508,12 +4508,31 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
   const previewShellClassName = hideThoughtPreview
     ? "max-h-0 opacity-0"
     : "max-h-12 opacity-100";
+  const activityPrimaryLabel =
+    preview.kind === "thought"
+      ? preview.hasStreamingThought
+        ? "Thinking"
+        : itemCount > 1
+          ? "Thoughts"
+          : "Reasoning"
+      : preview.kind === "context"
+        ? "Context"
+        : preview.kind === "terminal"
+          ? "Terminal"
+          : preview.kind === "subagent"
+            ? "Subagent"
+            : preview.kind === "action" || preview.kind === "tool"
+              ? "Activity"
+              : "Activity";
   const activityTitleLabel =
     suppressSummaries && preview.kind === "thought"
       ? preview.hasStreamingThought
         ? "Thinking"
         : "Reasoning"
       : displayLabel;
+  const showActivityPreviewLabel =
+    activityTitleLabel.trim().length > 0 &&
+    activityTitleLabel !== activityPrimaryLabel;
   return (
     <Accordion.Root
       type="single"
@@ -4546,42 +4565,99 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
           <div className="w-full @container">
             <div
               data-chat-assistant-activity-header-row="true"
-              className="relative flex w-full min-w-0 items-center gap-2 @[20rem]:h-8"
+              className="flex w-full min-w-0 flex-col gap-1.5"
             >
               <div
-                data-chat-assistant-activity-label="true"
-                className={ACTIVITY_PARENT_LABEL_CLASS}
+                data-chat-assistant-activity-header-top-row="true"
+                className="relative flex min-h-6 w-full min-w-0 items-center gap-2"
               >
                 <div
-                  className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 @[20rem]:flex-nowrap"
+                  data-chat-assistant-activity-label="true"
+                  className={ACTIVITY_PARENT_LABEL_CLASS}
                 >
-                  <span className="inline-flex shrink-0 items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-setta-400 dark:text-setta-500">
-                    <span
-                      data-chat-assistant-activity-icon="robot"
-                      className="inline-flex items-center justify-center text-[12px]"
-                      title="Project AI activity"
-                      aria-label="Project AI activity"
-                    >
-                      <MdOutlineSmartToy size={13} aria-hidden />
-                      <span className="sr-only">Activity</span>
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <span className="inline-flex shrink-0 items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-setta-400 dark:text-setta-500">
+                      <span
+                        data-chat-assistant-activity-icon="robot"
+                        className="inline-flex items-center justify-center text-[12px]"
+                        title="Project AI activity"
+                        aria-label="Project AI activity"
+                      >
+                        <MdOutlineSmartToy size={13} aria-hidden />
+                        <span className="sr-only">Activity</span>
+                      </span>
+                      <span
+                        data-chat-assistant-activity-count-badge="true"
+                        className={ACTIVITY_COUNT_BADGE_CLASS}
+                        title={`${itemCount} activity items`}
+                      >
+                        <AnimatedCountBadgeValue
+                          value={itemCount}
+                          animateOnChange={sectionState === "running"}
+                        />
+                      </span>
                     </span>
-                    <span
-                      data-chat-assistant-activity-count-badge="true"
-                      className={ACTIVITY_COUNT_BADGE_CLASS}
-                      title={`${itemCount} activity items`}
+                    <div
+                      data-chat-assistant-activity-primary-label="true"
+                      className="min-w-0 truncate text-[11px] text-setta-300 dark:text-setta-200"
                     >
-                      <AnimatedCountBadgeValue
-                        value={itemCount}
-                        animateOnChange={sectionState === "running"}
-                      />
+                      {activityPrimaryLabel}
+                    </div>
+                  </div>
+                </div>
+                <div
+                  data-chat-assistant-activity-hover-meta="true"
+                  className={ACTIVITY_PARENT_HOVER_META_CLASS}
+                >
+                  <button
+                    type="button"
+                    onPointerDown={handleOpenAllPointerDown}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      if (allChildrenExpanded) {
+                        setCloseAllSignal((prev) => prev + 1);
+                        setAllChildrenExpanded(false);
+                        return;
+                      }
+                      setAccordionValue(ASSISTANT_ACTIVITY_DETAILS_VALUE);
+                      setOpenAllSignal((prev) => prev + 1);
+                      setAllChildrenExpanded(true);
+                    }}
+                    className="pointer-events-none inline-flex h-5 cursor-pointer items-center rounded border border-setta-300/80 bg-setta-100/85 px-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-setta-600 opacity-0 transition-colors transition-opacity hover:bg-setta-200/90 focus-visible:pointer-events-auto focus-visible:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100 dark:border-setta-600/80 dark:bg-setta-800/90 dark:text-setta-200 dark:hover:bg-setta-700"
+                    data-chat-assistant-activity-open-all-button="true"
+                    title={openAllButtonTitle}
+                  >
+                    {openAllButtonLabel}
+                  </button>
+                  {durationLabel ? (
+                    <span
+                      data-chat-assistant-activity-total-timer="true"
+                      data-chat-assistant-activity-total-state={sectionState}
+                      className={durationClassName}
+                    >
+                      {durationLabel}
                     </span>
-                  </span>
+                  ) : null}
+                </div>
+                <div className="ml-auto inline-flex shrink-0 self-center">
+                  <MdKeyboardArrowDown
+                    data-chat-assistant-activity-chevron="true"
+                    className="chat-accordion-chevron mt-[1px] shrink-0 text-[16px] text-setta-400 transition-transform dark:text-setta-300/90"
+                  />
+                </div>
+              </div>
+              {showActivityPreviewLabel ? (
+                <div
+                  data-chat-assistant-activity-preview-row="true"
+                  className="min-w-0 pl-[2.35rem] pr-6 pt-0.5 text-[11px] text-setta-500 dark:text-setta-300"
+                >
                   <div
                     data-chat-assistant-activity-latest="true"
                     data-chat-assistant-activity-latest-scrambling={
                       preview.shouldScrambleTitle ? "true" : "false"
                     }
-                    className="min-w-0 basis-full truncate text-[11px] text-setta-500 @[20rem]:flex-1 @[20rem]:basis-auto dark:text-setta-300 [&_code]:rounded [&_code]:bg-setta-100/80 [&_code]:px-0.5 [&_code]:font-mono [&_code]:text-[10px] dark:[&_code]:bg-setta-800/80 [&_p]:m-0 [&_p]:inline"
+                    className="min-w-0 truncate [&_code]:rounded [&_code]:bg-setta-100/80 [&_code]:px-0.5 [&_code]:font-mono [&_code]:text-[10px] dark:[&_code]:bg-setta-800/80 [&_p]:m-0 [&_p]:inline"
                   >
                     {preview.shouldScrambleTitle ? (
                       renderConversationSearchHighlightedText(
@@ -4604,48 +4680,7 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
                     )}
                   </div>
                 </div>
-              </div>
-              <div
-                data-chat-assistant-activity-hover-meta="true"
-                className={ACTIVITY_PARENT_HOVER_META_CLASS}
-              >
-                <button
-                  type="button"
-                  onPointerDown={handleOpenAllPointerDown}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    if (allChildrenExpanded) {
-                      setCloseAllSignal((prev) => prev + 1);
-                      setAllChildrenExpanded(false);
-                      return;
-                    }
-                    setAccordionValue(ASSISTANT_ACTIVITY_DETAILS_VALUE);
-                    setOpenAllSignal((prev) => prev + 1);
-                    setAllChildrenExpanded(true);
-                  }}
-                  className="pointer-events-none inline-flex h-5 cursor-pointer items-center rounded border border-setta-300/80 bg-setta-100/85 px-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-setta-600 opacity-0 transition-colors transition-opacity hover:bg-setta-200/90 focus-visible:pointer-events-auto focus-visible:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100 dark:border-setta-600/80 dark:bg-setta-800/90 dark:text-setta-200 dark:hover:bg-setta-700"
-                  data-chat-assistant-activity-open-all-button="true"
-                  title={openAllButtonTitle}
-                >
-                  {openAllButtonLabel}
-                </button>
-                {durationLabel ? (
-                  <span
-                    data-chat-assistant-activity-total-timer="true"
-                    data-chat-assistant-activity-total-state={sectionState}
-                    className={durationClassName}
-                  >
-                    {durationLabel}
-                  </span>
-                ) : null}
-              </div>
-              <div className="ml-auto inline-flex shrink-0 self-start @[20rem]:self-center">
-                <MdKeyboardArrowDown
-                  data-chat-assistant-activity-chevron="true"
-                  className="chat-accordion-chevron mt-[1px] shrink-0 text-[16px] text-setta-400 transition-transform dark:text-setta-300/90"
-                />
-              </div>
+              ) : null}
             </div>
           </div>
           {showThoughtScroll ? (

@@ -861,3 +861,15 @@ For each new entry, append:
 - Decisions: Hide the ungrouped chrome only when it is the sole section rather than trying to rename it or keep a faint divider; once named groups exist, restore the existing label and rail so the hierarchy remains clear. Keep the tighter grouped gutter small and mechanical rather than reworking the thread-row internals again.
 - Blockers or open questions: No code blockers. A healthy DevTools MCP session is still needed to visually confirm the new left-edge alignment in a live browser.
 - Next recommended slice: Continue only with new follow-up thread-list polish if needed.
+
+### 2026-03-13 13:54
+
+- Date: 2026-03-13 13:54 EDT
+- Scope: Restored the parent assistant-activity accordion header to a stacked layout so the label/controls occupy the top row and the latest preview text sits on a separate row underneath instead of sharing the same line at wide widths.
+- Tests added or updated first: Updated `frontend/src/components/Chat/ChatMessages.test.tsx` so the parent activity section is required to render a dedicated top-row marker, a dedicated preview-row marker, and a primary-label marker. Updated `frontend/tests/e2e/chat/chat-tool-calls.spec.ts` so the grouped-tool-call regression now requires the preview row to sit below the top row at both wide and narrow widths, and requires the hover controls to stay above that preview row instead of overlapping it.
+- Production code changed: Updated `frontend/src/components/Chat/ChatMessages.tsx` so the parent activity header now renders a stable primary label (`Reasoning`, `Thinking`, `Thoughts`, `Activity`, `Terminal`, `Subagent`, or `Context`) on the top row beside the icon/count badge, keeps the `Open all`/timer cluster anchored to that top row, and renders the latest preview label only on a second row when it adds distinct information. Also increased the header row minimum height and the inter-row spacing so the controls no longer hang into the preview row.
+- Verification run: Final green runs were `pnpm -C frontend exec vitest run src/components/Chat/ChatMessages.test.tsx` and `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/chat-tool-calls.spec.ts --grep "groups tool calls in one activity container with dense full-width rows"`.
+- CDP visual check: Not run. `chrome-devtools-mcp` still fails in this chat with `Transport closed`, so the required live visual confirmation remains blocked.
+- Decisions: Restore a true two-row header instead of trying to rescue the wide inline layout with more right-padding math. Keep the second row conditional so thought-only groups do not duplicate `Reasoning`/`Thinking`, while tool/action groups can still show their latest detail line beneath the header.
+- Blockers or open questions: No code blockers. A healthy DevTools MCP session is still needed to visually confirm the restored parent activity layout in a live browser.
+- Next recommended slice: Continue only with new follow-up polish items.

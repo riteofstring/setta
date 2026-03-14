@@ -168,8 +168,8 @@ test.describe.serial("chat tool calls", () => {
       await expect(itemCopyButtons).toHaveCount(2);
       await expect(activityTrigger).toHaveAttribute("aria-expanded", "true");
 
-      // Activity header should stay compact with inline title in wider widths,
-      // and wrap the title below when the pane is narrow.
+      // The parent activity header keeps the controls on the top row and the
+      // latest preview text on its own row beneath, regardless of width.
       const responsiveHeaderGeometry = await toolSection.evaluate(
         (toolSectionElement) => {
           const sectionElement = toolSectionElement as HTMLElement;
@@ -180,32 +180,52 @@ test.describe.serial("chat tool calls", () => {
             const headerRow = sectionElement.querySelector(
               '[data-chat-assistant-activity-header-row="true"]',
             );
-            const countBadge = sectionElement.querySelector(
-              '[data-chat-assistant-activity-count-badge="true"]',
+            const topRow = sectionElement.querySelector(
+              '[data-chat-assistant-activity-header-top-row="true"]',
             );
-            const title = sectionElement.querySelector(
+            const primaryLabel = sectionElement.querySelector(
+              '[data-chat-assistant-activity-primary-label="true"]',
+            );
+            const previewRow = sectionElement.querySelector(
+              '[data-chat-assistant-activity-preview-row="true"]',
+            );
+            const latest = sectionElement.querySelector(
               '[data-chat-assistant-activity-latest="true"]',
             );
             const hoverMeta = sectionElement.querySelector(
               '[data-chat-assistant-activity-hover-meta="true"]',
             );
-            if (!trigger || !headerRow || !countBadge || !title || !hoverMeta) {
+            if (
+              !trigger ||
+              !headerRow ||
+              !topRow ||
+              !primaryLabel ||
+              !previewRow ||
+              !latest ||
+              !hoverMeta
+            ) {
               return null;
             }
             const triggerRect = trigger.getBoundingClientRect();
             const headerRowRect = headerRow.getBoundingClientRect();
-            const countRect = countBadge.getBoundingClientRect();
-            const titleRect = title.getBoundingClientRect();
+            const topRowRect = topRow.getBoundingClientRect();
+            const primaryLabelRect = primaryLabel.getBoundingClientRect();
+            const previewRowRect = previewRow.getBoundingClientRect();
+            const latestRect = latest.getBoundingClientRect();
             const hoverMetaRect = hoverMeta.getBoundingClientRect();
-            const titleStyles = window.getComputedStyle(title);
             return {
               triggerHeight: triggerRect.height,
-              sameLine: Math.abs(countRect.top - titleRect.top) <= 4,
-              titleFlexGrow: titleStyles.flexGrow,
-              titleFlexBasis: titleStyles.flexBasis,
-              hoverMetaWithinHeader:
+              previewStartsBelowTopRow:
+                previewRowRect.top >= topRowRect.bottom - 1,
+              latestStartsInsidePreviewRow:
+                latestRect.top >= previewRowRect.top - 1 &&
+                latestRect.bottom <= previewRowRect.bottom + 1,
+              primaryLabelWithinTopRow:
+                primaryLabelRect.top >= topRowRect.top - 1 &&
+                primaryLabelRect.bottom <= topRowRect.bottom + 1,
+              hoverMetaAbovePreviewRow:
                 hoverMetaRect.top >= headerRowRect.top - 1 &&
-                hoverMetaRect.bottom <= headerRowRect.bottom + 1,
+                hoverMetaRect.bottom <= previewRowRect.top + 1,
             };
           };
 
@@ -232,20 +252,28 @@ test.describe.serial("chat tool calls", () => {
       if (!responsiveHeaderGeometry.wide || !responsiveHeaderGeometry.narrow) {
         throw new Error("Missing responsive activity header geometry.");
       }
-      expect(responsiveHeaderGeometry.wide.sameLine).toBe(true);
-      expect(responsiveHeaderGeometry.wide.triggerHeight).toBeLessThanOrEqual(
-        38,
-      );
-      expect(responsiveHeaderGeometry.wide.titleFlexGrow).toBe("1");
-      expect(responsiveHeaderGeometry.wide.titleFlexBasis).toBe("auto");
-      expect(responsiveHeaderGeometry.wide.hoverMetaWithinHeader).toBe(true);
-      expect(responsiveHeaderGeometry.narrow.sameLine).toBe(false);
       expect(
-        responsiveHeaderGeometry.narrow.triggerHeight,
-      ).toBeGreaterThanOrEqual(32);
-      expect(responsiveHeaderGeometry.narrow.titleFlexGrow).toBe("0");
-      expect(responsiveHeaderGeometry.narrow.titleFlexBasis).toContain("100");
-      expect(responsiveHeaderGeometry.narrow.hoverMetaWithinHeader).toBe(true);
+        responsiveHeaderGeometry.wide.previewStartsBelowTopRow,
+      ).toBe(true);
+      expect(
+        responsiveHeaderGeometry.wide.latestStartsInsidePreviewRow,
+      ).toBe(true);
+      expect(
+        responsiveHeaderGeometry.wide.primaryLabelWithinTopRow,
+      ).toBe(true);
+      expect(responsiveHeaderGeometry.wide.hoverMetaAbovePreviewRow).toBe(true);
+      expect(
+        responsiveHeaderGeometry.narrow.previewStartsBelowTopRow,
+      ).toBe(true);
+      expect(
+        responsiveHeaderGeometry.narrow.latestStartsInsidePreviewRow,
+      ).toBe(true);
+      expect(
+        responsiveHeaderGeometry.narrow.primaryLabelWithinTopRow,
+      ).toBe(true);
+      expect(
+        responsiveHeaderGeometry.narrow.hoverMetaAbovePreviewRow,
+      ).toBe(true);
 
       await activityTrigger.click();
       await expect(activityTrigger).toHaveAttribute("aria-expanded", "false");
