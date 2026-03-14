@@ -51,6 +51,7 @@ test("app config pane persists catalog, version, and spec path", async ({
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(page.getByText("App Config")).toBeVisible();
+  await page.getByRole("button", { name: "Advanced" }).click();
 
   await expect(page.getByLabel("Catalog ID")).toHaveValue(defaultCatalogId);
   await expect(page.getByLabel("Spec version")).toHaveValue("v2");

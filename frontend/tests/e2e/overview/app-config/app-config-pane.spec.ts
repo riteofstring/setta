@@ -1,10 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import {
-  ensureAppReady,
-  postBackend,
-  seedLocalStorage,
-} from "../../helpers";
+import { ensureAppReady, postBackend, seedLocalStorage } from "../../helpers";
 
 type AppDefinitionResponse = {
   appSpec: unknown | null;
@@ -47,16 +43,31 @@ test("app config keeps chat-owned generation controls out of the default workben
   await ensureAppReady(page);
 
   await expect(page.getByText("App Config")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Show Preview" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Create Default" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Show Preview" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Create Default" }),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "Validate" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Save" })).toBeVisible();
   await expect(page.getByLabel("App Spec JSON")).toBeVisible();
+  await expect(
+    page.getByText(
+      "Use Project Chat slash commands like /app-json, /app-image, /app-prompt, and /app-mcp to initiate generation.",
+    ),
+  ).toBeVisible();
 
   await expect(page.getByLabel("Generation Prompt")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "JSON Render" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Prompt Builder" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Send To Chat" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "JSON Render" })).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByRole("button", { name: "Prompt Builder" }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Send To Chat" })).toHaveCount(
+    0,
+  );
 
   const advancedToggle = page.getByRole("button", { name: "Advanced" });
   await expect(advancedToggle).toBeVisible();
