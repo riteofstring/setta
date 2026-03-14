@@ -69,6 +69,54 @@ Read the diff of <commit hash>. Write a summary of the changes to a new doc call
 
 See the latest github actions tests on the main branch. What are the all errors caused by? Can it be fixed? I also ran the tests locally, see the logs in tests-frontend.log.
 
+Read the docs in `docs/plans/go-backend-rewrite/` in this order:
+- `README.md`
+- `CURRENT.md`
+- `caller-backed-backend-surface-checklist.md`
+- `backend-capability-coverage-checklist.md`
+- `go-backend-rewrite-plan.md`
+- `go-dependency-inventory-and-rationale.md` when dependency choices are relevant
+- `docs/reference/dependencies/` when dependency, provider, transport, or library decisions are relevant
+- any other top-level rewrite doc that is directly relevant to the task
+- `archive/README.md` and specific archived phase/spike docs only if you need historical rationale
+
+Treat the top-level docs as the current source of truth and `archive/` as cold history, not the default working set.
+
+Important constraints for this rewrite:
+- This is a clean break. Do not preserve backward compatibility, legacy route shapes, storage migrations, or Python-shaped architecture unless I explicitly ask.
+- Current Python code, tests, and docs are reference material for product capabilities and edge cases, not a compatibility contract.
+- Preserve product behavior first. Treat the rewrite as a semantics-preserving port of the active backend surface unless a caller, release path, or documented product decision requires a behavior change.
+- Do not combine the language rewrite with broad architecture redesign by default. Use a behavior-first, architecture-conservative port unless a redesign is required for correctness or active caller coverage.
+- Prefer explicit Go runtime/service boundaries over framework magic or giant stateful singletons.
+- Use libraries for transport and OS integration; keep product semantics custom.
+- Avoid broadening scope beyond the current deliberate rewrite boundary unless a concrete caller, workflow, release issue, or product decision makes it necessary.
+
+Before doing substantive work:
+1. Inspect the current repo state and recent relevant files.
+2. Determine which current caller-backed surface, ownership bucket, or selected follow-on the request touches, and whether it crosses a documented Python/shared/external boundary.
+3. Summarize:
+   - the relevant checklist rows, code paths, and doc evidence for this task
+   - the ownership and caller-reachability picture relevant to the request
+   - any documented boundary, omitted legacy surface, or selected follow-on implicated by the request
+   - the highest-leverage next step
+4. Then execute that next step end-to-end instead of stopping at a plan, unless the highest-leverage next step is clearly planning or inventory work.
+
+Working rules:
+- Before touching a subsystem, read the relevant current Go code, tests, and current rewrite docs for that subsystem. Read the relevant Python code/tests/docs as reference material when needed for capability or edge-case context.
+- When dependency or provider choices matter, read `go-dependency-inventory-and-rationale.md` and the relevant files under `docs/reference/dependencies/`.
+- Use `archive/` only when the current docs are insufficient and you need historical rationale.
+- If the work changes caller reachability or feature ownership, update `caller-backed-backend-surface-checklist.md` and/or `backend-capability-coverage-checklist.md`.
+- Update `CURRENT.md` only when the canonical doc list, selected follow-ons, or workflow guidance changed.
+- Do not create a new numbered phase/spike doc unless a concrete issue or caller genuinely opens a new rewrite slice.
+- Keep transport layers thin.
+- Avoid band-aids and backward-compatibility shims.
+- Prefer robust source-of-truth pathways over heuristics.
+- If the task touches Go-to-TypeScript frontend binding generation, keep route specs, request/response contracts, and generated output Go-owned. Do not use long-lived handwritten TypeScript blobs or silent fallback output; add a Go boundary DTO or converter rule instead.
+- Run the most relevant tests for the touched area, or explicitly state why they were not run.
+- At the end of any substantial chunk of work, update the relevant current source-of-truth doc if the task changed documented ownership, caller reachability, selected follow-ons, dependency decisions, or workflow guidance.
+- If blocked by a real architecture or product tradeoff, present one recommended option with rationale and stop. Otherwise keep executing.
+- Do not ask me to restate rewrite context unless the local state is genuinely ambiguous.
+
 Add a new detailed entry to cumulative_review.md (use date time as the heading). Then run pnpm -C frontend gcf. Then commit all of that (including cumulative_review.md but excluding the review*.md docs). Remove all top-level review*.md files
 
 Compare the current branch with `main` and write a detailed branch-intent summary to `branch_intent.md`.
@@ -91,82 +139,3 @@ Compare the current branch with `main` and write a detailed branch-intent summar
   - Overwrite `branch_intent.md` with this branch's current summary.
   - Group by: `Features`, `Bug Fixes`, `Intentional Behavior Changes To Preserve`.
   - Be concrete and detailed enough that a reviewer on a follow-up branch can quickly avoid undoing intentional work.
-
-
-Autonomous Codex frontend cleanup session prompt:
-
-You are working in /Users/kevin/Documents/AppDevelopment/setta.clean-code.
-
-Goal: clean up the authored frontend so it is easy for Codex coding agents to navigate, understand, and modify, while preserving behavior and keeping or improving performance.
-
-This is an autonomous execution session. Work independently. Do not pause to ask me questions. Make reasonable assumptions based on the existing code, the repo instructions, and the cleanup plans below. If one slice is blocked, skip it, note the blocker briefly, and continue with the next highest-value unblocked slice.
-
-Read these first:
-- docs/plans/frontend-cleanup-plan-index.md
-- docs/plans/frontend-cleanup-plan.md
-- docs/plans/frontend-pages-shell-cleanup-plan.md
-- docs/plans/frontend-panes-and-authoring-cleanup-plan.md
-- docs/plans/frontend-sections-and-params-cleanup-plan.md
-- docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md
-
-Then start implementing the cleanup. Do not spend the session writing more plans unless a small supporting doc is directly needed for implementation.
-
-Autonomy rules:
-- Prioritize agent legibility: clear module ownership, smaller files, fewer mixed responsibilities, obvious read/write boundaries, feature-local helpers, and less cross-layer jumping.
-- Preserve user-visible behavior unless you find a concrete issue that should be fixed as part of the cleanup.
-- Prefer incremental refactors over broad directory churn. Prove boundaries first, then move files if it clearly improves ownership.
-- Make reasonable assumptions instead of asking for help.
-- If a task would normally require asking me something, choose the most conservative reasonable path and document the assumption in your progress note or commit message.
-- If a slice is blocked by unavailable tooling, permissions, or verification requirements, move to the next unblocked cleanup slice instead of stopping.
-- Do not touch generated files under frontend/src/utils/generated* or forked code under frontend/src/forks/** unless absolutely required.
-
-Execution rules:
-- Start with the highest-leverage foundation work, then continue domain by domain.
-- Add or update Vitest coverage for substantial refactors.
-- Add Playwright coverage when interactive UI behavior changes materially.
-- For visual or performance-sensitive frontend refactors, use chrome-devtools-mcp when available, do the required visual verification, and append before/after notes under perf/reports/frontend/ when the change is meaningful.
-- If CDP is unavailable for a slice that truly requires it, defer that slice, note the blocker, and continue with another cleanup area.
-- Commit in small logical increments with clear commit messages after each completed cleanup slice.
-- Do not stop at analysis. Implement, verify, commit, and continue until there is no meaningful unblocked work left in the plans.
-
-Tracking rules:
-- Create and maintain an append-only work log at docs/plans/frontend-cleanup-execution-log.md.
-- After each completed slice, append:
-  - date/time
-  - what you changed
-  - key files touched
-  - tests/verification run
-  - perf/CDP notes if relevant
-  - commit hash
-  - the next highest-value unblocked slice
-- Do not rewrite earlier log entries; only append.
-
-Suggested execution order:
-1. Implement the Phase 0 foundation from the plans:
-   - module map / placement rules
-   - clearer ownership guidance for where new frontend code should live
-2. Tackle shared state and infrastructure boundaries:
-   - split overloaded shared modules
-   - make store ownership and mutation/query boundaries clearer
-3. Then continue through the remaining domains from the plans:
-   - chat / project AI / shared chat state
-   - pages and shell
-   - panes and authoring
-   - sections and params
-   - remaining runtime/infrastructure cleanup
-
-When you get a message like “proceed with the next step”, interpret it as:
-- read the execution log
-- choose the next highest-value unblocked cleanup slice
-- implement it end-to-end
-- verify it
-- commit it
-- append the log
-- continue until the turn ends
-
-At the end of each turn, report:
-- what slice you completed
-- what files/modules now own the behavior
-- what tests/verification you ran
-- the commit hash
-- the next slice you will take when told to proceed
