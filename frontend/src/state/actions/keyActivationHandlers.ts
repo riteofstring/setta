@@ -73,7 +73,7 @@ import {
   focusOnCommandPalette,
   focusOnSearch,
 } from "./sections/sectionParamFilter";
-import { deleteSelectedStateMachineEdges } from "./stateMachineEdges";
+import { deleteSelectedStateMachineEdges } from "./stateMachineEdgeMutations";
 import { redoProjectState, undoProjectState } from "./undo";
 
 export const keyActivationCommands = {

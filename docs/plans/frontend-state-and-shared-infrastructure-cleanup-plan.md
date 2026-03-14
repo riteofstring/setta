@@ -81,14 +81,24 @@ Make shared frontend infrastructure legible by separating read models, mutation 
 
 - `frontend/src/state` plus shared infrastructure files in `components/Utils` and `utils` total about 83.6k lines of authored code in the sampled directories.
 - The biggest shared-state hotspots are:
-  - `frontend/src/state/actions/stateMachineEdges.ts` at 718 lines
   - `frontend/src/state/actions/websocketReceive.ts` at 706 lines
   - `frontend/src/state/actions/keyActivations.ts` at 705 lines
   - `frontend/src/state/actions/windowSpaces.ts` at 695 lines
   - `frontend/src/state/actions/sectionInfos.ts` at 678 lines
   - `frontend/src/state/actions/sectionEffectiveImpls.ts` at 649 lines
+  - `frontend/src/state/actions/stateMachineEdgeConnections.ts` at 520 lines
   - `frontend/src/state/actions/uiSettingRevealMutationSnapshots.ts` at 426 lines
   - `frontend/src/components/Utils/Resizable/useCustomResizableBehavior.ts` at 325 lines
+- `stateMachineEdges.ts` now owns:
+  - compatibility re-exports for workflow edge callers that have not moved yet
+- `stateMachineEdgeConnections.ts` now owns:
+  - workflow handle normalization and shared-chat workflow port canonicalization
+  - section-type and machine-group reads used to validate candidate connections
+  - machine-group merge snapshot capture or apply or restore helpers
+  - workflow edge construction from a validated connection
+- `stateMachineEdgeMutations.ts` now owns:
+  - workflow edge creation plus merge-aware optimistic persistence
+  - workflow edge selection, deletion, and replace commands
 - `CustomResizable.tsx` now owns:
   - resize-surface composition and `ResizableWithScale` wiring
   - share-capability gating and active-handle state bridging into handle chrome

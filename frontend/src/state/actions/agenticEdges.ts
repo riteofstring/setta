@@ -15,7 +15,7 @@ import { createNewId } from "utils/idNameCreation";
 import { isSharedChatHandleId } from "./chatSharedHandleIds";
 import { dispatchOptimisticProjectStateUpdate } from "./projectStateOptimisticUpdates";
 import { getCurrProjectConfigId } from "./sectionInfos";
-import { isWorkflowHandleId } from "./stateMachineEdges";
+import { isWorkflowHandleId } from "./stateMachineEdgeConnections";
 
 export const AGENTIC_EDGE_HANDLE_IDS = {
   source: "agentic-edge-source",

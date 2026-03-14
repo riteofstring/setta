@@ -258,8 +258,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/stateMachineEdges.ts` edge mutation split across graph reads,
-  optimistic project-state writes, and view/runtime-specific edge commands
+- `state/actions/websocketReceive.ts` websocket transport split across auth or
+  reconnect lifecycle, bootstrap hydration, and outbound realtime dependency or
+  upload helpers now that `state/actions/websocketIncomingMessages.ts` owns the
+  inbound dispatch surface
 - `state/actions/sectionInfos.ts` section metadata/display-tree split now that
   `state/actions/sectionEffectiveImpls.ts`,
   `state/actions/sectionProjectStateSync.ts`,
@@ -269,6 +271,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
   `state/actions/topLevelLayoutPersistence.ts` own effective-impl access,
   backend sync, shared commands, optimistic mutation infrastructure, and
   top-level layout ownership
+- `state/actions/stateMachineEdges.ts` is now a compatibility entrypoint that
+  delegates workflow connection rules and machine-group reads to
+  `state/actions/stateMachineEdgeConnections.ts` and optimistic create or
+  update or delete commands to `state/actions/stateMachineEdgeMutations.ts`;
+  follow-up work should stay on one of those owners instead of growing the
+  facade again
 - `components/Utils/Resizable/CustomResizable.tsx` now delegates resize
   lifecycle and optimistic persistence to
   `components/Utils/Resizable/useCustomResizableBehavior.ts`, pure clamp/auto-

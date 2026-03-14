@@ -131,6 +131,11 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   persistence to `useCustomResizableBehavior.ts`, pure clamp and auto-clamp
   decisions to `customResizableSizing.ts`, and handle chrome plus direction
   parsing to `customResizableChrome.ts`.
+- `frontend/src/state/actions/stateMachineEdges.ts` is down to a 12-line
+  compatibility entrypoint and now delegates workflow handle normalization,
+  machine-group resolution, connection validation, and edge construction to
+  `stateMachineEdgeConnections.ts`, plus optimistic create or select or delete
+  or replace commands to `stateMachineEdgeMutations.ts`.
 - `frontend/src/state/actions/uiSettingReveal.ts` is down to 360 lines and now
   delegates reveal mutation orchestration, lease ownership, snapshot rollback,
   pane activation, DOM anchor/highlight helpers, and execution-status utilities
