@@ -6,18 +6,9 @@ import {
 } from "components/ChatWindowing/projectChatSurfaceIds";
 import { MaybeManyNestedSections } from "components/Section/Container/ManyNestedSections";
 import { SectionWindowSurface } from "components/Section/Container/SectionWindowSurface";
-import { useCodeMirrorStyleLoader } from "components/Utils/CodeMirror/useCodeMirrorStyleLoader";
 import { FloatingBox } from "components/Utils/FloatingBox";
 import { SectionDndContext } from "forks/dnd-kit/SectionDndContext";
-import { useAddMouseLocationListener } from "forks/xyflow/core/utils/mouseLocation";
-import { usePluginRuntimeBootstrap } from "plugins/runtime";
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type SetStateAction,
-} from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { buildChatHistoryEntries } from "state/actions/chatHistory";
 import { useProjectState, useShareSession } from "state/definitions";
@@ -28,14 +19,11 @@ import { shallow } from "zustand/shallow";
 import { LoadingSpinner } from "../LoadingSpinner";
 import { NotFound } from "../NotFound/NotFound";
 import { StandaloneWindowSpaceSurface } from "./StandaloneWindowSpaceSurface";
+import { useStandaloneProjectSurfaceController } from "./standaloneProjectSurfaceController";
 import {
-  buildStandaloneProjectChatPath,
   buildStandaloneSurfaceOwnerKey,
-  normalizeStandaloneChatId,
-  normalizeStandaloneSurfaceErrorCode,
   resolveStandaloneDocumentTitle,
   resolveStandaloneSurfaceTarget,
-  type StandaloneSurfaceErrorCode,
 } from "./standaloneProjectSurfaceRouting";
 import {
   buildStandaloneManagedChatAuthorityState,
@@ -179,14 +167,6 @@ export function StandaloneProjectSurfacePageWithLoadState({
       }),
     [projectChatHistoryEntries, target],
   );
-  const [standaloneSurfaceErrorState, setStandaloneSurfaceErrorState] =
-    useState<{
-      ownerKey: string | null;
-      errorCode: StandaloneSurfaceErrorCode | null;
-    }>({
-      ownerKey: null,
-      errorCode: null,
-    });
   const resolvedDoneLoading = doneLoading === true;
   const resolvedIs404 = is404 === true;
   const canUseManagedChat = canUseManagedChatLLM({
@@ -197,6 +177,21 @@ export function StandaloneProjectSurfacePageWithLoadState({
     projectConfigId,
     target,
   );
+  const routeStandaloneProjectChatId =
+    target.kind === "project_chat_thread" ? target.chatId : null;
+  const {
+    standaloneSurfaceErrorState,
+    setStandaloneSurfaceErrorCode,
+    setStandaloneProjectChatId,
+  } = useStandaloneProjectSurfaceController({
+    projectConfigName,
+    doneLoading: resolvedDoneLoading,
+    is404: resolvedIs404,
+    canUseManagedChat,
+    standaloneSurfaceOwnerKey,
+    standaloneProjectChatId: routeStandaloneProjectChatId,
+    navigate,
+  });
   const {
     standaloneProjectChatId,
     standaloneProjectChatThreadRouteInvalid,
@@ -221,71 +216,6 @@ export function StandaloneProjectSurfacePageWithLoadState({
       target,
     ],
   );
-  const previousCanUseManagedChat = useRef(canUseManagedChat);
-
-  const setStandaloneSurfaceErrorCode = (errorCode: string | null) => {
-    const normalizedErrorCode = normalizeStandaloneSurfaceErrorCode(errorCode);
-    setStandaloneSurfaceErrorState((current) => {
-      if (
-        current.ownerKey === standaloneSurfaceOwnerKey &&
-        current.errorCode === normalizedErrorCode
-      ) {
-        return current;
-      }
-      return {
-        ownerKey: standaloneSurfaceOwnerKey,
-        errorCode: normalizedErrorCode,
-      };
-    });
-  };
-
-  useEffect(() => {
-    setStandaloneSurfaceErrorState((current) => {
-      if (current.ownerKey === standaloneSurfaceOwnerKey) {
-        return current;
-      }
-      return {
-        ownerKey: standaloneSurfaceOwnerKey,
-        errorCode: null,
-      };
-    });
-  }, [standaloneSurfaceOwnerKey]);
-
-  useEffect(() => {
-    if (!previousCanUseManagedChat.current && canUseManagedChat) {
-      setStandaloneSurfaceErrorState((current) => {
-        if (current.errorCode !== "llm_disallowed") {
-          return current;
-        }
-        return {
-          ownerKey: standaloneSurfaceOwnerKey,
-          errorCode: null,
-        };
-      });
-    }
-    previousCanUseManagedChat.current = canUseManagedChat;
-  }, [canUseManagedChat, standaloneSurfaceOwnerKey]);
-
-  useCodeMirrorStyleLoader(resolvedDoneLoading, resolvedIs404);
-  useAddMouseLocationListener();
-  usePluginRuntimeBootstrap(resolvedDoneLoading && !resolvedIs404);
-  const setStandaloneProjectChatId = (
-    next: SetStateAction<string | null | undefined>,
-  ) => {
-    if (!projectConfigName) {
-      return;
-    }
-    const resolvedChatId =
-      typeof next === "function"
-        ? next(standaloneProjectChatId ?? undefined)
-        : next;
-    navigate(
-      buildStandaloneProjectChatPath(
-        projectConfigName,
-        normalizeStandaloneChatId(resolvedChatId),
-      ),
-    );
-  };
 
   useEffect(() => {
     document.title = resolveStandaloneDocumentTitle(

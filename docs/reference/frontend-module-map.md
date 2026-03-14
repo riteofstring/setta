@@ -95,6 +95,7 @@ This is the front door for authored frontend code under `frontend/src/`.
 - Need Home page workspace-browser pane UI or path-entry behavior: open `components/Pages/Home/HomeWorkspaceBrowserPane.tsx`.
 - Need standalone project route-target resolution, path/title helpers, or owner-key logic: open `components/Pages/Project/standaloneProjectSurfaceRouting.ts`.
 - Need standalone project managed-chat authority, thread-title, or blocked/not-found guard decisions: open `components/Pages/Project/standaloneProjectSurfaceViewModel.ts`.
+- Need standalone project error-state lifecycle, runtime hooks, or chat-route navigation wiring: open `components/Pages/Project/standaloneProjectSurfaceController.ts`.
 - Need pane/tab behavior: open `components/Panes/`.
 - Need section chrome or param rendering: open `components/Section/` and `components/Params/`.
 - Need managed section-chat history or polling behavior: open `components/Section/Layouts/ChatAreaHistoryPanel.tsx`.
