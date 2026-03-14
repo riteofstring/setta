@@ -307,6 +307,39 @@ describe("ChatMessages markdown code rendering", () => {
     expect(markup).toContain('aria-label="Copy code"');
     expect(markup).toContain("cm-line");
   });
+
+  it("renders assistant markdown as markdown while the response is still streaming", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-streaming-markdown",
+        role: ChatRoleEnum.assistant,
+        content: [
+          createMessageTextContent({
+            text: [
+              "Based on the docs:",
+              "",
+              "## Core Purpose",
+              "",
+              "- Build apps",
+              "- Stream markdown",
+            ].join("\n"),
+          }),
+        ],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={true} />,
+    );
+
+    expect(markup).toContain('data-chat-streaming-markdown="true"');
+    expect(markup).toContain("<h2>Core Purpose</h2>");
+    expect(markup).toContain("<li>Build apps</li>");
+    expect(markup).not.toContain("## Core Purpose");
+    expect(markup).toMatch(/chat-stream-reveal-[ab]/);
+  });
 });
 
 describe("ChatMessages structured tool output rendering", () => {
@@ -2160,7 +2193,9 @@ describe("ChatMessages assistant reasoning layout", () => {
       {
         id: "m-user-timestamp",
         role: ChatRoleEnum.user,
-        content: [createMessageTextContent({ text: "Can you run the checks?" })],
+        content: [
+          createMessageTextContent({ text: "Can you run the checks?" }),
+        ],
         attachments: [],
         createdAt: userCreatedAtMs,
       },
@@ -2203,9 +2238,9 @@ describe("ChatMessages assistant reasoning layout", () => {
       <ChatMessageList messages={messages} waitingForResponse={false} />,
     );
 
-    expect(
-      countOccurrences(markup, 'data-chat-message-timestamp="true"'),
-    ).toBe(2);
+    expect(countOccurrences(markup, 'data-chat-message-timestamp="true"')).toBe(
+      2,
+    );
     expect(markup).toContain(formatExpectedChatTimestamp(userCreatedAtMs));
     expect(markup).toContain(formatExpectedChatTimestamp(assistantCreatedAtMs));
     expect(markup).toContain(
@@ -2231,7 +2266,9 @@ describe("ChatMessages assistant reasoning layout", () => {
             type: "function",
             function: {
               name: "command_execution",
-              arguments: { command: "pnpm exec vitest run src/components/Chat" },
+              arguments: {
+                command: "pnpm exec vitest run src/components/Chat",
+              },
             },
           },
         ],
@@ -2256,9 +2293,9 @@ describe("ChatMessages assistant reasoning layout", () => {
     );
 
     expect(markup).not.toContain('data-chat-assistant-bubble="true"');
-    expect(
-      countOccurrences(markup, 'data-chat-message-timestamp="true"'),
-    ).toBe(1);
+    expect(countOccurrences(markup, 'data-chat-message-timestamp="true"')).toBe(
+      1,
+    );
     expect(markup).toContain(formatExpectedChatTimestamp(assistantCreatedAtMs));
     expect(markup).toContain(
       `title="${formatExpectedChatTimestampTitle(assistantCreatedAtMs)}"`,
@@ -2300,7 +2337,10 @@ describe("ChatMessages assistant reasoning layout", () => {
       />,
     );
 
-    const userBubble = getDivHtmlByMarker(markup, 'data-chat-user-bubble="true"');
+    const userBubble = getDivHtmlByMarker(
+      markup,
+      'data-chat-user-bubble="true"',
+    );
     expect(userBubble).not.toBeNull();
     expect(userBubble).not.toContain('data-chat-message-timestamp="true"');
 
@@ -2325,7 +2365,10 @@ describe("ChatMessages assistant reasoning layout", () => {
       `data-message-id="${assistantMessageId}"`,
     );
     expect(
-      countOccurrences(assistantGroup ?? "", 'data-chat-message-timestamp="true"'),
+      countOccurrences(
+        assistantGroup ?? "",
+        'data-chat-message-timestamp="true"',
+      ),
     ).toBe(1);
     expect(assistantGroup).toContain(
       formatExpectedChatTimestamp(assistantCreatedAtMs),

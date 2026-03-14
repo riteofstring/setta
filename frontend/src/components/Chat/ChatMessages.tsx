@@ -5,9 +5,9 @@ import {
   CodeBlock,
   MarkdownCodePre,
 } from "components/Section/Layouts/TextBlock";
+import { BrailleSpinner } from "components/Utils/BrailleSpinner";
 import { DummyCodeMirror } from "components/Utils/CodeMirror/DummyCodeMirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
-import { BrailleSpinner } from "components/Utils/BrailleSpinner";
 import {
   MediaCarousel,
   type MediaCarouselItem,
@@ -27,9 +27,9 @@ import {
 } from "react";
 import { FaBrain } from "react-icons/fa6";
 import {
-  FiCpu,
   FiArchive,
   FiCopy,
+  FiCpu,
   FiEdit3,
   FiFileText,
   FiMusic,
@@ -315,15 +315,25 @@ function MarkdownContent({
   const markdownWidthClassName =
     role === ChatRoleEnum.assistant ? "w-fit max-w-full" : "w-full max-w-full";
   const markdownClassName = `${markdownWidthClassName} ${className}`;
+  const streamingRevealPhase =
+    displayText.length % 2 === 0
+      ? "chat-stream-reveal-a"
+      : "chat-stream-reveal-b";
   if (shouldAnimate) {
     return (
-      <div className={markdownClassName} data-chat-streaming-markdown="true">
-        <pre
-          className="m-0 whitespace-pre-wrap break-words"
-          style={{ fontFamily: "inherit" }}
+      <div
+        className={`${markdownWidthClassName} ${streamingRevealPhase}`.trim()}
+        data-chat-streaming-markdown="true"
+        data-chat-streaming-reveal-phase={streamingRevealPhase}
+      >
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm, remarkMath]}
+          rehypePlugins={[rehypeKatex]}
+          className={className}
+          components={{ code: CodeBlock, pre: MarkdownCodePre }}
         >
           {displayText}
-        </pre>
+        </ReactMarkdown>
       </div>
     );
   }
@@ -1608,7 +1618,9 @@ function resolveTimestampMs(value: unknown): number | null {
   return value;
 }
 
-function resolveMessageCreatedAtMs(message: BaseChatMessageUnion): number | null {
+function resolveMessageCreatedAtMs(
+  message: BaseChatMessageUnion,
+): number | null {
   return resolveTimestampMs((message as { createdAt?: unknown }).createdAt);
 }
 
@@ -3468,7 +3480,7 @@ const ThinkingSection = memo(function ThinkingSection({
           </div>
         </Accordion.Trigger>
         {hasExpandableContent ? (
-          <Accordion.Content className="overflow-hidden border-t border-setta-200/70 data-[state=closed]:hidden data-[state=open]:block dark:border-setta-700/70">
+          <Accordion.Content className="overflow-hidden border-t border-setta-200/70 data-[state=open]:block data-[state=closed]:hidden dark:border-setta-700/70">
             <div className="flex w-full flex-col">{children}</div>
           </Accordion.Content>
         ) : null}
@@ -3557,8 +3569,7 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
         0,
         current.scrollHeight - current.clientHeight,
       );
-      const nextHasOverflow =
-        maxScrollTop > 1 && text.trim().length > 0;
+      const nextHasOverflow = maxScrollTop > 1 && text.trim().length > 0;
       if (nextHasOverflow && pinnedBottomTextRef.current === text) {
         animatedScrollTopRef.current = maxScrollTop;
         current.scrollTop = maxScrollTop;
@@ -3642,10 +3653,7 @@ const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
     const initialTimestamp = window.performance.now();
     const startScrollTop = animatedScrollTopRef.current;
     const distanceToBottomPx = Math.max(0, maxScrollTop - startScrollTop);
-    const durationMs = Math.min(
-      720,
-      Math.max(180, distanceToBottomPx * 7),
-    );
+    const durationMs = Math.min(720, Math.max(180, distanceToBottomPx * 7));
     const stepAnimation = (timestamp: number) => {
       const current = scrollRef.current;
       if (!current) {
@@ -4073,7 +4081,7 @@ const ContextCompactionSection = memo(function ContextCompactionSection({
             </div>
           </div>
         </Accordion.Trigger>
-        <Accordion.Content className="overflow-hidden border-t border-setta-200/70 data-[state=closed]:hidden data-[state=open]:block dark:border-setta-700/70">
+        <Accordion.Content className="overflow-hidden border-t border-setta-200/70 data-[state=open]:block data-[state=closed]:hidden dark:border-setta-700/70">
           <div className="px-2 py-1">
             <MarkdownContent
               content={displayText}
@@ -4632,10 +4640,7 @@ const ActivityToolLikeItem = memo(function ActivityToolLikeItem({
                     <FiCopy />
                   </button>
                 ) : null}
-                <ChatTimestamp
-                  timestampMs={timestampMs}
-                  kind="activity-item"
-                />
+                <ChatTimestamp timestampMs={timestampMs} kind="activity-item" />
                 {durationLabel ? (
                   <span
                     data-chat-activity-item-timer="true"
@@ -4934,7 +4939,8 @@ const SubagentItem = memo(function SubagentItem({
       stoppedLabel: "Subagent stopped before completion.",
     });
   const profileId = extractNonEmptyStringArg(args, "profileId");
-  const label = profileId || normalizeToolName(name) || `Subagent ${toolCallId}`;
+  const label =
+    profileId || normalizeToolName(name) || `Subagent ${toolCallId}`;
 
   return (
     <ActivityToolLikeItem
@@ -5453,7 +5459,7 @@ const ToolCallSection = memo(function ToolCallSection({
             </div>
           </div>
         </Accordion.Trigger>
-        <Accordion.Content className="overflow-hidden border-t border-setta-200/70 data-[state=closed]:hidden data-[state=open]:block dark:border-setta-700/70">
+        <Accordion.Content className="overflow-hidden border-t border-setta-200/70 data-[state=open]:block data-[state=closed]:hidden dark:border-setta-700/70">
           <div className="flex w-full flex-col">{children}</div>
         </Accordion.Content>
       </Accordion.Item>
@@ -5707,10 +5713,7 @@ function AssistantMessageGroup({
       className={containerClassName}
       data-chat-search-active-match={isSearchMatchActive ? "true" : "false"}
     >
-      <div
-        className={`${widthClass} relative`}
-        data-message-id={messageId}
-      >
+      <div className={`${widthClass} relative`} data-message-id={messageId}>
         {children}
         {actions ? (
           <div
