@@ -23,8 +23,9 @@ import {
 } from "state/actions/sections/createSectionsHelper";
 import { ProjectPageSearchBarDivId } from "state/actions/sections/sectionParamFilter";
 import { goToSection } from "state/actions/sections/sectionPositions";
-import { useProjectSearch, useSettings } from "state/definitions";
 import { useUpdateProjectSearch } from "state/hooks/search";
+import { useProjectSearch } from "state/stores/authoringStores";
+import { useSettings } from "state/stores/settingsStore";
 import { ProjectSearchModeEnum } from "utils/constants/projectSearch";
 import { shortcutPrettified } from "utils/utils";
 
