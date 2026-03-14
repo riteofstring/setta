@@ -3,11 +3,13 @@ import {
   ExternalAgentRunModeEnum,
   ExternalAgentToolTypeEnum,
   ExternalAgentWorkingDirStrategyEnum,
+  PromptFormatEnum,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
   buildAgentProfileDraft,
   buildExternalAgentConfigDraft,
+  buildPromptTemplateDraft,
   normalizeOptionalText,
   parseListInput,
   parseOpenCodePermission,
@@ -67,6 +69,27 @@ describe("projectAISettingsDraftUtils", () => {
         ClaudeSettingsSourceEnum.local,
       ],
       settingsAllowSettaEdits: true,
+    });
+  });
+
+  it("builds prompt template drafts with formatted JSON payloads", () => {
+    expect(
+      buildPromptTemplateDraft({
+        id: "prompt-template-1",
+        name: "Summarize",
+        description: "Summarize a section",
+        template: "Hello {{ section }}",
+        format: PromptFormatEnum.Jinja,
+        inputSchema: { section: { type: "string" } },
+        metadata: { category: "summary" },
+      }),
+    ).toEqual({
+      name: "Summarize",
+      description: "Summarize a section",
+      template: "Hello {{ section }}",
+      format: PromptFormatEnum.Jinja,
+      inputSchemaText: JSON.stringify({ section: { type: "string" } }, null, 2),
+      metadataText: JSON.stringify({ category: "summary" }, null, 2),
     });
   });
 

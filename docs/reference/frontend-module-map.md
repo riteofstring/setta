@@ -144,5 +144,6 @@ This is the front door for authored frontend code under `frontend/src/`.
 - Need Project AI settings field chrome or shared manager form primitives: open `components/Panes/Overview/ProjectLevelAI/projectAISettingsFormPrimitives.tsx`.
 - Need Project AI agent profile manager behavior: open `components/Panes/Overview/ProjectLevelAI/ProjectAIAgentProfilesManager.tsx`.
 - Need Project AI transcription profile manager behavior: open `components/Panes/Overview/ProjectLevelAI/ProjectAITranscriptionProfilesManager.tsx`.
+- Need Project AI prompt template manager behavior: open `components/Panes/Overview/ProjectLevelAI/ProjectAIPromptTemplatesManager.tsx`.
 - Need shared derived state or a component-facing hook: search in `state/hooks/`.
 - Need a pure cross-feature helper: check `utils/`.
