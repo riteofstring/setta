@@ -1624,7 +1624,7 @@ func TestFrontendGeneratedRouteHelperImportsStayWithinExplicitBoundaries(t *test
 			"frontend/src/utils/c_addresses.ts": {},
 		},
 		"GoRootRouteHelpers": {
-			"frontend/src/state/actions/websocketReceive.ts": {},
+			"frontend/src/utils/backendOriginTransport.ts":   {},
 			"frontend/src/utils/serverModeBoundaryPolicy.ts": {},
 		},
 		"GoHTTPRouteHelpers": {
@@ -1635,9 +1635,7 @@ func TestFrontendGeneratedRouteHelperImportsStayWithinExplicitBoundaries(t *test
 			"frontend/src/utils/settaApiPresets.ts":          {},
 		},
 		"GoWebsocketRouteHelpers": {
-			"frontend/src/plugins/transport.ts":                  {},
-			"frontend/src/state/actions/websocketReceive.ts":     {},
-			"frontend/src/state/hooks/terminals/websocketUrl.ts": {},
+			"frontend/src/utils/backendOriginTransport.ts": {},
 		},
 	}
 	generatedRoutesImportPattern := regexp.MustCompile(`(?s)import\s*\{([^}]*)\}\s*from\s*["'](?:\./generatedRoutes|utils/generatedRoutes)["']`)

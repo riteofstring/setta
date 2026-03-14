@@ -1,21 +1,4 @@
-import { buildBackendOriginWebsocketURL } from "utils/backendOriginTransport";
-import { GoWebsocketRouteHelpers } from "utils/generatedRoutes";
-
-export type BuildTerminalWebsocketUrlOptions = {
-  projectConfigId: string;
-  sectionId: string;
-  shareSessionId: string | null;
-};
-
-export function buildTerminalWebsocketUrl({
-  projectConfigId,
-  sectionId,
-  shareSessionId,
-}: BuildTerminalWebsocketUrlOptions): string {
-  return buildBackendOriginWebsocketURL(
-    GoWebsocketRouteHelpers.terminalBySection(projectConfigId, sectionId),
-    {
-      shareSessionId: shareSessionId ?? undefined,
-    },
-  );
-}
+export {
+  buildTerminalWebsocketUrl,
+  type BuildTerminalWebsocketUrlOptions,
+} from "utils/backendOriginTransport";

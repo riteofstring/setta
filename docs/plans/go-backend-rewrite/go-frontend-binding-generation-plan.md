@@ -288,6 +288,10 @@ Current status:
 - backend-origin URL and websocket construction now also flows through
   `frontend/src/utils/backendOriginTransport.ts`, so plugin/realtime/terminal
   callers no longer import those low-level `endpointUtils` builders directly
+- backend-origin bootstrap/frontend/listener/terminal route shaping now also
+  flows through that same `backendOriginTransport` boundary, so realtime and
+  terminal runtime callers no longer import `GoRootRouteHelpers` or
+  `GoWebsocketRouteHelpers` directly
 - app binary-download transport now also flows through
   `frontend/src/components/App/appTransport.ts`, so `AppRenderer` no longer
   imports the low-level `endpointUtils` backend URL builder directly

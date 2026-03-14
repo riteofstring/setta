@@ -25,8 +25,9 @@ import {
   useShareSession,
 } from "state/definitions";
 import {
-  buildBackendOriginURL,
-  buildBackendOriginWebsocketURL,
+  buildBootstrapPageUrl,
+  buildFrontendWebsocketUrl,
+  getFrontendWebsocketRoute,
 } from "utils/backendOriginTransport";
 import { encodeBinaryFrame } from "utils/binaryWebsocket";
 import { C } from "utils/c";
@@ -37,10 +38,6 @@ import {
   route_get_latest_lsp_diagnostics,
   route_get_latest_project_state,
 } from "utils/generatedEndpoints";
-import {
-  GoRootRouteHelpers,
-  GoWebsocketRouteHelpers,
-} from "utils/generatedRoutes";
 import {
   BaseDependencyKeyUnion,
   BaseDependencyValueUnion,
@@ -119,8 +116,8 @@ let authLost = false;
 const AUTH_CLOSE_CODE = 4401;
 const SHARE_SESSION_MISSING_CODE = 4400;
 const SHARE_SESSION_UNKNOWN_CODE = 4404;
-const BOOTSTRAP_URL = buildBackendOriginURL(GoRootRouteHelpers.bootstrapPage());
-const FRONTEND_WEBSOCKET_ROUTE = GoWebsocketRouteHelpers.frontend();
+const BOOTSTRAP_URL = buildBootstrapPageUrl();
+const FRONTEND_WEBSOCKET_ROUTE = getFrontendWebsocketRoute();
 const AUTH_RECOVERY_INTERVAL_MS = 2000;
 const DEFAULT_AUTH_REFRESH_WINDOW_SECONDS =
   C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS;
@@ -162,12 +159,6 @@ function beginWebsocketGeneration(): number {
   setActiveFrontendWebsocketAffinityGeneration(activeWebsocketGeneration);
   clearFrontendWebsocketAffinity(activeWebsocketGeneration);
   return activeWebsocketGeneration;
-}
-
-function buildFrontendWebsocketUrl(shareSessionId: string | null): string {
-  return buildBackendOriginWebsocketURL(FRONTEND_WEBSOCKET_ROUTE, {
-    shareSessionId: shareSessionId ?? undefined,
-  });
 }
 
 export const openWebSocket = _.debounce(

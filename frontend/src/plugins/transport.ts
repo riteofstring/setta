@@ -1,12 +1,9 @@
 import {
   buildBackendOriginURL,
-  buildBackendOriginWebsocketURL,
+  buildListenerWebsocketUrl,
 } from "utils/backendOriginTransport";
 import { buildBackendURL } from "utils/backendTransport";
-import {
-  GoHTTPRouteHelpers,
-  GoWebsocketRouteHelpers,
-} from "utils/generatedRoutes";
+import { GoHTTPRouteHelpers } from "utils/generatedRoutes";
 
 export type BuildPluginListenerWebsocketUrlOptions = {
   listenerId: string;
@@ -41,11 +38,9 @@ export function buildPluginListenerWebsocketUrl({
   projectConfigId,
   shareSessionId,
 }: BuildPluginListenerWebsocketUrlOptions): string {
-  return buildBackendOriginWebsocketURL(
-    GoWebsocketRouteHelpers.listenerById(listenerId),
-    {
-      projectId: projectConfigId,
-      shareSessionId: shareSessionId ?? undefined,
-    },
-  );
+  return buildListenerWebsocketUrl({
+    listenerId,
+    projectConfigId,
+    shareSessionId,
+  });
 }
