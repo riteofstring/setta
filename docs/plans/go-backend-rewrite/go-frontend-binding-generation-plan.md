@@ -226,12 +226,20 @@ Current status:
   `/ws/terminals/{projectID}/{sectionID}`, so active websocket callers no
   longer need direct `replaceAddressParams` or raw `GoWebsocketRoutes`
   imports in non-test frontend code
+- `generatedRoutes.ts` now also emits canonical HTTP route helpers for the
+  current Go-owned path-param routes such as deployment reads and binary/file
+  downloads, so active callers no longer need raw `RouteEnum...replace(...)`
+  interpolation in non-test frontend code
 - the validation suite now also checks that direct websocket route-builder
   imports do not reappear in non-test frontend sources
 - the validation suite now also checks that direct generated route-constant
   imports stay confined to `generatedEndpoints.ts`; active websocket callers
   should use the generated websocket route helpers instead of importing
   `GoWebsocketRoutes`
+- the validation suite now also checks that non-test frontend sources do not
+  manually interpolate generated `RouteEnum` paths with `.replace(...)`;
+  callers should use generated route helpers or a documented explicit
+  boundary instead
 - the validation suite now also snapshots the current explicit frontend
   boundary-exception import inventory in a focused golden manifest, so caller
   exceptions remain reviewable as the converted surface widens

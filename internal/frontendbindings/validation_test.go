@@ -1594,6 +1594,54 @@ func TestFrontendRouteConstantImportsStayWithinExplicitBoundaries(t *testing.T) 
 	}
 }
 
+func TestFrontendGeneratedRouteInterpolationUsesHelpers(t *testing.T) {
+	t.Helper()
+
+	repoRoot := testRepoRoot(t)
+	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
+	routeInterpolationPattern := regexp.MustCompile(`RouteEnum\.[A-Z0-9_]+\s*\.replace\(`)
+
+	err := filepath.WalkDir(frontendSrcRoot, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+
+		base := entry.Name()
+		if !(strings.HasSuffix(base, ".ts") || strings.HasSuffix(base, ".tsx")) {
+			return nil
+		}
+		if strings.Contains(base, ".test.") || strings.Contains(base, ".spec.") {
+			return nil
+		}
+
+		relativePath, err := filepath.Rel(repoRoot, path)
+		if err != nil {
+			return err
+		}
+		relativePath = filepath.ToSlash(relativePath)
+
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		match := routeInterpolationPattern.FindString(string(contents))
+		if match == "" {
+			return nil
+		}
+		return fmt.Errorf(
+			"%s manually interpolates generated RouteEnum path via %q; use a generated route helper or an explicit Go-owned boundary instead",
+			relativePath,
+			match,
+		)
+	})
+	if err != nil {
+		t.Fatalf("scan frontend generated route interpolation: %v", err)
+	}
+}
+
 func readBareHTTPRouteIdentifiers(t *testing.T, path string) []string {
 	t.Helper()
 
