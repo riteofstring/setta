@@ -229,22 +229,23 @@ Current status:
 - `generatedRoutes.ts` now also emits canonical root route helpers for the
   Go-owned bootstrap/tool root paths, so active callers no longer need raw
   `RouteEnum.BOOTSTRAP_PAGE` access in non-test frontend code
+- `generatedRoutes.ts` now also emits canonical API-prefix helpers, so support
+  code no longer needs raw route-prefix constant imports for backend/launcher
+  base-address construction
 - `generatedRoutes.ts` now also emits canonical HTTP route helpers for the
   current Go-owned route surface, including zero-path-param support helpers
   plus path-param routes such as deployment reads and binary/file downloads
   plus plugin backend dispatch, so active callers no longer need raw
   `RouteEnum...replace(...)` interpolation or handwritten
   `/api/plugins/{pluginId}...` path concatenation in non-test frontend code
-- support-layer frontend routing now uses explicit Go route groups for the API
-  prefix and generated Go route helpers for the launcher-origin policy map and
-  fixed Setta API presets, so non-test runtime code no longer imports the
-  broad legacy `RouteEnum` surface
+- support-layer frontend routing now uses generated Go route helpers for the
+  API prefix, launcher-origin policy map, and fixed Setta API presets, so
+  non-test runtime code no longer imports the broad legacy `RouteEnum` surface
 - the validation suite now also checks that direct websocket route-builder
   imports do not reappear in non-test frontend sources
 - the validation suite now also checks that direct generated route-constant
-  imports stay confined to `generatedEndpoints.ts` plus the explicit API
-  prefix boundary in `c_addresses`; active callers should use generated
-  helpers instead of importing broad route-constant bags
+  imports stay confined to `generatedEndpoints.ts`; active callers should use
+  generated helpers instead of importing broad route-constant bags
 - the validation suite now also checks that non-test frontend runtime source
   does not import the legacy `RouteEnum`; callers should use narrower Go route
   groups/helpers or a documented explicit boundary instead

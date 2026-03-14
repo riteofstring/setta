@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY } from "./backendOriginOverride";
 import { C_ADDRESSES } from "./c_addresses";
-import { GoRoutePrefixes } from "./generatedRoutes";
+import { GoRoutePrefixHelpers } from "./generatedRoutes";
 
 function createMemoryStorage() {
   const storage = new Map<string, string>();
@@ -102,7 +102,7 @@ describe("C_ADDRESSES", () => {
     expect(C_ADDRESSES.BACKEND_ORIGIN).toBe("http://127.0.0.1:61000");
     expect(C_ADDRESSES.LAUNCHER_ORIGIN).toBe("http://127.0.0.1:8000");
     expect(C_ADDRESSES.LAUNCHER).toBe(
-      `http://127.0.0.1:8000${GoRoutePrefixes.api}`,
+      `http://127.0.0.1:8000${GoRoutePrefixHelpers.api()}`,
     );
   });
 
@@ -117,7 +117,7 @@ describe("C_ADDRESSES", () => {
     expect(C_ADDRESSES.BACKEND_ORIGIN).toBe("http://remote.example:7777");
     expect(C_ADDRESSES.LAUNCHER_ORIGIN).toBe("http://remote.example:9999");
     expect(C_ADDRESSES.LAUNCHER).toBe(
-      `http://remote.example:9999${GoRoutePrefixes.api}`,
+      `http://remote.example:9999${GoRoutePrefixHelpers.api()}`,
     );
   });
 

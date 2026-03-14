@@ -306,6 +306,11 @@ function replaceGeneratedRoutePathParams(
   }
   return output;
 }
+export const GoRoutePrefixHelpers = {
+  api(): string {
+    return GoRoutePrefixes.api;
+  },
+} as const;
 export const GoRootRouteHelpers = {
   bootstrapPage(): string {
     return GoRootRoutes.bootstrapPage;

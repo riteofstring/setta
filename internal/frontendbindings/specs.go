@@ -34,7 +34,8 @@ type EndpointSpec struct {
 func CurrentRouteGroups() []RouteGroup {
 	return []RouteGroup{
 		{
-			ConstName: "GoRoutePrefixes",
+			ConstName:       "GoRoutePrefixes",
+			HelperConstName: "GoRoutePrefixHelpers",
 			Routes: []NamedRoute{{
 				Name:     "api",
 				Path:     httpapi.RouteAPIPrefix,

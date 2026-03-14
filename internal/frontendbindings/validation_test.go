@@ -1525,9 +1525,6 @@ func TestFrontendRouteConstantImportsStayWithinExplicitBoundaries(t *testing.T) 
 		"GoHTTPRoutes": {
 			"frontend/src/utils/generatedEndpoints.ts": {},
 		},
-		"GoRoutePrefixes": {
-			"frontend/src/utils/c_addresses.ts": {},
-		},
 		"GoWebsocketRoutes": {},
 	}
 	disallowedWithoutCaller := map[string]struct{}{
@@ -7196,7 +7193,6 @@ func renderFrontendBoundaryExceptionManifest(t *testing.T, repoRoot string) stri
 	trackedGeneratedRouteBindings := map[string]struct{}{
 		"GoHTTPRoutes":      {},
 		"GoRootRoutes":      {},
-		"GoRoutePrefixes":   {},
 		"GoWebsocketRoutes": {},
 	}
 
