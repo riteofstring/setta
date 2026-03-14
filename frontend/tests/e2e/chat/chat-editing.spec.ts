@@ -179,7 +179,7 @@ test.describe.serial("chat editing", () => {
     }
   });
 
-  test("message actions are icon-only and anchored beside bubbles by role", async ({
+  test("message actions are icon-only and anchored to bubble corners by role", async ({
     page,
   }) => {
     await ensureAppReady(page);
@@ -260,29 +260,25 @@ test.describe.serial("chat editing", () => {
       expect(buttonText.copyText).toBe("");
       expect(buttonText.editText).toBe("");
 
-      // User actions stay just outside the bubble on the left and remain vertically centered.
+      // Actions should stay tucked into the bubble's bottom-right corner.
       const actionLayout = await messageGroup.evaluate((group) => {
         const bubble = group.querySelector('[data-chat-user-bubble="true"]');
-        const actions = group.querySelector('[data-chat-message-actions="true"]');
         const copy = group.querySelector('button[aria-label="Copy message"]');
         const edit = group.querySelector('button[aria-label="Edit message"]');
-        if (!bubble || !actions || !copy || !edit) {
+        if (!bubble || !copy || !edit) {
           return null;
         }
         const bubbleRect = bubble.getBoundingClientRect();
-        const actionsRect = actions.getBoundingClientRect();
         const copyRect = copy.getBoundingClientRect();
         const editRect = edit.getBoundingClientRect();
         return {
-          horizontalGap: bubbleRect.left - actionsRect.right,
-          verticalCenterDelta:
-            Math.abs(
-              actionsRect.top +
-                actionsRect.height / 2 -
-                (bubbleRect.top + bubbleRect.height / 2),
-            ),
-          copyRightToBubbleLeft: bubbleRect.left - copyRect.right,
-          editRightToBubbleLeft: bubbleRect.left - editRect.right,
+          copyRightGap: bubbleRect.right - copyRect.right,
+          copyBottomGap: bubbleRect.bottom - copyRect.bottom,
+          editRightGap: bubbleRect.right - editRect.right,
+          editBottomGap: bubbleRect.bottom - editRect.bottom,
+          copyTopOffset: copyRect.top - bubbleRect.top,
+          editTopOffset: editRect.top - bubbleRect.top,
+          bubbleHeight: bubbleRect.height,
         };
       });
       expect(actionLayout).not.toBeNull();
@@ -290,11 +286,24 @@ test.describe.serial("chat editing", () => {
         throw new Error("Missing action layout metrics.");
       }
 
-      expect(actionLayout.horizontalGap).toBeGreaterThanOrEqual(0);
-      expect(actionLayout.horizontalGap).toBeLessThanOrEqual(16);
-      expect(actionLayout.verticalCenterDelta).toBeLessThanOrEqual(8);
-      expect(actionLayout.copyRightToBubbleLeft).toBeGreaterThanOrEqual(0);
-      expect(actionLayout.editRightToBubbleLeft).toBeGreaterThanOrEqual(0);
+      expect(actionLayout.copyRightGap).toBeGreaterThanOrEqual(-1);
+      expect(actionLayout.copyBottomGap).toBeGreaterThanOrEqual(-1);
+      expect(actionLayout.copyBottomGap).toBeLessThanOrEqual(
+        actionLayout.bubbleHeight + 1,
+      );
+      expect(actionLayout.editRightGap).toBeGreaterThanOrEqual(-1);
+      expect(actionLayout.editBottomGap).toBeGreaterThanOrEqual(-1);
+      expect(actionLayout.editBottomGap).toBeLessThanOrEqual(
+        actionLayout.bubbleHeight + 1,
+      );
+      expect(actionLayout.copyTopOffset).toBeGreaterThanOrEqual(-1);
+      expect(actionLayout.copyTopOffset).toBeLessThanOrEqual(
+        actionLayout.bubbleHeight + 1,
+      );
+      expect(actionLayout.editTopOffset).toBeGreaterThanOrEqual(-1);
+      expect(actionLayout.editTopOffset).toBeLessThanOrEqual(
+        actionLayout.bubbleHeight + 1,
+      );
 
       const assistantGroup = getMessageGroup(section, "Assistant corner controls");
       await expect(assistantGroup).toBeVisible();
@@ -313,24 +322,17 @@ test.describe.serial("chat editing", () => {
         const bubble = group.querySelector(
           '[data-chat-assistant-bubble="true"]',
         );
-        const actions = group.querySelector('[data-chat-message-actions="true"]');
         const copy = group.querySelector('button[aria-label="Copy message"]');
-        if (!bubble || !actions || !copy) {
+        if (!bubble || !copy) {
           return null;
         }
         const bubbleRect = bubble.getBoundingClientRect();
-        const messageContainerRect = group.getBoundingClientRect();
-        const actionsRect = actions.getBoundingClientRect();
         const copyRect = copy.getBoundingClientRect();
         return {
-          horizontalGap: actionsRect.left - messageContainerRect.right,
-          verticalCenterDelta:
-            Math.abs(
-              actionsRect.top +
-                actionsRect.height / 2 -
-                (messageContainerRect.top + messageContainerRect.height / 2),
-            ),
-          copyLeftToBubbleRight: copyRect.left - bubbleRect.right,
+          copyLeftGap: copyRect.left - bubbleRect.left,
+          copyBottomGap: bubbleRect.bottom - copyRect.bottom,
+          copyTopOffset: copyRect.top - bubbleRect.top,
+          bubbleHeight: bubbleRect.height,
         };
       });
       expect(assistantLayout).not.toBeNull();
@@ -338,10 +340,15 @@ test.describe.serial("chat editing", () => {
         throw new Error("Missing assistant action layout metrics.");
       }
 
-      expect(assistantLayout.horizontalGap).toBeGreaterThanOrEqual(0);
-      expect(assistantLayout.horizontalGap).toBeLessThanOrEqual(16);
-      expect(assistantLayout.verticalCenterDelta).toBeLessThanOrEqual(8);
-      expect(assistantLayout.copyLeftToBubbleRight).toBeGreaterThanOrEqual(0);
+      expect(assistantLayout.copyLeftGap).toBeGreaterThanOrEqual(-1);
+      expect(assistantLayout.copyBottomGap).toBeGreaterThanOrEqual(-1);
+      expect(assistantLayout.copyBottomGap).toBeLessThanOrEqual(
+        assistantLayout.bubbleHeight + 1,
+      );
+      expect(assistantLayout.copyTopOffset).toBeGreaterThanOrEqual(-1);
+      expect(assistantLayout.copyTopOffset).toBeLessThanOrEqual(
+        assistantLayout.bubbleHeight + 1,
+      );
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

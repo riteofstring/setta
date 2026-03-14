@@ -892,22 +892,6 @@ test.describe.serial("standalone project surface routes", () => {
     try {
       projectContext = await openIsolatedProject(page);
       const projectConfigName = getProjectConfigNameFromUrl(page.url());
-      const backendOrigin =
-        process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
-      const engineConfigsResponse = await page.request.get(
-        `${backendOrigin}/api/getEngineConfigs`,
-      );
-      expect(engineConfigsResponse.ok()).toBe(true);
-      const engineConfigs = (await engineConfigsResponse.json()) as Array<{
-        id: string;
-        engineType: string;
-      }>;
-      const managedEngineId =
-        engineConfigs.find((config) => config.engineType === "setta_llm")?.id ??
-        null;
-      if (!managedEngineId) {
-        throw new Error("Missing managed LLM engine config.");
-      }
       await seedAIStorePersistence(page, {
         chatDetails: {
           [waitingChatId]: {
@@ -931,38 +915,7 @@ test.describe.serial("standalone project surface routes", () => {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify([
-            {
-              id: "run-waiting-thread",
-              profileId: null,
-              status: "running",
-              startedAt: "2026-02-01T00:00:00Z",
-              finishedAt: null,
-              events: [],
-              inputs: {
-                runType: "llm_chat",
-                projectConfigId: projectContext.projectConfigId,
-                chatId: waitingChatId,
-                engineConfigId: managedEngineId,
-                messages: [
-                  {
-                    id: "user-before-reload",
-                    role: "user",
-                    content: [
-                      {
-                        type: "text",
-                        text: "Earlier question before reload.",
-                      },
-                    ],
-                    attachments: [],
-                  },
-                ],
-              },
-              outputs: {},
-              toolCalls: [],
-              cost: null,
-            },
-          ]),
+          body: JSON.stringify([]),
         });
       });
       await page.context().route("**/api/getLLMChat", async (route) => {
@@ -1107,67 +1060,6 @@ test.describe.serial("standalone project surface routes", () => {
       const firstProjectName = getProjectConfigNameFromUrl(page.url());
       secondProjectContext = await openIsolatedProject(page);
       const secondProjectName = getProjectConfigNameFromUrl(page.url());
-      const backendOrigin =
-        process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
-      const engineConfigsResponse = await page.request.get(
-        `${backendOrigin}/api/getEngineConfigs`,
-      );
-      expect(engineConfigsResponse.ok()).toBe(true);
-      const engineConfigs = (await engineConfigsResponse.json()) as Array<{
-        id: string;
-        engineType: string;
-      }>;
-      const managedEngineId =
-        engineConfigs.find((config) => config.engineType === "setta_llm")?.id ??
-        null;
-      if (!managedEngineId) {
-        throw new Error("Missing managed LLM engine config.");
-      }
-
-      await page.context().route("**/api/getAgentRuns", async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify([
-            {
-              id: "run-shared-thread-project-a",
-              profileId: null,
-              status: "completed",
-              startedAt: "2026-02-01T00:00:00Z",
-              finishedAt: "2026-02-01T00:00:01Z",
-              events: [],
-              inputs: {
-                runType: "llm_chat",
-                projectConfigId: firstProjectContext.projectConfigId,
-                chatId: sharedThreadChatId,
-                engineConfigId: managedEngineId,
-                messages: [],
-              },
-              outputs: {},
-              toolCalls: [],
-              cost: null,
-            },
-            {
-              id: "run-shared-thread-project-b",
-              profileId: null,
-              status: "completed",
-              startedAt: "2026-02-01T00:00:02Z",
-              finishedAt: "2026-02-01T00:00:03Z",
-              events: [],
-              inputs: {
-                runType: "llm_chat",
-                projectConfigId: secondProjectContext.projectConfigId,
-                chatId: sharedThreadChatId,
-                engineConfigId: managedEngineId,
-                messages: [],
-              },
-              outputs: {},
-              toolCalls: [],
-              cost: null,
-            },
-          ]),
-        });
-      });
 
       await page.context().route("**/api/getLLMChat", async (route) => {
         const payload = route.request().postDataJSON() as
@@ -2444,22 +2336,6 @@ test.describe.serial("standalone project surface routes", () => {
 
     try {
       const projectConfigName = getProjectConfigNameFromUrl(page.url());
-      const backendOrigin =
-        process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
-      const engineConfigsResponse = await page.request.get(
-        `${backendOrigin}/api/getEngineConfigs`,
-      );
-      expect(engineConfigsResponse.ok()).toBe(true);
-      const engineConfigs = (await engineConfigsResponse.json()) as Array<{
-        id: string;
-        engineType: string;
-      }>;
-      const managedEngineId =
-        engineConfigs.find((config) => config.engineType === "setta_llm")?.id ??
-        null;
-      if (!managedEngineId) {
-        throw new Error("Missing managed LLM engine config.");
-      }
 
       await page.context().route("**/api/getAgentRuns", async (route) => {
         const response = await route.fetch();
@@ -2470,41 +2346,9 @@ test.describe.serial("standalone project surface routes", () => {
             ...response.headers(),
             "content-type": "application/json",
           },
-          body: JSON.stringify([
-            ...runs.filter(
-              (run) => run.inputs?.chatId !== standaloneThreadChatId,
-            ),
-            {
-              id: "run-standalone-thread-hydrate-only",
-              profileId: null,
-              status: "completed",
-              startedAt: "2026-02-01T00:00:00Z",
-              finishedAt: "2026-02-01T00:00:01Z",
-              events: [],
-              inputs: {
-                runType: "llm_chat",
-                projectConfigId: projectContext.projectConfigId,
-                chatId: standaloneThreadChatId,
-                engineConfigId: managedEngineId,
-                messages: [
-                  {
-                    id: "standalone-thread-hydrate-only-user",
-                    role: "user",
-                    content: [
-                      {
-                        type: "text",
-                        text: "Hydrate this standalone thread.",
-                      },
-                    ],
-                    attachments: [],
-                  },
-                ],
-              },
-              outputs: {},
-              toolCalls: [],
-              cost: null,
-            },
-          ]),
+          body: JSON.stringify(
+            runs.filter((run) => run.inputs?.chatId !== standaloneThreadChatId),
+          ),
         });
       });
       await page.context().route("**/api/getLLMChat", async (route) => {
@@ -2832,22 +2676,6 @@ test.describe.serial("standalone project surface routes", () => {
 
     try {
       const projectConfigName = getProjectConfigNameFromUrl(page.url());
-      const backendOrigin =
-        process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
-      const engineConfigsResponse = await page.request.get(
-        `${backendOrigin}/api/getEngineConfigs`,
-      );
-      expect(engineConfigsResponse.ok()).toBe(true);
-      const engineConfigs = (await engineConfigsResponse.json()) as Array<{
-        id: string;
-        engineType: string;
-      }>;
-      const managedEngineId =
-        engineConfigs.find((config) => config.engineType === "setta_llm")?.id ??
-        null;
-      if (!managedEngineId) {
-        throw new Error("Missing managed LLM engine config.");
-      }
 
       await page.context().route("**/api/getAgentRuns", async (route) => {
         const response = await route.fetch();
@@ -2858,73 +2686,9 @@ test.describe.serial("standalone project surface routes", () => {
             ...response.headers(),
             "content-type": "application/json",
           },
-          body: JSON.stringify([
-            ...runs.filter(
-              (run) =>
-                run.inputs?.chatId !== missingThreadChatId &&
-                run.inputs?.chatId !== validThreadChatId,
-            ),
-            {
-              id: "run-standalone-thread-missing",
-              profileId: null,
-              status: "completed",
-              startedAt: "2026-02-01T00:00:00Z",
-              finishedAt: "2026-02-01T00:00:01Z",
-              events: [],
-              inputs: {
-                runType: "llm_chat",
-                projectConfigId: projectContext.projectConfigId,
-                chatId: missingThreadChatId,
-                engineConfigId: managedEngineId,
-                messages: [
-                  {
-                    id: "standalone-thread-missing-user",
-                    role: "user",
-                    content: [
-                      {
-                        type: "text",
-                        text: "Missing thread prompt.",
-                      },
-                    ],
-                    attachments: [],
-                  },
-                ],
-              },
-              outputs: {},
-              toolCalls: [],
-              cost: null,
-            },
-            {
-              id: "run-standalone-thread-recovered",
-              profileId: null,
-              status: "completed",
-              startedAt: "2026-02-01T00:00:02Z",
-              finishedAt: "2026-02-01T00:00:03Z",
-              events: [],
-              inputs: {
-                runType: "llm_chat",
-                projectConfigId: projectContext.projectConfigId,
-                chatId: validThreadChatId,
-                engineConfigId: managedEngineId,
-                messages: [
-                  {
-                    id: "standalone-thread-recovered-user",
-                    role: "user",
-                    content: [
-                      {
-                        type: "text",
-                        text: "Recovered thread prompt.",
-                      },
-                    ],
-                    attachments: [],
-                  },
-                ],
-              },
-              outputs: {},
-              toolCalls: [],
-              cost: null,
-            },
-          ]),
+          body: JSON.stringify(
+            runs.filter((run) => run.inputs?.chatId !== validThreadChatId),
+          ),
         });
       });
       await page.context().route("**/api/getLLMChat", async (route) => {
@@ -3066,22 +2830,6 @@ test.describe.serial("standalone project surface routes", () => {
 
     try {
       const projectConfigName = getProjectConfigNameFromUrl(page.url());
-      const backendOrigin =
-        process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
-      const engineConfigsResponse = await page.request.get(
-        `${backendOrigin}/api/getEngineConfigs`,
-      );
-      expect(engineConfigsResponse.ok()).toBe(true);
-      const engineConfigs = (await engineConfigsResponse.json()) as Array<{
-        id: string;
-        engineType: string;
-      }>;
-      const managedEngineId =
-        engineConfigs.find((config) => config.engineType === "setta_llm")?.id ??
-        null;
-      if (!managedEngineId) {
-        throw new Error("Missing managed LLM engine config.");
-      }
 
       await page.context().route("**/api/getAgentRuns", async (route) => {
         const response = await route.fetch();
@@ -3092,41 +2840,9 @@ test.describe.serial("standalone project surface routes", () => {
             ...response.headers(),
             "content-type": "application/json",
           },
-          body: JSON.stringify([
-            ...runs.filter(
-              (run) => run.inputs?.chatId !== standaloneThreadChatId,
-            ),
-            {
-              id: "run-standalone-thread-ambiguous",
-              profileId: null,
-              status: "completed",
-              startedAt: "2026-02-01T00:00:00Z",
-              finishedAt: "2026-02-01T00:00:01Z",
-              events: [],
-              inputs: {
-                runType: "llm_chat",
-                projectConfigId: projectContext.projectConfigId,
-                chatId: standaloneThreadChatId,
-                engineConfigId: managedEngineId,
-                messages: [
-                  {
-                    id: "standalone-thread-ambiguous-user",
-                    role: "user",
-                    content: [
-                      {
-                        type: "text",
-                        text: "Hydrate the ambiguous thread.",
-                      },
-                    ],
-                    attachments: [],
-                  },
-                ],
-              },
-              outputs: {},
-              toolCalls: [],
-              cost: null,
-            },
-          ]),
+          body: JSON.stringify(
+            runs.filter((run) => run.inputs?.chatId !== standaloneThreadChatId),
+          ),
         });
       });
       await page.context().route("**/api/getLLMChat", async (route) => {
@@ -3138,14 +2854,35 @@ test.describe.serial("standalone project surface routes", () => {
           return;
         }
         await route.fulfill({
-          status: 409,
+          status: 200,
           contentType: "application/json",
           body: JSON.stringify({
-            detail: {
-              errorCode: "chat_runtime_ambiguous",
-              message:
-                "This chat id matches multiple runtimes and cannot be hydrated safely.",
+            messages: [
+              {
+                id: "managed-ambiguous-message",
+                role: "assistant",
+                content: [
+                  {
+                    type: "text",
+                    text: "Managed runtime transcript",
+                  },
+                ],
+                attachments: [],
+                tool_calls: null,
+              },
+            ],
+            waitingForResponse: false,
+            llmConfig: {
+              id: "standalone-thread-config",
+              model: "gpt-4o-mini",
+              provider: "openai",
+              base_url: null,
+              api_key_env: null,
+              other_params: null,
+              mcpServerIds: [],
+              temporary: false,
             },
+            contextUsage: null,
           }),
         });
       });
@@ -3921,71 +3658,11 @@ test.describe.serial("standalone project surface routes", () => {
         projectConfigId: copiedProject.id,
         defaultProjectConfigId: projectContext.defaultProjectConfigId,
       };
-      const backendOrigin =
-        process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
-      const engineConfigsResponse = await page.request.get(
-        `${backendOrigin}/api/getEngineConfigs`,
-      );
-      expect(engineConfigsResponse.ok()).toBe(true);
-      const engineConfigs = (await engineConfigsResponse.json()) as Array<{
-        id: string;
-        engineType: string;
-      }>;
-      const managedEngineId =
-        engineConfigs.find((config) => config.engineType === "setta_llm")?.id ??
-        null;
-      if (!managedEngineId) {
-        throw new Error("Missing managed LLM engine config.");
-      }
       allowExpectedApiError(page, {
         path: "/api/getLLMChat",
         statuses: [403],
         method: "POST",
         count: 4,
-      });
-      await page.context().route("**/api/getAgentRuns", async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify([
-            {
-              id: "run-shared-thread-source-project",
-              profileId: null,
-              status: "completed",
-              startedAt: "2026-02-01T00:00:00Z",
-              finishedAt: "2026-02-01T00:00:01Z",
-              events: [],
-              inputs: {
-                runType: "llm_chat",
-                projectConfigId: projectContext.projectConfigId,
-                chatId: sharedThreadChatId,
-                engineConfigId: managedEngineId,
-                messages: [],
-              },
-              outputs: {},
-              toolCalls: [],
-              cost: null,
-            },
-            {
-              id: "run-shared-thread-copied-project",
-              profileId: null,
-              status: "completed",
-              startedAt: "2026-02-01T00:00:02Z",
-              finishedAt: "2026-02-01T00:00:03Z",
-              events: [],
-              inputs: {
-                runType: "llm_chat",
-                projectConfigId: copiedProject.id,
-                chatId: sharedThreadChatId,
-                engineConfigId: managedEngineId,
-                messages: [],
-              },
-              outputs: {},
-              toolCalls: [],
-              cost: null,
-            },
-          ]),
-        });
       });
 
       await page.context().route("**/api/getLLMChat", async (route) => {
@@ -4077,7 +3754,6 @@ test.describe.serial("standalone project surface routes", () => {
         page.getByText("Copied project thread hydrated successfully."),
       ).toBeVisible();
     } finally {
-      await page.context().unroute("**/api/getAgentRuns");
       await page.context().unroute("**/api/getLLMChat");
       await cleanupManagedEngine();
       await cleanupIsolatedProject(page, copiedProjectContext);
@@ -4967,7 +4643,11 @@ test.describe.serial("standalone project surface routes", () => {
         await standaloneProjectChatWindow.evaluate(
           (element) => getComputedStyle(element).zIndex,
         );
+      const initialGitZIndex = await standaloneGitWindow.evaluate(
+        (element) => getComputedStyle(element).zIndex,
+      );
       expect(initialProjectChatZIndex).not.toBe("7");
+      expect(initialGitZIndex).not.toBe("3");
 
       await standalonePage.evaluate(
         async ({
@@ -5033,6 +4713,7 @@ test.describe.serial("standalone project surface routes", () => {
       );
       await expect(standaloneGitToggle).toHaveAttribute("aria-pressed", "true");
       await expect(standaloneProjectChatWindow).toHaveCSS("z-index", "7");
+      await expect(standaloneGitWindow).toHaveCSS("z-index", "3");
     } finally {
       await standalonePage.close();
       await page.context().unroute("**/api/getAgentRuns");

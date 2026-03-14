@@ -362,7 +362,7 @@ test("read-only deployments can reopen hidden project chat windows without layou
       '[data-testid="project-chat-manager-focus"][data-chat-window-instance-id="project-chat-window-1"]',
     );
     await expect(reopenButton).toBeVisible();
-    await expect(focusButton).toHaveCount(0);
+    await expect(focusButton).toBeVisible();
     await expect(
       menuContent.getByTestId("project-chat-manager-hide"),
     ).toHaveCount(0);
