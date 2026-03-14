@@ -62,16 +62,14 @@ import {
 } from "./projectChatWindowing";
 import {
   applyWindowSpaceSortOrder,
+  createProjectChatWindowingStateFromWindowSpace,
   createWindowSpaceFromCurrentFloatingWindows,
   deleteWindowSpace,
   persistWindowSpaceSortOrder,
+  restoreWindowSpaceInWorkspace,
   setWindowSpaceName,
-} from "./windowSpacePersistence";
-import { restoreWindowSpaceInWorkspace } from "./windowSpaces";
-import {
-  createProjectChatWindowingStateFromWindowSpace,
   snapshotFloatingWindowsForWindowSpace,
-} from "./windowSpaceSnapshots";
+} from "./windowSpaces";
 
 function buildCreatedWindowSpaceResponse(request: {
   name: string;

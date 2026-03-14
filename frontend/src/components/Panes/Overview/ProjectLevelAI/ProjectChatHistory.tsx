@@ -43,7 +43,7 @@ import { RiChatNewFill } from "react-icons/ri";
 import { RxDragHandleDots2 } from "react-icons/rx";
 import { TbFolder, TbFolderOpen } from "react-icons/tb";
 import { getRunInputString } from "state/actions/agentRunUtils";
-import { loadAgentRuns } from "state/actions/aiAgentRuns";
+import { loadAgentRuns } from "state/actions/ai";
 import {
   buildChatHistoryEntries,
   type ChatRunType,
@@ -63,8 +63,11 @@ import {
   toggleProjectChatThreadPinned,
   undoLastProjectChatThreadStorageMutation,
 } from "state/actions/projectChatThreads";
-import { useAIStore, useProjectState } from "state/definitions";
-import { useLocalStorage } from "state/stores/uiPreferenceStores";
+import {
+  useAIStore,
+  useLocalStorage,
+  useProjectState,
+} from "state/definitions";
 import {
   buildSearchableTextForMessages,
   countConversationSearchTextMatches,
