@@ -2244,12 +2244,12 @@ def test_prepare_backend_runtime_installs_worker_and_plugin_dependencies_for_ven
     shutil.copytree(_fixture_path("backend"), plugin_root)
     (plugin_root / "pyproject.toml").write_text(
         "[build-system]\n"
-        'requires = ["setuptools>=68", "wheel"]\n'
+        'requires = ["setuptools==80.9.0", "wheel==0.45.1"]\n'
         'build-backend = "setuptools.build_meta"\n\n'
         "[project]\n"
         'name = "setta-fixture-backend"\n'
         'version = "0.1.0"\n'
-        'dependencies = ["requests>=2"]\n',
+        'dependencies = ["requests==2.32.4"]\n',
         encoding="utf-8",
     )
     executed_commands: list[list[str]] = []
@@ -2273,7 +2273,7 @@ def test_prepare_backend_runtime_installs_worker_and_plugin_dependencies_for_ven
         if len(command) >= 4 and command[1] == "-m" and command[2] == "pip"
     )
     install_requirements = pip_command[4:]
-    assert "requests>=2" in install_requirements
+    assert "requests==2.32.4" in install_requirements
     for worker_requirement in manager._build_backend_worker_runtime_dependencies():
         assert worker_requirement in install_requirements
 
@@ -2283,7 +2283,7 @@ def test_prepare_backend_runtime_installs_worker_and_plugin_dependencies_for_ven
         source_digest_sha256="runtime-digest",
     )
     marker_payload = json.loads(runtime_marker.read_text(encoding="utf-8"))
-    assert marker_payload["dependencies"] == ["requests>=2"]
+    assert marker_payload["dependencies"] == ["requests==2.32.4"]
     assert marker_payload["workerDependencies"] == (
         manager._build_backend_worker_runtime_dependencies()
     )
@@ -2302,12 +2302,12 @@ def test_backend_runtime_marker_without_worker_dependencies_triggers_reprepare(
     )
     (backend_root / "pyproject.toml").write_text(
         "[build-system]\n"
-        'requires = ["setuptools>=68", "wheel"]\n'
+        'requires = ["setuptools==80.9.0", "wheel==0.45.1"]\n'
         'build-backend = "setuptools.build_meta"\n\n'
         "[project]\n"
         'name = "setta-fixture-backend"\n'
         'version = "0.1.0"\n'
-        'dependencies = ["requests>=2"]\n',
+        'dependencies = ["requests==2.32.4"]\n',
         encoding="utf-8",
     )
     manager.rescan()
@@ -2327,7 +2327,7 @@ def test_backend_runtime_marker_without_worker_dependencies_triggers_reprepare(
                 "pluginId": entry.plugin_id,
                 "version": entry.version,
                 "sourceDigestSha256": entry.source_digest_sha256,
-                "dependencies": ["requests>=2"],
+                "dependencies": ["requests==2.32.4"],
             }
         ),
         encoding="utf-8",
@@ -4339,14 +4339,14 @@ def test_backend_plugin_load_reprepares_missing_dependency_runtime(
     )
     (backend_root / "pyproject.toml").write_text(
         "[build-system]\n"
-        'requires = ["setuptools>=68", "wheel"]\n'
+        'requires = ["setuptools==80.9.0", "wheel==0.45.1"]\n'
         'build-backend = "setuptools.build_meta"\n\n'
         "[project]\n"
         'name = "setta-fixture-backend"\n'
         'version = "0.1.0"\n'
         'description = "Backend fixture plugin for Setta tests"\n'
         'requires-python = ">=3.12"\n'
-        'dependencies = ["requests>=2"]\n',
+        'dependencies = ["requests==2.32.4"]\n',
         encoding="utf-8",
     )
     manager.rescan()
@@ -4379,7 +4379,7 @@ def test_link_backend_plugin_rejects_invalid_dependency_spec(tmp_path: Path) -> 
     shutil.copytree(_fixture_path("backend"), plugin_root)
     (plugin_root / "pyproject.toml").write_text(
         "[build-system]\n"
-        'requires = ["setuptools>=68", "wheel"]\n'
+        'requires = ["setuptools==80.9.0", "wheel==0.45.1"]\n'
         'build-backend = "setuptools.build_meta"\n\n'
         "[project]\n"
         'name = "setta-fixture-backend"\n'
@@ -6498,12 +6498,12 @@ def test_prepare_backend_runtime_is_serialized_per_runtime_path(
     shutil.copytree(_fixture_path("backend"), plugin_root)
     (plugin_root / "pyproject.toml").write_text(
         "[build-system]\n"
-        'requires = ["setuptools>=68", "wheel"]\n'
+        'requires = ["setuptools==80.9.0", "wheel==0.45.1"]\n'
         'build-backend = "setuptools.build_meta"\n\n'
         "[project]\n"
         'name = "setta-fixture-backend"\n'
         'version = "0.1.0"\n'
-        'dependencies = ["requests>=2"]\n',
+        'dependencies = ["requests==2.32.4"]\n',
         encoding="utf-8",
     )
 
@@ -7506,8 +7506,8 @@ def test_dispatch_backend_worker_host_request_rejects_unsupported_host_method(
         ),
         (
             "host.register_mcp_tool",
-            {"tool": {"name": "fixture_tool", "metadata": ["invalid"]}},
-            "metadata must be an object",
+            {"toolName": "fixture_tool", "annotations": ["invalid"]},
+            "annotations must be an object",
         ),
     ],
 )

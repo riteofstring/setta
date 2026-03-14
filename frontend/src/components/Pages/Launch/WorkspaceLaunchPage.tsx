@@ -1,21 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { C_ADDRESSES } from "utils/c_addresses";
 import { HOME_ROUTER_PATH } from "utils/constants";
 import { dedupeInFlightJson } from "utils/dedupeInFlight";
-import {
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { route_launch } from "utils/generatedEndpoints";
-import { resolveLauncherBootstrapUrl } from "utils/launcherBootstrapUrl";
+import { appendLauncherOriginToBootstrapUrlFragment } from "utils/launcherOrigin";
 import { buildLaunchRequestDedupeKey } from "utils/launchRequestDedupeKey";
 import { chooseWorkspaceHistorySettaFilesLocation } from "utils/settaFilesLocation";
-import type { LaunchErrorPayload, LaunchResponse } from "utils/generatedTypes";
-import {
-  resolveWorkspaceLaunchBackNavigation,
-  resolveWorkspaceLaunchReturnUrl,
-} from "utils/workspaceLaunchNavigation";
 import {
   appendWorkspaceHistoryToBootstrapUrlFragment,
   loadWorkspaceHistory,
@@ -45,7 +37,7 @@ type LaunchPhase =
       sshTarget: string | null;
     };
 
-type RouteLaunchResult = ResponseDataAndStatus<LaunchResponse>;
+type RouteLaunchResult = Awaited<ReturnType<typeof route_launch>>;
 
 const inFlightLaunchesByKey = new Map<string, Promise<RouteLaunchResult>>();
 const OUTDATED_PROJECT_SETTINGS_ERROR_CODE = "OutdatedProjectSettings";
@@ -61,8 +53,33 @@ function formatElapsedMs(ms: number): string {
   return `${Math.round(seconds)}s`;
 }
 
+export function resolveWorkspaceLaunchReturnUrl(
+  rawReturnUrl: string | null | undefined,
+  baseHref: string,
+): string {
+  const fallback = new URL(HOME_ROUTER_PATH, baseHref).toString();
+  if (!rawReturnUrl) {
+    return fallback;
+  }
+  try {
+    const parsed = new URL(rawReturnUrl, baseHref);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return fallback;
+    }
+    return parsed.toString();
+  } catch {
+    return fallback;
+  }
+}
+
 export function resolveWorkspaceLaunchErrorMessage(
-  rawError: LaunchErrorPayload | null | undefined,
+  rawError:
+    | {
+        code: string | null | undefined;
+        message: string | null | undefined;
+      }
+    | null
+    | undefined,
 ): string {
   if (rawError?.code === OUTDATED_PROJECT_SETTINGS_ERROR_CODE) {
     return OUTDATED_PROJECT_SETTINGS_ERROR_MESSAGE;
@@ -243,12 +260,15 @@ export function WorkspaceLaunchPage() {
       });
 
       clearPendingWorkspaceLaunch();
-      const bootstrapUrl = resolveLauncherBootstrapUrl(
-        appendWorkspaceHistoryToBootstrapUrlFragment(
-          res.data.bootstrapUrlFragment,
-          nextHistory,
-        ),
-      );
+      const bootstrapUrl = import.meta.env?.DEV
+        ? res.data.bootstrapUrlFragment
+        : appendLauncherOriginToBootstrapUrlFragment(
+            appendWorkspaceHistoryToBootstrapUrlFragment(
+              res.data.bootstrapUrlFragment,
+              nextHistory,
+            ),
+            C_ADDRESSES.LAUNCHER_ORIGIN,
+          );
       window.location.href = bootstrapUrl;
     }
 
@@ -271,16 +291,40 @@ export function WorkspaceLaunchPage() {
 
   function goBack(returnUrl: string) {
     clearPendingWorkspaceLaunch();
-    const navigation = resolveWorkspaceLaunchBackNavigation(
-      returnUrl,
-      window.location.href,
-    );
-    if (navigation.kind === "assign") {
-      window.location.assign(navigation.target);
-      return;
+    try {
+      const url = new URL(returnUrl, window.location.href);
+      const allowedOrigins = new Set<string>([
+        window.location.origin,
+        C_ADDRESSES.BACKEND_ORIGIN,
+        C_ADDRESSES.LAUNCHER_ORIGIN,
+      ]);
+      if (!allowedOrigins.has(url.origin)) {
+        throw new Error("Disallowed return URL origin.");
+      }
+      const isBackendOrLauncherHomeReturn =
+        url.pathname === HOME_ROUTER_PATH &&
+        (url.origin === C_ADDRESSES.BACKEND_ORIGIN ||
+          url.origin === C_ADDRESSES.LAUNCHER_ORIGIN);
+      if (isBackendOrLauncherHomeReturn) {
+        requestOpenWorkspaceSwitcherOnNextMount();
+        url.searchParams.set("__setta_open_workspace_switcher", "1");
+        navigate(`${url.pathname}${url.search}${url.hash}`, { replace: true });
+        return;
+      }
+      if (url.origin === window.location.origin) {
+        requestOpenWorkspaceSwitcherOnNextMount();
+        url.searchParams.set("__setta_open_workspace_switcher", "1");
+        navigate(`${url.pathname}${url.search}${url.hash}`, { replace: true });
+        return;
+      }
+      url.searchParams.set("__setta_open_workspace_switcher", "1");
+      window.location.assign(url.toString());
+    } catch {
+      requestOpenWorkspaceSwitcherOnNextMount();
+      navigate(`${HOME_ROUTER_PATH}?__setta_open_workspace_switcher=1`, {
+        replace: true,
+      });
     }
-    requestOpenWorkspaceSwitcherOnNextMount();
-    navigate(navigation.target, { replace: true });
   }
 
   const errorMessage = phase.status === "error" ? phase.message : null;
