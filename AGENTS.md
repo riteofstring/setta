@@ -119,6 +119,7 @@ When you know a section impl or code obj impl must be of a specific type, use th
 ## Generation & Cleanup
 
 - Use `pnpm generate` to regenerate frontend templates/bindings and backend generated types. This command can produce a large diff.
+- Use `pnpm -C frontend generate-go-frontend-bindings` when only the canonical Go-owned frontend route/type/endpoint outputs need regeneration; this path does not require Python activation.
 - Large diffs after `pnpm generate` are often expected: we frequently run cleanup (`pnpm gcf`/`./gcf.sh` and `pnpm full-cleanup`) that removes unused generated files, and `pnpm generate` brings them back.
 - `./gcf.sh` runs `pnpm gcf` and logs output to `gcf.log` at the repo root; `pnpm gcf` includes cleanup that can prune unused generated files.
 - `pnpm full-cleanup` runs Knip + a Python prune step and deletes unused generated files.

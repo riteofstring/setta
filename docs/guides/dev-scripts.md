@@ -123,6 +123,8 @@ These are the underlying tasks used by the wrappers above.
   - Vitest (watchable).
 - `pnpm generate`
   - Regenerates templates/types from `frontend/generation/`.
+- `pnpm -C frontend generate-go-frontend-bindings`
+  - Regenerates only the canonical Go-owned frontend route/type/endpoint files.
 - `pnpm gcf`
   - Generate + cleanup + format (logs to `gcf.log` via `frontend/scripts/gcf.sh`).
 - `pnpm gcft`
@@ -141,12 +143,14 @@ Useful when you need to debug a specific subsystem.
   - Starts the backend process (writes `backend.log` by default; override via `SETTA_BACKEND_LOG_FILE`).
 - `frontend/generation/generate.sh`
   - Template/type generation (used by `pnpm generate`).
+- `frontend/generation/generate_go_frontend_bindings.sh`
+  - Direct Go-owned frontend route/type/endpoint generation helper.
 - `frontend/scripts/gcf.sh`
   - Implements `pnpm gcf` + logging.
 
 ## Notes
 
-- **Env activation**: run `source activate.sh` before Python commands. The `gcf.sh` and `gcft.sh` wrappers already do this. `pnpm generate` still requires it when run directly.
+- **Env activation**: run `source activate.sh` before Python commands. The `gcf.sh` and `gcft.sh` wrappers already do this. `pnpm generate` still requires it when run directly; `pnpm -C frontend generate-go-frontend-bindings` does not.
 - **Repo-root logs**: `backend.log`, `chrome_mcp_backend.log`, `tests.log`, `gcf.log` (and sometimes `frontend.log`, depending on runner env).
 - **Playwright E2E logs**: `scripts/run-playwright-e2e.sh` writes `backend.log` and `frontend.log` under its `LOG_DIR` (defaults under `/tmp`; override via `SETTA_E2E_LOG_DIR`).
 - **Reset**: `reset.sh` and `pnpm reset` delete the resolved active Setta state root (including backups under that root).

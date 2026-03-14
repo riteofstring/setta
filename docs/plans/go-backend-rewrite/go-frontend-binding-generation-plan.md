@@ -149,6 +149,13 @@ Current status:
 - the old Python frontend contract generators are no longer part of the active
   repo workflow; canonical route/type/endpoint outputs come from
   `cmd/setta-gen-frontend-bindings` plus `internal/frontendbindings`
+- the repo now exposes a direct Go-owned regeneration path for those canonical
+  frontend contract files through
+  `pnpm -C frontend generate-go-frontend-bindings` /
+  `frontend/generation/generate_go_frontend_bindings.sh`; the broader
+  `pnpm generate` workflow still exists for mixed Python + frontend
+  regeneration, but the Go-owned route/type/endpoint outputs no longer need
+  to stay hidden inside that larger script
 - widening the converted surface should use structured declarations,
   converter-rule additions, or explicit Go boundary DTOs rather than
   reintroducing inline TypeScript escape hatches

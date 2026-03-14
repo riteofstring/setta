@@ -1,6 +1,6 @@
 # Rewrite Working Set
 
-Last verified: `2026-03-11`
+Last verified: `2026-03-12`
 
 ## Canonical Docs
 
@@ -49,6 +49,9 @@ Last verified: `2026-03-11`
     `generatedGo*` as a long-lived parallel track
   - if a runtime type does not convert cleanly, add a dedicated Go contract
     type or converter rule instead of hand-writing TS for that route
+  - when only the canonical Go-owned route/type/endpoint outputs need
+    regeneration, use `pnpm -C frontend generate-go-frontend-bindings`;
+    reserve `pnpm generate` for the broader Python + frontend generation flow
   - current slice doc: `go-frontend-binding-generation-plan.md`
 - Converge Go-owned OpenAI API interactions on `github.com/openai/openai-go/v3`
   - apply this at the provider edge for managed chat, transcription, realtime,
