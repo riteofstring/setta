@@ -433,6 +433,136 @@ describe("transcription session actions", () => {
     }
   });
 
+  it("preserves typed missing_api_key errors from provider start failures", async () => {
+    const channels = 1;
+    const sourceSampleRate = 24_000;
+    const sourceSampleCount = 2_400;
+    const channelData = new Float32Array(sourceSampleCount);
+    channelData.fill(0.5);
+    const closeMock = vi.fn().mockResolvedValue(undefined);
+    const decodeAudioDataMock = vi.fn().mockResolvedValue({
+      numberOfChannels: channels,
+      sampleRate: sourceSampleRate,
+      length: sourceSampleCount,
+      getChannelData: () => channelData,
+    });
+    const AudioContextMock = vi.fn(() => ({
+      decodeAudioData: decodeAudioDataMock,
+      close: closeMock,
+    }));
+    const withAudioContext = globalThis as typeof globalThis & {
+      window?: typeof window & { AudioContext?: typeof AudioContext };
+    };
+    const hadWindow = typeof withAudioContext.window !== "undefined";
+    const originalWindow = withAudioContext.window;
+    const testWindow =
+      originalWindow ??
+      ({} as unknown as typeof window & { AudioContext?: typeof AudioContext });
+    withAudioContext.window = testWindow;
+    const originalAudioContext = testWindow.AudioContext;
+    testWindow.AudioContext =
+      AudioContextMock as unknown as typeof AudioContext;
+    mockedRouteStartTranscriptionSession.mockResolvedValue({
+      status: 400,
+      hasResponse: true,
+      data: {
+        detail: {
+          message:
+            "Missing API key for 'OPENAI_API_KEY'. Configure it in LLM API Keys.",
+          errorCode: "missing_api_key",
+        },
+      },
+    });
+    try {
+      await expect(
+        transcribeChatAudioWithProfile(
+          "profile-1",
+          new Blob([new Uint8Array([1, 2, 3])], { type: "audio/webm" }),
+        ),
+      ).rejects.toMatchObject<ProviderTranscriptionError>({
+        name: "ProviderTranscriptionError",
+        code: "missing_api_key",
+        message:
+          "Missing API key for 'OPENAI_API_KEY'. Configure it in LLM API Keys.",
+      });
+      expect(mockedRouteStartTranscriptionSession).toHaveBeenCalledTimes(1);
+      expect(mockedRouteAppendTranscriptionAudio).not.toHaveBeenCalled();
+      expect(mockedRouteStopTranscriptionSession).not.toHaveBeenCalled();
+      expect(mockedRouteCancelTranscriptionSession).not.toHaveBeenCalled();
+      expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
+      expect(closeMock).toHaveBeenCalledTimes(1);
+    } finally {
+      testWindow.AudioContext = originalAudioContext;
+      if (!hadWindow) {
+        delete withAudioContext.window;
+      }
+    }
+  });
+
+  it("preserves typed provider_failure errors from provider start failures", async () => {
+    const channels = 1;
+    const sourceSampleRate = 24_000;
+    const sourceSampleCount = 2_400;
+    const channelData = new Float32Array(sourceSampleCount);
+    channelData.fill(0.5);
+    const closeMock = vi.fn().mockResolvedValue(undefined);
+    const decodeAudioDataMock = vi.fn().mockResolvedValue({
+      numberOfChannels: channels,
+      sampleRate: sourceSampleRate,
+      length: sourceSampleCount,
+      getChannelData: () => channelData,
+    });
+    const AudioContextMock = vi.fn(() => ({
+      decodeAudioData: decodeAudioDataMock,
+      close: closeMock,
+    }));
+    const withAudioContext = globalThis as typeof globalThis & {
+      window?: typeof window & { AudioContext?: typeof AudioContext };
+    };
+    const hadWindow = typeof withAudioContext.window !== "undefined";
+    const originalWindow = withAudioContext.window;
+    const testWindow =
+      originalWindow ??
+      ({} as unknown as typeof window & { AudioContext?: typeof AudioContext });
+    withAudioContext.window = testWindow;
+    const originalAudioContext = testWindow.AudioContext;
+    testWindow.AudioContext =
+      AudioContextMock as unknown as typeof AudioContext;
+    mockedRouteStartTranscriptionSession.mockResolvedValue({
+      status: 502,
+      hasResponse: true,
+      data: {
+        detail: {
+          message: "Realtime setup forbidden by provider.",
+          errorCode: "provider_failure",
+        },
+      },
+    });
+    try {
+      await expect(
+        transcribeChatAudioWithProfile(
+          "profile-1",
+          new Blob([new Uint8Array([1, 2, 3])], { type: "audio/webm" }),
+        ),
+      ).rejects.toMatchObject<ProviderTranscriptionError>({
+        name: "ProviderTranscriptionError",
+        code: "provider_failure",
+        message: "Realtime setup forbidden by provider.",
+      });
+      expect(mockedRouteStartTranscriptionSession).toHaveBeenCalledTimes(1);
+      expect(mockedRouteAppendTranscriptionAudio).not.toHaveBeenCalled();
+      expect(mockedRouteStopTranscriptionSession).not.toHaveBeenCalled();
+      expect(mockedRouteCancelTranscriptionSession).not.toHaveBeenCalled();
+      expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
+      expect(closeMock).toHaveBeenCalledTimes(1);
+    } finally {
+      testWindow.AudioContext = originalAudioContext;
+      if (!hadWindow) {
+        delete withAudioContext.window;
+      }
+    }
+  });
+
   it("throws when provider append returns no transcription delta", async () => {
     const channels = 1;
     const sourceSampleRate = 24_000;
