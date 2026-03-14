@@ -795,16 +795,12 @@ describe("queued draft helpers", () => {
     message: "First queued message",
     attachments: [],
     queuedAtMs: 1,
-    replayState: "ready" as const,
-    lastAutoReplayVersion: null,
   };
   const draftB = {
     id: "queued-b",
     message: "Second queued message",
     attachments: [],
     queuedAtMs: 2,
-    replayState: "ready" as const,
-    lastAutoReplayVersion: null,
   };
 
   it("adds prioritized drafts at the front of the queue", () => {

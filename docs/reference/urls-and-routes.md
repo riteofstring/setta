@@ -221,16 +221,11 @@ The app-generation/skills viewer flow adds these backend routes:
     - refreshed `skill` metadata
     - refreshed `skillContent`
 - `/api/streamAppSpec`
-  - Streams JSONL patch ops for tool-driven or API-driven app-spec generation.
+  - Streams JSONL patch ops for in-pane app-spec generation.
 - `/api/getLLMResponse` (extended payload)
-  - Accepts `appGenerationMode` and `appGenerationByMessageId` for Project Chat
-    app-generation turns.
-  - `appGenerationByMessageId` is the authoritative per-user-message submission
-    map and can encode explicit `plain_chat` turns alongside app-generation
-    modes.
-- `/api/getLLMChat` and `/api/getExternalAgentChat` (extended responses)
-  - Return `appGenerationByMessageId` so Project Chat can hydrate per-message
-    app-generation provenance after reloads, edits, or queued replay.
+  - Accepts `appGenerationMode`, `appSpecStreamingEnabled`,
+    `appGenerationReferenceImageUrl`, and `appGenerationReferenceImageNotes`
+    for chat-driven app generation modes.
 - `/api/mcpServerRuntimeStatus`
   - Returns current MCP runtime status for Setta + external agent integrations.
   - Request fields: optional `chatId`, optional `engineConfigId`.
