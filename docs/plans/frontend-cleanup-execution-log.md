@@ -437,3 +437,43 @@ module map and placement guide while this cleanup progresses.
     `frontend/src/state/definitions.ts`, starting with `useMisc`,
     `useTemporaryMiscState`, and the adjacent authoring/layout state that still
     drives section dragging, preview measurements, and embedded pane state.
+
+## 2026-03-14 16:29:32 PDT
+
+- Slice completed: extracted layout interaction stores out of
+  `frontend/src/state/definitions.ts` into
+  `frontend/src/state/stores/layoutInteractionStores.ts`
+- Key files touched:
+  - `frontend/src/state/stores/layoutInteractionStores.ts`
+  - `frontend/src/state/stores/layoutInteractionStores.test.ts`
+  - `frontend/src/state/definitions.ts`
+  - `frontend/src/state/actions/edgeHandles.ts`
+  - `frontend/src/state/actions/nodeInternals.ts`
+  - `frontend/src/state/actions/projectChatWindowingEphemeral.ts`
+  - `frontend/src/state/hooks/sectionSizes.ts`
+  - `frontend/src/state/subscriptions.ts`
+  - `frontend/src/forks/xyflow/core/utils/graph.ts`
+  - `frontend/src/forks/xyflow/core/container/Pane.tsx`
+  - `frontend/src/forks/xyflow/core/container/ZoomPane.tsx`
+  - `frontend/src/forks/xyflow/minimap/MiniMapNodes.tsx`
+  - `frontend/src/forks/dnd-kit/useDropType.ts`
+  - `frontend/src/components/Params/GroupContainer.tsx`
+  - `frontend/src/components/Git/GitGraphWindowContent.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/stores/layoutInteractionStores.test.ts src/components/Git/GitGraphWindowContent.test.tsx src/forks/xyflow/core/container/ZoomPane.test.ts src/forks/xyflow/core/utils/graph.test.ts src/forks/xyflow/minimap/MiniMapNodes.test.tsx src/state/hooks/sectionSizes.integration.test.tsx src/state/actions/projectChatWindowing.test.ts src/state/actions/sectionInfos.test.ts src/components/Section/Container/SectionWindowSurface.test.tsx src/forks/dnd-kit/useDropType.test.ts src/forks/xyflow/core/container/Pane.test.tsx`
+  - `pnpm -C frontend exec vitest run src/state/actions/project/loadProject.test.ts src/state/actions/sectionInfos.projectChatWindowingSync.test.ts`
+  - `{ git diff --name-only -- frontend/src docs/plans; git ls-files --others --exclude-standard frontend/src docs/plans; } | sort -u | grep -E '\\.(ts|tsx|md)$' | sed -e 's#^frontend/##' -e 's#^docs/#../docs/#' | xargs -r pnpm -C frontend exec prettier --check`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/store ownership split and
+    did not change frontend rendering behavior.
+- Commit hash:
+  - `2d11e53d1`
+- Next highest-value unblocked slice:
+  - Extract the remaining persisted UI chrome and editor/runtime stores out of
+    `frontend/src/state/definitions.ts`, starting with `useLocalStorage` and
+    then the adjacent `useSettings`, `useWaitingForLSPResult`,
+    `useTypeErrors`, and `useLspDiagnostics` ownership.
