@@ -117,13 +117,14 @@ describe("project chat hydration authority integration", () => {
     expect(cacheKey).toBe("project-1:chat-1:llm_chat:rev-1");
   });
 
-  it("keeps waiting selected chats ready for fallback hydration once authoritative metadata confirms provenance is missing", () => {
+  it("keeps hydration unresolved while selected chat is still waiting and provenance has not appeared yet", () => {
     const authority = resolveProjectChatHydrationAuthority({
       chatId: "chat-in-flight",
       selectedScopedChatProvenance: { status: "missing" },
       chatProvenanceAuthoritative: true,
       engineConfigById: new Map(),
       engineConfigsAuthoritative: true,
+      selectedChatWaitingForResponse: true,
       engineType: EngineTypeEnum.setta_llm,
     });
     const cacheKey = buildProjectChatHydrationCacheKey({
@@ -134,11 +135,11 @@ describe("project chat hydration authority integration", () => {
     });
 
     expect(authority).toEqual({
-      status: "ready",
-      hydrationRunType: "llm_chat",
-      blockedErrorCode: "chat_provenance_missing",
+      status: "unknown",
+      hydrationRunType: null,
+      blockedErrorCode: null,
     });
-    expect(cacheKey).toBe("project-1:chat-in-flight:llm_chat:rev-in-flight");
+    expect(cacheKey).toBeNull();
   });
 
   it("falls back to current engine run type when authoritative metadata is missing provenance", () => {
