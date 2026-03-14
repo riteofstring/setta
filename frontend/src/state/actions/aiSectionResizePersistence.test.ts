@@ -25,7 +25,7 @@ import {
   vi,
 } from "vitest";
 
-let persistChatSectionState: typeof import("./aiChatSectionState").persistChatSectionState;
+let persistChatSectionState: typeof import("./ai").persistChatSectionState;
 
 vi.mock("utils/generatedEndpoints", async () => {
   const actual = await vi.importActual<
@@ -78,8 +78,7 @@ function seedChatSection() {
 
 describe("chat section state persistence during backend updates", () => {
   beforeAll(async () => {
-    persistChatSectionState = (await import("./aiChatSectionState"))
-      .persistChatSectionState;
+    persistChatSectionState = (await import("./ai")).persistChatSectionState;
   });
 
   beforeEach(() => {

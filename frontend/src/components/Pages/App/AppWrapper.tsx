@@ -3,8 +3,8 @@ import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { useLoadSettings } from "state/actions/settings";
 import { openWebSocket } from "state/actions/websocketReceive";
+import { useAllProjectMetadata, useShareSession } from "state/definitions";
 import { useLoadAppDeployment } from "state/hooks/app";
-import { useAllProjectMetadata, useShareSession } from "state/stores/sessionStores";
 import { AppShell } from "../AppShell";
 
 type AppWrapperRenderState = {

@@ -14,10 +14,10 @@ import {
   useLocalStorage,
   useProjectState,
   useSettings,
+  useTemporaryMiscState,
   type ZustandProjectState,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import { useTemporaryMiscState } from "state/stores/layoutInteractionStores";
 import {
   getKwargsControlsHeightKey,
   getSectionStylePreviewColorKey,

@@ -22,18 +22,16 @@ import {
 import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
 import {
   useLocalStorage,
+  useMisc,
   useProjectState,
   useResizeEvent,
   useSettings,
+  useTemporaryMiscState,
 } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useShareCapabilities } from "state/hooks/share";
 import { useParamColumnWidth } from "state/hooks/useParamColumnWidth";
-import {
-  useMisc,
-  useTemporaryMiscState,
-} from "state/stores/layoutInteractionStores";
 import { C } from "utils/c";
 import {
   getEdgesStripHeightKey,

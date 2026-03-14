@@ -4,11 +4,12 @@ import { Node, NodeDragItem } from "forks/xyflow/core/types";
 import { getDimensions } from "forks/xyflow/core/utils";
 import _ from "lodash";
 import {
+  useMisc,
   useNodeInternals,
   useProjectState,
+  useSectionRefs,
   ZustandNodeInternalsState,
 } from "state/definitions";
-import { useMisc, useSectionRefs } from "state/stores/layoutInteractionStores";
 import { Position } from "utils/generatedTypes";
 import { scheduleEdgeHandlePositionUpdate } from "./edgeHandles";
 import {

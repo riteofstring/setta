@@ -16,6 +16,7 @@ import {
 } from "state/actions/sections/sectionSizes";
 import {
   useLocalStorage,
+  useMisc,
   useProjectState,
   useResizeEvent,
   useSettings,
@@ -23,7 +24,6 @@ import {
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionMinMaxDims } from "state/hooks/sectionSizes";
 import { useShareCapabilities } from "state/hooks/share";
-import { useMisc } from "state/stores/layoutInteractionStores";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,

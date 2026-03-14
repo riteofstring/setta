@@ -1,15 +1,15 @@
 import {
   useLocalStorage,
   useProjectState,
+  useRunControl,
   useSettings,
   useShareSession,
   type ZustandProjectState,
 } from "state/definitions";
-import { useRunControl } from "state/stores/projectStatusStores";
 import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import { isRunnableCodeLanguage } from "utils/codeLanguage";
 import {
-  route_kill_subprocesses,
+  route_interrupt_terminal_processes,
   route_run_code,
 } from "utils/generatedEndpoints";
 import { BinaryContentRef, SectionTypeEnum } from "utils/generatedTypes";
@@ -128,8 +128,8 @@ export async function runFromMainRunButton(): Promise<void> {
 
 export async function stopCode() {
   addTemporaryNotification("Stopping subprocesses");
-  route_kill_subprocesses({
-    projectConfigId: getCurrProjectConfigId(),
+  route_interrupt_terminal_processes({
+    projectId: getCurrProjectConfigId(),
   });
 }
 

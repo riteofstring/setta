@@ -1,6 +1,7 @@
 import asyncio
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 from setta.share.listener_runtime import ShareListenerRuntime
@@ -73,6 +74,38 @@ class TestShareListenerRuntime:
 
             with pytest.raises(KeyError):
                 await runtime.ensure_listener_for_session(None, project_config_id)
+
+    async def test_share_runtime_uses_go_listener_websocket_route(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            _write_listener_entrypoint(root)
+            project_config_id = ID("proj-share-route")
+            manifest = _build_manifest(
+                project_config_id,
+                entrypoint="listener.py",
+            )
+            runtime = ShareListenerRuntime(
+                deployment_root=root,
+                manifest=manifest,
+            )
+
+            await runtime.ensure_listener_for_session(
+                "session-a",
+                project_config_id,
+            )
+
+            handle = runtime._session_handles.get(("session-a", project_config_id))
+            if handle is None:
+                raise AssertionError("expected share listener handle")
+
+            parsed = urlparse(handle.listener.websocket_endpoint)
+            params = parse_qs(parsed.query)
+
+            assert parsed.path == f"/ws/listeners/{handle.listener._socket_id}"
+            assert params.get("shareSessionId") == ["session-a"]
+
+            runtime.stop_all()
+            await asyncio.gather(handle.task, return_exceptions=True)
 
     async def test_stop_session_listener_and_stop_all(self) -> None:
         with TemporaryDirectory() as tmpdir:

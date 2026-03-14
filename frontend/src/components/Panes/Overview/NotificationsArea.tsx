@@ -14,23 +14,29 @@ import {
   markAsRead,
   removeNotification,
 } from "state/actions/notifications"; // Assuming this import path
-import { useLocalStorage, useProjectState } from "state/definitions";
-import { useNotifications } from "state/stores/feedbackStores";
+import {
+  useLocalStorage,
+  useNotifications,
+  useProjectState,
+} from "state/definitions";
 import {
   type OverviewNotificationsPaneTab,
   OverviewNotificationsPaneTabEnum,
 } from "utils/constants";
-import { res200 } from "utils/endpointUtils";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_delete_notification,
   route_get_notifications,
 } from "utils/generatedEndpoints";
 import {
+  NotificationsResponse,
   SettaNotification,
   SettaNotificationType,
   SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
 import { BackendLogEventsArea } from "./BackendLogEventsArea";
+
+type NotificationsRouteResponse = ResponseDataAndStatus<NotificationsResponse>;
 
 export function NotificationsArea() {
   // Get all notifications from the store, including temporary ones
@@ -61,7 +67,8 @@ export function NotificationsArea() {
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        const response = await route_get_notifications({ projectConfigId });
+        const response: NotificationsRouteResponse =
+          await route_get_notifications({ projectConfigId });
         if (res200(response)) {
           // Set the notifications in the store
           useNotifications.setState((state) => ({

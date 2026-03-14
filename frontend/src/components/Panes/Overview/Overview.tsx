@@ -24,10 +24,10 @@ import { RiGitCommitLine, RiPlayList2Fill, RiRadarLine } from "react-icons/ri";
 import { TbFolder, TbLayoutDashboard } from "react-icons/tb";
 import { Link } from "react-router-dom";
 import {
+  useBackendLogEvents,
   useLocalStorage,
   useShareSession,
 } from "state/definitions";
-import { useBackendLogEvents } from "state/stores/feedbackStores";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
 import {
   APP_CHROME_Z_INDEX_CLASS_NAME,

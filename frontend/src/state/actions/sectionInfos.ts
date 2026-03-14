@@ -25,25 +25,25 @@ import {
   runWithAtomicallyPublishedProjectStores,
   useAllProjectMetadata,
   useLocalStorage,
+  useMisc,
   useNodeInternals,
   usePendingOperations,
   useProjectState,
   useShareSession,
+  useToolArgumentPreview,
   ZustandNodeInternalsState,
   ZustandProjectState,
 } from "state/definitions";
-import { useToolArgumentPreview } from "state/stores/aiStores";
-import { useMisc } from "state/stores/layoutInteractionStores";
 import type { ResponseDataAndStatus } from "utils/endpointUtils";
 import { res200 } from "utils/endpointUtils";
 import {
   route_delete_sections,
   route_group_sections,
   route_set_top_level_section_layout,
-  route_set_viewport,
   route_toggle_param_selected,
   route_ungroup_groups,
   route_unselect_all_params,
+  route_set_viewport,
 } from "utils/generatedEndpoints";
 import {
   AllProjectMetadata,
@@ -1759,7 +1759,10 @@ export async function ungroupActiveGroups() {
     return;
   }
   const groupIds = getActiveSectionUIIds();
-  route_ungroup_groups({ projectConfigId: getCurrProjectConfigId(), groupIds });
+  route_ungroup_groups({
+    projectConfigId: getCurrProjectConfigId(),
+    groupIds,
+  });
 }
 
 function addPendingOp(apply: (x: ZustandProjectState) => void) {

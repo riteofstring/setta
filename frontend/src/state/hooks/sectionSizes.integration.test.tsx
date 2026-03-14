@@ -7,8 +7,8 @@ import {
   useProjectState,
   useResizeEvent,
   useSettings,
+  useTemporaryMiscState,
 } from "state/definitions";
-import { useTemporaryMiscState } from "state/stores/layoutInteractionStores";
 import { resetProjectStores } from "state/utils";
 import {
   getKwargsControlsHeightKey,

@@ -15,18 +15,16 @@ import {
   createAgentProfile,
   createExternalAgentConfig,
   createPromptTemplate,
+  createTranscriptionProfile,
   deleteAgentProfile,
   deleteExternalAgentConfig,
   deletePromptTemplate,
+  deleteTranscriptionProfile,
   updateAgentProfile,
   updateExternalAgentConfig,
   updatePromptTemplate,
-} from "state/actions/aiConfiguration";
-import {
-  createTranscriptionProfile,
-  deleteTranscriptionProfile,
   updateTranscriptionProfile,
-} from "state/actions/aiTranscription";
+} from "state/actions/ai";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   useAIStore,

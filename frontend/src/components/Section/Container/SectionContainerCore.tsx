@@ -10,9 +10,9 @@ import {
   useAgenticScopeHighlights,
   useLocalStorage,
   useProjectState,
+  useTemporaryMiscState,
 } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
-import { useTemporaryMiscState } from "state/stores/layoutInteractionStores";
 import { getSectionStylePreviewColorKey } from "utils/constants";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
