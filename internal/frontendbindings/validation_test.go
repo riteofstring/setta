@@ -1385,6 +1385,99 @@ func TestFrontendTransportHelperImportsStayWithinGeneratedSurface(t *testing.T) 
 	}
 }
 
+func TestFrontendWebsocketRouteHelpersStayWithinExplicitCallers(t *testing.T) {
+	t.Helper()
+
+	repoRoot := testRepoRoot(t)
+	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
+	allowedAddressParamImports := map[string]struct{}{
+		"frontend/src/plugins/listenerEndpointClient.ts":     {},
+		"frontend/src/state/hooks/terminals/websocketUrl.ts": {},
+	}
+	allowedWebsocketRouteImports := map[string]struct{}{
+		"frontend/src/plugins/listenerEndpointClient.ts":     {},
+		"frontend/src/state/actions/websocketReceive.ts":     {},
+		"frontend/src/state/hooks/terminals/websocketUrl.ts": {},
+	}
+	endpointUtilsImportPattern := regexp.MustCompile(`(?s)import\s*\{([^}]*)\}\s*from\s*["'](?:\./endpointUtils|utils/endpointUtils)["']`)
+	generatedRoutesImportPattern := regexp.MustCompile(`(?s)import\s*\{([^}]*)\}\s*from\s*["'](?:\./generatedRoutes|utils/generatedRoutes)["']`)
+
+	err := filepath.WalkDir(frontendSrcRoot, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+
+		base := entry.Name()
+		if !(strings.HasSuffix(base, ".ts") || strings.HasSuffix(base, ".tsx")) {
+			return nil
+		}
+		if strings.Contains(base, ".test.") || strings.Contains(base, ".spec.") {
+			return nil
+		}
+
+		relativePath, err := filepath.Rel(repoRoot, path)
+		if err != nil {
+			return err
+		}
+		relativePath = filepath.ToSlash(relativePath)
+
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		source := string(contents)
+
+		for _, match := range endpointUtilsImportPattern.FindAllStringSubmatch(source, -1) {
+			for _, rawSpecifier := range strings.Split(match[1], ",") {
+				specifier := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(rawSpecifier), "type "))
+				if specifier == "" {
+					continue
+				}
+				bindingName := strings.Fields(specifier)[0]
+				if bindingName != "replaceAddressParams" {
+					continue
+				}
+				if _, allowed := allowedAddressParamImports[relativePath]; allowed {
+					continue
+				}
+				return fmt.Errorf(
+					"%s imports websocket address helper %q outside the explicit websocket/listener caller set",
+					relativePath,
+					bindingName,
+				)
+			}
+		}
+
+		for _, match := range generatedRoutesImportPattern.FindAllStringSubmatch(source, -1) {
+			for _, rawSpecifier := range strings.Split(match[1], ",") {
+				specifier := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(rawSpecifier), "type "))
+				if specifier == "" {
+					continue
+				}
+				bindingName := strings.Fields(specifier)[0]
+				if bindingName != "GoWebsocketRoutes" {
+					continue
+				}
+				if _, allowed := allowedWebsocketRouteImports[relativePath]; allowed {
+					continue
+				}
+				return fmt.Errorf(
+					"%s imports %q outside the explicit websocket/listener caller set",
+					relativePath,
+					bindingName,
+				)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("scan frontend websocket route helper imports: %v", err)
+	}
+}
+
 func readBareHTTPRouteIdentifiers(t *testing.T, path string) []string {
 	t.Helper()
 
