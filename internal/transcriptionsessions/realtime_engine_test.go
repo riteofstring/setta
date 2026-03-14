@@ -495,6 +495,108 @@ func TestServiceStartAppendStopSupportsOpenAITranscribeLatest(t *testing.T) {
 	}
 }
 
+func TestServiceStartAppendStopSupportsWhisperRealtimeTranscription(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close(websocket.StatusNormalClosure, "")
+
+		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
+			return
+		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"session.updated","event_id":"evt-ready"}`)); err != nil {
+			return
+		}
+		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
+			return
+		}
+		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
+			return
+		}
+		// Whisper-style realtime deltas are full snapshots, so the second delta
+		// replaces the first item transcript instead of appending to it.
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.delta","event_id":"evt-1","item_id":"item-1","delta":"hello"}`)); err != nil {
+			return
+		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.delta","event_id":"evt-2","item_id":"item-1","delta":"hello there"}`)); err != nil {
+			return
+		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.completed","event_id":"evt-3","item_id":"item-1","transcript":"hello there"}`)); err != nil {
+			return
+		}
+		_, _, _ = conn.Read(context.Background())
+	}))
+	defer server.Close()
+
+	runtime := newTranscriptionSessionRuntime(t, map[string]llmconfig.Config{
+		"openai-realtime-whisper": {
+			ID:        "openai-realtime-whisper",
+			Model:     "whisper-1",
+			Provider:  "openai",
+			BaseURL:   server.URL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+	}, map[string]string{
+		"OPENAI_API_KEY": "secret-key",
+	})
+	service, err := NewService(ServiceOptions{
+		LLM:        runtime,
+		HTTPClient: server.Client(),
+		NewID: func() string {
+			return "session-realtime-whisper"
+		},
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	resolved := resolvedProfile("profile-rt", transcriptionprofiles.TransportModeRealtime, runtime, "openai-realtime-whisper")
+	resolved.Profile.SupportsRealtimeTranscription = transcriptionprofiles.SupportsRealtimeTranscriptionConfig(*resolved.LLMConfig)
+	if !resolved.Profile.SupportsRealtimeTranscription {
+		t.Fatal("expected whisper-1 to advertise realtime support")
+	}
+
+	started, err := service.StartSession(context.Background(), StartRequest{
+		ScopeID:         "scope-1",
+		ResolvedProfile: resolved,
+	})
+	if err != nil {
+		t.Fatalf("start realtime whisper session: %v", err)
+	}
+	if started.ResolvedTransportMode != ResolvedTransportModeRealtime || started.ChunkMs != 1200 {
+		t.Fatalf("unexpected realtime whisper start result %#v", started)
+	}
+
+	appendResult, err := service.AppendAudio(context.Background(), AppendRequest{
+		ScopeID:      "scope-1",
+		SessionID:    started.SessionID,
+		AudioPCM16:   []byte{0x00, 0x00, 0x10, 0x00},
+		SampleRateHz: 24_000,
+		Channels:     1,
+	})
+	if err != nil {
+		t.Fatalf("append realtime whisper audio: %v", err)
+	}
+	if appendResult.AppendText != "hello there" || appendResult.FullText != "hello there" || appendResult.IsFinal {
+		t.Fatalf("unexpected realtime whisper append result %#v", appendResult)
+	}
+
+	stopped, err := service.StopSession(context.Background(), StopRequest{
+		ScopeID:   "scope-1",
+		SessionID: started.SessionID,
+	})
+	if err != nil {
+		t.Fatalf("stop realtime whisper session: %v", err)
+	}
+	if !stopped.IsFinal || stopped.AppendText != "" || stopped.FullText != "hello there" {
+		t.Fatalf("unexpected realtime whisper stop result %#v", stopped)
+	}
+}
+
 func TestRealtimeEngineWhisperDeltaSnapshotsReplaceItemTranscript(t *testing.T) {
 	t.Parallel()
 

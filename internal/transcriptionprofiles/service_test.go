@@ -108,6 +108,40 @@ func TestServiceCreateHydratesAndPersistsProfile(t *testing.T) {
 	}
 }
 
+func TestServiceCreateAllowsWhisperRealtimeTransport(t *testing.T) {
+	t.Parallel()
+
+	service, store := newTranscriptionProfileTestService(t, nil, map[string]llmconfig.Config{
+		"openai-whisper": {
+			ID:       "openai-whisper",
+			Model:    "whisper-1",
+			Provider: "openai",
+		},
+	})
+
+	created, err := service.Create(Profile{
+		ID:                       "profile-whisper",
+		Name:                     "Realtime Whisper",
+		TranscriptionLLMConfigID: "openai-whisper",
+		TransportMode:            TransportModeRealtime,
+		ChunkMs:                  1200,
+	})
+	if err != nil {
+		t.Fatalf("create whisper realtime profile: %v", err)
+	}
+	if !created.SupportsRealtimeTranscription {
+		t.Fatalf("expected whisper realtime support on create, got %#v", created)
+	}
+
+	persisted, err := store.Get("profile-whisper")
+	if err != nil {
+		t.Fatalf("get created whisper profile: %v", err)
+	}
+	if !persisted.SupportsRealtimeTranscription {
+		t.Fatalf("expected persisted whisper realtime support, got %#v", persisted)
+	}
+}
+
 func TestServiceUpdateHydratesAndPersistsProfile(t *testing.T) {
 	t.Parallel()
 
@@ -252,12 +286,17 @@ func TestServiceUpdateRejectsUnsupportedRealtimeTransport(t *testing.T) {
 			Model:    "whisper-1",
 			Provider: "openai",
 		},
+		"openai-undocumented": {
+			ID:       "openai-undocumented",
+			Model:    "gpt-realtime",
+			Provider: "openai",
+		},
 	})
 
 	_, err := service.Update(Profile{
 		ID:                       "profile-1",
 		Name:                     "Realtime",
-		TranscriptionLLMConfigID: "openai-file",
+		TranscriptionLLMConfigID: "openai-undocumented",
 		TransportMode:            TransportModeRealtime,
 		ChunkMs:                  1200,
 	})
@@ -412,6 +451,30 @@ func TestSupportsRealtimeTranscriptionAllowsOpenAITranscribeLatest(t *testing.T)
 		Provider: "openai",
 	}) {
 		t.Fatal("expected gpt-4o-transcribe-latest to be supported for realtime transcription")
+	}
+}
+
+func TestSupportsRealtimeTranscriptionAllowsWhisper1(t *testing.T) {
+	t.Parallel()
+
+	if !SupportsRealtimeTranscriptionConfig(llmconfig.Config{
+		ID:       "openai-whisper",
+		Model:    "whisper-1",
+		Provider: "openai",
+	}) {
+		t.Fatal("expected whisper-1 to be supported for realtime transcription")
+	}
+}
+
+func TestSupportsRealtimeTranscriptionRejectsOpenAIRealtimeModels(t *testing.T) {
+	t.Parallel()
+
+	if SupportsRealtimeTranscriptionConfig(llmconfig.Config{
+		ID:       "openai-realtime",
+		Model:    "gpt-realtime",
+		Provider: "openai",
+	}) {
+		t.Fatal("expected gpt-realtime to be rejected for realtime transcription profiles")
 	}
 }
 

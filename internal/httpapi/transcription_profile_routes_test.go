@@ -377,9 +377,9 @@ func TestRegisterTranscriptionProfileRoutesRejectsUnsupportedRealtimeTransport(t
 	t.Parallel()
 
 	service := newTranscriptionProfileRouteTestService(t, nil, map[string]llmconfig.Config{
-		"openai-file": {
-			ID:       "openai-file",
-			Model:    "whisper-1",
+		"openai-undocumented": {
+			ID:       "openai-undocumented",
+			Model:    "gpt-realtime",
 			Provider: "openai",
 		},
 	})
@@ -387,7 +387,7 @@ func TestRegisterTranscriptionProfileRoutesRejectsUnsupportedRealtimeTransport(t
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteCreateTranscriptionProfile,
-		strings.NewReader(`{"name":"Realtime","transcriptionLlmConfigId":"openai-file","transportMode":"realtime","chunkMs":1200}`),
+		strings.NewReader(`{"name":"Realtime","transcriptionLlmConfigId":"openai-undocumented","transportMode":"realtime","chunkMs":1200}`),
 	)
 	response := httptest.NewRecorder()
 

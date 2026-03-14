@@ -30,14 +30,10 @@ var (
 )
 
 var openAIRealtimeTranscriptionModelIDs = map[string]struct{}{
+	"whisper-1":                {},
 	"gpt-4o-transcribe":        {},
 	"gpt-4o-transcribe-latest": {},
 	"gpt-4o-mini-transcribe":   {},
-}
-
-var openAIRealtimeTranscriptionModelPrefixes = []string{
-	"gpt-4o-realtime",
-	"gpt-realtime",
 }
 
 func NewService(opts ServiceOptions) (*Service, error) {
@@ -253,11 +249,6 @@ func SupportsRealtimeTranscriptionConfig(config llmconfig.Config) bool {
 	}
 	if _, ok := openAIRealtimeTranscriptionModelIDs[model]; ok {
 		return true
-	}
-	for _, prefix := range openAIRealtimeTranscriptionModelPrefixes {
-		if strings.HasPrefix(model, prefix) {
-			return true
-		}
 	}
 	return false
 }

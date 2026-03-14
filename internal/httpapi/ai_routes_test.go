@@ -1267,9 +1267,9 @@ func TestRegisterAIRoutesReturnsTypedUnsupportedRealtimeTranscriptionModel(t *te
 	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
 	if err := fixture.llm.UpdateConfig(llmconfig.AllConfigs{
 		Configs: map[string]llmconfig.Config{
-			"openai-file": {
-				ID:        "openai-file",
-				Model:     "whisper-1",
+			"openai-undocumented": {
+				ID:        "openai-undocumented",
+				Model:     "gpt-realtime",
 				Provider:  "openai",
 				BaseURL:   "https://example.com/v1",
 				APIKeyEnv: "OPENAI_API_KEY",
@@ -1286,7 +1286,7 @@ func TestRegisterAIRoutesReturnsTypedUnsupportedRealtimeTranscriptionModel(t *te
 		{
 			ID:                       "profile-realtime",
 			Name:                     "Realtime",
-			TranscriptionLLMConfigID: "openai-file",
+			TranscriptionLLMConfigID: "openai-undocumented",
 			TransportMode:            transcriptionprofiles.TransportModeRealtime,
 			ChunkMs:                  1200,
 		},

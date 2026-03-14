@@ -343,9 +343,9 @@ func TestServiceStartRejectsRealtimeProfilesWithUnsupportedModel(t *testing.T) {
 	t.Parallel()
 
 	runtime := newTranscriptionSessionRuntime(t, map[string]llmconfig.Config{
-		"openai-file": {
-			ID:        "openai-file",
-			Model:     "whisper-1",
+		"openai-undocumented": {
+			ID:        "openai-undocumented",
+			Model:     "gpt-realtime",
 			Provider:  "openai",
 			BaseURL:   "https://example.com/v1",
 			APIKeyEnv: "OPENAI_API_KEY",
@@ -358,9 +358,15 @@ func TestServiceStartRejectsRealtimeProfilesWithUnsupportedModel(t *testing.T) {
 		t.Fatalf("new service: %v", err)
 	}
 
+	resolved := resolvedProfile("profile-1", transcriptionprofiles.TransportModeRealtime, runtime, "openai-undocumented")
+	resolved.Profile.SupportsRealtimeTranscription = transcriptionprofiles.SupportsRealtimeTranscriptionConfig(*resolved.LLMConfig)
+	if resolved.Profile.SupportsRealtimeTranscription {
+		t.Fatal("expected gpt-realtime to remain unsupported for realtime transcription")
+	}
+
 	_, err = service.StartSession(context.Background(), StartRequest{
 		ScopeID:         "scope-1",
-		ResolvedProfile: resolvedProfile("profile-1", transcriptionprofiles.TransportModeRealtime, runtime, "openai-file"),
+		ResolvedProfile: resolved,
 	})
 	if !errors.Is(err, ErrUnsupportedModel) {
 		t.Fatalf("expected unsupported model, got %v", err)
