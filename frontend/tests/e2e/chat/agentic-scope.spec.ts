@@ -308,7 +308,9 @@ test.describe.serial("agentic scope", () => {
     }
   });
 
-  test("shows a warning banner when write scope is empty", async ({ page }) => {
+  test("shows a warning banner when no outgoing scope links exist", async ({
+    page,
+  }) => {
     await seedLocalStorage(page, { uiEditorVis: true });
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
@@ -331,18 +333,6 @@ test.describe.serial("agentic scope", () => {
         searchEnabled: true,
         dictationMode: "auto",
       });
-      const { sectionId: sourceSectionId } = await createTextBlockSection(
-        page,
-        projectContext.projectConfigId,
-        "__pw_agentic_scope_banner_source__",
-      );
-      await postBackend(page, "/createAgenticEdge", {
-        projectConfigId: projectContext.projectConfigId,
-        sourceSectionId,
-        targetSectionId: chatSectionId,
-        kind: "section_chat",
-        contextMode: "reference_only",
-      });
 
       const chatNode = page.locator(
         `.react-flow__node[data-id="${chatSectionId}"]`,
@@ -351,7 +341,10 @@ test.describe.serial("agentic scope", () => {
       await chatNode.click();
 
       await expect(
-        chatNode.getByText("No writable sections in scope."),
+        chatNode.getByTestId("managed-chat-zero-scope-indicator"),
+      ).toBeVisible();
+      await expect(
+        page.getByText("No outgoing scope links. This chat has no project access."),
       ).toBeVisible();
     } finally {
       await cleanupIsolatedProject(page, projectContext);

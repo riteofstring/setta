@@ -1,7 +1,9 @@
 import { expect, test } from "@playwright/test";
 import {
   cleanupIsolatedProject,
+  ensureProjectChatThreadsPanelVisible,
   ensureAppReady,
+  getVisibleProjectChatSurface,
   openIsolatedProject,
   seedLocalStorage,
 } from "../../helpers";
@@ -116,12 +118,13 @@ test("project ai threads restore deleted thread and group via explicit restore a
     await page.reload();
     await page.waitForSelector(".react-flow__pane");
 
-    const overviewPane = page.locator("#OverviewPane");
+    let overviewPane = page.locator("#OverviewPane");
     await expect(
       overviewPane.getByRole("heading", { name: "Project AI Chat" }),
     ).toBeVisible();
+    overviewPane = await getVisibleProjectChatSurface(page);
 
-    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+    const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
     await expect(threadsPanel).toBeVisible();
     const restoreButton = overviewPane
       .getByTestId("project-chat-thread-restore-last-delete-button")

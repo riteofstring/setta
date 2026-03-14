@@ -64,9 +64,9 @@ async def test_route_get_agentic_summary_cache_status() -> None:
         await project_fixture.manager.create_agentic_edge(
             CreateAgenticEdgeRequest(
                 projectConfigId=project_config_id,
-                sourceSectionId=source.sectionId,
-                targetSectionId=chat.sectionId,
-                kind=AgenticEdgeKind.section_chat,
+                sourceSectionId=chat.sectionId,
+                targetSectionId=source.sectionId,
+                kind=AgenticEdgeKind.chat_section,
                 contextMode=AgenticEdgeContextMode.summary,
             )
         )

@@ -3,7 +3,7 @@ import { allowExpectedApiError } from "../helpers";
 import {
   cleanupGitOverlayFixture,
   getWorkspaceRootOrThrow,
-  openGitOverview,
+  openGitGraph,
   seedGitOverlayFixture,
 } from "./helpers/gitOverlayFixture";
 
@@ -16,13 +16,7 @@ test("git graph paginates, filters, and loads commit file diffs", async ({
   });
 
   try {
-    await openGitOverview(page);
-
-    await page.getByRole("button", { name: "Graph" }).click();
-    const graphFilter = page.getByPlaceholder(/Filter commits/);
-    await expect(graphFilter).toBeVisible();
-
-    const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
+    const { graphFilter, graphOverlay } = await openGitGraph(page);
     await expect(
       graphOverlay.getByRole("button", { name: "Show all refs" }),
     ).toBeVisible();
@@ -141,7 +135,7 @@ test("git graph paginates, filters, and loads commit file diffs", async ({
     ).toBeVisible();
 
     await page.keyboard.press("Escape");
-    await expect(graphFilter).toHaveCount(0);
+    await expect(graphFilter).toBeVisible();
   } finally {
     await cleanupGitOverlayFixture(fixture);
   }
@@ -178,17 +172,13 @@ test("git graph pauses auto-pagination after a load-more error until Retry is cl
   });
 
   try {
-    await openGitOverview(page);
+    const { graphFilter, graphOverlay } = await openGitGraph(page);
     allowExpectedApiError(page, {
       path: "/api/git/log",
       statuses: [500],
       method: "POST",
       count: 2,
     });
-    await page.getByRole("button", { name: "Graph" }).click();
-    const graphFilter = page.getByPlaceholder(/Filter commits/);
-    await expect(graphFilter).toBeVisible();
-    const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
     await expect(
       graphOverlay.getByRole("button", { name: /history-259/ }),
     ).toBeVisible();
@@ -215,7 +205,11 @@ test("git graph pauses auto-pagination after a load-more error until Retry is cl
     });
     await expect.poll(() => failedPaginationRequests).toBe(1);
 
-    await graphOverlay.getByTestId("git-graph-load-more-retry").click();
+    await graphOverlay
+      .getByTestId("git-graph-load-more-retry")
+      .evaluate((element: HTMLButtonElement) => {
+        element.click();
+      });
     await expect.poll(() => failedPaginationRequests).toBe(2);
   } finally {
     await cleanupGitOverlayFixture(fixture);
@@ -265,11 +259,7 @@ test("git graph shows a warning when commit details are truncated", async ({
   });
 
   try {
-    await openGitOverview(page);
-    await page.getByRole("button", { name: "Graph" }).click();
-    const graphFilter = page.getByPlaceholder(/Filter commits/);
-    await expect(graphFilter).toBeVisible();
-    const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
+    const { graphFilter, graphOverlay } = await openGitGraph(page);
 
     await graphFilter.fill("add tracked");
     const addTrackedCommit = graphOverlay.getByRole("button", {

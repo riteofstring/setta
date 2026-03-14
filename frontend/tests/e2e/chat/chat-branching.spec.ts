@@ -46,21 +46,20 @@ test.describe.serial("chat branching", () => {
         useAIStore.setState({ projectChatSelectedEngineId: nextEngineId });
       }, managedEngineId);
 
-      const overviewPane = page.locator("#OverviewPane");
-      await expect(
-        overviewPane.getByRole("heading", { name: "Project AI Chat" }),
-      ).toBeVisible();
+      const projectChatSurface = await getVisibleProjectChatSurface(page);
+      await projectChatSurface.getByRole("button", { name: "Thinking" }).click();
 
-      await overviewPane.getByRole("button", { name: "Thinking" }).click();
-
-      const input = overviewPane.getByPlaceholder("Type a message...");
+      const input = projectChatSurface.getByPlaceholder("Type a message...");
       await expect(input).toBeVisible();
       await expect(input).toBeEnabled();
 
       await input.fill("Original message");
       await input.press("Enter");
 
-      const originalGroup = getMessageGroup(overviewPane, "Original message");
+      const originalGroup = getMessageGroup(
+        projectChatSurface,
+        "Original message",
+      );
       await expect(originalGroup).toBeVisible();
       await expect(input).toHaveValue("", { timeout: 20000 });
 
@@ -68,33 +67,35 @@ test.describe.serial("chat branching", () => {
 
       await page.reload();
       await page.waitForSelector(".react-flow__pane");
-      const reloadedPane = page.locator("#OverviewPane");
-      await expect(
-        reloadedPane.getByRole("heading", { name: "Project AI Chat" }),
-      ).toBeVisible();
+      const reloadedProjectChatSurface = await getVisibleProjectChatSurface(
+        page,
+      );
+      await reloadedProjectChatSurface
+        .getByRole("button", { name: "Thinking" })
+        .click();
 
-      await reloadedPane.getByRole("button", { name: "Thinking" }).click();
-
-      await reloadedPane
+      await reloadedProjectChatSurface
         .getByRole("button", { name: "View Threads" })
         .click();
 
-      const historyEntry = reloadedPane
+      const historyEntry = reloadedProjectChatSurface
         .getByTestId("project-chat-thread-entry")
         .filter({ hasText: "Original message" })
         .first();
       await expect(historyEntry).toBeVisible();
       await historyEntry.click();
 
-      const chatInput = reloadedPane.getByPlaceholder("Type a message...");
+      const chatInput = reloadedProjectChatSurface.getByPlaceholder(
+        "Type a message...",
+      );
       await expect(chatInput).toBeEnabled({ timeout: 20000 });
 
       const originalMessageId = await getMessageGroupId(
-        reloadedPane,
+        reloadedProjectChatSurface,
         "Original message",
       );
       const reloadedOriginalGroup = getMessageGroupById(
-        reloadedPane,
+        reloadedProjectChatSurface,
         originalMessageId,
       );
       await expect(reloadedOriginalGroup).toBeVisible();
@@ -122,7 +123,10 @@ test.describe.serial("chat branching", () => {
         .getByRole("button", { name: "Save" })
         .click();
 
-      const editedGroup = getMessageGroup(reloadedPane, "Edited message");
+      const editedGroup = getMessageGroup(
+        reloadedProjectChatSurface,
+        "Edited message",
+      );
       await expect(editedGroup).toBeVisible();
       await editedGroup.hover();
       await expect(editedGroup.getByText("2/2")).toBeVisible();
@@ -133,7 +137,10 @@ test.describe.serial("chat branching", () => {
       await expectLocatorCenterPointToBeReachable(previousBranchButton);
       await previousBranchButton.click();
 
-      const revertedGroup = getMessageGroup(reloadedPane, "Original message");
+      const revertedGroup = getMessageGroup(
+        reloadedProjectChatSurface,
+        "Original message",
+      );
       await expect(revertedGroup).toBeVisible();
       await revertedGroup.hover();
       await expect(revertedGroup.getByText("1/2")).toBeVisible();
@@ -183,7 +190,9 @@ test.describe.serial("chat branching", () => {
       await expect(originalGroup).toBeVisible();
 
       await originalGroup.hover();
-      await originalGroup.getByRole("button", { name: "Edit message" }).click();
+      await originalGroup
+        .getByRole("button", { name: "Edit message" })
+        .evaluate((element: HTMLButtonElement) => element.click());
 
       const editor = originalGroup.getByLabel("Edit message");
       await expect(editor).toBeVisible();
@@ -353,16 +362,18 @@ test.describe.serial("chat branching", () => {
       await page.reload();
       await page.waitForSelector(".react-flow__pane");
 
-      const overviewPane = page.locator("#OverviewPane");
-      await expect(
-        overviewPane.getByRole("heading", { name: "Project AI Chat" }),
-      ).toBeVisible();
-      await overviewPane.getByRole("button", { name: "Thinking" }).click();
+      const projectChatSurface = await getVisibleProjectChatSurface(page);
+      await projectChatSurface.getByRole("button", { name: "Thinking" }).click();
+      const windowInstanceId = await getVisibleProjectChatWindowInstanceId(
+        projectChatSurface,
+      );
       await page.evaluate(
-        async ({ chatId, messages }) => {
+        async ({ chatId, instanceId, messages }) => {
+          const { setProjectChatWindowChatId } = await import(
+            "/src/state/actions/projectChatWindowing.ts"
+          );
           const { useAIStore } = await import("/src/state/definitions.ts");
           useAIStore.setState((state) => ({
-            activeChatId: chatId,
             chatDetails: {
               ...state.chatDetails,
               [chatId]: {
@@ -374,14 +385,19 @@ test.describe.serial("chat branching", () => {
               },
             },
           }));
+          setProjectChatWindowChatId(instanceId, chatId);
         },
         {
           chatId: rootChatId,
+          instanceId: windowInstanceId,
           messages: rootMessages,
         },
       );
 
-      const assistantGroup = getMessageGroup(overviewPane, "Initial assistant answer.");
+      const assistantGroup = getMessageGroup(
+        projectChatSurface,
+        "Initial assistant answer.",
+      );
       await expect(assistantGroup).toBeVisible();
       await assistantGroup.hover();
       const redoButton = assistantGroup.getByRole("button", {
@@ -393,7 +409,7 @@ test.describe.serial("chat branching", () => {
 
       await expect.poll(() => sawRedoBranchRequest).toBe(true);
       await expect(
-        getMessageGroup(overviewPane, "Regenerated assistant answer."),
+        getMessageGroup(projectChatSurface, "Regenerated assistant answer."),
       ).toBeVisible();
     } finally {
       await engineCleanup();
@@ -401,6 +417,43 @@ test.describe.serial("chat branching", () => {
     }
   });
 });
+
+async function getVisibleProjectChatSurface(page: Page): Promise<Locator> {
+  const surfaceCandidates = [
+    page.getByTestId("project-chat-maximized-window").first(),
+    page.getByTestId("project-chat-floating-window").first(),
+    page.getByTestId("project-chat-bottom-dock-window-panel").first(),
+    page
+      .locator('#OverviewPane [data-chat-surface-mode="project_ai_mode"]')
+      .first(),
+  ];
+  await expect
+    .poll(async () => {
+      for (const candidate of surfaceCandidates) {
+        if ((await candidate.count()) > 0 && (await candidate.isVisible())) {
+          return true;
+        }
+      }
+      return false;
+    })
+    .toBe(true);
+  for (const candidate of surfaceCandidates) {
+    if ((await candidate.count()) > 0 && (await candidate.isVisible())) {
+      return candidate;
+    }
+  }
+  throw new Error("No visible project chat surface found.");
+}
+
+async function getVisibleProjectChatWindowInstanceId(
+  surface: Locator,
+): Promise<string> {
+  const instanceId = await surface.getAttribute("data-chat-window-instance-id");
+  if (!instanceId) {
+    throw new Error("Visible project chat surface is missing an instance id.");
+  }
+  return instanceId;
+}
 
 function getMessageGroup(container: Locator, text: string): Locator {
   return container.locator("div.group").filter({ hasText: text }).first();

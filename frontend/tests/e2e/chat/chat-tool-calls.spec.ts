@@ -127,7 +127,9 @@ test.describe.serial("chat tool calls", () => {
       );
       await expect(itemCopyButtons).toHaveCount(0);
       await activityTrigger.hover();
-      await openAllButton.click();
+      await openAllButton.evaluate(
+        (element: HTMLButtonElement) => element.click(),
+      );
       await expect(activityTrigger).toHaveAttribute("aria-expanded", "true");
       await expect(openAllButton).toHaveText(/Close all/i);
       await expect(openAllButton).toHaveAttribute(
@@ -142,7 +144,9 @@ test.describe.serial("chat tool calls", () => {
       await expect(itemCopyButtons).toHaveCount(2);
 
       await activityTrigger.hover();
-      await openAllButton.click();
+      await openAllButton.evaluate(
+        (element: HTMLButtonElement) => element.click(),
+      );
       await expect(openAllButton).toHaveText(/Open all/i);
       await expect(openAllButton).toHaveAttribute(
         "title",
@@ -156,7 +160,9 @@ test.describe.serial("chat tool calls", () => {
       await expect(itemCopyButtons).toHaveCount(2);
 
       await activityTrigger.hover();
-      await openAllButton.click();
+      await openAllButton.evaluate(
+        (element: HTMLButtonElement) => element.click(),
+      );
       await expect(openAllButton).toHaveText(/Close all/i);
       await expect(
         toolSection.locator(

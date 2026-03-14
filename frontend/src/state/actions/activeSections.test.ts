@@ -12,6 +12,7 @@ import * as endpoints from "utils/generatedEndpoints";
 import {
   createCodeSectionImpl,
   createCore,
+  createProjectChatWindowingState,
   createProjectConfig,
   createSingletonSections,
   createUserDefaultCodeSectionImpl,
@@ -781,6 +782,7 @@ function buildProjectStateData(
       sectionVariantMap,
       topLevelSections,
     }),
+    projectChatWindowing: createProjectChatWindowingState(),
     sections,
     sectionImpls,
     sectionVariants,
