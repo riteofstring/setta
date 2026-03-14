@@ -7,12 +7,12 @@ import {
 } from "state/actions/sectionInfos";
 import { useIsSectionUIActive } from "state/activeSectionUI";
 import {
+  useAgenticScopeHighlights,
   useLocalStorage,
   useProjectState,
   useTemporaryMiscState,
 } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
-import { useAgenticScopeHighlights } from "state/stores/aiFollowStores";
 import { getSectionStylePreviewColorKey } from "utils/constants";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";

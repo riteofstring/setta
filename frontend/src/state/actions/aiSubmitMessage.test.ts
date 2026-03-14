@@ -315,6 +315,45 @@ describe("submitMessage", () => {
     expect(payload.appSpecStreamingEnabled).toBe(true);
   });
 
+  it("forces streaming preview on json-render app generation submits", async () => {
+    useLocalStorage.setState({
+      appSpecStreamingEnabled: false,
+    });
+    mockedRouteGetLLMResponse.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    await expect(
+      submitMessage(
+        null,
+        "Generate directly in the app pane.",
+        [],
+        true,
+        "engine-primary",
+        false,
+        {
+          appGeneration: {
+            mode: "json_render",
+            referenceImageUrl: null,
+            referenceImageNotes: null,
+          },
+        },
+      ),
+    ).resolves.toBeNull();
+
+    expect(mockedRouteGetLLMResponse).toHaveBeenCalledTimes(1);
+    const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
+      {
+        appSpecStreamingEnabled: boolean;
+        appGenerationMode: string | null;
+      },
+    ];
+    expect(payload.appSpecStreamingEnabled).toBe(true);
+    expect(payload.appGenerationMode).toBe("json_render");
+  });
+
   it("refreshes agent runs after successful submit hydration", async () => {
     const returnedChatId = "chat-submit-provenance-sync";
     mockedRouteGetLLMResponse.mockResolvedValue({
