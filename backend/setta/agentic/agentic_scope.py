@@ -22,7 +22,6 @@ class AgenticContext:
     project_config_id: ID
     chat_id: ID | None
     section_id: ID | None
-    run_id: ID | None = None
     frontend_affinity_token: str | None = None
     allow_unscoped: bool = False
     linked_chat_invocation_depth: int = 0

@@ -1104,7 +1104,6 @@ class TestAgentRunner:
             assert default_context.chat_id == default_context.run.id
             assert default_context.section_id is None
             assert default_context.thinking is False
-            assert default_context.agentic_context.run_id == default_context.run.id
 
             settings = SettingsState()
             project_state = ProjectStateSingleConfig(projectConfig=second_config)
@@ -1141,7 +1140,6 @@ class TestAgentRunner:
             assert override_context.chat_id == ID("chat-1")
             assert override_context.section_id == chat_section_id
             assert override_context.thinking is True
-            assert override_context.agentic_context.run_id == override_context.run.id
             assert (
                 override_context.agentic_context.frontend_affinity_token == "frontend-1"
             )

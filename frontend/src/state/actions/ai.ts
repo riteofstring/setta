@@ -1005,24 +1005,6 @@ export async function loadAgentRuns() {
   }
 }
 
-export function receiveAgentRunUpdate(payload: AgentRun) {
-  useAIStore.setState((state) => {
-    const existingIndex = state.agentRuns.findIndex(
-      (candidate) => candidate.id === payload.id,
-    );
-    if (existingIndex === -1) {
-      return {
-        agentRuns: [payload, ...state.agentRuns],
-      };
-    }
-    const nextRuns = state.agentRuns.slice();
-    nextRuns[existingIndex] = payload;
-    return {
-      agentRuns: nextRuns,
-    };
-  });
-}
-
 function receiveAgentRunsUpdate(payload: Array<AgentRun>) {
   clearScheduledAgentRunsRetry();
   agentRunsTransientFailureCount = 0;
@@ -2655,7 +2637,7 @@ export async function submitMessage(
       searchEnabled: resolvedExecutionSettings.searchEnabled,
     });
     if (res200(res)) {
-      const returnedChatId = res.data.chatId;
+      const returnedChatId = res.data ?? chatId ?? null;
       if (returnedChatId) {
         refreshAgentRunsAfterSubmit();
         if (isExternalEngine) {
@@ -2834,7 +2816,7 @@ export async function submitEditedMessage({
       }
       return null;
     }
-    const returnedChatId = res.data.chatId;
+    const returnedChatId = res.data ?? null;
     if (returnedChatId) {
       refreshAgentRunsAfterSubmit();
       if (isExternalEngine) {

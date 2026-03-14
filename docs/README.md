@@ -17,9 +17,6 @@
 - `reference/code-temp-file-workflow.md` – how Setta stores code files on disk and makes short-lived copies for autocomplete.
 - `reference/ai-follow.md` – how AIFollow tags tool calls and drives viewport + highlights in the UI.
 - `reference/agentic-edges.md` – agentic edge data model, routes, and UI behavior.
-- `reference/edge-styles.md` – current canvas edge families, visual states, and what each style means.
-- `reference/prompt-sections.md` – prompt section local-vs-linked template behavior, editor states, and codegen/runtime resolution.
-- `reference/state-machine-workflows.md` – workflow section types, edge rules, run controls, and signal-driven chat orchestration.
 - `reference/column-width.md` – how column sizing works in the UI, including drag behavior, bounds, and persistence.
 - `reference/dev-vs-built.md` – differences between dev and built runtime setups.
 - `reference/emit_to_frontend.md` – how a listener script can push new values or artifacts back into the app.

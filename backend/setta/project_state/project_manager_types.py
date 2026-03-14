@@ -50,7 +50,6 @@ from setta.types.section_impls import (
     SectionSize,
     SectionType,
     SpreadsheetGridDensity,
-    StateMachineGateType,
     TaskBoardColumn,
     TaskBoardTask,
     TaskBoardViewMode,
@@ -58,12 +57,6 @@ from setta.types.section_impls import (
     TextBlockFormat,
 )
 from setta.types.settings_state import RenameRefactorMode, RunSnapshotMode
-from setta.types.state_machine_edges import (
-    StateMachineEdge,
-    StateMachineSourceActivationCountCondition,
-    StateMachineSourceFilter,
-    StateMachineTargetAction,
-)
 from setta.utils.constants import C
 
 
@@ -735,8 +728,8 @@ class SetPromptTemplateRequest(ProjectManagerRequestWithSection):
     template: str
 
 
-class SetPromptTemplateLinkRequest(ProjectManagerRequestWithSection):
-    promptTemplateId: ID | None
+class SetPromptInputsRequest(ProjectManagerRequestWithSection):
+    inputs: dict[str, str]
 
 
 class SetPromptFormatRequest(ProjectManagerRequestWithSection):
@@ -997,35 +990,6 @@ class SetAgenticEdgesRequest(ProjectManagerRequestWithProjectConfig):
     edges: list[AgenticEdge]
 
 
-class CreateStateMachineEdgeRequest(ProjectManagerRequestWithProjectConfig):
-    id: ID | None = None
-    machineGroupId: str
-    sourceSectionId: ID
-    sourcePortId: str
-    targetSectionId: ID
-    targetPortId: str
-    sourceFilter: StateMachineSourceFilter | None = None
-    sourceActivationCountCondition: (
-        StateMachineSourceActivationCountCondition | None
-    ) = None
-    targetAction: StateMachineTargetAction | None = None
-    style: dict[str, str | int | float] | None = None
-    hidden: bool = False
-    zIndex: int = 0
-
-
-class UpdateStateMachineEdgeRequest(ProjectManagerRequestWithProjectConfig):
-    edge: StateMachineEdge
-
-
-class DeleteStateMachineEdgesRequest(ProjectManagerRequestWithProjectConfig):
-    edgeIds: list[ID]
-
-
-class SetStateMachineEdgesRequest(ProjectManagerRequestWithProjectConfig):
-    edges: list[StateMachineEdge]
-
-
 class SetSectionVariantRequest(ProjectManagerRequestWithSectionVariant):
     """Swap a section to the specified variant."""
 
@@ -1202,12 +1166,6 @@ class SetSpreadsheetSectionSettingsRequest(ProjectManagerRequestWithSection):
     showRowNumbers: bool
     density: SpreadsheetGridDensity
     autoReloadOnExternalChange: bool
-
-
-class SetStateMachineSectionSettingsRequest(ProjectManagerRequestWithSection):
-    machineGroupId: str
-    label: str
-    gateType: StateMachineGateType | None = None
 
 
 class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):

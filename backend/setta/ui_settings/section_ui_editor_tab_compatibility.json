@@ -48,15 +48,6 @@
   "Group": [
     "SectionConfig"
   ],
-  "StateMachineStart": [
-    "SectionConfig"
-  ],
-  "StateMachineGate": [
-    "SectionConfig"
-  ],
-  "StateMachineEnd": [
-    "SectionConfig"
-  ],
   "Terminal": [
     "SectionConfig"
   ],

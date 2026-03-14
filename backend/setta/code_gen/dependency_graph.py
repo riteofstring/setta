@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from itertools import islice
-from typing import TYPE_CHECKING
 
 from setta.code_gen.python.ast_utils import find_undefined_special_var_expressions
 from setta.code_gen.utils import (
@@ -54,7 +53,6 @@ from setta.types.project_config import (
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
-from setta.types.prompt_section_resolution import resolve_prompt_section_source
 from setta.types.section_impls import (
     BaseParentSectionImpl,
     BaseSectionImpl,
@@ -71,9 +69,6 @@ from setta.types.section_impls import (
 )
 from setta.utils.constants import C
 from setta.utils.utils import replace_at_positions
-
-if TYPE_CHECKING:
-    from setta.database.db_objs import DBE
 
 logger = logging.getLogger(__name__)
 
@@ -154,8 +149,7 @@ SectionExporter = Callable[[SectionExportContext], None]
 
 
 class DependencyGraph:
-    def __init__(self, p: ProjectStateSingleConfig, *, dbe: "DBE | None" = None):
-        self.dbe = dbe
+    def __init__(self, p: ProjectStateSingleConfig):
         self.section_exporters: dict[SectionType, SectionExporter] = {
             SectionType.Callable: self._export_callable_section,
             SectionType.Dict: self._export_dict_section,
@@ -372,17 +366,13 @@ class DependencyGraph:
         section_impl = ctx.section_impl
         if not isinstance(section_impl, PromptSectionImpl):
             return
-        prompt_text = section_impl.renderedText
-        if self.dbe is not None:
-            prompt_source = resolve_prompt_section_source(self.dbe, section_impl)
-            prompt_text = prompt_source.template
         node = SectionNode(
             id=ctx.section_id,
             name=ctx.section_name,
             full_path_name=ctx.full_path_name,
             type=section_impl.type,
             isTopLevel=ctx.is_top_level,
-            value=LiteralDependencyValue(prompt_text),
+            value=LiteralDependencyValue(section_impl.renderedText),
             deps={},
         )
         self.add_to_graph(ctx.dep_key, node)

@@ -64,9 +64,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     PromptSectionImplArgs,
     SocialSectionImplArgs,
     SpreadsheetSectionImplArgs,
-    StateMachineEndSectionImplArgs,
-    StateMachineGateSectionImplArgs,
-    StateMachineStartSectionImplArgs,
     TaskBoardSectionImplArgs,
     TerminalSectionImplArgs,
     TextBlockSectionImplArgs,
@@ -97,7 +94,6 @@ from setta.types.section_impls import (
     SectionSize,
     SectionType,
     SpreadsheetGridDensity,
-    StateMachineGateType,
     TaskBoardColumn,
     TaskBoardTask,
     TaskBoardViewMode,
@@ -105,12 +101,6 @@ from setta.types.section_impls import (
     TextBlockFormat,
 )
 from setta.types.settings_state import RunSnapshotMode
-from setta.types.state_machine_edges import (
-    StateMachineEdge,
-    StateMachineSourceActivationCountCondition,
-    StateMachineSourceFilter,
-    StateMachineTargetAction,
-)
 
 
 class ListenerAcceptRenameRefactorRequestPayload(TypedDict):
@@ -229,25 +219,6 @@ class ListenerCreateNewSectionVariantRequestPayload(TypedDict):
     sectionId: ID
 
 
-class ListenerCreateStateMachineEdgeRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    id: NotRequired[ID | None]
-    machineGroupId: str
-    sourceSectionId: ID
-    sourcePortId: str
-    targetSectionId: ID
-    targetPortId: str
-    sourceFilter: NotRequired[StateMachineSourceFilter | None]
-    sourceActivationCountCondition: NotRequired[
-        StateMachineSourceActivationCountCondition | None
-    ]
-    targetAction: NotRequired[StateMachineTargetAction | None]
-    style: NotRequired[dict[str, str | int | float] | None]
-    hidden: NotRequired[bool]
-    zIndex: NotRequired[int]
-
-
 class ListenerCreateTopLevelSectionRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -258,9 +229,6 @@ class ListenerCreateTopLevelSectionRequestPayload(TypedDict):
         | DictSectionImplArgs
         | ListRootSectionImplArgs
         | GroupSectionImplArgs
-        | StateMachineStartSectionImplArgs
-        | StateMachineGateSectionImplArgs
-        | StateMachineEndSectionImplArgs
         | ImageSectionImplArgs
         | ChartSectionImplArgs
         | DrawSectionImplArgs
@@ -359,12 +327,6 @@ class ListenerDeleteSelectedParamsRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     paramInfoIds: list[ID]
-
-
-class ListenerDeleteStateMachineEdgesRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    edgeIds: list[ID]
 
 
 class ListenerDeleteViewModeRequestPayload(TypedDict):
@@ -815,11 +777,11 @@ class ListenerSetPromptFormatRequestPayload(TypedDict):
     format: PromptFormat
 
 
-class ListenerSetPromptTemplateLinkRequestPayload(TypedDict):
+class ListenerSetPromptInputsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
-    promptTemplateId: ID | None
+    inputs: dict[str, str]
 
 
 class ListenerSetPromptTemplateRequestPayload(TypedDict):
@@ -948,21 +910,6 @@ class ListenerSetSpreadsheetSectionSettingsRequestPayload(TypedDict):
     showRowNumbers: bool
     density: SpreadsheetGridDensity
     autoReloadOnExternalChange: bool
-
-
-class ListenerSetStateMachineEdgesRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    edges: list[StateMachineEdge]
-
-
-class ListenerSetStateMachineSectionSettingsRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    machineGroupId: str
-    label: str
-    gateType: NotRequired[StateMachineGateType | None]
 
 
 class ListenerSetTaskBoardSectionStateRequestPayload(TypedDict):
@@ -1201,12 +1148,6 @@ class ListenerUpdateParamImplConfigRequestPayload(TypedDict):
     newConfig: dict
 
 
-class ListenerUpdateStateMachineEdgeRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    edge: StateMachineEdge
-
-
 class RouterEndpointAPI:
     def __init__(self, caller: Callable[[str, object], Awaitable[object]]) -> None:
         self._caller = caller
@@ -1277,11 +1218,6 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_create_new_section_variant", payload)
 
-    async def create_state_machine_edge(
-        self, payload: ListenerCreateStateMachineEdgeRequestPayload
-    ) -> None:
-        return await self._caller("route_create_state_machine_edge", payload)
-
     async def create_top_level_section(
         self, payload: ListenerCreateTopLevelSectionRequestPayload
     ) -> CreateTopLevelSectionResponse:
@@ -1342,11 +1278,6 @@ class RouterEndpointAPI:
         self, payload: ListenerDeleteSelectedParamsRequestPayload
     ) -> None:
         return await self._caller("route_delete_selected_params", payload)
-
-    async def delete_state_machine_edges(
-        self, payload: ListenerDeleteStateMachineEdgesRequestPayload
-    ) -> None:
-        return await self._caller("route_delete_state_machine_edges", payload)
 
     async def delete_view_mode(
         self, payload: ListenerDeleteViewModeRequestPayload
@@ -1650,15 +1581,15 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_set_prompt_format", payload)
 
+    async def set_prompt_inputs(
+        self, payload: ListenerSetPromptInputsRequestPayload
+    ) -> None:
+        return await self._caller("route_set_prompt_inputs", payload)
+
     async def set_prompt_template(
         self, payload: ListenerSetPromptTemplateRequestPayload
     ) -> None:
         return await self._caller("route_set_prompt_template", payload)
-
-    async def set_prompt_template_link(
-        self, payload: ListenerSetPromptTemplateLinkRequestPayload
-    ) -> None:
-        return await self._caller("route_set_prompt_template_link", payload)
 
     async def set_section_column_width(
         self, payload: ListenerSetSectionColumnWidthRequestPayload
@@ -1742,16 +1673,6 @@ class RouterEndpointAPI:
         self, payload: ListenerSetSpreadsheetSectionSettingsRequestPayload
     ) -> None:
         return await self._caller("route_set_spreadsheet_section_settings", payload)
-
-    async def set_state_machine_edges(
-        self, payload: ListenerSetStateMachineEdgesRequestPayload
-    ) -> None:
-        return await self._caller("route_set_state_machine_edges", payload)
-
-    async def set_state_machine_section_settings(
-        self, payload: ListenerSetStateMachineSectionSettingsRequestPayload
-    ) -> None:
-        return await self._caller("route_set_state_machine_section_settings", payload)
 
     async def set_task_board_section_state(
         self, payload: ListenerSetTaskBoardSectionStateRequestPayload
@@ -1926,8 +1847,3 @@ class RouterEndpointAPI:
         self, payload: ListenerUpdateParamImplConfigRequestPayload
     ) -> None:
         return await self._caller("route_update_param_impl_config", payload)
-
-    async def update_state_machine_edge(
-        self, payload: ListenerUpdateStateMachineEdgeRequestPayload
-    ) -> None:
-        return await self._caller("route_update_state_machine_edge", payload)
