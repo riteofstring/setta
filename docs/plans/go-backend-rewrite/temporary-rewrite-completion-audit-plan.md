@@ -305,6 +305,11 @@ This verdict holds under both of the only reasonable definitions:
   Python MCP tool package:
   - `backend/setta/mcp/tools/plugins.py` has been removed
   - `backend/setta/mcp/tools/__init__.py` no longer imports that tool surface
+- The dead Python websocket listener receiver no longer falls back to
+  `state.plugin_manager.invoke_listener_endpoint(...)` for plugin-owned
+  endpoints:
+  - `backend/setta/websockets/msg_handlers/python_script_receiver.py`
+  - only built-in listener router endpoints remain on that legacy Python path
 - The frontend transport helpers and active websocket callers point at the Go
   route helpers rather than legacy Python routes:
   - `frontend/src/utils/transportRouteConstants.ts`
@@ -480,3 +485,10 @@ checks still pass after `backend/setta/mcp/tools/__init__.py` stopped importing
 that plugin tool surface, which further narrows the remaining Python plugin
 blocker to the manager/worker runtime rather than the old Python MCP mutation
 tool layer.
+
+A thirteenth follow-up rewrite step removed the dead Python websocket fallback
+that dispatched listener router endpoint calls into `PluginManager` for
+plugin-owned endpoints. The nearby listener endpoint client and
+`python_script_receiver` listener tests still pass, which narrows the remaining
+Python plugin blocker further toward the manager/worker runtime and the
+legacy Python project-state/server wiring that still constructs that manager.
