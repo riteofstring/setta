@@ -20,8 +20,8 @@ import {
   useLocalStorage,
   usePendingOperations,
   useProjectState,
+  useRunControl,
 } from "state/definitions";
-import { useRunControl } from "state/stores/runtimeStores";
 import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import { OverviewTabNameEnum } from "utils/constants";
 
