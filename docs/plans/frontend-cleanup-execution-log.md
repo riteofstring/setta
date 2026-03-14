@@ -477,3 +477,46 @@ module map and placement guide while this cleanup progresses.
     `frontend/src/state/definitions.ts`, starting with `useLocalStorage` and
     then the adjacent `useSettings`, `useWaitingForLSPResult`,
     `useTypeErrors`, and `useLspDiagnostics` ownership.
+
+## 2026-03-14 16:42:09 PDT
+
+- Slice completed: extracted UI preference and editor-diagnostics stores out of
+  `frontend/src/state/definitions.ts` into
+  `frontend/src/state/stores/uiPreferenceStores.ts` and
+  `frontend/src/state/stores/editorDiagnosticsStores.ts`
+- Key files touched:
+  - `frontend/src/state/stores/uiPreferenceStores.ts`
+  - `frontend/src/state/stores/editorDiagnosticsStores.ts`
+  - `frontend/src/state/stores/uiPreferenceStores.test.ts`
+  - `frontend/src/state/stores/editorDiagnosticsStores.test.ts`
+  - `frontend/src/state/definitions.ts`
+  - `frontend/src/state/actions/localStorage.ts`
+  - `frontend/src/state/actions/uiSettingReveal.ts`
+  - `frontend/src/state/actions/lspDiagnostics.ts`
+  - `frontend/src/state/actions/typeCheck.ts`
+  - `frontend/src/state/actions/nameValidation.ts`
+  - `frontend/src/state/hooks/lsp.ts`
+  - `frontend/src/components/Panes/Overview/Overview.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  - `frontend/src/components/Section/Layouts/CodeArea.tsx`
+  - `frontend/src/forks/xyflow/controls/Controls.tsx`
+  - `frontend/src/forks/xyflow/core/container/ReactFlow.tsx`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/stores/uiPreferenceStores.test.ts src/state/stores/editorDiagnosticsStores.test.ts src/state/actions/localStorage.test.ts src/state/actions/uiSettingReveal.test.ts src/state/actions/projectChatThreads.test.ts src/state/actions/backendLogEvents.test.ts src/state/actions/lspDiagnostics.test.ts src/state/actions/typeCheck.test.ts src/state/actions/formatCode.test.ts src/state/actions/chatSharedEdges.test.ts src/state/actions/project/loadProject.test.ts src/state/actions/projectChatWindowing.test.ts src/state/actions/sectionInfos.test.ts src/state/actions/undo.test.ts src/state/hooks/sectionSizes.integration.test.tsx src/components/Panes/Overview/Overview.test.tsx src/components/Panes/Overview/ProjectConfigs.test.tsx src/components/Panes/UiEditor/UiEditor.test.tsx src/components/AppHeader/ProjectNav.test.tsx src/components/Params/GroupContainer.test.tsx src/components/Section/Header/SectionHeader.test.tsx src/components/Section/Layouts/CodeArea.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Panes/Overview/NotificationsArea.test.tsx src/components/Chat/ChatMessages.lightModeToolCallSurface.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx src/forks/xyflow/core/container/Pane.test.tsx src/forks/xyflow/core/container/ZoomPane.test.ts src/forks/xyflow/minimap/MiniMapNodes.test.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatAuxViewState.integration.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChat.multiSurface.integration.test.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.hydration.integration.test.tsx`
+  - `pnpm -C frontend exec vitest run src/components/AppHeader/SearchBar/ProjectPageSearch.test.ts src/components/Panes/Overview/runInstructionsStateMachineControls.test.ts`
+  - `pnpm -C frontend exec vitest run src/state/stores/editorDiagnosticsStores.test.ts`
+  - `git diff --name-only -- frontend/src docs/plans | sed -e 's#^frontend/##' -e 's#^docs/#../docs/#' | grep -E '\\.(ts|tsx|md)$' | xargs -r pnpm -C frontend exec prettier --check`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/store ownership split and
+    did not change frontend rendering behavior.
+- Commit hash:
+  - `5b8aba179`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/sectionInfos.ts` into clearer read/query,
+    optimistic mutation, and project-chat-windowing sync modules now that
+    `definitions.ts` has been reduced to a thin compatibility index.
