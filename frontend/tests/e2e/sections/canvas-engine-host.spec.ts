@@ -261,6 +261,46 @@ test("canvas engine host opens the selection context menu on selected sections",
   }
 });
 
+test("canvas engine host renders a minimap and recenters from minimap clicks", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, {
+      useCanvasEngineV1: true,
+      showMinimap: true,
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+
+    await createCallableSectionForCanvasEngine(page, projectContext.projectConfigId);
+
+    const minimap = page.getByTestId("rf__minimap");
+    await expect(minimap).toBeVisible();
+
+    const cameraBefore = await readCamera(host);
+    await minimap.click({
+      position: { x: 20, y: 20 },
+    });
+
+    await expect
+      .poll(async () => {
+        const cameraAfterClick = await readCamera(host);
+        return (
+          Math.abs(cameraAfterClick.x - cameraBefore.x) > 0.5 ||
+          Math.abs(cameraAfterClick.y - cameraBefore.y) > 0.5
+        );
+      })
+      .toBe(true);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("canvas engine host mounts readable large sections below the old zoom cutoff", async ({
   page,
 }) => {
