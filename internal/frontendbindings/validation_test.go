@@ -1,6 +1,9 @@
 package frontendbindings
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -955,10 +958,215 @@ func TestCurrentRouteGroupsClassifyEveryConvertedRoute(t *testing.T) {
 	}
 }
 
+func TestCurrentRouteGroupsCoverEveryBareHTTPRouteName(t *testing.T) {
+	repoRoot := testRepoRoot(t)
+
+	bareRouteNames := readBareHTTPRouteIdentifiers(
+		t,
+		filepath.Join(repoRoot, "internal", "httpapi", "route_names.go"),
+	)
+	currentRouteGroupNames := readCurrentRouteGroupIdentifiers(
+		t,
+		filepath.Join(repoRoot, "internal", "frontendbindings", "specs.go"),
+	)
+
+	missing := differenceSortedStrings(bareRouteNames, currentRouteGroupNames)
+	if len(missing) == 0 {
+		return
+	}
+
+	t.Fatalf(
+		"CurrentRouteGroups route inventory drifted from internal/httpapi/route_names.go: missing bare routes %s",
+		strings.Join(missing, ", "),
+	)
+}
+
 func TestCurrentEndpointContractManifest(t *testing.T) {
 	t.Helper()
 
 	assertGoldenFile(t, "endpoint_contract_manifest.txt", renderEndpointContractManifest(CurrentEndpoints()))
+}
+
+func readBareHTTPRouteIdentifiers(t *testing.T, path string) []string {
+	t.Helper()
+
+	file := parseGoTestFile(t, path)
+	seen := map[string]struct{}{}
+
+	for _, declaration := range file.Decls {
+		genDecl, ok := declaration.(*ast.GenDecl)
+		if !ok || genDecl.Tok != token.VAR {
+			continue
+		}
+		for _, spec := range genDecl.Specs {
+			valueSpec, ok := spec.(*ast.ValueSpec)
+			if !ok || len(valueSpec.Names) != 1 || valueSpec.Names[0].Name != "bareRouteNames" {
+				continue
+			}
+			if len(valueSpec.Values) != 1 {
+				t.Fatalf("bareRouteNames declaration in %s has %d values, want 1", path, len(valueSpec.Values))
+			}
+			composite, ok := valueSpec.Values[0].(*ast.CompositeLit)
+			if !ok {
+				t.Fatalf("bareRouteNames declaration in %s is %T, want *ast.CompositeLit", path, valueSpec.Values[0])
+			}
+			for _, element := range composite.Elts {
+				keyValue, ok := element.(*ast.KeyValueExpr)
+				if !ok {
+					t.Fatalf("bareRouteNames entry in %s is %T, want *ast.KeyValueExpr", path, element)
+				}
+				callExpr, ok := keyValue.Key.(*ast.CallExpr)
+				if !ok {
+					t.Fatalf("bareRouteNames key in %s is %T, want *ast.CallExpr", path, keyValue.Key)
+				}
+				if len(callExpr.Args) != 1 {
+					t.Fatalf("bareRouteName(...) entry in %s has %d args, want 1", path, len(callExpr.Args))
+				}
+				routeName, ok := identName(callExpr.Args[0])
+				if !ok || !strings.HasPrefix(routeName, "Route") {
+					t.Fatalf("bareRouteName(...) arg in %s is %T, want route identifier", path, callExpr.Args[0])
+				}
+				seen[routeName] = struct{}{}
+			}
+			return sortedStringKeys(seen)
+		}
+	}
+
+	t.Fatalf("did not find bareRouteNames declaration in %s", path)
+	return nil
+}
+
+func readCurrentRouteGroupIdentifiers(t *testing.T, path string) []string {
+	t.Helper()
+
+	file := parseGoTestFile(t, path)
+	seen := map[string]struct{}{}
+
+	for _, declaration := range file.Decls {
+		funcDecl, ok := declaration.(*ast.FuncDecl)
+		if !ok || funcDecl.Name == nil || funcDecl.Name.Name != "CurrentRouteGroups" {
+			continue
+		}
+		for _, statement := range funcDecl.Body.List {
+			returnStmt, ok := statement.(*ast.ReturnStmt)
+			if !ok || len(returnStmt.Results) != 1 {
+				continue
+			}
+			composite, ok := returnStmt.Results[0].(*ast.CompositeLit)
+			if !ok {
+				t.Fatalf("CurrentRouteGroups return in %s is %T, want *ast.CompositeLit", path, returnStmt.Results[0])
+			}
+			for _, element := range composite.Elts {
+				groupComposite, ok := element.(*ast.CompositeLit)
+				if !ok {
+					t.Fatalf("CurrentRouteGroups element in %s is %T, want *ast.CompositeLit", path, element)
+				}
+				routesComposite := routeGroupRoutes(groupComposite)
+				if routesComposite == nil {
+					t.Fatalf("route group in %s is missing Routes field", path)
+				}
+				for _, routeElement := range routesComposite.Elts {
+					routeComposite, ok := routeElement.(*ast.CompositeLit)
+					if !ok {
+						t.Fatalf("route entry in %s is %T, want *ast.CompositeLit", path, routeElement)
+					}
+					routeIdentifier, ok := routePathIdentifier(routeComposite)
+					if !ok {
+						continue
+					}
+					seen[routeIdentifier] = struct{}{}
+				}
+			}
+			return sortedStringKeys(seen)
+		}
+	}
+
+	t.Fatalf("did not find CurrentRouteGroups declaration in %s", path)
+	return nil
+}
+
+func parseGoTestFile(t *testing.T, path string) *ast.File {
+	t.Helper()
+
+	fileSet := token.NewFileSet()
+	file, err := parser.ParseFile(fileSet, path, nil, 0)
+	if err != nil {
+		t.Fatalf("parse %s: %v", path, err)
+	}
+	return file
+}
+
+func routeGroupRoutes(group *ast.CompositeLit) *ast.CompositeLit {
+	for _, element := range group.Elts {
+		keyValue, ok := element.(*ast.KeyValueExpr)
+		if !ok {
+			continue
+		}
+		key, ok := identName(keyValue.Key)
+		if !ok || key != "Routes" {
+			continue
+		}
+		routesComposite, _ := keyValue.Value.(*ast.CompositeLit)
+		return routesComposite
+	}
+	return nil
+}
+
+func routePathIdentifier(route *ast.CompositeLit) (string, bool) {
+	for _, element := range route.Elts {
+		keyValue, ok := element.(*ast.KeyValueExpr)
+		if !ok {
+			continue
+		}
+		key, ok := identName(keyValue.Key)
+		if !ok || key != "Path" {
+			continue
+		}
+		selector, ok := keyValue.Value.(*ast.SelectorExpr)
+		if !ok {
+			return "", false
+		}
+		xIdent, ok := selector.X.(*ast.Ident)
+		if !ok || xIdent.Name != "httpapi" {
+			return "", false
+		}
+		return selector.Sel.Name, true
+	}
+	return "", false
+}
+
+func identName(expression ast.Expr) (string, bool) {
+	ident, ok := expression.(*ast.Ident)
+	if !ok {
+		return "", false
+	}
+	return ident.Name, true
+}
+
+func differenceSortedStrings(left []string, right []string) []string {
+	rightSet := make(map[string]struct{}, len(right))
+	for _, value := range right {
+		rightSet[value] = struct{}{}
+	}
+
+	difference := make([]string, 0)
+	for _, value := range left {
+		if _, exists := rightSet[value]; exists {
+			continue
+		}
+		difference = append(difference, value)
+	}
+	slices.Sort(difference)
+	return difference
+}
+
+func sortedStringKeys(values map[string]struct{}) []string {
+	keys := make([]string, 0, len(values))
+	for value := range values {
+		keys = append(keys, value)
+	}
+	slices.Sort(keys)
+	return keys
 }
 
 func TestBuildGeneratedBindingsTypeScriptCompile(t *testing.T) {

@@ -166,6 +166,10 @@ Current status:
   output after the repo's Prettier formatting step, so stale generated
   bindings fail in Go tests instead of drifting until a manual regeneration
   pass or later frontend diff
+- the validation suite now also checks that every bare Go HTTP route name
+  listed in `internal/httpapi/route_names.go` is represented somewhere in
+  `CurrentRouteGroups()`, so route-inventory widening cannot silently drift
+  past the binding source of truth
 - a current repo scan shows the only generated frontend contract files under
   `frontend/src` are `generatedRoutes.ts`, `generatedTypes.ts`, and
   `generatedEndpoints.ts`, all emitted by the Go-owned generator; remaining
