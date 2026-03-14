@@ -24,8 +24,8 @@ import { addTemporaryNotification } from "state/actions/notifications";
 import {
   type ProjectChatCustomSlashCommand,
   useAIStore,
-  useLocalStorage,
 } from "state/definitions";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import {
   type AppGenerationMode,
   parseAppGenerationMode,

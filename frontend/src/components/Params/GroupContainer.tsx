@@ -20,12 +20,7 @@ import {
   toggleParamSelected,
 } from "state/actions/sectionInfos";
 import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
-import {
-  useLocalStorage,
-  useProjectState,
-  useResizeEvent,
-  useSettings,
-} from "state/definitions";
+import { useProjectState, useResizeEvent } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useShareCapabilities } from "state/hooks/share";
@@ -34,6 +29,7 @@ import {
   useMisc,
   useTemporaryMiscState,
 } from "state/stores/layoutInteractionStores";
+import { useLocalStorage, useSettings } from "state/stores/uiPreferenceStores";
 import { C } from "utils/c";
 import {
   getEdgesStripHeightKey,

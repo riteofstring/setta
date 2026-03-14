@@ -23,12 +23,10 @@ import {
 import { RiGitCommitLine, RiPlayList2Fill, RiRadarLine } from "react-icons/ri";
 import { TbFolder, TbLayoutDashboard } from "react-icons/tb";
 import { Link } from "react-router-dom";
-import {
-  useLocalStorage,
-  useShareSession,
-} from "state/definitions";
-import { useBackendLogEvents } from "state/stores/feedbackStores";
+import { useShareSession } from "state/definitions";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
+import { useBackendLogEvents } from "state/stores/feedbackStores";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import {
   APP_CHROME_Z_INDEX_CLASS_NAME,
   APP_MENU_Z_INDEX_CLASS_NAME,

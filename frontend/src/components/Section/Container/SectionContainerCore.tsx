@@ -6,13 +6,10 @@ import {
   getEmbeddedAttachedTerminalParentIdForTerminalSection,
 } from "state/actions/sectionInfos";
 import { useIsSectionUIActive } from "state/activeSectionUI";
-import {
-  useAgenticScopeHighlights,
-  useLocalStorage,
-  useProjectState,
-} from "state/definitions";
+import { useAgenticScopeHighlights, useProjectState } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { useTemporaryMiscState } from "state/stores/layoutInteractionStores";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import { getSectionStylePreviewColorKey } from "utils/constants";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";

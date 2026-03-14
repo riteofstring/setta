@@ -12,11 +12,11 @@ import type { ReactNode } from "react";
 import { lazy, Suspense, useEffect } from "react";
 import { createBrowserRouter, Navigate, useParams } from "react-router-dom";
 import { initializeServerMode } from "state/actions/serverMode";
-import { useSettings } from "state/definitions";
 import {
   useAllProjectMetadata,
   useServerMode,
 } from "state/stores/sessionStores";
+import { useSettings } from "state/stores/uiPreferenceStores";
 import {
   HOME_ROUTER_PATH,
   INDEX_ROUTER_PATH,

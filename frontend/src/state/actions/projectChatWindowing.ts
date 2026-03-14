@@ -12,11 +12,11 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import {
   NULL_PROJECT_CONFIG_ID,
   useProjectState,
-  useSettings,
   useShareSession,
   type ZustandProjectState,
 } from "state/definitions";
 import { useAIStore } from "state/stores/aiStores";
+import { useSettings } from "state/stores/uiPreferenceStores";
 import { res200 } from "utils/endpointUtils";
 import {
   route_set_project_chat_window_chat_id,

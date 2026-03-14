@@ -63,11 +63,8 @@ import {
   toggleProjectChatThreadPinned,
   undoLastProjectChatThreadStorageMutation,
 } from "state/actions/projectChatThreads";
-import {
-  useAIStore,
-  useLocalStorage,
-  useProjectState,
-} from "state/definitions";
+import { useAIStore, useProjectState } from "state/definitions";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import {
   buildSearchableTextForMessages,
   countConversationSearchTextMatches,

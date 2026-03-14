@@ -3,8 +3,8 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { useSettings } from "state/definitions";
 import { useMisc } from "state/stores/layoutInteractionStores";
+import { useSettings } from "state/stores/uiPreferenceStores";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import { createSettingsState } from "utils/generatedTypes";

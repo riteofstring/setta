@@ -64,11 +64,11 @@ import {
 } from "state/actions/chatHistory";
 import {
   useAIStore,
-  useLocalStorage,
   useProjectState,
   type ProjectChatCustomSlashCommand,
 } from "state/definitions";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import {
   getDefaultChatAppGenerationDetails,
   resolveChatAppGenerationContextFromMessageState,

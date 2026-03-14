@@ -19,13 +19,10 @@ import {
 import { autoLayout } from "state/actions/sections/sectionPositions";
 import { requestTypeCheck } from "state/actions/typeCheck";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
-import {
-  type ColorModePreference,
-  useLocalStorage,
-  useSettings,
-  useShareSession,
-} from "state/definitions";
+import { useShareSession } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import type { type ColorModePreference } from "state/stores/uiPreferenceStores";
+import { useLocalStorage, useSettings } from "state/stores/uiPreferenceStores";
 import {
   APP_MENU_Z_INDEX_CLASS_NAME,
   PAGE_LOAD_TYPES,

@@ -12,10 +12,10 @@ import {
 import {
   useAIStore,
   useProjectState,
-  useSettings,
   ZustandProjectState,
 } from "state/definitions";
 import { useMatchSorterFilter } from "state/hooks/utils";
+import { useSettings } from "state/stores/uiPreferenceStores";
 import {
   createSettingsState,
   isBaseParentSectionImpl,

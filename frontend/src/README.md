@@ -120,14 +120,18 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
   - `state/definitions.ts` is now the shared index for the remaining
     cross-feature Zustand stores plus the atomic project-store publication
-    helpers on this branch. It is down to `883` lines after moving the AI/chat,
-    app runtime, session/share, browser, search, feedback/status, and
-    layout-interaction clusters into domain-owned modules.
+    helpers on this branch. It is down to `404` lines after moving the AI/chat,
+    app runtime, session/share, browser, search, feedback/status,
+    layout-interaction, UI-preference, and editor-diagnostics clusters into
+    domain-owned modules.
   - `state/stores/aiStores.ts` owns the AI/chat Zustand stores and chat-specific
     store types such as `ChatDetails`, `ChatBranchInfo`, and
     `ProjectChatCustomSlashCommand`.
   - `state/stores/appStores.ts` owns app definition/config/preview state used by
     app-mode rendering, app preview, and app deployment surfaces.
+  - `state/stores/editorDiagnosticsStores.ts` owns LSP waiting flags, type
+    errors, LSP diagnostics, and name-validation errors shared across section
+    authoring, formatting, and validation surfaces.
   - `state/stores/feedbackStores.ts` owns modal, notifications, and backend-log
     store state used across shell and overview surfaces.
   - `state/stores/fileBrowserStores.ts` owns the standalone, home-page,
@@ -142,6 +146,9 @@ feature-local adapters around them when the consuming surface is non-trivial.
     state used by the header search surfaces and param search highlighting.
   - `state/stores/sessionStores.ts` owns share-session, server-mode, and
     all-project-metadata state used across IDE/share/app/launcher flows.
+  - `state/stores/uiPreferenceStores.ts` owns persisted UI chrome preferences
+    plus shared settings state used by panes, shortcuts, minimap/grid behavior,
+    and project-chat local preference surfaces.
   - `state/storePersistStorage.ts` owns the shared persisted-storage fallback
     used by the persisted store modules.
   - `state/actions/*` owns named mutation and query helpers, with shared chat
@@ -197,8 +204,9 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/definitions.ts` remaining persisted UI chrome and editor/runtime state
-  such as `useLocalStorage`, `useSettings`, `useWaitingForLSPResult`,
-  `useTypeErrors`, and `useLspDiagnostics`
+- `state/actions/sectionInfos.ts` query/command split across effective-impl
+  derivation, optimistic section mutations, and project-chat windowing sync
+- `state/actions/uiSettingReveal.ts` and adjacent pane chrome helpers that still
+  mix persisted-pane writes, window-space reveal logic, and UI recovery paths
 - shared project chat surfaces under `components/Chat/*`,
   `components/Panes/Overview/ProjectLevelAI/*`, and `components/ChatWindowing/*`

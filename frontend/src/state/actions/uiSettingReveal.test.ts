@@ -1,5 +1,6 @@
 import { useActiveSectionUI } from "state/activeSectionUI";
-import { useLocalStorage, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import { resetProjectStores } from "state/utils";
 import * as endpoints from "utils/generatedEndpoints";
 import type {

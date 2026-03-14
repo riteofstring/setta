@@ -3,8 +3,9 @@ import type React from "react";
 import type { SetStateAction } from "react";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
-import { useLocalStorage, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useTemporaryMiscState } from "state/stores/layoutInteractionStores";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import { getSectionStylePreviewColorKey } from "utils/constants";
 import {
   SectionTypeEnum,

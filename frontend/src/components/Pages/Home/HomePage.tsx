@@ -32,9 +32,7 @@ import {
   loadAllProjectMetadata,
   useCreateAndGoToProjectConfig,
 } from "state/actions/project/loadProject";
-import {
-  useLocalStorage,
-} from "state/definitions";
+import { useWindowSize } from "state/hooks/utils";
 import { useHomeFileBrowserState } from "state/stores/fileBrowserStores";
 import { useProjectLoading } from "state/stores/projectStatusStores";
 import { useHomePageSearch } from "state/stores/searchStores";
@@ -42,7 +40,7 @@ import {
   useAllProjectMetadata,
   useShareSession,
 } from "state/stores/sessionStores";
-import { useWindowSize } from "state/hooks/utils";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import {
   APP_CHROME_Z_INDEX_CLASS_NAME,
   buildSharePath,

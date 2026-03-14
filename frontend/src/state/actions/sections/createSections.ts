@@ -2,11 +2,11 @@ import { setCenter } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { getPaneRect } from "forks/xyflow/core/utils/graph";
 import {
-  useLocalStorage,
   useNodeInternals,
   useProjectState,
   useShareSession,
 } from "state/definitions";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import { CodeLanguage, resolveCodeLanguageFromPath } from "utils/codeLanguage";
 import { res200 } from "utils/endpointUtils";
 import { resolveFileDropSectionKind } from "utils/fileDropSectionKind";

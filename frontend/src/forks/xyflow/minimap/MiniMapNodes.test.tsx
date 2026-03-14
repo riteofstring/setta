@@ -3,12 +3,9 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import {
-  useLocalStorage,
-  useNodeInternals,
-  useProjectState,
-} from "state/definitions";
+import { useNodeInternals, useProjectState } from "state/definitions";
 import { useTemporaryMiscState } from "state/stores/layoutInteractionStores";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSettings } from "state/definitions";
+import { useSettings } from "state/stores/uiPreferenceStores";
 import { res200 } from "utils/endpointUtils";
 import { route_load_settings } from "utils/generatedEndpoints";
 import { SettingsState } from "utils/generatedTypes";

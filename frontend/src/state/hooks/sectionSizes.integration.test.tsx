@@ -3,12 +3,9 @@ import {
   getResizeStartAutoSizeUpdate,
   setSectionSize,
 } from "state/actions/sections/sectionSizes";
-import {
-  useProjectState,
-  useResizeEvent,
-  useSettings,
-} from "state/definitions";
+import { useProjectState, useResizeEvent } from "state/definitions";
 import { useTemporaryMiscState } from "state/stores/layoutInteractionStores";
+import { useSettings } from "state/stores/uiPreferenceStores";
 import { resetProjectStores } from "state/utils";
 import {
   getKwargsControlsHeightKey,

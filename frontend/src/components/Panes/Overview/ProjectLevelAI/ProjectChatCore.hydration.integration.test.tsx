@@ -4,6 +4,7 @@ import "testUtils/reactRefreshPreamble";
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("components/Chat/ChatInput", () => ({
@@ -26,11 +27,7 @@ vi.mock("state/actions/aiHydration", async () => {
 });
 
 import { getLLMChatHydrationOutcome } from "state/actions/aiHydration";
-import {
-  useAIStore,
-  useLocalStorage,
-  useProjectState,
-} from "state/definitions";
+import { useAIStore, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   EngineTypeEnum,

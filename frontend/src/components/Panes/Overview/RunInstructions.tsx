@@ -28,20 +28,19 @@ import {
 } from "state/actions/stateMachineRuns";
 import {
   useAIStore,
-  useLocalStorage,
   useProjectState,
-  useSettings,
   ZustandProjectState,
 } from "state/definitions";
-import {
-  type CustomRunItem,
-  useRunControl,
-} from "state/stores/projectStatusStores";
 import { useShareCapabilities } from "state/hooks/share";
+import {
+  useRunControl,
+  type CustomRunItem,
+} from "state/stores/projectStatusStores";
 import {
   useAllProjectMetadata,
   useShareSession,
 } from "state/stores/sessionStores";
+import { useLocalStorage, useSettings } from "state/stores/uiPreferenceStores";
 import {
   getPythonCodegenTarget,
   isPluginCodegenTarget,

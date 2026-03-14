@@ -2,6 +2,7 @@
 
 import { act, useEffect, useState, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -9,11 +10,7 @@ import {
   buildStandaloneWindowSpaceProjectChatSurfaceId,
   buildWorkspaceProjectChatWindowSurfaceId,
 } from "components/ChatWindowing/projectChatSurfaceIds";
-import {
-  useAIStore,
-  useLocalStorage,
-  useProjectState,
-} from "state/definitions";
+import { useAIStore, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   buildSearchableTextForMessage,

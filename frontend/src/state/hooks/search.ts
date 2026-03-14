@@ -11,15 +11,12 @@ import {
   getTopLevelSectionIdsForDisplay,
 } from "state/actions/sectionInfos";
 import { getAllVisibleParamsInSection } from "state/actions/sections/sectionContents";
-import {
-  useProjectState,
-  useSettings,
-  ZustandProjectState,
-} from "state/definitions";
+import { useProjectState, ZustandProjectState } from "state/definitions";
 import {
   useProjectSearch,
   type ZustandProjectSearch,
 } from "state/stores/searchStores";
+import { useSettings } from "state/stores/uiPreferenceStores";
 import { clamp } from "utils/utils";
 
 export function useUpdateProjectSearch() {

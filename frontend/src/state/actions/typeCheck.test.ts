@@ -1,4 +1,5 @@
-import { useProjectState, useTypeErrors } from "state/definitions";
+import { useProjectState } from "state/definitions";
+import { useTypeErrors } from "state/stores/editorDiagnosticsStores";
 import { resetProjectStores } from "state/utils";
 import {
   createProjectConfig,

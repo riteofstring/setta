@@ -24,7 +24,6 @@ import {
   PendingOperation,
   runWithAtomicallyPublishedProjectStores,
   useAllProjectMetadata,
-  useLocalStorage,
   useNodeInternals,
   usePendingOperations,
   useProjectState,
@@ -34,6 +33,7 @@ import {
 } from "state/definitions";
 import { useToolArgumentPreview } from "state/stores/aiStores";
 import { useMisc } from "state/stores/layoutInteractionStores";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import type { ResponseDataAndStatus } from "utils/endpointUtils";
 import { res200 } from "utils/endpointUtils";
 import {

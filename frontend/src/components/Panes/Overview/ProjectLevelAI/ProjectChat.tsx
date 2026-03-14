@@ -60,10 +60,10 @@ import { addPersistentNotification } from "state/actions/notifications";
 import { setProjectChatThreadGroupAssignment } from "state/actions/projectChatThreads";
 import {
   useAIStore,
-  useLocalStorage,
   useProjectState,
   type ProjectChatAuxView,
 } from "state/definitions";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import { getDefaultChatAppGenerationDetails } from "state/utils/chatAppGeneration";
 import { tokenizeConversationSearchQuery } from "utils/conversationSearch";
 import {

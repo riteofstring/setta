@@ -5,7 +5,8 @@ import {
   usePluginRuntimeStore,
 } from "plugins/runtime";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
-import { useLocalStorage, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import {
   REQUIRED_UI_EDITOR_TABS,
   UIEditorTabNameEnum,

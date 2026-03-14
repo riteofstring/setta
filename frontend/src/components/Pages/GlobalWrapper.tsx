@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Navigate, useLocation, useParams } from "react-router-dom";
 import { useLoadSettings } from "state/actions/settings";
 import { openWebSocket } from "state/actions/websocketReceive";
-import { useLocalStorage, useSettings } from "state/definitions";
 import { useProjectLoading } from "state/stores/projectStatusStores";
 import { useShareSession } from "state/stores/sessionStores";
+import { useLocalStorage, useSettings } from "state/stores/uiPreferenceStores";
 import { HOME_ROUTER_PATH, SETTINGS_ROUTER_PATH } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import {

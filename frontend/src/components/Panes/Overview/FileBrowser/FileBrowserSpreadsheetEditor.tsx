@@ -19,7 +19,7 @@ import {
   FiX,
 } from "react-icons/fi";
 import { List, useListRef } from "react-window";
-import { useLocalStorage } from "state/definitions";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import { uploadBinaryPayload } from "utils/binaryUpload";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { getErrorDetail, res200 } from "utils/endpointUtils";

@@ -14,12 +14,13 @@ import {
 } from "state/actions/localStorage";
 import { openDeleteProjectWarningModal } from "state/actions/modal";
 import { loadShareProjectConfig } from "state/actions/share";
-import { useLocalStorage, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
+import { useShareCapabilities } from "state/hooks/share";
 import {
   useAllProjectMetadata,
   useShareSession,
 } from "state/stores/sessionStores";
-import { useShareCapabilities } from "state/hooks/share";
+import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";
 import { dedupeStringIds } from "utils/dedupeStringIds";
 import type { ProjectConfig } from "utils/generatedTypes";
