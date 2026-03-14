@@ -1,7 +1,7 @@
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
-import { useEffect, useMemo, useState } from "react";
+import { type ChangeEvent, useEffect, useMemo, useState } from "react";
 import {
   deleteSelectedStateMachineEdges,
   replaceStateMachineEdge,
@@ -13,11 +13,16 @@ import { ChatPermissionModeEnum, SectionTypeEnum } from "utils/generatedTypes";
 type WorkflowEdge = ReturnType<
   typeof useProjectState.getState
 >["projectConfig"]["stateMachineEdges"][number];
+type WorkflowTargetAction = NonNullable<WorkflowEdge["targetAction"]>;
 type WorkflowSourceFilterType = "run_completed" | "run_failed" | "signal";
 type WorkflowTargetActionType = "send_prompt" | "reset_thread";
 type WorkflowThreadStrategy =
   | "continue_current_thread"
   | "new_thread_before_send";
+type WorkflowPromptSourceType =
+  | "inline_prompt"
+  | "prompt_template"
+  | "prompt_section";
 
 type WorkflowEdgeInspectorProps = {
   edgeId: string;
@@ -51,6 +56,19 @@ const TARGET_ACTION_OPTIONS = [
     ],
   },
 ];
+
+const PROMPT_SOURCE_OPTIONS = [
+  {
+    group: "Prompt Source",
+    items: [
+      { id: "inline_prompt", name: "Inline Prompt" },
+      { id: "prompt_template", name: "Prompt Template" },
+      { id: "prompt_section", name: "Prompt Section" },
+    ],
+  },
+];
+
+const PROMPT_INPUTS_PLACEHOLDER = '{\n  "name": "Kevin"\n}';
 
 const THREAD_STRATEGY_OPTIONS = [
   {
@@ -86,9 +104,82 @@ function cloneWorkflowEdge(edge: WorkflowEdge): WorkflowEdge {
   return {
     ...edge,
     sourceFilter: edge.sourceFilter ? { ...edge.sourceFilter } : null,
-    targetAction: edge.targetAction ? { ...edge.targetAction } : null,
+    targetAction: edge.targetAction
+      ? {
+          ...edge.targetAction,
+          promptInputs: { ...(edge.targetAction.promptInputs ?? {}) },
+        }
+      : null,
     style: edge.style ? { ...edge.style } : null,
   };
+}
+
+function createSendPromptAction(
+  currentAction: WorkflowEdge["targetAction"],
+): WorkflowTargetAction {
+  return {
+    type: "send_prompt",
+    promptTemplateId:
+      currentAction?.type === "send_prompt"
+        ? currentAction.promptTemplateId ?? null
+        : null,
+    promptSectionId:
+      currentAction?.type === "send_prompt"
+        ? currentAction.promptSectionId ?? null
+        : null,
+    inlinePrompt:
+      currentAction?.type === "send_prompt"
+        ? currentAction.inlinePrompt ?? null
+        : null,
+    promptInputs:
+      currentAction?.type === "send_prompt"
+        ? { ...(currentAction.promptInputs ?? {}) }
+        : {},
+    threadStrategy: currentAction?.threadStrategy ?? "continue_current_thread",
+    stopIfRunning: currentAction?.stopIfRunning ?? false,
+    engineConfigId: currentAction?.engineConfigId ?? null,
+    agentProfileId: currentAction?.agentProfileId ?? null,
+    permissionMode: currentAction?.permissionMode ?? null,
+    searchEnabled: currentAction?.searchEnabled ?? null,
+  };
+}
+
+function createResetThreadAction(
+  currentAction: WorkflowEdge["targetAction"],
+): WorkflowTargetAction {
+  return {
+    type: "reset_thread",
+    promptTemplateId: null,
+    promptSectionId: null,
+    inlinePrompt: null,
+    promptInputs: {},
+    threadStrategy: currentAction?.threadStrategy ?? "continue_current_thread",
+    stopIfRunning: currentAction?.stopIfRunning ?? false,
+    engineConfigId: currentAction?.engineConfigId ?? null,
+    agentProfileId: currentAction?.agentProfileId ?? null,
+    permissionMode: currentAction?.permissionMode ?? null,
+    searchEnabled: currentAction?.searchEnabled ?? null,
+  };
+}
+
+function getInitialPromptSourceType(
+  edge: WorkflowEdge | null,
+): WorkflowPromptSourceType {
+  const targetAction = edge?.targetAction;
+  if (targetAction?.type !== "send_prompt") {
+    return "inline_prompt";
+  }
+  if (targetAction.promptSectionId) {
+    return "prompt_section";
+  }
+  if (targetAction.promptTemplateId) {
+    return "prompt_template";
+  }
+  return "inline_prompt";
+}
+
+function formatPromptInputsText(promptInputs: Record<string, string>): string {
+  return JSON.stringify(promptInputs, null, 2);
 }
 
 function getSectionTypeById(
@@ -110,10 +201,30 @@ function getSectionTypeById(
   return impl.type ?? null;
 }
 
+function getPromptSectionOptions(
+  state: ReturnType<typeof useProjectState.getState>,
+) {
+  return [
+    {
+      group: "Prompt Sections",
+      items: Object.keys(state.projectConfig.sectionVariantMap)
+        .filter(
+          (sectionId) =>
+            getSectionTypeById(state, sectionId) === SectionTypeEnum.Prompt,
+        )
+        .map((sectionId) => ({
+          id: sectionId,
+          name: state.sections[sectionId]?.name ?? sectionId,
+        })),
+    },
+  ];
+}
+
 function sanitizeWorkflowEdge(
   edge: WorkflowEdge,
   sourceType: SectionTypeEnum | null,
   targetType: SectionTypeEnum | null,
+  promptSourceType: WorkflowPromptSourceType,
 ): WorkflowEdge {
   const nextEdge = cloneWorkflowEdge(edge);
   if (sourceType !== SectionTypeEnum.Chat) {
@@ -145,32 +256,37 @@ function sanitizeWorkflowEdge(
 
   const actionType = (nextEdge.targetAction?.type ??
     "reset_thread") as WorkflowTargetActionType;
-  const baseAction = {
-    type: actionType,
-    threadStrategy: (nextEdge.targetAction?.threadStrategy ??
-      "continue_current_thread") as WorkflowThreadStrategy,
-    stopIfRunning: nextEdge.targetAction?.stopIfRunning ?? false,
-    engineConfigId: nextEdge.targetAction?.engineConfigId ?? null,
-    agentProfileId: nextEdge.targetAction?.agentProfileId ?? null,
-    permissionMode: nextEdge.targetAction?.permissionMode ?? null,
-    searchEnabled: nextEdge.targetAction?.searchEnabled ?? null,
-  };
 
   if (actionType === "reset_thread") {
+    nextEdge.targetAction = createResetThreadAction(nextEdge.targetAction);
+    return nextEdge;
+  }
+
+  const sendPromptAction = createSendPromptAction(nextEdge.targetAction);
+  if (promptSourceType === "prompt_template") {
     nextEdge.targetAction = {
-      ...baseAction,
-      type: "reset_thread",
-      promptTemplateId: null,
+      ...sendPromptAction,
+      promptTemplateId: sendPromptAction.promptTemplateId ?? null,
+      promptSectionId: null,
       inlinePrompt: null,
     };
     return nextEdge;
   }
-
+  if (promptSourceType === "prompt_section") {
+    nextEdge.targetAction = {
+      ...sendPromptAction,
+      promptTemplateId: null,
+      promptSectionId: sendPromptAction.promptSectionId ?? null,
+      inlinePrompt: null,
+    };
+    return nextEdge;
+  }
   nextEdge.targetAction = {
-    ...baseAction,
-    type: "send_prompt",
-    promptTemplateId: nextEdge.targetAction?.promptTemplateId ?? null,
-    inlinePrompt: nextEdge.targetAction?.inlinePrompt ?? null,
+    ...sendPromptAction,
+    promptTemplateId: null,
+    promptSectionId: null,
+    inlinePrompt: sendPromptAction.inlinePrompt ?? null,
+    promptInputs: {},
   };
   return nextEdge;
 }
@@ -179,8 +295,18 @@ function getValidationError(
   edge: WorkflowEdge,
   sourceType: SectionTypeEnum | null,
   targetType: SectionTypeEnum | null,
+  promptSourceType: WorkflowPromptSourceType,
+  promptInputsError: string | null,
 ): string | null {
-  const sanitizedEdge = sanitizeWorkflowEdge(edge, sourceType, targetType);
+  if (promptInputsError) {
+    return promptInputsError;
+  }
+  const sanitizedEdge = sanitizeWorkflowEdge(
+    edge,
+    sourceType,
+    targetType,
+    promptSourceType,
+  );
   if (sourceType === SectionTypeEnum.Chat) {
     const sourceFilter = sanitizedEdge.sourceFilter;
     if (!sourceFilter) {
@@ -202,10 +328,34 @@ function getValidationError(
       return "Chat targets need a workflow action.";
     }
     if (targetAction.type === "send_prompt") {
+      const configuredSourceCount = [
+        Boolean(targetAction.promptTemplateId),
+        Boolean(targetAction.promptSectionId),
+        Boolean(targetAction.inlinePrompt?.trim()),
+      ].filter(Boolean).length;
+      if (configuredSourceCount > 1) {
+        return "Send Prompt requires exactly one prompt template, prompt section, or inline prompt.";
+      }
+      if (promptSourceType === "prompt_template") {
+        if (!targetAction.promptTemplateId) {
+          return "Select a prompt template.";
+        }
+        return null;
+      }
+      if (promptSourceType === "prompt_section") {
+        if (!targetAction.promptSectionId) {
+          return "Select a prompt section.";
+        }
+        return null;
+      }
       const hasTemplate = Boolean(targetAction.promptTemplateId);
+      const hasPromptSection = Boolean(targetAction.promptSectionId);
       const hasInlinePrompt = Boolean(targetAction.inlinePrompt?.trim());
-      if (hasTemplate === hasInlinePrompt) {
-        return "Send Prompt requires exactly one prompt template or inline prompt.";
+      if (
+        [hasTemplate, hasPromptSection, hasInlinePrompt].filter(Boolean)
+          .length !== 1
+      ) {
+        return "Send Prompt requires exactly one prompt template, prompt section, or inline prompt.";
       }
     }
   }
@@ -257,12 +407,33 @@ export function StateMachineEdgeInspector({
     }),
     _.isEqual,
   );
+  const promptSectionOptions = useProjectState(
+    (state) => getPromptSectionOptions(state),
+    _.isEqual,
+  );
   const [draftEdge, setDraftEdge] = useState<WorkflowEdge | null>(
     edgeDetails.edge ? cloneWorkflowEdge(edgeDetails.edge) : null,
+  );
+  const [promptSourceType, setPromptSourceType] =
+    useState<WorkflowPromptSourceType>(
+      getInitialPromptSourceType(edgeDetails.edge),
+    );
+  const [promptInputsText, setPromptInputsText] = useState(
+    formatPromptInputsText(edgeDetails.edge?.targetAction?.promptInputs ?? {}),
+  );
+  const [promptInputsError, setPromptInputsError] = useState<string | null>(
+    null,
   );
 
   useEffect(() => {
     setDraftEdge(edgeDetails.edge ? cloneWorkflowEdge(edgeDetails.edge) : null);
+    setPromptSourceType(getInitialPromptSourceType(edgeDetails.edge));
+    setPromptInputsText(
+      formatPromptInputsText(
+        edgeDetails.edge?.targetAction?.promptInputs ?? {},
+      ),
+    );
+    setPromptInputsError(null);
   }, [edgeDetails.edge]);
 
   const promptTemplateOptions = useMemo(
@@ -305,11 +476,14 @@ export function StateMachineEdgeInspector({
     draftEdge,
     edgeDetails.sourceType,
     edgeDetails.targetType,
+    promptSourceType,
   );
   const validationError = getValidationError(
     draftEdge,
     edgeDetails.sourceType,
     edgeDetails.targetType,
+    promptSourceType,
+    promptInputsError,
   );
   const isDirty = !_.isEqual(sanitizedDraftEdge, edgeDetails.edge);
   const isDisabled = !canEditStructure;
@@ -321,6 +495,43 @@ export function StateMachineEdgeInspector({
       }
       return updater(current);
     });
+  }
+
+  function handlePromptInputsChange(event: ChangeEvent<HTMLTextAreaElement>) {
+    const nextText = event.target.value;
+    setPromptInputsText(nextText);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(nextText);
+    } catch {
+      setPromptInputsError("Prompt bindings must be valid JSON.");
+      return;
+    }
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      setPromptInputsError("Prompt bindings must be a JSON object.");
+      return;
+    }
+    const nextPromptInputs: Record<string, string> = {};
+    for (const [key, value] of Object.entries(
+      parsed as Record<string, unknown>,
+    )) {
+      if (typeof value !== "string") {
+        setPromptInputsError("Prompt binding values must be strings.");
+        return;
+      }
+      nextPromptInputs[key] = value;
+    }
+    setPromptInputsError(null);
+    updateDraft((current) => ({
+      ...current,
+      targetAction:
+        current.targetAction?.type === "send_prompt"
+          ? {
+              ...current.targetAction,
+              promptInputs: nextPromptInputs,
+            }
+          : current.targetAction,
+    }));
   }
 
   function applyChanges(): void {
@@ -475,49 +686,18 @@ export function StateMachineEdgeInspector({
                   ...current,
                   targetAction:
                     value === "send_prompt"
-                      ? {
-                          type: "send_prompt",
-                          promptTemplateId:
-                            current.targetAction?.type === "send_prompt"
-                              ? current.targetAction.promptTemplateId
-                              : null,
-                          inlinePrompt:
-                            current.targetAction?.type === "send_prompt"
-                              ? current.targetAction.inlinePrompt
-                              : null,
-                          threadStrategy:
-                            current.targetAction?.threadStrategy ??
-                            "continue_current_thread",
-                          stopIfRunning:
-                            current.targetAction?.stopIfRunning ?? false,
-                          engineConfigId:
-                            current.targetAction?.engineConfigId ?? null,
-                          agentProfileId:
-                            current.targetAction?.agentProfileId ?? null,
-                          permissionMode:
-                            current.targetAction?.permissionMode ?? null,
-                          searchEnabled:
-                            current.targetAction?.searchEnabled ?? null,
-                        }
-                      : {
-                          type: "reset_thread",
-                          promptTemplateId: null,
-                          inlinePrompt: null,
-                          threadStrategy:
-                            current.targetAction?.threadStrategy ??
-                            "continue_current_thread",
-                          stopIfRunning:
-                            current.targetAction?.stopIfRunning ?? false,
-                          engineConfigId:
-                            current.targetAction?.engineConfigId ?? null,
-                          agentProfileId:
-                            current.targetAction?.agentProfileId ?? null,
-                          permissionMode:
-                            current.targetAction?.permissionMode ?? null,
-                          searchEnabled:
-                            current.targetAction?.searchEnabled ?? null,
-                        },
+                      ? createSendPromptAction(current.targetAction)
+                      : createResetThreadAction(current.targetAction),
                 }));
+                if (value === "send_prompt") {
+                  setPromptSourceType(
+                    (currentPromptSourceType) =>
+                      currentPromptSourceType ?? "inline_prompt",
+                  );
+                  return;
+                }
+                setPromptInputsText(formatPromptInputsText({}));
+                setPromptInputsError(null);
               }}
               isDisabled={isDisabled}
               placeholder="Choose a chat action"
@@ -526,65 +706,144 @@ export function StateMachineEdgeInspector({
             {draftEdge.targetAction?.type === "send_prompt" ? (
               <>
                 <IdNameCombobox
-                  allItems={promptTemplateOptions}
-                  value={draftEdge.targetAction.promptTemplateId}
-                  inputDivId="workflow-edge-prompt-template"
-                  onSelectedItemChange={(value) =>
-                    updateDraft((current) => ({
-                      ...current,
-                      targetAction: {
-                        ...(current.targetAction ?? {
-                          type: "send_prompt",
-                          threadStrategy: "continue_current_thread",
-                          stopIfRunning: false,
-                          engineConfigId: null,
-                          agentProfileId: null,
-                          permissionMode: null,
-                          searchEnabled: null,
-                        }),
-                        type: "send_prompt",
-                        promptTemplateId: value,
-                        inlinePrompt: value
-                          ? null
-                          : current.targetAction?.inlinePrompt ?? null,
-                      },
-                    }))
-                  }
+                  allItems={PROMPT_SOURCE_OPTIONS}
+                  value={promptSourceType}
+                  inputDivId="workflow-edge-prompt-source"
+                  onSelectedItemChange={(value) => {
+                    if (!value) {
+                      return;
+                    }
+                    const nextPromptSourceType =
+                      value as WorkflowPromptSourceType;
+                    setPromptSourceType(nextPromptSourceType);
+                    updateDraft((current) => {
+                      const nextTargetAction = createSendPromptAction(
+                        current.targetAction,
+                      );
+                      if (nextPromptSourceType === "inline_prompt") {
+                        return {
+                          ...current,
+                          targetAction: {
+                            ...nextTargetAction,
+                            promptTemplateId: null,
+                            promptSectionId: null,
+                            promptInputs: {},
+                          },
+                        };
+                      }
+                      return {
+                        ...current,
+                        targetAction: {
+                          ...nextTargetAction,
+                          inlinePrompt: null,
+                          promptTemplateId:
+                            nextPromptSourceType === "prompt_template"
+                              ? nextTargetAction.promptTemplateId
+                              : null,
+                          promptSectionId:
+                            nextPromptSourceType === "prompt_section"
+                              ? nextTargetAction.promptSectionId
+                              : null,
+                        },
+                      };
+                    });
+                    if (nextPromptSourceType === "inline_prompt") {
+                      setPromptInputsText(formatPromptInputsText({}));
+                      setPromptInputsError(null);
+                    }
+                  }}
                   isDisabled={isDisabled}
-                  placeholder="Prompt template (optional)"
-                  selectedItemCanBeNull
+                  placeholder="Prompt source"
                 />
-                <label className="flex flex-col gap-1 text-xs text-setta-600 dark:text-setta-300">
-                  Inline Prompt
-                  <textarea
-                    data-testid="workflow-edge-inline-prompt"
-                    value={draftEdge.targetAction.inlinePrompt ?? ""}
-                    onChange={(event) =>
+
+                {promptSourceType === "prompt_template" ? (
+                  <IdNameCombobox
+                    allItems={promptTemplateOptions}
+                    value={draftEdge.targetAction.promptTemplateId}
+                    inputDivId="workflow-edge-prompt-template"
+                    onSelectedItemChange={(value) =>
                       updateDraft((current) => ({
                         ...current,
                         targetAction: {
-                          ...(current.targetAction ?? {
-                            type: "send_prompt",
-                            threadStrategy: "continue_current_thread",
-                            stopIfRunning: false,
-                            engineConfigId: null,
-                            agentProfileId: null,
-                            permissionMode: null,
-                            searchEnabled: null,
-                          }),
-                          type: "send_prompt",
-                          inlinePrompt: event.target.value,
-                          promptTemplateId: event.target.value.trim()
-                            ? null
-                            : current.targetAction?.promptTemplateId ?? null,
+                          ...createSendPromptAction(current.targetAction),
+                          promptTemplateId: value,
+                          promptSectionId: null,
+                          inlinePrompt: null,
                         },
                       }))
                     }
-                    disabled={isDisabled}
-                    placeholder="Write the prompt this edge should send."
-                    className="min-h-[110px] resize-y rounded border border-setta-300 bg-white px-2 py-2 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
+                    isDisabled={isDisabled}
+                    placeholder="Prompt template"
+                    selectedItemCanBeNull
                   />
-                </label>
+                ) : null}
+
+                {promptSourceType === "prompt_section" ? (
+                  <IdNameCombobox
+                    allItems={promptSectionOptions}
+                    value={draftEdge.targetAction.promptSectionId}
+                    inputDivId="workflow-edge-prompt-section"
+                    onSelectedItemChange={(value) =>
+                      updateDraft((current) => ({
+                        ...current,
+                        targetAction: {
+                          ...createSendPromptAction(current.targetAction),
+                          promptTemplateId: null,
+                          promptSectionId: value,
+                          inlinePrompt: null,
+                        },
+                      }))
+                    }
+                    isDisabled={isDisabled}
+                    placeholder="Prompt section"
+                    selectedItemCanBeNull
+                  />
+                ) : null}
+
+                {promptSourceType === "inline_prompt" ? (
+                  <label className="flex flex-col gap-1 text-xs text-setta-600 dark:text-setta-300">
+                    Inline Prompt
+                    <textarea
+                      data-testid="workflow-edge-inline-prompt"
+                      value={draftEdge.targetAction.inlinePrompt ?? ""}
+                      onChange={(event) =>
+                        updateDraft((current) => ({
+                          ...current,
+                          targetAction: {
+                            ...createSendPromptAction(current.targetAction),
+                            promptTemplateId: null,
+                            promptSectionId: null,
+                            inlinePrompt: event.target.value,
+                            promptInputs: {},
+                          },
+                        }))
+                      }
+                      disabled={isDisabled}
+                      placeholder="Write the prompt this edge should send."
+                      className="min-h-[110px] resize-y rounded border border-setta-300 bg-white px-2 py-2 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
+                    />
+                  </label>
+                ) : null}
+
+                {promptSourceType !== "inline_prompt" ? (
+                  <label className="flex flex-col gap-1 text-xs text-setta-600 dark:text-setta-300">
+                    Prompt Bindings JSON
+                    <textarea
+                      data-testid="workflow-edge-prompt-inputs"
+                      value={promptInputsText}
+                      onChange={handlePromptInputsChange}
+                      disabled={isDisabled}
+                      placeholder={PROMPT_INPUTS_PLACEHOLDER}
+                      spellCheck="false"
+                      className="min-h-[110px] resize-y rounded border border-setta-300 bg-white px-2 py-2 font-mono text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
+                    />
+                    <p className="text-[11px] text-setta-500 dark:text-setta-400">
+                      Prompt section defaults apply first. Edge bindings
+                      override matching keys.
+                    </p>
+                  </label>
+                ) : null}
+
                 <IdNameCombobox
                   allItems={THREAD_STRATEGY_OPTIONS}
                   value={
@@ -599,17 +858,7 @@ export function StateMachineEdgeInspector({
                     updateDraft((current) => ({
                       ...current,
                       targetAction: {
-                        ...(current.targetAction ?? {
-                          type: "send_prompt",
-                          promptTemplateId: null,
-                          inlinePrompt: null,
-                          stopIfRunning: false,
-                          engineConfigId: null,
-                          agentProfileId: null,
-                          permissionMode: null,
-                          searchEnabled: null,
-                        }),
-                        type: "send_prompt",
+                        ...createSendPromptAction(current.targetAction),
                         threadStrategy: value as WorkflowThreadStrategy,
                       },
                     }));
@@ -625,17 +874,7 @@ export function StateMachineEdgeInspector({
                     updateDraft((current) => ({
                       ...current,
                       targetAction: {
-                        ...(current.targetAction ?? {
-                          type: "send_prompt",
-                          promptTemplateId: null,
-                          inlinePrompt: null,
-                          threadStrategy: "continue_current_thread",
-                          stopIfRunning: false,
-                          agentProfileId: null,
-                          permissionMode: null,
-                          searchEnabled: null,
-                        }),
-                        type: "send_prompt",
+                        ...createSendPromptAction(current.targetAction),
                         engineConfigId: value,
                       },
                     }))
@@ -652,17 +891,7 @@ export function StateMachineEdgeInspector({
                     updateDraft((current) => ({
                       ...current,
                       targetAction: {
-                        ...(current.targetAction ?? {
-                          type: "send_prompt",
-                          promptTemplateId: null,
-                          inlinePrompt: null,
-                          threadStrategy: "continue_current_thread",
-                          stopIfRunning: false,
-                          engineConfigId: null,
-                          agentProfileId: null,
-                          searchEnabled: null,
-                        }),
-                        type: "send_prompt",
+                        ...createSendPromptAction(current.targetAction),
                         permissionMode: value,
                       },
                     }))
@@ -681,17 +910,7 @@ export function StateMachineEdgeInspector({
                       updateDraft((current) => ({
                         ...current,
                         targetAction: {
-                          ...(current.targetAction ?? {
-                            type: "send_prompt",
-                            promptTemplateId: null,
-                            inlinePrompt: null,
-                            threadStrategy: "continue_current_thread",
-                            stopIfRunning: false,
-                            engineConfigId: null,
-                            agentProfileId: null,
-                            permissionMode: null,
-                          }),
-                          type: "send_prompt",
+                          ...createSendPromptAction(current.targetAction),
                           searchEnabled: event.target.checked,
                         },
                       }))
@@ -711,20 +930,8 @@ export function StateMachineEdgeInspector({
                     updateDraft((current) => ({
                       ...current,
                       targetAction: {
-                        ...(current.targetAction ?? {
-                          type: "reset_thread",
-                          promptTemplateId: null,
-                          inlinePrompt: null,
-                          threadStrategy: "continue_current_thread",
-                          engineConfigId: null,
-                          agentProfileId: null,
-                          permissionMode: null,
-                          searchEnabled: null,
-                        }),
-                        type: "reset_thread",
+                        ...createResetThreadAction(current.targetAction),
                         stopIfRunning: event.target.checked,
-                        promptTemplateId: null,
-                        inlinePrompt: null,
                       },
                     }))
                   }
@@ -758,11 +965,18 @@ export function StateMachineEdgeInspector({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() =>
+            onClick={() => {
               setDraftEdge(
                 edgeDetails.edge ? cloneWorkflowEdge(edgeDetails.edge) : null,
-              )
-            }
+              );
+              setPromptSourceType(getInitialPromptSourceType(edgeDetails.edge));
+              setPromptInputsText(
+                formatPromptInputsText(
+                  edgeDetails.edge?.targetAction?.promptInputs ?? {},
+                ),
+              );
+              setPromptInputsError(null);
+            }}
             disabled={isDisabled || !isDirty}
             className="rounded border border-setta-200 px-3 py-1.5 text-xs font-medium text-setta-700 disabled:opacity-50 dark:border-setta-700 dark:text-setta-200"
           >

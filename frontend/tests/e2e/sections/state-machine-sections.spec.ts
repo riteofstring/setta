@@ -37,7 +37,9 @@ type LatestProjectStateResponse = {
         targetAction?: {
           type?: string | null;
           promptTemplateId?: string | null;
+          promptSectionId?: string | null;
           inlinePrompt?: string | null;
+          promptInputs?: Record<string, string> | null;
           threadStrategy?: string | null;
         } | null;
         style?: Record<string, string | number> | null;
@@ -846,6 +848,156 @@ test.describe.serial("state machine sections", () => {
     }
   });
 
+  test("edits a workflow send-prompt edge to use a prompt section with bindings", async ({
+    page,
+  }) => {
+    await seedLocalStorage(page, {
+      overviewTab: "Overview",
+      overviewVis: true,
+      uiEditorVis: true,
+    });
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const startSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "StateMachineStart",
+        { x: 80, y: 120 },
+      );
+      const chatSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "Chat",
+        { x: 440, y: 120 },
+      );
+      const promptSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "Prompt",
+        { x: 440, y: 320 },
+      );
+
+      await setStateMachineSectionSettings(
+        page,
+        projectContext.projectConfigId,
+        startSectionId,
+        {
+          machineGroupId: "workflow-prompt-section",
+          label: "Prompt Flow",
+          gateType: null,
+          maxIterations: null,
+        },
+      );
+      await postBackend(page, "/setSectionName", {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId: promptSectionId,
+        name: "Greeting Prompt",
+      });
+      await postBackend(page, "/setPromptTemplate", {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId: promptSectionId,
+        template: "Hi my name is {{ name }}. What's your name?",
+      });
+      await postBackend(page, "/setPromptInputs", {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId: promptSectionId,
+        inputs: {
+          name: "Default Name",
+        },
+      });
+
+      await createStateMachineEdge(page, projectContext.projectConfigId, {
+        machineGroupId: "workflow-prompt-section",
+        sourceSectionId: startSectionId,
+        sourcePortId: "workflow-source",
+        targetSectionId: chatSectionId,
+        targetPortId: "workflow-target",
+        sourceFilter: null,
+        targetAction: {
+          type: "reset_thread",
+          promptTemplateId: null,
+          promptSectionId: null,
+          inlinePrompt: null,
+          promptInputs: {},
+          threadStrategy: "continue_current_thread",
+          stopIfRunning: false,
+          engineConfigId: null,
+          agentProfileId: null,
+          permissionMode: null,
+          searchEnabled: null,
+        },
+      });
+
+      const edges = await readStateMachineEdges(
+        page,
+        projectContext.projectConfigId,
+      );
+      const startToChatEdgeId = edges.find(
+        (edge) =>
+          edge.sourceSectionId === startSectionId &&
+          edge.targetSectionId === chatSectionId,
+      )?.id;
+      if (!startToChatEdgeId) {
+        throw new Error("Missing start-to-chat workflow edge.");
+      }
+
+      await selectStateMachineEdge(
+        page,
+        projectContext.projectConfigId,
+        startToChatEdgeId,
+      );
+      const inspector = page.getByTestId("workflow-edge-inspector");
+      await expect(inspector).toBeVisible();
+
+      await selectComboboxOption(
+        page,
+        "#workflow-edge-target-action",
+        "Send Prompt",
+      );
+      await selectComboboxOption(
+        page,
+        "#workflow-edge-prompt-source",
+        "Prompt Section",
+      );
+      await selectComboboxOption(
+        page,
+        "#workflow-edge-prompt-section",
+        "Greeting Prompt",
+      );
+      await page
+        .getByTestId("workflow-edge-prompt-inputs")
+        .fill('{\n  "name": "Kevin"\n}');
+      await page.getByTestId("workflow-edge-apply").click();
+
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineEdge(
+              page,
+              projectContext.projectConfigId,
+              startToChatEdgeId,
+            ),
+          { timeout: 8000 },
+        )
+        .toMatchObject({
+          targetAction: {
+            type: "send_prompt",
+            promptTemplateId: null,
+            promptSectionId,
+            inlinePrompt: null,
+            promptInputs: {
+              name: "Kevin",
+            },
+            threadStrategy: "continue_current_thread",
+          },
+        });
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("refreshes running workflow rows through getStateMachineRun when agent runs stay stale", async ({
     page,
   }) => {
@@ -1140,7 +1292,9 @@ function asStaleRunningWorkflowRun(run: WorkflowRunRecord): WorkflowRunRecord {
     ...run,
     status: "running",
     finishedAt: null,
-    events: (run.events ?? []).filter((event) => event.type !== "run_completed"),
+    events: (run.events ?? []).filter(
+      (event) => event.type !== "run_completed",
+    ),
   };
 }
 
@@ -1316,7 +1470,9 @@ async function createStateMachineEdge(
     targetAction: {
       type: string;
       promptTemplateId: string | null;
+      promptSectionId?: string | null;
       inlinePrompt: string | null;
+      promptInputs?: Record<string, string>;
       threadStrategy: string;
       stopIfRunning: boolean;
       engineConfigId: string | null;
@@ -1471,7 +1627,9 @@ async function readStateMachineEdges(
     targetAction: {
       type: string | null;
       promptTemplateId: string | null;
+      promptSectionId: string | null;
       inlinePrompt: string | null;
+      promptInputs: Record<string, string>;
       threadStrategy: string | null;
     } | null;
   }>
@@ -1499,7 +1657,9 @@ async function readStateMachineEdges(
         ? {
             type: edge.targetAction.type ?? null,
             promptTemplateId: edge.targetAction.promptTemplateId ?? null,
+            promptSectionId: edge.targetAction.promptSectionId ?? null,
             inlinePrompt: edge.targetAction.inlinePrompt ?? null,
+            promptInputs: edge.targetAction.promptInputs ?? {},
             threadStrategy: edge.targetAction.threadStrategy ?? null,
           }
         : null,
@@ -1542,7 +1702,9 @@ async function readStateMachineEdge(
   targetAction: {
     type: string | null;
     promptTemplateId: string | null;
+    promptSectionId: string | null;
     inlinePrompt: string | null;
+    promptInputs: Record<string, string>;
     threadStrategy: string | null;
   } | null;
 } | null> {
@@ -1579,7 +1741,7 @@ async function selectComboboxOption(
   const input = page.locator(inputSelector);
   await input.click();
   await input.fill(optionName);
-  await page.getByText(optionName, { exact: true }).click();
+  await page.getByRole("option", { name: optionName, exact: true }).click();
 }
 
 async function expectNodeTextWithinBounds(

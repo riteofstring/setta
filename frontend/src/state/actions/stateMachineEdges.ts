@@ -415,7 +415,9 @@ function createDefaultTargetAction(
   return {
     type: "reset_thread",
     promptTemplateId: null,
+    promptSectionId: null,
     inlinePrompt: null,
+    promptInputs: {},
     threadStrategy: "continue_current_thread",
     stopIfRunning: false,
     engineConfigId: null,

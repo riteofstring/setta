@@ -5215,7 +5215,9 @@ const StateMachineTargetActionSchema = z.object({
     .enum(StateMachineTargetActionTypeEnum)
     .default(StateMachineTargetActionTypeEnum.send_prompt),
   promptTemplateId: z.union([IDSchema, z.null()]).default(null),
+  promptSectionId: z.union([IDSchema, z.null()]).default(null),
   inlinePrompt: z.union([z.string(), z.null()]).default(null),
+  promptInputs: z.record(z.string(), z.string()).default({}),
   threadStrategy: z
     .enum(StateMachineThreadStrategyEnum)
     .default(StateMachineThreadStrategyEnum.continue_current_thread),

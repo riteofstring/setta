@@ -35,7 +35,9 @@ class StateMachineSourceFilter(BaseModel, extra="forbid"):
 class StateMachineTargetAction(BaseModel, extra="forbid"):
     type: StateMachineTargetActionType = StateMachineTargetActionType.send_prompt
     promptTemplateId: ID | None = None
+    promptSectionId: ID | None = None
     inlinePrompt: str | None = None
+    promptInputs: dict[str, str] = Field(default_factory=dict)
     threadStrategy: StateMachineThreadStrategy = (
         StateMachineThreadStrategy.continue_current_thread
     )

@@ -251,6 +251,10 @@ describe("state machine edge creation", () => {
         sourceFilter: null,
         targetAction: expect.objectContaining({
           type: "reset_thread",
+          promptTemplateId: null,
+          promptSectionId: null,
+          inlinePrompt: null,
+          promptInputs: {},
           threadStrategy: "continue_current_thread",
         }),
       }),
@@ -320,7 +324,9 @@ describe("state machine edge creation", () => {
           targetAction: {
             type: "reset_thread",
             promptTemplateId: null,
+            promptSectionId: null,
             inlinePrompt: null,
+            promptInputs: {},
             threadStrategy: "continue_current_thread",
             stopIfRunning: false,
             engineConfigId: null,

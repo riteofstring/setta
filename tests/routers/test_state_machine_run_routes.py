@@ -28,6 +28,9 @@ from setta.project_state.project_manager_types import (
     CreateTopLevelSectionRequest,
     SetChatSectionChatIdRequest,
     SetChatSectionSettingsRequest,
+    SetPromptInputsRequest,
+    SetPromptTemplateRequest,
+    SetStateMachineEdgesRequest,
     SetStateMachineSectionSettingsRequest,
 )
 from setta.routers.agentic import (
@@ -1158,6 +1161,104 @@ async def test_state_machine_runner_dispatches_send_prompt_from_start_edges(
 
 
 @pytest.mark.asyncio
+async def test_state_machine_runner_dispatches_prompt_section_with_edge_bindings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        project_config_id = (
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        assert project_config_id is not None
+        await project_fixture.manager.finish_pending_operations()
+
+        engine_config_id = ID("engine-primary")
+        _seed_engine_config(project_fixture.dbe, engine_config_id)
+        start_section_id, chat_section_id, _ = await _seed_state_machine_chat_graph(
+            project_fixture=project_fixture,
+            project_config_id=project_config_id,
+            engine_config_id=engine_config_id,
+            target_action=StateMachineTargetAction(
+                type=StateMachineTargetActionType.send_prompt,
+                inlinePrompt="placeholder",
+                threadStrategy=StateMachineThreadStrategy.new_thread_before_send,
+            ),
+        )
+        prompt_response = await project_fixture.manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Prompt,
+                position=Position(x=140, y=220),
+            ),
+        )
+        await project_fixture.manager.set_prompt_template(
+            SetPromptTemplateRequest(
+                projectConfigId=project_config_id,
+                sectionId=prompt_response.sectionId,
+                template="Hi my name is {{ name }}. What's your name?",
+            )
+        )
+        await project_fixture.manager.set_prompt_inputs(
+            SetPromptInputsRequest(
+                projectConfigId=project_config_id,
+                sectionId=prompt_response.sectionId,
+                inputs={"name": "Default Name"},
+            )
+        )
+
+        project_state = convert_backend_to_single_config(
+            project_fixture.manager.project_state_backend,
+            project_config_id,
+        )
+        project_state.projectConfig.stateMachineEdges[
+            0
+        ].targetAction = StateMachineTargetAction(
+            type=StateMachineTargetActionType.send_prompt,
+            promptSectionId=prompt_response.sectionId,
+            promptInputs={"name": "Kevin"},
+            threadStrategy=StateMachineThreadStrategy.new_thread_before_send,
+        )
+        await project_fixture.manager.set_state_machine_edges(
+            SetStateMachineEdgesRequest(
+                projectConfigId=project_config_id,
+                edges=project_state.projectConfig.stateMachineEdges,
+            )
+        )
+
+        state, _, agent_runner, _ = _build_runtime_state(
+            project_fixture,
+            settings_fixture,
+        )
+        captured: dict[str, object] = {}
+
+        def _capture_start_run(profile, inputs, **_kwargs):
+            captured["inputs"] = inputs
+            return create_agent_run(profile_id=profile.id, inputs=inputs)
+
+        monkeypatch.setattr(agent_runner, "start_run", _capture_start_run)
+
+        with runtime_context(state) as ctx:
+            await route_start_state_machine_run(
+                StartStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                    startSectionId=start_section_id,
+                ),
+                ctx,
+            )
+
+        captured_inputs = captured.get("inputs")
+        assert isinstance(captured_inputs, dict)
+        raw_messages = captured_inputs.get("messages")
+        assert isinstance(raw_messages, list)
+        assert raw_messages[-1]["content"][0]["text"] == (
+            "Hi my name is Kevin. What's your name?"
+        )
+
+
+@pytest.mark.asyncio
 async def test_state_machine_runner_rejects_scriptable_history_on_reused_chat_id() -> (
     None
 ):
@@ -1419,17 +1520,19 @@ async def test_state_machine_runner_broadcasts_parent_update_when_child_run_comp
 
         engine_config_id = ID("engine-primary")
         _seed_engine_config(project_fixture.dbe, engine_config_id)
-        start_section_id, chat_section_id, end_section_id = (
-            await _seed_state_machine_chat_graph(
-                project_fixture=project_fixture,
-                project_config_id=project_config_id,
-                engine_config_id=engine_config_id,
-                target_action=StateMachineTargetAction(
-                    type=StateMachineTargetActionType.send_prompt,
-                    inlinePrompt="Review the latest output.",
-                    threadStrategy=StateMachineThreadStrategy.new_thread_before_send,
-                ),
-            )
+        (
+            start_section_id,
+            chat_section_id,
+            end_section_id,
+        ) = await _seed_state_machine_chat_graph(
+            project_fixture=project_fixture,
+            project_config_id=project_config_id,
+            engine_config_id=engine_config_id,
+            target_action=StateMachineTargetAction(
+                type=StateMachineTargetActionType.send_prompt,
+                inlinePrompt="Review the latest output.",
+                threadStrategy=StateMachineThreadStrategy.new_thread_before_send,
+            ),
         )
         await project_fixture.manager.create_state_machine_edge(
             CreateStateMachineEdgeRequest(

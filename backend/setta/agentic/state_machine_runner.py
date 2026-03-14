@@ -49,6 +49,7 @@ from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import (
     ChatPermissionMode,
     ChatSectionImpl,
+    PromptSectionImpl,
     StateMachineEndSectionImpl,
     StateMachineGateSectionImpl,
     StateMachineGateType,
@@ -1355,7 +1356,12 @@ class StateMachineRunner:
             target_impl=target_impl,
             target_action=target_action,
         )
-        prompt_text = self._resolve_prompt_text(edge.id, target_action)
+        prompt_text = self._resolve_prompt_text(
+            project_config_id,
+            edge.id,
+            target_action,
+            share_session_id,
+        )
         chat_id = target_impl.chatId
         if (
             target_action.threadStrategy
@@ -2207,12 +2213,37 @@ class StateMachineRunner:
 
     def _resolve_prompt_text(
         self,
+        project_config_id: ID,
         edge_id: ID,
         target_action: StateMachineTargetAction,
+        share_session_id: str | None,
     ) -> str:
         inline_prompt = target_action.inlinePrompt
         if inline_prompt is not None and inline_prompt.strip() != "":
             return inline_prompt
+        render_inputs = dict(target_action.promptInputs)
+        if target_action.promptSectionId is not None:
+            project_state = self._get_project_state(
+                project_config_id,
+                share_session_id=share_session_id,
+            )
+            prompt_impl = get_curr_effective_section_impl_with_type_guard(
+                project_state,
+                target_action.promptSectionId,
+                PromptSectionImpl,
+            )
+            section_inputs = dict(prompt_impl.inputs)
+            section_inputs.update(render_inputs)
+            render_result = render_prompt(prompt_impl.template, section_inputs)
+            if render_result.render_error is not None:
+                raise ValueError(
+                    f"State machine edge {edge_id} prompt section {prompt_impl.id} failed to render: {render_result.render_error}"
+                )
+            if render_result.rendered_text.strip() == "":
+                raise ValueError(
+                    f"State machine edge {edge_id} prompt section {prompt_impl.id} rendered an empty prompt."
+                )
+            return render_result.rendered_text
         if target_action.promptTemplateId is None:
             raise ValueError(
                 f"State machine edge {edge_id} send_prompt action is missing prompt content."
@@ -2222,7 +2253,7 @@ class StateMachineRunner:
             raise KeyError(
                 f"Prompt template {target_action.promptTemplateId} not found for state machine edge {edge_id}."
             )
-        render_result = render_prompt(prompt_template.template, {})
+        render_result = render_prompt(prompt_template.template, render_inputs)
         if render_result.render_error is not None:
             raise ValueError(
                 f"State machine edge {edge_id} prompt template {prompt_template.id} failed to render: {render_result.render_error}"

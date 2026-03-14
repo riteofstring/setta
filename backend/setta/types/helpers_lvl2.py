@@ -2781,7 +2781,7 @@ def _ensure_state_machine_edge_endpoints_valid(
         raise TypeError(f"State machine edge {edge.id} cannot target Start.")
     _ensure_state_machine_edge_port_ids_valid(edge, source_impl, target_impl)
     _ensure_state_machine_source_filter_valid(edge, source_impl)
-    _ensure_state_machine_target_action_valid(edge, target_impl)
+    _ensure_state_machine_target_action_valid(p, edge, target_impl)
     source_machine_group_id = _resolve_state_machine_section_machine_group_id(
         edge.sourceSectionId,
         source_impl,
@@ -2916,7 +2916,9 @@ def _ensure_state_machine_signal_filter_valid(
 
 
 def _ensure_state_machine_target_action_valid(
-    edge: StateMachineEdge, target_impl: BaseSectionImpl
+    p: "ProjectStateSingleConfig",
+    edge: StateMachineEdge,
+    target_impl: BaseSectionImpl,
 ):
     target_action = edge.targetAction
     if target_impl.type != SectionType.Chat:
@@ -2938,22 +2940,46 @@ def _ensure_state_machine_target_action_valid(
             f"State machine edge {edge.id} has unsupported permission mode {target_action.permissionMode}."
         )
     if target_action.type == StateMachineTargetActionType.send_prompt:
-        _ensure_state_machine_send_prompt_action_valid(edge.id, target_action)
+        _ensure_state_machine_send_prompt_action_valid(p, edge.id, target_action)
         return
     _ensure_state_machine_reset_thread_action_valid(edge.id, target_action)
 
 
 def _ensure_state_machine_send_prompt_action_valid(
-    edge_id: ID, target_action: StateMachineTargetAction
+    p: "ProjectStateSingleConfig",
+    edge_id: ID,
+    target_action: StateMachineTargetAction,
 ):
     has_prompt_template = target_action.promptTemplateId is not None
+    has_prompt_section = target_action.promptSectionId is not None
     has_inline_prompt = (
         target_action.inlinePrompt is not None
         and target_action.inlinePrompt.strip() != ""
     )
-    if has_prompt_template == has_inline_prompt:
+    configured_source_count = sum(
+        [has_prompt_template, has_prompt_section, has_inline_prompt]
+    )
+    if configured_source_count != 1:
         raise ValueError(
-            f"State machine edge {edge_id} send_prompt actions require exactly one of promptTemplateId or inlinePrompt."
+            f"State machine edge {edge_id} send_prompt actions require exactly one of promptTemplateId, promptSectionId, or inlinePrompt."
+        )
+    if not has_prompt_section:
+        return
+    prompt_impl = get_curr_effective_section_impl_with_type_guard(
+        p,
+        target_action.promptSectionId,
+        PromptSectionImpl,
+    )
+    render_inputs = dict(prompt_impl.inputs)
+    render_inputs.update(target_action.promptInputs)
+    render_result = render_prompt(prompt_impl.template, render_inputs)
+    if render_result.render_error is not None:
+        raise ValueError(
+            f"State machine edge {edge_id} prompt section {prompt_impl.id} failed to render: {render_result.render_error}"
+        )
+    if render_result.rendered_text.strip() == "":
+        raise ValueError(
+            f"State machine edge {edge_id} prompt section {prompt_impl.id} rendered an empty prompt."
         )
 
 
@@ -2964,9 +2990,14 @@ def _ensure_state_machine_reset_thread_action_valid(
         target_action.inlinePrompt is not None
         and target_action.inlinePrompt.strip() != ""
     )
-    if target_action.promptTemplateId is not None or has_inline_prompt:
+    if (
+        target_action.promptTemplateId is not None
+        or target_action.promptSectionId is not None
+        or has_inline_prompt
+        or target_action.promptInputs
+    ):
         raise ValueError(
-            f"State machine edge {edge_id} reset_thread actions cannot include prompt content."
+            f"State machine edge {edge_id} reset_thread actions cannot include prompt content or prompt inputs."
         )
 
 

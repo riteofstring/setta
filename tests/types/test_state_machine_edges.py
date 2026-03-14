@@ -6,6 +6,7 @@ from setta.types.helpers_lvl2 import (
     create_state_machine_edge,
     create_top_level_section,
     delete_state_machine_edges,
+    set_prompt_section_template,
     set_state_machine_section_settings,
     set_state_machine_edges,
     update_state_machine_edge,
@@ -169,9 +170,9 @@ class TestStateMachineEdges:
         self.project_state.sections[extra_start_id].sharedModifier["machineGroupId"] = (
             "other-machine"
         )
-        self.project_state.sections[self.end_section_id].sharedModifier["machineGroupId"] = (
-            "other-machine"
-        )
+        self.project_state.sections[self.end_section_id].sharedModifier[
+            "machineGroupId"
+        ] = "other-machine"
         second_edge = self._create_edge(self.start_section_id, self.gate_section_id)
         assert self.project_state.projectConfig.stateMachineEdges == [second_edge]
 
@@ -186,9 +187,9 @@ class TestStateMachineEdges:
         self.project_state.sections[extra_start_id].sharedModifier["machineGroupId"] = (
             other_machine_group_id
         )
-        self.project_state.sections[self.end_section_id].sharedModifier["machineGroupId"] = (
-            other_machine_group_id
-        )
+        self.project_state.sections[self.end_section_id].sharedModifier[
+            "machineGroupId"
+        ] = other_machine_group_id
         existing_edge = StateMachineEdge(
             id=create_new_id(),
             machineGroupId=other_machine_group_id,
@@ -203,7 +204,10 @@ class TestStateMachineEdges:
 
         merged_edge = self._create_edge(self.gate_section_id, self.end_section_id)
 
-        assert [edge.machineGroupId for edge in self.project_state.projectConfig.stateMachineEdges] == [
+        assert [
+            edge.machineGroupId
+            for edge in self.project_state.projectConfig.stateMachineEdges
+        ] == [
             self.machine_group_id,
             self.machine_group_id,
         ]
@@ -243,7 +247,10 @@ class TestStateMachineEdges:
             SectionType.Chat,
             Position(x=720, y=0),
         )
-        with pytest.raises(ValueError, match="exactly one of promptTemplateId or inlinePrompt"):
+        with pytest.raises(
+            ValueError,
+            match="exactly one of promptTemplateId, promptSectionId, or inlinePrompt",
+        ):
             self._create_edge(
                 self.start_section_id,
                 chat_section_id,
@@ -261,6 +268,69 @@ class TestStateMachineEdges:
                 target_action=StateMachineTargetAction(
                     type=StateMachineTargetActionType.reset_thread,
                     inlinePrompt="not allowed",
+                ),
+            )
+
+    def test_chat_target_accepts_prompt_section_with_bound_inputs(self) -> None:
+        chat_section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Chat,
+            Position(x=720, y=0),
+        )
+        prompt_section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Prompt,
+            Position(x=360, y=160),
+        )
+        set_prompt_section_template(
+            self.project_state,
+            prompt_section_id,
+            "Hi my name is {{ name }}. What's your name?",
+        )
+
+        edge = self._create_edge(
+            self.start_section_id,
+            chat_section_id,
+            target_action=StateMachineTargetAction(
+                type=StateMachineTargetActionType.send_prompt,
+                promptSectionId=prompt_section_id,
+                promptInputs={"name": "Kevin"},
+            ),
+        )
+        assert edge.targetAction is not None
+        assert edge.targetAction.promptSectionId == prompt_section_id
+        assert edge.targetAction.promptInputs == {"name": "Kevin"}
+
+    def test_chat_target_rejects_prompt_section_with_missing_bindings(self) -> None:
+        chat_section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Chat,
+            Position(x=720, y=0),
+        )
+        prompt_section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Prompt,
+            Position(x=360, y=160),
+        )
+        set_prompt_section_template(
+            self.project_state,
+            prompt_section_id,
+            "Hi my name is {{ name }}. What's your name?",
+        )
+
+        with pytest.raises(
+            ValueError, match="failed to render: Missing variables: name"
+        ):
+            self._create_edge(
+                self.start_section_id,
+                chat_section_id,
+                target_action=StateMachineTargetAction(
+                    type=StateMachineTargetActionType.send_prompt,
+                    promptSectionId=prompt_section_id,
                 ),
             )
 
@@ -284,7 +354,9 @@ class TestStateMachineEdges:
         assert edge.sourceFilter is not None
         assert edge.sourceFilter.type == StateMachineSourceFilterType.signal
 
-        with pytest.raises(ValueError, match="only allows source filters on Chat sources"):
+        with pytest.raises(
+            ValueError, match="only allows source filters on Chat sources"
+        ):
             self._create_edge(
                 self.start_section_id,
                 self.end_section_id,
@@ -293,7 +365,9 @@ class TestStateMachineEdges:
                 ),
             )
 
-        with pytest.raises(ValueError, match="require payloadField and equals together"):
+        with pytest.raises(
+            ValueError, match="require payloadField and equals together"
+        ):
             self._create_edge(
                 chat_section_id,
                 self.end_section_id,
@@ -311,13 +385,13 @@ class TestStateMachineEdges:
 
         with pytest.raises(ValueError, match="does not match the source section"):
             set_state_machine_section_settings(
-            self.project_state,
-            self.start_section_id,
-            "other-machine",
-            "Start",
-            None,
-            None,
-        )
+                self.project_state,
+                self.start_section_id,
+                "other-machine",
+                "Start",
+                None,
+                None,
+            )
 
         extra_start_id = create_top_level_section(
             self.settings,
@@ -334,7 +408,9 @@ class TestStateMachineEdges:
             None,
         )
         extra_start_impl = self.project_state.sections[extra_start_id]
-        assert extra_start_impl.sharedModifier["machineGroupId"] == self.machine_group_id
+        assert (
+            extra_start_impl.sharedModifier["machineGroupId"] == self.machine_group_id
+        )
 
         # Label-only updates still succeed when the machine group remains valid.
         set_state_machine_section_settings(
