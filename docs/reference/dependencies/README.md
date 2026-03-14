@@ -16,6 +16,7 @@ Retrieved on:
 
 - 2026-03-07
 - 2026-03-10
+- 2026-03-12
 
 ## Pinned In `go.mod`
 
@@ -35,10 +36,16 @@ Retrieved on:
   - `github.com/creack/pty`
   - pinned locally at `v1.1.21`
   - actual downloaded upstream pages live under `./creack-pty-src/`
+- [jsonschema-go.md](./jsonschema-go.md)
+  - `github.com/google/jsonschema-go`
+  - pinned locally at `v0.4.2`
 - [modelcontextprotocol-go-sdk.md](./modelcontextprotocol-go-sdk.md)
   - `github.com/modelcontextprotocol/go-sdk`
   - pinned locally at `v1.4.0`
   - actual downloaded upstream pages live under `./modelcontextprotocol-go-sdk-src/`
+- [gonja.md](./gonja.md)
+  - `github.com/nikolalohinski/gonja/v2`
+  - pinned locally at `v2.7.0`
 - raw docs only:
   - `github.com/gofrs/flock`
   - pinned locally at `v0.12.1`
