@@ -122,9 +122,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
     graph window reuse plus maximize/title coordination.
   - `state/actions/projectChatWindowing.ts` now owns public window command
     orchestration.
-  - `state/actions/projectChatWindowingWrites.ts` owns layout-write
-    permissions, optimistic mutation dispatch, authoritative publish flow, and
-    sync helpers.
+  - `state/actions/projectChatWindowingWriteState.ts` owns layout-write
+    permissions, current-windowing store access, optimistic apply helpers, and
+    local sync behavior.
+  - `state/actions/projectChatWindowingWritePipeline.ts` owns serialized write
+    coordination, authoritative publish/replay, and explicit sync/flush
+    helpers.
+  - `state/actions/projectChatWindowingWrites.ts` is now a thinner public
+    mutation facade over the write-state and write-pipeline owners.
   - `state/actions/projectChatWindowingAuthoritative.ts` and
     `state/actions/projectChatWindowingEphemeral.ts` already hold narrower helper
     seams and should be extended instead of recreated elsewhere.
@@ -347,18 +352,19 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/projectChatWindowingWrites.ts` is now the largest
-  authored/shared state hotspot, so follow-up cleanup should keep separating
-  write coordination, authoritative publish flow, and sync helpers instead of
-  regrowing the already-split transcription surface
+- `state/actions/sections/createSections.ts` is now the largest
+  authored/shared state hotspot, so follow-up cleanup should separate section
+  creation orchestration from per-impl defaults and placement helpers instead
+  of regrowing the already-split windowing write surface
 - `state/actions/sectionEffectiveImpls.ts` is now down to the remaining
   effective-impl selector surface, so any follow-up there should stay local to
   selector derivation rather than regrowing layout or mutation ownership
-- `state/actions/projectChatWindowingWrites.ts` is now the largest remaining
-  windowing mutation surface, so follow-up windowing cleanup should stay local
-  to `projectChatWindowingWrites.ts`, `projectChatWindowingCanvasBoot.ts`, or
-  `projectChatWindowingTrackedGitPane.ts` instead of regrowing the main entry
-  point
+- `state/actions/projectChatWindowingLayoutState.ts` is now the largest
+  remaining windowing mutation surface, so follow-up windowing cleanup should
+  stay local to `projectChatWindowingLayoutState.ts`,
+  `projectChatWindowingWriteState.ts`, or
+  `projectChatWindowingWritePipeline.ts` instead of regrowing the public write
+  facade
 - `state/actions/sectionInfos.ts` now owns the remaining streaming merge,
   shown-param, ancestry, and tool-preview cleanup surface, so any follow-up
   cleanup there should stay local to those helpers instead of regrowing

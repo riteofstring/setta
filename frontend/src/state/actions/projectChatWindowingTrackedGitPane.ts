@@ -14,11 +14,11 @@ import {
   reopenProjectChatWindowInState,
 } from "./projectChatWindowingLayoutState";
 import { setProjectChatWindowTitleInState } from "./projectChatWindowingState";
+import { dispatchProjectChatWindowingMutation } from "./projectChatWindowingWrites";
 import {
   canMutateProjectChatWindowingLayout,
-  dispatchProjectChatWindowingMutation,
   getProjectChatWindowingStateFromStore,
-} from "./projectChatWindowingWrites";
+} from "./projectChatWindowingWriteState";
 
 export function ensureTrackedGitPaneGraphWindow({
   title = "Git Graph",

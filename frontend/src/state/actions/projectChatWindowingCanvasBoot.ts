@@ -13,11 +13,11 @@ import {
   moveProjectChatWindowToCanvasSectionInState,
   type MoveProjectChatWindowToCanvasSectionOptions,
 } from "./projectChatWindowingState";
+import { dispatchProjectChatWindowingMutation } from "./projectChatWindowingWrites";
 import {
   canMutateProjectChatWindowingLayout,
-  dispatchProjectChatWindowingMutation,
   getProjectChatWindowingStateFromStore,
-} from "./projectChatWindowingWrites";
+} from "./projectChatWindowingWriteState";
 import { createTopLevelSectionWithResult } from "./sections/createSections";
 
 type Point = {

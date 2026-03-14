@@ -38,10 +38,12 @@ import {
 } from "./projectChatWindowingState";
 import {
   applyProjectChatWindowingMutationLocally,
-  canMutateProjectChatWindowingLayout,
   dispatchProjectChatWindowingMutation,
-  getProjectChatWindowingStateFromStore,
 } from "./projectChatWindowingWrites";
+import {
+  canMutateProjectChatWindowingLayout,
+  getProjectChatWindowingStateFromStore,
+} from "./projectChatWindowingWriteState";
 import { getCurrProjectConfigId } from "./sectionInfos";
 
 export {
