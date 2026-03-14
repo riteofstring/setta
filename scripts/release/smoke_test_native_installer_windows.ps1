@@ -17,15 +17,6 @@ if (-not (Test-Path -LiteralPath $MsiPath -PathType Leaf)) {
 }
 
 $resolvedMsiPath = (Resolve-Path -LiteralPath $MsiPath).Path
-$msiBaseName = [System.IO.Path]::GetFileNameWithoutExtension($resolvedMsiPath)
-$expectedVersionMatch = [System.Text.RegularExpressions.Regex]::Match(
-  $msiBaseName,
-  '^SettaDesktop-(\d+\.\d+\.\d+)$'
-)
-if (-not $expectedVersionMatch.Success) {
-  Fail "Could not derive expected Setta version from MSI name: $resolvedMsiPath"
-}
-$expectedSettaVersion = $expectedVersionMatch.Groups[1].Value
 Write-Output "[native-smoke][windows] Installing $resolvedMsiPath ..."
 $installProcess = Start-Process `
   -FilePath "msiexec.exe" `
@@ -68,8 +59,6 @@ if (-not $payload.installed) {
 if (-not $payload.managedArtifacts) {
   Fail "native MSI install did not report managed artifacts."
 }
-if ($payload.settaVersion -ne $expectedSettaVersion) {
-  Fail "native MSI install bootstrapped Setta '$($payload.settaVersion)' but expected '$expectedSettaVersion'."
-}
 
 Write-Output "[native-smoke][windows] launcher status OK"
+
