@@ -2,6 +2,8 @@
 
 import { act } from "react";
 import { createRoot } from "react-dom/client";
+import initialState from "forks/xyflow/core/store/initialState";
+import { useReactFlow } from "forks/xyflow/core/store";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useProjectState } from "state/definitions";
@@ -22,6 +24,7 @@ describe("CanvasEngineHost", () => {
 
   beforeEach(() => {
     resetProjectStores();
+    useReactFlow.setState({ ...initialState });
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
@@ -69,6 +72,7 @@ describe("CanvasEngineHost", () => {
     });
     host.remove();
     resetProjectStores();
+    useReactFlow.setState({ ...initialState });
     vi.unstubAllGlobals();
 
     if (originalClientWidth) {
@@ -195,5 +199,33 @@ describe("CanvasEngineHost", () => {
       '[data-canvas-engine-host="v1"]',
     ) as HTMLElement | null;
     expect(engineHost?.dataset.canvasEngineRectCount).toBe("1");
+  });
+
+  it("syncs an initialized persisted viewport into the engine camera and React Flow store", async () => {
+    useProjectState.setState((state) => {
+      state.projectConfig.viewport = {
+        x: 48,
+        y: -32,
+        zoom: 1.75,
+      };
+      state.projectConfig.viewportInitialized = true;
+    });
+
+    await act(async () => {
+      root.render(<CanvasEngineHost />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const engineHost = host.querySelector(
+      '[data-canvas-engine-host="v1"]',
+    ) as HTMLElement | null;
+    expect(engineHost?.dataset.canvasEngineCameraX).toBe("48.00");
+    expect(engineHost?.dataset.canvasEngineCameraY).toBe("-32.00");
+    expect(engineHost?.dataset.canvasEngineCameraZoom).toBe("1.750");
+    expect(useReactFlow.getState().transform).toEqual([48, -32, 1.75]);
   });
 });
