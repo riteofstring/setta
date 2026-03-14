@@ -1,4 +1,3 @@
-import type { Spec } from "@json-render/core";
 import * as Switch from "@radix-ui/react-switch";
 import { pickDefaultConfigId } from "components/Chat/llmConfigUtils";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -19,18 +18,9 @@ import { C_ADDRESSES } from "utils/c_addresses";
 import { RouteEnum } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import {
-  loadAppConfigDefinition,
-  saveAppConfigDefinition,
-  validateAppConfigDefinition,
-} from "./appConfigApi";
-import {
   buildDefaultSpec,
   buildSpecSeed,
   cloneSpecForPreview,
-  parseAssetsPayloadForRequest,
-  parseSpecPayloadForRequest,
-  parseThemePayloadForRequest,
-  type AppSpecPayload,
 } from "./appConfigDefinitionUtils";
 import {
   buildAvailableHiddenGenerationLLMConfigIds,
@@ -52,10 +42,8 @@ import {
   isJsonRenderMode,
   type AppGenerationMode,
 } from "./appGenerationModes";
-import {
-  resetAppConfigPreviewOverrides,
-  useAppConfigDefinitionDrafts,
-} from "./useAppConfigDefinitionDrafts";
+import { useAppConfigDefinitionDrafts } from "./useAppConfigDefinitionDrafts";
+import { useAppConfigPersistence } from "./useAppConfigPersistence";
 
 const STREAMING_TOGGLE_ROOT_CLASSES =
   "nodrag relative inline-flex h-2.5 w-7 min-w-7 cursor-pointer items-center rounded-full p-[0.2rem] [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus-visible:shadow-black focus-visible:ring-2 disabled:pointer-events-none bg-setta-400 data-[state='checked']:bg-blue-500 dark:bg-setta-600 dark:data-[state='checked']:bg-blue-700";
@@ -120,23 +108,30 @@ export function AppConfigPane() {
     specVersion,
     themeMode,
   } = useAppConfigDefinitionDrafts();
-  const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [generationPatchCount, setGenerationPatchCount] = useState(0);
   const [generationHint, setGenerationHint] = useState<string | null>(null);
-  const [validating, setValidating] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [validationResult, setValidationResult] = useState<{
-    errors: Array<{ message: string }>;
-    warnings: Array<{ message: string; elementKey?: string | null }>;
-    capabilities: {
-      catalogId: string;
-      catalogVersion: string;
-      appSpecVersion: string;
-      themeSchemaVersion: string;
-      features: Record<string, boolean>;
-    };
-  } | null>(null);
+  const {
+    errorMessage,
+    handleSave,
+    handleValidate,
+    loading,
+    persistGeneratedSpec,
+    setErrorMessage,
+    validationResult,
+    validating,
+  } = useAppConfigPersistence({
+    projectConfigId,
+    appSpecPath,
+    catalogId,
+    clearDraftErrors,
+    draftAssets,
+    draftSpec,
+    draftTheme,
+    hydrateSavedAppDefinition,
+    specVersion,
+    themeMode,
+  });
   const hasDraft = useMemo(() => draftSpec.trim().length > 0, [draftSpec]);
   const activeGenerationMode = coerceAppGenerationMode(appGenerationMode);
 
@@ -164,110 +159,6 @@ export function AppConfigPane() {
     engineConfigsInitialLoadComplete,
     externalAgentHealthInitialLoadComplete,
   ]);
-
-  useEffect(() => {
-    let isMounted = true;
-    async function load() {
-      if (!projectConfigId) {
-        return;
-      }
-      resetAppConfigPreviewOverrides();
-      clearDraftErrors();
-      setLoading(true);
-      setErrorMessage(null);
-      const res = await loadAppConfigDefinition();
-      setLoading(false);
-      if (!res.ok) {
-        if (isMounted) {
-          setErrorMessage(res.error);
-        }
-        return;
-      }
-      if (isMounted) {
-        hydrateSavedAppDefinition({
-          savedSpec: res.value.appSpec,
-          savedDefinition: res.value.appDefinition,
-        });
-      }
-    }
-
-    void load();
-    return () => {
-      isMounted = false;
-    };
-  }, [projectConfigId]);
-
-  const saveAndHydrateAppDefinition = useCallback(
-    async ({
-      appSpec: nextSpec,
-      failureMessage,
-      withLoading,
-    }: {
-      appSpec: AppSpecPayload;
-      failureMessage: string;
-      withLoading: boolean;
-    }): Promise<boolean> => {
-      const themePayload = parseThemePayloadForRequest({
-        draftTheme,
-        themeMode,
-      });
-      if (!themePayload.ok) {
-        setErrorMessage(themePayload.error);
-        return false;
-      }
-      const assetsPayload = parseAssetsPayloadForRequest(draftAssets);
-      if (!assetsPayload.ok) {
-        setErrorMessage(assetsPayload.error);
-        return false;
-      }
-      if (withLoading) {
-        setLoading(true);
-      }
-      const res = await saveAppConfigDefinition(
-        {
-          appSpec: nextSpec,
-          appSpecPath: appSpecPath.trim() ? appSpecPath.trim() : undefined,
-          appSpecVersion: specVersion.trim() ? specVersion.trim() : undefined,
-          catalogId: catalogId.trim() ? catalogId.trim() : undefined,
-          theme: themePayload.value,
-          assets: assetsPayload.value,
-        },
-        failureMessage,
-      );
-      if (withLoading) {
-        setLoading(false);
-      }
-      if (!res.ok) {
-        setErrorMessage(res.error);
-        return false;
-      }
-      hydrateSavedAppDefinition({
-        savedSpec: res.value.appSpec,
-        savedDefinition: res.value.appDefinition,
-      });
-      return true;
-    },
-    [
-      appSpecPath,
-      catalogId,
-      draftAssets,
-      draftTheme,
-      hydrateSavedAppDefinition,
-      specVersion,
-      themeMode,
-    ],
-  );
-
-  const persistGeneratedSpec = useCallback(
-    async (spec: Spec): Promise<boolean> => {
-      return saveAndHydrateAppDefinition({
-        appSpec: spec as unknown as AppSpecPayload,
-        failureMessage: "Failed to save generated app spec.",
-        withLoading: false,
-      });
-    },
-    [saveAndHydrateAppDefinition],
-  );
 
   type HiddenChatGenerationMode = "prompt_builder" | "mcp_server";
 
@@ -508,69 +399,6 @@ export function AppConfigPane() {
     setDraftSpec(JSON.stringify(spec, null, 2));
     if (!appSpecPath) {
       setAppSpecPath("app_specs/app.json");
-    }
-  }
-
-  async function handleSave() {
-    setErrorMessage(null);
-    const specPayload = parseSpecPayloadForRequest(draftSpec);
-    if (!specPayload.ok) {
-      setErrorMessage(specPayload.error);
-      return;
-    }
-    const saved = await saveAndHydrateAppDefinition({
-      appSpec: specPayload.value,
-      failureMessage: "Failed to save app spec.",
-      withLoading: true,
-    });
-    if (!saved) {
-      return;
-    }
-    addTemporaryNotification("App spec saved.");
-  }
-
-  async function handleValidate() {
-    setErrorMessage(null);
-    setValidationResult(null);
-    const specPayload = parseSpecPayloadForRequest(draftSpec);
-    if (!specPayload.ok) {
-      setErrorMessage(specPayload.error);
-      return;
-    }
-    const themePayload = parseThemePayloadForRequest({
-      draftTheme,
-      themeMode,
-    });
-    if (!themePayload.ok) {
-      setErrorMessage(themePayload.error);
-      return;
-    }
-    const assetsPayload = parseAssetsPayloadForRequest(draftAssets);
-    if (!assetsPayload.ok) {
-      setErrorMessage(assetsPayload.error);
-      return;
-    }
-
-    setValidating(true);
-    const res = await validateAppConfigDefinition({
-      appSpec: specPayload.value,
-      appSpecVersion: specVersion.trim() ? specVersion.trim() : undefined,
-      catalogId: catalogId.trim() ? catalogId.trim() : undefined,
-      theme: themePayload.value,
-      assets: assetsPayload.value,
-    });
-    setValidating(false);
-    if (!res.ok) {
-      setErrorMessage(res.error);
-      return;
-    }
-    setValidationResult(res.value);
-    if (res.value.errors.length === 0) {
-      addTemporaryNotification(
-        res.value.warnings.length > 0
-          ? `Validation passed with ${res.value.warnings.length} warning(s).`
-          : "Validation passed.",
-      );
     }
   }
 
