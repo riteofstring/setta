@@ -1,9 +1,4 @@
-import {
-  canUseManagedChatLLM,
-  standaloneSectionRequiresManagedChat,
-  standaloneWindowSpaceHasAllowedWindows,
-  type ManagedChatSurfaceAuthorityState,
-} from "components/Chat/sharePolicyChatAccess";
+import { canUseManagedChatLLM } from "components/Chat/sharePolicyChatAccess";
 import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
 import {
   buildStandalonePageProjectChatSurfaceId,
@@ -42,6 +37,11 @@ import {
   resolveStandaloneSurfaceTarget,
   type StandaloneSurfaceErrorCode,
 } from "./standaloneProjectSurfaceRouting";
+import {
+  buildStandaloneManagedChatAuthorityState,
+  resolveStandaloneManagedChatGuardState,
+  resolveStandaloneProjectChatThreadTitle,
+} from "./standaloneProjectSurfaceViewModel";
 
 function StandaloneSectionBody({
   sectionId,
@@ -139,15 +139,14 @@ export function StandaloneProjectSurfacePageWithLoadState({
       }),
       shallow,
     );
-  const managedChatAuthorityState = useMemo<ManagedChatSurfaceAuthorityState>(
-    () => ({
-      projectConfig: {
+  const managedChatAuthorityState = useMemo(
+    () =>
+      buildStandaloneManagedChatAuthorityState({
+        sections,
+        sectionVariants,
+        sectionImpls,
         sectionVariantMap,
-      },
-      sections,
-      sectionVariants,
-      sectionImpls,
-    }),
+      }),
     [sectionImpls, sectionVariantMap, sectionVariants, sections],
   );
   const standaloneWindowSpace = useProjectState((state) => {
@@ -172,21 +171,14 @@ export function StandaloneProjectSurfacePageWithLoadState({
       }),
     [agentRuns, projectConfigId],
   );
-  const standaloneProjectChatThreadEntry = useMemo(() => {
-    if (target.kind !== "project_chat_thread") {
-      return null;
-    }
-    return (
-      projectChatHistoryEntries.find(
-        (entry) => entry.chatId === target.chatId,
-      ) ?? null
-    );
-  }, [projectChatHistoryEntries, target]);
-  const projectChatThreadTitle =
-    target.kind === "project_chat_thread"
-      ? standaloneProjectChatThreadEntry?.label ??
-        `Chat ${target.chatId.slice(0, 8)}`
-      : null;
+  const projectChatThreadTitle = useMemo(
+    () =>
+      resolveStandaloneProjectChatThreadTitle({
+        target,
+        projectChatHistoryEntries,
+      }),
+    [projectChatHistoryEntries, target],
+  );
   const [standaloneSurfaceErrorState, setStandaloneSurfaceErrorState] =
     useState<{
       ownerKey: string | null;
@@ -205,41 +197,30 @@ export function StandaloneProjectSurfacePageWithLoadState({
     projectConfigId,
     target,
   );
-  const standaloneProjectChatId =
-    target.kind === "project_chat_thread" ? target.chatId : null;
-  const standaloneProjectChatThreadRouteInvalid =
-    target.kind === "project_chat_thread_not_found";
-  const standaloneProjectChatThreadMissing =
-    target.kind === "project_chat_thread" &&
-    standaloneSurfaceErrorState.ownerKey === standaloneSurfaceOwnerKey &&
-    standaloneSurfaceErrorState.errorCode === "chat_not_found";
-  const standaloneTargetRequiresManagedChat =
-    target.kind === "project_chat" || target.kind === "project_chat_thread"
-      ? true
-      : target.kind === "section"
-        ? standaloneSectionRequiresManagedChat(
-            managedChatAuthorityState,
-            target.sectionId,
-          )
-        : false;
-  const standaloneWindowSpaceHasVisibleWindows =
-    target.kind === "window_space" && standaloneWindowSpace
-      ? standaloneWindowSpaceHasAllowedWindows(
-          standaloneWindowSpace,
-          managedChatAuthorityState,
-          canUseManagedChat,
-        )
-      : false;
-  const standaloneManagedChatDenied =
-    standaloneSurfaceErrorState.ownerKey === standaloneSurfaceOwnerKey &&
-    standaloneSurfaceErrorState.errorCode === "llm_disallowed";
-  const shouldBlockStandaloneManagedChat =
-    target.kind === "window_space"
-      ? !canUseManagedChat &&
-        Object.keys(standaloneWindowSpace?.windowsById ?? {}).length > 0 &&
-        !standaloneWindowSpaceHasVisibleWindows
-      : (!canUseManagedChat && standaloneTargetRequiresManagedChat) ||
-        standaloneManagedChatDenied;
+  const {
+    standaloneProjectChatId,
+    standaloneProjectChatThreadRouteInvalid,
+    standaloneProjectChatThreadMissing,
+    shouldBlockStandaloneManagedChat,
+  } = useMemo(
+    () =>
+      resolveStandaloneManagedChatGuardState({
+        target,
+        standaloneSurfaceErrorState,
+        standaloneSurfaceOwnerKey,
+        managedChatAuthorityState,
+        standaloneWindowSpace,
+        canUseManagedChat,
+      }),
+    [
+      canUseManagedChat,
+      managedChatAuthorityState,
+      standaloneSurfaceErrorState,
+      standaloneSurfaceOwnerKey,
+      standaloneWindowSpace,
+      target,
+    ],
+  );
   const previousCanUseManagedChat = useRef(canUseManagedChat);
 
   const setStandaloneSurfaceErrorCode = (errorCode: string | null) => {
