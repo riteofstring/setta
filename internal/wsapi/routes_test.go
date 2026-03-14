@@ -18,7 +18,9 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/go-chi/chi/v5"
+	"setta/internal/artifacts"
 	"setta/internal/auth"
+	binarypayload "setta/internal/binary"
 	"setta/internal/codegen"
 	"setta/internal/config"
 	"setta/internal/deployments"
@@ -27,6 +29,7 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/realtime"
+	"setta/internal/shareartifacts"
 	"setta/internal/terminals"
 )
 
@@ -1139,6 +1142,209 @@ func TestRegisterRoutesListenerFrontendEmitRejectsUnknownDependency(t *testing.T
 	})
 }
 
+func TestRegisterRoutesListenerFrontendEmitBroadcastsArtifactUpdates(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	artifactService, artifactsRoot := newRouteArtifactService(t)
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		Artifacts:           artifactService,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	frontend := dialRouteConnection(t, server.URL, RouteFrontend, authHeaderForCookie(t, authService))
+	defer frontend.CloseNow()
+	_ = readNextMessages(t, frontend, 2)
+
+	listener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer listener.CloseNow()
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"refresh_only"}}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, listener), "project-a", "")
+
+	artifactPath := filepath.Join(artifactsRoot, "stroke.json")
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerFrontendEmit","content":{"projectConfigId":"project-a","artifactUpdates":[{"type":"BrushStroke","id":"`+artifactPath+`","value":{"strokeStyle":"#000000","lineWidth":2,"lineCap":"butt"}}]}}`)); err != nil {
+		t.Fatalf("write listener frontend emit artifact update: %v", err)
+	}
+
+	assertRouteArtifactUpdate(t, readUntilMessageType(t, frontend, realtime.MessageTypeUpdateArtifacts, 4), "update", "artifacts/stroke.json", "BrushStroke")
+
+	loaded, err := artifactService.LoadCachedBrushStrokes(context.Background(), artifacts.LoadCachedPathsRequest{
+		Paths: []string{artifactPath},
+	})
+	if err != nil {
+		t.Fatalf("load brush stroke after listener emit: %v", err)
+	}
+	if len(loaded) != 1 || loaded[0] == nil || !strings.Contains(string(loaded[0].Value), "#000000") {
+		t.Fatalf("expected listener artifact update to persist brush stroke, got %#v", loaded)
+	}
+}
+
+func TestRegisterRoutesShareListenerFrontendEmitScopesArtifactUpdatesToSession(t *testing.T) {
+	t.Parallel()
+
+	deploymentRuntime := newRouteDeploymentRuntime(t, config.ModeShare)
+	if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share-a session: %v", err)
+	}
+	if _, err := deploymentRuntime.CreateSessionWithID("share-b"); err != nil {
+		t.Fatalf("create share-b session: %v", err)
+	}
+
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	shareArtifactService, artifactsRoot := newRouteShareArtifactService(t, deploymentRuntime, hub)
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			ModePolicy:    modes.NewPolicy(config.ModeShare),
+			ShareSessions: deploymentRuntime,
+		},
+		Deployment:          deploymentRuntime,
+		ShareArtifacts:      shareArtifactService,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	frontendA := dialRouteConnection(t, server.URL, RouteFrontend+"?shareSessionId=share-a", nil)
+	defer frontendA.CloseNow()
+	_ = readNextMessage(t, frontendA)
+
+	frontendB := dialRouteConnection(t, server.URL, RouteFrontend+"?shareSessionId=share-b", nil)
+	defer frontendB.CloseNow()
+	_ = readUntilMessageType(t, frontendB, realtime.MessageTypeFrontendIdentity, 3)
+
+	listener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a&shareSessionId=share-a", nil, withPathParam("listener-a"))
+	defer listener.CloseNow()
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"refresh_only"}}}}`)); err != nil {
+		t.Fatalf("write share listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, listener), "project-a", "share-a")
+
+	artifactPath := filepath.Join(artifactsRoot, "stroke.json")
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerFrontendEmit","content":{"projectConfigId":"project-a","artifactUpdates":[{"type":"BrushStroke","id":"`+artifactPath+`","value":{"strokeStyle":"#000000","lineWidth":2,"lineCap":"butt"}}]}}`)); err != nil {
+		t.Fatalf("write share listener artifact update: %v", err)
+	}
+
+	assertRouteArtifactUpdate(t, readUntilMessageType(t, frontendA, realtime.MessageTypeUpdateArtifacts, 4), "update", "artifacts/stroke.json", "BrushStroke")
+	assertNoRouteEnvelopeOfType(t, frontendB, realtime.MessageTypeUpdateArtifacts, 300*time.Millisecond)
+
+	loadedA, err := shareArtifactService.LoadCachedBrushStrokes(context.Background(), "share-a", artifacts.LoadCachedPathsRequest{
+		Paths: []string{artifactPath},
+	})
+	if err != nil {
+		t.Fatalf("load share-a brush stroke after listener emit: %v", err)
+	}
+	if len(loadedA) != 1 || loadedA[0] == nil || !strings.Contains(string(loadedA[0].Value), "#000000") {
+		t.Fatalf("expected share-a listener overlay artifact, got %#v", loadedA)
+	}
+
+	loadedB, err := shareArtifactService.LoadCachedBrushStrokes(context.Background(), "share-b", artifacts.LoadCachedPathsRequest{
+		Paths: []string{artifactPath},
+	})
+	if err != nil {
+		t.Fatalf("load share-b brush stroke after listener emit: %v", err)
+	}
+	if len(loadedB) != 1 || loadedB[0] != nil {
+		t.Fatalf("expected share-b overlay miss after listener emit, got %#v", loadedB)
+	}
+}
+
+func TestRegisterRoutesListenerFrontendEmitRejectsInvalidArtifactUpdate(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	artifactService, _ := newRouteArtifactService(t)
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		Artifacts:           artifactService,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	listener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer listener.CloseNow()
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"refresh_only"}}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, listener), "project-a", "")
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerFrontendEmit","content":{"projectConfigId":"project-a","artifactUpdates":[{"type":"BrushStroke","id":"artifacts/stroke.json","value":["invalid"]}]}}`)); err != nil {
+		t.Fatalf("write listener invalid artifact update: %v", err)
+	}
+
+	assertRouteListenerError(t, readNextMessage(t, listener), "listener_emit_invalid_artifact_update", map[string]any{
+		"path": "artifacts/stroke.json",
+	})
+}
+
+func TestRegisterRoutesListenerFrontendEmitRejectsUnsupportedArtifactUpdate(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	artifactService, _ := newRouteArtifactService(t)
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		Artifacts:           artifactService,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	listener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer listener.CloseNow()
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":[],"dependencyMode":"refresh_only"}}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, listener), "project-a", "")
+
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerFrontendEmit","content":{"projectConfigId":"project-a","artifactUpdates":[{"type":"Image","id":"artifacts/image.png","value":{"contentId":"missing","byteLength":1,"mimeType":"image/png"}}]}}`)); err != nil {
+		t.Fatalf("write listener unsupported artifact update: %v", err)
+	}
+
+	assertRouteListenerError(t, readNextMessage(t, listener), "listener_emit_unsupported_artifact_update", map[string]any{
+		"path": "artifacts/image.png",
+	})
+}
+
 func TestRegisterRoutesListenerRegistersCallbacksAndReceivesRealtimeMessages(t *testing.T) {
 	t.Parallel()
 
@@ -1986,6 +2192,57 @@ func routeProjectStatePayload(t *testing.T, document projectstate.Document, proj
 	return payload
 }
 
+func newRouteArtifactService(t *testing.T) (*artifacts.Service, string) {
+	t.Helper()
+
+	root := t.TempDir()
+	workspaceRoot := filepath.Join(root, "workspace")
+	settaFilesRoot := filepath.Join(root, "setta_files")
+	artifactsRoot := filepath.Join(settaFilesRoot, "artifacts")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir route workspace root: %v", err)
+	}
+	if err := os.MkdirAll(artifactsRoot, 0o755); err != nil {
+		t.Fatalf("mkdir route artifacts root: %v", err)
+	}
+	binaryStore, err := binarypayload.NewStore(filepath.Join(root, "binary"))
+	if err != nil {
+		t.Fatalf("new route binary store: %v", err)
+	}
+	service, err := artifacts.NewService(artifacts.ServiceOptions{
+		WorkspaceRoot:  workspaceRoot,
+		SettaFilesRoot: settaFilesRoot,
+		ArtifactsRoot:  artifactsRoot,
+		BinaryStore:    binaryStore,
+	})
+	if err != nil {
+		t.Fatalf("new route artifact service: %v", err)
+	}
+	return service, artifactsRoot
+}
+
+func newRouteShareArtifactService(
+	t *testing.T,
+	deploymentRuntime *deployments.Runtime,
+	hub *realtime.WebsocketHub,
+) (*shareartifacts.Service, string) {
+	t.Helper()
+
+	binaryStore, err := binarypayload.NewStore(filepath.Join(t.TempDir(), "binary"))
+	if err != nil {
+		t.Fatalf("new route share binary store: %v", err)
+	}
+	service, err := shareartifacts.NewService(shareartifacts.ServiceOptions{
+		Deployment:   deploymentRuntime,
+		BinaryStore:  binaryStore,
+		WebsocketHub: hub,
+	})
+	if err != nil {
+		t.Fatalf("new route share artifact service: %v", err)
+	}
+	return service, deploymentRuntime.Paths().ArtifactsRoot
+}
+
 func newRouteDeploymentRuntime(t *testing.T, mode config.Mode) *deployments.Runtime {
 	t.Helper()
 
@@ -2119,6 +2376,31 @@ func readUntilMessageType(t *testing.T, conn *websocket.Conn, messageType string
 	}
 	t.Fatalf("did not receive message type %q within %d reads", messageType, maxReads)
 	return routeMessageEnvelope{}
+}
+
+func assertNoRouteEnvelopeOfType(t *testing.T, conn *websocket.Conn, messageType string, timeout time.Duration) {
+	t.Helper()
+
+	readCtx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	for {
+		_, payload, err := conn.Read(readCtx)
+		if errors.Is(err, context.DeadlineExceeded) {
+			return
+		}
+		if err != nil {
+			t.Fatalf("read websocket frame while waiting for no %q messages: %v", messageType, err)
+		}
+
+		var message routeMessageEnvelope
+		if err := json.Unmarshal(payload, &message); err != nil {
+			t.Fatalf("decode websocket frame while waiting for no %q messages: %v", messageType, err)
+		}
+		if message.MessageType == messageType {
+			t.Fatalf("expected no message type %q within %v, got %#v", messageType, timeout, message)
+		}
+	}
 }
 
 func readNextRawFrame(t *testing.T, conn *websocket.Conn) string {
@@ -2408,6 +2690,41 @@ func assertRouteProjectStateUpdate(t *testing.T, message routeMessageEnvelope, p
 	}
 	if content.ProjectState.ProjectConfig.ID != projectID {
 		t.Fatalf("expected project state update for %q, got %q", projectID, content.ProjectState.ProjectConfig.ID)
+	}
+}
+
+func assertRouteArtifactUpdate(
+	t *testing.T,
+	message routeMessageEnvelope,
+	updateType string,
+	artifactID string,
+	artifactType string,
+) {
+	t.Helper()
+
+	if message.MessageType != realtime.MessageTypeUpdateArtifacts {
+		t.Fatalf("expected update artifacts message, got %q", message.MessageType)
+	}
+
+	var content realtime.UpdateArtifactsContent
+	if err := json.Unmarshal(message.Content, &content); err != nil {
+		t.Fatalf("decode update artifacts content: %v", err)
+	}
+	if content.UpdateType != updateType {
+		t.Fatalf("expected update type %q, got %q", updateType, content.UpdateType)
+	}
+	if len(content.Artifacts) != 1 {
+		t.Fatalf("expected 1 artifact update, got %#v", content.Artifacts)
+	}
+	artifact, ok := content.Artifacts[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected artifact object, got %#v", content.Artifacts[0])
+	}
+	if artifact["id"] != artifactID {
+		t.Fatalf("expected artifact id %q, got %#v", artifactID, artifact["id"])
+	}
+	if artifact["type"] != artifactType {
+		t.Fatalf("expected artifact type %q, got %#v", artifactType, artifact["type"])
 	}
 }
 

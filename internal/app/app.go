@@ -1278,6 +1278,8 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				},
 				Deployment:              deploymentRuntime,
 				ProjectState:            projectRuntime,
+				Artifacts:               artifactService,
+				ShareArtifacts:          shareArtifactService,
 				WebsocketHub:            websocketHub,
 				UISettingRevealResults:  uiSettingRevealResults,
 				ListenerBroadcaster:     listenerBroadcaster,

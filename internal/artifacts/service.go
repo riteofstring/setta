@@ -288,6 +288,14 @@ func (s *Service) Update(_ context.Context, request UpdateRequest) ([]ArtifactSa
 	return results, nil
 }
 
+func (s *Service) ValidateListenerUpdate(artifact RawArtifact, scope UploadScope) (string, error) {
+	action, err := s.buildUpdateAction(artifact, scope)
+	if err != nil {
+		return "", err
+	}
+	return action.artifactID, nil
+}
+
 func (s *Service) Delete(_ context.Context, request DeleteRequest) ([]string, error) {
 	if len(request.Artifacts) == 0 {
 		return []string{}, nil

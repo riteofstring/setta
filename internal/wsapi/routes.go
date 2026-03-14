@@ -12,6 +12,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/go-chi/chi/v5"
+	"setta/internal/artifacts"
 	"setta/internal/deployments"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
@@ -37,6 +38,8 @@ type RouteDependencies struct {
 	Transport               Dependencies
 	Deployment              *deployments.Runtime
 	ProjectState            *projectstate.Runtime
+	Artifacts               ListenerArtifactService
+	ShareArtifacts          ListenerShareArtifactService
 	WebsocketHub            *realtime.WebsocketHub
 	UISettingRevealResults  *realtime.UISettingRevealResultHub
 	ListenerBroadcaster     *realtime.ListenerBroadcaster
@@ -48,6 +51,16 @@ type RouteDependencies struct {
 
 type ListenerEndpointInvoker interface {
 	InvokeListenerEndpoint(context.Context, string, map[string]any) (any, error)
+}
+
+type ListenerArtifactService interface {
+	ValidateListenerUpdate(artifact artifacts.RawArtifact, scope artifacts.UploadScope) (string, error)
+	Update(ctx context.Context, request artifacts.UpdateRequest) ([]artifacts.ArtifactSaveResult, error)
+}
+
+type ListenerShareArtifactService interface {
+	ValidateListenerUpdate(artifact artifacts.RawArtifact, scope artifacts.UploadScope) (string, error)
+	Update(ctx context.Context, sessionID string, request artifacts.UpdateRequest) ([]artifacts.ArtifactSaveResult, error)
 }
 
 type frontendEnvelope struct {

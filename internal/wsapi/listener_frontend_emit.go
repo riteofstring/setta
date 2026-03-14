@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"setta/internal/artifacts"
 	"setta/internal/codegen"
 	"setta/internal/deployments"
 	"setta/internal/modes"
@@ -16,10 +17,13 @@ import (
 )
 
 var (
-	errListenerEmitUnknownDependency     = errors.New("listener emit unknown dependency")
-	errListenerEmitUnsupportedDependency = errors.New("listener emit unsupported dependency")
-	errListenerEmitInvalidValue          = errors.New("listener emit invalid value")
-	errListenerEmitApplyFailed           = errors.New("listener emit apply failed")
+	errListenerEmitUnknownDependency         = errors.New("listener emit unknown dependency")
+	errListenerEmitUnsupportedDependency     = errors.New("listener emit unsupported dependency")
+	errListenerEmitInvalidValue              = errors.New("listener emit invalid value")
+	errListenerEmitApplyFailed               = errors.New("listener emit apply failed")
+	errListenerEmitInvalidArtifactUpdate     = errors.New("listener emit invalid artifact update")
+	errListenerEmitUnsupportedArtifactUpdate = errors.New("listener emit unsupported artifact update")
+	errListenerEmitArtifactUpdateFailed      = errors.New("listener emit artifact update failed")
 )
 
 type listenerEmitUnknownDependencyError struct {
@@ -84,12 +88,64 @@ func (e *listenerEmitApplyError) Unwrap() error {
 	return errListenerEmitApplyFailed
 }
 
+type listenerEmitInvalidArtifactUpdateError struct {
+	Path    string
+	Message string
+}
+
+func (e *listenerEmitInvalidArtifactUpdateError) Error() string {
+	if e == nil {
+		return ""
+	}
+	return e.Message
+}
+
+func (e *listenerEmitInvalidArtifactUpdateError) Unwrap() error {
+	return errListenerEmitInvalidArtifactUpdate
+}
+
+type listenerEmitUnsupportedArtifactUpdateError struct {
+	Path   string
+	Reason string
+}
+
+func (e *listenerEmitUnsupportedArtifactUpdateError) Error() string {
+	if e == nil {
+		return ""
+	}
+	return e.Reason
+}
+
+func (e *listenerEmitUnsupportedArtifactUpdateError) Unwrap() error {
+	return errListenerEmitUnsupportedArtifactUpdate
+}
+
+type listenerEmitArtifactUpdateFailedError struct {
+	Path    string
+	Message string
+}
+
+func (e *listenerEmitArtifactUpdateFailedError) Error() string {
+	if e == nil {
+		return ""
+	}
+	return e.Message
+}
+
+func (e *listenerEmitArtifactUpdateFailedError) Unwrap() error {
+	return errListenerEmitArtifactUpdateFailed
+}
+
 type listenerResolvedDependencyUpdate struct {
 	DependencyName string
 	SectionID      string
 	CodeObjectID   string
 	SectionType    string
 	RawValue       json.RawMessage
+}
+
+type listenerResolvedArtifactUpdate struct {
+	Artifact artifacts.RawArtifact
 }
 
 func handleListenerFrontendEmit(
@@ -139,16 +195,6 @@ func handleListenerFrontendEmit(
 		}, deps)
 	}
 
-	runtime, err := listenerMutationRuntime(requestInfo, deps)
-	if err != nil {
-		return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
-			Error: "project_state_unavailable",
-			Details: map[string]any{
-				"message": err.Error(),
-			},
-		}, deps)
-	}
-
 	if requestInfo.Policy.IsDeployment() {
 		if deps.Deployment == nil {
 			return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
@@ -168,8 +214,23 @@ func handleListenerFrontendEmit(
 		}
 	}
 
+	artifactUpdates, err := validateListenerArtifactUpdates(requestInfo, content.ArtifactUpdates, deps)
+	if err != nil {
+		return sendResolvedListenerEmitError(ctx, connectionID, err, deps)
+	}
+
 	if len(content.DependencyValues) == 0 {
-		return nil
+		return applyListenerArtifactUpdates(ctx, requestInfo, artifactUpdates, deps)
+	}
+
+	runtime, err := listenerMutationRuntime(requestInfo, deps)
+	if err != nil {
+		return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
+			Error: "project_state_unavailable",
+			Details: map[string]any{
+				"message": err.Error(),
+			},
+		}, deps)
 	}
 
 	snapshot := runtime.Snapshot()
@@ -205,7 +266,11 @@ func handleListenerFrontendEmit(
 		}, deps)
 	}
 
-	return broadcastListenerProjectStateUpdate(ctx, updatedSnapshot, projectID, requestInfo.ShareSessionID, deps)
+	if err := broadcastListenerProjectStateUpdate(ctx, updatedSnapshot, projectID, requestInfo.ShareSessionID, deps); err != nil {
+		return err
+	}
+
+	return applyListenerArtifactUpdates(ctx, requestInfo, artifactUpdates, deps)
 }
 
 func listenerMutationRuntime(
@@ -222,6 +287,97 @@ func listenerMutationRuntime(
 		return nil, fmt.Errorf("project runtime is required")
 	}
 	return deps.ProjectState, nil
+}
+
+func validateListenerArtifactUpdates(
+	requestInfo modes.RequestInfo,
+	rawUpdates []artifacts.RawArtifact,
+	deps RouteDependencies,
+) ([]listenerResolvedArtifactUpdate, error) {
+	if len(rawUpdates) == 0 {
+		return nil, nil
+	}
+
+	resolved := make([]listenerResolvedArtifactUpdate, 0, len(rawUpdates))
+	for _, update := range rawUpdates {
+		rawPath := strings.TrimSpace(update.ID)
+		if rawPath == "" {
+			rawPath = update.ID
+		}
+
+		normalizedID, err := validateListenerArtifactUpdate(requestInfo, update, deps)
+		if err != nil {
+			return nil, classifyListenerArtifactUpdateError(rawPath, err)
+		}
+
+		next := cloneRawArtifact(update)
+		next.ID = normalizedID
+		resolved = append(resolved, listenerResolvedArtifactUpdate{Artifact: next})
+	}
+	return resolved, nil
+}
+
+func validateListenerArtifactUpdate(
+	requestInfo modes.RequestInfo,
+	update artifacts.RawArtifact,
+	deps RouteDependencies,
+) (string, error) {
+	const scope = artifacts.UploadScopeGeneric
+
+	if requestInfo.Policy.IsDeployment() {
+		if deps.ShareArtifacts == nil {
+			return "", fmt.Errorf("share artifact service is required")
+		}
+		return deps.ShareArtifacts.ValidateListenerUpdate(update, scope)
+	}
+	if deps.Artifacts == nil {
+		return "", fmt.Errorf("artifact service is required")
+	}
+	return deps.Artifacts.ValidateListenerUpdate(update, scope)
+}
+
+func applyListenerArtifactUpdates(
+	ctx context.Context,
+	requestInfo modes.RequestInfo,
+	updates []listenerResolvedArtifactUpdate,
+	deps RouteDependencies,
+) error {
+	if len(updates) == 0 {
+		return nil
+	}
+
+	rawUpdates := make([]artifacts.RawArtifact, 0, len(updates))
+	for _, update := range updates {
+		rawUpdates = append(rawUpdates, cloneRawArtifact(update.Artifact))
+	}
+	request := artifacts.UpdateRequest{
+		Artifacts:   rawUpdates,
+		UploadScope: artifacts.UploadScopeGeneric,
+	}
+
+	if requestInfo.Policy.IsDeployment() {
+		if deps.ShareArtifacts == nil {
+			return &listenerEmitArtifactUpdateFailedError{
+				Path:    rawUpdates[0].ID,
+				Message: "share artifact service is required",
+			}
+		}
+		if _, err := deps.ShareArtifacts.Update(ctx, requestInfo.ShareSessionID, request); err != nil {
+			return classifyListenerArtifactUpdateError(rawUpdates[0].ID, err)
+		}
+		return nil
+	}
+
+	if deps.Artifacts == nil {
+		return &listenerEmitArtifactUpdateFailedError{
+			Path:    rawUpdates[0].ID,
+			Message: "artifact service is required",
+		}
+	}
+	if _, err := deps.Artifacts.Update(ctx, request); err != nil {
+		return classifyListenerArtifactUpdateError(rawUpdates[0].ID, err)
+	}
+	return broadcastListenerArtifactUpdates(ctx, rawUpdates, requestInfo.ShareSessionID, deps)
 }
 
 func resolveListenerFrontendDependencyUpdates(
@@ -596,6 +752,67 @@ func broadcastListenerProjectStateUpdate(
 	return err
 }
 
+func broadcastListenerArtifactUpdates(
+	ctx context.Context,
+	updates []artifacts.RawArtifact,
+	shareSessionID string,
+	deps RouteDependencies,
+) error {
+	if deps.WebsocketHub == nil || len(updates) == 0 {
+		return nil
+	}
+
+	payloads := make([]any, 0, len(updates))
+	for _, update := range updates {
+		payloads = append(payloads, cloneRawArtifact(update))
+	}
+	_, err := deps.WebsocketHub.BroadcastJSON(
+		ctx,
+		realtime.NewUpdateArtifactsMessage(realtime.UpdateArtifactsContent{
+			Artifacts:  payloads,
+			UpdateType: "update",
+		}),
+		realtime.Selection{
+			Type:           realtime.ConnectionTypeFrontend,
+			ShareSessionID: strings.TrimSpace(shareSessionID),
+		},
+	)
+	return err
+}
+
+func classifyListenerArtifactUpdateError(path string, err error) error {
+	var artifactErr *artifacts.Error
+	if !errors.As(err, &artifactErr) {
+		return &listenerEmitArtifactUpdateFailedError{
+			Path:    path,
+			Message: err.Error(),
+		}
+	}
+
+	switch artifactErr.Kind {
+	case artifacts.ErrorArtifactTypeUnsupported:
+		return &listenerEmitUnsupportedArtifactUpdateError{
+			Path:   path,
+			Reason: artifactErr.Message,
+		}
+	case artifacts.ErrorInvalidRequest,
+		artifacts.ErrorPathForbidden,
+		artifacts.ErrorBinaryPayloadInvalid,
+		artifacts.ErrorBinaryPayloadNotFound,
+		artifacts.ErrorTooLarge,
+		artifacts.ErrorMimeNotAllowed:
+		return &listenerEmitInvalidArtifactUpdateError{
+			Path:    path,
+			Message: artifactErr.Message,
+		}
+	default:
+		return &listenerEmitArtifactUpdateFailedError{
+			Path:    path,
+			Message: artifactErr.Message,
+		}
+	}
+}
+
 func sendResolvedListenerEmitError(
 	ctx context.Context,
 	connectionID string,
@@ -635,6 +852,38 @@ func sendResolvedListenerEmitError(
 				},
 			}, deps)
 		}
+	case errors.Is(err, errListenerEmitInvalidArtifactUpdate):
+		var typed *listenerEmitInvalidArtifactUpdateError
+		if errors.As(err, &typed) {
+			return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
+				Error: "listener_emit_invalid_artifact_update",
+				Details: map[string]any{
+					"path":    typed.Path,
+					"message": typed.Message,
+				},
+			}, deps)
+		}
+	case errors.Is(err, errListenerEmitUnsupportedArtifactUpdate):
+		var typed *listenerEmitUnsupportedArtifactUpdateError
+		if errors.As(err, &typed) {
+			return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
+				Error: "listener_emit_unsupported_artifact_update",
+				Details: map[string]any{
+					"path":   typed.Path,
+					"reason": typed.Reason,
+				},
+			}, deps)
+		}
+	case errors.Is(err, errListenerEmitArtifactUpdateFailed):
+		var typed *listenerEmitArtifactUpdateFailedError
+		if errors.As(err, &typed) {
+			return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
+				Error: "listener_emit_artifact_update_failed",
+				Details: map[string]any{
+					"message": typed.Message,
+				},
+			}, deps)
+		}
 	}
 
 	return sendListenerError(ctx, connectionID, realtime.ListenerErrorContent{
@@ -664,6 +913,18 @@ func cloneJSONRawMessage(raw json.RawMessage) json.RawMessage {
 	}
 	cloned := make(json.RawMessage, len(raw))
 	copy(cloned, raw)
+	return cloned
+}
+
+func cloneRawArtifact(artifact artifacts.RawArtifact) artifacts.RawArtifact {
+	cloned := artifact
+	cloned.ID = strings.TrimSpace(artifact.ID)
+	if artifact.Value == nil {
+		cloned.Value = nil
+		return cloned
+	}
+	rawValue := cloneJSONRawMessage(*artifact.Value)
+	cloned.Value = &rawValue
 	return cloned
 }
 

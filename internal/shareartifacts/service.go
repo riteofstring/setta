@@ -172,6 +172,20 @@ func (s *Service) Update(ctx context.Context, sessionID string, request artifact
 	return results, nil
 }
 
+func (s *Service) ValidateListenerUpdate(artifact artifacts.RawArtifact, scope artifacts.UploadScope) (string, error) {
+	if err := s.requireMutablePolicy(); err != nil {
+		return "", err
+	}
+	artifactID, resolvedPath, err := s.resolveOverlayPath(artifact.ID)
+	if err != nil {
+		return "", err
+	}
+	if _, _, err := s.buildOverlayEntry(artifactID, resolvedPath, artifact, scope); err != nil {
+		return "", err
+	}
+	return artifactID, nil
+}
+
 func (s *Service) Delete(_ context.Context, sessionID string, request artifacts.DeleteRequest) ([]string, error) {
 	if len(request.Artifacts) == 0 {
 		return []string{}, nil

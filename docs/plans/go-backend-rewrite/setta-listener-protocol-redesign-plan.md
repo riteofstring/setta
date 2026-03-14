@@ -30,6 +30,9 @@ Current state:
   - dependency-backed `ListenerFrontendEmit` project mutations for section
     params, `TextBlock`, `Chat`, and `Plugin` sections on that route, plus
     authoritative `UpdateFrontendProjectState` broadcasts to frontend clients
+  - `ListenerFrontendEmit` artifact updates on that route, including
+    validation, IDE/share artifact-service dispatch, and `UpdateArtifacts`
+    frontend broadcasts
   - listener coverage and force-refresh reads/writes
   - listener websocket DTOs in `internal/realtime`
 - Python still owns:
@@ -38,7 +41,8 @@ Current state:
     Go listener route
   - local dependency-graph rebuilding and generated runtime state
   - built-in listener endpoint dispatch
-  - artifact updates plus remaining local mutation patching in
+  - remaining local mutation patching and authoritative patch/refresh behavior
+    in
     `backend/setta/listeners/router_endpoint_local_updates.py`
   - share listener runtime coupling through
     `backend/setta/share/listener_runtime.py`
