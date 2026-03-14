@@ -33,7 +33,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - page routing already uses `frontend/src/components/Pages/routeConfig.ts` and `frontend/src/components/Pages/modeRouteResolver.ts`
   - app generation preview helpers already live in `frontend/src/components/Panes/Overview/App/appDraftPreview.ts`
   - project chat already has feature-local helpers such as `projectChatHydrationAuthority.ts`, `projectChatStarterPrompts.ts`, `projectChatSlashCommandSelectors.ts`, and `projectChatFocusUtils.ts`
-  - project chat windowing already splits some behavior into `frontend/src/state/actions/projectChatWindowingAuthoritative.ts` and `frontend/src/state/actions/projectChatWindowingEphemeral.ts`
+  - project chat windowing already splits some behavior into `frontend/src/state/actions/projectChatWindowingAuthoritative.ts`, `frontend/src/state/actions/projectChatWindowingEphemeral.ts`, and `frontend/src/state/actions/projectChatWindowingWrites.ts`
   - chat hydration fetch/reconciliation and outcome typing now live in `frontend/src/state/actions/aiHydration.ts`
   - agent-run loading, retries, and single-run reconciliation now live in `frontend/src/state/actions/aiAgentRuns.ts`
   - AI config/API-key handling plus agent-profile, prompt-template, external-agent, and engine-config catalog mutations now live in `frontend/src/state/actions/aiConfiguration.ts`
@@ -109,8 +109,13 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/state/actions/windowSpacePersistence.ts` and
   `frontend/src/state/actions/windowSpaceSnapshots.ts` now own saved
   window-space mutations plus floating snapshot/restore conversion, reducing
-  `frontend/src/state/actions/windowSpaces.ts` to 695 lines for the remaining
+  `frontend/src/state/actions/windowSpaces.ts` to 697 lines for the remaining
   workspace-restore orchestration.
+- `frontend/src/state/actions/projectChatWindowingWrites.ts` now owns layout
+  write permissions, optimistic windowing mutation dispatch, authoritative
+  publish flow, and sync helpers, reducing
+  `frontend/src/state/actions/projectChatWindowing.ts` to 1768 lines for the
+  remaining in-state reducers plus public window commands.
 - `frontend/src/state/hooks/terminals/terminal.ts` is down to 248 lines and now
   delegates terminal websocket-session caching/transport to
   `frontend/src/state/hooks/terminals/terminalSessions.ts` and xterm
@@ -264,7 +269,7 @@ Notes:
 ## Phase 3: Simplify Project Chat Windowing
 
 - Refactor `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` and `frontend/src/state/actions/projectChatWindowing.ts`.
-- Continue from the existing authoritative/ephemeral helper seams in `projectChatWindowingAuthoritative.ts` and `projectChatWindowingEphemeral.ts` instead of re-splitting from scratch.
+- Continue from the existing writes/authoritative/ephemeral helper seams in `projectChatWindowingWrites.ts`, `projectChatWindowingAuthoritative.ts`, and `projectChatWindowingEphemeral.ts` instead of re-splitting from scratch.
 - Separate:
   - layout math
   - pointer/keyboard interaction state

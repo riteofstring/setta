@@ -57,9 +57,9 @@ vi.mock("state/actions/notifications", () => ({
 
 import {
   focusProjectChatWindow,
-  replaceProjectChatWindowingState,
   setProjectChatWindowBounds,
 } from "./projectChatWindowing";
+import { replaceProjectChatWindowingState } from "./projectChatWindowingWrites";
 import {
   applyWindowSpaceSortOrder,
   createWindowSpaceFromCurrentFloatingWindows,

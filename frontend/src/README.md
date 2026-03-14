@@ -10,20 +10,20 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-14`
-- Authored TS/TSX files under `frontend/src`: `979`
+- Authored TS/TSX files under `frontend/src`: `1008`
 - Non-generated TS/TSX files at `1000+` lines: `43`
 - Biggest current production hotspots:
   - `components/Chat/ChatMessages.tsx` (`7959`)
-  - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`4989`)
-  - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` (`3327`)
+  - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`4988`)
+  - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` (`3324`)
   - `components/Chat/ChatInput.tsx` (`3121`)
   - `plugins/runtime.ts` (`2730`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (`2723`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` (`2478`)
-  - `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` (`2445`)
+  - `components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` (`2444`)
   - `components/Panes/Overview/FileBrowser/FileBrowserPane.tsx` (`2403`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` (`2379`)
-  - `state/actions/projectChatWindowing.ts` (`2326`)
+  - `components/Section/Layouts/BrowserArea.tsx` (`2325`)
 
 ## Module Map
 
@@ -84,7 +84,11 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
   - `components/ChatWindowing/*` owns dock/window rendering, surface ids, snap
     layout helpers, and viewport math.
-  - `state/actions/projectChatWindowing.ts` is the main mutation entry point.
+  - `state/actions/projectChatWindowing.ts` now owns the remaining in-state
+    reducers plus public window commands.
+  - `state/actions/projectChatWindowingWrites.ts` owns layout-write
+    permissions, optimistic mutation dispatch, authoritative publish flow, and
+    sync helpers.
   - `state/actions/projectChatWindowingAuthoritative.ts` and
     `state/actions/projectChatWindowingEphemeral.ts` already hold narrower helper
     seams and should be extended instead of recreated elsewhere.
@@ -268,7 +272,8 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 - `state/actions/projectChatWindowing.ts` remains the largest authored state
   hotspot and should continue from
-  `state/actions/projectChatWindowingAuthoritative.ts` and
+  `state/actions/projectChatWindowingWrites.ts`,
+  `state/actions/projectChatWindowingAuthoritative.ts`, and
   `state/actions/projectChatWindowingEphemeral.ts` instead of regrowing around
   those seams
 - `state/actions/windowSpaces.ts` is now the largest shared-infrastructure
