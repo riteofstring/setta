@@ -415,3 +415,12 @@ Append-only log for autonomous frontend cleanup slices.
 - Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
 - Commit hash: `60ca52549`
 - Next highest-value unblocked slice: either keep reducing `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx` by extracting the remaining load-state and store-selection wiring into a feature-local hook, or move to the next `pages and shell` hotspot in `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx`
+
+## 2026-03-12 16:17 PDT
+
+- What changed: Extracted standalone window-space hydration, local window mutation, blocked-window reconciliation, visible-window derivation, and snap-resize math from `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx` into `frontend/src/components/Pages/Project/standaloneWindowSpaceState.ts`. Added focused pure Vitest coverage for the new owner in `frontend/src/components/Pages/Project/standaloneWindowSpaceState.test.ts`, moved the existing hydration helper imports in `StandaloneWindowSpaceSurface.test.tsx` onto the new module, refreshed the frontend module map, and reduced `StandaloneWindowSpaceSurface.tsx` to 496 lines.
+- Key files touched: `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx`, `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx`, `frontend/src/components/Pages/Project/standaloneWindowSpaceState.ts`, `frontend/src/components/Pages/Project/standaloneWindowSpaceState.test.ts`, `docs/reference/frontend-module-map.md`
+- Tests/verification run: `pnpm -C frontend exec vitest run src/components/Pages/Project/standaloneWindowSpaceState.test.ts src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx`; `pnpm -C frontend exec prettier --check src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx src/components/Pages/Project/standaloneWindowSpaceState.ts src/components/Pages/Project/standaloneWindowSpaceState.test.ts ../docs/reference/frontend-module-map.md`; `git diff --check`
+- Perf/CDP notes: not applicable for this non-visual refactor; no UI behavior change intended
+- Commit hash: `ed8cd2a5b`
+- Next highest-value unblocked slice: continue shrinking `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx` by extracting the remaining window render branching and blocked/empty-state surface UI into feature-local modules
