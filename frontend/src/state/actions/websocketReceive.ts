@@ -59,16 +59,18 @@ import {
   createWebsocketMsgCurrentAddressUpdate,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
+import { receiveLLMResponseChunk } from "./ai/chatStreaming";
+import {
+  receiveLLMApiKeysSnapshotUpdate,
+  receiveLLMConfigUpdate,
+} from "./ai/llmSettings";
 import {
   receiveAgentProfilesUpdate,
   receiveEngineConfigsUpdate,
   receiveExternalAgentConfigsUpdate,
-  receiveLLMApiKeysSnapshotUpdate,
-  receiveLLMConfigUpdate,
-  receiveLLMResponseChunk,
   receivePromptTemplatesUpdate,
   receiveTranscriptionProfilesUpdate,
-} from "./ai";
+} from "./ai/projectAiResources";
 import {
   receiveAIFollowToolArgumentsUpdate,
   receiveAIFollowToolResultUpdate,

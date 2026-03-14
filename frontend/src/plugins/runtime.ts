@@ -8,7 +8,7 @@ import {
   useShareSession,
 } from "state/definitions";
 import { C_ADDRESSES } from "utils/c_addresses";
-import { buildPluginPaneOverviewTabName } from "utils/constants";
+import { buildPluginPaneOverviewTabName } from "utils/constants/panes";
 import { res200 } from "utils/endpointUtils";
 import { route_plugins_runtime } from "utils/generatedEndpoints";
 import {

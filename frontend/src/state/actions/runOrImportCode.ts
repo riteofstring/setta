@@ -1,11 +1,11 @@
 import {
   useLocalStorage,
   useProjectState,
-  useRunControl,
-  useSettings,
   useShareSession,
   type ZustandProjectState,
 } from "state/definitions";
+import { useRunControl } from "state/stores/runtimeStores";
+import { useSettings } from "state/stores/settingsStore";
 import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import { isRunnableCodeLanguage } from "utils/codeLanguage";
 import {
