@@ -1,21 +1,35 @@
 import {
   route_append_transcription_audio,
   route_cancel_transcription_session,
+  route_create_transcription_profile,
+  route_delete_transcription_profile,
+  route_get_transcription_profiles,
   route_start_transcription_session,
   route_stop_transcription_session,
+  route_update_transcription_profile,
 } from "utils/generatedEndpoints";
-import { SettaNotificationTypeEnum } from "utils/generatedTypes";
+import {
+  SettaNotificationTypeEnum,
+  TranscriptionTransportModeEnum,
+} from "utils/generatedTypes";
 import { ProviderTranscriptionError } from "utils/transcriptionErrors";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { useAIStore } from "../definitions";
+import { resetProjectStores } from "../utils";
 import {
   appendTranscriptionAudio,
   cancelTranscriptionSession,
+  createTranscriptionProfile,
+  deleteTranscriptionProfile,
+  loadTranscriptionProfiles,
+  receiveTranscriptionProfilesUpdate,
   resampleMonoPcm16ToSampleRate,
   resolveProviderTranscriptionChunkSampleCount,
   startTranscriptionSession,
   stopTranscriptionSession,
   transcribeChatAudioWithProfile,
-} from "./ai";
+  updateTranscriptionProfile,
+} from "./aiTranscription";
 import { addTemporaryNotification } from "./notifications";
 
 vi.mock("utils/generatedEndpoints", async () => {
@@ -28,6 +42,10 @@ vi.mock("utils/generatedEndpoints", async () => {
     route_append_transcription_audio: vi.fn(),
     route_stop_transcription_session: vi.fn(),
     route_cancel_transcription_session: vi.fn(),
+    route_get_transcription_profiles: vi.fn(),
+    route_create_transcription_profile: vi.fn(),
+    route_update_transcription_profile: vi.fn(),
+    route_delete_transcription_profile: vi.fn(),
   };
 });
 
@@ -47,11 +65,24 @@ const mockedRouteStopTranscriptionSession = vi.mocked(
 const mockedRouteCancelTranscriptionSession = vi.mocked(
   route_cancel_transcription_session,
 );
+const mockedRouteGetTranscriptionProfiles = vi.mocked(
+  route_get_transcription_profiles,
+);
+const mockedRouteCreateTranscriptionProfile = vi.mocked(
+  route_create_transcription_profile,
+);
+const mockedRouteUpdateTranscriptionProfile = vi.mocked(
+  route_update_transcription_profile,
+);
+const mockedRouteDeleteTranscriptionProfile = vi.mocked(
+  route_delete_transcription_profile,
+);
 const mockedAddTemporaryNotification = vi.mocked(addTemporaryNotification);
 
 describe("transcription session actions", () => {
   afterEach(() => {
     vi.clearAllMocks();
+    resetProjectStores();
   });
 
   it("starts a transcription session", async () => {
@@ -527,5 +558,166 @@ describe("transcription session actions", () => {
 
     expect(output.length).toBe(24_000);
     expect(output[0]).toBe(1_000);
+  });
+});
+
+describe("transcription profile actions", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+    resetProjectStores();
+  });
+
+  it("stores received transcription profiles and clears loading state", () => {
+    receiveTranscriptionProfilesUpdate([
+      {
+        id: "profile-a",
+        name: "Realtime",
+        transcriptionLlmConfigId: "llm-a",
+        transportMode: TranscriptionTransportModeEnum.realtime,
+        chunkMs: 250,
+        supportsRealtimeTranscription: true,
+        language: "en",
+      },
+    ]);
+
+    const state = useAIStore.getState();
+    expect(state.transcriptionProfiles).toEqual([
+      {
+        id: "profile-a",
+        name: "Realtime",
+        transcriptionLlmConfigId: "llm-a",
+        transportMode: TranscriptionTransportModeEnum.realtime,
+        chunkMs: 250,
+        supportsRealtimeTranscription: true,
+        language: "en",
+      },
+    ]);
+    expect(state.transcriptionProfilesInitialLoadComplete).toBe(true);
+    expect(state.transcriptionProfilesLoading).toBe(false);
+    expect(state.transcriptionProfilesLoadError).toBeNull();
+  });
+
+  it("loads transcription profiles into the AI store", async () => {
+    useAIStore.setState({
+      transcriptionProfiles: [],
+      transcriptionProfilesInitialLoadComplete: false,
+      transcriptionProfilesLoading: false,
+      transcriptionProfilesLoadError: null,
+    });
+    mockedRouteGetTranscriptionProfiles.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: [
+        {
+          id: "profile-a",
+          name: "Batch",
+          transcriptionLlmConfigId: "llm-a",
+          transportMode: TranscriptionTransportModeEnum.file,
+          chunkMs: 1200,
+          supportsRealtimeTranscription: false,
+          language: null,
+        },
+      ],
+    });
+
+    await loadTranscriptionProfiles();
+
+    expect(mockedRouteGetTranscriptionProfiles).toHaveBeenCalledTimes(1);
+    expect(useAIStore.getState().transcriptionProfiles).toEqual([
+      {
+        id: "profile-a",
+        name: "Batch",
+        transcriptionLlmConfigId: "llm-a",
+        transportMode: TranscriptionTransportModeEnum.file,
+        chunkMs: 1200,
+        supportsRealtimeTranscription: false,
+        language: null,
+      },
+    ]);
+  });
+
+  it("creates, updates, and deletes transcription profiles in store state", async () => {
+    useAIStore.setState({
+      transcriptionProfiles: [
+        {
+          id: "profile-a",
+          name: "Old",
+          transcriptionLlmConfigId: "llm-a",
+          transportMode: TranscriptionTransportModeEnum.file,
+          chunkMs: 1200,
+          supportsRealtimeTranscription: false,
+          language: null,
+        },
+      ],
+      projectChatTranscriptionProfileId: "profile-b",
+    });
+    mockedRouteCreateTranscriptionProfile.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        id: "profile-b",
+        name: "Realtime",
+        transcriptionLlmConfigId: "llm-b",
+        transportMode: TranscriptionTransportModeEnum.realtime,
+        chunkMs: 250,
+        supportsRealtimeTranscription: true,
+        language: "en",
+      },
+    });
+    mockedRouteUpdateTranscriptionProfile.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        id: "profile-b",
+        name: "Realtime Updated",
+        transcriptionLlmConfigId: "llm-c",
+        transportMode: TranscriptionTransportModeEnum.realtime,
+        chunkMs: 300,
+        supportsRealtimeTranscription: true,
+        language: "fr",
+      },
+    });
+    mockedRouteDeleteTranscriptionProfile.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: { ok: true },
+    });
+
+    const created = await createTranscriptionProfile({
+      name: "Realtime",
+      transcriptionLlmConfigId: "llm-b",
+      transportMode: TranscriptionTransportModeEnum.realtime,
+      chunkMs: 250,
+      language: "en",
+    });
+    expect(created?.id).toBe("profile-b");
+    expect(useAIStore.getState().transcriptionProfiles).toHaveLength(2);
+
+    const updated = await updateTranscriptionProfile({
+      profileId: "profile-b",
+      name: "Realtime Updated",
+      transcriptionLlmConfigId: "llm-c",
+      transportMode: TranscriptionTransportModeEnum.realtime,
+      chunkMs: 300,
+      language: "fr",
+    });
+    expect(updated?.name).toBe("Realtime Updated");
+    expect(
+      useAIStore
+        .getState()
+        .transcriptionProfiles.find((profile) => profile.id === "profile-b")
+        ?.transcriptionLlmConfigId,
+    ).toBe("llm-c");
+
+    const deleted = await deleteTranscriptionProfile({
+      profileId: "profile-b",
+    });
+    expect(deleted).toBe(true);
+    expect(
+      useAIStore
+        .getState()
+        .transcriptionProfiles.find((profile) => profile.id === "profile-b"),
+    ).toBeUndefined();
+    expect(useAIStore.getState().projectChatTranscriptionProfileId).toBeNull();
   });
 });

@@ -15,7 +15,7 @@ feature-local adapters around them when the consuming surface is non-trivial.
 - Biggest current hotspots:
   - `components/Chat/ChatMessages.tsx` (`7959`)
   - `components/ChatWindowing/ProjectChatBottomDock.tsx` (`4989`)
-  - `state/actions/ai.ts` (`4600`)
+  - `state/actions/ai.ts` (`4062`)
   - `components/Panes/Overview/ProjectLevelAI/ProjectChatHistory.tsx` (`3327`)
   - `components/Chat/ChatInput.tsx` (`3121`)
   - `plugins/runtime.ts` (`2730`)
@@ -55,8 +55,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
     hydration authority, starter prompts, slash command selection, skill viewers,
     and project AI settings.
   - `state/actions/ai.ts`, `state/actions/chat*.ts`, and
-    `state/actions/projectChatThreads.ts` currently own the cross-surface chat and
-    project-AI mutations.
+    `state/actions/projectChatThreads.ts` currently own chat submission,
+    hydration, streaming, and agent-run mutations.
+  - `state/actions/aiTranscription.ts` owns provider dictation, transcription
+    session transport, and transcription-profile load/CRUD behavior.
 
 - Project chat windowing
 
@@ -147,7 +149,8 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/ai.ts`
+- `state/actions/ai.ts` remaining submission, hydration, streaming, agent-run,
+  and config-loading paths
 - `state/definitions.ts`
 - shared project chat surfaces under `components/Chat/*`,
   `components/Panes/Overview/ProjectLevelAI/*`, and `components/ChatWindowing/*`

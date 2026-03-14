@@ -49,12 +49,12 @@ import {
   stopProjectChatResponse,
   submitEditedMessage,
   submitMessage,
-  transcribeChatAudioWithProfile,
   type ChatHydrationErrorCode,
   type ChatHydrationOutcome,
   type ChatHydrationOutcomeType,
 } from "state/actions/ai";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
+import { transcribeChatAudioWithProfile } from "state/actions/aiTranscription";
 import {
   buildChatHistoryEntries,
   type ChatHistoryCompatibility,
@@ -83,9 +83,7 @@ import {
   matchesConversationSearchText,
   tokenizeConversationSearchQuery,
 } from "utils/conversationSearch";
-import {
-  route_get_file_browser_root,
-} from "utils/generatedEndpoints";
+import { route_get_file_browser_root } from "utils/generatedEndpoints";
 import {
   AgentRun,
   BaseChatMessageUnion,

@@ -51,9 +51,9 @@ import {
   stopManagedSectionChatResponse,
   submitEditedMessage,
   submitMessage,
-  transcribeChatAudioWithProfile,
 } from "state/actions/ai";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
+import { transcribeChatAudioWithProfile } from "state/actions/aiTranscription";
 import {
   buildBranchFromEdit,
   buildBranchIndexFromBranches,

@@ -5,8 +5,8 @@ import {
   loadExternalAgentConfigs,
   loadExternalAgentHealth,
   loadPromptTemplates,
-  loadTranscriptionProfiles,
 } from "state/actions/ai";
+import { loadTranscriptionProfiles } from "state/actions/aiTranscription";
 import { useAIStore } from "state/definitions";
 
 export function useHydrateAgenticState() {

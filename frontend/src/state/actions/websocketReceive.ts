@@ -69,13 +69,13 @@ import {
   receiveLLMConfigUpdate,
   receiveLLMResponseChunk,
   receivePromptTemplatesUpdate,
-  receiveTranscriptionProfilesUpdate,
 } from "./ai";
 import {
   receiveAIFollowToolArgumentsUpdate,
   receiveAIFollowToolResultUpdate,
   requestAIFollowSnapshot,
 } from "./aiFollow";
+import { receiveTranscriptionProfilesUpdate } from "./aiTranscription";
 import {
   initializeAppSessionFromCurrentDeployment,
   resetAppSessionState,
