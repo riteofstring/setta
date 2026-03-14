@@ -1,7 +1,10 @@
-import { getCurrProjectConfigId } from "state/actions/sectionInfos";
+import {
+  createTopLevelSectionLayoutDict,
+  getCurrProjectConfigId,
+} from "state/actions/sectionInfos";
 import { getEmptySpacePosition } from "state/actions/sections/createSections";
-import { GoHTTPRouteHelpers } from "utils/generatedRoutes";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import { useNodeInternals, useProjectState } from "state/definitions";
+import { RouteEnum, SectionTypeEnum } from "utils/generatedTypes";
 
 type SettaApiPreset = {
   label: string;
@@ -12,27 +15,35 @@ type SettaApiPreset = {
 export const SETTA_API_PRESETS: Array<SettaApiPreset> = [
   {
     label: "Create top-level section",
-    route: GoHTTPRouteHelpers.createTopLevelSection(),
+    route: RouteEnum.CREATE_TOP_LEVEL_SECTION,
     buildBody: () => {
+      const projectState = useProjectState.getState();
+      const topLevelSections = createTopLevelSectionLayoutDict(
+        projectState.sections,
+        useNodeInternals.getState().x,
+        projectState.projectConfig.topLevelSections,
+      );
       return {
         projectConfigId: getCurrProjectConfigId(),
         implType: SectionTypeEnum.TextBlock,
         controlCodeObjType: null,
         implOverrides: { type: SectionTypeEnum.TextBlock, text: "Hello" },
         position: getEmptySpacePosition(),
+        topLevelSections,
+        viewportBounds: null,
       };
     },
   },
   {
     label: "Get latest project state",
-    route: GoHTTPRouteHelpers.getLatestProjectState(),
+    route: RouteEnum.GET_LATEST_PROJECT_STATE,
     buildBody: () => ({
       projectConfigId: getCurrProjectConfigId(),
     }),
   },
   {
     label: "Save project",
-    route: GoHTTPRouteHelpers.saveProject(),
+    route: RouteEnum.SAVE_PROJECT,
     buildBody: () => ({
       projectConfigId: getCurrProjectConfigId(),
     }),
