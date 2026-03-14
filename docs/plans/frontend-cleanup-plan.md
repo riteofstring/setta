@@ -34,6 +34,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - app generation preview helpers already live in `frontend/src/components/Panes/Overview/App/appDraftPreview.ts`
   - project chat already has feature-local helpers such as `projectChatHydrationAuthority.ts`, `projectChatStarterPrompts.ts`, `projectChatSlashCommandSelectors.ts`, and `projectChatFocusUtils.ts`
   - project chat windowing already splits some behavior into `frontend/src/state/actions/projectChatWindowingAuthoritative.ts` and `frontend/src/state/actions/projectChatWindowingEphemeral.ts`
+  - chat hydration fetch/reconciliation and outcome typing now live in `frontend/src/state/actions/aiHydration.ts`
   - agent-run loading, retries, and single-run reconciliation now live in `frontend/src/state/actions/aiAgentRuns.ts`
   - AI config/API-key handling plus agent-profile, prompt-template, external-agent, and engine-config catalog mutations now live in `frontend/src/state/actions/aiConfiguration.ts`
   - transcription session transport and transcription-profile mutations now live in `frontend/src/state/actions/aiTranscription.ts`
@@ -61,7 +62,8 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - App and plugin runtime remain cleanup hotspots:
   - `frontend/src/plugins/runtime.ts` at 2730 lines
   - `frontend/src/components/App/appRegistry.tsx` at 1756 lines
-- `frontend/src/state/actions/ai.ts` is still 3257 lines and currently mixes chat hydration, submission, streaming, optimistic updates, and stop/resume behavior.
+- `frontend/src/state/actions/ai.ts` is still 2720 lines and currently mixes chat submission, streaming, optimistic updates, and stop/resume behavior.
+- `frontend/src/state/actions/aiHydration.ts` now owns chat fetch/reconciliation and hydration outcome classification.
 - `frontend/src/state/actions/aiAgentRuns.ts` now owns agent-run loading, retries, and authoritative update paths.
 - `frontend/src/state/actions/aiConfiguration.ts` now owns LLM config/API-key handling plus the AI settings/resource catalogs.
 - `frontend/src/state/actions/aiTranscription.ts` now owns provider dictation transport plus transcription-profile loading and CRUD.

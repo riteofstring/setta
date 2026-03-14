@@ -42,18 +42,20 @@ import {
   clearPendingChatDetails,
   finalizePendingChatDetails,
   getDefaultChatDetails,
-  getExternalAgentChatHydrationOutcome,
-  getLLMChatHydrationOutcome,
   initializePendingChatDetails,
   stopProjectChatResponse,
   submitEditedMessage,
   submitMessage,
-  type ChatHydrationErrorCode,
-  type ChatHydrationOutcome,
-  type ChatHydrationOutcomeType,
 } from "state/actions/ai";
 import { loadAgentRuns } from "state/actions/aiAgentRuns";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
+import {
+  getExternalAgentChatHydrationOutcome,
+  getLLMChatHydrationOutcome,
+  type ChatHydrationErrorCode,
+  type ChatHydrationOutcome,
+  type ChatHydrationOutcomeType,
+} from "state/actions/aiHydration";
 import { transcribeChatAudioWithProfile } from "state/actions/aiTranscription";
 import {
   buildChatHistoryEntries,

@@ -44,8 +44,6 @@ import {
 import {
   clearPendingChatDetails,
   getDefaultChatDetails,
-  getExternalAgentChat,
-  getLLMChat,
   initializePendingChatDetails,
   stopManagedSectionChatResponse,
   submitEditedMessage,
@@ -53,6 +51,7 @@ import {
 } from "state/actions/ai";
 import { loadAgentRuns } from "state/actions/aiAgentRuns";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
+import { getExternalAgentChat, getLLMChat } from "state/actions/aiHydration";
 import { transcribeChatAudioWithProfile } from "state/actions/aiTranscription";
 import {
   buildBranchFromEdit,
