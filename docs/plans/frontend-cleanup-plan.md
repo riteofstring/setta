@@ -133,6 +133,12 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   now owns draw/social/media aspect-ratio sizing behavior, reducing
   `frontend/src/state/hooks/sectionSizes.ts` to a 13-line compatibility
   surface.
+- `frontend/src/state/actions/params/paramMoveQueries.ts` now owns param
+  selection resolution, visible-sibling grouping, and movement-context reads,
+  `frontend/src/state/actions/params/paramMoveMutations.ts` now owns
+  optimistic param reparent/reorder application plus shown-param sync, and
+  `frontend/src/state/actions/params/moveParams.ts` is down to 250 lines for
+  public select/move/indent or unindent command orchestration.
 - `frontend/src/state/actions/websocketIncomingMessages.ts` now owns frontend
   websocket payload dispatch, project/app snapshot routing, and
   `UISettingReveal` ACK handling, reducing

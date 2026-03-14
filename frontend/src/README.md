@@ -343,9 +343,10 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/params/moveParams.ts` is now the largest authored/shared state
-  hotspot, so follow-up cleanup should separate param reparenting and reorder
-  queries from optimistic mutation dispatch and selection synchronization
+- `state/actions/aiTranscription.ts` is now the largest authored/shared state
+  hotspot, so follow-up cleanup should separate provider session transport and
+  transcription profile/catalog mutations from upload orchestration instead of
+  regrowing the param-move surface
 - `state/actions/sectionEffectiveImpls.ts` is now down to the remaining
   effective-impl selector surface, so any follow-up there should stay local to
   selector derivation rather than regrowing layout or mutation ownership

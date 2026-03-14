@@ -149,15 +149,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 90.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/params/moveParams.ts` at 576 lines
   - `frontend/src/state/actions/aiTranscription.ts` at 572 lines
   - `frontend/src/state/actions/projectChatWindowingWrites.ts` at 571 lines
   - `frontend/src/state/actions/sections/createSections.ts` at 547 lines
   - `frontend/src/state/actions/stateMachineEdgeConnections.ts` at 518 lines
   - `frontend/src/state/actions/aiChatControls.ts` at 503 lines
+  - `frontend/src/state/actions/websocketLifecycle.ts` at 498 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/components/Utils/MediaCarousel.tsx` at 605 lines
-  - `frontend/src/state/actions/params/moveParams.ts` at 576 lines
   - `frontend/src/state/actions/aiTranscription.ts` at 572 lines
   - `frontend/src/state/actions/projectChatWindowingWrites.ts` at 571 lines
   - `frontend/src/state/actions/sections/createSections.ts` at 547 lines
@@ -211,6 +210,15 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - social/media aspect-ratio writes and default size promotion
 - `sectionSizes.ts` now owns:
   - compatibility re-exports for callers that have not moved yet
+- `paramMoveQueries.ts` now owns:
+  - param selection resolution and visible-param gating
+  - visible sibling grouping and movement-context derivation for keyboard moves
+- `paramMoveMutations.ts` now owns:
+  - optimistic param reparent/reorder application
+  - parent promotion and shown-param top-level order synchronization
+- `moveParams.ts` now owns:
+  - public param select, drag/drop move, and keyboard indent/unindent commands
+  - optimistic backend dispatch for single-param and grouped param moves
 - `definitions.ts` now defines 14 local `use*` stores and re-exports the extracted AI/chat, app runtime, session/share, browser, search, feedback, project-status, layout-interaction, UI-preference, and editor-diagnostics stores, which is much closer to a thin index but still leaves project-state publication, artifact data, and realtime helper ownership mixed together.
 - `sectionEffectiveImpls.ts` now owns:
   - effective-impl derivation and caching
