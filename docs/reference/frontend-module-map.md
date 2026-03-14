@@ -35,6 +35,7 @@ This is the front door for authored frontend code under `frontend/src/`.
 - Persisted UI preferences now live in `state/stores/localStorageStore.ts`, and persisted AI/session chat state now lives in `state/stores/aiStore.ts`.
 - Active selection, node internals, and atomic staged project-store publication now live in `state/stores/activeSectionStores.ts`.
 - Validation and diagnostics stores now live in `state/stores/diagnosticsStores.ts`, and transient loading/connection/interaction UI state now lives in `state/stores/ephemeralUiStores.ts`.
+- Shared file-browser store state now lives in `state/stores/fileBrowserStores.ts` for home, overview, browser-section, and dropzone pickers.
 - Reads and writes should be easy to distinguish:
   - selectors/query helpers answer questions
   - command modules perform mutations

@@ -5,11 +5,6 @@ import {
   ProjectSearchModeEnum,
 } from "utils/constants/projectSearch";
 import {
-  DEFAULT_FILE_BROWSER_TYPE_FILTERS,
-  type FileBrowserSearchScope,
-  type FileBrowserTypeFilter,
-} from "utils/fileBrowserTypes";
-import {
   AgenticEdgeKindEnum,
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
@@ -49,6 +44,12 @@ export {
   useTemporaryMiscState,
   useWebsocketConnectionList,
 } from "./stores/ephemeralUiStores";
+export {
+  useBrowserSectionFileBrowserState,
+  useDropzoneFileBrowserState,
+  useFileBrowserState,
+  useHomeFileBrowserState,
+} from "./stores/fileBrowserStores";
 export { useLocalStorage } from "./stores/localStorageStore";
 export type {
   ColorModePreference,
@@ -132,69 +133,6 @@ export const useWaitingForLSPResult = withProjectState(
       })),
     ),
   ),
-);
-
-type FileBrowserState = {
-  rootPath: string | null;
-  selectedPath: string | null;
-  expandedPaths: Record<string, boolean>;
-  filterText: string;
-  pathSeparator: string;
-  ignorePatterns: string[];
-  typeFilters: Record<FileBrowserTypeFilter, boolean>;
-  searchScope: FileBrowserSearchScope;
-};
-
-export const useFileBrowserState = createWithEqualityFn(
-  withResetFn<FileBrowserState>(() => ({
-    rootPath: null,
-    selectedPath: null,
-    expandedPaths: {},
-    filterText: "",
-    pathSeparator: "/",
-    ignorePatterns: [],
-    typeFilters: { ...DEFAULT_FILE_BROWSER_TYPE_FILTERS },
-    searchScope: "recursive",
-  })),
-);
-
-export const useHomeFileBrowserState = createWithEqualityFn(
-  withResetFn<FileBrowserState>(() => ({
-    rootPath: null,
-    selectedPath: null,
-    expandedPaths: {},
-    filterText: "",
-    pathSeparator: "/",
-    ignorePatterns: [],
-    typeFilters: { ...DEFAULT_FILE_BROWSER_TYPE_FILTERS },
-    searchScope: "recursive",
-  })),
-);
-
-export const useBrowserSectionFileBrowserState = createWithEqualityFn(
-  withResetFn<FileBrowserState>(() => ({
-    rootPath: null,
-    selectedPath: null,
-    expandedPaths: {},
-    filterText: "",
-    pathSeparator: "/",
-    ignorePatterns: [],
-    typeFilters: { ...DEFAULT_FILE_BROWSER_TYPE_FILTERS },
-    searchScope: "recursive",
-  })),
-);
-
-export const useDropzoneFileBrowserState = createWithEqualityFn(
-  withResetFn<FileBrowserState>(() => ({
-    rootPath: null,
-    selectedPath: null,
-    expandedPaths: {},
-    filterText: "",
-    pathSeparator: "/",
-    ignorePatterns: [],
-    typeFilters: { ...DEFAULT_FILE_BROWSER_TYPE_FILTERS },
-    searchScope: "recursive",
-  })),
 );
 
 type ZustandRunControl = {
