@@ -91,10 +91,11 @@
     streamed prefix and earlier argument deltas were omitted
   - the Responses reducer now also honors `response.content_part.added` plus
     `response.reasoning_summary_part.added` / `.done` with explicit
-    `summary_index` ordering, and authoritative finalized reasoning/text
-    content from `response.content_part.done`, the specific `*_done` events,
-    `response.output_item.done`, and `response.completed` now replaces partial
-    or missing earlier reasoning/text deltas
+    `summary_index` ordering, preserves early answer text when the first
+    reasoning item arrives later in the same turn, and authoritative finalized
+    reasoning/text content from `response.content_part.done`, the specific
+    `*_done` events, `response.output_item.done`, and `response.completed` now
+    replaces partial or missing earlier reasoning/text deltas
   - the completed-response fallback now also recovers final function-call
     items when the stream omits earlier tool-call delta events
 - `internal/transcriptionsessions/service.go`

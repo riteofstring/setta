@@ -591,6 +591,7 @@ func (e *Executor) processOpenAIResponseEvent(
 	case responses.ResponseOutputItemAddedEvent:
 		switch item := typed.Item.AsAny().(type) {
 		case responses.ResponseReasoningItem:
+			prepareAssistantForOpenAIResponseReasoning(assistantMessage)
 			streamState.reasoningSeen = true
 			summary := joinOpenAIResponseReasoningSummary(item.Summary)
 			if strings.TrimSpace(summary) != "" && strings.TrimSpace(streamState.summary) == "" {
@@ -646,6 +647,7 @@ func (e *Executor) processOpenAIResponseEvent(
 			return nil, err
 		}
 	case responses.ResponseReasoningSummaryTextDeltaEvent:
+		prepareAssistantForOpenAIResponseReasoning(assistantMessage)
 		streamState.reasoningSeen = true
 		streamState.reasoningEmitted = true
 		previousSummary := streamState.summary
@@ -663,6 +665,7 @@ func (e *Executor) processOpenAIResponseEvent(
 		if strings.TrimSpace(typed.Text) == "" {
 			return nil, nil
 		}
+		prepareAssistantForOpenAIResponseReasoning(assistantMessage)
 		streamState.reasoningSeen = true
 		streamState.reasoningEmitted = true
 		previousSummary := streamState.summary
@@ -677,6 +680,7 @@ func (e *Executor) processOpenAIResponseEvent(
 			return nil, err
 		}
 	case responses.ResponseReasoningTextDeltaEvent:
+		prepareAssistantForOpenAIResponseReasoning(assistantMessage)
 		streamState.reasoningSeen = true
 		streamState.reasoningEmitted = true
 		appendAssistantThinkingAtIndex(assistantMessage, 0, typed.Delta)
@@ -690,6 +694,7 @@ func (e *Executor) processOpenAIResponseEvent(
 		if strings.TrimSpace(typed.Text) == "" {
 			return nil, nil
 		}
+		prepareAssistantForOpenAIResponseReasoning(assistantMessage)
 		streamState.reasoningSeen = true
 		streamState.reasoningEmitted = true
 		thinkingDelta := authoritativeResponseReplacementSuffix(currentAssistantThinkingTextAtIndex(assistantMessage, 0), typed.Text)
@@ -823,6 +828,7 @@ func (e *Executor) applyOpenAIResponseContentPartDone(
 		if strings.TrimSpace(typed.Text) == "" {
 			return nil
 		}
+		prepareAssistantForOpenAIResponseReasoning(assistantMessage)
 		if streamState != nil {
 			streamState.reasoningSeen = true
 			streamState.reasoningEmitted = true
@@ -880,6 +886,7 @@ func (e *Executor) applyOpenAIResponseContentPartAdded(
 		if strings.TrimSpace(typed.Text) == "" {
 			return nil
 		}
+		prepareAssistantForOpenAIResponseReasoning(assistantMessage)
 		if streamState != nil {
 			streamState.reasoningSeen = true
 			streamState.reasoningEmitted = true
@@ -908,6 +915,7 @@ func (e *Executor) applyOpenAIResponseSummaryPartUpdate(
 	if strings.TrimSpace(text) == "" {
 		return nil
 	}
+	prepareAssistantForOpenAIResponseReasoning(assistantMessage)
 	if streamState != nil {
 		streamState.reasoningSeen = true
 		streamState.reasoningEmitted = true
@@ -1091,6 +1099,7 @@ func (e *Executor) applyOpenAIResponseOutputItemFallback(
 ) {
 	switch item := itemUnion.AsAny().(type) {
 	case responses.ResponseReasoningItem:
+		prepareAssistantForOpenAIResponseReasoning(assistantMessage)
 		if streamState != nil {
 			streamState.reasoningSeen = true
 		}
@@ -1135,6 +1144,29 @@ func openAIResponseTextIndex(assistantMessage map[string]any, streamState *openA
 		return 1
 	}
 	return 0
+}
+
+func prepareAssistantForOpenAIResponseReasoning(assistantMessage map[string]any) {
+	if assistantMessage == nil || hasMessageThinking(assistantMessage) {
+		return
+	}
+	content, _ := assistantMessage["content"].([]any)
+	if len(content) == 0 {
+		return
+	}
+	firstBlock, _ := content[0].(map[string]any)
+	if firstBlock == nil ||
+		strings.TrimSpace(stringValue(firstBlock["type"])) != "text" ||
+		strings.TrimSpace(stringValue(firstBlock["text"])) == "" {
+		return
+	}
+	shifted := make([]any, 0, len(content)+1)
+	shifted = append(shifted, map[string]any{
+		"type":     "thinking",
+		"thinking": "",
+	})
+	shifted = append(shifted, content...)
+	assistantMessage["content"] = shifted
 }
 
 func joinOpenAIResponseReasoningSummary(summary []responses.ResponseReasoningItemSummary) string {

@@ -2495,6 +2495,119 @@ func TestExecutorExecuteTreatsOpenAIResponsesIncompleteEventAsProviderFailure(t 
 	}
 }
 
+func TestExecutorExecutePreservesOpenAIResponsesEarlyTextWhenReasoningArrivesLaterBeforeIncompleteFailure(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/responses" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected flusher")
+		}
+		fmt.Fprint(w, openAIResponseOutputTextDeltaEvent("message-1", 1, 0, "Partial answer"))
+		flusher.Flush()
+		fmt.Fprint(w, openAIResponseReasoningItemAddedEvent(0, "reasoning-1"))
+		flusher.Flush()
+		fmt.Fprint(w, openAIResponseReasoningSummaryTextDeltaEvent("reasoning-1", 0, 0, "Plan"))
+		flusher.Flush()
+		fmt.Fprint(w, openAIResponseIncompleteEvent("max_output_tokens"))
+		flusher.Flush()
+	}))
+	defer server.Close()
+
+	broadcaster := &captureBroadcaster{}
+	live := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{Broadcaster: broadcaster})
+	run := newManagedChatTestRun()
+	live.ActivateRun(run)
+
+	executor := NewExecutor(ExecutorOptions{
+		Live:       live,
+		HTTPClient: server.Client(),
+	})
+	result, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
+		Run: run,
+		LLMConfig: llmconfig.Config{
+			ID:        "primary",
+			Model:     "gpt-5-codex",
+			Provider:  "openai",
+			BaseURL:   server.URL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+		APIKeys: map[string]string{
+			"OPENAI_API_KEY": "secret",
+		},
+		SystemPrompt: "System prompt",
+		ChatID:       "chat-alpha",
+		Thinking:     true,
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+			"messages": []any{
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Keep going"},
+					},
+					"attachments": []any{},
+				},
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected provider failure from incomplete response")
+	}
+	if err.Error() != "managed llm provider request failed: response incomplete (max_output_tokens)" {
+		t.Fatalf("unexpected provider error %q", err.Error())
+	}
+
+	messages, ok := result.Outputs["messages"].([]any)
+	if !ok || len(messages) != 2 {
+		t.Fatalf("expected user and partial assistant messages, got %#v", result.Outputs["messages"])
+	}
+	assistant, ok := messages[1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected assistant message map, got %#v", messages[1])
+	}
+	content, ok := assistant["content"].([]any)
+	if !ok || len(content) != 2 {
+		t.Fatalf("expected thinking and text blocks after late reasoning, got %#v", assistant)
+	}
+	thinkingBlock, ok := content[0].(map[string]any)
+	if !ok || thinkingBlock["summary"] != "Plan" {
+		t.Fatalf("expected preserved reasoning summary block, got %#v", content[0])
+	}
+	textBlock, ok := content[1].(map[string]any)
+	if !ok || textBlock["text"] != "Partial answer" {
+		t.Fatalf("expected preserved early text block, got %#v", content[1])
+	}
+
+	state, stateErr := live.GetLiveChatState(run.ID)
+	if stateErr != nil {
+		t.Fatalf("get live state after provider failure: %v", stateErr)
+	}
+	if state == nil || state.WaitingForResponse {
+		t.Fatalf("expected provider failure to clear waiting state, got %#v", state)
+	}
+	stateContent, ok := state.Messages[1]["content"].([]any)
+	if len(state.Messages) != 2 || !ok || len(stateContent) != 2 {
+		t.Fatalf("expected finalized live thinking and text blocks, got %#v", state)
+	}
+	stateThinkingBlock, ok := stateContent[0].(map[string]any)
+	if !ok || stateThinkingBlock["summary"] != "Plan" {
+		t.Fatalf("expected finalized live reasoning summary, got %#v", stateContent[0])
+	}
+	stateTextBlock, ok := stateContent[1].(map[string]any)
+	if !ok || stateTextBlock["text"] != "Partial answer" {
+		t.Fatalf("expected finalized live early text block, got %#v", stateContent[1])
+	}
+	if broadcaster.Count() != 5 {
+		t.Fatalf("expected start, text delta, reasoning delta, stop, finalized broadcasts, got %d", broadcaster.Count())
+	}
+}
+
 func TestExecutorExecuteRecoversOpenAIResponsesOutputItemDoneBeforeIncompleteFailure(t *testing.T) {
 	t.Parallel()
 
