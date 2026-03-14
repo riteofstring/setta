@@ -105,8 +105,8 @@ Current state:
   - local dependency-graph rebuilding and generated runtime state for
     unresolved generated-value fallback and any computed dependency shapes the
     current Go metadata payload still cannot render directly
-  - share listener runtime coupling through
-    `backend/setta/share/listener_runtime.py`
+  - share listener entrypoints as an explicit retained Python authoring/loader
+    boundary over the same Go listener protocol
   - dormant broader built-in listener endpoint inventory/docs outside the
     active retained chat/chat-section client surface, pending a concrete
     caller before any further port
@@ -312,19 +312,21 @@ active listener endpoint callers do not depend on Python route-introspection
 generation, and any remaining broader contract generation path is explicit
 cleanup tail.
 
-### Step 6. Cut Over Share Listener Runtime And Remove Python Transport
+### Step 6. Keep Retained Share Entry Points On The Go Listener Protocol
 
-- Update `backend/setta/share/listener_runtime.py` to use the Go-owned
-  listener protocol.
-- Remove `/pythonScript/{id}` from supported listener workflows.
+- Keep `backend/setta/share/listener_runtime.py` as a retained Python loader
+  boundary that instantiates `SettaListener` on the Go listener websocket
+  route with `shareSessionId` scope.
+- Keep `/pythonScript/{id}` out of supported listener workflows.
 - Keep superseded Python listener backend files in-tree until the overall
   rewrite is complete if that makes merges from `main` easier. They should no
   longer be treated as active ownership once the listener workflows are cut
   over.
 
 Exit condition:
-direct Python listener usage and share listener flows no longer depend on
-Python listener backend transport.
+direct Python listener usage and share listener flows continue using the
+same Go-owned listener transport, with the share entrypoint remaining only as
+an explicit retained Python authoring boundary.
 
 ## Verification
 
