@@ -4,7 +4,6 @@ import {
   type ChatSlashCommandResult,
 } from "components/Chat/ChatInput";
 import { ChatMessageList } from "components/Chat/ChatMessages";
-import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import {
   CHAT_SLASH_COMMANDS,
   buildChatSlashCommands,
@@ -72,6 +71,7 @@ import {
   ManagedChatHistoryPanel,
   resolveManagedChatRunType,
 } from "./ChatAreaHistoryPanel";
+import { ManagedChatAreaHeader } from "./ManagedChatAreaHeader";
 import {
   editManagedSectionChatMessage,
   stopManagedSectionChatWithAction,
@@ -1159,76 +1159,18 @@ function ManagedChatArea({
     <div
       className={`${NO_PAN_CLASS_NAME} section-main-full-w flex min-h-0 flex-1 flex-col`}
     >
-      {showPlanModeBadge ? (
-        <div
-          className={`${chatWidthShellClassName} flex items-center justify-end gap-2 pt-2`}
-        >
-          <PlanModeBadge />
-        </div>
-      ) : null}
-      {showZeroScopeBanner ? (
-        <div className={`${chatWidthShellClassName} pt-2`}>
-          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-sm dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-200">
-            <div className="flex items-start justify-between gap-3">
-              <p>
-                No outgoing scope links. This chat has no project access. Add
-                Chat → Section or Chat → Chat links, or use Project Chat for
-                full access.
-              </p>
-              <button
-                type="button"
-                className="shrink-0 rounded-md border border-amber-300/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-700 transition-colors hover:border-amber-500 hover:text-amber-900 dark:border-amber-500/50 dark:text-amber-200 dark:hover:border-amber-300 dark:hover:text-amber-100"
-                onClick={dismissZeroScopeBanner}
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : hasAnyAgenticEdge && !hasWriteScope ? (
-        <div className={`${chatWidthShellClassName} pt-2`}>
-          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-sm dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-200">
-            No writable sections in scope. This chat cannot modify sections. Add
-            a Chat → Section edge (Scope sections) or use Project Chat for full
-            access.
-          </div>
-        </div>
-      ) : null}
-      <div
-        className={`${chatWidthShellClassName} flex items-center justify-between gap-2 pt-2`}
-      >
-        <div className="flex min-h-6 items-center">
-          {!hasAnyAgenticEdge ? (
-            <span
-              data-testid="managed-chat-zero-scope-indicator"
-              className="inline-flex items-center gap-1 rounded-md border border-amber-300/80 bg-amber-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-700 dark:border-amber-500/50 dark:bg-amber-950/30 dark:text-amber-200"
-            >
-              <span aria-hidden="true" className="text-[11px] leading-none">
-                !
-              </span>
-              Scope limited
-            </span>
-          ) : null}
-        </div>
-        {canUseManagedChat ? (
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="rounded-md border border-setta-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
-              onClick={() => setShowHistory((current) => !current)}
-            >
-              {showHistory ? "Back" : "History"}
-            </button>
-            <button
-              type="button"
-              className="rounded-md border border-setta-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
-              onClick={handleNewChatStart}
-            >
-              New Chat
-            </button>
-          </div>
-        ) : null}
-      </div>
+      <ManagedChatAreaHeader
+        shellClassName={chatWidthShellClassName}
+        showPlanModeBadge={showPlanModeBadge}
+        showZeroScopeBanner={showZeroScopeBanner}
+        hasAnyAgenticEdge={hasAnyAgenticEdge}
+        hasWriteScope={hasWriteScope}
+        canUseManagedChat={canUseManagedChat}
+        showHistory={showHistory}
+        onToggleHistory={() => setShowHistory((current) => !current)}
+        onStartNewChat={handleNewChatStart}
+        onDismissZeroScopeBanner={dismissZeroScopeBanner}
+      />
       {showHistory && canUseManagedChat ? (
         <div
           className={`${chatWidthShellClassName} min-h-0 flex-1`}
