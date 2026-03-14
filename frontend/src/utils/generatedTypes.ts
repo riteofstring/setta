@@ -8778,27 +8778,6 @@ export function createStateMachineSourceActivationCountCondition(
   return StateMachineSourceActivationCountConditionSchema.parse(options);
 }
 
-export const StateMachineIterationConditionSchema = z.object({
-  operator: z
-    .enum(StateMachineCountOperatorEnum)
-    .default(StateMachineCountOperatorEnum.eq),
-  value: z.int(),
-});
-
-export type StateMachineIterationCondition = z.infer<
-  typeof StateMachineIterationConditionSchema
->;
-
-export type StateMachineIterationConditionInput = z.input<
-  typeof StateMachineIterationConditionSchema
->;
-
-export function createStateMachineIterationCondition(
-  options: Partial<StateMachineIterationCondition> = {},
-): StateMachineIterationCondition {
-  return StateMachineIterationConditionSchema.parse(options);
-}
-
 export const StateMachineTargetActionSchema = z.object({
   type: z
     .enum(StateMachineTargetActionTypeEnum)
@@ -8843,9 +8822,6 @@ export const StateMachineEdgeSchema = z.object({
     .default(null),
   sourceActivationCountCondition: z
     .union([StateMachineSourceActivationCountConditionSchema, z.null()])
-    .default(null),
-  iterationCondition: z
-    .union([StateMachineIterationConditionSchema, z.null()])
     .default(null),
   targetAction: z
     .union([StateMachineTargetActionSchema, z.null()])
@@ -20759,9 +20735,6 @@ export const CreateStateMachineEdgeRequestSchema = z.object({
     .default(null),
   sourceActivationCountCondition: z
     .union([StateMachineSourceActivationCountConditionSchema, z.null()])
-    .default(null),
-  iterationCondition: z
-    .union([StateMachineIterationConditionSchema, z.null()])
     .default(null),
   targetAction: z
     .union([StateMachineTargetActionSchema, z.null()])

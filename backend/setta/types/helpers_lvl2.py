@@ -164,7 +164,6 @@ from setta.types.state_machine_edges import (
     STATE_MACHINE_EDGE_SOURCE_PORT_ID,
     STATE_MACHINE_EDGE_TARGET_PORT_ID,
     StateMachineEdge,
-    StateMachineIterationCondition,
     StateMachineSourceActivationCountCondition,
     StateMachineSourceFilter,
     StateMachineSourceFilterType,
@@ -2783,10 +2782,9 @@ def _ensure_state_machine_edge_endpoints_valid(
     if target_impl.type == SectionType.StateMachineStart:
         raise TypeError(f"State machine edge {edge.id} cannot target Start.")
     _ensure_state_machine_edge_port_ids_valid(edge, source_impl, target_impl)
-    _ensure_state_machine_iteration_condition_valid(
+    _ensure_state_machine_source_activation_count_condition_valid(
         edge.id,
         edge.sourceActivationCountCondition,
-        edge.iterationCondition,
     )
     _ensure_state_machine_source_filter_valid(edge, source_impl)
     _ensure_state_machine_target_action_valid(p, edge, target_impl)
@@ -2923,35 +2921,16 @@ def _ensure_state_machine_signal_filter_valid(
         )
 
 
-def _ensure_state_machine_iteration_condition_valid(
+def _ensure_state_machine_source_activation_count_condition_valid(
     edge_id: ID,
     source_activation_count_condition: StateMachineSourceActivationCountCondition
     | None,
-    iteration_condition: StateMachineIterationCondition | None,
 ):
-    if (
-        source_activation_count_condition is not None
-        and iteration_condition is not None
-        and source_activation_count_condition
-        != StateMachineSourceActivationCountCondition.model_validate(
-            iteration_condition.model_dump()
-        )
-    ):
-        raise ValueError(
-            f"State machine edge {edge_id} cannot define both sourceActivationCountCondition and iterationCondition."
-        )
     if source_activation_count_condition is not None:
         if source_activation_count_condition.value < 0:
             raise ValueError(
                 f"State machine edge {edge_id} source activation count conditions require a non-negative value."
             )
-        return
-    if iteration_condition is None:
-        return
-    if iteration_condition.value < 0:
-        raise ValueError(
-            f"State machine edge {edge_id} source activation count conditions require a non-negative value."
-        )
 
 
 def _ensure_state_machine_target_action_valid(

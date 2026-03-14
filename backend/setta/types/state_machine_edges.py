@@ -45,13 +45,6 @@ class StateMachineSourceActivationCountCondition(BaseModel, extra="forbid"):
     value: int
 
 
-class StateMachineIterationCondition(BaseModel, extra="forbid"):
-    """Deprecated compatibility shim for older saved workflow edges."""
-
-    operator: StateMachineCountOperator = StateMachineCountOperator.eq
-    value: int
-
-
 class StateMachineTargetAction(BaseModel, extra="forbid"):
     type: StateMachineTargetActionType = StateMachineTargetActionType.send_prompt
     promptTemplateId: ID | None = None
@@ -79,7 +72,6 @@ class StateMachineEdge(BaseModel, extra="forbid"):
     sourceActivationCountCondition: (
         StateMachineSourceActivationCountCondition | None
     ) = None
-    iterationCondition: StateMachineIterationCondition | None = None
     targetAction: StateMachineTargetAction | None = None
     style: dict[str, str | int | float] | None = None
     hidden: bool = False

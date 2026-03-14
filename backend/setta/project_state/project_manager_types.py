@@ -60,7 +60,6 @@ from setta.types.section_impls import (
 from setta.types.settings_state import RenameRefactorMode, RunSnapshotMode
 from setta.types.state_machine_edges import (
     StateMachineEdge,
-    StateMachineIterationCondition,
     StateMachineSourceActivationCountCondition,
     StateMachineSourceFilter,
     StateMachineTargetAction,
@@ -1013,7 +1012,6 @@ class CreateStateMachineEdgeRequest(ProjectManagerRequestWithProjectConfig):
     sourceActivationCountCondition: (
         StateMachineSourceActivationCountCondition | None
     ) = None
-    iterationCondition: StateMachineIterationCondition | None = None
     targetAction: StateMachineTargetAction | None = None
     style: dict[str, str | int | float] | None = None
     hidden: bool = False

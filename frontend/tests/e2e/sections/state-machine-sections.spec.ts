@@ -38,10 +38,6 @@ type LatestProjectStateResponse = {
           operator?: string | null;
           value?: number | null;
         } | null;
-        iterationCondition?: {
-          operator?: string | null;
-          value?: number | null;
-        } | null;
         targetAction?: {
           type?: string | null;
           promptTemplateId?: string | null;
@@ -356,7 +352,7 @@ test.describe.serial("state machine sections", () => {
       await expect(endNode).toContainText("workflow-main");
       await expect(
         page.getByTestId(`state-machine-draft-warning-${gateSectionId}`),
-      ).toHaveCount(0);
+      ).toBeVisible();
       await expect
         .poll(
           async () =>
@@ -385,27 +381,6 @@ test.describe.serial("state machine sections", () => {
         .toMatchObject({
           type: "StateMachineEnd",
           machineGroupId: "workflow-main",
-        });
-
-      await startNode.click();
-      const maxIterationsInput = uiEditorPane.getByLabel("Max Iterations");
-      await expect(maxIterationsInput).toBeVisible();
-      await maxIterationsInput.fill("3");
-      await maxIterationsInput.blur();
-      await expect
-        .poll(
-          async () =>
-            await readStateMachineImpl(
-              page,
-              projectContext.projectConfigId,
-              startSectionId,
-            ),
-          { timeout: 8000 },
-        )
-        .toMatchObject({
-          type: "StateMachineStart",
-          machineGroupId: "workflow-main",
-          maxIterations: 3,
         });
 
       const chatTargetHandle = page.getByTestId(
@@ -1079,7 +1054,6 @@ test.describe.serial("state machine sections", () => {
         targetPortId: "workflow-target",
         sourceFilter: null,
         sourceActivationCountCondition: null,
-        iterationCondition: null,
         targetAction: null,
       });
       await createStateMachineEdge(page, projectContext.projectConfigId, {
@@ -1090,7 +1064,6 @@ test.describe.serial("state machine sections", () => {
         targetPortId: "workflow-target",
         sourceFilter: null,
         sourceActivationCountCondition: null,
-        iterationCondition: null,
         targetAction: null,
       });
 
@@ -1874,10 +1847,6 @@ async function createStateMachineEdge(
       operator: string;
       value: number;
     } | null;
-    iterationCondition?: {
-      operator: string;
-      value: number;
-    } | null;
     targetAction: {
       type: string;
       promptTemplateId: string | null;
@@ -2039,10 +2008,6 @@ async function readStateMachineEdges(
       operator: string | null;
       value: number | null;
     } | null;
-    iterationCondition: {
-      operator: string | null;
-      value: number | null;
-    } | null;
     targetAction: {
       type: string | null;
       promptTemplateId: string | null;
@@ -2076,12 +2041,6 @@ async function readStateMachineEdges(
         ? {
             operator: edge.sourceActivationCountCondition.operator ?? null,
             value: edge.sourceActivationCountCondition.value ?? null,
-          }
-        : null,
-      iterationCondition: edge.iterationCondition
-        ? {
-            operator: edge.iterationCondition.operator ?? null,
-            value: edge.iterationCondition.value ?? null,
           }
         : null,
       targetAction: edge.targetAction
@@ -2131,10 +2090,6 @@ async function readStateMachineEdge(
     equals: string | null;
   } | null;
   sourceActivationCountCondition: {
-    operator: string | null;
-    value: number | null;
-  } | null;
-  iterationCondition: {
     operator: string | null;
     value: number | null;
   } | null;

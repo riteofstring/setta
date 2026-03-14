@@ -120,15 +120,12 @@ const PERMISSION_MODE_OPTIONS = [
 ];
 
 function cloneWorkflowEdge(edge: WorkflowEdge): WorkflowEdge {
-  const sourceActivationCountCondition =
-    edge.sourceActivationCountCondition ?? edge.iterationCondition ?? null;
   return {
     ...edge,
     sourceFilter: edge.sourceFilter ? { ...edge.sourceFilter } : null,
-    sourceActivationCountCondition: sourceActivationCountCondition
-      ? { ...sourceActivationCountCondition }
+    sourceActivationCountCondition: edge.sourceActivationCountCondition
+      ? { ...edge.sourceActivationCountCondition }
       : null,
-    iterationCondition: null,
     targetAction: edge.targetAction
       ? {
           ...edge.targetAction,
@@ -252,7 +249,6 @@ function sanitizeWorkflowEdge(
   promptSourceType: WorkflowPromptSourceType,
 ): WorkflowEdge {
   const nextEdge = cloneWorkflowEdge(edge);
-  nextEdge.iterationCondition = null;
   if (sourceType !== SectionTypeEnum.Chat) {
     nextEdge.sourceFilter = null;
   } else {
@@ -722,7 +718,6 @@ export function StateMachineEdgeInspector({
                         value: 0,
                       }
                     : null,
-                  iterationCondition: null,
                 }))
               }
             />
@@ -751,7 +746,6 @@ export function StateMachineEdgeInspector({
                           operator: value as WorkflowCountOperator,
                           value: 0,
                         },
-                    iterationCondition: null,
                   }));
                 }}
                 isDisabled={isDisabled}
@@ -786,7 +780,6 @@ export function StateMachineEdgeInspector({
                                 ? parsed
                                 : 0,
                           },
-                      iterationCondition: null,
                     }));
                   }}
                   className="rounded border border-setta-300 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"

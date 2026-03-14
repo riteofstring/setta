@@ -107,7 +107,6 @@ from setta.types.section_impls import (
 from setta.types.settings_state import RunSnapshotMode
 from setta.types.state_machine_edges import (
     StateMachineEdge,
-    StateMachineIterationCondition,
     StateMachineSourceActivationCountCondition,
     StateMachineSourceFilter,
     StateMachineTargetAction,
@@ -243,7 +242,6 @@ class ListenerCreateStateMachineEdgeRequestPayload(TypedDict):
     sourceActivationCountCondition: NotRequired[
         StateMachineSourceActivationCountCondition | None
     ]
-    iterationCondition: NotRequired[StateMachineIterationCondition | None]
     targetAction: NotRequired[StateMachineTargetAction | None]
     style: NotRequired[dict[str, str | int | float] | None]
     hidden: NotRequired[bool]

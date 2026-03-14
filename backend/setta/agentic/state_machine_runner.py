@@ -59,7 +59,6 @@ from setta.types.section_impls import (
 from setta.types.state_machine_edges import (
     StateMachineCountOperator,
     StateMachineEdge,
-    StateMachineIterationCondition,
     StateMachineSourceActivationCountCondition,
     StateMachineSourceFilterType,
     StateMachineTargetAction,
@@ -829,7 +828,9 @@ class StateMachineRunner:
             "gateInputEdgeIdsBySectionId",
         )
         gate_status_by_section_id = self._get_output_dict(run, "gateStatusBySectionId")
-        fired_gate_section_ids = set(self._get_output_str_list(run, "firedGateSectionIds"))
+        fired_gate_section_ids = set(
+            self._get_output_str_list(run, "firedGateSectionIds")
+        )
         for gate_section_id in graph.gate_section_ids:
             gate_section_key = str(gate_section_id)
             if (
@@ -1778,9 +1779,9 @@ class StateMachineRunner:
             )
         possible_chat_source_section_ids = (
             self._get_initial_possible_chat_source_section_ids(
-            run=run,
-            graph=graph,
-            project_config_id=project_config_id,
+                run=run,
+                graph=graph,
+                project_config_id=project_config_id,
             )
         )
         possible_gate_section_ids: set[ID] = set()
@@ -2046,7 +2047,7 @@ class StateMachineRunner:
         )
         if source_activation_count <= INITIAL_SOURCE_ACTIVATION_COUNT:
             return False
-        condition = self._get_effective_source_activation_count_condition(edge)
+        condition = edge.sourceActivationCountCondition
         if condition is None:
             return True
         max_processed_source_activation_count = source_activation_count - 1
@@ -2360,29 +2361,14 @@ class StateMachineRunner:
         source_activation_count: int,
     ) -> bool:
         return self._source_activation_count_condition_matches(
-            self._get_effective_source_activation_count_condition(edge),
+            edge.sourceActivationCountCondition,
             source_activation_count,
         )
 
-    def _get_effective_source_activation_count_condition(
-        self,
-        edge: StateMachineEdge,
-    ) -> (
-        StateMachineSourceActivationCountCondition
-        | StateMachineIterationCondition
-        | None
-    ):
-        if edge.sourceActivationCountCondition is not None:
-            return edge.sourceActivationCountCondition
-        return edge.iterationCondition
-
     def _source_activation_count_condition_matches(
         self,
-        source_activation_count_condition: (
-            StateMachineSourceActivationCountCondition
-            | StateMachineIterationCondition
-            | None
-        ),
+        source_activation_count_condition: StateMachineSourceActivationCountCondition
+        | None,
         source_activation_count: int,
     ) -> bool:
         if source_activation_count_condition is None:

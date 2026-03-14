@@ -3693,7 +3693,6 @@ class BaseProjectManager(ABC):
             "targetPortId": x.targetPortId,
             "sourceFilter": x.sourceFilter,
             "sourceActivationCountCondition": x.sourceActivationCountCondition,
-            "iterationCondition": x.iterationCondition,
             "targetAction": x.targetAction,
             "style": x.style,
             "hidden": x.hidden,

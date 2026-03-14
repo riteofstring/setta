@@ -166,7 +166,6 @@ describe("StateMachineEdgeRenderer", () => {
               operator: "lt",
               value: 2,
             },
-            iterationCondition: null,
             targetAction: {
               type: "send_prompt",
               promptTemplateId: null,
@@ -199,7 +198,6 @@ describe("StateMachineEdgeRenderer", () => {
               equals: null,
             },
             sourceActivationCountCondition: null,
-            iterationCondition: null,
             targetAction: null,
             style: null,
             hidden: true,

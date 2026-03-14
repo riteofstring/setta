@@ -83,8 +83,7 @@ function getEdgeClassNames(edge: WorkflowEdge): string {
 }
 
 function getSourceActivationCountLabel(edge: WorkflowEdge): string | null {
-  const condition =
-    edge.sourceActivationCountCondition ?? edge.iterationCondition ?? null;
+  const condition = edge.sourceActivationCountCondition;
   if (!condition) {
     return null;
   }
