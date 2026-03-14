@@ -6,7 +6,7 @@ import {
 } from "components/Panes/Overview/FileBrowser/FileBrowserPane";
 import { useState } from "react";
 import { closeModal, useModalData } from "state/actions/modal";
-import { useDropzoneFileBrowserState } from "state/definitions";
+import { useDropzoneFileBrowserState } from "state/stores/fileBrowserStores";
 
 export function DropzoneFilePickerModal({ open }: { open: boolean }) {
   const { title, remainingSlots, onPickPaths } = useModalData(

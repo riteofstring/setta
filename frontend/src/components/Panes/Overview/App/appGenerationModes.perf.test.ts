@@ -15,7 +15,6 @@ describe("appGenerationModes (perf)", () => {
         prompt: "",
         catalogSummary: "Catalog: setta.app.default (version v1)",
         sectionsSummary: largeSectionsSummary,
-        currentSpecJson: null,
         referenceImageUrl: "https://example.com/ref.png",
         referenceImageNotes: "Match spacing and hierarchy.",
       });
