@@ -17,10 +17,12 @@ preview geometry remains visible.
 ## Approach
 
 1. Extend scene selection queries for selection-only use.
+
    - Keep the existing top-level-only section query for DOM-island mount policy.
    - Add a selection query path that can include cached nested preview rects.
 
 2. Reuse cached preview geometry instead of guessing.
+
    - Select nested preview ids from the cached world-space rects already owned
      by the scene adapter.
    - Keep the mounted DOM bridge as a supplement, not the primary source.

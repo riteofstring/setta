@@ -214,6 +214,56 @@ describe("CanvasEngineSceneAdapter", () => {
     expect(snapshot.snapshot.dataEdges[0]?.targetY).not.toBeNull();
   });
 
+  it("can include cached nested preview rects in selection queries", () => {
+    const adapter = new CanvasEngineSceneAdapter();
+    adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          group: createLayout({ x: 0, y: 0, w: 720, h: 520, zIndex: 2 }),
+        },
+        activeSectionIds: [],
+        nestedPreviewRects: [
+          createNestedPreviewRect({
+            id: "childA",
+            parentSectionId: "group",
+            x: 80,
+            y: 120,
+            width: 220,
+            height: 140,
+          }),
+        ],
+        edges: [],
+        agenticEdges: [],
+      }),
+    );
+
+    expect(
+      adapter.querySectionIdsInWorldRect(
+        {
+          x: 60,
+          y: 100,
+          width: 260,
+          height: 180,
+        },
+        true,
+      ),
+    ).toEqual(["group"]);
+    expect(
+      adapter.querySectionIdsInWorldRect(
+        {
+          x: 60,
+          y: 100,
+          width: 260,
+          height: 180,
+        },
+        true,
+        {
+          includeNestedPreviewRects: true,
+        },
+      ),
+    ).toEqual(["group", "childA"]);
+  });
+
   it("reports only targeted section updates when one section changes", () => {
     const adapter = new CanvasEngineSceneAdapter();
     const initialInput = createSceneInput({
