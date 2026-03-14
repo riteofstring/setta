@@ -64,6 +64,10 @@ type GetFileBrowserDownloadURLsRequestInput struct {
 	Paths []string `json:"paths"`
 }
 
+type FileBrowserDownloadRouteParams struct {
+	Token string `json:"token"`
+}
+
 type FileBrowserDownloadURLEntry struct {
 	Path      string `json:"path"`
 	URL       string `json:"url"`

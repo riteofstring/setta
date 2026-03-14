@@ -874,6 +874,7 @@ Current landed wedge:
     - `route_get_file_browser_root`
     - `route_get_folder_contents`
     - `route_get_file_browser_download_urls`
+    - `route_file_browser_download`
     - `route_get_file_browser_file_content`
     - `route_get_file_browser_file_stat`
     - `route_write_file_browser_file_content`

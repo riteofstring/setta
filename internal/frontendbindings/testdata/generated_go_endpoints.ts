@@ -779,6 +779,12 @@ export async function route_get_file_browser_download_urls(x: gt.GetFileBrowserD
 }
 
 
+export async function route_file_browser_download(token: string): Promise<ResponseDataAndStatus<gt.BinaryDownloadResponse>> {
+
+  return await getBinary(GoHTTPRoutes.fileBrowserDownload, { token });
+}
+
+
 export async function route_get_file_browser_file_content(x: gt.GetFileBrowserFileContentRequestInput): Promise<ResponseDataAndStatus<gt.FileBrowserFileContentResponse>> {
 
   return await post(GoHTTPRoutes.getFileBrowserFileContent, x);

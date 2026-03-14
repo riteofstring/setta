@@ -42,6 +42,7 @@ import {
   route_delete_selected_params,
   route_delete_view_mode,
   route_docstring_to_markdown,
+  route_file_browser_download,
   route_force_refresh_listener,
   route_format_code,
   route_gen_code_prefix_completion,
@@ -4666,6 +4667,24 @@ describe("generatedEndpoints file-browser helpers", () => {
         operation: "move",
       }),
     });
+  });
+
+  it("downloads token-backed file-browser content through the GET binary helper", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(new Uint8Array([4, 5, 6]), {
+        status: 200,
+        headers: { "content-type": "application/octet-stream" },
+      }),
+    );
+
+    const response = await route_file_browser_download("download-token-1");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/fileBrowser/download-token-1`,
+    );
+    expect(response.status).toBe(200);
+    expect(Array.from(response.data ?? [])).toEqual([4, 5, 6]);
   });
 });
 

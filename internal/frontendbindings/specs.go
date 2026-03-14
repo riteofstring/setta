@@ -698,6 +698,11 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "GET_FILE_BROWSER_DOWNLOAD_URLS",
 				},
 				{
+					Name:     "fileBrowserDownload",
+					Path:     httpapi.RouteFileBrowserDownload,
+					EnumName: "FILE_BROWSER_DOWNLOAD",
+				},
+				{
 					Name:     "getFileBrowserFileContent",
 					Path:     httpapi.RouteGetFileBrowserFileContent,
 					EnumName: "GET_FILE_BROWSER_FILE_CONTENT",
@@ -2450,6 +2455,15 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteName:       "getFileBrowserDownloadUrls",
 			RequestType:     reflect.TypeOf(GetFileBrowserDownloadURLsRequestInput{}),
 			ResponseType:    reflect.TypeOf(GetFileBrowserDownloadURLsResponse{}),
+		},
+		{
+			FunctionName:    "route_file_browser_download",
+			Method:          "GET",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "fileBrowserDownload",
+			PathParamsType:  reflect.TypeOf(FileBrowserDownloadRouteParams{}),
+			ResponseType:    reflect.TypeOf(BinaryDownloadResponse{}),
+			BinaryResponse:  true,
 		},
 		{
 			FunctionName:    "route_get_file_browser_file_content",

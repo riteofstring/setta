@@ -7347,6 +7347,9 @@ export function createFileBrowserDownloadURLEntry(options: Partial<FileBrowserDo
 export type GetFileBrowserDownloadURLsResponse = Array<FileBrowserDownloadURLEntry>;
 
 
+export type BinaryDownloadResponse = Uint8Array;
+
+
 export type GetFileBrowserFileContentRequestInput = {
   path: string;
   maxBytes?: number | null;
@@ -7443,9 +7446,6 @@ export type BinaryDownloadRequestInput = {
 export function createBinaryDownloadRequestInput(options: Partial<BinaryDownloadRequestInput> = {}): BinaryDownloadRequestInput {
   return options as BinaryDownloadRequestInput;
 }
-
-
-export type BinaryDownloadResponse = Uint8Array;
 
 
 export type GitRepoInfo = {

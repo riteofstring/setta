@@ -7621,6 +7621,8 @@ export function createFileBrowserDownloadURLEntry(
 export type GetFileBrowserDownloadURLsResponse =
   Array<FileBrowserDownloadURLEntry>;
 
+export type BinaryDownloadResponse = Uint8Array;
+
 export type GetFileBrowserFileContentRequestInput = {
   path: string;
   maxBytes?: number | null;
@@ -7725,8 +7727,6 @@ export function createBinaryDownloadRequestInput(
 ): BinaryDownloadRequestInput {
   return options as BinaryDownloadRequestInput;
 }
-
-export type BinaryDownloadResponse = Uint8Array;
 
 export type GitRepoInfo = {
   isGitRepo: boolean;
