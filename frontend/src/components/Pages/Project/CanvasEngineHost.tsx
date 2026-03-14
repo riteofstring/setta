@@ -3,6 +3,11 @@ import {
   resolveDomIslandMountPolicy,
 } from "canvas-engine/domIslandMountPolicy";
 import {
+  areEdgeHandlePositionMapsEqual,
+  buildConnectedDataEdgeHandleKeys,
+  pickEdgeHandlePositionsByKeys,
+} from "canvas-engine/edgeHandlePositionSelectors";
+import {
   createCanvasEngineRenderer,
   type CanvasEngineBackendSelection,
   type CanvasEngineRenderer,
@@ -12,10 +17,16 @@ import {
   type CanvasEngineProjectSceneInput,
   type CanvasEngineSceneSnapshotResult,
 } from "canvas-engine/sceneAdapter";
-import type { CanvasEngineCamera, CanvasEngineRect } from "canvas-engine/types";
+import type {
+  CanvasEngineCamera,
+  CanvasEngineConnectionPreview,
+  CanvasEngineHoveredEdge,
+  CanvasEngineRect,
+} from "canvas-engine/types";
 import { SectionContainer } from "components/Section/Container/SectionContainer";
 import { SIZE_MODE } from "components/Utils/Resizable/utils";
 import { useReactFlow } from "forks/xyflow/core/store";
+import type { Connection } from "forks/xyflow/core/types";
 import { getWheelDelta } from "forks/xyflow/core/utils";
 import {
   memo,
@@ -27,6 +38,18 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
+import {
+  AGENTIC_EDGE_HANDLE_IDS,
+  createAgenticEdgeFromConnection,
+  isValidAgenticEdgeConnection,
+  toggleAgenticEdgeSelection,
+} from "state/actions/agenticEdges";
+import {
+  createEdgeFromConnection,
+  isValidDataEdgeConnection,
+  reconnectEdgeFromConnection,
+  toggleEdgeSelection,
+} from "state/actions/edges";
 import { getCurrEffectiveSectionImplIfPresent } from "state/actions/sectionInfos";
 import {
   setSelfParentSiblingChildrenWidths,
@@ -34,6 +57,7 @@ import {
 } from "state/actions/sections/sectionSizes";
 import {
   useActiveSectionUI,
+  useEdgeHandleRegistry,
   useProjectState,
   useSettings,
 } from "state/definitions";
@@ -43,6 +67,7 @@ import {
   getMinSectionHeight,
   getMinSectionWidth,
 } from "state/hooks/sectionSizes";
+import { useShareCapabilities } from "state/hooks/share";
 import { getIsTwitterSection } from "state/hooks/social";
 import {
   NO_WHEEL_CLASS_NAME,
@@ -54,6 +79,8 @@ import {
 } from "utils/generatedEndpoints";
 import {
   SectionTypeEnum,
+  SelectionModeEnum,
+  isBaseSectionWithParamsImpl,
   type SectionSize,
   type SectionSizingPolicy,
   type SectionType,
@@ -105,10 +132,57 @@ type ResizePointerSession = {
   lastAppliedSize: Partial<SectionSize> | null;
 };
 
+type EdgePointerSession = {
+  pointerId: number;
+  kind: "edge";
+};
+
+type SelectionRectPointerSession = {
+  pointerId: number;
+  kind: "selection-rect";
+  startWorldX: number;
+  startWorldY: number;
+  startCanvasX: number;
+  startCanvasY: number;
+  moved: boolean;
+  selectedIds: string[];
+};
+
+type AgenticConnectPointerSession = {
+  pointerId: number;
+  kind: "agentic-connect";
+  sourceSectionId: string;
+  sourceHandleWorldX: number;
+  sourceHandleWorldY: number;
+};
+
+type DataConnectPointerSession = {
+  pointerId: number;
+  kind: "data-connect";
+  sourceSectionId: string;
+  sourcePortId: string;
+  sourceHandleWorldX: number;
+  sourceHandleWorldY: number;
+};
+
+type DataReconnectPointerSession = {
+  pointerId: number;
+  kind: "data-reconnect";
+  edgeId: string;
+  endpointType: "source" | "target";
+  fixedHandleWorldX: number;
+  fixedHandleWorldY: number;
+};
+
 type PointerSession =
   | PanePointerSession
   | SectionPointerSession
-  | ResizePointerSession;
+  | ResizePointerSession
+  | EdgePointerSession
+  | SelectionRectPointerSession
+  | AgenticConnectPointerSession
+  | DataConnectPointerSession
+  | DataReconnectPointerSession;
 
 type ResizeCapabilities = {
   widthResizable: boolean;
@@ -140,6 +214,13 @@ type DomIslandRenderEntry = {
   retained: boolean;
 };
 
+type CanvasEngineSelectionRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 4;
 const DOM_ISLAND_VIEWPORT_PADDING_PX = 240;
@@ -147,6 +228,12 @@ const DOM_ISLAND_MIN_ZOOM = 0.35;
 const DOM_ISLAND_RETENTION_MS = 280;
 const DOM_ISLAND_MAX_RETAINED_SECTIONS = 96;
 const RESIZE_HANDLE_HIT_RADIUS_PX = 10;
+const EDGE_HIT_TOLERANCE_PX = 8;
+const AGENTIC_HANDLE_HIT_TOLERANCE_WORLD = 12;
+const DATA_HANDLE_HIT_TOLERANCE_WORLD = 10;
+const DATA_EDGE_ENDPOINT_HIT_RADIUS_PX = 12;
+const SELECTION_RECT_FILL_COLOR = "rgba(0, 89, 220, 0.08)";
+const SELECTION_RECT_BORDER_COLOR = "rgba(0, 89, 220, 0.8)";
 const VIEWPORT_SYNC_EPSILON = 0.000001;
 
 const DEFAULT_CAMERA: CanvasEngineCamera = {
@@ -181,6 +268,11 @@ export function CanvasEngineHost() {
   const topLevelSections = useProjectState(
     (state) => state.projectConfig.topLevelSections,
   );
+  const sectionVariantMap = useProjectState(
+    (state) => state.projectConfig.sectionVariantMap,
+  );
+  const sectionVariants = useProjectState((state) => state.sectionVariants);
+  const sectionImpls = useProjectState((state) => state.sectionImpls);
   const persistedViewport = useProjectState(
     (state) => state.projectConfig.viewport,
   );
@@ -194,6 +286,22 @@ export function CanvasEngineHost() {
   );
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const sectionSizingPolicy = useSettings((state) => state.sectionSizingPolicy);
+  const { canEditStructure } = useShareCapabilities();
+  const connectedDataEdgeHandleKeys = useMemo(
+    () => buildConnectedDataEdgeHandleKeys(dataEdges),
+    [dataEdges],
+  );
+  const edgeHandlePositions = useEdgeHandleRegistry(
+    useCallback(
+      (state) =>
+        pickEdgeHandlePositionsByKeys(
+          state.positions,
+          connectedDataEdgeHandleKeys,
+        ),
+      [connectedDataEdgeHandleKeys],
+    ),
+    areEdgeHandlePositionMapsEqual,
+  );
   const reactFlowTransform = useReactFlow((state) => state.transform);
 
   const sceneAdapterRef = useRef<CanvasEngineSceneAdapter | null>(null);
@@ -224,29 +332,127 @@ export function CanvasEngineHost() {
   );
   const [viewport, setViewport] = useState(DEFAULT_VIEWPORT);
   const [rendererRevision, setRendererRevision] = useState(0);
+  const [projectSceneRevision, setProjectSceneRevision] = useState(0);
   const [domIslandRetentionRevision, setDomIslandRetentionRevision] =
     useState(0);
+  const [connectionPreview, setConnectionPreview] =
+    useState<CanvasEngineConnectionPreview | null>(null);
+  const [hoveredEdge, setHoveredEdge] =
+    useState<CanvasEngineHoveredEdge | null>(null);
+  const [selectionRect, setSelectionRect] =
+    useState<CanvasEngineSelectionRect | null>(null);
 
-  const snapshotResult = useMemo(() => {
-    const sceneInput = {
+  const updateConnectionPreview = useCallback(
+    (nextPreview: CanvasEngineConnectionPreview | null) => {
+      setConnectionPreview((currentPreview) => {
+        if (areConnectionPreviewsEqual(currentPreview, nextPreview)) {
+          return currentPreview;
+        }
+        return nextPreview;
+      });
+    },
+    [],
+  );
+
+  const updateHoveredEdge = useCallback(
+    (nextHoveredEdge: CanvasEngineHoveredEdge | null) => {
+      setHoveredEdge((currentHoveredEdge) => {
+        if (areHoveredEdgesEqual(currentHoveredEdge, nextHoveredEdge)) {
+          return currentHoveredEdge;
+        }
+        return nextHoveredEdge;
+      });
+    },
+    [],
+  );
+
+  const updateSelectionRect = useCallback(
+    (nextSelectionRect: CanvasEngineSelectionRect | null) => {
+      setSelectionRect((currentSelectionRect) => {
+        if (areSelectionRectsEqual(currentSelectionRect, nextSelectionRect)) {
+          return currentSelectionRect;
+        }
+        return nextSelectionRect;
+      });
+    },
+    [],
+  );
+
+  const sectionEdgePortsBySectionId = useMemo(() => {
+    const bySectionId: Record<
+      string,
+      {
+        inputPortIds: string[];
+        outputPortIds: string[];
+      }
+    > = {};
+    for (const sectionId of Object.keys(topLevelSections)) {
+      const variantId = sectionVariantMap[sectionId];
+      if (!variantId) {
+        bySectionId[sectionId] = {
+          inputPortIds: [],
+          outputPortIds: [],
+        };
+        continue;
+      }
+      const variant = sectionVariants[variantId];
+      if (!variant) {
+        bySectionId[sectionId] = {
+          inputPortIds: [],
+          outputPortIds: [],
+        };
+        continue;
+      }
+      const impl = sectionImpls[variant.impl];
+      if (!impl || !isBaseSectionWithParamsImpl(impl)) {
+        bySectionId[sectionId] = {
+          inputPortIds: [],
+          outputPortIds: [],
+        };
+        continue;
+      }
+      bySectionId[sectionId] = {
+        inputPortIds: impl.edgeInputParams,
+        outputPortIds: impl.edgeOutputPorts.map((port) => port.id),
+      };
+    }
+    return bySectionId;
+  }, [sectionImpls, sectionVariantMap, sectionVariants, topLevelSections]);
+
+  useEffect(() => {
+    const patchSummary = sceneAdapter.applyProjectState({
       topLevelSections,
       activeSectionIds,
       edges: dataEdges,
       agenticEdges,
-      edgeHandlePositions: {},
-      sectionEdgePortsBySectionId: {},
-    };
-    sceneAdapter.applyProjectState(sceneInput);
-    return sceneAdapter.createSnapshot(camera, viewport);
+      edgeHandlePositions,
+      sectionEdgePortsBySectionId,
+    });
+    if (patchSummary.hasChanges) {
+      setProjectSceneRevision((value) => value + 1);
+    }
   }, [
     activeSectionIds,
     agenticEdges,
-    camera,
     dataEdges,
+    edgeHandlePositions,
     sceneAdapter,
+    sectionEdgePortsBySectionId,
     topLevelSections,
-    viewport,
   ]);
+
+  const snapshotResult = useMemo(
+    () => sceneAdapter.createSnapshot(camera, viewport),
+    [camera, projectSceneRevision, sceneAdapter, viewport],
+  );
+  const renderSceneSnapshot = useMemo(
+    () => ({
+      ...snapshotResult.snapshot,
+      connectionPreview,
+      hoveredEdge,
+    }),
+    [connectionPreview, hoveredEdge, snapshotResult.snapshot],
+  );
 
   const domIslandViewportSectionIds = useMemo(() => {
     if (camera.zoom < DOM_ISLAND_MIN_ZOOM) {
@@ -267,8 +473,8 @@ export function CanvasEngineHost() {
   }, [
     camera,
     domIslandRetentionRevision,
+    projectSceneRevision,
     sceneAdapter,
-    topLevelSections,
     viewport,
   ]);
 
@@ -313,8 +519,8 @@ export function CanvasEngineHost() {
   }, [
     domIslandRetainedSectionIdSet,
     domIslandSectionIds,
+    projectSceneRevision,
     sceneAdapter,
-    topLevelSections,
   ]);
 
   const domIslandLayerTransform = useMemo(() => {
@@ -501,8 +707,8 @@ export function CanvasEngineHost() {
     if (!renderer) {
       return;
     }
-    renderer.render(snapshotResult.snapshot, viewport);
-  }, [rendererRevision, snapshotResult, viewport]);
+    renderer.render(renderSceneSnapshot, viewport);
+  }, [renderSceneSnapshot, rendererRevision, viewport]);
 
   useEffect(() => {
     const expiryById = domIslandRetentionExpiryByIdRef.current;
@@ -579,11 +785,135 @@ export function CanvasEngineHost() {
       if (event.button !== 0) {
         return;
       }
+      const pointerMultiSelectionActive = event.metaKey || event.ctrlKey;
+      if (
+        pointerMultiSelectionActive &&
+        !useReactFlow.getState().multiSelectionActive
+      ) {
+        useReactFlow.setState({
+          multiSelectionActive: true,
+        });
+      }
       if (isCanvasGestureBlockedByTarget(event.target)) {
         return;
       }
       const worldPoint = resolveWorldPointFromPointerEvent(event, camera);
       if (!worldPoint) {
+        return;
+      }
+      updateConnectionPreview(null);
+      updateHoveredEdge(null);
+      updateSelectionRect(null);
+      const agenticHandleHit = sceneAdapter.hitTestAgenticHandleAtWorldPoint(
+        worldPoint.x,
+        worldPoint.y,
+        AGENTIC_HANDLE_HIT_TOLERANCE_WORLD,
+      );
+      if (
+        canEditStructure &&
+        agenticHandleHit &&
+        agenticHandleHit.handleType === "source"
+      ) {
+        pointerSessionRef.current = {
+          pointerId: event.pointerId,
+          kind: "agentic-connect",
+          sourceSectionId: agenticHandleHit.sectionId,
+          sourceHandleWorldX: agenticHandleHit.handleWorldX,
+          sourceHandleWorldY: agenticHandleHit.handleWorldY,
+        };
+        updateConnectionPreview({
+          kind: "agentic-connect",
+          startX: agenticHandleHit.handleWorldX,
+          startY: agenticHandleHit.handleWorldY,
+          endX: worldPoint.x,
+          endY: worldPoint.y,
+          targetHandleX: null,
+          targetHandleY: null,
+          targetValid: false,
+        });
+        event.currentTarget.setPointerCapture(event.pointerId);
+        return;
+      }
+      const dataSourceHandleHit = sceneAdapter.hitTestDataHandleAtWorldPoint(
+        worldPoint.x,
+        worldPoint.y,
+        DATA_HANDLE_HIT_TOLERANCE_WORLD,
+        { handleType: "source" },
+      );
+      if (canEditStructure && dataSourceHandleHit) {
+        pointerSessionRef.current = {
+          pointerId: event.pointerId,
+          kind: "data-connect",
+          sourceSectionId: dataSourceHandleHit.sectionId,
+          sourcePortId: dataSourceHandleHit.portId,
+          sourceHandleWorldX: dataSourceHandleHit.handleWorldX,
+          sourceHandleWorldY: dataSourceHandleHit.handleWorldY,
+        };
+        updateConnectionPreview({
+          kind: "data-connect",
+          startX: dataSourceHandleHit.handleWorldX,
+          startY: dataSourceHandleHit.handleWorldY,
+          endX: worldPoint.x,
+          endY: worldPoint.y,
+          targetHandleX: null,
+          targetHandleY: null,
+          targetValid: false,
+        });
+        event.currentTarget.setPointerCapture(event.pointerId);
+        return;
+      }
+      const dataEdgeEndpointHit =
+        sceneAdapter.hitTestDataEdgeEndpointAtWorldPoint(
+          worldPoint.x,
+          worldPoint.y,
+          resolveDataEdgeEndpointHitToleranceWorld(camera.zoom),
+        );
+      if (canEditStructure && dataEdgeEndpointHit) {
+        const edgeAnchors = sceneAdapter.getDataEdgeAnchorsById(
+          dataEdgeEndpointHit.edgeId,
+        );
+        if (!edgeAnchors) {
+          return;
+        }
+        const fixedHandleWorldX =
+          dataEdgeEndpointHit.endpointType === "source"
+            ? edgeAnchors.endX
+            : edgeAnchors.startX;
+        const fixedHandleWorldY =
+          dataEdgeEndpointHit.endpointType === "source"
+            ? edgeAnchors.endY
+            : edgeAnchors.startY;
+        pointerSessionRef.current = {
+          pointerId: event.pointerId,
+          kind: "data-reconnect",
+          edgeId: dataEdgeEndpointHit.edgeId,
+          endpointType: dataEdgeEndpointHit.endpointType,
+          fixedHandleWorldX,
+          fixedHandleWorldY,
+        };
+        updateConnectionPreview({
+          kind: "data-reconnect",
+          startX:
+            dataEdgeEndpointHit.endpointType === "source"
+              ? worldPoint.x
+              : fixedHandleWorldX,
+          startY:
+            dataEdgeEndpointHit.endpointType === "source"
+              ? worldPoint.y
+              : fixedHandleWorldY,
+          endX:
+            dataEdgeEndpointHit.endpointType === "source"
+              ? fixedHandleWorldX
+              : worldPoint.x,
+          endY:
+            dataEdgeEndpointHit.endpointType === "source"
+              ? fixedHandleWorldY
+              : worldPoint.y,
+          targetHandleX: null,
+          targetHandleY: null,
+          targetValid: false,
+        });
+        event.currentTarget.setPointerCapture(event.pointerId);
         return;
       }
       const sectionId = sceneAdapter.hitTestSectionAtWorldPoint(
@@ -693,6 +1023,48 @@ export function CanvasEngineHost() {
         event.currentTarget.setPointerCapture(event.pointerId);
         return;
       }
+      const edgeHit = sceneAdapter.hitTestEdgeAtWorldPoint(
+        worldPoint.x,
+        worldPoint.y,
+        resolveEdgeHitToleranceWorld(camera.zoom),
+      );
+      if (edgeHit) {
+        const multiSelectionActive =
+          useReactFlow.getState().multiSelectionActive;
+        if (edgeHit.kind === "data") {
+          toggleEdgeSelection(edgeHit.id, multiSelectionActive);
+        } else {
+          toggleAgenticEdgeSelection(edgeHit.id, multiSelectionActive);
+        }
+        pointerSessionRef.current = {
+          pointerId: event.pointerId,
+          kind: "edge",
+        };
+        event.currentTarget.setPointerCapture(event.pointerId);
+        return;
+      }
+      if (useReactFlow.getState().selectionKeyPressed) {
+        const canvasPoint = resolveCanvasPointFromPointerEvent(event);
+        if (!canvasPoint) {
+          return;
+        }
+        applyActiveSectionChange({
+          interaction: "selection-rect",
+          selectedIds: [],
+        });
+        pointerSessionRef.current = {
+          pointerId: event.pointerId,
+          kind: "selection-rect",
+          startWorldX: worldPoint.x,
+          startWorldY: worldPoint.y,
+          startCanvasX: canvasPoint.x,
+          startCanvasY: canvasPoint.y,
+          moved: false,
+          selectedIds: [],
+        };
+        event.currentTarget.setPointerCapture(event.pointerId);
+        return;
+      }
       pointerSessionRef.current = {
         pointerId: event.pointerId,
         kind: "pane",
@@ -705,16 +1077,38 @@ export function CanvasEngineHost() {
     [
       activeSectionIds,
       camera,
+      canEditStructure,
       sceneAdapter,
       sectionSizingPolicy,
       topLevelSections,
+      updateConnectionPreview,
+      updateHoveredEdge,
+      updateSelectionRect,
     ],
   );
 
   const handlePointerMove = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       const pointerSession = pointerSessionRef.current;
-      if (!pointerSession || pointerSession.pointerId !== event.pointerId) {
+      if (!pointerSession) {
+        if (isCanvasGestureBlockedByTarget(event.target)) {
+          updateHoveredEdge(null);
+          return;
+        }
+        const worldPoint = resolveWorldPointFromPointerEvent(event, camera);
+        if (!worldPoint) {
+          updateHoveredEdge(null);
+          return;
+        }
+        const edgeHit = sceneAdapter.hitTestEdgeAtWorldPoint(
+          worldPoint.x,
+          worldPoint.y,
+          resolveEdgeHitToleranceWorld(camera.zoom),
+        );
+        updateHoveredEdge(edgeHit);
+        return;
+      }
+      if (pointerSession.pointerId !== event.pointerId) {
         return;
       }
       if (pointerSession.kind === "resize") {
@@ -781,6 +1175,194 @@ export function CanvasEngineHost() {
         );
         return;
       }
+      if (pointerSession.kind === "selection-rect") {
+        const worldPoint = resolveWorldPointFromPointerEvent(event, camera);
+        const canvasPoint = resolveCanvasPointFromPointerEvent(event);
+        if (!worldPoint || !canvasPoint) {
+          return;
+        }
+        pointerSession.moved = true;
+        const selectionRectWorld = resolveSelectionRectBounds(
+          pointerSession.startWorldX,
+          pointerSession.startWorldY,
+          worldPoint.x,
+          worldPoint.y,
+        );
+        const selectionMode =
+          useSettings.getState().gui?.selectionMode ??
+          SelectionModeEnum.partial;
+        const selectedIds = sceneAdapter.querySectionIdsInWorldRect(
+          selectionRectWorld,
+          selectionMode === SelectionModeEnum.partial,
+        );
+        if (!areStringArraysEqual(pointerSession.selectedIds, selectedIds)) {
+          pointerSession.selectedIds = selectedIds;
+          applyActiveSectionChange({
+            interaction: "selection-rect",
+            selectedIds,
+          });
+        }
+        updateSelectionRect(
+          resolveSelectionRectBounds(
+            pointerSession.startCanvasX,
+            pointerSession.startCanvasY,
+            canvasPoint.x,
+            canvasPoint.y,
+          ),
+        );
+        return;
+      }
+      if (pointerSession.kind === "agentic-connect") {
+        const worldPoint = resolveWorldPointFromPointerEvent(event, camera);
+        if (!worldPoint) {
+          return;
+        }
+        const targetHandleHit = sceneAdapter.hitTestAgenticHandleAtWorldPoint(
+          worldPoint.x,
+          worldPoint.y,
+          AGENTIC_HANDLE_HIT_TOLERANCE_WORLD,
+        );
+        let endX = worldPoint.x;
+        let endY = worldPoint.y;
+        let targetHandleX: number | null = null;
+        let targetHandleY: number | null = null;
+        let targetValid = false;
+        if (targetHandleHit) {
+          targetHandleX = targetHandleHit.handleWorldX;
+          targetHandleY = targetHandleHit.handleWorldY;
+          const connection = createAgenticConnection({
+            sourceSectionId: pointerSession.sourceSectionId,
+            targetSectionId: targetHandleHit.sectionId,
+            targetHandleType: targetHandleHit.handleType,
+          });
+          if (isValidAgenticEdgeConnection(connection)) {
+            targetValid = true;
+            endX = targetHandleHit.handleWorldX;
+            endY = targetHandleHit.handleWorldY;
+          }
+        }
+        updateConnectionPreview({
+          kind: "agentic-connect",
+          startX: pointerSession.sourceHandleWorldX,
+          startY: pointerSession.sourceHandleWorldY,
+          endX,
+          endY,
+          targetHandleX,
+          targetHandleY,
+          targetValid,
+        });
+        return;
+      }
+      if (pointerSession.kind === "data-connect") {
+        const worldPoint = resolveWorldPointFromPointerEvent(event, camera);
+        if (!worldPoint) {
+          return;
+        }
+        const targetHandleHit = sceneAdapter.hitTestDataHandleAtWorldPoint(
+          worldPoint.x,
+          worldPoint.y,
+          DATA_HANDLE_HIT_TOLERANCE_WORLD,
+          { handleType: "target" },
+        );
+        let endX = worldPoint.x;
+        let endY = worldPoint.y;
+        let targetHandleX: number | null = null;
+        let targetHandleY: number | null = null;
+        let targetValid = false;
+        if (targetHandleHit) {
+          targetHandleX = targetHandleHit.handleWorldX;
+          targetHandleY = targetHandleHit.handleWorldY;
+          const connection: Connection = {
+            source: pointerSession.sourceSectionId,
+            sourceHandle: pointerSession.sourcePortId,
+            target: targetHandleHit.sectionId,
+            targetHandle: targetHandleHit.portId,
+          };
+          if (isValidDataEdgeConnection(connection)) {
+            targetValid = true;
+            endX = targetHandleHit.handleWorldX;
+            endY = targetHandleHit.handleWorldY;
+          }
+        }
+        updateConnectionPreview({
+          kind: "data-connect",
+          startX: pointerSession.sourceHandleWorldX,
+          startY: pointerSession.sourceHandleWorldY,
+          endX,
+          endY,
+          targetHandleX,
+          targetHandleY,
+          targetValid,
+        });
+        return;
+      }
+      if (pointerSession.kind === "data-reconnect") {
+        const worldPoint = resolveWorldPointFromPointerEvent(event, camera);
+        if (!worldPoint) {
+          return;
+        }
+        const edge = sceneAdapter.getDataEdgeById(pointerSession.edgeId);
+        let movingHandleX = worldPoint.x;
+        let movingHandleY = worldPoint.y;
+        let targetHandleX: number | null = null;
+        let targetHandleY: number | null = null;
+        let targetValid = false;
+        const hitHandle = sceneAdapter.hitTestDataHandleAtWorldPoint(
+          worldPoint.x,
+          worldPoint.y,
+          DATA_HANDLE_HIT_TOLERANCE_WORLD,
+          { handleType: pointerSession.endpointType },
+        );
+        if (edge && hitHandle) {
+          targetHandleX = hitHandle.handleWorldX;
+          targetHandleY = hitHandle.handleWorldY;
+          const connection: Connection =
+            pointerSession.endpointType === "source"
+              ? {
+                  source: hitHandle.sectionId,
+                  sourceHandle: hitHandle.portId,
+                  target: edge.targetSectionId,
+                  targetHandle: edge.targetPortId,
+                }
+              : {
+                  source: edge.sourceSectionId,
+                  sourceHandle: edge.sourcePortId,
+                  target: hitHandle.sectionId,
+                  targetHandle: hitHandle.portId,
+                };
+          if (isValidDataEdgeConnection(connection)) {
+            targetValid = true;
+            movingHandleX = hitHandle.handleWorldX;
+            movingHandleY = hitHandle.handleWorldY;
+          }
+        }
+        updateConnectionPreview({
+          kind: "data-reconnect",
+          startX:
+            pointerSession.endpointType === "source"
+              ? movingHandleX
+              : pointerSession.fixedHandleWorldX,
+          startY:
+            pointerSession.endpointType === "source"
+              ? movingHandleY
+              : pointerSession.fixedHandleWorldY,
+          endX:
+            pointerSession.endpointType === "source"
+              ? pointerSession.fixedHandleWorldX
+              : movingHandleX,
+          endY:
+            pointerSession.endpointType === "source"
+              ? pointerSession.fixedHandleWorldY
+              : movingHandleY,
+          targetHandleX,
+          targetHandleY,
+          targetValid,
+        });
+        return;
+      }
+      if (pointerSession.kind !== "pane") {
+        return;
+      }
 
       const deltaX = event.clientX - pointerSession.lastClientX;
       const deltaY = event.clientY - pointerSession.lastClientY;
@@ -798,8 +1380,18 @@ export function CanvasEngineHost() {
         zoom: currentCamera.zoom,
       }));
     },
-    [camera],
+    [
+      camera,
+      sceneAdapter,
+      updateConnectionPreview,
+      updateHoveredEdge,
+      updateSelectionRect,
+    ],
   );
+
+  const handlePointerLeave = useCallback(() => {
+    updateHoveredEdge(null);
+  }, [updateHoveredEdge]);
 
   const releasePointerCapture = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -838,15 +1430,116 @@ export function CanvasEngineHost() {
             sectionId: pointerSession.sectionId,
           });
         }
-      } else if (!pointerSession.moved) {
+      } else if (pointerSession.kind === "agentic-connect") {
+        const worldPoint = resolveWorldPointFromPointerEvent(event, camera);
+        if (worldPoint) {
+          const targetHandleHit = sceneAdapter.hitTestAgenticHandleAtWorldPoint(
+            worldPoint.x,
+            worldPoint.y,
+            AGENTIC_HANDLE_HIT_TOLERANCE_WORLD,
+          );
+          if (targetHandleHit) {
+            const connection = createAgenticConnection({
+              sourceSectionId: pointerSession.sourceSectionId,
+              targetSectionId: targetHandleHit.sectionId,
+              targetHandleType: targetHandleHit.handleType,
+            });
+            if (isValidAgenticEdgeConnection(connection)) {
+              createAgenticEdgeFromConnection(connection);
+            }
+          }
+        }
+      } else if (pointerSession.kind === "data-connect") {
+        const worldPoint = resolveWorldPointFromPointerEvent(event, camera);
+        if (worldPoint) {
+          const targetHandleHit = sceneAdapter.hitTestDataHandleAtWorldPoint(
+            worldPoint.x,
+            worldPoint.y,
+            DATA_HANDLE_HIT_TOLERANCE_WORLD,
+            { handleType: "target" },
+          );
+          if (targetHandleHit) {
+            const connection: Connection = {
+              source: pointerSession.sourceSectionId,
+              sourceHandle: pointerSession.sourcePortId,
+              target: targetHandleHit.sectionId,
+              targetHandle: targetHandleHit.portId,
+            };
+            if (isValidDataEdgeConnection(connection)) {
+              createEdgeFromConnection(connection);
+            }
+          }
+        }
+      } else if (pointerSession.kind === "data-reconnect") {
+        const worldPoint = resolveWorldPointFromPointerEvent(event, camera);
+        if (worldPoint) {
+          const edge = sceneAdapter.getDataEdgeById(pointerSession.edgeId);
+          if (edge) {
+            if (pointerSession.endpointType === "source") {
+              const sourceHandleHit =
+                sceneAdapter.hitTestDataHandleAtWorldPoint(
+                  worldPoint.x,
+                  worldPoint.y,
+                  DATA_HANDLE_HIT_TOLERANCE_WORLD,
+                  { handleType: "source" },
+                );
+              if (sourceHandleHit) {
+                const connection: Connection = {
+                  source: sourceHandleHit.sectionId,
+                  sourceHandle: sourceHandleHit.portId,
+                  target: edge.targetSectionId,
+                  targetHandle: edge.targetPortId,
+                };
+                if (isValidDataEdgeConnection(connection)) {
+                  reconnectEdgeFromConnection(edge.id, connection);
+                }
+              }
+            } else {
+              const targetHandleHit =
+                sceneAdapter.hitTestDataHandleAtWorldPoint(
+                  worldPoint.x,
+                  worldPoint.y,
+                  DATA_HANDLE_HIT_TOLERANCE_WORLD,
+                  { handleType: "target" },
+                );
+              if (targetHandleHit) {
+                const connection: Connection = {
+                  source: edge.sourceSectionId,
+                  sourceHandle: edge.sourcePortId,
+                  target: targetHandleHit.sectionId,
+                  targetHandle: targetHandleHit.portId,
+                };
+                if (isValidDataEdgeConnection(connection)) {
+                  reconnectEdgeFromConnection(edge.id, connection);
+                }
+              }
+            }
+          }
+        }
+      } else if (
+        pointerSession.kind === "selection-rect" &&
+        !pointerSession.moved
+      ) {
+        applyActiveSectionChange({ interaction: "pane-click" });
+      } else if (pointerSession.kind === "pane" && !pointerSession.moved) {
         applyActiveSectionChange({ interaction: "pane-click" });
       }
+      updateConnectionPreview(null);
+      updateHoveredEdge(null);
+      updateSelectionRect(null);
       pointerSessionRef.current = null;
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
       }
     },
-    [projectConfigId],
+    [
+      camera,
+      projectConfigId,
+      sceneAdapter,
+      updateConnectionPreview,
+      updateHoveredEdge,
+      updateSelectionRect,
+    ],
   );
 
   return (
@@ -856,6 +1549,7 @@ export function CanvasEngineHost() {
       style={{ touchAction: "none" }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
+      onPointerLeave={handlePointerLeave}
       onPointerUp={releasePointerCapture}
       onPointerCancel={releasePointerCapture}
       data-canvas-engine-host="v1"
@@ -870,9 +1564,52 @@ export function CanvasEngineHost() {
       data-canvas-engine-fallback-reason={backendSelection.fallbackReason ?? ""}
       data-canvas-engine-rect-count={snapshotResult.totalRectCount}
       data-canvas-engine-visible-rect-count={snapshotResult.visibleRectCount}
+      data-canvas-engine-visible-data-edge-count={
+        snapshotResult.visibleDataEdgeCount
+      }
       data-canvas-engine-data-edge-count={snapshotResult.totalDataEdgeCount}
+      data-canvas-engine-visible-agentic-edge-count={
+        snapshotResult.visibleAgenticEdgeCount
+      }
       data-canvas-engine-agentic-edge-count={
         snapshotResult.totalAgenticEdgeCount
+      }
+      data-canvas-engine-connection-preview-active={String(
+        connectionPreview !== null,
+      )}
+      data-canvas-engine-connection-preview-kind={connectionPreview?.kind ?? ""}
+      data-canvas-engine-connection-preview-valid={String(
+        connectionPreview?.targetValid ?? false,
+      )}
+      data-canvas-engine-connection-preview-has-target-handle={String(
+        typeof connectionPreview?.targetHandleX === "number" &&
+          typeof connectionPreview?.targetHandleY === "number",
+      )}
+      data-canvas-engine-connection-preview-target-x={
+        typeof connectionPreview?.targetHandleX === "number"
+          ? connectionPreview.targetHandleX.toFixed(2)
+          : ""
+      }
+      data-canvas-engine-connection-preview-target-y={
+        typeof connectionPreview?.targetHandleY === "number"
+          ? connectionPreview.targetHandleY.toFixed(2)
+          : ""
+      }
+      data-canvas-engine-hovered-edge-active={String(hoveredEdge !== null)}
+      data-canvas-engine-hovered-edge-kind={hoveredEdge?.kind ?? ""}
+      data-canvas-engine-hovered-edge-id={hoveredEdge?.id ?? ""}
+      data-canvas-engine-selection-rect-active={String(selectionRect !== null)}
+      data-canvas-engine-selection-rect-x={
+        selectionRect ? selectionRect.x.toFixed(2) : ""
+      }
+      data-canvas-engine-selection-rect-y={
+        selectionRect ? selectionRect.y.toFixed(2) : ""
+      }
+      data-canvas-engine-selection-rect-width={
+        selectionRect ? selectionRect.width.toFixed(2) : ""
+      }
+      data-canvas-engine-selection-rect-height={
+        selectionRect ? selectionRect.height.toFixed(2) : ""
       }
       data-canvas-engine-camera-x={camera.x.toFixed(2)}
       data-canvas-engine-camera-y={camera.y.toFixed(2)}
@@ -909,10 +1646,77 @@ export function CanvasEngineHost() {
           </div>
         </div>
       ) : null}
+      {selectionRect ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute box-border border border-dotted"
+          style={{
+            left: selectionRect.x,
+            top: selectionRect.y,
+            width: selectionRect.width,
+            height: selectionRect.height,
+            background: SELECTION_RECT_FILL_COLOR,
+            borderColor: SELECTION_RECT_BORDER_COLOR,
+          }}
+        />
+      ) : null}
       <div className="pointer-events-none absolute left-4 top-4 rounded-md bg-slate-900/80 px-3 py-2 text-xs text-slate-100">
         Canvas engine {backendSelection.activeBackend}
       </div>
     </div>
+  );
+}
+
+function areConnectionPreviewsEqual(
+  left: CanvasEngineConnectionPreview | null,
+  right: CanvasEngineConnectionPreview | null,
+): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+  return (
+    left.kind === right.kind &&
+    left.startX === right.startX &&
+    left.startY === right.startY &&
+    left.endX === right.endX &&
+    left.endY === right.endY &&
+    left.targetHandleX === right.targetHandleX &&
+    left.targetHandleY === right.targetHandleY &&
+    left.targetValid === right.targetValid
+  );
+}
+
+function areHoveredEdgesEqual(
+  left: CanvasEngineHoveredEdge | null,
+  right: CanvasEngineHoveredEdge | null,
+): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+  return left.kind === right.kind && left.id === right.id;
+}
+
+function areSelectionRectsEqual(
+  left: CanvasEngineSelectionRect | null,
+  right: CanvasEngineSelectionRect | null,
+): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+  return (
+    left.x === right.x &&
+    left.y === right.y &&
+    left.width === right.width &&
+    left.height === right.height
   );
 }
 
@@ -1107,6 +1911,61 @@ function resolveWorldPointFromPointerEvent(
   };
 }
 
+function resolveCanvasPointFromPointerEvent(
+  event: ReactPointerEvent<HTMLElement>,
+): { x: number; y: number } | null {
+  const rect = event.currentTarget.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) {
+    return null;
+  }
+  return {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top,
+  };
+}
+
+function resolveSelectionRectBounds(
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number,
+): CanvasEngineSelectionRect {
+  return {
+    x: Math.min(startX, endX),
+    y: Math.min(startY, endY),
+    width: Math.abs(endX - startX),
+    height: Math.abs(endY - startY),
+  };
+}
+
+function resolveEdgeHitToleranceWorld(zoom: number): number {
+  return EDGE_HIT_TOLERANCE_PX / clampZoom(zoom);
+}
+
+function resolveDataEdgeEndpointHitToleranceWorld(zoom: number): number {
+  return DATA_EDGE_ENDPOINT_HIT_RADIUS_PX / clampZoom(zoom);
+}
+
+function createAgenticConnection({
+  sourceSectionId,
+  targetSectionId,
+  targetHandleType,
+}: {
+  sourceSectionId: string;
+  targetSectionId: string;
+  targetHandleType: "source" | "target";
+}): Connection {
+  return {
+    source: sourceSectionId,
+    sourceHandle: AGENTIC_EDGE_HANDLE_IDS.source,
+    target: targetSectionId,
+    targetHandle:
+      targetHandleType === "target"
+        ? AGENTIC_EDGE_HANDLE_IDS.target
+        : AGENTIC_EDGE_HANDLE_IDS.source,
+  };
+}
+
 type TopLevelSectionLayoutPatch = {
   sectionId: string;
   nextLayoutPatch: {
@@ -1153,6 +2012,21 @@ function setTopLevelSectionLayoutRects(
       }
     }
   });
+}
+
+function areStringArraysEqual(left: string[], right: string[]): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function applySectionSizeInProjectState(

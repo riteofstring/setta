@@ -26,6 +26,12 @@ type LatestProjectStateResponse = {
         y?: number;
         zoom?: number;
       } | null;
+      edges?: Array<{
+        sourceSectionId?: string;
+        sourcePortId?: string;
+        targetSectionId?: string;
+        targetPortId?: string;
+      }>;
     };
     sectionVariants?: Record<
       string,
@@ -47,6 +53,7 @@ type LatestProjectStateResponse = {
     sectionImpls?: Record<
       string,
       {
+        codeObjVariantMap?: Record<string, string>;
         size?: {
           width?: number | "auto";
           height?: number | "auto";
@@ -67,8 +74,25 @@ type WorldPoint = {
   y: number;
 };
 
+type CanvasEngineConnectionPreviewState = {
+  active: boolean;
+  kind: string;
+  valid: boolean;
+  hasTargetHandle: boolean;
+};
+
+type CanvasEngineSelectionRectState = {
+  active: boolean;
+  x: number | null;
+  y: number | null;
+  width: number | null;
+  height: number | null;
+};
+
 const MULTI_SELECTION_MODIFIER_KEY =
   process.platform === "darwin" ? "Meta" : "Control";
+const DEFAULT_SECTION_WIDTH_FOR_HIT_TEST = 320;
+const DEFAULT_SECTION_HEIGHT_FOR_HIT_TEST = 180;
 
 test("canvas engine host mounts visible top-level sections as dom islands", async ({
   page,
@@ -553,6 +577,227 @@ test("canvas engine host resizes sections and persists top-level layout", async 
   }
 });
 
+test("canvas engine host supports shift-drag marquee section selection", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+
+    const firstSectionId = await createCallableSectionForCanvasEngine(
+      page,
+      projectContext.projectConfigId,
+    );
+    const secondSectionId = await createCallableSectionForCanvasEngine(
+      page,
+      projectContext.projectConfigId,
+    );
+    const firstIsland = host.locator(
+      `[data-canvas-engine-dom-island="${firstSectionId}"]`,
+    );
+    const secondIsland = host.locator(
+      `[data-canvas-engine-dom-island="${secondSectionId}"]`,
+    );
+    await expect(firstIsland).toHaveCount(1);
+    await expect(secondIsland).toHaveCount(1);
+
+    const firstBounds = await firstIsland.boundingBox();
+    const secondBounds = await secondIsland.boundingBox();
+    if (!firstBounds || !secondBounds) {
+      throw new Error("Unable to resolve DOM-island bounds for marquee test.");
+    }
+
+    const selectionStartScreen = {
+      x: Math.min(firstBounds.x, secondBounds.x) - 24,
+      y: Math.min(firstBounds.y, secondBounds.y) - 24,
+    };
+    const selectionEndScreen = {
+      x:
+        Math.max(
+          firstBounds.x + firstBounds.width,
+          secondBounds.x + secondBounds.width,
+        ) + 24,
+      y:
+        Math.max(
+          firstBounds.y + firstBounds.height,
+          secondBounds.y + secondBounds.height,
+        ) + 24,
+    };
+
+    await page.keyboard.down("Shift");
+    try {
+      await page.mouse.move(selectionStartScreen.x, selectionStartScreen.y);
+      await page.mouse.down();
+      await page.mouse.move(selectionEndScreen.x, selectionEndScreen.y, {
+        steps: 12,
+      });
+
+      await expect
+        .poll(async () => await readSelectionRectState(host))
+        .toMatchObject({ active: true });
+      await expect
+        .poll(async () => [...(await readActiveSectionIds(host))].sort())
+        .toEqual([firstSectionId, secondSectionId].sort());
+      await page.mouse.up();
+    } finally {
+      await page.keyboard.up("Shift");
+    }
+
+    await expect
+      .poll(async () => (await readSelectionRectState(host)).active)
+      .toBe(false);
+    await expect
+      .poll(async () => [...(await readActiveSectionIds(host))].sort())
+      .toEqual([firstSectionId, secondSectionId].sort());
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("canvas engine host creates data edges via handle drag", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+
+    const sourceSectionId = await createCallableSectionForCanvasEngine(
+      page,
+      projectContext.projectConfigId,
+    );
+    const targetSectionId = await createCallableSectionForCanvasEngine(
+      page,
+      projectContext.projectConfigId,
+    );
+    await expect
+      .poll(
+        async () =>
+          await readNumericHostAttribute(host, "data-canvas-engine-rect-count"),
+      )
+      .toBeGreaterThanOrEqual(2);
+
+    await setSectionCallable(
+      page,
+      projectContext.projectConfigId,
+      sourceSectionId,
+      "sorted",
+    );
+    await setSectionCallable(
+      page,
+      projectContext.projectConfigId,
+      targetSectionId,
+      "sorted",
+    );
+
+    const sourcePortId = "canvas-engine-source-port";
+    const [targetPortId] = await readMountedSectionParamIds(
+      host,
+      targetSectionId,
+      1,
+    );
+    await postBackend(page, "/setSectionEdgeOutputs", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId: sourceSectionId,
+      edgeOutputPorts: [{ id: sourcePortId, accessor: "output" }],
+    });
+    await postBackend(page, "/setSectionEdgeInputs", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId: targetSectionId,
+      edgeInputParams: [targetPortId],
+    });
+
+    const sourceIsland = host.locator(
+      `[data-canvas-engine-dom-island="${sourceSectionId}"]`,
+    );
+    const targetIsland = host.locator(
+      `[data-canvas-engine-dom-island="${targetSectionId}"]`,
+    );
+    await expect(sourceIsland).toHaveCount(1);
+    await expect(targetIsland).toHaveCount(1);
+
+    const sourceBounds = await sourceIsland.boundingBox();
+    const targetBounds = await targetIsland.boundingBox();
+    if (!sourceBounds || !targetBounds) {
+      throw new Error("Unable to resolve DOM-island bounds for edge drag.");
+    }
+
+    const sourceHandleScreen = {
+      x: sourceBounds.x + sourceBounds.width,
+      y: sourceBounds.y + sourceBounds.height / 2,
+    };
+    const targetHandleScreen = {
+      x: targetBounds.x,
+      y: targetBounds.y + targetBounds.height / 2,
+    };
+    const sourceHandle = await screenPointToWorld(host, sourceHandleScreen);
+    const targetHandle = await screenPointToWorld(host, targetHandleScreen);
+
+    await setCanvasEngineEdgeHandlePositions(page, [
+      {
+        sectionId: sourceSectionId,
+        portId: sourcePortId,
+        type: "source",
+        side: "right",
+        x: sourceHandle.x,
+        y: sourceHandle.y,
+      },
+      {
+        sectionId: targetSectionId,
+        portId: targetPortId,
+        type: "target",
+        side: "left",
+        x: targetHandle.x,
+        y: targetHandle.y,
+      },
+    ]);
+    await expect
+      .poll(async () => await readEdgeHandleRegistryPositionCount(page))
+      .toBeGreaterThanOrEqual(2);
+
+    await page.mouse.move(sourceHandleScreen.x, sourceHandleScreen.y);
+    await page.mouse.down();
+    await page.mouse.move(targetHandleScreen.x, targetHandleScreen.y, {
+      steps: 10,
+    });
+
+    await expect
+      .poll(async () => await readConnectionPreviewState(host))
+      .toEqual({
+        active: true,
+        kind: "data-connect",
+        valid: true,
+        hasTargetHandle: true,
+      });
+
+    await page.mouse.up();
+    await expect
+      .poll(async () => (await readConnectionPreviewState(host)).active)
+      .toBe(false);
+    await expect
+      .poll(
+        async () =>
+          await readDataEdgeLinks(page, projectContext.projectConfigId),
+      )
+      .toContain(
+        `${sourceSectionId}:${sourcePortId}->${targetSectionId}:${targetPortId}`,
+      );
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 async function readCamera(host: Locator): Promise<CanvasEngineCameraSnapshot> {
   const xRaw = await host.getAttribute("data-canvas-engine-camera-x");
   const yRaw = await host.getAttribute("data-canvas-engine-camera-y");
@@ -591,6 +836,91 @@ async function createCallableSectionForCanvasEngine(
     throw new Error("Missing sectionId when creating callable section.");
   }
   return response.sectionId;
+}
+
+async function setSectionCallable(
+  page: Page,
+  projectConfigId: string,
+  sectionId: string,
+  callableName: string,
+): Promise<void> {
+  await postBackend(page, "/setCallable", {
+    projectConfigId,
+    sectionId,
+    callableName,
+    refetchParams: true,
+  });
+}
+
+async function readMountedSectionParamIds(
+  host: Locator,
+  sectionId: string,
+  minCount: number,
+): Promise<string[]> {
+  const sectionNode = host.locator(
+    `[data-canvas-engine-dom-island="${sectionId}"] section[data-section-id="${sectionId}"]`,
+  );
+  const idPrefix = `ParamContainer-${sectionId}-`;
+  await expect(sectionNode).toBeVisible();
+  await expect(sectionNode.locator(`[id^="${idPrefix}"]`).first()).toBeVisible({
+    timeout: 20_000,
+  });
+  const ids = await sectionNode.locator(`[id^="${idPrefix}"]`).evaluateAll(
+    (nodes, prefix) =>
+      nodes
+        .map((node) => node.id)
+        .filter((id) => id.startsWith(prefix))
+        .map((id) => id.slice(prefix.length)),
+    idPrefix,
+  );
+  if (ids.length < minCount) {
+    throw new Error(
+      `Expected at least ${minCount} params in section ${sectionId}. Found ${ids.length}.`,
+    );
+  }
+  return ids;
+}
+
+async function setCanvasEngineEdgeHandlePositions(
+  page: Page,
+  handles: Array<{
+    sectionId: string;
+    portId: string;
+    type: "source" | "target";
+    side: "left" | "right";
+    x: number;
+    y: number;
+  }>,
+): Promise<void> {
+  await page.evaluate(async (entries) => {
+    const { useEdgeHandleRegistry } = await import("/src/state/definitions.ts");
+    const { makeEdgeHandleKey } = await import(
+      "/src/state/actions/edgeHandles.ts"
+    );
+    useEdgeHandleRegistry.setState((state) => {
+      for (const entry of entries) {
+        state.positions[
+          makeEdgeHandleKey(entry.sectionId, entry.portId, entry.type)
+        ] = {
+          sectionId: entry.sectionId,
+          portId: entry.portId,
+          type: entry.type,
+          side: entry.side,
+          x: entry.x,
+          y: entry.y,
+        };
+      }
+    });
+  }, handles);
+}
+
+async function readEdgeHandleRegistryPositionCount(
+  page: Page,
+): Promise<number> {
+  return await page.evaluate(async () => {
+    const { useEdgeHandleRegistry } = await import("/src/state/definitions.ts");
+    return Object.keys(useEdgeHandleRegistry.getState().positions).length;
+  });
 }
 
 function areCamerasClose(
@@ -780,6 +1110,21 @@ async function worldPointToScreen(
   };
 }
 
+async function screenPointToWorld(
+  host: Locator,
+  screenPoint: WorldPoint,
+): Promise<WorldPoint> {
+  const hostBounds = await host.boundingBox();
+  if (!hostBounds) {
+    throw new Error("Unable to resolve canvas host bounds.");
+  }
+  const camera = await readCamera(host);
+  return {
+    x: camera.x + (screenPoint.x - hostBounds.x) / camera.zoom,
+    y: camera.y + (screenPoint.y - hostBounds.y) / camera.zoom,
+  };
+}
+
 async function dragWorldPoint(
   page: Page,
   host: Locator,
@@ -808,6 +1153,68 @@ async function readNumericHostAttribute(
     );
   }
   return parsed;
+}
+
+async function readConnectionPreviewState(
+  host: Locator,
+): Promise<CanvasEngineConnectionPreviewState> {
+  const activeRaw = await host.getAttribute(
+    "data-canvas-engine-connection-preview-active",
+  );
+  const kind =
+    (await host.getAttribute("data-canvas-engine-connection-preview-kind")) ??
+    "";
+  const validRaw = await host.getAttribute(
+    "data-canvas-engine-connection-preview-valid",
+  );
+  const hasTargetHandleRaw = await host.getAttribute(
+    "data-canvas-engine-connection-preview-has-target-handle",
+  );
+  return {
+    active: parseBooleanHostAttribute(
+      "data-canvas-engine-connection-preview-active",
+      activeRaw,
+    ),
+    kind,
+    valid: parseBooleanHostAttribute(
+      "data-canvas-engine-connection-preview-valid",
+      validRaw,
+    ),
+    hasTargetHandle: parseBooleanHostAttribute(
+      "data-canvas-engine-connection-preview-has-target-handle",
+      hasTargetHandleRaw,
+    ),
+  };
+}
+
+async function readSelectionRectState(
+  host: Locator,
+): Promise<CanvasEngineSelectionRectState> {
+  const activeRaw = await host.getAttribute(
+    "data-canvas-engine-selection-rect-active",
+  );
+  return {
+    active: parseBooleanHostAttribute(
+      "data-canvas-engine-selection-rect-active",
+      activeRaw,
+    ),
+    x: parseNumericHostAttribute(
+      "data-canvas-engine-selection-rect-x",
+      await host.getAttribute("data-canvas-engine-selection-rect-x"),
+    ),
+    y: parseNumericHostAttribute(
+      "data-canvas-engine-selection-rect-y",
+      await host.getAttribute("data-canvas-engine-selection-rect-y"),
+    ),
+    width: parseNumericHostAttribute(
+      "data-canvas-engine-selection-rect-width",
+      await host.getAttribute("data-canvas-engine-selection-rect-width"),
+    ),
+    height: parseNumericHostAttribute(
+      "data-canvas-engine-selection-rect-height",
+      await host.getAttribute("data-canvas-engine-selection-rect-height"),
+    ),
+  };
 }
 
 async function resolvePaneScreenPoint(
@@ -871,4 +1278,59 @@ async function resolvePaneScreenPoint(
     }
   }
   throw new Error("Unable to resolve a pane screen point for canvas drag.");
+}
+
+async function readDataEdgeLinks(
+  page: Page,
+  projectConfigId: string,
+): Promise<string[]> {
+  const response = await postBackend<LatestProjectStateResponse>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
+  );
+  const edges = response?.projectState?.projectConfig?.edges ?? [];
+  return edges
+    .filter(
+      (edge) =>
+        typeof edge.sourceSectionId === "string" &&
+        typeof edge.sourcePortId === "string" &&
+        typeof edge.targetSectionId === "string" &&
+        typeof edge.targetPortId === "string",
+    )
+    .map(
+      (edge) =>
+        `${edge.sourceSectionId as string}:${edge.sourcePortId as string}->${edge.targetSectionId as string}:${edge.targetPortId as string}`,
+    );
+}
+
+function parseBooleanHostAttribute(
+  attributeName: string,
+  rawValue: string | null,
+): boolean {
+  if (rawValue === "true") {
+    return true;
+  }
+  if (rawValue === "false") {
+    return false;
+  }
+  throw new Error(
+    `Invalid boolean host attribute ${attributeName}: ${String(rawValue)}`,
+  );
+}
+
+function parseNumericHostAttribute(
+  attributeName: string,
+  rawValue: string | null,
+): number | null {
+  if (rawValue === null || rawValue === "") {
+    return null;
+  }
+  const parsed = Number(rawValue);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(
+      `Invalid numeric host attribute ${attributeName}: ${String(rawValue)}`,
+    );
+  }
+  return parsed;
 }

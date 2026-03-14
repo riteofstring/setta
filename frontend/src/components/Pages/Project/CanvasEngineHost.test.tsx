@@ -4,9 +4,11 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import initialState from "forks/xyflow/core/store/initialState";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
+import { makeEdgeHandleKey } from "state/actions/edgeHandles";
 import { getCurrEffectiveSectionImplIfPresent } from "state/actions/sectionInfos";
 import {
   useActiveSectionUI,
+  useEdgeHandleRegistry,
   useProjectState,
   useSettings,
 } from "state/definitions";
@@ -386,6 +388,192 @@ describe("CanvasEngineHost", () => {
     ).toBeGreaterThan(1);
   });
 
+  it("tracks hovered data-edge state when the pointer moves over an edge", async () => {
+    seedSectionsWithDataEdge({
+      includeExistingEdge: true,
+    });
+
+    await act(async () => {
+      root.render(<CanvasEngineHost />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const engineHost = host.querySelector(
+      '[data-canvas-engine-host="v1"]',
+    ) as HTMLDivElement | null;
+    if (!engineHost) {
+      throw new Error("Canvas engine host failed to render.");
+    }
+    setEngineHostBounds(engineHost);
+
+    await dispatchPointerEvent(engineHost, "pointermove", {
+      button: 0,
+      clientX: 382,
+      clientY: 106,
+      pointerId: 1,
+    });
+
+    expect(engineHost.dataset.canvasEngineHoveredEdgeActive).toBe("true");
+    expect(engineHost.dataset.canvasEngineHoveredEdgeKind).toBe("data");
+    expect(engineHost.dataset.canvasEngineHoveredEdgeId).toBe("edge-data-1");
+  });
+
+  it("creates a data edge from a source handle drag onto a valid target handle", async () => {
+    const createEdgeSpy = vi
+      .spyOn(endpoints, "route_create_edge")
+      .mockResolvedValue({
+        status: 200,
+        hasResponse: true,
+        data: undefined,
+      });
+    seedSectionsWithDataEdge({
+      includeExistingEdge: false,
+    });
+
+    await act(async () => {
+      root.render(<CanvasEngineHost />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const engineHost = host.querySelector(
+      '[data-canvas-engine-host="v1"]',
+    ) as HTMLDivElement | null;
+    if (!engineHost) {
+      throw new Error("Canvas engine host failed to render.");
+    }
+    setEngineHostBounds(engineHost);
+
+    await dispatchPointerEvent(engineHost, "pointerdown", {
+      button: 0,
+      clientX: 344,
+      clientY: 106,
+      pointerId: 1,
+    });
+    await dispatchPointerEvent(engineHost, "pointermove", {
+      button: 0,
+      clientX: 420,
+      clientY: 106,
+      pointerId: 1,
+    });
+
+    expect(engineHost.dataset.canvasEngineConnectionPreviewActive).toBe("true");
+    expect(engineHost.dataset.canvasEngineConnectionPreviewKind).toBe(
+      "data-connect",
+    );
+    expect(engineHost.dataset.canvasEngineConnectionPreviewValid).toBe("true");
+    expect(
+      engineHost.dataset.canvasEngineConnectionPreviewHasTargetHandle,
+    ).toBe("true");
+
+    await dispatchPointerEvent(engineHost, "pointerup", {
+      button: 0,
+      clientX: 420,
+      clientY: 106,
+      pointerId: 1,
+    });
+
+    expect(createEdgeSpy).toHaveBeenCalledOnce();
+    expect(createEdgeSpy).toHaveBeenCalledWith({
+      projectConfigId: "project-a",
+      sourceSectionId: "section-a",
+      sourceVariantId: "variant-a",
+      sourcePortId: "out-a",
+      targetSectionId: "section-b",
+      targetVariantId: "variant-b",
+      targetPortId: "in-b",
+      type: "default",
+    });
+  });
+
+  it("updates active ids while shift-dragging a marquee selection", async () => {
+    vi.spyOn(endpoints, "route_set_active_ids").mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: undefined,
+    });
+    useProjectState.setState((state) => {
+      state.projectConfig.id = "project-a";
+      state.projectConfig.topLevelSections = {
+        "section-a": {
+          x: 80,
+          y: 60,
+          zIndex: 0,
+          w: 200,
+          h: 120,
+        },
+        "section-b": {
+          x: 340,
+          y: 80,
+          zIndex: 1,
+          w: 200,
+          h: 120,
+        },
+      };
+      state.projectConfig.edges = [];
+      state.projectConfig.agenticEdges = [];
+    });
+    useReactFlow.setState({
+      selectionKeyPressed: true,
+    });
+
+    await act(async () => {
+      root.render(<CanvasEngineHost />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const engineHost = host.querySelector(
+      '[data-canvas-engine-host="v1"]',
+    ) as HTMLDivElement | null;
+    if (!engineHost) {
+      throw new Error("Canvas engine host failed to render.");
+    }
+    setEngineHostBounds(engineHost);
+
+    await dispatchPointerEvent(engineHost, "pointerdown", {
+      button: 0,
+      clientX: 40,
+      clientY: 40,
+      pointerId: 1,
+    });
+    await dispatchPointerEvent(engineHost, "pointermove", {
+      button: 0,
+      clientX: 580,
+      clientY: 240,
+      pointerId: 1,
+    });
+
+    expect(engineHost.dataset.canvasEngineSelectionRectActive).toBe("true");
+    expect(useActiveSectionUI.getState().activeIds).toEqual([
+      "section-a",
+      "section-b",
+    ]);
+
+    await dispatchPointerEvent(engineHost, "pointerup", {
+      button: 0,
+      clientX: 580,
+      clientY: 240,
+      pointerId: 1,
+    });
+
+    expect(engineHost.dataset.canvasEngineSelectionRectActive).toBe("false");
+    expect(useActiveSectionUI.getState().activeIds).toEqual([
+      "section-a",
+      "section-b",
+    ]);
+  });
+
   it("drags a top-level section and persists the updated layout", async () => {
     const layoutSpy = vi
       .spyOn(endpoints, "route_set_top_level_section_layout")
@@ -761,5 +949,105 @@ function seedResizableCallableSection(sectionId: string) {
         }),
       },
     );
+  });
+}
+
+function seedSectionsWithDataEdge({
+  includeExistingEdge,
+}: {
+  includeExistingEdge: boolean;
+}) {
+  useProjectState.setState((state) => {
+    state.projectConfig.id = "project-a";
+    state.projectConfig.topLevelSections = {
+      "section-a": {
+        x: 24,
+        y: 16,
+        zIndex: 0,
+        w: 320,
+        h: 180,
+      },
+      "section-b": {
+        x: 420,
+        y: 16,
+        zIndex: 1,
+        w: 320,
+        h: 180,
+      },
+    };
+    state.projectConfig.sectionVariantMap = {
+      "section-a": "variant-a",
+      "section-b": "variant-b",
+    };
+    state.sections["section-a"] = createCore({ id: "section-a" });
+    state.sections["section-b"] = createCore({ id: "section-b" });
+    state.sectionVariants["variant-a"] = createVariant({
+      id: "variant-a",
+      impl: "impl-a",
+      nonPresetImpls: [],
+    });
+    state.sectionVariants["variant-b"] = createVariant({
+      id: "variant-b",
+      impl: "impl-b",
+      nonPresetImpls: [],
+    });
+    state.sectionImpls["impl-a"] = createCallableSectionImpl(
+      createUserDefaultCallableSectionImpl(),
+      {
+        id: "impl-a",
+        edgeInputParams: [],
+        edgeOutputPorts: [{ id: "out-a", accessor: "output" }],
+      },
+    );
+    state.sectionImpls["impl-b"] = createCallableSectionImpl(
+      createUserDefaultCallableSectionImpl(),
+      {
+        id: "impl-b",
+        edgeInputParams: ["in-b"],
+        edgeOutputPorts: [],
+      },
+    );
+    state.projectConfig.edges = includeExistingEdge
+      ? [
+          {
+            id: "edge-data-1",
+            sourceSectionId: "section-a",
+            sourceVariantId: "variant-a",
+            sourcePortId: "out-a",
+            targetSectionId: "section-b",
+            targetVariantId: "variant-b",
+            targetPortId: "in-b",
+            type: "default",
+            label: null,
+            style: null,
+            animated: false,
+            hidden: false,
+            zIndex: 0,
+            data: null,
+            selected: false,
+          },
+        ]
+      : [];
+    state.projectConfig.agenticEdges = [];
+  });
+  useEdgeHandleRegistry.setState((state) => {
+    state.positions = {
+      [makeEdgeHandleKey("section-a", "out-a", "source")]: {
+        sectionId: "section-a",
+        portId: "out-a",
+        type: "source",
+        side: "right",
+        x: 344,
+        y: 106,
+      },
+      [makeEdgeHandleKey("section-b", "in-b", "target")]: {
+        sectionId: "section-b",
+        portId: "in-b",
+        type: "target",
+        side: "left",
+        x: 420,
+        y: 106,
+      },
+    };
   });
 }
