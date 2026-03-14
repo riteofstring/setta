@@ -35,13 +35,10 @@ import {
   getSectionSearchHeightKey,
   getSectionStylePreviewColorKey,
 } from "utils/constants";
-import { res200 } from "utils/endpointUtils";
-import {
-  route_clear_text_field_completion,
-  route_set_callable,
-} from "utils/generatedEndpoints";
+import { route_clear_text_field_completion } from "utils/generatedEndpoints";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
+import { setCallableAndRefreshProjectState } from "state/actions/project/callable";
 
 export function SectionSearch({
   sectionId,
@@ -434,9 +431,8 @@ async function setCallable(
     callableName,
     refetchParams,
   };
-  const res = await route_set_callable(payload);
-  if (res200(res)) {
-    // state update occurs by websocket
+  const updated = await setCallableAndRefreshProjectState(payload);
+  if (updated) {
     setToNotWaiting();
   }
 }
