@@ -296,6 +296,38 @@ func TestBuildBindingsCanLimitRouteHelpersToPathParamRoutes(t *testing.T) {
 	}
 }
 
+func TestBuildBindingsRendersTailPathRouteHelpers(t *testing.T) {
+	t.Helper()
+
+	bindings, err := buildBindings([]RouteGroup{
+		{
+			ConstName:            "GoHTTPRoutes",
+			HelperConstName:      "GoHTTPRouteHelpers",
+			HelperOnlyPathParams: true,
+			Routes: []NamedRoute{
+				{
+					Name:     "pluginsBackendRoute",
+					Path:     "/plugins/{pluginId}{routePath}",
+					EnumName: "PLUGINS_BACKEND_ROUTE",
+				},
+			},
+		},
+	}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("buildBindings(...) error = %v", err)
+	}
+
+	if !strings.Contains(
+		bindings.RoutesTS,
+		"pluginsBackendRoute(pluginId: string, routePath: string): string {",
+	) {
+		t.Fatalf("generated routes output missing tail-path helper:\n%s", bindings.RoutesTS)
+	}
+	if !strings.Contains(bindings.RoutesTS, "GoHTTPRoutes.pluginsBackendRoute") {
+		t.Fatalf("generated routes output missing pluginsBackendRoute constant usage:\n%s", bindings.RoutesTS)
+	}
+}
+
 func TestBuildBindingsEscapesRoutePathsInGeneratedRoutes(t *testing.T) {
 	t.Helper()
 

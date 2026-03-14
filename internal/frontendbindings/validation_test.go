@@ -967,7 +967,9 @@ func TestCurrentRouteGroupsClassifyEveryConvertedRoute(t *testing.T) {
 			"bootstrapConsume": {},
 			"toolsCall":        {},
 		},
-		"GoHTTPRoutes": {},
+		"GoHTTPRoutes": {
+			"pluginsBackendRoute": {},
+		},
 		"GoWebsocketRoutes": {
 			"frontend":          {},
 			"listenerById":      {},

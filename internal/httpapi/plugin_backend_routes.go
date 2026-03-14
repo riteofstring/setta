@@ -13,6 +13,12 @@ import (
 	"setta/internal/plugins"
 )
 
+const (
+	RoutePluginsBackendBase     = "/plugins/{pluginId}"
+	RoutePluginsBackendWildcard = "/plugins/{pluginId}/*"
+	RoutePluginsBackendDispatch = "/plugins/{pluginId}{routePath}"
+)
+
 type PluginBackendRouteDependencies struct {
 	ModePolicy modes.Policy
 	Runtime    PluginBackendRuntime
@@ -33,8 +39,8 @@ func RegisterPluginBackendRoutes(router chi.Router, deps PluginBackendRouteDepen
 	}
 
 	handler := pluginBackendRouteHandler(deps.Runtime)
-	router.With(RequireIDEMode(deps.ModePolicy)).Handle("/plugins/{pluginId}", handler)
-	router.With(RequireIDEMode(deps.ModePolicy)).Handle("/plugins/{pluginId}/*", handler)
+	router.With(RequireIDEMode(deps.ModePolicy)).Handle(RoutePluginsBackendBase, handler)
+	router.With(RequireIDEMode(deps.ModePolicy)).Handle(RoutePluginsBackendWildcard, handler)
 	return nil
 }
 
