@@ -1,7 +1,4 @@
-import {
-  type AgenticScopeViolationEdge,
-  useAIFollow,
-} from "state/stores/aiFollowStores";
+import { type AgenticScopeViolationEdge, useAIFollow } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import { route_get_ai_follow_snapshot } from "utils/generatedEndpoints";
 import {
@@ -18,6 +15,22 @@ type AIFollowIdsByProjectConfig = Record<
   string,
   Record<string, Record<string, Array<string>>>
 >;
+export type AIFollowIdsByType = Record<string, Array<string>>;
+
+function cloneIdsByType(
+  idsByType: AIFollowIdsByType | null | undefined,
+): AIFollowIdsByType | null {
+  if (!idsByType) {
+    return null;
+  }
+  const entries = Object.entries(idsByType);
+  if (entries.length === 0) {
+    return {};
+  }
+  return Object.fromEntries(
+    entries.map(([idType, ids]) => [idType, [...ids]]),
+  ) as AIFollowIdsByType;
+}
 
 function buildTimeoutKey(
   projectConfigId: string,
@@ -122,6 +135,56 @@ export function receiveAIFollowToolArgumentsUpdate(
       state.toolArgumentsIdsByProjectConfigId[projectConfigId] ??
       (state.toolArgumentsIdsByProjectConfigId[projectConfigId] = {});
     projectEntries[chatId] = idsByType;
+  });
+}
+
+export function getAIFollowToolArgumentsSnapshot(
+  projectConfigId: string,
+  chatId: string,
+): AIFollowIdsByType | null {
+  return cloneIdsByType(
+    useAIFollow.getState().toolArgumentsIdsByProjectConfigId[projectConfigId]?.[
+      chatId
+    ] ?? null,
+  );
+}
+
+export function clearAIFollowToolArgumentsForChat(
+  projectConfigId: string,
+  chatId: string,
+): void {
+  useAIFollow.setState((state) => {
+    deleteChatEntry(
+      state.toolArgumentsIdsByProjectConfigId,
+      projectConfigId,
+      chatId,
+    );
+  });
+}
+
+export function restoreAIFollowToolArgumentsSnapshot({
+  projectConfigId,
+  chatId,
+  idsByType,
+}: {
+  projectConfigId: string;
+  chatId: string;
+  idsByType: AIFollowIdsByType | null;
+}): void {
+  const nextIdsByType = cloneIdsByType(idsByType);
+  useAIFollow.setState((state) => {
+    if (nextIdsByType === null) {
+      deleteChatEntry(
+        state.toolArgumentsIdsByProjectConfigId,
+        projectConfigId,
+        chatId,
+      );
+      return;
+    }
+    const projectEntries =
+      state.toolArgumentsIdsByProjectConfigId[projectConfigId] ??
+      (state.toolArgumentsIdsByProjectConfigId[projectConfigId] = {});
+    projectEntries[chatId] = nextIdsByType;
   });
 }
 

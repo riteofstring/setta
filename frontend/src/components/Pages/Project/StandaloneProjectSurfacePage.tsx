@@ -25,23 +25,177 @@ import {
 } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { buildChatHistoryEntries } from "state/actions/chatHistory";
-import { useProjectState, useShareSession } from "state/definitions";
+import {
+  useAIStore,
+  useProjectState,
+  useShareSession,
+} from "state/definitions";
 import { useLoadProjectConfig } from "state/hooks/project";
-import { useAIStore } from "state/stores/aiStore";
 import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
+import { resolveStandaloneSectionSlug } from "utils/sectionSlugPaths";
+import { resolveStandaloneWindowSpaceSlug } from "utils/windowSpacePaths";
 import { shallow } from "zustand/shallow";
 import { LoadingSpinner } from "../LoadingSpinner";
 import { NotFound } from "../NotFound/NotFound";
 import { StandaloneWindowSpaceSurface } from "./StandaloneWindowSpaceSurface";
-import {
-  buildStandaloneProjectChatPath,
-  buildStandaloneSurfaceOwnerKey,
-  normalizeStandaloneChatId,
-  normalizeStandaloneSurfaceErrorCode,
-  resolveStandaloneDocumentTitle,
-  resolveStandaloneSurfaceTarget,
-  type StandaloneSurfaceErrorCode,
-} from "./standaloneProjectSurfaceRouting";
+
+type StandaloneSurfaceTarget =
+  | {
+      kind: "project_chat";
+    }
+  | {
+      kind: "project_chat_thread";
+      chatId: string;
+    }
+  | {
+      kind: "project_chat_thread_not_found";
+    }
+  | {
+      kind: "section";
+      sectionId: string;
+      sectionName: string;
+      sectionType: SectionType;
+    }
+  | {
+      kind: "window_space";
+      windowSpaceId: string;
+      windowSpaceName: string;
+    }
+  | {
+      kind: "section_not_found";
+    }
+  | {
+      kind: "window_space_not_found";
+    };
+
+type StandaloneSurfaceErrorCode = "chat_not_found" | "llm_disallowed";
+
+function normalizeStandaloneChatId(
+  chatId: string | null | undefined,
+): string | null {
+  const normalizedChatId = chatId?.trim() ?? "";
+  if (!normalizedChatId) {
+    return null;
+  }
+  return normalizedChatId;
+}
+
+function buildStandaloneProjectChatPath(
+  projectConfigName: string,
+  chatId: string | null,
+): string {
+  const basePath = `/${encodeURIComponent(projectConfigName)}/chat`;
+  if (chatId === null) {
+    return basePath;
+  }
+  return `${basePath}/${encodeURIComponent(chatId)}`;
+}
+
+function resolveStandaloneSurfaceTarget(
+  state: Parameters<typeof resolveStandaloneSectionSlug>[0],
+  sectionSlug: string | undefined,
+  chatId: string | undefined,
+  windowSpaceSlug: string | undefined,
+): StandaloneSurfaceTarget {
+  const normalizedChatId = normalizeStandaloneChatId(chatId);
+  if (normalizedChatId) {
+    return {
+      kind: "project_chat_thread",
+      chatId: normalizedChatId,
+    };
+  }
+  if (chatId !== undefined) {
+    return { kind: "project_chat_thread_not_found" };
+  }
+  if (windowSpaceSlug) {
+    const resolution = resolveStandaloneWindowSpaceSlug(state, windowSpaceSlug);
+    if (resolution.kind !== "found") {
+      return { kind: "window_space_not_found" };
+    }
+    return {
+      kind: "window_space",
+      windowSpaceId: resolution.windowSpaceId,
+      windowSpaceName: resolution.windowSpace.name,
+    };
+  }
+  if (!sectionSlug) {
+    return { kind: "project_chat" };
+  }
+  const resolution = resolveStandaloneSectionSlug(state, sectionSlug);
+  if (resolution.kind !== "found") {
+    return { kind: "section_not_found" };
+  }
+  return {
+    kind: "section",
+    sectionId: resolution.sectionId,
+    sectionName: resolution.sectionName,
+    sectionType: resolution.sectionType,
+  };
+}
+
+function resolveStandaloneDocumentTitle(
+  projectConfigName: string | undefined,
+  target: StandaloneSurfaceTarget,
+  is404: boolean,
+  projectChatThreadTitle: string | null,
+): string {
+  if (is404) {
+    return "Not Found";
+  }
+  if (!projectConfigName) {
+    return "setta.dev";
+  }
+  if (target.kind === "project_chat") {
+    return `${projectConfigName} Chat`;
+  }
+  if (target.kind === "project_chat_thread") {
+    if (projectChatThreadTitle) {
+      return `${projectConfigName} · ${projectChatThreadTitle}`;
+    }
+    return `${projectConfigName} Chat`;
+  }
+  if (target.kind === "project_chat_thread_not_found") {
+    return `${projectConfigName} · Thread Not Found`;
+  }
+  if (target.kind === "section") {
+    return `${projectConfigName} · ${target.sectionName}`;
+  }
+  if (target.kind === "window_space") {
+    return `${projectConfigName} · ${target.windowSpaceName}`;
+  }
+  if (target.kind === "window_space_not_found") {
+    return `${projectConfigName} · Window Space Not Found`;
+  }
+  return `${projectConfigName} · Section Not Found`;
+}
+
+function normalizeStandaloneSurfaceErrorCode(
+  errorCode: string | null,
+): StandaloneSurfaceErrorCode | null {
+  if (errorCode === "chat_not_found" || errorCode === "llm_disallowed") {
+    return errorCode;
+  }
+  return null;
+}
+
+function buildStandaloneSurfaceOwnerKey(
+  projectConfigId: string,
+  target: StandaloneSurfaceTarget,
+): string | null {
+  if (target.kind === "project_chat") {
+    return `${projectConfigId}:project-chat`;
+  }
+  if (target.kind === "project_chat_thread") {
+    return `${projectConfigId}:project-chat:${target.chatId}`;
+  }
+  if (target.kind === "section") {
+    return `${projectConfigId}:section:${target.sectionId}`;
+  }
+  if (target.kind === "window_space") {
+    return `${projectConfigId}:window-space:${target.windowSpaceId}`;
+  }
+  return null;
+}
 
 function StandaloneSectionBody({
   sectionId,

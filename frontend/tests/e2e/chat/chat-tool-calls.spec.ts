@@ -77,7 +77,9 @@ test.describe.serial("chat tool calls", () => {
           '[data-chat-assistant-activity-count-badge="true"]',
         ),
       ).toHaveText("2");
-      await expect(toolSection).toContainText("Activity");
+      await expect(
+        toolSection.locator('[data-chat-assistant-activity-icon="robot"]'),
+      ).toHaveCount(1);
       await expect(
         toolSection.locator('[data-chat-assistant-tool-call-card="true"]'),
       ).toHaveCount(1);
@@ -421,7 +423,13 @@ test.describe.serial("chat tool calls", () => {
       const itemTimers = section.locator(
         '[data-chat-activity-item-timer="true"]',
       );
+      const itemTimestamps = section.locator(
+        '[data-chat-activity-item-timestamp="true"]',
+      );
       await expect(itemTimers).toHaveCount(2);
+      await expect(itemTimestamps).toHaveCount(2);
+      await expect(itemTimestamps.nth(0)).toHaveText(/\d{1,2}:\d{2}/);
+      await expect(itemTimestamps.nth(1)).toHaveText(/\d{1,2}:\d{2}/);
       await expect(itemTimers.nth(0)).toHaveText("00:05");
       await expect(itemTimers.nth(1)).toHaveText("00:02");
 
@@ -448,11 +456,206 @@ test.describe.serial("chat tool calls", () => {
         section.locator('[data-chat-activity-item-timer="true"]'),
       ).toHaveCount(2);
       await expect(
+        section.locator('[data-chat-activity-item-timestamp="true"]'),
+      ).toHaveCount(2);
+      await expect(
         section.locator('[data-chat-activity-item-timer="true"]').nth(0),
       ).toHaveText("00:05");
       await expect(
         section.locator('[data-chat-activity-item-timer="true"]').nth(1),
       ).toHaveText("00:02");
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("shows chat and activity timestamps and stacks assistant actions in narrow chat panes", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const { sectionId, sectionName } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "__pw_chat_timestamps_and_actions__",
+      );
+
+      const section = findSectionByName(page, sectionName);
+      await expect(section).toBeVisible();
+
+      await setChatSectionState(page, {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        state: {
+          messages: [
+            {
+              id: "timestamp-user-message",
+              role: "user",
+              content: [{ type: "text", text: "Please summarize the latest run." }],
+              attachments: [],
+              createdAt: Date.parse("2026-01-01T09:15:00Z"),
+            },
+            {
+              id: "timestamp-assistant-message",
+              role: "assistant",
+              content: [
+                {
+                  type: "text",
+                  text: "The latest run passed, and I kept the activity details below.",
+                },
+              ],
+              attachments: [],
+              tool_calls: [
+                {
+                  id: "timestamp-assistant-tool-call",
+                  type: "function",
+                  function: {
+                    name: "command_execution",
+                    arguments: { command: "pnpm exec vitest run src/components/Chat" },
+                  },
+                },
+              ],
+              createdAt: Date.parse("2026-01-01T09:16:00Z"),
+            },
+            {
+              id: "timestamp-assistant-tool-result",
+              role: "tool",
+              tool_call_id: "timestamp-assistant-tool-call",
+              tool_name: "command_execution",
+              arguments: { command: "pnpm exec vitest run src/components/Chat" },
+              result: "PASS src/components/Chat/ChatMessages.test.tsx",
+              content: [],
+              is_error: false,
+              started_at: "2026-01-01T09:16:05Z",
+              completed_at: "2026-01-01T09:16:15Z",
+            },
+          ],
+          inputText: "",
+          waitingForResponse: false,
+          toolCallArguments: {},
+        },
+      });
+
+      await expect(
+        section.locator('[data-chat-message-timestamp="true"]'),
+      ).toHaveCount(2);
+      await expect(
+        section.locator('[data-chat-message-timestamp="true"]').nth(0),
+      ).toHaveText(/\d{1,2}:\d{2}/);
+      await expect(
+        section.locator('[data-chat-message-timestamp="true"]').nth(1),
+      ).toHaveText(/\d{1,2}:\d{2}/);
+
+      const activityTrigger = section.locator(
+        '[data-chat-assistant-activity-trigger="true"]',
+      );
+      await activityTrigger.click();
+      await expect(
+        section.locator('[data-chat-activity-item-timestamp="true"]'),
+      ).toHaveCount(1);
+      await expect(
+        section.locator('[data-chat-activity-item-timestamp="true"]').first(),
+      ).toHaveText(/\d{1,2}:\d{2}/);
+
+      await section.evaluate((element) => {
+        const sectionElement = element as HTMLElement;
+        sectionElement.style.width = "235px";
+        sectionElement.style.maxWidth = "235px";
+      });
+      const assistantBubble = section
+        .locator('[data-chat-assistant-bubble="true"]')
+        .first();
+      await assistantBubble.hover();
+
+      const actions = section.locator('[data-chat-message-actions="true"]').last();
+      await expect(actions).toBeVisible();
+      await expect
+        .poll(async () =>
+          actions.evaluate(
+            (element) => window.getComputedStyle(element).flexDirection,
+          ),
+        )
+        .toBe("column");
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("shows a message timestamp for activity-only assistant messages", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const { sectionId, sectionName } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "__pw_activity_only_message_timestamp__",
+      );
+
+      const section = findSectionByName(page, sectionName);
+      await expect(section).toBeVisible();
+
+      await setChatSectionState(page, {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        state: {
+          messages: [
+            {
+              id: "activity-only-assistant-message",
+              role: "assistant",
+              content: [],
+              attachments: [],
+              tool_calls: [
+                {
+                  id: "activity-only-assistant-tool-call",
+                  type: "function",
+                  function: {
+                    name: "command_execution",
+                    arguments: {
+                      command: "pnpm exec vitest run src/components/Chat",
+                    },
+                  },
+                },
+              ],
+              createdAt: Date.parse("2026-01-01T09:16:00Z"),
+            },
+            {
+              id: "activity-only-assistant-tool-result",
+              role: "tool",
+              tool_call_id: "activity-only-assistant-tool-call",
+              tool_name: "command_execution",
+              arguments: {
+                command: "pnpm exec vitest run src/components/Chat",
+              },
+              result: "PASS src/components/Chat/ChatMessages.test.tsx",
+              content: [],
+              is_error: false,
+              started_at: "2026-01-01T09:16:05Z",
+              completed_at: "2026-01-01T09:16:15Z",
+            },
+          ],
+          inputText: "",
+          waitingForResponse: false,
+          toolCallArguments: {},
+        },
+      });
+
+      await expect(
+        section.locator('[data-chat-assistant-bubble="true"]'),
+      ).toHaveCount(0);
+      await expect(
+        section.locator('[data-chat-assistant-activity-section="true"]'),
+      ).toHaveCount(1);
+      await expect(
+        section.locator('[data-chat-message-timestamp="true"]'),
+      ).toHaveCount(1);
+      await expect(
+        section.locator('[data-chat-message-timestamp="true"]').first(),
+      ).toHaveText(/\d{1,2}:\d{2}/);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
@@ -870,6 +1073,122 @@ test.describe.serial("chat tool calls", () => {
       ).toHaveCount(1);
 
       await expect(section).toContainText("Reviewing structure");
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("renders active terminal and subagent rows with dedicated runtime details", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const { sectionId, sectionName } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "__pw_runtime_terminal_subagent_rows__",
+      );
+
+      const section = findSectionByName(page, sectionName);
+      await expect(section).toBeVisible();
+
+      await setChatSectionState(page, {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        state: {
+          messages: [
+            {
+              id: "runtime-rows-assistant",
+              role: "assistant",
+              content: [],
+              attachments: [],
+              tool_calls: [
+                {
+                  id: "runtime-terminal-call",
+                  type: "function",
+                  function: {
+                    name: "command_execution",
+                    arguments: {
+                      command: "pnpm exec vitest run src/components/Chat",
+                    },
+                  },
+                },
+                {
+                  id: "runtime-subagent-call",
+                  type: "function",
+                  function: {
+                    name: "mcp__setta__run_agent_profile",
+                    arguments: {
+                      profileId: "research_profile",
+                      inputs: {
+                        prompt: "Inspect the runtime activity row rendering.",
+                      },
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+          inputText: "",
+          waitingForResponse: true,
+          toolCallArguments: {},
+        },
+      });
+
+      const activityTrigger = section.locator(
+        '[data-chat-assistant-activity-trigger="true"]',
+      );
+      await expect(activityTrigger).toHaveAttribute("aria-expanded", "false");
+      await expect(
+        section.locator('[data-chat-assistant-activity-count-badge="true"]'),
+      ).toHaveText("2");
+      await expect(section).toContainText(
+        "Subagent: research_profile",
+      );
+
+      await activityTrigger.click();
+      await expect(activityTrigger).toHaveAttribute("aria-expanded", "true");
+
+      // Dedicated runtime rows should replace the generic action/tool rows.
+      await expect(
+        section.locator('[data-chat-terminal-item="true"]'),
+      ).toHaveCount(1);
+      await expect(
+        section.locator('[data-chat-subagent-item="true"]'),
+      ).toHaveCount(1);
+      await expect(
+        section.locator('[data-chat-action-item="true"]'),
+      ).toHaveCount(0);
+      await expect(
+        section.locator('[data-chat-tool-call-item="true"]'),
+      ).toHaveCount(0);
+
+      const terminalRow = section.locator('[data-chat-terminal-item="true"]');
+      await terminalRow
+        .locator('[data-chat-terminal-item-trigger="true"]')
+        .click();
+      await expect(
+        terminalRow.locator('[data-chat-terminal-item-content="true"]'),
+      ).toBeVisible();
+      await expect(terminalRow).toContainText("Terminal preview");
+      await expect(terminalRow).toContainText(
+        "pnpm exec vitest run src/components/Chat",
+      );
+
+      const subagentRow = section.locator('[data-chat-subagent-item="true"]');
+      await subagentRow
+        .locator('[data-chat-subagent-item-trigger="true"]')
+        .click();
+      await expect(
+        subagentRow.locator('[data-chat-subagent-item-content="true"]'),
+      ).toBeVisible();
+      await expect(subagentRow).toContainText("Subagent details");
+      await expect(subagentRow).toContainText("research_profile");
+      await expect(subagentRow).toContainText(
+        "Inspect the runtime activity row rendering.",
+      );
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

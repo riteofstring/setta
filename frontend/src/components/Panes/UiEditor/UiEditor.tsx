@@ -1,5 +1,6 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
+import { withRightPaneTitleClearance } from "components/Utils/paneTitleSpacing";
 import { useRef } from "react";
 import { BiHelpCircle } from "react-icons/bi";
 import { BsCardChecklist } from "react-icons/bs";
@@ -11,13 +12,13 @@ import { useSolelyActiveSectionUIId } from "state/activeSectionUI";
 import { useLocalStorage } from "state/definitions";
 import { useUIEditorTab } from "state/hooks/uiTypes";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
-import { APP_CHROME_Z_INDEX_CLASS_NAME } from "utils/constants/dom";
 import {
+  APP_CHROME_Z_INDEX_CLASS_NAME,
   PaneNameEnum,
   UIEditorTabName,
   UIEditorTabNameEnum,
   UIEditorTabNamePrettified,
-} from "utils/constants/panes";
+} from "utils/constants";
 import { useTabScope } from "utils/focusManager";
 import { shallow } from "zustand/shallow";
 import {
@@ -31,6 +32,10 @@ import { QuickInfoConfig } from "./QuickInfoConfig/QuickInfoConfig";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
 import { VariantList } from "./SectionVariants/VariantList";
 import { UIConfig } from "./UIConfig/UIConfig";
+
+export const UI_EDITOR_PANE_TITLE_CLASS_NAME = withRightPaneTitleClearance(
+  "mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500",
+);
 
 export function UiEditor() {
   const uiEditorRef = useRef<HTMLDivElement>(null);
@@ -155,7 +160,7 @@ function TabsVisible({
       data-testid="ui-editor-tab-content-shell"
       className="mx-auto flex h-full min-h-0 w-[calc(100%_-_1.5rem)] min-w-0 flex-1 flex-col overflow-hidden px-1.5"
     >
-      <h2 className="mb-1 cursor-pointer select-none pl-4 text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
+      <h2 className={UI_EDITOR_PANE_TITLE_CLASS_NAME}>
         {title}
       </h2>
       <TabContent sectionId={sectionId} selectedTabName={selectedTabName} />

@@ -3,6 +3,7 @@ import {
   canUseManagedChatLLM,
   windowSurfaceRequiresManagedChat,
 } from "components/Chat/sharePolicyChatAccess";
+import { resolveProjectChatShortcutActiveSectionId } from "components/ChatWindowing/projectChatActiveSelection";
 import {
   buildFloatingSnapBounds,
   buildFloatingSnapResizeBounds,
@@ -29,7 +30,12 @@ import {
 import { buildProjectChatWindowTitle } from "components/ChatWindowing/projectChatWindowTitles";
 import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
 import { GitGraphWindowContent } from "components/Git/GitGraphWindowContent";
+import { ProjectChatManager } from "components/Panes/Overview/ProjectLevelAI/ProjectChatManager";
 import { SectionWindowSurface } from "components/Section/Container/SectionWindowSurface";
+import {
+  getWindowControlQuickInfoHandlers,
+  getWindowControlQuickInfoText,
+} from "components/Utils/windowControlQuickInfo";
 import _ from "lodash";
 import {
   useCallback,
@@ -74,6 +80,7 @@ import {
 import { getTrackedGitPaneGraphWindowInstanceIdForProject } from "state/actions/projectChatWindowingEphemeral";
 import {
   NULL_PROJECT_CONFIG_ID,
+  useActiveSectionUI,
   useLocalStorage,
   useMisc,
   useProjectState,
@@ -210,11 +217,12 @@ const COMPACT_PILL_WIDTH_PX = 28;
 const CYCLE_CONTROL_BUTTON_WIDTH_PX = 24;
 const PILL_GAP_PX = 4;
 const MENU_MODE_TRIGGER_WIDTH_PX = 28;
+const PERSISTENT_MANAGER_TRIGGER_RESERVED_WIDTH_PX =
+  MENU_MODE_TRIGGER_WIDTH_PX + PILL_GAP_PX;
 const CHAT_WINDOW_LAYER_Z_INDEX = 24;
 const TRACKED_PANE_CHAT_WINDOW_LAYER_Z_INDEX = 31;
 const CHAT_WINDOW_CHROME_LAYER_Z_INDEX = CHAT_WINDOW_LAYER_Z_INDEX + 1;
-const CHAT_WINDOW_SNAP_PREVIEW_Z_INDEX =
-  CHAT_WINDOW_CHROME_LAYER_Z_INDEX + 1;
+const CHAT_WINDOW_SNAP_PREVIEW_Z_INDEX = CHAT_WINDOW_CHROME_LAYER_Z_INDEX + 1;
 const CHAT_WINDOW_TOGGLE_Z_INDEX = CHAT_WINDOW_CHROME_LAYER_Z_INDEX + 2;
 const CHAT_WINDOW_ENTER_ANIMATION_PRIME_DELAY_MS = 16;
 const CHAT_WINDOW_ENTER_DURATION_MS = 110;
@@ -793,10 +801,10 @@ function getChatWindowEnterAnimationClass(
 type MinimizedPillStripProps = {
   pills: ResolvedWindowPill[];
   visiblePills: ResolvedWindowPill[];
-  menuPills: ResolvedWindowPill[];
   pillExitAnimationsById: Record<string, ChatWindowPillExitAnimationKind>;
   useCompactPills: boolean;
   canCreateWindow: boolean;
+  showManagerMenu: boolean;
   canCycleBackward: boolean;
   canCycleForward: boolean;
   maxCycleStartIndex: number;
@@ -813,10 +821,10 @@ type MinimizedPillStripProps = {
 function MinimizedPillStrip({
   pills,
   visiblePills,
-  menuPills,
   pillExitAnimationsById,
   useCompactPills,
   canCreateWindow,
+  showManagerMenu,
   canCycleBackward,
   canCycleForward,
   maxCycleStartIndex,
@@ -832,6 +840,7 @@ function MinimizedPillStrip({
   const minimizedTabBaseClassName = `pointer-events-auto relative inline-flex h-7 shrink-0 items-center justify-center rounded-b-none rounded-t-md border border-b-transparent text-xs shadow-sm transition-colors will-change-transform ${buildPillBaseClass(false)}`;
   const createTabClassName = `${minimizedTabBaseClassName} w-7`;
   const chatMenuTriggerClassName = `${minimizedTabBaseClassName} w-7`;
+  const [isManagerMenuOpen, setIsManagerMenuOpen] = useState(false);
   const stripItemNodesRef = useRef<Record<string, HTMLElement | null>>({});
   const previousStripItemRectsRef = useRef<Record<string, DOMRect>>({});
   const stripItemAnimationTimeoutsRef = useRef<Record<string, number>>({});
@@ -871,9 +880,10 @@ function MinimizedPillStrip({
       nextKeys.push("cycle-left");
     }
     nextKeys.push("create");
-    if (pillDisplayMode === "menu") {
-      nextKeys.push("menu");
-    } else {
+    if (showManagerMenu) {
+      nextKeys.push("manager");
+    }
+    if (pillDisplayMode !== "menu") {
       for (const pill of visiblePills) {
         nextKeys.push(`pill:${pill.instanceId}`);
       }
@@ -882,7 +892,7 @@ function MinimizedPillStrip({
       nextKeys.push("cycle-right");
     }
     return nextKeys;
-  }, [pillDisplayMode, visiblePills]);
+  }, [pillDisplayMode, showManagerMenu, visiblePills]);
 
   useEffect(() => {
     return () => {
@@ -996,6 +1006,11 @@ function MinimizedPillStrip({
           <div className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-b-none rounded-t-md border border-b-transparent bg-setta-100">
             <MdAdd size={14} />
           </div>
+          {showManagerMenu ? (
+            <div className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-b-none rounded-t-md border border-b-transparent bg-setta-100">
+              <RiChat3Line size={14} />
+            </div>
+          ) : null}
           {pills.map((pill) => (
             <div
               key={`measure-full-${pill.instanceId}`}
@@ -1018,6 +1033,11 @@ function MinimizedPillStrip({
           <div className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-b-none rounded-t-md border border-b-transparent bg-setta-100">
             <MdAdd size={14} />
           </div>
+          {showManagerMenu ? (
+            <div className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-b-none rounded-t-md border border-b-transparent bg-setta-100">
+              <RiChat3Line size={14} />
+            </div>
+          ) : null}
           {pills.map((pill) => (
             <div
               key={`measure-compact-${pill.instanceId}`}
@@ -1040,8 +1060,13 @@ function MinimizedPillStrip({
           ref={setStripItemNode("cycle-left")}
           onClick={onCycleBackward}
           disabled={!canCycleBackward}
-          aria-label="Show previous chat windows"
+          aria-label={getWindowControlQuickInfoText({
+            action: "show_previous_chat_windows",
+          })}
           data-testid="project-chat-bottom-dock-cycle-left"
+          {...getWindowControlQuickInfoHandlers({
+            action: "show_previous_chat_windows",
+          })}
         >
           <MdChevronLeft size={14} />
         </button>
@@ -1053,23 +1078,41 @@ function MinimizedPillStrip({
             className={createTabClassName}
             ref={setStripItemNode("create")}
             onClick={onCreateWindow}
-            aria-label="Create chat window"
+            aria-label={getWindowControlQuickInfoText({
+              action: "create_chat_window",
+            })}
             data-testid="project-chat-bottom-dock-create"
-            title="Create chat window"
+            title={getWindowControlQuickInfoText({
+              action: "create_chat_window",
+            })}
+            {...getWindowControlQuickInfoHandlers({
+              action: "create_chat_window",
+            })}
           >
             <MdAdd size={14} />
           </button>
         ) : null}
-        {pillDisplayMode === "menu" ? (
-          <DropdownMenu.Root modal={false}>
+        {showManagerMenu ? (
+          <DropdownMenu.Root
+            modal={false}
+            open={isManagerMenuOpen}
+            onOpenChange={setIsManagerMenuOpen}
+          >
             <DropdownMenu.Trigger asChild>
               <button
                 type="button"
                 className={chatMenuTriggerClassName}
-                ref={setStripItemNode("menu")}
-                aria-label="Show chat windows"
-                title="Show chat windows"
+                ref={setStripItemNode("manager")}
+                aria-label={getWindowControlQuickInfoText({
+                  action: "show_chat_windows",
+                })}
+                title={getWindowControlQuickInfoText({
+                  action: "show_chat_windows",
+                })}
                 data-testid="project-chat-bottom-dock-menu-trigger"
+                {...getWindowControlQuickInfoHandlers({
+                  action: "show_chat_windows",
+                })}
               >
                 <RiChat3Line size={14} />
               </button>
@@ -1082,45 +1125,59 @@ function MinimizedPillStrip({
                 className="bg-white/98 shadow-slate-950/12 dark:bg-setta-930/98 z-[80] min-w-[15rem] rounded-xl border border-setta-200 p-1 shadow-xl backdrop-blur-md dark:border-setta-800"
                 data-testid="project-chat-bottom-dock-menu-content"
               >
-                <DropdownMenu.Label className="px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-setta-400 dark:text-setta-500">
-                  Chats
-                </DropdownMenu.Label>
-                <DropdownMenu.Separator className="my-1 h-px bg-setta-100 dark:bg-setta-700/60" />
-                {menuPills.map((pill) => (
-                  <DropdownMenu.Item
+                <ProjectChatManager
+                  variant="menu"
+                  onAfterAction={() => {
+                    setIsManagerMenuOpen(false);
+                  }}
+                />
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
+        ) : null}
+        {pillDisplayMode !== "menu"
+          ? visiblePills.map((pill) => {
+              const baseClass = minimizedTabBaseClassName;
+              if (useCompactPills) {
+                const pillExitAnimation =
+                  pillExitAnimationsById[pill.instanceId];
+                return (
+                  <button
                     key={pill.instanceId}
-                    className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-setta-700 outline-none transition-colors focus:bg-setta-100 focus:text-setta-900 dark:text-setta-200 dark:focus:bg-setta-800 dark:focus:text-setta-50"
-                    onSelect={() => {
-                      onOpenWindow(pill.instanceId, "menu");
+                    type="button"
+                    className={`${baseClass} w-7 ${pill.isClosed ? "opacity-65" : ""} ${
+                      pillExitAnimation
+                        ? "pointer-events-none translate-y-2 scale-[0.94] opacity-0 transition-[transform,opacity] duration-[72ms] ease-[cubic-bezier(0.32,0,0.15,1)] motion-reduce:transition-none"
+                        : ""
+                    }`}
+                    onClick={() => {
+                      onOpenWindow(pill.instanceId, "pill");
                     }}
-                    data-testid="project-chat-bottom-dock-menu-item"
+                    ref={setStripItemNode(`pill:${pill.instanceId}`)}
+                    title={pill.title}
+                    aria-label={pill.title}
+                    data-testid="project-chat-bottom-dock-pill"
                     data-chat-window-instance-id={pill.instanceId}
+                    data-chat-window-pill-exit-animation={
+                      pillExitAnimationsById[pill.instanceId] ?? undefined
+                    }
                   >
                     <ProjectChatWindowIcon
                       mode={pill.mode}
                       instanceId={pill.instanceId}
                       sectionId={pill.sectionId}
-                      className="inline-flex shrink-0 items-center justify-center text-setta-500 dark:text-setta-400"
+                      className="inline-flex items-center justify-center text-setta-600 dark:text-setta-300"
                       dataTestId="project-chat-bottom-dock-pill-icon"
                     />
-                    <span className="min-w-0 flex-1 truncate">
-                      {pill.title}
-                    </span>
-                  </DropdownMenu.Item>
-                ))}
-              </DropdownMenu.Content>
-            </DropdownMenu.Portal>
-          </DropdownMenu.Root>
-        ) : (
-          visiblePills.map((pill) => {
-            const baseClass = minimizedTabBaseClassName;
-            if (useCompactPills) {
+                  </button>
+                );
+              }
               const pillExitAnimation = pillExitAnimationsById[pill.instanceId];
               return (
                 <button
                   key={pill.instanceId}
                   type="button"
-                  className={`${baseClass} w-7 ${pill.isClosed ? "opacity-65" : ""} ${
+                  className={`${baseClass} min-w-0 gap-1 px-2 ${pill.isClosed ? "opacity-65" : ""} ${
                     pillExitAnimation
                       ? "pointer-events-none translate-y-2 scale-[0.94] opacity-0 transition-[transform,opacity] duration-[72ms] ease-[cubic-bezier(0.32,0,0.15,1)] motion-reduce:transition-none"
                       : ""
@@ -1130,8 +1187,8 @@ function MinimizedPillStrip({
                   }}
                   ref={setStripItemNode(`pill:${pill.instanceId}`)}
                   title={pill.title}
-                  aria-label={pill.title}
                   data-testid="project-chat-bottom-dock-pill"
+                  data-chat-window-instance-id={pill.instanceId}
                   data-chat-window-pill-exit-animation={
                     pillExitAnimationsById[pill.instanceId] ?? undefined
                   }
@@ -1140,44 +1197,14 @@ function MinimizedPillStrip({
                     mode={pill.mode}
                     instanceId={pill.instanceId}
                     sectionId={pill.sectionId}
-                    className="inline-flex items-center justify-center text-setta-600 dark:text-setta-300"
+                    className="inline-flex shrink-0 items-center justify-center text-setta-600 dark:text-setta-300"
                     dataTestId="project-chat-bottom-dock-pill-icon"
                   />
+                  <span className="max-w-[9.5rem] truncate">{pill.title}</span>
                 </button>
               );
-            }
-            const pillExitAnimation = pillExitAnimationsById[pill.instanceId];
-            return (
-              <button
-                key={pill.instanceId}
-                type="button"
-                className={`${baseClass} min-w-0 gap-1 px-2 ${pill.isClosed ? "opacity-65" : ""} ${
-                  pillExitAnimation
-                    ? "pointer-events-none translate-y-2 scale-[0.94] opacity-0 transition-[transform,opacity] duration-[72ms] ease-[cubic-bezier(0.32,0,0.15,1)] motion-reduce:transition-none"
-                    : ""
-                }`}
-                onClick={() => {
-                  onOpenWindow(pill.instanceId, "pill");
-                }}
-                ref={setStripItemNode(`pill:${pill.instanceId}`)}
-                title={pill.title}
-                data-testid="project-chat-bottom-dock-pill"
-                data-chat-window-pill-exit-animation={
-                  pillExitAnimationsById[pill.instanceId] ?? undefined
-                }
-              >
-                <ProjectChatWindowIcon
-                  mode={pill.mode}
-                  instanceId={pill.instanceId}
-                  sectionId={pill.sectionId}
-                  className="inline-flex shrink-0 items-center justify-center text-setta-600 dark:text-setta-300"
-                  dataTestId="project-chat-bottom-dock-pill-icon"
-                />
-                <span className="max-w-[9.5rem] truncate">{pill.title}</span>
-              </button>
-            );
-          })
-        )}
+            })
+          : null}
       </div>
       {pillDisplayMode === "cycle" ? (
         <button
@@ -1186,8 +1213,13 @@ function MinimizedPillStrip({
           ref={setStripItemNode("cycle-right")}
           onClick={onCycleForward}
           disabled={!canCycleForward || maxCycleStartIndex === 0}
-          aria-label="Show more chat windows"
+          aria-label={getWindowControlQuickInfoText({
+            action: "show_more_chat_windows",
+          })}
           data-testid="project-chat-bottom-dock-cycle-right"
+          {...getWindowControlQuickInfoHandlers({
+            action: "show_more_chat_windows",
+          })}
         >
           <MdChevronRight size={14} />
         </button>
@@ -1199,6 +1231,9 @@ function MinimizedPillStrip({
 export function ProjectChatBottomDock() {
   const hasViewModeTabs = useHasViewModeTabs();
   const { canEditLayout } = useShareCapabilities();
+  const activeSectionUiId = useActiveSectionUI(
+    (state) => state.activeIds[0] ?? null,
+  );
   const { isDeploymentMode, allowLLM } = useShareSession((state) => ({
     isDeploymentMode: state.isDeploymentMode,
     allowLLM: state.sharePolicy?.allowLLM ?? false,
@@ -1235,13 +1270,13 @@ export function ProjectChatBottomDock() {
     order,
     instancesById,
     sectionNamesById,
-    activeSectionId,
+    durableActiveSectionId,
   } = useProjectState(
     (state) => ({
       projectConfigId: state.projectConfig.id,
       order: state.projectChatWindowing.order,
       instancesById: state.projectChatWindowing.instancesById,
-      activeSectionId: state.projectConfig.activeIds[0] ?? null,
+      durableActiveSectionId: state.projectConfig.activeIds[0] ?? null,
       sectionNamesById: Object.fromEntries(
         Object.entries(state.sections).map(([sectionId, section]) => [
           sectionId,
@@ -1250,6 +1285,10 @@ export function ProjectChatBottomDock() {
       ),
     }),
     _.isEqual,
+  );
+  const activeSectionId = resolveProjectChatShortcutActiveSectionId(
+    activeSectionUiId,
+    durableActiveSectionId,
   );
   const { sections, sectionVariants, sectionImpls, sectionVariantMap } =
     useProjectState(
@@ -1745,9 +1784,12 @@ export function ProjectChatBottomDock() {
   );
   const dockSurfaceRightPx =
     SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX;
+  const showDockManagerMenu =
+    canCreateManagedChatWindow || orderedPills.length > 0;
   const dockStripReservedWidthPx =
     nonClosedPills.length > 1
-      ? DOCKED_MINIMIZED_STRIP_RESERVED_WIDTH_PX
+      ? DOCKED_MINIMIZED_STRIP_RESERVED_WIDTH_PX +
+        (showDockManagerMenu ? PERSISTENT_MANAGER_TRIGGER_RESERVED_WIDTH_PX : 0)
       : SINGLE_CHAT_MENU_RESERVED_WIDTH_PX;
   const dockSurfaceAvailableWidthPx = useMemo(() => {
     const fallbackViewportWidth =
@@ -1893,7 +1935,6 @@ export function ProjectChatBottomDock() {
       ),
     [orderedPills, responsiveHiddenDockedIds],
   );
-  const dockMenuPills = nonClosedPills;
   const resolvedVisibleDockWindowWidthsById = useMemo(
     () =>
       resolveDockWindowWidthsToFit(
@@ -3720,10 +3761,10 @@ export function ProjectChatBottomDock() {
               <MinimizedPillStrip
                 pills={stripPills}
                 visiblePills={visiblePills}
-                menuPills={dockMenuPills}
                 pillExitAnimationsById={pillExitAnimationsById}
                 useCompactPills={useCompactPills}
                 canCreateWindow={canCreateManagedChatWindow}
+                showManagerMenu={showDockManagerMenu}
                 canCycleBackward={canCycleBackward}
                 canCycleForward={canCycleForward}
                 maxCycleStartIndex={maxCycleStartIndex}
@@ -3816,11 +3857,18 @@ export function ProjectChatBottomDock() {
                                       className={`${SECTION_WINDOW_ACTION_BUTTON_CLASS} disabled:cursor-not-allowed disabled:opacity-35`}
                                       onClick={handleCycleDockWindowsBackward}
                                       disabled={!canCycleDockBackward}
-                                      aria-label="Show previous docked chat"
+                                      aria-label={getWindowControlQuickInfoText(
+                                        {
+                                          action: "show_previous_docked_chat",
+                                        },
+                                      )}
                                       data-testid="project-chat-window-cycle-left"
                                       data-chat-window-instance-id={
                                         pill.instanceId
                                       }
+                                      {...getWindowControlQuickInfoHandlers({
+                                        action: "show_previous_docked_chat",
+                                      })}
                                     >
                                       <MdChevronLeft size={12} />
                                     </button>
@@ -3829,11 +3877,18 @@ export function ProjectChatBottomDock() {
                                       className={`${SECTION_WINDOW_ACTION_BUTTON_CLASS} disabled:cursor-not-allowed disabled:opacity-35`}
                                       onClick={handleCycleDockWindowsForward}
                                       disabled={!canCycleDockForward}
-                                      aria-label="Show next docked chat"
+                                      aria-label={getWindowControlQuickInfoText(
+                                        {
+                                          action: "show_next_docked_chat",
+                                        },
+                                      )}
                                       data-testid="project-chat-window-cycle-right"
                                       data-chat-window-instance-id={
                                         pill.instanceId
                                       }
+                                      {...getWindowControlQuickInfoHandlers({
+                                        action: "show_next_docked_chat",
+                                      })}
                                     >
                                       <MdChevronRight size={12} />
                                     </button>
@@ -3850,11 +3905,18 @@ export function ProjectChatBottomDock() {
                                         pill.instanceId,
                                       );
                                     }}
-                                    aria-label={`Show ${pill.title} in canvas`}
+                                    aria-label={getWindowControlQuickInfoText({
+                                      action: "show_in_canvas",
+                                      title: pill.title,
+                                    })}
                                     data-testid="project-chat-window-show-in-canvas"
                                     data-chat-window-instance-id={
                                       pill.instanceId
                                     }
+                                    {...getWindowControlQuickInfoHandlers({
+                                      action: "show_in_canvas",
+                                      title: pill.title,
+                                    })}
                                   >
                                     <MdFlipToFront size={12} />
                                   </button>
@@ -3865,9 +3927,16 @@ export function ProjectChatBottomDock() {
                                   onClick={() => {
                                     handleUndockWindow(pill.instanceId);
                                   }}
-                                  aria-label={`Undock ${pill.title}`}
+                                  aria-label={getWindowControlQuickInfoText({
+                                    action: "undock_window",
+                                    title: pill.title,
+                                  })}
                                   data-testid="project-chat-window-undock"
                                   data-chat-window-instance-id={pill.instanceId}
+                                  {...getWindowControlQuickInfoHandlers({
+                                    action: "undock_window",
+                                    title: pill.title,
+                                  })}
                                 >
                                   <MdOpenInNew size={12} />
                                 </button>
@@ -3877,9 +3946,16 @@ export function ProjectChatBottomDock() {
                                   onClick={() => {
                                     handleMaximizeWindow(pill.instanceId);
                                   }}
-                                  aria-label={`Maximize ${pill.title}`}
+                                  aria-label={getWindowControlQuickInfoText({
+                                    action: "maximize_window",
+                                    title: pill.title,
+                                  })}
                                   data-testid="project-chat-window-maximize"
                                   data-chat-window-instance-id={pill.instanceId}
+                                  {...getWindowControlQuickInfoHandlers({
+                                    action: "maximize_window",
+                                    title: pill.title,
+                                  })}
                                 >
                                   {WINDOW_MAXIMIZE_ICON}
                                 </button>
@@ -3891,9 +3967,16 @@ export function ProjectChatBottomDock() {
                                   onClick={() => {
                                     handleMinimizeWindow(pill.instanceId);
                                   }}
-                                  aria-label={`Minimize ${pill.title}`}
+                                  aria-label={getWindowControlQuickInfoText({
+                                    action: "minimize_window",
+                                    title: pill.title,
+                                  })}
                                   data-testid="project-chat-window-minimize"
                                   data-chat-window-instance-id={pill.instanceId}
+                                  {...getWindowControlQuickInfoHandlers({
+                                    action: "minimize_window",
+                                    title: pill.title,
+                                  })}
                                 >
                                   <i className="gg-math-minus" />
                                 </button>
@@ -3903,9 +3986,16 @@ export function ProjectChatBottomDock() {
                                   onClick={() => {
                                     handleCloseWindow(pill.instanceId);
                                   }}
-                                  aria-label={`Close ${pill.title}`}
+                                  aria-label={getWindowControlQuickInfoText({
+                                    action: "close_window",
+                                    title: pill.title,
+                                  })}
                                   data-testid="project-chat-window-close"
                                   data-chat-window-instance-id={pill.instanceId}
+                                  {...getWindowControlQuickInfoHandlers({
+                                    action: "close_window",
+                                    title: pill.title,
+                                  })}
                                 >
                                   <i className="gg-close" />
                                 </button>
@@ -4261,9 +4351,16 @@ export function ProjectChatBottomDock() {
                                     pill.instanceId,
                                   );
                                 }}
-                                aria-label={`Show ${pill.title} in canvas`}
+                                aria-label={getWindowControlQuickInfoText({
+                                  action: "show_in_canvas",
+                                  title: pill.title,
+                                })}
                                 data-testid="project-chat-window-show-in-canvas"
                                 data-chat-window-instance-id={pill.instanceId}
+                                {...getWindowControlQuickInfoHandlers({
+                                  action: "show_in_canvas",
+                                  title: pill.title,
+                                })}
                               >
                                 <MdFlipToFront size={12} />
                               </button>
@@ -4274,9 +4371,16 @@ export function ProjectChatBottomDock() {
                               onClick={() => {
                                 handleDockWindow(pill.instanceId);
                               }}
-                              aria-label={`Dock ${pill.title}`}
+                              aria-label={getWindowControlQuickInfoText({
+                                action: "dock_window",
+                                title: pill.title,
+                              })}
                               data-testid="project-chat-window-dock"
                               data-chat-window-instance-id={pill.instanceId}
+                              {...getWindowControlQuickInfoHandlers({
+                                action: "dock_window",
+                                title: pill.title,
+                              })}
                             >
                               <MdVerticalAlignBottom size={12} />
                             </button>
@@ -4286,9 +4390,16 @@ export function ProjectChatBottomDock() {
                               onClick={() => {
                                 handleMaximizeWindow(pill.instanceId);
                               }}
-                              aria-label={`Maximize ${pill.title}`}
+                              aria-label={getWindowControlQuickInfoText({
+                                action: "maximize_window",
+                                title: pill.title,
+                              })}
                               data-testid="project-chat-window-maximize"
                               data-chat-window-instance-id={pill.instanceId}
+                              {...getWindowControlQuickInfoHandlers({
+                                action: "maximize_window",
+                                title: pill.title,
+                              })}
                             >
                               {WINDOW_MAXIMIZE_ICON}
                             </button>
@@ -4298,9 +4409,16 @@ export function ProjectChatBottomDock() {
                               onClick={() => {
                                 handleMinimizeWindow(pill.instanceId);
                               }}
-                              aria-label={`Minimize ${pill.title}`}
+                              aria-label={getWindowControlQuickInfoText({
+                                action: "minimize_window",
+                                title: pill.title,
+                              })}
                               data-testid="project-chat-window-minimize"
                               data-chat-window-instance-id={pill.instanceId}
+                              {...getWindowControlQuickInfoHandlers({
+                                action: "minimize_window",
+                                title: pill.title,
+                              })}
                             >
                               <i className="gg-math-minus" />
                             </button>
@@ -4310,9 +4428,16 @@ export function ProjectChatBottomDock() {
                               onClick={() => {
                                 handleCloseWindow(pill.instanceId);
                               }}
-                              aria-label={`Close ${pill.title}`}
+                              aria-label={getWindowControlQuickInfoText({
+                                action: "close_window",
+                                title: pill.title,
+                              })}
                               data-testid="project-chat-window-close"
                               data-chat-window-instance-id={pill.instanceId}
+                              {...getWindowControlQuickInfoHandlers({
+                                action: "close_window",
+                                title: pill.title,
+                              })}
                             >
                               <i className="gg-close" />
                             </button>
@@ -4551,11 +4676,18 @@ export function ProjectChatBottomDock() {
                               openMaximizedWindow.instanceId,
                             );
                           }}
-                          aria-label={`Show ${openMaximizedWindow.title} in canvas`}
+                          aria-label={getWindowControlQuickInfoText({
+                            action: "show_in_canvas",
+                            title: openMaximizedWindow.title,
+                          })}
                           data-testid="project-chat-window-show-in-canvas"
                           data-chat-window-instance-id={
                             openMaximizedWindow.instanceId
                           }
+                          {...getWindowControlQuickInfoHandlers({
+                            action: "show_in_canvas",
+                            title: openMaximizedWindow.title,
+                          })}
                         >
                           <MdFlipToFront size={12} />
                         </button>
@@ -4566,11 +4698,18 @@ export function ProjectChatBottomDock() {
                         onClick={() => {
                           handleRestoreWindow(openMaximizedWindow.instanceId);
                         }}
-                        aria-label={`Restore ${openMaximizedWindow.title}`}
+                        aria-label={getWindowControlQuickInfoText({
+                          action: "restore_window",
+                          title: openMaximizedWindow.title,
+                        })}
                         data-testid="project-chat-window-restore"
                         data-chat-window-instance-id={
                           openMaximizedWindow.instanceId
                         }
+                        {...getWindowControlQuickInfoHandlers({
+                          action: "restore_window",
+                          title: openMaximizedWindow.title,
+                        })}
                       >
                         <MdFlipToFront size={12} />
                       </button>
@@ -4580,11 +4719,18 @@ export function ProjectChatBottomDock() {
                         onClick={() => {
                           handleDockWindow(openMaximizedWindow.instanceId);
                         }}
-                        aria-label={`Dock ${openMaximizedWindow.title}`}
+                        aria-label={getWindowControlQuickInfoText({
+                          action: "dock_window",
+                          title: openMaximizedWindow.title,
+                        })}
                         data-testid="project-chat-window-dock"
                         data-chat-window-instance-id={
                           openMaximizedWindow.instanceId
                         }
+                        {...getWindowControlQuickInfoHandlers({
+                          action: "dock_window",
+                          title: openMaximizedWindow.title,
+                        })}
                       >
                         <MdVerticalAlignBottom size={12} />
                       </button>
@@ -4594,11 +4740,18 @@ export function ProjectChatBottomDock() {
                         onClick={() => {
                           handleMinimizeWindow(openMaximizedWindow.instanceId);
                         }}
-                        aria-label={`Minimize ${openMaximizedWindow.title}`}
+                        aria-label={getWindowControlQuickInfoText({
+                          action: "minimize_window",
+                          title: openMaximizedWindow.title,
+                        })}
                         data-testid="project-chat-window-minimize"
                         data-chat-window-instance-id={
                           openMaximizedWindow.instanceId
                         }
+                        {...getWindowControlQuickInfoHandlers({
+                          action: "minimize_window",
+                          title: openMaximizedWindow.title,
+                        })}
                       >
                         <i className="gg-math-minus" />
                       </button>
@@ -4608,11 +4761,18 @@ export function ProjectChatBottomDock() {
                         onClick={() => {
                           handleCloseWindow(openMaximizedWindow.instanceId);
                         }}
-                        aria-label={`Close ${openMaximizedWindow.title}`}
+                        aria-label={getWindowControlQuickInfoText({
+                          action: "close_window",
+                          title: openMaximizedWindow.title,
+                        })}
                         data-testid="project-chat-window-close"
                         data-chat-window-instance-id={
                           openMaximizedWindow.instanceId
                         }
+                        {...getWindowControlQuickInfoHandlers({
+                          action: "close_window",
+                          title: openMaximizedWindow.title,
+                        })}
                       >
                         <i className="gg-close" />
                       </button>
@@ -4748,10 +4908,10 @@ export function ProjectChatBottomDock() {
           <MinimizedPillStrip
             pills={stripPills}
             visiblePills={visiblePills}
-            menuPills={dockMenuPills}
             pillExitAnimationsById={pillExitAnimationsById}
             useCompactPills={useCompactPills}
             canCreateWindow={canCreateManagedChatWindow}
+            showManagerMenu={showDockManagerMenu}
             canCycleBackward={canCycleBackward}
             canCycleForward={canCycleForward}
             maxCycleStartIndex={maxCycleStartIndex}
@@ -4799,12 +4959,17 @@ export function ProjectChatBottomDock() {
           onClick={() => {
             setIsCanvasVisibilitySuppressed((current) => !current);
           }}
-          aria-label={
-            isCanvasVisibilitySuppressed ? "Show chats" : "Show canvas"
-          }
+          aria-label={getWindowControlQuickInfoText({
+            action: isCanvasVisibilitySuppressed ? "show_chats" : "show_canvas",
+          })}
           aria-pressed={isCanvasVisibilitySuppressed}
           data-testid="project-chat-canvas-visibility-toggle"
-          title={isCanvasVisibilitySuppressed ? "Show chats" : "Show canvas"}
+          title={getWindowControlQuickInfoText({
+            action: isCanvasVisibilitySuppressed ? "show_chats" : "show_canvas",
+          })}
+          {...getWindowControlQuickInfoHandlers({
+            action: isCanvasVisibilitySuppressed ? "show_chats" : "show_canvas",
+          })}
         >
           {isCanvasVisibilitySuppressed ? (
             <BiShow size={18} />

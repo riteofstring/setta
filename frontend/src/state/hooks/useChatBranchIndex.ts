@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { loadAgentRuns } from "state/actions/ai/agentRuns";
+import { loadAgentRuns } from "state/actions/ai";
 import {
   buildChatBranchIndex,
   ChatBranchIndex,

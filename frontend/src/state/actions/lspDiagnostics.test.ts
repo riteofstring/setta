@@ -1,5 +1,8 @@
-import { useProjectState, useShareSession } from "state/definitions";
-import { useLspDiagnostics } from "state/stores/diagnosticsStores";
+import {
+  useLspDiagnostics,
+  useProjectState,
+  useShareSession,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   route_set_code_section_diagnostic_code_suppression,

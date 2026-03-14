@@ -45,9 +45,11 @@ import {
   getRunInputString,
   getRunLastUpdatedMs,
 } from "state/actions/agentRunUtils";
-import { seedPendingChatDetails } from "state/actions/ai/chatRuntime";
-import { saveLLMConfig } from "state/actions/ai/llmSettings";
-import { updateEngineConfig } from "state/actions/ai/projectAiResources";
+import {
+  saveLLMConfig,
+  seedPendingChatDetails,
+  updateEngineConfig,
+} from "state/actions/ai";
 import {
   buildChatHistoryEntries,
   buildChatProvenanceByChatId,
@@ -79,17 +81,17 @@ import {
 import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
 import { clamp } from "utils/utils";
 import { ProjectAISettings } from "./ProjectAISettings";
-import { ProjectChatCore } from "./ProjectChatCore";
+import {
+  getDefaultProjectChatPermissionMode,
+  ProjectChatCore,
+  type ProjectChatBlockedErrorCode,
+} from "./ProjectChatCore";
 import {
   focusInputWithoutSelectionById,
   PROJECT_AI_ENGINE_COMBOBOX_INPUT_ID,
 } from "./projectChatFocusUtils";
 import { ProjectChatHistory } from "./ProjectChatHistory";
 import { resolveProjectChatHydrationAuthority } from "./projectChatHydrationAuthority";
-import {
-  getDefaultProjectChatPermissionMode,
-  type ProjectChatBlockedErrorCode,
-} from "./projectChatRuntimeUtils";
 import { ProjectChatSkillsMcpViewer } from "./ProjectChatSkillsMcpViewer";
 import { useHydrateAgenticState } from "./useHydrateAgenticState";
 import { useHydrateLLMState } from "./useHydrateLLMState";
