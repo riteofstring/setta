@@ -37,7 +37,11 @@ import {
   useShareSession,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
+import {
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
 import {
   route_get_agentic_summary_cache_status,
   route_set_chat_section_chat_id,
@@ -74,6 +78,9 @@ type SectionOption = {
   name: string;
   type: SectionTypeEnum;
 };
+
+type AgenticSummaryCacheStatusRouteResponse =
+  ResponseDataAndStatus<AgenticSummaryCacheStatus>;
 
 type LinkedChatTargetFilterArgs = {
   sectionOptions: Array<SectionOption>;
@@ -504,10 +511,11 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     }
     setSummaryCacheStatusLoading(true);
     try {
-      const response = await route_get_agentic_summary_cache_status({
-        projectConfigId,
-        chatSectionId: sectionId,
-      });
+      const response: AgenticSummaryCacheStatusRouteResponse =
+        await route_get_agentic_summary_cache_status({
+          projectConfigId,
+          chatSectionId: sectionId,
+        });
       if (!res200(response)) {
         const detail = getErrorDetail(response.data as unknown);
         const status =
