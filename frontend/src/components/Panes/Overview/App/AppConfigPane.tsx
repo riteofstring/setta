@@ -22,11 +22,10 @@ import {
   type ZustandProjectState,
 } from "state/definitions";
 import {
-  applyPatchOp,
-  createEmptySpec,
-  parsePatchLine,
-} from "utils/appSpecPatchStream";
-import { C_ADDRESSES } from "utils/c_addresses";
+  clearNextAppSpecPatchStreamBase,
+  setNextAppSpecPatchStreamBase,
+} from "state/appSpecPatchStreaming";
+import { createEmptySpec } from "utils/appSpecPatchStream";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_get_app_catalog,
@@ -38,7 +37,6 @@ import {
   CodeObjTypeEnum,
   EngineTypeEnum,
   isBaseSectionWithParamsImpl,
-  RouteEnum,
   SectionTypeEnum,
   type AppDefinition,
 } from "utils/generatedTypes";
@@ -629,32 +627,6 @@ export function resolveHiddenGenerationEngineSelection(args: {
   };
 }
 
-export async function resolveGenerationFailureMessage(
-  response: Response,
-): Promise<string> {
-  const fallback = `Generation request failed (status ${response.status}).`;
-  let payload: unknown = null;
-  try {
-    payload = (await response.json()) as unknown;
-  } catch {
-    return fallback;
-  }
-  if (typeof payload === "string" && payload.trim()) {
-    return payload.trim();
-  }
-  if (isRecord(payload)) {
-    const message = payload.message;
-    if (typeof message === "string" && message.trim()) {
-      return message.trim();
-    }
-    const detail = payload.detail;
-    if (typeof detail === "string" && detail.trim()) {
-      return detail.trim();
-    }
-  }
-  return fallback;
-}
-
 function resolveHiddenGenerationErrorMessage(error: unknown): string {
   const detail = getErrorDetail(error);
   if (detail) {
@@ -987,17 +959,6 @@ export function AppConfigPane() {
     ],
   );
 
-  const persistGeneratedSpec = useCallback(
-    async (spec: Spec): Promise<boolean> => {
-      return saveAndHydrateAppDefinition({
-        appSpec: spec as unknown as AppSpecPayload,
-        failureMessage: "Failed to save generated app spec.",
-        withLoading: false,
-      });
-    },
-    [saveAndHydrateAppDefinition],
-  );
-
   const ensureHiddenGenerationResources = useCallback(async () => {
     const pendingLoads: Array<Promise<void>> = [];
     const state = useAIStore.getState();
@@ -1026,147 +987,25 @@ export function AppConfigPane() {
     }
   }, []);
 
-  type HiddenChatGenerationMode = "prompt_builder" | "mcp_server";
-
-  const runJsonRenderGeneration = useCallback(
+  const runChatGeneration = useCallback(
     async (mode: AppGenerationMode) => {
       setGenerating(true);
       setGenerationPatchCount(0);
-      setGenerationHint(null);
-      setErrorMessage(null);
-      try {
-        const { catalogSummary, sectionsSummary } =
-          await preparePromptContext();
-        const userPrompt = appGenerationPrompt.trim();
-        const effectivePrompt =
-          userPrompt || buildDefaultAppGenerationPrompt(mode);
-        const includeReferenceImage = mode === "json_render_with_image";
-        const referenceImageUrl = includeReferenceImage
-          ? appGenerationReferenceImageUrl.trim() || null
-          : null;
-        const referenceImageNotes = includeReferenceImage
-          ? appGenerationReferenceImageNotes.trim() || null
-          : null;
-        const requestSpecSeed = buildSpecSeed({
-          draftSpec,
-          persistedSpec: appSpec,
-        });
-        const response = await fetch(
-          `${C_ADDRESSES.BACKEND}${RouteEnum.STREAM_APP_SPEC}`,
-          {
-            method: "POST",
-            credentials: "include",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              prompt: effectivePrompt,
-              mode,
-              referenceImageUrl,
-              referenceImageNotes,
-              context: {
-                catalogSummary,
-                sectionsSummary,
-              },
-              currentSpec: requestSpecSeed,
-            }),
-          },
-        );
-        if (!response.ok || !response.body) {
-          setErrorMessage(await resolveGenerationFailureMessage(response));
-          return;
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let streamRemainder = "";
-        let patchCount = 0;
-        const generated = requestSpecSeed;
-
-        while (true) {
-          const chunk = await reader.read();
-          if (chunk.done) {
-            streamRemainder += decoder.decode();
-            break;
-          }
-          streamRemainder += decoder.decode(chunk.value, { stream: true });
-          while (true) {
-            const newlineIndex = streamRemainder.indexOf("\n");
-            if (newlineIndex === -1) {
-              break;
-            }
-            const line = streamRemainder.slice(0, newlineIndex);
-            streamRemainder = streamRemainder.slice(newlineIndex + 1);
-            const patch = parsePatchLine(line);
-            if (!patch) {
-              continue;
-            }
-            applyPatchOp(generated, patch);
-            patchCount += 1;
-            if (patchCount % 5 === 0) {
-              useAppPreview.setState({
-                previewSpecOverride: cloneSpecForPreview(generated),
-              });
-              setGenerationPatchCount(patchCount);
-            }
-          }
-        }
-        const trailingPatch = parsePatchLine(streamRemainder);
-        if (trailingPatch) {
-          applyPatchOp(generated, trailingPatch);
-          patchCount += 1;
-        }
-        setGenerationPatchCount(patchCount);
-        if (patchCount === 0) {
-          setGenerationHint(
-            "No patches were produced. Refine your prompt and retry.",
-          );
-          return;
-        }
-        useAppPreview.setState({
-          previewSpecOverride: cloneSpecForPreview(generated),
-        });
-        const persisted = await persistGeneratedSpec(generated);
-        if (!persisted) {
-          return;
-        }
-        if (
-          mode === "json_render_with_image" &&
-          !appGenerationReferenceImageUrl.trim()
-        ) {
-          setGenerationHint(
-            "Image-guided mode ran without a reference image URL. Add one for stronger visual fidelity.",
-          );
-        } else {
-          setGenerationHint(
-            "Generation complete. If fidelity is off, add stricter layout/spacing guidance and retry.",
-          );
-        }
-        addTemporaryNotification("App generation completed.");
-      } catch (error) {
-        console.error("Failed to generate app spec", error);
-        setErrorMessage("Failed to generate app spec.");
-      } finally {
-        setGenerating(false);
-      }
-    },
-    [
-      appGenerationPrompt,
-      appGenerationReferenceImageNotes,
-      appGenerationReferenceImageUrl,
-      appSpec,
-      draftSpec,
-      persistGeneratedSpec,
-      preparePromptContext,
-    ],
-  );
-
-  const runHiddenChatGeneration = useCallback(
-    async ({ mode }: { mode: HiddenChatGenerationMode }) => {
-      setGenerating(true);
-      setGenerationPatchCount(0);
       setErrorMessage(null);
       setGenerationHint(null);
+      const includeReferenceImage = mode === "json_render_with_image";
+      const referenceImageUrl = includeReferenceImage
+        ? appGenerationReferenceImageUrl.trim() || null
+        : null;
+      const referenceImageNotes = includeReferenceImage
+        ? appGenerationReferenceImageNotes.trim() || null
+        : null;
+      const requestSpecSeed = isJsonRenderMode(mode)
+        ? buildSpecSeed({
+            draftSpec,
+            persistedSpec: appSpec,
+          })
+        : null;
       try {
         await ensureHiddenGenerationResources();
         const aiState = useAIStore.getState();
@@ -1206,7 +1045,7 @@ export function AppConfigPane() {
         });
         if (!engineSelection.engineConfigId) {
           setErrorMessage(
-            "No chat engine is available for hidden app generation. Configure Project AI first.",
+            "No chat engine is available for app generation. Configure Project AI first.",
           );
           return;
         }
@@ -1215,33 +1054,65 @@ export function AppConfigPane() {
           prompt: appGenerationPrompt,
           catalogSummary,
           sectionsSummary,
-          referenceImageUrl: null,
-          referenceImageNotes: null,
+          currentSpecJson: requestSpecSeed
+            ? JSON.stringify(requestSpecSeed, null, 2)
+            : null,
+          referenceImageUrl,
+          referenceImageNotes,
         });
         const targetChatId = engineSelection.forceNewChat
           ? null
           : activeChatId ?? null;
         const hiddenGenerationSurfaceId = `app-config-hidden-generation:${projectConfigId}`;
-        await submitMessage(
-          targetChatId,
-          prompt,
-          [],
-          true,
-          engineSelection.engineConfigId,
-          engineSelection.isExternalEngine,
-          {
-            pendingSurfaceId: hiddenGenerationSurfaceId,
-            appGeneration: {
-              mode,
-              referenceImageUrl: null,
-              referenceImageNotes: null,
+        if (requestSpecSeed) {
+          // Keep the streamed preview aligned with the seed we tell the model
+          // to pass as `baseAppSpec` on the upcoming tool call.
+          setNextAppSpecPatchStreamBase(requestSpecSeed);
+          useAppPreview.setState({
+            aiPreviewSpecOverride: cloneSpecForPreview(requestSpecSeed),
+          });
+        }
+        try {
+          await submitMessage(
+            targetChatId,
+            prompt,
+            [],
+            true,
+            engineSelection.engineConfigId,
+            engineSelection.isExternalEngine,
+            {
+              pendingSurfaceId: hiddenGenerationSurfaceId,
+              appGeneration: {
+                mode,
+                referenceImageUrl,
+                referenceImageNotes,
+              },
             },
-          },
-        );
+          );
+        } catch (error) {
+          if (requestSpecSeed) {
+            clearNextAppSpecPatchStreamBase();
+            useAppPreview.setState({
+              aiPreviewSpecOverride: undefined,
+            });
+          }
+          throw error;
+        }
         if (targetChatId === null) {
           clearPendingChatDetails(hiddenGenerationSurfaceId);
         }
-        if (engineSelection.forceNewChat) {
+        if (isJsonRenderMode(mode)) {
+          const prefix = engineSelection.forceNewChat
+            ? "Generation request sent to a new chat because the active chat engine is unavailable."
+            : "Generation request sent.";
+          const suffix =
+            mode === "json_render_with_image" && !referenceImageUrl
+              ? " No reference image URL was provided, so visual fidelity may be limited."
+              : "";
+          setGenerationHint(
+            `${prefix}${suffix} Stay on this pane while streamed patches update the preview.`,
+          );
+        } else if (engineSelection.forceNewChat) {
           setGenerationHint(
             "Generation request sent to a new chat because the active chat engine is unavailable. Stay on this pane while the app spec updates via tool results.",
           );
@@ -1250,9 +1121,9 @@ export function AppConfigPane() {
             "Generation request sent to chat. Stay on this pane while the app spec updates via tool results.",
           );
         }
-        addTemporaryNotification("App generation request sent to chat.");
+        addTemporaryNotification("App generation request sent.");
       } catch (error) {
-        console.error("Failed to send hidden app generation prompt", error);
+        console.error("Failed to send app generation prompt", error);
         setErrorMessage(resolveHiddenGenerationErrorMessage(error));
       } finally {
         setGenerating(false);
@@ -1260,20 +1131,17 @@ export function AppConfigPane() {
     },
     [
       appGenerationPrompt,
+      appGenerationReferenceImageNotes,
+      appGenerationReferenceImageUrl,
+      appSpec,
+      draftSpec,
       ensureHiddenGenerationResources,
       preparePromptContext,
     ],
   );
 
   async function handleGenerate() {
-    const mode = activeGenerationMode;
-    if (isJsonRenderMode(mode)) {
-      await runJsonRenderGeneration(mode);
-      return;
-    }
-    if (mode === "prompt_builder" || mode === "mcp_server") {
-      await runHiddenChatGeneration({ mode });
-    }
+    await runChatGeneration(activeGenerationMode);
   }
 
   function handleCreateDefault() {
