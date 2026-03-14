@@ -904,6 +904,35 @@ func TestRealtimeEngineWhisperDeltaSnapshotsReplaceItemTranscript(t *testing.T) 
 	}
 }
 
+func TestResolveOpenAIRealtimeDeltaModeMatchesDocumentedModelBehavior(t *testing.T) {
+	t.Parallel()
+
+	// Keep the runtime model branches aligned with the local OpenAI dependency
+	// notes, which document which supported realtime transcription models emit
+	// snapshot vs incremental delta events.
+	tests := []struct {
+		name  string
+		model string
+		want  openAIRealtimeDeltaMode
+	}{
+		{name: "whisper snapshots", model: "whisper-1", want: openAIRealtimeDeltaModeSnapshot},
+		{name: "gpt-4o transcribe incremental", model: "gpt-4o-transcribe", want: openAIRealtimeDeltaModeIncremental},
+		{name: "gpt-4o mini transcribe incremental", model: "gpt-4o-mini-transcribe", want: openAIRealtimeDeltaModeIncremental},
+		{name: "gpt-4o transcribe latest incremental", model: "gpt-4o-transcribe-latest", want: openAIRealtimeDeltaModeIncremental},
+		{name: "unsupported model disabled", model: "gpt-realtime", want: openAIRealtimeDeltaModeDisabled},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := resolveOpenAIRealtimeDeltaMode(tt.model); got != tt.want {
+				t.Fatalf("resolveOpenAIRealtimeDeltaMode(%q) = %v, want %v", tt.model, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestRebuildOpenAIRealtimeItemOrderUsesKnownFallbackParent(t *testing.T) {
 	t.Parallel()
 
