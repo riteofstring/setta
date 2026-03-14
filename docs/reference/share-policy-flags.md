@@ -10,6 +10,11 @@ Notes:
 - Policy gates apply only in deployment mode. IDE mode ignores these flags.
 - CodeParam edits are always blocked in deployment mode, regardless of
   `allowParamChanges`.
+- Project-state `undo` / `redo` replay the current share-session overlay history
+  without a dedicated policy flag. They are not blocked by
+  `allowParamChanges` / `allowVariantChanges` / `allowLayoutChanges` /
+  `allowLLM`, though the underlying mutations that create history entries still
+  obey their usual policy gates.
 - `runSnapshotMode=never` is rejected for deployments.
 - Git features are always disabled in deployment mode: the Overview Git tab is
   hidden, and git API routes return 403 (`Route.GET_GIT_STATUS`,
