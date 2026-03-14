@@ -360,6 +360,11 @@ Current status:
   nongenerated helper-bag import inventory in the focused frontend boundary
   exception manifest, so helper-boundary widening becomes a reviewed diff
   instead of silent runtime drift
+- the validation suite now also rejects namespace/default imports of narrowed
+  boundary modules such as `generatedRoutes`, `requestTransport`,
+  `transportRouteConstants`, `backendTransport`, `backendOriginTransport`,
+  `appTransport`, and `plugins/transport`, so caller-specific boundary checks
+  cannot be bypassed through broad module imports
 - the validation suite now also checks that the checked-in
   `generatedRoutes.ts`, `generatedTypes.ts`, and `generatedEndpoints.ts`
   files exactly match the current Go frontend binding generation pipeline

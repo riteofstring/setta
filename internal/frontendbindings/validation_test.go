@@ -2114,6 +2114,99 @@ func TestFrontendPluginTransportImportsStayWithinExplicitBoundaries(t *testing.T
 	}
 }
 
+func TestFrontendBoundaryModulesUseNamedImportsOnly(t *testing.T) {
+	t.Helper()
+
+	repoRoot := testRepoRoot(t)
+	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
+	boundaryModules := map[string]struct{}{
+		"./generatedRoutes":             {},
+		"utils/generatedRoutes":         {},
+		"./requestTransport":            {},
+		"utils/requestTransport":        {},
+		"./transportRouteConstants":     {},
+		"utils/transportRouteConstants": {},
+		"./backendTransport":            {},
+		"utils/backendTransport":        {},
+		"./backendOriginTransport":      {},
+		"utils/backendOriginTransport":  {},
+		"./appTransport":                {},
+		"utils/appTransport":            {},
+		"./transport":                   {},
+		"utils/plugins/transport":       {},
+	}
+	importPattern := regexp.MustCompile(`(?m)^\s*import\s+([^;\n]+?)\s+from\s+["']([^"']+)["']`)
+
+	err := filepath.WalkDir(frontendSrcRoot, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+
+		base := entry.Name()
+		if !(strings.HasSuffix(base, ".ts") || strings.HasSuffix(base, ".tsx")) {
+			return nil
+		}
+		if strings.Contains(base, ".test.") || strings.Contains(base, ".spec.") {
+			return nil
+		}
+
+		relativePath, err := filepath.Rel(repoRoot, path)
+		if err != nil {
+			return err
+		}
+		relativePath = filepath.ToSlash(relativePath)
+
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		source := string(contents)
+
+		for _, match := range importPattern.FindAllStringSubmatch(source, -1) {
+			modulePath := match[2]
+			if _, tracked := boundaryModules[modulePath]; !tracked {
+				continue
+			}
+
+			specifier := strings.TrimSpace(match[1])
+			if strings.HasPrefix(specifier, "{") || strings.HasPrefix(specifier, "type {") {
+				continue
+			}
+			if strings.HasPrefix(specifier, "* as ") {
+				namespaceAlias := strings.TrimSpace(strings.TrimPrefix(specifier, "* as "))
+				return fmt.Errorf(
+					"%s imports boundary module %q via namespace import %q; use named imports so caller-specific boundary checks remain authoritative",
+					relativePath,
+					modulePath,
+					namespaceAlias,
+				)
+			}
+
+			defaultAlias := specifier
+			if commaIndex := strings.Index(defaultAlias, ","); commaIndex >= 0 {
+				defaultAlias = defaultAlias[:commaIndex]
+			}
+			defaultAlias = strings.TrimSpace(defaultAlias)
+			if defaultAlias == "" {
+				continue
+			}
+			return fmt.Errorf(
+				"%s imports boundary module %q via default import %q; use named imports so caller-specific boundary checks remain authoritative",
+				relativePath,
+				modulePath,
+				defaultAlias,
+			)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("scan frontend boundary-module import styles: %v", err)
+	}
+}
+
 func TestFrontendRuntimeSourceDoesNotImportRouteEnum(t *testing.T) {
 	t.Helper()
 
