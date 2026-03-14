@@ -11,22 +11,7 @@ import {
 } from "components/Chat/chatComposerControls";
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
 import { resolveAuthoritativeContextTelemetry } from "components/Chat/contextTelemetry";
-import { resolveProviderDictationAvailability } from "components/Chat/dictationMode";
-import {
-  getChatPlaceholderText,
-  getExternalEngineIssueMessage,
-  getExternalEngineStatus,
-} from "components/Chat/engineUtils";
-import {
-  buildLLMConfigGroups,
-  countLLMConfigs,
-  pickDefaultConfigId,
-} from "components/Chat/llmConfigUtils";
-import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
-import {
-  canUseManagedChatLLM,
-  filterManagedChatThreadSlashCommands,
-} from "components/Chat/sharePolicyChatAccess";
+import { canUseManagedChatLLM } from "components/Chat/sharePolicyChatAccess";
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import _ from "lodash";
@@ -41,7 +26,6 @@ import {
   buildBranchIndexFromBranches,
   ensureChatBranchState,
 } from "state/actions/chatBranches";
-import { type ChatHistoryCompatibility } from "state/actions/chatHistory";
 import { addPersistentNotification } from "state/actions/notifications";
 import {
   getCurrEffectiveSectionImplOfType,
@@ -62,15 +46,11 @@ import {
   AgenticEdgeKindEnum,
   ChatFileAttachment,
   ChatSectionState,
-  EngineTypeEnum,
   SectionTypeEnum,
   SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
-import {
-  ManagedChatHistoryPanel,
-  resolveManagedChatRunType,
-} from "./ChatAreaHistoryPanel";
+import { ManagedChatHistoryPanel } from "./ChatAreaHistoryPanel";
 import { ManagedChatAreaHeader } from "./ManagedChatAreaHeader";
 import {
   editManagedSectionChatMessage,
@@ -78,6 +58,7 @@ import {
   submitManagedSectionChatMessage,
   transcribeManagedSectionChatAudio,
 } from "./chatAreaManagedRuntime";
+import { resolveManagedChatDerivedState } from "./chatAreaManagedState";
 import {
   persistManagedSectionChatId,
   resumeLatestManagedSectionChat,
@@ -737,139 +718,66 @@ function ManagedChatArea({
     _.isEqual,
   );
 
-  const availableConfigGroups = useMemo(
-    () => buildLLMConfigGroups(allLLMConfigs, apiKeys),
-    [allLLMConfigs, apiKeys],
-  );
-  const noConfigsAvailable = countLLMConfigs(availableConfigGroups) === 0;
-  const selectedProfile = useMemo(() => {
-    if (!agentProfileId) {
-      return null;
-    }
-    return (
-      agentProfiles.find((profile) => profile.id === agentProfileId) ?? null
-    );
-  }, [agentProfileId, agentProfiles]);
-  const effectiveEngineConfigId =
-    engineConfigId ?? selectedProfile?.engineConfigId ?? null;
-  const selectedEngineConfig = useMemo(() => {
-    if (!effectiveEngineConfigId) {
-      return null;
-    }
-    return (
-      engineConfigs.find((config) => config.id === effectiveEngineConfigId) ??
-      null
-    );
-  }, [effectiveEngineConfigId, engineConfigs]);
-  const engineType = selectedEngineConfig?.engineType ?? null;
-  const isExternalEngine = engineType === EngineTypeEnum.external_agent;
-  const historyCompatibility = useMemo<ChatHistoryCompatibility | null>(() => {
-    const runType = resolveManagedChatRunType(engineType);
-    if (!runType) {
-      return null;
-    }
-    return {
-      runType,
-      engineConfigId: effectiveEngineConfigId ?? null,
-    };
-  }, [effectiveEngineConfigId, engineType]);
-  const selectedLLMConfigId = useMemo(() => {
-    if (!selectedEngineConfig) {
-      return null;
-    }
-    if (selectedEngineConfig.engineType !== EngineTypeEnum.setta_llm) {
-      return null;
-    }
-    return (
-      selectedEngineConfig.settaLlmConfigId ??
-      pickDefaultConfigId(allLLMConfigs)
-    );
-  }, [allLLMConfigs, selectedEngineConfig]);
-  const selectedLLMConfig = useMemo(() => {
-    if (!selectedLLMConfigId || !allLLMConfigs) {
-      return null;
-    }
-    return allLLMConfigs.configs[selectedLLMConfigId] ?? null;
-  }, [allLLMConfigs, selectedLLMConfigId]);
-  const selectedTranscriptionProfile = useMemo(() => {
-    if (!transcriptionProfileId) {
-      return null;
-    }
-    return (
-      transcriptionProfiles.find(
-        (profile) => profile.id === transcriptionProfileId,
-      ) ?? null
-    );
-  }, [transcriptionProfileId, transcriptionProfiles]);
-  const { providerDictationAvailable } = useMemo(
-    () =>
-      resolveProviderDictationAvailability({
-        selectedTranscriptionProfile,
-        allLLMConfigs,
-        apiKeys,
-        apiKeysAuthoritative,
-      }),
-    [
-      allLLMConfigs,
-      apiKeys,
-      apiKeysAuthoritative,
-      selectedTranscriptionProfile,
-    ],
-  );
-  const providerDictationLikelySupported = providerDictationAvailable;
-  const hasEngineConfig = Boolean(selectedEngineConfig);
-  const hasLLMConfig = Boolean(selectedLLMConfigId);
-  const externalEngineStatus = useMemo(
-    () =>
-      getExternalEngineStatus(
-        selectedEngineConfig,
-        externalAgentHealth,
-        externalAgentHealthInitialLoadComplete,
-      ),
-    [
-      selectedEngineConfig,
-      externalAgentHealth,
-      externalAgentHealthInitialLoadComplete,
-    ],
-  );
-  const externalEngineAvailable = externalEngineStatus
-    ? externalEngineStatus.status === "available"
-    : true;
-  const externalAgentConfig = useMemo(() => {
-    if (!selectedEngineConfig?.externalAgentConfigId) {
-      return null;
-    }
-    return (
-      externalAgentConfigs.find(
-        (config) => config.id === selectedEngineConfig.externalAgentConfigId,
-      ) ?? null
-    );
-  }, [externalAgentConfigs, selectedEngineConfig]);
   const {
+    effectiveEngineConfigId,
+    historyCompatibility,
+    isExternalEngine,
+    providerDictationAvailable,
+    providerDictationLikelySupported,
+    hasEngineConfig,
+    hasLLMConfig,
+    externalEngineAvailable,
     contextWindowTokens,
     contextUsedTokens,
     contextUsageIsEstimated,
     contextUsageUnavailable,
+    showPlanModeBadge,
+    placeholderText,
+    externalEngineIssueMessage,
+    slashCommands,
+    isDisabled,
+    editDisabledReason,
+    submitDisabled,
   } = useMemo(
-    () => resolveAuthoritativeContextTelemetry(contextUsage),
-    [contextUsage],
-  );
-  const showPlanModeBadge = shouldShowPlanModeBadge({
-    engineType,
-    externalAgentToolType: externalAgentConfig?.toolType ?? null,
-    approvalPolicy: externalAgentConfig?.approvalPolicy ?? null,
-    permissionMode,
-  });
-
-  const placeholderText = getChatPlaceholderText({
-    engineType,
-    hasEngineConfig,
-    hasLLMConfig,
-    noLLMConfigsAvailable: noConfigsAvailable,
-  });
-  const externalEngineIssueMessage = useMemo(
-    () => getExternalEngineIssueMessage(externalEngineStatus),
-    [externalEngineStatus],
+    () =>
+      resolveManagedChatDerivedState({
+        allLLMConfigs,
+        apiKeys,
+        apiKeysAuthoritative,
+        agentProfiles,
+        engineConfigs,
+        transcriptionProfiles,
+        externalAgentHealth,
+        externalAgentHealthInitialLoadComplete,
+        externalAgentConfigs,
+        engineConfigId,
+        transcriptionProfileId,
+        agentProfileId,
+        permissionMode,
+        contextUsage,
+        canUseManagedChat,
+        messages,
+        waitingForResponse,
+      }),
+    [
+      agentProfileId,
+      agentProfiles,
+      allLLMConfigs,
+      apiKeys,
+      apiKeysAuthoritative,
+      canUseManagedChat,
+      contextUsage,
+      engineConfigId,
+      engineConfigs,
+      externalAgentConfigs,
+      externalAgentHealth,
+      externalAgentHealthInitialLoadComplete,
+      messages,
+      permissionMode,
+      transcriptionProfileId,
+      transcriptionProfiles,
+      waitingForResponse,
+    ],
   );
 
   useEffect(() => {
@@ -949,18 +857,6 @@ function ManagedChatArea({
       }),
     [setChatId, surfaceId],
   );
-  const slashCommands = useMemo(
-    () =>
-      filterManagedChatThreadSlashCommands(
-        buildChatSlashCommands({
-          model: false,
-          permissions: false,
-          search: false,
-        }),
-        canUseManagedChat,
-      ),
-    [canUseManagedChat],
-  );
 
   const handleSubmit = useCallback(
     (message: string, attachments: ChatFileAttachment[]) =>
@@ -1001,7 +897,6 @@ function ManagedChatArea({
       sectionId,
       surfaceId,
       thinking,
-      canUseManagedChat,
     ],
   );
 
@@ -1117,34 +1012,6 @@ function ManagedChatArea({
 
   const scrollClassName = isScrollable ? NO_WHEEL_CLASS_NAME : "";
   const chatWidthShellClassName = "mx-auto w-full max-w-[72rem] px-2";
-  const isDisabled =
-    !canUseManagedChat ||
-    !hasEngineConfig ||
-    (!isExternalEngine && (!hasLLMConfig || noConfigsAvailable)) ||
-    (isExternalEngine && !externalEngineAvailable);
-  const editDisabledReason = useMemo(() => {
-    if (!canUseManagedChat) {
-      return "Editing disabled by share policy.";
-    }
-    return getChatEditDisabledReason({
-      hasEngineConfig,
-      hasLLMConfig,
-      isExternalEngine,
-      externalEngineAvailable,
-      noLLMConfigsAvailable: noConfigsAvailable,
-    });
-  }, [
-    canUseManagedChat,
-    externalEngineAvailable,
-    hasEngineConfig,
-    hasLLMConfig,
-    isExternalEngine,
-    noConfigsAvailable,
-  ]);
-  const submitDisabled = useMemo(
-    () => !waitingForResponse && hasPendingToolInteraction(messages),
-    [messages, waitingForResponse],
-  );
   const handleProviderDictationTranscribe = useCallback(
     (audioBlob: Blob) =>
       transcribeManagedSectionChatAudio({

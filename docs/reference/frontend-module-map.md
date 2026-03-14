@@ -93,6 +93,7 @@ This is the front door for authored frontend code under `frontend/src/`.
 - Need managed section-chat thread-controller wiring: open `components/Section/Layouts/chatAreaManagedThreadController.ts`.
 - Need managed section-chat submit/edit/stop runtime behavior: open `components/Section/Layouts/chatAreaManagedRuntime.ts`.
 - Need managed section-chat header, scope banners, or history/new-chat controls: open `components/Section/Layouts/ManagedChatAreaHeader.tsx`.
+- Need managed section-chat config, availability, slash-command, or input-state derivation: open `components/Section/Layouts/chatAreaManagedState.ts`.
 - Need section-chat realtime dependency actions: open `components/Section/Layouts/chatAreaRealtimeActions.ts`.
 - Need scriptable section-chat state transitions or slash-command runtime behavior: open `components/Section/Layouts/chatAreaScriptableRuntime.ts`.
 - Need section-chat thread-control helpers: open `components/Section/Layouts/chatAreaThreadControls.ts`.
