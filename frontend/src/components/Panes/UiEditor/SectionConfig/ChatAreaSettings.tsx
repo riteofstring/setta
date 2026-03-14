@@ -4,6 +4,7 @@ import {
   buildLLMConfigGroups,
   countLLMConfigs,
   pickDefaultConfigId,
+  resolveSelectableLLMConfigId,
 } from "components/Chat/llmConfigUtils";
 import { canUseManagedChatLLM } from "components/Chat/sharePolicyChatAccess";
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
@@ -327,6 +328,14 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       pickDefaultConfigId(allLLMConfigs)
     );
   }, [allLLMConfigs, selectedEngineConfig]);
+  const selectableLLMConfigId = useMemo(
+    () =>
+      resolveSelectableLLMConfigId(
+        availableConfigGroups,
+        selectedLLMConfigId,
+      ),
+    [availableConfigGroups, selectedLLMConfigId],
+  );
 
   const sectionLabelsById = useMemo(() => {
     const labels: Record<string, string> = {};
@@ -833,7 +842,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     : "Select an LLM";
   const highlightMissingConfig =
     engineType === EngineTypeEnum.setta_llm &&
-    !selectedLLMConfigId &&
+    !selectableLLMConfigId &&
     !noConfigsAvailable;
   const contextOptionCount = contextItems[0]?.items.length ?? 0;
   const scopeOptionCount = scopeItems[0]?.items.length ?? 0;
@@ -931,7 +940,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
                 </p>
                 <IdNameCombobox
                   allItems={availableConfigGroups}
-                  value={selectedLLMConfigId}
+                  value={selectableLLMConfigId}
                   small={false}
                   onSelectedItemChange={handleLLMConfigChange}
                   placeholder={configPlaceholder}
