@@ -399,6 +399,99 @@ func TestServiceRealtimeAllowsDefaultOpenAIProviderWhenProviderUnset(t *testing.
 	}
 }
 
+func TestServiceRealtimeIgnoresAmbientOpenAIEnvWithoutConfiguredAPIKey(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "ambient-secret")
+
+	type handshake struct {
+		Authorization string
+		OpenAIBeta    string
+	}
+
+	handshakes := make(chan handshake, 1)
+	closed := make(chan error, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handshakes <- handshake{
+			Authorization: r.Header.Get("Authorization"),
+			OpenAIBeta:    r.Header.Get("OpenAI-Beta"),
+		}
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close(websocket.StatusNormalClosure, "")
+
+		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
+			return
+		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"session.updated","event_id":"evt-ready"}`)); err != nil {
+			return
+		}
+		_, _, err = conn.Read(context.Background())
+		closed <- err
+	}))
+	defer server.Close()
+
+	runtime := newTranscriptionSessionRuntime(t, map[string]llmconfig.Config{
+		"openai-realtime": {
+			ID:       "openai-realtime",
+			Model:    "gpt-4o-mini-transcribe",
+			Provider: "openai",
+			BaseURL:  server.URL + "/v1",
+		},
+	}, map[string]string{})
+	service, err := NewService(ServiceOptions{
+		LLM:        runtime,
+		HTTPClient: server.Client(),
+		NewID: func() string {
+			return "session-realtime-no-ambient-auth"
+		},
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	resolved := resolvedProfile("profile-rt", transcriptionprofiles.TransportModeRealtime, runtime, "openai-realtime")
+	resolved.Profile.SupportsRealtimeTranscription = true
+	started, err := service.StartSession(context.Background(), StartRequest{
+		ScopeID:         "scope-1",
+		ResolvedProfile: resolved,
+	})
+	if err != nil {
+		t.Fatalf("start realtime session: %v", err)
+	}
+	if started.ResolvedTransportMode != ResolvedTransportModeRealtime {
+		t.Fatalf("unexpected realtime start result %#v", started)
+	}
+
+	select {
+	case captured := <-handshakes:
+		if captured.Authorization != "" {
+			t.Fatalf("expected no authorization header, got %q", captured.Authorization)
+		}
+		if captured.OpenAIBeta != "realtime=v1" {
+			t.Fatalf("unexpected OpenAI-Beta header %q", captured.OpenAIBeta)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for realtime handshake")
+	}
+
+	if err := service.CancelSession(context.Background(), StopRequest{
+		ScopeID:   "scope-1",
+		SessionID: started.SessionID,
+	}); err != nil {
+		t.Fatalf("cancel realtime session: %v", err)
+	}
+
+	select {
+	case err := <-closed:
+		if websocket.CloseStatus(err) != websocket.StatusNormalClosure {
+			t.Fatalf("expected normal websocket close, got %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for realtime close")
+	}
+}
+
 func TestServiceStartAppendStopSupportsOpenAITranscribeLatest(t *testing.T) {
 	t.Parallel()
 
