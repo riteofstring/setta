@@ -224,9 +224,10 @@ type CanvasEngineSelectionRect = {
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 4;
 const DOM_ISLAND_VIEWPORT_PADDING_PX = 240;
-const DOM_ISLAND_MIN_ZOOM = 0.35;
 const DOM_ISLAND_RETENTION_MS = 280;
 const DOM_ISLAND_MAX_RETAINED_SECTIONS = 96;
+const DOM_ISLAND_MIN_SCREEN_WIDTH_PX = 112;
+const DOM_ISLAND_MIN_SCREEN_HEIGHT_PX = 63;
 const RESIZE_HANDLE_HIT_RADIUS_PX = 10;
 const EDGE_HIT_TOLERANCE_PX = 8;
 const AGENTIC_HANDLE_HIT_TOLERANCE_WORLD = 12;
@@ -455,9 +456,6 @@ export function CanvasEngineHost() {
   );
 
   const domIslandViewportSectionIds = useMemo(() => {
-    if (camera.zoom < DOM_ISLAND_MIN_ZOOM) {
-      return [];
-    }
     const worldPadding = DOM_ISLAND_VIEWPORT_PADDING_PX / camera.zoom;
     const viewportRect = {
       x: camera.x - worldPadding,
@@ -469,7 +467,14 @@ export function CanvasEngineHost() {
       viewportRect,
       true,
     );
-    return sortSectionIdsByZIndexThenId(sectionIdsInMountWindow, sceneAdapter);
+    const readableSectionIds = sectionIdsInMountWindow.filter((sectionId) => {
+      const rect = sceneAdapter.getRectById(sectionId);
+      if (!rect) {
+        return false;
+      }
+      return isDomIslandReadableAtCurrentZoom(rect, camera.zoom);
+    });
+    return sortSectionIdsByZIndexThenId(readableSectionIds, sceneAdapter);
   }, [
     camera,
     domIslandRetentionRevision,
@@ -1936,6 +1941,18 @@ function resolveSelectionRectBounds(
     width: Math.abs(endX - startX),
     height: Math.abs(endY - startY),
   };
+}
+
+function isDomIslandReadableAtCurrentZoom(
+  rect: CanvasEngineRect,
+  zoom: number,
+): boolean {
+  const screenWidth = rect.width * zoom;
+  const screenHeight = rect.height * zoom;
+  return (
+    screenWidth >= DOM_ISLAND_MIN_SCREEN_WIDTH_PX &&
+    screenHeight >= DOM_ISLAND_MIN_SCREEN_HEIGHT_PX
+  );
 }
 
 function resolveEdgeHitToleranceWorld(zoom: number): number {

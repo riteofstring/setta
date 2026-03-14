@@ -376,6 +376,62 @@ describe("CanvasEngineHost", () => {
     ).toBeNull();
   });
 
+  it("mounts readable large sections below the old global zoom cutoff", async () => {
+    useProjectState.setState((state) => {
+      state.projectConfig.topLevelSections = {
+        "section-large": {
+          x: 80,
+          y: 60,
+          zIndex: 0,
+          w: 960,
+          h: 540,
+        },
+        "section-small": {
+          x: 1240,
+          y: 60,
+          zIndex: 1,
+          w: 320,
+          h: 180,
+        },
+      };
+      state.projectConfig.viewport = {
+        x: 0,
+        y: 0,
+        zoom: 0.2,
+      };
+      state.projectConfig.viewportInitialized = true;
+      state.projectConfig.activeIds = [];
+      state.projectConfig.edges = [];
+      state.projectConfig.agenticEdges = [];
+    });
+
+    await act(async () => {
+      root.render(<CanvasEngineHost />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const engineHost = host.querySelector(
+      '[data-canvas-engine-host="v1"]',
+    ) as HTMLElement | null;
+    if (!engineHost) {
+      throw new Error("Canvas engine host failed to render.");
+    }
+    setEngineHostBounds(engineHost);
+
+    expect(engineHost.dataset.canvasEngineCameraZoom).toBe("0.200");
+    expect(engineHost.dataset.canvasEngineDomIslandMountedCount).toBe("1");
+    expect(
+      host.querySelector('[data-canvas-engine-dom-island="section-large"]'),
+    ).not.toBeNull();
+    expect(
+      host.querySelector('[data-canvas-engine-dom-island="section-small"]'),
+    ).toBeNull();
+  });
+
   it("syncs an initialized persisted viewport into the engine camera and React Flow store", async () => {
     useProjectState.setState((state) => {
       state.projectConfig.viewport = {

@@ -157,6 +157,92 @@ test("canvas engine host mounts visible top-level sections as dom islands", asyn
   }
 });
 
+test("canvas engine host mounts readable large sections below the old zoom cutoff", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+    await expect(page.locator(".react-flow__pane")).toHaveCount(0);
+
+    const largeSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds: await getEngineViewportBounds(page),
+      position: { x: 80, y: 60 },
+    });
+    const smallSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds: await getEngineViewportBounds(page),
+      position: { x: 1240, y: 60 },
+    });
+
+    await page.evaluate(
+      async ({ nextTopLevelSections, nextViewport }) => {
+        const { useProjectState } = await import("/src/state/definitions.ts");
+        useProjectState.setState((state) => {
+          state.projectConfig.topLevelSections = nextTopLevelSections;
+          state.projectConfig.viewport = nextViewport;
+          state.projectConfig.viewportInitialized = true;
+        });
+      },
+      {
+        nextTopLevelSections: {
+          [largeSectionId]: {
+            x: 80,
+            y: 60,
+            w: 960,
+            h: 540,
+            zIndex: 0,
+          },
+          [smallSectionId]: {
+            x: 1240,
+            y: 60,
+            w: 320,
+            h: 180,
+            zIndex: 1,
+          },
+        },
+        nextViewport: {
+          x: 0,
+          y: 0,
+          zoom: 0.2,
+        },
+      },
+    );
+
+    await expect
+      .poll(
+        async () =>
+          await readNumericHostAttribute(
+            host,
+            "data-canvas-engine-dom-island-mounted-count",
+          ),
+      )
+      .toBeGreaterThanOrEqual(1);
+    await expect
+      .poll(async () => (await readCamera(host)).zoom)
+      .toBeCloseTo(0.2, 3);
+    await expect(
+      host.locator(`[data-canvas-engine-dom-island="${largeSectionId}"]`),
+    ).toHaveCount(1);
+    await expect(
+      host.locator(`[data-canvas-engine-dom-island="${smallSectionId}"]`),
+    ).toHaveCount(0);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("canvas engine host persists camera viewport after pan and zoom", async ({
   page,
 }) => {

@@ -278,6 +278,45 @@ test("settings can mount the experimental canvas engine host", async ({
       });
     })
     .toBe(true);
+
+  const allSettingsTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+  await expect(allSettingsTab).toBeVisible();
+  await allSettingsTab.click();
+
+  await expect
+    .poll(async () => {
+      const value = await host.getAttribute(
+        "data-canvas-engine-visible-rect-count",
+      );
+      return Number(value);
+    })
+    .toBeGreaterThan(0);
+  await expect
+    .poll(async () => {
+      return await page.evaluate(() => {
+        const islands = Array.from(
+          document.querySelectorAll("[data-canvas-engine-dom-island]"),
+        );
+        return islands.some((candidate) => {
+          if (!(candidate instanceof HTMLElement)) {
+            return false;
+          }
+          const rect = candidate.getBoundingClientRect();
+          return (
+            rect.width >= 40 &&
+            rect.height >= 40 &&
+            rect.right > 80 &&
+            rect.bottom > 40 &&
+            rect.left < window.innerWidth &&
+            rect.top < window.innerHeight
+          );
+        });
+      });
+    })
+    .toBe(true);
 });
 
 async function waitForNodeCount(page: Page, expected: number): Promise<void> {
