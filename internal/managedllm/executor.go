@@ -10,8 +10,10 @@ import (
 	"net/http"
 	"strings"
 
+	anthropic "github.com/anthropics/anthropic-sdk-go"
+	anthropicoption "github.com/anthropics/anthropic-sdk-go/option"
 	openai "github.com/openai/openai-go/v3"
-	"github.com/openai/openai-go/v3/option"
+	openaioption "github.com/openai/openai-go/v3/option"
 	"setta/internal/agentruns"
 	"setta/internal/managedchat"
 	"setta/internal/mcpx"
@@ -20,7 +22,9 @@ import (
 
 const (
 	openAIProvider       = "openai"
+	anthropicProvider    = "anthropic"
 	defaultOpenAIBaseURL = "https://api.openai.com/v1"
+	defaultAnthropicBase = "https://api.anthropic.com/"
 	managedChatRunType   = "llm_chat"
 )
 
@@ -49,13 +53,17 @@ type Executor struct {
 }
 
 type preparedExecution struct {
-	client               openai.Client
+	provider             string
+	openAIClient         openai.Client
+	anthropicClient      anthropic.Client
 	projectConfigID      *string
 	sectionID            *string
 	chatID               string
 	runID                string
 	emitStream           bool
-	requestOverrides     []option.RequestOption
+	systemPrompt         string
+	openAIRequestOpts    []openaioption.RequestOption
+	anthropicRequestOpts []anthropicoption.RequestOption
 	model                string
 	transcript           []map[string]any
 	providerMessages     []map[string]any
@@ -87,14 +95,15 @@ func (e *Executor) Execute(ctx context.Context, request agentruns.ExecutionReque
 }
 
 func (e *Executor) Validate(request agentruns.ExecutionRequest) error {
-	if err := validateProviderSupport(request); err != nil {
+	if _, err := resolveManagedProvider(request); err != nil {
 		return err
 	}
 	return validateReasoningRequest(request)
 }
 
 func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (preparedExecution, error) {
-	if err := validateProviderSupport(request); err != nil {
+	provider, err := resolveManagedProvider(request)
+	if err != nil {
 		return preparedExecution{}, err
 	}
 	if strings.TrimSpace(request.LLMConfig.Model) == "" {
@@ -104,12 +113,7 @@ func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (prepare
 		return preparedExecution{}, err
 	}
 
-	client, err := buildOpenAIClient(request, e.httpClient)
-	if err != nil {
-		return preparedExecution{}, err
-	}
-
-	transcript, providerMessages, err := buildMessages(request)
+	transcript, providerMessages, err := buildMessages(provider, request)
 	if err != nil {
 		return preparedExecution{}, err
 	}
@@ -122,19 +126,14 @@ func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (prepare
 		return preparedExecution{}, err
 	}
 
-	requestOverrides, err := buildOpenAIRequestOverrides(request)
-	if err != nil {
-		return preparedExecution{}, err
-	}
-
-	return preparedExecution{
-		client:               client,
+	prepared := preparedExecution{
+		provider:             provider,
 		projectConfigID:      optionalStringPointer(request.ProjectConfigID),
 		sectionID:            cloneStringPointer(request.SectionID),
 		chatID:               strings.TrimSpace(request.ChatID),
 		runID:                strings.TrimSpace(request.Run.ID),
 		emitStream:           shouldEmitManagedChatStream(request),
-		requestOverrides:     requestOverrides,
+		systemPrompt:         strings.TrimSpace(request.SystemPrompt),
 		model:                request.LLMConfig.Model,
 		transcript:           transcript,
 		providerMessages:     providerMessages,
@@ -142,15 +141,44 @@ func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (prepare
 		availableTools:       availableTools,
 		toolAllowlist:        allowlist,
 		temporaryToCanonical: temporaryToCanonical,
-	}, nil
+	}
+	switch provider {
+	case openAIProvider:
+		client, clientErr := buildOpenAIClient(request, e.httpClient)
+		if clientErr != nil {
+			return preparedExecution{}, clientErr
+		}
+		requestOpts, optsErr := buildOpenAIRequestOverrides(request)
+		if optsErr != nil {
+			return preparedExecution{}, optsErr
+		}
+		prepared.openAIClient = client
+		prepared.openAIRequestOpts = requestOpts
+	case anthropicProvider:
+		client, clientErr := buildAnthropicClient(request, e.httpClient)
+		if clientErr != nil {
+			return preparedExecution{}, clientErr
+		}
+		requestOpts, optsErr := buildAnthropicRequestOverrides(request)
+		if optsErr != nil {
+			return preparedExecution{}, optsErr
+		}
+		prepared.anthropicClient = client
+		prepared.anthropicRequestOpts = requestOpts
+	default:
+		return preparedExecution{}, fmt.Errorf("%w: %q", ErrProviderUnsupported, provider)
+	}
+	return prepared, nil
 }
 
-func validateProviderSupport(request agentruns.ExecutionRequest) error {
-	provider := strings.ToLower(strings.TrimSpace(request.LLMConfig.Provider))
-	if provider == openAIProvider {
-		return nil
+func resolveManagedProvider(request agentruns.ExecutionRequest) (string, error) {
+	provider := strings.ToLower(strings.TrimSpace(resolveProviderHint(request)))
+	switch provider {
+	case openAIProvider, anthropicProvider:
+		return provider, nil
+	default:
+		return "", fmt.Errorf("%w: %q", ErrProviderUnsupported, provider)
 	}
-	return fmt.Errorf("%w: %q", ErrProviderUnsupported, provider)
 }
 
 func validateReasoningRequest(request agentruns.ExecutionRequest) error {
@@ -166,7 +194,7 @@ func (e *Executor) executeConversation(ctx context.Context, prepared preparedExe
 
 	for round := 0; round < maxToolCallRounds; round++ {
 		assistantMessage := newAssistantMessage()
-		turnUsage, err := e.executeTurn(ctx, prepared, assistantMessage, providerMessages)
+		turnUsage, err := e.executeTurn(ctx, prepared, assistantMessage, providerMessages, request)
 		if turnUsage != nil {
 			usage = turnUsage
 		}
@@ -183,7 +211,7 @@ func (e *Executor) executeConversation(ctx context.Context, prepared preparedExe
 
 		if shouldPersistMessage(assistantMessage) {
 			transcript = append(transcript, cloneMessage(assistantMessage))
-			providerPayload, include, payloadErr := providerPayloadForMessage(assistantMessage)
+			providerPayload, include, payloadErr := providerPayloadForMessage(prepared.provider, assistantMessage)
 			if payloadErr != nil {
 				return e.buildResult(transcript, toolCalls, usage), payloadErr
 			}
@@ -211,12 +239,13 @@ func (e *Executor) executeConversation(ctx context.Context, prepared preparedExe
 	return e.buildResult(transcript, toolCalls, usage), ErrToolLoopLimitExceeded
 }
 
-func (e *Executor) executeTurn(ctx context.Context, prepared preparedExecution, assistantMessage map[string]any, providerMessages []map[string]any) (map[string]any, error) {
-	requestBody, err := buildOpenAIChatCompletionParams(prepared.model, providerMessages, prepared.toolDefinitions)
-	if err != nil {
-		return nil, err
-	}
-
+func (e *Executor) executeTurn(
+	ctx context.Context,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	providerMessages []map[string]any,
+	request agentruns.ExecutionRequest,
+) (map[string]any, error) {
 	if prepared.emitStream {
 		if err := e.applyChunk(ctx, prepared, realtime.MessageStartEvent{
 			Type:    realtime.StreamingEventTypeMessageStart,
@@ -226,7 +255,7 @@ func (e *Executor) executeTurn(ctx context.Context, prepared preparedExecution, 
 		}
 	}
 
-	usage, err := e.consumeOpenAIStream(ctx, prepared, assistantMessage, requestBody)
+	usage, err := e.consumeProviderStream(ctx, prepared, assistantMessage, providerMessages, request)
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
 			if finishErr := e.finishStream(ctx, prepared, assistantMessage, true); finishErr != nil {
@@ -248,6 +277,31 @@ func (e *Executor) executeTurn(ctx context.Context, prepared preparedExecution, 
 	return usage, nil
 }
 
+func (e *Executor) consumeProviderStream(
+	ctx context.Context,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	providerMessages []map[string]any,
+	request agentruns.ExecutionRequest,
+) (map[string]any, error) {
+	switch prepared.provider {
+	case openAIProvider:
+		requestBody, err := buildOpenAIChatCompletionParams(prepared.model, providerMessages, prepared.toolDefinitions)
+		if err != nil {
+			return nil, err
+		}
+		return e.consumeOpenAIStream(ctx, prepared, assistantMessage, requestBody)
+	case anthropicProvider:
+		requestBody, err := buildAnthropicMessageParams(request, prepared.systemPrompt, providerMessages, prepared.toolDefinitions)
+		if err != nil {
+			return nil, err
+		}
+		return e.consumeAnthropicStream(ctx, prepared, assistantMessage, requestBody)
+	default:
+		return nil, fmt.Errorf("%w: %q", ErrProviderUnsupported, prepared.provider)
+	}
+}
+
 func (e *Executor) consumeOpenAIStream(
 	ctx context.Context,
 	prepared preparedExecution,
@@ -258,7 +312,7 @@ func (e *Executor) consumeOpenAIStream(
 	accumulator := newToolCallAccumulator()
 	previewAccumulator := newToolPreviewAccumulator()
 
-	stream := prepared.client.Chat.Completions.NewStreaming(ctx, requestBody, prepared.requestOverrides...)
+	stream := prepared.openAIClient.Chat.Completions.NewStreaming(ctx, requestBody, prepared.openAIRequestOpts...)
 	for stream.Next() {
 		if ctx.Err() != nil {
 			return usage, context.Canceled
@@ -476,7 +530,7 @@ func (e *Executor) executeToolCalls(ctx context.Context, prepared preparedExecut
 			return nil, nil, err
 		}
 
-		payload, include, err := providerPayloadForMessage(toolMessage)
+		payload, include, err := providerPayloadForMessage(prepared.provider, toolMessage)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -518,28 +572,30 @@ func shouldPersistMessage(message map[string]any) bool {
 	return strings.TrimSpace(stringValue(message["role"])) == "tool"
 }
 
-func providerPayloadForMessage(message map[string]any) (map[string]any, bool, error) {
-	_, payload, include, err := normalizeTranscriptMessage(message)
-	return payload, include, err
+func providerPayloadForMessage(provider string, message map[string]any) (map[string]any, bool, error) {
+	normalized, err := normalizeTranscriptMessage(message)
+	if err != nil {
+		return nil, false, err
+	}
+	switch provider {
+	case openAIProvider:
+		return buildOpenAIProviderMessage(normalized)
+	case anthropicProvider:
+		return buildAnthropicProviderMessage(normalized)
+	default:
+		return nil, false, fmt.Errorf("%w: %q", ErrProviderUnsupported, provider)
+	}
 }
 
-func buildMessages(request agentruns.ExecutionRequest) ([]map[string]any, []map[string]any, error) {
-	systemPrompt := strings.TrimSpace(request.SystemPrompt)
-	providerMessages := []map[string]any{
-		{
-			"role":    "system",
-			"content": systemPrompt,
-		},
-	}
+func buildMessages(provider string, request agentruns.ExecutionRequest) ([]map[string]any, []map[string]any, error) {
 	transcript := []map[string]any{}
 
 	if rawMessages, ok := request.Inputs["messages"]; ok {
-		messages, providerPayloads, err := parseTranscriptMessages(rawMessages)
+		messages, err := parseTranscriptMessages(rawMessages)
 		if err != nil {
 			return nil, nil, err
 		}
 		transcript = append(transcript, messages...)
-		providerMessages = append(providerMessages, providerPayloads...)
 	}
 	if rawPrompt, ok := request.Inputs["prompt"]; ok {
 		prompt, ok := rawPrompt.(string)
@@ -560,99 +616,103 @@ func buildMessages(request agentruns.ExecutionRequest) ([]map[string]any, []map[
 				"attachments": []any{},
 			}
 			transcript = append(transcript, cloneMessage(userMessage))
-			providerMessages = append(providerMessages, map[string]any{
-				"role":    "user",
-				"content": trimmed,
-			})
 		}
 	}
-
+	providerMessages, err := buildProviderMessages(provider, strings.TrimSpace(request.SystemPrompt), transcript)
+	if err != nil {
+		return nil, nil, err
+	}
 	return transcript, providerMessages, nil
 }
 
-func parseTranscriptMessages(raw any) ([]map[string]any, []map[string]any, error) {
+func parseTranscriptMessages(raw any) ([]map[string]any, error) {
 	rawList, ok := raw.([]any)
 	if !ok {
-		return nil, nil, fmt.Errorf("%w: messages must be a list", agentruns.ErrInvalidRunInput)
+		return nil, fmt.Errorf("%w: messages must be a list", agentruns.ErrInvalidRunInput)
 	}
 	transcript := make([]map[string]any, 0, len(rawList))
-	providerPayloads := make([]map[string]any, 0, len(rawList))
 	for index, entry := range rawList {
 		message, ok := entry.(map[string]any)
 		if !ok {
-			return nil, nil, fmt.Errorf("%w: message %d must be an object", ErrHistoryUnsupported, index)
+			return nil, fmt.Errorf("%w: message %d must be an object", ErrHistoryUnsupported, index)
 		}
-		normalized, payload, include, err := normalizeTranscriptMessage(message)
+		normalized, err := normalizeTranscriptMessage(message)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		transcript = append(transcript, normalized)
-		if include {
-			providerPayloads = append(providerPayloads, payload)
-		}
 	}
-	return transcript, providerPayloads, nil
+	return transcript, nil
 }
 
-func normalizeTranscriptMessage(message map[string]any) (map[string]any, map[string]any, bool, error) {
+func buildProviderMessages(provider string, systemPrompt string, transcript []map[string]any) ([]map[string]any, error) {
+	switch provider {
+	case openAIProvider:
+		messages := []map[string]any{
+			{
+				"role":    "system",
+				"content": systemPrompt,
+			},
+		}
+		for _, message := range transcript {
+			payload, include, err := buildOpenAIProviderMessage(message)
+			if err != nil {
+				return nil, err
+			}
+			if include {
+				messages = append(messages, payload)
+			}
+		}
+		return messages, nil
+	case anthropicProvider:
+		messages := make([]map[string]any, 0, len(transcript))
+		for _, message := range transcript {
+			payload, include, err := buildAnthropicProviderMessage(message)
+			if err != nil {
+				return nil, err
+			}
+			if include {
+				messages = append(messages, payload)
+			}
+		}
+		return messages, nil
+	default:
+		return nil, fmt.Errorf("%w: %q", ErrProviderUnsupported, provider)
+	}
+}
+
+func normalizeTranscriptMessage(message map[string]any) (map[string]any, error) {
 	normalized := cloneMessage(message)
 	messageID := strings.TrimSpace(stringValue(normalized["id"]))
 	if messageID == "" {
-		return nil, nil, false, fmt.Errorf("%w: message id is required", ErrHistoryUnsupported)
+		return nil, fmt.Errorf("%w: message id is required", ErrHistoryUnsupported)
 	}
 	role := strings.TrimSpace(stringValue(normalized["role"]))
 	switch role {
 	case "system", "user", "assistant", "tool":
 	default:
-		return nil, nil, false, fmt.Errorf("%w: role %q", ErrHistoryUnsupported, role)
+		return nil, fmt.Errorf("%w: role %q", ErrHistoryUnsupported, role)
 	}
 	if hasNonEmptyAttachments(normalized["attachments"]) {
-		return nil, nil, false, ErrAttachmentsUnsupported
+		return nil, ErrAttachmentsUnsupported
 	}
-	toolCalls, hasToolCalls, err := normalizeProviderToolCalls(normalized["tool_calls"], role)
-	if err != nil {
-		return nil, nil, false, err
+	if _, _, err := normalizeProviderToolCalls(normalized["tool_calls"], role); err != nil {
+		return nil, err
 	}
 	toolCallID := strings.TrimSpace(stringValue(normalized["tool_call_id"]))
 	if role == "tool" && toolCallID == "" {
-		return nil, nil, false, fmt.Errorf("%w: tool messages require tool_call_id", ErrToolsUnsupported)
+		return nil, fmt.Errorf("%w: tool messages require tool_call_id", ErrToolsUnsupported)
 	}
 	if role != "tool" && toolCallID != "" {
-		return nil, nil, false, ErrToolsUnsupported
+		return nil, ErrToolsUnsupported
 	}
-	content, include, err := normalizeProviderMessageContent(normalized["content"])
-	if err != nil {
-		return nil, nil, false, err
+	if _, _, err := normalizeProviderMessageContent(normalized["content"]); err != nil {
+		return nil, err
 	}
 	if _, ok := normalized["attachments"]; !ok {
 		normalized["attachments"] = []any{}
 	}
-	payload := map[string]any{"role": role}
-	switch role {
-	case "assistant":
-		payload["content"] = providerContentValue(content)
-		if hasToolCalls {
-			payload["tool_calls"] = messagesToAnyList(toolCalls)
-			return normalized, payload, true, nil
-		}
-		return normalized, payload, include, nil
-	case "tool":
-		providerContent := content
-		if !include {
-			fallback, fallbackErr := normalizeProviderToolResultContent(normalized["result"])
-			if fallbackErr != nil {
-				return nil, nil, false, fallbackErr
-			}
-			providerContent = fallback
-			include = strings.TrimSpace(providerContent) != ""
-		}
-		payload["content"] = providerContent
-		payload["tool_call_id"] = toolCallID
-		return normalized, payload, true, nil
-	default:
-		payload["content"] = content
-		return normalized, payload, include, nil
-	}
+	return normalized, nil
 }
 
 func normalizeProviderMessageContent(raw any) (string, bool, error) {

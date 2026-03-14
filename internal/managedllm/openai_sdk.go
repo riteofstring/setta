@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	openai "github.com/openai/openai-go/v3"
-	"github.com/openai/openai-go/v3/option"
+	openaioption "github.com/openai/openai-go/v3/option"
 	"github.com/openai/openai-go/v3/shared"
 	"setta/internal/agentruns"
 )
@@ -20,25 +20,25 @@ func buildOpenAIClient(request agentruns.ExecutionRequest, httpClient *http.Clie
 		return openai.Client{}, err
 	}
 
-	options := []option.RequestOption{
-		option.WithHTTPClient(httpClient),
-		option.WithBaseURL(resolveOpenAIBaseURL(request)),
+	options := []openaioption.RequestOption{
+		openaioption.WithHTTPClient(httpClient),
+		openaioption.WithBaseURL(resolveOpenAIBaseURL(request)),
 	}
 	if apiKey != "" {
-		options = append(options, option.WithAPIKey(apiKey))
+		options = append(options, openaioption.WithAPIKey(apiKey))
 	}
 	return openai.NewClient(options...), nil
 }
 
-func buildOpenAIRequestOverrides(request agentruns.ExecutionRequest) ([]option.RequestOption, error) {
-	overrides := []option.RequestOption{}
+func buildOpenAIRequestOverrides(request agentruns.ExecutionRequest) ([]openaioption.RequestOption, error) {
+	overrides := []openaioption.RequestOption{}
 	for key, value := range request.RequestParams {
 		trimmedKey := strings.TrimSpace(key)
 		switch trimmedKey {
 		case "", "model", "messages", "stream", "stream_options", "api_key", "custom_llm_provider", "api_base", "tools", "tool_choice", "functions", "function_call", "reasoning_effort":
 			continue
 		default:
-			overrides = append(overrides, option.WithJSONSet(trimmedKey, cloneJSONValue(value)))
+			overrides = append(overrides, openaioption.WithJSONSet(trimmedKey, cloneJSONValue(value)))
 		}
 	}
 
@@ -47,9 +47,9 @@ func buildOpenAIRequestOverrides(request agentruns.ExecutionRequest) ([]option.R
 		return nil, err
 	}
 	if enabled {
-		overrides = append(overrides, option.WithJSONSet("reasoning_effort", string(reasoningEffort)))
+		overrides = append(overrides, openaioption.WithJSONSet("reasoning_effort", string(reasoningEffort)))
 	} else if rawReasoningEffort, ok := request.RequestParams["reasoning_effort"]; ok {
-		overrides = append(overrides, option.WithJSONSet("reasoning_effort", cloneJSONValue(rawReasoningEffort)))
+		overrides = append(overrides, openaioption.WithJSONSet("reasoning_effort", cloneJSONValue(rawReasoningEffort)))
 	}
 	return overrides, nil
 }
@@ -187,6 +187,56 @@ func buildOpenAIChatCompletionParams(
 		params.Tools = tools
 	}
 	return params, nil
+}
+
+func buildOpenAIProviderMessage(message map[string]any) (map[string]any, bool, error) {
+	role := strings.TrimSpace(stringValue(message["role"]))
+	payload := map[string]any{"role": role}
+	switch role {
+	case "system", "user":
+		content, include, err := normalizeProviderMessageContent(message["content"])
+		if err != nil {
+			return nil, false, err
+		}
+		payload["content"] = content
+		return payload, include, nil
+	case "assistant":
+		content, include, err := normalizeProviderMessageContent(message["content"])
+		if err != nil {
+			return nil, false, err
+		}
+		toolCalls, hasToolCalls, err := normalizeProviderToolCalls(message["tool_calls"], role)
+		if err != nil {
+			return nil, false, err
+		}
+		payload["content"] = providerContentValue(content)
+		if hasToolCalls {
+			payload["tool_calls"] = messagesToAnyList(toolCalls)
+			return payload, true, nil
+		}
+		return payload, include, nil
+	case "tool":
+		content, include, err := normalizeProviderMessageContent(message["content"])
+		if err != nil {
+			return nil, false, err
+		}
+		if !include {
+			fallback, fallbackErr := normalizeProviderToolResultContent(message["result"])
+			if fallbackErr != nil {
+				return nil, false, fallbackErr
+			}
+			content = fallback
+		}
+		toolCallID := strings.TrimSpace(stringValue(message["tool_call_id"]))
+		if toolCallID == "" {
+			return nil, false, fmt.Errorf("%w: tool messages require tool_call_id", ErrToolsUnsupported)
+		}
+		payload["content"] = content
+		payload["tool_call_id"] = toolCallID
+		return payload, true, nil
+	default:
+		return nil, false, fmt.Errorf("%w: role %q", ErrHistoryUnsupported, role)
+	}
 }
 
 func buildOpenAIChatMessages(providerMessages []map[string]any) ([]openai.ChatCompletionMessageParamUnion, error) {

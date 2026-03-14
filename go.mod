@@ -10,6 +10,7 @@ require (
 )
 
 require (
+	github.com/anthropics/anthropic-sdk-go v1.26.0
 	github.com/aymanbagabas/go-pty v0.2.2
 	github.com/coder/websocket v1.8.14
 	github.com/creack/pty v1.1.21
@@ -50,8 +51,9 @@ require (
 	github.com/u-root/u-root v0.11.0 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
-	golang.org/x/crypto v0.32.0 // indirect
+	golang.org/x/crypto v0.40.0 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
 	golang.org/x/oauth2 v0.34.0 // indirect
-	golang.org/x/text v0.23.0 // indirect
+	golang.org/x/sync v0.16.0 // indirect
+	golang.org/x/text v0.27.0 // indirect
 )

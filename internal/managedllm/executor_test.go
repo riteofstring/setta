@@ -501,6 +501,126 @@ func TestExecutorRejectsThinkingWithoutExplicitProviderConfig(t *testing.T) {
 	}
 }
 
+func TestExecutorExecuteStreamsAnthropicManagedChatAndReturnsOutputs(t *testing.T) {
+	t.Parallel()
+
+	var seenRequest map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/messages" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+		if got := r.Header.Get("X-Api-Key"); got != "secret" {
+			t.Fatalf("unexpected auth header %q", got)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&seenRequest); err != nil {
+			t.Fatalf("decode provider request: %v", err)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected flusher")
+		}
+		fmt.Fprint(w, anthropicMessageStartEvent("msg-text", "claude-sonnet-4-5-20250929", 11, 0))
+		flusher.Flush()
+		fmt.Fprint(w, anthropicTextBlockStartEvent(0))
+		flusher.Flush()
+		fmt.Fprint(w, anthropicTextDeltaEvent(0, "Hello"))
+		flusher.Flush()
+		fmt.Fprint(w, anthropicTextDeltaEvent(0, " world"))
+		flusher.Flush()
+		fmt.Fprint(w, anthropicContentBlockStopEvent(0))
+		flusher.Flush()
+		fmt.Fprint(w, anthropicMessageDeltaEvent("end_turn", 11, 2))
+		flusher.Flush()
+		fmt.Fprint(w, anthropicMessageStopEvent())
+		flusher.Flush()
+	}))
+	defer server.Close()
+
+	broadcaster := &captureBroadcaster{}
+	live := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{Broadcaster: broadcaster})
+	run := newManagedChatTestRun()
+	live.ActivateRun(run)
+
+	executor := NewExecutor(ExecutorOptions{
+		Live:       live,
+		HTTPClient: server.Client(),
+	})
+	result, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
+		Run: run,
+		LLMConfig: llmconfig.Config{
+			ID:        "primary",
+			Model:     "claude-sonnet-4-5-20250929",
+			Provider:  "anthropic",
+			BaseURL:   server.URL,
+			APIKeyEnv: "ANTHROPIC_API_KEY",
+		},
+		APIKeys: map[string]string{
+			"ANTHROPIC_API_KEY": "secret",
+		},
+		SystemPrompt:    "System prompt",
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+			"messages": []any{
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Hello from the user"},
+					},
+					"attachments": []any{},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("execute managed anthropic stream: %v", err)
+	}
+
+	state, err := live.GetLiveChatState(run.ID)
+	if err != nil {
+		t.Fatalf("get live state: %v", err)
+	}
+	if state == nil || state.WaitingForResponse {
+		t.Fatalf("expected finalized live state, got %#v", state)
+	}
+	if len(state.Messages) != 2 {
+		t.Fatalf("expected user and assistant messages, got %#v", state.Messages)
+	}
+	if assistantText(state.Messages[1]) != "Hello world" {
+		t.Fatalf("unexpected assistant text %#v", state.Messages[1])
+	}
+	if broadcaster.Count() != 5 {
+		t.Fatalf("expected 5 streaming broadcasts, got %d", broadcaster.Count())
+	}
+
+	if seenRequest["model"] != "claude-sonnet-4-5-20250929" {
+		t.Fatalf("unexpected provider model %#v", seenRequest["model"])
+	}
+	if seenRequest["max_tokens"] != float64(defaultAnthropicMaxTokens) {
+		t.Fatalf("expected default anthropic max_tokens, got %#v", seenRequest["max_tokens"])
+	}
+	systemBlocks, ok := seenRequest["system"].([]any)
+	if !ok || len(systemBlocks) != 1 {
+		t.Fatalf("unexpected anthropic system blocks %#v", seenRequest["system"])
+	}
+	messages, ok := seenRequest["messages"].([]any)
+	if !ok || len(messages) != 1 {
+		t.Fatalf("unexpected anthropic messages %#v", seenRequest["messages"])
+	}
+
+	outputMessages, ok := result.Outputs["messages"].([]any)
+	if !ok || len(outputMessages) != 2 {
+		t.Fatalf("expected two output messages, got %#v", result.Outputs["messages"])
+	}
+	usage, ok := result.Outputs["usage"].(map[string]any)
+	if !ok || int(usage["prompt_tokens"].(float64)) != 11 {
+		t.Fatalf("unexpected usage payload %#v", result.Outputs["usage"])
+	}
+}
+
 func TestExecutorValidateRejectsUnsupportedProvider(t *testing.T) {
 	t.Parallel()
 
@@ -508,12 +628,12 @@ func TestExecutorValidateRejectsUnsupportedProvider(t *testing.T) {
 	err := executor.Validate(agentruns.ExecutionRequest{
 		Run: agentruns.Run{ID: "run-alpha"},
 		LLMConfig: llmconfig.Config{
-			Model:     "claude-sonnet-4-5",
-			Provider:  "anthropic",
-			APIKeyEnv: "ANTHROPIC_API_KEY",
+			Model:     "gemini-2.5-pro",
+			Provider:  "gemini",
+			APIKeyEnv: "GEMINI_API_KEY",
 		},
 		APIKeys: map[string]string{
-			"ANTHROPIC_API_KEY": "secret",
+			"GEMINI_API_KEY": "secret",
 		},
 		SystemPrompt: "System prompt",
 		ChatID:       "chat-alpha",
@@ -523,6 +643,233 @@ func TestExecutorValidateRejectsUnsupportedProvider(t *testing.T) {
 	})
 	if !errors.Is(err, ErrProviderUnsupported) {
 		t.Fatalf("expected provider unsupported, got %v", err)
+	}
+}
+
+func TestExecutorExecuteRunsAnthropicToolCallsThroughMCPAndContinuesProviderTurns(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	temporaryIDs, err := mcpx.NewTemporaryIDStore(mcpx.TemporaryIDMapPath(root))
+	if err != nil {
+		t.Fatalf("new temporary id store: %v", err)
+	}
+	createdSectionID, err := temporaryIDs.EnsureTemporaryID("section-created")
+	if err != nil {
+		t.Fatalf("ensure temporary section id: %v", err)
+	}
+
+	requestBodies := make([]map[string]any, 0, 2)
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body := map[string]any{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode provider request: %v", err)
+		}
+		requestBodies = append(requestBodies, body)
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected flusher")
+		}
+		switch requestCount {
+		case 0:
+			fmt.Fprint(w, anthropicMessageStartEvent("msg-tool-1", "claude-sonnet-4-5-20250929", 18, 0))
+			flusher.Flush()
+			fmt.Fprint(w, anthropicToolUseBlockStartEvent(0, "tool-call-1", "setta__create_top_level_section"))
+			flusher.Flush()
+			fmt.Fprint(w, anthropicInputJSONDeltaEvent(0, `{"projectConfigId":"project-alpha","implType":"Dict"}`))
+			flusher.Flush()
+			fmt.Fprint(w, anthropicContentBlockStopEvent(0))
+			flusher.Flush()
+			fmt.Fprint(w, anthropicMessageDeltaEvent("tool_use", 18, 4))
+			flusher.Flush()
+			fmt.Fprint(w, anthropicMessageStopEvent())
+			flusher.Flush()
+		case 1:
+			fmt.Fprint(w, anthropicMessageStartEvent("msg-tool-2", "claude-sonnet-4-5-20250929", 23, 0))
+			flusher.Flush()
+			fmt.Fprint(w, anthropicTextBlockStartEvent(0))
+			flusher.Flush()
+			fmt.Fprint(w, anthropicTextDeltaEvent(0, "Tool loop complete"))
+			flusher.Flush()
+			fmt.Fprint(w, anthropicContentBlockStopEvent(0))
+			flusher.Flush()
+			fmt.Fprint(w, anthropicMessageDeltaEvent("end_turn", 23, 3))
+			flusher.Flush()
+			fmt.Fprint(w, anthropicMessageStopEvent())
+			flusher.Flush()
+		default:
+			t.Fatalf("unexpected provider request count %d", requestCount)
+		}
+		requestCount++
+	}))
+	defer server.Close()
+
+	broadcaster := &captureBroadcaster{}
+	live := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{Broadcaster: broadcaster})
+	run := newManagedChatTestRun()
+	live.ActivateRun(run)
+
+	capturedCalls := make([]struct {
+		ToolName  string
+		Arguments map[string]any
+		Meta      map[string]any
+	}, 0, 1)
+	toolClient := &stubToolClient{
+		discoverableTools: map[string]mcpx.ToolDescriptor{
+			"setta__create_top_level_section": {
+				ServerID:       mcpx.DefaultServerID,
+				NamespacedName: "setta__create_top_level_section",
+				RemoteName:     "create_top_level_section",
+				Description:    "Create a top-level section.",
+				InputSchema: map[string]any{
+					"type": "object",
+				},
+				Metadata: &tools.Metadata{
+					ResultIDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection: {"sectionId"},
+					},
+				},
+			},
+		},
+		call: func(_ context.Context, namespacedToolName string, arguments map[string]any, meta map[string]any) (mcpx.ToolCallResult, error) {
+			capturedCalls = append(capturedCalls, struct {
+				ToolName  string
+				Arguments map[string]any
+				Meta      map[string]any
+			}{
+				ToolName:  namespacedToolName,
+				Arguments: arguments,
+				Meta:      meta,
+			})
+			return mcpx.ToolCallResult{
+				StructuredContent: map[string]any{"sectionId": createdSectionID},
+				Text:              "{\"sectionId\":\"" + createdSectionID + "\"}",
+			}, nil
+		},
+	}
+
+	executor := NewExecutor(ExecutorOptions{
+		Live:       live,
+		Tools:      toolClient,
+		HTTPClient: server.Client(),
+		ResultFollow: NewToolResultFollowEmitter(ToolResultFollowEmitterOptions{
+			Broadcaster:  broadcaster,
+			TemporaryIDs: temporaryIDs,
+		}),
+	})
+	result, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
+		Profile: agentprofiles.Profile{
+			ID:   "profile-alpha",
+			Name: "Alpha",
+		},
+		Run: run,
+		LLMConfig: llmconfig.Config{
+			ID:        "primary",
+			Model:     "claude-sonnet-4-5-20250929",
+			Provider:  "anthropic",
+			BaseURL:   server.URL,
+			APIKeyEnv: "ANTHROPIC_API_KEY",
+		},
+		MCPServerIDs:           []string{mcpx.DefaultServerID},
+		CompletionGuardEnabled: true,
+		APIKeys: map[string]string{
+			"ANTHROPIC_API_KEY": "secret",
+		},
+		SystemPrompt:    "System prompt",
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+		Inputs: map[string]any{
+			"runType":       "llm_chat",
+			"allowUnscoped": true,
+			"messages": []any{
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Use the tool"},
+					},
+					"attachments": []any{},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("execute managed anthropic tool stream: %v", err)
+	}
+
+	if len(capturedCalls) != 1 {
+		t.Fatalf("expected one tool call, got %#v", capturedCalls)
+	}
+	if capturedCalls[0].ToolName != "setta__create_top_level_section" {
+		t.Fatalf("unexpected tool name %#v", capturedCalls[0])
+	}
+	if capturedCalls[0].Arguments["projectConfigId"] != "project-alpha" {
+		t.Fatalf("unexpected tool arguments %#v", capturedCalls[0].Arguments)
+	}
+
+	if len(requestBodies) != 2 {
+		t.Fatalf("expected two provider requests, got %d", len(requestBodies))
+	}
+	firstTools, ok := requestBodies[0]["tools"].([]any)
+	if !ok || len(firstTools) != 1 {
+		t.Fatalf("expected one anthropic tool definition, got %#v", requestBodies[0]["tools"])
+	}
+	secondMessages, ok := requestBodies[1]["messages"].([]any)
+	if !ok || len(secondMessages) < 3 {
+		t.Fatalf("expected follow-up anthropic transcript, got %#v", requestBodies[1]["messages"])
+	}
+	foundAssistantToolUse := false
+	foundUserToolResult := false
+	for _, rawMessage := range secondMessages {
+		message, ok := rawMessage.(map[string]any)
+		if !ok {
+			continue
+		}
+		role, _ := message["role"].(string)
+		content, _ := message["content"].([]any)
+		if role == "assistant" {
+			for _, rawBlock := range content {
+				block, _ := rawBlock.(map[string]any)
+				if block["type"] == "tool_use" && block["id"] == "tool-call-1" {
+					foundAssistantToolUse = true
+				}
+			}
+		}
+		if role == "user" {
+			for _, rawBlock := range content {
+				block, _ := rawBlock.(map[string]any)
+				if block["type"] == "tool_result" && block["tool_use_id"] == "tool-call-1" {
+					foundUserToolResult = true
+				}
+			}
+		}
+	}
+	if !foundAssistantToolUse || !foundUserToolResult {
+		t.Fatalf("expected anthropic follow-up transcript with tool_use and tool_result, got %#v", secondMessages)
+	}
+
+	messages, ok := result.Outputs["messages"].([]any)
+	if !ok || len(messages) != 4 {
+		t.Fatalf("expected user, tool-call assistant, tool, final assistant messages, got %#v", result.Outputs["messages"])
+	}
+	if len(result.ToolCalls) != 1 {
+		t.Fatalf("expected one persisted tool call, got %#v", result.ToolCalls)
+	}
+	if assistantText(messages[3].(map[string]any)) != "Tool loop complete" {
+		t.Fatalf("unexpected final assistant text %#v", messages[3])
+	}
+	if broadcaster.Count() != 10 {
+		t.Fatalf("expected 10 managed stream broadcasts, got %d", broadcaster.Count())
+	}
+	followMessages := broadcaster.ResultFollowMessages()
+	if len(followMessages) != 1 {
+		t.Fatalf("expected one result-follow update, got %#v", followMessages)
+	}
+	if got := followMessages[0].Content.IDsByType["section"]; len(got) != 1 || got[0] != "section-created" {
+		t.Fatalf("expected canonical section follow id, got %#v", followMessages[0].Content.IDsByType)
 	}
 }
 
@@ -922,4 +1269,36 @@ func filterToolDescriptorsForServers(source map[string]mcpx.ToolDescriptor, serv
 		filtered[name] = descriptor
 	}
 	return filtered
+}
+
+func anthropicMessageStartEvent(messageID string, model string, inputTokens int, outputTokens int) string {
+	return fmt.Sprintf("event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":%q,\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"model\":%q,\"stop_reason\":null,\"stop_sequence\":null,\"container\":{\"id\":\"container-1\",\"expires_at\":\"2026-03-12T00:00:00Z\"},\"usage\":{\"input_tokens\":%d,\"output_tokens\":%d,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"inference_geo\":\"us\",\"server_tool_use\":{\"web_fetch_requests\":0,\"web_search_requests\":0},\"service_tier\":\"standard\",\"cache_creation\":{\"ephemeral_1h_input_tokens\":0,\"ephemeral_5m_input_tokens\":0}}}}\n\n", messageID, model, inputTokens, outputTokens)
+}
+
+func anthropicTextBlockStartEvent(index int) string {
+	return fmt.Sprintf("event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":%d,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n", index)
+}
+
+func anthropicToolUseBlockStartEvent(index int, toolCallID string, toolName string) string {
+	return fmt.Sprintf("event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":%d,\"content_block\":{\"type\":\"tool_use\",\"id\":%q,\"name\":%q,\"input\":{}}}\n\n", index, toolCallID, toolName)
+}
+
+func anthropicTextDeltaEvent(index int, text string) string {
+	return fmt.Sprintf("event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":%d,\"delta\":{\"type\":\"text_delta\",\"text\":%q}}\n\n", index, text)
+}
+
+func anthropicInputJSONDeltaEvent(index int, partialJSON string) string {
+	return fmt.Sprintf("event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":%d,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":%q}}\n\n", index, partialJSON)
+}
+
+func anthropicContentBlockStopEvent(index int) string {
+	return fmt.Sprintf("event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":%d}\n\n", index)
+}
+
+func anthropicMessageDeltaEvent(stopReason string, inputTokens int, outputTokens int) string {
+	return fmt.Sprintf("event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":%q,\"stop_sequence\":null},\"usage\":{\"input_tokens\":%d,\"output_tokens\":%d,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"server_tool_use\":{\"web_fetch_requests\":0,\"web_search_requests\":0}}}\n\n", stopReason, inputTokens, outputTokens)
+}
+
+func anthropicMessageStopEvent() string {
+	return "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"
 }
