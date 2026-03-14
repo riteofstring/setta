@@ -73,10 +73,10 @@ Primary sources used for this checklist:
 | Complete | Listener force-refresh transport                                          | Go owns `forceRefreshListener`, and the current frontend listener actions call that Go HTTP route today.                                                                                                                                                                                                                                                                                                                                                  |
 | Partial  | Listener websocket dispatch for plugin listener endpoints                 | `internal/wsapi` plus Phase 15 listener endpoint work own websocket dispatch for plugin-registered listener endpoints, but the repo does not currently contain a non-test frontend caller that proves `/ws/listeners/{listenerID}` is part of the active caller-backed surface.                                                                                                                                                                           |
 | Partial  | Built-in listener endpoint parity beyond the active plugin caller surface | The plan still calls out built-in endpoint dispatch, listener temp-id negotiation, and related follow-ons as deferred.                                                                                                                                                                                                                                                                                                                                    |
-| Partial  | Terminal PTY runtime                                                      | `internal/terminals` owns the replacement PTY runtime, and the current IDE frontend terminal attach flow now reaches Go's `/ws/terminals/{projectID}/{sectionID}` route. Deployment/share/app terminal transport remains intentionally deferred because the Go route is still IDE-only pending a Go-owned share-policy source of truth.                                                                                                                   |
-| Partial  | Terminal websocket attach/history replay/resize behavior                  | The active IDE caller now opens Go's `/ws/terminals/{projectID}/{sectionID}` websocket path for ready/history replay/input/resize behavior. Deployment/share/app terminal viewing still uses the legacy `/{projectConfigId}/{sectionId}/{id}` websocket path until that deferred transport slice is reopened.                                                                                                                                             |
+| Complete | Terminal PTY runtime                                                      | `internal/terminals` owns the replacement PTY runtime, and the current IDE plus deployment/share/app frontend terminal attach flow now reaches Go's `/ws/terminals/{projectID}/{sectionID}` route. Deployment terminal sessions stay share-scoped and input-disabled under the Go-owned `allowRun` policy gate.                                                                                                                                          |
+| Complete | Terminal websocket attach/history replay/resize behavior                  | The active frontend now opens Go's `/ws/terminals/{projectID}/{sectionID}` websocket path for ready/history replay/input/resize behavior in IDE and deployment/share/app flows. Deployment/share/app terminal viewing uses the same canonical route with `shareSessionId` query binding and read-only terminal input semantics.                                                                                                                            |
 | Partial  | Terminal cleanup HTTP routes                                              | Go registers `deleteTerminals`, `interruptTerminalProcesses`, and the caller-backed `killSubprocesses` adapter. The active frontend stop-code flow now reaches Go over the canonical generated `killSubprocesses` binding, while `interruptTerminalProcesses` still lacks a generated frontend caller.                                                                                                                                                    |
-| Partial  | `runCode` execution path                                                  | Go owns the current IDE/share/app `runCode` surface, and the active `runOrImportCode`, `RunButton`, and `AppRenderer` callers now reach that Go HTTP route over the canonical generated `runCode` binding. IDE terminal output reaches the Go `/ws/terminals/{projectID}/{sectionID}` websocket route, `cliId` output transport is still explicitly unsupported, and deployment/share/app terminal viewing remains on the deferred legacy websocket path. |
+| Complete | `runCode` execution path                                                  | Go owns the current IDE/share/app `runCode` surface, and the active `runOrImportCode`, `RunButton`, and `AppRenderer` callers now reach that Go HTTP route over the canonical generated `runCode` binding. Terminal viewing for those runs now flows through Go's `/ws/terminals/{projectID}/{sectionID}` websocket route in IDE and deployment/share/app mode; `cliId` output transport remains explicitly unsupported. |
 
 ## 4. Project state, project shell, code editing, LSP, and watch-code
 
@@ -205,9 +205,7 @@ callers.
 
 ### Active current-frontend callers that still hit Python-owned routes
 
-- Python-era websocket route shapes still used by the current frontend:
-  - deployment/share/app terminal websocket path `/{projectConfigId}/{sectionId}/{id}`
-- Password and subprocess helper routes:
+- None confirmed in the current worktree.
 
 ### Dormant or not-proven-current-caller legacy families
 
@@ -268,11 +266,10 @@ main product-facing runtime surface:
 - current agentic, app-gen skills, and transcription surfaces
 
 The remaining gaps are concentrated in older Python-only route tails,
-intentionally bounded AI/plugin behavior, still-live frontend callers that
-continue to hit Python-owned HTTP routes, and the remaining deployment/share/app
-terminal websocket path shape. The old `loadAvailableArtifacts` helper no
-longer has a reachable frontend caller in this worktree and should be treated as
-dormant route-enum residue, not active rewrite surface.
+intentionally bounded AI/plugin behavior, and dormant detached-run/CLI-output
+transport. The old `loadAvailableArtifacts` helper no longer has a reachable
+frontend caller in this worktree and should be treated as dormant route-enum
+residue, not active rewrite surface.
 
 Treat the active caller-backed gaps as remaining rewrite surface, not as
 dormant historical debris.
