@@ -78,6 +78,17 @@ func (a *toolCallAccumulator) applyResolved(index int, toolCallID string, toolNa
 	return state
 }
 
+func (a *toolCallAccumulator) currentArguments(index int) string {
+	if a == nil {
+		return ""
+	}
+	state, ok := a.byIndex[index]
+	if !ok || state == nil {
+		return ""
+	}
+	return state.arguments.String()
+}
+
 func (a *toolCallAccumulator) finalize() ([]map[string]any, error) {
 	if a == nil || len(a.byIndex) == 0 {
 		return nil, nil

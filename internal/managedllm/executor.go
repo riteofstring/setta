@@ -735,43 +735,30 @@ func (e *Executor) processOpenAIResponseEvent(
 	case responses.ResponseFunctionCallArgumentsDeltaEvent:
 		argumentsDelta := typed.Delta
 		state := accumulator.apply(int(typed.OutputIndex), "", "", argumentsDelta)
-		if state == nil || strings.TrimSpace(state.id) == "" {
-			return nil, nil
-		}
-		var toolName *string
-		if strings.TrimSpace(state.name) != "" {
-			toolName = optionalStringPointer(state.name)
-		}
-		if err := e.applyChunk(ctx, prepared, realtime.ToolCallDeltaEvent{
-			Type:           realtime.StreamingEventTypeToolCallDelta,
-			MessageID:      stringValue(assistantMessage["id"]),
-			ToolCallID:     strings.TrimSpace(state.id),
-			ArgumentsDelta: argumentsDelta,
-			ToolName:       toolName,
-		}); err != nil {
-			return nil, err
-		}
-		descriptor, ok := prepared.availableTools[mcpx.NormalizeToolName(state.name)]
-		if !ok || descriptor.Metadata == nil || descriptor.Metadata.ToolArgumentPreview == nil {
-			return nil, nil
-		}
-		previewEvent, err := previewAccumulator.buildEvent(
-			stringValue(assistantMessage["id"]),
+		if err := e.emitOpenAIResponseToolArgumentUpdate(
+			ctx,
+			prepared,
+			assistantMessage,
+			previewAccumulator,
 			state,
-			descriptor.Metadata.ToolArgumentPreview,
 			argumentsDelta,
-			prepared.temporaryToCanonical,
-		)
-		if err != nil {
+		); err != nil {
 			return nil, err
-		}
-		if previewEvent != nil {
-			if err := e.applyChunk(ctx, prepared, *previewEvent); err != nil {
-				return nil, err
-			}
 		}
 	case responses.ResponseFunctionCallArgumentsDoneEvent:
-		accumulator.applyResolved(int(typed.OutputIndex), "", typed.Name, typed.Arguments)
+		previousArguments := accumulator.currentArguments(int(typed.OutputIndex))
+		state := accumulator.applyResolved(int(typed.OutputIndex), "", typed.Name, typed.Arguments)
+		argumentsDelta := authoritativeResponseReplacementSuffix(previousArguments, typed.Arguments)
+		if err := e.emitOpenAIResponseToolArgumentUpdate(
+			ctx,
+			prepared,
+			assistantMessage,
+			previewAccumulator,
+			state,
+			argumentsDelta,
+		); err != nil {
+			return nil, err
+		}
 	case responses.ResponseCompletedEvent:
 		e.applyOpenAICompletedResponseFallback(assistantMessage, typed.Response, streamState, accumulator)
 		return buildResponseUsagePayload(typed.Response.Usage), nil
@@ -1030,6 +1017,52 @@ func (e *Executor) emitOpenAIResponseThinkingDelta(
 			},
 		},
 	})
+}
+
+func (e *Executor) emitOpenAIResponseToolArgumentUpdate(
+	ctx context.Context,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	previewAccumulator *toolPreviewAccumulator,
+	state *toolCallState,
+	argumentsDelta string,
+) error {
+	if state == nil || strings.TrimSpace(state.id) == "" {
+		return nil
+	}
+	var toolName *string
+	if strings.TrimSpace(state.name) != "" {
+		toolName = optionalStringPointer(state.name)
+	}
+	if argumentsDelta != "" {
+		if err := e.applyChunk(ctx, prepared, realtime.ToolCallDeltaEvent{
+			Type:           realtime.StreamingEventTypeToolCallDelta,
+			MessageID:      stringValue(assistantMessage["id"]),
+			ToolCallID:     strings.TrimSpace(state.id),
+			ArgumentsDelta: argumentsDelta,
+			ToolName:       toolName,
+		}); err != nil {
+			return err
+		}
+	}
+	descriptor, ok := prepared.availableTools[mcpx.NormalizeToolName(state.name)]
+	if !ok || descriptor.Metadata == nil || descriptor.Metadata.ToolArgumentPreview == nil {
+		return nil
+	}
+	previewEvent, err := previewAccumulator.buildEvent(
+		stringValue(assistantMessage["id"]),
+		state,
+		descriptor.Metadata.ToolArgumentPreview,
+		argumentsDelta,
+		prepared.temporaryToCanonical,
+	)
+	if err != nil {
+		return err
+	}
+	if previewEvent == nil {
+		return nil
+	}
+	return e.applyChunk(ctx, prepared, *previewEvent)
 }
 
 func (e *Executor) applyOpenAICompletedResponseFallback(
