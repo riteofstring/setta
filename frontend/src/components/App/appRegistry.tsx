@@ -28,13 +28,13 @@ import {
   sendRealtimeSectionParamLiteral,
 } from "state/actions/websocketReceive";
 import {
-  useAppConfigs,
   useDecodedImages,
   useImages,
-  useServerMode,
 } from "state/definitions";
 import { decodeExistingRawImages } from "state/hooks/artifacts";
 import { useLocalPendingValue } from "state/hooks/utils";
+import { useAppConfigs } from "state/stores/appStores";
+import { useServerMode } from "state/stores/sessionStores";
 import { bumpRemoteRevisions } from "state/utils/revisions";
 import {
   CODEMIRROR_TOOLTIP_PARENT_ID,
@@ -43,7 +43,7 @@ import {
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
 import {
   route_get_password_param_value,
   route_load_cached_image_artifacts,
@@ -51,7 +51,6 @@ import {
 } from "utils/generatedEndpoints";
 import type {
   DateParamCodeObjImpl,
-  LoadCachedImageArtifactsResponse,
   TimeParamCodeObjImpl,
 } from "utils/generatedTypes";
 import {
@@ -126,9 +125,6 @@ const BOX_BACKGROUND_BY_ROLE: Record<string, string> = {
   surfaceAlt: "var(--app-surface-alt)",
   card: "var(--app-card-bg)",
 };
-
-type LoadCachedImageArtifactsRouteResponse =
-  ResponseDataAndStatus<LoadCachedImageArtifactsResponse>;
 
 function resolveConfigId(
   bindingConfigId: string | null,
@@ -1535,8 +1531,7 @@ async function loadCachedImagesById(paths: Array<string>) {
   if (paths.length === 0) {
     return;
   }
-  const res: LoadCachedImageArtifactsRouteResponse =
-    await route_load_cached_image_artifacts({ paths });
+  const res = await route_load_cached_image_artifacts({ paths });
   if (res200(res)) {
     useImages.setState((state) => {
       const next = { ...state.x };
