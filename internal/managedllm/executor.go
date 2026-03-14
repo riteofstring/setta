@@ -602,6 +602,10 @@ func (e *Executor) processOpenAIResponseEvent(
 			streamState,
 			accumulator,
 		)
+	case responses.ResponseContentPartDoneEvent:
+		if err := e.applyOpenAIResponseContentPartDone(ctx, prepared, assistantMessage, streamState, typed.Part); err != nil {
+			return nil, err
+		}
 	case responses.ResponseReasoningSummaryTextDeltaEvent:
 		streamState.reasoningSeen = true
 		streamState.reasoningEmitted = true
@@ -748,6 +752,63 @@ func (e *Executor) processOpenAIResponseEvent(
 		return nil, fmt.Errorf("managed llm provider request failed: response incomplete (%s)", reason)
 	}
 	return nil, nil
+}
+
+func (e *Executor) applyOpenAIResponseContentPartDone(
+	ctx context.Context,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	streamState *openAIResponseStreamState,
+	part responses.ResponseContentPartDoneEventPartUnion,
+) error {
+	switch typed := part.AsAny().(type) {
+	case responses.ResponseOutputText:
+		if strings.TrimSpace(typed.Text) == "" {
+			return nil
+		}
+		if streamState != nil {
+			streamState.bufferedText.Reset()
+		}
+		textIndex := openAIResponseTextIndex(assistantMessage, streamState)
+		textDelta := authoritativeResponseReplacementSuffix(currentAssistantTextAtIndex(assistantMessage, textIndex), typed.Text)
+		setAssistantTextAtIndex(assistantMessage, textIndex, typed.Text)
+		if textDelta == "" {
+			return nil
+		}
+		return e.emitOpenAIResponseTextDelta(ctx, prepared, assistantMessage, textIndex, textDelta)
+	case responses.ResponseOutputRefusal:
+		if strings.TrimSpace(typed.Refusal) == "" {
+			return nil
+		}
+		if streamState != nil {
+			streamState.bufferedText.Reset()
+		}
+		textIndex := openAIResponseTextIndex(assistantMessage, streamState)
+		textDelta := authoritativeResponseReplacementSuffix(currentAssistantTextAtIndex(assistantMessage, textIndex), typed.Refusal)
+		setAssistantTextAtIndex(assistantMessage, textIndex, typed.Refusal)
+		if textDelta == "" {
+			return nil
+		}
+		return e.emitOpenAIResponseTextDelta(ctx, prepared, assistantMessage, textIndex, textDelta)
+	case responses.ResponseContentPartDoneEventPartReasoningText:
+		if strings.TrimSpace(typed.Text) == "" {
+			return nil
+		}
+		if streamState != nil {
+			streamState.reasoningSeen = true
+			streamState.reasoningEmitted = true
+		}
+		thinkingDelta := authoritativeResponseReplacementSuffix(currentAssistantThinkingTextAtIndex(assistantMessage, 0), typed.Text)
+		setAssistantThinkingTextAtIndex(assistantMessage, 0, typed.Text)
+		if thinkingDelta != "" {
+			if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, thinkingDelta, nil); err != nil {
+				return err
+			}
+		}
+		return e.flushBufferedOpenAIResponseText(ctx, prepared, assistantMessage, streamState, false)
+	default:
+		return nil
+	}
 }
 
 func (e *Executor) applyOpenAIResponseTextDelta(
