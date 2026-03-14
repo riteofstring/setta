@@ -28,6 +28,7 @@ export const OverviewTabNameEnum = {
   ViewModes: "ViewModes",
   Notifications: "Notifications",
   ProjectAIChat: "ProjectAIChat",
+  ProjectAISettings: "ProjectAISettings",
 } as const;
 
 export type OverviewTabName = ObjectValues<typeof OverviewTabNameEnum>;
@@ -66,6 +67,7 @@ export const OverviewTabNamePrettified = {
   [OverviewTabNameEnum.ViewModes]: "View Modes",
   [OverviewTabNameEnum.Notifications]: "Notifications",
   [OverviewTabNameEnum.ProjectAIChat]: "Project AI Chat",
+  [OverviewTabNameEnum.ProjectAISettings]: "Project AI Settings",
 } as const satisfies Record<OverviewTabName, string>;
 
 const PLUGIN_OVERVIEW_TAB_PREFIX = "PluginPane";

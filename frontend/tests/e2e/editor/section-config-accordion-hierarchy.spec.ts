@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import {
+  clearProjectChatWindows,
   cleanupIsolatedProject,
   createTextBlockSection,
   ensureAppReady,
@@ -22,6 +23,7 @@ test.describe.serial("section config accordion hierarchy", () => {
     const projectContext = await openIsolatedProject(page);
 
     try {
+      await clearProjectChatWindows(page);
       const { sectionId } = await createTextBlockSection(
         page,
         projectContext.projectConfigId,
@@ -92,6 +94,7 @@ test.describe.serial("section config accordion hierarchy", () => {
     const projectContext = await openIsolatedProject(page);
 
     try {
+      await clearProjectChatWindows(page);
       const created = await postBackend<{ sectionId?: string }>(
         page,
         "/createTopLevelSection",
@@ -147,6 +150,7 @@ test.describe.serial("section config accordion hierarchy", () => {
     const projectContext = await openIsolatedProject(page);
 
     try {
+      await clearProjectChatWindows(page);
       const textBlock = await createTextBlockSection(
         page,
         projectContext.projectConfigId,

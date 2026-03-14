@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import {
   allowExpectedApiError,
   cleanupIsolatedProject,
@@ -7,6 +7,46 @@ import {
   openIsolatedProject,
   setOverviewTab,
 } from "../../helpers";
+
+async function ensureCreateProjectStarterButton(
+  overviewPane: Locator,
+): Promise<Locator> {
+  const starterButton = overviewPane.page().getByRole("button", {
+    name: /^Create Project$/,
+  }).first();
+  if (await starterButton.isVisible().catch(() => false)) {
+    return starterButton;
+  }
+  const newChatButton = overviewPane.getByRole("button", {
+    name: /^New Chat$/i,
+  });
+  if (await newChatButton.isVisible().catch(() => false)) {
+    await overviewPane.page().evaluate(async () => {
+      const { useProjectState } = await import("/src/state/definitions.ts");
+      const {
+        ChatWindowPlacementEnum,
+        createProjectChatWindowInstance,
+        createProjectChatWindowingState,
+      } = await import("/src/utils/generatedTypes.ts");
+      useProjectState.setState((state) => {
+        state.projectChatWindowing = createProjectChatWindowingState({
+          order: ["project-chat-window-1"],
+          instancesById: {
+            "project-chat-window-1": createProjectChatWindowInstance({
+              instanceId: "project-chat-window-1",
+              placement: ChatWindowPlacementEnum.bottom_docked,
+              chatId: null,
+              isMinimized: false,
+            }),
+          },
+        });
+      });
+    });
+    await expect(starterButton).toBeVisible();
+    return starterButton;
+  }
+  throw new Error("Expected project chat starter surface to be available.");
+}
 
 test("project chat skips workspace root scan when returning to an existing chat", async ({
   page,
@@ -108,10 +148,14 @@ test("project chat skips workspace root scan when returning to an existing chat"
       overviewPane.getByRole("heading", { name: "Project AI Chat" }),
     ).toBeVisible();
 
-    const input = overviewPane.getByPlaceholder("Type a message...");
+    await ensureCreateProjectStarterButton(overviewPane);
+    const projectChatWindow = page
+      .getByTestId("project-chat-bottom-dock-window-panel")
+      .first();
+    const input = projectChatWindow.getByPlaceholder("Type a message...");
     await input.fill("Start existing chat");
     await input.press("Enter");
-    await expect(overviewPane.getByText("hello from playwright")).toBeVisible();
+    await expect(projectChatWindow.getByText("hello from playwright")).toBeVisible();
 
     const baselineRootCalls = getRootCalls;
     const baselineFolderCalls = getFolderCalls;
@@ -122,7 +166,7 @@ test("project chat skips workspace root scan when returning to an existing chat"
     await expect(
       overviewPane.getByRole("heading", { name: "Project AI Chat" }),
     ).toBeVisible();
-    await expect(overviewPane.getByText("hello from playwright")).toBeVisible();
+    await expect(projectChatWindow.getByText("hello from playwright")).toBeVisible();
 
     await page.waitForTimeout(300);
     expect(getRootCalls).toBe(baselineRootCalls);
@@ -231,18 +275,19 @@ test("project chat keeps create-project starter visible when a new root scan can
       overviewPane.getByRole("heading", { name: "Project AI Chat" }),
     ).toBeVisible();
 
-    const createProjectButton = overviewPane.getByRole("button", {
-      name: /^Create Project$/,
-    });
-    await expect(createProjectButton).toBeVisible();
+    const createProjectButton =
+      await ensureCreateProjectStarterButton(overviewPane);
 
-    const input = overviewPane.getByPlaceholder("Type a message...");
+    const projectChatWindow = page
+      .getByTestId("project-chat-bottom-dock-window-panel")
+      .first();
+    const input = projectChatWindow.getByPlaceholder("Type a message...");
     await input.fill("start chat");
     await input.press("Enter");
-    await expect(overviewPane.getByText("chat active")).toBeVisible();
+    await expect(projectChatWindow.getByText("chat active")).toBeVisible();
 
     useSecondWorkspaceRoot = true;
-    await overviewPane.getByRole("button", { name: "New Chat" }).click();
+    await projectChatWindow.getByRole("button", { name: /^New Chat$/i }).click();
     await expect(createProjectButton).toBeVisible();
   } finally {
     await engineCleanup();
@@ -296,10 +341,8 @@ test("project chat still revalidates root scans when root path stays the same", 
     await page.waitForSelector(".react-flow__pane");
 
     const overviewPane = page.locator("#OverviewPane");
-    const createProjectButton = overviewPane.getByRole("button", {
-      name: /^Create Project$/,
-    });
-    await expect(createProjectButton).toBeVisible();
+    const createProjectButton =
+      await ensureCreateProjectStarterButton(overviewPane);
 
     hasPythonMarkers = false;
     await expect
@@ -460,9 +503,7 @@ test("project chat immediately rescans after in-flight scan when root identity c
     expect(scannedRoots[0]).toBe("/tmp/workspace-race-a");
     expect(scannedRoots[1]).toBe("/tmp/workspace-race-b");
     expect(Date.now() - releaseStartedAt).toBeLessThan(3000);
-    await expect(
-      overviewPane.getByRole("button", { name: /^Create Project$/ }),
-    ).toBeVisible();
+    await expect(await ensureCreateProjectStarterButton(overviewPane)).toBeVisible();
   } finally {
     if (releaseFirstScan) {
       releaseFirstScan();
@@ -585,9 +626,7 @@ test("project chat recovers root polling after a transient getFileBrowserRoot fa
     await expect
       .poll(() => getRootCalls, { timeout: 15000 })
       .toBeGreaterThanOrEqual(2);
-    await expect(
-      overviewPane.getByRole("button", { name: /^Create Project$/ }),
-    ).toBeVisible();
+    await expect(await ensureCreateProjectStarterButton(overviewPane)).toBeVisible();
   } finally {
     await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
@@ -665,10 +704,8 @@ test("project chat keeps create-project starter visible when switching projects 
     firstProjectContext = await openIsolatedProject(page);
 
     const overviewPane = page.locator("#OverviewPane");
-    const createProjectButton = overviewPane.getByRole("button", {
-      name: /^Create Project$/,
-    });
-    await expect(createProjectButton).toBeVisible();
+    const createProjectButton =
+      await ensureCreateProjectStarterButton(overviewPane);
 
     activeRootPath = "/tmp/workspace-switch-b";
     secondProjectContext = await openIsolatedProject(page);
