@@ -16,10 +16,8 @@ from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
 )
 from setta.types.id import ID
-from setta.types.helpers_lvl2 import set_chat_section_state
 from setta.types.listener import (
     ListenerDependencyMode,
-    ListenerForceRefreshContent,
     ListenerRouterEndpointResultContent,
     ListenerRealtimeDelta,
     ListenerRealtimeEventContent,
@@ -87,11 +85,9 @@ def _read_chat_state(
 
 
 @pytest.mark.asyncio
-async def test_chat_section_update_waits_for_authoritative_refresh() -> None:
+async def test_chat_section_update_refreshes_ctx_values() -> None:
     project_state, section_id = _build_chat_project_state(ID("proj-chat-sync"))
     listener = SettaListener(project_name=project_state.projectConfig.name)
-    router_result_sent = asyncio.Event()
-    allow_force_refresh = asyncio.Event()
 
     async def capture(payload: str) -> None:
         message = PythonScriptWebsocketMsgTypeAdapter.validate_json(payload)
@@ -105,18 +101,6 @@ async def test_chat_section_update_waits_for_authoritative_refresh() -> None:
                     ok=True,
                     result={"ok": True},
                 )
-            )
-        )
-        router_result_sent.set()
-
-        refreshed_state = project_state.model_copy(deep=True)
-        set_chat_section_state(refreshed_state, section_id, second_state)
-
-        await allow_force_refresh.wait()
-        await listener._handle_force_refresh(
-            ListenerForceRefreshContent(
-                callId=message.content.callId,
-                projectState=refreshed_state,
             )
         )
 
@@ -154,13 +138,27 @@ async def test_chat_section_update_waits_for_authoritative_refresh() -> None:
             ),
         ],
     )
+    observed: list[tuple[ChatSectionState, ChatSectionState, ChatSectionState]] = []
+    callback_done = asyncio.Event()
 
     @listener.listen(
         deps=[dep_id(section_id)],
         dependency_mode=ListenerDependencyMode.REALTIME_ONLY,
     )
-    async def _noop(_state, _ctx) -> None:
-        return None
+    async def on_chat_action(_state, ctx) -> None:
+        before = _read_chat_state(ctx, section_id)
+        dep_name = ctx.ids.dependency_name(section_id)
+        changed_state = ChatSectionState.model_validate(ctx.changed[dep_name])
+        await ctx.project_manager.set_chat_section_state(
+            {
+                "projectConfigId": project_state.projectConfig.id,
+                "sectionId": section_id,
+                "state": second_state,
+            }
+        )
+        after = _read_chat_state(ctx, section_id)
+        observed.append((before, after, changed_state))
+        callback_done.set()
 
     runtime_state = listener._build_runtime_state(project_state)
     listener._runtime_state = runtime_state
@@ -169,7 +167,9 @@ async def test_chat_section_update_waits_for_authoritative_refresh() -> None:
 
     delta = ListenerRealtimeDelta(
         dependency=SectionDependencyKey(sectionId=section_id),
-        value=LiteralDependencyValue(payload=repr(first_state.model_dump(mode="json"))),
+        value=LiteralDependencyValue(
+            payload=repr(first_state.model_dump(mode="json"))
+        ),
     )
     await listener._handle_realtime_event(
         ListenerRealtimeEventContent(
@@ -179,30 +179,11 @@ async def test_chat_section_update_waits_for_authoritative_refresh() -> None:
         )
     )
     callback_id = next(iter(listener._callbacks))
-    spec = listener._callbacks[callback_id]
-    dep_name = listener._build_callback_context(spec, {}).ids.dependency_name(
-        section_id
-    )
-    ctx = listener._build_callback_context(spec, {dep_name: first_state})
+    await listener._scheduler.flush(callback_id)
+    await asyncio.wait_for(callback_done.wait(), timeout=1)
 
-    before = _read_chat_state(ctx, section_id)
-    changed_state = ChatSectionState.model_validate(ctx.changed[dep_name])
-    route_call = asyncio.create_task(
-        ctx.project_manager.set_chat_section_state(
-            {
-                "projectConfigId": project_state.projectConfig.id,
-                "sectionId": section_id,
-                "state": second_state,
-            }
-        )
-    )
-
-    await asyncio.wait_for(router_result_sent.wait(), timeout=1)
-    assert not route_call.done()
-    allow_force_refresh.set()
-    await route_call
-    after = _read_chat_state(ctx, section_id)
-
-    assert len(before.messages) == 2
-    assert len(after.messages) == 4
-    assert changed_state == first_state
+    assert len(observed) == 1
+    first_seen, second_seen, callback_state = observed[0]
+    assert len(first_seen.messages) == 2
+    assert len(second_seen.messages) == 4
+    assert callback_state == first_state
