@@ -29,6 +29,7 @@ const (
 	openAIRealtimeStopDrainTimeout      = 1200 * time.Millisecond
 	defaultRealtimeProviderErrorMessage = "Realtime transcription failed."
 	openAIRealtimeTranscribeLatestModel = "gpt-4o-transcribe-latest"
+	openAIRealtimePCM16Format           = "pcm16"
 )
 
 type realtimeEngineOptions struct {
@@ -69,13 +70,10 @@ const (
 	openAIRealtimeDeltaModeSnapshot
 )
 
-type openAIRealtimeSessionUpdate struct {
-	Type    string                              `json:"type"`
-	Session openAIRealtimeSessionUpdateSettings `json:"session"`
-}
-
-type openAIRealtimeSessionUpdateSettings struct {
-	Audio openairealtime.RealtimeTranscriptionSessionAudioParam `json:"audio,omitzero"`
+type openAIRealtimeTranscriptionSessionUpdate struct {
+	Type                    string                                 `json:"type"`
+	InputAudioFormat        string                                 `json:"input_audio_format"`
+	InputAudioTranscription openairealtime.AudioTranscriptionParam `json:"input_audio_transcription,omitzero"`
 }
 
 type openAIRealtimeAppendMessage struct {
@@ -480,7 +478,8 @@ func resolveRealtimeEndpoint(config llmconfig.Config) (string, error) {
 		)
 	}
 	query := parsed.Query()
-	query.Set("model", strings.TrimSpace(config.Model))
+	query.Del("model")
+	query.Set("intent", string(openaiconstant.ValueOf[openaiconstant.Transcription]()))
 	parsed.RawQuery = query.Encode()
 	return parsed.String(), nil
 }
@@ -520,31 +519,17 @@ func derefTrimmedString(value *string) string {
 	return strings.TrimSpace(*value)
 }
 
-func buildOpenAIRealtimeSessionUpdate(model string, language *string) openAIRealtimeSessionUpdate {
-	// The pinned SDK also exposes transcription_session.* constants, but the
-	// current repo-owned runtime intentionally stays on the proven session.update
-	// websocket shape until a provider-backed migration slice replaces it.
-	session := openAIRealtimeSessionUpdate{
-		Type: string(openaiconstant.ValueOf[openaiconstant.SessionUpdate]()),
-		Session: openAIRealtimeSessionUpdateSettings{
-			Audio: openairealtime.RealtimeTranscriptionSessionAudioParam{
-				Input: openairealtime.RealtimeTranscriptionSessionAudioInputParam{
-					Format: openairealtime.RealtimeAudioFormatsUnionParam{
-						OfAudioPCM: &openairealtime.RealtimeAudioFormatsAudioPCMParam{
-							Type: "audio/pcm",
-							Rate: openAIRealtimeSampleRateHz,
-						},
-					},
-					Transcription: openairealtime.AudioTranscriptionParam{
-						Model: openairealtime.AudioTranscriptionModel(strings.TrimSpace(model)),
-					},
-				},
-			},
+func buildOpenAIRealtimeSessionUpdate(model string, language *string) openAIRealtimeTranscriptionSessionUpdate {
+	session := openAIRealtimeTranscriptionSessionUpdate{
+		Type:             string(openaiconstant.ValueOf[openaiconstant.TranscriptionSessionUpdate]()),
+		InputAudioFormat: openAIRealtimePCM16Format,
+		InputAudioTranscription: openairealtime.AudioTranscriptionParam{
+			Model: openairealtime.AudioTranscriptionModel(strings.TrimSpace(model)),
 		},
 	}
 	trimmedLanguage := derefTrimmedString(language)
 	if trimmedLanguage != "" {
-		session.Session.Audio.Input.Transcription.Language = openai.String(trimmedLanguage)
+		session.InputAudioTranscription.Language = openai.String(trimmedLanguage)
 	}
 	return session
 }

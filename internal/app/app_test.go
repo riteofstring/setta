@@ -4686,7 +4686,7 @@ func TestAppServesRealtimeTranscriptionSessionRoutes(t *testing.T) {
 			return
 		}
 		updates <- update
-		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"session.updated","event_id":"evt-ready"}`)); err != nil {
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"transcription_session.updated","event_id":"evt-ready"}`)); err != nil {
 			return
 		}
 
@@ -4849,7 +4849,7 @@ func TestAppServesRealtimeTranscriptionSessionRoutes(t *testing.T) {
 		if captured.Path != "/v1/realtime" {
 			t.Fatalf("unexpected realtime path %q", captured.Path)
 		}
-		if captured.Query != "model=gpt-4o-mini-transcribe" {
+		if captured.Query != "intent=transcription" {
 			t.Fatalf("unexpected realtime query %q", captured.Query)
 		}
 		if captured.Authorization != "Bearer app-realtime-secret" {
@@ -4864,8 +4864,18 @@ func TestAppServesRealtimeTranscriptionSessionRoutes(t *testing.T) {
 
 	select {
 	case payload := <-updates:
-		if payload["type"] != "session.update" {
+		if payload["type"] != "transcription_session.update" {
 			t.Fatalf("unexpected realtime update payload %#v", payload)
+		}
+		if payload["input_audio_format"] != "pcm16" {
+			t.Fatalf("unexpected realtime audio input format %#v", payload)
+		}
+		transcriptionPayload, ok := payload["input_audio_transcription"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected transcription payload, got %#v", payload)
+		}
+		if transcriptionPayload["model"] != "gpt-4o-mini-transcribe" || transcriptionPayload["language"] != "en" {
+			t.Fatalf("unexpected transcription payload %#v", transcriptionPayload)
 		}
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for realtime session update")

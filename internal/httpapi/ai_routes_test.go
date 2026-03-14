@@ -1133,7 +1133,7 @@ func TestRegisterAIRoutesRunsRealtimeTranscriptionSession(t *testing.T) {
 			return
 		}
 		updates <- update
-		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"session.updated","event_id":"evt-ready"}`)); err != nil {
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"transcription_session.updated","event_id":"evt-ready"}`)); err != nil {
 			return
 		}
 
@@ -1238,7 +1238,7 @@ func TestRegisterAIRoutesRunsRealtimeTranscriptionSession(t *testing.T) {
 		if captured.Path != "/v1/realtime" {
 			t.Fatalf("unexpected provider path %q", captured.Path)
 		}
-		if captured.Query != "model=gpt-4o-mini-transcribe" {
+		if captured.Query != "intent=transcription" {
 			t.Fatalf("unexpected provider query %q", captured.Query)
 		}
 		if captured.Authorization != "Bearer route-secret" {
@@ -1253,31 +1253,15 @@ func TestRegisterAIRoutesRunsRealtimeTranscriptionSession(t *testing.T) {
 
 	select {
 	case payload := <-updates:
-		if payload["type"] != "session.update" {
+		if payload["type"] != "transcription_session.update" {
 			t.Fatalf("unexpected session update payload %#v", payload)
 		}
-		sessionPayload, ok := payload["session"].(map[string]any)
-		if !ok {
-			t.Fatalf("expected session payload, got %#v", payload)
+		if payload["input_audio_format"] != "pcm16" {
+			t.Fatalf("unexpected audio input format %#v", payload)
 		}
-		audioPayload, ok := sessionPayload["audio"].(map[string]any)
+		transcriptionPayload, ok := payload["input_audio_transcription"].(map[string]any)
 		if !ok {
-			t.Fatalf("expected audio payload, got %#v", sessionPayload)
-		}
-		inputPayload, ok := audioPayload["input"].(map[string]any)
-		if !ok {
-			t.Fatalf("expected audio input payload, got %#v", audioPayload)
-		}
-		formatPayload, ok := inputPayload["format"].(map[string]any)
-		if !ok {
-			t.Fatalf("expected audio input format payload, got %#v", inputPayload)
-		}
-		if formatPayload["type"] != "audio/pcm" || formatPayload["rate"] != float64(24000) {
-			t.Fatalf("unexpected audio input format %#v", formatPayload)
-		}
-		transcriptionPayload, ok := inputPayload["transcription"].(map[string]any)
-		if !ok {
-			t.Fatalf("expected transcription payload, got %#v", inputPayload)
+			t.Fatalf("expected transcription payload, got %#v", payload)
 		}
 		if transcriptionPayload["model"] != "gpt-4o-mini-transcribe" || transcriptionPayload["language"] != "en" {
 			t.Fatalf("unexpected transcription payload %#v", transcriptionPayload)
@@ -3252,7 +3236,7 @@ func TestRegisterAIRoutesAutoTranscriptionResolvesToRealtime(t *testing.T) {
 		if captured.Path != "/v1/realtime" {
 			t.Fatalf("unexpected provider path %q", captured.Path)
 		}
-		if captured.Query != "model=gpt-4o-mini-transcribe" {
+		if captured.Query != "intent=transcription" {
 			t.Fatalf("unexpected provider query %q", captured.Query)
 		}
 		if captured.Authorization != "Bearer route-secret" {
