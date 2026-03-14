@@ -3507,20 +3507,30 @@ class PluginManager:
         entry: DiscoveredPlugin,
         params: dict[str, Any],
     ) -> dict[str, Any]:
-        raw_tool_name = params.get("toolName")
-        raw_annotations = params.get("annotations")
+        raw_tool = params.get("tool")
+        if not isinstance(raw_tool, dict):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                "Plugin worker MCP tool registration missing tool.",
+            )
+        raw_tool_name = raw_tool.get("name")
+        raw_metadata = raw_tool.get("metadata")
         if not isinstance(raw_tool_name, str) or raw_tool_name.strip() == "":
             raise PluginManagerError(
                 "PLUGIN_BACKEND_REGISTER_FAILED",
-                "Plugin worker MCP tool registration missing toolName.",
+                "Plugin worker MCP tool registration missing name.",
             )
-        if raw_annotations is not None and not isinstance(raw_annotations, dict):
+        if raw_metadata is not None and not isinstance(raw_metadata, dict):
             raise PluginManagerError(
                 "PLUGIN_BACKEND_REGISTER_FAILED",
-                "Plugin worker MCP tool annotations must be an object.",
+                "Plugin worker MCP tool metadata must be an object.",
             )
         tool_name = raw_tool_name.strip()
-        annotations = raw_annotations if isinstance(raw_annotations, dict) else None
+        annotations: dict[str, Any] | None = None
+        if isinstance(raw_metadata, dict):
+            access_type = raw_metadata.get("accessType")
+            if access_type in {"read", "write", "structural"}:
+                annotations = {"accessType": access_type}
 
         def worker_tool_proxy(*args: Any, **kwargs: Any) -> Any:
             process = self._backend_worker_processes.get(entry.plugin_id)
