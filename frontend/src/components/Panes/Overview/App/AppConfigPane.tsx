@@ -28,19 +28,15 @@ import {
   route_set_app_definition,
   route_validate_app_definition,
 } from "utils/generatedEndpoints";
-import { RouteEnum, type AppDefinition } from "utils/generatedTypes";
+import { RouteEnum } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import {
   buildDefaultSpec,
   buildSpecSeed,
   cloneSpecForPreview,
-  DEFAULT_CATALOG_ID,
-  DEFAULT_SPEC_VERSION,
-  DEFAULT_THEME_MODE,
   parseAssetsPayloadForRequest,
   parseSpecPayloadForRequest,
   parseThemePayloadForRequest,
-  resolveThemeMode,
   type AppSpecPayload,
 } from "./appConfigDefinitionUtils";
 import {
@@ -54,12 +50,7 @@ import {
   formatCatalogForPrompt,
   formatSectionsForAppPrompt,
 } from "./appConfigPromptUtils";
-import {
-  parseDraftAppAssets,
-  parseDraftAppSpec,
-  parseDraftAppTheme,
-  type AppThemeMode,
-} from "./appDraftPreview";
+import { type AppThemeMode } from "./appDraftPreview";
 import {
   APP_GENERATION_MODE_OPTIONS,
   buildDefaultAppGenerationPrompt,
@@ -68,6 +59,10 @@ import {
   isJsonRenderMode,
   type AppGenerationMode,
 } from "./appGenerationModes";
+import {
+  resetAppConfigPreviewOverrides,
+  useAppConfigDefinitionDrafts,
+} from "./useAppConfigDefinitionDrafts";
 
 const STREAMING_TOGGLE_ROOT_CLASSES =
   "nodrag relative inline-flex h-2.5 w-7 min-w-7 cursor-pointer items-center rounded-full p-[0.2rem] [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus-visible:shadow-black focus-visible:ring-2 disabled:pointer-events-none bg-setta-400 data-[state='checked']:bg-blue-500 dark:bg-setta-600 dark:data-[state='checked']:bg-blue-700";
@@ -111,16 +106,27 @@ export function AppConfigPane() {
     shallow,
   );
   const { projectMetadata } = useAllProjectMetadata((x) => x);
-  const [draftSpec, setDraftSpec] = useState("");
-  const [draftTheme, setDraftTheme] = useState("");
-  const [draftAssets, setDraftAssets] = useState("");
-  const [draftSpecError, setDraftSpecError] = useState<string | null>(null);
-  const [draftThemeError, setDraftThemeError] = useState<string | null>(null);
-  const [draftAssetsError, setDraftAssetsError] = useState<string | null>(null);
-  const [catalogId, setCatalogId] = useState(DEFAULT_CATALOG_ID);
-  const [specVersion, setSpecVersion] = useState(DEFAULT_SPEC_VERSION);
-  const [appSpecPath, setAppSpecPath] = useState("");
-  const [themeMode, setThemeMode] = useState<AppThemeMode>(DEFAULT_THEME_MODE);
+  const {
+    appSpecPath,
+    catalogId,
+    clearDraftErrors,
+    draftAssets,
+    draftAssetsError,
+    draftSpec,
+    draftSpecError,
+    draftTheme,
+    draftThemeError,
+    hydrateSavedAppDefinition,
+    setAppSpecPath,
+    setCatalogId,
+    setDraftAssets,
+    setDraftSpec,
+    setDraftTheme,
+    setSpecVersion,
+    setThemeMode,
+    specVersion,
+    themeMode,
+  } = useAppConfigDefinitionDrafts();
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [generationPatchCount, setGenerationPatchCount] = useState(0);
@@ -178,15 +184,8 @@ export function AppConfigPane() {
       if (!projectConfigId) {
         return;
       }
-      useAppPreview.setState({
-        previewSpecOverride: undefined,
-        aiPreviewSpecOverride: undefined,
-        previewThemeOverride: undefined,
-        previewAssetsOverride: undefined,
-      });
-      setDraftSpecError(null);
-      setDraftThemeError(null);
-      setDraftAssetsError(null);
+      resetAppConfigPreviewOverrides();
+      clearDraftErrors();
       setLoading(true);
       setErrorMessage(null);
       const res = await route_get_app_definition({});
@@ -198,24 +197,11 @@ export function AppConfigPane() {
         }
         return;
       }
-      const nextSpec = res.data.appSpec ?? null;
-      useAppDefinition.setState({
-        appSpec: nextSpec,
-        appDefinition: res.data.appDefinition ?? null,
-      });
       if (isMounted) {
-        setDraftSpec(nextSpec ? JSON.stringify(nextSpec, null, 2) : "");
-        setCatalogId(res.data.appDefinition?.catalogId ?? DEFAULT_CATALOG_ID);
-        setSpecVersion(
-          res.data.appDefinition?.appSpecVersion ?? DEFAULT_SPEC_VERSION,
-        );
-        setAppSpecPath(res.data.appDefinition?.appSpecPath ?? "");
-        const theme = res.data.appDefinition?.theme ?? null;
-        setDraftTheme(theme ? JSON.stringify(theme, null, 2) : "");
-        setDraftAssets(
-          JSON.stringify(res.data.appDefinition?.assets ?? [], null, 2),
-        );
-        setThemeMode(resolveThemeMode(theme));
+        hydrateSavedAppDefinition({
+          savedSpec: res.data.appSpec ?? null,
+          savedDefinition: res.data.appDefinition ?? null,
+        });
       }
     }
 
@@ -224,65 +210,6 @@ export function AppConfigPane() {
       isMounted = false;
     };
   }, [projectConfigId]);
-
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (draftSpec.trim().length === 0) {
-        setDraftSpecError(null);
-        useAppPreview.setState({ previewSpecOverride: undefined });
-        return;
-      }
-      const parsed = parseDraftAppSpec(draftSpec);
-      if (parsed.ok) {
-        setDraftSpecError(null);
-        useAppPreview.setState({ previewSpecOverride: parsed.value });
-        return;
-      }
-      setDraftSpecError(parsed.error);
-    }, 300);
-
-    return () => {
-      clearTimeout(timeoutId);
-    };
-  }, [draftSpec]);
-
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      const parsed = parseDraftAppTheme(draftTheme, themeMode);
-      if (parsed.ok) {
-        setDraftThemeError(null);
-        useAppPreview.setState({ previewThemeOverride: parsed.value });
-        return;
-      }
-      setDraftThemeError(parsed.error);
-      const previousTheme = useAppPreview.getState().previewThemeOverride;
-      useAppPreview.setState({
-        previewThemeOverride: isRecord(previousTheme)
-          ? { ...previousTheme, mode: themeMode }
-          : { mode: themeMode },
-      });
-    }, 300);
-
-    return () => {
-      clearTimeout(timeoutId);
-    };
-  }, [draftTheme, themeMode]);
-
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      const parsed = parseDraftAppAssets(draftAssets);
-      if (parsed.ok) {
-        setDraftAssetsError(null);
-        useAppPreview.setState({ previewAssetsOverride: parsed.value });
-        return;
-      }
-      setDraftAssetsError(parsed.error);
-    }, 300);
-
-    return () => {
-      clearTimeout(timeoutId);
-    };
-  }, [draftAssets]);
 
   const preparePromptContext = useCallback(async () => {
     let catalogSummary = `Catalog: ${catalogId}`;
@@ -302,39 +229,6 @@ export function AppConfigPane() {
     );
     return { catalogSummary, sectionsSummary };
   }, [catalogId]);
-
-  const hydrateSavedAppDefinition = useCallback(
-    ({
-      savedSpec,
-      savedDefinition,
-    }: {
-      savedSpec: unknown;
-      savedDefinition: AppDefinition | null;
-    }) => {
-      const savedTheme = savedDefinition?.theme ?? null;
-      const savedAssets = savedDefinition?.assets ?? [];
-      useAppDefinition.setState({
-        appSpec: savedSpec,
-        appDefinition: savedDefinition,
-      });
-      setDraftSpec(savedSpec ? JSON.stringify(savedSpec, null, 2) : "");
-      setCatalogId(savedDefinition?.catalogId ?? DEFAULT_CATALOG_ID);
-      setSpecVersion(savedDefinition?.appSpecVersion ?? DEFAULT_SPEC_VERSION);
-      setAppSpecPath(savedDefinition?.appSpecPath ?? "");
-      setDraftTheme(savedTheme ? JSON.stringify(savedTheme, null, 2) : "");
-      setDraftAssets(JSON.stringify(savedAssets, null, 2));
-      setThemeMode(resolveThemeMode(savedTheme));
-      useAppPreview.setState({
-        previewSpecOverride: isRecord(savedSpec) ? savedSpec : null,
-        previewThemeOverride: savedTheme,
-        previewAssetsOverride: savedAssets,
-      });
-      setDraftSpecError(null);
-      setDraftThemeError(null);
-      setDraftAssetsError(null);
-    },
-    [],
-  );
 
   const saveAndHydrateAppDefinition = useCallback(
     async ({
