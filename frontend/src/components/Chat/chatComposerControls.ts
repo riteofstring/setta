@@ -1,4 +1,3 @@
-import type { AppGenerationMode } from "state/types/appGenerationMode";
 import {
   type AppGenerationSlashCommandAction,
   buildAppGenerationSlashCommandDefinitions,
@@ -160,7 +159,6 @@ type ManagedChatSlashCommandArgs = {
   modelFeedback?: string | null;
   searchEnabled?: boolean;
   onSetSearchEnabled?: (nextValue: boolean) => void;
-  onSetAppGenerationMode?: (nextMode: AppGenerationMode) => void;
 };
 
 const CHAT_SLASH_COMMAND_DEFINITIONS: Record<
@@ -240,7 +238,6 @@ export async function executeManagedChatSlashCommand({
   modelFeedback,
   searchEnabled,
   onSetSearchEnabled,
-  onSetAppGenerationMode,
 }: ManagedChatSlashCommandArgs): Promise<ChatSlashCommandExecutionResult> {
   if (command.action === "new") {
     onStartNewChat();
@@ -293,15 +290,9 @@ export async function executeManagedChatSlashCommand({
     const appGenerationCommand = getAppGenerationSlashCommandByAction(
       command.action,
     );
-    if (
-      !nextMode ||
-      typeof onSetAppGenerationMode !== "function" ||
-      !appGenerationCommand ||
-      !command.promptTemplate?.trim()
-    ) {
+    if (!nextMode || !appGenerationCommand || !command.promptTemplate?.trim()) {
       return false;
     }
-    onSetAppGenerationMode(nextMode);
     return {
       appGenerationMode: nextMode,
       feedback: `Submitted ${appGenerationCommand.command}.`,

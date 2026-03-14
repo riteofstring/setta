@@ -11,6 +11,7 @@ import {
 } from "../../helpers";
 
 type ChatSubmitRequest = {
+  appSpecStreamingEnabled?: boolean;
   appGenerationMode?: string | null;
   appGenerationReferenceImageUrl?: string | null;
   appGenerationReferenceImageNotes?: string | null;
@@ -53,8 +54,20 @@ async function openProjectChatWithManagedEngine(page: Page) {
   await page.reload();
   await page.waitForSelector(".react-flow__pane");
   const projectChatSurface = await getVisibleProjectChatSurface(page);
-  await expect(projectChatSurface.getByTestId("chat-input-textarea")).toBeVisible();
+  await expect(
+    projectChatSurface.getByTestId("chat-input-textarea"),
+  ).toBeVisible();
   return { engineCleanup, projectContext, projectChatSurface };
+}
+
+async function submitProjectChatMessage(
+  page: Page,
+  projectChatSurface: Awaited<ReturnType<typeof getVisibleProjectChatSurface>>,
+  text: string,
+) {
+  await projectChatSurface.getByTestId("chat-input-textarea").fill(text);
+  await projectChatSurface.locator('button[type="submit"]').click();
+  await page.waitForTimeout(50);
 }
 
 function getCommandPrompt(command: string): string {
@@ -62,7 +75,9 @@ function getCommandPrompt(command: string): string {
     (slashCommand) => slashCommand.command === command,
   );
   if (!entry) {
-    throw new Error(`Missing app generation slash command definition: ${command}`);
+    throw new Error(
+      `Missing app generation slash command definition: ${command}`,
+    );
   }
   return entry.promptTemplate;
 }
@@ -82,6 +97,7 @@ test("project ai chat /app-json submits the fixed baseline prompt with suffix te
     await projectChatSurface.getByLabel("Send message").click();
 
     await expect.poll(() => capturedRequests.length).toBe(1);
+    expect(capturedRequests[0]?.appSpecStreamingEnabled).toBe(false);
     expect(capturedRequests[0]?.appGenerationMode).toBe("json_render");
     expect(capturedRequests[0]?.appGenerationReferenceImageUrl).toBeNull();
     expect(capturedRequests[0]?.appGenerationReferenceImageNotes).toBeNull();
@@ -119,6 +135,7 @@ test("project ai chat /app-image preserves attachments while appending suffix te
     await projectChatSurface.getByLabel("Send message").click();
 
     await expect.poll(() => capturedRequests.length).toBe(1);
+    expect(capturedRequests[0]?.appSpecStreamingEnabled).toBe(false);
     expect(capturedRequests[0]?.appGenerationMode).toBe(
       "json_render_with_image",
     );
@@ -144,13 +161,116 @@ test("project ai chat /app-mcp submits the fixed MCP-oriented baseline without e
     await openProjectChatWithManagedEngine(page);
 
   try {
-    await projectChatSurface.getByTestId("chat-input-textarea").fill("/app-mcp");
+    await projectChatSurface
+      .getByTestId("chat-input-textarea")
+      .fill("/app-mcp");
     await projectChatSurface.getByLabel("Send message").click();
 
     await expect.poll(() => capturedRequests.length).toBe(1);
+    expect(capturedRequests[0]?.appSpecStreamingEnabled).toBe(false);
     expect(capturedRequests[0]?.appGenerationMode).toBe("mcp_server");
     expect(capturedRequests[0]?.message?.content?.[0]?.text).toBe(
       getCommandPrompt("/app-mcp"),
+    );
+  } finally {
+    await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project ai chat follow-up messages keep the active app-generation mode", async ({
+  page,
+}) => {
+  const capturedRequests: ChatSubmitRequest[] = [];
+  await mockProjectChatSubmitCapture(page, capturedRequests);
+  const { engineCleanup, projectContext, projectChatSurface } =
+    await openProjectChatWithManagedEngine(page);
+
+  try {
+    await submitProjectChatMessage(
+      page,
+      projectChatSurface,
+      "/app-prompt product landing page",
+    );
+    await expect.poll(() => capturedRequests.length).toBe(1);
+
+    await submitProjectChatMessage(
+      page,
+      projectChatSurface,
+      "make the hero denser",
+    );
+    await expect.poll(() => capturedRequests.length).toBe(2);
+
+    expect(capturedRequests[1]?.appSpecStreamingEnabled).toBe(false);
+    expect(capturedRequests[1]?.appGenerationMode).toBe("prompt_builder");
+    expect(capturedRequests[1]?.message?.content?.[0]?.text).toBe(
+      "make the hero denser",
+    );
+  } finally {
+    await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project ai chat replays queued /app-json through the same app-generation path", async ({
+  page,
+}) => {
+  const capturedRequests: ChatSubmitRequest[] = [];
+  let releaseFirstRequest: (() => void) | null = null;
+  const firstRequestReleased = new Promise<void>((resolve) => {
+    releaseFirstRequest = resolve;
+  });
+
+  await page.route("**/api/getLLMResponse", async (route) => {
+    capturedRequests.push(route.request().postDataJSON() as ChatSubmitRequest);
+    if (capturedRequests.length === 1) {
+      await firstRequestReleased;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(`pw-appgen-chat-${capturedRequests.length}`),
+    });
+  });
+  await page.route("**/api/getLLMChat", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [],
+        waitingForResponse: false,
+        llmConfig: null,
+      }),
+    });
+  });
+
+  const { engineCleanup, projectContext, projectChatSurface } =
+    await openProjectChatWithManagedEngine(page);
+
+  try {
+    await submitProjectChatMessage(
+      page,
+      projectChatSurface,
+      "Hold this first response open.",
+    );
+    await expect.poll(() => capturedRequests.length).toBe(1);
+
+    await submitProjectChatMessage(
+      page,
+      projectChatSurface,
+      "/app-json dashboard for support ops",
+    );
+
+    if (!releaseFirstRequest) {
+      throw new Error("Expected first request release callback.");
+    }
+    releaseFirstRequest();
+
+    await expect.poll(() => capturedRequests.length).toBe(2);
+    expect(capturedRequests[1]?.appSpecStreamingEnabled).toBe(false);
+    expect(capturedRequests[1]?.appGenerationMode).toBe("json_render");
+    expect(capturedRequests[1]?.message?.content?.[0]?.text).toBe(
+      `${getCommandPrompt("/app-json")}\n\ndashboard for support ops`,
     );
   } finally {
     await engineCleanup();

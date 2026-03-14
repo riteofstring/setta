@@ -16,7 +16,6 @@ test("app spec patch streaming updates the app preview incrementally", async ({
   await seedLocalStorage(page, {
     overviewTab: "App",
     overviewVis: true,
-    appSpecStreamingEnabled: true,
   });
   await ensureAppReady(page);
 

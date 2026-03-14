@@ -322,7 +322,6 @@ describe("chatComposerControls", () => {
     const onResumeLatestChat = vi.fn(async () => true);
     const onSetPermissionMode = vi.fn();
     const onSetSearchEnabled = vi.fn();
-    const onSetAppGenerationMode = vi.fn();
     const slashCommands = buildChatSlashCommands({
       model: true,
       permissions: true,
@@ -342,7 +341,6 @@ describe("chatComposerControls", () => {
       modelFeedback: "Model picker",
       searchEnabled: true,
       onSetSearchEnabled,
-      onSetAppGenerationMode,
     });
     expect(newResult).toEqual({ feedback: "Started a new chat thread." });
     expect(onStartNewChat).toHaveBeenCalledTimes(1);
@@ -360,7 +358,6 @@ describe("chatComposerControls", () => {
       modelFeedback: "Model picker",
       searchEnabled: true,
       onSetSearchEnabled,
-      onSetAppGenerationMode,
     });
     expect(resumeResult).toEqual({ feedback: "Resumed." });
 
@@ -377,7 +374,6 @@ describe("chatComposerControls", () => {
       modelFeedback: "Model picker",
       searchEnabled: true,
       onSetSearchEnabled,
-      onSetAppGenerationMode,
     });
     expect(permissionsResult).toEqual({ feedback: "Permissions set to yolo." });
     expect(onSetPermissionMode).toHaveBeenCalledWith("yolo");
@@ -395,7 +391,6 @@ describe("chatComposerControls", () => {
       modelFeedback: "Model picker",
       searchEnabled: true,
       onSetSearchEnabled,
-      onSetAppGenerationMode,
     });
     expect(searchResult).toEqual({ feedback: "Search disabled." });
     expect(onSetSearchEnabled).toHaveBeenCalledWith(false);
@@ -413,7 +408,6 @@ describe("chatComposerControls", () => {
       modelFeedback: "Model picker",
       searchEnabled: true,
       onSetSearchEnabled,
-      onSetAppGenerationMode,
     });
     expect(modelResult).toEqual({
       feedback: "Model picker",
@@ -424,7 +418,6 @@ describe("chatComposerControls", () => {
   it("executes app-generation mode slash commands", async () => {
     const onSetPermissionMode = vi.fn();
     const onSetSearchEnabled = vi.fn();
-    const onSetAppGenerationMode = vi.fn();
     const slashCommands = buildChatSlashCommands({
       model: false,
       permissions: true,
@@ -449,10 +442,8 @@ describe("chatComposerControls", () => {
       modelFeedback: null,
       searchEnabled: true,
       onSetSearchEnabled,
-      onSetAppGenerationMode,
     });
 
-    expect(onSetAppGenerationMode).toHaveBeenCalledWith("mcp_server");
     expect(appModeResult).toEqual({
       appGenerationMode: "mcp_server",
       feedback: "Submitted /app-mcp.",

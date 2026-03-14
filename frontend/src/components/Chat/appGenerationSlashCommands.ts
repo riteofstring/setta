@@ -6,7 +6,7 @@ export type AppGenerationSlashCommandAction =
   | "app_prompt_builder"
   | "app_mcp_server";
 
-export type AppGenerationSlashCommandEntry = {
+type AppGenerationSlashCommandEntry = {
   command: string;
   action: AppGenerationSlashCommandAction;
   mode: AppGenerationMode;
