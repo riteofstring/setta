@@ -77,16 +77,10 @@ describe("submitMessage websocket affinity", () => {
       setActiveFrontendWebsocketAffinityGeneration,
       setFrontendAffinityToken,
     } = await import("state/actions/frontendWebsocketAffinity");
-    const returnedChatId = "chat-affinity-refresh";
     route_get_llm_response.mockResolvedValue({
       status: 200,
       hasResponse: true,
-      data: {
-        chatId: returnedChatId,
-        runId: "run-affinity-refresh",
-        engineType: "setta_llm",
-        sectionId: null,
-      },
+      data: null,
     });
 
     setActiveFrontendWebsocketAffinityGeneration(1);
@@ -117,7 +111,7 @@ describe("submitMessage websocket affinity", () => {
         false,
         { pendingSurfaceId: DRAFT_SURFACE_ID },
       ),
-    ).resolves.toBe(returnedChatId);
+    ).resolves.toBeNull();
     const [secondPayload] = route_get_llm_response.mock.calls[0] as [
       { frontendAffinityToken: string },
     ];

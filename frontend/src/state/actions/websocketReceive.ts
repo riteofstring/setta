@@ -60,9 +60,7 @@ import {
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import {
-  loadAgentRuns,
   receiveAgentProfilesUpdate,
-  receiveAgentRunUpdate,
   receiveEngineConfigsUpdate,
   receiveExternalAgentConfigsUpdate,
   receiveLLMApiKeysSnapshotUpdate,
@@ -221,7 +219,6 @@ export const openWebSocket = _.debounce(
             });
             if (res200(res)) {
               processProjectStateUpdateFromBackend(res.data);
-              void loadAgentRuns();
               await requestAIFollowSnapshot(projectConfigId);
               const diagnosticsRes = await route_get_latest_lsp_diagnostics({
                 projectConfigId,
@@ -563,8 +560,6 @@ function receiveMessage(message: string, socketGeneration: number) {
       return;
     case WebsocketMsgTypeForFrontendEnum.AgentProfilesUpdated:
       return receiveAgentProfilesUpdate(m.content.profiles);
-    case WebsocketMsgTypeForFrontendEnum.AgentRunUpdated:
-      return receiveAgentRunUpdate(m.content);
     case WebsocketMsgTypeForFrontendEnum.PromptTemplatesUpdated:
       return receivePromptTemplatesUpdate(m.content.templates);
     case WebsocketMsgTypeForFrontendEnum.ExternalAgentConfigsUpdated:
