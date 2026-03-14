@@ -26,6 +26,7 @@ import type {
 import { SectionContainer } from "components/Section/Container/SectionContainer";
 import { SIZE_MODE } from "components/Utils/Resizable/utils";
 import { useReactFlow } from "forks/xyflow/core/store";
+import { fitView } from "forks/xyflow/core/store/utils";
 import type { Connection } from "forks/xyflow/core/types";
 import { getWheelDelta } from "forks/xyflow/core/utils";
 import {
@@ -90,6 +91,7 @@ import {
   type SectionType,
 } from "utils/generatedTypes";
 import { isMacOs } from "utils/utils";
+import { shallow } from "zustand/shallow";
 
 type PanePointerSession = {
   pointerId: number;
@@ -308,6 +310,15 @@ export function CanvasEngineHost() {
     areEdgeHandlePositionMapsEqual,
   );
   const reactFlowTransform = useReactFlow((state) => state.transform);
+  const { fitViewOnInit, fitViewOnInitDone, fitViewOnInitOptions } =
+    useReactFlow(
+      (state) => ({
+        fitViewOnInit: state.fitViewOnInit,
+        fitViewOnInitDone: state.fitViewOnInitDone,
+        fitViewOnInitOptions: state.fitViewOnInitOptions,
+      }),
+      shallow,
+    );
 
   const sceneAdapterRef = useRef<CanvasEngineSceneAdapter | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -565,6 +576,8 @@ export function CanvasEngineHost() {
       return;
     }
 
+    useReactFlow.setState({ domNode: hostElement });
+
     const updateViewport = () => {
       const nextViewport = {
         width: Math.max(1, Math.floor(hostElement.clientWidth)),
@@ -597,6 +610,9 @@ export function CanvasEngineHost() {
     return () => {
       resizeObserver.disconnect();
       window.removeEventListener("resize", updateViewport);
+      if (useReactFlow.getState().domNode === hostElement) {
+        useReactFlow.setState({ domNode: null });
+      }
     };
   }, []);
 
@@ -647,6 +663,29 @@ export function CanvasEngineHost() {
       height: viewport.height,
     });
   }, [viewport.height, viewport.width]);
+
+  useEffect(() => {
+    if (!fitViewOnInit || fitViewOnInitDone) {
+      return;
+    }
+    const didFit = fitView({
+      initial: true,
+      ...(fitViewOnInitOptions ?? {}),
+    });
+    if (!didFit) {
+      return;
+    }
+    useReactFlow.setState({
+      fitViewOnInitDone: true,
+    });
+  }, [
+    fitViewOnInit,
+    fitViewOnInitDone,
+    fitViewOnInitOptions,
+    projectSceneRevision,
+    viewport.height,
+    viewport.width,
+  ]);
 
   useEffect(() => {
     const reactFlowState = useReactFlow.getState();
