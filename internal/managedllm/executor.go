@@ -614,15 +614,18 @@ func (e *Executor) processOpenAIResponseEvent(
 			return nil, err
 		}
 	case responses.ResponseReasoningSummaryTextDoneEvent:
-		if strings.TrimSpace(streamState.summary) != "" || strings.TrimSpace(typed.Text) == "" {
+		if strings.TrimSpace(typed.Text) == "" {
 			return nil, nil
 		}
 		streamState.reasoningSeen = true
 		streamState.reasoningEmitted = true
+		summaryChanged := strings.TrimSpace(streamState.summary) != strings.TrimSpace(typed.Text)
 		streamState.summary = typed.Text
 		setAssistantThinkingSummaryAtIndex(assistantMessage, 0, typed.Text)
-		if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, "", optionalStringPointer(typed.Text)); err != nil {
-			return nil, err
+		if summaryChanged {
+			if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, "", optionalStringPointer(typed.Text)); err != nil {
+				return nil, err
+			}
 		}
 		if err := e.flushBufferedOpenAIResponseText(ctx, prepared, assistantMessage, streamState, false); err != nil {
 			return nil, err
@@ -641,25 +644,31 @@ func (e *Executor) processOpenAIResponseEvent(
 		if strings.TrimSpace(typed.Text) == "" {
 			return nil, nil
 		}
-		if !hasMessageThinking(assistantMessage) {
-			streamState.reasoningSeen = true
-			streamState.reasoningEmitted = true
-			appendAssistantThinkingAtIndex(assistantMessage, 0, typed.Text)
-			if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, typed.Text, nil); err != nil {
+		streamState.reasoningSeen = true
+		streamState.reasoningEmitted = true
+		thinkingDelta := authoritativeResponseReplacementSuffix(currentAssistantThinkingTextAtIndex(assistantMessage, 0), typed.Text)
+		setAssistantThinkingTextAtIndex(assistantMessage, 0, typed.Text)
+		if thinkingDelta != "" {
+			if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, thinkingDelta, nil); err != nil {
 				return nil, err
 			}
-			if err := e.flushBufferedOpenAIResponseText(ctx, prepared, assistantMessage, streamState, false); err != nil {
-				return nil, err
-			}
+		}
+		if err := e.flushBufferedOpenAIResponseText(ctx, prepared, assistantMessage, streamState, false); err != nil {
+			return nil, err
 		}
 	case responses.ResponseTextDeltaEvent:
 		if err := e.applyOpenAIResponseTextDelta(ctx, prepared, assistantMessage, streamState, typed.Delta); err != nil {
 			return nil, err
 		}
 	case responses.ResponseTextDoneEvent:
-		if !hasMessageText(assistantMessage) && typed.Text != "" {
-			if err := e.applyOpenAIResponseTextDelta(ctx, prepared, assistantMessage, streamState, typed.Text); err != nil {
-				return nil, err
+		if strings.TrimSpace(typed.Text) != "" {
+			textIndex := openAIResponseTextIndex(assistantMessage, streamState)
+			textDelta := authoritativeResponseReplacementSuffix(currentAssistantTextAtIndex(assistantMessage, textIndex), typed.Text)
+			setAssistantTextAtIndex(assistantMessage, textIndex, typed.Text)
+			if textDelta != "" {
+				if err := e.emitOpenAIResponseTextDelta(ctx, prepared, assistantMessage, textIndex, textDelta); err != nil {
+					return nil, err
+				}
 			}
 		}
 	case responses.ResponseRefusalDeltaEvent:
@@ -667,9 +676,14 @@ func (e *Executor) processOpenAIResponseEvent(
 			return nil, err
 		}
 	case responses.ResponseRefusalDoneEvent:
-		if !hasMessageText(assistantMessage) && typed.Refusal != "" {
-			if err := e.applyOpenAIResponseTextDelta(ctx, prepared, assistantMessage, streamState, typed.Refusal); err != nil {
-				return nil, err
+		if strings.TrimSpace(typed.Refusal) != "" {
+			textIndex := openAIResponseTextIndex(assistantMessage, streamState)
+			textDelta := authoritativeResponseReplacementSuffix(currentAssistantTextAtIndex(assistantMessage, textIndex), typed.Refusal)
+			setAssistantTextAtIndex(assistantMessage, textIndex, typed.Refusal)
+			if textDelta != "" {
+				if err := e.emitOpenAIResponseTextDelta(ctx, prepared, assistantMessage, textIndex, textDelta); err != nil {
+					return nil, err
+				}
 			}
 		}
 	case responses.ResponseFunctionCallArgumentsDeltaEvent:
@@ -1568,6 +1582,39 @@ func ensureAssistantContentBlock(message map[string]any, index int, blockType st
 	}
 	content[index] = block
 	return content, block
+}
+
+func currentAssistantTextAtIndex(message map[string]any, index int) string {
+	return currentAssistantBlockStringAtIndex(message, index, "text", "text")
+}
+
+func currentAssistantThinkingTextAtIndex(message map[string]any, index int) string {
+	return currentAssistantBlockStringAtIndex(message, index, "thinking", "thinking")
+}
+
+func currentAssistantBlockStringAtIndex(message map[string]any, index int, blockType string, field string) string {
+	content, _ := message["content"].([]any)
+	if index < 0 || index >= len(content) {
+		return ""
+	}
+	block, _ := content[index].(map[string]any)
+	if block == nil || strings.TrimSpace(stringValue(block["type"])) != blockType {
+		return ""
+	}
+	return stringValue(block[field])
+}
+
+func authoritativeResponseReplacementSuffix(current string, final string) string {
+	if final == "" || current == final {
+		return ""
+	}
+	if current == "" {
+		return final
+	}
+	if strings.HasPrefix(final, current) {
+		return strings.TrimPrefix(final, current)
+	}
+	return ""
 }
 
 func compactAssistantContent(message map[string]any) {
