@@ -304,7 +304,7 @@ importers:
         specifier: 7.37.4
         version: 7.37.4(eslint@9.21.0(jiti@2.6.1))
       jsdom:
-        specifier: ^28.1.0
+        specifier: 28.1.0
         version: 28.1.0
       knip:
         specifier: 5.73.4
