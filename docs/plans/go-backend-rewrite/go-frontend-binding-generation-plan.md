@@ -310,6 +310,10 @@ Current status:
   `backendOriginTransport`, `backendTransport`, `c_addresses`, and
   `serverModeBoundaryPolicy` instead of allowing those utilities to import
   `generatedRoutes` directly
+- the validation suite now also checks that direct
+  `transportRouteConstants` imports stay inside those explicit boundary
+  utilities, so narrowed runtime callers cannot silently bypass the transport
+  helper seams and widen helper-bag reachability ad hoc
 - shared backend URL construction for narrowed app/plugin transport callers now
   also flows through `frontend/src/utils/backendTransport.ts`, so those
   wrappers no longer import `endpointUtils` directly
