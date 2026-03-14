@@ -502,8 +502,8 @@ func assertListenerRealtimeMessage(
 	if err := json.Unmarshal(envelope.Content, &content); err != nil {
 		t.Fatalf("decode listener realtime event content: %v", err)
 	}
-	if content.ProjectID != projectID {
-		t.Fatalf("expected project id %q, got %q", projectID, content.ProjectID)
+	if content.ProjectConfigID != projectID {
+		t.Fatalf("expected project id %q, got %q", projectID, content.ProjectConfigID)
 	}
 	if content.ShareSessionID != shareSessionID {
 		t.Fatalf("expected share session id %q, got %q", shareSessionID, content.ShareSessionID)
@@ -536,8 +536,8 @@ func assertListenerForceRefreshMessage(
 	if err := json.Unmarshal(envelope.Content, &content); err != nil {
 		t.Fatalf("decode listener force refresh content: %v", err)
 	}
-	if content.ProjectID != projectID {
-		t.Fatalf("expected project id %q, got %q", projectID, content.ProjectID)
+	if content.ProjectConfigID != projectID {
+		t.Fatalf("expected project id %q, got %q", projectID, content.ProjectConfigID)
 	}
 	if content.ShareSessionID != shareSessionID {
 		t.Fatalf("expected share session id %q, got %q", shareSessionID, content.ShareSessionID)
@@ -565,8 +565,8 @@ func assertListenerDependencyEventMessage(
 	if err := json.Unmarshal(envelope.Content, &content); err != nil {
 		t.Fatalf("decode listener dependency event content: %v", err)
 	}
-	if content.ProjectID != projectID {
-		t.Fatalf("expected project id %q, got %q", projectID, content.ProjectID)
+	if content.ProjectConfigID != projectID {
+		t.Fatalf("expected project id %q, got %q", projectID, content.ProjectConfigID)
 	}
 	if content.ShareSessionID != shareSessionID {
 		t.Fatalf("expected share session id %q, got %q", shareSessionID, content.ShareSessionID)

@@ -2700,7 +2700,7 @@ describe("plugin runtime helpers", () => {
     socket.receiveJson({
       messageType: "ListenerRegisterAck",
       content: {
-        projectId: "project-runtime-listener",
+        projectConfigId: "project-runtime-listener",
         shareSessionId: "share-runtime-listener",
         callbacks: {},
       },

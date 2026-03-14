@@ -125,7 +125,7 @@ describe("listenerEndpointClient", () => {
     socket.receiveJson({
       messageType: "ListenerRegisterAck",
       content: {
-        projectId: "project-1",
+        projectConfigId: "project-1",
         shareSessionId: "share-1",
         callbacks: {},
       },
@@ -186,7 +186,7 @@ describe("listenerEndpointClient", () => {
     firstSocket.receiveJson({
       messageType: "ListenerRegisterAck",
       content: {
-        projectId: "project-2",
+        projectConfigId: "project-2",
         callbacks: {},
       },
     });

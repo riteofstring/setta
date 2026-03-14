@@ -61,9 +61,9 @@ type ListenerRegisterAckStatus struct {
 }
 
 type ListenerRegisterAckContent struct {
-	ProjectID      string                               `json:"projectId"`
-	ShareSessionID string                               `json:"shareSessionId,omitempty"`
-	Callbacks      map[string]ListenerRegisterAckStatus `json:"callbacks"`
+	ProjectConfigID string                               `json:"projectConfigId"`
+	ShareSessionID  string                               `json:"shareSessionId,omitempty"`
+	Callbacks       map[string]ListenerRegisterAckStatus `json:"callbacks"`
 }
 
 type ListenerRegisterAckMessage struct {
@@ -105,10 +105,10 @@ type ListenerDependencyEvent struct {
 }
 
 type ListenerRealtimeEventContent struct {
-	ProjectID      string                  `json:"projectId"`
-	ShareSessionID string                  `json:"shareSessionId,omitempty"`
-	Deltas         []ListenerRealtimeDelta `json:"deltas"`
-	Sequence       uint64                  `json:"sequence"`
+	ProjectConfigID string                  `json:"projectConfigId"`
+	ShareSessionID  string                  `json:"shareSessionId,omitempty"`
+	Deltas          []ListenerRealtimeDelta `json:"deltas"`
+	Sequence        uint64                  `json:"sequence"`
 }
 
 type ListenerRealtimeEventMessage struct {
@@ -117,7 +117,7 @@ type ListenerRealtimeEventMessage struct {
 }
 
 type ListenerDependencyEventContent struct {
-	ProjectID        string                    `json:"projectId"`
+	ProjectConfigID  string                    `json:"projectConfigId"`
 	ShareSessionID   string                    `json:"shareSessionId,omitempty"`
 	DependencyEvents []ListenerDependencyEvent `json:"dependencyEvents"`
 	Sequence         uint64                    `json:"sequence"`
@@ -129,9 +129,9 @@ type ListenerDependencyEventMessage struct {
 }
 
 type ListenerForceRefreshContent struct {
-	ProjectID      string          `json:"projectId"`
-	ShareSessionID string          `json:"shareSessionId,omitempty"`
-	ProjectState   json.RawMessage `json:"projectState,omitempty"`
+	ProjectConfigID string          `json:"projectConfigId"`
+	ShareSessionID  string          `json:"shareSessionId,omitempty"`
+	ProjectState    json.RawMessage `json:"projectState,omitempty"`
 }
 
 type ListenerForceRefreshMessage struct {

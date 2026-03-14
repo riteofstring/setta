@@ -2033,8 +2033,8 @@ func assertListenerRegisterAck(t *testing.T, message routeMessageEnvelope, proje
 	if err := json.Unmarshal(message.Content, &content); err != nil {
 		t.Fatalf("decode listener register ack: %v", err)
 	}
-	if content.ProjectID != projectID {
-		t.Fatalf("expected project id %q, got %q", projectID, content.ProjectID)
+	if content.ProjectConfigID != projectID {
+		t.Fatalf("expected project id %q, got %q", projectID, content.ProjectConfigID)
 	}
 	if content.ShareSessionID != shareSessionID {
 		t.Fatalf("expected share session id %q, got %q", shareSessionID, content.ShareSessionID)
@@ -2064,8 +2064,8 @@ func assertRouteListenerForceRefresh(
 	if err := json.Unmarshal(message.Content, &content); err != nil {
 		t.Fatalf("decode listener force refresh: %v", err)
 	}
-	if content.ProjectID != projectID {
-		t.Fatalf("expected project id %q, got %q", projectID, content.ProjectID)
+	if content.ProjectConfigID != projectID {
+		t.Fatalf("expected project id %q, got %q", projectID, content.ProjectConfigID)
 	}
 	if content.ShareSessionID != shareSessionID {
 		t.Fatalf("expected share session id %q, got %q", shareSessionID, content.ShareSessionID)
@@ -2116,8 +2116,8 @@ func assertRouteListenerRealtimeEvent(t *testing.T, message routeMessageEnvelope
 	if err := json.Unmarshal(message.Content, &content); err != nil {
 		t.Fatalf("decode listener realtime event: %v", err)
 	}
-	if content.ProjectID != projectID {
-		t.Fatalf("expected project id %q, got %q", projectID, content.ProjectID)
+	if content.ProjectConfigID != projectID {
+		t.Fatalf("expected project id %q, got %q", projectID, content.ProjectConfigID)
 	}
 	if content.ShareSessionID != shareSessionID {
 		t.Fatalf("expected share session id %q, got %q", shareSessionID, content.ShareSessionID)
@@ -2144,8 +2144,8 @@ func assertRouteListenerDependencyEvent(t *testing.T, message routeMessageEnvelo
 	if err := json.Unmarshal(message.Content, &content); err != nil {
 		t.Fatalf("decode listener dependency event: %v", err)
 	}
-	if content.ProjectID != projectID {
-		t.Fatalf("expected project id %q, got %q", projectID, content.ProjectID)
+	if content.ProjectConfigID != projectID {
+		t.Fatalf("expected project id %q, got %q", projectID, content.ProjectConfigID)
 	}
 	if content.ShareSessionID != shareSessionID {
 		t.Fatalf("expected share session id %q, got %q", shareSessionID, content.ShareSessionID)

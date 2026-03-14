@@ -669,9 +669,9 @@ func handleListenerRegister(
 	_, err := deps.WebsocketHub.SendJSON(
 		ctx,
 		realtime.NewListenerRegisterAckMessage(realtime.ListenerRegisterAckContent{
-			ProjectID:      registration.ProjectID,
-			ShareSessionID: registration.ShareSessionID,
-			Callbacks:      ackStatuses,
+			ProjectConfigID: registration.ProjectID,
+			ShareSessionID:  registration.ShareSessionID,
+			Callbacks:       ackStatuses,
 		}),
 		connectionID,
 	)

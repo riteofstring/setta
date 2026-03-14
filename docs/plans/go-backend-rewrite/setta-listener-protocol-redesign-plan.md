@@ -90,6 +90,9 @@ a thin Python HTTP client over backend routes.
 - Keep `/ws/listeners/{listenerID}` as the canonical Go websocket route.
 - Continue to support the existing `projectId` query path for the active plugin
   caller.
+- Use `projectConfigId` as the canonical project identifier field inside
+  listener websocket payloads, even while the plugin bootstrap query still
+  uses `projectId`.
 - Add an explicit bootstrap message for Python/share listener clients that do
   not know the project ID up front.
 - Let Go resolve project selection from:

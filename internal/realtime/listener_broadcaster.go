@@ -121,10 +121,10 @@ func (b *ListenerBroadcaster) EmitRealtimeDeltas(ctx context.Context, params Emi
 	delivered, err := b.sendMessageToTargets(
 		ctx,
 		NewListenerRealtimeEventMessage(ListenerRealtimeEventContent{
-			ProjectID:      params.ProjectID,
-			ShareSessionID: params.ShareSessionID,
-			Deltas:         cloneListenerDeltas(params.Deltas),
-			Sequence:       sequence,
+			ProjectConfigID: params.ProjectID,
+			ShareSessionID:  params.ShareSessionID,
+			Deltas:          cloneListenerDeltas(params.Deltas),
+			Sequence:        sequence,
 		}),
 		targetConnectionIDs,
 	)
@@ -168,10 +168,10 @@ func (b *ListenerBroadcaster) EmitRealtimeDeltasBinary(ctx context.Context, para
 	delivered, err := b.sendBinaryMessageToTargets(
 		ctx,
 		NewListenerRealtimeEventMessage(ListenerRealtimeEventContent{
-			ProjectID:      params.ProjectID,
-			ShareSessionID: params.ShareSessionID,
-			Deltas:         cloneListenerDeltas(params.Deltas),
-			Sequence:       sequence,
+			ProjectConfigID: params.ProjectID,
+			ShareSessionID:  params.ShareSessionID,
+			Deltas:          cloneListenerDeltas(params.Deltas),
+			Sequence:        sequence,
 		}),
 		params.BinaryPayload,
 		targetConnectionIDs,
@@ -217,7 +217,7 @@ func (b *ListenerBroadcaster) EmitDependencyEvents(ctx context.Context, params E
 	delivered, err := b.sendMessageToTargets(
 		ctx,
 		NewListenerDependencyEventMessage(ListenerDependencyEventContent{
-			ProjectID:        params.ProjectID,
+			ProjectConfigID:  params.ProjectID,
 			ShareSessionID:   params.ShareSessionID,
 			DependencyEvents: cloneDependencyEvents(params.DependencyEvents),
 			Sequence:         sequence,
@@ -265,7 +265,7 @@ func (b *ListenerBroadcaster) EmitDependencyEventsBinary(ctx context.Context, pa
 	delivered, err := b.sendBinaryMessageToTargets(
 		ctx,
 		NewListenerDependencyEventMessage(ListenerDependencyEventContent{
-			ProjectID:        params.ProjectID,
+			ProjectConfigID:  params.ProjectID,
 			ShareSessionID:   params.ShareSessionID,
 			DependencyEvents: cloneDependencyEvents(params.DependencyEvents),
 			Sequence:         sequence,
@@ -299,9 +299,9 @@ func (b *ListenerBroadcaster) SendForceRefresh(ctx context.Context, params Force
 	return b.sendMessageToTargets(
 		ctx,
 		NewListenerForceRefreshMessage(ListenerForceRefreshContent{
-			ProjectID:      params.ProjectID,
-			ShareSessionID: params.ShareSessionID,
-			ProjectState:   cloneRawMessage(params.ProjectState),
+			ProjectConfigID: params.ProjectID,
+			ShareSessionID:  params.ShareSessionID,
+			ProjectState:    cloneRawMessage(params.ProjectState),
 		}),
 		targetConnectionIDs,
 	)
