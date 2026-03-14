@@ -20,12 +20,39 @@ type LatestProjectStateResponse = {
           zIndex?: number;
         }
       >;
+      sectionVariantMap?: Record<string, string>;
       viewport?: {
         x?: number;
         y?: number;
         zoom?: number;
       } | null;
     };
+    sectionVariants?: Record<
+      string,
+      {
+        impl?: string;
+      }
+    >;
+    sections?: Record<
+      string,
+      {
+        sharedModifier?: {
+          size?: {
+            width?: number | "auto";
+            height?: number | "auto";
+          } | null;
+        };
+      }
+    >;
+    sectionImpls?: Record<
+      string,
+      {
+        size?: {
+          width?: number | "auto";
+          height?: number | "auto";
+        } | null;
+      }
+    >;
   };
 };
 
@@ -442,6 +469,87 @@ test("canvas engine host drags selected section groups together", async ({
   }
 });
 
+test("canvas engine host resizes sections and persists top-level layout", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+
+    const sectionId = await createCallableSectionForCanvasEngine(
+      page,
+      projectContext.projectConfigId,
+    );
+    await expect(
+      host.locator(`[data-canvas-engine-dom-island="${sectionId}"]`),
+    ).toHaveCount(1);
+
+    const layoutBefore = await readTopLevelSectionPosition(
+      page,
+      projectContext.projectConfigId,
+      sectionId,
+    );
+    const sectionBounds = await host
+      .locator(`[data-canvas-engine-dom-island="${sectionId}"]`)
+      .boundingBox();
+    if (!sectionBounds) {
+      throw new Error(`Missing DOM-island bounds for section ${sectionId}.`);
+    }
+    const initialWidth = Math.round(sectionBounds.width);
+    const initialHeight = Math.round(sectionBounds.height);
+    const resizeDelta = { width: 80, height: 60 };
+
+    await page.mouse.move(
+      sectionBounds.x + sectionBounds.width - 2,
+      sectionBounds.y + sectionBounds.height - 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      sectionBounds.x + sectionBounds.width - 2 + resizeDelta.width,
+      sectionBounds.y + sectionBounds.height - 2 + resizeDelta.height,
+      { steps: 10 },
+    );
+    await page.mouse.up();
+
+    await expect
+      .poll(
+        async () =>
+          await readTopLevelSectionLayout(
+            page,
+            projectContext.projectConfigId,
+            sectionId,
+          ),
+      )
+      .toEqual({
+        x: layoutBefore.x,
+        y: layoutBefore.y,
+        w: initialWidth + resizeDelta.width,
+        h: initialHeight + resizeDelta.height,
+      });
+    await expect
+      .poll(
+        async () =>
+          await readPersistedSectionSize(
+            page,
+            projectContext.projectConfigId,
+            sectionId,
+          ),
+      )
+      .toEqual({
+        width: initialWidth + resizeDelta.width,
+        height: initialHeight + resizeDelta.height,
+      });
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 async function readCamera(host: Locator): Promise<CanvasEngineCameraSnapshot> {
   const xRaw = await host.getAttribute("data-canvas-engine-camera-x");
   const yRaw = await host.getAttribute("data-canvas-engine-camera-y");
@@ -542,6 +650,72 @@ async function readTopLevelSectionPosition(
   return {
     x: layout.x,
     y: layout.y,
+  };
+}
+
+async function readTopLevelSectionLayout(
+  page: Page,
+  projectConfigId: string,
+  sectionId: string,
+): Promise<{ x: number; y: number; w: number; h: number }> {
+  const response = await postBackend<LatestProjectStateResponse>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
+  );
+  const layout =
+    response?.projectState?.projectConfig?.topLevelSections?.[sectionId];
+  if (
+    !layout ||
+    typeof layout.x !== "number" ||
+    typeof layout.y !== "number" ||
+    typeof layout.w !== "number" ||
+    typeof layout.h !== "number"
+  ) {
+    throw new Error(
+      `Missing top-level layout for section ${sectionId} in project ${projectConfigId}.`,
+    );
+  }
+  return {
+    x: layout.x,
+    y: layout.y,
+    w: layout.w,
+    h: layout.h,
+  };
+}
+
+async function readPersistedSectionSize(
+  page: Page,
+  projectConfigId: string,
+  sectionId: string,
+): Promise<{ width: number; height: number }> {
+  const response = await postBackend<LatestProjectStateResponse>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
+  );
+  const variantId =
+    response?.projectState?.projectConfig?.sectionVariantMap?.[sectionId];
+  const sharedModifierSize =
+    response?.projectState?.sections?.[sectionId]?.sharedModifier?.size;
+  const implId = variantId
+    ? response?.projectState?.sectionVariants?.[variantId]?.impl
+    : null;
+  const size =
+    sharedModifierSize ??
+    (implId ? response?.projectState?.sectionImpls?.[implId]?.size : null);
+  if (
+    !size ||
+    typeof size.width !== "number" ||
+    typeof size.height !== "number"
+  ) {
+    throw new Error(
+      `Missing persisted size for section ${sectionId} in project ${projectConfigId}.`,
+    );
+  }
+  return {
+    width: size.width,
+    height: size.height,
   };
 }
 
