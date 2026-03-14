@@ -170,7 +170,10 @@ test("canvas engine host persists camera viewport after pan and zoom", async ({
           if (!persistedViewport) {
             return false;
           }
-          return areCamerasClose(camera, persistedViewport);
+          return areCamerasClose(
+            convertCameraToPersistedViewport(camera),
+            persistedViewport,
+          );
         },
         { timeout: 15_000 },
       )
@@ -599,6 +602,16 @@ function areCamerasClose(
     Math.abs(left.y - right.y) <= 0.75 &&
     Math.abs(left.zoom - right.zoom) <= 0.02
   );
+}
+
+function convertCameraToPersistedViewport(
+  camera: CanvasEngineCameraSnapshot,
+): CanvasEngineCameraSnapshot {
+  return {
+    x: -camera.x * camera.zoom,
+    y: -camera.y * camera.zoom,
+    zoom: camera.zoom,
+  };
 }
 
 async function readPersistedViewport(

@@ -16,6 +16,7 @@ import type { CanvasEngineCamera, CanvasEngineRect } from "canvas-engine/types";
 import { SectionContainer } from "components/Section/Container/SectionContainer";
 import { SIZE_MODE } from "components/Utils/Resizable/utils";
 import { useReactFlow } from "forks/xyflow/core/store";
+import { getWheelDelta } from "forks/xyflow/core/utils";
 import {
   memo,
   useCallback,
@@ -24,7 +25,6 @@ import {
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
-  type WheelEvent as ReactWheelEvent,
 } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { getCurrEffectiveSectionImplIfPresent } from "state/actions/sectionInfos";
@@ -58,6 +58,7 @@ import {
   type SectionSizingPolicy,
   type SectionType,
 } from "utils/generatedTypes";
+import { isMacOs } from "utils/utils";
 
 type PanePointerSession = {
   pointerId: number;
@@ -128,6 +129,12 @@ type MetaControlResizeMode = {
   sizeModeWidth: string;
 };
 
+type ReactFlowViewportTransform = {
+  x: number;
+  y: number;
+  zoom: number;
+};
+
 type DomIslandRenderEntry = {
   rect: CanvasEngineRect;
   retained: boolean;
@@ -140,6 +147,7 @@ const DOM_ISLAND_MIN_ZOOM = 0.35;
 const DOM_ISLAND_RETENTION_MS = 280;
 const DOM_ISLAND_MAX_RETAINED_SECTIONS = 96;
 const RESIZE_HANDLE_HIT_RADIUS_PX = 10;
+const VIEWPORT_SYNC_EPSILON = 0.000001;
 
 const DEFAULT_CAMERA: CanvasEngineCamera = {
   x: 0,
@@ -186,13 +194,17 @@ export function CanvasEngineHost() {
   );
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const sectionSizingPolicy = useSettings((state) => state.sectionSizingPolicy);
+  const reactFlowTransform = useReactFlow((state) => state.transform);
 
   const sceneAdapterRef = useRef<CanvasEngineSceneAdapter | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const hostRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<CanvasEngineRenderer | null>(null);
   const pointerSessionRef = useRef<PointerSession | null>(null);
-  const skipInitialCameraSyncRef = useRef(true);
+  const hasHydratedReactFlowTransformRef = useRef(false);
+  const pendingReactFlowViewportRef = useRef<ReactFlowViewportTransform | null>(
+    null,
+  );
   const domIslandMountedSectionIdsRef = useRef<string[]>([]);
   const domIslandRetentionExpiryByIdRef = useRef<Map<string, number>>(
     new Map(),
@@ -305,19 +317,21 @@ export function CanvasEngineHost() {
     topLevelSections,
   ]);
 
-  const domIslandLayerTransform = useMemo(
-    () => ({
-      transform: `translate(${-camera.x * camera.zoom}px, ${-camera.y * camera.zoom}px) scale(${camera.zoom})`,
+  const domIslandLayerTransform = useMemo(() => {
+    const transform = getReactFlowViewportFromCamera(camera);
+    return {
+      transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.zoom})`,
       transformOrigin: "top left",
-    }),
-    [camera],
-  );
+    };
+  }, [camera]);
 
   useEffect(() => {
     const nextCamera = getInitialCamera({
       viewport: persistedViewport,
       viewportInitialized,
     });
+    hasHydratedReactFlowTransformRef.current = false;
+    pendingReactFlowViewportRef.current = null;
     setCamera((currentCamera) => {
       if (
         currentCamera.x === nextCamera.x &&
@@ -420,31 +434,67 @@ export function CanvasEngineHost() {
   }, [viewport.height, viewport.width]);
 
   useEffect(() => {
-    if (skipInitialCameraSyncRef.current) {
-      skipInitialCameraSyncRef.current = false;
-      if (!viewportInitialized) {
+    const reactFlowState = useReactFlow.getState();
+    const currentTransform = {
+      x: reactFlowState.transform[0],
+      y: reactFlowState.transform[1],
+      zoom: reactFlowState.transform[2],
+    };
+    const nextTransform = getReactFlowViewportFromCamera(camera);
+    const fitViewStateMatches =
+      !reactFlowState.fitViewOnInit && reactFlowState.fitViewOnInitDone;
+    if (
+      areViewportsEqual(currentTransform, nextTransform) &&
+      fitViewStateMatches
+    ) {
+      if (
+        pendingReactFlowViewportRef.current &&
+        areViewportsEqual(pendingReactFlowViewportRef.current, nextTransform)
+      ) {
+        pendingReactFlowViewportRef.current = null;
+      }
+      return;
+    }
+    pendingReactFlowViewportRef.current = nextTransform;
+    useReactFlow.setState({
+      transform: [nextTransform.x, nextTransform.y, nextTransform.zoom],
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+    });
+  }, [camera]);
+
+  useEffect(() => {
+    const expectedTransform = getReactFlowViewportFromCamera(camera);
+    const currentTransform = {
+      x: reactFlowTransform[0],
+      y: reactFlowTransform[1],
+      zoom: reactFlowTransform[2],
+    };
+    const pendingTransform = pendingReactFlowViewportRef.current;
+
+    if (pendingTransform) {
+      if (areViewportsEqual(currentTransform, pendingTransform)) {
+        pendingReactFlowViewportRef.current = null;
+      } else {
         return;
       }
     }
 
-    const reactFlowState = useReactFlow.getState();
-    const currentTransform = reactFlowState.transform;
-    const fitViewStateMatches =
-      !reactFlowState.fitViewOnInit && reactFlowState.fitViewOnInitDone;
-    if (
-      currentTransform[0] === camera.x &&
-      currentTransform[1] === camera.y &&
-      currentTransform[2] === camera.zoom &&
-      fitViewStateMatches
-    ) {
+    if (!hasHydratedReactFlowTransformRef.current) {
+      if (areViewportsEqual(currentTransform, expectedTransform)) {
+        hasHydratedReactFlowTransformRef.current = true;
+      }
       return;
     }
-    useReactFlow.setState({
-      transform: [camera.x, camera.y, camera.zoom],
-      fitViewOnInit: false,
-      fitViewOnInitDone: true,
+
+    const nextCamera = getCameraFromReactFlowViewport(currentTransform);
+    setCamera((currentCamera) => {
+      if (areCamerasEqual(currentCamera, nextCamera)) {
+        return currentCamera;
+      }
+      return nextCamera;
     });
-  }, [camera, viewportInitialized]);
+  }, [camera, reactFlowTransform]);
 
   useEffect(() => {
     const renderer = rendererRef.current;
@@ -476,6 +526,51 @@ export function CanvasEngineHost() {
         window.clearTimeout(domIslandRetentionTimerIdRef.current);
         domIslandRetentionTimerIdRef.current = null;
       }
+    };
+  }, []);
+
+  useEffect(() => {
+    const hostElement = hostRef.current;
+    if (!hostElement) {
+      return;
+    }
+
+    const handleWheel = (event: WheelEvent) => {
+      const pinchZoom = event.ctrlKey && isMacOs();
+      if (!pinchZoom && isCanvasWheelBlockedByTarget(event.target)) {
+        return;
+      }
+      event.preventDefault();
+
+      const rect = hostElement.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) {
+        return;
+      }
+
+      const localX = event.clientX - rect.left;
+      const localY = event.clientY - rect.top;
+      const zoomDelta = getCanvasEngineWheelDelta(event);
+
+      setCamera((currentCamera) => {
+        const nextZoom = clampZoom(currentCamera.zoom * Math.pow(2, zoomDelta));
+        if (nextZoom === currentCamera.zoom) {
+          return currentCamera;
+        }
+
+        const worldX = currentCamera.x + localX / currentCamera.zoom;
+        const worldY = currentCamera.y + localY / currentCamera.zoom;
+
+        return {
+          x: worldX - localX / nextZoom,
+          y: worldY - localY / nextZoom,
+          zoom: nextZoom,
+        };
+      });
+    };
+
+    hostElement.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      hostElement.removeEventListener("wheel", handleWheel);
     };
   }, []);
 
@@ -754,37 +849,6 @@ export function CanvasEngineHost() {
     [projectConfigId],
   );
 
-  const handleWheel = useCallback((event: ReactWheelEvent<HTMLDivElement>) => {
-    if (isCanvasWheelBlockedByTarget(event.target)) {
-      return;
-    }
-    event.preventDefault();
-    const rect = event.currentTarget.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) {
-      return;
-    }
-
-    const localX = event.clientX - rect.left;
-    const localY = event.clientY - rect.top;
-    const zoomFactor = Math.exp(-event.deltaY * 0.0015);
-
-    setCamera((currentCamera) => {
-      const nextZoom = clampZoom(currentCamera.zoom * zoomFactor);
-      if (nextZoom === currentCamera.zoom) {
-        return currentCamera;
-      }
-
-      const worldX = currentCamera.x + localX / currentCamera.zoom;
-      const worldY = currentCamera.y + localY / currentCamera.zoom;
-
-      return {
-        x: worldX - localX / nextZoom,
-        y: worldY - localY / nextZoom,
-        zoom: nextZoom,
-      };
-    });
-  }, []);
-
   return (
     <div
       ref={hostRef}
@@ -794,7 +858,6 @@ export function CanvasEngineHost() {
       onPointerMove={handlePointerMove}
       onPointerUp={releasePointerCapture}
       onPointerCancel={releasePointerCapture}
-      onWheel={handleWheel}
       data-canvas-engine-host="v1"
       data-canvas-engine-active-backend={backendSelection.activeBackend}
       data-canvas-engine-preferred-backend={backendSelection.preferredBackend}
@@ -857,24 +920,61 @@ function getInitialCamera({
   viewport,
   viewportInitialized,
 }: {
-  viewport:
-    | {
-        x: number;
-        y: number;
-        zoom: number;
-      }
-    | null
-    | undefined;
+  viewport: ReactFlowViewportTransform | null | undefined;
   viewportInitialized: boolean;
 }): CanvasEngineCamera {
   if (!viewportInitialized || !viewport) {
     return DEFAULT_CAMERA;
   }
+  return getCameraFromReactFlowViewport(viewport);
+}
+
+function getCameraFromReactFlowViewport(
+  viewport: ReactFlowViewportTransform,
+): CanvasEngineCamera {
+  const zoom = clampZoom(viewport.zoom);
   return {
-    x: viewport.x,
-    y: viewport.y,
-    zoom: clampZoom(viewport.zoom),
+    x: -viewport.x / zoom,
+    y: -viewport.y / zoom,
+    zoom,
   };
+}
+
+function getReactFlowViewportFromCamera(
+  camera: CanvasEngineCamera,
+): ReactFlowViewportTransform {
+  return {
+    x: -camera.x * camera.zoom,
+    y: -camera.y * camera.zoom,
+    zoom: clampZoom(camera.zoom),
+  };
+}
+
+function areCamerasEqual(
+  left: CanvasEngineCamera,
+  right: CanvasEngineCamera,
+): boolean {
+  return (
+    Math.abs(left.x - right.x) <= VIEWPORT_SYNC_EPSILON &&
+    Math.abs(left.y - right.y) <= VIEWPORT_SYNC_EPSILON &&
+    Math.abs(left.zoom - right.zoom) <= VIEWPORT_SYNC_EPSILON
+  );
+}
+
+function areViewportsEqual(
+  left: ReactFlowViewportTransform,
+  right: ReactFlowViewportTransform,
+): boolean {
+  return (
+    Math.abs(left.x - right.x) <= VIEWPORT_SYNC_EPSILON &&
+    Math.abs(left.y - right.y) <= VIEWPORT_SYNC_EPSILON &&
+    Math.abs(left.zoom - right.zoom) <= VIEWPORT_SYNC_EPSILON
+  );
+}
+
+function getCanvasEngineWheelDelta(event: WheelEvent): number {
+  const factor = event.ctrlKey && isMacOs() ? 10 : 1;
+  return getWheelDelta(event, factor);
 }
 
 function clampZoom(zoom: number): number {

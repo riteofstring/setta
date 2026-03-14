@@ -47,6 +47,7 @@ describe("CanvasEngineHost", () => {
   let originalSetPointerCapture: PropertyDescriptor | undefined;
   let originalReleasePointerCapture: PropertyDescriptor | undefined;
   let originalHasPointerCapture: PropertyDescriptor | undefined;
+  let originalUserAgent: PropertyDescriptor | undefined;
 
   beforeEach(() => {
     resetProjectStores();
@@ -76,6 +77,10 @@ describe("CanvasEngineHost", () => {
     originalHasPointerCapture = Object.getOwnPropertyDescriptor(
       HTMLElement.prototype,
       "hasPointerCapture",
+    );
+    originalUserAgent = Object.getOwnPropertyDescriptor(
+      Navigator.prototype,
+      "userAgent",
     );
 
     Object.defineProperty(HTMLElement.prototype, "clientWidth", {
@@ -167,6 +172,13 @@ describe("CanvasEngineHost", () => {
       );
     } else {
       delete (HTMLElement.prototype as Partial<HTMLElement>).hasPointerCapture;
+    }
+    if (originalUserAgent) {
+      Object.defineProperty(
+        Navigator.prototype,
+        "userAgent",
+        originalUserAgent,
+      );
     }
     HTMLCanvasElement.prototype.getContext = originalCanvasGetContext;
   });
@@ -306,10 +318,72 @@ describe("CanvasEngineHost", () => {
     const engineHost = host.querySelector(
       '[data-canvas-engine-host="v1"]',
     ) as HTMLElement | null;
-    expect(engineHost?.dataset.canvasEngineCameraX).toBe("48.00");
-    expect(engineHost?.dataset.canvasEngineCameraY).toBe("-32.00");
+    expect(engineHost?.dataset.canvasEngineCameraX).toBe("-27.43");
+    expect(engineHost?.dataset.canvasEngineCameraY).toBe("18.29");
     expect(engineHost?.dataset.canvasEngineCameraZoom).toBe("1.750");
     expect(useReactFlow.getState().transform).toEqual([48, -32, 1.75]);
+  });
+
+  it("follows external React Flow transform updates after hydration", async () => {
+    await act(async () => {
+      root.render(<CanvasEngineHost />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      useReactFlow.setState({
+        transform: [80, -40, 2],
+      });
+    });
+
+    const engineHost = host.querySelector(
+      '[data-canvas-engine-host="v1"]',
+    ) as HTMLElement | null;
+    expect(engineHost?.dataset.canvasEngineCameraX).toBe("-40.00");
+    expect(engineHost?.dataset.canvasEngineCameraY).toBe("20.00");
+    expect(engineHost?.dataset.canvasEngineCameraZoom).toBe("2.000");
+  });
+
+  it("uses a native wheel listener to prevent default and zoom the canvas host", async () => {
+    Object.defineProperty(Navigator.prototype, "userAgent", {
+      configurable: true,
+      get() {
+        return "Macintosh";
+      },
+    });
+
+    await act(async () => {
+      root.render(<CanvasEngineHost />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const engineHost = host.querySelector(
+      '[data-canvas-engine-host="v1"]',
+    ) as HTMLDivElement | null;
+    if (!engineHost) {
+      throw new Error("Canvas engine host failed to render.");
+    }
+    setEngineHostBounds(engineHost);
+
+    const wheelWasPrevented = await dispatchWheelEvent(engineHost, {
+      clientX: 320,
+      clientY: 180,
+      ctrlKey: true,
+      deltaY: -120,
+    });
+
+    expect(wheelWasPrevented).toBe(true);
+    expect(
+      Number(engineHost.dataset.canvasEngineCameraZoom ?? "0"),
+    ).toBeGreaterThan(1);
   });
 
   it("drags a top-level section and persists the updated layout", async () => {
@@ -619,6 +693,31 @@ async function dispatchPointerEvent(
   await act(async () => {
     target.dispatchEvent(event);
   });
+}
+
+async function dispatchWheelEvent(
+  target: HTMLElement,
+  init: {
+    clientX: number;
+    clientY: number;
+    ctrlKey: boolean;
+    deltaY: number;
+  },
+): Promise<boolean> {
+  const event = new WheelEvent("wheel", {
+    bubbles: true,
+    cancelable: true,
+    clientX: init.clientX,
+    clientY: init.clientY,
+    ctrlKey: init.ctrlKey,
+    deltaY: init.deltaY,
+  });
+
+  await act(async () => {
+    target.dispatchEvent(event);
+  });
+
+  return event.defaultPrevented;
 }
 
 function setEngineHostBounds(target: HTMLElement) {
