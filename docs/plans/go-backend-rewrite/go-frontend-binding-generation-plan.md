@@ -341,6 +341,10 @@ Current status:
   `frontend/src/utils/transportUrlCore.ts`, so `endpointUtils` is reduced to
   URL/origin policy helpers plus error parsing instead of remaining the URL
   source of truth for narrowed runtime wrappers
+- the validation suite now also checks that direct `transportUrlCore` imports
+  stay confined to `endpointUtils`, `requestTransport`, `backendTransport`,
+  and `backendOriginTransport`, so narrowed backend/backend-origin URL
+  assembly cannot silently widen back into ad hoc runtime callers
 - shared HTTP request verbs now also flow through
   `frontend/src/utils/requestTransport.ts`, so `generatedEndpoints.ts` and the
   intentional dynamic Setta API helper boundary no longer import
@@ -364,9 +368,9 @@ Current status:
   export-all / namespace re-exports plus dynamic-import / `require()` access
   to narrowed boundary modules such as `generatedRoutes`, `requestTransport`,
   `transportRouteConstants`, `backendTransport`, `backendOriginTransport`,
-  `appTransport`, and `plugins/transport`, so caller-specific boundary checks
-  cannot be bypassed through broad module imports, dynamic loads, or re-export
-  seams
+  `appTransport`, `transportUrlCore`, and `plugins/transport`, so
+  caller-specific boundary checks cannot be bypassed through broad module
+  imports, dynamic loads, or re-export seams
 - the validation suite now also checks that the checked-in
   `generatedRoutes.ts`, `generatedTypes.ts`, and `generatedEndpoints.ts`
   files exactly match the current Go frontend binding generation pipeline
