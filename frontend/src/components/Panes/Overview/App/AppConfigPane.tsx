@@ -1,3 +1,7 @@
+import {
+  PaneAccordion,
+  type PaneAccordionItem,
+} from "components/Panes/Common/PaneAccordion";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
@@ -25,6 +29,10 @@ type AppSpecPayload = Record<string, unknown>;
 const DEFAULT_CATALOG_ID = "setta.app.default";
 const DEFAULT_SPEC_VERSION = "v1";
 const DEFAULT_THEME_MODE: AppThemeMode = "auto";
+const ADVANCED_ACCORDION_TRIGGER_ENABLED_CLASSES =
+  "group box-border flex w-full items-start justify-between gap-3 px-3 py-2 text-left transition-colors hover:bg-setta-100/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:hover:bg-setta-850/70 [&[data-state=open]_.app-config-advanced-chevron]:rotate-180";
+const ADVANCED_ACCORDION_TRIGGER_DISABLED_CLASSES =
+  "group box-border flex w-full cursor-not-allowed items-start justify-between gap-3 px-3 py-2 text-left opacity-60";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -639,172 +647,170 @@ export function AppConfigPane() {
         </div>
       ) : null}
 
-      <div className="rounded-lg border border-setta-200 bg-white/70 p-4 dark:border-setta-700 dark:bg-setta-900/60">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
-              Advanced
-            </span>
-            <span className="text-[11px] text-setta-500 dark:text-setta-400">
-              Theme, assets, preview targeting, and metadata.
-            </span>
-          </div>
-          <button
-            aria-expanded={showAdvanced}
-            className="rounded-full border border-setta-200 px-3 py-1 text-xs font-semibold text-setta-600 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-            onClick={() => setShowAdvanced((current) => !current)}
-            type="button"
-          >
-            Advanced
-          </button>
-        </div>
+      <PaneAccordion
+        items={
+          [
+            {
+              value: "advanced",
+              title: "Advanced",
+              description: "Theme, assets, preview targeting, and metadata.",
+              triggerTestId: "app-config-advanced-accordion",
+              content: (
+                <div className="flex flex-col gap-4">
+                  <div className="grid gap-3">
+                    <label
+                      className="flex flex-col gap-1 text-xs"
+                      data-setting-anchor="core.app.catalog_id"
+                    >
+                      Catalog ID
+                      <input
+                        aria-label="Catalog ID"
+                        className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
+                        value={catalogId}
+                        onChange={(event) => setCatalogId(event.target.value)}
+                      />
+                    </label>
+                    <label
+                      className="flex flex-col gap-1 text-xs"
+                      data-setting-anchor="core.app.spec_version"
+                    >
+                      Spec version
+                      <input
+                        aria-label="Spec version"
+                        className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
+                        value={specVersion}
+                        onChange={(event) => setSpecVersion(event.target.value)}
+                      />
+                    </label>
+                    <label
+                      className="flex flex-col gap-1 text-xs"
+                      data-setting-anchor="core.app.theme_mode"
+                    >
+                      Theme mode
+                      <select
+                        aria-label="Theme mode"
+                        className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
+                        value={themeMode}
+                        onChange={(event) =>
+                          setThemeMode(event.target.value as AppThemeMode)
+                        }
+                      >
+                        <option value="auto">auto</option>
+                        <option value="dark">dark</option>
+                        <option value="light">light</option>
+                      </select>
+                      <span className="text-[11px] text-setta-500 dark:text-setta-400">
+                        App deployments default to auto. Force dark or light
+                        here, then republish.
+                      </span>
+                    </label>
+                    <label
+                      className="flex flex-col gap-1 text-xs"
+                      data-setting-anchor="core.app.spec_path"
+                    >
+                      Spec path
+                      <input
+                        aria-label="Spec path"
+                        className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
+                        placeholder="app_specs/app.json"
+                        value={appSpecPath}
+                        onChange={(event) => setAppSpecPath(event.target.value)}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1 text-xs">
+                      Preview config
+                      <select
+                        aria-label="Preview config"
+                        className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
+                        value={previewConfigId ?? ""}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          useAppPreview.setState({
+                            previewConfigId: value ? value : null,
+                          });
+                        }}
+                      >
+                        <option value="">Active config</option>
+                        {projectMetadata.map((config) => (
+                          <option key={config.id} value={config.id}>
+                            {config.name}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="text-[11px] text-setta-500 dark:text-setta-400">
+                        Select which project config the preview should target.
+                      </span>
+                    </label>
+                  </div>
 
-        {showAdvanced ? (
-          <div className="mt-4 flex flex-col gap-4">
-            <div className="grid gap-3">
-              <label
-                className="flex flex-col gap-1 text-xs"
-                data-setting-anchor="core.app.catalog_id"
-              >
-                Catalog ID
-                <input
-                  aria-label="Catalog ID"
-                  className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
-                  value={catalogId}
-                  onChange={(event) => setCatalogId(event.target.value)}
-                />
-              </label>
-              <label
-                className="flex flex-col gap-1 text-xs"
-                data-setting-anchor="core.app.spec_version"
-              >
-                Spec version
-                <input
-                  aria-label="Spec version"
-                  className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
-                  value={specVersion}
-                  onChange={(event) => setSpecVersion(event.target.value)}
-                />
-              </label>
-              <label
-                className="flex flex-col gap-1 text-xs"
-                data-setting-anchor="core.app.theme_mode"
-              >
-                Theme mode
-                <select
-                  aria-label="Theme mode"
-                  className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
-                  value={themeMode}
-                  onChange={(event) =>
-                    setThemeMode(event.target.value as AppThemeMode)
-                  }
-                >
-                  <option value="auto">auto</option>
-                  <option value="dark">dark</option>
-                  <option value="light">light</option>
-                </select>
-                <span className="text-[11px] text-setta-500 dark:text-setta-400">
-                  App deployments default to auto. Force dark or light here,
-                  then republish.
-                </span>
-              </label>
-              <label
-                className="flex flex-col gap-1 text-xs"
-                data-setting-anchor="core.app.spec_path"
-              >
-                Spec path
-                <input
-                  aria-label="Spec path"
-                  className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
-                  placeholder="app_specs/app.json"
-                  value={appSpecPath}
-                  onChange={(event) => setAppSpecPath(event.target.value)}
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-xs">
-                Preview config
-                <select
-                  aria-label="Preview config"
-                  className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
-                  value={previewConfigId ?? ""}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    useAppPreview.setState({
-                      previewConfigId: value ? value : null,
-                    });
-                  }}
-                >
-                  <option value="">Active config</option>
-                  {projectMetadata.map((config) => (
-                    <option key={config.id} value={config.id}>
-                      {config.name}
-                    </option>
-                  ))}
-                </select>
-                <span className="text-[11px] text-setta-500 dark:text-setta-400">
-                  Select which project config the preview should target.
-                </span>
-              </label>
-            </div>
+                  <div className="flex flex-col gap-2">
+                    <div className="text-xs text-setta-500 dark:text-setta-400">
+                      <span>Theme JSON</span>
+                      <span className="ml-2 text-[11px]">
+                        Advanced styling can be set via <code>vars</code> (keys
+                        must start with <code>--app-</code>).
+                      </span>
+                    </div>
+                    <textarea
+                      aria-label="Theme JSON"
+                      className="min-h-[160px] w-full resize-y rounded-lg border border-setta-200 bg-white/90 px-3 py-2 font-mono text-xs text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
+                      placeholder='{"mode":"dark","vars":{"--app-accent":"#ff006e"}}'
+                      value={draftTheme}
+                      onChange={(event) => {
+                        setDraftTheme(event.target.value);
+                        setValidationResult(null);
+                      }}
+                    />
+                    {draftThemeError ? (
+                      <div
+                        role="alert"
+                        className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700 dark:border-red-700/70 dark:bg-red-900/40 dark:text-red-200"
+                      >
+                        {draftThemeError}
+                      </div>
+                    ) : null}
+                  </div>
 
-            <div className="flex flex-col gap-2">
-              <div className="text-xs text-setta-500 dark:text-setta-400">
-                <span>Theme JSON</span>
-                <span className="ml-2 text-[11px]">
-                  Advanced styling can be set via <code>vars</code> (keys must
-                  start with <code>--app-</code>).
-                </span>
-              </div>
-              <textarea
-                aria-label="Theme JSON"
-                className="min-h-[160px] w-full resize-y rounded-lg border border-setta-200 bg-white/90 px-3 py-2 font-mono text-xs text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
-                placeholder='{"mode":"dark","vars":{"--app-accent":"#ff006e"}}'
-                value={draftTheme}
-                onChange={(event) => {
-                  setDraftTheme(event.target.value);
-                  setValidationResult(null);
-                }}
-              />
-              {draftThemeError ? (
-                <div
-                  role="alert"
-                  className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700 dark:border-red-700/70 dark:bg-red-900/40 dark:text-red-200"
-                >
-                  {draftThemeError}
+                  <div className="flex flex-col gap-2">
+                    <div className="text-xs text-setta-500 dark:text-setta-400">
+                      <span>Assets JSON</span>
+                      <span className="ml-2 text-[11px]">
+                        Links are injected as <code>&lt;link&gt;</code> tags.
+                        External URLs are gated by the deployment policy.
+                      </span>
+                    </div>
+                    <textarea
+                      aria-label="Assets JSON"
+                      className="min-h-[120px] w-full resize-y rounded-lg border border-setta-200 bg-white/90 px-3 py-2 font-mono text-xs text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
+                      placeholder='[{"rel":"stylesheet","href":"/static/app.css"}]'
+                      value={draftAssets}
+                      onChange={(event) => {
+                        setDraftAssets(event.target.value);
+                        setValidationResult(null);
+                      }}
+                    />
+                    {draftAssetsError ? (
+                      <div
+                        role="alert"
+                        className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700 dark:border-red-700/70 dark:bg-red-900/40 dark:text-red-200"
+                      >
+                        {draftAssetsError}
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
-              ) : null}
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <div className="text-xs text-setta-500 dark:text-setta-400">
-                <span>Assets JSON</span>
-                <span className="ml-2 text-[11px]">
-                  Links are injected as <code>&lt;link&gt;</code> tags. External
-                  URLs are gated by the deployment policy.
-                </span>
-              </div>
-              <textarea
-                aria-label="Assets JSON"
-                className="min-h-[120px] w-full resize-y rounded-lg border border-setta-200 bg-white/90 px-3 py-2 font-mono text-xs text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
-                placeholder='[{"rel":"stylesheet","href":"/static/app.css"}]'
-                value={draftAssets}
-                onChange={(event) => {
-                  setDraftAssets(event.target.value);
-                  setValidationResult(null);
-                }}
-              />
-              {draftAssetsError ? (
-                <div
-                  role="alert"
-                  className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700 dark:border-red-700/70 dark:bg-red-900/40 dark:text-red-200"
-                >
-                  {draftAssetsError}
-                </div>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-      </div>
+              ),
+            },
+          ] satisfies Array<PaneAccordionItem>
+        }
+        openValues={showAdvanced ? ["advanced"] : []}
+        onOpenValuesChange={(openValues) =>
+          setShowAdvanced(openValues.includes("advanced"))
+        }
+        enabledTriggerClassName={ADVANCED_ACCORDION_TRIGGER_ENABLED_CLASSES}
+        disabledTriggerClassName={ADVANCED_ACCORDION_TRIGGER_DISABLED_CLASSES}
+        chevronClassName="app-config-advanced-chevron"
+      />
     </section>
   );
 }
