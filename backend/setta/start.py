@@ -539,7 +539,7 @@ def _resolve_deployment_root(
         raise click.ClickException("Use either --version or --latest, not both.")
     if not deployment_version and not latest:
         raise click.ClickException("Missing --version or --latest.")
-    project_root = (C.DEPLOYMENTS_FOLDER / deployment_name).resolve()
+    project_root = (C.SHARE_DEPLOYMENTS_FOLDER / deployment_name).resolve()
     if not project_root.exists():
         raise click.ClickException(f"Deployment not found: {deployment_name}")
     if latest:

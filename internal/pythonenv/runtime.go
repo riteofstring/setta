@@ -18,7 +18,6 @@ import (
 
 const (
 	InterpreterEnv       = "SETTA_PYTHON"
-	LegacyLSPPythonEnv   = "SETTA_LSP_PYTHON"
 	virtualEnvEnv        = "VIRTUAL_ENV"
 	installedPackagesCmd = `
 import importlib.metadata
@@ -122,10 +121,8 @@ func ResolveCurrentProcessInterpreter(lookupEnv func(string) (string, bool)) (st
 		lookupEnv = os.LookupEnv
 	}
 
-	for _, envVar := range []string{InterpreterEnv, LegacyLSPPythonEnv} {
-		if explicit, ok := lookupEnv(envVar); ok && strings.TrimSpace(explicit) != "" {
-			return resolveBinary(strings.TrimSpace(explicit))
-		}
+	if explicit, ok := lookupEnv(InterpreterEnv); ok && strings.TrimSpace(explicit) != "" {
+		return resolveBinary(strings.TrimSpace(explicit))
 	}
 
 	if virtualEnv, ok := lookupEnv(virtualEnvEnv); ok && strings.TrimSpace(virtualEnv) != "" {
@@ -148,10 +145,9 @@ func ResolveCurrentProcessInterpreter(lookupEnv func(string) (string, bool)) (st
 	}
 
 	return "", fmt.Errorf(
-		"%w; set %s or %s or activate a virtualenv",
+		"%w; set %s or activate a virtualenv",
 		ErrInterpreterUnavailable,
 		InterpreterEnv,
-		LegacyLSPPythonEnv,
 	)
 }
 

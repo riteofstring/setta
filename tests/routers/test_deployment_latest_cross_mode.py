@@ -78,12 +78,12 @@ def _write_app_project(
 
 @contextmanager
 def _override_deployments_root(root: Path):
-    original = C.DEPLOYMENTS_FOLDER
-    C.DEPLOYMENTS_FOLDER = root
+    original = C.SHARE_DEPLOYMENTS_FOLDER
+    C.SHARE_DEPLOYMENTS_FOLDER = root
     try:
         yield
     finally:
-        C.DEPLOYMENTS_FOLDER = original
+        C.SHARE_DEPLOYMENTS_FOLDER = original
 
 
 pytestmark = pytest.mark.asyncio
@@ -145,4 +145,3 @@ async def test_app_deployment_mode_does_not_scan_disk_for_share_latest() -> None
             with pytest.raises(HTTPException) as exc:
                 route_get_latest_share_deployment("leaky-share", state)
             assert exc.value.status_code == 404
-

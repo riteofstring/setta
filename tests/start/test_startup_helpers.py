@@ -23,13 +23,13 @@ from setta.utils.network import (
 
 @pytest.fixture
 def share_root(tmp_path):
-    original_deployments_folder = C.DEPLOYMENTS_FOLDER
+    original_deployments_folder = C.SHARE_DEPLOYMENTS_FOLDER
     root = tmp_path / "setta_files" / "deployments"
-    C.DEPLOYMENTS_FOLDER = root
+    C.SHARE_DEPLOYMENTS_FOLDER = root
     try:
         yield root
     finally:
-        C.DEPLOYMENTS_FOLDER = original_deployments_folder
+        C.SHARE_DEPLOYMENTS_FOLDER = original_deployments_folder
 
 
 def test_format_host_for_url_rewrites_wildcards() -> None:

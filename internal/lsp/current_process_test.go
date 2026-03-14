@@ -40,14 +40,10 @@ func TestResolveCurrentProcessCommandUsesSharedInterpreterResolution(t *testing.
 
 	explicitInterpreter := filepath.Join(t.TempDir(), "python-bin")
 	command, args, err := resolveCurrentProcessCommand(func(key string) (string, bool) {
-		switch key {
-		case pythonenv.InterpreterEnv:
+		if key == pythonenv.InterpreterEnv {
 			return explicitInterpreter, true
-		case pythonenv.LegacyLSPPythonEnv:
-			return filepath.Join(t.TempDir(), "legacy-python"), true
-		default:
-			return "", false
 		}
+		return "", false
 	})
 	if err != nil {
 		t.Fatalf("resolve shared interpreter command: %v", err)

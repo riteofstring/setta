@@ -16,14 +16,10 @@ func TestResolveCurrentProcessInterpreterPrefersSettaPythonOverride(t *testing.T
 
 	explicitInterpreter := filepath.Join(t.TempDir(), "python-bin")
 	resolved, err := ResolveCurrentProcessInterpreter(func(key string) (string, bool) {
-		switch key {
-		case InterpreterEnv:
+		if key == InterpreterEnv {
 			return explicitInterpreter, true
-		case LegacyLSPPythonEnv:
-			return "python3", true
-		default:
-			return "", false
 		}
+		return "", false
 	})
 	if err != nil {
 		t.Fatalf("resolve interpreter: %v", err)

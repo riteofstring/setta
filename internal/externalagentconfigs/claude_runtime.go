@@ -14,10 +14,8 @@ import (
 const claudeSDKImportCheck = "import claude_agent_sdk"
 
 func ResolveClaudePythonCommand() (string, error) {
-	for _, envVar := range []string{pythonenv.InterpreterEnv, pythonenv.LegacyLSPPythonEnv} {
-		if explicit, ok := os.LookupEnv(envVar); ok && strings.TrimSpace(explicit) != "" {
-			return resolveClaudePythonCandidate(strings.TrimSpace(explicit))
-		}
+	if explicit, ok := os.LookupEnv(pythonenv.InterpreterEnv); ok && strings.TrimSpace(explicit) != "" {
+		return resolveClaudePythonCandidate(strings.TrimSpace(explicit))
 	}
 	for _, candidate := range claudeRepoPythonCandidates() {
 		resolved, err := resolveClaudePythonCandidate(candidate)
