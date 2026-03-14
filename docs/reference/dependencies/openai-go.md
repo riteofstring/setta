@@ -41,8 +41,13 @@
 - the Realtime transcription guide documents `audio.input.transcription.model`
   values including `whisper-1`, `gpt-4o-transcribe-latest`,
   `gpt-4o-mini-transcribe`, and `gpt-4o-transcribe`
-- the Realtime transcription guide uses a `session.update` message to set
+- the saved Realtime transcription guide still shows an older
+  `session.update` message with nested `session.audio.input.*` fields to set
   input audio format and transcription configuration
+- the Speech to text guide's ongoing-recording Realtime section now uses
+  `wss://api.openai.com/v1/realtime?intent=transcription` and a
+  `transcription_session.update` message; that shape matches the pinned SDK's
+  `transcription_session.update` / `transcription_session.updated` constants
 - the Realtime transcription guide notes an important event-shape difference:
   `whisper-1` emits full-turn transcript content in `delta`, while
   `gpt-4o-transcribe` and `gpt-4o-mini-transcribe` stream incremental deltas
@@ -135,15 +140,16 @@
   - bounded adapter keeps Setta-owned auth/base-URL/config semantics intact
 - `internal/transcriptionsessions/realtime_engine.go`
   - current realtime transcription path now uses the SDK's realtime
-    transcription session/audio config models and the current `session.update`
-    request shape
-  - the pinned SDK also exposes `transcription_session.update` /
-    `transcription_session.updated` constants plus transcription-session
-    request types, but the current repo-owned runtime intentionally stays on
-    the proven `session.update` request shape until we open a provider-backed
-    migration slice instead of silently switching websocket shapes mid-rewrite
+    transcription session/audio config models plus the explicit
+    `/realtime?intent=transcription` connection shape and
+    `transcription_session.update` startup payload
+  - the saved local OpenAI references are currently split between the older
+    nested `session.update` example and the newer transcription-session flow,
+    so the runtime now follows the speech-to-text guide plus SDK constants on
+    the outbound request while still accepting either documented readiness-ack
+    event name
   - the repo-owned startup path now requires an explicit realtime
-    `session.updated` / `transcription_session.updated` readiness ack before
+    `transcription_session.updated` / `session.updated` readiness ack before
     `StartSession` succeeds, and still drains the startup window after that
     ack so explicit provider rejection events immediately after the update do
     not surface only on the first audio append
@@ -162,11 +168,12 @@
 - the remaining bespoke part of realtime transcription is the websocket
   transport/event loop and event parsing; the SDK now covers the session/audio
   request typing but still does not replace the runtime client surface
-- the pinned SDK now exposes transcription-specific websocket constants and
-  request types, but the current rewrite source of truth is still the
-  repo-proven `session.update` request shape; do not silently switch the
-  runtime or tests to `transcription_session.update` without a bounded
-  provider-backed migration decision
+- the saved local OpenAI docs are currently split between the older nested
+  `session.update` example and the newer transcription-session flow; the repo
+  now treats `intent=transcription` plus `transcription_session.update` as the
+  outbound source of truth because it matches the speech-to-text guide and SDK
+  constants, but readiness handling still accepts either documented ack event
+  name
 - the Realtime transcription docs explicitly call out
   `input_audio_buffer.committed.previous_item_id` as the ordering source of
   truth across speech turns; the repo-owned event loop should continue to
