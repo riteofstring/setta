@@ -34,6 +34,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   - app generation preview helpers already live in `frontend/src/components/Panes/Overview/App/appDraftPreview.ts`
   - project chat already has feature-local helpers such as `projectChatHydrationAuthority.ts`, `projectChatStarterPrompts.ts`, `projectChatSlashCommandSelectors.ts`, and `projectChatFocusUtils.ts`
   - project chat windowing already splits some behavior into `frontend/src/state/actions/projectChatWindowingAuthoritative.ts` and `frontend/src/state/actions/projectChatWindowingEphemeral.ts`
+  - AI config/API-key handling plus agent-profile, prompt-template, external-agent, and engine-config catalog mutations now live in `frontend/src/state/actions/aiConfiguration.ts`
   - transcription session transport and transcription-profile mutations now live in `frontend/src/state/actions/aiTranscription.ts`
   - `RunInstructions.tsx` already delegates some state/parsing work to `runInstructionsAccordionState.ts`, `runInstructionsRunnableCodeBlocks.ts`, and `runInstructionsStateMachineControls.ts`
 - Future cleanup should continue from these seams instead of assuming every hotspot is still a single-file monolith.
@@ -59,7 +60,8 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - App and plugin runtime remain cleanup hotspots:
   - `frontend/src/plugins/runtime.ts` at 2730 lines
   - `frontend/src/components/App/appRegistry.tsx` at 1756 lines
-- `frontend/src/state/actions/ai.ts` is still 4062 lines and currently mixes config loading, API key management, agent-run loading, chat hydration, streaming, optimistic updates, and stop/resume behavior.
+- `frontend/src/state/actions/ai.ts` is still 3375 lines and currently mixes agent-run loading, chat hydration, streaming, optimistic updates, and stop/resume behavior.
+- `frontend/src/state/actions/aiConfiguration.ts` now owns LLM config/API-key handling plus the AI settings/resource catalogs.
 - `frontend/src/state/actions/aiTranscription.ts` now owns provider dictation transport plus transcription-profile loading and CRUD.
 - `frontend/src/state/definitions.ts` at 1500 lines exports 45 `use*` stores, which makes store ownership and selector boundaries hard to understand.
 - Components and hooks frequently import generated endpoints/types and large action modules directly, which increases context switching and makes it harder for agents to see the true domain boundary.

@@ -61,15 +61,17 @@ import {
 import { createNewId } from "utils/idNameCreation";
 import {
   loadAgentRuns,
-  receiveAgentProfilesUpdate,
   receiveAgentRunUpdate,
+  receiveLLMResponseChunk,
+} from "./ai";
+import {
+  receiveAgentProfilesUpdate,
   receiveEngineConfigsUpdate,
   receiveExternalAgentConfigsUpdate,
   receiveLLMApiKeysSnapshotUpdate,
   receiveLLMConfigUpdate,
-  receiveLLMResponseChunk,
   receivePromptTemplatesUpdate,
-} from "./ai";
+} from "./aiConfiguration";
 import {
   receiveAIFollowToolArgumentsUpdate,
   receiveAIFollowToolResultUpdate,

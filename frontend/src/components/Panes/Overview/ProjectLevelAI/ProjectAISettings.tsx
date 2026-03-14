@@ -21,7 +21,7 @@ import {
   updateAgentProfile,
   updateExternalAgentConfig,
   updatePromptTemplate,
-} from "state/actions/ai";
+} from "state/actions/aiConfiguration";
 import {
   createTranscriptionProfile,
   deleteTranscriptionProfile,

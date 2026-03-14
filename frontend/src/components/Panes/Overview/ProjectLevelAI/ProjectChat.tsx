@@ -45,11 +45,11 @@ import {
   getRunInputString,
   getRunLastUpdatedMs,
 } from "state/actions/agentRunUtils";
+import { seedPendingChatDetails } from "state/actions/ai";
 import {
   saveLLMConfig,
-  seedPendingChatDetails,
   updateEngineConfig,
-} from "state/actions/ai";
+} from "state/actions/aiConfiguration";
 import {
   buildChatHistoryEntries,
   buildChatProvenanceByChatId,
