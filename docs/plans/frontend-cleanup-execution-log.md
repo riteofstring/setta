@@ -975,3 +975,39 @@ module map and placement guide while this cleanup progresses.
   - Split `frontend/src/state/actions/websocketReceive.ts`, now the largest
     remaining shared-state hotspot, into clearer auth or reconnect lifecycle,
     bootstrap hydration, and outbound realtime dependency or upload modules.
+
+## 2026-03-14 19:32:04 PDT
+
+- Slice completed: split websocket lifecycle from outbound realtime send helpers
+- Key files touched:
+  - `frontend/src/state/actions/websocketReceive.ts`
+  - `frontend/src/state/actions/websocketLifecycle.ts`
+  - `frontend/src/state/actions/websocketRealtime.ts`
+  - `frontend/src/state/actions/websocketRuntime.ts`
+  - `frontend/src/state/actions/websocketReceive.test.ts`
+  - `frontend/src/plugins/runtime.ts`
+  - `frontend/src/plugins/runtime.test.ts`
+  - `frontend/src/components/Pages/Share/ShareWrapper.tsx`
+  - `frontend/src/components/Pages/GlobalWrapper.tsx`
+  - `frontend/src/components/Pages/App/AppWrapper.tsx`
+  - `frontend/src/components/App/appRegistry.tsx`
+  - `frontend/src/components/Params/ParamItems/ParamInput.tsx`
+  - `frontend/src/components/Section/Layouts/MetaControlArea.tsx`
+  - `frontend/src/components/Section/Layouts/ChatArea.tsx`
+  - `frontend/src/components/Section/Layouts/DrawArea/useRealtimeDrawEmitter.ts`
+  - `frontend/src/README.md`
+  - `docs/plans/frontend-cleanup-plan.md`
+  - `docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+- Tests and verification run:
+  - `pnpm -C frontend exec vitest run src/state/actions/websocketReceive.test.ts src/plugins/runtime.test.ts`
+  - `pnpm -C frontend exec prettier --check src/state/actions/websocketRuntime.ts src/state/actions/websocketRealtime.ts src/state/actions/websocketLifecycle.ts src/state/actions/websocketReceive.ts src/state/actions/websocketReceive.test.ts src/plugins/runtime.ts src/plugins/runtime.test.ts src/components/Pages/Share/ShareWrapper.tsx src/components/Pages/GlobalWrapper.tsx src/components/Pages/App/AppWrapper.tsx src/components/App/appRegistry.tsx src/components/Params/ParamItems/ParamInput.tsx src/components/Section/Layouts/MetaControlArea.tsx src/components/Section/Layouts/ChatArea.tsx src/components/Section/Layouts/DrawArea/useRealtimeDrawEmitter.ts src/README.md ../docs/plans/frontend-cleanup-plan.md ../docs/plans/frontend-state-and-shared-infrastructure-cleanup-plan.md`
+  - `git diff --check`
+- Perf/CDP notes:
+  - Not applicable. This slice was a non-visual state/action ownership split
+    and did not change frontend rendering behavior.
+- Commit hash:
+  - `8ce441f30`
+- Next highest-value unblocked slice:
+  - Split `frontend/src/state/actions/keyActivations.ts`, now the largest
+    remaining shared-state hotspot, into more explicit shortcut command groups
+    or listener wiring helpers.
