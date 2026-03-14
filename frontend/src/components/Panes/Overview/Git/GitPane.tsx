@@ -4,7 +4,7 @@ import {
   type GitFileStatusCategory,
 } from "components/Git/gitFileStatusVisuals";
 import { useEffect, useMemo } from "react";
-import { openGitGraphOverlay } from "state/actions/gitGraph";
+import { openGitGraphOverlay } from "state/actions/gitGraphLog";
 import {
   openGitDiffOverlay,
   refreshGitStatus,

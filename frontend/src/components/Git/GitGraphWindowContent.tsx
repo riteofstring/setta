@@ -1,6 +1,6 @@
 import { GitPane } from "components/Panes/Overview/Git/GitPane";
 import { useEffect } from "react";
-import { ensureGitGraphStateLoaded } from "state/actions/gitGraph";
+import { ensureGitGraphStateLoaded } from "state/actions/gitGraphLog";
 import { buildProjectChatEphemeralWindowInstanceKey } from "state/actions/projectChatWindowingEphemeral";
 import { useProjectState } from "state/definitions";
 import { useMisc } from "state/stores/layoutInteractionStores";

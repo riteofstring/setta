@@ -19,14 +19,16 @@ import {
 import { computeGitGraphRowsWithState } from "utils/gitGraph";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  clearGitGraphSelectedCommit,
   ensureGitGraphStateLoaded,
   loadMoreGitGraphCommits,
   openGitGraphOverlay,
   refreshGitGraphOverlay,
+} from "./gitGraphLog";
+import {
+  clearGitGraphSelectedCommit,
   selectGitCommit,
   selectGitCommitFile,
-} from "./gitGraph";
+} from "./gitGraphSelection";
 import {
   buildGitDiffAvailabilityByPath,
   openGitDiffOverlay,

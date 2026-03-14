@@ -10,7 +10,7 @@ feature-local adapters around them when the consuming surface is non-trivial.
 ## Current Snapshot
 
 - Snapshot date: `2026-03-14`
-- Authored TS/TSX files under `frontend/src`: `1034`
+- Authored TS/TSX files under `frontend/src`: `1038`
 - Non-generated TS/TSX files at `1000+` lines: `41`
 - Biggest current production hotspots:
   - `components/Chat/ChatMessages.tsx` (`7959`)
@@ -145,8 +145,14 @@ feature-local adapters around them when the consuming surface is non-trivial.
     diff overlay, graph overlay, and embedded graph window UI.
   - `state/actions/gitStatusAndDiff.ts` owns git status refresh, diff
     availability, diff overlay opening, and diff-mode switching.
-  - `state/actions/gitGraph.ts` owns git graph/log loading, pagination, graph
-    filter state, and commit/detail/file-diff selection behavior.
+  - `state/actions/gitGraphLog.ts` owns git graph overlay boot, graph/log
+    loading, pagination, and graph filter/all-refs refresh behavior.
+  - `state/actions/gitGraphSelection.ts` owns selected-commit clearing plus
+    commit details/file-diff selection behavior.
+  - `state/actions/gitGraphState.ts` owns current project-config lookup plus
+    reusable graph/selection state builders.
+  - `state/actions/gitGraph.ts` is now a thin compatibility surface that
+    re-exports the log and selection owners.
   - `state/actions/git.ts` is now a thin compatibility surface that re-exports
     the git status/diff and graph owners.
 
@@ -326,12 +332,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/gitGraph.ts` is now the largest authored/shared state hotspot
-  and should split repo-read helpers from graph filter and commit/detail
-  selection ownership
 - `state/actions/sectionEffectiveImpls.ts` now owns the remaining effective-impl
   read surface, so follow-up cleanup there should stay local to selectors and
   terminal/orientation helpers instead of regrowing mutation ownership
+- `state/hooks/sectionSizes.ts` is now the next largest authored/shared state
+  hotspot, so follow-up cleanup should separate DOM measurement/resize observers
+  from size derivation and state-bridge helpers
 - `state/actions/projectChatWindowingWrites.ts` is now the largest remaining
   windowing mutation surface, so follow-up windowing cleanup should stay local
   to `projectChatWindowingWrites.ts`, `projectChatWindowingCanvasBoot.ts`, or

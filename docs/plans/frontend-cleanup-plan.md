@@ -49,7 +49,7 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 ## Current State (Observed)
 
 - The biggest readability problem is mixed responsibilities inside large files, not just file count.
-- There are 1034 authored TS/TSX files under `frontend/src`.
+- There are 1038 authored TS/TSX files under `frontend/src`.
 - There are 41 non-generated TS/TSX files at 1000+ lines; several production hotspots are well above 2000 lines.
 - Chat and project-AI code is the densest cluster:
   - `frontend/src/components/Chat/ChatMessages.tsx` at 7959 lines
@@ -87,11 +87,14 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
   local delete undo stack and restoration logic, reducing
   `frontend/src/state/actions/projectChatThreads.ts` to a 20-line compatibility
   surface.
-- `frontend/src/state/actions/gitGraph.ts` now owns git graph/log loading,
-  pagination, graph filter state, and commit/detail/file-diff selection, while
-  `frontend/src/state/actions/gitStatusAndDiff.ts` now owns git status refresh,
-  diff availability, diff overlay opening, and diff-mode switching, reducing
-  `frontend/src/state/actions/git.ts` to an 18-line compatibility surface.
+- `frontend/src/state/actions/gitGraphLog.ts` now owns git graph overlay boot,
+  git graph/log loading, pagination, and graph filter/all-refs refresh
+  behavior, `frontend/src/state/actions/gitGraphSelection.ts` now owns selected
+  commit clearing plus commit details/file-diff selection, and
+  `frontend/src/state/actions/gitGraphState.ts` now owns reusable graph state
+  builders and current project-config lookup, reducing
+  `frontend/src/state/actions/gitGraph.ts` to a 13-line compatibility surface
+  and keeping `frontend/src/state/actions/git.ts` as a thin git action index.
 - `frontend/src/state/actions/sectionProjectStateSync.ts` now owns backend
   project-state reconciliation, active-section sync, viewport updates, and
   project-chat windowing coordination, reducing

@@ -1,14 +1,16 @@
 export {
-  clearGitGraphSelectedCommit,
   ensureGitGraphStateLoaded,
   loadMoreGitGraphCommits,
   openGitGraphOverlay,
   refreshGitGraphOverlay,
-  selectGitCommit,
-  selectGitCommitFile,
   setGitGraphFilterText,
   toggleGitGraphAllRefs,
-} from "./gitGraph";
+} from "./gitGraphLog";
+export {
+  clearGitGraphSelectedCommit,
+  selectGitCommit,
+  selectGitCommitFile,
+} from "./gitGraphSelection";
 export {
   buildGitDiffAvailabilityByPath,
   closeGitOverlay,

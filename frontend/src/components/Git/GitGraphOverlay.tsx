@@ -11,14 +11,16 @@ import {
   type RowComponentProps,
 } from "react-window";
 import {
-  clearGitGraphSelectedCommit,
   loadMoreGitGraphCommits,
   refreshGitGraphOverlay,
-  selectGitCommit,
-  selectGitCommitFile,
   setGitGraphFilterText,
   toggleGitGraphAllRefs,
-} from "state/actions/gitGraph";
+} from "state/actions/gitGraphLog";
+import {
+  clearGitGraphSelectedCommit,
+  selectGitCommit,
+  selectGitCommitFile,
+} from "state/actions/gitGraphSelection";
 import { closeGitOverlay } from "state/actions/gitStatusAndDiff";
 import { useGitStore } from "state/git";
 import { useLocalStorage } from "state/stores/uiPreferenceStores";
