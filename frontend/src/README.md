@@ -65,8 +65,16 @@ feature-local adapters around them when the consuming surface is non-trivial.
   - `state/actions/aiChatStreamingTools.ts` owns tool-call placeholder
     reconciliation, tool-preview stores, and app-spec/app-definition tool
     application.
-  - `state/actions/chat*.ts` and `state/actions/projectChatThreads.ts` own the
-    remaining chat merge utilities and thread navigation behavior.
+  - `state/actions/chat*.ts` owns the remaining chat merge utilities.
+  - `state/actions/projectChatThreadGroupMutations.ts` owns persisted project
+    chat thread group creation, rename, collapse, pin, reorder, assignment, and
+    deletion behavior.
+  - `state/actions/projectChatThreadMutations.ts` owns persisted per-thread
+    viewed, pin, reorder, and delete behavior.
+  - `state/actions/projectChatThreadStorageUndo.ts` owns the local thread/group
+    delete undo stack and restoration logic.
+  - `state/actions/projectChatThreads.ts` is now a thin compatibility surface
+    that re-exports the thread-group, thread, and undo owners.
   - `state/actions/aiHydration.ts` owns chat history fetch/reconciliation and
     hydration outcome classification for managed and external threads.
   - `state/actions/aiAgentRuns.ts` owns agent-run loading, retries, and
@@ -282,12 +290,12 @@ feature-local adapters around them when the consuming surface is non-trivial.
 
 ## Likely Next Cleanup Slices
 
-- `state/actions/projectChatThreads.ts` is now the largest authored state
-  hotspot and should keep splitting around thread hydration, active-thread
-  selection, and surface-local thread mutation helpers
-- `state/actions/git.ts` and `state/actions/projectChatWindowingState.ts` are
-  the next authored hotspots after project chat threads and should keep
-  splitting around their existing feature-local helpers
+- `state/actions/git.ts` is now the largest authored state hotspot and should
+  keep splitting around repo reads, mutation commands, and branch/worktree
+  action helpers
+- `state/actions/projectChatWindowingState.ts` and
+  `state/actions/aiConfiguration.ts` are the next authored hotspots after git
+  and should keep splitting around their existing feature-local helpers
 - `state/actions/windowSpaces.ts` is now the largest shared-infrastructure
   hotspot and should keep shrinking around restore orchestration versus saved
   layout mutation ownership

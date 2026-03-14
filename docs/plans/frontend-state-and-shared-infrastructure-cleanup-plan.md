@@ -73,6 +73,13 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   write permissions, optimistic windowing mutation dispatch, authoritative
   publish flow, and sync helpers that previously lived in
   `frontend/src/state/actions/projectChatWindowing.ts`.
+- `frontend/src/state/actions/projectChatThreadGroupMutations.ts` now owns
+  persisted project-chat thread group creation, rename, collapse, pin, reorder,
+  assignment, and deletion behavior, `frontend/src/state/actions/projectChatThreadMutations.ts`
+  now owns per-thread viewed, pin, reorder, and delete behavior, and
+  `frontend/src/state/actions/projectChatThreadStorageUndo.ts` now owns the
+  local delete undo stack and restoration logic that previously lived in
+  `frontend/src/state/actions/projectChatThreads.ts`.
 - `frontend/src/state/actions/aiChatStreamingTools.ts` now owns tool-call
   placeholder reconciliation, tool-preview store updates, preview cleanup, and
   app-spec/app-definition tool handling that previously lived in
@@ -109,11 +116,11 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   and `utils` total about 89.1k lines of authored code in the sampled
   directories.
 - The largest remaining authored state surfaces are:
-  - `frontend/src/state/actions/projectChatThreads.ts` at 895 lines
   - `frontend/src/state/actions/git.ts` at 805 lines
   - `frontend/src/state/actions/projectChatWindowingState.ts` at 718 lines
   - `frontend/src/state/actions/aiConfiguration.ts` at 700 lines
   - `frontend/src/state/actions/windowSpaces.ts` at 695 lines
+  - `frontend/src/state/actions/sectionInfos.ts` at 678 lines
 - The biggest shared-infrastructure hotspots in this companion-plan domain are:
   - `frontend/src/state/actions/windowSpaces.ts` at 695 lines
   - `frontend/src/state/actions/sectionInfos.ts` at 678 lines
@@ -218,6 +225,14 @@ Make shared frontend infrastructure legible by separating read models, mutation 
   - workspace restore orchestration
   - restored-instance remapping and merge policy
   - saved chat-thread rebound flow after layout restore
+- `projectChatThreads.ts`, `projectChatThreadGroupMutations.ts`,
+  `projectChatThreadMutations.ts`, `projectChatThreadStorageUndo.ts`, and
+  `projectChatThreadStorageShared.ts` now split into:
+  - `projectChatThreads.ts` as the thin compatibility re-export surface
+  - `projectChatThreadGroupMutations.ts` for persisted group-level thread storage mutations
+  - `projectChatThreadMutations.ts` for per-thread viewed, pin, reorder, and delete mutations
+  - `projectChatThreadStorageUndo.ts` for delete undo-stack ownership and restoration
+  - `projectChatThreadStorageShared.ts` for normalization and ordering helpers shared by the mutation and undo owners
 - `aiChatStreaming.ts`, `aiChatStreamingMessages.ts`,
   `aiChatStreamingSectionState.ts`, and `aiChatStreamingTools.ts` now split into:
   - `aiChatStreaming.ts` for top-level chunk routing plus chat-detail side effects

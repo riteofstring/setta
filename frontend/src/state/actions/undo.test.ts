@@ -2,11 +2,11 @@ import { useLocalStorage } from "state/stores/uiPreferenceStores";
 import { resetProjectStores } from "state/utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  clearProjectChatThreadStorageUndoStackForTests,
   createProjectChatThreadGroup,
   deleteProjectChatThreadGroup,
   setProjectChatThreadGroupAssignment,
-} from "./projectChatThreads";
+} from "./projectChatThreadGroupMutations";
+import { clearProjectChatThreadStorageUndoStackForTests } from "./projectChatThreadStorageUndo";
 import { redoProjectState, undoProjectState } from "./undo";
 
 const routeUndoMock = vi.fn();

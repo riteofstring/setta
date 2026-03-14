@@ -78,6 +78,14 @@ Make the authored frontend easy for Codex agents and humans to navigate, change,
 - `frontend/src/state/actions/aiInterruptedAssistantMessages.ts` now owns interrupted assistant message tracking and snapshot restoration.
 - `frontend/src/state/actions/aiConfiguration.ts` now owns LLM config/API-key handling plus the AI settings/resource catalogs.
 - `frontend/src/state/actions/aiTranscription.ts` now owns provider dictation transport plus transcription-profile loading and CRUD.
+- `frontend/src/state/actions/projectChatThreadGroupMutations.ts` now owns
+  persisted project-chat thread group creation, rename, collapse, pin, reorder,
+  assignment, and deletion behavior, `frontend/src/state/actions/projectChatThreadMutations.ts`
+  now owns per-thread viewed, pin, reorder, and delete behavior, and
+  `frontend/src/state/actions/projectChatThreadStorageUndo.ts` now owns the
+  local delete undo stack and restoration logic, reducing
+  `frontend/src/state/actions/projectChatThreads.ts` to a 20-line compatibility
+  surface.
 - `frontend/src/state/actions/sectionProjectStateSync.ts` now owns backend
   project-state reconciliation, active-section sync, viewport updates, and
   project-chat windowing coordination, reducing
