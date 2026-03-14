@@ -6,7 +6,7 @@ import {
   useServerMode,
   useShareSession,
 } from "state/definitions";
-import { res200 } from "utils/endpointUtils";
+import { getErrorCode, res200 } from "utils/endpointUtils";
 import {
   route_create_share_session_current,
   route_load_share_project_config,
@@ -243,7 +243,12 @@ export async function loadShareProjectConfig({
     { projectConfigId },
   );
   if (!res200(stateRes)) {
-    if (allowRetry && stateRes.status === 404) {
+    const errorCode = getErrorCode(stateRes.data);
+    if (
+      allowRetry &&
+      (errorCode === "missing_share_session" ||
+        errorCode === "unknown_share_session")
+    ) {
       const session = await ensureShareSessionFromCurrentDeployment({
         forceNewSession: true,
       });

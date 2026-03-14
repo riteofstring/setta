@@ -1,7 +1,6 @@
 import { PointerSensor } from "@dnd-kit/dom";
 import { arrayMove } from "@dnd-kit/helpers";
 import { useSortableListItem as useDisplacementSortableListItem } from "components/Pages/Project/ViewModeDnd";
-import { BrailleSpinner } from "components/Utils/BrailleSpinner";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import {
   DragDropProvider,
@@ -1113,7 +1112,10 @@ export function ProjectChatHistory({
       }
       const overId = event.over ? String(event.over.id) : null;
       if (overId) {
-        const overGroupId = getThreadGroupIdFromDndId(overId, groupIdSet);
+        const overGroupId =
+          getThreadGroupIdFromDndId(overId, groupIdSet) ??
+          getGroupIdFromThreadSectionDropTargetId(overId, groupIdSet) ??
+          (groupIdSet.has(overId) ? overId : null);
         if (overGroupId && !scopedGroupIdSet.has(overGroupId)) {
           latestThreadDropTargetRef.current = null;
           return;
@@ -2426,8 +2428,8 @@ function ThreadEntryLine({
         {showWorkingIndicator || showUnreadIndicator ? (
           <span className="mr-0.5 inline-flex h-2.5 w-2.5 shrink-0 items-center justify-center">
             {showWorkingIndicator ? (
-              <BrailleSpinner
-                className="text-[9px] text-blue-500 dark:text-blue-300"
+              <i
+                className="gg-spinner !scale-[0.6] text-blue-500 dark:text-blue-300"
                 data-testid={"project-chat-thread-working-indicator"}
                 aria-hidden="true"
                 {...(workingIndicatorTooltipHandlers ?? {})}
@@ -2977,7 +2979,10 @@ function resolveGroupDropOverId({
     candidateIds.push(collisionId);
   }
   for (const candidateId of candidateIds) {
-    const candidateGroupId = getThreadGroupIdFromDndId(candidateId, groupIdSet);
+    const candidateGroupId =
+      getThreadGroupIdFromDndId(candidateId, groupIdSet) ??
+      getGroupIdFromThreadSectionDropTargetId(candidateId, groupIdSet) ??
+      (groupIdSet.has(candidateId) ? candidateId : null);
     if (!candidateGroupId || candidateGroupId === sourceGroupId) {
       continue;
     }

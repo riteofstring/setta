@@ -18,6 +18,7 @@ import {
   getChatPlaceholderText,
   getExternalEngineIssueMessage,
   getExternalEngineStatus,
+  resolveEffectiveThinking,
 } from "components/Chat/engineUtils";
 import {
   buildLLMConfigGroups,
@@ -31,7 +32,6 @@ import {
 } from "components/Chat/sharePolicyChatAccess";
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
-import { BrailleSpinner } from "components/Utils/BrailleSpinner";
 import _ from "lodash";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -937,8 +937,8 @@ function ChatSectionHistoryList({
               </p>
             </div>
             {entry.waitingForResponse ? (
-              <BrailleSpinner
-                className={`single-cell-child text-[11px] ${
+              <i
+                className={`gg-spinner single-cell-child !scale-75 ${
                   entry.chatId === activeChatId
                     ? "text-white dark:text-white"
                     : "text-setta-500/70"
@@ -1236,6 +1236,10 @@ function ManagedChatArea({
   }, [effectiveEngineConfigId, engineConfigs]);
   const engineType = selectedEngineConfig?.engineType ?? null;
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
+  const effectiveThinking = resolveEffectiveThinking({
+    engineConfig: selectedEngineConfig,
+    requestedThinking: thinking,
+  });
   const historyCompatibility = useMemo<ChatHistoryCompatibility | null>(() => {
     const runType = resolveManagedChatRunType(engineType);
     if (!runType) {
@@ -1502,7 +1506,7 @@ function ManagedChatArea({
           chatId,
           message,
           attachments,
-          thinking,
+          effectiveThinking,
           effectiveEngineConfigId,
           isExternalEngine,
           {
@@ -1539,8 +1543,8 @@ function ManagedChatArea({
       permissionMode,
       searchEnabled,
       sectionId,
+      effectiveThinking,
       surfaceId,
-      thinking,
       canUseManagedChat,
     ],
   );
@@ -1583,7 +1587,7 @@ function ManagedChatArea({
         messageId,
         message: text,
         attachments,
-        thinking,
+        thinking: effectiveThinking,
         engineConfigId: effectiveEngineConfigId,
         isExternalEngine,
         agentProfileId,
@@ -1606,8 +1610,8 @@ function ManagedChatArea({
       permissionMode,
       searchEnabled,
       sectionId,
+      effectiveThinking,
       surfaceId,
-      thinking,
       canUseManagedChat,
     ],
   );

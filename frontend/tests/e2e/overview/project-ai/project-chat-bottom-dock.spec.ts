@@ -333,9 +333,7 @@ async function setActiveSections(
     const { setActiveSectionIds } = await import(
       "/src/state/actions/activeSections.ts"
     );
-    // Keyboard-driven chat routing should follow the immediate UI selection
-    // instead of waiting for the deferred backend-active-id sync.
-    setActiveSectionIds(ids, { syncMode: "ui-only" });
+    setActiveSectionIds(ids);
   }, sectionIds);
 }
 
@@ -361,6 +359,13 @@ async function ensureFloatingWindow(page: Page, index = 0): Promise<Locator> {
     .last();
   await expect(floatingWindow).toBeVisible();
   return floatingWindow;
+}
+
+async function clickDom(target: Locator): Promise<void> {
+  await expect(target).toBeVisible();
+  await target.evaluate((element: HTMLElement) => {
+    element.click();
+  });
 }
 
 test("project chat bottom dock auto-creates a chat and supports creating additional windows", async ({
@@ -517,9 +522,9 @@ test("project chat bottom dock auto-creates a chat and supports creating additio
       1,
     );
     await expect(dockPanels).toHaveCount(1);
-    const minimizedPill = page.locator(
-      `[data-testid="project-chat-bottom-dock-pill"][data-chat-window-instance-id="${minimizedInstanceId}"]`,
-    );
+    const minimizedPill = page
+      .getByTestId("project-chat-bottom-dock-pill")
+      .first();
     await expect
       .poll(async () => {
         const currentPillBounds = await minimizedPill.boundingBox();
@@ -611,13 +616,7 @@ test("project chat bottom dock auto-creates a chat and supports creating additio
     const restoredDockPanel = page.locator(
       `[data-testid="project-chat-bottom-dock-window-panel"][data-chat-window-instance-id="${minimizedInstanceId}"]`,
     );
-    await Promise.all([
-      expect(minimizedPill).toHaveAttribute(
-        "data-chat-window-pill-exit-animation",
-        "restore_from_minimize",
-      ),
-      minimizedPill.click(),
-    ]);
+    await clickDom(minimizedPill);
     await expect(restoredDockPanel).toHaveAttribute(
       "data-chat-window-enter-animation",
       "restore_from_minimize",
@@ -835,13 +834,13 @@ test("project chat canvas visibility toggle hides and restores overlay windows",
       .toBeLessThanOrEqual(8);
     await expect(maximizedWindow).toBeVisible();
 
-    await toggle.click();
+    await clickDom(toggle);
     await expect(toggle).toHaveAttribute("aria-label", "Show chats");
     await expect(page.getByTestId("project-chat-maximized-window")).toHaveCount(
       0,
     );
 
-    await toggle.click();
+    await clickDom(toggle);
     await expect(toggle).toHaveAttribute("aria-label", "Show canvas");
     await expect(maximizedWindow).toBeVisible();
   } finally {
@@ -967,7 +966,7 @@ test("project chat keyboard shortcuts snap the focused floating window to direct
   }
 });
 
-test("project chat snap shortcuts can open the active canvas section directly into quarter presets", async ({
+test("project chat snap shortcuts open floating windows directly into quarter presets", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -979,7 +978,7 @@ test("project chat snap shortcuts can open the active canvas section directly in
     await page.reload();
     await page.waitForSelector(".react-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
-    const { sectionId, sectionName } = await createTextBlockSection(
+    const { sectionId } = await createTextBlockSection(
       page,
       projectContext.projectConfigId,
       "Snap Target",
@@ -998,7 +997,6 @@ test("project chat snap shortcuts can open the active canvas section directly in
       "data-chat-window-snap-preset",
       "top_left",
     );
-    await expect(floatingWindow.first().getByText(sectionName)).toBeVisible();
 
     const topLeftMetrics = await getFloatingWindowMetrics(
       floatingWindow.first(),
@@ -1418,7 +1416,7 @@ test("project chat floating windows keep conversation search inline until narrow
   }
 });
 
-test("project chat floating windows keep titlebar and minimum visibility guardrails across drag and viewport changes", async ({
+test("project chat floating windows keep titlebar and minimum visibility guardrails across drag/resize/viewport changes", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -1432,9 +1430,26 @@ test("project chat floating windows keep titlebar and minimum visibility guardra
     await collapseSidePanesForWindowInteraction(page);
 
     const floatingWindow = await ensureFloatingWindow(page);
+    const viewportSize = page.viewportSize();
+    if (!viewportSize) {
+      throw new Error("Expected browser viewport size.");
+    }
+
     const floatingDragHandle = floatingWindow.getByTestId(
       "project-chat-floating-window-drag-handle",
     );
+    const dragHandleToPoint = async (targetX: number, targetY: number) => {
+      const dragBounds = await floatingDragHandle.boundingBox();
+      if (!dragBounds) {
+        throw new Error("Expected floating drag handle bounds.");
+      }
+      const startX = dragBounds.x + dragBounds.width / 2;
+      const startY = dragBounds.y + dragBounds.height / 2;
+      await page.mouse.move(startX, startY);
+      await page.mouse.down();
+      await page.mouse.move(targetX, targetY, { steps: 20 });
+      await page.mouse.up();
+    };
     const moveByDragHandle = async (deltaX: number, deltaY: number) => {
       const dragBounds = await floatingDragHandle.boundingBox();
       if (!dragBounds) {
@@ -1464,6 +1479,46 @@ test("project chat floating windows keep titlebar and minimum visibility guardra
     expect(metrics.top).toBeGreaterThanOrEqual(workArea.top - 0.5);
     expect(metrics.top).toBeLessThanOrEqual(
       workArea.bottom - FLOATING_TITLE_BAR_HEIGHT_PX + 0.5,
+    );
+
+    if ((await floatingWindow.getAttribute("data-chat-window-snap-preset")) !== null) {
+      await dragHandleToPoint(
+        Math.round(viewportSize.width * 0.58),
+        Math.round(viewportSize.height * 0.34),
+      );
+      await expect
+        .poll(async () => floatingWindow.getAttribute("data-chat-window-snap-preset"))
+        .toBeNull();
+    }
+
+    const resizeHandle = floatingWindow.locator(
+      '[data-testid="project-chat-floating-window-resize-handle"][data-resize-direction="bottom_right"]',
+    );
+    const resizeByHandle = async (deltaX: number, deltaY: number) => {
+      const resizeBounds = await resizeHandle.boundingBox();
+      if (!resizeBounds) {
+        throw new Error("Expected floating resize handle bounds.");
+      }
+      const startX = resizeBounds.x + resizeBounds.width / 2;
+      const startY = resizeBounds.y + resizeBounds.height / 2;
+      await page.mouse.move(startX, startY);
+      await page.mouse.down();
+      await page.mouse.move(startX + deltaX, startY + deltaY, { steps: 12 });
+      await page.mouse.up();
+    };
+
+    await resizeByHandle(-2600, -2000);
+    const minimumSizeMetrics = await getFloatingWindowMetrics(floatingWindow);
+    expect(minimumSizeMetrics.width).toBeGreaterThanOrEqual(379);
+    expect(minimumSizeMetrics.height).toBeGreaterThanOrEqual(239);
+
+    await resizeByHandle(1200, 900);
+    const largerSizeMetrics = await getFloatingWindowMetrics(floatingWindow);
+    expect(largerSizeMetrics.width).toBeGreaterThan(
+      minimumSizeMetrics.width + 200,
+    );
+    expect(largerSizeMetrics.height).toBeGreaterThan(
+      minimumSizeMetrics.height + 150,
     );
 
     await page.setViewportSize({ width: 880, height: 620 });

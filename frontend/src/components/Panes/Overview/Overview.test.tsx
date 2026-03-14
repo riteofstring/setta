@@ -7,7 +7,6 @@ import {
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import {
-  useAIStore,
   useLocalStorage,
   useProjectState,
   useSettings,
@@ -15,17 +14,13 @@ import {
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
-  APP_MENU_Z_INDEX_CLASS_NAME,
   buildPluginPaneOverviewTabName,
   OverviewTabNameEnum,
 } from "utils/constants";
 import { createProjectConfig, createSettingsState } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { syncStoreInitialState } from "../paneTestUtils";
-import {
-  Overview,
-  OVERVIEW_MORE_MENU_CONTENT_CLASS_NAME,
-} from "./Overview";
+import { Overview } from "./Overview";
 
 vi.mock("components/Pages/Project/ViewModeDnd", () => ({
   ViewModeSortableProvider: ({ children }: { children: unknown }) => children,
@@ -69,26 +64,6 @@ describe("Overview rail offsets", () => {
     resetProjectStores();
     resetPluginRuntimeStoreForTests();
     memoryStorage.reset();
-    const viewId = "default-view";
-    useProjectState.setState((state) => {
-      state.projectConfig = createProjectConfig({
-        id: "project-1",
-        activeViewModeId: viewId,
-        viewModes: {
-          [viewId]: {
-            id: viewId,
-            name: "Default View",
-            sortIndex: 0,
-            isUserFacing: false,
-            isTab: false,
-            visibilityBySectionId: {},
-            viewport: { x: 0, y: 0, zoom: 1 },
-            viewportInitialized: false,
-            topLevelSections: {},
-          },
-        },
-      });
-    });
     useSettings.setState(createSettingsState());
     useLocalStorage.persist.setOptions({
       storage: {
@@ -107,8 +82,6 @@ describe("Overview rail offsets", () => {
     syncStoreInitialState(useShareSession);
     syncStoreInitialState(useSettings);
     syncStoreInitialState(useLocalStorage);
-    syncStoreInitialState(useAIStore);
-    syncStoreInitialState(useProjectState);
     syncStoreInitialState(usePluginRuntimeStore);
   });
 
@@ -323,13 +296,6 @@ describe("Overview rail offsets", () => {
     expect(moreIndex).toBeGreaterThan(notificationsIndex);
   });
 
-  it("keeps the more menu on the shared elevated app menu layer", () => {
-    expect(OVERVIEW_MORE_MENU_CONTENT_CLASS_NAME).toContain(
-      APP_MENU_Z_INDEX_CLASS_NAME,
-    );
-    expect(OVERVIEW_MORE_MENU_CONTENT_CLASS_NAME).not.toContain("z-20");
-  });
-
   it("falls back to Overview when deployment mode hides the selected tab", () => {
     useShareSession.setState({ isDeploymentMode: true, sharePolicy: null });
     useLocalStorage.setState({
@@ -349,50 +315,7 @@ describe("Overview rail offsets", () => {
     expect(markup).toContain(">Overview<");
   });
 
-  it("renders the project ai chat tab without the old dock-first manager copy", () => {
-    useProjectState.setState((state) => {
-      state.projectConfig = createProjectConfig({
-        id: "project-chat-overview-test",
-        name: "Project chat overview test",
-        activeViewModeId: "project-chat-view",
-        viewModes: {
-          "project-chat-view": {
-            id: "project-chat-view",
-            name: "Project Chat View",
-            sortIndex: 0,
-            isUserFacing: false,
-            isTab: false,
-            visibilityBySectionId: {},
-            viewport: { x: 0, y: 0, zoom: 1 },
-            viewportInitialized: false,
-            topLevelSections: {},
-          },
-        },
-      });
-    });
-    useAIStore.setState({ viewThreads: true });
-    useLocalStorage.setState({
-      overviewTab: OverviewTabNameEnum.ProjectAIChat,
-      overviewWidth: 1040,
-      overviewTrueWidth: 1040,
-    });
-    syncStoreInitialState(useProjectState);
-    syncStoreInitialState(useAIStore);
-    syncStoreInitialState(useLocalStorage);
-
-    const markup = renderToStaticMarkup(
-      <MemoryRouter>
-        <Overview />
-      </MemoryRouter>,
-    );
-
-    expect(markup).toContain(">Project AI Chat<");
-    expect(markup).not.toContain(
-      "Use the bottom dock to create, reopen, and arrange chat windows.",
-    );
-  });
-
-  it("falls back to Overview when a removed project ai settings tab is selected", () => {
+  it("renders project ai settings when that tab is selected", () => {
     useLocalStorage.setState({
       overviewTab: "ProjectAISettings" as never,
     });
@@ -404,7 +327,9 @@ describe("Overview rail offsets", () => {
       </MemoryRouter>,
     );
 
-    expect(markup).toContain(">Overview<");
+    expect(markup).toContain(
+      'data-testid="project-ai-settings-scroll-region"',
+    );
     expect(markup).not.toContain('data-testid="project-chat-content"');
   });
 
