@@ -4,15 +4,18 @@ import { Node, NodeDragItem } from "forks/xyflow/core/types";
 import { getDimensions } from "forks/xyflow/core/utils";
 import _ from "lodash";
 import {
+  useMisc,
   useNodeInternals,
   useProjectState,
+  useSectionRefs,
   ZustandNodeInternalsState,
 } from "state/definitions";
-import { useMisc, useSectionRefs } from "state/stores/layoutInteractionStores";
 import { Position } from "utils/generatedTypes";
 import { scheduleEdgeHandlePositionUpdate } from "./edgeHandles";
-import { getSectionDescendants } from "./sectionInfos";
-import { debounced_route_set_top_level_section_layout } from "./topLevelLayoutPersistence";
+import {
+  debounced_route_set_top_level_section_layout,
+  getSectionDescendants,
+} from "./sectionInfos";
 
 type NodeDimensionsUpdate = Array<{
   id: string;

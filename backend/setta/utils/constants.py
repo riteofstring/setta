@@ -121,11 +121,6 @@ class C:
     def SHARE_DEPLOYMENTS_FOLDER(cls) -> Path:
         return get_setta_paths().share_deployments_root
 
-    @classproperty
-    def DEPLOYMENTS_FOLDER(cls) -> Path:
-        # Legacy name: deployments (share + app) live under the share deployments root.
-        return cls.SHARE_DEPLOYMENTS_FOLDER
-
     SHARE_MODE = False
     SHARE_DEPLOYMENT_ROOT: Path | None = None
     APP_MODE = False

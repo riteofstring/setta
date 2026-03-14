@@ -4,9 +4,12 @@ import {
 } from "components/Panes/Common/PaneAccordion";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
-import { useProjectState } from "state/definitions";
-import { useAppDefinition, useAppPreview } from "state/stores/appStores";
-import { useAllProjectMetadata } from "state/stores/sessionStores";
+import {
+  useAllProjectMetadata,
+  useAppDefinition,
+  useAppPreview,
+  useProjectState,
+} from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_get_app_definition,
