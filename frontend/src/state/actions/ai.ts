@@ -117,6 +117,7 @@ import {
   SectionTypeEnum,
   SettaNotificationTypeEnum,
   StartTranscriptionSessionResponse,
+  StopLLMChatResponse,
   StreamingEventTypeEnum,
   ToolArgumentPreviewDeltaEvent,
   ToolCall,
@@ -1814,13 +1815,7 @@ function reconcileStoppedLLMChatOutcome({
 }: {
   chatId: string;
   localSnapshot: StopChatResponseSnapshot;
-  stopOutcome:
-    | {
-        alreadyStopped: boolean;
-        stoppedMessageId: string | null;
-      }
-    | null
-    | undefined;
+  stopOutcome: StopLLMChatResponse | null | undefined;
 }): void {
   if (!stopOutcome) {
     return;
