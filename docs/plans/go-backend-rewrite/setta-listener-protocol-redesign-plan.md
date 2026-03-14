@@ -57,6 +57,9 @@ Current state:
   - authoritative cached dependency values now back
     `ctx.values.by_id(...)` before the retained Python listener falls back to
     the generated runtime instance
+  - authoritative cached dependency values now survive snapshot refresh and
+    realtime delta application even when the generated Python listener runtime
+    instance is unavailable
   - listener coverage and force-refresh reads/writes
   - listener websocket DTOs in `internal/realtime`
 - Python still owns:

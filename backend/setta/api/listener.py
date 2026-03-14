@@ -28,9 +28,11 @@ from setta.api.listener_endpoint_client import RouterEndpointAPI
 from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
+from setta.types.code_obj_impls import CodeObjType
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
     Node,
+    ParamNode,
     SectionNode,
 )
 from setta.code_gen.python.code_generator import PythonCodeGenerator
@@ -79,7 +81,7 @@ from setta.types.project_config import (
     project_config_has_codegen_language,
 )
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.section_impls import ChatSectionImpl, ChatSectionState
+from setta.types.section_impls import ChatSectionImpl, ChatSectionState, SectionType
 from setta.types.routes import Route
 from setta.types.websocket import (
     WebsocketMsgListenerDependencyEvent,
@@ -1265,7 +1267,9 @@ class SettaListener:
             return
         if runtime_state.s_instance is None:
             self._runtime_state = runtime_state
-            self._dependency_cache = {}
+            self._dependency_cache = self._build_dependency_cache_from_runtime_state(
+                runtime_state
+            )
             if refresh_kind == "bootstrap":
                 logger.warning(
                     (
@@ -1427,6 +1431,156 @@ class SettaListener:
         snapshot_values[dependency] = value
         return value
 
+    def _build_dependency_cache_from_runtime_state(
+        self,
+        runtime_state: ListenerRuntimeState,
+    ) -> dict[str, Any]:
+        values_by_key: dict[BaseDependencyKeyUnion, Any] = {}
+        values_by_name: dict[str, Any] = {}
+        for name, dep_key in runtime_state.dependency_graph.full_path_name_to_dep_key.items():
+            value = self._build_cached_dependency_value(
+                runtime_state,
+                dep_key,
+                values_by_key=values_by_key,
+            )
+            if value is _UNAVAILABLE:
+                continue
+            values_by_name[name] = value
+        return values_by_name
+
+    def _build_cached_dependency_value(
+        self,
+        runtime_state: ListenerRuntimeState,
+        dep_key: BaseDependencyKeyUnion,
+        *,
+        values_by_key: dict[BaseDependencyKeyUnion, Any],
+    ) -> Any:
+        if dep_key in values_by_key:
+            return values_by_key[dep_key]
+        node = runtime_state.dependency_graph.graph.get(dep_key)
+        if node is None:
+            return _UNAVAILABLE
+        if not getattr(node, "include_in_codegen", True):
+            return _UNAVAILABLE
+        if isinstance(node, ParamNode):
+            value = self._build_cached_param_node_value(
+                runtime_state,
+                node,
+                values_by_key=values_by_key,
+            )
+        elif isinstance(node, SectionNode):
+            value = self._build_cached_section_node_value(
+                runtime_state,
+                node,
+                values_by_key=values_by_key,
+            )
+        else:
+            return _UNAVAILABLE
+        if value is _UNAVAILABLE:
+            return _UNAVAILABLE
+        values_by_key[dep_key] = value
+        return value
+
+    def _build_cached_param_node_value(
+        self,
+        runtime_state: ListenerRuntimeState,
+        node: ParamNode,
+        *,
+        values_by_key: dict[BaseDependencyKeyUnion, Any],
+    ) -> Any:
+        if node.type is CodeObjType.NestedParam:
+            return self._build_cached_mapping_value(
+                runtime_state,
+                node.deps,
+                values_by_key=values_by_key,
+            )
+        if node.type is CodeObjType.PasswordParam:
+            if node.code_obj_impl_id is None or not node.has_secret:
+                return ""
+            return runtime_state.dependency_graph.password_secrets.get(
+                str(node.code_obj_impl_id),
+                "",
+            )
+        if node.deps:
+            return _UNAVAILABLE
+        return self._build_cached_direct_node_value(runtime_state, node)
+
+    def _build_cached_section_node_value(
+        self,
+        runtime_state: ListenerRuntimeState,
+        node: SectionNode,
+        *,
+        values_by_key: dict[BaseDependencyKeyUnion, Any],
+    ) -> Any:
+        if node.type in {SectionType.Dict, SectionType.Group}:
+            return self._build_cached_mapping_value(
+                runtime_state,
+                node.deps,
+                values_by_key=values_by_key,
+            )
+        if node.type is SectionType.ListRoot:
+            items: list[Any] = []
+            for child_dep_key, is_used in node.deps.items():
+                if not is_used:
+                    continue
+                child_value = self._build_cached_dependency_value(
+                    runtime_state,
+                    child_dep_key,
+                    values_by_key=values_by_key,
+                )
+                if child_value is _UNAVAILABLE:
+                    return _UNAVAILABLE
+                items.append(child_value)
+            return items
+        if node.type is SectionType.Callable:
+            return _UNAVAILABLE
+        return self._build_cached_direct_node_value(runtime_state, node)
+
+    def _build_cached_mapping_value(
+        self,
+        runtime_state: ListenerRuntimeState,
+        deps: dict[BaseDependencyKeyUnion, bool],
+        *,
+        values_by_key: dict[BaseDependencyKeyUnion, Any],
+    ) -> Any:
+        payload: dict[str, Any] = {}
+        for child_dep_key, is_used in deps.items():
+            if not is_used:
+                continue
+            child_node = runtime_state.dependency_graph.graph.get(child_dep_key)
+            if child_node is None:
+                return _UNAVAILABLE
+            if not getattr(child_node, "include_in_codegen", True):
+                continue
+            child_value = self._build_cached_dependency_value(
+                runtime_state,
+                child_dep_key,
+                values_by_key=values_by_key,
+            )
+            if child_value is _UNAVAILABLE:
+                return _UNAVAILABLE
+            payload[child_node.name] = child_value
+        return payload
+
+    def _build_cached_direct_node_value(
+        self,
+        runtime_state: ListenerRuntimeState,
+        node: Node,
+    ) -> Any:
+        try:
+            expression = runtime_state.code_generator.get_value(node)
+        except Exception:
+            return _UNAVAILABLE
+        if not expression:
+            return None
+        try:
+            return self._evaluate_expression(
+                dependency=node.full_path_name,
+                expression=expression,
+            )
+        except Exception:
+            return _UNAVAILABLE
+
     def _hydrate_missing_snapshot_dependency(
         self,
         runtime_state: ListenerRuntimeState,
@@ -1540,13 +1694,6 @@ class SettaListener:
             )
             return
 
-        if runtime_state.s_instance is None:
-            logger.debug(
-                "Listener %s ignoring realtime event because runtime state is unavailable",
-                self._log_identifier,
-            )
-            return
-
         self._refresh_callback_dependency_metadata(runtime_state.dependency_graph)
 
         sequence_session_id = self._validate_sequence_session_id(content.shareSessionId)
@@ -1569,6 +1716,27 @@ class SettaListener:
         if not content.deltas:
             logger.debug(
                 "Listener %s received realtime event with no deltas (sequence=%s)",
+                self._log_identifier,
+                content.sequence,
+            )
+            return
+
+        if runtime_state.s_instance is None:
+            for delta in content.deltas:
+                dep_key = delta.dependency
+                if dep_key not in runtime_state.dependency_graph.graph:
+                    logger.error(
+                        "Listener %s received realtime delta for unknown dependency key %s",
+                        self._log_identifier,
+                        dep_key,
+                    )
+                    continue
+                runtime_state.dependency_graph.change_value(dep_key, delta.value)
+            self._dependency_cache = self._build_dependency_cache_from_runtime_state(
+                runtime_state
+            )
+            logger.debug(
+                "Listener %s updated dependency cache without runtime state for sequence %s",
                 self._log_identifier,
                 content.sequence,
             )
@@ -2097,7 +2265,9 @@ class SettaListener:
                 return
             if runtime_state.s_instance is None:
                 self._runtime_state = runtime_state
-                self._dependency_cache = {}
+                self._dependency_cache = self._build_dependency_cache_from_runtime_state(
+                    runtime_state
+                )
                 logger.warning(
                     (
                         "Listener %s cannot replay snapshot because runtime state "
