@@ -637,6 +637,10 @@ func (s *Server) newSetAgenticContextHandler() tools.Handler {
 		if err != nil {
 			return nil, err
 		}
+		runID, err := readOptionalStringArgument(arguments, "runId")
+		if err != nil {
+			return nil, err
+		}
 		sectionID, err := readOptionalStringArgument(arguments, "sectionId")
 		if err != nil {
 			return nil, err
@@ -661,6 +665,7 @@ func (s *Server) newSetAgenticContextHandler() tools.Handler {
 		s.setSessionAgenticContext(invocation.SessionKey, AgenticContext{
 			ProjectConfigID:       projectConfigID,
 			ChatID:                chatID,
+			RunID:                 runID,
 			SectionID:             sectionID,
 			FrontendAffinityToken: frontendAffinityToken,
 			AllowUnscoped:         allowUnscoped,
@@ -2921,6 +2926,10 @@ func defaultToolDefinitions(
 					"chatId": map[string]any{
 						"type":        "string",
 						"description": "Optional chat id associated with the scoped tool session.",
+					},
+					"runId": map[string]any{
+						"type":        "string",
+						"description": "Optional active child run id associated with the scoped tool session.",
 					},
 					"sectionId": map[string]any{
 						"type":        "string",

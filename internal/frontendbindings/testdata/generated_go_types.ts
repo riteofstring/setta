@@ -5668,6 +5668,7 @@ export const WebsocketMsgTypeForFrontendEnum = {
   ListenerCoverageSnapshot: "ListenerCoverageSnapshot",
   LLMConfigUpdated: "LLMConfigUpdated",
   LLMApiKeysUpdated: "LLMApiKeysUpdated",
+  AgentRunUpdated: "AgentRunUpdated",
   BackendLogEvent: "BackendLogEvent",
   AIFollowToolArgumentsUpdate: "AIFollowToolArgumentsUpdate",
   AIFollowToolResultUpdate: "AIFollowToolResultUpdate",

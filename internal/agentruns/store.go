@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 
 	"setta/internal/statefs"
 )
@@ -36,6 +37,9 @@ type RunStore struct {
 	root      string
 	runsRoot  string
 	indexPath string
+
+	listenerMu sync.RWMutex
+	afterSave  []func(Run)
 }
 
 func NewEngineStore(root string) (*EngineStore, error) {
@@ -227,7 +231,11 @@ func (s *RunStore) Save(run Run) error {
 	if err := statefs.AtomicWriteFile(s.runPath(normalized.ID), content, storeFileMode); err != nil {
 		return fmt.Errorf("write agent run: %w", err)
 	}
-	return s.writeIndexEntry(normalized)
+	if err := s.writeIndexEntry(normalized); err != nil {
+		return err
+	}
+	s.notifySaved(normalized)
+	return nil
 }
 
 func (s *RunStore) Load(runID string) (Run, error) {
@@ -246,6 +254,31 @@ func (s *RunStore) Load(runID string) (Run, error) {
 		return Run{}, fmt.Errorf("read agent run: %w", err)
 	}
 	return decodeRun(content)
+}
+
+func (s *RunStore) AddAfterSaveListener(listener func(Run)) {
+	if s == nil || listener == nil {
+		return
+	}
+	s.listenerMu.Lock()
+	defer s.listenerMu.Unlock()
+	s.afterSave = append(s.afterSave, listener)
+}
+
+func (s *RunStore) notifySaved(run Run) {
+	if s == nil {
+		return
+	}
+	s.listenerMu.RLock()
+	listeners := append([]func(Run){}, s.afterSave...)
+	s.listenerMu.RUnlock()
+	if len(listeners) == 0 {
+		return
+	}
+	clonedRun := run.Clone()
+	for _, listener := range listeners {
+		listener(clonedRun)
+	}
 }
 
 func (s *RunStore) Delete(runID string) error {

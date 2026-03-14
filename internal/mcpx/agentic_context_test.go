@@ -2,6 +2,7 @@ package mcpx
 
 import (
 	"encoding/json"
+	"net/http"
 	"testing"
 
 	"setta/internal/projectstate"
@@ -110,6 +111,54 @@ func TestCheckAgenticScopeUsesDefaultTargetSingletonSection(t *testing.T) {
 	}
 	if len(deniedResult.BlockedSectionIDs) != 1 || deniedResult.BlockedSectionIDs[0] != "gen-section" {
 		t.Fatalf("expected blocked singleton target gen-section, got %#v", deniedResult.BlockedSectionIDs)
+	}
+}
+
+func TestResolveAgenticContextIncludesRunIDFromMetaAndHeaders(t *testing.T) {
+	t.Parallel()
+
+	headers := http.Header{}
+	headers.Set(AgenticContextSectionIDHeader, "section-chat")
+	resolved, err := resolveAgenticContext(
+		ToolRequestContext{
+			Meta: map[string]any{
+				"projectConfigId": "project-alpha",
+				"chatId":          "chat-alpha",
+				"runId":           "run-child",
+			},
+			Headers: headers,
+		},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("resolve agentic context: %v", err)
+	}
+	if resolved == nil {
+		t.Fatal("expected resolved agentic context")
+	}
+	if resolved.RunID != "run-child" {
+		t.Fatalf("expected runId run-child, got %q", resolved.RunID)
+	}
+	if resolved.SectionID != "section-chat" {
+		t.Fatalf("expected sectionId section-chat, got %q", resolved.SectionID)
+	}
+}
+
+func TestResolveAgenticContextFallsBackToSessionRunID(t *testing.T) {
+	t.Parallel()
+
+	resolved, err := resolveAgenticContext(ToolRequestContext{}, &AgenticContext{
+		ProjectConfigID: "project-alpha",
+		RunID:           "run-child",
+	})
+	if err != nil {
+		t.Fatalf("resolve agentic context: %v", err)
+	}
+	if resolved == nil {
+		t.Fatal("expected resolved agentic context")
+	}
+	if resolved.RunID != "run-child" {
+		t.Fatalf("expected session runId run-child, got %q", resolved.RunID)
 	}
 }
 

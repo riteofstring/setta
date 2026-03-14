@@ -722,6 +722,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
+		agentRunStore.AddAfterSaveListener(func(run agentruns.Run) {
+			_, _ = websocketHub.BroadcastJSON(
+				context.Background(),
+				realtime.NewAgentRunUpdatedMessage(run),
+				realtime.Selection{Type: realtime.ConnectionTypeFrontend},
+			)
+		})
 		externalConfigStore, err = externalagentconfigs.NewStore(cfg.Paths.SettaFilesRoot)
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))

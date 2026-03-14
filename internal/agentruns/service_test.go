@@ -133,6 +133,45 @@ func TestRunStorePersistsRunsAndMetadataIndex(t *testing.T) {
 	}
 }
 
+func TestRunStoreSaveInvokesAfterSaveListenersWithClonedRun(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	store, err := NewRunStore(root)
+	if err != nil {
+		t.Fatalf("new run store: %v", err)
+	}
+
+	var saved []Run
+	store.AddAfterSaveListener(func(run Run) {
+		saved = append(saved, run)
+		run.Inputs["mutated"] = true
+	})
+
+	now := time.Date(2026, 3, 14, 9, 0, 0, 0, time.UTC)
+	run := NewRun(stringPtr("profile-alpha"), map[string]any{
+		"runType": "managed_chat",
+	}, now)
+	if err := store.Save(run); err != nil {
+		t.Fatalf("save run: %v", err)
+	}
+
+	if len(saved) != 1 {
+		t.Fatalf("expected one saved notification, got %d", len(saved))
+	}
+	if saved[0].ID != run.ID {
+		t.Fatalf("expected notified run %q, got %q", run.ID, saved[0].ID)
+	}
+
+	loaded, err := store.Load(run.ID)
+	if err != nil {
+		t.Fatalf("load run: %v", err)
+	}
+	if _, ok := loaded.Inputs["mutated"]; ok {
+		t.Fatalf("expected persisted run to ignore listener mutation, got %#v", loaded.Inputs)
+	}
+}
+
 func TestServiceRunSubAgentPersistsLifecycleAndCompletes(t *testing.T) {
 	t.Parallel()
 

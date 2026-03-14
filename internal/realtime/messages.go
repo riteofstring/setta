@@ -3,6 +3,7 @@ package realtime
 import (
 	"strings"
 
+	"setta/internal/agentruns"
 	"setta/internal/llmconfig"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
@@ -23,6 +24,7 @@ const (
 	MessageTypeLSPDiagnostics              = "LSPDiagnostics"
 	MessageTypeLLMConfigUpdated            = "LLMConfigUpdated"
 	MessageTypeLLMAPIKeysUpdated           = "LLMApiKeysUpdated"
+	MessageTypeAgentRunUpdated             = "AgentRunUpdated"
 	MessageTypeUpdateFrontendProjectState  = "UpdateFrontendProjectState"
 	MessageTypeUpdateSettings              = "UpdateSettings"
 	MessageTypeReturnRenameRefactorResults = "ReturnRenameRefactorResults"
@@ -256,6 +258,12 @@ type LLMAPIKeysUpdatedMessage struct {
 	Content     llmconfig.ManagedAPIKeysSnapshot `json:"content"`
 }
 
+type AgentRunUpdatedMessage struct {
+	ID          *string       `json:"id"`
+	MessageType string        `json:"messageType"`
+	Content     agentruns.Run `json:"content"`
+}
+
 type UpdateArtifactsContent struct {
 	Artifacts  []any  `json:"artifacts"`
 	UpdateType string `json:"updateType"`
@@ -398,6 +406,13 @@ func NewLLMAPIKeysUpdatedMessage(content llmconfig.ManagedAPIKeysSnapshot) LLMAP
 	return LLMAPIKeysUpdatedMessage{
 		MessageType: MessageTypeLLMAPIKeysUpdated,
 		Content:     content,
+	}
+}
+
+func NewAgentRunUpdatedMessage(content agentruns.Run) AgentRunUpdatedMessage {
+	return AgentRunUpdatedMessage{
+		MessageType: MessageTypeAgentRunUpdated,
+		Content:     content.Clone(),
 	}
 }
 

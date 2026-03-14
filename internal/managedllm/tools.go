@@ -327,6 +327,9 @@ func buildToolRequestMeta(request agentruns.ExecutionRequest, toolName string) m
 	if trimmed := strings.TrimSpace(request.ChatID); trimmed != "" {
 		meta["chatId"] = trimmed
 	}
+	if trimmed := strings.TrimSpace(request.Run.ID); trimmed != "" {
+		meta["runId"] = trimmed
+	}
 	if request.SectionID != nil && strings.TrimSpace(*request.SectionID) != "" {
 		meta["sectionId"] = strings.TrimSpace(*request.SectionID)
 	}

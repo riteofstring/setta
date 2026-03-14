@@ -7872,6 +7872,7 @@ func TestWebsocketEnumsUseConverterDeclarations(t *testing.T) {
 				{Name: "ListenerCoverageSnapshot", Value: "ListenerCoverageSnapshot"},
 				{Name: "LLMConfigUpdated", Value: "LLMConfigUpdated"},
 				{Name: "LLMApiKeysUpdated", Value: "LLMApiKeysUpdated"},
+				{Name: "AgentRunUpdated", Value: "AgentRunUpdated"},
 				{Name: "BackendLogEvent", Value: "BackendLogEvent"},
 				{Name: "AIFollowToolArgumentsUpdate", Value: "AIFollowToolArgumentsUpdate"},
 				{Name: "AIFollowToolResultUpdate", Value: "AIFollowToolResultUpdate"},

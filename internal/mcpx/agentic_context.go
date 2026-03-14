@@ -15,6 +15,7 @@ import (
 const (
 	AgenticContextProjectConfigIDHeader  = "x-setta-project-config-id"
 	AgenticContextChatIDHeader           = "x-setta-chat-id"
+	AgenticContextRunIDHeader            = "x-setta-run-id"
 	AgenticContextSectionIDHeader        = "x-setta-section-id"
 	AgenticContextFrontendAffinityHeader = "x-setta-frontend-affinity-token"
 	AgenticContextAllowUnscopedHeader    = "x-setta-allow-unscoped"
@@ -28,6 +29,7 @@ const (
 type AgenticContext struct {
 	ProjectConfigID       string `json:"projectConfigId"`
 	ChatID                string `json:"chatId,omitempty"`
+	RunID                 string `json:"runId,omitempty"`
 	SectionID             string `json:"sectionId,omitempty"`
 	FrontendAffinityToken string `json:"frontendAffinityToken,omitempty"`
 	AllowUnscoped         bool   `json:"allowUnscoped,omitempty"`
@@ -140,6 +142,17 @@ func resolveAgenticContext(requestContext ToolRequestContext, sessionContext *Ag
 	if err != nil {
 		return nil, err
 	}
+	runID, err := resolveAgenticContextString(
+		requestContext.Meta,
+		"runId",
+		requestContext.Headers,
+		AgenticContextRunIDHeader,
+		sessionContextField(sessionContext, func(value AgenticContext) string { return value.RunID }),
+		false,
+	)
+	if err != nil {
+		return nil, err
+	}
 	sectionID, err := resolveAgenticContextString(
 		requestContext.Meta,
 		"sectionId",
@@ -171,12 +184,13 @@ func resolveAgenticContext(requestContext ToolRequestContext, sessionContext *Ag
 		return nil, err
 	}
 
-	if projectConfigID == "" && chatID == "" && sectionID == "" && frontendAffinityToken == "" && !allowUnscoped {
+	if projectConfigID == "" && chatID == "" && runID == "" && sectionID == "" && frontendAffinityToken == "" && !allowUnscoped {
 		return nil, nil
 	}
 	return &AgenticContext{
 		ProjectConfigID:       projectConfigID,
 		ChatID:                chatID,
+		RunID:                 runID,
 		SectionID:             sectionID,
 		FrontendAffinityToken: frontendAffinityToken,
 		AllowUnscoped:         allowUnscoped,

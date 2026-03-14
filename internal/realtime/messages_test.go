@@ -1,6 +1,11 @@
 package realtime
 
-import "testing"
+import (
+	"testing"
+	"time"
+
+	"setta/internal/agentruns"
+)
 
 func TestNewUpdateArtifactsMessage(t *testing.T) {
 	t.Parallel()
@@ -66,6 +71,26 @@ func TestNewAIFollowToolResultUpdateMessage(t *testing.T) {
 	}
 	if got := message.Content.IDsByType["section"]; len(got) != 1 || got[0] != "section-1" {
 		t.Fatalf("unexpected result-follow ids %#v", message.Content.IDsByType)
+	}
+}
+
+func TestNewAgentRunUpdatedMessageClonesContent(t *testing.T) {
+	t.Parallel()
+
+	run := agentruns.NewRun(nil, map[string]any{
+		"runType": "state_machine",
+	}, time.Date(2026, 3, 14, 12, 0, 0, 0, time.UTC))
+	message := NewAgentRunUpdatedMessage(run)
+	run.Inputs["mutated"] = true
+
+	if message.MessageType != MessageTypeAgentRunUpdated {
+		t.Fatalf("expected agent run updated message type, got %q", message.MessageType)
+	}
+	if message.Content.ID != run.ID {
+		t.Fatalf("expected run id %q, got %q", run.ID, message.Content.ID)
+	}
+	if _, ok := message.Content.Inputs["mutated"]; ok {
+		t.Fatalf("expected cloned content to ignore later run mutation, got %#v", message.Content.Inputs)
 	}
 }
 
