@@ -4627,3 +4627,135 @@ New benchmark stages:
 - This is still an intermediate checkpoint:
   camera movement works and DOM islands mount, but hit testing, selection,
   drag/resize, and broader parity remain future slices.
+
+## Addendum (2026-03-12): always-live canvas-engine DOM is still slower than full React Flow
+
+### Goal
+
+- Validate the claim behind the current canvas-engine direction against the
+  harder requirement that section contents remain live at all times.
+- Measure whether the custom engine is still faster when its sparse DOM-island
+  advantage is intentionally removed.
+
+### Implementation under test
+
+- Use the existing experimental flags:
+  - `useCanvasEngineV1: true`
+  - `useCanvasEngineAlwaysLiveDom: true`
+- On the live Settings page, this mounted all `43` top-level DOM islands at
+  once so the canvas engine no longer hid or virtualized inactive top-level
+  section contents.
+- No production code change was needed to strip shell-promotion CSS for this
+  experiment:
+  - the old always-on shell-promotion rule lives under
+    `.react-flow [data-viewport-shell-promotable="true"]`
+  - the canvas-engine host is not mounted under a `.react-flow` root
+
+### Measurement method
+
+- Live headed browser via chrome-devtools-mcp on
+  `http://127.0.0.1:3010/settings`
+- `All Settings` selected
+- Fixed starting transform for both modes:
+  - `[x=779.9, y=-55.7, zoom=0.1]`
+- Apples-to-apples benchmark method:
+  - import the already-loaded live React Flow store module from its exact
+    Vite HMR resource URL
+  - mutate the live store `transform` directly for both modes
+  - wait `500ms` before capture
+  - record `requestAnimationFrame` deltas across the same transform sequence:
+    - `36` pan frames forward
+    - `36` pan frames back
+    - `18` zoom-in frames
+    - `18` zoom-out frames
+- DevTools traces saved for one valid run per mode:
+  - `perf/artifacts/frontend/settings-all-settings/react-flow-full-live-trace.json`
+  - `perf/artifacts/frontend/settings-all-settings/canvas-engine-always-live-trace.json`
+- Screenshots saved from the fixed benchmark framing:
+  - `perf/screenshots/react-flow-full-live-settings-all-benchmark-fixed.png`
+  - `perf/screenshots/canvas-engine-always-live-settings-all-benchmark-fixed.png`
+
+### Structural verification
+
+- React Flow full-live path:
+  - workspace DOM subtree size during the benchmark stayed around `8854-8862`
+    nodes
+  - top-level sections in the DOM: `86`
+- Canvas-engine always-live path:
+  - host reported `data-canvas-engine-rect-count="43"`
+  - host reported `data-canvas-engine-dom-island-mounted-count="43"`
+  - host reported `data-canvas-engine-always-live-dom="true"`
+  - first mounted shell computed styles remained unpromoted:
+    - `transform: none`
+    - `backface-visibility: visible`
+    - `isolation: auto`
+  - workspace DOM subtree size during the benchmark stayed around `8853-8854`
+    nodes
+  - top-level sections in the DOM: `86`
+
+### Results
+
+#### Same-session warm rerun on the live page
+
+- `React Flow`:
+  - `107` captured frame deltas
+  - `11.36ms` average frame time
+  - `88.02 FPS`
+  - `33.40ms` max frame time
+  - `19` frames over `16.7ms`
+  - `1` frame over `33.3ms`
+  - `0` frames over `50ms`
+  - workspace DOM nodes: `8862`
+- `Canvas engine + always-live DOM`:
+  - `107` captured frame deltas
+  - `21.88ms` average frame time
+  - `45.70 FPS`
+  - `57.92ms` max frame time
+  - `70` frames over `16.7ms`
+  - `20` frames over `33.3ms`
+  - `1` frame over `50ms`
+  - workspace DOM nodes: `8854`
+  - mounted DOM islands: `43`
+
+#### Earlier valid traced pair
+
+- `React Flow` traced run:
+  - `109` captured frame deltas
+  - `13.87ms` average frame time
+  - `72.09 FPS`
+  - `33.30ms` max frame time
+  - `37` frames over `16.7ms`
+  - `1` frame over `33.3ms`
+  - `0` frames over `50ms`
+- `Canvas engine + always-live DOM` traced run:
+  - `109` captured frame deltas
+  - `27.49ms` average frame time
+  - `36.37 FPS`
+  - `42.70ms` max frame time
+  - `85` frames over `16.7ms`
+  - `37` frames over `33.3ms`
+  - `0` frames over `50ms`
+  - mounted DOM islands: `43`
+
+#### Additional valid warm canvas-engine reruns
+
+- Warm rerun `#1`: `56.21 FPS`
+- Warm rerun `#2`: `57.09 FPS`
+
+### Conclusion
+
+- With all top-level section contents kept live, the current canvas-engine path
+  is not faster than the full React Flow path on `All Settings`.
+- The measured gap is large:
+  - same-session warm rerun: `88.02 FPS` for React Flow vs `45.70 FPS` for the
+    always-live canvas engine
+  - traced pair: `72.09 FPS` for React Flow vs `36.37 FPS` for the always-live
+    canvas engine
+- DOM size is essentially unchanged between the two modes, which means the
+  sparse live-DOM overlay was the real win in the earlier engine direction.
+- Because the engine host was not receiving the old `.react-flow` shell
+  promotion styles during this experiment, this result is not explained by
+  leftover `translateZ(0)` / `will-change` behavior on section shells.
+- The evidence from this addendum is that a custom retained renderer, by
+  itself, does not beat the existing React Flow path once section contents stay
+  fully live.
