@@ -6,8 +6,6 @@ import { describe, expect, it } from "vitest";
 import {
   buildProjectChatHydrationCacheKey,
   clearProjectChatHydrationCacheEntriesForChat,
-  hasRetainedImageAttachmentFromImageModeThread,
-  resolveProjectChatSubmitAppGeneration,
 } from "./ProjectChatCore";
 
 type HydrationCacheEntry = {
@@ -67,70 +65,5 @@ describe("ProjectChatCore hydration cache identity", () => {
     expect(removed).toEqual([
       "project-a:shared-chat:external_agent:revision-1",
     ]);
-  });
-});
-
-describe("ProjectChatCore submit app-generation resolution", () => {
-  it("keeps inheriting the active app-generation mode when no override is provided", () => {
-    expect(
-      resolveProjectChatSubmitAppGeneration({
-        activeAppGeneration: { mode: "json_render" },
-      }),
-    ).toEqual({ mode: "json_render" });
-  });
-
-  it("treats an explicit null override as plain chat instead of inheriting", () => {
-    expect(
-      resolveProjectChatSubmitAppGeneration({
-        activeAppGeneration: { mode: "json_render" },
-        options: {
-          appGeneration: null,
-        },
-      }),
-    ).toBeNull();
-  });
-
-  it("only treats retained images from prior image-mode turns as reusable", () => {
-    expect(
-      hasRetainedImageAttachmentFromImageModeThread(
-        [
-          {
-            id: "msg-plain-image",
-            role: "user",
-            content: [],
-            attachments: [
-              {
-                id: "attachment-1",
-                name: "plain.png",
-                mimeType: "image/png",
-              },
-            ],
-          },
-        ],
-        {},
-      ),
-    ).toBe(false);
-
-    expect(
-      hasRetainedImageAttachmentFromImageModeThread(
-        [
-          {
-            id: "msg-image-mode",
-            role: "user",
-            content: [],
-            attachments: [
-              {
-                id: "attachment-2",
-                name: "reference.png",
-                mimeType: "image/png",
-              },
-            ],
-          },
-        ],
-        {
-          "msg-image-mode": { mode: "json_render_with_image" },
-        },
-      ),
-    ).toBe(true);
   });
 });
