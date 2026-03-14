@@ -377,9 +377,9 @@ Current status:
   ad hoc through runtime callers
 - the validation suite now also checks that those direct generated-route helper
   imports stay inside that explicit boundary and snapshots the remaining
-  nongenerated helper-bag import inventory in the focused frontend boundary
-  exception manifest, so helper-boundary widening becomes a reviewed diff
-  instead of silent runtime drift
+  nongenerated route/transport/support-boundary import inventory in the
+  focused frontend boundary exception manifest, so helper-boundary widening
+  becomes a reviewed diff instead of silent runtime drift
 - the validation suite now also rejects namespace/default imports plus
   export-all / namespace re-exports plus dynamic-import / `require()` access
   to narrowed boundary modules such as `generatedRoutes`, `requestTransport`,

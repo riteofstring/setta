@@ -8545,11 +8545,40 @@ func renderFrontendBoundaryExceptionManifest(t *testing.T, repoRoot string) stri
 	t.Helper()
 
 	trackedBindingsByModule := map[string]map[string]struct{}{
+		"appTransport": {
+			"buildAppBinaryDownloadUrl": {},
+		},
+		"backendOriginTransport": {
+			"BuildTerminalWebsocketUrlOptions": {},
+			"buildBackendOriginURL":            {},
+			"buildBootstrapPageUrl":            {},
+			"buildFrontendWebsocketUrl":        {},
+			"buildListenerWebsocketUrl":        {},
+			"buildTerminalWebsocketUrl":        {},
+			"getFrontendWebsocketRoute":        {},
+		},
+		"backendTransport": {
+			"SETTA_API_PRESET_ROUTES":    {},
+			"buildBinaryDownloadUrl":     {},
+			"buildPluginBackendFetchUrl": {},
+		},
+		"c_addresses": {
+			"C_ADDRESSES": {},
+		},
 		"endpointUtils": {
 			"buildBackendOriginURL":          {},
 			"buildBackendOriginWebsocketURL": {},
 			"buildBackendURL":                {},
 			"replaceAddressParams":           {},
+		},
+		"launcherBootstrapUrl": {
+			"resolveLauncherBootstrapUrl": {},
+		},
+		"plugins/transport": {
+			"BuildPluginListenerWebsocketUrlOptions": {},
+			"buildPluginAssetUrl":                    {},
+			"buildPluginBackendFetchUrl":             {},
+			"buildPluginListenerWebsocketUrl":        {},
 		},
 		"generatedRoutes": {
 			"GoHTTPRouteHelpers":      {},
@@ -8562,9 +8591,45 @@ func renderFrontendBoundaryExceptionManifest(t *testing.T, repoRoot string) stri
 			"getBinary": {},
 			"post":      {},
 		},
+		"serverModeBoundaryPolicy": {
+			"ENDPOINT_ORIGIN_POLICY":          {},
+			"EndpointOriginPolicy":            {},
+			"ServerMode":                      {},
+			"ServerModeCapabilities":          {},
+			"WorkspaceLaunchRouteKind":        {},
+			"resolveEndpointOriginForMode":    {},
+			"resolveServerModeCapabilities":   {},
+			"resolveWorkspaceLaunchRouteKind": {},
+		},
+		"serverModeCapabilities": {
+			"resolveServerModeCapabilities": {},
+		},
+		"transportRouteConstants": {
+			"API_ROUTE_PREFIX":            {},
+			"ROOT_TRANSPORT_ROUTES":       {},
+			"SERVER_MODE_BOUNDARY_ROUTES": {},
+			"SETTA_API_PRESET_ROUTES":     {},
+			"WEBSOCKET_TRANSPORT_ROUTES":  {},
+			"buildBinaryDownloadRoute":    {},
+			"buildListenerWebsocketRoute": {},
+			"buildPluginBackendRoute":     {},
+			"buildTerminalWebsocketRoute": {},
+		},
+		"transportUrlCore": {
+			"buildBackendOriginURL":          {},
+			"buildBackendOriginWebsocketURL": {},
+			"buildBackendURL":                {},
+			"replaceAddressParams":           {},
+			"resolveEndpointOrigin":          {},
+		},
+		"workspaceLaunchNavigation": {
+			"WorkspaceLaunchBackNavigation":        {},
+			"resolveWorkspaceLaunchBackNavigation": {},
+			"resolveWorkspaceLaunchReturnUrl":      {},
+		},
 	}
 
-	lines := make([]string, 0)
+	lineSet := map[string]struct{}{}
 	for _, record := range readFrontendBoundaryImportRecords(t, repoRoot) {
 		// generatedEndpoints.ts is the canonical generated contract boundary and
 		// already has separate exact-output verification; this manifest is for
@@ -8579,10 +8644,14 @@ func renderFrontendBoundaryExceptionManifest(t *testing.T, repoRoot string) stri
 		if _, tracked := trackedBindings[record.Binding]; !tracked {
 			continue
 		}
-		lines = append(lines, strings.Join([]string{record.Module, record.Path, record.Binding}, " "))
+		lineSet[strings.Join([]string{record.Module, record.Path, record.Binding}, " ")] = struct{}{}
 	}
 	for _, record := range readFrontendDirectBackendTransportRecords(t, repoRoot) {
-		lines = append(lines, strings.Join([]string{record.Module, record.Path, record.Binding}, " "))
+		lineSet[strings.Join([]string{record.Module, record.Path, record.Binding}, " ")] = struct{}{}
+	}
+	lines := make([]string, 0, len(lineSet))
+	for line := range lineSet {
+		lines = append(lines, line)
 	}
 	slices.Sort(lines)
 	return strings.Join(lines, "\n")
@@ -8656,6 +8725,22 @@ func readFrontendBoundaryImportRecords(t *testing.T, repoRoot string) []frontend
 		pattern *regexp.Regexp
 	}{
 		{
+			module:  "appTransport",
+			pattern: regexp.MustCompile(`(?s)(?:import|export)\s*\{([^}]*)\}\s*from\s*["'](?:\./appTransport|utils/appTransport)["']`),
+		},
+		{
+			module:  "backendOriginTransport",
+			pattern: regexp.MustCompile(`(?s)(?:import|export)\s*\{([^}]*)\}\s*from\s*["'](?:\./backendOriginTransport|utils/backendOriginTransport)["']`),
+		},
+		{
+			module:  "backendTransport",
+			pattern: regexp.MustCompile(`(?s)(?:import|export)\s*\{([^}]*)\}\s*from\s*["'](?:\./backendTransport|utils/backendTransport)["']`),
+		},
+		{
+			module:  "c_addresses",
+			pattern: regexp.MustCompile(`(?s)(?:import|export)\s*\{([^}]*)\}\s*from\s*["'](?:\./c_addresses|utils/c_addresses)["']`),
+		},
+		{
 			module:  "endpointUtils",
 			pattern: regexp.MustCompile(`(?s)import\s*\{([^}]*)\}\s*from\s*["'](?:\./endpointUtils|utils/endpointUtils)["']`),
 		},
@@ -8666,6 +8751,34 @@ func readFrontendBoundaryImportRecords(t *testing.T, repoRoot string) []frontend
 		{
 			module:  "generatedRoutes",
 			pattern: regexp.MustCompile(`(?s)import\s*\{([^}]*)\}\s*from\s*["'](?:\./generatedRoutes|utils/generatedRoutes)["']`),
+		},
+		{
+			module:  "launcherBootstrapUrl",
+			pattern: regexp.MustCompile(`(?s)(?:import|export)\s*\{([^}]*)\}\s*from\s*["'](?:\./launcherBootstrapUrl|utils/launcherBootstrapUrl)["']`),
+		},
+		{
+			module:  "plugins/transport",
+			pattern: regexp.MustCompile(`(?s)(?:import|export)\s*\{([^}]*)\}\s*from\s*["'](?:\./transport|utils/plugins/transport)["']`),
+		},
+		{
+			module:  "serverModeBoundaryPolicy",
+			pattern: regexp.MustCompile(`(?s)(?:import|export)\s*\{([^}]*)\}\s*from\s*["'](?:\./serverModeBoundaryPolicy|utils/serverModeBoundaryPolicy)["']`),
+		},
+		{
+			module:  "serverModeCapabilities",
+			pattern: regexp.MustCompile(`(?s)(?:import|export)\s*\{([^}]*)\}\s*from\s*["'](?:\./serverModeCapabilities|utils/serverModeCapabilities)["']`),
+		},
+		{
+			module:  "transportRouteConstants",
+			pattern: regexp.MustCompile(`(?s)(?:import|export)\s*\{([^}]*)\}\s*from\s*["'](?:\./transportRouteConstants|utils/transportRouteConstants)["']`),
+		},
+		{
+			module:  "transportUrlCore",
+			pattern: regexp.MustCompile(`(?s)(?:import|export)\s*\{([^}]*)\}\s*from\s*["'](?:\./transportUrlCore|utils/transportUrlCore)["']`),
+		},
+		{
+			module:  "workspaceLaunchNavigation",
+			pattern: regexp.MustCompile(`(?s)(?:import|export)\s*\{([^}]*)\}\s*from\s*["'](?:\./workspaceLaunchNavigation|utils/workspaceLaunchNavigation)["']`),
 		},
 	}
 
