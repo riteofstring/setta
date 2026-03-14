@@ -1,7 +1,6 @@
 import { DesktopLauncherSettingsSection } from "components/Launcher/DesktopLauncherSettingsSection";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerMode } from "state/definitions";
-import { C_ADDRESSES } from "utils/c_addresses";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_get_launcher_filesystem_roots,
@@ -20,7 +19,7 @@ import type {
   LauncherRecentWorkspacePayload,
   LauncherRecentWorkspacesResponse,
 } from "utils/generatedTypes";
-import { appendLauncherOriginToBootstrapUrlFragment } from "utils/launcherOrigin";
+import { resolveLauncherBootstrapUrl } from "utils/launcherBootstrapUrl";
 import { resolveServerModeCapabilities } from "utils/serverModeCapabilities";
 
 export function normalizeNewProjectName(rawValue: string): string {
@@ -69,13 +68,7 @@ function formatRecentTimestamp(lastUsedAt: number): string {
 }
 
 function resolveBootstrapUrl(bootstrapUrlFragment: string): string {
-  if (import.meta.env?.DEV) {
-    return bootstrapUrlFragment;
-  }
-  return appendLauncherOriginToBootstrapUrlFragment(
-    bootstrapUrlFragment,
-    C_ADDRESSES.LAUNCHER_ORIGIN,
-  );
+  return resolveLauncherBootstrapUrl(bootstrapUrlFragment);
 }
 
 type LauncherContext = {

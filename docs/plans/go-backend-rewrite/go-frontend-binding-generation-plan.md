@@ -275,6 +275,12 @@ Current status:
   non-test frontend runtime source, so callers must go through the shared
   `endpointUtils` helper boundary instead of reintroducing direct
   `C_ADDRESSES` transport assembly
+- the workspace-launch bootstrap URL and trusted return-origin policy now also
+  flow through shared launcher/workspace-navigation helpers, and the
+  validation suite confines direct `C_ADDRESSES.BACKEND_ORIGIN` /
+  `C_ADDRESSES.LAUNCHER_ORIGIN` usage to those boundary utilities plus
+  `endpointUtils`, so component code does not reintroduce ad hoc
+  backend/launcher origin handling
 - the validation suite now also checks that the checked-in
   `generatedRoutes.ts`, `generatedTypes.ts`, and `generatedEndpoints.ts`
   files exactly match the current Go frontend binding generation pipeline

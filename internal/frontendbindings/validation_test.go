@@ -1836,6 +1836,77 @@ func TestFrontendRawBackendTransportConstructionUsesEndpointUtils(t *testing.T) 
 	}
 }
 
+func TestFrontendRawOriginAddressUsageLivesInBoundaryUtilities(t *testing.T) {
+	t.Helper()
+
+	repoRoot := testRepoRoot(t)
+	frontendSrcRoot := filepath.Join(repoRoot, "frontend", "src")
+	allowedRawOriginUsage := map[string]map[string]struct{}{
+		"frontend/src/utils/endpointUtils.ts": {
+			"BACKEND_ORIGIN": {},
+		},
+		"frontend/src/utils/launcherBootstrapUrl.ts": {
+			"LAUNCHER_ORIGIN": {},
+		},
+		"frontend/src/utils/workspaceLaunchNavigation.ts": {
+			"BACKEND_ORIGIN":  {},
+			"LAUNCHER_ORIGIN": {},
+		},
+	}
+	pattern := regexp.MustCompile(`C_ADDRESSES\.(BACKEND_ORIGIN|LAUNCHER_ORIGIN)`)
+
+	err := filepath.WalkDir(frontendSrcRoot, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+
+		base := entry.Name()
+		if !(strings.HasSuffix(base, ".ts") || strings.HasSuffix(base, ".tsx")) {
+			return nil
+		}
+		if strings.Contains(base, ".test.") || strings.Contains(base, ".spec.") {
+			return nil
+		}
+
+		relativePath, err := filepath.Rel(repoRoot, path)
+		if err != nil {
+			return err
+		}
+		relativePath = filepath.ToSlash(relativePath)
+
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		source := string(contents)
+		for _, match := range pattern.FindAllStringSubmatch(source, -1) {
+			symbol := match[1]
+			allowedSymbols, allowedPath := allowedRawOriginUsage[relativePath]
+			if !allowedPath {
+				return fmt.Errorf(
+					"%s uses raw origin address %q outside the shared launch/transport boundary utilities",
+					relativePath,
+					"C_ADDRESSES."+symbol,
+				)
+			}
+			if _, allowedSymbol := allowedSymbols[symbol]; !allowedSymbol {
+				return fmt.Errorf(
+					"%s uses raw origin address %q outside its allowed boundary-utility scope",
+					relativePath,
+					"C_ADDRESSES."+symbol,
+				)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("scan frontend raw origin address usage: %v", err)
+	}
+}
+
 func readBareHTTPRouteIdentifiers(t *testing.T, path string) []string {
 	t.Helper()
 
