@@ -58,3 +58,25 @@ func (p Project) GetPasswordParamValue(sectionID string, codeObjID string) (stri
 	}
 	return p.passwordSecrets.Get(impl.ID)
 }
+
+func (p Project) PasswordSecretsSnapshot() (map[string]string, error) {
+	if p.passwordSecrets == nil {
+		return map[string]string{}, nil
+	}
+
+	secrets := map[string]string{}
+	for implID, impl := range p.CodeObjImpls {
+		if strings.TrimSpace(impl.Type) != "PasswordParam" {
+			continue
+		}
+		value, err := p.passwordSecrets.Get(implID)
+		if err != nil {
+			return nil, fmt.Errorf("read password secret %q: %w", implID, err)
+		}
+		if value == "" {
+			continue
+		}
+		secrets[implID] = value
+	}
+	return secrets, nil
+}

@@ -80,3 +80,21 @@ func TestRuntimeGetPasswordParamValueUsesConfiguredSecretStore(t *testing.T) {
 		t.Fatalf("expected runtime-secret, got %q", value)
 	}
 }
+
+func TestProjectPasswordSecretsSnapshotIncludesStoredSecretsByImplID(t *testing.T) {
+	t.Parallel()
+
+	project := passwordParamNameAndValueTestProject(t)
+	project.passwordSecrets = NewMemoryPasswordSecretStore()
+	if err := project.passwordSecrets.Set("shared-secret-impl", "snapshot-secret"); err != nil {
+		t.Fatalf("seed password secret: %v", err)
+	}
+
+	secrets, err := project.PasswordSecretsSnapshot()
+	if err != nil {
+		t.Fatalf("password secrets snapshot: %v", err)
+	}
+	if got := secrets["shared-secret-impl"]; got != "snapshot-secret" {
+		t.Fatalf("expected snapshot-secret, got %q", got)
+	}
+}

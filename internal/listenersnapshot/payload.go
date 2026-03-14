@@ -3,6 +3,7 @@ package listenersnapshot
 import (
 	"encoding/json"
 	"sort"
+	"strconv"
 	"strings"
 
 	"setta/internal/codegen"
@@ -66,7 +67,13 @@ func buildListenerDependencyGraph(project projectstate.Project) (*codegen.Python
 	if err != nil {
 		return nil, err
 	}
-	return codegen.BuildPythonDependencyGraph(exported, codegen.PythonDependencyGraphOptions{})
+	passwordSecrets, err := project.PasswordSecretsSnapshot()
+	if err != nil {
+		return nil, err
+	}
+	return codegen.BuildPythonDependencyGraph(exported, codegen.PythonDependencyGraphOptions{
+		PasswordSecrets: passwordSecrets,
+	})
 }
 
 func buildListenerDependencyCatalogFromGraph(graph *codegen.PythonDependencyGraph) *realtime.ListenerDependencyCatalog {
@@ -177,6 +184,31 @@ func (b *renderedListenerValueBuilder) render(key codegen.PythonDependencyKey) (
 	if !ok || !node.Base().IncludeInCodegen {
 		b.rendered[key] = renderedListenerValue{}
 		return "", false
+	}
+
+	switch typed := node.(type) {
+	case *codegen.PythonParamNode:
+		if typed.CodeObjectType == "PasswordParam" {
+			renderedValue := strconv.Quote(
+				b.graph.PasswordSecrets[strings.TrimSpace(typed.CodeObjectImplID)],
+			)
+			b.rendered[key] = renderedListenerValue{
+				value: renderedValue,
+				ok:    true,
+			}
+			return renderedValue, true
+		}
+	case *codegen.PythonSectionNode:
+		if typed.SectionType == "MetaControl" && typed.ControlCodeObjType == "PasswordParam" {
+			renderedValue := strconv.Quote(
+				b.graph.PasswordSecrets[strings.TrimSpace(typed.ControlCodeObjImplID)],
+			)
+			b.rendered[key] = renderedListenerValue{
+				value: renderedValue,
+				ok:    true,
+			}
+			return renderedValue, true
+		}
 	}
 
 	b.visiting[key] = struct{}{}

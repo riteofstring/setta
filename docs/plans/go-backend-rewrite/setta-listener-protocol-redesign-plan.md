@@ -102,6 +102,11 @@ Current state:
   - runtime-present realtime deltas now recompute cached metadata dependents
     too, so the metadata-backed callback state does not serve stale composite
     values after child updates
+  - Go listener snapshot `dependencyValues` now carry literal password and
+    meta-control-password values from the Go password secret store instead of
+    Python helper-call expressions, so metadata-backed no-runtime listener
+    state can hydrate those password-backed dependencies without the retained
+    generated runtime
 - listener coverage and force-refresh reads/writes
   - listener websocket DTOs in `internal/realtime`
 - Python still owns:
@@ -286,6 +291,9 @@ Python/share listeners can bootstrap entirely against the Go listener route.
 - Keep the runtime-present realtime cache coherent with that metadata-backed
   callback state so cached composite reads do not mask fresher child deltas
   that already reached the generated runtime.
+- Prefer Go-owned password-secret reads when building listener snapshot values
+  so password-backed dependencies do not fall back to Python helper-call
+  expressions in the metadata-backed no-runtime path.
 
 Exit condition:
 listener tests pass without Python owning dependency graph or runtime state.

@@ -156,3 +156,59 @@ func TestBuildListenerDependencyCatalogFromGraphIncludesValueCodecMetadata(t *te
 		t.Fatalf("expected value representation file_read, got %q", paramEntry.ValueRepresentation)
 	}
 }
+
+func TestBuildListenerRenderedDependencyValuesFromGraphUsesPasswordSecretLiterals(t *testing.T) {
+	t.Parallel()
+
+	paramKey := codegen.PythonCodeObjectDependencyKey("section-controls", "param-secret")
+	metaKey := codegen.PythonSectionDependencyKey("section-meta")
+	graph := &codegen.PythonDependencyGraph{
+		Nodes: map[codegen.PythonDependencyKey]codegen.PythonDependencyNode{
+			paramKey: &codegen.PythonParamNode{
+				PythonDependencyNodeBase: codegen.PythonDependencyNodeBase{
+					Name:             "secret",
+					FullPathName:     "section__secret",
+					IncludeInCodegen: true,
+				},
+				CodeObjectType:   "PasswordParam",
+				CodeObjectImplID: "param-secret-impl",
+				HasSecret:        true,
+			},
+			metaKey: &codegen.PythonSectionNode{
+				PythonDependencyNodeBase: codegen.PythonDependencyNodeBase{
+					Name:             "meta",
+					FullPathName:     "section__meta",
+					IncludeInCodegen: true,
+				},
+				SectionType:          "MetaControl",
+				ControlCodeObjType:   "PasswordParam",
+				ControlCodeObjImplID: "meta-secret-impl",
+			},
+		},
+		NodeOrder: []codegen.PythonDependencyKey{paramKey, metaKey},
+		PasswordSecrets: map[string]string{
+			"param-secret-impl": "top-secret",
+			"meta-secret-impl":  "toggle-secret",
+		},
+	}
+
+	values := buildListenerRenderedDependencyValuesFromGraph(graph)
+	if values == nil {
+		t.Fatal("expected listener dependency values")
+	}
+	if len(values.Entries) != 2 {
+		t.Fatalf("expected 2 rendered dependency values, got %d", len(values.Entries))
+	}
+
+	byKey := map[string]realtime.ListenerRenderedDependencyValue{}
+	for _, entry := range values.Entries {
+		byKey[entry.DependencyKey] = entry
+	}
+
+	if got := byKey["section-controls.param-secret"].RenderedValue; got != "\"top-secret\"" {
+		t.Fatalf("expected password literal %q, got %q", "\"top-secret\"", got)
+	}
+	if got := byKey["section-meta"].RenderedValue; got != "\"toggle-secret\"" {
+		t.Fatalf("expected meta-control password literal %q, got %q", "\"toggle-secret\"", got)
+	}
+}

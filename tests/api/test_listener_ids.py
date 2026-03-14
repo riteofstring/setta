@@ -3,9 +3,17 @@ import asyncio
 import pytest
 
 from setta.api import ListenerDependencyId, SettaListener, dep_id
-from setta.api.listener import ListenerDependencyMetadata, ListenerRuntimeState
+from setta.api.listener import (
+    ListenerDependencyMetadata,
+    ListenerDependencyValues,
+    ListenerRuntimeState,
+)
 from setta.code_gen.dependency_graph import DependencyGraph
-from setta.types.code_obj_impls import CodeParamCodeObjImpl, NestedParamCodeObjImpl
+from setta.types.code_obj_impls import (
+    CodeObjType,
+    CodeParamCodeObjImpl,
+    NestedParamCodeObjImpl,
+)
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import (
     SectionDependencyKey,
@@ -16,6 +24,8 @@ from setta.types.id import ID
 from setta.types.listener import (
     ListenerDependencyCatalog,
     ListenerDependencyCatalogEntry,
+    ListenerRenderedDependencyValue,
+    ListenerRenderedDependencyValues,
 )
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
@@ -386,3 +396,50 @@ async def test_listener_context_prefers_catalog_dependency_names() -> None:
     assert spec.dependency_names == (catalog_name,)
     assert ctx.ids.dependency_name(section_id, param_id) == catalog_name
     assert ctx.values.by_id(section_id, param_id) == 11
+
+
+def test_metadata_backed_callback_state_uses_go_password_snapshot_values() -> None:
+    project_state, section_id, param_id = build_project_state("14")
+    listener = SettaListener(project_name=project_state.projectConfig.name)
+    dependency_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
+    dependency_name = "section__secret"
+
+    catalog = ListenerDependencyCatalog(
+        entries=[
+            ListenerDependencyCatalogEntry(
+                dependencyKey=dependency_key,
+                name="secret",
+                fullPathName=dependency_name,
+                codeObjType=CodeObjType.PasswordParam,
+            )
+        ]
+    )
+    dependency_metadata = ListenerDependencyMetadata.from_catalog(catalog)
+    dependency_cache, _ = listener._build_dependency_cache_from_snapshot_values(
+        ListenerRenderedDependencyValues(
+            entries=[
+                ListenerRenderedDependencyValue(
+                    dependencyKey=dependency_key,
+                    renderedValue="\"top-secret\"",
+                )
+            ]
+        ),
+        dependency_metadata,
+    )
+
+    runtime_state = ListenerRuntimeState(
+        dependency_metadata=dependency_metadata,
+        dependency_graph=DependencyGraph(project_state),
+        s_instance=None,
+    )
+    listener._runtime_state = runtime_state
+    listener._dependency_cache = dependency_cache
+
+    state = listener._build_callback_state(runtime_state)
+    values = ListenerDependencyValues(
+        dependency_metadata=dependency_metadata,
+        state=state,
+    )
+
+    assert getattr(state, dependency_name) == "top-secret"
+    assert values.by_id(section_id, param_id) == "top-secret"

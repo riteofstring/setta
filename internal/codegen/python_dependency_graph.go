@@ -149,6 +149,7 @@ type PythonDependencyGraph struct {
 	NodeOrder         []PythonDependencyKey
 	FullPathNameToKey map[string]PythonDependencyKey
 	PotentialRefs     map[PythonDependencyKey]map[string][]int
+	PasswordSecrets   map[string]string
 }
 
 type pythonDependencyGraphBuilder struct {
@@ -190,6 +191,7 @@ func BuildPythonDependencyGraph(
 			NodeOrder:         nil,
 			FullPathNameToKey: map[string]PythonDependencyKey{},
 			PotentialRefs:     map[PythonDependencyKey]map[string][]int{},
+			PasswordSecrets:   cloneStringMap(options.PasswordSecrets),
 		},
 		passwordSecrets: cloneStringMap(options.PasswordSecrets),
 		potentialRefs:   map[PythonDependencyKey]map[string][]int{},
