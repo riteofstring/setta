@@ -2082,6 +2082,51 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).toContain(formatExpectedChatTimestamp(assistantCreatedAtMs));
     expect(markup).toContain('data-chat-assistant-activity-icon="robot"');
   });
+
+  it("renders message timestamps for assistant messages that only show activity rows", () => {
+    const assistantCreatedAtMs = Date.parse("2026-01-01T09:16:00Z");
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-assistant-activity-only",
+        role: ChatRoleEnum.assistant,
+        content: [],
+        attachments: [],
+        tool_calls: [
+          {
+            id: "activity-only-tool-call",
+            type: "function",
+            function: {
+              name: "command_execution",
+              arguments: { command: "pnpm exec vitest run src/components/Chat" },
+            },
+          },
+        ],
+        createdAt: assistantCreatedAtMs,
+      },
+      {
+        id: "m-assistant-activity-only-result",
+        role: ChatRoleEnum.tool,
+        tool_call_id: "activity-only-tool-call",
+        tool_name: "command_execution",
+        arguments: { command: "pnpm exec vitest run src/components/Chat" },
+        result: "PASS src/components/Chat/ChatMessages.test.tsx",
+        content: [],
+        is_error: false,
+        started_at: "2026-01-01T09:16:05Z",
+        completed_at: "2026-01-01T09:16:08Z",
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).not.toContain('data-chat-assistant-bubble="true"');
+    expect(
+      countOccurrences(markup, 'data-chat-message-timestamp="true"'),
+    ).toBe(1);
+    expect(markup).toContain(formatExpectedChatTimestamp(assistantCreatedAtMs));
+  });
 });
 
 describe("buildCopyTextForMessage", () => {

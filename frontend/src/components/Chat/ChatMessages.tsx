@@ -6259,6 +6259,9 @@ const ChatMessage = memo(function ChatMessage({
             !hasThinkingActivity
           }
         />
+        {!shouldRenderBubble ? (
+          <ChatMessageTimestampFooter timestampMs={messageTimestampMs} />
+        ) : null}
       </AssistantMessageGroup>
     );
   }
@@ -6628,6 +6631,9 @@ function ChatMessages({
           failureMessage: "Failed to copy message.",
         });
       };
+      const groupedMessageTimestampMs = groupedMessages[0]
+        ? resolveMessageCreatedAtMs(groupedMessages[0])
+        : null;
       const actionBar = (
         <ChatMessageActions
           onCopy={handleGroupedCopy}
@@ -6689,6 +6695,7 @@ function ChatMessages({
               </AssistantReasoningCard>
             </AssistantActivityActionsAnchor>
           ) : null}
+          <ChatMessageTimestampFooter timestampMs={groupedMessageTimestampMs} />
         </AssistantMessageGroup>,
       );
       index = groupEnd;

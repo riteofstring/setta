@@ -463,3 +463,27 @@ For each new entry, append:
 - Decisions: Stop here rather than force a no-value cleanup commit into already-green code. The current shared constant extraction, home rail wiring through `togglePaneVisibility(...)`, and recorded perf/report docs are a good final state for this plan.
 - Blockers or open questions: None for this plan slice. The remaining unchecked items earlier in the markdown plan are stale checklist bookkeeping rather than open code work; the actual UI-polish behavior, verification, and perf-report items covered in this continuation are complete.
 - Next recommended slice: None required for this plan unless we want to do separate checklist cleanup in the markdown file.
+
+### 2026-03-12 18:12
+
+- Date: 2026-03-12 18:12 EDT
+- Scope: Starting one last chat-runtime timestamp follow-up so activity-only assistant messages also render the shared message timestamp footer.
+- Tests added or updated first: Planned first failures are a narrow `frontend/src/components/Chat/ChatMessages.test.tsx` render-state regression for an assistant message with tool activity but no speech bubble, plus a focused Playwright browser regression in `frontend/tests/e2e/chat/chat-tool-calls.spec.ts` that seeds an activity-only assistant message with `createdAt` and checks the visible chat surface for the message timestamp.
+- Production code changed: None yet for this slice.
+- Verification run: Re-read the latest plan/log state and audited the current `ChatMessages.tsx` role branches. Confirmed user/system bubbles and assistant text bubbles already render `ChatMessageTimestampFooter`, but assistant messages that render only as grouped activity still omit the message-level timestamp even when `createdAt` exists.
+- CDP visual check: Not run yet for this slice; reserved for the completed activity-only assistant timestamp fix on the live chat surface.
+- Decisions: Keep the solution source-of-truth driven from `message.createdAt`. Do not add synthetic timestamps for tool rows or infer message-level times from tool timing metadata when the assistant message already has its own authoritative timestamp field.
+- Blockers or open questions: Need to keep the change narrow so it only fills the missing activity-only assistant path and does not duplicate timestamps on the existing assistant bubble path.
+- Next recommended slice: Add the failing render/browser regressions, render the shared footer for assistant activity-only groups, rerun the focused tests, then finish with a live CDP check and a small descriptive commit.
+
+### 2026-03-12 18:24
+
+- Date: 2026-03-12 18:24 EDT
+- Scope: Completed the last chat-runtime timestamp follow-up so activity-only assistant messages now render the shared message timestamp footer.
+- Tests added or updated first: Added the failing render-state regression in `frontend/src/components/Chat/ChatMessages.test.tsx` for an assistant message with tool activity but no speech bubble, and the focused Playwright browser regression in `frontend/tests/e2e/chat/chat-tool-calls.spec.ts` that seeds an activity-only assistant message with `createdAt` and asserts the visible timestamp.
+- Production code changed: Updated `frontend/src/components/Chat/ChatMessages.tsx` so the shared `ChatMessageTimestampFooter` now renders in the remaining assistant no-bubble paths, including grouped activity-only assistant messages that previously skipped the footer entirely.
+- Verification run: `pnpm -C frontend exec vitest run src/components/Chat/ChatMessages.test.tsx` and `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/chat-tool-calls.spec.ts --grep "shows a message timestamp for activity-only assistant messages"` both passed after the grouped activity footer wiring landed.
+- CDP visual check: Done on a fresh `http://127.0.0.1:3136/branch_showing` / `http://127.0.0.1:8136` dev instance because the long-lived `3026/8026` session was serving stale chat code. I seeded a disposable chat section with an activity-only assistant message, confirmed the live DOM exposed exactly one `data-chat-message-timestamp="true"` node for that message with visible text `4:16 AM`, captured the viewport showing the timestamp under the activity row, and then deleted the disposable section.
+- Decisions: Keep the behavior source-of-truth driven from `message.createdAt` only. The fix stays narrow and does not introduce inferred timestamps for tool result rows.
+- Blockers or open questions: None for this slice.
+- Next recommended slice: No further timestamp work remains in this plan. Any follow-up can move to the separate activity-row readability/layout requests or other new chat-runtime polish items.

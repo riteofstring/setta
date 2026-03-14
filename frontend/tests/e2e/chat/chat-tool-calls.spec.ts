@@ -583,6 +583,84 @@ test.describe.serial("chat tool calls", () => {
     }
   });
 
+  test("shows a message timestamp for activity-only assistant messages", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const { sectionId, sectionName } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "__pw_activity_only_message_timestamp__",
+      );
+
+      const section = findSectionByName(page, sectionName);
+      await expect(section).toBeVisible();
+
+      await setChatSectionState(page, {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        state: {
+          messages: [
+            {
+              id: "activity-only-assistant-message",
+              role: "assistant",
+              content: [],
+              attachments: [],
+              tool_calls: [
+                {
+                  id: "activity-only-assistant-tool-call",
+                  type: "function",
+                  function: {
+                    name: "command_execution",
+                    arguments: {
+                      command: "pnpm exec vitest run src/components/Chat",
+                    },
+                  },
+                },
+              ],
+              createdAt: Date.parse("2026-01-01T09:16:00Z"),
+            },
+            {
+              id: "activity-only-assistant-tool-result",
+              role: "tool",
+              tool_call_id: "activity-only-assistant-tool-call",
+              tool_name: "command_execution",
+              arguments: {
+                command: "pnpm exec vitest run src/components/Chat",
+              },
+              result: "PASS src/components/Chat/ChatMessages.test.tsx",
+              content: [],
+              is_error: false,
+              started_at: "2026-01-01T09:16:05Z",
+              completed_at: "2026-01-01T09:16:15Z",
+            },
+          ],
+          inputText: "",
+          waitingForResponse: false,
+          toolCallArguments: {},
+        },
+      });
+
+      await expect(
+        section.locator('[data-chat-assistant-bubble="true"]'),
+      ).toHaveCount(0);
+      await expect(
+        section.locator('[data-chat-assistant-activity-section="true"]'),
+      ).toHaveCount(1);
+      await expect(
+        section.locator('[data-chat-message-timestamp="true"]'),
+      ).toHaveCount(1);
+      await expect(
+        section.locator('[data-chat-message-timestamp="true"]').first(),
+      ).toHaveText(/\d{1,2}:\d{2}/);
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("renders tool outputs with structured syntax highlighting for diff and yaml", async ({
     page,
   }) => {
