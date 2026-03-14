@@ -806,7 +806,17 @@ func (e *Executor) processOpenAIResponseEvent(
 			return nil, err
 		}
 	case responses.ResponseCompletedEvent:
-		e.applyOpenAICompletedResponseFallback(assistantMessage, typed.Response, streamState, accumulator)
+		if err := e.applyOpenAICompletedResponseFallback(
+			ctx,
+			prepared,
+			assistantMessage,
+			typed.Response,
+			streamState,
+			accumulator,
+			previewAccumulator,
+		); err != nil {
+			return nil, err
+		}
 		return buildResponseUsagePayload(typed.Response.Usage), nil
 	case responses.ResponseErrorEvent:
 		detail := strings.TrimSpace(typed.Message)
@@ -1118,20 +1128,41 @@ func (e *Executor) emitOpenAIResponseToolArgumentUpdate(
 }
 
 func (e *Executor) applyOpenAICompletedResponseFallback(
+	ctx context.Context,
+	prepared preparedExecution,
 	assistantMessage map[string]any,
 	response responses.Response,
 	streamState *openAIResponseStreamState,
 	accumulator *toolCallAccumulator,
-) {
+	previewAccumulator *toolPreviewAccumulator,
+) error {
 	for index, itemUnion := range response.Output {
-		e.applyOpenAIResponseOutputItemFallback(
-			assistantMessage,
-			itemUnion,
-			index,
-			streamState,
-			accumulator,
-		)
+		switch item := itemUnion.AsAny().(type) {
+		case responses.ResponseFunctionToolCall:
+			previousArguments := accumulator.currentArguments(index)
+			state := accumulator.applyResolved(index, item.CallID, item.Name, item.Arguments)
+			argumentsDelta := authoritativeResponseReplacementSuffix(previousArguments, item.Arguments)
+			if err := e.emitOpenAIResponseToolArgumentUpdate(
+				ctx,
+				prepared,
+				assistantMessage,
+				previewAccumulator,
+				state,
+				argumentsDelta,
+			); err != nil {
+				return err
+			}
+		default:
+			e.applyOpenAIResponseOutputItemFallback(
+				assistantMessage,
+				itemUnion,
+				index,
+				streamState,
+				accumulator,
+			)
+		}
 	}
+	return nil
 }
 
 func (e *Executor) applyOpenAIResponseOutputItemFallback(

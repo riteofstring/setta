@@ -3286,6 +3286,173 @@ func TestExecutorExecuteRecoversOpenAIResponsesToolCallsFromCompletedFallback(t 
 	}
 }
 
+func TestExecutorExecuteEmitsOpenAIResponsesToolPreviewFromCompletedFallback(t *testing.T) {
+	t.Parallel()
+
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/responses" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected flusher")
+		}
+		switch requestCount {
+		case 0:
+			fmt.Fprint(w, openAIResponseCompletedEvent(
+				[]map[string]any{
+					{
+						"type":      "function_call",
+						"id":        "function-item-1",
+						"call_id":   "tool-call-1",
+						"name":      "setta__stream_app_definition",
+						"arguments": `{"projectConfigId":"project-alpha","patches":"{\"op\":\"set\",\"path\":\"/root\",\"value\":\"stream-root\"}\n"}`,
+						"status":    "completed",
+					},
+				},
+				12,
+				2,
+				14,
+				0,
+			))
+			flusher.Flush()
+		case 1:
+			fmt.Fprint(w, openAIResponseOutputTextDeltaEvent("message-2", 0, 0, "Preview applied"))
+			flusher.Flush()
+			fmt.Fprint(w, openAIResponseCompletedEvent([]map[string]any{}, 8, 1, 9, 0))
+			flusher.Flush()
+		default:
+			t.Fatalf("unexpected provider request count %d", requestCount)
+		}
+		requestCount++
+	}))
+	defer server.Close()
+
+	broadcaster := &captureBroadcaster{}
+	live := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{Broadcaster: broadcaster})
+	run := newManagedChatTestRun()
+	live.ActivateRun(run)
+
+	toolClient := &stubToolClient{
+		discoverableTools: map[string]mcpx.ToolDescriptor{
+			"setta__stream_app_definition": {
+				ServerID:       mcpx.DefaultServerID,
+				NamespacedName: "setta__stream_app_definition",
+				RemoteName:     "stream_app_definition",
+				Description:    "Stream app definition patches.",
+				InputSchema: map[string]any{
+					"type": "object",
+				},
+				Metadata: &tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeStructural,
+					ToolArgumentPreview: &tools.ToolArgumentPreviewMetadata{
+						TargetIDPathsByType: map[tools.IDType][]string{},
+						PreviewValuePath:    "patches",
+						PreviewKind:         tools.PreviewKindAppSpecPatch,
+					},
+				},
+			},
+		},
+		call: func(context.Context, string, map[string]any, map[string]any) (mcpx.ToolCallResult, error) {
+			return mcpx.ToolCallResult{
+				StructuredContent: map[string]any{"status": "ok"},
+				Text:              "{\"status\":\"ok\"}",
+			}, nil
+		},
+	}
+
+	executor := NewExecutor(ExecutorOptions{
+		Live:       live,
+		Tools:      toolClient,
+		HTTPClient: server.Client(),
+	})
+	result, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
+		Run: run,
+		LLMConfig: llmconfig.Config{
+			ID:        "primary",
+			Model:     "gpt-5-codex",
+			Provider:  "openai",
+			BaseURL:   server.URL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+		MCPServerIDs: []string{mcpx.DefaultServerID},
+		APIKeys: map[string]string{
+			"OPENAI_API_KEY": "secret",
+		},
+		SystemPrompt:    "System prompt",
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+		Thinking:        true,
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+			"messages": []any{
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Stream the app definition"},
+					},
+					"attachments": []any{},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("execute managed OpenAI Responses completed-fallback tool preview stream: %v", err)
+	}
+
+	var toolDeltaEvent *realtime.ToolCallDeltaEvent
+	var previewEvent *realtime.ToolArgumentPreviewDeltaEvent
+	for _, message := range broadcaster.Messages() {
+		switch chunk := message.Content.Chunk.(type) {
+		case realtime.ToolCallDeltaEvent:
+			if chunk.ToolCallID == "tool-call-1" {
+				copied := chunk
+				toolDeltaEvent = &copied
+			}
+		case realtime.ToolArgumentPreviewDeltaEvent:
+			if chunk.ToolCallID == "tool-call-1" {
+				copied := chunk
+				previewEvent = &copied
+			}
+		}
+	}
+	if toolDeltaEvent == nil {
+		t.Fatalf("expected tool call delta event in %#v", broadcaster.Messages())
+	}
+	if toolDeltaEvent.ArgumentsDelta != `{"projectConfigId":"project-alpha","patches":"{\"op\":\"set\",\"path\":\"/root\",\"value\":\"stream-root\"}\n"}` {
+		t.Fatalf("unexpected tool delta event %#v", toolDeltaEvent)
+	}
+	if toolDeltaEvent.ToolName == nil || *toolDeltaEvent.ToolName != "setta__stream_app_definition" {
+		t.Fatalf("unexpected tool delta tool name %#v", toolDeltaEvent)
+	}
+	if previewEvent == nil {
+		t.Fatalf("expected tool preview event in %#v", broadcaster.Messages())
+	}
+	if previewEvent.PreviewKind != string(tools.PreviewKindAppSpecPatch) {
+		t.Fatalf("unexpected preview kind %#v", previewEvent)
+	}
+	if previewEvent.PreviewValueDelta != "{\"op\":\"set\",\"path\":\"/root\",\"value\":\"stream-root\"}\n" {
+		t.Fatalf("unexpected preview delta %#v", previewEvent)
+	}
+	if previewEvent.ArgumentsDelta != `{"projectConfigId":"project-alpha","patches":"{\"op\":\"set\",\"path\":\"/root\",\"value\":\"stream-root\"}\n"}` {
+		t.Fatalf("unexpected preview arguments delta %#v", previewEvent)
+	}
+	if len(result.ToolCalls) != 1 {
+		t.Fatalf("expected one persisted tool call, got %#v", result.ToolCalls)
+	}
+	messages, ok := result.Outputs["messages"].([]any)
+	if !ok || len(messages) != 4 {
+		t.Fatalf("expected user, tool-call assistant, tool, final assistant messages, got %#v", result.Outputs["messages"])
+	}
+	if assistantText(messages[3].(map[string]any)) != "Preview applied" {
+		t.Fatalf("unexpected final assistant text %#v", messages[3])
+	}
+}
+
 func TestExecutorExecuteEmitsOpenAIResponsesToolPreviewFromArgumentsDoneEvent(t *testing.T) {
 	t.Parallel()
 
